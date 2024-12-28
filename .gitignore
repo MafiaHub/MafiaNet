@@ -1,1 +1,10 @@
-build/
+.vs
+
+*.obj
+*.tlog
+*.idb
+*.pdb
+*.lib
+*.log
+
+Build/*
