@@ -27,7 +27,7 @@
 
 #include <string> // used for std::string
 
-#if !defined(WINDOWS_STORE_RT) && !defined(__native_client__)
+#if !defined(__native_client__)
 
 #ifdef _WIN32
 
@@ -218,7 +218,7 @@ void GetMyIP_Windows_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_ID
 #endif // RAKNET_SUPPORT_IPV6 == 1
 }
 
-#endif // !defined(WINDOWS_STORE_RT) && !defined(__native_client__)
+#endif // !defined(__native_client__)
 
 #endif // RAKNETSOCKET2_WINDOWS_LINUX_CPP
 

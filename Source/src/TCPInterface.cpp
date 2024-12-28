@@ -24,11 +24,7 @@
 
 #include "slikenet/TCPInterface.h"
 #ifdef _WIN32
-	#if !defined (WINDOWS_STORE_RT)
-		typedef int socklen_t;
-	#endif
-
-
+	typedef int socklen_t;
 #else
 #include <sys/time.h>
 #include <unistd.h>
@@ -71,9 +67,7 @@ STATIC_FACTORY_DEFINITIONS(TCPInterface,TCPInterface);
 
 TCPInterface::TCPInterface()
 {
-#if !defined(WINDOWS_STORE_RT)
 	listenSocket=0;
-#endif
 	remoteClients=0;
 	remoteClientsLength=0;
 
@@ -101,7 +95,7 @@ TCPInterface::~TCPInterface()
 	StringCompressor::RemoveReference();
 	SLNet::StringTable::RemoveReference();
 }
-#if !defined(WINDOWS_STORE_RT)
+
 bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
 {
 	(void) maxIncomingConnections;
@@ -177,15 +171,7 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 
 	return true;
 }
-#endif
 
-#if defined(WINDOWS_STORE_RT)
-bool TCPInterface::CreateListenSocket_WinStore8(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
-{
-	listenSocket = WinRTCreateStreamSocket(AF_INET, SOCK_STREAM, 0);
-	return true;
-}
-#endif
 bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnections, unsigned short maxConnections, int _threadPriority, unsigned short socketFamily, const char *bindAddress)
 {
 #ifdef __native_client__
@@ -223,11 +209,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	listenSocket=0;
 	if (maxIncomingConnections>0)
 	{
-#if defined(WINDOWS_STORE_RT)
-		CreateListenSocket_WinStore8(port, maxIncomingConnections, socketFamily, bindAddress);
-#else
 		CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress);
-#endif
 	}
 
 
@@ -271,9 +253,7 @@ void TCPInterface::Stop(void)
 
 	isStarted.Decrement();
 
-#if !defined(WINDOWS_STORE_RT)
 	if (listenSocket!=0)
-#endif
 	{
 #ifdef _WIN32
 		shutdown__(listenSocket, SD_BOTH);
@@ -296,11 +276,9 @@ void TCPInterface::Stop(void)
 	while ( threadRunning.GetValue()>0 )
 		RakSleep(15);
 
-	RakSleep(100);
+		RakSleep(100);
 
-	#if !defined(WINDOWS_STORE_RT)
 		listenSocket=0;
-	#endif
 
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i=0; i < remoteClientsLength; i++)
@@ -379,10 +357,7 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 		systemAddress.ToString(false,buffout, static_cast<size_t>(128));
 
 		__TCPSOCKET__ sockfd = SocketConnect(buffout, remotePort, socketFamily, bindAddress);
-		// Windows RT TODO
-#if !defined(WINDOWS_STORE_RT)
 		if (sockfd==0)
-#endif
 		{
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 			remoteClients[newRemoteClientIndex].SetActive(false);
@@ -829,13 +804,9 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 		return 0;
 
 
-	#if defined(WINDOWS_STORE_RT)
-		__TCPSOCKET__ sockfd = WinRTCreateStreamSocket(AF_INET, SOCK_STREAM, 0);
-	#else
 		__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
 		if (sockfd < 0) 
 			return 0;
-	#endif
 
 	memset(&serverAddress, 0, sizeof(serverAddress));
 	serverAddress.sin_family = AF_INET;

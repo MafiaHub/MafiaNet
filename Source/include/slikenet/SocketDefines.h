@@ -17,67 +17,6 @@
 #define __SOCKET_DEFINES_H
 
 /// Internal
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if   defined(WINDOWS_STORE_RT)
-	#include "WinRTSocketAdapter.h"
-	#define accept__ WinRTAccept
-	#define connect__ WinRTConnect
-	#define closesocket__ WinRTClose
-	#define socket__ WinRTCreateDatagramSocket
-	#define bind__ WinRTBind
-	#define getsockname__ RNS2_WindowsStore8::WinRTGetSockName
-	#define getsockopt__ WinRTGetSockOpt
-	#define ioctlsocket__ RNS2_WindowsStore8::WinRTIOCTLSocket
-	#define listen__ WinRTListen
-	#define recv__ WinRTRecv
-	#define recvfrom__ WinRTRecvFrom
-	#define select__ WinRTSelect
-	#define send__ WinRTSend
-	#define sendto__ WinRTSendTo
-	#define setsockopt__ RNS2_WindowsStore8::WinRTSetSockOpt
-	#define shutdown__ WinRTShutdown
-	#define WSASendTo__ WinRTSendTo
-#else
-
-
-
-
-
-
 	#if   defined(_WIN32)
 		#define closesocket__ closesocket
 		#define select__ select
@@ -119,6 +58,4 @@
 
 	#define shutdown__ shutdown
 	#define WSASendTo__ WSASendTo
-#endif
-
 #endif

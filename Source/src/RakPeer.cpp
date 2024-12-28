@@ -482,16 +482,6 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 		ncbp.nativeClientInstance=socketDescriptors[i].chromeInstance;
 		ncbp.port=socketDescriptors[i].port;
 		nativeClientSocket->Bind(&ncbp, _FILE_AND_LINE_);
-		#elif defined(WINDOWS_STORE_RT)
-		RNS2BindResult br;
-		((RNS2_WindowsStore8*) r2)->SetRecvEventHandler(this);
-		br = ((RNS2_WindowsStore8*) r2)->Bind(ref new Platform::String());
-		if (br!=BR_SUCCESS)
-		{
-			RakNetSocket2Allocator::DeallocRNS2(r2);
-			DerefAllSockets();
-			return SOCKET_FAILED_TO_BIND;
-		}
 		#else
 		if (r2->IsBerkleySocket())
 		{
@@ -573,7 +563,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 	}
 
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 	for (i=0; i<socketDescriptorCount; i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
@@ -585,7 +575,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 	{
 		if (ipList[i]==UNASSIGNED_SYSTEM_ADDRESS)
 			break;
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 		// #high - using the 1st socket here is flawed - in cases of having multiple sockets (f.e. different ports and different families (i.e. IPv4/IPv6) we must use the proper
 		//         socket for each IP address in the list
 		if (socketList[0]->IsBerkleySocket())
@@ -1098,7 +1088,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 //	SLNet::TimeMS timeout;
 #if RAKPEER_USER_THREADED!=1
 
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 	for (i=0; i < socketList.Size(); i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
@@ -1138,7 +1128,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	}
 	*/
 
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 	for (i=0; i < socketList.Size(); i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
@@ -2722,7 +2712,7 @@ void RakPeer::SetUnreliableTimeout(SLNet::TimeMS timeoutMS)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SendTTL( const char* host, unsigned short remotePort, int ttl, unsigned connectionSocketIndex )
 {
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 	char fakeData[2];
 	fakeData[0]=0;
 	fakeData[1]=1;
@@ -5590,8 +5580,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 	// This is here so RecvFromBlocking actually gets data from the same thread
 
-	#if   defined(WINDOWS_STORE_RT)
-	#elif defined(_WIN32)
+#if defined(_WIN32)
 		// #high - review this - this is hardly correct to only work with the first socket here...
 		if (socketList[0]->GetSocketType()==RNS2T_WINDOWS && ((RNS2_Windows*)socketList[0])->GetSocketLayerOverride())
 		{
@@ -5604,7 +5593,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					ProcessNetworkPacket( sender, dataOut, len, this, socketList[0], SLNet::GetTimeUS(), updateBitStream );
 			} while (len>0);
 		}
-	#endif
+#endif
 
 //	unsigned int socketListIndex;
 	RNS2RecvStruct *recvFromStruct;
@@ -5783,7 +5772,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						socketToUse = rcs->socket;
 
 					rcs->systemAddress.FixForIPVersion(socketToUse->GetBoundAddress());
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 					if (socketToUse->IsBerkleySocket())
 						((RNS2_Berkley*)socketToUse)->SetDoNotFragment(1);
 #endif
@@ -5819,7 +5808,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						}
 					}
 					// SocketLayer::SetDoNotFragment(socketToUse, 0);
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 					if (socketToUse->IsBerkleySocket())
 						((RNS2_Berkley*)socketToUse)->SetDoNotFragment(0);
 #endif
@@ -6487,9 +6476,7 @@ void RakPeer::FillIPList(void)
 		return;
 
 	// Fill out ipList structure
-#if  !defined(WINDOWS_STORE_RT)
 	RakNetSocket2::GetMyIP( ipList );
-#endif
 
 	// Sort the addresses from lowest to highest
 	int startingIdx = 0;

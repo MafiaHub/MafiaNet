@@ -88,7 +88,6 @@
 		102531FC16A6775E0000C5BD /* RakNetSocket2_Vita.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315616A6775E0000C5BD /* RakNetSocket2_Vita.cpp */; };
 		102531FD16A6775E0000C5BD /* RakNetSocket2_Windows_Linux.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315716A6775E0000C5BD /* RakNetSocket2_Windows_Linux.cpp */; };
 		102531FE16A6775E0000C5BD /* RakNetSocket2_Windows_Linux_360.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315816A6775E0000C5BD /* RakNetSocket2_Windows_Linux_360.cpp */; };
-		102531FF16A6775E0000C5BD /* RakNetSocket2_WindowsStore8.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315916A6775E0000C5BD /* RakNetSocket2_WindowsStore8.cpp */; };
 		1025320016A6775E0000C5BD /* RakNetStatistics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315A16A6775E0000C5BD /* RakNetStatistics.cpp */; };
 		1025320116A6775E0000C5BD /* RakNetTransport2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315D16A6775E0000C5BD /* RakNetTransport2.cpp */; };
 		1025320216A6775E0000C5BD /* RakNetTypes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1025315F16A6775E0000C5BD /* RakNetTypes.cpp */; };
@@ -316,7 +315,6 @@
 		1025315616A6775E0000C5BD /* RakNetSocket2_Vita.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RakNetSocket2_Vita.cpp; sourceTree = "<group>"; };
 		1025315716A6775E0000C5BD /* RakNetSocket2_Windows_Linux.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RakNetSocket2_Windows_Linux.cpp; sourceTree = "<group>"; };
 		1025315816A6775E0000C5BD /* RakNetSocket2_Windows_Linux_360.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RakNetSocket2_Windows_Linux_360.cpp; sourceTree = "<group>"; };
-		1025315916A6775E0000C5BD /* RakNetSocket2_WindowsStore8.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RakNetSocket2_WindowsStore8.cpp; sourceTree = "<group>"; };
 		1025315A16A6775E0000C5BD /* RakNetStatistics.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RakNetStatistics.cpp; sourceTree = "<group>"; };
 		1025315B16A6775E0000C5BD /* RakNetStatistics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RakNetStatistics.h; sourceTree = "<group>"; };
 		1025315C16A6775E0000C5BD /* RakNetTime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RakNetTime.h; sourceTree = "<group>"; };
@@ -658,7 +656,6 @@
 				1025315616A6775E0000C5BD /* RakNetSocket2_Vita.cpp */,
 				1025315716A6775E0000C5BD /* RakNetSocket2_Windows_Linux.cpp */,
 				1025315816A6775E0000C5BD /* RakNetSocket2_Windows_Linux_360.cpp */,
-				1025315916A6775E0000C5BD /* RakNetSocket2_WindowsStore8.cpp */,
 				1025315A16A6775E0000C5BD /* RakNetStatistics.cpp */,
 				1025315B16A6775E0000C5BD /* RakNetStatistics.h */,
 				1025315C16A6775E0000C5BD /* RakNetTime.h */,
@@ -901,7 +898,6 @@
 				102531FC16A6775E0000C5BD /* RakNetSocket2_Vita.cpp in Sources */,
 				102531FD16A6775E0000C5BD /* RakNetSocket2_Windows_Linux.cpp in Sources */,
 				102531FE16A6775E0000C5BD /* RakNetSocket2_Windows_Linux_360.cpp in Sources */,
-				102531FF16A6775E0000C5BD /* RakNetSocket2_WindowsStore8.cpp in Sources */,
 				1025320016A6775E0000C5BD /* RakNetStatistics.cpp in Sources */,
 				1025320116A6775E0000C5BD /* RakNetTransport2.cpp in Sources */,
 				1025320216A6775E0000C5BD /* RakNetTypes.cpp in Sources */,

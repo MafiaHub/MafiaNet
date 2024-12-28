@@ -19,12 +19,9 @@
 
 #if defined(_WIN32)
 #include "slikenet/WindowsIncludes.h"
-
- #if !defined(WINDOWS_PHONE_8)
-		// To call timeGetTime
-		// on Code::Blocks, this needs to be libwinmm.a instead
-		#pragma comment(lib, "Winmm.lib")
-	#endif
+// To call timeGetTime
+// on Code::Blocks, this needs to be libwinmm.a instead
+#pragma comment(lib, "Winmm.lib")
 
 #endif
 
@@ -149,7 +146,6 @@ SLNet::TimeUS GetTimeUS_Windows( void )
 		initialized = true;
 
 		// Save the current process
-#if !defined(_WIN32_WCE)
 //		HANDLE mProc = GetCurrentProcess();
 
 		// Get the current Affinity
@@ -159,8 +155,6 @@ SLNet::TimeUS GetTimeUS_Windows( void )
 //		GetProcessAffinityMask(mProc, &mProcMask, &mSysMask);
 #endif
 //		mThread = GetCurrentThread();
-
-#endif // _WIN32_WCE
 	}	
 
 	// 9/26/2010 In China running LuDaShi, QueryPerformanceFrequency has to be called every time because CPU clock speeds can be different

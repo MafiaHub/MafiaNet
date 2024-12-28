@@ -116,8 +116,6 @@ RakNetSocket2* SLNet::CreateNonblockingBoundSocket(const char *bindAddr
 	ncbp.nativeClientInstance=chromeInstance;
 	ncbp.port=0;
 	nativeClientSocket->Bind(&ncbp, _FILE_AND_LINE_);
-#elif defined(WINDOWS_STORE_RT)
-	RakAssert("TODO" && 0);
 #else
 	if (r2->IsBerkleySocket())
 	{
@@ -187,8 +185,6 @@ RakNetSocket2* SLNet::CreateNonblockingBoundSocket(const char *bindAddr
 int SLNet::NatTypeRecvFrom(char *data, RakNetSocket2* socket, SystemAddress &sender, RNS2EventHandler *eventHandler)
 {
 #if defined(__native_client__)
-	RakAssert("TODO" && 0);
-#elif defined(WINDOWS_STORE_RT)
 	RakAssert("TODO" && 0);
 #else
 	if (socket->IsBerkleySocket())

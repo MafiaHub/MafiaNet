@@ -21,7 +21,7 @@
 #define RAKNETSOCKET2_BERKLEY_CPP
 
 // Every platform except windows store 8 and native client supports Berkley sockets
-#if !defined(WINDOWS_STORE_RT) && !defined(__native_client__)
+#if !defined(__native_client__)
 
 #ifdef _WIN32
 #include <tchar.h>	// used for _tprintf() (via RAKNET_DEBUG_TPRINTF)
@@ -344,7 +344,7 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 
 	recvFromStruct->bytesRead = recvfrom__(rns2Socket, recvFromStruct->data, dataOutSize, flag, sockAddrPtr, socketlenPtr );
 
-#if defined(_WIN32) && defined(_DEBUG) && !defined(WINDOWS_PHONE_8)
+#if defined(_WIN32) && defined(_DEBUG)
 	if (recvFromStruct->bytesRead==-1)
 	{
 		DWORD dwIOError = GetLastError();
@@ -405,32 +405,6 @@ void RNS2_Berkley::RecvFromBlockingIPV4(RNS2RecvStruct *recvFromStruct)
 
 	if (recvFromStruct->bytesRead<=0)
 	{
-		/*
-		DWORD dwIOError = WSAGetLastError();
-
-		if ( dwIOError == WSAECONNRESET )
-		{
-#if defined(_DEBUG)
-			RAKNET_DEBUG_PRINTF( "A previous send operation resulted in an ICMP Port Unreachable message.\n" );
-#endif
-
-		}
-		else if ( dwIOError != WSAEWOULDBLOCK && dwIOError != WSAEADDRNOTAVAIL)
-		{
-#if defined(_WIN32) && !defined(_XBOX) && !defined(_XBOX_720_COMPILE_AS_WINDOWS) && !defined(X360) && defined(_DEBUG) && !defined(_XBOX_720_COMPILE_AS_WINDOWS) && !defined(WINDOWS_PHONE_8)
-			LPVOID messageBuffer;
-			FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-				nullptr, dwIOError, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),  // Default language
-				( LPTSTR ) & messageBuffer, 0, nullptr );
-			// something has gone wrong here...
-			RAKNET_DEBUG_PRINTF( "sendto failed:Error code - %d\n%s", dwIOError, static_cast<LPTSTR>(messageBuffer) );
-
-			//Free the buffer.
-			LocalFree( messageBuffer );
-#endif
-		}
-		*/
-
 		return;
 	}
 	recvFromStruct->timeRead= SLNet::GetTimeUS();
@@ -439,8 +413,6 @@ void RNS2_Berkley::RecvFromBlockingIPV4(RNS2RecvStruct *recvFromStruct)
 		recvFromStruct->systemAddress.SetPortNetworkOrder( sa.sin_port );
 		recvFromStruct->systemAddress.address.addr4.sin_addr.s_addr=sa.sin_addr.s_addr;
 	}
-
-	// printf("--- Got %i bytes from %s\n", recvFromStruct->bytesRead, recvFromStruct->systemAddress.ToString());
 }
 
 void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
@@ -452,7 +424,7 @@ void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 #endif
 }
 
-#endif // !defined(WINDOWS_STORE_RT) && !defined(__native_client__)
+#endif // !defined(__native_client__)
 
 #endif // file header
 

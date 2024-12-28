@@ -26,6 +26,7 @@ The engine supports Windows, Linux, and Mac as primary platforms, with limited s
 ## Major Changes
 
 - [ ] Removed old-fashioned files
+- [ ] Removed legacy and unmaintained nor used integrations
 - [ ] Improved documentation and code samples
 - [ ] Improved CMake support
 - [ ] Updated dependencies

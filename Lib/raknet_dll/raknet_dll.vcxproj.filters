@@ -215,9 +215,6 @@
     <ClCompile Include="..\..\Source\src\RakNetSocket2_Windows_Linux_360.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Source\src\RakNetSocket2_WindowsStore8.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Source\src\RakNetStatistics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

@@ -32,12 +32,6 @@ pthread_cond_t fakeCond = PTHREAD_COND_INITIALIZER;
 
 #include "slikenet/sleep.h"
 
-
-#if defined(WINDOWS_PHONE_8) || defined(WINDOWS_STORE_RT)
-#include "ThreadEmulation.h"
-using namespace ThreadEmulation;
-#endif
-
 void RakSleep(unsigned int ms)
 {
 #ifdef _WIN32

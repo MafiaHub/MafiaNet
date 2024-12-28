@@ -68,9 +68,7 @@
 // Use WaitForSingleObject instead of sleep.
 // Defining it plays nicer with other systems, and uses less CPU, but gives worse RakNet performance
 // Undefining it uses more CPU time, but is more responsive and faster.
-#ifndef _WIN32_WCE
 #define USE_WAIT_FOR_MULTIPLE_EVENTS
-#endif
 
 /// Uncomment to use RakMemoryOverride for custom memory tracking
 /// See memoryoverride.h. 

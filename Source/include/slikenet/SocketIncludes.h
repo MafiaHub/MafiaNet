@@ -38,19 +38,7 @@
 
 
 
-#if   defined(WINDOWS_STORE_RT)
-	#include <windows.h>
-	#include "WinRTSockAddr.h"
-	typedef Windows::Networking::Sockets::DatagramSocket^ __UDPSOCKET__;
-	typedef Windows::Networking::Sockets::StreamSocket^ __TCPSOCKET__;
-	typedef unsigned int socklen_t;
-	#define FORMAT_MESSAGE_ALLOCATE_BUFFER 0
-	#define FIONBIO 0
-	#define LocalFree(x)
-	// using Windows.Networking;
-	// using Windows.Networking.Sockets;
-	// See http://msdn.microsoft.com/en-us/library/windows/apps/windows.networking.sockets.datagramsocketcontrol
-#elif defined(_WIN32)
+#if defined(_WIN32)
 	// IP_DONTFRAGMENT is different between winsock 1 and winsock 2.  Therefore, Winsock2.h must be linked againt Ws2_32.lib
 	// winsock.h must be linked against WSock32.lib.  If these two are mixed up the flag won't work correctly
 	// WinRT: http://msdn.microsoft.com/en-us/library/windows/apps/windows.networking.sockets

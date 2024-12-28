@@ -52,7 +52,6 @@ using namespace SLNet;
 #include "RakNetSocket2_NativeClient.cpp"
 #include "RakNetSocket2_Berkley.cpp"
 #include "RakNetSocket2_Berkley_NativeClient.cpp"
-#include "RakNetSocket2_WindowsStore8.cpp"
 #undef RAKNET_SOCKET_2_INLINE_FUNCTIONS
 
 #endif
@@ -75,10 +74,7 @@ SystemAddress RakNetSocket2::GetBoundAddress(void) const {return boundAddress;}
 RakNetSocket2* RakNetSocket2Allocator::AllocRNS2(void)
 {
 	RakNetSocket2* s2;
-#if defined(WINDOWS_STORE_RT)
-	s2 = SLNet::OP_NEW<RNS2_WindowsStore8>(_FILE_AND_LINE_);
-	s2->SetSocketType(RNS2T_WINDOWS_STORE_8);
-#elif defined(__native_client__)
+#if defined(__native_client__)
 	s2 = SLNet::OP_NEW<RNS2_NativeClient>(_FILE_AND_LINE_);
 	s2->SetSocketType(RNS2T_CHROME);
 #elif defined(_WIN32)
@@ -92,9 +88,7 @@ RakNetSocket2* RakNetSocket2Allocator::AllocRNS2(void)
 }
 void RakNetSocket2::GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] )
 {
-#if defined(WINDOWS_STORE_RT)
-	RNS2_WindowsStore8::GetMyIP( addresses );
-#elif defined(__native_client__)
+#if defined(__native_client__)
 	RNS2_NativeClient::GetMyIP( addresses );
 #elif defined(_WIN32)
 	RNS2_Windows::GetMyIP( addresses );
@@ -108,15 +102,10 @@ void RakNetSocket2::SetUserConnectionSocketIndex(unsigned int i) {userConnection
 RNS2EventHandler * RakNetSocket2::GetEventHandler(void) const {return eventHandler;}
 
 void RakNetSocket2::DomainNameToIP( const char *domainName, char ip[65] ) {
-#if defined(WINDOWS_STORE_RT)
-	return RNS2_WindowsStore8::DomainNameToIP( domainName, ip );
-#else
 	return DomainNameToIP_Berkley( domainName, ip );
-#endif
 }
 
-#if defined(WINDOWS_STORE_RT)
-#elif defined(__native_client__)
+#if defined(__native_client__)
 RNS2_NativeClient::RNS2_NativeClient() {bindState = BS_UNBOUND; sendInProgress=false;}
 RNS2_NativeClient::~RNS2_NativeClient()
 {

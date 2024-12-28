@@ -160,11 +160,7 @@ bool DSoundVoiceAdapter::SetupIncomingBuffer()
 	for (int i=0; i<FRAMES_IN_SOUND; i++)
 	{
 		incomingBufferNotifications[i].dwOffset = i*m_rakVoice->GetBufferSizeBytes();
-#if defined(WINDOWS_PHONE_8)
-		if ((incomingBufferNotifications[i].hEventNotify = CreateEventEx(0, 0, CREATE_EVENT_MANUAL_RESET, 0))== nullptr)
-#else
 		if ((incomingBufferNotifications[i].hEventNotify = CreateEvent(nullptr, TRUE, FALSE, nullptr))== nullptr)
-#endif
 		{
 			DXTRACE_ERR_MSGBOX(_T("CreateEvent"), GetLastError());
 			return false;

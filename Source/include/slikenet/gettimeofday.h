@@ -6,7 +6,7 @@
  *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
- *  Modified work: Copyright (c) 2019, SLikeSoft UG (haftungsbeschränkt)
+ *  Modified work: Copyright (c) 2019, SLikeSoft UG (haftungsbeschrï¿½nkt)
  *
  *  This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
  *  license found in the license.txt file in the root directory of this source tree.
@@ -22,13 +22,6 @@ struct timezone
   int  tz_minuteswest; /* minutes W of Greenwich */
   int  tz_dsttime;     /* type of dst correction */
 };
-
-#if defined(WINDOWS_STORE_RT)
-struct timeval {
-        long    tv_sec;
-        long    tv_usec;
-};
-#endif
 
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 

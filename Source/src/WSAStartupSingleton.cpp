@@ -19,7 +19,7 @@
 
 
 
-#if   defined(_WIN32) && !defined(WINDOWS_STORE_RT)
+#if   defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -45,7 +45,7 @@ WSAStartupSingleton::WSAStartupSingleton() {}
 WSAStartupSingleton::~WSAStartupSingleton() {}
 void WSAStartupSingleton::AddRef(void)
 {
-#if defined(_WIN32) && !defined(WINDOWS_STORE_RT)
+#if defined(_WIN32)
 
 	refCount++;
 	
@@ -59,7 +59,7 @@ void WSAStartupSingleton::AddRef(void)
 	WSADATA winsockInfo;
 	if ( WSAStartup( MAKEWORD( 2, 2 ), &winsockInfo ) != 0 )
 	{
-#if  defined(_DEBUG) && !defined(WINDOWS_PHONE_8)
+#if  defined(_DEBUG)
 		DWORD dwIOError = GetLastError();
 		LPTSTR messageBuffer;
 		FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -76,7 +76,7 @@ void WSAStartupSingleton::AddRef(void)
 }
 void WSAStartupSingleton::Deref(void)
 {
-#if defined(_WIN32) && !defined(WINDOWS_STORE_RT)
+#if defined(_WIN32)
 	if (refCount==0)
 		return;
 		

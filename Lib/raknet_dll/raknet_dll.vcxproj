@@ -577,7 +577,6 @@
     <ClCompile Include="..\..\Source\src\RakNetSocket2_Vita.cpp" />
     <ClCompile Include="..\..\Source\src\RakNetSocket2_Windows_Linux.cpp" />
     <ClCompile Include="..\..\Source\src\RakNetSocket2_Windows_Linux_360.cpp" />
-    <ClCompile Include="..\..\Source\src\RakNetSocket2_WindowsStore8.cpp" />
     <ClCompile Include="..\..\Source\src\RakNetStatistics.cpp" />
     <ClCompile Include="..\..\Source\src\RakNetTransport2.cpp" />
     <ClCompile Include="..\..\Source\src\RakNetTypes.cpp" />

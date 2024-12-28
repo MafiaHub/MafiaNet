@@ -24,9 +24,7 @@ using namespace pp;
 #endif
 
 RakNetSocket::RakNetSocket() {
-	#if !defined(WINDOWS_STORE_RT)
-		s = 0;
-	#endif
+	s = 0;
 	remotePortRakNetWasStartedOn_PS3_PSP2 = 0;
 	userConnectionSocketIndex = (unsigned int) -1;
 	socketFamily = 0;
@@ -49,8 +47,6 @@ RakNetSocket::~RakNetSocket()
 	#ifdef __native_client__
 		if(s != 0)
 			((PPB_UDPSocket_Private_0_4*) pp::Module::Get()->GetBrowserInterface(PPB_UDPSOCKET_PRIVATE_INTERFACE_0_4))->Close(s);
-#elif defined(WINDOWS_STORE_RT)
-		WinRTClose(s);
 	#else
 		if ((__UDPSOCKET__)s != 0)
 			closesocket__(s);
@@ -98,18 +94,14 @@ RakNetSocket* RakNetSocket::Create
 		sock = ((PPB_UDPSocket_Private_0_4*) Module::Get()->GetBrowserInterface(PPB_UDPSOCKET_PRIVATE_INTERFACE_0_4))->Create(_chromeInstance);
 	#elif defined(SN_TARGET_PSP2)
 		sock = sceNetSocket( "RakNetSocket::Create", SCE_NET_AF_INET, SCE_NET_SOCK_DGRAM_P2P, 0 );
-	#elif defined(WINDOWS_STORE_RT)
-		sock = WinRTCreateDatagramSocket(af,type,protocol);
 	#elif defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(_PS4)
 		sock = socket__( AF_INET, SOCK_DGRAM_P2P, 0 );
 	#else
 		sock = socket__(af, type, protocol);
 	#endif
 
-	#if !defined(WINDOWS_STORE_RT)
 	if (sock<0)
 		return 0;
-	#endif
 	RakNetSocket *rns = SLNet::OP_NEW<RakNetSocket>(_FILE_AND_LINE_);
 	rns->s = sock;
 	#ifdef __native_client__

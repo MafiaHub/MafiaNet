@@ -21,26 +21,15 @@
 
 using namespace SLNet;
 
-
-
-
 #if   defined(_WIN32)
 	#include "slikenet/WindowsIncludes.h"
 	#include <stdio.h>
-	#if !defined(_WIN32_WCE)
-		#include <process.h>
-	#endif
-
-
-
-
+	#include <process.h>
 #else
 #include <pthread.h>
 #endif
 
-#if defined(_WIN32_WCE) || defined(WINDOWS_PHONE_8) || defined(WINDOWS_STORE_RT)
-int RakThread::Create( LPTHREAD_START_ROUTINE start_address, void *arglist, int priority)
-#elif defined(_WIN32)
+#if defined(_WIN32)
 int RakThread::Create( unsigned __stdcall start_address( void* ), void *arglist, int priority)
 
 
@@ -53,20 +42,9 @@ int RakThread::Create( void* start_address( void* ), void *arglist, int priority
 	HANDLE threadHandle;
 	unsigned threadID = 0;
 
-
-#if   defined(WINDOWS_PHONE_8) || defined(WINDOWS_STORE_RT)
-	threadHandle = CreateThread(nullptr,0,start_address,arglist,CREATE_SUSPENDED, 0);
-#elif defined _WIN32_WCE
-	threadHandle = CreateThread(nullptr,MAX_ALLOCA_STACK_ALLOCATION*2,start_address,arglist,0,(DWORD*)&threadID);
-#else
 	threadHandle = (HANDLE) _beginthreadex(nullptr, MAX_ALLOCA_STACK_ALLOCATION*2, start_address, arglist, 0, &threadID );
-#endif
 	
 	SetThreadPriority(threadHandle, priority);
-
-#if defined(WINDOWS_PHONE_8) || defined(WINDOWS_STORE_RT)
-	ResumeThread(threadHandle);
-#endif
 
 	if (threadHandle==0)
 	{

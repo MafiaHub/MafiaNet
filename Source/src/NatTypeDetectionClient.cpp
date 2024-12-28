@@ -64,7 +64,7 @@ void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
 		//c2Port=SocketLayer::GetLocalPort(c2);
 	}
 
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 	if (c2->IsBerkleySocket())
 		((RNS2_Berkley*) c2)->CreateRecvPollingThread(0);
 #endif
@@ -214,7 +214,7 @@ void NatTypeDetectionClient::Shutdown(void)
 	serverAddress=UNASSIGNED_SYSTEM_ADDRESS;
 	if (c2!=0)
 	{
-#if !defined(__native_client__) && !defined(WINDOWS_STORE_RT)
+#if !defined(__native_client__)
 		if (c2->IsBerkleySocket())
 			((RNS2_Berkley *)c2)->BlockOnStopRecvPollingThread();
 #endif
