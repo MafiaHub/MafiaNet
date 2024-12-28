@@ -32,3 +32,48 @@ The engine supports Windows, Linux, and Mac as primary platforms, with limited s
 - [ ] Added unit tests
 - [ ] Added github action pipelines
 - [ ] Added proper github releases
+
+## Key Features
+
+### Core Networking
+- Reliable UDP messaging system
+- Automatic packet ordering and splitting
+- IPv4 and IPv6 support
+- Secure connections with SSL/TLS encryption
+- Binary packet message system
+- Connection management and statistics
+
+### Multiplayer Features
+- Peer-to-peer networking capabilities
+- Host migration system
+- NAT traversal (including NAT punchthrough)
+- Cross-platform VOIP integration
+- Room and lobby system
+- Remote procedure calls (RPC)
+- Object replication system
+- Team management system
+
+### Development Tools
+- Built-in packet logger
+- Network simulator for testing
+- Comprehensive stats tracking
+- Bandwidth limiter
+- Message filtering system
+- Ready-state manager
+
+### Support Systems
+- File transfer capabilities
+- DirectoryDeltaTransfer for efficient patching
+- Cloud computing interfaces
+- Email sender
+- Database integration (SQLite, MySQL, PostgreSQL)
+- String compression
+- Plugin architecture
+
+### Utility Features
+- Autopatcher system
+- LAN server discovery
+- Console server management
+- Two-way authentication
+- Router interface
+- UPnP support
