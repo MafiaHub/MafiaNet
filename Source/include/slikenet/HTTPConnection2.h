@@ -17,6 +17,8 @@
 /// \brief Contains HTTPConnection2, used to communicate with web servers
 ///
 
+#include <cstddef>
+
 #include "NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_HTTPConnection2==1 && _RAKNET_SUPPORT_TCPInterface==1
 
