@@ -216,20 +216,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RakNet_LibStatic", "Lib\rak
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RakNet_MiniupnpcStatic", "Lib\raknet_miniupnpcstatic\raknet_miniupnpcstatic.vcxproj", "{A728620F-F319-4760-98C9-23F661B84BC7}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RakNet_DLL (CSharp bindings)", "DependentExtensions\Swig\DLL_Swig\raknet_dll_csharp_bindings.vcxproj", "{D0866C2B-11D1-400B-84BF-EA83A561B7DA}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DLL (CSharp bindings)", "DependentExtensions\Swig\DLL_Swig\dll_csharp_bindings.vcxproj", "{C3DB448A-3AC4-42C7-B74B-2C5BE1E7951C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpTestApp", "DependentExtensions\Swig\CSharpTestApp\CSharpTestApp.csproj", "{4D1901AC-A543-4733-B0A6-7F22684894C1}"
-	ProjectSection(ProjectDependencies) = postProject
-		{C3DB448A-3AC4-42C7-B74B-2C5BE1E7951C} = {C3DB448A-3AC4-42C7-B74B-2C5BE1E7951C}
-	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpTestApp_RakNetCompatibility", "DependentExtensions\Swig\CSharpTestApp_RakNetCompatibility\CSharpTestApp_RakNetCompatibility.csproj", "{61A4B9B1-7FBF-404A-BFDD-B1C10853F12E}"
-	ProjectSection(ProjectDependencies) = postProject
-		{D0866C2B-11D1-400B-84BF-EA83A561B7DA} = {D0866C2B-11D1-400B-84BF-EA83A561B7DA}
-	EndProjectSection
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug - Unicode|Win32 = Debug - Unicode|Win32
