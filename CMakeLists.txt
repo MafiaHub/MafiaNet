@@ -1,4 +1,3 @@
-#
 # This file was taken from RakNet 4.082.
 # Please see licenses/RakNet license.txt for the underlying license and related copyright.
 #
@@ -9,81 +8,68 @@
 # license found in the license.txt file in the root directory of this source tree.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
+
+project(SLikeNet 
+        VERSION 0.2.0
+        LANGUAGES CXX)
 
 # CMake policy settings
-if( POLICY CMP0037 )
-	cmake_policy(SET CMP0037 NEW) # CMake 3.0 warning: Target names should not be reserved and should match a validity pattern (aka: add_*-command target names)
+if(POLICY CMP0037)
+    cmake_policy(SET CMP0037 NEW) # Target names should not be reserved
 endif()
-if( POLICY CMP0042 )
-	cmake_policy(SET CMP0042 NEW) # CMake 3.0 warning: Use @rpath in a target's install name.
-endif()
-
-project(SLikeNet)
-
-# version number
-set(SLikeNet_VERSION_MAJOR "0")
-set(SLikeNet_VERSION_MINOR "2")
-set(SLikeNet_VERSION_PATCH "0")
-set(SLikeNet_VERSION ${SLikeNet_VERSION_MAJOR}.${SLikeNet_VERSION_MINOR}.${SLikeNet_VERSION_PATCH})
-set(SLikeNet_API_VERSION ${SLikeNet_VERSION_MAJOR}.${SLikeNet_VERSION_MINOR})
-
-# explicitly enable @rpath in the install name for any shared library being built (for cmake >=2.8.12 and <3.0 - it's enabled by default for >= 3.0)
-# note that for cmake < 2.8.12 we do not use rpath but rather keep the RakNet 4.082 behavior
-if( CMAKE_VERSION VERSION_LESS 3.0 )
-	if(NOT (CMAKE_VERSION VERSION_LESS 2.8.12))
-		# MACOSX_RPATH support was added in cmake 2.8.12
-		set(CMAKE_MACOSX_RPATH 1)
-	endif()
+if(POLICY CMP0042)
+    cmake_policy(SET CMP0042 NEW) # Use @rpath in target's install name
 endif()
 
-IF (WIN32 AND NOT UNIX)
-	set (PROGRAMFILESX86 $ENV{PROGRAMFILES})
-	string(REPLACE "\\" "/" PROGRAMFILESX86 "${PROGRAMFILESX86}")
-ENDIF(WIN32 AND NOT UNIX)
+# Version numbers
+set(SLikeNet_API_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
-# add package dependencies
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Platform-specific settings
+if(WIN32)
+    set(PROGRAMFILESX86 $ENV{PROGRAMFILES})
+    string(REPLACE "\\" "/" PROGRAMFILESX86 "${PROGRAMFILESX86}")
+endif()
+
+# Find dependencies
 find_package(OpenSSL 1.0.0 REQUIRED)
-set(SLIKENET_LIBRARY_LIBS OpenSSL::Crypto OpenSSL::SSL)
 
-IF (WIN32 AND NOT UNIX)
-	set(SLIKENET_LIBRARY_LIBS ${SLIKENET_LIBRARY_LIBS} ws2_32.lib)
-ELSE(WIN32 AND NOT UNIX)
-	set(SLIKENET_LIBRARY_LIBS ${SLIKENET_LIBRARY_LIBS} pthread)
-ENDIF(WIN32 AND NOT UNIX)
+# Define library dependencies
+set(SLIKENET_LIBRARY_LIBS 
+    OpenSSL::Crypto 
+    OpenSSL::SSL
+)
 
-# enable C++11 language support for GCC
-include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
-if(COMPILER_SUPPORTS_CXX11)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-elseif(COMPILER_SUPPORTS_CXX0X)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+if(WIN32)
+    list(APPEND SLIKENET_LIBRARY_LIBS ws2_32.lib)
 else()
-    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+    list(APPEND SLIKENET_LIBRARY_LIBS pthread)
 endif()
 
-# options
-IF (WIN32 AND NOT UNIX)
-	option(SLIKENET_ENABLE_SAMPLES "Generate sample projects if true."                 TRUE)
-ELSE (WIN32 AND NOT UNIX)
-	# building samples is disabled atm by default on Unix/Mac, since the sample projects won't compile correctly
-	option(SLIKENET_ENABLE_SAMPLES "Generate sample projects if true."                 FALSE)
-ENDIF(WIN32 AND NOT UNIX)
-option(SLIKENET_ENABLE_DLL         "Generate the DLL / shared object project if true." TRUE)
-option(SLIKENET_ENABLE_STATIC      "Generate the static library project if true."      TRUE)
+# Options
+option(SLIKENET_ENABLE_SAMPLES "Generate sample projects" ${WIN32})
+option(SLIKENET_ENABLE_DLL "Generate shared library" ON)
+option(SLIKENET_ENABLE_STATIC "Generate static library" ON)
 
-set(SLIKENET_HEADER_FILES ${SLikeNet_SOURCE_DIR}/Source)
+# Header files location
+set(SLIKENET_HEADER_FILES "${PROJECT_SOURCE_DIR}/Source")
 
+# Include custom macros
 include(./CmakeIncludes/CmakeMacros.txt)
 FIXLINKOPTIONS()
 FIXCOMPILEOPTIONS()
 
+# Add library subdirectory
 add_subdirectory(Lib)
 
 set(SLIKENET_COMMON_LIBS SLikeNetLibStatic)
 
+# Add samples if enabled
 if(SLIKENET_ENABLE_SAMPLES)
-	add_subdirectory(Samples)
+    add_subdirectory(Samples)
 endif()

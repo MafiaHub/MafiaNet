@@ -9,54 +9,120 @@
 # license found in the license.txt file in the root directory of this source tree.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
 
-project(SLikeNetDLL)
+project(SLikeNetDLL VERSION 0.2.0 LANGUAGES CXX)
 
-FILE(GLOB ALL_HEADER_SRCS ${SLikeNet_SOURCE_DIR}/Source/include/slikenet/*.h)
-FILE(GLOB ALL_COMPATIBILITY_HEADER_SRC ${SLikeNet_SOURCE_DIR}/Source/*.h)
-FILE(GLOB ALL_COMPATIBILITY_HEADER_SRC_2 ${SLikeNet_SOURCE_DIR}/Source/slikenet/*.h)
-FILE(GLOB ALL_CPP_SRCS ${SLikeNet_SOURCE_DIR}/Source/src/*.cpp)
-FILE(GLOB CRYPTO_CPP_SRCS ${SLikeNet_SOURCE_DIR}/Source/src/crypto/*.cpp)
+# Source files
+file(GLOB ALL_HEADER_SRCS ${SLikeNet_SOURCE_DIR}/Source/include/slikenet/*.h)
+file(GLOB ALL_COMPATIBILITY_HEADER_SRC ${SLikeNet_SOURCE_DIR}/Source/*.h)
+file(GLOB ALL_COMPATIBILITY_HEADER_SRC_2 ${SLikeNet_SOURCE_DIR}/Source/slikenet/*.h)
+file(GLOB ALL_CPP_SRCS ${SLikeNet_SOURCE_DIR}/Source/src/*.cpp)
+file(GLOB CRYPTO_CPP_SRCS ${SLikeNet_SOURCE_DIR}/Source/src/crypto/*.cpp)
 
-add_library(SLikeNetDLL SHARED ${ALL_CPP_SRCS} ${CRYPTO_CPP_SRCS} ${ALL_HEADER_SRCS})
-
-#if(NOT (CMAKE_VERSION VERSION_LESS 2.8))
-	# target_include_directories is only supported since CMake 2.8
-#	target_include_directories(SLikeNetLibDLL PUBLIC
-#		$<BUILD_INTERFACE:${SLIKENET_INTERNAL_INCLUDE_DIRS}>
-#		$<INSTALL_INTERFACE:include/slikenet-${SLikeNet_VERSION}>
-#	)
-#else()
-	include_directories(${SLIKENET_INTERNAL_INCLUDE_DIRS})
-#endif()
-
-# set the version number
-set_target_properties(SLikeNetDLL PROPERTIES
-	VERSION ${SLikeNet_VERSION}
-	SOVERSION ${SLikeNet_API_VERSION}
+# Add shared library
+add_library(${PROJECT_NAME} SHARED 
+    ${ALL_CPP_SRCS} 
+    ${CRYPTO_CPP_SRCS} 
+    ${ALL_HEADER_SRCS}
+    ${Header_Files}
+    ${Header_Files__crypto}
+    ${Source_Files}
+    ${Source_Files__crypto}
 )
 
-# by default we build the retail configuration
-add_definitions(-D_RETAIL)
+# Source groups for Visual Studio organization
+source_group("Header Files" FILES ${Header_Files})
+source_group("Header Files\\crypto" FILES ${Header_Files__crypto})
+source_group("Source Files" FILES ${Source_Files})
+source_group("Source Files\\crypto" FILES ${Source_Files__crypto})
 
-IF(WIN32 AND NOT UNIX)
-	add_definitions(-DWIN32 -D_RAKNET_DLL -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE)
-	SET( CMAKE_CXX_FLAGS "/GS- /GR-" )
-ELSE(WIN32 AND NOT UNIX)
-	set_target_properties(SLikeNetDLL PROPERTIES
-		OUTPUT_NAME "slikenet"
-	)
-ENDIF(WIN32 AND NOT UNIX)
+# Set target properties
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    VS_GLOBAL_KEYWORD "Win32Proj"
+)
 
-target_link_libraries(SLikeNetDLL ${SLIKENET_LIBRARY_LIBS})
-IF(NOT WIN32 OR UNIX)
-	configure_file(../../slikenet-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/slikenet-config-version.cmake @ONLY)
+# Include directories
+target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../Source/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../DependentExtensions>
+    $<$<PLATFORM_ID:Windows>:$<$<EQUAL:${CMAKE_SIZEOF_VOID_P},4>:${CMAKE_CURRENT_SOURCE_DIR}/../../DependentExtensions/openssl/include/x86>>
+    $<$<PLATFORM_ID:Windows>:$<$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>:${CMAKE_CURRENT_SOURCE_DIR}/../../DependentExtensions/openssl/include/x64>>
+)
 
-	install(TARGETS SLikeNetDLL EXPORT SLikeNetDLL DESTINATION lib/slikenet-${SLikeNet_VERSION})
-	INSTALL(FILES ${ALL_COMPATIBILITY_HEADER_SRC} DESTINATION include/slikenet-${SLikeNet_VERSION})
-	INSTALL(FILES ${ALL_COMPATIBILITY_HEADER_SRC_2} DESTINATION include/slikenet-${SLikeNet_VERSION}/slikenet/slikenet)
-	INSTALL(FILES ${ALL_HEADER_SRCS} DESTINATION include/slikenet-${SLikeNet_VERSION}/slikenet/include/slikenet)
-	INSTALL(FILES ../../slikenet-config.cmake ${CMAKE_CURRENT_BINARY_DIR}/slikenet-config-version.cmake DESTINATION lib/slikenet-${SLikeNet_VERSION})
-	INSTALL(EXPORT SLikeNetDLL DESTINATION lib/slikenet-${SLikeNet_VERSION})
-ENDIF(NOT WIN32 OR UNIX)
+# Compile definitions
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<CONFIG:Release>:_RELEASE>
+    $<$<CONFIG:RetailUnicode>:_RETAIL UNICODE _UNICODE>
+    $<$<CONFIG:Retail>:_RETAIL>
+    $<$<PLATFORM_ID:Windows>:WIN32 _CRT_NONSTDC_NO_DEPRECATE _CRT_SECURE_NO_DEPRECATE _RAKNET_DLL>
+)
+
+# Set compiler and linker options for MSVC
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        /W4 
+        /WX 
+        /Gm
+        /Y-
+        $<$<CONFIG:Debug>:/Od /sdl /RTC1>
+        $<$<CONFIG:Release>:/sdl>
+        $<$<CONFIG:Retail>:/GS->
+    )
+
+    # Set MSVC runtime library
+    set_property(TARGET ${PROJECT_NAME} PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+    )
+
+    # Linker options for Windows
+    target_link_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Debug>:/INCREMENTAL>
+        $<$<NOT:$<CONFIG:Debug>>:/OPT:REF /OPT:ICF /INCREMENTAL:NO>
+        /DEBUG
+        /SUBSYSTEM:WINDOWS
+        /DYNAMICBASE:NO
+    )
+endif()
+
+# Platform-specific settings
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
+    
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        target_link_directories(${PROJECT_NAME} PRIVATE 
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../DependentExtensions/cat/lib/cat
+        )
+    endif()
+else()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        OUTPUT_NAME "slikenet"
+    )
+    
+    # Installation for Unix systems
+    install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}
+        DESTINATION lib/slikenet-${PROJECT_VERSION}
+    )
+    install(FILES ${ALL_COMPATIBILITY_HEADER_SRC}
+        DESTINATION include/slikenet-${PROJECT_VERSION}
+    )
+    install(FILES ${ALL_COMPATIBILITY_HEADER_SRC_2}
+        DESTINATION include/slikenet-${PROJECT_VERSION}/slikenet/slikenet
+    )
+    install(FILES ${ALL_HEADER_SRCS}
+        DESTINATION include/slikenet-${PROJECT_VERSION}/slikenet/include/slikenet
+    )
+    install(FILES 
+        ../../slikenet-config.cmake 
+        ${CMAKE_CURRENT_BINARY_DIR}/slikenet-config-version.cmake
+        DESTINATION lib/slikenet-${PROJECT_VERSION}
+    )
+    install(EXPORT ${PROJECT_NAME}
+        FILE slikenet.cmake
+        DESTINATION lib/slikenet-${PROJECT_VERSION}
+    )
+endif()
