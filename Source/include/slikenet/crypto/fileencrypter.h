@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2018-2019, SLikeSoft UG (haftungsbeschränkt)
+ *  Copyright (c) 2018-2019, SLikeSoft UG (haftungsbeschrï¿½nkt)
  *
  *  This source code is  licensed under the MIT-style license found in the license.txt
  *  file in the root directory of this source tree.
@@ -19,9 +19,7 @@ namespace SLNet
 			class CFileEncrypter : public IFileEncrypter
 			{
 				// member variables
-				RSA *m_privateKey;
 				EVP_PKEY *m_privatePKey;
-				RSA *m_publicKey;
 				EVP_PKEY *m_publicPKey;
 				unsigned char m_sigBuffer[1024];
 				char m_sigBufferBase64[1369]; // 1369 = 1368 (size of base64-encoded 1k signature which is 1024 / 3 * 4 (representing 1023 bytes) + 4 bytes for the last byte) + 1 byte for trailing \0-terminator

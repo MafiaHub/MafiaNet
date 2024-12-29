@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2019, SLikeSoft UG (haftungsbeschränkt)
+ *  Copyright (c) 2019, SLikeSoft UG (haftungsbeschrï¿½nkt)
  *
  *  This source code is  licensed under the MIT-style license found in the license.txt
  *  file in the root directory of this source tree.
@@ -20,8 +20,8 @@ namespace SLNet
 				// class members
 				// note: using distinct contexts for encryption/decryption to prevent potential for race conditions
 				// #med - consider moving to SessionEncrypter class
-				static EVP_CIPHER_CTX m_decryptionContext;
-				static EVP_CIPHER_CTX m_encryptionContext;
+				static EVP_CIPHER_CTX* m_decryptionContext;
+				static EVP_CIPHER_CTX* m_encryptionContext;
 				static unsigned char m_initializationVector[EVP_MAX_IV_LENGTH];
 				static unsigned char m_sessionKey[EVP_MAX_KEY_LENGTH];
 				static bool m_Initialized;
@@ -29,6 +29,7 @@ namespace SLNet
 			public:
 				// initialization
 				static bool Initialize();
+				static void Shutdown();
 
 			public:
 				// session encryption

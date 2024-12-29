@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2018-2019, SLikeSoft UG (haftungsbeschränkt)
+ *  Copyright (c) 2018-2019, SLikeSoft UG (haftungsbeschrï¿½nkt)
  *
  *  This source code is  licensed under the MIT-style license found in the license.txt
  *  file in the root directory of this source tree.
@@ -26,18 +26,14 @@ namespace SLNet
 		namespace Crypto
 		{
 			CFileEncrypter::CFileEncrypter() :
-				m_privateKey(nullptr),
 				m_privatePKey(nullptr),
-				m_publicKey(nullptr),
 				m_publicPKey(nullptr)
 			{
 				CCryptoManager::Initialize();
 			}
 
 			CFileEncrypter::CFileEncrypter(const char *publicKey, size_t publicKeyLength) :
-				m_privateKey(nullptr),
 				m_privatePKey(nullptr),
-				m_publicKey(nullptr),
 				m_publicPKey(nullptr)
 			{
 				CCryptoManager::Initialize();
@@ -47,9 +43,7 @@ namespace SLNet
 			}
 
 			CFileEncrypter::CFileEncrypter(const char *publicKey, size_t publicKeyLength, const char *privateKey, size_t privateKeyLength, CSecureString &password) :
-				m_privateKey(nullptr),
 				m_privatePKey(nullptr),
-				m_publicKey(nullptr),
 				m_publicPKey(nullptr)
 			{
 				CCryptoManager::Initialize();
@@ -62,8 +56,8 @@ namespace SLNet
 			CFileEncrypter::~CFileEncrypter()
 			{
 				// ensure that either both key elements are null or both are non-null
-				RakAssert(m_publicPKey == nullptr || m_publicKey != nullptr);
-				RakAssert(m_privatePKey == nullptr || m_privateKey != nullptr);
+				RakAssert(m_publicPKey == nullptr);
+				RakAssert(m_privatePKey == nullptr);
 
 				if (m_publicPKey != nullptr) {
 					EVP_PKEY_free(m_publicPKey); // implicitly frees the linked m_publicKey
@@ -76,7 +70,7 @@ namespace SLNet
 
 			const unsigned char* CFileEncrypter::SignData(const unsigned char *data, const size_t dataLength)
 			{
-				if (m_privateKey == nullptr) {
+				if (m_privatePKey == nullptr) {
 					// #high - error/exception handling
 					return nullptr;
 				}
@@ -107,7 +101,7 @@ namespace SLNet
 
 				// #med - review the return value here - it's not documented in the manual
 				// note: cleanup() must be called so to not leak resources generated during the EVP_SignalFinal()-call
-				(void)EVP_MD_CTX_cleanup(rsaSigningContext);
+				(void)EVP_MD_CTX_reset(rsaSigningContext);
 				EVP_MD_CTX_destroy(rsaSigningContext);
 
 				return success ? m_sigBuffer : nullptr;
@@ -158,7 +152,7 @@ namespace SLNet
 				const int authenticStatus = EVP_DigestVerifyFinal(rsaVerifyContext, const_cast<unsigned char*>(signature), signatureLength);
 				// #med - review the return value here - it's not documented in the manual
 				// note: cleanup() must be called so to not leak resources generated during the EVP_SignalFinal()-call
-				(void)EVP_MD_CTX_cleanup(rsaVerifyContext);
+				(void)EVP_MD_CTX_reset(rsaVerifyContext);
 				EVP_MD_CTX_destroy(rsaVerifyContext);
 
 				if (authenticStatus == 1) {
@@ -216,39 +210,16 @@ namespace SLNet
 				BIO *const keyBIO = BIO_new_mem_buf(const_cast<char*>(privateKey), static_cast<int>(privateKeyLength));
 
 				// #high - error/exception handling
-				m_privateKey = PEM_read_bio_RSAPrivateKey(keyBIO, &m_privateKey, &PasswordCallback, &password);
-				if (m_privateKey == nullptr) {
+				m_privatePKey = PEM_read_bio_PrivateKey(keyBIO, nullptr, &PasswordCallback, &password);
+				if (m_privatePKey == nullptr) {
 					error = ERR_error_string(ERR_get_error(), nullptr);
 				}
 
 				// #high - add error check/handling if BIO_free() fails
 				BIO_free(keyBIO);
 
-				if (m_privateKey == nullptr) {
-					return error; // failed to load the private key
-				}
-
-				// create the corresponding EVP_PKEY
-				m_privatePKey = EVP_PKEY_new();
 				if (m_privatePKey == nullptr) {
-					// #high - error/exception handling
-					error = ERR_error_string(ERR_get_error(), nullptr);
-					RSA_free(m_privateKey);
-					m_privateKey = nullptr;
-					return error; // failed to allocate the PKEY struct
-				}
-
-				// #med - review interface handling (const cast...)
-				if (EVP_PKEY_assign_RSA(m_privatePKey, m_privateKey) == 0) {
-					// #high - error/exception handling
-					error = ERR_error_string(ERR_get_error(), nullptr);
-					// #high - review the error handling here --- if EVP_PKEY_assign_RSA() succeeds, freeing the pkey will implicitly also free the public key
-					//         but what is the behavior upon a failure in that case?
-					//         for now better accept a potential resource/mem leak rather than provoking a crash
-					EVP_PKEY_free(m_privatePKey);
-					m_privateKey = nullptr;
-					m_privatePKey = nullptr;
-					return error;
+					return error; // failed to load the private key
 				}
 
 				return error;
@@ -270,41 +241,17 @@ namespace SLNet
 
 				// #high - error/exception handling
 				// #high - review &m_publicKey
-				m_publicKey = PEM_read_bio_RSA_PUBKEY(keyBIO, &m_publicKey, nullptr, nullptr);
-				if (m_publicKey == nullptr) {
+				m_publicPKey = PEM_read_bio_PUBKEY(keyBIO, nullptr, nullptr, nullptr);
+				if (m_publicPKey == nullptr) {
 					error = ERR_error_string(ERR_get_error(), nullptr);
 				}
 
 				// #high - add error check/handling if BIO_free() fails
 				BIO_free(keyBIO);
 
-				if (m_publicKey == nullptr) {
+				if (m_publicPKey == nullptr) {
 					return error; // failed to load the public key
 				}
-
-				// create the corresponding EVP_PKEY
-				m_publicPKey = EVP_PKEY_new();
-				if (m_publicPKey == nullptr) {
-					// #high - error/exception handling
-					error = ERR_error_string(ERR_get_error(), nullptr);
-					RSA_free(m_publicKey);
-					m_publicKey = nullptr;
-					return error; // failed to allocate the PKEY struct
-				}
-
-				// #med - review interface handling (const cast...)
-				if (EVP_PKEY_assign_RSA(m_publicPKey, m_publicKey) == 0) {
-					// #high - error/exception handling
-					error = ERR_error_string(ERR_get_error(), nullptr);
-					// #high - review the error handling here --- if EVP_PKEY_assign_RSA() succeeds, freeing the pkey will implicitly also free the public key
-					//         but what is the behavior upon a failure in that case?
-					//         for now better accept a potential resource/mem leak rather than provoking a crash
-					EVP_PKEY_free(m_publicPKey);
-					m_publicKey = nullptr;
-					m_publicPKey = nullptr;
-					return error;
-				}
-
 				return error;
 			}
 		}
