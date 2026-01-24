@@ -20,11 +20,11 @@
 
 class PostgreSQLInterface;
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// PostgreSQL specific functionality to the lobby server
-class RAK_DLL_EXPORT Lobby2Server_PGSQL : public SLNet::Lobby2Server
+class RAK_DLL_EXPORT Lobby2Server_PGSQL : public MafiaNet::Lobby2Server
 {
 public:	
 	Lobby2Server_PGSQL();
@@ -38,9 +38,9 @@ public:
 	virtual bool ConnectToDB(const char *conninfo, int numWorkerThreads);
 
 	/// Add input to the worker threads, from a thread already running
-	virtual void AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, SLNet::RakString targetUserHandle);
+	virtual void AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle);
 	/// Add output from the worker threads, from a thread already running. This is in addition to the current message, so is used for notifications
-	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, SLNet::RakString targetUserHandle);
+	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle);
 
 protected:
 

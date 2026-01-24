@@ -21,7 +21,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // From http://www.joelonsoftware.com/articles/Unicode.html
 // Only code points 128 and above are stored using 2, 3, in fact, up to 6 bytes.
@@ -436,31 +436,31 @@ bool RakWString::Deserialize(wchar_t *str, size_t strLength, BitStream *bs)
 	return true;
 }
 
-const SLNet::RakWString operator+(const SLNet::RakWString &lhs, const SLNet::RakWString &rhs)
+const MafiaNet::RakWString operator+(const MafiaNet::RakWString &lhs, const MafiaNet::RakWString &rhs)
 {
-	SLNet::RakWString returnvalue(lhs);
+	MafiaNet::RakWString returnvalue(lhs);
 	returnvalue += rhs;
 	return returnvalue;
 }
 
 /*
-SLNet::BitStream bsTest;
-SLNet::RakWString testString("cat"), testString2;
+MafiaNet::BitStream bsTest;
+MafiaNet::RakWString testString("cat"), testString2;
 testString = "Hllo";
 testString = L"Hello";
 testString += L" world";
 testString2 += testString2;
-SLNet::RakWString ts3(L" from here");
+MafiaNet::RakWString ts3(L" from here");
 testString2+=ts3;
-SLNet::RakWString ts4(L" 222");
+MafiaNet::RakWString ts4(L" 222");
 testString2=ts4;
-SLNet::RakString rs("rakstring");
+MafiaNet::RakString rs("rakstring");
 testString2+=rs;
 testString2=rs;
 bsTest.Write(L"one");
 bsTest.Write(testString2);
 bsTest.SetReadOffset(0);
-SLNet::RakWString ts5, ts6;
+MafiaNet::RakWString ts5, ts6;
 wchar_t buff[99];
 wchar_t *wptr = (wchar_t*)buff;
 bsTest.Read(wptr);

@@ -30,7 +30,7 @@
 #include "PluginInterface2.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class BitStream;
@@ -108,7 +108,7 @@ protected:
 	DataStructures::Queue<Packet*> packetQueue;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

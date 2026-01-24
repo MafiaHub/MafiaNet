@@ -25,7 +25,7 @@
 #include "slikenet/DS_OrderedList.h"
 #include "slikenet/NativeTypes.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 class RakPeerInterface;
 
@@ -60,7 +60,7 @@ struct VoiceChannel
 	unsigned incomingReadIndex, incomingWriteIndex;	// Index in bytes
 	unsigned short incomingMessageNumber;  // The ID_VOICE message number we expect to get.  Used to drop out of order and detect how many missing packets in a sequence
 
-	SLNet::TimeMS lastSend;
+	MafiaNet::TimeMS lastSend;
 };
 int VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data );
 
@@ -173,13 +173,13 @@ public:
 
 	/// How many bytes are on the write buffer, waiting to be passed to a call to RakPeer::Send (internally)
 	/// This should remain at a fairly small near-constant size as outgoing data is sent to the Send function
-	/// \param[in] guid The system to query, or SLNet::UNASSIGNED_SYSTEM_ADDRESS for the sum of all channels.
+	/// \param[in] guid The system to query, or MafiaNet::UNASSIGNED_SYSTEM_ADDRESS for the sum of all channels.
 	/// \return Number of bytes on the write buffer
 	unsigned GetBufferedBytesToSend(RakNetGUID guid) const;
 
 	/// How many bytes are on the read buffer, waiting to be passed to a call to ReceiveFrame
 	/// This should remain at a fairly small near-constant size as incoming data is read out at the same rate as outgoing data from the remote system
-	/// \param[in] guid The system to query, or SLNet::UNASSIGNED_SYSTEM_ADDRESS for the sum of all channels.
+	/// \param[in] guid The system to query, or MafiaNet::UNASSIGNED_SYSTEM_ADDRESS for the sum of all channels.
 	/// \return Number of bytes on the read buffer.
 	unsigned GetBufferedBytesToReturn(RakNetGUID guid) const;
 
@@ -223,6 +223,6 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

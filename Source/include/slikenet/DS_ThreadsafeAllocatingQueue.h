@@ -54,9 +54,9 @@ public:
 protected:
 
 	mutable MemoryPool<structureType> memoryPool;
-	SLNet::SimpleMutex memoryPoolMutex;
+	MafiaNet::SimpleMutex memoryPoolMutex;
 	Queue<structureType*> queue;
-	SLNet::SimpleMutex queueMutex;
+	MafiaNet::SimpleMutex queueMutex;
 };
 	
 template <class structureType>

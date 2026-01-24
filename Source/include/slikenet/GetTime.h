@@ -22,26 +22,26 @@
 #define __GET_TIME_H
 
 #include "Export.h"
-#include "time.h" // For SLNet::TimeMS
+#include "time.h" // For MafiaNet::TimeMS
 
-namespace SLNet
+namespace MafiaNet
 {
 	/// Same as GetTimeMS
 	/// Holds the time in either a 32 or 64 bit variable, depending on __GET_TIME_64BIT
-	SLNet::Time RAK_DLL_EXPORT GetTime( void );
+	MafiaNet::Time RAK_DLL_EXPORT GetTime( void );
 
 	/// Return the time as 32 bit
 	/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
-	SLNet::TimeMS RAK_DLL_EXPORT GetTimeMS( void );
+	MafiaNet::TimeMS RAK_DLL_EXPORT GetTimeMS( void );
 	
 	/// Return the time as 64 bit
 	/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
-	SLNet::TimeUS RAK_DLL_EXPORT GetTimeUS( void );
+	MafiaNet::TimeUS RAK_DLL_EXPORT GetTimeUS( void );
 
 	/// a > b?
-	extern RAK_DLL_EXPORT bool GreaterThan(SLNet::Time a, SLNet::Time b);
+	extern RAK_DLL_EXPORT bool GreaterThan(MafiaNet::Time a, MafiaNet::Time b);
 	/// a < b?
-	extern RAK_DLL_EXPORT bool LessThan(SLNet::Time a, SLNet::Time b);
+	extern RAK_DLL_EXPORT bool LessThan(MafiaNet::Time a, MafiaNet::Time b);
 }
 
 #endif

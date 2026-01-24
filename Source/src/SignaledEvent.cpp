@@ -22,7 +22,7 @@
 #include <unistd.h>
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 
 

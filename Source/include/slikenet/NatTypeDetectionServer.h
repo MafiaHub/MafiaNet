@@ -33,7 +33,7 @@
 #include "NatTypeDetectionCommon.h"
 
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -111,8 +111,8 @@ public:
 	{
 		SystemAddress systemAddress;
 		NATDetectionState detectionState;
-		SLNet::TimeMS nextStateTime;
-		SLNet::TimeMS timeBetweenAttempts;
+		MafiaNet::TimeMS nextStateTime;
+		MafiaNet::TimeMS timeBetweenAttempts;
 		unsigned short c2Port;
 		RakNetGUID guid;
 	};

@@ -32,7 +32,7 @@
 /// MessageIdentifier (ID_*) values shoudln't go higher than this.  Change it if you do.
 #define MESSAGE_FILTER_MAX_MESSAGE_ID 256
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -46,16 +46,16 @@ struct FilterSet
 	bool banOnFilterTimeExceed;
 	bool kickOnDisallowedMessage;
 	bool banOnDisallowedMessage;
-	SLNet::TimeMS disallowedMessageBanTimeMS;
-	SLNet::TimeMS timeExceedBanTimeMS;
-	SLNet::TimeMS maxMemberTimeMS;
+	MafiaNet::TimeMS disallowedMessageBanTimeMS;
+	MafiaNet::TimeMS timeExceedBanTimeMS;
+	MafiaNet::TimeMS maxMemberTimeMS;
 	void (*invalidMessageCallback)(RakPeerInterface *peer, AddressOrGUID systemAddress, int filterSetID, void *userData, unsigned char messageID);
 	void *disallowedCallbackUserData;
 	void (*timeoutCallback)(RakPeerInterface *peer, AddressOrGUID systemAddress, int filterSetID, void *userData);
 	void *timeoutUserData;
 	int filterSetID;
 	bool allowedIDs[MESSAGE_FILTER_MAX_MESSAGE_ID];
-	DataStructures::OrderedList<SLNet::RakString, SLNet::RakString> allowedRPC4;
+	DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> allowedRPC4;
 };
 
 /// \internal Has to be public so some of the shittier compilers can use it.
@@ -65,7 +65,7 @@ int RAK_DLL_EXPORT FilterSetComp( const int &key, FilterSet * const &data );
 struct FilteredSystem
 {
 	FilterSet *filter;
-	SLNet::TimeMS timeEnteredThisSet;
+	MafiaNet::TimeMS timeEnteredThisSet;
 };
 
 /// \defgroup MESSAGEFILTER_GROUP MessageFilter
@@ -123,7 +123,7 @@ public:
 	/// \param[in] banOnDisallowed ban the system that sent a disallowed message.  See \a banTimeMS for the ban duration
 	/// \param[in] banTimeMS Passed to the milliseconds parameter of RakPeer::AddToBanList.
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
-	void SetActionOnDisallowedMessage(bool kickOnDisallowed, bool banOnDisallowed, SLNet::TimeMS banTimeMS, int filterSetID);
+	void SetActionOnDisallowedMessage(bool kickOnDisallowed, bool banOnDisallowed, MafiaNet::TimeMS banTimeMS, int filterSetID);
 
 	/// Set a user callback to be called on an invalid message for a particular filterSet
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
@@ -143,7 +143,7 @@ public:
 	/// \param[in] banOnExceed True or false to ban the system, or not, when \a allowedTimeMS is exceeded
 	/// \param[in] banTimeMS Passed to the milliseconds parameter of RakPeer::AddToBanList.
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
-	void SetFilterMaxTime(int allowedTimeMS, bool banOnExceed, SLNet::TimeMS banTimeMS, int filterSetID);
+	void SetFilterMaxTime(int allowedTimeMS, bool banOnExceed, MafiaNet::TimeMS banTimeMS, int filterSetID);
 
 	/// Get the filterSetID a system is using.  Returns -1 for none.
 	/// \param[in] addressOrGUID The system we are referring to
@@ -193,10 +193,10 @@ protected:
 	DataStructures::Hash<AddressOrGUID, FilteredSystem, 2048, AddressOrGUID::ToInteger> systemList;
 
 	int autoAddNewConnectionsToFilter;
-	SLNet::Time whenLastTimeoutCheck;
+	MafiaNet::Time whenLastTimeoutCheck;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

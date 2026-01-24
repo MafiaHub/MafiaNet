@@ -35,7 +35,7 @@
 #endif
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \brief An easy to use mutex.
@@ -77,7 +77,7 @@ private:
 	//	bool isInitialized;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

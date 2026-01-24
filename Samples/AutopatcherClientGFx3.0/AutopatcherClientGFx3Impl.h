@@ -16,7 +16,7 @@
 #include "slikenet/types.h"
 #include "FxGameDelegate.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 class AutopatcherClient;
 class FileListTransfer;
@@ -59,4 +59,4 @@ public:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet

@@ -71,10 +71,10 @@ void main_sockets(void)
 #define MASTER_SERVER_PORT 80
 //#define MASTER_SERVER_ADDRESS "localhost"
 //#define MASTER_SERVER_PORT 8080
-using namespace SLNet;
+using namespace MafiaNet;
 void main_RakNet_Post(void)
 {
-	TCPInterface *tcp = SLNet::OP_NEW<TCPInterface>(__FILE__,__LINE__);
+	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__,__LINE__);
 	tcp->Start(0, 64);
 	tcp->Connect(MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT, true);
 
@@ -95,8 +95,8 @@ void main_RakNet_Post(void)
 	SystemAddress serverAddr = tcp->HasCompletedConnectionAttempt();
 	tcp->Send(rspost.C_String(), rspost.GetLength(), serverAddr, false);
 
-	SLNet::Time timeout = SLNet::GetTime()+2000;
-	while (SLNet::GetTime() < timeout)
+	MafiaNet::Time timeout = MafiaNet::GetTime()+2000;
+	while (MafiaNet::GetTime() < timeout)
 	{
 		Packet *p = tcp->Receive();
 		if (p)
@@ -118,7 +118,7 @@ void main_RakNet_Get(void)
 	HTTPConnection2 *httpConnection2;
 	httpConnection2 = HTTPConnection2::GetInstance();
 
-	TCPInterface *tcp = SLNet::OP_NEW<TCPInterface>(__FILE__,__LINE__);
+	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__,__LINE__);
 	tcp->Start(0, 64);
 	tcp->AttachPlugin(httpConnection2);
 

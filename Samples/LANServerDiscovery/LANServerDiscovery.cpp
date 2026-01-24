@@ -39,14 +39,14 @@ int main(void)
 {
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
-	SLNet::RakPeerInterface *client;
-	SLNet::RakPeerInterface *server;
+	MafiaNet::RakPeerInterface *client;
+	MafiaNet::RakPeerInterface *server;
 	bool b;
 	char str[256];
 	char serverPort[30], clientPort[30];
-	SLNet::TimeMS quitTime;
+	MafiaNet::TimeMS quitTime;
 	// Holds packets
-	SLNet::Packet* p;
+	MafiaNet::Packet* p;
 
 	printf("A client / server sample showing how clients can broadcast offline packets\n");
 	printf("to find active servers.\n");
@@ -59,7 +59,7 @@ int main(void)
 	if (str[0]=='s' || str[0]=='S')
 	{
 		client=0;
-		server= SLNet::RakPeerInterface::GetInstance();
+		server= MafiaNet::RakPeerInterface::GetInstance();
 		// A server
 		printf("Enter the server port\n");
 		Gets(serverPort,sizeof(serverPort));
@@ -73,9 +73,9 @@ int main(void)
 
 		printf("Starting server.\n");
 		// The server has to be started to respond to pings.
-		SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
+		MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
 		socketDescriptor.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
-		b = server->Startup(2, &socketDescriptor, 1)== SLNet::RAKNET_STARTED;
+		b = server->Startup(2, &socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
 		server->SetMaximumIncomingConnections(2);
 		if (b)
 			printf("Server started, waiting for connections.\n");
@@ -87,7 +87,7 @@ int main(void)
 	}
 	else
 	{
-		client= SLNet::RakPeerInterface::GetInstance();
+		client= MafiaNet::RakPeerInterface::GetInstance();
 		server=0;
 
 		// Get our input
@@ -112,7 +112,7 @@ int main(void)
 			return 2;
 		}
 		unsigned short sPort = static_cast<unsigned short>(intServerPort);
-		SLNet::SocketDescriptor socketDescriptor(cPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(cPort,0);
 		socketDescriptor.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 		client->Startup(1, &socketDescriptor, 1);
 
@@ -129,13 +129,13 @@ int main(void)
 	if (str[0]==0)
 	{
 		printf("Defaulting to 5 seconds\n");
-		quitTime = SLNet::GetTimeMS() + 5000;
+		quitTime = MafiaNet::GetTimeMS() + 5000;
 	}
 	else
-		quitTime = SLNet::GetTimeMS() + atoi(str) * 1000;
+		quitTime = MafiaNet::GetTimeMS() + atoi(str) * 1000;
 
 	// Loop for input
-	while (SLNet::GetTimeMS() < quitTime)
+	while (MafiaNet::GetTimeMS() < quitTime)
 	{
 		if (server)
 			p = server->Receive();
@@ -153,11 +153,11 @@ int main(void)
 		{
 			if (p->data[0]==ID_UNCONNECTED_PONG)
 			{
-				SLNet::TimeMS time;
-				SLNet::BitStream bsIn(p->data,p->length,false);
+				MafiaNet::TimeMS time;
+				MafiaNet::BitStream bsIn(p->data,p->length,false);
 				bsIn.IgnoreBytes(1);
 				bsIn.Read(time);
-				printf("Got pong from %s with time %i\n", p->systemAddress.ToString(), SLNet::GetTimeMS() - time);
+				printf("Got pong from %s with time %i\n", p->systemAddress.ToString(), MafiaNet::GetTimeMS() - time);
 			}
 			else if (p->data[0]==ID_UNCONNECTED_PING)
 			{
@@ -175,9 +175,9 @@ int main(void)
 
 	// We're done with the network
 	if (server)
-		SLNet::RakPeerInterface::DestroyInstance(server);
+		MafiaNet::RakPeerInterface::DestroyInstance(server);
 	if (client)
-		SLNet::RakPeerInterface::DestroyInstance(client);
+		MafiaNet::RakPeerInterface::DestroyInstance(client);
 
 	return 0;
 }

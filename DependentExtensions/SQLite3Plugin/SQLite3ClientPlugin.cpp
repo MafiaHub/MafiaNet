@@ -12,14 +12,14 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 void SQLite3PluginResultInterface_Printf::_sqlite3_exec(
-	SLNet::RakString inputStatement,
+	MafiaNet::RakString inputStatement,
 	unsigned int queryId,
-	SLNet::RakString dbIdentifier,
+	MafiaNet::RakString dbIdentifier,
 	const SQLite3Table &table,
-	SLNet::RakString errorMsg)
+	MafiaNet::RakString errorMsg)
 {
 	// unused parameters
 	(void)queryId;
@@ -51,9 +51,9 @@ void SQLite3PluginResultInterface_Printf::_sqlite3_exec(
 	}
 }
 void SQLite3PluginResultInterface_Printf::OnUnknownDBIdentifier(
-	SLNet::RakString inputStatement,
+	MafiaNet::RakString inputStatement,
 	unsigned int queryId,
-	SLNet::RakString dbIdentifier)
+	MafiaNet::RakString dbIdentifier)
 {
 	// unused parameters
 	(void)queryId;
@@ -81,10 +81,10 @@ void SQLite3ClientPlugin::ClearResultHandlers(void)
 {
 	resultHandlers.Clear(true,_FILE_AND_LINE_);
 }
-unsigned int SQLite3ClientPlugin::_sqlite3_exec(SLNet::RakString dbIdentifier, SLNet::RakString inputStatement,
+unsigned int SQLite3ClientPlugin::_sqlite3_exec(MafiaNet::RakString dbIdentifier, MafiaNet::RakString inputStatement,
 										  PacketPriority priority, PacketReliability reliability, char orderingChannel, const SystemAddress &systemAddress)
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_SQLite3_EXEC);
 	bsOut.Write(nextQueryId);
 	bsOut.Write(dbIdentifier);
@@ -102,9 +102,9 @@ PluginReceiveResult SQLite3ClientPlugin::OnReceive(Packet *packet)
 	case ID_SQLite3_EXEC:
 		{
 			unsigned int queryId;
-			SLNet::RakString dbIdentifier;
-			SLNet::RakString inputStatement;
-			SLNet::BitStream bsIn(packet->data, packet->length, false);
+			MafiaNet::RakString dbIdentifier;
+			MafiaNet::RakString inputStatement;
+			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(sizeof(MessageID));
 			bsIn.Read(queryId);
 			bsIn.Read(dbIdentifier);
@@ -119,7 +119,7 @@ PluginReceiveResult SQLite3ClientPlugin::OnReceive(Packet *packet)
 			else
 			{
 				// Client code
-				SLNet::RakString errorMsgStr;
+				MafiaNet::RakString errorMsgStr;
 				SQLite3Table inputTable;		
 
 				// Read it
@@ -137,9 +137,9 @@ PluginReceiveResult SQLite3ClientPlugin::OnReceive(Packet *packet)
 	case ID_SQLite3_UNKNOWN_DB:
 		{
 			unsigned int queryId;
-			SLNet::RakString dbIdentifier;
-			SLNet::RakString inputStatement;
-			SLNet::BitStream bsIn(packet->data, packet->length, false);
+			MafiaNet::RakString dbIdentifier;
+			MafiaNet::RakString inputStatement;
+			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(sizeof(MessageID));
 			bsIn.Read(queryId);
 			bsIn.Read(dbIdentifier);

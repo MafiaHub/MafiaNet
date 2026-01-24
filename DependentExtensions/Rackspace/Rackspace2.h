@@ -29,7 +29,7 @@
 #ifndef __RACKSPACE_2_H
 #define __RACKSPACE_2_H
 
-namespace SLNet
+namespace MafiaNet
 {
 	class TCPInterface;
 	class HTTPConnection2;
@@ -100,11 +100,11 @@ namespace SLNet
 		/// \param[in] opType Type of operation to perform
 		/// \param[in] data If the operation requires data, put it here
 		/// \param[in] setAuthToken true to automatically set the auth token for the operation. I believe this should be true for everything except authentication itself
-		void AddOperation(SLNet::RakString URL, OpType opType, json_t *data, bool setAuthToken);
+		void AddOperation(MafiaNet::RakString URL, OpType opType, json_t *data, bool setAuthToken);
 
 		struct Operation
 		{
-			SLNet::RakString URL;
+			MafiaNet::RakString URL;
 			bool isPost;
 			json_t *data;
 		};
@@ -131,7 +131,7 @@ namespace SLNet
 
 	};
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __RACKSPACE_API_H
 

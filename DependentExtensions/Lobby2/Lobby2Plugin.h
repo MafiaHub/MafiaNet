@@ -47,7 +47,7 @@
 /// \ingroup LOBBY_2_GROUP
 
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \ingroup LOBBY_2_GROUP
@@ -109,6 +109,6 @@ protected:
 	DataStructures::List<Lobby2Callbacks*> callbacks;
 };
 
-}; // namespace SLNet
+}; // namespace MafiaNet
 
 #endif

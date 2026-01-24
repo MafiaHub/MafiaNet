@@ -17,7 +17,7 @@
 #include "slikenet/socket.h"
 #include "slikenet/memoryoverride.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #if defined(__native_client__)
 using namespace pp;
@@ -102,7 +102,7 @@ RakNetSocket* RakNetSocket::Create
 
 	if (sock<0)
 		return 0;
-	RakNetSocket *rns = SLNet::OP_NEW<RakNetSocket>(_FILE_AND_LINE_);
+	RakNetSocket *rns = MafiaNet::OP_NEW<RakNetSocket>(_FILE_AND_LINE_);
 	rns->s = sock;
 	#ifdef __native_client__
 		rns->chromeInstance = _chromeInstance;

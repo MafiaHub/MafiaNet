@@ -53,7 +53,7 @@
 
 typedef int64_t FCM2Guid;
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -80,14 +80,14 @@ public:
 	/// \param[in] identifier A unique identifier representing this password. This is transmitted in plaintext and should be considered insecure
 	/// \param[in] password The password to add
 	/// \return True on success, false on identifier==password, either identifier or password is blank, or identifier is already in use
-	bool AddPassword(SLNet::RakString identifier, SLNet::RakString password);
+	bool AddPassword(MafiaNet::RakString identifier, MafiaNet::RakString password);
 
 	/// \brief Challenge another system for the specified identifier
 	/// \details After calling Challenge, you will get back ID_TWO_WAY_AUTHENTICATION_SUCCESS, ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT, or ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILED
 	/// ID_TWO_WAY_AUTHENTICATION_SUCCESS will be returned if and only if the other system has called AddPassword() with the same identifier\password pair as this system.
 	/// \param[in] identifier A unique identifier representing this password. This is transmitted in plaintext and should be considered insecure
 	/// \return True on success, false on remote system not connected, or identifier not previously added with AddPassword()
-	bool Challenge(SLNet::RakString identifier, AddressOrGUID remoteSystem);
+	bool Challenge(MafiaNet::RakString identifier, AddressOrGUID remoteSystem);
 
 	/// \brief Free all memory
 	void Clear(void);
@@ -104,9 +104,9 @@ public:
 	/// \internal
 	struct PendingChallenge
 	{
-		SLNet::RakString identifier;
+		MafiaNet::RakString identifier;
 		AddressOrGUID remoteSystem;
-		SLNet::Time time;
+		MafiaNet::Time time;
 		bool sentHash;
 	};
 
@@ -116,32 +116,32 @@ public:
 	struct NonceAndRemoteSystemRequest
 	{
 		char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH];
-		SLNet::AddressOrGUID remoteSystem;
+		MafiaNet::AddressOrGUID remoteSystem;
 		unsigned short requestId;
-		SLNet::Time whenGenerated;
+		MafiaNet::Time whenGenerated;
 	};
 	/// \internal
 	struct RAK_DLL_EXPORT NonceGenerator
 	{
 		NonceGenerator();
 		~NonceGenerator();
-		void GetNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short *requestId, SLNet::AddressOrGUID remoteSystem);
+		void GetNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short *requestId, MafiaNet::AddressOrGUID remoteSystem);
 		void GenerateNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH]);
-		bool GetNonceById(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short requestId, SLNet::AddressOrGUID remoteSystem, bool popIfFound);
+		bool GetNonceById(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short requestId, MafiaNet::AddressOrGUID remoteSystem, bool popIfFound);
 		void Clear(void);
-		void ClearByAddress(SLNet::AddressOrGUID remoteSystem);
-		void Update(SLNet::Time curTime);
+		void ClearByAddress(MafiaNet::AddressOrGUID remoteSystem);
+		void Update(MafiaNet::Time curTime);
 
 		DataStructures::List<TwoWayAuthentication::NonceAndRemoteSystemRequest*> generatedNonces;
 		unsigned short nextRequestId;
 	};
 
 protected:
-	void PushToUser(MessageID messageId, SLNet::RakString password, SLNet::AddressOrGUID remoteSystem);
+	void PushToUser(MessageID messageId, MafiaNet::RakString password, MafiaNet::AddressOrGUID remoteSystem);
 	// Key is identifier, data is password
-	DataStructures::Hash<SLNet::RakString, SLNet::RakString, 16, SLNet::RakString::ToInteger > passwords;
+	DataStructures::Hash<MafiaNet::RakString, MafiaNet::RakString, 16, MafiaNet::RakString::ToInteger > passwords;
 
-	SLNet::Time whenLastTimeoutCheck;
+	MafiaNet::Time whenLastTimeoutCheck;
 
 	NonceGenerator nonceGenerator;
 
@@ -149,10 +149,10 @@ protected:
 	void OnNonceReply(Packet *packet);
 	PluginReceiveResult OnHashedNonceAndPassword(Packet *packet);
 	void OnPasswordResult(Packet *packet);
-	void Hash(char thierNonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], SLNet::RakString password, char out[HASHED_NONCE_AND_PW_LENGTH]);
+	void Hash(char thierNonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], MafiaNet::RakString password, char out[HASHED_NONCE_AND_PW_LENGTH]);
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

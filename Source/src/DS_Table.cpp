@@ -27,7 +27,7 @@ using namespace DataStructures;
 void ExtendRows(Table::Row* input, int index)
 {
 	(void) index;
-	input->cells.Insert(SLNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
+	input->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
 }
 void FreeRow(Table::Row* input, int index)
 {
@@ -36,9 +36,9 @@ void FreeRow(Table::Row* input, int index)
 	unsigned i;
 	for (i=0; i < input->cells.Size(); i++)
 	{
-		SLNet::OP_DELETE(input->cells[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(input->cells[i], _FILE_AND_LINE_);
 	}
-	SLNet::OP_DELETE(input, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(input, _FILE_AND_LINE_);
 }
 Table::Cell::Cell()
 {
@@ -174,29 +174,29 @@ void Table::Cell::Get(char *output, int *outputLength)
 	if (outputLength)
 		*outputLength=(int) i;
 }
-SLNet::RakString Table::Cell::ToString(ColumnType columnType)
+MafiaNet::RakString Table::Cell::ToString(ColumnType columnType)
 {
 	if (isEmpty)
-		return SLNet::RakString();
+		return MafiaNet::RakString();
 
 	if (columnType==NUMERIC)
 	{
-		return SLNet::RakString("%f", i);
+		return MafiaNet::RakString("%f", i);
 	}
 	else if (columnType==STRING)
 	{
-		return SLNet::RakString(c);
+		return MafiaNet::RakString(c);
 	}
 	else if (columnType==BINARY)
 	{
-		return SLNet::RakString("<Binary>");
+		return MafiaNet::RakString("<Binary>");
 	}
 	else if (columnType==POINTER)
 	{
-		return SLNet::RakString("%p", ptr);
+		return MafiaNet::RakString("%p", ptr);
 	}
 
-	return SLNet::RakString();
+	return MafiaNet::RakString();
 }
 Table::Cell::Cell(double numericValue, char *charValue, void *ptr, ColumnType type)
 {
@@ -315,7 +315,7 @@ void Table::RemoveColumn(unsigned columnIndex)
 	{
 		for (i=0; i < cur->size; i++)
 		{
-			SLNet::OP_DELETE(cur->data[i]->cells[columnIndex], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(cur->data[i]->cells[columnIndex], _FILE_AND_LINE_);
 			cur->data[i]->cells.RemoveAtIndex(columnIndex);
 		}
 
@@ -359,68 +359,68 @@ unsigned Table::GetRowCount(void) const
 Table::Row* Table::AddRow(unsigned rowId)
 {
 	Row *newRow;
-	newRow = SLNet::OP_NEW<Row>( _FILE_AND_LINE_ );
+	newRow = MafiaNet::OP_NEW<Row>( _FILE_AND_LINE_ );
 	if (rows.Insert(rowId, newRow)==false)
 	{
-		SLNet::OP_DELETE(newRow, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(newRow, _FILE_AND_LINE_);
 		return 0; // Already exists
 	}
 	unsigned rowIndex;
 	for (rowIndex=0; rowIndex < columns.Size(); rowIndex++)
-		newRow->cells.Insert(SLNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
+		newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
 	return newRow;
 }
 Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell> &initialCellValues)
 {
-	Row *newRow = SLNet::OP_NEW<Row>( _FILE_AND_LINE_ );
+	Row *newRow = MafiaNet::OP_NEW<Row>( _FILE_AND_LINE_ );
 	unsigned rowIndex;
 	for (rowIndex=0; rowIndex < columns.Size(); rowIndex++)
 	{
 		if (rowIndex < initialCellValues.Size() && initialCellValues[rowIndex].isEmpty==false)
 		{
 			Table::Cell *c;
-			c = SLNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_);
+			c = MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_);
 			c->SetByType(initialCellValues[rowIndex].i,initialCellValues[rowIndex].c,initialCellValues[rowIndex].ptr,columns[rowIndex].columnType);
 			newRow->cells.Insert(c, _FILE_AND_LINE_ );
 		}
 		else
-			newRow->cells.Insert(SLNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
+			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
 	}
 	rows.Insert(rowId, newRow);
 	return newRow;
 }
 Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell*> &initialCellValues, bool copyCells)
 {
-	Row *newRow = SLNet::OP_NEW<Row>( _FILE_AND_LINE_ );
+	Row *newRow = MafiaNet::OP_NEW<Row>( _FILE_AND_LINE_ );
 	unsigned rowIndex;
 	for (rowIndex=0; rowIndex < columns.Size(); rowIndex++)
 	{
 		if (rowIndex < initialCellValues.Size() && initialCellValues[rowIndex] && initialCellValues[rowIndex]->isEmpty==false)
 		{
 			if (copyCells==false)
-				newRow->cells.Insert(SLNet::OP_NEW_4<Table::Cell>( _FILE_AND_LINE_, initialCellValues[rowIndex]->i, initialCellValues[rowIndex]->c, initialCellValues[rowIndex]->ptr, columns[rowIndex].columnType), _FILE_AND_LINE_);
+				newRow->cells.Insert(MafiaNet::OP_NEW_4<Table::Cell>( _FILE_AND_LINE_, initialCellValues[rowIndex]->i, initialCellValues[rowIndex]->c, initialCellValues[rowIndex]->ptr, columns[rowIndex].columnType), _FILE_AND_LINE_);
 			else
 			{
-				Table::Cell *c = SLNet::OP_NEW<Table::Cell>( _FILE_AND_LINE_ );
+				Table::Cell *c = MafiaNet::OP_NEW<Table::Cell>( _FILE_AND_LINE_ );
 				newRow->cells.Insert(c, _FILE_AND_LINE_);
 				*c=*(initialCellValues[rowIndex]);
 			}
 		}
 		else
-			newRow->cells.Insert(SLNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
+			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
 	}
 	rows.Insert(rowId, newRow);
 	return newRow;
 }
 Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<unsigned> columnIndices)
 {
-	Row *newRow = SLNet::OP_NEW<Row>( _FILE_AND_LINE_ );
+	Row *newRow = MafiaNet::OP_NEW<Row>( _FILE_AND_LINE_ );
 	unsigned columnIndex;
 	for (columnIndex=0; columnIndex < columnIndices.Size(); columnIndex++)
 	{
 		if (row->cells[columnIndices[columnIndex]]->isEmpty==false)
 		{
-			newRow->cells.Insert(SLNet::OP_NEW_4<Table::Cell>( _FILE_AND_LINE_,
+			newRow->cells.Insert(MafiaNet::OP_NEW_4<Table::Cell>( _FILE_AND_LINE_,
 				row->cells[columnIndices[columnIndex]]->i,
 				row->cells[columnIndices[columnIndex]]->c,
 				row->cells[columnIndices[columnIndex]]->ptr,
@@ -429,7 +429,7 @@ Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<
 		}
 		else
 		{
-			newRow->cells.Insert(SLNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
+			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
 		}
 	}
 	rows.Insert(rowId, newRow);
@@ -1121,9 +1121,9 @@ void Table::DeleteRow(Table::Row *row)
 	unsigned rowIndex;
 	for (rowIndex=0; rowIndex < row->cells.Size(); rowIndex++)
 	{
-		SLNet::OP_DELETE(row->cells[rowIndex], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(row->cells[rowIndex], _FILE_AND_LINE_);
 	}
-	SLNet::OP_DELETE(row, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(row, _FILE_AND_LINE_);
 }
 Table& Table::operator = ( const Table& input )
 {

@@ -53,7 +53,7 @@
 #define MAX_FILENAME_LENGTH 512
 static const unsigned HASH_LENGTH=4;
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // alloca
 
@@ -315,8 +315,8 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 						fclose(fp);
 
 						unsigned int hash = SuperFastHash(fileData+HASH_LENGTH, fileInfo.size);
-						if (SLNet::BitStream::DoEndianSwap())
-							SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+						if (MafiaNet::BitStream::DoEndianSwap())
+							MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
 						memcpy(fileData, &hash, HASH_LENGTH);
 
 						//					sha1.Reset();
@@ -334,8 +334,8 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 //					sha1.Final();
 
 					unsigned int hash = SuperFastHashFile(fullPath);
-					if (SLNet::BitStream::DoEndianSwap())
-						SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+					if (MafiaNet::BitStream::DoEndianSwap())
+						MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
 
 					// Hash only
 				//	AddFile((const char*)fullPath+rootLen, (const char*)sha1.GetHash(), HASH_LENGTH, fileInfo.size, context);
@@ -387,7 +387,7 @@ void FileList::Clear(void)
 	}
 	fileList.Clear(false, _FILE_AND_LINE_);
 }
-void FileList::Serialize(SLNet::BitStream *outBitStream)
+void FileList::Serialize(MafiaNet::BitStream *outBitStream)
 {
 	outBitStream->WriteCompressed(fileList.Size());
 	unsigned i;
@@ -411,7 +411,7 @@ void FileList::Serialize(SLNet::BitStream *outBitStream)
 			outBitStream->WriteCompressed(fileList[i].fileLengthBytes);
 	}
 }
-bool FileList::Deserialize(SLNet::BitStream *inBitStream)
+bool FileList::Deserialize(MafiaNet::BitStream *inBitStream)
 {
 	bool b, dataLenNonZero=false, fileLenMatchesDataLen=false;
 	char filename[512];
@@ -584,8 +584,8 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 //				rakFree_Ex(fileData, _FILE_AND_LINE_ );
 
 				unsigned int hash = SuperFastHashFilePtr(fp);
-				if (SLNet::BitStream::DoEndianSwap())
-					SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+				if (MafiaNet::BitStream::DoEndianSwap())
+					MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
 
 				//if (fileLength != fileList[i].fileLength || memcmp( sha1.GetHash(), fileList[i].data, HASH_LENGTH)!=0)
 				if (fileLength != fileList[i].fileLengthBytes || memcmp( &hash, fileList[i].data, HASH_LENGTH)!=0)
@@ -634,8 +634,8 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 //						sha1.Update((unsigned char*)fileList[i].data+HASH_LENGTH, fileList[i].fileLength);
 //						sha1.Final();
 						unsigned int hash = SuperFastHash(fileList[i].data+HASH_LENGTH, fileList[i].fileLengthBytes);
-						if (SLNet::BitStream::DoEndianSwap())
-							SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+						if (MafiaNet::BitStream::DoEndianSwap())
+							MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
 //						memcpy(fileList[i].data, sha1.GetHash(), HASH_LENGTH);
 						memcpy(fileList[i].data, &hash, HASH_LENGTH);
 					}
@@ -653,8 +653,8 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 				//		sha1.Update((unsigned char*)fileList[i].data, fileList[i].fileLength);
 				//		sha1.Final();
 						unsigned int hash = SuperFastHash(fileList[i].data, fileList[i].fileLengthBytes);
-						if (SLNet::BitStream::DoEndianSwap())
-							SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+						if (MafiaNet::BitStream::DoEndianSwap())
+							MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
 						// memcpy(fileList[i].data, sha1.GetHash(), HASH_LENGTH);
 						memcpy(fileList[i].data, &hash, HASH_LENGTH);
 					}

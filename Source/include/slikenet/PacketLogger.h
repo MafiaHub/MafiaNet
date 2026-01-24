@@ -28,7 +28,7 @@
 #include "PluginInterface2.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -70,8 +70,8 @@ public:
 	virtual void OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
 	virtual void OnDirectSocketReceive(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
 	virtual void OnReliabilityLayerNotification(const char *errorMessage, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress, bool isError);
-	virtual void OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, SLNet::TimeMS time, int isSend);
-	virtual void OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, SLNet::TimeMS time);
+	virtual void OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend);
+	virtual void OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time);
 	virtual void OnPushBackPacket(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
 
 	/// Logs out a header for all the data
@@ -113,7 +113,7 @@ protected:
 	char suffix[256];
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

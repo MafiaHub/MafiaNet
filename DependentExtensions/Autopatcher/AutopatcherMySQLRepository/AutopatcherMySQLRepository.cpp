@@ -36,13 +36,13 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static const unsigned HASH_LENGTH=sizeof(unsigned int);
 
 struct FileInfo
 {	
-	SLNet::RakString filename;
+	MafiaNet::RakString filename;
 	char contentHash [HASH_LENGTH];
 	bool createFile;
 };
@@ -173,7 +173,7 @@ bool AutopatcherMySQLRepository::RemoveApplication(const char *applicationName)
 bool AutopatcherMySQLRepository::GetChangelistSinceDate(const char *applicationName, FileList *addedOrModifiedFilesWithHashData, FileList *deletedFiles, double sinceDate)
 {
 	char query[512];
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	sprintf_s(query, "SELECT applicationID FROM Applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 
 	int applicationID;
@@ -233,7 +233,7 @@ bool AutopatcherMySQLRepository::GetChangelistSinceDate(const char *applicationN
 int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList *input, bool allowDownloadOfOriginalUnmodifiedFiles, FileList *patchList)
 {
 	char query[512];
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	sprintf_s(query, "SELECT applicationID FROM Applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 	int applicationID;
 	//sqlCommandMutex.Lock();
@@ -408,7 +408,7 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 	return true;
 }
 
-bool AutopatcherMySQLRepository::GetMostRecentChangelistWithPatches(SLNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
+bool AutopatcherMySQLRepository::GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
 {
 	// unused parameters
 	(void)applicationName;
@@ -432,7 +432,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	filesOnHarddrive.AddCallback(cb);
 	int prepareResult;
 	my_bool falseVar=false;
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	filesOnHarddrive.AddFilesFromDirectory(applicationDirectory,"", true, true, true, FileListNodeContext());
 	if (filesOnHarddrive.fileList.Size()==0)
 	{

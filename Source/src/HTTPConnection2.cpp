@@ -19,7 +19,7 @@
 #include "slikenet/HTTPConnection2.h"
 #include "slikenet/TCPInterface.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(HTTPConnection2,HTTPConnection2);
 
@@ -29,18 +29,18 @@ HTTPConnection2::HTTPConnection2()
 HTTPConnection2::~HTTPConnection2()
 {
 	for (unsigned int i = 0; i < pendingRequests.Size(); ++i) {
-		SLNet::OP_DELETE(pendingRequests[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(pendingRequests[i], _FILE_AND_LINE_);
 	}
 	for (unsigned int i = 0; i < sentRequests.Size(); ++i) {
-		SLNet::OP_DELETE(sentRequests[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(sentRequests[i], _FILE_AND_LINE_);
 	}
 	for (unsigned int i = 0; i < completedRequests.Size(); ++i) {
-		SLNet::OP_DELETE(completedRequests[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(completedRequests[i], _FILE_AND_LINE_);
 	}
 }
 bool HTTPConnection2::TransmitRequest(const char* stringToTransmit, const char* host, unsigned short port, bool useSSL, int ipVersion, SystemAddress useAddress, void *userData)
 {
-	Request *request = SLNet::OP_NEW<Request>(_FILE_AND_LINE_);
+	Request *request = MafiaNet::OP_NEW<Request>(_FILE_AND_LINE_);
 	request->host=host;
 	request->chunked = false;
 	if (useAddress!=UNASSIGNED_SYSTEM_ADDRESS)
@@ -48,7 +48,7 @@ bool HTTPConnection2::TransmitRequest(const char* stringToTransmit, const char* 
 		request->hostEstimatedAddress=useAddress;
 		if (IsConnected(useAddress)==false)
 		{
-			SLNet::OP_DELETE(request, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
 			return false;
 		}
 	}
@@ -57,7 +57,7 @@ bool HTTPConnection2::TransmitRequest(const char* stringToTransmit, const char* 
 		// #med - this should be changed to not extract the port from the passed in host-address (which is overwritten directly below with the provided port anyway)
 		if (request->hostEstimatedAddress.FromString(host, '|', ipVersion)==false)
 		{
-			SLNet::OP_DELETE(request, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
 			return false;
 		}
 	}
@@ -134,7 +134,7 @@ bool HTTPConnection2::GetResponse( RakString &stringTransmitted, RakString &host
 		contentOffset = completedRequest->contentOffset;
 		*userData = completedRequest->userData;
 
-		SLNet::OP_DELETE(completedRequest, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(completedRequest, _FILE_AND_LINE_);
 		return true;
 	}
 	else
@@ -512,7 +512,7 @@ void HTTPConnection2::RemovePendingRequest(SystemAddress sa)
 		if (request->hostEstimatedAddress==sa)
 		{
 			pendingRequests.RemoveAtIndex(i);
-			SLNet::OP_DELETE(request, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
 		}
 		else
 			i++;

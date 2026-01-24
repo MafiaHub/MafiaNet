@@ -29,7 +29,7 @@
 #include "slikenet/FileListTransferCBInterface.h"
 #include "slikenet/AutopatcherPatchContext.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RakPeerInterface;
@@ -126,6 +126,6 @@ protected:
 	SimpleMutex processThreadCompletionMutex;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

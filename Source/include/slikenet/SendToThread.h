@@ -25,7 +25,7 @@
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "ThreadPool.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 class SendToThread
 {

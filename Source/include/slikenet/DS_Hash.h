@@ -99,11 +99,11 @@ namespace DataStructures
 		unsigned long hashIndex = (*hashFunction)(key) % HASH_SIZE;
 		if (nodeList==0)
 		{
-			nodeList= SLNet::OP_NEW_ARRAY<Node *>(HASH_SIZE,file,line);
+			nodeList= MafiaNet::OP_NEW_ARRAY<Node *>(HASH_SIZE,file,line);
 			memset(nodeList,0,sizeof(Node *)*HASH_SIZE);
 		}
 
-		Node *newNode= SLNet::OP_NEW_2<Node>(file,line,key,input);
+		Node *newNode= MafiaNet::OP_NEW_2<Node>(file,line,key,input);
 		newNode->next=nodeList[hashIndex];
 		nodeList[hashIndex]=newNode;
 
@@ -158,7 +158,7 @@ namespace DataStructures
 			// First item does match, but more than one item
 			out=node->data;
 			nodeList[hashIndex]=node->next;
-			SLNet::OP_DELETE(node,file,line);
+			MafiaNet::OP_DELETE(node,file,line);
 			size--;
 			return true;
 		}
@@ -175,7 +175,7 @@ namespace DataStructures
 				// Skip over subsequent item
 				last->next=node->next;
 				// Delete existing item
-				SLNet::OP_DELETE(node,file,line);
+				MafiaNet::OP_DELETE(node,file,line);
 				size--;
 				return true;
 			}
@@ -204,7 +204,7 @@ namespace DataStructures
 		{
 			// First item does match, but more than one item
 			nodeList[index.primaryIndex]=node->next;
-			SLNet::OP_DELETE(node,file,line);
+			MafiaNet::OP_DELETE(node,file,line);
 			size--;
 			return true;
 		}
@@ -223,7 +223,7 @@ namespace DataStructures
 		// Skip over subsequent item
 		last->next=node->next;
 		// Delete existing item
-		SLNet::OP_DELETE(node,file,line);
+		MafiaNet::OP_DELETE(node,file,line);
 		size--;
 		return true;
 	}
@@ -308,7 +308,7 @@ namespace DataStructures
 			unsigned int i;
 			for (i=0; i < HASH_SIZE; i++)
 				ClearIndex(i,file,line);
-			SLNet::OP_DELETE_ARRAY(nodeList,file,line);
+			MafiaNet::OP_DELETE_ARRAY(nodeList,file,line);
 			nodeList=0;
 			size=0;
 		}
@@ -322,7 +322,7 @@ namespace DataStructures
 		while (node)
 		{
 			next=node->next;
-			SLNet::OP_DELETE(node,file,line);
+			MafiaNet::OP_DELETE(node,file,line);
 			node=next;
 			size--;
 		}

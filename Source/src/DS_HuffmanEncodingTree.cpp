@@ -18,7 +18,7 @@
 #include "slikenet/BitStream.h"
 #include "slikenet/assert.h" 
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 HuffmanEncodingTree::HuffmanEncodingTree()
 {
@@ -52,7 +52,7 @@ void HuffmanEncodingTree::FreeMemory( void )
 		if ( node->right )
 			nodeQueue.Push( node->right, _FILE_AND_LINE_  );
 
-		SLNet::OP_DELETE(node, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(node, _FILE_AND_LINE_);
 	}
 
 	// Delete the encoding table
@@ -78,7 +78,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 
 	for ( counter = 0; counter < 256; counter++ )
 	{
-		node = SLNet::OP_NEW<HuffmanEncodingTreeNode>( _FILE_AND_LINE_ );
+		node = MafiaNet::OP_NEW<HuffmanEncodingTreeNode>( _FILE_AND_LINE_ );
 		node->left = 0;
 		node->right = 0;
 		node->value = (unsigned char) counter;
@@ -101,7 +101,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 		HuffmanEncodingTreeNode *lesser, *greater;
 		lesser = huffmanEncodingTreeNodeList.Pop();
 		greater = huffmanEncodingTreeNodeList.Pop();
-		node = SLNet::OP_NEW<HuffmanEncodingTreeNode>( _FILE_AND_LINE_ );
+		node = MafiaNet::OP_NEW<HuffmanEncodingTreeNode>( _FILE_AND_LINE_ );
 		node->left = lesser;
 		node->right = greater;
 		node->weight = lesser->weight + greater->weight;
@@ -123,7 +123,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 	bool tempPath[ 256 ]; // Maximum path length is 256
 	unsigned short tempPathLength;
 	HuffmanEncodingTreeNode *currentNode;
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 
 	// Generate the encryption table. From before, we have an array of pointers to all the leaves which contain pointers to their parents.
 	// This can be done more efficiently but this isn't bad and it's way easier to program and debug
@@ -166,7 +166,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 }
 
 // Pass an array of bytes to array and a preallocated BitStream to receive the output
-void HuffmanEncodingTree::EncodeArray( unsigned char *input, size_t sizeInBytes, SLNet::BitStream * output )
+void HuffmanEncodingTree::EncodeArray( unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream * output )
 {		
 	unsigned counter;
 
@@ -197,7 +197,7 @@ void HuffmanEncodingTree::EncodeArray( unsigned char *input, size_t sizeInBytes,
 	}
 }
 
-unsigned HuffmanEncodingTree::DecodeArray(SLNet::BitStream * input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output )
+unsigned HuffmanEncodingTree::DecodeArray(MafiaNet::BitStream * input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output )
 {
 	HuffmanEncodingTreeNode * currentNode;
 
@@ -230,14 +230,14 @@ unsigned HuffmanEncodingTree::DecodeArray(SLNet::BitStream * input, BitSize_t si
 }
 
 // Pass an array of encoded bytes to array and a preallocated BitStream to receive the output
-void HuffmanEncodingTree::DecodeArray( unsigned char *input, BitSize_t sizeInBits, SLNet::BitStream * output )
+void HuffmanEncodingTree::DecodeArray( unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream * output )
 {
 	HuffmanEncodingTreeNode * currentNode;
 
 	if ( sizeInBits <= 0 )
 		return ;
 
-	SLNet::BitStream bitStream( input, BITS_TO_BYTES(sizeInBits), false );
+	MafiaNet::BitStream bitStream( input, BITS_TO_BYTES(sizeInBits), false );
 
 	currentNode = root;
 

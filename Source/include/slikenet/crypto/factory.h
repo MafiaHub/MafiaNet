@@ -6,10 +6,10 @@
  */
 #pragma once
 
-#include "securestring.h"   // used for SLNet::Crypto::CSecureString
-#include "ifileencrypter.h" // used for SLNet::Crypto::IFileEncrypter
+#include "securestring.h"   // used for MafiaNet::Crypto::CSecureString
+#include "ifileencrypter.h" // used for MafiaNet::Crypto::IFileEncrypter
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

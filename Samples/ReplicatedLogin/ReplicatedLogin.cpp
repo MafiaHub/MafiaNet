@@ -24,7 +24,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/NetworkIDManager.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // Purpose: UDP network communication
 // Required?: Yes
@@ -50,21 +50,21 @@ public:
 	virtual ~User()
 	{
 	}
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		allocationIdBitstream->Write("User");
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_ServerConstruction(destinationConnection, runningAsServer);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_ServerConstruction(sourceConnection, runningAsServer);
 	}
@@ -80,14 +80,14 @@ public:
 		bitStream->Read(user->username);
 		bitStream->Read(user->guid);
 	}
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		SerializeToBitStream(this, constructionBitstream);
 	}
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -100,13 +100,13 @@ public:
 		return true;
 	}
 
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
 		(void)destinationConnection;
 	}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
@@ -114,30 +114,30 @@ public:
 
 		return true;
 	}
-	virtual SLNet::RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		if (runningAsServer)
 			return QueryActionOnPopConnection_Server(droppedConnection);
 		else
 			return QueryActionOnPopConnection_Client(droppedConnection);
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		delete this;
 	}
-	virtual SLNet::RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_ServerSerializable(destinationConnection, runningAsServer);
 	}
-	virtual RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters)
+	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		SerializeToBitStream(this, &serializeParameters->outputBitstream[0]);
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		if (deserializeParameters->bitstreamWrittenTo[0])
 			DeserializeToBitStream(this, &deserializeParameters->serializationBitstream[0]);
@@ -157,7 +157,7 @@ public:
 			}
 		}
 	}
-	virtual void PreDestruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual void PreDestruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -183,7 +183,7 @@ public:
 	virtual ~SampleConnectionRM3()
 	{
 	}
-	virtual Replica3 *AllocReplica(SLNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
+	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
@@ -222,7 +222,7 @@ int clientMain(void);
 
 int main(void)
 {
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	networkIDManager = NetworkIDManager::GetInstance();
 	g_replicaManager3=new SampleRM3;
 
@@ -246,11 +246,11 @@ int serverMain(void)
 {
 	runningAsServer=true;
 
-	SLNet::SocketDescriptor sd;
+	MafiaNet::SocketDescriptor sd;
 	sd.port=60000;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
-	rakPeer->SetTimeoutTime(30000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 
 	printf("Waiting for connections\n");
 
@@ -301,10 +301,10 @@ int clientMain(void)
 {
 	runningAsServer=false;
 
-	SLNet::SocketDescriptor sd;
+	MafiaNet::SocketDescriptor sd;
 	sd.port=0;
 	SLNET_VERIFY(rakPeer->Startup(1, &sd, 1) == RAKNET_STARTED);
-	rakPeer->SetTimeoutTime(30000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 
 	rakPeer->Connect("127.0.0.1", 60000, 0, 0);
 	printf("Connecting to server...\n");

@@ -38,7 +38,7 @@
 #endif
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 /*
 #if defined(__native_client__)
@@ -82,10 +82,10 @@ using namespace pp;
 #include <stdio.h>
 #include "slikenet/Itoa.h"
 
-namespace SLNet
+namespace MafiaNet
 {
-	extern void ProcessNetworkPacket( const SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, SLNet::TimeUS timeRead );
-	//extern void ProcessNetworkPacket( const SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket* rakNetSocket, SLNet::TimeUS timeRead );
+	extern void ProcessNetworkPacket( const SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, MafiaNet::TimeUS timeRead );
+	//extern void ProcessNetworkPacket( const SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket* rakNetSocket, MafiaNet::TimeUS timeRead );
 }
 
 // http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html#ip4to6
@@ -158,10 +158,10 @@ void SocketLayer::SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSoc
 #endif
 }
  
-SLNet::RakString SocketLayer::GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, SLNet::RakString inIpString)
+MafiaNet::RakString SocketLayer::GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, MafiaNet::RakString inIpString)
 {
-	SLNet::RakString netMaskString;
-	SLNet::RakString ipString;
+	MafiaNet::RakString netMaskString;
+	MafiaNet::RakString ipString;
 
 #if defined(_WIN32)
 	INTERFACE_INFO InterfaceList[20];

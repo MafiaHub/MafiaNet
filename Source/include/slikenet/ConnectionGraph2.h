@@ -32,7 +32,7 @@
 #include "GetTime.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -124,7 +124,7 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // #ifndef __CONNECTION_GRAPH_2_H
 

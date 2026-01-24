@@ -26,7 +26,7 @@
 #include "DS_OrderedList.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class TransportInterface;
@@ -146,7 +146,7 @@ protected:
 	DataStructures::OrderedList<const char*, RegisteredCommand, RegisteredCommandComp> commandList;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

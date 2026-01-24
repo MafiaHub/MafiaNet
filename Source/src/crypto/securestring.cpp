@@ -14,7 +14,7 @@
 #include <cstring> // used for std::memcpy
 #include <limits>  // used for std::numeric_limits
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

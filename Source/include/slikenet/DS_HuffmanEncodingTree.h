@@ -27,7 +27,7 @@
 #include "Export.h"
 #include "DS_LinkedList.h" 
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// This generates special cases of the huffman encoding tree using 8 bit keys with the additional condition that unused combinations of 8 bits are treated as a frequency of 1
@@ -42,11 +42,11 @@ public:
 	/// \param [in] input Array of bytes to encode
 	/// \param [in] sizeInBytes size of \a input
 	/// \param [out] output The bitstream to write to
-	void EncodeArray( unsigned char *input, size_t sizeInBytes, SLNet::BitStream * output );
+	void EncodeArray( unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream * output );
 
 	// \brief Decodes an array encoded by EncodeArray().
-	unsigned DecodeArray(SLNet::BitStream * input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output );
-	void DecodeArray( unsigned char *input, BitSize_t sizeInBits, SLNet::BitStream * output );
+	unsigned DecodeArray(MafiaNet::BitStream * input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output );
+	void DecodeArray( unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream * output );
 
 	/// \brief Given a frequency table of 256 elements, all with a frequency of 1 or more, generate the tree.
 	void GenerateFromFrequencyTable( unsigned int frequencyTable[ 256 ] );
@@ -74,6 +74,6 @@ private:
 	void InsertNodeIntoSortedList( HuffmanEncodingTreeNode * node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList ) const;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

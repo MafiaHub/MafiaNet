@@ -20,7 +20,7 @@
 #include "slikenet/MTUSize.h"
 #include <windows.h>
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(Lobby2Client_Steam,Lobby2Client_Steam_Impl)
 
@@ -145,7 +145,7 @@ void Lobby2Client_Steam_Impl::OnLobbyMatchListCallback( LobbyMatchList_t *pCallb
 			{
 				CSteamID steamId = SteamMatchmaking()->GetLobbyByIndex( iLobby );
 				callbackResult->roomIds.Push(steamId.ConvertToUint64(), _FILE_AND_LINE_ );
-				SLNet::RakString s = SteamMatchmaking()->GetLobbyData( steamId, "name" );
+				MafiaNet::RakString s = SteamMatchmaking()->GetLobbyData( steamId, "name" );
 				callbackResult->roomNames.Push(s, _FILE_AND_LINE_ );
 			}
 

@@ -26,7 +26,7 @@
 #include <math.h>
 #include "slikenet/sleep.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 enum HistoryObject
 {

@@ -32,7 +32,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #ifdef _WIN32
 #include "slikenet/WindowsIncludes.h" // Sleep
@@ -79,16 +79,16 @@ int main(int argc, char **argv)
 {
 	RakPeerInterface *sender, *receiver;
 	unsigned int packetNumber[32], receivedPacketNumber;
-	SLNet::Time receivedTime;
+	MafiaNet::Time receivedTime;
 	char str[256];
 	char ip[32];
 	// initialize to silence false-positive warning C4701 with VS2015+
-	SLNet::Time sendInterval = 0;
-	SLNet::Time nextSend, currentTime, quitTime;
+	MafiaNet::Time sendInterval = 0;
+	MafiaNet::Time nextSend, currentTime, quitTime;
 	unsigned short remotePort, localPort;
 	unsigned char streamNumber;
-	SLNet::BitStream bitStream;
-	SLNet::Packet *packet;
+	MafiaNet::BitStream bitStream;
+	MafiaNet::Packet *packet;
 	bool doSend=false;
 
 	for (int i=0; i < 32; i++)
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 
 	if (str[0]=='s' || str[0]=='S')
 	{
-		sender = SLNet::RakPeerInterface::GetInstance();
+		sender = MafiaNet::RakPeerInterface::GetInstance();
 
 		receiver = 0;
 
@@ -155,14 +155,14 @@ int main(int argc, char **argv)
 
 
 		printf("Connecting...\n");
-		SLNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		sender->Startup(8, &socketDescriptor, 1);
 		// sender->ApplyNetworkSimulator(.2, 0, 0);
 		sender->Connect(ip, remotePort, 0, 0);
 	}
 	else
 	{
-		receiver = SLNet::RakPeerInterface::GetInstance();
+		receiver = MafiaNet::RakPeerInterface::GetInstance();
 		// receiver->ApplyNetworkSimulator(.2, 0, 0);
 		sender=0;
 
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 		localPort = static_cast<unsigned short>(intLocalPort);
 
 		printf("Waiting for connections...\n");
-		SLNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		receiver->Startup(8, &socketDescriptor, 1);
 		receiver->SetMaximumIncomingConnections(8);
 	}
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 	if (str[0]==0)
 		strcpy_s(str, "12000");
 	
-	currentTime = SLNet::GetTimeMS();
+	currentTime = MafiaNet::GetTimeMS();
 	quitTime = atoi(str) * 1000 + currentTime;
 
 	nextSend=currentTime;
@@ -270,7 +270,7 @@ int main(int argc, char **argv)
                 {
 					bitStream.Reset();
 					bitStream.Write((unsigned char) (ID_TIMESTAMP));
-					bitStream.Write(SLNet::GetTime());
+					bitStream.Write(MafiaNet::GetTime());
 					bitStream.Write((unsigned char) (ID_USER_PACKET_ENUM+1));
 					bitStream.Write(packetNumber[streamNumber]);
 					packetNumber[streamNumber]++;
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
                     bitStream.Write(reliability);
                     bitStream.PadWithZeroToByteLength(padLength);
 
-				    if (sender->Send(&bitStream, HIGH_PRIORITY, reliability ,streamNumber, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true)==0)
+				    if (sender->Send(&bitStream, HIGH_PRIORITY, reliability ,streamNumber, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true)==0)
 				    {
 					    packetNumber[streamNumber]--;
 				    }
@@ -370,13 +370,13 @@ int main(int argc, char **argv)
 #else
 		usleep(0);
 #endif
-		currentTime= SLNet::GetTimeMS();
+		currentTime= MafiaNet::GetTimeMS();
 	}
 
 	if (sender)
-		SLNet::RakPeerInterface::DestroyInstance(sender);
+		MafiaNet::RakPeerInterface::DestroyInstance(sender);
 	if (receiver)
-		SLNet::RakPeerInterface::DestroyInstance(receiver);
+		MafiaNet::RakPeerInterface::DestroyInstance(receiver);
 
 	if (fp)
 		fclose(fp);

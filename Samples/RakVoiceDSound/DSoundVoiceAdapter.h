@@ -49,7 +49,7 @@ of each frame.
 #pragma comment(lib, "legacy_stdio_definitions.lib")
 #endif
 
-namespace SLNet {
+namespace MafiaNet {
 
 class DSoundVoiceAdapter
 {
@@ -124,6 +124,6 @@ private:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

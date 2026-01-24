@@ -32,14 +32,14 @@
 #endif
 
 static const int NUM_PEERS=2;
-SLNet::RakPeerInterface *rakPeer[NUM_PEERS];
-SLNet::PacketLogger messageHandler[NUM_PEERS];
+MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
+MafiaNet::PacketLogger messageHandler[NUM_PEERS];
 void PrintConnections(void);
 
 int main(void)
 {
 	for (unsigned short i=0; i < NUM_PEERS; i++)
-		rakPeer[i]= SLNet::RakPeerInterface::GetInstance();
+		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 
 	printf("Packet Logger Test.\n");
 	printf("Displays all packets being sent or received.\n");
@@ -67,7 +67,7 @@ int main(void)
 	// Initialize the peers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		SLNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
@@ -88,7 +88,7 @@ int main(void)
 #endif
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 
 	printf("Press enter to continue.\n");
 	char temp[256];

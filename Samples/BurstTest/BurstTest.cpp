@@ -33,7 +33,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int main(int, char **)
 {
@@ -41,12 +41,12 @@ int main(int, char **)
 	char str[256];
 	char ip[32];
 	unsigned short remotePort, localPort;
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 
 	printf("This project tests sending a burst of messages to a remote system.\n");
 	printf("Difficulty: Beginner\n\n");
 	
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	
 	printf("Enter remote IP (enter to not connect): ");
 	Gets(ip, sizeof(ip));
@@ -74,7 +74,7 @@ int main(int, char **)
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
 		
-		SLNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		rakPeer->Startup(32, &socketDescriptor, 1);
 		
 		printf("Connecting...\n");
@@ -93,7 +93,7 @@ int main(int, char **)
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
 		
-		SLNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		rakPeer->Startup(32, &socketDescriptor, 1);
 	}
 	rakPeer->SetMaximumIncomingConnections(32);
@@ -131,7 +131,7 @@ int main(int, char **)
 					msgCount=128;
 				else
 					msgCount=atoi(msgCountStr);
-				SLNet::BitStream bitStream;
+				MafiaNet::BitStream bitStream;
 				for (index=0; index < msgCount; index++)
 				{
 					bitStream.Reset();
@@ -172,7 +172,7 @@ int main(int, char **)
 			case ID_USER_PACKET_ENUM:
 				{
 					uint32_t msgSize, msgCount, index;
-					SLNet::BitStream bitStream(packet->data, packet->length, false);
+					MafiaNet::BitStream bitStream(packet->data, packet->length, false);
 					bitStream.IgnoreBytes(sizeof(MessageID));
 					bitStream.Read(msgSize);
 					bitStream.Read(index);
@@ -193,7 +193,7 @@ int main(int, char **)
 	}
 
 	rakPeer->Shutdown(100);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 1;
 }

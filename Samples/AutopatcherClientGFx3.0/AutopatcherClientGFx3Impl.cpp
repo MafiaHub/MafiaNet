@@ -36,12 +36,12 @@
 
 #include "AutopatcherClientGFx3Impl.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static const char *AUTOPATCHER_LAST_UPDATE_FILE="autopatcherLastUpdate.txt";
 static const char *AUTOPATCHER_RESTART_FILE="autopatcherRestart.txt";
 
-class TestCB : public SLNet::FileListTransferCBInterface
+class TestCB : public MafiaNet::FileListTransferCBInterface
 {
 public:
 	virtual bool OnFile(OnFileStruct *onFileStruct)
@@ -129,9 +129,9 @@ void AutopatcherClientGFx3Impl::Init(const char *_pathToThisExe, GPtr<FxDelegate
 	movie=pMovie;
 	strcpy_s(pathToThisExe,_pathToThisExe);
 
-	autopatcherClient= SLNet::OP_NEW<AutopatcherClient>(_FILE_AND_LINE_);
-	fileListTransfer= SLNet::OP_NEW<FileListTransfer>(_FILE_AND_LINE_);
-	packetizedTCP= SLNet::OP_NEW<PacketizedTCP>(_FILE_AND_LINE_);
+	autopatcherClient= MafiaNet::OP_NEW<AutopatcherClient>(_FILE_AND_LINE_);
+	fileListTransfer= MafiaNet::OP_NEW<FileListTransfer>(_FILE_AND_LINE_);
+	packetizedTCP= MafiaNet::OP_NEW<PacketizedTCP>(_FILE_AND_LINE_);
 	autopatcherClient->SetFileListTransferPlugin(fileListTransfer);
 	
 	packetizedTCP->AttachPlugin(autopatcherClient);
@@ -140,23 +140,23 @@ void AutopatcherClientGFx3Impl::Init(const char *_pathToThisExe, GPtr<FxDelegate
 }
 void AutopatcherClientGFx3Impl::Update(void)
 {
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 
 	SystemAddress notificationAddress;
 	notificationAddress=packetizedTCP->HasCompletedConnectionAttempt();
-	if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+	if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		UpdateConnectResult(true);
 		serverAddress=notificationAddress;
 	}
 	notificationAddress=packetizedTCP->HasFailedConnectionAttempt();
-	if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+	if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		UpdateConnectResult(false);
 	}
 	notificationAddress=packetizedTCP->HasNewIncomingConnection();
 	notificationAddress=packetizedTCP->HasLostConnection();
-	if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+	if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		UpdateConnectResult(false);
 	}
@@ -167,7 +167,7 @@ void AutopatcherClientGFx3Impl::Update(void)
 		if (p->data[0]==ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR)
 		{
 			char buff[256];
-			SLNet::BitStream temp(p->data, p->length, false);
+			MafiaNet::BitStream temp(p->data, p->length, false);
 			temp.IgnoreBits(8);
 			StringCompressor::Instance()->DecodeString(buff, 256, &temp);
 
@@ -189,7 +189,7 @@ void AutopatcherClientGFx3Impl::Update(void)
 			FxDelegate::Invoke2(movie, "gotoCompletionMenu", FxResponseArgs<0>());
 
 			FxResponseArgs<1> args2;
-			SLNet::RakString completionMsg("Launch \"AutopatcherClientRestarter.exe %s\"\nQuit this application immediately after to unlock files.\n", AUTOPATCHER_RESTART_FILE);
+			MafiaNet::RakString completionMsg("Launch \"AutopatcherClientRestarter.exe %s\"\nQuit this application immediately after to unlock files.\n", AUTOPATCHER_RESTART_FILE);
 			args2.Add(GFxValue(completionMsg.C_String()));
 			FxDelegate::Invoke2(movie, "setCompletionMessage", args2);
 
@@ -210,9 +210,9 @@ void AutopatcherClientGFx3Impl::Shutdown(void)
 	movie.Clear();
 	if (packetizedTCP)
 		packetizedTCP->Stop();
-	SLNet::OP_DELETE(autopatcherClient,_FILE_AND_LINE_);
-	SLNet::OP_DELETE(fileListTransfer,_FILE_AND_LINE_);
-	SLNet::OP_DELETE(packetizedTCP,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(autopatcherClient,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(fileListTransfer,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(packetizedTCP,_FILE_AND_LINE_);
 	autopatcherClient=0;
 	fileListTransfer=0;
 	packetizedTCP=0;

@@ -32,7 +32,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // Allocate rather than create on the stack or the RakString mutex crashes on shutdown
 TCPInterface *tcp;
@@ -46,11 +46,11 @@ enum ReadResultEnum
 	RR_TIMEOUT,
 };
 
-ReadResultEnum ReadResult(SLNet::RakString &httpResult)
+ReadResultEnum ReadResult(MafiaNet::RakString &httpResult)
 {
-	SLNet::TimeMS endTime= SLNet::GetTimeMS()+10000;
+	MafiaNet::TimeMS endTime= MafiaNet::GetTimeMS()+10000;
 	httpResult.Clear();
-	while (SLNet::GetTimeMS()<endTime)
+	while (MafiaNet::GetTimeMS()<endTime)
 	{
 		Packet *packet = tcp->Receive();
 		if(packet)
@@ -133,11 +133,11 @@ void DownloadTable()
 {
 	phpDirectoryServer2->DownloadTable("a");
 }
-void UploadTable(SLNet::RakString gameName, unsigned short gamePort)
+void UploadTable(MafiaNet::RakString gameName, unsigned short gamePort)
 {
 	phpDirectoryServer2->UploadTable("a", gameName, gamePort, false);
 }
-void UploadAndDownloadTable(SLNet::RakString gameName, unsigned short gamePort)
+void UploadAndDownloadTable(MafiaNet::RakString gameName, unsigned short gamePort)
 {
 	phpDirectoryServer2->UploadAndDownloadTable("a", "a", gameName, gamePort, false);
 }
@@ -161,8 +161,8 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 		printf("TEST FAILED. Expected %i result rows, got %i\n", requiredRowCount, games->GetRowCount());
 		return false;
 	}
-	SLNet::RakString columnName;
-	SLNet::RakString value;
+	MafiaNet::RakString columnName;
+	MafiaNet::RakString value;
 	unsigned int i;
 	DataStructures::Table::Row *row = games->GetRowByIndex(testRowIndex, nullptr);
 	const DataStructures::List<DataStructures::Table::ColumnDescriptor>& columns = games->GetColumns();
@@ -218,7 +218,7 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 	printf("Test passed.\n");
 	return true;
 }
-void PrintHttpResult(SLNet::RakString httpResult)
+void PrintHttpResult(MafiaNet::RakString httpResult)
 {
 	printf("--- Last result read ---\n");
 	printf("%s", httpResult.C_String());
@@ -226,8 +226,8 @@ void PrintHttpResult(SLNet::RakString httpResult)
 void PrintFieldColumns(void)
 {
 	unsigned int colIndex;
-	SLNet::RakString columnName;
-	SLNet::RakString value;
+	MafiaNet::RakString columnName;
+	MafiaNet::RakString value;
 	for (colIndex=0; colIndex < phpDirectoryServer2->GetFieldCount(); colIndex++)
 	{
 		phpDirectoryServer2->GetField(colIndex, columnName, value);
@@ -236,7 +236,7 @@ void PrintFieldColumns(void)
 }
 bool RunTest()
 {
-	SLNet::RakString httpResult;
+	MafiaNet::RakString httpResult;
 	ReadResultEnum rr;
 	char ch[32];
 	printf("Warning, table must be clear before starting the test.\n");
@@ -334,7 +334,7 @@ bool RunTest()
 	{PrintHttpResult(httpResult); return false;}
 	if (PassTestOnEmptyDownloadedTable()==false)
 		{PrintHttpResult(httpResult); return false;}
-	SLNet::TimeMS startTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS startTime = MafiaNet::GetTimeMS();
 
 	printf("*** Testing 20 repeated downloads.\n");
 	//printf("Field columns\n");
@@ -369,7 +369,7 @@ bool RunTest()
 	}
 
 	printf("*** Waiting for 70 seconds to have elapsed...\n");
-	RakSleep(70000 - (SLNet::GetTimeMS()-startTime));
+	RakSleep(70000 - (MafiaNet::GetTimeMS()-startTime));
 
 
 	printf("*** Testing that table is now clear.\n");
@@ -408,13 +408,13 @@ void TestPHPDirectoryServer(int argc, char **argv)
 	printf("Set columns and one row for your game, and upload it to a\nviewable and downloadable webpage.\n");
 	printf("Difficulty: Intermediate\n\n");
 
-// 	tcp = SLNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
-// 	httpConnection = SLNet::OP_NEW<HTTPConnection>(_FILE_AND_LINE_);
-// 	phpDirectoryServer2 = SLNet::OP_NEW<PHPDirectoryServer2>(_FILE_AND_LINE_);
+// 	tcp = MafiaNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
+// 	httpConnection = MafiaNet::OP_NEW<HTTPConnection>(_FILE_AND_LINE_);
+// 	phpDirectoryServer2 = MafiaNet::OP_NEW<PHPDirectoryServer2>(_FILE_AND_LINE_);
 
 
 
-//	SLNet::TimeMS lastTouched = 0;
+//	MafiaNet::TimeMS lastTouched = 0;
 
 
 
@@ -464,9 +464,9 @@ void TestPHPDirectoryServer(int argc, char **argv)
 	} while (str[0]!='q');
 
 	// The destructor of each of these references the other, so delete in this order
-	SLNet::OP_DELETE(phpDirectoryServer2,_FILE_AND_LINE_);
-	SLNet::OP_DELETE(httpConnection,_FILE_AND_LINE_);
-	SLNet::OP_DELETE(tcp,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(phpDirectoryServer2,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(httpConnection,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(tcp,_FILE_AND_LINE_);
 }
 
 void TestGet(void)
@@ -504,9 +504,9 @@ int main(int argc, char **argv)
 	printf("Set columns and one row for your game, and upload it to a\nviewable and downloadable webpage.\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	tcp = SLNet::OP_NEW<TCPInterface>(__FILE__,__LINE__);
-	httpConnection = SLNet::OP_NEW<HTTPConnection>(__FILE__,__LINE__);
-	phpDirectoryServer2 = SLNet::OP_NEW<PHPDirectoryServer2>(__FILE__,__LINE__);
+	tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__,__LINE__);
+	httpConnection = MafiaNet::OP_NEW<HTTPConnection>(__FILE__,__LINE__);
+	phpDirectoryServer2 = MafiaNet::OP_NEW<PHPDirectoryServer2>(__FILE__,__LINE__);
 
 
 

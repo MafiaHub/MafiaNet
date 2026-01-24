@@ -24,17 +24,17 @@
 #include "SQLite3ClientPlugin.h"
 #include "SQLiteLoggerCommon.h"
 
-// return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line);
+// return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line);
 
-// If you get Error	2	error C2275: 'SLNet::SQLiteClientLoggerPlugin::ParameterListHelper' : illegal use of this type as an expression
+// If you get Error	2	error C2275: 'MafiaNet::SQLiteClientLoggerPlugin::ParameterListHelper' : illegal use of this type as an expression
 // Either:
 // 1. You forgot to write the TABLE_DESCRIPTOR
 // 2. You forgot to put the parameter list in parenthesis
-#define rakSqlLog(TABLE_DESCRIPTOR, COLUMN_NAMES, PARAMETER_LIST) SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, TABLE_DESCRIPTOR, COLUMN_NAMES, _FILE_AND_LINE_, SLNet::SQLiteClientLoggerPlugin::ParameterListHelper PARAMETER_LIST)
-#define rakFnLog(TABLE_DESCRIPTOR, PARAMETER_LIST) SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, TABLE_DESCRIPTOR, 0, _FILE_AND_LINE_, SLNet::SQLiteClientLoggerPlugin::ParameterListHelper PARAMETER_LIST)
+#define rakSqlLog(TABLE_DESCRIPTOR, COLUMN_NAMES, PARAMETER_LIST) MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, TABLE_DESCRIPTOR, COLUMN_NAMES, _FILE_AND_LINE_, MafiaNet::SQLiteClientLoggerPlugin::ParameterListHelper PARAMETER_LIST)
+#define rakFnLog(TABLE_DESCRIPTOR, PARAMETER_LIST) MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, TABLE_DESCRIPTOR, 0, _FILE_AND_LINE_, MafiaNet::SQLiteClientLoggerPlugin::ParameterListHelper PARAMETER_LIST)
 
 
-namespace SLNet
+namespace MafiaNet
 {
 	/// \ingroup SQL_LITE_3_PLUGIN
 	/// \brief Result codes for logging
@@ -81,7 +81,7 @@ namespace SLNet
 		/// Required to use the system. Call SetServerParameters() before calling sqlLog() or functionLog()
 		/// systemAddress Address of the server we are already connected to
 		/// _dbIdentifier session identifier. If the server is using CREATE_SHARED_NAMED_DB_HANDLE or CREATE_EACH_NAMED_DB_HANDLE then this is the name of the created file. Otherwise, it is the dbIdentifier passed to SQLite3ServerPlugin::AddDBHandle();
-		void SetServerParameters(const SystemAddress &systemAddress, SLNet::RakString _dbIdentifier);
+		void SetServerParameters(const SystemAddress &systemAddress, MafiaNet::RakString _dbIdentifier);
 
 		/// Every entry in the table has a tick count
 		/// Call this function to increment it by one
@@ -169,7 +169,7 @@ namespace SLNet
 		SQLLogResult SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10, const LogParameter *p11, const LogParameter *p12  );
 		*/
 
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const ParameterListHelper &parameterList )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const ParameterListHelper &parameterList )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,parameterList.paramCount); if (r!=SQLLR_OK) return r;
@@ -178,14 +178,14 @@ namespace SLNet
 		}
 
 		/*
-		static SLNet::SQLLogResult __sqlLogInternal( bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line )
+		static MafiaNet::SQLLogResult __sqlLogInternal( bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line )
 		{
-			if (logger==0) return SLNet::SQLLR_NOT_INSTANTIATED;
-			SLNet::SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,0); if (r!=SLNet::SQLLR_OK) return r;
+			if (logger==0) return MafiaNet::SQLLR_NOT_INSTANTIATED;
+			MafiaNet::SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,0); if (r!=MafiaNet::SQLLR_OK) return r;
 			return logger->SqlLog(isFunction, tableName, columnNames, file, line);
 		}
 		template <class T1>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,1); if (r!=SQLLR_OK) return r;
@@ -194,7 +194,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,2); if (r!=SQLLR_OK) return r;
@@ -204,7 +204,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,3); if (r!=SQLLR_OK) return r;
@@ -215,7 +215,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,4); if (r!=SQLLR_OK) return r;
@@ -227,7 +227,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,5); if (r!=SQLLR_OK) return r;
@@ -240,7 +240,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,6); if (r!=SQLLR_OK) return r;
@@ -254,7 +254,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,7); if (r!=SQLLR_OK) return r;
@@ -269,7 +269,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,8); if (r!=SQLLR_OK) return r;
@@ -285,7 +285,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,9); if (r!=SQLLR_OK) return r;
@@ -302,7 +302,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,10); if (r!=SQLLR_OK) return r;
@@ -320,7 +320,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,11); if (r!=SQLLR_OK) return r;
@@ -339,7 +339,7 @@ namespace SLNet
 				);
 		}
 		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12>
-		static SLNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11, const T12 &arg12 )
+		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11, const T12 &arg12 )
 		{
 			if (logger==0) return SQLLR_NOT_INSTANTIATED;
 			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,12); if (r!=SQLLR_OK) return r;
@@ -366,10 +366,10 @@ namespace SLNet
 
 
 	protected:
-		void SerializeHeader(SLNet::BitStream *bitStream, bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, unsigned char parameterCount ) const;
+		void SerializeHeader(MafiaNet::BitStream *bitStream, bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, unsigned char parameterCount ) const;
 
 		SystemAddress serverAddress;
-		SLNet::RakString dbIdentifier;
+		MafiaNet::RakString dbIdentifier;
 		uint32_t tickCount;
 		bool recursiveCheck;
 		unsigned int memoryConstraint;
@@ -377,134 +377,134 @@ namespace SLNet
 }
 
 /*
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line);
 }
 template <class T1>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1);
 }
 template <class T1, class T2>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2);
 }
 template <class T1, class T2, class T3>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3);
 }
 template <class T1, class T2, class T3, class T4>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4);
 }
 template <class T1, class T2, class T3, class T4, class T5>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12>
-SLNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11, const T12 &arg12 )
+MafiaNet::SQLLogResult __sqlLog(const char *tableDescriptor, const char *columnNames, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11, const T12 &arg12 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(false, tableDescriptor, columnNames, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12);
 }
 // TODO - Add _FILE_AND_LINE_ automatically somehow or this is nearly useless
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line);
 }
 template <class T1>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1);
 }
 template <class T1, class T2>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2);
 }
 template <class T1, class T2, class T3>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3);
 }
 template <class T1, class T2, class T3, class T4>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4);
 }
 template <class T1, class T2, class T3, class T4, class T5>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
 }
 template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12>
-SLNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11, const T12 &arg12 )
+MafiaNet::SQLLogResult __functionLog(const char *functionName, const char *file, const int line, const T1 &arg1, const T2 &arg2, const T3 &arg3, const T4 &arg4, const T5 &arg5, const T6 &arg6, const T7 &arg7, const T8 &arg8, const T9 &arg9, const T10 &arg10, const T11 &arg11, const T12 &arg12 )
 {
-	return SLNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12);
+	return MafiaNet::SQLiteClientLoggerPlugin::__sqlLogInternal(true, functionName, 0, file, line, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12);
 }
 */
 #endif

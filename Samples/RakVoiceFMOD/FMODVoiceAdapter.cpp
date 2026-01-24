@@ -30,7 +30,7 @@
 // Number of RakVoice frames in the fmod sound
 #define FRAMES_IN_SOUND 4
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 FMODVoiceAdapter FMODVoiceAdapter::instance;
 
@@ -231,7 +231,7 @@ void FMODVoiceAdapter::BroadcastFrame(void *ptr)
 		rakVoice->SendFrame(rakVoice->GetRakPeerInterface()->GetGUIDFromIndex(i), ptr);
 	}
 #else
-	rakVoice->SendFrame(SLNet::UNASSIGNED_SYSTEM_ADDRESS, ptr);
+	rakVoice->SendFrame(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, ptr);
 #endif
 
 }

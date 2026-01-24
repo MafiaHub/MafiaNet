@@ -28,7 +28,7 @@
 #include "slikenet/BitStream.h"
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int main()
 {

@@ -31,15 +31,15 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-SLNet::RakString file;
-SLNet::RakString fileCopy;
+MafiaNet::RakString file;
+MafiaNet::RakString fileCopy;
 
 //const char *file = "c:/temp/unittest.vcproj";
 //const char *fileCopy = "c:/temp/unittest_copy.vcproj";
 
 #define USE_TCP
 
-class TestCB : public SLNet::FileListTransferCBInterface
+class TestCB : public MafiaNet::FileListTransferCBInterface
 {
 public:
 	bool OnFile(
@@ -61,11 +61,11 @@ public:
 
 		// Make sure it worked
 		unsigned int hash1 = SuperFastHashFile(file.C_String());
-		if (SLNet::BitStream::DoEndianSwap())
-			SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash1, sizeof(hash1));
+		if (MafiaNet::BitStream::DoEndianSwap())
+			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash1, sizeof(hash1));
 		unsigned int hash2 = SuperFastHashFile(fileCopy.C_String());
-		if (SLNet::BitStream::DoEndianSwap())
-			SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash2, sizeof(hash2));
+		if (MafiaNet::BitStream::DoEndianSwap())
+			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash2, sizeof(hash2));
 		RakAssert(hash1==hash2);
 
 		// Return true to have RakNet delete the memory allocated to hold this file.
@@ -101,9 +101,9 @@ public:
 } transferCallback;
 
 // Sender progress notification
-class TestFileListProgress : public SLNet::FileListProgress
+class TestFileListProgress : public MafiaNet::FileListProgress
 {
-    virtual void OnFilePush(const char *fileName, unsigned int fileLengthBytes, unsigned int offset, unsigned int bytesBeingSent, bool done, SLNet::SystemAddress targetSystem, unsigned short setID)
+    virtual void OnFilePush(const char *fileName, unsigned int fileLengthBytes, unsigned int offset, unsigned int bytesBeingSent, bool done, MafiaNet::SystemAddress targetSystem, unsigned short setID)
 	{
 		// unused parameters
 		(void)fileLengthBytes;
@@ -114,7 +114,7 @@ class TestFileListProgress : public SLNet::FileListProgress
 		printf("Sending %s bytes=%u offset=%u\n", fileName, bytesBeingSent, offset);
 	}
 
-    virtual void OnFilePushesComplete(SLNet::SystemAddress systemAddress, unsigned short setID )
+    virtual void OnFilePushesComplete(MafiaNet::SystemAddress systemAddress, unsigned short setID )
 	{
 		// unused parameters
 		(void)setID;
@@ -123,7 +123,7 @@ class TestFileListProgress : public SLNet::FileListProgress
 		systemAddress.ToString(true, (char*) str, static_cast<size_t>(32));
 		RAKNET_DEBUG_PRINTF("File pushes complete to %s\n", str);	
 	}
-	virtual void OnSendAborted(SLNet::SystemAddress systemAddress )
+	virtual void OnSendAborted(MafiaNet::SystemAddress systemAddress )
 	{
 		char str[32];
 		systemAddress.ToString(true, (char*) str, static_cast<size_t>(32));
@@ -141,9 +141,9 @@ int main()
 	printf("Difficulty: Intermediate\n\n");
 
 	TestCB testCB;
-	SLNet::FileListTransfer flt1, flt2;
+	MafiaNet::FileListTransfer flt1, flt2;
 #ifdef USE_TCP
-	SLNet::PacketizedTCP tcp1, tcp2;
+	MafiaNet::PacketizedTCP tcp1, tcp2;
 	#if RAKNET_SUPPORT_IPV6==1
 	const bool testInet6=true;
 	#else
@@ -164,9 +164,9 @@ int main()
 	tcp1.AttachPlugin(&flt1);
 	tcp2.AttachPlugin(&flt2);
 #else
-	SLNet::RakPeerInterface *peer1 = SLNet::RakPeerInterface::GetInstance();
-	SLNet::RakPeerInterface *peer2 = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor sd1(60000,0),sd2(60001,0);
+	MafiaNet::RakPeerInterface *peer1 = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *peer2 = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor sd1(60000,0),sd2(60001,0);
 	peer1->Startup(1,&sd1,1);
 	peer2->Startup(1,&sd2,1);
 	peer1->SetMaximumIncomingConnections(1);
@@ -180,8 +180,8 @@ int main()
 	flt1.AddCallback(&testFileListProgress);
 	// Run incremental reads in a thread so the read does not block the main thread
 	flt1.StartIncrementalReadThreads(1);
-	SLNet::FileList fileList;
-	SLNet::IncrementalReadInterface incrementalReadInterface;
+	MafiaNet::FileList fileList;
+	MafiaNet::IncrementalReadInterface incrementalReadInterface;
 	printf("Enter complete filename with path to test:\n");
 	char str[256];
 	Gets(str, sizeof(str));
@@ -197,8 +197,8 @@ int main()
 
 #ifdef USE_TCP
 #else
-		SLNet::RakPeerInterface::DestroyInstance(peer1);
-		SLNet::RakPeerInterface::DestroyInstance(peer2);
+		MafiaNet::RakPeerInterface::DestroyInstance(peer1);
+		MafiaNet::RakPeerInterface::DestroyInstance(peer2);
 #endif
 		return 1;
 	}
@@ -206,13 +206,13 @@ int main()
 	// Wait for the connection
 	printf("File added.\n");
 	RakSleep(100);
-	SLNet::Packet *packet1, *packet2;
+	MafiaNet::Packet *packet1, *packet2;
 	for(;;)
 	{
 #ifdef USE_TCP
-		SLNet::SystemAddress sa;
+		MafiaNet::SystemAddress sa;
 		sa=tcp2.HasCompletedConnectionAttempt();
-		if (sa!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			flt2.SetupReceive(&testCB, false, sa);
 			break;
@@ -237,9 +237,9 @@ int main()
 #ifdef USE_TCP
 		packet1=tcp1.Receive();
 		packet2=tcp2.Receive();
-		SLNet::SystemAddress sa;
+		MafiaNet::SystemAddress sa;
 		sa = tcp1.HasNewIncomingConnection();
-		if (sa!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			flt1.Send(&fileList,0,sa,0,HIGH_PRIORITY,0, &incrementalReadInterface, 2000 * 1024);
 		tcp1.DeallocatePacket(packet1);
 		tcp2.DeallocatePacket(packet2);
@@ -258,8 +258,8 @@ int main()
 	
 #ifdef USE_TCP
 #else
-	SLNet::RakPeerInterface::DestroyInstance(peer1);
-	SLNet::RakPeerInterface::DestroyInstance(peer1);
+	MafiaNet::RakPeerInterface::DestroyInstance(peer1);
+	MafiaNet::RakPeerInterface::DestroyInstance(peer1);
 #endif
 
 

@@ -46,7 +46,7 @@ static const char *SYSTEM_ADDRESS_COMMAND="_System_Address";
 // Returned from the PHP server indicating when this row was last updated.
 static const char *LAST_UPDATE_COMMAND="__SEC_AFTER_EPOCH_SINCE_LAST_UPDATE";
 
-using namespace SLNet;
+using namespace MafiaNet;
 using namespace DataStructures;
 
 PHPDirectoryServer2::PHPDirectoryServer2()
@@ -63,7 +63,7 @@ void PHPDirectoryServer2::Init(HTTPConnection *_http, const char *_path)
 	pathToPHP=_path;
 }
 
-void PHPDirectoryServer2::SetField(SLNet::RakString columnName, SLNet::RakString value )
+void PHPDirectoryServer2::SetField(MafiaNet::RakString columnName, MafiaNet::RakString value )
 {
 	if (columnName.IsEmpty())
 		return;
@@ -82,7 +82,7 @@ unsigned int PHPDirectoryServer2::GetFieldCount(void) const
 {
 	return fields.Size();
 }
-void PHPDirectoryServer2::GetField(unsigned int index, SLNet::RakString &columnName, SLNet::RakString &value)
+void PHPDirectoryServer2::GetField(unsigned int index, MafiaNet::RakString &columnName, MafiaNet::RakString &value)
 {
 	RakAssert(index < fields.Size());
 	columnName=fields.GetKeyAtIndex(index);
@@ -111,7 +111,7 @@ void PHPDirectoryServer2::ClearFields(void)
 	nextRepost=0;
 }
 
-void PHPDirectoryServer2::UploadTable(SLNet::RakString uploadPassword, SLNet::RakString gameName, unsigned short gamePort, bool autoRepost)
+void PHPDirectoryServer2::UploadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost)
 {
 	gameNameParam=gameName;
 	gamePortParam=gamePort;
@@ -121,17 +121,17 @@ void PHPDirectoryServer2::UploadTable(SLNet::RakString uploadPassword, SLNet::Ra
 	SendOperation();
 
 	if (autoRepost)
-		nextRepost= SLNet::GetTimeMS()+50000;
+		nextRepost= MafiaNet::GetTimeMS()+50000;
 	else
 		nextRepost=0;
 }
-void PHPDirectoryServer2::DownloadTable(SLNet::RakString downloadPassword)
+void PHPDirectoryServer2::DownloadTable(MafiaNet::RakString downloadPassword)
 {
 	currentOperation="?query=download&downloadPassword=";
 	currentOperation+=downloadPassword;
 	SendOperation();
 }
-void PHPDirectoryServer2::UploadAndDownloadTable(SLNet::RakString uploadPassword, SLNet::RakString downloadPassword, SLNet::RakString gameName, unsigned short gamePort, bool autoRepost)
+void PHPDirectoryServer2::UploadAndDownloadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString downloadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost)
 {
 	gameNameParam=gameName;
 	gamePortParam=gamePort;
@@ -143,12 +143,12 @@ void PHPDirectoryServer2::UploadAndDownloadTable(SLNet::RakString uploadPassword
 	SendOperation();
 
 	if (autoRepost)
-		nextRepost= SLNet::GetTimeMS()+50000;
+		nextRepost= MafiaNet::GetTimeMS()+50000;
 	else
 		nextRepost=0;
 }
 
-HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(SLNet::RakString httpRead)
+HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead)
 {
 	const char *c = (const char*) httpRead.C_String(); // current position
 	HTTPReadResult resultCode=HTTP_RESULT_EMPTY;
@@ -161,9 +161,9 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(SLNet::RakString httpRead)
 	char buff[256];
 	int buffIndex;
 	bool isCommand=true;
-	DataStructures::List<SLNet::RakString> columns;
-	DataStructures::List<SLNet::RakString> values;
-	SLNet::RakString curString;
+	DataStructures::List<MafiaNet::RakString> columns;
+	DataStructures::List<MafiaNet::RakString> values;
+	MafiaNet::RakString curString;
 	bool isComment=false;
 	buffIndex=0;
 	while(c && *c)
@@ -229,7 +229,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(SLNet::RakString httpRead)
 
 	return resultCode;
 }
-void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<SLNet::RakString> &columns, DataStructures::List<SLNet::RakString> &values)
+void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values)
 {
 	DataStructures::Table::Row *row=0;
 
@@ -293,12 +293,12 @@ void PHPDirectoryServer2::Update(void)
 	if (nextRepost==0 || fields.Size()==0)
 		return;
 
-	SLNet::TimeMS time = GetTimeMS();
+	MafiaNet::TimeMS time = GetTimeMS();
 
 	// Entry deletes itself after 60 seconds, so keep reposting if set to do so
 	if (time > nextRepost)
 	{
-		nextRepost= SLNet::GetTimeMS()+50000;
+		nextRepost= MafiaNet::GetTimeMS()+50000;
 		SendOperation();
 	}
 }

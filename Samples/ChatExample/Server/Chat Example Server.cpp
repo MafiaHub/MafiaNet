@@ -48,7 +48,7 @@
 #endif
 
 // We copy this from Multiplayer.cpp to keep things all in one file for this example
-unsigned char GetPacketIdentifier(SLNet::Packet *p);
+unsigned char GetPacketIdentifier(MafiaNet::Packet *p);
 
 #ifdef _CONSOLE_2
 _CONSOLE_2_SetSystemProcessParams
@@ -58,11 +58,11 @@ int main(void)
 {
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
-	SLNet::RakPeerInterface *server= SLNet::RakPeerInterface::GetInstance();
-	SLNet::RakNetStatistics *rss;
+	MafiaNet::RakPeerInterface *server= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakNetStatistics *rss;
 	server->SetIncomingPassword("Rumpelstiltskin", (int)strlen("Rumpelstiltskin"));
-	server->SetTimeoutTime(30000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-//	SLNet::PacketLogger packetLogger;
+	server->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+//	MafiaNet::PacketLogger packetLogger;
 //	server->AttachPlugin(&packetLogger);
 
 #if LIBCAT_SECURITY==1
@@ -78,13 +78,13 @@ int main(void)
 #endif
 
 	// Holds packets
-	SLNet::Packet* p;
+	MafiaNet::Packet* p;
 
 	// GetPacketIdentifier returns this
 	unsigned char packetIdentifier;
 
 	// Record the first client that connects to us so we can pass it to the ping function
-	SLNet::SystemAddress clientID= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress clientID= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 
 	// Holds user data
 	char portstring[30];
@@ -109,19 +109,19 @@ int main(void)
 	// 0 means we don't care about a connectionValidationInteger, and false
 	// for low priority threads
 	// I am creating two socketDesciptors, to create two sockets. One using IPV6 and the other IPV4
-	SLNet::SocketDescriptor socketDescriptors[2];
+	MafiaNet::SocketDescriptor socketDescriptors[2];
 	socketDescriptors[0].port=static_cast<unsigned short>(intServerPort);
 	socketDescriptors[0].socketFamily=AF_INET; // Test out IPV4
 	socketDescriptors[1].port=static_cast<unsigned short>(intServerPort);
 	socketDescriptors[1].socketFamily=AF_INET6; // Test out IPV6
-	bool b = server->Startup(4, socketDescriptors, 2 )== SLNet::RAKNET_STARTED;
+	bool b = server->Startup(4, socketDescriptors, 2 )== MafiaNet::RAKNET_STARTED;
 	server->SetMaximumIncomingConnections(4);
 	if (!b)
 	{
 		printf("Failed to start dual IPV4 and IPV6 ports. Trying IPV4 only.\n");
 
 		// Try again, but leave out IPV6
-		b = server->Startup(4, socketDescriptors, 1 )== SLNet::RAKNET_STARTED;
+		b = server->Startup(4, socketDescriptors, 1 )== MafiaNet::RAKNET_STARTED;
 		if (!b)
 		{
 			puts("Server failed to start.  Terminating.");
@@ -131,7 +131,7 @@ int main(void)
 	server->SetOccasionalPing(true);
 	server->SetUnreliableTimeout(1000);
 
-	DataStructures::List< SLNet::RakNetSocket2* > sockets;
+	DataStructures::List< MafiaNet::RakNetSocket2* > sockets;
 	server->GetSockets(sockets);
 	printf("Socket addresses used by RakNet:\n");
 	for (unsigned int i=0; i < sockets.Size(); i++)
@@ -142,11 +142,11 @@ int main(void)
 	printf("\nMy IP addresses:\n");
 	for (unsigned int i=0; i < server->GetNumberOfAddresses(); i++)
 	{
-		SLNet::SystemAddress sa = server->GetInternalID(SLNet::UNASSIGNED_SYSTEM_ADDRESS, i);
+		MafiaNet::SystemAddress sa = server->GetInternalID(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, i);
 		printf("%i. %s (LAN=%i)\n", i+1, sa.ToString(false), sa.IsLANAddress());
 	}
 
-	printf("\nMy GUID is %s\n", server->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("\nMy GUID is %s\n", server->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
 	puts("'quit' to quit. 'stat' to show stats. 'ping' to ping.\n'pingip' to ping an ip address\n'ban' to ban an IP from connecting.\n'kick to kick the first connected player.\nType to talk.");
 	char message[2048];
 
@@ -214,9 +214,9 @@ int main(void)
 
 		if (strcmp(message, "getconnectionlist")==0)
 		{
-			SLNet::SystemAddress systems[10];
+			MafiaNet::SystemAddress systems[10];
 			unsigned short numConnections=10;
-			server->GetConnectionList((SLNet::SystemAddress*) &systems, &numConnections);
+			server->GetConnectionList((MafiaNet::SystemAddress*) &systems, &numConnections);
 			for (int i=0; i < numConnections; i++)
 			{
 				printf("%i. %s\n", i+1, systems[i].ToString(true));
@@ -250,9 +250,9 @@ int main(void)
 		// HIGH_PRIORITY doesn't actually matter here because we don't use any other priority
 		// RELIABLE_ORDERED means make sure the message arrives in the right order
 		// We arbitrarily pick 0 for the ordering stream
-		// SLNet::UNASSIGNED_SYSTEM_ADDRESS means don't exclude anyone from the broadcast
+		// MafiaNet::UNASSIGNED_SYSTEM_ADDRESS means don't exclude anyone from the broadcast
 		// true means broadcast the message to everyone connected
-		server->Send(message2, (const int) strlen(message2)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+		server->Send(message2, (const int) strlen(message2)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	}
 
 		// Get a packet from either the server or the client
@@ -279,8 +279,8 @@ int main(void)
 				printf("Remote internal IDs:\n");
 				for (int index=0; index < MAXIMUM_NUMBER_OF_INTERNAL_IDS; index++)
 				{
-					SLNet::SystemAddress internalId = server->GetInternalID(p->systemAddress, index);
-					if (internalId!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+					MafiaNet::SystemAddress internalId = server->GetInternalID(p->systemAddress, index);
+					if (internalId!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					{
 						printf("%i. %s\n", index+1, internalId.ToString(true));
 					}
@@ -322,7 +322,7 @@ int main(void)
 
 	server->Shutdown(300);
 	// We're done with the network
-	SLNet::RakPeerInterface::DestroyInstance(server);
+	MafiaNet::RakPeerInterface::DestroyInstance(server);
 
 	return 0;
 }
@@ -330,15 +330,15 @@ int main(void)
 // Copied from Multiplayer.cpp
 // If the first byte is ID_TIMESTAMP, then we want the 5th byte
 // Otherwise we want the 1st byte
-unsigned char GetPacketIdentifier(SLNet::Packet *p)
+unsigned char GetPacketIdentifier(MafiaNet::Packet *p)
 {
 	if (p==0)
 		return 255;
 
 	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
 	{
-		RakAssert(p->length > sizeof(SLNet::MessageID) + sizeof(SLNet::Time));
-		return (unsigned char) p->data[sizeof(SLNet::MessageID) + sizeof(SLNet::Time)];
+		RakAssert(p->length > sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time));
+		return (unsigned char) p->data[sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time)];
 	}
 	else
 		return (unsigned char) p->data[0];

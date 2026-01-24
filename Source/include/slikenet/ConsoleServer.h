@@ -29,7 +29,7 @@
 #include "types.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class TransportInterface;
@@ -82,7 +82,7 @@ protected:
 	char *prompt;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

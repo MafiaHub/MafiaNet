@@ -22,7 +22,7 @@
 
 
 
-namespace SLNet
+namespace MafiaNet
 {
 	class BitStream;
 
@@ -34,7 +34,7 @@ namespace SLNet
 		Lobby2Presence(const Lobby2Presence& input);
 		Lobby2Presence& operator = ( const Lobby2Presence& input );
 		~Lobby2Presence();
-		void Serialize(SLNet::BitStream *bitStream, bool writeToBitstream);
+		void Serialize(MafiaNet::BitStream *bitStream, bool writeToBitstream);
 
 		enum Status
 		{

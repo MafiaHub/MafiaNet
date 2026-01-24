@@ -16,7 +16,7 @@
 #include "Lobby2Message.h"
 #include "Lobby2Client.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 uint32_t Lobby2Callbacks::nextCallbackId=0;
 
@@ -301,7 +301,7 @@ bool Lobby2Message::ValidateEmailAddress( RakString *text )
 	return true;
 }
 bool Lobby2Message::PrevalidateInput(void) {return true;}
-bool Lobby2Message::ClientImpl(SLNet::Lobby2Plugin *client) { (void)client; return true; }
+bool Lobby2Message::ClientImpl(MafiaNet::Lobby2Plugin *client) { (void)client; return true; }
 bool Lobby2Message::ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle ) { (void)server; (void)curUserHandle; return false; }
 void Lobby2Message::ServerPostDBMemoryImpl( Lobby2Server *server, RakString curUserHandle ) { (void)server; (void)curUserHandle; }
 bool Lobby2Message::ServerDBImpl( Lobby2ServerCommand *command, void *databaseInterface ) { (void)command; (void)databaseInterface; resultCode=L2RC_COUNT; return true; }
@@ -719,7 +719,7 @@ bool System_SetEmailAddressValidated::PrevalidateInput( void )
 	if (!ValidateHandle(&userName)) return false;
 	return true;
 }
-void Client_ValidateHandle::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void Client_ValidateHandle::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream,userName);
@@ -2131,19 +2131,19 @@ bool Clans_GetPosts::PrevalidateInput( void )
 	
 	return true;
 }
-void SLNet::Notification_Client_RemoteLogin::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Client_RemoteLogin::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, handle);
 }
-void SLNet::Notification_Client_IgnoreStatus::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Client_IgnoreStatus::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, nowIgnored);
 	bitStream->Serialize(writeToBitstream, otherHandle);
 }
 
-void SLNet::Notification_Friends_StatusChange::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Friends_StatusChange::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, op);
@@ -2153,27 +2153,27 @@ void SLNet::Notification_Friends_StatusChange::Serialize( bool writeToBitstream,
 	presence.Serialize(bitStream,writeToBitstream);
 }
 
-void SLNet::Notification_Friends_PresenceUpdate::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Friends_PresenceUpdate::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	newPresence.Serialize(bitStream,writeToBitstream);
 	bitStream->Serialize(writeToBitstream, otherHandle);
 }
-void SLNet::Notification_User_ChangedHandle::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_User_ChangedHandle::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, oldHandle);
 	bitStream->Serialize(writeToBitstream, newHandle);
 }
 
-void SLNet::Notification_Friends_CreatedClan::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Friends_CreatedClan::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, otherHandle);
 	bitStream->Serialize(writeToBitstream, clanName);
 }
 
-void SLNet::Notification_Emails_Received::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Emails_Received::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, sender);
@@ -2181,7 +2181,7 @@ void SLNet::Notification_Emails_Received::Serialize( bool writeToBitstream, bool
 	bitStream->Serialize(writeToBitstream, emailId);
 }
 
-void SLNet::Notification_Clans_GrantLeader::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_GrantLeader::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
@@ -2189,7 +2189,7 @@ void SLNet::Notification_Clans_GrantLeader::Serialize( bool writeToBitstream, bo
 	bitStream->Serialize(writeToBitstream, oldLeader);
 }
 
-void SLNet::Notification_Clans_SetSubleaderStatus::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_SetSubleaderStatus::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
@@ -2198,7 +2198,7 @@ void SLNet::Notification_Clans_SetSubleaderStatus::Serialize( bool writeToBitstr
 	bitStream->Serialize(writeToBitstream, setToSubleader);
 }
 
-void SLNet::Notification_Clans_SetMemberRank::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_SetMemberRank::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
@@ -2207,7 +2207,7 @@ void SLNet::Notification_Clans_SetMemberRank::Serialize( bool writeToBitstream, 
 	bitStream->Serialize(writeToBitstream, newRank);
 }
 
-void SLNet::Notification_Clans_ChangeHandle::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_ChangeHandle::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, oldClanHandle);
@@ -2215,14 +2215,14 @@ void SLNet::Notification_Clans_ChangeHandle::Serialize( bool writeToBitstream, b
 	bitStream->Serialize(writeToBitstream, leaderHandle);
 }
 
-void SLNet::Notification_Clans_Leave::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_Leave::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
 	bitStream->Serialize(writeToBitstream, targetHandle);
 }
 
-void SLNet::Notification_Clans_PendingJoinStatus::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_PendingJoinStatus::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
@@ -2237,14 +2237,14 @@ void SLNet::Notification_Clans_PendingJoinStatus::Serialize( bool writeToBitstre
 	minorOp=(Notification_Clans_PendingJoinStatus::MinorOp) c2;
 }
 
-void SLNet::Notification_Clans_NewClanMember::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_NewClanMember::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
 	bitStream->Serialize(writeToBitstream, targetHandle);
 }
 
-void SLNet::Notification_Clans_KickAndBlacklistUser::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_KickAndBlacklistUser::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
@@ -2254,7 +2254,7 @@ void SLNet::Notification_Clans_KickAndBlacklistUser::Serialize( bool writeToBits
 	bitStream->Serialize(writeToBitstream, reason);
 }
 
-void SLNet::Notification_Clans_UnblacklistUser::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_UnblacklistUser::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, clanHandle);
@@ -2262,7 +2262,7 @@ void SLNet::Notification_Clans_UnblacklistUser::Serialize( bool writeToBitstream
 	bitStream->Serialize(writeToBitstream, unblacklistingUserHandle);
 }
 
-void SLNet::Notification_Clans_Destroyed::Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream )
+void MafiaNet::Notification_Clans_Destroyed::Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream )
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, oldClanLeader);
@@ -2270,7 +2270,7 @@ void SLNet::Notification_Clans_Destroyed::Serialize( bool writeToBitstream, bool
 }
 
 
-bool SLNet::Client_StartIgnore::ClientImpl(SLNet::Lobby2Plugin *client )
+bool MafiaNet::Client_StartIgnore::ClientImpl(MafiaNet::Lobby2Plugin *client )
 {
 	(void)client;
 //	if (resultCode==L2RC_SUCCESS)
@@ -2278,7 +2278,7 @@ bool SLNet::Client_StartIgnore::ClientImpl(SLNet::Lobby2Plugin *client )
 	return true;
 }
 
-bool SLNet::Client_StopIgnore::ClientImpl(SLNet::Lobby2Plugin *client )
+bool MafiaNet::Client_StopIgnore::ClientImpl(MafiaNet::Lobby2Plugin *client )
 {
 	(void)client;
 //	if (resultCode==L2RC_SUCCESS)
@@ -2286,7 +2286,7 @@ bool SLNet::Client_StopIgnore::ClientImpl(SLNet::Lobby2Plugin *client )
 	return true;
 }
 
-bool SLNet::Client_GetIgnoreList::ClientImpl(SLNet::Lobby2Plugin *client )
+bool MafiaNet::Client_GetIgnoreList::ClientImpl(MafiaNet::Lobby2Plugin *client )
 {
 	(void)client;
 //	if (resultCode==L2RC_SUCCESS)

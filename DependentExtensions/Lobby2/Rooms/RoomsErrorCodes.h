@@ -17,7 +17,7 @@
 #define __ROOMS_ERROR_CODES_H
 
 #include "slikenet/defines.h" // used for SLNet -> RakNet namespace change in RAKNET_COMPATIBILITY mode
-namespace SLNet
+namespace MafiaNet
 {
 
 enum RoomsErrorCode

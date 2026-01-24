@@ -33,7 +33,7 @@
 #include "string.h"
 #include "NatTypeDetectionCommon.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;

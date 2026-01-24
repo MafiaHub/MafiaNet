@@ -44,8 +44,8 @@ enum
 	P2P
 } topology;
 
-// ReplicaManager3 is in the namespace SLNet
-using namespace SLNet;
+// ReplicaManager3 is in the namespace MafiaNet
+using namespace MafiaNet;
 
 struct SampleReplica : public Replica3
 {
@@ -59,32 +59,32 @@ struct SampleReplica : public Replica3
 	~SampleReplica()
 	{
 	}
-	virtual SLNet::RakString GetName(void) const=0;
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+	virtual MafiaNet::RakString GetName(void) const=0;
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		allocationIdBitstream->Write(GetName());
 	}
-	void PrintStringInBitstream(SLNet::BitStream *bs)
+	void PrintStringInBitstream(MafiaNet::BitStream *bs)
 	{
 		if (bs->GetNumberOfBitsUsed()==0)
 			return;
-		SLNet::RakString rakString;
+		MafiaNet::RakString rakString;
 		bs->Read(rakString);
 		printf("Receive: %s\n", rakString.C_String());
 	}
 
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// variableDeltaSerializer is a helper class that tracks what variables were sent to what remote system
 		// This call adds another remote system to track
 		variableDeltaSerializer.AddRemoteSystemVariableHistory(destinationConnection->GetRakNetGUID());
 
-		constructionBitstream->Write(GetName() + SLNet::RakString(" SerializeConstruction"));
+		constructionBitstream->Write(GetName() + MafiaNet::RakString(" SerializeConstruction"));
 	}
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -92,15 +92,15 @@ struct SampleReplica : public Replica3
 		PrintStringInBitstream(constructionBitstream);
 		return true;
 	}
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// variableDeltaSerializer is a helper class that tracks what variables were sent to what remote system
 		// This call removes a remote system
 		variableDeltaSerializer.RemoveRemoteSystemVariableHistory(destinationConnection->GetRakNetGUID());
 
-		destructionBitstream->Write(GetName() + SLNet::RakString(" SerializeDestruction"));
+		destructionBitstream->Write(GetName() + MafiaNet::RakString(" SerializeDestruction"));
 	}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -108,7 +108,7 @@ struct SampleReplica : public Replica3
 		PrintStringInBitstream(destructionBitstream);
 		return true;
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -131,7 +131,7 @@ struct SampleReplica : public Replica3
 		serializeParameters->pro[0].reliability=UNRELIABLE_WITH_ACK_RECEIPT;
 		// Sending unreliably with an ack receipt requires the receipt number, and that you inform the system of ID_SND_RECEIPT_ACKED and ID_SND_RECEIPT_LOSS
 		serializeParameters->pro[0].sendReceipt=replicaManager->GetRakPeerInterface()->IncrementNextSendReceipt();
-		serializeParameters->messageTimestamp= SLNet::GetTime();
+		serializeParameters->messageTimestamp= MafiaNet::GetTime();
 
 		// Begin writing all variables to be sent UNRELIABLE_WITH_ACK_RECEIPT 
 		variableDeltaSerializer.BeginUnreliableAckedSerialize(
@@ -165,7 +165,7 @@ struct SampleReplica : public Replica3
 		// Use RM3SR_SERIALIZED_ALWAYS instead of RM3SR_SERIALIZED_ALWAYS_IDENTICALLY to support sending different data to different system, which is needed when using unreliable and dirty variable resends
 		return RM3SR_SERIALIZED_ALWAYS;
 	}
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		VariableDeltaSerializer::DeserializationContext deserializationContext;
 
@@ -187,28 +187,28 @@ struct SampleReplica : public Replica3
 		variableDeltaSerializer.EndDeserialize(&deserializationContext);
 	}
 
-	virtual void SerializeConstructionRequestAccepted(SLNet::BitStream *serializationBitstream, SLNet::Connection_RM3 *requestingConnection)
+	virtual void SerializeConstructionRequestAccepted(MafiaNet::BitStream *serializationBitstream, MafiaNet::Connection_RM3 *requestingConnection)
 	{
 		// unused parameters
 		(void)requestingConnection;
 
-		serializationBitstream->Write(GetName() + SLNet::RakString(" SerializeConstructionRequestAccepted"));
+		serializationBitstream->Write(GetName() + MafiaNet::RakString(" SerializeConstructionRequestAccepted"));
 	}
-	virtual void DeserializeConstructionRequestAccepted(SLNet::BitStream *serializationBitstream, SLNet::Connection_RM3 *acceptingConnection)
+	virtual void DeserializeConstructionRequestAccepted(MafiaNet::BitStream *serializationBitstream, MafiaNet::Connection_RM3 *acceptingConnection)
 	{
 		// unused parameters
 		(void)acceptingConnection;
 
 		PrintStringInBitstream(serializationBitstream);
 	}
-	virtual void SerializeConstructionRequestRejected(SLNet::BitStream *serializationBitstream, SLNet::Connection_RM3 *requestingConnection)
+	virtual void SerializeConstructionRequestRejected(MafiaNet::BitStream *serializationBitstream, MafiaNet::Connection_RM3 *requestingConnection)
 	{
 		// unused parameters
 		(void)requestingConnection;
 
-		serializationBitstream->Write(GetName() + SLNet::RakString(" SerializeConstructionRequestRejected"));
+		serializationBitstream->Write(GetName() + MafiaNet::RakString(" SerializeConstructionRequestRejected"));
 	}
-	virtual void DeserializeConstructionRequestRejected(SLNet::BitStream *serializationBitstream, SLNet::Connection_RM3 *rejectingConnection)
+	virtual void DeserializeConstructionRequestRejected(MafiaNet::BitStream *serializationBitstream, MafiaNet::Connection_RM3 *rejectingConnection)
 	{
 		// unused parameters
 		(void)rejectingConnection;
@@ -216,7 +216,7 @@ struct SampleReplica : public Replica3
 		PrintStringInBitstream(serializationBitstream);
 	}
 
-	virtual void OnPoppedConnection(SLNet::Connection_RM3 *droppedConnection)
+	virtual void OnPoppedConnection(MafiaNet::Connection_RM3 *droppedConnection)
 	{
 		// Same as in SerializeDestruction(), no longer track this system
 		variableDeltaSerializer.RemoveRemoteSystemVariableHistory(droppedConnection->GetRakNetGUID());
@@ -264,70 +264,70 @@ struct SampleReplica : public Replica3
 
 struct ClientCreatable_ClientSerialized : public SampleReplica
 {
-	virtual SLNet::RakString GetName(void) const
+	virtual MafiaNet::RakString GetName(void) const
 	{
-		return SLNet::RakString("ClientCreatable_ClientSerialized");
+		return MafiaNet::RakString("ClientCreatable_ClientSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
 		return SampleReplica::Serialize(serializeParameters);
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_ClientConstruction(destinationConnection,topology!=CLIENT);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_ClientConstruction(sourceConnection,topology!=CLIENT);
 	}
 
-	virtual RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_ClientSerializable(destinationConnection,topology!=CLIENT);
 	}
-	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_Client(droppedConnection);
 	}
 };
 struct ServerCreated_ClientSerialized : public SampleReplica
 {
-	virtual SLNet::RakString GetName(void) const
+	virtual MafiaNet::RakString GetName(void) const
 	{
-		return SLNet::RakString("ServerCreated_ClientSerialized");
+		return MafiaNet::RakString("ServerCreated_ClientSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
 		return SampleReplica::Serialize(serializeParameters);
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_ServerConstruction(destinationConnection,topology!=CLIENT);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_ServerConstruction(sourceConnection,topology!=CLIENT);
 	}
-	virtual RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_ClientSerializable(destinationConnection,topology!=CLIENT);
 	}
-	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_Server(droppedConnection);
 	}
 };
 struct ClientCreatable_ServerSerialized : public SampleReplica
 {
-	virtual SLNet::RakString GetName(void) const
+	virtual MafiaNet::RakString GetName(void) const
 	{
-		return SLNet::RakString("ClientCreatable_ServerSerialized");
+		return MafiaNet::RakString("ClientCreatable_ServerSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
@@ -335,31 +335,31 @@ struct ClientCreatable_ServerSerialized : public SampleReplica
 			return RM3SR_DO_NOT_SERIALIZE;
 		return SampleReplica::Serialize(serializeParameters);
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_ClientConstruction(destinationConnection,topology!=CLIENT);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_ClientConstruction(sourceConnection,topology!=CLIENT);
 	}
-	virtual RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_ServerSerializable(destinationConnection,topology!=CLIENT);
 	}
-	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_Client(droppedConnection);
 	}
 };
 struct ServerCreated_ServerSerialized : public SampleReplica
 {
-	virtual SLNet::RakString GetName(void) const
+	virtual MafiaNet::RakString GetName(void) const
 	{
-		return SLNet::RakString("ServerCreated_ServerSerialized");
+		return MafiaNet::RakString("ServerCreated_ServerSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
@@ -368,48 +368,48 @@ struct ServerCreated_ServerSerialized : public SampleReplica
 
 		return SampleReplica::Serialize(serializeParameters);
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_ServerConstruction(destinationConnection,topology!=CLIENT);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_ServerConstruction(sourceConnection,topology!=CLIENT);
 	}
-	virtual RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_ServerSerializable(destinationConnection,topology!=CLIENT);
 	}
-	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_Server(droppedConnection);
 	}
 };
 struct P2PReplica : public SampleReplica
 {
-	virtual SLNet::RakString GetName(void) const
+	virtual MafiaNet::RakString GetName(void) const
 	{
-		return SLNet::RakString("P2PReplica");
+		return MafiaNet::RakString("P2PReplica");
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_PeerToPeer(destinationConnection);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_PeerToPeer(sourceConnection);
 	}
-	virtual RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_PeerToPeer(destinationConnection);
 	}
-	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_PeerToPeer(droppedConnection);
 	}
@@ -431,12 +431,12 @@ public:
 		return true;
 	}
 
-	virtual Replica3 *AllocReplica(SLNet::BitStream *allocationId, ReplicaManager3 *replicaManager3)
+	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationId, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
-		SLNet::RakString typeName;
+		MafiaNet::RakString typeName;
 		allocationId->Read(typeName);
 		if (typeName=="ClientCreatable_ClientSerialized") return new ClientCreatable_ClientSerialized;
 		if (typeName=="ServerCreated_ClientSerialized") return new ServerCreated_ClientSerialized;
@@ -463,7 +463,7 @@ class ReplicaManager3Sample : public ReplicaManager3
 int main(void)
 {
 	int ch;
-	SLNet::SocketDescriptor sd;
+	MafiaNet::SocketDescriptor sd;
 	sd.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 	char ip[128];
 	static const unsigned short SERVER_PORT=12345;
@@ -472,7 +472,7 @@ int main(void)
 	// ReplicaManager3 requires NetworkIDManager to lookup pointers from numbers.
 	NetworkIDManager networkIdManager;
 	// Each application has one instance of RakPeerInterface
-	SLNet::RakPeerInterface *rakPeer;
+	MafiaNet::RakPeerInterface *rakPeer;
 	// The system that performs most of our functionality for this demo
 	ReplicaManager3Sample replicaManager;
 
@@ -484,7 +484,7 @@ int main(void)
 	printf("Start as (c)lient, (s)erver, (p)eer? ");
 	ch=_getche();
 
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	if (ch=='c' || ch=='C')
 	{
 		topology=CLIENT;
@@ -524,7 +524,7 @@ int main(void)
 	printf("Commands:\n(Q)uit\n'C'reate objects\n'R'andomly change variables in my objects\n'D'estroy my objects\n");
 
 	// Enter infinite loop to run the system
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	bool quit=false;
 	while (!quit)
 	{
@@ -555,7 +555,7 @@ int main(void)
 			case ID_ADVERTISE_SYSTEM:
 				// The first conditional is needed because ID_ADVERTISE_SYSTEM may be from a system we are connected to, but replying on a different address.
 				// The second conditional is because AdvertiseSystem also sends to the loopback
-				if (rakPeer->GetSystemAddressFromGuid(packet->guid)== SLNet::UNASSIGNED_SYSTEM_ADDRESS &&
+				if (rakPeer->GetSystemAddressFromGuid(packet->guid)== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS &&
 					rakPeer->GetMyGUID()!=packet->guid)
 				{
 					printf("Connecting to %s\n", packet->systemAddress.ToString(true));
@@ -622,9 +622,9 @@ int main(void)
 				// 	A. Send a packet to tell other systems to delete these objects
 				// 	B. Delete these objects on my own system
 				replicaManager.GetReplicasCreatedByMe(replicaListOut);
-				replicaManager.BroadcastDestructionList(replicaListOut, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+				replicaManager.BroadcastDestructionList(replicaListOut, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 				for (unsigned int i=0; i < replicaListOut.Size(); i++)
-					SLNet::OP_DELETE(replicaListOut[i], _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(replicaListOut[i], _FILE_AND_LINE_);
 			}
 
 		}
@@ -632,11 +632,11 @@ int main(void)
 		RakSleep(30);
 		for (unsigned short i=0; i < 4; i++)
 		{
-			if (rakPeer->GetInternalID(SLNet::UNASSIGNED_SYSTEM_ADDRESS,0).GetPort()!=SERVER_PORT+i)
+			if (rakPeer->GetInternalID(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,0).GetPort()!=SERVER_PORT+i)
 				rakPeer->AdvertiseSystem("255.255.255.255", SERVER_PORT+i, 0,0,0);
 		}
 	}
 
 	rakPeer->Shutdown(100,0);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 }

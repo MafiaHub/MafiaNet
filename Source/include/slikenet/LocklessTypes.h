@@ -24,7 +24,7 @@
 #include "SimpleMutex.h"
 #endif
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RAK_DLL_EXPORT LocklessUint32_t

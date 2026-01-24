@@ -16,7 +16,7 @@
 #include "Lobby2ResultCode.h"
 #include "slikenet/assert.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static Lobby2ResultCodeDescription resultCodeDescriptions[L2RC_COUNT] =
 {

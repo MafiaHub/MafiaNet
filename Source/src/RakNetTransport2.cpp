@@ -28,7 +28,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(RakNetTransport2,RakNetTransport2);
 
@@ -52,7 +52,7 @@ void RakNetTransport2::Stop(void)
 	for (unsigned int i=0; i < packetQueue.Size(); i++)
 	{
 		rakFree_Ex(packetQueue[i]->data,_FILE_AND_LINE_);
-		SLNet::OP_DELETE(packetQueue[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(packetQueue[i],_FILE_AND_LINE_);
 	}
 	packetQueue.Clear(_FILE_AND_LINE_);
 }
@@ -66,7 +66,7 @@ void RakNetTransport2::Send( SystemAddress systemAddress, const char *data, ... 
 	vsnprintf_s(text, REMOTE_MAX_TEXT_INPUT-1, data, ap);
 	va_end(ap);
 
-	SLNet::BitStream str;
+	MafiaNet::BitStream str;
 	str.Write((MessageID)ID_TRANSPORT_STRING);
 	str.Write(text, (int) strlen(text));
 	str.Write((unsigned char) 0); // Null terminate the string
@@ -97,7 +97,7 @@ SystemAddress RakNetTransport2::HasLostConnection(void)
 void RakNetTransport2::DeallocatePacket( Packet *packet )
 {
 	rakFree_Ex(packet->data, _FILE_AND_LINE_ );
-	SLNet::OP_DELETE(packet, _FILE_AND_LINE_ );
+	MafiaNet::OP_DELETE(packet, _FILE_AND_LINE_ );
 }
 PluginReceiveResult RakNetTransport2::OnReceive(Packet *packet)
 {
@@ -108,7 +108,7 @@ PluginReceiveResult RakNetTransport2::OnReceive(Packet *packet)
 			if (packet->length==sizeof(MessageID))
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;
 
-			Packet *p = SLNet::OP_NEW<Packet>(_FILE_AND_LINE_);
+			Packet *p = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
 			*p=*packet;
 			p->bitSize-=8;
 			p->length--;

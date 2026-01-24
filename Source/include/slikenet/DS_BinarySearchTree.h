@@ -69,7 +69,7 @@ namespace DataStructures
 	 * A.Add(10);
 	 * A.Add(15);
 	 * A.Add(5);
-	 * int* array = SLNet::OP_NEW<int >(A.Size(), _FILE_AND_LINE_ );
+	 * int* array = MafiaNet::OP_NEW<int >(A.Size(), _FILE_AND_LINE_ );
 	 * A.DisplayInorder(array);
 	 * array[0]; // returns 5
 	 * array[1]; // returns 10
@@ -571,8 +571,8 @@ namespace DataStructures
 					parent->right = 0;
 			}
 			
-			SLNet::OP_DELETE(node_to_delete->item, file, line);
-			SLNet::OP_DELETE(node_to_delete, file, line);
+			MafiaNet::OP_DELETE(node_to_delete->item, file, line);
+			MafiaNet::OP_DELETE(node_to_delete, file, line);
 			BinarySearchTree_size--;
 			return parent;
 		}
@@ -591,9 +591,9 @@ namespace DataStructures
 				else
 					root = current->right; // Without a parent this must be the root node
 					
-				SLNet::OP_DELETE(node_to_delete->item, file, line);
+				MafiaNet::OP_DELETE(node_to_delete->item, file, line);
 				
-				SLNet::OP_DELETE(node_to_delete, file, line);
+				MafiaNet::OP_DELETE(node_to_delete, file, line);
 				
 				BinarySearchTree_size--;
 				
@@ -614,9 +614,9 @@ namespace DataStructures
 					else
 						root = current->left; // Without a parent this must be the root node
 						
-					SLNet::OP_DELETE(node_to_delete->item, file, line);
+					MafiaNet::OP_DELETE(node_to_delete->item, file, line);
 					
-					SLNet::OP_DELETE(node_to_delete, file, line);
+					MafiaNet::OP_DELETE(node_to_delete, file, line);
 					
 					BinarySearchTree_size--;
 					
@@ -635,7 +635,7 @@ namespace DataStructures
 						current = current->left;
 					}
 					
-					// Replace the value held by the node to SLNet::OP_DELETE(with the value pointed to by current, _FILE_AND_LINE_);
+					// Replace the value held by the node to MafiaNet::OP_DELETE(with the value pointed to by current, _FILE_AND_LINE_);
 					*( node_to_delete->item ) = *( current->item );
 					
 					// Delete current.
@@ -647,9 +647,9 @@ namespace DataStructures
 						else
 							parent->left = 0;
 							
-						SLNet::OP_DELETE(current->item, file, line);
+						MafiaNet::OP_DELETE(current->item, file, line);
 						
-						SLNet::OP_DELETE(current, file, line);
+						MafiaNet::OP_DELETE(current, file, line);
 						
 						BinarySearchTree_size--;
 						
@@ -665,9 +665,9 @@ namespace DataStructures
 						else
 							parent->left = current->right;
 							
-						SLNet::OP_DELETE(current->item, file, line);
+						MafiaNet::OP_DELETE(current->item, file, line);
 						
-						SLNet::OP_DELETE(current, file, line);
+						MafiaNet::OP_DELETE(current, file, line);
 						
 						BinarySearchTree_size--;
 						
@@ -689,8 +689,8 @@ namespace DataStructures
 		if ( BinarySearchTree_size == 0 )
 		{
 			BinarySearchTree_size = 1;
-			root = SLNet::OP_NEW<typename BinarySearchTree::node>( file, line );
-			root->item = SLNet::OP_NEW<BinarySearchTreeType>( file, line );
+			root = MafiaNet::OP_NEW<typename BinarySearchTree::node>( file, line );
+			root->item = MafiaNet::OP_NEW<BinarySearchTreeType>( file, line );
 			*( root->item ) = input;
 			root->left = 0;
 			root->right = 0;
@@ -710,8 +710,8 @@ namespace DataStructures
 				{
 					if ( current->left == 0 )
 					{
-						current->left = SLNet::OP_NEW<typename BinarySearchTree::node>( file, line );
-						current->left->item = SLNet::OP_NEW<BinarySearchTreeType>( file, line );
+						current->left = MafiaNet::OP_NEW<typename BinarySearchTree::node>( file, line );
+						current->left->item = MafiaNet::OP_NEW<BinarySearchTreeType>( file, line );
 						current = current->left;
 						current->left = 0;
 						current->right = 0;
@@ -732,8 +732,8 @@ namespace DataStructures
 					{
 						if ( current->right == 0 )
 						{
-							current->right = SLNet::OP_NEW<typename BinarySearchTree::node>( file, line );
-							current->right->item = SLNet::OP_NEW<BinarySearchTreeType>( file, line );
+							current->right = MafiaNet::OP_NEW<typename BinarySearchTree::node>( file, line );
+							current->right->item = MafiaNet::OP_NEW<BinarySearchTreeType>( file, line );
 							current = current->right;
 							current->left = 0;
 							current->right = 0;
@@ -1086,8 +1086,8 @@ namespace DataStructures
 		{
 			if ( BinarySearchTree_size == 1 )
 			{
-				SLNet::OP_DELETE(root->item, file, line);
-				SLNet::OP_DELETE(root, file, line);
+				MafiaNet::OP_DELETE(root->item, file, line);
+				MafiaNet::OP_DELETE(root, file, line);
 				root = 0;
 				BinarySearchTree_size = 0;
 			}
@@ -1115,9 +1115,9 @@ namespace DataStructures
 						else
 							parent->right = 0;
 							
-						SLNet::OP_DELETE(current->item, file, line);
+						MafiaNet::OP_DELETE(current->item, file, line);
 						
-						SLNet::OP_DELETE(current, file, line);
+						MafiaNet::OP_DELETE(current, file, line);
 						
 						current = parent;
 						

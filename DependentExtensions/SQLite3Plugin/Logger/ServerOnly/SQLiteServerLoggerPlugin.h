@@ -29,7 +29,7 @@ class RakPeerInterface;
 
 #define MAX_PACKETS_PER_CPU_INPUT_THREAD 16
 
-namespace SLNet
+namespace MafiaNet
 {
 
 	/// \brief Extends SQLite3ServerPlugin to support logging functions, including compressing images.
@@ -114,23 +114,23 @@ namespace SLNet
 
 		struct SessionNameAndSystemAddress
 		{
-			SLNet::RakString sessionName;
+			MafiaNet::RakString sessionName;
 			SystemAddress systemAddress;
 			sqlite3 *referencedPointer;
-			SLNet::TimeMS timestampDelta;
-//			SLNet::TimeMS dbAgeWhenCreated;
+			MafiaNet::TimeMS timestampDelta;
+//			MafiaNet::TimeMS dbAgeWhenCreated;
 		};
 		DataStructures::List<SessionNameAndSystemAddress> loggedInSessions;
 
 		// An incoming data packet, and when it arrived
 		struct CPUThreadInputNode
 		{
-			SLNet::Packet *packet;
-		//	SLNet::TimeMS whenMessageArrived;
+			MafiaNet::Packet *packet;
+		//	MafiaNet::TimeMS whenMessageArrived;
 			// Time difference from their time to server time, plus the age of the database at the time the session was created
 			// Applied to CPUThreadOutputNode::clientSendingTime before being passed to SQL
-			SLNet::TimeMS timestampDelta;
-			SLNet::RakString dbIdentifier;
+			MafiaNet::TimeMS timestampDelta;
+			MafiaNet::RakString dbIdentifier;
 		};
 		// As packets arrive, they are added to a CPUThreadInput structure.
 		// When the structure is full, or when a maximum amount of time has elapsed, whichever is first, then it is pushed to a thread for processing
@@ -146,17 +146,17 @@ namespace SLNet
 		// Images are now in compressed format, should the parameter list indeed have a query
 		struct CPUThreadOutputNode
 		{
-			SLNet::Packet *packet; // Passthrough
-//			SLNet::TimeMS whenMessageArrived; // Passthrough
-			SLNet::RakString dbIdentifier; // Passthrough
+			MafiaNet::Packet *packet; // Passthrough
+//			MafiaNet::TimeMS whenMessageArrived; // Passthrough
+			MafiaNet::RakString dbIdentifier; // Passthrough
 			// SystemAddress systemAddress;
 			char ipAddressString[32];
-			SLNet::RakString tableName;
-			SLNet::RakString file;
-			SLNet::TimeMS clientSendingTime;
+			MafiaNet::RakString tableName;
+			MafiaNet::RakString file;
+			MafiaNet::TimeMS clientSendingTime;
 			unsigned char parameterCount;
 			bool isFunctionCall;
-			DataStructures::List<SLNet::RakString> insertingColumnNames;
+			DataStructures::List<MafiaNet::RakString> insertingColumnNames;
 			LogParameter parameterList[MAX_SQLLITE_LOGGER_PARAMETERS];
 			uint32_t tickCount;
 			int line;
@@ -181,12 +181,12 @@ namespace SLNet
 		};
 
 	protected:
-		unsigned int CreateDBHandle(SLNet::RakString dbIdentifier);
+		unsigned int CreateDBHandle(MafiaNet::RakString dbIdentifier);
 		void CloseUnreferencedSessions(void);
 
 		SessionManagementMode sessionManagementMode;
 		bool createDirectoryForFile;
-		SLNet::RakString newDatabaseFilePath;
+		MafiaNet::RakString newDatabaseFilePath;
 
 		ThreadPool<CPUThreadInput*, CPUThreadOutput*> cpuLoggerThreadPool;
 		ThreadPool<SQLThreadInput, SQLThreadOutput> sqlLoggerThreadPool;
@@ -200,7 +200,7 @@ namespace SLNet
 		void StopCPUSQLThreads(void);
 
 		CPUThreadInput *cpuThreadInput;
-		SLNet::TimeMS whenCpuThreadInputAllocated;
+		MafiaNet::TimeMS whenCpuThreadInputAllocated;
 		bool dxtCompressionEnabled;
 
 	};

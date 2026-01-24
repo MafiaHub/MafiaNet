@@ -22,7 +22,7 @@
 #include "types.h"
 #include "string.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class BitStream;
@@ -51,12 +51,12 @@ public:
 struct RAK_DLL_EXPORT CloudKey
 {
 	CloudKey() {}
-	CloudKey(SLNet::RakString _primaryKey, uint32_t _secondaryKey) : primaryKey(_primaryKey), secondaryKey(_secondaryKey) {}
+	CloudKey(MafiaNet::RakString _primaryKey, uint32_t _secondaryKey) : primaryKey(_primaryKey), secondaryKey(_secondaryKey) {}
 	~CloudKey() {}
 
 	/// Identifies the primary key. This is intended to be a major category, such as the name of the application
 	/// Must be non-empty
-	SLNet::RakString primaryKey;
+	MafiaNet::RakString primaryKey;
 
 	/// Identifies the secondary key. This is intended to be a subcategory enumeration, such as PLAYER_LIST or RUNNING_SCORES
 	uint32_t secondaryKey;

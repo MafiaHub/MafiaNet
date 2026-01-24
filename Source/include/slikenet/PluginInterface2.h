@@ -26,7 +26,7 @@
 #include "Export.h"
 #include "PacketPriority.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 /// Forward declarations
 class RakPeerInterface;
@@ -164,16 +164,16 @@ public:
 	/// \param[in] internalPacket The user message, along with all send data.
 	/// \param[in] frameNumber The number of frames sent or received so far for this player depending on \a isSend .  Indicates the frame of this user message.
 	/// \param[in] remoteSystemAddress The player we sent or got this packet from
-	/// \param[in] time The current time as returned by SLNet::GetTimeMS()
+	/// \param[in] time The current time as returned by MafiaNet::GetTimeMS()
 	/// \param[in] isSend Is this callback representing a send event or receive event?
-	virtual void OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, SLNet::TimeMS time, int isSend) {(void) internalPacket; (void) frameNumber; (void) remoteSystemAddress; (void) time; (void) isSend;}
+	virtual void OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend) {(void) internalPacket; (void) frameNumber; (void) remoteSystemAddress; (void) time; (void) isSend;}
 
 	/// Called when we get an ack for a message we reliably sent
 	/// \pre To be called, UsesReliabilityLayer() must return true
 	/// \param[in] messageNumber The numerical identifier for which message this is
 	/// \param[in] remoteSystemAddress The player we sent or got this packet from
-	/// \param[in] time The current time as returned by SLNet::GetTimeMS()
-	virtual void OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, SLNet::TimeMS time) {(void) messageNumber; (void) remoteSystemAddress; (void) time;}
+	/// \param[in] time The current time as returned by MafiaNet::GetTimeMS()
+	virtual void OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time) {(void) messageNumber; (void) remoteSystemAddress; (void) time;}
 
 	/// System called RakPeerInterface::PushBackPacket
 	/// \param[in] data The data being sent
@@ -195,7 +195,7 @@ public:
 
 protected:
 	// Send through either rakPeerInterface or tcpInterface, whichever is available
-	void SendUnified( const SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast );
+	void SendUnified( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast );
 	void SendUnified( const char * data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast );
 	bool SendListUnified( const char **data, const int *lengths, const int numParameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast );
 
@@ -210,7 +210,7 @@ protected:
 #endif
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

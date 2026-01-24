@@ -25,7 +25,7 @@
 #include "slikenet/SocketLayer.h"
 #include "slikenet/DS_OrderedList.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 struct Lobby2Message;
 

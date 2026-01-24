@@ -63,22 +63,22 @@ namespace DataStructures
 		bool IsWithinRange(range_type value) const;
 		unsigned Size(void) const;
 		unsigned RangeSum(void) const;
-		SLNet::BitSize_t Serialize(SLNet::BitStream *in, SLNet::BitSize_t maxBits, bool clearSerialized);
-		bool Deserialize(SLNet::BitStream *out);
+		MafiaNet::BitSize_t Serialize(MafiaNet::BitStream *in, MafiaNet::BitSize_t maxBits, bool clearSerialized);
+		bool Deserialize(MafiaNet::BitStream *out);
 
 		DataStructures::OrderedList<range_type, RangeNode<range_type>, RangeNodeComp<range_type>> ranges;
 
 		// internal helpers
 	private:
-		static bool DeserializeSingleRange(SLNet::BitStream *out, range_type& min, range_type& max);
+		static bool DeserializeSingleRange(MafiaNet::BitStream *out, range_type& min, range_type& max);
 	};
 
 	template <class range_type>
-	SLNet::BitSize_t RangeList<range_type>::Serialize(SLNet::BitStream *in, SLNet::BitSize_t maxBits, bool clearSerialized)
+	MafiaNet::BitSize_t RangeList<range_type>::Serialize(MafiaNet::BitStream *in, MafiaNet::BitSize_t maxBits, bool clearSerialized)
 	{
 		RakAssert(ranges.Size() < (unsigned short)-1);
-		SLNet::BitStream tempBS;
-		SLNet::BitSize_t bitsWritten;
+		MafiaNet::BitStream tempBS;
+		MafiaNet::BitSize_t bitsWritten;
 		unsigned short countWritten;
 		unsigned i;
 		countWritten=0;
@@ -105,7 +105,7 @@ namespace DataStructures
 		}
 
 		in->AlignWriteToByteBoundary();
-		SLNet::BitSize_t before=in->GetWriteOffset();
+		MafiaNet::BitSize_t before=in->GetWriteOffset();
 		in->Write(countWritten);
 		bitsWritten+=in->GetWriteOffset()-before;
 	//	RAKNET_DEBUG_PRINTF("%i ", in->GetNumberOfBitsUsed());
@@ -124,7 +124,7 @@ namespace DataStructures
 	}
 
 	template <class range_type>
-	bool RangeList<range_type>::Deserialize(SLNet::BitStream *out)
+	bool RangeList<range_type>::Deserialize(MafiaNet::BitStream *out)
 	{
 		ranges.Clear(true, _FILE_AND_LINE_);
 		unsigned short count;
@@ -159,7 +159,7 @@ namespace DataStructures
 	}
 
 	template <class range_type>
-	bool RangeList<range_type>::DeserializeSingleRange(SLNet::BitStream *out, range_type& min, range_type& max)
+	bool RangeList<range_type>::DeserializeSingleRange(MafiaNet::BitStream *out, range_type& min, range_type& max)
 	{
 		unsigned char maxEqualToMin;
 

@@ -20,38 +20,38 @@
 #include "DS_Table.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 	class BitStream;
 }
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RAK_DLL_EXPORT TableSerializer
 {
 public:
-	static void SerializeTable(DataStructures::Table *in, SLNet::BitStream *out);
+	static void SerializeTable(DataStructures::Table *in, MafiaNet::BitStream *out);
 	static bool DeserializeTable(unsigned char *serializedTable, unsigned int dataLength, DataStructures::Table *out);
-	static bool DeserializeTable(SLNet::BitStream *in, DataStructures::Table *out);
-	static void SerializeColumns(DataStructures::Table *in, SLNet::BitStream *out);
-	static void SerializeColumns(DataStructures::Table *in, SLNet::BitStream *out, DataStructures::List<int> &skipColumnIndices);
-	static bool DeserializeColumns(SLNet::BitStream *in, DataStructures::Table *out);
-	static void SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, SLNet::BitStream *out);
-	static void SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, SLNet::BitStream *out, DataStructures::List<int> &skipColumnIndices);
-	static bool DeserializeRow(SLNet::BitStream *in, DataStructures::Table *out);
-	static void SerializeCell(SLNet::BitStream *out, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType);
-	static bool DeserializeCell(SLNet::BitStream *in, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType);
-	static void SerializeFilterQuery(SLNet::BitStream *in, DataStructures::Table::FilterQuery *query);
+	static bool DeserializeTable(MafiaNet::BitStream *in, DataStructures::Table *out);
+	static void SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out);
+	static void SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out, DataStructures::List<int> &skipColumnIndices);
+	static bool DeserializeColumns(MafiaNet::BitStream *in, DataStructures::Table *out);
+	static void SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out);
+	static void SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out, DataStructures::List<int> &skipColumnIndices);
+	static bool DeserializeRow(MafiaNet::BitStream *in, DataStructures::Table *out);
+	static void SerializeCell(MafiaNet::BitStream *out, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType);
+	static bool DeserializeCell(MafiaNet::BitStream *in, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType);
+	static void SerializeFilterQuery(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query);
 	// Note that this allocates query->cell->c!
-	static bool DeserializeFilterQuery(SLNet::BitStream *out, DataStructures::Table::FilterQuery *query);
-	static void SerializeFilterQueryList(SLNet::BitStream *in, DataStructures::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries);
+	static bool DeserializeFilterQuery(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery *query);
+	static void SerializeFilterQueryList(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries);
 	// Note that this allocates queries, cells, and query->cell->c!. Use DeallocateQueryList to free.
-	static bool DeserializeFilterQueryList(SLNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries=0);
+	static bool DeserializeFilterQueryList(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries=0);
 	static void DeallocateQueryList(DataStructures::Table::FilterQuery *query, unsigned int numQueries);
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 
@@ -201,7 +201,7 @@ void main(void)
 		RAKNET_DEBUG_PRINTF("%s\n", out);
 	}
 
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	RAKNET_DEBUG_PRINTF("PreSerialize:\n");
 	for (i=0; i < table.GetRowCount(); i++)
 	{

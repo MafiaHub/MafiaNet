@@ -24,7 +24,7 @@
 #include "IntervalTimer.h"
 #include "RoomTypes.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 class ProfanityFilter;
 class Room;
@@ -47,7 +47,7 @@ public:
 	void SetInQuickJoin(bool b) {inQuickJoin=b; if (b) room=0;}
 
 	// Name is used for persistent invites and bans. Name should be unique among all participants or else the invites and bans will be applied to the wrong players
-	SLNet::RakString GetName(void) const {return name;}
+	MafiaNet::RakString GetName(void) const {return name;}
 	void SetName(const char *str) {name = str;}
 	void SetSystemAddress(const SystemAddress &sa) {systemAddress=sa;}
 	SystemAddress GetSystemAddress(void) const {return systemAddress;}
@@ -57,7 +57,7 @@ public:
 	PerGameRoomsContainer *GetPerGameRoomsContainer(void) const {return perGameRoomsContainer;}
 	bool GetInQuickJoin(void) const {return inQuickJoin;}
 protected:
-	SLNet::RakString name;
+	MafiaNet::RakString name;
 	SystemAddress systemAddress;
 	RakNetGUID guid;
 	Room *room;
@@ -65,7 +65,7 @@ protected:
 	PerGameRoomsContainer *perGameRoomsContainer;
 };
 
-typedef SLNet::RakString GameIdentifier;
+typedef MafiaNet::RakString GameIdentifier;
 
 enum RoomLockState
 {
@@ -96,7 +96,7 @@ struct Slots
 	unsigned int reservedSlots;
 	unsigned int spectatorSlots;
 	unsigned int GetTotalSlots(void) const {return publicSlots+reservedSlots+spectatorSlots;}
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	RoomsErrorCode Validate(void) const;
 };
 
@@ -105,21 +105,21 @@ struct InvitedUser
 	InvitedUser() {room=0; roomId=0; invitedAsSpectator=false;}
 	Room *room;
 	RoomID roomId;
-	SLNet::RakString invitorName;
+	MafiaNet::RakString invitorName;
 	SystemAddress invitorSystemAddress;
-	SLNet::RakString target;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString target;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	bool invitedAsSpectator;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 struct BannedUser
 {
-	SLNet::RakString target;
-	SLNet::RakString reason;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	MafiaNet::RakString target;
+	MafiaNet::RakString reason;
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 struct RemoveUserResult
@@ -132,7 +132,7 @@ struct RemoveUserResult
 	bool removedFromQuickJoin;
 	bool removedFromRoom;
 	SystemAddress removedUserAddress;
-	SLNet::RakString removedUserName;
+	MafiaNet::RakString removedUserName;
 
 	// Following members only apply if removedFromRoom==true
 	Room *room;
@@ -142,13 +142,13 @@ struct RemoveUserResult
 	bool roomDestroyed; // Up to caller to deallocate
 
 	QuickJoinUser *qju;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 
 struct RoomMemberDescriptor
 {
-	SLNet::RakString name;
+	MafiaNet::RakString name;
 	RoomMemberMode roomMemberMode;
 	bool isReady;
 	// Filled externally
@@ -156,7 +156,7 @@ struct RoomMemberDescriptor
 	RakNetGUID guid;
 
 	void FromRoomMember(RoomMember *roomMember);
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 struct NetworkedRoomCreationParameters
@@ -178,9 +178,9 @@ struct NetworkedRoomCreationParameters
 		INVITE_MODE_MODERATOR_OR_PUBLIC_OR_RESERVED_SLOTS_CAN_INVITE,
 	} inviteToRoomPermission, inviteToSpectatorSlotPermission;
 	bool clearInvitesOnNewModerator; // Leave or change
-	SLNet::RakString roomName;
+	MafiaNet::RakString roomName;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	static const char *SendInvitePermissionToEnum(SendInvitePermission e);
 };
 struct RoomDescriptor
@@ -211,7 +211,7 @@ struct RoomDescriptor
 		roomProperties.Clear();
 	}
 	void FromRoom(Room *room, AllGamesRoomsContainer *agrc);
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 struct JoinedRoomResult
@@ -221,17 +221,17 @@ struct JoinedRoomResult
 	Room* roomOutput;
 	RoomDescriptor roomDescriptor;
 	RoomsParticipant* acceptedInvitor;
-	SLNet::RakString acceptedInvitorName;
+	MafiaNet::RakString acceptedInvitorName;
 	SystemAddress acceptedInvitorAddress;
 	RoomsParticipant* joiningMember;
-	SLNet::RakString joiningMemberName;
+	MafiaNet::RakString joiningMemberName;
 	SystemAddress joiningMemberAddress;
 	RakNetGUID joiningMemberGuid;
 
 	// Needed to serialize
 	AllGamesRoomsContainer *agrc;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream );
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream );
 };
 
 
@@ -253,7 +253,7 @@ struct RoomCreationParameters
 
 	// May return REC_ROOM_CREATION_PARAMETERS_* or REC_SUCCESS
 	RoomsErrorCode Validate(
-		const DataStructures::List<SLNet::RakString> &otherRoomNames,
+		const DataStructures::List<MafiaNet::RakString> &otherRoomNames,
 		ProfanityFilter *profanityFilter) const;
 };
 
@@ -263,7 +263,7 @@ struct RoomMember
 	~RoomMember();
 	RoomsParticipant* roomsParticipant;
 	RoomMemberMode roomMemberMode;
-	SLNet::TimeMS joinTime;
+	MafiaNet::TimeMS joinTime;
 	bool isReady;
 	// Internal - set to false when a new member is added. When the other members have been told about this member, it is set to true
 	bool newMemberNotificationProcessed;
@@ -271,7 +271,7 @@ struct RoomMember
 struct KickedUser
 {
 	RoomsParticipant* roomsParticipant;
-	SLNet::RakString reason;
+	MafiaNet::RakString reason;
 };
 
 struct RoomQuery
@@ -294,7 +294,7 @@ struct RoomQuery
 	void AddQuery_POINTER(const char *columnName, void *ptr, DataStructures::Table::FilterQueryType op=DataStructures::Table::QF_EQUAL);
 	RoomsErrorCode Validate(void);
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 
 	/// \internal
 	void SetQueriesToStatic(void);
@@ -311,13 +311,13 @@ struct NetworkedQuickJoinUser
 	NetworkedQuickJoinUser() {timeout=60000; minimumPlayers=2;}
 
 	// How long to wait for
-	SLNet::TimeMS timeout;
+	MafiaNet::TimeMS timeout;
 	// What queries to join the room on.
 	RoomQuery query;
 	// Minimum number of slots to join
 	int minimumPlayers;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 struct QuickJoinUser
@@ -328,7 +328,7 @@ struct QuickJoinUser
 	NetworkedQuickJoinUser networkedQuickJoinUser;
 
 	// Total amount of time spent waiting
-	SLNet::TimeMS totalTimeWaiting;
+	MafiaNet::TimeMS totalTimeWaiting;
 
 	// Which user
 	RoomsParticipant* roomsParticipant;
@@ -369,14 +369,14 @@ class AllGamesRoomsContainer
 	RoomsErrorCode RemoveUser(RoomsParticipant* roomsParticipant, RemoveUserResult *removeMemberResult);
 
 	// ROOMS OPERATIONS, implicit room
-	RoomsErrorCode SendInvite(RoomsParticipant* roomsParticipant, RoomsParticipant* inviteeId, bool inviteToSpectatorSlot, SLNet::RakString subject, SLNet::RakString body);
-	RoomsErrorCode AcceptInvite(RoomID roomId, Room **room, RoomsParticipant* roomsParticipant, SLNet::RakString inviteSender);
+	RoomsErrorCode SendInvite(RoomsParticipant* roomsParticipant, RoomsParticipant* inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
+	RoomsErrorCode AcceptInvite(RoomID roomId, Room **room, RoomsParticipant* roomsParticipant, MafiaNet::RakString inviteSender);
 	RoomsErrorCode StartSpectating(RoomsParticipant* roomsParticipant);
 	RoomsErrorCode StopSpectating(RoomsParticipant* roomsParticipant);
 	RoomsErrorCode GrantModerator(RoomsParticipant* roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
 	RoomsErrorCode ChangeSlotCounts(RoomsParticipant* roomsParticipant, Slots slots);
 	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant* roomsParticipant, DataStructures::Table *table);
-	RoomsErrorCode ChangeRoomName(RoomsParticipant* roomsParticipant, SLNet::RakString newRoomName, ProfanityFilter *profanityFilter);
+	RoomsErrorCode ChangeRoomName(RoomsParticipant* roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
 	RoomsErrorCode SetHiddenFromSearches(RoomsParticipant* roomsParticipant, bool _hiddenFromSearches);
 	RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant* roomsParticipant, bool destroyOnModeratorLeave);
 	RoomsErrorCode SetReadyStatus(RoomsParticipant* roomsParticipant, bool isReady);
@@ -384,11 +384,11 @@ class AllGamesRoomsContainer
 	RoomsErrorCode SetRoomLockState(RoomsParticipant* roomsParticipant, RoomLockState _roomLockState);
 	RoomsErrorCode GetRoomLockState(RoomID roomId, Room **room, RoomLockState *roomLockState);
 	RoomsErrorCode AreAllMembersReady(RoomID roomId, Room **room, bool *allReady);
-	RoomsErrorCode KickMember(RoomsParticipant* roomsParticipant, RoomsParticipant *kickedParticipant, SLNet::RakString reason);
-	RoomsErrorCode UnbanMember(RoomsParticipant* roomsParticipant, SLNet::RakString name);
-	RoomsErrorCode GetBanReason( RoomID lobbyRoomId, Room **room, SLNet::RakString name, SLNet::RakString *reason);
+	RoomsErrorCode KickMember(RoomsParticipant* roomsParticipant, RoomsParticipant *kickedParticipant, MafiaNet::RakString reason);
+	RoomsErrorCode UnbanMember(RoomsParticipant* roomsParticipant, MafiaNet::RakString name);
+	RoomsErrorCode GetBanReason( RoomID lobbyRoomId, Room **room, MafiaNet::RakString name, MafiaNet::RakString *reason);
 	RoomsErrorCode LeaveRoom(RoomsParticipant* roomsParticipant, RemoveUserResult *removeUserResult);
-	//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, SLNet::RakString *kickReason);
+	//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, MafiaNet::RakString *kickReason);
 
 
 	void GetRoomProperties(RoomID roomId, Room **room, DataStructures::Table *table);
@@ -422,7 +422,7 @@ class AllGamesRoomsContainer
 		DataStructures::List<QuickJoinUser*> &timeoutExpired,
 		DataStructures::List<JoinedRoomResult> &joinedRoomMembers,
 		DataStructures::List<QuickJoinUser*> &dereferencedPointers,
-		SLNet::TimeMS elapsedTime);
+		MafiaNet::TimeMS elapsedTime);
 
 	// Quick join - Store a list of all members waiting to quick join.
 	// Quick join ends when
@@ -449,14 +449,14 @@ class AllGamesRoomsContainer
 	// If a handle changes, you have to tell the system here. Otherwise ban and invite names will be out of synch
 	// System does not verify that the handle is not currently in use since it does not necessarily know about all online players
 	// This is an invariant up to the caller to uphold. Failure to do so will result in the wrong players being banned or invited
-	void ChangeHandle(SLNet::RakString oldHandle, SLNet::RakString newHandle);
+	void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
 
 	unsigned int GetPropertyIndex(RoomID lobbyRoomId, const char *propertyName) const;
 
 	DataStructures::Map<GameIdentifier, PerGameRoomsContainer*> perGamesRoomsContainers;
 
 	Room * GetRoomByLobbyRoomID(RoomID lobbyRoomID);
-	Room * GetRoomByName(SLNet::RakString roomName);
+	Room * GetRoomByName(MafiaNet::RakString roomName);
 
 protected:
 	RoomID nextRoomId;
@@ -488,19 +488,19 @@ public:
 	RoomsErrorCode RemoveUserFromQuickJoin(RoomsParticipant* roomsParticipant, QuickJoinUser **qju);
 	bool IsInQuickJoin(RoomsParticipant* roomsParticipant);
 	unsigned int GetQuickJoinIndex(RoomsParticipant* roomsParticipant);
-	void GetRoomNames(DataStructures::List<SLNet::RakString> &roomNames);
+	void GetRoomNames(DataStructures::List<MafiaNet::RakString> &roomNames);
 	void GetAllRooms(DataStructures::List<Room*> &rooms);
 	// Looks for a particular room that has a particular ID
 	Room * GetRoomByLobbyRoomID(RoomID lobbyRoomID);
-	Room * GetRoomByName(SLNet::RakString roomName);
+	Room * GetRoomByName(MafiaNet::RakString roomName);
 	RoomsErrorCode GetInvitesToParticipant(RoomsParticipant* roomsParticipant, DataStructures::List<InvitedUser*> &invites);
 	bool DestroyRoomIfDead(Room *room);
-	void ChangeHandle(SLNet::RakString oldHandle, SLNet::RakString newHandle);
+	void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
 
 	unsigned ProcessQuickJoins( DataStructures::List<QuickJoinUser*> &timeoutExpired,
 		DataStructures::List<JoinedRoomResult> &joinedRooms,
 		DataStructures::List<QuickJoinUser*> &dereferencedPointers,
-		SLNet::TimeMS elapsedTime,
+		MafiaNet::TimeMS elapsedTime,
 		RoomID startingRoomId);
 
 	// Sort an input list of rooms
@@ -520,14 +520,14 @@ class Room
 	public:
 		Room( RoomID _roomId, RoomCreationParameters *roomCreationParameters, DataStructures::Table::Row *_row, RoomsParticipant* roomsParticipant );
 		~Room();
-		RoomsErrorCode SendInvite(RoomsParticipant* roomsParticipant, RoomsParticipant* inviteeId, bool inviteToSpectatorSlot, SLNet::RakString subject, SLNet::RakString body);
-		RoomsErrorCode AcceptInvite(RoomsParticipant* roomsParticipant, SLNet::RakString inviteSender);
+		RoomsErrorCode SendInvite(RoomsParticipant* roomsParticipant, RoomsParticipant* inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
+		RoomsErrorCode AcceptInvite(RoomsParticipant* roomsParticipant, MafiaNet::RakString inviteSender);
 		RoomsErrorCode StartSpectating(RoomsParticipant* roomsParticipant);
 		RoomsErrorCode StopSpectating(RoomsParticipant* roomsParticipant);
 		RoomsErrorCode GrantModerator(RoomsParticipant* roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
 		RoomsErrorCode ChangeSlotCounts(RoomsParticipant* roomsParticipant, Slots slots);
 		RoomsErrorCode SetCustomRoomProperties(RoomsParticipant* roomsParticipant, DataStructures::Table *table);
-		RoomsErrorCode ChangeRoomName(RoomsParticipant* roomsParticipant, SLNet::RakString newRoomName, ProfanityFilter *profanityFilter);
+		RoomsErrorCode ChangeRoomName(RoomsParticipant* roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
 		RoomsErrorCode SetHiddenFromSearches(RoomsParticipant* roomsParticipant, bool _hiddenFromSearches);
 		RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant* roomsParticipant, bool destroyOnModeratorLeave);
 		RoomsErrorCode SetReadyStatus(RoomsParticipant* roomsParticipant, bool isReady);
@@ -535,11 +535,11 @@ class Room
 		RoomsErrorCode SetRoomLockState(RoomsParticipant* roomsParticipant, RoomLockState _roomLockState);
 		RoomsErrorCode GetRoomLockState(RoomLockState *_roomLockState);
 		RoomsErrorCode AreAllMembersReady(unsigned int exceptThisIndex, bool *allReady);
-		RoomsErrorCode KickMember(RoomsParticipant* roomsParticipant, RoomsParticipant *kickedParticipant, SLNet::RakString reason);
-		RoomsErrorCode UnbanMember(RoomsParticipant* roomsParticipant, SLNet::RakString name);
-		RoomsErrorCode GetBanReason(SLNet::RakString name, SLNet::RakString *reason);
+		RoomsErrorCode KickMember(RoomsParticipant* roomsParticipant, RoomsParticipant *kickedParticipant, MafiaNet::RakString reason);
+		RoomsErrorCode UnbanMember(RoomsParticipant* roomsParticipant, MafiaNet::RakString name);
+		RoomsErrorCode GetBanReason(MafiaNet::RakString name, MafiaNet::RakString *reason);
 		RoomsErrorCode LeaveRoom(RoomsParticipant* roomsParticipant, RemoveUserResult *removeUserResult);
-		//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, SLNet::RakString *kickReason);
+		//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, MafiaNet::RakString *kickReason);
 		
 		RoomsErrorCode JoinByFilter(RoomsParticipant* roomsParticipant, RoomMemberMode roomMemberMode, JoinedRoomResult *joinRoomResult);
 		RoomsErrorCode JoinByQuickJoin(RoomsParticipant* roomsParticipant, RoomMemberMode roomMemberMode, JoinedRoomResult *joinRoomResult);
@@ -582,7 +582,7 @@ class Room
 		
 		static void UpdateRowSlots( DataStructures::Table::Row* row, Slots *totalSlots, Slots *usedSlots);
 
-		void ChangeHandle(SLNet::RakString oldHandle, SLNet::RakString newHandle);
+		void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
 protected:
 		Room();
 		
@@ -593,11 +593,11 @@ protected:
 		bool IsRoomLockedToPlayers(void) const;
 
 		bool IsInRoom(RoomsParticipant* roomsParticipant) const;
-		bool HasInvite(SLNet::RakString roomsParticipant);
+		bool HasInvite(MafiaNet::RakString roomsParticipant);
 		unsigned int GetRoomIndex(RoomsParticipant* roomsParticipant) const;
-		unsigned int GetBannedIndex(SLNet::RakString username) const;
-		unsigned int GetInviteIndex(SLNet::RakString invitee, SLNet::RakString invitor) const;
-		unsigned int GetFirstInviteIndex(SLNet::RakString invitee) const;
+		unsigned int GetBannedIndex(MafiaNet::RakString username) const;
+		unsigned int GetInviteIndex(MafiaNet::RakString invitee, MafiaNet::RakString invitor) const;
+		unsigned int GetFirstInviteIndex(MafiaNet::RakString invitee) const;
 		bool AreAllPlayableSlotsFilled(void) const;
 		bool HasOpenPublicSlots(void) const;
 		bool HasOpenReservedSlots(void) const;

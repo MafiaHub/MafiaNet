@@ -30,7 +30,7 @@
 #include "smartptr.h"
 #include "socket2.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 // Forward declarations
 class BitStream;
@@ -141,7 +141,7 @@ public:
 	/// \return CONNECTION_ATTEMPT_STARTED on successful initiation. Otherwise, an appropriate enumeration indicating failure.
 	/// \note CONNECTION_ATTEMPT_STARTED does not mean you are already connected!
 	/// \note It is possible to immediately get back ID_CONNECTION_ATTEMPT_FAILED if you exceed the maxConnections parameter passed to Startup(). This could happen if you call CloseConnection() with sendDisconnectionNotificaiton true, then immediately call Connect() before the connection has closed.
-	virtual ConnectionAttemptResult Connect( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey=0, unsigned connectionSocketIndex=0, unsigned sendConnectionAttemptCount=12, unsigned timeBetweenSendConnectionAttemptsMS=500, SLNet::TimeMS timeoutTime=0 )=0;
+	virtual ConnectionAttemptResult Connect( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey=0, unsigned connectionSocketIndex=0, unsigned sendConnectionAttemptCount=12, unsigned timeBetweenSendConnectionAttemptsMS=500, MafiaNet::TimeMS timeoutTime=0 )=0;
 
 	/// \brief Connect to the specified host (ip or domain name) and server port, using a shared socket from another instance of RakNet
 	/// \param[in] host Either a dotted IP address or a domain name
@@ -154,7 +154,7 @@ public:
 	/// \param[in] timeoutTime How long to keep the connection alive before dropping it on unable to send a reliable message. 0 to use the default from SetTimeoutTime(UNASSIGNED_SYSTEM_ADDRESS);
 	/// \return CONNECTION_ATTEMPT_STARTED on successful initiation. Otherwise, an appropriate enumeration indicating failure.
 	/// \note CONNECTION_ATTEMPT_STARTED does not mean you are already connected!
-	virtual ConnectionAttemptResult ConnectWithSocket(const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, RakNetSocket2* socket, PublicKey *publicKey=0, unsigned sendConnectionAttemptCount=12, unsigned timeBetweenSendConnectionAttemptsMS=500, SLNet::TimeMS timeoutTime=0)=0;
+	virtual ConnectionAttemptResult ConnectWithSocket(const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, RakNetSocket2* socket, PublicKey *publicKey=0, unsigned sendConnectionAttemptCount=12, unsigned timeBetweenSendConnectionAttemptsMS=500, MafiaNet::TimeMS timeoutTime=0)=0;
 
 	/// \brief Connect to the specified network ID (Platform specific console function)
 	/// \details Does built-in NAt traversal
@@ -219,12 +219,12 @@ public:
 	/// \param[in] forceReceipt If 0, will automatically determine the receipt number to return. If non-zero, will return what you give it.
 	/// \return 0 on bad input. Otherwise a number that identifies this message. If \a reliability is a type that returns a receipt, on a later call to Receive() you will get ID_SND_RECEIPT_ACKED or ID_SND_RECEIPT_LOSS with bytes 1-4 inclusive containing this number
 	/// \note COMMON MISTAKE: When writing the first byte, bitStream->Write((unsigned char) ID_MY_TYPE) be sure it is casted to a byte, and you are not writing a 4 byte enumeration.
-	virtual uint32_t Send( const SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, uint32_t forceReceiptNumber=0 )=0;
+	virtual uint32_t Send( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, uint32_t forceReceiptNumber=0 )=0;
 
 	/// Sends multiple blocks of data, concatenating them automatically.
 	///
 	/// This is equivalent to:
-	/// SLNet::BitStream bs;
+	/// MafiaNet::BitStream bs;
 	/// bs.WriteAlignedBytes(block1, blockLength1);
 	/// bs.WriteAlignedBytes(block2, blockLength2);
 	/// bs.WriteAlignedBytes(block3, blockLength3);
@@ -302,7 +302,7 @@ public:
 	/// Bans an IP from connecting.  Banned IPs persist between connections but are not saved on shutdown nor loaded on startup.
 	/// param[in] IP Dotted IP address. Can use * as a wildcard, such as 128.0.0.* will ban all IP addresses starting with 128.0.0
 	/// \param[in] milliseconds how many ms for a temporary ban.  Use 0 for a permanent ban
-	virtual void AddToBanList( const char *IP, SLNet::TimeMS milliseconds=0 )=0;
+	virtual void AddToBanList( const char *IP, MafiaNet::TimeMS milliseconds=0 )=0;
 
 	/// Allows a previously banned IP to connect. 
 	/// param[in] Dotted IP address. Can use * as a wildcard, such as 128.0.0.* will banAll IP addresses starting with 128.0.0
@@ -327,7 +327,7 @@ public:
 	/// \param[in] target Which system to ping
 	virtual void Ping( const SystemAddress target )=0;
 
-	/// Send a ping to the specified unconnected system. The remote system, if it is Initialized, will respond with ID_PONG followed by sizeof(SLNet::TimeMS) containing the system time the ping was sent.(Default is 4 bytes - See __GET_TIME_64BIT in types.h
+	/// Send a ping to the specified unconnected system. The remote system, if it is Initialized, will respond with ID_PONG followed by sizeof(MafiaNet::TimeMS) containing the system time the ping was sent.(Default is 4 bytes - See __GET_TIME_64BIT in types.h
 	/// System should reply with ID_PONG if it is active
 	/// \param[in] host Either a dotted IP address or a domain name.  Can be 255.255.255.255 for LAN broadcast.
 	/// \param[in] remotePort Which port to connect to on the remote machine.
@@ -361,7 +361,7 @@ public:
 	/// Subtract GetClockDifferential() from a time returned by the remote system to get that time relative to your own system
 	/// Returns 0 if the system is unknown
 	/// \param[in] systemIdentifier Which system we are referring to
-	virtual SLNet::Time GetClockDifferential( const AddressOrGUID systemIdentifier )=0;
+	virtual MafiaNet::Time GetClockDifferential( const AddressOrGUID systemIdentifier )=0;
 
 	// --------------------------------------------------------------------------------------------Static Data Functions - Functions dealing with API defined synchronized memory--------------------------------------------------------------------------------------------
 	/// Sets the data to send along with a LAN server discovery or offline ping reply.
@@ -431,11 +431,11 @@ public:
 	/// Do not set different values for different computers that are connected to each other, or you won't be able to reconnect after ID_CONNECTION_LOST
 	/// \param[in] timeMS Time, in MS
 	/// \param[in] target Which system to do this for. Pass UNASSIGNED_SYSTEM_ADDRESS for all systems.
-	virtual void SetTimeoutTime(SLNet::TimeMS timeMS, const SystemAddress target )=0;
+	virtual void SetTimeoutTime(MafiaNet::TimeMS timeMS, const SystemAddress target )=0;
 
 	/// \param[in] target Which system to do this for. Pass UNASSIGNED_SYSTEM_ADDRESS to get the default value
 	/// \return timeoutTime for a given system.
-	virtual SLNet::TimeMS GetTimeoutTime( const SystemAddress target )=0;
+	virtual MafiaNet::TimeMS GetTimeoutTime( const SystemAddress target )=0;
 
 	/// Returns the current MTU size
 	/// \param[in] target Which system to get this for.  UNASSIGNED_SYSTEM_ADDRESS to get the default
@@ -486,7 +486,7 @@ public:
 	/// Useful if the network is clogged up.
 	/// Set to 0 or less to never timeout.  Defaults to 0.
 	/// \param[in] timeoutMS How many ms to wait before simply not sending an unreliable message.
-	virtual void SetUnreliableTimeout(SLNet::TimeMS timeoutMS)=0;
+	virtual void SetUnreliableTimeout(MafiaNet::TimeMS timeoutMS)=0;
 
 	/// Send a message to host, with the IP socket option TTL set to 3
 	/// This message will not reach the host, but will open the router.
@@ -536,7 +536,7 @@ public:
 	virtual void GetSockets( DataStructures::List<RakNetSocket2* > &sockets )=0;
 	virtual void ReleaseSockets( DataStructures::List<RakNetSocket2* > &sockets )=0;
 
-	virtual void WriteOutOfBandHeader(SLNet::BitStream *bitStream)=0;
+	virtual void WriteOutOfBandHeader(MafiaNet::BitStream *bitStream)=0;
 
 	/// If you need code to run in the same thread as RakNet's update thread, this function can be used for that
 	/// \param[in] _userUpdateThreadPtr C callback function
@@ -616,6 +616,6 @@ public:
 // #endif
 ;
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

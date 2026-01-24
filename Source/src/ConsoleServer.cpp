@@ -29,7 +29,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(ConsoleServer,ConsoleServer);
 
@@ -111,9 +111,9 @@ void ConsoleServer::Update(void)
 	unsigned i;
 	char *parameterList[20]; // Up to 20 parameters
 	unsigned numParameters;
-	SLNet::SystemAddress newOrLostConnectionId;
-	SLNet::Packet *p;
-	SLNet::RegisteredCommand rc;
+	MafiaNet::SystemAddress newOrLostConnectionId;
+	MafiaNet::Packet *p;
+	MafiaNet::RegisteredCommand rc;
 
 	p = transport->Receive();
 	newOrLostConnectionId=transport->HasNewIncomingConnection();
@@ -143,7 +143,7 @@ void ConsoleServer::Update(void)
 		char copy[REMOTE_MAX_TEXT_INPUT];
 		memcpy(copy, p->data, p->length);
 		copy[p->length]=0;
-		SLNet::CommandParserInterface::ParseConsoleString((char*)p->data, COMMAND_DELINATOR, COMMAND_DELINATOR_TOGGLE, &numParameters, parameterList, 20); // Up to 20 parameters
+		MafiaNet::CommandParserInterface::ParseConsoleString((char*)p->data, COMMAND_DELINATOR, COMMAND_DELINATOR_TOGGLE, &numParameters, parameterList, 20); // Up to 20 parameters
 		if (numParameters==0)
 		{
 			transport->DeallocatePacket(p);
@@ -188,12 +188,12 @@ void ConsoleServer::Update(void)
 				if (commandParsed==false)
 				{
 					// Try again, for all commands for all parsers.
-					SLNet::RegisteredCommand rc2;
+					MafiaNet::RegisteredCommand rc2;
 					for (i=0; i < commandParserList.Size(); i++)
 					{
 						if (commandParserList[i]->GetRegisteredCommand(parameterList[1], &rc2))
 						{
-							if (rc2.parameterCount== SLNet::CommandParserInterface::VARIABLE_NUMBER_OF_PARAMETERS)
+							if (rc2.parameterCount== MafiaNet::CommandParserInterface::VARIABLE_NUMBER_OF_PARAMETERS)
 								transport->Send(p->systemAddress, "(Variable parms): %s %s\r\n", rc2.command, rc2.commandHelp);
 							else
 								transport->Send(p->systemAddress, "(%i parms): %s %s\r\n", rc2.parameterCount, rc2.command, rc2.commandHelp);

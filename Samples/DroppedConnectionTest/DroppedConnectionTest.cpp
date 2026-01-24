@@ -19,7 +19,7 @@
 #include "slikenet/types.h" // SystemAddress
 #include "slikenet/Kbhit.h"
 #include <cstdio>
-using namespace SLNet;
+using namespace MafiaNet;
 
 #ifdef _WIN32
 #include "slikenet/WindowsIncludes.h" // Sleep
@@ -48,7 +48,7 @@ int main(void)
 	unsigned connectionCount;
 	int ch;
 	SystemAddress serverID;
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	unsigned short numberOfSystems;
 	int sender;
 	
@@ -63,20 +63,20 @@ int main(void)
 	printf("Dropped Connection Test.\n");
 
 	unsigned short serverPort = 20000;
-	server= SLNet::RakPeerInterface::GetInstance();
+	server= MafiaNet::RakPeerInterface::GetInstance();
 //	server->InitializeSecurity(0,0,0,0);
-	SLNet::SocketDescriptor socketDescriptor(serverPort,0);
+	MafiaNet::SocketDescriptor socketDescriptor(serverPort,0);
 	server->Startup(NUMBER_OF_CLIENTS, &socketDescriptor, 1);
 	server->SetMaximumIncomingConnections(NUMBER_OF_CLIENTS);
 	server->SetTimeoutTime(10000,UNASSIGNED_SYSTEM_ADDRESS);
 
 	for (unsigned short index=0; index < NUMBER_OF_CLIENTS; index++)
 	{
-		clients[index]= SLNet::RakPeerInterface::GetInstance();
-		SLNet::SocketDescriptor socketDescriptor2(serverPort+1+index,0);
+		clients[index]= MafiaNet::RakPeerInterface::GetInstance();
+		MafiaNet::SocketDescriptor socketDescriptor2(serverPort+1+index,0);
 		clients[index]->Startup(1, &socketDescriptor2, 1);
 		clients[index]->Connect("127.0.0.1", serverPort, 0, 0);
-		clients[index]->SetTimeoutTime(5000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+		clients[index]->SetTimeoutTime(5000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 
 		#ifdef _WIN32
 				Sleep(10);
@@ -237,10 +237,10 @@ int main(void)
 		/*
 		// Have everyone send a reliable packet so dropped connections are noticed.
 		ch=255;
-		server->Send((char*)&ch, 1, HIGH_PRIORITY, RELIABLE, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+		server->Send((char*)&ch, 1, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 		for (unsigned short index=0; index < NUMBER_OF_CLIENTS; index++)
-			clients[index]->Send((char*)&ch, 1, HIGH_PRIORITY, RELIABLE, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			clients[index]->Send((char*)&ch, 1, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			*/
 
 		// Sleep so this loop doesn't take up all the CPU time
@@ -253,8 +253,8 @@ int main(void)
 
 	}
 
-	SLNet::RakPeerInterface::DestroyInstance(server);
+	MafiaNet::RakPeerInterface::DestroyInstance(server);
 	for (unsigned short index=0; index < NUMBER_OF_CLIENTS; index++)
-		SLNet::RakPeerInterface::DestroyInstance(clients[index]);
+		MafiaNet::RakPeerInterface::DestroyInstance(clients[index]);
 	return 1;
 }

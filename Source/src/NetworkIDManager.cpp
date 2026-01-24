@@ -25,7 +25,7 @@
 #include "slikenet/SuperFastHash.h"
 #include "slikenet/peerinterface.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(NetworkIDManager,NetworkIDManager)
 

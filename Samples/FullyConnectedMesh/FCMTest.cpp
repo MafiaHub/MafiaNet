@@ -28,15 +28,15 @@
 #include "slikenet/sleep.h"
 
 static const unsigned short NUM_PEERS=8;
-SLNet::RakPeerInterface *rakPeer[NUM_PEERS];
-SLNet::FullyConnectedMesh2 fullyConnectedMeshPlugin[NUM_PEERS];
-SLNet::ConnectionGraph2 connectionGraphPlugin[NUM_PEERS];
+MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
+MafiaNet::FullyConnectedMesh2 fullyConnectedMeshPlugin[NUM_PEERS];
+MafiaNet::ConnectionGraph2 connectionGraphPlugin[NUM_PEERS];
 void PrintConnections(void);
 
 int main(void)
 {
 	for (unsigned short i=0; i < NUM_PEERS; i++)
-		rakPeer[i]= SLNet::RakPeerInterface::GetInstance();
+		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 
 	printf("This project tests and demonstrates the fully connected mesh plugin.\n");
 	printf("No data is actually sent so it's mostly a sample of how to use a plugin.\n");
@@ -55,7 +55,7 @@ int main(void)
 	// Initialize the peers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		SLNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
@@ -82,7 +82,7 @@ int main(void)
 	// Reinitialize the peers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		SLNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS,&socketDescriptor, 1 );
 	}
 
@@ -104,7 +104,7 @@ int main(void)
 	// Reinitialize the peers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		SLNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
@@ -130,12 +130,12 @@ int main(void)
 	// Reinitialize the peers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		SLNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
 
-	unsigned int seed = (unsigned int)SLNet::GetTimeMS();
+	unsigned int seed = (unsigned int)MafiaNet::GetTimeMS();
 	seedMT(seed);
 	printf("Connecting each peer to a random peer with seed %u.\n", seed);
 	unsigned short connectTo=0;
@@ -153,7 +153,7 @@ int main(void)
 	PrintConnections();
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 
 	return 1;
 }
@@ -162,8 +162,8 @@ void PrintConnections()
 {
 	int i,j;
 	int ch=0;
-	SLNet::SystemAddress systemAddress;
-	SLNet::Packet *packet;
+	MafiaNet::SystemAddress systemAddress;
+	MafiaNet::Packet *packet;
 	printf("Connecting.  Press space to see status or c to continue.\n");
 
 	while (ch!='c' && ch!='C')
@@ -192,7 +192,7 @@ void PrintConnections()
 					for (j=0; j < (int)fullyConnectedMeshPlugin[i].GetMeshPeerListSize(); j++)
 					{
 						systemAddress=fullyConnectedMeshPlugin[i].GetPeerIDAtIndex(j);
-						if (systemAddress!=SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+						if (systemAddress!=MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 							printf("%i ", systemAddress.GetPort());
 					}
 
@@ -203,7 +203,7 @@ void PrintConnections()
 					for (j=0; j < NUM_PEERS; j++)
 					{
 						systemAddress=rakPeer[i]->GetSystemAddressFromIndex(j);
-						if (systemAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+						if (systemAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 							printf("%i ", systemAddress.GetPort());
 					}
 
@@ -216,14 +216,14 @@ void PrintConnections()
 					for (connCount=0, j=0; j < NUM_PEERS; j++)
 					{
 						systemAddress=rakPeer[i]->GetSystemAddressFromIndex(j);
-						if (systemAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+						if (systemAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 							connCount++;
 					}
 					/*
 					for (meshCount=0, j=0; j < (int)fullyConnectedMeshPlugin[i].GetMeshPeerListSize(); j++)
 					{
 						systemAddress=fullyConnectedMeshPlugin[i].GetPeerIDAtIndex(j);
-						if (systemAddress!=SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+						if (systemAddress!=MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 							meshCount++;
 					}
 					*/

@@ -26,7 +26,7 @@
 #include "NetworkIDObject.h"
 #include "Rand.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// Increase this value if you plan to have many persistent objects
@@ -80,6 +80,6 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

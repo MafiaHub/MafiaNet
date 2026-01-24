@@ -27,7 +27,7 @@
 // It is because this project depends on Fmod.  If you don't have FMOD you can't use it.
 #include "fmod.hpp"
 
-namespace SLNet {
+namespace MafiaNet {
 
 /// \brief Connects FMOD with RakVoice.
 class RAK_DLL_EXPORT FMODVoiceAdapter {
@@ -86,6 +86,6 @@ private:
 	unsigned int lastRecordingPos;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

@@ -25,7 +25,7 @@
 #include "slikenet/GetTime.h"
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
-using namespace SLNet;
+using namespace MafiaNet;
 
 #ifdef _WIN32
 #include "slikenet/WindowsIncludes.h" // Sleep
@@ -57,9 +57,9 @@ int main(void)
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
 	{
-		peers[i]= SLNet::RakPeerInterface::GetInstance();
+		peers[i]= MafiaNet::RakPeerInterface::GetInstance();
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
-		SLNet::SocketDescriptor socketDescriptor(60000+i, 0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+i, 0);
 		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 	}
@@ -69,8 +69,8 @@ int main(void)
 		peers[i]->Connect("127.0.0.1", 60000+(randomMT()%NUM_PEERS), 0, 0);		
 	}
 
-	SLNet::TimeMS endTime = SLNet::GetTimeMS()+600000;
-	while (SLNet::GetTimeMS()<endTime)
+	MafiaNet::TimeMS endTime = MafiaNet::GetTimeMS()+600000;
+	while (MafiaNet::GetTimeMS()<endTime)
 	{
 		nextAction = frandomMT();
 
@@ -78,7 +78,7 @@ int main(void)
 		{
 			// Initialize
 			peerIndex=randomMT()%NUM_PEERS;
-			SLNet::SocketDescriptor socketDescriptor(60000+peerIndex, 0);
+			MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex, 0);
 			peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0);
 		}
@@ -132,7 +132,7 @@ int main(void)
 			orderingChannel=randomMT()%32;
 			peerIndex = randomMT() % NUM_PEERS;
 			if ((randomMT()%NUM_PEERS)==0)
-				target= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+				target= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 			else
 				target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
 
@@ -166,7 +166,7 @@ int main(void)
 			orderingChannel=randomMT()%32;
 			peerIndex=randomMT()%NUM_PEERS;
 			if ((randomMT()%NUM_PEERS)==0)
-				target= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+				target= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 			else
 				target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
 			broadcast=(randomMT()%2)?true:false;
@@ -245,7 +245,7 @@ int main(void)
 
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
-		SLNet::RakPeerInterface::DestroyInstance(peers[i]);
+		MafiaNet::RakPeerInterface::DestroyInstance(peers[i]);
 
 	return 0;
 }

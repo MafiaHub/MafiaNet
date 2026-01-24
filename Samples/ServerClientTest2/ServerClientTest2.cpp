@@ -30,7 +30,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #ifdef _WIN32
 #include "slikenet/WindowsIncludes.h" // Sleep64
@@ -54,15 +54,15 @@ class Client
 	public:
 		Client()
 		{
-			peer = SLNet::RakPeerInterface::GetInstance();
+			peer = MafiaNet::RakPeerInterface::GetInstance();
 		}
 		~Client()
 		{
-			SLNet::RakPeerInterface::DestroyInstance(peer);
+			MafiaNet::RakPeerInterface::DestroyInstance(peer);
 		}
 		void Startup(void)
 		{
-			SLNet::SocketDescriptor socketDescriptor;
+			MafiaNet::SocketDescriptor socketDescriptor;
 			socketDescriptor.port=0;
 			nextSendTime=0;
 			SLNET_VERIFY(peer->Startup(1, &socketDescriptor, 1) == RAKNET_STARTED);
@@ -71,7 +71,7 @@ class Client
 		void Connect(void)
 		{
 			bool b;
-			b=peer->Connect(remoteIPAddress, (unsigned short) SERVER_PORT, 0, 0, 0)== SLNet::CONNECTION_ATTEMPT_STARTED;
+			b=peer->Connect(remoteIPAddress, (unsigned short) SERVER_PORT, 0, 0, 0)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
 			if (b==false)
 			{
 				printf("Client connect call failed!\n");
@@ -82,7 +82,7 @@ class Client
 			peer->CloseConnection(peer->GetSystemAddressFromIndex(0),true,0);
 			isConnected=false;
 		}
-		void Update(SLNet::TimeMS curTime)
+		void Update(MafiaNet::TimeMS curTime)
 		{
 			Packet *p = peer->Receive();
 			while (p)
@@ -132,11 +132,11 @@ class Client
 			{
 				if (randomMT()%10==0)
 				{
-					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,HIGH_PRIORITY,RELIABLE_ORDERED,0, SLNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 				else
 				{
-					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,HIGH_PRIORITY,RELIABLE_ORDERED,0, SLNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 
 				nextSendTime=curTime+50;
@@ -145,7 +145,7 @@ class Client
 
 		bool isConnected;
 		RakPeerInterface *peer;
-		SLNet::TimeMS nextSendTime;
+		MafiaNet::TimeMS nextSendTime;
 };
 
 // Just listens for ID_USER_PACKET_ENUM and validates its integrity
@@ -154,18 +154,18 @@ class Server
 	public:
 		Server()
 		{
-			peer = SLNet::RakPeerInterface::GetInstance();
+			peer = MafiaNet::RakPeerInterface::GetInstance();
 			nextSendTime=0;
 		}
 		~Server()
 		{
-			SLNet::RakPeerInterface::DestroyInstance(peer);
+			MafiaNet::RakPeerInterface::DestroyInstance(peer);
 		}
 		void Start(void)
 		{
-			SLNet::SocketDescriptor socketDescriptor;
+			MafiaNet::SocketDescriptor socketDescriptor;
 			socketDescriptor.port=(unsigned short) SERVER_PORT;
-			SLNET_VERIFY(peer->Startup((unsigned short)600, &socketDescriptor, 1) == SLNet::RAKNET_STARTED);
+			SLNET_VERIFY(peer->Startup((unsigned short)600, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED);
 			peer->SetMaximumIncomingConnections(600);
 		}
 		unsigned ConnectionCount(void) const
@@ -174,7 +174,7 @@ class Server
 			peer->GetConnectionList(0,&numberOfSystems);
 			return numberOfSystems;
 		}
-		void Update(SLNet::TimeMS curTime)
+		void Update(MafiaNet::TimeMS curTime)
 		{
 			Packet *p = peer->Receive();
 			while (p)
@@ -200,11 +200,11 @@ class Server
 			{
 				if (randomMT()%10==0)
 				{
-					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,HIGH_PRIORITY,RELIABLE_ORDERED,0, SLNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 				else
 				{
-					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,HIGH_PRIORITY,RELIABLE_ORDERED,0, SLNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 
 				nextSendTime=curTime+100;
@@ -212,7 +212,7 @@ class Server
 		}
 		
 
-		SLNet::TimeMS nextSendTime;
+		MafiaNet::TimeMS nextSendTime;
 		RakPeerInterface *peer;
 };
 
@@ -281,8 +281,8 @@ int main(void)
 		printf("Done.\n");
 	}
 	
-	SLNet::TimeMS endTime = SLNet::GetTimeMS()+60000*5;
-	SLNet::TimeMS time = SLNet::GetTimeMS();
+	MafiaNet::TimeMS endTime = MafiaNet::GetTimeMS()+60000*5;
+	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 	while (time < endTime)
 	{
 		if (mode==0 || mode==2)
@@ -333,7 +333,7 @@ int main(void)
 				break;
 		}
 
-		time = SLNet::GetTimeMS();
+		time = MafiaNet::GetTimeMS();
 		RakSleep(30);
 	}
 

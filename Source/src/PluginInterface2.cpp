@@ -19,7 +19,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 PluginInterface2::PluginInterface2()
 {
@@ -32,7 +32,7 @@ PluginInterface2::~PluginInterface2()
 {
 
 }
-void PluginInterface2::SendUnified( const SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast )
+void PluginInterface2::SendUnified( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast )
 {
 	if (rakPeerInterface)
 	{
@@ -113,7 +113,7 @@ Packet *PluginInterface2::AllocatePacketUnified(unsigned dataSize)
 	}
 #endif
 
-	Packet *packet = SLNet::OP_NEW<Packet>(_FILE_AND_LINE_);
+	Packet *packet = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
 	packet->data = (unsigned char*) rakMalloc_Ex(dataSize, _FILE_AND_LINE_);
 	packet->bitSize=BYTES_TO_BITS(dataSize);
 	packet->deleteData=true;
@@ -156,7 +156,7 @@ void PluginInterface2::DeallocPacketUnified(Packet *packet)
 #endif
 
 	rakFree_Ex(packet->data, _FILE_AND_LINE_);
-	SLNet::OP_DELETE(packet, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(packet, _FILE_AND_LINE_);
 }
 bool PluginInterface2::SendListUnified( const char **data, const int *lengths, const int numParameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast )
 {

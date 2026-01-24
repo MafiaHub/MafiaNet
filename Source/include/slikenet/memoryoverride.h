@@ -80,7 +80,7 @@ extern RAK_DLL_EXPORT void *(*GetDLMallocMMap())(size_t size);
 extern RAK_DLL_EXPORT void *(*GetDLMallocDirectMMap())(size_t size);
 extern RAK_DLL_EXPORT int (*GetDLMallocMUnmap())(void* ptr, size_t size);
 
-namespace SLNet
+namespace MafiaNet
 {
 
 	template <class Type>
@@ -232,9 +232,9 @@ namespace SLNet
 // Initial and reallocations will be done through whatever function is pointed to by yourMMapFunction, and yourDirectMMapFunction (default is malloc)
 // Allocations will be freed through whatever function is pointed to by yourMUnmapFunction (default free)
 void UseRaknetFixedHeap(size_t initialCapacity,
-						void * (*yourMMapFunction) (size_t size) = SLNet::_DLMallocMMap,
-						void * (*yourDirectMMapFunction) (size_t size) = SLNet::_DLMallocDirectMMap,
-						int (*yourMUnmapFunction) (void *p, size_t size) = SLNet::_DLMallocMUnmap);
+						void * (*yourMMapFunction) (size_t size) = MafiaNet::_DLMallocMMap,
+						void * (*yourDirectMMapFunction) (size_t size) = MafiaNet::_DLMallocDirectMMap,
+						int (*yourMUnmapFunction) (void *p, size_t size) = MafiaNet::_DLMallocMUnmap);
 
 // Free memory allocated from UseRaknetFixedHeap
 void FreeRakNetFixedHeap(void);

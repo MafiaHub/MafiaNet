@@ -21,7 +21,7 @@ TransformationHistoryCell::TransformationHistoryCell()
 {
 
 }
-TransformationHistoryCell::TransformationHistoryCell(SLNet::TimeMS t, const Ogre::Vector3& pos, const Ogre::Vector3& vel, const Ogre::Quaternion& quat  ) :
+TransformationHistoryCell::TransformationHistoryCell(MafiaNet::TimeMS t, const Ogre::Vector3& pos, const Ogre::Vector3& vel, const Ogre::Quaternion& quat  ) :
 time(t),
 velocity(vel),
 position(pos),
@@ -29,14 +29,14 @@ orientation(quat)
 {
 }
 
-void TransformationHistory::Init(SLNet::TimeMS maxWriteInterval, SLNet::TimeMS maxHistoryTime)
+void TransformationHistory::Init(MafiaNet::TimeMS maxWriteInterval, MafiaNet::TimeMS maxHistoryTime)
 {
 	writeInterval=maxWriteInterval;
 	maxHistoryLength = maxHistoryTime/maxWriteInterval+1;
 	history.ClearAndForceAllocation(maxHistoryLength+1, _FILE_AND_LINE_ );
 	RakAssert(writeInterval>0);
 }
-void TransformationHistory::Write(const Ogre::Vector3 &position, const Ogre::Vector3 &velocity, const Ogre::Quaternion &orientation, SLNet::TimeMS curTimeMS)
+void TransformationHistory::Write(const Ogre::Vector3 &position, const Ogre::Vector3 &velocity, const Ogre::Quaternion &orientation, MafiaNet::TimeMS curTimeMS)
 {
 	if (history.Size()==0)
 	{
@@ -53,7 +53,7 @@ void TransformationHistory::Write(const Ogre::Vector3 &position, const Ogre::Vec
 		}
 	}	
 }
-void TransformationHistory::Overwrite(const Ogre::Vector3 &position, const Ogre::Vector3 &velocity, const Ogre::Quaternion &orientation, SLNet::TimeMS when)
+void TransformationHistory::Overwrite(const Ogre::Vector3 &position, const Ogre::Vector3 &velocity, const Ogre::Quaternion &orientation, MafiaNet::TimeMS when)
 {
 	int historySize = history.Size();
 	if (historySize==0)
@@ -88,7 +88,7 @@ void TransformationHistory::Overwrite(const Ogre::Vector3 &position, const Ogre:
 	}	
 }
 TransformationHistory::ReadResult TransformationHistory::Read(Ogre::Vector3 *position, Ogre::Vector3 *velocity, Ogre::Quaternion *orientation,
-	SLNet::TimeMS when, SLNet::TimeMS curTime)
+	MafiaNet::TimeMS when, MafiaNet::TimeMS curTime)
 {
 	int historySize = history.Size();
 	if (historySize==0)

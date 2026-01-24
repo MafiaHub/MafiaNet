@@ -58,7 +58,7 @@
 
 #define RESEND_TREE_ORDER 32
 
-namespace SLNet {
+namespace MafiaNet {
 
 	/// Forward declarations
 class PluginInterface2;
@@ -127,7 +127,7 @@ struct BPSTracker
 	~BPSTracker();
 	void Reset(const char *file, unsigned int line);
 	inline void Push1(CCTimeType time, uint64_t value1) {dataQueue.Push(TimeAndValue2(time,value1),_FILE_AND_LINE_); total1+=value1; lastSec1+=value1;}
-//	void Push2(SLNet::TimeUS time, uint64_t value1, uint64_t value2);
+//	void Push2(MafiaNet::TimeUS time, uint64_t value1, uint64_t value2);
 	inline uint64_t GetBPS1(CCTimeType time) {(void) time; return lastSec1;}
 	inline uint64_t GetBPS1Threadsafe(CCTimeType time) {(void) time; return lastSec1;}
 //	uint64_t GetBPS2(RakNetTimeUS time);
@@ -140,7 +140,7 @@ struct BPSTracker
 		TimeAndValue2();
 		~TimeAndValue2();
 		TimeAndValue2(CCTimeType t, uint64_t v1);
-	//	TimeAndValue2(SLNet::TimeUS t, uint64_t v1, uint64_t v2);
+	//	TimeAndValue2(MafiaNet::TimeUS t, uint64_t v1, uint64_t v2);
 	//	uint64_t value1, value2;
 		uint64_t value1;
 		CCTimeType time;
@@ -150,7 +150,7 @@ struct BPSTracker
 //	uint64_t total2, lastSec2;
 	DataStructures::Queue<TimeAndValue2> dataQueue;
 	void ClearExpired1(CCTimeType time);
-//	void ClearExpired2(SLNet::TimeUS time);
+//	void ClearExpired2(MafiaNet::TimeUS time);
 };
 
 /// Datagram reliable, ordered, unordered and sequenced sends.  Flow control.  Message splitting, reassembly, and coalescence.
@@ -170,11 +170,11 @@ public:
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 	/// Default time is 10,000 or 10 seconds in release and 30,000 or 30 seconds in debug.
 	/// \param[in] time Time, in MS
-	void SetTimeoutTime(SLNet::TimeMS time);
+	void SetTimeoutTime(MafiaNet::TimeMS time);
 
 	/// Returns the value passed to SetTimeoutTime. or the default if it was never called
 	/// \param[out] the value passed to SetTimeoutTime
-	SLNet::TimeMS GetTimeoutTime(void);
+	MafiaNet::TimeMS GetTimeoutTime(void);
 
 	/// Packets are read directly from the socket layer and skip the reliability layer because unconnected players do not use the reliability layer
 	/// This function takes packet data after a player has been confirmed as connected.
@@ -202,7 +202,7 @@ public:
 	/// \param[in] orderingChannel 0 to 31.  Specifies what channel to use, for relational ordering and sequencing of packets.
 	/// \param[in] makeDataCopy If true \a data will be copied.  Otherwise, only a pointer will be stored.
 	/// \param[in] MTUSize maximum datagram size
-	/// \param[in] currentTime Current time, as per SLNet::GetTimeMS()
+	/// \param[in] currentTime Current time, as per MafiaNet::GetTimeMS()
 	/// \param[in] receipt This number will be returned back with ID_SND_RECEIPT_ACKED or ID_SND_RECEIPT_LOSS and is only returned with the reliability types that contain RECEIPT in the name
 	/// \return True or false for success or failure.
 	bool Send( char *data, BitSize_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, unsigned char orderingChannel, bool makeDataCopy, int MTUSize, CCTimeType currentTime, uint32_t receipt );
@@ -243,43 +243,43 @@ public:
 	bool AreAcksWaiting(void);
 
 	// Set outgoing lag and packet loss properties
-	void ApplyNetworkSimulator( double _maxSendBPS, SLNet::TimeMS _minExtraPing, SLNet::TimeMS _extraPingVariance );
+	void ApplyNetworkSimulator( double _maxSendBPS, MafiaNet::TimeMS _minExtraPing, MafiaNet::TimeMS _extraPingVariance );
 
 	/// Returns if you previously called ApplyNetworkSimulator
 	/// \return If you previously called ApplyNetworkSimulator
 	bool IsNetworkSimulatorActive( void );
 
 	void SetSplitMessageProgressInterval(int interval);
-	void SetUnreliableTimeout(SLNet::TimeMS timeoutMS);
+	void SetUnreliableTimeout(MafiaNet::TimeMS timeoutMS);
 	/// Has a lot of time passed since the last ack
-	bool AckTimeout(SLNet::Time curTime);
+	bool AckTimeout(MafiaNet::Time curTime);
 	CCTimeType GetNextSendTime(void) const;
 	CCTimeType GetTimeBetweenPackets(void) const;
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS==1
 	CCTimeType GetAckPing(void) const;
 #endif
-	SLNet::TimeMS GetTimeLastDatagramArrived(void) const {return timeLastDatagramArrived;}
+	MafiaNet::TimeMS GetTimeLastDatagramArrived(void) const {return timeLastDatagramArrived;}
 
 	// If true, will update time between packets quickly based on ping calculations
 	//void SetDoFastThroughputReactions(bool fast);
 
 	// Encoded as numMessages[unsigned int], message1BitLength[unsigned int], message1Data (aligned), ...
-	//void GetUndeliveredMessages(SLNet::BitStream *messages, int MTUSize);
+	//void GetUndeliveredMessages(MafiaNet::BitStream *messages, int MTUSize);
 
 private:
 	/// Send the contents of a bitstream to the socket
 	/// \param[in] s The socket used for sending data
 	/// \param[in] systemAddress The address and port to send to
 	/// \param[in] bitStream The data to send.
-	void SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, SLNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime);
+	void SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime);
 
 	///Parse an internalPacket and create a bitstream to represent this data
 	/// \return Returns number of bits used
-	BitSize_t WriteToBitStreamFromInternalPacket(SLNet::BitStream *bitStream, const InternalPacket *const internalPacket, CCTimeType curTime );
+	BitSize_t WriteToBitStreamFromInternalPacket(MafiaNet::BitStream *bitStream, const InternalPacket *const internalPacket, CCTimeType curTime );
 
 
 	/// Parse a bitstream and create an internal packet to represent this data
-	InternalPacket* CreateInternalPacketFromBitStream(SLNet::BitStream *bitStream, CCTimeType time );
+	InternalPacket* CreateInternalPacketFromBitStream(MafiaNet::BitStream *bitStream, CCTimeType time );
 
 	/// Does what the function name says
 	unsigned RemovePacketFromResendListAndDeleteOlderReliableSequenced( const MessageNumberType messageNumber, CCTimeType time, DataStructures::List<PluginInterface2*> &messageHandlerList, const SystemAddress &systemAddress );
@@ -363,7 +363,7 @@ private:
 		RakNetRandom *rnr, BitStream &updateBitStream, bool forceSendACKs );
 
 	/// Does this packet number represent a packet that was skipped (out of order?)
-	//unsigned int IsReceivedPacketHole(unsigned int input, SLNet::TimeMS currentTime) const;
+	//unsigned int IsReceivedPacketHole(unsigned int input, MafiaNet::TimeMS currentTime) const;
 
 	/// Skip an element in the received packets list
 	//unsigned int MakeReceivedPacketHole(unsigned int input) const;
@@ -407,12 +407,12 @@ private:
 	struct UnreliableWithAckReceiptNode
 	{
 		UnreliableWithAckReceiptNode() {}
-		UnreliableWithAckReceiptNode(DatagramSequenceNumberType _datagramNumber, uint32_t _sendReceiptSerial, SLNet::TimeUS _nextActionTime) :
+		UnreliableWithAckReceiptNode(DatagramSequenceNumberType _datagramNumber, uint32_t _sendReceiptSerial, MafiaNet::TimeUS _nextActionTime) :
 			datagramNumber(_datagramNumber), sendReceiptSerial(_sendReceiptSerial), nextActionTime(_nextActionTime)
 		{}
 		DatagramSequenceNumberType datagramNumber;
 		uint32_t sendReceiptSerial;
-		SLNet::TimeUS nextActionTime;
+		MafiaNet::TimeUS nextActionTime;
 	};
 	DataStructures::List<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
 
@@ -440,7 +440,7 @@ private:
 	// Set to the current time if it is not zero, and we get incoming data
 	// If the current time - timeResendQueueNonEmpty is greater than a threshold, we are disconnected
 //	CCTimeType timeResendQueueNonEmpty;
-	SLNet::TimeMS timeLastDatagramArrived;
+	MafiaNet::TimeMS timeLastDatagramArrived;
 
 
 	// If we backoff due to packetloss, don't remeasure until all waiting resends have gone out or else we overcount
@@ -463,10 +463,10 @@ private:
 	MessageNumberType sendReliableMessageNumberIndex;
 	MessageNumberType internalOrderIndex;
 	//unsigned int windowSize;
-	//SLNet::BitStream updateBitStream;
+	//MafiaNet::BitStream updateBitStream;
 	bool deadConnection, cheater;
 	SplitPacketIdType splitPacketId;
-	SLNet::TimeMS timeoutTime; // How long to wait in MS before timing someone out
+	MafiaNet::TimeMS timeoutTime; // How long to wait in MS before timing someone out
 	//int MAX_AVERAGE_PACKETS_PER_SECOND; // Name says it all
 //	int RECEIVED_PACKET_LOG_LENGTH, requestedReceivedPacketLogLength; // How big the receivedPackets array is
 //	unsigned int *receivedPackets;
@@ -553,7 +553,7 @@ private:
 		RakNetSocket2 *s;
 		char data[ MAXIMUM_MTU_SIZE ];
 		unsigned int length;
-		SLNet::TimeMS sendTime;
+		MafiaNet::TimeMS sendTime;
 		//	SystemAddress systemAddress;
 		unsigned short remotePortRakNetWasStartedOn_PS3;
 		unsigned int extraSocketOptions;
@@ -562,7 +562,7 @@ private:
 
 	// Internet simulator
 	double packetloss;
-	SLNet::TimeMS minExtraPing, extraPingVariance;
+	MafiaNet::TimeMS minExtraPing, extraPingVariance;
 #endif
 
 	CCTimeType elapsedTimeSinceLastUpdate;
@@ -571,9 +571,9 @@ private:
 
 	
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL==1
-	SLNet::CCRakNetSlidingWindow congestionManager;
+	MafiaNet::CCRakNetSlidingWindow congestionManager;
 #else
-	SLNet::CCRakNetUDT congestionManager;
+	MafiaNet::CCRakNetUDT congestionManager;
 #endif
 
 
@@ -643,6 +643,6 @@ protected:
 #endif // LIBCAT_SECURITY
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

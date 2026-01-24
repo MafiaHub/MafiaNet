@@ -8,7 +8,7 @@
 #pragma once
 #include <cstddef> // required for size_t
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

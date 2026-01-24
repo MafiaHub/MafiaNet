@@ -40,7 +40,7 @@
 // Buffalo WHR-HP-G54 OK
 // Netgear WGR614 ok
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -70,8 +70,8 @@ struct RAK_DLL_EXPORT PunchthroughConfiguration
 	}
 
 	/// How much time between each UDP send
-	SLNet::Time TIME_BETWEEN_PUNCH_ATTEMPTS_INTERNAL;
-	SLNet::Time TIME_BETWEEN_PUNCH_ATTEMPTS_EXTERNAL;
+	MafiaNet::Time TIME_BETWEEN_PUNCH_ATTEMPTS_INTERNAL;
+	MafiaNet::Time TIME_BETWEEN_PUNCH_ATTEMPTS_EXTERNAL;
 
 	/// How many tries for one port before giving up and going to the next port
 	int UDP_SENDS_PER_PORT_INTERNAL;
@@ -202,7 +202,7 @@ public:
 
 	struct SendPing
 	{
-		SLNet::Time nextActionTime;
+		MafiaNet::Time nextActionTime;
 		SystemAddress targetAddress;
 		SystemAddress facilitator;
 		SystemAddress internalIds[MAXIMUM_NUMBER_OF_INTERNAL_IDS];
@@ -271,7 +271,7 @@ protected:
 	};
 	DataStructures::Queue<DSTAndFac> queuedOpenNat;
 
-	void IncrementExternalAttemptCount(SLNet::Time time, SLNet::Time delta);
+	void IncrementExternalAttemptCount(MafiaNet::Time time, MafiaNet::Time delta);
 	unsigned short portStride;
 	enum
 	{
@@ -280,12 +280,12 @@ protected:
 		CALCULATING_PORT_STRIDE,
 		INCAPABLE_PORT_STRIDE
 	} hasPortStride;
-	SLNet::Time portStrideCalTimeout;
+	MafiaNet::Time portStrideCalTimeout;
 
 	/*
 	struct TimeAndGuid
 	{
-		SLNet::Time time;
+		MafiaNet::Time time;
 		RakNetGUID guid;
 	};
 	DataStructures::List<TimeAndGuid> groupRequestsInProgress;
@@ -304,7 +304,7 @@ protected:
 	*/
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

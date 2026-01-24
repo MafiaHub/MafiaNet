@@ -47,7 +47,7 @@ extern float RAK_DLL_EXPORT frandomMT( void );
 /// \note not threadSafe, use an instance of RakNetRandom if necessary per thread
 extern void RAK_DLL_EXPORT fillBufferMT( void *buffer, unsigned int bytes );
 
-namespace SLNet {
+namespace MafiaNet {
 
 // Same thing as above functions, but not global
 class RAK_DLL_EXPORT RakNetRandom
@@ -67,6 +67,6 @@ protected:
 	int left;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

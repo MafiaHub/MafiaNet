@@ -21,8 +21,8 @@
 		#define closesocket__ closesocket
 		#define select__ select
 	#elif defined(__native_client__)
-		// namespace SLNet { void CloseSocket(SOCKET s); }
-		// #define closesocket__ SLNet::CloseSocket
+		// namespace MafiaNet { void CloseSocket(SOCKET s); }
+		// #define closesocket__ MafiaNet::CloseSocket
 		#define select__ select
 	#else
 		#define closesocket__ close

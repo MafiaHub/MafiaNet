@@ -25,12 +25,12 @@
 #include "slikenet/sleep.h"
 
 static const int NUM_PEERS=2;
-SLNet::RakPeerInterface *rakPeer[NUM_PEERS];
-SLNet::TwoWayAuthentication *twoWayAuthenticationPlugin[NUM_PEERS];
+MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
+MafiaNet::TwoWayAuthentication *twoWayAuthenticationPlugin[NUM_PEERS];
 int main(void)
 {
 	for (int i=0; i < NUM_PEERS; i++)
-		rakPeer[i]= SLNet::RakPeerInterface::GetInstance();
+		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 
 	printf("This project tests and demonstrates the two way authentication plugin.\n");
 	printf("Difficulty: Beginner\n\n");
@@ -38,7 +38,7 @@ int main(void)
 	// Initialize the message handlers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		twoWayAuthenticationPlugin[peerIndex]= SLNet::OP_NEW<SLNet::TwoWayAuthentication>(_FILE_AND_LINE_);
+		twoWayAuthenticationPlugin[peerIndex]= MafiaNet::OP_NEW<MafiaNet::TwoWayAuthentication>(_FILE_AND_LINE_);
 		rakPeer[peerIndex]->AttachPlugin(twoWayAuthenticationPlugin[peerIndex]);
 		rakPeer[peerIndex]->SetMaximumIncomingConnections(NUM_PEERS);
 	}
@@ -46,7 +46,7 @@ int main(void)
 	// Initialize the peers
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		SLNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 	
@@ -72,7 +72,7 @@ int main(void)
 
 	while (!quit)
 	{
-		SLNet::Packet *packet;
+		MafiaNet::Packet *packet;
 		for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 		{
 			packet=rakPeer[peerIndex]->Receive();
@@ -83,9 +83,9 @@ int main(void)
 					case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS:
 					case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS:
 					{
-						SLNet::BitStream bs(packet->data, packet->length, false);
-						bs.IgnoreBytes(sizeof(SLNet::MessageID));
-						SLNet::RakString password;
+						MafiaNet::BitStream bs(packet->data, packet->length, false);
+						bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
+						MafiaNet::RakString password;
 						bs.Read(password);
 						if (packet->data[0]==ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS)
 							printf("ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
@@ -146,9 +146,9 @@ int main(void)
 					break;
 					case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT:
 					{
-						SLNet::BitStream bs(packet->data, packet->length, false);
-						bs.IgnoreBytes(sizeof(SLNet::MessageID));
-						SLNet::RakString password;
+						MafiaNet::BitStream bs(packet->data, packet->length, false);
+						bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
+						MafiaNet::RakString password;
 						bs.Read(password);
 						printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
 						printf("Failed stage %i\n", stage);
@@ -156,9 +156,9 @@ int main(void)
 					break;
 					case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE:
 					{
-						SLNet::BitStream bs(packet->data, packet->length, false);
-						bs.IgnoreBytes(sizeof(SLNet::MessageID));
-						SLNet::RakString password;
+						MafiaNet::BitStream bs(packet->data, packet->length, false);
+						bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
+						MafiaNet::RakString password;
 						bs.Read(password);
 						printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILED with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
 						if (stage!=4)
@@ -182,10 +182,10 @@ int main(void)
 
 
 	for (int i=0; i < NUM_PEERS; i++)
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
-		SLNet::OP_DELETE(twoWayAuthenticationPlugin[peerIndex], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(twoWayAuthenticationPlugin[peerIndex], _FILE_AND_LINE_);
 
 	return 1;
 }

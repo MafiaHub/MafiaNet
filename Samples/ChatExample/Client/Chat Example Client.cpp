@@ -47,21 +47,21 @@
 #endif
 
 // We copy this from Multiplayer.cpp to keep things all in one file for this example
-unsigned char GetPacketIdentifier(SLNet::Packet *p);
+unsigned char GetPacketIdentifier(MafiaNet::Packet *p);
 
 int main(void)
 {
-	SLNet::RakNetStatistics *rss;
+	MafiaNet::RakNetStatistics *rss;
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
-	SLNet::RakPeerInterface *client= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *client= MafiaNet::RakPeerInterface::GetInstance();
 //	client->InitializeSecurity(0,0,0,0);
-	//SLNet::PacketLogger packetLogger;
+	//MafiaNet::PacketLogger packetLogger;
 	//client->AttachPlugin(&packetLogger);
 
 	
 	// Holds packets
-	SLNet::Packet* p;
+	MafiaNet::Packet* p;
 
 	// GetPacketIdentifier returns this
 	unsigned char packetIdentifier;
@@ -70,7 +70,7 @@ int main(void)
 	bool isServer;
 
 	// Record the first client that connects to us so we can pass it to the ping function
-	SLNet::SystemAddress clientID= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress clientID= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 
 	// Crude interface
 
@@ -115,7 +115,7 @@ int main(void)
 
 	// Connecting the client is very simple.  0 means we don't care about
 	// a connectionValidationInteger, and false for low priority threads
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
 	socketDescriptor.socketFamily=AF_INET;
 	client->Startup(8,&socketDescriptor, 1);
 	client->SetOccasionalPing(true);
@@ -128,13 +128,13 @@ int main(void)
 	fread(public_key,sizeof(public_key),1,fp);
 	fclose(fp);
 
-	SLNet::PublicKey pk;
+	MafiaNet::PublicKey pk;
 	pk.remoteServerPublicKey=public_key;
-	pk.publicKeyMode= SLNet::PKM_USE_KNOWN_PUBLIC_KEY;
+	pk.publicKeyMode= MafiaNet::PKM_USE_KNOWN_PUBLIC_KEY;
 	client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk);
 #else
-	SLNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
-	RakAssert(car== SLNet::CONNECTION_ATTEMPT_STARTED);
+	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
+	RakAssert(car== MafiaNet::CONNECTION_ATTEMPT_STARTED);
 #endif
 
 	printf("\nMy IP addresses:\n");
@@ -144,7 +144,7 @@ int main(void)
 		printf("%i. %s\n", i+1, client->GetLocalIP(i));
 	}
 
-	printf("My GUID is %s\n", client->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("My GUID is %s\n", client->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
 	puts("'quit' to quit. 'stat' to show stats. 'ping' to ping.\n'disconnect' to disconnect. 'connect' to reconnnect. Type to talk.");
 	
 	char message[2048];
@@ -206,7 +206,7 @@ int main(void)
 
 			if (strcmp(message, "startup")==0)
 			{
-				bool b = client->Startup(8,&socketDescriptor, 1)== SLNet::RAKNET_STARTED;
+				bool b = client->Startup(8,&socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
 				if (b)
 					printf("Started.\n");
 				else
@@ -233,9 +233,9 @@ int main(void)
 				}
 
 #if LIBCAT_SECURITY==1
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk)== SLNet::CONNECTION_ATTEMPT_STARTED;
+				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
 #else
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"))== SLNet::CONNECTION_ATTEMPT_STARTED;
+				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"))== MafiaNet::CONNECTION_ATTEMPT_STARTED;
 #endif
 
 				if (b)
@@ -250,7 +250,7 @@ int main(void)
 
 			if (strcmp(message, "ping")==0)
 			{
-				if (client->GetSystemAddressFromIndex(0)!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+				if (client->GetSystemAddressFromIndex(0)!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					client->Ping(client->GetSystemAddressFromIndex(0));
 
 				continue;
@@ -258,7 +258,7 @@ int main(void)
 
 			if (strcmp(message, "getlastping")==0)
 			{
-				if (client->GetSystemAddressFromIndex(0)!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+				if (client->GetSystemAddressFromIndex(0)!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					printf("Last ping is %i\n", client->GetLastPing(client->GetSystemAddressFromIndex(0)));
 
 				continue;
@@ -268,7 +268,7 @@ int main(void)
 			// strlen(message)+1 is to send the null-terminator
 			// HIGH_PRIORITY doesn't actually matter here because we don't use any other priority
 			// RELIABLE_ORDERED means make sure the message arrives in the right order
-			client->Send(message, (int) strlen(message)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			client->Send(message, (int) strlen(message)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 		}
 
 		// Get a packet from either the server or the client
@@ -344,7 +344,7 @@ int main(void)
 	client->Shutdown(300);
 
 	// We're done with the network
-	SLNet::RakPeerInterface::DestroyInstance(client);
+	MafiaNet::RakPeerInterface::DestroyInstance(client);
 
 	return 0;
 }
@@ -352,15 +352,15 @@ int main(void)
 // Copied from Multiplayer.cpp
 // If the first byte is ID_TIMESTAMP, then we want the 5th byte
 // Otherwise we want the 1st byte
-unsigned char GetPacketIdentifier(SLNet::Packet *p)
+unsigned char GetPacketIdentifier(MafiaNet::Packet *p)
 {
 	if (p==0)
 		return 255;
 
 	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
 	{
-		RakAssert(p->length > sizeof(SLNet::MessageID) + sizeof(SLNet::Time));
-		return (unsigned char) p->data[sizeof(SLNet::MessageID) + sizeof(SLNet::Time)];
+		RakAssert(p->length > sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time));
+		return (unsigned char) p->data[sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time)];
 	}
 	else
 		return (unsigned char) p->data[0];

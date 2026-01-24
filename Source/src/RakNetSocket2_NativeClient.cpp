@@ -126,7 +126,7 @@ void RNS2_NativeClient::onRecvFrom(void* pData, int32_t dataSize)
 	}
 
 	recvStruct->bytesRead=dataSize;
-	recvStruct->timeRead= SLNet::GetTimeUS();
+	recvStruct->timeRead= MafiaNet::GetTimeUS();
 
 
 	PP_NetAddress_Private addr;

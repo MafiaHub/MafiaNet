@@ -28,7 +28,7 @@
 
 #define REMOTE_MAX_TEXT_INPUT 2048
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class CommandParserInterface;
@@ -90,7 +90,7 @@ public:
 protected:
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

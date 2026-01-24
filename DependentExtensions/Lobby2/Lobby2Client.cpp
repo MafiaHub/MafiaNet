@@ -17,11 +17,11 @@
 #include "slikenet/assert.h"
 #include "slikenet/MessageIdentifiers.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 Lobby2Client::Lobby2Client()
 {
-	serverAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	serverAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 }
 Lobby2Client::~Lobby2Client()
 {
@@ -41,7 +41,7 @@ void Lobby2Client::SendMsg(Lobby2Message *msg)
 	RakAssert(callbacks.Size());
 	msg->resultCode=L2RC_PROCESSING;
 
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((MessageID)ID_LOBBY2_SEND_MESSAGE);
 	bs.Write((MessageID)msg->GetID());
 	msg->Serialize(true,false,&bs);
@@ -79,7 +79,7 @@ void Lobby2Client::OnShutdown(void)
 }
 void Lobby2Client::OnMessage(Packet *packet)
 {
-	SLNet::BitStream bs(packet->data,packet->length,false);
+	MafiaNet::BitStream bs(packet->data,packet->length,false);
 	bs.IgnoreBytes(1); // ID_LOBBY2_SEND_MESSAGE
 	MessageID msgId;
 	bs.Read(msgId);
@@ -104,20 +104,20 @@ void Lobby2Client::OnMessage(Packet *packet)
 	}
 }
 /*
-void Lobby2Client::AddToIgnoreList(SLNet::RakString user)
+void Lobby2Client::AddToIgnoreList(MafiaNet::RakString user)
 {
 	ignoreList.Insert(user,user,false);
 }
-void Lobby2Client::RemoveFromIgnoreList(SLNet::RakString user)
+void Lobby2Client::RemoveFromIgnoreList(MafiaNet::RakString user)
 {
 	ignoreList.RemoveIfExists(user);
 }
-void Lobby2Client::SetIgnoreList(DataStructures::List<SLNet::RakString> users)
+void Lobby2Client::SetIgnoreList(DataStructures::List<MafiaNet::RakString> users)
 {
 	for (unsigned int i=0; i < users.Size(); i++)
 		ignoreList.Insert(users[i],users[i],false);
 }
-bool Lobby2Client::IsInIgnoreList(SLNet::RakString user) const
+bool Lobby2Client::IsInIgnoreList(MafiaNet::RakString user) const
 {
 	return ignoreList.HasData(user);
 }
@@ -125,7 +125,7 @@ void Lobby2Client::ClearIgnoreList(void)
 {
 	ignoreList.Clear(_FILE_AND_LINE_);
 }
-const DataStructures::OrderedList<SLNet::RakString, SLNet::RakString>* Lobby2Client::GetIgnoreList(void) const
+const DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString>* Lobby2Client::GetIgnoreList(void) const
 {
 	return &ignoreList;
 }

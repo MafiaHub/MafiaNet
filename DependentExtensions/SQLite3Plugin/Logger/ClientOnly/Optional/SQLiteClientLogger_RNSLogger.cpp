@@ -15,7 +15,7 @@
 #include "slikenet/peerinterface.h"
 #include "SQLiteClientLoggerPlugin.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static const char *DEFAULT_RAKNET_STATISTICS_TABLE="RakNetStatistics";
 
@@ -28,7 +28,7 @@ SQLiteClientLogger_RakNetStatistics::~SQLiteClientLogger_RakNetStatistics()
 }
 void SQLiteClientLogger_RakNetStatistics::Update(void)
 {
-	SLNet::TimeUS time = SLNet::GetTimeUS();
+	MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
 	if (time-lastUpdate>1000000)
 	{
 		lastUpdate=time;

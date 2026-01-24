@@ -31,7 +31,7 @@
 #include "slikenet/Gets.h"
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
-using namespace SLNet;
+using namespace MafiaNet;
 
 #if LIBCAT_SECURITY!=1
 #error "Define LIBCAT_SECURITY 1 in NativeFeatureIncludesOverrides.h to enable Encryption"
@@ -90,7 +90,7 @@ void PrintPacketHeader(Packet *packet)
 				}
 
 				// Transmit test message
-				SLNet::BitStream testBlockLargerThanMTU;
+				MafiaNet::BitStream testBlockLargerThanMTU;
 				testBlockLargerThanMTU.Write((MessageID) ID_USER_PACKET_ENUM);
 				testBlockLargerThanMTU.PadWithZeroToByteLength(10000);
 				rakPeer1->Send(&testBlockLargerThanMTU, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
@@ -331,8 +331,8 @@ int main(void)
 
 				peer1GotMessage=false;
 				peer2GotMessage=false;
-				TimeMS time = SLNet::GetTimeMS() + 12000;
-				while (SLNet::GetTimeMS() < time)
+				TimeMS time = MafiaNet::GetTimeMS() + 12000;
+				while (MafiaNet::GetTimeMS() < time)
 				{
 					packet=rakPeer1->Receive();
 					if (packet)

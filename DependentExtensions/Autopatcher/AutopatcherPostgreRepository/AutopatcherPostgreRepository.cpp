@@ -52,7 +52,7 @@ static const unsigned HASH_LENGTH=sizeof(unsigned int);
 #define PQEXECPARAM_FORMAT_TEXT		0
 #define PQEXECPARAM_FORMAT_BINARY	1
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 AutopatcherPostgreRepository::AutopatcherPostgreRepository()
 {
@@ -224,7 +224,7 @@ bool AutopatcherPostgreRepository::GetChangelistSinceDate(const char *applicatio
 	char query[512];
 	if (strlen(applicationName)>100)
 		return false;
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	sprintf_s(query, "SELECT applicationID FROM applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 	//sqlCommandMutex.Lock();
 	if (ExecuteBlockingCommand(query, &result, false)==false)
@@ -300,7 +300,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 	char query[512];
 	if (strlen(applicationName)>100)
 		return 0;
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	sprintf_s(query, "SELECT applicationID FROM applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 	//sqlCommandMutex.Lock();
 	if (ExecuteBlockingCommand(query, &result, false)==false)
@@ -326,7 +326,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 	// Go through the input list.
 	unsigned inputIndex;
 	char *userHash, *contentHash;
-	SLNet::RakString userFilename;
+	MafiaNet::RakString userFilename;
 	// char *content;
 //	char *fileId, *fileLength;
 	char *patch;
@@ -449,7 +449,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 						/*
 						// Get 32000000 bytes at a time to workaround http://support.microsoft.com/kb/q201213
 						int fileIndex=0;
-						char *file = SLNet::OP_NEW char[fileLengthInt];
+						char *file = MafiaNet::OP_NEW char[fileLengthInt];
 						while (fileIndex < fileLengthInt)
 						{
 							sprintf_s(query, "SELECT substring(content from %i for 32000000) FROM FileVersionHistory WHERE fileId=$1::integer;", fileIndex, fileId);
@@ -485,7 +485,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 						// No patch, add the file
 						patchList->AddFile(userFilename,userFilename, 0, fileLengthInt, fileLengthInt, FileListNodeContext(PC_WRITE_FILE,fileIdInt,0,0), true);
 //						patchList->AddFile(userFilename, file, fileLengthInt, contentLength, FileListNodeContext(PC_WRITE_FILE,0), true);
-//						SLNet::OP_DELETE_ARRAY file;
+//						MafiaNet::OP_DELETE_ARRAY file;
 					}
 					else
 					{
@@ -514,7 +514,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 						char *temp;
 
 						if (useReference==false)
-							temp = SLNet::OP_NEW_ARRAY<char>(patchLength + HASH_LENGTH, _FILE_AND_LINE_ );
+							temp = MafiaNet::OP_NEW_ARRAY<char>(patchLength + HASH_LENGTH, _FILE_AND_LINE_ );
 						else
 							temp = 0;
 
@@ -539,7 +539,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 							patchList->AddFile(userFilename,userFilename, temp, HASH_LENGTH+patchLength, fileLengthInt, FileListNodeContext(PC_HASH_1_WITH_PATCH,fileIdInt,patchAlgorithm,patchIdInt),true );
 						}
 						PQclear(patchResult);
-						SLNet::OP_DELETE_ARRAY(temp, _FILE_AND_LINE_);
+						MafiaNet::OP_DELETE_ARRAY(temp, _FILE_AND_LINE_);
 					}
 				}
 				else
@@ -558,7 +558,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 
 	return 1;
 }
-bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(SLNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
+bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
 {
 	PGresult *result;
 	char query[1024];
@@ -663,7 +663,7 @@ bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(SLNet::Rak
 		applicationName = PQgetvalue(result, 0, applicationNameColumnIndex);
 	}
 
-	SLNet::RakString escapedApplicationName2 = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName2 = GetEscapedString(applicationName);
 	PGresult *result2;
 	char *ts;
 	int numRows2;
@@ -810,7 +810,7 @@ bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(SLNet::Rak
 	PQclear(result);
 	return true;
 }
-bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(SLNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
+bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
 {
 	PGresult *result;
 	char query[1024];
@@ -915,7 +915,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(SLNet::Ra
 		applicationName = PQgetvalue(result, 0, applicationNameColumnIndex);
 	}
 
-	SLNet::RakString escapedApplicationName2 = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName2 = GetEscapedString(applicationName);
 	PGresult *result2;
 	char *ts;
 	int numRows2;
@@ -1098,7 +1098,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 	if (strlen(userName)>100)
 		return false;
 
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	sprintf_s(query, "SELECT applicationID FROM applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 	//sqlCommandMutex.Lock();
 	if (ExecuteBlockingCommand(query, &result, false)==false)
@@ -1176,9 +1176,9 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 
 	unsigned fileListIndex;
 	int rowIndex;
-	SLNet::RakString hardDriveFilename;
+	MafiaNet::RakString hardDriveFilename;
 	char *hardDriveHash;
-	SLNet::RakString queryFilename;
+	MafiaNet::RakString queryFilename;
 	char *createFileResult;
 	char *hash;
 	bool addFile;
@@ -1524,7 +1524,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 	if (strlen(userName)>100)
 		return false;
 
-	SLNet::RakString escapedApplicationName = GetEscapedString(applicationName);
+	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	sprintf_s(query, "SELECT applicationID FROM applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 	//sqlCommandMutex.Lock();
 	if (ExecuteBlockingCommand(query, &result, false)==false)
@@ -1602,9 +1602,9 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 
 	unsigned fileListIndex;
 	int rowIndex;
-	SLNet::RakString hardDriveFilename;
+	MafiaNet::RakString hardDriveFilename;
 	char *hardDriveHash;
-	SLNet::RakString queryFilename;
+	MafiaNet::RakString queryFilename;
 	char *createFileResult;
 	char *hash;
 	bool addFile;

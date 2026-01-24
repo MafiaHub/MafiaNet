@@ -28,7 +28,7 @@
 #include <stdio.h>
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 //#define PRINT_DEBUG_INFO
 
@@ -38,7 +38,7 @@ using namespace SLNet;
 #include <stdio.h>
 #endif
 
-int SLNet::VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data )
+int MafiaNet::VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data )
 {
 	if (key < data->guid)
 		return -1;
@@ -90,11 +90,11 @@ void RakVoice::SetLoopbackMode(bool enabled)
 	if (enabled)
 	{
 		Packet p;
-		SLNet::BitStream out;
+		MafiaNet::BitStream out;
 		out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
 		out.Write((int32_t)sampleRate);
 		p.data=out.GetData();
-		p.systemAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+		p.systemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		p.guid=UNASSIGNED_RAKNET_GUID;
 		p.length=out.GetNumberOfBytesUsed();
 		OpenChannel(&p);
@@ -112,7 +112,7 @@ bool RakVoice::IsLoopbackMode(void) const
 void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 {
 	// Send a reliable ordered message to the other system to open a voice channel
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
 	out.Write((int32_t)sampleRate);
 	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,recipient,false);	
@@ -122,13 +122,13 @@ void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 	FreeChannelMemory(recipient);
 	
 	// Send a message to the remote system telling them to close the channel
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
 	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,recipient,false);	
 }
 void RakVoice::CloseAllChannels(void)
 {
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
 
 	// Free the memory for all channels
@@ -335,7 +335,7 @@ void RakVoice::Update(void)
 	// First byte is ID for RakNet
 	tempOutput[0]=ID_RAKVOICE_DATA;
 	
-	SLNet::TimeMS currentTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS currentTime = MafiaNet::GetTimeMS();
 
 	// Size of VoiceChannel::incomingBuffer and VoiceChannel::outgoingBuffer arrays
 	unsigned totalBufferSize=bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
@@ -488,7 +488,7 @@ printf("%i ", voicePacketsSent++);
 					// at +1, because the first byte in the buffer has the ID for RakNet.
 					memcpy(tempOutput+1, &channel->outgoingMessageNumber, sizeof(unsigned short));
 					channel->outgoingMessageNumber++;
-					SLNet::BitStream tempOutputBs((unsigned char*) tempOutput,bytesWritten+headerSize,false);
+					MafiaNet::BitStream tempOutputBs((unsigned char*) tempOutput,bytesWritten+headerSize,false);
 					SendUnified(&tempOutputBs, HIGH_PRIORITY, UNRELIABLE,0,channel->guid,false);
 
 					if (loopbackMode)
@@ -605,7 +605,7 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 
 	OpenChannel(packet);
 
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REPLY);
 	out.Write((int32_t)sampleRate);
 	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,packet->systemAddress,false);	
@@ -618,12 +618,12 @@ void RakVoice::OnOpenChannelReply(Packet *packet)
 }
 void RakVoice::OpenChannel(Packet *packet)
 {
-	SLNet::BitStream in(packet->data, packet->length, false);
+	MafiaNet::BitStream in(packet->data, packet->length, false);
 	in.IgnoreBits(8);
 
 	FreeChannelMemory(packet->guid);
 
-	VoiceChannel *channel= SLNet::OP_NEW<VoiceChannel>( _FILE_AND_LINE_ );
+	VoiceChannel *channel= MafiaNet::OP_NEW<VoiceChannel>( _FILE_AND_LINE_ );
 	channel->guid=packet->guid;
 	channel->isSendingVoiceData=false;
 	int newSampleRate;
@@ -635,7 +635,7 @@ void RakVoice::OpenChannel(Packet *packet)
 #ifdef _DEBUG
 		RakAssert(0);
 #endif
-		SLNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
 		return;
 	}
 
@@ -778,7 +778,7 @@ void RakVoice::FreeChannelMemory(unsigned index, bool removeIndex)
 	speex_preprocess_state_destroy((SpeexPreprocessState*)channel->pre_state);
 	rakFree_Ex(channel->incomingBuffer, _FILE_AND_LINE_ );
 	rakFree_Ex(channel->outgoingBuffer, _FILE_AND_LINE_ );
-	SLNet::OP_DELETE(channel, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
 	if (removeIndex)
 		voiceChannels.RemoveAtIndex(index);
 }

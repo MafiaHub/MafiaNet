@@ -33,7 +33,7 @@ bool sentPacket=false;
 
 #define BIG_PACKET_SIZE 83296256
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 RakPeerInterface *client, *server;
 char *text;
@@ -57,7 +57,7 @@ int main(void)
 
 	if (ch=='c')
 	{
-		client= SLNet::RakPeerInterface::GetInstance();
+		client= MafiaNet::RakPeerInterface::GetInstance();
 		printf("Working as client\n");
 		printf("Enter remote IP: ");
 		Gets(text,BIG_PACKET_SIZE);
@@ -66,13 +66,13 @@ int main(void)
 	}
 	else if (ch=='s')
 	{
-		server= SLNet::RakPeerInterface::GetInstance();
+		server= MafiaNet::RakPeerInterface::GetInstance();
 		printf("Working as server\n");
 	}
 	else
 	{
-		client= SLNet::RakPeerInterface::GetInstance();
-		server= SLNet::RakPeerInterface::GetInstance();;
+		client= MafiaNet::RakPeerInterface::GetInstance();
+		server= MafiaNet::RakPeerInterface::GetInstance();;
 		strcpy_s(text, BIG_PACKET_SIZE, "127.0.0.1");
 	}
 
@@ -83,8 +83,8 @@ int main(void)
 
 	if (server)
 	{
-		server->SetTimeoutTime(5000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-		SLNet::SocketDescriptor socketDescriptor(3000,0);
+		server->SetTimeoutTime(5000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+		MafiaNet::SocketDescriptor socketDescriptor(3000,0);
 		socketDescriptor.socketFamily=socketFamily;
 		server->SetMaximumIncomingConnections(4);
 		StartupResult sr;
@@ -100,8 +100,8 @@ int main(void)
 	}
 	if (client)
 	{
-		client->SetTimeoutTime(5000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-		SLNet::SocketDescriptor socketDescriptor(0,0);
+		client->SetTimeoutTime(5000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+		MafiaNet::SocketDescriptor socketDescriptor(0,0);
 		socketDescriptor.socketFamily=socketFamily;
 		StartupResult sr;
 		sr=client->Startup(4, &socketDescriptor, 1);
@@ -138,11 +138,11 @@ int main(void)
 // 	if (server)
 // 		server->ApplyNetworkSimulator(.01, 0, 0);
 
-	SLNet::TimeMS start,stop;
+	MafiaNet::TimeMS start,stop;
 
-	SLNet::TimeMS nextStatTime = SLNet::GetTimeMS() + 1000;
-	SLNet::Packet *packet;
-	start= SLNet::GetTimeMS();
+	MafiaNet::TimeMS nextStatTime = MafiaNet::GetTimeMS() + 1000;
+	MafiaNet::Packet *packet;
+	start= MafiaNet::GetTimeMS();
 	while (!quit)
 	{
 		if (server)
@@ -152,7 +152,7 @@ int main(void)
 				if (packet->data[0]==ID_NEW_INCOMING_CONNECTION || packet->data[0]==253)
 				{
 					printf("Starting send\n");
-					start= SLNet::GetTimeMS();
+					start= MafiaNet::GetTimeMS();
 					// #med - replace BIG_PACKET_SIZE macro with static const
 #if BIG_PACKET_SIZE <= 100000
 					for (int i=0; i < BIG_PACKET_SIZE; i++)
@@ -162,7 +162,7 @@ int main(void)
 #endif
 					server->Send(text, BIG_PACKET_SIZE, LOW_PRIORITY, RELIABLE_ORDERED_WITH_ACK_RECEIPT, 0, packet->systemAddress, false);
 					// Keep the stat from updating until the messages move to the thread or it quits right away
-					nextStatTime= SLNet::GetTimeMS()+1000;
+					nextStatTime= MafiaNet::GetTimeMS()+1000;
 				}
 				if (packet->data[0]==ID_CONNECTION_LOST)
 					printf("ID_CONNECTION_LOST from %s\n", packet->systemAddress.ToString());
@@ -182,7 +182,7 @@ int main(void)
 					printf("Sending medium priority message\n");
 					char t[1];
 					t[0]=(unsigned char) 254;
-					server->Send(t, 1, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					server->Send(t, 1, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				if (ch=='q')
 					quit=true;
@@ -195,7 +195,7 @@ int main(void)
 			{
 				if (packet->data[0]==ID_DOWNLOAD_PROGRESS)
 				{
-					SLNet::BitStream progressBS(packet->data, packet->length, false);
+					MafiaNet::BitStream progressBS(packet->data, packet->length, false);
 					progressBS.IgnoreBits(8); // ID_DOWNLOAD_PROGRESS
 					unsigned int progress;
 					unsigned int total;
@@ -241,7 +241,7 @@ int main(void)
 						{
 							printf("Rerequesting send.\n");
 							unsigned char ch2=(unsigned char) 253;
-							client->Send((const char*) &ch2, 1, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+							client->Send((const char*) &ch2, 1, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 						}
 						else
 						{
@@ -263,7 +263,7 @@ int main(void)
 					printf("ID_NEW_INCOMING_CONNECTION from %s\n", packet->systemAddress.ToString());
 				else if (packet->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)
 				{
-					start= SLNet::GetTimeMS();
+					start= MafiaNet::GetTimeMS();
 					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s\n", packet->systemAddress.ToString());
 				}
 				else if (packet->data[0]==ID_CONNECTION_ATTEMPT_FAILED)
@@ -274,9 +274,9 @@ int main(void)
 			}
 		}
 
-		if (SLNet::GetTimeMS() > nextStatTime)
+		if (MafiaNet::GetTimeMS() > nextStatTime)
 		{
-			nextStatTime= SLNet::GetTimeMS()+1000;
+			nextStatTime= MafiaNet::GetTimeMS()+1000;
 			RakNetStatistics rssSender;
 			RakNetStatistics rssReceiver;
 			if (server)
@@ -304,7 +304,7 @@ int main(void)
 
 		RakSleep(100);
 	}
-	stop= SLNet::GetTimeMS();
+	stop= MafiaNet::GetTimeMS();
 	double seconds = (double)(stop-start)/1000.0;
 
 	if (server)
@@ -318,8 +318,8 @@ int main(void)
 	Gets(text,BIG_PACKET_SIZE);
 
 	delete []text;
-	SLNet::RakPeerInterface::DestroyInstance(client);
-	SLNet::RakPeerInterface::DestroyInstance(server);
+	MafiaNet::RakPeerInterface::DestroyInstance(client);
+	MafiaNet::RakPeerInterface::DestroyInstance(server);
 
 	return 0;
 }

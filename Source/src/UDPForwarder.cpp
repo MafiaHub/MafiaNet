@@ -43,10 +43,10 @@
 #define INVALID_SOCKET -1
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 static const unsigned short DEFAULT_MAX_FORWARD_ENTRIES=64;
 
-namespace SLNet
+namespace MafiaNet
 {
 	RAK_THREAD_DECLARATION(UpdateUDPForwarderGlobal);
 }
@@ -54,7 +54,7 @@ namespace SLNet
 UDPForwarder::ForwardEntry::ForwardEntry()
 {
 	socket=INVALID_SOCKET;
-	timeLastDatagramForwarded= SLNet::GetTimeMS();
+	timeLastDatagramForwarded= MafiaNet::GetTimeMS();
 	addr1Confirmed=UNASSIGNED_SYSTEM_ADDRESS;
 	addr2Confirmed=UNASSIGNED_SYSTEM_ADDRESS;
 }
@@ -93,7 +93,7 @@ void UDPForwarder::Startup(void)
 
 
 
-	errorCode = SLNet::RakThread::Create(UpdateUDPForwarderGlobal, this);
+	errorCode = MafiaNet::RakThread::Create(UpdateUDPForwarderGlobal, this);
 
 	if ( errorCode != 0 )
 	{
@@ -115,7 +115,7 @@ void UDPForwarder::Shutdown(void)
 
 	unsigned int j;
 	for (j=0; j < forwardListNotUpdated.Size(); j++)
-		SLNet::OP_DELETE(forwardListNotUpdated[j],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(forwardListNotUpdated[j],_FILE_AND_LINE_);
 	forwardListNotUpdated.Clear(false, _FILE_AND_LINE_);
 }
 void UDPForwarder::SetMaxForwardEntries(unsigned short maxEntries)
@@ -131,7 +131,7 @@ int UDPForwarder::GetUsedForwardEntries(void) const
 {
 	return (int) forwardListNotUpdated.Size();
 }
-UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAddress destination, SLNet::TimeMS timeoutOnNoDataMS, const char *forceHostAddress, unsigned short socketFamily,
+UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAddress destination, MafiaNet::TimeMS timeoutOnNoDataMS, const char *forceHostAddress, unsigned short socketFamily,
 								  unsigned short *forwardingPort, __UDPSOCKET__ *forwardingSocket)
 {
 	// Invalid parameters?
@@ -189,7 +189,7 @@ void UDPForwarder::StopForwarding(SystemAddress source, SystemAddress destinatio
 	sfs->source=source;
 	stopForwardingCommands.Push(sfs);
 }
-void UDPForwarder::RecvFrom(SLNet::TimeMS curTime, ForwardEntry *forwardEntry)
+void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry)
 {
 #ifndef __native_client__
 	char data[ MAXIMUM_MTU_SIZE ];
@@ -408,7 +408,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 #endif
 	*/
 
-	SLNet::TimeMS curTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 
 	StartForwardingInputStruct *sfis;
 	StartForwardingOutputStruct sfos;
@@ -454,7 +454,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				int sock_opt;
 				sockaddr_in listenerSocketAddress;
 				listenerSocketAddress.sin_port = 0;
-				ForwardEntry *fe = SLNet::OP_NEW<UDPForwarder::ForwardEntry>(_FILE_AND_LINE_);
+				ForwardEntry *fe = MafiaNet::OP_NEW<UDPForwarder::ForwardEntry>(_FILE_AND_LINE_);
 				fe->addr1Unconfirmed=sfis->source;
 				fe->addr2Unconfirmed=sfis->destination;
 				fe->timeoutOnNoDataMS=sfis->timeoutOnNoDataMS;
@@ -478,7 +478,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				int ret = bind__( fe->socket, ( struct sockaddr * ) & listenerSocketAddress, sizeof( listenerSocketAddress ) );
 				if (ret==-1)
 				{
-					SLNet::OP_DELETE(fe,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(fe,_FILE_AND_LINE_);
 					sfos.result=UDPFORWARDER_BIND_FAILED;
 				}
 				else
@@ -582,7 +582,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 			{
 				fe = forwardListNotUpdated[i];
 				forwardListNotUpdated.RemoveAtIndexFast(i);
-				SLNet::OP_DELETE(fe, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
 				break;
 			}
 		}
@@ -598,7 +598,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 		if (curTime > forwardListNotUpdated[i]->timeLastDatagramForwarded && // Account for timestamp wrap
 			curTime > forwardListNotUpdated[i]->timeLastDatagramForwarded+forwardListNotUpdated[i]->timeoutOnNoDataMS)
 		{
-			SLNet::OP_DELETE(forwardListNotUpdated[i],_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(forwardListNotUpdated[i],_FILE_AND_LINE_);
 			forwardListNotUpdated.RemoveAtIndex(i);
 		}
 		else
@@ -613,7 +613,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 	}
 }
 
-namespace SLNet {
+namespace MafiaNet {
 RAK_THREAD_DECLARATION(UpdateUDPForwarderGlobal)
 {
 
@@ -645,6 +645,6 @@ RAK_THREAD_DECLARATION(UpdateUDPForwarderGlobal)
 
 }
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // #if _RAKNET_SUPPORT_FileOperations==1

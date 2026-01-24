@@ -25,7 +25,7 @@
 
 #include "PacketLogger.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class LogCommandParser;
@@ -43,7 +43,7 @@ protected:
 	LogCommandParser *logCommandParser;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

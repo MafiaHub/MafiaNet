@@ -23,9 +23,9 @@
 #include "ProfanityFilter.h"
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-int RoomsPlugin::RoomsPluginParticipantCompByRakString( const SLNet::RakString &key, RoomsPluginParticipant* const &data )
+int RoomsPlugin::RoomsPluginParticipantCompByRakString( const MafiaNet::RakString &key, RoomsPluginParticipant* const &data )
 {
 	return strcmp(key.C_String(), data->GetName().C_String());
 }
@@ -34,7 +34,7 @@ void RoomsPluginFunc::PrintResult(void)
 {
 	printf("Result for user %s: %s\n", userName.C_String(), RoomsErrorCodeDescription::ToEnglish(resultCode));
 }
-void CreateRoom_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void CreateRoom_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_CREATE_ROOM;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -46,7 +46,7 @@ void CreateRoom_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitSt
 	else
 		TableSerializer::DeserializeTable(bitStream, &initialRoomProperties);
 }
-void CreateRoom_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void CreateRoom_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
@@ -54,7 +54,7 @@ void CreateRoom_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitS
 	roomDescriptor.Serialize(writeToBitstream,bitStream);
 }
 
-void EnterRoom_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void EnterRoom_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_ENTER_ROOM;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -64,7 +64,7 @@ void EnterRoom_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStr
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, gameIdentifier);
 }
-void EnterRoom_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void EnterRoom_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
@@ -73,7 +73,7 @@ void EnterRoom_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitSt
 	bitStream->Serialize( writeToBitstream, roomId );
 }
 
-void JoinByFilter_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void JoinByFilter_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_JOIN_BY_FILTER;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -82,33 +82,33 @@ void JoinByFilter_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bit
 	bitStream->Serialize(writeToBitstream, userName);
 	query.Serialize(writeToBitstream, bitStream);
 }
-void JoinByFilter_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void JoinByFilter_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 	joinedRoomResult.Serialize(writeToBitstream, bitStream);
 }
 
-void LeaveRoom_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void LeaveRoom_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_LEAVE_ROOM;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream,userName);
 }
-void LeaveRoom_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void LeaveRoom_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 	removeUserResult.Serialize(writeToBitstream, bitStream);
 }
 
-void GetInvitesToParticipant_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetInvitesToParticipant_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_GET_INVITES_TO_PARTICIPANT;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 }
-void GetInvitesToParticipant_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetInvitesToParticipant_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
@@ -129,7 +129,7 @@ void GetInvitesToParticipant_Func::SerializeOut(bool writeToBitstream, SLNet::Bi
 	}
 }
 
-void SendInvite_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SendInvite_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SEND_INVITE;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -139,13 +139,13 @@ void SendInvite_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitSt
 	bitStream->Serialize(writeToBitstream, subject);
 	bitStream->Serialize(writeToBitstream, body);
 }
-void SendInvite_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SendInvite_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void AcceptInvite_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void AcceptInvite_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_ACCEPT_INVITE;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -153,63 +153,63 @@ void AcceptInvite_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bit
 	bitStream->Serialize(writeToBitstream, inviteSender);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void AcceptInvite_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void AcceptInvite_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void StartSpectating_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void StartSpectating_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_START_SPECTATING;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 }
-void StartSpectating_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void StartSpectating_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void StopSpectating_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void StopSpectating_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_STOP_SPECTATING;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 }
-void StopSpectating_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void StopSpectating_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void GrantModerator_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GrantModerator_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_GRANT_MODERATOR;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, newModerator);
 }
-void GrantModerator_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GrantModerator_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void ChangeSlotCounts_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ChangeSlotCounts_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_CHANGE_SLOT_COUNTS;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	slots.Serialize(writeToBitstream, bitStream);
 }
-void ChangeSlotCounts_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ChangeSlotCounts_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void SetCustomRoomProperties_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetCustomRoomProperties_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SET_CUSTOM_ROOM_PROPERTIES;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -219,79 +219,79 @@ void SetCustomRoomProperties_Func::SerializeIn(bool writeToBitstream, SLNet::Bit
 	else
 		TableSerializer::DeserializeTable(bitStream, &table);
 }
-void SetCustomRoomProperties_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetCustomRoomProperties_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 
 }
-void GetRoomProperties_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetRoomProperties_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_GET_ROOM_PROPERTIES;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, roomName);
 }
-void GetRoomProperties_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetRoomProperties_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 	roomDescriptor.Serialize(writeToBitstream,bitStream);
 }
-void ChangeRoomName_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ChangeRoomName_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_CHANGE_ROOM_NAME;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, newRoomName);
 }
-void ChangeRoomName_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ChangeRoomName_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void SetHiddenFromSearches_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetHiddenFromSearches_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SET_HIDDEN_FROM_SEARCHES;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, hiddenFromSearches);
 }
-void SetHiddenFromSearches_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetHiddenFromSearches_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void SetDestroyOnModeratorLeave_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetDestroyOnModeratorLeave_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SET_DESTROY_ON_MODERATOR_LEAVE;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, destroyOnModeratorLeave);
 }
-void SetDestroyOnModeratorLeave_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetDestroyOnModeratorLeave_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void SetReadyStatus_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetReadyStatus_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SET_READY_STATUS;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, isReady);
 }
-void SetReadyStatus_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetReadyStatus_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 
 	unsigned int listSize;
 	unsigned int i;
-	SLNet::RakString name;
+	MafiaNet::RakString name;
 	listSize=readyUsers.Size();
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
@@ -325,13 +325,13 @@ void SetReadyStatus_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *
 	}
 }
 
-void GetReadyStatus_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetReadyStatus_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_GET_READY_STATUS;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	unsigned int listSize;
-	SLNet::RakString name;
+	MafiaNet::RakString name;
 	unsigned int i;
 	listSize=readyUsers.Size();
 	bitStream->Serialize(writeToBitstream, listSize);
@@ -365,52 +365,52 @@ void GetReadyStatus_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *b
 		}
 	}
 }
-void GetReadyStatus_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetReadyStatus_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void SetRoomLockState_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetRoomLockState_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SET_ROOM_LOCK_STATE;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, roomLockState);
 }
-void SetRoomLockState_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SetRoomLockState_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void GetRoomLockState_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetRoomLockState_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_GET_ROOM_LOCK_STATE;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 }
-void GetRoomLockState_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetRoomLockState_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 	bitStream->Serialize(writeToBitstream, roomLockState);
 }
 
-void AreAllMembersReady_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void AreAllMembersReady_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_ARE_ALL_MEMBERS_READY;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, allReady);
 }
-void AreAllMembersReady_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void AreAllMembersReady_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void KickMember_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void KickMember_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_KICK_MEMBER;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -418,26 +418,26 @@ void KickMember_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitSt
 	bitStream->Serialize(writeToBitstream, kickedMember);
 	bitStream->Serialize(writeToBitstream, reason);
 }
-void KickMember_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void KickMember_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void UnbanMember_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void UnbanMember_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_UNBAN_MEMBER;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, bannedMemberName);
 }
-void UnbanMember_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void UnbanMember_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void GetBanReason_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetBanReason_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_GET_BAN_REASON;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -445,13 +445,13 @@ void GetBanReason_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bit
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, reason);
 }
-void GetBanReason_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void GetBanReason_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void AddUserToQuickJoin_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void AddUserToQuickJoin_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_ADD_USER_TO_QUICK_JOIN;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -459,32 +459,32 @@ void AddUserToQuickJoin_Func::SerializeIn(bool writeToBitstream, SLNet::BitStrea
 	bitStream->Serialize(writeToBitstream, gameIdentifier);
 	networkedQuickJoinUser.Serialize(writeToBitstream, bitStream);
 }
-void AddUserToQuickJoin_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void AddUserToQuickJoin_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void RemoveUserFromQuickJoin_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RemoveUserFromQuickJoin_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_REMOVE_USER_FROM_QUICK_JOIN;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 }
-void RemoveUserFromQuickJoin_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RemoveUserFromQuickJoin_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
 
-void IsInQuickJoin_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void IsInQuickJoin_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_IS_IN_QUICK_JOIN;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, isInQuickJoin);
 }
-void IsInQuickJoin_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void IsInQuickJoin_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
@@ -492,9 +492,9 @@ void IsInQuickJoin_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *b
 SearchByFilter_Func::~SearchByFilter_Func()
 {
 	for (unsigned int i=0; i < roomsOutput.Size(); i++)
-		SLNet::OP_DELETE(roomsOutput[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(roomsOutput[i], _FILE_AND_LINE_);
 }
-void SearchByFilter_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SearchByFilter_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_SEARCH_BY_FILTER;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -503,7 +503,7 @@ void SearchByFilter_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *b
 	bitStream->Serialize(writeToBitstream, onlyJoinable);
 	roomQuery.Serialize(writeToBitstream, bitStream);
 }
-void SearchByFilter_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SearchByFilter_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
@@ -517,26 +517,26 @@ void SearchByFilter_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *
 			roomsOutput[i]->Serialize(true,bitStream);
 		else
 		{
-			RoomDescriptor *desc = SLNet::OP_NEW<RoomDescriptor>( _FILE_AND_LINE_ );
+			RoomDescriptor *desc = MafiaNet::OP_NEW<RoomDescriptor>( _FILE_AND_LINE_ );
 			desc->Serialize(false,bitStream);
 			roomsOutput.Insert(desc, _FILE_AND_LINE_ );
 		}
 	}
 }
 
-void ChangeHandle_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ChangeHandle_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_CHANGE_HANDLE;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, newHandle);
 }
-void ChangeHandle_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ChangeHandle_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
-void Chat_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void Chat_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_CHAT;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -545,12 +545,12 @@ void Chat_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
 	bitStream->Serialize(writeToBitstream, privateMessageRecipient);
 	bitStream->Serialize(writeToBitstream, chatDirectedToRoom);
 }
-void Chat_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void Chat_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
-void Bitstream_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStream)
+void Bitstream_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPO_BITSTREAM;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -564,26 +564,26 @@ void Bitstream_Func::SerializeIn(bool writeToBitstream, SLNet::BitStream *bitStr
 	bitStream->Serialize(writeToBitstream, privateMessageRecipient);
 	bitStream->Serialize(writeToBitstream, directedToRoom);
 }
-void Bitstream_Func::SerializeOut(bool writeToBitstream, SLNet::BitStream *bitStream)
+void Bitstream_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	SerializeIn( writeToBitstream, bitStream );
 	bitStream->Serialize( writeToBitstream, resultCode );
 }
-void QuickJoinExpired_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void QuickJoinExpired_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_QUICK_JOIN_EXPIRED;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, recipient);
 	networkedQuickJoinUser.Serialize(writeToBitstream, bitStream);
 }
-void QuickJoinEnteredRoom_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void QuickJoinEnteredRoom_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_QUICK_JOIN_ENTERED_ROOM;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, recipient);
 	joinedRoomResult.Serialize(writeToBitstream, bitStream);
 }
-void RoomMemberStartedSpectating_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberStartedSpectating_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_STARTED_SPECTATING;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -591,7 +591,7 @@ void RoomMemberStartedSpectating_Notification::Serialize(bool writeToBitstream, 
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void RoomMemberStoppedSpectating_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberStoppedSpectating_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_STARTED_SPECTATING;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -599,7 +599,7 @@ void RoomMemberStoppedSpectating_Notification::Serialize(bool writeToBitstream, 
 	bitStream->Serialize(writeToBitstream, userName);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void ModeratorChanged_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void ModeratorChanged_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_MODERATOR_CHANGED;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -608,7 +608,7 @@ void ModeratorChanged_Notification::Serialize(bool writeToBitstream, SLNet::BitS
 	bitStream->Serialize(writeToBitstream, oldModerator);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void SlotCountsSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void SlotCountsSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_SLOT_COUNTS_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -616,7 +616,7 @@ void SlotCountsSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStre
 	slots.Serialize(writeToBitstream, bitStream);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void CustomRoomPropertiesSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void CustomRoomPropertiesSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_CUSTOM_ROOM_PROPERTIES_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -634,7 +634,7 @@ void CustomRoomPropertiesSet_Notification::Serialize(bool writeToBitstream, SLNe
 		tablePtr=&table;
 	}
 }
-void RoomNameSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomNameSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_NAME_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -643,7 +643,7 @@ void RoomNameSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream
 	bitStream->Serialize(writeToBitstream, newName);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void HiddenFromSearchesSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void HiddenFromSearchesSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_HIDDEN_FROM_SEARCHES_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -651,7 +651,7 @@ void HiddenFromSearchesSet_Notification::Serialize(bool writeToBitstream, SLNet:
 	bitStream->Serialize(writeToBitstream, roomId);
 	bitStream->Serialize(writeToBitstream, hiddenFromSearches);
 }
-void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_READY_STATUS_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -662,7 +662,7 @@ void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, SLN
 
 	unsigned int listSize;
 	unsigned int i;
-	SLNet::RakString name;
+	MafiaNet::RakString name;
 	listSize=readyUsers.Size();
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
@@ -695,7 +695,7 @@ void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, SLN
 		}
 	}
 }
-void RoomLockStateSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomLockStateSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_LOCK_STATE_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -703,7 +703,7 @@ void RoomLockStateSet_Notification::Serialize(bool writeToBitstream, SLNet::BitS
 	bitStream->Serialize(writeToBitstream, roomId);
 	bitStream->Serialize(writeToBitstream, roomLockState);
 }
-void RoomMemberKicked_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberKicked_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_KICKED;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -713,7 +713,7 @@ void RoomMemberKicked_Notification::Serialize(bool writeToBitstream, SLNet::BitS
 	bitStream->Serialize(writeToBitstream, moderator);
 	bitStream->Serialize(writeToBitstream, reason);
 }
-void RoomMemberHandleSet_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberHandleSet_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_HANDLE_SET;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -722,7 +722,7 @@ void RoomMemberHandleSet_Notification::Serialize(bool writeToBitstream, SLNet::B
 	bitStream->Serialize(writeToBitstream, newName);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void RoomMemberLeftRoom_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberLeftRoom_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_LEFT_ROOM;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -730,17 +730,17 @@ void RoomMemberLeftRoom_Notification::Serialize(bool writeToBitstream, SLNet::Bi
 	bitStream->Serialize(writeToBitstream, roomMember);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void RoomMemberJoinedRoom_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomMemberJoinedRoom_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_MEMBER_JOINED_ROOM;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, recipient);
 	bitStream->Serialize(writeToBitstream, roomId);
 	if (joinedRoomResult==0 && writeToBitstream==false)
-		joinedRoomResult = SLNet::OP_NEW<JoinedRoomResult>( _FILE_AND_LINE_ );
+		joinedRoomResult = MafiaNet::OP_NEW<JoinedRoomResult>( _FILE_AND_LINE_ );
 	joinedRoomResult->Serialize(writeToBitstream, bitStream);
 }
-void RoomInvitationSent_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomInvitationSent_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_INVITATION_SENT;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -752,14 +752,14 @@ void RoomInvitationSent_Notification::Serialize(bool writeToBitstream, SLNet::Bi
 	bitStream->Serialize(writeToBitstream, body);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void RoomInvitationWithdrawn_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomInvitationWithdrawn_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_INVITATION_WITHDRAWN;
 	bitStream->Serialize(writeToBitstream, messageId);
 	bitStream->Serialize(writeToBitstream, recipient);
 	invitedUser.Serialize(writeToBitstream, bitStream);
 }
-void RoomDestroyedOnModeratorLeft_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void RoomDestroyedOnModeratorLeft_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_ROOM_DESTROYED_ON_MODERATOR_LEFT;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -768,7 +768,7 @@ void RoomDestroyedOnModeratorLeft_Notification::Serialize(bool writeToBitstream,
 	bitStream->Serialize(writeToBitstream, oldModerator);
 	roomDescriptor.Serialize(writeToBitstream, bitStream);
 }
-void Chat_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void Chat_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_CHAT_NOTIFICATION;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -778,7 +778,7 @@ void Chat_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitSt
 	bitStream->Serialize(writeToBitstream, chatMessage);
 	bitStream->Serialize(writeToBitstream, filteredChatMessage);
 }
-void Bitstream_Notification::Serialize(bool writeToBitstream, SLNet::BitStream *bitStream)
+void Bitstream_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
 	MessageID messageId = RPN_BITSTREAM_NOTIFICATION;
 	bitStream->Serialize(writeToBitstream, messageId);
@@ -798,7 +798,7 @@ RoomsPlugin::RoomsPlugin()
 	orderingChannel=0;
 	profanityFilter=0;
 	packetPriority=HIGH_PRIORITY;
-	serverAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	serverAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	SetRoomsCallback(this);
 }
 RoomsPlugin::~RoomsPlugin()
@@ -836,7 +836,7 @@ void RoomsPlugin::ExecuteFunc(RoomsPluginFunc *func)
 }
 void RoomsPlugin::ExecuteFunc(RoomsPluginFunc *func, SystemAddress remoteAddress)
 {
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((MessageID)ID_ROOMS_EXECUTE_FUNC);
 	if (IsServer())
 		func->SerializeOut(true, &bs);
@@ -847,7 +847,7 @@ void RoomsPlugin::ExecuteFunc(RoomsPluginFunc *func, SystemAddress remoteAddress
 
 void RoomsPlugin::ExecuteNotification(RoomsPluginNotification *func, RoomsPluginParticipant *recipient)
 {
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((MessageID)ID_ROOMS_EXECUTE_FUNC);
 	func->recipient=recipient->GetName();
 	func->Serialize(true, &bs);
@@ -856,21 +856,21 @@ void RoomsPlugin::ExecuteNotification(RoomsPluginNotification *func, RoomsPlugin
 void RoomsPlugin::SetServerAddress( SystemAddress systemAddress )
 {
 	serverAddress=systemAddress;
-	if (serverAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+	if (serverAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		RemoveRoomsCallback(this);
 	}
 }
-bool RoomsPlugin::LoginRoomsParticipant(SLNet::RakString userName, SystemAddress roomsParticipantAddress, RakNetGUID guid, SystemAddress loginServerAddress)
+bool RoomsPlugin::LoginRoomsParticipant(MafiaNet::RakString userName, SystemAddress roomsParticipantAddress, RakNetGUID guid, SystemAddress loginServerAddress)
 {
-	if (loginServerAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS && loginServers.GetIndexOf(loginServerAddress)==(unsigned int) -1)
+	if (loginServerAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && loginServers.GetIndexOf(loginServerAddress)==(unsigned int) -1)
 		return false;
 	bool objectExists;
 	unsigned int index;
 	index=roomsParticipants.GetIndexFromKey(userName, &objectExists);
 	if (objectExists==false)
 	{
-		RoomsPluginParticipant *rpp = SLNet::OP_NEW<RoomsPluginParticipant>( _FILE_AND_LINE_ );
+		RoomsPluginParticipant *rpp = MafiaNet::OP_NEW<RoomsPluginParticipant>( _FILE_AND_LINE_ );
 		rpp->SetSystemAddress(roomsParticipantAddress);
 		rpp->SetGUID(guid);
 		rpp->SetName(userName);
@@ -879,9 +879,9 @@ bool RoomsPlugin::LoginRoomsParticipant(SLNet::RakString userName, SystemAddress
 	}
 	return false;
 }
-bool RoomsPlugin::LogoffRoomsParticipant(SLNet::RakString userName, SystemAddress loginServerAddress)
+bool RoomsPlugin::LogoffRoomsParticipant(MafiaNet::RakString userName, SystemAddress loginServerAddress)
 {
-	if (loginServerAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS && loginServers.GetIndexOf(loginServerAddress)==(unsigned int) -1)
+	if (loginServerAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && loginServers.GetIndexOf(loginServerAddress)==(unsigned int) -1)
 		return false;
 	bool objectExists;
 	unsigned int index;
@@ -891,7 +891,7 @@ bool RoomsPlugin::LogoffRoomsParticipant(SLNet::RakString userName, SystemAddres
 		RemoveUserResult removeUserResult;
 		roomsContainer.RemoveUser(roomsParticipants[index], &removeUserResult);
 		ProcessRemoveUserResult(&removeUserResult);
-		SLNet::OP_DELETE(roomsParticipants[index], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(roomsParticipants[index], _FILE_AND_LINE_);
 		roomsParticipants.RemoveAtIndex(index);
 		return true;
 	}
@@ -901,10 +901,10 @@ void RoomsPlugin::ClearRoomMembers(void)
 {
 	unsigned int i;
 	for (i=0; i < roomsParticipants.Size(); i++)
-		SLNet::OP_DELETE(roomsParticipants[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(roomsParticipants[i], _FILE_AND_LINE_);
 	roomsParticipants.Clear(false, _FILE_AND_LINE_);
 }
-void RoomsPlugin::SerializeLogin(SLNet::RakString userName, SystemAddress userAddress, RakNetGUID guid, SLNet::BitStream *bs)
+void RoomsPlugin::SerializeLogin(MafiaNet::RakString userName, SystemAddress userAddress, RakNetGUID guid, MafiaNet::BitStream *bs)
 {
 	bs->Write((MessageID)ID_ROOMS_LOGON_STATUS);
 	bs->Write(userName);
@@ -912,25 +912,25 @@ void RoomsPlugin::SerializeLogin(SLNet::RakString userName, SystemAddress userAd
 	bs->Write(userAddress);
 	bs->Write(guid);
 }
-void RoomsPlugin::SerializeLogoff(SLNet::RakString userName, SLNet::BitStream *bs)
+void RoomsPlugin::SerializeLogoff(MafiaNet::RakString userName, MafiaNet::BitStream *bs)
 {
 	bs->Write((MessageID)ID_ROOMS_LOGON_STATUS);
 	bs->Write(userName);
 	bs->Write(false);
 }
-void RoomsPlugin::SerializeChangeHandle(SLNet::RakString oldHandle, SLNet::RakString newHandle, SLNet::BitStream *bs)
+void RoomsPlugin::SerializeChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle, MafiaNet::BitStream *bs)
 {
 	bs->Write((MessageID)ID_ROOMS_HANDLE_CHANGE);
 	bs->Write(oldHandle);
 	bs->Write(newHandle);
 }
-void RoomsPlugin::ChangeHandle(SLNet::RakString oldHandle, SLNet::RakString newHandle)
+void RoomsPlugin::ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle)
 {
 	RoomMemberHandleSet_Notification notification;
 	notification.oldName=oldHandle;
 	notification.newName=newHandle;
 	roomsContainer.ChangeHandle( oldHandle, newHandle );
-	RoomsPluginParticipant* roomsPluginParticipant = GetParticipantByHandle( newHandle, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	RoomsPluginParticipant* roomsPluginParticipant = GetParticipantByHandle( newHandle, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	if (roomsPluginParticipant && roomsPluginParticipant->GetRoom())
 	{
 		notification.roomId=roomsPluginParticipant->GetRoom()->GetID();
@@ -974,10 +974,10 @@ void RoomsPlugin::Update(void)
 	DataStructures::List<QuickJoinUser*> dereferencedPointers;
 	DataStructures::List<JoinedRoomResult> joinedRoomMembers;
 
-	SLNet::TimeMS curTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	if (lastUpdateTime!=0)
 	{
-		SLNet::TimeMS elapsedTime = curTime-lastUpdateTime;
+		MafiaNet::TimeMS elapsedTime = curTime-lastUpdateTime;
 		roomsContainer.ProcessQuickJoins( timeoutExpired, joinedRoomMembers, dereferencedPointers, elapsedTime );
 		unsigned int i;
 		for (i=0; i < timeoutExpired.Size(); i++)
@@ -1007,7 +1007,7 @@ void RoomsPlugin::Update(void)
 		}
 
 		for (i=0; i < dereferencedPointers.Size(); i++)
-			SLNet::OP_DELETE(dereferencedPointers[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(dereferencedPointers[i], _FILE_AND_LINE_);
 	}
 
 	lastUpdateTime=curTime;
@@ -1036,9 +1036,9 @@ void RoomsPlugin::OnLoginStatus(Packet *packet)
 	{
 		if (loginServers[i]==packet->systemAddress)
 		{
-			SLNet::BitStream bs(packet->data, packet->length, false);
+			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(1);
-			SLNet::RakString name;
+			MafiaNet::RakString name;
 			bs.Read(name);
 			bool loggedOn;
 			bs.Read(loggedOn);
@@ -1065,9 +1065,9 @@ void RoomsPlugin::OnHandleChange(Packet *packet)
 	{
 		if (loginServers[i]==packet->systemAddress)
 		{
-			SLNet::BitStream bs(packet->data, packet->length, false);
+			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(1);
-			SLNet::RakString oldHandle, newHandle;
+			MafiaNet::RakString oldHandle, newHandle;
 			bs.Read(oldHandle);
 			bs.Read(newHandle);
 			ChangeHandle(oldHandle, newHandle);
@@ -1077,7 +1077,7 @@ void RoomsPlugin::OnHandleChange(Packet *packet)
 }
 void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 {
-	SLNet::BitStream bs(packet->data, packet->length, false);
+	MafiaNet::BitStream bs(packet->data, packet->length, false);
 	bs.IgnoreBytes(1);
 	if (packet->length<2)
 		return;
@@ -1634,7 +1634,7 @@ void RoomsPlugin::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 		{
 			roomsContainer.RemoveUser(roomsParticipants[i], &removeUserResult);
 			ProcessRemoveUserResult(&removeUserResult);
-			SLNet::OP_DELETE(roomsParticipants[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(roomsParticipants[i], _FILE_AND_LINE_);
 			roomsParticipants.RemoveAtIndex(i);
 		}
 		else
@@ -1654,7 +1654,7 @@ bool RoomsPlugin::IsServer(void) const
 	RoomsCallback *rc=(RoomsCallback *) this;
 	return roomsCallback.GetIndexOf(rc)!=(unsigned int) -1;
 }
-RoomsPlugin::RoomsPluginParticipant* RoomsPlugin::GetParticipantByHandle(SLNet::RakString handle, const SystemAddress &senderAddress)
+RoomsPlugin::RoomsPluginParticipant* RoomsPlugin::GetParticipantByHandle(MafiaNet::RakString handle, const SystemAddress &senderAddress)
 {
 	(void) senderAddress;
 	if (roomsParticipants.HasData(handle))
@@ -1664,7 +1664,7 @@ RoomsPlugin::RoomsPluginParticipant* RoomsPlugin::GetParticipantByHandle(SLNet::
 		// 08/21/2012 - Uncommented: This was a bug with SendInvite_Func checking the sender's address against the invitees address
 		// 10/27/2010 - what was this for? Caused the bug http://www.jenkinssoftware.com/forum/index.php?topic=3720.0;topicseen
 		// This apparently validates the systemAddress to match the one in the function call
-		if (senderAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS || senderAddress==serverAddress)
+		if (senderAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS || senderAddress==serverAddress)
 			return rp;
 		if (rp->GetSystemAddress()!=senderAddress)
 			return 0;
@@ -1814,7 +1814,7 @@ void RoomsPlugin::AcceptInvite_Callback( const SystemAddress &senderAddress, Acc
 	if (callResult->resultCode==REC_SUCCESS)
 	{
 		RoomMemberJoinedRoom_Notification notificationToRoom;
-		notificationToRoom.joinedRoomResult= SLNet::OP_NEW<JoinedRoomResult>( _FILE_AND_LINE_ );
+		notificationToRoom.joinedRoomResult= MafiaNet::OP_NEW<JoinedRoomResult>( _FILE_AND_LINE_ );
 		notificationToRoom.joinedRoomResult->acceptedInvitor=0;
 		notificationToRoom.joinedRoomResult->acceptedInvitorName=callResult->inviteSender;
 		notificationToRoom.joinedRoomResult->joiningMember=roomsPluginParticipant;
@@ -1886,7 +1886,7 @@ void RoomsPlugin::GrantModerator_Callback( const SystemAddress &senderAddress, G
 			//			Room *room = newModerator->GetRoom();
 			RoomInvitationWithdrawn_Notification roomnotification;
 			roomnotification.invitedUser=clearedInvites[i];
-			ExecuteNotification(&roomnotification,  GetParticipantByHandle(clearedInvites[i].target, SLNet::UNASSIGNED_SYSTEM_ADDRESS));
+			ExecuteNotification(&roomnotification,  GetParticipantByHandle(clearedInvites[i].target, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS));
 		}
 	}
 	ExecuteFunc(callResult, senderAddress);
@@ -2103,7 +2103,7 @@ void RoomsPlugin::KickMember_Callback( const SystemAddress &senderAddress, KickM
 	RoomsPluginParticipant* roomsPluginParticipant = ValidateUserHandle(callResult, senderAddress);
 	if (roomsPluginParticipant==0)
 		return;
-	RoomsPluginParticipant* kickedMember = GetParticipantByHandle(callResult->kickedMember, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	RoomsPluginParticipant* kickedMember = GetParticipantByHandle(callResult->kickedMember, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	if (kickedMember==0)
 	{
 		callResult->resultCode=REC_KICK_MEMBER_TARGET_NOT_ONLINE;
@@ -2149,7 +2149,7 @@ void RoomsPlugin::AddUserToQuickJoin_Callback( const SystemAddress &senderAddres
 	RoomsPluginParticipant* roomsPluginParticipant = ValidateUserHandle(callResult, senderAddress);
 	if (roomsPluginParticipant==0)
 		return;
-	QuickJoinUser *qju = SLNet::OP_NEW<QuickJoinUser>( _FILE_AND_LINE_ );
+	QuickJoinUser *qju = MafiaNet::OP_NEW<QuickJoinUser>( _FILE_AND_LINE_ );
 	qju->networkedQuickJoinUser=callResult->networkedQuickJoinUser;
 	qju->roomsParticipant=roomsPluginParticipant;
 	callResult->resultCode=roomsContainer.AddUserToQuickJoin( callResult->gameIdentifier, qju );
@@ -2163,7 +2163,7 @@ void RoomsPlugin::RemoveUserFromQuickJoin_Callback( const SystemAddress &senderA
 	QuickJoinUser *qju;
 	callResult->resultCode=roomsContainer.RemoveUserFromQuickJoin( roomsPluginParticipant, &qju );
 	if (qju)
-		SLNet::OP_DELETE(qju, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(qju, _FILE_AND_LINE_);
 	ExecuteFunc(callResult, senderAddress);
 }
 void RoomsPlugin::IsInQuickJoin_Callback( const SystemAddress &senderAddress, IsInQuickJoin_Func *callResult)
@@ -2187,7 +2187,7 @@ void RoomsPlugin::SearchByFilter_Callback( const SystemAddress &senderAddress, S
 	RoomDescriptor *desc;
 	for (i=0; i < roomsOutput.Size(); i++)
 	{
-		desc = SLNet::OP_NEW<RoomDescriptor>( _FILE_AND_LINE_ );
+		desc = MafiaNet::OP_NEW<RoomDescriptor>( _FILE_AND_LINE_ );
 		desc->FromRoom(roomsOutput[i], &roomsContainer);
 		callResult->roomsOutput.Insert(desc, _FILE_AND_LINE_ );
 	}
@@ -2208,7 +2208,7 @@ void RoomsPlugin::ChangeHandle_Callback( const SystemAddress &senderAddress, Cha
 	RoomMemberHandleSet_Notification notification;
 	if (roomsPluginParticipant)
 		notification.oldName=roomsPluginParticipant->GetName();
-	if (GetParticipantByHandle(callResult->newHandle, SLNet::UNASSIGNED_SYSTEM_ADDRESS))
+	if (GetParticipantByHandle(callResult->newHandle, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS))
 	{
 		callResult->resultCode=REC_CHANGE_HANDLE_NEW_HANDLE_IN_USE;
 		ExecuteFunc(callResult, senderAddress);
@@ -2249,7 +2249,7 @@ void RoomsPlugin::Chat_Callback( const SystemAddress &senderAddress, Chat_Func *
 		notification.filteredChatMessage.Clear(); // Save bandwidth
 	if (callResult->privateMessageRecipient.IsEmpty()==false)
 	{
-		RoomsPluginParticipant* recipient = GetParticipantByHandle(callResult->privateMessageRecipient, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+		RoomsPluginParticipant* recipient = GetParticipantByHandle(callResult->privateMessageRecipient, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		if (recipient==0)
 		{
 			callResult->resultCode=REC_CHAT_RECIPIENT_NOT_ONLINE;
@@ -2311,7 +2311,7 @@ void RoomsPlugin::Bitstream_Callback( const SystemAddress &senderAddress, Bitstr
 	notification.bitStreamReceived.Write(callResult->bsToSend);
 	if (callResult->privateMessageRecipient.IsEmpty()==false)
 	{
-		RoomsPluginParticipant* recipient = GetParticipantByHandle(callResult->privateMessageRecipient, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+		RoomsPluginParticipant* recipient = GetParticipantByHandle(callResult->privateMessageRecipient, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		if (recipient==0)
 		{
 			callResult->resultCode=REC_BITSTREAM_RECIPIENT_NOT_ONLINE;
@@ -2362,7 +2362,7 @@ void RoomsPlugin::ProcessRemoveUserResult(RemoveUserResult *removeUserResult)
 	unsigned int j;
 	for (j=0; j < removeUserResult->clearedInvitations.Size(); j++)
 	{
-		RoomsPluginParticipant* invitationRecipient = GetParticipantByHandle(removeUserResult->clearedInvitations[j].target, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+		RoomsPluginParticipant* invitationRecipient = GetParticipantByHandle(removeUserResult->clearedInvitations[j].target, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		if (invitationRecipient)
 		{
 			RoomInvitationWithdrawn_Notification notification;
@@ -2402,7 +2402,7 @@ void RoomsPlugin::ProcessRemoveUserResult(RemoveUserResult *removeUserResult)
 	if (removeUserResult->removedFromQuickJoin)
 	{
 		if (removeUserResult->qju)
-			SLNet::OP_DELETE(removeUserResult->qju, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(removeUserResult->qju, _FILE_AND_LINE_);
 	}
 	roomsContainer.DestroyRoomIfDead(removeUserResult->room);
 }

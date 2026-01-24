@@ -37,7 +37,7 @@
 #include "LocklessTypes.h"
 #include "DS_ThreadsafeAllocatingQueue.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 enum UDPForwarderResult
@@ -90,7 +90,7 @@ public:
 	/// \param[out] forwardingSocket New opened socket for forwarding
 	/// \return UDPForwarderResult
 	UDPForwarderResult StartForwarding(
-		SystemAddress source, SystemAddress destination, SLNet::TimeMS timeoutOnNoDataMS,
+		SystemAddress source, SystemAddress destination, MafiaNet::TimeMS timeoutOnNoDataMS,
 		const char *forceHostAddress, unsigned short socketFamily,
 		unsigned short *forwardingPort, __UDPSOCKET__ *forwardingSocket);
 
@@ -105,9 +105,9 @@ public:
 		ForwardEntry();
 		~ForwardEntry();
 		SystemAddress addr1Unconfirmed, addr2Unconfirmed, addr1Confirmed, addr2Confirmed;
-		SLNet::TimeMS timeLastDatagramForwarded;
+		MafiaNet::TimeMS timeLastDatagramForwarded;
 		__UDPSOCKET__ socket;
-		SLNet::TimeMS timeoutOnNoDataMS;
+		MafiaNet::TimeMS timeoutOnNoDataMS;
 		short socketFamily;
 	};
 
@@ -116,13 +116,13 @@ protected:
 	friend RAK_THREAD_DECLARATION(UpdateUDPForwarderGlobal);
 
 	void UpdateUDPForwarder(void);
-	void RecvFrom(SLNet::TimeMS curTime, ForwardEntry *forwardEntry);
+	void RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry);
 
 	struct StartForwardingInputStruct
 	{
 		SystemAddress source;
 		SystemAddress destination;
-		SLNet::TimeMS timeoutOnNoDataMS;
+		MafiaNet::TimeMS timeoutOnNoDataMS;
 		RakString forceHostAddress;
 		unsigned short socketFamily;
 		unsigned int inputId;
@@ -153,7 +153,7 @@ protected:
 //	SimpleMutex forwardListNotUpdatedMutex;
 
 	unsigned short maxForwardEntries;
-	SLNet::LocklessUint32_t isRunning, threadRunning;
+	MafiaNet::LocklessUint32_t isRunning, threadRunning;
 
 };
 

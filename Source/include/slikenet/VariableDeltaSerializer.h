@@ -23,7 +23,7 @@
 #include "PacketPriority.h"
 #include "DS_OrderedList.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \brief Class to compare memory values of variables in a current state to a prior state
@@ -249,7 +249,7 @@ protected:
 	DataStructures::MemoryPool<ChangedVariablesList> updatedVariablesMemoryPool;
 
 	bool didComparisonThisTick;
-	SLNet::BitStream identicalSerializationBs;
+	MafiaNet::BitStream identicalSerializationBs;
 
 	void FreeVarsAssociatedWithReceipt(RakNetGUID guid, uint32_t receiptId);
 	void DirtyAndFreeVarsAssociatedWithReceipt(RakNetGUID guid, uint32_t receiptId);

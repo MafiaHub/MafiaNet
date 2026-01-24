@@ -29,7 +29,7 @@
 static const int DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME=2000;
 static const int DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR=DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME+1000;
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // bool operator<( const DataStructures::MLKeyRef<unsigned short> &inputKey, const UDPProxyCoordinator::ServerWithPing &cls ) {return inputKey.Get() < cls.ping;}
 // bool operator>( const DataStructures::MLKeyRef<unsigned short> &inputKey, const UDPProxyCoordinator::ServerWithPing &cls ) {return inputKey.Get() > cls.ping;}
@@ -82,14 +82,14 @@ UDPProxyCoordinator::~UDPProxyCoordinator()
 {
 	Clear();
 }
-void UDPProxyCoordinator::SetRemoteLoginPassword(SLNet::RakString password)
+void UDPProxyCoordinator::SetRemoteLoginPassword(MafiaNet::RakString password)
 {
 	remoteLoginPassword=password;
 }
 void UDPProxyCoordinator::Update(void)
 {
 	unsigned int idx;
-	SLNet::TimeMS curTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	ForwardingRequest *fw;
 	idx=0;
 	while (idx < forwardingRequestList.Size())
@@ -107,7 +107,7 @@ void UDPProxyCoordinator::Update(void)
 			curTime > fw->timeoutAfterSuccess)
 		{
 			// Forwarding request succeeded, we waited a bit to prevent duplicates. Can forget about the entry now.
-			SLNet::OP_DELETE(fw,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(fw,_FILE_AND_LINE_);
 			forwardingRequestList.RemoveAtIndex(idx);
 		}
 		else
@@ -149,7 +149,7 @@ void UDPProxyCoordinator::OnClosedConnection(const SystemAddress &systemAddress,
 		if (forwardingRequestList[idx]->requestingAddress==systemAddress)
 		{
 			// Guy disconnected before the attempt completed
-			SLNet::OP_DELETE(forwardingRequestList[idx], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(forwardingRequestList[idx], _FILE_AND_LINE_);
 			forwardingRequestList.RemoveAtIndex(idx );
 		}
 		else
@@ -177,7 +177,7 @@ void UDPProxyCoordinator::OnClosedConnection(const SystemAddress &systemAddress,
 }
 void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data, packet->length, false);
+	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
 	SystemAddress sourceAddress;
 	incomingBs.Read(sourceAddress);
@@ -197,7 +197,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		incomingBs.Read(targetGuid);
 		targetAddress=rakPeerInterface->GetSystemAddressFromGuid(targetGuid);
 	}
-	ForwardingRequest *fw = SLNet::OP_NEW<ForwardingRequest>(_FILE_AND_LINE_);
+	ForwardingRequest *fw = MafiaNet::OP_NEW<ForwardingRequest>(_FILE_AND_LINE_);
 	fw->timeoutAfterSuccess=0;
 	incomingBs.Read(fw->timeoutOnNoDataMS);
 	bool hasServerSelectionBitstream=false;
@@ -205,7 +205,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 	if (hasServerSelectionBitstream)
 		incomingBs.Read(&(fw->serverSelectionBitstream));
 
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	SenderAndTargetAddress sata;
 	sata.senderClientAddress=sourceAddress;
 	sata.targetClientAddress=targetAddress;
@@ -235,7 +235,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		outgoingBs.Write(serverPublicIp);
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
-		SLNet::OP_DELETE(fw, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fw, _FILE_AND_LINE_);
 		return;
 	}
 
@@ -247,7 +247,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		outgoingBs.Write(targetAddress);
 		outgoingBs.Write(targetGuid);
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
-		SLNet::OP_DELETE(fw, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fw, _FILE_AND_LINE_);
 		return;
 	}
 
@@ -259,7 +259,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		outgoingBs.Write(targetAddress);
 		outgoingBs.Write(targetGuid);
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
-		SLNet::OP_DELETE(fw, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fw, _FILE_AND_LINE_);
 		return;
 	}
 
@@ -280,7 +280,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 			outgoingBs.Write(serverList[idx]);
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, sourceAddress, false);
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, targetAddress, false);
-		fw->timeRequestedPings= SLNet::GetTimeMS();
+		fw->timeRequestedPings= MafiaNet::GetTimeMS();
 		unsigned int copyIndex;
 		for (copyIndex=0; copyIndex < serverList.Size(); copyIndex++)
 			fw->remainingServersToTry.Push(serverList[copyIndex], _FILE_AND_LINE_ );
@@ -295,9 +295,9 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 	}
 }
 
-void UDPProxyCoordinator::SendForwardingRequest(SystemAddress sourceAddress, SystemAddress targetAddress, SystemAddress serverAddress, SLNet::TimeMS timeoutOnNoDataMS)
+void UDPProxyCoordinator::SendForwardingRequest(SystemAddress sourceAddress, SystemAddress targetAddress, SystemAddress serverAddress, MafiaNet::TimeMS timeoutOnNoDataMS)
 {
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	// Send request to desired server
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_GENERAL);
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_FORWARDING_REQUEST_FROM_COORDINATOR_TO_SERVER);
@@ -308,11 +308,11 @@ void UDPProxyCoordinator::SendForwardingRequest(SystemAddress sourceAddress, Sys
 }
 void UDPProxyCoordinator::OnLoginRequestFromServerToCoordinator(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data, packet->length, false);
+	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
-	SLNet::RakString password;
+	MafiaNet::RakString password;
 	incomingBs.Read(password);
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 
 	if (remoteLoginPassword.IsEmpty())
 	{
@@ -350,7 +350,7 @@ void UDPProxyCoordinator::OnLoginRequestFromServerToCoordinator(Packet *packet)
 }
 void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data, packet->length, false);
+	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
 	SenderAndTargetAddress sata;
 	incomingBs.Read(sata.senderClientAddress);
@@ -384,7 +384,7 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 	unsigned short forwardingPort;
 	incomingBs.Read(forwardingPort);
 
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	if (success==UDPFORWARDER_SUCCESS)
 	{
 		outgoingBs.Write((MessageID)ID_UDP_PROXY_GENERAL);
@@ -407,9 +407,9 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, sata.targetClientAddress, false);
 
 		// 05/18/09 Keep the entry around for some time after success, so duplicates are reported if attempting forwarding from the target system before notification of success
-		fw->timeoutAfterSuccess= SLNet::GetTimeMS()+fw->timeoutOnNoDataMS;
+		fw->timeoutAfterSuccess= MafiaNet::GetTimeMS()+fw->timeoutOnNoDataMS;
 		// forwardingRequestList.RemoveAtIndex(index);
-		// SLNet::OP_DELETE(fw,_FILE_AND_LINE_);
+		// MafiaNet::OP_DELETE(fw,_FILE_AND_LINE_);
 
 		return;
 	}
@@ -432,12 +432,12 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, fw->requestingAddress, false);
 		forwardingRequestList.RemoveAtIndex(index);
-		SLNet::OP_DELETE(fw,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fw,_FILE_AND_LINE_);
 	}
 }
 void UDPProxyCoordinator::OnPingServersReplyFromClientToCoordinator(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data, packet->length, false);
+	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
 	unsigned short serversToPingSize;
 	SystemAddress serverAddress;
@@ -513,7 +513,7 @@ void UDPProxyCoordinator::TryNextServer(SenderAndTargetAddress sata, ForwardingR
 	{
 		SendAllBusy(sata.senderClientAddress, sata.targetClientAddress, sata.targetClientGuid, fw->requestingAddress);
 		forwardingRequestList.Remove(sata);
-		SLNet::OP_DELETE(fw,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fw,_FILE_AND_LINE_);
 		return;
 	}
 
@@ -521,7 +521,7 @@ void UDPProxyCoordinator::TryNextServer(SenderAndTargetAddress sata, ForwardingR
 }
 void UDPProxyCoordinator::SendAllBusy(SystemAddress senderClientAddress, SystemAddress targetClientAddress, RakNetGUID targetClientGuid, SystemAddress requestingAddress)
 {
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_GENERAL);
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_ALL_SERVERS_BUSY);
 	outgoingBs.Write(senderClientAddress);
@@ -534,7 +534,7 @@ void UDPProxyCoordinator::Clear(void)
 	serverList.Clear(true, _FILE_AND_LINE_);
 	for (unsigned int i=0; i < forwardingRequestList.Size(); i++)
 	{
-		SLNet::OP_DELETE(forwardingRequestList[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(forwardingRequestList[i],_FILE_AND_LINE_);
 	}
 	forwardingRequestList.Clear(false, _FILE_AND_LINE_);
 }

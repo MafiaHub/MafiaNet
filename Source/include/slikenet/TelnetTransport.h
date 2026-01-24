@@ -28,7 +28,7 @@
 #include "DS_List.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class TCPInterface;
@@ -78,7 +78,7 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

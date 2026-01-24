@@ -52,6 +52,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<$<PLATFORM_ID:Windows>:$<$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>:${CMAKE_CURRENT_SOURCE_DIR}/../../DependentExtensions/openssl/include/x64>>
 )
 
+# Link OpenSSL
+target_link_libraries(${PROJECT_NAME} PUBLIC ${SLIKENET_LIBRARY_LIBS})
+
 # Compile definitions
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>

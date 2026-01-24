@@ -70,9 +70,9 @@
 
 #define LISTEN_PORT_TCP_PATCHER 60000
 
-using namespace SLNet;
-static const SLNet::Time LOAD_CHECK_INTERVAL=1000*60*5;
-static const SLNet::Time LOAD_CHECK_INTERVAL_AFTER_SPAWN=1000*60*60;
+using namespace MafiaNet;
+static const MafiaNet::Time LOAD_CHECK_INTERVAL=1000*60*5;
+static const MafiaNet::Time LOAD_CHECK_INTERVAL_AFTER_SPAWN=1000*60*60;
 char databasePassword[128];
 int workerThreadCount;
 int sqlConnectionObjectCount;
@@ -80,8 +80,8 @@ int allowDownloadingUnmodifiedFiles;
 
 unsigned short autopatcherLoad=0;
 
-SLNet::RakPeerInterface *g_rakPeer;
-SLNet::AutopatcherServer *autopatcherServer;
+MafiaNet::RakPeerInterface *g_rakPeer;
+MafiaNet::AutopatcherServer *autopatcherServer;
 
 enum AppState
 {
@@ -92,7 +92,7 @@ enum AppState
 	AP_TERMINATED,
 } appState;
 
-SLNet::Time timeSinceZeroUsers;
+MafiaNet::Time timeSinceZeroUsers;
 
 
 struct CloudServerHelper_RackspaceCloudDNS : public CloudServerHelper, public Rackspace2EventCallback
@@ -116,11 +116,11 @@ public:
 	} cshState;
 
 	CloudServerHelper_RackspaceCloudDNS() {
-		rackspace2= SLNet::OP_NEW<Rackspace2>(_FILE_AND_LINE_);
+		rackspace2= MafiaNet::OP_NEW<Rackspace2>(_FILE_AND_LINE_);
 		memset(&thisServerDetail, 0, sizeof(ServerDetail));
 	}
 	~CloudServerHelper_RackspaceCloudDNS() {
-		SLNet::OP_DELETE(rackspace2,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(rackspace2,_FILE_AND_LINE_);
 	}
 	virtual bool Update(void) {
 		UpdateTCP();
@@ -366,7 +366,7 @@ public:
 					strcpy_s(patchHostRecordID,json_string_value(elementIDJson));
 
 
-					timeOfLastDNSHostCheck= SLNet::GetTime();
+					timeOfLastDNSHostCheck= MafiaNet::GetTime();
 					if (appState==AP_TERMINATE_IF_NOT_DNS_HOST)
 					{
 						if (strcmp(dnsHostIP, g_rakPeer->GetLocalIP(0))==0)
@@ -667,7 +667,7 @@ public:
 	// Call when you get ID_FCM2_NEW_HOST
 	virtual void OnFCMNewHost(Packet *packet, RakPeerInterface *rakPeer) {
 		RakAssert(packet->data[0]==ID_FCM2_NEW_HOST);
-		SLNet::BitStream bsIn(packet->data, packet->length, false);
+		MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 		bsIn.IgnoreBytes(sizeof(MessageID));
 		RakNetGUID oldHost;
 		bsIn.Read(oldHost);
@@ -688,17 +688,17 @@ public:
 	}
 
 	const char *GetCloudHostAddress(void) const {return dnsHostIP;}
-	SLNet::Time GetTimeOfLastDNSHostCheck(void) {return timeOfLastDNSHostCheck;}
-	void SetTimeOfLastDNSHostCheck(SLNet::Time t) {timeOfLastDNSHostCheck=t;}
+	MafiaNet::Time GetTimeOfLastDNSHostCheck(void) {return timeOfLastDNSHostCheck;}
+	void SetTimeOfLastDNSHostCheck(MafiaNet::Time t) {timeOfLastDNSHostCheck=t;}
 
 	virtual int OnJoinCloudResult(
 		Packet *packet,
-		SLNet::RakPeerInterface *rakPeer,
-		SLNet::CloudServer *cloudServer,
-		SLNet::CloudClient *cloudClient,
-		SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-		SLNet::TwoWayAuthentication *twoWayAuthentication,
-		SLNet::ConnectionGraph2 *connectionGraph2,
+		MafiaNet::RakPeerInterface *rakPeer,
+		MafiaNet::CloudServer *cloudServer,
+		MafiaNet::CloudClient *cloudClient,
+		MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+		MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+		MafiaNet::ConnectionGraph2 *connectionGraph2,
 		const char *rakPeerIpOrDomain,
 		char myPublicIP[32]
 	) {
@@ -736,7 +736,7 @@ public:
 
 	virtual void OnConnectionCountChange(RakPeerInterface *rakPeer, CloudClient *cloudClient)
 	{
-		SLNet::BitStream bs;
+		MafiaNet::BitStream bs;
 		CloudKey cloudKey("CloudConnCount",0);
 		bs.Write(autopatcherLoad);
 		cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), rakPeer->GetMyGUID());
@@ -755,7 +755,7 @@ public:
 protected:
 
 	int raknetPatcherDomainId;
-	SLNet::Time timeOfLastDNSHostCheck;
+	MafiaNet::Time timeOfLastDNSHostCheck;
 
 	struct ServerDetail
 	{
@@ -773,7 +773,7 @@ protected:
 
 } *cloudServerHelper;
 
-class AutopatcherLoadNotifier : public SLNet::AutopatcherServerLoadNotifier
+class AutopatcherLoadNotifier : public MafiaNet::AutopatcherServerLoadNotifier
 {
 	void AutopatcherLoadNotifier::OnQueueUpdate(SystemAddress remoteSystem,
 		AutopatcherServerLoadNotifier::RequestType requestType,
@@ -830,7 +830,7 @@ void SetMaxConcurrentUsers(int i)
 
 // The default AutopatcherPostgreRepository2 uses bsdiff which takes too much memory for large files.
 // I override MakePatch to use XDelta in this case
-class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgreRepository2
+class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPostgreRepository2
 {
 	int MakePatch(const char *oldFile, const char *newFile, char **patch, unsigned int *patchLength, int *patchAlgorithm)
 	{
@@ -872,7 +872,7 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 			fclose(fpNew);
 
 			char buff[128];
-			SLNet::TimeUS time = SLNet::GetTimeUS();
+			MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
 #if defined(_WIN32)
 			sprintf_s(buff, "%I64u", time);
 #else
@@ -905,8 +905,8 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 			sprintf_s(pathToPatch, "%s/patchServer_%s.tmp", WORKING_DIRECTORY, buff);
 			FILE *fpPatch;
 			errno_t error = fopen_s(&fpPatch, pathToPatch, "r+b");
-			SLNet::TimeUS stopWaiting = time + 60000000 * 5;
-			while (error!=0 && SLNet::GetTimeUS() < stopWaiting)
+			MafiaNet::TimeUS stopWaiting = time + 60000000 * 5;
+			while (error!=0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				error = fopen_s(&fpPatch, pathToPatch, "r+b");
@@ -926,7 +926,7 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 			fclose(fpPatch);
 
 			int unlinkRes = _unlink(pathToPatch);
-			while (unlinkRes!=0 && SLNet::GetTimeUS() < stopWaiting)
+			while (unlinkRes!=0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				unlinkRes = _unlink(pathToPatch);
@@ -949,16 +949,16 @@ int main(int argc, char **argv)
 	return 0;
 #endif
 
-	cloudServerHelper = SLNet::OP_NEW<CloudServerHelper_RackspaceCloudDNS>(_FILE_AND_LINE_);
+	cloudServerHelper = MafiaNet::OP_NEW<CloudServerHelper_RackspaceCloudDNS>(_FILE_AND_LINE_);
 	if (!cloudServerHelper->ParseCommandLineParameters(argc, argv))
 	{
 		return 1;
 	}
 
-	g_rakPeer = SLNet::RakPeerInterface::GetInstance();
+	g_rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 
 
-	SLNet::Time timeForNextLoadCheck= SLNet::GetTime()+LOAD_CHECK_INTERVAL;
+	MafiaNet::Time timeForNextLoadCheck= MafiaNet::GetTime()+LOAD_CHECK_INTERVAL;
 
 	if (!cloudServerHelper->AuthenticateWithRackspaceBlocking())
 	{
@@ -967,7 +967,7 @@ int main(int argc, char **argv)
 	}
 
 	// This does not work unless it comes after AuthenticateWithRackspaceBlocking
-	SLNet::PacketizedTCP packetizedTCP;
+	MafiaNet::PacketizedTCP packetizedTCP;
 	if (packetizedTCP.Start(LISTEN_PORT_TCP_PATCHER,cloudServerHelper->allowedIncomingConnections)==false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
@@ -975,15 +975,15 @@ int main(int argc, char **argv)
 	}
 
 	appState=AP_RUNNING;
-	timeSinceZeroUsers= SLNet::GetTime();
+	timeSinceZeroUsers= MafiaNet::GetTime();
 	printf("Server starting... ");
-	autopatcherServer = SLNet::OP_NEW<AutopatcherServer>(_FILE_AND_LINE_);
-	// SLNet::FLP_Printf progressIndicator;
-	SLNet::FileListTransfer fileListTransfer;
+	autopatcherServer = MafiaNet::OP_NEW<AutopatcherServer>(_FILE_AND_LINE_);
+	// MafiaNet::FLP_Printf progressIndicator;
+	MafiaNet::FileListTransfer fileListTransfer;
 	AutopatcherPostgreRepository2_WithXDelta *connectionObject;
-	connectionObject = SLNet::OP_NEW_ARRAY<AutopatcherPostgreRepository2_WithXDelta>(sqlConnectionObjectCount, _FILE_AND_LINE_);
-	// SLNet::AutopatcherRepositoryInterface **connectionObjectAddresses[sqlConnectionObjectCount];
-	AutopatcherRepositoryInterface **connectionObjectAddresses = SLNet::OP_NEW_ARRAY<AutopatcherRepositoryInterface *>(sqlConnectionObjectCount, _FILE_AND_LINE_);
+	connectionObject = MafiaNet::OP_NEW_ARRAY<AutopatcherPostgreRepository2_WithXDelta>(sqlConnectionObjectCount, _FILE_AND_LINE_);
+	// MafiaNet::AutopatcherRepositoryInterface **connectionObjectAddresses[sqlConnectionObjectCount];
+	AutopatcherRepositoryInterface **connectionObjectAddresses = MafiaNet::OP_NEW_ARRAY<AutopatcherRepositoryInterface *>(sqlConnectionObjectCount, _FILE_AND_LINE_);
 
 	for (int i=0; i < sqlConnectionObjectCount; i++)
 		connectionObjectAddresses[i]=&connectionObject[i];
@@ -1001,16 +1001,16 @@ int main(int argc, char **argv)
 
 	// ---- PLUGINS -----
 	// Used to load balance clients, allow for client to client discovery
-	SLNet::CloudServer cloudServer;
+	MafiaNet::CloudServer cloudServer;
 	// Used to update the local cloudServer
-	SLNet::CloudClient cloudClient;
+	MafiaNet::CloudClient cloudClient;
 	// Used to determine the host of the server fully connected mesh, as well as to connect servers automatically
-	SLNet::FullyConnectedMesh2 fullyConnectedMesh2;
+	MafiaNet::FullyConnectedMesh2 fullyConnectedMesh2;
 	// Used for servers to verify each other - otherwise any system could pose as a server
 	// Could also be used to verify and restrict clients if paired with the MessageFilter plugin
-	SLNet::TwoWayAuthentication twoWayAuthentication;
+	MafiaNet::TwoWayAuthentication twoWayAuthentication;
 	// Used to tell servers about each other
-	SLNet::ConnectionGraph2 connectionGraph2;
+	MafiaNet::ConnectionGraph2 connectionGraph2;
 
 	g_rakPeer->AttachPlugin(&cloudServer);
 	g_rakPeer->AttachPlugin(&cloudClient);
@@ -1021,7 +1021,7 @@ int main(int argc, char **argv)
 	if (!cloudServerHelper->StartRakPeer(g_rakPeer))
 		return 1;
 
-	SLNet::CloudServerHelperFilter sampleFilter; // Keeps clients from updating stuff to the server they are not supposed to
+	MafiaNet::CloudServerHelperFilter sampleFilter; // Keeps clients from updating stuff to the server they are not supposed to
 	sampleFilter.serverGuid= g_rakPeer->GetMyGUID();
 	cloudServerHelper->SetupPlugins(&cloudServer, &sampleFilter, &cloudClient, &fullyConnectedMesh2, &twoWayAuthentication,&connectionGraph2, cloudServerHelper->serverToServerPassword);
 
@@ -1081,18 +1081,18 @@ int main(int argc, char **argv)
 	printf("(D)rop database\n(C)reate database.\n(U)pdate revision.\n(S)pawn a clone of this server\n(M)ax concurrent users (this server only)\n(I)mage the current state of this server\n(L)ist images\n(T)erminate cloud\n(Q)uit\n");
 
 	int ch;
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	while (appState!=AP_TERMINATED)
 	{
-		SLNet::SystemAddress notificationAddress;
+		MafiaNet::SystemAddress notificationAddress;
 		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-// 		if (notificationAddress!=SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+// 		if (notificationAddress!=MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 // 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-// 		if (notificationAddress!=SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+// 		if (notificationAddress!=MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 // 			printf("ID_NEW_INCOMING_CONNECTION\n");
 		notificationAddress=packetizedTCP.HasLostConnection();
-// 		if (notificationAddress!=SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+// 		if (notificationAddress!=MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 // 			printf("ID_CONNECTION_LOST\n");
 
 		p=packetizedTCP.Receive();
@@ -1110,7 +1110,7 @@ int main(int argc, char **argv)
 				cloudServerHelper->Terminate();
 			}
 			if (timeSinceZeroUsers==0)
-				timeSinceZeroUsers= SLNet::GetTime();
+				timeSinceZeroUsers= MafiaNet::GetTime();
 		}
 		else
 		{
@@ -1133,7 +1133,7 @@ int main(int argc, char **argv)
 			{
 				if (appState==AP_RUNNING)
 				{
-					SLNet::BitStream bs(p->data,p->length,false);
+					MafiaNet::BitStream bs(p->data,p->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
@@ -1151,12 +1151,12 @@ int main(int argc, char **argv)
 						}
 					}
 
-					timeForNextLoadCheck= SLNet::GetTime()+LOAD_CHECK_INTERVAL;
+					timeForNextLoadCheck= MafiaNet::GetTime()+LOAD_CHECK_INTERVAL;
 				}
 			}
 			else if (p->data[0]==ID_USER_PACKET_ENUM)
 			{
-				SLNet::BitStream bsIn(p->data, p->length, false);
+				MafiaNet::BitStream bsIn(p->data, p->length, false);
 				bsIn.IgnoreBytes((sizeof(MessageID)));
 				RakString incomingPw;
 				bsIn.Read(incomingPw);
@@ -1180,7 +1180,7 @@ int main(int argc, char **argv)
 			}
 			else if (p->data[0]==ID_CLOUD_GET_RESPONSE)
 			{
-				SLNet::CloudQueryResult cloudQueryResult;
+				MafiaNet::CloudQueryResult cloudQueryResult;
 				cloudClient.OnGetReponse(&cloudQueryResult, p);
 				unsigned int rowIndex;
 				const bool wasCallToGetServers=cloudQueryResult.cloudQuery.keys[0].primaryKey=="CloudConnCount";
@@ -1190,15 +1190,15 @@ int main(int argc, char **argv)
 					printf("Downloaded server list. %i servers.\n", cloudQueryResult.rowsReturned.Size());
 					*/
 
-				SLNet::SystemAddress lowestConnectionAddress;
+				MafiaNet::SystemAddress lowestConnectionAddress;
 
 				int totalConnections=0;
 				for (rowIndex=0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
 				{
-					SLNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
+					MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
 
 					unsigned short connCount;
-					SLNet::BitStream bsIn(row->data, row->length, false);
+					MafiaNet::BitStream bsIn(row->data, row->length, false);
 					bsIn.Read(connCount);
 					printf("%i. Server found at %s with %i connections\n", rowIndex+1, row->serverSystemAddress.ToString(true), connCount);
 
@@ -1222,7 +1222,7 @@ int main(int argc, char **argv)
 						cloudServerHelper->SpawnServers(static_cast<unsigned>(newServersNeeded));
 				}
 
-				timeForNextLoadCheck = SLNet::GetTime() + LOAD_CHECK_INTERVAL_AFTER_SPAWN;
+				timeForNextLoadCheck = MafiaNet::GetTime() + LOAD_CHECK_INTERVAL_AFTER_SPAWN;
 
 				cloudClient.DeallocateWithDefaultAllocator(&cloudQueryResult);
 			}
@@ -1236,8 +1236,8 @@ int main(int argc, char **argv)
 		if (timeSinceZeroUsers!=0 && appState==AP_RUNNING && autopatcherServer->GetMaxConurrentUsers()>0)
 		{
 			// No users currently connected
-			SLNet::Time curTime = SLNet::GetTime();
-			SLNet::Time diff = curTime - timeSinceZeroUsers;
+			MafiaNet::Time curTime = MafiaNet::GetTime();
+			MafiaNet::Time diff = curTime - timeSinceZeroUsers;
 			if (diff > 0)
 			{
 				if (fullyConnectedMesh2.IsHostSystem()==false)
@@ -1253,7 +1253,7 @@ int main(int argc, char **argv)
 					if (diff > 1000 * 60 * 60 * 24)
 					{
 						// No users for 24 hours, verify if we are the host according to Rackspace DNS records. If not, shutdown
-						SLNet::Time diff2;
+						MafiaNet::Time diff2;
 						diff2 = curTime - cloudServerHelper->GetTimeOfLastDNSHostCheck();
 						if (diff2 > 1000 * 60 * 60 * 24)
 						{
@@ -1272,15 +1272,15 @@ int main(int argc, char **argv)
 		// 4. If we are the host, every 1 hour check load among all servers (including self). It takes like 30 minutes to build a new server.
 		if (fullyConnectedMesh2.IsHostSystem() && autopatcherServer->GetMaxConurrentUsers()>0)
 		{
-			SLNet::Time curTime = SLNet::GetTime();
+			MafiaNet::Time curTime = MafiaNet::GetTime();
 			if (curTime > timeForNextLoadCheck)
 			{
 				timeForNextLoadCheck = curTime + LOAD_CHECK_INTERVAL;
 
 				// If the load exceeds such that >=1 new fully loaded server is needed, add that many servers
 				// See ID_CLOUD_GET_RESPONSE
-				SLNet::CloudQuery cloudQuery;
-				cloudQuery.keys.Push(SLNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
+				MafiaNet::CloudQuery cloudQuery;
+				cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
 				cloudQuery.subscribeToResults=false;
 				cloudClient.Get(&cloudQuery, g_rakPeer->GetMyGUID());
 			}
@@ -1401,11 +1401,11 @@ int main(int argc, char **argv)
 
 
 
-	SLNet::OP_DELETE_ARRAY(connectionObject, _FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(connectionObjectAddresses, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(connectionObject, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(connectionObjectAddresses, _FILE_AND_LINE_);
 	packetizedTCP.Stop();
-	SLNet::RakPeerInterface::DestroyInstance(g_rakPeer);
-	SLNet::OP_DELETE(cloudServerHelper, _FILE_AND_LINE_);
+	MafiaNet::RakPeerInterface::DestroyInstance(g_rakPeer);
+	MafiaNet::OP_DELETE(cloudServerHelper, _FILE_AND_LINE_);
 
 
 return 0;

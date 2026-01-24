@@ -9,7 +9,7 @@
 // includes for concrete classes
 #include "slikenet/crypto/fileencrypter.h" // used for CFileEncrypter
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

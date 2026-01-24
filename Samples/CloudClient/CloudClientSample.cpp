@@ -35,9 +35,9 @@ void PrintHelp(void)
 
 #define CLOUD_CLIENT_PRIMARY_KEY "CC_Sample_PK"
 
-void UploadInstanceToCloud(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid);
-void GetClientSubscription(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid);
-void GetServers(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid);
+void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid);
+void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid);
+void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid);
 
 int main(int argc, char **argv)
 {
@@ -71,23 +71,23 @@ int main(int argc, char **argv)
 	}
 
 	// ---- RAKPEER -----
-	SLNet::RakPeerInterface *rakPeer;
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *rakPeer;
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	static const unsigned short clientLocalPort=0;
-	SLNet::SocketDescriptor sd(clientLocalPort,0); // Change this if you want
-	SLNet::StartupResult sr = rakPeer->Startup(1,&sd,1); // Change this if you want
+	MafiaNet::SocketDescriptor sd(clientLocalPort,0); // Change this if you want
+	MafiaNet::StartupResult sr = rakPeer->Startup(1,&sd,1); // Change this if you want
 	rakPeer->SetMaximumIncomingConnections(0); // Change this if you want
-	if (sr!= SLNet::RAKNET_STARTED)
+	if (sr!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup failed. Reason=%i\n", (int) sr);
 		return 1;
 	}
 
-	SLNet::CloudClient cloudClient;
+	MafiaNet::CloudClient cloudClient;
 	rakPeer->AttachPlugin(&cloudClient);
 
-	SLNet::ConnectionAttemptResult car = rakPeer->Connect(serverAddress, serverPort, 0, 0);
-	if (car== SLNet::CANNOT_RESOLVE_DOMAIN_NAME)
+	MafiaNet::ConnectionAttemptResult car = rakPeer->Connect(serverAddress, serverPort, 0, 0);
+	if (car== MafiaNet::CANNOT_RESOLVE_DOMAIN_NAME)
 	{
 		printf("Cannot resolve domain name\n");
 		return 1;
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 
 	printf("Connecting to %s...\n", serverAddress);
 	bool didRebalance=false; // So we only reconnect to a lower load server once, for load balancing
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	for(;;)
 	{
 		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 				break;
 			case ID_CLOUD_GET_RESPONSE:
 				{
-					SLNet::CloudQueryResult cloudQueryResult;
+					MafiaNet::CloudQueryResult cloudQueryResult;
 					cloudClient.OnGetReponse(&cloudQueryResult, packet);
 					unsigned int rowIndex;
 					const bool wasCallToGetServers=cloudQueryResult.cloudQuery.keys[0].primaryKey=="CloudConnCount";
@@ -146,15 +146,15 @@ int main(int argc, char **argv)
 
 					unsigned short connectionsOnOurServer=65535;
 					unsigned short lowestConnectionsServer=65535;
-					SLNet::SystemAddress lowestConnectionAddress;
+					MafiaNet::SystemAddress lowestConnectionAddress;
 
 					for (rowIndex=0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
 					{
-						SLNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
+						MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
 						if (wasCallToGetServers)
 						{
 							unsigned short connCount;
-							SLNet::BitStream bsIn(row->data, row->length, false);
+							MafiaNet::BitStream bsIn(row->data, row->length, false);
 							bsIn.Read(connCount);
 							printf("%i. Server found at %s with %i connections\n", rowIndex+1, row->serverSystemAddress.ToString(true), connCount);
 
@@ -181,8 +181,8 @@ int main(int argc, char **argv)
 							printf("%i. Client found at %s", rowIndex+1, row->clientSystemAddress.ToString(true));
 							if (row->clientGUID==rakPeer->GetMyGUID())
 								printf(" (Ourselves)");
-							SLNet::BitStream bsIn(row->data, row->length, false);
-							SLNet::RakString clientData;
+							MafiaNet::BitStream bsIn(row->data, row->length, false);
+							MafiaNet::RakString clientData;
 							bsIn.Read(clientData);
 							printf(" Data: %s", clientData.C_String());
 							printf("\n");
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 			case ID_CLOUD_SUBSCRIPTION_NOTIFICATION:
 				{
 					bool wasUpdated;
-					SLNet::CloudQueryRow cloudQueryRow;
+					MafiaNet::CloudQueryRow cloudQueryRow;
 					cloudClient.OnSubscriptionNotification(&wasUpdated, &cloudQueryRow, packet, 0 );
 					if (wasUpdated)
 						printf("New client at %s\n", cloudQueryRow.clientSystemAddress.ToString(true));
@@ -229,28 +229,28 @@ int main(int argc, char **argv)
 	}
 
 	// #med - add proper termination handling (then reenable the following code)
-	/*SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	/*MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	return 0;*/
 }
 
-void UploadInstanceToCloud(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid)
+void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	SLNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY,0);
-	SLNet::BitStream bs;
+	MafiaNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY,0);
+	MafiaNet::BitStream bs;
 	bs.Write("Hello World"); // This could be anything such as player list, game name, etc.
 	cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), serverGuid);
 }
-void GetClientSubscription(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid)
+void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	SLNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(SLNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY,0),_FILE_AND_LINE_);
+	MafiaNet::CloudQuery cloudQuery;
+	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY,0),_FILE_AND_LINE_);
 	cloudQuery.subscribeToResults=true; // Causes ID_CLOUD_SUBSCRIPTION_NOTIFICATION
 	cloudClient->Get(&cloudQuery, serverGuid);
 }
-void GetServers(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid)
+void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	SLNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(SLNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
+	MafiaNet::CloudQuery cloudQuery;
+	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
 	cloudQuery.subscribeToResults=false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }

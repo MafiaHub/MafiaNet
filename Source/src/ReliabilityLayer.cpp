@@ -32,7 +32,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // Can't figure out which library has this function on the PS3
 double Ceil(double d) {if (((double)((int)d))==d) return d; return (int) (d+1.0);}
@@ -71,8 +71,8 @@ static FILE *fp=0;
 
 BPSTracker::TimeAndValue2::TimeAndValue2() {}
 BPSTracker::TimeAndValue2::~TimeAndValue2() {}
-BPSTracker::TimeAndValue2::TimeAndValue2(SLNet::TimeUS t, uint64_t v1) : value1(v1), time(t) {}
-//BPSTracker::TimeAndValue2::TimeAndValue2(SLNet::TimeUS t, uint64_t v1, uint64_t v2) : time(t), value1(v1), value2(v2) {}
+BPSTracker::TimeAndValue2::TimeAndValue2(MafiaNet::TimeUS t, uint64_t v1) : value1(v1), time(t) {}
+//BPSTracker::TimeAndValue2::TimeAndValue2(MafiaNet::TimeUS t, uint64_t v1, uint64_t v2) : time(t), value1(v1), value2(v2) {}
 BPSTracker::BPSTracker() {Reset(_FILE_AND_LINE_);}
 BPSTracker::~BPSTracker() {}
 //void BPSTracker::Reset(const char *file, unsigned int line) {total1=total2=lastSec1=lastSec2=0; dataQueue.Clear(file,line);}
@@ -83,8 +83,8 @@ void BPSTracker::Reset(const char *file, unsigned int line) {total1=lastSec1=0; 
 uint64_t BPSTracker::GetTotal1(void) const {return total1;}
 //uint64_t BPSTracker::GetTotal2(void) const {return total2;}
 
-// void BPSTracker::ClearExpired2(SLNet::TimeUS time) {
-// 	SLNet::TimeUS threshold=time;
+// void BPSTracker::ClearExpired2(MafiaNet::TimeUS time) {
+// 	MafiaNet::TimeUS threshold=time;
 // 	if (threshold < 1000000)
 // 		return;
 // 	threshold-=1000000;
@@ -95,7 +95,7 @@ uint64_t BPSTracker::GetTotal1(void) const {return total1;}
 // 		dataQueue.Pop();
 // 	}
 // }
-void BPSTracker::ClearExpired1(SLNet::TimeUS time)
+void BPSTracker::ClearExpired1(MafiaNet::TimeUS time)
 {
 	while (dataQueue.IsEmpty()==false &&
 #if CC_TIME_TYPE_BYTES==8
@@ -135,7 +135,7 @@ struct DatagramHeaderFormat
 
 	static unsigned int GetDataHeaderByteLength()
 	{
-		//return 2 + 3 + sizeof(SLNet::TimeMS) + sizeof(float)*2;
+		//return 2 + 3 + sizeof(MafiaNet::TimeMS) + sizeof(float)*2;
 		return 2 + 3 +
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS==1
 			sizeof(RakNetTimeMS) +
@@ -143,7 +143,7 @@ struct DatagramHeaderFormat
 			sizeof(float)*1;
 	}
 
-	void Serialize(SLNet::BitStream *b)
+	void Serialize(MafiaNet::BitStream *b)
 	{
 		// Not endian safe
 		//		RakAssert(GetDataHeaderByteLength()==sizeof(DatagramHeaderFormat));
@@ -156,7 +156,7 @@ struct DatagramHeaderFormat
 			b->Write(hasBAndAS);
 			b->AlignWriteToByteBoundary();
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-			SLNet::TimeMS timeMSLow = (SLNet::TimeMS)sourceSystemTime&0xFFFFFFFF;
+			MafiaNet::TimeMS timeMSLow = (MafiaNet::TimeMS)sourceSystemTime&0xFFFFFFFF;
 			b->Write(timeMSLow);
 #endif
 			if (hasBAndAS) {
@@ -176,14 +176,14 @@ struct DatagramHeaderFormat
 			b->Write(needsBAndAs);
 			b->AlignWriteToByteBoundary();
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-			SLNet::TimeMS timeMSLow = (SLNet::TimeMS)sourceSystemTime&0xFFFFFFFF;
+			MafiaNet::TimeMS timeMSLow = (MafiaNet::TimeMS)sourceSystemTime&0xFFFFFFFF;
 			b->Write(timeMSLow);
 #endif
 			b->Write(datagramNumber);
 		}
 	}
 
-	void Deserialize(SLNet::BitStream *b)
+	void Deserialize(MafiaNet::BitStream *b)
 	{
 		// Not endian safe
 		//		b->ReadAlignedBytes((unsigned char*) this, sizeof(DatagramHeaderFormat));
@@ -197,7 +197,7 @@ struct DatagramHeaderFormat
 			b->Read(hasBAndAS);
 			b->AlignReadToByteBoundary();
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-			SLNet::TimeMS timeMS;
+			MafiaNet::TimeMS timeMS;
 			b->Read(timeMS);
 			sourceSystemTime = (CCTimeType)timeMS;
 #endif
@@ -217,7 +217,7 @@ struct DatagramHeaderFormat
 				b->Read(needsBAndAs);
 				b->AlignReadToByteBoundary();
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-				SLNet::TimeMS timeMS; b->Read(timeMS); sourceSystemTime=(CCTimeType) timeMS;
+				MafiaNet::TimeMS timeMS; b->Read(timeMS); sourceSystemTime=(CCTimeType) timeMS;
 #endif
 				b->Read(datagramNumber);
 			}
@@ -237,7 +237,7 @@ struct DatagramHeaderFormat
 static int waitFlag = -1;
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 SplitPacketSort::SplitPacketSort() :
 	m_data(nullptr),
@@ -308,7 +308,7 @@ bool SplitPacketSort::Add(InternalPacket *internalPacket)
 	return false;
 }
 
-int SLNet::SplitPacketChannelComp( SplitPacketIdType const &key, SplitPacketChannel* const &data )
+int MafiaNet::SplitPacketChannelComp( SplitPacketIdType const &key, SplitPacketChannel* const &data )
 {
 #if PREALLOCATE_LARGE_MESSAGES==1
 	if (key < data->returnedPacket->splitPacketId)
@@ -421,14 +421,14 @@ void ReliabilityLayer::Reset(bool resetVariables, int mtuSize, bool _useSecurity
 #else
 		(void) _useSecurity;
 #endif // LIBCAT_SECURITY
-		congestionManager.Init(SLNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE);
+		congestionManager.Init(MafiaNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE);
 	}
 }
 
 //-------------------------------------------------------------------------------------------------------
 // Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::SetTimeoutTime(SLNet::TimeMS time)
+void ReliabilityLayer::SetTimeoutTime(MafiaNet::TimeMS time)
 {
 	timeoutTime = time;
 }
@@ -436,7 +436,7 @@ void ReliabilityLayer::SetTimeoutTime(SLNet::TimeMS time)
 //-------------------------------------------------------------------------------------------------------
 // Returns the value passed to SetTimeoutTime. or the default if it was never called
 //-------------------------------------------------------------------------------------------------------
-SLNet::TimeMS ReliabilityLayer::GetTimeoutTime()
+MafiaNet::TimeMS ReliabilityLayer::GetTimeoutTime()
 {
 	return timeoutTime;
 }
@@ -453,7 +453,7 @@ void ReliabilityLayer::InitializeVariables()
 	memset( &statistics, 0, sizeof( statistics ) );
 	memset( &heapIndexOffsets, 0, sizeof( heapIndexOffsets ) );
 	
-	statistics.connectionStartTime = SLNet::GetTimeUS();
+	statistics.connectionStartTime = MafiaNet::GetTimeUS();
 	splitPacketId = 0;
 	elapsedTimeSinceLastUpdate=0;
 	throughputCapCountdown=0;
@@ -461,7 +461,7 @@ void ReliabilityLayer::InitializeVariables()
 	internalOrderIndex=0;
 	timeToNextUnreliableCull=0;
 	unreliableLinkedListHead=0;
-	lastUpdateTime= SLNet::GetTimeUS();
+	lastUpdateTime= MafiaNet::GetTimeUS();
 	bandwidthExceededStatistic=false;
 	remoteSystemTime=0;
 	unreliableTimeout=0;
@@ -475,7 +475,7 @@ void ReliabilityLayer::InitializeVariables()
 	timeOfLastContinualSend=0;
 
 	// timeResendQueueNonEmpty = 0;
-	timeLastDatagramArrived= SLNet::GetTimeMS();
+	timeLastDatagramArrived= MafiaNet::GetTimeMS();
 	//	packetlossThisSample=false;
 	//	backoffThisSample=0;
 	//	packetlossThisSampleResendCount=0;
@@ -552,7 +552,7 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 			ReleaseToInternalPacketPool( splitPacketChannelList[i]->returnedPacket );
 		}
 #endif
-		SLNet::OP_DELETE(splitPacketChannelList[i], __FILE__, __LINE__);
+		MafiaNet::OP_DELETE(splitPacketChannelList[i], __FILE__, __LINE__);
 	}
 	splitPacketChannelList.Clear(false, _FILE_AND_LINE_);
 
@@ -581,7 +581,7 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 					ReleaseToInternalPacketPool( internalPacket );
 				}
 
-				SLNet::OP_DELETE(theList, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(theList, _FILE_AND_LINE_);
 			}
 		}
 	}
@@ -640,7 +640,7 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 
 #ifdef _DEBUG
 	for (i = 0; i < delayList.Size(); i++ )
-		SLNet::OP_DELETE(delayList[ i ], __FILE__, __LINE__);
+		MafiaNet::OP_DELETE(delayList[ i ], __FILE__, __LINE__);
 	delayList.Clear(__FILE__, __LINE__);
 #endif
 
@@ -716,7 +716,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 		return true;
 	}
 
-	timeLastDatagramArrived = SLNet::GetTimeMS();
+	timeLastDatagramArrived = MafiaNet::GetTimeMS();
 
 	//	CCTimeType time;
 //	bool indexFound;
@@ -736,8 +736,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 	}
 #endif
 
-	SLNet::BitStream socketData((unsigned char*)buffer, length, false); // Convert the incoming data to a bitstream for easy parsing
-	//	time = SLNet::GetTimeUS();
+	MafiaNet::BitStream socketData((unsigned char*)buffer, length, false); // Convert the incoming data to a bitstream for easy parsing
+	//	time = MafiaNet::GetTimeUS();
 
 	// Set to the current time if it is not zero, and we get incoming data
 	// 	if (timeResendQueueNonEmpty!=0)
@@ -757,7 +757,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 		// datagramNumber=dhf.datagramNumber;
 
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-		SLNet::TimeMS timeMSLow = (SLNet::TimeMS)timeRead&0xFFFFFFFF;
+		MafiaNet::TimeMS timeMSLow = (MafiaNet::TimeMS)timeRead&0xFFFFFFFF;
 		CCTimeType rtt = timeMSLow-dhf.sourceSystemTime;
 #if CC_TIME_TYPE_BYTES == 4
 		if (rtt > 10000)
@@ -769,7 +769,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 			rtt=(CCTimeType) congestionManager.GetRTT();
 		}
 		//	RakAssert(rtt < 500000);
-		//	printf("%i ", (SLNet::TimeMS)(rtt/1000));
+		//	printf("%i ", (MafiaNet::TimeMS)(rtt/1000));
 		ackPing = rtt;
 #endif
 
@@ -968,7 +968,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 #if CC_TIME_TYPE_BYTES==4
 				messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, receivePacketCount, systemAddress, timeRead, false);
 #else
-				messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, receivePacketCount, systemAddress, (SLNet::TimeMS)(timeRead/(CCTimeType)1000), false);
+				messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, receivePacketCount, systemAddress, (MafiaNet::TimeMS)(timeRead/(CCTimeType)1000), false);
 #endif
 			}
 
@@ -1305,7 +1305,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 					// ___________________
 					BitStream bitStream(internalPacket->data, BITS_TO_BYTES(internalPacket->dataBitLength), false);
 					unsigned int receivedPacketNumber;
-					SLNet::Time receivedTime;
+					MafiaNet::Time receivedTime;
 					unsigned char streamNumber;
 					PacketReliability reliability;
 					// ___________________
@@ -1715,7 +1715,7 @@ bool ReliabilityLayer::Send( char *data, BitSize_t numberOfBitsToSend, PacketPri
 		//sendPacketSet[priority].CancelWriteLock(internalPacket);
 		//SplitPacket( &packetCopy, MTUSize );
 		SplitPacket( internalPacket );
-		//SLNet::OP_DELETE_ARRAY(packetCopy.data, _FILE_AND_LINE_);
+		//MafiaNet::OP_DELETE_ARRAY(packetCopy.data, _FILE_AND_LINE_);
 		return true;
 	}
 
@@ -1761,12 +1761,12 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 {
 	(void) MTUSize;
 
-	SLNet::TimeMS timeMs;
+	MafiaNet::TimeMS timeMs;
 #if CC_TIME_TYPE_BYTES==4
 	time/=1000;
 	timeMs=time;
 #else
-	timeMs=(SLNet::TimeMS) (time/(CCTimeType)1000);
+	timeMs=(MafiaNet::TimeMS) (time/(CCTimeType)1000);
 #endif
 
 #ifdef _DEBUG
@@ -1783,7 +1783,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 			bsp.systemAddress = systemAddress;
 			dat->s->Send(&bsp, _FILE_AND_LINE_);
 
-			SLNet::OP_DELETE(dat,__FILE__,__LINE__);
+			MafiaNet::OP_DELETE(dat,__FILE__,__LINE__);
 		}
 		else
 		{
@@ -1858,12 +1858,12 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 	}
 
 
-	// Due to thread vagarities and the way I store the time to avoid slow calls to SLNet::GetTime
+	// Due to thread vagarities and the way I store the time to avoid slow calls to MafiaNet::GetTime
 	// time may be less than lastAck
 #if CC_TIME_TYPE_BYTES==4
 	if ( statistics.messagesInResendBuffer!=0 && AckTimeout(time) )
 #else
-	if ( statistics.messagesInResendBuffer!=0 && AckTimeout(SLNet::TimeMS(time/(CCTimeType)1000)) )
+	if ( statistics.messagesInResendBuffer!=0 && AckTimeout(MafiaNet::TimeMS(time/(CCTimeType)1000)) )
 #endif
 	{
 		// SHOW - dead connection
@@ -2007,9 +2007,9 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 						for (unsigned int messageHandlerIndex=0; messageHandlerIndex < messageHandlerList.Size(); messageHandlerIndex++)
 						{
 #if CC_TIME_TYPE_BYTES==4
-							messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (SLNet::TimeMS) time, true);
+							messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (MafiaNet::TimeMS) time, true);
 #else
-							messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (SLNet::TimeMS)(time/(CCTimeType)1000), true);
+							messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (MafiaNet::TimeMS)(time/(CCTimeType)1000), true);
 #endif
 						}
 
@@ -2177,9 +2177,9 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 					for (unsigned int messageHandlerIndex=0; messageHandlerIndex < messageHandlerList.Size(); messageHandlerIndex++)
 					{
 #if CC_TIME_TYPE_BYTES==4
-						messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (SLNet::TimeMS)time, true);
+						messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (MafiaNet::TimeMS)time, true);
 #else
-						messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (SLNet::TimeMS)(time/(CCTimeType)1000), true);
+						messageHandlerList[messageHandlerIndex]->OnInternalPacket(internalPacket, packetsToSendThisUpdateDatagramBoundaries.Size()+congestionManager.GetNextDatagramSequenceNumber(), systemAddress, (MafiaNet::TimeMS)(time/(CCTimeType)1000), true);
 #endif
 					}
 					pushedAnything=true;
@@ -2227,7 +2227,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 
 			// More accurate time to reset here
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS==1
-			dhf.sourceSystemTime= SLNet::GetTimeUS();
+			dhf.sourceSystemTime= MafiaNet::GetTimeUS();
 #endif
 			updateBitStream.Reset();
 			dhf.Serialize(&updateBitStream);
@@ -2309,7 +2309,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 //-------------------------------------------------------------------------------------------------------
 // Writes a bitstream to the socket
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, SLNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime)
+void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime)
 {
 	(void) systemAddress;
 	(void) rnr;
@@ -2330,7 +2330,7 @@ void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAdd
 	{
 #ifdef FLIP_SEND_ORDER_TEST
 		// Flip order of sends without delaying them for testing
-		DataAndTime *dat = SLNet::OP_NEW<DataAndTime>(__FILE__,__LINE__);
+		DataAndTime *dat = MafiaNet::OP_NEW<DataAndTime>(__FILE__,__LINE__);
 		memcpy(dat->data, ( char* ) bitStream->GetData(), length );
 		dat->s=s;
 		dat->length=length;
@@ -2339,16 +2339,16 @@ void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAdd
 		dat->extraSocketOptions=extraSocketOptions;
 		delayList.PushAtHead(dat, 0, _FILE_AND_LINE_);
 #else
-		SLNet::TimeMS delay = minExtraPing;
+		MafiaNet::TimeMS delay = minExtraPing;
 		if (extraPingVariance>0)
 			delay += (randomMT() % extraPingVariance);
 		if (delay > 0)
 		{
-			DataAndTime *dat = SLNet::OP_NEW<DataAndTime>(__FILE__,__LINE__);
+			DataAndTime *dat = MafiaNet::OP_NEW<DataAndTime>(__FILE__,__LINE__);
 			memcpy(dat->data, ( char* ) bitStream->GetData(), length );
 			dat->s=s;
 			dat->length=length;
-			dat->sendTime = SLNet::GetTimeMS() + delay;
+			dat->sendTime = MafiaNet::GetTimeMS() + delay;
 			for (unsigned int i=0; i < delayList.Size(); i++)
 			{
 				if (dat->sendTime < delayList[i]->sendTime)
@@ -2428,7 +2428,7 @@ bool ReliabilityLayer::AreAcksWaiting(void)
 	return acknowlegements.Size() > 0;
 }
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::ApplyNetworkSimulator( double _packetloss, SLNet::TimeMS _minExtraPing, SLNet::TimeMS _extraPingVariance )
+void ReliabilityLayer::ApplyNetworkSimulator( double _packetloss, MafiaNet::TimeMS _minExtraPing, MafiaNet::TimeMS _extraPingVariance )
 {
 #ifndef _DEBUG
 	// unused parameters
@@ -2451,7 +2451,7 @@ void ReliabilityLayer::SetSplitMessageProgressInterval(int interval)
 	splitMessageProgressInterval=interval;
 }
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::SetUnreliableTimeout(SLNet::TimeMS timeoutMS)
+void ReliabilityLayer::SetUnreliableTimeout(MafiaNet::TimeMS timeoutMS)
 {
 #if CC_TIME_TYPE_BYTES==4
 	unreliableTimeout=timeoutMS;
@@ -2521,7 +2521,7 @@ unsigned ReliabilityLayer::RemovePacketFromResendListAndDeleteOlderReliableSeque
 #if CC_TIME_TYPE_BYTES==4
 		messageHandlerList[messageHandlerIndex]->OnAck(messageNumber, systemAddress, time);
 #else
-		messageHandlerList[messageHandlerIndex]->OnAck(messageNumber, systemAddress, (SLNet::TimeMS)(time/(CCTimeType)1000));
+		messageHandlerList[messageHandlerIndex]->OnAck(messageNumber, systemAddress, (MafiaNet::TimeMS)(time/(CCTimeType)1000));
 #endif
 	}
 
@@ -2678,7 +2678,7 @@ BitSize_t ReliabilityLayer::GetMessageHeaderLengthBits( const InternalPacket *co
 //-------------------------------------------------------------------------------------------------------
 // Parse an internalPacket and create a bitstream to represent this data
 //-------------------------------------------------------------------------------------------------------
-BitSize_t ReliabilityLayer::WriteToBitStreamFromInternalPacket(SLNet::BitStream *bitStream, const InternalPacket *const internalPacket, CCTimeType curTime )
+BitSize_t ReliabilityLayer::WriteToBitStreamFromInternalPacket(MafiaNet::BitStream *bitStream, const InternalPacket *const internalPacket, CCTimeType curTime )
 {
 	(void) curTime;
 
@@ -2750,7 +2750,7 @@ BitSize_t ReliabilityLayer::WriteToBitStreamFromInternalPacket(SLNet::BitStream 
 //-------------------------------------------------------------------------------------------------------
 // Parse a bitstream and create an internal packet to represent this data
 //-------------------------------------------------------------------------------------------------------
-InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream(SLNet::BitStream *bitStream, CCTimeType time )
+InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream(MafiaNet::BitStream *bitStream, CCTimeType time )
 {
 	bool bitStreamSucceeded;
 	InternalPacket* internalPacket;
@@ -3013,7 +3013,7 @@ void ReliabilityLayer::SplitPacket( InternalPacket *internalPacket )
 	internalPacket->splitPacketCount = ( ( dataByteLength - 1 ) / ( maximumSendBlockBytes ) + 1 );
 
 	// Optimization
-	// internalPacketArray = SLNet::OP_NEW<InternalPacket*>(internalPacket->splitPacketCount, _FILE_AND_LINE_ );
+	// internalPacketArray = MafiaNet::OP_NEW<InternalPacket*>(internalPacket->splitPacketCount, _FILE_AND_LINE_ );
 	bool usedAlloca=false;
 #if USE_ALLOCA==1
 	if (sizeof( InternalPacket* ) * internalPacket->splitPacketCount < MAX_ALLOCA_STACK_ALLOCATION)
@@ -3114,7 +3114,7 @@ void ReliabilityLayer::InsertIntoSplitPacketList( InternalPacket * internalPacke
 	index=splitPacketChannelList.GetIndexFromKey(internalPacket->splitPacketId, &objectExists);
 	if (objectExists==false)
 	{
-		SplitPacketChannel *newChannel = SLNet::OP_NEW<SplitPacketChannel>( __FILE__, __LINE__ );
+		SplitPacketChannel *newChannel = MafiaNet::OP_NEW<SplitPacketChannel>( __FILE__, __LINE__ );
 #if PREALLOCATE_LARGE_MESSAGES==1
 		index=splitPacketChannelList.Insert(internalPacket->splitPacketId, newChannel, true, __FILE__,__LINE__);
 		newChannel->returnedPacket=CreateInternalPacketCopy( internalPacket, 0, 0, time );
@@ -3261,7 +3261,7 @@ InternalPacket * ReliabilityLayer::BuildPacketFromSplitPacketList( SplitPacketCh
 {
 #if PREALLOCATE_LARGE_MESSAGES==1
 	InternalPacket *returnedPacket=splitPacketChannel->returnedPacket;
-	SLNet::OP_DELETE(splitPacketChannel, __FILE__, __LINE__);
+	MafiaNet::OP_DELETE(splitPacketChannel, __FILE__, __LINE__);
 	(void) time;
 	return returnedPacket;
 #else
@@ -3292,7 +3292,7 @@ InternalPacket * ReliabilityLayer::BuildPacketFromSplitPacketList( SplitPacketCh
 		FreeInternalPacketData(splitPacketChannel->splitPacketList[j], _FILE_AND_LINE_ );
 		ReleaseToInternalPacketPool(splitPacketChannel->splitPacketList[j]);
 	}
-	SLNet::OP_DELETE(splitPacketChannel, __FILE__, __LINE__);
+	MafiaNet::OP_DELETE(splitPacketChannel, __FILE__, __LINE__);
 
 	return internalPacket;
 #endif
@@ -3346,10 +3346,10 @@ if (time > splitPacketChannelList[i]->lastUpdateTime + (CCTimeType)timeoutTime*(
 {
 for (j=0; j < splitPacketChannelList[i]->splitPacketList.Size(); j++)
 {
-SLNet::OP_DELETE_ARRAY(splitPacketChannelList[i]->splitPacketList[j]->data, _FILE_AND_LINE_);
+MafiaNet::OP_DELETE_ARRAY(splitPacketChannelList[i]->splitPacketList[j]->data, _FILE_AND_LINE_);
 ReleaseToInternalPacketPool(splitPacketChannelList[i]->splitPacketList[j]);
 }
-SLNet::OP_DELETE(splitPacketChannelList[i], _FILE_AND_LINE_);
+MafiaNet::OP_DELETE(splitPacketChannelList[i], _FILE_AND_LINE_);
 splitPacketChannelList.RemoveAtIndex(i);
 }
 else
@@ -3454,7 +3454,7 @@ void ReliabilityLayer::KillConnection( void )
 RakNetStatistics * ReliabilityLayer::GetStatistics( RakNetStatistics *rns )
 {
 	unsigned i;
-	SLNet::TimeUS time = SLNet::GetTimeUS();
+	MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
 	uint64_t uint64Denominator;
 	double doubleDenominator;
 
@@ -3501,7 +3501,7 @@ unsigned int ReliabilityLayer::GetResendListDataSize(void) const
 }
 
 //-------------------------------------------------------------------------------------------------------
-bool ReliabilityLayer::AckTimeout(SLNet::Time curTime)
+bool ReliabilityLayer::AckTimeout(MafiaNet::Time curTime)
 {
 	// I check timeLastDatagramArrived-curTime because with threading it is possible that timeLastDatagramArrived is
 	// slightly greater than curTime, in which case this is NOT an ack timeout
@@ -3548,11 +3548,11 @@ void ReliabilityLayer::PushPacket(CCTimeType time, InternalPacket *internalPacke
 // This code tells me how much time elapses between when you send, and when the message actually goes out
 // 	if (internalPacket->data[0]==0)
 // 	{
-// 		SLNet::TimeMS t;
-// 		SLNet::BitStream bs(internalPacket->data+1,sizeof(t),false);
+// 		MafiaNet::TimeMS t;
+// 		MafiaNet::BitStream bs(internalPacket->data+1,sizeof(t),false);
 // 		bs.Read(t);
-// 		SLNet::TimeMS curTime=SLNet::GetTimeMS();
-// 		SLNet::TimeMS diff = curTime-t;
+// 		MafiaNet::TimeMS curTime=MafiaNet::GetTimeMS();
+// 		MafiaNet::TimeMS diff = curTime-t;
 // 	}
 
 	congestionManager.OnSendBytes(time, BITS_TO_BYTES(internalPacket->dataBitLength)+BITS_TO_BYTES(internalPacket->headerLength));
@@ -3918,7 +3918,7 @@ void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, I
 	if (*refCounter==0)
 	{
 		*refCounter = refCountedDataPool.Allocate(_FILE_AND_LINE_);
-		// *refCounter = SLNet::OP_NEW<InternalPacketRefCountedData>(_FILE_AND_LINE_);
+		// *refCounter = MafiaNet::OP_NEW<InternalPacketRefCountedData>(_FILE_AND_LINE_);
 		(*refCounter)->refCount=1;
 		(*refCounter)->sharedDataBlock=externallyAllocatedPtr;
 	}
@@ -3962,7 +3962,7 @@ void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, co
 		{
 			rakFree_Ex(internalPacket->refCountedData->sharedDataBlock, file, line );
 			internalPacket->refCountedData->sharedDataBlock=0;
-			// SLNet::OP_DELETE(internalPacket->refCountedData,file, line);
+			// MafiaNet::OP_DELETE(internalPacket->refCountedData,file, line);
 			refCountedDataPool.Release(internalPacket->refCountedData,file, line);
 			internalPacket->refCountedData=0;
 		}

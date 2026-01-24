@@ -18,7 +18,7 @@
 
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// To define a thread, use RAK_THREAD_DECLARATION(functionName);
 #if defined(_WIN32)

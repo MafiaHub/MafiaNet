@@ -25,7 +25,7 @@
 #include "slikenet/CCRakNetSlidingWindow.h"
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int SendToThread::refCount=0;
 DataStructures::ThreadsafeAllocatingQueue<SendToThread::SendToThreadBlock> SendToThread::objectQueue;
@@ -35,8 +35,8 @@ SendToThread::SendToThreadBlock* SendToWorkerThread(SendToThread::SendToThreadBl
 {
 	(void) perThreadData;
 	*returnOutput=false;
-//	SLNet::TimeUS *mostRecentTime=(SLNet::TimeUS *)input->data;
-//	*mostRecentTime=SLNet::GetTimeUS();
+//	MafiaNet::TimeUS *mostRecentTime=(MafiaNet::TimeUS *)input->data;
+//	*mostRecentTime=MafiaNet::GetTimeUS();
 	SocketLayer::SendTo(input->s, input->data, input->dataWriteOffset, input->systemAddress, _FILE_AND_LINE_);
 	SendToThread::objectQueue.Push(input);
 	return 0;

@@ -27,7 +27,7 @@
 #include "PluginInterface2.h"
 #include "DS_OrderedList.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 class RakPeerInterface;
 
@@ -240,7 +240,7 @@ protected:
 	unsigned char channel;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

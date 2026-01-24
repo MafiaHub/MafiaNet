@@ -29,7 +29,7 @@
 #include "types.h"
 #include "socket2.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 	/// All possible types of NATs (except NAT_TYPE_COUNT, which is an internal value) 

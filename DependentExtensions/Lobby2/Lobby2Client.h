@@ -19,7 +19,7 @@
 #include "Lobby2Plugin.h"
 #include "slikenet/DS_OrderedList.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 struct Lobby2Message;
@@ -30,14 +30,14 @@ struct Lobby2Message;
 /// To use:<BR>
 /// <OL>
 /// <LI>Call Lobby2Client::SetServerAddress() after connecting to the system running Lobby2Server.
-/// <LI>Instantiate an instance of SLNet::Lobby2MessageFactory and register it with SLNet::Lobby2Plugin::SetMessageFactory() (the base class of Lobby2Client)
+/// <LI>Instantiate an instance of MafiaNet::Lobby2MessageFactory and register it with MafiaNet::Lobby2Plugin::SetMessageFactory() (the base class of Lobby2Client)
 /// <LI>Call messageFactory.Alloc(command); where command is one of the Lobby2MessageID enumerations.
 /// <LI>Instantiate a (probably derived) instance of Lobby2Callbacks and register it with Lobby2Client::SetCallbackInterface()
 /// <LI>Cast the returned structure, fill in the input parameters, and call Lobby2Client::SendMsg() to send this command to the server.
 /// <LI>Wait for the result of the operation to be sent to your callback. The message will contain the original input parameters, possibly output parameters, and Lobby2Message::resultCode will be filled in.
 /// </OL>
 /// \ingroup LOBBY_2_CLIENT
-class RAK_DLL_EXPORT Lobby2Client : public SLNet::Lobby2Plugin
+class RAK_DLL_EXPORT Lobby2Client : public MafiaNet::Lobby2Plugin
 {
 public:	
 	Lobby2Client();
@@ -64,13 +64,13 @@ public:
 	/// Client_GetIgnoreList is sent to us from the server automatically on login.
 	/// The main reason this is here is so if you use RoomsPlugin as a client, you can check this list to filter out chat messages from ignored users.
 	/// This is just a list of strings for you to read - it does NOT actually perform the ignore operation.
-	virtual void AddToIgnoreList(SLNet::RakString user);
-	virtual void RemoveFromIgnoreList(SLNet::RakString user);
-	virtual void SetIgnoreList(DataStructures::List<SLNet::RakString> users);
-	virtual bool IsInIgnoreList(SLNet::RakString user) const;
+	virtual void AddToIgnoreList(MafiaNet::RakString user);
+	virtual void RemoveFromIgnoreList(MafiaNet::RakString user);
+	virtual void SetIgnoreList(DataStructures::List<MafiaNet::RakString> users);
+	virtual bool IsInIgnoreList(MafiaNet::RakString user) const;
 	void ClearIgnoreList(void);
-	const DataStructures::OrderedList<SLNet::RakString, SLNet::RakString>* GetIgnoreList(void) const;
-	DataStructures::OrderedList<SLNet::RakString, SLNet::RakString> ignoreList;
+	const DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString>* GetIgnoreList(void) const;
+	DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> ignoreList;
 	*/
 
 protected:

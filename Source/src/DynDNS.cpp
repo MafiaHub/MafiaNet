@@ -22,7 +22,7 @@
 #include "slikenet/GetTime.h"
 #include "slikenet/Base64Encoder.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 struct DynDnsResult
 {
@@ -56,13 +56,13 @@ DynDNS::DynDNS()
 DynDNS::~DynDNS()
 {
 	if (tcp)
-		SLNet::OP_DELETE(tcp, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(tcp, _FILE_AND_LINE_);
 }
 void DynDNS::Stop(void)
 {
 	tcp->Stop();
 	connectPhase = CP_IDLE;
-	SLNet::OP_DELETE(tcp, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(tcp, _FILE_AND_LINE_);
 	tcp=0;
 }
 
@@ -73,7 +73,7 @@ void DynDNS::UpdateHostIPAsynch(const char *dnsHost, const char *newIPAddress, c
 	myIPStr[0]=0;
 
 	if (tcp==0)
-		tcp = SLNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
+		tcp = MafiaNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
 	connectPhase = CP_IDLE;
 	host = dnsHost;
 
@@ -128,16 +128,16 @@ void DynDNS::Update(void)
 			connectPhase = CP_WAITING_FOR_DYNDNS_RESPONSE;
 			tcp->Send(getString.C_String(), (unsigned int) getString.GetLength(), serverAddress, false);
 		}
-		phaseTimeout= SLNet::GetTime()+1000;
+		phaseTimeout= MafiaNet::GetTime()+1000;
 	}
 
-	if (connectPhase==CP_WAITING_FOR_CHECKIP_RESPONSE && SLNet::GetTime()>phaseTimeout)
+	if (connectPhase==CP_WAITING_FOR_CHECKIP_RESPONSE && MafiaNet::GetTime()>phaseTimeout)
 	{
 		connectPhase = CP_CONNECTING_TO_DYNDNS;
 		tcp->CloseConnection(checkIpAddress);
 		tcp->Connect("members.dyndns.org", 80, false);
 	}
-	else if (connectPhase==CP_WAITING_FOR_DYNDNS_RESPONSE && SLNet::GetTime()>phaseTimeout)
+	else if (connectPhase==CP_WAITING_FOR_DYNDNS_RESPONSE && MafiaNet::GetTime()>phaseTimeout)
 	{
 		SetCompleted(RC_DYNDNS_TIMEOUT, "DynDNS did not respond");
 		return;

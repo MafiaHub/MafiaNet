@@ -30,12 +30,12 @@
 #include "FileListNodeContext.h"
 #include "string.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 	class BitStream;
 }
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -46,10 +46,10 @@ class FileList;
 struct FileListNode
 {
 	/// Name of the file
-	SLNet::RakString filename;
+	MafiaNet::RakString filename;
 
 	/// Full path to the file, which may be different than filename
-	SLNet::RakString fullPathToFile;
+	MafiaNet::RakString fullPathToFile;
 
 	/// File data (may be null if not ready)
 	char *data;
@@ -174,10 +174,10 @@ public:
 	void Clear(void);
 
 	/// Write all encoded data into a bitstream
-	void Serialize(SLNet::BitStream *outBitStream);
+	void Serialize(MafiaNet::BitStream *outBitStream);
 
 	/// Read all encoded data from a bitstream. Clear() is called before deserializing.
-	bool Deserialize(SLNet::BitStream *inBitStream);
+	bool Deserialize(MafiaNet::BitStream *inBitStream);
 
 	/// \brief Given the existing set of files, search applicationDirectory for the same files.
 	/// \details For each file that is missing or different, add that file to \a missingOrChangedFiles. Note: the file contents are not written, and only the hash if written if \a alwaysWriteHash is true
@@ -257,7 +257,7 @@ protected:
 	DataStructures::List<FileListProgress*> fileListProgressCallbacks;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

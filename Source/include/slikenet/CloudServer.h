@@ -36,7 +36,7 @@
 /// If the data is smaller than this value, an allocation is avoid. However, this value exists for every row
 #define CLOUD_SERVER_DATA_STACK_SIZE 32
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -285,7 +285,7 @@ protected:
 		CloudQueryWithAddresses cloudQueryWithAddresses;
 
 		// When request started. If takes too long for a response from another system, can abort remaining systems
-		SLNet::Time requestStartTime;
+		MafiaNet::Time requestStartTime;
 
 		// Assigned by server that gets the request to identify response. See nextGetRequestId
 		uint32_t requestId;
@@ -296,7 +296,7 @@ protected:
 	};
 	static int GetRequestComp(const uint32_t &key, GetRequest* const &data );
 	DataStructures::OrderedList<uint32_t, GetRequest*, CloudServer::GetRequestComp> getRequests;
-	SLNet::Time nextGetRequestsCheck;
+	MafiaNet::Time nextGetRequestsCheck;
 
 	uint32_t nextGetRequestId;
 
@@ -337,7 +337,7 @@ protected:
 };
 
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

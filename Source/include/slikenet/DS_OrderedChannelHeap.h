@@ -196,7 +196,7 @@ namespace DataStructures
 	template <class channel_key_type, class heap_data_type, int (*channel_key_comparison_func)(const channel_key_type&, const channel_key_type&)>
 	void OrderedChannelHeap<channel_key_type, heap_data_type, channel_key_comparison_func>::AddChannel(const channel_key_type &channelID, const double weight)
 	{
-		QueueAndWeight *qaw = SLNet::OP_NEW<QueueAndWeight>( _FILE_AND_LINE_ );
+		QueueAndWeight *qaw = MafiaNet::OP_NEW<QueueAndWeight>( _FILE_AND_LINE_ );
 		qaw->weight=weight;
 		qaw->signalDeletion=false;
 		map.SetNew(channelID, qaw);
@@ -211,7 +211,7 @@ namespace DataStructures
 			i=map.GetIndexAtKey(channelID);
 			if (map[i]->randResultQueue.Size()==0)
 			{
-				SLNet::OP_DELETE(map[i], _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(map[i], _FILE_AND_LINE_);
 				map.RemoveAtIndex(i);
 			}
 			else
@@ -247,7 +247,7 @@ namespace DataStructures
 	{
 		unsigned i;
 		for (i=0; i < map.Size(); i++)
-			SLNet::OP_DELETE(map[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(map[i], _FILE_AND_LINE_);
 		map.Clear(_FILE_AND_LINE_);
 		heap.Clear(_FILE_AND_LINE_);
 	}

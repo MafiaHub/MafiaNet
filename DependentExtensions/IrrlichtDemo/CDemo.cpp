@@ -112,7 +112,7 @@ void CDemo::run()
 	InstantiateRakNetClasses();
 
 	// Hook RakNet stuff into this class
-	playerReplica->playerName= SLNet::RakString(dest);
+	playerReplica->playerName= MafiaNet::RakString(dest);
 	playerReplica->demo=this;
 	irrlichtReplicaManager3->demo=this;
 
@@ -164,7 +164,7 @@ void CDemo::run()
 				lastfps = nowfps;
 			}
 */
-			SLNet::RakString curMsg = GetCurrentMessage();
+			MafiaNet::RakString curMsg = GetCurrentMessage();
 			if (curMsg.IsEmpty()==false)
 			{
 				wchar_t dest2[1024];
@@ -756,7 +756,7 @@ void CDemo::EnableInput(bool enabled)
 }
 // RakNet - change shoot from assuming the camera, to taking any starting location
 // This way the same function can be called from the network
-SLNet::TimeMS CDemo::shootFromOrigin(core::vector3df camPosition, core::vector3df camAt)
+MafiaNet::TimeMS CDemo::shootFromOrigin(core::vector3df camPosition, core::vector3df camAt)
 {
 	scene::ISceneManager* sm = device->getSceneManager();
 	scene::ICameraSceneNode* camera = sm->getActiveCamera();
@@ -849,7 +849,7 @@ SLNet::TimeMS CDemo::shootFromOrigin(core::vector3df camPosition, core::vector3d
 		playSound(ballSound);
 #endif
 
-	return (SLNet::TimeMS) time;
+	return (MafiaNet::TimeMS) time;
 }
 
 void CDemo::shoot()
@@ -867,7 +867,7 @@ void CDemo::shoot()
 	br->demo=this;
 	br->position=camPosition;
 	br->shotDirection=camAt;
-	br->shotLifetime= SLNet::GetTimeMS() + shootFromOrigin(camPosition, camAt);
+	br->shotLifetime= MafiaNet::GetTimeMS() + shootFromOrigin(camPosition, camAt);
 	irrlichtReplicaManager3->Reference(br);
 }
 
@@ -936,10 +936,10 @@ void CDemo::createParticleImpacts()
 /// RakNet stuff
 void CDemo::UpdateRakNet(void)
 {
-	SLNet::SystemAddress facilitatorSystemAddress(DEFAULT_NAT_PUNCHTHROUGH_FACILITATOR_IP, DEFAULT_NAT_PUNCHTHROUGH_FACILITATOR_PORT);
-	SLNet::Packet *packet;
-	SLNet::TimeMS curTime = SLNet::GetTimeMS();
-	SLNet::RakString targetName;
+	MafiaNet::SystemAddress facilitatorSystemAddress(DEFAULT_NAT_PUNCHTHROUGH_FACILITATOR_IP, DEFAULT_NAT_PUNCHTHROUGH_FACILITATOR_PORT);
+	MafiaNet::Packet *packet;
+	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
+	MafiaNet::RakString targetName;
 	for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
 	{
 		if (strcmp(packet->systemAddress.ToString(false),DEFAULT_NAT_PUNCHTHROUGH_FACILITATOR_IP)==0)
@@ -955,35 +955,35 @@ void CDemo::UpdateRakNet(void)
 		{
 		case ID_IP_RECENTLY_CONNECTED:
 			{
-				PushMessage(SLNet::RakString("This IP address recently connected from ") + targetName + SLNet::RakString("."));
+				PushMessage(MafiaNet::RakString("This IP address recently connected from ") + targetName + MafiaNet::RakString("."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 					PushMessage("Multiplayer will not work without the NAT punchthrough server!");
 			}
 			break;
 		case ID_INCOMPATIBLE_PROTOCOL_VERSION:
 			{
-				PushMessage(SLNet::RakString("Incompatible protocol version from ") + targetName + SLNet::RakString("."));
+				PushMessage(MafiaNet::RakString("Incompatible protocol version from ") + targetName + MafiaNet::RakString("."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 					PushMessage("Multiplayer will not work without the NAT punchthrough server!");
 			}
 			break;
 		case ID_DISCONNECTION_NOTIFICATION:
 			{
-				PushMessage(SLNet::RakString("Disconnected from ") + targetName + SLNet::RakString("."));
+				PushMessage(MafiaNet::RakString("Disconnected from ") + targetName + MafiaNet::RakString("."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 					isConnectedToNATPunchthroughServer=false;
 			}
 			break;
 		case ID_CONNECTION_LOST:
 			{
-				PushMessage(SLNet::RakString("Connection to ") + targetName + SLNet::RakString(" lost."));
+				PushMessage(MafiaNet::RakString("Connection to ") + targetName + MafiaNet::RakString(" lost."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 					isConnectedToNATPunchthroughServer=false;
 			}
 			break;
 		case ID_NO_FREE_INCOMING_CONNECTIONS:
 			{
-				PushMessage(SLNet::RakString("No free incoming connections to ") + targetName + SLNet::RakString("."));
+				PushMessage(MafiaNet::RakString("No free incoming connections to ") + targetName + MafiaNet::RakString("."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 					PushMessage("Multiplayer will not work without the NAT punchthrough server!");
 			}
@@ -992,16 +992,16 @@ void CDemo::UpdateRakNet(void)
 			{
 				if (fullyConnectedMesh2->IsHostSystem())
 				{
-					PushMessage(SLNet::RakString("Sending player list to new connection"));
+					PushMessage(MafiaNet::RakString("Sending player list to new connection"));
 					fullyConnectedMesh2->StartVerifiedJoin(packet->guid);
 				}
 			}
 			break;
 		case ID_FCM2_VERIFIED_JOIN_START:
 			{
-				DataStructures::List<SLNet::SystemAddress> addresses;
-				DataStructures::List<SLNet::RakNetGUID> guids;
-				DataStructures::List<SLNet::BitStream*> userdata;
+				DataStructures::List<MafiaNet::SystemAddress> addresses;
+				DataStructures::List<MafiaNet::RakNetGUID> guids;
+				DataStructures::List<MafiaNet::BitStream*> userdata;
 				fullyConnectedMesh2->GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userdata);
 				for (unsigned int i=0; i < guids.Size(); i++)
 					natPunchthroughClient->OpenNAT(guids[i], facilitatorSystemAddress);
@@ -1009,7 +1009,7 @@ void CDemo::UpdateRakNet(void)
 			break;
 		case ID_FCM2_VERIFIED_JOIN_FAILED:
 			{
-				PushMessage(SLNet::RakString("Failed to join game session"));
+				PushMessage(MafiaNet::RakString("Failed to join game session"));
 			}
 			break;
 		case ID_FCM2_VERIFIED_JOIN_CAPABLE:
@@ -1019,13 +1019,13 @@ void CDemo::UpdateRakNet(void)
 			break;
 		case ID_FCM2_VERIFIED_JOIN_ACCEPTED:
 			{
-				DataStructures::List<SLNet::RakNetGUID> systemsAccepted;
+				DataStructures::List<MafiaNet::RakNetGUID> systemsAccepted;
 				bool thisSystemAccepted;
 				fullyConnectedMesh2->GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, 0);
 				if (thisSystemAccepted)
 					PushMessage("Game join request accepted\n");
 				else
-					PushMessage(SLNet::RakString("System %s joined the mesh\n", systemsAccepted[0].ToString()));
+					PushMessage(MafiaNet::RakString("System %s joined the mesh\n", systemsAccepted[0].ToString()));
 				
 				// DataStructures::List<RakNetGUID> participantList;
 				// fullyConnectedMesh2->GetParticipantList(participantList);
@@ -1036,7 +1036,7 @@ void CDemo::UpdateRakNet(void)
 			break;
 		case ID_CONNECTION_REQUEST_ACCEPTED:
 			{
-				PushMessage(SLNet::RakString("Connection request to ") + targetName + SLNet::RakString(" accepted."));
+				PushMessage(MafiaNet::RakString("Connection request to ") + targetName + MafiaNet::RakString(" accepted."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 				{
 					isConnectedToNATPunchthroughServer=true;
@@ -1068,8 +1068,8 @@ void CDemo::UpdateRakNet(void)
 					}
 					
 					// Query cloud for other running game instances
-					SLNet::CloudQuery cloudQuery;
-					cloudQuery.keys.Push(SLNet::CloudKey("IrrlichtDemo",0),_FILE_AND_LINE_);
+					MafiaNet::CloudQuery cloudQuery;
+					cloudQuery.keys.Push(MafiaNet::CloudKey("IrrlichtDemo",0),_FILE_AND_LINE_);
 					cloudClient->Get(&cloudQuery, packet->guid);
 				}
 			}
@@ -1079,26 +1079,26 @@ void CDemo::UpdateRakNet(void)
 				if (packet->guid==rakPeer->GetMyGUID())
 				{
 					// Original host dropped. I am the new session host. Upload to the cloud so new players join this system.
-					SLNet::CloudKey cloudKey("IrrlichtDemo",0);
+					MafiaNet::CloudKey cloudKey("IrrlichtDemo",0);
 					cloudClient->Post(&cloudKey, 0, 0, rakPeer->GetGuidFromSystemAddress(facilitatorSystemAddress));
 				}
 			}
 			break;
 		case ID_CLOUD_GET_RESPONSE:
 			{
-			SLNet::CloudQueryResult cloudQueryResult;
+			MafiaNet::CloudQueryResult cloudQueryResult;
 				cloudClient->OnGetReponse(&cloudQueryResult, packet);
 				if (cloudQueryResult.rowsReturned.Size()>0)
 				{	
-					PushMessage(SLNet::RakString("NAT punch to existing game instance"));
+					PushMessage(MafiaNet::RakString("NAT punch to existing game instance"));
 					natPunchthroughClient->OpenNAT(cloudQueryResult.rowsReturned[0]->clientGUID, facilitatorSystemAddress);
 				}
 				else
 				{
-					PushMessage(SLNet::RakString("Publishing new game instance"));
+					PushMessage(MafiaNet::RakString("Publishing new game instance"));
 
 					// Start as a new game instance because no other games are running
-					SLNet::CloudKey cloudKey("IrrlichtDemo",0);
+					MafiaNet::CloudKey cloudKey("IrrlichtDemo",0);
 					cloudClient->Post(&cloudKey, 0, 0, packet->guid);
 				}
 
@@ -1107,49 +1107,49 @@ void CDemo::UpdateRakNet(void)
 			break;
 		case ID_CONNECTION_ATTEMPT_FAILED:
 			{
-				PushMessage(SLNet::RakString("Connection attempt to ") + targetName + SLNet::RakString(" failed."));
+				PushMessage(MafiaNet::RakString("Connection attempt to ") + targetName + MafiaNet::RakString(" failed."));
 				if (packet->systemAddress==facilitatorSystemAddress)
 					PushMessage("Multiplayer will not work without the NAT punchthrough server!");
 			}
 			break;
 		case ID_NAT_TARGET_NOT_CONNECTED:
 			{
-			SLNet::RakNetGUID recipientGuid;
-			SLNet::BitStream bs(packet->data,packet->length,false);
-				bs.IgnoreBytes(sizeof(SLNet::MessageID));
+			MafiaNet::RakNetGUID recipientGuid;
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
+				bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
 				bs.Read(recipientGuid);
 				targetName=recipientGuid.ToString();
-				PushMessage(SLNet::RakString("NAT target ") + targetName + SLNet::RakString(" not connected."));
+				PushMessage(MafiaNet::RakString("NAT target ") + targetName + MafiaNet::RakString(" not connected."));
 			}
 			break;
 		case ID_NAT_TARGET_UNRESPONSIVE:
 			{
-			SLNet::RakNetGUID recipientGuid;
-			SLNet::BitStream bs(packet->data,packet->length,false);
-				bs.IgnoreBytes(sizeof(SLNet::MessageID));
+			MafiaNet::RakNetGUID recipientGuid;
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
+				bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
 				bs.Read(recipientGuid);
 				targetName=recipientGuid.ToString();
-				PushMessage(SLNet::RakString("NAT target ") + targetName + SLNet::RakString(" unresponsive."));
+				PushMessage(MafiaNet::RakString("NAT target ") + targetName + MafiaNet::RakString(" unresponsive."));
 			}
 			break;
 		case ID_NAT_CONNECTION_TO_TARGET_LOST:
 			{
-			SLNet::RakNetGUID recipientGuid;
-			SLNet::BitStream bs(packet->data,packet->length,false);
-				bs.IgnoreBytes(sizeof(SLNet::MessageID));
+			MafiaNet::RakNetGUID recipientGuid;
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
+				bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
 				bs.Read(recipientGuid);
 				targetName=recipientGuid.ToString();
-				PushMessage(SLNet::RakString("NAT target connection to ") + targetName + SLNet::RakString(" lost."));
+				PushMessage(MafiaNet::RakString("NAT target connection to ") + targetName + MafiaNet::RakString(" lost."));
 			}
 			break;
 		case ID_NAT_ALREADY_IN_PROGRESS:
 			{
-			SLNet::RakNetGUID recipientGuid;
-			SLNet::BitStream bs(packet->data,packet->length,false);
-				bs.IgnoreBytes(sizeof(SLNet::MessageID));
+			MafiaNet::RakNetGUID recipientGuid;
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
+				bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
 				bs.Read(recipientGuid);
 				targetName=recipientGuid.ToString();
-				PushMessage(SLNet::RakString("NAT punchthrough to ") + targetName + SLNet::RakString(" in progress (skipping)."));
+				PushMessage(MafiaNet::RakString("NAT punchthrough to ") + targetName + MafiaNet::RakString(" in progress (skipping)."));
 			}
 			break;
 
@@ -1157,18 +1157,18 @@ void CDemo::UpdateRakNet(void)
 			{
 				if (packet->data[1]==1)
 				{
-					PushMessage(SLNet::RakString("Connecting to existing game instance"));
-					SLNET_VERIFY(rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0) == SLNet::CONNECTION_ATTEMPT_STARTED);
+					PushMessage(MafiaNet::RakString("Connecting to existing game instance"));
+					SLNET_VERIFY(rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 				}
 			}
 			break;
 
 		case ID_ADVERTISE_SYSTEM:
-			if (packet->guid!=rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS))
+			if (packet->guid!=rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS))
 			{
 				char hostIP[32];
 				packet->systemAddress.ToString(false,hostIP,static_cast<size_t>(32));
-				SLNET_VERIFY(rakPeer->Connect(hostIP,packet->systemAddress.GetPort(),0,0) == SLNet::CONNECTION_ATTEMPT_STARTED);
+				SLNET_VERIFY(rakPeer->Connect(hostIP,packet->systemAddress.GetPort(),0,0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 			}
 			break;
 		}
@@ -1193,19 +1193,19 @@ KeyIsDown[KEY_KEY_S] |
 KeyIsDown[KEY_KEY_A] | 
 KeyIsDown[KEY_KEY_D];
 }
-void CDemo::PushMessage(SLNet::RakString rs)
+void CDemo::PushMessage(MafiaNet::RakString rs)
 {
 	outputMessages.Push(rs,_FILE_AND_LINE_);
 	if (whenOutputMessageStarted==0)
 	{
-		whenOutputMessageStarted= SLNet::GetTimeMS();
+		whenOutputMessageStarted= MafiaNet::GetTimeMS();
 	}
 }
 const char *CDemo::GetCurrentMessage(void)
 {
 	if (outputMessages.GetSize()==0)
 		return "";
-	SLNet::TimeMS curTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	if (curTime-whenOutputMessageStarted>2500)
 	{
 		outputMessages.Pop(_FILE_AND_LINE_);

@@ -25,7 +25,7 @@
 #include "IncrementalReadInterface.h"
 #include "SimpleMutex.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class FileList;
@@ -61,7 +61,7 @@ public:
 	/// \param[out] whenPatched time in seconds since epoch when patched. Use time() function to get this in C
 	/// \return true on success, false on failure
 	virtual bool GetMostRecentChangelistWithPatches(
-		SLNet::RakString &applicationName,
+		MafiaNet::RakString &applicationName,
 		FileList *patchedFiles,
 		FileList *updatedFiles,
 		FileList *addedOrModifiedFileHashes,
@@ -76,7 +76,7 @@ public:
 	virtual const int GetIncrementalReadChunkSize(void) const=0;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

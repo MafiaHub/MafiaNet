@@ -38,7 +38,7 @@
 #include "slikenet/DS_Table.h"
 #include "slikenet/DS_Map.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 struct SystemAddress;
 
@@ -67,7 +67,7 @@ public:
 	/// Store the game name and port with UploadTable, rather than SetField, as these columns are required and use reserved column names
 	/// \param[in] columnName The name of the column to store
 	/// \param[in] value What value to hold for the uploaded row (only one row can be uploaded at a time)
-	void SetField(SLNet::RakString columnName, SLNet::RakString value);
+	void SetField(MafiaNet::RakString columnName, MafiaNet::RakString value);
 
 	/// Returns the number of fields set with SetField()
 	unsigned int GetFieldCount(void) const;
@@ -76,7 +76,7 @@ public:
 	/// \param[in] index The 0 based index into the field list
 	/// \param[out] columnName The \a columnName parameter passed to SetField()
 	/// \param[out] value The \a value parameter passed to SetField()
-	void GetField(unsigned int index, SLNet::RakString &columnName, SLNet::RakString &value);
+	void GetField(unsigned int index, MafiaNet::RakString &columnName, MafiaNet::RakString &value);
 
 	/// Set all parameters at once from a table
 	/// \param[in] table A table containing the values you want to send. Note that all values are stored as strings in PHP
@@ -94,7 +94,7 @@ public:
 	/// \param[in] gameName Every entry must have a game name. Pass it here.
 	/// \param[in] gamePort Every entry must have a game port. Pass it here. The IP address will be stored automatically, or you can manually set it by passing a field named _System_Address
 	/// \param[in] autoRepost Tables must be uploaded every 60 seconds or they get dropped. Set autoRepost to true to automatically reupload the most recent table.
-	void UploadTable(SLNet::RakString uploadPassword, SLNet::RakString gameName, unsigned short gamePort, bool autoRepost);
+	void UploadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost);
 
 	/// Send a download request to the PHP server.
 	/// On success:
@@ -103,7 +103,7 @@ public:
 	/// 3. The return value of PHPDirectoryServer2::ProcessHTTPRead() will be HTTP_RESULT_GOT_TABLE or HTTP_RESULT_EMPTY
 	/// 4. On HTTP_RESULT_GOT_TABLE, use GetLastDownloadedTable() to read the results.
 	/// \param[in] downloadPassword The download password set in the PHP page itself when you first uploaded and viewed it in the webpage.
-	void DownloadTable(SLNet::RakString downloadPassword);
+	void DownloadTable(MafiaNet::RakString downloadPassword);
 
 	/// Same as calling DownloadTable immediately followed by UploadTable, except only the download result is returned
 	/// \param[in] uploadPassword The upload password set in the PHP page itself when you first uploaded and viewed it in the webpage.
@@ -111,13 +111,13 @@ public:
 	/// \param[in] gameName Every entry must have a game name. Pass it here.
 	/// \param[in] gamePort Every entry must have a game port. Pass it here. The IP address will be stored automatically, or you can manually set it by passing a field named _System_Address
 	/// \param[in] autoRepost Tables must be uploaded every 60 seconds or they get dropped. Set autoRepost to true to automatically reupload the most recent table.
-	void UploadAndDownloadTable(SLNet::RakString uploadPassword, SLNet::RakString downloadPassword, SLNet::RakString gameName, unsigned short gamePort, bool autoRepost);
+	void UploadAndDownloadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString downloadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost);
 
 	/// When HTTPConnection::ProcessDataPacket() returns true, and not an error, pass HTTPConnection::Read() to this function
 	/// The message will be parsed into DataStructures::Table, and a copy stored internally which can be retrieved by GetLastDownloadedTable();
 	/// \param[in] packetData Returned from HTTPInterface::Read()
 	/// \return One of the values for HTTPReadResult
-	HTTPReadResult ProcessHTTPRead(SLNet::RakString httpRead);
+	HTTPReadResult ProcessHTTPRead(MafiaNet::RakString httpRead);
 
 	/// Returns the last value returned from ProcessHTTPString
 	/// Default columns are "__GAME_NAME", "__GAME_PORT", "_System_Address"
@@ -129,22 +129,22 @@ public:
     
 private:
     HTTPConnection *http;
-	SLNet::RakString pathToPHP;
+	MafiaNet::RakString pathToPHP;
     
-	SLNet::RakString gameNameParam;
+	MafiaNet::RakString gameNameParam;
 	unsigned short gamePortParam;
 
 	void SendOperation(void);
-	void PushColumnsAndValues(DataStructures::List<SLNet::RakString> &columns, DataStructures::List<SLNet::RakString> &values);
+	void PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values);
 
 	DataStructures::Table lastDownloadedTable;
-	DataStructures::Map<SLNet::RakString, SLNet::RakString> fields;
-	SLNet::RakString currentOperation;
-	SLNet::TimeMS nextRepost;
+	DataStructures::Map<MafiaNet::RakString, MafiaNet::RakString> fields;
+	MafiaNet::RakString currentOperation;
+	MafiaNet::TimeMS nextRepost;
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

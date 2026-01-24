@@ -23,14 +23,14 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 RakPeerInterface *rakPeer;
 NetworkIDManager *networkIDManager;
 ReplicaManager3Irrlicht *irrlichtReplicaManager3;
 NatPunchthroughClient *natPunchthroughClient;
 CloudClient *cloudClient;
-SLNet::FullyConnectedMesh2 *fullyConnectedMesh2;
+MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2;
 PlayerReplica *playerReplica;
 
 /*
@@ -90,17 +90,17 @@ void InstantiateRakNetClasses(void)
 {
 	static const int MAX_PLAYERS=32;
 	static const unsigned short TCP_PORT=0;
-	static const SLNet::TimeMS UDP_SLEEP_TIMER=30;
+	static const MafiaNet::TimeMS UDP_SLEEP_TIMER=30;
 
 	// Basis of all UDP communications
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	// Using fixed port so we can use AdvertiseSystem and connect on the LAN if the server is not available.
-	SLNet::SocketDescriptor sd(1234,0);
+	MafiaNet::SocketDescriptor sd(1234,0);
 	sd.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 	while (IRNS2_Berkley::IsPortInUse(sd.port, sd.hostAddress, sd.socketFamily, SOCK_DGRAM)==true)
 		sd.port++;
 	// +1 is for the connection to the NAT punchthrough server
-	SLNET_VERIFY(rakPeer->Startup(MAX_PLAYERS+1,&sd,1) == SLNet::RAKNET_STARTED);
+	SLNET_VERIFY(rakPeer->Startup(MAX_PLAYERS+1,&sd,1) == MafiaNet::RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(MAX_PLAYERS);
 	// Fast disconnect for easier testing of host migration
 	rakPeer->SetTimeoutTime(5000,UNASSIGNED_SYSTEM_ADDRESS);
@@ -138,7 +138,7 @@ void DeinitializeRakNetClasses(void)
 {
 	// Shutdown so the server knows we stopped
 	rakPeer->Shutdown(100,0);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	delete networkIDManager;
 	delete irrlichtReplicaManager3;
 	delete natPunchthroughClient;
@@ -155,14 +155,14 @@ BaseIrrlichtReplica::~BaseIrrlichtReplica()
 {
 
 }
-void BaseIrrlichtReplica::SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+void BaseIrrlichtReplica::SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 {
 	// unused parameters
 	(void)destinationConnection;
 
 	constructionBitstream->Write(position);
 }
-bool BaseIrrlichtReplica::DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+bool BaseIrrlichtReplica::DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 {
 	// unused parameters
 	(void)sourceConnection;
@@ -170,19 +170,19 @@ bool BaseIrrlichtReplica::DeserializeConstruction(SLNet::BitStream *construction
 	constructionBitstream->Read(position);
 	return true;
 }
-RM3SerializationResult BaseIrrlichtReplica::Serialize(SLNet::SerializeParameters *serializeParameters)
+RM3SerializationResult BaseIrrlichtReplica::Serialize(MafiaNet::SerializeParameters *serializeParameters)
 {
 	// unused parameters
 	(void)serializeParameters;
 
 	return RM3SR_BROADCAST_IDENTICALLY;
 }
-void BaseIrrlichtReplica::Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+void BaseIrrlichtReplica::Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 {
 	// unused parameters
 	(void)deserializeParameters;
 }
-void BaseIrrlichtReplica::Update(SLNet::TimeMS curTime)
+void BaseIrrlichtReplica::Update(MafiaNet::TimeMS curTime)
 {
 	// unused parameters
 	(void)curTime;
@@ -193,7 +193,7 @@ PlayerReplica::PlayerReplica()
 	rotationDeltaPerMS=0.0f;
 	isMoving=false;
 	deathTimeout=0;
-	lastUpdate= SLNet::GetTimeMS();
+	lastUpdate= MafiaNet::GetTimeMS();
 	playerList.Push(this,_FILE_AND_LINE_);
 }
 PlayerReplica::~PlayerReplica()
@@ -202,21 +202,21 @@ PlayerReplica::~PlayerReplica()
 	if (index != (unsigned int) -1)
 		playerList.RemoveAtIndexFast(index);
 }
-void PlayerReplica::WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+void PlayerReplica::WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 {
 	// unused parameters
 	(void)destinationConnection;
 
-	allocationIdBitstream->Write(SLNet::RakString("PlayerReplica"));
+	allocationIdBitstream->Write(MafiaNet::RakString("PlayerReplica"));
 }
-void PlayerReplica::SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+void PlayerReplica::SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 {
 	BaseIrrlichtReplica::SerializeConstruction(constructionBitstream, destinationConnection);
 	constructionBitstream->Write(rotationAroundYAxis);
 	constructionBitstream->Write(playerName);
 	constructionBitstream->Write(IsDead());
 }
-bool PlayerReplica::DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+bool PlayerReplica::DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 {
 	if (!BaseIrrlichtReplica::DeserializeConstruction(constructionBitstream, sourceConnection))
 		return false;
@@ -225,7 +225,7 @@ bool PlayerReplica::DeserializeConstruction(SLNet::BitStream *constructionBitstr
 	constructionBitstream->Read(isDead);
 	return true;
 }
-void PlayerReplica::PostDeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+void PlayerReplica::PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 {
 	// unused parameters
 	(void)constructionBitstream;
@@ -259,7 +259,7 @@ void PlayerReplica::PostDeserializeConstruction(SLNet::BitStream *constructionBi
 	bb->setPosition(core::vector3df(0,model->getBoundingBox().MaxEdge.Y+bb->getBoundingBox().MaxEdge.Y-bb->getBoundingBox().MinEdge.Y+5.0f,0));
 	bb->setColor(video::SColor(255,255,128,128), video::SColor(255,255,128,128));
 }
-void PlayerReplica::PreDestruction(SLNet::Connection_RM3 *sourceConnection)
+void PlayerReplica::PreDestruction(MafiaNet::Connection_RM3 *sourceConnection)
 {
 	// unused parameters
 	(void)sourceConnection;
@@ -267,7 +267,7 @@ void PlayerReplica::PreDestruction(SLNet::Connection_RM3 *sourceConnection)
 	if (model)
 		model->remove();
 }
-RM3SerializationResult PlayerReplica::Serialize(SLNet::SerializeParameters *serializeParameters)
+RM3SerializationResult PlayerReplica::Serialize(MafiaNet::SerializeParameters *serializeParameters)
 {
 	BaseIrrlichtReplica::Serialize(serializeParameters);
 	serializeParameters->outputBitstream[0].Write(position);
@@ -276,7 +276,7 @@ RM3SerializationResult PlayerReplica::Serialize(SLNet::SerializeParameters *seri
 	serializeParameters->outputBitstream[0].Write(IsDead());
 	return RM3SR_BROADCAST_IDENTICALLY;
 }
-void PlayerReplica::Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+void PlayerReplica::Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 {
 	BaseIrrlichtReplica::Deserialize(deserializeParameters);
 	deserializeParameters->serializationBitstream[0].Read(position);
@@ -295,12 +295,12 @@ void PlayerReplica::Deserialize(SLNet::DeserializeParameters *deserializeParamet
 	float rotationOffset;
 	rotationOffset=GetRotationDifference(rotationAroundYAxis,model->getRotation().Y);
 	rotationDeltaPerMS = rotationOffset / INTERP_TIME_MS;
-	interpEndTime = SLNet::GetTimeMS() + (SLNet::TimeMS) INTERP_TIME_MS;
+	interpEndTime = MafiaNet::GetTimeMS() + (MafiaNet::TimeMS) INTERP_TIME_MS;
 }
-void PlayerReplica::Update(SLNet::TimeMS curTime)
+void PlayerReplica::Update(MafiaNet::TimeMS curTime)
 {
 	// Is a locally created object?
-	if (creatingSystemGUID==rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS))
+	if (creatingSystemGUID==rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS))
 	{
 		// Local player has no mesh to interpolate
 		// Input our camera position as our player position
@@ -316,7 +316,7 @@ void PlayerReplica::Update(SLNet::TimeMS curTime)
 	}
 
 	// Update interpolation
-	SLNet::TimeMS elapsed = curTime-lastUpdate;
+	MafiaNet::TimeMS elapsed = curTime-lastUpdate;
 	if (elapsed<=1)
 		return;
 	if (elapsed>100)
@@ -408,35 +408,35 @@ void PlayerReplica::PlayAttackAnimation(void)
 }
 bool PlayerReplica::IsDead(void) const
 {
-	return deathTimeout > SLNet::GetTimeMS();
+	return deathTimeout > MafiaNet::GetTimeMS();
 }
 BallReplica::BallReplica()
 {
-	creationTime= SLNet::GetTimeMS();
+	creationTime= MafiaNet::GetTimeMS();
 }
 BallReplica::~BallReplica()
 {
 }
-void BallReplica::WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+void BallReplica::WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 {
 	// unused parameters
 	(void)destinationConnection;
 
-	allocationIdBitstream->Write(SLNet::RakString("BallReplica"));
+	allocationIdBitstream->Write(MafiaNet::RakString("BallReplica"));
 }
-void BallReplica::SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+void BallReplica::SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 {
 	BaseIrrlichtReplica::SerializeConstruction(constructionBitstream, destinationConnection);
 	constructionBitstream->Write(shotDirection);
 }
-bool BallReplica::DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+bool BallReplica::DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 {
 	if (!BaseIrrlichtReplica::DeserializeConstruction(constructionBitstream, sourceConnection))
 		return false;
 	constructionBitstream->Read(shotDirection);
 	return true;
 }
-void BallReplica::PostDeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+void BallReplica::PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 {
 	// unused parameters
 	(void)constructionBitstream;
@@ -457,7 +457,7 @@ void BallReplica::PostDeserializeConstruction(SLNet::BitStream *constructionBits
 		}
 	}
 }
-void BallReplica::PreDestruction(SLNet::Connection_RM3 *sourceConnection)
+void BallReplica::PreDestruction(MafiaNet::Connection_RM3 *sourceConnection)
 {
 	// unused parameters
 	(void)sourceConnection;
@@ -465,19 +465,19 @@ void BallReplica::PreDestruction(SLNet::Connection_RM3 *sourceConnection)
 	// The system that shot this ball destroyed it, or disconnected
 	// Technically we should clear out the node visible effect too, but it's not important for now
 }
-RM3SerializationResult BallReplica::Serialize(SLNet::SerializeParameters *serializeParameters)
+RM3SerializationResult BallReplica::Serialize(MafiaNet::SerializeParameters *serializeParameters)
 {
 	BaseIrrlichtReplica::Serialize(serializeParameters);
 	return RM3SR_BROADCAST_IDENTICALLY;
 }
-void BallReplica::Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+void BallReplica::Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 {
 	BaseIrrlichtReplica::Deserialize(deserializeParameters);
 }
-void BallReplica::Update(SLNet::TimeMS curTime)
+void BallReplica::Update(MafiaNet::TimeMS curTime)
 {
 	// Is a locally created object?
-	if (creatingSystemGUID==rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS))
+	if (creatingSystemGUID==rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS))
 	{
 		// Destroy if shot expired
 		if (curTime > shotLifetime)
@@ -492,7 +492,7 @@ void BallReplica::Update(SLNet::TimeMS curTime)
 	// Keep at the same position as the visible effect
 	// Deterministic, so no need to actually transmit position
 	// The variable position is the origin that the ball was created at. For the player, it is their actual position
-	SLNet::TimeMS elapsedTime;
+	MafiaNet::TimeMS elapsedTime;
 	// Due to ping variances and timestamp miscalculations, it's possible with very low pings to get a slightly negative time, so we have to check
 	if (curTime>=creationTime)
 		elapsedTime = curTime - creationTime;
@@ -501,7 +501,7 @@ void BallReplica::Update(SLNet::TimeMS curTime)
 	irr::core::vector3df updatedPosition = position + shotDirection * (float) elapsedTime * SHOT_SPEED;
 
 	// See if the bullet hit us
-	if (creatingSystemGUID!=rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS))
+	if (creatingSystemGUID!=rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS))
 	{
 		if (playerReplica->IsDead()==false)
 		{
@@ -516,12 +516,12 @@ void BallReplica::Update(SLNet::TimeMS curTime)
 		}
 	}
 }
-SLNet::Replica3 *Connection_RM3Irrlicht::AllocReplica(SLNet::BitStream *allocationId, ReplicaManager3 *replicaManager3)
+MafiaNet::Replica3 *Connection_RM3Irrlicht::AllocReplica(MafiaNet::BitStream *allocationId, ReplicaManager3 *replicaManager3)
 {
 	// unused parameters
 	(void)replicaManager3;
 
-	SLNet::RakString typeName; allocationId->Read(typeName);
+	MafiaNet::RakString typeName; allocationId->Read(typeName);
 	if (typeName=="PlayerReplica") {BaseIrrlichtReplica *r = new PlayerReplica; r->demo=demo; return r;}
 	if (typeName=="BallReplica") {BaseIrrlichtReplica *r = new BallReplica; r->demo=demo; return r;}
 	return 0;

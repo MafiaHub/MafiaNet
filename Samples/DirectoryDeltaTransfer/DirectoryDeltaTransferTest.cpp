@@ -41,7 +41,7 @@
 
 #define USE_TCP
 
-class TestCB : public SLNet::FileListTransferCBInterface
+class TestCB : public MafiaNet::FileListTransferCBInterface
 {
 public:
 	bool OnFile(
@@ -85,24 +85,24 @@ int main(void)
 	int ch;
 
 #ifdef USE_TCP
-	SLNet::PacketizedTCP tcp1;
+	MafiaNet::PacketizedTCP tcp1;
 #else
-	SLNet::RakPeerInterface *rakPeer;
+	MafiaNet::RakPeerInterface *rakPeer;
 #endif
 
 	// directoryDeltaTransfer is the main plugin that does the work for this sample.
-	SLNet::DirectoryDeltaTransfer directoryDeltaTransfer;
+	MafiaNet::DirectoryDeltaTransfer directoryDeltaTransfer;
 	// The fileListTransfer plugin is used by the DirectoryDeltaTransfer plugin and must also be registered (you could use this yourself too if you wanted, of course).
-	SLNet::FileListTransfer fileListTransfer;
+	MafiaNet::FileListTransfer fileListTransfer;
 	// Read files in parts, rather than the whole file from disk at once
-	SLNet::IncrementalReadInterface iri;
+	MafiaNet::IncrementalReadInterface iri;
 	directoryDeltaTransfer.SetDownloadRequestIncrementalReadInterface(&iri, 1000000);
 
 #ifdef USE_TCP
 	tcp1.AttachPlugin(&directoryDeltaTransfer);
 	tcp1.AttachPlugin(&fileListTransfer);
 #else
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	rakPeer->AttachPlugin(&directoryDeltaTransfer);
 	rakPeer->AttachPlugin(&fileListTransfer);
 	// Get download progress notifications.  Handled by the plugin.
@@ -130,13 +130,13 @@ int main(void)
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
 	}
-	SLNet::SocketDescriptor socketDescriptor(localPort,0);
+	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 #ifdef USE_TCP
 	SLNET_VERIFY(tcp1.Start(localPort, 8));
 #else
-	if (rakPeer->Startup(8,&socketDescriptor, 1)!= SLNet::RAKNET_STARTED)
+	if (rakPeer->Startup(8,&socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
 	{
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 		printf("RakNet initialize failed.  Possibly duplicate port.\n");
 		return 1;
 	}
@@ -151,27 +151,27 @@ int main(void)
 	printf("C(o)nnect to another system.\n");
 	printf("(Q)uit.\n");
 
-	SLNet::SystemAddress sysAddrZero= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
-	// SLNet::TimeMS nextStatTime = SLNet::GetTimeMS() + 1000;
+	MafiaNet::SystemAddress sysAddrZero= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	// MafiaNet::TimeMS nextStatTime = MafiaNet::GetTimeMS() + 1000;
 
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	for(;;)
 	{
 		/*
 		if (//directoryDeltaTransfer.GetNumberOfFilesForUpload()>0 &&
-			SLNet::GetTimeMS() > nextStatTime)
+			MafiaNet::GetTimeMS() > nextStatTime)
 		{
 			// If sending, periodically show connection stats
 			char statData[2048];
 			RakNetStatistics *statistics = rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 		//	if (statistics->messagesOnResendQueue>0 || statistics->internalOutputQueueSize>0)
-			if (rakPeer->GetSystemAddressFromIndex(0)!=SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+			if (rakPeer->GetSystemAddressFromIndex(0)!=MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			{
 				StatisticsToString(statistics, statData, 2048, 2);
 				printf("%s\n", statData);
 			}
 			
-			nextStatTime=SLNet::GetTimeMS()+5000;
+			nextStatTime=MafiaNet::GetTimeMS()+5000;
 		}
 		*/
 
@@ -183,19 +183,19 @@ int main(void)
 #endif
 
 #ifdef USE_TCP
-		SLNet::SystemAddress sa;
+		MafiaNet::SystemAddress sa;
 		sa=tcp1.HasNewIncomingConnection();
-		if (sa!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_NEW_INCOMING_CONNECTION\n");
 			sysAddrZero=sa;
 		}
-		if (tcp1.HasLostConnection()!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (tcp1.HasLostConnection()!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_DISCONNECTION_NOTIFICATION\n");
-		if (tcp1.HasFailedConnectionAttempt()!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (tcp1.HasFailedConnectionAttempt()!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_ATTEMPT_FAILED\n");
 		sa=tcp1.HasCompletedConnectionAttempt();
-		if (sa!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 			sysAddrZero=sa;
@@ -318,7 +318,7 @@ int main(void)
 
 #ifdef USE_TCP
 #else
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 #endif
 
 	return 0;

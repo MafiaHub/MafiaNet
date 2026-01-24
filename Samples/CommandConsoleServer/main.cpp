@@ -31,31 +31,31 @@
 
 
 void TestTCPInterface(void);
-void TestCommandServer(SLNet::TransportInterface *ti, unsigned short port, SLNet::RakPeerInterface *rakPeer);
+void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, MafiaNet::RakPeerInterface *rakPeer);
 
 int main(void)
 {
-	SLNet::RakPeerInterface *rakPeer = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor sd(60000,0);
+	MafiaNet::RakPeerInterface *rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor sd(60000,0);
  	rakPeer->Startup(128,&sd,1);
  	rakPeer->SetMaximumIncomingConnections(128);
 
-	SLNet::TelnetTransport tt;
+	MafiaNet::TelnetTransport tt;
 	TestCommandServer(&tt, 23, rakPeer); // Uncomment to use Telnet as a client.  Telnet uses port 23 by default.
 
-// 	SLNet::RakNetTransport2 rt2;
+// 	MafiaNet::RakNetTransport2 rt2;
 // 	rakPeer->AttachPlugin(&rt2);
 // 	TestCommandServer(&rt2, 60000,rakPeer); // Uncomment to use RakNet as a client
 
 	return 1;
 }
 
-void TestCommandServer(SLNet::TransportInterface *ti, unsigned short port, SLNet::RakPeerInterface *rakPeer)
+void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, MafiaNet::RakPeerInterface *rakPeer)
 {
-	SLNet::ConsoleServer consoleServer;
-	SLNet::RakNetCommandParser rcp;
-	SLNet::LogCommandParser lcp;
-	SLNet::TimeMS lastLog=0;
+	MafiaNet::ConsoleServer consoleServer;
+	MafiaNet::RakNetCommandParser rcp;
+	MafiaNet::LogCommandParser lcp;
+	MafiaNet::TimeMS lastLog=0;
 
 	printf("This sample demonstrates the command console server, which can be.\n");
 	printf("a standalone application or part of your game server.  It allows you to\n");
@@ -77,10 +77,10 @@ void TestCommandServer(SLNet::TransportInterface *ti, unsigned short port, SLNet
 		// Ignore raknet packets for this sample.
 		rakPeer->DeallocatePacket(rakPeer->Receive());
 
-		if (SLNet::GetTimeMS() > lastLog + 4000)
+		if (MafiaNet::GetTimeMS() > lastLog + 4000)
 		{
 			lcp.WriteLog("TestChannel", "Test of logger");
-			lastLog= SLNet::GetTimeMS();
+			lastLog= MafiaNet::GetTimeMS();
 		}
 
 #ifdef _WIN32

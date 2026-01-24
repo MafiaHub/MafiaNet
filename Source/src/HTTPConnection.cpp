@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(HTTPConnection,HTTPConnection);
 
@@ -65,7 +65,7 @@ void HTTPConnection::Get(const char *path)
 	outgoingCommand.Push(op, _FILE_AND_LINE_ );
 }
 
-bool HTTPConnection::HasBadResponse(int *code, SLNet::RakString *data)
+bool HTTPConnection::HasBadResponse(int *code, MafiaNet::RakString *data)
 {
     if(badResponses.IsEmpty())
         return false;
@@ -206,12 +206,12 @@ RakString HTTPConnection::Read(void)
 	if (results.IsEmpty())
 		return RakString();
 
-	SLNet::RakString resultStr = results.Pop();
+	MafiaNet::RakString resultStr = results.Pop();
     // const char *start_of_body = strstr(resultStr.C_String(), "\r\n\r\n");
 	const char *start_of_body = strpbrk(resultStr.C_String(), "\001\002\003%");
     
     if(start_of_body)
-		return SLNet::RakString::NonVariadic(start_of_body);
+		return MafiaNet::RakString::NonVariadic(start_of_body);
 	else
 		return resultStr;
 }
@@ -239,7 +239,7 @@ void HTTPConnection::ProcessTCPPacket(Packet *packet)
 			}
 		}
 
-		SLNet::RakString incomingTemp = SLNet::RakString::NonVariadic((const char*) packet->data);
+		MafiaNet::RakString incomingTemp = MafiaNet::RakString::NonVariadic((const char*) packet->data);
 		incomingTemp.URLDecode();
 		incomingData += incomingTemp;
 

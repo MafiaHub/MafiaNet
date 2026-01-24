@@ -39,7 +39,7 @@
 #include "upnpcommands.h"
 #include "upnperrors.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #define DEFAULT_RAKPEER_PORT 50000
 #define RAKPEER_PORT_STR "0"
@@ -66,22 +66,22 @@ struct SampleFramework
 	virtual const char * QueryFunction(void)=0;
 	virtual const char * QuerySuccess(void)=0;
 	virtual bool QueryQuitOnSuccess(void)=0;
-	virtual void Init(SLNet::RakPeerInterface *rakPeer)=0;
+	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)=0;
 	virtual void ProcessPacket(Packet *packet)=0;
-	virtual void Update(SLNet::RakPeerInterface *rakPeer)=0;
-	virtual void Shutdown(SLNet::RakPeerInterface *rakPeer)=0;
+	virtual void Update(MafiaNet::RakPeerInterface *rakPeer)=0;
+	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)=0;
 
 	SampleResult sampleResult;
 };
 
-SystemAddress SelectAmongConnectedSystems(SLNet::RakPeerInterface *rakPeer, const char *hostName)
+SystemAddress SelectAmongConnectedSystems(MafiaNet::RakPeerInterface *rakPeer, const char *hostName)
 {
 	DataStructures::List<SystemAddress> addresses;
 	DataStructures::List<RakNetGUID> guids;
 	rakPeer->GetSystemList(addresses, guids);
 	if (addresses.Size()==0)
 	{
-		return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	}
 	if (addresses.Size()>1)
 	{
@@ -95,21 +95,21 @@ SystemAddress SelectAmongConnectedSystems(SLNet::RakPeerInterface *rakPeer, cons
 		Gets(buff,sizeof(buff));
 		if (buff[0]==0)
 		{
-			return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+			return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		}
 		unsigned int idx = atoi(buff);
 		if (idx<=0 || idx > addresses.Size())
 		{
-			return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+			return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		}
 		return addresses[idx-1];
 	}
 	else
 		return addresses[0];
 };
-SystemAddress ConnectBlocking(SLNet::RakPeerInterface *rakPeer, const char *hostName, const char *defaultAddress, const char *defaultPort)
+SystemAddress ConnectBlocking(MafiaNet::RakPeerInterface *rakPeer, const char *hostName, const char *defaultAddress, const char *defaultPort)
 {
-	SystemAddress returnvalue = SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	SystemAddress returnvalue = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	char ipAddr[64];
 	if (defaultAddress==0 || defaultAddress[0]==0)
 		printf("Enter IP of system %s is running on: ", hostName);
@@ -121,7 +121,7 @@ SystemAddress ConnectBlocking(SLNet::RakPeerInterface *rakPeer, const char *host
 		if (defaultAddress==0 || defaultAddress[0]==0)
 		{
 			printf("Failed. No address entered for %s.\n", hostName);
-			return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+			return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		}
 		else
 		{
@@ -139,7 +139,7 @@ SystemAddress ConnectBlocking(SLNet::RakPeerInterface *rakPeer, const char *host
 		if (defaultPort==0 || defaultPort[0]==0)
 		{
 			printf("Failed. No port entered for %s.\n", hostName);
-			return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+			return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		}
 		else
 		{
@@ -149,15 +149,15 @@ SystemAddress ConnectBlocking(SLNet::RakPeerInterface *rakPeer, const char *host
 	const int intPort = atoi(port);
 	if ((intPort < 0) || (intPort > std::numeric_limits<unsigned short>::max())) {
 		printf("Failed. Specified port %d is outside valid bounds [0, %u]", intPort, std::numeric_limits<unsigned short>::max());
-		return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	}
-	if (rakPeer->Connect(ipAddr, static_cast<unsigned short>(intPort), 0, 0)!= SLNet::CONNECTION_ATTEMPT_STARTED)
+	if (rakPeer->Connect(ipAddr, static_cast<unsigned short>(intPort), 0, 0)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 	{
 		printf("Failed connect call for %s.\n", hostName);
-		return SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	}
 	printf("Connecting...\n");
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	// #med - review --- at least we'd add a sleep interval here - also review whether the behavior is correct to only check the very first received packet (old RakNet code was bogus in this regards)
 	do {
 		packet = rakPeer->Receive();
@@ -180,7 +180,7 @@ struct UPNPFramework : public SampleFramework
 	virtual const char * QueryFunction(void) {return "Use UPNP to open the router";}
 	virtual const char * QuerySuccess(void) {return "Other systems can now connect to you on the opened port.";}
 	virtual bool QueryQuitOnSuccess(void) {return true;}
-	virtual void Init(SLNet::RakPeerInterface *rakPeer)
+	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		if (sampleResult==FAILED) return;
 
@@ -204,10 +204,10 @@ struct UPNPFramework : public SampleFramework
 				// 4/16/2012 Why was I doing this? Just to read my external port? That shouldn't be necessary
 				/*
 				SystemAddress serverAddress=SelectAmongConnectedSystems(rakPeer, "NatTypeDetectionServer");
-				if (serverAddress==SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+				if (serverAddress==MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 				{
 					serverAddress=ConnectBlocking(rakPeer, "NatTypeDetectionServer", DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT);
-					if (serverAddress==SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+					if (serverAddress==MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					{
 						printf("Failed to connect to a server.\n");
 						sampleResult=FAILED;
@@ -283,14 +283,14 @@ struct UPNPFramework : public SampleFramework
 		// unused parameters
 		(void)packet;
 	}
-	virtual void Update(SLNet::RakPeerInterface *rakPeer)
+	virtual void Update(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
 
 		if (sampleResult==FAILED) return;
 	}
-	virtual void Shutdown(SLNet::RakPeerInterface *rakPeer)
+	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
@@ -306,15 +306,15 @@ struct NatTypeDetectionFramework : public SampleFramework
 	virtual const char * QueryFunction(void) {return "Determines router type to avoid NAT punch attempts that cannot\nsucceed.";}
 	virtual const char * QuerySuccess(void) {return "If our NAT type is Symmetric, we can skip NAT punch to other symmetric NATs.";}
 	virtual bool QueryQuitOnSuccess(void) {return false;}
-	virtual void Init(SLNet::RakPeerInterface *rakPeer)
+	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		if (sampleResult==FAILED) return;
 
 		SystemAddress serverAddress=SelectAmongConnectedSystems(rakPeer, "NatTypeDetectionServer");
-		if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			serverAddress=ConnectBlocking(rakPeer, "NatTypeDetectionServer", DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT);
-			if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+			if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			{
 				printf("Failed to connect to a server.\n");
 				sampleResult=FAILED;
@@ -324,27 +324,27 @@ struct NatTypeDetectionFramework : public SampleFramework
 		ntdc = new NatTypeDetectionClient;
 		rakPeer->AttachPlugin(ntdc);
 		ntdc->DetectNATType(serverAddress);
-		timeout= SLNet::GetTimeMS() + 5000;
+		timeout= MafiaNet::GetTimeMS() + 5000;
 	}
 
 	virtual void ProcessPacket(Packet *packet)
 	{
 		if (packet->data[0]==ID_NAT_TYPE_DETECTION_RESULT)
 		{
-			SLNet::NATTypeDetectionResult r = (SLNet::NATTypeDetectionResult) packet->data[1];
+			MafiaNet::NATTypeDetectionResult r = (MafiaNet::NATTypeDetectionResult) packet->data[1];
 			printf("NAT Type is %s (%s)\n", NATTypeDetectionResultToString(r), NATTypeDetectionResultToStringFriendly(r));
 			printf("Using NATPunchthrough can connect to systems using:\n");
-			for (int i=0; i < (int)SLNet::NAT_TYPE_COUNT; i++)
+			for (int i=0; i < (int)MafiaNet::NAT_TYPE_COUNT; i++)
 			{
-				if (CanConnect(r,(SLNet::NATTypeDetectionResult)i))
+				if (CanConnect(r,(MafiaNet::NATTypeDetectionResult)i))
 				{
 					if (i!=0)
 						printf(", ");
-					printf("%s", NATTypeDetectionResultToString((SLNet::NATTypeDetectionResult)i));
+					printf("%s", NATTypeDetectionResultToString((MafiaNet::NATTypeDetectionResult)i));
 				}
 			}
 			printf("\n");
-			if (r== SLNet::NAT_TYPE_PORT_RESTRICTED || r== SLNet::NAT_TYPE_SYMMETRIC)
+			if (r== MafiaNet::NAT_TYPE_PORT_RESTRICTED || r== MafiaNet::NAT_TYPE_SYMMETRIC)
 			{
 				// For UPNP, see Samples\UDPProxy
 				printf("Note: Your router must support UPNP or have the user manually forward ports.\n");
@@ -354,20 +354,20 @@ struct NatTypeDetectionFramework : public SampleFramework
 			sampleResult=SUCCEEDED;
 		}
 	}
-	virtual void Update(SLNet::RakPeerInterface *rakPeer)
+	virtual void Update(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
 
 		if (sampleResult==FAILED) return;
 
-		if (sampleResult==PENDING && SLNet::GetTimeMS()>timeout)
+		if (sampleResult==PENDING && MafiaNet::GetTimeMS()>timeout)
 		{
 			printf("No response from the server, probably not running NatTypeDetectionServer plugin.\n");
 			sampleResult=FAILED;
 		}
 	}
-	virtual void Shutdown(SLNet::RakPeerInterface *rakPeer)
+	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
@@ -377,7 +377,7 @@ struct NatTypeDetectionFramework : public SampleFramework
 	}
 
 	NatTypeDetectionClient *ntdc;
-	SLNet::TimeMS timeout;
+	MafiaNet::TimeMS timeout;
 };
 
 struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchthroughDebugInterface_Printf
@@ -391,15 +391,15 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 	virtual const char * QueryFunction(void) {return "Causes two systems to try to connect to each other at the same\ntime, to get through routers.";}
 	virtual const char * QuerySuccess(void) {return "We can now communicate with the other system, including connecting.";}
 	virtual bool QueryQuitOnSuccess(void) {return true;}
-	virtual void Init(SLNet::RakPeerInterface *rakPeer)
+	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		if (sampleResult==FAILED) return;
 
 		serverAddress=SelectAmongConnectedSystems(rakPeer, "NatPunchthroughServer");
-		if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			serverAddress=ConnectBlocking(rakPeer, "NatPunchthroughServer", DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT);
-			if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+			if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			{
 				printf("Failed to connect to a server.\n");
 				sampleResult=FAILED;
@@ -422,7 +422,7 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 			npClient->OpenNAT(remoteSystemGuid, serverAddress);
 			isListening=false;
 
-			timeout= SLNet::GetTimeMS() + 10000;
+			timeout= MafiaNet::GetTimeMS() + 10000;
 		}
 		else
 		{
@@ -452,7 +452,7 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 			}
 			else
 			{
-				SLNet::BitStream bs(packet->data,packet->length,false);
+				MafiaNet::BitStream bs(packet->data,packet->length,false);
 				bs.IgnoreBytes(1);
 				SLNET_VERIFY(bs.Read(guid));
 			}
@@ -493,7 +493,7 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 				remoteSystemGuid.FromString(guid);
 				npClient->OpenNAT(remoteSystemGuid, serverAddress);
 			
-				timeout= SLNet::GetTimeMS() + 10000;
+				timeout= MafiaNet::GetTimeMS() + 10000;
 			}
 			else
 			{
@@ -501,20 +501,20 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 			}
 		}
 	}
-	virtual void Update(SLNet::RakPeerInterface *rakPeer)
+	virtual void Update(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
 
 		if (sampleResult==FAILED) return;
 
-		if (sampleResult==PENDING && SLNet::GetTimeMS()>timeout && isListening==false)
+		if (sampleResult==PENDING && MafiaNet::GetTimeMS()>timeout && isListening==false)
 		{
 			printf("No response from the server, probably not running NatPunchthroughServer plugin.\n");
 			sampleResult=FAILED;
 		}
 	}
-	virtual void Shutdown(SLNet::RakPeerInterface *rakPeer)
+	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
@@ -524,7 +524,7 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 	}
 
 	NatPunchthroughClient *npClient;
-	SLNet::TimeMS timeout;
+	MafiaNet::TimeMS timeout;
 	bool isListening;
 };
 
@@ -537,7 +537,7 @@ struct Router2Framework : public SampleFramework
 	virtual const char * QueryFunction(void) {return "Connect to a peer we cannot directly connect to using the\nbandwidth of a shared peer.";}
 	virtual const char * QuerySuccess(void) {return "Router2 assumes we will now connect to the other system.";}
 	virtual bool QueryQuitOnSuccess(void) {return true;}
-	virtual void Init(SLNet::RakPeerInterface *rakPeer)
+	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		if (sampleResult==FAILED) return;
 
@@ -557,10 +557,10 @@ struct Router2Framework : public SampleFramework
 		}
 
 		SystemAddress peerAddress = SelectAmongConnectedSystems(rakPeer, "shared peer");
-		if (peerAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (peerAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			peerAddress=ConnectBlocking(rakPeer, "shared peer", "", RAKPEER_PORT_STR);
-			if (peerAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+			if (peerAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			{
 				printf("Failed to connect to a shared peer.\n");
 				sampleResult=FAILED;
@@ -581,27 +581,27 @@ struct Router2Framework : public SampleFramework
 		rakPeer->AttachPlugin(router2);
 		router2->EstablishRouting(endpointGuid);
 
-		timeout= SLNet::GetTimeMS() + 5000;
+		timeout= MafiaNet::GetTimeMS() + 5000;
 	}
 	virtual void ProcessPacket(Packet *packet)
 	{
 		// unused parameters
 		(void)packet;
 	}
-	virtual void Update(SLNet::RakPeerInterface *rakPeer)
+	virtual void Update(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
 
 		if (sampleResult==FAILED) return;
 
-		if (sampleResult==PENDING && SLNet::GetTimeMS()>timeout)
+		if (sampleResult==PENDING && MafiaNet::GetTimeMS()>timeout)
 		{
 			printf("No response from any system, probably not running Router2 plugin.\n");
 			sampleResult=FAILED;
 		}
 	}
-	virtual void Shutdown(SLNet::RakPeerInterface *rakPeer)
+	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
@@ -610,7 +610,7 @@ struct Router2Framework : public SampleFramework
 		router2=0;
 	}
 	Router2 *router2;
-	SLNet::TimeMS timeout;
+	MafiaNet::TimeMS timeout;
 };
 struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientResultHandler
 {
@@ -621,15 +621,15 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 	virtual const char * QueryFunction(void) {return "Connect to a peer using a shared server connection.";}
 	virtual const char * QuerySuccess(void) {return "We can now communicate with the other system, including connecting, within 5 seconds.";}
 	virtual bool QueryQuitOnSuccess(void) {return false;}
-	virtual void Init(SLNet::RakPeerInterface *rakPeer)
+	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		if (sampleResult==FAILED) return;
 
 		SystemAddress serverAddress=SelectAmongConnectedSystems(rakPeer, "UDPProxyCoordinator");
-		if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			serverAddress=ConnectBlocking(rakPeer, "UDPProxyCoordinator", DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT);
-			if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+			if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			{
 				printf("Failed to connect to a server.\n");
 				sampleResult=FAILED;
@@ -660,27 +660,27 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 			isListening=true;
 		}
 
-		timeout= SLNet::GetTimeMS() + 5000;
+		timeout= MafiaNet::GetTimeMS() + 5000;
 	}
 	virtual void ProcessPacket(Packet *packet)
 	{
 		// unused parameters
 		(void)packet;
 	}
-	virtual void Update(SLNet::RakPeerInterface *rakPeer)
+	virtual void Update(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
 
 		if (sampleResult==FAILED) return;
 
-		if (sampleResult==PENDING && SLNet::GetTimeMS()>timeout && isListening==false)
+		if (sampleResult==PENDING && MafiaNet::GetTimeMS()>timeout && isListening==false)
 		{
 			printf("No response from the server, probably not running UDPProxyCoordinator plugin.\n");
 			sampleResult=FAILED;
 		}
 	}
-	virtual void Shutdown(SLNet::RakPeerInterface *rakPeer)
+	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)
 	{
 		// unused parameters
 		(void)rakPeer;
@@ -690,7 +690,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 	}
 
 	virtual void OnForwardingSuccess(const char *proxyIPAddress, unsigned short proxyPort,
-		SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, SLNet::UDPProxyClient *proxyClientPlugin)
+		SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)
 	{
 		// unused parameters
 		(void)proxyCoordinator;
@@ -703,7 +703,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		sampleResult=SUCCEEDED;
 	}
 	virtual void OnForwardingNotification(const char *proxyIPAddress, unsigned short proxyPort,
-		SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, SLNet::UDPProxyClient *proxyClientPlugin)
+		SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)
 	{
 		// unused parameters
 		(void)proxyCoordinator;
@@ -715,7 +715,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 
 		sampleResult=SUCCEEDED;
 	}
-	virtual void OnNoServersOnline(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, SLNet::UDPProxyClient *proxyClientPlugin)
+	virtual void OnNoServersOnline(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)
 	{
 		// unused parameters
 		(void)proxyCoordinator;
@@ -727,7 +727,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		printf("Failure: No servers logged into coordinator.\n");
 		sampleResult=FAILED;
 	}
-	virtual void OnRecipientNotConnected(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, SLNet::UDPProxyClient *proxyClientPlugin)
+	virtual void OnRecipientNotConnected(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)
 	{
 		// unused parameters
 		(void)proxyCoordinator;
@@ -739,7 +739,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		printf("Failure: Recipient not connected to coordinator.\n");
 		sampleResult=FAILED;
 	}
-	virtual void OnAllServersBusy(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, SLNet::UDPProxyClient *proxyClientPlugin)
+	virtual void OnAllServersBusy(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)
 	{
 		// unused parameters
 		(void)proxyCoordinator;
@@ -751,7 +751,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		printf("Failure: No servers have available forwarding ports.\n");
 		sampleResult=FAILED;
 	}
-	virtual void OnForwardingInProgress(const char *proxyIPAddress, unsigned short proxyPort, SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, SLNet::UDPProxyClient *proxyClientPlugin)
+	virtual void OnForwardingInProgress(const char *proxyIPAddress, unsigned short proxyPort, SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)
 	{
 		// unused parameters
 		(void)proxyIPAddress;
@@ -766,7 +766,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 	}
 
 	UDPProxyClient *udpProxy;
-	SLNet::TimeMS timeout;
+	MafiaNet::TimeMS timeout;
 	bool isListening;
 };
 void PrintPacketMessages(Packet *packet, RakPeerInterface *rakPeer)
@@ -834,7 +834,7 @@ enum FeatureList
 };
 int main(void)
 {
-	SLNet::RakPeerInterface *rakPeer= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	printf("Enter local port, or press enter for default: ");
 	char buff[64];
 	Gets(buff,sizeof(buff));
@@ -847,11 +847,11 @@ int main(void)
 		}
 		port = static_cast<unsigned short>(intLocalPort);
 	}
-	SLNet::SocketDescriptor sd(port,0);
-	if (rakPeer->Startup(32,&sd,1)!= SLNet::RAKNET_STARTED)
+	MafiaNet::SocketDescriptor sd(port,0);
+	if (rakPeer->Startup(32,&sd,1)!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Failed to start rakPeer! Quitting\n");
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 		_getch();
 		return 1;
 	}
@@ -914,7 +914,7 @@ int main(void)
 		for(;;)
 		{
 			samples[(int) currentStage]->Update(rakPeer);
-			SLNet::Packet *packet;
+			MafiaNet::Packet *packet;
 			for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
 			{
 				for (i=0; i < FEATURE_LIST_COUNT; i++)
@@ -941,7 +941,7 @@ int main(void)
 					{
 						printf("Connectivity not possible. Exiting\n");
 						rakPeer->Shutdown(100);
-						SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+						MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 						running = false;
 						break;
 					}
@@ -973,7 +973,7 @@ int main(void)
 						}
 
 						rakPeer->Shutdown(100);
-						SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+						MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 						printf("Press enter to quit.\n");
 						char temp[32];
 						Gets(temp,sizeof(temp));
@@ -1007,7 +1007,7 @@ int main(void)
 						}
 
 						rakPeer->Shutdown(100);
-						SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+						MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 						running = false;
 						break;
 					}

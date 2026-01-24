@@ -24,7 +24,7 @@
 #include "WindowsIncludes.h"
 #endif
 
-namespace SLNet
+namespace MafiaNet
 {
 	/// \brief String class for Unicode
 	class RAK_DLL_EXPORT RakWString
@@ -119,6 +119,6 @@ namespace SLNet
 	};
 }
 
-const SLNet::RakWString RAK_DLL_EXPORT operator+(const SLNet::RakWString &lhs, const SLNet::RakWString &rhs);
+const MafiaNet::RakWString RAK_DLL_EXPORT operator+(const MafiaNet::RakWString &lhs, const MafiaNet::RakWString &rhs);
 
 #endif

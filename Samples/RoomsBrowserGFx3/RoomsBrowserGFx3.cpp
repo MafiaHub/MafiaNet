@@ -54,7 +54,7 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(RoomsBrowserGFx3, f2c_SaveProperty)
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(RoomsBrowserGFx3, f2c_LoadProperty)
 {
-	SLNet::RakString propertyOut;
+	MafiaNet::RakString propertyOut;
 	LoadProperty(pparams[0].GetString(), propertyOut);
 	FxResponseArgs<1> rargs;
 	rargs.Add(propertyOut.C_String());

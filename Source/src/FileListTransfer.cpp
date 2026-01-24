@@ -30,7 +30,7 @@
 #include "slikenet/assert.h"
 #include "slikenet/alloca.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 struct FLR_MemoryBlock
@@ -60,9 +60,9 @@ struct FileListReceiver
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 FileListReceiver::FileListReceiver() {filesReceived=0; setTotalDownloadedLength=0; partLength=1; DataStructures::Map<unsigned int, FLR_MemoryBlock>::IMPLEMENT_DEFAULT_COMPARISON();}
 FileListReceiver::~FileListReceiver() {
@@ -77,9 +77,9 @@ void FileListTransfer::FileToPushRecipient::DeleteThis(void)
 {
 ////	filesToPushMutex.Lock();
 	for (unsigned int j=0; j < filesToPush.Size(); j++)
-		SLNet::OP_DELETE(filesToPush[j],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(filesToPush[j],_FILE_AND_LINE_);
 ////	filesToPushMutex.Unlock();
-	SLNet::OP_DELETE(this,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(this,_FILE_AND_LINE_);
 }
 void FileListTransfer::FileToPushRecipient::AddRef(void)
 {
@@ -126,13 +126,13 @@ unsigned short FileListTransfer::SetupReceive(FileListTransferCBInterface *handl
 		receiver=fileListReceivers.Get(setId);
 		receiver->downloadHandler->OnDereference();
 		if (receiver->deleteDownloadHandler)
-			SLNet::OP_DELETE(receiver->downloadHandler, _FILE_AND_LINE_);
-		SLNet::OP_DELETE(receiver, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(receiver->downloadHandler, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(receiver, _FILE_AND_LINE_);
 		fileListReceivers.Delete(setId);
 	}
 
 	unsigned short oldId;
-	receiver = SLNet::OP_NEW<FileListReceiver>( _FILE_AND_LINE_ );
+	receiver = MafiaNet::OP_NEW<FileListReceiver>( _FILE_AND_LINE_ );
 	RakAssert(handler);
 	receiver->downloadHandler=handler;
 	receiver->allowedSender=allowedSender;
@@ -146,13 +146,13 @@ unsigned short FileListTransfer::SetupReceive(FileListTransferCBInterface *handl
 	return oldId;
 }
 
-void FileListTransfer::Send(FileList *fileList, SLNet::RakPeerInterface *rakPeer, SystemAddress recipient, unsigned short setID, PacketPriority priority, char orderingChannel, IncrementalReadInterface *_incrementalReadInterface, unsigned int _chunkSize)
+void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakPeer, SystemAddress recipient, unsigned short setID, PacketPriority priority, char orderingChannel, IncrementalReadInterface *_incrementalReadInterface, unsigned int _chunkSize)
 {
 	for (unsigned int flpcIndex=0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
 		fileList->AddCallback(fileListProgressCallbacks[flpcIndex]);
 
 	unsigned int i, totalLength;
-	SLNet::BitStream outBitstream;
+	MafiaNet::BitStream outBitstream;
 	bool sendReference;
 	const char *dataBlocks[2];
 	int lengths[2];
@@ -186,7 +186,7 @@ void FileListTransfer::Send(FileList *fileList, SLNet::RakPeerInterface *rakPeer
 			sendReference = fileList->fileList[i].isAReference && _incrementalReadInterface!=0;
 			if (sendReference)
 			{
-				FileToPush *fileToPush = SLNet::OP_NEW<FileToPush>(_FILE_AND_LINE_);
+				FileToPush *fileToPush = MafiaNet::OP_NEW<FileToPush>(_FILE_AND_LINE_);
 				fileToPush->fileListNode.context=fileList->fileList[i].context;
 				fileToPush->setIndex=i;
 				fileToPush->fileListNode.filename=fileList->fileList[i].filename;
@@ -243,7 +243,7 @@ void FileListTransfer::Send(FileList *fileList, SLNet::RakPeerInterface *rakPeer
 
 			//if (ftpr==0)
 			//{
-				ftpr = SLNet::OP_NEW<FileToPushRecipient>(_FILE_AND_LINE_);
+				ftpr = MafiaNet::OP_NEW<FileToPushRecipient>(_FILE_AND_LINE_);
 				ftpr->systemAddress=recipient;
 				ftpr->setId=setID;
 				ftpr->refCount=2; // Allocated and in the list
@@ -282,7 +282,7 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 {
 	bool anythingToWrite=false;
 	unsigned short setID;
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 	inBitStream.Read(setID);
 	FileListReceiver *fileListReceiver;
@@ -334,8 +334,8 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 			fileListReceiver->downloadHandler->OnDereference();
 			fileListReceivers.Delete(setID);
 			if (fileListReceiver->deleteDownloadHandler)
-				SLNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
 		}
 
 		return true;
@@ -347,7 +347,7 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 {
 	FileListTransferCBInterface::OnFileStruct onFileStruct;
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 
 	onFileStruct.senderSystemAddress=packet->systemAddress;
@@ -455,9 +455,9 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 			{
 				fileListReceiver->downloadHandler->OnDereference();
 				if (fileListReceiver->deleteDownloadHandler)
-					SLNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
 				fileListReceivers.Delete(onFileStruct.setID);
-				SLNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
 			}
 		}
 
@@ -538,8 +538,8 @@ void FileListTransfer::Clear(void)
 	{
 		fileListReceivers[i]->downloadHandler->OnDereference();
 		if (fileListReceivers[i]->deleteDownloadHandler)
-			SLNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
-		SLNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
 	}
 	fileListReceivers.Clear();
 
@@ -574,8 +574,8 @@ void FileListTransfer::CancelReceive(unsigned short inSetId)
 	FileListReceiver *fileListReceiver=fileListReceivers.Get(inSetId);
 	fileListReceiver->downloadHandler->OnDereference();
 	if (fileListReceiver->deleteDownloadHandler)
-		SLNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
-	SLNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
 	fileListReceivers.Delete(inSetId);
 }
 void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
@@ -601,8 +601,8 @@ void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
 		{
 			fileListReceivers[i]->downloadHandler->OnDereference();
 			if (fileListReceivers[i]->deleteDownloadHandler)
-				SLNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
 			fileListReceivers.RemoveAtIndex(i);
 		}
 		else
@@ -669,8 +669,8 @@ void FileListTransfer::Update(void)
 		{
 			fileListReceivers[i]->downloadHandler->OnDereference();
 			if (fileListReceivers[i]->deleteDownloadHandler)
-				SLNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
 			fileListReceivers.RemoveAtIndex(i);
 		}
 		else
@@ -679,7 +679,7 @@ void FileListTransfer::Update(void)
 }
 void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 {
-	SLNet::BitStream refPushAck;
+	MafiaNet::BitStream refPushAck;
 	if (isTheFullFile==false)
 	{
 		// 12/23/09 Why do I care about ID_DOWNLOAD_PROGRESS for reference pushes?
@@ -688,7 +688,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 	}
 
 	FileListTransferCBInterface::OnFileStruct onFileStruct;
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 
 	unsigned int partCount=0;
@@ -872,8 +872,8 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 				fileListReceiver->downloadHandler->OnDereference();
 				fileListReceivers.Delete(onFileStruct.setID);
 				if (fileListReceiver->deleteDownloadHandler)
-					SLNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
-				SLNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
 			}
 		}
 	}
@@ -915,7 +915,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 		}
 	}
 }
-namespace SLNet
+namespace MafiaNet
 {
 
 /*
@@ -949,7 +949,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 	const char *dataBlocks[2];
 	int lengths[2];
 	unsigned int smallFileTotalSize=0;
-	SLNet::BitStream outBitstream;
+	MafiaNet::BitStream outBitstream;
 	unsigned int ftpIndex;
 
 	fileListTransfer->fileToPushRecipientListMutex.Lock();
@@ -1015,7 +1015,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 
 				// LWS : fixed freed pointer reference
 //				unsigned int chunkSize = ftp->chunkSize;
-				SLNet::OP_DELETE(ftp,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(ftp,_FILE_AND_LINE_);
 				smallFileTotalSize+=bytesRead;
 				//done = bytesRead!=ftp->chunkSize;
 				////ftpr->filesToPushMutex.Lock();
@@ -1056,7 +1056,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			{
 				// Done
 				//unsigned short setId = ftp->setID;
-				SLNet::OP_DELETE(ftp,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(ftp,_FILE_AND_LINE_);
 
 				////ftpr->filesToPushMutex.Lock();
 				if (ftpr->filesToPush.Size()==0)
@@ -1121,7 +1121,7 @@ void FileListTransfer::SendIRIToAddress(SystemAddress systemAddress, unsigned sh
 }
 void FileListTransfer::OnReferencePushAck(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 	unsigned short curSetId;
 	inBitStream.Read(curSetId);

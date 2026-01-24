@@ -22,7 +22,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/Rand.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 enum TeamBalancerOperations
 {

@@ -16,7 +16,7 @@
 #include "RoomsErrorCodes.h"
 #include "slikenet/assert.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static RoomsErrorCodeDescription errorCodeDescriptions[ROOMS_ERROR_CODES_COUNT] =
 {

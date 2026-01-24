@@ -51,14 +51,14 @@ int main(int, char **)
 	printf("WARNING: MySQL is an order of magnitude slower than PostgreSQL.\nRecommended you use AutopatcherServer_PostgreSQL instead.");
 
 	printf("Server starting... ");
-	SLNet::AutopatcherServer autopatcherServer;
-	// SLNet::FLP_Printf progressIndicator;
-	SLNet::FileListTransfer fileListTransfer;
+	MafiaNet::AutopatcherServer autopatcherServer;
+	// MafiaNet::FLP_Printf progressIndicator;
+	MafiaNet::FileListTransfer fileListTransfer;
 	// So only one thread runs per connection, we create an array of connection objects, and tell the autopatcher server to use one thread per item
 	static const int workerThreadCount=4; // Used for checking patches only
 	static const int sqlConnectionObjectCount=32; // Used for both checking patches and downloading
-	SLNet::AutopatcherMySQLRepository connectionObject[sqlConnectionObjectCount];
-	SLNet::AutopatcherRepositoryInterface *connectionObjectAddresses[sqlConnectionObjectCount];
+	MafiaNet::AutopatcherMySQLRepository connectionObject[sqlConnectionObjectCount];
+	MafiaNet::AutopatcherRepositoryInterface *connectionObjectAddresses[sqlConnectionObjectCount];
 	for (int i=0; i < sqlConnectionObjectCount; i++)
 		connectionObjectAddresses[i]=&connectionObject[i];
 	// fileListTransfer.AddCallback(&progressIndicator);
@@ -67,10 +67,10 @@ int main(int, char **)
 	// Without this, only one user would be sent files at a time basically
 	fileListTransfer.StartIncrementalReadThreads(sqlConnectionObjectCount);
 	autopatcherServer.SetMaxConurrentUsers(MAX_INCOMING_CONNECTIONS); // More users than this get queued up
-	SLNet::AutopatcherServerLoadNotifier_Printf loadNotifier;
+	MafiaNet::AutopatcherServerLoadNotifier_Printf loadNotifier;
 	autopatcherServer.SetLoadManagementCallback(&loadNotifier);
 #ifdef USE_TCP
-	SLNet::PacketizedTCP packetizedTCP;
+	MafiaNet::PacketizedTCP packetizedTCP;
 	if (packetizedTCP.Start(LISTEN_PORT,MAX_INCOMING_CONNECTIONS)==false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
@@ -79,9 +79,9 @@ int main(int, char **)
 	packetizedTCP.AttachPlugin(&autopatcherServer);
 	packetizedTCP.AttachPlugin(&fileListTransfer);
 #else
-	SLNet::RakPeerInterface *rakPeer;
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
+	MafiaNet::RakPeerInterface *rakPeer;
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
 	rakPeer->Startup(MAX_INCOMING_CONNECTIONS,&socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(MAX_INCOMING_CONNECTIONS);
 	rakPeer->AttachPlugin(&autopatcherServer);
@@ -125,19 +125,19 @@ int main(int, char **)
 	printf("(D)rop database\n(C)reate database.\n(A)dd application\n(U)pdate revision.\n(R)emove application\n(Q)uit\n");
 
 	int ch;
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	for(;;)
 	{
 #ifdef USE_TCP
-		SLNet::SystemAddress notificationAddress;
+		MafiaNet::SystemAddress notificationAddress;
 		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
 		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
 
 		p=packetizedTCP.Receive();
@@ -239,6 +239,6 @@ int main(int, char **)
 #ifdef USE_TCP
 	packetizedTCP.Stop();
 #else
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 #endif
 }

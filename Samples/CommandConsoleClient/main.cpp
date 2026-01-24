@@ -39,10 +39,10 @@
 
 int main()
 {
-	SLNet::Packet *packet;
-	SLNet::RakPeerInterface *rakPeer;
+	MafiaNet::Packet *packet;
+	MafiaNet::RakPeerInterface *rakPeer;
 	bool isConnected=false;
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	char command[512];
 	printf("This sample demonstrates connecting to the command console.\n");
 	printf("using the RakNet transport protocol\n");
@@ -122,15 +122,15 @@ int main()
 					}
 					printf("Enter console password (enter for none): ");
 					Gets(password,sizeof(password));
-					SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort),0);
-					if (rakPeer->Startup(1, &socketDescriptor, 1)== SLNet::RAKNET_STARTED)
+					MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort),0);
+					if (rakPeer->Startup(1, &socketDescriptor, 1)== MafiaNet::RAKNET_STARTED)
 					{
 						int passwordLen;
 						if (password[0])
 							passwordLen=(int) strlen(password)+1;
 						else
 							passwordLen=0;
-						if (rakPeer->Connect(ip, static_cast<unsigned short>(intRemotePort), password, passwordLen)== SLNet::CONNECTION_ATTEMPT_STARTED)
+						if (rakPeer->Connect(ip, static_cast<unsigned short>(intRemotePort), password, passwordLen)== MafiaNet::CONNECTION_ATTEMPT_STARTED)
 							printf("Connecting...\nNote: if the password is wrong the other system will ignore us.\n");
 						else
 						{
@@ -147,10 +147,10 @@ int main()
 			{
 				if (isConnected)
 				{
-					SLNet::BitStream str;
+					MafiaNet::BitStream str;
 					str.Write((unsigned char) ID_TRANSPORT_STRING);
 					str.Write(command, (int) strlen(command)+1);
-					rakPeer->Send(&str, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakPeer->Send(&str, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				else
 				{

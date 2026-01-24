@@ -71,7 +71,7 @@
 #define CAT_AUDIT_PRINTF(...)
 #endif
 
-namespace SLNet
+namespace MafiaNet
 {
 RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 RAK_THREAD_DECLARATION(RecvFromLoop);
@@ -115,7 +115,7 @@ static const int mtuSizes[NUM_MTU_SIZES]={MAXIMUM_MTU_SIZE, 1200, 576};
 //static const int MAX_OPEN_CONNECTION_REQUESTS=8;
 //static const int TIME_BETWEEN_OPEN_CONNECTION_REQUESTS=500;
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static RakNetRandom rnr;
 
@@ -152,7 +152,7 @@ Packet *RakPeer::AllocPacket(unsigned dataSize, const char *file, unsigned int l
 // 	p->guid=UNASSIGNED_RAKNET_GUID;
 // 	return p;
 
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	packetAllocationPoolMutex.Lock();
 	p = packetAllocationPool.Allocate(file,line);
 	packetAllocationPoolMutex.Unlock();
@@ -169,7 +169,7 @@ Packet *RakPeer::AllocPacket(unsigned dataSize, const char *file, unsigned int l
 Packet *RakPeer::AllocPacket(unsigned dataSize, unsigned char *data, const char *file, unsigned int line)
 {
 	// Packet *p = (Packet *)rakMalloc_Ex(sizeof(Packet), file, line);
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	packetAllocationPoolMutex.Lock();
 	p = packetAllocationPool.Allocate(file,line);
 	packetAllocationPoolMutex.Unlock();
@@ -200,7 +200,7 @@ RakPeer::RakPeer()
 #endif
 
 	StringCompressor::AddReference();
-	SLNet::StringTable::AddReference();
+	MafiaNet::StringTable::AddReference();
 	WSAStartupSingleton::AddRef();
 
 	defaultMTUSize = mtuSizes[NUM_MTU_SIZES-1];
@@ -324,7 +324,7 @@ RakPeer::~RakPeer()
 	ClearBanList();
 
 	StringCompressor::RemoveReference();
-	SLNet::StringTable::RemoveReference();
+	MafiaNet::StringTable::RemoveReference();
 	WSAStartupSingleton::Deref();
 
 	quitAndDataEvents.CloseEvent();
@@ -332,8 +332,8 @@ RakPeer::~RakPeer()
 #if LIBCAT_SECURITY==1
 	// Encryption and security
 	CAT_AUDIT_PRINTF("AUDIT: Deleting RakPeer security objects, handshake = %x, cookie jar = %x\n", _server_handshake, _cookie_jar);
-	if (_server_handshake) SLNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
-	if (_cookie_jar) SLNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
+	if (_server_handshake) MafiaNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
+	if (_cookie_jar) MafiaNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
 #endif
 
 
@@ -601,12 +601,12 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 		//remoteSystemListSize = maxConnections;// * 11 / 10 + 1;
 
 		// remoteSystemList in Single thread
-		//remoteSystemList = SLNet::OP_NEW<RemoteSystemStruct[ remoteSystemListSize ]>( _FILE_AND_LINE_ );
-		remoteSystemList = SLNet::OP_NEW_ARRAY<RemoteSystemStruct>(maximumNumberOfPeers, _FILE_AND_LINE_ );
+		//remoteSystemList = MafiaNet::OP_NEW<RemoteSystemStruct[ remoteSystemListSize ]>( _FILE_AND_LINE_ );
+		remoteSystemList = MafiaNet::OP_NEW_ARRAY<RemoteSystemStruct>(maximumNumberOfPeers, _FILE_AND_LINE_ );
 
-		remoteSystemLookup = SLNet::OP_NEW_ARRAY<RemoteSystemIndex*>((unsigned int) maximumNumberOfPeers * REMOTE_SYSTEM_LOOKUP_HASH_MULTIPLE, _FILE_AND_LINE_ );
+		remoteSystemLookup = MafiaNet::OP_NEW_ARRAY<RemoteSystemIndex*>((unsigned int) maximumNumberOfPeers * REMOTE_SYSTEM_LOOKUP_HASH_MULTIPLE, _FILE_AND_LINE_ );
 
-		activeSystemList = SLNet::OP_NEW_ARRAY<RemoteSystemStruct*>(maximumNumberOfPeers, _FILE_AND_LINE_ );
+		activeSystemList = MafiaNet::OP_NEW_ARRAY<RemoteSystemStruct*>(maximumNumberOfPeers, _FILE_AND_LINE_ );
 
 		for ( i = 0; i < maximumNumberOfPeers; i++ )
 		//for ( i = 0; i < remoteSystemListSize; i++ )
@@ -659,7 +659,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 
 
-					errorCode = SLNet::RakThread::Create(UpdateNetworkLoop, this, threadPriority);
+					errorCode = MafiaNet::RakThread::Create(UpdateNetworkLoop, this, threadPriority);
 
 
 					if ( errorCode != 0 )
@@ -673,7 +673,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 					/*
 			for (i=0; i<socketDescriptorCount; i++)
 			{
-				RakPeerAndIndex *rpai = SLNet::OP_NEW<RakPeerAndIndex>(_FILE_AND_LINE_);
+				RakPeerAndIndex *rpai = MafiaNet::OP_NEW<RakPeerAndIndex>(_FILE_AND_LINE_);
 				rpai->s=socketList[i];
 				rpai->rakPeer=this;
 
@@ -681,10 +681,10 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 	#if defined(SN_TARGET_PSP2)
 				sprintf_s(threadName, "RecvFromLoop_%p", this);
-				//errorCode = SLNet::RakThread::Create(RecvFromLoop, rpai, threadPriority, threadName, 1+i, runtime);
-				errorCode = SLNet::RakThread::Create(RecvFromLoop, rpai, threadPriority, threadName, 1024*1);
+				//errorCode = MafiaNet::RakThread::Create(RecvFromLoop, rpai, threadPriority, threadName, 1+i, runtime);
+				errorCode = MafiaNet::RakThread::Create(RecvFromLoop, rpai, threadPriority, threadName, 1024*1);
 	#else
-				errorCode = SLNet::RakThread::Create(RecvFromLoop, rpai, threadPriority);
+				errorCode = MafiaNet::RakThread::Create(RecvFromLoop, rpai, threadPriority);
 	#endif
 
 				if ( errorCode != 0 )
@@ -725,7 +725,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 	}
 
 #ifdef USE_THREADED_SEND
-	SLNet::SendToThread::AddRef();
+	MafiaNet::SendToThread::AddRef();
 #endif
 
 	return RAKNET_STARTED;
@@ -760,16 +760,16 @@ bool RakPeer::InitializeSecurity(const char *public_key, const char *private_key
 	if (_server_handshake)
 	{
 		CAT_AUDIT_PRINTF("AUDIT: Deleting old server_handshake %x\n", _server_handshake);
-		SLNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
 	}
 	if (_cookie_jar)
 	{
 		CAT_AUDIT_PRINTF("AUDIT: Deleting old cookie jar %x\n", _cookie_jar);
-		SLNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
 	}
 
-	_server_handshake = SLNet::OP_NEW<cat::ServerEasyHandshake>(_FILE_AND_LINE_);
-	_cookie_jar = SLNet::OP_NEW<cat::CookieJar>(_FILE_AND_LINE_);
+	_server_handshake = MafiaNet::OP_NEW<cat::ServerEasyHandshake>(_FILE_AND_LINE_);
+	_cookie_jar = MafiaNet::OP_NEW<cat::CookieJar>(_FILE_AND_LINE_);
 
 	CAT_AUDIT_PRINTF("AUDIT: Created new server_handshake %x\n", _server_handshake);
 	CAT_AUDIT_PRINTF("AUDIT: Created new cookie jar %x\n", _cookie_jar);
@@ -789,9 +789,9 @@ bool RakPeer::InitializeSecurity(const char *public_key, const char *private_key
 
 	CAT_AUDIT_PRINTF("AUDIT: Failure to initialize so deleting server handshake and cookie jar; also setting using_security flag = false\n");
 
-	SLNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
 	_server_handshake=0;
-	SLNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
 	_cookie_jar=0;
 	_using_security = false;
 	return false;
@@ -813,9 +813,9 @@ void RakPeer::DisableSecurity( void )
 {
 #if LIBCAT_SECURITY==1
 	CAT_AUDIT_PRINTF("AUDIT: DisableSecurity() called, so deleting _server_handshake %x and cookie_jar %x\n", _server_handshake, _cookie_jar);
-	SLNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
 	_server_handshake=0;
-	SLNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
 	_cookie_jar=0;
 
 	_using_security = false;
@@ -976,7 +976,7 @@ void RakPeer::GetIncomingPassword( char* passwordData, int *passwordDataLength  
 // Returns:
 // True on successful initiation. False on incorrect parameters, internal error, or too many existing peers
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-ConnectionAttemptResult RakPeer::Connect( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, SLNet::TimeMS timeoutTime )
+ConnectionAttemptResult RakPeer::Connect( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime )
 {
 	// If endThreads is true here you didn't call Startup() first.
 	if ( host == 0 || endThreads || connectionSocketIndex>=socketList.Size() )
@@ -1008,7 +1008,7 @@ ConnectionAttemptResult RakPeer::Connect( const char* host, unsigned short remot
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-ConnectionAttemptResult RakPeer::ConnectWithSocket(const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, RakNetSocket2* socket, PublicKey *publicKey, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, SLNet::TimeMS timeoutTime)
+ConnectionAttemptResult RakPeer::ConnectWithSocket(const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, RakNetSocket2* socket, PublicKey *publicKey, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime)
 {
 	if ( host == 0 || endThreads || socket == 0 )
 		return INVALID_PARAMETER;
@@ -1031,9 +1031,9 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 {
 	unsigned i,j;
 	bool anyActive;
-	SLNet::TimeMS startWaitingTime;
+	MafiaNet::TimeMS startWaitingTime;
 //	SystemAddress systemAddress;
-	SLNet::TimeMS time;
+	MafiaNet::TimeMS time;
 	//unsigned short systemListSize = remoteSystemListSize; // This is done for threading reasons
 	unsigned int systemListSize = maximumNumberOfPeers;
 
@@ -1046,7 +1046,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 				NotifyAndFlagForShutdown(remoteSystemList[i].systemAddress, false, orderingChannel, disconnectionNotificationPriority);
 		}
 
-		time = SLNet::GetTimeMS();
+		time = MafiaNet::GetTimeMS();
 		startWaitingTime = time;
 		while ( time - startWaitingTime < blockDuration )
 		{
@@ -1069,7 +1069,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 			// send the disconnection notification
 
 			RakSleep(15);
-			time = SLNet::GetTimeMS();
+			time = MafiaNet::GetTimeMS();
 		}
 	}
 	for (i=0; i < pluginListTS.Size(); i++)
@@ -1085,7 +1085,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 
 	endThreads = true;
 
-//	SLNet::TimeMS timeout;
+//	MafiaNet::TimeMS timeout;
 #if RAKPEER_USER_THREADED!=1
 
 #if !defined(__native_client__)
@@ -1115,8 +1115,8 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	activeSystemListSize = 0;
 
 	/*
-	timeout = SLNet::GetTimeMS()+1000;
-	while ( isRecvFromLoopThreadActive.GetValue()>0 && SLNet::GetTimeMS()<timeout )
+	timeout = MafiaNet::GetTimeMS()+1000;
+	while ( isRecvFromLoopThreadActive.GetValue()>0 && MafiaNet::GetTimeMS()<timeout )
 	{
 		// Get recvfrom to unblock
 		for (i=0; i < socketList.Size(); i++)
@@ -1174,8 +1174,8 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	/*
 	if (isRecvFromLoopThreadActive.GetValue()>0)
 	{
-		timeout = SLNet::GetTimeMS()+1000;
-		while ( isRecvFromLoopThreadActive.GetValue()>0 && SLNet::GetTimeMS()<timeout )
+		timeout = MafiaNet::GetTimeMS()+1000;
+		while ( isRecvFromLoopThreadActive.GetValue()>0 && MafiaNet::GetTimeMS()<timeout )
 		{
 			RakSleep(30);
 		}
@@ -1195,14 +1195,14 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	// Clear out the reliability layer list in case we want to reallocate it in a successive call to Init.
 	RemoteSystemStruct * temp = remoteSystemList;
 	remoteSystemList = 0;
-	SLNet::OP_DELETE_ARRAY(temp, _FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(activeSystemList, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(temp, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(activeSystemList, _FILE_AND_LINE_);
 	activeSystemList=0;
 
 	ClearRemoteSystemLookup();
 
 #ifdef USE_THREADED_SEND
-	SLNet::SendToThread::Deref();
+	MafiaNet::SendToThread::Deref();
 #endif
 
 	ResetSendReceipt();
@@ -1351,7 +1351,7 @@ void RakPeer::SendLoopback( const char *data, const int length )
 	PushBackPacket(packet, false);
 }
 
-uint32_t RakPeer::Send( const SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, uint32_t forceReceiptNumber )
+uint32_t RakPeer::Send( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, uint32_t forceReceiptNumber )
 {
 #ifdef _DEBUG
 	RakAssert( bitStream->GetNumberOfBytesUsed() > 0 );
@@ -1402,7 +1402,7 @@ uint32_t RakPeer::Send( const SLNet::BitStream * bitStream, PacketPriority prior
 // Sends multiple blocks of data, concatenating them automatically.
 //
 // This is equivalent to:
-// SLNet::BitStream bs;
+// MafiaNet::BitStream bs;
 // bs.WriteAlignedBytes(block1, blockLength1);
 // bs.WriteAlignedBytes(block2, blockLength2);
 // bs.WriteAlignedBytes(block3, blockLength3);
@@ -1466,7 +1466,7 @@ Packet* RakPeer::Receive( void )
 	if ( !( IsActive() ) )
 		return 0;
 
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 //	Packet **threadPacket;
 	PluginReceiveResult pluginResult;
 
@@ -1531,12 +1531,12 @@ Packet* RakPeer::Receive( void )
 			return 0;
 
 //		unsigned char msgId;
-		if ( ( packet->length >= sizeof(unsigned char) + sizeof(SLNet::Time ) ) &&
+		if ( ( packet->length >= sizeof(unsigned char) + sizeof(MafiaNet::Time ) ) &&
 			( (unsigned char) packet->data[ 0 ] == ID_TIMESTAMP ) )
 		{
 			offset = sizeof(unsigned char);
 			ShiftIncomingTimestamp( packet->data + offset, packet->systemAddress );
-//			msgId=packet->data[sizeof(unsigned char) + sizeof( SLNet::Time )];
+//			msgId=packet->data[sizeof(unsigned char) + sizeof( MafiaNet::Time )];
 		}
 //		else
 	//		msgId=packet->data[0];
@@ -1691,9 +1691,9 @@ void RakPeer::CancelConnectionAttempt( const SystemAddress target )
 		{
 #if LIBCAT_SECURITY==1
 			CAT_AUDIT_PRINTF("AUDIT: Deleting requestedConnectionQueue %i client_handshake %x\n", i, requestedConnectionQueue[ i ]->client_handshake);
-			SLNet::OP_DELETE(requestedConnectionQueue[i]->client_handshake, _FILE_AND_LINE_ );
+			MafiaNet::OP_DELETE(requestedConnectionQueue[i]->client_handshake, _FILE_AND_LINE_ );
 #endif
-			SLNet::OP_DELETE(requestedConnectionQueue[i], _FILE_AND_LINE_ );
+			MafiaNet::OP_DELETE(requestedConnectionQueue[i], _FILE_AND_LINE_ );
 			requestedConnectionQueue.RemoveAtIndex(i);
 			break;
 		}
@@ -1848,10 +1848,10 @@ void RakPeer::GetSystemList(DataStructures::List<SystemAddress> &addresses, Data
 // All IP addresses starting with 128.0.0
 // milliseconds - how many ms for a temporary ban.  Use 0 for a permanent ban
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::AddToBanList( const char *IP, SLNet::TimeMS milliseconds )
+void RakPeer::AddToBanList( const char *IP, MafiaNet::TimeMS milliseconds )
 {
 	unsigned index;
-	SLNet::TimeMS time = SLNet::GetTimeMS();
+	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 
 	if ( IP == 0 || IP[ 0 ] == 0 || strlen( IP ) > 15 )
 		return ;
@@ -1877,7 +1877,7 @@ void RakPeer::AddToBanList( const char *IP, SLNet::TimeMS milliseconds )
 
 	banListMutex.Unlock();
 
-	BanStruct *banStruct = SLNet::OP_NEW<BanStruct>( _FILE_AND_LINE_ );
+	BanStruct *banStruct = MafiaNet::OP_NEW<BanStruct>( _FILE_AND_LINE_ );
 	banStruct->IP = (char*) rakMalloc_Ex( 16, _FILE_AND_LINE_ );
 	if (milliseconds==0)
 		banStruct->timeout=0; // Infinite
@@ -1926,7 +1926,7 @@ void RakPeer::RemoveFromBanList( const char *IP )
 	if (temp)
 	{
 		rakFree_Ex(temp->IP, _FILE_AND_LINE_ );
-		SLNet::OP_DELETE(temp, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
 	}
 
 }
@@ -1944,7 +1944,7 @@ void RakPeer::ClearBanList( void )
 	for ( ; index < banList.Size(); index++ )
 	{
 		rakFree_Ex(banList[ index ]->IP, _FILE_AND_LINE_ );
-		SLNet::OP_DELETE(banList[ index ], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(banList[ index ], _FILE_AND_LINE_);
 	}
 
 	banList.Clear(false, _FILE_AND_LINE_);
@@ -1971,7 +1971,7 @@ void RakPeer::SetLimitIPConnectionFrequency(bool b)
 bool RakPeer::IsBanned( const char *IP )
 {
 	unsigned banListIndex, characterIndex;
-	SLNet::TimeMS time;
+	MafiaNet::TimeMS time;
 	BanStruct *temp;
 
 	if ( IP == 0 || IP[ 0 ] == 0 || strlen( IP ) > 15 )
@@ -1982,7 +1982,7 @@ bool RakPeer::IsBanned( const char *IP )
 	if ( banList.Size() == 0 )
 		return false; // Skip the mutex if possible
 
-	time = SLNet::GetTimeMS();
+	time = MafiaNet::GetTimeMS();
 
 	banListMutex.Lock();
 
@@ -1995,7 +1995,7 @@ bool RakPeer::IsBanned( const char *IP )
 			banList[ banListIndex ] = banList[ banList.Size() - 1 ];
 			banList.RemoveAtIndex( banList.Size() - 1 );
 			rakFree_Ex(temp->IP, _FILE_AND_LINE_ );
-			SLNet::OP_DELETE(temp, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
 		}
 		else
 		{
@@ -2066,7 +2066,7 @@ void RakPeer::Ping( const SystemAddress target )
 // Description:
 // Send a ping to the specified unconnected system.
 // The remote system, if it is Initialized, will respond with ID_UNCONNECTED_PONG.
-// The final ping time will be encoded in the following sizeof(SLNet::TimeMS) bytes.  (Default is 4 bytes - See __GET_TIME_64BIT in types.h
+// The final ping time will be encoded in the following sizeof(MafiaNet::TimeMS) bytes.  (Default is 4 bytes - See __GET_TIME_64BIT in types.h
 //
 // Parameters:
 // host: Either a dotted IP address or a domain name.  Can be 255.255.255.255 for LAN broadcast.
@@ -2085,13 +2085,13 @@ bool RakPeer::Ping( const char* host, unsigned short remotePort, bool onlyReplyO
 //	if ( IsActive() == false )
 //		return;
 
-	SLNet::BitStream bitStream( sizeof(unsigned char) + sizeof(SLNet::Time) );
+	MafiaNet::BitStream bitStream( sizeof(unsigned char) + sizeof(MafiaNet::Time) );
 	if ( onlyReplyOnAcceptingConnections )
 		bitStream.Write((MessageID)ID_UNCONNECTED_PING_OPEN_CONNECTIONS);
 	else
 		bitStream.Write((MessageID)ID_UNCONNECTED_PING);
 
-	bitStream.Write(SLNet::GetTime());
+	bitStream.Write(MafiaNet::GetTime());
 
 	bitStream.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 
@@ -2169,7 +2169,7 @@ int RakPeer::GetLastPing( const AddressOrGUID systemIdentifier ) const
 	if ( remoteSystem == 0 )
 		return -1;
 
-//	return (int)(remoteSystem->reliabilityLayer.GetAckPing()/(SLNet::TimeUS)1000);
+//	return (int)(remoteSystem->reliabilityLayer.GetAckPing()/(MafiaNet::TimeUS)1000);
 
 	if ( remoteSystem->pingAndClockDifferentialWriteIndex == 0 )
 		return remoteSystem->pingAndClockDifferential[ PING_TIMES_ARRAY_SIZE - 1 ].pingTime;
@@ -2212,7 +2212,7 @@ void RakPeer::SetOccasionalPing( bool doPing )
 /// Subtract the time from a time returned by the remote system to get that time relative to your own system
 /// Returns 0 if the system is unknown
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-SLNet::Time RakPeer::GetClockDifferential( const AddressOrGUID systemIdentifier )
+MafiaNet::Time RakPeer::GetClockDifferential( const AddressOrGUID systemIdentifier )
 {
 	RemoteSystemStruct *remoteSystem = GetRemoteSystem(systemIdentifier, false, false);
 	if (remoteSystem == 0)
@@ -2222,10 +2222,10 @@ SLNet::Time RakPeer::GetClockDifferential( const AddressOrGUID systemIdentifier 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-SLNet::Time RakPeer::GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const
+MafiaNet::Time RakPeer::GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const
 {
 	int counter, lowestPingSoFar;
-	SLNet::Time clockDifferential;
+	MafiaNet::Time clockDifferential;
 
 	lowestPingSoFar = 65535;
 
@@ -2508,7 +2508,7 @@ bool RakPeer::GetClientPublicKeyFromSystemAddress( const SystemAddress input, ch
 // Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 // \param[in] time Time, in MS
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SetTimeoutTime(SLNet::TimeMS timeMS, const SystemAddress target )
+void RakPeer::SetTimeoutTime(MafiaNet::TimeMS timeMS, const SystemAddress target )
 {
 	if (target==UNASSIGNED_SYSTEM_ADDRESS)
 	{
@@ -2535,7 +2535,7 @@ void RakPeer::SetTimeoutTime(SLNet::TimeMS timeMS, const SystemAddress target )
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-SLNet::TimeMS RakPeer::GetTimeoutTime( const SystemAddress target )
+MafiaNet::TimeMS RakPeer::GetTimeoutTime( const SystemAddress target )
 {
 	if (target==UNASSIGNED_SYSTEM_ADDRESS)
 	{
@@ -2664,7 +2664,7 @@ void RakPeer::AllowConnectionResponseIPMigration( bool allow )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::AdvertiseSystem( const char *host, unsigned short remotePort, const char *data, int dataLength, unsigned connectionSocketIndex )
 {
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((MessageID)ID_ADVERTISE_SYSTEM);
 	bs.WriteAlignedBytes((const unsigned char*) data,dataLength);
 	return SendOutOfBand(host, remotePort, (const char*) bs.GetData(), bs.GetNumberOfBytesUsed(), connectionSocketIndex );
@@ -2698,7 +2698,7 @@ int RakPeer::GetSplitMessageProgressInterval(void) const
 // Set to 0 or less to never timeout.  Defaults to 0.
 // timeoutMS How many ms to wait before simply not sending an unreliable message.
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SetUnreliableTimeout(SLNet::TimeMS timeoutMS)
+void RakPeer::SetUnreliableTimeout(MafiaNet::TimeMS timeoutMS)
 {
 	unreliableTimeout=timeoutMS;
 	for ( unsigned short i = 0; i < maximumNumberOfPeers; i++ )
@@ -2854,9 +2854,9 @@ RakNetSocket2* RakPeer::GetSocket( const SystemAddress target )
 
 	// Block up to one second to get the socket, although it should actually take virtually no time
 	SocketQueryOutput *sqo;
-	SLNet::TimeMS stopWaiting = SLNet::GetTimeMS()+1000;
+	MafiaNet::TimeMS stopWaiting = MafiaNet::GetTimeMS()+1000;
 	DataStructures::List<RakNetSocket2* > output;
-	while (SLNet::GetTimeMS() < stopWaiting)
+	while (MafiaNet::GetTimeMS() < stopWaiting)
 	{
 		if (isMainLoopThreadActive==false)
 			return 0;
@@ -2965,7 +2965,7 @@ bool RakPeer::IsNetworkSimulatorActive( void )
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::WriteOutOfBandHeader(SLNet::BitStream *bitStream)
+void RakPeer::WriteOutOfBandHeader(MafiaNet::BitStream *bitStream)
 {
 	bitStream->Write((MessageID)ID_OUT_OF_BAND_INTERNAL);
  	bitStream->Write(myGuid);
@@ -2995,13 +2995,13 @@ bool RakPeer::SendOutOfBand(const char *host, unsigned short remotePort, const c
 	RakAssert(connectionSocketIndex < socketList.Size());
 
 	// This is a security measure.  Don't send data longer than this value
-	RakAssert(dataLength <= (MAX_OFFLINE_DATA_LENGTH + sizeof(unsigned char)+sizeof(SLNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID)));
+	RakAssert(dataLength <= (MAX_OFFLINE_DATA_LENGTH + sizeof(unsigned char)+sizeof(MafiaNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID)));
 
 	if (host==0)
 		return false;
 
 	// 34 bytes
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	WriteOutOfBandHeader(&bitStream);
 
 	if (dataLength>0)
@@ -3196,7 +3196,7 @@ bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,
 
 	case PKM_ACCEPT_ANY_PUBLIC_KEY:
 		CAT_OBJCLR(rcs->remote_public_key);
-		rcs->client_handshake = SLNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
+		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
 
 		rcs->publicKeyMode = PKM_ACCEPT_ANY_PUBLIC_KEY;
 		break;
@@ -3208,7 +3208,7 @@ bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,
 			return false;
 		}
 
-		rcs->client_handshake = SLNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
+		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
 		memcpy(rcs->remote_public_key, publicKey->remoteServerPublicKey, cat::EasyHandshake::PUBLIC_KEY_BYTES);
 
 		if (!rcs->client_handshake->Initialize(publicKey->remoteServerPublicKey) ||
@@ -3216,7 +3216,7 @@ bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,
 			!rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
 		{
 			CAT_AUDIT_PRINTF("AUDIT: Failure initializing new client_handshake object with identity for this RequestedConnectionStruct\n");
-			SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 			rcs->client_handshake=0;
 			return false;
 		}
@@ -3230,14 +3230,14 @@ bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,
 		if (publicKey->remoteServerPublicKey == 0)
 			return false;
 
-		rcs->client_handshake = SLNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
+		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
 		memcpy(rcs->remote_public_key, publicKey->remoteServerPublicKey, cat::EasyHandshake::PUBLIC_KEY_BYTES);
 
 		if (!rcs->client_handshake->Initialize(publicKey->remoteServerPublicKey) ||
 			!rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
 		{
 			CAT_AUDIT_PRINTF("AUDIT: Failure initializing new client_handshake object for this RequestedConnectionStruct\n");
-			SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 			rcs->client_handshake=0;
 			return false;
 		}
@@ -3252,7 +3252,7 @@ bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,
 }
 #endif
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, SLNet::TimeMS timeoutTime )
+ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime )
 {
 	RakAssert(passwordDataLength <= 256);
 	RakAssert(remotePort!=0);
@@ -3265,10 +3265,10 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 		return ALREADY_CONNECTED_TO_ENDPOINT;
 
 	//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) rakMalloc_Ex(sizeof(RequestedConnectionStruct), _FILE_AND_LINE_);
-	RequestedConnectionStruct *rcs = SLNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
+	RequestedConnectionStruct *rcs = MafiaNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
 
 	rcs->systemAddress=systemAddress;
-	rcs->nextRequestTime= SLNet::GetTimeMS();
+	rcs->nextRequestTime= MafiaNet::GetTimeMS();
 	rcs->requestsMade=0;
 	rcs->data=0;
 	rcs->socket=0;
@@ -3298,8 +3298,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 		{
 			requestedConnectionQueueMutex.Unlock();
 			// Not necessary
-			//SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			SLNet::OP_DELETE(rcs,_FILE_AND_LINE_);
+			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
@@ -3308,7 +3308,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 
 	return CONNECTION_ATTEMPT_STARTED;
 }
-ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, SLNet::TimeMS timeoutTime, RakNetSocket2* socket )
+ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime, RakNetSocket2* socket )
 {
 	RakAssert(passwordDataLength <= 256);
 	SystemAddress systemAddress;
@@ -3319,10 +3319,10 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 		return ALREADY_CONNECTED_TO_ENDPOINT;
 
 	//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) rakMalloc_Ex(sizeof(RequestedConnectionStruct), _FILE_AND_LINE_);
-	RequestedConnectionStruct *rcs = SLNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
+	RequestedConnectionStruct *rcs = MafiaNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
 
 	rcs->systemAddress=systemAddress;
-	rcs->nextRequestTime= SLNet::GetTimeMS();
+	rcs->nextRequestTime= MafiaNet::GetTimeMS();
 	rcs->requestsMade=0;
 	rcs->data=0;
 	rcs->socket=0;
@@ -3352,8 +3352,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 		{
 			requestedConnectionQueueMutex.Unlock();
 			// Not necessary
-			//SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			SLNet::OP_DELETE(rcs,_FILE_AND_LINE_);
+			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
@@ -3435,11 +3435,11 @@ RakPeer::RemoteSystemStruct *RakPeer::GetRemoteSystemFromGUID( const RakNetGUID 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteSystem, const SystemAddress &systemAddress, const char *data, int byteSize )
 {
-	SLNet::BitStream bs((unsigned char*) data,byteSize,false);
+	MafiaNet::BitStream bs((unsigned char*) data,byteSize,false);
 	bs.IgnoreBytes(sizeof(MessageID));
 	RakNetGUID guid;
 	bs.Read(guid);
-	SLNet::Time incomingTimestamp;
+	MafiaNet::Time incomingTimestamp;
 	bs.Read(incomingTimestamp);
 	unsigned char doSecurity;
 	bs.Read(doSecurity);
@@ -3478,10 +3478,10 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 				// Validate client identity
 				if (!_server_handshake->VerifyInitiatorIdentity(remoteSystem->answer, ident, remoteSystem->client_public_key))
 				{
-					SLNet::BitStream bitStream;
+					MafiaNet::BitStream bitStream;
 					bitStream.Write((MessageID)ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY); // Report an error since the client is not providing an identity when it is necessary to connect
 					bitStream.Write((unsigned char)2); // Indicate client identity is invalid
-					SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, SLNet::GetTimeUS(), 0);
+					SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 					remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
 					return;
 				}
@@ -3494,10 +3494,10 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 			// If no client key was provided but it is required,
 			if (_require_client_public_key)
 			{
-				SLNet::BitStream bitStream;
+				MafiaNet::BitStream bitStream;
 				bitStream.Write((MessageID)ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY); // Report an error since the client is not providing an identity when it is necessary to connect
 				bitStream.Write((unsigned char)1); // Indicate client identity is missing
-				SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, SLNet::GetTimeUS(), 0);
+				SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 				remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
 				return;
 			}
@@ -3512,10 +3512,10 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 	{
 		CAT_AUDIT_PRINTF("AUDIT: Invalid password\n");
 		// This one we only send once since we don't care if it arrives.
-		SLNet::BitStream bitStream;
+		MafiaNet::BitStream bitStream;
 		bitStream.Write((MessageID)ID_INVALID_PASSWORD);
 		bitStream.Write(GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
-		SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, SLNet::GetTimeUS(), 0);
+		SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 		remoteSystem->connectMode=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
 		return;
 	}
@@ -3526,9 +3526,9 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 	OnConnectionRequest( remoteSystem, incomingTimestamp );
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, SLNet::Time incomingTimestamp )
+void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, MafiaNet::Time incomingTimestamp )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	bitStream.Write((MessageID)ID_CONNECTION_REQUEST_ACCEPTED);
 	bitStream.Write(remoteSystem->systemAddress);
 	SystemIndex systemIndex = (SystemIndex) GetIndexFromSystemAddress( remoteSystem->systemAddress, true );
@@ -3537,19 +3537,19 @@ void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, SL
 	for (unsigned int i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 		bitStream.Write(ipList[i]);
 	bitStream.Write(incomingTimestamp);
-	bitStream.Write(SLNet::GetTime());
+	bitStream.Write(MafiaNet::GetTime());
 
-	SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, RELIABLE_ORDERED, 0, remoteSystem->systemAddress, false, false, SLNet::GetTimeUS(), 0);
+	SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, RELIABLE_ORDERED, 0, remoteSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::NotifyAndFlagForShutdown( const SystemAddress systemAddress, bool performImmediate, unsigned char orderingChannel, PacketPriority disconnectionNotificationPriority )
 {
-	SLNet::BitStream temp( sizeof(unsigned char) );
+	MafiaNet::BitStream temp( sizeof(unsigned char) );
 	temp.Write( (MessageID)ID_DISCONNECTION_NOTIFICATION );
 	if (performImmediate)
 	{
-		SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), disconnectionNotificationPriority, RELIABLE_ORDERED, orderingChannel, systemAddress, false, false, SLNet::GetTimeUS(), 0);
+		SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), disconnectionNotificationPriority, RELIABLE_ORDERED, orderingChannel, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 		RemoteSystemStruct *rss=GetRemoteSystemFromSystemAddress(systemAddress, true, true);
 		rss->connectMode=RemoteSystemStruct::DISCONNECT_ASAP;
 	}
@@ -3585,7 +3585,7 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignSystemAddressToRemoteSystemList( co
 {
 	RemoteSystemStruct * remoteSystem;
 	unsigned i,j,assignedIndex;
-	SLNet::TimeMS time = SLNet::GetTimeMS();
+	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 #ifdef _DEBUG
 	RakAssert(systemAddress!=UNASSIGNED_SYSTEM_ADDRESS);
 #endif
@@ -3690,7 +3690,7 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignSystemAddressToRemoteSystemList( co
 						ipList[foundIndex].ToString(false,str);
 
 						// Force binding with new socket
-						RakNetSocket* rns(SLNet::OP_NEW<RakNetSocket>(_FILE_AND_LINE_));
+						RakNetSocket* rns(MafiaNet::OP_NEW<RakNetSocket>(_FILE_AND_LINE_));
 						if (incomingRakNetSocket->GetRemotePortRakNetWasStartedOn()==0)
 							rns = SocketLayer::CreateBoundSocket( this, bindingAddress.GetPort(), incomingRakNetSocket->GetBlockingSocket(), ipListFoundIndexStr, 0, incomingRakNetSocket->GetExtraSocketOptions(), incomingRakNetSocket->GetSocketFamily(), incomingRakNetSocket->GetChromeInstance() );
 						else
@@ -3766,8 +3766,8 @@ void RakPeer::ShiftIncomingTimestamp( unsigned char *data, const SystemAddress &
 	RakAssert( data );
 #endif
 
-	SLNet::BitStream timeBS( data, sizeof(SLNet::Time), false);
-	SLNet::Time encodedTimestamp;
+	MafiaNet::BitStream timeBS( data, sizeof(MafiaNet::Time), false);
+	MafiaNet::Time encodedTimestamp;
 	timeBS.Read(encodedTimestamp);
 
 	encodedTimestamp = encodedTimestamp - GetBestClockDifferential( systemAddress );
@@ -3777,7 +3777,7 @@ void RakPeer::ShiftIncomingTimestamp( unsigned char *data, const SystemAddress &
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Thanks to Chris Taylor (cat02e@fsu.edu) for the improved timestamping algorithm
-SLNet::Time RakPeer::GetBestClockDifferential( const SystemAddress systemAddress ) const
+MafiaNet::Time RakPeer::GetBestClockDifferential( const SystemAddress systemAddress ) const
 {
 	RemoteSystemStruct *remoteSystem = GetRemoteSystemFromSystemAddress( systemAddress, true, true );
 
@@ -3922,7 +3922,7 @@ RakPeer::RemoteSystemStruct* RakPeer::GetRemoteSystem(const SystemAddress &sa) c
 void RakPeer::ClearRemoteSystemLookup(void)
 {
 	remoteSystemIndexPool.Clear(_FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(remoteSystemLookup,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(remoteSystemLookup,_FILE_AND_LINE_);
 	remoteSystemLookup=0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4048,7 +4048,7 @@ RNS2RecvStruct *RakPeer::AllocRNS2RecvStruct(const char *file, unsigned int line
 	else
 	{
 		bufferedPacketsFreePoolMutex.Unlock();
-		return SLNet::OP_NEW<RNS2RecvStruct>(file,line);
+		return MafiaNet::OP_NEW<RNS2RecvStruct>(file,line);
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4056,12 +4056,12 @@ void RakPeer::ClearBufferedPackets(void)
 {
 	bufferedPacketsFreePoolMutex.Lock();
 	while (bufferedPacketsFreePool.Size()>0)
-		SLNet::OP_DELETE(bufferedPacketsFreePool.Pop(), _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(bufferedPacketsFreePool.Pop(), _FILE_AND_LINE_);
 	bufferedPacketsFreePoolMutex.Unlock();
 
 	bufferedPacketsQueueMutex.Lock();
 	while (bufferedPacketsQueue.Size()>0)
-		SLNet::OP_DELETE(bufferedPacketsQueue.Pop(), _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(bufferedPacketsQueue.Pop(), _FILE_AND_LINE_);
 	bufferedPacketsQueueMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4094,11 +4094,11 @@ void RakPeer::PingInternal( const SystemAddress target, bool performImmediate, P
 	if ( IsActive() == false )
 		return ;
 
-	SLNet::BitStream bitStream(sizeof(unsigned char)+sizeof(SLNet::Time));
+	MafiaNet::BitStream bitStream(sizeof(unsigned char)+sizeof(MafiaNet::Time));
 	bitStream.Write((MessageID)ID_CONNECTED_PING);
-	bitStream.Write(SLNet::GetTime());
+	bitStream.Write(MafiaNet::GetTime());
 	if (performImmediate)
-		SendImmediate( (char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, reliability, 0, target, false, false, SLNet::GetTimeUS(), 0 );
+		SendImmediate( (char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, reliability, 0, target, false, false, MafiaNet::GetTimeUS(), 0 );
 	else
 		Send( &bitStream, IMMEDIATE_PRIORITY, reliability, 0, target, false );
 }
@@ -4288,7 +4288,7 @@ void RakPeer::SendBufferedList( const char **data, const int *lengths, const int
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::SendImmediate( char *data, BitSize_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, SLNet::TimeUS currentTime, uint32_t receipt )
+bool RakPeer::SendImmediate( char *data, BitSize_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt )
 {
 	unsigned *sendList;
 	unsigned sendListSize;
@@ -4377,7 +4377,7 @@ bool RakPeer::SendImmediate( char *data, BitSize_t numberOfBitsToSend, PacketPri
 //			||
 //			reliability==RELIABLE_SEQUENCED_WITH_ACK_RECEIPT
 			)
-			remoteSystemList[sendList[sendListIndex]].lastReliableSend=(SLNet::TimeMS)(currentTime/(SLNet::TimeUS)1000);
+			remoteSystemList[sendList[sendListIndex]].lastReliableSend=(MafiaNet::TimeMS)(currentTime/(MafiaNet::TimeUS)1000);
 	}
 
 #if !defined(USE_ALLOCA)
@@ -4395,11 +4395,11 @@ void RakPeer::ResetSendReceipt(void)
 	sendReceiptSerialMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::OnConnectedPong(SLNet::Time sendPingTime, SLNet::Time sendPongTime, RemoteSystemStruct *remoteSystem)
+void RakPeer::OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPongTime, RemoteSystemStruct *remoteSystem)
 {
-	SLNet::Time ping;
-//	SLNet::TimeMS lastPing;
-	SLNet::Time time = SLNet::GetTime(); // Update the time value to be accurate
+	MafiaNet::Time ping;
+//	MafiaNet::TimeMS lastPing;
+	MafiaNet::Time time = MafiaNet::GetTime(); // Update the time value to be accurate
 	if (time > sendPingTime)
 		ping = time - sendPingTime;
 	else
@@ -4415,7 +4415,7 @@ void RakPeer::OnConnectedPong(SLNet::Time sendPingTime, SLNet::Time sendPongTime
 	if ( remoteSystem->lowestPing == (unsigned short)-1 || remoteSystem->lowestPing > (int) ping )
 		remoteSystem->lowestPing = (unsigned short) ping;
 
-	if ( ++( remoteSystem->pingAndClockDifferentialWriteIndex ) == (SLNet::Time) PING_TIMES_ARRAY_SIZE )
+	if ( ++( remoteSystem->pingAndClockDifferentialWriteIndex ) == (MafiaNet::Time) PING_TIMES_ARRAY_SIZE )
 		remoteSystem->pingAndClockDifferentialWriteIndex = 0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4450,12 +4450,12 @@ void RakPeer::ClearRequestedConnectionList(void)
 	{
 #if LIBCAT_SECURITY==1
 		CAT_AUDIT_PRINTF("AUDIT: In ClearRequestedConnectionList(), Deleting freeQueue index %i client_handshake %x\n", i, freeQueue[i]->client_handshake);
-		SLNet::OP_DELETE(freeQueue[i]->client_handshake,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(freeQueue[i]->client_handshake,_FILE_AND_LINE_);
 #endif
-		SLNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_ );
+		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_ );
 	}
 }
-inline void RakPeer::AddPacketToProducer(SLNet::Packet *p)
+inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 {
 	packetReturnMutex.Lock();
 	packetReturnQueue.Push(p,_FILE_AND_LINE_);
@@ -4501,18 +4501,18 @@ uint64_t RakPeerInterface::Get64BitUniqueRandomNumber(void)
 
 
 #if   defined(_WIN32)
-	uint64_t g= SLNet::GetTimeUS();
+	uint64_t g= MafiaNet::GetTimeUS();
 
-	SLNet::TimeUS lastTime, thisTime;
+	MafiaNet::TimeUS lastTime, thisTime;
 	int j;
 	// Sleep a small random time, then use the last 4 bits as a source of randomness
 	for (j=0; j < 8; j++)
 	{
-		lastTime = SLNet::GetTimeUS();
+		lastTime = MafiaNet::GetTimeUS();
 		RakSleep(1);
 		RakSleep(0);
-		thisTime = SLNet::GetTimeUS();
-		SLNet::TimeUS diff = thisTime-lastTime;
+		thisTime = MafiaNet::GetTimeUS();
+		MafiaNet::TimeUS diff = thisTime-lastTime;
 		unsigned int diff4Bits = (unsigned int) (diff & 15);
 		diff4Bits <<= 32-4;
 		diff4Bits >>= j*4;
@@ -4533,7 +4533,7 @@ void RakPeer::GenerateGUID(void)
 
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// void SLNet::ProcessPortUnreachable( SystemAddress systemAddress, RakPeer *rakPeer )
+// void MafiaNet::ProcessPortUnreachable( SystemAddress systemAddress, RakPeer *rakPeer )
 // {
 // 	(void) binaryAddress;
 // 	(void) port;
@@ -4541,12 +4541,12 @@ void RakPeer::GenerateGUID(void)
 //
 // }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-namespace SLNet {
-bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket2* rakNetSocket, bool *isOfflineMessage, SLNet::TimeUS timeRead )
+namespace MafiaNet {
+bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket2* rakNetSocket, bool *isOfflineMessage, MafiaNet::TimeUS timeRead )
 {
 	(void) timeRead;
 	RakPeer::RemoteSystemStruct *remoteSystem;
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	unsigned i;
 
 
@@ -4557,7 +4557,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 		for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
 			rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length*8, systemAddress);
 
-		SLNet::BitStream bs;
+		MafiaNet::BitStream bs;
 		bs.Write((MessageID)ID_CONNECTION_BANNED);
 		bs.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 		bs.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
@@ -4592,13 +4592,13 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 	else if (
 		((unsigned char)data[0] == ID_UNCONNECTED_PING ||
 		(unsigned char)data[0] == ID_UNCONNECTED_PING_OPEN_CONNECTIONS) &&
-		length >= sizeof(unsigned char) + sizeof(SLNet::Time) + sizeof(OFFLINE_MESSAGE_DATA_ID))
+		length >= sizeof(unsigned char) + sizeof(MafiaNet::Time) + sizeof(OFFLINE_MESSAGE_DATA_ID))
 	{
-		*isOfflineMessage=memcmp(data+sizeof(unsigned char) + sizeof(SLNet::Time), OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID))==0;
+		*isOfflineMessage=memcmp(data+sizeof(unsigned char) + sizeof(MafiaNet::Time), OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID))==0;
 	}
-	else if ((unsigned char)data[0] == ID_UNCONNECTED_PONG && (size_t) length >= sizeof(unsigned char) + sizeof(SLNet::TimeMS) + RakNetGUID::size() + sizeof(OFFLINE_MESSAGE_DATA_ID))
+	else if ((unsigned char)data[0] == ID_UNCONNECTED_PONG && (size_t) length >= sizeof(unsigned char) + sizeof(MafiaNet::TimeMS) + RakNetGUID::size() + sizeof(OFFLINE_MESSAGE_DATA_ID))
 	{
-		*isOfflineMessage=memcmp(data+sizeof(unsigned char) + sizeof(SLNet::Time) + RakNetGUID::size(), OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID))==0;
+		*isOfflineMessage=memcmp(data+sizeof(unsigned char) + sizeof(MafiaNet::Time) + RakNetGUID::size(), OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID))==0;
 	}
 	else if (
 		(unsigned char)data[0] == ID_OUT_OF_BAND_INTERNAL	&&
@@ -4638,20 +4638,20 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 		// These are all messages from unconnected systems.  Messages here can be any size, but are never processed from connected systems.
 		if ( ( (unsigned char) data[ 0 ] == ID_UNCONNECTED_PING_OPEN_CONNECTIONS
-			|| (unsigned char)(data)[0] == ID_UNCONNECTED_PING)	&& length >= sizeof(unsigned char)+sizeof(SLNet::Time)+sizeof(OFFLINE_MESSAGE_DATA_ID) )
+			|| (unsigned char)(data)[0] == ID_UNCONNECTED_PING)	&& length >= sizeof(unsigned char)+sizeof(MafiaNet::Time)+sizeof(OFFLINE_MESSAGE_DATA_ID) )
 		{
 			if ( (unsigned char)(data)[0] == ID_UNCONNECTED_PING ||
 				rakPeer->AllowIncomingConnections() ) // Open connections with players
 			{
-				SLNet::BitStream inBitStream( (unsigned char *) data, length, false );
+				MafiaNet::BitStream inBitStream( (unsigned char *) data, length, false );
 				inBitStream.IgnoreBits(8);
-				SLNet::Time sendPingTime;
+				MafiaNet::Time sendPingTime;
 				inBitStream.Read(sendPingTime);
 				inBitStream.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 				RakNetGUID remoteGuid=UNASSIGNED_RAKNET_GUID;
 				inBitStream.Read(remoteGuid);
 
-				SLNet::BitStream outBitStream;
+				MafiaNet::BitStream outBitStream;
 				outBitStream.Write((MessageID)ID_UNCONNECTED_PONG); // Should be named ID_UNCONNECTED_PONG eventually
 				outBitStream.Write(sendPingTime);
 				outBitStream.Write(rakPeer->myGuid);
@@ -4683,23 +4683,23 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			}
 		}
 		// UNCONNECTED MESSAGE Pong with no data.
-		else if ((unsigned char) data[ 0 ] == ID_UNCONNECTED_PONG && (size_t) length >= sizeof(unsigned char)+sizeof(SLNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID) && (size_t) length < sizeof(unsigned char)+sizeof(SLNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID)+MAX_OFFLINE_DATA_LENGTH)
+		else if ((unsigned char) data[ 0 ] == ID_UNCONNECTED_PONG && (size_t) length >= sizeof(unsigned char)+sizeof(MafiaNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID) && (size_t) length < sizeof(unsigned char)+sizeof(MafiaNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID)+MAX_OFFLINE_DATA_LENGTH)
 		{
-			packet=rakPeer->AllocPacket((unsigned int) (length-sizeof(OFFLINE_MESSAGE_DATA_ID)-RakNetGUID::size()-sizeof(SLNet::Time)+sizeof(SLNet::TimeMS)), _FILE_AND_LINE_);
-			SLNet::BitStream bsIn((unsigned char*) data, length, false);
+			packet=rakPeer->AllocPacket((unsigned int) (length-sizeof(OFFLINE_MESSAGE_DATA_ID)-RakNetGUID::size()-sizeof(MafiaNet::Time)+sizeof(MafiaNet::TimeMS)), _FILE_AND_LINE_);
+			MafiaNet::BitStream bsIn((unsigned char*) data, length, false);
 			bsIn.IgnoreBytes(sizeof(unsigned char));
-			SLNet::Time ping;
+			MafiaNet::Time ping;
 			bsIn.Read(ping);
 			bsIn.Read(packet->guid);
 			
-			SLNet::BitStream bsOut((unsigned char*) packet->data, packet->length, false);
+			MafiaNet::BitStream bsOut((unsigned char*) packet->data, packet->length, false);
 			bsOut.ResetWritePointer();
 			bsOut.Write((unsigned char)ID_UNCONNECTED_PONG);
-			SLNet::TimeMS pingMS=(SLNet::TimeMS)ping;
+			MafiaNet::TimeMS pingMS=(MafiaNet::TimeMS)ping;
 			bsOut.Write(pingMS);
 			bsOut.WriteAlignedBytes(
-				(const unsigned char*)data+sizeof(unsigned char)+sizeof(SLNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID),
-				length-sizeof(unsigned char)-sizeof(SLNet::Time)-RakNetGUID::size()-sizeof(OFFLINE_MESSAGE_DATA_ID)
+				(const unsigned char*)data+sizeof(unsigned char)+sizeof(MafiaNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID),
+				length-sizeof(unsigned char)-sizeof(MafiaNet::Time)-RakNetGUID::size()-sizeof(OFFLINE_MESSAGE_DATA_ID)
 				);
 
 			packet->systemAddress = systemAddress;
@@ -4716,7 +4716,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			packet=rakPeer->AllocPacket(dataLength+1, _FILE_AND_LINE_);
 			RakAssert(packet->length<1024);
 
-			SLNet::BitStream bs2((unsigned char*) data, length, false);
+			MafiaNet::BitStream bs2((unsigned char*) data, length, false);
 			bs2.IgnoreBytes(sizeof(MessageID));
 			bs2.Read(packet->guid);
 
@@ -4743,7 +4743,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length*8, systemAddress);
 
-			SLNet::BitStream bsIn((unsigned char*) data,length,false);
+			MafiaNet::BitStream bsIn((unsigned char*) data,length,false);
 			bsIn.IgnoreBytes(sizeof(MessageID));
 			bsIn.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 			RakNetGUID serverGuid;
@@ -4758,7 +4758,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				bsIn.Read(cookie);
 			}
 
-			SLNet::BitStream bsOut;
+			MafiaNet::BitStream bsOut;
 			bsOut.Write((MessageID)ID_OPEN_CONNECTION_REQUEST_2);
 			bsOut.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 			if (serverHasSecurity)
@@ -4877,7 +4877,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length*8, systemAddress);
 
-			SLNet::BitStream bs((unsigned char*) data,length,false);
+			MafiaNet::BitStream bs((unsigned char*) data,length,false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 			RakNetGUID guid;
@@ -4991,7 +4991,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 								}
 								CAT_AUDIT_PRINTF("AUDIT: Success!\n");
 
-								SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+								MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 								rcs->client_handshake=0;
 							}
 #endif // LIBCAT_SECURITY
@@ -5001,10 +5001,10 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 							if (rcs->timeoutTime!=0)
 								remoteSystem->reliabilityLayer.SetTimeoutTime(rcs->timeoutTime);
 
-							SLNet::BitStream temp;
+							MafiaNet::BitStream temp;
 							temp.Write( (MessageID)ID_CONNECTION_REQUEST);
 							temp.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
-							temp.Write(SLNet::GetTime());
+							temp.Write(MafiaNet::GetTime());
 
 #if LIBCAT_SECURITY==1
 							temp.Write((unsigned char)(doSecurity ? 1 : 0));
@@ -5056,10 +5056,10 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 #if LIBCAT_SECURITY==1
 					CAT_AUDIT_PRINTF("AUDIT: Deleting client_handshake object %x and rcs->client_handshake object %x\n", client_handshake, rcs->client_handshake);
-					SLNet::OP_DELETE(client_handshake,_FILE_AND_LINE_);
-					SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(client_handshake,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 #endif // LIBCAT_SECURITY
-					SLNet::OP_DELETE(rcs,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 
 					break;
 				}
@@ -5080,7 +5080,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			(unsigned char)(data)[0] == (MessageID)ID_INCOMPATIBLE_PROTOCOL_VERSION)
 		{
 
-			SLNet::BitStream bs((unsigned char*) data,length,false);
+			MafiaNet::BitStream bs((unsigned char*) data,length,false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 			if ((unsigned char)(data)[0] == (MessageID)ID_INCOMPATIBLE_PROTOCOL_VERSION)
@@ -5102,9 +5102,9 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 #if LIBCAT_SECURITY==1
 					CAT_AUDIT_PRINTF("AUDIT: Connection attempt canceled so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 #endif // LIBCAT_SECURITY
-					SLNet::OP_DELETE(rcs,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 					break;
 				}
 			}
@@ -5134,7 +5134,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			char remoteProtocol=data[1+sizeof(OFFLINE_MESSAGE_DATA_ID)];
 			if (remoteProtocol!=RAKNET_PROTOCOL_VERSION)
 			{
-				SLNet::BitStream bs;
+				MafiaNet::BitStream bs;
 				bs.Write((MessageID)ID_INCOMPATIBLE_PROTOCOL_VERSION);
 				bs.Write((unsigned char)RAKNET_PROTOCOL_VERSION);
 				bs.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
@@ -5157,7 +5157,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length*8, systemAddress);
 
-			SLNet::BitStream bsOut;
+			MafiaNet::BitStream bsOut;
 			bsOut.Write((MessageID)ID_OPEN_CONNECTION_REPLY_1);
 			bsOut.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 			bsOut.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
@@ -5196,8 +5196,8 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 		{
 			SystemAddress bindingAddress;
 			RakNetGUID guid;
-			SLNet::BitStream bsOut;
-			SLNet::BitStream bs((unsigned char*) data, length, false);
+			MafiaNet::BitStream bsOut;
+			MafiaNet::BitStream bs((unsigned char*) data, length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 
@@ -5292,7 +5292,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				outcome=0;
 			}
 
-			SLNet::BitStream bsAnswer;
+			MafiaNet::BitStream bsAnswer;
 			bsAnswer.Write((MessageID)ID_OPEN_CONNECTION_REPLY_2);
 			bsAnswer.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 			bsAnswer.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
@@ -5417,11 +5417,11 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // #med - deprecate this overload --- socketList[0] is not really ensured to be the correctly bound socket at all!
-void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, SLNet::TimeUS timeRead, BitStream &updateBitStream )
+void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, MafiaNet::TimeUS timeRead, BitStream &updateBitStream )
 {
 	ProcessNetworkPacket(systemAddress,data,length,rakPeer,rakPeer->socketList[0],timeRead, updateBitStream);
 }
-void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket2* rakNetSocket, SLNet::TimeUS timeRead, BitStream &updateBitStream )
+void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket2* rakNetSocket, MafiaNet::TimeUS timeRead, BitStream &updateBitStream )
 {
 #if LIBCAT_SECURITY==1
 #ifdef CAT_AUDIT
@@ -5441,7 +5441,7 @@ void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const 
 		return;
 	}
 
-//	SLNet::Packet *packet;
+//	MafiaNet::Packet *packet;
 	RakPeer::RemoteSystemStruct *remoteSystem;
 
 	// See if this datagram came from a connected system
@@ -5492,7 +5492,7 @@ void RakPeer::DerefAllSockets(void)
 	unsigned int i;
 	for (i=0; i < socketList.Size(); i++)
 	{
-		SLNet::OP_DELETE(socketList[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(socketList[i], _FILE_AND_LINE_);
 	}
 	socketList.Clear(false, _FILE_AND_LINE_);
 }
@@ -5511,7 +5511,7 @@ unsigned int RakPeer::GetRakNetSocketFromUserConnectionSocketIndex(unsigned int 
 
 /*
 // DS_APR
-void RakPeer::ProcessChromePacket(RakNetSocket2 *s, const char *buffer, int dataSize, const SystemAddress& recvFromAddress, SLNet::TimeUS timeRead)
+void RakPeer::ProcessChromePacket(RakNetSocket2 *s, const char *buffer, int dataSize, const SystemAddress& recvFromAddress, MafiaNet::TimeUS timeRead)
 {
 	RakAssert(buffer);
 	RakAssert(dataSize > 0);
@@ -5575,8 +5575,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 	BufferedCommandStruct *bcs;
 	bool callerDataAllocationUsed;
 	RakNetStatistics *rnss;
-	SLNet::TimeUS timeNS=0;
-	SLNet::Time timeMS=0;
+	MafiaNet::TimeUS timeNS=0;
+	MafiaNet::Time timeMS=0;
 
 	// This is here so RecvFromBlocking actually gets data from the same thread
 
@@ -5590,7 +5590,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			do {
 				len = ((RNS2_Windows*)socketList[0])->GetSocketLayerOverride()->RakNetRecvFrom(dataOut,&sender,true);
 				if (len>0)
-					ProcessNetworkPacket( sender, dataOut, len, this, socketList[0], SLNet::GetTimeUS(), updateBitStream );
+					ProcessNetworkPacket( sender, dataOut, len, this, socketList[0], MafiaNet::GetTimeUS(), updateBitStream );
 			} while (len>0);
 		}
 #endif
@@ -5618,8 +5618,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			// GetTime is a very slow call so do it once and as late as possible
 			if (timeNS==0)
 			{
-				timeNS = SLNet::GetTimeUS();
-				timeMS = (SLNet::TimeMS)(timeNS/(SLNet::TimeUS)1000);
+				timeNS = MafiaNet::GetTimeUS();
+				timeMS = (MafiaNet::TimeMS)(timeNS/(MafiaNet::TimeUS)1000);
 			}
 
 			callerDataAllocationUsed=SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->systemIdentifier, bcs->broadcast, true, timeNS, bcs->receipt);
@@ -5688,8 +5688,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 	{
 		if (timeNS==0)
 		{
-			timeNS = SLNet::GetTimeUS();
-			timeMS = (SLNet::TimeMS)(timeNS/(SLNet::TimeUS)1000);
+			timeNS = MafiaNet::GetTimeUS();
+			timeMS = (MafiaNet::TimeMS)(timeNS/(MafiaNet::TimeUS)1000);
 		}
 
 		bool condition1, condition2;
@@ -5725,9 +5725,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 #if LIBCAT_SECURITY==1
 					CAT_AUDIT_PRINTF("AUDIT: Connection attempt FAILED so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					SLNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 #endif
-					SLNet::OP_DELETE(rcs,_FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 
 					requestedConnectionQueueMutex.Lock();
 					for (unsigned int k=0; k < requestedConnectionQueue.Size(); k++)
@@ -5749,7 +5749,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					rcs->requestsMade++;
 					rcs->nextRequestTime=timeMS+rcs->timeBetweenSendConnectionAttemptsMS;
 
-					SLNet::BitStream bitStream;
+					MafiaNet::BitStream bitStream;
 					//WriteOutOfBandHeader(&bitStream, ID_USER_PACKET_ENUM);
 					bitStream.Write((MessageID)ID_OPEN_CONNECTION_REQUEST_1);
 					bitStream.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
@@ -5778,7 +5778,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 #endif
 
 //					SocketLayer::SetDoNotFragment(socketToUse, 1);
-					SLNet::Time sendToStart= SLNet::GetTime();
+					MafiaNet::Time sendToStart= MafiaNet::GetTime();
 
 					RNS2_SendParameters bsp;
 					bsp.data = (char*) bitStream.GetData();
@@ -5793,7 +5793,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					}
 					else
 					{
-						SLNet::Time sendToEnd= SLNet::GetTime();
+						MafiaNet::Time sendToEnd= MafiaNet::GetTime();
 						if (sendToEnd-sendToStart>100)
 						{
 							// Drop to lowest MTU
@@ -5844,8 +5844,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 			if (timeNS==0)
 			{
-				timeNS = SLNet::GetTimeUS();
-				timeMS = (SLNet::TimeMS)(timeNS/(SLNet::TimeUS)1000);
+				timeNS = MafiaNet::GetTimeUS();
+				timeMS = (MafiaNet::TimeMS)(timeNS/(MafiaNet::TimeUS)1000);
 				//RAKNET_DEBUG_PRINTF("timeNS = %I64i timeMS=%i\n", timeNS, timeMS);
 			}
 
@@ -5890,7 +5890,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					|| remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
 				{
 
-//					SLNet::BitStream undeliveredMessages;
+//					MafiaNet::BitStream undeliveredMessages;
 //					remoteSystem->reliabilityLayer.GetUndeliveredMessages(&undeliveredMessages,remoteSystem->MTUSize);
 
 //					packet=AllocPacket(sizeof( char ) + undeliveredMessages.GetNumberOfBytesUsed());
@@ -5993,11 +5993,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						else
 						{
 
-							SLNet::BitStream bs((unsigned char*) data,byteSize,false);
+							MafiaNet::BitStream bs((unsigned char*) data,byteSize,false);
 							bs.IgnoreBytes(sizeof(MessageID));
 							bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 							bs.IgnoreBytes(RakNetGUID::size());
-							SLNet::Time incomingTimestamp;
+							MafiaNet::Time incomingTimestamp;
 							bs.Read(incomingTimestamp);
 
 							// Got a connection request message from someone we are already connected to. Just reply normally.
@@ -6006,7 +6006,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						}
 						rakFree_Ex(data, _FILE_AND_LINE_ );
 					}
-					else if ( (unsigned char) data[ 0 ] == ID_NEW_INCOMING_CONNECTION && byteSize > sizeof(unsigned char)+sizeof(unsigned int)+sizeof(unsigned short)+sizeof(SLNet::Time)*2 )
+					else if ( (unsigned char) data[ 0 ] == ID_NEW_INCOMING_CONNECTION && byteSize > sizeof(unsigned char)+sizeof(unsigned int)+sizeof(unsigned short)+sizeof(MafiaNet::Time)*2 )
 					{
 						if (remoteSystem->connectMode==RemoteSystemStruct::HANDLING_CONNECTION_REQUEST)
 						{
@@ -6016,7 +6016,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							// Update again immediately after this tick so the ping goes out right away
 							quitAndDataEvents.SetEvent();
 
-							SLNet::BitStream inBitStream((unsigned char *) data, byteSize, false);
+							MafiaNet::BitStream inBitStream((unsigned char *) data, byteSize, false);
 							SystemAddress bsSystemAddress;
 
 							inBitStream.IgnoreBits(8);
@@ -6024,14 +6024,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							for (unsigned int i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 								inBitStream.Read(remoteSystem->theirInternalSystemAddress[i]);
 
-							SLNet::Time sendPingTime, sendPongTime;
+							MafiaNet::Time sendPingTime, sendPongTime;
 							inBitStream.Read(sendPingTime);
 							inBitStream.Read(sendPongTime);
 							OnConnectedPong(sendPingTime,sendPongTime,remoteSystem);
 
 							// Overwrite the data in the packet
 							//					NewIncomingConnectionStruct newIncomingConnectionStruct;
-							//					SLNet::BitStream nICS_BS( data, NewIncomingConnectionStruct_Size, false );
+							//					MafiaNet::BitStream nICS_BS( data, NewIncomingConnectionStruct_Size, false );
 							//					newIncomingConnectionStruct.Deserialize( nICS_BS );
 
 							remoteSystem->myExternalSystemAddress = bsSystemAddress;
@@ -6061,13 +6061,13 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						//	rakFree_Ex(data, _FILE_AND_LINE_ );
 						}
 					}
-					else if ( (unsigned char) data[ 0 ] == ID_CONNECTED_PONG && byteSize == sizeof(unsigned char)+sizeof(SLNet::Time)*2 )
+					else if ( (unsigned char) data[ 0 ] == ID_CONNECTED_PONG && byteSize == sizeof(unsigned char)+sizeof(MafiaNet::Time)*2 )
 					{
-						SLNet::Time sendPingTime, sendPongTime;
+						MafiaNet::Time sendPingTime, sendPongTime;
 
 						// Copy into the ping times array the current time - the value returned
 						// First extract the sent ping
-						SLNet::BitStream inBitStream( (unsigned char *) data, byteSize, false );
+						MafiaNet::BitStream inBitStream( (unsigned char *) data, byteSize, false );
 						//PingStruct ps;
 						//ps.Deserialize(psBS);
 						inBitStream.IgnoreBits(8);
@@ -6078,18 +6078,18 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 						rakFree_Ex(data, _FILE_AND_LINE_ );
 					}
-					else if ( (unsigned char)data[0] == ID_CONNECTED_PING && byteSize == sizeof(unsigned char)+sizeof(SLNet::Time) )
+					else if ( (unsigned char)data[0] == ID_CONNECTED_PING && byteSize == sizeof(unsigned char)+sizeof(MafiaNet::Time) )
 					{
-						SLNet::BitStream inBitStream( (unsigned char *) data, byteSize, false );
+						MafiaNet::BitStream inBitStream( (unsigned char *) data, byteSize, false );
  						inBitStream.IgnoreBits(8);
-						SLNet::Time sendPingTime;
+						MafiaNet::Time sendPingTime;
 						inBitStream.Read(sendPingTime);
 
-						SLNet::BitStream outBitStream;
+						MafiaNet::BitStream outBitStream;
 						outBitStream.Write((MessageID)ID_CONNECTED_PONG);
 						outBitStream.Write(sendPingTime);
-						outBitStream.Write(SLNet::GetTime());
-						SendImmediate( (char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, UNRELIABLE, 0, systemAddress, false, false, SLNet::GetTimeUS(), 0 );
+						outBitStream.Write(MafiaNet::GetTime());
+						SendImmediate( (char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, UNRELIABLE, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0 );
 
 						// Update again immediately after this tick so the ping goes out right away
 						quitAndDataEvents.SetEvent();
@@ -6130,7 +6130,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					}
 					else if ( (unsigned char)(data)[0] == ID_CONNECTION_REQUEST_ACCEPTED )
 					{
-						if (byteSize > sizeof(MessageID)+sizeof(unsigned int)+sizeof(unsigned short)+sizeof(SystemIndex)+sizeof(SLNet::Time)*2)
+						if (byteSize > sizeof(MessageID)+sizeof(unsigned int)+sizeof(unsigned short)+sizeof(SystemIndex)+sizeof(MafiaNet::Time)*2)
 						{
 							// Make sure this connection accept is from someone we wanted to connect to
 							bool allowConnection, alreadyConnected;
@@ -6153,7 +6153,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 								SystemIndex systemIndex;
 //								SystemAddress internalID;
 
-								SLNet::BitStream inBitStream((unsigned char *) data, byteSize, false);
+								MafiaNet::BitStream inBitStream((unsigned char *) data, byteSize, false);
 								inBitStream.IgnoreBits(8);
 								//	inBitStream.Read(remotePort);
 								inBitStream.Read(externalID);
@@ -6161,13 +6161,13 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 								for (unsigned int i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 									inBitStream.Read(remoteSystem->theirInternalSystemAddress[i]);
 
-								SLNet::Time sendPingTime, sendPongTime;
+								MafiaNet::Time sendPingTime, sendPongTime;
 								inBitStream.Read(sendPingTime);
 								inBitStream.Read(sendPongTime);
 								OnConnectedPong(sendPingTime, sendPongTime, remoteSystem);
 
 								// Find a free remote system struct to use
-								//						SLNet::BitStream casBitS(data, byteSize, false);
+								//						MafiaNet::BitStream casBitS(data, byteSize, false);
 								//						ConnectionAcceptStruct cas;
 								//						cas.Deserialize(casBitS);
 								//	systemAddress.GetPort() = remotePort;
@@ -6194,15 +6194,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 								packet->guid.systemIndex=packet->systemAddress.systemIndex;
 								AddPacketToProducer(packet);
 
-								SLNet::BitStream outBitStream;
+								MafiaNet::BitStream outBitStream;
 								outBitStream.Write((MessageID)ID_NEW_INCOMING_CONNECTION);
 								outBitStream.Write(systemAddress);
 								for (unsigned int i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 									outBitStream.Write(ipList[i]);
 								outBitStream.Write(sendPongTime);
-								outBitStream.Write(SLNet::GetTime());
+								outBitStream.Write(MafiaNet::GetTime());
 
-								SendImmediate( (char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, RELIABLE_ORDERED, 0, systemAddress, false, false, SLNet::GetTimeUS(), 0 );
+								SendImmediate( (char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), IMMEDIATE_PRIORITY, RELIABLE_ORDERED, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0 );
 
 								if (alreadyConnected==false)
 								{
@@ -6273,7 +6273,7 @@ void RakPeer::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 /*
-RAK_THREAD_DECLARATION(SLNet::RecvFromLoop)
+RAK_THREAD_DECLARATION(MafiaNet::RecvFromLoop)
 {
 #if defined(SN_TARGET_PSP2)
 	RakPeerAndIndex *rpai = ( RakPeerAndIndex * ) RakThread::GetRealThreadArgument(callGetRealThreadArgument);
@@ -6282,7 +6282,7 @@ RAK_THREAD_DECLARATION(SLNet::RecvFromLoop)
 #endif
 	RakPeer * rakPeer = rpai->rakPeer;
 	RakNetSocket *s = rpai->s;
-	SLNet::OP_DELETE(rpai,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(rpai,_FILE_AND_LINE_);
 
 	rakPeer->isRecvFromLoopThreadActive.Increment();
 
@@ -6303,7 +6303,7 @@ RAK_THREAD_DECLARATION(SLNet::RecvFromLoop)
 */
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RAK_THREAD_DECLARATION(SLNet::UpdateNetworkLoop)
+RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 {
 
 
@@ -6355,7 +6355,7 @@ RAK_THREAD_DECLARATION(SLNet::UpdateNetworkLoop)
 		}
 // #ifdef _DEBUG
 // 		// Sanity check, make sure RunUpdateCycle does not block or not otherwise get called for a long time
-// 		RakNetTime thisCall=SLNet::GetTime();
+// 		RakNetTime thisCall=MafiaNet::GetTime();
 // 		RakAssert(thisCall-lastCall<250);
 // 		lastCall=thisCall;
 // #endif

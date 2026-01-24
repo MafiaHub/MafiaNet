@@ -29,7 +29,7 @@
 
 #define ECHO_INPUT
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(TelnetTransport,TelnetTransport);
 
@@ -60,9 +60,9 @@ void TelnetTransport::Stop(void)
 	tcpInterface->Stop();
 	unsigned i;
 	for (i=0; i < remoteClients.Size(); i++)
-		SLNet::OP_DELETE(remoteClients[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteClients[i], _FILE_AND_LINE_);
 	remoteClients.Clear(false, _FILE_AND_LINE_);
-	SLNet::OP_DELETE(tcpInterface, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(tcpInterface, _FILE_AND_LINE_);
 	tcpInterface=0;
 }
 void TelnetTransport::Send(  SystemAddress systemAddress, const char *data,... )
@@ -292,7 +292,7 @@ SystemAddress TelnetTransport::HasLostConnection(void)
 		{
 			if (remoteClients[i]->systemAddress==systemAddress)
 			{
-				SLNet::OP_DELETE(remoteClients[i], _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(remoteClients[i], _FILE_AND_LINE_);
 				remoteClients[i]=remoteClients[remoteClients.Size()-1];
 				remoteClients.RemoveFromEnd();
 			}

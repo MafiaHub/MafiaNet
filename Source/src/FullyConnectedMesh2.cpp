@@ -28,7 +28,7 @@
 #include "slikenet/Rand.h"
 #include "slikenet/DS_OrderedList.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int FCM2ParticipantComp( FullyConnectedMesh2::FCM2Participant * const &key, FullyConnectedMesh2::FCM2Participant * const &data )
 {
@@ -117,7 +117,7 @@ void FullyConnectedMesh2::SetAutoparticipateConnections(bool b)
 void FullyConnectedMesh2::ResetHostCalculation(void)
 {
 	hostRakNetGuid=UNASSIGNED_RAKNET_GUID;
-	startupTime= SLNet::GetTimeUS();
+	startupTime= MafiaNet::GetTimeUS();
 	totalConnectionCount=0;
 	ourFCMGuid=0;
 	for (unsigned int i=0; i < fcm2ParticipantList.Size(); i++)
@@ -144,7 +144,7 @@ bool FullyConnectedMesh2::AddParticipantInternal( RakNetGUID rakNetGuid, FCM2Gui
 		}
 	}
 
-	FCM2Participant *participant = SLNet::OP_NEW<FCM2Participant>(_FILE_AND_LINE_);
+	FCM2Participant *participant = MafiaNet::OP_NEW<FCM2Participant>(_FILE_AND_LINE_);
 	participant->rakNetGuid=rakNetGuid;
 	participant->fcm2Guid=theirFCMGuid;
 	/*
@@ -225,7 +225,7 @@ void FullyConnectedMesh2::SetMyContext(BitStream *userContext)
 		userContext->ResetReadPointer();
 	}
 
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_FCM2_UPDATE_USER_CONTEXT);
 	bsOut.Write(myContext);
 	myContext.ResetReadPointer();
@@ -285,8 +285,8 @@ PluginReceiveResult FullyConnectedMesh2::OnReceive(Packet *packet)
 	case ID_NAT_TARGET_NOT_CONNECTED:
 	case ID_NAT_CONNECTION_TO_TARGET_LOST:
 		{
-		SLNet::RakNetGUID g;
-		SLNet::BitStream b(packet->data, packet->length, false);
+		MafiaNet::RakNetGUID g;
+		MafiaNet::BitStream b(packet->data, packet->length, false);
 			b.IgnoreBits(8); // Ignore the ID_...
 			b.Read(g);
 			UpdateVerifiedJoinInProgressMember(g, UNASSIGNED_RAKNET_GUID, JIPS_FAILED);
@@ -302,14 +302,14 @@ PluginReceiveResult FullyConnectedMesh2::OnReceive(Packet *packet)
 void FullyConnectedMesh2::OnRakPeerStartup(void)
 {
 	Clear();
-	startupTime= SLNet::GetTimeUS();
+	startupTime= MafiaNet::GetTimeUS();
 }
 void FullyConnectedMesh2::OnAttach(void)
 {
 	Clear();
 	// In case Startup() was called first
 	if (rakPeerInterface->IsActive())
-		startupTime= SLNet::GetTimeUS();
+		startupTime= MafiaNet::GetTimeUS();
 }
 void FullyConnectedMesh2::OnRakPeerShutdown(void)
 {
@@ -340,11 +340,11 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 			{
 				if ( joinsInProgress[idx]->vjipMembers[j].userData != 0)
 				{
-					SLNet::OP_DELETE(joinsInProgress[idx]->vjipMembers[j].userData, _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(joinsInProgress[idx]->vjipMembers[j].userData, _FILE_AND_LINE_);
 				}
 			}
 
-			SLNet::OP_DELETE(joinsInProgress[idx], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(joinsInProgress[idx], _FILE_AND_LINE_);
 			joinsInProgress.RemoveAtIndex(idx);
 		}
 		else
@@ -383,9 +383,9 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 	}
 
 }
-SLNet::TimeUS FullyConnectedMesh2::GetElapsedRuntime(void)
+MafiaNet::TimeUS FullyConnectedMesh2::GetElapsedRuntime(void)
 {
-	SLNet::TimeUS curTime= SLNet::GetTimeUS();
+	MafiaNet::TimeUS curTime= MafiaNet::GetTimeUS();
 	if (curTime>startupTime)
 		return curTime-startupTime;
 	else
@@ -417,7 +417,7 @@ void FullyConnectedMesh2::Clear(void)
 {
 	for (unsigned int i=0; i < fcm2ParticipantList.Size(); i++)
 	{
-		SLNet::OP_DELETE(fcm2ParticipantList[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(fcm2ParticipantList[i], _FILE_AND_LINE_);
 	}
 	fcm2ParticipantList.Clear(false, _FILE_AND_LINE_);
 
@@ -427,11 +427,11 @@ void FullyConnectedMesh2::Clear(void)
 		{
 			if ( joinsInProgress[i]->vjipMembers[j].userData != 0)
 			{
-				SLNet::OP_DELETE(joinsInProgress[i]->vjipMembers[j].userData, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(joinsInProgress[i]->vjipMembers[j].userData, _FILE_AND_LINE_);
 			}
 		}
 
-		SLNet::OP_DELETE(joinsInProgress[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(joinsInProgress[i], _FILE_AND_LINE_);
 	}
 	joinsInProgress.Clear(true, _FILE_AND_LINE_);
 
@@ -442,7 +442,7 @@ void FullyConnectedMesh2::Clear(void)
 void FullyConnectedMesh2::PushNewHost(const RakNetGUID &guid, RakNetGUID oldHost)
 {
 	Packet *p = AllocatePacketUnified(sizeof(MessageID)+sizeof(oldHost));
-	SLNet::BitStream bs(p->data,p->length,false);
+	MafiaNet::BitStream bs(p->data,p->length,false);
 	bs.SetWriteOffset(0);
 	bs.Write((MessageID)ID_FCM2_NEW_HOST);
 	bs.Write(oldHost);
@@ -459,7 +459,7 @@ void FullyConnectedMesh2::SendFCMGuidRequest(RakNetGUID rakNetGuid)
 	if (rakNetGuid==rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS))
 		return;
 
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_FCM2_REQUEST_FCMGUID);
 	if (ourFCMGuid==0)
 	{
@@ -478,7 +478,7 @@ void FullyConnectedMesh2::SendFCMGuidRequest(RakNetGUID rakNetGuid)
 }
 void FullyConnectedMesh2::SendOurFCMGuid(SystemAddress addr)
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_FCM2_INFORM_FCMGUID);
 	RakAssert(ourFCMGuid!=0); // Can't inform others of our FCM2Guid if it's unset!
 	bsOut.Write(ourFCMGuid);
@@ -489,7 +489,7 @@ void FullyConnectedMesh2::SendOurFCMGuid(SystemAddress addr)
 }
 void FullyConnectedMesh2::SendConnectionCountResponse(SystemAddress addr, unsigned int responseTotalConnectionCount)
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_FCM2_RESPOND_CONNECTION_COUNT);
 	bsOut.Write(responseTotalConnectionCount);
 	//bsOut.Write(myContext);
@@ -501,7 +501,7 @@ void FullyConnectedMesh2::AssignOurFCMGuid(void)
 	// Only assigned once ever
 	RakAssert(ourFCMGuid==0);
 	unsigned int randomNumber = randomMT();
-	randomNumber ^= (unsigned int) (SLNet::GetTimeUS() & 0xFFFFFFFF);
+	randomNumber ^= (unsigned int) (MafiaNet::GetTimeUS() & 0xFFFFFFFF);
 	randomNumber ^= (unsigned int) (rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).g & 0xFFFFFFFF);
 	ourFCMGuid |= randomNumber;
 	uint64_t reponse64 = totalConnectionCount;
@@ -535,11 +535,11 @@ void FullyConnectedMesh2::CalculateHost(RakNetGUID *rakNetGuid, FCM2Guid *fcm2Gu
 }
 void FullyConnectedMesh2::OnRequestFCMGuid(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	bool hasRemoteFCMGuid=false;
 	bsIn.Read(hasRemoteFCMGuid);
-	SLNet::TimeUS senderElapsedRuntime=0;
+	MafiaNet::TimeUS senderElapsedRuntime=0;
 	unsigned int remoteTotalConnectionCount=0;
 	FCM2Guid theirFCMGuid=0;
 	if (hasRemoteFCMGuid)
@@ -563,7 +563,7 @@ void FullyConnectedMesh2::OnRequestFCMGuid(Packet *packet)
 		{
 			// Nobody has a fcmGuid
 
-			SLNet::TimeUS ourElapsedRuntime = GetElapsedRuntime();
+			MafiaNet::TimeUS ourElapsedRuntime = GetElapsedRuntime();
 			if (ourElapsedRuntime>senderElapsedRuntime)
 			{
 				// We are probably host
@@ -606,7 +606,7 @@ void FullyConnectedMesh2::OnRequestFCMGuid(Packet *packet)
 /*
 void FullyConnectedMesh2::OnUpdateUserContext(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	BitStream remoteContext;
 	bsIn.Read(remoteContext);
@@ -624,7 +624,7 @@ void FullyConnectedMesh2::OnUpdateUserContext(Packet *packet)
 */
 void FullyConnectedMesh2::OnRespondConnectionCount(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	unsigned int responseTotalConnectionCount;
 	bsIn.Read(responseTotalConnectionCount);
@@ -666,7 +666,7 @@ void FullyConnectedMesh2::OnRespondConnectionCount(Packet *packet)
 }
 void FullyConnectedMesh2::OnInformFCMGuid(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	FCM2Guid theirFCMGuid;
@@ -684,7 +684,7 @@ void FullyConnectedMesh2::OnInformFCMGuid(Packet *packet)
 	{
 		// 1/19/2010 - Relay increased total connection count in case new participant only connects to part of the mesh
 		unsigned int idx;
-		SLNet::BitStream bsOut;
+		MafiaNet::BitStream bsOut;
 		bsOut.Write((MessageID)ID_FCM2_UPDATE_MIN_TOTAL_CONNECTION_COUNT);
 		bsOut.Write(totalConnectionCount);
 		for (idx=0; idx < fcm2ParticipantList.Size(); idx++)
@@ -706,7 +706,7 @@ void FullyConnectedMesh2::OnInformFCMGuid(Packet *packet)
 }
 void FullyConnectedMesh2::OnUpdateMinTotalConnectionCount(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	unsigned int newMin;
 	bsIn.Read(newMin);
@@ -753,7 +753,7 @@ void FullyConnectedMesh2::IncrementTotalConnectionCount(unsigned int i)
 		//	printf("totalConnectionCount=%i\n",i);
 	}
 }
-void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection, SLNet::RakString pw)
+void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection, MafiaNet::RakString pw)
 {
 	connectOnNewRemoteConnections=attemptConnection;
 	connectionPassword=pw;
@@ -762,7 +762,7 @@ void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection
 void FullyConnectedMesh2::ConnectToRemoteNewIncomingConnections(Packet *packet)
 {
 	unsigned int count;
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	bsIn.Read(count);
 	SystemAddress remoteAddress;
@@ -857,7 +857,7 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 	RakAssert(participatingMembersOnClientFailed.Size()==0);
 	RakAssert(participatingMembersNotOnClient.Size()==0);
 	
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	if (accept)
 	{
 		bsOut.Write((MessageID)ID_FCM2_VERIFIED_JOIN_ACCEPTED);
@@ -926,7 +926,7 @@ void FullyConnectedMesh2::GetVerifiedJoinAcceptedAdditionalData(Packet *packet, 
 {
 	systemsAccepted.Clear(true, _FILE_AND_LINE_);
 
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	RakNetGUID systemToAddGuid;
 	bsIn.Read(systemToAddGuid);
@@ -957,7 +957,7 @@ void FullyConnectedMesh2::GetVerifiedJoinAcceptedAdditionalData(Packet *packet, 
 }
 void FullyConnectedMesh2::GetVerifiedJoinRejectedAdditionalData(Packet *packet, BitStream *additionalData)
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	if (additionalData)
 	{
@@ -967,7 +967,7 @@ void FullyConnectedMesh2::GetVerifiedJoinRejectedAdditionalData(Packet *packet, 
 }
 PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	unsigned short listSize;
@@ -1038,14 +1038,14 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 		return RR_CONTINUE_PROCESSING;
 	}
 
-	VerifiedJoinInProgress *vjip = SLNet::OP_NEW<VerifiedJoinInProgress>(_FILE_AND_LINE_);
+	VerifiedJoinInProgress *vjip = MafiaNet::OP_NEW<VerifiedJoinInProgress>(_FILE_AND_LINE_);
 	vjip->requester=packet->guid;
 	if (listSize==0)
 	{
 		//vjip->sentResults=true;
 
 		// Send back result
-		SLNet::BitStream bsOut;
+		MafiaNet::BitStream bsOut;
 		bsOut.Write((MessageID)ID_FCM2_VERIFIED_JOIN_CAPABLE);
 		bsOut.WriteCasted<unsigned short>(0);
 		WriteVJCUserData(&bsOut);
@@ -1076,7 +1076,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 
 	return RR_CONTINUE_PROCESSING;
 }
-void FullyConnectedMesh2::SkipToVJCUserData(SLNet::BitStream *bsIn)
+void FullyConnectedMesh2::SkipToVJCUserData(MafiaNet::BitStream *bsIn)
 {
 	bsIn->IgnoreBytes(sizeof(MessageID));
 	unsigned short listSize;
@@ -1090,7 +1090,7 @@ void FullyConnectedMesh2::SkipToVJCUserData(SLNet::BitStream *bsIn)
 }
 void FullyConnectedMesh2::DecomposeJoinCapable(Packet *packet, VerifiedJoinInProgress *vjip)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	unsigned short listSize;
@@ -1189,7 +1189,7 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 			}
 
 			if (vjip->vjipMembers[j].userData != 0)
-				SLNet::OP_DELETE(vjip->vjipMembers[j].userData, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(vjip->vjipMembers[j].userData, _FILE_AND_LINE_);
 		}
 	}
 
@@ -1197,18 +1197,18 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 	{
 		if ( joinsInProgress[curIndex]->vjipMembers[j].userData != 0)
 		{
-			SLNet::OP_DELETE(joinsInProgress[curIndex]->vjipMembers[j].userData, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(joinsInProgress[curIndex]->vjipMembers[j].userData, _FILE_AND_LINE_);
 		}
 	}
 	
 
 	// Clear joinsInProgress for packet->guid
-	SLNet::OP_DELETE(joinsInProgress[curIndex], _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(joinsInProgress[curIndex], _FILE_AND_LINE_);
 	joinsInProgress.RemoveAtIndex(curIndex);
 }
 void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	RakNetGUID systemToAddGuid;
@@ -1245,12 +1245,12 @@ void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
 		{
 			if ( joinsInProgress[curIndex]->vjipMembers[j].userData != 0)
 			{
-				SLNet::OP_DELETE(joinsInProgress[curIndex]->vjipMembers[j].userData, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(joinsInProgress[curIndex]->vjipMembers[j].userData, _FILE_AND_LINE_);
 			}
 		}
 
 		// Clear joinsInProgress for packet->guid
-		SLNet::OP_DELETE(joinsInProgress[curIndex], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(joinsInProgress[curIndex], _FILE_AND_LINE_);
 		joinsInProgress.RemoveAtIndex(curIndex);
 	}
 	else
@@ -1335,7 +1335,7 @@ bool FullyConnectedMesh2::ProcessVerifiedJoinInProgressIfCompleted(VerifiedJoinI
 	//vjip->sentResults=true;
 	return true;
 }
-void FullyConnectedMesh2::WriteVerifiedJoinCapable(SLNet::BitStream *bsOut, VerifiedJoinInProgress *vjip)
+void FullyConnectedMesh2::WriteVerifiedJoinCapable(MafiaNet::BitStream *bsOut, VerifiedJoinInProgress *vjip)
 {
 	bsOut->Write((MessageID) ID_FCM2_VERIFIED_JOIN_CAPABLE);
 	bsOut->WriteCasted<unsigned short>(vjip->vjipMembers.Size());
@@ -1348,7 +1348,7 @@ void FullyConnectedMesh2::WriteVerifiedJoinCapable(SLNet::BitStream *bsOut, Veri
 	}
 }
 
-void FullyConnectedMesh2::ReadVerifiedJoinInProgressMember(SLNet::BitStream *bsIn, VerifiedJoinInProgressMember *vjipm)
+void FullyConnectedMesh2::ReadVerifiedJoinInProgressMember(MafiaNet::BitStream *bsIn, VerifiedJoinInProgressMember *vjipm)
 {
 	bsIn->Read(vjipm->guid);
 	bsIn->Read(vjipm->systemAddress);
@@ -1364,7 +1364,7 @@ void FullyConnectedMesh2::ReadVerifiedJoinInProgressMember(SLNet::BitStream *bsI
 	bsIn->Read(vjsUserDataSize);
 	if (vjsUserDataSize > 0)
 	{
-		vjipm->userData = SLNet::OP_NEW<BitStream>(_FILE_AND_LINE_);
+		vjipm->userData = MafiaNet::OP_NEW<BitStream>(_FILE_AND_LINE_);
 		bsIn->Read(vjipm->userData, vjsUserDataSize);
 	}
 	else

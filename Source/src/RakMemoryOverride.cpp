@@ -27,7 +27,7 @@
 
 
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #if _USE_RAK_MEMORY_OVERRIDE==1
 	#if defined(malloc)
@@ -56,16 +56,16 @@ void DefaultOutOfMemoryHandler(const char *file, const long line)
 	RakAssert(0);
 }
 
-void * (*rakMalloc) (size_t size) = SLNet::_RakMalloc;
-void* (*rakRealloc) (void *p, size_t size) = SLNet::_RakRealloc;
-void (*rakFree) (void *p) = SLNet::_RakFree;
-void* (*rakMalloc_Ex) (size_t size, const char *file, unsigned int line) = SLNet::_RakMalloc_Ex;
-void* (*rakRealloc_Ex) (void *p, size_t size, const char *file, unsigned int line) = SLNet::_RakRealloc_Ex;
-void (*rakFree_Ex) (void *p, const char *file, unsigned int line) = SLNet::_RakFree_Ex;
+void * (*rakMalloc) (size_t size) = MafiaNet::_RakMalloc;
+void* (*rakRealloc) (void *p, size_t size) = MafiaNet::_RakRealloc;
+void (*rakFree) (void *p) = MafiaNet::_RakFree;
+void* (*rakMalloc_Ex) (size_t size, const char *file, unsigned int line) = MafiaNet::_RakMalloc_Ex;
+void* (*rakRealloc_Ex) (void *p, size_t size, const char *file, unsigned int line) = MafiaNet::_RakRealloc_Ex;
+void (*rakFree_Ex) (void *p, const char *file, unsigned int line) = MafiaNet::_RakFree_Ex;
 void (*notifyOutOfMemory) (const char *file, const long line)=DefaultOutOfMemoryHandler;
-void * (*dlMallocMMap) (size_t size) = SLNet::_DLMallocMMap;
-void * (*dlMallocDirectMMap) (size_t size) = SLNet::_DLMallocDirectMMap;
-int (*dlMallocMUnmap) (void* ptr, size_t size) = SLNet::_DLMallocMUnmap;
+void * (*dlMallocMMap) (size_t size) = MafiaNet::_DLMallocMMap;
+void * (*dlMallocDirectMMap) (size_t size) = MafiaNet::_DLMallocDirectMMap;
+int (*dlMallocMUnmap) (void* ptr, size_t size) = MafiaNet::_DLMallocMUnmap;
 
 void SetMalloc( void* (*userFunction)(size_t size) )
 {
@@ -143,22 +143,22 @@ int (*GetDLMallocMUnmap())(void* ptr, size_t size)
 {
 	return dlMallocMUnmap;
 }
-void* SLNet::_RakMalloc (size_t size)
+void* MafiaNet::_RakMalloc (size_t size)
 {
 	return malloc(size);
 }
 
-void* SLNet::_RakRealloc (void *p, size_t size)
+void* MafiaNet::_RakRealloc (void *p, size_t size)
 {
 	return realloc(p,size);
 }
 
-void SLNet::_RakFree (void *p)
+void MafiaNet::_RakFree (void *p)
 {
 	free(p);
 }
 
-void* SLNet::_RakMalloc_Ex (size_t size, const char *file, unsigned int line)
+void* MafiaNet::_RakMalloc_Ex (size_t size, const char *file, unsigned int line)
 {
 	(void) file;
 	(void) line;
@@ -166,7 +166,7 @@ void* SLNet::_RakMalloc_Ex (size_t size, const char *file, unsigned int line)
 	return malloc(size);
 }
 
-void* SLNet::_RakRealloc_Ex (void *p, size_t size, const char *file, unsigned int line)
+void* MafiaNet::_RakRealloc_Ex (void *p, size_t size, const char *file, unsigned int line)
 {
 	(void) file;
 	(void) line;
@@ -174,7 +174,7 @@ void* SLNet::_RakRealloc_Ex (void *p, size_t size, const char *file, unsigned in
 	return realloc(p,size);
 }
 
-void SLNet::_RakFree_Ex (void *p, const char *file, unsigned int line)
+void MafiaNet::_RakFree_Ex (void *p, const char *file, unsigned int line)
 {
 	(void) file;
 	(void) line;
@@ -182,15 +182,15 @@ void SLNet::_RakFree_Ex (void *p, const char *file, unsigned int line)
 	free(p);
 }
 #ifdef _RAKNET_SUPPORT_DL_MALLOC
-void * SLNet::_DLMallocMMap (size_t size)
+void * MafiaNet::_DLMallocMMap (size_t size)
 {
 	return RAK_MMAP_DEFAULT(size);
 }
-void * SLNet::_DLMallocDirectMMap (size_t size)
+void * MafiaNet::_DLMallocDirectMMap (size_t size)
 {
 	return RAK_DIRECT_MMAP_DEFAULT(size);
 }
-int SLNet::_DLMallocMUnmap (void *p, size_t size)
+int MafiaNet::_DLMallocMUnmap (void *p, size_t size)
 {
 	return RAK_MUNMAP_DEFAULT(p,size);
 }
@@ -270,9 +270,9 @@ void FreeRakNetFixedHeap(void)
 	SetFree_Ex(_RakFree_Ex);
 }
 #else
-void * SLNet::_DLMallocMMap (size_t size) {(void) size; return 0;}
-void * SLNet::_DLMallocDirectMMap (size_t size) {(void) size; return 0;}
-int SLNet::_DLMallocMUnmap (void *p, size_t size) {(void) size; (void) p; return 0;}
+void * MafiaNet::_DLMallocMMap (size_t size) {(void) size; return 0;}
+void * MafiaNet::_DLMallocDirectMMap (size_t size) {(void) size; return 0;}
+int MafiaNet::_DLMallocMUnmap (void *p, size_t size) {(void) size; (void) p; return 0;}
 void* _DLMalloc(size_t size) {(void) size; return 0;}
 void* _DLRealloc(void *p, size_t size) {(void) p; (void) size; return 0;}
 void _DLFree(void *p) {(void) p;}

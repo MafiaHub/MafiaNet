@@ -23,13 +23,13 @@
 int main()
 {
 	// The message filter parses all incoming messages and only allows messages of a certain type
-	SLNet::MessageFilter messageFilter;
-	SLNet::RakPeerInterface *peer1, *peer2;
+	MafiaNet::MessageFilter messageFilter;
+	MafiaNet::RakPeerInterface *peer1, *peer2;
 
 	char message;
-	SLNet::Packet *packet;
-	peer1= SLNet::RakPeerInterface::GetInstance();
-	peer2= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::Packet *packet;
+	peer1= MafiaNet::RakPeerInterface::GetInstance();
+	peer2= MafiaNet::RakPeerInterface::GetInstance();
 
 	// Set up the filter rules.
 	// All new connections go to filter 0
@@ -42,7 +42,7 @@ int main()
 	peer1->AttachPlugin(&messageFilter);
 
 	// Connect the systems to each other
-	SLNet::SocketDescriptor socketDescriptor(60000,0);
+	MafiaNet::SocketDescriptor socketDescriptor(60000,0);
 	peer1->Startup(1,&socketDescriptor, 1);
 	peer1->SetMaximumIncomingConnections(1);
 	socketDescriptor.port=60001;
@@ -67,11 +67,11 @@ int main()
 
 	// Have peer 2 send a disallowed message, then the allowed message.
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM+1);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	// Allowed message
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	RakSleep(1000);
 
@@ -99,9 +99,9 @@ int main()
 
 	// Have peer 2 send the messages again.
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM+1);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	RakSleep(1000);
 
@@ -124,7 +124,7 @@ int main()
 	}
 
 	printf("Done.\n");
-	SLNet::RakPeerInterface::DestroyInstance(peer1);
-	SLNet::RakPeerInterface::DestroyInstance(peer2);
+	MafiaNet::RakPeerInterface::DestroyInstance(peer1);
+	MafiaNet::RakPeerInterface::DestroyInstance(peer2);
 	return 0;
 }

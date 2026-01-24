@@ -31,25 +31,25 @@
 #include "slikenet/osx_adapter.h"
 
 static const int NUM_CONNECTIONS=2;
-SLNet::Lobby2Client lobby2Client[NUM_CONNECTIONS];
-SLNet::Lobby2MessageFactory messageFactory;
-SLNet::RakString testUserName[NUM_CONNECTIONS];
-SLNet::RakPeerInterface *rakPeer[NUM_CONNECTIONS];
+MafiaNet::Lobby2Client lobby2Client[NUM_CONNECTIONS];
+MafiaNet::Lobby2MessageFactory messageFactory;
+MafiaNet::RakString testUserName[NUM_CONNECTIONS];
+MafiaNet::RakPeerInterface *rakPeer[NUM_CONNECTIONS];
 struct AutoExecutionPlanNode
 {
 	AutoExecutionPlanNode() {}
-	AutoExecutionPlanNode(int i, SLNet::Lobby2MessageID o) {instanceNumber=i; operation=o;}
+	AutoExecutionPlanNode(int i, MafiaNet::Lobby2MessageID o) {instanceNumber=i; operation=o;}
 	int instanceNumber;
-	SLNet::Lobby2MessageID operation;
+	MafiaNet::Lobby2MessageID operation;
 };
 DataStructures::Queue<AutoExecutionPlanNode> executionPlan;
 
 void PrintCommands()
 {
 	unsigned int i;
-	for (i=0; i < SLNet::L2MID_COUNT; i++)
+	for (i=0; i < MafiaNet::L2MID_COUNT; i++)
 	{
-		SLNet::Lobby2Message *m = messageFactory.Alloc((SLNet::Lobby2MessageID)i);
+		MafiaNet::Lobby2Message *m = messageFactory.Alloc((MafiaNet::Lobby2MessageID)i);
 		if (m)
 		{
 			printf("%i. %s", i+1, m->GetName());
@@ -64,15 +64,15 @@ void PrintCommands()
 	}
 }
 
-void ExecuteCommand(SLNet::Lobby2MessageID command, SLNet::RakString userName, int instanceNumber);
-struct Lobby2ClientSampleCB : public SLNet::Lobby2Printf
+void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userName, int instanceNumber);
+struct Lobby2ClientSampleCB : public MafiaNet::Lobby2Printf
 {
-	virtual void ExecuteDefaultResult(SLNet::Lobby2Message *message) {
+	virtual void ExecuteDefaultResult(MafiaNet::Lobby2Message *message) {
 		message->DebugPrintf();
-		if (message->resultCode== SLNet::REC_SUCCESS && executionPlan.Size())
+		if (message->resultCode== MafiaNet::REC_SUCCESS && executionPlan.Size())
 		{
 			AutoExecutionPlanNode aepn = executionPlan.Pop();
-			ExecuteCommand(aepn.operation, SLNet::RakString("user%i", aepn.instanceNumber), aepn.instanceNumber);
+			ExecuteCommand(aepn.operation, MafiaNet::RakString("user%i", aepn.instanceNumber), aepn.instanceNumber);
 		}
 	}
 } callback[NUM_CONNECTIONS];
@@ -84,93 +84,93 @@ int main()
 	printf("(RANKING AND CLANS NOT YET DONE).\n");
 	printf("Difficulty: Advanced\n\n");
 
-	SLNet::Lobby2ResultCodeDescription::Validate();
+	MafiaNet::Lobby2ResultCodeDescription::Validate();
 
 	/// Do all these operations in this order once we are logged in.
 	/// This is for easier testing.
 	/// This plan will create the database, register two users, and log them both in
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_System_CreateDatabase), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_System_CreateTitle), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_CreateDatabase), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_CreateTitle), _FILE_AND_LINE_ );
 
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_CDKey_Add), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_System_RegisterProfanity), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Client_RegisterAccount), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Client_RegisterAccount), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_System_SetEmailAddressValidated), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_System_SetEmailAddressValidated), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Client_Login), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Client_Login), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Emails_Send), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Emails_Get), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_CDKey_Add), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_RegisterProfanity), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_RegisterAccount), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_RegisterAccount), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_SetEmailAddressValidated), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_System_SetEmailAddressValidated), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_Login), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_Login), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Emails_Send), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Emails_Get), _FILE_AND_LINE_ );
 // 	/// Create 2 clans
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
 // 	// Invite to both
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SendJoinInvitation), _FILE_AND_LINE_ );
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SendJoinInvitation), _FILE_AND_LINE_ );
-// 	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_RejectJoinInvitation), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_RejectJoinInvitation), _FILE_AND_LINE_ );
 // 	// Download invitations this clan has sent
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_DownloadInvitationList), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_DownloadInvitationList), _FILE_AND_LINE_ );
 
 	/*
 
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Client_SetPresence), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Client_GetAccountDetails), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Client_PerTitleIntegerStorage), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Client_PerTitleIntegerStorage), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_SetPresence), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_GetAccountDetails), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_PerTitleIntegerStorage), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_PerTitleIntegerStorage), _FILE_AND_LINE_ );
 
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Client_StartIgnore), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Client_GetIgnoreList), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_StartIgnore), _FILE_AND_LINE_ );
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_GetIgnoreList), _FILE_AND_LINE_ );
 
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Friends_SendInvite), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Friends_AcceptInvite), _FILE_AND_LINE_);
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Friends_SendInvite), _FILE_AND_LINE_);
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Friends_AcceptInvite), _FILE_AND_LINE_);
 
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Ranking_SubmitMatch));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Ranking_SubmitMatch));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Ranking_UpdateRating));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Ranking_GetRating));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Ranking_WipeRatings));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_SubmitMatch));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_SubmitMatch));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_UpdateRating));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_GetRating));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_WipeRatings));
 	*/
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
-// 	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_Get), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
+// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Get), _FILE_AND_LINE_ );
 	/*
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SetProperties));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SetMyMemberProperties));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SetProperties));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SetMyMemberProperties));
 	*/
 	/*
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SendJoinInvitation));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_WithdrawJoinInvitation));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_DownloadInvitationList));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SendJoinInvitation));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_RejectJoinInvitation));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SendJoinInvitation));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_AcceptJoinInvitation));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SetSubleaderStatus));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_SetMemberRank));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_GrantLeader));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_WithdrawJoinInvitation));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_DownloadInvitationList));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_RejectJoinInvitation));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_AcceptJoinInvitation));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SetSubleaderStatus));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SetMemberRank));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_GrantLeader));
 	*/
 
 	/*
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_SendJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_WithdrawJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_AcceptJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_SendJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_WithdrawJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_AcceptJoinRequest));
 	*/
 
-//	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_SendJoinRequest));
-//	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_DownloadRequestList));
+//	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_SendJoinRequest));
+//	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_DownloadRequestList));
 	// TODO - test from here
 	/*
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_RejectJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_AcceptJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_SendJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_AcceptJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_KickAndBlacklistUser));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_SendJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_GetBlacklist));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_UnblacklistUser));
-	executionPlan.Push(AutoExecutionPlanNode(1, SLNet::L2MID_Clans_SendJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_AcceptJoinRequest));
-	executionPlan.Push(AutoExecutionPlanNode(0, SLNet::L2MID_Clans_GetMembers));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_RejectJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_AcceptJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_SendJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_AcceptJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_KickAndBlacklistUser));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_SendJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_GetBlacklist));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_UnblacklistUser));
+	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_SendJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_AcceptJoinRequest));
+	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_GetMembers));
 	*/
 
 	/*
@@ -189,7 +189,7 @@ int main()
 	char ip[64], serverPort[30], clientPort[30];
 	int i;
 	for (i=0; i < NUM_CONNECTIONS; i++)
-		rakPeer[i]= SLNet::RakPeerInterface::GetInstance();
+		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 	puts("Enter the rakPeer1 port to listen on");
 	clientPort[0]=0;
 	const int intClientPort = atoi(clientPort);
@@ -197,7 +197,7 @@ int main()
 		printf("Specified client port %d is outside valid bounds [0, %u]", intClientPort, std::numeric_limits<unsigned short>::max());
 		return 1;
 	}
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
 	Gets(clientPort,sizeof(clientPort));
 	if (clientPort[0]==0)
 		strcpy_s(clientPort, "0");
@@ -227,16 +227,16 @@ int main()
 		rakPeer[i]->AttachPlugin(&lobby2Client[i]);
 		lobby2Client[i].SetMessageFactory(&messageFactory);
 		lobby2Client[i].SetCallbackInterface(&callback[i]);
-		testUserName[i]= SLNet::RakString("user%i", i);
+		testUserName[i]= MafiaNet::RakString("user%i", i);
 	}
 
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	// Loop for input
 	for(;;)
 	{
 		for (i=0; i < NUM_CONNECTIONS; i++)
 		{
-			SLNet::RakPeerInterface *peer = rakPeer[i];
+			MafiaNet::RakPeerInterface *peer = rakPeer[i];
 			for (packet=peer->Receive(); packet; peer->DeallocatePacket(packet), packet=peer->Receive())
 			{
 				switch (packet->data[0])
@@ -283,16 +283,16 @@ int main()
 						{
 							/// Execute the first command now that both clients have connected.
 							AutoExecutionPlanNode aepn = executionPlan.Pop();
-							ExecuteCommand(aepn.operation, SLNet::RakString("user%i", aepn.instanceNumber), aepn.instanceNumber);
+							ExecuteCommand(aepn.operation, MafiaNet::RakString("user%i", aepn.instanceNumber), aepn.instanceNumber);
 						}
 					}
 					break;
 				case ID_LOBBY2_SERVER_ERROR:
 					{
-					SLNet::BitStream bs(packet->data,packet->length,false);
+					MafiaNet::BitStream bs(packet->data,packet->length,false);
 						bs.IgnoreBytes(2); // ID_LOBBY2_SERVER_ERROR and error code
 						printf("ID_LOBBY2_SERVER_ERROR: ");
-						if (packet->data[1]== SLNet::L2SE_UNKNOWN_MESSAGE_ID)
+						if (packet->data[1]== MafiaNet::L2SE_UNKNOWN_MESSAGE_ID)
 						{
 							unsigned int messageId;
 							bs.Read(messageId);
@@ -338,133 +338,133 @@ int main()
 			else
 			{
 				int command = atoi(str);
-				if (command <=0 || command > SLNet::L2MID_COUNT)
+				if (command <=0 || command > MafiaNet::L2MID_COUNT)
 				{
 					printf("Invalid message index %i. Commands:\n", command);
 					PrintCommands();
 				}
 				else
 				{
-					ExecuteCommand((SLNet::Lobby2MessageID)(command-1), SLNet::RakString("user%i", instanceNumber), instanceNumber);
+					ExecuteCommand((MafiaNet::Lobby2MessageID)(command-1), MafiaNet::RakString("user%i", instanceNumber), instanceNumber);
 				}
 			}
 		}
 	}
 
 	for (i=0; i < NUM_CONNECTIONS; i++)
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 	return 0;
 }
 /// In a real application these parameters would be filled out from application data
 /// Here I've just hardcoded everything for fast testing
-void ExecuteCommand(SLNet::Lobby2MessageID command, SLNet::RakString userName, int instanceNumber)
+void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userName, int instanceNumber)
 {
-	SLNet::Lobby2Message *m = messageFactory.Alloc(command);
+	MafiaNet::Lobby2Message *m = messageFactory.Alloc(command);
 	RakAssert(m);
 	printf("Executing %s (message %i)\n", m->GetName(), command+1);
 	// If additional requires are needed to test the command, stick them here
 	switch (m->GetID())
 	{
-	case SLNet::L2MID_System_CreateTitle:
+	case MafiaNet::L2MID_System_CreateTitle:
 		{
-			SLNet::System_CreateTitle *arg = (SLNet::System_CreateTitle *) m;
+			MafiaNet::System_CreateTitle *arg = (MafiaNet::System_CreateTitle *) m;
 			arg->requiredAge=22;
 			arg->titleName="Test Title Name";
 			arg->titleSecretKey="Test secret key";
 		}
 		break;
-	case SLNet::L2MID_System_DestroyTitle:
+	case MafiaNet::L2MID_System_DestroyTitle:
 		{
-			SLNet::System_DestroyTitle *arg = (SLNet::System_DestroyTitle *) m;
+			MafiaNet::System_DestroyTitle *arg = (MafiaNet::System_DestroyTitle *) m;
 			arg->titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_System_GetTitleRequiredAge:
+	case MafiaNet::L2MID_System_GetTitleRequiredAge:
 		{
-			SLNet::System_GetTitleRequiredAge *arg = (SLNet::System_GetTitleRequiredAge *) m;
+			MafiaNet::System_GetTitleRequiredAge *arg = (MafiaNet::System_GetTitleRequiredAge *) m;
 			arg->titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_System_GetTitleBinaryData:
+	case MafiaNet::L2MID_System_GetTitleBinaryData:
 		{
-			SLNet::System_GetTitleBinaryData *arg = (SLNet::System_GetTitleBinaryData *) m;
+			MafiaNet::System_GetTitleBinaryData *arg = (MafiaNet::System_GetTitleBinaryData *) m;
 			arg->titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_System_RegisterProfanity:
+	case MafiaNet::L2MID_System_RegisterProfanity:
 		{
-			SLNet::System_RegisterProfanity *arg = (SLNet::System_RegisterProfanity *) m;
+			MafiaNet::System_RegisterProfanity *arg = (MafiaNet::System_RegisterProfanity *) m;
 			arg->profanityWords.Insert("Bodily Functions", _FILE_AND_LINE_ );
 			arg->profanityWords.Insert("Racial Epithet", _FILE_AND_LINE_ );
 			arg->profanityWords.Insert("Euphemism treadmill", _FILE_AND_LINE_ );
 		}
 		break;
-	case SLNet::L2MID_System_BanUser:
+	case MafiaNet::L2MID_System_BanUser:
 		{
-			SLNet::System_BanUser *arg = (SLNet::System_BanUser *) m;
+			MafiaNet::System_BanUser *arg = (MafiaNet::System_BanUser *) m;
 			arg->durationHours=12;
 			arg->banReason="Ban Reason";
 			arg->userName=userName;
 		}
 		break;
-	case SLNet::L2MID_System_UnbanUser:
+	case MafiaNet::L2MID_System_UnbanUser:
 		{
-			SLNet::System_UnbanUser *arg = (SLNet::System_UnbanUser *) m;
+			MafiaNet::System_UnbanUser *arg = (MafiaNet::System_UnbanUser *) m;
 			arg->reason="Unban Reason";
 			arg->userName=userName;
 		}
 		break;
-	case SLNet::L2MID_CDKey_Add:
+	case MafiaNet::L2MID_CDKey_Add:
 		{
-			SLNet::CDKey_Add *arg = (SLNet::CDKey_Add *) m;
+			MafiaNet::CDKey_Add *arg = (MafiaNet::CDKey_Add *) m;
 			arg->cdKeys.Insert("Test CD Key", _FILE_AND_LINE_ );
 			arg->cdKeys.Insert("Test CD Key 2", _FILE_AND_LINE_ );
 			arg->titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_CDKey_GetStatus:
+	case MafiaNet::L2MID_CDKey_GetStatus:
 		{
-			SLNet::CDKey_GetStatus *arg = (SLNet::CDKey_GetStatus *) m;
+			MafiaNet::CDKey_GetStatus *arg = (MafiaNet::CDKey_GetStatus *) m;
 			arg->cdKey="Test CD Key";
 			arg->titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_CDKey_Use:
+	case MafiaNet::L2MID_CDKey_Use:
 		{
-			SLNet::CDKey_Use *arg = (SLNet::CDKey_Use *) m;
+			MafiaNet::CDKey_Use *arg = (MafiaNet::CDKey_Use *) m;
 			arg->cdKey="Test CD Key";
 			arg->titleName="Test Title Name";
 			arg->userName=userName;
 		}
 		break;
-	case SLNet::L2MID_CDKey_FlagStolen:
+	case MafiaNet::L2MID_CDKey_FlagStolen:
 		{
-			SLNet::CDKey_FlagStolen *arg = (SLNet::CDKey_FlagStolen *) m;
+			MafiaNet::CDKey_FlagStolen *arg = (MafiaNet::CDKey_FlagStolen *) m;
 			arg->cdKey="Test CD Key";
 			arg->titleName="Test Title Name";
 			arg->wasStolen=true;
 		}
 		break;
-	case SLNet::L2MID_Client_Login:
+	case MafiaNet::L2MID_Client_Login:
 		{
-			SLNet::Client_Login *arg = (SLNet::Client_Login *) m;
+			MafiaNet::Client_Login *arg = (MafiaNet::Client_Login *) m;
 			arg->titleName="Test Title Name";
 			arg->titleSecretKey="Test secret key";
 			arg->userPassword="asdf";
 			arg->userName=userName;
 		}
 		break;
-	case SLNet::L2MID_Client_SetPresence:
+	case MafiaNet::L2MID_Client_SetPresence:
 		{
-			SLNet::Client_SetPresence *arg = (SLNet::Client_SetPresence *) m;
+			MafiaNet::Client_SetPresence *arg = (MafiaNet::Client_SetPresence *) m;
 			arg->presence.isVisible=true;
-			arg->presence.status= SLNet::Lobby2Presence::IN_LOBBY;
+			arg->presence.status= MafiaNet::Lobby2Presence::IN_LOBBY;
 //			arg->presence.titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_Client_RegisterAccount:
+	case MafiaNet::L2MID_Client_RegisterAccount:
 		{
-			SLNet::Client_RegisterAccount *arg = (SLNet::Client_RegisterAccount *) m;
+			MafiaNet::Client_RegisterAccount *arg = (MafiaNet::Client_RegisterAccount *) m;
 			arg->createAccountParameters.ageInDays=9999;
 			arg->createAccountParameters.firstName="Firstname";
 			arg->createAccountParameters.lastName="Lastname";
@@ -480,220 +480,220 @@ void ExecuteCommand(SLNet::Lobby2MessageID command, SLNet::RakString userName, i
 			arg->titleName="Test Title Name";
 		}
 		break;
-	case SLNet::L2MID_System_SetEmailAddressValidated:
+	case MafiaNet::L2MID_System_SetEmailAddressValidated:
 		{
-			SLNet::System_SetEmailAddressValidated *arg = (SLNet::System_SetEmailAddressValidated *) m;
+			MafiaNet::System_SetEmailAddressValidated *arg = (MafiaNet::System_SetEmailAddressValidated *) m;
 			arg->validated=true;
 			arg->userName=userName;
 		}
 		break;
-	case SLNet::L2MID_Client_ValidateHandle:
+	case MafiaNet::L2MID_Client_ValidateHandle:
 		{
-			SLNet::Client_ValidateHandle *arg = (SLNet::Client_ValidateHandle *) m;
+			MafiaNet::Client_ValidateHandle *arg = (MafiaNet::Client_ValidateHandle *) m;
 			arg->userName=userName;
 		}
 		break;
 
-	case SLNet::L2MID_System_DeleteAccount:
+	case MafiaNet::L2MID_System_DeleteAccount:
 		{
-			SLNet::System_DeleteAccount *arg = (SLNet::System_DeleteAccount *) m;
+			MafiaNet::System_DeleteAccount *arg = (MafiaNet::System_DeleteAccount *) m;
 			arg->userName=userName;
 			arg->password="asdf";
 		}
 		break;
 
-	case SLNet::L2MID_System_PruneAccounts:
+	case MafiaNet::L2MID_System_PruneAccounts:
 		{
-			SLNet::System_PruneAccounts *arg = (SLNet::System_PruneAccounts *) m;
+			MafiaNet::System_PruneAccounts *arg = (MafiaNet::System_PruneAccounts *) m;
 			arg->deleteAccountsNotLoggedInDays=1;
 		}
 		break;
 
-	case SLNet::L2MID_Client_GetEmailAddress:
+	case MafiaNet::L2MID_Client_GetEmailAddress:
 		{
-			SLNet::Client_GetEmailAddress *arg = (SLNet::Client_GetEmailAddress *) m;
+			MafiaNet::Client_GetEmailAddress *arg = (MafiaNet::Client_GetEmailAddress *) m;
 			arg->userName=userName;
 		}
 		break;
 
-	case SLNet::L2MID_Client_GetPasswordRecoveryQuestionByHandle:
+	case MafiaNet::L2MID_Client_GetPasswordRecoveryQuestionByHandle:
 		{
-			SLNet::Client_GetPasswordRecoveryQuestionByHandle *arg = (SLNet::Client_GetPasswordRecoveryQuestionByHandle *) m;
+			MafiaNet::Client_GetPasswordRecoveryQuestionByHandle *arg = (MafiaNet::Client_GetPasswordRecoveryQuestionByHandle *) m;
 			arg->userName=userName;
 		}
 		break;
 
-	case SLNet::L2MID_Client_GetPasswordByPasswordRecoveryAnswer:
+	case MafiaNet::L2MID_Client_GetPasswordByPasswordRecoveryAnswer:
 		{
-			SLNet::Client_GetPasswordByPasswordRecoveryAnswer *arg = (SLNet::Client_GetPasswordByPasswordRecoveryAnswer *) m;
+			MafiaNet::Client_GetPasswordByPasswordRecoveryAnswer *arg = (MafiaNet::Client_GetPasswordByPasswordRecoveryAnswer *) m;
 			arg->userName=userName;
 			arg->passwordRecoveryAnswer="3";
 		}
 		break;
 
-	case SLNet::L2MID_Client_ChangeHandle:
+	case MafiaNet::L2MID_Client_ChangeHandle:
 		{
-			SLNet::Client_ChangeHandle *arg = (SLNet::Client_ChangeHandle *) m;
+			MafiaNet::Client_ChangeHandle *arg = (MafiaNet::Client_ChangeHandle *) m;
 			arg->userName=userName;
 			arg->newHandle="New user handle";
 		}
 		break;
 
-	case SLNet::L2MID_Client_UpdateAccount:
+	case MafiaNet::L2MID_Client_UpdateAccount:
 		{
 			// provided for documentation purposes only
-			// SLNet::Client_UpdateAccount *arg = (SLNet::Client_UpdateAccount *) m;
+			// MafiaNet::Client_UpdateAccount *arg = (MafiaNet::Client_UpdateAccount *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Client_GetAccountDetails:
+	case MafiaNet::L2MID_Client_GetAccountDetails:
 		{
 			// provided for documentation purposes only
-			// SLNet::Client_GetAccountDetails *arg = (SLNet::Client_GetAccountDetails *) m;
+			// MafiaNet::Client_GetAccountDetails *arg = (MafiaNet::Client_GetAccountDetails *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Client_StartIgnore:
+	case MafiaNet::L2MID_Client_StartIgnore:
 		{
-			SLNet::Client_StartIgnore *arg = (SLNet::Client_StartIgnore *) m;
-			arg->targetHandle=SLNet::RakString("user%i", instanceNumber+1);
+			MafiaNet::Client_StartIgnore *arg = (MafiaNet::Client_StartIgnore *) m;
+			arg->targetHandle=MafiaNet::RakString("user%i", instanceNumber+1);
 		}
 		break;
 
-	case SLNet::L2MID_Client_StopIgnore:
+	case MafiaNet::L2MID_Client_StopIgnore:
 		{
-			SLNet::Client_StopIgnore *arg = (SLNet::Client_StopIgnore *) m;
-			arg->targetHandle=SLNet::RakString("user%i", instanceNumber+1);
+			MafiaNet::Client_StopIgnore *arg = (MafiaNet::Client_StopIgnore *) m;
+			arg->targetHandle=MafiaNet::RakString("user%i", instanceNumber+1);
 		}
 		break;
 
-	case SLNet::L2MID_Client_GetIgnoreList:
+	case MafiaNet::L2MID_Client_GetIgnoreList:
 		{
 			// provided for documentation purposes only
-			// SLNet::Client_GetIgnoreList *arg = (SLNet::Client_GetIgnoreList *) m;
+			// MafiaNet::Client_GetIgnoreList *arg = (MafiaNet::Client_GetIgnoreList *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Client_PerTitleIntegerStorage:
+	case MafiaNet::L2MID_Client_PerTitleIntegerStorage:
 		{
-		SLNet::Client_PerTitleIntegerStorage *arg = (SLNet::Client_PerTitleIntegerStorage *) m;
+		MafiaNet::Client_PerTitleIntegerStorage *arg = (MafiaNet::Client_PerTitleIntegerStorage *) m;
 			arg->titleName="Test Title Name";
 			arg->slotIndex=0;
 			arg->conditionValue=1.0;
-			arg->addConditionForOperation= SLNet::Client_PerTitleIntegerStorage::PTISC_GREATER_THAN;
+			arg->addConditionForOperation= MafiaNet::Client_PerTitleIntegerStorage::PTISC_GREATER_THAN;
 			arg->inputValue=0.0;
 			static int runCount=0;
 			if (runCount++%2==0)
-				arg->operationToPerform= SLNet::Client_PerTitleIntegerStorage::PTISO_WRITE;
+				arg->operationToPerform= MafiaNet::Client_PerTitleIntegerStorage::PTISO_WRITE;
 			else
-				arg->operationToPerform= SLNet::Client_PerTitleIntegerStorage::PTISO_READ;
+				arg->operationToPerform= MafiaNet::Client_PerTitleIntegerStorage::PTISO_READ;
 		}
 		break;
 
-	case SLNet::L2MID_Friends_SendInvite:
+	case MafiaNet::L2MID_Friends_SendInvite:
 		{
-		SLNet::Friends_SendInvite *arg = (SLNet::Friends_SendInvite *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+		MafiaNet::Friends_SendInvite *arg = (MafiaNet::Friends_SendInvite *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->subject="Friends_SendInvite subject";
 			arg->body="Friends_SendInvite body";
 		}
 		break;
 
-	case SLNet::L2MID_Friends_AcceptInvite:
+	case MafiaNet::L2MID_Friends_AcceptInvite:
 		{
-		SLNet::Friends_AcceptInvite *arg = (SLNet::Friends_AcceptInvite *) m;
-			arg->targetHandle= SLNet::RakString("user%i", 0);
+		MafiaNet::Friends_AcceptInvite *arg = (MafiaNet::Friends_AcceptInvite *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", 0);
 			arg->subject="Friends_AcceptInvite subject";
 			arg->body="Friends_AcceptInvite body";
 			arg->emailStatus=0;
 		}
 		break;
 
-	case SLNet::L2MID_Friends_RejectInvite:
+	case MafiaNet::L2MID_Friends_RejectInvite:
 		{
-		SLNet::Friends_RejectInvite *arg = (SLNet::Friends_RejectInvite *) m;
-			arg->targetHandle= SLNet::RakString("user%i", 0);
+		MafiaNet::Friends_RejectInvite *arg = (MafiaNet::Friends_RejectInvite *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", 0);
 			arg->subject="L2MID_Friends_RejectInvite subject";
 			arg->body="L2MID_Friends_RejectInvite body";
 			arg->emailStatus=0;
 		}
 		break;
 
-	case SLNet::L2MID_Friends_GetInvites:
+	case MafiaNet::L2MID_Friends_GetInvites:
 		{
 			// provided for documentation purposes only
-			// SLNet::Friends_GetInvites *arg = (SLNet::Friends_GetInvites *) m;
+			// MafiaNet::Friends_GetInvites *arg = (MafiaNet::Friends_GetInvites *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Friends_GetFriends:
+	case MafiaNet::L2MID_Friends_GetFriends:
 		{
 			// provided for documentation purposes only
-			// SLNet::Friends_GetFriends *arg = (SLNet::Friends_GetFriends *) m;
+			// MafiaNet::Friends_GetFriends *arg = (MafiaNet::Friends_GetFriends *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Friends_Remove:
+	case MafiaNet::L2MID_Friends_Remove:
 		{
-		SLNet::Friends_Remove *arg = (SLNet::Friends_Remove *) m;
-			arg->targetHandle= SLNet::RakString("user%i", 0);
+		MafiaNet::Friends_Remove *arg = (MafiaNet::Friends_Remove *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", 0);
 			arg->subject="L2MID_Friends_Remove subject";
 			arg->body="L2MID_Friends_Remove body";
 			arg->emailStatus=0;
 		}
 		break;
 
-	case SLNet::L2MID_BookmarkedUsers_Add:
+	case MafiaNet::L2MID_BookmarkedUsers_Add:
 		{
-		SLNet::BookmarkedUsers_Add *arg = (SLNet::BookmarkedUsers_Add *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+		MafiaNet::BookmarkedUsers_Add *arg = (MafiaNet::BookmarkedUsers_Add *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->type=0;
 			arg->description="L2MID_BookmarkedUsers_Add description";
 		}
 		break;
-	case SLNet::L2MID_BookmarkedUsers_Remove:
+	case MafiaNet::L2MID_BookmarkedUsers_Remove:
 		{
-		SLNet::BookmarkedUsers_Remove *arg = (SLNet::BookmarkedUsers_Remove *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+		MafiaNet::BookmarkedUsers_Remove *arg = (MafiaNet::BookmarkedUsers_Remove *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->type=0;
 		}
 		break;
-	case SLNet::L2MID_BookmarkedUsers_Get:
+	case MafiaNet::L2MID_BookmarkedUsers_Get:
 		{
 			// provided for documentation purposes only
-			// SLNet::BookmarkedUsers_Get *arg = (SLNet::BookmarkedUsers_Get *) m;
+			// MafiaNet::BookmarkedUsers_Get *arg = (MafiaNet::BookmarkedUsers_Get *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Emails_Send:
+	case MafiaNet::L2MID_Emails_Send:
 		{
-		SLNet::Emails_Send *arg = (SLNet::Emails_Send *) m;
-			arg->recipients.Insert(SLNet::RakString("user%i", instanceNumber+1), _FILE_AND_LINE_ );
-			arg->recipients.Insert(SLNet::RakString("user%i", instanceNumber+2), _FILE_AND_LINE_ );
+		MafiaNet::Emails_Send *arg = (MafiaNet::Emails_Send *) m;
+			arg->recipients.Insert(MafiaNet::RakString("user%i", instanceNumber+1), _FILE_AND_LINE_ );
+			arg->recipients.Insert(MafiaNet::RakString("user%i", instanceNumber+2), _FILE_AND_LINE_ );
 			arg->subject="L2MID_Emails_Send subject";
 			arg->body="L2MID_Emails_Send body";
 			arg->status=0;
 		}
 		break;
 
-	case SLNet::L2MID_Emails_Get:
+	case MafiaNet::L2MID_Emails_Get:
 		{
-		SLNet::Emails_Get *arg = (SLNet::Emails_Get *) m;
+		MafiaNet::Emails_Get *arg = (MafiaNet::Emails_Get *) m;
 			arg->unreadEmailsOnly=true;
 			arg->emailIdsOnly=true;
 		}
 		break;
 
-	case SLNet::L2MID_Emails_Delete:
+	case MafiaNet::L2MID_Emails_Delete:
 		{
-		SLNet::Emails_Delete *arg = (SLNet::Emails_Delete *) m;
+		MafiaNet::Emails_Delete *arg = (MafiaNet::Emails_Delete *) m;
 			arg->emailId=1;
 		}
 		break;
 
-	case SLNet::L2MID_Emails_SetStatus:
+	case MafiaNet::L2MID_Emails_SetStatus:
 		{
-		SLNet::Emails_SetStatus *arg = (SLNet::Emails_SetStatus *) m;
+		MafiaNet::Emails_SetStatus *arg = (MafiaNet::Emails_SetStatus *) m;
 			arg->emailId=2;
 			arg->updateStatusFlag=true;
 			arg->updateMarkedRead=true;
@@ -702,98 +702,98 @@ void ExecuteCommand(SLNet::Lobby2MessageID command, SLNet::RakString userName, i
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_SubmitMatch:
+	case MafiaNet::L2MID_Ranking_SubmitMatch:
 		{
-		SLNet::Ranking_SubmitMatch *arg = (SLNet::Ranking_SubmitMatch *) m;
+		MafiaNet::Ranking_SubmitMatch *arg = (MafiaNet::Ranking_SubmitMatch *) m;
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 			arg->submittedMatch.matchNote="Ranking match note";
-			arg->submittedMatch.matchParticipants.Insert(SLNet::MatchParticipant("user0", 5.0f), _FILE_AND_LINE_ );
-			arg->submittedMatch.matchParticipants.Insert(SLNet::MatchParticipant("user1", 10.0f), _FILE_AND_LINE_ );
+			arg->submittedMatch.matchParticipants.Insert(MafiaNet::MatchParticipant("user0", 5.0f), _FILE_AND_LINE_ );
+			arg->submittedMatch.matchParticipants.Insert(MafiaNet::MatchParticipant("user1", 10.0f), _FILE_AND_LINE_ );
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_GetMatches:
+	case MafiaNet::L2MID_Ranking_GetMatches:
 		{
-		SLNet::Ranking_GetMatches *arg = (SLNet::Ranking_GetMatches *) m;
+		MafiaNet::Ranking_GetMatches *arg = (MafiaNet::Ranking_GetMatches *) m;
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_GetMatchBinaryData:
+	case MafiaNet::L2MID_Ranking_GetMatchBinaryData:
 		{
-		SLNet::Ranking_GetMatchBinaryData *arg = (SLNet::Ranking_GetMatchBinaryData *) m;
+		MafiaNet::Ranking_GetMatchBinaryData *arg = (MafiaNet::Ranking_GetMatchBinaryData *) m;
 			arg->matchID=1;
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_GetTotalScore:
+	case MafiaNet::L2MID_Ranking_GetTotalScore:
 		{
-		SLNet::Ranking_GetTotalScore *arg = (SLNet::Ranking_GetTotalScore *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber);
+		MafiaNet::Ranking_GetTotalScore *arg = (MafiaNet::Ranking_GetTotalScore *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber);
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_WipeScoresForPlayer:
+	case MafiaNet::L2MID_Ranking_WipeScoresForPlayer:
 		{
-		SLNet::Ranking_WipeScoresForPlayer *arg = (SLNet::Ranking_WipeScoresForPlayer *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber);
+		MafiaNet::Ranking_WipeScoresForPlayer *arg = (MafiaNet::Ranking_WipeScoresForPlayer *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber);
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_WipeMatches:
+	case MafiaNet::L2MID_Ranking_WipeMatches:
 		{
-		SLNet::Ranking_WipeMatches *arg = (SLNet::Ranking_WipeMatches *) m;
+		MafiaNet::Ranking_WipeMatches *arg = (MafiaNet::Ranking_WipeMatches *) m;
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_PruneMatches:
+	case MafiaNet::L2MID_Ranking_PruneMatches:
 		{
-		SLNet::Ranking_PruneMatches *arg = (SLNet::Ranking_PruneMatches *) m;
+		MafiaNet::Ranking_PruneMatches *arg = (MafiaNet::Ranking_PruneMatches *) m;
 			arg->pruneTimeDays=1;
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_UpdateRating:
+	case MafiaNet::L2MID_Ranking_UpdateRating:
 		{
-		SLNet::Ranking_UpdateRating *arg = (SLNet::Ranking_UpdateRating *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber);
+		MafiaNet::Ranking_UpdateRating *arg = (MafiaNet::Ranking_UpdateRating *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber);
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 			arg->targetRating=1234.0f;
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_WipeRatings:
+	case MafiaNet::L2MID_Ranking_WipeRatings:
 		{
-		SLNet::Ranking_WipeRatings *arg = (SLNet::Ranking_WipeRatings *) m;
+		MafiaNet::Ranking_WipeRatings *arg = (MafiaNet::Ranking_WipeRatings *) m;
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
 		}
 		break;
 
-	case SLNet::L2MID_Ranking_GetRating:
+	case MafiaNet::L2MID_Ranking_GetRating:
 		{
-		SLNet::Ranking_GetRating *arg = (SLNet::Ranking_GetRating *) m;
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber);
+		MafiaNet::Ranking_GetRating *arg = (MafiaNet::Ranking_GetRating *) m;
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber);
 			arg->gameType="Match game type";
 			arg->titleName="Test Title Name";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber);
 		}
 		break;
 
-	case SLNet::L2MID_Clans_Create:
+	case MafiaNet::L2MID_Clans_Create:
 		{
-		SLNet::Clans_Create *arg = (SLNet::Clans_Create *) m;
+		MafiaNet::Clans_Create *arg = (MafiaNet::Clans_Create *) m;
 			static int idx=0;
-			arg->clanHandle= SLNet::RakString("Clan handle %i", idx++);
+			arg->clanHandle= MafiaNet::RakString("Clan handle %i", idx++);
 			arg->failIfAlreadyInClan=false;
 			arg->requiresInvitationsToJoin=true;
 			arg->description="Clan Description";
@@ -803,74 +803,74 @@ void ExecuteCommand(SLNet::Lobby2MessageID command, SLNet::RakString userName, i
 		}
 		break;
 
-	case SLNet::L2MID_Clans_SetProperties:
+	case MafiaNet::L2MID_Clans_SetProperties:
 		{
-		SLNet::Clans_SetProperties *arg = (SLNet::Clans_SetProperties *) m;
+		MafiaNet::Clans_SetProperties *arg = (MafiaNet::Clans_SetProperties *) m;
 			arg->clanHandle="Clan handle";
 			arg->description="Updated description";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GetProperties:
+	case MafiaNet::L2MID_Clans_GetProperties:
 		{
-		SLNet::Clans_GetProperties *arg = (SLNet::Clans_GetProperties *) m;
+		MafiaNet::Clans_GetProperties *arg = (MafiaNet::Clans_GetProperties *) m;
 			arg->clanHandle="Clan handle";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_SetMyMemberProperties:
+	case MafiaNet::L2MID_Clans_SetMyMemberProperties:
 		{
-		SLNet::Clans_SetMyMemberProperties *arg = (SLNet::Clans_SetMyMemberProperties *) m;
+		MafiaNet::Clans_SetMyMemberProperties *arg = (MafiaNet::Clans_SetMyMemberProperties *) m;
 			arg->clanHandle="Clan handle";
 			arg->description="Updated description";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GrantLeader:
+	case MafiaNet::L2MID_Clans_GrantLeader:
 		{
-		SLNet::Clans_GrantLeader *arg = (SLNet::Clans_GrantLeader *) m;
+		MafiaNet::Clans_GrantLeader *arg = (MafiaNet::Clans_GrantLeader *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 		}
 		break;
 
-	case SLNet::L2MID_Clans_SetSubleaderStatus:
+	case MafiaNet::L2MID_Clans_SetSubleaderStatus:
 		{
-		SLNet::Clans_SetSubleaderStatus *arg = (SLNet::Clans_SetSubleaderStatus *) m;
+		MafiaNet::Clans_SetSubleaderStatus *arg = (MafiaNet::Clans_SetSubleaderStatus *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->setToSubleader=true;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_SetMemberRank:
+	case MafiaNet::L2MID_Clans_SetMemberRank:
 		{
-		SLNet::Clans_SetMemberRank *arg = (SLNet::Clans_SetMemberRank *) m;
+		MafiaNet::Clans_SetMemberRank *arg = (MafiaNet::Clans_SetMemberRank *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->newRank=666;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GetMemberProperties:
+	case MafiaNet::L2MID_Clans_GetMemberProperties:
 		{
-		SLNet::Clans_GetMemberProperties *arg = (SLNet::Clans_GetMemberProperties *) m;
+		MafiaNet::Clans_GetMemberProperties *arg = (MafiaNet::Clans_GetMemberProperties *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber);
 		}
 		break;
 
-	case SLNet::L2MID_Clans_ChangeHandle:
+	case MafiaNet::L2MID_Clans_ChangeHandle:
 		{
-		SLNet::Clans_ChangeHandle *arg = (SLNet::Clans_ChangeHandle *) m;
+		MafiaNet::Clans_ChangeHandle *arg = (MafiaNet::Clans_ChangeHandle *) m;
 			arg->oldClanHandle="Clan handle";
 			arg->newClanHandle="New Clan handle";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_Leave:
+	case MafiaNet::L2MID_Clans_Leave:
 		{
-		SLNet::Clans_Leave *arg = (SLNet::Clans_Leave *) m;
+		MafiaNet::Clans_Leave *arg = (MafiaNet::Clans_Leave *) m;
 			arg->clanHandle="Clan handle";
 			arg->dissolveIfClanLeader=false;
 			arg->subject="L2MID_Clans_Leave";
@@ -878,183 +878,183 @@ void ExecuteCommand(SLNet::Lobby2MessageID command, SLNet::RakString userName, i
 		}
 		break;
 
-	case SLNet::L2MID_Clans_Get:
+	case MafiaNet::L2MID_Clans_Get:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_Get *arg = (SLNet::Clans_Get *) m;
+			// MafiaNet::Clans_Get *arg = (MafiaNet::Clans_Get *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_SendJoinInvitation:
+	case MafiaNet::L2MID_Clans_SendJoinInvitation:
 		{
-		SLNet::Clans_SendJoinInvitation *arg = (SLNet::Clans_SendJoinInvitation *) m;
+		MafiaNet::Clans_SendJoinInvitation *arg = (MafiaNet::Clans_SendJoinInvitation *) m;
 			static int idx=0;
-			arg->clanHandle= SLNet::RakString("Clan handle %i", idx++);
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->clanHandle= MafiaNet::RakString("Clan handle %i", idx++);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->subject="L2MID_Clans_SendJoinInvitation";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_WithdrawJoinInvitation:
+	case MafiaNet::L2MID_Clans_WithdrawJoinInvitation:
 		{
-		SLNet::Clans_WithdrawJoinInvitation *arg = (SLNet::Clans_WithdrawJoinInvitation *) m;
+		MafiaNet::Clans_WithdrawJoinInvitation *arg = (MafiaNet::Clans_WithdrawJoinInvitation *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->subject="L2MID_Clans_WithdrawJoinInvitation";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_AcceptJoinInvitation:
+	case MafiaNet::L2MID_Clans_AcceptJoinInvitation:
 		{
-		SLNet::Clans_AcceptJoinInvitation *arg = (SLNet::Clans_AcceptJoinInvitation *) m;
+		MafiaNet::Clans_AcceptJoinInvitation *arg = (MafiaNet::Clans_AcceptJoinInvitation *) m;
 			static int idx=0;
-			arg->clanHandle= SLNet::RakString("Clan handle %i", idx++);
+			arg->clanHandle= MafiaNet::RakString("Clan handle %i", idx++);
 			arg->subject="L2MID_Clans_AcceptJoinInvitation";
 			arg->failIfAlreadyInClan=false;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_RejectJoinInvitation:
+	case MafiaNet::L2MID_Clans_RejectJoinInvitation:
 		{
-		SLNet::Clans_RejectJoinInvitation *arg = (SLNet::Clans_RejectJoinInvitation *) m;
+		MafiaNet::Clans_RejectJoinInvitation *arg = (MafiaNet::Clans_RejectJoinInvitation *) m;
 			static int idx=0;
-			arg->clanHandle= SLNet::RakString("Clan handle %i", idx++);
+			arg->clanHandle= MafiaNet::RakString("Clan handle %i", idx++);
 			arg->subject="L2MID_Clans_WithdrawJoinInvitation";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_DownloadInvitationList:
+	case MafiaNet::L2MID_Clans_DownloadInvitationList:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_DownloadInvitationList *arg = (SLNet::Clans_DownloadInvitationList *) m;
+			// MafiaNet::Clans_DownloadInvitationList *arg = (MafiaNet::Clans_DownloadInvitationList *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_SendJoinRequest:
+	case MafiaNet::L2MID_Clans_SendJoinRequest:
 		{
-		SLNet::Clans_SendJoinRequest *arg = (SLNet::Clans_SendJoinRequest *) m;
+		MafiaNet::Clans_SendJoinRequest *arg = (MafiaNet::Clans_SendJoinRequest *) m;
 			arg->clanHandle="Clan handle";
 			arg->subject="L2MID_Clans_SendJoinRequest";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_WithdrawJoinRequest:
+	case MafiaNet::L2MID_Clans_WithdrawJoinRequest:
 		{
-		SLNet::Clans_WithdrawJoinRequest *arg = (SLNet::Clans_WithdrawJoinRequest *) m;
+		MafiaNet::Clans_WithdrawJoinRequest *arg = (MafiaNet::Clans_WithdrawJoinRequest *) m;
 			arg->clanHandle="Clan handle";
 			arg->subject="L2MID_Clans_WithdrawJoinRequest";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_AcceptJoinRequest:
+	case MafiaNet::L2MID_Clans_AcceptJoinRequest:
 		{
-		SLNet::Clans_AcceptJoinRequest *arg = (SLNet::Clans_AcceptJoinRequest *) m;
+		MafiaNet::Clans_AcceptJoinRequest *arg = (MafiaNet::Clans_AcceptJoinRequest *) m;
 			arg->clanHandle="Clan handle";
-			arg->requestingUserHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->requestingUserHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->subject="L2MID_Clans_AcceptJoinRequest";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_RejectJoinRequest:
+	case MafiaNet::L2MID_Clans_RejectJoinRequest:
 		{
-		SLNet::Clans_RejectJoinRequest *arg = (SLNet::Clans_RejectJoinRequest *) m;
+		MafiaNet::Clans_RejectJoinRequest *arg = (MafiaNet::Clans_RejectJoinRequest *) m;
 			arg->clanHandle="Clan handle";
-			arg->requestingUserHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->requestingUserHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 		}
 		break;
 
-	case SLNet::L2MID_Clans_DownloadRequestList:
+	case MafiaNet::L2MID_Clans_DownloadRequestList:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_DownloadRequestList *arg = (SLNet::Clans_DownloadRequestList *) m;
+			// MafiaNet::Clans_DownloadRequestList *arg = (MafiaNet::Clans_DownloadRequestList *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_KickAndBlacklistUser:
+	case MafiaNet::L2MID_Clans_KickAndBlacklistUser:
 		{
-		SLNet::Clans_KickAndBlacklistUser *arg = (SLNet::Clans_KickAndBlacklistUser *) m;
+		MafiaNet::Clans_KickAndBlacklistUser *arg = (MafiaNet::Clans_KickAndBlacklistUser *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 			arg->kick=true;
 			arg->blacklist=true;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_UnblacklistUser:
+	case MafiaNet::L2MID_Clans_UnblacklistUser:
 		{
-		SLNet::Clans_UnblacklistUser *arg = (SLNet::Clans_UnblacklistUser *) m;
+		MafiaNet::Clans_UnblacklistUser *arg = (MafiaNet::Clans_UnblacklistUser *) m;
 			arg->clanHandle="Clan handle";
-			arg->targetHandle= SLNet::RakString("user%i", instanceNumber+1);
+			arg->targetHandle= MafiaNet::RakString("user%i", instanceNumber+1);
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GetBlacklist:
+	case MafiaNet::L2MID_Clans_GetBlacklist:
 		{
-		SLNet::Clans_GetBlacklist *arg = (SLNet::Clans_GetBlacklist *) m;
-			arg->clanHandle="Clan handle";
-		}
-		break;
-
-	case SLNet::L2MID_Clans_GetMembers:
-		{
-		SLNet::Clans_GetMembers *arg = (SLNet::Clans_GetMembers *) m;
+		MafiaNet::Clans_GetBlacklist *arg = (MafiaNet::Clans_GetBlacklist *) m;
 			arg->clanHandle="Clan handle";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_CreateBoard:
+	case MafiaNet::L2MID_Clans_GetMembers:
 		{
-			// provided for documentation purposes only
-			// SLNet::Clans_CreateBoard *arg = (SLNet::Clans_CreateBoard *) m;
+		MafiaNet::Clans_GetMembers *arg = (MafiaNet::Clans_GetMembers *) m;
+			arg->clanHandle="Clan handle";
 		}
 		break;
 
-	case SLNet::L2MID_Clans_DestroyBoard:
+	case MafiaNet::L2MID_Clans_CreateBoard:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_DestroyBoard *arg = (SLNet::Clans_DestroyBoard *) m;
+			// MafiaNet::Clans_CreateBoard *arg = (MafiaNet::Clans_CreateBoard *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_CreateNewTopic:
+	case MafiaNet::L2MID_Clans_DestroyBoard:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_CreateNewTopic *arg = (SLNet::Clans_CreateNewTopic *) m;
+			// MafiaNet::Clans_DestroyBoard *arg = (MafiaNet::Clans_DestroyBoard *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_ReplyToTopic:
+	case MafiaNet::L2MID_Clans_CreateNewTopic:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_ReplyToTopic *arg = (SLNet::Clans_ReplyToTopic *) m;
+			// MafiaNet::Clans_CreateNewTopic *arg = (MafiaNet::Clans_CreateNewTopic *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_RemovePost:
+	case MafiaNet::L2MID_Clans_ReplyToTopic:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_RemovePost *arg = (SLNet::Clans_RemovePost *) m;
+			// MafiaNet::Clans_ReplyToTopic *arg = (MafiaNet::Clans_ReplyToTopic *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GetBoards:
+	case MafiaNet::L2MID_Clans_RemovePost:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_GetBoards *arg = (SLNet::Clans_GetBoards *) m;
+			// MafiaNet::Clans_RemovePost *arg = (MafiaNet::Clans_RemovePost *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GetTopics:
+	case MafiaNet::L2MID_Clans_GetBoards:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_GetTopics *arg = (SLNet::Clans_GetTopics *) m;
+			// MafiaNet::Clans_GetBoards *arg = (MafiaNet::Clans_GetBoards *) m;
 		}
 		break;
 
-	case SLNet::L2MID_Clans_GetPosts:
+	case MafiaNet::L2MID_Clans_GetTopics:
 		{
 			// provided for documentation purposes only
-			// SLNet::Clans_GetPosts *arg = (SLNet::Clans_GetPosts *) m;
+			// MafiaNet::Clans_GetTopics *arg = (MafiaNet::Clans_GetTopics *) m;
+		}
+		break;
+
+	case MafiaNet::L2MID_Clans_GetPosts:
+		{
+			// provided for documentation purposes only
+			// MafiaNet::Clans_GetPosts *arg = (MafiaNet::Clans_GetPosts *) m;
 		}
 		break;
 	}

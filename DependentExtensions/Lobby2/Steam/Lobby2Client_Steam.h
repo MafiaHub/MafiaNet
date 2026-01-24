@@ -20,10 +20,10 @@
 #include "slikenet/DS_OrderedList.h"
 #include "slikenet/types.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 // This is a pure interface for Lobby2Client_SteamImpl
-class RAK_DLL_EXPORT Lobby2Client_Steam : public SLNet::Lobby2Plugin
+class RAK_DLL_EXPORT Lobby2Client_Steam : public MafiaNet::Lobby2Plugin
 {
 public:	
 	// GetInstance() and DestroyInstance(instance*)

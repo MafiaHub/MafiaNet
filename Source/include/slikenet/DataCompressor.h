@@ -26,7 +26,7 @@
 #include "DS_HuffmanEncodingTree.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \brief Does compression on a block of data.  Not very good compression, but it's small and fast so is something you can compute at runtime.
@@ -36,10 +36,10 @@ public:
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(DataCompressor)
 
-	static void Compress( unsigned char *userData, unsigned sizeInBytes, SLNet::BitStream * output );
-	static unsigned DecompressAndAllocate(SLNet::BitStream * input, unsigned char **output );
+	static void Compress( unsigned char *userData, unsigned sizeInBytes, MafiaNet::BitStream * output );
+	static unsigned DecompressAndAllocate(MafiaNet::BitStream * input, unsigned char **output );
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

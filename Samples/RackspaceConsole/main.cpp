@@ -75,10 +75,10 @@ void PrintCommands(void)
 	printf("\n");
 }
 
-bool Authenticate(SLNet::Rackspace *rackspaceApi, SLNet::TCPInterface *tcpInterface)
+bool Authenticate(MafiaNet::Rackspace *rackspaceApi, MafiaNet::TCPInterface *tcpInterface)
 {
 
-	SLNet::SystemAddress serverAddress;
+	MafiaNet::SystemAddress serverAddress;
 	char authenticationURL[128];
 	char rackspaceCloudUsername[128];
 	char apiAccessKey[128];
@@ -142,18 +142,18 @@ bool Authenticate(SLNet::Rackspace *rackspaceApi, SLNet::TCPInterface *tcpInterf
 	}
 
 	serverAddress=rackspaceApi->Authenticate(tcpInterface, authenticationURL, rackspaceCloudUsername, apiAccessKey);
-	if (serverAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+	if (serverAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		printf("Failed to connect to %s\n", authenticationURL);
 
 	return true;
 }
 
-class DisplayHTMLPage : public SLNet::RackspaceEventCallback_Default
+class DisplayHTMLPage : public MafiaNet::RackspaceEventCallback_Default
 {
-	virtual void ExecuteDefault(const char *callbackName, SLNet::RackspaceEventType eventType, const char *htmlAdditionalInfo)
+	virtual void ExecuteDefault(const char *callbackName, MafiaNet::RackspaceEventType eventType, const char *htmlAdditionalInfo)
 	{
 		/*
-		SLNet::RakString fileName("%s.html", callbackName);
+		MafiaNet::RakString fileName("%s.html", callbackName);
 		FILE *fp;
 		if (fopen_s(&fp, fileName.C_String(), "wb") == 0)
 		{
@@ -164,11 +164,11 @@ class DisplayHTMLPage : public SLNet::RackspaceEventCallback_Default
 			ShellExecute(nullptr, "open", fileName.C_String(), nullptr, szDirectory, SW_SHOWNORMAL);
 		}
 		*/
-		printf("%s completed with result %s\n", callbackName, SLNet::Rackspace::EventTypeToString(eventType));
+		printf("%s completed with result %s\n", callbackName, MafiaNet::Rackspace::EventTypeToString(eventType));
 		printf(htmlAdditionalInfo);
 		printf("\n");
 	}
-	virtual void OnConnectionAttemptFailure(SLNet::RackspaceOperationType operationType, const char *url) {printf("OnConnectionAttemptFailure\noperationType=%i\n%s\n", operationType,url);}
+	virtual void OnConnectionAttemptFailure(MafiaNet::RackspaceOperationType operationType, const char *url) {printf("OnConnectionAttemptFailure\noperationType=%i\n%s\n", operationType,url);}
 };
 
 int main()
@@ -178,8 +178,8 @@ int main()
 	return 1;
 #else
 
-	SLNet::Rackspace rackspaceApi;
-	SLNet::TCPInterface tcpInterface;
+	MafiaNet::Rackspace rackspaceApi;
+	MafiaNet::TCPInterface tcpInterface;
 
 	DisplayHTMLPage callback;
 	rackspaceApi.AddEventCallback(&callback);
@@ -194,8 +194,8 @@ int main()
 
 	PrintCommands();
 
-	SLNet::SystemAddress systemAddress;
-	SLNet::Packet *packet;
+	MafiaNet::SystemAddress systemAddress;
+	MafiaNet::Packet *packet;
 	for(;;)
 	{
 		for (packet=tcpInterface.Receive(); packet; tcpInterface.DeallocatePacket(packet), packet=tcpInterface.Receive())
@@ -203,8 +203,8 @@ int main()
 			rackspaceApi.OnReceive(packet);
 		}
 
-		SLNet::SystemAddress lostConnectionAddress = tcpInterface.HasLostConnection();
-		if (lostConnectionAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		MafiaNet::SystemAddress lostConnectionAddress = tcpInterface.HasLostConnection();
+		if (lostConnectionAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			rackspaceApi.OnClosedConnection(lostConnectionAddress);
 
 		if (_kbhit())
@@ -236,15 +236,15 @@ int main()
 			}
 			else if (_stricmp(command,"CreateServer")==0)
 			{
-				SLNet::RakString name;
+				MafiaNet::RakString name;
 				printf("Enter server name: ");
 				Gets(command, sizeof(command));
 				name=command;
-				SLNet::RakString imageId;
+				MafiaNet::RakString imageId;
 				printf("Enter imageId: ");
 				Gets(command, sizeof(command));
 				imageId=command;
-				SLNet::RakString flavorId;
+				MafiaNet::RakString flavorId;
 				printf("Enter flavorId: ");
 				Gets(command, sizeof(command));
 				flavorId=command;
@@ -259,15 +259,15 @@ int main()
 			}
 			else if (_stricmp(command,"UpdateServerNameOrPassword")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString newName;
+				MafiaNet::RakString newName;
 				printf("Enter newName: ");
 				Gets(command, sizeof(command));
 				newName=command;
-				SLNet::RakString newPassword;
+				MafiaNet::RakString newPassword;
 				printf("Enter newPassword: ");
 				Gets(command, sizeof(command));
 				newPassword=command;
@@ -288,11 +288,11 @@ int main()
 			}
 			else if (_stricmp(command,"ShareServerAddress")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString serverAddress;
+				MafiaNet::RakString serverAddress;
 				printf("Enter server serverAddress: ");
 				Gets(command, sizeof(command));
 				serverAddress=command;
@@ -300,11 +300,11 @@ int main()
 			}
 			else if (_stricmp(command,"DeleteServerAddress")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString serverAddress;
+				MafiaNet::RakString serverAddress;
 				printf("Enter server serverAddress: ");
 				Gets(command, sizeof(command));
 				serverAddress=command;
@@ -312,11 +312,11 @@ int main()
 			}
 			else if (_stricmp(command,"RebootServer")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString rebootType;
+				MafiaNet::RakString rebootType;
 				printf("Enter rebootType: ");
 				Gets(command, sizeof(command));
 				rebootType=command;
@@ -324,11 +324,11 @@ int main()
 			}
 			else if (_stricmp(command,"RebuildServer")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString imageId;
+				MafiaNet::RakString imageId;
 				printf("Enter imageId: ");
 				Gets(command, sizeof(command));
 				imageId=command;
@@ -336,11 +336,11 @@ int main()
 			}
 			else if (_stricmp(command,"ResizeServer")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString flavorId;
+				MafiaNet::RakString flavorId;
 				printf("Enter flavorId: ");
 				Gets(command, sizeof(command));
 				flavorId=command;
@@ -374,11 +374,11 @@ int main()
 			}
 			else if (_stricmp(command,"CreateImage")==0)
 			{
-				SLNet::RakString serverId;
+				MafiaNet::RakString serverId;
 				printf("Enter server id: ");
 				Gets(command, sizeof(command));
 				serverId=command;
-				SLNet::RakString imageName;
+				MafiaNet::RakString imageName;
 				printf("Enter imageName: ");
 				Gets(command, sizeof(command));
 				imageName=command;

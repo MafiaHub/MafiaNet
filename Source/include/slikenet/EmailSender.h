@@ -29,7 +29,7 @@
 #include "Rand.h"
 #include "TCPInterface.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class FileList;
@@ -62,7 +62,7 @@ protected:
 	RakNetRandom rakNetRandom;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

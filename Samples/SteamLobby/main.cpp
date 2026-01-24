@@ -32,12 +32,12 @@
 #include "steam_api.h"
 #pragma warning( pop )
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 Lobby2MessageFactory_Steam *messageFactory;
 Lobby2Client_Steam *lobby2Client;
-SLNet::RakPeerInterface *rakPeer;
-SLNet::FullyConnectedMesh2 *fcm2;
+MafiaNet::RakPeerInterface *rakPeer;
+MafiaNet::FullyConnectedMesh2 *fcm2;
 uint64_t lastRoom;
 
 void PrintCommands(void)
@@ -53,12 +53,12 @@ void PrintCommands(void)
 	printf("(Escape). Quit\n");
 }
 
-struct SteamResults : public SLNet::Lobby2Callbacks
+struct SteamResults : public MafiaNet::Lobby2Callbacks
 {
-	virtual void MessageResult(SLNet::Notification_Console_MemberJoinedRoom *message)
+	virtual void MessageResult(MafiaNet::Notification_Console_MemberJoinedRoom *message)
 	{
-		SLNet::Notification_Console_MemberJoinedRoom_Steam *msgSteam = (SLNet::Notification_Console_MemberJoinedRoom_Steam *) message;
-		SLNet::RakString msg;
+		MafiaNet::Notification_Console_MemberJoinedRoom_Steam *msgSteam = (MafiaNet::Notification_Console_MemberJoinedRoom_Steam *) message;
+		MafiaNet::RakString msg;
 		msgSteam->DebugMsg(msg);
 		printf("%s\n", msg.C_String());
 		// Guy with the lower ID connects to the guy with the higher ID
@@ -72,10 +72,10 @@ struct SteamResults : public SLNet::Lobby2Callbacks
 		}
 	}
 
-	virtual void MessageResult(SLNet::Console_SearchRooms *message)
+	virtual void MessageResult(MafiaNet::Console_SearchRooms *message)
 	{
-		SLNet::Console_SearchRooms_Steam *msgSteam = (SLNet::Console_SearchRooms_Steam *) message;
-		SLNet::RakString msg;
+		MafiaNet::Console_SearchRooms_Steam *msgSteam = (MafiaNet::Console_SearchRooms_Steam *) message;
+		MafiaNet::RakString msg;
 		msgSteam->DebugMsg(msg);
 		printf("%s\n", msg.C_String());
 		if (msgSteam->roomIds.GetSize()>0)
@@ -84,9 +84,9 @@ struct SteamResults : public SLNet::Lobby2Callbacks
 		}
 	}
 
-	virtual void ExecuteDefaultResult(SLNet::Lobby2Message *message)
+	virtual void ExecuteDefaultResult(MafiaNet::Lobby2Message *message)
 	{
-		SLNet::RakString out;
+		MafiaNet::RakString out;
 		message->DebugMsg(out);
 		printf("%s\n", out.C_String());
 	}
@@ -104,8 +104,8 @@ int main(int argc, char **argv)
 	}
 
 	SteamResults steamResults;
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
-	fcm2 = SLNet::FullyConnectedMesh2::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	fcm2 = MafiaNet::FullyConnectedMesh2::GetInstance();
 	messageFactory = new Lobby2MessageFactory_Steam;
 	lobby2Client = Lobby2Client_Steam::GetInstance();
 	lobby2Client->AddCallbackInterface(&steamResults);
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
 	rakPeer->AttachPlugin(lobby2Client);
 	// Connect manually in Notification_Console_MemberJoinedRoom
 	fcm2->SetConnectOnNewRemoteConnection(false, "");
-	SLNet::Lobby2Message* msg = messageFactory->Alloc(SLNet::L2MID_Client_Login);
+	MafiaNet::Lobby2Message* msg = messageFactory->Alloc(MafiaNet::L2MID_Client_Login);
 	lobby2Client->SendMsg(msg);
 	if (msg->resultCode!=L2RC_PROCESSING && msg->resultCode!=L2RC_SUCCESS)
 	{
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 	char ch;
 	while(!quit)
 	{
-		SLNet::Packet *packet;
+		MafiaNet::Packet *packet;
 		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
 		{
 			switch (packet->data[0])
@@ -188,11 +188,11 @@ int main(int argc, char **argv)
 
 			case ID_FCM2_NEW_HOST:
 				{
-					if (packet->systemAddress== SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+					if (packet->systemAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 						printf("Got new host (ourselves)");
 					else
 						printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), packet->guid.ToString());
-					SLNet::BitStream bs(packet->data,packet->length,false);
+					MafiaNet::BitStream bs(packet->data,packet->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
 			case 'a':
 				{
 
-					SLNet::Lobby2Message* logoffMsg = messageFactory->Alloc(SLNet::L2MID_Console_SearchRooms);
+					MafiaNet::Lobby2Message* logoffMsg = messageFactory->Alloc(MafiaNet::L2MID_Console_SearchRooms);
 					lobby2Client->SendMsg(logoffMsg);
 					messageFactory->Dealloc(logoffMsg);
 				}
@@ -233,7 +233,7 @@ int main(int argc, char **argv)
 						printf("Not in a room\n");
 						break;
 					}
-					SLNet::Console_LeaveRoom_Steam* leaveroomMsg = (SLNet::Console_LeaveRoom_Steam*) messageFactory->Alloc(SLNet::L2MID_Console_LeaveRoom);
+					MafiaNet::Console_LeaveRoom_Steam* leaveroomMsg = (MafiaNet::Console_LeaveRoom_Steam*) messageFactory->Alloc(MafiaNet::L2MID_Console_LeaveRoom);
 					leaveroomMsg->roomId=lobby2Client->GetRoomID();
 					lobby2Client->SendMsg(leaveroomMsg);
 					messageFactory->Dealloc(leaveroomMsg);
@@ -248,7 +248,7 @@ int main(int argc, char **argv)
 						break;
 					}
 
-					SLNet::Console_CreateRoom_Steam* createroomMsg = (SLNet::Console_CreateRoom_Steam*) messageFactory->Alloc(SLNet::L2MID_Console_CreateRoom);
+					MafiaNet::Console_CreateRoom_Steam* createroomMsg = (MafiaNet::Console_CreateRoom_Steam*) messageFactory->Alloc(MafiaNet::L2MID_Console_CreateRoom);
 					// set the name of the lobby if it's ours
 					char rgchLobbyName[256];
 					createroomMsg->roomIsPublic=true;
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
 						break;
 					}
 
-					SLNet::Console_JoinRoom_Steam* joinroomMsg = (SLNet::Console_JoinRoom_Steam*) messageFactory->Alloc(SLNet::L2MID_Console_JoinRoom);
+					MafiaNet::Console_JoinRoom_Steam* joinroomMsg = (MafiaNet::Console_JoinRoom_Steam*) messageFactory->Alloc(MafiaNet::L2MID_Console_JoinRoom);
 					printf("Enter room id, or enter for %" PRINTF_64_BIT_MODIFIER "u: ", lastRoom);
 					char str[256];
 					Gets(str, sizeof(str));
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
 						break;
 					}
 
-					SLNet::Console_GetRoomDetails_Steam* roomdetailsMsg = (SLNet::Console_GetRoomDetails_Steam*) messageFactory->Alloc(SLNet::L2MID_Console_GetRoomDetails);
+					MafiaNet::Console_GetRoomDetails_Steam* roomdetailsMsg = (MafiaNet::Console_GetRoomDetails_Steam*) messageFactory->Alloc(MafiaNet::L2MID_Console_GetRoomDetails);
 					roomdetailsMsg->roomId=lobby2Client->GetRoomID();
 					lobby2Client->SendMsg(roomdetailsMsg);
 					messageFactory->Dealloc(roomdetailsMsg);
@@ -309,7 +309,7 @@ int main(int argc, char **argv)
 						break;
 
 					}
-					SLNet::Console_SendRoomChatMessage_Steam* roomchatMsg = (SLNet::Console_SendRoomChatMessage_Steam*) messageFactory->Alloc(SLNet::L2MID_Console_SendRoomChatMessage);
+					MafiaNet::Console_SendRoomChatMessage_Steam* roomchatMsg = (MafiaNet::Console_SendRoomChatMessage_Steam*) messageFactory->Alloc(MafiaNet::L2MID_Console_SendRoomChatMessage);
 					roomchatMsg->message="Test chat message.";
 					roomchatMsg->roomId=lobby2Client->GetRoomID();
 					lobby2Client->SendMsg(roomchatMsg);
@@ -348,14 +348,14 @@ int main(int argc, char **argv)
 		RakSleep(30);
 	}
 	
-	SLNet::Lobby2Message* logoffMsg = messageFactory->Alloc(SLNet::L2MID_Client_Logoff);
+	MafiaNet::Lobby2Message* logoffMsg = messageFactory->Alloc(MafiaNet::L2MID_Client_Logoff);
 	lobby2Client->SendMsg(logoffMsg);
 	messageFactory->Dealloc(logoffMsg);
 	rakPeer->DetachPlugin(lobby2Client);
 	rakPeer->DetachPlugin(fcm2);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	Lobby2Client_Steam::DestroyInstance(lobby2Client);
-	SLNet::FullyConnectedMesh2::DestroyInstance(fcm2);
+	MafiaNet::FullyConnectedMesh2::DestroyInstance(fcm2);
 
 	return 1;
 }

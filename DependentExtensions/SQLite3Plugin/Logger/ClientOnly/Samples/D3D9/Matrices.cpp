@@ -272,8 +272,8 @@ INT WINAPI wWinMain( HINSTANCE hInst, HINSTANCE, LPWSTR, INT )
     RegisterClassEx( &wc );
 
 	// Connect to the server if it is running, to store screenshots
-	SLNet::PacketizedTCP packetizedTCP;
-	SLNet::SQLiteClientLoggerPlugin loggerPlugin;
+	MafiaNet::PacketizedTCP packetizedTCP;
+	MafiaNet::SQLiteClientLoggerPlugin loggerPlugin;
 	packetizedTCP.AttachPlugin(&loggerPlugin);
 	packetizedTCP.Start(0,0);
 	loggerPlugin.SetServerParameters(packetizedTCP.Connect("127.0.0.1", 38123, true), "d3dvideo.sqlite");
@@ -319,7 +319,7 @@ INT WINAPI wWinMain( HINSTANCE hInst, HINSTANCE, LPWSTR, INT )
 					timeSinceLastLog=timeGetTime()-lastLogTime;
 					if (packetizedTCP.GetConnectionCount()>0 && timeSinceLastLog>30)
 					{
-						SLNet::RGBImageBlob blob;
+						MafiaNet::RGBImageBlob blob;
 						backbufferGrabber.LockBackbufferCopy(&blob);
 						RakAssert(blob.data!=0);
 						rakSqlLog("Screenshots", "screenshot", ( &blob ));

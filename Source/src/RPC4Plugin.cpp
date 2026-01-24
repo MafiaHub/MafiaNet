@@ -27,14 +27,14 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(RPC4,RPC4);
 
 struct GlobalRegistration
 {
-	void ( *registerFunctionPointer ) (SLNet::BitStream *userData, Packet *packet );
-	void ( *registerBlockingFunctionPointer ) (SLNet::BitStream *userData, SLNet::BitStream *returnData, Packet *packet );
+	void ( *registerFunctionPointer ) (MafiaNet::BitStream *userData, Packet *packet );
+	void ( *registerBlockingFunctionPointer ) (MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet );
 	char functionName[RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH];
 	MessageID messageId;
 	int callPriority;
@@ -42,7 +42,7 @@ struct GlobalRegistration
 static GlobalRegistration globalRegistrationBuffer[RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS];
 static unsigned int globalRegistrationIndex=0;
 
-RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ))
+RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ))
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
@@ -56,7 +56,7 @@ RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *fun
 	globalRegistrationBuffer[globalRegistrationIndex].callPriority=0xFFFFFFFF;
 	globalRegistrationIndex++;
 }
-RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ), int callPriority)
+RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ), int callPriority)
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
@@ -71,7 +71,7 @@ RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *fun
 	globalRegistrationBuffer[globalRegistrationIndex].callPriority=callPriority;
 	globalRegistrationIndex++;
 }
-RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, SLNet::BitStream *returnData, Packet *packet ))
+RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet ))
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
@@ -140,20 +140,20 @@ RPC4::~RPC4()
 	unsigned int i;
 	for (i=0; i < localCallbacks.Size(); i++)
 	{
-		SLNet::OP_DELETE(localCallbacks[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(localCallbacks[i],_FILE_AND_LINE_);
 	}
 
-	DataStructures::List<SLNet::RakString> keyList;
+	DataStructures::List<MafiaNet::RakString> keyList;
 	DataStructures::List<LocalSlot*> outputList;
 	localSlots.GetAsList(outputList,keyList,_FILE_AND_LINE_);
 	unsigned int j;
 	for (j=0; j < outputList.Size(); j++)
 	{
-		SLNet::OP_DELETE(outputList[j],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(outputList[j],_FILE_AND_LINE_);
 	}
 	localSlots.Clear(_FILE_AND_LINE_);
 }
-bool RPC4::RegisterFunction(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ))
+bool RPC4::RegisterFunction(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ))
 {
 	DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(uniqueID);
 	if (skhi.IsInvalid()==false)
@@ -162,14 +162,14 @@ bool RPC4::RegisterFunction(const char* uniqueID, void ( *functionPointer ) (SLN
 	registeredNonblockingFunctions.Push(uniqueID,functionPointer,_FILE_AND_LINE_);
 	return true;
 }
-void RPC4::RegisterSlot(const char *sharedIdentifier, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ), int callPriority)
+void RPC4::RegisterSlot(const char *sharedIdentifier, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ), int callPriority)
 {
 	LocalSlotObject lso(nextSlotRegistrationCount++, callPriority, functionPointer);
 	DataStructures::HashIndex idx = GetLocalSlotIndex(sharedIdentifier);
 	LocalSlot *localSlot;
 	if (idx.IsInvalid())
 	{
-		localSlot = SLNet::OP_NEW<LocalSlot>(_FILE_AND_LINE_);
+		localSlot = MafiaNet::OP_NEW<LocalSlot>(_FILE_AND_LINE_);
 		localSlots.Push(sharedIdentifier, localSlot,_FILE_AND_LINE_);
 	}
 	else
@@ -178,7 +178,7 @@ void RPC4::RegisterSlot(const char *sharedIdentifier, void ( *functionPointer ) 
 	}
 	localSlot->slotObjects.Insert(lso,lso,true,_FILE_AND_LINE_);
 }
-bool RPC4::RegisterBlockingFunction(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, SLNet::BitStream *returnData, Packet *packet ))
+bool RPC4::RegisterBlockingFunction(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet ))
 {
 	DataStructures::HashIndex skhi = registeredBlockingFunctions.GetIndexOf(uniqueID);
 	if (skhi.IsInvalid()==false)
@@ -192,7 +192,7 @@ void RPC4::RegisterLocalCallback(const char* uniqueID, MessageID messageId)
 	bool objectExists;
 	unsigned int index;
 	LocalCallback *lc;
-	SLNet::RakString str;
+	MafiaNet::RakString str;
 	str=uniqueID;
 	index = localCallbacks.GetIndexFromKey(messageId,&objectExists);
 	if (objectExists)
@@ -204,7 +204,7 @@ void RPC4::RegisterLocalCallback(const char* uniqueID, MessageID messageId)
 	}
 	else
 	{
-		lc = SLNet::OP_NEW<LocalCallback>(_FILE_AND_LINE_);
+		lc = MafiaNet::OP_NEW<LocalCallback>(_FILE_AND_LINE_);
 		lc->messageId=messageId;
 		lc->functions.Insert(str,str,false,_FILE_AND_LINE_);
 		localCallbacks.InsertAtIndex(lc,index,_FILE_AND_LINE_);
@@ -212,12 +212,12 @@ void RPC4::RegisterLocalCallback(const char* uniqueID, MessageID messageId)
 }
 bool RPC4::UnregisterFunction(const char* uniqueID)
 {
-	void ( *f ) (SLNet::BitStream *, Packet * );
+	void ( *f ) (MafiaNet::BitStream *, Packet * );
 	return registeredNonblockingFunctions.Pop(f,uniqueID,_FILE_AND_LINE_);
 }
 bool RPC4::UnregisterBlockingFunction(const char* uniqueID)
 {
-	void ( *f ) (SLNet::BitStream *, SLNet::BitStream *,Packet * );
+	void ( *f ) (MafiaNet::BitStream *, MafiaNet::BitStream *,Packet * );
 	return registeredBlockingFunctions.Pop(f,uniqueID,_FILE_AND_LINE_);
 }
 bool RPC4::UnregisterLocalCallback(const char* uniqueID, MessageID messageId)
@@ -225,7 +225,7 @@ bool RPC4::UnregisterLocalCallback(const char* uniqueID, MessageID messageId)
 	bool objectExists;
 	unsigned int index, index2;
 	LocalCallback *lc;
-	SLNet::RakString str;
+	MafiaNet::RakString str;
 	str=uniqueID;
 	index = localCallbacks.GetIndexFromKey(messageId,&objectExists);
 	if (objectExists)
@@ -237,7 +237,7 @@ bool RPC4::UnregisterLocalCallback(const char* uniqueID, MessageID messageId)
 			lc->functions.RemoveAtIndex(index2);
 			if (lc->functions.Size()==0)
 			{
-				SLNet::OP_DELETE(lc,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(lc,_FILE_AND_LINE_);
 				localCallbacks.RemoveAtIndex(index);
 				return true;
 			}
@@ -251,14 +251,14 @@ bool RPC4::UnregisterSlot(const char* sharedIdentifier)
 	if (hi.IsInvalid()==false)
 	{
 		LocalSlot *ls = localSlots.ItemAtIndex(hi);
-		SLNet::OP_DELETE(ls, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(ls, _FILE_AND_LINE_);
 		localSlots.RemoveAtIndex(hi, _FILE_AND_LINE_);
 		return true;
 	}
 	
 	return false;
 }
-void RPC4::CallLoopback( const char* uniqueID, SLNet::BitStream * bitStream )
+void RPC4::CallLoopback( const char* uniqueID, MafiaNet::BitStream * bitStream )
 {
 	Packet *p=0;
 
@@ -291,7 +291,7 @@ void RPC4::CallLoopback( const char* uniqueID, SLNet::BitStream * bitStream )
 		return;
 	}
 
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((MessageID) ID_RPC_PLUGIN);
 	out.Write((MessageID) ID_RPC4_CALL);
 	out.WriteCompressed(uniqueID);
@@ -321,9 +321,9 @@ void RPC4::CallLoopback( const char* uniqueID, SLNet::BitStream * bitStream )
 	PushBackPacketUnified(p,false);
 	return;
 }
-void RPC4::Call( const char* uniqueID, SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast )
+void RPC4::Call( const char* uniqueID, MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast )
 {
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((MessageID) ID_RPC_PLUGIN);
 	out.Write((MessageID) ID_RPC4_CALL);
 	out.WriteCompressed(uniqueID);
@@ -336,9 +336,9 @@ void RPC4::Call( const char* uniqueID, SLNet::BitStream * bitStream, PacketPrior
 	}
 	SendUnified(&out,priority,reliability,orderingChannel,systemIdentifier,broadcast);
 }
-bool RPC4::CallBlocking( const char* uniqueID, SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, SLNet::BitStream *returnData )
+bool RPC4::CallBlocking( const char* uniqueID, MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, MafiaNet::BitStream *returnData )
 {
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((MessageID) ID_RPC_PLUGIN);
 	out.Write((MessageID) ID_RPC4_CALL);
 	out.WriteCompressed(uniqueID);
@@ -386,8 +386,8 @@ bool RPC4::CallBlocking( const char* uniqueID, SLNet::BitStream * bitStream, Pac
 			}
 			else if (packet->data[0]==ID_RPC_REMOTE_ERROR && packet->data[1]==RPC_ERROR_FUNCTION_NOT_REGISTERED)
 			{
-				SLNet::RakString functionName;
-				SLNet::BitStream bsIn(packet->data,packet->length,false);
+				MafiaNet::RakString functionName;
+				MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 				bsIn.IgnoreBytes(2);
 				bsIn.Read(functionName);
 				if (functionName==uniqueID)
@@ -414,9 +414,9 @@ bool RPC4::CallBlocking( const char* uniqueID, SLNet::BitStream * bitStream, Pac
 	returnData->ResetReadPointer();
 	return true;
 }
-void RPC4::Signal(const char *sharedIdentifier, SLNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool invokeLocal)
+void RPC4::Signal(const char *sharedIdentifier, MafiaNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool invokeLocal)
 {
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	out.Write((MessageID) ID_RPC_PLUGIN);
 	out.Write((MessageID) ID_RPC4_SIGNAL);
 	out.WriteCompressed(sharedIdentifier);
@@ -442,7 +442,7 @@ void RPC4::Signal(const char *sharedIdentifier, SLNet::BitStream *bitStream, Pac
 		p.guid=rakPeerInterface->GetMyGUID();
 		p.systemAddress=rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS);
 		p.wasGeneratedLocally=true;
-		SLNet::BitStream *bsptr, bstemp;
+		MafiaNet::BitStream *bsptr, bstemp;
 		if (bitStream)
 		{
 			bitStream->ResetReadPointer();
@@ -465,7 +465,7 @@ void RPC4::Signal(const char *sharedIdentifier, SLNet::BitStream *bitStream, Pac
 		//printf("b3: %I64d\n", t4-t3);
 	}
 }
-void RPC4::InvokeSignal(DataStructures::HashIndex functionIndex, SLNet::BitStream *serializedParameters, Packet *packet)
+void RPC4::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, Packet *packet)
 {
 	if (functionIndex.IsInvalid())
 		return;
@@ -527,12 +527,12 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 {
 	if (packet->data[0]==ID_RPC_PLUGIN)
 	{
-		SLNet::BitStream bsIn(packet->data,packet->length,false);
+		MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 		bsIn.IgnoreBytes(2);
 
 		if (packet->data[1]==ID_RPC4_CALL)
 		{
-			SLNet::RakString functionName;
+			MafiaNet::RakString functionName;
 			bsIn.ReadCompressed(functionName);
 			bool isBlocking=false;
 			bsIn.Read(isBlocking);
@@ -541,7 +541,7 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 				DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(functionName.C_String());
 				if (skhi.IsInvalid())
 				{
-					SLNet::BitStream bsOut;
+					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
 					bsOut.Write((unsigned char) RPC_ERROR_FUNCTION_NOT_REGISTERED);
 					bsOut.Write(functionName.C_String(),(unsigned int) functionName.GetLength()+1);
@@ -549,7 +549,7 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
-				void ( *fp ) (SLNet::BitStream *, Packet * );
+				void ( *fp ) (MafiaNet::BitStream *, Packet * );
 				fp = registeredNonblockingFunctions.ItemAtIndex(skhi);
 				bsIn.AlignReadToByteBoundary();
 				fp(&bsIn,packet);
@@ -559,7 +559,7 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 				DataStructures::HashIndex skhi = registeredBlockingFunctions.GetIndexOf(functionName.C_String());
 				if (skhi.IsInvalid())
 				{
-					SLNet::BitStream bsOut;
+					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
 					bsOut.Write((unsigned char) RPC_ERROR_FUNCTION_NOT_REGISTERED);
 					bsOut.Write(functionName.C_String(),(unsigned int) functionName.GetLength()+1);
@@ -567,13 +567,13 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
-				void ( *fp ) (SLNet::BitStream *, SLNet::BitStream *, Packet * );
+				void ( *fp ) (MafiaNet::BitStream *, MafiaNet::BitStream *, Packet * );
 				fp = registeredBlockingFunctions.ItemAtIndex(skhi);
-				SLNet::BitStream returnData;
+				MafiaNet::BitStream returnData;
 				bsIn.AlignReadToByteBoundary();
 				fp(&bsIn, &returnData, packet);
 
-				SLNet::BitStream out;
+				MafiaNet::BitStream out;
 				out.Write((MessageID) ID_RPC_PLUGIN);
 				out.Write((MessageID) ID_RPC4_RETURN);
 				returnData.ResetReadPointer();
@@ -584,11 +584,11 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 		}
 		else if (packet->data[1]==ID_RPC4_SIGNAL)
 		{
-			SLNet::RakString sharedIdentifier;
+			MafiaNet::RakString sharedIdentifier;
 			bsIn.ReadCompressed(sharedIdentifier);
 			DataStructures::HashIndex functionIndex;
 			functionIndex = localSlots.GetIndexOf(sharedIdentifier);
-			SLNet::BitStream serializedParameters;
+			MafiaNet::BitStream serializedParameters;
             bsIn.AlignReadToByteBoundary();
 			bsIn.Read(&serializedParameters);
 			InvokeSignal(functionIndex, &serializedParameters, packet);
@@ -613,12 +613,12 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 		lc = localCallbacks[index];
 		for (index2=0; index2 < lc->functions.Size(); index2++)
 		{
-			SLNet::BitStream bsIn(packet->data, packet->length, false);
+			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 
 			DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(lc->functions[index2].C_String());
 			if (skhi.IsInvalid()==false)
 			{
-				void ( *fp ) (SLNet::BitStream *, Packet * );
+				void ( *fp ) (MafiaNet::BitStream *, Packet * );
 				fp = registeredNonblockingFunctions.ItemAtIndex(skhi);
 				bsIn.AlignReadToByteBoundary();
 				fp(&bsIn,packet);

@@ -149,7 +149,7 @@ namespace DataStructures
 		List<list_type>::~List()
 	{
 		if (allocation_size>0)
-			SLNet::OP_DELETE_ARRAY(listArray, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE_ARRAY(listArray, _FILE_AND_LINE_);
 	}
 
 
@@ -165,7 +165,7 @@ namespace DataStructures
 		}
 		else
 		{
-			listArray = SLNet::OP_NEW_ARRAY<list_type >( original_copy.list_size , _FILE_AND_LINE_ );
+			listArray = MafiaNet::OP_NEW_ARRAY<list_type >( original_copy.list_size , _FILE_AND_LINE_ );
 
 			for ( unsigned int counter = 0; counter < original_copy.list_size; ++counter )
 				listArray[ counter ] = original_copy.listArray[ counter ];
@@ -194,7 +194,7 @@ namespace DataStructures
 
 			else
 			{
-				listArray = SLNet::OP_NEW_ARRAY<list_type >( original_copy.list_size , _FILE_AND_LINE_ );
+				listArray = MafiaNet::OP_NEW_ARRAY<list_type >( original_copy.list_size , _FILE_AND_LINE_ );
 
 				for ( unsigned int counter = 0; counter < original_copy.list_size; ++counter )
 					listArray[ counter ] = original_copy.listArray[ counter ];
@@ -260,7 +260,7 @@ namespace DataStructures
 			else
 				allocation_size *= 2;
 
-			new_array = SLNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
+			new_array = MafiaNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
 
 			// copy old array over
 			for ( unsigned int counter = 0; counter < list_size; ++counter )
@@ -270,7 +270,7 @@ namespace DataStructures
 			//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 			// set old array to point to the newly allocated and twice as large array
-			SLNet::OP_DELETE_ARRAY(listArray, file, line);
+			MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
 
 			listArray = new_array;
 		}
@@ -305,7 +305,7 @@ namespace DataStructures
 			else
 				allocation_size *= 2;
 
-			new_array = SLNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
+			new_array = MafiaNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
 
 			if (listArray)
 			{
@@ -317,7 +317,7 @@ namespace DataStructures
 				//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 				// set old array to point to the newly allocated and twice as large array
-					SLNet::OP_DELETE_ARRAY(listArray, file, line);
+					MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
 			}
 			
 			listArray = new_array;
@@ -345,7 +345,7 @@ namespace DataStructures
 				list_type * new_array;
 				allocation_size = position + 1;
 
-				new_array = SLNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
+				new_array = MafiaNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
 
 				// copy old array over
 
@@ -356,7 +356,7 @@ namespace DataStructures
 				//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 				// set old array to point to the newly allocated array
-				SLNet::OP_DELETE_ARRAY(listArray, file, line);
+				MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
 
 				listArray = new_array;
 			}
@@ -455,7 +455,7 @@ namespace DataStructures
 
 		if (allocation_size>512 || doNotDeallocateSmallBlocks==false)
 		{
-			SLNet::OP_DELETE_ARRAY(listArray, file, line);
+			MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
 			allocation_size = 0;
 			listArray = 0;
 		}
@@ -470,7 +470,7 @@ namespace DataStructures
 		if ( allocation_size == 0 )
 			return ;
 
-		new_array = SLNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
+		new_array = MafiaNet::OP_NEW_ARRAY<list_type >( allocation_size , file, line );
 
 		// copy old array over
 		for ( unsigned int counter = 0; counter < list_size; ++counter )
@@ -480,7 +480,7 @@ namespace DataStructures
 		//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 		// set old array to point to the newly allocated array
-		SLNet::OP_DELETE_ARRAY(listArray, file, line);
+		MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
 
 		listArray = new_array;
 	}
@@ -501,7 +501,7 @@ namespace DataStructures
 
 			allocation_size=amountToAllocate;
 
-			new_array = SLNet::OP_NEW_ARRAY< list_type >( allocation_size , file, line );
+			new_array = MafiaNet::OP_NEW_ARRAY< list_type >( allocation_size , file, line );
 
 			if (listArray)
 			{
@@ -513,7 +513,7 @@ namespace DataStructures
 				//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 				// set old array to point to the newly allocated and twice as large array
-				SLNet::OP_DELETE_ARRAY(listArray, file, line);
+				MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
 			}
 
 			listArray = new_array;

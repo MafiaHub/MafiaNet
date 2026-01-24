@@ -34,7 +34,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(PacketLogger,PacketLogger);
 
@@ -191,7 +191,7 @@ void PacketLogger::OnDirectSocketSend(const char *data, const BitSize_t bitsUsed
 		return;
 
 	char str[256];
-	FormatLine(str, 256, "Snd", "Raw", 0, 0, data[0], bitsUsed, SLNet::GetTimeMS(), rakPeerInterface->GetExternalID(remoteSystemAddress), remoteSystemAddress, (unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
+	FormatLine(str, 256, "Snd", "Raw", 0, 0, data[0], bitsUsed, MafiaNet::GetTimeMS(), rakPeerInterface->GetExternalID(remoteSystemAddress), remoteSystemAddress, (unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
 	AddToLog(str);
 }
 
@@ -206,7 +206,7 @@ void PacketLogger::OnDirectSocketReceive(const char *data, const BitSize_t bitsU
 		return;
 
 	char str[256];
-	FormatLine(str, 256, "Rcv", "Raw", 0, 0, data[0], bitsUsed, SLNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
+	FormatLine(str, 256, "Rcv", "Raw", 0, 0, data[0], bitsUsed, MafiaNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
 	AddToLog(str);
 }
 void PacketLogger::OnReliabilityLayerNotification(const char *errorMessage, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress, bool isError)
@@ -217,11 +217,11 @@ void PacketLogger::OnReliabilityLayerNotification(const char *errorMessage, cons
 		type=(char*) "RcvErr";
 	else
 		type=(char*) "RcvWrn";
-	FormatLine(str, 1024, type, errorMessage, 0, 0, "", bitsUsed, SLNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
+	FormatLine(str, 1024, type, errorMessage, 0, 0, "", bitsUsed, MafiaNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
 	AddToLog(str);
 	RakAssert(isError==false);
 }
-void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, SLNet::TimeMS time)
+void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time)
 {
 	char str[256];
 	char str1[64], str2[62];
@@ -247,7 +247,7 @@ void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, 
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
 	remoteSystemAddress.ToString(true, str2, static_cast<size_t>(62));
-	SLNet::TimeMS time = SLNet::GetTimeMS();
+	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 	char localtime[128];
 	GetLocalTime(localtime);
 
@@ -261,7 +261,7 @@ void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, 
 					);
 	AddToLog(str);
 }
-void PacketLogger::OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, SLNet::TimeMS time, int isSend)
+void PacketLogger::OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend)
 {
 	char str[256];
 	const char *sendTypes[] =
@@ -286,7 +286,7 @@ void PacketLogger::OnInternalPacket(InternalPacket *internalPacket, unsigned fra
 
 	if (internalPacket->data[0]==ID_TIMESTAMP)
 	{
-		FormatLine(str, 256, sendType, "Tms", reliableMessageNumber, frameNumber, internalPacket->data[1+sizeof(SLNet::Time)], internalPacket->dataBitLength, (unsigned long long)time, localSystemAddress, remoteSystemAddress, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex);
+		FormatLine(str, 256, sendType, "Tms", reliableMessageNumber, frameNumber, internalPacket->data[1+sizeof(MafiaNet::Time)], internalPacket->dataBitLength, (unsigned long long)time, localSystemAddress, remoteSystemAddress, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex);
 	}
 	else
 	{
@@ -309,7 +309,7 @@ void PacketLogger::WriteMiscellaneous(const char *type, const char *msg)
 	char str1[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetInternalID();
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
-	SLNet::TimeMS time = SLNet::GetTimeMS();
+	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 	char localtime[128];
 	GetLocalTime(localtime);
 

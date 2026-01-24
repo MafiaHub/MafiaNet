@@ -26,7 +26,7 @@
 #include "slikenet/Kbhit.h"
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 /// A sample derived implementation that will automatically update the table with all connected systems
 class ConnectionStatePlugin : public SQLite3ServerPlugin
@@ -36,7 +36,7 @@ public:
 
 	// Custom function to create the table we want
 	// Assumes the database was already added with AddDBHandle
-	bool CreateConnectionStateTable(SLNet::RakString dbIdentifier)
+	bool CreateConnectionStateTable(MafiaNet::RakString dbIdentifier)
 	{
 		// dbHandles is a member variable of SQLite3Plugin and contains the mappings of identifiers to sql database pointers
 		unsigned int idx = dbHandles.GetIndexOf(dbIdentifier);
@@ -75,8 +75,8 @@ public:
 		// Remove dropped system by primary key system address
 		char systemAddressString[64];
 		systemAddress.ToString(true,systemAddressString,static_cast<size_t>(64));
-		SLNet::RakString query("DELETE FROM connectionState WHERE systemAddress='%s';",
-			SLNet::RakString(systemAddressString).SQLEscape().C_String());
+		MafiaNet::RakString query("DELETE FROM connectionState WHERE systemAddress='%s';",
+			MafiaNet::RakString(systemAddressString).SQLEscape().C_String());
 		sqlite3_exec(dbHandles[idx].dbHandle,query.C_String(),0,0,0);
 	}
 
@@ -96,10 +96,10 @@ public:
 		systemAddress.ToString(true,systemAddressString,static_cast<size_t>(64));
 		char guidString[128];
 		rakNetGUID.ToString(guidString, 64);
-		SLNet::RakString query(
+		MafiaNet::RakString query(
 			"INSERT INTO connectionState (systemAddress,rakNetGUID) VALUES ('%s','%s');",
-			SLNet::RakString(systemAddressString).SQLEscape().C_String(),
-			SLNet::RakString(guidString).SQLEscape().C_String());
+			MafiaNet::RakString(systemAddressString).SQLEscape().C_String(),
+			MafiaNet::RakString(guidString).SQLEscape().C_String());
 		sqlite3_exec(dbHandles[idx].dbHandle,query.C_String(),0,0,0);
 	}
 
@@ -111,7 +111,7 @@ public:
 		SQLite3Plugin::Update();
 
 		// Once a second, remove all rows whose timestamp has not been updated in the last 30 seconds
-		SLNet::TimeMS curTime=SLNet::GetTimeMS();
+		MafiaNet::TimeMS curTime=MafiaNet::GetTimeMS();
 		if (curTime > lastTimeRemovedDeadRows+1000 || curTime < lastTimeRemovedDeadRows) // < is to check overflow
 		{
 			lastTimeRemovedDeadRows = curTime;
@@ -126,8 +126,8 @@ public:
 	}
 	*/
 
-	SLNet::RakString connectionStateIdentifier;
-	SLNet::TimeMS lastTimeRemovedDeadRows;
+	MafiaNet::RakString connectionStateIdentifier;
+	MafiaNet::TimeMS lastTimeRemovedDeadRows;
 };
 
 int main(void)
@@ -137,10 +137,10 @@ int main(void)
 	printf("System is a basis from which to add more functionality (security, etc.)\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	SLNet::RakPeerInterface *rakClient= SLNet::RakPeerInterface::GetInstance();
-	SLNet::RakPeerInterface *rakServer= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *rakClient= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *rakServer= MafiaNet::RakPeerInterface::GetInstance();
 	// Client just needs the base class to do sends
-	SLNet::SQLite3ClientPlugin sqlite3ClientPlugin;
+	MafiaNet::SQLite3ClientPlugin sqlite3ClientPlugin;
 	// Server uses our sample derived class to track logins
 	ConnectionStatePlugin sqlite3ServerPlugin;
 	// Default result handler to print what happens on the client
@@ -161,7 +161,7 @@ int main(void)
 	sqlite3ServerPlugin.CreateConnectionStateTable(DATABASE_IDENTIFIER);
 
 	// Start and connect RakNet as usual
-	SLNet::SocketDescriptor socketDescriptor(10000,0);
+	MafiaNet::SocketDescriptor socketDescriptor(10000,0);
 	if (rakServer->Startup(1,&socketDescriptor, 1)!=RAKNET_STARTED)
 	{
 		printf("Start call failed!\n");
@@ -170,7 +170,7 @@ int main(void)
 	rakServer->SetMaximumIncomingConnections(1);
 	socketDescriptor.port=0;
 	rakClient->Startup(1, &socketDescriptor, 1);
-	if (rakClient->Connect("127.0.0.1", 10000, 0, 0)!= SLNet::CONNECTION_ATTEMPT_STARTED)
+	if (rakClient->Connect("127.0.0.1", 10000, 0, 0)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 	{
 		printf("Connect call failed\n");
 		return 0;
@@ -211,8 +211,8 @@ int main(void)
 	rakClient->Shutdown(100,0);
 	rakServer->Shutdown(100,0);
 	
-	SLNet::RakPeerInterface::DestroyInstance(rakClient);
-	SLNet::RakPeerInterface::DestroyInstance(rakServer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakClient);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakServer);
 
 	sqlite3_close(database);
 

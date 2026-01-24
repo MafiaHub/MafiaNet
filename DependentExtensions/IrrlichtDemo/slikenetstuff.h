@@ -52,12 +52,12 @@ class PlayerReplica;
 
 // All externs defined in the corresponding CPP file
 // Most of these classes has a manual entry, all of them have a demo
-extern SLNet::RakPeerInterface *rakPeer; // Basic communication
-extern SLNet::NetworkIDManager *networkIDManager; // Unique IDs per network object
+extern MafiaNet::RakPeerInterface *rakPeer; // Basic communication
+extern MafiaNet::NetworkIDManager *networkIDManager; // Unique IDs per network object
 extern ReplicaManager3Irrlicht *irrlichtReplicaManager3; // Autoreplicate network objects
-extern SLNet::NatPunchthroughClient *natPunchthroughClient; // Connect peer to peer through routers
-extern SLNet::CloudClient *cloudClient; // Used to upload game instance to the cloud
-extern SLNet::FullyConnectedMesh2 *fullyConnectedMesh2; // Used to find out who is the session host
+extern MafiaNet::NatPunchthroughClient *natPunchthroughClient; // Connect peer to peer through routers
+extern MafiaNet::CloudClient *cloudClient; // Used to upload game instance to the cloud
+extern MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2; // Used to find out who is the session host
 extern PlayerReplica *playerReplica; // Network object that represents the player
 
 // A NAT punchthrough and proxy server Jenkins Software is hosting for free, should usually be online
@@ -68,44 +68,44 @@ void InstantiateRakNetClasses(void);
 void DeinitializeRakNetClasses(void);
 
 // Base RakNet custom classes for Replica Manager 3, setup peer to peer networking
-class BaseIrrlichtReplica : public SLNet::Replica3
+class BaseIrrlichtReplica : public MafiaNet::Replica3
 {
 public:
 	BaseIrrlichtReplica();
 	virtual ~BaseIrrlichtReplica();
-	virtual SLNet::RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, SLNet::ReplicaManager3 *replicaManager3)
+	virtual MafiaNet::RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
 
 		return QueryConstruction_PeerToPeer(destinationConnection);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		return QueryRemoteConstruction_PeerToPeer(sourceConnection);
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		delete this;
 	}
-	virtual SLNet::RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_PeerToPeer(destinationConnection);
 	}
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection);
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection);
-	virtual SLNet::RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters);
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters);
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection);
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection);
+	virtual MafiaNet::RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters);
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters);
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
 		(void)destinationConnection;
 	}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
@@ -113,21 +113,21 @@ public:
 
 		return true;
 	}
-	virtual SLNet::RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_PeerToPeer(droppedConnection);
 	}
 
 	/// This function is not derived from Replica3, it's specific to this app
 	/// Called from CDemo::UpdateRakNet
-	virtual void Update(SLNet::TimeMS curTime);
+	virtual void Update(MafiaNet::TimeMS curTime);
 
 	// Set when the object is constructed
 	CDemo *demo;
 
 	// real is written on the owner peer, read on the remote peer
 	irr::core::vector3df position;
-	SLNet::TimeMS creationTime;
+	MafiaNet::TimeMS creationTime;
 };
 // Game classes automatically updated by ReplicaManager3
 class PlayerReplica : public BaseIrrlichtReplica, irr::scene::IAnimationEndCallBack
@@ -136,29 +136,29 @@ public:
 	PlayerReplica();
 	virtual ~PlayerReplica();
 	// Every function below, before Update overriding a function in Replica3
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const;
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection);
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection);
-	virtual SLNet::RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters);
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters);
-	virtual void PostDeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection);
-	virtual void PreDestruction(SLNet::Connection_RM3 *sourceConnection);
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const;
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection);
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection);
+	virtual MafiaNet::RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters);
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters);
+	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection);
+	virtual void PreDestruction(MafiaNet::Connection_RM3 *sourceConnection);
 
-	virtual void Update(SLNet::TimeMS curTime);
+	virtual void Update(MafiaNet::TimeMS curTime);
 	void UpdateAnimation(irr::scene::EMD2_ANIMATION_TYPE anim);
 	float GetRotationDifference(float r1, float r2);
 	virtual void OnAnimationEnd(irr::scene::IAnimatedMeshSceneNode* node);
 	void PlayAttackAnimation(void);
 
 	// playerName is only sent in SerializeConstruction, since it doesn't change
-	SLNet::RakString playerName;
+	MafiaNet::RakString playerName;
 
 	// Networked rotation
 	float rotationAroundYAxis;
 	// Interpolation variables, not networked
 	irr::core::vector3df positionDeltaPerMS;
 	float rotationDeltaPerMS;
-	SLNet::TimeMS interpEndTime, lastUpdate;
+	MafiaNet::TimeMS interpEndTime, lastUpdate;
 
 	// Updated based on the keypresses, to control remote animation
 	bool isMoving;
@@ -168,7 +168,7 @@ public:
 	irr::scene::EMD2_ANIMATION_TYPE curAnim;
 
 	// deathTimeout is set from the local player
-	SLNet::TimeMS deathTimeout;
+	MafiaNet::TimeMS deathTimeout;
 	bool IsDead(void) const;
 	// isDead is set from network packets for remote players
 	bool isDead;
@@ -182,25 +182,25 @@ public:
 	BallReplica();
 	virtual ~BallReplica();
 	// Every function except update is overriding a function in Replica3
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const;
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection);
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection);
-	virtual SLNet::RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters);
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters);
-	virtual void PostDeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection);
-	virtual void PreDestruction(SLNet::Connection_RM3 *sourceConnection);
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const;
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection);
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection);
+	virtual MafiaNet::RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters);
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters);
+	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection);
+	virtual void PreDestruction(MafiaNet::Connection_RM3 *sourceConnection);
 
-	virtual void Update(SLNet::TimeMS curTime);
+	virtual void Update(MafiaNet::TimeMS curTime);
 
 	// shotDirection is networked
 	irr::core::vector3df shotDirection;
 
 	// shotlifetime is calculated, not networked
-	SLNet::TimeMS shotLifetime;
+	MafiaNet::TimeMS shotLifetime;
 };
-class Connection_RM3Irrlicht : public SLNet::Connection_RM3 {
+class Connection_RM3Irrlicht : public MafiaNet::Connection_RM3 {
 public:
-	Connection_RM3Irrlicht(const SLNet::SystemAddress &_systemAddress, SLNet::RakNetGUID _guid, CDemo *_demo) : SLNet::Connection_RM3(_systemAddress, _guid)
+	Connection_RM3Irrlicht(const MafiaNet::SystemAddress &_systemAddress, MafiaNet::RakNetGUID _guid, CDemo *_demo) : MafiaNet::Connection_RM3(_systemAddress, _guid)
 	{
 		demo=_demo;
 	}
@@ -208,19 +208,19 @@ public:
 	{
 	}
 
-	virtual SLNet::Replica3 *AllocReplica(SLNet::BitStream *allocationId, SLNet::ReplicaManager3 *replicaManager3);
+	virtual MafiaNet::Replica3 *AllocReplica(MafiaNet::BitStream *allocationId, MafiaNet::ReplicaManager3 *replicaManager3);
 protected:
 	CDemo *demo;
 };
 
-class ReplicaManager3Irrlicht : public SLNet::ReplicaManager3
+class ReplicaManager3Irrlicht : public MafiaNet::ReplicaManager3
 {
 public:
-	virtual SLNet::Connection_RM3* AllocConnection(const SLNet::SystemAddress &systemAddress, SLNet::RakNetGUID rakNetGUID) const
+	virtual MafiaNet::Connection_RM3* AllocConnection(const MafiaNet::SystemAddress &systemAddress, MafiaNet::RakNetGUID rakNetGUID) const
 	{
 		return new Connection_RM3Irrlicht(systemAddress,rakNetGUID,demo);
 	}
-	virtual void DeallocConnection(SLNet::Connection_RM3 *connection) const
+	virtual void DeallocConnection(MafiaNet::Connection_RM3 *connection) const
 	{
 		delete connection;
 	}

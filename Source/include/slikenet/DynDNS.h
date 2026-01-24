@@ -27,7 +27,7 @@
 
 #include "string.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class TCPInterface;
@@ -78,14 +78,14 @@ public:
 	// Output
 	bool IsRunning(void) const {return connectPhase!=CP_IDLE;}
 	bool IsCompleted(void) const {return connectPhase==CP_IDLE;}
-	SLNet::DynDnsResultCode GetCompletedResultCode(void) {return result;}
+	MafiaNet::DynDnsResultCode GetCompletedResultCode(void) {return result;}
 	const char *GetCompletedDescription(void) const {return resultDescription;}
 	bool WasResultSuccessful(void) const {return result==RC_SUCCESS || result==RC_DNS_ALREADY_SET || result==RC_NO_CHANGE;}
 	char *GetMyPublicIP(void) const {return (char*) myIPStr;} // We get our public IP as part of the process. This is valid once completed
 
 protected:
 	void Stop(void);
-	void SetCompleted(SLNet::DynDnsResultCode _result, const char *_resultDescription) {Stop(); result=_result; resultDescription=_resultDescription;}
+	void SetCompleted(MafiaNet::DynDnsResultCode _result, const char *_resultDescription) {Stop(); result=_result; resultDescription=_resultDescription;}
 
 	enum ConnectPhase
 	{
@@ -97,18 +97,18 @@ protected:
 	};
 
 	TCPInterface *tcp;
-	SLNet::RakString getString;
+	MafiaNet::RakString getString;
 	SystemAddress serverAddress;
 	ConnectPhase connectPhase;
-	SLNet::RakString host;
-	SLNet::Time phaseTimeout;
+	MafiaNet::RakString host;
+	MafiaNet::Time phaseTimeout;
 	SystemAddress checkIpAddress;
 	const char *resultDescription;
-	SLNet::DynDnsResultCode result;
+	MafiaNet::DynDnsResultCode result;
 	char myIPStr[32];
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __DYN_DNS_H
 

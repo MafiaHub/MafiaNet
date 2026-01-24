@@ -31,7 +31,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 #define CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY "CloudConnCount"
 
 bool CloudServerHelperFilter::OnPostRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudKey key, uint32_t dataLength, const char *data)
@@ -204,16 +204,16 @@ void CloudServerHelper::PrintHelp(void)
 	printf("CloudServer.exe test.dnsalias.net test:test qwerty1234 60000 1024 64\n\n");
 }
 
-bool CloudServerHelper::StartRakPeer(SLNet::RakPeerInterface *rakPeer)
+bool CloudServerHelper::StartRakPeer(MafiaNet::RakPeerInterface *rakPeer)
 {
-	SLNet::SocketDescriptor sd(SLNet::CloudServerHelper::rakPeerPort,0);
-	SLNet::StartupResult sr = rakPeer->Startup(SLNet::CloudServerHelper::allowedIncomingConnections+ SLNet::CloudServerHelper::allowedOutgoingConnections,&sd,1);
-	if (sr!= SLNet::RAKNET_STARTED)
+	MafiaNet::SocketDescriptor sd(MafiaNet::CloudServerHelper::rakPeerPort,0);
+	MafiaNet::StartupResult sr = rakPeer->Startup(MafiaNet::CloudServerHelper::allowedIncomingConnections+ MafiaNet::CloudServerHelper::allowedOutgoingConnections,&sd,1);
+	if (sr!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup failed. Reason=%i\n", (int) sr);
 		return false;
 	}
-	rakPeer->SetMaximumIncomingConnections(SLNet::CloudServerHelper::allowedIncomingConnections);
+	rakPeer->SetMaximumIncomingConnections(MafiaNet::CloudServerHelper::allowedIncomingConnections);
 	//rakPeer->SetTimeoutTime(60000,UNASSIGNED_SYSTEM_ADDRESS);
 	return true;
 }
@@ -336,12 +336,12 @@ MessageID CloudServerHelper::AuthenticateRemoteServerBlocking(RakPeerInterface *
 	}
 }
 void CloudServerHelper::SetupPlugins(
-	SLNet::CloudServer *cloudServer,
-	SLNet::CloudServerHelperFilter *sampleFilter,
-	SLNet::CloudClient *cloudClient,
-	SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-	SLNet::TwoWayAuthentication *twoWayAuthentication,
-	SLNet::ConnectionGraph2 *connectionGraph2,
+	MafiaNet::CloudServer *cloudServer,
+	MafiaNet::CloudServerHelperFilter *sampleFilter,
+	MafiaNet::CloudClient *cloudClient,
+	MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+	MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+	MafiaNet::ConnectionGraph2 *connectionGraph2,
 	const char *newServerToServerPassword
 	)
 {
@@ -358,27 +358,27 @@ void CloudServerHelper::SetupPlugins(
 	// Do not add systems to the graph unless first validated as a server through the TwoWayAuthentication plugin
 	connectionGraph2->SetAutoProcessNewConnections(false);
 }
-void CloudServerHelper::OnPacket(Packet *packet, RakPeerInterface *rakPeer, CloudClient *cloudClient, SLNet::CloudServer *cloudServer, SLNet::FullyConnectedMesh2 *fullyConnectedMesh2, TwoWayAuthentication *twoWayAuthentication, ConnectionGraph2 *connectionGraph2)
+void CloudServerHelper::OnPacket(Packet *packet, RakPeerInterface *rakPeer, CloudClient *cloudClient, MafiaNet::CloudServer *cloudServer, MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2, TwoWayAuthentication *twoWayAuthentication, ConnectionGraph2 *connectionGraph2)
 {
 	switch (packet->data[0])
 	{
 	case ID_FCM2_NEW_HOST:
-		SLNet::CloudServerHelper::OnFCMNewHost(packet, rakPeer);
+		MafiaNet::CloudServerHelper::OnFCMNewHost(packet, rakPeer);
 		break;
 	case ID_CONNECTION_REQUEST_ACCEPTED:
 		twoWayAuthentication->Challenge("CloudServerHelperS2SPassword", packet->guid);
 		// Fallthrough
 	case ID_NEW_INCOMING_CONNECTION:
 		printf("Got connection to %s\n", packet->systemAddress.ToString(true));
-		SLNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
+		MafiaNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
 		break;
 	case ID_CONNECTION_LOST:
 	//	printf("ID_CONNECTION_LOST (UDP) from %s\n", packet->systemAddress.ToString(true));
-		SLNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
+		MafiaNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
 		break;
 	case ID_DISCONNECTION_NOTIFICATION:
 	//	printf("ID_DISCONNECTION_NOTIFICATION (UDP) from %s\n", packet->systemAddress.ToString(true));
-		SLNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
+		MafiaNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
 		break;
 	case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS:
 		printf("New server connected to us from %s\n", packet->systemAddress.ToString(true));
@@ -430,7 +430,7 @@ void CloudServerHelper::OnFCMNewHost(Packet *packet, RakPeerInterface *rakPeer)
 void CloudServerHelper_DynDns::OnFCMNewHost(Packet *packet, RakPeerInterface *rakPeer)
 {
 	RakAssert(packet->data[0]==ID_FCM2_NEW_HOST);
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	RakNetGUID oldHost;
 	bsIn.Read(oldHost);
@@ -448,7 +448,7 @@ void CloudServerHelper_DynDns::OnFCMNewHost(Packet *packet, RakPeerInterface *ra
 }
 void CloudServerHelper::OnConnectionCountChange(RakPeerInterface *rakPeer, CloudClient *cloudClient)
 {
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	CloudKey cloudKey(CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY,0);
 	unsigned short numberOfSystems;
 	rakPeer->GetConnectionList(0, &numberOfSystems);
@@ -457,12 +457,12 @@ void CloudServerHelper::OnConnectionCountChange(RakPeerInterface *rakPeer, Cloud
 }
 int CloudServerHelper_DynDns::OnJoinCloudResult(
 	Packet *packet,
-	SLNet::RakPeerInterface *rakPeer,
-	SLNet::CloudServer *cloudServer,
-	SLNet::CloudClient *cloudClient,
-	SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-	SLNet::TwoWayAuthentication *twoWayAuthentication,
-	SLNet::ConnectionGraph2 *connectionGraph2,
+	MafiaNet::RakPeerInterface *rakPeer,
+	MafiaNet::CloudServer *cloudServer,
+	MafiaNet::CloudClient *cloudClient,
+	MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+	MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+	MafiaNet::ConnectionGraph2 *connectionGraph2,
 	const char *rakPeerIpOrDomain,
 	char myPublicIP[32]
 	)
@@ -482,18 +482,18 @@ int CloudServerHelper_DynDns::OnJoinCloudResult(
 }
 int CloudServerHelper::OnJoinCloudResult(
 							  Packet *packet,
-							  SLNet::RakPeerInterface *rakPeer,
-							  SLNet::CloudServer *cloudServer,
-							  SLNet::CloudClient *cloudClient,
-							  SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-							  SLNet::TwoWayAuthentication *twoWayAuthentication,
-							  SLNet::ConnectionGraph2 *connectionGraph2,
+							  MafiaNet::RakPeerInterface *rakPeer,
+							  MafiaNet::CloudServer *cloudServer,
+							  MafiaNet::CloudClient *cloudClient,
+							  MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+							  MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+							  MafiaNet::ConnectionGraph2 *connectionGraph2,
 							  const char *rakPeerIpOrDomain,
 							  char myPublicIP[32]
 							  )
 {
 
-	SLNet::MessageID result;
+	MafiaNet::MessageID result;
 	SystemAddress packetAddress;
 	RakNetGUID packetGuid;
 	result = packet->data[0];
@@ -509,7 +509,7 @@ int CloudServerHelper::OnJoinCloudResult(
 		// rakPeer->GetExternalID(packetAddress).ToString(false, myPublicIP);
 
 		// Log in to the remote server using two way authentication
-		result = SLNet::CloudServerHelper::AuthenticateRemoteServerBlocking(rakPeer, twoWayAuthentication, packetGuid);
+		result = MafiaNet::CloudServerHelper::AuthenticateRemoteServerBlocking(rakPeer, twoWayAuthentication, packetGuid);
 		if (result==ID_CONNECTION_LOST || result==ID_DISCONNECTION_NOTIFICATION)
 		{
 			printf("Connection lost while authenticating.\n");
@@ -585,7 +585,7 @@ int CloudServerHelper::OnJoinCloudResult(
 
 	// Force the external server address for queries. Otherwise it would report 127.0.0.1 since the client is on localhost
 	SystemAddress forceAddress;
-	forceAddress.FromStringExplicitPort(myPublicIP, SLNet::CloudServerHelper::rakPeerPort);
+	forceAddress.FromStringExplicitPort(myPublicIP, MafiaNet::CloudServerHelper::rakPeerPort);
 	cloudServer->ForceExternalSystemAddress(forceAddress);
 
 	if (result==ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS)
@@ -594,7 +594,7 @@ int CloudServerHelper::OnJoinCloudResult(
 	}
 	else
 	{
-		SLNet::BitStream bs;
+		MafiaNet::BitStream bs;
 		CloudKey cloudKey(CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY,0);
 		bs.WriteCasted<unsigned short>(0);
 		cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), rakPeer->GetMyGUID());
@@ -602,12 +602,12 @@ int CloudServerHelper::OnJoinCloudResult(
 	return 0;
 }
 int CloudServerHelper::JoinCloud(
-	SLNet::RakPeerInterface *rakPeer,
-	SLNet::CloudServer *cloudServer,
-	SLNet::CloudClient *cloudClient,
-	SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-	SLNet::TwoWayAuthentication *twoWayAuthentication,
-	SLNet::ConnectionGraph2 *connectionGraph2,
+	MafiaNet::RakPeerInterface *rakPeer,
+	MafiaNet::CloudServer *cloudServer,
+	MafiaNet::CloudClient *cloudClient,
+	MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+	MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+	MafiaNet::ConnectionGraph2 *connectionGraph2,
 	const char *rakPeerIpOrDomain
 	)
 {
@@ -620,7 +620,7 @@ int CloudServerHelper::JoinCloud(
 	fullyConnectedMesh2->Clear();
 
 	// ---- CONNECT TO EXISTING SERVER ----
-	packet = SLNet::CloudServerHelper::ConnectToRakPeer(rakPeerIpOrDomain, SLNet::CloudServerHelper::rakPeerPort, rakPeer);
+	packet = MafiaNet::CloudServerHelper::ConnectToRakPeer(rakPeerIpOrDomain, MafiaNet::CloudServerHelper::rakPeerPort, rakPeer);
 	if (packet==0)
 		return 1;
 	

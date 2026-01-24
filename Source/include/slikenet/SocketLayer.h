@@ -33,7 +33,7 @@
 
 //#include "ClientContextStruct.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeer;
@@ -104,17 +104,17 @@ public:
 	/// \param[in] errorCode An error code if an error occured .
 	/// \param[in] connectionSocketIndex Which of the sockets in RakPeer we are using
 	/// \return Returns true if you successfully read data, false on error.
-//	static void RecvFromBlocking_IPV4( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, SLNet::TimeUS *timeRead );
+//	static void RecvFromBlocking_IPV4( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
 // 	#if RAKNET_SUPPORT_IPV6==1
-// 		static void RecvFromBlockingIPV4And6( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, SLNet::TimeUS *timeRead );
+// 		static void RecvFromBlockingIPV4And6( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
 // 	#endif
-//	static void RecvFromBlocking( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, SLNet::TimeUS *timeRead );
+//	static void RecvFromBlocking( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
 
 	/// Given a socket and IP, retrieves the subnet mask, on linux the socket is unused
 	/// \param[in] inSock the socket 
 	/// \param[in] inIpString The ip of the interface you wish to retrieve the subnet mask from
 	/// \return Returns the ip dotted subnet mask if successful, otherwise returns empty string ("")
-	static SLNet::RakString GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, SLNet::RakString inIpString);
+	static MafiaNet::RakString GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, MafiaNet::RakString inIpString);
 
 
 	/// Sets the socket flags to nonblocking 
@@ -186,6 +186,6 @@ private:
 //	static SocketLayerOverride *slo;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

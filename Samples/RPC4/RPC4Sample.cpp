@@ -27,39 +27,39 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 RakPeerInterface *rakPeer;
 
-void CFunc1(SLNet::BitStream *bitStream, Packet *packet )
+void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet )
 {
 	// unused parameters
 	(void)packet;
 
 	printf("CFunc1 ");
-	SLNet::RakString data;
+	MafiaNet::RakString data;
 	SLNET_VERIFY(bitStream->ReadCompressed(data));
 	printf("%s\n", data.C_String());
 };
 
-void CFunc2(SLNet::BitStream *bitStream, Packet *packet )
+void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet )
 {
 	// unused parameters
 	(void)packet;
 
 	printf("CFunc2 ");
-	SLNet::RakString data;
+	MafiaNet::RakString data;
 	SLNET_VERIFY(bitStream->ReadCompressed(data));
 	printf("%s\n", data.C_String());
 };
 
-void CFunc3(SLNet::BitStream *bitStream, SLNet::BitStream *returnData, Packet *packet )
+void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Packet *packet )
 {
 	// unused parameters
 	(void)packet;
 
 	printf("CFunc3 ");
-	SLNet::RakString data;
+	MafiaNet::RakString data;
 	SLNET_VERIFY(bitStream->ReadCompressed(data));
 	printf("%s\n", data.C_String());
 	returnData->WriteCompressed("CFunc3 returnData");
@@ -70,7 +70,7 @@ int main(void)
 	printf("Demonstration of the RPC4 plugin.\n");
 	printf("Difficulty: Beginner\n\n");
 
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	
 	// Holds user data
 	char ip[64], serverPort[30], clientPort[30];
@@ -86,7 +86,7 @@ int main(void)
 		return 2;
 	}
 
-	SLNet::SocketDescriptor sd1(static_cast<unsigned short>(intClientPort),0);
+	MafiaNet::SocketDescriptor sd1(static_cast<unsigned short>(intClientPort),0);
 	rakPeer->Startup(8,&sd1,1);
 	rakPeer->SetMaximumIncomingConnections(8);
 
@@ -100,7 +100,7 @@ int main(void)
 	rpc.RegisterSlot("Event1", CFunc2, 0);
 	rpc.RegisterBlockingFunction("Blocking", CFunc3);
 
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	if (ip[0])
 	{
 		puts("Enter the port to connect to");
@@ -117,7 +117,7 @@ int main(void)
 		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
 			;
 
-		SLNet::BitStream testBs;
+		MafiaNet::BitStream testBs;
 		testBs.WriteCompressed("testData");
 	//	rpc.Signal("Event1", &testBs, HIGH_PRIORITY,RELIABLE_ORDERED,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
 
@@ -126,10 +126,10 @@ int main(void)
 			;
 
 		// Needs 2 program instances, because while the call is blocking rakPeer2->Receive() isn't getting called
-		SLNet::BitStream testBlockingReturn;
+		MafiaNet::BitStream testBlockingReturn;
 		rpc.CallBlocking("Blocking", &testBs, HIGH_PRIORITY,RELIABLE_ORDERED,0,rakPeer->GetSystemAddressFromIndex(0),&testBlockingReturn);
 
-		SLNet::RakString data;
+		MafiaNet::RakString data;
 		testBlockingReturn.ReadCompressed(data);
 		printf("%s\n", data.C_String());
 	}
@@ -147,7 +147,7 @@ int main(void)
 	
 
 	rakPeer->Shutdown(100,0);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 1;
 }

@@ -32,7 +32,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // Global just to make the sample easier to write
 RakNetGUID endpointGuid;
@@ -70,7 +70,7 @@ void ReadAllPackets(void)
 		}
 		else if (packet->data[0]==ID_ROUTER_2_FORWARDING_ESTABLISHED)
 		{
-			SLNet::BitStream bs(packet->data, packet->length, false);
+			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.Read(endpointGuid);
 			printf("Routing through %s to %s successful. Connecting.\n", str, endpointGuid.ToString());
@@ -83,7 +83,7 @@ void ReadAllPackets(void)
 		else if (packet->data[0]==ID_ROUTER_2_REROUTED)
 		{
 			// You could read the endpointGuid and sourceToDestPoint if you wanted to
-			SLNet::BitStream bs(packet->data, packet->length, false);
+			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			RakNetGUID endpointGuid2;
 			bs.Read(endpointGuid2);
@@ -98,7 +98,7 @@ void ReadAllPackets(void)
 			printf("Connection to %s rerouted through %s\n", str, str3);
 
 			// Test sending a message to the endpoint
-			SLNet::BitStream bsOut;
+			MafiaNet::BitStream bsOut;
 			MessageID id = ID_USER_PACKET_ENUM+1;
 			bsOut.Write(id);
 			rakPeer->Send(&bsOut,HIGH_PRIORITY,RELIABLE_ORDERED,0,endpointGuid2,false);
@@ -120,7 +120,7 @@ int main(void)
 
 	endpointGuid=UNASSIGNED_RAKNET_GUID;
 	char str[64], str2[64];
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 
 	rakPeer->SetMaximumIncomingConnections(32);
 	SocketDescriptor sd(0,0);
@@ -185,6 +185,6 @@ int main(void)
 		ReadAllPackets();
 	}
 
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	delete router2Plugin;
 }

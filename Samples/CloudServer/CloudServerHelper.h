@@ -18,7 +18,7 @@
 
 #include "slikenet/CloudServer.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class DynDNS;
@@ -49,30 +49,30 @@ struct CloudServerHelper
 	unsigned short allowedIncomingConnections;
 	unsigned short allowedOutgoingConnections;
 
-	virtual void OnPacket(Packet *packet, RakPeerInterface *rakPeer, CloudClient *cloudClient, SLNet::CloudServer *cloudServer, SLNet::FullyConnectedMesh2 *fullyConnectedMesh2, TwoWayAuthentication *twoWayAuthentication, ConnectionGraph2 *connectionGraph2);
+	virtual void OnPacket(Packet *packet, RakPeerInterface *rakPeer, CloudClient *cloudClient, MafiaNet::CloudServer *cloudServer, MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2, TwoWayAuthentication *twoWayAuthentication, ConnectionGraph2 *connectionGraph2);
 	virtual bool Update(void);
 	virtual bool ParseCommandLineParameters(int argc, char **argv);
 	virtual void PrintHelp(void);
-	bool StartRakPeer(SLNet::RakPeerInterface *rakPeer);
+	bool StartRakPeer(MafiaNet::RakPeerInterface *rakPeer);
 	Packet *ConnectToRakPeer(const char *host, unsigned short port, RakPeerInterface *rakPeer);
 	MessageID AuthenticateRemoteServerBlocking(RakPeerInterface *rakPeer, TwoWayAuthentication *twoWayAuthentication, RakNetGUID remoteSystem);
 	void SetupPlugins(
-		SLNet::CloudServer *cloudServer,
-		SLNet::CloudServerHelperFilter *sampleFilter,
-		SLNet::CloudClient *cloudClient,
-		SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-		SLNet::TwoWayAuthentication *twoWayAuthentication,
-		SLNet::ConnectionGraph2 *connectionGraph2,
+		MafiaNet::CloudServer *cloudServer,
+		MafiaNet::CloudServerHelperFilter *sampleFilter,
+		MafiaNet::CloudClient *cloudClient,
+		MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+		MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+		MafiaNet::ConnectionGraph2 *connectionGraph2,
 		const char *newServerToServerPassword
 		);
 
 	int JoinCloud(
-		SLNet::RakPeerInterface *rakPeer,
-		SLNet::CloudServer *cloudServer,
-		SLNet::CloudClient *cloudClient,
-		SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-		SLNet::TwoWayAuthentication *twoWayAuthentication,
-		SLNet::ConnectionGraph2 *connectionGraph2,
+		MafiaNet::RakPeerInterface *rakPeer,
+		MafiaNet::CloudServer *cloudServer,
+		MafiaNet::CloudClient *cloudClient,
+		MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+		MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+		MafiaNet::ConnectionGraph2 *connectionGraph2,
 		const char *rakPeerIpOrDomain
 		);
 
@@ -87,12 +87,12 @@ protected:
 
 	virtual int OnJoinCloudResult(
 		Packet *packet,
-		SLNet::RakPeerInterface *rakPeer,
-		SLNet::CloudServer *cloudServer,
-		SLNet::CloudClient *cloudClient,
-		SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-		SLNet::TwoWayAuthentication *twoWayAuthentication,
-		SLNet::ConnectionGraph2 *connectionGraph2,
+		MafiaNet::RakPeerInterface *rakPeer,
+		MafiaNet::CloudServer *cloudServer,
+		MafiaNet::CloudClient *cloudClient,
+		MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+		MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+		MafiaNet::ConnectionGraph2 *connectionGraph2,
 		const char *rakPeerIpOrDomain,
 		char myPublicIP[32]
 		);
@@ -117,17 +117,17 @@ protected:
 
 	virtual int OnJoinCloudResult(
 		Packet *packet,
-		SLNet::RakPeerInterface *rakPeer,
-		SLNet::CloudServer *cloudServer,
-		SLNet::CloudClient *cloudClient,
-		SLNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-		SLNet::TwoWayAuthentication *twoWayAuthentication,
-		SLNet::ConnectionGraph2 *connectionGraph2,
+		MafiaNet::RakPeerInterface *rakPeer,
+		MafiaNet::CloudServer *cloudServer,
+		MafiaNet::CloudClient *cloudClient,
+		MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+		MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+		MafiaNet::ConnectionGraph2 *connectionGraph2,
 		const char *rakPeerIpOrDomain,
 		char myPublicIP[32]
 		);
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __CLOUD_SERVER_HELPER_H

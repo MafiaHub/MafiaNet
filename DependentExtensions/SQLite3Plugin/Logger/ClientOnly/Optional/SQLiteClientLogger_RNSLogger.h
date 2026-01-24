@@ -24,7 +24,7 @@
 
 #include "slikenet/PluginInterface2.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 	/// \ingroup PACKETLOGGER_GROUP
 	/// \brief Packetlogger that outputs to a file
@@ -35,7 +35,7 @@ namespace SLNet
 		virtual ~SQLiteClientLogger_RakNetStatistics();
 		virtual void Update(void);
 	protected:
-		SLNet::TimeUS lastUpdate;
+		MafiaNet::TimeUS lastUpdate;
 	};
 }
 

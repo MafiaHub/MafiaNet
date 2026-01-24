@@ -9,6 +9,6 @@
 # license found in the license.txt file in the root directory of this source tree.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
 GETCURRENTFOLDER()
 STANDARDSUBPROJECTWITHOPTIONS(${current_folder} "${SLikeNet_SOURCE_DIR}/Samples/CloudServer" "${SLikeNet_SOURCE_DIR}/Samples/CloudServer/CloudServerHelper.cpp" "")

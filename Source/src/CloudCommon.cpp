@@ -19,9 +19,9 @@
 #include "slikenet/CloudCommon.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-int SLNet::CloudKeyComp(const CloudKey &key, const CloudKey &data)
+int MafiaNet::CloudKeyComp(const CloudKey &key, const CloudKey &data)
 {
 	if (key.primaryKey < data.primaryKey)
 		return -1;
@@ -36,11 +36,11 @@ int SLNet::CloudKeyComp(const CloudKey &key, const CloudKey &data)
 
 CloudQueryRow* CloudAllocator::AllocateCloudQueryRow(void)
 {
-	return SLNet::OP_NEW<CloudQueryRow>(_FILE_AND_LINE_);
+	return MafiaNet::OP_NEW<CloudQueryRow>(_FILE_AND_LINE_);
 }
 void CloudAllocator::DeallocateCloudQueryRow(CloudQueryRow *row)
 {
-	SLNet::OP_DELETE(row,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(row,_FILE_AND_LINE_);
 }
 unsigned char *CloudAllocator::AllocateRowData(uint32_t bytesNeededForData)
 {

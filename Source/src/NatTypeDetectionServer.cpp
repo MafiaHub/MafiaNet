@@ -30,7 +30,7 @@
 
 // #define NTDS_VERBOSE
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(NatTypeDetectionServer,NatTypeDetectionServer);
 
@@ -96,12 +96,12 @@ void NatTypeDetectionServer::Shutdown()
 {
 	if (s1p2!=0)
 	{
-		SLNet::OP_DELETE(s1p2,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(s1p2,_FILE_AND_LINE_);
 		s1p2=0;
 	}
 	if (s2p3!=0)
 	{
-		SLNet::OP_DELETE(s2p3,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(s2p3,_FILE_AND_LINE_);
 		s2p3=0;
 	}
 	if (s3p4!=0)
@@ -111,24 +111,24 @@ void NatTypeDetectionServer::Shutdown()
 			((RNS2_Berkley *)s3p4)->BlockOnStopRecvPollingThread();
 #endif
 
-		SLNet::OP_DELETE(s3p4,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(s3p4,_FILE_AND_LINE_);
 		s3p4=0;
 	}
 	if (s4p5!=0)
 	{
-		SLNet::OP_DELETE(s4p5,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(s4p5,_FILE_AND_LINE_);
 		s4p5=0;
 	}
 	bufferedPacketsMutex.Lock();
 	while (bufferedPackets.Size())
-		SLNet::OP_DELETE(bufferedPackets.Pop(), _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(bufferedPackets.Pop(), _FILE_AND_LINE_);
 	bufferedPacketsMutex.Unlock();
 }
 void NatTypeDetectionServer::Update(void)
 {
 	int i=0;
-	SLNet::TimeMS time = SLNet::GetTimeMS();
-	SLNet::BitStream bs;
+	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
+	MafiaNet::BitStream bs;
 	SystemAddress boundAddress;
 
 	RNS2RecvStruct *recvStruct;
@@ -144,7 +144,7 @@ void NatTypeDetectionServer::Update(void)
 		char *data = recvStruct->data;
 		if (data[0]==NAT_TYPE_PORT_RESTRICTED && recvStruct->socket==s3p4)
 		{
-			SLNet::BitStream bsIn((unsigned char*) data,recvStruct->bytesRead,false);
+			MafiaNet::BitStream bsIn((unsigned char*) data,recvStruct->bytesRead,false);
 			RakNetGUID senderGuid;
 			bsIn.IgnoreBytes(sizeof(MessageID));
 			bool readSuccess = bsIn.Read(senderGuid);
@@ -210,7 +210,7 @@ void NatTypeDetectionServer::Update(void)
 	// Client is asking us if this is port restricted. Only client requests of this type come in on s3p4
 	while (len>0 && data[0]==NAT_TYPE_PORT_RESTRICTED)
 	{
-		SLNet::BitStream bsIn((unsigned char*) data,len,false);
+		MafiaNet::BitStream bsIn((unsigned char*) data,len,false);
 		RakNetGUID senderGuid;
 		bsIn.IgnoreBytes(sizeof(MessageID));
 		bool readSuccess = bsIn.Read(senderGuid);
@@ -378,7 +378,7 @@ void NatTypeDetectionServer::OnDetectionRequest(Packet *packet)
 {
 	unsigned int i = GetDetectionAttemptIndex(packet->systemAddress);
 
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(1);
 	bool isRequest=false;
 	bsIn.Read(isRequest);
@@ -427,12 +427,12 @@ unsigned int NatTypeDetectionServer::GetDetectionAttemptIndex(RakNetGUID guid)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void NatTypeDetectionServer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
 {
-	SLNet::OP_DELETE(s, file, line);
+	MafiaNet::OP_DELETE(s, file, line);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RNS2RecvStruct *NatTypeDetectionServer::AllocRNS2RecvStruct(const char *file, unsigned int line)
 {
-	return SLNet::OP_NEW<RNS2RecvStruct>(file,line);
+	return MafiaNet::OP_NEW<RNS2RecvStruct>(file,line);
 }
 
 void NatTypeDetectionServer::OnRNS2Recv(RNS2RecvStruct *recvStruct)

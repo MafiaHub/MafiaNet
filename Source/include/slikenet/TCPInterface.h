@@ -46,7 +46,7 @@
 #include <openssl/err.h>
 #endif
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 struct RemoteClient;
@@ -149,7 +149,7 @@ protected:
 	// Plugins
 	DataStructures::List<PluginInterface2*> messageHandlerList;
 
-	SLNet::LocklessUint32_t isStarted, threadRunning;
+	MafiaNet::LocklessUint32_t isStarted, threadRunning;
 	__TCPSOCKET__ listenSocket;
 
 	DataStructures::Queue<Packet*> headPush, tailPush;
@@ -254,7 +254,7 @@ struct RemoteClient
 	void SendOrBuffer(const char **data, const unsigned int *lengths, const int numParameters);
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

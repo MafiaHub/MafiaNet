@@ -35,20 +35,20 @@ static const int SOURCE_SYSTEM_PORT=60002;
 
 int main(void)
 {
-	SLNet::RakPeerInterface *localSystem;
-	SLNet::Packet *p;
+	MafiaNet::RakPeerInterface *localSystem;
+	MafiaNet::Packet *p;
 	int systemType;
 	unsigned char byteBlock[4096];
-	SLNet::TimeMS time, quitTime, nextStatsTime;
+	MafiaNet::TimeMS time, quitTime, nextStatsTime;
 	unsigned int packetsPerSecond = 0; // unnecessary assignment - added to workaround false-positive of C4701
 	unsigned int bytesPerPacket = 0; // unnecessary assignment - added to workaround false-positive of C4701
 	unsigned int num, index, bytesInPackets;
-	SLNet::TimeMS lastSendTime;
+	MafiaNet::TimeMS lastSendTime;
 	int sendMode = 0; // unnecessary assignment - added to workaround false-positive of C4701
 	int verbosityLevel;
 	unsigned int showStatsInterval;
 	bool connectionCompleted, incomingConnectionCompleted;
-	SLNet::RakNetStatistics *rss;
+	MafiaNet::RakNetStatistics *rss;
 
 	printf("Loopback performance test.\n");
 	printf("This test measures the effective transfer rate of RakNet.\n\n");
@@ -66,7 +66,7 @@ int main(void)
 		return 1;
 	}
 
-	localSystem= SLNet::RakPeerInterface::GetInstance();
+	localSystem= MafiaNet::RakPeerInterface::GetInstance();
 	
 	printf("How many seconds do you want to run the test for?\n");
 	Gets((char*)byteBlock, sizeof(byteBlock));
@@ -102,8 +102,8 @@ int main(void)
 	{
 		printf("Initializing Raknet...\n");
 		// Destination.  Accept one connection and wait for further instructions.
-		SLNet::SocketDescriptor socketDescriptor(DESTINATION_SYSTEM_PORT,0);
-		if (localSystem->Startup(1, &socketDescriptor, 1)!= SLNet::RAKNET_STARTED)
+		MafiaNet::SocketDescriptor socketDescriptor(DESTINATION_SYSTEM_PORT,0);
+		if (localSystem->Startup(1, &socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
 		{
 			printf("Failed to initialize RakNet!.\nQuitting\n");
 			return 1;
@@ -137,15 +137,15 @@ int main(void)
 
 		printf("Initializing Raknet...\n");
 		// Relay.  Accept one connection, initiate outgoing connection, wait for further instructions.
-		SLNet::SocketDescriptor socketDescriptor(RELAY_SYSTEM_PORT,0);
-		if (localSystem->Startup(2, &socketDescriptor, 1)!= SLNet::RAKNET_STARTED)
+		MafiaNet::SocketDescriptor socketDescriptor(RELAY_SYSTEM_PORT,0);
+		if (localSystem->Startup(2, &socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
 		{
 			printf("Failed to initialize RakNet!.\nQuitting\n");
 			return 1;
 		}
 		localSystem->SetMaximumIncomingConnections(1);
 		socketDescriptor.port=DESTINATION_SYSTEM_PORT;
-		if (localSystem->Connect("127.0.0.1", DESTINATION_SYSTEM_PORT, 0, 0)!= SLNet::CONNECTION_ATTEMPT_STARTED)
+		if (localSystem->Connect("127.0.0.1", DESTINATION_SYSTEM_PORT, 0, 0)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 		{
 			printf("Connect call failed!.\nQuitting\n");
 			return 1;
@@ -210,13 +210,13 @@ int main(void)
 
 		printf("Initializing RakNet...\n");
 		// Sender.  Initiate outgoing connection to relay.
-		SLNet::SocketDescriptor socketDescriptor(SOURCE_SYSTEM_PORT,0);
-		if (localSystem->Startup(1, &socketDescriptor, 1)!= SLNet::RAKNET_STARTED)
+		MafiaNet::SocketDescriptor socketDescriptor(SOURCE_SYSTEM_PORT,0);
+		if (localSystem->Startup(1, &socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
 		{
 			printf("Failed to initialize RakNet!.\nQuitting\n");
 			return 1;
 		}
-		if (localSystem->Connect("127.0.0.1", RELAY_SYSTEM_PORT, 0, 0)!= SLNet::CONNECTION_ATTEMPT_STARTED)
+		if (localSystem->Connect("127.0.0.1", RELAY_SYSTEM_PORT, 0, 0)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 		{
 			printf("Connect call failed!.\nQuitting\n");
 			return 1;
@@ -227,14 +227,14 @@ int main(void)
 
 	connectionCompleted=false;
 	incomingConnectionCompleted=false;
-	time = SLNet::GetTimeMS();
+	time = MafiaNet::GetTimeMS();
 	lastSendTime=time;
 	nextStatsTime=time+2000; // First stat shows up in 2 seconds
 	bytesInPackets=0;
 
 	while (time < quitTime || (connectionCompleted==false && incomingConnectionCompleted==false))
 	{
-		time = SLNet::GetTimeMS();
+		time = MafiaNet::GetTimeMS();
 		// Parse messages
 		for(;;)
 		{
@@ -334,7 +334,7 @@ int main(void)
 			byteBlock[0]=255; // Relay all data with an identifier of 255
 			for (index=0; index < num; index++)
 			{
-				localSystem->Send((char*)byteBlock, bytesPerPacket, HIGH_PRIORITY, (PacketReliability)sendMode, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+				localSystem->Send((char*)byteBlock, bytesPerPacket, HIGH_PRIORITY, (PacketReliability)sendMode, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			}
             
 			lastSendTime+= (1000 * num) / packetsPerSecond;
@@ -364,6 +364,6 @@ int main(void)
 	char buff[100];
 	Gets(buff,sizeof(buff));
 
-	SLNet::RakPeerInterface::DestroyInstance(localSystem);
+	MafiaNet::RakPeerInterface::DestroyInstance(localSystem);
 	return 0;
 }

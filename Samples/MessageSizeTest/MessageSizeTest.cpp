@@ -26,16 +26,16 @@
 #include "slikenet/sleep.h"
 #include "slikenet/memoryoverride.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int main(int, char **)
 {
 	RakPeerInterface *sender, *receiver;
 
 	printf("This project tests sending messages of various sizes.\n");
-	sender = SLNet::RakPeerInterface::GetInstance();
-	receiver = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor sd1(1234,0),sd2(1235,0);
+	sender = MafiaNet::RakPeerInterface::GetInstance();
+	receiver = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor sd1(1234,0),sd2(1235,0);
 	receiver->Startup(32, &sd1, 1);
 	receiver->SetMaximumIncomingConnections(32);
 	sender->Startup(1, &sd2, 1);
@@ -54,16 +54,16 @@ int main(int, char **)
 		receiveCount=0;
 		for (sum=0; sum < 4000; sum+=stride)
 		{
-			sender->Send((const char*) data,stride,HIGH_PRIORITY,RELIABLE_ORDERED,0, SLNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+			sender->Send((const char*) data,stride,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 			sendCount++;
 		}
 
-		SLNet::Packet *p;
+		MafiaNet::Packet *p;
 		for (p=sender->Receive(); p; sender->DeallocatePacket(p), p=sender->Receive())
 			;
 
-		SLNet::Time timeout= SLNet::GetTime()+1000;
-		while (SLNet::GetTime()<timeout)
+		MafiaNet::Time timeout= MafiaNet::GetTime()+1000;
+		while (MafiaNet::GetTime()<timeout)
 		{
 			for (p=receiver->Receive(); p; receiver->DeallocatePacket(p), p=receiver->Receive())
 			{
@@ -88,9 +88,9 @@ int main(int, char **)
 	}
 
 	if (sender)
-		SLNet::RakPeerInterface::DestroyInstance(sender);
+		MafiaNet::RakPeerInterface::DestroyInstance(sender);
 	if (receiver)
-		SLNet::RakPeerInterface::DestroyInstance(receiver);
+		MafiaNet::RakPeerInterface::DestroyInstance(receiver);
 
 	return 1;
 }

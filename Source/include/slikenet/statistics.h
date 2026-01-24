@@ -26,7 +26,7 @@
 #include "Export.h"
 #include "types.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 enum RNSPerSecondMetrics
@@ -69,8 +69,8 @@ struct RAK_DLL_EXPORT RakNetStatistics
 	uint64_t runningTotal[RNS_PER_SECOND_METRICS_COUNT];
 	
 	/// When did the connection start?
-	/// \sa SLNet::GetTimeUS()
-	SLNet::TimeUS connectionStartTime;
+	/// \sa MafiaNet::GetTimeUS()
+	MafiaNet::TimeUS connectionStartTime;
 
 	/// Is our current send rate throttled by congestion control?
 	/// This value should be true if you send more data per second than your bandwidth capacity
@@ -135,6 +135,6 @@ struct RAK_DLL_EXPORT RakNetStatistics
 void RAK_DLL_EXPORT StatisticsToString(RakNetStatistics *s, char *buffer, int verbosityLevel);
 void RAK_DLL_EXPORT StatisticsToString( RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel );
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

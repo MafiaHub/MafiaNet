@@ -39,17 +39,17 @@ int main(void)
 {
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
-	SLNet::RakPeerInterface *client= SLNet::RakPeerInterface::GetInstance();
-	SLNet::RakPeerInterface *server= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *client= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *server= MafiaNet::RakPeerInterface::GetInstance();
 
 	// #med - review whether the call is actually required at all
 	server->GetNumberOfAddresses();
 
 	// Holds packets
-	SLNet::Packet* p;
+	MafiaNet::Packet* p;
 
 	// Record the first client that connects to us so we can pass it to the ping function
-	SLNet::SystemAddress clientID= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress clientID= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	bool packetFromServer;
 	char portstring[30];
 
@@ -79,8 +79,8 @@ int main(void)
 	puts("Starting server.");
 
 	// The server has to be started to respond to pings.
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
-	bool b = server->Startup(2, &socketDescriptor, 1)== SLNet::RAKNET_STARTED;
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
+	bool b = server->Startup(2, &socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
 	server->SetMaximumIncomingConnections(2);
 	if (b)
 		puts("Server started, waiting for connections.");
@@ -151,17 +151,17 @@ int main(void)
 			case ID_UNCONNECTED_PONG:
 				{
 					unsigned int dataLength;
-					SLNet::TimeMS time;
-					SLNet::BitStream bsIn(p->data,p->length,false);
+					MafiaNet::TimeMS time;
+					MafiaNet::BitStream bsIn(p->data,p->length,false);
 					bsIn.IgnoreBytes(1);
 					bsIn.Read(time);
-					dataLength = p->length - sizeof(unsigned char) - sizeof(SLNet::TimeMS);
+					dataLength = p->length - sizeof(unsigned char) - sizeof(MafiaNet::TimeMS);
 					printf("ID_UNCONNECTED_PONG from SystemAddress %s.\n", p->systemAddress.ToString(true));
 					printf("Time is %i\n",time);
-					printf("Ping is %i\n", (unsigned int)(SLNet::GetTimeMS()-time));
+					printf("Ping is %i\n", (unsigned int)(MafiaNet::GetTimeMS()-time));
 					printf("Data is %i bytes long.\n", dataLength);
 					if (dataLength > 0)
-						printf("Data is %s\n", p->data+sizeof(unsigned char)+sizeof(SLNet::TimeMS));
+						printf("Data is %s\n", p->data+sizeof(unsigned char)+sizeof(MafiaNet::TimeMS));
 
 					// In this sample since the client is not running a game we can save CPU cycles by
 					// Stopping the network threads after receiving the pong.
@@ -182,8 +182,8 @@ int main(void)
 	}
 
 	// We're done with the network
-	SLNet::RakPeerInterface::DestroyInstance(server);
-	SLNet::RakPeerInterface::DestroyInstance(client);
+	MafiaNet::RakPeerInterface::DestroyInstance(server);
+	MafiaNet::RakPeerInterface::DestroyInstance(client);
 
 	return 0;
 }

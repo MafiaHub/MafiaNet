@@ -27,7 +27,7 @@
 #else
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 char ProfanityFilter::BANCHARS[] = "!@#$%^&*()";
 char ProfanityFilter::WORDCHARS[] = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -158,7 +158,7 @@ int ProfanityFilter::Count()
 {
 	return words.Size();
 }
-void ProfanityFilter::AddWord(SLNet::RakString newWord)
+void ProfanityFilter::AddWord(MafiaNet::RakString newWord)
 {
 	words.Insert(newWord, _FILE_AND_LINE_ );
 }

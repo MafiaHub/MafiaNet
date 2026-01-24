@@ -39,7 +39,7 @@
 typedef int PP_Resource;
 #endif
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RakNetSocket2;
@@ -93,7 +93,7 @@ struct RNS2RecvStruct
 
 	int bytesRead;
 	SystemAddress systemAddress;
-	SLNet::TimeUS timeRead;
+	MafiaNet::TimeUS timeRead;
 	RakNetSocket2 *socket;
 };
 
@@ -181,7 +181,7 @@ public:
 	//
 	// Example:
 	// 
-	// DataStructures::List< SLNet::RakNetSocket2* > sockets;
+	// DataStructures::List< MafiaNet::RakNetSocket2* > sockets;
 	// rakPeerInterface->GetSockets(sockets);
 	// for (unsigned int i=0; i < sockets.Size(); i++)
 	// {
@@ -280,7 +280,7 @@ protected:
 	RNS2_BerkleyBindParameters binding;
 
 	unsigned RecvFromLoopInt(void);
-	SLNet::LocklessUint32_t isRecvFromLoopThreadActive;
+	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 	volatile bool endThreads;
 	// Constructor not called!
 
@@ -412,6 +412,6 @@ protected:
 
 #endif // #elif !defined(__native_client__)
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __RAKNET_SOCKET_2_H

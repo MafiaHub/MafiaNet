@@ -13,13 +13,13 @@
 #include <openssl/pem.h> // used for PEM_read_bio_RSAPrivateKey, PEM_read_bio_RSA_PUBKEY, BIO_xxx
 #include <openssl/rsa.h> // used for RSA_xxxx
 
-#include "slikenet/crypto/cryptomanager.h" // used for SLNet::Experimental::Crypto::CCryptoManager
+#include "slikenet/crypto/cryptomanager.h" // used for MafiaNet::Experimental::Crypto::CCryptoManager
 #include "slikenet/assert.h"               // used for RakAssert
 
 #include "slikenet/linux_adapter.h" // used for strcpy_s
 #include "slikenet/osx_adapter.h"   // used for strcpy_s
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{
@@ -99,9 +99,7 @@ namespace SLNet
 				// #high - verify returned bufferSize...
 				const bool success = (EVP_SignFinal(rsaSigningContext, m_sigBuffer, &bufferSize, m_privatePKey) != 0);
 
-				// #med - review the return value here - it's not documented in the manual
-				// note: cleanup() must be called so to not leak resources generated during the EVP_SignalFinal()-call
-				(void)EVP_MD_CTX_cleanup(rsaSigningContext);
+				// note: EVP_MD_CTX_destroy handles cleanup
 				EVP_MD_CTX_destroy(rsaSigningContext);
 
 				return success ? m_sigBuffer : nullptr;
@@ -150,9 +148,7 @@ namespace SLNet
 
 				// #high - review const_cast / also code simplifications
 				const int authenticStatus = EVP_DigestVerifyFinal(rsaVerifyContext, const_cast<unsigned char*>(signature), signatureLength);
-				// #med - review the return value here - it's not documented in the manual
-				// note: cleanup() must be called so to not leak resources generated during the EVP_SignalFinal()-call
-				(void)EVP_MD_CTX_cleanup(rsaVerifyContext);
+				// note: EVP_MD_CTX_destroy handles cleanup
 				EVP_MD_CTX_destroy(rsaVerifyContext);
 
 				if (authenticStatus == 1) {

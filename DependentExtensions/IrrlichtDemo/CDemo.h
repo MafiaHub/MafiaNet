@@ -95,7 +95,7 @@ public:
 	bool IsKeyDown(EKEY_CODE keyCode) const;
 	bool IsMovementKeyDown(void) const;
 	// RakNet: Decouple the origin of the shot from the camera, so the network code can use this same graphical effect
-	SLNet::TimeMS shootFromOrigin(core::vector3df camPosition, core::vector3df camAt);
+	MafiaNet::TimeMS shootFromOrigin(core::vector3df camPosition, core::vector3df camAt);
 	const core::aabbox3df& GetSyndeyBoundingBox(void) const;
 	void PlayDeathSound(core::vector3df position);
 	void EnableInput(bool enabled);
@@ -166,9 +166,9 @@ private:
 	// Per-tick game update for RakNet
 	void UpdateRakNet(void);
 	// Holds output messages
-	DataStructures::Multilist<ML_QUEUE, SLNet::RakString> outputMessages;
-	SLNet::TimeMS whenOutputMessageStarted;
-	void PushMessage(SLNet::RakString rs);
+	DataStructures::Multilist<ML_QUEUE, MafiaNet::RakString> outputMessages;
+	MafiaNet::TimeMS whenOutputMessageStarted;
+	void PushMessage(MafiaNet::RakString rs);
 	const char *GetCurrentMessage(void);
 	// We use this array to store the current state of each key
 	bool KeyIsDown[KEY_KEY_CODES_COUNT];

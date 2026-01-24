@@ -25,7 +25,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(RakNetCommandParser,RakNetCommandParser);
 
@@ -47,7 +47,7 @@ RakNetCommandParser::RakNetCommandParser()
 	RegisterCommand(2,"IsConnected","( );");
 	RegisterCommand(1,"GetIndexFromSystemAddress","( const SystemAddress systemAddress );");
 	RegisterCommand(1,"GetSystemAddressFromIndex","( unsigned int index );");
-	RegisterCommand(2,"AddToBanList","( const char *IP, SLNet::TimeMS milliseconds=0 );");
+	RegisterCommand(2,"AddToBanList","( const char *IP, MafiaNet::TimeMS milliseconds=0 );");
 	RegisterCommand(1,"RemoveFromBanList","( const char *IP );");
 	RegisterCommand(0,"ClearBanList","( void );");
 	RegisterCommand(1,"IsBanned","( const char *IP );");
@@ -60,7 +60,7 @@ RakNetCommandParser::RakNetCommandParser()
 	RegisterCommand(2,"SetOfflinePingResponse","( const char *data, const unsigned int length );");
 	RegisterCommand(0,"GetInternalID","( void ) const;");
 	RegisterCommand(1,"GetExternalID","( const SystemAddress target ) const;");
-	RegisterCommand(2,"SetTimeoutTime","( SLNet::TimeMS timeMS, const SystemAddress target );");
+	RegisterCommand(2,"SetTimeoutTime","( MafiaNet::TimeMS timeMS, const SystemAddress target );");
 //	RegisterCommand(1,"SetMTUSize","( int size );");
 	RegisterCommand(0,"GetMTUSize","( void ) const;");
 	RegisterCommand(0,"GetNumberOfAddresses","( void );");
@@ -74,7 +74,7 @@ RakNetCommandParser::RakNetCommandParser()
 RakNetCommandParser::~RakNetCommandParser()
 {
 }
-void RakNetCommandParser::SetRakPeerInterface(SLNet::RakPeerInterface *rakPeer)
+void RakNetCommandParser::SetRakPeerInterface(MafiaNet::RakPeerInterface *rakPeer)
 {
 	peer=rakPeer;
 }
@@ -88,7 +88,7 @@ bool RakNetCommandParser::OnCommand(const char *command, unsigned numParameters,
 
 	if (strcmp(command, "Startup")==0)
 	{
-		SLNet::SocketDescriptor socketDescriptor((unsigned short)atoi(parameterList[1]), parameterList[2]);
+		MafiaNet::SocketDescriptor socketDescriptor((unsigned short)atoi(parameterList[1]), parameterList[2]);
 		ReturnResult(peer->Startup((unsigned short)atoi(parameterList[0]), &socketDescriptor, 1), command, transport, systemAddress);
 	}
 	else if (strcmp(command, "InitializeSecurity")==0)
@@ -125,7 +125,7 @@ bool RakNetCommandParser::OnCommand(const char *command, unsigned numParameters,
 	}
 	else if (strcmp(command, "Connect")==0)
 	{
-		ReturnResult(peer->Connect(parameterList[0], (unsigned short)atoi(parameterList[1]),parameterList[2],atoi(parameterList[3]))== SLNet::CONNECTION_ATTEMPT_STARTED, command, transport, systemAddress);
+		ReturnResult(peer->Connect(parameterList[0], (unsigned short)atoi(parameterList[1]),parameterList[2],atoi(parameterList[3]))== MafiaNet::CONNECTION_ATTEMPT_STARTED, command, transport, systemAddress);
 	}
 	else if (strcmp(command, "Disconnect")==0)
 	{

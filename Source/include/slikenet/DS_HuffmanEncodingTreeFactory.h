@@ -24,7 +24,7 @@
 
 #include "memoryoverride.h"
 
-namespace SLNet {
+namespace MafiaNet {
 /// Forward declarations
 class HuffmanEncodingTree;
 
@@ -64,6 +64,6 @@ private:
 	unsigned int frequency[ 256 ];
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

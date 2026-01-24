@@ -30,15 +30,15 @@
 #include "slikenet/Gets.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #define NUM_PEERS 4
-SLNet::RakPeerInterface *rakPeer[NUM_PEERS];
+MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
 
 class FullyConnectedMesh2_UserData : public FullyConnectedMesh2
 {
-	virtual void WriteVJCUserData(SLNet::BitStream *bsOut) {bsOut->Write(RakString("WriteVJCUserData test"));}
-	virtual void WriteVJSUserData(SLNet::BitStream *bsOut, RakNetGUID userGuid) {bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", userGuid.ToString()));}
+	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) {bsOut->Write(RakString("WriteVJCUserData test"));}
+	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) {bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", userGuid.ToString()));}
 };
 
 int main()
@@ -47,16 +47,16 @@ int main()
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
 	{
-		rakPeer[i]= SLNet::RakPeerInterface::GetInstance();
+		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 		rakPeer[i]->AttachPlugin(&fcm2[i]);
 		fcm2[i].SetAutoparticipateConnections(false);
 		fcm2[i].SetConnectOnNewRemoteConnection(false, "");
-		SLNet::SocketDescriptor sd;
+		MafiaNet::SocketDescriptor sd;
 		sd.port=60000+i;
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
-		rakPeer[i]->SetTimeoutTime(1000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-		printf("%i. Our guid is %s\n", i, rakPeer[i]->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+		printf("%i. Our guid is %s\n", i, rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
 	}
 	
 	RakSleep(100);
@@ -75,7 +75,7 @@ int main()
 	
 
 	bool quit=false;
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	int ch;
 	while (!quit)
 	{
@@ -126,7 +126,7 @@ int main()
 
 				case ID_FCM2_VERIFIED_JOIN_CAPABLE:
 					{
-						SLNet::BitStream bs(packet->data,packet->length,false);
+						MafiaNet::BitStream bs(packet->data,packet->length,false);
 						FullyConnectedMesh2::SkipToVJCUserData(&bs);
 						RakString testStr;
 						bs.Read(testStr);
@@ -141,7 +141,7 @@ int main()
 					{
 						bool thisSystemAccepted;
 						DataStructures::List<RakNetGUID> systemsAccepted;
-						SLNet::BitStream additionalData;
+						MafiaNet::BitStream additionalData;
 						fcm2[peerIndex].GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, &additionalData);
 						if (thisSystemAccepted)
 						{
@@ -180,7 +180,7 @@ int main()
 
 	for (int i=0; i < NUM_PEERS; i++)
 	{
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 	}
 	return 0;
 }

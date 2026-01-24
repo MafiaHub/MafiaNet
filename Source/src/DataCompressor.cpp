@@ -18,11 +18,11 @@
 #include "slikenet/assert.h"
 #include <string.h> // Use string.h rather than memory.h for a console
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(DataCompressor,DataCompressor)
 
-void DataCompressor::Compress( unsigned char *userData, unsigned sizeInBytes, SLNet::BitStream * output )
+void DataCompressor::Compress( unsigned char *userData, unsigned sizeInBytes, MafiaNet::BitStream * output )
 {
 	// Don't use this for small files as you will just make them bigger!
 	RakAssert(sizeInBytes > 2048);
@@ -50,7 +50,7 @@ void DataCompressor::Compress( unsigned char *userData, unsigned sizeInBytes, SL
 	output->SetWriteOffset(writeOffset2);
 }
 
-unsigned DataCompressor::DecompressAndAllocate(SLNet::BitStream * input, unsigned char **output )
+unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream * input, unsigned char **output )
 {
 	HuffmanEncodingTree tree;
 	unsigned int bitsUsed, destinationSizeInBytes;

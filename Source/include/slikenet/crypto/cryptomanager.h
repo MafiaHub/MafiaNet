@@ -8,7 +8,7 @@
 
 #include <openssl/evp.h> // used for EVP_xxxx
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

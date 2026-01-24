@@ -20,9 +20,9 @@
 #pragma warning( pop )
 #include "Lobby2Client_Steam_Impl.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-bool Client_Login_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Client_Login_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	(void) client;
 
@@ -32,7 +32,7 @@ bool Client_Login_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
 		resultCode=L2RC_SUCCESS;
 	return true; // Done immediately
 }
-bool Client_Logoff_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Client_Logoff_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	Lobby2Client_Steam_Impl *steam = (Lobby2Client_Steam_Impl *)client;
 	steam->NotifyLeaveRoom();
@@ -44,22 +44,22 @@ bool Client_Logoff_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
 }
 Console_SearchRooms_Steam::Console_SearchRooms_Steam()
 {
-	m_SteamCallResultLobbyMatchList = SLNet::OP_NEW<CCallResult<Lobby2Client_Steam_Impl, LobbyMatchList_t> > (_FILE_AND_LINE_);
+	m_SteamCallResultLobbyMatchList = MafiaNet::OP_NEW<CCallResult<Lobby2Client_Steam_Impl, LobbyMatchList_t> > (_FILE_AND_LINE_);
 }
 Console_SearchRooms_Steam::~Console_SearchRooms_Steam()
 {
 	// Cast to make sure destructor gets called
-	SLNet::OP_DELETE((CCallResult<Lobby2Client_Steam_Impl, LobbyMatchList_t>*)m_SteamCallResultLobbyMatchList, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE((CCallResult<Lobby2Client_Steam_Impl, LobbyMatchList_t>*)m_SteamCallResultLobbyMatchList, _FILE_AND_LINE_);
 }
-bool Console_SearchRooms_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Console_SearchRooms_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	(void) client;
 
 	requestId = SteamMatchmaking()->RequestLobbyList();
-	((CCallResult<Lobby2Client_Steam_Impl, LobbyMatchList_t>*)m_SteamCallResultLobbyMatchList)->Set( requestId, (SLNet::Lobby2Client_Steam_Impl*) client, &Lobby2Client_Steam_Impl::OnLobbyMatchListCallback );
+	((CCallResult<Lobby2Client_Steam_Impl, LobbyMatchList_t>*)m_SteamCallResultLobbyMatchList)->Set( requestId, (MafiaNet::Lobby2Client_Steam_Impl*) client, &Lobby2Client_Steam_Impl::OnLobbyMatchListCallback );
 	return false; // Asynch
 }
-void Console_SearchRooms_Steam::DebugMsg(SLNet::RakString &out) const
+void Console_SearchRooms_Steam::DebugMsg(MafiaNet::RakString &out) const
 {
 	if (resultCode!=L2RC_SUCCESS)
 	{
@@ -69,10 +69,10 @@ void Console_SearchRooms_Steam::DebugMsg(SLNet::RakString &out) const
 	out.Set("%i rooms found", roomNames.GetSize());
 	for (DataStructures::DefaultIndexType i=0; i < roomNames.GetSize(); i++)
 	{
-		out += SLNet::RakString("\n%i. %s. ID=%" PRINTF_64_BIT_MODIFIER "u", i+1, roomNames[i].C_String(), roomIds[i]);
+		out += MafiaNet::RakString("\n%i. %s. ID=%" PRINTF_64_BIT_MODIFIER "u", i+1, roomNames[i].C_String(), roomIds[i]);
 	}
 }
-bool Console_GetRoomDetails_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Console_GetRoomDetails_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	(void) client;
 
@@ -82,14 +82,14 @@ bool Console_GetRoomDetails_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
 }
 Console_CreateRoom_Steam::Console_CreateRoom_Steam()
 {
-	m_SteamCallResultLobbyCreated = SLNet::OP_NEW<CCallResult<Lobby2Client_Steam_Impl, LobbyCreated_t> >(_FILE_AND_LINE_);
+	m_SteamCallResultLobbyCreated = MafiaNet::OP_NEW<CCallResult<Lobby2Client_Steam_Impl, LobbyCreated_t> >(_FILE_AND_LINE_);
 }
 Console_CreateRoom_Steam::~Console_CreateRoom_Steam()
 {
 	// Cast to make sure destructor gets called
-	SLNet::OP_DELETE((CCallResult<Lobby2Client_Steam_Impl, LobbyCreated_t>*)m_SteamCallResultLobbyCreated, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE((CCallResult<Lobby2Client_Steam_Impl, LobbyCreated_t>*)m_SteamCallResultLobbyCreated, _FILE_AND_LINE_);
 }
-bool Console_CreateRoom_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Console_CreateRoom_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	if (roomIsPublic)
 		requestId = SteamMatchmaking()->CreateLobby( k_ELobbyTypePublic, publicSlots  );
@@ -97,29 +97,29 @@ bool Console_CreateRoom_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
 		requestId = SteamMatchmaking()->CreateLobby( k_ELobbyTypeFriendsOnly, publicSlots  );
 
 	// set the function to call when this completes
-	((CCallResult<Lobby2Client_Steam_Impl, LobbyCreated_t>*)m_SteamCallResultLobbyCreated)->Set( requestId, (SLNet::Lobby2Client_Steam_Impl*) client, &Lobby2Client_Steam_Impl::OnLobbyCreated );
+	((CCallResult<Lobby2Client_Steam_Impl, LobbyCreated_t>*)m_SteamCallResultLobbyCreated)->Set( requestId, (MafiaNet::Lobby2Client_Steam_Impl*) client, &Lobby2Client_Steam_Impl::OnLobbyCreated );
 
 	return false; // Asynch
 }
 Console_JoinRoom_Steam::Console_JoinRoom_Steam()
 {
-	m_SteamCallResultLobbyEntered = SLNet::OP_NEW<CCallResult<Lobby2Client_Steam_Impl, LobbyEnter_t> > (_FILE_AND_LINE_);
+	m_SteamCallResultLobbyEntered = MafiaNet::OP_NEW<CCallResult<Lobby2Client_Steam_Impl, LobbyEnter_t> > (_FILE_AND_LINE_);
 }
 Console_JoinRoom_Steam::~Console_JoinRoom_Steam()
 {
 	// Cast to make sure destructor gets called
-	SLNet::OP_DELETE((CCallResult<Lobby2Client_Steam_Impl, LobbyEnter_t>*)m_SteamCallResultLobbyEntered, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE((CCallResult<Lobby2Client_Steam_Impl, LobbyEnter_t>*)m_SteamCallResultLobbyEntered, _FILE_AND_LINE_);
 }
-bool Console_JoinRoom_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Console_JoinRoom_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	requestId = SteamMatchmaking()->JoinLobby( roomId  );
 
 	// set the function to call when this completes
-	((CCallResult<Lobby2Client_Steam_Impl, LobbyEnter_t>*)m_SteamCallResultLobbyEntered)->Set( requestId, (SLNet::Lobby2Client_Steam_Impl*) client, &Lobby2Client_Steam_Impl::OnLobbyJoined );
+	((CCallResult<Lobby2Client_Steam_Impl, LobbyEnter_t>*)m_SteamCallResultLobbyEntered)->Set( requestId, (MafiaNet::Lobby2Client_Steam_Impl*) client, &Lobby2Client_Steam_Impl::OnLobbyJoined );
 
 	return false; // Asynch
 }
-bool Console_LeaveRoom_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Console_LeaveRoom_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	SteamMatchmaking()->LeaveLobby( roomId );
 
@@ -129,7 +129,7 @@ bool Console_LeaveRoom_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
 	resultCode=L2RC_SUCCESS;
 	return true; // Synchronous
 }
-bool Console_SendRoomChatMessage_Steam::ClientImpl(SLNet::Lobby2Plugin *client)
+bool Console_SendRoomChatMessage_Steam::ClientImpl(MafiaNet::Lobby2Plugin *client)
 {
 	(void) client;
 

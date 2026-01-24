@@ -34,7 +34,7 @@
 #include "PluginInterface2.h"
 #include "SimpleMutex.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class TCPInterface;
@@ -124,7 +124,7 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

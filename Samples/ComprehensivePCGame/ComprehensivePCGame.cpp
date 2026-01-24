@@ -58,7 +58,7 @@
 #define MASTER_SERVER_PORT 80
 //#define MASTER_SERVER_PORT 8888
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Plugins demonstrated by the sample ComphrensivePCGame
@@ -151,13 +151,13 @@ public:
 		if (masterServerQueryResult)
 			json_decref(masterServerQueryResult);
 	}
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
 		(void)destinationConnection;
 		(void)allocationIdBitstream;
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
@@ -167,20 +167,20 @@ public:
 		else
 			return QueryConstruction_PeerToPeer(destinationConnection, R3P2PM_STATIC_OBJECT_NOT_CURRENTLY_AUTHORITATIVE);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		return true;
 	}
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)constructionBitstream;
 		(void)destinationConnection;
 	}
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)constructionBitstream;
@@ -188,7 +188,7 @@ public:
 
 		return true;
 	}
-	virtual void SerializeConstructionExisting(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstructionExisting(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destinationConnection;
@@ -198,7 +198,7 @@ public:
 		constructionBitstream->Write(gameInLobby);
 		constructionBitstream->Write(masterServerRow);
 	}
-	virtual void DeserializeConstructionExisting(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeserializeConstructionExisting(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -209,13 +209,13 @@ public:
 		constructionBitstream->Read(masterServerRow);
 		printf("Downloaded game. locked=%i. inLobby=%i\n", lockGame, gameInLobby);
 	}
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
 		(void)destinationConnection;
 	}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
@@ -223,35 +223,35 @@ public:
 
 		return true;
 	}
-	virtual SLNet::RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		// unused parameters
 		(void)droppedConnection;
 
 		return RM3AOPC_DO_NOTHING;
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		delete this;
 	}
-	virtual SLNet::RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		if (fullyConnectedMesh2->IsConnectedHost())
 			return QuerySerialization_PeerToPeer(destinationConnection, R3P2PM_STATIC_OBJECT_CURRENTLY_AUTHORITATIVE);
 		else
 			return QuerySerialization_PeerToPeer(destinationConnection, R3P2PM_STATIC_OBJECT_NOT_CURRENTLY_AUTHORITATIVE);
 	}
-	virtual RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters)
+	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		serializeParameters->outputBitstream[0].Write(lockGame);
 		serializeParameters->outputBitstream[0].Write(gameInLobby);
 		serializeParameters->outputBitstream[0].Write(masterServerRow);
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		if (deserializeParameters->bitstreamWrittenTo[0])
 		{
@@ -307,7 +307,7 @@ public:
 					break;
 				}
 				ConnectionAttemptResult car = rakPeer->Connect(serverIPAddr, static_cast<unsigned short>(intServerPort), 0, 0);
-				if (car!= SLNet::CONNECTION_ATTEMPT_STARTED)
+				if (car!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 				{
 					printf("Failed connect call to %s. Code=%i\n", serverIPAddr, car);
 					phase = EXIT_SAMPLE;
@@ -371,7 +371,7 @@ public:
 	// Not serialized variables
 	// ---------------------------------------------------------------------------------
 	// Store what type of router I am behind
-	SLNet::NATTypeDetectionResult myNatType;
+	MafiaNet::NATTypeDetectionResult myNatType;
 	Phase phase;
 	// NAT punchthrough server runs RakNet project NatCompleteServer with NAT_TYPE_DETECTION_SERVER, and NAT_PUNCHTHROUGH_SERVER
 	RakNetGUID natPunchServerGuid;
@@ -382,7 +382,7 @@ public:
 	DataStructures::List<Team*> teams;
 
 	// Master server has to be refreshed periodically so it knows we didn't crash
-	SLNet::Time whenToNextUpdateMasterServer;
+	MafiaNet::Time whenToNextUpdateMasterServer;
 
 	// Helper function to store and read the JSON from the GET request
 	void SetMasterServerQueryResult(json_t *root)
@@ -431,14 +431,14 @@ public:
 	{
 		game->teams.RemoveAtIndex(game->teams.GetIndexOf(this));
 	}
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		allocationIdBitstream->Write("Team");
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
@@ -450,21 +450,21 @@ public:
 		else
 			return QueryConstruction_PeerToPeer(destinationConnection, R3P2PM_MULTI_OWNER_NOT_CURRENTLY_AUTHORITATIVE);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		return true;
 	}
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		constructionBitstream->Write(teamName);
 	}
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -476,14 +476,14 @@ public:
 		return true;
 	}
 
-	virtual void PostSerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void PostSerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		tmTeam.SerializeConstruction(constructionBitstream);
 	}
-	virtual void PostDeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -491,13 +491,13 @@ public:
 		tmTeam.DeserializeConstruction(teamManager, constructionBitstream);
 	}
 
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
 		(void)destinationConnection;
 	}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
@@ -505,7 +505,7 @@ public:
 
 		return true;
 	}
-	virtual SLNet::RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		// unused parameters
 		(void)droppedConnection;
@@ -513,14 +513,14 @@ public:
 		// Do not destroy the object when the connection that created it disconnects.
 		return RM3AOPC_DO_NOTHING;
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		delete this;
 	}
-	virtual SLNet::RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// Whoever is currently the host serializes the class
 		if (fullyConnectedMesh2->IsConnectedHost())
@@ -528,14 +528,14 @@ public:
 		else
 			return QuerySerialization_PeerToPeer(destinationConnection, R3P2PM_MULTI_OWNER_NOT_CURRENTLY_AUTHORITATIVE);
 	}
-	virtual RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters)
+	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		// unused parameters
 		(void)serializeParameters;
 
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		// unused parameters
 		(void)deserializeParameters;
@@ -564,14 +564,14 @@ public:
 	{
 		game->users.RemoveAtIndex(game->users.GetIndexOf(this));
 	}
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
 		(void)destinationConnection;
 
 		allocationIdBitstream->Write("User");
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
@@ -579,14 +579,14 @@ public:
 		// Whoever created the user replicates it.
 		return QueryConstruction_PeerToPeer(destinationConnection);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection)
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		return true;
 	}
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destinationConnection;
@@ -596,7 +596,7 @@ public:
 		constructionBitstream->Write(playerGuid);
 		constructionBitstream->Write(playerAddress);
 	}
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -609,7 +609,7 @@ public:
 		constructionBitstream->Read(playerAddress);
 		return true;
 	}
-	virtual void PostSerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void PostSerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destinationConnection;
@@ -618,7 +618,7 @@ public:
 		// PostSerializeConstruction and PostDeserializeConstruction ensure that all objects have been created before serialization
 		tmTeamMember.SerializeConstruction(constructionBitstream);
 	}
-	virtual void PostDeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
@@ -635,13 +635,13 @@ public:
 			PostRoomToMaster();
 	}
 
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection)
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
 		(void)destinationConnection;
 	}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection)
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)destructionBitstream;
@@ -649,29 +649,29 @@ public:
 
 		return true;
 	}
-	virtual SLNet::RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		return QueryActionOnPopConnection_PeerToPeer(droppedConnection);
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
 		(void)sourceConnection;
 
 		delete this;
 	}
-	virtual SLNet::RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		return QuerySerialization_PeerToPeer(destinationConnection);
 	}
-	virtual RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters)
+	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		// unused parameters
 		(void)serializeParameters;
 
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		// unused parameters
 		(void)deserializeParameters;
@@ -696,7 +696,7 @@ public:
 	virtual ~SampleConnectionRM3()
 	{
 	}
-	virtual Replica3 *AllocReplica(SLNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
+	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
 		(void)replicaManager3;
@@ -736,7 +736,7 @@ public:
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Demonstrates how to use the RPC4 plugin
-void InGameChat(SLNet::BitStream *userData, Packet *packet)
+void InGameChat(MafiaNet::BitStream *userData, Packet *packet)
 {
 	// unused parameters
 	(void)packet;
@@ -797,7 +797,7 @@ void PostRoomToMaster(void)
 		RakString("{'__gameId': 'comprehensivePCGame', '__clientReqId': '0', %s '__timeoutSec': '30', %s }", rowStr.C_String(), jsonSerializedRoom.C_String()));
 
 	// Refresh the room again slightly less than every 30 seconds
-	game->whenToNextUpdateMasterServer = SLNet::GetTime() + 30000 - 1000;
+	game->whenToNextUpdateMasterServer = MafiaNet::GetTime() + 30000 - 1000;
 
 	httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 
@@ -935,7 +935,7 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 
 	if (args->resultCallback)
 		args->resultCallback(success, args->portToOpen, args->userData);
-	SLNet::OP_DELETE(args, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(args, _FILE_AND_LINE_);
 	return 1;
 }
 
@@ -946,7 +946,7 @@ void UPNPOpenAsynch(unsigned short portToOpen,
 					void *userData
 					)
 {
-	UPNPOpenWorkerArgs *args = SLNet::OP_NEW<UPNPOpenWorkerArgs>(_FILE_AND_LINE_);
+	UPNPOpenWorkerArgs *args = MafiaNet::OP_NEW<UPNPOpenWorkerArgs>(_FILE_AND_LINE_);
 	args->portToOpen = portToOpen;
 	args->timeout = timeout;
 	args->userData = userData;
@@ -1002,7 +1002,7 @@ int main(void)
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Allocate plugins. See declaration in this file for description of each
 	// ---------------------------------------------------------------------------------------------------------------------
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	teamManager=TeamManager::GetInstance();
 	fullyConnectedMesh2=FullyConnectedMesh2::GetInstance();
 	networkIDManager = NetworkIDManager::GetInstance();
@@ -1063,13 +1063,13 @@ int main(void)
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Startup RakNet on first available port
 	// ---------------------------------------------------------------------------------------------------------------------
-	SLNet::SocketDescriptor sd;
+	MafiaNet::SocketDescriptor sd;
 	sd.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 	sd.port=0;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
-	rakPeer->SetTimeoutTime(30000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 
 	// Start TCPInterface and begin connecting to the NAT punchthrough server
@@ -1175,7 +1175,7 @@ int main(void)
 				
 			case ID_FCM2_NEW_HOST:
 				{
-					SLNet::BitStream bs(packet->data,packet->length,false);
+					MafiaNet::BitStream bs(packet->data,packet->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
@@ -1278,7 +1278,7 @@ int main(void)
 					{
 						// Connect to the session host
 						ConnectionAttemptResult car = rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
-						if (car!= SLNet::CONNECTION_ATTEMPT_STARTED)
+						if (car!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 						{
 							printf("Failed connect call to %s. Code=%i\n", packet->systemAddress.ToString(false), car);
 							game->EnterPhase(Game::SEARCH_FOR_GAMES);
@@ -1303,15 +1303,15 @@ int main(void)
 			
 			case ID_NAT_TYPE_DETECTION_RESULT:
 				{
-					game->myNatType = (SLNet::NATTypeDetectionResult) packet->data[1];
+					game->myNatType = (MafiaNet::NATTypeDetectionResult) packet->data[1];
 					printf("NAT Type is %s (%s)\n", NATTypeDetectionResultToString(game->myNatType), NATTypeDetectionResultToStringFriendly(game->myNatType));
 
-					if (game->myNatType!= SLNet::NAT_TYPE_NONE)
+					if (game->myNatType!= MafiaNet::NAT_TYPE_NONE)
 					{
 						OpenUPNP();
 					}
 
-					if (game->myNatType== SLNet::NAT_TYPE_PORT_RESTRICTED || game->myNatType== SLNet::NAT_TYPE_SYMMETRIC)
+					if (game->myNatType== MafiaNet::NAT_TYPE_PORT_RESTRICTED || game->myNatType== MafiaNet::NAT_TYPE_SYMMETRIC)
 					{
 						printf("Note: Your router must support UPNP or have the user manually forward ports.\n");
 						printf("Otherwise NATPunchthrough may not always succeed.\n");
@@ -1376,7 +1376,7 @@ int main(void)
 				printf("Client is capable of joining FullyConnectedMesh2.\n");
 				if (game->lockGame)
 				{
-					SLNet::BitStream bsOut;
+					MafiaNet::BitStream bsOut;
 					bsOut.Write("Game is locked");
 					fullyConnectedMesh2->RespondOnVerifiedJoinCapable(packet, false, &bsOut);
 				}
@@ -1719,7 +1719,7 @@ int main(void)
 		}
 
 		// The game host updates the master server
-		SLNet::Time t = SLNet::GetTime();
+		MafiaNet::Time t = MafiaNet::GetTime();
 		if ((fullyConnectedMesh2->IsConnectedHost() || game->users.Size()==1) &&
 			t > game->whenToNextUpdateMasterServer &&
 			(game->phase == Game::IN_LOBBY_WITH_HOST ||

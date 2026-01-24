@@ -27,7 +27,7 @@
 #include "DS_Queue.h"
 #include "NativeTypes.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 class BitStream;
 
@@ -44,10 +44,10 @@ public:
 	uint32_t GetCallCount( void ) const;
 	void SetCallCount( uint32_t i );
 
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream);
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream);
-	virtual void Serialize(SLNet::BitStream *outputBitstream);
-	virtual void Deserialize(SLNet::BitStream *outputBitstream);
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream);
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream);
+	virtual void Serialize(MafiaNet::BitStream *outputBitstream);
+	virtual void Deserialize(MafiaNet::BitStream *outputBitstream);
 
 protected:
 	void Skip( uint32_t count );
@@ -57,7 +57,7 @@ protected:
 	uint32_t usedValueBufferCount;
 	RakNetRandom rnr;
 };
-} // namespace SLNet
+} // namespace MafiaNet
 
 
 #endif

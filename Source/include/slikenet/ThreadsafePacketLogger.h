@@ -27,7 +27,7 @@
 #include "PacketLogger.h"
 #include "SingleProducerConsumer.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \ingroup PACKETLOGGER_GROUP
@@ -46,7 +46,7 @@ protected:
 	DataStructures::SingleProducerConsumer<char*> logMessages;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

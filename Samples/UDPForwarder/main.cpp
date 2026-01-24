@@ -28,23 +28,23 @@
 
 int main()
 {
-	SLNet::RakPeerInterface *rakPeer[2];
-	rakPeer[0]= SLNet::RakPeerInterface::GetInstance();
-	rakPeer[1]= SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor sd1(50000,0),sd2(50002,0);
-	SLNet::StartupResult sr;
+	MafiaNet::RakPeerInterface *rakPeer[2];
+	rakPeer[0]= MafiaNet::RakPeerInterface::GetInstance();
+	rakPeer[1]= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor sd1(50000,0),sd2(50002,0);
+	MafiaNet::StartupResult sr;
 #if RAKNET_SUPPORT_IPV6==1
 	sd1.socketFamily=AF_INET6; // Test out IPV6
 #endif
 	sr = rakPeer[0]->Startup(1,&sd1, 1);
-	RakAssert(sr== SLNet::RAKNET_STARTED);
+	RakAssert(sr== MafiaNet::RAKNET_STARTED);
 #if RAKNET_SUPPORT_IPV6==1
 	sd2.socketFamily=AF_INET6; // Test out IPV6
 #endif
 	sr = rakPeer[1]->Startup(1,&sd2, 1);
-	RakAssert(sr== SLNet::RAKNET_STARTED);
+	RakAssert(sr== MafiaNet::RAKNET_STARTED);
 	rakPeer[1]->SetMaximumIncomingConnections(1);
-	SLNet::UDPForwarder udpForwarder;
+	MafiaNet::UDPForwarder udpForwarder;
 	
 	printf("Demonstrates the UDP Forwarder class\n");
 	printf("It routes datagrams from system to another, at the UDP level.\n");
@@ -55,14 +55,14 @@ int main()
 	udpForwarder.Startup();
 
 	// RakNet will send a message at least every 5 seconds. Add another second to account for thread latency
-	const SLNet::TimeMS timeoutOnNoDataMS=6000;
+	const MafiaNet::TimeMS timeoutOnNoDataMS=6000;
 
 	// Address is probably 192.168.0.1. Fix it to be 127.0.0.1.
 	// Only necessary to do this when connecting through the loopback on the local system. In a real system we'd stick with the external IP
-	SLNet::SystemAddress peer0Addr = rakPeer[0]->GetMyBoundAddress();
-	RakAssert(peer0Addr!= SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-	SLNet::SystemAddress peer1Addr = rakPeer[1]->GetMyBoundAddress();
-	RakAssert(peer1Addr!= SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	MafiaNet::SystemAddress peer0Addr = rakPeer[0]->GetMyBoundAddress();
+	RakAssert(peer0Addr!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+	MafiaNet::SystemAddress peer1Addr = rakPeer[1]->GetMyBoundAddress();
+	RakAssert(peer1Addr!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 // 	peer0Addr.FromString("127.0.0.1");
 // 	peer1Addr.FromString("127.0.0.1");
 
@@ -74,15 +74,15 @@ int main()
 		return 1;
 	}
 
-	SLNet::SystemAddress boundAddress;
-	SLNet::SocketLayer::GetSystemAddress( forwardingSocket, &boundAddress );
+	MafiaNet::SystemAddress boundAddress;
+	MafiaNet::SocketLayer::GetSystemAddress( forwardingSocket, &boundAddress );
 	printf("UDPForwarder bound on %s\n", boundAddress.ToString(false));
 
 	// Send a connect message to the forwarder, on the port to forward to rakPeer[1]
-	SLNET_VERIFY(rakPeer[0]->Connect(boundAddress.ToString(false), fowardPort, 0, 0) == SLNet::CONNECTION_ATTEMPT_STARTED);
+	SLNET_VERIFY(rakPeer[0]->Connect(boundAddress.ToString(false), fowardPort, 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 	
 	printf("'q'uit.\n");
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	for(;;)
 	{
 		for (int i=0; i < 2 ; i++)
@@ -120,7 +120,7 @@ int main()
 
 	rakPeer[0]->Shutdown(100,0);
 	rakPeer[1]->Shutdown(100,0);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer[0]);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer[1]);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[0]);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[1]);
 	return 0;
 }

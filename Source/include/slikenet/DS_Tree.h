@@ -87,7 +87,7 @@ namespace DataStructures
 	template <class TreeType>
 	void Tree<TreeType>::AddChild(TreeType &newData)
 	{
-		children.Insert(SLNet::OP_NEW<Tree>(newData, _FILE_AND_LINE_));
+		children.Insert(MafiaNet::OP_NEW<Tree>(newData, _FILE_AND_LINE_));
 	}
 
 	template <class TreeType>
@@ -98,13 +98,13 @@ namespace DataStructures
 		LevelOrderTraversal(output);
 		unsigned i;
 		for (i=0; i < output.Size(); i++)
-			SLNet::OP_DELETE(output[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(output[i], _FILE_AND_LINE_);
 */
 
 		// Already recursive to do this
 		unsigned int i;
 		for (i=0; i < children.Size(); i++)
-			SLNet::OP_DELETE(children[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(children[i], _FILE_AND_LINE_);
 	}
 }
 

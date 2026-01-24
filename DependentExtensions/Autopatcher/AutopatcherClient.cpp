@@ -33,7 +33,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #include "slikenet/SuperFastHash.h"
 static const unsigned HASH_LENGTH=4;
@@ -144,8 +144,8 @@ AutopatcherClientThreadInfo* AutopatcherClientWorkerThread(AutopatcherClientThre
 		}
 
 		unsigned int hash = SuperFastHash(input->postPatchFile, input->postPatchLength);
-		if (SLNet::BitStream::DoEndianSwap())
-			SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+		if (MafiaNet::BitStream::DoEndianSwap())
+			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
 
 		//if (memcmp(sha1.GetHash(), input->onFileStruct.fileData, HASH_LENGTH)!=0)
 
@@ -180,7 +180,7 @@ AutopatcherClientThreadInfo* AutopatcherClientWorkerThread(AutopatcherClientThre
 	return input;
 }
 // -----------------------------------------------------------------
-namespace SLNet
+namespace MafiaNet
 {
 class AutopatcherClientCallback : public FileListTransferCBInterface
 {
@@ -218,7 +218,7 @@ public:
 				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_ );
 			if (info->onFileStruct.fileData)
 				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_ );
-			SLNet::OP_DELETE(info, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(info, _FILE_AND_LINE_);
 		}
 		threadPool.ClearInput();
 		for (i=0; i < threadPool.OutputSize(); i++)
@@ -230,7 +230,7 @@ public:
 				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_ );
 			if (info->onFileStruct.fileData)
 				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_ );
-			SLNet::OP_DELETE(info, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(info, _FILE_AND_LINE_);
 		}
 		threadPool.ClearOutput();
 	}
@@ -321,7 +321,7 @@ public:
 				rakFree_Ex(threadInfo->postPatchFile, _FILE_AND_LINE_ );
 			if (threadInfo->onFileStruct.fileData)
 				rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_ );
-			SLNet::OP_DELETE(threadInfo, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadInfo, _FILE_AND_LINE_);
 		}
 
 		// If both input and output are empty, we are done.
@@ -356,7 +356,7 @@ public:
 	}
 	virtual bool OnFile(OnFileStruct *onFileStruct)
 	{
-		AutopatcherClientThreadInfo *inStruct = SLNet::OP_NEW<AutopatcherClientThreadInfo>( _FILE_AND_LINE_ );
+		AutopatcherClientThreadInfo *inStruct = MafiaNet::OP_NEW<AutopatcherClientThreadInfo>( _FILE_AND_LINE_ );
 		memset(inStruct,0,sizeof(AutopatcherClientThreadInfo));
 //		inStruct->prePatchFile=0;
 		inStruct->postPatchFile=0;
@@ -464,7 +464,7 @@ bool AutopatcherClient::PatchApplication(const char *_applicationName, const cha
 	processThreadCompletion=false;
 	processThreadCompletionMutex.Unlock();
 
-	SLNet::BitStream outBitStream;
+	MafiaNet::BitStream outBitStream;
 	outBitStream.Write((unsigned char)ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE);
 	StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
 	outBitStream.Write(lastUpdateDate);
@@ -484,9 +484,9 @@ void AutopatcherClient::Update(void)
 		// If redownload list, process it
 		if (redownloadList.fileList.Size())
 		{
-			SLNet::BitStream outBitStream;
+			MafiaNet::BitStream outBitStream;
 			AutopatcherClientCallback *transferCallback;
-			transferCallback = SLNet::OP_NEW<AutopatcherClientCallback>( _FILE_AND_LINE_ );
+			transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>( _FILE_AND_LINE_ );
 			strcpy_s(transferCallback->applicationDirectory, applicationDirectory);
 			transferCallback->onFileCallback=userCB;
 			transferCallback->client=this;
@@ -597,8 +597,8 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 	if (packet->systemAddress!=serverId)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
-	SLNet::BitStream outBitStream;
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream outBitStream;
 	FileList remoteFileList, missingOrChanged;
 	inBitStream.IgnoreBits(8);
 	if (remoteFileList.Deserialize(&inBitStream)==false)
@@ -619,7 +619,7 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 
 	// Prepare the transfer plugin to get a file list.
 	AutopatcherClientCallback *transferCallback;
-	transferCallback = SLNet::OP_NEW<AutopatcherClientCallback>( _FILE_AND_LINE_ );
+	transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>( _FILE_AND_LINE_ );
 	strcpy_s(transferCallback->applicationDirectory, applicationDirectory);
 	transferCallback->onFileCallback=userCB;
 	transferCallback->client=this;
@@ -640,8 +640,8 @@ void AutopatcherClient::OnDeletionList(Packet *packet)
 	if (packet->systemAddress!=serverId)
 		return;
 
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
-	SLNet::BitStream outBitStream;
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream outBitStream;
 	inBitStream.IgnoreBits(8);
 	FileList fileList;
 	if (fileList.Deserialize(&inBitStream)==false)
@@ -650,7 +650,7 @@ void AutopatcherClient::OnDeletionList(Packet *packet)
 }
 PluginReceiveResult AutopatcherClient::OnDownloadFinished(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 	// This may have been created internally, with no serverDate written (line 469 or so)
 	if (inBitStream.GetNumberOfUnreadBits()>7)
@@ -664,7 +664,7 @@ PluginReceiveResult AutopatcherClient::OnDownloadFinished(Packet *packet)
 }
 PluginReceiveResult AutopatcherClient::OnDownloadFinishedInternal(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 	serverId=packet->systemAddress;
 	serverIdIndex=packet->systemAddress.systemIndex;

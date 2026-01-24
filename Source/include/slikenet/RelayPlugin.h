@@ -32,7 +32,7 @@
 /// \brief A simple class to relay messages from one system to another through an intermediary
 /// \ingroup PLUGINS_GROUP
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// Forward declarations
@@ -149,8 +149,8 @@ protected:
 	void OnJoinGroupRequestFromClient(Packet *packet);
 	void OnLeaveGroupRequestFromClient(Packet *packet);
 
-	DataStructures::Hash<RakString, StrAndGuidAndRoom*, 8096, SLNet::RakString::ToInteger> strToGuidHash;
-	DataStructures::Hash<RakNetGUID, StrAndGuidAndRoom*, 8096, SLNet::RakNetGUID::ToUint32> guidToStrHash;
+	DataStructures::Hash<RakString, StrAndGuidAndRoom*, 8096, MafiaNet::RakString::ToInteger> strToGuidHash;
+	DataStructures::Hash<RakNetGUID, StrAndGuidAndRoom*, 8096, MafiaNet::RakNetGUID::ToUint32> guidToStrHash;
 	DataStructures::List<RP_Group*> chatRooms;
 	bool acceptAddParticipantRequests;
 

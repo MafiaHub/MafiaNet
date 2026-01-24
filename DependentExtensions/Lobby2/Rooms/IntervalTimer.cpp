@@ -15,12 +15,12 @@
 
 #include "IntervalTimer.h"
 
-void IntervalTimer::SetPeriod(SLNet::TimeMS period) {basePeriod=period; remaining=0;}
-bool IntervalTimer::UpdateInterval(SLNet::TimeMS elapsed)
+void IntervalTimer::SetPeriod(MafiaNet::TimeMS period) {basePeriod=period; remaining=0;}
+bool IntervalTimer::UpdateInterval(MafiaNet::TimeMS elapsed)
 {
 	if (elapsed >= remaining)
 	{
-		SLNet::TimeMS difference = elapsed-remaining;
+		MafiaNet::TimeMS difference = elapsed-remaining;
 		if (difference >= basePeriod)
 		{
 			remaining=basePeriod;

@@ -9,7 +9,7 @@
 # license found in the license.txt file in the root directory of this source tree.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
 
 option( RAKNET_ENABLE_EXTENSIONS 				"Enable extension projects that might need specific dependencies." TRUE )
 option( RAKNET_EXTENSION_USEMYSQL 				"Enable extensions using MySQL" 		TRUE )

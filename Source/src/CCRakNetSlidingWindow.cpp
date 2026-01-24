@@ -32,7 +32,7 @@ static const CCTimeType SYN=10000;
 #include "slikenet/assert.h"
 #include "slikenet/alloca.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // ****************************************************** PUBLIC METHODS ******************************************************
 
@@ -165,7 +165,7 @@ bool CCRakNetSlidingWindow::OnGotPacket(DatagramSequenceNumberType datagramSeque
 	return true;
 }
 // ----------------------------------------------------------------------------------------------------------------------------
-void CCRakNetSlidingWindow::OnResend(CCTimeType curTime, SLNet::TimeUS nextActionTime)
+void CCRakNetSlidingWindow::OnResend(CCTimeType curTime, MafiaNet::TimeUS nextActionTime)
 {
 	(void) curTime;
 	(void) nextActionTime;

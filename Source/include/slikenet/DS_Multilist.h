@@ -50,7 +50,7 @@ namespace DataStructures
 	/// Can be used with Multilist::ForEach
 	/// Assuming the Multilist holds pointers, will delete those pointers
 	template <class templateType>
-	void DeletePtr_RakNet(templateType &ptr, const char *file, unsigned int line ) { SLNet::OP_DELETE(ptr, file, line);}
+	void DeletePtr_RakNet(templateType &ptr, const char *file, unsigned int line ) { MafiaNet::OP_DELETE(ptr, file, line);}
 
 	/// Can be used with Multilist::ForEach
 	/// Assuming the Multilist holds pointers, will delete those pointers
@@ -161,11 +161,11 @@ namespace DataStructures
 		/// unless \a deallocateSmallBlocks is true
 		void Clear( bool deallocateSmallBlocks=true, const char *file=__FILE__, unsigned int line=__LINE__ );
 
-		/// \brief Empties the list, first calling SLNet::OP_Delete on all items.
+		/// \brief Empties the list, first calling MafiaNet::OP_Delete on all items.
 		/// \details The list is not deallocated if it is small, unless \a deallocateSmallBlocks is true
 		void ClearPointers( bool deallocateSmallBlocks=true, const char *file=__FILE__, unsigned int line=__LINE__ );
 
-		/// \brief Empty one item from the list, first calling SLNet::OP_Delete on that item.
+		/// \brief Empty one item from the list, first calling MafiaNet::OP_Delete on that item.
 		void ClearPointer( _KeyType key, const char *file=__FILE__, unsigned int line=__LINE__ );
 
 		/// \brief Reverses the elements in the list, and flips the sort order 
@@ -287,7 +287,7 @@ namespace DataStructures
 	Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::~Multilist()
 	{
 		if (data!=0)
-			SLNet::OP_DELETE_ARRAY(data, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE_ARRAY(data, _FILE_AND_LINE_);
 	}
 
 	template <const MultilistType _MultilistType, class _DataType, class _KeyType, class _IndexType>
@@ -322,7 +322,7 @@ namespace DataStructures
 		else
 		{
 			allocationSize=dataSize;
-			data = SLNet::OP_NEW_ARRAY<_DataType>(dataSize,_FILE_AND_LINE_);
+			data = MafiaNet::OP_NEW_ARRAY<_DataType>(dataSize,_FILE_AND_LINE_);
 			_IndexType i;
 			for (i=0; i < dataSize; i++)
 				data[i]=source[i];
@@ -804,7 +804,7 @@ namespace DataStructures
 
 		if (deallocateSmallBlocks && allocationSize < 128 && data)
 		{
-			SLNet::OP_DELETE_ARRAY(data,file,line);
+			MafiaNet::OP_DELETE_ARRAY(data,file,line);
 			data=0;
 			allocationSize=0;
 		}
@@ -815,7 +815,7 @@ namespace DataStructures
 	{
 		_IndexType i;
 		for (i=0; i < dataSize; i++)
-			SLNet::OP_DELETE(operator[](i), file, line);
+			MafiaNet::OP_DELETE(operator[](i), file, line);
 		Clear(deallocateSmallBlocks, file, line);
 	}
 
@@ -826,7 +826,7 @@ namespace DataStructures
 		i = GetIndexOf(key);
 		if (i!=-1)
 		{
-			SLNet::OP_DELETE(operator[](i), file, line);
+			MafiaNet::OP_DELETE(operator[](i), file, line);
 			RemoveAtIndex(i);
 		}
 	}
@@ -1194,13 +1194,13 @@ namespace DataStructures
 	template <const MultilistType _MultilistType, class _DataType, class _KeyType, class _IndexType>
 	void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::ReallocToSize(_IndexType newAllocationSize, const char *file, unsigned int line)
 	{
-		_DataType* newData = SLNet::OP_NEW_ARRAY<_DataType>(newAllocationSize,file,line);
+		_DataType* newData = MafiaNet::OP_NEW_ARRAY<_DataType>(newAllocationSize,file,line);
 		_IndexType i;
 		for (i=0; i < dataSize; i++)
 			newData[i]=operator[](i);
 		if (dataSize>0)
 		{
-			SLNet::OP_DELETE_ARRAY(data,file,line);
+			MafiaNet::OP_DELETE_ARRAY(data,file,line);
 			if (GetMultilistType()==ML_QUEUE)
 			{
 				queueHead=0;

@@ -33,7 +33,7 @@
 
 void PrintConnections();
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 RakPeerInterface *rakPeer;
 ReadyEvent readyEventPlugin;

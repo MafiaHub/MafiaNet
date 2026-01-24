@@ -19,9 +19,9 @@
 #include "slikenet/StringCompressor.h"
 #include "slikenet/assert.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-void TableSerializer::SerializeTable(DataStructures::Table *in, SLNet::BitStream *out)
+void TableSerializer::SerializeTable(DataStructures::Table *in, MafiaNet::BitStream *out)
 {
 	DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> *cur = in->GetRows().GetListHead();
 	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns=in->GetColumns();
@@ -37,7 +37,7 @@ void TableSerializer::SerializeTable(DataStructures::Table *in, SLNet::BitStream
 		cur=cur->next;
 	}
 }
-void TableSerializer::SerializeColumns(DataStructures::Table *in, SLNet::BitStream *out)
+void TableSerializer::SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out)
 {
 	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns=in->GetColumns();
 	out->Write((unsigned)columns.Size());
@@ -48,7 +48,7 @@ void TableSerializer::SerializeColumns(DataStructures::Table *in, SLNet::BitStre
 		out->Write((unsigned char)columns[i].columnType);
 	}
 }
-void TableSerializer::SerializeColumns(DataStructures::Table *in, SLNet::BitStream *out, DataStructures::List<int> &skipColumnIndices)
+void TableSerializer::SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out, DataStructures::List<int> &skipColumnIndices)
 {
 	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns=in->GetColumns();
 	out->Write((unsigned)columns.Size()-skipColumnIndices.Size());
@@ -64,10 +64,10 @@ void TableSerializer::SerializeColumns(DataStructures::Table *in, SLNet::BitStre
 }
 bool TableSerializer::DeserializeTable(unsigned char *serializedTable, unsigned int dataLength, DataStructures::Table *out)
 {
-	SLNet::BitStream in((unsigned char*) serializedTable, dataLength, false);
+	MafiaNet::BitStream in((unsigned char*) serializedTable, dataLength, false);
 	return DeserializeTable(&in, out);
 }
-bool TableSerializer::DeserializeTable(SLNet::BitStream *in, DataStructures::Table *out)
+bool TableSerializer::DeserializeTable(MafiaNet::BitStream *in, DataStructures::Table *out)
 {
 	unsigned rowSize;
 	DeserializeColumns(in,out);
@@ -85,7 +85,7 @@ bool TableSerializer::DeserializeTable(SLNet::BitStream *in, DataStructures::Tab
 	}
 	return true;
 }
-bool TableSerializer::DeserializeColumns(SLNet::BitStream *in, DataStructures::Table *out)
+bool TableSerializer::DeserializeColumns(MafiaNet::BitStream *in, DataStructures::Table *out)
 {
 	unsigned columnSize;
 	unsigned char columnType;
@@ -103,7 +103,7 @@ bool TableSerializer::DeserializeColumns(SLNet::BitStream *in, DataStructures::T
 	}
 	return true;
 }
-void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, SLNet::BitStream *out)
+void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out)
 {
 	unsigned cellIndex;
 	out->Write(keyIn);
@@ -115,7 +115,7 @@ void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyI
 		SerializeCell(out, in->cells[cellIndex], columns[cellIndex].columnType);
 	}
 }
-void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, SLNet::BitStream *out, DataStructures::List<int> &skipColumnIndices)
+void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out, DataStructures::List<int> &skipColumnIndices)
 {
 	unsigned cellIndex;
 	out->Write(keyIn);
@@ -138,7 +138,7 @@ void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyI
 		}
 	}
 }
-bool TableSerializer::DeserializeRow(SLNet::BitStream *in, DataStructures::Table *out)
+bool TableSerializer::DeserializeRow(MafiaNet::BitStream *in, DataStructures::Table *out)
 {
 	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns=out->GetColumns();
 	unsigned numEntries;
@@ -161,7 +161,7 @@ bool TableSerializer::DeserializeRow(SLNet::BitStream *in, DataStructures::Table
 	}
 	return true;
 }
-void TableSerializer::SerializeCell(SLNet::BitStream *out, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType)
+void TableSerializer::SerializeCell(MafiaNet::BitStream *out, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType)
 {
 	out->Write(cell->isEmpty);
 	if (cell->isEmpty==false)
@@ -190,7 +190,7 @@ void TableSerializer::SerializeCell(SLNet::BitStream *out, DataStructures::Table
 		}
 	}
 }
-bool TableSerializer::DeserializeCell(SLNet::BitStream *in, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType)
+bool TableSerializer::DeserializeCell(MafiaNet::BitStream *in, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType)
 {
 	bool isEmpty=false;
 	double value;
@@ -236,7 +236,7 @@ bool TableSerializer::DeserializeCell(SLNet::BitStream *in, DataStructures::Tabl
 	}
 	return true;
 }
-void TableSerializer::SerializeFilterQuery(SLNet::BitStream *in, DataStructures::Table::FilterQuery *query)
+void TableSerializer::SerializeFilterQuery(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query)
 {
 	StringCompressor::Instance()->EncodeString(query->columnName,_TABLE_MAX_COLUMN_NAME_LENGTH,in,0);
 	in->WriteCompressed(query->columnIndex);
@@ -250,7 +250,7 @@ void TableSerializer::SerializeFilterQuery(SLNet::BitStream *in, DataStructures:
 
 	}
 }
-bool TableSerializer::DeserializeFilterQuery(SLNet::BitStream *out, DataStructures::Table::FilterQuery *query)
+bool TableSerializer::DeserializeFilterQuery(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery *query)
 {
 	bool b;
 	RakAssert(query->cellValue);
@@ -273,7 +273,7 @@ bool TableSerializer::DeserializeFilterQuery(SLNet::BitStream *out, DataStructur
 	}
 	return b;
 }
-void TableSerializer::SerializeFilterQueryList(SLNet::BitStream *in, DataStructures::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries)
+void TableSerializer::SerializeFilterQueryList(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries)
 {
 	(void) maxQueries;
 	in->Write((bool)(query && numQueries>0));
@@ -288,7 +288,7 @@ void TableSerializer::SerializeFilterQueryList(SLNet::BitStream *in, DataStructu
 		SerializeFilterQuery(in, query);
 	}
 }
-bool TableSerializer::DeserializeFilterQueryList(SLNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries)
+bool TableSerializer::DeserializeFilterQueryList(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries)
 {
 	bool b, anyQueries=false;
 	out->Read(anyQueries);
@@ -330,6 +330,6 @@ void TableSerializer::DeallocateQueryList(DataStructures::Table::FilterQuery *qu
 
 	unsigned i;
 	for (i=0; i < numQueries; i++)
-		SLNet::OP_DELETE(query[i].cellValue, _FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(query, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(query[i].cellValue, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(query, _FILE_AND_LINE_);
 }

@@ -21,7 +21,7 @@
 #include "slikenet/SimpleMutex.h"
 #include "slikenet/assert.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 
 

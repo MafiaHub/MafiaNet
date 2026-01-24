@@ -46,13 +46,13 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-void GetServers(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid);
-void GetClientSubscription(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid);
-void UploadInstanceToCloud(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid);
+void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid);
+void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid);
+void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid);
 
 #define CLOUD_CLIENT_PRIMARY_KEY "SelfScaling_Patcher_PK"
 
-class TestCB : public SLNet::AutopatcherClientCBInterface
+class TestCB : public MafiaNet::AutopatcherClientCBInterface
 {
 public:
 	virtual bool OnFile(OnFileStruct *onFileStruct)
@@ -113,7 +113,7 @@ public:
 				WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=0;
 
 			char buff[128];
-			SLNet::TimeUS time = SLNet::GetTimeUS();
+			MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
 #if defined(_WIN32)
 			sprintf_s(buff, "%I64u", time);
 #else
@@ -151,8 +151,8 @@ public:
 
 			sprintf_s(pathToPatch2, "%s/newFile_%s.tmp", WORKING_DIRECTORY, buff);
 			errno_t error = fopen_s(&fpPatch, pathToPatch2, "r+b");
-			SLNet::TimeUS stopWaiting = time + 60000000;
-			while (error!=0 && SLNet::GetTimeUS() < stopWaiting)
+			MafiaNet::TimeUS stopWaiting = time + 60000000;
+			while (error!=0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				error = fopen_s(&fpPatch, pathToPatch2, "r+b");
@@ -174,7 +174,7 @@ public:
 
 			int unlinkRes1 = _unlink(pathToPatch1);
 			int unlinkRes2 = _unlink(pathToPatch2);
-			while ((unlinkRes1!=0 || unlinkRes2!=0) && SLNet::GetTimeUS() < stopWaiting)
+			while ((unlinkRes1!=0 || unlinkRes2!=0) && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				if (unlinkRes1!=0)
@@ -208,10 +208,10 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	SLNet::SystemAddress TCPServerAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
-	SLNet::AutopatcherClient autopatcherClient;
-	SLNet::FileListTransfer fileListTransfer;
-	SLNet::CloudClient cloudClient;
+	MafiaNet::SystemAddress TCPServerAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::AutopatcherClient autopatcherClient;
+	MafiaNet::FileListTransfer fileListTransfer;
+	MafiaNet::CloudClient cloudClient;
 	autopatcherClient.SetFileListTransferPlugin(&fileListTransfer);
 	bool didRebalance=false; // So we only reconnect to a lower load server once, for load balancing
 
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
 	}
 	unsigned short serverPort = static_cast<unsigned short>(intServerPort);
 
-	SLNet::PacketizedTCP packetizedTCP;
+	MafiaNet::PacketizedTCP packetizedTCP;
 	if (packetizedTCP.Start(localPort,1)==false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
@@ -240,12 +240,12 @@ int main(int argc, char **argv)
 	packetizedTCP.AttachPlugin(&autopatcherClient);
 	packetizedTCP.AttachPlugin(&fileListTransfer);
 
-	SLNet::RakPeerInterface *rakPeer;
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor socketDescriptor(localPort,0);
+	MafiaNet::RakPeerInterface *rakPeer;
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 	rakPeer->Startup(1,&socketDescriptor, 1);
 	rakPeer->AttachPlugin(&cloudClient);
-	DataStructures::List<SLNet::RakNetSocket2* > sockets;
+	DataStructures::List<MafiaNet::RakNetSocket2* > sockets;
 	rakPeer->GetSockets(sockets);
 	printf("Started on port %i\n", sockets[0]->GetBoundAddress().GetPort());
 
@@ -263,25 +263,25 @@ int main(int argc, char **argv)
 
 	bool patchImmediately=argc>=5 && argv[4][0]=='1';
 
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	bool running = true;
 	while(running)
 	{
-		SLNet::SystemAddress notificationAddress;
+		MafiaNet::SystemAddress notificationAddress;
 		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 			TCPServerAddress=notificationAddress;
 		}
 		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
 		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
 		notificationAddress=packetizedTCP.HasFailedConnectionAttempt();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_ATTEMPT_FAILED TCP\n");
 			break;
@@ -294,9 +294,9 @@ int main(int argc, char **argv)
 			if (p->data[0]==ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR)
 			{
 				char buff2[256];
-				SLNet::BitStream temp(p->data, p->length, false);
+				MafiaNet::BitStream temp(p->data, p->length, false);
 				temp.IgnoreBits(8);
-				SLNet::StringCompressor::Instance()->DecodeString(buff2, 256, &temp);
+				MafiaNet::StringCompressor::Instance()->DecodeString(buff2, 256, &temp);
 				printf("ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR\n");
 				printf("%s\n", buff2);
 				running = false;
@@ -352,7 +352,7 @@ int main(int argc, char **argv)
 			}
 			else if (p->data[0]==ID_CLOUD_GET_RESPONSE)
 			{
-				SLNet::CloudQueryResult cloudQueryResult;
+				MafiaNet::CloudQueryResult cloudQueryResult;
 				cloudClient.OnGetReponse(&cloudQueryResult, p);
 				unsigned int rowIndex;
 				const bool wasCallToGetServers=cloudQueryResult.cloudQuery.keys[0].primaryKey=="CloudConnCount";
@@ -362,15 +362,15 @@ int main(int argc, char **argv)
 
 				unsigned short connectionsOnOurServer=65535;
 				unsigned short lowestConnectionsServer=65535;
-				SLNet::SystemAddress lowestConnectionAddress;
+				MafiaNet::SystemAddress lowestConnectionAddress;
 
 				for (rowIndex=0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
 				{
-					SLNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
+					MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
 					if (wasCallToGetServers)
 					{
 						unsigned short connCount;
-						SLNet::BitStream bsIn(row->data, row->length, false);
+						MafiaNet::BitStream bsIn(row->data, row->length, false);
 						bsIn.Read(connCount);
 						printf("%i. Server found at %s with %i connections\n", rowIndex+1, row->serverSystemAddress.ToString(true), connCount);
 
@@ -430,7 +430,7 @@ int main(int argc, char **argv)
 		if (!running)
 			break;
 
-		if (TCPServerAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS && patchImmediately==true)
+		if (TCPServerAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && patchImmediately==true)
 		{
 			patchImmediately=false;
 			char restartFile[512];
@@ -472,27 +472,27 @@ int main(int argc, char **argv)
 	autopatcherClient.Clear();
 	packetizedTCP.Stop();
 	rakPeer->Shutdown(500,0);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	return 0;
 }
-void UploadInstanceToCloud(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid)
+void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	SLNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY,0);
-	SLNet::BitStream bs;
+	MafiaNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY,0);
+	MafiaNet::BitStream bs;
 	bs.Write("Hello World"); // This could be anything such as player list, game name, etc.
 	cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), serverGuid);
 }
-void GetClientSubscription(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid)
+void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	SLNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(SLNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY,0),_FILE_AND_LINE_);
+	MafiaNet::CloudQuery cloudQuery;
+	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY,0),_FILE_AND_LINE_);
 	cloudQuery.subscribeToResults=false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }
-void GetServers(SLNet::CloudClient *cloudClient, SLNet::RakNetGUID serverGuid)
+void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	SLNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(SLNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
+	MafiaNet::CloudQuery cloudQuery;
+	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
 	cloudQuery.subscribeToResults=false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }

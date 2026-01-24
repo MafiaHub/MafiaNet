@@ -22,12 +22,12 @@ int main(void)
 {
 	printf("Demonstration of SQLiteServerLoggerPlugin.\n");
 
-	SLNet::PacketizedTCP packetizedTCP;
-	SLNet::SQLiteServerLoggerPlugin loggerPlugin;
+	MafiaNet::PacketizedTCP packetizedTCP;
+	MafiaNet::SQLiteServerLoggerPlugin loggerPlugin;
 // 	printf("Enable DXT compression (y/n)? ");
 // 	loggerPlugin.SetEnableDXTCompression(_getche()=='y');
 	loggerPlugin.SetEnableDXTCompression(true);
-	loggerPlugin.SetSessionManagementMode(SLNet::SQLiteServerLoggerPlugin::CREATE_SHARED_NAMED_DB_HANDLE, true, "");
+	loggerPlugin.SetSessionManagementMode(MafiaNet::SQLiteServerLoggerPlugin::CREATE_SHARED_NAMED_DB_HANDLE, true, "");
 
 	/*
 //	printf("Enter path to DB file to create, or enter for memory.\n");
@@ -47,23 +47,23 @@ int main(void)
 	bool quit=false;
 	bool isProcessing=false;
 
-	SLNet::SQLiteServerLoggerPlugin::ProcessingStatus processingStatusNew;
-	SLNet::SQLiteServerLoggerPlugin::ProcessingStatus processingStatusOld;
+	MafiaNet::SQLiteServerLoggerPlugin::ProcessingStatus processingStatusNew;
+	MafiaNet::SQLiteServerLoggerPlugin::ProcessingStatus processingStatusOld;
 	memset(&processingStatusOld,0,sizeof(processingStatusOld));
 
-	SLNet::SystemAddress sa;
+	MafiaNet::SystemAddress sa;
 	while (quit==false || isProcessing==true)
 	{
-		SLNet::Packet *p;
+		MafiaNet::Packet *p;
 		for (p = packetizedTCP.Receive(); p; packetizedTCP.DeallocatePacket(p), p = packetizedTCP.Receive())
 		{
 			;
 		}
 		sa = packetizedTCP.HasNewIncomingConnection();
-		if (sa!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("New incoming connection from %s\n", sa.ToString(true));
 		sa = packetizedTCP.HasLostConnection();
-		if (sa!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("Lost connection from %s\n", sa.ToString(true));
 		sa = packetizedTCP.HasFailedConnectionAttempt();
 		sa = packetizedTCP.HasCompletedConnectionAttempt();

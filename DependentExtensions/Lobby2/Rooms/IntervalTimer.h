@@ -20,10 +20,10 @@
 
 struct IntervalTimer
 {
-	void SetPeriod(SLNet::TimeMS period);
-	bool UpdateInterval(SLNet::TimeMS elapsed);
+	void SetPeriod(MafiaNet::TimeMS period);
+	bool UpdateInterval(MafiaNet::TimeMS elapsed);
 
-	SLNet::TimeMS basePeriod, remaining;
+	MafiaNet::TimeMS basePeriod, remaining;
 };
 
 #endif

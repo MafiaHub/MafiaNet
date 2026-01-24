@@ -94,7 +94,7 @@ namespace DataStructures
 			/// Binary
 			void Get(char *output, int *outputLength);
 
-			SLNet::RakString ToString(ColumnType columnType);
+			MafiaNet::RakString ToString(ColumnType columnType);
 
 			// assignment operator and copy constructor
 			Cell& operator = ( const Cell& input );

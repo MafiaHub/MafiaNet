@@ -18,11 +18,11 @@
 #include "slikenet/BitStream.h"
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-bool operator<( const DataStructures::MLKeyRef<SLNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls ) {return inputKey.Get() < cls.dbIdentifier;}
-bool operator>( const DataStructures::MLKeyRef<SLNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls ) {return inputKey.Get() > cls.dbIdentifier;}
-bool operator==( const DataStructures::MLKeyRef<SLNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls ) {return inputKey.Get() == cls.dbIdentifier;}
+bool operator<( const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls ) {return inputKey.Get() < cls.dbIdentifier;}
+bool operator>( const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls ) {return inputKey.Get() > cls.dbIdentifier;}
+bool operator==( const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls ) {return inputKey.Get() == cls.dbIdentifier;}
 
 
 int PerRowCallback(void *userArgument, int argc, char **argv, char **azColName)
@@ -34,7 +34,7 @@ int PerRowCallback(void *userArgument, int argc, char **argv, char **azColName)
 		for (idx=0; idx < (unsigned int) argc; idx++)
 			outputTable->columnNames.Push(azColName[idx], _FILE_AND_LINE_ );
 	}
-	SQLite3Row *row = SLNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
+	SQLite3Row *row = MafiaNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
 	outputTable->rows.Push(row,_FILE_AND_LINE_);
 	for (idx=0; idx < (unsigned int) argc; idx++)
 	{
@@ -52,7 +52,7 @@ SQLite3ServerPlugin::~SQLite3ServerPlugin()
 {
 	StopThreads();
 }
-bool SQLite3ServerPlugin::AddDBHandle(SLNet::RakString dbIdentifier, sqlite3 *dbHandle, bool dbAutoCreated)
+bool SQLite3ServerPlugin::AddDBHandle(MafiaNet::RakString dbIdentifier, sqlite3 *dbHandle, bool dbAutoCreated)
 {
 	if (dbIdentifier.IsEmpty())
 		return false;
@@ -63,7 +63,7 @@ bool SQLite3ServerPlugin::AddDBHandle(SLNet::RakString dbIdentifier, sqlite3 *db
 	ndbh.dbHandle=dbHandle;
 	ndbh.dbIdentifier=dbIdentifier;
 	ndbh.dbAutoCreated=dbAutoCreated;
-	ndbh.whenCreated= SLNet::GetTimeMS();
+	ndbh.whenCreated= MafiaNet::GetTimeMS();
 	dbHandles.InsertAtIndex(ndbh,idx,_FILE_AND_LINE_);
 	
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
@@ -73,7 +73,7 @@ bool SQLite3ServerPlugin::AddDBHandle(SLNet::RakString dbIdentifier, sqlite3 *db
 
 	return true;
 }
-void SQLite3ServerPlugin::RemoveDBHandle(SLNet::RakString dbIdentifier, bool alsoCloseConnection)
+void SQLite3ServerPlugin::RemoveDBHandle(MafiaNet::RakString dbIdentifier, bool alsoCloseConnection)
 {
 	unsigned int idx = dbHandles.GetIndexOf(dbIdentifier);
 	if (idx!=(unsigned int)-1)
@@ -118,7 +118,7 @@ void SQLite3ServerPlugin::Update(void)
 	while (sqlThreadPool.HasOutputFast() && sqlThreadPool.HasOutput())
 	{
 		output = sqlThreadPool.GetOutput();
-		SLNet::BitStream bsOut((unsigned char*) output.data, output.length,false);
+		MafiaNet::BitStream bsOut((unsigned char*) output.data, output.length,false);
 		SendUnified(&bsOut, MEDIUM_PRIORITY,RELIABLE_ORDERED,0,output.sender,false);
 		rakFree_Ex(output.data,_FILE_AND_LINE_);
 	}
@@ -129,9 +129,9 @@ SQLite3ServerPlugin::SQLExecThreadOutput ExecStatementThread(SQLite3ServerPlugin
 	(void)perThreadData;
 
 	unsigned int queryId;
-	SLNet::RakString dbIdentifier;
-	SLNet::RakString inputStatement;
-	SLNet::BitStream bsIn((unsigned char*) threadInput.data, threadInput.length, false);
+	MafiaNet::RakString dbIdentifier;
+	MafiaNet::RakString inputStatement;
+	MafiaNet::BitStream bsIn((unsigned char*) threadInput.data, threadInput.length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	bsIn.Read(queryId);
 	bsIn.Read(dbIdentifier);
@@ -141,7 +141,7 @@ SQLite3ServerPlugin::SQLExecThreadOutput ExecStatementThread(SQLite3ServerPlugin
 	bsIn.IgnoreBits(1);
 
 	char *errorMsg;
-	SLNet::RakString errorMsgStr;
+	MafiaNet::RakString errorMsgStr;
 	SQLite3Table outputTable;					
 	sqlite3_exec(threadInput.dbHandle, inputStatement.C_String(), PerRowCallback, &outputTable, &errorMsg);
 	if (errorMsg)
@@ -150,7 +150,7 @@ SQLite3ServerPlugin::SQLExecThreadOutput ExecStatementThread(SQLite3ServerPlugin
 		sqlite3_free(errorMsg);
 	}
 
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_SQLite3_EXEC);
 	bsOut.Write(queryId);
 	bsOut.Write(dbIdentifier);
@@ -182,9 +182,9 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 	case ID_SQLite3_EXEC:
 		{
 			unsigned int queryId;
-			SLNet::RakString dbIdentifier;
-			SLNet::RakString inputStatement;
-			SLNet::BitStream bsIn(packet->data, packet->length, false);
+			MafiaNet::RakString dbIdentifier;
+			MafiaNet::RakString inputStatement;
+			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(sizeof(MessageID));
 			bsIn.Read(queryId);
 			bsIn.Read(dbIdentifier);
@@ -198,7 +198,7 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 				unsigned int idx = dbHandles.GetIndexOf(dbIdentifier);
 				if (idx==-1)
 				{
-					SLNet::BitStream bsOut;
+					MafiaNet::BitStream bsOut;
 					bsOut.Write((MessageID)ID_SQLite3_UNKNOWN_DB);
 					bsOut.Write(queryId);
 					bsOut.Write(dbIdentifier);
@@ -218,7 +218,7 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 					sqlThreadPool.AddInput(ExecStatementThread, input);
 #else
 					char *errorMsg;
-					SLNet::RakString errorMsgStr;
+					MafiaNet::RakString errorMsgStr;
 					SQLite3Table outputTable;					
 					sqlite3_exec(dbHandles[idx].dbHandle, inputStatement.C_String(), PerRowCallback, &outputTable, &errorMsg);
 					if (errorMsg)
@@ -226,7 +226,7 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 						errorMsgStr=errorMsg;
 						sqlite3_free(errorMsg);
 					}
-					SLNet::BitStream bsOut;
+					MafiaNet::BitStream bsOut;
 					bsOut.Write((MessageID)ID_SQLite3_EXEC);
 					bsOut.Write(queryId);
 					bsOut.Write(dbIdentifier);
@@ -260,12 +260,12 @@ void SQLite3ServerPlugin::StopThreads(void)
 	unsigned int i;
 	for (i=0; i < sqlThreadPool.InputSize(); i++)
 	{
-		SLNet::OP_DELETE(sqlThreadPool.GetInputAtIndex(i).data, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(sqlThreadPool.GetInputAtIndex(i).data, _FILE_AND_LINE_);
 	}
 	sqlThreadPool.ClearInput();
 	for (i=0; i < sqlThreadPool.OutputSize(); i++)
 	{
-		SLNet::OP_DELETE(sqlThreadPool.GetOutputAtIndex(i).data, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(sqlThreadPool.GetOutputAtIndex(i).data, _FILE_AND_LINE_);
 	}
 	sqlThreadPool.ClearOutput();
 #endif

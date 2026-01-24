@@ -21,7 +21,7 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 
 enum TeamManagerOperations
@@ -519,7 +519,7 @@ bool TM_TeamMember::DeserializeConstruction(TeamManager *teamManager, BitStream 
 			rt.requested = curWorld->GetTeamByNetworkID(teamRequestedId);
 			RakAssert(rt.requested);
 		}
-		rt.whenRequested= SLNet::GetTime();
+		rt.whenRequested= MafiaNet::GetTime();
 		rt.requestIndex= curWorld->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
 		if (
 			(hasTeamToLeave==false || (hasTeamToLeave==true && rt.teamToLeave!=0)) &&
@@ -682,7 +682,7 @@ void TM_TeamMember::UpdateTeamsRequestedToAny(void)
 {
 	teamsRequested.Clear(true, _FILE_AND_LINE_);
 	joinTeamType=JOIN_ANY_AVAILABLE_TEAM;
-	whenJoinAnyRequested= SLNet::GetTime();
+	whenJoinAnyRequested= MafiaNet::GetTime();
 	joinAnyRequestIndex=world->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
 }
 
@@ -704,7 +704,7 @@ void TM_TeamMember::AddToRequestedTeams(TM_Team *teamToJoin)
 	rt.isTeamSwitch=false;
 	rt.requested=teamToJoin;
 	rt.teamToLeave=0;
-	rt.whenRequested= SLNet::GetTime();
+	rt.whenRequested= MafiaNet::GetTime();
 	rt.requestIndex=world->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
 	teamsRequested.Push(rt, _FILE_AND_LINE_ );
 }
@@ -719,7 +719,7 @@ void TM_TeamMember::AddToRequestedTeams(TM_Team *teamToJoin, TM_Team *teamToLeav
 	rt.isTeamSwitch=true;
 	rt.requested=teamToJoin;
 	rt.teamToLeave=teamToLeave;
-	rt.whenRequested= SLNet::GetTime();
+	rt.whenRequested= MafiaNet::GetTime();
 	rt.requestIndex=world->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
 	teamsRequested.Push(rt, _FILE_AND_LINE_ );
 }
@@ -1649,7 +1649,7 @@ void TM_World::GetSortedJoinRequests(DataStructures::OrderedList<TM_World::JoinR
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TM_World::BroadcastToParticipants(SLNet::BitStream *bsOut, RakNetGUID exclusionGuid)
+void TM_World::BroadcastToParticipants(MafiaNet::BitStream *bsOut, RakNetGUID exclusionGuid)
 {
 	for (unsigned int i=0; i < participants.Size(); i++)
 	{
@@ -1750,7 +1750,7 @@ int TM_World::JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool is
 
 					// Send ID_TEAM_BALANCER_TEAM_ASSIGNED to all, for swapped member
 					// Calling function sends ID_RUN_RemoveFromTeamsRequestedAndAddTeam which pushes ID_TEAM_BALANCER_TEAM_ASSIGNED for teamMember
-					SLNet::BitStream bitStream;
+					MafiaNet::BitStream bitStream;
 					bitStream.WriteCasted<MessageID>(ID_TEAM_BALANCER_TEAM_ASSIGNED);
 					teamManager->EncodeTeamAssigned(&bitStream, swappingMember);
 					BroadcastToParticipants(&bitStream, UNASSIGNED_RAKNET_GUID);
@@ -1838,7 +1838,7 @@ TM_World* TeamManager::AddWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId]==0 && "World already in use");
 
-	TM_World *newWorld = SLNet::OP_NEW<TM_World>(_FILE_AND_LINE_);
+	TM_World *newWorld = MafiaNet::OP_NEW<TM_World>(_FILE_AND_LINE_);
 	newWorld->worldId=worldId;
 	newWorld->teamManager=this;
 	newWorld->hostGuid=GetMyGUIDUnified();
@@ -1856,7 +1856,7 @@ void TeamManager::RemoveWorld(WorldId worldId)
 	{
 		if (worldsList[i]==worldsArray[worldId])
 		{
-			SLNet::OP_DELETE(worldsList[i],_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(worldsList[i],_FILE_AND_LINE_);
 			worldsList.RemoveAtIndexFast(i);
 			break;
 		}
@@ -1906,7 +1906,7 @@ void TeamManager::SetTopology(TMTopology _topology)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::EncodeTeamFull(SLNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team)
+void TeamManager::EncodeTeamFull(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team)
 {
 	bitStream->WriteCasted<MessageID>(ID_TEAM_BALANCER_REQUESTED_TEAM_FULL);
 	EncodeTeamFullOrLocked(bitStream, teamMember, team);
@@ -1925,7 +1925,7 @@ void TeamManager::DecomposeTeamFull(Packet *packet,
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::EncodeTeamLocked(SLNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team)
+void TeamManager::EncodeTeamLocked(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team)
 {
 	bitStream->WriteCasted<MessageID>(ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED);
 	EncodeTeamFullOrLocked(bitStream, teamMember, team);
@@ -1933,7 +1933,7 @@ void TeamManager::EncodeTeamLocked(SLNet::BitStream *bitStream, TM_TeamMember *t
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::EncodeTeamFullOrLocked(SLNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team)
+void TeamManager::EncodeTeamFullOrLocked(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team)
 {
 	bitStream->Write(teamMember->world->GetWorldId());
 	bitStream->Write(teamMember->GetNetworkID());
@@ -1946,7 +1946,7 @@ void TeamManager::EncodeTeamFullOrLocked(SLNet::BitStream *bitStream, TM_TeamMem
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::DecomposeTeamFullOrLocked(SLNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, TM_Team **team,
+void TeamManager::DecomposeTeamFullOrLocked(MafiaNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, TM_Team **team,
 							   uint16_t &currentMembers, uint16_t &memberLimitIncludingBalancing, bool &balancingIsActive, JoinPermissions &joinPermissions)
 {
 	WorldId worldId;
@@ -1986,7 +1986,7 @@ void TeamManager::DecomposeTeamLocked(Packet *packet,
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::EncodeTeamAssigned(SLNet::BitStream *bitStream, TM_TeamMember *teamMember)
+void TeamManager::EncodeTeamAssigned(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember)
 {
 	bitStream->Write(teamMember->world->GetWorldId());
 	bitStream->Write(teamMember->GetNetworkID());
@@ -2001,7 +2001,7 @@ void TeamManager::EncodeTeamAssigned(SLNet::BitStream *bitStream, TM_TeamMember 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::ProcessTeamAssigned(SLNet::BitStream *bsIn)
+void TeamManager::ProcessTeamAssigned(MafiaNet::BitStream *bsIn)
 {
 	TM_World *world;
 	TM_TeamMember *teamMember;
@@ -2038,7 +2038,7 @@ void TeamManager::DecodeTeamAssigned(Packet *packet, TM_World **world, TM_TeamMe
 	WorldId worldId;
 	NetworkID teamMemberId;
 
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	bsIn.Read(worldId);
 	bsIn.Read(teamMemberId);
@@ -2060,7 +2060,7 @@ void TeamManager::DecodeTeamCancelled(Packet *packet, TM_World **world, TM_TeamM
 	WorldId worldId;
 	NetworkID teamMemberId;
 
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	bsIn.Read(worldId);
 	bsIn.Read(teamMemberId);
@@ -2156,7 +2156,7 @@ void TeamManager::Clear(void)
 	{
 		worldsArray[worldsList[i]->worldId]=0;
 		worldsList[i]->Clear();
-		SLNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
 	}
 	worldsList.Clear(false, _FILE_AND_LINE_);
 }
@@ -2283,7 +2283,7 @@ void TeamManager::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::Send( const SLNet::BitStream * bitStream, const AddressOrGUID systemIdentifier, bool broadcast )
+void TeamManager::Send( const MafiaNet::BitStream * bitStream, const AddressOrGUID systemIdentifier, bool broadcast )
 {
 	SendUnified(bitStream,HIGH_PRIORITY, RELIABLE_ORDERED, 0, systemIdentifier, broadcast);
 }
@@ -2315,7 +2315,7 @@ void TeamManager::RemoveFromTeamsRequestedAndAddTeam(TM_TeamMember *teamMember, 
 void TeamManager::PushTeamAssigned(TM_TeamMember *teamMember)
 {
 	// Push ID_TEAM_BALANCER_TEAM_ASSIGNED locally
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	bitStream.WriteCasted<MessageID>(ID_TEAM_BALANCER_TEAM_ASSIGNED);
 	EncodeTeamAssigned(&bitStream, teamMember);
 
@@ -2324,7 +2324,7 @@ void TeamManager::PushTeamAssigned(TM_TeamMember *teamMember)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TeamManager::PushBitStream(SLNet::BitStream *bitStream)
+void TeamManager::PushBitStream(MafiaNet::BitStream *bitStream)
 {
 	Packet *p = AllocatePacketUnified(bitStream->GetNumberOfBytesUsed());
 	memcpy(p->data, bitStream->GetData(), bitStream->GetNumberOfBytesUsed());
@@ -2415,7 +2415,7 @@ void TeamManager::OnJoinAnyTeam(Packet *packet, TM_World *world)
 			// Send to sender ID_TEAM_BALANCER_TEAM_ASSIGNED
 			if (packet->guid!=GetMyGUIDUnified())
 			{
-				SLNet::BitStream bitStream;
+				MafiaNet::BitStream bitStream;
 				bitStream.WriteCasted<MessageID>(ID_TEAM_BALANCER_TEAM_ASSIGNED);
 				EncodeTeamAssigned(&bitStream, teamMember);
 				SendUnified(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->guid, false);
@@ -2534,7 +2534,7 @@ void TeamManager::OnJoinRequestedTeam(Packet *packet, TM_World *world)
 			// Send to sender ID_TEAM_BALANCER_TEAM_ASSIGNED
 			if (packet->guid!=GetMyGUIDUnified())
 			{
-				SLNet::BitStream bitStream;
+				MafiaNet::BitStream bitStream;
 				bitStream.WriteCasted<MessageID>(ID_TEAM_BALANCER_TEAM_ASSIGNED);
 				EncodeTeamAssigned(&bitStream, teamMember);
 				SendUnified(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->guid, false);

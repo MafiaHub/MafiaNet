@@ -21,13 +21,13 @@
 #include "slikenet/StringCompressor.h"
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
-using namespace SLNet;
+using namespace MafiaNet;
 
 StringTable* StringTable::instance=0;
 int StringTable::referenceCount=0;
 
 
-int SLNet::StrAndBoolComp( char *const &key, const StrAndBool &data )
+int MafiaNet::StrAndBoolComp( char *const &key, const StrAndBool &data )
 {
 	return strcmp(key,(const char*)data.str);
 }
@@ -51,7 +51,7 @@ void StringTable::AddReference(void)
 {
 	if (++referenceCount==1)
 	{
-		instance = SLNet::OP_NEW<StringTable>( _FILE_AND_LINE_ );
+		instance = MafiaNet::OP_NEW<StringTable>( _FILE_AND_LINE_ );
 	}
 }
 void StringTable::RemoveReference(void)
@@ -62,7 +62,7 @@ void StringTable::RemoveReference(void)
 	{
 		if (--referenceCount==0)
 		{
-			SLNet::OP_DELETE(instance, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(instance, _FILE_AND_LINE_);
 			instance=0;
 		}
 	}
@@ -94,7 +94,7 @@ void StringTable::AddString(const char *str, bool copyString)
 	RakAssert(orderedStringList.Size() < (StringTableType)-1);	
 	
 }
-void StringTable::EncodeString( const char *input, int maxCharsToWrite, SLNet::BitStream *output )
+void StringTable::EncodeString( const char *input, int maxCharsToWrite, MafiaNet::BitStream *output )
 {
 	unsigned index;
 	bool objectExists;
@@ -113,7 +113,7 @@ void StringTable::EncodeString( const char *input, int maxCharsToWrite, SLNet::B
 	}
 }
 
-bool StringTable::DecodeString( char *output, int maxCharsToWrite, SLNet::BitStream *input )
+bool StringTable::DecodeString( char *output, int maxCharsToWrite, MafiaNet::BitStream *input )
 {
 	bool hasIndex=false;
 	RakAssert(maxCharsToWrite>0);

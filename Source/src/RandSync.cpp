@@ -18,7 +18,7 @@
 #include <limits>
 #include <limits.h>
 
-namespace SLNet
+namespace MafiaNet
 {
 
 RakNetRandomSync::RakNetRandomSync()
@@ -85,12 +85,12 @@ void RakNetRandomSync::SetCallCount( uint32_t i )
 {
 	callCount = i;
 }
-void RakNetRandomSync::SerializeConstruction(SLNet::BitStream *constructionBitstream)
+void RakNetRandomSync::SerializeConstruction(MafiaNet::BitStream *constructionBitstream)
 {
 	constructionBitstream->Write(seed);
 	constructionBitstream->Write(callCount);
 }
-bool RakNetRandomSync::DeserializeConstruction(SLNet::BitStream *constructionBitstream)
+bool RakNetRandomSync::DeserializeConstruction(MafiaNet::BitStream *constructionBitstream)
 {
 	uint32_t _seed;
 	uint32_t _skipValues;
@@ -100,11 +100,11 @@ bool RakNetRandomSync::DeserializeConstruction(SLNet::BitStream *constructionBit
 		SeedMT(_seed, _skipValues);
 	return success;
 }
-void RakNetRandomSync::Serialize(SLNet::BitStream *outputBitstream)
+void RakNetRandomSync::Serialize(MafiaNet::BitStream *outputBitstream)
 {
 	outputBitstream->Write(callCount);
 }
-void RakNetRandomSync::Deserialize(SLNet::BitStream *outputBitstream)
+void RakNetRandomSync::Deserialize(MafiaNet::BitStream *outputBitstream)
 {
 	uint32_t _callCount;
 	outputBitstream->Read(_callCount);
@@ -131,7 +131,7 @@ void RakNetRandomSync::Skip( uint32_t count )
 	callCount+=count;
 }
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 /*
 RakNetRandomSync r1, r2;

@@ -25,7 +25,7 @@
 // The user should not edit this file
 #include "defineoverrides.h"
 
-/// Define __GET_TIME_64BIT to have SLNet::TimeMS use a 64, rather than 32 bit value.  A 32 bit value will overflow after about 5 weeks.
+/// Define __GET_TIME_64BIT to have MafiaNet::TimeMS use a 64, rather than 32 bit value.  A 32 bit value will overflow after about 5 weeks.
 /// However, this doubles the bandwidth use for sending times, so don't do it unless you have a reason to.
 /// Comment out if you are using the iPod Touch TG. See http://www.jenkinssoftware.com/forum/index.php?topic=2717.0
 /// This must be the same on all systems, or they won't connect
@@ -142,7 +142,7 @@
 
 #ifndef GET_TIME_SPIKE_LIMIT
 /// Workaround for http://support.microsoft.com/kb/274323
-/// If two calls between SLNet::GetTime() happen farther apart than this time in microseconds, this delta will be returned instead
+/// If two calls between MafiaNet::GetTime() happen farther apart than this time in microseconds, this delta will be returned instead
 /// Note: This will cause ID_TIMESTAMP to be temporarily inaccurate if you set a breakpoint that pauses the UpdateNetworkLoop() thread in RakPeer
 /// Define in definesoverrides.h to enable (non-zero) or disable (0)
 #define GET_TIME_SPIKE_LIMIT 0

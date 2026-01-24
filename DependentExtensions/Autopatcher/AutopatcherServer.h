@@ -40,7 +40,7 @@
 #include "slikenet/FileList.h"
 #include "slikenet/IncrementalReadInterface.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -236,7 +236,7 @@ public:
 	struct ThreadData
 	{
 		AutopatcherServer *server;
-		SLNet::RakString applicationName;
+		MafiaNet::RakString applicationName;
 		double lastUpdateDate;
 		SystemAddress systemAddress;
 		FileList *clientList;
@@ -249,8 +249,8 @@ public:
 		ResultTypeAndBitstream() {patchList=0; deletedFiles=0; addedOrModifiedFilesWithHashData=0;}
 		int resultType;
 		SystemAddress systemAddress;
-		SLNet::BitStream bitStream1;
-		SLNet::BitStream bitStream2;
+		MafiaNet::BitStream bitStream1;
+		MafiaNet::BitStream bitStream2;
 		FileList *patchList;
 		FileList *deletedFiles, *addedOrModifiedFilesWithHashData;
 		// bool fatalError;
@@ -310,7 +310,7 @@ protected:
 	void CallPacketCallback(Packet *packet, AutopatcherServerLoadNotifier::QueueOperation queueOperation);
 	void CallPatchCompleteCallback(const SystemAddress &systemAddress, AutopatcherServerLoadNotifier::PatchResult patchResult);
 
-	SLNet::RakString cache_appName;
+	MafiaNet::RakString cache_appName;
 	FileList cache_patchedFiles;
 	FileList cache_addedFiles;
 	FileList cache_addedOrModifiedFileHashes;
@@ -320,6 +320,6 @@ protected:
 	bool allowDownloadOfOriginalUnmodifiedFiles;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

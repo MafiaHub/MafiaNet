@@ -34,7 +34,7 @@
 #include "DS_Hash.h"
 #include <float.h>
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -195,7 +195,7 @@ protected:
 		TrackedObject();
 		~TrackedObject();
 		TrackedObjectData trackedObjectData;
-		DataStructures::Hash<SLNet::RakString, TimeAndValueQueue*, 32, SLNet::RakString::ToInteger> dataQueues;
+		DataStructures::Hash<MafiaNet::RakString, TimeAndValueQueue*, 32, MafiaNet::RakString::ToInteger> dataQueues;
 	};
 
 	DataStructures::OrderedList<uint64_t, TrackedObject*,TrackedObjectComp> objects;
@@ -233,7 +233,7 @@ protected:
 	int newConnectionsObjectType;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __STATISTICS_HISTORY_H
 

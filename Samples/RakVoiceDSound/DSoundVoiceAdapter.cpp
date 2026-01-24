@@ -21,7 +21,7 @@
 /// To test sending to myself
 //#define _TEST_LOOPBACK
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 DSoundVoiceAdapter DSoundVoiceAdapter::instance;
 
@@ -387,7 +387,7 @@ void DSoundVoiceAdapter::BroadcastFrame(void *ptr)
 		m_rakVoice->SendFrame(m_rakVoice->GetRakPeerInterface()->GetGUIDFromIndex(i), ptr);
 	}
 #else
-	m_rakVoice->SendFrame(SLNet::UNASSIGNED_SYSTEM_ADDRESS, ptr);
+	m_rakVoice->SendFrame(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, ptr);
 #endif
 
 }

@@ -25,13 +25,13 @@ GridSectorizer::GridSectorizer()
 GridSectorizer::~GridSectorizer()
 {
 	if (grid)
-		SLNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
 }
 void GridSectorizer::Init(const float _maxCellWidth, const float _maxCellHeight, const float minX, const float minY, const float maxX, const float maxY)
 {
 	RakAssert(_maxCellWidth > 0.0f && _maxCellHeight > 0.0f);
 	if (grid)
-		SLNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
 
 	cellOriginX=minX;
 	cellOriginY=minY;
@@ -46,10 +46,10 @@ void GridSectorizer::Init(const float _maxCellWidth, const float _maxCellHeight,
 	invCellHeight = 1.0f / cellHeight;
 
 #ifdef _USE_ORDERED_LIST
-	grid = SLNet::OP_NEW<DataStructures::OrderedList<void*, void*>>(gridCellWidthCount*gridCellHeightCount, _FILE_AND_LINE_ );
+	grid = MafiaNet::OP_NEW<DataStructures::OrderedList<void*, void*>>(gridCellWidthCount*gridCellHeightCount, _FILE_AND_LINE_ );
 	DataStructures::OrderedList<void*,void*>::IMPLEMENT_DEFAULT_COMPARISON();
 #else
-	grid = SLNet::OP_NEW_ARRAY<DataStructures::List<void*> >(gridCellWidthCount*gridCellHeightCount, _FILE_AND_LINE_ );
+	grid = MafiaNet::OP_NEW_ARRAY<DataStructures::List<void*> >(gridCellWidthCount*gridCellHeightCount, _FILE_AND_LINE_ );
 #endif
 }
 void GridSectorizer::AddEntry(void *entry, const float minX, const float minY, const float maxX, const float maxY)

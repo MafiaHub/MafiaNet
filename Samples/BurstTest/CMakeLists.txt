@@ -3,7 +3,7 @@
 # Please see licenses/RakNet license.txt for the underlying license and related copyright.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
 GETCURRENTFOLDER()
 STANDARDSUBPROJECT(BurstTest)
 VSUBFOLDER(BurstTest "Internal Tests")

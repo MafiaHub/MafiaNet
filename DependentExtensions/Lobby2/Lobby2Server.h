@@ -25,7 +25,7 @@
 
 //class PostgreSQLInterface;
 
-namespace SLNet
+namespace MafiaNet
 {
 	
 struct Lobby2Message;
@@ -39,7 +39,7 @@ struct Lobby2ServerCommand
 	bool deallocMsgWhenDone;
 	bool returnToSender;
 	unsigned int callerUserId;
-	SLNet::RakString callingUserName;
+	MafiaNet::RakString callingUserName;
 	DataStructures::List<SystemAddress> callerSystemAddresses;
 	DataStructures::List<RakNetGUID> callerGuids;
 	//SystemAddress requiredConnectionAddress;
@@ -50,7 +50,7 @@ struct Lobby2ServerCommand
 /// \details This is a plugin which will take incoming messages via Lobby2Client_PC::SendMsg(), process them, and send back the same messages with output and a result code
 /// Unlike the first implementation of the lobby server, this is a thin plugin that mostly just sends messages to threads and sends back the results.
 /// \ingroup LOBBY_2_SERVER
-class RAK_DLL_EXPORT Lobby2Server : public SLNet::Lobby2Plugin, public ThreadDataInterface
+class RAK_DLL_EXPORT Lobby2Server : public MafiaNet::Lobby2Plugin, public ThreadDataInterface
 {
 public:	
 	Lobby2Server();
@@ -61,9 +61,9 @@ public:
 	/// \return True on success, false on failure.
 	virtual bool ConnectToDB(const char *conninfo, int numWorkerThreads)=0;
 	/// \internal
-	virtual void AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, SLNet::RakString targetUserHandle)=0;
+	virtual void AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle)=0;
 	/// \internal
-	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, SLNet::RakString targetUserHandle)=0;
+	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle)=0;
 
 	/// \brief Lobby2Message encapsulates a user command, containing both input and output data
 	/// \details This will serialize and transmit that command
@@ -138,12 +138,12 @@ public:
 
 	/// Set the presence of a logged in user
 	/// \param[in] presence Presence info of this user
-	void SetPresence(const SLNet::Lobby2Presence &presence, SLNet::RakString userHandle);
+	void SetPresence(const MafiaNet::Lobby2Presence &presence, MafiaNet::RakString userHandle);
 
 	/// Get the presence of a logged in user, by handle
 	/// \param[out] presence Presence info of requested user
 	/// \param[in] userHandle Handle of the user
-	void GetPresence(SLNet::Lobby2Presence &presence, SLNet::RakString userHandle);
+	void GetPresence(MafiaNet::Lobby2Presence &presence, MafiaNet::RakString userHandle);
 
 	/// \internal Lets the plugin know that a user has logged on, so this user can be tracked and the message forwarded to RoomsPlugin
 	void OnLogin(Lobby2ServerCommand *command, bool calledFromThread);
@@ -158,7 +158,7 @@ public:
 		DataStructures::List<SystemAddress> systemAddresses;
 		DataStructures::List<RakNetGUID> guids;
 		unsigned int callerUserId;
-		SLNet::RakString userName;
+		MafiaNet::RakString userName;
 		Lobby2Presence presence;
 		bool allowMultipleLogins;
 	};
@@ -188,9 +188,9 @@ protected:
 	void ClearUsers(void);
 	unsigned int GetUserIndexBySystemAddress(SystemAddress systemAddress) const;
 	unsigned int GetUserIndexByGUID(RakNetGUID guid) const;
-	unsigned int GetUserIndexByUsername(SLNet::RakString userName) const;
+	unsigned int GetUserIndexByUsername(MafiaNet::RakString userName) const;
 	void StopThreads(void);
-	void SendRemoteLoginNotification(SLNet::RakString handle, const DataStructures::List<SystemAddress>& recipients);
+	void SendRemoteLoginNotification(MafiaNet::RakString handle, const DataStructures::List<SystemAddress>& recipients);
 
 	/// \internal
 	void RemoveUser(RakString userName);
@@ -216,7 +216,7 @@ protected:
 
 	//DataStructures::List<PostgreSQLInterface *> connectionPool;
 	//#med - rename curOrderingChannel back to orderingChannel and instead rename class member orderingChannel to m_orderingChannel
-	void SendUnifiedToMultiple( const SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses );
+	void SendUnifiedToMultiple( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses );
 };
 	
 }

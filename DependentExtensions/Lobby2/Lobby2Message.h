@@ -30,7 +30,7 @@
 
 #pragma once
 
-namespace SLNet
+namespace MafiaNet
 {
 
 struct Lobby2Callbacks;
@@ -235,7 +235,7 @@ enum ClanMemberState
 /// See resultCode for the result of the operation. L2RC_SUCCESS means success. Anything else means failure.
 /// Any message may return between L2RC_NOT_LOGGED_IN and L2RC_EMAIL_ADDRESS_IS_INVALID, which indices formatting errors in the input.
 /// All other return codes have the name of the message in the enumeration.
-/// The system can be extended by deriving from Lobby2Message, adding your own input and output parameters, and deriving from Lobby2MessageFactory register your own class factory with SLNet::Lobby2Plugin::SetMessageFactory()
+/// The system can be extended by deriving from Lobby2Message, adding your own input and output parameters, and deriving from Lobby2MessageFactory register your own class factory with MafiaNet::Lobby2Plugin::SetMessageFactory()
 /// \ingroup LOBBY_2_COMMANDS
 struct Lobby2Message
 {
@@ -263,10 +263,10 @@ struct Lobby2Message
 	virtual bool RequiresLogin(void) const=0;
 	
 	// Serialize data in this class. Currently just the resultCode
-	void SerializeBase(bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream);
+	void SerializeBase(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	
 	/// Overridable serialization of the contents of this message. Defaults to SerializeBase()
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	
 	/// If data members can be validated for correctness in the server's main thread, override this function and do those checks here.
 	/// \return True for input OK. False if the input is bad and does not need to be further processed in the database threads.
@@ -274,7 +274,7 @@ struct Lobby2Message
 	
 	/// Override to do any Lobby2Client functionality when the message is returned from the server (usually nothing).
 	/// \return True to call CallCallback immediately. False to defer for some reason (always true on the PC)
-	virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+	virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 	
 	/// This message has been processed by the server and has arrived back on the client.
 	/// Call the client informing the user of this event.
@@ -298,37 +298,37 @@ struct Lobby2Message
 	/// Cannot start with space
 	/// Cannot end with space
 	/// Cannot have two spaces in a row
-	bool ValidateHandle(SLNet::RakString *handle );
+	bool ValidateHandle(MafiaNet::RakString *handle );
 
 	/// Binary data cannot be longer than L2_MAX_BINARY_DATA_LENGTH
 	bool ValidateBinary( RakNetSmartPtr<BinaryDataBlock>binaryDataBlock);
 
 	/// Required text cannot be empty.
-	bool ValidateRequiredText(SLNet::RakString *text );
+	bool ValidateRequiredText(MafiaNet::RakString *text );
 
 	/// Passwords must contain at least 5 characters
-	bool ValidatePassword(SLNet::RakString *text );
+	bool ValidatePassword(MafiaNet::RakString *text );
 
 	/// Check email address format
-	bool ValidateEmailAddress(SLNet::RakString *text );
+	bool ValidateEmailAddress(MafiaNet::RakString *text );
 
 	/// Convert the enumeration representing this message to a string, and return it. Done automatically by macros.
 	virtual const char *GetName(void) const=0;
 	
 	/// Write the result of this message to out(). Done automatically by macros.
-	virtual void DebugMsg(SLNet::RakString &out) const=0;
+	virtual void DebugMsg(MafiaNet::RakString &out) const=0;
 
 	/// Print the result of DebugMsg
 	virtual void DebugPrintf(void) const
 	{
-		SLNet::RakString out; DebugMsg(out); printf(out.C_String());
+		MafiaNet::RakString out; DebugMsg(out); printf(out.C_String());
 	}
 	
 	/// Result of the operation. L2RC_SUCCESS means the result completed. Anything else means an error
-	SLNet::Lobby2ResultCode resultCode;
+	MafiaNet::Lobby2ResultCode resultCode;
 
 	// For polling, when necessary
-	virtual bool WasCompleted(SLNet::Lobby2Plugin *client ) {(void) client; return false;}
+	virtual bool WasCompleted(MafiaNet::Lobby2Plugin *client ) {(void) client; return false;}
 
 	// Is this message a notification / callback?
 	virtual bool IsNotification(void) const {return false;}
@@ -729,7 +729,7 @@ struct BinaryDataBlock
 		if (binaryData)
 			rakFree_Ex(binaryData, _FILE_AND_LINE_ );
 	}
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 /// Used to unify different platforms for room search and search properties. Only applies if specifically used
 struct IndexedIntegerValue
@@ -763,72 +763,72 @@ struct IndexedBinaryValue
 };
 struct CreateAccountParameters
 {
-	CreateAccountParameters() {ageInDays=0; binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~CreateAccountParameters() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	CreateAccountParameters() {ageInDays=0; binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~CreateAccountParameters() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 	/// [in] Self-apparent
-	SLNet::RakString firstName;
+	MafiaNet::RakString firstName;
 	/// [in] Self-apparent
-	SLNet::RakString middleName;
+	MafiaNet::RakString middleName;
 	/// [in] Self-apparent
-	SLNet::RakString lastName;
+	MafiaNet::RakString lastName;
 	/// [in] Self-apparent
-	SLNet::RakString race;
+	MafiaNet::RakString race;
 	/// [in] Self-apparent
 	bool sex_male;
 	/// [in] Self-apparent
-	SLNet::RakString homeAddress1;
+	MafiaNet::RakString homeAddress1;
 	/// [in] Self-apparent
-	SLNet::RakString homeAddress2;
+	MafiaNet::RakString homeAddress2;
 	/// [in] Self-apparent
-	SLNet::RakString homeCity;
+	MafiaNet::RakString homeCity;
 	/// [in] Self-apparent
-	SLNet::RakString homeState;
+	MafiaNet::RakString homeState;
 	/// [in] Self-apparent
-	SLNet::RakString homeCountry;
+	MafiaNet::RakString homeCountry;
 	/// [in] Self-apparent
-	SLNet::RakString homeZipCode;
+	MafiaNet::RakString homeZipCode;
 	/// [in] Self-apparent
-	SLNet::RakString billingAddress1;
+	MafiaNet::RakString billingAddress1;
 	/// [in] Self-apparent
-	SLNet::RakString billingAddress2;
+	MafiaNet::RakString billingAddress2;
 	/// [in] Self-apparent
-	SLNet::RakString billingCity;
+	MafiaNet::RakString billingCity;
 	/// [in] Self-apparent
-	SLNet::RakString billingState;
+	MafiaNet::RakString billingState;
 	/// [in] Self-apparent
-	SLNet::RakString billingCountry;
+	MafiaNet::RakString billingCountry;
 	/// [in] Self-apparent
-	SLNet::RakString billingZipCode;
+	MafiaNet::RakString billingZipCode;
 	/// [in] Self-apparent
-	SLNet::RakString emailAddress;
+	MafiaNet::RakString emailAddress;
 	/// [in] Self-apparent
-	SLNet::RakString password;
+	MafiaNet::RakString password;
 	/// [in] If the user needs to retrieve their password; you could ask them this question.
-	SLNet::RakString passwordRecoveryQuestion;
+	MafiaNet::RakString passwordRecoveryQuestion;
 	/// [in] If the user needs to retrieve their password; you could use this for the answer.
-	SLNet::RakString passwordRecoveryAnswer;
+	MafiaNet::RakString passwordRecoveryAnswer;
 	/// [in] Lobbies often allow users to set a text description of their user in some fashion.
-	SLNet::RakString caption1;
+	MafiaNet::RakString caption1;
 	/// [in] Lobbies often allow users to set a text description of their user in some fashion.
-	SLNet::RakString caption2;
+	MafiaNet::RakString caption2;
 	/// [in] Self-apparent
 	unsigned int ageInDays;
 	/// [in] binary data
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 	
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct PendingInvite
 {
-	PendingInvite() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~PendingInvite() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
-	SLNet::RakString sender;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	PendingInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~PendingInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	MafiaNet::RakString sender;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct UsernameAndOnlineStatus
 {
@@ -837,12 +837,12 @@ struct UsernameAndOnlineStatus
 	~UsernameAndOnlineStatus() {}
 	UsernameAndOnlineStatus& operator = ( const UsernameAndOnlineStatus& input );
 
-	SLNet::RakString handle;
+	MafiaNet::RakString handle;
 	bool isOnline;
 	uint64_t uid; // For XBOX
-	SLNet::Lobby2Presence presence;
+	MafiaNet::Lobby2Presence presence;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct FriendInfo
 {
@@ -851,85 +851,85 @@ struct FriendInfo
 	FriendInfo& operator = ( const FriendInfo& input );
 
 	UsernameAndOnlineStatus usernameAndStatus;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream) {usernameAndStatus.Serialize(writeToBitstream,bitStream);}
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream) {usernameAndStatus.Serialize(writeToBitstream,bitStream);}
 };
 struct EmailResult
 {
-	EmailResult() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~EmailResult() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
-	SLNet::RakString sender;
-	SLNet::RakString recipient;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	EmailResult() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~EmailResult() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	MafiaNet::RakString sender;
+	MafiaNet::RakString recipient;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	unsigned int status;
 	bool wasSendByMe;
 	bool wasReadByMe;
 	unsigned int emailID; // Unique ID for this email, used in Emails_Delete, etc.
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
-	SLNet::RakString creationDate;
+	MafiaNet::RakString creationDate;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct MatchParticipant
 {
 	MatchParticipant() {}
-	MatchParticipant(SLNet::RakString _handle, float _score) : handle(_handle), score(_score) {}
-	SLNet::RakString handle;
+	MatchParticipant(MafiaNet::RakString _handle, float _score) : handle(_handle), score(_score) {}
+	MafiaNet::RakString handle;
 	float score;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct SubmittedMatch
 {
-	SubmittedMatch() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~SubmittedMatch() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	SubmittedMatch() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~SubmittedMatch() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 	DataStructures::List<MatchParticipant> matchParticipants;
-	SLNet::RakString matchNote;
+	MafiaNet::RakString matchNote;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 	// Use EpochTimeToString to convert to a date
 	double whenSubmittedDate;
 	unsigned int matchID; // Unique key, Output parameter to Ranking_GetMatches
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct ClanInfo
 {
-	ClanInfo() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~ClanInfo() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
-	SLNet::RakString clanName;
-	SLNet::RakString description;
-	SLNet::RakString clanLeader;
+	ClanInfo() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~ClanInfo() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	MafiaNet::RakString clanName;
+	MafiaNet::RakString description;
+	MafiaNet::RakString clanLeader;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
-	DataStructures::List<SLNet::RakString> clanMembersOtherThanLeader;
+	DataStructures::List<MafiaNet::RakString> clanMembersOtherThanLeader;
 
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct OpenInvite
 {
-	SLNet::RakString clanHandle;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	MafiaNet::RakString clanHandle;
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct ClanJoinRequest
 {
-	SLNet::RakString targetClan;
-	SLNet::RakString dateSent;
-	SLNet::RakString joinRequestSender;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	MafiaNet::RakString targetClan;
+	MafiaNet::RakString dateSent;
+	MafiaNet::RakString joinRequestSender;
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct ClanJoinInvite
 {
-	SLNet::RakString sourceClan;
-	SLNet::RakString dateSent;
-	SLNet::RakString joinRequestTarget;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	MafiaNet::RakString sourceClan;
+	MafiaNet::RakString dateSent;
+	MafiaNet::RakString joinRequestTarget;
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct BookmarkedUser
 {
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 	int type;
-	SLNet::RakString description;
-	SLNet::RakString dateWhenAdded;
-	void Serialize(bool writeToBitstream, SLNet::BitStream *bitStream);
+	MafiaNet::RakString description;
+	MafiaNet::RakString dateWhenAdded;
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 // --------------------------------------------- Actual body of all messages, including DB specific implementation --------------------------------------------
@@ -938,7 +938,7 @@ struct BookmarkedUser
 	virtual void CallCallback(Lobby2Callbacks *cb) {cb->MessageResult(this);}; \
 	virtual Lobby2MessageID GetID(void) const {return (Lobby2MessageID) L2MID_##__NAME__;} \
 	virtual const char* GetName(void) const {return #__NAME__;} \
-	virtual void DebugMsg(SLNet::RakString &out) const {out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode));};
+	virtual void DebugMsg(MafiaNet::RakString &out) const {out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode));};
 
 /// \brief Platform specific startup. Unused on the PC
 /// \ingroup LOBBY_2_COMMANDS
@@ -992,19 +992,19 @@ struct System_DestroyDatabase : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct System_CreateTitle : public Lobby2Message
 {
-	System_CreateTitle() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~System_CreateTitle() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	System_CreateTitle() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~System_CreateTitle() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 	__L2_MSG_BASE_IMPL(System_CreateTitle)
 	virtual bool RequiresAdmin(void) const {return true;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString titleSecretKey;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString titleSecretKey;
 	int requiredAge;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 };
@@ -1017,11 +1017,11 @@ struct System_DestroyTitle : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void) {return true;}
 
 	// Input parameters
-	SLNet::RakString titleName;
+	MafiaNet::RakString titleName;
 
 };
 /// \brief Get the required age set with System_CreateTitle
@@ -1033,11 +1033,11 @@ struct System_GetTitleRequiredAge : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void) {return true;}
 
 	// Input parameters
-	SLNet::RakString titleName;
+	MafiaNet::RakString titleName;
 
 	// Output parameters
 	int requiredAge;
@@ -1046,18 +1046,18 @@ struct System_GetTitleRequiredAge : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct System_GetTitleBinaryData : public Lobby2Message
 {
-	System_GetTitleBinaryData() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~System_GetTitleBinaryData() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	System_GetTitleBinaryData() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~System_GetTitleBinaryData() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 	__L2_MSG_BASE_IMPL(System_GetTitleBinaryData)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void) {return true;}
 
 	// Input parameters
-	SLNet::RakString titleName;
+	MafiaNet::RakString titleName;
 
 	// Output parameters
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
@@ -1071,7 +1071,7 @@ struct System_RegisterProfanity : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void)
 	{
 		for (unsigned int i=0; i < profanityWords.Size(); i++)
@@ -1086,7 +1086,7 @@ struct System_RegisterProfanity : public Lobby2Message
 	}
 
 	// Input parameters
-	DataStructures::List<SLNet::RakString> profanityWords;
+	DataStructures::List<MafiaNet::RakString> profanityWords;
 
 	// Output parameters
 };
@@ -1099,13 +1099,13 @@ struct System_BanUser : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString banReason;
+	MafiaNet::RakString banReason;
 	unsigned int durationHours;
-	SLNet::RakString userName;
+	MafiaNet::RakString userName;
 
 	// Output parameters
 
@@ -1120,13 +1120,13 @@ struct System_UnbanUser : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString reason;
-	SLNet::RakString userName;
+	MafiaNet::RakString reason;
+	MafiaNet::RakString userName;
 };
 /// \brief Adds CDKeys to the database. Duplicate CDKeys for a particular title are ignored. CDKeys can be identical for different titles.
 /// \ingroup LOBBY_2_COMMANDS
@@ -1137,13 +1137,13 @@ struct CDKey_Add : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	DataStructures::List<SLNet::RakString> cdKeys;
-	SLNet::RakString titleName;
+	DataStructures::List<MafiaNet::RakString> cdKeys;
+	MafiaNet::RakString titleName;
 
 	// Output parameters
 };
@@ -1156,18 +1156,18 @@ struct CDKey_GetStatus : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString cdKey;
-	SLNet::RakString titleName;
+	MafiaNet::RakString cdKey;
+	MafiaNet::RakString titleName;
 
 	// Output parameters
 	bool usable;
-	SLNet::RakString usedBy;
-	SLNet::RakString activationDate;
+	MafiaNet::RakString usedBy;
+	MafiaNet::RakString activationDate;
 	bool wasStolen;
 };
 /// \brief Associates a cd key with a user, such that the cd key cannot be used again. If Client_Login() is called with check cd key as true, then this table will be checked to make sure UserCDKey() was previously called with this user and a valid key. If this user is already associated with a CD Key, add the new key, and use the most recent key. All CD Key usage should be logged in a separate table, including the date used and result.
@@ -1179,14 +1179,14 @@ struct CDKey_Use : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString cdKey;
-	SLNet::RakString titleName;
-	SLNet::RakString userName;
+	MafiaNet::RakString cdKey;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString userName;
 
 	// Output parameters
 };
@@ -1200,17 +1200,17 @@ struct CDKey_FlagStolen : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString cdKey;
-	SLNet::RakString titleName;
+	MafiaNet::RakString cdKey;
+	MafiaNet::RakString titleName;
 	bool wasStolen;
 
 	// Output parameters
-	SLNet::RakString userUsingThisKey;
+	MafiaNet::RakString userUsingThisKey;
 };
 /// \brief Logon with a previously registered account
 /// \details Once a client creates an account with Client_RegisterAccount, the client is able to logon. The login process will check
@@ -1232,22 +1232,22 @@ struct Client_Login : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString userPassword;
+	MafiaNet::RakString userPassword;
 	bool allowMultipleLogins; // PC only, allow login with the same username from multiple computers at once
 	// Used if check 
-	SLNet::RakString titleName;
-	SLNet::RakString titleSecretKey;
-	SLNet::RakString userName;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString titleSecretKey;
+	MafiaNet::RakString userName;
 
 	// Output parameters
-	SLNet::RakString bannedReason;
-	SLNet::RakString whenBanned;
-	SLNet::RakString bannedExpiration;
+	MafiaNet::RakString bannedReason;
+	MafiaNet::RakString whenBanned;
+	MafiaNet::RakString bannedExpiration;
 };
 /// \brief Logoff, after logging in
 /// \ingroup LOBBY_2_COMMANDS
@@ -1268,16 +1268,16 @@ struct Client_RegisterAccount : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
 	CreateAccountParameters createAccountParameters;
 	// Only used if registration requires a CD key
-	SLNet::RakString cdKey;
-	SLNet::RakString titleName;
-	SLNet::RakString userName;
+	MafiaNet::RakString cdKey;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString userName;
 
 	// Output parameters
 };
@@ -1290,12 +1290,12 @@ struct System_SetEmailAddressValidated : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
 	bool validated;
-	SLNet::RakString userName;
+	MafiaNet::RakString userName;
 
 	// Output parameters
 };
@@ -1308,10 +1308,10 @@ struct Client_ValidateHandle : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
-	SLNet::RakString userName;
+	MafiaNet::RakString userName;
 };
 /// \brief Flags as deleted an account registered with RegisterAccount. Accounts are not actually deleted, only tagged as deleted.
 /// \ingroup LOBBY_2_COMMANDS
@@ -1322,13 +1322,13 @@ struct System_DeleteAccount : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString userName;
-	SLNet::RakString password;
+	MafiaNet::RakString userName;
+	MafiaNet::RakString password;
 };
 /// \brief Unused accounts are deleted. This is cascading, such that emails and other tables that reference this key are also deleted. unused accounts are defined as:
 /// \details
@@ -1344,7 +1344,7 @@ struct System_PruneAccounts : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1361,14 +1361,14 @@ struct Client_GetEmailAddress : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString userName;
+	MafiaNet::RakString userName;
 
 	// Output parameters
-	SLNet::RakString emailAddress;
+	MafiaNet::RakString emailAddress;
 	bool emailAddressValidated;
 
 };
@@ -1380,15 +1380,15 @@ struct Client_GetPasswordRecoveryQuestionByHandle : public Lobby2Message
 		virtual bool RequiresAdmin(void) const {return false;}virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input/output parameters
-	SLNet::RakString userName;
+	MafiaNet::RakString userName;
 
 	// Output parameters
-	SLNet::RakString emailAddress;
-	SLNet::RakString passwordRecoveryQuestion;
+	MafiaNet::RakString emailAddress;
+	MafiaNet::RakString passwordRecoveryQuestion;
 };
 /// \brief Returns the password associated with a handle, if the passwordRecoveryAnswer is correct
 /// \ingroup LOBBY_2_COMMANDS
@@ -1399,15 +1399,15 @@ struct Client_GetPasswordByPasswordRecoveryAnswer : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString userName;
-	SLNet::RakString passwordRecoveryAnswer;
+	MafiaNet::RakString userName;
+	MafiaNet::RakString passwordRecoveryAnswer;
 
 	// Output parameters
-	SLNet::RakString password;
+	MafiaNet::RakString password;
 };
 /// \brief Changes the handle for a user.
 /// \ingroup LOBBY_2_COMMANDS
@@ -1419,15 +1419,15 @@ struct Client_ChangeHandle : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString userName;
+	MafiaNet::RakString userName;
 	bool requiresPasswordToChangeHandle;
-	SLNet::RakString password;
-	SLNet::RakString newHandle;
+	MafiaNet::RakString password;
+	MafiaNet::RakString newHandle;
 
 	// Output parameters
 };
@@ -1442,7 +1442,7 @@ struct Client_UpdateAccount : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
@@ -1461,7 +1461,7 @@ struct Client_GetAccountDetails : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 
@@ -1478,14 +1478,14 @@ struct Client_StartIgnore : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
-	virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+	virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 
 	// Output parameters
 };
@@ -1499,14 +1499,14 @@ struct Client_StopIgnore : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
-	virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+	virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 
 	// Output parameters
 
@@ -1520,14 +1520,14 @@ struct Client_GetIgnoreList : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+	virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
 	// Input parameters
 
 	// Output parameters
-	DataStructures::List<SLNet::RakString> ignoredHandles;
+	DataStructures::List<MafiaNet::RakString> ignoredHandles;
 };
 struct Client_PerTitleIntegerStorage : public Lobby2Message
 {
@@ -1536,11 +1536,11 @@ struct Client_PerTitleIntegerStorage : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	/// [in] Name of a created title
-	SLNet::RakString titleName;
+	MafiaNet::RakString titleName;
 	/// [in] Slot index can be any value, and just lets you store more than one 64 bit integer
 	unsigned int slotIndex;
 	/// [in] Compared against the current value
@@ -1582,17 +1582,17 @@ struct Client_PerTitleIntegerStorage : public Lobby2Message
 struct Client_PerTitleBinaryStorage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_PerTitleBinaryStorage)
-		Client_PerTitleBinaryStorage() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Client_PerTitleBinaryStorage() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+		Client_PerTitleBinaryStorage() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Client_PerTitleBinaryStorage() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	/// [in] Name of a created title
-	SLNet::RakString titleName;
+	MafiaNet::RakString titleName;
 	/// [in] Slot index can be any value, and just lets you store more than one 64 bit integer
 	unsigned int slotIndex;
 	/// [in/out] Binary data. On Write, will be written to the row. On Read, will be filled in with the value of the row. Unused for delete
@@ -1618,11 +1618,11 @@ struct Client_SetPresence : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 //	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle );
 
 	/// \param[in] Presence info to set.
-	SLNet::Lobby2Presence presence;
+	MafiaNet::Lobby2Presence presence;
 };
 
 /// \brief Gets in-memory information about a user's login state, such as which game they are playing, or if they are playing a game
@@ -1634,35 +1634,35 @@ struct Client_GetPresence : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 //	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle );
 
 	/// \param[in] Which user we are looking up ( can be ourselves )
-	SLNet::RakString userHandle;
+	MafiaNet::RakString userHandle;
 
 	/// \param[out] Presence info to set.
-	SLNet::Lobby2Presence presence;
+	MafiaNet::Lobby2Presence presence;
 };
 
 /// \brief Stores in the database an add friend invite from my handle to their handle. The combination of my handle and their handle must be unique, so you cannot send more than one add friend invite to a single user. Sends an email to their handle the subject, body, and binary data. Note: if myHandle is ignored by theirHandle, then the function fails. See Client_StartIgnore.
 /// \ingroup LOBBY_2_COMMANDS
 struct Friends_SendInvite : public Lobby2Message
 {
-	Friends_SendInvite() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_SendInvite() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_SendInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Friends_SendInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 	__L2_MSG_BASE_IMPL(Friends_SendInvite)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -1674,27 +1674,27 @@ struct Friends_SendInvite : public Lobby2Message
 struct Friends_AcceptInvite : public Lobby2Message
 {
 
-	Friends_AcceptInvite() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_AcceptInvite() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_AcceptInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Friends_AcceptInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 	__L2_MSG_BASE_IMPL(Friends_AcceptInvite)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
 	// Output parameters
 	// Your new buddy's presence status
-	SLNet::Lobby2Presence presence;
+	MafiaNet::Lobby2Presence presence;
 };
 /// \brief Removes from the database the pending add friend invite. Operation completes even if ignored. Unless ignored, store in the emails table from my handle to their handle the subject, body,  binary data, and procedure type flag.
 /// \ingroup LOBBY_2_COMMANDS
@@ -1702,20 +1702,20 @@ struct Friends_RejectInvite : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Friends_RejectInvite)
 
-	Friends_RejectInvite() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_RejectInvite() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_RejectInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Friends_RejectInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -1730,7 +1730,7 @@ struct Friends_GetInvites : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 
@@ -1748,7 +1748,7 @@ struct Friends_GetFriends : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	// Input parameters
 
 	// Output parameters
@@ -1758,22 +1758,22 @@ struct Friends_GetFriends : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Friends_Remove : public Lobby2Message
 {
-	Friends_Remove() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_Remove() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_Remove() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Friends_Remove() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Friends_Remove)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -1791,14 +1791,14 @@ struct BookmarkedUsers_Add : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 	int type;
-	SLNet::RakString description;
+	MafiaNet::RakString description;
 
 };
 /// \brief Remove a user added with BookmarkedUsers_Add
@@ -1810,12 +1810,12 @@ struct BookmarkedUsers_Remove : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 	int type;
 };
 /// \brief Returns all users added to BookmarkedUsers_Add
@@ -1827,7 +1827,7 @@ struct BookmarkedUsers_Get : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 
@@ -1840,22 +1840,22 @@ struct BookmarkedUsers_Get : public Lobby2Message
 struct Emails_Send : public Lobby2Message
 {
 
-	Emails_Send() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	virtual ~Emails_Send() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Emails_Send() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	virtual ~Emails_Send() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Emails_Send)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	DataStructures::List<SLNet::RakString> recipients;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	DataStructures::List<MafiaNet::RakString> recipients;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int status;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -1873,7 +1873,7 @@ struct Emails_Get : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 	bool unreadEmailsOnly;  //If this is true then it will only return emails that have not been read by the user.
@@ -1893,7 +1893,7 @@ struct Emails_Delete : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 	unsigned int emailId;
@@ -1909,7 +1909,7 @@ struct Emails_SetStatus : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1930,13 +1930,13 @@ struct Ranking_SubmitMatch : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return true;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
 	SubmittedMatch submittedMatch;
 
 	// Output parameters
@@ -1950,13 +1950,13 @@ struct Ranking_GetMatches : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
 
 	// Output parameters
 	/// \param[out] submittedMatches (excluding binary data, up to caller to deallocate)
@@ -1967,15 +1967,15 @@ struct Ranking_GetMatches : public Lobby2Message
 struct Ranking_GetMatchBinaryData : public Lobby2Message
 {
 
-	Ranking_GetMatchBinaryData() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Ranking_GetMatchBinaryData() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Ranking_GetMatchBinaryData() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Ranking_GetMatchBinaryData() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Ranking_GetMatchBinaryData)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 	unsigned int matchID;
@@ -1992,14 +1992,14 @@ struct Ranking_GetTotalScore : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
+	MafiaNet::RakString targetHandle;
 
 	// Output parameters
 	float scoreSum;
@@ -2015,14 +2015,14 @@ struct Ranking_WipeScoresForPlayer : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return true;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
+	MafiaNet::RakString targetHandle;
 
 	// Output parameters
 };
@@ -2035,13 +2035,13 @@ struct Ranking_WipeMatches : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return true;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
 
 	// Output parameters
 };
@@ -2054,7 +2054,7 @@ struct Ranking_PruneMatches : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return true;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 	unsigned int pruneTimeDays;
@@ -2070,14 +2070,14 @@ struct Ranking_UpdateRating : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return true;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
+	MafiaNet::RakString targetHandle;
 	float targetRating;
 
 	// Output parameters
@@ -2091,13 +2091,13 @@ struct Ranking_WipeRatings : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return true;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
 
 	// Output parameters
 };
@@ -2110,14 +2110,14 @@ struct Ranking_GetRating : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString titleName;
-	SLNet::RakString gameType;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString titleName;
+	MafiaNet::RakString gameType;
+	MafiaNet::RakString targetHandle;
 
 	// Output parameters
 	/// \param[out] currentRating Defaults to 100 if no matches submitted yet
@@ -2129,23 +2129,23 @@ struct Ranking_GetRating : public Lobby2Message
 struct Clans_Create : public Lobby2Message
 {
 
-	Clans_Create() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_Create() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_Create() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_Create() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_Create)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
+	MafiaNet::RakString clanHandle;
 	bool failIfAlreadyInClan;
 	bool requiresInvitationsToJoin;
-	SLNet::RakString description;
+	MafiaNet::RakString description;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -2156,44 +2156,44 @@ struct Clans_Create : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SetProperties : public Lobby2Message
 {
-	Clans_SetProperties() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_SetProperties() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SetProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_SetProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_SetProperties)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString description;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString description;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 };
 /// \brief Returns clanDescription and clanBinaryData for the given clan.
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetProperties : public Lobby2Message
 {
-	Clans_GetProperties() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_GetProperties() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_GetProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_GetProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_GetProperties)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
+	MafiaNet::RakString clanHandle;
 
 	// Output parameters
-	SLNet::RakString description;
+	MafiaNet::RakString description;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 };
 
@@ -2202,21 +2202,21 @@ struct Clans_GetProperties : public Lobby2Message
 struct Clans_SetMyMemberProperties : public Lobby2Message
 {
 
-	Clans_SetMyMemberProperties() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_SetMyMemberProperties() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SetMyMemberProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_SetMyMemberProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_SetMyMemberProperties)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString description;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString description;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
 	// Output parameters
@@ -2230,13 +2230,13 @@ struct Clans_GrantLeader : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 };
 /// \brief Promotes a clan member to a subleader, or demotes a subleader to a regular member. On promotion, email is sent to all members from myPrimary key with the specified subject and body. On demotion, email is sent to all leaders from myPrimary key with the specified subject and body.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2247,13 +2247,13 @@ struct Clans_SetSubleaderStatus : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 	bool setToSubleader;
 };
 
@@ -2266,42 +2266,42 @@ struct Clans_SetMemberRank : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 	unsigned int newRank;
 };
 /// \brief Returns properties for a clan member of a given clan
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetMemberProperties : public Lobby2Message
 {
-	Clans_GetMemberProperties() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_GetMemberProperties() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_GetMemberProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_GetMemberProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_GetMemberProperties)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 
 	// Output parameters
-	SLNet::RakString description;
+	MafiaNet::RakString description;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 	unsigned int rank;
 	bool isSubleader;
 	ClanMemberState clanMemberState;
-	SLNet::RakString banReason;
+	MafiaNet::RakString banReason;
 };
 /// \brief Renames the clan. Note that this may be called asynchronously, in which case the stored procedure should account for this occuring at the same time as another function that uses the old clan handle.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2312,13 +2312,13 @@ struct Clans_ChangeHandle : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString oldClanHandle;
-	SLNet::RakString newClanHandle;
+	MafiaNet::RakString oldClanHandle;
+	MafiaNet::RakString newClanHandle;
 
 	// Output parameters
 };
@@ -2327,29 +2327,29 @@ struct Clans_ChangeHandle : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_Leave : public Lobby2Message
 {
-	Clans_Leave() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_Leave() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_Leave() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_Leave() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_Leave)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
+	MafiaNet::RakString clanHandle;
 	bool dissolveIfClanLeader;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
 	// Output parameters
 	bool wasDissolved;
-	SLNet::RakString newClanLeader; // If not dissolved	
+	MafiaNet::RakString newClanLeader; // If not dissolved	
 };
 /// \brief Returns all clans that userHandle is a member of. Clans and clan members should be sorted by name, using ascending or descending sort as specified.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2360,7 +2360,7 @@ struct Clans_Get : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 
 	// Input parameters
@@ -2373,23 +2373,23 @@ struct Clans_Get : public Lobby2Message
 struct Clans_SendJoinInvitation : public Lobby2Message
 {
 	
-	Clans_SendJoinInvitation() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-		~Clans_SendJoinInvitation() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SendJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+		~Clans_SendJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_SendJoinInvitation)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -2399,23 +2399,23 @@ struct Clans_SendJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_WithdrawJoinInvitation : public Lobby2Message
 {
-	Clans_WithdrawJoinInvitation() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_WithdrawJoinInvitation() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_WithdrawJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_WithdrawJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_WithdrawJoinInvitation)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 };
@@ -2423,22 +2423,22 @@ struct Clans_WithdrawJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_AcceptJoinInvitation : public Lobby2Message
 {
-	Clans_AcceptJoinInvitation() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_AcceptJoinInvitation() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_AcceptJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_AcceptJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_AcceptJoinInvitation)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 	bool failIfAlreadyInClan;
@@ -2449,22 +2449,22 @@ struct Clans_AcceptJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_RejectJoinInvitation : public Lobby2Message
 {
-	Clans_RejectJoinInvitation() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_RejectJoinInvitation() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_RejectJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_RejectJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_RejectJoinInvitation)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -2479,7 +2479,7 @@ struct Clans_DownloadInvitationList : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Output parameters
 	DataStructures::List<OpenInvite> invitationsSentToMe;
@@ -2492,22 +2492,22 @@ struct Clans_DownloadInvitationList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SendJoinRequest : public Lobby2Message
 {
-	Clans_SendJoinRequest() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_SendJoinRequest() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SendJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_SendJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_SendJoinRequest)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -2518,22 +2518,22 @@ struct Clans_SendJoinRequest : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_WithdrawJoinRequest : public Lobby2Message
 {
-	Clans_WithdrawJoinRequest() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_WithdrawJoinRequest() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_WithdrawJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_WithdrawJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_WithdrawJoinRequest)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
@@ -2544,25 +2544,25 @@ struct Clans_WithdrawJoinRequest : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_AcceptJoinRequest : public Lobby2Message
 {
-	Clans_AcceptJoinRequest() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_AcceptJoinRequest() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_AcceptJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_AcceptJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_AcceptJoinRequest)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
-	SLNet::RakString requestingUserHandle;
+	MafiaNet::RakString requestingUserHandle;
 	bool failIfAlreadyInClan;	
 
 	// Output parameters
@@ -2571,25 +2571,25 @@ struct Clans_AcceptJoinRequest : public Lobby2Message
 /// \details 
 struct Clans_RejectJoinRequest : public Lobby2Message
 {
-	Clans_RejectJoinRequest() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_RejectJoinRequest() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_RejectJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_RejectJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_RejectJoinRequest)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
-	SLNet::RakString requestingUserHandle;
+	MafiaNet::RakString requestingUserHandle;
 
 	// Output parameters
 };
@@ -2602,7 +2602,7 @@ struct Clans_DownloadRequestList : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 
 	// Input parameters
@@ -2615,50 +2615,50 @@ struct Clans_DownloadRequestList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_KickAndBlacklistUser : public Lobby2Message
 {
-	Clans_KickAndBlacklistUser() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_KickAndBlacklistUser() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_KickAndBlacklistUser() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_KickAndBlacklistUser() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_KickAndBlacklistUser)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 	bool kick;
 	bool blacklist;
-	SLNet::RakString reason;
+	MafiaNet::RakString reason;
 };
 /// \brief Removes a user from the blacklist for this clan.
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_UnblacklistUser : public Lobby2Message
 {
-	Clans_UnblacklistUser() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_UnblacklistUser() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_UnblacklistUser() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_UnblacklistUser() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_UnblacklistUser)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 };
@@ -2671,15 +2671,15 @@ struct Clans_GetBlacklist : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
+	MafiaNet::RakString clanHandle;
 
 	// Output parameters
-	DataStructures::List<SLNet::RakString> blacklistedUsers;
+	DataStructures::List<MafiaNet::RakString> blacklistedUsers;
 };
 /// \brief Returns all clan members for this clan. Each entry returned contains handle, description, binary data, status (leader, regular member, subleader).
 /// \ingroup LOBBY_2_COMMANDS
@@ -2690,16 +2690,16 @@ struct Clans_GetMembers : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
+	MafiaNet::RakString clanHandle;
 
 	// Output parameters
-	SLNet::RakString clanLeader;
-	DataStructures::List<SLNet::RakString> clanMembersOtherThanLeader;
+	MafiaNet::RakString clanLeader;
+	DataStructures::List<MafiaNet::RakString> clanMembersOtherThanLeader;
 };
 /// \brief Returns all clans names
 /// \ingroup LOBBY_2_COMMANDS
@@ -2710,35 +2710,35 @@ struct Clans_GetList : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 
 	// Output parameters
-	DataStructures::List<SLNet::RakString> clanNames;
+	DataStructures::List<MafiaNet::RakString> clanNames;
 };
 /// \brief Creates a new clan board for clan members to post in using AddPostToClanBoard. Clan boards are unique, and are destroyed when the clan is destroyed, or if DestroyClanBoard is called.
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_CreateBoard : public Lobby2Message
 {
-	Clans_CreateBoard() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_CreateBoard() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_CreateBoard() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_CreateBoard() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_CreateBoard)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString clanBoardName;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString clanBoardName;
 	bool allowPublicReads;
 	bool allowPublicWrites;
-	SLNet::RakString description;
+	MafiaNet::RakString description;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
 	// Output parameters
@@ -2752,13 +2752,13 @@ struct Clans_DestroyBoard : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString clanBoardName;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString clanBoardName;
 
 	// Output parameters
 };
@@ -2766,23 +2766,23 @@ struct Clans_DestroyBoard : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_CreateNewTopic : public Lobby2Message
 {
-	Clans_CreateNewTopic() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_CreateNewTopic() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_CreateNewTopic() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_CreateNewTopic() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_CreateNewTopic)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString clanBoardName;
-	SLNet::RakString body;
-	SLNet::RakString subject;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString clanBoardName;
+	MafiaNet::RakString body;
+	MafiaNet::RakString subject;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
 	// Output parameters
@@ -2792,22 +2792,22 @@ struct Clans_CreateNewTopic : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_ReplyToTopic : public Lobby2Message
 {
-	Clans_ReplyToTopic() {binaryData= SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_ReplyToTopic() {/*SLNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_ReplyToTopic() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
+	~Clans_ReplyToTopic() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
 
 	__L2_MSG_BASE_IMPL(Clans_ReplyToTopic)
 		virtual bool RequiresAdmin(void) const {return false;}
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
 	unsigned int postId; // returned from Clans_CreateTopic()
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 };
 /// \brief The clan leader or subleaders may remove posts or topics from a clan board.
@@ -2819,7 +2819,7 @@ struct Clans_RemovePost : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	// Input parameters
 	unsigned int postId; // returned from Clans_CreateTopic()
@@ -2837,15 +2837,15 @@ struct Clans_GetBoards : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
+	MafiaNet::RakString clanHandle;
 
 	// Output parameters
-	DataStructures::List<SLNet::RakString> clanBoardsNames;
+	DataStructures::List<MafiaNet::RakString> clanBoardsNames;
 
 
 };
@@ -2858,13 +2858,13 @@ struct Clans_GetTopics : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	SLNet::RakString clanHandle;
-	SLNet::RakString clanBoardName;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString clanBoardName;
 };
 /// \brief Gets all posts for a particular topic. If postId is not a topic but is instead a post in a topic, treat it as if the topic postId was passed. If we are not a clan member and the clan was created with allowPublicReads==false, then the user is not allowed to read topics
 /// \ingroup LOBBY_2_COMMANDS
@@ -2875,7 +2875,7 @@ struct Clans_GetPosts : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	virtual bool PrevalidateInput(void);
 
@@ -2967,7 +2967,7 @@ struct Console_SendLobbyChatMessage : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return true;}
 	
 	// Input
-	SLNet::RakString message;
+	MafiaNet::RakString message;
 };
 
 // Search rooms in the lobby
@@ -3096,7 +3096,7 @@ struct Console_SendRoomChatMessage : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return true;}
 
-	SLNet::RakString message;
+	MafiaNet::RakString message;
 };
 struct Console_ShowFriendsUI : public Lobby2Message
 {
@@ -3163,9 +3163,9 @@ struct Notification_Client_RemoteLogin : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString handle;
+	MafiaNet::RakString handle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Client_IgnoreStatus : public Lobby2Message
@@ -3176,10 +3176,10 @@ struct Notification_Client_IgnoreStatus : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
 	bool nowIgnored;
-	SLNet::RakString otherHandle;
+	MafiaNet::RakString otherHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Friends_StatusChange : public Lobby2Message
@@ -3190,7 +3190,7 @@ struct Notification_Friends_StatusChange : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	enum Status
 	{
 		FRIEND_LOGGED_IN,
@@ -3225,12 +3225,12 @@ struct Notification_Friends_StatusChange : public Lobby2Message
 		}
 		return "Error in OpToString::Notification_Friends_StatusChange";
 	}
-	SLNet::RakString otherHandle;
-	SLNet::Lobby2Presence presence;
+	MafiaNet::RakString otherHandle;
+	MafiaNet::Lobby2Presence presence;
 	// If \a op was generated due to YOU_WERE_REMOVED_AS_A_FRIEND,GOT_INVITATION_TO_BE_FRIENDS,THEY_ACCEPTED_OUR_INVITATION_TO_BE_FRIENDS, or THEY_REJECTED_OUR_INVITATION_TO_BE_FRIENDS
 	// Then a copy of the subject and body of the corresponding email is here for convenience
-	SLNet::RakString subject;
-	SLNet::RakString body;
+	MafiaNet::RakString subject;
+	MafiaNet::RakString body;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Friends_PresenceUpdate : public Lobby2Message
@@ -3241,10 +3241,10 @@ struct Notification_Friends_PresenceUpdate : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	
 	Lobby2Presence newPresence; 
-	SLNet::RakString otherHandle;
+	MafiaNet::RakString otherHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_User_ChangedHandle : public Lobby2Message
@@ -3255,9 +3255,9 @@ struct Notification_User_ChangedHandle : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString oldHandle, newHandle;
+	MafiaNet::RakString oldHandle, newHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Friends_CreatedClan : public Lobby2Message
@@ -3268,10 +3268,10 @@ struct Notification_Friends_CreatedClan : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString otherHandle;
-	SLNet::RakString clanName;
+	MafiaNet::RakString otherHandle;
+	MafiaNet::RakString clanName;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Emails_Received : public Lobby2Message
@@ -3282,10 +3282,10 @@ struct Notification_Emails_Received : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString sender;
-	SLNet::RakString subject;
+	MafiaNet::RakString sender;
+	MafiaNet::RakString subject;
 	unsigned int emailId;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
@@ -3297,11 +3297,11 @@ struct Notification_Clans_GrantLeader : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString newLeader;
-	SLNet::RakString oldLeader;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString newLeader;
+	MafiaNet::RakString oldLeader;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Clans_SetSubleaderStatus : public Lobby2Message
@@ -3312,11 +3312,11 @@ struct Notification_Clans_SetSubleaderStatus : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
-	SLNet::RakString leaderHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString leaderHandle;
 	bool setToSubleader;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
@@ -3328,11 +3328,11 @@ struct Notification_Clans_SetMemberRank : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
-	SLNet::RakString leaderHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString leaderHandle;
 	unsigned int newRank;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
@@ -3344,11 +3344,11 @@ struct Notification_Clans_ChangeHandle : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString oldClanHandle;
-	SLNet::RakString newClanHandle;
-	SLNet::RakString leaderHandle;
+	MafiaNet::RakString oldClanHandle;
+	MafiaNet::RakString newClanHandle;
+	MafiaNet::RakString leaderHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Clans_Leave : public Lobby2Message
@@ -3359,10 +3359,10 @@ struct Notification_Clans_Leave : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Clans_PendingJoinStatus : public Lobby2Message
@@ -3373,13 +3373,13 @@ struct Notification_Clans_PendingJoinStatus : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString sourceHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString sourceHandle;
+	MafiaNet::RakString targetHandle;
 	// clanMemberHandle is is the clan member that is withdrawing an invitation, or rejecting a request
-	SLNet::RakString clanMemberHandle;
+	MafiaNet::RakString clanMemberHandle;
 
 	// The combination of major and minor op describe this notification
 	// For example, JOIN_CLAN_INVITATION + JOIN_WITHDRAWN means that an invitation to join the clan was withdrawn by targetHandle
@@ -3405,10 +3405,10 @@ struct Notification_Clans_NewClanMember : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Clans_KickAndBlacklistUser : public Lobby2Message
@@ -3419,14 +3419,14 @@ struct Notification_Clans_KickAndBlacklistUser : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
-	SLNet::RakString blacklistingUserHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
+	MafiaNet::RakString blacklistingUserHandle;
 	// If true, they were both kicked and blacklisted. If false, they were only blacklisted (not currently in the clan)
 	bool targetHandleWasKicked;
-	SLNet::RakString reason;
+	MafiaNet::RakString reason;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Clans_UnblacklistUser : public Lobby2Message
@@ -3437,12 +3437,12 @@ struct Notification_Clans_UnblacklistUser : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString targetHandle;
 	// Currently this is always the clan leader, since subleaders cannot unblacklist
-	SLNet::RakString unblacklistingUserHandle;
+	MafiaNet::RakString unblacklistingUserHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Clans_Destroyed : public Lobby2Message
@@ -3453,10 +3453,10 @@ struct Notification_Clans_Destroyed : public Lobby2Message
 	virtual bool CancelOnDisconnect(void) const {return false;}
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, SLNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 
-	SLNet::RakString clanHandle;
-	SLNet::RakString oldClanLeader;
+	MafiaNet::RakString clanHandle;
+	MafiaNet::RakString oldClanLeader;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_CableDisconnected : public Lobby2Message
@@ -3488,7 +3488,7 @@ struct Notification_Console_MemberJoinedLobby : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MemberLeftLobby : public Lobby2Message
@@ -3500,7 +3500,7 @@ struct Notification_Console_MemberLeftLobby : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString targetHandle;
+	MafiaNet::RakString targetHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_LobbyDestroyed : public Lobby2Message
@@ -3532,8 +3532,8 @@ struct Notification_Console_LobbyGotChatMessage : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString sender;
-	SLNet::RakString message;
+	MafiaNet::RakString sender;
+	MafiaNet::RakString message;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_LobbyGotRoomInvitation : public Lobby2Message
@@ -3545,7 +3545,7 @@ struct Notification_Console_LobbyGotRoomInvitation : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString sender;
+	MafiaNet::RakString sender;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MemberJoinedRoom : public Lobby2Message
@@ -3557,7 +3557,7 @@ struct Notification_Console_MemberJoinedRoom : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString memberName;
+	MafiaNet::RakString memberName;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MemberLeftRoom : public Lobby2Message
@@ -3569,7 +3569,7 @@ struct Notification_Console_MemberLeftRoom : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString memberName;
+	MafiaNet::RakString memberName;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_KickedOutOfRoom : public Lobby2Message
@@ -3621,8 +3621,8 @@ struct Notification_Console_RoomChatMessage : public Lobby2Message
 	virtual bool RequiresLogin(void) const {return false;}
 	virtual bool IsNotification(void) const {return true;}
 
-	SLNet::RakString sender;
-	SLNet::RakString message;
+	MafiaNet::RakString sender;
+	MafiaNet::RakString message;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_RoomMessage : public Lobby2Message
@@ -3635,8 +3635,8 @@ struct Notification_Console_RoomMessage : public Lobby2Message
 	virtual bool IsNotification(void) const {return true;}
 
 
-	SLNet::RakString sender;
-	SLNet::RakString message;
+	MafiaNet::RakString sender;
+	MafiaNet::RakString message;
 };
 // Now merged into Notification_Console_MemberJoinedRoom
 /*
@@ -3765,8 +3765,8 @@ struct Notification_Console_Accepted_Room_Invite : public Lobby2Message
 	virtual bool IsNotification(void) const {return true;}
 };
 // --------------------------------------------- Base interface of factory class for all messages --------------------------------------------
-#define __L2_ALLOCATE_AND_DEFINE(FACTORY, __TYPE__,VAR_NAME) SLNet::__TYPE__ *VAR_NAME = (SLNet::__TYPE__ *) FACTORY->Alloc(L2MID_##__TYPE__); RakAssert(VAR_NAME);
-#define __L2_MSG_FACTORY_BASE(__NAME__) {case L2MID_##__NAME__ : Lobby2Message *m = SLNet::OP_NEW< __NAME__ >( _FILE_AND_LINE_ ) ; RakAssert(m->GetID()==L2MID_##__NAME__ ); m->requestId=nextRequestId++; return m;}
+#define __L2_ALLOCATE_AND_DEFINE(FACTORY, __TYPE__,VAR_NAME) MafiaNet::__TYPE__ *VAR_NAME = (MafiaNet::__TYPE__ *) FACTORY->Alloc(L2MID_##__TYPE__); RakAssert(VAR_NAME);
+#define __L2_MSG_FACTORY_BASE(__NAME__) {case L2MID_##__NAME__ : Lobby2Message *m = MafiaNet::OP_NEW< __NAME__ >( _FILE_AND_LINE_ ) ; RakAssert(m->GetID()==L2MID_##__NAME__ ); m->requestId=nextRequestId++; return m;}
 /// \ingroup LOBBY_2_GROUP
 struct Lobby2MessageFactory
 {
@@ -3951,7 +3951,7 @@ struct Lobby2MessageFactory
 			// Only delete one message at a time or else GetRefCount may be called on the same message in two threads at the same time and not be accurate
 			deallocateLockMutex.Lock();
 			if (msg->GetRefCount()<=0)
-				SLNet::OP_DELETE<Lobby2Message>(msg, _FILE_AND_LINE_ );
+				MafiaNet::OP_DELETE<Lobby2Message>(msg, _FILE_AND_LINE_ );
 			deallocateLockMutex.Unlock();
 		}
 	}
@@ -3960,7 +3960,7 @@ struct Lobby2MessageFactory
 	SimpleMutex deallocateLockMutex;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

@@ -44,7 +44,7 @@ typedef short SAMPLE;
 //#define SAMPLE_RATE  (16000)
 //#define SAMPLE_RATE  (32000)
 
-SLNet::RakPeerInterface *rakPeer;
+MafiaNet::RakPeerInterface *rakPeer;
 
 // I think one buffer has to be full (of samples) before you hear the sound.
 // So higher frames per buffer means that there will be a larger latency before you hear the sound
@@ -52,7 +52,7 @@ SLNet::RakPeerInterface *rakPeer;
 #define FRAMES_PER_BUFFER  (2048 / (32000 / SAMPLE_RATE))
 
 bool mute;
-SLNet::RakVoice rakVoice;
+MafiaNet::RakVoice rakVoice;
 
 // inputBuffer and outputBuffer is an array of SAMPLE of count framesPerBuffer
 // A sample is one unit of sound.
@@ -79,7 +79,7 @@ static int PACallback( void *inputBuffer, void *outputBuffer,
 			rakVoice.SendFrame(rakPeer->GetGUIDFromIndex(i), inputBuffer);
 		}
 #else
-		rakVoice.SendFrame(SLNet::UNASSIGNED_SYSTEM_ADDRESS, inputBuffer);
+		rakVoice.SendFrame(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, inputBuffer);
 #endif
 	}
 
@@ -109,9 +109,9 @@ int main(void)
 	printf("Difficulty: Advanced\n\n");
 
 	// Since voice is peer to peer, we give the option to use the nat punchthrough client if desired.
-	SLNet::NatPunchthroughClient natPunchthroughClient;
+	MafiaNet::NatPunchthroughClient natPunchthroughClient;
 	char port[256];
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	printf("Enter local port (enter for default): ");
 	Gets(port, sizeof(port));
 	if (port[0]==0)
@@ -121,7 +121,7 @@ int main(void)
 		printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 		return 1;
 	}
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort), 0);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort), 0);
 	rakPeer->Startup(4, &socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(4);
 	rakPeer->AttachPlugin(&rakVoice);
@@ -160,10 +160,10 @@ int main(void)
 	char facilitatorIP[256];
 	{//Linux fix. Won't compile without it. Because of the goto error above, the scope is ambigious. Make it a block to define that it will not be used after the jump.
 	//Doesn't change current logic
-		SLNet::SystemAddress facilitator;
+		MafiaNet::SystemAddress facilitator;
 	if (useNatPunchthrough)
 	{
-		printf("My GUID is %s\n", rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("My GUID is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
 
 		printf("Enter IP of facilitator (enter for default): ");
 		Gets(facilitatorIP,sizeof(facilitatorIP));
@@ -181,7 +181,7 @@ int main(void)
 
 
     
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	quit=false;
 	if (useNatPunchthrough==false)
 		printf("(Q)uit. (C)onnect. (D)isconnect. C(l)ose voice channels. (M)ute. ' ' for stats.\n");
@@ -199,7 +199,7 @@ int main(void)
 			{
 				if (useNatPunchthrough)
 				{
-					SLNet::RakNetGUID destination;
+					MafiaNet::RakNetGUID destination;
 					printf("Enter GUID of destination: ");
 					char guidStr[256];
 					for(;;)
@@ -252,7 +252,7 @@ int main(void)
 			else if (ch==' ')
 			{
 				char message[2048];
-				SLNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+				MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 			}
@@ -296,32 +296,32 @@ int main(void)
 			}
 			else if (p->data[0]==ID_NAT_TARGET_NOT_CONNECTED)
 			{
-				SLNet::RakNetGUID g;
-				SLNet::BitStream b(p->data, p->length, false);
+				MafiaNet::RakNetGUID g;
+				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
 				printf("ID_NAT_TARGET_NOT_CONNECTED for %s\n", g.ToString());
 			}
 			else if (p->data[0]==ID_NAT_TARGET_UNRESPONSIVE)
 			{
-				SLNet::RakNetGUID g;
-				SLNet::BitStream b(p->data, p->length, false);
+				MafiaNet::RakNetGUID g;
+				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
 				printf("ID_NAT_TARGET_UNRESPONSIVE for %s\n", g.ToString());
 			}
 			else if (p->data[0]==ID_NAT_CONNECTION_TO_TARGET_LOST)
 			{
-				SLNet::RakNetGUID g;
-				SLNet::BitStream b(p->data, p->length, false);
+				MafiaNet::RakNetGUID g;
+				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
 				printf("ID_NAT_CONNECTION_TO_TARGET_LOST for %s\n", g.ToString());
 			}
 			else if (p->data[0]==ID_NAT_ALREADY_IN_PROGRESS)
 			{
-				SLNet::RakNetGUID g;
-				SLNet::BitStream b(p->data, p->length, false);
+				MafiaNet::RakNetGUID g;
+				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
 				printf("ID_NAT_ALREADY_IN_PROGRESS for %s\n", g.ToString());
@@ -372,7 +372,7 @@ int main(void)
 	Pa_Terminate();
 
 	rakPeer->Shutdown(300);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 0;
 

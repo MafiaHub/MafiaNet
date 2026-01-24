@@ -151,7 +151,7 @@ struct RAK_DLL_EXPORT ThreadPool
 protected:
 	// It is valid to cancel input before it is processed.  To do so, lock the inputQueue with inputQueueMutex,
 	// Scan the list, and remove the item you don't want.
-	SLNet::SimpleMutex inputQueueMutex, outputQueueMutex, workingThreadCountMutex, runThreadsMutex;
+	MafiaNet::SimpleMutex inputQueueMutex, outputQueueMutex, workingThreadCountMutex, runThreadsMutex;
 
 	void* (*perThreadDataFactory)();
 	void (*perThreadDataDestructor)(void*);
@@ -184,12 +184,12 @@ protected:
 	/// \internal
 	int numThreadsWorking;
 	/// \internal
-	SLNet::SimpleMutex numThreadsRunningMutex;
+	MafiaNet::SimpleMutex numThreadsRunningMutex;
 
-	SLNet::SignaledEvent quitAndIncomingDataEvents;
+	MafiaNet::SignaledEvent quitAndIncomingDataEvents;
 
 // #if defined(SN_TARGET_PSP2)
-// 	SLNet::RakThread::UltUlThreadRuntime *runtime;
+// 	MafiaNet::RakThread::UltUlThreadRuntime *runtime;
 // #endif
 };
 
@@ -336,7 +336,7 @@ bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSi
 	(void) stackSize;
 
 // #if defined(SN_TARGET_PSP2)
-// 	runtime = SLNet::RakThread::AllocRuntime(numThreads);
+// 	runtime = MafiaNet::RakThread::AllocRuntime(numThreads);
 // #endif
 
 	runThreadsMutex.Lock();
@@ -368,7 +368,7 @@ bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSi
 
 
 
-		errorCode = SLNet::RakThread::Create(WorkerThread<InputType, OutputType>, this);
+		errorCode = MafiaNet::RakThread::Create(WorkerThread<InputType, OutputType>, this);
 
 		if (errorCode!=0)
 		{
@@ -424,7 +424,7 @@ void ThreadPool<InputType, OutputType>::StopThreads(void)
 	quitAndIncomingDataEvents.CloseEvent();
 
 // #if defined(SN_TARGET_PSP2)
-// 	SLNet::RakThread::DeallocRuntime(runtime);
+// 	MafiaNet::RakThread::DeallocRuntime(runtime);
 // 	runtime=0;
 // #endif
 

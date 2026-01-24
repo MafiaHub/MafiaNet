@@ -19,7 +19,7 @@
 #include "slikenet/DS_List.h"
 #include "slikenet/string.h"
 
-namespace SLNet {
+namespace MafiaNet {
 
 class ProfanityFilter
 {
@@ -37,9 +37,9 @@ public:
 	// Number of profanity words loaded
 	int Count();
 
-	void AddWord(SLNet::RakString newWord);
+	void AddWord(MafiaNet::RakString newWord);
 private:	
-	DataStructures::List<SLNet::RakString> words;
+	DataStructures::List<MafiaNet::RakString> words;
 
 	char RandomBanChar();
 
@@ -47,6 +47,6 @@ private:
 	static char WORDCHARS[];
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __PROFANITY__H__

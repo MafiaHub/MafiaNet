@@ -31,7 +31,7 @@
 #ifndef __RACKSPACE_H
 #define __RACKSPACE_H
 
-namespace SLNet
+namespace MafiaNet
 {
 
 	class TCPInterface;
@@ -208,13 +208,13 @@ namespace SLNet
 		/// \param[in] name Name of the server. Only alphanumeric characters, periods, and hyphens are valid. Server Name cannot start or end with a period or hyphen.
 		/// \param[in] imageId Which image (harddrive contents, including OS) to use
 		/// \param[in] flavorId Which flavor (hardware config) to use, primarily how much memory is available.
-		void CreateServer(SLNet::RakString name, SLNet::RakString imageId, SLNet::RakString flavorId);
+		void CreateServer(MafiaNet::RakString name, MafiaNet::RakString imageId, MafiaNet::RakString flavorId);
 
 		/// \brief Get details on a particular server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnGetServerDetailsResult()
 		/// \param[in] serverId Which server to get details on. You can call ListServers() to get the list of active servers.
-		void GetServerDetails(SLNet::RakString serverId);
+		void GetServerDetails(MafiaNet::RakString serverId);
 
 		/// \brief Changes the name or password for a server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
@@ -222,47 +222,47 @@ namespace SLNet
 		/// \param[in] serverId Which server to get details on. You can call ListServers() to get the list of active servers.
 		/// \param[in] newName The new server name. Leave blank to leave unchanged. Only alphanumeric characters, periods, and hyphens are valid. Server Name cannot start or end with a period or hyphen.
 		/// \param[in] newPassword The new server password. Leave blank to leave unchanged.
-		void UpdateServerNameOrPassword(SLNet::RakString serverId, SLNet::RakString newName, SLNet::RakString newPassword);
+		void UpdateServerNameOrPassword(MafiaNet::RakString serverId, MafiaNet::RakString newName, MafiaNet::RakString newPassword);
 
 		/// \brief Deletes a server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnDeleteServerResult()
 		/// \param[in] serverId Which server to get details on. You can call ListServers() to get the list of active servers.
-		void DeleteServer(SLNet::RakString serverId);
+		void DeleteServer(MafiaNet::RakString serverId);
 		
 		/// \brief Lists the IP addresses available to a server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnListServerAddressesResult()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
-		void ListServerAddresses(SLNet::RakString serverId);
+		void ListServerAddresses(MafiaNet::RakString serverId);
 
 		/// \brief Shares an IP address with a server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnShareServerAddressResult()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
 		/// \param[in] ipAddress Which IP address. You can call ListServerAddresses() to get the list of addresses for the specified server
-		void ShareServerAddress(SLNet::RakString serverId, SLNet::RakString ipAddress);
+		void ShareServerAddress(MafiaNet::RakString serverId, MafiaNet::RakString ipAddress);
 
 		/// \brief Stops sharing an IP address with a server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnDeleteServerAddressResult()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
 		/// \param[in] ipAddress Which IP address. You can call ListServerAddresses() to get the list of addresses for the specified server
-		void DeleteServerAddress(SLNet::RakString serverId, SLNet::RakString ipAddress);
+		void DeleteServerAddress(MafiaNet::RakString serverId, MafiaNet::RakString ipAddress);
 
 		/// \brief Reboots a server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnRebootServerResult()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
 		/// \param[in] rebootType Should be either "HARD" or "SOFT"
-		void RebootServer(SLNet::RakString serverId, SLNet::RakString rebootType);
+		void RebootServer(MafiaNet::RakString serverId, MafiaNet::RakString rebootType);
 
 		/// \brief Rebuilds a server with a different image (harddrive contents)
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnRebuildServerResult()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
 		/// \param[in] imageId Which image (harddrive contents, including OS) to use
-		void RebuildServer(SLNet::RakString serverId, SLNet::RakString imageId);
+		void RebuildServer(MafiaNet::RakString serverId, MafiaNet::RakString imageId);
 
 		/// \brief Changes the hardware configuration of a server. This does not take effect until you call ConfirmResizedServer()
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
@@ -270,21 +270,21 @@ namespace SLNet
 		/// \sa RevertResizedServer()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
 		/// \param[in] flavorId Which flavor (hardware config) to use, primarily how much memory is available.
-		void ResizeServer(SLNet::RakString serverId, SLNet::RakString flavorId);
+		void ResizeServer(MafiaNet::RakString serverId, MafiaNet::RakString flavorId);
 
 		/// \brief Confirm a resize for the specified server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnConfirmResizedServerResult()
 		/// \sa ResizeServer()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
-		void ConfirmResizedServer(SLNet::RakString serverId);
+		void ConfirmResizedServer(MafiaNet::RakString serverId);
 
 		/// \brief Reverts a resize for the specified server
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnRevertResizedServerResult()
 		/// \sa ResizeServer()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
-		void RevertResizedServer(SLNet::RakString serverId);
+		void RevertResizedServer(MafiaNet::RakString serverId);
 
 		/// \brief List all flavors (hardware configs, primarily memory)
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
@@ -296,7 +296,7 @@ namespace SLNet
 		/// \sa RackspaceEventCallback::OnGetFlavorDetailsResult()
 		/// \sa ListFlavors()
 		/// \param[in] flavorId Which flavor (hardware config)
-		void GetFlavorDetails(SLNet::RakString flavorId);
+		void GetFlavorDetails(MafiaNet::RakString flavorId);
 
 		/// \brief List all images (software configs, including operating systems), which includes images you create yourself
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
@@ -310,21 +310,21 @@ namespace SLNet
 		/// \sa ListImages()
 		/// \param[in] serverId Which server to operate on. You can call ListServers() to get the list of active servers.
 		/// \param[in] imageName What to call this image
-		void CreateImage(SLNet::RakString serverId, SLNet::RakString imageName);
+		void CreateImage(MafiaNet::RakString serverId, MafiaNet::RakString imageName);
 
 		/// \brief Get extended details about a particular image
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnGetImageDetailsResult()
 		/// \sa ListImages()
 		/// \param[in] imageId Which image
-		void GetImageDetails(SLNet::RakString imageId);
+		void GetImageDetails(MafiaNet::RakString imageId);
 
 		/// \brief Delete a custom image created with CreateImage()
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
 		/// \sa RackspaceEventCallback::OnDeleteImageResult()
 		/// \sa ListImages()
 		/// \param[in] imageId Which image
-		void DeleteImage(SLNet::RakString imageId);
+		void DeleteImage(MafiaNet::RakString imageId);
 
 		/// \brief List IP groups
 		/// \sa http://docs.rackspacecloud.com/servers/api/v1.0/cs-devguide-20110112.pdf
@@ -337,11 +337,11 @@ namespace SLNet
 		void ListSharedIPGroupsWithDetails(void);
 
 		// I don't know what this does
-		void CreateSharedIPGroup(SLNet::RakString name, SLNet::RakString optionalServerId);
+		void CreateSharedIPGroup(MafiaNet::RakString name, MafiaNet::RakString optionalServerId);
 		// I don't know what this does
-		void GetSharedIPGroupDetails(SLNet::RakString groupId);
+		void GetSharedIPGroupDetails(MafiaNet::RakString groupId);
 		// I don't know what this does
-		void DeleteSharedIPGroup(SLNet::RakString groupId);
+		void DeleteSharedIPGroup(MafiaNet::RakString groupId);
 
 		/// \brief Adds a callback to the list of callbacks to be called when any of the above functions finish executing
 		/// The callbacks are called in the order they are added
@@ -363,7 +363,7 @@ namespace SLNet
 
 		/// \brief Mostly for internal use, but you can use it to execute an operation with more complex xml if desired
 		/// See the Rackspace.cpp on how to use it
-		void AddOperation(RackspaceOperationType type, SLNet::RakString httpCommand, SLNet::RakString operation, SLNet::RakString xml);
+		void AddOperation(RackspaceOperationType type, MafiaNet::RakString httpCommand, MafiaNet::RakString operation, MafiaNet::RakString xml);
 	protected:
 
 		DataStructures::List<Rackspace2EventCallback*> eventCallbacks;
@@ -371,13 +371,13 @@ namespace SLNet
 		struct RackspaceOperation
 		{
 			RackspaceOperationType type;
-		//	SLNet::RakString stringInfo;
+		//	MafiaNet::RakString stringInfo;
 			SystemAddress connectionAddress;
 			bool isPendingAuthentication;
-			SLNet::RakString incomingStream;
-			SLNet::RakString httpCommand;
-			SLNet::RakString operation;
-			SLNet::RakString xml;
+			MafiaNet::RakString incomingStream;
+			MafiaNet::RakString httpCommand;
+			MafiaNet::RakString operation;
+			MafiaNet::RakString xml;
 		};
 
 		TCPInterface *tcpInterface;
@@ -389,29 +389,29 @@ namespace SLNet
 		bool HasOperationOfType(RackspaceOperationType t);
 		unsigned int GetOperationOfTypeIndex(RackspaceOperationType t);
 
-		SLNet::RakString serverManagementURL;
-		SLNet::RakString serverManagementDomain;
-		SLNet::RakString serverManagementPath;
-		SLNet::RakString storageURL;
-		SLNet::RakString storageDomain;
-		SLNet::RakString storagePath;
-		SLNet::RakString cdnManagementURL;
-		SLNet::RakString cdnManagementDomain;
-		SLNet::RakString cdnManagementPath;
+		MafiaNet::RakString serverManagementURL;
+		MafiaNet::RakString serverManagementDomain;
+		MafiaNet::RakString serverManagementPath;
+		MafiaNet::RakString storageURL;
+		MafiaNet::RakString storageDomain;
+		MafiaNet::RakString storagePath;
+		MafiaNet::RakString cdnManagementURL;
+		MafiaNet::RakString cdnManagementDomain;
+		MafiaNet::RakString cdnManagementPath;
 
-		SLNet::RakString storageToken;
-		SLNet::RakString authToken;
-		SLNet::RakString rackspaceCloudUsername;
-		SLNet::RakString apiAccessKey;
+		MafiaNet::RakString storageToken;
+		MafiaNet::RakString authToken;
+		MafiaNet::RakString rackspaceCloudUsername;
+		MafiaNet::RakString apiAccessKey;
 
 		bool ExecuteOperation(RackspaceOperation &ro);
-		void ReadLine(const char *data, const char *stringStart, SLNet::RakString &output);
+		void ReadLine(const char *data, const char *stringStart, MafiaNet::RakString &output);
 		bool ConnectToServerManagementDomain(RackspaceOperation &ro);
 
 
 	};
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __RACKSPACE_API_H
 

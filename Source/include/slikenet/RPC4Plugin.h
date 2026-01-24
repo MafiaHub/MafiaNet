@@ -38,7 +38,7 @@
 /// \details This should not be used at the same time as RPC3. This is a less functional version of RPC3, and is here for users that do not want the Boost dependency of RPC3.
 /// \ingroup PLUGINS_GROUP
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -59,13 +59,13 @@ class NetworkIDManager;
 	{
 	public:
 		/// \brief Queue a call to RPC4::RegisterFunction() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
-		RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ));
+		RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ));
 
 		/// \brief Queue a call to RPC4::RegisterSlot() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
-		RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ), int callPriority);
+		RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ), int callPriority);
 
 		/// \brief Queue a call to RPC4::RegisterBlockingFunction() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
-		RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, SLNet::BitStream *returnData, Packet *packet ));
+		RPC4GlobalRegistration(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet ));
 
 		/// \brief Queue a call to RPC4::RegisterLocalCallback() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
 		RPC4GlobalRegistration(const char* uniqueID, MessageID messageId);
@@ -96,17 +96,17 @@ class NetworkIDManager;
 		/// \param[in] uniqueID Identifier to be associated with \a functionPointer. If this identifier is already in use, the call will return false.
 		/// \param[in] functionPointer C function pointer to be called
 		/// \return True if the hash of uniqueID is not in use, false otherwise.
-		bool RegisterFunction(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ));
+		bool RegisterFunction(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ));
 
 		/// Register a slot, which is a function pointer to one or more implementations that supports this function signature
 		/// When a signal occurs, all slots with the same identifier are called.
 		/// \param[in] sharedIdentifier A string to identify the slot. Recommended to be the same as the name of the function.
 		/// \param[in] functionPtr Pointer to the function. For C, just pass the name of the function. For C++, use ARPC_REGISTER_CPP_FUNCTION
 		/// \param[in] callPriority Slots are called by order of the highest callPriority first. For slots with the same priority, they are called in the order they are registered
-		void RegisterSlot(const char *sharedIdentifier, void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet ), int callPriority);
+		void RegisterSlot(const char *sharedIdentifier, void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ), int callPriority);
 
 		/// \brief Same as \a RegisterFunction, but is called with CallBlocking() instead of Call() and returns a value to the caller
-		bool RegisterBlockingFunction(const char* uniqueID, void ( *functionPointer ) (SLNet::BitStream *userData, SLNet::BitStream *returnData, Packet *packet ));
+		bool RegisterBlockingFunction(const char* uniqueID, void ( *functionPointer ) (MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet ));
 
 		/// \deprecated Use RegisterSlot and invoke on self only when the packet you want arrives
 		/// When a RakNet Packet with the specified identifier is returned, execute CallLoopback() on a function previously registered with RegisterFunction()
@@ -137,7 +137,7 @@ class NetworkIDManager;
 		/// Send to the attached instance of RakPeer. See RakPeerInterface::SendLoopback()
 		/// \param[in] Identifier originally passed to RegisterFunction() on the local system
 		/// \param[in] bitStream bitStream encoded data to send to the function callback
-		void CallLoopback( const char* uniqueID, SLNet::BitStream * bitStream );
+		void CallLoopback( const char* uniqueID, MafiaNet::BitStream * bitStream );
 
 		/// \deprecated, use Signal()
 		/// Send to the specified remote instance of RakPeer.
@@ -148,7 +148,7 @@ class NetworkIDManager;
 		/// \param[in] orderingChannel See RakPeerInterface::Send()
 		/// \param[in] systemIdentifier See RakPeerInterface::Send()
 		/// \param[in] broadcast See RakPeerInterface::Send()
-		void Call( const char* uniqueID, SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast );
+		void Call( const char* uniqueID, MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast );
 
 		/// \brief Same as call, but don't return until the remote system replies.
 		/// Broadcasting parameter does not exist, this can only call one remote system
@@ -161,7 +161,7 @@ class NetworkIDManager;
 		/// \param[in] systemIdentifier See RakPeerInterface::Send()
 		/// \param[out] returnData Written to by the function registered with RegisterBlockingFunction.
 		/// \return true if successfully called. False on disconnect, function not registered, or not connected to begin with
-		bool CallBlocking( const char* uniqueID, SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, SLNet::BitStream *returnData );
+		bool CallBlocking( const char* uniqueID, MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, MafiaNet::BitStream *returnData );
 
 		/// Calls zero or more functions identified by sharedIdentifier registered with RegisterSlot()
 		/// \param[in] sharedIdentifier parameter of the same name passed to RegisterSlot() on the remote system
@@ -172,7 +172,7 @@ class NetworkIDManager;
 		/// \param[in] systemIdentifier See RakPeerInterface::Send()
 		/// \param[in] broadcast See RakPeerInterface::Send()
 		/// \param[in] invokeLocal If true, also sends to self.
-		void Signal(const char *sharedIdentifier, SLNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool invokeLocal);
+		void Signal(const char *sharedIdentifier, MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool invokeLocal);
 
 		/// If called while processing a slot, no further slots for the currently executing signal will be executed
 		void InterruptSignal(void);
@@ -181,7 +181,7 @@ class NetworkIDManager;
 		struct LocalCallback
 		{
 			MessageID messageId;
-			DataStructures::OrderedList<SLNet::RakString, SLNet::RakString> functions;
+			DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> functions;
 		};
 		static int LocalCallbackComp(const MessageID &key, LocalCallback* const &data );
 
@@ -190,14 +190,14 @@ class NetworkIDManager;
 		struct LocalSlotObject
 		{
 			LocalSlotObject() {}
-			LocalSlotObject(unsigned int _registrationCount,int _callPriority, void ( *_functionPointer ) (SLNet::BitStream *userData, Packet *packet ))
+			LocalSlotObject(unsigned int _registrationCount,int _callPriority, void ( *_functionPointer ) (MafiaNet::BitStream *userData, Packet *packet ))
 			{registrationCount=_registrationCount;callPriority=_callPriority;functionPointer=_functionPointer;}
 			~LocalSlotObject() {}
 
 			// Used so slots are called in the order they are registered
 			unsigned int registrationCount;
 			int callPriority;
-			void ( *functionPointer ) (SLNet::BitStream *userData, Packet *packet );
+			void ( *functionPointer ) (MafiaNet::BitStream *userData, Packet *packet );
 		};
 
 		static int LocalSlotObjectComp( const LocalSlotObject &key, const LocalSlotObject &data );
@@ -207,7 +207,7 @@ class NetworkIDManager;
 		{
 			DataStructures::OrderedList<LocalSlotObject,LocalSlotObject,LocalSlotObjectComp> slotObjects;
 		};
-		DataStructures::Hash<SLNet::RakString, LocalSlot*,256, SLNet::RakString::ToInteger> localSlots;
+		DataStructures::Hash<MafiaNet::RakString, LocalSlot*,256, MafiaNet::RakString::ToInteger> localSlots;
 
 	protected:
 
@@ -217,11 +217,11 @@ class NetworkIDManager;
 		virtual void OnAttach(void);
 		virtual PluginReceiveResult OnReceive(Packet *packet);
 
-		DataStructures::Hash<SLNet::RakString, void ( * ) (SLNet::BitStream *, Packet * ),64, SLNet::RakString::ToInteger> registeredNonblockingFunctions;
-		DataStructures::Hash<SLNet::RakString, void ( * ) (SLNet::BitStream *, SLNet::BitStream *, Packet * ),64, SLNet::RakString::ToInteger> registeredBlockingFunctions;
+		DataStructures::Hash<MafiaNet::RakString, void ( * ) (MafiaNet::BitStream *, Packet * ),64, MafiaNet::RakString::ToInteger> registeredNonblockingFunctions;
+		DataStructures::Hash<MafiaNet::RakString, void ( * ) (MafiaNet::BitStream *, MafiaNet::BitStream *, Packet * ),64, MafiaNet::RakString::ToInteger> registeredBlockingFunctions;
 		DataStructures::OrderedList<MessageID,LocalCallback*,RPC4::LocalCallbackComp> localCallbacks;
 
-		SLNet::BitStream blockingReturnValue;
+		MafiaNet::BitStream blockingReturnValue;
 		bool gotBlockingReturnValue;
 
 		DataStructures::HashIndex GetLocalSlotIndex(const char *sharedIdentifier);
@@ -231,7 +231,7 @@ class NetworkIDManager;
 
 		bool interruptSignal;
 
-		void InvokeSignal(DataStructures::HashIndex functionIndex, SLNet::BitStream *serializedParameters, Packet *packet);
+		void InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, Packet *packet);
 	};
 
 } // End namespace

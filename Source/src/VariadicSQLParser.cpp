@@ -78,8 +78,8 @@ void VariadicSQLParser::ExtractArguments( va_list argptr, const DataStructures::
 		return;
 
 	unsigned int i;
-	*argumentBinary= SLNet::OP_NEW_ARRAY<char *>(indices.Size(), _FILE_AND_LINE_);
-	*argumentLengths= SLNet::OP_NEW_ARRAY<int>(indices.Size(), _FILE_AND_LINE_);
+	*argumentBinary= MafiaNet::OP_NEW_ARRAY<char *>(indices.Size(), _FILE_AND_LINE_);
+	*argumentLengths= MafiaNet::OP_NEW_ARRAY<int>(indices.Size(), _FILE_AND_LINE_);
 
 	char **paramData=*argumentBinary;
 	int *paramLength=*argumentLengths;
@@ -96,7 +96,7 @@ void VariadicSQLParser::ExtractArguments( va_list argptr, const DataStructures::
 				paramLength[i]=sizeof(val);
 				paramData[i]=(char*) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
 				memcpy(paramData[i], &val, paramLength[i]);
-				if (SLNet::BitStream::IsNetworkOrder()==false) SLNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
+				if (MafiaNet::BitStream::IsNetworkOrder()==false) MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
 			}
 			break;
 		case 's':
@@ -113,7 +113,7 @@ void VariadicSQLParser::ExtractArguments( va_list argptr, const DataStructures::
 				paramLength[i]=sizeof(val);
 				paramData[i]=(char*) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
 				memcpy(paramData[i], &val, paramLength[i]);
-				if (SLNet::BitStream::IsNetworkOrder()==false) SLNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
+				if (MafiaNet::BitStream::IsNetworkOrder()==false) MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
 			}
 			break;
 			/*
@@ -125,7 +125,7 @@ void VariadicSQLParser::ExtractArguments( va_list argptr, const DataStructures::
 				paramLength[i]=sizeof(val);
 				paramData[i]=(char*) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
 				memcpy(paramData[i], &val, paramLength[i]);
-				if (SLNet::BitStream::IsNetworkOrder()==false) SLNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
+				if (MafiaNet::BitStream::IsNetworkOrder()==false) MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
 			}
 			break;
 			*/
@@ -137,7 +137,7 @@ void VariadicSQLParser::ExtractArguments( va_list argptr, const DataStructures::
 				paramLength[i]=sizeof(val);
 				paramData[i]=(char*) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
 				memcpy(paramData[i], &val, paramLength[i]);
-				if (SLNet::BitStream::IsNetworkOrder()==false) SLNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
+				if (MafiaNet::BitStream::IsNetworkOrder()==false) MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
 			}
 			break;
 		case 'a':
@@ -160,6 +160,6 @@ void VariadicSQLParser::FreeArguments(const DataStructures::List<IndexAndType> &
 	unsigned int i;
 	for (i=0; i < indices.Size(); i++)
 		rakFree_Ex(argumentBinary[i],_FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(argumentBinary,_FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(argumentLengths,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(argumentBinary,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(argumentLengths,_FILE_AND_LINE_);
 }

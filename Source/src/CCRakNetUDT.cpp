@@ -26,7 +26,7 @@
 #include "slikenet/assert.h"
 #include "slikenet/alloca.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static const double UNSET_TIME_US=-1;
 static const double CWND_MIN_THRESHOLD=2.0;
@@ -397,7 +397,7 @@ CCTimeType CCRakNetUDT::GetRTOForRetransmission(unsigned char timesSent) const
 	return ret;
 }
 // ----------------------------------------------------------------------------------------------------------------------------
-void CCRakNetUDT::OnResend(CCTimeType curTime, SLNet::TimeUS nextActionTime)
+void CCRakNetUDT::OnResend(CCTimeType curTime, MafiaNet::TimeUS nextActionTime)
 {
 	(void) curTime;
 

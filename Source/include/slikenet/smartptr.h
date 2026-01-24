@@ -25,7 +25,7 @@
 //static int allocCount=0;
 //static int deallocCount=0;
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RAK_DLL_EXPORT ReferenceCounter
@@ -55,7 +55,7 @@ public:
 
 	RakNetSmartPtr(T* pValue) : ptr(pValue)
 	{
-		reference = SLNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
+		reference = MafiaNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
 		reference->AddRef();
 
 //		allocCount+=2;
@@ -72,8 +72,8 @@ public:
 	{
 		if(reference && reference->Release() == 0)
 		{
-			SLNet::OP_DELETE(ptr, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(reference, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
 
 //			deallocCount+=2;
 //			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
@@ -89,8 +89,8 @@ public:
 	{
 		if(reference && reference->Release() == 0)
 		{
-			SLNet::OP_DELETE(ptr, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(reference, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
 
 //			deallocCount+=2;
 //			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
@@ -111,10 +111,10 @@ public:
 		{
 			reference->Release();
 
-			reference = SLNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
+			reference = MafiaNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
 			reference->AddRef();
 			T* oldPtr=ptr;
-			ptr= SLNet::OP_NEW<T>(_FILE_AND_LINE_);
+			ptr= MafiaNet::OP_NEW<T>(_FILE_AND_LINE_);
 			if (copyContents)
 				*ptr=*oldPtr;
 		}
@@ -165,8 +165,8 @@ public:
 		{
 			if(reference && reference->Release() == 0)
 			{
-				SLNet::OP_DELETE(ptr, _FILE_AND_LINE_);
-				SLNet::OP_DELETE(reference, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
 
 //				deallocCount+=2;
 //				printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
@@ -183,6 +183,6 @@ public:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

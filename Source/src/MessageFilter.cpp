@@ -25,14 +25,14 @@
 #include "slikenet/PacketizedTCP.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-int SLNet::MessageFilterStrComp( char *const &key,char *const &data )
+int MafiaNet::MessageFilterStrComp( char *const &key,char *const &data )
 {
 	return strcmp(key,data);
 }
 
-int SLNet::FilterSetComp( const int &key, FilterSet * const &data )
+int MafiaNet::FilterSetComp( const int &key, FilterSet * const &data )
 {
 	if (key < data->filterSetID)
 		return -1;
@@ -45,7 +45,7 @@ STATIC_FACTORY_DEFINITIONS(MessageFilter,MessageFilter);
 
 MessageFilter::MessageFilter()
 {
-		whenLastTimeoutCheck= SLNet::GetTime();
+		whenLastTimeoutCheck= MafiaNet::GetTime();
 }
 MessageFilter::~MessageFilter()
 {
@@ -88,7 +88,7 @@ void MessageFilter::SetAllowRPC4(bool allow, const char* uniqueID, int filterSet
 		}
 	}
 }
-void MessageFilter::SetActionOnDisallowedMessage(bool kickOnDisallowed, bool banOnDisallowed, SLNet::TimeMS banTimeMS, int filterSetID)
+void MessageFilter::SetActionOnDisallowedMessage(bool kickOnDisallowed, bool banOnDisallowed, MafiaNet::TimeMS banTimeMS, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
 	filterSet->kickOnDisallowedMessage=kickOnDisallowed;
@@ -107,7 +107,7 @@ void MessageFilter::SetTimeoutCallback(int filterSetID, void *userData, void (*i
 	filterSet->timeoutCallback=invalidMessageCallback;
 	filterSet->timeoutUserData=userData;
 }
-void MessageFilter::SetFilterMaxTime(int allowedTimeMS, bool banOnExceed, SLNet::TimeMS banTimeMS, int filterSetID)
+void MessageFilter::SetFilterMaxTime(int allowedTimeMS, bool banOnExceed, MafiaNet::TimeMS banTimeMS, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
 	filterSet->maxMemberTimeMS=allowedTimeMS;
@@ -145,7 +145,7 @@ void MessageFilter::SetSystemFilterSet(AddressOrGUID addressOrGUID, int filterSe
 		FilteredSystem filteredSystem;
 		filteredSystem.filter = GetFilterSetByID(filterSetID);
 	//	filteredSystem.addressOrGUID=addressOrGUID;
-		filteredSystem.timeEnteredThisSet= SLNet::GetTimeMS();
+		filteredSystem.timeEnteredThisSet= MafiaNet::GetTimeMS();
 	//	systemList.Insert(addressOrGUID, filteredSystem, true, _FILE_AND_LINE_);
 		systemList.Push(addressOrGUID,filteredSystem,_FILE_AND_LINE_);
 	}
@@ -154,7 +154,7 @@ void MessageFilter::SetSystemFilterSet(AddressOrGUID addressOrGUID, int filterSe
 		if (filterSetID>=0)
 		{
 			FilterSet *filterSet = GetFilterSetByID(filterSetID);
-			systemList.ItemAtIndex(index).timeEnteredThisSet= SLNet::GetTimeMS();
+			systemList.ItemAtIndex(index).timeEnteredThisSet= MafiaNet::GetTimeMS();
 			systemList.ItemAtIndex(index).filter=filterSet;
 		}
 		else
@@ -236,7 +236,7 @@ void MessageFilter::Clear(void)
 }
 void MessageFilter::DeallocateFilterSet(FilterSet* filterSet)
 {
-	SLNet::OP_DELETE(filterSet, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(filterSet, _FILE_AND_LINE_);
 }
 FilterSet* MessageFilter::GetFilterSetByID(int filterSetID)
 {
@@ -248,7 +248,7 @@ FilterSet* MessageFilter::GetFilterSetByID(int filterSetID)
 		return filterList[index];
 	else
 	{
-		FilterSet *newFilterSet = SLNet::OP_NEW<FilterSet>( _FILE_AND_LINE_ );
+		FilterSet *newFilterSet = MafiaNet::OP_NEW<FilterSet>( _FILE_AND_LINE_ );
 		memset(newFilterSet->allowedIDs, 0, MESSAGE_FILTER_MAX_MESSAGE_ID * sizeof(bool));
 		newFilterSet->banOnFilterTimeExceed=false;
 		newFilterSet->kickOnDisallowedMessage=false;
@@ -287,7 +287,7 @@ void MessageFilter::OnInvalidMessage(FilterSet *filterSet, AddressOrGUID systemA
 void MessageFilter::Update(void)
 {
 	// Update all timers for all systems.  If those systems' filter sets are expired, take the appropriate action.
-	SLNet::Time curTime = SLNet::GetTime();
+	MafiaNet::Time curTime = MafiaNet::GetTime();
 	if (GreaterThan(curTime - 1000, whenLastTimeoutCheck))
 	{
 		DataStructures::List< FilteredSystem > itemList;
@@ -377,9 +377,9 @@ void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNe
 	default:
 		if (packet->data[0]==ID_TIMESTAMP)
 		{
-			if (packet->length<sizeof(MessageID) + sizeof(SLNet::TimeMS))
+			if (packet->length<sizeof(MessageID) + sizeof(MafiaNet::TimeMS))
 				return RR_STOP_PROCESSING_AND_DEALLOCATE; // Invalid message
-			messageId=packet->data[sizeof(MessageID) + sizeof(SLNet::TimeMS)];
+			messageId=packet->data[sizeof(MessageID) + sizeof(MafiaNet::TimeMS)];
 		}
 		else
 			messageId=packet->data[0];
@@ -395,9 +395,9 @@ void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNe
 		}
 		if (packet->data[0]==ID_RPC_PLUGIN)
 		{
-			SLNet::BitStream bsIn(packet->data,packet->length,false);
+			MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 			bsIn.IgnoreBytes(2);
-			SLNet::RakString functionName;
+			MafiaNet::RakString functionName;
 			bsIn.ReadCompressed(functionName);
 			if (systemList.ItemAtIndex(index).filter->allowedRPC4.HasData(functionName)==false)
 			{

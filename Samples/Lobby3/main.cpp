@@ -34,7 +34,7 @@
 #include "jansson.h"
 
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 void main_RakNet(void)
 {
@@ -84,7 +84,7 @@ void main_RakNet(void)
 	// GAE SSL https://developers.google.com/appengine/docs/ssl
 	char URI[128];
 	sprintf_s(URI, "%s/customTable/update", serverURL);
-	TCPInterface *tcp = SLNet::OP_NEW<TCPInterface>(__FILE__,__LINE__); // Requires build with OPEN_SSL_CLIENT_SUPPORT
+	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__,__LINE__); // Requires build with OPEN_SSL_CLIENT_SUPPORT
 	tcp->Start(0, 64);
 	tcp->Connect(serverURL, serverPort, true);
 	RakString rspost = RakString::FormatForPOST(

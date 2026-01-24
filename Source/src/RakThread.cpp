@@ -19,7 +19,7 @@
 #include "slikenet/sleep.h"
 #include "slikenet/memoryoverride.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 #if   defined(_WIN32)
 	#include "slikenet/WindowsIncludes.h"

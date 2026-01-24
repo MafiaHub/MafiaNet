@@ -26,7 +26,7 @@
 
 #include "PacketLogger.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \ingroup PACKETLOGGER_GROUP
@@ -40,7 +40,7 @@ public:
 protected:
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

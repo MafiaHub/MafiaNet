@@ -47,8 +47,8 @@
 // define sample type. Only short(16 bits sound) is supported at the moment.
 typedef short SAMPLE;
 
-SLNet::RakPeerInterface *rakPeer= nullptr;
-SLNet::RakVoice rakVoice;
+MafiaNet::RakPeerInterface *rakPeer= nullptr;
+MafiaNet::RakVoice rakVoice;
 
 struct myStat{
 	uint64_t time;
@@ -65,23 +65,23 @@ void LogStats(){
 		data[i] = data[i+1];
 	}
 
-	SLNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
-	unsigned int currTime = SLNet::GetTimeMS();
+	MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+	unsigned int currTime = MafiaNet::GetTimeMS();
 
 	data[numStats-1].time = currTime;
-	data[numStats-1].bitsSent = BYTES_TO_BITS(rss->runningTotal[SLNet::USER_MESSAGE_BYTES_SENT]);
-	data[numStats-1].bitsRec = BYTES_TO_BITS(rss->runningTotal[SLNet::USER_MESSAGE_BYTES_RECEIVED_PROCESSED]);
+	data[numStats-1].bitsSent = BYTES_TO_BITS(rss->runningTotal[MafiaNet::USER_MESSAGE_BYTES_SENT]);
+	data[numStats-1].bitsRec = BYTES_TO_BITS(rss->runningTotal[MafiaNet::USER_MESSAGE_BYTES_RECEIVED_PROCESSED]);
 
 	float totalTime = (data[numStats-1].time - data[0].time) / 1000.f ;
 	uint64_t totalBitsSent = data[numStats-1].bitsSent - data[0].bitsSent;
 	uint64_t totalBitsRec = data[numStats-1].bitsRec - data[0].bitsRec;
 	float bpsSent = totalBitsSent/totalTime;
 	float bpsRec = totalBitsRec/totalTime;
-	float avgBpsSent = static_cast<float>(rss->valueOverLastSecond[SLNet::USER_MESSAGE_BYTES_SENT]);
-	float avgBpsRec = static_cast<float>(rss->valueOverLastSecond[SLNet::USER_MESSAGE_BYTES_RECEIVED_PROCESSED]);
+	float avgBpsSent = static_cast<float>(rss->valueOverLastSecond[MafiaNet::USER_MESSAGE_BYTES_SENT]);
+	float avgBpsRec = static_cast<float>(rss->valueOverLastSecond[MafiaNet::USER_MESSAGE_BYTES_RECEIVED_PROCESSED]);
 
 	printf("avgKbpsSent=%02.1f avgKbpsRec=%02.1f kbpsSent=%02.1f kbpsRec=%02.1f    \r", avgBpsSent/1000, avgBpsRec/1000, bpsSent/1000 , bpsRec/1000);
-	//printf("MsgBuf=%6i SndBuf=%10i RcvBuf=%10i    \r", rakVoice.GetRakPeerInterface()->GetStatistics(SLNet::UNASSIGNED_SYSTEM_ADDRESS)->messageSendBuffer[HIGH_PRIORITY], rakVoice.GetBufferedBytesToSend(SLNet::UNASSIGNED_SYSTEM_ADDRESS), rakVoice.GetBufferedBytesToReturn(SLNet::UNASSIGNED_SYSTEM_ADDRESS));
+	//printf("MsgBuf=%6i SndBuf=%10i RcvBuf=%10i    \r", rakVoice.GetRakPeerInterface()->GetStatistics(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)->messageSendBuffer[HIGH_PRIORITY], rakVoice.GetBufferedBytesToSend(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS), rakVoice.GetBufferedBytesToReturn(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS));
 }
 
 // Prints the current encoder parameters
@@ -147,7 +147,7 @@ int main(void)
 	int ch;
 
 	char port[256];
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 #if defined(INTERACTIVE)
 	printf("Enter local port: ");
 	Gets(port, sizeof(port));
@@ -159,7 +159,7 @@ int main(void)
 		printf("Failed. Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 		return -1;
 	}
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort),0);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort),0);
 
 	rakPeer->Startup(4, &socketDescriptor, 1);
 
@@ -169,13 +169,13 @@ int main(void)
 	rakVoice.Init(SAMPLE_RATE, FRAMES_PER_BUFFER*sizeof(SAMPLE));
 
 	// Initialize our connection with DirectSound
-	if (!SLNet::DSoundVoiceAdapter::Instance()->SetupAdapter(&rakVoice, GetConsoleHwnd(), DSSCL_EXCLUSIVE))
+	if (!MafiaNet::DSoundVoiceAdapter::Instance()->SetupAdapter(&rakVoice, GetConsoleHwnd(), DSSCL_EXCLUSIVE))
 	{
 		printf("An error occurred while initializing DirectSound.\n");
 		exit(-1);
 	}
 
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	quit=false;
 #if defined(INTERACTIVE)
 	printf("(Q)uit. (C)onnect. (D)isconnect. (M)ute. ' ' for stats.\n");
@@ -242,7 +242,7 @@ int main(void)
 			else if (ch=='m')
 			{
 				mute=!mute;
-				SLNet::DSoundVoiceAdapter::Instance()->SetMute(mute);
+				MafiaNet::DSoundVoiceAdapter::Instance()->SetMute(mute);
 				if (mute)
 					printf("\nNow muted.\n");
 				else
@@ -255,7 +255,7 @@ int main(void)
 			else if (ch==' ')
 			{
 				char message[2048];
-				SLNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+				MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 			}
@@ -288,17 +288,17 @@ int main(void)
 		}
 		
 		// Update our connection with DirectSound
-		SLNet::DSoundVoiceAdapter::Instance()->Update();
+		MafiaNet::DSoundVoiceAdapter::Instance()->Update();
 
 		LogStats();
 		RakSleep(20);
 	}
 
 	// Release any FMOD resources we used, and shutdown FMOD itself
-	SLNet::DSoundVoiceAdapter::Instance()->Release();
+	MafiaNet::DSoundVoiceAdapter::Instance()->Release();
 
 	rakPeer->Shutdown(300);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 0;
 }

@@ -32,7 +32,7 @@
 #include "DS_List.h"
 #include "string.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -204,7 +204,7 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

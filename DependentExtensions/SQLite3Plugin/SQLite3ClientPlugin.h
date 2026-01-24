@@ -33,7 +33,7 @@
 
 class RakPeerInterface;
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \brief Handles results of calls to SQLite3Plugin::_sqlite3_exec()
@@ -54,11 +54,11 @@ public:
 	/// \param[out] errorMsg If _sqlite3_exec failed, then the error message is here, and table will be empty
 	/// \ingroup SQL_LITE_3_PLUGIN
 	virtual void _sqlite3_exec(
-		SLNet::RakString inputStatement,
+		MafiaNet::RakString inputStatement,
 		unsigned int queryId,
-		SLNet::RakString dbIdentifier,
+		MafiaNet::RakString dbIdentifier,
 		const SQLite3Table &table,
-		SLNet::RakString errorMsg)=0;
+		MafiaNet::RakString errorMsg)=0;
 
 	/// dbIdentifier is unknown on the remote system
 	///
@@ -67,9 +67,9 @@ public:
 	/// \param[out] dbIdentifier Passed to SQLite3Plugin::_sqlite3_exec
 	/// \ingroup SQL_LITE_3_PLUGIN
 	virtual void OnUnknownDBIdentifier(
-		SLNet::RakString inputStatement,
+		MafiaNet::RakString inputStatement,
 		unsigned int queryId,
-		SLNet::RakString dbIdentifier)=0;
+		MafiaNet::RakString dbIdentifier)=0;
 };
 
 /// Sample callback implementation that just prints to the screen the results
@@ -77,16 +77,16 @@ public:
 class SQLite3PluginResultInterface_Printf : public SQLite3PluginResultInterface
 {
 	virtual void _sqlite3_exec(
-		SLNet::RakString inputStatement,
+		MafiaNet::RakString inputStatement,
 		unsigned int queryId,
-		SLNet::RakString dbIdentifier,
+		MafiaNet::RakString dbIdentifier,
 		const SQLite3Table &table,
-		SLNet::RakString errorMsg);
+		MafiaNet::RakString errorMsg);
 
 	virtual void OnUnknownDBIdentifier(
-		SLNet::RakString inputStatement,
+		MafiaNet::RakString inputStatement,
 		unsigned int queryId,
-		SLNet::RakString dbIdentifier);
+		MafiaNet::RakString dbIdentifier);
 };
 
 /// SQLite version 3 supports remote calls via networked file handles, but not over the regular internet
@@ -116,7 +116,7 @@ public:
 	/// \param[in] orderingChannel See RakPeerInterface::Send()
 	/// \param[in] systemAddress See RakPeerInterface::Send()
 	/// \return Query ID. Will be returned in _sqlite3_exec
-	unsigned int _sqlite3_exec(SLNet::RakString dbIdentifier, SLNet::RakString inputStatement,
+	unsigned int _sqlite3_exec(MafiaNet::RakString dbIdentifier, MafiaNet::RakString inputStatement,
 		PacketPriority priority, PacketReliability reliability, char orderingChannel, const SystemAddress &systemAddress);
 
 	/// \internal For plugin handling

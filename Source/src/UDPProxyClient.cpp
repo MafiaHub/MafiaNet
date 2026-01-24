@@ -23,7 +23,7 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 static const int DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR=1000;
 
 // bool operator<( const DataStructures::MLKeyRef<UDPProxyClient::ServerWithPing> &inputKey, const UDPProxyClient::ServerWithPing &cls ) {return inputKey.Get().serverAddress < cls.serverAddress;}
@@ -44,7 +44,7 @@ void UDPProxyClient::SetResultHandler(UDPProxyClientResultHandler *rh)
 {
 	resultHandler=rh;
 }
-bool UDPProxyClient::RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, RakNetGUID targetGuid, SLNet::TimeMS timeoutOnNoDataMS, SLNet::BitStream *serverSelectionBitstream)
+bool UDPProxyClient::RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, RakNetGUID targetGuid, MafiaNet::TimeMS timeoutOnNoDataMS, MafiaNet::BitStream *serverSelectionBitstream)
 {
 	// Return false if not connected 
 	ConnectionState cs = rakPeerInterface->GetConnectionState(proxyCoordinator);
@@ -76,7 +76,7 @@ bool UDPProxyClient::RequestForwarding(SystemAddress proxyCoordinator, SystemAdd
 
 	return true;
 }
-bool UDPProxyClient::RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddressAsSeenFromCoordinator, SLNet::TimeMS timeoutOnNoDataMS, SLNet::BitStream *serverSelectionBitstream)
+bool UDPProxyClient::RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddressAsSeenFromCoordinator, MafiaNet::TimeMS timeoutOnNoDataMS, MafiaNet::BitStream *serverSelectionBitstream)
 {
 	// Return false if not connected 
 	ConnectionState cs = rakPeerInterface->GetConnectionState(proxyCoordinator);
@@ -116,12 +116,12 @@ void UDPProxyClient::Update(void)
 		PingServerGroup *psg = pingServerGroups[idx1];
 
 		if (psg->serversToPing.Size() > 0 && 
-			SLNet::GetTimeMS() > psg->startPingTime+DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR)
+			MafiaNet::GetTimeMS() > psg->startPingTime+DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR)
 		{
 			// If they didn't reply within DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR, just give up on them
 			psg->SendPingedServersToCoordinator(rakPeerInterface);
 
-			SLNet::OP_DELETE(psg,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(psg,_FILE_AND_LINE_);
 			pingServerGroups.RemoveAtIndex(idx1);
 		}
 		else
@@ -142,11 +142,11 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 			{
 				if (psg->serversToPing[idx2].serverAddress==packet->systemAddress)
 				{
-					SLNet::BitStream bsIn(packet->data,packet->length,false);
+					MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 					bsIn.IgnoreBytes(sizeof(MessageID));
-					SLNet::TimeMS sentTime;
+					MafiaNet::TimeMS sentTime;
 					bsIn.Read(sentTime);
-					SLNet::TimeMS curTime = SLNet::GetTimeMS();
+					MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 					int ping;
 					if (curTime>sentTime)
 						ping=(int) (curTime-sentTime);
@@ -158,7 +158,7 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 					if (psg->AreAllServersPinged())
 					{
 						psg->SendPingedServersToCoordinator(rakPeerInterface);
-						SLNet::OP_DELETE(psg,_FILE_AND_LINE_);
+						MafiaNet::OP_DELETE(psg,_FILE_AND_LINE_);
 						pingServerGroups.RemoveAtIndex(idx1);
 					}
 
@@ -186,7 +186,7 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 			{
 				RakNetGUID targetGuid;
 				SystemAddress senderAddress, targetAddress;
-				SLNet::BitStream incomingBs(packet->data, packet->length, false);
+				MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 				incomingBs.IgnoreBytes(sizeof(MessageID)*2);
 				incomingBs.Read(senderAddress);
 				incomingBs.Read(targetAddress);
@@ -199,7 +199,7 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 				case ID_UDP_PROXY_IN_PROGRESS:
 					{
 						unsigned short forwardingPort;
-						SLNet::RakString serverIP;
+						MafiaNet::RakString serverIP;
 						incomingBs.Read(serverIP);
 						incomingBs.Read(forwardingPort);
 						if (packet->data[1]==ID_UDP_PROXY_FORWARDING_SUCCEEDED)
@@ -252,10 +252,10 @@ void UDPProxyClient::OnRakPeerShutdown(void)
 }
 void UDPProxyClient::OnPingServers(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data, packet->length, false);
+	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
 
-	PingServerGroup *psg = SLNet::OP_NEW<PingServerGroup>(_FILE_AND_LINE_);
+	PingServerGroup *psg = MafiaNet::OP_NEW<PingServerGroup>(_FILE_AND_LINE_);
 	
 	ServerWithPing swp;
 	incomingBs.Read(psg->sata.senderClientAddress);
@@ -264,7 +264,7 @@ void UDPProxyClient::OnPingServers(Packet *packet)
 	// compatibility to RakNet in MaxNet 0.x - see #39
 	RakNetGUID targetGuid;
 	incomingBs.Read(targetGuid);
-	psg->startPingTime= SLNet::GetTimeMS();
+	psg->startPingTime= MafiaNet::GetTimeMS();
 	psg->coordinatorAddressForPings=packet->systemAddress;
 	unsigned short serverListSize;
 	incomingBs.Read(serverListSize);
@@ -313,7 +313,7 @@ void UDPProxyClient::PingServerGroup::SendPingedServersToCoordinator(RakPeerInte
 void UDPProxyClient::Clear(void)
 {
 	for (unsigned int i=0; i < pingServerGroups.Size(); i++)
-		SLNet::OP_DELETE(pingServerGroups[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(pingServerGroups[i],_FILE_AND_LINE_);
 	pingServerGroups.Clear(false, _FILE_AND_LINE_);
 }
 

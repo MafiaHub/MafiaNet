@@ -18,7 +18,7 @@
 static const char COLUMN_NAMES_DELIMITER=',';
 static const int MAX_COLUMN_NAMES_LENGTH=512;
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 SQLiteClientLoggerPlugin* SQLiteClientLoggerPlugin::logger;
 
@@ -35,7 +35,7 @@ SQLiteClientLoggerPlugin::~SQLiteClientLoggerPlugin()
 	if (logger==this)
 		logger=0;
 }
-void SQLiteClientLoggerPlugin::SetServerParameters(const SystemAddress &systemAddress, SLNet::RakString _dbIdentifier)
+void SQLiteClientLoggerPlugin::SetServerParameters(const SystemAddress &systemAddress, MafiaNet::RakString _dbIdentifier)
 {
 	serverAddress=systemAddress;
 	dbIdentifier=_dbIdentifier;
@@ -54,7 +54,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 		return SQLLR_RECURSION;
 	recursiveCheck=true;
 
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	// #med - proper bounds check for paramCount required
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, static_cast<unsigned char>(parameterList.paramCount));
 //	unsigned int i;
@@ -108,14 +108,14 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 /*
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 0);
 	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 1);
 	p1->Serialize(&bitStream);
 	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
@@ -123,7 +123,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 2);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -132,7 +132,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 3);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -142,7 +142,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 4);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -153,7 +153,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 5);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -165,7 +165,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 6);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -178,7 +178,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 7);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -192,7 +192,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 8);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -207,7 +207,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 9);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -223,7 +223,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 10);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -240,7 +240,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10, const LogParameter *p11 )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 11);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -258,7 +258,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10, const LogParameter *p11, const LogParameter *p12  )
 {
-	SLNet::BitStream bitStream;
+	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 12);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
@@ -332,7 +332,7 @@ SQLLogResult SQLiteClientLoggerPlugin::CheckQuery(bool isFunction, const char *t
 	return SQLLR_OK;
 }
 
-void SQLiteClientLoggerPlugin::SerializeHeader(SLNet::BitStream *bitStream, bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, unsigned char parameterCount ) const
+void SQLiteClientLoggerPlugin::SerializeHeader(MafiaNet::BitStream *bitStream, bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, unsigned char parameterCount ) const
 {
 	bitStream->Write((MessageID) ID_SQLLITE_LOGGER);
 	bitStream->Write(dbIdentifier);
@@ -340,7 +340,7 @@ void SQLiteClientLoggerPlugin::SerializeHeader(SLNet::BitStream *bitStream, bool
 	bitStream->Write(line);
 	bitStream->Write(file);
 	bitStream->Write(tickCount);
-	bitStream->Write(SLNet::GetTimeMS());
+	bitStream->Write(MafiaNet::GetTimeMS());
 	bitStream->Write(isFunctionCall);
 	bitStream->Write(parameterCount);
 	if (isFunctionCall==false && parameterCount>=1)

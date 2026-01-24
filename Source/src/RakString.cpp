@@ -28,7 +28,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 //DataStructures::MemoryPool<RakString::SharedString> RakString::pool;
 RakString::SharedString RakString::emptyString={0,0,0,(char*) "",(char*) ""};
@@ -41,7 +41,7 @@ class RakStringCleanup
 public:
 	~RakStringCleanup()
 	{
-		SLNet::RakString::FreeMemoryNoMutex();
+		MafiaNet::RakString::FreeMemoryNoMutex();
 	}
 };
 
@@ -53,7 +53,7 @@ SimpleMutex& GetPoolMutex(void)
 	return poolMutex;
 }
 
-int SLNet::RakString::RakStringComp( RakString const &key, RakString const &data )
+int MafiaNet::RakString::RakStringComp( RakString const &key, RakString const &data )
 {
 	return key.StrCmp(data);
 }
@@ -283,7 +283,7 @@ bool RakString::operator!=(char *str) const
 {
 	return strcmp(sharedString->c_str,str)!=0;
 }
-const SLNet::RakString operator+(const SLNet::RakString &lhs, const SLNet::RakString &rhs)
+const MafiaNet::RakString operator+(const MafiaNet::RakString &lhs, const MafiaNet::RakString &rhs)
 {
 	if (lhs.IsEmpty() && rhs.IsEmpty())
 	{
@@ -333,7 +333,7 @@ const SLNet::RakString operator+(const SLNet::RakString &lhs, const SLNet::RakSt
 		//	RakString::freeList.Insert(RakString::sharedStringFreeList+i+RakString::sharedStringFreeListAllocationCount);
 			RakString::SharedString *ss;
 			ss = (RakString::SharedString*) rakMalloc_Ex(sizeof(RakString::SharedString), _FILE_AND_LINE_);
-			ss->refCountMutex= SLNet::OP_NEW<SimpleMutex>(_FILE_AND_LINE_);
+			ss->refCountMutex= MafiaNet::OP_NEW<SimpleMutex>(_FILE_AND_LINE_);
 			RakString::freeList.Insert(ss, _FILE_AND_LINE_);
 
 		}
@@ -449,12 +449,12 @@ void RakString::SetChar( unsigned index, unsigned char c )
 	Clone();
 	sharedString->c_str[index]=c;
 }
-void RakString::SetChar( unsigned index, SLNet::RakString s )
+void RakString::SetChar( unsigned index, MafiaNet::RakString s )
 {
 	RakAssert(index < GetLength());
 	Clone();
-	SLNet::RakString firstHalf = SubStr(0, index);
-	SLNet::RakString secondHalf = SubStr(index+1, (unsigned int)-1);
+	MafiaNet::RakString firstHalf = SubStr(0, index);
+	MafiaNet::RakString secondHalf = SubStr(index+1, (unsigned int)-1);
 	*this = firstHalf;
 	*this += s;
 	*this += secondHalf;
@@ -469,7 +469,7 @@ WCHAR * RakString::ToWideChar(void)
 	if ( (sharedString->c_str == nullptr) || (*sharedString->c_str == '\0') )
 	{
 		// Return empty string
-		WCHAR* buf = SLNet::OP_NEW_ARRAY<WCHAR>(1, __FILE__, __LINE__);
+		WCHAR* buf = MafiaNet::OP_NEW_ARRAY<WCHAR>(1, __FILE__, __LINE__);
 		buf[0] = L'\0';
 		return buf;
 	}
@@ -495,7 +495,7 @@ WCHAR * RakString::ToWideChar(void)
 	//
 	// Allocate destination buffer to store UTF-16 string
 	//
-	WCHAR * pszUTF16 = SLNet::OP_NEW_ARRAY<WCHAR>(cchUTF16,__FILE__,__LINE__);
+	WCHAR * pszUTF16 = MafiaNet::OP_NEW_ARRAY<WCHAR>(cchUTF16,__FILE__,__LINE__);
 
 	//
 	// Do the conversion from UTF-8 to UTF-16
@@ -519,7 +519,7 @@ WCHAR * RakString::ToWideChar(void)
 }
 void RakString::DeallocWideChar(WCHAR * w)
 {
-	SLNet::OP_DELETE_ARRAY(w,__FILE__,__LINE__);
+	MafiaNet::OP_DELETE_ARRAY(w,__FILE__,__LINE__);
 }
 void RakString::FromWideChar(const wchar_t *source)
 {
@@ -548,9 +548,9 @@ void RakString::FromWideChar(const wchar_t *source)
 
 
 }
-SLNet::RakString RakString::FromWideChar_S(const wchar_t *source)
+MafiaNet::RakString RakString::FromWideChar_S(const wchar_t *source)
 {
-	SLNet::RakString rs;
+	MafiaNet::RakString rs;
 	rs.FromWideChar(source);
 	return rs;
 }
@@ -866,7 +866,7 @@ bool RakString::IsEmailAddress(void) const
 	// There's more I could check, but this is good enough
 	return true;
 }
-SLNet::RakString& RakString::URLEncode(void)
+MafiaNet::RakString& RakString::URLEncode(void)
 {
 	RakString result;
 	size_t strLen = strlen(sharedString->c_str);
@@ -902,7 +902,7 @@ SLNet::RakString& RakString::URLEncode(void)
 	*this = result;
 	return *this;
 }
-SLNet::RakString& RakString::URLDecode(void)
+MafiaNet::RakString& RakString::URLDecode(void)
 {
 	RakString result;
 	size_t strLen = strlen(sharedString->c_str);
@@ -951,7 +951,7 @@ SLNet::RakString& RakString::URLDecode(void)
 	*this = result;
 	return *this;
 }
-void RakString::SplitURI(SLNet::RakString &header, SLNet::RakString &domain, SLNet::RakString &path)
+void RakString::SplitURI(MafiaNet::RakString &header, MafiaNet::RakString &domain, MafiaNet::RakString &path)
 {
 	header.Clear();
 	domain.Clear();
@@ -1004,7 +1004,7 @@ void RakString::SplitURI(SLNet::RakString &header, SLNet::RakString &domain, SLN
 	}
 	pathOutput[outputIndex]=0;
 }
-SLNet::RakString& RakString::SQLEscape(void)
+MafiaNet::RakString& RakString::SQLEscape(void)
 {
 	int strLen=(int)GetLength();
 	int escapedCharacterCount=0;
@@ -1040,12 +1040,12 @@ SLNet::RakString& RakString::SQLEscape(void)
 	}
 	return *this;
 }
-SLNet::RakString RakString::FormatForPUTOrPost(const char* type, const char* uri, const char* contentType, const char* body, const char* extraHeaders)
+MafiaNet::RakString RakString::FormatForPUTOrPost(const char* type, const char* uri, const char* contentType, const char* body, const char* extraHeaders)
 {
 	RakString out;
 	RakString host;
 	RakString remotePath;
-	SLNet::RakString header;
+	MafiaNet::RakString header;
 	RakString uriRs;
 	uriRs = uri;
 	uriRs.SplitURI(header, host, remotePath);
@@ -1108,8 +1108,8 @@ RakString RakString::FormatForGET(const char* uri, const char* extraHeaders)
 	RakString out;
 	RakString host;
 	RakString remotePath;
-	SLNet::RakString header;
-	SLNet::RakString uriRs;
+	MafiaNet::RakString header;
+	MafiaNet::RakString uriRs;
 	uriRs = uri;
 
 	uriRs.SplitURI(header, host, remotePath);
@@ -1144,8 +1144,8 @@ RakString RakString::FormatForDELETE(const char* uri, const char* extraHeaders)
 	RakString out;
 	RakString host;
 	RakString remotePath;
-	SLNet::RakString header;
-	SLNet::RakString uriRs;
+	MafiaNet::RakString header;
+	MafiaNet::RakString uriRs;
 	uriRs = uri;
 
 	uriRs.SplitURI(header, host, remotePath);
@@ -1177,12 +1177,12 @@ RakString RakString::FormatForDELETE(const char* uri, const char* extraHeaders)
 
 	return out;
 }
-SLNet::RakString& RakString::MakeFilePath(void)
+MafiaNet::RakString& RakString::MakeFilePath(void)
 {
 	if (IsEmpty())
 		return *this;
 
-	SLNet::RakString fixedString = *this;
+	MafiaNet::RakString fixedString = *this;
 	fixedString.Clone();
 	for (int i=0; fixedString.sharedString->c_str[i]; i++)
 	{
@@ -1221,7 +1221,7 @@ void RakString::FreeMemoryNoMutex(void)
 {
 	for (unsigned int i=0; i < freeList.Size(); i++)
 	{
-		SLNet::OP_DELETE(freeList[i]->refCountMutex,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(freeList[i]->refCountMutex,_FILE_AND_LINE_);
 		rakFree_Ex(freeList[i], _FILE_AND_LINE_ );
 	}
 	freeList.Clear(false, _FILE_AND_LINE_);
@@ -1345,7 +1345,7 @@ void RakString::Allocate(size_t len)
 
 			RakString::SharedString *ss;
 			ss = (RakString::SharedString*) rakMalloc_Ex(sizeof(RakString::SharedString), _FILE_AND_LINE_);
-			ss->refCountMutex= SLNet::OP_NEW<SimpleMutex>(_FILE_AND_LINE_);
+			ss->refCountMutex= MafiaNet::OP_NEW<SimpleMutex>(_FILE_AND_LINE_);
 			RakString::freeList.Insert(ss, _FILE_AND_LINE_);
 		}
 		//RakString::sharedStringFreeListAllocationCount+=1024;
@@ -1424,7 +1424,7 @@ void RakString::Assign(const char *str, va_list ap)
 		buffSize*=2;
 	}
 }
-SLNet::RakString RakString::Assign(const char *str,size_t pos, size_t n )
+MafiaNet::RakString RakString::Assign(const char *str,size_t pos, size_t n )
 {
 	size_t incomingLen=strlen(str);
 
@@ -1451,9 +1451,9 @@ SLNet::RakString RakString::Assign(const char *str,size_t pos, size_t n )
 	return (*this);
 }
 
-SLNet::RakString RakString::NonVariadic(const char *str)
+MafiaNet::RakString RakString::NonVariadic(const char *str)
 {
-	SLNet::RakString rs;
+	MafiaNet::RakString rs;
 	rs=str;
 	return rs;
 }
@@ -1577,7 +1577,7 @@ void RakString::UnlockMutex(void)
 #include <string>
 #include "slikenet/GetTime.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int main(void)
 {
@@ -1622,72 +1622,72 @@ int main(void)
 	DataStructures::List<char*> referenceStringList;
 	char *c;
 	unsigned i;
-	SLNet::TimeMS beforeReferenceList, beforeRakString, beforeStdString, afterStdString;
+	MafiaNet::TimeMS beforeReferenceList, beforeRakString, beforeStdString, afterStdString;
 
 	unsigned loop;
 	for (loop=0; loop<2; loop++)
 	{
-		beforeReferenceList=SLNet::GetTimeMS();
+		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			c = SLNet::OP_NEW_ARRAY<char >(56,_FILE_AND_LINE_ );
+			c = MafiaNet::OP_NEW_ARRAY<char >(56,_FILE_AND_LINE_ );
 			strcpy_s(c, 56, "Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
 			referenceStringList.Insert(c);
 		}
-		beforeRakString=SLNet::GetTimeMS();
+		beforeRakString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			rakStringList.Insert("Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
-		beforeStdString=SLNet::GetTimeMS();
+		beforeStdString=MafiaNet::GetTimeMS();
 
 		for (i=0; i < repeatCount; i++)
 			stdStringList.Insert("Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
-		afterStdString=SLNet::GetTimeMS();
+		afterStdString=MafiaNet::GetTimeMS();
 		RAKNET_DEBUG_PRINTF("Insertion 1 Ref=%i Rak=%i, Std=%i\n", beforeRakString-beforeReferenceList, beforeStdString-beforeRakString, afterStdString-beforeStdString);
 
-		beforeReferenceList=SLNet::GetTimeMS();
+		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			SLNet::OP_DELETE_ARRAY(referenceStringList[0], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE_ARRAY(referenceStringList[0], _FILE_AND_LINE_);
 			referenceStringList.RemoveAtIndex(0);
 		}
-		beforeRakString=SLNet::GetTimeMS();
+		beforeRakString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			rakStringList.RemoveAtIndex(0);
-		beforeStdString=SLNet::GetTimeMS();
+		beforeStdString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			stdStringList.RemoveAtIndex(0);
-		afterStdString=SLNet::GetTimeMS();
+		afterStdString=MafiaNet::GetTimeMS();
 		RAKNET_DEBUG_PRINTF("RemoveHead Ref=%i Rak=%i, Std=%i\n", beforeRakString-beforeReferenceList, beforeStdString-beforeRakString, afterStdString-beforeStdString);
 
-		beforeReferenceList=SLNet::GetTimeMS();
+		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			c = SLNet::OP_NEW_ARRAY<char >(56, _FILE_AND_LINE_ );
+			c = MafiaNet::OP_NEW_ARRAY<char >(56, _FILE_AND_LINE_ );
 			strcpy_s(c, 56, "Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
 			referenceStringList.Insert(0);
 		}
-		beforeRakString=SLNet::GetTimeMS();
+		beforeRakString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			rakStringList.Insert("Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
-		beforeStdString=SLNet::GetTimeMS();
+		beforeStdString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			stdStringList.Insert("Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
-		afterStdString=SLNet::GetTimeMS();
+		afterStdString=MafiaNet::GetTimeMS();
 		RAKNET_DEBUG_PRINTF("Insertion 2 Ref=%i Rak=%i, Std=%i\n", beforeRakString-beforeReferenceList, beforeStdString-beforeRakString, afterStdString-beforeStdString);
 
-		beforeReferenceList=SLNet::GetTimeMS();
+		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			SLNet::OP_DELETE_ARRAY(referenceStringList[referenceStringList.Size()-1], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE_ARRAY(referenceStringList[referenceStringList.Size()-1], _FILE_AND_LINE_);
 			referenceStringList.RemoveAtIndex(referenceStringList.Size()-1);
 		}
-		beforeRakString=SLNet::GetTimeMS();
+		beforeRakString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			rakStringList.RemoveAtIndex(rakStringList.Size()-1);
-		beforeStdString=SLNet::GetTimeMS();
+		beforeStdString=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 			stdStringList.RemoveAtIndex(stdStringList.Size()-1);
-		afterStdString=SLNet::GetTimeMS();
+		afterStdString=MafiaNet::GetTimeMS();
 		RAKNET_DEBUG_PRINTF("RemoveTail Ref=%i Rak=%i, Std=%i\n", beforeRakString-beforeReferenceList, beforeStdString-beforeRakString, afterStdString-beforeStdString);
 
 	}

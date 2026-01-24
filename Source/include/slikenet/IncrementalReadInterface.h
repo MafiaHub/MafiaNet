@@ -19,7 +19,7 @@
 #include "FileListNodeContext.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RAK_DLL_EXPORT IncrementalReadInterface
@@ -38,6 +38,6 @@ public:
 	virtual unsigned int GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

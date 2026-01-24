@@ -32,7 +32,7 @@
 #include "DS_OrderedList.h"
 #include "string.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -113,7 +113,7 @@ public:
 		ConnectionAttempt() {sender=0; recipient=0; startTime=0; attemptPhase=NAT_ATTEMPT_PHASE_NOT_STARTED;}
 		User *sender, *recipient;
 		uint16_t sessionId;
-		SLNet::Time startTime;
+		MafiaNet::Time startTime;
 		enum
 		{
 			NAT_ATTEMPT_PHASE_NOT_STARTED,
@@ -132,9 +132,9 @@ public:
 		bool HasConnectionAttemptToUser(User *user);
 		void DerefConnectionAttempt(ConnectionAttempt *ca);
 		void DeleteConnectionAttempt(ConnectionAttempt *ca);
-		void LogConnectionAttempts(SLNet::RakString &rs);
+		void LogConnectionAttempts(MafiaNet::RakString &rs);
 	};
-	SLNet::Time lastUpdate;
+	MafiaNet::Time lastUpdate;
 	static int NatPunchthroughUserComp( const RakNetGUID &key, User * const &data );
 protected:
 	void OnNATPunchthroughRequest(Packet *packet);
@@ -154,7 +154,7 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

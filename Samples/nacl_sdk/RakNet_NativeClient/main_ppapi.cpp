@@ -24,7 +24,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/types.h"
 #include "slikenet/sleep.h"
-using namespace SLNet;
+using namespace MafiaNet;
 
 /// The Instance class.  One of these exists for each instance of your NaCl
 /// module on the web page.  The browser will ask the Module object to create

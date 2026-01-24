@@ -32,14 +32,14 @@
 #endif
 
 /// Forward declaration
-namespace SLNet
+namespace MafiaNet
 {
 	class BitStream;
 	class RakString;
 };
 
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class HuffmanEncodingTree;
@@ -72,27 +72,27 @@ public:
 	/// \param[in] maxCharsToWrite The max number of bytes to write of \a input.  Use 0 to mean no limit.
 	/// \param[out] output The bitstream to write the compressed string to
 	/// \param[in] languageID Which language to use
-	void EncodeString( const char *input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId=0 );
+	void EncodeString( const char *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId=0 );
 	
 	/// Writes input to output, uncompressed.  Takes care of the null-terminator for you.
 	/// \param[out] output A block of bytes to receive the output
 	/// \param[in] maxCharsToWrite Size, in bytes, of \a output .  A null-terminator will always be appended to the output string.  If the maxCharsToWrite is not large enough, the string will be truncated.
 	/// \param[in] input The bitstream containing the compressed string
 	/// \param[in] languageID Which language to use
-	bool DecodeString( char *output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId=0 );
+	bool DecodeString( char *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId=0 );
 
 #ifdef _CSTRING_COMPRESSOR
-	void EncodeString( const CString &input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId=0 );
-	bool DecodeString( CString &output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId=0 );
+	void EncodeString( const CString &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId=0 );
+	bool DecodeString( CString &output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId=0 );
 #endif
 
 #ifdef _STD_STRING_COMPRESSOR
-	void EncodeString( const std::string &input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId=0 );
-	bool DecodeString( std::string *output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId=0 );
+	void EncodeString( const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId=0 );
+	bool DecodeString( std::string *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId=0 );
 #endif
 
-	void EncodeString( const SLNet::RakString *input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId=0 );
-	bool DecodeString(SLNet::RakString *output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId=0 );
+	void EncodeString( const MafiaNet::RakString *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId=0 );
+	bool DecodeString(MafiaNet::RakString *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId=0 );
 
 	/// Used so I can allocate and deallocate this singleton at runtime
 	static void AddReference(void);
@@ -113,6 +113,6 @@ private:
 	static int referenceCount;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

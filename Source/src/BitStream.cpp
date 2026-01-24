@@ -45,7 +45,7 @@
 #define _copysign copysign
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(BitStream,BitStream)
 

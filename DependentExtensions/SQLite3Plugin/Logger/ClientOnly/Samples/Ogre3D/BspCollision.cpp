@@ -55,9 +55,9 @@ class BspCollisionListener : public ExampleRefAppFrameListener
 protected:
 	// RakNet: For logging video
 	PacketizedTCP packetizedTCP;
-	SLNet::SQLiteClientLoggerPlugin loggerPlugin;
+	MafiaNet::SQLiteClientLoggerPlugin loggerPlugin;
 	Ogre3D_DX9_BackbufferGrabber backbufferGrabber;
-	SLNet::TimeMS lastScreenshotTime;
+	MafiaNet::TimeMS lastScreenshotTime;
 
 	// Also save the world * so we can log it out
 	World* mWorld;
@@ -125,18 +125,18 @@ public:
 		// RakNet: Send screenshot and FPS info to server if connected, at most once every 30 milliseconds
 		// This is constrained so we don't overflow the server with screenshots
 		// Also only do it if we connected to the server
-		SLNet::TimeMS timeSinceLastLog= SLNet::GetTimeMS()-lastScreenshotTime;
+		MafiaNet::TimeMS timeSinceLastLog= MafiaNet::GetTimeMS()-lastScreenshotTime;
 		if (packetizedTCP.GetConnectionCount()>0 && timeSinceLastLog>30)
 		{
-			SLNet::RGBImageBlob blob;
+			MafiaNet::RGBImageBlob blob;
 			backbufferGrabber.LockBackbufferCopy(&blob);
 			RakAssert(blob.data!=0);
 			// RakNet: Log frame data, including screenshot and FPS
-			SLNet::SQLLogResult logResult = rakSqlLog("FrameData", "screenshot,averageFPS,lastFPS,bestFPS,worstFPS,numTris,DebugText",
+			MafiaNet::SQLLogResult logResult = rakSqlLog("FrameData", "screenshot,averageFPS,lastFPS,bestFPS,worstFPS,numTris,DebugText",
 				( &blob,mWindow->getAverageFPS(),mWindow->getLastFPS(),mWindow->getBestFPS(),mWindow->getWorstFPS(),(int) mWindow->getTriangleCount(),mDebugText.c_str() ));
 			// Release backbuffer as soon as possible, after sending frame data
 			backbufferGrabber.ReleaseBackbufferCopy();
-			if ( logResult== SLNet::SQLLR_WOULD_EXCEED_MEMORY_CONSTRAINT )
+			if ( logResult== MafiaNet::SQLLR_WOULD_EXCEED_MEMORY_CONSTRAINT )
 			{
 				/// Sending too large of screenshots, or can't transfer data fast enough. See loggerPlugin.SetMemoryConstraint
 			}
@@ -162,7 +162,7 @@ public:
 				}
 			}
 
-			lastScreenshotTime= SLNet::GetTimeMS();
+			lastScreenshotTime= MafiaNet::GetTimeMS();
 		}
 
         return ret;

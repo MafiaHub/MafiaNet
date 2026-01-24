@@ -22,7 +22,7 @@
 #include "slikenet/assert.h"
 #include "slikenet/alloca.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 NetworkIDObject::NetworkIDObject()
 {

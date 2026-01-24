@@ -19,7 +19,7 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/GetTime.h"
 #include "slikenet/sleep.h"
-using namespace SLNet;
+using namespace MafiaNet;
 
 #include <cstdio>
 #include <memory.h>
@@ -34,8 +34,8 @@ int main(void)
 {
 	char serverIP[64];
 
-	RakPeerInterface *rakClient= SLNet::RakPeerInterface::GetInstance();
-	RakPeerInterface *rakServer= SLNet::RakPeerInterface::GetInstance();
+	RakPeerInterface *rakClient= MafiaNet::RakPeerInterface::GetInstance();
+	RakPeerInterface *rakServer= MafiaNet::RakPeerInterface::GetInstance();
 	rakClient->SetOccasionalPing(true);
 	rakServer->SetOccasionalPing(true);
 
@@ -62,7 +62,7 @@ int main(void)
 			if (serverIP[0]==0)
 				strcpy_s(serverIP, "127.0.0.1");
 
-			SLNet::SocketDescriptor socketDescriptor(0,0);
+			MafiaNet::SocketDescriptor socketDescriptor(0,0);
 			rakClient->Startup(1, &socketDescriptor, 1);
 			rakClient->Connect(serverIP, 2100, 0, 0);
 			printf("Connecting client\n");
@@ -72,7 +72,7 @@ int main(void)
 		else if (ch=='s')
 		{
 			// Run as a server.
-			SLNet::SocketDescriptor socketDescriptor(2100,0);
+			MafiaNet::SocketDescriptor socketDescriptor(2100,0);
 			rakServer->Startup(32,&socketDescriptor, 1);
 			rakServer->SetMaximumIncomingConnections(32);
 			printf("Server started\n");
@@ -88,8 +88,8 @@ int main(void)
 	}
 
 	printf("Entering main loop.  Press 'q' to quit\n'c' to send from the client.\n's' to send from the server.\n");
-	SLNet::Packet *packet;
-	SLNet::Time time;
+	MafiaNet::Packet *packet;
+	MafiaNet::Time time;
 	ch=0;
 	bool packetFromServer;
 	for(;;)
@@ -107,7 +107,7 @@ int main(void)
 		if (ch=='q')
 			break;
 
-		if (ch=='c' && rakClient->GetSystemAddressFromIndex(0)!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (ch=='c' && rakClient->GetSystemAddressFromIndex(0)!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			BitStream bitStream;
 
@@ -116,9 +116,9 @@ int main(void)
 
 			bitStream.Write((unsigned char)ID_TIMESTAMP);
 			
-			time= SLNet::GetTime();
+			time= MafiaNet::GetTime();
 			bitStream.Write(time);
-			rakClient->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			rakClient->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			printf("Sending message from client at time %" PRINTF_64_BIT_MODIFIER "u\n", time);
 		}
 		else if (ch=='s' && rakServer->IsActive())
@@ -126,9 +126,9 @@ int main(void)
 			BitStream bitStream;
 			bitStream.Write((unsigned char)ID_TIMESTAMP);
 
-			time= SLNet::GetTime();
+			time= MafiaNet::GetTime();
 			bitStream.Write(time);
-			rakServer->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			rakServer->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			printf("Sending packet from server at time %" PRINTF_64_BIT_MODIFIER "u\n", time);
 		}
 
@@ -146,9 +146,9 @@ int main(void)
 		if (packet && packet->data[0]==ID_TIMESTAMP)
 		{
 			// Write the bytes after the first to a variable.  That is the time the packet was sent.
-			SLNet::BitStream timeBS(packet->data+1, sizeof(SLNet::Time), false);
+			MafiaNet::BitStream timeBS(packet->data+1, sizeof(MafiaNet::Time), false);
 			timeBS.Read(time);
-			printf("Time difference is %" PRINTF_64_BIT_MODIFIER "u\n", SLNet::GetTime() - time);
+			printf("Time difference is %" PRINTF_64_BIT_MODIFIER "u\n", MafiaNet::GetTime() - time);
 		}
 
 		if (packet)
@@ -168,8 +168,8 @@ int main(void)
 	rakServer->Shutdown(0);
 	rakClient->Shutdown(0);
 
-	SLNet::RakPeerInterface::DestroyInstance(rakClient);
-	SLNet::RakPeerInterface::DestroyInstance(rakServer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakClient);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakServer);
 
 	return 0;
 }

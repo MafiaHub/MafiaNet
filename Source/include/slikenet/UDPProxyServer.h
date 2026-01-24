@@ -30,7 +30,7 @@
 #include "UDPForwarder.h"
 #include "string.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 class UDPProxyServer;
 
@@ -44,23 +44,23 @@ struct UDPProxyServerResultHandler
 	/// Called when our login succeeds
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnLoginSuccess(SLNet::RakString usedPassword, SLNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnLoginSuccess(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
 
 	/// We are already logged in.
 	/// This login failed, but the system is operational as if it succeeded
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnAlreadyLoggedIn(SLNet::RakString usedPassword, SLNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnAlreadyLoggedIn(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
 
 	/// The coordinator operator forgot to call UDPProxyCoordinator::SetRemoteLoginPassword()
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnNoPasswordSet(SLNet::RakString usedPassword, SLNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnNoPasswordSet(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
 
 	/// The coordinator operator set a different password in UDPProxyCoordinator::SetRemoteLoginPassword() than what we passed
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnWrongPassword(SLNet::RakString usedPassword, SLNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnWrongPassword(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
 };
 
 /// \brief UDPProxyServer to control our instance of UDPForwarder
@@ -90,7 +90,7 @@ public:
 	/// \pre Must be connected to the coordinator
 	/// \pre Coordinator must have set a password with UDPProxyCoordinator::SetRemoteLoginPassword()
 	/// \returns false if already logged in, or logging in. Returns true otherwise
-	bool LoginToCoordinator(SLNet::RakString password, SystemAddress coordinatorAddress);
+	bool LoginToCoordinator(MafiaNet::RakString password, SystemAddress coordinatorAddress);
 
 	/// \brief The server IP reported to the client is the IP address from the server to the coordinator.
 	/// If the server and coordinator are on the same LAN, you need to call SetServerPublicIP() to tell the client what address to connect to

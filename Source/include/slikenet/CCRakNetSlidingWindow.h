@@ -70,17 +70,17 @@ else use congestion avoidance
 #define CC_TIME_TYPE_BYTES 8
 
 #if CC_TIME_TYPE_BYTES==8
-typedef SLNet::TimeUS CCTimeType;
+typedef MafiaNet::TimeUS CCTimeType;
 #else
-typedef SLNet::TimeMS CCTimeType;
+typedef MafiaNet::TimeMS CCTimeType;
 #endif
 
-typedef SLNet::uint24_t DatagramSequenceNumberType;
+typedef MafiaNet::uint24_t DatagramSequenceNumberType;
 typedef double BytesPerMicrosecond;
 typedef double BytesPerSecond;
 typedef double MicrosecondsPerByte;
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class CCRakNetSlidingWindow
@@ -127,7 +127,7 @@ class CCRakNetSlidingWindow
 
 	/// Call when you get a NAK, with the sequence number of the lost message
 	/// Affects the congestion control
-	void OnResend(CCTimeType curTime, SLNet::TimeUS nextActionTime);
+	void OnResend(CCTimeType curTime, MafiaNet::TimeUS nextActionTime);
 	void OnNAK(CCTimeType curTime, DatagramSequenceNumberType nakSequenceNumber);
 
 	/// Call this when an ACK arrives.

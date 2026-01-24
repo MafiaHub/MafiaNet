@@ -28,7 +28,7 @@
 //#include <process.h>
 #include "slikenet/thread.h"
 #include "slikenet/sleep.h"
-using namespace SLNet;
+using namespace MafiaNet;
 
 RakPeerInterface *peer1, *peer2;
 bool endThreads;
@@ -45,9 +45,9 @@ RAK_THREAD_DECLARATION(ProducerThread)
 //		printf("Thread %u writing...\n", i);
 		// #high - (char*)-cast hack to simply send unsigned char types to the peer - consider changing Send() to accept unsigned char (i.e. ID_USER_PACKET_ENUM exceeds 127)
 		if (i&1)
-			peer1->Send((char*)out, 2, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			peer1->Send((char*)out, 2, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 		else
-			peer2->Send((char*)out, 2, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			peer2->Send((char*)out, 2, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 //		printf("Thread %u done writing\n", i);
 		RakSleep(30);
@@ -59,7 +59,7 @@ RAK_THREAD_DECLARATION(ProducerThread)
 RAK_THREAD_DECLARATION(ConsumerThread)
 {
 	unsigned char i = *((unsigned char *) arguments);
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	while (endThreads==false)
 	{
 //		printf("Thread %u reading...\n", i);
@@ -87,11 +87,11 @@ RAK_THREAD_DECLARATION(ConsumerThread)
 
 int main()
 {
-	peer1= SLNet::RakPeerInterface::GetInstance();
-	peer2= SLNet::RakPeerInterface::GetInstance();
+	peer1= MafiaNet::RakPeerInterface::GetInstance();
+	peer2= MafiaNet::RakPeerInterface::GetInstance();
 	peer1->SetMaximumIncomingConnections(1);
 	peer2->SetMaximumIncomingConnections(1);
-	SLNet::SocketDescriptor socketDescriptor(1234,0);
+	MafiaNet::SocketDescriptor socketDescriptor(1234,0);
 	peer1->Startup(1,&socketDescriptor, 1);
 	socketDescriptor.port=1235;
 	peer2->Startup(1,&socketDescriptor, 1);
@@ -110,17 +110,17 @@ int main()
 	for (unsigned char i=0; i < 10; i++)
 	{
 		count[i]=i;
-		SLNet::RakThread::Create(&ProducerThread, count+i);
+		MafiaNet::RakThread::Create(&ProducerThread, count+i);
 	}
 	for (unsigned char i=10; i < 20; i++)
 	{
 		count[i]=i;
-		SLNet::RakThread::Create(&ConsumerThread, count+i);
+		MafiaNet::RakThread::Create(&ConsumerThread, count+i);
 	}
 
 	printf("Running test\n");
-	SLNet::TimeMS endTime = 60 * 1000 + SLNet::GetTimeMS();
-	while (SLNet::GetTimeMS() < endTime)
+	MafiaNet::TimeMS endTime = 60 * 1000 + MafiaNet::GetTimeMS();
+	while (MafiaNet::GetTimeMS() < endTime)
 	{
 
 		RakSleep(0);
@@ -128,8 +128,8 @@ int main()
 	endThreads=true;
 	printf("Test done!\n");
 
-	SLNet::RakPeerInterface::DestroyInstance(peer1);
-	SLNet::RakPeerInterface::DestroyInstance(peer2);
+	MafiaNet::RakPeerInterface::DestroyInstance(peer1);
+	MafiaNet::RakPeerInterface::DestroyInstance(peer2);
 
 	return 0;
 }

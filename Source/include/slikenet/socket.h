@@ -25,7 +25,7 @@
 #include "SocketDefines.h"
 #include "MTUSize.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 struct RAK_DLL_EXPORT RakNetSocket
@@ -193,7 +193,7 @@ protected:
 	_PP_Instance_ chromeInstance;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 */

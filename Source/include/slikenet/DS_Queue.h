@@ -91,7 +91,7 @@ namespace DataStructures
 		Queue<queue_type>::Queue()
 	{
 		//allocation_size = 16;
-		//array = SLNet::OP_NEW_ARRAY<queue_type>(allocation_size, _FILE_AND_LINE_ );
+		//array = MafiaNet::OP_NEW_ARRAY<queue_type>(allocation_size, _FILE_AND_LINE_ );
 		allocation_size = 0;
 		array=0;
 		head = 0;
@@ -102,7 +102,7 @@ namespace DataStructures
 		Queue<queue_type>::~Queue()
 	{
 		if (allocation_size>0)
-			SLNet::OP_DELETE_ARRAY(array, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE_ARRAY(array, _FILE_AND_LINE_);
 	}
 
 	template <class queue_type>
@@ -229,7 +229,7 @@ namespace DataStructures
 	{
 		if ( allocation_size == 0 )
 		{
-			array = SLNet::OP_NEW_ARRAY<queue_type>(16, file, line );
+			array = MafiaNet::OP_NEW_ARRAY<queue_type>(16, file, line );
 			head = 0;
 			tail = 1;
 			array[ 0 ] = input;
@@ -248,7 +248,7 @@ namespace DataStructures
 
 			// Need to allocate more memory.
 			queue_type * new_array;
-			new_array = SLNet::OP_NEW_ARRAY<queue_type>((int)allocation_size * 2, file, line );
+			new_array = MafiaNet::OP_NEW_ARRAY<queue_type>((int)allocation_size * 2, file, line );
 #ifdef _DEBUG
 			RakAssert( new_array );
 #endif
@@ -265,7 +265,7 @@ namespace DataStructures
 			allocation_size *= 2;
 
 			// Delete the old array and move the pointer to the new array
-			SLNet::OP_DELETE_ARRAY(array, file, line);
+			MafiaNet::OP_DELETE_ARRAY(array, file, line);
 
 			array = new_array;
 		}
@@ -284,7 +284,7 @@ namespace DataStructures
 
 		else
 		{
-			array = SLNet::OP_NEW_ARRAY<queue_type >( original_copy.Size() + 1 , _FILE_AND_LINE_ );
+			array = MafiaNet::OP_NEW_ARRAY<queue_type >( original_copy.Size() + 1 , _FILE_AND_LINE_ );
 
 			for ( unsigned int counter = 0; counter < original_copy.Size(); ++counter )
 				array[ counter ] = original_copy.array[ ( original_copy.head + counter ) % ( original_copy.allocation_size ) ];
@@ -313,7 +313,7 @@ namespace DataStructures
 
 		else
 		{
-			array = SLNet::OP_NEW_ARRAY<queue_type >( original_copy.Size() + 1 , _FILE_AND_LINE_ );
+			array = MafiaNet::OP_NEW_ARRAY<queue_type >( original_copy.Size() + 1 , _FILE_AND_LINE_ );
 
 			for ( unsigned int counter = 0; counter < original_copy.Size(); ++counter )
 				array[ counter ] = original_copy.array[ ( original_copy.head + counter ) % ( original_copy.allocation_size ) ];
@@ -336,7 +336,7 @@ namespace DataStructures
 
 		if (allocation_size > 32)
 		{
-			SLNet::OP_DELETE_ARRAY(array, file, line);
+			MafiaNet::OP_DELETE_ARRAY(array, file, line);
 			allocation_size = 0;
 		}
 
@@ -356,7 +356,7 @@ namespace DataStructures
 		while (newAllocationSize <= Size())
 			newAllocationSize<<=1; // Must be a better way to do this but I'm too dumb to figure it out quickly :)
 
-		new_array = SLNet::OP_NEW_ARRAY<queue_type >(newAllocationSize, file, line );
+		new_array = MafiaNet::OP_NEW_ARRAY<queue_type >(newAllocationSize, file, line );
 
 		for (unsigned int counter=0; counter < Size(); ++counter)
 			new_array[counter] = array[(head + counter)%(allocation_size)];
@@ -366,7 +366,7 @@ namespace DataStructures
 		head=0;
 
 		// Delete the old array and move the pointer to the new array
-		SLNet::OP_DELETE_ARRAY(array, file, line);
+		MafiaNet::OP_DELETE_ARRAY(array, file, line);
 		array=new_array;
 	}
 
@@ -392,9 +392,9 @@ namespace DataStructures
 	template <class queue_type>
 	void Queue<queue_type>::ClearAndForceAllocation( int size, const char *file, unsigned int line )
 	{
-		SLNet::OP_DELETE_ARRAY(array, file, line);
+		MafiaNet::OP_DELETE_ARRAY(array, file, line);
 		if (size>0)
-			array = SLNet::OP_NEW_ARRAY<queue_type>(size, file, line );
+			array = MafiaNet::OP_NEW_ARRAY<queue_type>(size, file, line );
 		else
 			array=0;
 		allocation_size = size;

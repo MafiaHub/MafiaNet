@@ -39,7 +39,7 @@
 char WORKING_DIRECTORY[MAX_PATH];
 char PATH_TO_XDELTA_EXE[MAX_PATH];
 
-class TestCB : public SLNet::AutopatcherClientCBInterface
+class TestCB : public MafiaNet::AutopatcherClientCBInterface
 {
 public:
 	virtual bool OnFile(OnFileStruct *onFileStruct)
@@ -95,7 +95,7 @@ public:
 		else
 		{
 			char buff[128];
-			SLNet::TimeUS time = SLNet::GetTimeUS();
+			MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
 #if defined(_WIN32)
 			sprintf_s(buff, "%I64u", time);
 #else
@@ -132,8 +132,8 @@ public:
 
 			sprintf_s(pathToPatch2, "%s/newFile_%s.tmp", WORKING_DIRECTORY, buff);
 			errno_t error = fopen_s(&fpPatch, pathToPatch2, "r+b");
-			SLNet::TimeUS stopWaiting = time + 60000000;
-			while (error!=0 && SLNet::GetTimeUS() < stopWaiting)
+			MafiaNet::TimeUS stopWaiting = time + 60000000;
+			while (error!=0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				error = fopen_s(&fpPatch, pathToPatch2, "r+b");
@@ -155,7 +155,7 @@ public:
 
 			int unlinkRes1 = _unlink(pathToPatch1);
 			int unlinkRes2 = _unlink(pathToPatch2);
-			while ((unlinkRes1!=0 || unlinkRes2!=0) && SLNet::GetTimeUS() < stopWaiting)
+			while ((unlinkRes1!=0 || unlinkRes2!=0) && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				if (unlinkRes1!=0)
@@ -190,9 +190,9 @@ int main(int argc, char **argv)
 	printf("Difficulty: Intermediate\n\n");
 
 	printf("Client starting...");
-	SLNet::SystemAddress serverAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
-	SLNet::AutopatcherClient autopatcherClient;
-	SLNet::FileListTransfer fileListTransfer;
+	MafiaNet::SystemAddress serverAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::AutopatcherClient autopatcherClient;
+	MafiaNet::FileListTransfer fileListTransfer;
 	autopatcherClient.SetFileListTransferPlugin(&fileListTransfer);
 	unsigned short localPort=0;
 	if (argc>=6)
@@ -205,7 +205,7 @@ int main(int argc, char **argv)
 		localPort = static_cast<unsigned short>(intLocalPort);
 	}
 #ifdef USE_TCP
-	SLNet::PacketizedTCP packetizedTCP;
+	MafiaNet::PacketizedTCP packetizedTCP;
 	if (packetizedTCP.Start(localPort,1)==false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
@@ -214,9 +214,9 @@ int main(int argc, char **argv)
 	packetizedTCP.AttachPlugin(&autopatcherClient);
 	packetizedTCP.AttachPlugin(&fileListTransfer);
 #else
-	SLNet::RakPeerInterface *rakPeer;
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor socketDescriptor(localPort,0);
+	MafiaNet::RakPeerInterface *rakPeer;
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 	rakPeer->Startup(1,&socketDescriptor, 1);
 	// Plugin will send us downloading progress notifications if a file is split to fit under the MTU 10 or more times
 	rakPeer->SetSplitMessageProgressInterval(10);
@@ -292,22 +292,22 @@ int main(int argc, char **argv)
 		printf("Hit 'q' to quit, 'c' to cancel the patch.\n");
 
 	int ch;
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	for(;;)
 	{
 #ifdef USE_TCP
-		SLNet::SystemAddress notificationAddress;
+		MafiaNet::SystemAddress notificationAddress;
 		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 			serverAddress=notificationAddress;
 		}
 		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
 		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
 
 
@@ -317,9 +317,9 @@ int main(int argc, char **argv)
 			if (p->data[0]==ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR)
 			{
 				char buff2[256];
-				SLNet::BitStream temp(p->data, p->length, false);
+				MafiaNet::BitStream temp(p->data, p->length, false);
 				temp.IgnoreBits(8);
-				SLNet::StringCompressor::Instance()->DecodeString(buff2, 256, &temp);
+				MafiaNet::StringCompressor::Instance()->DecodeString(buff2, 256, &temp);
 				printf("ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR\n");
 				printf("%s\n", buff2);
 			}
@@ -362,9 +362,9 @@ int main(int argc, char **argv)
 			else if (p->data[0]==ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR)
 			{
 				char buff[256];
-				SLNet::BitStream temp(p->data, p->length, false);
+				MafiaNet::BitStream temp(p->data, p->length, false);
 				temp.IgnoreBits(8);
-				SLNet::StringCompressor::Instance()->DecodeString(buff, 256, &temp);
+				MafiaNet::StringCompressor::Instance()->DecodeString(buff, 256, &temp);
 				printf("ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR\n");
 				printf("%s\n", buff);
 			}
@@ -412,7 +412,7 @@ int main(int argc, char **argv)
 			rakPeer->CloseConnection(serverAddress, true);
 #endif
 		}
-		else if (ch=='p' || (serverAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS && patchImmediately==true) || ch=='f')
+		else if (ch=='p' || (serverAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && patchImmediately==true) || ch=='f')
 		{
 			patchImmediately=false;
 			char restartFile[512];
@@ -461,7 +461,7 @@ int main(int argc, char **argv)
 	packetizedTCP.Stop();
 #else
 	rakPeer->Shutdown(500,0);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 #endif
 	return 1;
 }

@@ -22,7 +22,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/NetworkIDManager.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // DEFINE_MULTILIST_PTR_TO_MEMBER_COMPARISONS(LastSerializationResult,Replica3*,replica);
 
@@ -64,18 +64,18 @@ LastSerializationResult::LastSerializationResult()
 {
 	replica=0;
 	lastSerializationResultBS=0;
-	whenLastSerialized = SLNet::GetTime();
+	whenLastSerialized = MafiaNet::GetTime();
 }
 LastSerializationResult::~LastSerializationResult()
 {
 	if (lastSerializationResultBS)
-		SLNet::OP_DELETE(lastSerializationResultBS,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(lastSerializationResultBS,_FILE_AND_LINE_);
 }
 void LastSerializationResult::AllocBS(void)
 {
 	if (lastSerializationResultBS==0)
 	{
-		lastSerializationResultBS= SLNet::OP_NEW<LastSerializationResultBS>(_FILE_AND_LINE_);
+		lastSerializationResultBS= MafiaNet::OP_NEW<LastSerializationResultBS>(_FILE_AND_LINE_);
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -159,7 +159,7 @@ void ReplicaManager3::AutoCreateConnectionList(
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool ReplicaManager3::PushConnection(SLNet::Connection_RM3 *newConnection, WorldId worldId)
+bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, WorldId worldId)
 {
 	if (newConnection==0)
 		return false;
@@ -192,7 +192,7 @@ bool ReplicaManager3::PushConnection(SLNet::Connection_RM3 *newConnection, World
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::DeallocReplicaNoBroadcastDestruction(SLNet::Connection_RM3 *connection, SLNet::Replica3 *replica3)
+void ReplicaManager3::DeallocReplicaNoBroadcastDestruction(MafiaNet::Connection_RM3 *connection, MafiaNet::Replica3 *replica3)
 {
 	currentlyDeallocatingReplica=replica3;
 	replica3->DeallocReplica(connection);
@@ -201,12 +201,12 @@ void ReplicaManager3::DeallocReplicaNoBroadcastDestruction(SLNet::Connection_RM3
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-SLNet::Connection_RM3 * ReplicaManager3::PopConnection(unsigned int index, WorldId worldId)
+MafiaNet::Connection_RM3 * ReplicaManager3::PopConnection(unsigned int index, WorldId worldId)
 {
 	DataStructures::List<Replica3*> replicaList;
 	DataStructures::List<NetworkID> destructionList;
 	DataStructures::List<Replica3*> broadcastList;
-	SLNet::Connection_RM3 *connection;
+	MafiaNet::Connection_RM3 *connection;
 	unsigned int index2;
 	RM3ActionOnPopConnection action;
 
@@ -274,7 +274,7 @@ SLNet::Connection_RM3 * ReplicaManager3::PopConnection(unsigned int index, World
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-SLNet::Connection_RM3 * ReplicaManager3::PopConnection(RakNetGUID guid, WorldId worldId)
+MafiaNet::Connection_RM3 * ReplicaManager3::PopConnection(RakNetGUID guid, WorldId worldId)
 {
 	unsigned int index;
 
@@ -293,7 +293,7 @@ SLNet::Connection_RM3 * ReplicaManager3::PopConnection(RakNetGUID guid, WorldId 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::Reference(SLNet::Replica3 *replica3, WorldId worldId)
+void ReplicaManager3::Reference(MafiaNet::Replica3 *replica3, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId]!=0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
@@ -316,7 +316,7 @@ void ReplicaManager3::Reference(SLNet::Replica3 *replica3, WorldId worldId)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-unsigned int ReplicaManager3::ReferenceInternal(SLNet::Replica3 *replica3, WorldId worldId)
+unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId]!=0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
@@ -343,7 +343,7 @@ unsigned int ReplicaManager3::ReferenceInternal(SLNet::Replica3 *replica3, World
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::Dereference(SLNet::Replica3 *replica3, WorldId worldId)
+void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId]!=0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
@@ -508,7 +508,7 @@ void ReplicaManager3::SetDefaultPacketReliability(PacketReliability def)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::SetAutoSerializeInterval(SLNet::Time intervalMS)
+void ReplicaManager3::SetAutoSerializeInterval(MafiaNet::Time intervalMS)
 {
 	autoSerializeInterval=intervalMS;
 }
@@ -556,7 +556,7 @@ void ReplicaManager3::Clear(bool deleteWorlds)
 		if (deleteWorlds)
 		{
 			worldsArray[worldsList[i]->worldId]=0;
-			SLNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
 		}
 	} 
 	if (deleteWorlds)
@@ -609,7 +609,7 @@ void ReplicaManager3::AddWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId]==0 && "World already in use");
 
-	RM3World *newWorld = SLNet::OP_NEW<RM3World>(_FILE_AND_LINE_);
+	RM3World *newWorld = MafiaNet::OP_NEW<RM3World>(_FILE_AND_LINE_);
 	newWorld->worldId=worldId;
 	worldsArray[worldId]=newWorld;
 	m_WorldListMutex.Lock();
@@ -626,7 +626,7 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 	{
 		if (worldsList[i]==worldsArray[worldId])
 		{
-			SLNet::OP_DELETE(worldsList[i],_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(worldsList[i],_FILE_AND_LINE_);
 			worldsList.RemoveAtIndexFast(i);
 			break;
 		}
@@ -664,20 +664,20 @@ PluginReceiveResult ReplicaManager3::OnReceive(Packet *packet)
 
 	WorldId incomingWorldId;
 
-	SLNet::Time timestamp=0;
+	MafiaNet::Time timestamp=0;
 	unsigned char packetIdentifier, packetDataOffset;
 	if ( ( unsigned char ) packet->data[ 0 ] == ID_TIMESTAMP )
 	{
-		if ( packet->length > sizeof( unsigned char ) + sizeof(SLNet::Time ) )
+		if ( packet->length > sizeof( unsigned char ) + sizeof(MafiaNet::Time ) )
 		{
-			packetIdentifier = ( unsigned char ) packet->data[ sizeof( unsigned char ) + sizeof(SLNet::Time ) ];
+			packetIdentifier = ( unsigned char ) packet->data[ sizeof( unsigned char ) + sizeof(MafiaNet::Time ) ];
 			// Required for proper endian swapping
-			SLNet::BitStream tsBs(packet->data+sizeof(MessageID),packet->length-1,false);
+			MafiaNet::BitStream tsBs(packet->data+sizeof(MessageID),packet->length-1,false);
 			tsBs.Read(timestamp);
 			// Next line assumes worldId is only 1 byte
 			RakAssert(sizeof(WorldId)==1);
-			incomingWorldId=packet->data[sizeof( unsigned char )*2 + sizeof(SLNet::Time )];
-			packetDataOffset=sizeof( unsigned char )*3 + sizeof(SLNet::Time );
+			incomingWorldId=packet->data[sizeof( unsigned char )*2 + sizeof(MafiaNet::Time )];
+			packetDataOffset=sizeof( unsigned char )*3 + sizeof(MafiaNet::Time );
 		}
 		else
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
@@ -762,7 +762,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 				if (constructionState==RM3CS_ALREADY_EXISTS_REMOTELY)
 				{
 					// Serialize construction data to this connection
-					SLNet::BitStream bsOut;
+					MafiaNet::BitStream bsOut;
 					bsOut.Write((MessageID)ID_REPLICA_MANAGER_3_SERIALIZE_CONSTRUCTION_EXISTING);
 					bsOut.Write(replicaManager3->GetWorldID());
 					NetworkID networkId;
@@ -777,7 +777,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 				// Serialize first serialization to this connection.
 				// This is done here, as it isn't done in PushConstruction
 				SerializeParameters sp;
-				SLNet::BitStream emptyBs;
+				MafiaNet::BitStream emptyBs;
 				for (index=0; index < (unsigned int) RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; index++)
 				{
 					sp.lastSentBitstream[index]=&emptyBs;
@@ -788,7 +788,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 				sp.messageTimestamp=0;
 				sp.whenLastSerialized=0;
 
-				SLNet::Replica3 *replica = lsr->replica;
+				MafiaNet::Replica3 *replica = lsr->replica;
 
 				RM3SerializationResult res = replica->Serialize(&sp);
 				if (res!=RM3SR_NEVER_SERIALIZE_FOR_THIS_CONNECTION &&
@@ -802,7 +802,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 						allIndices[z]=true;
 					}
 					if (SendSerialize(replica, allIndices, sp.outputBitstream, sp.messageTimestamp, sp.pro, replicaManager3->GetRakPeerInterface(), replicaManager3->GetWorldID())==SSICR_SENT_DATA)
-						lsr->replica->whenLastSerialized=SLNet::GetTimeMS();
+						lsr->replica->whenLastSerialized=MafiaNet::GetTimeMS();
 				}
 				*/
 			}
@@ -889,7 +889,7 @@ void ReplicaManager3::Update(void)
 
 	WorldId worldId;
 	RM3World *world;
-	SLNet::Time time = SLNet::GetTime();
+	MafiaNet::Time time = MafiaNet::GetTime();
 
 	m_WorldListMutex.Lock();
 	for (index3=0; index3 < worldsList.Size(); index3++)
@@ -1072,7 +1072,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 		return RR_STOP_PROCESSING;
 	}
 
-	SLNet::BitStream bsIn(packetData,packetDataLength,false);
+	MafiaNet::BitStream bsIn(packetData,packetDataLength,false);
 	bsIn.IgnoreBytes(packetDataOffset);
 	uint16_t constructionObjectListSize, destructionObjectListSize, index, index2;
 	BitSize_t streamEnd, writeAllocationIDEnd;
@@ -1168,7 +1168,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
     RakAssert(constructionTickStack.Size()==constructionObjectListSize);
 	RakAssert(actuallyCreateObjectList.Size()==constructionObjectListSize);
 
-	SLNet::BitStream empty;
+	MafiaNet::BitStream empty;
 	for (index=0; index < constructionObjectListSize; index++)
 	{
 		bool pdcWritten=false;
@@ -1262,7 +1262,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, SLNet::Time timestamp, unsigned char packetDataOffset, WorldId worldId)
+PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, MafiaNet::Time timestamp, unsigned char packetDataOffset, WorldId worldId)
 {
 	Connection_RM3 *connection = GetConnectionByGUID(senderGuid, worldId);
 	if (connection==0)
@@ -1275,7 +1275,7 @@ PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *
 
 	RM3World *world = worldsArray[worldId];
 	RakAssert(world->networkIDManager);
-	SLNet::BitStream bsIn(packetData,packetDataLength,false);
+	MafiaNet::BitStream bsIn(packetData,packetDataLength,false);
 	bsIn.IgnoreBytes(packetDataOffset);
 
 	struct DeserializeParameters ds;
@@ -1325,7 +1325,7 @@ PluginReceiveResult ReplicaManager3::OnDownloadStarted(Packet *packet, unsigned 
 	}
 
 	connection->groupConstructionAndSerialize=false;
-	SLNet::BitStream bsIn(packetData,packetDataLength,false);
+	MafiaNet::BitStream bsIn(packetData,packetDataLength,false);
 	bsIn.IgnoreBytes(packetDataOffset);
 	connection->DeserializeOnDownloadStarted(&bsIn);
 	return RR_CONTINUE_PROCESSING;
@@ -1354,7 +1354,7 @@ PluginReceiveResult ReplicaManager3::OnDownloadComplete(Packet *packet, unsigned
 		return RR_STOP_PROCESSING;
 	}
 
-	SLNet::BitStream bsIn(packetData,packetDataLength,false);
+	MafiaNet::BitStream bsIn(packetData,packetDataLength,false);
 	bsIn.IgnoreBytes(packetDataOffset);
 	connection->gotDownloadComplete=true;
 	connection->DeserializeOnDownloadComplete(&bsIn);
@@ -1382,7 +1382,7 @@ Replica3* ReplicaManager3::GetReplicaByNetworkID(NetworkID networkId, WorldId wo
 
 void ReplicaManager3::BroadcastDestructionList(DataStructures::List<Replica3*> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId)
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	unsigned int i,j;
 
 	RakAssert(worldsArray[worldId]!=0 && "World not in use");
@@ -1483,9 +1483,9 @@ Connection_RM3::~Connection_RM3()
 {
 	unsigned int i;
 	for (i=0; i < constructedReplicaList.Size(); i++)
-		SLNet::OP_DELETE(constructedReplicaList[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(constructedReplicaList[i], _FILE_AND_LINE_);
 	for (i=0; i < queryToConstructReplicaList.Size(); i++)
-		SLNet::OP_DELETE(queryToConstructReplicaList[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(queryToConstructReplicaList[i], _FILE_AND_LINE_);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1501,7 +1501,7 @@ void Connection_RM3::GetConstructedReplicas(DataStructures::List<Replica3*> &obj
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool Connection_RM3::HasReplicaConstructed(SLNet::Replica3 *replica)
+bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 {
 	bool objectExists;
 	constructedReplicaList.GetIndexFromKey(replica, &objectExists);
@@ -1509,7 +1509,7 @@ bool Connection_RM3::HasReplicaConstructed(SLNet::Replica3 *replica)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void Connection_RM3::SendSerializeHeader(SLNet::Replica3 *replica, SLNet::Time timestamp, SLNet::BitStream *bs, WorldId worldId)
+void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::Time timestamp, MafiaNet::BitStream *bs, WorldId worldId)
 {
 	bs->Reset();
 
@@ -1531,7 +1531,7 @@ void Connection_RM3::ClearDownloadGroup(RakPeerInterface *rakPeerInterface)
 	downloadGroup.Clear(__FILE__,__LINE__);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-SendSerializeIfChangedResult Connection_RM3::SendSerialize(SLNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], SLNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], SLNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, SLNet::Time curTime)
+SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, MafiaNet::Time curTime)
 {
 	bool channelHasData;
 	BitSize_t sum=0;
@@ -1541,7 +1541,7 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(SLNet::Replica3 *repl
 			sum+=serializationData[z].GetNumberOfBitsUsed();
 	}
 
-	SLNet::BitStream out;
+	MafiaNet::BitStream out;
 	BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
 
 	if (sum==0)
@@ -1625,9 +1625,9 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(SLNet::Replica3 *repl
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializationResult *lsr, SerializeParameters *sp, SLNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager, SLNet::Time curTime)
+SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializationResult *lsr, SerializeParameters *sp, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager, MafiaNet::Time curTime)
 {
-	SLNet::Replica3 *replica = lsr->replica;
+	MafiaNet::Replica3 *replica = lsr->replica;
 
 	if (replica->GetNetworkID()==UNASSIGNED_NETWORK_ID)
 		return SSICR_DID_NOT_SEND_DATA;
@@ -1804,7 +1804,7 @@ void Connection_RM3::OnLocalReference(Replica3* replica3, ReplicaManager3 *repli
 	}
 #endif
 
-	LastSerializationResult* lsr= SLNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
+	LastSerializationResult* lsr= MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
 	lsr->replica=replica3;
 	queryToConstructReplicaList.Push(lsr,_FILE_AND_LINE_);
 }
@@ -1862,7 +1862,7 @@ void Connection_RM3::OnDereference(Replica3* replica3, ReplicaManager3 *replicaM
 	ValidateLists(replicaManager);
 
 	if (lsr)
-		SLNet::OP_DELETE(lsr,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(lsr,_FILE_AND_LINE_);
 
 	ValidateLists(replicaManager);
 }
@@ -1874,7 +1874,7 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3* replica3, ReplicaManager
 	RakAssert(replica3);
 
 	ValidateLists(replicaManager);
-	LastSerializationResult* lsr= SLNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
+	LastSerializationResult* lsr= MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
 	lsr->replica=replica3;
 
 	ConstructionMode curConstructionMode = QueryConstructionMode();
@@ -1933,7 +1933,7 @@ void Connection_RM3::OnNeverConstruct(unsigned int queryToConstructIdx, ReplicaM
 	ValidateLists(replicaManager);
 	LastSerializationResult* lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
-	SLNet::OP_DELETE(lsr,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(lsr,_FILE_AND_LINE_);
 	ValidateLists(replicaManager);
 }
 
@@ -1965,7 +1965,7 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 	RakAssert(QueryConstructionMode()==QUERY_CONNECTION_FOR_REPLICA_LIST);
 	(void) replicaManager;
 
-	LastSerializationResult* lsr= SLNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
+	LastSerializationResult* lsr= MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
 	lsr->replica=replica;
 	constructedReplicaList.Insert(replica,lsr,true,_FILE_AND_LINE_);
 	queryToSerializeReplicaList.Push(lsr,_FILE_AND_LINE_);
@@ -2200,7 +2200,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObjects, DataStructures::List<Replica3*> &deletedObjects, PRO sendParameters, SLNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3)
+void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObjects, DataStructures::List<Replica3*> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3)
 {
 	if (newObjects.Size()==0 && deletedObjects.Size()==0)
 		return;
@@ -2210,7 +2210,7 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObject
 	//	DataStructures::List<LastSerializationResult* > serializedObjects;
 	BitSize_t offsetStart, offsetStart2, offsetEnd;
 	unsigned int newListIndex, oldListIndex;
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	NetworkID networkId;
 	if (isFirstConstruction)
 	{
@@ -2267,7 +2267,7 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObject
 		bsOut.SetWriteOffset(offsetEnd);
 	}
 
-	SLNet::BitStream bsOut2;
+	MafiaNet::BitStream bsOut2;
 	for (newListIndex=0; newListIndex < newObjects.Size(); newListIndex++)
 	{
 		bsOut2.Reset();
@@ -2329,7 +2329,7 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObject
 	// If the object was serialized identically, and does not change later on, then the new connection never gets the data
 	SerializeParameters sp;
 	sp.whenLastSerialized=0;
-	SLNet::BitStream emptyBs;
+	MafiaNet::BitStream emptyBs;
 	for (int index=0; index < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; index++)
 	{
 		sp.lastSentBitstream[index]=&emptyBs;
@@ -2338,12 +2338,12 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObject
 	}
 
 	sp.bitsWrittenSoFar=0;
-//	SLNet::Time t = SLNet::GetTimeMS();
+//	MafiaNet::Time t = MafiaNet::GetTimeMS();
 	for (newListIndex=0; newListIndex < newObjects.Size(); newListIndex++)
 	{
 		sp.destinationConnection=this;
 		sp.messageTimestamp=0;
-		SLNet::Replica3 *replica = newObjects[newListIndex];
+		MafiaNet::Replica3 *replica = newObjects[newListIndex];
 		// 8/22/09 Forgot ResetWritePointer
 		for (int z=0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
@@ -2383,10 +2383,10 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3*> &newObject
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::SendValidation(SLNet::RakPeerInterface *rakPeer, WorldId worldId)
+void Connection_RM3::SendValidation(MafiaNet::RakPeerInterface *rakPeer, WorldId worldId)
 {
 	// Hijack to mean sendValidation
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_REPLICA_MANAGER_SCOPE_CHANGE);
 	bsOut.Write(worldId);
 	rakPeer->Send(&bsOut,HIGH_PRIORITY,RELIABLE_ORDERED,0,systemAddress,false);
@@ -2430,7 +2430,7 @@ RakNetGUID Replica3::GetCreatingSystemGUID(void) const
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3ConstructionState Replica3::QueryConstruction_ClientConstruction(SLNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
+RM3ConstructionState Replica3::QueryConstruction_ClientConstruction(MafiaNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
 {
 	(void) destinationConnection;
 	if (creatingSystemGUID==replicaManager->GetRakPeerInterface()->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS))
@@ -2443,7 +2443,7 @@ RM3ConstructionState Replica3::QueryConstruction_ClientConstruction(SLNet::Conne
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool Replica3::QueryRemoteConstruction_ClientConstruction(SLNet::Connection_RM3 *sourceConnection, bool isThisTheServer)
+bool Replica3::QueryRemoteConstruction_ClientConstruction(MafiaNet::Connection_RM3 *sourceConnection, bool isThisTheServer)
 {
 	(void) sourceConnection;
 	(void) isThisTheServer;
@@ -2454,7 +2454,7 @@ bool Replica3::QueryRemoteConstruction_ClientConstruction(SLNet::Connection_RM3 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3ConstructionState Replica3::QueryConstruction_ServerConstruction(SLNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
+RM3ConstructionState Replica3::QueryConstruction_ServerConstruction(MafiaNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
 {
 	(void) destinationConnection;
 
@@ -2465,7 +2465,7 @@ RM3ConstructionState Replica3::QueryConstruction_ServerConstruction(SLNet::Conne
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool Replica3::QueryRemoteConstruction_ServerConstruction(SLNet::Connection_RM3 *sourceConnection, bool isThisTheServer)
+bool Replica3::QueryRemoteConstruction_ServerConstruction(MafiaNet::Connection_RM3 *sourceConnection, bool isThisTheServer)
 {
 	(void) sourceConnection;
 	if (isThisTheServer)
@@ -2475,7 +2475,7 @@ bool Replica3::QueryRemoteConstruction_ServerConstruction(SLNet::Connection_RM3 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3ConstructionState Replica3::QueryConstruction_PeerToPeer(SLNet::Connection_RM3 *destinationConnection, Replica3P2PMode p2pMode)
+RM3ConstructionState Replica3::QueryConstruction_PeerToPeer(MafiaNet::Connection_RM3 *destinationConnection, Replica3P2PMode p2pMode)
 {
 	(void) destinationConnection;
 
@@ -2511,7 +2511,7 @@ RM3ConstructionState Replica3::QueryConstruction_PeerToPeer(SLNet::Connection_RM
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bool Replica3::QueryRemoteConstruction_PeerToPeer(SLNet::Connection_RM3 *sourceConnection)
+bool Replica3::QueryRemoteConstruction_PeerToPeer(MafiaNet::Connection_RM3 *sourceConnection)
 {
 	(void) sourceConnection;
 
@@ -2520,7 +2520,7 @@ bool Replica3::QueryRemoteConstruction_PeerToPeer(SLNet::Connection_RM3 *sourceC
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3QuerySerializationResult Replica3::QuerySerialization_ClientSerializable(SLNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
+RM3QuerySerializationResult Replica3::QuerySerialization_ClientSerializable(MafiaNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
 {
 	// Owner client sends to all
 	if (creatingSystemGUID==replicaManager->GetRakPeerInterface()->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS))
@@ -2534,7 +2534,7 @@ RM3QuerySerializationResult Replica3::QuerySerialization_ClientSerializable(SLNe
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3QuerySerializationResult Replica3::QuerySerialization_ServerSerializable(SLNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
+RM3QuerySerializationResult Replica3::QuerySerialization_ServerSerializable(MafiaNet::Connection_RM3 *destinationConnection, bool isThisTheServer)
 {
 	(void) destinationConnection;
 	// Server sends to all
@@ -2547,7 +2547,7 @@ RM3QuerySerializationResult Replica3::QuerySerialization_ServerSerializable(SLNe
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3QuerySerializationResult Replica3::QuerySerialization_PeerToPeer(SLNet::Connection_RM3 *destinationConnection, Replica3P2PMode p2pMode)
+RM3QuerySerializationResult Replica3::QuerySerialization_PeerToPeer(MafiaNet::Connection_RM3 *destinationConnection, Replica3P2PMode p2pMode)
 {
 	(void) destinationConnection;
 
@@ -2581,7 +2581,7 @@ RM3QuerySerializationResult Replica3::QuerySerialization_PeerToPeer(SLNet::Conne
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_Client(SLNet::Connection_RM3 *droppedConnection) const
+RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_Client(MafiaNet::Connection_RM3 *droppedConnection) const
 {
 	(void) droppedConnection;
 	return RM3AOPC_DELETE_REPLICA;
@@ -2589,7 +2589,7 @@ RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_Client(SLNet::Conn
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_Server(SLNet::Connection_RM3 *droppedConnection) const
+RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_Server(MafiaNet::Connection_RM3 *droppedConnection) const
 {
 	(void) droppedConnection;
 	return RM3AOPC_DELETE_REPLICA_AND_BROADCAST_DESTRUCTION;
@@ -2597,7 +2597,7 @@ RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_Server(SLNet::Conn
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_PeerToPeer(SLNet::Connection_RM3 *droppedConnection) const
+RM3ActionOnPopConnection Replica3::QueryActionOnPopConnection_PeerToPeer(MafiaNet::Connection_RM3 *droppedConnection) const
 {
 	(void) droppedConnection;
 	return RM3AOPC_DELETE_REPLICA;

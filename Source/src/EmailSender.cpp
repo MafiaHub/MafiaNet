@@ -37,14 +37,14 @@
 
 #include "slikenet/sleep.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 
 STATIC_FACTORY_DEFINITIONS(EmailSender,EmailSender);
 
 const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, const char *sender, const char *recipient, const char *senderName, const char *recipientName, const char *subject, const char *body, FileList *attachedFiles, bool doPrintf, const char *password)
 {
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	char query[1024];
 	TCPInterface tcpInterface;
 	SystemAddress emailServer;
@@ -56,9 +56,9 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 #if  OPEN_SSL_CLIENT_SUPPORT==1
 	tcpInterface.StartSSLClient(emailServer);
 #endif
-	SLNet::TimeMS timeoutTime = SLNet::GetTimeMS()+3000;
+	MafiaNet::TimeMS timeoutTime = MafiaNet::GetTimeMS()+3000;
 	packet=0;
-	while (SLNet::GetTimeMS() < timeoutTime)
+	while (MafiaNet::GetTimeMS() < timeoutTime)
 	{
 		packet = tcpInterface.Receive();
 		if (packet)
@@ -107,8 +107,8 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 			return response;
 		if (password==0)
 			return "Password needed";
-		char *outputData = SLNet::OP_NEW_ARRAY<char >((const int) (strlen(sender)+strlen(password)+2)*3, _FILE_AND_LINE_ );
-		SLNet::BitStream bs;
+		char *outputData = MafiaNet::OP_NEW_ARRAY<char >((const int) (strlen(sender)+strlen(password)+2)*3, _FILE_AND_LINE_ );
+		MafiaNet::BitStream bs;
 		char zero=0;
 		bs.Write(&zero,1);
 		bs.Write(sender,(const unsigned int)strlen(sender));
@@ -173,7 +173,7 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	int i,j;
 	if (attachedFiles && attachedFiles->fileList.Size())
 	{
-		rakNetRandom.SeedMT((unsigned int)SLNet::GetTimeMS());
+		rakNetRandom.SeedMT((unsigned int)MafiaNet::GetTimeMS());
 		// Random multipart message boundary
 		for (i=0; i < boundarySize; i++)
 			boundary[i]=Base64Map()[rakNetRandom.RandomMT()%64];
@@ -324,9 +324,9 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 
 const char *EmailSender::GetResponse(TCPInterface *tcpInterface, const SystemAddress &emailServer, bool doPrintf)
 {
-	SLNet::Packet *packet;
-	SLNet::TimeMS timeout;
-	timeout= SLNet::GetTimeMS()+5000;
+	MafiaNet::Packet *packet;
+	MafiaNet::TimeMS timeout;
+	timeout= MafiaNet::GetTimeMS()+5000;
 	for(;;)
 	{
 		if (tcpInterface->HasLostConnection()==emailServer)
@@ -368,7 +368,7 @@ const char *EmailSender::GetResponse(TCPInterface *tcpInterface, const SystemAdd
 			if (strstr((const char*)packet->data, "553"))
 				return "Failed on error code 553";
 		}
-		if (SLNet::GetTimeMS() > timeout)
+		if (MafiaNet::GetTimeMS() > timeout)
 			return "Timed out";
 		RakSleep(100);
 	}

@@ -28,7 +28,7 @@
 #include "DS_ByteQueue.h"
 #include "DS_Map.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RAK_DLL_EXPORT PacketizedTCP : public TCPInterface
@@ -84,7 +84,7 @@ protected:
 	DataStructures::Queue<SystemAddress> _newIncomingConnections, _lostConnections, _failedConnectionAttempts, _completedConnectionAttempts;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

@@ -22,65 +22,65 @@
 #include <ctype.h>
 #include "slikenet/Gets.h"
 
-struct SampleCallbacks : public SLNet::RoomsCallback
+struct SampleCallbacks : public MafiaNet::RoomsCallback
 {
 	// Results of calls
-	virtual void CreateRoom_Callback( const SLNet::SystemAddress &senderAddress, SLNet::CreateRoom_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void EnterRoom_Callback( const SLNet::SystemAddress &senderAddress, SLNet::EnterRoom_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void JoinByFilter_Callback( const SLNet::SystemAddress &senderAddress, SLNet::JoinByFilter_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void LeaveRoom_Callback( const SLNet::SystemAddress &senderAddress, SLNet::LeaveRoom_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void GetInvitesToParticipant_Callback( const SLNet::SystemAddress &senderAddress, SLNet::GetInvitesToParticipant_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SendInvite_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SendInvite_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void AcceptInvite_Callback( const SLNet::SystemAddress &senderAddress, SLNet::AcceptInvite_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void StartSpectating_Callback( const SLNet::SystemAddress &senderAddress, SLNet::StartSpectating_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void StopSpectating_Callback( const SLNet::SystemAddress &senderAddress, SLNet::StopSpectating_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void GrantModerator_Callback( const SLNet::SystemAddress &senderAddress, SLNet::GrantModerator_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void ChangeSlotCounts_Callback( const SLNet::SystemAddress &senderAddress, SLNet::ChangeSlotCounts_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SetCustomRoomProperties_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SetCustomRoomProperties_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void GetRoomProperties_Callback( const SLNet::SystemAddress &senderAddress, SLNet::GetRoomProperties_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void ChangeRoomName_Callback( const SLNet::SystemAddress &senderAddress, SLNet::ChangeRoomName_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SetHiddenFromSearches_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SetHiddenFromSearches_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SetDestroyOnModeratorLeave_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SetDestroyOnModeratorLeave_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SetReadyStatus_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SetReadyStatus_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void GetReadyStatus_Callback( const SLNet::SystemAddress &senderAddress, SLNet::GetReadyStatus_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SetRoomLockState_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SetRoomLockState_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void GetRoomLockState_Callback( const SLNet::SystemAddress &senderAddress, SLNet::GetRoomLockState_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void AreAllMembersReady_Callback( const SLNet::SystemAddress &senderAddress, SLNet::AreAllMembersReady_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void KickMember_Callback( const SLNet::SystemAddress &senderAddress, SLNet::KickMember_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void UnbanMember_Callback( const SLNet::SystemAddress &senderAddress, SLNet::UnbanMember_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void GetBanReason_Callback( const SLNet::SystemAddress &senderAddress, SLNet::GetBanReason_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void AddUserToQuickJoin_Callback( const SLNet::SystemAddress &senderAddress, SLNet::AddUserToQuickJoin_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void RemoveUserFromQuickJoin_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RemoveUserFromQuickJoin_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void IsInQuickJoin_Callback( const SLNet::SystemAddress &senderAddress, SLNet::IsInQuickJoin_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void SearchByFilter_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SearchByFilter_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void ChangeHandle_Callback( const SLNet::SystemAddress &senderAddress, SLNet::ChangeHandle_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
-	virtual void Chat_Callback( const SLNet::SystemAddress &senderAddress, SLNet::Chat_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void CreateRoom_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::CreateRoom_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void EnterRoom_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::EnterRoom_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void JoinByFilter_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::JoinByFilter_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void LeaveRoom_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::LeaveRoom_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void GetInvitesToParticipant_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::GetInvitesToParticipant_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SendInvite_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SendInvite_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void AcceptInvite_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::AcceptInvite_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void StartSpectating_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::StartSpectating_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void StopSpectating_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::StopSpectating_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void GrantModerator_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::GrantModerator_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void ChangeSlotCounts_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::ChangeSlotCounts_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SetCustomRoomProperties_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SetCustomRoomProperties_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void GetRoomProperties_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::GetRoomProperties_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void ChangeRoomName_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::ChangeRoomName_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SetHiddenFromSearches_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SetHiddenFromSearches_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SetDestroyOnModeratorLeave_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SetDestroyOnModeratorLeave_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SetReadyStatus_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SetReadyStatus_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void GetReadyStatus_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::GetReadyStatus_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SetRoomLockState_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SetRoomLockState_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void GetRoomLockState_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::GetRoomLockState_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void AreAllMembersReady_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::AreAllMembersReady_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void KickMember_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::KickMember_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void UnbanMember_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::UnbanMember_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void GetBanReason_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::GetBanReason_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void AddUserToQuickJoin_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::AddUserToQuickJoin_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void RemoveUserFromQuickJoin_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RemoveUserFromQuickJoin_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void IsInQuickJoin_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::IsInQuickJoin_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void SearchByFilter_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SearchByFilter_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void ChangeHandle_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::ChangeHandle_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
+	virtual void Chat_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::Chat_Func *callResult) {(void) senderAddress; callResult->PrintResult();}
 	// Notifications due to other room members
-	virtual void QuickJoinExpired_Callback( const SLNet::SystemAddress &senderAddress, SLNet::QuickJoinExpired_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void QuickJoinEnteredRoom_Callback( const SLNet::SystemAddress &senderAddress, SLNet::QuickJoinEnteredRoom_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberStartedSpectating_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberStartedSpectating_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberStoppedSpectating_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberStoppedSpectating_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void ModeratorChanged_Callback( const SLNet::SystemAddress &senderAddress, SLNet::ModeratorChanged_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void SlotCountsSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::SlotCountsSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void CustomRoomPropertiesSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::CustomRoomPropertiesSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomNameSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomNameSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void HiddenFromSearchesSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::HiddenFromSearchesSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberReadyStatusSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberReadyStatusSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomLockStateSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomLockStateSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberKicked_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberKicked_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberHandleSet_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberHandleSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberLeftRoom_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberLeftRoom_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomMemberJoinedRoom_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomMemberJoinedRoom_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomInvitationSent_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomInvitationSent_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomInvitationWithdrawn_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomInvitationWithdrawn_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void RoomDestroyedOnModeratorLeft_Callback( const SLNet::SystemAddress &senderAddress, SLNet::RoomDestroyedOnModeratorLeft_Notification *notification) {(void) senderAddress; notification->PrintResult();}
-	virtual void Chat_Callback( const SLNet::SystemAddress &senderAddress, SLNet::Chat_Notification *notification) {(void) senderAddress; notification->PrintResult(); printf("Chat=%s\nFiltered=%s\n", notification->chatMessage.C_String(), notification->filteredChatMessage.C_String());}
+	virtual void QuickJoinExpired_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::QuickJoinExpired_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void QuickJoinEnteredRoom_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::QuickJoinEnteredRoom_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberStartedSpectating_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberStartedSpectating_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberStoppedSpectating_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberStoppedSpectating_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void ModeratorChanged_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::ModeratorChanged_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void SlotCountsSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::SlotCountsSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void CustomRoomPropertiesSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::CustomRoomPropertiesSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomNameSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomNameSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void HiddenFromSearchesSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::HiddenFromSearchesSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberReadyStatusSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberReadyStatusSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomLockStateSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomLockStateSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberKicked_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberKicked_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberHandleSet_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberHandleSet_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberLeftRoom_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberLeftRoom_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomMemberJoinedRoom_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomMemberJoinedRoom_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomInvitationSent_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomInvitationSent_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomInvitationWithdrawn_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomInvitationWithdrawn_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void RoomDestroyedOnModeratorLeft_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::RoomDestroyedOnModeratorLeft_Notification *notification) {(void) senderAddress; notification->PrintResult();}
+	virtual void Chat_Callback( const MafiaNet::SystemAddress &senderAddress, MafiaNet::Chat_Notification *notification) {(void) senderAddress; notification->PrintResult(); printf("Chat=%s\nFiltered=%s\n", notification->chatMessage.C_String(), notification->filteredChatMessage.C_String());}
 };
 
 static const char *GAME_IDENTIFIER="My Game";
 static const char *ROOM_NAME="My Room";
 
-void GetUserName(SLNet::RoomsPluginFunc *func)
+void GetUserName(MafiaNet::RoomsPluginFunc *func)
 {
 	printf("Which user? 1=User1, 2=User2, 3=User3, 4=User4: ");
 	int ch = _getche();
@@ -94,7 +94,7 @@ void GetUserName(SLNet::RoomsPluginFunc *func)
 		func->userName="User4";
 	printf("\n");
 }
-void GetRoomName(SLNet::RakString &dest)
+void GetRoomName(MafiaNet::RakString &dest)
 {
 	char buff[256];
 	printf("Enter room name, or enter for default: ");
@@ -104,7 +104,7 @@ void GetRoomName(SLNet::RakString &dest)
 	else
 		dest=buff;
 }
-void GetTargetName(SLNet::RakString *target)
+void GetTargetName(MafiaNet::RakString *target)
 {
 	printf("Which target user? 1=User1, 2=User2, 3=User3, 4=User4: ");
 	int ch = _getche();
@@ -124,30 +124,30 @@ void main(void)
 	printf("Difficulty: Intermediate\n\n");
 
 	// Do the unit test to make sure the core functionality is correct. The plugin just does networking
-	//SLNet::AllGamesRoomsContainer::UnitTest();
+	//MafiaNet::AllGamesRoomsContainer::UnitTest();
 
-	SLNet::RakPeerInterface *client, *server;
-	SLNet::RoomsPlugin roomsPluginClient, roomsPluginServer;
-	client = SLNet::RakPeerInterface::GetInstance();
-	server = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor sd1(0,0),sd2(1234,0);
-	SLNet::StartupResult sr;
+	MafiaNet::RakPeerInterface *client, *server;
+	MafiaNet::RoomsPlugin roomsPluginClient, roomsPluginServer;
+	client = MafiaNet::RakPeerInterface::GetInstance();
+	server = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor sd1(0,0),sd2(1234,0);
+	MafiaNet::StartupResult sr;
 	sr = client->Startup(1,&sd1, 1);
-	RakAssert(sr== SLNet::RAKNET_STARTED);
+	RakAssert(sr== MafiaNet::RAKNET_STARTED);
 	sr=server->Startup(1,&sd2, 1);
-	RakAssert(sr== SLNet::RAKNET_STARTED);
+	RakAssert(sr== MafiaNet::RAKNET_STARTED);
 	server->SetMaximumIncomingConnections(1);
 	client->AttachPlugin(&roomsPluginClient);
 	server->AttachPlugin(&roomsPluginServer);
-	SLNet::ProfanityFilter profanityFilter;
+	MafiaNet::ProfanityFilter profanityFilter;
 	profanityFilter.AddWord("Crapola");
 	roomsPluginServer.SetProfanityFilter(&profanityFilter);
 	roomsPluginServer.roomsContainer.AddTitle(GAME_IDENTIFIER);
 	SampleCallbacks sampleCallbacks;
-	SLNet::SystemAddress localAddress=server->GetMyBoundAddress();
+	MafiaNet::SystemAddress localAddress=server->GetMyBoundAddress();
 	roomsPluginClient.SetServerAddress(localAddress);
 	roomsPluginClient.SetRoomsCallback(&sampleCallbacks);
-	SLNET_VERIFY(client->Connect("127.0.0.1", 1234, 0, 0, 0) == SLNet::CONNECTION_ATTEMPT_STARTED);
+	SLNET_VERIFY(client->Connect("127.0.0.1", 1234, 0, 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 
 	printf("A. CreateRoom\n");
 	printf("B. EnterRoom\n");
@@ -180,7 +180,7 @@ void main(void)
 	printf("3. RoomChat\n");
 	printf("4. GetRoomProperties\n");
 
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	int ch;
 	for(;;)
 	{
@@ -200,10 +200,10 @@ void main(void)
 		{
 			if (p->data[0]==ID_NEW_INCOMING_CONNECTION)
 			{
-				roomsPluginServer.LoginRoomsParticipant("User1", p->systemAddress, p->guid, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-				roomsPluginServer.LoginRoomsParticipant("User2", p->systemAddress, p->guid, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-				roomsPluginServer.LoginRoomsParticipant("User3", p->systemAddress, p->guid, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-				roomsPluginServer.LoginRoomsParticipant("User4", p->systemAddress, p->guid, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+				roomsPluginServer.LoginRoomsParticipant("User1", p->systemAddress, p->guid, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+				roomsPluginServer.LoginRoomsParticipant("User2", p->systemAddress, p->guid, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+				roomsPluginServer.LoginRoomsParticipant("User3", p->systemAddress, p->guid, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+				roomsPluginServer.LoginRoomsParticipant("User4", p->systemAddress, p->guid, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 			}
 			server->DeallocatePacket(p);
 		}
@@ -216,7 +216,7 @@ void main(void)
 			case 'A':
 				{
 					printf("CreateRoom\n");
-					SLNet::CreateRoom_Func func;
+					MafiaNet::CreateRoom_Func func;
 					GetUserName(&func);
 					GetRoomName(func.networkedRoomCreationParameters.roomName);
 					func.networkedRoomCreationParameters.slots.publicSlots=1;
@@ -227,7 +227,7 @@ void main(void)
 			case 'B':
 				{
 					printf("EnterRoom\n");
-					SLNet::EnterRoom_Func func;
+					MafiaNet::EnterRoom_Func func;
 					GetUserName(&func);
 					// Create or join the specified room name
 					GetRoomName(func.networkedRoomCreationParameters.roomName);
@@ -243,9 +243,9 @@ void main(void)
 			case 'C':
 				{
 					printf("JoinByFilter\n");
-					SLNet::JoinByFilter_Func func;
+					MafiaNet::JoinByFilter_Func func;
 					GetUserName(&func);
-					SLNet::RakString roomName;
+					MafiaNet::RakString roomName;
 					GetRoomName(roomName);
 					func.query.AddQuery_STRING(
 						DefaultRoomColumns::GetColumnName(DefaultRoomColumns::TC_ROOM_NAME),
@@ -258,7 +258,7 @@ void main(void)
 			case 'D':
 				{
 					printf("LeaveRoom\n");
-					SLNet::LeaveRoom_Func func;
+					MafiaNet::LeaveRoom_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -266,7 +266,7 @@ void main(void)
 			case 'E':
 				{
 					printf("GetInvitesToParticipant\n");
-					SLNet::GetInvitesToParticipant_Func func;
+					MafiaNet::GetInvitesToParticipant_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -274,7 +274,7 @@ void main(void)
 			case 'F':
 				{
 					printf("SendInvite\n");
-					SLNet::SendInvite_Func func;
+					MafiaNet::SendInvite_Func func;
 					GetUserName(&func);
 					GetTargetName(&func.inviteeName);
 					func.inviteToSpectatorSlot=false;
@@ -286,7 +286,7 @@ void main(void)
 			case 'G':
 				{
 					printf("AcceptInvite\n");
-					SLNet::AcceptInvite_Func func;
+					MafiaNet::AcceptInvite_Func func;
 					GetUserName(&func);
 					GetTargetName(&func.inviteSender);
 					func.roomId=1;
@@ -296,7 +296,7 @@ void main(void)
 			case 'H':
 				{
 					printf("StartSpectating\n");
-					SLNet::StartSpectating_Func func;
+					MafiaNet::StartSpectating_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -304,7 +304,7 @@ void main(void)
 			case 'I':
 				{
 					printf("StopSpectating\n");
-					SLNet::StopSpectating_Func func;
+					MafiaNet::StopSpectating_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -312,7 +312,7 @@ void main(void)
 			case 'J':
 				{
 					printf("GrantModerator\n");
-					SLNet::GrantModerator_Func func;
+					MafiaNet::GrantModerator_Func func;
 					GetUserName(&func);
 					GetTargetName(&func.newModerator);
 					roomsPluginClient.ExecuteFunc(&func);
@@ -321,7 +321,7 @@ void main(void)
 			case 'K':
 				{
 					printf("ChangeSlotCounts\n");
-					SLNet::ChangeSlotCounts_Func func;
+					MafiaNet::ChangeSlotCounts_Func func;
 					GetUserName(&func);
 					func.slots.publicSlots=1;
 					func.slots.reservedSlots=0;
@@ -332,7 +332,7 @@ void main(void)
 			case 'L':
 				{
 					printf("SetCustomRoomProperties\n");
-					SLNet::SetCustomRoomProperties_Func func;
+					MafiaNet::SetCustomRoomProperties_Func func;
 					GetUserName(&func);
 					DataStructures::Table customRoomProperties;
 					func.table.AddColumn("Custom Column 1", DataStructures::Table::STRING);
@@ -346,7 +346,7 @@ void main(void)
 			case 'M':
 				{
 					printf("ChangeRoomName\n");
-					SLNet::ChangeRoomName_Func func;
+					MafiaNet::ChangeRoomName_Func func;
 					GetUserName(&func);
 					func.newRoomName="New room name";
 					roomsPluginClient.ExecuteFunc(&func);
@@ -355,7 +355,7 @@ void main(void)
 			case 'N':
 				{
 					printf("SetHiddenFromSearches\n");
-					SLNet::SetHiddenFromSearches_Func func;
+					MafiaNet::SetHiddenFromSearches_Func func;
 					GetUserName(&func);
 					func.hiddenFromSearches=true;
 					roomsPluginClient.ExecuteFunc(&func);
@@ -364,7 +364,7 @@ void main(void)
 			case 'O':
 				{
 					printf("SetDestroyOnModeratorLeave\n");
-					SLNet::SetDestroyOnModeratorLeave_Func func;
+					MafiaNet::SetDestroyOnModeratorLeave_Func func;
 					GetUserName(&func);
 					func.destroyOnModeratorLeave=true;
 					roomsPluginClient.ExecuteFunc(&func);
@@ -373,7 +373,7 @@ void main(void)
 			case 'P':
 				{
 					printf("SetReadyStatus\n");
-					SLNet::SetReadyStatus_Func func;
+					MafiaNet::SetReadyStatus_Func func;
 					GetUserName(&func);
 					func.isReady=true;
 					roomsPluginClient.ExecuteFunc(&func);
@@ -382,7 +382,7 @@ void main(void)
 			case 'Q':
 				{
 					printf("GetReadyStatus\n");
-					SLNet::GetReadyStatus_Func func;
+					MafiaNet::GetReadyStatus_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -390,16 +390,16 @@ void main(void)
 			case 'R':
 				{
 					printf("SetRoomLockState\n");
-					SLNet::SetRoomLockState_Func func;
+					MafiaNet::SetRoomLockState_Func func;
 					GetUserName(&func);
-					func.roomLockState= SLNet::RLS_ALL_LOCKED;
+					func.roomLockState= MafiaNet::RLS_ALL_LOCKED;
 					roomsPluginClient.ExecuteFunc(&func);
 				}
 				break;
 			case 'S':
 				{
 					printf("GetRoomLockState\n");
-					SLNet::GetRoomLockState_Func func;
+					MafiaNet::GetRoomLockState_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -407,7 +407,7 @@ void main(void)
 			case 'T':
 				{
 					printf("AreAllMembersReady\n");
-					SLNet::AreAllMembersReady_Func func;
+					MafiaNet::AreAllMembersReady_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -415,7 +415,7 @@ void main(void)
 			case 'U':
 				{
 					printf("KickMember\n");
-					SLNet::KickMember_Func func;
+					MafiaNet::KickMember_Func func;
 					GetUserName(&func);
 					GetTargetName(&func.kickedMember);
 					func.reason="KickMemberReason";
@@ -425,7 +425,7 @@ void main(void)
 			case 'V':
 				{
 					printf("UnbanMember\n");
-					SLNet::UnbanMember_Func func;
+					MafiaNet::UnbanMember_Func func;
 					GetUserName(&func);
 					GetTargetName(&func.bannedMemberName);
 					roomsPluginClient.ExecuteFunc(&func);
@@ -434,7 +434,7 @@ void main(void)
 			case 'W':
 				{
 					printf("GetBanReason\n");
-					SLNet::GetBanReason_Func func;
+					MafiaNet::GetBanReason_Func func;
 					GetUserName(&func);
 					func.roomId=1;
 					roomsPluginClient.ExecuteFunc(&func);
@@ -443,7 +443,7 @@ void main(void)
 			case 'X':
 				{
 					printf("AddUserToQuickJoin\n");
-					SLNet::AddUserToQuickJoin_Func func;
+					MafiaNet::AddUserToQuickJoin_Func func;
 					GetUserName(&func);
 					func.networkedQuickJoinUser.timeout=30000;
 					func.networkedQuickJoinUser.minimumPlayers=4;
@@ -454,7 +454,7 @@ void main(void)
 			case 'Y':
 				{
 					printf("RemoveUserFromQuickJoin\n");
-					SLNet::RemoveUserFromQuickJoin_Func func;
+					MafiaNet::RemoveUserFromQuickJoin_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -462,7 +462,7 @@ void main(void)
 			case 'Z':
 				{
 					printf("IsInQuickJoin\n");
-					SLNet::IsInQuickJoin_Func func;
+					MafiaNet::IsInQuickJoin_Func func;
 					GetUserName(&func);
 					roomsPluginClient.ExecuteFunc(&func);
 				}
@@ -470,12 +470,12 @@ void main(void)
 			case '1':
 				{
 					printf("SearchByFilter\n");
-					SLNet::SearchByFilter_Func func;
+					MafiaNet::SearchByFilter_Func func;
 					GetUserName(&func);
 					func.gameIdentifier=GAME_IDENTIFIER;
 					func.onlyJoinable=true;
 					// Not specifying any search parameters returns all rooms
-				//	SLNet::RakString roomName;
+				//	MafiaNet::RakString roomName;
 				//	GetRoomName(roomName);
 				//	func.roomQuery.AddQuery_STRING(
 				//		DefaultRoomColumns::GetColumnName(DefaultRoomColumns::TC_ROOM_NAME),
@@ -486,7 +486,7 @@ void main(void)
 			case '2':
 				{
 					printf("ChangeHandle\n");
-					SLNet::ChangeHandle_Func func;
+					MafiaNet::ChangeHandle_Func func;
 					GetUserName(&func);
 					func.newHandle="Crapola";
 					roomsPluginClient.ExecuteFunc(&func);
@@ -495,7 +495,7 @@ void main(void)
 			case '3':
 				{
 					printf("RoomChat\n");
-					SLNet::Chat_Func func;
+					MafiaNet::Chat_Func func;
 					GetUserName(&func);
 					func.chatMessage="Hello world. This is Crapola";
 					roomsPluginClient.ExecuteFunc(&func);
@@ -504,7 +504,7 @@ void main(void)
 			case '4':
 				{
 					printf("GetRoomProperties\n");
-					SLNet::GetRoomProperties_Func func;
+					MafiaNet::GetRoomProperties_Func func;
 					GetUserName(&func);
 					GetRoomName(func.roomName);
 					roomsPluginClient.ExecuteFunc(&func);
@@ -514,6 +514,6 @@ void main(void)
 		}
 	}
 
-	//SLNet::RakPeerInterface::DestroyInstance(client);
-	//SLNet::RakPeerInterface::DestroyInstance(server);
+	//MafiaNet::RakPeerInterface::DestroyInstance(client);
+	//MafiaNet::RakPeerInterface::DestroyInstance(server);
 }

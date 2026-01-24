@@ -19,7 +19,7 @@
 #include "slikenet/LogCommandParser.h"
 #include <stdio.h>
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 PacketConsoleLogger::PacketConsoleLogger()
 {

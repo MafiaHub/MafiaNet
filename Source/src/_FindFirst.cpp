@@ -33,8 +33,8 @@ static DataStructures::List< _findinfo_t* > fileInfo;
 */
 long _findfirst(const char *name, _finddata_t *f)
 {
-	SLNet::RakString nameCopy = name;
-	SLNet::RakString filter;
+	MafiaNet::RakString nameCopy = name;
+	MafiaNet::RakString filter;
 
         // This is linux only, so don't bother with '\'
 	const char* lastSep = strrchr(name,'/');
@@ -56,7 +56,7 @@ long _findfirst(const char *name, _finddata_t *f)
         
 	if(!dir) return -1;
 
-	_findinfo_t* fi = SLNet::OP_NEW<_findinfo_t>( _FILE_AND_LINE_ );
+	_findinfo_t* fi = MafiaNet::OP_NEW<_findinfo_t>( _FILE_AND_LINE_ );
 	fi->filter    = filter;
 	fi->dirName   = nameCopy;  // we need to remember this for stat()
 	fi->openedDir = dir;
@@ -119,7 +119,7 @@ int _findnext(long h, _finddata_t *f)
                 // a stat...  don't rely on entry->d_type, as this
                 // might be unavailable!
                 struct stat filestat;
-				SLNet::RakString fullPath = fi->dirName + entry->d_name;
+				MafiaNet::RakString fullPath = fi->dirName + entry->d_name;
                 if (stat(fullPath, &filestat) != 0)
                 {
                     RAKNET_DEBUG_PRINTF("Cannot stat %s\n", fullPath.C_String());
@@ -165,7 +165,7 @@ int _findclose(long h)
     _findinfo_t* fi = fileInfo[h];
     closedir(fi->openedDir);
     fileInfo.RemoveAtIndex(h);
-	SLNet::OP_DELETE(fi, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(fi, _FILE_AND_LINE_);
     return 0;   
 }
 #endif

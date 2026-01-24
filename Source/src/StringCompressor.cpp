@@ -33,7 +33,7 @@
 
 
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 StringCompressor* StringCompressor::instance=0;
 int StringCompressor::referenceCount=0;
@@ -42,7 +42,7 @@ void StringCompressor::AddReference(void)
 {
 	if (++referenceCount==1)
 	{
-		instance = SLNet::OP_NEW<StringCompressor>( _FILE_AND_LINE_ );
+		instance = MafiaNet::OP_NEW<StringCompressor>( _FILE_AND_LINE_ );
 	}
 }
 void StringCompressor::RemoveReference(void)
@@ -53,7 +53,7 @@ void StringCompressor::RemoveReference(void)
 	{
 		if (--referenceCount==0)
 		{
-			SLNet::OP_DELETE(instance, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(instance, _FILE_AND_LINE_);
 			instance=0;
 		}
 	}
@@ -329,7 +329,7 @@ StringCompressor::StringCompressor()
 	DataStructures::Map<int, HuffmanEncodingTree *>::IMPLEMENT_DEFAULT_COMPARISON();
 
 	// Make a default tree immediately, since this is used for RPC possibly from multiple threads at the same time
-	HuffmanEncodingTree *huffmanEncodingTree = SLNet::OP_NEW<HuffmanEncodingTree>( _FILE_AND_LINE_ );
+	HuffmanEncodingTree *huffmanEncodingTree = MafiaNet::OP_NEW<HuffmanEncodingTree>( _FILE_AND_LINE_ );
 	huffmanEncodingTree->GenerateFromFrequencyTable( englishCharacterFrequencies );
 
 	huffmanEncodingTrees.Set(0, huffmanEncodingTree);
@@ -340,7 +340,7 @@ void StringCompressor::GenerateTreeFromStrings( unsigned char *input, unsigned i
 	if (huffmanEncodingTrees.Has(languageId))
 	{
 		huffmanEncodingTree = huffmanEncodingTrees.Get(languageId);
-		SLNet::OP_DELETE(huffmanEncodingTree, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(huffmanEncodingTree, _FILE_AND_LINE_);
 	}
 
 	unsigned index;
@@ -357,7 +357,7 @@ void StringCompressor::GenerateTreeFromStrings( unsigned char *input, unsigned i
 		frequencyTable[ input[ index ] ] ++;
 
 	// Build the tree
-	huffmanEncodingTree = SLNet::OP_NEW<HuffmanEncodingTree>( _FILE_AND_LINE_ );
+	huffmanEncodingTree = MafiaNet::OP_NEW<HuffmanEncodingTree>( _FILE_AND_LINE_ );
 	huffmanEncodingTree->GenerateFromFrequencyTable( frequencyTable );
 	huffmanEncodingTrees.Set(languageId, huffmanEncodingTree);
 }
@@ -365,10 +365,10 @@ void StringCompressor::GenerateTreeFromStrings( unsigned char *input, unsigned i
 StringCompressor::~StringCompressor()
 {
 	for (unsigned i=0; i < huffmanEncodingTrees.Size(); i++)
-		SLNet::OP_DELETE(huffmanEncodingTrees[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(huffmanEncodingTrees[i], _FILE_AND_LINE_);
 }
 
-void StringCompressor::EncodeString( const char *input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId )
+void StringCompressor::EncodeString( const char *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId )
 {
 	HuffmanEncodingTree *huffmanEncodingTree;
 	if (huffmanEncodingTrees.Has(languageId)==false)
@@ -381,7 +381,7 @@ void StringCompressor::EncodeString( const char *input, int maxCharsToWrite, SLN
 		return ;
 	}
 
-	SLNet::BitStream encodedBitStream;
+	MafiaNet::BitStream encodedBitStream;
 
 	uint32_t stringBitLength;
 
@@ -401,7 +401,7 @@ void StringCompressor::EncodeString( const char *input, int maxCharsToWrite, SLN
 	output->WriteBits( encodedBitStream.GetData(), stringBitLength );
 }
 
-bool StringCompressor::DecodeString( char *output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId )
+bool StringCompressor::DecodeString( char *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId )
 {
 	HuffmanEncodingTree *huffmanEncodingTree;
 	if (huffmanEncodingTrees.Has(languageId)==false)
@@ -431,12 +431,12 @@ bool StringCompressor::DecodeString( char *output, int maxCharsToWrite, SLNet::B
 	return true;
 }
 #ifdef _CSTRING_COMPRESSOR
-void StringCompressor::EncodeString( const CString &input, int maxCharsToWrite, SLNet::BitStream *output )
+void StringCompressor::EncodeString( const CString &input, int maxCharsToWrite, MafiaNet::BitStream *output )
 {
 	LPTSTR p = input;
 	EncodeString(p, maxCharsToWrite*sizeof(TCHAR), output, languageID);
 }
-bool StringCompressor::DecodeString( CString &output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId )
+bool StringCompressor::DecodeString( CString &output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId )
 {
 	LPSTR p = output.GetBuffer(maxCharsToWrite*sizeof(TCHAR));
 	DecodeString(p,maxCharsToWrite*sizeof(TCHAR), input, languageID);
@@ -445,11 +445,11 @@ bool StringCompressor::DecodeString( CString &output, int maxCharsToWrite, SLNet
 }
 #endif
 #ifdef _STD_STRING_COMPRESSOR
-void StringCompressor::EncodeString( const std::string &input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId )
+void StringCompressor::EncodeString( const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId )
 {
 	EncodeString(input.c_str(), maxCharsToWrite, output, languageId);
 }
-bool StringCompressor::DecodeString( std::string *output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId )
+bool StringCompressor::DecodeString( std::string *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId )
 {
 	if (maxCharsToWrite <= 0)
 	{
@@ -479,11 +479,11 @@ bool StringCompressor::DecodeString( std::string *output, int maxCharsToWrite, S
 	return out;
 }
 #endif
-void StringCompressor::EncodeString( const RakString *input, int maxCharsToWrite, SLNet::BitStream *output, uint8_t languageId )
+void StringCompressor::EncodeString( const RakString *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId )
 {
 	EncodeString(input->C_String(), maxCharsToWrite, output, languageId);
 }
-bool StringCompressor::DecodeString( RakString *output, int maxCharsToWrite, SLNet::BitStream *input, uint8_t languageId )
+bool StringCompressor::DecodeString( RakString *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId )
 {
 	if (maxCharsToWrite <= 0)
 	{

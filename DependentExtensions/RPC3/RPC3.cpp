@@ -23,13 +23,13 @@
 #include "slikenet/NetworkIDManager.h"
 #include <stdlib.h>
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // int RPC3::RemoteRPCFunctionComp( const RPC3::RPCIdentifier &key, const RemoteRPCFunction &data )
 // {
 // 	return strcmp(key.C_String(), data.identifier.C_String());
 // }
-int SLNet::RPC3::LocalSlotObjectComp( const LocalSlotObject &key, const LocalSlotObject &data )
+int MafiaNet::RPC3::LocalSlotObjectComp( const LocalSlotObject &key, const LocalSlotObject &data )
 {
 	if (key.callPriority>data.callPriority)
 		return -1;
@@ -81,7 +81,7 @@ bool RPC3::IsFunctionRegistered(const char *uniqueIdentifier)
 	return i.IsInvalid()==false;
 }
 
-void RPC3::SetTimestamp(SLNet::Time timeStamp)
+void RPC3::SetTimestamp(MafiaNet::Time timeStamp)
 {
 	outgoingTimestamp=timeStamp;
 }
@@ -104,7 +104,7 @@ void RPC3::SetRecipientObject(NetworkID networkID)
 	outgoingNetworkID=networkID;
 }
 
-SLNet::Time RPC3::GetLastSenderTimestamp(void) const
+MafiaNet::Time RPC3::GetLastSenderTimestamp(void) const
 {
 	return incomingTimeStamp;
 }
@@ -124,7 +124,7 @@ const char *RPC3::GetCurrentExecution(void) const
 	return (const char *) currentExecution;
 }
 
-bool RPC3::SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, SLNet::BitStream *serializedParameters, bool isCall)
+bool RPC3::SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, MafiaNet::BitStream *serializedParameters, bool isCall)
 {	
 	SystemAddress systemAddr;
 //	unsigned int outerIndex;
@@ -133,7 +133,7 @@ bool RPC3::SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, SLN
 	if (uniqueIdentifier.IsEmpty())
 		return false;
 
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	if (outgoingTimestamp!=0)
 	{
 		bs.Write((MessageID)ID_TIMESTAMP);
@@ -160,7 +160,7 @@ bool RPC3::SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, SLN
 		for (systemIndex=0; systemIndex < rakPeerInterface->GetMaximumNumberOfPeers(); systemIndex++)
 		{
 			systemAddr=rakPeerInterface->GetSystemAddressFromIndex(systemIndex);
-			if (systemAddr!= SLNet::UNASSIGNED_SYSTEM_ADDRESS && systemAddr!=outgoingSystemAddress)
+			if (systemAddr!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && systemAddr!=outgoingSystemAddress)
 			{
 // 				if (GetRemoteFunctionIndex(systemAddr, uniqueIdentifier, &outerIndex, &innerIndex, isCall))
 // 				{
@@ -192,7 +192,7 @@ bool RPC3::SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, SLN
 	else
 	{
 		systemAddr = outgoingSystemAddress;
-		if (systemAddr!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (systemAddr!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 // 			if (GetRemoteFunctionIndex(systemAddr, uniqueIdentifier, &outerIndex, &innerIndex, isCall))
 // 			{
@@ -221,24 +221,24 @@ bool RPC3::SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, SLN
 
 void RPC3::OnAttach(void)
 {
-	outgoingSystemAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	outgoingSystemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	outgoingNetworkID=UNASSIGNED_NETWORK_ID;
-	incomingSystemAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+	incomingSystemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 }
 
 PluginReceiveResult RPC3::OnReceive(Packet *packet)
 {
-	SLNet::Time timestamp=0;
+	MafiaNet::Time timestamp=0;
 	unsigned char packetIdentifier, packetDataOffset;
 	if ( ( unsigned char ) packet->data[ 0 ] == ID_TIMESTAMP )
 	{
-		if ( packet->length > sizeof( unsigned char ) + sizeof(SLNet::Time ) )
+		if ( packet->length > sizeof( unsigned char ) + sizeof(MafiaNet::Time ) )
 		{
-			packetIdentifier = ( unsigned char ) packet->data[ sizeof( unsigned char ) + sizeof(SLNet::Time ) ];
+			packetIdentifier = ( unsigned char ) packet->data[ sizeof( unsigned char ) + sizeof(MafiaNet::Time ) ];
 			// Required for proper endian swapping
-			SLNet::BitStream tsBs(packet->data+sizeof(MessageID),packet->length-1,false);
+			MafiaNet::BitStream tsBs(packet->data+sizeof(MessageID),packet->length-1,false);
 			tsBs.Read(timestamp);
-			packetDataOffset=sizeof( unsigned char )*2 + sizeof(SLNet::Time );
+			packetDataOffset=sizeof( unsigned char )*2 + sizeof(MafiaNet::Time );
 		}
 		else
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
@@ -266,7 +266,7 @@ PluginReceiveResult RPC3::OnReceive(Packet *packet)
 
 void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, unsigned int lengthInBytes)
 {
-	SLNet::BitStream bs(data,lengthInBytes,false);
+	MafiaNet::BitStream bs(data,lengthInBytes,false);
 
 	DataStructures::HashIndex functionIndex;
 	LocalRPCFunction *lrpcf;
@@ -312,7 +312,7 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 //	else
 		StringCompressor::Instance()->DecodeString(strIdentifier,512,&bs,0);
 	bs.ReadCompressed(bitsOnStack);
-	SLNet::BitStream serializedParameters;
+	MafiaNet::BitStream serializedParameters;
 	if (bitsOnStack>0)
 	{
 		serializedParameters.AddBitsAndReallocate(bitsOnStack);
@@ -347,7 +347,7 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 // 					strcmp(localFunctions[functionIndex].identifier.C_String(), strIdentifier)==0)
 // 				{
 // 					// SEND RPC MAPPING
-// 					SLNet::BitStream outgoingBitstream;
+// 					MafiaNet::BitStream outgoingBitstream;
 // 					outgoingBitstream.Write((MessageID)ID_AUTO_RPC_REMOTE_INDEX);
 // 					outgoingBitstream.Write(hasNetworkId);
 // 					outgoingBitstream.WriteCompressed(functionIndex);
@@ -435,14 +435,14 @@ void RPC3::InterruptSignal(void)
 {
 	interruptSignal=true;
 }
-void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, SLNet::BitStream *serializedParameters, bool temporarilySetUSA)
+void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, bool temporarilySetUSA)
 {
 	if (functionIndex.IsInvalid())
 		return;
 
 	SystemAddress lastIncomingAddress=incomingSystemAddress;
 	if (temporarilySetUSA)
-		incomingSystemAddress= SLNet::UNASSIGNED_SYSTEM_ADDRESS;
+		incomingSystemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	interruptSignal=false;
 	LocalSlot *localSlot = localSlots.ItemAtIndex(functionIndex);
 	unsigned int i;
@@ -499,7 +499,7 @@ void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, SLNet::BitStrea
 // 	unsigned int insertionIndex;
 // 	unsigned int remoteIndex;
 // 	RemoteRPCFunction newRemoteFunction;
-// 	SLNet::BitStream bs(data,lengthInBytes,false);
+// 	MafiaNet::BitStream bs(data,lengthInBytes,false);
 // 	RPCIdentifier identifier;
 // 	bool isObjectMember;
 // 	bool isCall;
@@ -531,7 +531,7 @@ void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, SLNet::BitStrea
 // 	}
 // 	else
 // 	{
-// 		theList = SLNet::OP_NEW<DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> >(_FILE_AND_LINE_);
+// 		theList = MafiaNet::OP_NEW<DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> >(_FILE_AND_LINE_);
 // 
 // 		newRemoteFunction.functionIndex=remoteIndex;
 // 		newRemoteFunction.identifier = strIdentifier;
@@ -578,20 +578,20 @@ void RPC3::Clear(void)
 // 	for (j=0; j < remoteFunctions.Size(); j++)
 // 	{
 // 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteFunctions[j];
-// 		SLNet::OP_DELETE(theList,_FILE_AND_LINE_);
+// 		MafiaNet::OP_DELETE(theList,_FILE_AND_LINE_);
 // 	}
 // 	for (j=0; j < remoteSlots.Size(); j++)
 // 	{
 // 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteSlots[j];
-// 		SLNet::OP_DELETE(theList,_FILE_AND_LINE_);
+// 		MafiaNet::OP_DELETE(theList,_FILE_AND_LINE_);
 // 	}
 
-	DataStructures::List<SLNet::RakString> keyList;
+	DataStructures::List<MafiaNet::RakString> keyList;
 	DataStructures::List<LocalSlot*> outputList;
 	localSlots.GetAsList(outputList,keyList,_FILE_AND_LINE_);
 	for (j=0; j < outputList.Size(); j++)
 	{
-		SLNet::OP_DELETE(outputList[j],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(outputList[j],_FILE_AND_LINE_);
 	}
 	localSlots.Clear(_FILE_AND_LINE_);
 
@@ -599,7 +599,7 @@ void RPC3::Clear(void)
 	localFunctions.GetAsList(outputList2,keyList,_FILE_AND_LINE_);
 	for (j=0; j < outputList2.Size(); j++)
 	{
-		SLNet::OP_DELETE(outputList2[j],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(outputList2[j],_FILE_AND_LINE_);
 	}
 	localFunctions.Clear(_FILE_AND_LINE_);
 //	remoteFunctions.Clear();
@@ -610,7 +610,7 @@ void RPC3::Clear(void)
 
 void RPC3::SendError(SystemAddress target, unsigned char errorCode, const char *functionName)
 {
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((MessageID)ID_RPC_REMOTE_ERROR);
 	bs.Write(errorCode);
 	bs.WriteAlignedBytes((const unsigned char*) functionName,(const unsigned int) strlen(functionName)+1);

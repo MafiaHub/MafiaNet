@@ -54,7 +54,7 @@
 using namespace Ogre;
 using namespace DataStructures;
 using namespace OIS;
-using namespace SLNet;
+using namespace MafiaNet;
 
 class Popcorn;
 
@@ -67,9 +67,9 @@ static const int DEFAULT_SERVER_MILLISECONDS_BETWEEN_UPDATES=250;
 // Demo variables
 static const int MIN_KERNELS=100;
 static const int KERNELS_VARIANCE=60;
-static const SLNet::TimeMS POP_COUNTDOWN_MIN_DELAY_MS=1000;
-static const SLNet::TimeMS POP_COUNTDOWN_VARIANCE_MS=5000;
-static const SLNet::TimeMS RESTART_TIMER_MS=14000;
+static const MafiaNet::TimeMS POP_COUNTDOWN_MIN_DELAY_MS=1000;
+static const MafiaNet::TimeMS POP_COUNTDOWN_VARIANCE_MS=5000;
+static const MafiaNet::TimeMS RESTART_TIMER_MS=14000;
 static const float POSITION_VARIANCE=100.0f;
 static const float PLANE_VELOCITY_VARIANCE=30.0f;
 static const float UPWARD_VELOCITY_MINIMUM=35.0f;
@@ -78,7 +78,7 @@ static const float DOWNWARD_ACCELERATION = -15.0f;
 
 bool isServer;
 Ogre::Entity *popcornKernel, *popcornPopped;
-SLNet::RakPeerInterface *rakPeer;
+MafiaNet::RakPeerInterface *rakPeer;
 DataStructures::List<Popcorn*> popcornList;
 bool enableInterpolation;
 
@@ -118,48 +118,48 @@ public:
 	Ogre::Quaternion rotationalVelocity;
 	Ogre::Vector3 velocity;
 	Ogre::SceneNode *sceneNode;
-	SLNet::TimeMS popCountdown;
+	MafiaNet::TimeMS popCountdown;
 	Ogre::Vector3 visiblePosition;
 	Ogre::Quaternion visibleOrientation;
 	TransformationHistory transformationHistory;
 
-	virtual void WriteAllocationID(SLNet::Connection_RM3 *destinationConnection, SLNet::BitStream *allocationIdBitstream) const
+	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		StringTable::Instance()->EncodeString("Popcorn", 128, allocationIdBitstream);
 	}
-	virtual RM3ConstructionState QueryConstruction(SLNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
+	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		if (isServer)
 			return QueryConstruction_ServerConstruction(destinationConnection, isServer);
 		else
 			return QueryConstruction_ClientConstruction(destinationConnection, isServer);
 	}
-	virtual bool QueryRemoteConstruction(SLNet::Connection_RM3 *sourceConnection){
+	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection){
 		if (isServer)
 			return QueryRemoteConstruction_ServerConstruction(sourceConnection, isServer);
 		else
 			return QueryRemoteConstruction_ClientConstruction(sourceConnection, isServer);
 	}
-	virtual void SerializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *destinationConnection){}
-	virtual bool DeserializeConstruction(SLNet::BitStream *constructionBitstream, SLNet::Connection_RM3 *sourceConnection){return true;}
-	virtual void SerializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *destinationConnection){}
-	virtual bool DeserializeDestruction(SLNet::BitStream *destructionBitstream, SLNet::Connection_RM3 *sourceConnection){return true;}
-	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(SLNet::Connection_RM3 *droppedConnection) const
+	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection){}
+	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection){return true;}
+	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection){}
+	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection){return true;}
+	virtual RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		if (isServer)
 			return QueryActionOnPopConnection_Server(droppedConnection);
 		else
 			return QueryActionOnPopConnection_Client(droppedConnection);
 	}
-	virtual void DeallocReplica(SLNet::Connection_RM3 *sourceConnection) {delete this;}
-	virtual RM3QuerySerializationResult QuerySerialization(SLNet::Connection_RM3 *destinationConnection)
+	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection) {delete this;}
+	virtual RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		if (isServer)
 			return QuerySerialization_ServerSerializable(destinationConnection, isServer);
 		else
 			return QuerySerialization_ClientSerializable(destinationConnection, isServer);
 	}
-	virtual RM3SerializationResult Serialize(SLNet::SerializeParameters *serializeParameters)
+	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		// Autoserialize causes a network packet to go out when any of these member variables change.
 		RakAssert(isServer==true);
@@ -169,7 +169,7 @@ public:
 		serializeParameters->outputBitstream[0].WriteAlignedBytes((const unsigned char*)&orientation,sizeof(orientation));
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}	
-	virtual void Deserialize(SLNet::DeserializeParameters *deserializeParameters)
+	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		bool lastIsKernel = isKernel;
 
@@ -189,7 +189,7 @@ public:
 
 		// Every time we get a network packet, we write it to the transformation history class.
 		// This class, given a time in the past, can then return to us an interpolated position of where we should be in at that time
-		transformationHistory.Write(position,velocity,orientation, SLNet::GetTimeMS());
+		transformationHistory.Write(position,velocity,orientation, MafiaNet::GetTimeMS());
 	}
 
 	virtual void SetToPopped(void)
@@ -208,7 +208,7 @@ public:
 		}		
 	}
 	
-	virtual void Update(SLNet::TimeMS timeElapsedMs)
+	virtual void Update(MafiaNet::TimeMS timeElapsedMs)
 	{
 		visiblePosition=position;
 		visibleOrientation=orientation;
@@ -230,7 +230,7 @@ public:
 				{
 					SetToPopped();
 					// #med - use unsigned short max?
-					popCountdown= static_cast<SLNet::TimeMS>(-1);
+					popCountdown= static_cast<MafiaNet::TimeMS>(-1);
 				}
 				else
 					popCountdown-=timeElapsedMs;
@@ -241,7 +241,7 @@ public:
 					// Important: the first 3 parameters are in/out parameters, so set their values to the known current values before calling Read()
 					// We are subtracting DEFAULT_SERVER_MILLISECONDS_BETWEEN_UPDATES from the current time to get an interpolated position in the past
 					// Without this we wouldn't have a node to interpolate to, and wouldn't know where to go
-					transformationHistory.Read(&visiblePosition, 0, &visibleOrientation, SLNet::GetTimeMS()-DEFAULT_SERVER_MILLISECONDS_BETWEEN_UPDATES, SLNet::GetTimeMS());
+					transformationHistory.Read(&visiblePosition, 0, &visibleOrientation, MafiaNet::GetTimeMS()-DEFAULT_SERVER_MILLISECONDS_BETWEEN_UPDATES, MafiaNet::GetTimeMS());
 				}
 			}
 		}
@@ -314,7 +314,7 @@ public:
 
 	// Callback used to create objects
 	// See Connection_RM2::Construct in ReplicaManager2.h for a full explanation of each parameter
-	virtual Replica3 *AllocReplica(SLNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
+	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
 	{
 		char objectName[128];
 		StringTable::Instance()->DecodeString(objectName,128,allocationIdBitstream);
@@ -356,7 +356,7 @@ public:
 			mInputManager = 0;
 		}
 
-		SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	}
 
@@ -422,7 +422,7 @@ public:
 		
 		if (isStarted==false)
 		{
-			SLNet::SocketDescriptor sd;
+			MafiaNet::SocketDescriptor sd;
 
 			if(mKeyboard->isKeyDown(KC_S))
 			{
@@ -447,7 +447,7 @@ public:
 			if (isStarted)
 			{
 				// Start RakNet, up to 32 connections if the server
-				rakPeer = SLNet::RakPeerInterface::GetInstance();
+				rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 				StartupResult sr = rakPeer->Startup(isServer ? 32 : 1,&sd,1);
 				RakAssert(sr==RAKNET_STARTED);
 				rakPeer->AttachPlugin(&popcornReplicaManager3);
@@ -473,7 +473,7 @@ public:
 
 		if (isStarted)
 		{
-			SLNet::Packet *packet;
+			MafiaNet::Packet *packet;
 			for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 			{
 				switch (packet->data[0])
@@ -635,7 +635,7 @@ protected:
 
 	NetworkIDManager networkIdManager;
 	bool isStarted;
-	SLNet::TimeMS popcornLifetimeCountdown;
+	MafiaNet::TimeMS popcornLifetimeCountdown;
 };
 
 
@@ -647,7 +647,7 @@ int main (int argc, char** argv)
 {
 	
 	HWND     hWnd;
-	SLNet::TimeMS curTime, lastTime, elapsed;
+	MafiaNet::TimeMS curTime, lastTime, elapsed;
 	app = new ExampleApp;
 	app->PreConfigure();
 	if (app->Configure()==false)
@@ -663,11 +663,11 @@ int main (int argc, char** argv)
 #endif
 
 	app->PostConfigure("resources.cfg",false);
-	lastTime= SLNet::GetTimeMS();
+	lastTime= MafiaNet::GetTimeMS();
 
 	while (app->ShouldQuit()==false)
 	{
-		curTime= SLNet::GetTimeMS();
+		curTime= MafiaNet::GetTimeMS();
 		elapsed = curTime-lastTime;
 		if (elapsed > 100)
 			elapsed=100; // Spike limiter

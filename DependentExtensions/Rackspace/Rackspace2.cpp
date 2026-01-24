@@ -19,7 +19,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 Rackspace2::Rackspace2()
 {
@@ -215,11 +215,11 @@ void Rackspace2::Authenticate(const char *authenticationURL, const char *rackspa
 	lastApiAccessKey=apiAccessKey;
 	AuthenticateInt(authenticationURL, rackspaceCloudUsername,apiAccessKey);
 }
-void Rackspace2::AddOperation(SLNet::RakString URL, OpType opType, json_t *data, bool setAuthToken)
+void Rackspace2::AddOperation(MafiaNet::RakString URL, OpType opType, json_t *data, bool setAuthToken)
 {
 	if (tcp==0)
 	{
-		tcp = SLNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
+		tcp = MafiaNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
 
 		if (tcp->Start(0, 0, 8)==false)
 		{
@@ -227,7 +227,7 @@ void Rackspace2::AddOperation(SLNet::RakString URL, OpType opType, json_t *data,
 				eventCallback->OnTCPFailure();
 		}
 
-		httpConnection2 = SLNet::OP_NEW<HTTPConnection2>(_FILE_AND_LINE_);
+		httpConnection2 = MafiaNet::OP_NEW<HTTPConnection2>(_FILE_AND_LINE_);
 
 		tcp->AttachPlugin(httpConnection2);
 	}

@@ -24,7 +24,7 @@
 #include "slikenet/PacketLogger.h"
 #include "slikenet/Itoa.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 void NatPunchthroughDebugInterface_Printf::OnClientMessage(const char *msg)
 {
@@ -64,14 +64,14 @@ void NatPunchthroughClient::FindRouterPortStride(const SystemAddress &facilitato
 		return;
 
 	hasPortStride=CALCULATING_PORT_STRIDE;
-	portStrideCalTimeout = SLNet::GetTime()+5000;
+	portStrideCalTimeout = MafiaNet::GetTime()+5000;
 
 	if (natPunchthroughDebugInterface)
 	{
 		natPunchthroughDebugInterface->OnClientMessage(RakString("Calculating port stride from %s", facilitator.ToString(true)));
 	}
 
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_NAT_REQUEST_BOUND_ADDRESSES);
 	rakPeerInterface->Send(&outgoingBs,HIGH_PRIORITY,RELIABLE_ORDERED,0,facilitator,false);
 }
@@ -109,7 +109,7 @@ bool NatPunchthroughClient::OpenNATGroup(DataStructures::List<RakNetGUID> destin
 		SendPunchthrough(destinationSystems[i], facilitator);
 	}
 
-	GroupPunchRequest *gpr = SLNet::OP_NEW<GroupPunchRequest>(_FILE_AND_LINE_);
+	GroupPunchRequest *gpr = MafiaNet::OP_NEW<GroupPunchRequest>(_FILE_AND_LINE_);
 	gpr->facilitator=facilitator;
 	gpr->pendingList=destinationSystems;
 	groupPunchRequests.Push(gpr, _FILE_AND_LINE_);
@@ -123,7 +123,7 @@ void NatPunchthroughClient::SetDebugInterface(NatPunchthroughDebugInterface *i)
 }
 void NatPunchthroughClient::Update(void)
 {
-	SLNet::Time time = SLNet::GetTime();
+	MafiaNet::Time time = MafiaNet::GetTime();
 
 	if (hasPortStride==CALCULATING_PORT_STRIDE && time > portStrideCalTimeout)
 	{
@@ -138,7 +138,7 @@ void NatPunchthroughClient::Update(void)
 
 	if (sp.nextActionTime && sp.nextActionTime < time)
 	{
-		SLNet::Time delta = time - sp.nextActionTime;
+		MafiaNet::Time delta = time - sp.nextActionTime;
 		if (sp.testMode==SendPing::TESTING_INTERNAL_IPS)
 		{
 			SendOutOfBand(sp.internalIds[sp.attemptCount],ID_NAT_ESTABLISH_UNIDIRECTIONAL);
@@ -283,7 +283,7 @@ void NatPunchthroughClient::Update(void)
 					sp.targetAddress.ToString(true, ipAddressString, static_cast<size_t>(32));
 					char guidString[128];
 					sp.targetGuid.ToString(guidString, 128);
-					natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Likely bidirectional punchthrough failure to guid %s, system address %s.", guidString, ipAddressString));
+					natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Likely bidirectional punchthrough failure to guid %s, system address %s.", guidString, ipAddressString));
 				}
 
 				sp.testMode=SendPing::WAITING_AFTER_ALL_ATTEMPTS;
@@ -308,7 +308,7 @@ void NatPunchthroughClient::Update(void)
 					sp.targetAddress.ToString(true, ipAddressString, static_cast<size_t>(32));
 					char guidString[128];
 					sp.targetGuid.ToString(guidString, 128);
-					natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Likely unidirectional punchthrough failure to guid %s, system address %s.", guidString, ipAddressString));
+					natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Likely unidirectional punchthrough failure to guid %s, system address %s.", guidString, ipAddressString));
 				}
 
 				sp.testMode=SendPing::WAITING_AFTER_ALL_ATTEMPTS;
@@ -361,7 +361,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 			sp.targetAddress.ToString(true, ipAddressString, static_cast<size_t>(32));
 			char guidString[128];
 			sp.targetGuid.ToString(guidString, 128);
-			natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Failed punchthrough once. Returning failure to guid %s, system address %s to user.", guidString, ipAddressString));
+			natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Failed punchthrough once. Returning failure to guid %s, system address %s to user.", guidString, ipAddressString));
 		}
 
 		PushFailure();
@@ -380,7 +380,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 				sp.targetAddress.ToString(true, ipAddressString, static_cast<size_t>(32));
 				char guidString[128];
 				sp.targetGuid.ToString(guidString, 128);
-				natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Failed punchthrough twice. Returning failure to guid %s, system address %s to user.", guidString, ipAddressString));
+				natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Failed punchthrough twice. Returning failure to guid %s, system address %s to user.", guidString, ipAddressString));
 			}
 
 			// Failed a second time, so return failed to user
@@ -401,7 +401,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 			sp.targetAddress.ToString(true, ipAddressString, static_cast<size_t>(32));
 			char guidString[128];
 			sp.targetGuid.ToString(guidString, 128);
-			natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Not connected to facilitator, so cannot retry punchthrough after first failure. Returning failure onj guid %s, system address %s to user.", guidString, ipAddressString));
+			natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Not connected to facilitator, so cannot retry punchthrough after first failure. Returning failure onj guid %s, system address %s to user.", guidString, ipAddressString));
 		}
 
 		// Failed, and can't try again because no facilitator
@@ -415,7 +415,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 		sp.targetAddress.ToString(true, ipAddressString, static_cast<size_t>(32));
 		char guidString[128];
 		sp.targetGuid.ToString(guidString, 128);
-		natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("First punchthrough failure on guid %s, system address %s. Reattempting.", guidString, ipAddressString));
+		natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("First punchthrough failure on guid %s, system address %s. Reattempting.", guidString, ipAddressString));
 	}
 
 	// Failed the first time. Add to the failure queue and try again
@@ -447,7 +447,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 		break;
 	case ID_NAT_RESPOND_BOUND_ADDRESSES:
 		{
-		SLNet::BitStream bs(packet->data,packet->length,false);
+		MafiaNet::BitStream bs(packet->data,packet->length,false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			unsigned char boundAddressCount;
 			bs.Read(boundAddressCount);
@@ -465,7 +465,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 				bs.Read(boundAddresses[i]);
 				if (boundAddresses[i]!=packet->systemAddress)
 				{
-					SLNet::BitStream outgoingBs;
+					MafiaNet::BitStream outgoingBs;
 					outgoingBs.Write((MessageID)ID_NAT_PING);
 					uint16_t externalPort = rakPeerInterface->GetExternalID(packet->systemAddress).GetPort();
 					outgoingBs.Write( externalPort );
@@ -478,7 +478,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 	case ID_OUT_OF_BAND_INTERNAL:
 		if (packet->length>=2 && packet->data[1]==ID_NAT_PONG)
 		{
-			SLNet::BitStream bs(packet->data,packet->length,false);
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
 			bs.IgnoreBytes(sizeof(MessageID)*2);
 			uint16_t externalPort;
 			bs.Read(externalPort);
@@ -498,7 +498,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 			(packet->data[1]==ID_NAT_ESTABLISH_UNIDIRECTIONAL || packet->data[1]==ID_NAT_ESTABLISH_BIDIRECTIONAL) &&
 			sp.nextActionTime!=0)
 		{
-			SLNet::BitStream bs(packet->data,packet->length,false);
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
 			bs.IgnoreBytes(2);
 			uint16_t sessionId;
 			bs.Read(sessionId);
@@ -524,7 +524,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 					{
 						char guidString[128];
 						sp.targetGuid.ToString(guidString, 128);
-						natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("PUNCHING_FIXED_PORT: Received ID_NAT_ESTABLISH_UNIDIRECTIONAL from guid %s, system address %s.", guidString, ipAddressString));
+						natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("PUNCHING_FIXED_PORT: Received ID_NAT_ESTABLISH_UNIDIRECTIONAL from guid %s, system address %s.", guidString, ipAddressString));
 					}
 				}
 				else {
@@ -532,7 +532,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 					{
 						char guidString[128];
 						sp.targetGuid.ToString(guidString, 128);
-						natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Received ID_NAT_ESTABLISH_UNIDIRECTIONAL from guid %s, system address %s.", guidString, ipAddressString));
+						natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Received ID_NAT_ESTABLISH_UNIDIRECTIONAL from guid %s, system address %s.", guidString, ipAddressString));
 					}
 				}
 
@@ -550,7 +550,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 
 					if (natPunchthroughDebugInterface)
 					{
-						natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("ID_NAT_ESTABLISH_BIDIRECTIONAL mostRecentExternalPort first time set to %i", mostRecentExternalPort));
+						natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("ID_NAT_ESTABLISH_BIDIRECTIONAL mostRecentExternalPort first time set to %i", mostRecentExternalPort));
 					}
 				}
 				else
@@ -593,9 +593,9 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 					char guidString[128];
 					sp.targetGuid.ToString(guidString, 128);
 					if (removedFromFailureQueue)
-						natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Punchthrough to guid %s, system address %s succeeded on 2nd attempt.", guidString, ipAddressString));
+						natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Punchthrough to guid %s, system address %s succeeded on 2nd attempt.", guidString, ipAddressString));
 					else
-						natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Punchthrough to guid %s, system address %s succeeded on 1st attempt.", guidString, ipAddressString));
+						natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Punchthrough to guid %s, system address %s succeeded on 1st attempt.", guidString, ipAddressString));
 				}
 			}
 
@@ -604,7 +604,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_NAT_ALREADY_IN_PROGRESS:
 		{
-		SLNet::BitStream incomingBs(packet->data, packet->length, false);
+		MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 			incomingBs.IgnoreBytes(sizeof(MessageID));
 			RakNetGUID targetGuid;
 			incomingBs.Read(targetGuid);
@@ -614,7 +614,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 			{
 				char guidString[128];
 				targetGuid.ToString(guidString, 128);
-				natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Punchthrough retry to guid %s failed due to ID_NAT_ALREADY_IN_PROGRESS. Returning failure.", guidString));
+				natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Punchthrough retry to guid %s failed due to ID_NAT_ALREADY_IN_PROGRESS. Returning failure.", guidString));
 			}
 
 		}
@@ -632,7 +632,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 				reason=(char *)"ID_NAT_TARGET_UNRESPONSIVE";
 
 
-			SLNet::BitStream incomingBs(packet->data, packet->length, false);
+			MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 			incomingBs.IgnoreBytes(sizeof(MessageID));
 
 			RakNetGUID targetGuid;
@@ -657,7 +657,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 					{
 						char guidString[128];
 						targetGuid.ToString(guidString, 128);
-						natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Punchthrough retry to guid %s failed due to %s.", guidString, reason));
+						natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Punchthrough retry to guid %s failed due to %s.", guidString, reason));
 
 					}
 
@@ -682,14 +682,14 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 			{
 				char guidString[128];
 				targetGuid.ToString(guidString, 128);
-				natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Punchthrough attempt to guid %s failed due to %s.", guidString, reason));
+				natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Punchthrough attempt to guid %s failed due to %s.", guidString, reason));
 			}
 
 			// Stop trying punchthrough
 			sp.nextActionTime=0;
 
 			/*
-			SLNet::BitStream bs(packet->data, packet->length, false);
+			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			RakNetGUID failedSystem;
 			bs.Read(failedSystem);
@@ -716,7 +716,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 		}
 		break;
 	case ID_TIMESTAMP:
-		if (packet->data[sizeof(MessageID)+sizeof(SLNet::Time)]==ID_NAT_CONNECT_AT_TIME)
+		if (packet->data[sizeof(MessageID)+sizeof(MafiaNet::Time)]==ID_NAT_CONNECT_AT_TIME)
 		{
 			OnConnectAtTime(packet);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
@@ -743,7 +743,7 @@ void NatPunchthroughClient::OnConnectAtTime(Packet *packet)
 {
 //	RakAssert(sp.nextActionTime==0);
 
-	SLNet::BitStream bs(packet->data, packet->length, false);
+	MafiaNet::BitStream bs(packet->data, packet->length, false);
 	bs.IgnoreBytes(sizeof(MessageID));
 	bs.Read(sp.nextActionTime);
 	bs.IgnoreBytes(sizeof(MessageID));
@@ -838,7 +838,7 @@ void NatPunchthroughClient::SendOutOfBand(SystemAddress sa, MessageID oobId)
 	if (sa.GetPort()==0)
 		return;
 
-	SLNet::BitStream oob;
+	MafiaNet::BitStream oob;
 	oob.Write(oobId);
 	oob.Write(sp.sessionId);
 //	RakAssert(sp.sessionId<100);
@@ -856,13 +856,13 @@ void NatPunchthroughClient::SendOutOfBand(SystemAddress sa, MessageID oobId)
 
 		// server - diff = my time
 		// server = myTime + diff
-		SLNet::Time clockDifferential = rakPeerInterface->GetClockDifferential(sp.facilitator);
-		SLNet::Time serverTime = SLNet::GetTime() + clockDifferential;
+		MafiaNet::Time clockDifferential = rakPeerInterface->GetClockDifferential(sp.facilitator);
+		MafiaNet::Time serverTime = MafiaNet::GetTime() + clockDifferential;
 
 		if (oobId==ID_NAT_ESTABLISH_UNIDIRECTIONAL)
-			natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString(RAK_TIME_FORMAT_STRING ": %s: OOB ID_NAT_ESTABLISH_UNIDIRECTIONAL to guid %s, system address %s.\n", serverTime, TestModeToString(sp.testMode), guidString, ipAddressString));
+			natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString(RAK_TIME_FORMAT_STRING ": %s: OOB ID_NAT_ESTABLISH_UNIDIRECTIONAL to guid %s, system address %s.\n", serverTime, TestModeToString(sp.testMode), guidString, ipAddressString));
 		else
-			natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString(RAK_TIME_FORMAT_STRING ": %s: OOB ID_NAT_ESTABLISH_BIDIRECTIONAL to guid %s, system address %s.\n", serverTime, TestModeToString(sp.testMode), guidString, ipAddressString));
+			natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString(RAK_TIME_FORMAT_STRING ": %s: OOB ID_NAT_ESTABLISH_BIDIRECTIONAL to guid %s, system address %s.\n", serverTime, TestModeToString(sp.testMode), guidString, ipAddressString));
 	}
 }
 void NatPunchthroughClient::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
@@ -877,7 +877,7 @@ void NatPunchthroughClient::OnNewConnection(const SystemAddress &systemAddress, 
 
 		if (natPunchthroughDebugInterface)
 		{
-			natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("OnNewConnection mostRecentExternalPort first time set to %i", mostRecentExternalPort));
+			natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("OnNewConnection mostRecentExternalPort first time set to %i", mostRecentExternalPort));
 		}
 	}
 
@@ -929,7 +929,7 @@ void NatPunchthroughClient::OnClosedConnection(const SystemAddress &systemAddres
 	{
 		if (groupPunchRequests[i]->facilitator==systemAddress)
 		{
-			SLNet::OP_DELETE(groupPunchRequests[i],_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(groupPunchRequests[i],_FILE_AND_LINE_);
 			groupPunchRequests.RemoveAtIndexFast(i);
 		}
 		else
@@ -942,7 +942,7 @@ void NatPunchthroughClient::OnClosedConnection(const SystemAddress &systemAddres
 }
 void NatPunchthroughClient::GetUPNPPortMappings(char *externalPort, char *internalPort, const SystemAddress &natPunchthroughServerAddress)
 {
-	DataStructures::List< SLNet::RakNetSocket2* > sockets;
+	DataStructures::List< MafiaNet::RakNetSocket2* > sockets;
 	rakPeerInterface->GetSockets(sockets);
 	Itoa(sockets[0]->GetBoundAddress().GetPort(),internalPort,10);
 	if (mostRecentExternalPort==0)
@@ -951,7 +951,7 @@ void NatPunchthroughClient::GetUPNPPortMappings(char *externalPort, char *intern
 }
 void NatPunchthroughClient::OnFailureNotification(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data,packet->length,false);
+	MafiaNet::BitStream incomingBs(packet->data,packet->length,false);
 	incomingBs.IgnoreBytes(sizeof(MessageID));
 	RakNetGUID senderGuid;
 	incomingBs.Read(senderGuid);
@@ -975,12 +975,12 @@ void NatPunchthroughClient::OnFailureNotification(Packet *packet)
 }
 void NatPunchthroughClient::OnGetMostRecentPort(Packet *packet)
 {
-	SLNet::BitStream incomingBs(packet->data,packet->length,false);
+	MafiaNet::BitStream incomingBs(packet->data,packet->length,false);
 	incomingBs.IgnoreBytes(sizeof(MessageID));
 	uint16_t sessionId;
 	incomingBs.Read(sessionId);
 
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_NAT_GET_MOST_RECENT_PORT);
 	outgoingBs.Write(sessionId);
 	if (mostRecentExternalPort==0)
@@ -990,7 +990,7 @@ void NatPunchthroughClient::OnGetMostRecentPort(Packet *packet)
 
 		if (natPunchthroughDebugInterface)
 		{
-			natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("OnGetMostRecentPort mostRecentExternalPort first time set to %i", mostRecentExternalPort));
+			natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("OnGetMostRecentPort mostRecentExternalPort first time set to %i", mostRecentExternalPort));
 		}
 	}
 
@@ -1033,7 +1033,7 @@ void NatPunchthroughClient::SendQueuedOpenNAT(void)
 }
 void NatPunchthroughClient::SendPunchthrough(RakNetGUID destination, const SystemAddress &facilitator)
 {
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_NAT_PUNCHTHROUGH_REQUEST);
 	outgoingBs.Write(destination);
 	rakPeerInterface->Send(&outgoingBs,HIGH_PRIORITY,RELIABLE_ORDERED,0,facilitator,false);
@@ -1044,7 +1044,7 @@ void NatPunchthroughClient::SendPunchthrough(RakNetGUID destination, const Syste
 	{
 		char guidString[128];
 		destination.ToString(guidString, 128);
-		natPunchthroughDebugInterface->OnClientMessage(SLNet::RakString("Starting ID_NAT_PUNCHTHROUGH_REQUEST to guid %s.", guidString));
+		natPunchthroughDebugInterface->OnClientMessage(MafiaNet::RakString("Starting ID_NAT_PUNCHTHROUGH_REQUEST to guid %s.", guidString));
 	}
 }
 void NatPunchthroughClient::OnAttach(void)
@@ -1071,7 +1071,7 @@ void NatPunchthroughClient::Clear(void)
 	unsigned int i;
 	for (i=0; i < groupPunchRequests.Size(); i++)
 	{
-		SLNet::OP_DELETE(groupPunchRequests[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(groupPunchRequests[i],_FILE_AND_LINE_);
 	}
 	groupPunchRequests.Clear(true, _FILE_AND_LINE_);
 	*/
@@ -1087,7 +1087,7 @@ void NatPunchthroughClient::OnReadyForNextPunchthrough(void)
 
 	sp.nextActionTime=0;
 
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_NAT_CLIENT_READY);
 	rakPeerInterface->Send(&outgoingBs,HIGH_PRIORITY,RELIABLE_ORDERED,0,sp.facilitator,false);
 }
@@ -1121,7 +1121,7 @@ bool NatPunchthroughClient::RemoveFromFailureQueue(void)
 	return false;
 }
 
-void NatPunchthroughClient::IncrementExternalAttemptCount(SLNet::Time time, SLNet::Time delta)
+void NatPunchthroughClient::IncrementExternalAttemptCount(MafiaNet::Time time, MafiaNet::Time delta)
 {
 	if (++sp.retryCount>=pc.UDP_SENDS_PER_PORT_EXTERNAL)
 	{
@@ -1173,7 +1173,7 @@ void NatPunchthroughClient::UpdateGroupPunchOnNatResult(SystemAddress facilitato
 		}
 		if (gpr->pendingList.Size()==0)
 		{
-			SLNet::BitStream output;
+			MafiaNet::BitStream output;
 			if (gpr->failedList.Size()==0)
 			{
 				output.Write(ID_NAT_GROUP_PUNCH_SUCCEEDED);
@@ -1209,7 +1209,7 @@ void NatPunchthroughClient::UpdateGroupPunchOnNatResult(SystemAddress facilitato
 			rakPeerInterface->PushBackPacket(p, true);
 
 			groupPunchRequests.RemoveAtIndex(i);
-			SLNet::OP_DELETE(gpr, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(gpr, _FILE_AND_LINE_);
 		}
 		else
 			i++;

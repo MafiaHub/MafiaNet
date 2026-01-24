@@ -21,9 +21,9 @@
 #include "slikenet/SocketIncludes.h"
 #include "slikenet/SocketDefines.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-bool SLNet::CanConnect(NATTypeDetectionResult type1, NATTypeDetectionResult type2)
+bool MafiaNet::CanConnect(NATTypeDetectionResult type1, NATTypeDetectionResult type2)
 {
 	/// If one system is NAT_TYPE_SYMMETRIC, the other must be NAT_TYPE_ADDRESS_RESTRICTED or less
 	/// If one system is NAT_TYPE_PORT_RESTRICTED, the other must be NAT_TYPE_PORT_RESTRICTED or less
@@ -43,7 +43,7 @@ bool SLNet::CanConnect(NATTypeDetectionResult type1, NATTypeDetectionResult type
 	return connectionGraph[(int) type1][(int) type2];
 }
 
-const char *SLNet::NATTypeDetectionResultToString(NATTypeDetectionResult type)
+const char *MafiaNet::NATTypeDetectionResultToString(NATTypeDetectionResult type)
 {
 	switch (type)
 	{
@@ -72,7 +72,7 @@ const char *SLNet::NATTypeDetectionResultToString(NATTypeDetectionResult type)
 // None and relaxed can connect to anything
 // Moderate can connect to moderate or less
 // Strict can connect to relaxed or less
-const char *SLNet::NATTypeDetectionResultToStringFriendly(NATTypeDetectionResult type)
+const char *MafiaNet::NATTypeDetectionResultToStringFriendly(NATTypeDetectionResult type)
 {
 	switch (type)
 	{
@@ -99,7 +99,7 @@ const char *SLNet::NATTypeDetectionResultToStringFriendly(NATTypeDetectionResult
 }
 
 
-RakNetSocket2* SLNet::CreateNonblockingBoundSocket(const char *bindAddr
+RakNetSocket2* MafiaNet::CreateNonblockingBoundSocket(const char *bindAddr
 #ifdef __native_client__
 											,_PP_Instance_ chromeInstance
 #endif
@@ -182,7 +182,7 @@ RakNetSocket2* SLNet::CreateNonblockingBoundSocket(const char *bindAddr
 }
 
 /*
-int SLNet::NatTypeRecvFrom(char *data, RakNetSocket2* socket, SystemAddress &sender, RNS2EventHandler *eventHandler)
+int MafiaNet::NatTypeRecvFrom(char *data, RakNetSocket2* socket, SystemAddress &sender, RNS2EventHandler *eventHandler)
 {
 #if defined(__native_client__)
 	RakAssert("TODO" && 0);

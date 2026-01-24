@@ -21,7 +21,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(RelayPlugin,RelayPlugin);
 
@@ -37,9 +37,9 @@ RelayPlugin::~RelayPlugin()
 	strToGuidHash.GetAsList(itemList, keyList, _FILE_AND_LINE_);
 	guidToStrHash.Clear(_FILE_AND_LINE_);
 	for (unsigned int i=0; i < itemList.Size(); i++)
-		SLNet::OP_DELETE(itemList[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(itemList[i], _FILE_AND_LINE_);
 	for (unsigned int i=0; i < chatRooms.Size(); i++)
-		SLNet::OP_DELETE(chatRooms[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(chatRooms[i], _FILE_AND_LINE_);
 }
 
 RelayPluginEnums RelayPlugin::AddParticipantOnServer(const RakString &key, const RakNetGUID &guid)
@@ -56,10 +56,10 @@ RelayPluginEnums RelayPlugin::AddParticipantOnServer(const RakString &key, const
 	if (guidToStrHash.Pop(strAndGuidExisting, guid, _FILE_AND_LINE_))
 	{
 		strToGuidHash.Remove(strAndGuidExisting->str, _FILE_AND_LINE_);
-		SLNet::OP_DELETE(strAndGuidExisting, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(strAndGuidExisting, _FILE_AND_LINE_);
 	}
 
-	StrAndGuidAndRoom *strAndGuid = SLNet::OP_NEW<StrAndGuidAndRoom>(_FILE_AND_LINE_);
+	StrAndGuidAndRoom *strAndGuid = MafiaNet::OP_NEW<StrAndGuidAndRoom>(_FILE_AND_LINE_);
 	strAndGuid->guid=guid;
 	strAndGuid->str=key;
 
@@ -75,7 +75,7 @@ void RelayPlugin::RemoveParticipantOnServer(const RakNetGUID &guid)
 	{
 		LeaveGroup(&strAndGuid);
 		strToGuidHash.Remove(strAndGuid->str, _FILE_AND_LINE_);
-		SLNet::OP_DELETE(strAndGuid, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(strAndGuid, _FILE_AND_LINE_);
 	}
 }
 
@@ -281,7 +281,7 @@ RelayPlugin::RP_Group* RelayPlugin::JoinGroup(RakNetGUID userGuid, RakString roo
 		}
 
 		// Create new room
-		RP_Group *room = SLNet::OP_NEW<RP_Group>(_FILE_AND_LINE_);
+		RP_Group *room = MafiaNet::OP_NEW<RP_Group>(_FILE_AND_LINE_);
 		room->roomName=roomName;
 		chatRooms.Push(room, _FILE_AND_LINE_);
 		return JoinGroup(room,strAndGuidSender);
@@ -310,7 +310,7 @@ void RelayPlugin::LeaveGroup(StrAndGuidAndRoom **strAndGuidSender)
 
 					if (room->usersInRoom.Size()==0)
 					{
-						SLNet::OP_DELETE(room, _FILE_AND_LINE_);
+						MafiaNet::OP_DELETE(room, _FILE_AND_LINE_);
 						chatRooms.RemoveAtIndexFast(i);
 						return;
 					}

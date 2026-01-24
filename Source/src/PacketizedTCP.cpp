@@ -23,7 +23,7 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/alloca.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 typedef uint32_t PTCPHeader;
 
@@ -52,8 +52,8 @@ void PacketizedTCP::Send( const char *data, unsigned length, const SystemAddress
 	PTCPHeader dataLength;
 	dataLength=length;
 #ifndef __BITSTREAM_NATIVE_END
-	if (SLNet::BitStream::DoEndianSwap())
-		SLNet::BitStream::ReverseBytes((unsigned char*) &length,(unsigned char*) &dataLength,sizeof(dataLength));
+	if (MafiaNet::BitStream::DoEndianSwap())
+		MafiaNet::BitStream::ReverseBytes((unsigned char*) &length,(unsigned char*) &dataLength,sizeof(dataLength));
 #else
 		dataLength=length;
 #endif
@@ -86,8 +86,8 @@ bool PacketizedTCP::SendList( const char **data, const unsigned int *lengths, co
 
 	PTCPHeader dataLength;
 #ifndef __BITSTREAM_NATIVE_END
-	if (SLNet::BitStream::DoEndianSwap())
-		SLNet::BitStream::ReverseBytes((unsigned char*) &totalLengthOfUserData,(unsigned char*) &dataLength,sizeof(dataLength));
+	if (MafiaNet::BitStream::DoEndianSwap())
+		MafiaNet::BitStream::ReverseBytes((unsigned char*) &totalLengthOfUserData,(unsigned char*) &dataLength,sizeof(dataLength));
 #else
 	dataLength=totalLengthOfUserData;
 #endif
@@ -178,15 +178,15 @@ Packet* PacketizedTCP::Receive( void )
 
 				// Peek the header to see if a full message is waiting
 				bq->ReadBytes((char*) &dataLength,sizeof(PTCPHeader),true);
-				if (SLNet::BitStream::DoEndianSwap())
-					SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &dataLength,sizeof(dataLength));
+				if (MafiaNet::BitStream::DoEndianSwap())
+					MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &dataLength,sizeof(dataLength));
 				// Header indicates packet length. If enough data is available, read out and return one packet
 				if (bq->GetBytesWritten()>=dataLength+sizeof(PTCPHeader))
 				{
 					do 
 					{
 						bq->IncrementReadOffset(sizeof(PTCPHeader));
-						outgoingPacket = SLNet::OP_NEW<Packet>(_FILE_AND_LINE_);
+						outgoingPacket = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
 						outgoingPacket->length=dataLength;
 						outgoingPacket->bitSize=BYTES_TO_BITS(dataLength);
 						outgoingPacket->guid=UNASSIGNED_RAKNET_GUID;
@@ -196,7 +196,7 @@ Packet* PacketizedTCP::Receive( void )
 						if (outgoingPacket->data==0)
 						{
 							notifyOutOfMemory(_FILE_AND_LINE_);
-							SLNet::OP_DELETE(outgoingPacket,_FILE_AND_LINE_);
+							MafiaNet::OP_DELETE(outgoingPacket,_FILE_AND_LINE_);
 							return 0;
 						}
 						bq->ReadBytes((char*) outgoingPacket->data,dataLength,false);
@@ -206,8 +206,8 @@ Packet* PacketizedTCP::Receive( void )
 						// Peek the header to see if a full message is waiting
 						if (bq->ReadBytes((char*) &dataLength,sizeof(PTCPHeader),true))
 						{
-							if (SLNet::BitStream::DoEndianSwap())
-								SLNet::BitStream::ReverseBytesInPlace((unsigned char*) &dataLength,sizeof(dataLength));
+							if (MafiaNet::BitStream::DoEndianSwap())
+								MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &dataLength,sizeof(dataLength));
 						}
 						else
 							break;
@@ -222,7 +222,7 @@ Packet* PacketizedTCP::Receive( void )
 					// Return ID_DOWNLOAD_PROGRESS
 					if (newWritten/65536!=oldWritten/65536)
 					{
-						outgoingPacket = SLNet::OP_NEW<Packet>(_FILE_AND_LINE_);
+						outgoingPacket = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
 						outgoingPacket->length=sizeof(MessageID) +
 							sizeof(unsigned int)*2 +
 							sizeof(unsigned int) +
@@ -235,7 +235,7 @@ Packet* PacketizedTCP::Receive( void )
 						if (outgoingPacket->data==0)
 						{
 							notifyOutOfMemory(_FILE_AND_LINE_);
-							SLNet::OP_DELETE(outgoingPacket,_FILE_AND_LINE_);
+							MafiaNet::OP_DELETE(outgoingPacket,_FILE_AND_LINE_);
 							return 0;
 						}
 
@@ -308,7 +308,7 @@ void PacketizedTCP::RemoveFromConnectionList(const SystemAddress &sa)
 		unsigned int index = connections.GetIndexAtKey(sa);
 		if (index!=(unsigned int)-1)
 		{
-			SLNet::OP_DELETE(connections[index],_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(connections[index],_FILE_AND_LINE_);
 			connections.RemoveAtIndex(index);
 		}
 	}
@@ -317,13 +317,13 @@ void PacketizedTCP::AddToConnectionList(const SystemAddress &sa)
 {
 	if (sa==UNASSIGNED_SYSTEM_ADDRESS)
 		return;
-	connections.SetNew(sa, SLNet::OP_NEW<DataStructures::ByteQueue>(_FILE_AND_LINE_));
+	connections.SetNew(sa, MafiaNet::OP_NEW<DataStructures::ByteQueue>(_FILE_AND_LINE_));
 }
 void PacketizedTCP::ClearAllConnections(void)
 {
 	unsigned int i;
 	for (i=0; i < connections.Size(); i++)
-		SLNet::OP_DELETE(connections[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(connections[i],_FILE_AND_LINE_);
 	connections.Clear();
 }
 SystemAddress PacketizedTCP::HasCompletedConnectionAttempt(void)

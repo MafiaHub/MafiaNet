@@ -23,7 +23,7 @@
 #include "memoryoverride.h"
 #include "FileListNodeContext.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 /// \brief Used by FileListTransfer plugin as a callback for when we get a file.
@@ -153,7 +153,7 @@ public:
 	virtual void OnDereference(void) {}
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

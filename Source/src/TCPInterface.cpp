@@ -50,7 +50,7 @@
 #ifdef _WIN32
 #include "slikenet/WSAStartupSingleton.h"
 #endif
-namespace SLNet
+namespace MafiaNet
 {
 RAK_THREAD_DECLARATION(UpdateTCPInterfaceLoop);
 RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
@@ -61,7 +61,7 @@ RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(TCPInterface,TCPInterface);
 
@@ -72,7 +72,7 @@ TCPInterface::TCPInterface()
 	remoteClientsLength=0;
 
 	StringCompressor::AddReference();
-	SLNet::StringTable::AddReference();
+	MafiaNet::StringTable::AddReference();
 
 #if OPEN_SSL_CLIENT_SUPPORT==1
 	ctx=0;
@@ -90,10 +90,10 @@ TCPInterface::~TCPInterface()
 	WSAStartupSingleton::Deref();
 #endif
 
-	SLNet::OP_DELETE_ARRAY(remoteClients,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(remoteClients,_FILE_AND_LINE_);
 
 	StringCompressor::RemoveReference();
-	SLNet::StringTable::RemoveReference();
+	MafiaNet::StringTable::RemoveReference();
 }
 
 bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
@@ -203,7 +203,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	if (maxConnections==0)
 		maxConnections=1;
 	remoteClientsLength=maxConnections;
-	remoteClients= SLNet::OP_NEW_ARRAY<RemoteClient>(maxConnections,_FILE_AND_LINE_);
+	remoteClients= MafiaNet::OP_NEW_ARRAY<RemoteClient>(maxConnections,_FILE_AND_LINE_);
 
 
 	listenSocket=0;
@@ -220,7 +220,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 
 
 
-	errorCode = SLNet::RakThread::Create(UpdateTCPInterfaceLoop, this, threadPriority);
+	errorCode = MafiaNet::RakThread::Create(UpdateTCPInterfaceLoop, this, threadPriority);
 
 
 	if (errorCode!=0)
@@ -289,12 +289,12 @@ void TCPInterface::Stop(void)
 #endif
 	}
 	remoteClientsLength=0;
-	SLNet::OP_DELETE_ARRAY(remoteClients,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(remoteClients,_FILE_AND_LINE_);
 	remoteClients=0;
 
 	// #low review whether we'd rather use PopInaccurate() here (i.e. check whether related threads accessing the queue terminated already)
 	// consider even adding a dtor to Packet which would then clear its data (at this point drop this explicit packet deallocation here)
-	SLNet::Packet* packet = incomingMessages.Pop();
+	MafiaNet::Packet* packet = incomingMessages.Pop();
 	while (packet != nullptr) {
 		DeallocatePacket(packet);
 		packet = incomingMessages.Pop();
@@ -381,7 +381,7 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 	}
 	else
 	{
-		ThisPtrPlusSysAddr *s = SLNet::OP_NEW<ThisPtrPlusSysAddr>( _FILE_AND_LINE_ );
+		ThisPtrPlusSysAddr *s = MafiaNet::OP_NEW<ThisPtrPlusSysAddr>( _FILE_AND_LINE_ );
 		s->systemAddress.FromStringExplicitPort(host,remotePort);
 		s->systemAddress.systemIndex=(SystemIndex) newRemoteClientIndex;
 		if (bindAddress)
@@ -397,11 +397,11 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 
 
 
-		errorCode = SLNet::RakThread::Create(ConnectionAttemptLoop, s, threadPriority);
+		errorCode = MafiaNet::RakThread::Create(ConnectionAttemptLoop, s, threadPriority);
 
 		if (errorCode!=0)
 		{
-			SLNet::OP_DELETE(s, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 			failedConnectionAttempts.Push(s->systemAddress, _FILE_AND_LINE_ );
 		}
 		return UNASSIGNED_SYSTEM_ADDRESS;
@@ -616,12 +616,12 @@ void TCPInterface::DeallocatePacket( Packet *packet )
 	{
 		// Came from userspace AllocatePacket
 		rakFree_Ex(packet->data, _FILE_AND_LINE_ );
-		SLNet::OP_DELETE(packet, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(packet, _FILE_AND_LINE_);
 	}
 }
 Packet* TCPInterface::AllocatePacket(unsigned dataSize)
 {
-	Packet*p = SLNet::OP_NEW<Packet>(_FILE_AND_LINE_);
+	Packet*p = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
 	p->data=(unsigned char*) rakMalloc_Ex(dataSize,_FILE_AND_LINE_);
 	p->length=dataSize;
 	p->bitSize=BYTES_TO_BITS(dataSize);
@@ -885,7 +885,7 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 #endif  // __native_client__
 }
 
-RAK_THREAD_DECLARATION(SLNet::ConnectionAttemptLoop)
+RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 {
 
 
@@ -898,7 +898,7 @@ RAK_THREAD_DECLARATION(SLNet::ConnectionAttemptLoop)
 	TCPInterface *tcpInterface = s->tcpInterface;
 	int newRemoteClientIndex=systemAddress.systemIndex;
 	unsigned short socketFamily = s->socketFamily;
-	SLNet::OP_DELETE(s, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 
 	char str1[64];
 	systemAddress.ToString(false, str1, static_cast<size_t>(64));
@@ -933,7 +933,7 @@ RAK_THREAD_DECLARATION(SLNet::ConnectionAttemptLoop)
 
 }
 
-RAK_THREAD_DECLARATION(SLNet::UpdateTCPInterfaceLoop)
+RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 {
 
 

@@ -24,7 +24,7 @@
 #include "Lobby2ClientGFx3Impl.h"
 #include "Lobby2Client.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 Lobby2ClientGFx3Impl::Lobby2ClientGFx3Impl()
 {
@@ -33,7 +33,7 @@ Lobby2ClientGFx3Impl::~Lobby2ClientGFx3Impl()
 {
 	Shutdown();
 }
-void Lobby2ClientGFx3Impl::Init(SLNet::Lobby2Client *_lobby2Client, SLNet::Lobby2MessageFactory *_messageFactory, RakPeerInterface *_rakPeer, GPtr<FxDelegate> pDelegate, GPtr<GFxMovieView> pMovie)
+void Lobby2ClientGFx3Impl::Init(MafiaNet::Lobby2Client *_lobby2Client, MafiaNet::Lobby2MessageFactory *_messageFactory, RakPeerInterface *_rakPeer, GPtr<FxDelegate> pDelegate, GPtr<GFxMovieView> pMovie)
 {
 	lobby2Client=_lobby2Client;
 	messageFactory=_messageFactory;
@@ -134,16 +134,16 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_CheckCDKey)
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 void ReadAccountBinaryData(FxResponseArgsList &rargs,
-						   SLNet::BitStream *serializedBinaryData)
+						   MafiaNet::BitStream *serializedBinaryData)
 {
 
-	SLNet::RakString aboutMe;
-	SLNet::RakString activities;
-	SLNet::RakString interests;
-	SLNet::RakString favoriteGames;
-	SLNet::RakString favoriteMovies;
-	SLNet::RakString favoriteBooks;
-	SLNet::RakString favoriteQuotations;
+	MafiaNet::RakString aboutMe;
+	MafiaNet::RakString activities;
+	MafiaNet::RakString interests;
+	MafiaNet::RakString favoriteGames;
+	MafiaNet::RakString favoriteMovies;
+	MafiaNet::RakString favoriteBooks;
+	MafiaNet::RakString favoriteQuotations;
 	serializedBinaryData->Read(aboutMe);
 	serializedBinaryData->Read(activities);
 	serializedBinaryData->Read(interests);
@@ -159,15 +159,15 @@ void ReadAccountBinaryData(FxResponseArgsList &rargs,
 	rargs.Add(favoriteBooks.C_String());
 	rargs.Add(favoriteQuotations.C_String());
 }
-void WriteAccountBinaryData(SLNet::BitStream *serializedBinaryData, const FxDelegateArgs& pparams, int &index)
+void WriteAccountBinaryData(MafiaNet::BitStream *serializedBinaryData, const FxDelegateArgs& pparams, int &index)
 {
-	SLNet::RakString aboutMe = pparams[index++].GetString();
-	SLNet::RakString activities = pparams[index++].GetString();
-	SLNet::RakString interests = pparams[index++].GetString();
-	SLNet::RakString favoriteGames = pparams[index++].GetString();
-	SLNet::RakString favoriteMovies = pparams[index++].GetString();
-	SLNet::RakString favoriteBooks = pparams[index++].GetString();
-	SLNet::RakString favoriteQuotations = pparams[index++].GetString();
+	MafiaNet::RakString aboutMe = pparams[index++].GetString();
+	MafiaNet::RakString activities = pparams[index++].GetString();
+	MafiaNet::RakString interests = pparams[index++].GetString();
+	MafiaNet::RakString favoriteGames = pparams[index++].GetString();
+	MafiaNet::RakString favoriteMovies = pparams[index++].GetString();
+	MafiaNet::RakString favoriteBooks = pparams[index++].GetString();
+	MafiaNet::RakString favoriteQuotations = pparams[index++].GetString();
 	serializedBinaryData->Write(aboutMe);
 	serializedBinaryData->Write(activities);
 	serializedBinaryData->Write(interests);
@@ -208,9 +208,9 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RegisterAccount)
 	m1->cdKey="Test CD Key";
 	m1->userName=pparams[index++].GetString();
 
-	SLNet::BitStream serializedBinaryData;
+	MafiaNet::BitStream serializedBinaryData;
 	WriteAccountBinaryData(&serializedBinaryData, pparams, index);
-	m1->createAccountParameters.binaryData = SLNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);
+	m1->createAccountParameters.binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);
 	m1->createAccountParameters.binaryData->binaryData=(char*) serializedBinaryData.GetData();
 	m1->createAccountParameters.binaryData->binaryDataLength=serializedBinaryData.GetNumberOfBytesUsed();
 	lobby2Client->SendMsg(m1);
@@ -266,7 +266,7 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_UpdateAccount)
 	m1->createAccountParameters.caption2=pparams[index++].GetString();
 	m1->createAccountParameters.ageInDays=atoi(pparams[index++].GetString());
 
-	SLNet::BitStream serializedBinaryData;
+	MafiaNet::BitStream serializedBinaryData;
 	WriteAccountBinaryData(&serializedBinaryData, pparams,index);
 	m1->createAccountParameters.binaryData->binaryData=(char*) serializedBinaryData.GetData();
 	m1->createAccountParameters.binaryData->binaryDataLength=serializedBinaryData.GetNumberOfBytesUsed();
@@ -345,7 +345,7 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_SendEmail)
 	for (index=0; index < 8; index++)
 	{
 		if (pparams[index].GetString() && pparams[index].GetString()[0])
-			m1->recipients.Push(SLNet::RakString(pparams[index].GetString()), _FILE_AND_LINE_);
+			m1->recipients.Push(MafiaNet::RakString(pparams[index].GetString()), _FILE_AND_LINE_);
 	}
 	m1->subject=pparams[index++].GetString();
 	m1->body=pparams[index++].GetString();
@@ -705,30 +705,30 @@ void Lobby2ClientGFx3Impl::MessageResult(Client_GetAccountDetails *message)
 	rargs.Add(message->createAccountParameters.caption2.C_String());
 	rargs.Add((Double)message->createAccountParameters.ageInDays);
 
-	SLNet::BitStream serializedBinaryData((unsigned char*) message->createAccountParameters.binaryData->binaryData, message->createAccountParameters.binaryData->binaryDataLength,false);
+	MafiaNet::BitStream serializedBinaryData((unsigned char*) message->createAccountParameters.binaryData->binaryData, message->createAccountParameters.binaryData->binaryDataLength,false);
 	ReadAccountBinaryData(rargs,&serializedBinaryData);
 	FxDelegate::Invoke2(movie, "c2f_GetAccountDetailsResult", rargs);
 }
-void Lobby2ClientGFx3Impl::MessageResult(SLNet::Client_StartIgnore *message)
+void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_StartIgnore *message)
 {
 	FxResponseArgs<1> rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
 	FxDelegate::Invoke2(movie, "c2f_StartIgnore", rargs);
 }
-void Lobby2ClientGFx3Impl::MessageResult(SLNet::Client_StopIgnore *message)
+void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_StopIgnore *message)
 {
 	FxResponseArgs<1> rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
 	FxDelegate::Invoke2(movie, "c2f_StopIgnore", rargs);
 }
-void Lobby2ClientGFx3Impl::MessageResult(SLNet::Client_GetIgnoreList *message)
+void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_GetIgnoreList *message)
 {
 	FxResponseArgsList rargs;
 	for (unsigned int i=0; i < message->ignoredHandles.Size(); i++)
 		rargs.Add(message->ignoredHandles[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetIgnoreListResult", rargs);
 }
-void Lobby2ClientGFx3Impl::MessageResult(SLNet::Client_GetPasswordRecoveryQuestionByHandle *message)
+void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_GetPasswordRecoveryQuestionByHandle *message)
 {
 	// TODO - email them
 	FxResponseArgs<4> rargs;
@@ -738,7 +738,7 @@ void Lobby2ClientGFx3Impl::MessageResult(SLNet::Client_GetPasswordRecoveryQuesti
 	rargs.Add(message->passwordRecoveryQuestion.C_String());
 	FxDelegate::Invoke2(movie, "c2f_RecoverPasswordByUsername", rargs);
 }
-void Lobby2ClientGFx3Impl::MessageResult(SLNet::Client_GetPasswordByPasswordRecoveryAnswer *message)
+void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_GetPasswordByPasswordRecoveryAnswer *message)
 {
 	FxResponseArgs<4> rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));

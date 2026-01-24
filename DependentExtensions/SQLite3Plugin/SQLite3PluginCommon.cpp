@@ -23,10 +23,10 @@ SQLite3Table::SQLite3Table()
 SQLite3Table::~SQLite3Table()
 {
 	for (unsigned int i=0; i < rows.Size(); i++)
-		SLNet::OP_DELETE(rows[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(rows[i],_FILE_AND_LINE_);
 }
 
-void SQLite3Table::Serialize(SLNet::BitStream *bitStream)
+void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
 {
 	bitStream->Write(columnNames.Size());
 	unsigned int idx1, idx2;
@@ -41,17 +41,17 @@ void SQLite3Table::Serialize(SLNet::BitStream *bitStream)
 		}
 	}
 }
-void SQLite3Table::Deserialize(SLNet::BitStream *bitStream)
+void SQLite3Table::Deserialize(MafiaNet::BitStream *bitStream)
 {
 	for (unsigned int i=0; i < rows.Size(); i++)
-		SLNet::OP_DELETE(rows[i],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(rows[i],_FILE_AND_LINE_);
 	rows.Clear(true,_FILE_AND_LINE_);
 	columnNames.Clear(true , _FILE_AND_LINE_ );
 
 	unsigned int numColumns, numRows;
 	bitStream->Read(numColumns);
 	unsigned int idx1,idx2;
-	SLNet::RakString inputStr;
+	MafiaNet::RakString inputStr;
 	for (idx1=0; idx1 < numColumns; idx1++)
 	{
 		bitStream->Read(inputStr);
@@ -60,7 +60,7 @@ void SQLite3Table::Deserialize(SLNet::BitStream *bitStream)
 	bitStream->Read(numRows);
 	for (idx1=0; idx1 < numRows; idx1++)
 	{
-		SQLite3Row *row = SLNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
+		SQLite3Row *row = MafiaNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
 		rows.Push(row,_FILE_AND_LINE_);
 		for (idx2=0; idx2 < numColumns; idx2++)
 		{

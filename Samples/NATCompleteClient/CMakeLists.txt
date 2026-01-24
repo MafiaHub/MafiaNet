@@ -9,7 +9,7 @@
 # license found in the license.txt file in the root directory of this source tree.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
 GETCURRENTFOLDER()
 SET(EXTRALIBS "") #Extra libraries, we have none
 #note the .h files are included so they show up in the windows project

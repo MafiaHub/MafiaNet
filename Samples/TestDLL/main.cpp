@@ -25,7 +25,7 @@
 #include "slikenet/sleep.h"
 #include "slikenet/TCPInterface.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 void* MyMalloc (size_t size)
 {
@@ -70,13 +70,13 @@ int main()
 	SetRealloc(MyRealloc);
 	SetFree(MyFree);
 
-	char *cArray = SLNet::OP_NEW_ARRAY<char>(10,_FILE_AND_LINE_);
-	SLNet::OP_DELETE_ARRAY(cArray,_FILE_AND_LINE_);
+	char *cArray = MafiaNet::OP_NEW_ARRAY<char>(10,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(cArray,_FILE_AND_LINE_);
 
 	DataStructures::List<int> intList;
 	intList.Push(5, _FILE_AND_LINE_ );
 	
-	f->GetMTUSize(SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	f->GetMTUSize(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	SystemAddress p1;
 	SystemAddress p2;
 	p1=p2;
@@ -88,7 +88,7 @@ int main()
 	LogCommandParser::DestroyInstance( c );
 	PacketLogger::DestroyInstance( d );
 	RakNetCommandParser::DestroyInstance( e );
-	SLNet::RakPeerInterface::DestroyInstance( f );
+	MafiaNet::RakPeerInterface::DestroyInstance( f );
 	TCPInterface::DestroyInstance( g );
 
 	return 0;

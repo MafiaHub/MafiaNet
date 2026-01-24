@@ -33,7 +33,7 @@
 #include "DS_List.h"
 #include "SimpleMutex.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -75,7 +75,7 @@ public:
 	///
 	/// On ID_ROUTER_2_FORWARDING_ESTABLISHED, EstablishRouting as follows:
 	///
-	/// SLNet::BitStream bs(packet->data, packet->length, false);
+	/// MafiaNet::BitStream bs(packet->data, packet->length, false);
 	/// bs.IgnoreBytes(sizeof(MessageID));
 	/// RakNetGUID endpointGuid;
 	/// bs.Read(endpointGuid);
@@ -130,7 +130,7 @@ public:
 		DataStructures::List<ConnectionRequestSystem> connectionRequestSystems;
 		SimpleMutex connectionRequestSystemsMutex;
 		Router2RequestStates requestState;
-		SLNet::TimeMS pingTimeout;
+		MafiaNet::TimeMS pingTimeout;
 		RakNetGUID endpointGuid;
 		RakNetGUID lastRequestedForwardingSystem;
 		bool returnConnectionLostOnFailure;
@@ -147,8 +147,8 @@ public:
 		RakNetGUID sourceGuid;
 		SystemAddress sourceAddress;
 		bool gotReplyFromSource;
-		SLNet::TimeMS timeout;
-		SLNet::TimeMS nextAction;
+		MafiaNet::TimeMS timeout;
+		MafiaNet::TimeMS nextAction;
 		unsigned short forwardingPort;
 		__UDPSOCKET__ forwardingSocket;
 	};

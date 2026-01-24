@@ -26,7 +26,7 @@
 #include "MySQLInterface.h"
 #include "slikenet/Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 class FileListProgress;
 
@@ -84,7 +84,7 @@ public:
 	virtual int GetPatches(const char *applicationName, FileList *input, bool allowDownloadOfOriginalUnmodifiedFiles, FileList *patchList);
 
 	// Not yet implemented
-	virtual bool GetMostRecentChangelistWithPatches(SLNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
+	virtual bool GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
 
 	/// If any of the above functions fail, the error string is stored internally.  Call this to get it.
 	virtual const char *GetLastError(void) const;
@@ -105,6 +105,6 @@ public:
 	SimpleMutex filePartConnectionMutex;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

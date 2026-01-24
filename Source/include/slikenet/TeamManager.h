@@ -38,7 +38,7 @@
 #include "DS_Hash.h"
 #include "DS_OrderedList.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -261,7 +261,7 @@ public:
 	/// \internal
 	struct RequestedTeam
 	{
-		SLNet::Time whenRequested;
+		MafiaNet::Time whenRequested;
 		unsigned int requestIndex;
 		TM_Team *requested;
 		bool isTeamSwitch;
@@ -282,7 +282,7 @@ protected:
 	JoinTeamType joinTeamType;
 	// Set by StoreLastTeams()
 	DataStructures::List<TM_Team*> lastTeams;
-	SLNet::Time whenJoinAnyRequested;
+	MafiaNet::Time whenJoinAnyRequested;
 	unsigned int joinAnyRequestIndex;
 	void *owner;
 
@@ -548,7 +548,7 @@ public:
 	/// \internal
 	struct JoinRequestHelper
 	{
-		SLNet::Time whenRequestMade;
+		MafiaNet::Time whenRequestMade;
 		unsigned int teamMemberIndex;
 		unsigned int indexIntoTeamsRequested;
 		unsigned int requestIndex;
@@ -570,7 +570,7 @@ protected:
 
 
 	// Send a message to all participants
-	void BroadcastToParticipants(SLNet::BitStream *bsOut, RakNetGUID exclusionGuid);
+	void BroadcastToParticipants(MafiaNet::BitStream *bsOut, RakNetGUID exclusionGuid);
 	void BroadcastToParticipants(unsigned char *data, const int length, RakNetGUID exclusionGuid);
 
 	// 1. If can join a team:
@@ -705,18 +705,18 @@ protected:
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
-	void Send( const SLNet::BitStream * bitStream, const AddressOrGUID systemIdentifier, bool broadcast );
+	void Send( const MafiaNet::BitStream * bitStream, const AddressOrGUID systemIdentifier, bool broadcast );
 
-	void EncodeTeamFullOrLocked(SLNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team);
-	void DecomposeTeamFullOrLocked(SLNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, TM_Team **team,
+	void EncodeTeamFullOrLocked(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team);
+	void DecomposeTeamFullOrLocked(MafiaNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, TM_Team **team,
 		uint16_t &currentMembers, uint16_t &memberLimitIncludingBalancing, bool &balancingIsActive, JoinPermissions &joinPermissions);
-	void ProcessTeamAssigned(SLNet::BitStream *bsIn);
+	void ProcessTeamAssigned(MafiaNet::BitStream *bsIn);
 
-	void EncodeTeamAssigned(SLNet::BitStream *bitStream, TM_TeamMember *teamMember);
+	void EncodeTeamAssigned(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember);
 	void RemoveFromTeamsRequestedAndAddTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave);
 
 	void PushTeamAssigned(TM_TeamMember *teamMember);
-	void PushBitStream(SLNet::BitStream *bitStream);
+	void PushBitStream(MafiaNet::BitStream *bitStream);
 	void OnUpdateListsToNoTeam(Packet *packet, TM_World *world);
 	void OnUpdateTeamsRequestedToAny(Packet *packet, TM_World *world);
 	void OnJoinAnyTeam(Packet *packet, TM_World *world);
@@ -732,13 +732,13 @@ protected:
 	void OnSetBalanceTeamsInitial(Packet *packet, TM_World *world);
 
 
-	void EncodeTeamFull(SLNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team);
-	void EncodeTeamLocked(SLNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team);
+	void EncodeTeamFull(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team);
+	void EncodeTeamLocked(MafiaNet::BitStream *bitStream, TM_TeamMember *teamMember, TM_Team *team);
 
 	/// \brief When you get ID_TEAM_BALANCER_TEAM_ASSIGNED, pass the packet to this function to read out parameters
 	/// \param[in] A packet where packet->data[0]==ID_TEAM_BALANCER_TEAM_ASSIGNED
 	/// \return true on success, false on read error
-	void DecodeTeamAssigned(SLNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, NoTeamId &noTeamSubcategory,
+	void DecodeTeamAssigned(MafiaNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, NoTeamId &noTeamSubcategory,
 		JoinTeamType &joinTeamType, DataStructures::List<TM_Team *> &newTeam,
 		DataStructures::List<TM_Team *> &teamsLeft, DataStructures::List<TM_Team *> &teamsJoined);
 
@@ -754,7 +754,7 @@ protected:
 	friend class TM_Team;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif // __TEAM_MANAGER_H
 

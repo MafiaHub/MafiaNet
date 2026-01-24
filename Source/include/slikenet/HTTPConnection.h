@@ -30,7 +30,7 @@
 #include "types.h"
 #include "DS_Queue.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class TCPInterface;
@@ -75,7 +75,7 @@ public:
 
     /// Get one result from the server
 	/// \pre HasResult must return true
-	SLNet::RakString Read(void);
+	MafiaNet::RakString Read(void);
 
 	/// Call periodically to do time-based updates
 	void Update(void);
@@ -110,12 +110,12 @@ public:
 
 		operator int () const { return code; }
 
-		SLNet::RakString data;
+		MafiaNet::RakString data;
 		int code;  // ResponseCodes
     };
 
     /// Queued events of failed exchanges with the HTTP server
-    bool HasBadResponse(int *code, SLNet::RakString *data);
+    bool HasBadResponse(int *code, MafiaNet::RakString *data);
 
 	/// Returns false if the connection is not doing anything else
 	bool IsBusy(void) const;
@@ -125,9 +125,9 @@ public:
 
 	struct OutgoingCommand
 	{
-		SLNet::RakString remotePath;
-		SLNet::RakString data;
-		SLNet::RakString contentType;
+		MafiaNet::RakString remotePath;
+		MafiaNet::RakString data;
+		MafiaNet::RakString contentType;
 		bool isPost;
 	};
 
@@ -137,7 +137,7 @@ public:
 private:
     SystemAddress server;
     TCPInterface *tcp;
-	SLNet::RakString host;
+	MafiaNet::RakString host;
 	unsigned short port;
 	DataStructures::Queue<BadResponse> badResponses;
 
@@ -150,8 +150,8 @@ private:
 		CS_PROCESSING,
 	} connectionState;
 
-	SLNet::RakString incomingData;
-	DataStructures::Queue<SLNet::RakString> results;
+	MafiaNet::RakString incomingData;
+	DataStructures::Queue<MafiaNet::RakString> results;
 
 	void CloseConnection();
 	
@@ -163,7 +163,7 @@ private:
 		RAK_HTTP_REQUEST_SENT,
 		RAK_HTTP_IDLE } state;
 
-    SLNet::RakString outgoing, incoming, path, contentType;
+    MafiaNet::RakString outgoing, incoming, path, contentType;
     void Process(Packet *packet); // the workhorse
     
     // this helps check the various status lists in TCPInterface
@@ -173,7 +173,7 @@ private:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

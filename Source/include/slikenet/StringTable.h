@@ -27,7 +27,7 @@
 #include "memoryoverride.h"
 
 /// Forward declaration
-namespace SLNet
+namespace MafiaNet
 {
 	class BitStream;
 };
@@ -42,7 +42,7 @@ struct StrAndBool
 	bool b;
 };
 
-namespace SLNet
+namespace MafiaNet
 {
 	int RAK_DLL_EXPORT StrAndBoolComp( char *const &key, const StrAndBool &data );
 
@@ -74,14 +74,14 @@ namespace SLNet
 		/// \param[in] input Pointer to an ASCII string
 		/// \param[in] maxCharsToWrite The size of \a input 
 		/// \param[out] output The bitstream to write the compressed string to
-		void EncodeString( const char *input, int maxCharsToWrite, SLNet::BitStream *output );
+		void EncodeString( const char *input, int maxCharsToWrite, MafiaNet::BitStream *output );
 
 		/// Writes input to output, uncompressed.  Takes care of the null-terminator for you.
 		/// Relies on the StringCompressor class, which is automatically reference counted in the constructor and destructor in RakPeer.  You can call the reference counting functions yourself if you wish too.
 		/// \param[out] output A block of bytes to receive the output
 		/// \param[in] maxCharsToWrite Size, in bytes, of \a output .  A null-terminator will always be appended to the output string.  If the maxCharsToWrite is not large enough, the string will be truncated.
 		/// \param[in] input The bitstream containing the compressed string
-		bool DecodeString( char *output, int maxCharsToWrite, SLNet::BitStream *input );
+		bool DecodeString( char *output, int maxCharsToWrite, MafiaNet::BitStream *input );
 
 		/// Used so I can allocate and deallocate this singleton at runtime
 		static void AddReference(void);

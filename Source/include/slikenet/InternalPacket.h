@@ -32,7 +32,7 @@
 #include "CCRakNetSlidingWindow.h"
 #endif
 
-namespace SLNet {
+namespace MafiaNet {
 
 typedef uint16_t SplitPacketIdType;
 typedef uint32_t SplitPacketIndexType;
@@ -45,7 +45,7 @@ typedef uint24_t MessageNumberType;
 /// were to wrap, the newly wrapped values would no longer be in use.  Warning: Too large of a value wastes bandwidth!
 typedef MessageNumberType OrderingIndexType;
 
-typedef SLNet::TimeUS RemoteSystemTimeType;
+typedef MafiaNet::TimeUS RemoteSystemTimeType;
 
 struct InternalPacketFixedSizeTransmissionHeader
 {
@@ -92,11 +92,11 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	/// Was this packet number used this update to track windowing drops or increases?  Each packet number is only used once per update.
 //	bool allowWindowUpdate;
 	///When this packet was created
-	SLNet::TimeUS creationTime;
+	MafiaNet::TimeUS creationTime;
 	///The resendNext time to take action on this packet
-	SLNet::TimeUS nextActionTime;
+	MafiaNet::TimeUS nextActionTime;
 	// For debugging
-	SLNet::TimeUS retransmissionTime;
+	MafiaNet::TimeUS retransmissionTime;
 	// Size of the header when encoded into a bitstream
 	BitSize_t headerLength;
 	/// Buffer is a pointer to the actual data, assuming this packet has data at all
@@ -129,7 +129,7 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	unsigned char stackData[128];
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

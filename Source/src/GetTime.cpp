@@ -46,22 +46,22 @@
 #else
 #include <sys/time.h>
 #include <unistd.h>
-SLNet::TimeUS initialTime;
+MafiaNet::TimeUS initialTime;
 #endif
 
 static bool initialized=false;
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 #include "slikenet/SimpleMutex.h"
-SLNet::TimeUS lastNormalizedReturnedValue=0;
-SLNet::TimeUS lastNormalizedInputValue=0;
+MafiaNet::TimeUS lastNormalizedReturnedValue=0;
+MafiaNet::TimeUS lastNormalizedInputValue=0;
 /// This constraints timer forward jumps to 1 second, and does not let it jump backwards
 /// See http://support.microsoft.com/kb/274323 where the timer can sometimes jump forward by hours or days
 /// This also has the effect where debugging a sending system won't treat the time spent halted past 1 second as elapsed network time
-SLNet::TimeUS NormalizeTime(SLNet::TimeUS timeIn)
+MafiaNet::TimeUS NormalizeTime(MafiaNet::TimeUS timeIn)
 {
-	SLNet::TimeUS diff, lastNormalizedReturnedValueCopy;
-	static SLNet::SimpleMutex mutex;
+	MafiaNet::TimeUS diff, lastNormalizedReturnedValueCopy;
+	static MafiaNet::SimpleMutex mutex;
 	
 	mutex.Lock();
 	if (timeIn>=lastNormalizedInputValue)
@@ -82,13 +82,13 @@ SLNet::TimeUS NormalizeTime(SLNet::TimeUS timeIn)
 	return lastNormalizedReturnedValueCopy;
 }
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
-SLNet::Time SLNet::GetTime( void )
+MafiaNet::Time MafiaNet::GetTime( void )
 {
-	return (SLNet::Time)(GetTimeUS()/1000);
+	return (MafiaNet::Time)(GetTimeUS()/1000);
 }
-SLNet::TimeMS SLNet::GetTimeMS( void )
+MafiaNet::TimeMS MafiaNet::GetTimeMS( void )
 {
-	return (SLNet::TimeMS)(GetTimeUS()/1000);
+	return (MafiaNet::TimeMS)(GetTimeUS()/1000);
 }
 
 
@@ -139,7 +139,7 @@ SLNet::TimeMS SLNet::GetTimeMS( void )
 
 
 #if   defined(_WIN32)
-SLNet::TimeUS GetTimeUS_Windows( void )
+MafiaNet::TimeUS GetTimeUS_Windows( void )
 {
 	if ( initialized == false)
 	{
@@ -158,7 +158,7 @@ SLNet::TimeUS GetTimeUS_Windows( void )
 	}	
 
 	// 9/26/2010 In China running LuDaShi, QueryPerformanceFrequency has to be called every time because CPU clock speeds can be different
-	SLNet::TimeUS curTime;
+	MafiaNet::TimeUS curTime;
 	LARGE_INTEGER PerfVal;
 	LARGE_INTEGER yo1;
 
@@ -168,7 +168,7 @@ SLNet::TimeUS GetTimeUS_Windows( void )
 	__int64 quotient, remainder;
 	quotient=((PerfVal.QuadPart) / yo1.QuadPart);
 	remainder=((PerfVal.QuadPart) % yo1.QuadPart);
-	curTime = (SLNet::TimeUS) quotient*(SLNet::TimeUS)1000000 + (remainder*(SLNet::TimeUS)1000000 / yo1.QuadPart);
+	curTime = (MafiaNet::TimeUS) quotient*(MafiaNet::TimeUS)1000000 + (remainder*(MafiaNet::TimeUS)1000000 / yo1.QuadPart);
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 	return NormalizeTime(curTime);
@@ -177,22 +177,22 @@ SLNet::TimeUS GetTimeUS_Windows( void )
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 }
 #elif defined(__GNUC__)  || defined(__GCCXML__) || defined(__S3E__)
-SLNet::TimeUS GetTimeUS_Linux( void )
+MafiaNet::TimeUS GetTimeUS_Linux( void )
 {
 	timeval tp;
 	if ( initialized == false)
 	{
 		gettimeofday( &tp, 0 );
 		initialized=true;
-		// I do this because otherwise SLNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
-		initialTime = ( tp.tv_sec ) * (SLNet::TimeUS) 1000000 + ( tp.tv_usec );
+		// I do this because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
+		initialTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
 	}
 
 	// GCC
-	SLNet::TimeUS curTime;
+	MafiaNet::TimeUS curTime;
 	gettimeofday( &tp, 0 );
 
-	curTime = ( tp.tv_sec ) * (SLNet::TimeUS) 1000000 + ( tp.tv_usec );
+	curTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 	return NormalizeTime(curTime - initialTime);
@@ -202,7 +202,7 @@ SLNet::TimeUS GetTimeUS_Linux( void )
 }
 #endif
 
-SLNet::TimeUS SLNet::GetTimeUS( void )
+MafiaNet::TimeUS MafiaNet::GetTimeUS( void )
 {
 
 
@@ -216,15 +216,15 @@ SLNet::TimeUS SLNet::GetTimeUS( void )
 	return GetTimeUS_Linux();
 #endif
 }
-bool SLNet::GreaterThan(SLNet::Time a, SLNet::Time b)
+bool MafiaNet::GreaterThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a > b?
-	const SLNet::Time halfSpan =(SLNet::Time) (((SLNet::Time)(const SLNet::Time)-1)/(SLNet::Time)2);
+	const MafiaNet::Time halfSpan =(MafiaNet::Time) (((MafiaNet::Time)(const MafiaNet::Time)-1)/(MafiaNet::Time)2);
 	return b!=a && b-a>halfSpan;
 }
-bool SLNet::LessThan(SLNet::Time a, SLNet::Time b)
+bool MafiaNet::LessThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a < b?
-	const SLNet::Time halfSpan = ((SLNet::Time)(const SLNet::Time)-1)/(SLNet::Time)2;
+	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(const MafiaNet::Time)-1)/(MafiaNet::Time)2;
 	return b!=a && b-a<halfSpan;
 }

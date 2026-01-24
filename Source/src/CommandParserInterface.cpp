@@ -33,11 +33,11 @@
 
 #include "slikenet/LinuxStrings.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 const unsigned char CommandParserInterface::VARIABLE_NUMBER_OF_PARAMETERS=255;
 
-int SLNet::RegisteredCommandComp( const char* const & key, const RegisteredCommand &data )
+int MafiaNet::RegisteredCommandComp( const char* const & key, const RegisteredCommand &data )
 {
 	return _stricmp(key,data.command);
 }

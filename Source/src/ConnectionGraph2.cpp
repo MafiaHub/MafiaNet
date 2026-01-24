@@ -21,11 +21,11 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(ConnectionGraph2,ConnectionGraph2)
 
-int SLNet::ConnectionGraph2::RemoteSystemComp( const RakNetGUID &key, RemoteSystem * const &data )
+int MafiaNet::ConnectionGraph2::RemoteSystemComp( const RakNetGUID &key, RemoteSystem * const &data )
 {
 	if (key < data->guid)
 		return -1;
@@ -34,7 +34,7 @@ int SLNet::ConnectionGraph2::RemoteSystemComp( const RakNetGUID &key, RemoteSyst
 	return 0;
 }
 
-int SLNet::ConnectionGraph2::SystemAddressAndGuidComp( const SystemAddressAndGuid &key, const SystemAddressAndGuid &data )
+int MafiaNet::ConnectionGraph2::SystemAddressAndGuidComp( const SystemAddressAndGuid &key, const SystemAddressAndGuid &data )
 {
 	if (key.guid<data.guid)
 		return -1;
@@ -177,7 +177,7 @@ RakNetGUID ConnectionGraph2::GetLowestAveragePingSystem(void) const
 void ConnectionGraph2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
 {
 	// Send notice to all existing connections
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	if (lostConnectionReason==LCR_CONNECTION_LOST)
 		bs.Write((MessageID)ID_REMOTE_CONNECTION_LOST);
 	else
@@ -190,7 +190,7 @@ void ConnectionGraph2::OnClosedConnection(const SystemAddress &systemAddress, Ra
 	unsigned int idx = remoteSystems.GetIndexFromKey(rakNetGUID, &objectExists);
 	if (objectExists)
 	{
-		SLNet::OP_DELETE(remoteSystems[idx],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteSystems[idx],_FILE_AND_LINE_);
 		remoteSystems.RemoveAtIndex(idx);
 	}
 }
@@ -205,7 +205,7 @@ bool ConnectionGraph2::GetAutoProcessNewConnections(void) const
 void ConnectionGraph2::AddParticipant(const SystemAddress &systemAddress, RakNetGUID rakNetGUID)
 {
 	// Relay the new connection to other systems.
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((MessageID)ID_REMOTE_NEW_INCOMING_CONNECTION);
 	bs.Write((uint32_t)1);
 	bs.Write(systemAddress);
@@ -248,7 +248,7 @@ void ConnectionGraph2::AddParticipant(const SystemAddress &systemAddress, RakNet
 	unsigned int ii = remoteSystems.GetIndexFromKey(rakNetGUID, &objectExists);
 	if (objectExists==false)
 	{
-		RemoteSystem* remoteSystem = SLNet::OP_NEW<RemoteSystem>(_FILE_AND_LINE_);
+		RemoteSystem* remoteSystem = MafiaNet::OP_NEW<RemoteSystem>(_FILE_AND_LINE_);
 		remoteSystem->guid=rakNetGUID;
 		remoteSystems.InsertAtIndex(remoteSystem,ii,_FILE_AND_LINE_);
 	}
@@ -274,7 +274,7 @@ PluginReceiveResult ConnectionGraph2::OnReceive(Packet *packet)
 		unsigned idx = remoteSystems.GetIndexFromKey(packet->guid, &objectExists);
 		if (objectExists)
 		{
-			SLNet::BitStream bs(packet->data,packet->length,false);
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
 			bs.IgnoreBytes(1);
 			SystemAddressAndGuid saag;
 			bs.Read(saag.systemAddress);
@@ -291,7 +291,7 @@ PluginReceiveResult ConnectionGraph2::OnReceive(Packet *packet)
 		if (objectExists)
 		{
 			uint32_t numAddresses;
-			SLNet::BitStream bs(packet->data,packet->length,false);
+			MafiaNet::BitStream bs(packet->data,packet->length,false);
 			bs.IgnoreBytes(1);
 			bs.Read(numAddresses);
 			for (unsigned int idx2=0; idx2 < numAddresses; idx2++)

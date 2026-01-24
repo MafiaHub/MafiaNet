@@ -18,7 +18,7 @@
 
 #include "NativeTypes.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 // All pointers to socket address structures are often cast to pointers

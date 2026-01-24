@@ -52,7 +52,7 @@ enum OutOfBandIdentifiers
 /// };
 /// \endcode 
 ///
-/// \note All these enumerations should be casted to (unsigned char) before writing them to SLNet::BitStream
+/// \note All these enumerations should be casted to (unsigned char) before writing them to MafiaNet::BitStream
 enum DefaultMessageIDTypes
 {
 	//
@@ -142,7 +142,7 @@ enum DefaultMessageIDTypes
 	/// RakPeer - The sizeof(RakNetTime) bytes following this byte represent a value which is automatically modified by the difference
 	/// in system times between the sender and the recipient. Requires that you call SetOccasionalPing.
 	ID_TIMESTAMP,
-    /// RakPeer - Pong from an unconnected system.  First byte is ID_UNCONNECTED_PONG, second sizeof(SLNet::TimeMS) bytes is the ping,
+    /// RakPeer - Pong from an unconnected system.  First byte is ID_UNCONNECTED_PONG, second sizeof(MafiaNet::TimeMS) bytes is the ping,
 	/// following bytes is system specific enumeration data.
 	/// Read using bitstreams
 	ID_UNCONNECTED_PONG,
@@ -354,7 +354,7 @@ enum DefaultMessageIDTypes
 	///
 	/// Connect as follows:
 	///
-	/// SLNet::BitStream bs(packet->data, packet->length, false);
+	/// MafiaNet::BitStream bs(packet->data, packet->length, false);
 	/// bs.IgnoreBytes(sizeof(MessageID));
 	/// RakNetGUID endpointGuid;
 	/// bs.Read(endpointGuid);
@@ -390,7 +390,7 @@ enum DefaultMessageIDTypes
 
 	/// The password we used to challenge the other system passed, meaning the other system has called TwoWayAuthentication::AddPassword() with the same password we passed to TwoWayAuthentication::Challenge()
 	/// You can read the identifier used to challenge as follows:
-	/// SLNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(SLNet::MessageID)); SLNet::RakString password; bs.Read(password);
+	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MafiaNet::MessageID)); MafiaNet::RakString password; bs.Read(password);
 	ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS,
 	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS,
 	/// A remote system sent us a challenge using TwoWayAuthentication::Challenge(), and the challenge failed.
@@ -398,11 +398,11 @@ enum DefaultMessageIDTypes
 	ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE,
 	/// The other system did not add the password we used to TwoWayAuthentication::AddPassword()
 	/// You can read the identifier used to challenge as follows:
-	/// SLNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MessageID)); SLNet::RakString password; bs.Read(password);
+	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MessageID)); MafiaNet::RakString password; bs.Read(password);
 	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE,
 	/// The other system did not respond within a timeout threshhold. Either the other system is not running the plugin or the other system was blocking on some operation for a long time.
 	/// You can read the identifier used to challenge as follows:
-	/// SLNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MessageID)); SLNet::RakString password; bs.Read(password);
+	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MessageID)); MafiaNet::RakString password; bs.Read(password);
 	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT,
 	/// \internal
 	ID_TWO_WAY_AUTHENTICATION_NEGOTIATION,

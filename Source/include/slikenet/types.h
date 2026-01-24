@@ -27,7 +27,7 @@
 #include "XBox360Includes.h"
 #include "SocketIncludes.h"
 
-namespace SLNet {
+namespace MafiaNet {
 /// Forward declarations
 class RakPeerInterface;
 class BitStream;
@@ -481,6 +481,6 @@ struct RAK_DLL_EXPORT uint24_t
 	inline const uint24_t operator*( const uint32_t &other ) const { return uint24_t(val*other); }
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

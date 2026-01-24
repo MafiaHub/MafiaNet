@@ -18,7 +18,7 @@
 #include <openssl/evp.h>     // used for EVP_xxxx, OpenSSL_add_all_algorithms()
 #include <openssl/rand.h>    // used for RAND_xxxx
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

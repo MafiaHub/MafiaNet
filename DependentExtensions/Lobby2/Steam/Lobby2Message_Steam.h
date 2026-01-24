@@ -20,7 +20,7 @@
 #include "slikenet/DS_Multilist.h"
 #include "Lobby2Client_Steam.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 #define __L2_MSG_DB_HEADER(__NAME__,__DB__) \
@@ -28,9 +28,9 @@ namespace SLNet
 
 	__L2_MSG_DB_HEADER(Client_Login, Steam)
 	{
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -43,9 +43,9 @@ namespace SLNet
 
 	__L2_MSG_DB_HEADER(Client_Logoff, Steam)
 	{
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -60,13 +60,13 @@ namespace SLNet
 	{
 		Console_SearchRooms_Steam();
 		virtual ~Console_SearchRooms_Steam();
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const;
+		virtual void DebugMsg(MafiaNet::RakString &out) const;
 
 		// Output
 		// Use CConsoleCommand_GetRoomDetails to get room names for unknown rooms, which will have blank names
-		DataStructures::Multilist<ML_UNORDERED_LIST, SLNet::RakString> roomNames;
+		DataStructures::Multilist<ML_UNORDERED_LIST, MafiaNet::RakString> roomNames;
 		// Type of uint64_ts is uint64_t
 		DataStructures::Multilist<ML_UNORDERED_LIST, uint64_t> roomIds;
 
@@ -78,9 +78,9 @@ namespace SLNet
 
 	__L2_MSG_DB_HEADER(Console_GetRoomDetails, Steam)
 	{
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -94,7 +94,7 @@ namespace SLNet
 		uint64_t roomId;
 
 		/// Output
-		SLNet::RakString roomName;
+		MafiaNet::RakString roomName;
 	};
 
 	__L2_MSG_DB_HEADER(Console_CreateRoom, Steam)
@@ -102,9 +102,9 @@ namespace SLNet
 		Console_CreateRoom_Steam();
 		virtual ~Console_CreateRoom_Steam();
 
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -117,7 +117,7 @@ namespace SLNet
 		/// Input
 		/// If public, anyone can join. Else friends only
 		bool roomIsPublic;
-		SLNet::RakString roomName;
+		MafiaNet::RakString roomName;
 
 		/// Output
 		uint64_t roomId;
@@ -132,9 +132,9 @@ namespace SLNet
 		Console_JoinRoom_Steam();
 		virtual ~Console_JoinRoom_Steam();
 
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -154,9 +154,9 @@ namespace SLNet
 
 	__L2_MSG_DB_HEADER(Console_LeaveRoom, Steam)
 	{
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -172,9 +172,9 @@ namespace SLNet
 
 	__L2_MSG_DB_HEADER(Console_SendRoomChatMessage, Steam)
 	{
-		virtual bool ClientImpl(SLNet::Lobby2Plugin *client);
+		virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -186,16 +186,16 @@ namespace SLNet
 
 		/// Input
 		uint64_t roomId;
-		SLNet::RakString message;
+		MafiaNet::RakString message;
 	};
 
 
 	__L2_MSG_DB_HEADER(Notification_Friends_StatusChange, Steam)
 	{
 		uint64_t friendId;
-		SLNet::RakString friendNewName;
+		MafiaNet::RakString friendNewName;
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -209,9 +209,9 @@ namespace SLNet
 	__L2_MSG_DB_HEADER(Notification_Console_UpdateRoomParameters, Steam)
 	{
 		uint64_t roomId;
-		SLNet::RakString roomNewName;
+		MafiaNet::RakString roomNewName;
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -226,10 +226,10 @@ namespace SLNet
 	{
 		uint64_t roomId;
 		uint64_t srcMemberId;
-		SLNet::RakString memberName;
+		MafiaNet::RakString memberName;
 		SystemAddress remoteSystem;
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -244,10 +244,10 @@ namespace SLNet
 	{
 		uint64_t roomId;
 		uint64_t srcMemberId;
-		SLNet::RakString memberName;
+		MafiaNet::RakString memberName;
 		SystemAddress remoteSystem;
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -260,9 +260,9 @@ namespace SLNet
 
 	__L2_MSG_DB_HEADER(Notification_Console_RoomChatMessage, Steam)
 	{
-		SLNet::RakString message;
+		MafiaNet::RakString message;
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -279,7 +279,7 @@ namespace SLNet
 		bool succeeded;
 		SystemAddress remoteSystem;
 
-		virtual void DebugMsg(SLNet::RakString &out) const
+		virtual void DebugMsg(MafiaNet::RakString &out) const
 		{
 			if (resultCode!=L2RC_SUCCESS)
 			{
@@ -300,7 +300,7 @@ namespace SLNet
 
 // --------------------------------------------- Database specific factory class for all messages --------------------------------------------
 
-#define __L2_MSG_FACTORY_IMPL(__NAME__,__DB__) {case L2MID_##__NAME__ : Lobby2Message *m = SLNet::OP_NEW< __NAME__##_##__DB__ >(_FILE_AND_LINE_) ; return m;}
+#define __L2_MSG_FACTORY_IMPL(__NAME__,__DB__) {case L2MID_##__NAME__ : Lobby2Message *m = MafiaNet::OP_NEW< __NAME__##_##__DB__ >(_FILE_AND_LINE_) ; return m;}
 
 	struct Lobby2MessageFactory_Steam : public Lobby2MessageFactory
 	{
@@ -331,6 +331,6 @@ namespace SLNet
 			};
 		};
 	};
-}; // namespace SLNet
+}; // namespace MafiaNet
 
 #endif

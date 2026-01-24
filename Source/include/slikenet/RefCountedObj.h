@@ -31,7 +31,7 @@ class RefCountedObj
 		RefCountedObj() {refCount=1;}
 		virtual ~RefCountedObj() {}
 		void AddRef(void) {refCount++;}
-		void Deref(void) {if (--refCount==0) SLNet::OP_DELETE(this, _FILE_AND_LINE_);}
+		void Deref(void) {if (--refCount==0) MafiaNet::OP_DELETE(this, _FILE_AND_LINE_);}
 		int refCount;
 };
 

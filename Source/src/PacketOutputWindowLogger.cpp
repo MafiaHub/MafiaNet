@@ -26,7 +26,7 @@
 #include "slikenet/WindowsIncludes.h"
 #endif
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 PacketOutputWindowLogger::PacketOutputWindowLogger()
 {
@@ -39,11 +39,11 @@ void PacketOutputWindowLogger::WriteLog(const char *str)
 #if defined(_WIN32)
 
 	#if defined(UNICODE)
-	SLNet::RakWString str2 = str;
+	MafiaNet::RakWString str2 = str;
 		str2+="\n";
 		OutputDebugString(str2.C_String());
 	#else
-	SLNet::RakString str2 = str;
+	MafiaNet::RakString str2 = str;
 		str2+="\n";
 		OutputDebugString(str2.C_String());
 	#endif

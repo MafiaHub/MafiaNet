@@ -29,7 +29,7 @@
 /// \ingroup SQL_LITE_3_PLUGIN
 struct SQLite3Row
 {
-	DataStructures::List<SLNet::RakString> entries;
+	DataStructures::List<MafiaNet::RakString> entries;
 };
 
 /// Contains a result table, which is an array of column name strings, followed by an array of SQLite3Row
@@ -38,10 +38,10 @@ struct SQLite3Table
 {
 	SQLite3Table();
 	~SQLite3Table();
-	void Serialize(SLNet::BitStream *bitStream);
-	void Deserialize(SLNet::BitStream *bitStream);
+	void Serialize(MafiaNet::BitStream *bitStream);
+	void Deserialize(MafiaNet::BitStream *bitStream);
 
-	DataStructures::List<SLNet::RakString> columnNames;
+	DataStructures::List<MafiaNet::RakString> columnNames;
 	DataStructures::List<SQLite3Row*> rows;
 };
 

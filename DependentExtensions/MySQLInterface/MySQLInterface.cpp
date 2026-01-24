@@ -167,12 +167,12 @@ const char* MySQLInterface::GetLastError(void) const
     return lastError;
 }
 
-SLNet::RakString MySQLInterface::GetEscapedString(const char *input) const
+MafiaNet::RakString MySQLInterface::GetEscapedString(const char *input) const
 {
 	unsigned long len = (unsigned long) strlen(input);
 	char *fn = new char [len*2+1];
 	mysql_real_escape_string(mySqlConnection, fn, input, len);
-	SLNet::RakString output;
+	MafiaNet::RakString output;
 	// Use assignment so it doesn't parse printf escape strings
 	output = fn;
 	delete [] fn;

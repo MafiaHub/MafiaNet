@@ -25,11 +25,11 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // Verbosity level currently supports 0 (low), 1 (medium), 2 (high)
 // Buffer must be hold enough to hold the output string.  See the source to get an idea of how many bytes will be output
-void RAK_DLL_EXPORT SLNet::StatisticsToString(RakNetStatistics *s, char *buffer, int verbosityLevel)
+void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buffer, int verbosityLevel)
 {
 	if (s == 0)
 	{
@@ -76,7 +76,7 @@ void RAK_DLL_EXPORT SLNet::StatisticsToString(RakNetStatistics *s, char *buffer,
 			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
 			s->packetlossLastSecond*100.0f,
 			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((SLNet::GetTimeUS() - s->connectionStartTime) / 1000000)
+			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000)
 		);
 #pragma warning(pop)
 
@@ -153,7 +153,7 @@ void RAK_DLL_EXPORT SLNet::StatisticsToString(RakNetStatistics *s, char *buffer,
 			(long long unsigned int) s->bytesInResendBuffer,
 			s->packetlossLastSecond*100.0f,
 			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((SLNet::GetTimeUS() - s->connectionStartTime) / 1000000)
+			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000)
 		);
 #pragma warning(pop)
 
@@ -185,7 +185,7 @@ void RAK_DLL_EXPORT SLNet::StatisticsToString(RakNetStatistics *s, char *buffer,
 		}
 	}
 }
-void RAK_DLL_EXPORT SLNet::StatisticsToString( RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel )
+void RAK_DLL_EXPORT MafiaNet::StatisticsToString( RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel )
 {
 	if ( s == 0 )
 	{
@@ -224,7 +224,7 @@ void RAK_DLL_EXPORT SLNet::StatisticsToString( RakNetStatistics *s, char *buffer
 			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
 			s->packetlossLastSecond*100.0f,
 			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((SLNet::GetTimeUS()-s->connectionStartTime)/1000000)
+			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS()-s->connectionStartTime)/1000000)
 			);
 
 		if (s->BPSLimitByCongestionControl!=0)
@@ -292,7 +292,7 @@ void RAK_DLL_EXPORT SLNet::StatisticsToString( RakNetStatistics *s, char *buffer
 			(long long unsigned int) s->bytesInResendBuffer,
 			s->packetlossLastSecond*100.0f,
 			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((SLNet::GetTimeUS()-s->connectionStartTime)/1000000)
+			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS()-s->connectionStartTime)/1000000)
 			);
 
 		if (s->BPSLimitByCongestionControl!=0)

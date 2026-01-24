@@ -15,7 +15,7 @@
 
 #include "slikenet/VariableListDeltaTracker.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 VariableListDeltaTracker::VariableListDeltaTracker() {nextWriteIndex=0;}
 VariableListDeltaTracker::~VariableListDeltaTracker()

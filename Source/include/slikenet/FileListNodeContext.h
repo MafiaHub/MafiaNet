@@ -36,7 +36,7 @@ struct FileListNodeContext
 	unsigned int dataLength;
 };
 
-inline SLNet::BitStream& operator<<(SLNet::BitStream& out, FileListNodeContext& in)
+inline MafiaNet::BitStream& operator<<(MafiaNet::BitStream& out, FileListNodeContext& in)
 {
 	out.Write(in.op);
 	out.Write(in.flnc_extraData1);
@@ -44,7 +44,7 @@ inline SLNet::BitStream& operator<<(SLNet::BitStream& out, FileListNodeContext& 
 	out.Write(in.flnc_extraData3);
 	return out;
 }
-inline SLNet::BitStream& operator>>(SLNet::BitStream& in, FileListNodeContext& out)
+inline MafiaNet::BitStream& operator>>(MafiaNet::BitStream& in, FileListNodeContext& out)
 {
 	in.Read(out.op);
 	bool success = in.Read(out.flnc_extraData1);

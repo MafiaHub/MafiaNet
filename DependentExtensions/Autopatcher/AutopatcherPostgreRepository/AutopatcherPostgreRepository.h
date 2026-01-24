@@ -34,7 +34,7 @@ typedef struct pg_result PGresult;
 #ifndef __POSTGRE_REPOSITORY_H
 #define __POSTGRE_REPOSITORY_H
 
-namespace SLNet
+namespace MafiaNet
 {
 class FileListProgress;
 
@@ -101,7 +101,7 @@ public:
 	/// \param[out] deletedFiles A list of the current versions of filenames that were deleted in the most recent patch
 	/// \param[out] whenPatched time in seconds since epoch when patched. Use time() function to get this in C
 	/// \return true on success, false on failure
-	virtual bool GetMostRecentChangelistWithPatches(SLNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
+	virtual bool GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
 
 	/// If any of the above functions fail, the error string is stored internally.  Call this to get it.
 	virtual const char *GetLastError(void) const;
@@ -133,7 +133,7 @@ class RAK_DLL_EXPORT AutopatcherPostgreRepository2 : public AutopatcherPostgreRe
 {
 public:
 	virtual bool CreateAutopatcherTables(void);
-	virtual bool GetMostRecentChangelistWithPatches(SLNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
+	virtual bool GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
 	virtual bool UpdateApplicationFiles(const char *applicationName, const char *applicationDirectory, const char *userName, FileListProgress *cb);
 	virtual unsigned int GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
 	
@@ -150,7 +150,7 @@ protected:
 
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 #endif

@@ -16,7 +16,7 @@
 #include "Lobby2Presence.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 
 Lobby2Presence::Lobby2Presence() {
@@ -48,7 +48,7 @@ Lobby2Presence::~Lobby2Presence()
 {
 
 }
-void Lobby2Presence::Serialize(SLNet::BitStream *bitStream, bool writeToBitstream)
+void Lobby2Presence::Serialize(MafiaNet::BitStream *bitStream, bool writeToBitstream)
 {
 	unsigned char gs = (unsigned char) status;
 	bitStream->Serialize(writeToBitstream,gs);

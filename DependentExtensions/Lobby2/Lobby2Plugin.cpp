@@ -15,7 +15,7 @@
 
 #include "Lobby2Plugin.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 Lobby2Plugin::Lobby2Plugin()
 {

@@ -56,9 +56,9 @@
 // define sample type. Only short(16 bits sound) is supported at the moment.
 typedef short SAMPLE;
 
-SLNet::RakPeerInterface *rakPeer= nullptr;
+MafiaNet::RakPeerInterface *rakPeer= nullptr;
 FMOD::System *fmodSystem= nullptr;
-SLNet::RakVoice rakVoice;
+MafiaNet::RakVoice rakVoice;
 bool mute;
 
 void FMOD_ERRCHECK(FMOD_RESULT result)
@@ -80,7 +80,7 @@ struct myStat{
 };
 
 void LogStats(){
-	SLNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+	MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 	char buffer[1024];
 	StatisticsToString(rss,buffer,1024,1);
 	printf(buffer);
@@ -134,14 +134,14 @@ int main(void)
 	char ch;
 
 	char port[256];
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 #if defined(INTERACTIVE)
 	printf("Enter local port: ");
 	Gets(port, sizeof(port));
 	if (port[0]==0)
 #endif
 		strcpy_s(port, "60000");
-	SLNet::SocketDescriptor socketDescriptor(atoi(port),0);
+	MafiaNet::SocketDescriptor socketDescriptor(atoi(port),0);
 
 	rakPeer->Startup(4, &socketDescriptor, 1);
 
@@ -152,12 +152,12 @@ int main(void)
 
 
 	// Initialize our connection with FMOD
-	if (!SLNet::FMODVoiceAdapter::Instance()->SetupAdapter(fmodSystem, &rakVoice)){
+	if (!MafiaNet::FMODVoiceAdapter::Instance()->SetupAdapter(fmodSystem, &rakVoice)){
 			printf("An error occurred while initializing FMOD sounds.\n");
 			exit(-1);
 		}
 
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	quit=false;
 #if defined(INTERACTIVE)
 	printf("(Q)uit. (C)onnect. (D)isconnect. (M)ute. ' ' for stats.\n");
@@ -219,7 +219,7 @@ int main(void)
 			else if (ch=='m')
 			{
 				mute=!mute;
-				SLNet::FMODVoiceAdapter::Instance()->SetMute(mute);
+				MafiaNet::FMODVoiceAdapter::Instance()->SetMute(mute);
 				if (mute)
 					printf("\nNow muted.\n");
 				else
@@ -232,7 +232,7 @@ int main(void)
 			else if (ch==' ')
 			{
 				char message[2048];
-				SLNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+				MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 			}
@@ -266,19 +266,19 @@ int main(void)
 
 		fmodSystem->update();
 		// Update or connection with FMOD
-		SLNet::FMODVoiceAdapter::Instance()->Update();
+		MafiaNet::FMODVoiceAdapter::Instance()->Update();
 	//	LogStats();
 		RakSleep(20);
 
 	}
 
 	// Release any FMOD resources we used, and shutdown FMOD itself
-	SLNet::FMODVoiceAdapter::Instance()->Release();
+	MafiaNet::FMODVoiceAdapter::Instance()->Release();
 	fmodSystem->release();
 
 	rakPeer->Shutdown(300);
 	rakPeer->DetachPlugin(&rakVoice);
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 0;
 }

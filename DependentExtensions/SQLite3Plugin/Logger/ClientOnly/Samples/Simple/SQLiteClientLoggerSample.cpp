@@ -24,12 +24,12 @@ int main(void)
 {
 	printf("Demonstration of SQLiteClientLoggerPlugin.\n");
 
-	SLNet::PacketizedTCP packetizedTCP;
-	SLNet::SQLiteClientLoggerPlugin loggerPlugin;
+	MafiaNet::PacketizedTCP packetizedTCP;
+	MafiaNet::SQLiteClientLoggerPlugin loggerPlugin;
 	packetizedTCP.AttachPlugin(&loggerPlugin);
 	packetizedTCP.Start(0,0);
 	printf("Connecting.\n");
-	SLNet::SystemAddress serverAddress = packetizedTCP.Connect("127.0.0.1", 38123, true);
+	MafiaNet::SystemAddress serverAddress = packetizedTCP.Connect("127.0.0.1", 38123, true);
 	printf("Connected.\n");
 
 
@@ -51,22 +51,22 @@ int main(void)
 
 	loggerPlugin.SetServerParameters(serverAddress, "functionLog.sqlite");
 
-	SLNet::SQLLogResult res;
+	MafiaNet::SQLLogResult res;
 	int x=1;
 	unsigned short y=2;
 	float c=3;
 	double d=4;
 	char *e="HI";
 	res = rakFnLog("My func", (x,y,c,d,e,&loggerPlugin));
-	RakAssert(res== SLNet::SQLLR_OK);
+	RakAssert(res== MafiaNet::SQLLR_OK);
 	res = rakSqlLog("sqlLog", "handle, mapName, positionX, positionY, positionZ, gameMode, connectedPlayers", ("handle1", "mapname1", 1,2,3,"",4));
-	RakAssert(res== SLNet::SQLLR_OK);
+	RakAssert(res== MafiaNet::SQLLR_OK);
 	res = rakSqlLog("sqlLog", "handle, mapName, positionX, positionY, positionZ, gameMode, connectedPlayers", ("handle2", "mapname2", 5,6,7,"gameMode2",8));
-	RakAssert(res== SLNet::SQLLR_OK);
+	RakAssert(res== MafiaNet::SQLLR_OK);
 	res = rakSqlLog("sqlLog", "x", (999));
-	RakAssert(res== SLNet::SQLLR_OK);
+	RakAssert(res== MafiaNet::SQLLR_OK);
 	res = rakFnLog("My func2", ("cat", "carrot", ""));
-	RakAssert(res== SLNet::SQLLR_OK);
+	RakAssert(res== MafiaNet::SQLLR_OK);
 	loggerPlugin.IncrementAutoTickCount();
 
 	loggerPlugin.SetServerParameters(serverAddress, "scatterPlot.sqlite");
@@ -74,7 +74,7 @@ int main(void)
 	for (int i=0; i < 1000; i++)
 	{
 		res = rakSqlLog("ScatterPlot", "x, y, z, Color, Intensity", (i, (cosf((float)i/30.0f)+1.0f)*500.0f, (sinf((float)i/30.0f)+1.0f)*500.0f, (i%2)==0 ? "red" : "blue", frandomMT()));
-		RakAssert(res== SLNet::SQLLR_OK);
+		RakAssert(res== MafiaNet::SQLLR_OK);
 		RakSleep(1);
 		// Calling Receive() is something you should do anyway, and increments autotick count
 		loggerPlugin.IncrementAutoTickCount();
@@ -138,8 +138,8 @@ int main(void)
 		}
 	}
 
-	SLNet::RGBImageBlob imageblob(bytes, 4096, 4096, 4096 * 4, 4);
-	// #med - SLNet::SQLiteClientLoggerPlugin::ParameterListHelper requires proper const pointer handling
+	MafiaNet::RGBImageBlob imageblob(bytes, 4096, 4096, 4096 * 4, 4);
+	// #med - MafiaNet::SQLiteClientLoggerPlugin::ParameterListHelper requires proper const pointer handling
 	rakSqlLog("gradient", "gradientImage", (&imageblob));
 	delete [] bytes;
 

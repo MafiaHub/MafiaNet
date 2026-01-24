@@ -9,7 +9,7 @@
 # license found in the license.txt file in the root directory of this source tree.
 #
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.15)
 project(Lobby2Client)
 include_directories(${SLIKENET_HEADER_FILES} ./ ${SLikeNet_SOURCE_DIR}/DependentExtensions/Lobby2 ${SLikeNet_SOURCE_DIR}/DependentExtensions/Lobby2/Rooms)
 FILE(GLOB LOBBYFILES ${SLikeNet_SOURCE_DIR}/DependentExtensions/Lobby2/*.cpp ${SLikeNet_SOURCE_DIR}/DependentExtensions/Lobby2/*.h)

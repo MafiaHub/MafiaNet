@@ -15,7 +15,7 @@
 #include "slikenet/defines.h"
 #include "slikenet/NativeTypes.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 	class BitStream;
 
@@ -156,9 +156,9 @@ struct LogParameter
 	unsigned char compressionMode;
 	bool sourceFormatIsBGRA;
 
-	void Serialize(SLNet::BitStream *bs) const;
+	void Serialize(MafiaNet::BitStream *bs) const;
 	// Don't forget to deallocate after calling Deserialize
-	bool Deserialize(SLNet::BitStream *bs);
+	bool Deserialize(MafiaNet::BitStream *bs);
 	void DoNotFree(void);
 	void Free(void);
 	static void Free(void *v);

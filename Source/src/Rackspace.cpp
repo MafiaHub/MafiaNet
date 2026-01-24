@@ -20,7 +20,7 @@
 #include "slikenet/string.h"
 #include "slikenet/TCPInterface.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 Rackspace::Rackspace()
 {
@@ -82,7 +82,7 @@ SystemAddress Rackspace::Authenticate(TCPInterface *_tcpInterface, const char *_
 	tcpInterface->StartSSLClient(ro.connectionAddress);
 #endif
 
-	SLNet::RakString command(
+	MafiaNet::RakString command(
 		"GET /v1.0 HTTP/1.1\n"
 		"Host: %s\n"
 		"X-Auth-User: %s\n"
@@ -133,7 +133,7 @@ const char * Rackspace::EventTypeToString(RackspaceEventType eventType)
 	}
 	return "Unknown event type (bug)";
 }
-void Rackspace::AddOperation(RackspaceOperationType type, SLNet::RakString httpCommand, SLNet::RakString operation, SLNet::RakString xml)
+void Rackspace::AddOperation(RackspaceOperationType type, MafiaNet::RakString httpCommand, MafiaNet::RakString operation, MafiaNet::RakString xml)
 {
 	RackspaceOperation ro;
 	ro.type=type;
@@ -157,111 +157,111 @@ void Rackspace::ListServersWithDetails(void)
 {
 	AddOperation(RO_LIST_SERVERS_WITH_DETAILS, "GET", "servers/detail", "");
 }
-void Rackspace::CreateServer(SLNet::RakString name, SLNet::RakString imageId, SLNet::RakString flavorId)
+void Rackspace::CreateServer(MafiaNet::RakString name, MafiaNet::RakString imageId, MafiaNet::RakString flavorId)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<server xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" name=\"%s\" imageId=\"%s\" flavorId=\"%s\">"
 		"</server>"
 		,name.C_String() ,imageId.C_String(), flavorId.C_String());
 	AddOperation(RO_CREATE_SERVER, "POST", "servers", xml);
 }
-void Rackspace::GetServerDetails(SLNet::RakString serverId)
+void Rackspace::GetServerDetails(MafiaNet::RakString serverId)
 {
-	AddOperation(RO_GET_SERVER_DETAILS, "GET", SLNet::RakString("servers/%s", serverId.C_String()), "");
+	AddOperation(RO_GET_SERVER_DETAILS, "GET", MafiaNet::RakString("servers/%s", serverId.C_String()), "");
 }
-void Rackspace::UpdateServerNameOrPassword(SLNet::RakString serverId, SLNet::RakString newName, SLNet::RakString newPassword)
+void Rackspace::UpdateServerNameOrPassword(MafiaNet::RakString serverId, MafiaNet::RakString newName, MafiaNet::RakString newPassword)
 {
 	if (newName.IsEmpty() && newPassword.IsEmpty())
 		return;
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<server xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\""
 		);
 	if (newName.IsEmpty()==false)
-		xml += SLNet::RakString(" name=\"%s\"", newName.C_String());
+		xml += MafiaNet::RakString(" name=\"%s\"", newName.C_String());
 	if (newPassword.IsEmpty()==false)
-		xml += SLNet::RakString(" adminPass=\"%s\"", newPassword.C_String());
+		xml += MafiaNet::RakString(" adminPass=\"%s\"", newPassword.C_String());
 	xml += " />";
-	AddOperation(RO_UPDATE_SERVER_NAME_OR_PASSWORD, "PUT", SLNet::RakString("servers/%s", serverId.C_String()), xml);
+	AddOperation(RO_UPDATE_SERVER_NAME_OR_PASSWORD, "PUT", MafiaNet::RakString("servers/%s", serverId.C_String()), xml);
 }
-void Rackspace::DeleteServer(SLNet::RakString serverId)
+void Rackspace::DeleteServer(MafiaNet::RakString serverId)
 {
-	AddOperation(RO_DELETE_SERVER, "DELETE", SLNet::RakString("servers/%s", serverId.C_String()), "");
+	AddOperation(RO_DELETE_SERVER, "DELETE", MafiaNet::RakString("servers/%s", serverId.C_String()), "");
 }
-void Rackspace::ListServerAddresses(SLNet::RakString serverId)
+void Rackspace::ListServerAddresses(MafiaNet::RakString serverId)
 {
-	AddOperation(RO_LIST_SERVER_ADDRESSES, "GET", SLNet::RakString("servers/%s/ips", serverId.C_String()), "");
+	AddOperation(RO_LIST_SERVER_ADDRESSES, "GET", MafiaNet::RakString("servers/%s/ips", serverId.C_String()), "");
 }
-void Rackspace::ShareServerAddress(SLNet::RakString serverId, SLNet::RakString ipAddress)
+void Rackspace::ShareServerAddress(MafiaNet::RakString serverId, MafiaNet::RakString ipAddress)
 {
-	AddOperation(RO_SHARE_SERVER_ADDRESS, "PUT", SLNet::RakString("servers/%s/ips/public/%s", serverId.C_String(), ipAddress.C_String()), "");
+	AddOperation(RO_SHARE_SERVER_ADDRESS, "PUT", MafiaNet::RakString("servers/%s/ips/public/%s", serverId.C_String(), ipAddress.C_String()), "");
 }
-void Rackspace::DeleteServerAddress(SLNet::RakString serverId, SLNet::RakString ipAddress)
+void Rackspace::DeleteServerAddress(MafiaNet::RakString serverId, MafiaNet::RakString ipAddress)
 {
-	AddOperation(RO_DELETE_SERVER_ADDRESS, "DELETE", SLNet::RakString("servers/%s/ips/public/%s", serverId.C_String(), ipAddress.C_String()), "");
+	AddOperation(RO_DELETE_SERVER_ADDRESS, "DELETE", MafiaNet::RakString("servers/%s/ips/public/%s", serverId.C_String(), ipAddress.C_String()), "");
 }
-void Rackspace::RebootServer(SLNet::RakString serverId, SLNet::RakString rebootType)
+void Rackspace::RebootServer(MafiaNet::RakString serverId, MafiaNet::RakString rebootType)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<reboot xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" type=\"%s\""
 		"/>",
 		rebootType.C_String());
 
-	AddOperation(RO_REBOOT_SERVER, "POST", SLNet::RakString("servers/%s/action", serverId.C_String()), xml);
+	AddOperation(RO_REBOOT_SERVER, "POST", MafiaNet::RakString("servers/%s/action", serverId.C_String()), xml);
 }
-void Rackspace::RebuildServer(SLNet::RakString serverId, SLNet::RakString imageId)
+void Rackspace::RebuildServer(MafiaNet::RakString serverId, MafiaNet::RakString imageId)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<rebuild xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" imageId=\"%s\""
 		"/>",
 		imageId.C_String());
 
-	AddOperation(RO_REBUILD_SERVER, "POST", SLNet::RakString("servers/%s/action", serverId.C_String()), xml);
+	AddOperation(RO_REBUILD_SERVER, "POST", MafiaNet::RakString("servers/%s/action", serverId.C_String()), xml);
 }
-void Rackspace::ResizeServer(SLNet::RakString serverId, SLNet::RakString flavorId)
+void Rackspace::ResizeServer(MafiaNet::RakString serverId, MafiaNet::RakString flavorId)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<resize xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" flavorId=\"%s\""
 		"/>",
 		flavorId.C_String());
 
-	AddOperation(RO_RESIZE_SERVER, "POST", SLNet::RakString("servers/%s/action", serverId.C_String()), xml);
+	AddOperation(RO_RESIZE_SERVER, "POST", MafiaNet::RakString("servers/%s/action", serverId.C_String()), xml);
 }
-void Rackspace::ConfirmResizedServer(SLNet::RakString serverId)
+void Rackspace::ConfirmResizedServer(MafiaNet::RakString serverId)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<confirmResize xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" "
 		"/>");
-	AddOperation(RO_CONFIRM_RESIZED_SERVER, "POST", SLNet::RakString("servers/%s/action", serverId.C_String()), xml);
+	AddOperation(RO_CONFIRM_RESIZED_SERVER, "POST", MafiaNet::RakString("servers/%s/action", serverId.C_String()), xml);
 }
-void Rackspace::RevertResizedServer(SLNet::RakString serverId)
+void Rackspace::RevertResizedServer(MafiaNet::RakString serverId)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<revertResize xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" "
 		"/>");
-	AddOperation(RO_REVERT_RESIZED_SERVER, "POST", SLNet::RakString("servers/%s/action", serverId.C_String()), xml);
+	AddOperation(RO_REVERT_RESIZED_SERVER, "POST", MafiaNet::RakString("servers/%s/action", serverId.C_String()), xml);
 }
 void Rackspace::ListFlavors(void)
 {
 	AddOperation(RO_LIST_FLAVORS, "GET", "flavors", "");
 }
-void Rackspace::GetFlavorDetails(SLNet::RakString flavorId)
+void Rackspace::GetFlavorDetails(MafiaNet::RakString flavorId)
 {
-	AddOperation(RO_GET_FLAVOR_DETAILS, "GET", SLNet::RakString("flavors/%s", flavorId.C_String()), "");
+	AddOperation(RO_GET_FLAVOR_DETAILS, "GET", MafiaNet::RakString("flavors/%s", flavorId.C_String()), "");
 }
 void Rackspace::ListImages(void)
 {
 	AddOperation(RO_LIST_IMAGES, "GET", "images", "");
 }
-void Rackspace::CreateImage(SLNet::RakString serverId, SLNet::RakString imageName)
+void Rackspace::CreateImage(MafiaNet::RakString serverId, MafiaNet::RakString imageName)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<image xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" name=\"%s\" serverId=\"%s\""
 		"/>",
@@ -269,13 +269,13 @@ void Rackspace::CreateImage(SLNet::RakString serverId, SLNet::RakString imageNam
 
 	AddOperation(RO_CREATE_IMAGE, "POST", "images", xml);
 }
-void Rackspace::GetImageDetails(SLNet::RakString imageId)
+void Rackspace::GetImageDetails(MafiaNet::RakString imageId)
 {
-	AddOperation(RO_GET_IMAGE_DETAILS, "GET", SLNet::RakString("images/%s", imageId.C_String()), "");
+	AddOperation(RO_GET_IMAGE_DETAILS, "GET", MafiaNet::RakString("images/%s", imageId.C_String()), "");
 }
-void Rackspace::DeleteImage(SLNet::RakString imageId)
+void Rackspace::DeleteImage(MafiaNet::RakString imageId)
 {
-	AddOperation(RO_DELETE_IMAGE, "DELETE", SLNet::RakString("images/%s", imageId.C_String()), "");
+	AddOperation(RO_DELETE_IMAGE, "DELETE", MafiaNet::RakString("images/%s", imageId.C_String()), "");
 }
 void Rackspace::ListSharedIPGroups(void)
 {
@@ -285,24 +285,24 @@ void Rackspace::ListSharedIPGroupsWithDetails(void)
 {
 	AddOperation(RO_LIST_SHARED_IP_GROUPS_WITH_DETAILS, "GET", "shared_ip_groups/detail", "");
 }
-void Rackspace::CreateSharedIPGroup(SLNet::RakString name, SLNet::RakString optionalServerId)
+void Rackspace::CreateSharedIPGroup(MafiaNet::RakString name, MafiaNet::RakString optionalServerId)
 {
-	SLNet::RakString xml(
+	MafiaNet::RakString xml(
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 		"<sharedIpGroup xmlns=\"http://docs.rackspacecloud.com/servers/api/v1.0\" name=\"%s\">", name.C_String());
 		if (optionalServerId.IsEmpty()==false)
-			xml+= SLNet::RakString("<server id=\"%s\"/>", optionalServerId.C_String());
+			xml+= MafiaNet::RakString("<server id=\"%s\"/>", optionalServerId.C_String());
 		xml+="</sharedIpGroup>";
 
 	AddOperation(RO_CREATE_SHARED_IP_GROUP, "POST", "shared_ip_groups", xml);
 }
-void Rackspace::GetSharedIPGroupDetails(SLNet::RakString groupId)
+void Rackspace::GetSharedIPGroupDetails(MafiaNet::RakString groupId)
 {
-	AddOperation(RO_GET_SHARED_IP_GROUP_DETAILS, "GET", SLNet::RakString("shared_ip_groups/%s", groupId.C_String()), "");
+	AddOperation(RO_GET_SHARED_IP_GROUP_DETAILS, "GET", MafiaNet::RakString("shared_ip_groups/%s", groupId.C_String()), "");
 }
-void Rackspace::DeleteSharedIPGroup(SLNet::RakString groupId)
+void Rackspace::DeleteSharedIPGroup(MafiaNet::RakString groupId)
 {
-	AddOperation(RO_DELETE_SHARED_IP_GROUP, "DELETE", SLNet::RakString("shared_ip_groups/%s", groupId.C_String()), "");
+	AddOperation(RO_DELETE_SHARED_IP_GROUP, "DELETE", MafiaNet::RakString("shared_ip_groups/%s", groupId.C_String()), "");
 }
 void Rackspace::OnClosedConnection(SystemAddress systemAddress)
 {
@@ -318,7 +318,7 @@ void Rackspace::OnClosedConnection(SystemAddress systemAddress)
 			RackspaceOperation ro = operations[operationsIndex];
 			operations.RemoveAtIndex(operationsIndex);
 
-			SLNet::RakString packetDataString = ro.incomingStream;
+			MafiaNet::RakString packetDataString = ro.incomingStream;
 			const char *packetData = packetDataString.C_String();
 
 			char resultCodeStr[32];
@@ -365,7 +365,7 @@ void Rackspace::OnClosedConnection(SystemAddress systemAddress)
 				{
 					if (rackspaceEventType==RET_Success_204)
 					{
-						SLNet::RakString header;
+						MafiaNet::RakString header;
 						ReadLine(packetData, "X-Server-Management-Url: ", serverManagementURL);
 						serverManagementURL.SplitURI(header, serverManagementDomain, serverManagementPath);
 						ReadLine(packetData, "X-Storage-Url: ", storageURL);
@@ -581,7 +581,7 @@ bool Rackspace::ExecuteOperation(RackspaceOperation &ro)
 	if (ConnectToServerManagementDomain(ro)==false)
 		return false;
 
-	SLNet::RakString command(
+	MafiaNet::RakString command(
 		"%s %s/%s HTTP/1.1\n"
 		"Host: %s\n"
 		"Content-Type: application/xml\n"
@@ -606,7 +606,7 @@ bool Rackspace::ExecuteOperation(RackspaceOperation &ro)
 	tcpInterface->Send(command.C_String(), (unsigned int) command.GetLength(), ro.connectionAddress, false);
 	return true;
 }
-void Rackspace::ReadLine(const char *data, const char *stringStart, SLNet::RakString &output)
+void Rackspace::ReadLine(const char *data, const char *stringStart, MafiaNet::RakString &output)
 {
 	output.Clear();
 

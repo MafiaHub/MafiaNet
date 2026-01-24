@@ -54,7 +54,7 @@
 //#define RGB_BLUE	2	/* Offset of Blue */
 //#define RGB_PIXELSIZE	3	/* JSAMPLEs per RGB scanline element */
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 // JPEG ENCODING ERRORS
 struct my_error_mgr {
@@ -78,10 +78,10 @@ METHODDEF(void) my_error_exit (j_common_ptr cinfo)
 
 // Store packets in the CPUThreadInput until at most this much time has elapsed. This is so
 // batch processing can occur on multiple image sources at once
-static const SLNet::TimeMS MAX_TIME_TO_BUFFER_PACKETS=1000;
+static const MafiaNet::TimeMS MAX_TIME_TO_BUFFER_PACKETS=1000;
 
 // WTF am I getting this?
-// 2>SQLiteServerLoggerPlugin.obj : error LNK2019: unresolved external symbol _GetSqlDataTypeName referenced in function "struct SLNet::SQLite3ServerPlugin::SQLExecThreadOutput __cdecl ExecSQLLoggingThread(struct SLNet::SQLite3ServerPlugin::SQLExecThreadInput,bool *,void *)" (?ExecSQLLoggingThread@@YA?AUExecThreadOutput@SQLite3ServerPlugin@RakNet@@UExecThreadInput@23@PA_NPAX@Z)
+// 2>SQLiteServerLoggerPlugin.obj : error LNK2019: unresolved external symbol _GetSqlDataTypeName referenced in function "struct MafiaNet::SQLite3ServerPlugin::SQLExecThreadOutput __cdecl ExecSQLLoggingThread(struct MafiaNet::SQLite3ServerPlugin::SQLExecThreadInput,bool *,void *)" (?ExecSQLLoggingThread@@YA?AUExecThreadOutput@SQLite3ServerPlugin@RakNet@@UExecThreadInput@23@PA_NPAX@Z)
 // 2>C:\RakNet\Debug\SQLiteServerLogger.exe : fatal error LNK1120: 1 unresolved externals
 static const char *sqlDataTypeNames[SQLLPDT_COUNT] = 
 {
@@ -168,21 +168,21 @@ SQLiteServerLoggerPlugin::CPUThreadOutput* ExecCPULoggingThread(SQLiteServerLogg
 
 	int i;
 	*returnOutput=true;
-	SQLiteServerLoggerPlugin::CPUThreadOutput *cpuThreadOutput = SLNet::OP_NEW<SQLiteServerLoggerPlugin::CPUThreadOutput>(_FILE_AND_LINE_);
+	SQLiteServerLoggerPlugin::CPUThreadOutput *cpuThreadOutput = MafiaNet::OP_NEW<SQLiteServerLoggerPlugin::CPUThreadOutput>(_FILE_AND_LINE_);
 	cpuThreadOutput->arraySize=cpuThreadInput->arraySize;
-	//cpuThreadOutput->cpuOutputNodeArray=SLNet::OP_NEW_ARRAY<SQLiteServerLoggerPlugin::CPUThreadOutputNode*>(cpuThreadInput->arraySize,_FILE_AND_LINE_);
+	//cpuThreadOutput->cpuOutputNodeArray=MafiaNet::OP_NEW_ARRAY<SQLiteServerLoggerPlugin::CPUThreadOutputNode*>(cpuThreadInput->arraySize,_FILE_AND_LINE_);
 	//printf("1. arraySize=%i, ",cpuThreadInput->arraySize);
 	for (i=0; i<cpuThreadInput->arraySize; i++)
 	{
-		cpuThreadOutput->cpuOutputNodeArray[i]= SLNet::OP_NEW<SQLiteServerLoggerPlugin::CPUThreadOutputNode>(_FILE_AND_LINE_);
+		cpuThreadOutput->cpuOutputNodeArray[i]= MafiaNet::OP_NEW<SQLiteServerLoggerPlugin::CPUThreadOutputNode>(_FILE_AND_LINE_);
 		SQLiteServerLoggerPlugin::CPUThreadOutputNode *outputNode = cpuThreadOutput->cpuOutputNodeArray[i];
 		Packet *packet = cpuThreadInput->cpuInputArray[i].packet;
-		SLNet::RakString dbIdentifier = cpuThreadInput->cpuInputArray[i].dbIdentifier;
+		MafiaNet::RakString dbIdentifier = cpuThreadInput->cpuInputArray[i].dbIdentifier;
 		// outputNode->whenMessageArrived = cpuThreadInput->cpuInputArray[i].whenMessageArrived;
 		outputNode->packet=packet;
 		
 		packet->systemAddress.ToString(true,outputNode->ipAddressString,static_cast<size_t>(32));
-		SLNet::BitStream bitStream(packet->data, packet->length, false);
+		MafiaNet::BitStream bitStream(packet->data, packet->length, false);
 		bitStream.IgnoreBytes(1);
 		bitStream.Read(outputNode->dbIdentifier);
 		bitStream.Read(outputNode->tableName);
@@ -195,7 +195,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput* ExecCPULoggingThread(SQLiteServerLogg
 		bitStream.Read(outputNode->parameterCount);
 		if (outputNode->isFunctionCall==false)
 		{
-			SLNet::RakString columnName;
+			MafiaNet::RakString columnName;
 		//	printf("2. parameterCount=%i, ",outputNode->parameterCount);
 			for (int j=0; j < outputNode->parameterCount; j++)
 			{
@@ -341,7 +341,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput* ExecCPULoggingThread(SQLiteServerLogg
 	}
 
 //	printf("5. out1, ");
-	SLNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
 //	printf("6. out2\n");
 	return cpuThreadOutput;
 }
@@ -359,7 +359,7 @@ struct SQLPreparedStatements
 };
 void* SQLLoggerThreadAllocPreparedStatements()
 {
-	SQLPreparedStatements *s = SLNet::OP_NEW<SQLPreparedStatements>(_FILE_AND_LINE_);
+	SQLPreparedStatements *s = MafiaNet::OP_NEW<SQLPreparedStatements>(_FILE_AND_LINE_);
 	return s;
 }
 void SQLLoggerThreadDeallocPreparedStatements(void* statementStruct)
@@ -368,7 +368,7 @@ void SQLLoggerThreadDeallocPreparedStatements(void* statementStruct)
 	if (s->selectNameFromMaster) sqlite3_finalize(s->selectNameFromMaster);
 	if (s->insertIntoFunctionCalls) sqlite3_finalize(s->insertIntoFunctionCalls);
 	if (s->insertIntoFunctionCallParameters) sqlite3_finalize(s->insertIntoFunctionCallParameters);
-	SLNet::OP_DELETE(s,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(s,_FILE_AND_LINE_);
 }
 void DeleteBlobOrText(void* v)
 {
@@ -430,7 +430,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 
 		// Insert into function calls
 		int parameterCountIndex;
-		SLNet::RakString functionCallFriendlyText("%s(", cpuOutputNode->tableName.C_String());
+		MafiaNet::RakString functionCallFriendlyText("%s(", cpuOutputNode->tableName.C_String());
 		for (parameterCountIndex=0; parameterCountIndex < cpuOutputNode->parameterCount; parameterCountIndex++)
 		{
 			if (parameterCountIndex!=0)
@@ -439,32 +439,32 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 			{
 			case SQLLPDT_POINTER:
 				if (cpuOutputNode->parameterList[parameterCountIndex].size==4)
-					functionCallFriendlyText+= SLNet::RakString("%p", cpuOutputNode->parameterList[parameterCountIndex].data.i);
+					functionCallFriendlyText+= MafiaNet::RakString("%p", cpuOutputNode->parameterList[parameterCountIndex].data.i);
 				else
-					functionCallFriendlyText+= SLNet::RakString("%p", cpuOutputNode->parameterList[parameterCountIndex].data.ll);
+					functionCallFriendlyText+= MafiaNet::RakString("%p", cpuOutputNode->parameterList[parameterCountIndex].data.ll);
 				break;
 			case SQLLPDT_INTEGER:
 				switch (cpuOutputNode->parameterList[parameterCountIndex].size)
 				{
 				case 1:
-					functionCallFriendlyText+= SLNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.c);
+					functionCallFriendlyText+= MafiaNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.c);
 					break;
 				case 2:
-					functionCallFriendlyText+= SLNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.s);
+					functionCallFriendlyText+= MafiaNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.s);
 					break;
 				case 4:
-					functionCallFriendlyText+= SLNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.i);
+					functionCallFriendlyText+= MafiaNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.i);
 					break;
 				case 8:
-					functionCallFriendlyText+= SLNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.ll);
+					functionCallFriendlyText+= MafiaNet::RakString("%i", cpuOutputNode->parameterList[parameterCountIndex].data.ll);
 					break;
 				}
 				break;
 			case SQLLPDT_REAL:
 				if (cpuOutputNode->parameterList[parameterCountIndex].size==sizeof(float))
-					functionCallFriendlyText+= SLNet::RakString("%f", cpuOutputNode->parameterList[parameterCountIndex].data.f);
+					functionCallFriendlyText+= MafiaNet::RakString("%f", cpuOutputNode->parameterList[parameterCountIndex].data.f);
 				else
-					functionCallFriendlyText+= SLNet::RakString("%d", cpuOutputNode->parameterList[parameterCountIndex].data.d);
+					functionCallFriendlyText+= MafiaNet::RakString("%d", cpuOutputNode->parameterList[parameterCountIndex].data.d);
 				break;
 			case SQLLPDT_TEXT:
 				functionCallFriendlyText+='"';
@@ -473,10 +473,10 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 				functionCallFriendlyText+='"';
 				break;
 			case SQLLPDT_IMAGE:
-				functionCallFriendlyText+= SLNet::RakString("<%i byte image>", cpuOutputNode->parameterList[parameterCountIndex].size, cpuOutputNode->parameterList[parameterCountIndex].data.cptr);
+				functionCallFriendlyText+= MafiaNet::RakString("<%i byte image>", cpuOutputNode->parameterList[parameterCountIndex].size, cpuOutputNode->parameterList[parameterCountIndex].data.cptr);
 				break;
 			case SQLLPDT_BLOB:
-				functionCallFriendlyText+= SLNet::RakString("<%i byte binary>", cpuOutputNode->parameterList[parameterCountIndex].size, cpuOutputNode->parameterList[parameterCountIndex].data.cptr);
+				functionCallFriendlyText+= MafiaNet::RakString("<%i byte binary>", cpuOutputNode->parameterList[parameterCountIndex].size, cpuOutputNode->parameterList[parameterCountIndex].data.cptr);
 				break;
 			}
 		}
@@ -506,7 +506,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 		}
 //		sqlite3_finalize(statement);
 
-//		SLNet::RakString insertIntoFunctionCallsQuery("INSERT INTO 'functionCalls' (" FUNCTION_CALL_FRIENDLY_TEXT ", " FILE_COLUMN ", " LINE_COLUMN ", " TICK_COUNT_COLUMN ",functionName) VALUES ('%s','%s',%i,%i,'%s') ", functionCallFriendlyText.C_String(), file.C_String(), line, tickCount,tableName.C_String());
+//		MafiaNet::RakString insertIntoFunctionCallsQuery("INSERT INTO 'functionCalls' (" FUNCTION_CALL_FRIENDLY_TEXT ", " FILE_COLUMN ", " LINE_COLUMN ", " TICK_COUNT_COLUMN ",functionName) VALUES ('%s','%s',%i,%i,'%s') ", functionCallFriendlyText.C_String(), file.C_String(), line, tickCount,tableName.C_String());
 //		rc = sqlite3_exec(dbHandle,insertIntoFunctionCallsQuery.C_String(), 0, 0, &errorMsg);
 //		RakAssert(rc==SQLITE_OK);
 //		sqlite3_free(errorMsg);
@@ -576,7 +576,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 	{
 
 		sqlite3_stmt *pragmaTableInfo;
-		SLNet::RakString pragmaQuery("PRAGMA table_info(%s)",cpuOutputNode->tableName.C_String());
+		MafiaNet::RakString pragmaQuery("PRAGMA table_info(%s)",cpuOutputNode->tableName.C_String());
 		if (sqlite3_prepare_v2(
 			dbHandle, 
 			pragmaQuery.C_String(),
@@ -593,8 +593,8 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 		}
 
 		rc = sqlite3_step(pragmaTableInfo);
-		DataStructures::List<SLNet::RakString> existingColumnNames;
-		DataStructures::List<SLNet::RakString> existingColumnTypes;
+		DataStructures::List<MafiaNet::RakString> existingColumnNames;
+		DataStructures::List<MafiaNet::RakString> existingColumnTypes;
 		while (rc==SQLITE_ROW)
 		{
 			/*
@@ -621,8 +621,8 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 			const int typeColumn=2;
 			RakAssert(strcmp(sqlite3_column_name(pragmaTableInfo,nameColumn),"name")==0);
 			RakAssert(strcmp(sqlite3_column_name(pragmaTableInfo,typeColumn),"type")==0);
-			SLNet::RakString columnName = sqlite3_column_text(pragmaTableInfo,nameColumn);
-			SLNet::RakString columnType = sqlite3_column_text(pragmaTableInfo,typeColumn);
+			MafiaNet::RakString columnName = sqlite3_column_text(pragmaTableInfo,nameColumn);
+			MafiaNet::RakString columnType = sqlite3_column_text(pragmaTableInfo,typeColumn);
 			existingColumnNames.Push(columnName, _FILE_AND_LINE_ );
 			existingColumnTypes.Push(columnType, _FILE_AND_LINE_ );
 
@@ -642,7 +642,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 		int existingColumnNamesIndex,insertingColumnNamesIndex;
 		if (existingColumnNames.Size()==0)
 		{
-			SLNet::RakString createQuery("CREATE TABLE %s (rowId_pk INTEGER PRIMARY KEY, " FILE_COLUMN " TEXT, " LINE_COLUMN " INTEGER, " TICK_COUNT_COLUMN " INTEGER, " AUTO_IP_COLUMN " TEXT, " TIMESTAMP_TEXT_COLUMN " TIMESTAMP DATE DEFAULT (datetime('now','localtime')), " TIMESTAMP_NUMERIC_COLUMN " NUMERIC",cpuOutputNode->tableName.C_String());
+			MafiaNet::RakString createQuery("CREATE TABLE %s (rowId_pk INTEGER PRIMARY KEY, " FILE_COLUMN " TEXT, " LINE_COLUMN " INTEGER, " TICK_COUNT_COLUMN " INTEGER, " AUTO_IP_COLUMN " TEXT, " TIMESTAMP_TEXT_COLUMN " TIMESTAMP DATE DEFAULT (datetime('now','localtime')), " TIMESTAMP_NUMERIC_COLUMN " NUMERIC",cpuOutputNode->tableName.C_String());
 
 			for (int i=0; i < cpuOutputNode->parameterCount; i++)
 			{
@@ -693,7 +693,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 				if (alreadyExists==false)
 				{
 					sqlite3_exec(dbHandle,
-						SLNet::RakString("ALTER TABLE %s ADD %s %s",
+						MafiaNet::RakString("ALTER TABLE %s ADD %s %s",
 						cpuOutputNode->tableName.C_String(),
 						cpuOutputNode->insertingColumnNames[insertingColumnNamesIndex].C_String(),
 						GetSqlDataTypeName2(cpuOutputNode->parameterList[insertingColumnNamesIndex].type)
@@ -708,7 +708,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 
 
 		// Insert new row
-		SLNet::RakString insertQuery("INSERT INTO %s (", cpuOutputNode->tableName.C_String());
+		MafiaNet::RakString insertQuery("INSERT INTO %s (", cpuOutputNode->tableName.C_String());
 		int parameterCountIndex;
 		for (parameterCountIndex=0; parameterCountIndex<cpuOutputNode->parameterCount; parameterCountIndex++)
 		{
@@ -821,7 +821,7 @@ SQLiteServerLoggerPlugin::SQLiteServerLoggerPlugin()
 SQLiteServerLoggerPlugin::~SQLiteServerLoggerPlugin()
 {
 	StopCPUSQLThreads();
-	SLNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
 	CloseAllSessions();
 }
 void SQLiteServerLoggerPlugin::Update(void)
@@ -892,7 +892,7 @@ void SQLiteServerLoggerPlugin::Update(void)
 			if (idx==-1)
 			{
 				DeallocPacketUnified(outputNode->packet);
-				SLNet::OP_DELETE(outputNode,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(outputNode,_FILE_AND_LINE_);
 			}
 			else
 			{
@@ -902,9 +902,9 @@ void SQLiteServerLoggerPlugin::Update(void)
 					sassy.sessionName=outputNode->dbIdentifier;
 					sassy.systemAddress=outputNode->packet->systemAddress;
 					sassy.referencedPointer=dbHandles[idx].dbHandle;
-					SLNet::TimeMS curTime = SLNet::GetTimeMS();
-					SLNet::TimeMS dbAge = curTime - dbHandles[idx].whenCreated;
-//					SLNet::TimeMS timeDelta = outputNode->clientSendingTime - curTime;
+					MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
+					MafiaNet::TimeMS dbAge = curTime - dbHandles[idx].whenCreated;
+//					MafiaNet::TimeMS timeDelta = outputNode->clientSendingTime - curTime;
 					sassy.timestampDelta=dbAge - outputNode->clientSendingTime ;
 					// sassy.dbAgeWhenCreated=dbHandles[idx].whenCreated;					
 					loggedInSessions.Push(sassy, _FILE_AND_LINE_ );
@@ -918,14 +918,14 @@ void SQLiteServerLoggerPlugin::Update(void)
 			}
 		}
 
-//		SLNet::OP_DELETE_ARRAY(cpuThreadOutput->cpuOutputNodeArray);
-		SLNet::OP_DELETE(cpuThreadOutput,_FILE_AND_LINE_);
+//		MafiaNet::OP_DELETE_ARRAY(cpuThreadOutput->cpuOutputNodeArray);
+		MafiaNet::OP_DELETE(cpuThreadOutput,_FILE_AND_LINE_);
 	}
 
 	while (sqlLoggerThreadPool.HasOutputFast() && sqlLoggerThreadPool.HasOutput())
 	{
 		hadOutput=true;
-		SLNet::OP_DELETE(sqlLoggerThreadPool.GetOutput().cpuOutputNode,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(sqlLoggerThreadPool.GetOutput().cpuOutputNode,_FILE_AND_LINE_);
 	}
 
 	if (hadOutput)
@@ -941,9 +941,9 @@ PluginReceiveResult SQLiteServerLoggerPlugin::OnReceive(Packet *packet)
 	{
 	case ID_SQLLITE_LOGGER:
 		{
-		SLNet::BitStream bitStream(packet->data, packet->length, false);
+		MafiaNet::BitStream bitStream(packet->data, packet->length, false);
 			bitStream.IgnoreBytes(1);
-			SLNet::RakString dbIdentifier;
+			MafiaNet::RakString dbIdentifier;
 			bitStream.Read(dbIdentifier);
 
 			if (sessionManagementMode==CREATE_EACH_NAMED_DB_HANDLE)
@@ -956,7 +956,7 @@ PluginReceiveResult SQLiteServerLoggerPlugin::OnReceive(Packet *packet)
 
 			CPUThreadInput *ti = LockCpuThreadInput();
 			ti->cpuInputArray[ti->arraySize].packet=packet;
-		//	ti->cpuInputArray[ti->arraySize].whenMessageArrived=SLNet::GetTimeMS();
+		//	ti->cpuInputArray[ti->arraySize].whenMessageArrived=MafiaNet::GetTimeMS();
 			ti->cpuInputArray[ti->arraySize].dbIdentifier=dbIdentifier;
 			UnlockCpuThreadInput();
 
@@ -1025,7 +1025,7 @@ PluginReceiveResult SQLiteServerLoggerPlugin::OnReceive(Packet *packet)
 			SQLExecThreadInput input;			
 			input.dbHandle=dbHandles[idx].dbHandle;
 			input.packet=packet;
-			input.whenMessageArrived=SLNet::GetTimeMS()-dbHandles[idx].whenCreated;
+			input.whenMessageArrived=MafiaNet::GetTimeMS()-dbHandles[idx].whenCreated;
 			__sqlThreadPool.AddInput(ExecSQLLoggingThread, input);
 //			printf("Pending Queries: %i\n", __sqlThreadPool.InputSize());
 */
@@ -1040,7 +1040,7 @@ void SQLiteServerLoggerPlugin::OnClosedConnection(const SystemAddress &systemAdd
 	(void)rakNetGUID;
 	(void)lostConnectionReason;
 
-	SLNet::RakString removedSession;
+	MafiaNet::RakString removedSession;
 	unsigned int i=0;
 	while (i < loggedInSessions.Size())
 	{
@@ -1133,12 +1133,12 @@ void SQLiteServerLoggerPlugin::CloseAllSessions(void)
 	loggedInSessions.Clear(false, _FILE_AND_LINE_);
 	CloseUnreferencedSessions();
 }
-unsigned int SQLiteServerLoggerPlugin::CreateDBHandle(SLNet::RakString dbIdentifier)
+unsigned int SQLiteServerLoggerPlugin::CreateDBHandle(MafiaNet::RakString dbIdentifier)
 {
 	if (sessionManagementMode!=CREATE_EACH_NAMED_DB_HANDLE && sessionManagementMode!=CREATE_SHARED_NAMED_DB_HANDLE)
 		return dbHandles.GetIndexOf(dbIdentifier);
 
-	SLNet::RakString filePath = newDatabaseFilePath;
+	MafiaNet::RakString filePath = newDatabaseFilePath;
 	if (createDirectoryForFile)
 	{
 		filePath+=dbIdentifier;
@@ -1157,7 +1157,7 @@ unsigned int SQLiteServerLoggerPlugin::CreateDBHandle(SLNet::RakString dbIdentif
 		strftime(buf, sizeof(buf), "__%a_%Y-%m-%d__%H;%M", &ts);
 
 		filePath+=buf;
-		filePath+= SLNet::RakString("__%i", SLNet::GetTimeMS());
+		filePath+= MafiaNet::RakString("__%i", MafiaNet::GetTimeMS());
 
 		filePath.MakeFilePath();
 	}
@@ -1166,9 +1166,9 @@ unsigned int SQLiteServerLoggerPlugin::CreateDBHandle(SLNet::RakString dbIdentif
 	// With no file data, just creates the directory structure
 	WriteFileWithDirectories(filePath.C_String(), 0, 0);
 
-	SLNet::RakString fileSafeDbIdentifier = dbIdentifier;
+	MafiaNet::RakString fileSafeDbIdentifier = dbIdentifier;
 	fileSafeDbIdentifier.TerminateAtLastCharacter(':');
-	SLNet::RakString fileNameWithPath=filePath+fileSafeDbIdentifier;
+	MafiaNet::RakString fileNameWithPath=filePath+fileSafeDbIdentifier;
 	
 	// SQL Open this file, and register it
 	sqlite3 *database;
@@ -1222,7 +1222,7 @@ void SQLiteServerLoggerPlugin::StopCPUSQLThreads(void)
 		{
 			DeallocPacketUnified(curCPUThreadInput->cpuInputArray[j].packet);
 		}
-		SLNet::OP_DELETE(curCPUThreadInput,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(curCPUThreadInput,_FILE_AND_LINE_);
 	}
 	cpuLoggerThreadPool.ClearInput();
 	for (i=0; i < cpuLoggerThreadPool.OutputSize(); i++)
@@ -1234,19 +1234,19 @@ void SQLiteServerLoggerPlugin::StopCPUSQLThreads(void)
 			DeallocPacketUnified(cpuThreadOutputNode->packet);
 			for (k=0; k < cpuThreadOutputNode->parameterCount; k++)
 				cpuThreadOutputNode->parameterList[k].Free();
-			SLNet::OP_DELETE(cpuThreadOutputNode,_FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(cpuThreadOutputNode,_FILE_AND_LINE_);
 		}
-//		SLNet::OP_DELETE_ARRAY(cpuThreadOutput->cpuOutputNodeArray,_FILE_AND_LINE_);
-		SLNet::OP_DELETE(cpuThreadOutput,_FILE_AND_LINE_);
+//		MafiaNet::OP_DELETE_ARRAY(cpuThreadOutput->cpuOutputNodeArray,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(cpuThreadOutput,_FILE_AND_LINE_);
 	}
 	cpuLoggerThreadPool.ClearOutput();
 
 	sqlLoggerThreadPool.StopThreads();
 	for (i=0; i < sqlLoggerThreadPool.InputSize(); i++)
-		SLNet::OP_DELETE(sqlLoggerThreadPool.GetInputAtIndex(i).cpuOutputNode,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(sqlLoggerThreadPool.GetInputAtIndex(i).cpuOutputNode,_FILE_AND_LINE_);
 	sqlLoggerThreadPool.ClearInput();
 	for (i=0; i < sqlLoggerThreadPool.OutputSize(); i++)
-		SLNet::OP_DELETE(sqlLoggerThreadPool.GetOutputAtIndex(i).cpuOutputNode,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(sqlLoggerThreadPool.GetOutputAtIndex(i).cpuOutputNode,_FILE_AND_LINE_);
 	sqlLoggerThreadPool.ClearOutput();
 }
 void SQLiteServerLoggerPlugin::GetProcessingStatus(ProcessingStatus *processingStatus)
@@ -1267,9 +1267,9 @@ SQLiteServerLoggerPlugin::CPUThreadInput *SQLiteServerLoggerPlugin::LockCpuThrea
 {
 	if (cpuThreadInput==0)
 	{
-		cpuThreadInput= SLNet::OP_NEW<CPUThreadInput>(_FILE_AND_LINE_);
+		cpuThreadInput= MafiaNet::OP_NEW<CPUThreadInput>(_FILE_AND_LINE_);
 		cpuThreadInput->arraySize=0;
-		whenCpuThreadInputAllocated= SLNet::GetTimeMS();
+		whenCpuThreadInputAllocated= MafiaNet::GetTimeMS();
 	}
 	return cpuThreadInput;
 }
@@ -1279,7 +1279,7 @@ void SQLiteServerLoggerPlugin::ClearCpuThreadInput(void)
 	{
 		for (int i=0; i < cpuThreadInput->arraySize; i++)
 			DeallocPacketUnified(cpuThreadInput->cpuInputArray[i].packet);
-		SLNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
 		cpuThreadInput=0;
 	}
 }
@@ -1296,7 +1296,7 @@ void SQLiteServerLoggerPlugin::CancelLockCpuThreadInput(void)
 {
 	if (cpuThreadInput->arraySize==0)
 	{
-		SLNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(cpuThreadInput,_FILE_AND_LINE_);
 		cpuThreadInput=0;
 	}
 }
@@ -1319,7 +1319,7 @@ void SQLiteServerLoggerPlugin::PushCpuThreadInput(void)
 }
 void SQLiteServerLoggerPlugin::PushCpuThreadInputIfNecessary(void)
 {
-	SLNet::TimeMS curTime = SLNet::GetTimeMS();
+	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	if (cpuThreadInput && curTime-whenCpuThreadInputAllocated>MAX_TIME_TO_BUFFER_PACKETS)
 		PushCpuThreadInput();
 }

@@ -24,7 +24,7 @@
 #include "slikenet/osx_adapter.h"
 #include <limits> // used for std::numeric_limits
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int main(void)
 {
@@ -33,7 +33,7 @@ int main(void)
 
 	char str[64], str2[64];
 
-	SLNet::RakPeerInterface *peer= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *peer= MafiaNet::RakPeerInterface::GetInstance();
 	RelayPlugin *relayPlugin = RelayPlugin::GetInstance();
 	peer->AttachPlugin(relayPlugin);
 
@@ -53,7 +53,7 @@ int main(void)
 
 	// Connecting the client is very simple.  0 means we don't care about
 	// a connectionValidationInteger, and false for low priority threads
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intListenPort),0);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intListenPort),0);
 	socketDescriptor.socketFamily=AF_INET;
 	peer->Startup(8,&socketDescriptor, 1);
 	peer->SetMaximumIncomingConnections(8);
@@ -74,7 +74,7 @@ int main(void)
 			return 3;
 		}
 
-		SLNET_VERIFY(peer->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0) == SLNet::CONNECTION_ATTEMPT_STARTED);
+		SLNET_VERIFY(peer->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 	}
 
 	peer->SetTimeoutTime(30000, UNASSIGNED_SYSTEM_ADDRESS);

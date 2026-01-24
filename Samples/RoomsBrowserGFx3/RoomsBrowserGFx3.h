@@ -41,7 +41,7 @@ public:
 
 	virtual const char *QueryPlatform(void) const=0;
 	virtual void SaveProperty(const char *propertyId, const char *propertyValue)=0;
-	virtual void LoadProperty(const char *propertyId, SLNet::RakString &propertyOut)=0;
+	virtual void LoadProperty(const char *propertyId, MafiaNet::RakString &propertyOut)=0;
 
 	// Calls from Flash
 	ACTIONSCRIPT_CALLABLE_HEADER(f2c_QueryPlatform);

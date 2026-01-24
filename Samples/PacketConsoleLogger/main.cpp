@@ -24,13 +24,13 @@
 #include "slikenet/MessageIdentifiers.h"
 #include "slikenet/Kbhit.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 void main(void)
 {
 	printf("Shows how to connect telnet to read PacketLogger output from RakPeer.\n");
 
-	RakPeerInterface *rakPeer = SLNet::RakPeerInterface::GetInstance();
+	RakPeerInterface *rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	TelnetTransport tt;
 	ConsoleServer consoleServer;
 	LogCommandParser lcp;
@@ -40,8 +40,8 @@ void main(void)
 	consoleServer.SetTransportProvider(&tt, 23);
 	rakPeer->AttachPlugin(&pcl);
 
-	SLNet::SocketDescriptor sd(0,0);
-	SLNet::StartupResult sr = rakPeer->Startup(32, &sd, 1);
+	MafiaNet::SocketDescriptor sd(0,0);
+	MafiaNet::StartupResult sr = rakPeer->Startup(32, &sd, 1);
 	(void) sr;
 	RakAssert(sr==RAKNET_STARTED);
 
@@ -49,14 +49,14 @@ void main(void)
 	printf("Use 'Turn Windows features on and off' with 'Telnet Client' if needed.\n");
 	printf("Once telnet has connected, type 'Logger subscribe'\n");
 	printf("Press any key in this window once you have done all this.\n");
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	while (!_kbhit())
 	{
 		consoleServer.Update();
 		RakSleep(30);
 	}
 
-	SLNet::ConnectionAttemptResult car = rakPeer->Connect("natpunch.slikesoft.com", 61111, 0, 0);
+	MafiaNet::ConnectionAttemptResult car = rakPeer->Connect("natpunch.slikesoft.com", 61111, 0, 0);
 	(void) car;
 	for(;;)
 	{

@@ -13,7 +13,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 static const char *sqlDataTypeNames[SQLLPDT_COUNT] = 
 {
@@ -27,7 +27,7 @@ static const char *sqlDataTypeNames[SQLLPDT_COUNT] =
 
 extern "C" const char *GetSqlDataTypeName(SQLLoggerPrimaryDataType idx) {return sqlDataTypeNames[(int)idx];}
 
-void LogParameter::Serialize(SLNet::BitStream *bs) const
+void LogParameter::Serialize(MafiaNet::BitStream *bs) const
 {
 	// #med consider changing SQLLoggerPrimaryDataType to unsigned char type or add bounds checks here?
 	unsigned char c = static_cast<unsigned char>(type);
@@ -57,7 +57,7 @@ void LogParameter::Serialize(SLNet::BitStream *bs) const
 			break;
 	}
 }
-bool LogParameter::Deserialize(SLNet::BitStream *bs)
+bool LogParameter::Deserialize(MafiaNet::BitStream *bs)
 {
 	bool b;
 	unsigned char c;

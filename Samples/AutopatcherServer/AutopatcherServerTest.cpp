@@ -50,7 +50,7 @@ char PATH_TO_XDELTA_EXE[MAX_PATH];
 
 // The default AutopatcherPostgreRepository2 uses bsdiff which takes too much memory for large files.
 // I override MakePatch to use XDelta in this case
-class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgreRepository2
+class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPostgreRepository2
 {
 	int MakePatch(const char *oldFile, const char *newFile, char **patch, unsigned int *patchLength, int *patchAlgorithm)
 	{
@@ -79,7 +79,7 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 			fclose(fpNew);
 
 			char buff[128];
-			SLNet::TimeUS time = SLNet::GetTimeUS();
+			MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
 #if defined(_WIN32)
 			sprintf_s(buff, "%I64u", time);
 #else
@@ -110,8 +110,8 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 			// r+ instead of r, because I want exclusive access in case xdelta is still working
 			FILE *fpPatch;
 			errno_t error = fopen_s(&fpPatch, pathToPatch, "r+b");
-			SLNet::TimeUS stopWaiting = time + 60000000 * 5;
-			while (error!=0 && SLNet::GetTimeUS() < stopWaiting)
+			MafiaNet::TimeUS stopWaiting = time + 60000000 * 5;
+			while (error!=0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				error = fopen_s(&fpPatch, pathToPatch, "r+b");
@@ -126,7 +126,7 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 			fclose(fpPatch);
 
 			int unlinkRes = _unlink(pathToPatch);
-			while (unlinkRes!=0 && SLNet::GetTimeUS() < stopWaiting)
+			while (unlinkRes!=0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				unlinkRes = _unlink(pathToPatch);
@@ -145,13 +145,13 @@ class AutopatcherPostgreRepository2_WithXDelta : public SLNet::AutopatcherPostgr
 int main(int, char **)
 {
 	printf("Server starting... ");
-	SLNet::AutopatcherServer autopatcherServer;
-	// SLNet::FLP_Printf progressIndicator;
-	SLNet::FileListTransfer fileListTransfer;
+	MafiaNet::AutopatcherServer autopatcherServer;
+	// MafiaNet::FLP_Printf progressIndicator;
+	MafiaNet::FileListTransfer fileListTransfer;
 	static const int workerThreadCount=4; // Used for checking patches only
 	static const int sqlConnectionObjectCount=32; // Used for both checking patches and downloading
 	AutopatcherPostgreRepository2_WithXDelta connectionObject[sqlConnectionObjectCount];
-	SLNet::AutopatcherRepositoryInterface *connectionObjectAddresses[sqlConnectionObjectCount];
+	MafiaNet::AutopatcherRepositoryInterface *connectionObjectAddresses[sqlConnectionObjectCount];
 	for (int i=0; i < sqlConnectionObjectCount; i++)
 		connectionObjectAddresses[i]=&connectionObject[i];
 //	fileListTransfer.AddCallback(&progressIndicator);
@@ -160,10 +160,10 @@ int main(int, char **)
 	// This is used to read increments of large files concurrently, thereby serving users downloads as other users read from the DB
 	fileListTransfer.StartIncrementalReadThreads(sqlConnectionObjectCount);
 	autopatcherServer.SetMaxConurrentUsers(MAX_INCOMING_CONNECTIONS); // More users than this get queued up
-	SLNet::AutopatcherServerLoadNotifier_Printf loadNotifier;
+	MafiaNet::AutopatcherServerLoadNotifier_Printf loadNotifier;
 	autopatcherServer.SetLoadManagementCallback(&loadNotifier);
 #ifdef USE_TCP
-	SLNet::PacketizedTCP packetizedTCP;
+	MafiaNet::PacketizedTCP packetizedTCP;
 	if (packetizedTCP.Start(LISTEN_PORT,MAX_INCOMING_CONNECTIONS)==false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
@@ -172,9 +172,9 @@ int main(int, char **)
 	packetizedTCP.AttachPlugin(&autopatcherServer);
 	packetizedTCP.AttachPlugin(&fileListTransfer);
 #else
-	SLNet::RakPeerInterface *rakPeer;
-	rakPeer = SLNet::RakPeerInterface::GetInstance();
-	SLNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
+	MafiaNet::RakPeerInterface *rakPeer;
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
 	rakPeer->Startup(MAX_INCOMING_CONNECTIONS,&socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(MAX_INCOMING_CONNECTIONS);
 	rakPeer->AttachPlugin(&autopatcherServer);
@@ -229,19 +229,19 @@ int main(int, char **)
 	printf("(D)rop database\n(C)reate database.\n(A)dd application\n(U)pdate revision.\n(R)emove application\n(Q)uit\n");
 
 	int ch;
-	SLNet::Packet *p;
+	MafiaNet::Packet *p;
 	for(;;)
 	{
 #ifdef USE_TCP
-		SLNet::SystemAddress notificationAddress;
+		MafiaNet::SystemAddress notificationAddress;
 		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
 		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= SLNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
 
 		p=packetizedTCP.Receive();
@@ -340,7 +340,7 @@ int main(int, char **)
 #ifdef USE_TCP
 	packetizedTCP.Stop();
 #else
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 #endif
 
 

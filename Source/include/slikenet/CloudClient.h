@@ -29,7 +29,7 @@
 #include "memoryoverride.h"
 #include "DS_Hash.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -160,16 +160,16 @@ public:
 	/// \brief Called in response to ID_CLOUD_GET_RESPONSE
 	/// \param[out] result Contains the original query passed to Get(), and a list of rows returned.
 	/// \param[out] deallocateRowsAfterReturn CloudQueryResult::rowsReturned will be deallocated after the function returns by default. Set to false to not deallocate these pointers. The pointers are allocated through CloudAllocator.
-	virtual void OnGet(SLNet::CloudQueryResult *result, bool *deallocateRowsAfterReturn) {(void) result; (void) deallocateRowsAfterReturn;}
+	virtual void OnGet(MafiaNet::CloudQueryResult *result, bool *deallocateRowsAfterReturn) {(void) result; (void) deallocateRowsAfterReturn;}
 
 	/// \brief Called in response to ID_CLOUD_SUBSCRIPTION_NOTIFICATION
 	/// \param[out] result Contains the row updated
 	/// \param[out] wasUpdated If true, the row was updated. If false, it was deleted. \a result will contain the last value just before deletion
 	/// \param[out] deallocateRowAfterReturn \a result will be deallocated after the function returns by default. Set to false to not deallocate these pointers. The pointers are allocated through CloudAllocator.
-	virtual void OnSubscriptionNotification(SLNet::CloudQueryRow *result, bool wasUpdated, bool *deallocateRowAfterReturn) {(void) result; (void) wasUpdated; (void) deallocateRowAfterReturn;}
+	virtual void OnSubscriptionNotification(MafiaNet::CloudQueryRow *result, bool wasUpdated, bool *deallocateRowAfterReturn) {(void) result; (void) wasUpdated; (void) deallocateRowAfterReturn;}
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

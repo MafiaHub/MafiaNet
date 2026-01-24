@@ -48,9 +48,9 @@ void main(void)
 	printf("Difficulty: Intermediate\n\n");
 
 	char serverPort[30];
-	SLNet::RakPeerInterface *rakPeer= SLNet::RakPeerInterface::GetInstance();
-	rakPeer->SetTimeoutTime(5000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-	//rakPeer->SetTimeoutTime(3000,SLNet::UNASSIGNED_SYSTEM_ADDRESS);
+	MafiaNet::RakPeerInterface *rakPeer= MafiaNet::RakPeerInterface::GetInstance();
+	rakPeer->SetTimeoutTime(5000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+	//rakPeer->SetTimeoutTime(3000,MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	puts("Enter the rakPeer port to listen on");
 	serverPort[0]=0;
 	Gets(serverPort,sizeof(serverPort));
@@ -62,9 +62,9 @@ void main(void)
 		return;
 	}
 
-	SLNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
 	rakPeer->SetMaximumIncomingConnections(32);
-	if (rakPeer->Startup(32,&socketDescriptor, 1)!= SLNet::RAKNET_STARTED)
+	if (rakPeer->Startup(32,&socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup call failed\n");
 		return;
@@ -73,17 +73,17 @@ void main(void)
 		printf("Started on port %i\n", socketDescriptor.port);
 	// Attach the plugin Lobby2Server
 	// The class factory will create messages with server functionality
-	SLNet::Lobby2Server_PGSQL lobby2Server;
+	MafiaNet::Lobby2Server_PGSQL lobby2Server;
 	rakPeer->AttachPlugin(&lobby2Server);
-	SLNet::Lobby2MessageFactory_PGSQL messageFactory;
+	MafiaNet::Lobby2MessageFactory_PGSQL messageFactory;
 	lobby2Server.SetMessageFactory(&messageFactory);
 
 	// This is optional:
 #ifdef __INTEGRATE_LOBBY2_WITH_ROOMS_PLUGIN
-	SLNet::RoomsPlugin roomsPluginServer;
+	MafiaNet::RoomsPlugin roomsPluginServer;
 	rakPeer->AttachPlugin(&roomsPluginServer);
 	lobby2Server.SetRoomsPlugin(&roomsPluginServer);
-	SLNet::ProfanityFilter profanityFilter;
+	MafiaNet::ProfanityFilter profanityFilter;
 	profanityFilter.AddWord("Penis");
 	roomsPluginServer.SetProfanityFilter(&profanityFilter);
 	roomsPluginServer.roomsContainer.AddTitle("Test Title Name");
@@ -110,7 +110,7 @@ void main(void)
 	printf("Lobby2Server started and waiting for connections\n");
 
 
-	SLNet::Lobby2Server::ConfigurationProperties c;
+	MafiaNet::Lobby2Server::ConfigurationProperties c;
 	c.requiresEmailAddressValidationToLogin=false;
 	c.requiresTitleToLogin=true;
 	c.accountRegistrationRequiresCDKey=false;
@@ -118,20 +118,20 @@ void main(void)
 	lobby2Server.SetConfigurationProperties(c);
 
 #ifdef _ALSO_ACT_AS_NAT_PUNCH_SERVER
-	SLNet::NatPunchthroughServer natPunchthroughServer;
-	SLNet::UDPProxyCoordinator udpProxyCoordinator;
-	SLNet::UDPProxyServer udpProxyServer;
-	SLNet::NatTypeDetectionServer natTypeDetectionServer;
+	MafiaNet::NatPunchthroughServer natPunchthroughServer;
+	MafiaNet::UDPProxyCoordinator udpProxyCoordinator;
+	MafiaNet::UDPProxyServer udpProxyServer;
+	MafiaNet::NatTypeDetectionServer natTypeDetectionServer;
 	udpProxyCoordinator.SetRemoteLoginPassword(COORDINATOR_PASSWORD);
 	rakPeer->AttachPlugin(&natPunchthroughServer);
 	rakPeer->AttachPlugin(&udpProxyServer);
 	rakPeer->AttachPlugin(&udpProxyCoordinator);
 	rakPeer->AttachPlugin(&natTypeDetectionServer);
 	char ipListStr[ MAXIMUM_NUMBER_OF_INTERNAL_IDS ][ 128 ];
-	SLNet::SystemAddress ipList[ MAXIMUM_NUMBER_OF_INTERNAL_IDS ];
+	MafiaNet::SystemAddress ipList[ MAXIMUM_NUMBER_OF_INTERNAL_IDS ];
 	for (int i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 		ipList[i].ToString(false,ipListStr[i]);
-	SLNet::SocketLayer::GetMyIP( ipList );
+	MafiaNet::SocketLayer::GetMyIP( ipList );
 	natTypeDetectionServer.Startup(ipListStr[1], ipListStr[2], ipListStr[3]);
 	// Login proxy server to proxy coordinator
 	// Normally the proxy server is on a different computer. Here, we login to our own IP address since the plugin is on the same system
@@ -140,7 +140,7 @@ void main(void)
 	udpProxyServer.LoginToCoordinator(COORDINATOR_PASSWORD, rakPeer->GetMyBoundAddress());
 #endif
 
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	// Loop for input
 	for(;;)
 	{
@@ -176,5 +176,5 @@ void main(void)
 	}
 
 	// #med - add proper termination handling (then reenable the following code)
-	// SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	// MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 }

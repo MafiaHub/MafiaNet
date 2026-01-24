@@ -26,7 +26,7 @@
 #include "WindowsIncludes.h"
 #endif
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class SimpleMutex;
@@ -85,7 +85,7 @@ public:
 	void DeallocWideChar(WCHAR * w);
 
 	void FromWideChar(const wchar_t *source);
-	static SLNet::RakString FromWideChar_S(const wchar_t *source);
+	static MafiaNet::RakString FromWideChar_S(const wchar_t *source);
 #endif
 	
 	/// String class find replacement
@@ -144,7 +144,7 @@ public:
 	void SetChar( unsigned index, unsigned char c );
 
 	/// Replace character at index with string s
-	void SetChar( unsigned index, SLNet::RakString s );
+	void SetChar( unsigned index, MafiaNet::RakString s );
 
 	/// Make sure string is no longer than \a length
 	void Truncate(unsigned int length);
@@ -172,7 +172,7 @@ public:
 
 	/// Create a RakString with a value, without doing printf style parsing
 	/// Equivalent to assignment operator
-	static SLNet::RakString NonVariadic(const char *str);
+	static MafiaNet::RakString NonVariadic(const char *str);
 
 	/// Hash the string into an unsigned int
 	static unsigned long ToInteger(const char *str);
@@ -215,37 +215,37 @@ public:
 	bool IsEmailAddress(void) const;
 
 	/// URL Encode the string. See http://www.codeguru.com/cpp/cpp/cpp_mfc/article.php/c4029/
-	SLNet::RakString& URLEncode(void);
+	MafiaNet::RakString& URLEncode(void);
 
 	/// URL decode the string
-	SLNet::RakString& URLDecode(void);
+	MafiaNet::RakString& URLDecode(void);
 
 	/// https://servers.api.rackspacecloud.com/v1.0 to https://,  servers.api.rackspacecloud.com, /v1.0
-	void SplitURI(SLNet::RakString &header, SLNet::RakString &domain, SLNet::RakString &path);
+	void SplitURI(MafiaNet::RakString &header, MafiaNet::RakString &domain, MafiaNet::RakString &path);
 
 	/// Scan for quote, double quote, and backslash and prepend with backslash
-	SLNet::RakString& SQLEscape(void);
+	MafiaNet::RakString& SQLEscape(void);
 
 	/// Format as a POST command that can be sent to a webserver
 	/// \param[in] uri For example, masterserver2.raknet.com/testServer
 	/// \param[in] contentType For example, text/plain; charset=UTF-8
 	/// \param[in] body Body of the post
 	/// \return Formatted string
-	static SLNet::RakString FormatForPOST(const char* uri, const char* contentType, const char* body, const char* extraHeaders="");
-	static SLNet::RakString FormatForPUT(const char* uri, const char* contentType, const char* body, const char* extraHeaders="");
+	static MafiaNet::RakString FormatForPOST(const char* uri, const char* contentType, const char* body, const char* extraHeaders="");
+	static MafiaNet::RakString FormatForPUT(const char* uri, const char* contentType, const char* body, const char* extraHeaders="");
 
 	/// Format as a GET command that can be sent to a webserver
 	/// \param[in] uri For example, masterserver2.raknet.com/testServer?__gameId=comprehensivePCGame
 	/// \return Formatted string
-	static SLNet::RakString FormatForGET(const char* uri, const char* extraHeaders="");
+	static MafiaNet::RakString FormatForGET(const char* uri, const char* extraHeaders="");
 
 	/// Format as a DELETE command that can be sent to a webserver
 	/// \param[in] uri For example, masterserver2.raknet.com/testServer?__gameId=comprehensivePCGame&__rowId=1
 	/// \return Formatted string
-	static SLNet::RakString FormatForDELETE(const char* uri, const char* extraHeaders="");
+	static MafiaNet::RakString FormatForDELETE(const char* uri, const char* extraHeaders="");
 
 	/// Fix to be a file path, ending with /
-	SLNet::RakString& MakeFilePath(void);
+	MafiaNet::RakString& MakeFilePath(void);
 
 	/// RakString uses a freeList of old no-longer used strings
 	/// Call this function to clear this memory on shutdown
@@ -335,7 +335,7 @@ public:
 	static void UnlockMutex(void);
 
 protected:
-	static SLNet::RakString FormatForPUTOrPost(const char* type, const char* uri, const char* contentType, const char* body, const char* extraHeaders);
+	static MafiaNet::RakString FormatForPUTOrPost(const char* type, const char* uri, const char* contentType, const char* body, const char* extraHeaders);
 	void Allocate(size_t len);
 	void Assign(const char *str);
 	void Assign(const char *str, va_list ap);
@@ -349,6 +349,6 @@ protected:
 
 }
 
-const SLNet::RakString RAK_DLL_EXPORT operator+(const SLNet::RakString &lhs, const SLNet::RakString &rhs);
+const MafiaNet::RakString RAK_DLL_EXPORT operator+(const MafiaNet::RakString &lhs, const MafiaNet::RakString &rhs);
 
 #endif

@@ -22,7 +22,7 @@
 #include "slikenet/peerinterface.h"
 #include "slikenet/MessageIdentifiers.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(UDPProxyServer,UDPProxyServer);
 
@@ -43,7 +43,7 @@ void UDPProxyServer::SetResultHandler(UDPProxyServerResultHandler *rh)
 {
 	resultHandler=rh;
 }
-bool UDPProxyServer::LoginToCoordinator(SLNet::RakString password, SystemAddress coordinatorAddress)
+bool UDPProxyServer::LoginToCoordinator(MafiaNet::RakString password, SystemAddress coordinatorAddress)
 {
 	unsigned int insertionIndex;
 	bool objectExists;
@@ -53,7 +53,7 @@ bool UDPProxyServer::LoginToCoordinator(SLNet::RakString password, SystemAddress
 	loggedInCoordinators.GetIndexFromKey(coordinatorAddress,&objectExists);
 	if (objectExists==true)
 		return false;
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_GENERAL);
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_LOGIN_REQUEST_FROM_SERVER_TO_COORDINATOR);
 	outgoingBs.Write(password);
@@ -95,9 +95,9 @@ PluginReceiveResult UDPProxyServer::OnReceive(Packet *packet)
 				{
 					loggingInCoordinators.RemoveAtIndex(removalIndex);
 
-					SLNet::BitStream incomingBs(packet->data, packet->length, false);
+					MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 					incomingBs.IgnoreBytes(2);
-					SLNet::RakString password;
+					MafiaNet::RakString password;
 					incomingBs.Read(password);
 					switch (packet->data[1])
 					{
@@ -159,17 +159,17 @@ void UDPProxyServer::OnDetach(void)
 void UDPProxyServer::OnForwardingRequestFromCoordinatorToServer(Packet *packet)
 {
 	SystemAddress sourceAddress, targetAddress;
-	SLNet::BitStream incomingBs(packet->data, packet->length, false);
+	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
 	incomingBs.Read(sourceAddress);
 	incomingBs.Read(targetAddress);
-	SLNet::TimeMS timeoutOnNoDataMS;
+	MafiaNet::TimeMS timeoutOnNoDataMS;
 	incomingBs.Read(timeoutOnNoDataMS);
 	RakAssert(timeoutOnNoDataMS > 0 && timeoutOnNoDataMS <= UDP_FORWARDER_MAXIMUM_TIMEOUT);
 
 	unsigned short forwardingPort=0;
 	UDPForwarderResult success = udpForwarder.StartForwarding(sourceAddress, targetAddress, timeoutOnNoDataMS, 0, socketFamily, &forwardingPort, 0);
-	SLNet::BitStream outgoingBs;
+	MafiaNet::BitStream outgoingBs;
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_GENERAL);
 	outgoingBs.Write((MessageID)ID_UDP_PROXY_FORWARDING_REPLY_FROM_SERVER_TO_COORDINATOR);
 	outgoingBs.Write(sourceAddress);

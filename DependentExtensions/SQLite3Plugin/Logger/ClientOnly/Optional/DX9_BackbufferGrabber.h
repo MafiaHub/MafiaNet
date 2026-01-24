@@ -24,7 +24,7 @@ public:
 	// blob is an output parameter. Unchanged if the copy fails.
 	// blob->data is only valid until you call ReleaseBackbufferCopy
 	// If pd3dDevice is 0, it will use whatever was passed to InitBackbufferGrabber
-	void LockBackbufferCopy(SLNet::RGBImageBlob *blob);
+	void LockBackbufferCopy(MafiaNet::RGBImageBlob *blob);
 
 	// Call ReleaseBackbufferCopy after calling LockBackbufferCopy, when you are done with blob.
 	void ReleaseBackbufferCopy(void);

@@ -25,7 +25,7 @@
 #include "memoryoverride.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class NetworkIDManager;
@@ -89,6 +89,6 @@ protected:
 	NetworkIDObject *nextInstanceForNetworkIDManager;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif

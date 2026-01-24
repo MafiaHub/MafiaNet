@@ -27,7 +27,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int main(void)
 {
@@ -39,9 +39,9 @@ int main(void)
 	unsigned short localPort, remotePort;
 	int packetSize;
 	int sendinterval;
-	SLNet::TimeMS time;
-	SLNet::Packet *p;
-	SLNet::TimeMS lastPacketReceipt, lastNotification, lastSend;
+	MafiaNet::TimeMS time;
+	MafiaNet::Packet *p;
+	MafiaNet::TimeMS lastPacketReceipt, lastNotification, lastSend;
 	#ifndef _WIN32
 	char buff[256];
 	#endif
@@ -62,13 +62,13 @@ int main(void)
 	if (ch=='s' || ch=='S')
 	{
 		printf("Acting as server.\n");
-		rakServer= SLNet::RakPeerInterface::GetInstance();
+		rakServer= MafiaNet::RakPeerInterface::GetInstance();
 		rakClient=0;
 	}
 	else
 	{
 		printf("Acting as client.\n");
-		rakClient= SLNet::RakPeerInterface::GetInstance();
+		rakClient= MafiaNet::RakPeerInterface::GetInstance();
 		rakServer=0;
 	}
 
@@ -93,7 +93,7 @@ int main(void)
 
 	if (rakServer)
 	{
-		SLNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		rakServer->Startup(100, &socketDescriptor, 1);
 		rakServer->SetMaximumIncomingConnections(100);
 	}
@@ -116,7 +116,7 @@ int main(void)
 			}
 			remotePort = static_cast<unsigned short>(intRemotePort);
 		}
-		SLNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		rakClient->Startup(1, &socketDescriptor, 1);
 		rakClient->Connect(remoteIP, remotePort, 0, 0);
 	}
@@ -125,12 +125,12 @@ int main(void)
 
 	sendinterval=128;
 	packetSize=64;
-	lastPacketReceipt=lastNotification= SLNet::GetTimeMS();
+	lastPacketReceipt=lastNotification= MafiaNet::GetTimeMS();
 	lastSend=0;
 
 	for(;;)
 	{
-		time= SLNet::GetTimeMS();
+		time= MafiaNet::GetTimeMS();
 
 		if (_kbhit())
 		{
@@ -200,7 +200,7 @@ int main(void)
 
 		if (p)
 		{
-			lastPacketReceipt= SLNet::GetTimeMS();
+			lastPacketReceipt= MafiaNet::GetTimeMS();
 
 			switch (p->data[0])
 			{
@@ -238,15 +238,15 @@ int main(void)
 			(rakClient && rakClient->NumberOfConnections()>0))
 		{
 			// Do sends
-			if (lastSend + (SLNet::TimeMS)sendinterval < time)
+			if (lastSend + (MafiaNet::TimeMS)sendinterval < time)
 			{
 				if (rakServer)
 				{
-					rakServer->Send((char*)randomData, packetSize, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakServer->Send((char*)randomData, packetSize, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				else if (rakClient)
 				{
-					rakClient->Send((char*)randomData, packetSize, HIGH_PRIORITY, RELIABLE_ORDERED, 0, SLNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakClient->Send((char*)randomData, packetSize, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 
 				lastSend=time;
@@ -261,9 +261,9 @@ int main(void)
 	}
 
 	if (rakServer)
-		SLNet::RakPeerInterface::DestroyInstance(rakServer);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakServer);
 	else
-		SLNet::RakPeerInterface::DestroyInstance(rakClient);
+		MafiaNet::RakPeerInterface::DestroyInstance(rakClient);
 
 	return 1;
 }

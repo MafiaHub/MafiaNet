@@ -61,24 +61,24 @@ public:
 	static bool PQGetValueFromBinary(float *output, PGresult *result, int rowIndex, const char *columnName);
 	static bool PQGetValueFromBinary(double *output, PGresult *result, int rowIndex, const char *columnName);
 	static bool PQGetValueFromBinary(bool *output, PGresult *result, int rowIndex, const char *columnName);
-	static bool PQGetValueFromBinary(SLNet::RakString *output, PGresult *result, int rowIndex, const char *columnName);
+	static bool PQGetValueFromBinary(MafiaNet::RakString *output, PGresult *result, int rowIndex, const char *columnName);
 	static bool PQGetValueFromBinary(char **output, unsigned int *outputLength, PGresult *result, int rowIndex, const char *columnName);
 	static bool PQGetValueFromBinary(char **output, int *outputLength, PGresult *result, int rowIndex, const char *columnName);
 
-	static void EncodeQueryInput(const char *colName, unsigned int value, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryInput(const char *colName, bool value, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryInput(const char *colName, int value, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryInput(const char *colName, float value, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryInput(const char *colName, char *binaryData, int binaryDataLength, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty);
-	static void EncodeQueryInput(const char *colName, const char *str, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty, const char *type = "text");
-	static void EncodeQueryInput(const char *colName, const SLNet::RakString &str, SLNet::RakString &paramTypeStr, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty, const char *type = "text");
+	static void EncodeQueryInput(const char *colName, unsigned int value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryInput(const char *colName, bool value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryInput(const char *colName, int value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryInput(const char *colName, float value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryInput(const char *colName, char *binaryData, int binaryDataLength, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty);
+	static void EncodeQueryInput(const char *colName, const char *str, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty, const char *type = "text");
+	static void EncodeQueryInput(const char *colName, const MafiaNet::RakString &str, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty, const char *type = "text");
 
-	static void EncodeQueryUpdate(const char *colName, unsigned int value, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryUpdate(const char *colName, int value, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryUpdate(const char *colName, float value, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryUpdate(const char *colName, char *binaryData, int binaryDataLength, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
-	static void EncodeQueryUpdate(const char *colName, const char *str, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, const char *type = "text");
-	static void EncodeQueryUpdate(const char *colName, const SLNet::RakString &str, SLNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, const char *type = "text");
+	static void EncodeQueryUpdate(const char *colName, unsigned int value, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryUpdate(const char *colName, int value, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryUpdate(const char *colName, float value, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryUpdate(const char *colName, char *binaryData, int binaryDataLength, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat);
+	static void EncodeQueryUpdate(const char *colName, const char *str, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, const char *type = "text");
+	static void EncodeQueryUpdate(const char *colName, const MafiaNet::RakString &str, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, const char *type = "text");
 
 	// Standard query
 	PGresult * QueryVariadic( const char *input, ... );
@@ -89,7 +89,7 @@ public:
 	bool IsResultSuccessful(PGresult *result, bool rollbackOnFailure);
 	void Rollback(void);
 	static void EndianSwapInPlace(char* data, int dataLength);
-	SLNet::RakString GetEscapedString(const char *input) const;
+	MafiaNet::RakString GetEscapedString(const char *input) const;
 protected:	
 
 	PGconn *pgConn;
@@ -98,10 +98,10 @@ protected:
 	char lastError[1024];
 
 	// Connection parameters
-	SLNet::RakString _conninfo;
+	MafiaNet::RakString _conninfo;
 
-	//	DataStructures::List<SLNet::RakString> preparedStatements;
-	DataStructures::List<SLNet::RakString> preparedQueries;
+	//	DataStructures::List<MafiaNet::RakString> preparedStatements;
+	DataStructures::List<MafiaNet::RakString> preparedQueries;
 };
 
 #endif

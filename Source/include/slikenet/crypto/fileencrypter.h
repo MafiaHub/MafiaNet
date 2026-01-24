@@ -10,7 +10,7 @@
 #include "securestring.h"      // used for Crypto::CSecureString
  #include <openssl/ossl_typ.h> // used for RSA
 
-namespace SLNet
+namespace MafiaNet
 {
 	namespace Experimental
 	{

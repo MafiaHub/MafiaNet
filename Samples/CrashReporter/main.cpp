@@ -86,7 +86,7 @@ void main(void)
 	printf("If so desired, it will generate a minidump which can be opened in visual studio\n");
 	printf("to debug the crash.\n\n");
 
-	SLNet::CrashReportControls controls;
+	MafiaNet::CrashReportControls controls;
 	controls.actionToTake=0;
 
 	printf("Send an email? (y/n)\n");
@@ -94,20 +94,20 @@ void main(void)
 	{
 		printf("Attach the mini-dump to the email? (y/n)\n");
 		if (_getch()=='y')
-			controls.actionToTake|= SLNet::AOC_EMAIL_WITH_ATTACHMENT;
+			controls.actionToTake|= MafiaNet::AOC_EMAIL_WITH_ATTACHMENT;
 		else
-			controls.actionToTake|= SLNet::AOC_EMAIL_NO_ATTACHMENT;
+			controls.actionToTake|= MafiaNet::AOC_EMAIL_NO_ATTACHMENT;
 	}
 	printf("Write mini-dump to disk? (y/n)\n");
 	if (_getch()=='y')
-		controls.actionToTake|= SLNet::AOC_WRITE_TO_DISK;
+		controls.actionToTake|= MafiaNet::AOC_WRITE_TO_DISK;
 	printf("Handle crashes in silent mode (no prompts)? (y/n)\n");
 	if (_getch()=='y')
-		controls.actionToTake|= SLNet::AOC_SILENT_MODE;
+		controls.actionToTake|= MafiaNet::AOC_SILENT_MODE;
 
-	if ((controls.actionToTake & SLNet::AOC_EMAIL_WITH_ATTACHMENT) || (controls.actionToTake & SLNet::AOC_EMAIL_NO_ATTACHMENT))
+	if ((controls.actionToTake & MafiaNet::AOC_EMAIL_WITH_ATTACHMENT) || (controls.actionToTake & MafiaNet::AOC_EMAIL_NO_ATTACHMENT))
 	{
-		if (controls.actionToTake & SLNet::AOC_SILENT_MODE)
+		if (controls.actionToTake & MafiaNet::AOC_SILENT_MODE)
 		{
 			printf("Enter SMTP Server: ");
 			Gets(controls.SMTPServer,sizeof(controls.SMTPServer));
@@ -129,14 +129,14 @@ void main(void)
 		printf("Enter subject prefix, if any: ");
 		Gets(controls.emailSubjectPrefix,sizeof(controls.emailSubjectPrefix));
 
-		if ((controls.actionToTake & SLNet::AOC_SILENT_MODE)==0)
+		if ((controls.actionToTake & MafiaNet::AOC_SILENT_MODE)==0)
 		{
 			printf("Enter text to write in email body: ");
 			Gets(controls.emailBody,sizeof(controls.emailBody));
 		}
 	}
 	
-	if (controls.actionToTake & SLNet::AOC_WRITE_TO_DISK)
+	if (controls.actionToTake & MafiaNet::AOC_WRITE_TO_DISK)
 	{
 		printf("Enter disk path to write to (ENTER for current directory): ");
 		Gets(controls.pathToMinidump,sizeof(controls.pathToMinidump));
@@ -152,7 +152,7 @@ void main(void)
 	controls.minidumpType=MiniDumpWithDataSegs;
 
 	// You must call Start before any crashes will be reported.
-	SLNet::CrashReporter::Start(&controls);
+	MafiaNet::CrashReporter::Start(&controls);
 	printf("Crash reporter started.\n");
 
 // If you don't plan to debug the crash reporter itself, you can remove the __try within _DEBUG_CRASH_REPORTER

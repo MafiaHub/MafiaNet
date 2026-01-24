@@ -27,27 +27,27 @@
 int main(int argc, char **argv)
 {
 	// Used to update DNS
-	SLNet::DynDNS dynDNS;
-	SLNet::CloudServerHelper_DynDns cloudServerHelper(&dynDNS);
+	MafiaNet::DynDNS dynDNS;
+	MafiaNet::CloudServerHelper_DynDns cloudServerHelper(&dynDNS);
 	if (!cloudServerHelper.ParseCommandLineParameters(argc, argv))
 		return 1;
 
 	// ---- RAKPEER -----
-	SLNet::RakPeerInterface *rakPeer;
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *rakPeer;
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 
 	// ---- PLUGINS -----
 	// Used to load balance clients, allow for client to client discovery
-	SLNet::CloudServer cloudServer;
+	MafiaNet::CloudServer cloudServer;
 	// Used to update the local cloudServer
-	SLNet::CloudClient cloudClient;
+	MafiaNet::CloudClient cloudClient;
 	// Used to determine the host of the server fully connected mesh, as well as to connect servers automatically
-	SLNet::FullyConnectedMesh2 fullyConnectedMesh2;
+	MafiaNet::FullyConnectedMesh2 fullyConnectedMesh2;
 	// Used for servers to verify each other - otherwise any system could pose as a server
 	// Could also be used to verify and restrict clients if paired with the MessageFilter plugin
-	SLNet::TwoWayAuthentication twoWayAuthentication;
+	MafiaNet::TwoWayAuthentication twoWayAuthentication;
 	// Used to tell servers about each other
-	SLNet::ConnectionGraph2 connectionGraph2;
+	MafiaNet::ConnectionGraph2 connectionGraph2;
 
 	rakPeer->AttachPlugin(&cloudServer);
 	rakPeer->AttachPlugin(&cloudClient);
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 	if (!cloudServerHelper.StartRakPeer(rakPeer))
 		return 1;
 
-	SLNet::CloudServerHelperFilter sampleFilter; // Keeps clients from updating stuff to the server they are not supposed to
+	MafiaNet::CloudServerHelperFilter sampleFilter; // Keeps clients from updating stuff to the server they are not supposed to
 	sampleFilter.serverGuid=rakPeer->GetMyGUID();
 	cloudServerHelper.SetupPlugins(&cloudServer, &sampleFilter, &cloudClient, &fullyConnectedMesh2, &twoWayAuthentication,&connectionGraph2, cloudServerHelper.serverToServerPassword);
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 
 	// Should now be connect to the cloud, using authentication and FullyConnectedMesh2
 	printf("Running.\n");
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	for(;;)
 	{
 		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
@@ -89,6 +89,6 @@ int main(int argc, char **argv)
 	}
 
 
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	return 0;
 }

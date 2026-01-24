@@ -55,18 +55,18 @@ protected:
 	bool ExecuteQueryReadInt (const char * query, int *value);
 	void Commit(void);
 	void Rollback(void);
-	SLNet::RakString GetEscapedString(const char *input) const;
+	MafiaNet::RakString GetEscapedString(const char *input) const;
 
 	st_mysql *mySqlConnection;
 	char lastError[1024];
 
 	// Copy of connection parameters
-	SLNet::RakString _host;
-	SLNet::RakString _user;
-	SLNet::RakString _passwd;
-	SLNet::RakString _db;
+	MafiaNet::RakString _host;
+	MafiaNet::RakString _user;
+	MafiaNet::RakString _passwd;
+	MafiaNet::RakString _db;
 	unsigned int _port;
-	SLNet::RakString _unix_socket;
+	MafiaNet::RakString _unix_socket;
 	unsigned long _clientflag;
 
 };

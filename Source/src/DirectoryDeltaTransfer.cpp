@@ -29,7 +29,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 class DDTCallback : public FileListTransferCBInterface
 {
@@ -83,14 +83,14 @@ DirectoryDeltaTransfer::DirectoryDeltaTransfer()
 {
 	applicationDirectory[0]=0;
 	fileListTransfer=0;
-	availableUploads = SLNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+	availableUploads = MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
 	priority=HIGH_PRIORITY;
 	orderingChannel=0;
 	incrementalReadInterface=0;
 }
 DirectoryDeltaTransfer::~DirectoryDeltaTransfer()
 {
-	SLNet::OP_DELETE(availableUploads, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(availableUploads, _FILE_AND_LINE_);
 }
 void DirectoryDeltaTransfer::SetFileListTransferPlugin(FileListTransfer *flt)
 {
@@ -148,7 +148,7 @@ unsigned short DirectoryDeltaTransfer::DownloadFromSubdirectory(FileList &localF
 	localFiles.AddCallback(cb);
 
 	// Prepare the callback data
-	transferCallback = SLNet::OP_NEW<DDTCallback>( _FILE_AND_LINE_ );
+	transferCallback = MafiaNet::OP_NEW<DDTCallback>( _FILE_AND_LINE_ );
 	if (subdir && subdir[0])
 	{
 		transferCallback->subdirLen=(unsigned int)strlen(subdir);
@@ -171,7 +171,7 @@ unsigned short DirectoryDeltaTransfer::DownloadFromSubdirectory(FileList &localF
 	unsigned short setId = fileListTransfer->SetupReceive(transferCallback, true, host);
 
 	// Send to the host, telling it to process this request
-	SLNet::BitStream outBitstream;
+	MafiaNet::BitStream outBitstream;
 	outBitstream.Write((MessageID)ID_DDT_DOWNLOAD_REQUEST);
 	outBitstream.Write(setId);
 	StringCompressor::Instance()->EncodeString(subdir, 256, &outBitstream);
@@ -200,7 +200,7 @@ void DirectoryDeltaTransfer::OnDownloadRequest(Packet *packet)
 {
 	char subdir[256];
 	char remoteSubdir[256];
-	SLNet::BitStream inBitstream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitstream(packet->data, packet->length, false);
 	FileList remoteFileHash;
 	FileList delta;
 	unsigned short setId;

@@ -34,7 +34,7 @@ enum ServerToServerCommands
 	STSC_DATA_CHANGED,
 };
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 int CloudServer::RemoteServerComp(const RakNetGUID &key, RemoteServer* const &data )
 {
@@ -131,7 +131,7 @@ void CloudServer::GetRequest::Clear(CloudAllocator *allocator)
 	for (i=0; i < remoteServerResponses.Size(); i++)
 	{
 		remoteServerResponses[i]->Clear(allocator);
-		SLNet::OP_DELETE(remoteServerResponses[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteServerResponses[i], _FILE_AND_LINE_);
 	}
 	remoteServerResponses.Clear(false, _FILE_AND_LINE_);
 }
@@ -167,7 +167,7 @@ void CloudServer::SetMaxBytesPerDownload(uint64_t bytes)
 void CloudServer::Update(void)
 {
 	// Timeout getRequests
-	SLNet::Time time = SLNet::Time();
+	MafiaNet::Time time = MafiaNet::Time();
 	if (time > nextGetRequestsCheck)
 	{
 		nextGetRequestsCheck=time+1000;
@@ -180,7 +180,7 @@ void CloudServer::Update(void)
 				// Remote server is not responding, just send back data with whoever did respond
 				ProcessAndTransmitGetRequest(getRequests[i]);
 				getRequests[i]->Clear(this);
-				SLNet::OP_DELETE(getRequests[i],_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(getRequests[i],_FILE_AND_LINE_);
 				getRequests.RemoveAtIndex(i);
 			}
 			else
@@ -243,7 +243,7 @@ PluginReceiveResult CloudServer::OnReceive(Packet *packet)
 }
 void CloudServer::OnPostRequest(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	CloudKey key;
 	key.Serialize(false,&bsIn);
@@ -278,7 +278,7 @@ void CloudServer::OnPostRequest(Packet *packet)
 	RemoteCloudClient *remoteCloudClient;
 	if (remoteSystemsHashIndex.IsInvalid())
 	{
-		remoteCloudClient = SLNet::OP_NEW<RemoteCloudClient>(_FILE_AND_LINE_);
+		remoteCloudClient = MafiaNet::OP_NEW<RemoteCloudClient>(_FILE_AND_LINE_);
 		remoteCloudClient->uploadedKeys.Insert(key,key,true,_FILE_AND_LINE_);
 		remoteCloudClient->uploadedBytes=0;
 		remoteSystems.Push(packet->guid, remoteCloudClient, _FILE_AND_LINE_);
@@ -320,13 +320,13 @@ void CloudServer::OnPostRequest(Packet *packet)
 			// Undo prior insertion of cloudDataList into cloudData if needed
 			if (keyDataListExists==false)
 			{
-				SLNet::OP_DELETE(cloudDataList,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(cloudDataList,_FILE_AND_LINE_);
 				dataRepository.RemoveAtIndex(dataRepositoryIndex);
 			}
 
 			if (remoteCloudClient->IsUnused())
 			{
-				SLNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
 				remoteSystems.Remove(packet->guid, _FILE_AND_LINE_);
 			}
 
@@ -336,7 +336,7 @@ void CloudServer::OnPostRequest(Packet *packet)
 			return;
 		}
 
-		cloudData = SLNet::OP_NEW<CloudData>(_FILE_AND_LINE_);
+		cloudData = MafiaNet::OP_NEW<CloudData>(_FILE_AND_LINE_);
 		cloudData->dataLengthBytes=dataLengthBytes;
 		cloudData->isUploaded=true;
 		if (forceAddress!=UNASSIGNED_SYSTEM_ADDRESS)
@@ -389,7 +389,7 @@ void CloudServer::OnPostRequest(Packet *packet)
 			// Undo prior insertion of cloudDataList into cloudData if needed
 			if (dataRepositoryExists==false)
 			{
-				SLNet::OP_DELETE(cloudDataList,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(cloudDataList,_FILE_AND_LINE_);
 				dataRepository.RemoveAtIndex(dataRepositoryIndex);
 			}
 			return;
@@ -441,7 +441,7 @@ void CloudServer::OnPostRequest(Packet *packet)
 }
 void CloudServer::OnReleaseRequest(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	uint16_t keyCount;
@@ -506,7 +506,7 @@ void CloudServer::OnReleaseRequest(Packet *packet)
 
 			if (cloudData->IsUnused())
 			{
-				SLNet::OP_DELETE(cloudData, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(cloudData, _FILE_AND_LINE_);
 				cloudDataList->keyData.RemoveAtIndex(keyDataListIndex);
 				if (cloudDataList->IsNotUploaded())
 				{
@@ -516,14 +516,14 @@ void CloudServer::OnReleaseRequest(Packet *packet)
 
 				if (cloudDataList->IsUnused())
 				{
-					SLNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
 					dataRepository.RemoveAtIndex(dataRepositoryIndex);
 				}
 			}
 
 			if (remoteCloudClient->IsUnused())
 			{
-				SLNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
 				remoteSystems.RemoveAtIndex(remoteSystemIndex, _FILE_AND_LINE_);
 				break;
 			}
@@ -532,14 +532,14 @@ void CloudServer::OnReleaseRequest(Packet *packet)
 }
 void CloudServer::OnGetRequest(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	uint16_t specificSystemsCount;
 	CloudKey cloudKey;
 
 	// Create a new GetRequest
 	GetRequest *getRequest;
-	getRequest = SLNet::OP_NEW<GetRequest>(_FILE_AND_LINE_);
+	getRequest = MafiaNet::OP_NEW<GetRequest>(_FILE_AND_LINE_);
 	getRequest->cloudQueryWithAddresses.cloudQuery.Serialize(false, &bsIn);
 	getRequest->requestingClient=packet->guid;
 
@@ -553,7 +553,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 
 	if (getRequest->cloudQueryWithAddresses.cloudQuery.keys.Size()==0)
 	{
-		SLNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
 		return;
 	}
 
@@ -563,7 +563,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 			return;
 	}
 
-	getRequest->requestStartTime= SLNet::GetTime();
+	getRequest->requestStartTime= MafiaNet::GetTime();
 	getRequest->requestId=nextGetRequestId++;
 
 	// Send request to servers that have this data
@@ -576,7 +576,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 	}
 	else
 	{
-		SLNet::BitStream bsOut;
+		MafiaNet::BitStream bsOut;
 		bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 		bsOut.Write((MessageID)STSC_PROCESS_GET_REQUEST);
 		getRequest->cloudQueryWithAddresses.Serialize(true, &bsOut);
@@ -584,7 +584,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 
 		for (unsigned int remoteServerIndex=0; remoteServerIndex < remoteServersWithData.Size(); remoteServerIndex++)
 		{
-			BufferedGetResponseFromServer* bufferedGetResponseFromServer = SLNet::OP_NEW<BufferedGetResponseFromServer>(_FILE_AND_LINE_);
+			BufferedGetResponseFromServer* bufferedGetResponseFromServer = MafiaNet::OP_NEW<BufferedGetResponseFromServer>(_FILE_AND_LINE_);
 			bufferedGetResponseFromServer->serverAddress=remoteServersWithData[remoteServerIndex]->serverAddress;
 			bufferedGetResponseFromServer->gotResult=false;
 			getRequest->remoteServerResponses.Insert(remoteServersWithData[remoteServerIndex]->serverAddress, bufferedGetResponseFromServer, true, _FILE_AND_LINE_);
@@ -603,7 +603,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 		RemoteCloudClient *remoteCloudClient;
 		if (remoteSystemsHashIndex.IsInvalid())
 		{
-			remoteCloudClient = SLNet::OP_NEW<RemoteCloudClient>(_FILE_AND_LINE_);
+			remoteCloudClient = MafiaNet::OP_NEW<RemoteCloudClient>(_FILE_AND_LINE_);
 			remoteCloudClient->uploadedBytes=0;
 			remoteSystems.Push(packet->guid, remoteCloudClient, _FILE_AND_LINE_);
 		}
@@ -627,7 +627,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 				UnsubscribeFromKey(remoteCloudClient, packet->guid, keySubscriberIndex, cloudKey, specificSystems);
 			}
 
-			keySubscriberId = SLNet::OP_NEW<KeySubscriberID>(_FILE_AND_LINE_);
+			keySubscriberId = MafiaNet::OP_NEW<KeySubscriberID>(_FILE_AND_LINE_);
 			keySubscriberId->key=cloudKey;
 
 			unsigned int specificSystemIndex;
@@ -660,7 +660,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 					unsigned int keyDataListIndex = cloudDataList->keyData.GetIndexFromKey(specificSystem, &keyDataListExists);
 					if (keyDataListExists==false)
 					{
-						cloudData = SLNet::OP_NEW<CloudData>(_FILE_AND_LINE_);
+						cloudData = MafiaNet::OP_NEW<CloudData>(_FILE_AND_LINE_);
 						cloudData->dataLengthBytes=0;
 						cloudData->allocatedData=0;
 						cloudData->isUploaded=false;
@@ -711,16 +711,16 @@ void CloudServer::OnGetRequest(Packet *packet)
 		{
 			// Didn't do anything
 			remoteSystems.Remove(packet->guid, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
 		}
 	}
 
 	if (remoteServersWithData.Size()==0)
-		SLNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
 }
 void CloudServer::OnUnsubscribeRequest(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	DataStructures::HashIndex remoteSystemIndex = remoteSystems.GetIndexOf(packet->guid);
@@ -782,7 +782,7 @@ void CloudServer::OnUnsubscribeRequest(Packet *packet)
 
 	if (remoteCloudClient->IsUnused())
 	{
-		SLNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
 		remoteSystems.RemoveAtIndex(remoteSystemIndex, _FILE_AND_LINE_);
 	}
 }
@@ -795,7 +795,7 @@ void CloudServer::OnServerToServerGetRequest(Packet *packet)
 	if (objectExists==false)
 		return;
 
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	CloudQueryWithAddresses cloudQueryWithAddresses;
@@ -807,7 +807,7 @@ void CloudServer::OnServerToServerGetRequest(Packet *packet)
 	DataStructures::List<CloudKey> cloudKeyResultList;
 	ProcessCloudQueryWithAddresses(cloudQueryWithAddresses, cloudDataResultList, cloudKeyResultList);
 
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_PROCESS_GET_RESPONSE);
 	bsOut.Write(requestId);
@@ -826,7 +826,7 @@ void CloudServer::OnServerToServerGetResponse(Packet *packet)
 	if (remoteServer==0)
 		return;
 
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	uint32_t requestId;
@@ -859,7 +859,7 @@ void CloudServer::OnServerToServerGetResponse(Packet *packet)
 		ProcessAndTransmitGetRequest(getRequest);
 
 		getRequest->Clear(this);
-		SLNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
 
 		getRequests.RemoveAtIndex(getRequestIndex);
 	}
@@ -884,14 +884,14 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 			if (waitingForThisServer)
 			{
 				getRequest->remoteServerResponses[remoteServerResponsesIndex]->Clear(this);
-				SLNet::OP_DELETE(getRequest->remoteServerResponses[remoteServerResponsesIndex], _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(getRequest->remoteServerResponses[remoteServerResponsesIndex], _FILE_AND_LINE_);
 				getRequest->remoteServerResponses.RemoveAtIndex(remoteServerResponsesIndex);
 
 				if (getRequest->AllRemoteServersHaveResponded())
 				{
 					ProcessAndTransmitGetRequest(getRequest);
 					getRequest->Clear(this);
-					SLNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
 
 					getRequests.RemoveAtIndex(getRequestIndex);
 				}
@@ -902,7 +902,7 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 				getRequestIndex++;
 		}
 
-		SLNet::OP_DELETE(remoteServers[remoteServerIndex],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteServers[remoteServerIndex],_FILE_AND_LINE_);
 		remoteServers.RemoveAtIndex(remoteServerIndex);
 	}
 
@@ -934,7 +934,7 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 
 					if (cloudData->IsUnused())
 					{
-						SLNet::OP_DELETE(cloudData,_FILE_AND_LINE_);
+						MafiaNet::OP_DELETE(cloudData,_FILE_AND_LINE_);
 						cloudDataList->keyData.RemoveAtIndex(keyDataIndex);
 
 						if (cloudDataList->IsNotUploaded())
@@ -948,7 +948,7 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 							// Tell other servers that this key is no longer uploaded, so they do not request it from us
 							RemoveUploadedKeyFromServers(cloudDataList->key);
 
-							SLNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
+							MafiaNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
 							dataRepository.RemoveAtIndex(dataRepositoryIndex);
 						}
 					}
@@ -989,11 +989,11 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 				}
 			}
 
-			SLNet::OP_DELETE(keySubscriberId, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(keySubscriberId, _FILE_AND_LINE_);
 		}
 
 		// Delete and remove from remoteSystems
-		SLNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
 		remoteSystems.RemoveAtIndex(remoteSystemIndex, _FILE_AND_LINE_);
 	}
 }
@@ -1010,15 +1010,15 @@ void CloudServer::Clear(void)
 		for (j=0; j < cloudDataList->keyData.Size(); j++)
 		{
 			cloudDataList->keyData[j]->Clear();
-			SLNet::OP_DELETE(cloudDataList->keyData[j], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(cloudDataList->keyData[j], _FILE_AND_LINE_);
 		}
-		SLNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
 	}
 	dataRepository.Clear(false, _FILE_AND_LINE_);
 
 	for (i=0; i < remoteServers.Size(); i++)
 	{
-		SLNet::OP_DELETE(remoteServers[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteServers[i], _FILE_AND_LINE_);
 	}
 	remoteServers.Clear(false, _FILE_AND_LINE_);
 
@@ -1026,7 +1026,7 @@ void CloudServer::Clear(void)
 	{
 		GetRequest *getRequest = getRequests[i];
 		getRequest->Clear(this);
-		SLNet::OP_DELETE(getRequests[i], _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(getRequests[i], _FILE_AND_LINE_);
 	}
 	getRequests.Clear(false, _FILE_AND_LINE_);
 
@@ -1038,9 +1038,9 @@ void CloudServer::Clear(void)
 		RemoteCloudClient* remoteCloudClient = itemList[i];
 		for (j=0; j < remoteCloudClient->subscribedKeys.Size(); j++)
 		{
-			SLNet::OP_DELETE(remoteCloudClient->subscribedKeys[j], _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(remoteCloudClient->subscribedKeys[j], _FILE_AND_LINE_);
 		}
-		SLNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteCloudClient, _FILE_AND_LINE_);
 	}
 	remoteSystems.Clear(_FILE_AND_LINE_);
 }
@@ -1068,7 +1068,7 @@ void CloudServer::WriteCloudQueryRowFromResultList(unsigned int i, DataStructure
 }
 void CloudServer::NotifyClientSubscribersOfDataChange( CloudData *cloudData, CloudKey &key, DataStructures::OrderedList<RakNetGUID, RakNetGUID> &subscribers, bool wasUpdated )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_SUBSCRIPTION_NOTIFICATION);
 	bsOut.Write(wasUpdated);
 	CloudQueryRow row;
@@ -1089,7 +1089,7 @@ void CloudServer::NotifyClientSubscribersOfDataChange( CloudData *cloudData, Clo
 }
 void CloudServer::NotifyClientSubscribersOfDataChange( CloudQueryRow *row, DataStructures::OrderedList<RakNetGUID, RakNetGUID> &subscribers, bool wasUpdated )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_SUBSCRIPTION_NOTIFICATION);
 	bsOut.Write(wasUpdated);
 	row->Serialize(true,&bsOut,0);
@@ -1104,7 +1104,7 @@ void CloudServer::NotifyServerSubscribersOfDataChange( CloudData *cloudData, Clo
 {
 	// Find every server that has subscribed
 	// Send them change notifications
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_DATA_CHANGED);
 	bsOut.Write(wasUpdated);
@@ -1136,7 +1136,7 @@ void CloudServer::AddServer(RakNetGUID systemIdentifier)
 	unsigned int index = remoteServers.GetIndexFromKey(systemIdentifier,&objectExists);
 	if (objectExists==false)
 	{
-		RemoteServer *remoteServer = SLNet::OP_NEW<RemoteServer>(_FILE_AND_LINE_);
+		RemoteServer *remoteServer = MafiaNet::OP_NEW<RemoteServer>(_FILE_AND_LINE_);
 		remoteServer->gotSubscribedAndUploadedKeys=false;
 		remoteServer->serverAddress=systemIdentifier;
 		remoteServers.InsertAtIndex(remoteServer, index, _FILE_AND_LINE_);
@@ -1150,7 +1150,7 @@ void CloudServer::RemoveServer(RakNetGUID systemAddress)
 	unsigned int index = remoteServers.GetIndexFromKey(systemAddress,&objectExists);
 	if (objectExists==true)
 	{
-		SLNet::OP_DELETE(remoteServers[index],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteServers[index],_FILE_AND_LINE_);
 		remoteServers.RemoveAtIndex(index);
 	}
 }
@@ -1166,7 +1166,7 @@ void CloudServer::GetRemoteServers(DataStructures::List<RakNetGUID> &remoteServe
 }
 void CloudServer::ProcessAndTransmitGetRequest(GetRequest *getRequest)
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_GET_RESPONSE);
 
 	//	BufferedGetResponseFromServer getResponse;
@@ -1301,7 +1301,7 @@ void CloudServer::ProcessCloudQueryWithAddresses( CloudServer::CloudQueryWithAdd
 }
 void CloudServer::SendUploadedAndSubscribedKeysToServer( RakNetGUID systemAddress )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_ADD_UPLOADED_AND_SUBSCRIBED_KEYS);
 	bsOut.WriteCasted<uint16_t>(dataRepository.Size());
@@ -1330,7 +1330,7 @@ void CloudServer::SendUploadedAndSubscribedKeysToServer( RakNetGUID systemAddres
 }
 void CloudServer::SendUploadedKeyToServers( CloudKey &cloudKey )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_ADD_UPLOADED_KEY);
 	cloudKey.Serialize(true, &bsOut);
@@ -1339,7 +1339,7 @@ void CloudServer::SendUploadedKeyToServers( CloudKey &cloudKey )
 }
 void CloudServer::SendSubscribedKeyToServers( CloudKey &cloudKey )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_ADD_SUBSCRIBED_KEY);
 	cloudKey.Serialize(true, &bsOut);
@@ -1348,7 +1348,7 @@ void CloudServer::SendSubscribedKeyToServers( CloudKey &cloudKey )
 }
 void CloudServer::RemoveUploadedKeyFromServers( CloudKey &cloudKey )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_REMOVE_UPLOADED_KEY);
 	cloudKey.Serialize(true, &bsOut);
@@ -1357,7 +1357,7 @@ void CloudServer::RemoveUploadedKeyFromServers( CloudKey &cloudKey )
 }
 void CloudServer::RemoveSubscribedKeyFromServers( CloudKey &cloudKey )
 {
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
 	bsOut.Write((MessageID)STSC_REMOVE_SUBSCRIBED_KEY);
 	cloudKey.Serialize(true, &bsOut);
@@ -1366,7 +1366,7 @@ void CloudServer::RemoveSubscribedKeyFromServers( CloudKey &cloudKey )
 }
 void CloudServer::OnSendUploadedAndSubscribedKeysToServer( Packet *packet )
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	bool objectExists;
@@ -1409,7 +1409,7 @@ void CloudServer::OnSendUploadedAndSubscribedKeysToServer( Packet *packet )
 }
 void CloudServer::OnSendUploadedKeyToServers( Packet *packet )
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	bool objectExists;
@@ -1428,7 +1428,7 @@ void CloudServer::OnSendUploadedKeyToServers( Packet *packet )
 }
 void CloudServer::OnSendSubscribedKeyToServers( Packet *packet )
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	bool objectExists;
@@ -1449,7 +1449,7 @@ void CloudServer::OnSendSubscribedKeyToServers( Packet *packet )
 }
 void CloudServer::OnRemoveUploadedKeyFromServers( Packet *packet )
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	bool objectExists;
@@ -1467,7 +1467,7 @@ void CloudServer::OnRemoveUploadedKeyFromServers( Packet *packet )
 }
 void CloudServer::OnRemoveSubscribedKeyFromServers( Packet *packet )
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	bool objectExists;
@@ -1485,7 +1485,7 @@ void CloudServer::OnRemoveSubscribedKeyFromServers( Packet *packet )
 }
 void CloudServer::OnServerDataChanged( Packet *packet )
 {
-	SLNet::BitStream bsIn(packet->data, packet->length, false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID)*2);
 
 	bool objectExists;
@@ -1567,7 +1567,7 @@ CloudServer::CloudDataList *CloudServer::GetOrAllocateCloudDataList(CloudKey key
 	dataRepositoryIndex = dataRepository.GetIndexFromKey(key, dataRepositoryExists);
 	if (*dataRepositoryExists==false)
 	{
-		cloudDataList = SLNet::OP_NEW<CloudDataList>(_FILE_AND_LINE_);
+		cloudDataList = MafiaNet::OP_NEW<CloudDataList>(_FILE_AND_LINE_);
 		cloudDataList->key=key;
 		cloudDataList->uploaderCount=0;
 		cloudDataList->subscriberCount=0;
@@ -1627,7 +1627,7 @@ void CloudServer::UnsubscribeFromKey(RemoteCloudClient *remoteCloudClient, RakNe
 
 	if (keySubscriberId->specificSystemsSubscribedTo.Size()==0)
 	{
-		SLNet::OP_DELETE(keySubscriberId, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(keySubscriberId, _FILE_AND_LINE_);
 		remoteCloudClient->subscribedKeys.RemoveAtIndex(keySubscriberIndex);
 	}
 
@@ -1636,7 +1636,7 @@ void CloudServer::UnsubscribeFromKey(RemoteCloudClient *remoteCloudClient, RakNe
 
 	if (cloudDataList->IsUnused())
 	{
-		SLNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
 		dataRepository.RemoveAtIndex(dataRepositoryIndex);
 	}
 }
@@ -1656,7 +1656,7 @@ void CloudServer::RemoveSpecificSubscriber(RakNetGUID specificSubscriber, CloudD
 
 		if (cloudData->IsUnused())
 		{
-			SLNet::OP_DELETE(cloudData, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(cloudData, _FILE_AND_LINE_);
 			cloudDataList->keyData.RemoveAtIndex(keyDataListIndex);
 		}
 	}

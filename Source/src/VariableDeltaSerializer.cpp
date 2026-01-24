@@ -15,7 +15,7 @@
 
 #include "slikenet/VariableDeltaSerializer.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 VariableDeltaSerializer::VariableDeltaSerializer() {didComparisonThisTick=false;}
 VariableDeltaSerializer::~VariableDeltaSerializer() {RemoveRemoteSystemVariableHistory();}
@@ -156,7 +156,7 @@ void VariableDeltaSerializer::RemoveRemoteSystemVariableHistory(RakNetGUID guid)
 	}
 }
 
-int SLNet::VariableDeltaSerializer::UpdatedVariablesListPtrComp( const uint32_t &key, ChangedVariablesList* const &data )
+int MafiaNet::VariableDeltaSerializer::UpdatedVariablesListPtrComp( const uint32_t &key, ChangedVariablesList* const &data )
 {
 	if (key<data->sendReceipt)
 		return -1;

@@ -56,7 +56,7 @@ void DX9_BackbufferGrabber::InitBackbufferGrabber(LPDIRECT3DDEVICE9 pd3dDevice, 
 		nullptr
 		);
 }
-void DX9_BackbufferGrabber::LockBackbufferCopy(SLNet::RGBImageBlob *blob)
+void DX9_BackbufferGrabber::LockBackbufferCopy(MafiaNet::RGBImageBlob *blob)
 {
 	LPDIRECT3DDEVICE9 pd3dDevice;
 	pd3dDevice=deviceUsedToInit;
@@ -67,7 +67,7 @@ void DX9_BackbufferGrabber::LockBackbufferCopy(SLNet::RGBImageBlob *blob)
 	hr = deviceUsedToInit->StretchRect(pBackBuffer, nullptr, pRenderTargetSurface, nullptr, D3DTEXF_NONE);
 	hr = deviceUsedToInit->GetRenderTargetData(pRenderTargetSurface,pDestSurface);
 
-	//	SLNet::TimeMS t1 = SLNet::GetTimeMS();
+	//	MafiaNet::TimeMS t1 = MafiaNet::GetTimeMS();
 	D3DLOCKED_RECT lockedRect;
 	hr = pDestSurface->LockRect(&lockedRect,0,D3DLOCK_DONOTWAIT|D3DLOCK_READONLY|D3DLOCK_NOSYSLOCK);
 	if (hr==D3D_OK)

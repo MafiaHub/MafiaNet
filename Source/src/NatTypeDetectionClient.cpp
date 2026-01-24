@@ -26,7 +26,7 @@
 #include "slikenet/SocketLayer.h"
 #include "slikenet/SocketDefines.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(NatTypeDetectionClient,NatTypeDetectionClient);
 
@@ -38,7 +38,7 @@ NatTypeDetectionClient::~NatTypeDetectionClient()
 {
 	if (c2!=0)
 	{
-		SLNet::OP_DELETE(c2,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(c2,_FILE_AND_LINE_);
 	}
 }
 void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
@@ -71,7 +71,7 @@ void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
 
 	serverAddress=_serverAddress;
 
-	SLNet::BitStream bs;
+	MafiaNet::BitStream bs;
 	bs.Write((unsigned char)ID_NAT_TYPE_DETECTION_REQUEST);
 	bs.Write(true); // IsRequest
 	bs.Write(c2->GetBoundAddress().GetPort());
@@ -93,7 +93,7 @@ void NatTypeDetectionClient::OnCompletion(NATTypeDetectionResult result)
 	if (result!=NAT_TYPE_PORT_RESTRICTED && result!=NAT_TYPE_SYMMETRIC)
 	{
 		// Otherwise tell the server we got this message, so it stops sending tests to us
-		SLNet::BitStream bs;
+		MafiaNet::BitStream bs;
 		bs.Write((unsigned char)ID_NAT_TYPE_DETECTION_REQUEST);
 		bs.Write(false); // Done
 		rakPeerInterface->Send(&bs,HIGH_PRIORITY,RELIABLE,0,serverAddress,false);
@@ -183,9 +183,9 @@ void NatTypeDetectionClient::OnDetach(void)
 }
 void NatTypeDetectionClient::OnTestPortRestricted(Packet *packet)
 {
-	SLNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
-	SLNet::RakString s3p4StrAddress;
+	MafiaNet::RakString s3p4StrAddress;
 	bsIn.Read(s3p4StrAddress);
 	unsigned short s3p4Port;
 	bsIn.Read(s3p4Port);
@@ -197,7 +197,7 @@ void NatTypeDetectionClient::OnTestPortRestricted(Packet *packet)
 
 	// Send off the RakNet socket to the specified address, message is unformatted
 	// Server does this twice, so don't have to unduly worry about packetloss
-	SLNet::BitStream bsOut;
+	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) NAT_TYPE_PORT_RESTRICTED);
 	bsOut.Write(rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 //	SocketLayer::SendTo_PC( sockets[0], (const char*) bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), s3p4Addr, __FILE__, __LINE__ );
@@ -219,25 +219,25 @@ void NatTypeDetectionClient::Shutdown(void)
 			((RNS2_Berkley *)c2)->BlockOnStopRecvPollingThread();
 #endif
 
-		SLNet::OP_DELETE(c2, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(c2, _FILE_AND_LINE_);
 		c2=0;
 	}
 
 	bufferedPacketsMutex.Lock();
 	while (bufferedPackets.Size())
-		SLNet::OP_DELETE(bufferedPackets.Pop(), _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(bufferedPackets.Pop(), _FILE_AND_LINE_);
 	bufferedPacketsMutex.Unlock();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void NatTypeDetectionClient::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
 {
-	SLNet::OP_DELETE(s, file, line);
+	MafiaNet::OP_DELETE(s, file, line);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RNS2RecvStruct *NatTypeDetectionClient::AllocRNS2RecvStruct(const char *file, unsigned int line)
 {
-	return SLNet::OP_NEW<RNS2RecvStruct>(file,line);
+	return MafiaNet::OP_NEW<RNS2RecvStruct>(file,line);
 }
 void NatTypeDetectionClient::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 {

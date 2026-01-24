@@ -32,7 +32,7 @@
 #include "DS_Queue.h"
 #include "DS_OrderedList.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 	/// When NAT Punchthrough fails, it is possible to use a non-NAT system to forward messages from us to the recipient, and vice-versa
 	/// The class to forward messages is UDPForwarder, and it is triggered over the network via the UDPProxyServer plugin.
@@ -51,7 +51,7 @@ namespace SLNet
 		/// For UDPProxyServers logging in remotely, they must pass a password to UDPProxyServer::LoginToCoordinator(). It must match the password set here.
 		/// If no password is set, they cannot login remotely.
 		/// By default, no password is set
-		void SetRemoteLoginPassword(SLNet::RakString password);
+		void SetRemoteLoginPassword(MafiaNet::RakString password);
 
 		/// \internal
 		virtual void Update(void);
@@ -74,16 +74,16 @@ namespace SLNet
 
 		struct ForwardingRequest
 		{
-			SLNet::TimeMS timeoutOnNoDataMS;
-			SLNet::TimeMS timeoutAfterSuccess;
+			MafiaNet::TimeMS timeoutOnNoDataMS;
+			MafiaNet::TimeMS timeoutAfterSuccess;
 			SenderAndTargetAddress sata;
 			SystemAddress requestingAddress; // Which system originally sent the network message to start forwarding
 			SystemAddress currentlyAttemptedServerAddress;
 			DataStructures::Queue<SystemAddress> remainingServersToTry;
-			SLNet::BitStream serverSelectionBitstream;
+			MafiaNet::BitStream serverSelectionBitstream;
 
 			DataStructures::List<ServerWithPing> sourceServerPings, targetServerPings;
-			SLNet::TimeMS timeRequestedPings;
+			MafiaNet::TimeMS timeRequestedPings;
 			// Order based on sourceServerPings and targetServerPings
 			void OrderRemainingServersToTry(void);
 		
@@ -101,7 +101,7 @@ namespace SLNet
 		void SendAllBusy(SystemAddress senderClientAddress, SystemAddress targetClientAddress, RakNetGUID targetClientGuid, SystemAddress requestingAddress);
 		void Clear(void);
 
-		void SendForwardingRequest(SystemAddress sourceAddress, SystemAddress targetAddress, SystemAddress serverAddress, SLNet::TimeMS timeoutOnNoDataMS);
+		void SendForwardingRequest(SystemAddress sourceAddress, SystemAddress targetAddress, SystemAddress serverAddress, MafiaNet::TimeMS timeoutOnNoDataMS);
 
 		// Logged in servers
 		//DataStructures::Multilist<ML_UNORDERED_LIST, SystemAddress> serverList;
@@ -111,7 +111,7 @@ namespace SLNet
 		//DataStructures::Multilist<ML_ORDERED_LIST, ForwardingRequest*, SenderAndTargetAddress> forwardingRequestList;
 		DataStructures::OrderedList<SenderAndTargetAddress, ForwardingRequest*, ForwardingRequestComp> forwardingRequestList;
 
-		SLNet::RakString remoteLoginPassword;
+		MafiaNet::RakString remoteLoginPassword;
 
 	};
 

@@ -15,7 +15,7 @@
 
 #include "slikenet/LocklessTypes.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 LocklessUint32_t::LocklessUint32_t()
 {

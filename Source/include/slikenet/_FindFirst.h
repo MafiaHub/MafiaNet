@@ -53,8 +53,8 @@ typedef struct _finddata_t
 typedef struct _findinfo_t
 {
 	DIR*	openedDir;
-	SLNet::RakString filter;    
-	SLNet::RakString dirName;
+	MafiaNet::RakString filter;    
+	MafiaNet::RakString dirName;
 } _findinfo;
 
 long _findfirst(const char *name, _finddata_t *f);

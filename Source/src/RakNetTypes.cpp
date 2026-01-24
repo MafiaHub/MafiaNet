@@ -45,7 +45,7 @@
 #include "slikenet/linux_adapter.h"
 #include "slikenet/osx_adapter.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 const char *IPV6_LOOPBACK="::1";
 const char *IPV4_LOOPBACK="127.0.0.1";
@@ -82,7 +82,7 @@ void AddressOrGUID::ToString(bool writePort, char *dest, size_t destLength) cons
 }
 
 // Return false if IP address. Return true if domain
-bool SLNet::NonNumericHostString( const char *host )
+bool MafiaNet::NonNumericHostString( const char *host )
 {
 	size_t i = 0;
 	while (host[i] != '\0') {
@@ -780,7 +780,7 @@ unsigned long RakNetGUID::ToUint32( const RakNetGUID &g )
 	return ((unsigned long) (g.g >> 32)) ^ ((unsigned long) (g.g & 0xFFFFFFFF));
 }
 
-namespace SLNet
+namespace MafiaNet
 {
 	// initialization list
 #ifndef SWIG

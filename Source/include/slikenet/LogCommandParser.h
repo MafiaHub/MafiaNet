@@ -26,7 +26,7 @@
 #include "CommandParserInterface.h"
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
@@ -125,7 +125,7 @@ protected:
 	TransportInterface *trans;
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
 

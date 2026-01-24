@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <time.h>
 
-using namespace SLNet;
+using namespace MafiaNet;
 
 const static unsigned HASH_LENGTH=4;
 
@@ -216,14 +216,14 @@ void AutopatcherServer::Clear(void)
 	{
 		if (DecrementPatchingUserCount(threadPool.GetInputAtIndex(i).systemAddress))
 			CallPatchCompleteCallback(threadPool.GetInputAtIndex(i).systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_INPUT_THREAD);
-		SLNet::OP_DELETE(threadPool.GetInputAtIndex(i).clientList, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(threadPool.GetInputAtIndex(i).clientList, _FILE_AND_LINE_);
 	}
 	threadPool.ClearInput();
 	for (i=0; i < threadPool.OutputSize(); i++)
 	{
-		SLNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->patchList, _FILE_AND_LINE_);
-		SLNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->deletedFiles, _FILE_AND_LINE_);
-		SLNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->addedOrModifiedFilesWithHashData, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->patchList, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->deletedFiles, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->addedOrModifiedFilesWithHashData, _FILE_AND_LINE_);
 	}
 	threadPool.ClearOutput();
 
@@ -275,7 +275,7 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 		{
 			if (DecrementPatchingUserCount(systemAddress))
 				CallPatchCompleteCallback(threadPool.GetInputAtIndex(i).systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_INPUT_THREAD);
-			SLNet::OP_DELETE(threadPool.GetInputAtIndex(i).clientList, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadPool.GetInputAtIndex(i).clientList, _FILE_AND_LINE_);
 			threadPool.RemoveInputAtIndex(i);
 		}
 		else
@@ -289,9 +289,9 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 	{
 		if (threadPool.GetOutputAtIndex(i)->systemAddress==systemAddress)
 		{
-			SLNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->patchList, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->deletedFiles, _FILE_AND_LINE_);
-			SLNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->addedOrModifiedFilesWithHashData, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->patchList, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->deletedFiles, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->addedOrModifiedFilesWithHashData, _FILE_AND_LINE_);
 			threadPool.RemoveOutputAtIndex(i);
 		}
 		else
@@ -299,7 +299,7 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 	}
 	threadPool.UnlockOutput();
 }
-namespace SLNet
+namespace MafiaNet
 {
 AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherServer::ThreadData threadData, bool *returnOutput, void* perThreadData)
 {
@@ -308,11 +308,11 @@ AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherS
 	FileList addedOrModifiedFilesWithHashData, deletedFiles;
 	AutopatcherServer *server = threadData.server;
 
-	//AutopatcherServer::ResultTypeAndBitstream *rtab = SLNet::OP_NEW<AutopatcherServer::ResultTypeAndBitstream>( _FILE_AND_LINE_ );
+	//AutopatcherServer::ResultTypeAndBitstream *rtab = MafiaNet::OP_NEW<AutopatcherServer::ResultTypeAndBitstream>( _FILE_AND_LINE_ );
 	AutopatcherServer::ResultTypeAndBitstream rtab;
 	rtab.systemAddress=threadData.systemAddress;
-// 	rtab.deletedFiles=SLNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
-// 	rtab.addedFiles=SLNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+// 	rtab.deletedFiles=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+// 	rtab.addedFiles=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
 	rtab.deletedFiles=&deletedFiles;
 	rtab.addedOrModifiedFilesWithHashData=&addedOrModifiedFilesWithHashData;
 
@@ -361,8 +361,8 @@ AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherS
 		rtab.bitStream2.Write((unsigned char) ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR);
 		StringCompressor::Instance()->EncodeString(repository->GetLastError(), 256, &rtab.bitStream2);	
 	}
-// 	SLNet::OP_DELETE(rtab.deletedFiles, _FILE_AND_LINE_);
-// 	SLNet::OP_DELETE(rtab.addedFiles, _FILE_AND_LINE_);
+// 	MafiaNet::OP_DELETE(rtab.deletedFiles, _FILE_AND_LINE_);
+// 	MafiaNet::OP_DELETE(rtab.addedFiles, _FILE_AND_LINE_);
 
 	*returnOutput=false;
 
@@ -401,7 +401,7 @@ AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherS
 }
 PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	ThreadData threadData;
 	threadData.clientList=0;
 	inBitStream.IgnoreBits(8);
@@ -410,8 +410,8 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 
 	if (cacheLoaded && threadData.lastUpdateDate!=0 && threadData.applicationName==cache_appName)
 	{
-		SLNet::BitStream bitStream1;
-		SLNet::BitStream bitStream2;
+		MafiaNet::BitStream bitStream1;
+		MafiaNet::BitStream bitStream2;
 		double currentDate=(double) time(nullptr);
 		if (cache_maxTime!=0 && threadData.lastUpdateDate>cache_maxTime)
 		{
@@ -459,7 +459,7 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 }
 void AutopatcherServer::OnGetChangelistSinceDateInt(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	ThreadData threadData;
 	threadData.clientList=0;
 	inBitStream.IgnoreBits(8);
@@ -475,17 +475,17 @@ void AutopatcherServer::OnGetChangelistSinceDateInt(Packet *packet)
 		threadPool.AddInput(GetChangelistSinceDateCB, threadData);
 	}
 }
-namespace SLNet {
+namespace MafiaNet {
 AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadData threadData, bool *returnOutput, void* perThreadData)
 {
 	AutopatcherServer *server = threadData.server;
 	AutopatcherRepositoryInterface *repository = (AutopatcherRepositoryInterface*)perThreadData;
 
-	// AutopatcherServer::ResultTypeAndBitstream *rtab = SLNet::OP_NEW<AutopatcherServer::ResultTypeAndBitstream>( _FILE_AND_LINE_ );
+	// AutopatcherServer::ResultTypeAndBitstream *rtab = MafiaNet::OP_NEW<AutopatcherServer::ResultTypeAndBitstream>( _FILE_AND_LINE_ );
 	AutopatcherServer::ResultTypeAndBitstream rtab;
 	rtab.systemAddress=threadData.systemAddress;
 	FileList fileList;
-	// rtab.patchList=SLNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+	// rtab.patchList=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
 	rtab.patchList=&fileList;
 	RakAssert(server);
 //	RakAssert(server->repository);
@@ -495,7 +495,7 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 	rtab.setId=threadData.setId;
 	rtab.currentDate=(double) time(nullptr);
 
-	SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 
 	if (rtab.resultCode==1)
 	{
@@ -568,7 +568,7 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 }
 PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	
 	ThreadData threadData;
 	inBitStream.IgnoreBits(8);
@@ -583,22 +583,22 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 	{
 		threadData.systemAddress=packet->systemAddress;
 		threadData.server=this;
-		threadData.clientList= SLNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+		threadData.clientList= MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
 
 		if (threadData.clientList->Deserialize(&inBitStream)==false)
 		{
-			SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
 		if (threadData.clientList->fileList.Size()==0)
 		{
 			RakAssert(0);
-			SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+			MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
 
 		char *userHash;
-		SLNet::RakString userFilename;
+		MafiaNet::RakString userFilename;
 		FileList patchList;
 		bool cacheUpdateFailed=false;
 
@@ -614,7 +614,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 				// If the user has a hash, check for this file in cache_patchedFiles. If not found, or hash is wrong, use DB
 				if (threadData.clientList->fileList[i].dataLengthBytes!=HASH_LENGTH)
 				{
-					SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+					MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
@@ -678,19 +678,19 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 			if (IncrementPatchingUserCount(packet->systemAddress))
 			{
 				fileListTransfer->Send(&patchList, 0, packet->systemAddress, threadData.setId, priority, orderingChannel, this, 262144*4*4);
-				SLNet::BitStream bitStream1;
+				MafiaNet::BitStream bitStream1;
 				bitStream1.Write((unsigned char) ID_AUTOPATCHER_FINISHED_INTERNAL);
 				double t =(double) time(nullptr);
 				bitStream1.Write(t);
 				SendUnified(&bitStream1, priority, RELIABLE_ORDERED, orderingChannel, packet->systemAddress, false);
 
-				SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;
 			}
 		}
 	}
 
-	SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 	
 	if (PatchingUserLimitReached())
 	{
@@ -703,7 +703,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 }
 void AutopatcherServer::OnGetPatchInt(Packet *packet)
 {
-	SLNet::BitStream inBitStream(packet->data, packet->length, false);
+	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 
 	ThreadData threadData;
 	inBitStream.IgnoreBits(8);
@@ -713,17 +713,17 @@ void AutopatcherServer::OnGetPatchInt(Packet *packet)
 	inBitStream.ReadCompressed(threadData.applicationName);
 	threadData.systemAddress=packet->systemAddress;
 	threadData.server=this;
-	threadData.clientList= SLNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+	threadData.clientList= MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
 
 	if (threadData.clientList->Deserialize(&inBitStream)==false)
 	{
-		SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 		return;
 	}
 	if (threadData.clientList->fileList.Size()==0)
 	{
 		RakAssert(0);
-		SLNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 		return;
 	}
 

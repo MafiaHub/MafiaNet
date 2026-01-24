@@ -29,30 +29,30 @@
 #include "slikenet/PacketLogger.h"
 #include "slikenet/BitStream.h"
 
-using namespace SLNet;
+using namespace MafiaNet;
 
-SLNet::RakPeerInterface *rakPeer;
+MafiaNet::RakPeerInterface *rakPeer;
 
 int main()
 {
 	FullyConnectedMesh2 fcm2;
 	ConnectionGraph2 cg2;
-	rakPeer= SLNet::RakPeerInterface::GetInstance();
+	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	rakPeer->AttachPlugin(&fcm2);
 	rakPeer->AttachPlugin(&cg2);
 	fcm2.SetAutoparticipateConnections(true);
-	SLNet::SocketDescriptor sd;
+	MafiaNet::SocketDescriptor sd;
 	sd.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 	sd.port=60000;
 	while (IRNS2_Berkley::IsPortInUse(sd.port, sd.hostAddress, sd.socketFamily, SOCK_DGRAM)==true)
 		sd.port++;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
-	rakPeer->SetTimeoutTime(1000, SLNet::UNASSIGNED_SYSTEM_ADDRESS);
-	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	rakPeer->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
+	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 // 	BitStream contextBs;
-// 	contextBs.Write(RakString("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(SLNet::UNASSIGNED_SYSTEM_ADDRESS).ToString()));
+// 	contextBs.Write(RakString("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString()));
 // 	fcm2.SetMyContext(&contextBs);
 
 //	PacketLogger packetLogger;
@@ -60,7 +60,7 @@ int main()
 //	packetLogger.SetLogDirectMessages(false);
 
 	bool quit=false;
-	SLNet::Packet *packet;
+	MafiaNet::Packet *packet;
 	int ch;
 	while (!quit)
 	{
@@ -102,7 +102,7 @@ int main()
 					printf("Got new host (ourselves)");
 				else
 					printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), packet->guid.ToString());
-				SLNet::BitStream bs(packet->data,packet->length,false);
+				MafiaNet::BitStream bs(packet->data,packet->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
@@ -117,7 +117,7 @@ int main()
 // 			case ID_REMOTE_NEW_INCOMING_CONNECTION:
 // 				{
 // 					uint32_t count;
-// 					SLNet::BitStream bsIn(packet->data, packet->length,false);
+// 					MafiaNet::BitStream bsIn(packet->data, packet->length,false);
 // 					bsIn.IgnoreBytes(1);
 // 					bsIn.Read(count);
 // 					SystemAddress sa;
@@ -163,11 +163,11 @@ int main()
 		RakSleep(30);
 		for (unsigned short i=0; i < 32; i++)
 		{
-			if (rakPeer->GetInternalID(SLNet::UNASSIGNED_SYSTEM_ADDRESS,0).GetPort()!=60000+i)
+			if (rakPeer->GetInternalID(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,0).GetPort()!=60000+i)
 				rakPeer->AdvertiseSystem("255.255.255.255", 60000+i, 0,0,0);
 		}
 	}
 
-	SLNet::RakPeerInterface::DestroyInstance(rakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	return 0;
 }

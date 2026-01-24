@@ -35,7 +35,7 @@
 
 #include "Export.h"
 
-namespace SLNet
+namespace MafiaNet
 {
 
 class RAK_DLL_EXPORT SignaledEvent
@@ -69,6 +69,6 @@ protected:
 #endif
 };
 
-} // namespace SLNet
+} // namespace MafiaNet
 
 #endif
