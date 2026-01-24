@@ -1,26 +1,26 @@
+# Autopatcher Extension
 #
-# This file was taken from RakNet 4.082.
-# Please see licenses/RakNet license.txt for the underlying license and related copyright.
-#
-#
-# Modified work: Copyright (c) 2019, SLikeSoft UG (haftungsbeschränkt)
-#
-# This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
-# license found in the license.txt file in the root directory of this source tree.
-#
+# Copyright (c) 2024, MafiaHub
+# Licensed under MIT-style license
 
-project(Autopatcher)
-IF (UNIX AND NOT WIN32)
-	FILE(GLOB ALL_HEADER_SRCS *.h)
-	FILE(GLOB ALL_CPP_SRCS *.cpp)
-	include_directories(${SLIKENET_HEADER_FILES} ./ ${bzip2-1.0.3_SOURCE_DIR}) 
-	add_library(LibAutopatcher STATIC ${ALL_CPP_SRCS} ${ALL_HEADER_SRCS})
-	target_link_libraries (LibAutopatcher ${SLIKENET_COMMON_LIBS} LibBZip2)
-ENDIF(UNIX AND NOT WIN32)
-IF(USEMYSQL AND NOT DISABLEDEPENDENCIES) 
-	add_subdirectory(AutopatcherMySQLRepository)
-ENDIF(USEMYSQL AND NOT DISABLEDEPENDENCIES)
-IF(USEPOSTGRESQL AND NOT DISABLEDEPENDENCIES)
-add_subdirectory(AutopatcherPostgreRepository)
-ENDIF(USEPOSTGRESQL AND NOT DISABLEDEPENDENCIES)
- 
+file(GLOB AUTOPATCHER_SOURCES *.cpp)
+file(GLOB AUTOPATCHER_HEADERS *.h)
+
+add_library(Autopatcher STATIC
+    ${AUTOPATCHER_SOURCES}
+    ${AUTOPATCHER_HEADERS}
+)
+
+target_include_directories(Autopatcher PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/Source/include
+)
+
+target_link_libraries(Autopatcher PUBLIC
+    MafiaNet::MafiaNetStatic
+    BZip2
+)
+
+set_target_properties(Autopatcher PROPERTIES
+    FOLDER "Extensions"
+)

@@ -1,14 +1,1 @@
-#
-# This file was taken from RakNet 4.082 without any modifications.
-# Please see licenses/RakNet license.txt for the underlying license and related copyright.
-#
-
-cmake_minimum_required(VERSION 3.15)
-GETCURRENTFOLDER()
-STANDARDSUBPROJECT(${current_folder})
-
-
-
-
-
-
+mafianet_add_sample(NAME FileListTransfer FOLDER "FileTransfer")

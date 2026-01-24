@@ -1,75 +1,63 @@
-# This file was taken from RakNet 4.082.
-# Please see licenses/RakNet license.txt for the underlying license and related copyright.
+# MafiaNet - Cross-platform network engine for multiplayer games
 #
-#
-# Modified work: Copyright (c) 2016-2019, SLikeSoft UG (haftungsbeschränkt)
-#
-# This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
-# license found in the license.txt file in the root directory of this source tree.
-#
+# Originally based on RakNet 4.082 and SLikeNet
+# Copyright (c) 2024, MafiaHub
+# Licensed under MIT-style license
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.21)
 
-project(SLikeNet 
-        VERSION 0.2.0
-        LANGUAGES CXX)
+project(MafiaNet
+    VERSION 0.2.0
+    DESCRIPTION "Cross-platform network engine for multiplayer games"
+    HOMEPAGE_URL "https://github.com/mafiahub/MafiaNet"
+    LANGUAGES C CXX
+)
 
-# CMake policy settings
-if(POLICY CMP0037)
-    cmake_policy(SET CMP0037 NEW) # Target names should not be reserved
-endif()
-if(POLICY CMP0042)
-    cmake_policy(SET CMP0042 NEW) # Use @rpath in target's install name
+# Prevent in-source builds
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "In-source builds are not allowed. Create a build directory and run cmake from there.")
 endif()
 
-# Version numbers
-set(SLikeNet_API_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
-
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 11)
+# C++17 standard
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Platform-specific settings
-if(WIN32)
-    set(PROGRAMFILESX86 $ENV{PROGRAMFILES})
-    string(REPLACE "\\" "/" PROGRAMFILESX86 "${PROGRAMFILESX86}")
-endif()
-
-# Find dependencies
-find_package(OpenSSL 1.0.0 REQUIRED)
-
-# Define library dependencies
-set(SLIKENET_LIBRARY_LIBS 
-    OpenSSL::Crypto 
-    OpenSSL::SSL
-)
-
-if(WIN32)
-    list(APPEND SLIKENET_LIBRARY_LIBS ws2_32.lib)
-else()
-    list(APPEND SLIKENET_LIBRARY_LIBS pthread)
-endif()
+# Use folders in IDEs
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # Options
-option(SLIKENET_ENABLE_SAMPLES "Generate sample projects" ${WIN32})
-option(SLIKENET_ENABLE_DLL "Generate shared library" ON)
-option(SLIKENET_ENABLE_STATIC "Generate static library" ON)
+option(MAFIANET_BUILD_SHARED "Build shared library" ON)
+option(MAFIANET_BUILD_STATIC "Build static library" ON)
+option(MAFIANET_BUILD_SAMPLES "Build sample applications" OFF)
+option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
 
-# Header files location
-set(SLIKENET_HEADER_FILES "${PROJECT_SOURCE_DIR}/Source")
+# Ensure at least one library type is built
+if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
+    message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")
+endif()
 
-# Include custom macros
-include(./CmakeIncludes/CmakeMacros.txt)
-FIXLINKOPTIONS()
-FIXCOMPILEOPTIONS()
+# Dependencies
+find_package(OpenSSL 1.0.0 REQUIRED)
+find_package(Threads REQUIRED)
 
-# Add library subdirectory
-add_subdirectory(Lib)
+# Include helpers
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(MafiaNetHelpers)
 
-set(SLIKENET_COMMON_LIBS SLikeNetLibStatic)
+# Platform-specific settings
+if(WIN32)
+    add_compile_definitions(
+        _CRT_SECURE_NO_DEPRECATE
+        _CRT_NONSTDC_NO_DEPRECATE
+    )
+endif()
 
-# Add samples if enabled
-if(SLIKENET_ENABLE_SAMPLES)
+# Library subdirectory
+add_subdirectory(Source)
+
+# Samples
+if(MAFIANET_BUILD_SAMPLES)
     add_subdirectory(Samples)
+    add_subdirectory(DependentExtensions)
 endif()
