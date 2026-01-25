@@ -83,7 +83,7 @@ int main(void)
 	printf("Enter listen port, or hit enter to choose automatically\n");
 	unsigned short localPort;
 	char str[256];
-	gets(str);
+	Gets(str, sizeof(str));
 	if (str[0]==0)
 		localPort=60000;
 	else
@@ -128,7 +128,7 @@ int main(void)
 			if (ch=='s')
 			{
 				printf("Enter application directory\n");
-				gets(str);
+				Gets(str, sizeof(str));
 				if (str[0]==0)
 					strcpy(str, "C:/RakNet");
 				directoryDeltaTransfer.SetApplicationDirectory(str);
@@ -137,7 +137,7 @@ int main(void)
 			else if (ch=='a')
 			{
 				printf("Enter uploads subdirectory\n");
-				gets(str);
+				Gets(str, sizeof(str));
 				directoryDeltaTransfer.AddUploadsFromSubdirectory(str);
 				printf("%i files for upload.\n", directoryDeltaTransfer.GetNumberOfFilesForUpload());
 			}
@@ -147,9 +147,9 @@ int main(void)
 				char outputSubdir[256];
 				printf("Enter remote subdirectory to download from.\n");
 				printf("This directory may be any uploaded directory, or a subdir therein.\n");
-				gets(subdir);
+				Gets(subdir, sizeof(subdir));
 				printf("Enter subdirectory to output to.\n");
-				gets(outputSubdir);
+				Gets(outputSubdir, sizeof(outputSubdir));
                 
 				unsigned short setId;
 				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetSystemAddressFromIndex(0), &transferCallback, HIGH_PRIORITY, 0, nullptr);
@@ -167,12 +167,12 @@ int main(void)
 			{
 				char host[256];
 				printf("Enter host IP: ");
-				gets(host);
+				Gets(host, sizeof(host));
 				if (host[0]==0)
 					strcpy(host, "127.0.0.1");
 				unsigned short remotePort;
 				printf("Enter host port: ");
-				gets(str);
+				Gets(str, sizeof(str));
 				if (str[0]==0)
 					remotePort=60000;
 				else

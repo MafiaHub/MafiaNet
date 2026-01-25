@@ -22,6 +22,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
+#include "mafianet/Gets.h"
 
 #include <cstdio>
 #include <cstring>
@@ -43,7 +44,7 @@
 
 using namespace MafiaNet;
 
-#define READCHAR(arg) gets(arg); ch=arg[0];
+#define READCHAR(arg) Gets(arg, sizeof(arg)); ch=arg[0];
 
 int main(void)
 {
@@ -90,10 +91,10 @@ int main(void)
 			{
 				masterClient.ClearQueryRules();
 				printf("Enter query key 1/2 or enter for none: ");
-				gets(str);
+				Gets(str, sizeof(str));
 				masterClient.AddQueryRule(str);
 				printf("Enter query key 2/2 or enter for none: ");
-				gets(str);
+				Gets(str, sizeof(str));
 				masterClient.AddQueryRule(str);
 				masterClient.QueryMasterServer();
 				printf("Server queried.  Press space to see server list.\n");
@@ -147,9 +148,9 @@ int main(void)
 				char ip[22];
 				printf("Sending connection attempt notification to master server\n");
 				printf("Enter IP of server from game list: ");
-				gets(ip);
+				Gets(ip, sizeof(ip));
 				printf("Enter port: ");
-				gets(str);
+				Gets(str, sizeof(str));
 				if (ip[0]!=0 && str[0]!=0)
 				{
 					masterClient.ConnectionAttemptNotification(ip, atoi(str));

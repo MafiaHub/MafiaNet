@@ -150,6 +150,8 @@ endif()
 
 # bzip2 upstream creates bz2_static, we need BZip2 for Autopatcher
 if(TARGET bz2_static AND NOT TARGET BZip2)
+    # Add include directory for bzip2 headers (bzlib.h)
+    target_include_directories(bz2_static PUBLIC ${bzip2_SOURCE_DIR})
     add_library(BZip2 ALIAS bz2_static)
 endif()
 

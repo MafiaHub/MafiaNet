@@ -18,6 +18,7 @@
 #include "MasterCommon.h"
 #include "MasterServer.h"
 #include "mafianet/peerinterface.h"
+#include "mafianet/Gets.h"
 #include <cstdio>
 #include <cstring>
 #ifdef WIN32
@@ -36,7 +37,7 @@
 
 using namespace MafiaNet;
 
-#define READCHAR(arg) gets(arg); ch=arg[0];
+#define READCHAR(arg) Gets(arg, sizeof(arg)); ch=arg[0];
 
 int main(void)
 {
