@@ -17,7 +17,7 @@ add_subdirectory(ComprehensiveTest)
 add_subdirectory(CrossConnectionTest)
 add_subdirectory(DirectoryDeltaTransfer)
 add_subdirectory(DroppedConnectionTest)
-add_subdirectory(Encryption)
+# Encryption sample requires LIBCAT_SECURITY=1 (see note below)
 add_subdirectory(FCMHost)
 add_subdirectory(FCMHostSimultaneous)
 add_subdirectory(FCMVerifiedJoinSimultaneous)
@@ -72,9 +72,10 @@ endif()
 add_subdirectory(RakVoice)
 
 # The following samples are disabled by default as they require
-# specific third-party dependencies or platforms:
+# specific third-party dependencies, platforms, or special configuration:
 #
 # - AutopatcherClientGFx3.0 (requires Scaleform GFx)
+# - Encryption (requires LIBCAT_SECURITY=1 in NativeFeatureIncludesOverrides.h)
 # - AutoPatcherServer_MySQL (requires MySQL)
 # - CrashRelauncher (Windows-specific)
 # - iOS (requires iOS SDK)

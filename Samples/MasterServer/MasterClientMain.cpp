@@ -1,11 +1,16 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
+ *  Original work: Copyright (c) 2014, Oculus VR, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
+ *
+ *  Modified work: Copyright (c) 2024, MafiaHub
+ *
+ *  This source code was modified by MafiaHub. Modifications are licensed under the MIT-style
+ *  license found in the license.txt file in the root directory of this source tree.
  */
 
 // This is my own internal test program for the master client but serves as a good example.
@@ -13,10 +18,10 @@
 
 #include "MasterCommon.h"
 #include "MasterClient.h"
-#include "StringCompressor.h"
-#include "BitStream.h"
-#include "RakPeerInterface.h"
-#include "RakNetworkFactory.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
 
 #include <cstdio>
 #include <cstring>
@@ -36,10 +41,9 @@
 #include <unistd.h> // usleep
 #endif
 
-#define READCHAR(arg) gets(arg); ch=arg[0];
+using namespace MafiaNet;
 
-// remove this
-#include "PacketEnumerations.h"
+#define READCHAR(arg) gets(arg); ch=arg[0];
 
 int main(void)
 {
@@ -57,8 +61,9 @@ int main(void)
 	Packet *p;
 
 	// Create a fake game
-	testGameServerOrClient = RakNetworkFactory::GetRakPeerInterface();
-	testGameServerOrClient->Initialize(8, 60003, 0);
+	testGameServerOrClient = RakPeerInterface::GetInstance();
+	SocketDescriptor sd(60003, 0);
+	testGameServerOrClient->Startup(8, &sd, 1);
 	testGameServerOrClient->SetMaximumIncomingConnections(8);
 	testGameServerOrClient->AttachPlugin(&masterClient);
 
@@ -106,9 +111,10 @@ int main(void)
 			else if (ch=='D')
 			{
 				printf("Disconnected.\n");
-				PlayerID playerId;
-				testGameServerOrClient->IPToPlayerID("127.0.0.1", 60000, &playerId);
-				testGameServerOrClient->CloseConnection(playerId, true, 0);
+				SystemAddress systemAddress;
+				systemAddress.SetBinaryAddress("127.0.0.1");
+				systemAddress.SetPortHostOrder(60000);
+				testGameServerOrClient->CloseConnection(systemAddress, true, 0);
 			}
 			else if (ch=='C')
 			{
@@ -152,7 +158,7 @@ int main(void)
 				else
 				{
 					printf("Aborting...");
-				}				
+				}
 			}
 			else if (ch==' ')
 			{
@@ -219,7 +225,7 @@ int main(void)
 	}
 
 	masterClient.Disconnect();
-	RakNetworkFactory::DestroyRakPeerInterface(testGameServerOrClient);
+	RakPeerInterface::DestroyInstance(testGameServerOrClient);
 
 	return 0;
 }

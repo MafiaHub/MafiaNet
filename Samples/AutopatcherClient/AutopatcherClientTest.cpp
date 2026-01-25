@@ -19,6 +19,20 @@
 #include <limits> // used for std::numeric_limits
 #include "mafianet/Kbhit.h"
 
+// Platform-specific includes for path constants and process execution
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#else
+#include <limits.h>
+#include <unistd.h>
+#ifndef MAX_PATH
+#define MAX_PATH PATH_MAX
+#endif
+#define _snprintf snprintf
+#define _unlink unlink
+#endif
+
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
@@ -113,6 +127,7 @@ public:
 			// Invoke xdelta
 			// See https://code.google.com/p/xdelta/wiki/CommandLineSyntax
 			char commandLine[512];
+#ifdef _WIN32
 			_snprintf(commandLine, sizeof(commandLine)-1, "-d -f -s %s patchClient_%s.tmp newFile_%s.tmp", oldFilePath, buff, buff);
 			commandLine[511]=0;
 
@@ -127,8 +142,13 @@ public:
 			shellExecuteInfo.nShow = SW_SHOWNORMAL;
 			shellExecuteInfo.hInstApp = nullptr;
 			ShellExecuteExA(&shellExecuteInfo);
-
-			// ShellExecute(nullptr, "open", PATH_TO_XDELTA_EXE, commandLine, WORKING_DIRECTORY, SW_SHOWNORMAL);
+#else
+			// On Unix, use system() to invoke xdelta
+			snprintf(commandLine, sizeof(commandLine)-1, "cd \"%s\" && \"%s\" -d -f -s \"%s\" patchClient_%s.tmp newFile_%s.tmp",
+				WORKING_DIRECTORY, PATH_TO_XDELTA_EXE, oldFilePath, buff, buff);
+			commandLine[511]=0;
+			system(commandLine);
+#endif
 
 			sprintf_s(pathToPatch2, "%s/newFile_%s.tmp", WORKING_DIRECTORY, buff);
 			errno_t error = fopen_s(&fpPatch, pathToPatch2, "r+b");
@@ -281,7 +301,17 @@ int main(int argc, char **argv)
 			printf("Enter working directory to store temporary files: ");
 			Gets(WORKING_DIRECTORY, sizeof(WORKING_DIRECTORY));
 			if (WORKING_DIRECTORY[0]==0)
+			{
+#ifdef _WIN32
 				GetTempPathA(MAX_PATH, WORKING_DIRECTORY);
+#else
+				const char* tmpdir = getenv("TMPDIR");
+				if (tmpdir)
+					strcpy_s(WORKING_DIRECTORY, tmpdir);
+				else
+					strcpy_s(WORKING_DIRECTORY, "/tmp");
+#endif
+			}
 			if (WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='\\' || WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='/')
 				WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=0;
 		}

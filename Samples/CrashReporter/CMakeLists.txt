@@ -1,1 +1,7 @@
-mafianet_add_sample(NAME CrashReporter FOLDER "Utilities")
+# CrashReporter is Windows-only (uses dbghelp and MAPI)
+if(WIN32)
+    set(CRASHREPORTER_LIBS dbghelp)
+    mafianet_add_sample(NAME CrashReporter FOLDER "Utilities" LIBS ${CRASHREPORTER_LIBS})
+else()
+    message(STATUS "CrashReporter sample is Windows-only - skipping")
+endif()

@@ -1,11 +1,16 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
+ *  Original work: Copyright (c) 2014, Oculus VR, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
+ *
+ *  Modified work: Copyright (c) 2024, MafiaHub
+ *
+ *  This source code was modified by MafiaHub. Modifications are licensed under the MIT-style
+ *  license found in the license.txt file in the root directory of this source tree.
  */
 
 /// \file
@@ -13,14 +18,11 @@
 #ifndef __MASTER_COMMON_H
 #define __MASTER_COMMON_H
 
-#include "DS_List.h"
-#include "NetworkTypes.h"
-#include "BitStream.h"
-#include "PluginInterface.h"
-using namespace RakNet;
-
-class RakPeerInterface;
-struct Packet;
+#include "mafianet/DS_List.h"
+#include "mafianet/types.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/PluginInterface2.h"
+using namespace MafiaNet;
 
 // IP, Port, Ping - case sensitive!
 #define NUMBER_OF_DEFAULT_MASTER_SERVER_KEYS 3
@@ -52,13 +54,13 @@ public:
 	void SortOnKey(char *key, bool ascending);
 	void QuickSort(int low, int high, bool ascending);
 	int Partition(int low, int high, bool ascending);
-	int GetIndexByPlayerID(PlayerID playerID);
+	int GetIndexBySystemAddress(SystemAddress playerID);
 
 	DataStructures::List<GameServer*> serverList;
 };
 
 /// \ingroup MASTER_SERVER_GROUP
-class MasterCommon : public PluginInterface
+class MasterCommon : public PluginInterface2
 {
 public:
 	MasterCommon();
@@ -98,11 +100,11 @@ protected:
 	// Returns true if the rule was removed.
 	bool RemoveServerRule(GameServer *gameServer, char *ruleIdentifier);
 	// Encode a playerID to a bitstream
-	void SerializePlayerID(PlayerID *playerID, BitStream *outputBitStream);
+	void SerializeSystemAddress(SystemAddress *playerID, BitStream *outputBitStream);
 	// Encode a rule to a bitstream
 	void SerializeRule(GameServerRule *gameServerRule, BitStream *outputBitStream);
 	// Decode a playerID from a bitstream
-	void DeserializePlayerID(PlayerID *playerID, BitStream *inputBitStream);
+	void DeserializeSystemAddress(SystemAddress *playerID, BitStream *inputBitStream);
 	// Decode a rule from a bitstream
 	GameServerRule *DeserializeRule(BitStream *inputBitStream);
 	// Encode a server to a bitstream
@@ -110,7 +112,7 @@ protected:
 	// Create a server from a bitstream
 	GameServer *DeserializeServer(BitStream *inputBitStream);
 	// Add the default rules to a server (ip, port, ping)
-	void AddDefaultRulesToServer(GameServer *gameServer, PlayerID playerID);
+	void AddDefaultRulesToServer(GameServer *gameServer, SystemAddress playerID);
 	// Update one server based on the information in another
 	void UpdateServer(GameServer *destination, GameServer *source, bool deleteSingleRules);
 	// Add the specified server to the list of servers - or if the server already exists
@@ -145,11 +147,11 @@ struct GameServer
 	bool FindKey(char *key);
 	int keyIndex;
 	int numberOfKeysFound;
-	RakNetTime lastUpdateTime;
-	PlayerID connectionIdentifier; // The game server
-	PlayerID originationId; // Only used by the server - the master client PlayerID
+	Time lastUpdateTime;
+	SystemAddress connectionIdentifier; // The game server
+	SystemAddress originationId; // Only used by the server - the master client SystemAddress
 	int failedPingResponses;
-	RakNetTime nextPingTime;
+	Time nextPingTime;
 
 	// When inserting rules, don't forget that IP and ping should always be added.
 	// These are required for any game server

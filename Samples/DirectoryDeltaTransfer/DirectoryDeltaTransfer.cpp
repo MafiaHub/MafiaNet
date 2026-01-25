@@ -1,48 +1,60 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
+ *  Original work: Copyright (c) 2014, Oculus VR, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
+ *
+ *  Modified work: Copyright (c) 2024, MafiaHub
+ *
+ *  This source code was modified by MafiaHub. Modifications are licensed under the MIT-style
+ *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "RakNetworkFactory.h"
-#include "GetTime.h"
-#include "RakPeerInterface.h"
-#include "PacketEnumerations.h"
-#include "RakNetStatistics.h"
-#include "DirectoryDeltaTransfer.h"
-#include "FileListTransfer.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/statistics.h"
+#include "mafianet/DirectoryDeltaTransfer.h"
+#include "mafianet/FileListTransfer.h"
+#include "mafianet/FileList.h"
+#include "mafianet/DataCompressor.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/Gets.h"
 #include <cstdio>
-#include <stdlib.h>
-#include <conio.h>
-#include "FileList.h"
-#include "DataCompressor.h"
-#include "FileListTransferCBInterface.h"
+#include <cstdlib>
+#include <cstring>
 
 #ifdef _WIN32
 #include <windows.h> // Sleep
+#include <conio.h>
 #else
 #include <unistd.h> // usleep
+#include "mafianet/Kbhit.h"
 #endif
+
+using namespace MafiaNet;
 
 class TestCB : public FileListTransferCBInterface
 {
 public:
-	void OnFile(
-		unsigned fileIndex,
-		char *filename,
-		unsigned char *fileData,
-		unsigned compressedTransmissionLength,
-		unsigned finalDataLength,
-		unsigned short setID,
-		unsigned setCount,	
-		unsigned setTotalCompressedTransmissionLength,
-		unsigned setTotalFinalLength)
+	bool OnFile(OnFileStruct *onFileStruct) override
 	{
-        printf("%i. %i/%i %s %ib->%ib / %ib->%ib\n", setID, fileIndex, setCount, filename, compressedTransmissionLength, finalDataLength, setTotalCompressedTransmissionLength, setTotalFinalLength);
+		printf("%i. %i/%i %s %llub / %ub\n",
+			onFileStruct->setID,
+			onFileStruct->fileIndex,
+			onFileStruct->numberOfFilesInThisSet,
+			onFileStruct->fileName,
+			(unsigned long long)onFileStruct->byteLengthOfThisFile,
+			onFileStruct->byteLengthOfThisSet);
+		return true;
+	}
+	void OnFileProgress(FileProgressStruct *fps) override
+	{
+		// Progress callback - do nothing for this sample
+		(void)fps;
 	}
 } transferCallback;
 
@@ -57,7 +69,7 @@ int main(void)
 	// The fileListTransfer plugin is used by the DirectoryDeltaTransfer plugin and must also be registered (you could use this yourself too if you wanted, of course).
 	FileListTransfer fileListTransfer;
 
-	rakPeer = RakNetworkFactory::GetRakPeerInterface();
+	rakPeer = RakPeerInterface::GetInstance();
 	rakPeer->AttachPlugin(&directoryDeltaTransfer);
 	rakPeer->AttachPlugin(&fileListTransfer);
 	directoryDeltaTransfer.SetFileListTransferPlugin(&fileListTransfer);
@@ -76,10 +88,11 @@ int main(void)
 		localPort=60000;
 	else
 		localPort=atoi(str);
-	if (rakPeer->Initialize(8,localPort,30,0)==false)
+	SocketDescriptor sd(localPort, 0);
+	if (rakPeer->Startup(8, &sd, 1) != RAKNET_STARTED)
 	{
-		RakNetworkFactory::DestroyRakPeerInterface(rakPeer);
-		printf("RakNet initialize failed.  Possibly duplicate port.\n");
+		RakPeerInterface::DestroyInstance(rakPeer);
+		printf("MafiaNet startup failed. Possibly duplicate port.\n");
 		return 1;
 	}
 	rakPeer->SetMaximumIncomingConnections(8);
@@ -109,9 +122,9 @@ int main(void)
 		}
 		
 
-		if (kbhit())
+		if (_kbhit())
 		{
-			ch=getch();
+			ch=_getch();
 			if (ch=='s')
 			{
 				printf("Enter application directory\n");
@@ -139,7 +152,7 @@ int main(void)
 				gets(outputSubdir);
                 
 				unsigned short setId;
-				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetPlayerIDFromIndex(0), &transferCallback, HIGH_PRIORITY, 0);
+				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetSystemAddressFromIndex(0), &transferCallback, HIGH_PRIORITY, 0, nullptr);
 				if (setId==(unsigned short)-1)
 					printf("Download failed.  Host unreachable.\n");
 				else
@@ -175,7 +188,7 @@ int main(void)
 		}
 	}
 
-	RakNetworkFactory::DestroyRakPeerInterface(rakPeer);
+	RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 0;
 }

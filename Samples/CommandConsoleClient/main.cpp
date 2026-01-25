@@ -28,6 +28,7 @@
 #include <unistd.h> // usleep
 #include <strings.h>
 #include "mafianet/linux_adapter.h"
+#include "mafianet/LinuxStrings.h"
 #include "mafianet/osx_adapter.h"
 
 //linux doesn't have stricmp but strcasecmp is same functionality

@@ -18,6 +18,7 @@
 #include "mafianet/MessageIdentifiers.h" // Enumerations
 #include "mafianet/types.h" // SystemAddress
 #include "mafianet/Kbhit.h"
+#include "mafianet/Gets.h"
 #include <cstdio>
 using namespace MafiaNet;
 

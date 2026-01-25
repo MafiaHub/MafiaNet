@@ -1,19 +1,23 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
+ *  Original work: Copyright (c) 2014, Oculus VR, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
+ *
+ *  Modified work: Copyright (c) 2024, MafiaHub
+ *
+ *  This source code was modified by MafiaHub. Modifications are licensed under the MIT-style
+ *  license found in the license.txt file in the root directory of this source tree.
  */
 
 // This is my own internal test program for the master server but serves as a good example.
 
 #include "MasterCommon.h"
 #include "MasterServer.h"
-#include "RakNetworkFactory.h"
-#include "RakPeerInterface.h"
+#include "mafianet/peerinterface.h"
 #include <cstdio>
 #include <cstring>
 #ifdef WIN32
@@ -30,6 +34,8 @@
 #include <unistd.h> // usleep
 #endif
 
+using namespace MafiaNet;
+
 #define READCHAR(arg) gets(arg); ch=arg[0];
 
 int main(void)
@@ -45,8 +51,9 @@ int main(void)
 
 	RakPeerInterface *testGameMasterServer;
 
-	testGameMasterServer = RakNetworkFactory::GetRakPeerInterface();
-	testGameMasterServer->Initialize(10, 60000, 0);
+	testGameMasterServer = RakPeerInterface::GetInstance();
+	SocketDescriptor sd(60000, 0);
+	testGameMasterServer->Startup(10, &sd, 1);
 	testGameMasterServer->SetMaximumIncomingConnections(8);
 	testGameMasterServer->AttachPlugin(&masterServer);
 
@@ -116,7 +123,7 @@ int main(void)
 			// Call Receive every update to keep the plugin going
 			p = testGameMasterServer->Receive();
 		}
-		
+
 
 #ifdef _WIN32
 		Sleep(30);
@@ -124,6 +131,8 @@ int main(void)
 		usleep(30 * 1000);
 #endif
 	}
+
+	RakPeerInterface::DestroyInstance(testGameMasterServer);
 
 	return 0;
 }

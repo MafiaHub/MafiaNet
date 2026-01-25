@@ -29,6 +29,7 @@
 #include "mafianet/SocketLayer.h"
 #include "mafianet/ReplicaManager3.h"
 #include "mafianet/NetworkIDManager.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

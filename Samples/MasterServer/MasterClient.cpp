@@ -1,20 +1,27 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
+ *  Original work: Copyright (c) 2014, Oculus VR, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
+ *
+ *  Modified work: Copyright (c) 2024, MafiaHub
+ *
+ *  This source code was modified by MafiaHub. Modifications are licensed under the MIT-style
+ *  license found in the license.txt file in the root directory of this source tree.
  */
 
 #include "MasterClient.h"
-#include "RakPeerInterface.h"
-#include "PacketEnumerations.h"
-#include "RakNetworkFactory.h"
-#include "StringCompressor.h"
-#include "GetTime.h"
+#include "MasterServerMessageIDs.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/PacketPriority.h"
 #include <cstring>
+using namespace MafiaNet;
 
 // Uncomment this define for debugging printfs
 #define _SHOW_MASTER_SERVER_PRINTF
@@ -35,10 +42,10 @@ bool MasterClient::Connect(char* host, int masterServerPort)
 {
 	localServer.Clear();
 	listServer=serverListed=localServerModified=false;
-	localServer.connectionIdentifier.port=rakPeer->GetInternalID().port;
+	localServer.connectionIdentifier.SetPortHostOrder(rakPeer->GetInternalID().GetPort());
 	ruleIdentifierList.Reset();
 
-	return rakPeer->Connect(host, masterServerPort, 0, 0);
+	return rakPeer->Connect(host, masterServerPort, 0, 0) == CONNECTION_ATTEMPT_STARTED;
 }
 
 void MasterClient::Disconnect(void)
@@ -46,7 +53,7 @@ void MasterClient::Disconnect(void)
 	if (IsConnected())
 		DelistServer();
 
-	rakPeer->Disconnect(100);
+	rakPeer->Shutdown(100);
 }
 
 bool MasterClient::IsConnected(void)
@@ -59,7 +66,7 @@ bool MasterClient::IsConnected(void)
 void MasterClient::AddQueryRule(char *ruleIdentifier)
 {
 	if (ruleIdentifier && IsReservedRuleIdentifier(ruleIdentifier)==false)
-		stringCompressor->EncodeString(ruleIdentifier, 256, &ruleIdentifierList);
+		StringCompressor::Instance()->EncodeString(ruleIdentifier, 256, &ruleIdentifierList);
 }
 void MasterClient::ClearQueryRules(void)
 {
@@ -72,7 +79,7 @@ void MasterClient::QueryMasterServer(void)
 	outgoingBitStream.Write((unsigned char)ID_QUERY_MASTER_SERVER);
 	if (ruleIdentifierList.GetNumberOfBitsUsed()>0)
 		outgoingBitStream.WriteBits(ruleIdentifierList.GetData(), ruleIdentifierList.GetNumberOfBitsUsed(), false);
-    rakPeer->Send(&outgoingBitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_PLAYER_ID, true);
+    rakPeer->Send(&outgoingBitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 }
 
 void MasterClient::PingServers(void)
@@ -81,8 +88,8 @@ void MasterClient::PingServers(void)
 
 	for (serverIndex=0; serverIndex < gameServerList.serverList.Size(); serverIndex++)
 	{
-		rakPeer->Ping((char*)rakPeer->PlayerIDToDottedIP(gameServerList.serverList[serverIndex]->connectionIdentifier),
-			gameServerList.serverList[serverIndex]->connectionIdentifier.port, false);
+		rakPeer->Ping((char*)gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false),
+			gameServerList.serverList[serverIndex]->connectionIdentifier.GetPort(), false);
 	}
 }
 
@@ -94,7 +101,7 @@ void MasterClient::Update(RakPeerInterface *peer)
 	{
 		outgoingBitStream.Write((unsigned char)ID_MASTER_SERVER_SET_SERVER);
 		SerializeServer(&localServer, &outgoingBitStream);
-		rakPeer->Send(&outgoingBitStream, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_PLAYER_ID, true);
+		rakPeer->Send(&outgoingBitStream, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 		serverListed=true;
 		localServerModified=false;
 	}
@@ -113,9 +120,6 @@ bool MasterClient::OnReceive(RakPeerInterface *peer, Packet *packet)
 	case ID_CONNECTION_LOST:
 		OnLostConnection();
 		return false; // Do not absorb packet
-	case ID_MODIFIED_PACKET:
-		OnModifiedPacket();
-		return false;
 	case ID_CONNECTION_ATTEMPT_FAILED:
 		OnConnectionAttemptFailed();
 		return false; // Do not absorb packet
@@ -143,10 +147,10 @@ void MasterClient::ConnectionAttemptNotification(char *serverIP, unsigned short 
 
 	BitStream bitStream(23);
 	bitStream.Write((unsigned char)ID_RELAYED_CONNECTION_NOTIFICATION);
-	bitStream.Write(localServer.connectionIdentifier.port); // Your own game client port
+	bitStream.Write(localServer.connectionIdentifier.GetPort()); // Your own game client port
 	bitStream.Write(serverPort); // The game server you are connecting to port
-	stringCompressor->EncodeString(serverIP, 22, &bitStream); // The game server IP you are connecting to
-	rakPeer->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_PLAYER_ID, true);
+	StringCompressor::Instance()->EncodeString(serverIP, 22, &bitStream); // The game server IP you are connecting to
+	rakPeer->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 }
 void MasterClient::ListServer(void)
 {
@@ -159,8 +163,8 @@ void MasterClient::DelistServer(void)
 	if (serverListed)
 	{
 		bitStream.Write((unsigned char)ID_MASTER_SERVER_DELIST_SERVER);
-		bitStream.Write(localServer.connectionIdentifier.port);
-        rakPeer->Send(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_PLAYER_ID, true);
+		bitStream.Write(localServer.connectionIdentifier.GetPort());
+        rakPeer->Send(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 		serverListed=false;
 	}
 }
@@ -170,14 +174,14 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 	bool newServerAdded;
 	unsigned short numberOfServers;
 	GameServer *gameServer;
-	RakNetTime currentTime;
+	Time currentTime;
 	BitStream inputBitStream(packet->data, packet->length, false);
 	inputBitStream.IgnoreBits(8*sizeof(unsigned char));
-	
+
 	if (inputBitStream.ReadCompressed(numberOfServers)==false)
 		return;
 
-	currentTime=RakNet::GetTime();
+	currentTime=MafiaNet::GetTime();
 
 	for (serverIndex=0; serverIndex < numberOfServers; serverIndex++)
 	{
@@ -195,8 +199,8 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 		if (newServerAdded)
 		{
 			// Ping the new server
-			rakPeer->Ping((char*)rakPeer->PlayerIDToDottedIP(gameServer->connectionIdentifier),
-				gameServer->connectionIdentifier.port, false);
+			rakPeer->Ping((char*)gameServer->connectionIdentifier.ToString(false),
+				gameServer->connectionIdentifier.GetPort(), false);
 
 			// Returns true if new server updated
 			OnGameServerListAddition(gameServer);
@@ -229,13 +233,19 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 }
 void MasterClient::HandleRelayedConnectionNotification(Packet *packet)
 {
-	PlayerID clientSystem;
+	SystemAddress clientSystem;
 	BitStream incomingBitStream(packet->data, packet->length, false);
 	incomingBitStream.IgnoreBits(8*sizeof(unsigned char));
-	incomingBitStream.Read(clientSystem.binaryAddress);
-	incomingBitStream.Read(clientSystem.port);
-	
-	OnConnectionRequest(rakPeer->PlayerIDToDottedIP(clientSystem), clientSystem.port);
+
+	uint32_t binaryAddress;
+	unsigned short port;
+	incomingBitStream.Read(binaryAddress);
+	incomingBitStream.Read(port);
+	// Set the address directly in the sockaddr_in structure
+	clientSystem.address.addr4.sin_addr.s_addr = binaryAddress;
+	clientSystem.SetPortHostOrder(port);
+
+	OnConnectionRequest(clientSystem.ToString(false), clientSystem.GetPort());
 }
 void MasterClient::PostRule(char *ruleIdentifier, char *stringData, int intData)
 {
@@ -245,7 +255,7 @@ void MasterClient::PostRule(char *ruleIdentifier, char *stringData, int intData)
 			return;
 
 		localServerModified |= UpdateServerRule(&localServer, ruleIdentifier, stringData, intData);
-	}	
+	}
 }
 
 void MasterClient::RemoveRule(char *ruleIdentifier)

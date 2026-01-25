@@ -44,6 +44,7 @@
 #include "mafianet/HTTPConnection2.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
@@ -272,13 +273,13 @@ public:
 				if (gameInLobby)
 				{
 					readyEvent->DeleteEvent(0);
-					game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
+					EnterPhase(Game::IN_LOBBY_WITH_HOST);
 					printf("Game is now in the lobby\n");
 				}
 				else
 				{
 					readyEvent->ForceCompletion(0);
-					game->EnterPhase(Game::IN_GAME);
+					EnterPhase(Game::IN_GAME);
 				}
 			}
 			deserializeParameters->serializationBitstream[0].Read(masterServerRow);
@@ -293,9 +294,9 @@ public:
 			{
 				char port[256];
 				printf("Enter address of server running the NATCompleteServer project.\nEnter for default: ");
-				Gets(game->serverIPAddr, 256);
-				if (game->serverIPAddr[0]==0)
-					strcpy_s(game->serverIPAddr, DEFAULT_SERVER_ADDRESS);
+				Gets(serverIPAddr, 256);
+				if (serverIPAddr[0]==0)
+					strcpy_s(serverIPAddr, DEFAULT_SERVER_ADDRESS);
 				printf("Enter server port, or enter for default: ");
 				Gets(port, 256);
 				if (port[0]==0)
@@ -937,7 +938,7 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 	if (args->resultCallback)
 		args->resultCallback(success, args->portToOpen, args->userData);
 	MafiaNet::OP_DELETE(args, _FILE_AND_LINE_);
-	return 1;
+	return 0;
 }
 
 void UPNPOpenAsynch(unsigned short portToOpen,

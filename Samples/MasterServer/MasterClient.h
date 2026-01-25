@@ -1,11 +1,16 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
+ *  Original work: Copyright (c) 2014, Oculus VR, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
+ *
+ *  Modified work: Copyright (c) 2024, MafiaHub
+ *
+ *  This source code was modified by MafiaHub. Modifications are licensed under the MIT-style
+ *  license found in the license.txt file in the root directory of this source tree.
  */
 
 // TOPOLOGY
@@ -18,7 +23,7 @@
 #define __MASTER_CLIENT_H
 
 #include "MasterCommon.h"
-#include "BitStream.h"
+#include "mafianet/BitStream.h"
 
 /// \ingroup MasterServer
 /// \brief implements the master client
@@ -62,7 +67,7 @@ public:
 	void PostRule(char *ruleIdentifier, char *stringData, int intData);
 	// Remove a rule about our server
 	void RemoveRule(char *ruleIdentifier);
-	
+
 	// ---------------------------------------------------
 	// SERVER QUERY FUNCTIONS
 	// ---------------------------------------------------

@@ -30,6 +30,7 @@
 #include "mafianet/ConnectionGraph2.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/Gets.h"
 
 void PrintConnections();
 
@@ -108,12 +109,12 @@ int main(void)
 		{
 			ch=0;
 			printf("Which IP? (Press enter for 127.0.0.1)");
-			gets_s(str);
+			Gets(str, sizeof(str));
 			if (str[0]==0)
 				strcpy_s(str, "127.0.0.1");
 			char port[64];
 			printf("Which port? (Press enter for 60000)");
-			gets_s(port);
+			Gets(port, sizeof(port));
 			if (port[0]==0)
 				strcpy_s(port, "60000");
 			const int intRemotePort = atoi(port);
