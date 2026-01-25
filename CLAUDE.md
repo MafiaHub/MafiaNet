@@ -75,10 +75,13 @@ Tests are built as part of samples. After building with samples enabled:
 ./build/Samples/Tests/Tests EightPeerTest
 ```
 
+Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWithCancelPendingTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ManyClientsOneServerNonBlockingTest`, `ManyClientsOneServerDeallocateBlockingTest`, `ReliableOrderedConvertedTest`, `DroppedConnectionConvertTest`, `ComprehensiveConvertTest`, `CrossConnectionConvertTest`, `PingTestsTest`, `OfflineMessagesConvertTest`, `LocalIsConnectedTest`, `SecurityFunctionsTest`, `ConnectWithSocketTest`, `SystemAddressAndGuidTest`, `PacketAndLowLevelTestsTest`, `MiscellaneousTestsTest`
+
 ## Architecture
 
-### Core Namespace
-All types are in the `MafiaNet` namespace (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`).
+### Namespaces
+- Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`)
+- Legacy alias: `RakNet` namespace is available for backward compatibility
 
 ### Key Components
 
@@ -101,16 +104,21 @@ All types are in the `MafiaNet` namespace (e.g., `MafiaNet::RakPeerInterface`, `
 
 ```
 Source/
-├── include/slikenet/   # Public headers (use these)
-└── src/                # Implementation + crypto/
-
-Lib/
-├── LibStatic/          # Static library build
-└── DLL/                # Shared library build
+├── *.h                 # Thin wrapper headers (include these or slikenet/ versions)
+├── include/slikenet/   # Full public API headers
+└── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features
-DependentExtensions/    # Optional: MySQL, PostgreSQL, UPnP, Speex
+DependentExtensions/    # Optional integrations (MySQL, PostgreSQL, miniupnpc, etc.)
 ```
+
+### DependentExtensions
+
+Optional integrations built when `MAFIANET_BUILD_SAMPLES=ON`:
+- **Database**: `MySQLInterface`, `PostgreSQLInterface` - Database connectivity
+- **Autopatcher**: Delta patching system for game updates
+- **miniupnpc**: UPnP port forwarding support
+- **Lobby2**: Matchmaking and lobby system
 
 ### Basic Usage Pattern
 
