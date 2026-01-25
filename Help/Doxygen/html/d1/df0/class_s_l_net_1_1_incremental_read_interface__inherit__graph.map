@@ -1,3 +1,0 @@
-<map id="SLNet::IncrementalReadInterface" name="SLNet::IncrementalReadInterface">
-<area shape="rect" id="node2" href="$d4/d11/class_s_l_net_1_1_autopatcher_repository_interface.xhtml" title="An interface used by AutopatcherServer to get the data necessary to run an autopatcher. This is up to you to implement for custom repository solutions." alt="" coords="5,160,228,325"/>
-</map>

@@ -1,3 +1,0 @@
-<map id="SLNet::PacketizedTCP" name="SLNet::PacketizedTCP">
-<area shape="rect" id="node2" href="$df/dd8/class_s_l_net_1_1_t_c_p_interface.xhtml" title="{SLNet::TCPInterface\n|# messageHandlerList\l# isStarted\l# threadRunning\l# listenSocket\l# headPush\l# tailPush\l# remoteClients\l# remoteClientsLength\l# incomingMessages\l# newIncomingConnections\land 10 more...\l|+ TCPInterface()\l+ ~TCPInterface()\l+ Start()\l+ Stop()\l+ Connect()\l+ Send()\l+ SendList()\l+ GetOutgoingDataBufferSize()\l+ ReceiveHasPackets()\l+ Receive()\land 13 more...\l# ReceiveInt()\l# CreateListenSocket()\l# RAK_THREAD_DECLARATION()\l# RAK_THREAD_DECLARATION()\l# SocketConnect()\l}" alt="" coords="13,5,237,449"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="SLNet::CommandParserInterface" name="SLNet::CommandParserInterface">
-<area shape="rect" id="node2" href="$d5/da2/class_s_l_net_1_1_log_command_parser.xhtml" title="Adds the ability to send logging output to a remote console." alt="" coords="5,321,209,619"/>
-<area shape="rect" id="node3" href="$db/d79/class_s_l_net_1_1_rak_net_command_parser.xhtml" title="This allows a console client to call most of the functions in RakPeer." alt="" coords="233,395,440,545"/>
-</map>

@@ -1,3 +1,0 @@
-<map id="ThreadPool&lt; InputType, OutputType &gt;" name="ThreadPool&lt; InputType, OutputType &gt;">
-<area shape="rect" id="node2" href="$d1/dbc/struct_thread_pool.xhtml" title="{ThreadPool\&lt; ThreadData,\l int \&gt;\n|# inputQueueMutex\l# outputQueueMutex\l# workingThreadCountMutex\l# runThreadsMutex\l# perThreadDataFactory\l# perThreadDataDestructor\l# inputFunctionQueue\l# inputQueue\l# outputQueue\l# threadDataInterface\land 6 more...\l|+ ThreadPool()\l+ ~ThreadPool()\l+ StartThreads()\l+ SetThreadDataInterface()\l+ StopThreads()\l+ AddInput()\l+ AddOutput()\l+ HasOutput()\l+ HasOutputFast()\l+ HasInput()\land 20 more...\l# RAK_THREAD_DECLARATION()\l}" alt="" coords="5,468,229,868"/>
-</map>

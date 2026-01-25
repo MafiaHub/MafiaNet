@@ -1,3 +1,0 @@
-<map id="DataStructures::BPlusTree&lt; KeyType, DataType, order &gt;" name="DataStructures::BPlusTree&lt; KeyType, DataType, order &gt;">
-<area shape="rect" id="node2" href="$d7/d58/class_data_structures_1_1_b_plus_tree.xhtml" title="{DataStructures::BPlusTree\l\&lt; unsigned, Row *, _TABLE\l_BPLUS_TREE_ORDER \&gt;\n|# pagePool\l# root\l# leftmostLeaf\l|+ BPlusTree()\l+ ~BPlusTree()\l+ SetPoolPageSize()\l+ Get()\l+ Delete()\l+ Delete()\l+ Insert()\l+ Clear()\l+ Size()\l+ IsEmpty()\land 6 more...\l# ValidateTreeRecursive()\l# DeleteFromPageAtIndex()\l# FreePages()\l# GetIndexOf()\l# ShiftKeysLeft()\l# CanRotateLeft()\l# CanRotateRight()\l# RotateRight()\l# RotateLeft()\l# InsertIntoNode()\land 6 more...\l# PrintLeaf()\l}" alt="" coords="12,527,196,985"/>
-</map>

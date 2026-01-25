@@ -216,6 +216,7 @@ public:
 	/// MafiaNet::BitStream bsIn(packet->data,packet->length,false);
 	/// FullyConnectedMesh2::SkipToVJCUserData(&bsIn);
 	/// // Your code here
+	/// \endcode
 	static void SkipToVJCUserData(MafiaNet::BitStream *bsIn);
 
 	/// Write custom user data to be sent with ID_FCM2_VERIFIED_JOIN_START, per user

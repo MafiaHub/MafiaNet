@@ -1,7 +1,0 @@
-<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$d1/dde/class_s_l_net_1_1_rak_net_socket2.xhtml" title="SLNet::RakNetSocket2" alt="" coords="5,5,163,32"/>
-<area shape="rect" id="node2" href="$d7/d64/class_s_l_net_1_1_i_r_n_s2___berkley.xhtml" title="SLNet::IRNS2_Berkley" alt="" coords="211,5,365,32"/>
-<area shape="rect" id="node3" href="$d1/d4f/class_s_l_net_1_1_r_n_s2___berkley.xhtml" title="SLNet::RNS2_Berkley" alt="" coords="429,5,580,32"/>
-<area shape="rect" id="node4" href="$d1/da2/class_s_l_net_1_1_r_n_s2___linux.xhtml" title="SLNet::RNS2_Linux" alt="" coords="644,31,783,57"/>
-<area shape="rect" id="node5" href="$dd/d9e/class_r_n_s2___windows___linux__360.xhtml" title="RNS2_Windows_Linux_360" alt="" coords="413,56,596,83"/>
-</map>

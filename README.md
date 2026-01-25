@@ -150,8 +150,39 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 
 ## Documentation
 
+### Building the Documentation
+
+MafiaNet uses Sphinx with Breathe for modern, searchable documentation.
+
+**Prerequisites:**
+```bash
+# Install Doxygen
+brew install doxygen        # macOS
+sudo apt install doxygen    # Ubuntu/Debian
+
+# Install Python dependencies
+pip install -r docs/requirements.txt
+```
+
+**Generate and view documentation:**
+```bash
+cd docs
+./build.sh              # Build HTML documentation
+open _build/html/index.html  # View in browser (macOS)
+# Or: xdg-open _build/html/index.html (Linux)
+```
+
+**Live preview with auto-reload:**
+```bash
+cd docs
+./build.sh serve        # Starts server at http://localhost:8000
+```
+
+### Documentation Resources
+
 | Resource | Description |
 |----------|-------------|
+| [docs/](./docs) | Full Sphinx documentation source |
 | [Samples](./Samples) | 80+ example projects covering all major features |
 | [API Headers](./Source/include/mafianet) | Well-documented public API |
 | [CLAUDE.md](./CLAUDE.md) | Quick reference for AI-assisted development |
@@ -183,7 +214,7 @@ MafiaNet/
 - [ ] Remove legacy/deprecated code
 - [ ] Modernize CMake build system
 - [ ] Add GitHub Actions CI/CD
-- [ ] Improve documentation
+- [x] Improve documentation (Sphinx + Breathe)
 - [ ] Add unit test coverage
 - [ ] Create versioned releases
 
@@ -192,9 +223,9 @@ MafiaNet/
 MafiaNet continues the legacy of two foundational networking libraries:
 
 - **RakNet** (2001-2014) — Industry-standard game networking library by Jenkins Software, used in countless multiplayer games. Acquired and open-sourced by Oculus VR.
-- **MafiaNet** (2016-2019) — Community continuation by SLikeSoft that modernized RakNet with bug fixes, security patches, and C++11 support.
+- **SLikeNet** (2016-2019) — Community continuation by SLikeSoft that modernized RakNet with bug fixes, security patches, and C++11 support.
 
-With MafiaNet no longer maintained, MafiaNet carries the torch forward—providing an actively developed, modern networking solution for the game development community.
+With SLikeNet no longer maintained, MafiaNet carries the torch forward—providing an actively developed, modern networking solution for the game development community.
 
 ## Community
 

@@ -1,3 +1,0 @@
-<map id="SLNet::FileListTransfer" name="SLNet::FileListTransfer">
-<area shape="rect" id="node2" href="$de/d14/group___p_l_u_g_i_n___i_n_t_e_r_f_a_c_e___g_r_o_u_p.xhtml#db/d5e/class_s_l_net_1_1_plugin_interface2" title="{SLNet::PluginInterface2\n|# rakPeerInterface\l# tcpInterface\l|+ PluginInterface2()\l+ ~PluginInterface2()\l+ OnAttach()\l+ OnDetach()\l+ Update()\l+ OnReceive()\l+ OnRakPeerStartup()\l+ OnRakPeerShutdown()\l+ OnClosedConnection()\l+ OnNewConnection()\land 12 more...\l# SendUnified()\l# SendUnified()\l# SendListUnified()\l# AllocatePacketUnified()\l# PushBackPacketUnified()\l# DeallocPacketUnified()\l}" alt="" coords="21,5,203,332"/>
-</map>

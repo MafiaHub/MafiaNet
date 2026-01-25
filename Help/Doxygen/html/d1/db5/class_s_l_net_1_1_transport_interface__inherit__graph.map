@@ -1,4 +1,0 @@
-<map id="SLNet::TransportInterface" name="SLNet::TransportInterface">
-<area shape="rect" id="node2" href="$df/dc4/group___r_a_k_n_e_t___t_r_a_n_s_p_o_r_t___g_r_o_u_p.xhtml#d4/dab/class_s_l_net_1_1_rak_net_transport2" title="Use RakNetTransport if you need a secure connection between the client and the console server..." alt="" coords="5,292,212,589"/>
-<area shape="rect" id="node3" href="$d3/d41/class_s_l_net_1_1_telnet_transport.xhtml" title="Use TelnetTransport to easily allow windows telnet to connect to your ConsoleServer." alt="" coords="236,277,443,604"/>
-</map>

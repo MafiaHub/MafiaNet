@@ -1,3 +1,0 @@
-<map id="SLNet::TCPInterface" name="SLNet::TCPInterface">
-<area shape="rect" id="node2" href="$d6/d05/class_s_l_net_1_1_packetized_t_c_p.xhtml" title="{SLNet::PacketizedTCP\n|# waitingPackets\l# connections\l# _newIncomingConnections\l# _lostConnections\l# _failedConnectionAttempts\l# _completedConnectionAttempts\l|+ PacketizedTCP()\l+ ~PacketizedTCP()\l+ Stop()\l+ Send()\l+ SendList()\l+ Receive()\l+ CloseConnection()\l+ HasCompletedConnectionAttempt()\l+ HasFailedConnectionAttempt()\l+ HasNewIncomingConnection()\l+ HasLostConnection()\l# ClearAllConnections()\l# RemoveFromConnectionList()\l# AddToConnectionList()\l# PushNotificationsToQueues()\l# ReturnOutgoingPacket()\l}" alt="" coords="5,497,244,868"/>
-</map>

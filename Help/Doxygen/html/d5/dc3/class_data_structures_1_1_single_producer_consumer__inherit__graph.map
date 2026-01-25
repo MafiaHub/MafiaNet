@@ -1,3 +1,0 @@
-<map id="DataStructures::SingleProducerConsumer&lt; SingleProducerConsumerType &gt;" name="DataStructures::SingleProducerConsumer&lt; SingleProducerConsumerType &gt;">
-<area shape="rect" id="node2" href="$d0/d72/class_data_structures_1_1_single_producer_consumer.xhtml" title="{DataStructures::SingleProducer\lConsumer\&lt; char * \&gt;\n||+ SingleProducerConsumer()\l+ ~SingleProducerConsumer()\l+ WriteLock()\l+ CancelWriteLock()\l+ WriteUnlock()\l+ ReadLock()\l+ CancelReadLock()\l+ ReadUnlock()\l+ Clear()\l+ Size()\l+ CheckReadUnlockOrder()\l+ ReadIsLocked()\l}" alt="" coords="23,336,228,589"/>
-</map>

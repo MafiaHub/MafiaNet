@@ -1,4 +1,0 @@
-<map id="SLNet::RakPeer" name="SLNet::RakPeer">
-<area shape="rect" id="node2" href="$da/d27/class_s_l_net_1_1_rak_peer_interface.xhtml" title="The main interface for network communications." alt="" coords="5,5,251,244"/>
-<area shape="rect" id="node3" href="$d5/da8/class_s_l_net_1_1_r_n_s2_event_handler.xhtml" title="{SLNet::RNS2EventHandler\n||+ RNS2EventHandler()\l+ ~RNS2EventHandler()\l+ OnRNS2Recv()\l+ DeallocRNS2RecvStruct()\l+ AllocRNS2RecvStruct()\l}" alt="" coords="275,57,458,193"/>
-</map>

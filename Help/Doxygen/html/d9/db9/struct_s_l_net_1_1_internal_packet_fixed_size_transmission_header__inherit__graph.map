@@ -1,3 +1,0 @@
-<map id="SLNet::InternalPacketFixedSizeTransmissionHeader" name="SLNet::InternalPacketFixedSizeTransmissionHeader">
-<area shape="rect" id="node2" href="$d9/d9a/struct_s_l_net_1_1_internal_packet.xhtml" title="{SLNet::InternalPacket\n|+ messageInternalOrder\l+ messageNumberAssigned\l+ creationTime\l+ nextActionTime\l+ retransmissionTime\l+ headerLength\l+ data\l+ allocationScheme\l+ refCountedData\l+ timesSent\land 7 more...\l|}" alt="" coords="5,263,192,487"/>
-</map>

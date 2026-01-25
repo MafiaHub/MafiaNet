@@ -1,4 +1,0 @@
-<map id="SLNet::NatPunchthroughServerDebugInterface" name="SLNet::NatPunchthroughServerDebugInterface">
-<area shape="rect" id="node2" href="$db/d81/group___n_a_t___p_u_n_c_h_t_h_r_o_u_g_h___g_r_o_u_p.xhtml#d4/dd5/struct_s_l_net_1_1_nat_punchthrough_server_debug_interface___packet_logger" title="{SLNet::NatPunchthroughServer\lDebugInterface_PacketLogger\n|+ pl\l|+ NatPunchthroughServerDebug\lInterface_PacketLogger()\l+ ~NatPunchthroughServerDebug\lInterface_PacketLogger()\l+ OnServerMessage()\l}" alt="" coords="5,204,220,355"/>
-<area shape="rect" id="node3" href="$db/d81/group___n_a_t___p_u_n_c_h_t_h_r_o_u_g_h___g_r_o_u_p.xhtml#d4/d59/struct_s_l_net_1_1_nat_punchthrough_server_debug_interface___printf" title="{SLNet::NatPunchthroughServer\lDebugInterface_Printf\n||+ OnServerMessage()\l}" alt="" coords="245,233,447,325"/>
-</map>

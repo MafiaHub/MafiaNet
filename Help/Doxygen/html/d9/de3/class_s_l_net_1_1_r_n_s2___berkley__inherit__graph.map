@@ -1,5 +1,0 @@
-<map id="SLNet::RNS2_Berkley" name="SLNet::RNS2_Berkley">
-<area shape="rect" id="node4" href="$d1/da2/class_s_l_net_1_1_r_n_s2___linux.xhtml" title="{SLNet::RNS2_Linux\n||+ Bind()\l+ Send()\l+ GetMyIP()\l# GetMyIPIPV4()\l# GetMyIPIPV4And6()\l}" alt="" coords="43,968,194,1104"/>
-<area shape="rect" id="node2" href="$d7/d64/class_s_l_net_1_1_i_r_n_s2___berkley.xhtml" title="{SLNet::IRNS2_Berkley\n||+ Bind()\l+ IsPortInUse()\l}" alt="" coords="41,351,196,443"/>
-<area shape="rect" id="node3" href="$d1/dde/class_s_l_net_1_1_rak_net_socket2.xhtml" title="{SLNet::RakNetSocket2\n|# eventHandler\l# socketType\l# boundAddress\l# userConnectionSocketIndex\l|+ RakNetSocket2()\l+ ~RakNetSocket2()\l+ SetRecvEventHandler()\l+ Send()\l+ GetSocketType()\l+ SetSocketType()\l+ IsBerkleySocket()\l+ GetBoundAddress()\l+ GetUserConnectionSocketIndex()\l+ SetUserConnectionSocketIndex()\l+ GetEventHandler()\l+ GetMyIP()\l+ DomainNameToIP()\l}" alt="" coords="5,5,232,303"/>
-</map>

@@ -1,5 +1,0 @@
-<map id="SLNet::RNS2EventHandler" name="SLNet::RNS2EventHandler">
-<area shape="rect" id="node2" href="$d4/de2/group___n_a_t___t_y_p_e___d_e_t_e_c_t_i_o_n___g_r_o_u_p.xhtml#d2/d32/class_s_l_net_1_1_nat_type_detection_client" title="Client code for NatTypeDetection." alt="" coords="5,299,208,626"/>
-<area shape="rect" id="node3" href="$d4/de2/group___n_a_t___t_y_p_e___d_e_t_e_c_t_i_o_n___g_r_o_u_p.xhtml#dd/d27/class_s_l_net_1_1_nat_type_detection_server" title="Server code for NatTypeDetection." alt="" coords="232,285,437,641"/>
-<area shape="rect" id="node4" href="$d5/dbf/class_s_l_net_1_1_rak_peer.xhtml" title="Main interface for network communications." alt="" coords="461,189,707,736"/>
-</map>
