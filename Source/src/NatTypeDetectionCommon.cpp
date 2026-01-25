@@ -13,13 +13,13 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NatTypeDetectionCommon.h"
+#include "mafianet/NatTypeDetectionCommon.h"
 
 #if _RAKNET_SUPPORT_NatTypeDetectionServer==1 || _RAKNET_SUPPORT_NatTypeDetectionClient==1
 
-#include "slikenet/SocketLayer.h"
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/SocketDefines.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/SocketDefines.h"
 
 using namespace MafiaNet;
 

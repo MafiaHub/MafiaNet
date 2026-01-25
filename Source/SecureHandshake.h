@@ -7,4 +7,4 @@
  *
  *  Header file redirection to keep source compatibility with RakNet 4.082.
  */
-#include "include/slikenet/SecureHandshake.h"
+#include "include/mafianet/SecureHandshake.h"

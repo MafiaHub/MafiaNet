@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_TwoWayAuthentication==1
 
-#include "slikenet/TwoWayAuthentication.h"
-#include "slikenet/Rand.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/TwoWayAuthentication.h"
+#include "mafianet/Rand.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/peerinterface.h"
 
 #if LIBCAT_SECURITY==1
 static const int HASH_BITS = 256;

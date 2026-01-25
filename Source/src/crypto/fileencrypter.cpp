@@ -4,7 +4,7 @@
  *  This source code is  licensed under the MIT-style license found in the license.txt
  *  file in the root directory of this source tree.
  */
-#include "slikenet/crypto/fileencrypter.h"
+#include "mafianet/crypto/fileencrypter.h"
 
 #include <cstring> // used for strlen, strcpy_s
 
@@ -13,11 +13,11 @@
 #include <openssl/pem.h> // used for PEM_read_bio_RSAPrivateKey, PEM_read_bio_RSA_PUBKEY, BIO_xxx
 #include <openssl/rsa.h> // used for RSA_xxxx
 
-#include "slikenet/crypto/cryptomanager.h" // used for MafiaNet::Experimental::Crypto::CCryptoManager
-#include "slikenet/assert.h"               // used for RakAssert
+#include "mafianet/crypto/cryptomanager.h" // used for MafiaNet::Experimental::Crypto::CCryptoManager
+#include "mafianet/assert.h"               // used for RakAssert
 
-#include "slikenet/linux_adapter.h" // used for strcpy_s
-#include "slikenet/osx_adapter.h"   // used for strcpy_s
+#include "mafianet/linux_adapter.h" // used for strcpy_s
+#include "mafianet/osx_adapter.h"   // used for strcpy_s
 
 namespace MafiaNet
 {

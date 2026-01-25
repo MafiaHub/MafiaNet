@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/CommandParserInterface.h"
-#include "slikenet/TransportInterface.h"
+#include "mafianet/CommandParserInterface.h"
+#include "mafianet/TransportInterface.h"
 #include <string.h>
-#include "slikenet/assert.h"
+#include "mafianet/assert.h"
 #include <stdio.h>
 
 
@@ -31,7 +31,7 @@
 #include <arpa/inet.h>
 #endif
 
-#include "slikenet/LinuxStrings.h"
+#include "mafianet/LinuxStrings.h"
 
 using namespace MafiaNet;
 

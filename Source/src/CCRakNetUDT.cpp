@@ -13,18 +13,18 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/CCRakNetUDT.h"
+#include "mafianet/CCRakNetUDT.h"
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
 
-#include "slikenet/Rand.h"
-#include "slikenet/MTUSize.h"
+#include "mafianet/Rand.h"
+#include "mafianet/MTUSize.h"
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 //#include <memory.h>
-#include "slikenet/assert.h"
-#include "slikenet/alloca.h"
+#include "mafianet/assert.h"
+#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

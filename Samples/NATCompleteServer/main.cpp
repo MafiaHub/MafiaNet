@@ -13,29 +13,29 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/sleep.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/sleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Kbhit.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/sleep.h"
-#include "slikenet/UDPProxyServer.h"
-#include "slikenet/UDPProxyCoordinator.h"
-#include "slikenet/NatPunchthroughServer.h"
-#include "slikenet/NatTypeDetectionServer.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/Getche.h"
-#include "slikenet/Gets.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/UDPProxyServer.h"
+#include "mafianet/UDPProxyCoordinator.h"
+#include "mafianet/NatPunchthroughServer.h"
+#include "mafianet/NatTypeDetectionServer.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/Getche.h"
+#include "mafianet/Gets.h"
 #include "CloudServerHelper.h"
-#include "slikenet/CloudClient.h"
-#include "slikenet/statistics.h"
-#include "slikenet/RelayPlugin.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/CloudClient.h"
+#include "mafianet/statistics.h"
+#include "mafianet/RelayPlugin.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 //#define VERBOSE_LOGGING
 

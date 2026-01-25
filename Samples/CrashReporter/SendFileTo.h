@@ -18,7 +18,7 @@
 #ifndef __SENDFILETO_H__
 #define __SENDFILETO_H__
 
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #include <mapi.h>
 
 

@@ -18,14 +18,14 @@
 
 
 #if defined(_WIN32)
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 // To call timeGetTime
 // on Code::Blocks, this needs to be libwinmm.a instead
 #pragma comment(lib, "Winmm.lib")
 
 #endif
 
-#include "slikenet/GetTime.h"
+#include "mafianet/GetTime.h"
 
 
 
@@ -52,7 +52,7 @@ MafiaNet::TimeUS initialTime;
 static bool initialized=false;
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
-#include "slikenet/SimpleMutex.h"
+#include "mafianet/SimpleMutex.h"
 MafiaNet::TimeUS lastNormalizedReturnedValue=0;
 MafiaNet::TimeUS lastNormalizedInputValue=0;
 /// This constraints timer forward jumps to 1 second, and does not let it jump backwards

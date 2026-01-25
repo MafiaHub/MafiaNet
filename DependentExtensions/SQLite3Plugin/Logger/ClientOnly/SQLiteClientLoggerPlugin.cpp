@@ -9,11 +9,11 @@
  */
 
 #include "SQLiteClientLoggerPlugin.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 static const char COLUMN_NAMES_DELIMITER=',';
 static const int MAX_COLUMN_NAMES_LENGTH=512;

@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/FormatString.h"
-#include "slikenet/EpochTimeToString.h"
+#include "mafianet/FormatString.h"
+#include "mafianet/EpochTimeToString.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 // localtime
 #include <time.h>
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 char * EpochTimeToString(long long time)
 {

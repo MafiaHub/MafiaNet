@@ -17,10 +17,10 @@
 ///
 
 
-#include "slikenet/NetworkIDObject.h"
-#include "slikenet/NetworkIDManager.h"
-#include "slikenet/assert.h"
-#include "slikenet/alloca.h"
+#include "mafianet/NetworkIDObject.h"
+#include "mafianet/NetworkIDManager.h"
+#include "mafianet/assert.h"
+#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

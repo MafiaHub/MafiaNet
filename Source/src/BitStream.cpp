@@ -15,7 +15,7 @@
 
 /// \file
 ///
-#include "slikenet/BitStream.h"
+#include "mafianet/BitStream.h"
 
 #include <float.h>
 #include <memory.h>
@@ -23,11 +23,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/defines.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/defines.h"
 
 #if   defined(_WIN32)
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #include <cmath>
 #else
 #include <arpa/inet.h>
@@ -37,8 +37,8 @@
 #include <cmath>
 #endif
 #endif
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 // MSWin uses _copysign, others use copysign...
 #ifndef _WIN32

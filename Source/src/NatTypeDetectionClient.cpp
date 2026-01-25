@@ -13,18 +13,18 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_NatTypeDetectionClient==1
 
-#include "slikenet/NatTypeDetectionClient.h"
-#include "slikenet/smartptr.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/string.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/SocketDefines.h"
+#include "mafianet/NatTypeDetectionClient.h"
+#include "mafianet/smartptr.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/string.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/SocketDefines.h"
 
 using namespace MafiaNet;
 

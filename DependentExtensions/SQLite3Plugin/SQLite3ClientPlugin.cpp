@@ -9,8 +9,8 @@
  */
 
 #include "SQLite3ClientPlugin.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
 
 using namespace MafiaNet;
 

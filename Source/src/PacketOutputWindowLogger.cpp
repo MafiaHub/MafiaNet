@@ -13,17 +13,17 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_PacketLogger==1
 
 #if defined(UNICODE)
-#include "slikenet/wstring.h"
+#include "mafianet/wstring.h"
 #endif
 
-#include "slikenet/PacketOutputWindowLogger.h"
-#include "slikenet/string.h"
+#include "mafianet/PacketOutputWindowLogger.h"
+#include "mafianet/string.h"
 #if defined(_WIN32)
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #endif
 
 using namespace MafiaNet;

@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_HTTPConnection2==1 && _RAKNET_SUPPORT_TCPInterface==1
 
-#include "slikenet/HTTPConnection2.h"
-#include "slikenet/TCPInterface.h"
+#include "mafianet/HTTPConnection2.h"
+#include "mafianet/TCPInterface.h"
 
 using namespace MafiaNet;
 

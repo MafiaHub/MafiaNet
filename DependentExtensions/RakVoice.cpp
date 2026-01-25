@@ -16,13 +16,13 @@
 #include "RakVoice.h"
 #include "speex/speex.h"
 #include "speex/speex_preprocess.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/peerinterface.h"
 #include <stdlib.h>
-#include "slikenet/GetTime.h"
+#include "mafianet/GetTime.h"
 
 #ifdef _DEBUG
 #include <stdio.h>

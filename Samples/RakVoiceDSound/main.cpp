@@ -16,25 +16,25 @@
 #define INTERACTIVE
 
 #if defined(INTERACTIVE)
-#include "slikenet/Kbhit.h"
+#include "mafianet/Kbhit.h"
 #endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
 
-#include "slikenet/sleep.h"
+#include "mafianet/sleep.h"
 #include "RakVoice.h"
-#include "slikenet/statistics.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/assert.h"
-#include "slikenet/Gets.h"
+#include "mafianet/statistics.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/assert.h"
+#include "mafianet/Gets.h"
 #include "DSoundVoiceAdapter.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 // Reads and writes per second of the sound data
 // Speex only supports these 3 values

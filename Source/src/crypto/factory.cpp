@@ -4,10 +4,10 @@
  *  This source code is  licensed under the MIT-style license found in the license.txt
  *  file in the root directory of this source tree.
  */
-#include "slikenet/crypto/factory.h"
+#include "mafianet/crypto/factory.h"
 
 // includes for concrete classes
-#include "slikenet/crypto/fileencrypter.h" // used for CFileEncrypter
+#include "mafianet/crypto/fileencrypter.h" // used for CFileEncrypter
 
 namespace MafiaNet
 {

@@ -17,13 +17,13 @@
 ///
 
 
-#include "slikenet/NetworkIDManager.h"
-#include "slikenet/NetworkIDObject.h"
-#include "slikenet/assert.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/sleep.h"
-#include "slikenet/SuperFastHash.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/NetworkIDManager.h"
+#include "mafianet/NetworkIDObject.h"
+#include "mafianet/assert.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/sleep.h"
+#include "mafianet/SuperFastHash.h"
+#include "mafianet/peerinterface.h"
 
 using namespace MafiaNet;
 

@@ -415,11 +415,11 @@
     <Compile Include="..\..\..\bindings\csharp\interfaces\SimpleMutex.cs">
       <Link>bindings\SimpleMutex.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\bindings\csharp\interfaces\SLikeNet.cs">
-      <Link>bindings\SLikeNet.cs</Link>
+    <Compile Include="..\..\..\bindings\csharp\interfaces\MafiaNet.cs">
+      <Link>bindings\MafiaNet.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\bindings\csharp\interfaces\SLikeNetPINVOKE.cs">
-      <Link>bindings\SLikeNetPINVOKE.cs</Link>
+    <Compile Include="..\..\..\bindings\csharp\interfaces\MafiaNetPINVOKE.cs">
+      <Link>bindings\MafiaNetPINVOKE.cs</Link>
     </Compile>
     <Compile Include="..\..\..\bindings\csharp\interfaces\SocketDescriptor.cs">
       <Link>bindings\SocketDescriptor.cs</Link>

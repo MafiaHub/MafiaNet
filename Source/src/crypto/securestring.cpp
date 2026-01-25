@@ -4,12 +4,12 @@
  *  This source code is  licensed under the MIT-style license found in the license.txt
  *  file in the root directory of this source tree.
  */
-#include "slikenet/crypto/securestring.h"
+#include "mafianet/crypto/securestring.h"
 
 // #med - review the include order - defines.h defines SLNET_VERIFY but doesn't enforce including assert.h which it honestly should
-#include "slikenet/crypto/cryptomanager.h" // used for CCryptoManager
-#include "slikenet/assert.h"               // used for assert() (via SLNET_VERIFY)
-#include "slikenet/memoryoverride.h"       // used for OP_NEW_ARRAY
+#include "mafianet/crypto/cryptomanager.h" // used for CCryptoManager
+#include "mafianet/assert.h"               // used for assert() (via SLNET_VERIFY)
+#include "mafianet/memoryoverride.h"       // used for OP_NEW_ARRAY
 
 #include <cstring> // used for std::memcpy
 #include <limits>  // used for std::numeric_limits

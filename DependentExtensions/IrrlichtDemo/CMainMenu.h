@@ -29,7 +29,7 @@
 #endif
 
 #ifdef _WIN32__
-#include "slikenet/WindowsIncludes.h" // Prevent 'fd_set' : 'struct' type redefinition
+#include "mafianet/WindowsIncludes.h" // Prevent 'fd_set' : 'struct' type redefinition
 #endif
 #include "IGUIEditBox.h"
 

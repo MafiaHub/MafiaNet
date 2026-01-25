@@ -14,13 +14,13 @@
  */
 
 #include "RPC3.h"
-#include "slikenet/memoryoverride.h"
-#include "slikenet/assert.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/NetworkIDManager.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/assert.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/NetworkIDManager.h"
 #include <stdlib.h>
 
 using namespace MafiaNet;

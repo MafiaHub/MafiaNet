@@ -40,7 +40,7 @@
 #define IRRLICHT_MEDIA_PATH "IrrlichtMedia/"
 
 #ifdef _WIN32__
-#include "slikenet/WindowsIncludes.h" // Prevent 'fd_set' : 'struct' type redefinition
+#include "mafianet/WindowsIncludes.h" // Prevent 'fd_set' : 'struct' type redefinition
 #include <windows.h>
 #endif
 
@@ -70,11 +70,11 @@ const float CAMERA_HEIGHT=50.0f;
 const float SHOT_SPEED=.6f;
 const float BALL_DIAMETER=25.0f;
 
-// SLikeNet
-#include "slikenetstuff.h"
-#include "slikenet/DS_Multilist.h"
-#include "slikenet/string.h"
-#include "slikenet/time.h"
+// MafiaNet
+#include "mafianetstuff.h"
+#include "mafianet/DS_Multilist.h"
+#include "mafianet/string.h"
+#include "mafianet/time.h"
 
 class CDemo : public IEventReceiver
 {

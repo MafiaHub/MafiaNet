@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/memoryoverride.h"
-#include "slikenet/assert.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/assert.h"
 #include <stdlib.h>
 
 #ifdef _RAKNET_SUPPORT_DL_MALLOC

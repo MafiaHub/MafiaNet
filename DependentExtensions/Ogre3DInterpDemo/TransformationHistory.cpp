@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/assert.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/assert.h"
+#include "mafianet/memoryoverride.h"
 #include "TransformationHistory.h"
 
 TransformationHistoryCell::TransformationHistoryCell()

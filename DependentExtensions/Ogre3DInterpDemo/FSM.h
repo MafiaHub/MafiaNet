@@ -15,7 +15,7 @@
 #ifndef __FINITE_STATE_MACHINE_H
 #define __FINITE_STATE_MACHINE_H
 
-#include "slikenet/DS_List.h"
+#include "mafianet/DS_List.h"
 
 class State;
 

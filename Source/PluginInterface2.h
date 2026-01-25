@@ -7,4 +7,4 @@
  *
  *  Header file redirection to keep source compatibility with RakNet 4.082.
  */
-#include "include/slikenet/PluginInterface2.h"
+#include "include/mafianet/PluginInterface2.h"

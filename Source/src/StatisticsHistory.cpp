@@ -13,13 +13,13 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_StatisticsHistory==1
 
-#include "slikenet/StatisticsHistory.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/statistics.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/StatisticsHistory.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/statistics.h"
+#include "mafianet/peerinterface.h"
 
 using namespace MafiaNet;
 

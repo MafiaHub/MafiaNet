@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/FileList.h"
+#include "mafianet/FileList.h"
 
 #if _RAKNET_SUPPORT_FileOperations==1
 
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
-#include "slikenet/assert.h"
+#include "mafianet/assert.h"
 #if defined(ANDROID)
 #include <asm/io.h>
 #elif defined(_WIN32) || defined(__CYGWIN__)
@@ -39,16 +39,16 @@
 #include <sys/stat.h>
 #endif
 
-//#include "slikenet/DR_SHA1.h"
-#include "slikenet/DS_Queue.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/FileOperations.h"
-#include "slikenet/SuperFastHash.h"
-#include "slikenet/assert.h"
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+//#include "mafianet/DR_SHA1.h"
+#include "mafianet/DS_Queue.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/FileOperations.h"
+#include "mafianet/SuperFastHash.h"
+#include "mafianet/assert.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #define MAX_FILENAME_LENGTH 512
 static const unsigned HASH_LENGTH=4;
@@ -68,11 +68,11 @@ using namespace MafiaNet;
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include "slikenet/_FindFirst.h"
+#include "mafianet/_FindFirst.h"
 #include <stdint.h> //defines intptr_t
 #endif
 
-#include "slikenet/alloca.h"
+#include "mafianet/alloca.h"
 
 //int RAK_DLL_EXPORT FileListNodeComp( char * const &key, const FileListNode &data )
 //{

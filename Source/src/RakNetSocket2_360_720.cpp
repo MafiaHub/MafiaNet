@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/EmptyHeader.h"
+#include "mafianet/EmptyHeader.h"
 
 #ifdef RAKNET_SOCKET_2_INLINE_FUNCTIONS
 

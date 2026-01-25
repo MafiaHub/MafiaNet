@@ -13,26 +13,26 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/sleep.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/sleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Kbhit.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/sleep.h"
-#include "slikenet/NatPunchthroughClient.h"
-#include "slikenet/NatTypeDetectionClient.h"
-#include "slikenet/Getche.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/Router2.h"
-#include "slikenet/UDPProxyClient.h"
-#include "slikenet/Gets.h"
-#include "slikenet/Itoa.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/NatPunchthroughClient.h"
+#include "mafianet/NatTypeDetectionClient.h"
+#include "mafianet/Getche.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Router2.h"
+#include "mafianet/UDPProxyClient.h"
+#include "mafianet/Gets.h"
+#include "mafianet/Itoa.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 // To include miniupnp, see Samples\NATCompleteClient\readme.txt
 #include "miniupnpc.h"

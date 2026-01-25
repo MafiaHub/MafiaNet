@@ -13,28 +13,28 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/GetTime.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/statistics.h"
-#include "slikenet/DirectoryDeltaTransfer.h"
-#include "slikenet/FileListTransfer.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/statistics.h"
+#include "mafianet/DirectoryDeltaTransfer.h"
+#include "mafianet/FileListTransfer.h"
 #include <cstdio>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Kbhit.h"
-#include "slikenet/FileList.h"
-#include "slikenet/DataCompressor.h"
-#include "slikenet/FileListTransferCBInterface.h"
-#include "slikenet/sleep.h"
-#include "slikenet/IncrementalReadInterface.h"
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/FileList.h"
+#include "mafianet/DataCompressor.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/IncrementalReadInterface.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #ifdef _WIN32
-#include "slikenet/WindowsIncludes.h" // Sleep
+#include "mafianet/WindowsIncludes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

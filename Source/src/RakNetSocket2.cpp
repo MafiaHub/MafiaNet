@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/socket2.h"
-#include "slikenet/memoryoverride.h"
-#include "slikenet/assert.h"
-#include "slikenet/sleep.h"
-#include "slikenet/SocketDefines.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/socket2.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/assert.h"
+#include "mafianet/sleep.h"
+#include "mafianet/SocketDefines.h"
+#include "mafianet/GetTime.h"
 #include <stdio.h>
 #include <string.h> // memcpy
 

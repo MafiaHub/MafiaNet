@@ -14,8 +14,8 @@
  */
 
 /*
-#include "slikenet/socket.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/socket.h"
+#include "mafianet/memoryoverride.h"
 
 using namespace MafiaNet;
 

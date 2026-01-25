@@ -15,16 +15,16 @@
 #include "CDemo.h"
 
 // RakNet includes
-#include "slikenet/GetTime.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/types.h"
-#include "slikenet/Itoa.h"
-#include "slikenet/smartptr.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/types.h"
+#include "mafianet/Itoa.h"
+#include "mafianet/smartptr.h"
 #include "miniupnpc.h"
 #include "upnpcommands.h"
 #include "upnperrors.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 CDemo::CDemo(bool f, bool m, bool s, bool a, bool v, bool fsaa, video::E_DRIVER_TYPE d, core::stringw &_playerName)
 : fullscreen(f), music(m), shadows(s), additive(a), vsync(v), aa(fsaa),

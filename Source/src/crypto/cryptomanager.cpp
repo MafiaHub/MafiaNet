@@ -4,9 +4,9 @@
 *  This source code is  licensed under the MIT-style license found in the license.txt
 *  file in the root directory of this source tree.
 */
-#include "slikenet/crypto/cryptomanager.h"
+#include "mafianet/crypto/cryptomanager.h"
 
-#include "slikenet/assert.h" // used for RakAssert
+#include "mafianet/assert.h" // used for RakAssert
 #include <limits>            // used for std::numeric_limits<>
 
 // prevent max/min macros getting defined (breaking numeric_limits<>::max() / ::min() usage) through the indirect windows.h include in the OpenSSL includes

@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/CloudClient.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/sleep.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/CloudClient.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/sleep.h"
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
 

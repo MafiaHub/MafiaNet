@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/EmailSender.h"
-#include "slikenet/FileList.h"
+#include "mafianet/EmailSender.h"
+#include "mafianet/FileList.h"
 #include <stdio.h>
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 int main()
 {

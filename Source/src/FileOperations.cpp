@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/FileOperations.h"
+#include "mafianet/FileOperations.h"
 #if _RAKNET_SUPPORT_FileOperations==1
-#include "slikenet/memoryoverride.h"
-#include "slikenet/_FindFirst.h" // For linux
+#include "mafianet/memoryoverride.h"
+#include "mafianet/_FindFirst.h" // For linux
 #include <stdio.h>
 #include <string.h>
 #ifdef _WIN32 
@@ -26,11 +26,11 @@
 #else
 #include <sys/stat.h>
 #include <unistd.h>
-#include "slikenet/_FindFirst.h"
+#include "mafianet/_FindFirst.h"
 #endif
 #include "errno.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #ifndef MAX_PATH
 #define MAX_PATH 260

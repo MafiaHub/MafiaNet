@@ -14,7 +14,7 @@
  */
 
 #if   defined(_WIN32)
-#include "slikenet/WindowsIncludes.h" // Sleep
+#include "mafianet/WindowsIncludes.h" // Sleep
 
 
 
@@ -30,7 +30,7 @@ pthread_mutex_t fakeMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t fakeCond = PTHREAD_COND_INITIALIZER;
 #endif
 
-#include "slikenet/sleep.h"
+#include "mafianet/sleep.h"
 
 void RakSleep(unsigned int ms)
 {

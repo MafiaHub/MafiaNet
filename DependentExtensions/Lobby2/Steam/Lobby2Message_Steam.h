@@ -17,7 +17,7 @@
 #define __LOBBY_2_MESSAGE_STEAM_H
 
 #include "Lobby2Message.h"
-#include "slikenet/DS_Multilist.h"
+#include "mafianet/DS_Multilist.h"
 #include "Lobby2Client_Steam.h"
 
 namespace MafiaNet

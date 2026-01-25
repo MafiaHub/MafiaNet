@@ -16,7 +16,7 @@
 #ifndef __CLOUD_SERVER_HELPER_H
 #define __CLOUD_SERVER_HELPER_H
 
-#include "slikenet/CloudServer.h"
+#include "mafianet/CloudServer.h"
 
 namespace MafiaNet
 {

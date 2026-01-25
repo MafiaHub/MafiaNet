@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/VariadicSQLParser.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/VariadicSQLParser.h"
+#include "mafianet/BitStream.h"
 #include <stdarg.h>
 
 using namespace VariadicSQLParser;

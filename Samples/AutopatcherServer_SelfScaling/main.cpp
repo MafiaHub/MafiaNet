@@ -28,31 +28,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Kbhit.h"
+#include "mafianet/Kbhit.h"
 
-#include "slikenet/GetTime.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/FileListTransfer.h"
-#include "slikenet/FileList.h" // FLP_Printf
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/Gets.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/FileListTransfer.h"
+#include "mafianet/FileList.h" // FLP_Printf
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/Gets.h"
 #include "CloudServerHelper.h"
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/TwoWayAuthentication.h"
-#include "slikenet/CloudClient.h"
-#include "slikenet/DynDNS.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/sleep.h"
-#include "slikenet/ConnectionGraph2.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/TwoWayAuthentication.h"
+#include "mafianet/CloudClient.h"
+#include "mafianet/DynDNS.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/ConnectionGraph2.h"
 #include "CloudServerHelper.h"
-#include "slikenet/HTTPConnection2.h"
+#include "mafianet/HTTPConnection2.h"
 #include "Rackspace2.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
@@ -63,7 +63,7 @@
 #include "AutopatcherPostgreRepository.h"
 
 #ifdef _WIN32
-#include "slikenet/WindowsIncludes.h" // Sleep
+#include "mafianet/WindowsIncludes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

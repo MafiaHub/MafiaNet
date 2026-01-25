@@ -27,18 +27,18 @@
 /// \ingroup SQL_LITE_3_PLUGIN
 #define SQLite3_STATEMENT_EXECUTE_THREADED
 
-#include "slikenet/types.h"
-#include "slikenet/Export.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/DS_Multilist.h"
-#include "slikenet/string.h"
+#include "mafianet/types.h"
+#include "mafianet/Export.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/DS_Multilist.h"
+#include "mafianet/string.h"
 #include "sqlite3.h"
 #include "SQLite3PluginCommon.h"
 
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
-#include "slikenet/ThreadPool.h"
+#include "mafianet/ThreadPool.h"
 #endif
 
 class RakPeerInterface;

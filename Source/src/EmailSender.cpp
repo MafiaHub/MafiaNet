@@ -13,29 +13,29 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_EmailSender==1 && _RAKNET_SUPPORT_TCPInterface==1 && _RAKNET_SUPPORT_FileOperations==1
 
 // Useful sites
 // http://www.faqs.org\rfcs\rfc2821.html
 // http://www2.rad.com\networks/1995/mime/examples.htm
 
-#include "slikenet/EmailSender.h"
-#include "slikenet/TCPInterface.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/Rand.h"
-#include "slikenet/FileList.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/Base64Encoder.h"
+#include "mafianet/EmailSender.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Rand.h"
+#include "mafianet/FileList.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/Base64Encoder.h"
 #include <stdio.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 
 
 
 
-#include "slikenet/sleep.h"
+#include "mafianet/sleep.h"
 
 using namespace MafiaNet;
 

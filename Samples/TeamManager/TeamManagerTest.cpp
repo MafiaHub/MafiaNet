@@ -16,19 +16,19 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "slikenet/GetTime.h"
-#include "slikenet/Rand.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/TeamManager.h"
-#include "slikenet/Kbhit.h"
-#include "slikenet/sleep.h"
-#include "slikenet/types.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/ReplicaManager3.h"
-#include "slikenet/NetworkIDManager.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Rand.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/TeamManager.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/sleep.h"
+#include "mafianet/types.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/ReplicaManager3.h"
+#include "mafianet/NetworkIDManager.h"
 
 using namespace MafiaNet;
 

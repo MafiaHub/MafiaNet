@@ -16,11 +16,11 @@
 #ifndef __TRANFORMATION_HISTORY_H
 #define __TRANFORMATION_HISTORY_H
 
-#include "slikenet/types.h"
+#include "mafianet/types.h"
 #include "OgreVector3.h"
 #include "OgreQuaternion.h"
-#include "slikenet/DS_Queue.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/DS_Queue.h"
+#include "mafianet/memoryoverride.h"
 
 struct TransformationHistoryCell
 {

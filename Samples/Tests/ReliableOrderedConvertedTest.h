@@ -19,18 +19,18 @@
 #include "TestInterface.h"
 
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
 #include <cstdio>
 #include <memory.h>
 #include <cstring>
 #include <stdlib.h>
-#include "slikenet/Rand.h"
-#include "slikenet/statistics.h"
-#include "slikenet/sleep.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/Rand.h"
+#include "mafianet/statistics.h"
+#include "mafianet/sleep.h"
+#include "mafianet/memoryoverride.h"
 
 #include "DebugTools.h"
 

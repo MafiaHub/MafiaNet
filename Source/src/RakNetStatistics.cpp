@@ -18,12 +18,12 @@
 
 
 
-#include "slikenet/statistics.h"
+#include "mafianet/statistics.h"
 #include <stdio.h> // sprintf
-#include "slikenet/GetTime.h"
-#include "slikenet/string.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/string.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

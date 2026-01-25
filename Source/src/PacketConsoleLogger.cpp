@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_LogCommandParser==1 && _RAKNET_SUPPORT_PacketLogger==1
-#include "slikenet/PacketConsoleLogger.h"
-#include "slikenet/LogCommandParser.h"
+#include "mafianet/PacketConsoleLogger.h"
+#include "mafianet/LogCommandParser.h"
 #include <stdio.h>
 
 using namespace MafiaNet;

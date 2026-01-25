@@ -10,9 +10,9 @@
 
 #include "SQLiteClientLogger_PacketLogger.h"
 #include "SQLiteClientLoggerPlugin.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/InternalPacket.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/InternalPacket.h"
+#include "mafianet/MessageIdentifiers.h"
 
 using namespace MafiaNet;
 

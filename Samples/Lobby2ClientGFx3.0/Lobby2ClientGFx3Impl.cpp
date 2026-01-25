@@ -17,10 +17,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "slikenet/GetTime.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
 #include "Lobby2ClientGFx3Impl.h"
 #include "Lobby2Client.h"
 

@@ -16,8 +16,8 @@
 #include "Lobby2Client_Steam_Impl.h"
 #include "Lobby2Message_Steam.h"
 #include <stdlib.h>
-#include "slikenet/NativeTypes.h"
-#include "slikenet/MTUSize.h"
+#include "mafianet/NativeTypes.h"
+#include "mafianet/MTUSize.h"
 #include <windows.h>
 
 using namespace MafiaNet;

@@ -13,17 +13,17 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_UDPProxyCoordinator==1 && _RAKNET_SUPPORT_UDPForwarder==1
 
-#include "slikenet/UDPProxyCoordinator.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/UDPProxyCommon.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/Rand.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/UDPForwarder.h"
+#include "mafianet/UDPProxyCoordinator.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/UDPProxyCommon.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/Rand.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/UDPForwarder.h"
 
 // Larger than the client version
 static const int DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME=2000;

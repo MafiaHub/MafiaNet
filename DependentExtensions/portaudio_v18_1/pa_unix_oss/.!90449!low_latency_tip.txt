@@ -1,0 +1,6 @@
+From: "Benno Senoner" <sbenno@gardena.net>
+To: <music-dsp@shoko.calarts.edu>
+Subject: Re: [music-dsp] coding realtime guitar efx on a "pc"
+Date: Saturday, June 30, 2001 8:19 AM
+
+

@@ -21,9 +21,9 @@
 
 // KMJ
 #include "ppapi/c/private/ppb_udp_socket_private.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/types.h"
-#include "slikenet/sleep.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/types.h"
+#include "mafianet/sleep.h"
 using namespace MafiaNet;
 
 /// The Instance class.  One of these exists for each instance of your NaCl

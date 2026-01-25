@@ -13,9 +13,9 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/DataCompressor.h"
-#include "slikenet/DS_HuffmanEncodingTree.h"
-#include "slikenet/assert.h"
+#include "mafianet/DataCompressor.h"
+#include "mafianet/DS_HuffmanEncodingTree.h"
+#include "mafianet/assert.h"
 #include <string.h> // Use string.h rather than memory.h for a console
 
 using namespace MafiaNet;

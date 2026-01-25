@@ -12,7 +12,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/DS_Table.h"
+#include "mafianet/DS_Table.h"
 
 #ifndef __ROOM_TYPES_H
 #define __ROOM_TYPES_H

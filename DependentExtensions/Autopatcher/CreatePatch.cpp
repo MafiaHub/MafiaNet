@@ -48,8 +48,8 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bsdiff/bsdiff.c,v 1.1 2005/08/06 01:59:05
 #ifndef _WIN32
 #include <err.h>
 #include <unistd.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 #else
 // KevinJ - Windows compatibility
 typedef int ssize_t;

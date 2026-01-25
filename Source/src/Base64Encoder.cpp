@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/Base64Encoder.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/Base64Encoder.h"
+#include "mafianet/memoryoverride.h"
 
 const char *Base64Map(void) {return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";}
 const char *base64Map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

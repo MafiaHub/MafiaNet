@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/LocklessTypes.h"
+#include "mafianet/LocklessTypes.h"
 
 using namespace MafiaNet;
 

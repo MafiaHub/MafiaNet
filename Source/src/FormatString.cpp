@@ -13,13 +13,13 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/FormatString.h"
+#include "mafianet/FormatString.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 char * FormatString(const char *format, ...)
 {

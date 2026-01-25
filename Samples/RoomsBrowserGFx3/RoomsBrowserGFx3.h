@@ -13,9 +13,9 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #include "FxGameDelegate.h"
-#include "slikenet/string.h"
+#include "mafianet/string.h"
 
 #define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs& pparams);
 #define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName) \

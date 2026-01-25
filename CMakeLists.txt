@@ -1,6 +1,6 @@
 # MafiaNet - Cross-platform network engine for multiplayer games
 #
-# Originally based on RakNet 4.082 and SLikeNet
+# Originally based on RakNet 4.082 and MafiaNet
 # Copyright (c) 2024, MafiaHub
 # Licensed under MIT-style license
 

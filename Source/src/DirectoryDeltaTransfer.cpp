@@ -13,21 +13,21 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_DirectoryDeltaTransfer==1 && _RAKNET_SUPPORT_FileOperations==1
 
-#include "slikenet/DirectoryDeltaTransfer.h"
-#include "slikenet/FileList.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/FileListTransfer.h"
-#include "slikenet/FileListTransferCBInterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/FileOperations.h"
-#include "slikenet/IncrementalReadInterface.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/DirectoryDeltaTransfer.h"
+#include "mafianet/FileList.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/FileListTransfer.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/FileOperations.h"
+#include "mafianet/IncrementalReadInterface.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

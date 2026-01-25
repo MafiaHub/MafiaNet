@@ -14,28 +14,28 @@
  */
 
 #include "AutopatcherClient.h"
-#include "slikenet/DirectoryDeltaTransfer.h"
-#include "slikenet/FileList.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/FileListTransfer.h"
-#include "slikenet/FileListTransferCBInterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/AutopatcherPatchContext.h"
+#include "mafianet/DirectoryDeltaTransfer.h"
+#include "mafianet/FileList.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/FileListTransfer.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/AutopatcherPatchContext.h"
 #include "ApplyPatch.h"
-#include "slikenet/FileOperations.h"
-//#include "slikenet/DR_SHA1.h"
+#include "mafianet/FileOperations.h"
+//#include "mafianet/DR_SHA1.h"
 #include <stdio.h>
-#include "slikenet/FileOperations.h"
-#include "slikenet/assert.h"
-#include "slikenet/ThreadPool.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/FileOperations.h"
+#include "mafianet/assert.h"
+#include "mafianet/ThreadPool.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 
-#include "slikenet/SuperFastHash.h"
+#include "mafianet/SuperFastHash.h"
 static const unsigned HASH_LENGTH=4;
 
 #define COPY_ON_RESTART_EXTENSION ".patched.tmp"

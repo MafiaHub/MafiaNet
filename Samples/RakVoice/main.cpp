@@ -18,18 +18,18 @@
 #include <memory.h>
 #include <limits> // used for std::numeric_limits
 #include "portaudio.h"
-#include "slikenet/Kbhit.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
 
 #include "RakVoice.h"
-#include "slikenet/statistics.h"
-#include "slikenet/NatPunchthroughClient.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/Getche.h"
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/statistics.h"
+#include "mafianet/NatPunchthroughClient.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/Getche.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 /// To test sending to myself. Also uncomment in RakVoice.cpp
 //#define _TEST_LOOPBACK

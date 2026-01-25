@@ -17,20 +17,20 @@
 /// \brief This file is a sample for using HTTPConnection and PHPDirectoryServer2
 
 
-#include "slikenet/TCPInterface.h"
-#include "slikenet/HTTPConnection.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/HTTPConnection.h"
 #include "PHPDirectoryServer2.h"
-#include "slikenet/sleep.h"
-#include "slikenet/string.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/DS_Table.h"
+#include "mafianet/sleep.h"
+#include "mafianet/string.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/DS_Table.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
-#include "slikenet/Gets.h"
-#include "slikenet/Getche.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/Getche.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

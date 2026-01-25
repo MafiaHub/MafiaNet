@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/TableSerializer.h"
-#include "slikenet/DS_Table.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/assert.h"
+#include "mafianet/TableSerializer.h"
+#include "mafianet/DS_Table.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/assert.h"
 
 using namespace MafiaNet;
 

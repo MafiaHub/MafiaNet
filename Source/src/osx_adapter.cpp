@@ -5,11 +5,11 @@
  *  license.txt file in the root directory of this source tree.
  *
  *
- *  This file defines adapters for all MS-specific functions used throughout SLikeNet.
+ *  This file defines adapters for all MS-specific functions used throughout MafiaNet.
  */
 
 #ifdef __APPLE__
-#include "slikenet/osx_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #include <algorithm>	// for std::max, std::min
 #include <cerrno>		// for errno

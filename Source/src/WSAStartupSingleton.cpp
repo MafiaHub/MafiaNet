@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/WSAStartupSingleton.h"
+#include "mafianet/WSAStartupSingleton.h"
 
 
 
@@ -28,7 +28,7 @@
 
 
 #endif
-#include "slikenet/defines.h"
+#include "mafianet/defines.h"
 #include <stdio.h>
 
 #ifdef _WIN32

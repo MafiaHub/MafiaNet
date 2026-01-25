@@ -22,8 +22,8 @@ typedef struct pg_conn PGconn;
 struct pg_result;
 typedef struct pg_result PGresult;
 
-#include "slikenet/string.h"
-#include "slikenet/DS_OrderedList.h"
+#include "mafianet/string.h"
+#include "mafianet/DS_OrderedList.h"
 
 class PostgreSQLInterface
 {

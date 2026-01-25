@@ -7,4 +7,4 @@
  *
  *  Header file redirection to keep source compatibility with RakNet 4.082.
  */
-#include "include/slikenet/DR_SHA1.h"
+#include "include/mafianet/DR_SHA1.h"

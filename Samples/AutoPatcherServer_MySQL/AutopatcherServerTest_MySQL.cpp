@@ -16,24 +16,24 @@
 // Common includes
 #include <stdio.h>
 #include <stdlib.h>
-#include "slikenet/Kbhit.h"
+#include "mafianet/Kbhit.h"
 
-#include "slikenet/GetTime.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/FileListTransfer.h"
-#include "slikenet/FileList.h" // FLP_Printf
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/FileListTransfer.h"
+#include "mafianet/FileList.h" // FLP_Printf
 #include "AutopatcherServer.h"
 #include "AutopatcherMySQLRepository.h"
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #ifdef _WIN32
-#include "slikenet/WindowsIncludes.h" // Sleep
+#include "mafianet/WindowsIncludes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

@@ -13,14 +13,14 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/DS_Table.h"
-#include "slikenet/DS_OrderedList.h"
+#include "mafianet/DS_Table.h"
+#include "mafianet/DS_OrderedList.h"
 #include <string.h>
-#include "slikenet/assert.h"
-#include "slikenet/assert.h"
-#include "slikenet/Itoa.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/assert.h"
+#include "mafianet/assert.h"
+#include "mafianet/Itoa.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace DataStructures;
 

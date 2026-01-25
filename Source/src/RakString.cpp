@@ -13,20 +13,20 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/string.h"
-#include "slikenet/assert.h"
-#include "slikenet/memoryoverride.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/string.h"
+#include "mafianet/assert.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/BitStream.h"
 #include <stdarg.h>
 #include <string.h>
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/SimpleMutex.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/SimpleMutex.h"
 #include <stdlib.h>
-#include "slikenet/Itoa.h"
+#include "mafianet/Itoa.h"
 #include <limits>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 
@@ -1573,9 +1573,9 @@ void RakString::UnlockMutex(void)
 }
 
 /*
-#include "slikenet/string.h"
+#include "mafianet/string.h"
 #include <string>
-#include "slikenet/GetTime.h"
+#include "mafianet/GetTime.h"
 
 using namespace MafiaNet;
 

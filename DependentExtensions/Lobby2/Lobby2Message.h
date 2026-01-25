@@ -16,12 +16,12 @@
 #ifndef __LOBBY_2_MESSAGE_H
 #define __LOBBY_2_MESSAGE_H
 
-#include "slikenet/BitStream.h"
+#include "mafianet/BitStream.h"
 #include "Lobby2ResultCode.h"
-#include "slikenet/string.h"
-#include "slikenet/assert.h"
-#include "slikenet/smartptr.h"
-#include "slikenet/SimpleMutex.h"
+#include "mafianet/string.h"
+#include "mafianet/assert.h"
+#include "mafianet/smartptr.h"
+#include "mafianet/SimpleMutex.h"
 #include "Lobby2Presence.h"
 
 

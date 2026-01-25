@@ -13,17 +13,17 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/FileOperations.h"
-#include "slikenet/memoryoverride.h"
-#include "slikenet/ConsoleServer.h"
-#include "slikenet/LogCommandParser.h"
-#include "slikenet/commandparser.h"
-#include "slikenet/PacketLogger.h"
-#include "slikenet/DS_List.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/sleep.h"
-#include "slikenet/TCPInterface.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/FileOperations.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/ConsoleServer.h"
+#include "mafianet/LogCommandParser.h"
+#include "mafianet/commandparser.h"
+#include "mafianet/PacketLogger.h"
+#include "mafianet/DS_List.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/sleep.h"
+#include "mafianet/TCPInterface.h"
 
 using namespace MafiaNet;
 

@@ -20,9 +20,9 @@
 #define _USE_POSTGRE_REPOSITORY
 #ifdef _USE_POSTGRE_REPOSITORY
 
-#include "slikenet/AutopatcherRepositoryInterface.h"
+#include "mafianet/AutopatcherRepositoryInterface.h"
 #include "PostgreSQLInterface.h"
-#include "slikenet/Export.h"
+#include "mafianet/Export.h"
 
 struct pg_conn;
 typedef struct pg_conn PGconn;

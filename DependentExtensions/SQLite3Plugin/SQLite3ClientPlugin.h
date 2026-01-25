@@ -22,13 +22,13 @@
 #ifndef ___SQLITE_3_CLIENT_PLUGIN_H
 #define ___SQLITE_3_CLIENT_PLUGIN_H
 
-#include "slikenet/types.h"
-#include "slikenet/Export.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/DS_Multilist.h"
-#include "slikenet/string.h"
+#include "mafianet/types.h"
+#include "mafianet/Export.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/DS_Multilist.h"
+#include "mafianet/string.h"
 #include "SQLite3PluginCommon.h"
 
 class RakPeerInterface;

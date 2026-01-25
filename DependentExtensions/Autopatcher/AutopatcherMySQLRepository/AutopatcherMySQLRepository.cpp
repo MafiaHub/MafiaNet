@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/string.h"
+#include "mafianet/string.h"
 #include "AutopatcherMySQLRepository.h"
-#include "slikenet/AutopatcherPatchContext.h"
-#include "slikenet/FileList.h"
-#include "slikenet/assert.h"
-#include "slikenet/DS_List.h"
+#include "mafianet/AutopatcherPatchContext.h"
+#include "mafianet/FileList.h"
+#include "mafianet/assert.h"
+#include "mafianet/DS_List.h"
 // ntohl
 #ifdef _WIN32
 #include <Winsock2.h>
@@ -29,12 +29,12 @@
 // If you get fatal error C1083: Cannot open include file: 'mysql.h' then you need to install MySQL. See readme.txt in this sample directory.
 #include "mysql.h"
 #include "CreatePatch.h"
-#include "slikenet/AutopatcherPatchContext.h"
-// #include "slikenet/DR_SHA1.h"
+#include "mafianet/AutopatcherPatchContext.h"
+// #include "mafianet/DR_SHA1.h"
 #include <stdlib.h>
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

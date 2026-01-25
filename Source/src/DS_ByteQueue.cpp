@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/DS_ByteQueue.h"
+#include "mafianet/DS_ByteQueue.h"
 #include <string.h> // Memmove
 #include <stdlib.h> // realloc
 #include <stdio.h>

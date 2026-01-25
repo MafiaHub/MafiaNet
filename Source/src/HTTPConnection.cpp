@@ -17,14 +17,14 @@
 /// \brief Contains HTTPConnection, used to communicate with web servers
 ///
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_HTTPConnection==1 && _RAKNET_SUPPORT_TCPInterface==1
 
-#include "slikenet/TCPInterface.h"
-#include "slikenet/HTTPConnection.h"
-#include "slikenet/sleep.h"
-#include "slikenet/string.h"
-#include "slikenet/assert.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/HTTPConnection.h"
+#include "mafianet/sleep.h"
+#include "mafianet/string.h"
+#include "mafianet/assert.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

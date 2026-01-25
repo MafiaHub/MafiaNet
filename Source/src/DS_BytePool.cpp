@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/DS_BytePool.h"
-#include "slikenet/assert.h"
+#include "mafianet/DS_BytePool.h"
+#include "mafianet/assert.h"
 #ifndef __APPLE__
 // Use stdlib and not malloc for compatibility
 #include <stdlib.h>

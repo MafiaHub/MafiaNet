@@ -16,20 +16,20 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "slikenet/GetTime.h"
-#include "slikenet/Rand.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/ReadyEvent.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Rand.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/ReadyEvent.h"
 #include <assert.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Kbhit.h"
-#include "slikenet/sleep.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/ConnectionGraph2.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/sleep.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/ConnectionGraph2.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 void PrintConnections();
 

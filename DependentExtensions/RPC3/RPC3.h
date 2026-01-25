@@ -22,14 +22,14 @@
 
 // Most of the internals of the boost code to make this work
 #include "RPC3_Boost.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/types.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/string.h"
-#include "slikenet/NetworkIDObject.h"
-#include "slikenet/DS_Hash.h"
-#include "slikenet/DS_OrderedList.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/types.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/string.h"
+#include "mafianet/NetworkIDObject.h"
+#include "mafianet/DS_Hash.h"
+#include "mafianet/DS_OrderedList.h"
 
 /// \defgroup RPC_3_GROUP RPC3
 /// \brief Remote procedure calls, powered by the 3rd party library Boost

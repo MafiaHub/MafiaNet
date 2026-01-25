@@ -26,16 +26,16 @@
 /// License as published by the Free Software Foundation
 
 #include "PHPDirectoryServer2.h"
-#include "slikenet/HTTPConnection.h"
-#include "slikenet/sleep.h"
-#include "slikenet/string.h"
-#include "slikenet/types.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/assert.h"
+#include "mafianet/HTTPConnection.h"
+#include "mafianet/sleep.h"
+#include "mafianet/string.h"
+#include "mafianet/types.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/assert.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
-#include "slikenet/Itoa.h"
+#include "mafianet/Itoa.h"
 
 // Column with this header contains the name of the game, passed to UploadTable()
 static const char *GAME_NAME_COMMAND="__GAME_NAME";

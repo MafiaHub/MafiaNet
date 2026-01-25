@@ -19,7 +19,7 @@
 
 #else
 
-#include "slikenet/Getche.h"
+#include "mafianet/Getche.h"
 
 char _getche()
 {

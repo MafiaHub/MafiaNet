@@ -13,13 +13,13 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/wstring.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/wstring.h"
+#include "mafianet/BitStream.h"
 #include <string.h>
 #include <wchar.h>
 #include <stdlib.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

@@ -16,20 +16,20 @@
 /// \file
 ///
 
-#include "slikenet/types.h"
-#include "slikenet/assert.h"
+#include "mafianet/types.h"
+#include "mafianet/assert.h"
 #include <string.h>
 #include <stdio.h>
-#include "slikenet/WindowsIncludes.h"
-#include "slikenet/WSAStartupSingleton.h"
-#include "slikenet/SocketDefines.h"
-#include "slikenet/socket2.h"
+#include "mafianet/WindowsIncludes.h"
+#include "mafianet/WSAStartupSingleton.h"
+#include "mafianet/SocketDefines.h"
+#include "mafianet/socket2.h"
 
 #if   defined(_WIN32)
 // extern __int64 _strtoui64(const char*, char**, int); // needed for Code::Blocks. Does not compile on Visual Studio 2010
 // IP_DONTFRAGMENT is different between winsock 1 and winsock 2.  Therefore, Winsock2.h must be linked againt Ws2_32.lib
 // winsock.h must be linked against WSock32.lib.  If these two are mixed up the flag won't work correctly
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 
 #else
 #include <sys/socket.h> // used for getnameinfo()
@@ -38,12 +38,12 @@
 #include <arpa/inet.h>
 #endif
 
-#include "slikenet/Itoa.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/SuperFastHash.h"
+#include "mafianet/Itoa.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/SuperFastHash.h"
 #include <stdlib.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/EmptyHeader.h"
+#include "mafianet/EmptyHeader.h"
 
 #ifdef RAKNET_SOCKET_2_INLINE_FUNCTIONS
 
@@ -26,13 +26,13 @@
 #ifdef _WIN32
 #include <tchar.h>	// used for _tprintf() (via RAKNET_DEBUG_TPRINTF)
 #else
-#include "slikenet/LinuxStrings.h" // used for _stricmp()
+#include "mafianet/LinuxStrings.h" // used for _stricmp()
 #include <sys/types.h>             // used for getaddrinfo()
 #include <sys/socket.h>            // used for getaddrinfo()
 #include <netdb.h>                 // used for getaddrinfo()
 #endif
 
-#include "slikenet/Itoa.h"
+#include "mafianet/Itoa.h"
 
 void RNS2_Berkley::SetSocketOptions(void)
 {

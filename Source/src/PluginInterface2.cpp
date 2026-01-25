@@ -14,10 +14,10 @@
  */
 
 
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
 
 using namespace MafiaNet;
 

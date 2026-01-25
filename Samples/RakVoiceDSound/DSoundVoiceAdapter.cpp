@@ -14,8 +14,8 @@
  */
 
 #include "DSoundVoiceAdapter.h"
-#include "slikenet/assert.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/assert.h"
+#include "mafianet/peerinterface.h"
 #include <tchar.h>
 
 /// To test sending to myself

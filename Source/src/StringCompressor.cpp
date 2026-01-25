@@ -18,11 +18,11 @@
 
 
 
-#include "slikenet/StringCompressor.h"
-#include "slikenet/DS_HuffmanEncodingTree.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/string.h"
-#include "slikenet/assert.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/DS_HuffmanEncodingTree.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/string.h"
+#include "mafianet/assert.h"
 #include <string.h>
 
 #include <memory.h>

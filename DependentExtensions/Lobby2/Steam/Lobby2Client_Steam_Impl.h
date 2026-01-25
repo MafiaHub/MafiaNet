@@ -21,9 +21,9 @@
 #include "steam_api.h"
 #pragma warning( pop )
 #include "Lobby2Client_Steam.h"
-#include "slikenet/DS_Multilist.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/DS_OrderedList.h"
+#include "mafianet/DS_Multilist.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/DS_OrderedList.h"
 
 namespace MafiaNet
 {

@@ -162,7 +162,7 @@ struct FileProgressStruct
 	OnFileStruct *onFileStruct;
 	/// \param[out] partCount The zero based index into partTotal. The percentage complete done of this file is 100 * (partCount+1)/partTotal
 	unsigned int partCount;
-	/// \param[out] partTotal The total number of parts this file was split into. Each part will be roughly the MTU size, minus the UDP header and SLikeNet headers
+	/// \param[out] partTotal The total number of parts this file was split into. Each part will be roughly the MTU size, minus the UDP header and MafiaNet headers
 	unsigned int partTotal;
 	/// \param[out] dataChunkLength How many bytes long firstDataChunk and iriDataChunk are
 	unsigned int dataChunkLength;
@@ -176,7 +176,7 @@ struct FileProgressStruct
 	SystemAddress senderSystemAddress;
 	/// \param[out] Who sent this file. Not valid when using TCP, only RakPeer (UDP)
 	RakNetGUID senderGuid;
-	/// \param[in] allocateIrIDataChunkAutomatically If true, then SLikeNet will hold iriDataChunk for you and return it in OnFile. Defaults to true
+	/// \param[in] allocateIrIDataChunkAutomatically If true, then MafiaNet will hold iriDataChunk for you and return it in OnFile. Defaults to true
 	bool allocateIrIDataChunkAutomatically;
 };
 

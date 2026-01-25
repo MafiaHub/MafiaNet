@@ -13,21 +13,21 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_ConsoleServer==1
 
-#include "slikenet/ConsoleServer.h"
-#include "slikenet/TransportInterface.h"
-#include "slikenet/CommandParserInterface.h"
+#include "mafianet/ConsoleServer.h"
+#include "mafianet/TransportInterface.h"
+#include "mafianet/CommandParserInterface.h"
 #include <string.h>
 #include <stdlib.h>
 
 #define COMMAND_DELINATOR ' '
 #define COMMAND_DELINATOR_TOGGLE '"'
 
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

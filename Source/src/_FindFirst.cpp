@@ -13,20 +13,20 @@
 * Should emulate windows finddata structure
 */
 #if (defined(__GNUC__)  || defined(__GCCXML__)) && !defined(_WIN32)
-#include "slikenet/_FindFirst.h"
-#include "slikenet/DS_List.h"
+#include "mafianet/_FindFirst.h"
+#include "mafianet/DS_List.h"
 
 #include <sys/stat.h>
 
 #include <fnmatch.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 
 static DataStructures::List< _findinfo_t* > fileInfo;
 	
-#include "slikenet/memoryoverride.h"
-#include "slikenet/assert.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/assert.h"
 
 /**
 * _findfirst - equivalent

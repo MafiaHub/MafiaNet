@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/IncrementalReadInterface.h"
+#include "mafianet/IncrementalReadInterface.h"
 #include <stdio.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

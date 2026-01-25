@@ -15,11 +15,11 @@
 
 #if defined(_WIN32) && !defined(__GNUC__)  &&!defined(__GCCXML__)
 
-#include "slikenet/gettimeofday.h"
+#include "mafianet/gettimeofday.h"
 
 // From http://www.openasthra.com/c-tidbits/gettimeofday-function-for-windows/
 
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 
 #if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
   #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64

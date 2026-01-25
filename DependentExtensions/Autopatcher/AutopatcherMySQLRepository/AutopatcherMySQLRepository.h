@@ -22,9 +22,9 @@
 #ifndef __MYSQL_REPOSITORY_H
 #define __MYSQL_REPOSITORY_H
 
-#include "slikenet/AutopatcherRepositoryInterface.h"
+#include "mafianet/AutopatcherRepositoryInterface.h"
 #include "MySQLInterface.h"
-#include "slikenet/Export.h"
+#include "mafianet/Export.h"
 
 namespace MafiaNet
 {

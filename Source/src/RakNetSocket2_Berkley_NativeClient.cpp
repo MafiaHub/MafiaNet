@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/EmptyHeader.h"
+#include "mafianet/EmptyHeader.h"
 
 #ifdef RAKNET_SOCKET_2_INLINE_FUNCTIONS
 
@@ -23,8 +23,8 @@
 // Every platform except native client supports Berkley sockets
 #if !defined(__native_client__)
 
-#include "slikenet/Itoa.h"
-#include "slikenet/WSAStartupSingleton.h" // used for WSAStartupSingleton
+#include "mafianet/Itoa.h"
+#include "mafianet/WSAStartupSingleton.h" // used for WSAStartupSingleton
 
 // Shared on most platforms, but excluded from the listed
 

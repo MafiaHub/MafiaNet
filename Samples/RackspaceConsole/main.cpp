@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/Rackspace.h"
+#include "mafianet/Rackspace.h"
 #include <stdio.h>
-#include "slikenet/Gets.h"
-#include "slikenet/Rackspace.h"
-#include "slikenet/TCPInterface.h"
-#include "slikenet/Kbhit.h"
-#include "slikenet/sleep.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/Rackspace.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/sleep.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 struct CommandAndDescription
 {

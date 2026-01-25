@@ -13,14 +13,14 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_DynDNS==1 && _RAKNET_SUPPORT_TCPInterface==1
 
-#include "slikenet/TCPInterface.h"
-#include "slikenet/socket2.h"
-#include "slikenet/DynDNS.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/Base64Encoder.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/socket2.h"
+#include "mafianet/DynDNS.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Base64Encoder.h"
 
 using namespace MafiaNet;
 

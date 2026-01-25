@@ -13,18 +13,18 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_Router2==1 && _RAKNET_SUPPORT_UDPForwarder==1
 
-#include "slikenet/Router2.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/time.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/DS_OrderedList.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/FormatString.h"
-#include "slikenet/SocketDefines.h"
+#include "mafianet/Router2.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/time.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/DS_OrderedList.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/FormatString.h"
+#include "mafianet/SocketDefines.h"
 
 using namespace MafiaNet;
 

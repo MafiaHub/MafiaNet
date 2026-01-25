@@ -13,19 +13,19 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/UDPForwarder.h"
+#include "mafianet/UDPForwarder.h"
 
 #if _RAKNET_SUPPORT_UDPForwarder==1
 
-#include "slikenet/GetTime.h"
-#include "slikenet/MTUSize.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/WSAStartupSingleton.h"
-#include "slikenet/sleep.h"
-#include "slikenet/DS_OrderedList.h"
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/SocketDefines.h"
-#include "slikenet/VitaIncludes.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/MTUSize.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/WSAStartupSingleton.h"
+#include "mafianet/sleep.h"
+#include "mafianet/DS_OrderedList.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/SocketDefines.h"
+#include "mafianet/VitaIncludes.h"
 #include "errno.h"
 
 #ifdef _WIN32

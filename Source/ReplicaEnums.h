@@ -7,4 +7,4 @@
  *
  *  Header file redirection to keep source compatibility with RakNet 4.082.
  */
-#include "include/slikenet/ReplicaEnums.h"
+#include "include/mafianet/ReplicaEnums.h"

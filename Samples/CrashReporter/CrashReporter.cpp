@@ -18,7 +18,7 @@
 #ifdef WIN32
 
 #include <stdio.h>
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #pragma warning(push)
 // disable warning 4091 (triggers for enum typedefs in DbgHelp.h in Windows SDK 7.1 and Windows SDK 8.1)
 #pragma warning(disable:4091)
@@ -28,12 +28,12 @@
 #include <time.h>
 #include "SendFileTo.h"
 #include "CrashReporter.h"
-#include "slikenet/EmailSender.h"
-#include "slikenet/FileList.h"
-#include "slikenet/FileOperations.h"
-#include "slikenet/SimpleMutex.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/EmailSender.h"
+#include "mafianet/FileList.h"
+#include "mafianet/FileOperations.h"
+#include "mafianet/SimpleMutex.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

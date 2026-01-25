@@ -20,9 +20,9 @@
 
 #define CAT_NEUTER_EXPORT /* Neuter dllimport for libcat */
 
-#include "slikenet/defines.h"
-#include "slikenet/peer.h"
-#include "slikenet/types.h"
+#include "mafianet/defines.h"
+#include "mafianet/peer.h"
+#include "mafianet/types.h"
 
 #ifdef _WIN32
 
@@ -39,30 +39,30 @@
 #include <time.h>
 #include <ctype.h> // toupper
 #include <string.h>
-#include "slikenet/GetTime.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/DS_HuffmanEncodingTree.h"
-#include "slikenet/Rand.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/StringTable.h"
-#include "slikenet/NetworkIDObject.h"
-#include "slikenet/types.h"
-#include "slikenet/DR_SHA1.h"
-#include "slikenet/sleep.h"
-#include "slikenet/assert.h"
-#include "slikenet/version.h"
-#include "slikenet/NetworkIDManager.h"
-#include "slikenet/gettimeofday.h"
-#include "slikenet/SignaledEvent.h"
-#include "slikenet/SuperFastHash.h"
-#include "slikenet/alloca.h"
-#include "slikenet/WSAStartupSingleton.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/DS_HuffmanEncodingTree.h"
+#include "mafianet/Rand.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/StringTable.h"
+#include "mafianet/NetworkIDObject.h"
+#include "mafianet/types.h"
+#include "mafianet/DR_SHA1.h"
+#include "mafianet/sleep.h"
+#include "mafianet/assert.h"
+#include "mafianet/version.h"
+#include "mafianet/NetworkIDManager.h"
+#include "mafianet/gettimeofday.h"
+#include "mafianet/SignaledEvent.h"
+#include "mafianet/SuperFastHash.h"
+#include "mafianet/alloca.h"
+#include "mafianet/WSAStartupSingleton.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #ifdef USE_THREADED_SEND
-#include "slikenet/SendToThread.h"
+#include "mafianet/SendToThread.h"
 #endif
 
 #ifdef CAT_AUDIT

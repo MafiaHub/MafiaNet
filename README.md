@@ -26,7 +26,7 @@
 
 ## About
 
-MafiaNet is an actively maintained networking library built for game developers who need reliable, high-performance multiplayer networking. Built on the foundation of RakNet and SLikeNet, MafiaNet delivers battle-tested networking capabilities with modern C++ standards and security practices.
+MafiaNet is an actively maintained networking library built for game developers who need reliable, high-performance multiplayer networking. Built on the foundation of RakNet and MafiaNet, MafiaNet delivers battle-tested networking capabilities with modern C++ standards and security practices.
 
 **Supported Platforms:** Windows, Linux, macOS (primary) | iOS, Android (limited)
 
@@ -64,8 +64,8 @@ cmake --build build --config Release
 ### Basic Usage
 
 ```cpp
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
 
 // Create a peer
 MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
@@ -153,7 +153,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 | Resource | Description |
 |----------|-------------|
 | [Samples](./Samples) | 80+ example projects covering all major features |
-| [API Headers](./Source/include/slikenet) | Well-documented public API |
+| [API Headers](./Source/include/mafianet) | Well-documented public API |
 | [CLAUDE.md](./CLAUDE.md) | Quick reference for AI-assisted development |
 
 ### Key Samples
@@ -171,7 +171,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 ```
 MafiaNet/
 ├── Source/
-│   ├── include/slikenet/   # Public API headers
+│   ├── include/mafianet/   # Public API headers
 │   └── src/                # Implementation
 ├── Lib/                    # Library build outputs
 ├── Samples/                # Example projects
@@ -192,9 +192,9 @@ MafiaNet/
 MafiaNet continues the legacy of two foundational networking libraries:
 
 - **RakNet** (2001-2014) — Industry-standard game networking library by Jenkins Software, used in countless multiplayer games. Acquired and open-sourced by Oculus VR.
-- **SLikeNet** (2016-2019) — Community continuation by SLikeSoft that modernized RakNet with bug fixes, security patches, and C++11 support.
+- **MafiaNet** (2016-2019) — Community continuation by SLikeSoft that modernized RakNet with bug fixes, security patches, and C++11 support.
 
-With SLikeNet no longer maintained, MafiaNet carries the torch forward—providing an actively developed, modern networking solution for the game development community.
+With MafiaNet no longer maintained, MafiaNet carries the torch forward—providing an actively developed, modern networking solution for the game development community.
 
 ## Community
 

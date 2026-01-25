@@ -36,7 +36,7 @@
 
 // RakNet: Logger includes. Include before Windows.h
 #include "SQLiteClientLoggerPlugin.h"
-#include "slikenet/PacketizedTCP.h"
+#include "mafianet/PacketizedTCP.h"
 #include "DX9_BackbufferGrabber.h"
 
 #include <Windows.h>

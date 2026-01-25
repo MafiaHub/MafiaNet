@@ -30,71 +30,71 @@ typedef uint32_t DefaultIndexType;
 typedef unsigned int SOCKET;
 #endif
 //Includes
-#include "slikenet/smartptr.h"
-#include "slikenet/defines.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/Export.h"
-#include "slikenet/SimpleMutex.h"
-#include "slikenet/string.h"
-#include "slikenet/wstring.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/DS_List.h"	
-#include "slikenet/DS_ByteQueue.h"
-#include "slikenet/assert.h"
-#include "slikenet/NativeTypes.h"
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/time.h"
-#include "slikenet/Export.h"
-#include "slikenet/memoryoverride.h"
-#include "slikenet/types.h"
-#include "slikenet/socket.h"
-#include "slikenet/statistics.h"
-#include "slikenet/NetworkIDObject.h"
-#include "slikenet/NetworkIDManager.h"
+#include "mafianet/smartptr.h"
+#include "mafianet/defines.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/Export.h"
+#include "mafianet/SimpleMutex.h"
+#include "mafianet/string.h"
+#include "mafianet/wstring.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/DS_List.h"	
+#include "mafianet/DS_ByteQueue.h"
+#include "mafianet/assert.h"
+#include "mafianet/NativeTypes.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/time.h"
+#include "mafianet/Export.h"
+#include "mafianet/memoryoverride.h"
+#include "mafianet/types.h"
+#include "mafianet/socket.h"
+#include "mafianet/statistics.h"
+#include "mafianet/NetworkIDObject.h"
+#include "mafianet/NetworkIDManager.h"
 //The below three classes have been removed from interface, if PluginInterface2 is fully exposed again
 //or another class needs them uncomment them and the related typemaps
-//#include "slikenet/TCPInterface.h"
-//#include "slikenet/PacketizedTCP.h"
-//#include "slikenet/InternalPacket.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/peer.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/PacketLogger.h"
-#include "slikenet/PacketFileLogger.h"
-#include "slikenet/NatTypeDetectionClient.h"
-#include "slikenet/NatPunchthroughClient.h"
-#include "slikenet/Router2.h"
-#include "slikenet/UDPProxyClient.h"
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/ReadyEvent.h"
-//#include "slikenet/TeamBalancer.h"
-#include "slikenet/TeamManager.h"
-#include "slikenet/NatPunchthroughServer.h"
-#include "slikenet/UDPForwarder.h"
-#include "slikenet/UDPProxyServer.h"
-#include "slikenet/UDPProxyCoordinator.h"
-#include "slikenet/NatTypeDetectionServer.h"
-#include "slikenet/DS_BPlusTree.h"
-#include "slikenet/DS_Table.h"
-#include "slikenet/FileListTransferCBInterface.h"//
-#include "slikenet/IncrementalReadInterface.h"//
-#include "slikenet/FileListNodeContext.h"//
-#include "slikenet/FileList.h"//
-#include "slikenet/TransportInterface.h"//
-#include "slikenet/CommandParserInterface.h"//
-#include "slikenet/LogCommandParser.h"//
-#include "slikenet/MessageFilter.h"//
-#include "slikenet/DirectoryDeltaTransfer.h"//
-#include "slikenet/FileListTransfer.h"//
-#include "slikenet/ThreadsafePacketLogger.h"//
-#include "slikenet/PacketConsoleLogger.h"//
-#include "slikenet/PacketFileLogger.h"//
-#include "slikenet/DS_Multilist.h"
-#include "slikenet/ConnectionGraph2.h"
-#include "slikenet/GetTime.h"
-//#include "slikenet/transport2.h"
-//#include "slikenet/RoomsPlugin.h"
+//#include "mafianet/TCPInterface.h"
+//#include "mafianet/PacketizedTCP.h"
+//#include "mafianet/InternalPacket.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/peer.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/PacketLogger.h"
+#include "mafianet/PacketFileLogger.h"
+#include "mafianet/NatTypeDetectionClient.h"
+#include "mafianet/NatPunchthroughClient.h"
+#include "mafianet/Router2.h"
+#include "mafianet/UDPProxyClient.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/ReadyEvent.h"
+//#include "mafianet/TeamBalancer.h"
+#include "mafianet/TeamManager.h"
+#include "mafianet/NatPunchthroughServer.h"
+#include "mafianet/UDPForwarder.h"
+#include "mafianet/UDPProxyServer.h"
+#include "mafianet/UDPProxyCoordinator.h"
+#include "mafianet/NatTypeDetectionServer.h"
+#include "mafianet/DS_BPlusTree.h"
+#include "mafianet/DS_Table.h"
+#include "mafianet/FileListTransferCBInterface.h"//
+#include "mafianet/IncrementalReadInterface.h"//
+#include "mafianet/FileListNodeContext.h"//
+#include "mafianet/FileList.h"//
+#include "mafianet/TransportInterface.h"//
+#include "mafianet/CommandParserInterface.h"//
+#include "mafianet/LogCommandParser.h"//
+#include "mafianet/MessageFilter.h"//
+#include "mafianet/DirectoryDeltaTransfer.h"//
+#include "mafianet/FileListTransfer.h"//
+#include "mafianet/ThreadsafePacketLogger.h"//
+#include "mafianet/PacketConsoleLogger.h"//
+#include "mafianet/PacketFileLogger.h"//
+#include "mafianet/DS_Multilist.h"
+#include "mafianet/ConnectionGraph2.h"
+#include "mafianet/GetTime.h"
+//#include "mafianet/transport2.h"
+//#include "mafianet/RoomsPlugin.h"
 //Macros
 //Swig C++ code only TypeDefs
 //Most of these are nested structs/classes that swig needs to understand as global
@@ -128,14 +128,14 @@ typedef SLNet::FileListTransferCBInterface::DownloadCompleteStruct DownloadCompl
 
 #ifdef SWIG_ADDITIONAL_AUTOPATCHER
 	%{
-	#include "slikenet/AutopatcherRepositoryInterface.h"
+	#include "mafianet/AutopatcherRepositoryInterface.h"
 	#include "AutopatcherServer.h"
 	#include "AutopatcherClient.h"
 	#include "AutopatcherMySQLRepository.h"
 	#include "CreatePatch.h"
 	#include "MemoryCompressor.h"
 	#include "ApplyPatch.h"
-	#include "slikenet/AutopatcherPatchContext.h"
+	#include "mafianet/AutopatcherPatchContext.h"
 	%}
 #endif
 

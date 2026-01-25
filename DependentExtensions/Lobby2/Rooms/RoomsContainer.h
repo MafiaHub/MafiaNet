@@ -16,11 +16,11 @@
 #ifndef __LOBBY_ROOM_H
 #define __LOBBY_ROOM_H
 
-#include "slikenet/DS_Map.h"
-#include "slikenet/DS_Table.h"
+#include "mafianet/DS_Map.h"
+#include "mafianet/DS_Table.h"
 #include "RoomsErrorCodes.h"
-#include "slikenet/DS_List.h"
-#include "slikenet/types.h"
+#include "mafianet/DS_List.h"
+#include "mafianet/types.h"
 #include "IntervalTimer.h"
 #include "RoomTypes.h"
 

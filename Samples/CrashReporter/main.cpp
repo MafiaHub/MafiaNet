@@ -40,17 +40,17 @@
 // The third way is save build labels or branches in source control and get that version (you only need source code + .exe + .pdb) before debugging.
 // After debugging, restore your previous work.
 
-#include "slikenet/SocketLayer.h"
+#include "mafianet/SocketLayer.h"
 #include "CrashReporter.h" // This is the only required file for the crash reporter.  You must link in Dbghelp.lib
 #include <stdio.h> // Printf, for the sample code
-#include "slikenet/Kbhit.h" // getch, for the sample code
+#include "mafianet/Kbhit.h" // getch, for the sample code
 #pragma warning(push)
 // disable warning 4091 (triggers for enum typedefs in DbgHelp.h in Windows SDK 7.1 and Windows SDK 8.1)
 #pragma warning(disable:4091)
 #include <DbgHelp.h>
 #pragma warning(pop)
 
-#include "slikenet/Gets.h"
+#include "mafianet/Gets.h"
 
 void function1(int a)
 {
@@ -74,7 +74,7 @@ void RunGame(void)
 
 // If you don't plan to debug the crash reporter itself, you can remove _DEBUG_CRASH_REPORTER
 #ifdef _DEBUG_CRASH_REPORTER
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 extern void DumpMiniDump(PEXCEPTION_POINTERS excpInfo);
 #endif
 

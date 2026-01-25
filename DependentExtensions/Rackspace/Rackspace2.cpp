@@ -14,10 +14,10 @@
  */
 
 #include "Rackspace2.h"
-#include "slikenet/TCPInterface.h"
-#include "slikenet/HTTPConnection2.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/HTTPConnection2.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

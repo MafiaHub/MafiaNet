@@ -17,15 +17,15 @@
 /// \brief SocketLayer class implementation
 ///
 
-#include "slikenet/SocketLayer.h"
-#include "slikenet/assert.h"
-#include "slikenet/types.h"
-#include "slikenet/peer.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/SocketDefines.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/assert.h"
+#include "mafianet/types.h"
+#include "mafianet/peer.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/SocketDefines.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 #if (defined(__GNUC__)  || defined(__GCCXML__)) && !defined(__WIN32__)
 #include <netdb.h>
 #endif
@@ -47,17 +47,17 @@ using namespace pp;
 */
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
-#include "slikenet/CCRakNetUDT.h"
+#include "mafianet/CCRakNetUDT.h"
 #else
-#include "slikenet/CCRakNetSlidingWindow.h"
+#include "mafianet/CCRakNetSlidingWindow.h"
 #endif
 
 //SocketLayerOverride *SocketLayer::slo=0;
 
 #ifdef _WIN32
 
-#include "slikenet/WSAStartupSingleton.h"
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WSAStartupSingleton.h"
+#include "mafianet/WindowsIncludes.h"
 
 #else
 
@@ -78,9 +78,9 @@ using namespace pp;
 
 #endif
 
-#include "slikenet/sleep.h"
+#include "mafianet/sleep.h"
 #include <stdio.h>
-#include "slikenet/Itoa.h"
+#include "mafianet/Itoa.h"
 
 namespace MafiaNet
 {

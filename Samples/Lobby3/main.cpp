@@ -17,17 +17,17 @@
 #include <windows.h>
 #include <Ws2tcpip.h>
 #include <stdio.h>
-#include "slikenet/Gets.h"
+#include "mafianet/Gets.h"
 
-#include "slikenet/TCPInterface.h"
-#include "slikenet/string.h"
-#include "slikenet/sleep.h"
-#include "slikenet/DR_SHA1.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/string.h"
+#include "mafianet/sleep.h"
+#include "mafianet/DR_SHA1.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
-#include "slikenet/Base64Encoder.h"
+#include "mafianet/Base64Encoder.h"
 
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server

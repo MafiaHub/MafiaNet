@@ -15,11 +15,11 @@
 
 #ifdef RAKNET_COMPATIBILITY
 #define SLNet RakNet
-#define SLikeNet RakNet
-#define SLikeNetPINVOKE RakNetPINVOKE
+#define MafiaNet RakNet
+#define MafiaNetPINVOKE RakNetPINVOKE
 %module(directors="1") RakNet
 #else
-%module(directors="1") SLikeNet
+%module(directors="1") MafiaNet
 #endif
 
 #pragma SWIG nowarn=312,302,314,473,516,325

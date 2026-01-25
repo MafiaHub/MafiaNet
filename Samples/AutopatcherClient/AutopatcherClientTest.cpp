@@ -17,24 +17,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Kbhit.h"
+#include "mafianet/Kbhit.h"
 
-#include "slikenet/GetTime.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/PacketizedTCP.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/PacketizedTCP.h"
 
 // Client only includes
-#include "slikenet/FileListTransferCBInterface.h"
-#include "slikenet/FileListTransfer.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/FileListTransfer.h"
 #include "AutopatcherClient.h"
-#include "slikenet/AutopatcherPatchContext.h"
-#include "slikenet/Gets.h"
-#include "slikenet/sleep.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/AutopatcherPatchContext.h"
+#include "mafianet/Gets.h"
+#include "mafianet/sleep.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 char WORKING_DIRECTORY[MAX_PATH];
 char PATH_TO_XDELTA_EXE[MAX_PATH];

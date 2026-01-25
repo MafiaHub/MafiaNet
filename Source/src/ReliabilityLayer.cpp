@@ -18,19 +18,19 @@
 
 
 
-#include "slikenet/ReliabilityLayer.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/assert.h"
-#include "slikenet/Rand.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/ReliabilityLayer.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/assert.h"
+#include "mafianet/Rand.h"
+#include "mafianet/MessageIdentifiers.h"
 #ifdef USE_THREADED_SEND
-#include "slikenet/SendToThread.h"
+#include "mafianet/SendToThread.h"
 #endif
 #include <math.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 
@@ -228,7 +228,7 @@ struct DatagramHeaderFormat
 #ifdef _WIN32
 //#define _DEBUG_LOGGER
 #ifdef _DEBUG_LOGGER
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #endif
 #endif
 

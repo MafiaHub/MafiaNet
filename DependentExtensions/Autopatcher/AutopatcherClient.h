@@ -20,14 +20,14 @@
 #ifndef __AUTOPATCHER_CLIENT_H
 #define __AUTOPATCHER_CLIENT_H
 
-#include "slikenet/types.h"
-#include "slikenet/Export.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/FileList.h"
-#include "slikenet/SimpleMutex.h"
-#include "slikenet/FileListTransferCBInterface.h"
-#include "slikenet/AutopatcherPatchContext.h"
+#include "mafianet/types.h"
+#include "mafianet/Export.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/FileList.h"
+#include "mafianet/SimpleMutex.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/AutopatcherPatchContext.h"
 
 namespace MafiaNet
 {

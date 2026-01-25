@@ -18,17 +18,17 @@
 
 
 #include "AutopatcherPostgreRepository.h"
-#include "slikenet/AutopatcherPatchContext.h"
-#include "slikenet/FileList.h"
+#include "mafianet/AutopatcherPatchContext.h"
+#include "mafianet/FileList.h"
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
 #include "libpq-fe.h"
 #include "CreatePatch.h"
-#include "slikenet/AutopatcherPatchContext.h"
-// #include "slikenet/DR_SHA1.h"
+#include "mafianet/AutopatcherPatchContext.h"
+// #include "mafianet/DR_SHA1.h"
 #include <stdlib.h>
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 // localtime
 #include <time.h>
 

@@ -13,20 +13,20 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_TelnetTransport==1
 
-#include "slikenet/transport2.h"
+#include "mafianet/transport2.h"
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

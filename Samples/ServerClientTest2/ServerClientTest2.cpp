@@ -13,31 +13,31 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
+#include "mafianet/peerinterface.h"
 
-#include "slikenet/BitStream.h"
+#include "mafianet/BitStream.h"
 #include <stdlib.h> // For atoi
 #include <cstring> // For strlen
-#include "slikenet/Rand.h"
-#include "slikenet/statistics.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/Rand.h"
+#include "mafianet/statistics.h"
+#include "mafianet/MessageIdentifiers.h"
 #include <stdio.h>
-#include "slikenet/Kbhit.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/assert.h"
-#include "slikenet/sleep.h"
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/assert.h"
+#include "mafianet/sleep.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 
 #ifdef _WIN32
-#include "slikenet/WindowsIncludes.h" // Sleep64
+#include "mafianet/WindowsIncludes.h" // Sleep64
 #else
 #include <unistd.h> // usleep
 #include <cstdio>
-#include "slikenet/Getche.h"
+#include "mafianet/Getche.h"
 #endif
 
 static const int NUM_CLIENTS=100;

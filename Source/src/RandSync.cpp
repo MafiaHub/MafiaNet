@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/RandSync.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/RandSync.h"
+#include "mafianet/BitStream.h"
 #include <limits>
 #include <limits.h>
 

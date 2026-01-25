@@ -16,9 +16,9 @@
 #include "RoomsBrowserGFx3_RakNet.h"
 #include "Lobby2Client.h"
 #include "XMLParser.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/MessageIdentifiers.h"
 #include "RoomTypes.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/GetTime.h"
 
 using namespace MafiaNet;
 

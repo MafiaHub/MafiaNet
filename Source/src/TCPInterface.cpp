@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_TCPInterface==1
 
 /// \file
@@ -22,7 +22,7 @@
 
 
 
-#include "slikenet/TCPInterface.h"
+#include "mafianet/TCPInterface.h"
 #ifdef _WIN32
 	typedef int socklen_t;
 #else
@@ -31,15 +31,15 @@
 #include <pthread.h>
 #endif
 #include <string.h>
-#include "slikenet/assert.h"
+#include "mafianet/assert.h"
 #include <stdio.h>
-#include "slikenet/assert.h"
-#include "slikenet/sleep.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/StringTable.h"
-#include "slikenet/Itoa.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/SocketDefines.h"
+#include "mafianet/assert.h"
+#include "mafianet/sleep.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/StringTable.h"
+#include "mafianet/Itoa.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/SocketDefines.h"
 #if (defined(__GNUC__)  || defined(__GCCXML__)) && !defined(__WIN32__)
 #include <netdb.h>
 #endif
@@ -48,7 +48,7 @@
 #endif
 
 #ifdef _WIN32
-#include "slikenet/WSAStartupSingleton.h"
+#include "mafianet/WSAStartupSingleton.h"
 #endif
 namespace MafiaNet
 {
@@ -58,8 +58,8 @@ RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
 #ifdef _MSC_VER
 #pragma warning( push )
 #endif
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

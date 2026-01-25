@@ -16,16 +16,16 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "slikenet/GetTime.h"
-#include "slikenet/Rand.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Rand.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
 
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/ConnectionGraph2.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/ConnectionGraph2.h"
 #include <assert.h>
-#include "slikenet/Kbhit.h"
-#include "slikenet/sleep.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/sleep.h"
 
 static const unsigned short NUM_PEERS=8;
 MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];

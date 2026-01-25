@@ -18,22 +18,22 @@
 // Filename Ping.cpp
 // Very basic chat engine example
 // ----------------------------------------------------------------------
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/MessageIdentifiers.h"
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/types.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/types.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/BitStream.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Gets.h"
-#include "slikenet/Kbhit.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 int main(void)
 {

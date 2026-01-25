@@ -13,20 +13,20 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
 #include <stdlib.h> // For atoi
 #include <cstring> // For strlen
-#include "slikenet/statistics.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/MTUSize.h"
+#include "mafianet/statistics.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/MTUSize.h"
 #include <stdio.h>
-#include "slikenet/Kbhit.h"
-#include "slikenet/sleep.h"
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/sleep.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 bool quit;
 bool sentPacket=false;

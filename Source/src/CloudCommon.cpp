@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_CloudClient==1 || _RAKNET_SUPPORT_CloudServer==1
 
-#include "slikenet/CloudCommon.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/CloudCommon.h"
+#include "mafianet/BitStream.h"
 
 using namespace MafiaNet;
 

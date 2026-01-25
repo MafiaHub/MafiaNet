@@ -13,14 +13,14 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_RakNetCommandParser==1
 
-#include "slikenet/commandparser.h"
-#include "slikenet/TransportInterface.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/assert.h"
+#include "mafianet/commandparser.h"
+#include "mafianet/TransportInterface.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/assert.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

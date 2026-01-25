@@ -61,11 +61,11 @@ void main_sockets(void)
 	printf(outputBuffer);
 }
 
-#include "slikenet/TCPInterface.h"
-#include "slikenet/string.h"
-#include "slikenet/sleep.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/string.h"
+#include "mafianet/sleep.h"
 #include "jansson.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/GetTime.h"
 
 #define MASTER_SERVER_ADDRESS "masterserver2.raknet.com"
 #define MASTER_SERVER_PORT 80
@@ -112,7 +112,7 @@ void main_RakNet_Post(void)
 	tcp->Stop();
 }
 
-#include "slikenet/HTTPConnection2.h"
+#include "mafianet/HTTPConnection2.h"
 void main_RakNet_Get(void)
 {
 	HTTPConnection2 *httpConnection2;

@@ -20,7 +20,7 @@
 // Change SERVER_IP_ADDRESS to connect over the internet
 
 #ifdef WIN32
-#include "slikenet/WindowsIncludes.h"
+#include "mafianet/WindowsIncludes.h"
 #else
 #define HWND void*
 #endif
@@ -35,20 +35,20 @@
 #include "App3D.h"
 
 // RakNet includes
-#include "slikenet/GetTime.h"
-#include "slikenet/sleep.h"
-#include "slikenet/assert.h"
-#include "slikenet/StringTable.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/sleep.h"
+#include "mafianet/assert.h"
+#include "mafianet/StringTable.h"
+#include "mafianet/peerinterface.h"
 
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/ReplicaManager3.h"
-#include "slikenet/NetworkIDManager.h"
-#include "slikenet/sleep.h"
-#include "slikenet/FormatString.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/Rand.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/ReplicaManager3.h"
+#include "mafianet/NetworkIDManager.h"
+#include "mafianet/sleep.h"
+#include "mafianet/FormatString.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/Rand.h"
 #include "TransformationHistory.h"
 
 using namespace Ogre;

@@ -17,8 +17,8 @@
 #define __LOBBY_2_CLIENT_STEAM_H
 
 #include "Lobby2Plugin.h"
-#include "slikenet/DS_OrderedList.h"
-#include "slikenet/types.h"
+#include "mafianet/DS_OrderedList.h"
+#include "mafianet/types.h"
 
 namespace MafiaNet
 {

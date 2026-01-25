@@ -16,14 +16,14 @@
 /// \file Rackspace.h
 /// \brief Helper to class to manage Rackspace servers
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 
 #if  _RAKNET_SUPPORT_TCPInterface==1
 
-#include "slikenet/Export.h"
-#include "slikenet/types.h"
-#include "slikenet/DS_Queue.h"
-#include "slikenet/string.h"
+#include "mafianet/Export.h"
+#include "mafianet/types.h"
+#include "mafianet/DS_Queue.h"
+#include "mafianet/string.h"
 #include "jansson.h"
 
 #ifndef __RACKSPACE_2_H

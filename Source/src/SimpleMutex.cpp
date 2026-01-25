@@ -18,8 +18,8 @@
 
 
 
-#include "slikenet/SimpleMutex.h"
-#include "slikenet/assert.h"
+#include "mafianet/SimpleMutex.h"
+#include "mafianet/assert.h"
 
 using namespace MafiaNet;
 

@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/VariableDeltaSerializer.h"
+#include "mafianet/VariableDeltaSerializer.h"
 
 using namespace MafiaNet;
 

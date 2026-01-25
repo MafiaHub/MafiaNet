@@ -13,14 +13,14 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/StringTable.h"
+#include "mafianet/StringTable.h"
 #include <string.h>
-#include "slikenet/assert.h"
+#include "mafianet/assert.h"
 #include <stdio.h>
-#include "slikenet/BitStream.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 using namespace MafiaNet;
 
 StringTable* StringTable::instance=0;

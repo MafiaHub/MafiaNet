@@ -14,20 +14,20 @@
  */
 
 #include "Lobby2Message.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/peerinterface.h"
 
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/Kbhit.h"
-#include "slikenet/sleep.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/sleep.h"
 #include "Lobby2Server_PGSQL.h"
 #include "Lobby2Message_PGSQL.h"
 #include "ProfanityFilter.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 
 #ifdef __INTEGRATE_LOBBY2_WITH_ROOMS_PLUGIN
@@ -35,11 +35,11 @@
 #endif
 
 //#define _ALSO_ACT_AS_NAT_PUNCH_SERVER
-#include "slikenet/NatPunchthroughServer.h"
-#include "slikenet/UDPProxyCoordinator.h"
-#include "slikenet/UDPProxyServer.h"
-#include "slikenet/NatTypeDetectionServer.h"
-#include "slikenet/SocketLayer.h"
+#include "mafianet/NatPunchthroughServer.h"
+#include "mafianet/UDPProxyCoordinator.h"
+#include "mafianet/UDPProxyServer.h"
+#include "mafianet/NatTypeDetectionServer.h"
+#include "mafianet/SocketLayer.h"
 static const char *COORDINATOR_PASSWORD="Dummy Coordinator Password";
 
 void main(void)

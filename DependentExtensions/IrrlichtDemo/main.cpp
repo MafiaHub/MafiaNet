@@ -27,7 +27,7 @@
 #endif
 
 #ifdef _WIN32__
-#include "slikenet/WindowsIncludes.h" // Prevent 'fd_set' : 'struct' type redefinition
+#include "mafianet/WindowsIncludes.h" // Prevent 'fd_set' : 'struct' type redefinition
 #include <windows.h>
 #endif
 

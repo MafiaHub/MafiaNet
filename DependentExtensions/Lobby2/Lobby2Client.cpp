@@ -14,8 +14,8 @@
  */
 
 #include "Lobby2Client.h"
-#include "slikenet/assert.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/assert.h"
+#include "mafianet/MessageIdentifiers.h"
 
 using namespace MafiaNet;
 

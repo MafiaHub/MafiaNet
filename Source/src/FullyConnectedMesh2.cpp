@@ -17,16 +17,16 @@
 ///
 
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_FullyConnectedMesh2==1
 
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/assert.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/Rand.h"
-#include "slikenet/DS_OrderedList.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/assert.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Rand.h"
+#include "mafianet/DS_OrderedList.h"
 
 using namespace MafiaNet;
 

@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/thread.h"
-#include "slikenet/assert.h"
-#include "slikenet/defines.h"
-#include "slikenet/sleep.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/thread.h"
+#include "mafianet/assert.h"
+#include "mafianet/defines.h"
+#include "mafianet/sleep.h"
+#include "mafianet/memoryoverride.h"
 
 using namespace MafiaNet;
 
 #if   defined(_WIN32)
-	#include "slikenet/WindowsIncludes.h"
+	#include "mafianet/WindowsIncludes.h"
 	#include <stdio.h>
 	#include <process.h>
 #else

@@ -13,23 +13,23 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/FileListTransfer.h"
-#include "slikenet/sleep.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/FileListTransfer.h"
+#include "mafianet/sleep.h"
 
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/FileListTransferCBInterface.h"
-#include "slikenet/FileOperations.h"
-#include "slikenet/SuperFastHash.h"
-#include "slikenet/assert.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/IncrementalReadInterface.h"
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/SocketLayer.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/FileOperations.h"
+#include "mafianet/SuperFastHash.h"
+#include "mafianet/assert.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/IncrementalReadInterface.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/SocketLayer.h"
 #include <stdio.h>
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 MafiaNet::RakString file;
 MafiaNet::RakString fileCopy;

@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_Rackspace==1 && _RAKNET_SUPPORT_TCPInterface==1
 
-#include "slikenet/Rackspace.h"
-#include "slikenet/string.h"
-#include "slikenet/TCPInterface.h"
+#include "mafianet/Rackspace.h"
+#include "mafianet/string.h"
+#include "mafianet/TCPInterface.h"
 
 using namespace MafiaNet;
 

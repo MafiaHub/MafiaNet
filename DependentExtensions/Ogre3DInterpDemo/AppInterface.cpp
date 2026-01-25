@@ -14,11 +14,11 @@
  */
 
 #include "AppInterface.h"
-#include "slikenet/assert.h"
+#include "mafianet/assert.h"
 #include "FSM.h"
 #include "RunnableState.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #ifdef _CONSOLE
 #include <stdio.h>

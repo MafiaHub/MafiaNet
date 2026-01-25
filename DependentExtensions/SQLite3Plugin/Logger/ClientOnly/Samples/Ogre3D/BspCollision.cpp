@@ -44,10 +44,10 @@ static const int num_rows = 3;
 
 // RakNet: Logger includes.
 #include "SQLiteClientLoggerPlugin.h"
-#include "slikenet/PacketizedTCP.h"
+#include "mafianet/PacketizedTCP.h"
 #include "Ogre3D_DX9_BackbufferGrabber.h"
-#include "slikenet/time.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/time.h"
+#include "mafianet/GetTime.h"
 
 // Event handler to add ability to alter curvature
 class BspCollisionListener : public ExampleRefAppFrameListener

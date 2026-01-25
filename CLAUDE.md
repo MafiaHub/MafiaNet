@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MafiaNet is a cross-platform network engine written in C++ for multiplayer games. It's a fork of SLikeNet, which itself continued RakNet. The project provides reliable UDP messaging, NAT traversal, peer-to-peer networking, and various game-specific networking features.
+MafiaNet is a cross-platform network engine written in C++ for multiplayer games. It's a fork of MafiaNet, which itself continued RakNet. The project provides reliable UDP messaging, NAT traversal, peer-to-peer networking, and various game-specific networking features.
 
 ## Build Commands
 
@@ -85,7 +85,7 @@ Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWi
 
 ### Key Components
 
-**Networking Core** (`Source/include/slikenet/`):
+**Networking Core** (`Source/include/mafianet/`):
 - `RakPeerInterface` - Main entry point. Use `MafiaNet::RakPeerInterface::GetInstance()` to create
 - `BitStream` - Binary serialization for packets
 - `Packet` - Received network data container
@@ -104,8 +104,8 @@ Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWi
 
 ```
 Source/
-├── *.h                 # Thin wrapper headers (include these or slikenet/ versions)
-├── include/slikenet/   # Full public API headers
+├── *.h                 # Thin wrapper headers (include these or mafianet/ versions)
+├── include/mafianet/   # Full public API headers
 └── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features
@@ -123,9 +123,9 @@ Optional integrations built when `MAFIANET_BUILD_SAMPLES=ON`:
 ### Basic Usage Pattern
 
 ```cpp
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
 
 // Create peer
 MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();

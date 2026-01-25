@@ -19,12 +19,12 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "slikenet/GetTime.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/StatisticsHistory.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/StatisticsHistory.h"
 #include <math.h>
-#include "slikenet/sleep.h"
+#include "mafianet/sleep.h"
 
 using namespace MafiaNet;
 

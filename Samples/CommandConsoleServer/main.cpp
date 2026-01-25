@@ -17,16 +17,16 @@
 /// \brief Test the command console implementations
 
 
-#include "slikenet/TCPInterface.h"
-#include "slikenet/ConsoleServer.h"
-#include "slikenet/commandparser.h"
-#include "slikenet/TelnetTransport.h"
+#include "mafianet/TCPInterface.h"
+#include "mafianet/ConsoleServer.h"
+#include "mafianet/commandparser.h"
+#include "mafianet/TelnetTransport.h"
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/LogCommandParser.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/transport2.h"
-#include "slikenet/LinuxStrings.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/LogCommandParser.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/transport2.h"
+#include "mafianet/LinuxStrings.h"
 #include <stdio.h>
 
 

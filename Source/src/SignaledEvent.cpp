@@ -13,9 +13,9 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/SignaledEvent.h"
-#include "slikenet/assert.h"
-#include "slikenet/sleep.h"
+#include "mafianet/SignaledEvent.h"
+#include "mafianet/assert.h"
+#include "mafianet/sleep.h"
 
 #if defined(__GNUC__) 
 #include <sys/time.h>

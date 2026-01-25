@@ -16,7 +16,7 @@
 #ifndef __LOBBY_2_RESULT_CODE_H
 #define __LOBBY_2_RESULT_CODE_H
 
-#include "slikenet/defines.h" // used for SLNet -> RakNet namespace change in RAKNET_COMPATIBILITY mode
+#include "mafianet/defines.h" // used for SLNet -> RakNet namespace change in RAKNET_COMPATIBILITY mode
 namespace MafiaNet
 {
 

@@ -13,14 +13,14 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_PacketLogger==1
 
-#include "slikenet/PacketFileLogger.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
-#include "slikenet/memoryoverride.h"
+#include "mafianet/PacketFileLogger.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
+#include "mafianet/memoryoverride.h"
 
 using namespace MafiaNet;
 

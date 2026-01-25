@@ -15,27 +15,27 @@
 
 // Demonstrates ReplicaManager 3: A system to automatically create, destroy, and serialize objects
 
-#include "slikenet/StringTable.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/StringTable.h"
+#include "mafianet/peerinterface.h"
 
 #include <stdio.h>
-#include "slikenet/Kbhit.h"
+#include "mafianet/Kbhit.h"
 #include <string.h>
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/ReplicaManager3.h"
-#include "slikenet/NetworkIDManager.h"
-#include "slikenet/sleep.h"
-#include "slikenet/FormatString.h"
-#include "slikenet/string.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/Getche.h"
-#include "slikenet/Rand.h"
-#include "slikenet/VariableDeltaSerializer.h"
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/ReplicaManager3.h"
+#include "mafianet/NetworkIDManager.h"
+#include "mafianet/sleep.h"
+#include "mafianet/FormatString.h"
+#include "mafianet/string.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/Getche.h"
+#include "mafianet/Rand.h"
+#include "mafianet/VariableDeltaSerializer.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 enum
 {

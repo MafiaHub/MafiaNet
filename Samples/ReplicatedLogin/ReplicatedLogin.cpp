@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/sleep.h"
-#include "slikenet/Gets.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/Kbhit.h"
-#include "slikenet/ReplicaManager3.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/NetworkIDManager.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/sleep.h"
+#include "mafianet/Gets.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/ReplicaManager3.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/NetworkIDManager.h"
 
 using namespace MafiaNet;
 

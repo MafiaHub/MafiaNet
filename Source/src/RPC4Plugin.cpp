@@ -13,19 +13,19 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_RPC4Plugin==1
 
-#include "slikenet/RPC4Plugin.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/sleep.h"
-#include "slikenet/defines.h"
-#include "slikenet/DS_Queue.h"
-//#include "slikenet/GetTime.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/RPC4Plugin.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/sleep.h"
+#include "mafianet/defines.h"
+#include "mafianet/DS_Queue.h"
+//#include "mafianet/GetTime.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

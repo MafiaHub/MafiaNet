@@ -22,13 +22,13 @@
 #ifndef __ROOMS_PLUGIN_H
 #define __ROOMS_PLUGIN_H
 
-#include "slikenet/types.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/DS_OrderedList.h"
-#include "slikenet/Export.h"
+#include "mafianet/types.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/DS_OrderedList.h"
+#include "mafianet/Export.h"
 #include "RoomsContainer.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/BitStream.h"
 
 /// \defgroup ROOMS_GROUP RoomsPlugin
 /// \brief Networked implementation of a rooms system, where members join and leave rooms.

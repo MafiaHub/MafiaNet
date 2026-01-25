@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/SuperFastHash.h"
-#include "slikenet/NativeTypes.h"
+#include "mafianet/SuperFastHash.h"
+#include "mafianet/NativeTypes.h"
 #include <stdlib.h>
 
 #if !defined(_WIN32)
 #include <stdint.h>
 #endif
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #undef get16bits
 

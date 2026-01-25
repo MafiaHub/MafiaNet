@@ -19,31 +19,31 @@
 // Very basic chat engine example
 // ----------------------------------------------------------------------
 
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/MessageIdentifiers.h"
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/statistics.h"
-#include "slikenet/types.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/PacketLogger.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/statistics.h"
+#include "mafianet/types.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/PacketLogger.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "slikenet/types.h"
-#include "slikenet/Kbhit.h"
+#include "mafianet/types.h"
+#include "mafianet/Kbhit.h"
 #ifdef _WIN32
-#include "slikenet/WindowsIncludes.h" // Sleep
+#include "mafianet/WindowsIncludes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #if LIBCAT_SECURITY==1
-#include "slikenet/SecureHandshake.h" // Include header for secure handshake
+#include "mafianet/SecureHandshake.h" // Include header for secure handshake
 #endif
 
 // We copy this from Multiplayer.cpp to keep things all in one file for this example

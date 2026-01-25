@@ -25,9 +25,9 @@ namespace CSharpTestApp
     {
         static void Main(string[] args)
         {
-            if (!File.Exists("SLikeNet.dll"))
+            if (!File.Exists("MafiaNet.dll"))
             {
-                Console.WriteLine("The SLikeNet DLL is missing.\nPress enter to quit.");
+                Console.WriteLine("The MafiaNet DLL is missing.\nPress enter to quit.");
                 Console.Read();
                 return;
             }
@@ -114,7 +114,7 @@ namespace CSharpTestApp
                 testServer.DeallocatePacket(testPacket);
                 loopNumber++;
                 System.Threading.Thread.Sleep(50);
-                SystemAddress sa = SLNet.SLikeNet.UNASSIGNED_SYSTEM_ADDRESS;
+                SystemAddress sa = SLNet.MafiaNet.UNASSIGNED_SYSTEM_ADDRESS;
                 testClient.Send(stringTestSendBitStream, PacketPriority.LOW_PRIORITY, PacketReliability.RELIABLE_ORDERED, (char)0, new AddressOrGUID(new SystemAddress("127.0.0.1", 60001)), false);
             }
             //If RakString is not freed before program exit it will crash

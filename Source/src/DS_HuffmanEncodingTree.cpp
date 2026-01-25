@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/DS_HuffmanEncodingTree.h"
-#include "slikenet/DS_Queue.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/assert.h" 
+#include "mafianet/DS_HuffmanEncodingTree.h"
+#include "mafianet/DS_Queue.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/assert.h" 
 
 using namespace MafiaNet;
 

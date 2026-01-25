@@ -13,26 +13,26 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_PacketLogger==1
 
-#include "slikenet/PacketLogger.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/DS_List.h"
-#include "slikenet/InternalPacket.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/PacketLogger.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/DS_List.h"
+#include "mafianet/InternalPacket.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/GetTime.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "slikenet/Itoa.h"
+#include "mafianet/Itoa.h"
 #include <time.h>
-#include "slikenet/SocketIncludes.h"
-#include "slikenet/gettimeofday.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/SocketIncludes.h"
+#include "mafianet/gettimeofday.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

@@ -14,12 +14,12 @@
  */
 
 #include "MySQLInterface.h"
-#include "slikenet/assert.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/FormatString.h"
-#include "slikenet/LinuxStrings.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/assert.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/FormatString.h"
+#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 #include <errmsg.h>
 
 

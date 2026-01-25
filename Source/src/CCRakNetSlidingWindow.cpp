@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/CCRakNetSlidingWindow.h"
+#include "mafianet/CCRakNetSlidingWindow.h"
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL==1
 
@@ -25,12 +25,12 @@ static const CCTimeType SYN=10;
 static const CCTimeType SYN=10000;
 #endif
 
-#include "slikenet/MTUSize.h"
+#include "mafianet/MTUSize.h"
 #include <stdio.h>
 #include <cmath>
 #include <stdlib.h>
-#include "slikenet/assert.h"
-#include "slikenet/alloca.h"
+#include "mafianet/assert.h"
+#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

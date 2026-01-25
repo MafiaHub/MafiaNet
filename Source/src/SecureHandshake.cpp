@@ -17,7 +17,7 @@
 ///
 
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 
 #if LIBCAT_SECURITY==1
 

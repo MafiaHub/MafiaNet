@@ -14,20 +14,20 @@
  */
 
 #include "RPC3.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/peerinterface.h"
 
 #include <stdio.h>
-#include "slikenet/Kbhit.h"
+#include "mafianet/Kbhit.h"
 #include <string.h>
 #include <stdlib.h>
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/StringCompressor.h"
-#include "slikenet/sleep.h"
-#include "slikenet/NetworkIDObject.h"
-#include "slikenet/NetworkIDManager.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/Gets.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/StringCompressor.h"
+#include "mafianet/sleep.h"
+#include "mafianet/NetworkIDObject.h"
+#include "mafianet/NetworkIDManager.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Gets.h"
 
 // This has to be a pointer, because it uses UNASSIGNED_NETWORK_ID, initialized globally
 MafiaNet::RPC3 *rpc3Inst;

@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_PacketizedTCP==1 && _RAKNET_SUPPORT_TCPInterface==1
 
 #include <algorithm> // used for std::min
-#include "slikenet/PacketizedTCP.h"
-#include "slikenet/NativeTypes.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/alloca.h"
+#include "mafianet/PacketizedTCP.h"
+#include "mafianet/NativeTypes.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

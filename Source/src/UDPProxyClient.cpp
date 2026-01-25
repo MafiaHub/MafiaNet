@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_UDPProxyClient==1
 
-#include "slikenet/UDPProxyClient.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/UDPProxyCommon.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/UDPProxyClient.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/UDPProxyCommon.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/GetTime.h"
 
 using namespace MafiaNet;
 static const int DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR=1000;

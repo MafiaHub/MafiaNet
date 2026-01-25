@@ -90,4 +90,4 @@ RAKPEERANDINTERFACESETPRIVATE(GetBandwidth);
 %csmethodmodifiers operator ++ "private"
 %csmethodmodifiers operator - "private"
 %csmethodmodifiers operator + "private"
-%csmethodmodifiers operator+(const SLNet::RakString &lhs, const SLNet::RakString &rhs) "public" //The global SLikeNet operator should be public
+%csmethodmodifiers operator+(const SLNet::RakString &lhs, const SLNet::RakString &rhs) "public" //The global MafiaNet operator should be public

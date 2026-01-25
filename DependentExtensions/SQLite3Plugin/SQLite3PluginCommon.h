@@ -16,9 +16,9 @@
 #ifndef __SQL_LITE_3_PLUGIN_COMMON_H
 #define __SQL_LITE_3_PLUGIN_COMMON_H
 
-#include "slikenet/DS_Multilist.h"
-#include "slikenet/string.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/DS_Multilist.h"
+#include "mafianet/string.h"
+#include "mafianet/BitStream.h"
 
 /// \defgroup SQL_LITE_3_PLUGIN SQLite3Plugin
 /// \brief Code to transmit SQLite3 commands across the network

@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/SendToThread.h"
+#include "mafianet/SendToThread.h"
 #ifdef USE_THREADED_SEND
-#include "slikenet/thread.h"
-#include "slikenet/InternalPacket.h"
-#include "slikenet/GetTime.h"
+#include "mafianet/thread.h"
+#include "mafianet/InternalPacket.h"
+#include "mafianet/GetTime.h"
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
-#include "slikenet/CCRakNetUDT.h"
+#include "mafianet/CCRakNetUDT.h"
 #else
-#include "slikenet/CCRakNetSlidingWindow.h"
+#include "mafianet/CCRakNetSlidingWindow.h"
 #endif
 
 using namespace MafiaNet;

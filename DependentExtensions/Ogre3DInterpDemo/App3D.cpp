@@ -16,14 +16,14 @@
 #include "App3D.h"
 
 #include "Ogre.h"
-#include "slikenet/assert.h"
-#include "slikenet/FormatString.h"
+#include "mafianet/assert.h"
+#include "mafianet/FormatString.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include "OgreRenderSystemCapabilities.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 static const char *defaultCameraName = "DefaultCamera";
 static const char *defaultSceneManagerName = "DefaultSceneManager";

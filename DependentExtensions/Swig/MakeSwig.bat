@@ -31,10 +31,10 @@ set swigCommand="%swigPath%swig.exe"
 set sourceDir=%rootDir%\Source
 set dependentExtensionDir=%rootDir%\DependentExtensions
 set swigDefines=
-set swigIncludes=-I"%sourceDir%\include\slikenet" -I"SwigInterfaceFiles"
+set swigIncludes=-I"%sourceDir%\include\mafianet" -I"SwigInterfaceFiles"
 set namespace=SLNet
 set outputDirectory=..\..\bindings\csharp\interfaces
-set outputWrapperFilename=..\..\bindings\csharp\wrapper\slikenet_wrapper.cpp
+set outputWrapperFilename=..\..\bindings\csharp\wrapper\mafianet_wrapper.cpp
 
 REM check if we have a dependent extension specified in the 3rd argument
 set dependentExtension=%3
@@ -95,10 +95,10 @@ goto :eof
 
 :syntaxError
 echo Usage:
-echo   MakeSwig.bat ^<slikenet_root_path^> ^<swig_path^>
+echo   MakeSwig.bat ^<mafianet_root_path^> ^<swig_path^>
 echo     [^<dependent_extension^>] [--rakNetCompatibility]
 echo.
-echo   slikenet_root_path  Path to the SLikeNet root directory.
+echo   mafianet_root_path  Path to the MafiaNet root directory.
 echo   swig_path           Path to the SWIG binary (swig.exe). Use "" to
 echo                       indicate using swig.exe from the PATH environment
 echo                       variable.

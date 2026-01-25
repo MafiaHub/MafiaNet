@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/assert.h"
-#include "slikenet/GridSectorizer.h"
+#include "mafianet/assert.h"
+#include "mafianet/GridSectorizer.h"
 //#include <stdlib.h>
 #include <math.h>
 

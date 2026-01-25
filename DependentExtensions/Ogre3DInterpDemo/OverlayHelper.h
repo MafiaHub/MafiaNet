@@ -15,7 +15,7 @@
 #ifndef __OVERLAY_HELPER_H
 #define __OVERLAY_HELPER_H
 
-#include "slikenet/DS_List.h"
+#include "mafianet/DS_List.h"
 
 namespace Ogre
 {

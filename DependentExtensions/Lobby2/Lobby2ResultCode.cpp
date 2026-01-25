@@ -14,7 +14,7 @@
  */
 
 #include "Lobby2ResultCode.h"
-#include "slikenet/assert.h"
+#include "mafianet/assert.h"
 
 using namespace MafiaNet;
 

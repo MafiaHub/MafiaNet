@@ -14,15 +14,15 @@
  */
 
 #include "CloudServerHelper.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/FullyConnectedMesh2.h"
-#include "slikenet/TwoWayAuthentication.h"
-#include "slikenet/CloudClient.h"
-#include "slikenet/DynDNS.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/sleep.h"
-#include "slikenet/ConnectionGraph2.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/TwoWayAuthentication.h"
+#include "mafianet/CloudClient.h"
+#include "mafianet/DynDNS.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/ConnectionGraph2.h"
 
 int main(int argc, char **argv)
 {

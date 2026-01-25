@@ -49,7 +49,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "slikenet/Rand.h"
+#include "mafianet/Rand.h"
 
 //
 // uint32 must be an unsigned integer type capable of holding at least 32

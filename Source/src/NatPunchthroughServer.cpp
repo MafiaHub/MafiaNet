@@ -13,19 +13,19 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_NatPunchthroughServer==1
 
-#include "slikenet/NatPunchthroughServer.h"
-#include "slikenet/SocketLayer.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MTUSize.h"
-#include "slikenet/GetTime.h"
-#include "slikenet/PacketLogger.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/NatPunchthroughServer.h"
+#include "mafianet/SocketLayer.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MTUSize.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/PacketLogger.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

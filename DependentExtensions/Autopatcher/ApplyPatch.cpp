@@ -53,8 +53,8 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bspatch/bspatch.c,v 1.1 2005/08/06 01:59:
 typedef int ssize_t;
 #include <wchar.h>
 #include <io.h>
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 #define fseeko fseek
 static void err(int i, ...)
 {

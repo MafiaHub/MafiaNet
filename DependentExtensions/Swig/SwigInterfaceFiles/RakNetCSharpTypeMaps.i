@@ -26,7 +26,7 @@
 CSHARP_ARRAYS(char *,string)
 
 //INOUT char to byte array
-//This is used because SLikeNet uses char arrays as byte arrays, C# char arrays are unicode
+//This is used because MafiaNet uses char arrays as byte arrays, C# char arrays are unicode
 %apply unsigned char INOUT[] {unsigned char* inputByteArray};
 %apply unsigned char INOUT[] {unsigned char* inByteArray};
 %apply unsigned char INOUT[] {unsigned char* inByteArray2};
@@ -145,7 +145,7 @@ SIMPLE_OBJECT_OUTPUT_TYPEMAP(SLNet::RakString,RakString)
 %typemap(csout, excode=SWIGEXCODE2, noblock=1) unsigned char* PeekContiguousBytesHelper  
 {
   {
-      IntPtr cPtr = SLikeNetPINVOKE.ByteQueue_PeekContiguousBytesHelper(swigCPtr, out outLength);
+      IntPtr cPtr = MafiaNetPINVOKE.ByteQueue_PeekContiguousBytesHelper(swigCPtr, out outLength);
       int len = (int)outLength;
       if (len <= 0)
       {
@@ -189,7 +189,7 @@ IN_LEN_METHOD- Something to get the length of the C/C++ array for marshalling. T
             INCSTYPE[] returnArray;
             if (!BOOLNAME)
             {
-                IntPtr cPtr = SLikeNetPINVOKE.IN_DATA_GET_FUNCTION (swigCPtr);
+                IntPtr cPtr = MafiaNetPINVOKE.IN_DATA_GET_FUNCTION (swigCPtr);
                 int len = (int) IN_LEN_METHOD;
 		if (len<=0)
 		{
@@ -233,7 +233,7 @@ IN_LEN_METHOD- Something to get the length of the C/C++ array for marshalling. T
             INCSTYPE[] returnArray;
             if (!BOOLNAME)
             {
-                IntPtr cPtr = SLikeNetPINVOKE.IN_DATA_GET_FUNCTION (swigCPtr);
+                IntPtr cPtr = MafiaNetPINVOKE.IN_DATA_GET_FUNCTION (swigCPtr);
                 int len = (int) IN_LEN_METHOD;
 		if (len<=0)
 		{
@@ -404,7 +404,7 @@ STRUCT_CUSTOM_GENERAL_ARRAY_TYPEMAP(fileDataIsCached,fileDataCache,char *fileDat
 {
   private HandleRef swigCPtr;
 
-  internal InternalPacket(IntPtr cPtr, bool cMemoryOwn) : base(SLikeNetPINVOKE.InternalPacketUpcast(cPtr), cMemoryOwn) 
+  internal InternalPacket(IntPtr cPtr, bool cMemoryOwn) : base(MafiaNetPINVOKE.InternalPacketUpcast(cPtr), cMemoryOwn) 
   {
     swigCPtr = new HandleRef(this, cPtr);
   }
@@ -426,7 +426,7 @@ STRUCT_CUSTOM_GENERAL_ARRAY_TYPEMAP(fileDataIsCached,fileDataCache,char *fileDat
 //These typemaps add C# code to the postprocessed file, mostly to improve the user interface so it matches the original
 //API for things Swig doesn't support
 
-//This adds to the main SLikeNet class, generally used for globals
+//This adds to the main MafiaNet class, generally used for globals
 #ifdef SWIG_ADDITIONAL_AUTOPATCHER
 	%pragma(csharp) modulecode=
 	%{ 
@@ -989,7 +989,7 @@ using System.Runtime.InteropServices;
 
 	public static RakString operator +(RakString a, RakString b)
 	{
-		return SLikeNet.OpPlus(a,b);
+		return MafiaNet.OpPlus(a,b);
 	}
 
 	public static implicit operator RakString(String s)
@@ -1374,7 +1374,7 @@ STRUCT_UNSIGNED_CHAR_ARRAY_ONLY_CSCODE(dataIsCached,dataCache)*/
             byte[] returnBytes;
             if (!BOOLNAME)
             {
-                IntPtr cPtr = SLikeNetPINVOKE.IN_DATA_GET_FUNCTION (swigCPtr);
+                IntPtr cPtr = MafiaNetPINVOKE.IN_DATA_GET_FUNCTION (swigCPtr);
                 int len = (int)((IN_CLASS)swigCPtr.Wrapper).IN_LEN_METHOD;
 		if (len<=0)
 		{

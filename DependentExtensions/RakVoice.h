@@ -20,10 +20,10 @@
 #ifndef __RAK_VOICE_H
 #define __RAK_VOICE_H
 
-#include "slikenet/types.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/DS_OrderedList.h"
-#include "slikenet/NativeTypes.h"
+#include "mafianet/types.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/DS_OrderedList.h"
+#include "mafianet/NativeTypes.h"
 
 namespace MafiaNet {
 

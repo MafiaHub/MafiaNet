@@ -16,21 +16,21 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "slikenet/GetTime.h"
-#include "slikenet/Rand.h"
-#include "slikenet/Rand.h"
-#include "slikenet/peerinterface.h"
-#include "slikenet/MessageIdentifiers.h"
+#include "mafianet/GetTime.h"
+#include "mafianet/Rand.h"
+#include "mafianet/Rand.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
 
-#include "slikenet/types.h"
-#include "slikenet/NativeFeatureIncludes.h"
+#include "mafianet/types.h"
+#include "mafianet/NativeFeatureIncludes.h"
 #include <assert.h>
-#include "slikenet/sleep.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/SecureHandshake.h" // Include header for secure handshake
-#include "slikenet/Gets.h"
-#include "slikenet/linux_adapter.h"
-#include "slikenet/osx_adapter.h"
+#include "mafianet/sleep.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/SecureHandshake.h" // Include header for secure handshake
+#include "mafianet/Gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 using namespace MafiaNet;
 
 #if LIBCAT_SECURITY!=1

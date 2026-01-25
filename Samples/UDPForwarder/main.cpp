@@ -13,18 +13,18 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "slikenet/peerinterface.h"
-#include "slikenet/sleep.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/sleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <string.h>
-#include "slikenet/Kbhit.h"
-#include "slikenet/MessageIdentifiers.h"
-#include "slikenet/BitStream.h"
-#include "slikenet/sleep.h"
-#include "slikenet/UDPForwarder.h"
-#include "slikenet/SocketLayer.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/UDPForwarder.h"
+#include "mafianet/SocketLayer.h"
 
 int main()
 {

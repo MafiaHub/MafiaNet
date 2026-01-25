@@ -5,10 +5,10 @@ SWIG_VERSION=2.0.12
 function syntaxError
 {
 	echo "Usage:"
-	echo "  MakeSwig.bat <slikenet_root_path> [<dependent_extension>]"
+	echo "  MakeSwig.bat <mafianet_root_path> [<dependent_extension>]"
 	echo "    [--rakNetCompatibility]"
 	echo
-	echo "  slikenet_root_path  Path to the SLikeNet root directory."
+	echo "  mafianet_root_path  Path to the MafiaNet root directory."
 	echo "  dependent_extension The dependent extension which should be included."
 	echo "                      Supported values: MYSQL_AUTOPATCHER, SQLITE"
 	echo
@@ -31,7 +31,7 @@ RAKNET_COMPATIBILITY_MODE=0
 BUILD_BZIP2=0
 SOURCE_DIR=$ROOT_DIR/Source
 SWIG_ADDITIONAL_INCLUDES=
-SWIG_INCLUDES="-I$SOURCE_DIR/include/slikenet -ISwigInterfaceFiles"
+SWIG_INCLUDES="-I$SOURCE_DIR/include/mafianet -ISwigInterfaceFiles"
 SWIG_DEFINES=
 GCC_ADDITIONAL_FILES=
 GCC_ADDITIONAL_INCLUDES=
@@ -39,8 +39,8 @@ GCC_ADDITIONAL_LIBS=
 GCC_DEFINES=
 NAMESPACE=SLNet
 OUTPUT_DIR=../../bindings/csharp/interfaces
-OUTPUT_WRAPPER_FILENAME=../../bindings/csharp/wrapper/slikenet_wrapper.cpp
-SO_NAME=SLikeNet
+OUTPUT_WRAPPER_FILENAME=../../bindings/csharp/wrapper/mafianet_wrapper.cpp
+SO_NAME=MafiaNet
 
 # check if we have a dependent extension specified in the 2nd argument
 if [ "$2" == "SQLITE" ]; then

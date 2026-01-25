@@ -19,5 +19,5 @@ if "%platform%"=="x86" (
 	set targetDir=bin\x86\%configuration%
 )
 
-copy "..\..\..\Lib\SLikeNet_DLL_%configuration%_%platform%.dll" "%targetDir%\SLikeNet.dll"
+copy "..\..\..\Lib\MafiaNet_DLL_%configuration%_%platform%.dll" "%targetDir%\MafiaNet.dll"
 exit %ERRORLEVEL%

@@ -17,9 +17,9 @@
 #define __LOBBY_2_PLUGIN_H
 
 #include "Lobby2Message.h"
-#include "slikenet/PluginInterface2.h"
-#include "slikenet/PacketPriority.h"
-#include "slikenet/peerinterface.h"
+#include "mafianet/PluginInterface2.h"
+#include "mafianet/PacketPriority.h"
+#include "mafianet/peerinterface.h"
 
 /// \defgroup LOBBY_2_GROUP Lobby2Plugin
 /// \brief SQL based lobby system, with support for users, friends, clans, emails, ranking, and a message board

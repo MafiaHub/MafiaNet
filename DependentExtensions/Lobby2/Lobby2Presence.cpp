@@ -14,7 +14,7 @@
  */
 
 #include "Lobby2Presence.h"
-#include "slikenet/BitStream.h"
+#include "mafianet/BitStream.h"
 
 using namespace MafiaNet;
 

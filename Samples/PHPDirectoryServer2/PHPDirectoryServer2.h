@@ -30,13 +30,13 @@
 #ifndef __PHP_DIRECTORY_SERVER_2
 #define __PHP_DIRECTORY_SERVER_2
 
-#include "slikenet/Export.h"
-#include "slikenet/string.h"
-#include "slikenet/HTTPConnection.h"
-#include "slikenet/types.h"
-#include "slikenet/DS_Queue.h"
-#include "slikenet/DS_Table.h"
-#include "slikenet/DS_Map.h"
+#include "mafianet/Export.h"
+#include "mafianet/string.h"
+#include "mafianet/HTTPConnection.h"
+#include "mafianet/types.h"
+#include "mafianet/DS_Queue.h"
+#include "mafianet/DS_Table.h"
+#include "mafianet/DS_Map.h"
 
 namespace MafiaNet {
 
