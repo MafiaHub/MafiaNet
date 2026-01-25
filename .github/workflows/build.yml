@@ -43,7 +43,7 @@ jobs:
         run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel 4
 
       - name: Run Tests (Linux/macOS)
         if: runner.os != 'Windows'
