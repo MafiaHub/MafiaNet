@@ -16,7 +16,7 @@
 #include "MessageIdentifiers.h"
 #include "InternalPacket.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class PacketChangerPlugin: public PluginInterface2
 {
 public:

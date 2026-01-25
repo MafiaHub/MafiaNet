@@ -32,21 +32,21 @@ RakTimer::~RakTimer(void)
 	}
 	void RakTimer::Start()
 	{
-		startTime=RakNet::GetTimeMS();
+		startTime=MafiaNet::GetTimeMS();
 
 	}
     void RakTimer::Pause()
 	{
-	pauseOffset=(int)(RakNet::GetTimeMS()-startTime);
+	pauseOffset=(int)(MafiaNet::GetTimeMS()-startTime);
 	}
 	void RakTimer::Resume()
 	{
-	startTime=RakNet::GetTimeMS()-pauseOffset;
+	startTime=MafiaNet::GetTimeMS()-pauseOffset;
 	}
 
 	bool RakTimer::IsExpired()
 	{
 
-	return (RakNet::GetTimeMS()-startTime>timerLength);
+	return (MafiaNet::GetTimeMS()-startTime>timerLength);
 	
 	}

@@ -20,7 +20,7 @@ void PeerConnectDisconnectTest::WaitForConnectionRequestsToComplete(RakPeerInter
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.port=60000+j;
+			currentSystem.SetPortHostOrder(60000+j);
 
 			while (CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,false,true,true) )
 			{
@@ -153,7 +153,8 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 		peerList[i]=RakPeerInterface::GetInstance();
 		destroyList.Push(peerList[i],_FILE_AND_LINE_);
 
-		peerList[i]->Startup(maxConnections, &SocketDescriptor(60000+i,0), 1);
+		SocketDescriptor sd(60000+i, 0);
+		peerList[i]->Startup(maxConnections, &sd, 1);
 		peerList[i]->SetMaximumIncomingConnections(maxConnections);
 
 	}
@@ -216,7 +217,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 			{
 
 				currentSystem.SetBinaryAddress("127.0.0.1");
-				currentSystem.port=60000+j;
+				currentSystem.SetPortHostOrder(60000+j);
 				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
 
@@ -251,7 +252,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.port=60000+j;
+			currentSystem.SetPortHostOrder(60000+j);
 
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{

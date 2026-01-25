@@ -12,10 +12,10 @@
 
 /*
 Description:
-virtual bool RakPeerInterface::ConnectWithSocket  	(  	const char *   	 host, 		unsigned short  	remotePort, 		const char *  	passwordData, 		int  	passwordDataLength, 		RakNetSmartPtr< RakNetSocket >  	socket, 		unsigned  	sendConnectionAttemptCount = 7, 		unsigned  	timeBetweenSendConnectionAttemptsMS = 500, 		TimeMS  	timeoutTime = 0	  	) 	
+virtual bool RakPeerInterface::ConnectWithSocket  	(  	const char *   	 host, 		unsigned short  	remotePort, 		const char *  	passwordData, 		int  	passwordDataLength, 		RakNetSocket2 *  	socket, 		unsigned  	sendConnectionAttemptCount = 7, 		unsigned  	timeBetweenSendConnectionAttemptsMS = 500, 		TimeMS  	timeoutTime = 0	  	)
 
-virtual void RakPeerInterface::GetSockets  	(  	DataStructures::List< RakNetSmartPtr< RakNetSocket > > &   	 sockets  	 )   	 
-virtual RakNetSmartPtr<RakNetSocket> RakPeerInterface::GetSocket  	(  	const SystemAddress   	 target  	 )   	 [pure virtual]
+virtual void RakPeerInterface::GetSockets  	(  	DataStructures::List< RakNetSocket2* > &   	 sockets  	 )
+virtual RakNetSocket2* RakPeerInterface::GetSocket  	(  	const SystemAddress   	 target  	 )   	 [pure virtual]
 
 Success conditions:
 
@@ -41,14 +41,14 @@ int ConnectWithSocketTest::RunTest(DataStructures::List<RakString> params,bool i
 
 	RakPeerInterface *server,*client;
 
-	DataStructures::List< RakNetSmartPtr< RakNetSocket > > sockets;
+	DataStructures::List<RakNetSocket2*> sockets;
 	TestHelpers::StandardClientPrep(client,destroyList);
 	TestHelpers::StandardServerPrep(server,destroyList);
 
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.port=60000;
+	serverAddress.SetPortHostOrder(60000);
 
 	printf("Testing normal connect before test\n");
 	if (!TestHelpers::WaitAndConnectTwoPeersLocally(client,server,5000))
@@ -74,7 +74,7 @@ int ConnectWithSocketTest::RunTest(DataStructures::List<RakString> params,bool i
 	printf("Disconnecting client\n");
 	CommonFunctions::DisconnectAndWait(client,"127.0.0.1",60000);
 
-	RakNetSmartPtr<RakNetSocket> theSocket;
+	RakNetSocket2 *theSocket;
 
 	client->GetSockets(sockets);
 
@@ -88,7 +88,7 @@ int ConnectWithSocketTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->ConnectWithSocket("127.0.0.1",serverAddress.port,0,0,theSocket);
+			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket);
 		}
 
 		RakSleep(100);
@@ -129,7 +129,7 @@ int ConnectWithSocketTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->ConnectWithSocket("127.0.0.1",serverAddress.port,0,0,theSocket);
+			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket);
 		}
 
 		RakSleep(100);

@@ -27,7 +27,7 @@
 #include <cstdio>
 #include "CommonFunctions.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class DroppedConnectionConvertTest :
 	public TestInterface
 {

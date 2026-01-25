@@ -26,7 +26,7 @@
 #include "TestHelpers.h"
 #include "PacketChangerPlugin.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class PacketAndLowLevelTestsTest : public TestInterface
 {
 public:

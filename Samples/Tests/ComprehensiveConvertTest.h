@@ -30,7 +30,7 @@
 #include "Rand.h"
 #include <stdio.h>
 
-using namespace RakNet;
+using namespace MafiaNet;
 class ComprehensiveConvertTest : public TestInterface
 {
 public:

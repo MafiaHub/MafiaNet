@@ -74,8 +74,10 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 	client=RakPeerInterface::GetInstance();
 
-	client->Startup(1,&SocketDescriptor(),1);
-	server->Startup(1,&SocketDescriptor(60000,0),1);
+	SocketDescriptor clientSd;
+	client->Startup(1, &clientSd, 1);
+	SocketDescriptor serverSd(60000, 0);
+	server->Startup(1, &serverSd, 1);
 	server->SetMaximumIncomingConnections(1);
 	server->SetIncomingPassword(thePassword,(int)strlen(thePassword));
 
@@ -98,7 +100,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.port=60000;
+	serverAddress.SetPortHostOrder(60000);
 	TimeMS entryTime=GetTimeMS();
 
 	if (isVerbose)
@@ -109,7 +111,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,0,0);
+			client->Connect("127.0.0.1",serverAddress.GetPort(),0,0);
 		}
 
 		RakSleep(100);
@@ -133,7 +135,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,badPass,(int)strlen(badPass));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),badPass,(int)strlen(badPass));
 		}
 
 		RakSleep(100);
@@ -156,7 +158,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -187,7 +189,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -229,7 +231,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -260,7 +262,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -302,7 +304,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -329,7 +331,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 
 	//-----------------------------
 
-	// RSACrypt is a using namespace RakNet;
+	// RSACrypt is a using namespace MafiaNet;
 class that handles RSA encryption/decryption internally
 
 	RSACrypt rsacrypt;
@@ -350,7 +352,8 @@ class that handles RSA encryption/decryption internally
 	server=RakPeerInterface::GetInstance();
 
 	server->InitializeSecurity(0,0,(char*)p, (char*)q);
-	server->Startup(1,30,&SocketDescriptor(60000,0),1);
+	SocketDescriptor serverSd2(60000, 0);
+	server->Startup(1,30,&serverSd2,1);
 	server->SetMaximumIncomingConnections(1);
 	server->SetIncomingPassword(thePassword,strlen(thePassword));
 
@@ -363,7 +366,7 @@ class that handles RSA encryption/decryption internally
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -407,7 +410,8 @@ class that handles RSA encryption/decryption internally
 
 	client=RakPeerInterface::GetInstance();
 
-	client->Startup(1,30,&SocketDescriptor(),1);
+	SocketDescriptor clientSd2;
+	client->Startup(1,30,&clientSd2,1);
 
 	if (isVerbose)
 		printf("Testing AddToSecurityExceptionList client should connect without encryption\n");
@@ -427,7 +431,7 @@ class that handles RSA encryption/decryption internally
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,strlen(thePassword));
 		}
 
 		RakSleep(100);
@@ -478,7 +482,7 @@ class that handles RSA encryption/decryption internally
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.port,thePassword,strlen(thePassword));
+			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,strlen(thePassword));
 		}
 
 		RakSleep(100);

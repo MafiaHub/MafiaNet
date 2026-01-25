@@ -23,7 +23,7 @@
 #include "GetTime.h"
 #include "DebugTools.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class MaximumConnectTest : public TestInterface
 {
 public:

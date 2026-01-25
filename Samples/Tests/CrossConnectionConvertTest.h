@@ -24,7 +24,7 @@
 #include "GetTime.h"
 #include "DebugTools.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class CrossConnectionConvertTest : public TestInterface
 {
 public:

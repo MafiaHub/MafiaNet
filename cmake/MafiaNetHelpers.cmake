@@ -38,7 +38,8 @@ function(mafianet_add_sample)
     )
 
     target_include_directories(${SAMPLE_NAME} PRIVATE
-        ${PROJECT_SOURCE_DIR}/Source/include
+        ${PROJECT_SOURCE_DIR}/Source              # Thin wrapper headers (RakString.h -> include/mafianet/string.h)
+        ${PROJECT_SOURCE_DIR}/Source/include      # Modern headers (mafianet/...)
         ${PROJECT_SOURCE_DIR}/DependentExtensions
     )
 

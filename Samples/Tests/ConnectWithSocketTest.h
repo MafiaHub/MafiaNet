@@ -26,7 +26,7 @@
 #include "TestHelpers.h"
 #include "CommonFunctions.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class ConnectWithSocketTest : public TestInterface
 {
 public:

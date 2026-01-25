@@ -34,7 +34,7 @@
 
 #include "DebugTools.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class ReliableOrderedConvertedTest : public TestInterface
 {
 public:

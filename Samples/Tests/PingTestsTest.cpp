@@ -50,14 +50,15 @@ int PingTestsTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 
 	receiver=RakPeerInterface::GetInstance();
 	destroyList.Push(receiver,_FILE_AND_LINE_);
-	receiver->Startup(2, &SocketDescriptor(60000,0), 1);
+	SocketDescriptor receiverSd(60000, 0);
+	receiver->Startup(2, &receiverSd, 1);
 	receiver->SetMaximumIncomingConnections(2);
 	Packet * packet;
 
 	SystemAddress currentSystem;
 
 	currentSystem.SetBinaryAddress("127.0.0.1");
-	currentSystem.port=60000;
+	currentSystem.SetPortHostOrder(60000);
 
 	printf("Connecting sender2\n");
 	if (!TestHelpers::WaitAndConnectTwoPeersLocally(sender2,receiver,5000))

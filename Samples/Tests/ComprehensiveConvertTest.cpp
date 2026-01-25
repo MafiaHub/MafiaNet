@@ -73,7 +73,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 		portAdd=randomMT()%NUM_PEERS;
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.port=60000+portAdd;
+		currentSystem.SetPortHostOrder(60000+portAdd);
 		if(!CommonFunctions::ConnectionStateMatchesOptions (peers[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{
 			ConnectionAttemptResult resultReturn = peers[i]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
@@ -102,9 +102,9 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			portAdd=randomMT()%NUM_PEERS;
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.port=60000+portAdd;
-			
-			
+			currentSystem.SetPortHostOrder(60000+portAdd);
+
+
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peers[peerIndex],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
@@ -124,7 +124,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			portAdd=randomMT()%NUM_PEERS;
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.port=60000+portAdd;
+			currentSystem.SetPortHostOrder(60000+portAdd);
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peers[peerIndex],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
@@ -155,7 +155,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 					printf("%i: ", 60000+numSystems);
 					for (i=0; i < numSystems; i++)
 					{
-						printf("%i: ", remoteSystems[i].port);
+						printf("%i: ", remoteSystems[i].GetPort());
 					}
 					printf("\n");
 				}
@@ -189,10 +189,10 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 #endif
 
 			peerIndex=randomMT()%NUM_PEERS;
-			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.port, broadcast);
+			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
 			//unsigned short localPort=60000+i;
 #ifdef _VERIFY_RECIPIENTS
-			memcpy((char*)data+1, (char*)&target.port, sizeof(unsigned short));
+			memcpy((char*)data+1, (char*)&target.GetPort(), sizeof(unsigned short));
 #endif
 			data[dataLength-1]=0;
 			peers[peerIndex]->Send(data, dataLength, priority, reliability, orderingChannel, target, broadcast);
@@ -224,9 +224,9 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			broadcast=false; // Temporarily in so I can check recipients
 #endif
 
-			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.port, broadcast);
+			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
 #ifdef _VERIFY_RECIPIENTS
-			memcpy((char*)data, (char*)&target.port, sizeof(unsigned short));
+			memcpy((char*)data, (char*)&target.GetPort(), sizeof(unsigned short));
 #endif
 			data[dataLength-1]=0;
 			sprintf(RPCName, "RPC%i", (randomMT()%4)+1);
@@ -273,7 +273,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			{
 				StatisticsToString(rss, data, 0);
 				if (isVerbose)
-					printf("Statistics for local system %i:\n%s", mySystemAddress.port, data);
+					printf("Statistics for local system %i:\n%s", mySystemAddress.GetPort(), data);
 
 			}
 
@@ -282,7 +282,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			{
 				StatisticsToString(rss, data, 0);
 				if (isVerbose)
-					printf("Statistics for target system %i:\n%s", target.port, data);
+					printf("Statistics for target system %i:\n%s", target.GetPort(), data);
 
 			}			
 		}

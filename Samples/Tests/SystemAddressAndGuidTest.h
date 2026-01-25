@@ -26,7 +26,7 @@
 #include "CommonFunctions.h"
 #include "TestHelpers.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class SystemAddressAndGuidTest : public TestInterface
 {
 public:

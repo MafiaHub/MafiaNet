@@ -14,7 +14,7 @@
 #include "RakNetTime.h"
 #include "GetTime.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class RakTimer
 {
 public:

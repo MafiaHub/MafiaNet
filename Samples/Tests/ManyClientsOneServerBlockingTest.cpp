@@ -19,7 +19,7 @@ void ManyClientsOneServerBlockingTest::WaitForConnectionRequestsToComplete(RakPe
 	{
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.port=60000;
+		currentSystem.SetPortHostOrder(60000);
 
 		while (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,false,true,true) )
 		{
@@ -221,13 +221,15 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 		clientList[i]=RakPeerInterface::GetInstance();
 		destroyList.Push(clientList[i],_FILE_AND_LINE_);
 
-		clientList[i]->Startup(1,&SocketDescriptor(), 1);
+		SocketDescriptor clientSd;
+		clientList[i]->Startup(1, &clientSd, 1);
 
 	}
 
 	server=RakPeerInterface::GetInstance();
 	destroyList.Push(server,_FILE_AND_LINE_);
-	server->Startup(clientNum, &SocketDescriptor(60000,0), 1);
+	SocketDescriptor serverSd(60000, 0);
+	server->Startup(clientNum, &serverSd, 1);
 	server->SetMaximumIncomingConnections(clientNum);
 
 	//Connect all the clients to the server
@@ -280,7 +282,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.port=60000;
+			currentSystem.SetPortHostOrder(60000);
 			if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 
@@ -311,7 +313,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 	{
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.port=60000;
+		currentSystem.SetPortHostOrder(60000);
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{

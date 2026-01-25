@@ -22,7 +22,7 @@
 #include "CommonFunctions.h"
 #include "RakTimer.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class TestHelpers
 {
 public:

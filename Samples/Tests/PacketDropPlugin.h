@@ -18,7 +18,7 @@
 #include "InternalPacket.h"
 #include "RakTimer.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class PacketDropPlugin : public PluginInterface2
 {
 public:

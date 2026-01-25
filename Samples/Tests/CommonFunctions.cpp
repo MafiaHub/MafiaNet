@@ -39,10 +39,6 @@ bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer,Syste
 		return isDisconnecting;
 		break;
 
-	case IS_LOOPBACK:
-		return isLoopBack;
-		break;
-
 	case IS_NOT_CONNECTED:
 		return isNotConnected;
 		break;
@@ -63,7 +59,7 @@ bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,char* ip,unsigned sh
 	SystemAddress connectToAddress;
 
 	connectToAddress.SetBinaryAddress(ip);
-	connectToAddress.port=port;
+	connectToAddress.SetPortHostOrder(port);
 	TimeMS entryTime=GetTimeMS();
 
 	while(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true)&&GetTimeMS()-entryTime<millisecondsToWait)
@@ -91,7 +87,7 @@ void CommonFunctions::DisconnectAndWait(RakPeerInterface *peer,char* ip,unsigned
 	SystemAddress targetAddress;
 
 	targetAddress.SetBinaryAddress(ip);
-	targetAddress.port=port;
+	targetAddress.SetPortHostOrder(port);
 
 	while(CommonFunctions::ConnectionStateMatchesOptions (peer,targetAddress,true,true,true,true))//disconnect client
 	{

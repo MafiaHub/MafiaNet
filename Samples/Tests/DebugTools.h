@@ -13,7 +13,7 @@
 
 #include "RakString.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class DebugTools
 {
 public:

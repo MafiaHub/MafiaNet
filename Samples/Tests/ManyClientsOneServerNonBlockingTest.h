@@ -25,7 +25,7 @@
 #include "DebugTools.h"
 #include "CommonFunctions.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class ManyClientsOneServerNonBlockingTest : public TestInterface
 {
 public:

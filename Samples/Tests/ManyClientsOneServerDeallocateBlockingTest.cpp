@@ -19,7 +19,7 @@ void ManyClientsOneServerDeallocateBlockingTest::WaitForConnectionRequestsToComp
 	{
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.port=60000;
+		currentSystem.SetPortHostOrder(60000);
 
 		while (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,false,true,true) )
 		{
@@ -243,12 +243,14 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 
 		clientList[i]=RakPeerInterface::GetInstance();
 
-		clientList[i]->Startup(1,&SocketDescriptor(), 1);
+		SocketDescriptor clientSd;
+		clientList[i]->Startup(1, &clientSd, 1);
 
 	}
 
 	server=RakPeerInterface::GetInstance();
-	server->Startup(clientNum, &SocketDescriptor(60000,0), 1);
+	SocketDescriptor serverSd(60000, 0);
+	server->Startup(clientNum, &serverSd, 1);
 	server->SetMaximumIncomingConnections(clientNum);
 
 	const int timeoutTime=1000;
@@ -307,7 +309,8 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 				clientList[i]=RakPeerInterface::GetInstance();
 	
 
-				clientList[i]->Startup(1,&SocketDescriptor(), 1);
+				SocketDescriptor clientSd2;
+				clientList[i]->Startup(1, &clientSd2, 1);
 			}
 
 		}
@@ -320,7 +323,7 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.port=60000;
+			currentSystem.SetPortHostOrder(60000);
 			if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 
@@ -353,7 +356,7 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 	{
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.port=60000;
+		currentSystem.SetPortHostOrder(60000);
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{

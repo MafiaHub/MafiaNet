@@ -23,7 +23,7 @@
 #include "DebugTools.h"
 	#include "RakTimer.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class CommonFunctions
 {
 public:

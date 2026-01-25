@@ -27,7 +27,7 @@
 #include "TestHelpers.h"
 
 
-using namespace RakNet;
+using namespace MafiaNet;
 class MiscellaneousTestsTest : public TestInterface
 {
 public:
@@ -41,6 +41,6 @@ public:
 		
 private:
 	DataStructures::List <RakString> errorList;
-	DataStructures::List <RakNet::RakPeerInterface *> destroyList;
+	DataStructures::List <MafiaNet::RakPeerInterface *> destroyList;
 
 };

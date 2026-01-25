@@ -14,7 +14,7 @@
 #include "RakString.h"
 #include "DS_List.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 class TestInterface
 {
 public:

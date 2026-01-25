@@ -14,7 +14,7 @@
 #include "DS_List.h"
 #include "Gets.h"
 
-using namespace RakNet;
+using namespace MafiaNet;
 /*
 
 The TestInterface used in this was made to be able to be flexible
