@@ -185,7 +185,7 @@ struct UPNPFramework : public SampleFramework
 		if (sampleResult==FAILED) return;
 
 		struct UPNPDev * devlist = 0;
-		devlist = upnpDiscover(2000, 0, 0, 0, 0, 0);
+		devlist = upnpDiscover(2000, 0, 0, 0, 0, 2, 0);
 		if (devlist)
 		{
 			printf("List of UPNP devices found on the network :\n");
@@ -197,9 +197,10 @@ struct UPNPFramework : public SampleFramework
 			}
 
 			char lanaddr[64];	/* my ip address on the LAN */
+			char wanaddr[64];	/* my ip address on the WAN */
 			struct UPNPUrls urls;
 			struct IGDdatas data;
-			if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr))==1)
+			if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr))==1)
 			{
 				// 4/16/2012 Why was I doing this? Just to read my external port? That shouldn't be necessary
 				/*
@@ -252,13 +253,13 @@ struct UPNPFramework : public SampleFramework
 // 					eport, "UDP",
 // 					intClient, intPort);
 
-				// Version miniupnpc-1.6.20120410
+				// Version miniupnpc-2.2.8
 				char desc[128];
 				char enabled[128];
 				char leaseDuration[128];
 				r = UPNP_GetSpecificPortMappingEntry(urls.controlURL,
 					data.first.servicetype,
-					eport, "UDP",
+					eport, "UDP", NULL,
 					intClient, intPort,
 					desc, enabled, leaseDuration);
 

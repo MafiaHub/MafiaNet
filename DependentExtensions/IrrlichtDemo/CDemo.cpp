@@ -1043,13 +1043,14 @@ void CDemo::UpdateRakNet(void)
 
 					// Open UPNP.
 					struct UPNPDev * devlist = 0;
-					devlist = upnpDiscover(1000, 0, 0, 0);
+					devlist = upnpDiscover(1000, 0, 0, 0, 0, 2, 0);
 					if (devlist)
 					{
 						char lanaddr[64];	/* my ip address on the LAN */
+						char wanaddr[64];	/* my ip address on the WAN */
 						struct UPNPUrls urls;
 						struct IGDdatas data;
-						if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr))==1)
+						if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr))==1)
 						{
 							// External port is the port people will be connecting to us on. This is our port as seen by the directory server
 							// Internal port is the port RakNet was internally started on
@@ -1057,7 +1058,7 @@ void CDemo::UpdateRakNet(void)
 							natPunchthroughClient->GetUPNPPortMappings(eport, iport, facilitatorSystemAddress);
 
 							int r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
-								eport, iport, lanaddr, 0, "UDP", 0);
+								eport, iport, lanaddr, 0, "UDP", 0, "0");
 
 							if(r==UPNPCOMMAND_SUCCESS)
 							{

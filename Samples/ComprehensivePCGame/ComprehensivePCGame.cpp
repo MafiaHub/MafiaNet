@@ -871,7 +871,7 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 
 	// Behind a NAT. Try to open with UPNP to avoid doing NAT punchthrough
 	struct UPNPDev * devlist = 0;
-	devlist = upnpDiscover(args->timeout, 0, 0, 0, 0, 0);
+	devlist = upnpDiscover(args->timeout, 0, 0, 0, 0, 2, 0);
 	if (devlist)
 	{
 		if (args->progressCallback)
@@ -885,16 +885,17 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 		}
 
 		char lanaddr[64];	/* my ip address on the LAN */
+		char wanaddr[64];	/* my ip address on the WAN */
 		struct UPNPUrls urls;
 		struct IGDdatas data;
-		if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr))==1)
+		if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr))==1)
 		{
 			char iport[32];
 			Itoa(args->portToOpen, iport,10);
 			char eport[32];
 			strcpy_s(eport, iport);
 
-			// Version miniupnpc-1.6.20120410
+			// Version miniupnpc-2.2.8
 			int r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
 				eport, iport, lanaddr, 0, "UDP", 0, "0");
 
@@ -905,13 +906,13 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 			char intPort[6];
 			char intClient[16];
 
-			// Version miniupnpc-1.6.20120410
+			// Version miniupnpc-2.2.8
 			char desc[128];
 			char enabled[128];
 			char leaseDuration[128];
 			r = UPNP_GetSpecificPortMappingEntry(urls.controlURL,
 				data.first.servicetype,
-				eport, "UDP",
+				eport, "UDP", NULL,
 				intClient, intPort,
 				desc, enabled, leaseDuration);
 
