@@ -101,7 +101,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-7;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-9f;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -131,7 +131,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-7;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-9f;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -160,7 +160,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-7;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-9f;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -189,7 +189,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-7;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-9f;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_RETAIL;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -218,7 +218,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-7;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-9f;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -247,7 +247,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-7;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/include;$(SolutionDir)DependentExtensions\DXTCompressor\Src;$(SolutionDir)DependentExtensions\DXTCompressor\External\include;$(SolutionDir)DependentExtensions\jpeg-9f;$(SolutionDir)DependentExtensions\SQLite3Plugin;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger;$(SolutionDir)DependentExtensions\SQLite3Plugin\Logger\ServerOnly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_RETAIL;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -275,18 +275,18 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\jpeg-7\cderror.h" />
-    <ClInclude Include="..\..\..\jpeg-7\cdjpeg.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jconfig.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jdct.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jerror.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jinclude.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jmemsys.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jmorecfg.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jpegint.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jpeglib.h" />
-    <ClInclude Include="..\..\..\jpeg-7\jversion.h" />
-    <ClInclude Include="..\..\..\jpeg-7\transupp.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\cderror.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\cdjpeg.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jconfig.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jdct.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jerror.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jinclude.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jmemsys.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jmorecfg.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jpegint.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jpeglib.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\jversion.h" />
+    <ClInclude Include="..\..\..\jpeg-9f\transupp.h" />
     <ClInclude Include="..\..\..\DXTCompressor\Src\DDSHeader.h" />
     <ClInclude Include="..\..\..\DXTCompressor\Src\DXTCompressor.h" />
     <ClInclude Include="..\..\..\DXTCompressor\Src\FrameBufferRenderBuffer.hpp" />
@@ -301,7 +301,7 @@
     <ClInclude Include="SQLiteServerLoggerPlugin.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\jpeg-7\cdjpeg.c">
+    <ClCompile Include="..\..\..\jpeg-9f\cdjpeg.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4996</DisableSpecificWarnings>
@@ -309,11 +309,11 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">4996</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jaricom.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcapimin.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcapistd.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcarith.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jccoefct.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jaricom.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcapimin.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcapistd.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcarith.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jccoefct.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -321,7 +321,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jccolor.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jccolor.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -329,16 +329,16 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jcdctmgr.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jchuff.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcinit.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcmainct.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcmarker.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcmaster.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcomapi.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcparam.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcprepct.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jcsample.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jcdctmgr.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jchuff.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcinit.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcmainct.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcmarker.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcmaster.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcomapi.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcparam.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcprepct.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jcsample.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -346,7 +346,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jctrans.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jctrans.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -354,9 +354,9 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdapimin.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdapistd.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdarith.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdapimin.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdapistd.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdarith.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4244</DisableSpecificWarnings>
@@ -364,8 +364,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4244</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdatadst.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdatasrc.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdatadst.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdatasrc.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -373,7 +373,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdcoefct.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdcoefct.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -381,7 +381,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdcolor.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdcolor.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -389,8 +389,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jddctmgr.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdhuff.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jddctmgr.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdhuff.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4244</DisableSpecificWarnings>
@@ -398,11 +398,11 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4244</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdinput.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdmainct.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdmarker.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdmaster.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jdmerge.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdinput.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdmainct.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdmarker.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdmaster.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jdmerge.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -410,7 +410,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdpostct.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdpostct.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -418,7 +418,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdsample.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdsample.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -426,8 +426,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jdtrans.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jerror.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jdtrans.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jerror.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4996</DisableSpecificWarnings>
@@ -435,13 +435,13 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">4996</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jfdctflt.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jfdctfst.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jfdctint.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jidctflt.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jidctfst.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jidctint.c" />
-    <ClCompile Include="..\..\..\jpeg-7\jmemansi.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jfdctflt.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jfdctfst.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jfdctint.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jidctflt.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jidctfst.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jidctint.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\jmemansi.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100;4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100;4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100;4996</DisableSpecificWarnings>
@@ -449,7 +449,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100;4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">4100;4996</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jmemmgr.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jmemmgr.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4127;4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4127;4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4127;4996</DisableSpecificWarnings>
@@ -457,7 +457,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4127;4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">4127;4996</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jquant1.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jquant1.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -465,7 +465,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jquant2.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jquant2.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -473,8 +473,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\jutils.c" />
-    <ClCompile Include="..\..\..\jpeg-7\memsrc.c">
+    <ClCompile Include="..\..\..\jpeg-9f\jutils.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\memsrc.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -482,7 +482,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\rdbmp.c">
+    <ClCompile Include="..\..\..\jpeg-9f\rdbmp.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -490,8 +490,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\rdcolmap.c" />
-    <ClCompile Include="..\..\..\jpeg-7\rdgif.c">
+    <ClCompile Include="..\..\..\jpeg-9f\rdcolmap.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\rdgif.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100;4702</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100;4702</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100;4702</DisableSpecificWarnings>
@@ -499,7 +499,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100;4702</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100;4702</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\rdppm.c">
+    <ClCompile Include="..\..\..\jpeg-9f\rdppm.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -507,8 +507,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\rdrle.c" />
-    <ClCompile Include="..\..\..\jpeg-7\rdswitch.c">
+    <ClCompile Include="..\..\..\jpeg-9f\rdrle.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\rdswitch.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4996</DisableSpecificWarnings>
@@ -516,7 +516,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4996</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">4996</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\rdtarga.c">
+    <ClCompile Include="..\..\..\jpeg-9f\rdtarga.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -524,7 +524,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\transupp.c">
+    <ClCompile Include="..\..\..\jpeg-9f\transupp.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -532,7 +532,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\wrbmp.c">
+    <ClCompile Include="..\..\..\jpeg-9f\wrbmp.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -540,7 +540,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\wrgif.c">
+    <ClCompile Include="..\..\..\jpeg-9f\wrgif.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -548,7 +548,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\wrppm.c">
+    <ClCompile Include="..\..\..\jpeg-9f\wrppm.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>
@@ -556,8 +556,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4100</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\..\jpeg-7\wrrle.c" />
-    <ClCompile Include="..\..\..\jpeg-7\wrtarga.c">
+    <ClCompile Include="..\..\..\jpeg-9f\wrrle.c" />
+    <ClCompile Include="..\..\..\jpeg-9f\wrtarga.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4100</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4100</DisableSpecificWarnings>

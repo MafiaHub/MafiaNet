@@ -108,7 +108,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.4\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.14\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;_DEBUG;_CONSOLE;OPEN_SSL_CLIENT_SUPPORT=1;STATICLIB;_RAKNET_SUPPORT_Rackspace2=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -140,7 +140,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.4\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.14\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;_DEBUG;_CONSOLE;OPEN_SSL_CLIENT_SUPPORT=1;STATICLIB;_RAKNET_SUPPORT_Rackspace2=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -171,7 +171,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.4\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.14\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;NDEBUG;_CONSOLE;OPEN_SSL_CLIENT_SUPPORT=1;STATICLIB;_RAKNET_SUPPORT_Rackspace2=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -200,7 +200,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Retail|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.4\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.14\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;_RETAIL;NDEBUG;_CONSOLE;OPEN_SSL_CLIENT_SUPPORT=1;STATICLIB;_RAKNET_SUPPORT_Rackspace2=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -229,7 +229,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.4\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.14\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;NDEBUG;_CONSOLE;OPEN_SSL_CLIENT_SUPPORT=1;STATICLIB;_RAKNET_SUPPORT_Rackspace2=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -258,7 +258,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.4\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./../../Source/include;./../../DependentExtensions;./../../DependentExtensions/Autopatcher;./../../DependentExtensions/bzip2-1.0.6;./../../DependentExtensions/Autopatcher/AutopatcherPostgreRepository;./../../DependentExtensions/PostgreSQLInterface;./../../Samples/CloudServer;./../../DependentExtensions/openssl/include/x86;C:\Program Files (x86)\PostgreSQL\9.2\include;$(SolutionDir)DependentExtensions\jansson-2.14\src;./../../DependentExtensions/Rackspace;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;_RETAIL;NDEBUG;_CONSOLE;OPEN_SSL_CLIENT_SUPPORT=1;STATICLIB;_RAKNET_SUPPORT_Rackspace2=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -441,7 +441,7 @@
     <ClCompile Include="..\..\DependentExtensions\Autopatcher\CreatePatch.cpp" />
     <ClCompile Include="..\..\DependentExtensions\Autopatcher\MemoryCompressor.cpp" />
     <ClCompile Include="..\..\DependentExtensions\PostgreSQLInterface\PostgreSQLInterface.cpp" />
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\dump.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\dump.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4701;4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4701;4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4701;4706</DisableSpecificWarnings>
@@ -449,8 +449,8 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4701;4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4701;4706</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\error.c" />
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\hashtable.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\error.c" />
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\hashtable.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4706</DisableSpecificWarnings>
@@ -458,7 +458,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4706</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\load.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\load.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4244;4456</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4244;4456</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4244;4456</DisableSpecificWarnings>
@@ -466,11 +466,11 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4244;4456</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4244;4456</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\memory.c" />
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\pack_unpack.c" />
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\strbuffer.c" />
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\strconv.c" />
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\utf.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\memory.c" />
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\pack_unpack.c" />
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\strbuffer.c" />
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\strconv.c" />
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\utf.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4244</DisableSpecificWarnings>
@@ -478,7 +478,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4244</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Retail - Unicode|Win32'">4244</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\value.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\value.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug - Unicode|Win32'">4706</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release - Unicode|Win32'">4706</DisableSpecificWarnings>
@@ -649,12 +649,12 @@
     <ClInclude Include="..\..\DependentExtensions\Autopatcher\CreatePatch.h" />
     <ClInclude Include="..\..\DependentExtensions\Autopatcher\MemoryCompressor.h" />
     <ClInclude Include="..\..\DependentExtensions\PostgreSQLInterface\PostgreSQLInterface.h" />
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\hashtable.h" />
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\jansson.h" />
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\jansson_config.h" />
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\jansson_private.h" />
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\strbuffer.h" />
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\utf.h" />
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\hashtable.h" />
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\jansson.h" />
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\jansson_config.h" />
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\jansson_private.h" />
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\strbuffer.h" />
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\utf.h" />
     <ClInclude Include="..\..\DependentExtensions\Rackspace\Rackspace2.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

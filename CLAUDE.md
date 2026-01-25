@@ -14,20 +14,21 @@ mkdir build && cd build
 cmake ..
 
 # Build
-make                           # Unix/macOS
-cmake --build . --config Release  # Cross-platform
+cmake --build .                       # All platforms
+cmake --build . --config Release      # Release build
 
-# Build with samples enabled (Windows default, disabled on Unix)
-cmake -DSLIKENET_ENABLE_SAMPLES=ON ..
+# Build with samples and tests
+cmake -DMAFIANET_BUILD_SAMPLES=ON ..
 
 # Build options
-cmake -DSLIKENET_ENABLE_DLL=ON ..      # Build shared library (default: ON)
-cmake -DSLIKENET_ENABLE_STATIC=ON ..   # Build static library (default: ON)
+cmake -DMAFIANET_BUILD_SHARED=ON ..   # Build shared library (default: ON)
+cmake -DMAFIANET_BUILD_STATIC=ON ..   # Build static library (default: ON)
+cmake -DMAFIANET_BUILD_TESTS=ON ..    # Build test suite
 ```
 
 **Requirements:**
-- CMake 3.15+
-- C++11 compiler
+- CMake 3.21+
+- C++17 compiler
 - OpenSSL 1.0.0+
 - Platform libs: ws2_32 (Windows), pthread (Unix)
 
@@ -36,6 +37,9 @@ cmake -DSLIKENET_ENABLE_STATIC=ON ..   # Build static library (default: ON)
 Tests are built as part of samples. After building with samples enabled:
 ```bash
 ./build/Samples/Tests/Tests
+
+# Run specific test by name
+./build/Samples/Tests/Tests EightPeerTest
 ```
 
 ## Architecture

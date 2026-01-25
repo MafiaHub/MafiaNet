@@ -35,7 +35,7 @@ namespace MafiaNet
 	/// \brief Extends SQLite3ServerPlugin to support logging functions, including compressing images.
 	/// \details SQLiteClientLoggerPlugin has the ability to send logs. Logs contain a description of the name of the table, the name of the columns, the types, and the data.<BR>
 	/// This class will create tables as necessary to support the client inputs.<BR>
-	/// Also, if images are sent, the server will format them from uncompressed to compressed JPG using jpeg-7 in a thread.<BR>
+	/// Also, if images are sent, the server will format them from uncompressed to compressed JPG using jpeg-9f in a thread.<BR>
 	/// Compatible as a plugin with both RakPeerInterface and PacketizedTCP
 	/// \ingroup SQL_LITE_3_PLUGIN
 	class RAK_DLL_EXPORT SQLiteServerLoggerPlugin : public SQLite3ServerPlugin

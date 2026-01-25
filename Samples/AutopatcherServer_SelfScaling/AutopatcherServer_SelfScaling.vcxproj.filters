@@ -384,34 +384,34 @@
     <ClCompile Include="..\..\DependentExtensions\PostgreSQLInterface\PostgreSQLInterface.cpp">
       <Filter>Patcher</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\dump.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\dump.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\error.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\error.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\hashtable.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\hashtable.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\load.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\load.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\memory.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\memory.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\pack_unpack.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\pack_unpack.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\strbuffer.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\strbuffer.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\strconv.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\strconv.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\utf.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\utf.c">
       <Filter>jansson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\DependentExtensions\jansson-2.4\src\value.c">
+    <ClCompile Include="..\..\DependentExtensions\jansson-2.14\src\value.c">
       <Filter>jansson</Filter>
     </ClCompile>
     <ClCompile Include="..\..\DependentExtensions\Rackspace\Rackspace2.cpp">
@@ -899,22 +899,22 @@
     <ClInclude Include="..\..\DependentExtensions\PostgreSQLInterface\PostgreSQLInterface.h">
       <Filter>Patcher</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\hashtable.h">
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\hashtable.h">
       <Filter>jansson</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\jansson.h">
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\jansson.h">
       <Filter>jansson</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\jansson_config.h">
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\jansson_config.h">
       <Filter>jansson</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\jansson_private.h">
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\jansson_private.h">
       <Filter>jansson</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\strbuffer.h">
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\strbuffer.h">
       <Filter>jansson</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\DependentExtensions\jansson-2.4\src\utf.h">
+    <ClInclude Include="..\..\DependentExtensions\jansson-2.14\src\utf.h">
       <Filter>jansson</Filter>
     </ClInclude>
     <ClInclude Include="..\..\DependentExtensions\Rackspace\Rackspace2.h">

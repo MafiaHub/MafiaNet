@@ -4,7 +4,7 @@
 # Licensed under MIT-style license
 
 # Always build bzip2 (required by Autopatcher)
-add_subdirectory(bzip2-1.0.6)
+add_subdirectory(bzip2-1.0.8)
 
 # Autopatcher extension
 add_subdirectory(Autopatcher)

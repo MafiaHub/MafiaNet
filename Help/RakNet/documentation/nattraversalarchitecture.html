@@ -80,7 +80,7 @@ UPNPOpenAsynch(sockets[0]-&gt;GetBoundAddress().GetPort(), 2000, UPNPProgressCal
   }</p>
 <p>Example code:<br>
 See Samples\ComprehensivePCGame\ComprehensivePCGame.cpp</p>
-<p>In ComprehensivePCGame.cpp, I use jansson included at DependentExtensions\jansson-2.4 to parse the json returned from the master server.</p>
+<p>In ComprehensivePCGame.cpp, I use jansson included at DependentExtensions\jansson-2.14 to parse the json returned from the master server.</p>
 <p>If tcp-&gt;HasFailedConnectionAttempt() returns something other than UNASSIGNED_SYSTEM_ADDRESS, then masterserver2.raknet.com is offline.</p>
 <p><strong>Step 5B: Joining - Connect to the session host</strong></p>
 <p>The results from the master server will include a field __addr (the ip address that uploaded the row) and if you follow what I do in step 6, the RakNetGuid of that system in __rowId. It may also include a field 'routerIsOpen' if you did that in step 6.</p>
