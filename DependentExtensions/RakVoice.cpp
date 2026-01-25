@@ -15,7 +15,7 @@
  */
 
 #include "RakVoice.h"
-#include <opus/opus.h>
+#include <opus.h>
 #include <rnnoise.h>
 #include "mafianet/BitStream.h"
 #include "mafianet/PacketPriority.h"

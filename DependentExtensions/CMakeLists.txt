@@ -9,6 +9,9 @@
 # Autopatcher extension (uses bzip2 from FetchContent)
 add_subdirectory(Autopatcher)
 
+# Lobby2 extension (matchmaking and lobby system)
+add_subdirectory(Lobby2)
+
 # RakVoice - voice compression and transmission (uses opus, rnnoise from FetchContent)
 add_library(RakVoice STATIC RakVoice.cpp RakVoice.h)
 target_link_libraries(RakVoice PUBLIC MafiaNet PRIVATE opus rnnoise)

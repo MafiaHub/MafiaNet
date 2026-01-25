@@ -228,7 +228,7 @@ struct DoRead
 template< typename T >
 struct ReadWithoutNetworkIDNoPtr
 {
-	static InvokeResultCodes apply(InvokeArgs &args, T &t)
+	static InvokeResultCodes apply(InvokeArgs args, T &t)
 	{
 //		printf("ReadWithoutNetworkIDNoPtr\n");
 
@@ -249,7 +249,7 @@ struct ReadWithoutNetworkIDNoPtr
 template< typename T >
 struct ReadWithNetworkIDPtr
 {
-	static InvokeResultCodes apply(InvokeArgs &args, T &t)
+	static InvokeResultCodes apply(InvokeArgs args, T &t)
 	{
 //		printf("ReadWithNetworkIDPtr\n");
 		// Read the network ID
@@ -308,7 +308,7 @@ template< typename T >
 struct ReadWithoutNetworkIDPtr
 {
 	template <typename T2>
-	static InvokeResultCodes apply(InvokeArgs &args, T2 &t)
+	static InvokeResultCodes apply(InvokeArgs args, T2 &t)
 	{
 //		printf("ReadWithoutNetworkIDPtr\n");
 		
@@ -357,7 +357,7 @@ struct ReadWithoutNetworkIDPtr
 template< typename T >
 struct SetRPC3Ptr
 {
-	static InvokeResultCodes apply(InvokeArgs &args, T &obj)
+	static InvokeResultCodes apply(InvokeArgs args, T &obj)
 	{
 		obj=args.caller;
 		return IRC_SUCCESS;
@@ -467,7 +467,7 @@ struct BoostRPCInvoker
 	// add an argument to a Fusion cons-list for each parameter type
 	template<typename Args>
 	static inline
-		InvokeResultCodes apply(Function func, InvokeArgs &functionArgs, Args const &args)
+		InvokeResultCodes apply(Function func, InvokeArgs functionArgs, Args const &args)
 	{
 		typedef typename boost::mpl::deref<From>::type arg_type;
 		typedef typename boost::mpl::next<From>::type next_iter_type;
@@ -493,7 +493,7 @@ struct BoostRPCInvoker_ThisPtr
 	// add an argument to a Fusion cons-list for each parameter type
 	template<typename Args>
 	static inline
-		InvokeResultCodes apply(Function func, InvokeArgs &functionArgs, Args const &args)
+		InvokeResultCodes apply(Function func, InvokeArgs functionArgs, Args const &args)
 	{
 		typedef typename boost::mpl::deref<From>::type arg_type;
 		typedef typename boost::mpl::next<From>::type next_iter_type;

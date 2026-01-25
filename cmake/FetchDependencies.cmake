@@ -12,13 +12,32 @@ message(STATUS "Fetching MafiaNet dependencies...")
 
 # -----------------------------------------------------------------------------
 # bzip2 - compression library for Autopatcher
+# Note: Using master branch as it has CMake support (1.0.8 tag does not)
 # -----------------------------------------------------------------------------
 FetchContent_Declare(
     bzip2
     GIT_REPOSITORY https://gitlab.com/bzip2/bzip2.git
-    GIT_TAG        bzip2-1.0.8
+    GIT_TAG        master
     GIT_SHALLOW    TRUE
 )
+
+# -----------------------------------------------------------------------------
+# jansson - JSON library for ComprehensivePCGame master server communication
+# Note: Using master branch as v2.14.1 has CMake compatibility issues with cmake_minimum_required
+# -----------------------------------------------------------------------------
+FetchContent_Declare(
+    jansson
+    GIT_REPOSITORY https://github.com/akheron/jansson.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+)
+
+# jansson configuration
+set(JANSSON_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(JANSSON_BUILD_MAN OFF CACHE BOOL "" FORCE)
+set(JANSSON_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(JANSSON_WITHOUT_TESTS ON CACHE BOOL "" FORCE)
+set(JANSSON_INSTALL OFF CACHE BOOL "" FORCE)
 
 # bzip2 configuration
 set(ENABLE_LIB_ONLY ON CACHE BOOL "" FORCE)
@@ -82,7 +101,7 @@ FetchContent_Declare(
 # -----------------------------------------------------------------------------
 # Fetch all dependencies
 # -----------------------------------------------------------------------------
-FetchContent_MakeAvailable(bzip2 miniupnpc Opus)
+FetchContent_MakeAvailable(bzip2 miniupnpc Opus jansson)
 
 # Fetch rnnoise separately (needs manual target creation)
 FetchContent_GetProperties(rnnoise)
@@ -145,6 +164,9 @@ if(TARGET libminiupnpc-static)
 endif()
 if(TARGET opus)
     set_target_properties(opus PROPERTIES FOLDER "Dependencies")
+endif()
+if(TARGET jansson)
+    set_target_properties(jansson PROPERTIES FOLDER "Dependencies")
 endif()
 
 message(STATUS "MafiaNet dependencies fetched successfully")

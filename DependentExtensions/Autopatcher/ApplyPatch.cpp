@@ -45,11 +45,8 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bspatch/bspatch.c,v 1.1 2005/08/06 01:59:
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#ifndef _WIN32
-// KevinJ - Windows compatibility
-#include <err.h>
-#include <unistd.h>
-#else
+#ifdef _WIN32
+// Windows-specific includes and definitions
 typedef int ssize_t;
 #include <wchar.h>
 #include <io.h>
@@ -64,6 +61,18 @@ static void errx(int i, ...)
 {
 	exit(i);
 }
+#else
+// Unix/POSIX includes and Windows API compatibility
+#include <err.h>
+#include <unistd.h>
+#include "mafianet/osx_adapter.h"
+// Map Windows API names to POSIX equivalents
+#define _open open
+#define _lseek lseek
+#define _read read
+#define _write write
+#define _close close
+// fopen_s is provided by osx_adapter.h
 #endif
 #include <fcntl.h>
 

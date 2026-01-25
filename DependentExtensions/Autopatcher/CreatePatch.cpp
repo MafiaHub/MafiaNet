@@ -45,12 +45,7 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bsdiff/bsdiff.c,v 1.1 2005/08/06 01:59:05
 #include <sys/types.h>
 
 #include "bzlib.h"
-#ifndef _WIN32
-#include <err.h>
-#include <unistd.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#else
+#ifdef _WIN32
 // KevinJ - Windows compatibility
 typedef int ssize_t;
 typedef unsigned char u_char;
@@ -67,6 +62,19 @@ static void errx(int i, ...)
 {
 	exit(i);
 }
+#else
+// Unix/POSIX includes and Windows API compatibility
+#include <err.h>
+#include <unistd.h>
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
+// Map Windows API names to POSIX equivalents
+#define _open open
+#define _lseek lseek
+#define _read read
+#define _write write
+#define _close close
+// fopen_s is provided by osx_adapter.h
 #endif
 #include <fcntl.h>
 #include <stdio.h>

@@ -516,7 +516,7 @@ RoomsErrorCode AllGamesRoomsContainer::JoinByFilter(GameIdentifier gameIdentifie
 }
 RoomsErrorCode AllGamesRoomsContainer::LeaveRoom(RoomsParticipant* roomsParticipant, RemoveUserResult *removeUserResult)
 {
-	if (roomsParticipant->GetRoom()==false)
+	if (roomsParticipant->GetRoom()==nullptr)
 		return REC_LEAVE_ROOM_NOT_IN_ROOM;
 	else if (roomsParticipant->GetInQuickJoin())
 		return REC_LEAVE_ROOM_CURRENTLY_IN_QUICK_JOIN;
