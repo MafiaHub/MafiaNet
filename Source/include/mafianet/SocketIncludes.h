@@ -89,6 +89,9 @@
 		/// Unix/Linux uses ints for sockets
 		typedef int __UDPSOCKET__;
 		typedef int __TCPSOCKET__;
+		/// Define SOCKET for cross-platform compatibility with Windows code
+		typedef int SOCKET;
+		#define INVALID_SOCKET -1
 #endif
 
 #endif

@@ -19,6 +19,21 @@
 #include <cstdarg>		// for va_start, va_end, va_list
 #include <ctime>		// for localtime, time_t
 #include <cwchar>		// for wcscat, wcscpy, wcslen
+#include <cctype>		// for tolower
+
+char *_strlwr(char *str)
+{
+	if (str == nullptr) {
+		return nullptr;
+	}
+
+	char *p = str;
+	while (*p) {
+		*p = static_cast<char>(tolower(static_cast<unsigned char>(*p)));
+		++p;
+	}
+	return str;
+}
 
 errno_t fopen_s(FILE **pfile, const char *filename, const char *mode)
 {

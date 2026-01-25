@@ -17,6 +17,9 @@ typedef int errno_t;
 #include <cstdio>	// for FILE
 #include <ctime>	// for time_t
 
+// MS specific string functions
+char *_strlwr(char *str);
+
 // MS specific security enhanced functions
 errno_t fopen_s(FILE **pfile, const char *filename, const char *mode);
 errno_t localtime_s(struct tm* _tm, const time_t *time);
@@ -75,6 +78,14 @@ template<size_t BufferSize> errno_t strncpy_s(char (&strDest)[BufferSize], const
 template<size_t BufferSize> int vsnprintf_s(char (&buffer)[BufferSize], size_t count, const char *format, va_list argptr)
 {
 	return vsnprintf_s(buffer, BufferSize, count, format, argptr);
+}
+
+// MS gets_s function adapter - wraps MafiaNet's Gets function
+// Note: Samples should include this header for gets_s support on macOS
+#include "Gets.h"
+template<size_t BufferSize> char* gets_s(char (&buffer)[BufferSize])
+{
+	return Gets(buffer, static_cast<int>(BufferSize));
 }
 
 #endif
