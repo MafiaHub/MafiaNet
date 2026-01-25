@@ -56,8 +56,10 @@ endif()
 # Library subdirectory
 add_subdirectory(Source)
 
-# Samples
+# Samples and extensions
 if(MAFIANET_BUILD_SAMPLES)
+    # Fetch dependencies (bzip2, miniupnpc, opus, rnnoise)
+    include(FetchDependencies)
     add_subdirectory(Samples)
     add_subdirectory(DependentExtensions)
 endif()

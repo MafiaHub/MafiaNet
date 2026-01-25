@@ -64,6 +64,7 @@ Available generators (run `cmake --help` for full list):
 - C++17 compiler
 - OpenSSL 1.0.0+
 - Platform libs: ws2_32 (Windows), pthread (Unix)
+- Internet connection (first configure fetches dependencies via FetchContent)
 
 ## Running Tests
 
@@ -109,16 +110,19 @@ Source/
 └── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features
-DependentExtensions/    # Optional integrations (MySQL, PostgreSQL, miniupnpc, etc.)
+DependentExtensions/    # Optional integrations (database, voice, patching)
+cmake/                  # CMake modules including FetchDependencies.cmake
 ```
 
 ### DependentExtensions
 
 Optional integrations built when `MAFIANET_BUILD_SAMPLES=ON`:
 - **Database**: `MySQLInterface`, `PostgreSQLInterface` - Database connectivity
-- **Autopatcher**: Delta patching system for game updates
-- **miniupnpc**: UPnP port forwarding support
+- **Autopatcher**: Delta patching system for game updates (uses bzip2)
+- **RakVoice**: Voice compression and transmission (uses Opus, RNNoise)
 - **Lobby2**: Matchmaking and lobby system
+
+Dependencies (bzip2, miniupnpc, Opus, RNNoise) are automatically fetched via CMake FetchContent at configure time.
 
 ### Basic Usage Pattern
 
