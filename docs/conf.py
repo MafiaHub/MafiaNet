@@ -30,6 +30,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.venv', 'venv']
 
 html_theme = 'furo'
 html_static_path = ['_static']
+html_extra_path = ['CNAME']
 html_title = 'MafiaNet Documentation'
 html_logo = None
 html_favicon = None
