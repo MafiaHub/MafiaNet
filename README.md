@@ -10,8 +10,8 @@
   <p>
     <a href="https://discord.gg/eBQ4QHX"><img src="https://img.shields.io/discord/402098213114347520.svg?label=Discord&logo=discord&logoColor=white" alt="Discord" /></a>
     <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" /></a>
-    <img src="https://img.shields.io/badge/C%2B%2B-11-blue.svg?logo=cplusplus" alt="C++11" />
-    <img src="https://img.shields.io/badge/CMake-3.15+-064F8C.svg?logo=cmake" alt="CMake" />
+    <img src="https://img.shields.io/badge/C%2B%2B-17-blue.svg?logo=cplusplus" alt="C++17" />
+    <img src="https://img.shields.io/badge/CMake-3.21+-064F8C.svg?logo=cmake" alt="CMake" />
   </p>
 
   <p>
@@ -34,18 +34,31 @@ MafiaNet is an actively maintained networking library built for game developers 
 
 ### Requirements
 
-- CMake 3.15+
-- C++11 compatible compiler
+- CMake 3.21+
+- C++17 compatible compiler
 - OpenSSL 1.0.0+
 
 ### Building
 
+**Linux / macOS:**
 ```bash
 git clone https://github.com/MafiaHub/MafiaNet.git
 cd MafiaNet
 mkdir build && cd build
 cmake ..
 cmake --build .
+```
+
+**Windows (Visual Studio):**
+```powershell
+git clone https://github.com/MafiaHub/MafiaNet.git
+cd MafiaNet
+
+# Generate Visual Studio 2022 solution
+cmake -G "Visual Studio 17 2022" -A x64 -B build
+
+# Build from command line, or open build/MafiaNet.sln in Visual Studio
+cmake --build build --config Release
 ```
 
 ### Basic Usage

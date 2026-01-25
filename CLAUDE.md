@@ -8,6 +8,8 @@ MafiaNet is a cross-platform network engine written in C++ for multiplayer games
 
 ## Build Commands
 
+### Linux / macOS
+
 ```bash
 # Configure (from repository root)
 mkdir build && cd build
@@ -25,6 +27,37 @@ cmake -DMAFIANET_BUILD_SHARED=ON ..   # Build shared library (default: ON)
 cmake -DMAFIANET_BUILD_STATIC=ON ..   # Build static library (default: ON)
 cmake -DMAFIANET_BUILD_TESTS=ON ..    # Build test suite
 ```
+
+### Windows (Visual Studio)
+
+CMake generates Visual Studio solutions automatically. No pre-built `.sln` or `.vcxproj` files are included in the repository.
+
+```powershell
+# Generate Visual Studio 2022 solution
+cmake -G "Visual Studio 17 2022" -A x64 -B build
+
+# Generate Visual Studio 2019 solution
+cmake -G "Visual Studio 16 2019" -A x64 -B build
+
+# Build from command line
+cmake --build build --config Release
+
+# Or open build/MafiaNet.sln in Visual Studio
+```
+
+Available generators (run `cmake --help` for full list):
+- `"Visual Studio 17 2022"` - VS 2022
+- `"Visual Studio 16 2019"` - VS 2019
+- `"Ninja"` - Fast builds with Ninja
+
+### Build Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `MAFIANET_BUILD_SHARED` | ON | Build shared library (.dll/.so/.dylib) |
+| `MAFIANET_BUILD_STATIC` | ON | Build static library (.lib/.a) |
+| `MAFIANET_BUILD_SAMPLES` | OFF | Build sample applications |
+| `MAFIANET_BUILD_TESTS` | OFF | Build test suite |
 
 **Requirements:**
 - CMake 3.21+
