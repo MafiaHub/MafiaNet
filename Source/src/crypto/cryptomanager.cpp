@@ -33,14 +33,8 @@ namespace MafiaNet
 				ERR_load_crypto_strings();
 				OpenSSL_add_all_algorithms();
 
-#ifdef _WIN32
-				// #med - once OpenSSL support for older OpenSSL versions is dropped, just remove this call - newer OpenSSL versions provide proper entropy
-				//        also on Windows platforms - https://security.stackexchange.com/questions/7718/openssl-rand-poll-good-enough
-				// RAND_screen() is only required on Windows - on Linux RAND_poll() will be used (called implicitly by the following RAND_bytes()-call) and
-				// provides OS-specific entropy quality.
-				// #high - replace with EGADS
-				RAND_screen();
-#endif
+				// Note: Modern OpenSSL (1.1.0+) provides proper entropy on all platforms.
+				// RAND_bytes() below will automatically seed the PRNG if needed.
 
 				if (RAND_bytes(m_sessionKey, EVP_MAX_KEY_LENGTH) != 1) {
 					return false; // failed to initialize the random session key
