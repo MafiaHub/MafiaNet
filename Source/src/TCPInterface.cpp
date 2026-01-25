@@ -413,9 +413,7 @@ void TCPInterface::StartSSLClient(SystemAddress systemAddress)
 	if (ctx==0)
 	{
 		sharedSslMutex.Lock();
-		SSLeay_add_ssl_algorithms();
-		meth = (SSL_METHOD*) SSLv23_client_method();
-		SSL_load_error_strings();
+		meth = TLS_client_method();
 		ctx = SSL_CTX_new (meth);
 		RakAssert(ctx!=0);
 		sharedSslMutex.Unlock();

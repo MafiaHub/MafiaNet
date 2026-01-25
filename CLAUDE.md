@@ -66,7 +66,7 @@ Available generators (run `cmake --help` for full list):
 **Requirements:**
 - CMake 3.21+
 - C++17 compiler
-- OpenSSL 1.0.0+
+- OpenSSL 3.0+
 - Platform libs: ws2_32 (Windows), pthread (Unix)
 - Internet connection (first configure fetches dependencies via FetchContent)
 

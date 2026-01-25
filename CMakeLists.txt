@@ -38,7 +38,7 @@ if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
 endif()
 
 # Dependencies
-find_package(OpenSSL 1.0.0 REQUIRED)
+find_package(OpenSSL 3.0.0 REQUIRED)
 find_package(Threads REQUIRED)
 
 # Include helpers

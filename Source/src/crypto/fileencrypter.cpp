@@ -75,8 +75,8 @@ namespace MafiaNet
 					return nullptr;
 				}
 
-				EVP_MD_CTX *const rsaSigningContext = EVP_MD_CTX_create();
-				// #med - double check this - it's not documented whether EVP_MD_CTX_create() can actually fail (and return null)
+				EVP_MD_CTX *const rsaSigningContext = EVP_MD_CTX_new();
+				// #med - double check this - it's not documented whether EVP_MD_CTX_new() can actually fail (and return null)
 				if (rsaSigningContext == nullptr) {
 					// #high - error/exception handling
 					return nullptr;
@@ -84,13 +84,13 @@ namespace MafiaNet
 
 				if (EVP_SignInit_ex(rsaSigningContext, EVP_sha512(), nullptr) == 0) {
 					// #high - error/exception handling
-					EVP_MD_CTX_destroy(rsaSigningContext);
+					EVP_MD_CTX_free(rsaSigningContext);
 					return nullptr;
 				}
 
 				if (EVP_SignUpdate(rsaSigningContext, data, dataLength) == 0) {
 					// #high - error/exception handling
-					EVP_MD_CTX_destroy(rsaSigningContext);
+					EVP_MD_CTX_free(rsaSigningContext);
 					return nullptr;
 				}
 
@@ -100,7 +100,7 @@ namespace MafiaNet
 				const bool success = (EVP_SignFinal(rsaSigningContext, m_sigBuffer, &bufferSize, m_privatePKey) != 0);
 
 				// note: EVP_MD_CTX_destroy handles cleanup
-				EVP_MD_CTX_destroy(rsaSigningContext);
+				EVP_MD_CTX_free(rsaSigningContext);
 
 				return success ? m_sigBuffer : nullptr;
 			}
@@ -126,8 +126,8 @@ namespace MafiaNet
 			//        since the signature must be 1024 chars long
 			bool CFileEncrypter::VerifyData(const unsigned char *data, const size_t dataLength, const unsigned char *signature, const size_t signatureLength)
 			{
-				EVP_MD_CTX *const rsaVerifyContext = EVP_MD_CTX_create();
-				// #med - double check this - it's not documented whether EVP_MD_CTX_create() can actually fail (and return null)
+				EVP_MD_CTX *const rsaVerifyContext = EVP_MD_CTX_new();
+				// #med - double check this - it's not documented whether EVP_MD_CTX_new() can actually fail (and return null)
 				if (rsaVerifyContext == nullptr) {
 					// #high - error/exception handling
 					return false;
@@ -136,20 +136,20 @@ namespace MafiaNet
 				// missing EVP_PKEY_free() call --- actually this will also destroy the RSA_KEY!!!!
 				if (EVP_DigestVerifyInit(rsaVerifyContext, nullptr, EVP_sha512(), nullptr, m_publicPKey) <= 0) {
 					// #high - error/exception handling
-					EVP_MD_CTX_destroy(rsaVerifyContext);
+					EVP_MD_CTX_free(rsaVerifyContext);
 					return false;
 				}
 
 				if (EVP_DigestVerifyUpdate(rsaVerifyContext, data, dataLength) <= 0) {
 					// #high - error/exception handling
-					EVP_MD_CTX_destroy(rsaVerifyContext);
+					EVP_MD_CTX_free(rsaVerifyContext);
 					return false;
 				}
 
 				// #high - review const_cast / also code simplifications
 				const int authenticStatus = EVP_DigestVerifyFinal(rsaVerifyContext, const_cast<unsigned char*>(signature), signatureLength);
 				// note: EVP_MD_CTX_destroy handles cleanup
-				EVP_MD_CTX_destroy(rsaVerifyContext);
+				EVP_MD_CTX_free(rsaVerifyContext);
 
 				if (authenticStatus == 1) {
 					return true;
