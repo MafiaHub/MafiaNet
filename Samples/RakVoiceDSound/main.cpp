@@ -37,12 +37,13 @@
 #include "mafianet/osx_adapter.h"
 
 // Reads and writes per second of the sound data
-// Speex only supports these 3 values
-#define SAMPLE_RATE  (8000)
+// Opus supports: 8000, 16000, 24000, 48000
+#define SAMPLE_RATE  (48000)
+//#define SAMPLE_RATE  (24000)
 //#define SAMPLE_RATE  (16000)
-//#define SAMPLE_RATE  (32000)
+//#define SAMPLE_RATE  (8000)
 
-#define FRAMES_PER_BUFFER  (2048 / (32000 / SAMPLE_RATE))
+#define FRAMES_PER_BUFFER  (SAMPLE_RATE / 50)  // 20ms frame
 
 // define sample type. Only short(16 bits sound) is supported at the moment.
 typedef short SAMPLE;
@@ -87,8 +88,7 @@ void LogStats(){
 // Prints the current encoder parameters
 void PrintParameters(void)
 {
-	printf("\nComplexity=%3d Noise filter=%3s VAD=%3s VBR=%3s\n"
-		,rakVoice.GetEncoderComplexity()
+	printf("\nNoise filter=%3s VAD=%3s VBR=%3s\n"
 		,(rakVoice.IsNoiseFilterActive()) ? "ON" : "OFF"
 		,(rakVoice.IsVADActive()) ? "ON" : "OFF"
 		,(rakVoice.IsVBRActive()) ? "ON" : "OFF");
@@ -136,10 +136,7 @@ int main(void)
 
 	printf("A sample on how to use RakVoice together with DirectSound.\n");
 	printf("You need a microphone for this sample.\n");
-	printf("RakVoice relies on Speex for voice encoding and decoding.\n");
-	printf("See DependentExtensions/RakVoice/speex-1.2beta3 for speex projects.\n");
-	printf("For windows, I had to define HAVE_CONFIG_H, include win32/config.h,\n");
-	printf("and include the files under libspeex, except those that start with test.\n");
+	printf("RakVoice uses Opus codec for voice encoding and RNNoise for noise suppression.\n");
 	printf("Difficulty: Advanced\n\n");
 
 	bool mute=false;
@@ -179,7 +176,7 @@ int main(void)
 	quit=false;
 #if defined(INTERACTIVE)
 	printf("(Q)uit. (C)onnect. (D)isconnect. (M)ute. ' ' for stats.\n");
-	printf("(+/-)encoder complexity.  (N)oise filter on/off. (V)AD on/off. (B)vbr on/off.\n");
+	printf("(N)oise filter on/off. (V)AD on/off. (B)vbr on/off.\n");
 #else
 	rakPeer->Connect("1.1.1.1", 60000, 0,0);
 #endif
@@ -190,19 +187,7 @@ int main(void)
 		if (_kbhit())
 		{
 			ch=_getch();
-			if (ch=='+'){
-				// Increase encoder complexity
-				int v = rakVoice.GetEncoderComplexity();
-				if (v<10) rakVoice.SetEncoderComplexity(v+1);
-				PrintParameters();
-			}
-			else if (ch=='-'){
-				// Decrease encoder complexity
-				int v = rakVoice.GetEncoderComplexity();
-				if (v>0) rakVoice.SetEncoderComplexity(v-1);
-				PrintParameters();
-			}
-			else if (ch=='n'){
+			if (ch=='n'){
 				// Turn on/off noise filter
 				rakVoice.SetNoiseFilter(!rakVoice.IsNoiseFilterActive());
 				PrintParameters();

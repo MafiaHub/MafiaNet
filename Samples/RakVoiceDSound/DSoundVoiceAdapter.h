@@ -22,8 +22,8 @@ This sample uses RakVoice along with DirectSound 8.
 
 Instead of using IDirectSoundBuffer::GetCurrentPosition / IDirectSoundCaptureBuffer::GetCurrentPosition
 to keep track of the play/write cursors, notifications are used instead.
-Speex encodes/decodes sound in blocks (frames), so the size of the used DirectSound buffers is
-multiple of the Speex's frame size. This makes it easier to implement DirectSound notifications at the end
+Opus encodes/decodes sound in blocks (frames), so the size of the used DirectSound buffers is
+multiple of the frame size. This makes it easier to implement DirectSound notifications at the end
 of each frame.
 
 */

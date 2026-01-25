@@ -8,56 +8,58 @@ Overview
 
 RakVoice enables real-time voice communication between players using:
 
-- Speex codec for compression
-- Automatic silence detection
-- Configurable quality settings
-- Low latency transmission
+- **Opus codec** for high-quality, low-latency audio compression
+- **RNNoise** for neural network-based noise suppression
+- Voice Activity Detection (VAD) via Opus DTX
+- Variable bitrate (VBR) encoding
+- Low latency transmission with packet loss concealment
 
 Setup
 -----
 
 .. code-block:: cpp
 
-   #include "mafianet/RakVoice.h"
+   #include "RakVoice.h"
 
-   MafiaNet::RakVoice* rakVoice = MafiaNet::RakVoice::GetInstance();
-   peer->AttachPlugin(rakVoice);
+   MafiaNet::RakVoice rakVoice;
+   peer->AttachPlugin(&rakVoice);
 
    // Initialize with sample rate and buffer size
-   rakVoice->Init(8000, 160);  // 8kHz, 160 samples per frame
+   // Supported rates: 8000, 16000, 24000, 48000 Hz
+   rakVoice.Init(48000, 960 * sizeof(short));  // 48kHz, 20ms frame
 
-Recording Audio
----------------
-
-.. code-block:: cpp
-
-   // In your audio callback (e.g., from PortAudio, DirectSound)
-   void AudioCallback(short* samples, int numSamples) {
-       // Send audio to all connected peers
-       for (int i = 0; i < peer->NumberOfConnections(); i++) {
-           MafiaNet::SystemAddress addr = peer->GetSystemAddressFromIndex(i);
-           rakVoice->SendFrame(addr, samples);
-       }
-   }
-
-Playing Received Audio
+Opening Voice Channels
 ----------------------
 
 .. code-block:: cpp
 
-   // In your audio playback loop
-   void PlaybackLoop() {
-       short samples[160];
+   // Request a voice channel with a connected peer
+   rakVoice.RequestVoiceChannel(peerGUID);
 
-       for (int i = 0; i < peer->NumberOfConnections(); i++) {
-           MafiaNet::SystemAddress addr = peer->GetSystemAddressFromIndex(i);
+   // Handle the response in your packet loop:
+   // ID_RAKVOICE_OPEN_CHANNEL_REQUEST - incoming channel request
+   // ID_RAKVOICE_OPEN_CHANNEL_REPLY - channel opened successfully
 
-           // Get received audio
-           if (rakVoice->ReceiveFrame(addr, samples)) {
-               // Play samples through your audio system
-               PlayAudio(samples, 160);
-           }
-       }
+Sending Audio
+-------------
+
+.. code-block:: cpp
+
+   // In your audio callback (e.g., from PortAudio)
+   void AudioCallback(short* samples, int numSamples) {
+       // Send audio to a specific peer
+       rakVoice.SendFrame(peerGUID, samples);
+   }
+
+Receiving Audio
+---------------
+
+.. code-block:: cpp
+
+   // In your audio playback callback
+   void PlaybackCallback(short* outputBuffer, int numSamples) {
+       // Get mixed audio from all channels
+       rakVoice.ReceiveFrame(outputBuffer);
    }
 
 Configuration
@@ -65,29 +67,42 @@ Configuration
 
 .. code-block:: cpp
 
-   // Set encoder complexity (0-10, higher = better quality, more CPU)
-   rakVoice->SetEncoderComplexity(5);
+   // Enable/disable Voice Activity Detection (reduces bandwidth on silence)
+   rakVoice.SetVAD(true);  // Default: true
 
-   // Enable/disable voice activity detection
-   rakVoice->SetVAD(true);
+   // Enable/disable RNNoise noise suppression
+   rakVoice.SetNoiseFilter(true);  // Default: true
 
-   // Set noise suppression
-   rakVoice->SetNoiseFilter(true);
+   // Enable/disable Variable Bitrate (better quality/bandwidth ratio)
+   rakVoice.SetVBR(true);  // Default: true
+
+   // Set signal type hint for Opus encoder
+   rakVoice.SetSignalType(OPUS_SIGNAL_VOICE);  // or OPUS_SIGNAL_MUSIC
 
 Audio Backends
 --------------
 
 RakVoice doesn't include audio capture/playback. Use:
 
-- **PortAudio** - Cross-platform
-- **DirectSound** - Windows (see ``Samples/RakVoiceDSound/``)
-- **FMOD** - Cross-platform (see ``Samples/RakVoiceFMOD/``)
+- **PortAudio** - Cross-platform (see ``Samples/RakVoice/``)
+- **DirectSound** - Windows
+- **FMOD** - Cross-platform
 - **OpenAL** - Cross-platform
+
+Dependencies
+------------
+
+RakVoice bundles the following libraries:
+
+- **Opus 1.5.2** - Audio codec (BSD license)
+- **RNNoise** - Noise suppression (BSD license)
+
+These are built automatically as part of the MafiaNet build.
 
 Sample Code
 -----------
 
-See ``Samples/RakVoice/``, ``Samples/RakVoiceDSound/``, and ``Samples/RakVoiceFMOD/`` for complete examples.
+See ``Samples/RakVoice/`` for a complete example using PortAudio.
 
 See Also
 --------

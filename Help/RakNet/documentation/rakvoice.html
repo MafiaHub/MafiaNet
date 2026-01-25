@@ -17,48 +17,60 @@
   <TR>
     <TD><p><span class="RakNetBlueHeader">Real time voice communication </span><BR>
         <BR>
-         RakVoice is a  feature of RakNet that allows real time voice communication at a cost of only ~2200 bytes per second at 8000 16 bit samples per second.  It uses Speex (<A HREF="http://www.speex.org/">http://www.speex.org/</A>) to do the encoding.  RakVoice is plugin class that makes it easier to encode, send, decode, and relay raw sound data.<BR>
-        Note that RakVoice is not part of the RakNet core, so you'll need to add it to your project. <br>
+         RakVoice is a feature of MafiaNet that allows real time voice communication. It uses the Opus codec (<A HREF="https://opus-codec.org/">https://opus-codec.org/</A>) for high-quality, low-latency audio encoding and RNNoise for neural network-based noise suppression. RakVoice is a plugin class that makes it easier to encode, send, decode, and relay raw sound data.<BR>
+        Note that RakVoice is not part of the MafiaNet core, so you'll need to link it to your project. <br>
         <br>
-        To get an instance of RakVoice just allocate one with new, or have global object handy.<BR>
+        To get an instance of RakVoice just allocate one with new, or have a global object handy.<BR>
         <BR>
-        RakVoice rakVoice;<BR>
+        MafiaNet::RakVoice rakVoice;<BR>
         <BR>
         Since RakVoice is a plugin, you need to attach it to a peer.<br>
         <BR>
         rakPeer->AttachPlugin(&rakVoice);<br>
         <br>
-        initialize the class with the sample rate and the size of the buffer to process. A buffer size of 512 bytes is a reasonable value when using frequencies of 8000hz. <br>
-        The buffer size is the number of bytes to encode at a time, and the number of bytes returned by the decoder.  This is normally the same size you want to lock the sound buffer by.  Encoding will reduce the packet size by about 75%.<BR>
+        Initialize the class with the sample rate and the size of the buffer to process. Opus supports sample rates of 8000, 16000, 24000, and 48000 Hz. A buffer size matching 20ms of audio (sampleRate / 50 samples) is recommended.<br>
         <BR>
-        rakVoice.Init(8000, 512);<BR>
+        rakVoice.Init(48000, 960 * sizeof(short)); // 48kHz, 20ms frame<BR>
         <BR>
-        When data comes in on the sound buffer from the microphone, you should call SendFrame, passing the SystemAddress of the recipient system, and a pointer to the buffer to encode.  Unlike normal API send calls, you cannot broadcast voice packets because each encoder and decoder is a matched pair.  Therefore, you must always specify the SystemAddress so the sender knows which encoder to use.  To broadcast, send it to everyone individually.  Note that the size of the input buffer must match the buffer size we set earlier.  For example:<BR>
+        When data comes in on the sound buffer from the microphone, you should call SendFrame, passing the RakNetGUID of the recipient system, and a pointer to the buffer to encode. Unlike normal API send calls, you cannot broadcast voice packets because each encoder and decoder is a matched pair. Therefore, you must always specify the RakNetGUID so the sender knows which encoder to use. To broadcast, send it to everyone individually. Note that the size of the input buffer must match the buffer size we set earlier. For example:<BR>
         <BR>
-        rakVoice.SendFrame(recipientSystemAddress, (char*)inputBuffer);<BR>
+        rakVoice.SendFrame(recipientGUID, (char*)inputBuffer);<BR>
         <BR>
-        In the other system, where data arrives, depending on the sound engine you are using, you'll probably have circular sound buffer, which you'll need to feed with the decoded data you receive from RakVoice. Every time your sound engine needs data to play, you should call ReceiveFrame. It will write a buffer of sound at the passed pointer,  or just just silence if no new data was available. Once again, remember that the data returned has the same size you specified in Init (see above). <BR>
+        In the other system, where data arrives, depending on the sound engine you are using, you'll probably have a circular sound buffer, which you'll need to feed with the decoded data you receive from RakVoice. Every time your sound engine needs data to play, you should call ReceiveFrame. It will write a buffer of sound at the passed pointer, or just silence if no new data was available. Once again, remember that the data returned has the same size you specified in Init (see above). <BR>
         <BR>
-        rakVoice.ReceiveFrame((char*)outbufffer);<BR>
-        
-        
+        rakVoice.ReceiveFrame((char*)outbuffer);<BR>
+
+
     </p>
-    
-	  The last point of note is that RakVoice requires all clients in a chat session to be aware of all other clients' connection states.  The reasons for this are:
+    <p><span class="RakNetBlueHeader">Configuration Options</span><BR>
+    <BR>
+    RakVoice provides several configuration options:<BR>
+    <BR>
+    <B>SetVAD(bool enable)</B> - Enable/disable Voice Activity Detection via Opus DTX. Reduces bandwidth by not transmitting silence. Default: enabled.<BR>
+    <BR>
+    <B>SetNoiseFilter(bool enable)</B> - Enable/disable RNNoise neural network noise suppression. Default: enabled.<BR>
+    <BR>
+    <B>SetVBR(bool enable)</B> - Enable/disable Variable Bitrate encoding for better quality/bandwidth ratio. Default: enabled.<BR>
+    <BR>
+    <B>SetSignalType(int type)</B> - Set the signal type hint for the Opus encoder. Use OPUS_SIGNAL_VOICE (default) or OPUS_SIGNAL_MUSIC.<BR>
+    </p>
+
+	  The last point of note is that RakVoice requires all clients in a chat session to be aware of all other clients' connection states. The reasons for this are:
       <UL>
         <LI>1. You need to call SendFrame with a specific recipient for broadcasting.</li>
         <LI>2. You may want to call CloseVoiceChannel, to stop communications with a particular system. </li>
       </UL>
 	  <BR>
-	 RakVoice only provides a means to encode and decode raw sound data, and means to communicate with the network.  It does not include a mechanism to play or record sound.
-	 However, two samples are provived as an example on how to integrate with sound engines:<br>
+	 RakVoice only provides a means to encode and decode raw sound data, and means to communicate with the network. It does not include a mechanism to play or record sound.
+	 However, samples are provided as an example on how to integrate with sound engines:<br>
 	 <BR>
-	 <i>\Samples\RakVoiceFMOD</i> - Provides an easy to use class to integrate RakVoice with the well known <a href="http://www.fmod.org/">FMOD</a> sound engine.<BR>
 	 <i>\Samples\RakVoice</i> - An example on how to integrate RakVoice with the free and open-source PortAudio sound engine.<br>
+	 <i>\Samples\RakVoiceFMOD</i> - Provides an easy to use class to integrate RakVoice with the well known <a href="http://www.fmod.org/">FMOD</a> sound engine.<BR>
+	 <i>\Samples\RakVoiceDSound</i> - An example on how to integrate RakVoice with DirectSound on Windows.<br>
 	 <BR>
-	  
+
 		<BR>
-      <B>The source to PortAudio (<A HREF="http://www.portaudio.com/">http://www.portaudio.com/</A>) and Speex (<A HREF="http://www.speex.org/">http://www.speex.org/</A>) are included in RakNet and can be found in the root directory for rebuilding on other platforms.  These are independent open-source APIs and are not owned by me nor do I provide support for them.  Please refer to the respective webpages for more information on these APIs and the included license agreements for them.</B> 	  
+      <B>The source to PortAudio (<A HREF="http://www.portaudio.com/">http://www.portaudio.com/</A>), Opus (<A HREF="https://opus-codec.org/">https://opus-codec.org/</A>), and RNNoise (<A HREF="https://github.com/xiph/rnnoise">https://github.com/xiph/rnnoise</A>) are bundled with MafiaNet and can be found in the DependentExtensions directory. These are independent open-source APIs and are not owned by us nor do we provide support for them. Please refer to the respective webpages for more information on these APIs and the included license agreements for them.</B>
     </TD>
   </TR>
 </TABLE>
