@@ -79,6 +79,7 @@ void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
 {
 	// Use inet_addr instead? What is the difference?
 	struct addrinfo *addressinfo = nullptr;
+	struct addrinfo *originalAddressInfo = nullptr;
 	// needed for getaddrinfo
 	WSAStartupSingleton::AddRef();
 	int error = getaddrinfo(domainName, nullptr, nullptr, &addressinfo);
@@ -87,10 +88,12 @@ void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
 	if ( error != 0 || addressinfo == 0 )
 	{
 		//cerr << "Yow! Bad host lookup." << endl;
-		// #high - review/update callers - some unnecessarily initialize ip unnecessarily
 		ip[0] = '\0';
 		return;
 	}
+
+	// Save original pointer for freeaddrinfo
+	originalAddressInfo = addressinfo;
 
 	// get the (first) IPv4 address
 	while (addressinfo != nullptr) {
@@ -101,12 +104,16 @@ void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
 	}
 
 	if (addressinfo == nullptr) {
+		// No IPv4 address found (e.g., IPv6-only system or domain has only AAAA records)
+		ip[0] = '\0';
+		freeaddrinfo(originalAddressInfo);
 		return;
 	}
 
 	struct sockaddr_in  *sockaddr_ipv4 = (struct sockaddr_in *) addressinfo->ai_addr;
 
 	inet_ntop(AF_INET, &sockaddr_ipv4->sin_addr, ip, 65);
+	freeaddrinfo(originalAddressInfo);
 }
 
 

@@ -49,7 +49,19 @@ void RNS2_Berkley::SetSocketOptions(void)
 	r = setsockopt__( rns2Socket, SOL_SOCKET, SO_LINGER, ( char * ) & sock_opt, sizeof ( sock_opt ) );
 	// Do not assert, ignore failure
 
-
+#ifdef _WIN32
+	// Disable SIO_UDP_CONNRESET behavior on Windows
+	// By default, if a UDP sendto() results in an ICMP "port unreachable" response,
+	// Windows will cause subsequent recvfrom() calls to fail with WSAECONNRESET (10054).
+	// This is undesirable for UDP applications that may send to unreachable hosts.
+	#ifndef SIO_UDP_CONNRESET
+	#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+	#endif
+	BOOL bNewBehavior = FALSE;
+	DWORD dwBytesReturned = 0;
+	WSAIoctl(rns2Socket, SIO_UDP_CONNRESET, &bNewBehavior, sizeof(bNewBehavior), nullptr, 0, &dwBytesReturned, nullptr, nullptr);
+	// Ignore errors - this call may fail on older Windows versions
+#endif
 
 	// This doesn't make much difference: 10% maybe
 	// Not supported on console 2
@@ -287,6 +299,17 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6( RNS2_BerkleyBindParameters *bin
 		if (rns2Socket == -1)
 			return BR_FAILED_TO_BIND_SOCKET;
 
+		// For IPv6 sockets, set IPV6_V6ONLY to allow binding both IPv4 and IPv6
+		// sockets to the same port. Without this, an IPv6 socket on Linux/Windows
+		// defaults to dual-stack mode (listening on both IPv4 and IPv6), which
+		// prevents a separate IPv4 socket from binding to the same port.
+		if (aip->ai_family == AF_INET6)
+		{
+			int ipv6only = 1;
+			setsockopt__(rns2Socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only));
+			// Ignore errors - some platforms may not support this option
+		}
+
 		ret = bind__(rns2Socket, aip->ai_addr, (int) aip->ai_addrlen );
 		if (ret>=0)
 		{
@@ -348,7 +371,9 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 	if (recvFromStruct->bytesRead==-1)
 	{
 		DWORD dwIOError = GetLastError();
-		if (dwIOError != 10035)
+		// 10035 = WSAEWOULDBLOCK (expected for non-blocking sockets)
+		// 10054 = WSAECONNRESET (expected for UDP - prior sendto received ICMP port unreachable)
+		if (dwIOError != 10035 && dwIOError != 10054)
 		{
 			LPVOID messageBuffer;
 			FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
