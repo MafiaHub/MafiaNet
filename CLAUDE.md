@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MafiaNet is a cross-platform network engine written in C++ for multiplayer games. It's a fork of MafiaNet, which itself continued RakNet. The project provides reliable UDP messaging, NAT traversal, peer-to-peer networking, and various game-specific networking features.
+MafiaNet is a cross-platform network engine written in C++ for multiplayer games. It's a fork of SLikeNet, which itself continued RakNet. The project provides reliable UDP messaging, NAT traversal, peer-to-peer networking, and various game-specific networking features.
 
 ## Build Commands
 
@@ -21,6 +21,10 @@ cmake --build . --config Release      # Release build
 
 # Build with samples and tests
 cmake -DMAFIANET_BUILD_SAMPLES=ON ..
+
+# Quick rebuild after changes (from repository root)
+cmake --build build -j$(nproc)      # Linux
+cmake --build build -j$(sysctl -n hw.ncpu)  # macOS
 
 # Build options
 cmake -DMAFIANET_BUILD_SHARED=ON ..   # Build shared library (default: ON)
@@ -68,7 +72,7 @@ Available generators (run `cmake --help` for full list):
 
 ## Running Tests
 
-Tests are built as part of samples. After building with samples enabled:
+Tests require `MAFIANET_BUILD_SAMPLES=ON` (they're part of the Samples subdirectory). After building:
 ```bash
 ./build/Samples/Tests/Tests
 
@@ -82,7 +86,7 @@ Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWi
 
 ### Namespaces
 - Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`)
-- Legacy alias: `RakNet` namespace is available for backward compatibility
+- Legacy alias: `RakNet` is a namespace alias to `MafiaNet` for source compatibility with RakNet/SLikeNet code
 
 ### Key Components
 
