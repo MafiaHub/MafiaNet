@@ -29,17 +29,26 @@ jobs:
 
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
-        run: cmake -B build
+        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON
 
       - name: Configure CMake (macOS)
         if: runner.os == 'macOS'
         run: |
           cmake -B build \
-            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DMAFIANET_BUILD_SAMPLES=ON
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -B build
+        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      - name: Run Tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ./build/Samples/Tests/Tests
+
+      - name: Run Tests (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Samples\Tests\Release\Tests.exe
