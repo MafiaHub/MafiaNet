@@ -3,25 +3,26 @@
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
  *
  *  Modified work: Copyright (c) 2017-2020, SLikeSoft UG (haftungsbeschränkt)
+ *  Modified work: Copyright (c) 2024, MafiaHub - Opus migration
  *
  *  This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
 #include "RakVoice.h"
-#include "speex/speex.h"
-#include "speex/speex_preprocess.h"
+#include <opus/opus.h>
+#include <rnnoise.h>
 #include "mafianet/BitStream.h"
 #include "mafianet/PacketPriority.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
 #include "mafianet/peerinterface.h"
 #include <stdlib.h>
+#include <cstring>
 #include "mafianet/GetTime.h"
 
 #ifdef _DEBUG
@@ -30,13 +31,11 @@
 
 using namespace MafiaNet;
 
-//#define PRINT_DEBUG_INFO
-
 #define SAMPLESIZE 2
+#define MAX_OPUS_PACKET_SIZE 4000
 
-#ifdef PRINT_DEBUG_INFO
-#include <stdio.h>
-#endif
+// RNNoise frame size is fixed at 480 samples (10ms at 48kHz)
+#define RNNOISE_FRAME_SIZE 480
 
 int MafiaNet::VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data )
 {
@@ -49,42 +48,49 @@ int MafiaNet::VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &dat
 
 RakVoice::RakVoice()
 {
-	bufferedOutput=0;
-	defaultEncoderComplexity=2;
-	defaultVADState=true;
-	defaultDENOISEState=false;
-	defaultVBRState=false;
-	loopbackMode=false;
+	bufferedOutput = nullptr;
+	defaultVADState = true;
+	defaultDENOISEState = false;
+	defaultVBRState = false;
+	defaultSignalType = OPUS_SIGNAL_VOICE;
+	loopbackMode = false;
+	sampleRate = 0;
+	bufferSizeBytes = 0;
 }
+
 RakVoice::~RakVoice()
 {
 	Deinit();
 }
-// #med - change member variable - then revert argument to sampleRate/bufferSizeBytes
-void RakVoice::Init(unsigned short speexSampleRate, unsigned newBufferSizeBytes)
-{
-	// Record the parameters
-	RakAssert(speexSampleRate==8000 || speexSampleRate==16000 || speexSampleRate==32000);
-	sampleRate=speexSampleRate;
-	bufferSizeBytes=newBufferSizeBytes;
-	bufferedOutputCount=newBufferSizeBytes/SAMPLESIZE;
-	bufferedOutput = (float*) rakMalloc_Ex(sizeof(float)*bufferedOutputCount, _FILE_AND_LINE_);
-	unsigned i;
-	for (i=0; i < bufferedOutputCount; i++)
-		bufferedOutput[i]=0.0f;
-	zeroBufferedOutput=false;
 
+int RakVoice::GetFrameSizeSamples(int sampleRate)
+{
+	// 20ms frame size for all sample rates
+	return sampleRate / 50;  // sampleRate * 0.020
 }
+
+void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
+{
+	RakAssert(newSampleRate == 8000 || newSampleRate == 16000 || newSampleRate == 24000 || newSampleRate == 48000);
+	sampleRate = newSampleRate;
+	bufferSizeBytes = newBufferSizeBytes;
+	bufferedOutputCount = newBufferSizeBytes / SAMPLESIZE;
+	bufferedOutput = (float*)rakMalloc_Ex(sizeof(float) * bufferedOutputCount, _FILE_AND_LINE_);
+	for (unsigned i = 0; i < bufferedOutputCount; i++)
+		bufferedOutput[i] = 0.0f;
+	zeroBufferedOutput = false;
+}
+
 void RakVoice::Deinit(void)
 {
-	// check pointer before free
 	if (bufferedOutput)
 	{
-		rakFree_Ex(bufferedOutput, _FILE_AND_LINE_ );
-		bufferedOutput = 0;
+		rakFree_Ex(bufferedOutput, _FILE_AND_LINE_);
+		bufferedOutput = nullptr;
 		CloseAllChannels();
 	}
 }
+
 void RakVoice::SetLoopbackMode(bool enabled)
 {
 	if (enabled)
@@ -93,54 +99,54 @@ void RakVoice::SetLoopbackMode(bool enabled)
 		MafiaNet::BitStream out;
 		out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
 		out.Write((int32_t)sampleRate);
-		p.data=out.GetData();
-		p.systemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
-		p.guid=UNASSIGNED_RAKNET_GUID;
-		p.length=out.GetNumberOfBytesUsed();
+		p.data = out.GetData();
+		p.systemAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+		p.guid = UNASSIGNED_RAKNET_GUID;
+		p.length = out.GetNumberOfBytesUsed();
 		OpenChannel(&p);
 	}
 	else
 	{
 		FreeChannelMemory(UNASSIGNED_RAKNET_GUID);
 	}
-	loopbackMode=enabled;
+	loopbackMode = enabled;
 }
+
 bool RakVoice::IsLoopbackMode(void) const
 {
 	return loopbackMode;
 }
+
 void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 {
-	// Send a reliable ordered message to the other system to open a voice channel
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
 	out.Write((int32_t)sampleRate);
-	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,recipient,false);	
+	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, recipient, false);
 }
+
 void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 {
 	FreeChannelMemory(recipient);
-	
-	// Send a message to the remote system telling them to close the channel
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
-	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,recipient,false);	
+	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, recipient, false);
 }
+
 void RakVoice::CloseAllChannels(void)
 {
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
 
-	// Free the memory for all channels
-	unsigned index;
-	for (index=0; index < voiceChannels.Size(); index++)
+	for (unsigned index = 0; index < voiceChannels.Size(); index++)
 	{
-		SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,voiceChannels[index]->guid,false);	
-		FreeChannelMemory(index,false);
+		SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, voiceChannels[index]->guid, false);
+		FreeChannelMemory(index, false);
 	}
 
 	voiceChannels.Clear(false, _FILE_AND_LINE_);
 }
+
 bool RakVoice::SendFrame(RakNetGUID recipient, void *inputBuffer)
 {
 	bool objectExists;
@@ -153,84 +159,63 @@ bool RakVoice::SendFrame(RakNetGUID recipient, void *inputBuffer)
 		unsigned totalBufferSize;
 		unsigned remainingBufferSize;
 
-		channel=voiceChannels[index];
+		channel = voiceChannels[index];
 
-		totalBufferSize=bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
+		totalBufferSize = bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
 		if (channel->outgoingWriteIndex >= channel->outgoingReadIndex)
-			remainingBufferSize=totalBufferSize-(channel->outgoingWriteIndex-channel->outgoingReadIndex);
+			remainingBufferSize = totalBufferSize - (channel->outgoingWriteIndex - channel->outgoingReadIndex);
 		else
-			remainingBufferSize=channel->outgoingReadIndex-channel->outgoingWriteIndex;
+			remainingBufferSize = channel->outgoingReadIndex - channel->outgoingWriteIndex;
 
-#ifdef _DEBUG
-		RakAssert(remainingBufferSize>0 && remainingBufferSize <= totalBufferSize);
-	//	printf("SendFrame: buff=%i writeIndex=%i readIndex=%i\n",remainingBufferSize, channel->outgoingWriteIndex, channel->outgoingReadIndex);
+		RakAssert(remainingBufferSize > 0 && remainingBufferSize <= totalBufferSize);
 
-		//printf("Writing %i bytes to write offset %i. %i %i.\n", bufferSizeBytes, channel->outgoingWriteIndex, *((char*)inputBuffer+channel->outgoingWriteIndex), *((char*)inputBuffer+channel->outgoingWriteIndex+bufferSizeBytes-1));
-#endif
+		memcpy(channel->outgoingBuffer + channel->outgoingWriteIndex, inputBuffer, bufferSizeBytes);
 
-		// Copy encoded sound to the outgoing buffer for that channel.  This has to be fast, since this function is likely to be called from a locked buffer
-		// I allocated the buffer to be a size multiple of bufferSizeBytes so don't have to watch for overflow on this line
-		memcpy(channel->outgoingBuffer + channel->outgoingWriteIndex, inputBuffer, bufferSizeBytes );
+		RakAssert(channel->outgoingWriteIndex + bufferSizeBytes <= totalBufferSize);
 
-#ifdef _DEBUG
-		RakAssert(channel->outgoingWriteIndex+bufferSizeBytes <= totalBufferSize);
-#endif
-
-
-		// Increment the write index, wrapping if needed.
-		channel->outgoingWriteIndex+=bufferSizeBytes;
-#ifdef _DEBUG
-		// Verify that the write is aligned to the size of outgoingBuffer
+		channel->outgoingWriteIndex += bufferSizeBytes;
 		RakAssert(channel->outgoingWriteIndex <= totalBufferSize);
-#endif
-		if (channel->outgoingWriteIndex==totalBufferSize)
-			channel->outgoingWriteIndex=0;
+		if (channel->outgoingWriteIndex == totalBufferSize)
+			channel->outgoingWriteIndex = 0;
 
-		if (bufferSizeBytes >= remainingBufferSize) // Would go past the current read position
+		if (bufferSizeBytes >= remainingBufferSize)
 		{
-#ifdef _DEBUG
-			// This is actually a warning - it means that FRAME_OUTGOING_BUFFER_COUNT wasn't big enough and old data is being overwritten
-			RakAssert(0);
-#endif
-			// Force the read index up one block
-			channel->outgoingReadIndex=(channel->outgoingReadIndex+channel->speexOutgoingFrameSampleCount * SAMPLESIZE)%totalBufferSize;			
+			RakAssert(0); // Buffer overflow warning
+			channel->outgoingReadIndex = (channel->outgoingReadIndex + channel->frameSizeSamples * SAMPLESIZE) % totalBufferSize;
 		}
 
-    	return true;
+		return true;
 	}
-	
+
 	return false;
 }
+
 bool RakVoice::IsSendingVoiceDataTo(RakNetGUID recipient)
 {
 	bool objectExists;
 	unsigned index;
 	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
 
-	// Free the memory for this channel
 	if (objectExists)
 		return voiceChannels[index]->isSendingVoiceData;
 	return false;
 }
+
 void RakVoice::ReceiveFrame(void *outputBuffer)
 {
 	short *out = (short*)outputBuffer;
-	unsigned i;
-	// Convert the floats to final 16-bits output
-	for (i=0; i < bufferSizeBytes / SAMPLESIZE; i++)
+	for (unsigned i = 0; i < bufferSizeBytes / SAMPLESIZE; i++)
 	{
-		if (bufferedOutput[i]>32767.0f)
-			out[i]=32767;
-		else if (bufferedOutput[i]<-32768.0f)
-			out[i]=-32768;
+		if (bufferedOutput[i] > 32767.0f)
+			out[i] = 32767;
+		else if (bufferedOutput[i] < -32768.0f)
+			out[i] = -32768;
 		else
-			out[i]=(short)bufferedOutput[i];
+			out[i] = (short)bufferedOutput[i];
 	}
 
-	// Done with this block.  Zero all the values in Update
-	zeroBufferedOutput=true;
+	zeroBufferedOutput = true;
 }
-
 
 int RakVoice::GetSampleRate(void) const
 {
@@ -244,79 +229,83 @@ int RakVoice::GetBufferSizeBytes(void) const
 
 bool RakVoice::IsInitialized(void) const
 {
-	// Use bufferedOutput to tell if the object was not initialized
-	return (bufferedOutput!=0);
+	return (bufferedOutput != nullptr);
 }
 
 RakPeerInterface* RakVoice::GetRakPeerInterface(void) const
 {
 	return rakPeerInterface;
 }
+
 unsigned RakVoice::GetBufferedBytesToSend(RakNetGUID guid) const
 {
 	bool objectExists;
 	VoiceChannel *channel;
-	unsigned totalBufferSize=bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
-	if (guid!=UNASSIGNED_RAKNET_GUID)
+	unsigned totalBufferSize = bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
+
+	if (guid != UNASSIGNED_RAKNET_GUID)
 	{
 		unsigned index = voiceChannels.GetIndexFromKey(guid, &objectExists);
-		channel = voiceChannels[index];
 		if (objectExists)
 		{
-			if (channel->outgoingWriteIndex>=channel->outgoingReadIndex)
-				return channel->outgoingWriteIndex-channel->outgoingReadIndex;
+			channel = voiceChannels[index];
+			if (channel->outgoingWriteIndex >= channel->outgoingReadIndex)
+				return channel->outgoingWriteIndex - channel->outgoingReadIndex;
 			else
-				return channel->outgoingWriteIndex + (totalBufferSize-channel->outgoingReadIndex);
+				return channel->outgoingWriteIndex + (totalBufferSize - channel->outgoingReadIndex);
 		}
 	}
 	else
 	{
-		unsigned total=0;
-		for (unsigned i=0; i < voiceChannels.Size(); i++)
+		unsigned total = 0;
+		for (unsigned i = 0; i < voiceChannels.Size(); i++)
 		{
-			channel=voiceChannels[i];
-			if (channel->outgoingWriteIndex>=channel->outgoingReadIndex)
-				total+=channel->outgoingWriteIndex-channel->outgoingReadIndex;
+			channel = voiceChannels[i];
+			if (channel->outgoingWriteIndex >= channel->outgoingReadIndex)
+				total += channel->outgoingWriteIndex - channel->outgoingReadIndex;
 			else
-				total+=channel->outgoingWriteIndex + (totalBufferSize-channel->outgoingReadIndex);
+				total += channel->outgoingWriteIndex + (totalBufferSize - channel->outgoingReadIndex);
 		}
 		return total;
 	}
-	
+
 	return 0;
 }
+
 unsigned RakVoice::GetBufferedBytesToReturn(RakNetGUID guid) const
 {
 	bool objectExists;
 	VoiceChannel *channel;
-	unsigned totalBufferSize=bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
-	if (guid!=UNASSIGNED_RAKNET_GUID)
+	unsigned totalBufferSize = bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
+
+	if (guid != UNASSIGNED_RAKNET_GUID)
 	{
 		unsigned index = voiceChannels.GetIndexFromKey(guid, &objectExists);
-		channel = voiceChannels[index];
 		if (objectExists)
 		{
+			channel = voiceChannels[index];
 			if (channel->incomingReadIndex <= channel->incomingWriteIndex)
-				return channel->incomingWriteIndex-channel->incomingReadIndex;
+				return channel->incomingWriteIndex - channel->incomingReadIndex;
 			else
-				return totalBufferSize-channel->incomingReadIndex+channel->incomingWriteIndex;
+				return totalBufferSize - channel->incomingReadIndex + channel->incomingWriteIndex;
 		}
 	}
 	else
 	{
-		unsigned total=0;
-		for (unsigned i=0; i < voiceChannels.Size(); i++)
+		unsigned total = 0;
+		for (unsigned i = 0; i < voiceChannels.Size(); i++)
 		{
-			channel=voiceChannels[i];
+			channel = voiceChannels[i];
 			if (channel->incomingReadIndex <= channel->incomingWriteIndex)
-				total+=channel->incomingWriteIndex-channel->incomingReadIndex;
+				total += channel->incomingWriteIndex - channel->incomingReadIndex;
 			else
-				total+=totalBufferSize-channel->incomingReadIndex+channel->incomingWriteIndex;
+				total += totalBufferSize - channel->incomingReadIndex + channel->incomingWriteIndex;
 		}
 		return total;
 	}
 	return 0;
 }
+
 void RakVoice::OnShutdown(void)
 {
 	CloseAllChannels();
@@ -324,259 +313,181 @@ void RakVoice::OnShutdown(void)
 
 void RakVoice::Update(void)
 {
-	unsigned i,j, bytesAvailable, speexFramesAvailable, speexBlockSize;
+	unsigned i, j, bytesAvailable, opusFramesAvailable, opusBlockSize;
 	unsigned bytesWaitingToReturn;
-	int bytesWritten;
 	VoiceChannel *channel;
 	char *inputBuffer;
+	unsigned char encodedBuffer[MAX_OPUS_PACKET_SIZE];
 	char tempOutput[2048];
-	// 1 byte for ID, and 2 bytes(short) for Message number
-	static const int headerSize=sizeof(unsigned char) + sizeof(unsigned short);
-	// First byte is ID for RakNet
-	tempOutput[0]=ID_RAKVOICE_DATA;
-	
-	MafiaNet::TimeMS currentTime = MafiaNet::GetTimeMS();
+	static const int headerSize = sizeof(unsigned char) + sizeof(unsigned short);
+	tempOutput[0] = ID_RAKVOICE_DATA;
 
-	// Size of VoiceChannel::incomingBuffer and VoiceChannel::outgoingBuffer arrays
-	unsigned totalBufferSize=bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
-	
-	// Allow all channels to write, and set the output to zero in preparation
+	MafiaNet::TimeMS currentTime = MafiaNet::GetTimeMS();
+	unsigned totalBufferSize = bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
+
 	if (zeroBufferedOutput)
 	{
-		for (i=0; i < bufferedOutputCount; i++)
-			bufferedOutput[i]=0.0f;
-		for (i=0; i < voiceChannels.Size(); i++)
-			voiceChannels[i]->copiedOutgoingBufferToBufferedOutput=false;
-		zeroBufferedOutput=false;
+		for (i = 0; i < bufferedOutputCount; i++)
+			bufferedOutput[i] = 0.0f;
+		for (i = 0; i < voiceChannels.Size(); i++)
+			voiceChannels[i]->copiedOutgoingBufferToBufferedOutput = false;
+		zeroBufferedOutput = false;
 	}
 
-	// For each channel
-	for (i=0; i < voiceChannels.Size(); i++)
+	for (i = 0; i < voiceChannels.Size(); i++)
 	{
-		channel=voiceChannels[i];
+		channel = voiceChannels[i];
 
 		if (currentTime - channel->lastSend > 50) // Throttle to 20 sends a second
 		{
-			channel->isSendingVoiceData=false;
+			channel->isSendingVoiceData = false;
 
-			// Circular buffer so I have to do this to count how many bytes are available
-			if (channel->outgoingWriteIndex>=channel->outgoingReadIndex)
-				bytesAvailable=channel->outgoingWriteIndex-channel->outgoingReadIndex;
+			if (channel->outgoingWriteIndex >= channel->outgoingReadIndex)
+				bytesAvailable = channel->outgoingWriteIndex - channel->outgoingReadIndex;
 			else
-				bytesAvailable=channel->outgoingWriteIndex + (totalBufferSize-channel->outgoingReadIndex);
+				bytesAvailable = channel->outgoingWriteIndex + (totalBufferSize - channel->outgoingReadIndex);
 
-			// Speex returns how many frames it encodes per block.  Each frame is of byte length sampleSize.
-			speexBlockSize = channel->speexOutgoingFrameSampleCount * SAMPLESIZE;
+			opusBlockSize = channel->frameSizeSamples * SAMPLESIZE;
+			opusFramesAvailable = bytesAvailable / opusBlockSize;
 
-#ifdef PRINT_DEBUG_INFO
-			static int lastPrint=0;
-			if (i==0 && currentTime-lastPrint > 2000)
+			if (opusFramesAvailable > 0)
 			{
-				lastPrint=currentTime;
-				unsigned bytesWaitingToReturn;
-				if (channel->incomingReadIndex <= channel->incomingWriteIndex)
-					bytesWaitingToReturn=channel->incomingWriteIndex-channel->incomingReadIndex;
-				else
-					bytesWaitingToReturn=totalBufferSize-channel->incomingReadIndex+channel->incomingWriteIndex;
-
-				printf("%i bytes to send. incomingMessageNumber=%i. bytesWaitingToReturn=%i.\n", bytesAvailable, channel->incomingMessageNumber, bytesWaitingToReturn );
-			}
-#endif
-
-#ifdef _TEST_LOOPBACK
-			/*
-			if (bufferSizeBytes<bytesAvailable)
-			{
-				printf("Update: bytesAvailable=%i writeIndex=%i readIndex=%i\n",bytesAvailable, channel->outgoingWriteIndex, channel->outgoingReadIndex);
-				memcpy(channel->incomingBuffer + channel->incomingWriteIndex, channel->outgoingBuffer+channel->outgoingReadIndex, bufferSizeBytes);
-				channel->incomingWriteIndex=(channel->incomingWriteIndex+bufferSizeBytes) % totalBufferSize;
-				channel->outgoingReadIndex=(channel->outgoingReadIndex+bufferSizeBytes) % totalBufferSize;
-			}
-			return;
-			*/
-#endif
-
-			// Find out how many frames we can read out of the buffer for speex to encode and send these out.
-			speexFramesAvailable = bytesAvailable / speexBlockSize;
-
-			// Encode all available frames and send them unreliable sequenced
-			if (speexFramesAvailable > 0)
-			{
-				SpeexBits speexBits;
-				speex_bits_init(&speexBits);
-				while (speexFramesAvailable-- > 0)
+				while (opusFramesAvailable-- > 0)
 				{
-					speex_bits_reset(&speexBits);
-
-					// If the input data would wrap around the buffer, copy it to another buffer first
-					if (channel->outgoingReadIndex + speexBlockSize >= totalBufferSize)
+					// Get input buffer, handling wrap-around
+					if (channel->outgoingReadIndex + opusBlockSize > totalBufferSize)
 					{
-#ifdef _DEBUG
-						RakAssert(speexBlockSize < 2048-1);
-#endif
-						unsigned t;
-						for (t=0; t < speexBlockSize; t++)
-							tempOutput[t+headerSize]=channel->outgoingBuffer[t%totalBufferSize];
-						inputBuffer=tempOutput+headerSize;
-					}
-					else
-						inputBuffer=channel->outgoingBuffer+channel->outgoingReadIndex;
-
-#ifdef _DEBUG
-					/*
-					printf("In: ");
-					if (shortSampleType)
-					{
-						short *blah = (short*) inputBuffer;
-						for (int p=0; p < 5; p++)
-						{
-							printf("%.i ", blah[p]);
-						}
+						// Copy wrapped data to temp buffer
+						unsigned firstPart = totalBufferSize - channel->outgoingReadIndex;
+						memcpy(tempOutput + headerSize, channel->outgoingBuffer + channel->outgoingReadIndex, firstPart);
+						memcpy(tempOutput + headerSize + firstPart, channel->outgoingBuffer, opusBlockSize - firstPart);
+						inputBuffer = tempOutput + headerSize;
 					}
 					else
 					{
-						float *blah = (float*) inputBuffer;
-						for (int p=0; p < 5; p++)
+						inputBuffer = channel->outgoingBuffer + channel->outgoingReadIndex;
+					}
+
+					short *samples = (short*)inputBuffer;
+
+					// Apply RNNoise denoising if enabled
+					if (defaultDENOISEState && channel->denoiser)
+					{
+						// RNNoise works at 48kHz with 480 sample frames
+						// For other sample rates, we skip denoising (or could resample)
+						if (sampleRate == 48000 && channel->frameSizeSamples == RNNOISE_FRAME_SIZE)
 						{
-							printf("%.3f ", blah[p]);
+							float floatSamples[RNNOISE_FRAME_SIZE];
+							for (int s = 0; s < RNNOISE_FRAME_SIZE; s++)
+								floatSamples[s] = (float)samples[s];
+
+							rnnoise_process_frame(channel->denoiser, floatSamples, floatSamples);
+
+							for (int s = 0; s < RNNOISE_FRAME_SIZE; s++)
+								samples[s] = (short)floatSamples[s];
 						}
 					}
 
-					printf("\n");
-*/
-#endif
-					int is_speech=1;
+					// Encode with Opus
+					int encodedBytes = opus_encode(channel->encoder, samples, channel->frameSizeSamples,
+					                               encodedBuffer, MAX_OPUS_PACKET_SIZE);
 
-					// Run preprocessor if required
-					if (defaultDENOISEState||defaultVADState){
-						is_speech=speex_preprocess((SpeexPreprocessState*)channel->pre_state,(spx_int16_t*) inputBuffer, nullptr);
-					}
+					channel->outgoingReadIndex = (channel->outgoingReadIndex + opusBlockSize) % totalBufferSize;
 
-					if ((is_speech)||(!defaultVADState)){
-						is_speech = speex_encode_int(channel->enc_state, (spx_int16_t*) inputBuffer, &speexBits);
-					}
-
-					channel->outgoingReadIndex=(channel->outgoingReadIndex+speexBlockSize)%totalBufferSize;
-
-					// If no speech detected, don't send this frame
-					if ((!is_speech)&&(defaultVADState)){
+					if (encodedBytes < 0)
+					{
+						// Opus encoding error
 						continue;
 					}
 
-					channel->isSendingVoiceData=true;
+					// DTX: if encoded bytes is very small (just a DTX packet), skip if VAD enabled
+					if (defaultVADState && encodedBytes <= 2)
+					{
+						continue;
+					}
 
-#ifdef _DEBUG
-//					printf("Update: bytesAvailable=%i writeIndex=%i readIndex=%i\n",bytesAvailable, channel->outgoingWriteIndex, channel->outgoingReadIndex);
-#endif
+					channel->isSendingVoiceData = true;
 
-					bytesWritten = speex_bits_write(&speexBits, tempOutput+headerSize, 2048-headerSize);
-#ifdef _DEBUG
-					// If this assert hits then you need to increase the size of the temp buffer, but this is really a bug because
-					// voice packets should never be bigger than a few hundred bytes.
-					RakAssert(bytesWritten!=2048-headerSize);
-#endif
-
-//					static int bytesSent=0;
-//					bytesSent+= bytesWritten+headerSize;
-//					printf("bytesSent=%i\n", bytesSent);
-
-#ifdef PRINT_DEBUG_INFO
-static int voicePacketsSent=0;
-printf("%i ", voicePacketsSent++);
-#endif
-
-					// at +1, because the first byte in the buffer has the ID for RakNet.
-					memcpy(tempOutput+1, &channel->outgoingMessageNumber, sizeof(unsigned short));
+					// Build packet: ID (1 byte) + message number (2 bytes) + encoded data
+					memcpy(tempOutput + 1, &channel->outgoingMessageNumber, sizeof(unsigned short));
+					memcpy(tempOutput + headerSize, encodedBuffer, encodedBytes);
 					channel->outgoingMessageNumber++;
-					MafiaNet::BitStream tempOutputBs((unsigned char*) tempOutput,bytesWritten+headerSize,false);
-					SendUnified(&tempOutputBs, HIGH_PRIORITY, UNRELIABLE,0,channel->guid,false);
+
+					MafiaNet::BitStream tempOutputBs((unsigned char*)tempOutput, encodedBytes + headerSize, false);
+					SendUnified(&tempOutputBs, HIGH_PRIORITY, UNRELIABLE, 0, channel->guid, false);
 
 					if (loopbackMode)
 					{
 						Packet p;
-						p.length=bytesWritten+1;
-						p.data=(unsigned char*)tempOutput;
-						p.guid=channel->guid;
-						p.systemAddress=rakPeerInterface->GetSystemAddressFromGuid(p.guid);
+						p.length = encodedBytes + headerSize;
+						p.data = (unsigned char*)tempOutput;
+						p.guid = channel->guid;
+						p.systemAddress = rakPeerInterface->GetSystemAddressFromGuid(p.guid);
 						OnVoiceData(&p);
 					}
 				}
 
-				speex_bits_destroy(&speexBits);
-				channel->lastSend=currentTime;
+				channel->lastSend = currentTime;
 			}
 		}
 
-		// As sound buffer blocks fill up, I add their values to RakVoice::bufferedOutput .  Then when the user calls ReceiveFrame they get that value, already
-		// processed.  This is necessary because that function needs to run as fast as possible so I remove all processing there that I can.  Otherwise the sound
-		// plays back distorted and popping
-		if (channel->copiedOutgoingBufferToBufferedOutput==false)
+		// Mix incoming audio to output buffer
+		if (channel->copiedOutgoingBufferToBufferedOutput == false)
 		{
 			if (channel->incomingReadIndex <= channel->incomingWriteIndex)
-				bytesWaitingToReturn=channel->incomingWriteIndex-channel->incomingReadIndex;
+				bytesWaitingToReturn = channel->incomingWriteIndex - channel->incomingReadIndex;
 			else
-				bytesWaitingToReturn=totalBufferSize-channel->incomingReadIndex+channel->incomingWriteIndex;
+				bytesWaitingToReturn = totalBufferSize - channel->incomingReadIndex + channel->incomingWriteIndex;
 
-			if (bytesWaitingToReturn==0)
+			if (bytesWaitingToReturn == 0)
 			{
-				channel->bufferOutput=true;
+				channel->bufferOutput = true;
 			}
-			else if (channel->bufferOutput==false || bytesWaitingToReturn > bufferSizeBytes*2)
+			else if (channel->bufferOutput == false || bytesWaitingToReturn > bufferSizeBytes * 2)
 			{
-				// Block running this again until the user calls ReceiveFrame since every call to ReceiveFrame only gets zero or one output blocks from
-				// each channel
-				channel->copiedOutgoingBufferToBufferedOutput=true;
+				channel->copiedOutgoingBufferToBufferedOutput = true;
+				channel->bufferOutput = false;
 
-				// Stop buffering output.  We won't start buffering again until there isn't enough data to read.
-				channel->bufferOutput=false;
-
-				// Cap to the size of the output buffer.  But we do write less if less is available, with the rest silence
 				if (bytesWaitingToReturn > bufferSizeBytes)
 				{
-					bytesWaitingToReturn=bufferSizeBytes;
+					bytesWaitingToReturn = bufferSizeBytes;
 				}
 				else
 				{
-					// Align the write index so when we increment the partial block read (which is always aligned) it computes out to 0 bytes waiting
-					channel->incomingWriteIndex=channel->incomingReadIndex+bufferSizeBytes;
-					if (channel->incomingWriteIndex==totalBufferSize)
-						channel->incomingWriteIndex=0;
+					channel->incomingWriteIndex = channel->incomingReadIndex + bufferSizeBytes;
+					if (channel->incomingWriteIndex >= totalBufferSize)
+						channel->incomingWriteIndex -= totalBufferSize;
 				}
 
-				short *in = (short *) (channel->incomingBuffer+channel->incomingReadIndex);
-				for (j=0; j < bytesWaitingToReturn / SAMPLESIZE; j++)
+				short *in = (short*)(channel->incomingBuffer + channel->incomingReadIndex);
+				for (j = 0; j < bytesWaitingToReturn / SAMPLESIZE; j++)
 				{
-					// Write short to float so if the range goes over the range of a float we can still add and subtract the correct final value.
-					// It will be clamped at the end
-					bufferedOutput[j]+=in[j%(totalBufferSize/SAMPLESIZE)];
+					bufferedOutput[j] += in[j % (totalBufferSize / SAMPLESIZE)];
 				}
 
-				// Update the read index.  Always update by bufferSizeBytes, not bytesWaitingToReturn.
-				// if bytesWaitingToReturn < bufferSizeBytes then the rest is silence since this means the buffer ran out or we stopped sending.
-				channel->incomingReadIndex+=bufferSizeBytes;
-				if (channel->incomingReadIndex==totalBufferSize)
-					channel->incomingReadIndex=0;
-
-			//	printf("%f %f\n", channel->incomingReadIndex/(float)bufferSizeBytes, channel->incomingWriteIndex/(float)bufferSizeBytes);
+				channel->incomingReadIndex += bufferSizeBytes;
+				if (channel->incomingReadIndex >= totalBufferSize)
+					channel->incomingReadIndex -= totalBufferSize;
 			}
 		}
 	}
 }
+
 PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 {
 	RakAssert(packet);
 
-	switch (packet->data[0]) 
+	switch (packet->data[0])
 	{
 	case ID_RAKVOICE_OPEN_CHANNEL_REQUEST:
 		OnOpenChannelRequest(packet);
-	break;
+		break;
 	case ID_RAKVOICE_OPEN_CHANNEL_REPLY:
 		OnOpenChannelReply(packet);
 		break;
 	case ID_RAKVOICE_CLOSE_CHANNEL:
 		FreeChannelMemory(packet->guid);
-	break;
+		break;
 	case ID_RAKVOICE_DATA:
 		OnVoiceData(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
@@ -584,11 +495,12 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 
 	return RR_CONTINUE_PROCESSING;
 }
-void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+
+void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	(void)systemAddress;
 
-	if (lostConnectionReason==LCR_CLOSED_BY_USER)
+	if (lostConnectionReason == LCR_CLOSED_BY_USER)
 		CloseVoiceChannel(rakNetGUID);
 	else
 		FreeChannelMemory(rakNetGUID);
@@ -599,8 +511,7 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 	if (voiceChannels.HasData(packet->guid))
 		return;
 
-	// If the system is not initialized, just return
-	if (bufferedOutput==0)
+	if (bufferedOutput == nullptr)
 		return;
 
 	OpenChannel(packet);
@@ -608,14 +519,16 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REPLY);
 	out.Write((int32_t)sampleRate);
-	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED,0,packet->systemAddress,false);	
+	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
 }
+
 void RakVoice::OnOpenChannelReply(Packet *packet)
 {
 	if (voiceChannels.HasData(packet->guid))
 		return;
 	OpenChannel(packet);
 }
+
 void RakVoice::OpenChannel(Packet *packet)
 {
 	MafiaNet::BitStream in(packet->data, packet->length, false);
@@ -623,139 +536,116 @@ void RakVoice::OpenChannel(Packet *packet)
 
 	FreeChannelMemory(packet->guid);
 
-	VoiceChannel *channel= MafiaNet::OP_NEW<VoiceChannel>( _FILE_AND_LINE_ );
-	channel->guid=packet->guid;
-	channel->isSendingVoiceData=false;
+	VoiceChannel *channel = MafiaNet::OP_NEW<VoiceChannel>(_FILE_AND_LINE_);
+	channel->guid = packet->guid;
+	channel->isSendingVoiceData = false;
+
 	int newSampleRate;
 	in.Read(newSampleRate);
-	channel->remoteSampleRate=newSampleRate;
+	channel->remoteSampleRate = newSampleRate;
 
-	if (channel->remoteSampleRate!=8000 && channel->remoteSampleRate!=16000 && channel->remoteSampleRate!=32000)
+	if (newSampleRate != 8000 && newSampleRate != 16000 && newSampleRate != 24000 && newSampleRate != 48000)
 	{
-#ifdef _DEBUG
 		RakAssert(0);
-#endif
 		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
 		return;
 	}
 
-	if (newSampleRate==8000)
-		channel->enc_state=speex_encoder_init(&speex_nb_mode);
-	else if (newSampleRate==16000)
-		channel->enc_state=speex_encoder_init(&speex_wb_mode);
-	else // 32000
-		channel->enc_state=speex_encoder_init(&speex_uwb_mode);
+	// Create Opus encoder
+	int error;
+	channel->encoder = opus_encoder_create(sampleRate, 1, OPUS_APPLICATION_VOIP, &error);
+	if (error != OPUS_OK || channel->encoder == nullptr)
+	{
+		RakAssert(0);
+		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		return;
+	}
 
-	if (channel->remoteSampleRate==8000)
-		channel->dec_state=speex_decoder_init(&speex_nb_mode);
-	else if (channel->remoteSampleRate==16000)
-		channel->dec_state=speex_decoder_init(&speex_wb_mode);
-	else // 32000
-		channel->dec_state=speex_decoder_init(&speex_uwb_mode);
+	// Create Opus decoder (using remote sample rate)
+	channel->decoder = opus_decoder_create(channel->remoteSampleRate, 1, &error);
+	if (error != OPUS_OK || channel->decoder == nullptr)
+	{
+		opus_encoder_destroy(channel->encoder);
+		RakAssert(0);
+		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		return;
+	}
 
-	// make sure encoder and decoder are created
-	RakAssert((channel->enc_state)&&(channel->dec_state));
+	// Configure encoder
+	opus_encoder_ctl(channel->encoder, OPUS_SET_VBR(defaultVBRState ? 1 : 0));
+	opus_encoder_ctl(channel->encoder, OPUS_SET_DTX(defaultVADState ? 1 : 0));
+	opus_encoder_ctl(channel->encoder, OPUS_SET_SIGNAL(defaultSignalType));
 
-	int ret;
-	ret=speex_encoder_ctl(channel->enc_state, SPEEX_GET_FRAME_SIZE, &channel->speexOutgoingFrameSampleCount);
-	RakAssert(ret==0);
-	channel->outgoingBuffer = (char*) rakMalloc_Ex(bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT, _FILE_AND_LINE_);
-	channel->outgoingReadIndex=0;
-	channel->outgoingWriteIndex=0;
-	channel->bufferOutput=true;
-	channel->outgoingMessageNumber=0;
-	channel->copiedOutgoingBufferToBufferedOutput=false;
+	// Create RNNoise denoiser (only works well at 48kHz)
+	channel->denoiser = rnnoise_create(nullptr);
 
-	ret=speex_decoder_ctl(channel->dec_state, SPEEX_GET_FRAME_SIZE, &channel->speexIncomingFrameSampleCount);
-	RakAssert(ret==0);
-	channel->incomingBuffer = (char*) rakMalloc_Ex(bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT, _FILE_AND_LINE_);
-	channel->incomingReadIndex=0;
-	channel->incomingWriteIndex=0;
-	channel->lastSend=0;
-	channel->incomingMessageNumber=0;
+	// Calculate frame sizes
+	channel->frameSizeSamples = GetFrameSizeSamples(sampleRate);
+	channel->maxPacketBytes = MAX_OPUS_PACKET_SIZE;
 
-	// Initialize preprocessor
-	channel->pre_state = speex_preprocess_state_init(channel->speexOutgoingFrameSampleCount, newSampleRate);
-	RakAssert(channel->pre_state);
+	// Allocate buffers
+	channel->outgoingBuffer = (char*)rakMalloc_Ex(bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT, _FILE_AND_LINE_);
+	channel->outgoingReadIndex = 0;
+	channel->outgoingWriteIndex = 0;
+	channel->bufferOutput = true;
+	channel->outgoingMessageNumber = 0;
+	channel->copiedOutgoingBufferToBufferedOutput = false;
 
-	// Set encoder default parameters
-	SetEncoderParameter(channel->enc_state, SPEEX_SET_VBR, (defaultVBRState) ? 1 : 0 );
-	SetEncoderParameter(channel->enc_state, SPEEX_SET_COMPLEXITY, defaultEncoderComplexity);
-	// Set preprocessor default parameters
-	SetPreprocessorParameter(channel->pre_state, SPEEX_PREPROCESS_SET_DENOISE, (defaultDENOISEState) ? 1 : 2);
-	SetPreprocessorParameter(channel->pre_state, SPEEX_PREPROCESS_SET_VAD, (defaultVADState) ? 1 : 2);
+	channel->incomingBuffer = (char*)rakMalloc_Ex(bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT, _FILE_AND_LINE_);
+	channel->incomingReadIndex = 0;
+	channel->incomingWriteIndex = 0;
+	channel->lastSend = 0;
+	channel->incomingMessageNumber = 0;
 
 	voiceChannels.Insert(packet->guid, channel, true, _FILE_AND_LINE_);
 }
 
-
-void RakVoice::SetEncoderParameter(void* enc_state, int vartype, int val)
-{
-	if (enc_state){ 
-		// Set parameter for just one encoder
-		SLNET_VERIFY(speex_encoder_ctl(enc_state, vartype, &val) == 0);
-	} else {
-		// Set parameter for all encoders
-		for (unsigned int index=0; index < voiceChannels.Size(); index++)
-		{
-			SLNET_VERIFY(speex_encoder_ctl(voiceChannels[index]->enc_state, vartype, &val) == 0);
-		}
-	}
-}
-
-void RakVoice::SetPreprocessorParameter(void* pre_state, int vartype, int val)
-{
-	if (pre_state){
-		// Set parameter for just one preprocessor
-		SLNET_VERIFY(speex_preprocess_ctl((SpeexPreprocessState*)pre_state, vartype, &val) == 0);
-	} else {
-		// Set parameter for all decoders
-		for (unsigned int index=0; index < voiceChannels.Size(); index++)
-		{
-			SLNET_VERIFY(speex_preprocess_ctl((SpeexPreprocessState*)voiceChannels[index]->pre_state, vartype, &val) == 0);
-		}
-	}
-}
-
-void RakVoice::SetEncoderComplexity(int complexity)
-{
-	RakAssert((complexity>=0)&&(complexity<=10));
-	SetEncoderParameter(nullptr, SPEEX_SET_COMPLEXITY, complexity);
-	defaultEncoderComplexity = complexity;
-}
 void RakVoice::SetVAD(bool enable)
 {
-	SetPreprocessorParameter(nullptr, SPEEX_PREPROCESS_SET_VAD, (enable)? 1 : 2);
 	defaultVADState = enable;
-}
-void RakVoice::SetNoiseFilter(bool enable)
-{
-	SetPreprocessorParameter(nullptr, SPEEX_PREPROCESS_SET_DENOISE, (enable) ? 1 : 2);
-	defaultDENOISEState = enable;
-}
-void RakVoice::SetVBR(bool enable)
-{
-	SetEncoderParameter(nullptr, SPEEX_SET_VBR, (enable) ? 1 : 0);
-	defaultVBRState = enable;
+	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	{
+		opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_DTX(enable ? 1 : 0));
+	}
 }
 
-int RakVoice::GetEncoderComplexity(void)
+void RakVoice::SetNoiseFilter(bool enable)
 {
-	return defaultEncoderComplexity;
+	defaultDENOISEState = enable;
 }
+
+void RakVoice::SetVBR(bool enable)
+{
+	defaultVBRState = enable;
+	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	{
+		opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_VBR(enable ? 1 : 0));
+	}
+}
+
+void RakVoice::SetSignalType(int signalType)
+{
+	defaultSignalType = signalType;
+	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	{
+		opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_SIGNAL(signalType));
+	}
+}
+
 bool RakVoice::IsVADActive(void)
 {
 	return defaultVADState;
 }
+
 bool RakVoice::IsNoiseFilterActive()
 {
 	return defaultDENOISEState;
 }
+
 bool RakVoice::IsVBRActive()
 {
 	return defaultVBRState;
 }
-
 
 void RakVoice::FreeChannelMemory(RakNetGUID recipient)
 {
@@ -763,146 +653,114 @@ void RakVoice::FreeChannelMemory(RakNetGUID recipient)
 	unsigned index;
 	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
 
-	// Free the memory for this channel
 	if (objectExists)
 	{
 		FreeChannelMemory(index, true);
 	}
 }
+
 void RakVoice::FreeChannelMemory(unsigned index, bool removeIndex)
 {
 	VoiceChannel *channel;
-	channel=voiceChannels[index];
-	speex_encoder_destroy(channel->enc_state);
-	speex_decoder_destroy(channel->dec_state);
-	speex_preprocess_state_destroy((SpeexPreprocessState*)channel->pre_state);
-	rakFree_Ex(channel->incomingBuffer, _FILE_AND_LINE_ );
-	rakFree_Ex(channel->outgoingBuffer, _FILE_AND_LINE_ );
+	channel = voiceChannels[index];
+
+	if (channel->encoder)
+		opus_encoder_destroy(channel->encoder);
+	if (channel->decoder)
+		opus_decoder_destroy(channel->decoder);
+	if (channel->denoiser)
+		rnnoise_destroy(channel->denoiser);
+
+	rakFree_Ex(channel->incomingBuffer, _FILE_AND_LINE_);
+	rakFree_Ex(channel->outgoingBuffer, _FILE_AND_LINE_);
 	MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+
 	if (removeIndex)
 		voiceChannels.RemoveAtIndex(index);
 }
+
 void RakVoice::OnVoiceData(Packet *packet)
 {
 	bool objectExists;
 	unsigned index;
 	unsigned short packetMessageNumber, messagesSkipped;
 	VoiceChannel *channel;
-	char tempOutput[2048];
-	unsigned int i;
-	// 1 byte for ID, 2 bytes(short) for message number
-	static const int headerSize=sizeof(unsigned char) + sizeof(unsigned short);
+	short decodedBuffer[960 * 2]; // Max frame size for 48kHz
+	static const int headerSize = sizeof(unsigned char) + sizeof(unsigned short);
 
 	index = voiceChannels.GetIndexFromKey(packet->guid, &objectExists);
 	if (objectExists)
 	{
-		SpeexBits speexBits;
-		speex_bits_init(&speexBits);
-		channel=voiceChannels[index];
-		memcpy(&packetMessageNumber, packet->data+1, sizeof(unsigned short));
+		channel = voiceChannels[index];
+		memcpy(&packetMessageNumber, packet->data + 1, sizeof(unsigned short));
 
-		// Intentional overflow
-		messagesSkipped=packetMessageNumber-channel->incomingMessageNumber;
-		if (messagesSkipped > ((unsigned short)-1)/2)
+		// Intentional overflow for sequence handling
+		messagesSkipped = packetMessageNumber - channel->incomingMessageNumber;
+		if (messagesSkipped > ((unsigned short)-1) / 2)
 		{
-#ifdef PRINT_DEBUG_INFO
-			printf("--- UNDERFLOW ---\n");
-#endif
-			// Underflow, just ignore it
+			// Underflow, ignore
 			return;
 		}
-#ifdef PRINT_DEBUG_INFO
-		if (messagesSkipped>0)
-			printf("%i messages skipped\n", messagesSkipped);
-#endif
-		// Don't do more than 100 ms of messages skipped.  Discard the rest.
-		int maxSkip = (int)(100.0f / (float) sampleRate);
-		for (i=0; i < (unsigned) messagesSkipped && i < (unsigned) maxSkip; i++)
+
+		// Handle missing packets with PLC (Packet Loss Concealment)
+		int maxSkip = (int)(100.0f / (1000.0f / 50.0f)); // Max 100ms of missing audio
+		int decodedFrameSize = GetFrameSizeSamples(channel->remoteSampleRate);
+
+		for (unsigned i = 0; i < (unsigned)messagesSkipped && i < (unsigned)maxSkip; i++)
 		{
-			speex_decode_int(channel->dec_state, 0, (spx_int16_t*)tempOutput);
-
-			// Write to buffer a 'message skipped' interpolation
-			WriteOutputToChannel(channel, tempOutput);
+			// Use Opus PLC by passing NULL for the packet
+			int samples = opus_decode(channel->decoder, nullptr, 0, decodedBuffer, decodedFrameSize, 0);
+			if (samples > 0)
+			{
+				WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
+			}
 		}
-	
-		channel->incomingMessageNumber=packetMessageNumber+1;
 
-		// Write to incomingBuffer the decoded data
-		speex_bits_read_from(&speexBits, (char*)(packet->data+headerSize), packet->length-headerSize);
-		speex_decode_int(channel->dec_state, &speexBits, (spx_int16_t*)tempOutput);
+		channel->incomingMessageNumber = packetMessageNumber + 1;
 
-#ifdef _DEBUG
+		// Decode the actual packet
+		int samples = opus_decode(channel->decoder,
+		                          packet->data + headerSize,
+		                          packet->length - headerSize,
+		                          decodedBuffer,
+		                          decodedFrameSize,
+		                          0);
+
+		if (samples > 0)
 		{
-			/*
-			printf("Out: ");
-			if (channel->remoteIsShortSampleType)
-			{
-				short *blah = (short*) tempOutput;
-				for (int p=0; p < 5; p++)
-				{
-					printf("%.i ", blah[p]);
-				}
-			}
-			else
-			{
-				float *blah = (float*) tempOutput;
-				for (int p=0; p < 5; p++)
-				{
-					printf("%.3f ", blah[p]);
-				}
-			}
-			
-			printf("\n");
-			*/
+			WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
 		}
-#endif
-
-		// Write to buffer
-		WriteOutputToChannel(channel, tempOutput);
-
-		speex_bits_destroy(&speexBits);
 	}
 }
-void RakVoice::WriteOutputToChannel(VoiceChannel *channel, char *dataToWrite)
+
+void RakVoice::WriteOutputToChannel(VoiceChannel *channel, char *dataToWrite, int bytesToWrite)
 {
 	unsigned totalBufferSize;
 	unsigned remainingBufferSize;
-	unsigned speexBlockSize;
 
-	totalBufferSize=bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT;
+	totalBufferSize = bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT;
 	if (channel->incomingWriteIndex >= channel->incomingReadIndex)
-		remainingBufferSize=totalBufferSize-(channel->incomingWriteIndex-channel->incomingReadIndex);
+		remainingBufferSize = totalBufferSize - (channel->incomingWriteIndex - channel->incomingReadIndex);
 	else
-		remainingBufferSize=channel->incomingReadIndex-channel->incomingWriteIndex;
+		remainingBufferSize = channel->incomingReadIndex - channel->incomingWriteIndex;
 
-	// Speex returns how many frames it encodes per block.  Each frame is of byte length sampleSize.
-	speexBlockSize = channel->speexIncomingFrameSampleCount * SAMPLESIZE;
-
-	if (channel->incomingWriteIndex+speexBlockSize <= totalBufferSize)
+	if (channel->incomingWriteIndex + bytesToWrite <= totalBufferSize)
 	{
-		memcpy(channel->incomingBuffer + channel->incomingWriteIndex, dataToWrite, speexBlockSize);
+		memcpy(channel->incomingBuffer + channel->incomingWriteIndex, dataToWrite, bytesToWrite);
 	}
 	else
 	{
-		memcpy(channel->incomingBuffer + channel->incomingWriteIndex, dataToWrite, totalBufferSize-channel->incomingWriteIndex);
-		memcpy(channel->incomingBuffer, dataToWrite, speexBlockSize-(totalBufferSize-channel->incomingWriteIndex));
+		unsigned firstPart = totalBufferSize - channel->incomingWriteIndex;
+		memcpy(channel->incomingBuffer + channel->incomingWriteIndex, dataToWrite, firstPart);
+		memcpy(channel->incomingBuffer, dataToWrite + firstPart, bytesToWrite - firstPart);
 	}
-    channel->incomingWriteIndex=(channel->incomingWriteIndex+speexBlockSize) % totalBufferSize;
+	channel->incomingWriteIndex = (channel->incomingWriteIndex + bytesToWrite) % totalBufferSize;
 
-
-#ifdef _DEBUG
-	//printf("WriteOutputToChannel: buff=%i writeIndex=%i readIndex=%i\n",remainingBufferSize, channel->incomingWriteIndex, channel->incomingReadIndex);
-#endif
-
-	if (bufferSizeBytes >= remainingBufferSize) // Would go past the current read position
+	if ((unsigned)bytesToWrite >= remainingBufferSize)
 	{
-#ifdef _DEBUG
-		// This is actually a warning - it means that FRAME_INCOMING_BUFFER_COUNT wasn't big enough and old data is being overwritten
-		RakAssert(0);
-#endif
-		// Force the read index up one block
-		channel->incomingReadIndex+=bufferSizeBytes;
-		if (channel->incomingReadIndex==totalBufferSize)
-			channel->incomingReadIndex=0;
+		RakAssert(0); // Buffer overflow warning
+		channel->incomingReadIndex += bufferSizeBytes;
+		if (channel->incomingReadIndex >= totalBufferSize)
+			channel->incomingReadIndex -= totalBufferSize;
 	}
 }

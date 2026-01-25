@@ -39,17 +39,18 @@
 typedef short SAMPLE;
 
 // Reads and writes per second of the sound data
-// Speex only supports these 3 values
-#define SAMPLE_RATE  (8000)
+// Opus supports these sample rates
+#define SAMPLE_RATE  (48000)
+//#define SAMPLE_RATE  (24000)
 //#define SAMPLE_RATE  (16000)
-//#define SAMPLE_RATE  (32000)
+//#define SAMPLE_RATE  (8000)
 
 MafiaNet::RakPeerInterface *rakPeer;
 
 // I think one buffer has to be full (of samples) before you hear the sound.
 // So higher frames per buffer means that there will be a larger latency before you hear the sound
 // However, it would lock and unlock the buffer more often, hindering performance.
-#define FRAMES_PER_BUFFER  (2048 / (32000 / SAMPLE_RATE))
+#define FRAMES_PER_BUFFER  (SAMPLE_RATE / 50)  // 20ms frame
 
 bool mute;
 MafiaNet::RakVoice rakVoice;
@@ -100,12 +101,8 @@ int main(void)
 	int ch;
 
 	printf("A sample on how to use RakVoice. You need a microphone for this sample.\n");
-	printf("RakVoice relies on Speex for voice encoding and decoding.\n");
-	printf("See DependentExtensions/RakVoice/speex-1.1.12 for speex projects.\n");
-	printf("For windows, I had to define HAVE_CONFIG_H, include win32/config.h,\n");
-	printf("and include the files under libspeex, except those that start with test.\n");
-	printf("PortAudio is also included and is used to read and write audio data.  You\n");
-	printf("can substitute whatever you want if you do not want to use portaudio.\n");
+	printf("RakVoice uses Opus codec for voice encoding and RNNoise for noise suppression.\n");
+	printf("PortAudio is used for cross-platform audio I/O.\n");
 	printf("Difficulty: Advanced\n\n");
 
 	// Since voice is peer to peer, we give the option to use the nat punchthrough client if desired.
