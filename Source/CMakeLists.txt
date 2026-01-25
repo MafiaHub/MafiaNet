@@ -66,13 +66,7 @@ set(MAFIANET_SOURCES
     src/RakNetCommandParser.cpp
     src/RakNetSocket.cpp
     src/RakNetSocket2.cpp
-    src/RakNetSocket2_360_720.cpp
     src/RakNetSocket2_Berkley.cpp
-    src/RakNetSocket2_Berkley_NativeClient.cpp
-    src/RakNetSocket2_NativeClient.cpp
-    src/RakNetSocket2_PS3_PS4.cpp
-    src/RakNetSocket2_PS4.cpp
-    src/RakNetSocket2_Vita.cpp
     src/RakNetSocket2_Windows_Linux.cpp
     src/RakNetSocket2_Windows_Linux_360.cpp
     src/RakNetStatistics.cpp

@@ -20,8 +20,7 @@
 #ifndef RAKNETSOCKET2_BERKLEY_CPP
 #define RAKNETSOCKET2_BERKLEY_CPP
 
-// Every platform except windows store 8 and native client supports Berkley sockets
-#if !defined(__native_client__)
+// Berkeley socket implementation for Windows and Linux
 
 #ifdef _WIN32
 #include <tchar.h>	// used for _tprintf() (via RAKNET_DEBUG_TPRINTF)
@@ -33,6 +32,86 @@
 #endif
 
 #include "mafianet/Itoa.h"
+#include "mafianet/WSAStartupSingleton.h"
+
+// Domain name resolution functions
+void DomainNameToIP_Berkley_IPV4And6( const char *domainName, char ip[65] )
+{
+#if RAKNET_SUPPORT_IPV6==1
+	struct addrinfo hints, *res, *p;
+	int status;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+
+	if ((status = getaddrinfo(domainName, nullptr, &hints, &res)) != 0) {
+		ip[0] = '\0';
+		return;
+	}
+
+	p=res;
+	void *addr;
+	if (p->ai_family == AF_INET)
+	{
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+		addr = &(ipv4->sin_addr);
+		inet_ntop(AF_INET, &ipv4->sin_addr, ip, 65);
+	}
+	else
+	{
+		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+		addr = &(ipv6->sin6_addr);
+		getnameinfo((struct sockaddr *)ipv6, sizeof(struct sockaddr_in6), ip, 65, nullptr, 0, NI_NUMERICHOST);
+	}
+	freeaddrinfo(res);
+#else
+	(void) domainName;
+	(void) ip;
+#endif
+}
+
+void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
+{
+	struct addrinfo *addressinfo = nullptr;
+	struct addrinfo *originalAddressInfo = nullptr;
+	WSAStartupSingleton::AddRef();
+	int error = getaddrinfo(domainName, nullptr, nullptr, &addressinfo);
+	WSAStartupSingleton::Deref();
+
+	if ( error != 0 || addressinfo == 0 )
+	{
+		ip[0] = '\0';
+		return;
+	}
+
+	originalAddressInfo = addressinfo;
+
+	while (addressinfo != nullptr) {
+		if (addressinfo->ai_family == AF_INET) {
+			break;
+		}
+		addressinfo = addressinfo->ai_next;
+	}
+
+	if (addressinfo == nullptr) {
+		ip[0] = '\0';
+		freeaddrinfo(originalAddressInfo);
+		return;
+	}
+
+	struct sockaddr_in *sockaddr_ipv4 = (struct sockaddr_in *) addressinfo->ai_addr;
+	inet_ntop(AF_INET, &sockaddr_ipv4->sin_addr, ip, 65);
+	freeaddrinfo(originalAddressInfo);
+}
+
+void DomainNameToIP_Berkley( const char *domainName, char ip[65] )
+{
+#if RAKNET_SUPPORT_IPV6==1
+	return DomainNameToIP_Berkley_IPV4And6(domainName, ip);
+#else
+	return DomainNameToIP_Berkley_IPV4(domainName, ip);
+#endif
+}
 
 void RNS2_Berkley::SetSocketOptions(void)
 {
@@ -448,8 +527,6 @@ void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 	return RecvFromBlockingIPV4(recvFromStruct);
 #endif
 }
-
-#endif // !defined(__native_client__)
 
 #endif // file header
 
