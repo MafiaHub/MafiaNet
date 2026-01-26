@@ -244,13 +244,25 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 		clientList[i]=RakPeerInterface::GetInstance();
 
 		SocketDescriptor clientSd;
-		clientList[i]->Startup(1, &clientSd, 1);
+		StartupResult result = clientList[i]->Startup(1, &clientSd, 1);
+		if (result != RAKNET_STARTED)
+		{
+			if (isVerbose)
+				printf("Client %d failed to start (error %d)\n", i, result);
+			return 1;
+		}
 
 	}
 
 	server=RakPeerInterface::GetInstance();
 	SocketDescriptor serverSd(60000, 0);
-	server->Startup(clientNum, &serverSd, 1);
+	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
+	if (serverResult != RAKNET_STARTED)
+	{
+		if (isVerbose)
+			printf("Server failed to start (error %d)\n", serverResult);
+		return 1;
+	}
 	server->SetMaximumIncomingConnections(clientNum);
 
 	const int timeoutTime=1000;
@@ -304,7 +316,7 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 
 			if(len>=1)
 			{
-
+				clientList[i]->Shutdown(100);
 				RakPeerInterface::DestroyInstance(clientList[i]);
 				clientList[i]=RakPeerInterface::GetInstance();
 	
@@ -460,6 +472,10 @@ ManyClientsOneServerDeallocateBlockingTest::~ManyClientsOneServerDeallocateBlock
 
 void ManyClientsOneServerDeallocateBlockingTest::DestroyPeers()
 {
+	// Shutdown all peers before destroying to let threads clean up
+	for (int i=0; i < clientNum; i++)
+		clientList[i]->Shutdown(100);
+	server->Shutdown(100);
 
 	for (int i=0; i < clientNum; i++)
 		RakPeerInterface::DestroyInstance(clientList[i]);

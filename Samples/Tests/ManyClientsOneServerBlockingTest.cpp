@@ -222,14 +222,26 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 		destroyList.Push(clientList[i],_FILE_AND_LINE_);
 
 		SocketDescriptor clientSd;
-		clientList[i]->Startup(1, &clientSd, 1);
+		StartupResult result = clientList[i]->Startup(1, &clientSd, 1);
+		if (result != RAKNET_STARTED)
+		{
+			if (isVerbose)
+				printf("Client %d failed to start (error %d)\n", i, result);
+			return 1;
+		}
 
 	}
 
 	server=RakPeerInterface::GetInstance();
 	destroyList.Push(server,_FILE_AND_LINE_);
 	SocketDescriptor serverSd(60000, 0);
-	server->Startup(clientNum, &serverSd, 1);
+	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
+	if (serverResult != RAKNET_STARTED)
+	{
+		if (isVerbose)
+			printf("Server failed to start (error %d)\n", serverResult);
+		return 1;
+	}
 	server->SetMaximumIncomingConnections(clientNum);
 
 	//Connect all the clients to the server
@@ -417,8 +429,11 @@ ManyClientsOneServerBlockingTest::~ManyClientsOneServerBlockingTest(void)
 
 void ManyClientsOneServerBlockingTest::DestroyPeers()
 {
-
 	int theSize=destroyList.Size();
+
+	// Shutdown all peers before destroying to let threads clean up
+	for (int i=0; i < theSize; i++)
+		destroyList[i]->Shutdown(100);
 
 	for (int i=0; i < theSize; i++)
 		RakPeerInterface::DestroyInstance(destroyList[i]);
