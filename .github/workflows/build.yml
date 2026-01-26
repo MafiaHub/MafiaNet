@@ -7,48 +7,46 @@ on:
     branches: [master]
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
-    runs-on: ${{ matrix.os }}
-
+  # Linux: Build and test in Docker container (full network access)
+  linux:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev cmake build-essential
+      - name: Build and test in Docker
+        run: |
+          docker build -t mafianet-test .
+          docker run --rm mafianet-test
 
-      - name: Install OpenSSL (macOS)
-        if: runner.os == 'macOS'
+  # macOS: Build only (network tests don't work on macOS runners)
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenSSL
         run: brew install openssl@3
 
-      - name: Configure CMake (Linux)
-        if: runner.os == 'Linux'
-        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON
-
-      - name: Configure CMake (macOS)
-        if: runner.os == 'macOS'
+      - name: Configure CMake
         run: |
           cmake -B build \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
             -DMAFIANET_BUILD_SAMPLES=ON
 
-      - name: Configure CMake (Windows)
-        if: runner.os == 'Windows'
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+  # Windows: Build only (network tests don't work on Windows runners)
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
         run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
-
-      - name: Run Tests (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: ./build/Samples/Tests/Tests
-
-      - name: Run Tests (Windows)
-        if: runner.os == 'Windows'
-        run: .\build\Samples\Tests\Release\Tests.exe
