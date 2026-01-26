@@ -2,6 +2,8 @@ FROM ubuntu:22.04
 
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
+# Set CI flag for test runner
+ENV CI=true
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
