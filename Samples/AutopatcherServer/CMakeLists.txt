@@ -10,12 +10,14 @@ if(PostgreSQL_FOUND)
     target_include_directories(AutopatcherPostgre PUBLIC
         ${PROJECT_SOURCE_DIR}/DependentExtensions/Autopatcher/AutopatcherPostgreRepository
         ${PROJECT_SOURCE_DIR}/DependentExtensions/Autopatcher
+        ${PROJECT_SOURCE_DIR}/DependentExtensions/PostgreSQLInterface
         ${PROJECT_SOURCE_DIR}/Source/include
         ${PostgreSQL_INCLUDE_DIRS}
     )
     target_link_libraries(AutopatcherPostgre PUBLIC
         MafiaNet::MafiaNetStatic
         Autopatcher
+        PostgreSQLInterface
         ${PostgreSQL_LIBRARIES}
     )
     set_target_properties(AutopatcherPostgre PROPERTIES FOLDER "Extensions")
