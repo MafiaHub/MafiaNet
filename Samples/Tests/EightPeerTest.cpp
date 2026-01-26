@@ -62,6 +62,9 @@ int EightPeerTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 
 	}
 
+	// Give peers time to fully initialize sockets before connecting
+	RakSleep(100);
+
 	//Connect all the peers together
 	for (int i=0;i<peerNum;i++)
 	{

@@ -10,6 +10,7 @@
 
 #include "IncludeAllTests.h"
 
+#include <cstdlib>
 #include "RakString.h"
 #include "DS_List.h"
 #include "Gets.h"
@@ -151,8 +152,13 @@ int main(int argc, char *argv[])
 		printf("\nPassed %i out of %i tests.\n",passedTests,numTests);
 	}
 
-	printf("Press enter to continue \n");
-	Gets(str, sizeof(str));
+	// Skip "Press enter" prompt in CI environments
+	if (getenv("CI") == nullptr)
+	{
+		printf("Press enter to continue \n");
+		Gets(str, sizeof(str));
+	}
+
 	//Cleanup
 	int len=testList.Size();
 
@@ -163,6 +169,7 @@ int main(int argc, char *argv[])
 	}
 	testList.Clear(false,_FILE_AND_LINE_);
 
-	return 0;
+	// Return non-zero if any tests failed
+	return (passedTests == numTests) ? 0 : 1;
 }
 
