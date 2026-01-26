@@ -29,6 +29,7 @@
 #else
 #include <limits.h>
 #include <unistd.h>
+#include <cerrno>
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
 #endif
