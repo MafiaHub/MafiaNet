@@ -16,6 +16,18 @@
 // Common includes
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#else
+#include <limits.h>
+#include <cerrno>
+#ifndef MAX_PATH
+#define MAX_PATH PATH_MAX
+#endif
+#endif
+
 #include "mafianet/Kbhit.h"
 
 #include "mafianet/GetTime.h"
@@ -74,24 +86,21 @@ class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPos
 		}
 		else
 		{
+#ifdef _WIN32
 			*patchAlgorithm=1;
 			fclose(fpOld);
 			fclose(fpNew);
 
 			char buff[128];
 			MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
-#if defined(_WIN32)
 			sprintf_s(buff, "%I64u", time);
-#else
-			sprintf_s(buff, "%llu", (long long unsigned int) time);
-#endif
 
 			// Invoke xdelta
 			// See https://code.google.com/p/xdelta/wiki/CommandLineSyntax
 			char commandLine[512];
 			_snprintf(commandLine, sizeof(commandLine)-1, "-f -s %s %s patchServer_%s.tmp", oldFile, newFile, buff);
 			commandLine[511]=0;
-			
+
 			SHELLEXECUTEINFOA shellExecuteInfo;
 			shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFOA);
 			shellExecuteInfo.fMask = SEE_MASK_NOASYNC | SEE_MASK_NO_CONSOLE;
@@ -138,6 +147,14 @@ class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPos
 			}
 
 			return 0;
+#else
+			// xdelta not supported on non-Windows, use bsdiff for large files
+			*patchAlgorithm=0;
+			bool b = MakePatchBSDiff(fpOld, contentLengthOld, fpNew, contentLengthNew, patch, patchLength);
+			fclose(fpOld);
+			fclose(fpNew);
+			return b==false ? -1 : 0;
+#endif
 		}
 	}
 };
@@ -210,6 +227,7 @@ int main(int, char **)
 	// autopatcherServer.SetAllowDownloadOfOriginalUnmodifiedFiles(false);
 	printf("System ready for connections\n");
 
+#ifdef _WIN32
 	// https://code.google.com/p/xdelta/downloads/list
 	printf("Optional: Enter path to xdelta.exe: ");
 	Gets(PATH_TO_XDELTA_EXE, sizeof(PATH_TO_XDELTA_EXE));
@@ -225,6 +243,11 @@ int main(int, char **)
 		if (WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='\\' || WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='/')
 			WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=0;
 	}
+#else
+	// xdelta not supported on non-Windows platforms
+	PATH_TO_XDELTA_EXE[0] = 0;
+	WORKING_DIRECTORY[0] = 0;
+#endif
 
 	printf("(D)rop database\n(C)reate database.\n(A)dd application\n(U)pdate revision.\n(R)emove application\n(Q)uit\n");
 
