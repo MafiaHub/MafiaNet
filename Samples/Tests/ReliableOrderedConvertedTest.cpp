@@ -353,30 +353,10 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 		currentTime=GetTimeMS();
 	}
 
-	if (isVerbose)
-	{
-
-		RakNetStatistics *rssSender,*rssReceiver;
-		char message[2048];
-
-		rssSender=sender->GetStatistics(sender->GetSystemAddressFromIndex(0));
-		rssReceiver=receiver->GetStatistics(receiver->GetSystemAddressFromIndex(0));
-
-		if (rssSender)
-		{
-			StatisticsToString(rssSender, message, 2);
-			printf("Server stats %s\n", message);
-		}
-		if (rssReceiver)
-		{
-			StatisticsToString(rssReceiver, message, 2);
-			printf("Client stats%s", message);
-		}
-	}
-
 	if (fp)
 		fclose(fp);
 
+	printf("Test passed - sent and received %d packets\n", packetNumberSender[0]);
 	return 0;
 }
 
