@@ -134,7 +134,13 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 		printf("Connecting...\n");
 
 	SocketDescriptor senderSd(localPort, 0);
-	sender->Startup(1, &senderSd, 1);
+	StartupResult senderResult = sender->Startup(1, &senderSd, 1);
+	if (senderResult != RAKNET_STARTED)
+	{
+		if (isVerbose)
+			printf("Sender failed to start (error %d)\n", senderResult);
+		return 1;
+	}
 	sender->Connect(ip, remotePort, 0, 0);
 
 	receiver =RakPeerInterface::GetInstance();
@@ -151,7 +157,13 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 		printf("Waiting for connections...\n");
 
 	SocketDescriptor receiverSd(localPort, 0);
-	receiver->Startup(32, &receiverSd, 1);
+	StartupResult receiverResult = receiver->Startup(32, &receiverSd, 1);
+	if (receiverResult != RAKNET_STARTED)
+	{
+		if (isVerbose)
+			printf("Receiver failed to start on port %d (error %d)\n", localPort, receiverResult);
+		return 1;
+	}
 	receiver->SetMaximumIncomingConnections(32);
 
 	//	if (sender)
@@ -302,12 +314,18 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 						char message[2048];
 
 						rssSender=sender->GetStatistics(sender->GetSystemAddressFromIndex(0));
-
 						rssReceiver=receiver->GetStatistics(receiver->GetSystemAddressFromIndex(0));
-						StatisticsToString(rssSender, message, 2);
-						printf("Server stats %s\n", message);
-						StatisticsToString(rssReceiver, message, 2);
-						printf("Client stats%s", message);
+
+						if (rssSender)
+						{
+							StatisticsToString(rssSender, message, 2);
+							printf("Server stats %s\n", message);
+						}
+						if (rssReceiver)
+						{
+							StatisticsToString(rssReceiver, message, 2);
+							printf("Client stats%s", message);
+						}
 
 						DebugTools::ShowError(lastError,!noPauses && isVerbose,__LINE__,__FILE__);
 					}
@@ -342,12 +360,18 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 		char message[2048];
 
 		rssSender=sender->GetStatistics(sender->GetSystemAddressFromIndex(0));
-
 		rssReceiver=receiver->GetStatistics(receiver->GetSystemAddressFromIndex(0));
-		StatisticsToString(rssSender, message, 2);
-		printf("Server stats %s\n", message);
-		StatisticsToString(rssReceiver, message, 2);
-		printf("Client stats%s", message);
+
+		if (rssSender)
+		{
+			StatisticsToString(rssSender, message, 2);
+			printf("Server stats %s\n", message);
+		}
+		if (rssReceiver)
+		{
+			StatisticsToString(rssReceiver, message, 2);
+			printf("Client stats%s", message);
+		}
 	}
 
 	if (fp)

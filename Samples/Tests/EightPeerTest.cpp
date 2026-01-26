@@ -57,7 +57,16 @@ int EightPeerTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 		}
 
 		SocketDescriptor sd(60000+i, 0);
-		peerList[i]->Startup(peerNum*2, &sd, 1);
+		StartupResult result = peerList[i]->Startup(peerNum*2, &sd, 1);
+		if (result != RAKNET_STARTED)
+		{
+			if (isVerbose)
+			{
+				printf("Peer %d failed to start on port %d (error %d)\n", i, 60000+i, result);
+				DebugTools::ShowError("Startup failed\n", !noPauses && isVerbose, __LINE__, __FILE__);
+			}
+			return 1;
+		}
 		peerList[i]->SetMaximumIncomingConnections(peerNum);
 
 	}
