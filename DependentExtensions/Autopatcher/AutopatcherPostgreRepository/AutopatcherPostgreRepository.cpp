@@ -39,6 +39,10 @@ static const unsigned HASH_LENGTH=sizeof(unsigned int);
 #include <Winsock2.h>
 #else
 #include <netinet/in.h>
+#include <limits.h>
+#ifndef MAX_PATH
+#define MAX_PATH PATH_MAX
+#endif
 #endif
 
 // alloca
