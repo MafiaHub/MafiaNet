@@ -59,7 +59,8 @@ int main(int argc, char *argv[])
 
 	testListSize=testList.Size();
 
-	bool isVerbose=true;
+	// Disable verbose output in CI to avoid timing issues with output buffering
+	bool isVerbose = (getenv("CI") == nullptr);
 	bool disallowTestToPause=false;
 
 	DataStructures::List<RakString> testcases;
