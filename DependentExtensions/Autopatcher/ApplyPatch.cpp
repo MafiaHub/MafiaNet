@@ -65,6 +65,7 @@ static void errx(int i, ...)
 // Unix/POSIX includes and Windows API compatibility
 #include <err.h>
 #include <unistd.h>
+#include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 // Map Windows API names to POSIX equivalents
 #define _open open

@@ -22,6 +22,7 @@
 // Platform-specific includes for path constants and process execution
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <winsock2.h>
 #include <windows.h>
 #include <shellapi.h>
