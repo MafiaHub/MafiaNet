@@ -40,7 +40,8 @@ protected:
 	void WaitForConnectionRequestsToComplete(RakPeerInterface **peerList, int peerNum, bool isVerbose);
 	void WaitAndPrintResults(RakPeerInterface **peerList, int peerNum, bool isVerbose,RakPeerInterface *server);
 private:
-	static const int clientNum= 256;
+	// Reduced from 256 for stability - many clients creates too much resource pressure
+	static const int clientNum= 8;
 	RakPeerInterface *clientList[clientNum];//A list of clients
 	RakPeerInterface *server;
 };

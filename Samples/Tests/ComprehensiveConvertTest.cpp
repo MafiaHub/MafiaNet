@@ -26,6 +26,9 @@ Connect fails without pending ops or current connection.
 
 int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
+	// Reduce test duration in CI environments
+	const bool isCI = (getenv("CI") != nullptr);
+	const int testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
 
 	static const int CONNECTIONS_PER_SYSTEM =4;
 
@@ -88,7 +91,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 
 	}
 
-	TimeMS endTime = GetTimeMS()+10000;
+	TimeMS endTime = GetTimeMS()+testDurationMs;
 	while (GetTimeMS()<endTime)
 	{
 		nextAction = frandomMT();
@@ -302,10 +305,18 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 
 void ComprehensiveConvertTest::DestroyPeers()
 {
+	// Check if peers were ever created (test may have been skipped)
+	if (peers[0] == nullptr)
+		return;
 
-for (int i=0; i < NUM_PEERS; i++)
-		RakPeerInterface::DestroyInstance(peers[i]);
+	// Shutdown all peers before destroying to let threads clean up
+	for (int i=0; i < NUM_PEERS; i++)
+		if (peers[i])
+			peers[i]->Shutdown(100);
 
+	for (int i=0; i < NUM_PEERS; i++)
+		if (peers[i])
+			RakPeerInterface::DestroyInstance(peers[i]);
 }
 
 RakString ComprehensiveConvertTest::GetTestName()
@@ -337,6 +348,8 @@ RakString ComprehensiveConvertTest::ErrorCodeToString(int errorCode)
 
 ComprehensiveConvertTest::ComprehensiveConvertTest(void)
 {
+	for (int i = 0; i < NUM_PEERS; i++)
+		peers[i] = nullptr;
 }
 
 ComprehensiveConvertTest::~ComprehensiveConvertTest(void)

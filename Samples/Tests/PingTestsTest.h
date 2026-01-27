@@ -37,7 +37,7 @@ public:
 	RakString GetTestName();
 	RakString ErrorCodeToString(int errorCode);
 	void DestroyPeers();
-	int TestAverageValue(int averagePing,int line,bool noPauses,bool isVerbose);
+	int TestAverageValue(int averagePing,int line,bool noPauses,bool isVerbose,int maxAveragePingMs);
 private:
 	DataStructures::List <RakPeerInterface *> destroyList;
 

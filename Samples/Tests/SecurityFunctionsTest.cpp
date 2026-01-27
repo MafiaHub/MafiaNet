@@ -589,6 +589,7 @@ RakString SecurityFunctionsTest::ErrorCodeToString(int errorCode)
 }
 
 SecurityFunctionsTest::SecurityFunctionsTest(void)
+	: server(nullptr), client(nullptr)
 {
 }
 
@@ -598,8 +599,14 @@ SecurityFunctionsTest::~SecurityFunctionsTest(void)
 
 void SecurityFunctionsTest::DestroyPeers()
 {
+	// Shutdown all peers before destroying to let threads clean up
+	if (client)
+		client->Shutdown(100);
+	if (server)
+		server->Shutdown(100);
 
-RakPeerInterface::DestroyInstance(client);
-RakPeerInterface::DestroyInstance(server);
-
+	if (client)
+		RakPeerInterface::DestroyInstance(client);
+	if (server)
+		RakPeerInterface::DestroyInstance(server);
 }

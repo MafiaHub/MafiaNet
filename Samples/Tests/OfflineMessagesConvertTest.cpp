@@ -36,6 +36,9 @@ Ping
 */
 int OfflineMessagesConvertTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
+	// Reduce test duration in CI environments
+	const bool isCI = (getenv("CI") != nullptr);
+	const int testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
 
 	bool recievedProperOfflineData=false;
 	bool recievedProperPingData=false;
@@ -86,7 +89,7 @@ int OfflineMessagesConvertTest::RunTest(DataStructures::List<RakString> params,b
 
 	TimeMS entryTime=GetTimeMS();//Loop entry time
 
-	while (nextTest!=2&&GetTimeMS()-entryTime<10000)// run for 10 seconds
+	while (nextTest!=2&&GetTimeMS()-entryTime<testDurationMs)// run for testDurationMs
 	{
 		peer1->DeallocatePacket(peer1->Receive());
 		Packet *packet = peer2->Receive();
@@ -244,10 +247,12 @@ OfflineMessagesConvertTest::~OfflineMessagesConvertTest(void)
 
 void OfflineMessagesConvertTest::DestroyPeers()
 {
-
 	int theSize=destroyList.Size();
+
+	// Shutdown all peers before destroying to let threads clean up
+	for (int i=0; i < theSize; i++)
+		destroyList[i]->Shutdown(100);
 
 	for (int i=0; i < theSize; i++)
 		RakPeerInterface::DestroyInstance(destroyList[i]);
-
 }

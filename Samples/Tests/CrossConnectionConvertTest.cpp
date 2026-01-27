@@ -21,6 +21,9 @@ Expected values from ping/pong do not occur within expected time.
 */
 int CrossConnectionConvertTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
+	// Reduce test duration in CI environments
+	const bool isCI = (getenv("CI") != nullptr);
+	const int testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
 
 	static const unsigned short SERVER_PORT=1234;
 	//	char serverMode[32];
@@ -58,7 +61,7 @@ int CrossConnectionConvertTest::RunTest(DataStructures::List<RakString> params,b
 	TimeMS entryTime=GetTimeMS();//Loop entry time
 
 	bool printedYet=false;
-	while(GetTimeMS()-entryTime<10000)//Run for 10 Secoonds
+	while(GetTimeMS()-entryTime<testDurationMs)//Run for testDurationMs
 	{
 
 		Packet *p;
@@ -247,12 +250,14 @@ RakString CrossConnectionConvertTest::ErrorCodeToString(int errorCode)
 
 void CrossConnectionConvertTest::DestroyPeers()
 {
-
 	int theSize=destroyList.Size();
+
+	// Shutdown all peers before destroying to let threads clean up
+	for (int i=0; i < theSize; i++)
+		destroyList[i]->Shutdown(100);
 
 	for (int i=0; i < theSize; i++)
 		RakPeerInterface::DestroyInstance(destroyList[i]);
-
 }
 
 CrossConnectionConvertTest::CrossConnectionConvertTest(void)

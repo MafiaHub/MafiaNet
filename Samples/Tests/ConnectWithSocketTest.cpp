@@ -199,10 +199,12 @@ ConnectWithSocketTest::~ConnectWithSocketTest(void)
 
 void ConnectWithSocketTest::DestroyPeers()
 {
-
 	int theSize=destroyList.Size();
+
+	// Shutdown all peers before destroying to let threads clean up
+	for (int i=0; i < theSize; i++)
+		destroyList[i]->Shutdown(100);
 
 	for (int i=0; i < theSize; i++)
 		RakPeerInterface::DestroyInstance(destroyList[i]);
-
 }
