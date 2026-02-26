@@ -19,8 +19,8 @@
 
 #if LIBCAT_SECURITY==1
 
-// If building a RakNet DLL, be sure to tweak the CAT_EXPORT macro meaning
-#if !defined(_RAKNET_LIB) && defined(_RAKNET_DLL)
+// If building a MafiaNet DLL, be sure to tweak the CAT_EXPORT macro meaning
+#if !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
 # define CAT_BUILD_DLL
 #else
 # define CAT_NEUTER_EXPORT

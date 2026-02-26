@@ -28,8 +28,8 @@ static const int HASH_BITS = 256;
 static const int HASH_BYTES = HASH_BITS / 8;
 static const int STRENGTHENING_FACTOR = 256;
 
-// If building a RakNet DLL, be sure to tweak the CAT_EXPORT macro meaning
-#if !defined(_RAKNET_LIB) && defined(_RAKNET_DLL)
+// If building a MafiaNet DLL, be sure to tweak the CAT_EXPORT macro meaning
+#if !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
 # define CAT_BUILD_DLL
 #else
 # define CAT_NEUTER_EXPORT
