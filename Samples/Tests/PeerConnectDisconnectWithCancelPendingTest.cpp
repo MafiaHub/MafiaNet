@@ -43,14 +43,6 @@ Pending request is not canceled.
 */
 int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// Skip in CI - this test has memory management issues in containerized/emulated environments
-	// causing "double free or corruption" errors
-	if (getenv("CI") != nullptr)
-	{
-		printf("Skipping in CI (memory issues in containerized environments)\n");
-		return 0;
-	}
-
 	const int testDurationMs = 10000;
 	const int postLoopWaitMs = 2000;
 	const int finalWaitMs = 5000;

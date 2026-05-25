@@ -138,13 +138,6 @@ Connect function returns false and peer is not connected to anything.
 */
 int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// Skip in CI - this test has memory/threading issues in containerized/emulated environments
-	if (getenv("CI") != nullptr)
-	{
-		printf("Skipping in CI (stress test has memory issues)\n");
-		return 0;
-	}
-
 	const int testDurationMs = 10000;
 
 	const int peerNum= 8;
