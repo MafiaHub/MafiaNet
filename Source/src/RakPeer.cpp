@@ -5636,8 +5636,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 		}
 		else if (bcs->command==BufferedCommandStruct::BCS_CLOSE_CONNECTION)
 		{
-			RakAssert(bcs->socket != nullptr);
-			CloseConnectionInternal2(bcs->systemIdentifier, false, true, bcs->orderingChannel, bcs->priority, *(bcs->socket));
+			// bcs->socket may be null: the socket can be released between queuing this
+			// command and processing it here (e.g. during rapid connect/disconnect churn).
+			// RakAssert is a no-op in release (NDEBUG), so guard explicitly and fall back
+			// to the primary socket to avoid dereferencing null in CloseConnectionInternal2.
+			RakNetSocket2 *closeSocket = bcs->socket;
+			if (closeSocket == nullptr && socketList.Size() > 0)
+				closeSocket = socketList[0];
+			if (closeSocket != nullptr)
+				CloseConnectionInternal2(bcs->systemIdentifier, false, true, bcs->orderingChannel, bcs->priority, *closeSocket);
 		}
 		else if (bcs->command==BufferedCommandStruct::BCS_CHANGE_SYSTEM_ADDRESS)
 		{
