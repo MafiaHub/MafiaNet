@@ -25,7 +25,9 @@
 #include <io.h>
 
 
-#elif !defined ( __APPLE__ ) && !defined ( __APPLE_CC__ ) && !defined ( __PPC__ ) && !defined ( __FreeBSD__ ) && !defined ( __S3E__ )
+#elif !defined ( __APPLE__ ) && !defined ( __APPLE_CC__ ) && !defined ( __PPC__ ) && !defined ( __FreeBSD__ ) && !defined ( __S3E__ ) && ( defined(__i386__) || defined(__x86_64__) )
+// <sys/io.h> only exists for x86/x86_64 glibc (port I/O helpers). It is not
+// referenced here, so on other Linux architectures (e.g. aarch64/arm) we omit it.
 #include <sys/io.h>
 #endif
 
