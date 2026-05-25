@@ -272,7 +272,27 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 				currentSystem.SetBinaryAddress("127.0.0.1");
 				currentSystem.SetPortHostOrder(60000+j);
 				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
-					peerList[i]->Connect("127.0.0.1", 60000+j, 0,0);
+				{
+					ConnectionAttemptResult car=peerList[i]->Connect("127.0.0.1", 60000+j, 0,0);
+					// STARTED is success. ALREADY_CONNECTED_TO_ENDPOINT and
+					// CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS are benign races (the link came up
+					// between the state check above and this call) and are expected while the
+					// mesh re-converges. Anything else (INVALID_PARAMETER, CANNOT_RESOLVE_*,
+					// SECURITY_INITIALIZATION_FAILED) is a real failure: report it with context
+					// and fail fast instead of spinning until the convergence timeout.
+					if (car!=CONNECTION_ATTEMPT_STARTED &&
+						car!=ALREADY_CONNECTED_TO_ENDPOINT &&
+						car!=CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS)
+					{
+						if (isVerbose)
+						{
+							printf("Connect() from peer %i to 127.0.0.1:%i (%s) failed with result %i.\n",
+								i, 60000+j, currentSystem.ToString(), (int)car);
+							DebugTools::ShowError("Problem while calling connect.\n",!noPauses && isVerbose,__LINE__,__FILE__);
+						}
+						return 1;
+					}
+				}
 			}
 		}
 
