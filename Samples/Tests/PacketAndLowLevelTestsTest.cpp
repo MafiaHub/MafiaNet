@@ -47,12 +47,6 @@ DetachPlugin
 */
 int PacketAndLowLevelTestsTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// The OnInternalPacket callback requires UsesReliabilityLayer()=true, but plugins
-	// with UsesReliabilityLayer()=true cannot be attached/detached while RakPeer is active.
-	// This test attaches/detaches while active, so the plugin callback test is skipped in CI.
-	// The other parts of the test (SendList, PushBackPacket, etc.) still run.
-	const bool isCI = (getenv("CI") != nullptr);
-
 	RakPeerInterface *server,*client;
 	destroyList.Clear(false,_FILE_AND_LINE_);
 
@@ -117,39 +111,49 @@ int PacketAndLowLevelTestsTest::RunTest(DataStructures::List<RakString> params,b
 
 	PluginInterface2* myPlug=new PacketChangerPlugin();
 
-	// Skip plugin attach/detach test in CI - OnInternalPacket requires UsesReliabilityLayer()=true
-	// but such plugins cannot be safely attached/detached while RakPeer is active
-	if (!isCI)
+	// PacketChangerPlugin uses the reliability layer (OnInternalPacket), so it must be
+	// attached before the peer is active and detached after it is shut down: the plugin
+	// list is iterated concurrently by the network update thread and Receive(), so
+	// attaching/detaching while active is a data race. Exercise that supported lifecycle
+	// on a dedicated peer pair and verify the OnInternalPacket rewrite takes effect.
+	printf("Test attach detach of plugins\n");
 	{
-		printf("Test attach detach of plugins\n");
-		client->AttachPlugin(myPlug);
-		TestHelpers::BroadCastTestPacket(client);
-		if (TestHelpers::WaitForTestPacket(server,2000))
-		{
+		RakPeerInterface *pluginServer = RakPeerInterface::GetInstance();
+		RakPeerInterface *pluginClient = RakPeerInterface::GetInstance();
+		destroyList.Push(pluginServer,_FILE_AND_LINE_);
+		destroyList.Push(pluginClient,_FILE_AND_LINE_);
 
+		pluginClient->AttachPlugin(myPlug); // safe: peer not started yet
+
+		SocketDescriptor pluginServerSd(60001,0);
+		pluginServer->Startup(1,&pluginServerSd,1);
+		pluginServer->SetMaximumIncomingConnections(1);
+		SocketDescriptor pluginClientSd;
+		pluginClient->Startup(1,&pluginClientSd,1);
+
+		if (!TestHelpers::WaitAndConnectTwoPeersLocally(pluginClient,pluginServer,5000))
+		{
+			if (isVerbose)
+				DebugTools::ShowError(errorList[1-1],!noPauses && isVerbose,__LINE__,__FILE__);
+			return 1;
+		}
+
+		// OnInternalPacket rewrites data[0] to ID_USER_PACKET_ENUM+2, so the broadcast
+		// test packet (ID_USER_PACKET_ENUM+1) must not arrive unchanged at the server.
+		TestHelpers::BroadCastTestPacket(pluginClient);
+		if (TestHelpers::WaitForTestPacket(pluginServer,2000))
+		{
 			if (isVerbose)
 				DebugTools::ShowError(errorList[2-1],!noPauses && isVerbose,__LINE__,__FILE__);
-
 			return 2;
 		}
 
-		client->DetachPlugin(myPlug);
-		TestHelpers::BroadCastTestPacket(client);
-		if (!TestHelpers::WaitForTestPacket(server,2000))
-		{
-
-			if (isVerbose)
-				DebugTools::ShowError(errorList[3-1],!noPauses && isVerbose,__LINE__,__FILE__);
-
-			return 3;
-		}
+		// Detaching is only safe once the peer's threads are stopped.
+		pluginClient->Shutdown(300);
+		pluginClient->DetachPlugin(myPlug);
 	}
-	else
-	{
-		printf("Skipping plugin attach/detach test in CI\n");
-		delete myPlug;
-		myPlug = nullptr;
-	}
+	delete myPlug;
+	myPlug = nullptr;
 
 	printf("Test AllocatePacket\n");
 	Packet * hugePacket,*hugePacket2;

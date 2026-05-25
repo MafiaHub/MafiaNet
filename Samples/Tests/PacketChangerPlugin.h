@@ -30,6 +30,11 @@ public:
 	/// \param[in] peer the instance of RakPeer that is calling Receive
 	void OnDetach(void) {}
 
+	/// OnInternalPacket is only delivered to plugins that use the reliability layer.
+	/// Such plugins must be attached before the peer is active and detached after it
+	/// is shut down (the plugin list is iterated by the network update thread).
+	bool UsesReliabilityLayer(void) const {return true;}
+
 	/// Update is called every time a packet is checked for .
 	void Update(void) {}
 
