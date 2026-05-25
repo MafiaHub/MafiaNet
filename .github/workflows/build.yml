@@ -19,7 +19,7 @@ jobs:
           docker build -t mafianet-test .
           docker run --rm mafianet-test
 
-  # macOS: Build only (network tests don't work on macOS runners)
+  # macOS: Build and run the full test suite
   macos:
     runs-on: macos-latest
     steps:
@@ -38,7 +38,10 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel 4
 
-  # Windows: Build only (network tests don't work on Windows runners)
+      - name: Run tests
+        run: ./build/Samples/Tests/Tests
+
+  # Windows: Build only for now — test execution on Windows runners is not yet validated.
   windows:
     runs-on: windows-latest
     steps:
