@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [master]
 
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Linux: Build and test in Docker container (full network access)
   linux:
@@ -41,9 +46,10 @@ jobs:
       - name: Run tests
         run: ./build/Samples/Tests/Tests
 
-  # Windows: Build only for now — test execution on Windows runners is not yet validated.
+  # Windows: Build and run the full test suite (MSVC multi-config layout).
   windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,3 +59,99 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
+
+      - name: Run tests
+        env:
+          CI: "true"
+        run: .\build\Samples\Tests\Release\Tests.exe
+
+  # Sanitizers: build only the Tests target so instrumentation is scoped to
+  # MafiaNet's own code and the test harness (the fetched third-party C
+  # libraries are not compiled here). address+undefined and thread are run
+  # separately because they are mutually exclusive.
+  sanitizers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # The 'thread' variant is advisory (continue-on-error): RakNet's threading
+    # model intentionally reads shared connection state lock-free on the user
+    # thread, producing data races that are baselined in ci/tsan.supp. The TSAN
+    # job therefore acts as a regression guard for NEW races rather than a hard
+    # gate. 'address+undefined' is a required (blocking) check.
+    continue-on-error: ${{ matrix.sanitizer == 'thread' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address+undefined, thread]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev ninja-build clang
+
+      - name: Configure CMake
+        # RelWithDebInfo (not Debug) is deliberate: Debug defines _DEBUG, which
+        # enables RakAssert()s — including some flagged as architecturally
+        # unverified — that abort unrelated to sanitizer findings. RelWithDebInfo
+        # keeps NDEBUG semantics (matching shipped Release) plus debug symbols for
+        # readable sanitizer stack traces.
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DMAFIANET_BUILD_SAMPLES=ON \
+            -DMAFIANET_SANITIZER=${{ matrix.sanitizer }}
+
+      - name: Build Tests target
+        run: cmake --build build --target Tests --parallel
+
+      - name: Run tests under sanitizer
+        env:
+          CI: "true"
+          # Leak detection is disabled: the engine intentionally retains static
+          # pools/singletons for process lifetime, which LSAN would report as
+          # noise. ASAN still catches heap/stack overflows and use-after-free.
+          ASAN_OPTIONS: "detect_leaks=0:abort_on_error=1:halt_on_error=1:strict_string_checks=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+          # halt_on_error=1 so any NEW (unsuppressed) race fails the advisory job;
+          # known by-design races are baselined in ci/tsan.supp.
+          TSAN_OPTIONS: "halt_on_error=1:second_deadlock_stack=1:suppressions=${{ github.workspace }}/ci/tsan.supp"
+        run: ./build/Samples/Tests/Tests
+
+  # Formatting: enforce clang-format on the lines a change touches only, so the
+  # historical tree does not need to be reformatted wholesale.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-18
+          curl -fsSL https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-18.1.8/clang/tools/clang-format/git-clang-format \
+            -o /usr/local/bin/git-clang-format
+          chmod +x /usr/local/bin/git-clang-format
+
+      - name: Check formatting of changed lines
+        run: |
+          BASE='${{ github.event.pull_request.base.sha }}'
+          if [ -z "$BASE" ]; then BASE="$(git rev-parse HEAD~1)"; fi
+          echo "Comparing against base: $BASE"
+          DIFF="$(git clang-format --binary clang-format-18 --diff \
+            --extensions c,cpp,cc,cxx,h,hpp,hxx,inl \
+            "$BASE" -- Source DependentExtensions Samples)"
+          echo "$DIFF"
+          case "$DIFF" in
+            *"no modified files to format"*|*"did not modify any files"*|"")
+              echo "Formatting OK — changed lines conform to .clang-format." ;;
+            *)
+              echo "::error::Changed lines are not clang-formatted. Run: git clang-format $BASE"
+              exit 1 ;;
+          esac

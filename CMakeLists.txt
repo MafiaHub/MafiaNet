@@ -32,6 +32,11 @@ option(MAFIANET_BUILD_STATIC "Build static library" ON)
 option(MAFIANET_BUILD_SAMPLES "Build sample applications" OFF)
 option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
 
+# Sanitizers (Clang/GCC only). Accepts a comma/plus-separated list of sanitizer
+# names, e.g. "address", "undefined", "address+undefined", or "thread".
+# Note: 'thread' is mutually exclusive with 'address'.
+set(MAFIANET_SANITIZER "" CACHE STRING "Build with sanitizers (e.g. address+undefined, thread)")
+
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
     message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")
@@ -51,6 +56,25 @@ if(WIN32)
         _CRT_SECURE_NO_DEPRECATE
         _CRT_NONSTDC_NO_DEPRECATE
     )
+endif()
+
+# Sanitizer flags (applied globally; build only the targets you want sanitized,
+# e.g. `cmake --build build --target Tests`, to keep third-party deps out of scope)
+if(MAFIANET_SANITIZER)
+    if(MSVC)
+        message(FATAL_ERROR "MAFIANET_SANITIZER is not supported with MSVC")
+    endif()
+    string(REPLACE "+" "," _mafianet_san "${MAFIANET_SANITIZER}")
+    message(STATUS "MafiaNet sanitizers enabled: ${_mafianet_san}")
+    # -fno-sanitize-recover=all turns recoverable UBSAN findings into hard aborts
+    # so they actually fail CI instead of only printing a diagnostic.
+    add_compile_options(
+        -fsanitize=${_mafianet_san}
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+        -g
+    )
+    add_link_options(-fsanitize=${_mafianet_san})
 endif()
 
 # Library subdirectory
