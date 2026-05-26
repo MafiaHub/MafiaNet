@@ -17,10 +17,12 @@
 
 using namespace MafiaNet;
 
-LocklessUint32_t::LocklessUint32_t() : value( 0 )
+LocklessUint32_t::LocklessUint32_t()
+    : value( 0 )
 {
 }
-LocklessUint32_t::LocklessUint32_t( uint32_t initial ) : value( initial )
+LocklessUint32_t::LocklessUint32_t( uint32_t initial )
+    : value( initial )
 {
 }
 uint32_t LocklessUint32_t::Increment(void)

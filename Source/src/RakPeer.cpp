@@ -3284,7 +3284,11 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->actionToTake=RequestedConnectionStruct::CONNECT;
 	rcs->sendConnectionAttemptCount=sendConnectionAttemptCount;
 	rcs->timeBetweenSendConnectionAttemptsMS=timeBetweenSendConnectionAttemptsMS;
-	memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
+	// passwordData is null when no password is set; passing a null source to
+	// memcpy is undefined behavior (the parameter is declared nonnull) even when
+	// the length is 0, so guard the copy.
+	if ( passwordData != nullptr && passwordDataLength > 0 )
+		memcpy( rcs->outgoingPassword, passwordData, passwordDataLength );
 	rcs->outgoingPasswordLength=(unsigned char) passwordDataLength;
 	rcs->timeoutTime=timeoutTime;
 
@@ -3338,7 +3342,11 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->actionToTake=RequestedConnectionStruct::CONNECT;
 	rcs->sendConnectionAttemptCount=sendConnectionAttemptCount;
 	rcs->timeBetweenSendConnectionAttemptsMS=timeBetweenSendConnectionAttemptsMS;
-	memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
+	// passwordData is null when no password is set; passing a null source to
+	// memcpy is undefined behavior (the parameter is declared nonnull) even when
+	// the length is 0, so guard the copy.
+	if ( passwordData != nullptr && passwordDataLength > 0 )
+		memcpy( rcs->outgoingPassword, passwordData, passwordDataLength );
 	rcs->outgoingPasswordLength=(unsigned char) passwordDataLength;
 	rcs->timeoutTime=timeoutTime;
 	rcs->socket=socket;
