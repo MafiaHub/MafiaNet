@@ -138,13 +138,6 @@ Connect function returns false and peer is not connected to anything.
 */
 int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// Skip in CI - this test has memory/threading issues in containerized/emulated environments
-	if (getenv("CI") != nullptr)
-	{
-		printf("Skipping in CI (stress test has memory issues)\n");
-		return 0;
-	}
-
 	const int testDurationMs = 10000;
 
 	const int peerNum= 8;
@@ -258,66 +251,82 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 
 	printf("Connecting peers\n");
 
-	//Connect
+	// Bring the full mesh back up and wait for it to converge before verifying.
+	// Establishing peerNum*(peerNum-1) connections can take longer than a single pass,
+	// especially under load or in containerized/emulated environments, so poll until
+	// every peer has peerNum-1 connections (re-initiating any missing links) rather
+	// than checking exactly once. Only fail if convergence does not happen in time.
+	const int convergeTimeoutMs = 30000;
+	TimeMS convergeStart = GetTimeMS();
+	bool allConnected = false;
+	int failedPeer = -1;
+	int failedPeerConns = 0;
 
-	for (int i=0;i<peerNum;i++)
+	while (GetTimeMS()-convergeStart < (TimeMS)convergeTimeoutMs)
 	{
-
-		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
+		// (Re)initiate any link that is not already connected/connecting/pending.
+		for (int i=0;i<peerNum;i++)
 		{
-			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.SetPortHostOrder(60000+j);
-
-			if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
+			for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 			{
-				printf("Calling Connect() for peer %i to peer %i.\n",i,j);
-
-				if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+				currentSystem.SetBinaryAddress("127.0.0.1");
+				currentSystem.SetPortHostOrder(60000+j);
+				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
-					peerList[i]->GetSystemList(systemList,guidList);//Get connectionlist
-					int len=systemList.Size();
-
-					if (isVerbose)
-						DebugTools::ShowError("Problem while calling connect.\n",!noPauses && isVerbose,__LINE__,__FILE__);
-
-					return 1;//This fails the test, don't bother going on.
-
+					ConnectionAttemptResult car=peerList[i]->Connect("127.0.0.1", 60000+j, 0,0);
+					// STARTED is success. ALREADY_CONNECTED_TO_ENDPOINT and
+					// CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS are benign races (the link came up
+					// between the state check above and this call) and are expected while the
+					// mesh re-converges. Anything else (INVALID_PARAMETER, CANNOT_RESOLVE_*,
+					// SECURITY_INITIALIZATION_FAILED) is a real failure: report it with context
+					// and fail fast instead of spinning until the convergence timeout.
+					if (car!=CONNECTION_ATTEMPT_STARTED &&
+						car!=ALREADY_CONNECTED_TO_ENDPOINT &&
+						car!=CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS)
+					{
+						if (isVerbose)
+						{
+							printf("Connect() from peer %i to 127.0.0.1:%i (%s) failed with result %i.\n",
+								i, 60000+j, currentSystem.ToString(), (int)car);
+							DebugTools::ShowError("Problem while calling connect.\n",!noPauses && isVerbose,__LINE__,__FILE__);
+						}
+						return 1;
+					}
 				}
 			}
-			else
-			{
-				if (CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,false,false,false,true)==false)
-					printf("Not calling Connect() for peer %i to peer %i because it is disconnecting.\n",i,j);
-				else if (CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,false,true,true)==false)
-					printf("Not calling Connect() for peer %i to peer %i because it is connecting.\n",i,j);
-				else if (CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true)==false)
-					printf("Not calling Connect() for peer %i to peer %i because it is connected).\n",i,j);
-			}
-		}	
-
-	}
-
-	WaitAndPrintResults(peerList,peerNum,isVerbose);
-
-	for (int i=0;i<peerNum;i++)
-	{
-
-		peerList[i]->GetSystemList(systemList,guidList);
-		int connNum=guidList.Size();//Get the number of connections for the current peer
-		if (connNum!=peerNum-1)//Did we connect to all?
-		{
-
-			if (isVerbose)
-			{
-				printf("Not all peers reconnected normally.\nFailed on peer number %i with %i peers\n",i,connNum);
-
-				DebugTools::ShowError("",!noPauses && isVerbose,__LINE__,__FILE__);
-			}
-
-			return 2;
-
 		}
 
+		WaitAndPrintResults(peerList,peerNum,isVerbose);
+
+		allConnected = true;
+		for (int i=0;i<peerNum;i++)
+		{
+			peerList[i]->GetSystemList(systemList,guidList);
+			if ((int)guidList.Size()!=peerNum-1)//Did we connect to all?
+			{
+				allConnected = false;
+				failedPeer = i;
+				failedPeerConns = (int)guidList.Size();
+				break;
+			}
+		}
+
+		if (allConnected)
+			break;
+
+		RakSleep(100);
+	}
+
+	if (!allConnected)
+	{
+		if (isVerbose)
+		{
+			printf("Not all peers reconnected normally.\nFailed on peer number %i with %i peers\n",failedPeer,failedPeerConns);
+
+			DebugTools::ShowError("",!noPauses && isVerbose,__LINE__,__FILE__);
+		}
+
+		return 2;
 	}
 
 	

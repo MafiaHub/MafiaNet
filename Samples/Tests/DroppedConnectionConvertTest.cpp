@@ -33,13 +33,6 @@ static const int NUMBER_OF_CLIENTS=9;
 
 int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// Skip in CI - stress test has memory/threading issues in containerized environments
-	if (getenv("CI") != nullptr)
-	{
-		printf("Skipping in CI (stress test has memory issues)\n");
-		return 0;
-	}
-
 	const int testDurationMs = 30000;
 
 	RakPeerInterface *server;

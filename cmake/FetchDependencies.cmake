@@ -50,7 +50,7 @@ set(ENABLE_STATIC_LIB ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
     miniupnpc
     GIT_REPOSITORY https://github.com/miniupnp/miniupnp.git
-    GIT_TAG        miniupnpc_2_2_8
+    GIT_TAG        miniupnpc_2_3_3
     GIT_SHALLOW    TRUE
     SOURCE_SUBDIR  miniupnpc
 )
@@ -68,7 +68,7 @@ set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
     Opus
     GIT_REPOSITORY https://github.com/xiph/opus.git
-    GIT_TAG        v1.5.2
+    GIT_TAG        v1.6.1
     GIT_SHALLOW    TRUE
 )
 

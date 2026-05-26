@@ -204,13 +204,6 @@ Connect function returns false and peer is not connected to anything and does no
 */
 int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// Skip in CI - stress tests have threading issues in containerized/emulated environments
-	if (getenv("CI") != nullptr)
-	{
-		printf("Skipping in CI (stress test has threading issues)\n");
-		return 0;
-	}
-
 	const int clientNum = 32;
 	const int testDurationMs = 10000;
 

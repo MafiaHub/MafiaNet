@@ -95,8 +95,11 @@ bool CCRakNetSlidingWindow::ShouldSendACKs(CCTimeType curTime, CCTimeType estima
 	CCTimeType rto = GetSenderRTOForACK();
 	(void) estimatedTimeToNextTick;
 
-	// iphone crashes on comparison between double and int64 http://www.jenkinssoftware.com/forum/index.php?topic=2717.0
-	if (rto==(CCTimeType) UNSET_TIME_US)
+	// UNSET_TIME_US is a negative double (-1); converting it straight to the unsigned
+	// CCTimeType is undefined behavior, which Apple clang at -O2 turns into a trap
+	// (brk #1). Cast through int64_t so the negative->unsigned conversion is defined
+	// and yields the same sentinel as GetSenderRTOForACK() on every platform.
+	if (rto==(CCTimeType)(int64_t) UNSET_TIME_US)
 	{
 		// Unknown how long until the remote system will retransmit, so better send right away
 		return true;
@@ -365,7 +368,7 @@ uint64_t CCRakNetSlidingWindow::GetBytesPerSecondLimitByCongestionControl(void) 
 CCTimeType CCRakNetSlidingWindow::GetSenderRTOForACK(void) const
 {
 	if (lastRtt==UNSET_TIME_US)
-		return (CCTimeType) UNSET_TIME_US;
+		return (CCTimeType)(int64_t) UNSET_TIME_US; // see ShouldSendACKs: avoid UB negative double->unsigned cast
 	return (CCTimeType)(lastRtt + SYN);
 }
 // ----------------------------------------------------------------------------------------------------------------------------

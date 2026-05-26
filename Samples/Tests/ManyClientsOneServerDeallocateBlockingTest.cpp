@@ -234,14 +234,6 @@ IsConnected
 */
 int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<RakString> params,bool isVerbose,bool noPauses)
 {
-	// Skip in CI - this test has threading/memory issues when running in containers/emulation
-	// that cause consistent crashes during the verification phase
-	if (getenv("CI") != nullptr)
-	{
-		printf("Skipping in CI (has threading issues in containerized environments)\n");
-		return 0;
-	}
-
 	const int testDurationMs = 30000;
 	const int sleepTimeMs = 2000;
 
