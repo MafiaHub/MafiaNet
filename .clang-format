@@ -1,0 +1,48 @@
+# MafiaNet clang-format configuration.
+#
+# Tuned to match the existing RakNet-derived source style (tabs, Allman braces,
+# right-aligned pointers, no line reflow) so that formatting newly written or
+# changed lines does not churn surrounding legacy code.
+#
+# Formatting is enforced diff-only in CI (only the lines a PR changes are
+# checked); the historical tree is intentionally not reformatted wholesale.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++17
+
+# Indentation: tabs, width 4 (matches the bulk of Source/)
+UseTab: ForIndentation
+IndentWidth: 4
+TabWidth: 4
+ContinuationIndentWidth: 4
+
+# Allman braces — opening brace on its own line
+BreakBeforeBraces: Allman
+
+# Pointers/references bind to the identifier: `Type *name`
+PointerAlignment: Right
+ReferenceAlignment: Right
+
+# Do not reflow long lines; the legacy code has many intentionally long lines
+# and reflowing would create large, noisy diffs.
+ColumnLimit: 0
+
+# Never reorder #includes — ordering is load-bearing in a networking library
+# (platform/socket headers must precede others on some toolchains).
+SortIncludes: Never
+SortUsingDeclarations: false
+
+# Keep short constructs as the author wrote them rather than collapsing.
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 3
+NamespaceIndentation: None
+FixNamespaceComments: false
+AccessModifierOffset: -4
+IndentCaseLabels: false

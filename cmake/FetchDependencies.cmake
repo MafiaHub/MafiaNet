@@ -12,24 +12,31 @@ message(STATUS "Fetching MafiaNet dependencies...")
 
 # -----------------------------------------------------------------------------
 # bzip2 - compression library for Autopatcher
-# Note: Using master branch as it has CMake support (1.0.8 tag does not)
+# Note: pinned to a specific commit for reproducible builds. The 1.0.8 release
+# tag lacks CMake support, so we track a post-1.0.8 master commit instead.
+# GIT_SHALLOW is disabled because shallow-fetching an arbitrary commit SHA is
+# not reliably supported across git servers.
 # -----------------------------------------------------------------------------
 FetchContent_Declare(
     bzip2
     GIT_REPOSITORY https://gitlab.com/bzip2/bzip2.git
-    GIT_TAG        master
-    GIT_SHALLOW    TRUE
+    GIT_TAG        66c46b8c9436613fd81bc5d03f63a61933a4dcc3
+    GIT_SHALLOW    FALSE
 )
 
 # -----------------------------------------------------------------------------
 # jansson - JSON library for ComprehensivePCGame master server communication
-# Note: Using master branch as v2.14.1 has CMake compatibility issues with cmake_minimum_required
+# Note: pinned to a specific commit for reproducible builds. The v2.14.1 release
+# tag has CMake compatibility issues with cmake_minimum_required, so we track a
+# post-2.14.1 master commit instead. GIT_SHALLOW is disabled because
+# shallow-fetching an arbitrary commit SHA is not reliably supported across git
+# servers.
 # -----------------------------------------------------------------------------
 FetchContent_Declare(
     jansson
     GIT_REPOSITORY https://github.com/akheron/jansson.git
-    GIT_TAG        master
-    GIT_SHALLOW    TRUE
+    GIT_TAG        1eb7a8129766153b5214153a00b1ae0e14e27a41
+    GIT_SHALLOW    FALSE
 )
 
 # jansson configuration

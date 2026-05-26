@@ -1,0 +1,41 @@
+# MafiaNet clang-tidy configuration.
+#
+# Scope is deliberately focused on high-signal correctness and incremental
+# modernization checks. This config is intended for local use and for the
+# follow-up mechanical-modernization PR; it is NOT wired as a blocking CI gate
+# yet, since the legacy tree would produce overwhelming diagnostics.
+#
+# Many enabled checks (modernize-use-override, modernize-use-nullptr,
+# modernize-use-using, modernize-use-equals-default/delete) are auto-fixable via
+# `clang-tidy --fix`, enabling safe, mechanical modernization.
+---
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-using,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-use-bool-literals,
+  modernize-loop-convert,
+  modernize-use-emplace,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-virtual-class-destructor,
+  readability-redundant-control-flow,
+  readability-redundant-string-init,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-reserved-identifier,
+  -performance-no-int-to-ptr,
+  -performance-enum-size
+
+# Treat nothing as an error by default; surfacing is the goal until the
+# modernization pass lands.
+WarningsAsErrors: ''
+
+# Only diagnose project headers, not fetched third-party dependencies.
+HeaderFilterRegex: 'Source/(include|src)/.*'
+
+FormatStyle: file

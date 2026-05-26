@@ -13,6 +13,7 @@
 
 # Build directories
 build/
+build-*/
 Build/
 out/
 
