@@ -3760,6 +3760,12 @@ InternalPacket* ReliabilityLayer::AllocateFromInternalPacketPool(void)
 	ip->allocationScheme=InternalPacket::NORMAL;
 	ip->data=0;
 	ip->timesSent=0;
+	// 'priority' is only meaningful on the send path; it is never transmitted on
+	// the wire, so received/reassembled packets would otherwise leave it as
+	// uninitialized pool memory. Reading that garbage (e.g. in
+	// CreateInternalPacketCopy) is undefined behavior for the PacketPriority enum,
+	// so seed a valid default here. Send paths overwrite it with the real value.
+	ip->priority=HIGH_PRIORITY;
 	return ip;
 }
 //-------------------------------------------------------------------------------------------------------
