@@ -1286,11 +1286,11 @@ void Ranking_GetMatches::Serialize( bool writeToBitstream, bool serializeOutput,
 			SubmittedMatch obj;
 			if (writeToBitstream)
 			{
-				bitStream->Serialize(writeToBitstream, submittedMatches[i]);
+				submittedMatches[i].Serialize(writeToBitstream, bitStream);
 			}
 			else
 			{
-				bitStream->Serialize(writeToBitstream, obj);
+				obj.Serialize(writeToBitstream, bitStream);
 				submittedMatches.Insert(obj, _FILE_AND_LINE_);
 			}
 		}

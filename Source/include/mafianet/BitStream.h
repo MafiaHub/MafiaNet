@@ -30,6 +30,8 @@
 #include "assert.h"
 #include <cmath>
 #include <float.h>
+#include <string>
+#include <type_traits>
 
 #ifdef _MSC_VER
 #pragma warning( push )
@@ -921,6 +923,13 @@ namespace MafiaNet
 	template <class templateType>
 		inline void BitStream::Write(const templateType &inTemplateVar)
 	{
+		static_assert(std::is_trivially_copyable<templateType>::value,
+			"BitStream::Write cannot serialize this type: the generic template "
+			"copies the raw object representation, which is only valid for "
+			"trivially-copyable types. Serializing a type that owns memory "
+			"(e.g. std::string, std::vector, or any class with pointers) this "
+			"way corrupts memory on deserialize. Provide a BitStream::Write/Read "
+			"specialization for the type, or serialize its members explicitly.");
 #ifdef _MSC_VER
 #pragma warning(disable:4127)   // conditional expression is constant
 #endif
@@ -944,6 +953,11 @@ namespace MafiaNet
 	template <class templateType>
 	inline void BitStream::WritePtr(templateType *inTemplateVar)
 	{
+		static_assert(std::is_trivially_copyable<templateType>::value,
+			"BitStream::WritePtr cannot serialize this type: it copies the raw "
+			"object representation, which is only valid for trivially-copyable "
+			"types. Provide a BitStream::Write/Read specialization or serialize "
+			"the members explicitly.");
 #ifdef _MSC_VER
 #pragma warning(disable:4127)   // conditional expression is constant
 #endif
@@ -1065,6 +1079,24 @@ namespace MafiaNet
 		inline void BitStream::Write(unsigned char * const &inTemplateVar)
 	{
 		Write((const char*)inTemplateVar);
+	}
+	/// \brief Write a std::string to a bitstream by value.
+	/// \details Uses the same length-prefixed wire format as RakString (an
+	/// unsigned short length followed by the raw bytes), so std::string and
+	/// RakString are interchangeable on the wire. This specialization exists so
+	/// std::string does NOT fall through to the catch-all template, which would
+	/// raw-copy the object representation (pointer/size/capacity) and corrupt
+	/// memory on deserialize.
+	/// \param[in] inStringVar The value to write
+	template <>
+		inline void BitStream::Write(const std::string &inStringVar)
+	{
+		// The length is sent as an unsigned short, matching RakString's wire
+		// format; strings longer than that would be silently truncated.
+		RakAssert(inStringVar.length() <= 0xFFFF);
+		const unsigned short l = (unsigned short) inStringVar.length();
+		Write(l);
+		WriteAlignedBytes((const unsigned char*) inStringVar.c_str(), l);
 	}
 
 	/// \brief Write any integral type to a bitstream.  
@@ -1278,6 +1310,13 @@ namespace MafiaNet
 	template <class templateType>
 		inline bool BitStream::Read(templateType &outTemplateVar)
 	{
+		static_assert(std::is_trivially_copyable<templateType>::value,
+			"BitStream::Read cannot deserialize this type: the generic template "
+			"overwrites the raw object representation, which is only valid for "
+			"trivially-copyable types. Reading into a type that owns memory "
+			"(e.g. std::string, std::vector, or any class with pointers) this "
+			"way corrupts memory. Provide a BitStream::Write/Read specialization "
+			"for the type, or deserialize its members explicitly.");
 #ifdef _MSC_VER
 #pragma warning(disable:4127)   // conditional expression is constant
 #endif
@@ -1414,6 +1453,18 @@ namespace MafiaNet
 		inline bool BitStream::Read(unsigned char *&varString)
 	{
 		return RakString::Deserialize((char*) varString,this);
+	}
+	template <>
+		inline bool BitStream::Read(std::string &outStringVar)
+	{
+		unsigned short l;
+		if (Read(l)==false)
+			return false;
+		outStringVar.resize(l);
+		if (l>0)
+			return ReadAlignedBytes((unsigned char*) &outStringVar[0], l);
+		AlignReadToByteBoundary();
+		return true;
 	}
 
 	/// \brief Read any integral type from a bitstream.  

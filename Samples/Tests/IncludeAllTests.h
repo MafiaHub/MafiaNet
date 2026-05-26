@@ -28,4 +28,5 @@
 #include "SystemAddressAndGuidTest.h"
 #include "PacketAndLowLevelTestsTest.h"
 #include "MiscellaneousTestsTest.h"
+#include "BitStreamStringTest.h"
 

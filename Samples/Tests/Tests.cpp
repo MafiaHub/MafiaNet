@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 	testList.Push(new SystemAddressAndGuidTest(),_FILE_AND_LINE_);	
 	testList.Push(new PacketAndLowLevelTestsTest(),_FILE_AND_LINE_);
 	testList.Push(new MiscellaneousTestsTest(),_FILE_AND_LINE_);
+	testList.Push(new BitStreamStringTest(),_FILE_AND_LINE_);
 
 	testListSize=testList.Size();
 
