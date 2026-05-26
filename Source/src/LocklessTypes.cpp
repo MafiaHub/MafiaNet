@@ -17,19 +17,19 @@
 
 using namespace MafiaNet;
 
-LocklessUint32_t::LocklessUint32_t() : value(0)
+LocklessUint32_t::LocklessUint32_t() : value( 0 )
 {
 }
-LocklessUint32_t::LocklessUint32_t(uint32_t initial) : value(initial)
+LocklessUint32_t::LocklessUint32_t( uint32_t initial ) : value( initial )
 {
 }
 uint32_t LocklessUint32_t::Increment(void)
 {
 	// fetch_add returns the previous value; +1 yields the value after the change,
 	// matching the documented contract ("value after changing it").
-	return value.fetch_add(1) + 1;
+	return value.fetch_add( 1 ) + 1;
 }
 uint32_t LocklessUint32_t::Decrement(void)
 {
-	return value.fetch_sub(1) - 1;
+	return value.fetch_sub( 1 ) - 1;
 }

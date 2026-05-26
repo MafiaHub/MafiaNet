@@ -1661,10 +1661,10 @@ void RakPeer::CloseConnection( const AddressOrGUID target, bool sendDisconnectio
 	// socket to avoid binding a reference to a null pointer (undefined behavior)
 	// in CloseConnectionInternal2. Mirrors the BCS_CLOSE_CONNECTION path below.
 	RakNetSocket2 *closeSocket = remoteSystemList[remoteSystemListIndex].rakNetSocket;
-	if (closeSocket == nullptr && socketList.Size() > 0)
+	if ( closeSocket == nullptr && socketList.Size() > 0 )
 		closeSocket = socketList[0];
-	if (closeSocket != nullptr)
-		CloseConnectionInternal2(target, sendDisconnectionNotification, false, orderingChannel, disconnectionNotificationPriority, *closeSocket);
+	if ( closeSocket != nullptr )
+		CloseConnectionInternal2( target, sendDisconnectionNotification, false, orderingChannel, disconnectionNotificationPriority, *closeSocket );
 
 	// 12/14/09 Return ID_CONNECTION_LOST when calling CloseConnection with sendDisconnectionNotification==false, elsewise it is never returned
 	if (sendDisconnectionNotification==false && GetConnectionState(target)==IS_CONNECTED)

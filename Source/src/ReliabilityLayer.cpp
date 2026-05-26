@@ -3765,7 +3765,7 @@ InternalPacket* ReliabilityLayer::AllocateFromInternalPacketPool(void)
 	// uninitialized pool memory. Reading that garbage (e.g. in
 	// CreateInternalPacketCopy) is undefined behavior for the PacketPriority enum,
 	// so seed a valid default here. Send paths overwrite it with the real value.
-	ip->priority=HIGH_PRIORITY;
+	ip->priority = HIGH_PRIORITY;
 	return ip;
 }
 //-------------------------------------------------------------------------------------------------------

@@ -754,14 +754,14 @@ protected:
 	bool IsLoopbackAddress(const AddressOrGUID &systemIdentifier, bool matchPort) const;
 	SystemAddress GetLoopbackAddress(void) const;
 
-	///Set this to true to terminate the Peer thread execution
-	/// std::atomic (not volatile) so that the update thread's exit store and
-	/// Shutdown's spin-wait load establish a happens-before edge, preventing the
-	/// data races TSAN reports between the update thread and post-shutdown teardown.
+	/// Set this to true to terminate the Peer thread execution
+	///  std::atomic (not volatile) so that the update thread's exit store and
+	///  Shutdown's spin-wait load establish a happens-before edge, preventing the
+	///  data races TSAN reports between the update thread and post-shutdown teardown.
 	std::atomic<bool> endThreads;
-	///true if the peer thread is active.
+	/// true if the peer thread is active.
 	std::atomic<bool> isMainLoopThreadActive;
-	
+
 	// MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 
 

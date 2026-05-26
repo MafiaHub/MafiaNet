@@ -24,6 +24,17 @@ BreakBeforeBraces: Allman
 PointerAlignment: Right
 ReferenceAlignment: Right
 
+# The RakNet-derived code puts spaces inside parentheses — `if ( x )`,
+# `func( a, b )`, `( expr )` — and a space after C-style casts (`(int) x`).
+# Match that so new/changed lines stay consistent with their surroundings.
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  InCStyleCasts: false
+  InEmptyParentheses: false
+  Other: true
+SpaceAfterCStyleCast: true
+
 # Do not reflow long lines; the legacy code has many intentionally long lines
 # and reflowing would create large, noisy diffs.
 ColumnLimit: 0
@@ -34,7 +45,8 @@ SortIncludes: Never
 SortUsingDeclarations: false
 
 # Keep short constructs as the author wrote them rather than collapsing.
-AllowShortFunctionsOnASingleLine: Empty
+# 'Inline' preserves the one-line accessor methods common in the public headers.
+AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Empty

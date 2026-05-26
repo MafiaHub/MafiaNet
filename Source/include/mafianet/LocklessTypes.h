@@ -36,7 +36,7 @@ public:
 	uint32_t Increment(void);
 	// Returns variable value after changing it
 	uint32_t Decrement(void);
-	uint32_t GetValue(void) const {return value.load();}
+	uint32_t GetValue( void ) const { return value.load(); }
 
 protected:
 	std::atomic<uint32_t> value;

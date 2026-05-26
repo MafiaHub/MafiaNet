@@ -186,7 +186,8 @@ MafiaNet::TimeUS GetTimeUS_Linux( void )
 	// 'initialTime' globals which raced between the network and user threads.
 	// (The subtraction keeps MafiaNet::Time in milliseconds from underflowing when
 	// dividing by 1000 for the conversion.)
-	static const MafiaNet::TimeUS baseTime = []() -> MafiaNet::TimeUS {
+	static const MafiaNet::TimeUS baseTime = []() -> MafiaNet::TimeUS
+	{
 		timeval t;
 		gettimeofday( &t, 0 );
 		return ( t.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( t.tv_usec );
@@ -199,7 +200,7 @@ MafiaNet::TimeUS GetTimeUS_Linux( void )
 	curTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
-	return NormalizeTime(curTime - baseTime);
+	return NormalizeTime( curTime - baseTime );
 #else
 	return curTime - baseTime;
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
