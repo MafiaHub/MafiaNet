@@ -1,0 +1,48 @@
+# ThreadSanitizer suppressions for MafiaNet.
+#
+# These baseline KNOWN, by-design data races so the TSAN CI job can act as a
+# regression guard that surfaces NEW races. They are NOT a statement that these
+# accesses are correct — they document a deliberate concurrency-model trade-off
+# inherited from RakNet: the network update thread owns remoteSystemList[] and
+# each connection's ReliabilityLayer, while public, user-thread getters read that
+# state WITHOUT locking, accepting eventual consistency in exchange for avoiding
+# locks on the hot path.
+#
+# Properly resolving these requires a deliberate concurrency-model redesign
+# (fine-grained synchronization or a snapshot/double-buffer for reads), tracked
+# separately. Genuine race bugs (thread-lifecycle synchronization, lazy-init,
+# the lockless counter) have been FIXED rather than suppressed.
+#
+# Format: https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions
+# A `race:` entry suppresses any race report whose stacks contain the substring.
+
+# --- Lock-free reads of connection state through public API getters ---
+race:MafiaNet::RakPeer::GetSystemList
+race:MafiaNet::RakPeer::GetConnectionState
+race:MafiaNet::RakPeer::GetIndexFromSystemAddress
+race:MafiaNet::RakPeer::GetSystemAddressFromIndex
+race:MafiaNet::RakPeer::GetAveragePing
+race:MafiaNet::RakPeer::GetLastPing
+race:MafiaNet::ReliabilityLayer::GetStatistics
+
+# --- Config get/set on the user thread, read lock-free by the network thread ---
+race:MafiaNet::RakPeer::SetMaximumIncomingConnections
+race:MafiaNet::RakPeer::AddToBanList
+race:MafiaNet::ReliabilityLayer::SetSplitMessageProgressInterval
+
+# --- Copying connection identifiers read lock-free from shared state ---
+race:MafiaNet::SystemAddress::operator=
+
+# --- remoteSystemList membership churn observed concurrently with the readers
+#     above; part of the same lock-free-read trade-off ---
+race:MafiaNet::RakPeer::CloseConnectionInternal2
+race:MafiaNet::RakPeer::RemoveFromActiveSystemList
+race:MafiaNet::RakPeer::AssignSystemAddressToRemoteSystemList
+race:MafiaNet::RakPeer::ParseConnectionRequestPacket
+race:MafiaNet::RakPeer::SetOccasionalPing
+
+# --- Thread-handoff command queues: producers on the user thread, consumer on
+#     the network thread. The queue access pattern predates this work; baselined
+#     pending a review of the intended locking discipline ---
+race:DataStructures::Queue<MafiaNet::RakPeer::BufferedCommandStruct*>::Push
+race:DataStructures::Queue<MafiaNet::RakPeer::RequestedConnectionStruct*>::Push

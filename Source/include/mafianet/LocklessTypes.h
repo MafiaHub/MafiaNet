@@ -18,15 +18,15 @@
 
 #include "Export.h"
 #include "NativeTypes.h"
-#include "WindowsIncludes.h"
-#if defined(ANDROID) || defined(__S3E__) || defined(__APPLE__)
-// __sync_fetch_and_add not supported apparently
-#include "SimpleMutex.h"
-#endif
+#include <atomic>
 
 namespace MafiaNet
 {
 
+// Lock-free atomic counter. Backed by std::atomic, which is portable and, unlike
+// the previous platform-specific implementations, gives a race-free GetValue()
+// (the old non-Windows path read 'value' without the lock that Increment/Decrement
+// took, which ThreadSanitizer correctly flagged as a data race).
 class RAK_DLL_EXPORT LocklessUint32_t
 {
 public:
@@ -36,18 +36,10 @@ public:
 	uint32_t Increment(void);
 	// Returns variable value after changing it
 	uint32_t Decrement(void);
-	uint32_t GetValue(void) const {return value;}
+	uint32_t GetValue(void) const {return value.load();}
 
 protected:
-#ifdef _WIN32
-	volatile LONG value;
-#elif defined(ANDROID) || defined(__S3E__) || defined(__APPLE__)
-	// __sync_fetch_and_add not supported apparently
-	SimpleMutex mutex;
-	uint32_t value;
-#else
-	volatile uint32_t value;
-#endif
+	std::atomic<uint32_t> value;
 };
 
 }

@@ -180,13 +180,17 @@ MafiaNet::TimeUS GetTimeUS_Windows( void )
 MafiaNet::TimeUS GetTimeUS_Linux( void )
 {
 	timeval tp;
-	if ( initialized == false)
-	{
-		gettimeofday( &tp, 0 );
-		initialized=true;
-		// I do this because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
-		initialTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
-	}
+	// Capture the time base exactly once in a thread-safe manner. A function-local
+	// static is guaranteed thread-safe one-time initialization (C++11), replacing
+	// the previous unsynchronized lazy init of the file-scope 'initialized'/
+	// 'initialTime' globals which raced between the network and user threads.
+	// (The subtraction keeps MafiaNet::Time in milliseconds from underflowing when
+	// dividing by 1000 for the conversion.)
+	static const MafiaNet::TimeUS baseTime = []() -> MafiaNet::TimeUS {
+		timeval t;
+		gettimeofday( &t, 0 );
+		return ( t.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( t.tv_usec );
+	}();
 
 	// GCC
 	MafiaNet::TimeUS curTime;
@@ -195,9 +199,9 @@ MafiaNet::TimeUS GetTimeUS_Linux( void )
 	curTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
-	return NormalizeTime(curTime - initialTime);
+	return NormalizeTime(curTime - baseTime);
 #else
-	return curTime - initialTime;
+	return curTime - baseTime;
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 }
 #endif

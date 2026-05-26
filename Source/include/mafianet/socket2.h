@@ -22,6 +22,7 @@
 #include "thread.h"
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "Export.h"
+#include <atomic>
 
 // For CFSocket
 // https://developer.apple.com/library/mac/#documentation/CoreFOundation/Reference/CFSocketRef/Reference/reference.html
@@ -197,7 +198,11 @@ protected:
 
 	unsigned RecvFromLoopInt(void);
 	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
-	volatile bool endThreads;
+	// std::atomic (not volatile): the recv thread loads this each loop while the
+	// owning thread sets it in SignalStop/BlockOnStopRecvPollingThread. The atomic
+	// load/store establish the happens-before edge that 'volatile' does not,
+	// resolving the ThreadSanitizer data race on the recv-thread lifecycle.
+	std::atomic<bool> endThreads;
 	// Constructor not called!
 
 #if defined(__APPLE__)
