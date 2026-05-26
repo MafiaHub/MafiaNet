@@ -272,7 +272,14 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 
 ## Changelog
 
-### Version 0.3.0 (Latest)
+### Version 0.4.0 (Latest)
+- **Cross-platform**: Full macOS and Linux support, merged `Socket2` definitions, removed deprecated platform back-ends
+- Fixed IPv6 connectivity and initialization issues
+- Upgraded dependencies: OpenSSL 3.6.0, miniupnpc 2.3.3, Opus 1.6.1; dependencies now fetched on demand via CMake
+- Fixed undefined behaviour in congestion control and a null-socket crash in connection teardown
+- CI now runs the full test suite on Linux, macOS and Windows, with numerous test-stability fixes
+
+### Version 0.3.0
 - **RakVoice**: Migrated from Speex to Opus codec with RNNoise noise suppression
 - Added support for 8000, 16000, 24000, 48000 Hz sample rates
 - Voice activity detection using Opus DTX

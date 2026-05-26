@@ -169,3 +169,33 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - `Samples/ReplicaManager3/` - Object replication system
 - `Samples/NATCompleteServer/` - NAT traversal demonstration
 - `Samples/Tests/` - Comprehensive test suite
+
+## Releasing (Version Bump Procedure)
+
+MafiaNet uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+The version string lives in **several** places that must all be kept in sync. When
+cutting a release, bump **every** location below to the new version:
+
+| File | What to change |
+|------|----------------|
+| `CMakeLists.txt` | `project(MafiaNet VERSION X.Y.Z ...)` — the canonical source of truth |
+| `Source/include/mafianet/version.h` | `MAFIANET_VERSION`, `MAFIANET_VERSION_NUMBER_INT`, and the `MAJOR`/`MINOR`/`PATCH` defines (leave the deprecated `RAKNET_*` / `SLIKENET_*` defines untouched) |
+| `docs/conf.py` | `version` and `release` |
+| `docs/Doxyfile` | `PROJECT_NUMBER` |
+| `docs/changelog.rst` | Add a new `Version X.Y.Z` section at the top |
+| `README.md` | Add a new `### Version X.Y.Z (Latest)` entry under Changelog and drop `(Latest)` from the previous one |
+
+### Steps
+
+1. Determine the previous release boundary (e.g. `git log --reverse <prev-tag>..HEAD`,
+   or the last `Version` entry in `docs/changelog.rst` if no tag exists).
+2. Summarize the changes since then from the commit history and write changelog
+   entries in `docs/changelog.rst` and `README.md`.
+3. Bump the version in **all** files in the table above.
+4. Commit: `git commit -am "chore(release): vX.Y.Z"`.
+5. Tag: `git tag -a vX.Y.Z -m "MafiaNet vX.Y.Z"`.
+6. Push: `git push origin <branch> --follow-tags`.
+7. Create the GitHub release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."`.
+
+> Note: releases are tagged `vX.Y.Z` (with the `v` prefix); the in-code/CMake
+> version strings are `X.Y.Z` (no prefix).
