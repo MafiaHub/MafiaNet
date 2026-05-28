@@ -46,7 +46,6 @@
 #else
 #include <sys/time.h>
 #include <unistd.h>
-MafiaNet::TimeUS initialTime;
 #endif
 
 static bool initialized=false;

@@ -1660,7 +1660,12 @@ void RakPeer::CloseConnection( const AddressOrGUID target, bool sendDisconnectio
 	// no-op in release (NDEBUG), so guard explicitly and fall back to the primary
 	// socket to avoid binding a reference to a null pointer (undefined behavior)
 	// in CloseConnectionInternal2. Mirrors the BCS_CLOSE_CONNECTION path below.
-	RakNetSocket2 *closeSocket = remoteSystemList[remoteSystemListIndex].rakNetSocket;
+	// Also defensively null-check remoteSystemList itself and bounds-check the
+	// index, since CloseConnection (unlike most other public methods on this
+	// class) does not guard against being called before Startup or after Shutdown.
+	RakNetSocket2 *closeSocket = nullptr;
+	if ( remoteSystemList != nullptr && remoteSystemListIndex >= 0 && (unsigned int) remoteSystemListIndex < maximumNumberOfPeers )
+		closeSocket = remoteSystemList[remoteSystemListIndex].rakNetSocket;
 	if ( closeSocket == nullptr && socketList.Size() > 0 )
 		closeSocket = socketList[0];
 	if ( closeSocket != nullptr )
