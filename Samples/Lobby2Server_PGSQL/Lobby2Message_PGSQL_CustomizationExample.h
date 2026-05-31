@@ -19,7 +19,7 @@
 // Requires:
 // 1. New class factory to create this message, instead of the old one
 // --------------------------------------------------------------
-namespace RakNet
+namespace MafiaNet
 {
 
 class Platform_Startup_Overridden : public Platform_Startup_PGSQL
@@ -61,7 +61,7 @@ struct Lobby2CustomizedHandler : public Lobby2Callbacks
 	virtual void CallCallback(Lobby2Callbacks *cb) {((Lobby2CustomizedHandler*)cb)->MessageResult(this);}; \
 	virtual Lobby2MessageID GetID(void) const {return (Lobby2MessageID) L2MID_##__NAME__;} \
 	virtual const char* GetName(void) const {return #__NAME__;} \
-	virtual void DebugMsg(RakNet::RakString &out) const {out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode));};
+	virtual void DebugMsg(MafiaNet::RakString &out) const {out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode));};
 
 
 // The new message
@@ -73,7 +73,7 @@ struct MyCustomMessage : public Lobby2Message
 	virtual bool RequiresRankingPermission(void) const {return false;}
 	virtual bool CancelOnDisconnect(void) const {return true;}
 	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, RakNet::BitStream *bitStream );
+	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
 	virtual bool PrevalidateInput(void) {return true;}
 	virtual bool ServerDBImpl( Lobby2ServerCommand *command, void *databaseInterface )
 	{
@@ -90,9 +90,9 @@ struct Lobby2MessageFactory_Customized : public Lobby2MessageFactory_PGSQL
 		switch (id)
 		{
 		case L2MID_Platform_Startup:
-			return RakNet::OP_NEW<Platform_Startup_Overridden>(__FILE__, __LINE__); 
+			return MafiaNet::OP_NEW<Platform_Startup_Overridden>(__FILE__, __LINE__); 
 		case L2MID_MyCustomMessage:
-			return RakNet::OP_NEW<MyCustomMessage>(__FILE__, __LINE__); 
+			return MafiaNet::OP_NEW<MyCustomMessage>(__FILE__, __LINE__); 
 		}
 		return Lobby2MessageFactory_PGSQL::Alloc(id);
 	}

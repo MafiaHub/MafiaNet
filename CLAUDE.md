@@ -85,8 +85,8 @@ Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWi
 ## Architecture
 
 ### Namespaces
-- Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`)
-- Legacy alias: `RakNet` is a namespace alias to `MafiaNet` for source compatibility with RakNet/SLikeNet code
+- Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`) — used exclusively throughout the library
+- Short-hand alias: the `MNet` preprocessor macro (defined in `mafianet/defines.h`) expands to `MafiaNet` as a convenience shorthand
 
 ### Key Components
 

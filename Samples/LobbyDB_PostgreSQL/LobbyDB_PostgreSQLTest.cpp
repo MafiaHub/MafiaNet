@@ -43,7 +43,7 @@ class DBResultHandler : public LobbyDBCBInterface
 		else
 		{
 			printf("CreateUser result:\n");
-			RakNet::RakString queryResultString;
+			MafiaNet::RakString queryResultString;
 
 			printf("[out] queryOK=%i\n", callResult->queryOK);
 			printf("[out] queryResultString=%s\n", callResult->queryResultString.C_String());
@@ -824,7 +824,7 @@ void main(int argc, char **argv)
 	// A function thread is class that spawns a thread that operates on functors.
 	// A functor is an instance of a class that has two pre-defined functions: One to perform processing, another to get the result.
 	// One per application is enough to not block
-	RakNet::FunctionThread ft;
+	MafiaNet::FunctionThread ft;
 
 	// Start one thread. Starting more than one may be advantageous for multi-core processors. However, in this scenario we are
 	// blocking on database calls rather than processing.

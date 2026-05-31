@@ -218,13 +218,10 @@
 #define SLNET_MAX_RETRIEVABLE_FILESIZE (0xFFFFFFFF)
 #endif
 
-// #blocker_2_0 - remove RAKNET_COMPATIBILITY
-#ifdef RAKNET_COMPATIBILITY
-// note: we cannot use namespace aliases here since we need to ensure ABI compatibility with shared libraries/DLLs
-// if we'd use a namespace alias, the names in the DLLs would still point to the actual namespace (SLNet) rather
-// than the alias namespace and old apps would not be able to use the DLL as an in-place replacement
-// hence, go with a simple preprocessor macro which will replace the SLNet namespace names with RakNet
-#define SLNet RakNet
-#endif
+// Short-hand alias for the MafiaNet namespace.
+// note: we use a preprocessor macro rather than a namespace alias to ensure ABI compatibility with shared
+// libraries/DLLs. With a namespace alias the names in the DLLs would still point to the actual namespace
+// (MafiaNet) rather than the alias namespace, so the macro simply rewrites MNet to the real MafiaNet namespace.
+#define MNet MafiaNet
 
 #endif // __RAKNET_DEFINES_H

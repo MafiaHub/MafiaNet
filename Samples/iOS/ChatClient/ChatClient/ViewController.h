@@ -36,7 +36,7 @@
 
 @interface ViewController : UIViewController<ChatServerDetailsProtocol>
 {
-    RakNet::RakPeerInterface *mRakPeer;
+    MafiaNet::RakPeerInterface *mRakPeer;
     UITextField *mSendText;
     UITextView *mTextBox;
 }

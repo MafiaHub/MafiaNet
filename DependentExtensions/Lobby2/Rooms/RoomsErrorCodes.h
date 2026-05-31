@@ -16,7 +16,7 @@
 #ifndef __ROOMS_ERROR_CODES_H
 #define __ROOMS_ERROR_CODES_H
 
-#include "mafianet/defines.h" // used for SLNet -> RakNet namespace change in RAKNET_COMPATIBILITY mode
+#include "mafianet/defines.h" // provides the MNet short-hand alias for the MafiaNet namespace
 namespace MafiaNet
 {
 

@@ -29,15 +29,15 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-    RakNet::RakPeerInterface *rakPeer = RakNet::RakPeerInterface::GetInstance();
-    RakNet::SocketDescriptor sd(0,0);
-    RakNet::StartupResult sr = rakPeer->Startup(32, &sd, 1);
+    MafiaNet::RakPeerInterface *rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+    MafiaNet::SocketDescriptor sd(0,0);
+    MafiaNet::StartupResult sr = rakPeer->Startup(32, &sd, 1);
     (void) sr;
     RakAssert(sr==SR_SUCCESS);
-    RakNet::ConnectionAttemptResult car = rakPeer->Connect("natpunch.jenkinssoftware.com", 61111, 0, 0);
+    MafiaNet::ConnectionAttemptResult car = rakPeer->Connect("natpunch.jenkinssoftware.com", 61111, 0, 0);
     (void) car;
     RakSleep(1000);
-    RakNet::Packet *packet;
+    MafiaNet::Packet *packet;
     for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
     {
         if (packet->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)

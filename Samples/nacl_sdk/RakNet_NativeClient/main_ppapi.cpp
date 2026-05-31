@@ -44,10 +44,10 @@ class ConnectivityTestInstance : public pp::Instance {
   {
   	// PostMessage(pp::Var("ConnectivityTestInstance constructor"));
 		/*
-		RakNet::ConnectionAttemptResult car = rakPeer->Connect("127.0.0.1", 1234, "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
-		RakAssert(car==RakNet::CONNECTION_ATTEMPT_STARTED);
+		MafiaNet::ConnectionAttemptResult car = rakPeer->Connect("127.0.0.1", 1234, "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
+		RakAssert(car==MafiaNet::CONNECTION_ATTEMPT_STARTED);
 		RakSleep(100);
-		RakNet::Packet* p;
+		MafiaNet::Packet* p;
 		for (p=rakPeer->Receive(); p; rakPeer->DeallocatePacket(p), p=rakPeer->Receive())
 			{}
 			*/
@@ -80,11 +80,11 @@ class ConnectivityTestInstance : public pp::Instance {
 	  rakPeer=0;
 	  	  
 	  	  /*
-	  rakPeer=RakNet::RakPeerInterface::GetInstance();
-  	RakNet::SocketDescriptor socketDescriptor(0,0);
+	  rakPeer=MafiaNet::RakPeerInterface::GetInstance();
+  	MafiaNet::SocketDescriptor socketDescriptor(0,0);
 		socketDescriptor.socketFamily=AF_INET;
 		StartupResult sr = rakPeer->Startup(8,&socketDescriptor, 1);
-		if (sr==RakNet::RAKNET_STARTED)
+		if (sr==MafiaNet::RAKNET_STARTED)
 		{
 			PostMessage(pp::Var("RAKNET_STARTED"));
 		}
@@ -93,10 +93,10 @@ class ConnectivityTestInstance : public pp::Instance {
 			PostMessage(pp::Var("RakNet did not start"));
 		}
 		
-		RakNet::ConnectionAttemptResult car = rakPeer->Connect("127.0.0.1", 1234, "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
-		RakAssert(car==RakNet::CONNECTION_ATTEMPT_STARTED);
+		MafiaNet::ConnectionAttemptResult car = rakPeer->Connect("127.0.0.1", 1234, "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
+		RakAssert(car==MafiaNet::CONNECTION_ATTEMPT_STARTED);
 		RakSleep(0);
-		RakNet::Packet* p;
+		MafiaNet::Packet* p;
 		for (p=rakPeer->Receive(); p; rakPeer->DeallocatePacket(p), p=rakPeer->Receive())
 			{}
 			*/

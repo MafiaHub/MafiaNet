@@ -27,18 +27,18 @@
 // The implemention of protocol ChatServerDetailsProtocol , which is called when we enter the server details
 - (void) connectToChatServer:(NSString *)serverIP serverPort:(NSString *)serverPort
 {
-	mRakPeer = RakNet::RakPeerInterface::GetInstance();
+	mRakPeer = MafiaNet::RakPeerInterface::GetInstance();
     
     // We're not specifying a port for the client, so that the OS picks one
-    RakNet::SocketDescriptor socketDescriptor(0,0);
+    MafiaNet::SocketDescriptor socketDescriptor(0,0);
     socketDescriptor.socketFamily = AF_INET;
     mRakPeer->Startup(8, &socketDescriptor, 1);
     mRakPeer->SetOccasionalPing(true);
 
     // Connect to the chat server
-	RakNet::SocketDescriptor serverAddress(serverPort.intValue, serverIP.UTF8String);
-    RakNet::ConnectionAttemptResult car = mRakPeer->Connect(serverAddress.hostAddress, serverAddress.port, "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
-	assert(car==RakNet::CONNECTION_ATTEMPT_STARTED);
+	MafiaNet::SocketDescriptor serverAddress(serverPort.intValue, serverIP.UTF8String);
+    MafiaNet::ConnectionAttemptResult car = mRakPeer->Connect(serverAddress.hostAddress, serverAddress.port, "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
+	assert(car==MafiaNet::CONNECTION_ATTEMPT_STARTED);
 	
 	[self appendMessage:[NSString stringWithFormat:@"Connecting to server at %s:%d ...", serverAddress.hostAddress, static_cast<int>(serverAddress.port)]];
 }
@@ -47,15 +47,15 @@
 // Copied from Multiplayer.cpp
 // If the first byte is ID_TIMESTAMP, then we want the 5th byte
 // Otherwise we want the 1st byte
-static unsigned char GetPacketIdentifier(RakNet::Packet *p)
+static unsigned char GetPacketIdentifier(MafiaNet::Packet *p)
 {
 	if (p==0)
 		return 255;
     
 	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
 	{
-		RakAssert(p->length > sizeof(RakNet::MessageID) + sizeof(RakNet::Time));
-		return (unsigned char) p->data[sizeof(RakNet::MessageID) + sizeof(RakNet::Time)];
+		RakAssert(p->length > sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time));
+		return (unsigned char) p->data[sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time)];
 	}
 	else
 		return (unsigned char) p->data[0];
@@ -67,7 +67,7 @@ static unsigned char GetPacketIdentifier(RakNet::Packet *p)
     // Be nice and let the server know we quit.
     mRakPeer->Shutdown(300);
     // We're done with the network
-	RakNet::RakPeerInterface::DestroyInstance(mRakPeer);
+	MafiaNet::RakPeerInterface::DestroyInstance(mRakPeer);
 }
 
 //Sends a message to the server and appends it to the text view
@@ -75,7 +75,7 @@ static unsigned char GetPacketIdentifier(RakNet::Packet *p)
 {
 	NSString* message = [NSString stringWithFormat:@"Me: %@",mSendText.text];
 	const char* cMessage = [message cStringUsingEncoding:NSASCIIStringEncoding];
-	mRakPeer->Send(cMessage, (int) strlen(cMessage)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	mRakPeer->Send(cMessage, (int) strlen(cMessage)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
     
 	[mSendText setText:@""];
 	[self appendMessage:message];
@@ -96,7 +96,7 @@ static unsigned char GetPacketIdentifier(RakNet::Packet *p)
     if (mRakPeer==0)
 		return;
 	
-    RakNet::Packet* p;
+    MafiaNet::Packet* p;
     
     // Get a packet from either the server or the client
     for (p=mRakPeer->Receive(); p; mRakPeer->DeallocatePacket(p), p=mRakPeer->Receive())
