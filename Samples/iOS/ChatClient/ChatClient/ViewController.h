@@ -15,17 +15,17 @@
 #import <UIKit/UIKit.h>
 
 // RakNet headers
-#include "MessageIdentifiers.h"
-#include "RakPeerInterface.h"
-#include "RakNetStatistics.h"
-#include "RakNetTypes.h"
-#include "BitStream.h"
-#include "PacketLogger.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/statistics.h"
+#include "mafianet/types.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/PacketLogger.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "RakNetTypes.h"
+#include "mafianet/types.h"
 
 // For simplicity, this sample doesn't support secure connections
 #if LIBCAT_SECURITY==1

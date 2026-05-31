@@ -13,8 +13,8 @@
 
 #include "TestInterface.h"
 
-#include "RakString.h"
-#include "BitStream.h"
+#include "mafianet/string.h"
+#include "mafianet/BitStream.h"
 
 using namespace MafiaNet;
 

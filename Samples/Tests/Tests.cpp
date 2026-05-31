@@ -11,9 +11,9 @@
 #include "IncludeAllTests.h"
 
 #include <cstdlib>
-#include "RakString.h"
-#include "DS_List.h"
-#include "Gets.h"
+#include "mafianet/string.h"
+#include "mafianet/DS_List.h"
+#include "mafianet/Gets.h"
 
 using namespace MafiaNet;
 /*

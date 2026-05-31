@@ -11,8 +11,8 @@
 #pragma once
 
 
-#include "RakString.h"
-#include "DS_List.h"
+#include "mafianet/string.h"
+#include "mafianet/DS_List.h"
 
 using namespace MafiaNet;
 class TestInterface

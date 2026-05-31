@@ -11,8 +11,8 @@
 // Common includes
 #include <stdio.h>
 #include <stdlib.h>
-#include "Kbhit.h"
-#include "GetTime.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/GetTime.h"
 #include "FunctionThread.h"
 #include "RankingServer_PostgreSQL.h"
 

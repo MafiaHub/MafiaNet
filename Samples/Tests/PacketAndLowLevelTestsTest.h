@@ -13,14 +13,14 @@
 
 #include "TestInterface.h"
 
-#include "RakString.h"
+#include "mafianet/string.h"
 
-#include "RakPeerInterface.h"
-#include "MessageIdentifiers.h"
-#include "BitStream.h"
-#include "RakSleep.h"
-#include "RakNetTime.h"
-#include "GetTime.h"
+#include "mafianet/peerinterface.h"
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/BitStream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/time.h"
+#include "mafianet/GetTime.h"
 #include "DebugTools.h"
 #include "CommonFunctions.h"
 #include "TestHelpers.h"

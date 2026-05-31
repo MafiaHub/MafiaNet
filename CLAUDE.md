@@ -109,8 +109,7 @@ Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWi
 
 ```
 Source/
-├── *.h                 # Thin wrapper headers (include these or mafianet/ versions)
-├── include/mafianet/   # Full public API headers
+├── include/mafianet/   # Public API headers (include as "mafianet/...")
 └── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features

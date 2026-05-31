@@ -11,11 +11,11 @@
 // Common includes
 #include <stdio.h>
 #include <stdlib.h>
-#include "Kbhit.h"
-#include "GetTime.h"
+#include "mafianet/Kbhit.h"
+#include "mafianet/GetTime.h"
 #include "FunctionThread.h"
 #include "LobbyDB_PostgreSQL.h"
-#include "EpochTimeToString.h"
+#include "mafianet/EpochTimeToString.h"
 
 #ifdef _WIN32
 #include <windows.h> // Sleep
