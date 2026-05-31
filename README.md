@@ -270,6 +270,52 @@ cmake --build .
 
 Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ReliableOrderedConvertedTest`, `SecurityFunctionsTest`, `SystemAddressAndGuidTest`, and more.
 
+## Installing via vcpkg
+
+MafiaNet ships an in-repo vcpkg port. There are two ways to consume it.
+
+### Option A — Overlay port (quickest)
+
+Point vcpkg at this repo's `ports/` directory:
+
+```bash
+vcpkg install mafianet --overlay-ports=/path/to/MafiaNet/ports
+# or: export VCPKG_OVERLAY_PORTS=/path/to/MafiaNet/ports
+```
+
+### Option B — Git registry (recommended for projects)
+
+Add a `vcpkg-configuration.json` next to your `vcpkg.json` (see
+`docs/examples/vcpkg/`):
+
+```json
+{
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/MafiaHub/MafiaNet",
+      "baseline": "<commit-sha-containing-the-port>",
+      "packages": ["mafianet"]
+    }
+  ]
+}
+```
+
+Then depend on it in `vcpkg.json`:
+
+```json
+{ "name": "my-app", "version": "0.0.1", "dependencies": ["mafianet"] }
+```
+
+### Using it from CMake
+
+The same call works for static and dynamic triplets:
+
+```cmake
+find_package(MafiaNet CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE MafiaNet::MafiaNet)
+```
+
 ## Changelog
 
 ### Version 0.4.0 (Latest)
