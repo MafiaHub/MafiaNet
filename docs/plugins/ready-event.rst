@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/ReadyEvent.h"
+   #include "mafianet/ReadyEvent.h"
 
    MafiaNet::ReadyEvent readyEvent;
    peer->AttachPlugin(&readyEvent);

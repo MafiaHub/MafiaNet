@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/FullyConnectedMesh2.h"
+   #include "mafianet/FullyConnectedMesh2.h"
 
    MafiaNet::FullyConnectedMesh2 fcm2;
    peer->AttachPlugin(&fcm2);

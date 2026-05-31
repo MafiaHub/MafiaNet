@@ -12,8 +12,8 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/AutopatcherServer.h"
-   #include "slikenet/AutopatcherRepositoryInterface.h"
+   #include "AutopatcherServer.h"
+   #include "mafianet/AutopatcherRepositoryInterface.h"
 
    // Use file-based or database repository
    MafiaNet::AutopatcherServer autopatcherServer;
@@ -29,7 +29,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/AutopatcherClient.h"
+   #include "AutopatcherClient.h"
 
    class MyPatchCallback : public MafiaNet::AutopatcherClientCBInterface {
    public:

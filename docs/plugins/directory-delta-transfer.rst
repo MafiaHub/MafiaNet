@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/DirectoryDeltaTransfer.h"
+   #include "mafianet/DirectoryDeltaTransfer.h"
 
    MafiaNet::DirectoryDeltaTransfer ddt;
    MafiaNet::FileListTransfer flt;

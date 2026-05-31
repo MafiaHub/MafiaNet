@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/TeamManager.h"
+   #include "mafianet/TeamManager.h"
 
    MafiaNet::TeamManager teamManager;
    peer->AttachPlugin(&teamManager);

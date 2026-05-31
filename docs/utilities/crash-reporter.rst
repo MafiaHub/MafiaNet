@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/CrashReporter.h"
+   #include "CrashReporter.h"
 
    int main() {
        // Initialize crash handler early
@@ -56,7 +56,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/TCPInterface.h"
+   #include "mafianet/TCPInterface.h"
 
    // Simple crash report receiver
    void RunCrashServer() {

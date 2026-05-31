@@ -219,9 +219,8 @@ cd docs
 ```
 MafiaNet/
 ├── Source/
-│   ├── include/mafianet/   # Public API headers
-│   ├── src/                # Implementation files
-│   └── *.h                 # Thin wrapper headers for compatibility
+│   ├── include/mafianet/   # Public API headers (include as "mafianet/...")
+│   └── src/                # Implementation files
 ├── Samples/                # 80 example applications
 │   ├── ChatExample/        # Simple chat application
 │   ├── Ping/               # Basic UDP communication

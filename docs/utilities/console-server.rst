@@ -12,8 +12,8 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/ConsoleServer.h"
-   #include "slikenet/TCPInterface.h"
+   #include "mafianet/ConsoleServer.h"
+   #include "mafianet/TCPInterface.h"
 
    MafiaNet::TCPInterface tcp;
    MafiaNet::ConsoleServer console;

@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/Lobby2Client.h"
+   #include "Lobby2Client.h"
 
    class MyLobbyCallbacks : public MafiaNet::Lobby2Callbacks {
    public:

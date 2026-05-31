@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/RPC4Plugin.h"
+   #include "mafianet/RPC4Plugin.h"
 
    void MyCallback(MafiaNet::BitStream* parameters, MafiaNet::Packet* packet) {
        int value;

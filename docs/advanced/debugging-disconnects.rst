@@ -20,7 +20,7 @@ Diagnostic Tools
 
 .. code-block:: cpp
 
-   #include "slikenet/PacketLogger.h"
+   #include "mafianet/PacketLogger.h"
 
    MafiaNet::PacketLogger logger;
    peer->AttachPlugin(&logger);

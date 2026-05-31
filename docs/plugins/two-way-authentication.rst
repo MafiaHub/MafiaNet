@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "slikenet/TwoWayAuthentication.h"
+   #include "mafianet/TwoWayAuthentication.h"
 
    MafiaNet::TwoWayAuthentication twoWayAuth;
    peer->AttachPlugin(&twoWayAuth);
