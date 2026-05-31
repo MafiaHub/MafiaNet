@@ -43,6 +43,7 @@ compile_commands.json
 Makefile
 *.cmake
 !cmake/*.cmake
+!ports/**/*.cmake
 
 # Package files
 *.tar.gz
