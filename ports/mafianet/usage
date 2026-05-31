@@ -1,0 +1,4 @@
+mafianet provides CMake targets:
+
+    find_package(MafiaNet CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE MafiaNet::MafiaNet)
