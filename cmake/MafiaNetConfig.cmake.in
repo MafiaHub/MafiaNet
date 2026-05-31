@@ -7,4 +7,13 @@ find_dependency(Threads)
 
 include("${CMAKE_CURRENT_LIST_DIR}/MafiaNetTargets.cmake")
 
+# Provide a stable consumption target regardless of linkage. vcpkg static
+# triplets install only MafiaNet::MafiaNetStatic; downstream code should still be
+# able to link MafiaNet::MafiaNet. A normal shared install already defines that
+# target, so this block is skipped there (fully backward-compatible).
+if(NOT TARGET MafiaNet::MafiaNet AND TARGET MafiaNet::MafiaNetStatic)
+    add_library(MafiaNet::MafiaNet INTERFACE IMPORTED)
+    target_link_libraries(MafiaNet::MafiaNet INTERFACE MafiaNet::MafiaNetStatic)
+endif()
+
 check_required_components(MafiaNet)
