@@ -7,7 +7,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(MafiaNet
-    VERSION 0.4.0
+    VERSION 0.5.0
     DESCRIPTION "Cross-platform network engine for multiplayer games"
     HOMEPAGE_URL "https://github.com/mafiahub/MafiaNet"
     LANGUAGES C CXX

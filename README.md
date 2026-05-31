@@ -271,7 +271,13 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 
 ## Changelog
 
-### Version 0.4.0 (Latest)
+### Version 0.5.0 (Latest)
+- **Namespace cleanup**: Standardized on the `MafiaNet` namespace; removed the legacy `SLNet` macro in favor of an `MNet` shorthand alias, and dropped stale `RakNet` alias references
+- **Single header set**: Collapsed the legacy redirect-stub header layers into the canonical `mafianet/...` includes
+- **BitStream safety**: Catch-all serialization now `static_assert`s on trivially-copyable types (preventing `std::string` double-frees), with added length-prefixed `std::string` specializations
+- _Breaking_: legacy include spellings and the `SLNet` namespace macro are removed; serializing non-trivially-copyable types via the generic `BitStream::Write`/`Read` is now a compile error
+
+### Version 0.4.0
 - **Cross-platform**: Full macOS and Linux support, merged `Socket2` definitions, removed deprecated platform back-ends
 - Fixed IPv6 connectivity and initialization issues
 - Upgraded dependencies: OpenSSL 3.6.0, miniupnpc 2.3.3, Opus 1.6.1; dependencies now fetched on demand via CMake
