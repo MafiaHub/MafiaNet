@@ -1,0 +1,17 @@
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "<VCPKG_BASELINE_COMMIT>"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/MafiaHub/MafiaNet",
+      "baseline": "<MAFIANET_COMMIT>",
+      "packages": [
+        "mafianet"
+      ]
+    }
+  ]
+}
