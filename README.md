@@ -271,7 +271,10 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 
 ## Changelog
 
-### Version 0.5.0 (Latest)
+### Version 0.5.1 (Latest)
+- **Plugins**: Added `DirectoryDeltaTransfer::AddFile(filePath, fileName)` to queue a single file for upload (complements the recursive `AddUploadsFromSubdirectory`)
+
+### Version 0.5.0
 - **Namespace cleanup**: Standardized on the `MafiaNet` namespace; removed the legacy `SLNet` macro in favor of an `MNet` shorthand alias, and dropped stale `RakNet` alias references
 - **Single header set**: Collapsed the legacy redirect-stub header layers into the canonical `mafianet/...` includes
 - **BitStream safety**: Catch-all serialization now `static_assert`s on trivially-copyable types (preventing `std::string` double-frees), with added length-prefixed `std::string` specializations

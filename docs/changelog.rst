@@ -3,6 +3,13 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.5.1
+-------------
+
+**Plugins**
+
+* Added ``DirectoryDeltaTransfer::AddFile(const char *filePath, const char *fileName)`` to queue a single file for upload, complementing the recursive ``AddUploadsFromSubdirectory``. It forwards to the existing ``FileList::AddFile`` overload, making the fork self-sufficient for downstream consumers (MafiaHub Framework) that depend on this helper.
+
 Version 0.5.0
 -------------
 
