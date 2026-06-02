@@ -3,6 +3,26 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.6.0
+-------------
+
+**Plugins**
+
+* **RPC4 handlers now carry user context.** ``RegisterFunction``, ``RegisterSlot``, ``RegisterBlockingFunction`` and the ``RPC4GlobalRegistration`` handler constructors take an opaque ``void *context`` that is passed back to the handler on every invocation. This removes the need for file-static global pointers to route an RPC back to an object instance; each registration carries its own context, so the same handler may serve multiple object instances under one identifier. The ``void*`` approach preserves RPC4's zero-external-dependency design.
+
+**Bug Fixes**
+
+* ``RakPeer::CloseConnection`` no longer dereferences a null ``rakNetSocket`` during connection teardown (a pre-existing crash in release builds, where the assertion is compiled out); it now falls back to the primary socket, matching the existing buffered-close path.
+
+**Testing**
+
+* Added ``RPC4ContextTest`` covering slot, nonblocking, and blocking handler context.
+* Quarantined the flaky ``ManyClientsOneServerDeallocateBlockingTest`` under CI while a pre-existing multithreaded teardown race is investigated.
+
+**Breaking Changes**
+
+* RPC4 handler signatures gained a trailing ``void *context`` parameter, and the registration / global-registration functions take a context argument. There are no compatibility overloads — update handlers and registration calls (pass ``nullptr`` when no context is needed).
+
 Version 0.5.1
 -------------
 
