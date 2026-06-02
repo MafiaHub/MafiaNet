@@ -112,7 +112,7 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 	if (peer->Startup(8, &sd, 1) != RAKNET_STARTED)
 		return 1;
 
-	RPC4 rpc;
+	RPC4 &rpc = clientRpc; // member: must outlive the peer (shut down in DestroyPeers)
 	peer->AttachPlugin(&rpc);
 
 	// Two distinct context markers. Their addresses are what we assert on.
@@ -165,8 +165,7 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 		return 7;
 	server->SetMaximumIncomingConnections(8);
 
-	RPC4 serverRpc;
-	server->AttachPlugin(&serverRpc);
+	server->AttachPlugin(&serverRpc); // member: must outlive the server peer
 	int markerBlocking = 0;
 	serverRpc.RegisterBlockingFunction("Blocking", BlockingHandler, &markerBlocking);
 

@@ -13,6 +13,7 @@
 #include "mafianet/string.h"
 #include "mafianet/DS_List.h"
 #include "mafianet/peerinterface.h"
+#include "mafianet/RPC4Plugin.h"
 
 using namespace MafiaNet;
 
@@ -32,4 +33,10 @@ public:
 private:
 	DataStructures::List<RakString> errorList;
 	DataStructures::List<RakPeerInterface *> destroyList;
+	// Plugins are members so they outlive the peers: the peers are shut down in
+	// DestroyPeers() (after RunTest returns), and RakPeer::Shutdown() calls back
+	// into attached plugins. A plugin destroyed before its peer would be a
+	// use-after-free during shutdown (~PluginInterface2 does not auto-detach).
+	RPC4 clientRpc;
+	RPC4 serverRpc;
 };
