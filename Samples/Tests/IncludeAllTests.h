@@ -29,4 +29,5 @@
 #include "PacketAndLowLevelTestsTest.h"
 #include "MiscellaneousTestsTest.h"
 #include "BitStreamStringTest.h"
+#include "RPC4ContextTest.h"
 
