@@ -31,10 +31,11 @@ using namespace MafiaNet;
 
 RakPeerInterface *rakPeer;
 
-void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet )
+void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet, void *context )
 {
 	// unused parameters
 	(void)packet;
+	(void)context;
 
 	printf("CFunc1 ");
 	MafiaNet::RakString data;
@@ -42,10 +43,11 @@ void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet )
 	printf("%s\n", data.C_String());
 };
 
-void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet )
+void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet, void *context )
 {
 	// unused parameters
 	(void)packet;
+	(void)context;
 
 	printf("CFunc2 ");
 	MafiaNet::RakString data;
@@ -53,10 +55,11 @@ void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet )
 	printf("%s\n", data.C_String());
 };
 
-void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Packet *packet )
+void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Packet *packet, void *context )
 {
 	// unused parameters
 	(void)packet;
+	(void)context;
 
 	printf("CFunc3 ");
 	MafiaNet::RakString data;
@@ -96,9 +99,9 @@ int main(void)
 
 	RPC4 rpc;
 	rakPeer->AttachPlugin(&rpc);
-	rpc.RegisterSlot("Event1", CFunc1, 0);
-	rpc.RegisterSlot("Event1", CFunc2, 0);
-	rpc.RegisterBlockingFunction("Blocking", CFunc3);
+	rpc.RegisterSlot("Event1", CFunc1, nullptr, 0);
+	rpc.RegisterSlot("Event1", CFunc2, nullptr, 0);
+	rpc.RegisterBlockingFunction("Blocking", CFunc3, nullptr);
 
 	MafiaNet::Packet *packet;
 	if (ip[0])

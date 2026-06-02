@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
 	testList.Push(new PacketAndLowLevelTestsTest(),_FILE_AND_LINE_);
 	testList.Push(new MiscellaneousTestsTest(),_FILE_AND_LINE_);
 	testList.Push(new BitStreamStringTest(),_FILE_AND_LINE_);
+	testList.Push(new RPC4ContextTest(),_FILE_AND_LINE_);
 
 	testListSize=testList.Size();
 

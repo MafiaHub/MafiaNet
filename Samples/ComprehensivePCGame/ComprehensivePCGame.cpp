@@ -737,17 +737,19 @@ public:
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Demonstrates how to use the RPC4 plugin
-void InGameChat(MafiaNet::BitStream *userData, Packet *packet)
+void InGameChat(MafiaNet::BitStream *userData, Packet *packet, void *context)
 {
 	// unused parameters
 	(void)packet;
+	(void)context;
 
 	RakString rs;
 	userData->Read(rs);
 	printf("%s\n", rs.C_String());
 }
 // Register the function where it is defined, which is easier than maintaining a bunch of RegisterSlot() calls in main()
-RPC4GlobalRegistration __InGameChat("InGameChat", InGameChat, 0);
+// nullptr context: this handler is a free function with no owning instance to route back to.
+RPC4GlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
 
 // Write roomName and a list of NATTypeDetectionResult to a bitStream
 void SerializeToJSON(RakString &outputString, RakString &roomName, DataStructures::List<NATTypeDetectionResult> &natTypes)
