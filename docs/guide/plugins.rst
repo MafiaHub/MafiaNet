@@ -87,8 +87,10 @@ Call functions on remote peers:
    MafiaNet::RPC4* rpc = MafiaNet::RPC4::GetInstance();
    peer->AttachPlugin(rpc);
 
-   // Register a function
-   rpc->RegisterSlot("SpawnPlayer", SpawnPlayerCallback, 0);
+   // Register a function. The trailing pointer is an opaque user context
+   // passed back to the handler on every call (here: nullptr, none needed).
+   // SpawnPlayerCallback's signature ends with `void* context`.
+   rpc->RegisterSlot("SpawnPlayer", SpawnPlayerCallback, nullptr, 0);
 
    // Call remotely
    MafiaNet::BitStream bs;
