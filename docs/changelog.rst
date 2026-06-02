@@ -3,6 +3,13 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.6.1
+-------------
+
+**Plugins**
+
+* **ReplicaManager3::GetReplicaAtIndex is now const.** It was the only one of the four read accessors (``GetReplicaCount``, ``GetReplicaAtIndex``, ``GetConnectionCount``, ``GetConnectionAtIndex``) that was non-const, which forced ``const`` methods on derived managers to ``const_cast`` away constness just to iterate replicas. The accessor only reads the world's replica list and returns an existing pointer, so the qualifier is accurate; the returned ``Replica3*`` stays non-const, matching ``GetConnectionAtIndex``. Source-compatible — adding ``const`` to a read accessor doesn't break existing non-const call sites.
+
 Version 0.6.0
 -------------
 
