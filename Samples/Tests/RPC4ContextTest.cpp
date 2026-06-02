@@ -12,6 +12,9 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/sleep.h"
 
+#include <atomic>
+#include <thread>
+
 /*
 Description:
 Tests that RPC4 handlers carry an opaque user-context pointer.
@@ -27,8 +30,13 @@ Success conditions:
 - A slot handler receives the context it was registered with.
 - Two slots sharing an identifier each receive their own distinct context.
 - A nonblocking function handler receives its registered context.
+- A blocking function handler receives its registered context.
 
 Failure conditions: any of the above does not hold.
+
+Note: the blocking case needs a second (server) peer. CallBlocking pumps only
+the caller's Receive() while it waits, so the server is driven from another
+thread; each RakPeerInterface is still only ever touched by one thread.
 */
 
 namespace
@@ -43,6 +51,8 @@ namespace
 		int slotInvocations;
 		void *functionContext;
 		int functionInvocations;
+		void *blockingContext;
+		int blockingInvocations;
 	};
 	Observation g_observed;
 
@@ -53,6 +63,8 @@ namespace
 		g_observed.slotInvocations = 0;
 		g_observed.functionContext = nullptr;
 		g_observed.functionInvocations = 0;
+		g_observed.blockingContext = nullptr;
+		g_observed.blockingInvocations = 0;
 	}
 
 	void SlotHandler(MafiaNet::BitStream *userData, Packet *packet, void *context)
@@ -72,6 +84,15 @@ namespace
 		(void)packet;
 		g_observed.functionContext = context;
 		g_observed.functionInvocations++;
+	}
+
+	void BlockingHandler(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context)
+	{
+		(void)userData;
+		(void)packet;
+		g_observed.blockingContext = context;
+		g_observed.blockingInvocations++;
+		returnData->Write((unsigned char)1); // CallBlocking requires a reply to unblock the caller
 	}
 }
 
@@ -133,6 +154,68 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 	if (g_observed.functionContext != &markerFn)
 		return 6;
 
+	// --- Blocking function context (registeredBlockingFunctions map) ---
+	// Needs a real remote: CallBlocking sends ID_RPC4_CALL with isBlocking=true,
+	// the server's OnReceive invokes the handler with its context, then replies.
+	RakPeerInterface *server = RakPeerInterface::GetInstance();
+	destroyList.Push(server, _FILE_AND_LINE_);
+
+	SocketDescriptor serverSd(0, 0);
+	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
+		return 7;
+	server->SetMaximumIncomingConnections(8);
+
+	RPC4 serverRpc;
+	server->AttachPlugin(&serverRpc);
+	int markerBlocking = 0;
+	serverRpc.RegisterBlockingFunction("Blocking", BlockingHandler, &markerBlocking);
+
+	unsigned short serverPort = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
+	peer->Connect("127.0.0.1", serverPort, nullptr, 0);
+
+	// Pump both peers until the client reports the connection accepted.
+	bool connected = false;
+	for (int i = 0; i < 500 && !connected; i++)
+	{
+		Packet *p;
+		for (p = peer->Receive(); p; peer->DeallocatePacket(p), p = peer->Receive())
+		{
+			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
+				connected = true;
+		}
+		for (p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+			;
+		RakSleep(10);
+	}
+	if (!connected)
+		return 8;
+
+	// CallBlocking blocks the caller (pumping only the client's Receive), so run
+	// it on a worker thread while the main thread drives the server.
+	MafiaNet::BitStream blockingParams;
+	blockingParams.Write((unsigned char)42);
+	RakNetGUID serverGuid = server->GetMyGUID();
+	std::atomic<int> blockingResult(-1); // -1 = running, 0 = false, 1 = true
+	std::thread caller([&]() {
+		MafiaNet::BitStream returnData;
+		bool ok = rpc.CallBlocking("Blocking", &blockingParams, HIGH_PRIORITY, RELIABLE_ORDERED, 0, serverGuid, &returnData);
+		blockingResult.store(ok ? 1 : 0);
+	});
+
+	for (int i = 0; i < 500 && blockingResult.load() == -1; i++)
+	{
+		Packet *p;
+		for (p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+			;
+		RakSleep(10);
+	}
+	caller.join();
+
+	if (blockingResult.load() != 1 || g_observed.blockingInvocations == 0)
+		return 9;
+	if (g_observed.blockingContext != &markerBlocking)
+		return 10;
+
 	return 0;
 }
 
@@ -156,6 +239,10 @@ RPC4ContextTest::RPC4ContextTest(void)
 	errorList.Push("Second slot did not receive its registered context", _FILE_AND_LINE_);
 	errorList.Push("Nonblocking function handler was not invoked", _FILE_AND_LINE_);
 	errorList.Push("Nonblocking function did not receive its registered context", _FILE_AND_LINE_);
+	errorList.Push("Server peer failed to start", _FILE_AND_LINE_);
+	errorList.Push("Client failed to connect to server", _FILE_AND_LINE_);
+	errorList.Push("Blocking function handler was not invoked (or call failed)", _FILE_AND_LINE_);
+	errorList.Push("Blocking function did not receive its registered context", _FILE_AND_LINE_);
 }
 
 RPC4ContextTest::~RPC4ContextTest(void)
