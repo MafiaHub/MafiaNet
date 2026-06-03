@@ -41,17 +41,22 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 
 	destroyList.Clear(false, _FILE_AND_LINE_);
 
-	const unsigned short serverPort = 60000;
-
 	RakPeerInterface *server = RakPeerInterface::GetInstance();
 	RakPeerInterface *client = RakPeerInterface::GetInstance();
 	destroyList.Push(server, _FILE_AND_LINE_);
 	destroyList.Push(client, _FILE_AND_LINE_);
 
-	SocketDescriptor sdServer(serverPort, "127.0.0.1");
+	// Bind the server to an OS-assigned ephemeral port rather than a fixed one.
+	// Most tests in this suite share port 60000; running them all in one process
+	// (as CI does) means a prior test's socket can still be lingering on that port
+	// when this one starts, disrupting the fresh connection and intermittently
+	// swallowing the disconnect notification. An ephemeral port sidesteps that.
+	SocketDescriptor sdServer(0, "127.0.0.1");
 	if (server->Startup(8, &sdServer, 1) != RAKNET_STARTED)
 		return 1;
 	server->SetMaximumIncomingConnections(8);
+
+	const unsigned short serverPort = server->GetInternalID().GetPort();
 
 	SocketDescriptor sdClient(0, "127.0.0.1");
 	if (client->Startup(1, &sdClient, 1) != RAKNET_STARTED)
