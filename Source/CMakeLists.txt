@@ -315,10 +315,10 @@ function(mafianet_configure_target target_name)
             OpenSSL::SSL
             OpenSSL::Crypto
         PRIVATE
-            # sodium is a FetchContent (non-imported) target; BUILD_LOCAL_INTERFACE
+            # sodium is a FetchContent (non-imported) target; BUILD_INTERFACE
             # restricts it to the build tree so the install export stays clean.
             # Installed consumers must provide libsodium themselves.
-            $<BUILD_LOCAL_INTERFACE:sodium>
+            $<BUILD_INTERFACE:sodium>
             Threads::Threads
             $<$<PLATFORM_ID:Windows>:ws2_32>
     )

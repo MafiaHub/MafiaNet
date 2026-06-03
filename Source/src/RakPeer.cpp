@@ -372,13 +372,13 @@ RakPeer::~RakPeer()
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *socketDescriptors, unsigned socketDescriptorCount, int threadPriority )
 {
+	if (IsActive())
+		return RAKNET_ALREADY_STARTED;
+
 	if (sodium_init() < 0)
 	{
 		return STARTUP_LIBSODIUM_INIT_FAILED;
 	}
-
-	if (IsActive())
-		return RAKNET_ALREADY_STARTED;
 
 	// If getting the guid failed in the constructor, try again
 	if (myGuid.g==0)
