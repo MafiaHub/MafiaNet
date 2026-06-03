@@ -7,6 +7,7 @@
 
 #include "mafianet/crypto/noise.h"
 #include <sodium.h>
+#include <cassert>
 #include <cstring>
 
 namespace MafiaNet {
@@ -202,6 +203,7 @@ void NoiseHandshake::InitResponder(const unsigned char staticPub[32],
 
 void NoiseHandshake::WriteMessageA(unsigned char out[48])
 {
+	assert(initiator);
 	GenEphemeral();
 	ss.MixHash(e_pub, 32);
 	memcpy(out, e_pub, 32);
@@ -214,10 +216,14 @@ void NoiseHandshake::WriteMessageA(unsigned char out[48])
 
 bool NoiseHandshake::ReadMessageA(const unsigned char in[48])
 {
+	assert(!initiator);
 	memcpy(remoteEph, in, 32);
 	ss.MixHash(remoteEph, 32);
 	unsigned char dh[32];
-	crypto_scalarmult(dh, s_sec, remoteEph);   // es = DH(s, re)
+	if (crypto_scalarmult(dh, s_sec, remoteEph) != 0) {   // es = DH(s, re)
+		sodium_memzero(dh, sizeof dh);
+		return false;
+	}
 	ss.MixKey(dh, 32);
 	sodium_memzero(dh, sizeof dh);
 	unsigned char pt[16]; size_t ptLen = 0;
@@ -226,6 +232,7 @@ bool NoiseHandshake::ReadMessageA(const unsigned char in[48])
 
 void NoiseHandshake::WriteMessageB(unsigned char out[48])
 {
+	assert(!initiator);
 	GenEphemeral();
 	ss.MixHash(e_pub, 32);
 	memcpy(out, e_pub, 32);
@@ -243,10 +250,14 @@ void NoiseHandshake::WriteMessageB(unsigned char out[48])
 
 bool NoiseHandshake::ReadMessageB(const unsigned char in[48])
 {
+	assert(initiator);
 	memcpy(remoteEph, in, 32);
 	ss.MixHash(remoteEph, 32);
 	unsigned char dh[32];
-	crypto_scalarmult(dh, e_sec, remoteEph);   // ee = DH(e, re)
+	if (crypto_scalarmult(dh, e_sec, remoteEph) != 0) {   // ee = DH(e, re)
+		sodium_memzero(dh, sizeof dh);
+		return false;
+	}
 	ss.MixKey(dh, 32);
 	sodium_memzero(dh, sizeof dh);
 	unsigned char pt[16]; size_t ptLen = 0;
