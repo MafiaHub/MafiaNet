@@ -146,6 +146,51 @@ Graceful disconnect:
 
 The remote system receives ``ID_DISCONNECTION_NOTIFICATION``.
 
+Disconnect with a reason
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A graceful disconnect can carry an optional payload so the remote peer learns
+*why* it was dropped (for example a kick/ban reason). Pass a ``BitStream`` as
+the final ``reasonData`` argument to ``CloseConnection``; its bytes are appended
+right after the ``ID_DISCONNECTION_NOTIFICATION`` message ID:
+
+.. code-block:: cpp
+
+   enum KickReason : uint8_t { KR_BANNED, KR_KICKED, KR_SERVER_FULL };
+
+   MafiaNet::BitStream reason;
+   reason.Write((uint8_t)KR_KICKED);                // an enum code...
+   MafiaNet::RakString("Cheating in match #4821")   // ...plus an optional custom string
+       .Serialize(&reason);
+
+   peer->CloseConnection(systemAddress, true, 0, LOW_PRIORITY, &reason);
+
+The receiver reads the reason from the notification packet exactly like any
+other message body — ``packet->data + 1`` for ``packet->length - 1`` bytes:
+
+.. code-block:: cpp
+
+   case ID_DISCONNECTION_NOTIFICATION:
+       if (packet->length > 1) {
+           MafiaNet::BitStream in(packet->data + 1, packet->length - 1, false);
+           uint8_t code;
+           MafiaNet::RakString text;
+           in.Read(code);
+           in.Deserialize(&text);
+           // show "Kicked: <text>", "You were banned.", etc.
+       }
+       break;
+
+.. note::
+
+   Only **graceful** disconnects carry a reason. Locally-synthesized
+   notifications — ``ID_CONNECTION_LOST`` and the timeout/dead-connection path
+   that also surfaces as ``ID_DISCONNECTION_NOTIFICATION`` — have no remote
+   sender and stay payload-less, so always tolerate a zero-length body
+   (``packet->length == 1``). Appending bytes after the ID is
+   wire-backward-compatible: peers that only inspect ``packet->data[0]`` are
+   unaffected, and you can send a single enum byte if you want minimal overhead.
+
 Forceful disconnect (no notification):
 
 .. code-block:: cpp
