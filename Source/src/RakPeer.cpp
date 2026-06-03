@@ -135,6 +135,10 @@ static const unsigned int MAX_OFFLINE_DATA_LENGTH=400; // I set this because I l
 // Make sure highest bit is 0, so isValid in DatagramHeaderFormat is false
 static const unsigned char OFFLINE_MESSAGE_DATA_ID[16]={0x00,0xFF,0xFF,0x00,0xFE,0xFE,0xFE,0xFE,0xFD,0xFD,0xFD,0xFD,0x12,0x34,0x56,0x78};
 
+// Stateless connection cookie (SYN-cookie) parameters.
+static const size_t COOKIE_BYTES = 16;          // truncated HMAC length used as the cookie
+static const uint64_t COOKIE_BUCKET_MS = 4000;  // time-bucket granularity for cookie validity
+
 struct PacketFollowedByData
 {
 	Packet p;
@@ -3205,33 +3209,44 @@ void RakPeer::SetServerSecurityKey(const ServerSecurityKey &key)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::GenerateConnectionCookie(const SystemAddress &systemAddress, unsigned char cookieOut[16]) const
 {
-	// Input = raw address bytes || 8-byte little-endian time bucket (4-second granularity).
-	const uint64_t timeBucket = (uint64_t) MafiaNet::GetTimeMS() / 4000;
-	unsigned char input[sizeof(systemAddress.address) + 8];
-	memcpy(input, &systemAddress.address, sizeof(systemAddress.address));
+	// HMAC input = canonical "ip|port" string (stable across IPv4/IPv6 union layouts;
+	// avoids hashing uninitialized padding/sockaddr_storage tail) || 8-byte LE time bucket.
+	// Binding to IP+port provides return-routability / anti-spoof.
+	const uint64_t timeBucket = (uint64_t) MafiaNet::GetTimeMS() / COOKIE_BUCKET_MS;
+	char addrStr[128] = {0};
+	systemAddress.ToString(true /*write port*/, addrStr, sizeof(addrStr));
+	const size_t addrLen = strlen(addrStr);
+
+	unsigned char input[128 + 8];
+	memcpy(input, addrStr, addrLen);
 	for (int i = 0; i < 8; ++i)
-		input[sizeof(systemAddress.address) + i] = (unsigned char) ((timeBucket >> (i * 8)) & 0xFF);
+		input[addrLen + i] = (unsigned char) ((timeBucket >> (i * 8)) & 0xFF);
 
 	unsigned char mac[crypto_auth_hmacsha512_BYTES];
-	crypto_auth_hmacsha512(mac, input, sizeof(input), cookieSecret);
-	memcpy(cookieOut, mac, 16);
+	crypto_auth_hmacsha512(mac, input, addrLen + 8, cookieSecret);
+	memcpy(cookieOut, mac, COOKIE_BYTES);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::VerifyConnectionCookie(const SystemAddress &systemAddress, const unsigned char cookie[16]) const
 {
 	// Accept the current and previous time bucket to avoid boundary races.
-	const uint64_t timeBucketNow = (uint64_t) MafiaNet::GetTimeMS() / 4000;
+	// Canonical serialization must match GenerateConnectionCookie exactly.
+	const uint64_t timeBucketNow = (uint64_t) MafiaNet::GetTimeMS() / COOKIE_BUCKET_MS;
+	char addrStr[128] = {0};
+	systemAddress.ToString(true /*write port*/, addrStr, sizeof(addrStr));
+	const size_t addrLen = strlen(addrStr);
+
 	for (int bucketOffset = 0; bucketOffset <= 1; ++bucketOffset)
 	{
 		const uint64_t timeBucket = timeBucketNow - (uint64_t) bucketOffset;
-		unsigned char input[sizeof(systemAddress.address) + 8];
-		memcpy(input, &systemAddress.address, sizeof(systemAddress.address));
+		unsigned char input[128 + 8];
+		memcpy(input, addrStr, addrLen);
 		for (int i = 0; i < 8; ++i)
-			input[sizeof(systemAddress.address) + i] = (unsigned char) ((timeBucket >> (i * 8)) & 0xFF);
+			input[addrLen + i] = (unsigned char) ((timeBucket >> (i * 8)) & 0xFF);
 
 		unsigned char mac[crypto_auth_hmacsha512_BYTES];
-		crypto_auth_hmacsha512(mac, input, sizeof(input), cookieSecret);
-		if (sodium_memcmp(mac, cookie, 16) == 0)
+		crypto_auth_hmacsha512(mac, input, addrLen + 8, cookieSecret);
+		if (sodium_memcmp(mac, cookie, COOKIE_BYTES) == 0)
 			return true;
 	}
 	return false;
@@ -4815,10 +4830,12 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			unsigned char serverHasSecurity;
 			bsIn.Read(serverHasSecurity);
 			// Even if the server has security, read the 16-byte stateless cookie to echo it back.
-			unsigned char cookie[16];
+			unsigned char cookie[COOKIE_BYTES] = {0};
 			if (serverHasSecurity)
 			{
-				bsIn.ReadAlignedBytes(cookie, sizeof(cookie));
+				// Attacker-controlled offline packet; drop if the cookie read is truncated.
+				if (bsIn.ReadAlignedBytes(cookie, sizeof(cookie))==false)
+					return true;
 			}
 
 			MafiaNet::BitStream bsOut;
@@ -4917,10 +4934,13 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			b=bs.Read(doSecurity);
 			RakAssert(b);
 
-			unsigned char serverMsgB[NoiseHandshake::MESSAGE_BYTES];
+			unsigned char serverMsgB[NoiseHandshake::MESSAGE_BYTES] = {0};
 			if (doSecurity)
 			{
-				bs.ReadAlignedBytes(serverMsgB, sizeof(serverMsgB));
+				// Attacker-controlled offline packet; drop if message B is truncated
+				// (fail closed before creating any connection state).
+				if (bs.ReadAlignedBytes(serverMsgB, sizeof(serverMsgB))==false)
+					return true;
 			}
 
 			RakPeer::RequestedConnectionStruct *rcs;
@@ -4992,11 +5012,30 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 									packet->systemAddress = rcs->systemAddress;
 									packet->guid=guid;
 									rakPeer->AddPacketToProducer(packet);
+
+									// Remove and free the rcs exactly once (mirrors the success path),
+									// otherwise it lingers in requestedConnectionQueue and later times
+									// out into a spurious ID_CONNECTION_ATTEMPT_FAILED.
+									rakPeer->requestedConnectionQueueMutex.Lock();
+									for (unsigned int k=0; k < rakPeer->requestedConnectionQueue.Size(); k++)
+									{
+										if (rakPeer->requestedConnectionQueue[k]->systemAddress==systemAddress)
+										{
+											RakPeer::RequestedConnectionStruct *deadRcs = rakPeer->requestedConnectionQueue[k];
+											rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
+											rakPeer->requestedConnectionQueueMutex.Unlock();
+											MafiaNet::OP_DELETE(deadRcs,_FILE_AND_LINE_);
+											return true;
+										}
+									}
+									rakPeer->requestedConnectionQueueMutex.Unlock();
 									return true;
 								}
 								unsigned char sKey[32], rKey[32];
 								rcs->noise.GetTransportKeys(sKey, rKey);
 								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
+								sodium_memzero(sKey, 32);
+								sodium_memzero(rKey, 32);
 							}
 
 							remoteSystem->weInitiatedTheConnection=true;
@@ -5202,21 +5241,25 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 
 			bool requiresSecurityOfThisClient=false;
-			unsigned char clientMsgA[NoiseHandshake::MESSAGE_BYTES];
+			unsigned char clientMsgA[NoiseHandshake::MESSAGE_BYTES] = {0};
 
 			if (rakPeer->hasServerSecurityKey)
 			{
 				// Verify the client's echoed stateless cookie before doing any work.
-				unsigned char cookie[16];
-				bs.ReadAlignedBytes(cookie, sizeof(cookie));
+				// All security reads are attacker-controlled and may be truncated; on any
+				// short/malformed read drop silently (fail closed, anti-flood).
+				unsigned char cookie[COOKIE_BYTES] = {0};
+				if (bs.ReadAlignedBytes(cookie, sizeof(cookie))==false)
+					return true;
 				if (rakPeer->VerifyConnectionCookie(systemAddress, cookie)==false)
 				{
 					// Drop silently (anti-flood): an attacker without a valid cookie gets nothing.
 					return true;
 				}
 
-				unsigned char clientDoingNoise;
-				bs.Read(clientDoingNoise);
+				unsigned char clientDoingNoise = 0;
+				if (bs.Read(clientDoingNoise)==false)
+					return true;
 				if (clientDoingNoise==0)
 				{
 					// We require security but the client is not doing Noise. Tell it so.
@@ -5234,7 +5277,8 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					return true;
 				}
 
-				bs.ReadAlignedBytes(clientMsgA, sizeof(clientMsgA));
+				if (bs.ReadAlignedBytes(clientMsgA, sizeof(clientMsgA))==false)
+					return true;
 				requiresSecurityOfThisClient=true;
 			}
 
@@ -5389,6 +5433,8 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				unsigned char sKey[32], rKey[32];
 				serverNoise.GetTransportKeys(sKey, rKey);
 				rssFromSA->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
+				sodium_memzero(sKey, 32);
+				sodium_memzero(rKey, 32);
 
 				bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer,sizeof(rssFromSA->answer));
 			}
