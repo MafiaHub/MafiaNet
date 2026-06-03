@@ -62,6 +62,16 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 	if (client->Startup(1, &sdClient, 1) != RAKNET_STARTED)
 		return 2;
 
+	// Keep connections alive well past the default 10s timeout. The whole suite
+	// runs in one process and CI runners are CPU-starved; if a peer's internal
+	// thread is starved the connection can time out at ~10s — right as our 10s
+	// receive wait expires — and the reliable disconnect notification (still being
+	// retransmitted from the resend buffer) is dropped when the connection dies.
+	// A generous timeout lets the notification get through under load; it costs
+	// nothing on a healthy run, where it arrives in milliseconds.
+	server->SetTimeoutTime(30000, UNASSIGNED_SYSTEM_ADDRESS);
+	client->SetTimeoutTime(30000, UNASSIGNED_SYSTEM_ADDRESS);
+
 	// --- Case 1: graceful disconnect WITH a reason payload ---
 	{
 		RakNetGUID clientGuid = ConnectAndGetClientGuid(server, client, serverPort);
@@ -79,7 +89,7 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 
 		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY, &reason);
 
-		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 10000);
+		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 20000);
 		if (note == 0)
 			return 4;
 
@@ -135,7 +145,7 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 		// Default reasonData == nullptr: notification must stay payload-less.
 		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY);
 
-		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 10000);
+		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 20000);
 		if (note == 0)
 			return 10;
 
@@ -178,7 +188,7 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 		BitStream emptyReason;
 		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY, &emptyReason);
 
-		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 10000);
+		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 20000);
 		if (note == 0)
 			return 13;
 
