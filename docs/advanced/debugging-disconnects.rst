@@ -77,6 +77,10 @@ Handling Disconnect Packets
            case ID_DISCONNECTION_NOTIFICATION:
                printf("Clean disconnect from %s\n",
                       packet->systemAddress.ToString());
+               // The disconnecting side may attach an optional reason payload
+               // (packet->data + 1, length packet->length - 1). It is empty for
+               // local timeouts, so always guard on packet->length > 1.
+               // See the "Disconnect with a reason" section of :doc:`../basics/connecting`.
                break;
 
            case ID_CONNECTION_LOST:
