@@ -31,4 +31,5 @@
 #include "BitStreamStringTest.h"
 #include "RPC4ContextTest.h"
 #include "VirtualWorldTest.h"
+#include "DisconnectReasonTest.h"
 
