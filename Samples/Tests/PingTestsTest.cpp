@@ -9,6 +9,7 @@
  */
 
 #include "PingTestsTest.h"
+#include "SampleSecurity.h"
 
 /*
 Description:
@@ -56,6 +57,7 @@ int PingTestsTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 	receiver=RakPeerInterface::GetInstance();
 	destroyList.Push(receiver,_FILE_AND_LINE_);
 	SocketDescriptor receiverSd(60000, 0);
+	receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	receiver->Startup(2, &receiverSd, 1);
 	receiver->SetMaximumIncomingConnections(2);
 	Packet * packet;

@@ -414,9 +414,10 @@ void ReliabilityLayer::Reset(bool resetVariables, int mtuSize, bool _useSecurity
 
 		useSecurity = _useSecurity;
 
-		if (_useSecurity) {
-			mtuSize -= SecureSession::OVERHEAD_BYTES;
-		}
+		// Note: the AEAD framing overhead is deducted in
+		// GetMaxDatagramSizeExcludingMessageHeaderBytes() (the usable-payload budget), NOT here.
+		// congestionManager keeps the full UDP-payload MTU so the encrypted datagram
+		// (plaintext + OVERHEAD_BYTES) still fits exactly within the link MTU.
 		congestionManager.Init(MafiaNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE);
 	}
 }

@@ -162,9 +162,9 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 	destroyList.Push(server, _FILE_AND_LINE_);
 
 	SocketDescriptor serverSd(0, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
 		return 7;
-	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(8);
 
 	server->AttachPlugin(&serverRpc); // member: must outlive the server peer

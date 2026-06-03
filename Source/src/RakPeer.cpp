@@ -5008,6 +5008,18 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				return true;
 			}
 
+			// Mandatory encryption: validate the client's Noise message A BEFORE allocating a
+			// connection slot, so a bad/forged handshake never consumes incoming-connection
+			// capacity or leaves a half-open UNVERIFIED_SENDER slot (which would otherwise make
+			// a retry observe ID_ALREADY_CONNECTED).
+			NoiseHandshake serverNoise;
+			if (requiresSecurityOfThisClient)
+			{
+				serverNoise.InitResponder(rakPeer->serverSecurityKey.publicKey, rakPeer->serverSecurityKey.secretKey);
+				if (!serverNoise.ReadMessageA(clientMsgA))
+					return true; // bad message A -> drop silently, no slot allocated
+			}
+
 			bool thisIPConnectedRecently=false;
 			rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, requiresSecurityOfThisClient);
 
@@ -5031,18 +5043,10 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 			if (requiresSecurityOfThisClient && rssFromSA)
 			{
-				// Run the Noise_NK responder handshake: read message A, write message B,
-				// derive transport keys, and install them on this connection's SecureSession.
-				// AssignSystemAddressToRemoteSystemList already called reliabilityLayer.Reset(useSecurity=true),
-				// constructing a fresh SecureSession, so SetKeys here is the correct ordering.
-				NoiseHandshake serverNoise;
-				serverNoise.InitResponder(rakPeer->serverSecurityKey.publicKey, rakPeer->serverSecurityKey.secretKey);
-				if (!serverNoise.ReadMessageA(clientMsgA))
-				{
-					// Bad message A -> drop this attempt.
-					rakPeer->DereferenceRemoteSystem(systemAddress);
-					return true;
-				}
+				// Message A was already validated above (before slot allocation). Produce
+				// message B, derive transport keys, and install them. AssignSystemAddressToRemoteSystemList
+				// already called reliabilityLayer.Reset(useSecurity=true) -> fresh SecureSession,
+				// so SetKeys here is the correct ordering.
 				serverNoise.WriteMessageB(rssFromSA->answer);
 				unsigned char sKey[32], rKey[32];
 				serverNoise.GetTransportKeys(sKey, rKey);

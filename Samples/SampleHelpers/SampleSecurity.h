@@ -24,4 +24,15 @@ inline ServerSecurityKey GetSampleServerKey()
 	memcpy(k.publicKey, pub, 32);
 	return k;
 }
+
+// Public half only, for client/outbound sample paths. Use this to pin the server in
+// Connect() without baking the demo private key into a client binary; reserve
+// GetSampleServerKey() (which includes the secret) for the server's SetServerSecurityKey().
+inline const unsigned char* GetSampleServerPublicKey()
+{
+	static const unsigned char pub[32] = {
+		0x8f,0x40,0xc5,0xad,0xb6,0x8f,0x25,0x62,0x4a,0xe5,0xb2,0x14,0xea,0x76,0x7a,0x6e,
+		0xc9,0x4d,0x82,0x9d,0x3d,0x7b,0x5e,0x1a,0xd1,0xba,0x6f,0x3e,0x21,0x38,0x28,0x5f };
+	return pub;
+}
 } // namespace MafiaNet

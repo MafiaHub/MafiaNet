@@ -78,6 +78,13 @@ FetchContent_Declare(
 set(SODIUM_DISABLE_TESTS ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libsodium)
 
+# libsodium is a static library that gets linked into the MafiaNet shared library.
+# On ELF platforms (Linux) the static archive must be built with position-independent
+# code or the shared-library link fails with "recompile with -fPIC".
+if(TARGET sodium)
+    set_target_properties(sodium PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
 # Library subdirectory
 add_subdirectory(Source)
 

@@ -1,7 +1,7 @@
 Secure Connections
 ==================
 
-As of MafiaNet 0.8.0, **all connections are encrypted and authenticated by
+As of an upcoming release, **all connections are encrypted and authenticated by
 default** using the `Noise_NK`_ protocol pattern built on **libsodium**.  There
 is no opt-out switch: every peer-to-peer datagram is encrypted, integrity-
 protected, and replay-guarded from the moment the handshake completes.
@@ -10,7 +10,7 @@ protected, and replay-guarded from the moment the handshake completes.
 
 .. note::
 
-   **Breaking change from 0.7.x.** The wire protocol is incompatible with
+   **Breaking change from the previous release.** The wire protocol is incompatible with
    older peers.  The former ``InitializeSecurity`` / ``PublicKey`` /
    ``PublicKeyMode`` API has been removed.  See the
    :ref:`migration guide <secure-connections-migration>` below.
@@ -209,17 +209,17 @@ Best Practices
 
 .. _secure-connections-migration:
 
-Migration from 0.7.x
----------------------
+Migration from Prior Releases
+------------------------------
 
-The following API was **removed** in 0.8.0:
+The following API was **removed** in the next release:
 
 .. list-table::
    :header-rows: 1
    :widths: 40 60
 
-   * - Removed (0.7.x)
-     - Replacement (0.8.0)
+   * - Removed (previous release)
+     - Replacement (next release)
    * - ``RakPeerInterface::InitializeSecurity``
      - ``RakPeerInterface::SetServerSecurityKey``
    * - ``RakPeerInterface::DisableSecurity``
@@ -239,7 +239,7 @@ The following API was **removed** in 0.8.0:
    * - ``GenerateServerRSAKeys``
      - ``GenerateServerSecurityKey`` (returns ``ServerSecurityKey``)
 
-**Wire compatibility:** peers built against 0.8.0 cannot talk to 0.7.x peers.
+**Wire compatibility:** the new release peers cannot talk to peers built against the previous release.
 Plan a coordinated server+client upgrade.
 
 See Also

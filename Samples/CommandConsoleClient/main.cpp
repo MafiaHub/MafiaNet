@@ -127,13 +127,12 @@ int main()
 					MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort),0);
 					if (rakPeer->Startup(1, &socketDescriptor, 1)== MafiaNet::RAKNET_STARTED)
 					{
-						rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 						int passwordLen;
 						if (password[0])
 							passwordLen=(int) strlen(password)+1;
 						else
 							passwordLen=0;
-						if (rakPeer->Connect(ip, static_cast<unsigned short>(intRemotePort), password, passwordLen, MafiaNet::GetSampleServerKey().publicKey)== MafiaNet::CONNECTION_ATTEMPT_STARTED)
+						if (rakPeer->Connect(ip, static_cast<unsigned short>(intRemotePort), password, passwordLen, MafiaNet::GetSampleServerPublicKey())== MafiaNet::CONNECTION_ATTEMPT_STARTED)
 							printf("Connecting...\nNote: if the password is wrong the other system will ignore us.\n");
 						else
 						{

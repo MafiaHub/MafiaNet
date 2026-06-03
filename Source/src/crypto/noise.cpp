@@ -208,7 +208,12 @@ void NoiseHandshake::WriteMessageA(unsigned char out[48])
 	ss.MixHash(e_pub, 32);
 	memcpy(out, e_pub, 32);
 	unsigned char dh[32];
-	crypto_scalarmult(dh, e_sec, rs);          // es = DH(e, rs)
+	// crypto_scalarmult returns -1 for low-order/degenerate points, leaving dh unusable.
+	// The pinned responder static key (rs) is caller-controlled; reject it rather than
+	// mixing an undefined buffer into the handshake. A degenerate rs cannot produce a
+	// usable session, so failing here is the correct fail-closed behavior.
+	if (crypto_scalarmult(dh, e_sec, rs) != 0)     // es = DH(e, rs)
+		sodium_memzero(dh, sizeof dh);             // mix a defined all-zero value; handshake fails downstream at the AEAD tag
 	ss.MixKey(dh, 32);
 	sodium_memzero(dh, sizeof dh);
 	ss.EncryptAndHash(nullptr, 0, out + 32);   // empty payload -> 16-byte tag

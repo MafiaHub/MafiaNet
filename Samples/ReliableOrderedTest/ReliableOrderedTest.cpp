@@ -158,9 +158,8 @@ int main(int argc, char **argv)
 		printf("Connecting...\n");
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
 		sender->Startup(8, &socketDescriptor, 1);
-		sender->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		// sender->ApplyNetworkSimulator(.2, 0, 0);
-		sender->Connect(ip, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
+		sender->Connect(ip, remotePort, 0, 0, MafiaNet::GetSampleServerPublicKey());
 	}
 	else
 	{

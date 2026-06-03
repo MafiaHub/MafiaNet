@@ -5,6 +5,12 @@ include(CMakeFindDependencyMacro)
 find_dependency(OpenSSL)
 find_dependency(Threads)
 
+# Note: libsodium is statically linked into MafiaNet via CMake FetchContent and
+# is NOT re-exported as a public CMake dependency. Consumers of the installed
+# static library (MafiaNet::MafiaNet_static) must provide and link libsodium
+# themselves (e.g. via find_package(unofficial-sodium) or pkg_check_modules).
+# The shared library already embeds libsodium; only static consumers are affected.
+
 include("${CMAKE_CURRENT_LIST_DIR}/MafiaNetTargets.cmake")
 
 check_required_components(MafiaNet)

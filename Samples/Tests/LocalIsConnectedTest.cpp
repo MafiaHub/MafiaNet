@@ -55,8 +55,8 @@ int LocalIsConnectedTest::RunTest(DataStructures::List<RakString> params,bool is
 	SocketDescriptor clientSd;
 	client->Startup(1, &clientSd, 1);
 	SocketDescriptor serverSd(60000, 0);
-	server->Startup(1, &serverSd, 1);
 	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	server->Startup(1, &serverSd, 1);
 	server->SetMaximumIncomingConnections(1);
 
 	SystemAddress serverAddress;
