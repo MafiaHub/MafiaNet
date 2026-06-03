@@ -116,6 +116,7 @@ set(MAFIANET_CRYPTO_SOURCES
     src/crypto/cryptomanager.cpp
     src/crypto/factory.cpp
     src/crypto/fileencrypter.cpp
+    src/crypto/keys.cpp
     src/crypto/securestring.cpp
 )
 
@@ -286,6 +287,7 @@ set(MAFIANET_CRYPTO_HEADERS
     include/mafianet/crypto/factory.h
     include/mafianet/crypto/fileencrypter.h
     include/mafianet/crypto/ifileencrypter.h
+    include/mafianet/crypto/keys.h
     include/mafianet/crypto/securestring.h
 )
 
