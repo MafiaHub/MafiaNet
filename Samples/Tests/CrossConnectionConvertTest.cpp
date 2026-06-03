@@ -45,13 +45,13 @@ int CrossConnectionConvertTest::RunTest(DataStructures::List<RakString> params,b
 	
 
 	SocketDescriptor serverSd(SERVER_PORT, 0);
-	server->Startup(1, &serverSd, 1);
 	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	server->Startup(1, &serverSd, 1);
 	server->SetMaximumIncomingConnections(1);
 
 	SocketDescriptor clientSd(0, 0);
-	client->Startup(1, &clientSd, 1);
 	client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	client->Startup(1, &clientSd, 1);
 
 	client->Ping(serverIP,SERVER_PORT,false);
 

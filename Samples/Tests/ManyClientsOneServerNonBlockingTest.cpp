@@ -73,6 +73,7 @@ int ManyClientsOneServerNonBlockingTest::RunTest(DataStructures::List<RakString>
 	server=RakPeerInterface::GetInstance();
 	destroyList.Push(server,_FILE_AND_LINE_);
 	SocketDescriptor serverSd(60000, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
 	if (serverResult != RAKNET_STARTED)
 	{
@@ -80,7 +81,6 @@ int ManyClientsOneServerNonBlockingTest::RunTest(DataStructures::List<RakString>
 			printf("Server failed to start (error %d)\n", serverResult);
 		return 1;
 	}
-	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(clientNum);
 
 	//Connect all the clients to the server

@@ -55,6 +55,7 @@ int MaximumConnectTest::RunTest(DataStructures::List<RakString> params,bool isVe
 		destroyList.Push(peerList[i],_FILE_AND_LINE_);
 
 		SocketDescriptor sd(60000+i, 0);
+		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		StartupResult result = peerList[i]->Startup(maxConnections, &sd, 1);
 		if (result != RAKNET_STARTED)
 		{
@@ -62,7 +63,6 @@ int MaximumConnectTest::RunTest(DataStructures::List<RakString> params,bool isVe
 				printf("Peer %d failed to start on port %d (error %d)\n", i, 60000+i, result);
 			return 1;
 		}
-		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		peerList[i]->SetMaximumIncomingConnections(maxConnections);
 
 		connReturn=peerList[i]->GetMaximumIncomingConnections();

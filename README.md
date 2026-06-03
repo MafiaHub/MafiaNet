@@ -37,7 +37,7 @@ MafiaNet is an actively maintained networking library built for game developers 
 
 - CMake 3.21+
 - C++17 compatible compiler
-- OpenSSL 1.0.0+
+- OpenSSL 3.0+
 - Internet connection (first build fetches dependencies automatically)
 
 ### Building
@@ -84,16 +84,24 @@ cmake -DMAFIANET_BUILD_SAMPLES=ON ..
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
-// Create a peer
-MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
+// --- Server side ---
+MafiaNet::RakPeerInterface* server = MafiaNet::RakPeerInterface::GetInstance();
 
-// Start as server
+// Generate and set the server key BEFORE Startup (distribute publicKey to clients out-of-band)
+MafiaNet::ServerSecurityKey key = MafiaNet::GenerateServerSecurityKey();
+server->SetServerSecurityKey(key);   // required before Startup to accept encrypted connections
+
 MafiaNet::SocketDescriptor sd(60000, 0);
-peer->Startup(32, &sd, 1);
-peer->SetMaximumIncomingConnections(32);
+server->Startup(32, &sd, 1);
+server->SetMaximumIncomingConnections(32);
 
-// Or connect as client
-peer->Connect("127.0.0.1", 60000, nullptr, 0);
+// --- Client side ---
+MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
+MafiaNet::SocketDescriptor clientSd(0, 0);
+peer->Startup(1, &clientSd, 1);
+
+// Pin the server's 32-byte public key when connecting
+peer->Connect("127.0.0.1", 60000, nullptr, 0, serverPublicKey);  // serverPublicKey: const unsigned char[32]
 
 // Process incoming packets
 MafiaNet::Packet* packet;
@@ -248,7 +256,8 @@ MafiaNet automatically fetches required dependencies via CMake FetchContent:
 
 | Dependency | Version | Used For |
 |------------|---------|----------|
-| OpenSSL | 1.0.0+ | Encryption (required, system-installed) |
+| OpenSSL | 3.0+ | Encryption (required, system-installed) |
+| libsodium | - | Transport encryption — Noise_NK handshake + ChaCha20-Poly1305 (auto-fetched via CMake) |
 | bzip2 | - | Compression (Autopatcher) |
 | miniupnpc | - | UPnP port forwarding |
 | Opus | 1.5.2 | Voice codec (RakVoice) |

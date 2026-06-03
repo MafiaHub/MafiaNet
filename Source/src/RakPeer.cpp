@@ -4594,6 +4594,43 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					unlock=false;
 
 					RakAssert(rcs->actionToTake==RakPeer::RequestedConnectionStruct::CONNECT);
+
+					// Mandatory encryption: verify the server's identity (Noise message B)
+					// BEFORE allocating a connection slot, so a failed/mismatched handshake
+					// never leaves a half-open UNVERIFIED_SENDER slot (DereferenceRemoteSystem
+					// only unlinks the lookup hash, it does not free the active slot).
+					if (doSecurity)
+					{
+						if (!rcs->noise.ReadMessageB(serverMsgB))
+						{
+							// Server identity could not be verified -> abort, allocate nothing.
+							packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
+							packet->data[ 0 ] = ID_PUBLIC_KEY_MISMATCH;
+							packet->bitSize = ( sizeof( char ) * 8);
+							packet->systemAddress = rcs->systemAddress;
+							packet->guid=guid;
+							rakPeer->AddPacketToProducer(packet);
+
+							// Remove and free the rcs exactly once (mirrors the success path),
+							// otherwise it lingers in requestedConnectionQueue and later times
+							// out into a spurious ID_CONNECTION_ATTEMPT_FAILED.
+							rakPeer->requestedConnectionQueueMutex.Lock();
+							for (unsigned int k=0; k < rakPeer->requestedConnectionQueue.Size(); k++)
+							{
+								if (rakPeer->requestedConnectionQueue[k]->systemAddress==systemAddress)
+								{
+									RakPeer::RequestedConnectionStruct *deadRcs = rakPeer->requestedConnectionQueue[k];
+									rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
+									rakPeer->requestedConnectionQueueMutex.Unlock();
+									MafiaNet::OP_DELETE(deadRcs,_FILE_AND_LINE_);
+									return true;
+								}
+							}
+							rakPeer->requestedConnectionQueueMutex.Unlock();
+							return true;
+						}
+					}
+
 					// You might get this when already connected because of cross-connections
 					bool thisIPConnectedRecently=false;
 					remoteSystem=rakPeer->GetRemoteSystemFromSystemAddress( systemAddress, true, true );
@@ -4619,40 +4656,9 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 							// Move pointer from RequestedConnectionStruct to RemoteSystemStruct
 							if (doSecurity)
 							{
-								// Read Noise message B, deriving transport keys and verifying the
-								// server's identity (it proved possession of the pinned static key).
-								// AssignSystemAddressToRemoteSystemList already Reset the SecureSession,
-								// so SetKeys here is the correct ordering.
-								if (!rcs->noise.ReadMessageB(serverMsgB))
-								{
-									// Server identity could not be verified -> abort this connection.
-									rakPeer->DereferenceRemoteSystem(systemAddress);
-
-									packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
-									packet->data[ 0 ] = ID_PUBLIC_KEY_MISMATCH;
-									packet->bitSize = ( sizeof( char ) * 8);
-									packet->systemAddress = rcs->systemAddress;
-									packet->guid=guid;
-									rakPeer->AddPacketToProducer(packet);
-
-									// Remove and free the rcs exactly once (mirrors the success path),
-									// otherwise it lingers in requestedConnectionQueue and later times
-									// out into a spurious ID_CONNECTION_ATTEMPT_FAILED.
-									rakPeer->requestedConnectionQueueMutex.Lock();
-									for (unsigned int k=0; k < rakPeer->requestedConnectionQueue.Size(); k++)
-									{
-										if (rakPeer->requestedConnectionQueue[k]->systemAddress==systemAddress)
-										{
-											RakPeer::RequestedConnectionStruct *deadRcs = rakPeer->requestedConnectionQueue[k];
-											rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
-											rakPeer->requestedConnectionQueueMutex.Unlock();
-											MafiaNet::OP_DELETE(deadRcs,_FILE_AND_LINE_);
-											return true;
-										}
-									}
-									rakPeer->requestedConnectionQueueMutex.Unlock();
-									return true;
-								}
+									// Message B was already verified above (before slot allocation).
+									// Install the derived transport keys. AssignSystemAddressToRemoteSystemList
+									// already Reset the SecureSession, so SetKeys here is correctly ordered.
 								unsigned char sKey[32], rKey[32];
 								rcs->noise.GetTransportKeys(sKey, rKey);
 								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);

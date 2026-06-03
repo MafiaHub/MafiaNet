@@ -58,6 +58,7 @@ int EightPeerTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 		}
 
 		SocketDescriptor sd(60000+i, 0);
+		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		StartupResult result = peerList[i]->Startup(peerNum*2, &sd, 1);
 		if (result != RAKNET_STARTED)
 		{
@@ -68,7 +69,6 @@ int EightPeerTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 			}
 			return 1;
 		}
-		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		peerList[i]->SetMaximumIncomingConnections(peerNum);
 
 	}

@@ -23,6 +23,10 @@ Basic Usage
    LoadFromFile("server.pub", serverPublicKey, 32);
    fcm2.SetConnectOnNewRemoteConnection(true, "gamePassword", serverPublicKey);
 
+   // Accept inbound encrypted connections using the same shared mesh key.
+   MafiaNet::ServerSecurityKey serverKey = MafiaNet::LoadServerSecurityKey("server.key");
+   peer->SetServerSecurityKey(serverKey);   // accept inbound encrypted connections (same shared mesh key)
+
    // Start the mesh with initial host
    fcm2.StartVerifiedJoin(hostGuid);
 

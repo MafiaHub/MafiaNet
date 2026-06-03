@@ -158,6 +158,7 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 		printf("Waiting for connections...\n");
 
 	SocketDescriptor receiverSd(localPort, 0);
+	receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult receiverResult = receiver->Startup(32, &receiverSd, 1);
 	if (receiverResult != RAKNET_STARTED)
 	{
@@ -165,7 +166,6 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 			printf("Receiver failed to start on port %d (error %d)\n", localPort, receiverResult);
 		return 1;
 	}
-	receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	receiver->SetMaximumIncomingConnections(32);
 
 	//	if (sender)

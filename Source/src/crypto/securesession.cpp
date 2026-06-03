@@ -69,8 +69,9 @@ bool SecureSession::Encrypt(unsigned char *buffer, size_t bufferSize, unsigned i
 	unsigned char tmp[SCRATCH_BYTES];
 	if ((size_t)length + 16 > sizeof tmp) return false;
 	unsigned long long clen = 0;
-	crypto_aead_chacha20poly1305_ietf_encrypt(
-		tmp, &clen, buffer, length, nullptr, 0, nullptr, npub, txKey);
+	if (crypto_aead_chacha20poly1305_ietf_encrypt(
+			tmp, &clen, buffer, length, nullptr, 0, nullptr, npub, txKey) != 0)
+		return false; // fail closed; do not emit an unencrypted/partial datagram
 
 	writeLE64(buffer, ctr);
 	memcpy(buffer + 8, tmp, (size_t)clen);

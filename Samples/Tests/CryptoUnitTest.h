@@ -18,8 +18,8 @@ class CryptoUnitTest : public TestInterface
 public:
     CryptoUnitTest(void);
     ~CryptoUnitTest() override;
-    int RunTest(DataStructures::List<RakString> params, bool isVerbose, bool noPauses);
-    RakString GetTestName();
-    RakString ErrorCodeToString(int errorCode);
+    int RunTest(DataStructures::List<RakString> params, bool isVerbose, bool noPauses) override;
+    RakString GetTestName() override;
+    RakString ErrorCodeToString(int errorCode) override;
     void DestroyPeers() {}
 };

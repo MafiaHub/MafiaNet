@@ -29,7 +29,7 @@
 #include "DS_List.h"
 #include "smartptr.h"
 #include "socket2.h"
-#include "crypto/keys.h"
+#include "mafianet/crypto/keys.h"
 
 namespace MafiaNet
 {

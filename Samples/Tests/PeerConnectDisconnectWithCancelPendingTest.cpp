@@ -64,6 +64,7 @@ int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<Rak
 		destroyList.Push(peerList[i],_FILE_AND_LINE_);
 
 		SocketDescriptor sd(60000+i, 0);
+		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		StartupResult result = peerList[i]->Startup(maxConnections, &sd, 1);
 		if (result != RAKNET_STARTED)
 		{
@@ -71,7 +72,6 @@ int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<Rak
 				printf("Peer %d failed to start (error %d)\n", i, result);
 			return 1;
 		}
-		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		peerList[i]->SetMaximumIncomingConnections(maxConnections);
 
 	}
