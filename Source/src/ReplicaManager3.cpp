@@ -491,6 +491,13 @@ Connection_RM3* ReplicaManager3::GetConnectionByGUID(RakNetGUID guid, WorldId wo
 void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<Connection_RM3*> &connectionsOut, bool includeGlobal, WorldId worldId) const
 {
 	connectionsOut.Clear(true, _FILE_AND_LINE_);
+
+	// Two distinct layers: the heavyweight RM3 world (worldId, default 0) is the
+	// container that actually holds the connection list; the virtual world is a
+	// lightweight per-connection tag we filter that list by. We are not switching
+	// RM3 worlds here -- we look up the RM3 world only to get its connections,
+	// then keep the ones whose virtual world matches. (Most setups only ever use
+	// the auto-created RM3 world 0.) See VirtualWorld.h.
 	RakAssert(worldsArray[worldId]!=0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
