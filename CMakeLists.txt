@@ -32,6 +32,20 @@ option(MAFIANET_BUILD_STATIC "Build static library" ON)
 option(MAFIANET_BUILD_SAMPLES "Build sample applications" OFF)
 option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
 
+# Sanitizer support (Clang/GCC only).
+# Set MAFIANET_SANITIZER to one of: address, undefined, address+undefined
+# Example: cmake -DMAFIANET_SANITIZER=address+undefined ...
+set(MAFIANET_SANITIZER "" CACHE STRING "Enable compiler sanitizers (address, undefined, address+undefined)")
+if(MAFIANET_SANITIZER)
+    # Parse the "+" separator: "address+undefined" -> "-fsanitize=address,undefined"
+    string(REPLACE "+" "," _san_flags "${MAFIANET_SANITIZER}")
+    set(_san_compile_flags "-fsanitize=${_san_flags} -fno-omit-frame-pointer -g")
+    set(_san_link_flags    "-fsanitize=${_san_flags}")
+    message(STATUS "Sanitizer build: -fsanitize=${_san_flags}")
+    add_compile_options(-fsanitize=${_san_flags} -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=${_san_flags})
+endif()
+
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
     message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")
