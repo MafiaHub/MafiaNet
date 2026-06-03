@@ -52,6 +52,7 @@ FullyConnectedMesh2::FullyConnectedMesh2()
 
 
 	connectOnNewRemoteConnections=true;
+	memset(connectionServerPublicKey, 0, sizeof(connectionServerPublicKey));
 
 	hostRakNetGuid=UNASSIGNED_RAKNET_GUID;
 }
@@ -753,10 +754,14 @@ void FullyConnectedMesh2::IncrementTotalConnectionCount(unsigned int i)
 		//	printf("totalConnectionCount=%i\n",i);
 	}
 }
-void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection, MafiaNet::RakString pw)
+void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection, MafiaNet::RakString pw, const unsigned char serverPublicKey[32])
 {
 	connectOnNewRemoteConnections=attemptConnection;
 	connectionPassword=pw;
+	if (serverPublicKey!=0)
+		memcpy(connectionServerPublicKey, serverPublicKey, sizeof(connectionServerPublicKey));
+	else
+		memset(connectionServerPublicKey, 0, sizeof(connectionServerPublicKey));
 }
 
 void FullyConnectedMesh2::ConnectToRemoteNewIncomingConnections(Packet *packet)
@@ -773,7 +778,7 @@ void FullyConnectedMesh2::ConnectToRemoteNewIncomingConnections(Packet *packet)
 		bsIn.Read(remoteAddress);
 		bsIn.Read(remoteGuid);
 		remoteAddress.ToString(false,str,static_cast<size_t>(64));
-		rakPeerInterface->Connect(str,remoteAddress.GetPort(),connectionPassword.C_String(),(int) connectionPassword.GetLength());
+		rakPeerInterface->Connect(str,remoteAddress.GetPort(),connectionPassword.C_String(),(int) connectionPassword.GetLength(),connectionServerPublicKey);
 	}
 }
 unsigned int FullyConnectedMesh2::GetTotalConnectionCount(void) const

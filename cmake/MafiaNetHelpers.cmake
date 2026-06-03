@@ -40,6 +40,7 @@ function(mafianet_add_sample)
     target_include_directories(${SAMPLE_NAME} PRIVATE
         ${PROJECT_SOURCE_DIR}/Source/include      # Public headers (mafianet/...)
         ${PROJECT_SOURCE_DIR}/DependentExtensions
+        ${PROJECT_SOURCE_DIR}/Samples/SampleHelpers   # Shared sample helpers (SampleSecurity.h)
     )
 
     if(SAMPLE_INCLUDES)
