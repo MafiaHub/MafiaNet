@@ -3,6 +3,39 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.7.0
+-------------
+
+**Plugins**
+
+* **Virtual worlds (dimensions) for ReplicaManager3.** A new lightweight
+  per-entity / per-observer ``VirtualWorldId`` tag scopes visibility at runtime —
+  the SA-MP ``SetPlayerVirtualWorld`` / routing-bucket model for instanced
+  interiors such as apartments. Players only see entities sharing their virtual
+  world (or the ``VIRTUAL_WORLD_GLOBAL`` sentinel), switchable on the fly with no
+  reconnect, while staying on the same connection and the same RM3 ``WorldId``.
+  Derive entities from the new ``VirtualWorldReplica3`` base
+  (``mafianet/VirtualWorldReplica3.h``); ``Connection_RM3`` gains
+  ``Get/SetVirtualWorld``; ``ReplicaManager3`` gains
+  ``GetConnectionsInVirtualWorld`` / ``GetGuidsInVirtualWorld`` (recipient-filter
+  helpers for scoping non-replica traffic like chat and RPC) and
+  ``SetPlayerVirtualWorld``. The filter is applied only by the authority for an
+  (entity, connection) pair, so a downloaded copy never despawns the entity at
+  its owner. See ``mafianet/VirtualWorld.h`` and the ``Samples/VirtualWorld`` demo.
+
+**Documentation**
+
+* Added a "Virtual Worlds (Dimensions)" plugin guide and expanded the
+  contributing guide with how to test networked features (unit + end-to-end), the
+  ReplicaManager3 authority model, and multi-peer-in-one-process gotchas.
+
+**Testing**
+
+* Added ``VirtualWorldTest`` (deterministic unit coverage, including the
+  non-authority case) and a self-contained ``Samples/VirtualWorld`` smoke test.
+* Fixed the test harness so a subset run (``Tests <name>``) calls
+  ``DestroyPeers()`` on the test that actually ran.
+
 Version 0.6.1
 -------------
 
