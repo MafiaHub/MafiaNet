@@ -7,6 +7,7 @@
 
 #include "CryptoUnitTest.h"
 #include "mafianet/crypto/keys.h"
+#include "mafianet/crypto/noise.h"
 #include <sodium.h>
 #include <cstring>
 #include <cstdio>
@@ -30,6 +31,34 @@ int CryptoUnitTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 	if (memcmp(k.secretKey, k2.secretKey, 32) == 0) return 4;
 
 	if (isVerbose) printf("CryptoUnitTest: keys OK\n");
+
+	// --- HKDF determinism + output length sanity ---
+	{
+		unsigned char ck[64]; memset(ck, 0x01, 64);
+		unsigned char ikm[32]; memset(ikm, 0x02, 32);
+		unsigned char a[128], b[128];
+		Noise_HKDF(ck, ikm, 32, 2, a);
+		Noise_HKDF(ck, ikm, 32, 2, b);
+		if (memcmp(a, b, 128) != 0) return 10;
+		if (memcmp(a, a + 64, 64) == 0) return 11;
+	}
+	// --- SymmetricState round-trips an AEAD payload ---
+	{
+		NoiseSymmetricState s1, s2;
+		s1.InitializeSymmetric("Noise_NK_25519_ChaChaPoly_SHA512");
+		s2.InitializeSymmetric("Noise_NK_25519_ChaChaPoly_SHA512");
+		unsigned char ikm[32]; memset(ikm, 0x07, 32);
+		s1.MixKey(ikm, 32);
+		s2.MixKey(ikm, 32);
+		const unsigned char pt[5] = {1,2,3,4,5};
+		unsigned char ct[5 + 16]; unsigned char rt[5 + 16]; size_t rlen = 0;
+		size_t clen = s1.EncryptAndHash(pt, 5, ct);
+		if (clen != 21) return 12;
+		if (!s2.DecryptAndHash(ct, clen, rt, &rlen)) return 13;
+		if (rlen != 5 || memcmp(rt, pt, 5) != 0) return 14;
+	}
+
+	if (isVerbose) printf("CryptoUnitTest: noise symmetric core OK\n");
 	return 0;
 }
 
@@ -43,6 +72,11 @@ RakString CryptoUnitTest::ErrorCodeToString(int e)
 		case 2: return "public key != scalarmult_base(secret)";
 		case 3: return "secret key all zero";
 		case 4: return "two keypairs identical";
+		case 10: return "HKDF not deterministic";
+		case 11: return "HKDF outputs equal";
+		case 12: return "ciphertext len wrong";
+		case 13: return "AEAD decrypt failed";
+		case 14: return "roundtrip mismatch";
 		default: return "unknown";
 	}
 }
