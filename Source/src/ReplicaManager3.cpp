@@ -506,7 +506,12 @@ void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, 
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		VirtualWorldId connVirtualWorld = connection->GetVirtualWorld();
-		bool matches = includeGlobal ? VirtualWorldsCanSee(virtualWorld, connVirtualWorld) : (connVirtualWorld==virtualWorld);
+		// Membership test (not a symmetric visibility check): the connection is in
+		// this virtual world, plus -- when includeGlobal -- any global observer.
+		// Using VirtualWorldsCanSee here would make a GLOBAL *query* match every
+		// connection, which is not what "connections in virtual world N" means.
+		bool matches = (connVirtualWorld==virtualWorld) ||
+			(includeGlobal && connVirtualWorld==VIRTUAL_WORLD_GLOBAL);
 		if (matches)
 			connectionsOut.Push(connection, _FILE_AND_LINE_);
 	}

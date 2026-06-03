@@ -63,8 +63,8 @@ public:
 	bool DeserializeConstruction(BitStream *bs, Connection_RM3 *)
 	{
 		VirtualWorldId vw;
-		bs->Read(playerId);
-		bs->Read(vw);
+		if (!bs->Read(playerId) || !bs->Read(vw))
+			return false; // malformed construction data -> reject
 		SetVirtualWorld(vw);
 		return true;
 	}
@@ -80,8 +80,8 @@ public:
 	void Deserialize(DeserializeParameters *dp)
 	{
 		VirtualWorldId vw;
-		dp->serializationBitstream[0].Read(vw);
-		SetVirtualWorld(vw);
+		if (dp->serializationBitstream[0].Read(vw)) // only apply when the read succeeded
+			SetVirtualWorld(vw);
 	}
 
 	bool QueryRemoteConstruction(Connection_RM3 *sourceConnection)

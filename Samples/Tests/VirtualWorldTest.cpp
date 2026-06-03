@@ -219,6 +219,16 @@ int VirtualWorldTest::RunTest(DataStructures::List<RakString> params, bool isVer
 		if (out.Size() != 1 || out[0] != RakNetGUID(103))
 			rc = 20;
 	}
+	if (rc == 0)
+	{
+		// Querying VIRTUAL_WORLD_GLOBAL is a membership test, not a visibility
+		// test: it must return only connections tagged GLOBAL (cg), not every
+		// connection.
+		DataStructures::List<Connection_RM3 *> out;
+		rm3.GetConnectionsInVirtualWorld(VIRTUAL_WORLD_GLOBAL, out, true);
+		if (out.Size() != 1 || out[0] != cg)
+			rc = 25;
+	}
 
 	// --- SetPlayerVirtualWorld sets both observer and avatar ---
 	if (rc == 0)
@@ -281,6 +291,7 @@ VirtualWorldTest::VirtualWorldTest(void)
 	errorList.Push("Non-authority QueryDestruction (diff world) must be RM3DS_NO_ACTION (no upstream despawn)", _FILE_AND_LINE_);
 	errorList.Push("Non-authority QueryConstruction (diff world) must defer to topology (RM3CS_NEVER_CONSTRUCT)", _FILE_AND_LINE_);
 	errorList.Push("Non-authority QueryConstruction (same world) must still be RM3CS_NEVER_CONSTRUCT", _FILE_AND_LINE_);
+	errorList.Push("GetConnectionsInVirtualWorld(GLOBAL) must return only global-tagged connections", _FILE_AND_LINE_);
 }
 
 VirtualWorldTest::~VirtualWorldTest(void)

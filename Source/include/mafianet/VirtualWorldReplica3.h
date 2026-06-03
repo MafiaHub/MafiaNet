@@ -55,12 +55,23 @@ public:
 	//
 	// The virtual world filter is only applied by the AUTHORITY for a given
 	// (entity, connection) pair -- i.e. the system that would actually construct
-	// this entity toward that connection (QueryConstructionWithinWorld() ==
-	// RM3CS_SEND_CONSTRUCTION). A downloaded copy on a non-authority (e.g. a
-	// server-owned object on a client) must defer entirely to the topology
-	// default; otherwise its own connection (whose virtual world is not
+	// this entity toward that connection. A downloaded copy on a non-authority
+	// (e.g. a server-owned object on a client) must defer entirely to the
+	// topology default; otherwise its own connection (whose virtual world is not
 	// meaningfully set on that side) would look "different" and the copy would
 	// send a spurious destruction upstream, deleting the entity at its owner.
+	//
+	// Authority is detected as QueryConstructionWithinWorld() == RM3CS_SEND_CONSTRUCTION
+	// ONLY. RM3CS_ALREADY_EXISTS_REMOTELY is deliberately NOT treated as
+	// authoritative: the same state is returned both by a currently-authoritative
+	// static owner AND by genuinely non-authoritative peers
+	// (R3P2PM_MULTI_OWNER_NOT_CURRENTLY_AUTHORITATIVE,
+	// R3P2PM_STATIC_OBJECT_NOT_CURRENTLY_AUTHORITATIVE), and the two cannot be
+	// distinguished from the construction state alone -- treating it as authority
+	// would re-introduce the spurious-upstream-destruction bug. Consequently
+	// "already exists remotely" static objects are not virtual-world filtered;
+	// such objects (typically global level geometry) should be scoped by other
+	// means if needed.
 
 	virtual RM3ConstructionState QueryConstruction(Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{

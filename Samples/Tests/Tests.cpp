@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 
 				printf("\n\nRunning test %s.\n\n",testList[testsToRunIndexes[i]]->GetTestName().C_String());
 				returnVal=testList[testsToRunIndexes[i]]->RunTest(noParamsList,isVerbose,disallowTestToPause);
-				testList[i]->DestroyPeers();
+				testList[testsToRunIndexes[i]]->DestroyPeers();
 
 				if (returnVal==0)
 				{passedTests++;}
