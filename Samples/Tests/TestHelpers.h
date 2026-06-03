@@ -21,6 +21,7 @@
 #include "DebugTools.h"
 #include "CommonFunctions.h"
 #include "RakTimer.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 class TestHelpers

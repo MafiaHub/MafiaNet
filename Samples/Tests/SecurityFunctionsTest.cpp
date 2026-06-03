@@ -16,8 +16,8 @@ Description:
 End-to-end happy-path test of the Noise_NK encrypted connection handshake.
 
 A server generates a ServerSecurityKey identity and installs it via
-SetServerSecurityKey. A client pins the matching public key via the existing
-PublicKey API (PKM_USE_KNOWN_PUBLIC_KEY) and connects. We assert:
+SetServerSecurityKey. A client pins the matching public key via the serverPublicKey
+parameter of Connect() and connects. We assert:
   - the client receives ID_CONNECTION_REQUEST_ACCEPTED,
   - the server receives ID_NEW_INCOMING_CONNECTION,
   - a reliable-ordered application message sent client->server arrives intact
@@ -52,17 +52,10 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 	if (client->Startup(1, &clientSd, 1)!=RAKNET_STARTED)
 		return 2;
 
-	// Pin the server's public key on the client side via the existing PublicKey API.
-	PublicKey pk;
-	pk.publicKeyMode = PKM_USE_KNOWN_PUBLIC_KEY;
-	pk.remoteServerPublicKey = (char*) key.publicKey;
-	pk.myPublicKey = 0;
-	pk.myPrivateKey = 0;
-
 	if (isVerbose)
 		printf("Connecting client to encrypted server (Noise_NK)\n");
 
-	if (client->Connect("127.0.0.1", SECURITY_TEST_PORT, 0, 0, &pk)!=CONNECTION_ATTEMPT_STARTED)
+	if (client->Connect("127.0.0.1", SECURITY_TEST_PORT, 0, 0, key.publicKey)!=CONNECTION_ATTEMPT_STARTED)
 		return 3;
 
 	bool clientGotAccepted=false;

@@ -9,6 +9,7 @@
  */
 
 #include "ConnectWithSocketTest.h"
+#include "SampleSecurity.h"
 
 /*
 Description:
@@ -88,7 +89,7 @@ int ConnectWithSocketTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket);
+			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket, MafiaNet::GetSampleServerKey().publicKey);
 		}
 
 		RakSleep(100);
@@ -129,7 +130,7 @@ int ConnectWithSocketTest::RunTest(DataStructures::List<RakString> params,bool i
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket);
+			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket, MafiaNet::GetSampleServerKey().publicKey);
 		}
 
 		RakSleep(100);

@@ -9,6 +9,7 @@
  */
 
 #include "ComprehensiveConvertTest.h"
+#include "SampleSecurity.h"
 
 /*
 Description: Does a little bit of everything forever. This is an internal sample just to see if RakNet crashes or leaks memory over a long period of time.
@@ -66,6 +67,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
 		SocketDescriptor socketDescriptor(60000+i, 0);
 		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
+		peers[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 
 	}
@@ -79,7 +81,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 		currentSystem.SetPortHostOrder(60000+portAdd);
 		if(!CommonFunctions::ConnectionStateMatchesOptions (peers[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{
-			ConnectionAttemptResult resultReturn = peers[i]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
+			ConnectionAttemptResult resultReturn = peers[i]->Connect("127.0.0.1", 60000+portAdd, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 			if (resultReturn!=CONNECTION_ATTEMPT_STARTED && resultReturn!=ALREADY_CONNECTED_TO_ENDPOINT)
 			{
 				DebugTools::ShowError("Problem while calling connect.\n",!noPauses && isVerbose,__LINE__,__FILE__);
@@ -110,7 +112,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peers[peerIndex],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
-				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
+				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				if (resultReturn!=CONNECTION_ATTEMPT_STARTED && resultReturn!=ALREADY_CONNECTED_TO_ENDPOINT)
 				{
 					DebugTools::ShowError("Problem while calling connect.\n",!noPauses && isVerbose,__LINE__,__FILE__);
@@ -130,7 +132,7 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			currentSystem.SetPortHostOrder(60000+portAdd);
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peers[peerIndex],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
-				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
+				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				if (resultReturn!=CONNECTION_ATTEMPT_STARTED && resultReturn!=ALREADY_CONNECTED_TO_ENDPOINT)
 				{
 					DebugTools::ShowError("Problem while calling connect.\n",!noPauses && isVerbose,__LINE__,__FILE__);

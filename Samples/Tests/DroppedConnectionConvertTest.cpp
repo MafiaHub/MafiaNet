@@ -9,6 +9,7 @@
  */
 
 #include "DroppedConnectionConvertTest.h"
+#include "SampleSecurity.h"
 
 /*
 Description:
@@ -63,6 +64,7 @@ int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params
 			printf("Server failed to start (error %d)\n", serverResult);
 		return 2;
 	}
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(NUMBER_OF_CLIENTS);
 	server->SetTimeoutTime(2000,UNASSIGNED_SYSTEM_ADDRESS);
 
@@ -78,7 +80,7 @@ int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params
 				printf("Client %d failed to start (error %d)\n", index, clientResult);
 			return 2;
 		}
-		if (clients[index]->Connect("127.0.0.1", serverPort, 0, 0)!=CONNECTION_ATTEMPT_STARTED)
+		if (clients[index]->Connect("127.0.0.1", serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 		{
 			DebugTools::ShowError("Connect function failed.",!noPauses && isVerbose,__LINE__,__FILE__);
 			return 2;
@@ -175,7 +177,7 @@ int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params
 
 				if(!CommonFunctions::ConnectionStateMatchesOptions (clients[index],serverID,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
-					if (clients[index]->Connect("127.0.0.1", serverPort, 0, 0)!=CONNECTION_ATTEMPT_STARTED)
+					if (clients[index]->Connect("127.0.0.1", serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 					{
 
 						DebugTools::ShowError("Connect function failed.",!noPauses && isVerbose,__LINE__,__FILE__);
@@ -220,7 +222,7 @@ int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params
 					{
 						if(!CommonFunctions::ConnectionStateMatchesOptions (clients[index],serverID,true,true,true,true) )//Are we connected or is there a pending operation ?
 						{
-							if (clients[index]->Connect("127.0.0.1", serverPort, 0, 0)!=CONNECTION_ATTEMPT_STARTED)
+							if (clients[index]->Connect("127.0.0.1", serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 							{
 								DebugTools::ShowError("Connect function failed.",!noPauses && isVerbose,__LINE__,__FILE__);
 								return 2;

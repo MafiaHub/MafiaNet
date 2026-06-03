@@ -9,6 +9,7 @@
  */
 
 #include "CrossConnectionConvertTest.h"
+#include "SampleSecurity.h"
 
 /*
 Description: Tests what happens if two instances of RakNet connect to each other at the same time. This has caused handshaking problems in the past.
@@ -45,10 +46,12 @@ int CrossConnectionConvertTest::RunTest(DataStructures::List<RakString> params,b
 
 	SocketDescriptor serverSd(SERVER_PORT, 0);
 	server->Startup(1, &serverSd, 1);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(1);
 
 	SocketDescriptor clientSd(0, 0);
 	client->Startup(1, &clientSd, 1);
+	client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 
 	client->Ping(serverIP,SERVER_PORT,false);
 
@@ -176,8 +179,8 @@ int CrossConnectionConvertTest::RunTest(DataStructures::List<RakString> params,b
 				printf("Attemping connection\n");
 			connectionAttemptTime=0;
 
-			server->Connect(clientIP,clientPort,0,0);
-			client->Connect(serverIP,SERVER_PORT,0,0);
+			server->Connect(clientIP,clientPort,0,0, MafiaNet::GetSampleServerKey().publicKey);
+			client->Connect(serverIP,SERVER_PORT,0,0, MafiaNet::GetSampleServerKey().publicKey);
 
 			connectionResultDeterminationTime=GetTimeMS()+2000;
 		}

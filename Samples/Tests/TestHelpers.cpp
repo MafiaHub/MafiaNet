@@ -24,6 +24,7 @@ void TestHelpers::StandardServerPrep(RakPeerInterface *&server)
 	server=RakPeerInterface::GetInstance();
 	SocketDescriptor serverSd(60000, 0);
 	server->Startup(1, &serverSd, 1);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(1);
 
 }
@@ -67,7 +68,8 @@ bool TestHelpers::WaitAndConnectTwoPeersLocally(RakPeerInterface *connector,RakP
 bool TestHelpers::ConnectTwoPeersLocally(RakPeerInterface *connector,RakPeerInterface *connectee)
 {
 	SystemAddress connecteeAdd=connectee->GetInternalID();
-	return connector->Connect("127.0.0.1",connecteeAdd.GetPort(),0,0);
+	MafiaNet::ServerSecurityKey k = MafiaNet::GetSampleServerKey();
+	return connector->Connect("127.0.0.1",connecteeAdd.GetPort(),0,0, k.publicKey);
 }
 
 bool TestHelpers::BroadCastTestPacket(RakPeerInterface *sender,PacketReliability rel,PacketPriority pr,int typeNum)//returns send return value

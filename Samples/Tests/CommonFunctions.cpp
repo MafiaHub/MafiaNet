@@ -67,7 +67,7 @@ bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,char* ip,unsigned sh
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true,true,true,true))
 		{
-			peer->Connect(ip,port,0,0);
+			peer->Connect(ip,port,0,0, MafiaNet::GetSampleServerKey().publicKey);
 		}
 
 		RakSleep(100);
