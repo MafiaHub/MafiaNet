@@ -72,8 +72,10 @@ The server needs a long-term X25519 identity keypair.  Generate one with
 Installing the Key on the Server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Call ``SetServerSecurityKey`` **before** ``Startup``.  Clients will be refused
-until the key is installed.
+Call ``SetServerSecurityKey`` **before** ``Startup``.  A server with no key
+installed **refuses every incoming connection** (it has no way to encrypt the
+link and fails closed rather than falling back to plaintext), so the key is
+mandatory to accept connections.
 
 .. code-block:: cpp
 

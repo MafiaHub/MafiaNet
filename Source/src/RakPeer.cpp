@@ -3060,7 +3060,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 
 	// Noise_NK: encryption is mandatory. The client always pins the server's static public key.
 	rcs->useNoiseSecurity = true;
-	memcpy(rcs->serverPublicKey, serverPublicKey, 32);
+	memcpy(rcs->serverPublicKey, serverPublicKey, sizeof(rcs->serverPublicKey));
 
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
@@ -3109,7 +3109,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 
 	// Noise_NK: encryption is mandatory. The client always pins the server's static public key.
 	rcs->useNoiseSecurity = true;
-	memcpy(rcs->serverPublicKey, serverPublicKey, 32);
+	memcpy(rcs->serverPublicKey, serverPublicKey, sizeof(rcs->serverPublicKey));
 
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
@@ -4656,8 +4656,8 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 								unsigned char sKey[32], rKey[32];
 								rcs->noise.GetTransportKeys(sKey, rKey);
 								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
-								sodium_memzero(sKey, 32);
-								sodium_memzero(rKey, 32);
+								sodium_memzero(sKey, sizeof(sKey));
+								sodium_memzero(rKey, sizeof(rKey));
 							}
 
 							remoteSystem->weInitiatedTheConnection=true;
@@ -4876,6 +4876,25 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					return true;
 				requiresSecurityOfThisClient=true;
 			}
+			else
+			{
+				// Mandatory encryption: this server has no security key configured, so it
+				// cannot encrypt a connection. Refuse rather than completing a plaintext
+				// one (fail closed). Stock clients already pin a key and abort earlier; this
+				// closes the path for a non-stock client that omits security.
+				MafiaNet::BitStream bsReject;
+				bsReject.Write((MessageID)ID_OUR_SYSTEM_REQUIRES_SECURITY);
+				bsReject.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
+				bsReject.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
+				for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
+					rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char*) bsReject.GetData(), bsReject.GetNumberOfBitsUsed(), systemAddress);
+				RNS2_SendParameters bspReject;
+				bspReject.data = (char*) bsReject.GetData();
+				bspReject.length = bsReject.GetNumberOfBytesUsed();
+				bspReject.systemAddress = systemAddress;
+				rakNetSocket->Send(&bspReject, _FILE_AND_LINE_);
+				return true;
+			}
 
 			bs.Read(bindingAddress);
 			uint16_t mtu;
@@ -5028,8 +5047,8 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				unsigned char sKey[32], rKey[32];
 				serverNoise.GetTransportKeys(sKey, rKey);
 				rssFromSA->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
-				sodium_memzero(sKey, 32);
-				sodium_memzero(rKey, 32);
+				sodium_memzero(sKey, sizeof(sKey));
+				sodium_memzero(rKey, sizeof(rKey));
 
 				bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer,sizeof(rssFromSA->answer));
 			}
