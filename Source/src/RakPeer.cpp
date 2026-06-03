@@ -339,6 +339,9 @@ RakPeer::~RakPeer()
 // 		pluginListTS[i]->SetRakPeerInterface(0);
 // 	for (unsigned int i=0; i < pluginListNTS.Size(); i++)
 // 		pluginListNTS[i]->SetRakPeerInterface(0);
+
+	sodium_memzero(serverSecurityKey.secretKey, sizeof(serverSecurityKey.secretKey));
+	sodium_memzero(cookieSecret, sizeof(cookieSecret));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

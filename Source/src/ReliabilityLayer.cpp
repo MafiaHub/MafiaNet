@@ -2368,7 +2368,11 @@ void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAdd
 		size_t buffer_size = (size_t)(bitStream->GetNumberOfBitsAllocated() / 8);
 
 		// Encrypt() frames counter+ciphertext+tag and increases length
-		SLNET_VERIFY(auth_enc.Encrypt(buffer, buffer_size, length));
+		if (!auth_enc.Encrypt(buffer, buffer_size, length))
+		{
+			RakAssert("SecureSession::Encrypt failed; dropping datagram" && 0);
+			return; // fail closed: never transmit plaintext on a secure connection
+		}
 	}
 
 	bpsMetrics[(int) ACTUAL_BYTES_SENT].Push1(currentTime,length);

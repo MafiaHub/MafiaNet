@@ -72,8 +72,8 @@ include(FetchContent)
 FetchContent_Declare(
     libsodium
     GIT_REPOSITORY https://github.com/robinlinden/libsodium-cmake.git
-    GIT_TAG        master  # TODO: pin to a specific commit SHA for reproducibility
-    GIT_SHALLOW    TRUE
+    GIT_TAG        9b2848dfc1b917a9410f0de9d81059b26cbfaa8d  # robinlinden/libsodium-cmake master @ 2024, pinned for reproducibility
+    GIT_SHALLOW    FALSE
 )
 set(SODIUM_DISABLE_TESTS ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libsodium)
