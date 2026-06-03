@@ -6,10 +6,16 @@
  */
 
 #include "mafianet/crypto/securesession.h"
+#include "mafianet/MTUSize.h"
 #include <sodium.h>
 #include <cstring>
 
 namespace MafiaNet {
+
+// Scratch must hold any datagram's ciphertext+tag. MafiaNet datagrams never exceed
+// MAXIMUM_MTU_SIZE; add headroom for the AEAD tag and counter framing.
+static const size_t SCRATCH_BYTES = MAXIMUM_MTU_SIZE + 64;
+static_assert(SCRATCH_BYTES > MAXIMUM_MTU_SIZE, "scratch must exceed max datagram");
 
 static void nonce96(uint64_t n, unsigned char out[12])
 {
@@ -54,12 +60,11 @@ bool SecureSession::Encrypt(unsigned char *buffer, size_t bufferSize, unsigned i
 	uint64_t ctr = txCounter++;
 	unsigned char npub[12]; nonce96(ctr, npub);
 
-	unsigned char tmp[2048];
+	unsigned char tmp[SCRATCH_BYTES];
 	if ((size_t)length + 16 > sizeof tmp) return false;
-	const unsigned char *pt = length ? buffer : (const unsigned char *)tmp; // non-null for libsodium
 	unsigned long long clen = 0;
 	crypto_aead_chacha20poly1305_ietf_encrypt(
-		tmp, &clen, pt, length, nullptr, 0, nullptr, npub, txKey);
+		tmp, &clen, buffer, length, nullptr, 0, nullptr, npub, txKey);
 
 	writeLE64(buffer, ctr);
 	memcpy(buffer + 8, tmp, (size_t)clen);
@@ -70,12 +75,12 @@ bool SecureSession::Encrypt(unsigned char *buffer, size_t bufferSize, unsigned i
 bool SecureSession::Decrypt(unsigned char *buffer, unsigned int &length)
 {
 	if (!valid) return false;
-	if (length < 8 + 16) return false;   // counter + minimum tag
+	if (length < OVERHEAD_BYTES) return false;   // counter + minimum tag
 
 	uint64_t ctr = readLE64(buffer);
 	unsigned char npub[12]; nonce96(ctr, npub);
 
-	unsigned char tmp[2048];
+	unsigned char tmp[SCRATCH_BYTES];
 	size_t ctLen = length - 8;
 	if (ctLen > sizeof tmp) return false;
 	unsigned long long mlen = 0;
