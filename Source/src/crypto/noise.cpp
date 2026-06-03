@@ -17,6 +17,8 @@ static void hmac512(const unsigned char *key, size_t keyLen,
                     const unsigned char *data, size_t dataLen,
                     unsigned char out[64])
 {
+	static const unsigned char dummy = 0;
+	if (data == nullptr) data = &dummy;
 	crypto_auth_hmacsha512_state st;
 	crypto_auth_hmacsha512_init(&st, key, keyLen);
 	crypto_auth_hmacsha512_update(&st, data, dataLen);
@@ -73,6 +75,8 @@ void NoiseSymmetricState::MixKey(const unsigned char *ikm, size_t ikmLen)
 
 void NoiseSymmetricState::MixHash(const unsigned char *data, size_t len)
 {
+	static const unsigned char dummy = 0;
+	if (data == nullptr) data = &dummy;
 	crypto_hash_sha512_state st;
 	crypto_hash_sha512_init(&st);
 	crypto_hash_sha512_update(&st, h, 64);
@@ -91,10 +95,12 @@ size_t NoiseSymmetricState::EncryptAndHash(const unsigned char *plaintext, size_
 {
 	size_t written;
 	if (hasKey) {
+		static const unsigned char dummy = 0;
+		const unsigned char *pt = plaintext ? plaintext : &dummy;
 		unsigned char npub[12]; nonce96(n, npub);
 		unsigned long long clen = 0;
 		crypto_aead_chacha20poly1305_ietf_encrypt(
-			out, &clen, plaintext, len, h, 64, nullptr, npub, k);
+			out, &clen, pt, len, h, 64, nullptr, npub, k);
 		written = (size_t)clen;
 		++n;
 	} else {
@@ -109,10 +115,12 @@ bool NoiseSymmetricState::DecryptAndHash(const unsigned char *ciphertext, size_t
                                          unsigned char *out, size_t *outLen)
 {
 	if (hasKey) {
+		static const unsigned char dummy = 0;
+		const unsigned char *ct = ciphertext ? ciphertext : &dummy;
 		unsigned char npub[12]; nonce96(n, npub);
 		unsigned long long mlen = 0;
 		if (crypto_aead_chacha20poly1305_ietf_decrypt(
-				out, &mlen, nullptr, ciphertext, ciphertextLen, h, 64, npub, k) != 0) {
+				out, &mlen, nullptr, ct, ciphertextLen, h, 64, npub, k) != 0) {
 			return false;
 		}
 		*outLen = (size_t)mlen;
