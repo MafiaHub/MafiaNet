@@ -40,6 +40,12 @@ SecureSession::SecureSession()
 	memset(rxKey, 0, 32);
 }
 
+SecureSession::~SecureSession()
+{
+	sodium_memzero(txKey, 32);
+	sodium_memzero(rxKey, 32);
+}
+
 void SecureSession::SetKeys(const unsigned char sendKey[32], const unsigned char recvKey[32])
 {
 	memcpy(txKey, sendKey, 32);

@@ -21,6 +21,14 @@ public:
 	static const unsigned OVERHEAD_BYTES = 24;
 
 	SecureSession();
+	~SecureSession();
+
+	// Holds key material + anti-replay state; must not be copied or moved.
+	SecureSession(const SecureSession&) = delete;
+	SecureSession& operator=(const SecureSession&) = delete;
+	SecureSession(SecureSession&&) = delete;
+	SecureSession& operator=(SecureSession&&) = delete;
+
 	void SetKeys(const unsigned char sendKey[32], const unsigned char recvKey[32]);
 	bool IsValid() const { return valid; }
 
