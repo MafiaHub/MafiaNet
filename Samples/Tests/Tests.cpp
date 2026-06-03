@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
 	testList.Push(new MiscellaneousTestsTest(),_FILE_AND_LINE_);
 	testList.Push(new BitStreamStringTest(),_FILE_AND_LINE_);
 	testList.Push(new RPC4ContextTest(),_FILE_AND_LINE_);
+	testList.Push(new VirtualWorldTest(),_FILE_AND_LINE_);
 
 	testListSize=testList.Size();
 
@@ -137,7 +138,7 @@ int main(int argc, char *argv[])
 
 				printf("\n\nRunning test %s.\n\n",testList[testsToRunIndexes[i]]->GetTestName().C_String());
 				returnVal=testList[testsToRunIndexes[i]]->RunTest(noParamsList,isVerbose,disallowTestToPause);
-				testList[i]->DestroyPeers();
+				testList[testsToRunIndexes[i]]->DestroyPeers();
 
 				if (returnVal==0)
 				{passedTests++;}

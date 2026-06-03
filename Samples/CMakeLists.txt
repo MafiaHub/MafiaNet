@@ -51,6 +51,7 @@ add_subdirectory(ThreadTest)
 add_subdirectory(Timestamping)
 add_subdirectory(TwoWayAuthentication)
 add_subdirectory(UDPForwarder)
+add_subdirectory(VirtualWorld)
 
 # Samples requiring autopatcher extension
 add_subdirectory(AutopatcherClient)
