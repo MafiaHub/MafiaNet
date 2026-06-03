@@ -46,21 +46,8 @@ Server Setup
 Generating a Server Key
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The server needs a long-term X25519 identity keypair.  Generate one with
-``GenerateServerSecurityKey`` (declared in ``mafianet/crypto/keys.h``):
-
-.. code-block:: cpp
-
-   #include "mafianet/crypto/keys.h"
-
-   MafiaNet::ServerSecurityKey key = MafiaNet::GenerateServerSecurityKey();
-
-   // Persist the keypair — the secret key must stay on the server.
-   // The public key (32 bytes) is distributed to all clients.
-   SaveToFile("server.key", key.secretKey, 32);
-   SaveToFile("server.pub", key.publicKey, 32);
-
-``ServerSecurityKey`` is a plain struct:
+The server needs a long-term X25519 identity keypair.  ``ServerSecurityKey``
+is a plain struct (declared in ``mafianet/crypto/keys.h``):
 
 .. code-block:: cpp
 
@@ -68,6 +55,108 @@ The server needs a long-term X25519 identity keypair.  Generate one with
        unsigned char publicKey[32];  // X25519 public key  — distribute to clients
        unsigned char secretKey[32];  // X25519 secret key  — keep on server only
    };
+
+**Only the secret key needs to be stored.**  The public key is mathematically
+derived from the secret, so you can always reconstruct the full keypair from
+the secret alone.  No key *file* is required — a string in a config file or
+environment variable is sufficient.
+
+The helpers below are declared in ``mafianet/crypto/keys.h`` and use libsodium
+internally.  Buffer-size constants are provided for convenience:
+
+.. code-block:: cpp
+
+   static const size_t SERVER_KEY_HEX_LEN    = 65;  // 64 hex chars + NUL
+   static const size_t SERVER_KEY_BASE64_LEN = 45;  // base64 chars + NUL
+
+**Option 1 — One-off generation (key-generation tool)**
+
+Run this once, print the strings, then paste them into your config.  Only the
+secret line needs to be kept secret; the public line is safe to distribute.
+
+.. code-block:: cpp
+
+   #include "mafianet/crypto/keys.h"
+
+   MafiaNet::ServerSecurityKey k = MafiaNet::GenerateServerSecurityKey();
+
+   char secHex[MafiaNet::SERVER_KEY_HEX_LEN];
+   char pubHex[MafiaNet::SERVER_KEY_HEX_LEN];
+   MafiaNet::ServerSecurityKeySecretToHex(k, secHex, sizeof secHex);
+   MafiaNet::ServerSecurityKeyPublicToHex(k, pubHex, sizeof pubHex);
+   printf("server_secret = %s\nserver_public = %s\n", secHex, pubHex);
+
+   // Base64 variants are also available:
+   char secB64[MafiaNet::SERVER_KEY_BASE64_LEN];
+   char pubB64[MafiaNet::SERVER_KEY_BASE64_LEN];
+   MafiaNet::ServerSecurityKeySecretToBase64(k, secB64, sizeof secB64);
+   MafiaNet::ServerSecurityKeyPublicToBase64(k, pubB64, sizeof pubB64);
+
+**Option 2 — Load from a config string (recommended; no file required)**
+
+Store only the secret string in your server config.  At startup, pass it to
+``ServerSecurityKeyFromSecretHex`` (or ``ServerSecurityKeyFromSecretBase64``
+for a base64-encoded value); the public key is derived automatically.
+
+.. code-block:: cpp
+
+   #include "mafianet/crypto/keys.h"
+
+   MafiaNet::ServerSecurityKey key;
+   const char* secret = config.get("server_secret");  // hex string from config
+   if (!MafiaNet::ServerSecurityKeyFromSecretHex(secret, key)) {
+       // Handle bad or missing config value.
+       fprintf(stderr, "Invalid server_secret in config\n");
+       return -1;
+   }
+   peer->SetServerSecurityKey(key);
+
+   // Base64 variant:
+   // if (!MafiaNet::ServerSecurityKeyFromSecretBase64(secret, key)) { ... }
+
+**Option 3 — Environment variable**
+
+Same as Option 2, but source the secret from an environment variable instead
+of a config file — useful for container deployments.
+
+.. code-block:: cpp
+
+   #include "mafianet/crypto/keys.h"
+   #include <cstdlib>
+
+   MafiaNet::ServerSecurityKey key;
+   const char* secret = std::getenv("MAFIANET_SERVER_SECRET");
+   if (!secret || !MafiaNet::ServerSecurityKeyFromSecretHex(secret, key)) {
+       fprintf(stderr, "MAFIANET_SERVER_SECRET missing or invalid\n");
+       return -1;
+   }
+   peer->SetServerSecurityKey(key);
+
+**Option 4 — Ephemeral key (local testing only)**
+
+Generate a fresh keypair on every startup.  This is the simplest option, but
+clients cannot pin a key that changes every restart, so it is only suitable
+for local development and automated tests.
+
+.. code-block:: cpp
+
+   MafiaNet::ServerSecurityKey key = MafiaNet::GenerateServerSecurityKey();
+   peer->SetServerSecurityKey(key);
+
+**Option 5 — Binary file**
+
+Write and read the raw 32-byte secret (or full keypair) to/from a file.
+
+.. code-block:: cpp
+
+   // Generate and save (run once).
+   MafiaNet::ServerSecurityKey key = MafiaNet::GenerateServerSecurityKey();
+   SaveToFile("server.key", key.secretKey, 32);
+
+   // Load at startup (derive the public from the stored secret).
+   unsigned char sec[32];
+   LoadFromFile("server.key", sec, 32);
+   MafiaNet::ServerSecurityKey key = MafiaNet::ServerSecurityKeyFromSecret(sec);
 
 Installing the Key on the Server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -84,10 +173,13 @@ mandatory to accept connections.
 
    MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
 
-   // Load or generate the long-term identity keypair.
+   // Load the long-term identity keypair from a config string.
+   // Only the secret needs to be stored; the public is derived automatically.
    MafiaNet::ServerSecurityKey key;
-   LoadFromFile("server.key", key.secretKey, 32);
-   LoadFromFile("server.pub", key.publicKey, 32);
+   if (!MafiaNet::ServerSecurityKeyFromSecretHex(config.get("server_secret"), key)) {
+       fprintf(stderr, "Invalid server_secret\n");
+       return -1;
+   }
 
    peer->SetServerSecurityKey(key);
 
@@ -103,11 +195,33 @@ The client must supply the server's 32-byte public key when calling
 ``Connect``.  This is the **pinned** key — connections to any host that does
 not possess the matching secret key will fail.
 
+**Loading the pinned public key from a config string (recommended)**
+
+Distribute only the public key string to clients (never the secret).  Parse it
+at startup with ``ServerPublicKeyFromHex`` or ``ServerPublicKeyFromBase64``:
+
+.. code-block:: cpp
+
+   #include "mafianet/crypto/keys.h"
+
+   unsigned char serverPublicKey[32];
+   if (!MafiaNet::ServerPublicKeyFromHex(config.get("server_public"), serverPublicKey)) {
+       fprintf(stderr, "Invalid server_public in config\n");
+       return -1;
+   }
+   // Then pass serverPublicKey to Connect (see below).
+
+   // Base64 variant:
+   // if (!MafiaNet::ServerPublicKeyFromBase64(config.get("server_public"), serverPublicKey)) { ... }
+
+**Connecting with the pinned key**
+
 .. code-block:: cpp
 
    #include "mafianet/peerinterface.h"
+   #include "mafianet/crypto/keys.h"
 
-   // Embed or load the server's public key (32 bytes).
+   // Embed or load the server's public key (32 bytes) — see above.
    unsigned char serverPublicKey[32];
    LoadFromFile("server.pub", serverPublicKey, 32);
 
@@ -128,10 +242,12 @@ Key Distribution
 ~~~~~~~~~~~~~~~~
 
 * **Never distribute the secret key.**  It never leaves the server.
-* Embed the 32-byte public key in the client binary at build time (common
-  approach), or load it from a file shipped with the client.
-* Rotate keys by regenerating a new keypair, redeploying the server binary,
-  and shipping an updated client with the new public key embedded.
+* Ship clients the **public key string** (hex or base64) embedded in the
+  binary, a config file, or a file shipped with the client.  Parse it at
+  startup with ``ServerPublicKeyFromHex`` / ``ServerPublicKeyFromBase64``.
+* Rotate keys by regenerating a new keypair (Option 1 above), redeploying
+  the server with the new secret, and shipping an updated client with the
+  new public key.
 
 FullyConnectedMesh2 and Auto-Connections
 -----------------------------------------

@@ -169,6 +169,37 @@ int CryptoUnitTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 	}
 
 	if (isVerbose) printf("CryptoUnitTest: SecureSession round-trip/tamper/replay OK\n");
+
+	// --- string key helpers (hex/base64) round-trips ---
+	{
+		ServerSecurityKey g = GenerateServerSecurityKey();
+		// secret hex round-trip -> derived keypair matches original
+		char shex[SERVER_KEY_HEX_LEN];
+		ServerSecurityKeySecretToHex(g, shex, sizeof shex);
+		ServerSecurityKey k1;
+		if (!ServerSecurityKeyFromSecretHex(shex, k1)) return 50;
+		if (memcmp(k1.secretKey, g.secretKey, 32) != 0) return 51;
+		if (memcmp(k1.publicKey, g.publicKey, 32) != 0) return 52;   // public correctly derived
+		// secret base64 round-trip
+		char sb64[SERVER_KEY_BASE64_LEN];
+		ServerSecurityKeySecretToBase64(g, sb64, sizeof sb64);
+		ServerSecurityKey k2;
+		if (!ServerSecurityKeyFromSecretBase64(sb64, k2)) return 53;
+		if (memcmp(k2.secretKey, g.secretKey, 32) != 0 || memcmp(k2.publicKey, g.publicKey, 32) != 0) return 54;
+		// public hex/base64 parse (client side)
+		char phex[SERVER_KEY_HEX_LEN]; ServerSecurityKeyPublicToHex(g, phex, sizeof phex);
+		unsigned char pub[32];
+		if (!ServerPublicKeyFromHex(phex, pub) || memcmp(pub, g.publicKey, 32) != 0) return 55;
+		char pb64[SERVER_KEY_BASE64_LEN]; ServerSecurityKeyPublicToBase64(g, pb64, sizeof pb64);
+		unsigned char pub2[32];
+		if (!ServerPublicKeyFromBase64(pb64, pub2) || memcmp(pub2, g.publicKey, 32) != 0) return 56;
+		// malformed inputs rejected
+		ServerSecurityKey bad;
+		if (ServerSecurityKeyFromSecretHex("zzzz", bad)) return 57;           // non-hex
+		if (ServerSecurityKeyFromSecretHex("00112233", bad)) return 58;        // wrong length (4 bytes)
+	}
+
+	if (isVerbose) printf("CryptoUnitTest: string key helpers (hex/base64) OK\n");
 	return 0;
 }
 
@@ -206,6 +237,15 @@ RakString CryptoUnitTest::ErrorCodeToString(int e)
 		case 45: return "encrypt2 failed";
 		case 46: return "decrypt2 failed";
 		case 47: return "roundtrip2 mismatch";
+		case 50: return "ServerSecurityKeyFromSecretHex returned false";
+		case 51: return "hex round-trip: secret mismatch";
+		case 52: return "hex round-trip: derived public mismatch";
+		case 53: return "ServerSecurityKeyFromSecretBase64 returned false";
+		case 54: return "base64 round-trip: key mismatch";
+		case 55: return "ServerPublicKeyFromHex failed or mismatch";
+		case 56: return "ServerPublicKeyFromBase64 failed or mismatch";
+		case 57: return "non-hex input incorrectly accepted";
+		case 58: return "wrong-length hex incorrectly accepted";
 		default: return "unknown";
 	}
 }
