@@ -1654,23 +1654,21 @@ void RakPeer::CloseConnection( const AddressOrGUID target, bool sendDisconnectio
 
 	const SystemAddress address = (target.systemAddress == UNASSIGNED_SYSTEM_ADDRESS) ? GetSystemAddressFromGuid(target.rakNetGuid) : target.systemAddress;
 	int remoteSystemListIndex = GetIndexFromSystemAddress(address);
-	// fallback to index 0 (i.e. preserve old behavior for now)
-	// #med - review this whole design here
-	if (remoteSystemListIndex == -1) {
-		remoteSystemListIndex = 0;
-	}
 
-	// remoteSystemList[remoteSystemListIndex].rakNetSocket may be null: the socket
-	// can be released between resolving the connection and closing it (e.g. during
-	// rapid connect/disconnect churn), and the index-0 fallback above can land on a
-	// free slot. RakAssert is a no-op in release (NDEBUG), so the bare dereference
-	// would crash there. Guard explicitly and fall back to the primary socket — the
-	// same pattern used by the BCS_CLOSE_CONNECTION path below.
-	RakNetSocket2 *closeSocket = remoteSystemList[remoteSystemListIndex].rakNetSocket;
+	// Resolve the socket to close on WITHOUT assuming a valid slot index.
+	// GetIndexFromSystemAddress returns -1 when the target isn't in the list; never
+	// coerce that to 0 — reading remoteSystemList[0] would crash if the list is
+	// unallocated, or target an unrelated peer's slot. When the index is valid use
+	// that slot's socket (it may itself be null during rapid connect/disconnect
+	// churn). Either way, fall back to the primary socket — the same pattern used by
+	// the BCS_CLOSE_CONNECTION path below. With no socket at all there is nothing to
+	// close, so bail out.
+	RakNetSocket2 *closeSocket = (remoteSystemListIndex != -1) ? remoteSystemList[remoteSystemListIndex].rakNetSocket : nullptr;
 	if (closeSocket == nullptr && socketList.Size() > 0)
 		closeSocket = socketList[0];
-	if (closeSocket != nullptr)
-		CloseConnectionInternal2(target, sendDisconnectionNotification, false, orderingChannel, disconnectionNotificationPriority, *closeSocket, reasonData);
+	if (closeSocket == nullptr)
+		return;
+	CloseConnectionInternal2(target, sendDisconnectionNotification, false, orderingChannel, disconnectionNotificationPriority, *closeSocket, reasonData);
 
 	// 12/14/09 Return ID_CONNECTION_LOST when calling CloseConnection with sendDisconnectionNotification==false, elsewise it is never returned
 	if (sendDisconnectionNotification==false && GetConnectionState(target)==IS_CONNECTED)
@@ -1679,7 +1677,7 @@ void RakPeer::CloseConnection( const AddressOrGUID target, bool sendDisconnectio
 		packet->data[ 0 ] = ID_CONNECTION_LOST; // DeadConnection
 		packet->guid = target.rakNetGuid==UNASSIGNED_RAKNET_GUID ? GetGuidFromSystemAddress(target.systemAddress) : target.rakNetGuid;
 		packet->systemAddress = address;
-		packet->systemAddress.systemIndex = static_cast<SystemIndex>(remoteSystemListIndex);
+		packet->systemAddress.systemIndex = static_cast<SystemIndex>(remoteSystemListIndex == -1 ? 0 : remoteSystemListIndex);
 		packet->guid.systemIndex=packet->systemAddress.systemIndex;
 		packet->wasGeneratedLocally=true; // else processed twice
 		AddPacketToProducer(packet);
