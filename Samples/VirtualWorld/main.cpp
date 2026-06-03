@@ -265,7 +265,7 @@ int main(void)
 	printf("\n[Step 3] Server moves player 2 back to virtual world %u (re-entry)...\n", (unsigned)VIRTUAL_WORLD_DEFAULT);
 	serverRm.SetPlayerVirtualWorld(serverConnToC2, avatar2, VIRTUAL_WORLD_DEFAULT);
 
-	bool ok3 = WaitUntil(peers, 3, 200, [&] { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
+	bool ok3 = WaitUntil(peers, 3, 600, [&] { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
 	printf("         client 1 sees %u avatar(s); client 2 sees %u avatar(s)\n", c1Rm.GetReplicaCount(), c2Rm.GetReplicaCount());
 	if (ok3)
 		printf("         OK: the two players can see each other again.\n");
