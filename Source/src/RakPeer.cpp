@@ -60,6 +60,7 @@
 #include "mafianet/WSAStartupSingleton.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include <sodium.h>
 
 #ifdef USE_THREADED_SEND
 #include "mafianet/SendToThread.h"
@@ -371,6 +372,11 @@ RakPeer::~RakPeer()
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *socketDescriptors, unsigned socketDescriptorCount, int threadPriority )
 {
+	if (sodium_init() < 0)
+	{
+		return STARTUP_LIBSODIUM_INIT_FAILED;
+	}
+
 	if (IsActive())
 		return RAKNET_ALREADY_STARTED;
 
