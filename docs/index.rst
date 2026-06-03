@@ -51,6 +51,7 @@ MafiaNet Documentation
 
    plugins/overview
    plugins/replica-manager-3
+   plugins/virtual-worlds
    plugins/rpc4
    plugins/fully-connected-mesh-2
    plugins/nat-punchthrough

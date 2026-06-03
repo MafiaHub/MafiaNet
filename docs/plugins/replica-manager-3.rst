@@ -167,8 +167,13 @@ Control which connections see which objects:
        return MafiaNet::RM3QSR_CALL_SERIALIZE;
    }
 
+For runtime **dimension** scoping — separating players so they only see others in
+the same virtual world (e.g. apartments) — see :doc:`virtual-worlds`, which
+provides this on top of ReplicaManager3 without per-object filtering code.
+
 See Also
 --------
 
 * :doc:`overview` - Plugin basics
+* :doc:`virtual-worlds` - Per-player dimension/visibility scoping
 * :doc:`../basics/network-id-object` - NetworkIDObject
