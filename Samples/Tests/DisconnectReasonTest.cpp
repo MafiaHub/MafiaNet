@@ -144,6 +144,49 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 			printf("Case 2 OK: reasonless notification is a bare 1-byte message.\n");
 	}
 
+	// Make sure the client has fully torn down before reconnecting on the same port.
+	{
+		SystemAddress serverAddr;
+		serverAddr.SetBinaryAddress("127.0.0.1");
+		serverAddr.SetPortHostOrder(serverPort);
+		TimeMS entry = GetTimeMS();
+		while (CommonFunctions::ConnectionStateMatchesOptions(client, serverAddr, true, true, true, true) && GetTimeMS() - entry < 10000)
+		{
+			Packet *p;
+			for (p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
+				;
+			for (p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+				;
+			RakSleep(30);
+		}
+	}
+
+	// --- Case 3: graceful disconnect with an EMPTY (non-null) reason BitStream ---
+	{
+		RakNetGUID clientGuid = ConnectAndGetClientGuid(server, client, serverPort);
+		if (clientGuid == UNASSIGNED_RAKNET_GUID)
+			return 12;
+
+		// A non-null but empty BitStream exercises the GetNumberOfBytesUsed() > 0
+		// guard (distinct from the nullptr check): no bytes were written, so the
+		// notification must stay payload-less just like the nullptr case.
+		BitStream emptyReason;
+		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY, &emptyReason);
+
+		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 10000);
+		if (note == 0)
+			return 13;
+
+		unsigned int len = note->length;
+		client->DeallocatePacket(note);
+
+		if (len != 1)
+			return 14;
+
+		if (isVerbose)
+			printf("Case 3 OK: empty reason BitStream yields a bare 1-byte message.\n");
+	}
+
 	return 0;
 }
 
@@ -172,6 +215,9 @@ DisconnectReasonTest::DisconnectReasonTest(void)
 	errorList.Push("Case 2: client failed to reconnect / server saw no incoming connection", _FILE_AND_LINE_);
 	errorList.Push("Case 2: client never received ID_DISCONNECTION_NOTIFICATION", _FILE_AND_LINE_);
 	errorList.Push("Case 2: reasonless notification was not a bare 1-byte message", _FILE_AND_LINE_);
+	errorList.Push("Case 3: client failed to reconnect / server saw no incoming connection", _FILE_AND_LINE_);
+	errorList.Push("Case 3: client never received ID_DISCONNECTION_NOTIFICATION", _FILE_AND_LINE_);
+	errorList.Push("Case 3: empty-reason notification was not a bare 1-byte message", _FILE_AND_LINE_);
 }
 
 DisconnectReasonTest::~DisconnectReasonTest(void)
