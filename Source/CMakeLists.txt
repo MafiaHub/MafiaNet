@@ -118,6 +118,7 @@ set(MAFIANET_CRYPTO_SOURCES
     src/crypto/fileencrypter.cpp
     src/crypto/keys.cpp
     src/crypto/noise.cpp
+    src/crypto/securesession.cpp
     src/crypto/securestring.cpp
 )
 
@@ -290,6 +291,7 @@ set(MAFIANET_CRYPTO_HEADERS
     include/mafianet/crypto/ifileencrypter.h
     include/mafianet/crypto/keys.h
     include/mafianet/crypto/noise.h
+    include/mafianet/crypto/securesession.h
     include/mafianet/crypto/securestring.h
 )
 

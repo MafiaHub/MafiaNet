@@ -8,6 +8,7 @@
 #include "CryptoUnitTest.h"
 #include "mafianet/crypto/keys.h"
 #include "mafianet/crypto/noise.h"
+#include "mafianet/crypto/securesession.h"
 #include <sodium.h>
 #include <cstring>
 #include <cstdio>
@@ -133,6 +134,41 @@ int CryptoUnitTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 	}
 
 	if (isVerbose) printf("CryptoUnitTest: NK known-answer vector OK\n");
+
+	// --- SecureSession round-trip, tamper, replay ---
+	{
+		unsigned char k1[32], k2[32];
+		for (int i = 0; i < 32; ++i) { k1[i] = (unsigned char)i; k2[i] = (unsigned char)(255 - i); }
+		SecureSession a, b;
+		a.SetKeys(k1, k2);   // a sends with k1
+		b.SetKeys(k2, k1);   // b receives a's traffic (rx=k1)
+
+		unsigned char buf[256]; const char *msg = "hello world";
+		unsigned int len = (unsigned int)strlen(msg);
+		memcpy(buf, msg, len);
+		if (!a.Encrypt(buf, sizeof buf, len)) return 40;
+		unsigned char framed[256]; memcpy(framed, buf, len); unsigned int flen = len;
+		if (!b.Decrypt(buf, len)) return 41;
+		if (len != strlen(msg) || memcmp(buf, msg, len) != 0) return 42;
+
+		// tamper: flip a ciphertext byte -> must fail
+		unsigned char t[256]; unsigned int tlen = flen; memcpy(t, framed, flen);
+		t[12] ^= 0x01;
+		if (b.Decrypt(t, tlen)) return 43;
+
+		// replay: re-decrypt the original framed datagram -> must fail
+		unsigned int rlen = flen; unsigned char r[256]; memcpy(r, framed, flen);
+		if (b.Decrypt(r, rlen)) return 44;
+
+		// fresh sequence still accepted after the rejected ones
+		unsigned char buf2[256]; const char *msg2 = "second";
+		unsigned int len2 = (unsigned int)strlen(msg2); memcpy(buf2, msg2, len2);
+		if (!a.Encrypt(buf2, sizeof buf2, len2)) return 45;
+		if (!b.Decrypt(buf2, len2)) return 46;
+		if (len2 != strlen(msg2) || memcmp(buf2, msg2, len2) != 0) return 47;
+	}
+
+	if (isVerbose) printf("CryptoUnitTest: SecureSession round-trip/tamper/replay OK\n");
 	return 0;
 }
 
@@ -162,6 +198,14 @@ RakString CryptoUnitTest::ErrorCodeToString(int e)
 		case 28: return "KAT readB failed";
 		case 29: return "KAT send key mismatch";
 		case 30: return "KAT recv key mismatch";
+		case 40: return "encrypt failed";
+		case 41: return "decrypt failed";
+		case 42: return "roundtrip mismatch";
+		case 43: return "tamper accepted";
+		case 44: return "replay accepted";
+		case 45: return "encrypt2 failed";
+		case 46: return "decrypt2 failed";
+		case 47: return "roundtrip2 mismatch";
 		default: return "unknown";
 	}
 }
