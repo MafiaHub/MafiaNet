@@ -29,6 +29,7 @@
 #include "DS_List.h"
 #include "smartptr.h"
 #include "socket2.h"
+#include "crypto/keys.h"
 
 namespace MafiaNet
 {
@@ -96,6 +97,12 @@ public:
 	/// Checks to see if a given IP is in the security exception list
 	/// \param[in] IP address to check.
 	virtual bool IsInSecurityExceptionList(const char *ip)=0;
+
+	/// \brief Set this server's Noise_NK identity keypair, enabling encrypted incoming connections.
+	/// \details Clients must pin the matching public key via PublicKey::remoteServerPublicKey with
+	/// publicKeyMode == PKM_USE_KNOWN_PUBLIC_KEY to connect securely. Call after Startup().
+	/// \param[in] key A keypair generated via GenerateServerSecurityKey().
+	virtual void SetServerSecurityKey(const ServerSecurityKey &key)=0;
 
 	/// Sets how many incoming connections are allowed. If this is less than the number of players currently connected,
 	/// no more players will be allowed to connect.  If this is greater than the maximum number of peers allowed,

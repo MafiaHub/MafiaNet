@@ -200,6 +200,8 @@ RakPeer::RakPeer()
 	_cookie_jar = 0;
 #endif
 
+	hasServerSecurityKey = false;
+
 	StringCompressor::AddReference();
 	MafiaNet::StringTable::AddReference();
 	WSAStartupSingleton::AddRef();
@@ -379,6 +381,9 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 	{
 		return STARTUP_LIBSODIUM_INIT_FAILED;
 	}
+
+	// Fresh per-process secret used to mint/verify stateless connection cookies.
+	randombytes_buf(cookieSecret, sizeof(cookieSecret));
 
 	// If getting the guid failed in the constructor, try again
 	if (myGuid.g==0)
@@ -3192,6 +3197,46 @@ int RakPeer::GetIndexFromGuid( const RakNetGUID guid )
 	return -1;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SetServerSecurityKey(const ServerSecurityKey &key)
+{
+	serverSecurityKey = key;
+	hasServerSecurityKey = true;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::GenerateConnectionCookie(const SystemAddress &systemAddress, unsigned char cookieOut[16]) const
+{
+	// Input = raw address bytes || 8-byte little-endian time bucket (4-second granularity).
+	const uint64_t timeBucket = (uint64_t) MafiaNet::GetTimeMS() / 4000;
+	unsigned char input[sizeof(systemAddress.address) + 8];
+	memcpy(input, &systemAddress.address, sizeof(systemAddress.address));
+	for (int i = 0; i < 8; ++i)
+		input[sizeof(systemAddress.address) + i] = (unsigned char) ((timeBucket >> (i * 8)) & 0xFF);
+
+	unsigned char mac[crypto_auth_hmacsha512_BYTES];
+	crypto_auth_hmacsha512(mac, input, sizeof(input), cookieSecret);
+	memcpy(cookieOut, mac, 16);
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::VerifyConnectionCookie(const SystemAddress &systemAddress, const unsigned char cookie[16]) const
+{
+	// Accept the current and previous time bucket to avoid boundary races.
+	const uint64_t timeBucketNow = (uint64_t) MafiaNet::GetTimeMS() / 4000;
+	for (int bucketOffset = 0; bucketOffset <= 1; ++bucketOffset)
+	{
+		const uint64_t timeBucket = timeBucketNow - (uint64_t) bucketOffset;
+		unsigned char input[sizeof(systemAddress.address) + 8];
+		memcpy(input, &systemAddress.address, sizeof(systemAddress.address));
+		for (int i = 0; i < 8; ++i)
+			input[sizeof(systemAddress.address) + i] = (unsigned char) ((timeBucket >> (i * 8)) & 0xFF);
+
+		unsigned char mac[crypto_auth_hmacsha512_BYTES];
+		crypto_auth_hmacsha512(mac, input, sizeof(input), cookieSecret);
+		if (sodium_memcmp(mac, cookie, 16) == 0)
+			return true;
+	}
+	return false;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #if LIBCAT_SECURITY==1
 bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,PublicKey *publicKey)
 {
@@ -3295,13 +3340,15 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->outgoingPasswordLength=(unsigned char) passwordDataLength;
 	rcs->timeoutTime=timeoutTime;
 
-#if LIBCAT_SECURITY==1
-	CAT_AUDIT_PRINTF("AUDIT: In SendConnectionRequest()\n");
-	if (!GenerateConnectionRequestChallenge(rcs,publicKey))
-		return SECURITY_INITIALIZATION_FAILED;
-#else
-	(void) publicKey;
-#endif
+	// Noise_NK: opt-in encrypted connection when the caller pinned a server public key.
+	rcs->useNoiseSecurity = false;
+	if (publicKey != 0 &&
+		publicKey->publicKeyMode == PKM_USE_KNOWN_PUBLIC_KEY &&
+		publicKey->remoteServerPublicKey != 0)
+	{
+		rcs->useNoiseSecurity = true;
+		memcpy(rcs->serverPublicKey, publicKey->remoteServerPublicKey, 32);
+	}
 
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
@@ -3350,12 +3397,15 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->timeoutTime=timeoutTime;
 	rcs->socket=socket;
 
-#if LIBCAT_SECURITY==1
-	if (!GenerateConnectionRequestChallenge(rcs,publicKey))
-		return SECURITY_INITIALIZATION_FAILED;
-#else
-	(void) publicKey;
-#endif
+	// Noise_NK: opt-in encrypted connection when the caller pinned a server public key.
+	rcs->useNoiseSecurity = false;
+	if (publicKey != 0 &&
+		publicKey->publicKeyMode == PKM_USE_KNOWN_PUBLIC_KEY &&
+		publicKey->remoteServerPublicKey != 0)
+	{
+		rcs->useNoiseSecurity = true;
+		memcpy(rcs->serverPublicKey, publicKey->remoteServerPublicKey, 32);
+	}
 
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
@@ -4763,20 +4813,17 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			RakNetGUID serverGuid;
 			bsIn.Read(serverGuid);
 			unsigned char serverHasSecurity;
-			uint32_t cookie;
-			(void) cookie;
 			bsIn.Read(serverHasSecurity);
-			// Even if the server has security, it may not be required of us if we are in the security exception list
+			// Even if the server has security, read the 16-byte stateless cookie to echo it back.
+			unsigned char cookie[16];
 			if (serverHasSecurity)
 			{
-				bsIn.Read(cookie);
+				bsIn.ReadAlignedBytes(cookie, sizeof(cookie));
 			}
 
 			MafiaNet::BitStream bsOut;
 			bsOut.Write((MessageID)ID_OPEN_CONNECTION_REQUEST_2);
 			bsOut.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
-			if (serverHasSecurity)
-				bsOut.Write(cookie);
 
 			rakPeer->requestedConnectionQueueMutex.Lock();
 			for (i=0; i <  rakPeer->requestedConnectionQueue.Size(); i++)
@@ -4787,76 +4834,40 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				{
 					if (serverHasSecurity)
 					{
-#if LIBCAT_SECURITY==1
-						unsigned char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-						bsIn.ReadAlignedBytes(public_key, sizeof(public_key));
+						// Echo the server's stateless cookie.
+						bsOut.WriteAlignedBytes(cookie, sizeof(cookie));
 
-						if (rcs->publicKeyMode==PKM_ACCEPT_ANY_PUBLIC_KEY)
+						if (rcs->useNoiseSecurity)
 						{
-							memcpy(rcs->remote_public_key, public_key, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-							if (!rcs->client_handshake->Initialize(public_key) ||
-								!rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
-							{
-								CAT_AUDIT_PRINTF("AUDIT: Server passed a bad public key with PKM_ACCEPT_ANY_PUBLIC_KEY");
-								rakPeer->requestedConnectionQueueMutex.Unlock();
-								return true;
-							}
-						}
-
-						if (cat::SecureEqual(public_key,
-							rcs->remote_public_key,
-							cat::EasyHandshake::PUBLIC_KEY_BYTES)==false)
-						{
-							rakPeer->requestedConnectionQueueMutex.Unlock();
-							CAT_AUDIT_PRINTF("AUDIT: Expected public key does not match what was sent by server -- Reporting back ID_PUBLIC_KEY_MISMATCH to user\n");
-
-							packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
-							packet->data[ 0 ] = ID_PUBLIC_KEY_MISMATCH; // Attempted a connection and couldn't
-							packet->bitSize = ( sizeof( char ) * 8);
-							packet->systemAddress = rcs->systemAddress;
-							packet->guid=serverGuid;
-							rakPeer->AddPacketToProducer(packet);
-							return true;
-						}
-
-						if (rcs->client_handshake==0)
-						{
-							// Message does not contain a challenge
-							// We might still pass if we are in the security exception list
-							bsOut.Write((unsigned char)0);
+							// Build the Noise_NK initiator message A and announce we are doing Noise.
+							bsOut.Write((unsigned char)1);
+							rcs->noise.InitInitiator(rcs->serverPublicKey);
+							unsigned char msgA[NoiseHandshake::MESSAGE_BYTES];
+							rcs->noise.WriteMessageA(msgA);
+							bsOut.WriteAlignedBytes(msgA, sizeof(msgA));
 						}
 						else
 						{
-							// Message contains a challenge
-							bsOut.Write((unsigned char)1);
-							// challenge
-							CAT_AUDIT_PRINTF("AUDIT: Sending challenge\n");
-							bsOut.WriteAlignedBytes((const unsigned char*) rcs->handshakeChallenge,cat::EasyHandshake::CHALLENGE_BYTES);
+							// Server requires security but the client did not pin a key -> mismatch.
+							// Announce flag=0; the server will reject this attempt.
+							bsOut.Write((unsigned char)0);
 						}
-#else // LIBCAT_SECURITY
-						// Message does not contain a challenge
-						bsOut.Write((unsigned char)0);
-#endif // LIBCAT_SECURITY
 					}
 					else
 					{
-						// Server does not need security
-#if LIBCAT_SECURITY==1
-						if (rcs->client_handshake!=0)
+						// Server is plaintext.
+						if (rcs->useNoiseSecurity)
 						{
+							// We explicitly pinned a key but the server has no security -> fail closed.
 							rakPeer->requestedConnectionQueueMutex.Unlock();
-							CAT_AUDIT_PRINTF("AUDIT: Security disabled by server but we expected security (indicated by client_handshake not null) so failing!\n");
-
 							packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
-							packet->data[ 0 ] = ID_OUR_SYSTEM_REQUIRES_SECURITY; // Attempted a connection and couldn't
+							packet->data[ 0 ] = ID_OUR_SYSTEM_REQUIRES_SECURITY;
 							packet->bitSize = ( sizeof( char ) * 8);
 							packet->systemAddress = rcs->systemAddress;
 							packet->guid=serverGuid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
 						}
-#endif // LIBCAT_SECURITY
-
 					}
 
 					uint16_t mtu;
@@ -4906,16 +4917,11 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			b=bs.Read(doSecurity);
 			RakAssert(b);
 
-#if LIBCAT_SECURITY==1
-			char answer[cat::EasyHandshake::ANSWER_BYTES];
-			CAT_AUDIT_PRINTF("AUDIT: Got ID_OPEN_CONNECTION_REPLY_2 and given doSecurity=%i\n", (int)doSecurity);
+			unsigned char serverMsgB[NoiseHandshake::MESSAGE_BYTES];
 			if (doSecurity)
 			{
-				CAT_AUDIT_PRINTF("AUDIT: Reading cookie and public key\n");
-				bs.ReadAlignedBytes((unsigned char*) answer, sizeof(answer));
+				bs.ReadAlignedBytes(serverMsgB, sizeof(serverMsgB));
 			}
-			cat::ClientEasyHandshake *client_handshake=0;
-#endif // LIBCAT_SECURITY
 
 			RakPeer::RequestedConnectionStruct *rcs;
 			bool unlock=true;
@@ -4927,29 +4933,20 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 				if (rcs->systemAddress==systemAddress)
 				{
-#if LIBCAT_SECURITY==1
-					CAT_AUDIT_PRINTF("AUDIT: System address matches an entry in the requestedConnectionQueue and doSecurity=%i\n", (int)doSecurity);
-					if (doSecurity)
+					if (doSecurity && rcs->useNoiseSecurity==false)
 					{
-						if (rcs->client_handshake==0)
-						{
-							CAT_AUDIT_PRINTF("AUDIT: Server wants security but we didn't set a public key -- Reporting back ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY to user\n");
-							rakPeer->requestedConnectionQueueMutex.Unlock();
+						// Server wants security but we never pinned a key for this attempt.
+						rakPeer->requestedConnectionQueueMutex.Unlock();
 
-							packet=rakPeer->AllocPacket(2, _FILE_AND_LINE_);
-							packet->data[ 0 ] = ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY; // Attempted a connection and couldn't
-							packet->data[ 1 ] = 0; // Indicate server public key is missing
-							packet->bitSize = ( sizeof( char ) * 8);
-							packet->systemAddress = rcs->systemAddress;
-							packet->guid=guid;
-							rakPeer->AddPacketToProducer(packet);
-							return true;
-						}
-
-						CAT_AUDIT_PRINTF("AUDIT: Looks good, preparing to send challenge to server! client_handshake = %x\n", client_handshake);
+						packet=rakPeer->AllocPacket(2, _FILE_AND_LINE_);
+						packet->data[ 0 ] = ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY; // Attempted a connection and couldn't
+						packet->data[ 1 ] = 0; // Indicate server public key is missing
+						packet->bitSize = ( sizeof( char ) * 8);
+						packet->systemAddress = rcs->systemAddress;
+						packet->guid=guid;
+						rakPeer->AddPacketToProducer(packet);
+						return true;
 					}
-
-#endif // LIBCAT_SECURITY
 
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 					unlock=false;
@@ -4978,37 +4975,29 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 						if (remoteSystem)
 						{
 							// Move pointer from RequestedConnectionStruct to RemoteSystemStruct
-#if LIBCAT_SECURITY==1
-							cat::u8 ident[cat::EasyHandshake::IDENTITY_BYTES];
-							bool doIdentity = false;
-
-							if (rcs->client_handshake)
+							if (doSecurity)
 							{
-								CAT_AUDIT_PRINTF("AUDIT: Processing answer\n");
-								if (rcs->publicKeyMode == PKM_USE_TWO_WAY_AUTHENTICATION)
+								// Read Noise message B, deriving transport keys and verifying the
+								// server's identity (it proved possession of the pinned static key).
+								// AssignSystemAddressToRemoteSystemList already Reset the SecureSession,
+								// so SetKeys here is the correct ordering.
+								if (!rcs->noise.ReadMessageB(serverMsgB))
 								{
-									if (!rcs->client_handshake->ProcessAnswerWithIdentity(answer, ident, remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()))
-									{
-										CAT_AUDIT_PRINTF("AUDIT: Processing answer -- Invalid Answer\n");
-										return true;
-									}
+									// Server identity could not be verified -> abort this connection.
+									rakPeer->DereferenceRemoteSystem(systemAddress);
 
-									doIdentity = true;
+									packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
+									packet->data[ 0 ] = ID_PUBLIC_KEY_MISMATCH;
+									packet->bitSize = ( sizeof( char ) * 8);
+									packet->systemAddress = rcs->systemAddress;
+									packet->guid=guid;
+									rakPeer->AddPacketToProducer(packet);
+									return true;
 								}
-								else
-								{
-									if (!rcs->client_handshake->ProcessAnswer(answer, remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()))
-									{
-										CAT_AUDIT_PRINTF("AUDIT: Processing answer -- Invalid Answer\n");
-										return true;
-									}
-								}
-								CAT_AUDIT_PRINTF("AUDIT: Success!\n");
-
-								MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-								rcs->client_handshake=0;
+								unsigned char sKey[32], rKey[32];
+								rcs->noise.GetTransportKeys(sKey, rKey);
+								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
 							}
-#endif // LIBCAT_SECURITY
 
 							remoteSystem->weInitiatedTheConnection=true;
 							remoteSystem->connectMode=RakPeer::RemoteSystemStruct::REQUESTED_CONNECTION;
@@ -5175,19 +5164,16 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			bsOut.Write((MessageID)ID_OPEN_CONNECTION_REPLY_1);
 			bsOut.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 			bsOut.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
-#if LIBCAT_SECURITY==1
-			if (rakPeer->_using_security)
+			if (rakPeer->hasServerSecurityKey)
 			{
 				bsOut.Write((unsigned char) 1); // HasCookie Yes
-				// Write cookie
-				uint32_t cookie = rakPeer->_cookie_jar->Generate(&systemAddress.address,sizeof(systemAddress.address));
-				CAT_AUDIT_PRINTF("AUDIT: Writing cookie %i to %i:%i\n", cookie, systemAddress);
-				bsOut.Write(cookie);
-				// Write my public key
-				bsOut.WriteAlignedBytes((const unsigned char *) rakPeer->my_public_key,sizeof(rakPeer->my_public_key));
+				// Write our stateless 16-byte cookie. The client already pins our public key,
+				// so we do NOT transmit it here.
+				unsigned char cookie[16];
+				rakPeer->GenerateConnectionCookie(systemAddress, cookie);
+				bsOut.WriteAlignedBytes(cookie, sizeof(cookie));
 			}
 			else
-#endif // LIBCAT_SECURITY
 				bsOut.Write((unsigned char) 0);  // HasCookie oN
 
 			// MTU. Lower MTU if it is exceeds our own limit
@@ -5216,46 +5202,41 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 
 			bool requiresSecurityOfThisClient=false;
-#if LIBCAT_SECURITY==1
-			char remoteHandshakeChallenge[cat::EasyHandshake::CHALLENGE_BYTES];
+			unsigned char clientMsgA[NoiseHandshake::MESSAGE_BYTES];
 
-			if (rakPeer->_using_security)
+			if (rakPeer->hasServerSecurityKey)
 			{
-				systemAddress.ToString(false, str1, static_cast<size_t>(64));
-				requiresSecurityOfThisClient=rakPeer->IsInSecurityExceptionList(str1)==false;
-
-				uint32_t cookie;
-				bs.Read(cookie);
-				CAT_AUDIT_PRINTF("AUDIT: Got cookie %i from %i:%i\n", cookie, systemAddress);
-				if (rakPeer->_cookie_jar->Verify(&systemAddress.address,sizeof(systemAddress.address), cookie)==false)
+				// Verify the client's echoed stateless cookie before doing any work.
+				unsigned char cookie[16];
+				bs.ReadAlignedBytes(cookie, sizeof(cookie));
+				if (rakPeer->VerifyConnectionCookie(systemAddress, cookie)==false)
 				{
-					return true;
-				}
-				CAT_AUDIT_PRINTF("AUDIT: Cookie good!\n");
-
-				unsigned char clientWroteChallenge;
-				bs.Read(clientWroteChallenge);
-
-				if (requiresSecurityOfThisClient==true && clientWroteChallenge==0)
-				{
-					// Fail, client doesn't support security, and it is required
+					// Drop silently (anti-flood): an attacker without a valid cookie gets nothing.
 					return true;
 				}
 
-				if (clientWroteChallenge)
+				unsigned char clientDoingNoise;
+				bs.Read(clientDoingNoise);
+				if (clientDoingNoise==0)
 				{
-					bs.ReadAlignedBytes((unsigned char*) remoteHandshakeChallenge, cat::EasyHandshake::CHALLENGE_BYTES);
-#ifdef CAT_AUDIT
-					printf("AUDIT: RECV CHALLENGE ");
-					for (int ii = 0; ii < sizeof(remoteHandshakeChallenge); ++ii)
-					{
-						printf("%02x", (cat::u8)remoteHandshakeChallenge[ii]);
-					}
-					printf("\n");
-#endif
+					// We require security but the client is not doing Noise. Tell it so.
+					MafiaNet::BitStream bsReject;
+					bsReject.Write((MessageID)ID_OUR_SYSTEM_REQUIRES_SECURITY);
+					bsReject.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
+					bsReject.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
+					for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
+						rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char*) bsReject.GetData(), bsReject.GetNumberOfBitsUsed(), systemAddress);
+					RNS2_SendParameters bspReject;
+					bspReject.data = (char*) bsReject.GetData();
+					bspReject.length = bsReject.GetNumberOfBytesUsed();
+					bspReject.systemAddress = systemAddress;
+					rakNetSocket->Send(&bspReject, _FILE_AND_LINE_);
+					return true;
 				}
+
+				bs.ReadAlignedBytes(clientMsgA, sizeof(clientMsgA));
+				requiresSecurityOfThisClient=true;
 			}
-#endif // LIBCAT_SECURITY
 
 			bs.Read(bindingAddress);
 			uint16_t mtu;
@@ -5317,14 +5298,11 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			if (outcome==1)
 			{
 				// Duplicate connection request packet from packetloss
-				// Send back the same answer
-#if LIBCAT_SECURITY==1
+				// Send back the same answer (cached Noise message B). Do NOT re-run the handshake.
 				if (requiresSecurityOfThisClient)
 				{
-					CAT_AUDIT_PRINTF("AUDIT: Resending public key and answer from packetloss.  Sending ID_OPEN_CONNECTION_REPLY_2\n");
 					bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer,sizeof(rssFromSA->answer));
 				}
-#endif // LIBCAT_SECURITY
 
 				for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
 					rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char*) bsAnswer.GetData(), bsAnswer.GetNumberOfBitsUsed(), systemAddress);
@@ -5393,27 +5371,27 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				return true;
 			}
 
-#if LIBCAT_SECURITY==1
-			if (requiresSecurityOfThisClient)
+			if (requiresSecurityOfThisClient && rssFromSA)
 			{
-				CAT_AUDIT_PRINTF("AUDIT: Writing public key.  Sending ID_OPEN_CONNECTION_REPLY_2\n");
-				if (rakPeer->_server_handshake->ProcessChallenge(remoteHandshakeChallenge, rssFromSA->answer, rssFromSA->reliabilityLayer.GetAuthenticatedEncryption() ))
+				// Run the Noise_NK responder handshake: read message A, write message B,
+				// derive transport keys, and install them on this connection's SecureSession.
+				// AssignSystemAddressToRemoteSystemList already called reliabilityLayer.Reset(useSecurity=true),
+				// constructing a fresh SecureSession, so SetKeys here is the correct ordering.
+				NoiseHandshake serverNoise;
+				serverNoise.InitResponder(rakPeer->serverSecurityKey.publicKey, rakPeer->serverSecurityKey.secretKey);
+				if (!serverNoise.ReadMessageA(clientMsgA))
 				{
-					CAT_AUDIT_PRINTF("AUDIT: Challenge good!\n");
-					// Keep going to OK block
-				}
-				else
-				{
-					CAT_AUDIT_PRINTF("AUDIT: Challenge BAD!\n");
-
-					// Unassign this remote system
+					// Bad message A -> drop this attempt.
 					rakPeer->DereferenceRemoteSystem(systemAddress);
 					return true;
 				}
+				serverNoise.WriteMessageB(rssFromSA->answer);
+				unsigned char sKey[32], rKey[32];
+				serverNoise.GetTransportKeys(sKey, rKey);
+				rssFromSA->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
 
 				bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer,sizeof(rssFromSA->answer));
 			}
-#endif // LIBCAT_SECURITY
 
 			for (i=0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char*) bsAnswer.GetData(), bsAnswer.GetNumberOfBitsUsed(), systemAddress);

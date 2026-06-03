@@ -22,6 +22,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/time.h"
 #include "mafianet/GetTime.h"
+#include "mafianet/crypto/keys.h"
 #include "DebugTools.h"
 #include "CommonFunctions.h"
 

@@ -41,6 +41,8 @@
 #include "SecureHandshake.h"
 #include "LocklessTypes.h"
 #include "DS_Queue.h"
+#include "crypto/keys.h"
+#include "crypto/noise.h"
 
 namespace MafiaNet {
 /// Forward declarations
@@ -112,6 +114,9 @@ public:
 	/// \param[in] IP address to check.
 	/// \return True if the IP address is found in security exception list, else returns false.
 	bool IsInSecurityExceptionList(const char *ip);
+
+	/// \brief Set this server's Noise_NK identity keypair, enabling encrypted incoming connections.
+	void SetServerSecurityKey(const ServerSecurityKey &key);
 
 	/// \brief Sets the maximum number of incoming connections allowed.
 	/// \details If the number of incoming connections is less than the number of players currently connected,
@@ -686,10 +691,12 @@ public:
 		RakNetSocket2* rakNetSocket;
 		SystemIndex remoteSystemIndex;
 
-#if LIBCAT_SECURITY==1
-		// Cached answer used internally by RakPeer to prevent DoS attacks based on the connexion handshake
-		char answer[cat::EasyHandshake::ANSWER_BYTES];
+		// Cached Noise message B (48 bytes) used internally by RakPeer to prevent DoS attacks
+		// based on the connection handshake. On a duplicate REQUEST_2 we resend these exact
+		// bytes rather than re-running the handshake.
+		unsigned char answer[NoiseHandshake::MESSAGE_BYTES];
 
+#if LIBCAT_SECURITY==1
 		// If the server has bRequireClientKey = true, then this is set to the validated public key of the connected client
 		// Valid after connectMode reaches HANDLING_CONNECTION_REQUEST
 		char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
@@ -851,6 +858,11 @@ protected:
 		RakNetSocket2* socket;
 		enum {CONNECT=1, /*PING=2, PING_OPEN_CONNECTIONS=4,*/ /*ADVERTISE_SYSTEM=2*/} actionToTake;
 
+		// Noise_NK security state for this connection attempt (initiator side).
+		bool useNoiseSecurity;                 // this connection attempt is encrypted
+		unsigned char serverPublicKey[32];     // pinned server static public key (from PublicKey)
+		NoiseHandshake noise;                  // initiator state, persists across REQUEST_2 -> REPLY_2
+
 #if LIBCAT_SECURITY==1
 		char handshakeChallenge[cat::EasyHandshake::CHALLENGE_BYTES];
 		cat::ClientEasyHandshake *client_handshake;
@@ -1011,6 +1023,14 @@ protected:
 	void ResetSendReceipt(void);
 	void OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPongTime, RemoteSystemStruct *remoteSystem);
 	void CallPluginCallbacks(DataStructures::List<PluginInterface2*> &pluginList, Packet *packet);
+
+	// Noise_NK server identity + stateless cookie state (compiled-in).
+	bool hasServerSecurityKey;                 // set true once SetServerSecurityKey is called
+	ServerSecurityKey serverSecurityKey;       // responder static keypair
+	unsigned char cookieSecret[32];            // HMAC key for stateless SYN cookies
+	// 16-byte stateless cookie = first 16 bytes of HMAC-SHA512(cookieSecret, addrBytes || timeBucket).
+	void GenerateConnectionCookie(const SystemAddress &systemAddress, unsigned char cookieOut[16]) const;
+	bool VerifyConnectionCookie(const SystemAddress &systemAddress, const unsigned char cookie[16]) const;
 
 #if LIBCAT_SECURITY==1
 	// Encryption and security
