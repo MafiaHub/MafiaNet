@@ -17,8 +17,11 @@ Basic Usage
    MafiaNet::FullyConnectedMesh2 fcm2;
    peer->AttachPlugin(&fcm2);
 
-   // Set connection credentials (all peers must use same password)
-   fcm2.SetConnectOnNewRemoteConnection(true, "gamePassword");
+   // Set connection credentials.  All peers must share the same password and
+   // the same pinned server public key (required for encrypted connections).
+   unsigned char serverPublicKey[32];
+   LoadFromFile("server.pub", serverPublicKey, 32);
+   fcm2.SetConnectOnNewRemoteConnection(true, "gamePassword", serverPublicKey);
 
    // Start the mesh with initial host
    fcm2.StartVerifiedJoin(hostGuid);

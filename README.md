@@ -271,6 +271,27 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 
 ## Changelog
 
+### Unreleased — Default Transport Encryption (breaking)
+
+- **Mandatory Noise_NK encryption**: every datagram is now encrypted and
+  authenticated (ChaCha20-Poly1305 AEAD, X25519 key exchange, libsodium).
+  There is no opt-out. **Wire-incompatible with 0.7.x** — coordinate a
+  server + client upgrade.
+- **`Connect` / `ConnectWithSocket` signature change**: the optional
+  `PublicKey*` argument is replaced by a *required* 32-byte pinned server
+  X25519 public key (`const unsigned char serverPublicKey[32]`).
+- **New API**: `ServerSecurityKey` struct + `GenerateServerSecurityKey()` +
+  `RakPeerInterface::SetServerSecurityKey(const ServerSecurityKey&)`.
+- **Removed**: `InitializeSecurity`, `DisableSecurity`,
+  `AddToSecurityExceptionList`, `RemoveFromSecurityExceptionList`,
+  `GetClientPublicKeyFromSystemAddress`, `PublicKey` struct, `PublicKeyMode`
+  enum, `GenerateServerRSAKeys`, libcat / `LIBCAT_SECURITY`.
+- **`FullyConnectedMesh2::SetConnectOnNewRemoteConnection`** takes an
+  additional `const unsigned char serverPublicKey[32] = 0` argument;
+  auto-mesh connections are fail-closed without a key.
+- **libsodium** is now a required dependency (auto-fetched via CMake);
+  libcat has been removed.
+
 ### Version 0.7.0 (Latest)
 - **Virtual worlds (dimensions)**: new per-entity / per-observer `VirtualWorldId` scoping on top of ReplicaManager3 — the SA-MP `SetPlayerVirtualWorld` / routing-bucket model for instanced interiors (e.g. apartments). Players only see entities sharing their virtual world (or `VIRTUAL_WORLD_GLOBAL`), switchable at runtime with no reconnect. Derive entities from `VirtualWorldReplica3`; `Connection_RM3` gets `Get/SetVirtualWorld`; `ReplicaManager3` gets `GetConnectionsInVirtualWorld`/`GetGuidsInVirtualWorld` and `SetPlayerVirtualWorld`. The filter is authority-only, so a downloaded copy never despawns the entity at its owner. See `Samples/VirtualWorld`
 

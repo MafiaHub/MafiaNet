@@ -13,22 +13,32 @@ Initiating a Connection
        unsigned short remotePort,
        const char *passwordData,
        int passwordDataLength,
-       PublicKey *publicKey = 0,
+       const unsigned char serverPublicKey[32],  // REQUIRED: pinned server X25519 public key
        unsigned connectionSocketIndex = 0,
        unsigned sendConnectionAttemptCount = 6,
        unsigned timeBetweenSendConnectionAttemptsMS = 1000,
        TimeMS timeoutTime = 0
    );
 
+All connections are encrypted using the Noise_NK protocol (ChaCha20-Poly1305
+transport, X25519 key exchange).  The ``serverPublicKey`` argument is the
+server's 32-byte X25519 public key and is **required** — without it the
+handshake cannot authenticate the server and the connection will fail.
+
 Basic usage:
 
 .. code-block:: cpp
+
+   // Load or embed the server's 32-byte X25519 public key.
+   unsigned char serverPublicKey[32];
+   LoadFromFile("server.pub", serverPublicKey, 32);
 
    MafiaNet::ConnectionAttemptResult result = peer->Connect(
        "192.168.1.100",  // IP address or hostname
        60000,            // Port
        nullptr,          // No password
-       0                 // Password length
+       0,                // Password length
+       serverPublicKey   // Pinned server public key (required)
    );
 
    if (result != MafiaNet::CONNECTION_ATTEMPT_STARTED) {
