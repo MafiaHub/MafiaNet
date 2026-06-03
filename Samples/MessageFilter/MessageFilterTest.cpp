@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 
 #include "mafianet/MessageFilter.h"
 #include "mafianet/MessageIdentifiers.h"
@@ -44,10 +45,12 @@ int main()
 	// Connect the systems to each other
 	MafiaNet::SocketDescriptor socketDescriptor(60000,0);
 	peer1->Startup(1,&socketDescriptor, 1);
+	peer1->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	peer1->SetMaximumIncomingConnections(1);
 	socketDescriptor.port=60001;
 	peer2->Startup(1,&socketDescriptor, 1);
-	peer2->Connect("127.0.0.1", 60000,0,0);
+	peer2->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	peer2->Connect("127.0.0.1", 60000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 	// Wait for the connection to complete
 	for(;;)

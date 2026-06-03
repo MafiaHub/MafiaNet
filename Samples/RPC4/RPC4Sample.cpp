@@ -26,6 +26,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 
@@ -91,6 +92,7 @@ int main(void)
 
 	MafiaNet::SocketDescriptor sd1(static_cast<unsigned short>(intClientPort),0);
 	rakPeer->Startup(8,&sd1,1);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 
 	puts("Enter IP to connect to, or enter for none");
@@ -113,7 +115,7 @@ int main(void)
 			printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
-		rakPeer->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0);
+		rakPeer->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 		RakSleep(1000);
 

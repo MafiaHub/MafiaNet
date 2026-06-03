@@ -19,6 +19,7 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/Gets.h"
 #include "mafianet/PacketLogger.h"
@@ -69,16 +70,17 @@ int main(void)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
+		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	}
 
 	printf("Connecting two systems...\n\n");
 
 	messageHandler[0].LogHeader();
-	
+
 	// Connect each peer to the prior peer
 	for (unsigned short peerIndex=1; peerIndex < NUM_PEERS; peerIndex++)
 	{
-        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0);
+        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 #ifdef WIN32

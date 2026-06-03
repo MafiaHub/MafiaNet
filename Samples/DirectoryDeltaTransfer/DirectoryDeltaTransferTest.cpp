@@ -15,6 +15,7 @@
 
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/statistics.h"
 #include "mafianet/DirectoryDeltaTransfer.h"
@@ -140,6 +141,7 @@ int main(void)
 		printf("RakNet initialize failed.  Possibly duplicate port.\n");
 		return 1;
 	}
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 #endif
 
@@ -296,7 +298,7 @@ int main(void)
 #ifdef USE_TCP
 				tcp1.Connect(host,remotePort,false);
 #else
-				rakPeer->Connect(host, remotePort, 0, 0);
+				rakPeer->Connect(host, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 #endif
 				printf("Connecting.\n");
 			}

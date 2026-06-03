@@ -29,6 +29,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 
@@ -66,12 +67,13 @@ class Client
 			socketDescriptor.port=0;
 			nextSendTime=0;
 			SLNET_VERIFY(peer->Startup(1, &socketDescriptor, 1) == RAKNET_STARTED);
+			peer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			isConnected=false;
 		}
 		void Connect(void)
 		{
 			bool b;
-			b=peer->Connect(remoteIPAddress, (unsigned short) SERVER_PORT, 0, 0, 0)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
+			b=peer->Connect(remoteIPAddress, (unsigned short) SERVER_PORT, 0, 0, MafiaNet::GetSampleServerKey().publicKey)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
 			if (b==false)
 			{
 				printf("Client connect call failed!\n");
@@ -166,6 +168,7 @@ class Server
 			MafiaNet::SocketDescriptor socketDescriptor;
 			socketDescriptor.port=(unsigned short) SERVER_PORT;
 			SLNET_VERIFY(peer->Startup((unsigned short)600, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED);
+			peer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			peer->SetMaximumIncomingConnections(600);
 		}
 		unsigned ConnectionCount(void) const

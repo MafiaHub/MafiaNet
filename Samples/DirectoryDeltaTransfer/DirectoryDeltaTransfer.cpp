@@ -15,6 +15,7 @@
 
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/statistics.h"
 #include "mafianet/DirectoryDeltaTransfer.h"
@@ -95,6 +96,7 @@ int main(void)
 		printf("MafiaNet startup failed. Possibly duplicate port.\n");
 		return 1;
 	}
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 
 	printf("Commands:\n");
@@ -177,7 +179,7 @@ int main(void)
 					remotePort=60000;
 				else
 					remotePort=atoi(str);
-				rakPeer->Connect(host, remotePort, 0, 0);
+				rakPeer->Connect(host, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				printf("Connecting.\n");
 			}
 			else if (ch=='q')

@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/types.h"
 #include "mafianet/sleep.h"
@@ -47,6 +48,7 @@ int main()
 	while (IRNS2_Berkley::IsPortInUse(sd.port, sd.hostAddress, sd.socketFamily, SOCK_DGRAM)==true)
 		sd.port++;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
@@ -93,7 +95,7 @@ int main()
 
 			case ID_ADVERTISE_SYSTEM:
 				if (packet->guid!=rakPeer->GetMyGUID())
-					rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(),0,0);
+					rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(),0,0, MafiaNet::GetSampleServerKey().publicKey);
 				break;
 
 			case ID_FCM2_NEW_HOST:

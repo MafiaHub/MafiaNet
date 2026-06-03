@@ -19,6 +19,7 @@
 
 #include "mafianet/peerinterface.h"
 
+#include "SampleSecurity.h"
 #include "mafianet/PacketLogger.h"
 #include "mafianet/Rand.h"
 #include "mafianet/Kbhit.h"
@@ -58,10 +59,12 @@ int main()
 		numSystems[1]=0;
 
 		rakPeer1->Startup(1,&sd1, 1);
+		rakPeer1->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer2->Startup(1,&sd2, 1);
+		rakPeer2->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		RakSleep(100);
-		rakPeer1->Connect("127.0.0.1", 2000, 0, 0);
-		rakPeer2->Connect("127.0.0.1", 60000, 0, 0);
+		rakPeer1->Connect("127.0.0.1", 2000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
+		rakPeer2->Connect("127.0.0.1", 60000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		RakSleep(100);
 		for (packet=rakPeer1->Receive(); packet; rakPeer1->DeallocatePacket(packet), packet=rakPeer1->Receive())
 		{

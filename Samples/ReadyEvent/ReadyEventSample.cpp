@@ -31,6 +31,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 #include "mafianet/Gets.h"
+#include "SampleSecurity.h"
 
 void PrintConnections();
 
@@ -58,7 +59,7 @@ int main(void)
 	rakPeer->SetMaximumIncomingConnections(8);
 
 	fcm2.SetAutoparticipateConnections(true);
-	fcm2.SetConnectOnNewRemoteConnection(true, "");
+	fcm2.SetConnectOnNewRemoteConnection(true, "", MafiaNet::GetSampleServerKey().publicKey);
 	cg2.SetAutoProcessNewConnections(true);
 
 	// Initialize the peers
@@ -67,6 +68,7 @@ int main(void)
 		sd.port++;
 	StartupResult sr = rakPeer->Startup(8, &sd, 1);
 	RakAssert(sr==RAKNET_STARTED);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	printf("Started on port %i\n", sd.port);
 
 	// Give the threads time to properly start
@@ -122,7 +124,7 @@ int main(void)
 				printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 				return 2;
 			}
-			SLNET_VERIFY(rakPeer->Connect(str, static_cast<unsigned short>(intRemotePort), 0, 0, 0) == CONNECTION_ATTEMPT_STARTED);
+			SLNET_VERIFY(rakPeer->Connect(str, static_cast<unsigned short>(intRemotePort), 0, 0, MafiaNet::GetSampleServerKey().publicKey) == CONNECTION_ATTEMPT_STARTED);
 			printf("Connecting.\n");
 		}
 		if (ch=='d' || ch=='D')
@@ -131,6 +133,7 @@ int main(void)
 			rakPeer->Shutdown(100,0);
 			sr = rakPeer->Startup(8, &sd, 1);
 			RakAssert(sr==RAKNET_STARTED);
+			rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			printf("Restarting RakPeerInterface.\n");
 		}
 		if (ch=='f' || ch=='F')

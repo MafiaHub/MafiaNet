@@ -31,6 +31,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 
@@ -78,7 +79,7 @@ void ReadAllPackets(void)
 			bs.Read(sourceToDestPort);
 			char ipAddressString[32];
 			packet->systemAddress.ToString(false, ipAddressString,static_cast<size_t>(32));
-			rakPeer->Connect(ipAddressString, sourceToDestPort, 0,0);
+			rakPeer->Connect(ipAddressString, sourceToDestPort, 0,0,MafiaNet::GetSampleServerKey().publicKey);
 		}
 		else if (packet->data[0]==ID_ROUTER_2_REROUTED)
 		{
@@ -125,6 +126,7 @@ int main(void)
 	rakPeer->SetMaximumIncomingConnections(32);
 	SocketDescriptor sd(0,0);
 	rakPeer->Startup(32,&sd,1);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	printf("Enter 'c' to connect, 'r' to start routing, 'q' to quit.\n");
 
 	rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString(str, 64);
@@ -177,7 +179,7 @@ int main(void)
 				} while (intRemotePort == 0);
 
 				// Connect
-				rakPeer->Connect(str, static_cast<unsigned short>(intRemotePort),0,0);
+				rakPeer->Connect(str, static_cast<unsigned short>(intRemotePort),0,0,MafiaNet::GetSampleServerKey().publicKey);
 			}
 		}
 

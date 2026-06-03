@@ -42,9 +42,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-#if LIBCAT_SECURITY==1
-#include "mafianet/SecureHandshake.h" // Include header for secure handshake
-#endif
+#include "SampleSecurity.h"
 
 // We copy this from Multiplayer.cpp to keep things all in one file for this example
 unsigned char GetPacketIdentifier(MafiaNet::Packet *p);
@@ -55,7 +53,6 @@ int main(void)
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
 	MafiaNet::RakPeerInterface *client= MafiaNet::RakPeerInterface::GetInstance();
-//	client->InitializeSecurity(0,0,0,0);
 	//MafiaNet::PacketLogger packetLogger;
 	//client->AttachPlugin(&packetLogger);
 
@@ -118,24 +115,11 @@ int main(void)
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
 	socketDescriptor.socketFamily=AF_INET;
 	client->Startup(8,&socketDescriptor, 1);
+	client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	client->SetOccasionalPing(true);
 
-
-#if LIBCAT_SECURITY==1
-	char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	FILE *fp;
-	fopen_s(&fp,"publicKey.dat","rb");
-	fread(public_key,sizeof(public_key),1,fp);
-	fclose(fp);
-
-	MafiaNet::PublicKey pk;
-	pk.remoteServerPublicKey=public_key;
-	pk.publicKeyMode= MafiaNet::PKM_USE_KNOWN_PUBLIC_KEY;
-	client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk);
-#else
-	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
+	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerKey().publicKey);
 	RakAssert(car== MafiaNet::CONNECTION_ATTEMPT_STARTED);
-#endif
 
 	printf("\nMy IP addresses:\n");
 	unsigned int i;
@@ -207,6 +191,7 @@ int main(void)
 			if (strcmp(message, "startup")==0)
 			{
 				bool b = client->Startup(8,&socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
+				client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 				if (b)
 					printf("Started.\n");
 				else
@@ -232,11 +217,7 @@ int main(void)
 					return 2;
 				}
 
-#if LIBCAT_SECURITY==1
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
-#else
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"))== MafiaNet::CONNECTION_ATTEMPT_STARTED;
-#endif
+				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerKey().publicKey)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
 
 				if (b)
 					puts("Attempting connection");

@@ -17,6 +17,7 @@
 // Right now it is hardcoded to connect to 127.0.0.1.  You would run the master server first, then run this.
 
 #include "MasterCommon.h"
+#include "SampleSecurity.h"
 #include "MasterClient.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/BitStream.h"
@@ -65,6 +66,7 @@ int main(void)
 	testGameServerOrClient = RakPeerInterface::GetInstance();
 	SocketDescriptor sd(60003, 0);
 	testGameServerOrClient->Startup(8, &sd, 1);
+	testGameServerOrClient->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	testGameServerOrClient->SetMaximumIncomingConnections(8);
 	testGameServerOrClient->AttachPlugin(&masterClient);
 

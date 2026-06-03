@@ -30,6 +30,7 @@
 #include <limits> // used for std::numeric_limits
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 #define CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY "CloudConnCount"
@@ -208,6 +209,7 @@ bool CloudServerHelper::StartRakPeer(MafiaNet::RakPeerInterface *rakPeer)
 {
 	MafiaNet::SocketDescriptor sd(MafiaNet::CloudServerHelper::rakPeerPort,0);
 	MafiaNet::StartupResult sr = rakPeer->Startup(MafiaNet::CloudServerHelper::allowedIncomingConnections+ MafiaNet::CloudServerHelper::allowedOutgoingConnections,&sd,1);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (sr!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup failed. Reason=%i\n", (int) sr);
@@ -222,7 +224,7 @@ Packet *CloudServerHelper::ConnectToRakPeer(const char *host, unsigned short por
 {
 	printf("RakPeer: Connecting to %s\n", host);
 	ConnectionAttemptResult car;
-	car = rakPeer->Connect(host, port, 0, 0);
+	car = rakPeer->Connect(host, port, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	if (car!=CONNECTION_ATTEMPT_STARTED)
 	{
 		printf("Connect() call failed\n");
@@ -249,7 +251,7 @@ Packet *CloudServerHelper::ConnectToRakPeer(const char *host, unsigned short por
 			case ID_NO_FREE_INCOMING_CONNECTIONS:
 			case ID_IP_RECENTLY_CONNECTED:
 				printf("Remote system full. Retrying...");
-				car = rakPeer->Connect(host, port, 0, 0);
+				car = rakPeer->Connect(host, port, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				if (car!=CONNECTION_ATTEMPT_STARTED)
 				{
 					printf("Connect() call failed\n");
@@ -350,7 +352,7 @@ void CloudServerHelper::SetupPlugins(
 
 	cloudServer->AddQueryFilter(sampleFilter);
 	// Connect to all systems told about via ConnectionGraph2::AddParticpant(). We are only told about servers that have already been authenticated
-	fullyConnectedMesh2->SetConnectOnNewRemoteConnection(true, "");
+	fullyConnectedMesh2->SetConnectOnNewRemoteConnection(true, "", MafiaNet::GetSampleServerKey().publicKey);
 	// Do not add to the host trracking system all connections, only those designated as servers
 	fullyConnectedMesh2->SetAutoparticipateConnections(false);
 	// Shared password

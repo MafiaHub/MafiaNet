@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/types.h"
 #include "mafianet/sleep.h"
@@ -50,10 +51,11 @@ int main()
 		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 		rakPeer[i]->AttachPlugin(&fcm2[i]);
 		fcm2[i].SetAutoparticipateConnections(false);
-		fcm2[i].SetConnectOnNewRemoteConnection(false, "");
+		fcm2[i].SetConnectOnNewRemoteConnection(false, "", MafiaNet::GetSampleServerKey().publicKey);
 		MafiaNet::SocketDescriptor sd;
 		sd.port=60000+i;
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
+		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		printf("%i. Our guid is %s\n", i, rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
@@ -63,7 +65,7 @@ int main()
 
 	for (int i=1; i < NUM_PEERS; i++)
 	{
-		SLNET_VERIFY(rakPeer[i]->Connect("127.0.0.1", 60000, 0, 0) == CONNECTION_ATTEMPT_STARTED);
+		SLNET_VERIFY(rakPeer[i]->Connect("127.0.0.1", 60000, 0, 0, MafiaNet::GetSampleServerKey().publicKey) == CONNECTION_ATTEMPT_STARTED);
 	}
 	
 	RakSleep(100);
@@ -95,7 +97,7 @@ int main()
 						for (unsigned int i=0; i < guids.Size(); i++)
 						{
 							printf("%s:", guids[i].ToString());
-							ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
+							ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 							switch (car)
 							{
 							case CONNECTION_ATTEMPT_STARTED:

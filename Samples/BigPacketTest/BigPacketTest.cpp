@@ -27,6 +27,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 bool quit;
 bool sentPacket=false;
@@ -89,6 +90,7 @@ int main(void)
 		server->SetMaximumIncomingConnections(4);
 		StartupResult sr;
 		sr=server->Startup(4, &socketDescriptor, 1);
+		server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		if (sr!=RAKNET_STARTED)
 		{
 			printf("Server failed to start. Error=%i\n", sr);
@@ -105,6 +107,7 @@ int main(void)
 		socketDescriptor.socketFamily=socketFamily;
 		StartupResult sr;
 		sr=client->Startup(4, &socketDescriptor, 1);
+		client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		if (sr!=RAKNET_STARTED)
 		{
 			printf("Client failed to start. Error=%i\n", sr);
@@ -115,7 +118,7 @@ int main(void)
 
 		printf("Started client on %s\n", client->GetMyBoundAddress().ToString(true));
 
-		client->Connect(text, 3000, 0, 0);
+		client->Connect(text, 3000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 	RakSleep(500);
 

@@ -30,6 +30,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 /// To test sending to myself. Also uncomment in RakVoice.cpp
 //#define _TEST_LOOPBACK
@@ -120,6 +121,7 @@ int main(void)
 	}
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort), 0);
 	rakPeer->Startup(4, &socketDescriptor, 1);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(4);
 	rakPeer->AttachPlugin(&rakVoice);
 	rakPeer->AttachPlugin(&natPunchthroughClient);
@@ -168,7 +170,7 @@ int main(void)
 			strcpy_s(facilitatorIP, "natpunch.slikesoft.com");
 		facilitator.FromString(facilitatorIP);
 		facilitator.SetPortHostOrder(NAT_PUNCHTHROUGH_FACILITATOR_PORT);
-		rakPeer->Connect(facilitatorIP, NAT_PUNCHTHROUGH_FACILITATOR_PORT, 0, 0);
+		rakPeer->Connect(facilitatorIP, NAT_PUNCHTHROUGH_FACILITATOR_PORT, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		printf("Connecting to facilitator...\n");
 	}
 	else
@@ -226,7 +228,7 @@ int main(void)
 						printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 						return 2;
 					}
-					rakPeer->Connect(ip, static_cast<unsigned short>(intRemotePort), 0,0);
+					rakPeer->Connect(ip, static_cast<unsigned short>(intRemotePort), 0,0, MafiaNet::GetSampleServerKey().publicKey);
 
 				}
 			}
@@ -330,7 +332,7 @@ int main(void)
 			else if (p->data[0]==ID_NAT_PUNCHTHROUGH_SUCCEEDED)
 			{
 				printf("ID_NAT_PUNCHTHROUGH_SUCCEEDED for %s. Connecting...\n", p->guid.ToString());
-				rakPeer->Connect(p->systemAddress.ToString(false),p->systemAddress.GetPort(),0,0);
+				rakPeer->Connect(p->systemAddress.ToString(false),p->systemAddress.GetPort(),0,0,MafiaNet::GetSampleServerKey().publicKey);
 			}
 			else if (p->data[0]==ID_ALREADY_CONNECTED)
 			{

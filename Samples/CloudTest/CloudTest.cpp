@@ -22,6 +22,7 @@
 #include "mafianet/CloudServer.h"
 #include "mafianet/CloudClient.h"
 #include "mafianet/Kbhit.h"
+#include "SampleSecurity.h"
 
 enum
 {
@@ -89,6 +90,7 @@ int main(void)
 		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 		MafiaNet::SocketDescriptor sd(STARTING_PORT+i,0);
 		rakPeer[i]->Startup(RAKPEER_COUNT,&sd,1);
+		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	}
 
 	for (unsigned short i=SERVER_1; i < RAKPEER_COUNT; i++)
@@ -108,7 +110,7 @@ int main(void)
 	{
 		for (unsigned short j=i+1; j < RAKPEER_COUNT; j++)
 		{
-			rakPeer[j]->Connect("127.0.0.1", STARTING_PORT+i, 0, 0);
+			rakPeer[j]->Connect("127.0.0.1", STARTING_PORT+i, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		}
 	}
 
@@ -128,7 +130,7 @@ int main(void)
 	// Connect clients to servers, assume equal counts
 	for (unsigned short i=CLIENT_1; i < SERVER_1; i++)
 	{
-		rakPeer[i]->Connect("127.0.0.1", STARTING_PORT+SERVER_1+i, 0, 0);
+		rakPeer[i]->Connect("127.0.0.1", STARTING_PORT+SERVER_1+i, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 

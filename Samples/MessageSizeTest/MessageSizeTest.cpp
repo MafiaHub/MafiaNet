@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
@@ -37,9 +38,11 @@ int main(int, char **)
 	receiver = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor sd1(1234,0),sd2(1235,0);
 	receiver->Startup(32, &sd1, 1);
+	receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	receiver->SetMaximumIncomingConnections(32);
 	sender->Startup(1, &sd2, 1);
-	sender->Connect("127.0.0.1", 1234, 0, 0);
+	sender->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	sender->Connect("127.0.0.1", 1234, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	RakSleep(100);
 
 	unsigned char data[4000];

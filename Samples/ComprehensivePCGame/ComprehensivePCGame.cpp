@@ -48,6 +48,7 @@
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
+#include "SampleSecurity.h"
 
 #define DEFAULT_SERVER_PORT "61111"
 // Public test server
@@ -307,7 +308,7 @@ public:
 					phase = EXIT_SAMPLE;
 					break;
 				}
-				ConnectionAttemptResult car = rakPeer->Connect(serverIPAddr, static_cast<unsigned short>(intServerPort), 0, 0);
+				ConnectionAttemptResult car = rakPeer->Connect(serverIPAddr, static_cast<unsigned short>(intServerPort), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				if (car!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 				{
 					printf("Failed connect call to %s. Code=%i\n", serverIPAddr, car);
@@ -1071,6 +1072,7 @@ int main(void)
 	sd.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 	sd.port=0;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
@@ -1281,7 +1283,7 @@ int main(void)
 					if (game->phase==Game::NAT_PUNCH_TO_GAME_HOST || game->phase==Game::VERIFIED_JOIN)
 					{
 						// Connect to the session host
-						ConnectionAttemptResult car = rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
+						ConnectionAttemptResult car = rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 						if (car!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 						{
 							printf("Failed connect call to %s. Code=%i\n", packet->systemAddress.ToString(false), car);

@@ -15,6 +15,7 @@
 
 #include "MasterClient.h"
 #include "MasterServerMessageIDs.h"
+#include "SampleSecurity.h"
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/StringCompressor.h"
@@ -45,7 +46,7 @@ bool MasterClient::Connect(char* host, int masterServerPort)
 	localServer.connectionIdentifier.SetPortHostOrder(rakPeer->GetInternalID().GetPort());
 	ruleIdentifierList.Reset();
 
-	return rakPeer->Connect(host, masterServerPort, 0, 0) == CONNECTION_ATTEMPT_STARTED;
+	return rakPeer->Connect(host, masterServerPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey) == CONNECTION_ATTEMPT_STARTED;
 }
 
 void MasterClient::Disconnect(void)

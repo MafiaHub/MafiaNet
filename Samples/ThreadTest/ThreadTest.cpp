@@ -28,6 +28,7 @@
 //#include <process.h>
 #include "mafianet/thread.h"
 #include "mafianet/sleep.h"
+#include "SampleSecurity.h"
 using namespace MafiaNet;
 
 RakPeerInterface *peer1, *peer2;
@@ -93,11 +94,13 @@ int main()
 	peer2->SetMaximumIncomingConnections(1);
 	MafiaNet::SocketDescriptor socketDescriptor(1234,0);
 	peer1->Startup(1,&socketDescriptor, 1);
+	peer1->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	socketDescriptor.port=1235;
 	peer2->Startup(1,&socketDescriptor, 1);
+	peer2->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	RakSleep(500);
-	peer1->Connect("127.0.0.1", 1235, 0, 0);
-	peer2->Connect("127.0.0.1", 1234, 0, 0);
+	peer1->Connect("127.0.0.1", 1235, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
+	peer2->Connect("127.0.0.1", 1234, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 	printf("Tests multiple threads sharing the same instance of RakPeer\n");
 	printf("Difficulty: Beginner\n\n");
