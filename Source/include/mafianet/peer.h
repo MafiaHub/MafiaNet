@@ -38,7 +38,6 @@
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "SignaledEvent.h"
 #include "NativeFeatureIncludes.h"
-#include "SecureHandshake.h"
 #include "LocklessTypes.h"
 #include "DS_Queue.h"
 #include "crypto/keys.h"
@@ -605,11 +604,7 @@ public:
 	/// \internal
 	// Call manually if RAKPEER_USER_THREADED==1 at least every 30 milliseconds.
 	// updateBitStream should be:
-	// 	BitStream updateBitStream( MAXIMUM_MTU_SIZE
-	// #if LIBCAT_SECURITY==1
-	//	+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
-	// #endif
-	// );
+	// 	BitStream updateBitStream( MAXIMUM_MTU_SIZE );
 	bool RunUpdateCycle( BitStream &updateBitStream );
 
 	/// \internal
@@ -658,12 +653,6 @@ public:
 		// based on the connection handshake. On a duplicate REQUEST_2 we resend these exact
 		// bytes rather than re-running the handshake.
 		unsigned char answer[NoiseHandshake::MESSAGE_BYTES];
-
-#if LIBCAT_SECURITY==1
-		// If the server has bRequireClientKey = true, then this is set to the validated public key of the connected client
-		// Valid after connectMode reaches HANDLING_CONNECTION_REQUEST
-		char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-#endif
 
 		enum ConnectMode {NO_ACTION, DISCONNECT_ASAP, DISCONNECT_ASAP_SILENTLY, DISCONNECT_ON_NO_ACK, REQUESTED_CONNECTION, HANDLING_CONNECTION_REQUEST, UNVERIFIED_SENDER, CONNECTED} connectMode;
 	};
@@ -824,18 +813,7 @@ protected:
 		bool useNoiseSecurity;                 // this connection attempt is encrypted
 		unsigned char serverPublicKey[32];     // pinned server static public key
 		NoiseHandshake noise;                  // initiator state, persists across REQUEST_2 -> REPLY_2
-
-#if LIBCAT_SECURITY==1
-		char handshakeChallenge[cat::EasyHandshake::CHALLENGE_BYTES];
-		cat::ClientEasyHandshake *client_handshake;
-		char remote_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-//		char remote_challenge[cat::EasyHandshake::CHALLENGE_BYTES];
-	//	char random[16];
-#endif
 	};
-#if LIBCAT_SECURITY==1
-	bool GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,PublicKey *publicKey);
-#endif
 
 	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;
 	DataStructures::List<BanStruct*> banList;
@@ -914,7 +892,6 @@ protected:
 	void AddPacketToProducer(MafiaNet::Packet *p);
 	unsigned int GenerateSeedFromGuid(void);
 	MafiaNet::Time GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const;
-	SimpleMutex securityExceptionMutex;
 
 	//DataStructures::AVLBalancedBinarySearchTree<RPCNode> rpcTree;
 	int defaultMTUSize;
@@ -955,9 +932,6 @@ protected:
 
 	bool (*incomingDatagramEventHandler)(RNS2RecvStruct *);
 
-	// Systems in this list will not go through the secure connection process, even when secure connections are turned on. Wildcards are accepted.
-	DataStructures::List<MafiaNet::RakString> securityExceptionList;
-
 	SystemAddress ipList[ MAXIMUM_NUMBER_OF_INTERNAL_IDS ];
 
 	bool allowInternalRouting;
@@ -993,15 +967,6 @@ protected:
 	// 16-byte stateless cookie = first 16 bytes of HMAC-SHA512(cookieSecret, addrBytes || timeBucket).
 	void GenerateConnectionCookie(const SystemAddress &systemAddress, unsigned char cookieOut[16]) const;
 	bool VerifyConnectionCookie(const SystemAddress &systemAddress, const unsigned char cookie[16]) const;
-
-#if LIBCAT_SECURITY==1
-	// Encryption and security
-	bool _using_security, _require_client_public_key;
-	char my_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	cat::ServerEasyHandshake *_server_handshake;
-	cat::CookieJar *_cookie_jar;
-	bool InitializeClientSecurity(RequestedConnectionStruct *rcs, const char *public_key);
-#endif
 
 
 

@@ -12,7 +12,7 @@
 
 namespace MafiaNet {
 
-// Per-connection transport encryption. Replaces cat::AuthenticatedEncryption.
+// Per-connection transport encryption.
 // Wire layout per datagram: [8-byte LE counter][ciphertext][16-byte Poly1305 tag].
 class RAK_DLL_EXPORT SecureSession
 {

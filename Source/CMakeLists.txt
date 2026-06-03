@@ -85,7 +85,6 @@ set(MAFIANET_SOURCES
     src/ReplicaManager3.cpp
     src/Router2.cpp
     src/RPC4Plugin.cpp
-    src/SecureHandshake.cpp
     src/SendToThread.cpp
     src/SignaledEvent.cpp
     src/SimpleMutex.cpp
@@ -233,7 +232,6 @@ set(MAFIANET_HEADERS
     include/mafianet/ReplicaManager3.h
     include/mafianet/Router2.h
     include/mafianet/RPC4Plugin.h
-    include/mafianet/SecureHandshake.h
     include/mafianet/SendToThread.h
     include/mafianet/SignaledEvent.h
     include/mafianet/SimpleMutex.h

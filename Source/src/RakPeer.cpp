@@ -18,8 +18,6 @@
 
 
 
-#define CAT_NEUTER_EXPORT /* Neuter dllimport for libcat */
-
 #include "mafianet/defines.h"
 #include "mafianet/peer.h"
 #include "mafianet/types.h"
@@ -64,12 +62,6 @@
 
 #ifdef USE_THREADED_SEND
 #include "mafianet/SendToThread.h"
-#endif
-
-#ifdef CAT_AUDIT
-#define CAT_AUDIT_PRINTF(...) printf(__VA_ARGS__)
-#else
-#define CAT_AUDIT_PRINTF(...)
 #endif
 
 namespace MafiaNet
@@ -196,14 +188,6 @@ STATIC_FACTORY_DEFINITIONS(RakPeerInterface,RakPeer)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RakPeer::RakPeer()
 {
-#if LIBCAT_SECURITY==1
-	// Encryption and security
-	CAT_AUDIT_PRINTF("AUDIT: Initializing RakPeer security flags: using_security = false, server_handshake = null, cookie_jar = null\n");
-	_using_security = false;
-	_server_handshake = 0;
-	_cookie_jar = 0;
-#endif
-
 	hasServerSecurityKey = false;
 
 	StringCompressor::AddReference();
@@ -335,13 +319,6 @@ RakPeer::~RakPeer()
 	WSAStartupSingleton::Deref();
 
 	quitAndDataEvents.CloseEvent();
-
-#if LIBCAT_SECURITY==1
-	// Encryption and security
-	CAT_AUDIT_PRINTF("AUDIT: Deleting RakPeer security objects, handshake = %x, cookie jar = %x\n", _server_handshake, _cookie_jar);
-	if (_server_handshake) MafiaNet::OP_DELETE(_server_handshake,_FILE_AND_LINE_);
-	if (_cookie_jar) MafiaNet::OP_DELETE(_cookie_jar,_FILE_AND_LINE_);
-#endif
 
 
 
@@ -1368,11 +1345,7 @@ Packet* RakPeer::Receive( void )
 		}
 	}
 
-	BitStream updateBitStream( MAXIMUM_MTU_SIZE
-#if LIBCAT_SECURITY==1
-		+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
-#endif
-		);
+	BitStream updateBitStream( MAXIMUM_MTU_SIZE );
 	RunUpdateCycle(0, 0, updateBitStream);
 #endif
 	*/
@@ -1564,10 +1537,6 @@ void RakPeer::CancelConnectionAttempt( const SystemAddress target )
 	{
 		if (requestedConnectionQueue[i]->systemAddress==target)
 		{
-#if LIBCAT_SECURITY==1
-			CAT_AUDIT_PRINTF("AUDIT: Deleting requestedConnectionQueue %i client_handshake %x\n", i, requestedConnectionQueue[ i ]->client_handshake);
-			MafiaNet::OP_DELETE(requestedConnectionQueue[i]->client_handshake, _FILE_AND_LINE_ );
-#endif
 			MafiaNet::OP_DELETE(requestedConnectionQueue[i], _FILE_AND_LINE_ );
 			requestedConnectionQueue.RemoveAtIndex(i);
 			break;
@@ -3057,80 +3026,6 @@ bool RakPeer::VerifyConnectionCookie(const SystemAddress &systemAddress, const u
 	return false;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#if LIBCAT_SECURITY==1
-bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs,PublicKey *publicKey)
-{
-	CAT_AUDIT_PRINTF("AUDIT: In GenerateConnectionRequestChallenge()\n");
-
-	rcs->client_handshake = 0;
-	rcs->publicKeyMode = PKM_INSECURE_CONNECTION;
-
-	if (!publicKey) return true;
-
-	switch (publicKey->publicKeyMode)
-	{
-	default:
-	case PKM_INSECURE_CONNECTION:
-		break;
-
-	case PKM_ACCEPT_ANY_PUBLIC_KEY:
-		CAT_OBJCLR(rcs->remote_public_key);
-		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
-
-		rcs->publicKeyMode = PKM_ACCEPT_ANY_PUBLIC_KEY;
-		break;
-
-	case PKM_USE_TWO_WAY_AUTHENTICATION:
-		if (publicKey->myPublicKey == 0 || publicKey->myPrivateKey == 0 ||
-			publicKey->remoteServerPublicKey == 0)
-		{
-			return false;
-		}
-
-		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
-		memcpy(rcs->remote_public_key, publicKey->remoteServerPublicKey, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-
-		if (!rcs->client_handshake->Initialize(publicKey->remoteServerPublicKey) ||
-			!rcs->client_handshake->SetIdentity(publicKey->myPublicKey, publicKey->myPrivateKey) ||
-			!rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
-		{
-			CAT_AUDIT_PRINTF("AUDIT: Failure initializing new client_handshake object with identity for this RequestedConnectionStruct\n");
-			MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			rcs->client_handshake=0;
-			return false;
-		}
-
-		CAT_AUDIT_PRINTF("AUDIT: Success initializing new client handshake object with identity for this RequestedConnectionStruct -- pre-generated challenge\n");
-
-		rcs->publicKeyMode = PKM_USE_TWO_WAY_AUTHENTICATION;
-		break;
-
-	case PKM_USE_KNOWN_PUBLIC_KEY:
-		if (publicKey->remoteServerPublicKey == 0)
-			return false;
-
-		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
-		memcpy(rcs->remote_public_key, publicKey->remoteServerPublicKey, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-
-		if (!rcs->client_handshake->Initialize(publicKey->remoteServerPublicKey) ||
-			!rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
-		{
-			CAT_AUDIT_PRINTF("AUDIT: Failure initializing new client_handshake object for this RequestedConnectionStruct\n");
-			MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			rcs->client_handshake=0;
-			return false;
-		}
-
-		CAT_AUDIT_PRINTF("AUDIT: Success initializing new client handshake object for this RequestedConnectionStruct -- pre-generated challenge\n");
-
-		rcs->publicKeyMode = PKM_USE_KNOWN_PUBLIC_KEY;
-		break;
-	}
-
-	return true;
-}
-#endif
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, const unsigned char serverPublicKey[32], unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime )
 {
 	RakAssert(passwordDataLength <= 256);
@@ -3172,8 +3067,6 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 		if (requestedConnectionQueue[i]->systemAddress==systemAddress)
 		{
 			requestedConnectionQueueMutex.Unlock();
-			// Not necessary
-			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
@@ -3223,8 +3116,6 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 		if (requestedConnectionQueue[i]->systemAddress==systemAddress)
 		{
 			requestedConnectionQueueMutex.Unlock();
-			// Not necessary
-			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
@@ -3316,73 +3207,12 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 	unsigned char doSecurity;
 	bs.Read(doSecurity);
 
-#if LIBCAT_SECURITY==1
-	unsigned char doClientKey;
-	if (_using_security)
-	{
-		// Ignore message on bad state
-		if (doSecurity != 1 || !remoteSystem->reliabilityLayer.GetAuthenticatedEncryption())
-			return;
-
-		// Validate client proof of key
-		unsigned char proof[cat::EasyHandshake::PROOF_BYTES];
-		bs.ReadAlignedBytes(proof, sizeof(proof));
-		if (!remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->ValidateProof(proof, sizeof(proof)))
-		{
-			remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-			return;
-		}
-
-		CAT_OBJCLR(remoteSystem->client_public_key);
-
-		bs.Read(doClientKey);
-
-		// Check if client wants to prove identity
-		if (doClientKey == 1)
-		{
-			// Read identity proof
-			unsigned char ident[cat::EasyHandshake::IDENTITY_BYTES];
-			bs.ReadAlignedBytes(ident, sizeof(ident));
-
-			// If we are listening to these proofs,
-			if (_require_client_public_key)
-			{
-				// Validate client identity
-				if (!_server_handshake->VerifyInitiatorIdentity(remoteSystem->answer, ident, remoteSystem->client_public_key))
-				{
-					MafiaNet::BitStream bitStream;
-					bitStream.Write((MessageID)ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY); // Report an error since the client is not providing an identity when it is necessary to connect
-					bitStream.Write((unsigned char)2); // Indicate client identity is invalid
-					SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
-					remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-					return;
-				}
-			}
-
-			// Otherwise ignore the client public key
-		}
-		else
-		{
-			// If no client key was provided but it is required,
-			if (_require_client_public_key)
-			{
-				MafiaNet::BitStream bitStream;
-				bitStream.Write((MessageID)ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY); // Report an error since the client is not providing an identity when it is necessary to connect
-				bitStream.Write((unsigned char)1); // Indicate client identity is missing
-				SendImmediate((char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), IMMEDIATE_PRIORITY, RELIABLE, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
-				remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-				return;
-			}
-		}
-	}
-#endif // LIBCAT_SECURITY
 
 	unsigned char *password = bs.GetData()+BITS_TO_BYTES(bs.GetReadOffset());
 	int passwordLength = byteSize - BITS_TO_BYTES(bs.GetReadOffset());
 	if ( incomingPasswordLength != passwordLength ||
 		memcmp( password, incomingPassword, incomingPasswordLength ) != 0 )
 	{
-		CAT_AUDIT_PRINTF("AUDIT: Invalid password\n");
 		// This one we only send once since we don't care if it arrives.
 		MafiaNet::BitStream bitStream;
 		bitStream.Write((MessageID)ID_INVALID_PASSWORD);
@@ -4320,10 +4150,6 @@ void RakPeer::ClearRequestedConnectionList(void)
 	unsigned i;
 	for (i=0; i < freeQueue.Size(); i++)
 	{
-#if LIBCAT_SECURITY==1
-		CAT_AUDIT_PRINTF("AUDIT: In ClearRequestedConnectionList(), Deleting freeQueue index %i client_handshake %x\n", i, freeQueue[i]->client_handshake);
-		MafiaNet::OP_DELETE(freeQueue[i]->client_handshake,_FILE_AND_LINE_);
-#endif
 		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_ );
 	}
 }
@@ -4841,25 +4667,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 							temp.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 							temp.Write(MafiaNet::GetTime());
 
-#if LIBCAT_SECURITY==1
-							temp.Write((unsigned char)(doSecurity ? 1 : 0));
-
-							if (doSecurity)
-							{
-								unsigned char proof[32];
-								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->GenerateProof(proof, sizeof(proof));
-								temp.WriteAlignedBytes(proof, sizeof(proof));
-
-								temp.Write((unsigned char)(doIdentity ? 1 : 0));
-
-								if (doIdentity)
-								{
-									temp.WriteAlignedBytes(ident, sizeof(ident));
-								}
-							}
-#else
 							temp.Write((unsigned char)0);
-#endif // LIBCAT_SECURITY
 
 							if ( rcs->outgoingPasswordLength > 0 )
 								temp.Write( ( char* ) rcs->outgoingPassword,  rcs->outgoingPasswordLength );
@@ -4889,11 +4697,6 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					}
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 
-#if LIBCAT_SECURITY==1
-					CAT_AUDIT_PRINTF("AUDIT: Deleting client_handshake object %x and rcs->client_handshake object %x\n", client_handshake, rcs->client_handshake);
-					MafiaNet::OP_DELETE(client_handshake,_FILE_AND_LINE_);
-					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-#endif // LIBCAT_SECURITY
 					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 
 					break;
@@ -4935,10 +4738,6 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					connectionAttemptCancelled=true;
 					rakPeer->requestedConnectionQueue.RemoveAtIndex(i);
 
-#if LIBCAT_SECURITY==1
-					CAT_AUDIT_PRINTF("AUDIT: Connection attempt canceled so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-#endif // LIBCAT_SECURITY
 					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 					break;
 				}
@@ -5254,17 +5053,6 @@ void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const 
 }
 void ProcessNetworkPacket( SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket2* rakNetSocket, MafiaNet::TimeUS timeRead, BitStream &updateBitStream )
 {
-#if LIBCAT_SECURITY==1
-#ifdef CAT_AUDIT
-	printf("AUDIT: RECV ");
-	for (int ii = 0; ii < length; ++ii)
-	{
-		printf("%02x", (cat::u8)data[ii]);
-	}
-	printf("\n");
-#endif
-#endif // LIBCAT_SECURITY
-
 	RakAssert(systemAddress.GetPort());
 	bool isOfflineMessage;
 	if (ProcessOfflineNetworkPacket(systemAddress, data, length, rakPeer, rakNetSocket, &isOfflineMessage, timeRead))
@@ -5561,10 +5349,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						AddPacketToProducer(packet);
 					}
 
-#if LIBCAT_SECURITY==1
-					CAT_AUDIT_PRINTF("AUDIT: Connection attempt FAILED so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-#endif
 					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 
 					requestedConnectionQueueMutex.Lock();
@@ -6175,12 +5959,8 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 #endif
 */
 
-	BitStream updateBitStream( MAXIMUM_MTU_SIZE
-#if LIBCAT_SECURITY==1
-		+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
-#endif
-		);
-// 
+	BitStream updateBitStream( MAXIMUM_MTU_SIZE );
+//
 	rakPeer->isMainLoopThreadActive = true;
 
 	bool running = true;
