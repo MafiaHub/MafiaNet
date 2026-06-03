@@ -142,4 +142,127 @@ void NoiseSymmetricState::Split(unsigned char k1[32], unsigned char k2[32]) cons
 	sodium_memzero(out, sizeof out);
 }
 
+static const char *kProtocol = "Noise_NK_25519_ChaChaPoly_SHA512";
+
+NoiseHandshake::NoiseHandshake()
+	: initiator(false), hasInjectedEph(false)
+{
+	memset(e_pub, 0, 32); memset(e_sec, 0, 32);
+	memset(remoteEph, 0, 32); memset(rs, 0, 32);
+	memset(s_pub, 0, 32); memset(s_sec, 0, 32);
+	memset(sendKey, 0, 32); memset(recvKey, 0, 32);
+	memset(injectedEphSec, 0, 32);
+}
+
+NoiseHandshake::~NoiseHandshake()
+{
+	sodium_memzero(e_sec, 32);
+	sodium_memzero(s_sec, 32);
+	sodium_memzero(sendKey, 32);
+	sodium_memzero(recvKey, 32);
+	sodium_memzero(injectedEphSec, 32);
+	sodium_memzero(&ss, sizeof ss);
+}
+
+void NoiseHandshake::SetEphemeralForTesting(const unsigned char ephSec[32])
+{
+	memcpy(injectedEphSec, ephSec, 32);
+	hasInjectedEph = true;
+}
+
+void NoiseHandshake::GenEphemeral()
+{
+	if (hasInjectedEph) {
+		memcpy(e_sec, injectedEphSec, 32);
+		crypto_scalarmult_base(e_pub, e_sec);   // derive pub (clamps internally)
+	} else {
+		crypto_box_keypair(e_pub, e_sec);       // random X25519 keypair
+	}
+}
+
+void NoiseHandshake::InitInitiator(const unsigned char responderStaticPub[32])
+{
+	initiator = true;
+	memcpy(rs, responderStaticPub, 32);
+	ss.InitializeSymmetric(kProtocol);
+	ss.MixHash(nullptr, 0);          // MixHash(prologue=empty) -- REQUIRED
+	ss.MixHash(rs, 32);              // pre-message: responder static
+}
+
+void NoiseHandshake::InitResponder(const unsigned char staticPub[32],
+                                   const unsigned char staticSec[32])
+{
+	initiator = false;
+	memcpy(s_pub, staticPub, 32);
+	memcpy(s_sec, staticSec, 32);
+	ss.InitializeSymmetric(kProtocol);
+	ss.MixHash(nullptr, 0);          // MixHash(prologue=empty) -- REQUIRED
+	ss.MixHash(s_pub, 32);           // pre-message: own static
+}
+
+void NoiseHandshake::WriteMessageA(unsigned char out[48])
+{
+	GenEphemeral();
+	ss.MixHash(e_pub, 32);
+	memcpy(out, e_pub, 32);
+	unsigned char dh[32];
+	crypto_scalarmult(dh, e_sec, rs);          // es = DH(e, rs)
+	ss.MixKey(dh, 32);
+	sodium_memzero(dh, sizeof dh);
+	ss.EncryptAndHash(nullptr, 0, out + 32);   // empty payload -> 16-byte tag
+}
+
+bool NoiseHandshake::ReadMessageA(const unsigned char in[48])
+{
+	memcpy(remoteEph, in, 32);
+	ss.MixHash(remoteEph, 32);
+	unsigned char dh[32];
+	crypto_scalarmult(dh, s_sec, remoteEph);   // es = DH(s, re)
+	ss.MixKey(dh, 32);
+	sodium_memzero(dh, sizeof dh);
+	unsigned char pt[16]; size_t ptLen = 0;
+	return ss.DecryptAndHash(in + 32, 16, pt, &ptLen);
+}
+
+void NoiseHandshake::WriteMessageB(unsigned char out[48])
+{
+	GenEphemeral();
+	ss.MixHash(e_pub, 32);
+	memcpy(out, e_pub, 32);
+	unsigned char dh[32];
+	crypto_scalarmult(dh, e_sec, remoteEph);   // ee = DH(e, re)
+	ss.MixKey(dh, 32);
+	sodium_memzero(dh, sizeof dh);
+	ss.EncryptAndHash(nullptr, 0, out + 32);
+	unsigned char k1[32], k2[32];
+	ss.Split(k1, k2);
+	memcpy(recvKey, k1, 32);                    // responder: recv=k1, send=k2
+	memcpy(sendKey, k2, 32);
+	sodium_memzero(k1, 32); sodium_memzero(k2, 32);
+}
+
+bool NoiseHandshake::ReadMessageB(const unsigned char in[48])
+{
+	memcpy(remoteEph, in, 32);
+	ss.MixHash(remoteEph, 32);
+	unsigned char dh[32];
+	crypto_scalarmult(dh, e_sec, remoteEph);   // ee = DH(e, re)
+	ss.MixKey(dh, 32);
+	sodium_memzero(dh, sizeof dh);
+	unsigned char pt[16]; size_t ptLen = 0;
+	if (!ss.DecryptAndHash(in + 32, 16, pt, &ptLen)) return false;
+	unsigned char k1[32], k2[32];
+	ss.Split(k1, k2);
+	memcpy(sendKey, k1, 32);                    // initiator: send=k1, recv=k2
+	memcpy(recvKey, k2, 32);
+	sodium_memzero(k1, 32); sodium_memzero(k2, 32);
+	return true;
+}
+
+void NoiseHandshake::GetTransportKeys(unsigned char outSend[32], unsigned char outRecv[32]) const
+{
+	memcpy(outSend, sendKey, 32);
+	memcpy(outRecv, recvKey, 32);
+}
+
 } // namespace MafiaNet

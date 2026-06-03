@@ -59,6 +59,80 @@ int CryptoUnitTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 	}
 
 	if (isVerbose) printf("CryptoUnitTest: noise symmetric core OK\n");
+
+	// --- full NK handshake: matching keys, mirrored direction ---
+	{
+		ServerSecurityKey srv = GenerateServerSecurityKey();
+		NoiseHandshake cli, ser;
+		cli.InitInitiator(srv.publicKey);
+		ser.InitResponder(srv.publicKey, srv.secretKey);
+		unsigned char msgA[48], msgB[48];
+		cli.WriteMessageA(msgA);
+		if (!ser.ReadMessageA(msgA)) return 20;
+		ser.WriteMessageB(msgB);
+		if (!cli.ReadMessageB(msgB)) return 21;
+		unsigned char cs[32], cr[32], srs[32], srr[32];
+		cli.GetTransportKeys(cs, cr);
+		ser.GetTransportKeys(srs, srr);
+		if (memcmp(cs, srr, 32) != 0) return 22;   // client.send == server.recv
+		if (memcmp(cr, srs, 32) != 0) return 23;   // client.recv == server.send
+	}
+	// --- wrong pinned key is rejected (handshake must not fully complete) ---
+	{
+		ServerSecurityKey srv = GenerateServerSecurityKey();
+		ServerSecurityKey wrong = GenerateServerSecurityKey();
+		NoiseHandshake cli, ser;
+		cli.InitInitiator(wrong.publicKey);
+		ser.InitResponder(srv.publicKey, srv.secretKey);
+		unsigned char msgA[48], msgB[48];
+		cli.WriteMessageA(msgA);
+		bool aOk = ser.ReadMessageA(msgA);
+		ser.WriteMessageB(msgB);
+		bool bOk = cli.ReadMessageB(msgB);
+		if (aOk && bOk) return 24;                  // must NOT both succeed
+	}
+
+	if (isVerbose) printf("CryptoUnitTest: NK handshake property tests OK\n");
+
+	// --- known-answer vector vs independent reference (Noise_NK_25519_ChaChaPoly_SHA512) ---
+	{
+		// helper: parse hex -> bytes
+		auto hex2bin = [](const char *hex, unsigned char *out, size_t n) {
+			for (size_t i = 0; i < n; ++i) {
+				auto v = [](char c)->int { return (c>='0'&&c<='9')?c-'0':(c>='a'&&c<='f')?c-'a'+10:(c>='A'&&c<='F')?c-'A'+10:0; };
+				out[i] = (unsigned char)((v(hex[2*i])<<4) | v(hex[2*i+1]));
+			}
+		};
+		unsigned char sStaticSk[32], sStaticPk[32], cEphSk[32], sEphSk[32];
+		unsigned char expMsgA[48], expMsgB[48], expSend[32], expRecv[32];
+		hex2bin("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", sStaticSk, 32);
+		hex2bin("8f40c5adb68f25624ae5b214ea767a6ec94d829d3d7b5e1ad1ba6f3e2138285f", sStaticPk, 32);
+		hex2bin("202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f", cEphSk, 32);
+		hex2bin("404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f", sEphSk, 32);
+		hex2bin("358072d6365880d1aeea329adf9121383851ed21a28e3b75e965d0d2cd1662545af44fef396413c7a4df9863201ca3e3", expMsgA, 48);
+		hex2bin("79a631eede1bf9c98f12032cdeadd0e7a079398fc786b88cc846ec89af85a51aeb4c231a74b919c6a6eb434316d726da", expMsgB, 48);
+		hex2bin("0f2da207713331188b71d56e612b55e5ea8d6c48957f8d883f01cd7a0ce45fc2", expSend, 32);
+		hex2bin("2ba4183122cd88990aa7b7c6de4533e6ad3f58d679bfa6212bbd27b29280394f", expRecv, 32);
+
+		NoiseHandshake cli, ser;
+		cli.InitInitiator(sStaticPk);
+		ser.InitResponder(sStaticPk, sStaticSk);
+		cli.SetEphemeralForTesting(cEphSk);
+		ser.SetEphemeralForTesting(sEphSk);
+		unsigned char msgA[48], msgB[48];
+		cli.WriteMessageA(msgA);
+		if (memcmp(msgA, expMsgA, 48) != 0) return 25;
+		if (!ser.ReadMessageA(msgA)) return 26;
+		ser.WriteMessageB(msgB);
+		if (memcmp(msgB, expMsgB, 48) != 0) return 27;
+		if (!cli.ReadMessageB(msgB)) return 28;
+		unsigned char cs[32], cr[32];
+		cli.GetTransportKeys(cs, cr);
+		if (memcmp(cs, expSend, 32) != 0) return 29;
+		if (memcmp(cr, expRecv, 32) != 0) return 30;
+	}
+
+	if (isVerbose) printf("CryptoUnitTest: NK known-answer vector OK\n");
 	return 0;
 }
 
@@ -77,6 +151,17 @@ RakString CryptoUnitTest::ErrorCodeToString(int e)
 		case 12: return "ciphertext len wrong";
 		case 13: return "AEAD decrypt failed";
 		case 14: return "roundtrip mismatch";
+		case 20: return "readA failed";
+		case 21: return "readB failed";
+		case 22: return "client.send != server.recv";
+		case 23: return "client.recv != server.send";
+		case 24: return "wrong key accepted";
+		case 25: return "KAT msgA mismatch";
+		case 26: return "KAT readA failed";
+		case 27: return "KAT msgB mismatch";
+		case 28: return "KAT readB failed";
+		case 29: return "KAT send key mismatch";
+		case 30: return "KAT recv key mismatch";
 		default: return "unknown";
 	}
 }
