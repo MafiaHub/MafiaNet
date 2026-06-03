@@ -412,15 +412,11 @@ void ReliabilityLayer::Reset(bool resetVariables, int mtuSize, bool _useSecurity
 	if (resetVariables) {
 		InitializeVariables();
 
-#if LIBCAT_SECURITY == 1
 		useSecurity = _useSecurity;
 
 		if (_useSecurity) {
-			mtuSize -= cat::AuthenticatedEncryption::OVERHEAD_BYTES;
+			mtuSize -= SecureSession::OVERHEAD_BYTES;
 		}
-#else
-		(void) _useSecurity;
-#endif // LIBCAT_SECURITY
 		congestionManager.Init(MafiaNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE);
 	}
 }
@@ -483,9 +479,10 @@ void ReliabilityLayer::InitializeVariables()
 	statistics.messagesInResendBuffer=0;
 	statistics.bytesInResendBuffer=0;
 
+	useSecurity=false;
 	receivedPacketsBaseIndex=0;
 	resetReceivedPackets=true;
-	receivePacketCount=0; 
+	receivePacketCount=0;
 
 	//	SetPing( 1000 );
 
@@ -724,17 +721,15 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 	DatagramSequenceNumberType holeCount;
 	unsigned i;
 
-#if LIBCAT_SECURITY == 1
 	if (useSecurity) {
 		unsigned int received = length;
 
-		if (!auth_enc.Decrypt((cat::u8*)buffer, received)) {
+		if (!auth_enc.Decrypt((unsigned char*)buffer, received)) {
 			return false;
 		}
 
 		length = received;
 	}
-#endif
 
 	MafiaNet::BitStream socketData((unsigned char*)buffer, length, false); // Convert the incoming data to a bitstream for easy parsing
 	//	time = MafiaNet::GetTimeUS();
@@ -2366,18 +2361,15 @@ void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAdd
 	}
 #endif
 
-#if LIBCAT_SECURITY==1
 	if (useSecurity)
 	{
 		unsigned char *buffer = reinterpret_cast<unsigned char*>( bitStream->GetData() );
 
-		int buffer_size = bitStream->GetNumberOfBitsAllocated() / 8;
+		size_t buffer_size = (size_t)(bitStream->GetNumberOfBitsAllocated() / 8);
 
-		// Verify there is enough room for encrypted output and encrypt
-		// Encrypt() will increase length
+		// Encrypt() frames counter+ciphertext+tag and increases length
 		SLNET_VERIFY(auth_enc.Encrypt(buffer, buffer_size, length));
 	}
-#endif
 
 	bpsMetrics[(int) ACTUAL_BYTES_SENT].Push1(currentTime,length);
 
@@ -3986,10 +3978,8 @@ unsigned int ReliabilityLayer::GetMaxDatagramSizeExcludingMessageHeaderBytes(voi
 {
 	unsigned int val = congestionManager.GetMTU() - DatagramHeaderFormat::GetDataHeaderByteLength();
 
-#if LIBCAT_SECURITY==1
 	if (useSecurity)
-		val -= cat::AuthenticatedEncryption::OVERHEAD_BYTES;
-#endif
+		val -= SecureSession::OVERHEAD_BYTES;
 
 	return val;
 }

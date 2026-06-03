@@ -40,7 +40,7 @@
 #include "DS_Heap.h"
 #include "BitStream.h"
 #include "NativeFeatureIncludes.h"
-#include "SecureHandshake.h"
+#include "mafianet/crypto/securesession.h"
 #include "PluginInterface2.h"
 #include "Rand.h"
 #include "socket2.h"
@@ -633,14 +633,12 @@ private:
 	BPSTracker bpsMetrics[RNS_PER_SECOND_METRICS_COUNT];
 	CCTimeType lastBpsClear;
 
-#if LIBCAT_SECURITY==1
 public:
-	cat::AuthenticatedEncryption* GetAuthenticatedEncryption(void) { return &auth_enc; }
+	SecureSession* GetAuthenticatedEncryption(void) { return &auth_enc; }
 
 protected:
-	cat::AuthenticatedEncryption auth_enc;
+	SecureSession auth_enc;
 	bool useSecurity;
-#endif // LIBCAT_SECURITY
 };
 
 } // namespace MafiaNet
