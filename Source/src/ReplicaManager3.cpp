@@ -17,6 +17,7 @@
 #if _RAKNET_SUPPORT_ReplicaManager3==1
 
 #include "mafianet/ReplicaManager3.h"
+#include "mafianet/VirtualWorldReplica3.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/peerinterface.h"
@@ -483,6 +484,48 @@ Connection_RM3* ReplicaManager3::GetConnectionByGUID(RakNetGUID guid, WorldId wo
 		}
 	}
 	return 0;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<Connection_RM3*> &connectionsOut, bool includeGlobal, WorldId worldId) const
+{
+	connectionsOut.Clear(true, _FILE_AND_LINE_);
+	RakAssert(worldsArray[worldId]!=0 && "World not in use");
+	RM3World *world = worldsArray[worldId];
+
+	unsigned int index;
+	for (index=0; index < world->connectionList.Size(); index++)
+	{
+		Connection_RM3 *connection = world->connectionList[index];
+		VirtualWorldId connVirtualWorld = connection->GetVirtualWorld();
+		bool matches = includeGlobal ? VirtualWorldsCanSee(virtualWorld, connVirtualWorld) : (connVirtualWorld==virtualWorld);
+		if (matches)
+			connectionsOut.Push(connection, _FILE_AND_LINE_);
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+void ReplicaManager3::GetGuidsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<RakNetGUID> &guidsOut, bool includeGlobal, WorldId worldId) const
+{
+	guidsOut.Clear(true, _FILE_AND_LINE_);
+	DataStructures::List<Connection_RM3*> connections;
+	GetConnectionsInVirtualWorld(virtualWorld, connections, includeGlobal, worldId);
+
+	unsigned int index;
+	for (index=0; index < connections.Size(); index++)
+		guidsOut.Push(connections[index]->GetRakNetGUID(), _FILE_AND_LINE_);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+void ReplicaManager3::SetPlayerVirtualWorld(Connection_RM3 *connection, VirtualWorldReplica3 *avatar, VirtualWorldId virtualWorld)
+{
+	if (connection)
+		connection->SetVirtualWorld(virtualWorld);
+	if (avatar)
+		avatar->SetVirtualWorld(virtualWorld);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1475,6 +1518,7 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 	isFirstConstruction=true;
 	groupConstructionAndSerialize=false;
 	gotDownloadComplete=false;
+	virtualWorld=VIRTUAL_WORLD_DEFAULT;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
