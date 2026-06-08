@@ -147,9 +147,10 @@ ReplicaManager3 glue and ``void(uint64_t)`` callbacks.
 
 Because it is an ``enum class`` with a ``uint64_t`` underlying type, it is
 trivially copyable and exactly 8 bytes, so it serializes **byte-identically** to
-the raw ``uint64_t`` through ``BitStream`` and ``VariableDeltaSerializer`` — it is
-fully wire-compatible and needs no netcode change. What it adds is type safety:
-a ``PeerGuid`` will not implicitly convert to or from ``NetworkID``.
+the raw ``uint64_t`` through ``BitStream`` (and therefore ``VariableDeltaSerializer``,
+which writes through ``BitStream``) — it is fully wire-compatible and needs no
+netcode change. What it adds is type safety: a ``PeerGuid`` will not implicitly
+convert to or from ``NetworkID``.
 
 .. code-block:: cpp
 
