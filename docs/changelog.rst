@@ -3,6 +3,22 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.9.0
+-------------
+
+**Core**
+
+* **Strong-typed** ``PeerGuid``. A new ``enum class PeerGuid : uint64_t`` names a
+  peer's ``RakNetGUID`` value distinctly from ``NetworkID`` (an object id), so the
+  two can no longer be passed interchangeably in a ``uint64_t``-typed signature —
+  removing a class of silent "passed the wrong id" bugs in ReplicaManager3 glue
+  and ``void(uint64_t)`` callbacks. Convert with ``ToPeerGuid()`` / ``ToGuid()``,
+  and compare against the ``UNASSIGNED_PEER_GUID`` sentinel. Being a
+  trivially-copyable 8-byte scoped enum, it serializes byte-identically through
+  ``BitStream`` (and therefore ``VariableDeltaSerializer``) to the raw
+  ``uint64_t`` it replaces, so it is fully wire-compatible and requires no
+  netcode/protocol bump. Purely additive — no behavioural change.
+
 Version 0.8.0
 -------------
 
