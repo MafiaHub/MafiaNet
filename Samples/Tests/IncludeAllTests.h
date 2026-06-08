@@ -32,4 +32,5 @@
 #include "RPC4ContextTest.h"
 #include "VirtualWorldTest.h"
 #include "DisconnectReasonTest.h"
+#include "PeerGuidTest.h"
 

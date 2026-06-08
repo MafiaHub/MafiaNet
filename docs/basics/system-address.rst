@@ -130,6 +130,42 @@ MafiaNet provides two ways to identify peers:
    // Get SystemAddress from GUID
    MafiaNet::SystemAddress addr = peer->GetSystemAddressFromGuid(guid);
 
+PeerGuid: type-safe peer identity
+---------------------------------
+
+A ``RakNetGUID`` carries its value in a bare ``uint64_t`` (``RakNetGUID::g``), and
+``NetworkID`` (used by :doc:`network-id-object`) is itself a ``uint64_t``. Because
+both collapse to the same primitive, the compiler lets you pass an object id where
+a peer guid is expected, or vice-versa — a common source of silent bugs in
+ReplicaManager3 glue and ``void(uint64_t)`` callbacks.
+
+``PeerGuid`` is a strong type that names a peer's guid value distinctly:
+
+.. code-block:: cpp
+
+   enum class PeerGuid : uint64_t {};
+
+Because it is an ``enum class`` with a ``uint64_t`` underlying type, it is
+trivially copyable and exactly 8 bytes, so it serializes **byte-identically** to
+the raw ``uint64_t`` through ``BitStream`` (and therefore ``VariableDeltaSerializer``,
+which writes through ``BitStream``) — it is fully wire-compatible and needs no
+netcode change. What it adds is type safety: a ``PeerGuid`` will not implicitly
+convert to or from ``NetworkID``.
+
+.. code-block:: cpp
+
+   // Convert between RakNetGUID and PeerGuid
+   MafiaNet::PeerGuid    pg   = MafiaNet::ToPeerGuid(packet->guid);
+   MafiaNet::RakNetGUID  guid = MafiaNet::ToGuid(pg);
+
+   // Unassigned sentinel, mirroring UNASSIGNED_RAKNET_GUID
+   if (pg != MafiaNet::UNASSIGNED_PEER_GUID) {
+       // Valid peer guid
+   }
+
+Use ``PeerGuid`` in your own signatures and callbacks to stop peer ids and object
+ids from being mixed up, while keeping the wire format unchanged.
+
 Using with Send
 ---------------
 

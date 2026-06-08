@@ -12,6 +12,14 @@ In multiplayer games, you need a way to refer to the same object across differen
 - Allowing lookup of objects by ID
 - Managing object ID allocation
 
+.. note::
+
+   A ``NetworkID`` (an object id) is a different thing from a peer's guid, even
+   though both are 64-bit values. To keep them from being mixed up in
+   ``uint64_t``-typed signatures, use the strong ``PeerGuid`` type for peer
+   identity — see the "PeerGuid: type-safe peer identity" section of
+   :doc:`system-address`.
+
 Basic Usage
 -----------
 
