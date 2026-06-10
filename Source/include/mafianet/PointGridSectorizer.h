@@ -18,8 +18,8 @@
 /// cell, so GetEntries() never returns duplicates and callers do not need to
 /// dedup (GridSectorizer could return one entry once per cell its box spanned).
 
-#ifndef __POINT_GRID_SECTORIZER_H
-#define __POINT_GRID_SECTORIZER_H
+#ifndef MAFIANET_POINT_GRID_SECTORIZER_H
+#define MAFIANET_POINT_GRID_SECTORIZER_H
 
 #include "Export.h"
 #include "memoryoverride.h"
@@ -132,4 +132,4 @@ protected:
 
 } // namespace MafiaNet
 
-#endif // __POINT_GRID_SECTORIZER_H
+#endif // MAFIANET_POINT_GRID_SECTORIZER_H
