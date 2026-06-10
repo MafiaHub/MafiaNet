@@ -231,23 +231,26 @@ void PointGridSectorizer::EraseRecord(EntryRecord *record)
 }
 void PointGridSectorizer::GrowRecordTable(void)
 {
-	EntryRecord *oldRecords = records;
-	const unsigned int oldCapacity = recordCapacity;
-	recordCapacity = oldCapacity*2;
-	records = MafiaNet::OP_NEW_ARRAY<EntryRecord>(recordCapacity, _FILE_AND_LINE_);
+	// Allocate and rehash into a temporary first: records/recordCapacity are
+	// only updated once the new table exists, so a throwing allocation cannot
+	// leave a doubled capacity (and probe mask) over the old half-size array.
+	const unsigned int newCapacity = recordCapacity*2;
+	EntryRecord *newRecords = MafiaNet::OP_NEW_ARRAY<EntryRecord>(newCapacity, _FILE_AND_LINE_);
+	for (unsigned int i=0; i < newCapacity; ++i)
+		newRecords[i].entry=0;
+	const unsigned int mask = newCapacity-1;
 	for (unsigned int i=0; i < recordCapacity; ++i)
-		records[i].entry=0;
-	const unsigned int mask = recordCapacity-1;
-	for (unsigned int i=0; i < oldCapacity; ++i)
 	{
-		if (oldRecords[i].entry==0)
+		if (records[i].entry==0)
 			continue;
-		unsigned int j = (unsigned int) PointGridPtrHash(oldRecords[i].entry) & mask;
-		while (records[j].entry != 0)
+		unsigned int j = (unsigned int) PointGridPtrHash(records[i].entry) & mask;
+		while (newRecords[j].entry != 0)
 			j = (j+1) & mask;
-		records[j]=oldRecords[i];
+		newRecords[j]=records[i];
 	}
-	MafiaNet::OP_DELETE_ARRAY(oldRecords, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(records, _FILE_AND_LINE_);
+	records=newRecords;
+	recordCapacity=newCapacity;
 }
 unsigned int PointGridSectorizer::PushIntoCell(void *entry, const int cellIndex)
 {
