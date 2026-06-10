@@ -53,8 +53,10 @@ inline unsigned long PointGridSectorizerPtrHash(void * const &entry)
 /// \details One entry per pointer: AddEntry() and MoveEntry() are the same
 /// upsert operation, so position writes can be forwarded to the grid blindly
 /// without tracking membership. All positions (entries and query rectangles)
-/// are clamped to the world bounds given to Init() — out-of-bounds positions
-/// land in the edge cells, they never assert or drop. Queries return the
+/// are clamped to the world bounds given to Init() — out-of-bounds, even
+/// non-finite, positions land in the edge cells (NaN maps to the minimum edge
+/// cell), they never assert, drop, or invoke undefined behavior. Before a
+/// successful Init() every operation is a defined no-op. Queries return the
 /// contents of every cell overlapping the rectangle, i.e. a cell-granularity
 /// superset of the exact matches; callers post-filter, as with GridSectorizer.
 /// Not thread-safe; intended for single-threaded use from the update loop.
@@ -64,10 +66,18 @@ public:
 	PointGridSectorizer();
 	~PointGridSectorizer();
 
+	// Owns raw memory (cell lists and the entry-record table); a memberwise
+	// copy would double-free it.
+	PointGridSectorizer(const PointGridSectorizer&) = delete;
+	PointGridSectorizer& operator=(const PointGridSectorizer&) = delete;
+
 	/// (Re-)initializes the grid, discarding any current entries.
 	/// \param[in] _cellWidth, _cellHeight Size of each cell in world units
 	/// \param[in] minX, minY, maxX, maxY World bounds; positions outside clamp to the edge cells
-	void Init(const float _cellWidth, const float _cellHeight, const float minX, const float minY, const float maxX, const float maxY);
+	/// \return False — leaving the grid inert (all operations no-op) until a
+	/// valid re-Init — if the cell sizes or bounds are not positive and finite,
+	/// or the resulting cell count would not fit in an int.
+	bool Init(const float _cellWidth, const float _cellHeight, const float minX, const float minY, const float maxX, const float maxY);
 
 	/// Adds a point entry at (x,y), clamped to the world bounds. O(1).
 	/// If \a entry is already in the grid this relocates it (same as MoveEntry).
@@ -103,19 +113,15 @@ protected:
 		unsigned int slotIndex;
 	};
 
-	int WorldToCellX(const float input) const;
-	int WorldToCellY(const float input) const;
-	int WorldToCellXOffsetAndClamped(const float input) const;
-	int WorldToCellYOffsetAndClamped(const float input) const;
+	int WorldToCellXClamped(const float input) const;
+	int WorldToCellYClamped(const float input) const;
 	int WorldToCellIndexClamped(const float x, const float y) const;
 
 	void InsertIntoCell(void *entry, const int cellIndex);
 	void RemoveFromCell(const EntryRecord &record);
 
 	float cellOriginX, cellOriginY;
-	float cellWidth, cellHeight;
 	float invCellWidth, invCellHeight;
-	float gridWidth, gridHeight;
 	int gridCellWidthCount, gridCellHeightCount;
 
 	/// Per-cell unordered entry lists; removal swaps the last element into the

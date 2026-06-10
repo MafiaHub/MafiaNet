@@ -5,7 +5,6 @@
  *  license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/assert.h"
 #include "mafianet/PointGridSectorizer.h"
 #include <math.h>
 
@@ -14,34 +13,50 @@ using namespace MafiaNet;
 PointGridSectorizer::PointGridSectorizer()
 {
 	grid=0;
-	cellWidth=cellHeight=0.0f;
+	cellOriginX=cellOriginY=0.0f;
+	invCellWidth=invCellHeight=0.0f;
+	gridCellWidthCount=gridCellHeightCount=0;
 }
 PointGridSectorizer::~PointGridSectorizer()
 {
 	if (grid)
 		MafiaNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
 }
-void PointGridSectorizer::Init(const float _cellWidth, const float _cellHeight, const float minX, const float minY, const float maxX, const float maxY)
+bool PointGridSectorizer::Init(const float _cellWidth, const float _cellHeight, const float minX, const float minY, const float maxX, const float maxY)
 {
-	RakAssert(_cellWidth > 0.0f && _cellHeight > 0.0f);
-	RakAssert(minX < maxX && minY < maxY);
+	// Tear down any previous state first; on failure the grid stays inert.
 	if (grid)
+	{
 		MafiaNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
+		grid=0;
+	}
 	entryRecords.Clear(_FILE_AND_LINE_);
+	gridCellWidthCount=gridCellHeightCount=0;
 
+	// Invalid parameters are reported through the return value rather than an
+	// assert so the failure path stays exercisable in debug builds; the
+	// negated comparisons also reject NaN parameters.
+	if (!(_cellWidth > 0.0f) || !(_cellHeight > 0.0f) || !(minX < maxX) || !(minY < maxY))
+		return false;
+
+	const float gridWidth=maxX-minX;
+	const float gridHeight=maxY-minY;
+	const double cellsWide=ceil((double) gridWidth/_cellWidth);
+	const double cellsHigh=ceil((double) gridHeight/_cellHeight);
+	// Computed in double so a huge world / tiny cell combination is caught
+	// here instead of wrapping the int cell count (and the allocation size).
+	if (!(cellsWide >= 1.0) || !(cellsHigh >= 1.0) || cellsWide*cellsHigh > 2147483647.0)
+		return false;
 	cellOriginX=minX;
 	cellOriginY=minY;
-	gridWidth=maxX-minX;
-	gridHeight=maxY-minY;
-	gridCellWidthCount=(int) ceil(gridWidth/_cellWidth);
-	gridCellHeightCount=(int) ceil(gridHeight/_cellHeight);
+	gridCellWidthCount=(int) cellsWide;
+	gridCellHeightCount=(int) cellsHigh;
 	// Make the cells slightly smaller, so we allocate an extra unneeded cell if on the edge.  This way we don't go outside the array on rounding errors.
-	cellWidth=gridWidth/gridCellWidthCount;
-	cellHeight=gridHeight/gridCellHeightCount;
-	invCellWidth = 1.0f / cellWidth;
-	invCellHeight = 1.0f / cellHeight;
+	invCellWidth = (float) gridCellWidthCount / gridWidth;
+	invCellHeight = (float) gridCellHeightCount / gridHeight;
 
 	grid = MafiaNet::OP_NEW_ARRAY<DataStructures::List<void*> >(gridCellWidthCount*gridCellHeightCount, _FILE_AND_LINE_ );
+	return true;
 }
 void PointGridSectorizer::AddEntry(void *entry, const float x, const float y)
 {
@@ -50,7 +65,8 @@ void PointGridSectorizer::AddEntry(void *entry, const float x, const float y)
 }
 bool PointGridSectorizer::RemoveEntry(void *entry)
 {
-	RakAssert(cellWidth>0.0f);
+	if (grid==0)
+		return false;
 
 	EntryRecord *record = entryRecords.Peek(entry);
 	if (record==0)
@@ -61,7 +77,8 @@ bool PointGridSectorizer::RemoveEntry(void *entry)
 }
 void PointGridSectorizer::MoveEntry(void *entry, const float x, const float y)
 {
-	RakAssert(cellWidth>0.0f);
+	if (grid==0)
+		return;
 
 	const int cellIndex = WorldToCellIndexClamped(x, y);
 	EntryRecord *record = entryRecords.Peek(entry);
@@ -81,17 +98,18 @@ void PointGridSectorizer::MoveEntry(void *entry, const float x, const float y)
 }
 void PointGridSectorizer::GetEntries(DataStructures::List<void*> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const
 {
-	RakAssert(cellWidth>0.0f);
+	intersectionList.Clear(true, _FILE_AND_LINE_);
+	if (grid==0)
+		return;
 
 	const DataStructures::List<void*> *cell;
 	int xStart, yStart, xEnd, yEnd, xCur, yCur;
 	unsigned index;
-	xStart=WorldToCellXOffsetAndClamped(minX);
-	yStart=WorldToCellYOffsetAndClamped(minY);
-	xEnd=WorldToCellXOffsetAndClamped(maxX);
-	yEnd=WorldToCellYOffsetAndClamped(maxY);
+	xStart=WorldToCellXClamped(minX);
+	yStart=WorldToCellYClamped(minY);
+	xEnd=WorldToCellXClamped(maxX);
+	yEnd=WorldToCellYClamped(maxY);
 
-	intersectionList.Clear(true, _FILE_AND_LINE_);
 	for (xCur=xStart; xCur <= xEnd; ++xCur)
 	{
 		for (yCur=yStart; yCur <= yEnd; ++yCur)
@@ -142,29 +160,30 @@ void PointGridSectorizer::RemoveFromCell(const EntryRecord &record)
 	}
 	cell.RemoveFromEnd();
 }
-int PointGridSectorizer::WorldToCellX(const float input) const
+int PointGridSectorizer::WorldToCellXClamped(const float input) const
 {
-	return (int)((input-cellOriginX)*invCellWidth);
+	// Clamp in float space BEFORE the int cast: casting NaN or a value beyond
+	// int range to int is undefined behavior (and saturates differently per
+	// platform). The negated comparison sends NaN to cell 0.
+	const float cell = (input-cellOriginX)*invCellWidth;
+	if (!(cell > 0.0f))
+		return 0;
+	if (cell >= (float) gridCellWidthCount)
+		return gridCellWidthCount-1;
+	const int asInt = (int) cell;
+	return asInt < gridCellWidthCount ? asInt : gridCellWidthCount-1;
 }
-int PointGridSectorizer::WorldToCellY(const float input) const
+int PointGridSectorizer::WorldToCellYClamped(const float input) const
 {
-	return (int)((input-cellOriginY)*invCellHeight);
-}
-int PointGridSectorizer::WorldToCellXOffsetAndClamped(const float input) const
-{
-	int cell=WorldToCellX(input);
-	cell = cell > 0 ? cell : 0; // __max(cell,0);
-	cell = gridCellWidthCount-1 < cell ? gridCellWidthCount-1 : cell; // __min(gridCellWidthCount-1, cell);
-	return cell;
-}
-int PointGridSectorizer::WorldToCellYOffsetAndClamped(const float input) const
-{
-	int cell=WorldToCellY(input);
-	cell = cell > 0 ? cell : 0; // __max(cell,0);
-	cell = gridCellHeightCount-1 < cell ? gridCellHeightCount-1 : cell; // __min(gridCellHeightCount-1, cell);
-	return cell;
+	const float cell = (input-cellOriginY)*invCellHeight;
+	if (!(cell > 0.0f))
+		return 0;
+	if (cell >= (float) gridCellHeightCount)
+		return gridCellHeightCount-1;
+	const int asInt = (int) cell;
+	return asInt < gridCellHeightCount ? asInt : gridCellHeightCount-1;
 }
 int PointGridSectorizer::WorldToCellIndexClamped(const float x, const float y) const
 {
-	return WorldToCellYOffsetAndClamped(y)*gridCellWidthCount + WorldToCellXOffsetAndClamped(x);
+	return WorldToCellYClamped(y)*gridCellWidthCount + WorldToCellXClamped(x);
 }

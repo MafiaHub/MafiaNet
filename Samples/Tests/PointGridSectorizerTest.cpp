@@ -10,6 +10,15 @@
 #include "mafianet/PointGridSectorizer.h"
 
 #include <stdio.h>
+#include <limits>
+#include <type_traits>
+
+// The grid owns raw memory (cell lists and the entry-record table); a
+// memberwise copy would double-free it. The type must not be copyable.
+static_assert(!std::is_copy_constructible<PointGridSectorizer>::value,
+	"PointGridSectorizer must not be copy-constructible (owns raw memory)");
+static_assert(!std::is_copy_assignable<PointGridSectorizer>::value,
+	"PointGridSectorizer must not be copy-assignable (owns raw memory)");
 
 // Opaque entity pointers for the grid: addresses into a static array.
 static int dummies[256];
@@ -235,6 +244,93 @@ int PointGridSectorizerTest::RunTest(DataStructures::List<RakString> params, boo
 		return 14;
 	}
 
+	// --- Extreme and non-finite positions stay defined and clamp to edge cells ---
+	// (The int cast must happen after clamping in float space: casting 1e30f or
+	// NaN to int is UB and saturates differently per platform.)
+	PointGridSectorizer extremes;
+	if (extremes.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f) == false)
+	{
+		if (isVerbose) printf("Init of a valid world failed\n");
+		return 15;
+	}
+	extremes.AddEntry(E(10), 1.0e30f, 1.0e30f);   // far past max -> cell (9,9)
+	extremes.AddEntry(E(11), -1.0e30f, -1.0e30f); // far past min -> cell (0,0)
+	const float nan = std::numeric_limits<float>::quiet_NaN();
+	extremes.AddEntry(E(12), nan, nan);           // non-finite -> defined: cell (0,0)
+	extremes.GetEntries(hits, 90.0f, 90.0f, 99.0f, 99.0f);
+	if (CountOf(hits, E(10)) != 1)
+	{
+		if (isVerbose) printf("entry at +1e30 not clamped to the max edge cell\n");
+		return 15;
+	}
+	extremes.GetEntries(hits, 0.0f, 0.0f, 9.0f, 9.0f);
+	if (CountOf(hits, E(11)) != 1 || CountOf(hits, E(12)) != 1)
+	{
+		if (isVerbose) printf("entry at -1e30 or NaN not clamped to the min edge cell\n");
+		return 15;
+	}
+	extremes.GetEntries(hits, -1.0e30f, nan, 1.0e30f, 1.0e30f); // query rect is clamped the same way
+	if (extremes.Size() != 3 || CountOf(hits, E(10)) != 1 || CountOf(hits, E(11)) != 1)
+	{
+		if (isVerbose) printf("extreme query rectangle did not clamp\n");
+		return 15;
+	}
+
+	// --- Use before Init is a defined no-op, not UB ---
+	PointGridSectorizer uninitialized;
+	uninitialized.AddEntry(E(0), 5.0f, 5.0f);
+	uninitialized.MoveEntry(E(0), 15.0f, 15.0f);
+	uninitialized.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
+	uninitialized.Clear();
+	if (uninitialized.RemoveEntry(E(0)) || uninitialized.HasEntry(E(0)) ||
+		uninitialized.Size() != 0 || hits.Size() != 0)
+	{
+		if (isVerbose) printf("operations before Init were not a no-op\n");
+		return 16;
+	}
+
+	// --- Degenerate Init fails cleanly and leaves the grid inert until a valid re-Init ---
+	PointGridSectorizer degenerate;
+	if (degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 0.0f, 50.0f) != false ||  // zero-width world
+		degenerate.Init(-5.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f) != false) // negative cell size
+	{
+		if (isVerbose) printf("Init accepted degenerate parameters\n");
+		return 17;
+	}
+	degenerate.AddEntry(E(0), 5.0f, 5.0f);
+	degenerate.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
+	if (degenerate.Size() != 0 || hits.Size() != 0)
+	{
+		if (isVerbose) printf("grid not inert after failed Init\n");
+		return 17;
+	}
+	if (degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f) == false)
+	{
+		if (isVerbose) printf("valid re-Init after failed Init did not recover\n");
+		return 17;
+	}
+	degenerate.AddEntry(E(0), 5.0f, 5.0f);
+	degenerate.GetEntries(hits, 0.0f, 0.0f, 9.0f, 9.0f);
+	if (CountOf(hits, E(0)) != 1)
+	{
+		if (isVerbose) printf("grid unusable after recovering from failed Init\n");
+		return 17;
+	}
+
+	// --- A world whose cell count overflows int fails cleanly instead of wrapping ---
+	PointGridSectorizer huge;
+	if (huge.Init(0.0001f, 0.0001f, 0.0f, 0.0f, 1.0e6f, 1.0e6f) != false) // 1e10 x 1e10 cells
+	{
+		if (isVerbose) printf("Init accepted a cell count that overflows int\n");
+		return 18;
+	}
+	huge.AddEntry(E(0), 5.0f, 5.0f);
+	if (huge.Size() != 0)
+	{
+		if (isVerbose) printf("grid not inert after overflowing Init\n");
+		return 18;
+	}
+
 	printf("PointGridSectorizer add/remove/move/query behave incrementally\n");
 	return 0;
 }
@@ -271,6 +367,10 @@ RakString PointGridSectorizerTest::ErrorCodeToString(int errorCode)
 	case 12: return "Query rectangle beyond world bounds was not clamped";
 	case 13: return "Swap-remove bookkeeping broke under interleaved removals";
 	case 14: return "Grid unusable after Clear";
+	case 15: return "Extreme or non-finite position/query not clamped to an edge cell";
+	case 16: return "Operations before Init were not a defined no-op";
+	case 17: return "Degenerate Init not rejected cleanly";
+	case 18: return "Cell-count overflow in Init not rejected cleanly";
 	default: return "Undefined Error";
 	}
 }
