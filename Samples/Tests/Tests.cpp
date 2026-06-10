@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
 	testList.Push(new VirtualWorldTest(),_FILE_AND_LINE_);
 	testList.Push(new DisconnectReasonTest(),_FILE_AND_LINE_);
 	testList.Push(new PeerGuidTest(),_FILE_AND_LINE_);
+	testList.Push(new PointGridSectorizerTest(),_FILE_AND_LINE_);
 
 	testListSize=testList.Size();
 
