@@ -14,6 +14,14 @@ namespace MafiaNet {
 ServerSecurityKey GenerateServerSecurityKey()
 {
 	ServerSecurityKey k;
+	// These helpers are documented as callable before RakPeerInterface::Startup(),
+	// so they must initialize libsodium themselves (sodium_init is idempotent and
+	// thread-safe). Fail closed with an all-zero key if the RNG cannot be set up.
+	if (sodium_init() < 0) {
+		memset(k.publicKey, 0, sizeof(k.publicKey));
+		memset(k.secretKey, 0, sizeof(k.secretKey));
+		return k;
+	}
 	randombytes_buf(k.secretKey, sizeof(k.secretKey));
 	// Derive the X25519 public key from the random secret.
 	crypto_scalarmult_base(k.publicKey, k.secretKey);
@@ -23,6 +31,11 @@ ServerSecurityKey GenerateServerSecurityKey()
 ServerSecurityKey ServerSecurityKeyFromSecret(const unsigned char secretKey[32])
 {
 	ServerSecurityKey k;
+	if (sodium_init() < 0) {
+		memset(k.publicKey, 0, sizeof(k.publicKey));
+		memset(k.secretKey, 0, sizeof(k.secretKey));
+		return k;
+	}
 	memcpy(k.secretKey, secretKey, 32);
 	crypto_scalarmult_base(k.publicKey, k.secretKey);
 	return k;

@@ -21,7 +21,8 @@ struct RAK_DLL_EXPORT ServerSecurityKey
 };
 
 /// Generate a fresh random server identity keypair.
-/// Requires sodium_init() to have succeeded (RakPeerInterface::Startup does this).
+/// Initializes libsodium itself, so it is safe to call before RakPeerInterface::Startup().
+/// In the unlikely event libsodium cannot be initialized, returns an all-zero keypair.
 RAK_DLL_EXPORT ServerSecurityKey GenerateServerSecurityKey();
 
 // Buffer sizes for the string encoders below (include the NUL terminator).

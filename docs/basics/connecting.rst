@@ -15,8 +15,8 @@ Initiating a Connection
        int passwordDataLength,
        const unsigned char serverPublicKey[32],  // REQUIRED: pinned server X25519 public key
        unsigned connectionSocketIndex = 0,
-       unsigned sendConnectionAttemptCount = 6,
-       unsigned timeBetweenSendConnectionAttemptsMS = 1000,
+       unsigned sendConnectionAttemptCount = 12,
+       unsigned timeBetweenSendConnectionAttemptsMS = 500,
        TimeMS timeoutTime = 0
    );
 

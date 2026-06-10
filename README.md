@@ -89,7 +89,7 @@ MafiaNet::RakPeerInterface* server = MafiaNet::RakPeerInterface::GetInstance();
 
 // Generate and set the server key BEFORE Startup (distribute publicKey to clients out-of-band)
 MafiaNet::ServerSecurityKey key = MafiaNet::GenerateServerSecurityKey();
-server->SetServerSecurityKey(key);   // required before Startup to accept encrypted connections
+server->SetServerSecurityKey(key);   // required to accept connections; set it before Startup
 
 MafiaNet::SocketDescriptor sd(60000, 0);
 server->Startup(32, &sd, 1);

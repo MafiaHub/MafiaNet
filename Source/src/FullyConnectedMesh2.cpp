@@ -53,6 +53,7 @@ FullyConnectedMesh2::FullyConnectedMesh2()
 
 	connectOnNewRemoteConnections=true;
 	memset(connectionServerPublicKey, 0, sizeof(connectionServerPublicKey));
+	hasConnectionServerPublicKey=false;
 
 	hostRakNetGuid=UNASSIGNED_RAKNET_GUID;
 }
@@ -759,13 +760,25 @@ void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection
 	connectOnNewRemoteConnections=attemptConnection;
 	connectionPassword=pw;
 	if (serverPublicKey!=0)
+	{
 		memcpy(connectionServerPublicKey, serverPublicKey, sizeof(connectionServerPublicKey));
+		hasConnectionServerPublicKey=true;
+	}
 	else
+	{
 		memset(connectionServerPublicKey, 0, sizeof(connectionServerPublicKey));
+		hasConnectionServerPublicKey=false;
+	}
 }
 
 void FullyConnectedMesh2::ConnectToRemoteNewIncomingConnections(Packet *packet)
 {
+	// Fail closed: without a pinned server public key an encrypted connection can
+	// never succeed, so do not attempt any (a zero key would just burn the full
+	// retry cycle and surface spurious ID_CONNECTION_ATTEMPT_FAILED packets).
+	if (hasConnectionServerPublicKey==false)
+		return;
+
 	unsigned int count;
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));

@@ -58,7 +58,7 @@ public:
 	/// \note This will not work on any console. It will also not work if NAT punchthrough is needed. Generally, this should be false and you should connect manually. It is here for legacy reasons.
 	/// \param[in] attemptConnection If true, we try to connect to any systems we are notified about with ID_REMOTE_NEW_INCOMING_CONNECTION, which comes from the ConnectionGraph2 plugin. Defaults to true.
 	/// \param[in] pw The password to use to connect with. Only used if \a attemptConnection is true
-	/// \param[in] serverPublicKey The 32-byte Noise_NK static public key to pin for the remote peers. Encryption is mandatory; pass the key shared by all mesh peers. If null, automatic connections will fail closed.
+	/// \param[in] serverPublicKey The 32-byte Noise_NK static public key to pin for the remote peers. Encryption is mandatory; pass the key shared by all mesh peers. If null, automatic connections are disabled (fail closed): no connection attempts are made until a key is supplied.
 	void SetConnectOnNewRemoteConnection(bool attemptConnection, MafiaNet::RakString pw, const unsigned char serverPublicKey[32]=0);
 
 	/// \brief The connected host is whichever system we are connected to that has been running the longest.
@@ -350,6 +350,9 @@ protected:
 	bool connectOnNewRemoteConnections;
 	// Pinned Noise_NK server public key used for automatic mesh connections (mandatory encryption).
 	unsigned char connectionServerPublicKey[32];
+	// False until SetConnectOnNewRemoteConnection is given a non-null key; without it
+	// auto-mesh connections are skipped entirely rather than attempted with a zero key.
+	bool hasConnectionServerPublicKey;
 
 	DataStructures::List<VerifiedJoinInProgress*> joinsInProgress;
 	BitStream myContext;

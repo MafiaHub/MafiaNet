@@ -73,7 +73,9 @@ public:
 	/// \details Encryption is mandatory: a server that does not call this will reject all
 	/// incoming connections (clients always pin a server public key in Connect()).
 	/// Clients must pin the matching public key via the serverPublicKey parameter of Connect().
-	/// Call after Startup().
+	/// Call before Startup(): the key is preserved across Startup(), and installing it while
+	/// the network thread is already running risks a connection attempt observing a
+	/// partially-written key (the fields are not synchronized).
 	/// \param[in] key A keypair generated via GenerateServerSecurityKey().
 	virtual void SetServerSecurityKey(const ServerSecurityKey &key)=0;
 
