@@ -11,43 +11,22 @@
 ///
 /// Unlike GridSectorizer — whose compiled-in per-cell storage is append-only,
 /// forcing consumers to Clear() and rebuild the whole grid to evict anything —
-/// PointGridSectorizer keeps a per-entry record (cell + slot) so entries can be
-/// removed or moved individually in O(1), independent of the cell count and the
-/// total entry count. Entries are points, not boxes: each entry occupies
-/// exactly one cell, so GetEntries() never returns duplicates and callers do
-/// not need to dedup (GridSectorizer could return one entry once per cell its
-/// box spanned).
+/// PointGridSectorizer keeps a per-entry record (cell + slot) in a
+/// runtime-sized open-addressing table, so entries can be removed or moved
+/// individually in amortized O(1), independent of the cell count and the total
+/// entry count. Entries are points, not boxes: each entry occupies exactly one
+/// cell, so GetEntries() never returns duplicates and callers do not need to
+/// dedup (GridSectorizer could return one entry once per cell its box spanned).
 
 #ifndef __POINT_GRID_SECTORIZER_H
 #define __POINT_GRID_SECTORIZER_H
 
-#include <stdint.h>
-
 #include "Export.h"
 #include "memoryoverride.h"
 #include "DS_List.h"
-#include "DS_Hash.h"
 
 namespace MafiaNet
 {
-
-/// \internal Bucket count of the entry-record hash; ~3-entry chains at the
-/// 50k-entry scale target. Allocated lazily on the first AddEntry (8 bytes per
-/// bucket).
-static const unsigned int POINT_GRID_SECTORIZER_HASH_SIZE = 16384;
-
-/// \internal Mixes the pointer bits (splitmix64 finalizer) so allocation
-/// alignment does not cluster hash buckets.
-inline unsigned long PointGridSectorizerPtrHash(void * const &entry)
-{
-	uint64_t h = (uint64_t) (uintptr_t) entry;
-	h ^= h >> 33;
-	h *= 0xff51afd7ed558ccdULL;
-	h ^= h >> 33;
-	h *= 0xc4ceb9fe1a85ec53ULL;
-	h ^= h >> 33;
-	return (unsigned long) h;
-}
 
 /// \brief Spatial grid over point entries with O(1) incremental updates.
 /// \details One entry per pointer: AddEntry() and MoveEntry() are the same
@@ -79,46 +58,62 @@ public:
 	/// or the resulting cell count would not fit in an int.
 	bool Init(const float _cellWidth, const float _cellHeight, const float minX, const float minY, const float maxX, const float maxY);
 
-	/// Adds a point entry at (x,y), clamped to the world bounds. O(1).
+	/// Adds a point entry at (x,y), clamped to the world bounds. Amortized O(1).
 	/// If \a entry is already in the grid this relocates it (same as MoveEntry).
-	void AddEntry(void *entry, const float x, const float y);
+	/// \pre \a entry must be non-null (null is rejected as a no-op).
+	/// \return True if the entry was inserted or changed cell, false if it
+	/// stayed in its current cell (or the grid is uninitialized / entry null).
+	bool AddEntry(void *entry, const float x, const float y);
 
 	/// Removes an entry. O(1) via swap-remove within its cell.
 	/// \return True if the entry was in the grid, false if absent (no-op).
 	bool RemoveEntry(void *entry);
 
-	/// Moves an entry to (x,y), clamped to the world bounds. O(1); if the new
-	/// position is in the entry's current cell this is a cheap early-out (the
-	/// hot case for small per-tick movement). Inserts the entry if absent.
-	void MoveEntry(void *entry, const float x, const float y);
+	/// Moves an entry to (x,y), clamped to the world bounds. Amortized O(1);
+	/// if the new position is in the entry's current cell this is a cheap
+	/// early-out (the hot case for small per-tick movement). Inserts the entry
+	/// if absent.
+	/// \return True if the entry was inserted or changed cell — the signal an
+	/// event-driven consumer needs to recompute interest sets — false if it
+	/// stayed in its current cell (or the grid is uninitialized / entry null).
+	bool MoveEntry(void *entry, const float x, const float y);
 
-	/// Clears \a intersectionList and fills it with every entry in the cells
-	/// overlapping the rectangle, each exactly once. O(cells overlapped + entries returned).
+	/// Resets \a intersectionList (size 0, capacity kept for reuse) and fills
+	/// it with every entry in the cells overlapping the rectangle, each exactly
+	/// once. O(cells overlapped + entries returned).
 	void GetEntries(DataStructures::List<void*> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const;
 
 	/// Returns whether the entry is currently in the grid. O(1).
-	bool HasEntry(void *entry);
+	bool HasEntry(void *entry) const;
 
 	/// Number of entries in the grid. O(1).
 	unsigned int Size(void) const;
 
-	/// Removes all entries; the grid stays initialized and reusable. O(cell count).
+	/// Removes all entries; the grid stays initialized and every allocation is
+	/// kept for reuse. O(cell count + record-table capacity).
 	void Clear(void);
 
 protected:
-	/// \internal Where an entry lives: cell index and slot within that cell's list.
+	/// \internal Where an entry lives. Doubles as an open-addressing table
+	/// slot: a null \a entry marks the slot empty.
 	struct EntryRecord
 	{
+		void *entry;
 		int cellIndex;
 		unsigned int slotIndex;
 	};
 
+	EntryRecord* FindRecord(void *entry) const;
+	void InsertRecord(void *entry, const int cellIndex, const unsigned int slotIndex);
+	void EraseRecord(EntryRecord *record);
+	void GrowRecordTable(void);
+
+	unsigned int PushIntoCell(void *entry, const int cellIndex);
+	void RemoveFromCell(const EntryRecord &record);
+
 	int WorldToCellXClamped(const float input) const;
 	int WorldToCellYClamped(const float input) const;
 	int WorldToCellIndexClamped(const float x, const float y) const;
-
-	void InsertIntoCell(void *entry, const int cellIndex);
-	void RemoveFromCell(const EntryRecord &record);
 
 	float cellOriginX, cellOriginY;
 	float invCellWidth, invCellHeight;
@@ -127,7 +122,12 @@ protected:
 	/// Per-cell unordered entry lists; removal swaps the last element into the
 	/// freed slot, so order within a cell is not meaningful.
 	DataStructures::List<void*> *grid;
-	DataStructures::Hash<void*, EntryRecord, POINT_GRID_SECTORIZER_HASH_SIZE, PointGridSectorizerPtrHash> entryRecords;
+
+	/// Open-addressing record table (linear probing, backward-shift deletion).
+	/// Power-of-two capacity, grown with the entry count, never shrunk.
+	EntryRecord *records;
+	unsigned int recordCapacity;
+	unsigned int recordCount;
 };
 
 } // namespace MafiaNet

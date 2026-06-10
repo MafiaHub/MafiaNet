@@ -21,7 +21,7 @@ static_assert(!std::is_copy_assignable<PointGridSectorizer>::value,
 	"PointGridSectorizer must not be copy-assignable (owns raw memory)");
 
 // Opaque entity pointers for the grid: addresses into a static array.
-static int dummies[256];
+static int dummies[1024];
 static void *E(int i) { return &dummies[i]; }
 
 // Number of times ptr occurs in the list (point entries must never duplicate).
@@ -331,6 +331,99 @@ int PointGridSectorizerTest::RunTest(DataStructures::List<RakString> params, boo
 		return 18;
 	}
 
+	// --- AddEntry/MoveEntry report whether the entry was inserted or changed cell ---
+	PointGridSectorizer reporting;
+	reporting.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f);
+	if (reporting.MoveEntry(E(0), 5.0f, 5.0f) != true ||    // insert
+		reporting.MoveEntry(E(0), 7.0f, 7.0f) != false ||   // same cell
+		reporting.MoveEntry(E(0), 55.0f, 55.0f) != true ||  // cross cell
+		reporting.AddEntry(E(0), 56.0f, 56.0f) != false ||  // same cell via AddEntry
+		reporting.AddEntry(E(1), 5.0f, 5.0f) != true)       // insert via AddEntry
+	{
+		if (isVerbose) printf("AddEntry/MoveEntry cell-transition reporting is wrong\n");
+		return 19;
+	}
+	if (uninitialized.MoveEntry(E(0), 5.0f, 5.0f) != false) // pre-Init -> no transition
+	{
+		if (isVerbose) printf("MoveEntry before Init did not report false\n");
+		return 19;
+	}
+	if (reporting.AddEntry(0, 5.0f, 5.0f) != false || reporting.Size() != 2) // null entry rejected
+	{
+		if (isVerbose) printf("a null entry pointer was not rejected\n");
+		return 19;
+	}
+	// Read-only access must work through a const reference.
+	const PointGridSectorizer &constReporting = reporting;
+	constReporting.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
+	if (constReporting.HasEntry(E(0)) == false || constReporting.Size() != 2 || hits.Size() != 2)
+	{
+		if (isVerbose) printf("const queries gave wrong results\n");
+		return 19;
+	}
+
+	// --- Randomized differential stress: interleaved add/move/remove against a
+	// reference model, growing the record bookkeeping well past its initial size ---
+	PointGridSectorizer stress;
+	stress.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f);
+	const int stressEntities = 600;
+	bool present[600] = {false};
+	unsigned int liveCount = 0;
+	unsigned int rng = 0x12345678u; // deterministic LCG
+	for (int iter = 0; iter < 30000; ++iter)
+	{
+		rng = rng*1664525u + 1013904223u;
+		const int target = (int)((rng >> 8) % stressEntities);
+		const float px = (float)((rng >> 4) % 120) - 10.0f;  // includes out-of-bounds
+		const float py = (float)((rng >> 12) % 120) - 10.0f;
+		switch ((rng >> 28) % 3)
+		{
+		case 0: // upsert via AddEntry
+			if (stress.AddEntry(E(target), px, py) && !present[target])
+				++liveCount;
+			present[target] = true;
+			break;
+		case 1: // upsert via MoveEntry
+			stress.MoveEntry(E(target), px, py);
+			if (!present[target])
+				++liveCount;
+			present[target] = true;
+			break;
+		case 2: // remove
+			if (stress.RemoveEntry(E(target)) != present[target])
+			{
+				if (isVerbose) printf("stress: RemoveEntry disagreed with the model at iteration %d\n", iter);
+				return 20;
+			}
+			if (present[target])
+				--liveCount;
+			present[target] = false;
+			break;
+		}
+		if (stress.Size() != liveCount)
+		{
+			if (isVerbose) printf("stress: Size %u != model %u at iteration %d\n", stress.Size(), liveCount, iter);
+			return 20;
+		}
+		if ((iter % 977) == 0)
+		{
+			stress.GetEntries(hits, -100.0f, -100.0f, 200.0f, 200.0f);
+			if (hits.Size() != liveCount)
+			{
+				if (isVerbose) printf("stress: query returned %u of %u entries at iteration %d\n", hits.Size(), liveCount, iter);
+				return 20;
+			}
+			for (i = 0; i < stressEntities; ++i)
+			{
+				if (CountOf(hits, E(i)) != (present[i] ? 1u : 0u) || stress.HasEntry(E(i)) != present[i])
+				{
+					if (isVerbose) printf("stress: entry %d membership wrong at iteration %d\n", i, iter);
+					return 20;
+				}
+			}
+		}
+	}
+
 	printf("PointGridSectorizer add/remove/move/query behave incrementally\n");
 	return 0;
 }
@@ -371,6 +464,8 @@ RakString PointGridSectorizerTest::ErrorCodeToString(int errorCode)
 	case 16: return "Operations before Init were not a defined no-op";
 	case 17: return "Degenerate Init not rejected cleanly";
 	case 18: return "Cell-count overflow in Init not rejected cleanly";
+	case 19: return "AddEntry/MoveEntry transition reporting, null rejection, or const access wrong";
+	case 20: return "Randomized stress diverged from the reference model";
 	default: return "Undefined Error";
 	}
 }
