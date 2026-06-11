@@ -23,20 +23,6 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/peerinterface.h"
 
-#if LIBCAT_SECURITY==1
-static const int HASH_BITS = 256;
-static const int HASH_BYTES = HASH_BITS / 8;
-static const int STRENGTHENING_FACTOR = 256;
-
-// If building a MafiaNet DLL, be sure to tweak the CAT_EXPORT macro meaning
-#if !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
-# define CAT_BUILD_DLL
-#else
-# define CAT_NEUTER_EXPORT
-#endif
-#include <cat/crypt/hash/Skein.hpp>
-#endif
-
 using namespace MafiaNet;
 
 enum NegotiationIdentifiers
@@ -434,20 +420,11 @@ void TwoWayAuthentication::OnPasswordResult(Packet *packet)
 }
 void TwoWayAuthentication::Hash(char thierNonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], MafiaNet::RakString password, char out[HASHED_NONCE_AND_PW_LENGTH])
 {
-#if LIBCAT_SECURITY==1
-	cat::Skein hash;
-	if (!hash.BeginKey(HASH_BITS)) return;
-	hash.Crunch(thierNonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
-	hash.Crunch(password.C_String(), (int) password.GetLength());
-	hash.End();
-	hash.Generate(out, HASH_BYTES, STRENGTHENING_FACTOR);
-#else
 	CSHA1 sha1;
 	sha1.Update((unsigned char *) thierNonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
 	sha1.Update((unsigned char *) password.C_String(), (unsigned int) password.GetLength());
 	sha1.Final();
 	sha1.GetHash((unsigned char *) out);
-#endif
 }
 
 #endif

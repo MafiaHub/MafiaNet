@@ -28,6 +28,7 @@ using namespace MafiaNet;
 #include "mafianet/Kbhit.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 
 int main(void)
@@ -63,8 +64,9 @@ int main(void)
 				strcpy_s(serverIP, "127.0.0.1");
 
 			MafiaNet::SocketDescriptor socketDescriptor(0,0);
+			rakClient->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			rakClient->Startup(1, &socketDescriptor, 1);
-			rakClient->Connect(serverIP, 2100, 0, 0);
+			rakClient->Connect(serverIP, 2100, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 			printf("Connecting client\n");
 			isServer=false;
 			break;
@@ -73,6 +75,7 @@ int main(void)
 		{
 			// Run as a server.
 			MafiaNet::SocketDescriptor socketDescriptor(2100,0);
+			rakServer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			rakServer->Startup(32,&socketDescriptor, 1);
 			rakServer->SetMaximumIncomingConnections(32);
 			printf("Server started\n");

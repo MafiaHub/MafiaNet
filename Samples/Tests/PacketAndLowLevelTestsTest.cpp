@@ -9,6 +9,7 @@
  */
 
 #include "PacketAndLowLevelTestsTest.h"
+#include "SampleSecurity.h"
 
 
 /*
@@ -126,6 +127,7 @@ int PacketAndLowLevelTestsTest::RunTest(DataStructures::List<RakString> params,b
 		pluginClient->AttachPlugin(myPlug); // safe: peer not started yet
 
 		SocketDescriptor pluginServerSd(60001,0);
+		pluginServer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		pluginServer->Startup(1,&pluginServerSd,1);
 		pluginServer->SetMaximumIncomingConnections(1);
 		SocketDescriptor pluginClientSd;

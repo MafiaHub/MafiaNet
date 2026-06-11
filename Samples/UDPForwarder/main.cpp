@@ -25,6 +25,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/UDPForwarder.h"
 #include "mafianet/SocketLayer.h"
+#include "SampleSecurity.h"
 
 int main()
 {
@@ -36,11 +37,13 @@ int main()
 #if RAKNET_SUPPORT_IPV6==1
 	sd1.socketFamily=AF_INET6; // Test out IPV6
 #endif
+	rakPeer[0]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	sr = rakPeer[0]->Startup(1,&sd1, 1);
 	RakAssert(sr== MafiaNet::RAKNET_STARTED);
 #if RAKNET_SUPPORT_IPV6==1
 	sd2.socketFamily=AF_INET6; // Test out IPV6
 #endif
+	rakPeer[1]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	sr = rakPeer[1]->Startup(1,&sd2, 1);
 	RakAssert(sr== MafiaNet::RAKNET_STARTED);
 	rakPeer[1]->SetMaximumIncomingConnections(1);
@@ -79,7 +82,7 @@ int main()
 	printf("UDPForwarder bound on %s\n", boundAddress.ToString(false));
 
 	// Send a connect message to the forwarder, on the port to forward to rakPeer[1]
-	SLNET_VERIFY(rakPeer[0]->Connect(boundAddress.ToString(false), fowardPort, 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
+	SLNET_VERIFY(rakPeer[0]->Connect(boundAddress.ToString(false), fowardPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 	
 	printf("'q'uit.\n");
 	MafiaNet::Packet *p;

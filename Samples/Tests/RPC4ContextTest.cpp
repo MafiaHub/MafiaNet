@@ -6,6 +6,7 @@
  */
 
 #include "RPC4ContextTest.h"
+#include "SampleSecurity.h"
 
 #include "mafianet/RPC4Plugin.h"
 #include "mafianet/MessageIdentifiers.h"
@@ -161,6 +162,7 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 	destroyList.Push(server, _FILE_AND_LINE_);
 
 	SocketDescriptor serverSd(0, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
 		return 7;
 	server->SetMaximumIncomingConnections(8);
@@ -170,7 +172,7 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 	serverRpc.RegisterBlockingFunction("Blocking", BlockingHandler, &markerBlocking);
 
 	unsigned short serverPort = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
-	peer->Connect("127.0.0.1", serverPort, nullptr, 0);
+	peer->Connect("127.0.0.1", serverPort, nullptr, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 	// Pump both peers until the client reports the connection accepted.
 	bool connected = false;

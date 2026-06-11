@@ -37,7 +37,7 @@ MafiaNet is an actively maintained networking library built for game developers 
 
 - CMake 3.21+
 - C++17 compatible compiler
-- OpenSSL 1.0.0+
+- OpenSSL 3.0+
 - Internet connection (first build fetches dependencies automatically)
 
 ### Building
@@ -84,16 +84,24 @@ cmake -DMAFIANET_BUILD_SAMPLES=ON ..
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
-// Create a peer
-MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
+// --- Server side ---
+MafiaNet::RakPeerInterface* server = MafiaNet::RakPeerInterface::GetInstance();
 
-// Start as server
+// Generate and set the server key BEFORE Startup (distribute publicKey to clients out-of-band)
+MafiaNet::ServerSecurityKey key = MafiaNet::GenerateServerSecurityKey();
+server->SetServerSecurityKey(key);   // required to accept connections; set it before Startup
+
 MafiaNet::SocketDescriptor sd(60000, 0);
-peer->Startup(32, &sd, 1);
-peer->SetMaximumIncomingConnections(32);
+server->Startup(32, &sd, 1);
+server->SetMaximumIncomingConnections(32);
 
-// Or connect as client
-peer->Connect("127.0.0.1", 60000, nullptr, 0);
+// --- Client side ---
+MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
+MafiaNet::SocketDescriptor clientSd(0, 0);
+peer->Startup(1, &clientSd, 1);
+
+// Pin the server's 32-byte public key when connecting
+peer->Connect("127.0.0.1", 60000, nullptr, 0, serverPublicKey);  // serverPublicKey: const unsigned char[32]
 
 // Process incoming packets
 MafiaNet::Packet* packet;
@@ -248,7 +256,8 @@ MafiaNet automatically fetches required dependencies via CMake FetchContent:
 
 | Dependency | Version | Used For |
 |------------|---------|----------|
-| OpenSSL | 1.0.0+ | Encryption (required, system-installed) |
+| OpenSSL | 3.0+ | Encryption (required, system-installed) |
+| libsodium | - | Transport encryption — Noise_NK handshake + ChaCha20-Poly1305 (auto-fetched via CMake) |
 | bzip2 | - | Compression (Autopatcher) |
 | miniupnpc | - | UPnP port forwarding |
 | Opus | 1.5.2 | Voice codec (RakVoice) |
@@ -270,6 +279,27 @@ cmake --build .
 Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ReliableOrderedConvertedTest`, `SecurityFunctionsTest`, `SystemAddressAndGuidTest`, and more.
 
 ## Changelog
+
+### Unreleased — Default Transport Encryption (breaking)
+
+- **Mandatory Noise_NK encryption**: every datagram is now encrypted and
+  authenticated (ChaCha20-Poly1305 AEAD, X25519 key exchange, libsodium).
+  There is no opt-out. **Wire-incompatible with 0.9.x and earlier** —
+  coordinate a server + client upgrade.
+- **`Connect` / `ConnectWithSocket` signature change**: the optional
+  `PublicKey*` argument is replaced by a *required* 32-byte pinned server
+  X25519 public key (`const unsigned char serverPublicKey[32]`).
+- **New API**: `ServerSecurityKey` struct + `GenerateServerSecurityKey()` +
+  `RakPeerInterface::SetServerSecurityKey(const ServerSecurityKey&)`.
+- **Removed**: `InitializeSecurity`, `DisableSecurity`,
+  `AddToSecurityExceptionList`, `RemoveFromSecurityExceptionList`,
+  `GetClientPublicKeyFromSystemAddress`, `PublicKey` struct, `PublicKeyMode`
+  enum, libcat / `LIBCAT_SECURITY`.
+- **`FullyConnectedMesh2::SetConnectOnNewRemoteConnection`** takes an
+  additional `const unsigned char serverPublicKey[32] = 0` argument;
+  auto-mesh connections are fail-closed without a key.
+- **libsodium** is now a required dependency (auto-fetched via CMake);
+  libcat has been removed.
 
 ### Version 0.9.0 (Latest)
 - **Strong-typed `PeerGuid`**: a new `enum class PeerGuid : uint64_t` names a peer's `RakNetGUID` value distinctly from `NetworkID` (an object id), so the two can no longer be passed interchangeably in a `uint64_t`-typed signature — removing a class of silent "passed the wrong id" bugs in ReplicaManager3 glue and `void(uint64_t)` callbacks. Convert with `ToPeerGuid()` / `ToGuid()` and compare against `UNASSIGNED_PEER_GUID`. As a trivially-copyable 8-byte scoped enum it serializes byte-identically through `BitStream` (and therefore `VariableDeltaSerializer`) to the raw `uint64_t` it replaces — fully wire-compatible, no netcode bump. Purely additive, no behavioural change

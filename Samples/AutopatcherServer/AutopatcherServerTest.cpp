@@ -41,6 +41,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 // Server only includes
 #include "AutopatcherServer.h"
@@ -192,6 +193,7 @@ int main(int, char **)
 	MafiaNet::RakPeerInterface *rakPeer;
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->Startup(MAX_INCOMING_CONNECTIONS,&socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(MAX_INCOMING_CONNECTIONS);
 	rakPeer->AttachPlugin(&autopatcherServer);

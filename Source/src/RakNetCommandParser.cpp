@@ -32,14 +32,8 @@ STATIC_FACTORY_DEFINITIONS(RakNetCommandParser,RakNetCommandParser);
 RakNetCommandParser::RakNetCommandParser()
 {
 	RegisterCommand(4, "Startup","( unsigned int maxConnections, unsigned short localPort, const char *forceHostAddress );");
-	RegisterCommand(0,"InitializeSecurity","();");
-	RegisterCommand(0,"DisableSecurity","( void );");
-	RegisterCommand(1,"AddToSecurityExceptionList","( const char *ip );");
-	RegisterCommand(1,"RemoveFromSecurityExceptionList","( const char *ip );");
-	RegisterCommand(1,"IsInSecurityExceptionList","( const char *ip );");
 	RegisterCommand(1,"SetMaximumIncomingConnections","( unsigned short numberAllowed );");
 	RegisterCommand(0,"GetMaximumIncomingConnections","( void ) const;");
-	RegisterCommand(4,"Connect","( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength );");
 	RegisterCommand(2,"Disconnect","( unsigned int blockDuration, unsigned char orderingChannel=0 );");
 	RegisterCommand(0,"IsActive","( void ) const;");
 	RegisterCommand(0,"GetConnectionList","() const;");
@@ -91,29 +85,6 @@ bool RakNetCommandParser::OnCommand(const char *command, unsigned numParameters,
 		MafiaNet::SocketDescriptor socketDescriptor((unsigned short)atoi(parameterList[1]), parameterList[2]);
 		ReturnResult(peer->Startup((unsigned short)atoi(parameterList[0]), &socketDescriptor, 1), command, transport, systemAddress);
 	}
-	else if (strcmp(command, "InitializeSecurity")==0)
-	{
-		ReturnResult(peer->InitializeSecurity(parameterList[0],parameterList[1]), command, transport, systemAddress);
-	}
-	else if (strcmp(command, "DisableSecurity")==0)
-	{
-		peer->DisableSecurity();
-		ReturnResult(command, transport, systemAddress);
-	}
-	else if (strcmp(command, "AddToSecurityExceptionList")==0)
-	{
-		peer->AddToSecurityExceptionList(parameterList[1]);
-		ReturnResult(command, transport, systemAddress);
-	}
-	else if (strcmp(command, "RemoveFromSecurityExceptionList")==0)
-	{
-		peer->RemoveFromSecurityExceptionList(parameterList[1]);
-		ReturnResult(command, transport, systemAddress);
-	}
-	else if (strcmp(command, "IsInSecurityExceptionList")==0)
-	{
-		ReturnResult(peer->IsInSecurityExceptionList(parameterList[1]),command, transport, systemAddress);
-	}
 	else if (strcmp(command, "SetMaximumIncomingConnections")==0)
 	{
 		peer->SetMaximumIncomingConnections((unsigned short)atoi(parameterList[0]));
@@ -122,10 +93,6 @@ bool RakNetCommandParser::OnCommand(const char *command, unsigned numParameters,
 	else if (strcmp(command, "GetMaximumIncomingConnections")==0)
 	{
 		ReturnResult((int) peer->GetMaximumIncomingConnections(), command, transport, systemAddress);
-	}
-	else if (strcmp(command, "Connect")==0)
-	{
-		ReturnResult(peer->Connect(parameterList[0], (unsigned short)atoi(parameterList[1]),parameterList[2],atoi(parameterList[3]))== MafiaNet::CONNECTION_ATTEMPT_STARTED, command, transport, systemAddress);
 	}
 	else if (strcmp(command, "Disconnect")==0)
 	{

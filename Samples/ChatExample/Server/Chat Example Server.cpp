@@ -39,9 +39,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-#if LIBCAT_SECURITY==1
-#include "mafianet/SecureHandshake.h" // Include header for secure handshake
-#endif
+#include "SampleSecurity.h"
 
 #if defined(_CONSOLE_2)
 #include "Console2SampleIncludes.h"
@@ -64,18 +62,6 @@ int main(void)
 	server->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 //	MafiaNet::PacketLogger packetLogger;
 //	server->AttachPlugin(&packetLogger);
-
-#if LIBCAT_SECURITY==1
-	cat::EasyHandshake handshake;
-	char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	char private_key[cat::EasyHandshake::PRIVATE_KEY_BYTES];
-	handshake.GenerateServerKey(public_key, private_key);
-	server->InitializeSecurity(public_key, private_key, false);
-	FILE *fp;
-	fopen_s(&fp,"publicKey.dat","wb");
-	fwrite(public_key,sizeof(public_key),1,fp);
-	fclose(fp);
-#endif
 
 	// Holds packets
 	MafiaNet::Packet* p;
@@ -114,6 +100,7 @@ int main(void)
 	socketDescriptors[0].socketFamily=AF_INET; // Test out IPV4
 	socketDescriptors[1].port=static_cast<unsigned short>(intServerPort);
 	socketDescriptors[1].socketFamily=AF_INET6; // Test out IPV6
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	bool b = server->Startup(4, socketDescriptors, 2 )== MafiaNet::RAKNET_STARTED;
 	server->SetMaximumIncomingConnections(4);
 	if (!b)

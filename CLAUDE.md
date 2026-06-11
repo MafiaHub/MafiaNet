@@ -80,7 +80,7 @@ Tests require `MAFIANET_BUILD_SAMPLES=ON` (they're part of the Samples subdirect
 ./build/Samples/Tests/Tests EightPeerTest
 ```
 
-Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWithCancelPendingTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ManyClientsOneServerNonBlockingTest`, `ManyClientsOneServerDeallocateBlockingTest`, `ReliableOrderedConvertedTest`, `DroppedConnectionConvertTest`, `ComprehensiveConvertTest`, `CrossConnectionConvertTest`, `PingTestsTest`, `OfflineMessagesConvertTest`, `LocalIsConnectedTest`, `SecurityFunctionsTest`, `ConnectWithSocketTest`, `SystemAddressAndGuidTest`, `PacketAndLowLevelTestsTest`, `MiscellaneousTestsTest`
+Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWithCancelPendingTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ManyClientsOneServerNonBlockingTest`, `ManyClientsOneServerDeallocateBlockingTest`, `ReliableOrderedConvertedTest`, `DroppedConnectionConvertTest`, `ComprehensiveConvertTest`, `CrossConnectionConvertTest`, `PingTestsTest`, `OfflineMessagesConvertTest`, `LocalIsConnectedTest`, `SecurityFunctionsTest`, `CryptoUnitTest`, `ConnectWithSocketTest`, `SystemAddressAndGuidTest`, `PacketAndLowLevelTestsTest`, `MiscellaneousTestsTest`
 
 ## Architecture
 

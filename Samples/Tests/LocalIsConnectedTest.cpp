@@ -9,6 +9,7 @@
  */
 
 #include "LocalIsConnectedTest.h"
+#include "SampleSecurity.h"
 
 /*
 Description:
@@ -54,6 +55,7 @@ int LocalIsConnectedTest::RunTest(DataStructures::List<RakString> params,bool is
 	SocketDescriptor clientSd;
 	client->Startup(1, &clientSd, 1);
 	SocketDescriptor serverSd(60000, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->Startup(1, &serverSd, 1);
 	server->SetMaximumIncomingConnections(1);
 
@@ -71,7 +73,7 @@ int LocalIsConnectedTest::RunTest(DataStructures::List<RakString> params,bool is
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			lastConnect=client->Connect("127.0.0.1",serverAddress.GetPort(),0,0)==CONNECTION_ATTEMPT_STARTED;
+			lastConnect=client->Connect("127.0.0.1",serverAddress.GetPort(),0,0, MafiaNet::GetSampleServerKey().publicKey)==CONNECTION_ATTEMPT_STARTED;
 		}
 
 		RakSleep(100);
@@ -100,7 +102,7 @@ int LocalIsConnectedTest::RunTest(DataStructures::List<RakString> params,bool is
 	}
 
 	RakSleep(1000);
-	client->Connect("127.0.0.1",serverAddress.GetPort(),0,0);
+	client->Connect("127.0.0.1",serverAddress.GetPort(),0,0, MafiaNet::GetSampleServerKey().publicKey);
 
 	if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true))
 	{
@@ -117,7 +119,7 @@ int LocalIsConnectedTest::RunTest(DataStructures::List<RakString> params,bool is
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),0,0);
+			client->Connect("127.0.0.1",serverAddress.GetPort(),0,0, MafiaNet::GetSampleServerKey().publicKey);
 		}
 
 		RakSleep(100);

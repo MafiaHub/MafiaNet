@@ -15,6 +15,7 @@
 
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/statistics.h"
 #include "mafianet/DirectoryDeltaTransfer.h"
@@ -89,6 +90,7 @@ int main(void)
 	else
 		localPort=atoi(str);
 	SocketDescriptor sd(localPort, 0);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (rakPeer->Startup(8, &sd, 1) != RAKNET_STARTED)
 	{
 		RakPeerInterface::DestroyInstance(rakPeer);
@@ -177,7 +179,7 @@ int main(void)
 					remotePort=60000;
 				else
 					remotePort=atoi(str);
-				rakPeer->Connect(host, remotePort, 0, 0);
+				rakPeer->Connect(host, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				printf("Connecting.\n");
 			}
 			else if (ch=='q')

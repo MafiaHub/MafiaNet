@@ -36,6 +36,7 @@
 #include "mafianet/RelayPlugin.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 //#define VERBOSE_LOGGING
 
@@ -290,7 +291,7 @@ SystemAddress ConnectBlocking(MafiaNet::RakPeerInterface *rakPeer, const char *h
 		printf("Failed. Specified port %d is outside valid bounds [0, %u]", intPort, std::numeric_limits<unsigned short>::max());
 		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	}
-	if (rakPeer->Connect(ipAddr, static_cast<unsigned short>(intPort), 0, 0)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
+	if (rakPeer->Connect(ipAddr, static_cast<unsigned short>(intPort), 0, 0, MafiaNet::GetSampleServerKey().publicKey)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 	{
 		printf("Failed connect call for %s.\n", hostName);
 		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
@@ -541,6 +542,7 @@ int main(int argc, char **argv)
 		printf("Single IP address mode.\nUsing port %i\n", sd[0].port);
 	}
 
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	const StartupResult success = rakPeer->Startup(8096, sd, sdLen);
 	if (success != MafiaNet::RAKNET_STARTED)
 	{

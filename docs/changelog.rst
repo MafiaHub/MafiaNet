@@ -3,6 +3,63 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+.. rubric:: Breaking changes
+
+* **Mandatory default encryption (wire-incompatible with 0.9.x and earlier).**
+  Every connection is now encrypted and authenticated using the
+  ``Noise_NK_25519_ChaChaPoly_SHA512`` cipher suite (libsodium).  There is no
+  opt-out.  Peers built against this version cannot talk to peers from any
+  earlier release; plan a coordinated server + client upgrade.
+
+* **``Connect`` / ``ConnectWithSocket`` signature changed.** The former
+  optional ``PublicKey*`` fifth argument is replaced by a *required*
+  ``const unsigned char serverPublicKey[32]`` — the server's pinned 32-byte
+  X25519 public key.  Callers that omitted the argument (plain unencrypted
+  connections) must now supply the key; there is no unencrypted fallback.
+
+* **Removed API:**
+
+  - ``RakPeerInterface::InitializeSecurity`` — replaced by
+    ``RakPeerInterface::SetServerSecurityKey(const ServerSecurityKey&)``.
+  - ``RakPeerInterface::DisableSecurity`` — encryption cannot be disabled.
+  - ``RakPeerInterface::AddToSecurityExceptionList`` /
+    ``RemoveFromSecurityExceptionList`` — exception list concept removed.
+  - ``RakPeerInterface::GetClientPublicKeyFromSystemAddress`` — client is
+    anonymous; no client key is exchanged.
+  - ``PublicKey`` struct and ``PublicKeyMode`` enum (from
+    ``mafianet/types.h``).
+  - libcat / ``SecureHandshake.*`` / ``LIBCAT_SECURITY`` preprocessor flag.
+    The ``GenerateServerRSAKeys`` helper shown in earlier documentation (it
+    never shipped in code) is superseded by
+    ``MafiaNet::GenerateServerSecurityKey()`` (returns ``ServerSecurityKey``).
+
+* **``FullyConnectedMesh2::SetConnectOnNewRemoteConnection``** gained an
+  optional third parameter ``const unsigned char serverPublicKey[32] = 0``.
+  Auto-mesh connections require a shared pinned key; without it the call is
+  fail-closed (no auto-connections are made).
+
+.. rubric:: New features
+
+* **``MafiaNet::ServerSecurityKey``** (``mafianet/crypto/keys.h``): plain
+  struct holding a 32-byte X25519 ``publicKey`` and ``secretKey``.
+* **``MafiaNet::GenerateServerSecurityKey()``**: generates a new X25519
+  identity keypair for the server.
+* **``RakPeerInterface::SetServerSecurityKey``**: installs the server's
+  long-term identity keypair (required before ``Startup``).
+* Transport encryption: ChaCha20-Poly1305 AEAD per datagram with a 64-entry
+  sliding-window anti-replay filter.
+* DoS mitigation: stateless HMAC return-routability cookie gates handshake
+  work on the server.
+
+.. rubric:: Dependencies
+
+* **libsodium** is now a required dependency (fetched automatically via CMake
+  FetchContent).  OpenSSL is still required for TLS-layer features.
+* libcat has been removed.
+
 Version 0.9.0
 -------------
 

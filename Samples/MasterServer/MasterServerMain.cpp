@@ -17,6 +17,7 @@
 
 #include "MasterCommon.h"
 #include "MasterServer.h"
+#include "SampleSecurity.h"
 #include "mafianet/peerinterface.h"
 #include "mafianet/Gets.h"
 #include <cstdio>
@@ -54,6 +55,7 @@ int main(void)
 
 	testGameMasterServer = RakPeerInterface::GetInstance();
 	SocketDescriptor sd(60000, 0);
+	testGameMasterServer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	testGameMasterServer->Startup(10, &sd, 1);
 	testGameMasterServer->SetMaximumIncomingConnections(8);
 	testGameMasterServer->AttachPlugin(&masterServer);

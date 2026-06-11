@@ -86,7 +86,6 @@ set(MAFIANET_SOURCES
     src/ReplicaManager3.cpp
     src/Router2.cpp
     src/RPC4Plugin.cpp
-    src/SecureHandshake.cpp
     src/SendToThread.cpp
     src/SignaledEvent.cpp
     src/SimpleMutex.cpp
@@ -117,6 +116,9 @@ set(MAFIANET_CRYPTO_SOURCES
     src/crypto/cryptomanager.cpp
     src/crypto/factory.cpp
     src/crypto/fileencrypter.cpp
+    src/crypto/keys.cpp
+    src/crypto/noise.cpp
+    src/crypto/securesession.cpp
     src/crypto/securestring.cpp
 )
 
@@ -232,7 +234,6 @@ set(MAFIANET_HEADERS
     include/mafianet/ReplicaManager3.h
     include/mafianet/Router2.h
     include/mafianet/RPC4Plugin.h
-    include/mafianet/SecureHandshake.h
     include/mafianet/SendToThread.h
     include/mafianet/SignaledEvent.h
     include/mafianet/SimpleMutex.h
@@ -288,6 +289,9 @@ set(MAFIANET_CRYPTO_HEADERS
     include/mafianet/crypto/factory.h
     include/mafianet/crypto/fileencrypter.h
     include/mafianet/crypto/ifileencrypter.h
+    include/mafianet/crypto/keys.h
+    include/mafianet/crypto/noise.h
+    include/mafianet/crypto/securesession.h
     include/mafianet/crypto/securestring.h
 )
 
@@ -317,6 +321,10 @@ function(mafianet_configure_target target_name)
             OpenSSL::SSL
             OpenSSL::Crypto
         PRIVATE
+            # sodium is a FetchContent (non-imported) target; BUILD_INTERFACE
+            # restricts it to the build tree so the install export stays clean.
+            # Installed consumers must provide libsodium themselves.
+            $<BUILD_INTERFACE:sodium>
             Threads::Threads
             $<$<PLATFORM_ID:Windows>:ws2_32>
     )

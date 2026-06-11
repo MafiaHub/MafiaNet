@@ -9,6 +9,7 @@
  */
 
 #include "PeerConnectDisconnectWithCancelPendingTest.h"
+#include "SampleSecurity.h"
 
 /*
 What is being done here is having 8 peers all connect to eachother, disconnect, connect again.
@@ -63,6 +64,7 @@ int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<Rak
 		destroyList.Push(peerList[i],_FILE_AND_LINE_);
 
 		SocketDescriptor sd(60000+i, 0);
+		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		StartupResult result = peerList[i]->Startup(maxConnections, &sd, 1);
 		if (result != RAKNET_STARTED)
 		{
@@ -82,7 +84,7 @@ int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<Rak
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
 
-			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 			{
 
 				if (isVerbose)
@@ -149,7 +151,7 @@ int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<Rak
 			for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 			{
 
-				if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+				if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 				{
 
 					currentSystem.SetBinaryAddress("127.0.0.1");
@@ -361,7 +363,7 @@ int PeerConnectDisconnectWithCancelPendingTest::RunTest(DataStructures::List<Rak
 
 			peerList[i]->CancelConnectionAttempt(currentSystem);  	//Make sure a connection is not pending before trying to connect.
 
-			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 			{
 
 				peerList[i]->GetSystemList(systemList,guidList);//Get connectionlist

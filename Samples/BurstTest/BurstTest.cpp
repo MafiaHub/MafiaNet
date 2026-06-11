@@ -32,6 +32,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 
@@ -75,10 +76,11 @@ int main(int, char **)
 		localPort = static_cast<unsigned short>(intLocalPort);
 		
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer->Startup(32, &socketDescriptor, 1);
-		
+
 		printf("Connecting...\n");
-		rakPeer->Connect(ip, remotePort, 0, 0);
+		rakPeer->Connect(ip, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 	else
 	{
@@ -92,8 +94,9 @@ int main(int, char **)
 			return 3;
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
-		
+
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer->Startup(32, &socketDescriptor, 1);
 	}
 	rakPeer->SetMaximumIncomingConnections(32);

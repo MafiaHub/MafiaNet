@@ -53,6 +53,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 char WORKING_DIRECTORY[MAX_PATH];
 char PATH_TO_XDELTA_EXE[MAX_PATH];
@@ -241,6 +242,7 @@ int main(int argc, char **argv)
 	MafiaNet::RakPeerInterface *rakPeer;
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->Startup(1,&socketDescriptor, 1);
 	// Plugin will send us downloading progress notifications if a file is split to fit under the MTU 10 or more times
 	rakPeer->SetSplitMessageProgressInterval(10);
@@ -263,7 +265,7 @@ int main(int argc, char **argv)
 #ifdef USE_TCP
 	packetizedTCP.Connect(buff,60000,false);
 #else
-	rakPeer->Connect(buff, 60000, 0, 0);
+	rakPeer->Connect(buff, 60000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 #endif
 
 	printf("Connecting...\n");
@@ -435,7 +437,7 @@ int main(int argc, char **argv)
 #ifdef USE_TCP
 			packetizedTCP.Connect(buff,60000,false);
 #else
-			rakPeer->Connect(buff, 60000, 0, 0);
+			rakPeer->Connect(buff, 60000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 #endif
 		}
 		else if (ch=='d')

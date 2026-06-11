@@ -19,6 +19,7 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/FullyConnectedMesh2.h"
@@ -56,6 +57,7 @@ int main(void)
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
@@ -64,11 +66,11 @@ int main(void)
 
 	printf("Peers initialized. ");
 	printf("Connecting each peer to the prior peer\n");
-	
+
 	// Connect each peer to the prior peer
 	for (unsigned short peerIndex=1; peerIndex < NUM_PEERS; peerIndex++)
 	{
-        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0);
+        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	PrintConnections();
@@ -83,6 +85,7 @@ int main(void)
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[peerIndex]->Startup(NUM_PEERS,&socketDescriptor, 1 );
 	}
 
@@ -90,7 +93,7 @@ int main(void)
 	// Connect each peer to a central peer
 	for (unsigned short peerIndex=1; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		rakPeer[peerIndex]->Connect("127.0.0.1", 60000, 0, 0);
+		rakPeer[peerIndex]->Connect("127.0.0.1", 60000, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	PrintConnections();
@@ -105,6 +108,7 @@ int main(void)
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
@@ -112,12 +116,12 @@ int main(void)
 	// Connect each peer to a central peer
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex+(((peerIndex%2)==0) ? 1 : -1), 0, 0);
+		rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex+(((peerIndex%2)==0) ? 1 : -1), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	printf("Pairs Connected\n");
 	PrintConnections();
-	rakPeer[0]->Connect("127.0.0.1", 60000+NUM_PEERS-1, 0, 0);
+	rakPeer[0]->Connect("127.0.0.1", 60000+NUM_PEERS-1, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	printf("First and last connected\n");
 	PrintConnections();
 
@@ -131,6 +135,7 @@ int main(void)
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
@@ -142,12 +147,12 @@ int main(void)
 	// Connect each peer to a central peer
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		do 
+		do
 		{
 			connectTo=randomMT() % NUM_PEERS;
 		} while (connectTo==peerIndex);
-		
-		rakPeer[peerIndex]->Connect("127.0.0.1", 60000+connectTo, 0, 0);
+
+		rakPeer[peerIndex]->Connect("127.0.0.1", 60000+connectTo, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	PrintConnections();

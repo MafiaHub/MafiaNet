@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/statistics.h"
@@ -94,6 +95,7 @@ int main(void)
 	if (rakServer)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		rakServer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakServer->Startup(100, &socketDescriptor, 1);
 		rakServer->SetMaximumIncomingConnections(100);
 	}
@@ -117,8 +119,9 @@ int main(void)
 			remotePort = static_cast<unsigned short>(intRemotePort);
 		}
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		rakClient->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakClient->Startup(1, &socketDescriptor, 1);
-		rakClient->Connect(remoteIP, remotePort, 0, 0);
+		rakClient->Connect(remoteIP, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	printf("Entering loop.\nHit 'h' for help.\nHit 'q' to quit\n'i' to increase send interval\n'd' to decrease send interval\n'+' to increase packet size\n'-' to decrease packet size.\nSpace to show current statistics\n");

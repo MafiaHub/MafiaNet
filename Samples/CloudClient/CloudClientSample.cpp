@@ -20,6 +20,7 @@
 #include "mafianet/sleep.h"
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
+#include "SampleSecurity.h"
 
 void PrintHelp(void)
 {
@@ -75,6 +76,7 @@ int main(int argc, char **argv)
 	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	static const unsigned short clientLocalPort=0;
 	MafiaNet::SocketDescriptor sd(clientLocalPort,0); // Change this if you want
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	MafiaNet::StartupResult sr = rakPeer->Startup(1,&sd,1); // Change this if you want
 	rakPeer->SetMaximumIncomingConnections(0); // Change this if you want
 	if (sr!= MafiaNet::RAKNET_STARTED)
@@ -86,7 +88,7 @@ int main(int argc, char **argv)
 	MafiaNet::CloudClient cloudClient;
 	rakPeer->AttachPlugin(&cloudClient);
 
-	MafiaNet::ConnectionAttemptResult car = rakPeer->Connect(serverAddress, serverPort, 0, 0);
+	MafiaNet::ConnectionAttemptResult car = rakPeer->Connect(serverAddress, serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	if (car== MafiaNet::CANNOT_RESOLVE_DOMAIN_NAME)
 	{
 		printf("Cannot resolve domain name\n");
@@ -124,7 +126,7 @@ int main(int argc, char **argv)
 				return 1;
 			case ID_IP_RECENTLY_CONNECTED:
 				printf("Recently connected. Retrying.");
-				rakPeer->Connect(serverAddress, serverPort, 0, 0);
+				rakPeer->Connect(serverAddress, serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				printf("Connected to server.\n");
@@ -200,7 +202,7 @@ int main(int argc, char **argv)
 						// Alternatively, just call Startup() with 2 slots instead of 1
 						RakSleep(500);
 
-						rakPeer->Connect(lowestConnectionAddress.ToString(false), lowestConnectionAddress.GetPort(), 0, 0);
+						rakPeer->Connect(lowestConnectionAddress.ToString(false), lowestConnectionAddress.GetPort(), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 						didRebalance=true;
 					}
 

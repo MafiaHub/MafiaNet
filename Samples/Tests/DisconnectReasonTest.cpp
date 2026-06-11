@@ -52,6 +52,9 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 	// when this one starts, disrupting the fresh connection and intermittently
 	// swallowing the disconnect notification. An ephemeral port sidesteps that.
 	SocketDescriptor sdServer(0, "127.0.0.1");
+	// Mandatory encryption: install the shared sample key (clients pin its public
+	// half via CommonFunctions::WaitAndConnect) or the server refuses connections.
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (server->Startup(8, &sdServer, 1) != RAKNET_STARTED)
 		return 1;
 	server->SetMaximumIncomingConnections(8);

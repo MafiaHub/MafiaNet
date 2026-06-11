@@ -33,6 +33,7 @@
 #include "mafianet/Itoa.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 // To include miniupnp, see Samples\NATCompleteClient\readme.txt
 #include "miniupnpc.h"
@@ -151,7 +152,7 @@ SystemAddress ConnectBlocking(MafiaNet::RakPeerInterface *rakPeer, const char *h
 		printf("Failed. Specified port %d is outside valid bounds [0, %u]", intPort, std::numeric_limits<unsigned short>::max());
 		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	}
-	if (rakPeer->Connect(ipAddr, static_cast<unsigned short>(intPort), 0, 0)!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
+	if (rakPeer->Connect(ipAddr, static_cast<unsigned short>(intPort), 0, 0, MafiaNet::GetSampleServerPublicKey())!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
 	{
 		printf("Failed connect call for %s.\n", hostName);
 		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
@@ -700,7 +701,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 
 		printf("Datagrams forwarded by proxy %s:%i to target %s.\n", proxyIPAddress, proxyPort, targetAddress.ToString(false));
 		printf("Connecting to proxy, which will be received by target.\n");
-		SLNET_VERIFY(proxyClientPlugin->GetRakPeerInterface()->Connect(proxyIPAddress, proxyPort, 0, 0) == CONNECTION_ATTEMPT_STARTED);
+		SLNET_VERIFY(proxyClientPlugin->GetRakPeerInterface()->Connect(proxyIPAddress, proxyPort, 0, 0, MafiaNet::GetSampleServerPublicKey()) == CONNECTION_ATTEMPT_STARTED);
 		sampleResult=SUCCEEDED;
 	}
 	virtual void OnForwardingNotification(const char *proxyIPAddress, unsigned short proxyPort,
@@ -849,6 +850,7 @@ int main(void)
 		port = static_cast<unsigned short>(intLocalPort);
 	}
 	MafiaNet::SocketDescriptor sd(port,0);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (rakPeer->Startup(32,&sd,1)!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Failed to start rakPeer! Quitting\n");

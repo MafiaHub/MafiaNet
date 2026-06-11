@@ -28,6 +28,7 @@
 #include "mafianet/LinuxStrings.h"
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
+#include "SampleSecurity.h"
 #include "mafianet/osx_adapter.h"
 
 static const int NUM_CONNECTIONS=2;
@@ -221,8 +222,9 @@ int main()
 
 	for (i=0; i < NUM_CONNECTIONS; i++)
 	{
+		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[i]->Startup(1,&socketDescriptor, 1);
-		rakPeer[i]->Connect(ip, static_cast<unsigned short>(intServerPort), 0,0);
+		rakPeer[i]->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 		rakPeer[i]->AttachPlugin(&lobby2Client[i]);
 		lobby2Client[i].SetMessageFactory(&messageFactory);

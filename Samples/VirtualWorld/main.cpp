@@ -35,6 +35,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/sleep.h"
+#include "SampleSecurity.h"
 
 #include <stdio.h>
 
@@ -192,22 +193,25 @@ int main(void)
 	RakPeerInterface *peers[3] = {server, c1, c2};
 
 	SocketDescriptor sd(0, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->Startup(8, &sd, 1);
 	server->SetMaximumIncomingConnections(8);
 	server->AttachPlugin(&serverRm);
 	serverRm.SetNetworkIDManager(&serverIds);
 
 	SocketDescriptor sdC(0, 0);
+	c1->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	c1->Startup(1, &sdC, 1);
 	c1->AttachPlugin(&c1Rm);
 	c1Rm.SetNetworkIDManager(&c1Ids);
+	c2->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	c2->Startup(1, &sdC, 1);
 	c2->AttachPlugin(&c2Rm);
 	c2Rm.SetNetworkIDManager(&c2Ids);
 
 	unsigned short serverPort = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
-	c1->Connect("127.0.0.1", serverPort, 0, 0);
-	c2->Connect("127.0.0.1", serverPort, 0, 0);
+	c1->Connect("127.0.0.1", serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
+	c2->Connect("127.0.0.1", serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 	// Wait until both clients are registered with the server's replica manager.
 	if (!WaitUntil(peers, 3, 600, [&] { return serverRm.GetConnectionCount() == 2; }))

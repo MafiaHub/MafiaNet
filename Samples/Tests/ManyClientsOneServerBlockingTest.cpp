@@ -9,6 +9,7 @@
  */
 
 #include "ManyClientsOneServerBlockingTest.h"
+#include "SampleSecurity.h"
 
 void ManyClientsOneServerBlockingTest::WaitForConnectionRequestsToComplete(RakPeerInterface **clientList, int clientNum, bool isVerbose)
 {
@@ -235,6 +236,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 	server=RakPeerInterface::GetInstance();
 	destroyList.Push(server,_FILE_AND_LINE_);
 	SocketDescriptor serverSd(60000, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
 	if (serverResult != RAKNET_STARTED)
 	{
@@ -249,7 +251,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 	for (int i=0;i<clientNum;i++)
 	{
 
-		if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+		if (clientList[i]->Connect("127.0.0.1", 60000, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 		{
 
 			if (isVerbose)
@@ -298,7 +300,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 			if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 
-				if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+				if (clientList[i]->Connect("127.0.0.1", 60000, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 				{
 
 					if (isVerbose)
@@ -331,7 +333,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 		{
 			printf("Calling Connect() for client %i.\n",i);
 
-			if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (clientList[i]->Connect("127.0.0.1", 60000, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 			{
 				clientList[i]->GetSystemList(systemList,guidList);//Get connectionlist
 				int len=systemList.Size();

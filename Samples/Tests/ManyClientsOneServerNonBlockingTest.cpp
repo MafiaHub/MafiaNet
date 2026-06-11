@@ -9,6 +9,7 @@
  */
 
 #include "ManyClientsOneServerNonBlockingTest.h"
+#include "SampleSecurity.h"
 
 /*
 What is being done here is having 256 clients connect to one server, disconnect, connect again.
@@ -72,6 +73,7 @@ int ManyClientsOneServerNonBlockingTest::RunTest(DataStructures::List<RakString>
 	server=RakPeerInterface::GetInstance();
 	destroyList.Push(server,_FILE_AND_LINE_);
 	SocketDescriptor serverSd(60000, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
 	if (serverResult != RAKNET_STARTED)
 	{
@@ -86,7 +88,7 @@ int ManyClientsOneServerNonBlockingTest::RunTest(DataStructures::List<RakString>
 	for (int i=0;i<clientNum;i++)
 	{
 
-		if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+		if (clientList[i]->Connect("127.0.0.1", 60000, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 		{
 
 			if (isVerbose)
@@ -136,7 +138,7 @@ int ManyClientsOneServerNonBlockingTest::RunTest(DataStructures::List<RakString>
 			if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 
-				if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+				if (clientList[i]->Connect("127.0.0.1", 60000, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 				{
 
 					if (isVerbose)
@@ -468,7 +470,7 @@ int ManyClientsOneServerNonBlockingTest::RunTest(DataStructures::List<RakString>
 		if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{
 
-			if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (clientList[i]->Connect("127.0.0.1", 60000, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 			{
 
 				clientList[i]->GetSystemList(systemList,guidList);//Get connectionlist

@@ -36,6 +36,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "SampleSecurity.h"
 
 enum
 {
@@ -504,6 +505,7 @@ int main(void)
 	}
 
 	// Start RakNet, up to 32 connections if the server
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->Startup(32,&sd,1);
 	rakPeer->AttachPlugin(&replicaManager);
 	replicaManager.SetNetworkIDManager(&networkIdManager);
@@ -517,7 +519,7 @@ int main(void)
 		Gets(ip, sizeof(ip));
 		if (ip[0]==0)
 			strcpy_s(ip, "127.0.0.1");
-		rakPeer->Connect(ip,SERVER_PORT,0,0,0);
+		rakPeer->Connect(ip,SERVER_PORT,0,0,MafiaNet::GetSampleServerKey().publicKey);
 		printf("Connecting...\n");
 	}
 
@@ -559,7 +561,7 @@ int main(void)
 					rakPeer->GetMyGUID()!=packet->guid)
 				{
 					printf("Connecting to %s\n", packet->systemAddress.ToString(true));
-					rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(),0,0);
+					rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(),0,0,MafiaNet::GetSampleServerKey().publicKey);
 				}
 				break;
 			case ID_SND_RECEIPT_LOSS:

@@ -15,6 +15,7 @@
 
 #include "mafianet/peerinterface.h"
 
+#include "SampleSecurity.h"
 #include "mafianet/BitStream.h"
 #include <stdlib.h> // For atoi
 #include <cstring> // For strlen
@@ -60,13 +61,14 @@ int main(void)
 		peers[i]= MafiaNet::RakPeerInterface::GetInstance();
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
 		MafiaNet::SocketDescriptor socketDescriptor(60000+i, 0);
+		peers[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 	}
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
 	{
-		peers[i]->Connect("127.0.0.1", 60000+(randomMT()%NUM_PEERS), 0, 0);		
+		peers[i]->Connect("127.0.0.1", 60000+(randomMT()%NUM_PEERS), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	MafiaNet::TimeMS endTime = MafiaNet::GetTimeMS()+600000;
@@ -79,14 +81,15 @@ int main(void)
 			// Initialize
 			peerIndex=randomMT()%NUM_PEERS;
 			MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex, 0);
+			peers[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
-			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0);
+			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		}
 		else if (nextAction < .09f)
 		{
 			// Connect
 			peerIndex=randomMT()%NUM_PEERS;
-			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0);
+			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		}
 		else if (nextAction < .10f)
 		{

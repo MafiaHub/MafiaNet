@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/peerinterface.h"
+#include "SampleSecurity.h"
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/types.h"
@@ -48,6 +49,7 @@ int main()
 		fcm2[i].SetAutoparticipateConnections(true);
 		MafiaNet::SocketDescriptor sd;
 		sd.port=60000+i;
+		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
@@ -60,7 +62,7 @@ int main()
 		{
 			if (i==j)
 				continue;
-			SLNET_VERIFY(rakPeer[i]->Connect("127.0.0.1", 60000 + j, 0, 0) == CONNECTION_ATTEMPT_STARTED);
+			SLNET_VERIFY(rakPeer[i]->Connect("127.0.0.1", 60000 + j, 0, 0, MafiaNet::GetSampleServerKey().publicKey) == CONNECTION_ATTEMPT_STARTED);
 		}
 	}
 

@@ -23,6 +23,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/TwoWayAuthentication.h"
 #include "mafianet/sleep.h"
+#include "SampleSecurity.h"
 
 static const int NUM_PEERS=2;
 MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
@@ -47,13 +48,14 @@ int main(void)
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 	
 	// Connect each peer to the prior peer
 	for (unsigned short peerIndex=1; peerIndex < NUM_PEERS; peerIndex++)
 	{
-        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0);
+        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 
 	RakSleep(100);

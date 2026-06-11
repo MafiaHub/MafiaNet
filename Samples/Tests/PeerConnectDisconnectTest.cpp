@@ -9,6 +9,7 @@
  */
 
 #include "PeerConnectDisconnectTest.h"
+#include "SampleSecurity.h"
 
 void PeerConnectDisconnectTest::WaitForConnectionRequestsToComplete(RakPeerInterface **peerList, int peerNum, bool isVerbose)
 {
@@ -155,6 +156,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 		destroyList.Push(peerList[i],_FILE_AND_LINE_);
 
 		SocketDescriptor sd(60000+i, 0);
+		peerList[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 		StartupResult result = peerList[i]->Startup(maxConnections, &sd, 1);
 		if (result != RAKNET_STARTED)
 		{
@@ -174,7 +176,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
 
-			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 			{
 
 				if (isVerbose)
@@ -228,7 +230,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
 
-					if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+					if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0, MafiaNet::GetSampleServerKey().publicKey)!=CONNECTION_ATTEMPT_STARTED)
 					{
 
 						if (isVerbose)
@@ -273,7 +275,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 				currentSystem.SetPortHostOrder(60000+j);
 				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
-					ConnectionAttemptResult car=peerList[i]->Connect("127.0.0.1", 60000+j, 0,0);
+					ConnectionAttemptResult car=peerList[i]->Connect("127.0.0.1", 60000+j, 0,0, MafiaNet::GetSampleServerKey().publicKey);
 					// STARTED is success. ALREADY_CONNECTED_TO_ENDPOINT and
 					// CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS are benign races (the link came up
 					// between the state check above and this call) and are expected while the

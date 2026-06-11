@@ -9,6 +9,7 @@
  */
 
 #include "ReliableOrderedConvertedTest.h"
+#include "SampleSecurity.h"
 
 FILE *fp;
 int memoryUsage=0;
@@ -141,7 +142,7 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 			printf("Sender failed to start (error %d)\n", senderResult);
 		return 1;
 	}
-	sender->Connect(ip, remotePort, 0, 0);
+	sender->Connect(ip, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 	receiver =RakPeerInterface::GetInstance();
 	destroyList.Push(	receiver ,_FILE_AND_LINE_);
@@ -157,6 +158,7 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 		printf("Waiting for connections...\n");
 
 	SocketDescriptor receiverSd(localPort, 0);
+	receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult receiverResult = receiver->Startup(32, &receiverSd, 1);
 	if (receiverResult != RAKNET_STARTED)
 	{

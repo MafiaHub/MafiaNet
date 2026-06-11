@@ -23,6 +23,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 #include <limits> // used for std::numeric_limits
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 
@@ -55,6 +56,7 @@ int main(void)
 	// a connectionValidationInteger, and false for low priority threads
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intListenPort),0);
 	socketDescriptor.socketFamily=AF_INET;
+	peer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	peer->Startup(8,&socketDescriptor, 1);
 	peer->SetMaximumIncomingConnections(8);
 	peer->SetOccasionalPing(true);
@@ -74,7 +76,7 @@ int main(void)
 			return 3;
 		}
 
-		SLNET_VERIFY(peer->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
+		SLNET_VERIFY(peer->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0, MafiaNet::GetSampleServerKey().publicKey) == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 	}
 
 	peer->SetTimeoutTime(30000, UNASSIGNED_SYSTEM_ADDRESS);

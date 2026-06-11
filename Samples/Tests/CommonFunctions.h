@@ -22,6 +22,7 @@
 #include "mafianet/GetTime.h"
 #include "DebugTools.h"
 	#include "RakTimer.h"
+#include "SampleSecurity.h"
 
 using namespace MafiaNet;
 class CommonFunctions
