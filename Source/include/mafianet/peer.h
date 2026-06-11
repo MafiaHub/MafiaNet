@@ -84,7 +84,8 @@ public:
 	StartupResult Startup( unsigned int maxConnections, SocketDescriptor *socketDescriptors, unsigned socketDescriptorCount, int threadPriority=-99999 );
 
 	/// \brief Set this server's Noise_NK identity keypair, enabling encrypted incoming connections.
-	/// Call before Startup() (the key is preserved across Startup()).
+	/// \pre Must be called while offline (the key is preserved across Startup()); calls while
+	/// the peer is active are ignored and assert in debug builds.
 	void SetServerSecurityKey(const ServerSecurityKey &key);
 
 	/// \brief Sets the maximum number of incoming connections allowed.

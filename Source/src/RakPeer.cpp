@@ -2983,6 +2983,12 @@ int RakPeer::GetIndexFromGuid( const RakNetGUID guid )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SetServerSecurityKey(const ServerSecurityKey &key)
 {
+	// Must be called while offline: the network thread reads these fields without
+	// synchronization, so installing a key while active could be observed torn.
+	RakAssert(endThreads);
+	if (endThreads==false)
+		return;
+
 	serverSecurityKey = key;
 	hasServerSecurityKey = true;
 }

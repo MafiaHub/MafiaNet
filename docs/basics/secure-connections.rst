@@ -352,7 +352,7 @@ The following API was **removed** in the next release:
      - ``Connect(..., const unsigned char serverPublicKey[32])``
    * - libcat / ``LIBCAT_SECURITY``
      - libsodium (fetched automatically)
-   * - ``GenerateServerRSAKeys``
+   * - ``GenerateServerRSAKeys`` (shown in earlier docs; never shipped in code)
      - ``GenerateServerSecurityKey`` (returns ``ServerSecurityKey``)
 
 **Wire compatibility:** the new release peers cannot talk to peers built against the previous release.

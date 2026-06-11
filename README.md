@@ -294,7 +294,7 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 - **Removed**: `InitializeSecurity`, `DisableSecurity`,
   `AddToSecurityExceptionList`, `RemoveFromSecurityExceptionList`,
   `GetClientPublicKeyFromSystemAddress`, `PublicKey` struct, `PublicKeyMode`
-  enum, `GenerateServerRSAKeys`, libcat / `LIBCAT_SECURITY`.
+  enum, libcat / `LIBCAT_SECURITY`.
 - **`FullyConnectedMesh2::SetConnectOnNewRemoteConnection`** takes an
   additional `const unsigned char serverPublicKey[32] = 0` argument;
   auto-mesh connections are fail-closed without a key.

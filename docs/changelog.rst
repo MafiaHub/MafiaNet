@@ -31,9 +31,10 @@ Unreleased
     anonymous; no client key is exchanged.
   - ``PublicKey`` struct and ``PublicKeyMode`` enum (from
     ``mafianet/types.h``).
-  - ``GenerateServerRSAKeys`` — replaced by
-    ``MafiaNet::GenerateServerSecurityKey()`` (returns ``ServerSecurityKey``).
   - libcat / ``SecureHandshake.*`` / ``LIBCAT_SECURITY`` preprocessor flag.
+    The ``GenerateServerRSAKeys`` helper shown in earlier documentation (it
+    never shipped in code) is superseded by
+    ``MafiaNet::GenerateServerSecurityKey()`` (returns ``ServerSecurityKey``).
 
 * **``FullyConnectedMesh2::SetConnectOnNewRemoteConnection``** gained an
   optional third parameter ``const unsigned char serverPublicKey[32] = 0``.

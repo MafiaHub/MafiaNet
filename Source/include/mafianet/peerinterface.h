@@ -73,9 +73,10 @@ public:
 	/// \details Encryption is mandatory: a server that does not call this will reject all
 	/// incoming connections (clients always pin a server public key in Connect()).
 	/// Clients must pin the matching public key via the serverPublicKey parameter of Connect().
-	/// Call before Startup(): the key is preserved across Startup(), and installing it while
-	/// the network thread is already running risks a connection attempt observing a
-	/// partially-written key (the fields are not synchronized).
+	/// \pre Must be called while offline (before Startup(), or after Shutdown()). The key is
+	/// preserved across Startup(). Calls while the peer is active are ignored (and assert in
+	/// debug builds): the network thread reads the key without synchronization, so installing
+	/// it while running could be observed partially written.
 	/// \param[in] key A keypair generated via GenerateServerSecurityKey().
 	virtual void SetServerSecurityKey(const ServerSecurityKey &key)=0;
 

@@ -40,8 +40,6 @@ if(MAFIANET_SANITIZER)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
         # Parse the "+" separator: "address+undefined" -> "-fsanitize=address,undefined"
         string(REPLACE "+" "," _san_flags "${MAFIANET_SANITIZER}")
-        set(_san_compile_flags "-fsanitize=${_san_flags} -fno-omit-frame-pointer -g")
-        set(_san_link_flags    "-fsanitize=${_san_flags}")
         message(STATUS "Sanitizer build: -fsanitize=${_san_flags}")
         add_compile_options(-fsanitize=${_san_flags} -fno-omit-frame-pointer -g)
         add_link_options(-fsanitize=${_san_flags})

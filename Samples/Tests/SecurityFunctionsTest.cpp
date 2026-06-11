@@ -34,6 +34,14 @@ Sub-test 3 (server with no key rejects client, port 60030):
   Asserts the client does NOT establish a connection within the timeout and never
   receives ID_CONNECTION_REQUEST_ACCEPTED.
 
+Sub-test 4 (password and ban-list enforcement, port 60040):
+  Restores the pre-Noise coverage of the password and ban-list enforcement paths,
+  now running over the encrypted handshake. Asserts:
+    - GetIncomingPassword returns what SetIncomingPassword stored,
+    - a missing or wrong connection password is rejected, the correct one accepted,
+    - AddToBanList blocks the client and IsBanned reports it,
+    - RemoveFromBanList and ClearBanList both unban and allow reconnection.
+
 Note on tamper/replay at the network level:
   PacketChangerPlugin and PacketDropPlugin operate at the InternalPacket (reliability-
   layer) level — ABOVE the SecureSession encryption. They mutate logical messages after
@@ -59,14 +67,16 @@ Failure conditions:
   Error codes 1–11  : sub-test 1 (happy path)
   Error codes 20–29 : sub-test 2 (wrong key rejected)
   Error codes 30–39 : sub-test 3 (server with no key rejects client)
+  Error codes 40–53 : sub-test 4 (password and ban-list enforcement)
 */
 
 // ---------------------------------------------------------------------------
 // Port assignments — each sub-test gets its own port to avoid collisions.
 // ---------------------------------------------------------------------------
-static const unsigned short PORT_HAPPY      = 60010;
-static const unsigned short PORT_WRONG_KEY  = 60020;
-static const unsigned short PORT_NO_KEY     = 60030;
+static const unsigned short PORT_HAPPY        = 60010;
+static const unsigned short PORT_WRONG_KEY    = 60020;
+static const unsigned short PORT_NO_KEY       = 60030;
+static const unsigned short PORT_PASSWORD_BAN = 60040;
 
 // ---------------------------------------------------------------------------
 // Helper: drain all pending packets from a peer, return the first byte of
@@ -389,6 +399,113 @@ static int RunNoKeyRejectsClient(bool isVerbose)
 }
 
 // ---------------------------------------------------------------------------
+// Sub-test 4: password and ban-list enforcement (over the encrypted handshake)
+// ---------------------------------------------------------------------------
+
+// Retry Connect() with the given password until connected or timeoutMs elapses.
+// Returns the final connected state. Mirrors the retry pattern of the original
+// (pre-Noise) test: rejection paths cancel the attempt, so keep re-issuing it.
+static bool ConnectWithPassword(RakPeerInterface* client, const SystemAddress& serverAddress,
+                                const char* password, const unsigned char serverPublicKey[32],
+                                TimeMS timeoutMs)
+{
+	const int passwordLen = (password != 0) ? (int)strlen(password) : 0;
+	TimeMS entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) &&
+	       GetTimeMS() - entryTime < timeoutMs)
+	{
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
+			client->Connect("127.0.0.1", serverAddress.GetPort(), password, passwordLen, serverPublicKey);
+		RakSleep(100);
+	}
+	return CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true);
+}
+
+static void DisconnectClient(RakPeerInterface* client, const SystemAddress& serverAddress)
+{
+	while (CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
+	{
+		client->CloseConnection(serverAddress, true, 0, LOW_PRIORITY);
+		RakSleep(30);
+	}
+}
+
+static int RunPasswordAndBanList(bool isVerbose)
+{
+	RakPeerInterface* server = RakPeerInterface::GetInstance();
+	RakPeerInterface* client = RakPeerInterface::GetInstance();
+
+	ServerSecurityKey key = GenerateServerSecurityKey();
+	server->SetServerSecurityKey(key);
+	SocketDescriptor serverSd(PORT_PASSWORD_BAN, 0);
+	if (server->Startup(1, &serverSd, 1) != RAKNET_STARTED)
+	{ DestroyPair(server, client); return 40; }
+	server->SetMaximumIncomingConnections(1);
+
+	char thePassword[] = "password";
+	server->SetIncomingPassword(thePassword, (int)strlen(thePassword));
+
+	char returnedPass[22];
+	int returnedLen = 22;
+	server->GetIncomingPassword(returnedPass, &returnedLen);
+	if (returnedLen != (int)strlen(thePassword) ||
+	    memcmp(returnedPass, thePassword, returnedLen) != 0)
+	{ DestroyPair(server, client); return 42; }
+
+	SocketDescriptor clientSd;
+	if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)
+	{ DestroyPair(server, client); return 41; }
+
+	SystemAddress serverAddress;
+	serverAddress.SetBinaryAddress("127.0.0.1");
+	serverAddress.SetPortHostOrder(PORT_PASSWORD_BAN);
+
+	if (isVerbose) printf("[PasswordBan] Testing that a missing password is rejected\n");
+	if (ConnectWithPassword(client, serverAddress, 0, key.publicKey, 5000))
+	{ DestroyPair(server, client); return 43; }
+
+	if (isVerbose) printf("[PasswordBan] Testing that a wrong password is rejected\n");
+	if (ConnectWithPassword(client, serverAddress, "badpass", key.publicKey, 5000))
+	{ DestroyPair(server, client); return 44; }
+
+	if (isVerbose) printf("[PasswordBan] Testing that the correct password is accepted\n");
+	if (!ConnectWithPassword(client, serverAddress, thePassword, key.publicKey, 5000))
+	{ DestroyPair(server, client); return 45; }
+	DisconnectClient(client, serverAddress);
+
+	if (isVerbose) printf("[PasswordBan] Testing that a banned address is rejected\n");
+	server->AddToBanList("127.0.0.1", 0);
+	if (!server->IsBanned("127.0.0.1"))
+	{ DestroyPair(server, client); return 46; }
+	if (ConnectWithPassword(client, serverAddress, thePassword, key.publicKey, 5000))
+	{ DestroyPair(server, client); return 47; }
+
+	if (isVerbose) printf("[PasswordBan] Testing RemoveFromBanList\n");
+	server->RemoveFromBanList("127.0.0.1");
+	if (server->IsBanned("127.0.0.1"))
+	{ DestroyPair(server, client); return 48; }
+	if (!ConnectWithPassword(client, serverAddress, thePassword, key.publicKey, 5000))
+	{ DestroyPair(server, client); return 49; }
+	DisconnectClient(client, serverAddress);
+
+	if (isVerbose) printf("[PasswordBan] Testing ClearBanList\n");
+	server->AddToBanList("127.0.0.1", 0);
+	if (!server->IsBanned("127.0.0.1"))
+	{ DestroyPair(server, client); return 50; }
+	if (ConnectWithPassword(client, serverAddress, thePassword, key.publicKey, 5000))
+	{ DestroyPair(server, client); return 51; }
+	server->ClearBanList();
+	if (server->IsBanned("127.0.0.1"))
+	{ DestroyPair(server, client); return 52; }
+	if (!ConnectWithPassword(client, serverAddress, thePassword, key.publicKey, 5000))
+	{ DestroyPair(server, client); return 53; }
+
+	DestroyPair(server, client);
+	if (isVerbose) printf("[PasswordBan] PASS: password and ban-list enforcement intact\n");
+	return 0;
+}
+
+// ---------------------------------------------------------------------------
 // TestInterface implementation
 // ---------------------------------------------------------------------------
 
@@ -428,6 +545,16 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params, bool 
 		return rc;
 	}
 	if (isVerbose) printf("=== sub-test 3 PASSED ===\n\n");
+
+	// Sub-test 4: password and ban-list enforcement
+	if (isVerbose) printf("=== SecurityFunctionsTest: sub-test 4 (password and ban list) ===\n");
+	rc = RunPasswordAndBanList(isVerbose);
+	if (rc != 0)
+	{
+		if (isVerbose) printf("FAILED sub-test 4 with code %d\n", rc);
+		return rc;
+	}
+	if (isVerbose) printf("=== sub-test 4 PASSED ===\n\n");
 
 	return 0;
 }
@@ -470,6 +597,22 @@ RakString SecurityFunctionsTest::ErrorCodeToString(int errorCode)
 	case 33: return "[NoKey] Client never received a rejection notification (timeout)";
 	case 34: return "[NoKey] Client got ID_CONNECTION_REQUEST_ACCEPTED — unkeyed server should have rejected!";
 	case 35: return "[NoKey] Server got ID_NEW_INCOMING_CONNECTION — unkeyed server should have rejected!";
+
+	// Sub-test 4: password and ban-list enforcement
+	case 40: return "[PasswordBan] Server failed to start up";
+	case 41: return "[PasswordBan] Client failed to start up";
+	case 42: return "[PasswordBan] GetIncomingPassword returned wrong password";
+	case 43: return "[PasswordBan] Client connected with no password";
+	case 44: return "[PasswordBan] Client connected with wrong password";
+	case 45: return "[PasswordBan] Client failed to connect with correct password";
+	case 46: return "[PasswordBan] IsBanned does not show localhost as banned";
+	case 47: return "[PasswordBan] Client was banned but connected anyways";
+	case 48: return "[PasswordBan] Localhost was not unbanned by RemoveFromBanList";
+	case 49: return "[PasswordBan] Client failed to connect after RemoveFromBanList";
+	case 50: return "[PasswordBan] IsBanned does not show localhost as banned (second ban)";
+	case 51: return "[PasswordBan] Client was banned but connected anyways (second ban)";
+	case 52: return "[PasswordBan] Localhost was not unbanned by ClearBanList";
+	case 53: return "[PasswordBan] Client failed to connect after ClearBanList";
 
 	default: return "Undefined Error";
 	}
