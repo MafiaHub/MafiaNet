@@ -4630,6 +4630,22 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 						return true;
 					}
 
+					if (rcs->useNoiseSecurity && doSecurity==false)
+					{
+						// Mandatory encryption: we pinned a key but this REPLY_2 claims no
+						// security. Completing it would yield a plaintext, unauthenticated
+						// connection (downgrade). Fail closed, mirroring the REPLY_1 path.
+						rakPeer->requestedConnectionQueueMutex.Unlock();
+
+						packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
+						packet->data[ 0 ] = ID_OUR_SYSTEM_REQUIRES_SECURITY;
+						packet->bitSize = ( sizeof( char ) * 8);
+						packet->systemAddress = rcs->systemAddress;
+						packet->guid=guid;
+						rakPeer->AddPacketToProducer(packet);
+						return true;
+					}
+
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 					unlock=false;
 
@@ -4648,6 +4664,12 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					NoiseHandshake verifiedNoise;
 					if (doSecurity)
 					{
+						// A REPLY_2 can only be valid after we generated message A (i.e. after
+						// processing a REPLY_1). Before that, rcs->noise was never initialized
+						// as an initiator, so verifying a (necessarily forged) message B against
+						// it would run the handshake on uninitialized state. Drop silently.
+						if (rcs->noiseMsgAGenerated==false)
+							return true;
 						verifiedNoise = rcs->noise;
 						if (!verifiedNoise.ReadMessageB(serverMsgB))
 						{

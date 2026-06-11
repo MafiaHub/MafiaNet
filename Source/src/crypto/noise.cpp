@@ -153,6 +153,9 @@ NoiseHandshake::NoiseHandshake()
 	memset(s_pub, 0, 32); memset(s_sec, 0, 32);
 	memset(sendKey, 0, 32); memset(recvKey, 0, 32);
 	memset(injectedEphSec, 0, 32);
+	// Defense in depth: never expose uninitialized symmetric state if a message
+	// is (incorrectly) processed before Init{Initiator,Responder} ran.
+	memset(&ss, 0, sizeof ss);
 }
 
 NoiseHandshake::~NoiseHandshake()
