@@ -42,6 +42,18 @@ Sub-test 4 (password and ban-list enforcement, port 60040):
     - AddToBanList blocks the client and IsBanned reports it,
     - RemoveFromBanList and ClearBanList both unban and allow reconnection.
 
+Sub-test 5 (stateless cookie gate, port 60050):
+  The peer API cannot forge a bad cookie, so this sub-test speaks the offline wire
+  protocol over a raw UDP socket. Asserts:
+    - positive control: a hand-crafted REQUEST_1 elicits REPLY_1 carrying a cookie
+      (proves the raw rig works, so the silence assertions below are meaningful),
+    - REQUEST_2 echoing a CORRUPTED cookie is dropped silently (no reply),
+    - a TRUNCATED REQUEST_2 (cookie cut short) is dropped silently,
+    - REQUEST_2 with a VALID cookie but garbage Noise message A is dropped silently
+      (handshake rejected before any connection slot is allocated),
+    - the server is still healthy afterwards: a real client connects successfully
+      (no slot was consumed and no state was poisoned by the rejected packets).
+
 Note on tamper/replay at the network level:
   PacketChangerPlugin and PacketDropPlugin operate at the InternalPacket (reliability-
   layer) level — ABOVE the SecureSession encryption. They mutate logical messages after
@@ -68,7 +80,27 @@ Failure conditions:
   Error codes 20–29 : sub-test 2 (wrong key rejected)
   Error codes 30–39 : sub-test 3 (server with no key rejects client)
   Error codes 40–53 : sub-test 4 (password and ban-list enforcement)
+  Error codes 60–69 : sub-test 5 (stateless cookie gate)
 */
+
+#include "mafianet/version.h"   // RAKNET_PROTOCOL_VERSION, for the raw REQUEST_1
+
+// Raw UDP socket support for sub-test 5 (the peer API cannot forge offline packets).
+#ifdef _WIN32
+#include <winsock2.h>
+typedef SOCKET RawSocket;
+static const RawSocket RAW_SOCKET_INVALID = INVALID_SOCKET;
+static void RawSocketClose(RawSocket s) { closesocket(s); }
+#else
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+typedef int RawSocket;
+static const RawSocket RAW_SOCKET_INVALID = -1;
+static void RawSocketClose(RawSocket s) { close(s); }
+#endif
 
 // ---------------------------------------------------------------------------
 // Port assignments — each sub-test gets its own port to avoid collisions.
@@ -77,6 +109,7 @@ static const unsigned short PORT_HAPPY        = 60010;
 static const unsigned short PORT_WRONG_KEY    = 60020;
 static const unsigned short PORT_NO_KEY       = 60030;
 static const unsigned short PORT_PASSWORD_BAN = 60040;
+static const unsigned short PORT_COOKIE_GATE  = 60050;
 
 // ---------------------------------------------------------------------------
 // Helper: drain all pending packets from a peer, return the first byte of
@@ -506,6 +539,197 @@ static int RunPasswordAndBanList(bool isVerbose)
 }
 
 // ---------------------------------------------------------------------------
+// Sub-test 5: stateless cookie gate (anti-flood)
+// ---------------------------------------------------------------------------
+
+// Wire constant from RakPeer.cpp (file-static there, so duplicated here). Marks
+// a datagram as an offline message; must match or the server ignores the packet.
+static const unsigned char OFFLINE_MESSAGE_DATA_ID_WIRE[16] =
+	{0x00,0xFF,0xFF,0x00,0xFE,0xFE,0xFE,0xFE,0xFD,0xFD,0xFD,0xFD,0x12,0x34,0x56,0x78};
+
+// Wait up to timeoutMs for any datagram. Returns bytes received, 0 on silence.
+static int RawWaitForDatagram(RawSocket sock, unsigned char *buf, int bufLen, int timeoutMs)
+{
+	fd_set readSet;
+	FD_ZERO(&readSet);
+	FD_SET(sock, &readSet);
+	timeval tv;
+	tv.tv_sec = timeoutMs / 1000;
+	tv.tv_usec = (timeoutMs % 1000) * 1000;
+	if (select((int) (sock + 1), &readSet, 0, 0, &tv) <= 0)
+		return 0;
+	int got = (int) recvfrom(sock, (char *) buf, bufLen, 0, 0, 0);
+	return got > 0 ? got : 0;
+}
+
+static void RawDrain(RawSocket sock)
+{
+	unsigned char buf[2048];
+	while (RawWaitForDatagram(sock, buf, sizeof buf, 50) > 0) {}
+}
+
+// Send a hand-crafted REQUEST_1 and parse the cookie out of REPLY_1.
+// Returns true and fills cookieOut on success.
+static bool RawFetchCookie(RawSocket sock, const sockaddr_in &serverAddr, unsigned char cookieOut[16])
+{
+	BitStream req1;
+	req1.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_1);
+	req1.WriteAlignedBytes(OFFLINE_MESSAGE_DATA_ID_WIRE, sizeof(OFFLINE_MESSAGE_DATA_ID_WIRE));
+	req1.Write((unsigned char) RAKNET_PROTOCOL_VERSION);
+	unsigned char pad[16] = {0};   // padding so the datagram passes the offline-length gate
+	req1.WriteAlignedBytes(pad, sizeof pad);
+
+	for (int attempt = 0; attempt < 5; ++attempt)
+	{
+		sendto(sock, (const char *) req1.GetData(), (int) req1.GetNumberOfBytesUsed(), 0,
+		       (const sockaddr *) &serverAddr, sizeof serverAddr);
+		unsigned char buf[2048];
+		int got = RawWaitForDatagram(sock, buf, sizeof buf, 1000);
+		if (got <= 0 || buf[0] != ID_OPEN_CONNECTION_REPLY_1)
+			continue;
+		BitStream bsIn(buf, (unsigned int) got, false);
+		bsIn.IgnoreBytes(sizeof(MessageID));
+		bsIn.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID_WIRE));
+		RakNetGUID serverGuid;
+		bsIn.Read(serverGuid);
+		unsigned char hasCookie = 0;
+		bsIn.Read(hasCookie);
+		if (hasCookie != 1)
+			return false;   // keyed server must always hand out a cookie
+		if (bsIn.ReadAlignedBytes(cookieOut, 16) == false)
+			return false;
+		return true;
+	}
+	return false;
+}
+
+// Build a REQUEST_2. cookieLen < 16 produces the truncated variant (no fields after
+// the cookie); otherwise a full, well-formed REQUEST_2 carrying msgA is built.
+static void RawBuildRequest2(BitStream &bs, const unsigned char *cookie, size_t cookieLen,
+                             const unsigned char msgA[NoiseHandshake::MESSAGE_BYTES])
+{
+	bs.Reset();
+	bs.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
+	bs.WriteAlignedBytes(OFFLINE_MESSAGE_DATA_ID_WIRE, sizeof(OFFLINE_MESSAGE_DATA_ID_WIRE));
+	bs.WriteAlignedBytes(cookie, cookieLen);
+	if (cookieLen < 16)
+		return;
+	bs.Write((unsigned char) 1);   // "doing Noise"
+	bs.WriteAlignedBytes(msgA, NoiseHandshake::MESSAGE_BYTES);
+	SystemAddress bindingAddress;
+	bindingAddress.SetBinaryAddress("127.0.0.1");
+	bindingAddress.SetPortHostOrder(PORT_COOKIE_GATE);
+	bs.Write(bindingAddress);
+	bs.Write((uint16_t) 1400);     // MTU
+	RakNetGUID fakeGuid;
+	fakeGuid.g = 0x1122334455667788ULL;
+	bs.Write(fakeGuid);
+}
+
+// Send a crafted REQUEST_2 and assert the server stays silent.
+// Returns true if no reply arrived within the window.
+static bool RawSendAndExpectSilence(RawSocket sock, const sockaddr_in &serverAddr, const BitStream &bs)
+{
+	sendto(sock, (const char *) bs.GetData(), (int) bs.GetNumberOfBytesUsed(), 0,
+	       (const sockaddr *) &serverAddr, sizeof serverAddr);
+	unsigned char buf[2048];
+	return RawWaitForDatagram(sock, buf, sizeof buf, 1200) == 0;
+}
+
+static int RunCookieGate(bool isVerbose)
+{
+	RakPeerInterface* server = RakPeerInterface::GetInstance();
+	ServerSecurityKey key = GenerateServerSecurityKey();
+	server->SetServerSecurityKey(key);
+	SocketDescriptor serverSd(PORT_COOKIE_GATE, 0);
+	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
+	{ DestroyPair(server, 0); return 60; }
+	server->SetMaximumIncomingConnections(8);
+
+	RawSocket sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == RAW_SOCKET_INVALID)
+	{ DestroyPair(server, 0); return 61; }
+
+	sockaddr_in serverAddr;
+	memset(&serverAddr, 0, sizeof serverAddr);
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_port = htons(PORT_COOKIE_GATE);
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	unsigned char garbageMsgA[NoiseHandshake::MESSAGE_BYTES];
+	memset(garbageMsgA, 0xAB, sizeof garbageMsgA);
+	BitStream req2;
+	int rc = 0;
+
+	// Positive control: prove the raw rig elicits replies before asserting silence.
+	if (isVerbose) printf("[CookieGate] Fetching a genuine cookie via raw REQUEST_1\n");
+	unsigned char cookie[16];
+	if (!RawFetchCookie(sock, serverAddr, cookie))
+		rc = 62;
+	RawDrain(sock);   // discard surplus REPLY_1s from retries
+
+	if (rc == 0)
+	{
+		if (isVerbose) printf("[CookieGate] REQUEST_2 with corrupted cookie must be dropped silently\n");
+		unsigned char badCookie[16];
+		memcpy(badCookie, cookie, 16);
+		badCookie[0] ^= 0x01;
+		RawBuildRequest2(req2, badCookie, sizeof badCookie, garbageMsgA);
+		if (!RawSendAndExpectSilence(sock, serverAddr, req2))
+			rc = 63;
+	}
+
+	if (rc == 0)
+	{
+		if (isVerbose) printf("[CookieGate] Truncated REQUEST_2 must be dropped silently\n");
+		RawBuildRequest2(req2, cookie, 8, 0);   // cookie cut short
+		if (!RawSendAndExpectSilence(sock, serverAddr, req2))
+			rc = 64;
+	}
+
+	if (rc == 0)
+	{
+		// Re-fetch: the first cookie may have aged past its time bucket by now.
+		if (isVerbose) printf("[CookieGate] Valid cookie + garbage message A must be dropped silently\n");
+		if (!RawFetchCookie(sock, serverAddr, cookie))
+			rc = 62;
+		else
+		{
+			RawDrain(sock);
+			RawBuildRequest2(req2, cookie, sizeof cookie, garbageMsgA);
+			if (!RawSendAndExpectSilence(sock, serverAddr, req2))
+				rc = 65;
+		}
+	}
+
+	RawSocketClose(sock);
+
+	if (rc == 0)
+	{
+		// Server must still be healthy: none of the rejected packets may have
+		// consumed a slot or poisoned state.
+		if (isVerbose) printf("[CookieGate] Real client must still connect after the attack traffic\n");
+		RakPeerInterface* client = RakPeerInterface::GetInstance();
+		SocketDescriptor clientSd;
+		if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)
+		{ DestroyPair(server, client); return 66; }
+		SystemAddress serverAddress;
+		serverAddress.SetBinaryAddress("127.0.0.1");
+		serverAddress.SetPortHostOrder(PORT_COOKIE_GATE);
+		if (!ConnectWithPassword(client, serverAddress, 0, key.publicKey, 5000))
+			rc = 67;
+		DestroyPair(server, client);
+	}
+	else
+	{
+		DestroyPair(server, 0);
+	}
+
+	if (rc == 0 && isVerbose) printf("[CookieGate] PASS: cookie gate drops forged/truncated handshakes silently\n");
+	return rc;
+}
+
+// ---------------------------------------------------------------------------
 // TestInterface implementation
 // ---------------------------------------------------------------------------
 
@@ -555,6 +779,16 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params, bool 
 		return rc;
 	}
 	if (isVerbose) printf("=== sub-test 4 PASSED ===\n\n");
+
+	// Sub-test 5: stateless cookie gate
+	if (isVerbose) printf("=== SecurityFunctionsTest: sub-test 5 (stateless cookie gate) ===\n");
+	rc = RunCookieGate(isVerbose);
+	if (rc != 0)
+	{
+		if (isVerbose) printf("FAILED sub-test 5 with code %d\n", rc);
+		return rc;
+	}
+	if (isVerbose) printf("=== sub-test 5 PASSED ===\n\n");
 
 	return 0;
 }
@@ -613,6 +847,16 @@ RakString SecurityFunctionsTest::ErrorCodeToString(int errorCode)
 	case 51: return "[PasswordBan] Client was banned but connected anyways (second ban)";
 	case 52: return "[PasswordBan] Localhost was not unbanned by ClearBanList";
 	case 53: return "[PasswordBan] Client failed to connect after ClearBanList";
+
+	// Sub-test 5: stateless cookie gate
+	case 60: return "[CookieGate] Server failed to start up";
+	case 61: return "[CookieGate] Could not create raw UDP socket";
+	case 62: return "[CookieGate] Positive control failed: raw REQUEST_1 got no REPLY_1 with cookie";
+	case 63: return "[CookieGate] Server replied to a REQUEST_2 with a corrupted cookie";
+	case 64: return "[CookieGate] Server replied to a truncated REQUEST_2";
+	case 65: return "[CookieGate] Server replied to a valid cookie with garbage message A";
+	case 66: return "[CookieGate] Follow-up client failed to start up";
+	case 67: return "[CookieGate] Real client could not connect after the attack traffic";
 
 	default: return "Undefined Error";
 	}

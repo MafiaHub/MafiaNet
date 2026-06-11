@@ -3220,9 +3220,11 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 	bs.Read(guid);
 	MafiaNet::Time incomingTimestamp;
 	bs.Read(incomingTimestamp);
-	unsigned char doSecurity;
-	bs.Read(doSecurity);
-
+	// Reserved byte kept for wire framing; it carried the libcat "doSecurity" flag.
+	// Security is now negotiated entirely in the offline handshake, so it gates nothing.
+	unsigned char reservedSecurityByte;
+	bs.Read(reservedSecurityByte);
+	(void) reservedSecurityByte;
 
 	unsigned char *password = bs.GetData()+BITS_TO_BYTES(bs.GetReadOffset());
 	int passwordLength = byteSize - BITS_TO_BYTES(bs.GetReadOffset());
@@ -4702,6 +4704,9 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 							temp.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 							temp.Write(MafiaNet::GetTime());
 
+							// Reserved byte kept for wire framing. It carried the libcat
+							// "doSecurity" flag; security is now negotiated entirely in the
+							// offline handshake, so the receiver ignores it.
 							temp.Write((unsigned char)0);
 
 							if ( rcs->outgoingPasswordLength > 0 )
@@ -4989,9 +4994,31 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			if (outcome==1)
 			{
 				// Duplicate connection request packet from packetloss
-				// Send back the same answer (cached Noise message B). Do NOT re-run the handshake.
 				if (requiresSecurityOfThisClient)
 				{
+					// Same message A as before: routine retry, resend the cached message B
+					// verbatim (do NOT re-run the handshake; a fresh server ephemeral would
+					// invalidate a REPLY_2 the client may already be verifying).
+					// A DIFFERENT message A means the client restarted its attempt (cancel +
+					// re-Connect keeps the same GUID, so it lands on this half-open
+					// UNVERIFIED_SENDER slot). The cached answer can never verify against the
+					// new ephemeral, so re-run the handshake and re-key the slot; otherwise
+					// the new attempt is stranded until the slot times out and fails with a
+					// misleading ID_PUBLIC_KEY_MISMATCH.
+					if (memcmp(clientMsgA, rssFromSA->lastClientHandshakeMessageA, sizeof(clientMsgA)) != 0)
+					{
+						NoiseHandshake freshNoise;
+						freshNoise.InitResponder(rakPeer->serverSecurityKey.publicKey, rakPeer->serverSecurityKey.secretKey);
+						if (!freshNoise.ReadMessageA(clientMsgA))
+							return true; // bad message A -> drop silently, keep existing state
+						freshNoise.WriteMessageB(rssFromSA->answer);
+						unsigned char sKey[32], rKey[32];
+						freshNoise.GetTransportKeys(sKey, rKey);
+						rssFromSA->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
+						sodium_memzero(sKey, sizeof(sKey));
+						sodium_memzero(rKey, sizeof(rKey));
+						memcpy(rssFromSA->lastClientHandshakeMessageA, clientMsgA, sizeof(rssFromSA->lastClientHandshakeMessageA));
+					}
 					bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer,sizeof(rssFromSA->answer));
 				}
 
@@ -5086,6 +5113,9 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				rssFromSA->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
 				sodium_memzero(sKey, sizeof(sKey));
 				sodium_memzero(rKey, sizeof(rKey));
+				// Remember which message A this answer was derived from, so a duplicate
+				// REQUEST_2 can distinguish a routine retry from a restarted attempt.
+				memcpy(rssFromSA->lastClientHandshakeMessageA, clientMsgA, sizeof(rssFromSA->lastClientHandshakeMessageA));
 
 				bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer,sizeof(rssFromSA->answer));
 			}

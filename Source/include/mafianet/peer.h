@@ -665,6 +665,13 @@ public:
 		// bytes rather than re-running the handshake.
 		unsigned char answer[NoiseHandshake::MESSAGE_BYTES];
 
+		// The client Noise message A that `answer` was derived from. A duplicate REQUEST_2
+		// carrying the SAME message A resends `answer` verbatim (routine packet-loss retry);
+		// a DIFFERENT message A means the client restarted its attempt with a fresh
+		// ephemeral, so the handshake is re-run instead of stranding the new attempt on a
+		// stale cached answer.
+		unsigned char lastClientHandshakeMessageA[NoiseHandshake::MESSAGE_BYTES];
+
 		enum ConnectMode {NO_ACTION, DISCONNECT_ASAP, DISCONNECT_ASAP_SILENTLY, DISCONNECT_ON_NO_ACK, REQUESTED_CONNECTION, HANDLING_CONNECTION_REQUEST, UNVERIFIED_SENDER, CONNECTED} connectMode;
 	};
 

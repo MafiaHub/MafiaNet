@@ -114,11 +114,11 @@ int main(void)
 	// a connectionValidationInteger, and false for low priority threads
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
 	socketDescriptor.socketFamily=AF_INET;
-	client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	client->Startup(8,&socketDescriptor, 1);
 	client->SetOccasionalPing(true);
 
-	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerKey().publicKey);
+	// Pure client: pin the server's PUBLIC key only; the demo secret stays server-side.
+	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerPublicKey());
 	RakAssert(car== MafiaNet::CONNECTION_ATTEMPT_STARTED);
 
 	printf("\nMy IP addresses:\n");
@@ -190,7 +190,6 @@ int main(void)
 
 			if (strcmp(message, "startup")==0)
 			{
-				client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 				bool b = client->Startup(8,&socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
 				if (b)
 					printf("Started.\n");
@@ -217,7 +216,7 @@ int main(void)
 					return 2;
 				}
 
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerKey().publicKey)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
+				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerPublicKey())== MafiaNet::CONNECTION_ATTEMPT_STARTED;
 
 				if (b)
 					puts("Attempting connection");
