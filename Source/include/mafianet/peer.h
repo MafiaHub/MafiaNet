@@ -820,7 +820,8 @@ protected:
 		enum {CONNECT=1, /*PING=2, PING_OPEN_CONNECTIONS=4,*/ /*ADVERTISE_SYSTEM=2*/} actionToTake;
 
 		// Noise_NK security state for this connection attempt (initiator side).
-		bool useNoiseSecurity;                 // this connection attempt is encrypted
+		// Encryption is mandatory: every attempt pins a server key, so there is no
+		// per-attempt "is encrypted" flag.
 		unsigned char serverPublicKey[32];     // pinned server static public key
 		NoiseHandshake noise;                  // initiator state, persists across REQUEST_2 -> REPLY_2
 		// Message A is generated exactly once per attempt and these bytes are resent

@@ -3062,7 +3062,6 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->timeoutTime=timeoutTime;
 
 	// Noise_NK: encryption is mandatory. The client always pins the server's static public key.
-	rcs->useNoiseSecurity = true;
 	memcpy(rcs->serverPublicKey, serverPublicKey, sizeof(rcs->serverPublicKey));
 	rcs->noiseMsgAGenerated = false;
 	memset(rcs->noiseMsgA, 0, sizeof(rcs->noiseMsgA));
@@ -3114,7 +3113,6 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->socket=socket;
 
 	// Noise_NK: encryption is mandatory. The client always pins the server's static public key.
-	rcs->useNoiseSecurity = true;
 	memcpy(rcs->serverPublicKey, serverPublicKey, sizeof(rcs->serverPublicKey));
 	rcs->noiseMsgAGenerated = false;
 	memset(rcs->noiseMsgA, 0, sizeof(rcs->noiseMsgA));
@@ -4348,6 +4346,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 		(unsigned char)data[0] == ID_NO_FREE_INCOMING_CONNECTIONS ||
 		(unsigned char)data[0] == ID_CONNECTION_BANNED ||
 		(unsigned char)data[0] == ID_ALREADY_CONNECTED ||
+		(unsigned char)data[0] == ID_OUR_SYSTEM_REQUIRES_SECURITY ||
 		(unsigned char)data[0] == ID_IP_RECENTLY_CONNECTED) &&
 		(size_t) length >= sizeof(MessageID) + RakNetGUID::size() + sizeof(OFFLINE_MESSAGE_DATA_ID))
 	{
@@ -4507,46 +4506,34 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 						// Echo the server's stateless cookie.
 						bsOut.WriteAlignedBytes(cookie, sizeof(cookie));
 
-						if (rcs->useNoiseSecurity)
+						// Announce we are doing Noise and send message A.
+						bsOut.Write((unsigned char)1);
+						// Generate message A exactly once per connection attempt and resend
+						// the same bytes on every subsequent REPLY_1. REQUEST_1 keeps being
+						// resent until REPLY_2 completes the attempt, so duplicate REPLY_1s
+						// are routine (RTT above the retry interval, or a lost REPLY_2).
+						// Re-running the handshake here would pick a fresh ephemeral and
+						// invalidate the message B the server cached for the first message A.
+						if (rcs->noiseMsgAGenerated==false)
 						{
-							// Announce we are doing Noise and send message A.
-							bsOut.Write((unsigned char)1);
-							// Generate message A exactly once per connection attempt and resend
-							// the same bytes on every subsequent REPLY_1. REQUEST_1 keeps being
-							// resent until REPLY_2 completes the attempt, so duplicate REPLY_1s
-							// are routine (RTT above the retry interval, or a lost REPLY_2).
-							// Re-running the handshake here would pick a fresh ephemeral and
-							// invalidate the message B the server cached for the first message A.
-							if (rcs->noiseMsgAGenerated==false)
-							{
-								rcs->noise.InitInitiator(rcs->serverPublicKey);
-								rcs->noise.WriteMessageA(rcs->noiseMsgA);
-								rcs->noiseMsgAGenerated=true;
-							}
-							bsOut.WriteAlignedBytes(rcs->noiseMsgA, sizeof(rcs->noiseMsgA));
+							rcs->noise.InitInitiator(rcs->serverPublicKey);
+							rcs->noise.WriteMessageA(rcs->noiseMsgA);
+							rcs->noiseMsgAGenerated=true;
 						}
-						else
-						{
-							// Server requires security but the client did not pin a key -> mismatch.
-							// Announce flag=0; the server will reject this attempt.
-							bsOut.Write((unsigned char)0);
-						}
+						bsOut.WriteAlignedBytes(rcs->noiseMsgA, sizeof(rcs->noiseMsgA));
 					}
 					else
 					{
-						// Server is plaintext.
-						if (rcs->useNoiseSecurity)
-						{
-							// We explicitly pinned a key but the server has no security -> fail closed.
-							rakPeer->requestedConnectionQueueMutex.Unlock();
-							packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
-							packet->data[ 0 ] = ID_OUR_SYSTEM_REQUIRES_SECURITY;
-							packet->bitSize = ( sizeof( char ) * 8);
-							packet->systemAddress = rcs->systemAddress;
-							packet->guid=serverGuid;
-							rakPeer->AddPacketToProducer(packet);
-							return true;
-						}
+						// Server is plaintext. We always pin a key (encryption is
+						// mandatory), so fail closed.
+						rakPeer->requestedConnectionQueueMutex.Unlock();
+						packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
+						packet->data[ 0 ] = ID_OUR_SYSTEM_REQUIRES_SECURITY;
+						packet->bitSize = ( sizeof( char ) * 8);
+						packet->systemAddress = rcs->systemAddress;
+						packet->guid=serverGuid;
+						rakPeer->AddPacketToProducer(packet);
+						return true;
 					}
 
 					uint16_t mtu;
@@ -4615,22 +4602,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 				if (rcs->systemAddress==systemAddress)
 				{
-					if (doSecurity && rcs->useNoiseSecurity==false)
-					{
-						// Server wants security but we never pinned a key for this attempt.
-						rakPeer->requestedConnectionQueueMutex.Unlock();
-
-						packet=rakPeer->AllocPacket(2, _FILE_AND_LINE_);
-						packet->data[ 0 ] = ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY; // Attempted a connection and couldn't
-						packet->data[ 1 ] = 0; // Indicate server public key is missing
-						packet->bitSize = ( sizeof( char ) * 8);
-						packet->systemAddress = rcs->systemAddress;
-						packet->guid=guid;
-						rakPeer->AddPacketToProducer(packet);
-						return true;
-					}
-
-					if (rcs->useNoiseSecurity && doSecurity==false)
+					if (doSecurity==false)
 					{
 						// Mandatory encryption: we pinned a key but this REPLY_2 claims no
 						// security. Completing it would yield a plaintext, unauthenticated
@@ -4771,6 +4743,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			(unsigned char)(data)[0] == (MessageID)ID_CONNECTION_BANNED ||
 			(unsigned char)(data)[0] == (MessageID)ID_ALREADY_CONNECTED ||
 			(unsigned char)(data)[0] == (MessageID)ID_INVALID_PASSWORD ||
+			(unsigned char)(data)[0] == (MessageID)ID_OUR_SYSTEM_REQUIRES_SECURITY ||
 			(unsigned char)(data)[0] == (MessageID)ID_IP_RECENTLY_CONNECTED ||
 			(unsigned char)(data)[0] == (MessageID)ID_INCOMPATIBLE_PROTOCOL_VERSION)
 		{

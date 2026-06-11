@@ -245,7 +245,11 @@ void NoiseHandshake::WriteMessageB(unsigned char out[48])
 	ss.MixHash(e_pub, 32);
 	memcpy(out, e_pub, 32);
 	unsigned char dh[32];
-	crypto_scalarmult(dh, e_sec, remoteEph);   // ee = DH(e, re)
+	// ee = DH(e, re). remoteEph already passed ReadMessageA's low-order check, so this
+	// cannot fail at the current call sites; mirror WriteMessageA's fail-closed handling
+	// anyway so the invariant doesn't silently depend on call order.
+	if (crypto_scalarmult(dh, e_sec, remoteEph) != 0)
+		sodium_memzero(dh, sizeof dh);             // mix a defined all-zero value; handshake fails downstream at the AEAD tag
 	ss.MixKey(dh, 32);
 	sodium_memzero(dh, sizeof dh);
 	ss.EncryptAndHash(nullptr, 0, out + 32);
