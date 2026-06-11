@@ -8,11 +8,11 @@ Unreleased
 
 .. rubric:: Breaking changes
 
-* **Mandatory default encryption (wire-incompatible with 0.7.x).** Every
-  connection is now encrypted and authenticated using the
+* **Mandatory default encryption (wire-incompatible with 0.9.x and earlier).**
+  Every connection is now encrypted and authenticated using the
   ``Noise_NK_25519_ChaChaPoly_SHA512`` cipher suite (libsodium).  There is no
-  opt-out.  Peers built against this version cannot talk to 0.7.x peers; plan
-  a coordinated server + client upgrade.
+  opt-out.  Peers built against this version cannot talk to peers from any
+  earlier release; plan a coordinated server + client upgrade.
 
 * **``Connect`` / ``ConnectWithSocket`` signature changed.** The former
   optional ``PublicKey*`` fifth argument is replaced by a *required*
@@ -58,6 +58,57 @@ Unreleased
 * **libsodium** is now a required dependency (fetched automatically via CMake
   FetchContent).  OpenSSL is still required for TLS-layer features.
 * libcat has been removed.
+
+Version 0.9.0
+-------------
+
+**Core**
+
+* **Strong-typed** ``PeerGuid``. A new ``enum class PeerGuid : uint64_t`` names a
+  peer's ``RakNetGUID`` value distinctly from ``NetworkID`` (an object id), so the
+  two can no longer be passed interchangeably in a ``uint64_t``-typed signature —
+  removing a class of silent "passed the wrong id" bugs in ReplicaManager3 glue
+  and ``void(uint64_t)`` callbacks. Convert with ``ToPeerGuid()`` / ``ToGuid()``,
+  and compare against the ``UNASSIGNED_PEER_GUID`` sentinel. Being a
+  trivially-copyable 8-byte scoped enum, it serializes byte-identically through
+  ``BitStream`` (and therefore ``VariableDeltaSerializer``) to the raw
+  ``uint64_t`` it replaces, so it is fully wire-compatible and requires no
+  netcode/protocol bump. Purely additive — no behavioural change.
+
+Version 0.8.0
+-------------
+
+**Core**
+
+* **Optional disconnect reason on graceful disconnects.** ``CloseConnection``
+  gains a final optional ``const BitStream *reasonData`` argument whose bytes are
+  appended right after the ``ID_DISCONNECTION_NOTIFICATION`` message ID, so the
+  remote peer can learn *why* it was dropped (e.g. a kick/ban enum plus a custom
+  string). The receiver reads it exactly like any other message body —
+  ``packet->data + 1`` for ``packet->length - 1`` bytes. Only graceful
+  disconnects carry a reason; locally-synthesized notifications
+  (``ID_CONNECTION_LOST`` and the timeout/dead-connection path) stay
+  payload-less, so consumers must tolerate a zero-length body. Appending bytes
+  after the 1-byte ID is wire-backward-compatible: peers that only inspect
+  ``data[0]`` are unaffected.
+
+**Bug fix**
+
+* ``RakPeer::CloseConnection`` no longer coerces an unresolved target index
+  (``-1`` from ``GetIndexFromSystemAddress``) to ``0`` and then reads
+  ``remoteSystemList[0]`` — which targeted an unrelated peer's slot or crashed
+  when the list was unallocated. The close socket is now resolved without
+  assuming a valid slot index.
+
+**Documentation**
+
+* Added a "Disconnect with a reason" section to the connecting guide and a
+  cross-reference from the disconnect-debugging guide.
+
+**Testing**
+
+* Added ``DisconnectReasonTest`` covering reason round-trip, the ``nullptr``
+  default, and the empty-but-non-null ``BitStream`` guard.
 
 Version 0.7.0
 -------------

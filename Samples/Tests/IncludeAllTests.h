@@ -32,4 +32,7 @@
 #include "RPC4ContextTest.h"
 #include "VirtualWorldTest.h"
 #include "CryptoUnitTest.h"
+#include "DisconnectReasonTest.h"
+#include "PeerGuidTest.h"
+#include "PointGridSectorizerTest.h"
 

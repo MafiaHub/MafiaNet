@@ -284,8 +284,8 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 
 - **Mandatory Noise_NK encryption**: every datagram is now encrypted and
   authenticated (ChaCha20-Poly1305 AEAD, X25519 key exchange, libsodium).
-  There is no opt-out. **Wire-incompatible with 0.7.x** — coordinate a
-  server + client upgrade.
+  There is no opt-out. **Wire-incompatible with 0.9.x and earlier** —
+  coordinate a server + client upgrade.
 - **`Connect` / `ConnectWithSocket` signature change**: the optional
   `PublicKey*` argument is replaced by a *required* 32-byte pinned server
   X25519 public key (`const unsigned char serverPublicKey[32]`).
@@ -301,7 +301,14 @@ Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisc
 - **libsodium** is now a required dependency (auto-fetched via CMake);
   libcat has been removed.
 
-### Version 0.7.0 (Latest)
+### Version 0.9.0 (Latest)
+- **Strong-typed `PeerGuid`**: a new `enum class PeerGuid : uint64_t` names a peer's `RakNetGUID` value distinctly from `NetworkID` (an object id), so the two can no longer be passed interchangeably in a `uint64_t`-typed signature — removing a class of silent "passed the wrong id" bugs in ReplicaManager3 glue and `void(uint64_t)` callbacks. Convert with `ToPeerGuid()` / `ToGuid()` and compare against `UNASSIGNED_PEER_GUID`. As a trivially-copyable 8-byte scoped enum it serializes byte-identically through `BitStream` (and therefore `VariableDeltaSerializer`) to the raw `uint64_t` it replaces — fully wire-compatible, no netcode bump. Purely additive, no behavioural change
+
+### Version 0.8.0
+- **Optional disconnect reason**: `CloseConnection` gains a final optional `const BitStream *reasonData` argument whose bytes are appended right after the `ID_DISCONNECTION_NOTIFICATION` message ID, so the remote peer can learn *why* it was dropped (e.g. a kick/ban enum plus a custom string). The receiver reads it like any other body — `packet->data + 1` for `packet->length - 1` bytes. Only graceful disconnects carry a reason; locally-synthesized notifications (`ID_CONNECTION_LOST`, timeout/dead-connection) stay payload-less, so always tolerate a zero-length body. Wire-backward-compatible: peers that only inspect `data[0]` are unaffected
+- **Bug fix**: `RakPeer::CloseConnection` no longer coerces an unresolved target index (`-1`) to `0` and reads `remoteSystemList[0]` — which targeted an unrelated peer's slot or crashed on an unallocated list; the close socket is now resolved without assuming a valid slot index
+
+### Version 0.7.0
 - **Virtual worlds (dimensions)**: new per-entity / per-observer `VirtualWorldId` scoping on top of ReplicaManager3 — the SA-MP `SetPlayerVirtualWorld` / routing-bucket model for instanced interiors (e.g. apartments). Players only see entities sharing their virtual world (or `VIRTUAL_WORLD_GLOBAL`), switchable at runtime with no reconnect. Derive entities from `VirtualWorldReplica3`; `Connection_RM3` gets `Get/SetVirtualWorld`; `ReplicaManager3` gets `GetConnectionsInVirtualWorld`/`GetGuidsInVirtualWorld` and `SetPlayerVirtualWorld`. The filter is authority-only, so a downloaded copy never despawns the entity at its owner. See `Samples/VirtualWorld`
 
 ### Version 0.6.1
