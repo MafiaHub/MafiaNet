@@ -66,8 +66,8 @@ class Client
 			MafiaNet::SocketDescriptor socketDescriptor;
 			socketDescriptor.port=0;
 			nextSendTime=0;
-			SLNET_VERIFY(peer->Startup(1, &socketDescriptor, 1) == RAKNET_STARTED);
 			peer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+			SLNET_VERIFY(peer->Startup(1, &socketDescriptor, 1) == RAKNET_STARTED);
 			isConnected=false;
 		}
 		void Connect(void)
@@ -167,8 +167,8 @@ class Server
 		{
 			MafiaNet::SocketDescriptor socketDescriptor;
 			socketDescriptor.port=(unsigned short) SERVER_PORT;
-			SLNET_VERIFY(peer->Startup((unsigned short)600, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED);
 			peer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+			SLNET_VERIFY(peer->Startup((unsigned short)600, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED);
 			peer->SetMaximumIncomingConnections(600);
 		}
 		unsigned ConnectionCount(void) const

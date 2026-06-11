@@ -135,13 +135,13 @@ int main(void)
 #ifdef USE_TCP
 	SLNET_VERIFY(tcp1.Start(localPort, 8));
 #else
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (rakPeer->Startup(8,&socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
 	{
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 		printf("RakNet initialize failed.  Possibly duplicate port.\n");
 		return 1;
 	}
-	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 #endif
 

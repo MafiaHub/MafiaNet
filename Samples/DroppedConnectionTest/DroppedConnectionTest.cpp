@@ -67,8 +67,8 @@ int main(void)
 	unsigned short serverPort = 20000;
 	server= MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor socketDescriptor(serverPort,0);
-	server->Startup(NUMBER_OF_CLIENTS, &socketDescriptor, 1);
 	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	server->Startup(NUMBER_OF_CLIENTS, &socketDescriptor, 1);
 	server->SetMaximumIncomingConnections(NUMBER_OF_CLIENTS);
 	server->SetTimeoutTime(10000,UNASSIGNED_SYSTEM_ADDRESS);
 
@@ -76,8 +76,8 @@ int main(void)
 	{
 		clients[index]= MafiaNet::RakPeerInterface::GetInstance();
 		MafiaNet::SocketDescriptor socketDescriptor2(serverPort+1+index,0);
-		clients[index]->Startup(1, &socketDescriptor2, 1);
 		clients[index]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		clients[index]->Startup(1, &socketDescriptor2, 1);
 		clients[index]->Connect("127.0.0.1", serverPort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		clients[index]->SetTimeoutTime(5000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 

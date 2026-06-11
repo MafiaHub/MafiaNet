@@ -222,8 +222,8 @@ int main()
 
 	for (i=0; i < NUM_CONNECTIONS; i++)
 	{
-		rakPeer[i]->Startup(1,&socketDescriptor, 1);
 		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakPeer[i]->Startup(1,&socketDescriptor, 1);
 		rakPeer[i]->Connect(ip, static_cast<unsigned short>(intServerPort), 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 
 		rakPeer[i]->AttachPlugin(&lobby2Client[i]);

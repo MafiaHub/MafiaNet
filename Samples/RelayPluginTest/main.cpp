@@ -56,8 +56,8 @@ int main(void)
 	// a connectionValidationInteger, and false for low priority threads
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intListenPort),0);
 	socketDescriptor.socketFamily=AF_INET;
-	peer->Startup(8,&socketDescriptor, 1);
 	peer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	peer->Startup(8,&socketDescriptor, 1);
 	peer->SetMaximumIncomingConnections(8);
 	peer->SetOccasionalPing(true);
 

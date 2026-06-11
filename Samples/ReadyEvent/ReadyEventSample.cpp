@@ -66,9 +66,9 @@ int main(void)
 	SocketDescriptor sd(60000,0);
 	while (IRNS2_Berkley::IsPortInUse(sd.port,sd.hostAddress,sd.socketFamily,SOCK_DGRAM)==true)
 		sd.port++;
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult sr = rakPeer->Startup(8, &sd, 1);
 	RakAssert(sr==RAKNET_STARTED);
-	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	printf("Started on port %i\n", sd.port);
 
 	// Give the threads time to properly start
@@ -131,9 +131,9 @@ int main(void)
 		{
 			ch=0;
 			rakPeer->Shutdown(100,0);
+			rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			sr = rakPeer->Startup(8, &sd, 1);
 			RakAssert(sr==RAKNET_STARTED);
-			rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 			printf("Restarting RakPeerInterface.\n");
 		}
 		if (ch=='f' || ch=='F')

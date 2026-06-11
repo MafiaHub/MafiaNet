@@ -49,8 +49,8 @@ int main()
 		fcm2[i].SetAutoparticipateConnections(true);
 		MafiaNet::SocketDescriptor sd;
 		sd.port=60000+i;
-		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		printf("Our guid is %s\n", rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());

@@ -89,8 +89,8 @@ int main(void)
 	{
 		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
 		MafiaNet::SocketDescriptor sd(STARTING_PORT+i,0);
-		rakPeer[i]->Startup(RAKPEER_COUNT,&sd,1);
 		rakPeer[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakPeer[i]->Startup(RAKPEER_COUNT,&sd,1);
 	}
 
 	for (unsigned short i=SERVER_1; i < RAKPEER_COUNT; i++)

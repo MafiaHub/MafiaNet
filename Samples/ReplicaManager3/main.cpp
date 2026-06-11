@@ -505,8 +505,8 @@ int main(void)
 	}
 
 	// Start RakNet, up to 32 connections if the server
-	rakPeer->Startup(32,&sd,1);
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	rakPeer->Startup(32,&sd,1);
 	rakPeer->AttachPlugin(&replicaManager);
 	replicaManager.SetNetworkIDManager(&networkIdManager);
 	rakPeer->SetMaximumIncomingConnections(32);

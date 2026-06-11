@@ -120,8 +120,8 @@ int main(void)
 		return 1;
 	}
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intLocalPort), 0);
-	rakPeer->Startup(4, &socketDescriptor, 1);
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	rakPeer->Startup(4, &socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(4);
 	rakPeer->AttachPlugin(&rakVoice);
 	rakPeer->AttachPlugin(&natPunchthroughClient);

@@ -37,15 +37,15 @@ int main()
 #if RAKNET_SUPPORT_IPV6==1
 	sd1.socketFamily=AF_INET6; // Test out IPV6
 #endif
+	rakPeer[0]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	sr = rakPeer[0]->Startup(1,&sd1, 1);
 	RakAssert(sr== MafiaNet::RAKNET_STARTED);
-	rakPeer[0]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 #if RAKNET_SUPPORT_IPV6==1
 	sd2.socketFamily=AF_INET6; // Test out IPV6
 #endif
+	rakPeer[1]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	sr = rakPeer[1]->Startup(1,&sd2, 1);
 	RakAssert(sr== MafiaNet::RAKNET_STARTED);
-	rakPeer[1]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer[1]->SetMaximumIncomingConnections(1);
 	MafiaNet::UDPForwarder udpForwarder;
 	

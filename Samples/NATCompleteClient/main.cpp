@@ -850,6 +850,7 @@ int main(void)
 		port = static_cast<unsigned short>(intLocalPort);
 	}
 	MafiaNet::SocketDescriptor sd(port,0);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (rakPeer->Startup(32,&sd,1)!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Failed to start rakPeer! Quitting\n");
@@ -857,7 +858,6 @@ int main(void)
 		_getch();
 		return 1;
 	}
-	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(32);
 
 	SampleFramework *samples[FEATURE_LIST_COUNT];

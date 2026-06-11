@@ -88,12 +88,11 @@ static int RunHappyPath(bool isVerbose)
 	RakPeerInterface* client = RakPeerInterface::GetInstance();
 
 	SocketDescriptor serverSd(PORT_HAPPY, 0);
+	ServerSecurityKey key = GenerateServerSecurityKey();
+	server->SetServerSecurityKey(key);
 	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
 	{ DestroyPair(server, client); return 1; }
 	server->SetMaximumIncomingConnections(8);
-
-	ServerSecurityKey key = GenerateServerSecurityKey();
-	server->SetServerSecurityKey(key);
 
 	SocketDescriptor clientSd;
 	if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)
@@ -201,13 +200,12 @@ static int RunWrongKeyRejected(bool isVerbose)
 	RakPeerInterface* client = RakPeerInterface::GetInstance();
 
 	SocketDescriptor serverSd(PORT_WRONG_KEY, 0);
-	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
-	{ DestroyPair(server, client); return 20; }
-	server->SetMaximumIncomingConnections(8);
-
 	// Server installs its real identity.
 	ServerSecurityKey serverKey = GenerateServerSecurityKey();
 	server->SetServerSecurityKey(serverKey);
+	if (server->Startup(8, &serverSd, 1) != RAKNET_STARTED)
+	{ DestroyPair(server, client); return 20; }
+	server->SetMaximumIncomingConnections(8);
 
 	SocketDescriptor clientSd;
 	if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)

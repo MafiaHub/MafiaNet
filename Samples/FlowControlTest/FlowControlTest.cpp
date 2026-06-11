@@ -95,8 +95,8 @@ int main(void)
 	if (rakServer)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-		rakServer->Startup(100, &socketDescriptor, 1);
 		rakServer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakServer->Startup(100, &socketDescriptor, 1);
 		rakServer->SetMaximumIncomingConnections(100);
 	}
 	else
@@ -119,8 +119,8 @@ int main(void)
 			remotePort = static_cast<unsigned short>(intRemotePort);
 		}
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-		rakClient->Startup(1, &socketDescriptor, 1);
 		rakClient->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakClient->Startup(1, &socketDescriptor, 1);
 		rakClient->Connect(remoteIP, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	}
 

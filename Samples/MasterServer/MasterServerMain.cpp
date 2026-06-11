@@ -55,8 +55,8 @@ int main(void)
 
 	testGameMasterServer = RakPeerInterface::GetInstance();
 	SocketDescriptor sd(60000, 0);
-	testGameMasterServer->Startup(10, &sd, 1);
 	testGameMasterServer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	testGameMasterServer->Startup(10, &sd, 1);
 	testGameMasterServer->SetMaximumIncomingConnections(8);
 	testGameMasterServer->AttachPlugin(&masterServer);
 

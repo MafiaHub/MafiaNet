@@ -37,11 +37,11 @@ int main(int, char **)
 	sender = MafiaNet::RakPeerInterface::GetInstance();
 	receiver = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor sd1(1234,0),sd2(1235,0);
-	receiver->Startup(32, &sd1, 1);
 	receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	receiver->Startup(32, &sd1, 1);
 	receiver->SetMaximumIncomingConnections(32);
-	sender->Startup(1, &sd2, 1);
 	sender->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	sender->Startup(1, &sd2, 1);
 	sender->Connect("127.0.0.1", 1234, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 	RakSleep(100);
 

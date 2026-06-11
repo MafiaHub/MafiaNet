@@ -168,10 +168,10 @@ int main()
 	MafiaNet::RakPeerInterface *peer1 = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::RakPeerInterface *peer2 = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor sd1(60000,0),sd2(60001,0);
-	peer1->Startup(1,&sd1,1);
 	peer1->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
-	peer2->Startup(1,&sd2,1);
+	peer1->Startup(1,&sd1,1);
 	peer2->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	peer2->Startup(1,&sd2,1);
 	peer1->SetMaximumIncomingConnections(1);
 	peer2->Connect("127.0.0.1",60000,0,0,MafiaNet::GetSampleServerKey().publicKey);
 	peer1->AttachPlugin(&flt1);

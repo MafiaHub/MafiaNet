@@ -61,8 +61,8 @@ int main(void)
 		peers[i]= MafiaNet::RakPeerInterface::GetInstance();
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
 		MafiaNet::SocketDescriptor socketDescriptor(60000+i, 0);
-		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		peers[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 	}
 
@@ -81,8 +81,8 @@ int main(void)
 			// Initialize
 			peerIndex=randomMT()%NUM_PEERS;
 			MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex, 0);
-			peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 			peers[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+			peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
 		}
 		else if (nextAction < .09f)

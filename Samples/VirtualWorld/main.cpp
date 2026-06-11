@@ -193,19 +193,19 @@ int main(void)
 	RakPeerInterface *peers[3] = {server, c1, c2};
 
 	SocketDescriptor sd(0, 0);
-	server->Startup(8, &sd, 1);
 	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	server->Startup(8, &sd, 1);
 	server->SetMaximumIncomingConnections(8);
 	server->AttachPlugin(&serverRm);
 	serverRm.SetNetworkIDManager(&serverIds);
 
 	SocketDescriptor sdC(0, 0);
-	c1->Startup(1, &sdC, 1);
 	c1->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	c1->Startup(1, &sdC, 1);
 	c1->AttachPlugin(&c1Rm);
 	c1Rm.SetNetworkIDManager(&c1Ids);
-	c2->Startup(1, &sdC, 1);
 	c2->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	c2->Startup(1, &sdC, 1);
 	c2->AttachPlugin(&c2Rm);
 	c2Rm.SetNetworkIDManager(&c2Ids);
 

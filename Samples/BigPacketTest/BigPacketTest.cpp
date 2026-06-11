@@ -89,8 +89,8 @@ int main(void)
 		socketDescriptor.socketFamily=socketFamily;
 		server->SetMaximumIncomingConnections(4);
 		StartupResult sr;
-		sr=server->Startup(4, &socketDescriptor, 1);
 		server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		sr=server->Startup(4, &socketDescriptor, 1);
 		if (sr!=RAKNET_STARTED)
 		{
 			printf("Server failed to start. Error=%i\n", sr);
@@ -106,8 +106,8 @@ int main(void)
 		MafiaNet::SocketDescriptor socketDescriptor(0,0);
 		socketDescriptor.socketFamily=socketFamily;
 		StartupResult sr;
-		sr=client->Startup(4, &socketDescriptor, 1);
 		client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		sr=client->Startup(4, &socketDescriptor, 1);
 		if (sr!=RAKNET_STARTED)
 		{
 			printf("Client failed to start. Error=%i\n", sr);

@@ -114,8 +114,8 @@ int main(void)
 	// a connectionValidationInteger, and false for low priority threads
 	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
 	socketDescriptor.socketFamily=AF_INET;
-	client->Startup(8,&socketDescriptor, 1);
 	client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	client->Startup(8,&socketDescriptor, 1);
 	client->SetOccasionalPing(true);
 
 	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), MafiaNet::GetSampleServerKey().publicKey);
@@ -190,8 +190,8 @@ int main(void)
 
 			if (strcmp(message, "startup")==0)
 			{
-				bool b = client->Startup(8,&socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
 				client->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+				bool b = client->Startup(8,&socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
 				if (b)
 					printf("Started.\n");
 				else

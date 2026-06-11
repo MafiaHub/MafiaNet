@@ -69,8 +69,8 @@ int main(void)
 	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
-		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		rakPeer[peerIndex]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
 	printf("Connecting two systems...\n\n");

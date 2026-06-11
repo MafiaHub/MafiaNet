@@ -180,8 +180,8 @@ int main(int argc, char **argv)
 
 		printf("Waiting for connections...\n");
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-		receiver->Startup(8, &socketDescriptor, 1);
 		receiver->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		receiver->Startup(8, &socketDescriptor, 1);
 		receiver->SetMaximumIncomingConnections(8);
 	}
 

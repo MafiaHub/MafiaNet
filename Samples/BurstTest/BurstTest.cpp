@@ -76,8 +76,8 @@ int main(int, char **)
 		localPort = static_cast<unsigned short>(intLocalPort);
 		
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-		rakPeer->Startup(32, &socketDescriptor, 1);
 		rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakPeer->Startup(32, &socketDescriptor, 1);
 
 		printf("Connecting...\n");
 		rakPeer->Connect(ip, remotePort, 0, 0, MafiaNet::GetSampleServerKey().publicKey);
@@ -96,8 +96,8 @@ int main(int, char **)
 		localPort = static_cast<unsigned short>(intLocalPort);
 
 		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-		rakPeer->Startup(32, &socketDescriptor, 1);
 		rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		rakPeer->Startup(32, &socketDescriptor, 1);
 	}
 	rakPeer->SetMaximumIncomingConnections(32);
 	

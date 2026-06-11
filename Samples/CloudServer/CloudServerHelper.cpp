@@ -208,8 +208,8 @@ void CloudServerHelper::PrintHelp(void)
 bool CloudServerHelper::StartRakPeer(MafiaNet::RakPeerInterface *rakPeer)
 {
 	MafiaNet::SocketDescriptor sd(MafiaNet::CloudServerHelper::rakPeerPort,0);
-	MafiaNet::StartupResult sr = rakPeer->Startup(MafiaNet::CloudServerHelper::allowedIncomingConnections+ MafiaNet::CloudServerHelper::allowedOutgoingConnections,&sd,1);
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	MafiaNet::StartupResult sr = rakPeer->Startup(MafiaNet::CloudServerHelper::allowedIncomingConnections+ MafiaNet::CloudServerHelper::allowedOutgoingConnections,&sd,1);
 	if (sr!= MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup failed. Reason=%i\n", (int) sr);

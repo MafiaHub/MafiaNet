@@ -242,8 +242,8 @@ int main(int argc, char **argv)
 	MafiaNet::RakPeerInterface *rakPeer;
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-	rakPeer->Startup(1,&socketDescriptor, 1);
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	rakPeer->Startup(1,&socketDescriptor, 1);
 	// Plugin will send us downloading progress notifications if a file is split to fit under the MTU 10 or more times
 	rakPeer->SetSplitMessageProgressInterval(10);
 	rakPeer->AttachPlugin(&autopatcherClient);

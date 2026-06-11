@@ -76,8 +76,8 @@ int main(int argc, char **argv)
 	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
 	static const unsigned short clientLocalPort=0;
 	MafiaNet::SocketDescriptor sd(clientLocalPort,0); // Change this if you want
-	MafiaNet::StartupResult sr = rakPeer->Startup(1,&sd,1); // Change this if you want
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	MafiaNet::StartupResult sr = rakPeer->Startup(1,&sd,1); // Change this if you want
 	rakPeer->SetMaximumIncomingConnections(0); // Change this if you want
 	if (sr!= MafiaNet::RAKNET_STARTED)
 	{

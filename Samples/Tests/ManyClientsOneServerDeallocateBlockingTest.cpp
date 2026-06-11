@@ -274,6 +274,7 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 
 	server=RakPeerInterface::GetInstance();
 	SocketDescriptor serverSd(60000, 0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
 	if (serverResult != RAKNET_STARTED)
 	{
@@ -281,7 +282,6 @@ int ManyClientsOneServerDeallocateBlockingTest::RunTest(DataStructures::List<Rak
 			printf("Server failed to start (error %d)\n", serverResult);
 		return 1;
 	}
-	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(clientNum);
 
 	const int timeoutTime=1000;

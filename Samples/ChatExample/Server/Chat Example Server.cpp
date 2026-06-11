@@ -100,6 +100,7 @@ int main(void)
 	socketDescriptors[0].socketFamily=AF_INET; // Test out IPV4
 	socketDescriptors[1].port=static_cast<unsigned short>(intServerPort);
 	socketDescriptors[1].socketFamily=AF_INET6; // Test out IPV6
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	bool b = server->Startup(4, socketDescriptors, 2 )== MafiaNet::RAKNET_STARTED;
 	server->SetMaximumIncomingConnections(4);
 	if (!b)
@@ -114,7 +115,6 @@ int main(void)
 			exit(1);
 		}
 	}
-	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetOccasionalPing(true);
 	server->SetUnreliableTimeout(1000);
 

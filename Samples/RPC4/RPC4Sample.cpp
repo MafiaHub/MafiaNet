@@ -91,8 +91,8 @@ int main(void)
 	}
 
 	MafiaNet::SocketDescriptor sd1(static_cast<unsigned short>(intClientPort),0);
-	rakPeer->Startup(8,&sd1,1);
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	rakPeer->Startup(8,&sd1,1);
 	rakPeer->SetMaximumIncomingConnections(8);
 
 	puts("Enter IP to connect to, or enter for none");

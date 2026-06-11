@@ -542,6 +542,7 @@ int main(int argc, char **argv)
 		printf("Single IP address mode.\nUsing port %i\n", sd[0].port);
 	}
 
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	const StartupResult success = rakPeer->Startup(8096, sd, sdLen);
 	if (success != MafiaNet::RAKNET_STARTED)
 	{
@@ -549,7 +550,6 @@ int main(int argc, char **argv)
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 		return 1;
 	}
-	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetTimeoutTime(5000, UNASSIGNED_SYSTEM_ADDRESS);
 	printf("Started on %s\n\n", rakPeer->GetMyBoundAddress().ToString(true));
 

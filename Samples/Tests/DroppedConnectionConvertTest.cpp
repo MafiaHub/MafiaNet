@@ -57,6 +57,7 @@ int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params
 	destroyList.Push(server,_FILE_AND_LINE_);
 	//	server->InitializeSecurity(0,0,0,0);
 	SocketDescriptor socketDescriptor(serverPort,0);
+	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	StartupResult serverResult = server->Startup(NUMBER_OF_CLIENTS, &socketDescriptor, 1);
 	if (serverResult != RAKNET_STARTED)
 	{
@@ -64,7 +65,6 @@ int DroppedConnectionConvertTest::RunTest(DataStructures::List<RakString> params
 			printf("Server failed to start (error %d)\n", serverResult);
 		return 2;
 	}
-	server->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	server->SetMaximumIncomingConnections(NUMBER_OF_CLIENTS);
 	server->SetTimeoutTime(2000,UNASSIGNED_SYSTEM_ADDRESS);
 

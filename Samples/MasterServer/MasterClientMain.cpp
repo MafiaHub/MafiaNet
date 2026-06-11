@@ -65,8 +65,8 @@ int main(void)
 	// Create a fake game
 	testGameServerOrClient = RakPeerInterface::GetInstance();
 	SocketDescriptor sd(60003, 0);
-	testGameServerOrClient->Startup(8, &sd, 1);
 	testGameServerOrClient->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	testGameServerOrClient->Startup(8, &sd, 1);
 	testGameServerOrClient->SetMaximumIncomingConnections(8);
 	testGameServerOrClient->AttachPlugin(&masterClient);
 

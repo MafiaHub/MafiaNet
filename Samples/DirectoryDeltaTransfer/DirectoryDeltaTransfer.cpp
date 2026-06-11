@@ -90,13 +90,13 @@ int main(void)
 	else
 		localPort=atoi(str);
 	SocketDescriptor sd(localPort, 0);
+	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	if (rakPeer->Startup(8, &sd, 1) != RAKNET_STARTED)
 	{
 		RakPeerInterface::DestroyInstance(rakPeer);
 		printf("MafiaNet startup failed. Possibly duplicate port.\n");
 		return 1;
 	}
-	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
 	rakPeer->SetMaximumIncomingConnections(8);
 
 	printf("Commands:\n");

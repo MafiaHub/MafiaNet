@@ -66,8 +66,8 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 		peers[i]=RakPeerInterface::GetInstance();
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
 		SocketDescriptor socketDescriptor(60000+i, 0);
-		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		peers[i]->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
 		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 
 	}

@@ -125,8 +125,8 @@ int main(void)
 
 	rakPeer->SetMaximumIncomingConnections(32);
 	SocketDescriptor sd(0,0);
-	rakPeer->Startup(32,&sd,1);
 	rakPeer->SetServerSecurityKey(MafiaNet::GetSampleServerKey());
+	rakPeer->Startup(32,&sd,1);
 	printf("Enter 'c' to connect, 'r' to start routing, 'q' to quit.\n");
 
 	rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString(str, 64);
