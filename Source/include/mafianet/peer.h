@@ -823,6 +823,16 @@ protected:
 		bool useNoiseSecurity;                 // this connection attempt is encrypted
 		unsigned char serverPublicKey[32];     // pinned server static public key
 		NoiseHandshake noise;                  // initiator state, persists across REQUEST_2 -> REPLY_2
+		// Message A is generated exactly once per attempt and these bytes are resent
+		// verbatim on every REPLY_1, keeping the exchange idempotent: the server caches
+		// message B for the first message A it sees, so a fresh ephemeral per resend
+		// would make that cached answer unverifiable.
+		bool noiseMsgAGenerated;
+		unsigned char noiseMsgA[NoiseHandshake::MESSAGE_BYTES];
+		// Set when a REPLY_2 arrived whose message B failed verification. The attempt
+		// keeps retrying; if it exhausts, this turns the failure report into
+		// ID_PUBLIC_KEY_MISMATCH instead of ID_CONNECTION_ATTEMPT_FAILED.
+		bool noiseMsgBFailed;
 	};
 
 	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;

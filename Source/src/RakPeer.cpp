@@ -3064,6 +3064,9 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	// Noise_NK: encryption is mandatory. The client always pins the server's static public key.
 	rcs->useNoiseSecurity = true;
 	memcpy(rcs->serverPublicKey, serverPublicKey, sizeof(rcs->serverPublicKey));
+	rcs->noiseMsgAGenerated = false;
+	memset(rcs->noiseMsgA, 0, sizeof(rcs->noiseMsgA));
+	rcs->noiseMsgBFailed = false;
 
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
@@ -3113,6 +3116,9 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	// Noise_NK: encryption is mandatory. The client always pins the server's static public key.
 	rcs->useNoiseSecurity = true;
 	memcpy(rcs->serverPublicKey, serverPublicKey, sizeof(rcs->serverPublicKey));
+	rcs->noiseMsgAGenerated = false;
+	memset(rcs->noiseMsgA, 0, sizeof(rcs->noiseMsgA));
+	rcs->noiseMsgBFailed = false;
 
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
@@ -4503,12 +4509,21 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 						if (rcs->useNoiseSecurity)
 						{
-							// Build the Noise_NK initiator message A and announce we are doing Noise.
+							// Announce we are doing Noise and send message A.
 							bsOut.Write((unsigned char)1);
-							rcs->noise.InitInitiator(rcs->serverPublicKey);
-							unsigned char msgA[NoiseHandshake::MESSAGE_BYTES];
-							rcs->noise.WriteMessageA(msgA);
-							bsOut.WriteAlignedBytes(msgA, sizeof(msgA));
+							// Generate message A exactly once per connection attempt and resend
+							// the same bytes on every subsequent REPLY_1. REQUEST_1 keeps being
+							// resent until REPLY_2 completes the attempt, so duplicate REPLY_1s
+							// are routine (RTT above the retry interval, or a lost REPLY_2).
+							// Re-running the handshake here would pick a fresh ephemeral and
+							// invalidate the message B the server cached for the first message A.
+							if (rcs->noiseMsgAGenerated==false)
+							{
+								rcs->noise.InitInitiator(rcs->serverPublicKey);
+								rcs->noise.WriteMessageA(rcs->noiseMsgA);
+								rcs->noiseMsgAGenerated=true;
+							}
+							bsOut.WriteAlignedBytes(rcs->noiseMsgA, sizeof(rcs->noiseMsgA));
 						}
 						else
 						{
@@ -4624,34 +4639,19 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					// BEFORE allocating a connection slot, so a failed/mismatched handshake
 					// never leaves a half-open UNVERIFIED_SENDER slot (DereferenceRemoteSystem
 					// only unlinks the lookup hash, it does not free the active slot).
+					// Verify on a COPY of the handshake state: ReadMessageB mutates the state
+					// even on failure, so verifying in place would let a single stale or forged
+					// REPLY_2 (an unauthenticated offline packet) corrupt the attempt and make a
+					// later valid message B unverifiable. On failure, drop the packet and let the
+					// attempt keep retrying; if it exhausts, RunUpdateCycle reports
+					// ID_PUBLIC_KEY_MISMATCH (see noiseMsgBFailed) instead of a hard abort here.
+					NoiseHandshake verifiedNoise;
 					if (doSecurity)
 					{
-						if (!rcs->noise.ReadMessageB(serverMsgB))
+						verifiedNoise = rcs->noise;
+						if (!verifiedNoise.ReadMessageB(serverMsgB))
 						{
-							// Server identity could not be verified -> abort, allocate nothing.
-							packet=rakPeer->AllocPacket(sizeof( char ), _FILE_AND_LINE_);
-							packet->data[ 0 ] = ID_PUBLIC_KEY_MISMATCH;
-							packet->bitSize = ( sizeof( char ) * 8);
-							packet->systemAddress = rcs->systemAddress;
-							packet->guid=guid;
-							rakPeer->AddPacketToProducer(packet);
-
-							// Remove and free the rcs exactly once (mirrors the success path),
-							// otherwise it lingers in requestedConnectionQueue and later times
-							// out into a spurious ID_CONNECTION_ATTEMPT_FAILED.
-							rakPeer->requestedConnectionQueueMutex.Lock();
-							for (unsigned int k=0; k < rakPeer->requestedConnectionQueue.Size(); k++)
-							{
-								if (rakPeer->requestedConnectionQueue[k]->systemAddress==systemAddress)
-								{
-									RakPeer::RequestedConnectionStruct *deadRcs = rakPeer->requestedConnectionQueue[k];
-									rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
-									rakPeer->requestedConnectionQueueMutex.Unlock();
-									MafiaNet::OP_DELETE(deadRcs,_FILE_AND_LINE_);
-									return true;
-								}
-							}
-							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rcs->noiseMsgBFailed=true;
 							return true;
 						}
 					}
@@ -4681,11 +4681,12 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 							// Move pointer from RequestedConnectionStruct to RemoteSystemStruct
 							if (doSecurity)
 							{
-									// Message B was already verified above (before slot allocation).
-									// Install the derived transport keys. AssignSystemAddressToRemoteSystemList
-									// already Reset the SecureSession, so SetKeys here is correctly ordered.
+									// Message B was already verified above (before slot allocation),
+									// on verifiedNoise. Install its derived transport keys.
+									// AssignSystemAddressToRemoteSystemList already Reset the
+									// SecureSession, so SetKeys here is correctly ordered.
 								unsigned char sKey[32], rKey[32];
-								rcs->noise.GetTransportKeys(sKey, rKey);
+								verifiedNoise.GetTransportKeys(sKey, rKey);
 								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->SetKeys(sKey, rKey);
 								sodium_memzero(sKey, sizeof(sKey));
 								sodium_memzero(rKey, sizeof(rKey));
@@ -5398,9 +5399,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 					if (condition1 && !condition2 && rcs->actionToTake==RequestedConnectionStruct::CONNECT)
 					{
-						// Tell user of connection attempt failed
+						// Tell user of connection attempt failed. If a REPLY_2 arrived but its
+						// Noise message B never verified, the real cause is a key mismatch
+						// (wrong pinned key), not an unreachable host.
 						packet=AllocPacket(sizeof( char ), _FILE_AND_LINE_);
-						packet->data[ 0 ] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
+						packet->data[ 0 ] = rcs->noiseMsgBFailed ? (unsigned char)ID_PUBLIC_KEY_MISMATCH : (unsigned char)ID_CONNECTION_ATTEMPT_FAILED;
 						packet->bitSize = ( sizeof(	 char ) * 8);
 						packet->systemAddress = rcs->systemAddress;
 						AddPacketToProducer(packet);

@@ -135,6 +135,33 @@ int CryptoUnitTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 
 	if (isVerbose) printf("CryptoUnitTest: NK known-answer vector OK\n");
 
+	// --- trial-verify on a copy: RakPeer verifies message B on a copy of the
+	// initiator state so a stale/forged REPLY_2 cannot corrupt the attempt.
+	// A failed ReadMessageB on a copy must leave the original verifiable. ---
+	{
+		ServerSecurityKey srv = GenerateServerSecurityKey();
+		NoiseHandshake cli, ser;
+		cli.InitInitiator(srv.publicKey);
+		ser.InitResponder(srv.publicKey, srv.secretKey);
+		unsigned char msgA[48], msgB[48];
+		cli.WriteMessageA(msgA);
+		if (!ser.ReadMessageA(msgA)) return 31;
+		ser.WriteMessageB(msgB);
+		// A forged message B must fail when verified on a copy...
+		NoiseHandshake bad = cli;
+		unsigned char garbage[48]; memset(garbage, 0xAB, sizeof garbage);
+		if (bad.ReadMessageB(garbage)) return 32;
+		// ...and the original must remain intact so the genuine B still verifies.
+		NoiseHandshake good = cli;
+		if (!good.ReadMessageB(msgB)) return 33;
+		unsigned char cs[32], cr[32], ss2[32], sr2[32];
+		good.GetTransportKeys(cs, cr);
+		ser.GetTransportKeys(ss2, sr2);
+		if (memcmp(cs, sr2, 32) != 0 || memcmp(cr, ss2, 32) != 0) return 34;
+	}
+
+	if (isVerbose) printf("CryptoUnitTest: trial-verify on copy OK\n");
+
 	// --- SecureSession round-trip, tamper, replay ---
 	{
 		unsigned char k1[32], k2[32];
@@ -229,6 +256,10 @@ RakString CryptoUnitTest::ErrorCodeToString(int e)
 		case 28: return "KAT readB failed";
 		case 29: return "KAT send key mismatch";
 		case 30: return "KAT recv key mismatch";
+		case 31: return "copy-verify: readA failed";
+		case 32: return "copy-verify: forged message B accepted";
+		case 33: return "copy-verify: original state corrupted by failed copy verify";
+		case 34: return "copy-verify: transport keys mismatch";
 		case 40: return "encrypt failed";
 		case 41: return "decrypt failed";
 		case 42: return "roundtrip mismatch";

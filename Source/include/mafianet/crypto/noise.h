@@ -59,6 +59,12 @@ public:
 	NoiseHandshake();
 	~NoiseHandshake();   // zeroes secret material
 
+	// Copyable on purpose: RakPeer trial-verifies message B on a copy so a stale or
+	// forged REPLY_2 cannot corrupt the in-progress handshake state. All members are
+	// plain arrays/PODs; each copy zeroes its own secrets on destruction.
+	NoiseHandshake(const NoiseHandshake&) = default;
+	NoiseHandshake& operator=(const NoiseHandshake&) = default;
+
 	// Initiator (client): knows the responder's static public key.
 	void InitInitiator(const unsigned char responderStaticPub[32]);
 	// Responder (server): holds its own static keypair.
