@@ -77,6 +77,7 @@ set(MAFIANET_SOURCES
     src/RakSleep.cpp
     src/RakString.cpp
     src/RakThread.cpp
+    src/RakVoice.cpp
     src/RakWString.cpp
     src/Rand.cpp
     src/RandSync.cpp
@@ -222,6 +223,7 @@ set(MAFIANET_HEADERS
     include/mafianet/PS3Includes.h
     include/mafianet/PS4Includes.h
     include/mafianet/Rackspace.h
+    include/mafianet/RakVoice.h
     include/mafianet/Rand.h
     include/mafianet/RandSync.h
     include/mafianet/ReadyEvent.h
@@ -319,6 +321,12 @@ function(mafianet_configure_target target_name)
         PRIVATE
             Threads::Threads
             $<$<PLATFORM_ID:Windows>:ws2_32>
+            # RakVoice (built into the core library) requires the Opus codec and
+            # RNNoise noise suppression, fetched in FetchVoiceDependencies. These
+            # are bundled into the MafiaNet export set (see Installation below) so
+            # installed static-library consumers can resolve the symbols.
+            opus
+            rnnoise
     )
 
     target_compile_definitions(${target_name}
@@ -400,6 +408,18 @@ install(TARGETS ${MAFIANET_INSTALL_TARGETS}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# RakVoice links the Opus and RNNoise static libraries into the core library.
+# Bundle them into the MafiaNet export so installed static-library consumers can
+# resolve opus_*/rnnoise_* symbols (neither dependency ships its own CMake config
+# package here). Opus also self-exports to its own OpusTargets set, which is
+# harmless: a target may belong to multiple export sets.
+install(TARGETS opus rnnoise
+    EXPORT MafiaNetTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 # Install headers

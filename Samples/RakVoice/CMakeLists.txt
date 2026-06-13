@@ -61,7 +61,6 @@ if(PORTAUDIO_FOUND)
     add_executable(RakVoiceSample main.cpp)
     target_link_libraries(RakVoiceSample PRIVATE
         MafiaNet
-        RakVoice
         ${PORTAUDIO_LIBRARIES}
     )
     target_include_directories(RakVoiceSample PRIVATE
