@@ -1,6 +1,6 @@
 # MafiaNet Dependent Extensions
 #
-# Dependencies (bzip2, miniupnpc, opus, rnnoise) are fetched via FetchContent
+# Dependencies (bzip2, miniupnpc, jansson) are fetched via FetchContent
 # in cmake/FetchDependencies.cmake
 #
 # Copyright (c) 2024, MafiaHub
@@ -12,10 +12,8 @@ add_subdirectory(Autopatcher)
 # Lobby2 extension (matchmaking and lobby system)
 add_subdirectory(Lobby2)
 
-# RakVoice - voice compression and transmission (uses opus, rnnoise from FetchContent)
-add_library(RakVoice STATIC RakVoice.cpp RakVoice.h)
-target_link_libraries(RakVoice PUBLIC MafiaNet PRIVATE opus rnnoise)
-target_include_directories(RakVoice PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# RakVoice (voice compression using Opus + RNNoise) is built into the core
+# MafiaNet library; see Source/CMakeLists.txt.
 
 # Optional extensions based on available dependencies
 

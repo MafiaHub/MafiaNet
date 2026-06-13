@@ -27,7 +27,7 @@
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/sleep.h"
-#include "RakVoice.h"
+#include "mafianet/RakVoice.h"
 #include "mafianet/statistics.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/assert.h"
