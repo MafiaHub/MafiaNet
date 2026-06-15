@@ -43,7 +43,6 @@ if(DSOUND_INCLUDE_DIR AND DSOUND_LIBRARY)
 
     target_link_libraries(RakVoiceDSoundSample PRIVATE
         MafiaNet
-        RakVoice
         ${DSOUND_LIBRARY}
         ${DXERR_LIBRARY}
         winmm

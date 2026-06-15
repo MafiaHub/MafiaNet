@@ -31,7 +31,7 @@ of each frame.
 #ifndef __DSOUNDVOICEADAPTER_H
 #define __DSOUNDVOICEADAPTER_H
 
-#include "RakVoice.h"
+#include "mafianet/RakVoice.h"
 
 // If you get:
 // Error	1	fatal error C1083: Cannot open include file: 'dsound.h': No such file or directory

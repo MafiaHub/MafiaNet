@@ -14,7 +14,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "RakVoice.h"
+#include "mafianet/RakVoice.h"
 #include <opus.h>
 #include <rnnoise.h>
 #include "mafianet/BitStream.h"

@@ -34,7 +34,6 @@ if(FMOD_INCLUDE_DIR AND FMOD_LIBRARY)
 
     target_link_libraries(RakVoiceFMODSample PRIVATE
         MafiaNet
-        RakVoice
         ${FMOD_LIBRARY}
     )
 
