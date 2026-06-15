@@ -22,6 +22,7 @@
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/Gets.h"
+#include "mafianet/guid_util.h"
 
 #ifdef _WIN32
 #include "mafianet/WindowsIncludes.h" // Sleep
@@ -50,8 +51,8 @@ int main(void)
 	peer2->Startup(1, &socketDescriptor, 1);
 	peer1->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 
-	printf("Peer 1 guid = %s\n", peer1->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
-	printf("Peer 2 guid = %s\n", peer2->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("Peer 1 guid = %s\n", MafiaNet::to_string(peer1->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
+	printf("Peer 2 guid = %s\n", MafiaNet::to_string(peer2->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	printf("Systems started.  Waiting for advertise system packet\n");
 
 	// Wait for connection to complete
@@ -61,7 +62,7 @@ int main(void)
 	usleep(300 * 1000);
 #endif
 
-	printf("Sending advertise system from %s\n", peer1->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("Sending advertise system from %s\n", MafiaNet::to_string(peer1->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	peer1->AdvertiseSystem("127.0.0.1", 60002,"hello world", (int)strlen("hello world")+1);
 
 	while (nextTest!=2)
@@ -76,9 +77,9 @@ int main(void)
 					printf("Got Advertise system with data: %s\n", packet->data+1);
 				else
 					printf("Got Advertise system with no data\n");
-				printf("Was sent from GUID %s\n", packet->guid.ToString());
+				printf("Was sent from GUID %s\n", MafiaNet::to_string(packet->guid).c_str());
 
-				printf("Sending ping from %s\n", peer2->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+				printf("Sending ping from %s\n", MafiaNet::to_string(peer2->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 				peer2->Ping("127.0.0.1", 60001, false);
 				nextTest++;
 			}
@@ -96,7 +97,7 @@ int main(void)
 				else
 					printf( "ID_UNCONNECTED_PONG from");
 				printf(" %s on %p.\nPing is %i\nData is %i bytes long.\n", packet->systemAddress.ToString(), peer2, curTime-packetTime, dataLength );
-				printf("Was sent from GUID %s\n", packet->guid.ToString());
+				printf("Was sent from GUID %s\n", MafiaNet::to_string(packet->guid).c_str());
 
 				if ( dataLength > 0 )
 				{

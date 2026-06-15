@@ -29,6 +29,7 @@
 #include "mafianet/Kbhit.h"
 #include "mafianet/PacketLogger.h"
 #include "mafianet/Gets.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 
@@ -51,7 +52,7 @@ int main()
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
-		printf("Our guid is %s\n", rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("Our guid is %s\n", MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	}
 
 	for (unsigned short i=0; i < NUM_PEERS; i++)
@@ -85,12 +86,12 @@ int main()
 
 				case ID_NEW_INCOMING_CONNECTION:
 					// Somebody connected.  We have their IP now
-					printf("%i. ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", i, packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("%i. ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					break;
 
 				case ID_CONNECTION_REQUEST_ACCEPTED:
 					// Somebody connected.  We have their IP now
-					printf("%i. ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", i, packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("%i. ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					break;
 
 
@@ -105,7 +106,7 @@ int main()
 					if (packet->systemAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 						printf("%i. Got new host (ourselves)\n", i);
 					else
-						printf("%i. Got new host %s, %s\n", i, packet->systemAddress.ToString(true), packet->guid.ToString());
+						printf("%i. Got new host %s, %s\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					break;
 				}
 			}
@@ -129,9 +130,9 @@ int main()
 					hostGuid=fcm2[i].GetHostSystem();
 					
 					if (weAreHost)
-						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (Y)\n",i, participantList, rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(), hostGuid.ToString(), fcm2[i].GetTotalConnectionCount());
+						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (Y)\n",i, participantList, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str(), MafiaNet::to_string(hostGuid).c_str(), fcm2[i].GetTotalConnectionCount());
 					else
-						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (N)\n",i, participantList, rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(), hostGuid.ToString(), fcm2[i].GetTotalConnectionCount());
+						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (N)\n",i, participantList, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str(), MafiaNet::to_string(hostGuid).c_str(), fcm2[i].GetTotalConnectionCount());
 				}
 			}
 			if (ch=='d' || ch=='D')

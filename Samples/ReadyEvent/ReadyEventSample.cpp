@@ -31,6 +31,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 #include "mafianet/Gets.h"
+#include "mafianet/guid_util.h"
 
 void PrintConnections();
 
@@ -204,15 +205,15 @@ int main(void)
 				readyEventPlugin.AddToWaitList(0, p->guid);
 				break;
 			case ID_READY_EVENT_ALL_SET:
-				printf("Got ID_READY_EVENT_ALL_SET from %s\n", p->guid.ToString());
+				printf("Got ID_READY_EVENT_ALL_SET from %s\n", MafiaNet::to_string(p->guid).c_str());
 				break;
 
 			case ID_READY_EVENT_SET:
-				printf("Got ID_READY_EVENT_SET from %s\n", p->guid.ToString());
+				printf("Got ID_READY_EVENT_SET from %s\n", MafiaNet::to_string(p->guid).c_str());
 				break;
 
 			case ID_READY_EVENT_UNSET:
-				printf("Got ID_READY_EVENT_UNSET from %s\n", p->guid.ToString());
+				printf("Got ID_READY_EVENT_UNSET from %s\n", MafiaNet::to_string(p->guid).c_str());
 				break;
 
 			case ID_DISCONNECTION_NOTIFICATION:

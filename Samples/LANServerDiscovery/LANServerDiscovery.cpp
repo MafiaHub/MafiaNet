@@ -34,6 +34,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 int main(void)
 {
@@ -161,11 +162,11 @@ int main(void)
 			}
 			else if (p->data[0]==ID_UNCONNECTED_PING)
 			{
-				printf("ID_UNCONNECTED_PING from %s\n",p->guid.ToString());
+				printf("ID_UNCONNECTED_PING from %s\n",MafiaNet::to_string(p->guid).c_str());
 			}
 			else if (p->data[0]==ID_UNCONNECTED_PING_OPEN_CONNECTIONS)
 			{
-				printf("ID_UNCONNECTED_PING_OPEN_CONNECTIONS from %s\n",p->guid.ToString());
+				printf("ID_UNCONNECTED_PING_OPEN_CONNECTIONS from %s\n",MafiaNet::to_string(p->guid).c_str());
 			}
 			client->DeallocatePacket(p);
 		}

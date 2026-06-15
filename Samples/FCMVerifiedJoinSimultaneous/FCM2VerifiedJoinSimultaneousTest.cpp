@@ -29,6 +29,7 @@
 #include "mafianet/PacketLogger.h"
 #include "mafianet/Gets.h"
 #include "mafianet/BitStream.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 
@@ -38,7 +39,7 @@ MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
 class FullyConnectedMesh2_UserData : public FullyConnectedMesh2
 {
 	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) {bsOut->Write(RakString("WriteVJCUserData test"));}
-	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) {bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", userGuid.ToString()));}
+	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) {bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", MafiaNet::to_string(userGuid).c_str()));}
 };
 
 int main()
@@ -56,7 +57,7 @@ int main()
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
-		printf("%i. Our guid is %s\n", i, rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("%i. Our guid is %s\n", i, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	}
 	
 	RakSleep(100);
@@ -87,14 +88,14 @@ int main()
 				{
 				case ID_FCM2_VERIFIED_JOIN_START:
 					{
-						printf("%s: Got ID_FCM2_VERIFIED_JOIN_START from %s. address=", rakPeer[peerIndex]->GetMyGUID().ToString(), packet->guid.ToString());
+						printf("%s: Got ID_FCM2_VERIFIED_JOIN_START from %s. address=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
 						DataStructures::List<SystemAddress> addresses;
 						DataStructures::List<RakNetGUID> guids;
 						DataStructures::List<BitStream*> userData;
 						fcm2[peerIndex].GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
 						for (unsigned int i=0; i < guids.Size(); i++)
 						{
-							printf("%s:", guids[i].ToString());
+							printf("%s:", MafiaNet::to_string(guids[i]).c_str());
 							ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
 							switch (car)
 							{
@@ -121,7 +122,7 @@ int main()
 					break;
 
 				case ID_FCM2_VERIFIED_JOIN_FAILED:
-					printf("%s: ID_FCM2_VERIFIED_JOIN_FAILED from %s\n", rakPeer[peerIndex]->GetMyGUID().ToString(), packet->guid.ToString());
+					printf("%s: ID_FCM2_VERIFIED_JOIN_FAILED from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					break;
 
 				case ID_FCM2_VERIFIED_JOIN_CAPABLE:
@@ -131,7 +132,7 @@ int main()
 						RakString testStr;
 						bs.Read(testStr);
 
-						printf("%s: ID_FCM2_VERIFIED_JOIN_CAPABLE from %s\n", rakPeer[peerIndex]->GetMyGUID().ToString(), packet->guid.ToString());
+						printf("%s: ID_FCM2_VERIFIED_JOIN_CAPABLE from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
 						printf("STR: %s\n", testStr.C_String());
 						fcm2[peerIndex].RespondOnVerifiedJoinCapable(packet, true, 0);
 					}
@@ -145,21 +146,21 @@ int main()
 						fcm2[peerIndex].GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, &additionalData);
 						if (thisSystemAccepted)
 						{
-							printf("%s: ID_FCM2_VERIFIED_JOIN_ACCEPTED from %s. systemsAccepted=", rakPeer[peerIndex]->GetMyGUID().ToString(), packet->guid.ToString());
+							printf("%s: ID_FCM2_VERIFIED_JOIN_ACCEPTED from %s. systemsAccepted=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
 							for (unsigned int i=0; i < systemsAccepted.Size(); i++)
-								printf("%s ", systemsAccepted[i].ToString());
+								printf("%s ", MafiaNet::to_string(systemsAccepted[i]).c_str());
 							printf("\n");
 						}
 						break;
 					}
 
 				case ID_FCM2_VERIFIED_JOIN_REJECTED:
-					printf("%s: ID_FCM2_VERIFIED_JOIN_REJECTED from %s\n", rakPeer[peerIndex]->GetMyGUID().ToString(), packet->guid.ToString());
+					printf("%s: ID_FCM2_VERIFIED_JOIN_REJECTED from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					rakPeer[peerIndex]->CloseConnection(packet->guid, true);
 					break;
 
 				default:
-					printf("%s: %s from %s\n", rakPeer[peerIndex]->GetMyGUID().ToString(), PacketLogger::BaseIDTOString(packet->data[0]), packet->guid.ToString());
+					printf("%s: %s from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), PacketLogger::BaseIDTOString(packet->data[0]), MafiaNet::to_string(packet->guid).c_str());
 				}
 			}
 		}

@@ -22,6 +22,7 @@
 
 #include "mafianet/FullyConnectedMesh2.h"
 #include "mafianet/peerinterface.h"
+#include "mafianet/guid_util.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/assert.h"
 #include "mafianet/GetTime.h"
@@ -165,7 +166,7 @@ void FullyConnectedMesh2::AddParticipant( RakNetGUID rakNetGuid )
 	if (rakPeerInterface->GetConnectionState(rakPeerInterface->GetSystemAddressFromGuid(rakNetGuid))!=IS_CONNECTED)
 	{
 #ifdef DEBUG_FCM2
-		printf("AddParticipant to %s failed (not connected)\n", rakNetGuid.ToString());
+		printf("AddParticipant to %s failed (not connected)\n", to_string(rakNetGuid).c_str());
 #endif
 		return;
 	}
@@ -361,7 +362,7 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 		{
 			fcm2ParticipantList[idx]=fcm2ParticipantList[fcm2ParticipantList.Size()-1];
 #ifdef DEBUG_FCM2
-			printf("Popping participant %s\n", fcm2ParticipantList[fcm2ParticipantList.Size()-1].rakNetGuid.ToString());
+			printf("Popping participant %s\n", to_string(fcm2ParticipantList[fcm2ParticipantList.Size()-1].rakNetGuid).c_str());
 #endif
 
 			fcm2ParticipantList.Pop();

@@ -9,6 +9,7 @@
  */
 
 #include "OfflineMessagesConvertTest.h"
+#include "mafianet/guid_util.h"
 
 /*
 Description:
@@ -74,9 +75,9 @@ int OfflineMessagesConvertTest::RunTest(DataStructures::List<RakString> params,b
 	}
 
 	if (isVerbose)
-		printf("Peer 1 guid = %s\n", peer1->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("Peer 1 guid = %s\n", MafiaNet::to_string(peer1->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	if (isVerbose)
-		printf("Peer 2 guid = %s\n", peer2->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("Peer 2 guid = %s\n", MafiaNet::to_string(peer2->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	if (isVerbose)
 		printf("Systems started.  Waiting for advertise system packet\n");
 
@@ -84,7 +85,7 @@ int OfflineMessagesConvertTest::RunTest(DataStructures::List<RakString> params,b
 	RakSleep(300);
 
 	if (isVerbose)
-		printf("Sending advertise system from %s\n", peer1->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("Sending advertise system from %s\n", MafiaNet::to_string(peer1->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	peer1->AdvertiseSystem("127.0.0.1", 60002,"hello world", (int)strlen("hello world")+1);
 
 	TimeMS entryTime=GetTimeMS();//Loop entry time
@@ -122,9 +123,9 @@ int OfflineMessagesConvertTest::RunTest(DataStructures::List<RakString> params,b
 					return 1;
 				}
 				if (isVerbose)
-					printf("Was sent from GUID %s\n", packet->guid.ToString());
+					printf("Was sent from GUID %s\n", MafiaNet::to_string(packet->guid).c_str());
 				if (isVerbose)
-					printf("Sending ping from %s\n", peer2->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString());
+					printf("Sending ping from %s\n", MafiaNet::to_string(peer2->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 				peer2->Ping("127.0.0.1", 60001, false);
 				nextTest++;
 			}
@@ -148,7 +149,7 @@ int OfflineMessagesConvertTest::RunTest(DataStructures::List<RakString> params,b
 				if (isVerbose)
 				{
 					printf(" %s on %p.\nPing is %i\nData is %i bytes long.\n", packet->systemAddress.ToString(), peer2, curTime-packetTime, dataLength );
-					printf("Was sent from GUID %s\n", packet->guid.ToString());
+					printf("Was sent from GUID %s\n", MafiaNet::to_string(packet->guid).c_str());
 				}
 
 				const char * recString=(const char *)(packet->data + sizeof( unsigned char ) + sizeof( TimeMS ));

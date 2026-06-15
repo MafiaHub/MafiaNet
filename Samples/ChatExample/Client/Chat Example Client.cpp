@@ -41,6 +41,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 #if LIBCAT_SECURITY==1
 #include "mafianet/SecureHandshake.h" // Include header for secure handshake
@@ -144,7 +145,7 @@ int main(void)
 		printf("%i. %s\n", i+1, client->GetLocalIP(i));
 	}
 
-	printf("My GUID is %s\n", client->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("My GUID is %s\n", MafiaNet::to_string(client->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	puts("'quit' to quit. 'stat' to show stats. 'ping' to ping.\n'disconnect' to disconnect. 'connect' to reconnnect. Type to talk.");
 	
 	char message[2048];
@@ -325,7 +326,7 @@ int main(void)
 
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				// This tells the client they have connected
-				printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", p->systemAddress.ToString(true), p->guid.ToString());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", p->systemAddress.ToString(true), MafiaNet::to_string(p->guid).c_str());
 				printf("My external address is %s\n", client->GetExternalID(p->systemAddress).ToString(true));
 				break;
 			case ID_CONNECTED_PING:

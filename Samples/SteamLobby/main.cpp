@@ -27,6 +27,7 @@
 #include <mafianet/Kbhit.h>
 #include "mafianet/Gets.h"
 #include "mafianet/FullyConnectedMesh2.h"
+#include "mafianet/guid_util.h"
 #pragma warning( push )
 #pragma warning(disable:4127)	// conditional expression is constant (with Steamworks 1.23a)
 #include "steam_api.h"
@@ -179,7 +180,7 @@ int main(int argc, char **argv)
 
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				// This tells the client they have connected
-				printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", packet->systemAddress.ToString(), packet->guid.ToString());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", packet->systemAddress.ToString(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 
 			case ID_NEW_INCOMING_CONNECTION:
@@ -191,14 +192,14 @@ int main(int argc, char **argv)
 					if (packet->systemAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 						printf("Got new host (ourselves)");
 					else
-						printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), packet->guid.ToString());
+						printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					MafiaNet::BitStream bs(packet->data,packet->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
 					// If the old host is different, then this message was due to losing connection to the host.
 					if (oldHost!=packet->guid)
-						printf(". Oldhost Guid=%s\n", oldHost.ToString());
+						printf(". Oldhost Guid=%s\n", MafiaNet::to_string(oldHost).c_str());
 					else
 						printf("\n");
 				}

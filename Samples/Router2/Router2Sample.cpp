@@ -31,6 +31,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 
@@ -73,7 +74,7 @@ void ReadAllPackets(void)
 			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.Read(endpointGuid);
-			printf("Routing through %s to %s successful. Connecting.\n", str, endpointGuid.ToString());
+			printf("Routing through %s to %s successful. Connecting.\n", str, MafiaNet::to_string(endpointGuid).c_str());
 			unsigned short sourceToDestPort;
 			bs.Read(sourceToDestPort);
 			char ipAddressString[32];
