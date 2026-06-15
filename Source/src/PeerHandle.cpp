@@ -53,7 +53,11 @@ unsigned char PacketPtr::id() const {
         return 255;
 
     if (static_cast<unsigned char>(p_->data[0]) == ID_TIMESTAMP) {
+        // Guard against a truncated timestamp packet: relying on RakAssert alone
+        // would be an out-of-bounds read in release builds.
         RakAssert(p_->length > sizeof(MessageID) + sizeof(Time));
+        if (p_->length <= sizeof(MessageID) + sizeof(Time))
+            return 255;
         return static_cast<unsigned char>(p_->data[sizeof(MessageID) + sizeof(Time)]);
     }
     return static_cast<unsigned char>(p_->data[0]);

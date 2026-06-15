@@ -62,6 +62,8 @@ public:
 
     RakPeerInterface* operator->() const { return raw_; }
     RakPeerInterface* get() const { return raw_; }
+    /// False only for a moved-from (and thus empty) handle.
+    explicit operator bool() const { return raw_ != nullptr; }
 
     /// Receive the next queued packet wrapped in a PacketPtr (may be empty).
     PacketPtr receive();
