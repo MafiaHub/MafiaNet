@@ -60,6 +60,7 @@ set(MAFIANET_SOURCES
     src/PacketizedTCP.cpp
     src/PacketLogger.cpp
     src/PacketOutputWindowLogger.cpp
+    src/PeerHandle.cpp
     src/PluginInterface2.cpp
     src/PointGridSectorizer.cpp
     src/PS4Includes.cpp
@@ -217,6 +218,7 @@ set(MAFIANET_HEADERS
     include/mafianet/PacketOutputWindowLogger.h
     include/mafianet/PacketPool.h
     include/mafianet/PacketPriority.h
+    include/mafianet/PeerHandle.h
     include/mafianet/peer.h
     include/mafianet/peerinterface.h
     include/mafianet/PluginInterface2.h

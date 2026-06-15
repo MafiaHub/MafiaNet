@@ -31,3 +31,4 @@
 #include "mafianet/GetTime.h"            // MafiaNet::GetTime / TimeMS
 #include "mafianet/guid_util.h"          // MafiaNet::to_string / connected_address
 #include "mafianet/aliases.h"            // canonical aliases: PeerInterface, Guid, Statistics
+#include "mafianet/PeerHandle.h"         // RAII handles: Peer, PacketPtr

@@ -22,6 +22,7 @@
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/peerinterface.h"
+#include "mafianet/PeerHandle.h"
 #include "mafianet/statistics.h"
 #include "mafianet/types.h"
 #include "mafianet/BitStream.h"
@@ -47,24 +48,19 @@
 #include "mafianet/SecureHandshake.h" // Include header for secure handshake
 #endif
 
-// We copy this from Multiplayer.cpp to keep things all in one file for this example
-unsigned char GetPacketIdentifier(MafiaNet::Packet *p);
-
 int main(void)
 {
 	MafiaNet::RakNetStatistics *rss;
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
-	MafiaNet::RakPeerInterface *client= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::Peer peer;
+	MafiaNet::RakPeerInterface *client = peer.get();
 //	client->InitializeSecurity(0,0,0,0);
 	//MafiaNet::PacketLogger packetLogger;
 	//client->AttachPlugin(&packetLogger);
 
 	
-	// Holds packets
-	MafiaNet::Packet* p;
-
-	// GetPacketIdentifier returns this
+	// Holds the packet identifier
 	unsigned char packetIdentifier;
 
 	// Just so we can remember where the packet came from
@@ -274,10 +270,10 @@ int main(void)
 
 		// Get a packet from either the server or the client
 
-		for (p=client->Receive(); p; client->DeallocatePacket(p), p=client->Receive())
+		for (MafiaNet::PacketPtr p = peer.receive(); p; p = peer.receive())
 		{
-			// We got a packet, get the identifier with our handy function
-			packetIdentifier = GetPacketIdentifier(p);
+			// We got a packet, get the identifier (ID_TIMESTAMP-aware)
+			packetIdentifier = p.id();
 
 			// Check if this is a network message packet
 			switch (packetIdentifier)
@@ -344,25 +340,5 @@ int main(void)
 	// Be nice and let the server know we quit.
 	client->Shutdown(300);
 
-	// We're done with the network
-	MafiaNet::RakPeerInterface::DestroyInstance(client);
-
 	return 0;
-}
-
-// Copied from Multiplayer.cpp
-// If the first byte is ID_TIMESTAMP, then we want the 5th byte
-// Otherwise we want the 1st byte
-unsigned char GetPacketIdentifier(MafiaNet::Packet *p)
-{
-	if (p==0)
-		return 255;
-
-	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
-	{
-		RakAssert(p->length > sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time));
-		return (unsigned char) p->data[sizeof(MafiaNet::MessageID) + sizeof(MafiaNet::Time)];
-	}
-	else
-		return (unsigned char) p->data[0];
 }
