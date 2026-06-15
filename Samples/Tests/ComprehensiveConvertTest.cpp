@@ -168,8 +168,8 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 		{
 			// Send
 			int dataLength;
-			PacketPriority priority;
-			PacketReliability reliability;
+			MafiaNet::Priority priority;
+			MafiaNet::Reliability reliability;
 			unsigned char orderingChannel;
 			SystemAddress target;
 			bool broadcast;
@@ -178,8 +178,8 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			data[0]=ID_USER_PACKET_ENUM;
 			dataLength=3+(randomMT()%8000);
 			//			dataLength=600+(randomMT()%7000);
-			priority=(PacketPriority)(randomMT()%(int)NUMBER_OF_PRIORITIES);
-			reliability=(PacketReliability)(randomMT()%((int)RELIABLE_SEQUENCED+1));
+			priority=(MafiaNet::Priority)(randomMT()%(int)MafiaNet::NUMBER_OF_PRIORITIES);
+			reliability=(MafiaNet::Reliability)(randomMT()%((int)MafiaNet::Reliability::ReliableSequenced+1));
 			orderingChannel=randomMT()%32;
 			if ((randomMT()%NUM_PEERS)==0)
 				target=UNASSIGNED_SYSTEM_ADDRESS;
@@ -204,8 +204,8 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 		{
 			// RPC
 			int dataLength;
-			PacketPriority priority;
-			PacketReliability reliability;
+			MafiaNet::Priority priority;
+			MafiaNet::Reliability reliability;
 			unsigned char orderingChannel;
 			SystemAddress target;
 			bool broadcast;
@@ -214,8 +214,8 @@ int ComprehensiveConvertTest::RunTest(DataStructures::List<RakString> params,boo
 			data[0]=ID_USER_PACKET_ENUM+(randomMT()%10);
 			dataLength=3+(randomMT()%8000);
 			//			dataLength=600+(randomMT()%7000);
-			priority=(PacketPriority)(randomMT()%(int)NUMBER_OF_PRIORITIES);
-			reliability=(PacketReliability)(randomMT()%((int)RELIABLE_SEQUENCED+1));
+			priority=(MafiaNet::Priority)(randomMT()%(int)MafiaNet::NUMBER_OF_PRIORITIES);
+			reliability=(MafiaNet::Reliability)(randomMT()%((int)MafiaNet::Reliability::ReliableSequenced+1));
 			orderingChannel=randomMT()%32;
 			peerIndex=randomMT()%NUM_PEERS;
 			if ((randomMT()%NUM_PEERS)==0)

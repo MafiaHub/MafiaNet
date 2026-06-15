@@ -151,7 +151,7 @@ int main()
 					MafiaNet::BitStream str;
 					str.Write((unsigned char) ID_TRANSPORT_STRING);
 					str.Write(command, (int) strlen(command)+1);
-					rakPeer->Send(&str, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakPeer->Send(&str, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				else
 				{

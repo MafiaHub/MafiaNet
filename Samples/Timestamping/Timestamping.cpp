@@ -118,7 +118,7 @@ int main(void)
 			
 			time= MafiaNet::GetTime();
 			bitStream.Write(time);
-			rakClient->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			rakClient->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			printf("Sending message from client at time %" PRINTF_64_BIT_MODIFIER "u\n", time);
 		}
 		else if (ch=='s' && rakServer->IsActive())
@@ -128,7 +128,7 @@ int main(void)
 
 			time= MafiaNet::GetTime();
 			bitStream.Write(time);
-			rakServer->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			rakServer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			printf("Sending packet from server at time %" PRINTF_64_BIT_MODIFIER "u\n", time);
 		}
 

@@ -92,7 +92,7 @@ void CommonFunctions::DisconnectAndWait(RakPeerInterface *peer,char* ip,unsigned
 	while(CommonFunctions::ConnectionStateMatchesOptions (peer,targetAddress,true,true,true,true))//disconnect client
 	{
 
-		peer->CloseConnection (targetAddress,true,0,LOW_PRIORITY); 
+		peer->CloseConnection (targetAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 }

@@ -87,7 +87,7 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 		reason.Write(kReasonCode);
 		kReasonText.Serialize(&reason);
 
-		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY, &reason);
+		server->CloseConnection(clientGuid, true, 0, MafiaNet::Priority::Low, &reason);
 
 		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 20000);
 		if (note == 0)
@@ -143,7 +143,7 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 			return 9;
 
 		// Default reasonData == nullptr: notification must stay payload-less.
-		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY);
+		server->CloseConnection(clientGuid, true, 0, MafiaNet::Priority::Low);
 
 		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 20000);
 		if (note == 0)
@@ -186,7 +186,7 @@ int DisconnectReasonTest::RunTest(DataStructures::List<RakString> params, bool i
 		// guard (distinct from the nullptr check): no bytes were written, so the
 		// notification must stay payload-less just like the nullptr case.
 		BitStream emptyReason;
-		server->CloseConnection(clientGuid, true, 0, LOW_PRIORITY, &emptyReason);
+		server->CloseConnection(clientGuid, true, 0, MafiaNet::Priority::Low, &emptyReason);
 
 		Packet *note = CommonFunctions::WaitAndReturnMessageWithID(client, ID_DISCONNECTION_NOTIFICATION, 20000);
 		if (note == 0)

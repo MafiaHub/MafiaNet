@@ -45,7 +45,7 @@ void Lobby2Client::SendMsg(Lobby2Message *msg)
 	bs.Write((MessageID)ID_LOBBY2_SEND_MESSAGE);
 	bs.Write((MessageID)msg->GetID());
 	msg->Serialize(true,false,&bs);
-	SendUnified(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, serverAddress, false);
+	SendUnified(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, serverAddress, false);
 }
 void Lobby2Client::SendMsgAndDealloc(Lobby2Message *msg)
 {

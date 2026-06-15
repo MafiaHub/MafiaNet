@@ -262,7 +262,7 @@ int main(void)
                 
 				unsigned short setId;
 
-				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, sysAddrZero, &transferCallback, HIGH_PRIORITY, 0, 0);
+				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, sysAddrZero, &transferCallback, MafiaNet::Priority::High, 0, 0);
 				if (setId==(unsigned short)-1)
 					printf("Download failed.  Host unreachable.\n");
 				else

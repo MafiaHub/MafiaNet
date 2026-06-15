@@ -114,15 +114,15 @@ int main(void)
 	else if (systemType==1)
 	{
 		printf("What send mode to use for relays?\n");
-		printf("(0). UNRELIABLE\n");
-		printf("(1). UNRELIABLE_SEQUENCED\n");
-		printf("(2). RELIABLE\n");
-		printf("(3). RELIABLE_ORDERED\n");
-		printf("(4). RELIABLE_SEQUENCED\n");
+		printf("(0). MafiaNet::Reliability::Unreliable\n");
+		printf("(1). MafiaNet::Reliability::UnreliableSequenced\n");
+		printf("(2). MafiaNet::Reliability::Reliable\n");
+		printf("(3). MafiaNet::Reliability::ReliableOrdered\n");
+		printf("(4). MafiaNet::Reliability::ReliableSequenced\n");
 		Gets((char*)byteBlock, sizeof(byteBlock));
 		if (byteBlock[0]==0)
 		{
-			printf("Defaulting to RELIABLE\n");
+			printf("Defaulting to MafiaNet::Reliability::Reliable\n");
 			sendMode=2;
 		}
 		else
@@ -130,7 +130,7 @@ int main(void)
 			sendMode=atoi((char*)byteBlock);
 			if (sendMode < 0 || sendMode > 4)
 			{
-				printf("Invalid send mode.  Using UNRELIABLE\n");
+				printf("Invalid send mode.  Using MafiaNet::Reliability::Unreliable\n");
 				sendMode=0;
 			}
 		}
@@ -187,15 +187,15 @@ int main(void)
 		}
 		
 		printf("What send mode?\n");
-		printf("(0). UNRELIABLE\n");
-		printf("(1). UNRELIABLE_SEQUENCED\n");
-		printf("(2). RELIABLE\n");
-		printf("(3). RELIABLE_ORDERED\n");
-		printf("(4). RELIABLE_SEQUENCED\n");
+		printf("(0). MafiaNet::Reliability::Unreliable\n");
+		printf("(1). MafiaNet::Reliability::UnreliableSequenced\n");
+		printf("(2). MafiaNet::Reliability::Reliable\n");
+		printf("(3). MafiaNet::Reliability::ReliableOrdered\n");
+		printf("(4). MafiaNet::Reliability::ReliableSequenced\n");
 		Gets((char*)byteBlock, sizeof(byteBlock));
 		if (byteBlock[0]==0)
 		{
-			printf("Defaulting to RELIABLE\n");
+			printf("Defaulting to MafiaNet::Reliability::Reliable\n");
 			sendMode=2;
 		}
 		else
@@ -203,7 +203,7 @@ int main(void)
 			sendMode=atoi((char*)byteBlock);
 			if (sendMode < 0 || sendMode > 4)
 			{
-				printf("Invalid send mode.  Using UNRELIABLE\n");
+				printf("Invalid send mode.  Using MafiaNet::Reliability::Unreliable\n");
 				sendMode=0;
 			}
 		}
@@ -283,7 +283,7 @@ int main(void)
 					{
 						if (p->data[0]==255)
 						{
-							if (localSystem->Send((char*)p->data, p->length, HIGH_PRIORITY, (PacketReliability)sendMode, 0, p->systemAddress, true)==false)
+							if (localSystem->Send((char*)p->data, p->length, MafiaNet::Priority::High, (MafiaNet::Reliability)sendMode, 0, p->systemAddress, true)==false)
 							{
 								printf("Relay failed!\n");
 							}
@@ -334,7 +334,7 @@ int main(void)
 			byteBlock[0]=255; // Relay all data with an identifier of 255
 			for (index=0; index < num; index++)
 			{
-				localSystem->Send((char*)byteBlock, bytesPerPacket, HIGH_PRIORITY, (PacketReliability)sendMode, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+				localSystem->Send((char*)byteBlock, bytesPerPacket, MafiaNet::Priority::High, (MafiaNet::Reliability)sendMode, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			}
             
 			lastSendTime+= (1000 * num) / packetsPerSecond;

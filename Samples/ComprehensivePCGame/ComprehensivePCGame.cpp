@@ -1130,7 +1130,7 @@ int main(void)
 						// We first connect to the game host, and the game host is responsible for calling StartVerifiedJoin() for us to join the session
 						BitStream bsOut;
 						bsOut.Write((MessageID)ID_USER_PACKET_ENUM);
-						rakPeer->Send(&bsOut,HIGH_PRIORITY,RELIABLE_ORDERED,0,packet->guid,false);
+						rakPeer->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->guid,false);
 					}
 				}
 				break;
@@ -1351,7 +1351,7 @@ int main(void)
 				{
 					BitStream bsOut;
 					bsOut.Write((MessageID)(ID_USER_PACKET_ENUM+1));
-					rakPeer->Send(&bsOut,HIGH_PRIORITY,RELIABLE_ORDERED,0,packet->guid,false);
+					rakPeer->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->guid,false);
 				}
 				break;
 			// ID_USER_PACKET_ENUM+1 is used by this sample as a custom message to reject a join game request
@@ -1625,7 +1625,7 @@ int main(void)
 							BitStream bsOut;
 							bsOut.Write(rs);
 							for (unsigned int i=0; i < participantList.Size(); i++)
-								rpc4->Signal("InGameChat", &bsOut, HIGH_PRIORITY, RELIABLE_ORDERED, 0, participantList[i], false, false);
+								rpc4->Signal("InGameChat", &bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, participantList[i], false, false);
 						}
 					}
 				}

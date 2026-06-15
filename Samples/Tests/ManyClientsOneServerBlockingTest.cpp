@@ -281,7 +281,7 @@ int ManyClientsOneServerBlockingTest::RunTest(DataStructures::List<RakString> pa
 			for (int j=0;j<len;j++)//Disconnect them all
 			{
 
-				clientList[i]->CloseConnection (systemList[j],true,0,LOW_PRIORITY); 	
+				clientList[i]->CloseConnection (systemList[j],true,0,MafiaNet::Priority::Low); 	
 			}
 
 		}

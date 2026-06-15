@@ -119,7 +119,7 @@ void SQLite3ServerPlugin::Update(void)
 	{
 		output = sqlThreadPool.GetOutput();
 		MafiaNet::BitStream bsOut((unsigned char*) output.data, output.length,false);
-		SendUnified(&bsOut, MEDIUM_PRIORITY,RELIABLE_ORDERED,0,output.sender,false);
+		SendUnified(&bsOut, MafiaNet::Priority::Medium,MafiaNet::Reliability::ReliableOrdered,0,output.sender,false);
 		rakFree_Ex(output.data,_FILE_AND_LINE_);
 	}
 }
@@ -168,7 +168,7 @@ SQLite3ServerPlugin::SQLExecThreadOutput ExecStatementThread(SQLite3ServerPlugin
 	memcpy(threadOutput.data,bsOut.GetData(),bsOut.GetNumberOfBytesUsed());
 	threadOutput.length=bsOut.GetNumberOfBytesUsed();
 	threadOutput.sender=threadInput.sender;	
-	// SendUnified(&bsOut, MEDIUM_PRIORITY,RELIABLE_ORDERED,0,packet->systemAddress,false);
+	// SendUnified(&bsOut, MafiaNet::Priority::Medium,MafiaNet::Reliability::ReliableOrdered,0,packet->systemAddress,false);
 
 	*returnOutput=true;
 	return threadOutput;
@@ -203,7 +203,7 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 					bsOut.Write(queryId);
 					bsOut.Write(dbIdentifier);
 					bsOut.Write(inputStatement);
-					SendUnified(&bsOut, MEDIUM_PRIORITY,RELIABLE_ORDERED,0,packet->systemAddress,false);
+					SendUnified(&bsOut, MafiaNet::Priority::Medium,MafiaNet::Reliability::ReliableOrdered,0,packet->systemAddress,false);
 				}
 				else
 				{
@@ -234,7 +234,7 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 					bsOut.Write(false);
 					bsOut.Write(errorMsgStr);
 					outputTable.Serialize(&bsOut);
-					SendUnified(&bsOut, MEDIUM_PRIORITY,RELIABLE_ORDERED,0,packet->systemAddress,false);
+					SendUnified(&bsOut, MafiaNet::Priority::Medium,MafiaNet::Reliability::ReliableOrdered,0,packet->systemAddress,false);
 #endif
 				}
 			}

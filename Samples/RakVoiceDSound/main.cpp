@@ -82,7 +82,7 @@ void LogStats(){
 	float avgBpsRec = static_cast<float>(rss->valueOverLastSecond[MafiaNet::USER_MESSAGE_BYTES_RECEIVED_PROCESSED]);
 
 	printf("avgKbpsSent=%02.1f avgKbpsRec=%02.1f kbpsSent=%02.1f kbpsRec=%02.1f    \r", avgBpsSent/1000, avgBpsRec/1000, bpsSent/1000 , bpsRec/1000);
-	//printf("MsgBuf=%6i SndBuf=%10i RcvBuf=%10i    \r", rakVoice.GetRakPeerInterface()->GetStatistics(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)->messageSendBuffer[HIGH_PRIORITY], rakVoice.GetBufferedBytesToSend(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS), rakVoice.GetBufferedBytesToReturn(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS));
+	//printf("MsgBuf=%6i SndBuf=%10i RcvBuf=%10i    \r", rakVoice.GetRakPeerInterface()->GetStatistics(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)->messageSendBuffer[MafiaNet::Priority::High], rakVoice.GetBufferedBytesToSend(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS), rakVoice.GetBufferedBytesToReturn(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS));
 }
 
 // Prints the current encoder parameters

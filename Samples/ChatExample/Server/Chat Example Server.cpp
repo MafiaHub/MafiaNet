@@ -247,12 +247,12 @@ int main(void)
 	
 		// message2 is the data to send
 		// strlen(message2)+1 is to send the null-terminator
-		// HIGH_PRIORITY doesn't actually matter here because we don't use any other priority
-		// RELIABLE_ORDERED means make sure the message arrives in the right order
+		// MafiaNet::Priority::High doesn't actually matter here because we don't use any other priority
+		// MafiaNet::Reliability::ReliableOrdered means make sure the message arrives in the right order
 		// We arbitrarily pick 0 for the ordering stream
 		// MafiaNet::UNASSIGNED_SYSTEM_ADDRESS means don't exclude anyone from the broadcast
 		// true means broadcast the message to everyone connected
-		server->Send(message2, (const int) strlen(message2)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+		server->Send(message2, (const int) strlen(message2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	}
 
 		// Get a packet from either the server or the client
@@ -312,7 +312,7 @@ int main(void)
 				// That messages can be changed on the server before being broadcast
 				// Sending is the same as before
 				sprintf_s(message, "%s", p->data);
-				server->Send(message, (const int) strlen(message)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, p->systemAddress, true);
+				server->Send(message, (const int) strlen(message)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, p->systemAddress, true);
 
 				break;
 			}

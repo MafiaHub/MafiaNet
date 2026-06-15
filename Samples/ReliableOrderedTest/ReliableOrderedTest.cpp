@@ -276,17 +276,17 @@ int main(int argc, char **argv)
 					packetNumber[streamNumber]++;
 					bitStream.Write(streamNumber);
 
-                    PacketReliability reliability;
+                    MafiaNet::Reliability reliability;
 					// #med - review --- was commented out in RakNet via if(0)
                     /*if (0 && (randomMT()%2)==0)
                     {
-                        type="UNRELIABLE_SEQUENCED";
-                        reliability=UNRELIABLE_SEQUENCED;
+                        type="MafiaNet::Reliability::UnreliableSequenced";
+                        reliability=MafiaNet::Reliability::UnreliableSequenced;
                     }
                     else
                     {*/
-                        type="RELIABLE_ORDERED";
-                        reliability=RELIABLE_ORDERED;
+                        type="MafiaNet::Reliability::ReliableOrdered";
+                        reliability=MafiaNet::Reliability::ReliableOrdered;
                     //}
 
                     int padLength;
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
                     bitStream.Write(reliability);
                     bitStream.PadWithZeroToByteLength(padLength);
 
-				    if (sender->Send(&bitStream, HIGH_PRIORITY, reliability ,streamNumber, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true)==0)
+				    if (sender->Send(&bitStream, MafiaNet::Priority::High, reliability ,streamNumber, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true)==0)
 				    {
 					    packetNumber[streamNumber]--;
 				    }
@@ -336,13 +336,13 @@ int main(int argc, char **argv)
 					bitStream.IgnoreBits(8); // Ignore ID_USER_ENUM+1
 					bitStream.Read(receivedPacketNumber);
 					bitStream.Read(streamNumber);
-					PacketReliability reliability;
+					MafiaNet::Reliability reliability;
 					bitStream.Read(reliability);
 					char *type="UNDEFINED";
-					if (reliability==UNRELIABLE_SEQUENCED)
-						type="UNRELIABLE_SEQUENCED";
-					else if (reliability==RELIABLE_ORDERED)
-						type="RELIABLE_ORDERED";
+					if (reliability==MafiaNet::Reliability::UnreliableSequenced)
+						type="MafiaNet::Reliability::UnreliableSequenced";
+					else if (reliability==MafiaNet::Reliability::ReliableOrdered)
+						type="MafiaNet::Reliability::ReliableOrdered";
 
 					if (receivedPacketNumber>packetNumber[streamNumber])
 						printf("Skipped %i got %i %s (channel %i).\n",packetNumber[streamNumber], receivedPacketNumber, type, streamNumber);

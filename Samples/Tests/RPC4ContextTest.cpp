@@ -127,7 +127,7 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 
 	// Broadcasting to zero connections is a no-op; invokeLocal=true drives the
 	// local handlers synchronously through InvokeSignal.
-	rpc.Signal("Event", nullptr, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true, true);
+	rpc.Signal("Event", nullptr, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true, true);
 
 	if (g_observed.slotInvocations != 2)
 		return 2;
@@ -197,7 +197,7 @@ int RPC4ContextTest::RunTest(DataStructures::List<RakString> params, bool isVerb
 	std::atomic<int> blockingResult(-1); // -1 = running, 0 = false, 1 = true
 	std::thread caller([&]() {
 		MafiaNet::BitStream returnData;
-		bool ok = rpc.CallBlocking("Blocking", &blockingParams, HIGH_PRIORITY, RELIABLE_ORDERED, 0, serverGuid, &returnData);
+		bool ok = rpc.CallBlocking("Blocking", &blockingParams, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, serverGuid, &returnData);
 		blockingResult.store(ok ? 1 : 0);
 	});
 

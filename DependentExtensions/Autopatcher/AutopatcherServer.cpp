@@ -102,7 +102,7 @@ void AutopatcherServerLoadNotifier_Printf::OnGetPatchCompleted(SystemAddress rem
 AutopatcherServer::AutopatcherServer()
 {
 	fileListTransfer=0;
-	priority=HIGH_PRIORITY;
+	priority=MafiaNet::Priority::High;
 	orderingChannel=0;
 //	repository=0;
 	maxConcurrentUsers=0;
@@ -116,7 +116,7 @@ AutopatcherServer::~AutopatcherServer()
 {
 	Clear();
 }
-void AutopatcherServer::SetUploadSendParameters(PacketPriority _priority, char _orderingChannel)
+void AutopatcherServer::SetUploadSendParameters(MafiaNet::Priority _priority, char _orderingChannel)
 {
 	priority=_priority;
 	orderingChannel=_orderingChannel;
@@ -369,9 +369,9 @@ AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherS
 	if (server->DecrementPatchingUserCount(rtab.systemAddress))
 	{
 		if (rtab.bitStream1.GetNumberOfBitsUsed()>0)
-			server->SendUnified(&(rtab.bitStream1), server->priority, RELIABLE_ORDERED, server->orderingChannel, rtab.systemAddress, false);
+			server->SendUnified(&(rtab.bitStream1), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 		if (rtab.bitStream2.GetNumberOfBitsUsed()>0)
-			server->SendUnified(&(rtab.bitStream2), server->priority, RELIABLE_ORDERED, server->orderingChannel, rtab.systemAddress, false);
+			server->SendUnified(&(rtab.bitStream2), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 
 		if (server->loadNotifier)
 		{
@@ -417,7 +417,7 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 		{
 			bitStream2.Write((unsigned char) ID_AUTOPATCHER_FINISHED);
 			bitStream2.Write(currentDate);
-			SendUnified(&bitStream2, priority, RELIABLE_ORDERED,orderingChannel, packet->systemAddress, false);
+			SendUnified(&bitStream2, priority, MafiaNet::Reliability::ReliableOrdered,orderingChannel, packet->systemAddress, false);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
 
@@ -428,7 +428,7 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 			{
 				bitStream1.Write((unsigned char) ID_AUTOPATCHER_DELETION_LIST);
 				cache_deletedFiles.Serialize(&bitStream1);
-				SendUnified(&bitStream1, priority, RELIABLE_ORDERED,orderingChannel, packet->systemAddress, false);
+				SendUnified(&bitStream1, priority, MafiaNet::Reliability::ReliableOrdered,orderingChannel, packet->systemAddress, false);
 			}
 			if (cache_addedOrModifiedFileHashes.fileList.Size())
 			{
@@ -442,7 +442,7 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 				bitStream2.Write((unsigned char) ID_AUTOPATCHER_FINISHED);
 				bitStream2.Write(currentDate);
 			}
-			SendUnified(&bitStream2, priority, RELIABLE_ORDERED,orderingChannel, packet->systemAddress, false);
+			SendUnified(&bitStream2, priority, MafiaNet::Reliability::ReliableOrdered,orderingChannel, packet->systemAddress, false);
 
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
@@ -543,9 +543,9 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 	*returnOutput=false;
 
 	if (rtab.bitStream1.GetNumberOfBitsUsed()>0)
-		server->SendUnified(&(rtab.bitStream1), server->priority, RELIABLE_ORDERED, server->orderingChannel, rtab.systemAddress, false);
+		server->SendUnified(&(rtab.bitStream1), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 	if (rtab.bitStream2.GetNumberOfBitsUsed()>0)
-		server->SendUnified(&(rtab.bitStream2), server->priority, RELIABLE_ORDERED, server->orderingChannel, rtab.systemAddress, false);
+		server->SendUnified(&(rtab.bitStream2), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 
 	// 12/1/2010 This doesn't scale well. Changing to allocating a connection object per request
 	/*
@@ -682,7 +682,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 				bitStream1.Write((unsigned char) ID_AUTOPATCHER_FINISHED_INTERNAL);
 				double t =(double) time(nullptr);
 				bitStream1.Write(t);
-				SendUnified(&bitStream1, priority, RELIABLE_ORDERED, orderingChannel, packet->systemAddress, false);
+				SendUnified(&bitStream1, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 
 				MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;

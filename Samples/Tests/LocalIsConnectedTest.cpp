@@ -91,7 +91,7 @@ int LocalIsConnectedTest::RunTest(DataStructures::List<RakString> params,bool is
 			DebugTools::ShowError("IsConnected did not detect connected client",!noPauses && isVerbose,__LINE__,__FILE__);
 		return 2;
 	}
-	client->CloseConnection (serverAddress,true,0,LOW_PRIORITY); 
+	client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low); 
 
 	if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,false,false,true))
 	{

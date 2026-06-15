@@ -178,11 +178,11 @@ public:
 	void SetTimestamp(MafiaNet::Time timeStamp);
 
 	/// Set parameters to pass to RakPeer::Send() for all following calls to Call()
-	/// Deafults to HIGH_PRIORITY, RELIABLE_ORDERED, ordering channel 0
+	/// Deafults to MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, ordering channel 0
 	/// \param[in] priority See RakPeer::Send()
 	/// \param[in] reliability See RakPeer::Send()
 	/// \param[in] orderingChannel See RakPeer::Send()
-	void SetSendParams(PacketPriority priority, PacketReliability reliability, char orderingChannel);
+	void SetSendParams(MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
 
 	/// Set system to send to for all following calls to Call()
 	/// Defaults to MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, broadcast=true
@@ -351,16 +351,16 @@ public:
 	{
 		CallExplicitParameters(
 			NetworkID _networkID=UNASSIGNED_NETWORK_ID, SystemAddress _systemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,
-			bool _broadcast=true, MafiaNet::Time _timeStamp=0, PacketPriority _priority=HIGH_PRIORITY,
-			PacketReliability _reliability=RELIABLE_ORDERED, char _orderingChannel=0
+			bool _broadcast=true, MafiaNet::Time _timeStamp=0, MafiaNet::Priority _priority=MafiaNet::Priority::High,
+			MafiaNet::Reliability _reliability=MafiaNet::Reliability::ReliableOrdered, char _orderingChannel=0
 			) : networkID(_networkID), systemAddress(_systemAddress), broadcast(_broadcast), timeStamp(_timeStamp), priority(_priority), reliability(_reliability), orderingChannel(_orderingChannel)
 		{}
 		NetworkID networkID;
 		SystemAddress systemAddress;
 		bool broadcast;
 		MafiaNet::Time timeStamp;
-		PacketPriority priority;
-		PacketReliability reliability;
+		MafiaNet::Priority priority;
+		MafiaNet::Reliability reliability;
 		char orderingChannel;
 	};
 
@@ -683,15 +683,15 @@ public:
 	{
 		SignalExplicitParameters(
 			SystemAddress _systemAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,
-			bool _broadcast=true, MafiaNet::Time _timeStamp=0, PacketPriority _priority=HIGH_PRIORITY,
-			PacketReliability _reliability=RELIABLE_ORDERED, char _orderingChannel=0
+			bool _broadcast=true, MafiaNet::Time _timeStamp=0, MafiaNet::Priority _priority=MafiaNet::Priority::High,
+			MafiaNet::Reliability _reliability=MafiaNet::Reliability::ReliableOrdered, char _orderingChannel=0
 			) : systemAddress(_systemAddress), broadcast(_broadcast), timeStamp(_timeStamp), priority(_priority), reliability(_reliability), orderingChannel(_orderingChannel)
 		{}
 		SystemAddress systemAddress;
 		bool broadcast;
 		MafiaNet::Time timeStamp;
-		PacketPriority priority;
-		PacketReliability reliability;
+		MafiaNet::Priority priority;
+		MafiaNet::Reliability reliability;
 		char orderingChannel;
 	};
 
@@ -853,8 +853,8 @@ public:
 
 //	DataStructures::Map<SystemAddress, DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *> remoteFunctions, remoteSlots;
 	MafiaNet::Time outgoingTimestamp;
-	PacketPriority outgoingPriority;
-	PacketReliability outgoingReliability;
+	MafiaNet::Priority outgoingPriority;
+	MafiaNet::Reliability outgoingReliability;
 	char outgoingOrderingChannel;
 	SystemAddress outgoingSystemAddress;
 	bool outgoingBroadcast;

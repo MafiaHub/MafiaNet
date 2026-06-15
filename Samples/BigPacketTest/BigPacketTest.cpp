@@ -160,7 +160,7 @@ int main(void)
 #else
 					text[0]=(unsigned char) 255;
 #endif
-					server->Send(text, BIG_PACKET_SIZE, LOW_PRIORITY, RELIABLE_ORDERED_WITH_ACK_RECEIPT, 0, packet->systemAddress, false);
+					server->Send(text, BIG_PACKET_SIZE, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrderedWithAckReceipt, 0, packet->systemAddress, false);
 					// Keep the stat from updating until the messages move to the thread or it quits right away
 					nextStatTime= MafiaNet::GetTimeMS()+1000;
 				}
@@ -182,7 +182,7 @@ int main(void)
 					printf("Sending medium priority message\n");
 					char t[1];
 					t[0]=(unsigned char) 254;
-					server->Send(t, 1, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					server->Send(t, 1, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 1, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				if (ch=='q')
 					quit=true;
@@ -241,7 +241,7 @@ int main(void)
 						{
 							printf("Rerequesting send.\n");
 							unsigned char ch2=(unsigned char) 253;
-							client->Send((const char*) &ch2, 1, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+							client->Send((const char*) &ch2, 1, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 1, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 						}
 						else
 						{

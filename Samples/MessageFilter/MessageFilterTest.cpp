@@ -67,11 +67,11 @@ int main()
 
 	// Have peer 2 send a disallowed message, then the allowed message.
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM+1);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	// Allowed message
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	RakSleep(1000);
 
@@ -99,9 +99,9 @@ int main()
 
 	// Have peer 2 send the messages again.
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM+1);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
-	peer2->Send(&message, 1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	RakSleep(1000);
 

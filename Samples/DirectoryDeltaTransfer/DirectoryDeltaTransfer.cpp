@@ -152,7 +152,7 @@ int main(void)
 				Gets(outputSubdir, sizeof(outputSubdir));
                 
 				unsigned short setId;
-				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetSystemAddressFromIndex(0), &transferCallback, HIGH_PRIORITY, 0, nullptr);
+				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetSystemAddressFromIndex(0), &transferCallback, MafiaNet::Priority::High, 0, nullptr);
 				if (setId==(unsigned short)-1)
 					printf("Download failed.  Host unreachable.\n");
 				else

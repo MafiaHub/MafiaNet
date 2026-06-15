@@ -20,7 +20,7 @@ using namespace MafiaNet;
 Lobby2Plugin::Lobby2Plugin()
 {
 	orderingChannel=0;
-	packetPriority=HIGH_PRIORITY;
+	packetPriority=MafiaNet::Priority::High;
 }
 Lobby2Plugin::~Lobby2Plugin()
 {
@@ -30,7 +30,7 @@ void Lobby2Plugin::SetOrderingChannel(char oc)
 {
 	orderingChannel=oc;
 }
-void Lobby2Plugin::SetSendPriority(PacketPriority pp)
+void Lobby2Plugin::SetSendPriority(MafiaNet::Priority pp)
 {
 	packetPriority=pp;
 }

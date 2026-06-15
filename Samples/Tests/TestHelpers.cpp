@@ -70,7 +70,7 @@ bool TestHelpers::ConnectTwoPeersLocally(RakPeerInterface *connector,RakPeerInte
 	return connector->Connect("127.0.0.1",connecteeAdd.GetPort(),0,0);
 }
 
-bool TestHelpers::BroadCastTestPacket(RakPeerInterface *sender,PacketReliability rel,PacketPriority pr,int typeNum)//returns send return value
+bool TestHelpers::BroadCastTestPacket(RakPeerInterface *sender,MafiaNet::Reliability rel,MafiaNet::Priority pr,int typeNum)//returns send return value
 {
 
 	char str2[]="AAAAAAAAAA";
@@ -78,7 +78,7 @@ bool TestHelpers::BroadCastTestPacket(RakPeerInterface *sender,PacketReliability
 	return sender->Send(str2,(int) strlen(str2)+1, pr, rel  ,0, UNASSIGNED_SYSTEM_ADDRESS, true)>0;
 }
 
-bool TestHelpers::SendTestPacketDirected(RakPeerInterface *sender,char * ip,int port,PacketReliability rel,PacketPriority pr,int typeNum)//returns send return value
+bool TestHelpers::SendTestPacketDirected(RakPeerInterface *sender,char * ip,int port,MafiaNet::Reliability rel,MafiaNet::Priority pr,int typeNum)//returns send return value
 {
 
 	SystemAddress recAddress;

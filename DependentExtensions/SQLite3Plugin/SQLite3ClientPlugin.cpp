@@ -82,7 +82,7 @@ void SQLite3ClientPlugin::ClearResultHandlers(void)
 	resultHandlers.Clear(true,_FILE_AND_LINE_);
 }
 unsigned int SQLite3ClientPlugin::_sqlite3_exec(MafiaNet::RakString dbIdentifier, MafiaNet::RakString inputStatement,
-										  PacketPriority priority, PacketReliability reliability, char orderingChannel, const SystemAddress &systemAddress)
+										  MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const SystemAddress &systemAddress)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID)ID_SQLite3_EXEC);

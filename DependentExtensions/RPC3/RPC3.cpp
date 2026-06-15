@@ -49,8 +49,8 @@ RPC3::RPC3()
 	currentExecution[0]=0;
 	networkIdManager=0;
 	outgoingTimestamp=0;
-	outgoingPriority=HIGH_PRIORITY;
-	outgoingReliability=RELIABLE_ORDERED;
+	outgoingPriority=MafiaNet::Priority::High;
+	outgoingReliability=MafiaNet::Reliability::ReliableOrdered;
 	outgoingOrderingChannel=0;
 	outgoingBroadcast=true;
 	incomingTimeStamp=0;
@@ -86,7 +86,7 @@ void RPC3::SetTimestamp(MafiaNet::Time timeStamp)
 	outgoingTimestamp=timeStamp;
 }
 
-void RPC3::SetSendParams(PacketPriority priority, PacketReliability reliability, char orderingChannel)
+void RPC3::SetSendParams(MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel)
 {
 	outgoingPriority=priority;
 	outgoingReliability=reliability;
@@ -353,7 +353,7 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 // 					outgoingBitstream.WriteCompressed(functionIndex);
 // 					StringCompressor::Instance()->EncodeString(strIdentifier,512,&outgoingBitstream,0);
 // 					outgoingBitstream.Write(isCall);
-// 					SendUnified(&outgoingBitstream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, systemAddress, false);
+// 					SendUnified(&outgoingBitstream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemAddress, false);
 // 					break;
 // 				}
 // 			}
@@ -614,7 +614,7 @@ void RPC3::SendError(SystemAddress target, unsigned char errorCode, const char *
 	bs.Write((MessageID)ID_RPC_REMOTE_ERROR);
 	bs.Write(errorCode);
 	bs.WriteAlignedBytes((const unsigned char*) functionName,(const unsigned int) strlen(functionName)+1);
-	SendUnified(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, target, false);
+	SendUnified(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, target, false);
 }
 
 // bool RPC3::GetRemoteFunctionIndex(const SystemAddress &systemAddress, RPC3::RPCIdentifier identifier, unsigned int *outerIndex, unsigned int *innerIndex, bool isCall)

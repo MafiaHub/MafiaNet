@@ -208,7 +208,7 @@ int PeerConnectDisconnectTest::RunTest(DataStructures::List<RakString> params,bo
 			for (int j=0;j<len;j++)//Disconnect them all
 			{
 
-				peerList[i]->CloseConnection (systemList[j],true,0,LOW_PRIORITY); 	
+				peerList[i]->CloseConnection (systemList[j],true,0,MafiaNet::Priority::Low); 	
 			}
 
 		}

@@ -117,8 +117,8 @@ int main(void)
 		{
 			// Send
 			int dataLength;
-			PacketPriority priority;
-			PacketReliability reliability;
+			MafiaNet::Priority priority;
+			MafiaNet::Reliability reliability;
 			unsigned char orderingChannel;
 			SystemAddress target;
 			bool broadcast;
@@ -127,8 +127,8 @@ int main(void)
 			data[0]=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
 			dataLength=3+(randomMT()%8000);
 //			dataLength=600+(randomMT()%7000);
-			priority=(PacketPriority)(randomMT()%(int)NUMBER_OF_PRIORITIES);
-			reliability=(PacketReliability)(randomMT()%((int)RELIABLE_SEQUENCED+1));
+			priority=(MafiaNet::Priority)(randomMT()%(int)MafiaNet::NUMBER_OF_PRIORITIES);
+			reliability=(MafiaNet::Reliability)(randomMT()%((int)MafiaNet::Reliability::ReliableSequenced+1));
 			orderingChannel=randomMT()%32;
 			peerIndex = randomMT() % NUM_PEERS;
 			if ((randomMT()%NUM_PEERS)==0)
@@ -152,8 +152,8 @@ int main(void)
 		else if (nextAction < .18f)
 		{
 			int dataLength;
-			PacketPriority priority;
-			PacketReliability reliability;
+			MafiaNet::Priority priority;
+			MafiaNet::Reliability reliability;
 			unsigned char orderingChannel;
 			SystemAddress target;
 			bool broadcast;
@@ -161,8 +161,8 @@ int main(void)
 			data[0]=ID_USER_PACKET_ENUM+(randomMT()%10);
 			dataLength=3+(randomMT()%8000);
 //			dataLength=600+(randomMT()%7000);
-			priority=(PacketPriority)(randomMT()%(int)NUMBER_OF_PRIORITIES);
-			reliability=(PacketReliability)(randomMT()%((int)RELIABLE_SEQUENCED+1));
+			priority=(MafiaNet::Priority)(randomMT()%(int)MafiaNet::NUMBER_OF_PRIORITIES);
+			reliability=(MafiaNet::Reliability)(randomMT()%((int)MafiaNet::Reliability::ReliableSequenced+1));
 			orderingChannel=randomMT()%32;
 			peerIndex=randomMT()%NUM_PEERS;
 			if ((randomMT()%NUM_PEERS)==0)

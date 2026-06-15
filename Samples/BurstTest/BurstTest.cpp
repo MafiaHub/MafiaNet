@@ -140,7 +140,7 @@ int main(int, char **)
 					bitStream.Write(index);
 					bitStream.Write(msgCount);
 					bitStream.PadWithZeroToByteLength(msgSize);
-					rakPeer->Send(&bitStream, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakPeer->Send(&bitStream, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				printf("Sent\n");
 					

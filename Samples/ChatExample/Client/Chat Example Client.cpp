@@ -266,9 +266,9 @@ int main(void)
 
 			// message is the data to send
 			// strlen(message)+1 is to send the null-terminator
-			// HIGH_PRIORITY doesn't actually matter here because we don't use any other priority
-			// RELIABLE_ORDERED means make sure the message arrives in the right order
-			client->Send(message, (int) strlen(message)+1, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			// MafiaNet::Priority::High doesn't actually matter here because we don't use any other priority
+			// MafiaNet::Reliability::ReliableOrdered means make sure the message arrives in the right order
+			client->Send(message, (int) strlen(message)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 		}
 
 		// Get a packet from either the server or the client

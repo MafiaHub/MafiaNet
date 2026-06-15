@@ -122,7 +122,7 @@ void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
 	out.Write((int32_t)sampleRate);
-	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, recipient, false);
+	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipient, false);
 }
 
 void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
@@ -130,7 +130,7 @@ void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 	FreeChannelMemory(recipient);
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
-	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, recipient, false);
+	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipient, false);
 }
 
 void RakVoice::CloseAllChannels(void)
@@ -140,7 +140,7 @@ void RakVoice::CloseAllChannels(void)
 
 	for (unsigned index = 0; index < voiceChannels.Size(); index++)
 	{
-		SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, voiceChannels[index]->guid, false);
+		SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, voiceChannels[index]->guid, false);
 		FreeChannelMemory(index, false);
 	}
 
@@ -414,7 +414,7 @@ void RakVoice::Update(void)
 					channel->outgoingMessageNumber++;
 
 					MafiaNet::BitStream tempOutputBs((unsigned char*)tempOutput, encodedBytes + headerSize, false);
-					SendUnified(&tempOutputBs, HIGH_PRIORITY, UNRELIABLE, 0, channel->guid, false);
+					SendUnified(&tempOutputBs, MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, channel->guid, false);
 
 					if (loopbackMode)
 					{
@@ -519,7 +519,7 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REPLY);
 	out.Write((int32_t)sampleRate);
-	SendUnified(&out, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 }
 
 void RakVoice::OnOpenChannelReply(Packet *packet)

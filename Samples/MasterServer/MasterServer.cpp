@@ -283,7 +283,7 @@ void MasterServer::HandleQuery(Packet *packet)
 		}
 	}
 
-	rakPeer->Send(&outputBitStream, MEDIUM_PRIORITY, RELIABLE, 0, packet->systemAddress, false);
+	rakPeer->Send(&outputBitStream, MafiaNet::Priority::Medium, MafiaNet::Reliability::Reliable, 0, packet->systemAddress, false);
 }
 
 void MasterServer::HandleUpdateServer(Packet *packet)
@@ -350,7 +350,7 @@ void MasterServer::HandleRelayedConnectionNotification(Packet *packet)
 		#ifdef _SHOW_MASTER_SERVER_PRINTF
 		printf("ID_RELAYED_CONNECTION_NOTIFICATION sent to %s:%i from %s:%i\n", str, serverGamePort, packet->systemAddress.ToString(false), packet->systemAddress.GetPort());
 		#endif
-		rakPeer->Send(&outgoingBitStream, HIGH_PRIORITY, RELIABLE, 0, gameServerList.serverList[serverIndex]->originationId, false);
+		rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, gameServerList.serverList[serverIndex]->originationId, false);
 	}
 	else
 	{

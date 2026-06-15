@@ -328,7 +328,7 @@ int clientMain(void)
 					bsOut.WriteCasted<MessageID>(ID_USER_PACKET_ENUM);
 					RakString username("User %s", rakPeer->GetMyGUID().ToString());
 					bsOut.Write(username);
-					rakPeer->Send(&bsOut, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->guid, false);
+					rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
 				}
 				break;
 			case ID_CONNECTION_LOST:

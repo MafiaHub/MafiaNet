@@ -54,7 +54,7 @@ int main(int, char **)
 		receiveCount=0;
 		for (sum=0; sum < 4000; sum+=stride)
 		{
-			sender->Send((const char*) data,stride,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+			sender->Send((const char*) data,stride,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 			sendCount++;
 		}
 

@@ -216,7 +216,7 @@ protected:
 
 	//DataStructures::List<PostgreSQLInterface *> connectionPool;
 	//#med - rename curOrderingChannel back to orderingChannel and instead rename class member orderingChannel to m_orderingChannel
-	void SendUnifiedToMultiple( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses );
+	void SendUnifiedToMultiple( const MafiaNet::BitStream * bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses );
 };
 	
 }

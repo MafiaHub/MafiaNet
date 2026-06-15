@@ -132,11 +132,11 @@ class Client
 			{
 				if (randomMT()%10==0)
 				{
-					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 				else
 				{
-					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 
 				nextSendTime=curTime+50;
@@ -188,7 +188,7 @@ class Server
 					break;
 // 				case ID_USER_PACKET_ENUM:
 // 					{
-// 						peer->Send((const char*) p->data, p->length, HIGH_PRIORITY, RELIABLE_ORDERED, 0, p->guid, true);
+// 						peer->Send((const char*) p->data, p->length, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, p->guid, true);
 // 						break;
 // 					}
 				}
@@ -200,11 +200,11 @@ class Server
 			{
 				if (randomMT()%10==0)
 				{
-					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData2,RANDOM_DATA_SIZE_2,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 				else
 				{
-					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,HIGH_PRIORITY,RELIABLE_ORDERED,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+					peer->Send((const char*)&randomData1,RANDOM_DATA_SIZE_1,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
 				}
 
 				nextSendTime=curTime+100;

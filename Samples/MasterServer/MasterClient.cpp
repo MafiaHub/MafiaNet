@@ -79,7 +79,7 @@ void MasterClient::QueryMasterServer(void)
 	outgoingBitStream.Write((unsigned char)ID_QUERY_MASTER_SERVER);
 	if (ruleIdentifierList.GetNumberOfBitsUsed()>0)
 		outgoingBitStream.WriteBits(ruleIdentifierList.GetData(), ruleIdentifierList.GetNumberOfBitsUsed(), false);
-    rakPeer->Send(&outgoingBitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+    rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 }
 
 void MasterClient::PingServers(void)
@@ -101,7 +101,7 @@ void MasterClient::Update(RakPeerInterface *peer)
 	{
 		outgoingBitStream.Write((unsigned char)ID_MASTER_SERVER_SET_SERVER);
 		SerializeServer(&localServer, &outgoingBitStream);
-		rakPeer->Send(&outgoingBitStream, MEDIUM_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+		rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 		serverListed=true;
 		localServerModified=false;
 	}
@@ -150,7 +150,7 @@ void MasterClient::ConnectionAttemptNotification(char *serverIP, unsigned short 
 	bitStream.Write(localServer.connectionIdentifier.GetPort()); // Your own game client port
 	bitStream.Write(serverPort); // The game server you are connecting to port
 	StringCompressor::Instance()->EncodeString(serverIP, 22, &bitStream); // The game server IP you are connecting to
-	rakPeer->Send(&bitStream, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	rakPeer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 }
 void MasterClient::ListServer(void)
 {
@@ -164,7 +164,7 @@ void MasterClient::DelistServer(void)
 	{
 		bitStream.Write((unsigned char)ID_MASTER_SERVER_DELIST_SERVER);
 		bitStream.Write(localServer.connectionIdentifier.GetPort());
-        rakPeer->Send(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+        rakPeer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 		serverListed=false;
 	}
 }

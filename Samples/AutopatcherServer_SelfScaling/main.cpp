@@ -1346,7 +1346,7 @@ int main(int argc, char **argv)
 				cloudServer.GetRemoteServers(remoteServersOut);
 				for (unsigned int i=0; i < remoteServersOut.Size(); i++)
 				{
-					g_rakPeer->Send(&bsOut, HIGH_PRIORITY, RELIABLE_ORDERED, 0, remoteServersOut[i], false);
+					g_rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServersOut[i], false);
 					g_rakPeer->CloseConnection(remoteServersOut[i], true);
 				}
 

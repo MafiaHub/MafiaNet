@@ -842,7 +842,7 @@ public:
 
 	/// \brief Send priority to send messages on
 	/// \param[in] pp The packet priority
-	void SetSendPriority(PacketPriority pp);
+	void SetSendPriority(MafiaNet::Priority pp);
 
 	// --------------------------------------------------------------------------------------------
 	// Client room functions. Will transmit the command to the server specified with SetServerAddress();
@@ -955,7 +955,7 @@ protected:
 	// Client and server data
 	char orderingChannel;
 	DataStructures::List<RoomsCallback *> roomsCallback;
-	PacketPriority packetPriority;
+	MafiaNet::Priority packetPriority;
 	ProfanityFilter *profanityFilter;
 	MafiaNet::TimeMS lastUpdateTime;
 
