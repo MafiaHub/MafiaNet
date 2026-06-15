@@ -22,7 +22,7 @@
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
-#include "RakVoice.h"
+#include "mafianet/RakVoice.h"
 #include "mafianet/statistics.h"
 #include "mafianet/NatPunchthroughClient.h"
 #include "mafianet/BitStream.h"

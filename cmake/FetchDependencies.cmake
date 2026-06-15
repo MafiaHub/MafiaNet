@@ -62,87 +62,14 @@ set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
 set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
 
-# -----------------------------------------------------------------------------
-# Opus - audio codec for RakVoice
-# -----------------------------------------------------------------------------
-FetchContent_Declare(
-    Opus
-    GIT_REPOSITORY https://github.com/xiph/opus.git
-    GIT_TAG        v1.6.1
-    GIT_SHALLOW    TRUE
-)
-
-# Opus configuration
-set(OPUS_BUILD_SHARED_LIBRARY OFF CACHE BOOL "" FORCE)
-set(OPUS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
-set(OPUS_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
-set(OPUS_INSTALL_PKG_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
-set(OPUS_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
-
-# -----------------------------------------------------------------------------
-# RNNoise - neural network noise suppression for RakVoice
-# -----------------------------------------------------------------------------
-# RNNoise doesn't have a proper CMake build, so we fetch and build manually
-FetchContent_Declare(
-    rnnoise
-    GIT_REPOSITORY https://github.com/xiph/rnnoise.git
-    GIT_TAG        v0.2
-    GIT_SHALLOW    TRUE
-)
-
-# RNNoise model data (neural network weights)
-set(RNNOISE_MODEL_VERSION "0b50c45")
-FetchContent_Declare(
-    rnnoise_model
-    URL      https://media.xiph.org/rnnoise/models/rnnoise_data-${RNNOISE_MODEL_VERSION}.tar.gz
-    URL_HASH SHA256=4ac81c5c0884ec4bd5907026aaae16209b7b76cd9d7f71af582094a2f98f4b43
-)
+# Note: Opus and RNNoise (used by RakVoice, which is built into the core
+# library) are fetched separately in FetchVoiceDependencies.cmake so they are
+# always available, independent of MAFIANET_BUILD_SAMPLES.
 
 # -----------------------------------------------------------------------------
 # Fetch all dependencies
 # -----------------------------------------------------------------------------
-FetchContent_MakeAvailable(bzip2 miniupnpc Opus jansson)
-
-# Fetch rnnoise separately (needs manual target creation)
-FetchContent_GetProperties(rnnoise)
-if(NOT rnnoise_POPULATED)
-    FetchContent_Populate(rnnoise)
-endif()
-
-# Fetch rnnoise model data
-FetchContent_GetProperties(rnnoise_model)
-if(NOT rnnoise_model_POPULATED)
-    FetchContent_Populate(rnnoise_model)
-endif()
-
-# -----------------------------------------------------------------------------
-# RNNoise - manual target creation (no upstream CMakeLists.txt)
-# -----------------------------------------------------------------------------
-if(NOT TARGET rnnoise)
-    add_library(rnnoise STATIC
-        ${rnnoise_SOURCE_DIR}/src/denoise.c
-        ${rnnoise_SOURCE_DIR}/src/rnn.c
-        ${rnnoise_SOURCE_DIR}/src/rnnoise_tables.c
-        ${rnnoise_SOURCE_DIR}/src/nnet.c
-        ${rnnoise_SOURCE_DIR}/src/nnet_default.c
-        ${rnnoise_SOURCE_DIR}/src/pitch.c
-        ${rnnoise_SOURCE_DIR}/src/kiss_fft.c
-        ${rnnoise_SOURCE_DIR}/src/celt_lpc.c
-    )
-    # Get Opus source directory for celt headers (needed by vec_neon.h)
-    FetchContent_GetProperties(Opus)
-    target_include_directories(rnnoise
-        PUBLIC
-            ${rnnoise_SOURCE_DIR}/include
-        PRIVATE
-            ${rnnoise_SOURCE_DIR}/src
-            ${rnnoise_model_SOURCE_DIR}/src  # Contains rnnoise_data.h
-            ${opus_SOURCE_DIR}/celt           # Contains os_support.h
-            ${opus_SOURCE_DIR}/include        # Contains opus_defines.h
-    )
-    target_compile_definitions(rnnoise PRIVATE COMPILE_OPUS=1)
-    set_target_properties(rnnoise PROPERTIES FOLDER "Dependencies")
-endif()
+FetchContent_MakeAvailable(bzip2 miniupnpc jansson)
 
 # -----------------------------------------------------------------------------
 # Create aliases for compatibility with existing target names
@@ -163,9 +90,6 @@ if(TARGET bz2_static)
 endif()
 if(TARGET libminiupnpc-static)
     set_target_properties(libminiupnpc-static PROPERTIES FOLDER "Dependencies")
-endif()
-if(TARGET opus)
-    set_target_properties(opus PROPERTIES FOLDER "Dependencies")
 endif()
 if(TARGET jansson)
     set_target_properties(jansson PROPERTIES FOLDER "Dependencies")
