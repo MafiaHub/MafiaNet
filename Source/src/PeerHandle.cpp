@@ -8,7 +8,6 @@
 #include "mafianet/PeerHandle.h"
 
 #include <type_traits>
-#include <utility>
 
 #include "mafianet/MessageIdentifiers.h" // ID_TIMESTAMP
 

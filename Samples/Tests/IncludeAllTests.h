@@ -35,4 +35,5 @@
 #include "DisconnectReasonTest.h"
 #include "PeerGuidTest.h"
 #include "PointGridSectorizerTest.h"
+#include "PeerHandleTest.h"
 
