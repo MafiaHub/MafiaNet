@@ -1,8 +1,8 @@
 /*
- *  Copyright (c) 2019, SLikeSoft UG (haftungsbeschraenkt)
+ *  Copyright (c) 2026, MafiaHub
  *
- *  This source code is  licensed under the MIT-style license found in the license.txt
- *  file in the root directory of this source tree.
+ *  This source code is licensed under the MIT-style license found in the
+ *  license.txt file in the root directory of this source tree.
  */
 
 #include "mafianet/PeerHandle.h"
@@ -84,7 +84,8 @@ Peer& Peer::operator=(Peer&& o) noexcept {
 }
 
 PacketPtr Peer::receive() {
-    return PacketPtr(raw_, raw_->Receive());
+    // A moved-from Peer is empty; never dereference a null instance.
+    return raw_ ? PacketPtr(raw_, raw_->Receive()) : PacketPtr(nullptr, nullptr);
 }
 
 } // namespace MafiaNet
