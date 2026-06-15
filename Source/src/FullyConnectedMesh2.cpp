@@ -362,7 +362,7 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 		{
 			fcm2ParticipantList[idx]=fcm2ParticipantList[fcm2ParticipantList.Size()-1];
 #ifdef DEBUG_FCM2
-			printf("Popping participant %s\n", to_string(fcm2ParticipantList[fcm2ParticipantList.Size()-1].rakNetGuid).c_str());
+			printf("Popping participant %s\n", to_string(fcm2ParticipantList[fcm2ParticipantList.Size()-1]->rakNetGuid).c_str());
 #endif
 
 			fcm2ParticipantList.Pop();
