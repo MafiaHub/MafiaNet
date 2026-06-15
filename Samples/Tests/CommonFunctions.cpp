@@ -141,6 +141,12 @@ Packet *CommonFunctions::WaitAndReturnMessageWithID(RakPeerInterface *reciever,i
 
 		}
 
+		// Yield the CPU between drains. Spinning Receive() in a tight loop pins a
+		// core and, on CPU-constrained CI runners, starves the peers' internal
+		// network threads that send/resend reliable traffic (e.g. the reliable
+		// ID_DISCONNECTION_NOTIFICATION) — making the wait time out spuriously.
+		RakSleep(5);
+
 	}
 
 	return 0;
