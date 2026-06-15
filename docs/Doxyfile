@@ -6,7 +6,7 @@
 #---------------------------------------------------------------------------
 
 PROJECT_NAME           = "MafiaNet"
-PROJECT_NUMBER         = "0.9.0"
+PROJECT_NUMBER         = "0.10.0"
 PROJECT_BRIEF          = "Cross-platform networking engine for multiplayer games"
 PROJECT_LOGO           =
 

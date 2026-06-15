@@ -3,6 +3,80 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.10.0
+--------------
+
+**Core / API**
+
+* **Real umbrella header** ``mafianet/mafianet.h``. Aggregates the core public
+  headers (``RakPeerInterface``, types, message IDs, ``PacketPriority``,
+  ``BitStream``, ``GetTime``, ``Statistics``) behind a single include, so the
+  common client/server path only needs ``#include "mafianet/mafianet.h"``.
+  Purely additive — the granular headers remain for advanced users. Encryption
+  headers are intentionally omitted; connection security stays opt-in via
+  ``RakPeerInterface::InitializeSecurity()``.
+
+* **Canonical type aliases** in ``mafianet/aliases.h`` over the legacy
+  RakNet-named public types: ``PeerInterface`` (``RakPeerInterface``), ``Guid``
+  (``RakNetGUID``), ``Statistics`` (``RakNetStatistics``) and ``UnassignedGuid``
+  (``UNASSIGNED_RAKNET_GUID``). These are ``using`` aliases denoting the exact
+  same types/objects, so old and new names interoperate freely. The legacy
+  declarations are left untouched and un-deprecated. Pulled into the umbrella
+  header.
+
+* **RAII handles** ``Peer`` and ``PacketPtr`` in ``mafianet/PeerHandle.h``
+  (exported from the umbrella header). ``Peer`` owns a ``RakPeerInterface``
+  instance and destroys it on scope exit; ``PacketPtr`` owns a received
+  ``Packet`` and deallocates it automatically — removing manual
+  ``DestroyInstance`` / ``DeallocatePacket`` bookkeeping. The ChatExample client
+  is rewritten to demonstrate them.
+
+* **Thread-safe value-type GUID accessors** in ``mafianet/guid_util.h``:
+  ``std::string MafiaNet::to_string(const RakNetGUID&)`` owns its buffer and is
+  thread-safe, and ``std::optional<SystemAddress> connected_address(...)`` maps
+  the ``UNASSIGNED_SYSTEM_ADDRESS`` sentinel to ``std::nullopt``.
+
+**Spatial**
+
+* **PointGridSectorizer** — a uniform grid over point entries that keeps a
+  per-entry record (cell + slot) in a pointer-keyed hash, giving O(1)
+  ``RemoveEntry`` and ``MoveEntry`` (swap-remove within a cell, with a cheap
+  early-out when a move stays in its current cell). ``AddEntry`` / ``MoveEntry``
+  share upsert semantics (one entry per pointer), and ``GetEntries`` never
+  returns duplicates. Out-of-bounds positions and query rectangles clamp to the
+  edge cells. ``GridSectorizer`` is left untouched.
+
+**Breaking changes**
+
+* **Scoped enum classes for priority and reliability.** The unscoped global C
+  enums ``PacketPriority`` / ``PacketReliability`` (which leaked their
+  enumerators into the global namespace) are removed and replaced with scoped
+  ``MafiaNet::Priority`` / ``MafiaNet::Reliability`` enum classes. Enumerator
+  order is preserved, so underlying integer values — and the 3-bit reliability
+  wire field — are unchanged and remain wire-compatible. Public
+  ``Send()`` / ``CloseConnection()`` / etc. now take the new types; update call
+  sites (e.g. ``HIGH_PRIORITY`` → ``MafiaNet::Priority::High``,
+  ``RELIABLE_ORDERED`` → ``MafiaNet::Reliability::ReliableOrdered``). The
+  ``NUMBER_OF_PRIORITIES`` / ``NUMBER_OF_RELIABILITIES`` sentinels are now
+  ``constexpr unsigned int`` counts (4 and 8) in namespace ``MafiaNet``.
+
+* **Removed the non-thread-safe** ``RakNetGUID::ToString(void)`` member (which
+  returned a shared static buffer). Use ``MafiaNet::to_string(g).c_str()``
+  instead. ``AddressOrGUID::ToString(bool)`` now self-contains its rotating
+  buffer; ``SystemAddress`` / ``AddressOrGUID`` ``ToString`` calls are otherwise
+  unchanged.
+
+**Bug fix**
+
+* ``PeerHandle`` no longer dereferences a moved-from ``Peer`` in ``receive()``;
+  corrected the header copyright.
+
+**Testing**
+
+* Added ``PointGridSectorizerTest``, ``PeerHandleTest`` and ``GuidUtilTest``;
+  hardened ``DisconnectReasonTest`` against CI scheduler starvation with a
+  bounded retry.
+
 Version 0.9.0
 -------------
 
