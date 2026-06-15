@@ -33,7 +33,7 @@ Basic Usage
            case ID_FCM2_NEW_HOST:
                // A new host has been elected
                printf("New host: %s\n",
-                      fcm2.GetHostSystem().ToString());
+                      MafiaNet::to_string(fcm2.GetHostSystem()).c_str());
                break;
 
            case ID_FCM2_VERIFIED_JOIN_CAPABLE:

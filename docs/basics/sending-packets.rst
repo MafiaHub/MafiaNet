@@ -11,8 +11,8 @@ The Send Function
    uint32_t Send(
        const char *data,
        int length,
-       PacketPriority priority,
-       PacketReliability reliability,
+       MafiaNet::Priority priority,
+       MafiaNet::Reliability reliability,
        char orderingChannel,
        const AddressOrGUID systemIdentifier,
        bool broadcast,
@@ -25,8 +25,8 @@ Or with BitStream:
 
    uint32_t Send(
        const BitStream *bitStream,
-       PacketPriority priority,
-       PacketReliability reliability,
+       MafiaNet::Priority priority,
+       MafiaNet::Reliability reliability,
        char orderingChannel,
        const AddressOrGUID systemIdentifier,
        bool broadcast,
@@ -46,19 +46,19 @@ priority
 
 How urgently to send. See :doc:`reliability-types`.
 
-- ``IMMEDIATE_PRIORITY`` - Send now
-- ``HIGH_PRIORITY`` - High priority queue
-- ``MEDIUM_PRIORITY`` - Normal priority
-- ``LOW_PRIORITY`` - Low priority queue
+- ``MafiaNet::Priority::Immediate`` - Send now
+- ``MafiaNet::Priority::High`` - High priority queue
+- ``MafiaNet::Priority::Medium`` - Normal priority
+- ``MafiaNet::Priority::Low`` - Low priority queue
 
 reliability
 ~~~~~~~~~~~
 
 Delivery guarantees. See :doc:`reliability-types`.
 
-- ``UNRELIABLE`` - May be lost
-- ``RELIABLE`` - Guaranteed delivery
-- ``RELIABLE_ORDERED`` - Guaranteed, in-order delivery
+- ``MafiaNet::Reliability::Unreliable`` - May be lost
+- ``MafiaNet::Reliability::Reliable`` - Guaranteed delivery
+- ``MafiaNet::Reliability::ReliableOrdered`` - Guaranteed, in-order delivery
 
 orderingChannel
 ~~~~~~~~~~~~~~~
@@ -92,7 +92,7 @@ Send to One System
    bs.Write((MafiaNet::MessageID)ID_GAME_MESSAGE);
    bs.Write(someData);
 
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
               targetAddress, false);
 
 Broadcast to All
@@ -101,7 +101,7 @@ Broadcast to All
 .. code-block:: cpp
 
    // Send to everyone (server to all clients)
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
               MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 Broadcast Except One
@@ -110,7 +110,7 @@ Broadcast Except One
 .. code-block:: cpp
 
    // Send to everyone except the sender (relay a message)
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
               senderAddress, true);
 
 Using Ordering Channels
@@ -119,15 +119,15 @@ Using Ordering Channels
 .. code-block:: cpp
 
    // Game state updates on channel 0
-   peer->Send(&positionUpdate, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+   peer->Send(&positionUpdate, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
               addr, false);
 
    // Chat messages on channel 1
-   peer->Send(&chatMessage, MEDIUM_PRIORITY, RELIABLE_ORDERED, 1,
+   peer->Send(&chatMessage, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 1,
               addr, false);
 
    // Voice data on channel 2 (doesn't need ordering)
-   peer->Send(&voiceData, HIGH_PRIORITY, UNRELIABLE_SEQUENCED, 2,
+   peer->Send(&voiceData, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 2,
               addr, false);
 
 SendList
@@ -141,7 +141,7 @@ Send multiple buffers as a single packet:
    int lengths[3] = { headerLen, payloadLen, footerLen };
 
    peer->SendList(buffers, lengths, 3,
-                  HIGH_PRIORITY, RELIABLE_ORDERED, 0, addr, false);
+                  MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, false);
 
 Return Value
 ------------
@@ -150,8 +150,8 @@ Return Value
 
 .. code-block:: cpp
 
-   uint32_t msgNum = peer->Send(&bs, HIGH_PRIORITY,
-                                RELIABLE_WITH_ACK_RECEIPT, 0, addr, false);
+   uint32_t msgNum = peer->Send(&bs, MafiaNet::Priority::High,
+                                MafiaNet::Reliability::ReliableWithAckReceipt, 0, addr, false);
    // Store msgNum to match with ID_SND_RECEIPT_ACKED later
 
 Common Patterns
@@ -165,7 +165,7 @@ Request-Response
    // Client sends request
    MafiaNet::BitStream request;
    request.Write((MafiaNet::MessageID)ID_REQUEST_PLAYER_LIST);
-   peer->Send(&request, HIGH_PRIORITY, RELIABLE, 0, serverAddr, false);
+   peer->Send(&request, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, serverAddr, false);
 
    // Server handles and responds
    case ID_REQUEST_PLAYER_LIST: {
@@ -175,7 +175,7 @@ Request-Response
        for (auto& p : players) {
            response.Write(p.name);
        }
-       peer->Send(&response, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+       peer->Send(&response, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
                   packet->systemAddress, false);
        break;
    }
@@ -192,7 +192,7 @@ Periodic Updates
        bs.Write(position);
        bs.Write(velocity);
 
-       peer->Send(&bs, HIGH_PRIORITY, UNRELIABLE_SEQUENCED, 0,
+       peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 0,
                   MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
        timeSinceLastUpdate = 0;
@@ -201,7 +201,7 @@ Periodic Updates
 Best Practices
 --------------
 
-1. **Use appropriate reliability**: Don't use RELIABLE_ORDERED for everything.
+1. **Use appropriate reliability**: Don't use ``MafiaNet::Reliability::ReliableOrdered`` for everything.
 
 2. **Use ordering channels**: Separate independent data streams.
 

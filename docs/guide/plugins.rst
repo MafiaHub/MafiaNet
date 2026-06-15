@@ -96,7 +96,7 @@ Call functions on remote peers:
    MafiaNet::BitStream bs;
    bs.Write(playerId);
    bs.Write(spawnPosition);
-   rpc->Signal("SpawnPlayer", &bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+   rpc->Signal("SpawnPlayer", &bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
                targetAddress, false, false);
 
 Creating Custom Plugins

@@ -27,7 +27,7 @@ Basic Usage
 
    // Send to remote system
    unsigned short setId = flt.SetupReceive(&transferCallback, false, targetAddress);
-   flt.Send(&files, peer, targetAddress, setId, HIGH_PRIORITY, 0, false);
+   flt.Send(&files, peer, targetAddress, setId, MafiaNet::Priority::High, 0, false);
 
 **Receiving files:**
 

@@ -112,7 +112,7 @@ Handling Results
            bs.IgnoreBytes(1);
            bs.Read(failedGuid);
 
-           printf("NAT punch failed to %s\n", failedGuid.ToString());
+           printf("NAT punch failed to %s\n", MafiaNet::to_string(failedGuid).c_str());
 
            // Consider using Router2 as fallback
            break;

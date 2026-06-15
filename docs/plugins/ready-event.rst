@@ -50,12 +50,12 @@ Basic Usage
        switch (packet->data[0]) {
            case ID_READY_EVENT_SET:
                printf("Player ready: %s\n",
-                      packet->guid.ToString());
+                      MafiaNet::to_string(packet->guid).c_str());
                break;
 
            case ID_READY_EVENT_UNSET:
                printf("Player not ready: %s\n",
-                      packet->guid.ToString());
+                      MafiaNet::to_string(packet->guid).c_str());
                break;
 
            case ID_READY_EVENT_ALL_SET:

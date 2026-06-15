@@ -54,7 +54,7 @@ Basic Usage
    // Request sync from server
    ddt.DownloadFromSubdirectory("textures", "./local_assets/textures",
                                  true, serverAddress, &callback,
-                                 HIGH_PRIORITY, 0, false);
+                                 MafiaNet::Priority::High, 0, false);
 
 Key Features
 ------------

@@ -67,7 +67,7 @@ Basic Usage
 
            for (unsigned int i = 0; i < result.rowsReturned.Size(); i++) {
                MafiaNet::CloudQueryRow* row = result.rowsReturned[i];
-               printf("Server: %s\n", row->clientGUID.ToString());
+               printf("Server: %s\n", MafiaNet::to_string(row->clientGUID).c_str());
 
                MafiaNet::BitStream bs(row->data, row->length, false);
                // Read server info from bitstream

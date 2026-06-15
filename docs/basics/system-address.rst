@@ -174,10 +174,10 @@ You can use either SystemAddress or GUID with Send:
 .. code-block:: cpp
 
    // Using SystemAddress
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE, 0, systemAddress, false);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, systemAddress, false);
 
    // Using GUID (AddressOrGUID accepts both)
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE, 0, guid, false);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, guid, false);
 
 Getting Your Own Address
 ------------------------

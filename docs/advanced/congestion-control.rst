@@ -62,24 +62,24 @@ Priority and Reliability
 .. code-block:: cpp
 
    // Immediate send (highest priority)
-   peer->Send(&bs, IMMEDIATE_PRIORITY, RELIABLE_ORDERED, 0, addr, false);
+   peer->Send(&bs, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, addr, false);
 
    // High priority (game state)
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, addr, false);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, false);
 
    // Medium priority (player updates)
-   peer->Send(&bs, MEDIUM_PRIORITY, UNRELIABLE_SEQUENCED, 0, addr, false);
+   peer->Send(&bs, MafiaNet::Priority::Medium, MafiaNet::Reliability::UnreliableSequenced, 0, addr, false);
 
    // Low priority (chat, non-critical)
-   peer->Send(&bs, LOW_PRIORITY, RELIABLE, 0, addr, false);
+   peer->Send(&bs, MafiaNet::Priority::Low, MafiaNet::Reliability::Reliable, 0, addr, false);
 
 **Reliability types:**
 
-* ``RELIABLE`` - Guaranteed delivery, any order
-* ``RELIABLE_ORDERED`` - Guaranteed delivery, in order
-* ``RELIABLE_SEQUENCED`` - Guaranteed, newest only
-* ``UNRELIABLE`` - No guarantee, lowest overhead
-* ``UNRELIABLE_SEQUENCED`` - No guarantee, newest only
+* ``MafiaNet::Reliability::Reliable`` - Guaranteed delivery, any order
+* ``MafiaNet::Reliability::ReliableOrdered`` - Guaranteed delivery, in order
+* ``MafiaNet::Reliability::ReliableSequenced`` - Guaranteed, newest only
+* ``MafiaNet::Reliability::Unreliable`` - No guarantee, lowest overhead
+* ``MafiaNet::Reliability::UnreliableSequenced`` - No guarantee, newest only
 
 Tuning Parameters
 -----------------
@@ -94,8 +94,8 @@ Tuning Parameters
 
    // Packet ordering channels (0-31)
    // Use different channels for independent data streams
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, addr, false);  // Channel 0
-   peer->Send(&bs2, HIGH_PRIORITY, RELIABLE_ORDERED, 1, addr, false); // Channel 1
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, false);  // Channel 0
+   peer->Send(&bs2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 1, addr, false); // Channel 1
 
 Statistics Monitoring
 ---------------------

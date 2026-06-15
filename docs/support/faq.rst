@@ -99,8 +99,8 @@ See :doc:`../advanced/congestion-control`.
 
 **How do I handle packet loss?**
 
-* Use RELIABLE/RELIABLE_ORDERED for critical data
-* Use UNRELIABLE_SEQUENCED for real-time updates
+* Use ``MafiaNet::Reliability::Reliable`` / ``ReliableOrdered`` for critical data
+* Use ``MafiaNet::Reliability::UnreliableSequenced`` for real-time updates
 * Monitor statistics with GetStatistics()
 
 Security

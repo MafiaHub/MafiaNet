@@ -39,7 +39,7 @@ Basic Usage
        switch (packet->data[0]) {
            case ID_ROUTER_2_FORWARDING_ESTABLISHED:
                printf("Route established to %s\n",
-                      packet->guid.ToString());
+                      MafiaNet::to_string(packet->guid).c_str());
                // Can now send packets to this system
                break;
 
@@ -63,7 +63,7 @@ Basic Usage
    bs.Write((MafiaNet::MessageID)ID_USER_PACKET_ENUM);
    bs.Write("Hello via relay!");
 
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, targetGuid, false);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, targetGuid, false);
 
 Key Features
 ------------

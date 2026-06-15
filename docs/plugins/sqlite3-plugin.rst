@@ -47,8 +47,8 @@ Executing Queries
    sqlClient->_sqlite3_exec(
        "gamedata",                              // Database identifier
        "INSERT INTO scores (name, score) VALUES ('Player1', 100)",
-       HIGH_PRIORITY,
-       RELIABLE_ORDERED,
+       MafiaNet::Priority::High,
+       MafiaNet::Reliability::ReliableOrdered,
        0,
        serverAddress
    );
@@ -57,8 +57,8 @@ Executing Queries
    sqlClient->_sqlite3_exec(
        "gamedata",
        "SELECT * FROM scores ORDER BY score DESC LIMIT 10",
-       HIGH_PRIORITY,
-       RELIABLE_ORDERED,
+       MafiaNet::Priority::High,
+       MafiaNet::Reliability::ReliableOrdered,
        0,
        serverAddress
    );

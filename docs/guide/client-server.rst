@@ -97,7 +97,7 @@ Broadcasting to All Clients
 
    void BroadcastToAllClients(MafiaNet::RakPeerInterface* server,
                               MafiaNet::BitStream* bs) {
-       server->Send(bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+       server->Send(bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
                     MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
    }
 
@@ -109,7 +109,7 @@ Sending to Specific Client
    void SendToClient(MafiaNet::RakPeerInterface* server,
                      MafiaNet::BitStream* bs,
                      MafiaNet::SystemAddress client) {
-       server->Send(bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, client, false);
+       server->Send(bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, client, false);
    }
 
 Connection Timeout

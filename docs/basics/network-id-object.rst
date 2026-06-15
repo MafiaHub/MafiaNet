@@ -60,7 +60,7 @@ The authority (usually server) creates objects and assigns IDs:
    bs.Write(player->x);
    bs.Write(player->y);
    bs.Write(player->z);
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, addr, true);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, true);
 
 Receiving and Looking Up Objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -151,7 +151,7 @@ When destroying networked objects:
        MafiaNet::BitStream bs;
        bs.Write((MafiaNet::MessageID)ID_DESTROY_PLAYER);
        bs.Write(id);
-       peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, addr, true);
+       peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, true);
 
        delete player;  // Automatically unregisters from manager
    }

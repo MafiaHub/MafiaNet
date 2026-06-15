@@ -163,7 +163,7 @@ right after the ``ID_DISCONNECTION_NOTIFICATION`` message ID:
    MafiaNet::RakString("Cheating in match #4821")   // ...plus an optional custom string
        .Serialize(&reason);
 
-   peer->CloseConnection(systemAddress, true, 0, LOW_PRIORITY, &reason);
+   peer->CloseConnection(systemAddress, true, 0, MafiaNet::Priority::Low, &reason);
 
 The receiver reads the reason from the notification packet exactly like any
 other message body — ``packet->data + 1`` for ``packet->length - 1`` bytes:

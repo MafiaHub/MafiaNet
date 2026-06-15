@@ -135,7 +135,7 @@ dimension yourself, query who is in it:
    DataStructures::List<MafiaNet::RakNetGUID> recipients;
    rm3->GetGuidsInVirtualWorld(apartmentId, recipients); // includeGlobal=true by default
    for (unsigned i = 0; i < recipients.Size(); i++)
-       peer->Send(&chatMsg, HIGH_PRIORITY, RELIABLE_ORDERED, 0, recipients[i], false);
+       peer->Send(&chatMsg, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipients[i], false);
 
    // Or get the connection objects directly:
    DataStructures::List<MafiaNet::Connection_RM3*> conns;

@@ -43,7 +43,7 @@ The simplest way to create packets:
    packet.pitch = player.pitch;
 
    peer->Send((char*)&packet, sizeof(packet),
-              HIGH_PRIORITY, RELIABLE_ORDERED, 0, address, false);
+              MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, address, false);
 
    // Receiving
    PlayerPositionPacket* received = (PlayerPositionPacket*)packet->data;
@@ -70,7 +70,7 @@ More flexible and handles endianness:
    bs.Write(player.yaw);
    bs.Write(player.pitch);
 
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, address, false);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, address, false);
 
    // Receiving
    MafiaNet::BitStream bsIn(packet->data, packet->length, false);

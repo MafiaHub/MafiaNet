@@ -97,15 +97,15 @@ Choose the right reliability for each message type:
 +---------------------+------------------------+----------------------+
 | Data Type           | Reliability            | Why                  |
 +=====================+========================+======================+
-| Position updates    | UNRELIABLE_SEQUENCED   | Latest matters most  |
+| Position updates    | UnreliableSequenced    | Latest matters most  |
 +---------------------+------------------------+----------------------+
-| Health changes      | RELIABLE               | Must arrive          |
+| Health changes      | Reliable               | Must arrive          |
 +---------------------+------------------------+----------------------+
-| Chat messages       | RELIABLE_ORDERED       | Order matters        |
+| Chat messages       | ReliableOrdered        | Order matters        |
 +---------------------+------------------------+----------------------+
-| Spawn events        | RELIABLE_ORDERED       | Critical + ordered   |
+| Spawn events        | ReliableOrdered        | Critical + ordered   |
 +---------------------+------------------------+----------------------+
-| Input commands      | UNRELIABLE_SEQUENCED   | Stale input useless  |
+| Input commands      | UnreliableSequenced    | Stale input useless  |
 +---------------------+------------------------+----------------------+
 
 Plugin Architecture
@@ -162,8 +162,8 @@ Performance Tips
 .. code-block:: cpp
 
    // Different channels don't block each other
-   peer->Send(&positionData, MED, RELIABLE_ORDERED, 0, ...);  // Channel 0
-   peer->Send(&chatMessage, MED, RELIABLE_ORDERED, 1, ...);   // Channel 1
+   peer->Send(&positionData, MED, MafiaNet::Reliability::ReliableOrdered, 0, ...);  // Channel 0
+   peer->Send(&chatMessage, MED, MafiaNet::Reliability::ReliableOrdered, 1, ...);   // Channel 1
    // Chat won't wait for position packets
 
 Debugging Tips

@@ -90,7 +90,7 @@ Create ``ChatServer.cpp``:
                               message.C_String());
 
                        // Broadcast to all clients
-                       server->Send(&bs, MEDIUM_PRIORITY, RELIABLE_ORDERED,
+                       server->Send(&bs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered,
                                    0, packet->systemAddress, true);
                        break;
                    }
@@ -180,7 +180,7 @@ Create ``ChatClient.cpp``:
                    MafiaNet::BitStream bs;
                    bs.Write((MafiaNet::MessageID)ID_CHAT_MESSAGE);
                    bs.Write(MafiaNet::RakString(message));
-                   client->Send(&bs, MEDIUM_PRIORITY, RELIABLE_ORDERED,
+                   client->Send(&bs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered,
                                0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
                }
            }

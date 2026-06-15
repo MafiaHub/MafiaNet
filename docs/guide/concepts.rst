@@ -63,10 +63,10 @@ Message Priorities
 
 Messages can be sent with different priorities:
 
-* ``IMMEDIATE_PRIORITY`` - Sent immediately, bypasses normal send queue
-* ``HIGH_PRIORITY`` - Sent before medium and low priority messages
-* ``MEDIUM_PRIORITY`` - Default priority level
-* ``LOW_PRIORITY`` - Sent after higher priority messages
+* ``MafiaNet::Priority::Immediate`` - Sent immediately, bypasses normal send queue
+* ``MafiaNet::Priority::High`` - Sent before medium and low priority messages
+* ``MafiaNet::Priority::Medium`` - Default priority level
+* ``MafiaNet::Priority::Low`` - Sent after higher priority messages
 
 Reliability Types
 -----------------
@@ -79,15 +79,15 @@ MafiaNet supports several reliability modes:
 
    * - Type
      - Description
-   * - ``UNRELIABLE``
+   * - ``MafiaNet::Reliability::Unreliable``
      - May be lost, may arrive out of order. Fastest.
-   * - ``UNRELIABLE_SEQUENCED``
+   * - ``MafiaNet::Reliability::UnreliableSequenced``
      - May be lost, but if received will be in order. Old packets are dropped.
-   * - ``RELIABLE``
+   * - ``MafiaNet::Reliability::Reliable``
      - Will arrive, but may be out of order.
-   * - ``RELIABLE_ORDERED``
+   * - ``MafiaNet::Reliability::ReliableOrdered``
      - Will arrive in order. Packets wait for missing packets.
-   * - ``RELIABLE_SEQUENCED``
+   * - ``MafiaNet::Reliability::ReliableSequenced``
      - Will arrive in order. Old packets are dropped.
 
 Ordering Channels
@@ -98,8 +98,8 @@ Messages can be sent on different ordering channels (0-31). Messages on differen
 .. code-block:: cpp
 
    // Channel 0 for game state, channel 1 for chat
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, address, false);  // Game state
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 1, address, false);  // Chat
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, address, false);  // Game state
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 1, address, false);  // Chat
 
 BitStream
 ---------

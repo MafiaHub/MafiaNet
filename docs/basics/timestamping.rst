@@ -37,7 +37,7 @@ Timestamps must be the first data in the packet:
    bs.Write(position.y);
    bs.Write(position.z);
 
-   peer->Send(&bs, HIGH_PRIORITY, UNRELIABLE_SEQUENCED, 0, addr, true);
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 0, addr, true);
 
 Receiving Timestamped Packets
 -----------------------------

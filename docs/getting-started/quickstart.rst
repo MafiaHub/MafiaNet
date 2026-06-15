@@ -3,6 +3,14 @@ Quick Start
 
 This guide will help you create a simple client-server application using MafiaNet.
 
+.. tip::
+   New code can include the whole core API through the umbrella header
+   ``#include "mafianet/mafianet.h"`` and use the RAII handles
+   ``MafiaNet::Peer`` / ``MafiaNet::PacketPtr`` to manage instance and packet
+   lifetimes automatically. The examples below use the explicit
+   ``GetInstance`` / ``Receive`` / ``DeallocatePacket`` API, which remains fully
+   supported. See :doc:`../api/core` for the umbrella header and RAII handles.
+
 Basic Server
 ------------
 
@@ -111,7 +119,7 @@ Send a message using BitStream:
    bs.Write(42);
 
    // Send to server (from client) or specific client (from server)
-   peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0,
+   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
               MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 Next Steps

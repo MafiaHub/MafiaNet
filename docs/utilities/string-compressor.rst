@@ -48,7 +48,7 @@ Basic Usage
        MafiaNet::StringCompressor::Instance()->EncodeString(
            message, 512, &bs);
 
-       peer->Send(&bs, HIGH_PRIORITY, RELIABLE_ORDERED, 0, target, false);
+       peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, target, false);
    }
 
    // Receiver

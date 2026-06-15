@@ -8,15 +8,21 @@ Packet Priority
 
 .. code-block:: cpp
 
-   enum PacketPriority {
-       IMMEDIATE_PRIORITY,  // Sent immediately, not buffered
-       HIGH_PRIORITY,       // 2 immediate : 1 high ratio
-       MEDIUM_PRIORITY,     // 2 high : 1 medium ratio
-       LOW_PRIORITY         // 2 medium : 1 low ratio
+   enum class Priority {       // MafiaNet::Priority
+       Immediate,  // Sent immediately, not buffered
+       High,       // 2 immediate : 1 high ratio
+       Medium,     // 2 high : 1 medium ratio
+       Low         // 2 medium : 1 low ratio
    };
 
-- **IMMEDIATE_PRIORITY**: Triggers sends immediately, bypassing the send buffer
-- **HIGH/MEDIUM/LOW**: Buffered and sent in groups at ~10ms intervals
+- **MafiaNet::Priority::Immediate**: Triggers sends immediately, bypassing the send buffer
+- **High / Medium / Low**: Buffered and sent in groups at ~10ms intervals
+
+.. note::
+   ``Priority`` and ``Reliability`` are scoped ``enum class`` types in namespace
+   ``MafiaNet`` (since 0.10.0). They replaced the removed unscoped
+   ``PacketPriority`` / ``PacketReliability`` C enums; enumerator order — and
+   therefore the wire format — is unchanged.
 
 High priority packets are sent before medium, and medium before low. Packets are never promoted to higher priority over time.
 
@@ -25,21 +31,19 @@ Packet Reliability
 
 .. code-block:: cpp
 
-   enum PacketReliability {
-       UNRELIABLE,
-       UNRELIABLE_SEQUENCED,
-       RELIABLE,
-       RELIABLE_ORDERED,
-       RELIABLE_SEQUENCED,
+   enum class Reliability {        // MafiaNet::Reliability
+       Unreliable,
+       UnreliableSequenced,
+       Reliable,
+       ReliableOrdered,
+       ReliableSequenced,
        // With acknowledgment receipts
-       UNRELIABLE_WITH_ACK_RECEIPT,
-       UNRELIABLE_SEQUENCED_WITH_ACK_RECEIPT,
-       RELIABLE_WITH_ACK_RECEIPT,
-       RELIABLE_ORDERED_WITH_ACK_RECEIPT,
-       RELIABLE_SEQUENCED_WITH_ACK_RECEIPT
+       UnreliableWithAckReceipt,
+       ReliableWithAckReceipt,
+       ReliableOrderedWithAckReceipt
    };
 
-UNRELIABLE
+Unreliable
 ~~~~~~~~~~
 
 Sent via raw UDP. May arrive out of order or not at all.
@@ -50,8 +54,8 @@ Sent via raw UDP. May arrive out of order or not at all.
 
 **Cons**: No ordering, packets may be lost, first to be dropped when buffer is full.
 
-UNRELIABLE_SEQUENCED
-~~~~~~~~~~~~~~~~~~~~
+UnreliableSequenced
+~~~~~~~~~~~~~~~~~~~
 
 Like unreliable, but only the newest packet is accepted. Older packets are dropped.
 
@@ -61,7 +65,7 @@ Like unreliable, but only the newest packet is accepted. Older packets are dropp
 
 **Cons**: Many packets dropped. Last packet sent may never arrive.
 
-RELIABLE
+Reliable
 ~~~~~~~~
 
 Guaranteed delivery via acknowledgment and retransmission.
@@ -72,8 +76,8 @@ Guaranteed delivery via acknowledgment and retransmission.
 
 **Cons**: Bandwidth overhead from retransmissions. No ordering guarantee.
 
-RELIABLE_ORDERED
-~~~~~~~~~~~~~~~~
+ReliableOrdered
+~~~~~~~~~~~~~~~
 
 Guaranteed delivery in send order. Packets wait for missing earlier packets.
 
@@ -83,8 +87,8 @@ Guaranteed delivery in send order. Packets wait for missing earlier packets.
 
 **Cons**: One late packet can delay many others, causing lag spikes. Use ordering channels to mitigate.
 
-RELIABLE_SEQUENCED
-~~~~~~~~~~~~~~~~~~
+ReliableSequenced
+~~~~~~~~~~~~~~~~~
 
 Guaranteed delivery, but only latest packet is kept. Old packets are dropped even if they arrive.
 
@@ -106,27 +110,27 @@ Comparison Table
      - Ordered
      - Bandwidth
      - Use Case
-   * - UNRELIABLE
+   * - Unreliable
      - No
      - No
      - Lowest
      - Frequent position updates
-   * - UNRELIABLE_SEQUENCED
+   * - UnreliableSequenced
      - No
      - Yes*
      - Low
      - Mouse/input state
-   * - RELIABLE
+   * - Reliable
      - Yes
      - No
      - Medium
      - Important unordered events
-   * - RELIABLE_ORDERED
+   * - ReliableOrdered
      - Yes
      - Yes
      - Higher
      - Most game logic, chat
-   * - RELIABLE_SEQUENCED
+   * - ReliableSequenced
      - Yes
      - Yes*
      - Higher
@@ -142,8 +146,8 @@ Messages can be sent on ordering channels 0-31. Messages on different channels a
 .. code-block:: cpp
 
    // Game state on channel 0, chat on channel 1
-   peer->Send(&gameState, HIGH_PRIORITY, RELIABLE_ORDERED, 0, addr, false);
-   peer->Send(&chatMsg, HIGH_PRIORITY, RELIABLE_ORDERED, 1, addr, false);
+   peer->Send(&gameState, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, false);
+   peer->Send(&chatMsg, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 1, addr, false);
 
 A delayed game state packet won't block chat messages.
 
@@ -154,8 +158,8 @@ Use ``*_WITH_ACK_RECEIPT`` types to be notified when a message is acknowledged:
 
 .. code-block:: cpp
 
-   uint32_t msgId = peer->Send(&bs, HIGH_PRIORITY,
-                               RELIABLE_WITH_ACK_RECEIPT, 0, addr, false);
+   uint32_t msgId = peer->Send(&bs, MafiaNet::Priority::High,
+                               MafiaNet::Reliability::ReliableWithAckReceipt, 0, addr, false);
 
    // Later, when receiving packets:
    switch (packet->data[0]) {
@@ -166,7 +170,7 @@ Use ``*_WITH_ACK_RECEIPT`` types to be notified when a message is acknowledged:
            break;
        }
        case ID_SND_RECEIPT_LOSS: {
-           // Only for UNRELIABLE_*_WITH_ACK_RECEIPT
+           // Only for Unreliable*WithAckReceipt reliability types
            uint32_t lostId;
            memcpy(&lostId, packet->data + 1, 4);
            printf("Message %u was probably lost\n", lostId);

@@ -36,11 +36,11 @@ Basic Usage
    params.Write(42);
 
    // Call on a specific system
-   rpc.Call("MyFunction", &params, HIGH_PRIORITY, RELIABLE_ORDERED,
+   rpc.Call("MyFunction", &params, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered,
             0, targetAddress, false);
 
    // Broadcast to all connected systems
-   rpc.Call("MyFunction", &params, HIGH_PRIORITY, RELIABLE_ORDERED,
+   rpc.Call("MyFunction", &params, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered,
             0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 User Context
