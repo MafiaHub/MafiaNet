@@ -28,6 +28,7 @@
 #include "mafianet/Kbhit.h"
 #include "mafianet/PacketLogger.h"
 #include "mafianet/BitStream.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 
@@ -49,7 +50,7 @@ int main()
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
-	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("Our guid is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 // 	BitStream contextBs;
 // 	contextBs.Write(RakString("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString()));
@@ -76,12 +77,12 @@ int main()
 
 			case ID_NEW_INCOMING_CONNECTION:
 				// Somebody connected.  We have their IP now
-				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				break;
 
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				// Somebody connected.  We have their IP now
-				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				break;
 
 
@@ -101,14 +102,14 @@ int main()
 				if (packet->guid==rakPeer->GetMyGUID())
 					printf("Got new host (ourselves)");
 				else
-					printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				MafiaNet::BitStream bs(packet->data,packet->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
 					// If oldHost is different then the current host, then we lost connection to the host
 					if (oldHost!=UNASSIGNED_RAKNET_GUID)
-						printf(". Oldhost Guid=%s\n", oldHost.ToString());
+						printf(". Oldhost Guid=%s\n", MafiaNet::to_string(oldHost).c_str());
 					else
 						printf(". (First reported host)\n");
 				}

@@ -38,6 +38,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 #if LIBCAT_SECURITY==1
 #include "mafianet/SecureHandshake.h" // Include header for secure handshake
@@ -146,7 +147,7 @@ int main(void)
 		printf("%i. %s (LAN=%i)\n", i+1, sa.ToString(false), sa.IsLANAddress());
 	}
 
-	printf("\nMy GUID is %s\n", server->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("\nMy GUID is %s\n", MafiaNet::to_string(server->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	puts("'quit' to quit. 'stat' to show stats. 'ping' to ping.\n'pingip' to ping an ip address\n'ban' to ban an IP from connecting.\n'kick to kick the first connected player.\nType to talk.");
 	char message[2048];
 
@@ -273,7 +274,7 @@ int main(void)
 
 			case ID_NEW_INCOMING_CONNECTION:
 				// Somebody connected.  We have their IP now
-				printf("ID_NEW_INCOMING_CONNECTION from %s with GUID %s\n", p->systemAddress.ToString(true), p->guid.ToString());
+				printf("ID_NEW_INCOMING_CONNECTION from %s with GUID %s\n", p->systemAddress.ToString(true), MafiaNet::to_string(p->guid).c_str());
 				clientID=p->systemAddress; // Record the player ID of the client
 
 				printf("Remote internal IDs:\n");

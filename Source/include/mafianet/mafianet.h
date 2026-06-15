@@ -29,3 +29,4 @@
 #include "mafianet/statistics.h"         // RakNetStatistics — return type of GetStatistics()
 #include "mafianet/BitStream.h"          // binary serialization
 #include "mafianet/GetTime.h"            // MafiaNet::GetTime / TimeMS
+#include "mafianet/guid_util.h"          // MafiaNet::to_string / connected_address

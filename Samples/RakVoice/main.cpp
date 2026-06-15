@@ -30,6 +30,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 /// To test sending to myself. Also uncomment in RakVoice.cpp
 //#define _TEST_LOOPBACK
@@ -160,7 +161,7 @@ int main(void)
 		MafiaNet::SystemAddress facilitator;
 	if (useNatPunchthrough)
 	{
-		printf("My GUID is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+		printf("My GUID is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 
 		printf("Enter IP of facilitator (enter for default): ");
 		Gets(facilitatorIP,sizeof(facilitatorIP));
@@ -297,7 +298,7 @@ int main(void)
 				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
-				printf("ID_NAT_TARGET_NOT_CONNECTED for %s\n", g.ToString());
+				printf("ID_NAT_TARGET_NOT_CONNECTED for %s\n", MafiaNet::to_string(g).c_str());
 			}
 			else if (p->data[0]==ID_NAT_TARGET_UNRESPONSIVE)
 			{
@@ -305,7 +306,7 @@ int main(void)
 				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
-				printf("ID_NAT_TARGET_UNRESPONSIVE for %s\n", g.ToString());
+				printf("ID_NAT_TARGET_UNRESPONSIVE for %s\n", MafiaNet::to_string(g).c_str());
 			}
 			else if (p->data[0]==ID_NAT_CONNECTION_TO_TARGET_LOST)
 			{
@@ -313,7 +314,7 @@ int main(void)
 				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
-				printf("ID_NAT_CONNECTION_TO_TARGET_LOST for %s\n", g.ToString());
+				printf("ID_NAT_CONNECTION_TO_TARGET_LOST for %s\n", MafiaNet::to_string(g).c_str());
 			}
 			else if (p->data[0]==ID_NAT_ALREADY_IN_PROGRESS)
 			{
@@ -321,15 +322,15 @@ int main(void)
 				MafiaNet::BitStream b(p->data, p->length, false);
 				b.IgnoreBits(8); // Ignore the ID_...
 				b.Read(g);
-				printf("ID_NAT_ALREADY_IN_PROGRESS for %s\n", g.ToString());
+				printf("ID_NAT_ALREADY_IN_PROGRESS for %s\n", MafiaNet::to_string(g).c_str());
 			}
 			else if (p->data[0]==ID_NAT_PUNCHTHROUGH_FAILED)
 			{
-				printf("ID_NAT_PUNCHTHROUGH_FAILED for %s\n", p->guid.ToString());
+				printf("ID_NAT_PUNCHTHROUGH_FAILED for %s\n", MafiaNet::to_string(p->guid).c_str());
 			}
 			else if (p->data[0]==ID_NAT_PUNCHTHROUGH_SUCCEEDED)
 			{
-				printf("ID_NAT_PUNCHTHROUGH_SUCCEEDED for %s. Connecting...\n", p->guid.ToString());
+				printf("ID_NAT_PUNCHTHROUGH_SUCCEEDED for %s. Connecting...\n", MafiaNet::to_string(p->guid).c_str());
 				rakPeer->Connect(p->systemAddress.ToString(false),p->systemAddress.GetPort(),0,0);
 			}
 			else if (p->data[0]==ID_ALREADY_CONNECTED)

@@ -33,6 +33,7 @@
 #include "mafianet/Itoa.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 // To include miniupnp, see Samples\NATCompleteClient\readme.txt
 #include "miniupnpc.h"
@@ -428,7 +429,7 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 		else
 		{
 			printf("Listening\n");
-			printf("My GUID is %s\n", rakPeer->GetMyGUID().ToString());
+			printf("My GUID is %s\n", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
 			isListening=true;
 
 			// Find the stride of our router in advance
@@ -657,7 +658,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		else
 		{
 			printf("Listening\n");
-			printf("My GUID is %s\n", rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS).ToString());
+			printf("My GUID is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 			isListening=true;
 		}
 
@@ -818,7 +819,7 @@ void PrintPacketMessages(Packet *packet, RakPeerInterface *rakPeer)
 
 	case ID_CONNECTION_REQUEST_ACCEPTED:
 		// This tells the client they have connected
-		printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+		printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 		printf("My external address is %s\n", rakPeer->GetExternalID(packet->systemAddress).ToString(true));
 		break;
 	}

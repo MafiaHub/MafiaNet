@@ -36,6 +36,7 @@
 #include "mafianet/Gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 enum
 {
@@ -508,7 +509,7 @@ int main(void)
 	rakPeer->AttachPlugin(&replicaManager);
 	replicaManager.SetNetworkIDManager(&networkIdManager);
 	rakPeer->SetMaximumIncomingConnections(32);
-	printf("\nMy GUID is %s\n", rakPeer->GetMyGUID().ToString());
+	printf("\nMy GUID is %s\n", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
 
 	printf("\n");
 	if (topology==CLIENT)

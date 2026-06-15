@@ -37,6 +37,7 @@ set(MAFIANET_SOURCES
     src/GetTime.cpp
     src/gettimeofday.cpp
     src/GridSectorizer.cpp
+    src/guid_util.cpp
     src/HTTPConnection.cpp
     src/HTTPConnection2.cpp
     src/IncrementalReadInterface.cpp
@@ -183,6 +184,7 @@ set(MAFIANET_HEADERS
     include/mafianet/GetTime.h
     include/mafianet/gettimeofday.h
     include/mafianet/GridSectorizer.h
+    include/mafianet/guid_util.h
     include/mafianet/HTTPConnection.h
     include/mafianet/HTTPConnection2.h
     include/mafianet/IncrementalReadInterface.h

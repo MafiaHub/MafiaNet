@@ -45,6 +45,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 #include "mafianet/LinuxStrings.h"
+#include "mafianet/guid_util.h"
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
@@ -754,7 +755,7 @@ RPC4GlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
 // Write roomName and a list of NATTypeDetectionResult to a bitStream
 void SerializeToJSON(RakString &outputString, RakString &roomName, DataStructures::List<NATTypeDetectionResult> &natTypes)
 {
-	outputString.Set("'roomName': '%s', 'guid': '%s', 'natTypes' : [ ", roomName.C_String(), rakPeer->GetMyGUID().ToString());
+	outputString.Set("'roomName': '%s', 'guid': '%s', 'natTypes' : [ ", roomName.C_String(), MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
 	for (unsigned short i=0; i < natTypes.Size(); i++)
 	{
 		if (i!=0)
@@ -1060,7 +1061,7 @@ int main(void)
 	// Setup my own user
 	User *user = new User;
 	user->SetNetworkIDManager(networkIDManager);
-	user->userName = rakPeer->GetMyGUID().ToString();
+	user->userName = MafiaNet::to_string(rakPeer->GetMyGUID()).c_str();
 	// Inform TeamManager of my user's team member info
 	teamManager->GetWorldAtIndex(0)->ReferenceTeamMember(&user->tmTeamMember,user->GetNetworkID());
 
@@ -1073,7 +1074,7 @@ int main(void)
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
-	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("Our guid is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 
 	// Start TCPInterface and begin connecting to the NAT punchthrough server
@@ -1095,12 +1096,12 @@ int main(void)
 			{
 			case ID_NEW_INCOMING_CONNECTION:
 				{
-					printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				}
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				{
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 
 					if (game->phase==Game::CONNECTING_TO_SERVER)
 					{
@@ -1204,9 +1205,9 @@ int main(void)
 					else
 					{
 						if (oldHost!=UNASSIGNED_RAKNET_GUID)
-							printf("ID_FCM2_NEW_HOST: A new system %s has become host, GUID=%s\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+							printf("ID_FCM2_NEW_HOST: A new system %s has become host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 						else
-							printf("ID_FCM2_NEW_HOST: System %s is host, GUID=%s\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+							printf("ID_FCM2_NEW_HOST: System %s is host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					}
 
 					if (oldHost==UNASSIGNED_RAKNET_GUID)
@@ -1266,7 +1267,7 @@ int main(void)
 				{
 					// As with connection failed, this does not automatically mean we cannot join the session
 					// We only fail on ID_FCM2_VERIFIED_JOIN_FAILED
-					printf("NAT punch to %s failed. Reason %s\n", packet->guid.ToString(), PacketLogger::BaseIDTOString(packet->data[0]));
+					printf("NAT punch to %s failed. Reason %s\n", MafiaNet::to_string(packet->guid).c_str(), PacketLogger::BaseIDTOString(packet->data[0]));
 
 					if (game->phase==Game::NAT_PUNCH_TO_GAME_HOST)
 						game->EnterPhase(Game::SEARCH_FOR_GAMES);
@@ -1396,7 +1397,7 @@ int main(void)
 					if (thisSystemAccepted)
 						printf("Game join request accepted\n");
 					else
-						printf("System %s joined the mesh\n", systemsAccepted[0].ToString());
+						printf("System %s joined the mesh\n", MafiaNet::to_string(systemsAccepted[0]).c_str());
 
 					// Add the new participant to the game if we already know who the host is. Otherwise do this
 					// once ID_FCM2_NEW_HOST arrives

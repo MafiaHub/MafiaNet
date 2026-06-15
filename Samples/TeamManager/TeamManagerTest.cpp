@@ -31,6 +31,7 @@
 #include "mafianet/NetworkIDManager.h"
 #include "mafianet/osx_adapter.h"
 #include "mafianet/Gets.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 
@@ -441,7 +442,7 @@ int main(void)
 
 	// Setup my own
 	User *user = new User;
-	user->userName = rakPeer->GetMyGUID().ToString();
+	user->userName = MafiaNet::to_string(rakPeer->GetMyGUID()).c_str();
 
 	// Inform ReplicaManager3 of my user
 	replicaManager3->Reference(user);
@@ -457,7 +458,7 @@ int main(void)
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
-	printf("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString());
+	printf("Our guid is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 
 	for (unsigned short i=0; i < 32; i++)
@@ -483,7 +484,7 @@ int main(void)
 				break;
 			case ID_NEW_INCOMING_CONNECTION:
 				{
-					printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					// Add mid-game joins to ReplicaManager3 as long as we know who the host is
 					if (fullyConnectedMesh2->GetConnectedHost()!=UNASSIGNED_RAKNET_GUID)
 					{
@@ -494,7 +495,7 @@ int main(void)
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				{
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", packet->systemAddress.ToString(true), packet->guid.ToString());
+					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					// Add mid-game joins to ReplicaManager3 as long as we know who the host is
 					if (fullyConnectedMesh2->GetConnectedHost()!=UNASSIGNED_RAKNET_GUID)
 					{
@@ -515,14 +516,14 @@ int main(void)
 					if (packet->guid==rakPeer->GetMyGUID())
 						printf("Got new host (ourselves)");
 					else
-						printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), packet->guid.ToString());
+						printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 					MafiaNet::BitStream bs(packet->data,packet->length,false);
 					bs.IgnoreBytes(1);
 					RakNetGUID oldHost;
 					bs.Read(oldHost);
 					// If the old host is different, then this message was due to losing connection to the host.
 					if (oldHost!=packet->guid)
-						printf(". Oldhost Guid=%s\n", oldHost.ToString());
+						printf(". Oldhost Guid=%s\n", MafiaNet::to_string(oldHost).c_str());
 					else
 						printf("\n");
 
