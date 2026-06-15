@@ -18,7 +18,11 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
-#include <windows.h>
+// Pull in winsock2.h (via WindowsIncludes.h) BEFORE windows.h. Including
+// <windows.h> directly drags in the legacy Winsock 1 header, which then
+// clashes with the winsock2.h pulled in later, causing struct redefinition
+// errors (sockaddr, fd_set, ...) under MSVC.
+#include "mafianet/WindowsIncludes.h"
 #include <shellapi.h>
 #else
 #include <limits.h>
