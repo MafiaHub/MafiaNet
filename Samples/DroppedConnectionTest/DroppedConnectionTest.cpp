@@ -238,10 +238,10 @@ int main(void)
 		/*
 		// Have everyone send a reliable packet so dropped connections are noticed.
 		ch=255;
-		server->Send((char*)&ch, 1, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+		server->Send((char*)&ch, 1, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 		for (unsigned short index=0; index < NUMBER_OF_CLIENTS; index++)
-			clients[index]->Send((char*)&ch, 1, HIGH_PRIORITY, RELIABLE, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			clients[index]->Send((char*)&ch, 1, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			*/
 
 		// Sleep so this loop doesn't take up all the CPU time

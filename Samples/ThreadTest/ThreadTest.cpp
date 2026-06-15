@@ -45,9 +45,9 @@ RAK_THREAD_DECLARATION(ProducerThread)
 //		printf("Thread %u writing...\n", i);
 		// #high - (char*)-cast hack to simply send unsigned char types to the peer - consider changing Send() to accept unsigned char (i.e. ID_USER_PACKET_ENUM exceeds 127)
 		if (i&1)
-			peer1->Send((char*)out, 2, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			peer1->Send((char*)out, 2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 		else
-			peer2->Send((char*)out, 2, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			peer2->Send((char*)out, 2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 //		printf("Thread %u done writing\n", i);
 		RakSleep(30);

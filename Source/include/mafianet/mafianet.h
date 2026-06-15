@@ -25,7 +25,7 @@
 #include "mafianet/peerinterface.h"      // RakPeerInterface — main entry point
 #include "mafianet/types.h"              // Packet, SystemAddress, RakNetGUID, enums
 #include "mafianet/MessageIdentifiers.h" // ID_* message IDs + ID_USER_PACKET_ENUM
-#include "mafianet/PacketPriority.h"     // PacketPriority / PacketReliability
+#include "mafianet/PacketPriority.h"     // MafiaNet::Priority / MafiaNet::Reliability
 #include "mafianet/statistics.h"         // RakNetStatistics — return type of GetStatistics()
 #include "mafianet/BitStream.h"          // binary serialization
 #include "mafianet/GetTime.h"            // MafiaNet::GetTime / TimeMS

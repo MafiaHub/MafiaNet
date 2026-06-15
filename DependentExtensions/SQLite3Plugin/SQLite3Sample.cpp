@@ -197,7 +197,7 @@ int main(void)
 			{
 				// Send a query to the database through RakNet
 				// Result will be printed through SQLite3PluginResultInterface_Printf
-				sqlite3ClientPlugin._sqlite3_exec(DATABASE_IDENTIFIER, query, HIGH_PRIORITY, RELIABLE_ORDERED, 0, rakClient->GetSystemAddressFromIndex(0));
+				sqlite3ClientPlugin._sqlite3_exec(DATABASE_IDENTIFIER, query, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, rakClient->GetSystemAddressFromIndex(0));
 
 			}
 		}

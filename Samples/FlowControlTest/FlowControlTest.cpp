@@ -225,7 +225,7 @@ int main(void)
 			default:
 				// Relay
 				if (rakServer)
-					rakServer->Send((char*)p->data, p->length, HIGH_PRIORITY, RELIABLE_ORDERED, 0, p->systemAddress, true);
+					rakServer->Send((char*)p->data, p->length, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, p->systemAddress, true);
 			}
 
 			if (rakServer)
@@ -242,11 +242,11 @@ int main(void)
 			{
 				if (rakServer)
 				{
-					rakServer->Send((char*)randomData, packetSize, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakServer->Send((char*)randomData, packetSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				else if (rakClient)
 				{
-					rakClient->Send((char*)randomData, packetSize, HIGH_PRIORITY, RELIABLE_ORDERED, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakClient->Send((char*)randomData, packetSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 
 				lastSend=time;

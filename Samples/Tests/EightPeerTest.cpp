@@ -132,7 +132,7 @@ int EightPeerTest::RunTest(DataStructures::List<RakString> params,bool isVerbose
 				bitStream.Write(k);
 				bitStream.Write(i);
 
-				peerList[i]->Send(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+				peerList[i]->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
 
 			}
 			}

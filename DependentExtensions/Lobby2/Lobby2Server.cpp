@@ -51,7 +51,7 @@ void Lobby2Server::SendMsg(Lobby2Message *msg, const DataStructures::List<System
 	bs.Write((MessageID)ID_LOBBY2_SEND_MESSAGE);
 	bs.Write((MessageID)msg->GetID());
 	msg->Serialize(true,true,&bs);
-	SendUnifiedToMultiple(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, recipients);
+	SendUnifiedToMultiple(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, recipients);
 }
 void Lobby2Server::Update(void)
 {
@@ -159,7 +159,7 @@ void Lobby2Server::Update(void)
 					return;
 				}
 			}
-			SendUnifiedToMultiple(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, c.callerSystemAddresses);
+			SendUnifiedToMultiple(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, c.callerSystemAddresses);
 		}
 		if (c.deallocMsgWhenDone)
 			MafiaNet::OP_DELETE(c.lobby2Message, __FILE__, __LINE__);
@@ -251,7 +251,7 @@ void Lobby2Server::OnMessage(Packet *packet)
 				bs2.Write((MessageID)lobby2Message->GetID());
 				lobby2Message->resultCode=L2RC_NOT_LOGGED_IN;
 				lobby2Message->Serialize(true,true,&bs2);
-				SendUnified(&bs2,packetPriority, RELIABLE_ORDERED, orderingChannel, packet->systemAddress, false);
+				SendUnified(&bs2,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 				return;
 			}
 			command.callerUserId=0;
@@ -267,7 +267,7 @@ void Lobby2Server::OnMessage(Packet *packet)
 		out.Write((MessageID)ID_LOBBY2_SERVER_ERROR);
 		out.Write((unsigned char) L2SE_UNKNOWN_MESSAGE_ID);
 		out.Write((unsigned int) msgId);
-		SendUnified(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, packet->systemAddress, false);
+		SendUnified(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 	}
 }
 void Lobby2Server::Clear(void)
@@ -366,7 +366,7 @@ void Lobby2Server::ExecuteCommand(Lobby2ServerCommand *command)
 	{
 		command->lobby2Message->resultCode=L2RC_REQUIRES_ADMIN;
 		SendMsg(command->lobby2Message, command->callerSystemAddresses);
-		//SendUnifiedToMultiple(&out,packetPriority, RELIABLE_ORDERED, orderingChannel, command->callerSystemAddresses);
+		//SendUnifiedToMultiple(&out,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, command->callerSystemAddresses);
 		if (command->deallocMsgWhenDone)
 			msgFactory->Dealloc(command->lobby2Message);
 		return;
@@ -376,7 +376,7 @@ void Lobby2Server::ExecuteCommand(Lobby2ServerCommand *command)
 	{
 		command->lobby2Message->resultCode=L2RC_REQUIRES_ADMIN;
 		SendMsg(command->lobby2Message, command->callerSystemAddresses);
-		//SendUnifiedToMultiple(&out,packetPriority, RELIABLE_ORDERED, orderingChannel, command->callerSystemAddresses);
+		//SendUnifiedToMultiple(&out,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, command->callerSystemAddresses);
 		if (command->deallocMsgWhenDone)
 			msgFactory->Dealloc(command->lobby2Message);
 		return;
@@ -423,7 +423,7 @@ void Lobby2Server::LogoffFromRooms(User *user)
 	{
 		MafiaNet::BitStream bs;
 		RoomsPlugin::SerializeLogoff(user->userName,&bs);
-		SendUnified(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, roomsPluginAddress, false);
+		SendUnified(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, roomsPluginAddress, false);
 	}
 #endif
 
@@ -526,7 +526,7 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 	{
 		MafiaNet::BitStream bs;
 		RoomsPlugin::SerializeLogin(user->userName,user->systemAddresses[0], user->guids[0], &bs);
-		SendUnified(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, roomsPluginAddress, false);
+		SendUnified(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, roomsPluginAddress, false);
 	}
 #endif
 }
@@ -582,7 +582,7 @@ void Lobby2Server::OnChangeHandle(Lobby2ServerCommand *command, bool calledFromT
 	{
 		MafiaNet::BitStream bs;
 		RoomsPlugin::SerializeChangeHandle(oldHandle,command->callingUserName,&bs);
-		SendUnified(&bs,packetPriority, RELIABLE_ORDERED, orderingChannel, roomsPluginAddress, false);
+		SendUnified(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, roomsPluginAddress, false);
 	}
 #endif
 }
@@ -728,7 +728,7 @@ void Lobby2Server::GetPresence(MafiaNet::Lobby2Presence &presence, MafiaNet::Rak
 		presence.status=Lobby2Presence::NOT_ONLINE;
 	}
 }
-void Lobby2Server::SendUnifiedToMultiple( const MafiaNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses )
+void Lobby2Server::SendUnifiedToMultiple( const MafiaNet::BitStream * bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses )
 {
 	for (unsigned int i=0; i < systemAddresses.Size(); i++)
 		SendUnified(bitStream,priority,reliability,curOrderingChannel,systemAddresses[i],false);

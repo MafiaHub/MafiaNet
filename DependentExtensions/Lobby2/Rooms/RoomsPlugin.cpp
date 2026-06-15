@@ -797,7 +797,7 @@ RoomsPlugin::RoomsPlugin()
 	lastUpdateTime=0;
 	orderingChannel=0;
 	profanityFilter=0;
-	packetPriority=HIGH_PRIORITY;
+	packetPriority=MafiaNet::Priority::High;
 	serverAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	SetRoomsCallback(this);
 }
@@ -809,7 +809,7 @@ void RoomsPlugin::SetOrderingChannel(char oc)
 {
 	orderingChannel=oc;
 }
-void RoomsPlugin::SetSendPriority(PacketPriority pp)
+void RoomsPlugin::SetSendPriority(MafiaNet::Priority pp)
 {
 	packetPriority=pp;
 }
@@ -842,7 +842,7 @@ void RoomsPlugin::ExecuteFunc(RoomsPluginFunc *func, SystemAddress remoteAddress
 		func->SerializeOut(true, &bs);
 	else
 		func->SerializeIn(true, &bs);
-	SendUnified(&bs, packetPriority, RELIABLE_ORDERED, orderingChannel, remoteAddress, false);
+	SendUnified(&bs, packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, remoteAddress, false);
 }
 
 void RoomsPlugin::ExecuteNotification(RoomsPluginNotification *func, RoomsPluginParticipant *recipient)
@@ -851,7 +851,7 @@ void RoomsPlugin::ExecuteNotification(RoomsPluginNotification *func, RoomsPlugin
 	bs.Write((MessageID)ID_ROOMS_EXECUTE_FUNC);
 	func->recipient=recipient->GetName();
 	func->Serialize(true, &bs);
-	SendUnified(&bs, packetPriority, RELIABLE_ORDERED, orderingChannel, recipient->GetSystemAddress(), false);
+	SendUnified(&bs, packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, recipient->GetSystemAddress(), false);
 }
 void RoomsPlugin::SetServerAddress( SystemAddress systemAddress )
 {

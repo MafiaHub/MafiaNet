@@ -235,8 +235,8 @@ int ReliableOrderedConvertedTest::RunTest(DataStructures::List<RakString> params
 			bitStream.Write(pad, padLength);
 			delete [] pad;
 			// Send on a random priority with a random stream
-			// if (sender->Send(&bitStream, HIGH_PRIORITY, (PacketReliability) (RELIABLE + (randomMT() %2)) ,streamNumber, UNASSIGNED_SYSTEM_ADDRESS, true)==false)
-			if (sender->Send(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED ,streamNumberSender, UNASSIGNED_SYSTEM_ADDRESS, true)==false)
+			// if (sender->Send(&bitStream, MafiaNet::Priority::High, (MafiaNet::Reliability) (MafiaNet::Reliability::Reliable + (randomMT() %2)) ,streamNumber, UNASSIGNED_SYSTEM_ADDRESS, true)==false)
+			if (sender->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,streamNumberSender, UNASSIGNED_SYSTEM_ADDRESS, true)==false)
 				packetNumberSender[streamNumberSender]--; // Didn't finish connecting yet?
 
 			RakNetStatistics *rssSender;

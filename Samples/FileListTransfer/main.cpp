@@ -240,14 +240,14 @@ int main()
 		MafiaNet::SystemAddress sa;
 		sa = tcp1.HasNewIncomingConnection();
 		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
-			flt1.Send(&fileList,0,sa,0,HIGH_PRIORITY,0, &incrementalReadInterface, 2000 * 1024);
+			flt1.Send(&fileList,0,sa,0,MafiaNet::Priority::High,0, &incrementalReadInterface, 2000 * 1024);
 		tcp1.DeallocatePacket(packet1);
 		tcp2.DeallocatePacket(packet2);
 #else
 		packet1=peer1->Receive();
 		packet2=peer2->Receive();
 		if (packet1 && packet1->data[0]==ID_NEW_INCOMING_CONNECTION)
-			flt1.Send(&fileList,peer1,packet1->systemAddress,0,HIGH_PRIORITY,0, &incrementalReadInterface, 2000000);
+			flt1.Send(&fileList,peer1,packet1->systemAddress,0,MafiaNet::Priority::High,0, &incrementalReadInterface, 2000000);
 		
 		peer1->DeallocatePacket(packet1);
 		peer2->DeallocatePacket(packet2);

@@ -101,7 +101,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 		}
 	}
 
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	recursiveCheck=false;
 	return SQLLR_OK;
 }
@@ -110,7 +110,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 {
 	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 0);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1 )
@@ -118,7 +118,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	MafiaNet::BitStream bitStream;
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 1);
 	p1->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2 )
@@ -127,7 +127,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	SerializeHeader(&bitStream, isFunctionCall, tableName, columnNames, file, line, 2);
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3 )
@@ -137,7 +137,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p1->Serialize(&bitStream);
 	p2->Serialize(&bitStream);
 	p3->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4 )
@@ -148,7 +148,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p2->Serialize(&bitStream);
 	p3->Serialize(&bitStream);
 	p4->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5 )
@@ -160,7 +160,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p3->Serialize(&bitStream);
 	p4->Serialize(&bitStream);
 	p5->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6 )
@@ -173,7 +173,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p4->Serialize(&bitStream);
 	p5->Serialize(&bitStream);
 	p6->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7 )
@@ -187,7 +187,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p5->Serialize(&bitStream);
 	p6->Serialize(&bitStream);
 	p7->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8 )
@@ -202,7 +202,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p6->Serialize(&bitStream);
 	p7->Serialize(&bitStream);
 	p8->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9 )
@@ -218,7 +218,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p7->Serialize(&bitStream);
 	p8->Serialize(&bitStream);
 	p9->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10 )
@@ -235,7 +235,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p8->Serialize(&bitStream);
 	p9->Serialize(&bitStream);
 	p10->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10, const LogParameter *p11 )
@@ -253,7 +253,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p9->Serialize(&bitStream);
 	p10->Serialize(&bitStream);
 	p11->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10, const LogParameter *p11, const LogParameter *p12  )
@@ -272,7 +272,7 @@ SQLLogResult SQLiteClientLoggerPlugin::SqlLog( bool isFunctionCall, const char *
 	p10->Serialize(&bitStream);
 	p11->Serialize(&bitStream);
 	p12->Serialize(&bitStream);
-	SendUnified(&bitStream, LOW_PRIORITY, RELIABLE_ORDERED, 1, serverAddress, false);
+	SendUnified(&bitStream, MafiaNet::Priority::Low, MafiaNet::Reliability::ReliableOrdered, 1, serverAddress, false);
 	return SQLLR_OK;
 }
 */

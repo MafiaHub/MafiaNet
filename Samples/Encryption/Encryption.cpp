@@ -93,7 +93,7 @@ void PrintPacketHeader(Packet *packet)
 				MafiaNet::BitStream testBlockLargerThanMTU;
 				testBlockLargerThanMTU.Write((MessageID) ID_USER_PACKET_ENUM);
 				testBlockLargerThanMTU.PadWithZeroToByteLength(10000);
-				rakPeer1->Send(&testBlockLargerThanMTU, HIGH_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+				rakPeer1->Send(&testBlockLargerThanMTU, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 			}
 			break;
 		case ID_USER_PACKET_ENUM:

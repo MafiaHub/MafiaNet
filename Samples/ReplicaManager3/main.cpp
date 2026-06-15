@@ -128,12 +128,12 @@ struct SampleReplica : public Replica3
 		VariableDeltaSerializer::SerializationContext serializationContext;
 
 		// Put all variables to be sent unreliably on the same channel, then specify the send type for that channel
-		serializeParameters->pro[0].reliability=UNRELIABLE_WITH_ACK_RECEIPT;
+		serializeParameters->pro[0].reliability=MafiaNet::Reliability::UnreliableWithAckReceipt;
 		// Sending unreliably with an ack receipt requires the receipt number, and that you inform the system of ID_SND_RECEIPT_ACKED and ID_SND_RECEIPT_LOSS
 		serializeParameters->pro[0].sendReceipt=replicaManager->GetRakPeerInterface()->IncrementNextSendReceipt();
 		serializeParameters->messageTimestamp= MafiaNet::GetTime();
 
-		// Begin writing all variables to be sent UNRELIABLE_WITH_ACK_RECEIPT 
+		// Begin writing all variables to be sent MafiaNet::Reliability::UnreliableWithAckReceipt 
 		variableDeltaSerializer.BeginUnreliableAckedSerialize(
 			&serializationContext,
 			serializeParameters->destinationConnection->GetRakNetGUID(),
@@ -148,7 +148,7 @@ struct SampleReplica : public Replica3
 		variableDeltaSerializer.EndSerialize(&serializationContext);
 
 		// All variables to be sent using a different mode go on different channels
-		serializeParameters->pro[1].reliability=RELIABLE_ORDERED;
+		serializeParameters->pro[1].reliability=MafiaNet::Reliability::ReliableOrdered;
 
 		// Same as above, all variables to be sent with a particular reliability are sent in a batch
 		// We use BeginIdenticalSerialize instead of BeginSerialize because the reliable variables have the same values sent to all systems. This is memory-saving optimization
@@ -223,7 +223,7 @@ struct SampleReplica : public Replica3
 	}
 	void NotifyReplicaOfMessageDeliveryStatus(RakNetGUID guid, uint32_t receiptId, bool messageArrived)
 	{
-		// When using UNRELIABLE_WITH_ACK_RECEIPT, the system tracks which variables were updated with which sends
+		// When using MafiaNet::Reliability::UnreliableWithAckReceipt, the system tracks which variables were updated with which sends
 		// So it is then necessary to inform the system of messages arriving or lost
 		// Lost messages will flag each variable sent in that update as dirty, meaning the next Serialize() call will resend them with the current values
 		variableDeltaSerializer.OnMessageReceipt(guid,receiptId,messageArrived);

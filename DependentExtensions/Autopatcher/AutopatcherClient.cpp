@@ -393,7 +393,7 @@ AutopatcherClient::AutopatcherClient()
 	serverIdIndex=static_cast<unsigned short>(-1);
 	applicationDirectory[0]=0;
 	fileListTransfer=0;
-    priority=HIGH_PRIORITY;
+    priority=MafiaNet::Priority::High;
 	orderingChannel=0;
 	serverDate=0;
 	userCB=0;
@@ -412,7 +412,7 @@ void AutopatcherClient::Clear(void)
 	redownloadList.Clear();
 	copyAndRestartList.Clear();
 }
-void AutopatcherClient::SetUploadSendParameters(PacketPriority _priority, char _orderingChannel)
+void AutopatcherClient::SetUploadSendParameters(MafiaNet::Priority _priority, char _orderingChannel)
 {
 	priority=_priority;
 	orderingChannel=_orderingChannel;
@@ -468,7 +468,7 @@ bool AutopatcherClient::PatchApplication(const char *_applicationName, const cha
 	outBitStream.Write((unsigned char)ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE);
 	StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
 	outBitStream.Write(lastUpdateDate);
-    SendUnified(&outBitStream, priority, RELIABLE_ORDERED, orderingChannel, host, false);
+    SendUnified(&outBitStream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, host, false);
 	return true;
 }
 void AutopatcherClient::Update(void)
@@ -499,7 +499,7 @@ void AutopatcherClient::Update(void)
 			outBitStream.Write(lastUpdateData);
 			StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
 			redownloadList.Serialize(&outBitStream);
-			SendUnified(&outBitStream, priority, RELIABLE_ORDERED, orderingChannel, serverId, false);
+			SendUnified(&outBitStream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, serverId, false);
 			redownloadList.Clear();
 		}
 		else if (copyAndRestartList.fileList.Size())
@@ -631,7 +631,7 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 	outBitStream.Write(patchApplicationLastUpdateDate);
 	StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
 	missingOrChanged.Serialize(&outBitStream);
-	SendUnified(&outBitStream, priority, RELIABLE_ORDERED, orderingChannel, packet->systemAddress, false);
+	SendUnified(&outBitStream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 
 	return RR_STOP_PROCESSING_AND_DEALLOCATE; // Absorb this message
 }

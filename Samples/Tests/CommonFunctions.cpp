@@ -92,7 +92,7 @@ void CommonFunctions::DisconnectAndWait(RakPeerInterface *peer,char* ip,unsigned
 	while(CommonFunctions::ConnectionStateMatchesOptions (peer,targetAddress,true,true,true,true))//disconnect client
 	{
 
-		peer->CloseConnection (targetAddress,true,0,LOW_PRIORITY); 
+		peer->CloseConnection (targetAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 }
@@ -140,6 +140,12 @@ Packet *CommonFunctions::WaitAndReturnMessageWithID(RakPeerInterface *reciever,i
 			}
 
 		}
+
+		// Yield the CPU between drains. Spinning Receive() in a tight loop pins a
+		// core and, on CPU-constrained CI runners, starves the peers' internal
+		// network threads that send/resend reliable traffic (e.g. the reliable
+		// ID_DISCONNECTION_NOTIFICATION) — making the wait time out spuriously.
+		RakSleep(5);
 
 	}
 

@@ -101,7 +101,7 @@ void ReadAllPackets(void)
 			MafiaNet::BitStream bsOut;
 			MessageID id = ID_USER_PACKET_ENUM+1;
 			bsOut.Write(id);
-			rakPeer->Send(&bsOut,HIGH_PRIORITY,RELIABLE_ORDERED,0,endpointGuid2,false);
+			rakPeer->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,endpointGuid2,false);
 		}
 	}
 }

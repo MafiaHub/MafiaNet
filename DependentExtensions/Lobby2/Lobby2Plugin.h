@@ -77,7 +77,7 @@ public:
 
 	/// \brief Send priority to send messages on
 	/// \param[in] pp The packet priority
-	void SetSendPriority(PacketPriority pp);
+	void SetSendPriority(MafiaNet::Priority pp);
 
 	/// \brief Creates messages from message IDs
 	/// \details Server should get a factory that creates messages with database functionality.<BR>
@@ -103,7 +103,7 @@ public:
 protected:
 		
 	char orderingChannel;
-	PacketPriority packetPriority;	
+	MafiaNet::Priority packetPriority;	
 	Lobby2MessageFactory *msgFactory;
 
 	DataStructures::List<Lobby2Callbacks*> callbacks;

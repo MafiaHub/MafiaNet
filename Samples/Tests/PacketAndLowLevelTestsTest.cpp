@@ -16,7 +16,7 @@ Description:
 Tests out the sunctions:
 virtual int RakPeerInterface::GetSplitMessageProgressInterval  	(  	void   	  	 )   	 const "
 virtual void RakPeerInterface::PushBackPacket  	(  	Packet *   	 packet, 		bool  	pushAtHead	  	) 			"
-virtual bool RakPeerInterface::SendList  	(  	char **   	 data, 		const int *  	lengths, 		const int  	numParameters, 		PacketPriority  	priority, 		PacketReliability  	reliability, 		char  	orderingChannel, 		SystemAddress  	systemAddress, 		bool  	broadcast	  	) 			"						
+virtual bool RakPeerInterface::SendList  	(  	char **   	 data, 		const int *  	lengths, 		const int  	numParameters, 		MafiaNet::Priority  	priority, 		MafiaNet::Reliability  	reliability, 		char  	orderingChannel, 		SystemAddress  	systemAddress, 		bool  	broadcast	  	) 			"						
 virtual void RakPeerInterface::SetSplitMessageProgressInterval 	( 	int  	interval 	 )  	
 virtual void RakPeerInterface::SetUnreliableTimeout  	(  	TimeMS   	 timeoutMS  	 )   	 
 virtual Packet* RakPeerInterface::AllocatePacket  	(  	unsigned   	 dataSize  	 )   
@@ -85,7 +85,7 @@ int PacketAndLowLevelTestsTest::RunTest(DataStructures::List<RakString> params,b
 		lengths[i]=5;
 	}
 
-	client->SendList((const char**)dataList,lengths,5,HIGH_PRIORITY,RELIABLE_ORDERED,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->SendList((const char**)dataList,lengths,5,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	Packet* packet;
 	if (!(packet=CommonFunctions::WaitAndReturnMessageWithID(server,ID_USER_PACKET_ENUM+1,1000)))
@@ -183,7 +183,7 @@ int PacketAndLowLevelTestsTest::RunTest(DataStructures::List<RakString> params,b
 
 	}
 
-	if (!client->Send((const char *)hugePacket->data,dataSize,HIGH_PRIORITY,RELIABLE_ORDERED,0, UNASSIGNED_SYSTEM_ADDRESS, true))
+	if (!client->Send((const char *)hugePacket->data,dataSize,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, UNASSIGNED_SYSTEM_ADDRESS, true))
 	{
 
 		if (isVerbose)
@@ -302,7 +302,7 @@ void PacketAndLowLevelTestsTest::FloodWithHighPriority(RakPeerInterface* client)
 
 	for (int i=0;i<60000;i++)
 	{
-		TestHelpers::BroadCastTestPacket(client,UNRELIABLE,HIGH_PRIORITY,ID_USER_PACKET_ENUM+2);
+		TestHelpers::BroadCastTestPacket(client,MafiaNet::Reliability::Unreliable,MafiaNet::Priority::High,ID_USER_PACKET_ENUM+2);
 	}
 
 }

@@ -122,7 +122,7 @@ int main(void)
 
 		MafiaNet::BitStream testBs;
 		testBs.WriteCompressed("testData");
-	//	rpc.Signal("Event1", &testBs, HIGH_PRIORITY,RELIABLE_ORDERED,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
+	//	rpc.Signal("Event1", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
 
 		RakSleep(100);
 		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), rakPeer->Receive())
@@ -130,7 +130,7 @@ int main(void)
 
 		// Needs 2 program instances, because while the call is blocking rakPeer2->Receive() isn't getting called
 		MafiaNet::BitStream testBlockingReturn;
-		rpc.CallBlocking("Blocking", &testBs, HIGH_PRIORITY,RELIABLE_ORDERED,0,rakPeer->GetSystemAddressFromIndex(0),&testBlockingReturn);
+		rpc.CallBlocking("Blocking", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),&testBlockingReturn);
 
 		MafiaNet::RakString data;
 		testBlockingReturn.ReadCompressed(data);

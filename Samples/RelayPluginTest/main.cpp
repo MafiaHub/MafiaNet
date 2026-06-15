@@ -128,7 +128,7 @@ int main(void)
 					RakString msgRs = msg;
 					BitStream msgBs;
 					msgBs.WriteCompressed(msgRs);
-					relayPlugin->SendToParticipant(peer->GetGUIDFromIndex(0), name, &msgBs, HIGH_PRIORITY, RELIABLE_ORDERED, 0 );
+					relayPlugin->SendToParticipant(peer->GetGUIDFromIndex(0), name, &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0 );
 					printf("Done\n");
 				}
 				else
@@ -144,7 +144,7 @@ int main(void)
 				RakString msgRs = msg;
 				BitStream msgBs;
 				msgBs.Write(msgRs);
-				relayPlugin->SendGroupMessage(peer->GetGUIDFromIndex(0), &msgBs, HIGH_PRIORITY, RELIABLE_ORDERED, 0 );
+				relayPlugin->SendGroupMessage(peer->GetGUIDFromIndex(0), &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0 );
 				printf("Done\n");
 			}
 			else if (ch=='j' || ch=='J')

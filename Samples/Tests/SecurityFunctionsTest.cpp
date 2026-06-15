@@ -175,7 +175,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,LOW_PRIORITY); 
+		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 	if (isVerbose)
@@ -248,7 +248,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,LOW_PRIORITY); 
+		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 	if (isVerbose)
@@ -321,7 +321,7 @@ int SecurityFunctionsTest::RunTest(DataStructures::List<RakString> params,bool i
 	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,LOW_PRIORITY); 
+		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 /*//Disabled because of statistics changes
@@ -375,8 +375,8 @@ class that handles RSA encryption/decryption internally
 
 	char str2[]="AAAAAAAAAA";
 	str2[0]=(char)(ID_USER_PACKET_ENUM+1);
-	client->Send(str2,(int) strlen(str2)+1, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
-	client->Send(str2,(int) strlen(str2)+1, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->Send(str2,(int) strlen(str2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->Send(str2,(int) strlen(str2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	Packet *packet;
 	entryTime=GetTimeMS();
@@ -402,7 +402,7 @@ class that handles RSA encryption/decryption internally
 	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,LOW_PRIORITY); 
+		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 	//Destroy to clear statistics
@@ -439,8 +439,8 @@ class that handles RSA encryption/decryption internally
 	}
 
 	str2[0]=(char)(ID_USER_PACKET_ENUM+1);
-	client->Send(str2,(int) strlen(str2)+1, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
-	client->Send(str2,(int) strlen(str2)+1, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->Send(str2,(int) strlen(str2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->Send(str2,(int) strlen(str2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	//	Packet *packet;
 
@@ -468,7 +468,7 @@ class that handles RSA encryption/decryption internally
 	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,LOW_PRIORITY); 
+		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low); 
 	}
 
 	server->RemoveFromSecurityExceptionList("127.0.0.1");
@@ -490,8 +490,8 @@ class that handles RSA encryption/decryption internally
 	}
 
 	str2[0]=(char)(ID_USER_PACKET_ENUM+1);
-	client->Send(str2,(int) strlen(str2)+1, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
-	client->Send(str2,(int) strlen(str2)+1, HIGH_PRIORITY, RELIABLE_ORDERED ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->Send(str2,(int) strlen(str2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->Send(str2,(int) strlen(str2)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered ,0, UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	entryTime=GetTimeMS();
 	while(GetTimeMS()-entryTime<1000)

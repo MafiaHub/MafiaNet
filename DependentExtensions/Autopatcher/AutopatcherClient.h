@@ -60,7 +60,7 @@ public:
 	/// What parameters to use for the RakPeerInterface::Send() call when uploading files.
 	/// \param[in] _priority See RakPeerInterface::Send()
 	/// \param[in] _orderingChannel See RakPeerInterface::Send()
-	void SetUploadSendParameters(PacketPriority _priority, char _orderingChannel);
+	void SetUploadSendParameters(MafiaNet::Priority _priority, char _orderingChannel);
 
 	/// This plugin has a dependency on the FileListTransfer plugin, which it uses to actually send the files.
 	/// So you need an instance of that plugin registered with RakPeerInterface, and a pointer to that interface should be passed here.
@@ -113,7 +113,7 @@ protected:
 	char restartExe[512];
 	double serverDate;
 	FileListTransfer *fileListTransfer;
-	PacketPriority priority;
+	MafiaNet::Priority priority;
 	SystemAddress serverId;
 	SystemIndex serverIdIndex;
 	char orderingChannel;
