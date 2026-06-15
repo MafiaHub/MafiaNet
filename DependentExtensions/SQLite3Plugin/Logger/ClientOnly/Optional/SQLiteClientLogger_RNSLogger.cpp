@@ -58,14 +58,14 @@ void SQLiteClientLogger_RakNetStatistics::Update(void)
 					rns.isLimitedByCongestionControl,
 					rns.BPSLimitByOutgoingBandwidthLimit,
 					rns.isLimitedByOutgoingBandwidthLimit,
-					rns.messageInSendBuffer[MafiaNet::Priority::Immediate],
-					rns.messageInSendBuffer[MafiaNet::Priority::High],
-					rns.messageInSendBuffer[MafiaNet::Priority::Medium],
-					rns.messageInSendBuffer[MafiaNet::Priority::Low],
-					rns.bytesInSendBuffer[MafiaNet::Priority::Immediate],
-					rns.bytesInSendBuffer[MafiaNet::Priority::High],
-					rns.bytesInSendBuffer[MafiaNet::Priority::Medium],
-					rns.bytesInSendBuffer[MafiaNet::Priority::Low],
+					rns.messageInSendBuffer[(int)MafiaNet::Priority::Immediate],
+					rns.messageInSendBuffer[(int)MafiaNet::Priority::High],
+					rns.messageInSendBuffer[(int)MafiaNet::Priority::Medium],
+					rns.messageInSendBuffer[(int)MafiaNet::Priority::Low],
+					rns.bytesInSendBuffer[(int)MafiaNet::Priority::Immediate],
+					rns.bytesInSendBuffer[(int)MafiaNet::Priority::High],
+					rns.bytesInSendBuffer[(int)MafiaNet::Priority::Medium],
+					rns.bytesInSendBuffer[(int)MafiaNet::Priority::Low],
 					rns.messagesInResendBuffer,
 					rns.bytesInResendBuffer,
 					rns.packetlossLastSecond,
@@ -100,7 +100,7 @@ void SQLiteClientLogger_RakNetStatistics::Update(void)
 					rns.valueOverLastSecond[ACTUAL_BYTES_RECEIVED], \
 					rns.BPSLimitByCongestionControl, \
 					rns.BPSLimitByOutgoingBandwidthLimit, \
-					rns.bytesInSendBuffer[MafiaNet::Priority::Immediate]+rns.bytesInSendBuffer[MafiaNet::Priority::High]+rns.bytesInSendBuffer[MafiaNet::Priority::Medium]+rns.bytesInSendBuffer[MafiaNet::Priority::Low], \
+					rns.bytesInSendBuffer[(int)MafiaNet::Priority::Immediate]+rns.bytesInSendBuffer[(int)MafiaNet::Priority::High]+rns.bytesInSendBuffer[(int)MafiaNet::Priority::Medium]+rns.bytesInSendBuffer[(int)MafiaNet::Priority::Low], \
 					rns.messagesInResendBuffer, \
 					rns.bytesInResendBuffer, \
 					rns.packetlossLastSecond, \
