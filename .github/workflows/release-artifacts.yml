@@ -1,0 +1,140 @@
+name: Release Artifacts
+
+# Builds prebuilt MafiaNet libraries for all supported runtimes whenever a
+# release is published, then attaches a single combined archive (headers +
+# libraries) to that release.
+#
+# Correctness is gated separately by build.yml on push/PR; this workflow is
+# packaging-only and runs no tests.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # Build and stage an install tree (include + lib [+ bin]) per runtime.
+  build:
+    name: Build ${{ matrix.key }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: linux-x64
+            os: ubuntu-latest
+          - key: macos-x64
+            os: macos-13
+          - key: macos-arm64
+            os: macos-14
+          - key: windows-x64
+            os: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openssl@3
+
+      # Both static and shared libraries are ON by default in CMakeLists.txt,
+      # so no extra MAFIANET_BUILD_* flags are required.
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/stage"
+
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/stage"
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -B build
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/stage"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Install
+        run: cmake --install build --config Release
+
+      - name: Upload staged install tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.key }}
+          path: stage
+          if-no-files-found: error
+
+  # Combine all runtime trees into a single archive and attach it to the release.
+  package:
+    name: Package & attach to release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all staged trees
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Assemble combined archive
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VER="${TAG#v}"
+          ROOT="mafianet-${VER}"
+          mkdir -p "${ROOT}/include" "${ROOT}/lib"
+
+          # Headers are identical across platforms — keep a single shared copy.
+          cp -R dist/linux-x64/include/. "${ROOT}/include/"
+
+          for rt in linux-x64 macos-x64 macos-arm64 windows-x64; do
+            mkdir -p "${ROOT}/lib/${rt}"
+            # Static/import libs and CMake package config (lib or lib64).
+            for d in dist/"${rt}"/lib dist/"${rt}"/lib64; do
+              [ -d "$d" ] && cp -R "$d/." "${ROOT}/lib/${rt}/"
+            done
+            # Shared runtime binaries (.dll) install to bin/ — fold them in so
+            # the shared library is usable, keeping the layout to include + lib.
+            [ -d "dist/${rt}/bin" ] && cp -R "dist/${rt}/bin/." "${ROOT}/lib/${rt}/"
+          done
+
+          cat > "${ROOT}/README.txt" <<EOF
+          MafiaNet ${VER} — prebuilt libraries
+
+          Layout:
+            include/            Public headers (mafianet/...), shared across all runtimes.
+            lib/<runtime>/      Static + shared libraries and the CMake package config
+                                for each runtime (linux-x64, macos-x64, macos-arm64,
+                                windows-x64).
+
+          Note: the shared libraries dynamically link OpenSSL 3 from the machine
+          they were built on. Consumers need a compatible OpenSSL 3 installed at
+          runtime. The static libraries avoid this dependency.
+          EOF
+
+          zip -r "${ROOT}-all.zip" "${ROOT}"
+
+      - name: Attach archive to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VER="${TAG#v}"
+          gh release upload "${TAG}" "mafianet-${VER}-all.zip" --clobber
