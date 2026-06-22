@@ -23,7 +23,7 @@ jobs:
           - key: linux-x64
             os: ubuntu-latest
           - key: macos-x64
-            os: macos-13
+            os: macos-15-intel
           - key: macos-arm64
             os: macos-14
           - key: windows-x64
