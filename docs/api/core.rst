@@ -183,6 +183,18 @@ bookkeeping:
        // no DeallocatePacket / DestroyInstance — destructors handle it
    }
 
+``Peer::incoming()`` wraps the drain loop in a single-pass input range. Each
+iteration yields a fresh ``PacketPtr`` that is deallocated when the loop body
+scope ends, so the queue is drained without any manual bookkeeping:
+
+.. code-block:: cpp
+
+   for (auto packet : peer.incoming()) {   // packet frees at end of each iteration
+       switch (packet.id()) {              // ID_TIMESTAMP-aware identifier
+           // ... handle message ...
+       }
+   }
+
 .. _value-type-helpers:
 
 Value-Type GUID Helpers

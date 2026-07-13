@@ -270,7 +270,9 @@ int main(void)
 
 		// Get a packet from either the server or the client
 
-		for (MafiaNet::PacketPtr p = peer.receive(); p; p = peer.receive())
+		// Drain queued packets via the range adaptor; each p is a PacketPtr
+		// that auto-deallocates at the end of its iteration.
+		for (auto p : peer.incoming())
 		{
 			// We got a packet, get the identifier (ID_TIMESTAMP-aware)
 			packetIdentifier = p.id();

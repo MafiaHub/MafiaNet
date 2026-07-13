@@ -180,6 +180,55 @@ int PeerHandleTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 		return 31;
 	}
 
+	// --- 4. incoming(): the range adaptor drains identically to the manual loop ---
+	// Send a batch of timestamp-prefixed messages, then consume them with the
+	// range-based form. Each iteration yields a fresh, auto-deallocated PacketPtr;
+	// draining a second time must leave the queue empty (no leaks under ASan).
+	const int kBatch = 5;
+	for (int i = 0; i < kBatch; ++i)
+	{
+		BitStream batchBs;
+		batchBs.Write((MessageID) ID_TIMESTAMP);
+		batchBs.Write(GetTime());
+		batchBs.Write((MessageID) PEERHANDLE_TS_ID);
+		client->Send(&batchBs, Priority::High, Reliability::ReliableOrdered, 0, serverAddress, false);
+	}
+
+	int rangeReceived = 0;
+	start = GetTimeMS();
+	while (GetTimeMS() - start < 5000 && rangeReceived < kBatch)
+	{
+		for (auto pkt : server.incoming())
+		{
+			if (pkt.id() == PEERHANDLE_TS_ID)
+				++rangeReceived;
+		}
+		// Keep the client side drained via the range form as well.
+		for (auto pkt : client.incoming())
+		{
+			(void) pkt;
+		}
+		RakSleep(30);
+	}
+	if (rangeReceived != kBatch)
+	{
+		if (isVerbose) printf("incoming() drained %d of %d messages\n", rangeReceived, kBatch);
+		return 40;
+	}
+
+	// The queue is now empty: a fresh range must iterate zero times.
+	int leftover = 0;
+	for (auto pkt : server.incoming())
+	{
+		(void) pkt;
+		++leftover;
+	}
+	if (leftover != 0)
+	{
+		if (isVerbose) printf("incoming() yielded %d packets from a drained queue\n", leftover);
+		return 41;
+	}
+
 	// server and client are RAII Peers: they destruct (DestroyInstance) here,
 	// including on every early return above — that is the point of the wrappers.
 	return 0;
@@ -219,6 +268,8 @@ RakString PeerHandleTest::ErrorCodeToString(int errorCode)
 	case 25: return "Did not observe ID_CONNECTION_REQUEST_ACCEPTED";
 	case 30: return "Timestamp-branch id() mismatch";
 	case 31: return "Server did not receive timestamp message";
+	case 40: return "incoming() did not drain the batch";
+	case 41: return "incoming() yielded packets from a drained queue";
 	default: return "Undefined error";
 	}
 }
