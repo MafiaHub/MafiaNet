@@ -42,7 +42,7 @@
 #ifndef __MAFIANET_ARCHIVE_H
 #define __MAFIANET_ARCHIVE_H
 
-#include "BitStream.h"
+#include "mafianet/BitStream.h"
 
 #include <type_traits>
 #include <utility>
