@@ -201,8 +201,9 @@ Startup Builders (Peer::server / Peer::client)
 ``Peer::server()`` and ``Peer::client()`` return fluent builders that fold the
 multi-call startup dance (construct a ``SocketDescriptor``, ``Startup``, check
 ``== RAKNET_STARTED``, ``SetMaximumIncomingConnections`` / ``Connect``) into a
-single chain. The builder owns the ``SocketDescriptor`` until ``start()``, so
-the caller never manages the array or its count.
+single chain. The builder retains the socket configuration (port, bind address)
+and constructs the ``SocketDescriptor`` during ``start()``, so the caller never
+manages the array or its count.
 
 ``start()`` returns a ``MafiaNet::Result<Peer>``: test it with ``if (result)``,
 reach the live ``Peer`` with ``*result`` / ``result.value()``, and on failure
@@ -236,7 +237,10 @@ collapsing it to a bool.
 Security is opt-in and unchanged from the raw API: ``ServerBuilder::secure(publicKey,
 privateKey)`` calls ``InitializeSecurity`` before ``Startup`` (only when
 ``LIBCAT_SECURITY==1``), and ``ClientBuilder::public_key()`` forwards a
-``PublicKey*`` to ``Connect``. Encryption is never implied.
+``PublicKey*`` to ``Connect``. Encryption is never implied. The builder stores
+these as raw pointers, so the key buffers passed to ``secure()`` and the
+``PublicKey`` passed to ``public_key()`` must remain valid until ``start()``
+returns.
 
 .. _value-type-helpers:
 

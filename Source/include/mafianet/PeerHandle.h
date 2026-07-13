@@ -227,8 +227,9 @@ inline IncomingRange Peer::incoming() { return IncomingRange(this); }
 ///         .incoming_password("hunter2")   // optional
 ///         .start();                        // Result<Peer>
 /// \endcode
-/// The builder owns its SocketDescriptor until start(), so the caller never
-/// manages the array/count. Header-only: it only forwards to the exported API.
+/// The builder retains the socket configuration and constructs the
+/// SocketDescriptor during start(), so the caller never manages the array/count.
+/// Header-only: it only forwards to the exported API.
 class ServerBuilder {
 public:
     /// Local port to listen on (0 lets the OS pick — unusual for a server).
