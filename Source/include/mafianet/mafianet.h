@@ -28,6 +28,7 @@
 #include "mafianet/PacketPriority.h"     // MafiaNet::Priority / MafiaNet::Reliability
 #include "mafianet/statistics.h"         // RakNetStatistics — return type of GetStatistics()
 #include "mafianet/BitStream.h"          // binary serialization
+#include "mafianet/Archive.h"            // serialize() convention over BitStream
 #include "mafianet/GetTime.h"            // MafiaNet::GetTime / TimeMS
 #include "mafianet/guid_util.h"          // MafiaNet::to_string / connected_address
 #include "mafianet/aliases.h"            // canonical aliases: PeerInterface, Guid, Statistics

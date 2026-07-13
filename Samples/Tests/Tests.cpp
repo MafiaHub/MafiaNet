@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 	testList.Push(new PointGridSectorizerTest(),_FILE_AND_LINE_);
 	testList.Push(new PeerHandleTest(),_FILE_AND_LINE_);
 	testList.Push(new PeerBuilderTest(),_FILE_AND_LINE_);
+	testList.Push(new ArchiveTest(),_FILE_AND_LINE_);
 
 	testListSize=testList.Size();
 
