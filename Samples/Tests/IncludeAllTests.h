@@ -36,4 +36,5 @@
 #include "PeerGuidTest.h"
 #include "PointGridSectorizerTest.h"
 #include "PeerHandleTest.h"
+#include "PeerBuilderTest.h"
 
