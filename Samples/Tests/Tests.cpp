@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
 	testList.Push(new PeerBuilderTest(),_FILE_AND_LINE_);
 	testList.Push(new ArchiveTest(),_FILE_AND_LINE_);
 	testList.Push(new DispatcherTest(),_FILE_AND_LINE_);
+	testList.Push(new TypedSendTest(),_FILE_AND_LINE_);
 
 	testListSize=testList.Size();
 
