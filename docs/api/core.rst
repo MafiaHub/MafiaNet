@@ -195,6 +195,53 @@ scope ends, so the queue is drained without any manual bookkeeping:
        }
    }
 
+Startup Builders (Peer::server / Peer::client)
+----------------------------------------------
+
+``Peer::server()`` and ``Peer::client()`` return fluent builders that fold the
+multi-call startup dance (construct a ``SocketDescriptor``, ``Startup``, check
+``== RAKNET_STARTED``, ``SetMaximumIncomingConnections`` / ``Connect``) into a
+single chain. The builder retains the socket configuration (port, bind address)
+and constructs the ``SocketDescriptor`` during ``start()``, so the caller never
+manages the array or its count.
+
+``start()`` returns a ``MafiaNet::Result<Peer>``: test it with ``if (result)``,
+reach the live ``Peer`` with ``*result`` / ``result.value()``, and on failure
+read ``result.error()`` — which preserves the underlying engine enum rather than
+collapsing it to a bool.
+
+.. code-block:: cpp
+
+   auto server = MafiaNet::Peer::server()
+       .port(60000)
+       .max_connections(32)
+       .incoming_password("hunter2")      // optional -> SetIncomingPassword
+       .start();                          // Startup + SetMaximumIncomingConnections
+   if (!server) {
+       printf("startup failed: %d\n", (int) server.error().startup);   // StartupResult
+       return;
+   }
+
+   auto client = MafiaNet::Peer::client()
+       .max_connections(1)
+       .connect("127.0.0.1", 60000)       // records the target
+       .start();                          // Startup, then Connect
+   if (!client) {
+       // error().stage is PeerStage::Startup or PeerStage::Connect; the matching
+       // member (error().startup / error().connect) carries the engine enum.
+       return;
+   }
+
+   MafiaNet::Peer peer = std::move(*client);   // Result<Peer> is move-only
+
+Security is opt-in and unchanged from the raw API: ``ServerBuilder::secure(publicKey,
+privateKey)`` calls ``InitializeSecurity`` before ``Startup`` (only when
+``LIBCAT_SECURITY==1``), and ``ClientBuilder::public_key()`` forwards a
+``PublicKey*`` to ``Connect``. Encryption is never implied. The builder stores
+these as raw pointers, so the key buffers passed to ``secure()`` and the
+``PublicKey`` passed to ``public_key()`` must remain valid until ``start()``
+returns.
+
 .. _value-type-helpers:
 
 Value-Type GUID Helpers
