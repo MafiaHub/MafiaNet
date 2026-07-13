@@ -19,8 +19,10 @@
 #include <string>   // std::string (owned password / bind-address in the builders)
 #include <utility>  // std::move
 
-#include "mafianet/peerinterface.h" // RakPeerInterface, Receive, DeallocatePacket, GetInstance, DestroyInstance
-#include "mafianet/types.h"         // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, PublicKey
+#include "mafianet/peerinterface.h" // RakPeerInterface, Send, Receive, DeallocatePacket, GetInstance, DestroyInstance
+#include "mafianet/types.h"         // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, PublicKey, AddressOrGUID
+#include "mafianet/PacketPriority.h"// Priority, Reliability (scoped enums with the send defaults)
+#include "mafianet/BitStream.h"     // BitStream (the encode() scratch buffer for send/broadcast)
 #include "mafianet/Export.h"        // RAK_DLL_EXPORT
 
 namespace MafiaNet {
@@ -164,6 +166,60 @@ public:
     /// \endcode
     /// Single-pass input range: a UDP receive queue cannot be rewound.
     IncomingRange incoming();
+
+    /// \brief Serialize \a message and send it to a single system.
+    ///
+    /// The typed counterpart of the 8-argument Send: it writes the message
+    /// identifier and the archived body into a scratch BitStream, then forwards
+    /// to Send(const BitStream*, ...). The identifier and wire format come from
+    /// \a dispatcher (its encode(), symmetric with the dispatch() that decodes on
+    /// the far end), so both peers agree on T's id via the same registry.
+    /// \code
+    ///     peer.send(dispatcher, ChatMessage{"hi", 0}, to);                      // defaults
+    ///     peer.send(dispatcher, ChatMessage{"hi", 0}, to, Reliability::Unreliable);
+    /// \endcode
+    /// \param[in] dispatcher A Dispatcher (or any type exposing encode(BitStream&, const T&)) T is registered with.
+    /// \param[in] message The value to serialize; T needs a serialize(Ar&) (see Archive.h).
+    /// \param[in] to Destination — an AddressOrGUID, implicitly built from a SystemAddress or RakNetGUID.
+    /// \param[in] reliability Delivery guarantee. Defaults to ReliableOrdered.
+    /// \param[in] priority Send priority. Defaults to High.
+    /// \param[in] orderingChannel Ordering channel for ordered/sequenced sends. Defaults to 0.
+    /// \return The Send() receipt (0 on bad input; see RakPeerInterface::Send).
+    /// \note Templated on the dispatcher type so PeerHandle.h need not include
+    /// (and cyclically depend on) Dispatcher.h.
+    template <class DispatcherT, class T>
+    uint32_t send(const DispatcherT& dispatcher, const T& message, AddressOrGUID to,
+                  Reliability reliability = Reliability::ReliableOrdered,
+                  Priority priority = Priority::High, char orderingChannel = 0)
+    {
+        BitStream bitStream;
+        dispatcher.encode(bitStream, message);
+        return raw_->Send(&bitStream, priority, reliability, orderingChannel, to, false);
+    }
+
+    /// \brief Serialize \a message and broadcast it to every connected system.
+    ///
+    /// Same encoding as send(), but with Send()'s broadcast flag set and no
+    /// target (the "who not to send to" address is left unassigned, so nobody is
+    /// excluded).
+    /// \code
+    ///     peer.broadcast(dispatcher, ChatMessage{"hi", 0});
+    /// \endcode
+    /// \param[in] dispatcher A Dispatcher (or any type exposing encode(BitStream&, const T&)) T is registered with.
+    /// \param[in] message The value to serialize; T needs a serialize(Ar&) (see Archive.h).
+    /// \param[in] reliability Delivery guarantee. Defaults to ReliableOrdered.
+    /// \param[in] priority Send priority. Defaults to High.
+    /// \param[in] orderingChannel Ordering channel for ordered/sequenced sends. Defaults to 0.
+    /// \return The Send() receipt (0 on bad input; see RakPeerInterface::Send).
+    template <class DispatcherT, class T>
+    uint32_t broadcast(const DispatcherT& dispatcher, const T& message,
+                       Reliability reliability = Reliability::ReliableOrdered,
+                       Priority priority = Priority::High, char orderingChannel = 0)
+    {
+        BitStream bitStream;
+        dispatcher.encode(bitStream, message);
+        return raw_->Send(&bitStream, priority, reliability, orderingChannel, UNASSIGNED_SYSTEM_ADDRESS, true);
+    }
 
 private:
     RakPeerInterface* raw_;

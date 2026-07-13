@@ -39,4 +39,5 @@
 #include "PeerBuilderTest.h"
 #include "ArchiveTest.h"
 #include "DispatcherTest.h"
+#include "TypedSendTest.h"
 
