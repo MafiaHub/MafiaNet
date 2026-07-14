@@ -72,24 +72,26 @@ Available generators (run `cmake --help` for full list):
 
 ## Running Tests
 
-Two suites, both driven by CTest:
+All tests are GoogleTest, built with `MAFIANET_BUILD_TESTS=ON` (requires `MAFIANET_BUILD_STATIC=ON`) and driven by CTest. Two binaries under `Tests/`:
 
-- **Unit tests** (GoogleTest, `Tests/Unit/`): hermetic and deterministic — no loopback networking, no wall-clock timing. Built with `MAFIANET_BUILD_TESTS=ON` (requires `MAFIANET_BUILD_STATIC=ON`). New tests for pure logic go here; write them as `TEST()`/`TEST_F()` cases.
-- **Integration tests** (legacy harness, `Samples/Tests/`): real UDP over loopback. Built with `MAFIANET_BUILD_SAMPLES=ON`. Each test is registered as its own CTest test (label `integration`, `RUN_SERIAL`, 600s timeout) so it runs in a fresh process — never add tests that depend on state from a previous test. New legacy-harness tests must be added both to `testList` in `Tests.cpp` and to `MAFIANET_LEGACY_TESTS` in `Samples/Tests/CMakeLists.txt`.
+- **`UnitTests`** (`Tests/Unit/`, label `unit`): hermetic and deterministic — no loopback networking, no wall-clock timing. A started-but-unconnected peer with synchronous assertions is acceptable. New tests for pure logic go here.
+- **`IntegrationTests`** (`Tests/Integration/`, label `integration`): real UDP over loopback. Discovered tests get `RUN_SERIAL` (several bind fixed ports) and a 600s timeout. Shared polling/connect helpers live in `Tests/Support/`.
+
+Under ctest, every `TEST()` runs in its own process — never write tests that depend on state from a previous `TEST()`. Long sequential networking scenarios belong in a single `TEST_F`.
 
 ```bash
-cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON
+cmake -B build -DMAFIANET_BUILD_TESTS=ON
 cmake --build build
 
-ctest --test-dir build --output-on-failure       # everything
-ctest --test-dir build -L unit                   # hermetic unit suite only
-ctest --test-dir build -L integration            # loopback integration suite only
-ctest --test-dir build -R "^DispatcherTest$"     # one test
+ctest --test-dir build --output-on-failure          # everything
+ctest --test-dir build -L unit                      # hermetic unit suite only
+ctest --test-dir build -L integration               # loopback integration suite only
+ctest --test-dir build -R "DispatcherLive"          # by name pattern
 ```
 
-For verbose debugging output, run the integration binary directly: `./build/Samples/Tests/Tests DispatcherTest` (verbose is on unless the `CI` env var is set).
+For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTests --gtest_filter='DispatcherLive.*'`; reproduce flakes with `--gtest_repeat=100 --gtest_break_on_failure`.
 
-Integration tests must use OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")` + `GetInternalID().GetPort()`), never fixed ports, and must poll for conditions with a deadline rather than assert immediately after a state change (packets surface asynchronously from the network thread). CI retries transient integration failures via `ctest --repeat until-pass:3`; content/correctness assertions should be written so a real regression fails deterministically on every attempt.
+Integration tests must prefer OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")` + `GetInternalID().GetPort()`) over fixed ports, and must poll for conditions with a deadline rather than assert immediately after a state change (packets surface asynchronously from the network thread). Peers must be cleaned up in fixture `TearDown()` (or RAII `Peer` handles) so a failed `ASSERT_` doesn't leak them. CI retries transient integration failures via `ctest --repeat until-pass:3`; content/correctness assertions should be written so a real regression fails deterministically on every attempt.
 
 ## Architecture
 
@@ -176,7 +178,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - `Samples/ChatExample/` - Simple chat application
 - `Samples/ReplicaManager3/` - Object replication system
 - `Samples/NATCompleteServer/` - NAT traversal demonstration
-- `Samples/Tests/` - Comprehensive test suite
+- `Tests/` - GoogleTest suites (`Unit/`, `Integration/`, shared helpers in `Support/`)
 
 ## Releasing (Version Bump Procedure)
 

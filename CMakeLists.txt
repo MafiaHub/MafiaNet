@@ -68,10 +68,9 @@ endif()
 add_subdirectory(Source)
 
 # Testing: enable_testing() must run at the top level for ctest to find tests
-# from the build root. The legacy integration suite lives under Samples/Tests
-# (built with MAFIANET_BUILD_SAMPLES); the GoogleTest unit suite lives under
-# Tests/ (built with MAFIANET_BUILD_TESTS).
-if(MAFIANET_BUILD_SAMPLES OR MAFIANET_BUILD_TESTS)
+# from the build root. Both suites (unit and integration) are GoogleTest,
+# live under Tests/, and build with MAFIANET_BUILD_TESTS.
+if(MAFIANET_BUILD_TESTS)
     enable_testing()
 endif()
 

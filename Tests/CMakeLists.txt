@@ -1,8 +1,14 @@
-# MafiaNet Unit Tests (GoogleTest)
+# MafiaNet Test Suites (GoogleTest)
 #
-# Deterministic, hermetic unit tests: no loopback networking, no wall-clock
-# deadlines, no shared ports. Timing-sensitive integration tests live in
-# Samples/Tests and are registered with CTest there.
+# Two binaries, both discovered by CTest via gtest_discover_tests:
+#   UnitTests        (Tests/Unit)        label "unit"        — hermetic and
+#     deterministic: no loopback networking, no wall-clock deadlines.
+#   IntegrationTests (Tests/Integration) label "integration" — real UDP over
+#     loopback. RUN_SERIAL (several tests bind fixed ports) with a per-test
+#     timeout; CI retries transient timing misses (ctest --repeat until-pass:3).
+#
+# Under ctest every TEST() runs in its own process, so no state (sockets,
+# peers, GUIDs) can bleed between tests — the historical source of CI flakes.
 #
 # Copyright (c) 2026, MafiaHub
 # Licensed under MIT-style license
@@ -27,27 +33,48 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(googletest)
 
-add_executable(UnitTests
-    Unit/GuidUtilTests.cpp
-    Unit/PointGridSectorizerTests.cpp
-)
+include(GoogleTest)
 
-target_link_libraries(UnitTests PRIVATE
-    MafiaNet::MafiaNetStatic
-    GTest::gtest_main
+# Shared helpers inherited from the legacy suite (wait/connect polling,
+# packet-drop plugins, timers).
+file(GLOB TEST_SUPPORT_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/Support/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Support/*.h"
 )
-
-target_include_directories(UnitTests PRIVATE
+add_library(TestSupport STATIC ${TEST_SUPPORT_SOURCES})
+target_link_libraries(TestSupport PUBLIC MafiaNet::MafiaNetStatic)
+target_include_directories(TestSupport PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Support
     ${PROJECT_SOURCE_DIR}/Source/include
 )
+set_target_properties(TestSupport PROPERTIES FOLDER "Tests")
 
+# -----------------------------------------------------------------------------
+# Unit suite
+# -----------------------------------------------------------------------------
+file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/Unit/*.cpp"
+)
+add_executable(UnitTests ${UNIT_TEST_SOURCES})
+target_link_libraries(UnitTests PRIVATE TestSupport GTest::gtest_main)
 set_target_properties(UnitTests PROPERTIES FOLDER "Tests")
 
-include(GoogleTest)
-# Each TEST() becomes its own CTest test, labeled "unit" so CI can select the
-# hermetic suite alone (e.g. on Windows, where the integration suite is not
-# yet validated): ctest -L unit
 gtest_discover_tests(UnitTests
     PROPERTIES LABELS unit
+    DISCOVERY_TIMEOUT 60
+)
+
+# -----------------------------------------------------------------------------
+# Integration suite
+# -----------------------------------------------------------------------------
+file(GLOB INTEGRATION_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/Integration/*.cpp"
+)
+add_executable(IntegrationTests ${INTEGRATION_TEST_SOURCES})
+target_link_libraries(IntegrationTests PRIVATE TestSupport GTest::gtest_main)
+set_target_properties(IntegrationTests PROPERTIES FOLDER "Tests")
+
+gtest_discover_tests(IntegrationTests
+    PROPERTIES LABELS integration RUN_SERIAL TRUE TIMEOUT 600
     DISCOVERY_TIMEOUT 60
 )
