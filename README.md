@@ -283,7 +283,16 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.10.0 (Latest)
+### Version 0.11.0 (Latest)
+- **Range-based receive `Peer::incoming()`**: drains the receive queue with a range-`for`; each iteration yields a fresh `PacketPtr` freed at end of scope, and `pkt.id()` returns the `ID_TIMESTAMP`-aware identifier
+- **Startup builders `Peer::server()` / `Peer::client()`**: fluent chain folding `SocketDescriptor` + `Startup` + result check + `SetMaximumIncomingConnections` / `Connect` into one call; `start()` returns a move-only `Result<Peer>` whose error preserves the underlying `StartupResult` / `ConnectionAttemptResult` (tagged by `PeerStage`) instead of collapsing to a bool. Security stays opt-in (`secure()` / `public_key()`)
+- **Serialization archives** (`mafianet/Archive.h`): one `serialize(Ar&)` member template describes a type's wire format for both directions; `WriteArchive` / `ReadArchive` adapt a `BitStream`, recursing into nested `serialize()` types and falling through to `operator<<`/`operator>>` (incl. per-type specializations) for everything else
+- **Typed message dispatcher** (`mafianet/Dispatcher.h`): `on<T>(handler)` auto-assigns ids from `ID_USER_PACKET_ENUM` in registration order (documented wire contract; `on<T>(id, handler)` pins explicit ids), `on(id, handler)` covers system messages, `dispatch()` skips `ID_TIMESTAMP` prefixes and hands handlers a deserialized `T` plus a `Sender` (`guid()`/`peer_guid()`/`address()`/`guid_string()`); `encode()` is the symmetric write path. Opt-in — the raw `switch` stays fully usable
+- **Typed `Peer::send` / `Peer::broadcast`**: serialize-and-send a registered message in one call via the dispatcher registry, with overridable defaults (`Priority::High`, `Reliability::ReliableOrdered`, channel 0); destination accepts `SystemAddress` or `RakNetGUID`; raw `Send()` untouched
+- **RakVoice built into the core library**: header now `mafianet/RakVoice.h`; Opus and RNNoise are fetched and linked into the core automatically — no separate extension build
+- **Full GoogleTest migration**: all 29 legacy tests ported, the `Samples/Tests` `TestInterface` harness deleted; hermetic `UnitTests` + loopback `IntegrationTests` under `Tests/`, one process per test via CTest, `MAFIANET_BUILD_TESTS` builds everything test-related (requires `MAFIANET_BUILD_STATIC`); CI runs ctest with JUnit artifacts on all platforms
+
+### Version 0.10.0
 - **Umbrella header `mafianet/mafianet.h`**: aggregates the core public headers (`RakPeerInterface`, types, message IDs, `PacketPriority`, `BitStream`, `GetTime`, `Statistics`) so the common path only needs `#include "mafianet/mafianet.h"`. Additive — granular headers remain; encryption headers are intentionally omitted (security stays opt-in via `InitializeSecurity()`)
 - **Canonical type aliases** (`mafianet/aliases.h`): `PeerInterface` (`RakPeerInterface`), `Guid` (`RakNetGUID`), `Statistics` (`RakNetStatistics`), `UnassignedGuid`. `using` aliases denoting the same types, so old and new names interoperate; legacy names left untouched
 - **RAII handles `Peer` & `PacketPtr`** (`mafianet/PeerHandle.h`): own a `RakPeerInterface` / received `Packet` and clean up on scope exit, removing manual `DestroyInstance` / `DeallocatePacket` bookkeeping. ChatExample client rewritten to use them

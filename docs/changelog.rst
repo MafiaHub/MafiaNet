@@ -3,6 +3,74 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.11.0
+--------------
+
+**Core / API**
+
+* **Range-based receive** ``Peer::incoming()``. Wraps the drain loop in a
+  single-pass input range: each iteration yields a fresh ``PacketPtr`` that is
+  deallocated when the loop body scope ends, and ``pkt.id()`` returns the
+  ``ID_TIMESTAMP``-aware message identifier. The ChatExample client is updated
+  to use it.
+
+* **Startup builders** ``Peer::server()`` / ``Peer::client()``. Fluent builders
+  that fold the multi-call startup dance (``SocketDescriptor``, ``Startup``,
+  result check, ``SetMaximumIncomingConnections`` / ``Connect``) into a single
+  chain. ``start()`` returns a move-only ``Result<Peer>`` carrying the live
+  ``Peer`` on success, or a ``PeerError`` preserving the underlying
+  ``StartupResult`` / ``ConnectionAttemptResult`` (tagged by ``PeerStage``) on
+  failure — never collapsed to a bool. Security stays opt-in
+  (``ServerBuilder::secure()``, ``ClientBuilder::public_key()``).
+
+* **Serialization archives** in ``mafianet/Archive.h``. A single
+  ``serialize()`` convention over ``BitStream``: a user type describes its wire
+  format once (``template <class Ar> void serialize(Ar& ar) { ar & a & b; }``)
+  and ``WriteArchive`` / ``ReadArchive`` run it in either direction. Fields
+  with their own ``serialize()`` recurse; everything else falls through to
+  ``BitStream``'s ``operator<<`` / ``operator>>`` and its per-type
+  specializations. Exported from the umbrella header.
+
+* **Typed message dispatcher** in ``mafianet/Dispatcher.h``.
+  ``MafiaNet::Dispatcher`` replaces the giant switch-on-first-byte receive
+  loop: ``on<T>(handler)`` registers a typed handler (auto-assigning
+  identifiers from ``ID_USER_PACKET_ENUM`` in registration order — a documented
+  wire contract, with ``on<T>(id, handler)`` to pin explicit ids), ``on(id,
+  handler)`` handles system identifiers, and ``dispatch()`` skips any
+  ``ID_TIMESTAMP`` prefix, deserializes via the archives, and invokes the
+  handler with a ``Sender`` (``guid()`` / ``peer_guid()`` / ``address()`` /
+  ``guid_string()``). ``encode()`` is the symmetric write path. Opt-in sugar —
+  the raw ``switch`` path stays fully usable. Exported from the umbrella
+  header.
+
+* **Typed send / broadcast** ``Peer::send<T>()`` / ``Peer::broadcast<T>()``.
+  Encode a registered message (id + archived body) via the dispatcher's
+  registry and forward to ``Send(const BitStream*, ...)``, with overridable
+  defaults (``Priority::High``, ``Reliability::ReliableOrdered``, channel 0).
+  The destination accepts an ``AddressOrGUID`` (implicit from
+  ``SystemAddress`` or ``RakNetGUID``); raw ``Send()`` is untouched.
+
+**Build**
+
+* **RakVoice is built into the core library.** ``RakVoice.h`` moved to
+  ``mafianet/RakVoice.h`` and its codec dependencies (Opus, RNNoise) are
+  fetched and linked into the core library automatically — no separate
+  extension build required.
+
+**Testing / CI**
+
+* **Full GoogleTest migration.** All 29 legacy tests are ported and the
+  homegrown ``TestInterface`` harness (``Samples/Tests``) is deleted. Tests now
+  live under ``Tests/`` — a hermetic ``UnitTests`` binary (``Tests/Unit``,
+  label ``unit``) and a loopback ``IntegrationTests`` binary
+  (``Tests/Integration``, label ``integration``), with shared helpers in
+  ``Tests/Support``. Each test runs in its own process under CTest
+  (``RUN_SERIAL`` + timeout for integration); ``MAFIANET_BUILD_TESTS`` now
+  builds everything test-related (and requires ``MAFIANET_BUILD_STATIC``). CI
+  runs ctest with JUnit artifacts on all platforms and retries transient
+  integration misses. Two latent uninitialized-variable bugs in ported tests
+  were fixed along the way.
+
 Version 0.10.0
 --------------
 
