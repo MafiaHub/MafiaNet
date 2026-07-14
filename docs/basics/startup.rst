@@ -1,7 +1,48 @@
 Startup
 =======
 
-The first step to use MafiaNet is calling ``RakPeerInterface::Startup()``.
+The first step to use MafiaNet is starting a peer. The modern API folds the
+whole startup dance into a fluent builder — ``Peer::server()`` /
+``Peer::client()`` (see :ref:`startup-builders` below); the classic API calls
+``RakPeerInterface::Startup()`` directly.
+
+.. _startup-builders:
+
+Startup Builders (Peer::server / Peer::client)
+----------------------------------------------
+
+``MafiaNet::Peer::server()`` and ``MafiaNet::Peer::client()`` return fluent
+builders that construct the ``SocketDescriptor``, call ``Startup()``, check the
+result, and apply ``SetMaximumIncomingConnections()`` / ``Connect()`` in a
+single chain. ``start()`` returns a ``MafiaNet::Result<Peer>``:
+
+.. code-block:: cpp
+
+   #include "mafianet/mafianet.h"
+
+   auto server = MafiaNet::Peer::server()
+       .port(60000)
+       .max_connections(32)
+       .start();                          // Startup + SetMaximumIncomingConnections
+   if (!server) {
+       printf("startup failed: %d\n", (int) server.error().startup);
+       return -1;
+   }
+
+   auto client = MafiaNet::Peer::client()
+       .max_connections(1)
+       .connect("127.0.0.1", 60000)       // records the target
+       .start();                          // Startup, then Connect
+
+   MafiaNet::Peer peer = std::move(*client);   // Result<Peer> is move-only
+
+On failure, ``result.error()`` preserves the underlying engine enum
+(``StartupResult`` or ``ConnectionAttemptResult``) rather than collapsing it to
+a bool. See :doc:`../api/core` for the full builder reference, including
+passwords, bind addresses, and opt-in security.
+
+The rest of this page documents the underlying ``Startup()`` call, which the
+builders wrap and which remains fully supported.
 
 Starting RakPeerInterface
 -------------------------

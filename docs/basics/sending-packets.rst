@@ -1,7 +1,10 @@
 Sending Packets
 ===============
 
-Once you've created a packet, send it using ``Send()`` or ``SendList()``.
+Once you've created a packet, send it using ``Send()`` or ``SendList()``. If
+you use the typed message dispatcher, ``Peer::send()`` / ``Peer::broadcast()``
+serialize and send a message struct in one call — see
+:ref:`typed-send-broadcast` below.
 
 The Send Function
 -----------------
@@ -129,6 +132,41 @@ Using Ordering Channels
    // Voice data on channel 2 (doesn't need ordering)
    peer->Send(&voiceData, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 2,
               addr, false);
+
+.. _typed-send-broadcast:
+
+Typed Send / Broadcast
+----------------------
+
+With the RAII ``Peer`` handle and a ``Dispatcher`` (see
+:doc:`receiving-packets`), a registered message struct can be serialized and
+sent in a single call — no manual ``BitStream`` or identifier byte:
+
+.. code-block:: cpp
+
+   struct ChatMessage {
+       std::string text; int channel;
+       template <class Ar> void serialize(Ar& ar) { ar & text & channel; }
+   };
+
+   MafiaNet::Dispatcher d;
+   d.on<ChatMessage>(OnChatMessage);   // registers ChatMessage's identifier
+
+   peer.send(d, ChatMessage{"hi", 0}, targetAddress);       // one system
+   peer.broadcast(d, ChatMessage{"hi", 0});                 // everyone connected
+
+Defaults are ``Priority::High``, ``Reliability::ReliableOrdered``, ordering
+channel 0 — each overridable per call:
+
+.. code-block:: cpp
+
+   peer.send(d, PositionUpdate{x, y, z}, target,
+             MafiaNet::Reliability::UnreliableSequenced);
+
+The destination accepts a ``SystemAddress`` or a ``RakNetGUID`` (implicitly
+converted to ``AddressOrGUID``); both peers must agree on the message's
+identifier via the dispatcher's registry (see :doc:`../api/core`). The raw
+``Send()`` remains fully supported.
 
 SendList
 --------

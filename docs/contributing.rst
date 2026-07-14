@@ -27,25 +27,50 @@ Code Style
 Building and Testing
 --------------------
 
-The test suite lives in ``Samples/Tests`` and is built as part of the samples,
-so enable ``MAFIANET_BUILD_SAMPLES``:
+All tests are GoogleTest, built with ``MAFIANET_BUILD_TESTS=ON`` (requires
+``MAFIANET_BUILD_STATIC=ON``) and driven by CTest:
 
 .. code-block:: bash
 
-   mkdir build && cd build
-   cmake -DMAFIANET_BUILD_SAMPLES=ON ..
-   cmake --build .
-   ./Samples/Tests/Tests                  # run all tests
-   ./Samples/Tests/Tests VirtualWorldTest # run one test by name
+   cmake -B build -DMAFIANET_BUILD_TESTS=ON
+   cmake --build build
 
-A test is a class deriving from ``TestInterface`` (see
-``Samples/Tests/TestInterface.h``). ``RunTest()`` returns ``0`` on success or a
-non-zero error code on failure; map each code to a human-readable string in
-``ErrorCodeToString()`` so failures are diagnosable. Register a new test by
-adding its header to ``Samples/Tests/IncludeAllTests.h`` and a
-``testList.Push(new MyTest(), _FILE_AND_LINE_)`` line in
-``Samples/Tests/Tests.cpp``. ``RPC4ContextTest`` and ``VirtualWorldTest`` are
-good templates.
+   ctest --test-dir build --output-on-failure   # everything
+   ctest --test-dir build -L unit               # hermetic unit suite only
+   ctest --test-dir build -L integration        # loopback integration suite only
+   ctest --test-dir build -R "DispatcherLive"   # by name pattern
+
+Two binaries live under ``Tests/``:
+
+* **UnitTests** (``Tests/Unit/``, label ``unit``): hermetic and deterministic —
+  no loopback networking, no wall-clock timing. A started-but-unconnected peer
+  with synchronous assertions is acceptable. New tests for pure logic go here.
+* **IntegrationTests** (``Tests/Integration/``, label ``integration``): real
+  UDP over loopback. Discovered tests run serially (several bind fixed ports)
+  with a generous timeout. Shared polling/connect helpers live in
+  ``Tests/Support/`` (``CommonFunctions.h``, ``TestHelpers.h``) — extend those
+  rather than duplicating polling loops.
+
+New ``.cpp`` files under ``Tests/Unit/`` and ``Tests/Integration/`` are picked
+up automatically by the build; no CMake edits are needed unless you add a new
+directory. For debugging, run a binary directly with a filter:
+
+.. code-block:: bash
+
+   ./build/Tests/IntegrationTests --gtest_filter='DispatcherLive.*'
+   # reproduce flakes:
+   ./build/Tests/IntegrationTests --gtest_filter='<Suite>.*' --gtest_repeat=100 --gtest_break_on_failure
+
+.. important::
+   Under ctest, every ``TEST()`` runs in its own process — never write tests
+   that depend on state from a previous ``TEST()``. Long sequential networking
+   scenarios belong in a single ``TEST_F``. In integration tests, use
+   OS-assigned ephemeral ports (``SocketDescriptor(0, "127.0.0.1")``, then
+   ``peer->GetInternalID().GetPort()``), always poll for a condition with a
+   deadline instead of asserting right after a state change, never use a bare
+   ``RakSleep(N)`` as a synchronization primitive, and make cleanup survive a
+   failed ``ASSERT_`` (fixture ``TearDown()`` or the RAII ``Peer`` /
+   ``PacketPtr`` handles).
 
 How to test a new feature
 -------------------------
@@ -58,17 +83,20 @@ Test at **two levels** — both are required for anything that touches networkin
 or replication:
 
 1. **Unit level (deterministic).** Exercise the feature's logic directly with no
-   sockets, so it is fast and never flaky. ``VirtualWorldTest`` constructs
-   replicas/connections on the stack and asserts the exact return values of the
-   query hooks. This pins down *what each decision should be*.
+   sockets, so it is fast and never flaky — a ``TEST()`` in ``Tests/Unit/``.
+   ``Tests/Unit/VirtualWorldTests.cpp`` constructs replicas/connections on the
+   stack and asserts the exact return values of the query hooks. This pins down
+   *what each decision should be*. Split independent checks into separate
+   ``TEST()`` cases with descriptive names, so each is reported and filtered
+   individually.
 
 2. **End-to-end / integration (real wire).** Stand up real peers (a server and
-   one or more clients) over loopback and drive them with
-   ``RakPeerInterface::Receive()`` until the expected state converges. Use
-   **condition-based waiting** (pump until the condition holds or a generous
-   ceiling is reached), never a fixed ``sleep``. ``Samples/VirtualWorld`` is a
-   self-contained example that doubles as a smoke test (it returns non-zero on
-   failure).
+   one or more clients) over loopback and pump them until the expected state
+   converges — a ``TEST_F`` in ``Tests/Integration/``. Use **condition-based
+   waiting** (pump until the condition holds or a generous ceiling is reached),
+   never a fixed ``sleep``, and keep phases that share connection state in a
+   single ``TEST_F``. Before calling a new integration test done, prove it is
+   not flaky with ``--gtest_repeat=10 --gtest_break_on_failure``.
 
 .. warning::
 

@@ -5,11 +5,60 @@ This guide will help you create a simple client-server application using MafiaNe
 
 .. tip::
    New code can include the whole core API through the umbrella header
-   ``#include "mafianet/mafianet.h"`` and use the RAII handles
-   ``MafiaNet::Peer`` / ``MafiaNet::PacketPtr`` to manage instance and packet
-   lifetimes automatically. The examples below use the explicit
-   ``GetInstance`` / ``Receive`` / ``DeallocatePacket`` API, which remains fully
-   supported. See :doc:`../api/core` for the umbrella header and RAII handles.
+   ``#include "mafianet/mafianet.h"`` and use the modern API — RAII handles,
+   startup builders, range-based receive, and typed messages — shown in
+   :ref:`modern-quickstart` below. The classic examples that follow use the
+   explicit ``GetInstance`` / ``Receive`` / ``DeallocatePacket`` API, which
+   remains fully supported. See :doc:`../api/core` for the full reference.
+
+.. _modern-quickstart:
+
+Modern API at a Glance
+----------------------
+
+The startup builders, the receive range, the serialization archives, the typed
+dispatcher, and typed send/broadcast compose into a complete server without any
+manual lifetime or ``BitStream`` bookkeeping:
+
+.. code-block:: cpp
+
+   #include "mafianet/mafianet.h"
+
+   struct ChatMessage {
+       std::string text;
+       int channel;
+       template <class Ar> void serialize(Ar& ar) { ar & text & channel; }
+   };
+
+   int main() {
+       auto started = MafiaNet::Peer::server()
+           .port(60000)
+           .max_connections(32)
+           .start();                              // Startup + SetMaximumIncomingConnections
+       if (!started) {
+           printf("startup failed: %d\n", (int) started.error().startup);
+           return 1;
+       }
+       MafiaNet::Peer peer = std::move(*started);  // RAII: destroyed on scope exit
+
+       MafiaNet::Dispatcher d;
+       d.on<ChatMessage>([&](const ChatMessage& m, const MafiaNet::Sender& from) {
+           printf("%s says: %s\n", from.guid_string().c_str(), m.text.c_str());
+           peer.broadcast(d, m);                   // relay to everyone, typed
+       });
+       d.on(ID_NEW_INCOMING_CONNECTION, [](const MafiaNet::Sender& s) {
+           printf("Client connected: %s\n", s.address().ToString());
+       });
+
+       while (true)
+           for (auto pkt : peer.incoming())        // each packet freed automatically
+               d.dispatch(pkt);
+   }
+
+Each piece is documented in :doc:`../basics/startup` (builders),
+:doc:`../basics/receiving-packets` (receive range and dispatcher),
+:doc:`../basics/sending-packets` (typed send/broadcast), and
+:doc:`../basics/bitstreams` (the ``serialize()`` convention).
 
 Basic Server
 ------------

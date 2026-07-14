@@ -1,10 +1,25 @@
 Receiving Packets
 =================
 
-Receive packets by polling ``Receive()`` in your game loop.
+Receive packets by polling the receive queue in your game loop. The modern API
+drains the queue with a range-``for`` over ``Peer::incoming()``; the classic
+API polls ``Receive()`` and deallocates each packet by hand.
 
 The Receive Loop
 ----------------
+
+With the RAII ``Peer`` handle, ``incoming()`` yields each queued packet as a
+``PacketPtr`` that frees itself at the end of the iteration:
+
+.. code-block:: cpp
+
+   for (auto packet : peer.incoming()) {
+       switch (packet.id()) {              // ID_TIMESTAMP-aware identifier
+           // ... handle message ...
+       }
+   }   // no DeallocatePacket — the PacketPtr frees each packet automatically
+
+The classic loop over the raw interface is equivalent:
 
 .. code-block:: cpp
 
@@ -17,7 +32,36 @@ The Receive Loop
    }
 
 .. warning::
-   Always call ``DeallocatePacket()`` after processing. Failure to do so causes memory leaks.
+   With the raw ``Receive()`` API, always call ``DeallocatePacket()`` after processing. Failure to do so causes memory leaks.
+
+Typed Dispatch
+--------------
+
+Instead of a hand-written ``switch``, a ``MafiaNet::Dispatcher`` can route each
+packet to typed handlers — deserializing message structs for you and skipping
+any ``ID_TIMESTAMP`` prefix:
+
+.. code-block:: cpp
+
+   struct ChatMessage {
+       std::string text; int channel;
+       template <class Ar> void serialize(Ar& ar) { ar & text & channel; }
+   };
+
+   MafiaNet::Dispatcher d;
+   d.on<ChatMessage>([](const ChatMessage& m, const MafiaNet::Sender& from) {
+       DisplayChatMessage(from.guid(), m.text);
+   });
+   d.on(ID_NEW_INCOMING_CONNECTION, [](const MafiaNet::Sender& s) {
+       OnClientConnected(s.address());
+   });
+
+   for (auto pkt : peer.incoming())
+       d.dispatch(pkt);   // returns false if no handler — fall back to a switch
+
+See :doc:`../api/core` for the dispatcher's message-ID contract and the
+``Sender`` accessors. The sections below document the classic, manual path,
+which remains fully supported.
 
 The Packet Structure
 --------------------
@@ -225,3 +269,4 @@ See Also
 * :doc:`creating-packets` - Creating packets
 * :doc:`network-messages` - Message ID reference
 * :doc:`bitstreams` - BitStream details
+* :doc:`../api/core` - ``Peer::incoming()``, ``Dispatcher``, and the RAII handles

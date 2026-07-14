@@ -174,14 +174,16 @@ Stress testing. Shows:
 Tests
 ~~~~~
 
-``Samples/Tests/``
-
-Unit and integration tests:
+The test suite is not a sample: it lives in ``Tests/`` (GoogleTest suites under
+``Tests/Unit/`` and ``Tests/Integration/``), is built with
+``MAFIANET_BUILD_TESTS=ON``, and is driven by CTest:
 
 .. code-block:: bash
 
-   ./Samples/Tests/Tests                    # Run all tests
-   ./Samples/Tests/Tests EightPeerTest      # Run specific test
+   ctest --test-dir build --output-on-failure   # Run all tests
+   ctest --test-dir build -L unit               # Unit suite only
+
+See :doc:`building` and :doc:`../contributing` for details.
 
 Sample Directory Structure
 --------------------------

@@ -14,12 +14,16 @@ RakVoice enables real-time voice communication between players using:
 - Variable bitrate (VBR) encoding
 - Low latency transmission with packet loss concealment
 
+RakVoice is built into the core MafiaNet library — no extra build option or
+separate extension library is needed. Its codec dependencies (Opus, RNNoise)
+are fetched and linked into the core library automatically at configure time.
+
 Setup
 -----
 
 .. code-block:: cpp
 
-   #include "RakVoice.h"
+   #include "mafianet/RakVoice.h"
 
    MafiaNet::RakVoice rakVoice;
    peer->AttachPlugin(&rakVoice);
@@ -97,7 +101,8 @@ RakVoice bundles the following libraries:
 - **Opus 1.5.2** - Audio codec (BSD license)
 - **RNNoise** - Noise suppression (BSD license)
 
-These are built automatically as part of the MafiaNet build.
+These are fetched via CMake FetchContent and linked into the core MafiaNet
+library automatically.
 
 Sample Code
 -----------

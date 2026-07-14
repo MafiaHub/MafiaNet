@@ -76,6 +76,35 @@ Override shift operators for custom types:
    myVector << bitStream;  // Read from bitstream
    myVector >> bitStream;  // Write to bitstream
 
+The serialize() Convention (Archives)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instead of writing both shift operators, a type can describe its wire format
+once with a member ``serialize()`` template and be read/written through the
+``WriteArchive`` / ``ReadArchive`` adapters (``mafianet/Archive.h``):
+
+.. code-block:: cpp
+
+   struct ChatMessage {
+       std::string text;
+       int channel;
+       template <class Ar> void serialize(Ar& ar) { ar & text & channel; }
+   };
+
+   MafiaNet::BitStream bs;
+   ChatMessage msg{ "hi", 3 };
+   MafiaNet::WriteArchive(bs) & msg;    // write
+
+   MafiaNet::BitStream in(bs.GetData(), bs.GetNumberOfBytesUsed(), false);
+   ChatMessage got;
+   MafiaNet::ReadArchive(in) & got;     // read; got == msg
+
+Fields with their own ``serialize()`` recurse; everything else falls through to
+BitStream's ``operator<<`` / ``operator>>`` (including your custom shift
+operators above). This is also the wire format the typed
+``Dispatcher`` and ``Peer::send`` / ``Peer::broadcast`` use — see
+:doc:`../api/core`.
+
 Reading Data
 ------------
 

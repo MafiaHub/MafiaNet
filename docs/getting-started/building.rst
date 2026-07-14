@@ -52,7 +52,7 @@ Configure build options with CMake:
      - Build sample applications
    * - ``MAFIANET_BUILD_TESTS``
      - OFF
-     - Build test suite
+     - Build GoogleTest suite (requires ``MAFIANET_BUILD_STATIC=ON``)
 
 Example with options:
 
@@ -63,14 +63,23 @@ Example with options:
 Running Tests
 -------------
 
-Build with tests enabled, then run:
+Build with tests enabled, then drive the GoogleTest suites through CTest:
 
 .. code-block:: bash
 
-   ./build/Samples/Tests/Tests
+   cmake -B build -DMAFIANET_BUILD_TESTS=ON
+   cmake --build build
 
-   # Run specific test
-   ./build/Samples/Tests/Tests EightPeerTest
+   ctest --test-dir build --output-on-failure   # everything
+   ctest --test-dir build -L unit               # hermetic unit suite only
+   ctest --test-dir build -L integration        # loopback integration suite only
+   ctest --test-dir build -R "DispatcherLive"   # by name pattern
+
+   # Or run a binary directly with a filter (useful for debugging):
+   ./build/Tests/IntegrationTests --gtest_filter='DispatcherLive.*'
+
+See :doc:`../contributing` for the testing guidelines (unit vs. integration,
+port allocation, condition-based waiting).
 
 Linking Your Project
 --------------------
