@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Build in Docker
         run: docker build -t mafianet-test .
@@ -32,12 +34,14 @@ jobs:
           path: test-results/junit.xml
           if-no-files-found: ignore
 
-  # macOS: Build and run both suites (GoogleTest unit + legacy integration).
+  # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install OpenSSL
         run: brew install openssl@3
@@ -76,6 +80,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Configure CMake
         run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON
