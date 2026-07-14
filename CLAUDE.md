@@ -72,15 +72,46 @@ Available generators (run `cmake --help` for full list):
 
 ## Running Tests
 
-Tests require `MAFIANET_BUILD_SAMPLES=ON` (they're part of the Samples subdirectory). After building:
-```bash
-./build/Samples/Tests/Tests
+All tests are GoogleTest, built with `MAFIANET_BUILD_TESTS=ON` (requires `MAFIANET_BUILD_STATIC=ON`) and driven by CTest. Two binaries under `Tests/`:
 
-# Run specific test by name
-./build/Samples/Tests/Tests EightPeerTest
+- **`UnitTests`** (`Tests/Unit/`, label `unit`): hermetic and deterministic — no loopback networking, no wall-clock timing. A started-but-unconnected peer with synchronous assertions is acceptable. New tests for pure logic go here.
+- **`IntegrationTests`** (`Tests/Integration/`, label `integration`): real UDP over loopback. Discovered tests get `RUN_SERIAL` (several bind fixed ports) and a 600s timeout. Shared polling/connect helpers live in `Tests/Support/`.
+
+Under ctest, every `TEST()` runs in its own process — never write tests that depend on state from a previous `TEST()`. Long sequential networking scenarios belong in a single `TEST_F`.
+
+```bash
+cmake -B build -DMAFIANET_BUILD_TESTS=ON
+cmake --build build
+
+ctest --test-dir build --output-on-failure          # everything
+ctest --test-dir build -L unit                      # hermetic unit suite only
+ctest --test-dir build -L integration               # loopback integration suite only
+ctest --test-dir build -R "DispatcherLive"          # by name pattern
 ```
 
-Available tests: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectWithCancelPendingTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ManyClientsOneServerNonBlockingTest`, `ManyClientsOneServerDeallocateBlockingTest`, `ReliableOrderedConvertedTest`, `DroppedConnectionConvertTest`, `ComprehensiveConvertTest`, `CrossConnectionConvertTest`, `PingTestsTest`, `OfflineMessagesConvertTest`, `LocalIsConnectedTest`, `SecurityFunctionsTest`, `ConnectWithSocketTest`, `SystemAddressAndGuidTest`, `PacketAndLowLevelTestsTest`, `MiscellaneousTestsTest`
+For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTests --gtest_filter='DispatcherLive.*'`; reproduce flakes with `--gtest_repeat=100 --gtest_break_on_failure`.
+
+## Writing Tests
+
+**Every change to library code in `Source/` needs tests, written in the new paradigm.** Do not create new test harnesses, `main()` functions, standalone test executables, or sample apps that act as tests — add GoogleTest cases to the existing suites. New `.cpp` files under `Tests/Unit/` and `Tests/Integration/` are picked up automatically by the build (glob); no CMake edits are needed unless you add a new directory.
+
+**Default to Unit; escalate to Integration only when the behavior under test genuinely requires traffic.** Ask: can this be tested by calling the API synchronously? Serialization, containers, builders, dispatch tables, ID assignment, string/GUID utilities, replica-visibility queries — all Unit. Only reliability, connection lifecycle, and anything that must cross the network thread belongs in Integration.
+
+**Unit tests** (`Tests/Unit/<Feature>Tests.cpp`):
+- Hermetic and deterministic: no `Connect()`, no `RakSleep`-with-deadline polling, no dependence on wall-clock time or packet arrival. A started-but-unconnected peer with purely synchronous assertions is acceptable (see `GuidUtilTests.cpp`, `VirtualWorldTests.cpp`).
+- Split independent checks into separate `TEST()`/`TEST_F()` cases with descriptive names (`TEST(Dispatcher, AutoAssignedIdsFollowRegistrationOrder)`) — under ctest each case is reported, filtered, and retried individually. See `PointGridSectorizerTests.cpp` for the pattern.
+- Deterministic pseudo-randomness is fine and encouraged for stress tests (fixed-seed LCG differential testing against a reference model).
+
+**Integration tests** (`Tests/Integration/<Feature>Tests.cpp`):
+- One `TEST_F` per sequential scenario. Never split phases that share connection state into separate `TEST`s — each `TEST` runs in its own process under ctest.
+- Ports: use OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")`, then `peer->GetInternalID().GetPort()`), never a new fixed port. (Some ported legacy tests still bind fixed ports; that is why the suite is `RUN_SERIAL` — do not add to the problem.)
+- Waiting: always poll for a condition with a deadline (`while (GetTimeMS() - start < N && !condition) { pump; RakSleep(30); }`), never assert immediately after a state change — packets surface asynchronously from each peer's network thread, and both sides of a handshake must be pumped until *each* has observed the event.
+- Never use a bare `RakSleep(N)` as a synchronization primitive; sleep only as the polling interval inside a deadline loop.
+- Cleanup must survive a failed `ASSERT_`: destroy peers in fixture `TearDown()` (`Shutdown(100)` then `DestroyInstance` for every peer created) or use RAII `Peer`/`PacketPtr` handles from `mafianet/PeerHandle.h`. Never rely on code after the assertions to clean up.
+- Write correctness assertions so a real regression fails on every attempt: CI retries transient integration failures (`ctest --repeat until-pass:3`), which must only absorb timing misses, never actual bugs. Do not add retry loops inside tests.
+- Reusable connect/wait helpers live in `Tests/Support/` (`CommonFunctions.h`, `TestHelpers.h`); extend those rather than duplicating polling loops.
+
+**Before claiming a change is done**, build with `-DMAFIANET_BUILD_TESTS=ON` and run at minimum `ctest --test-dir build -L unit` plus the integration tests touching the changed subsystem (`ctest -R <pattern>`); run the full suite for changes to the reliability layer, peer lifecycle, or message routing. For a new integration test, prove it is not flaky: `./build/Tests/IntegrationTests --gtest_filter='<Suite>.*' --gtest_repeat=10 --gtest_break_on_failure`.
 
 ## Architecture
 
@@ -167,7 +198,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - `Samples/ChatExample/` - Simple chat application
 - `Samples/ReplicaManager3/` - Object replication system
 - `Samples/NATCompleteServer/` - NAT traversal demonstration
-- `Samples/Tests/` - Comprehensive test suite
+- `Tests/` - GoogleTest suites (`Unit/`, `Integration/`, shared helpers in `Support/`)
 
 ## Releasing (Version Bump Procedure)
 

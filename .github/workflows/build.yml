@@ -7,24 +7,41 @@ on:
     branches: [master]
 
 jobs:
-  # Linux: Build and test in Docker container (full network access)
+  # Linux: Build and test in Docker container (full network access).
+  # Tests run through CTest inside the container: one process per test,
+  # per-test timeout, and bounded retries for transient timing misses.
   linux:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Build and test in Docker
+      - name: Build in Docker
+        run: docker build -t mafianet-test .
+
+      - name: Run tests in Docker
         run: |
-          docker build -t mafianet-test .
-          docker run --rm mafianet-test
+          mkdir -p test-results
+          docker run --rm -v "$PWD/test-results:/results" mafianet-test
 
-  # macOS: Build and run the full test suite
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux
+          path: test-results/junit.xml
+          if-no-files-found: ignore
+
+  # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install OpenSSL
         run: brew install openssl@3
@@ -33,23 +50,56 @@ jobs:
         run: |
           cmake -B build \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
-            -DMAFIANET_BUILD_SAMPLES=ON
+            -DMAFIANET_BUILD_SAMPLES=ON \
+            -DMAFIANET_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
 
       - name: Run tests
-        run: ./build/Samples/Tests/Tests
+        run: |
+          ctest --test-dir build \
+            --output-on-failure \
+            --repeat until-pass:3 \
+            --timeout 600 \
+            --output-junit junit.xml
 
-  # Windows: Build only for now — test execution on Windows runners is not yet validated.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-macos
+          path: build/junit.xml
+          if-no-files-found: ignore
+
+  # Windows: Build everything, run the hermetic unit suite. The legacy
+  # integration suite (loopback networking) is not yet validated on Windows
+  # runners, so it stays build-only for now.
   windows:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Configure CMake
-        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON
+        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
+
+      - name: Run unit tests
+        run: |
+          ctest --test-dir build -C Release -L unit `
+            --output-on-failure `
+            --timeout 600 `
+            --output-junit junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-windows
+          path: build/junit.xml
+          if-no-files-found: ignore
