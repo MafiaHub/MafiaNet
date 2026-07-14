@@ -11,6 +11,13 @@
 #include "IncludeAllTests.h"
 
 #include <cstdlib>
+#ifdef _WIN32
+#include <io.h>
+#define MAFIANET_STDIN_IS_TTY() (_isatty(_fileno(stdin)) != 0)
+#else
+#include <unistd.h>
+#define MAFIANET_STDIN_IS_TTY() (isatty(fileno(stdin)) != 0)
+#endif
 #include "mafianet/string.h"
 #include "mafianet/DS_List.h"
 #include "mafianet/Gets.h"
@@ -59,10 +66,8 @@ int main(int argc, char *argv[])
 	testList.Push(new BitStreamStringTest(),_FILE_AND_LINE_);
 	testList.Push(new RPC4ContextTest(),_FILE_AND_LINE_);
 	testList.Push(new VirtualWorldTest(),_FILE_AND_LINE_);
-	testList.Push(new GuidUtilTest(),_FILE_AND_LINE_);
 	testList.Push(new DisconnectReasonTest(),_FILE_AND_LINE_);
 	testList.Push(new PeerGuidTest(),_FILE_AND_LINE_);
-	testList.Push(new PointGridSectorizerTest(),_FILE_AND_LINE_);
 	testList.Push(new PeerHandleTest(),_FILE_AND_LINE_);
 	testList.Push(new PeerBuilderTest(),_FILE_AND_LINE_);
 	testList.Push(new ArchiveTest(),_FILE_AND_LINE_);
@@ -165,8 +170,8 @@ int main(int argc, char *argv[])
 		printf("\nPassed %i out of %i tests.\n",passedTests,numTests);
 	}
 
-	// Skip "Press enter" prompt in CI environments
-	if (getenv("CI") == nullptr)
+	// Skip "Press enter" prompt in CI environments and non-interactive runs (ctest)
+	if (getenv("CI") == nullptr && MAFIANET_STDIN_IS_TTY())
 	{
 		printf("Press enter to continue \n");
 		Gets(str, sizeof(str));

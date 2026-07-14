@@ -15,9 +15,6 @@
 
 namespace
 {
-	// A distinct port so a full-suite run does not collide with other tests.
-	const unsigned short DISPATCHER_TEST_PORT = 61016;
-
 	// Two typed messages. Registration order (ChatMessage then PlayerMove) fixes
 	// their auto-assigned ids at ID_USER_PACKET_ENUM and ID_USER_PACKET_ENUM+1.
 	struct ChatMessage
@@ -196,13 +193,16 @@ int DispatcherTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 	Peer server;
 	Peer client;
 
-	SocketDescriptor serverSd(DISPATCHER_TEST_PORT, 0);
+	// An OS-assigned ephemeral port: a fixed port can still be lingering in the
+	// kernel from an earlier test or run and intermittently break Startup.
+	SocketDescriptor serverSd(0, "127.0.0.1");
 	if (server->Startup(1, &serverSd, 1) != RAKNET_STARTED)
 	{
-		if (isVerbose) printf("server Startup failed (port %u in use?)\n", DISPATCHER_TEST_PORT);
+		if (isVerbose) printf("server Startup failed\n");
 		return 20;
 	}
 	server->SetMaximumIncomingConnections(1);
+	const unsigned short serverPort = server->GetInternalID().GetPort();
 
 	SocketDescriptor clientSd;
 	if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)
@@ -213,7 +213,7 @@ int DispatcherTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 
 	SystemAddress serverAddress;
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(DISPATCHER_TEST_PORT);
+	serverAddress.SetPortHostOrder(serverPort);
 
 	// Server dispatcher: a system-id handler and a typed handler.
 	bool sawIncomingConnection = false;
@@ -243,7 +243,7 @@ int DispatcherTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 		return 22;
 	}
 
-	if (client->Connect("127.0.0.1", DISPATCHER_TEST_PORT, 0, 0) != CONNECTION_ATTEMPT_STARTED)
+	if (client->Connect("127.0.0.1", serverPort, 0, 0) != CONNECTION_ATTEMPT_STARTED)
 	{
 		if (isVerbose) printf("Connect did not start\n");
 		return 23;
@@ -251,9 +251,12 @@ int DispatcherTest::RunTest(DataStructures::List<RakString> params, bool isVerbo
 
 	// Wait for the connection to be accepted on the client, draining the server
 	// through the dispatcher so its ID_NEW_INCOMING_CONNECTION handler fires.
+	// Keep pumping until BOTH sides have observed the connection: the server's
+	// ID_NEW_INCOMING_CONNECTION is enqueued by its network thread asynchronously,
+	// so it can surface after the client has already seen the acceptance.
 	bool connected = false;
 	TimeMS start = GetTimeMS();
-	while (GetTimeMS() - start < 10000 && !connected)
+	while (GetTimeMS() - start < 10000 && !(connected && sawIncomingConnection))
 	{
 		for (auto pkt : server.incoming())
 			serverD.dispatch(pkt);

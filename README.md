@@ -256,18 +256,29 @@ MafiaNet automatically fetches required dependencies via CMake FetchContent:
 
 ## Running Tests
 
-Build with samples enabled, then run the test suite:
+There are two suites, both run through CTest:
+
+- **Unit tests** (GoogleTest, `Tests/Unit/`): deterministic and hermetic — no loopback networking, no timing. Enabled with `MAFIANET_BUILD_TESTS=ON`.
+- **Integration tests** (legacy harness, `Samples/Tests/`): real loopback networking. Enabled with `MAFIANET_BUILD_SAMPLES=ON`. Each test is registered as its own CTest test and runs in a fresh process.
 
 ```bash
-cmake -DMAFIANET_BUILD_SAMPLES=ON ..
+cmake -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON ..
 cmake --build .
-./Samples/Tests/Tests
 
-# Run a specific test
-./Samples/Tests/Tests EightPeerTest
+# Run everything
+ctest --output-on-failure
+
+# Only the fast, hermetic unit suite
+ctest -L unit
+
+# Only the loopback integration suite
+ctest -L integration
+
+# A single test
+ctest -R "^DispatcherTest$"
 ```
 
-Available tests include: `EightPeerTest`, `MaximumConnectTest`, `PeerConnectDisconnectTest`, `ManyClientsOneServerBlockingTest`, `ReliableOrderedConvertedTest`, `SecurityFunctionsTest`, `SystemAddressAndGuidTest`, and more.
+The integration binary can also be run directly (`./Samples/Tests/Tests [TestName]`), which is handy for verbose output when debugging a failure.
 
 ## Changelog
 

@@ -67,10 +67,26 @@ endif()
 # Library subdirectory
 add_subdirectory(Source)
 
+# Testing: enable_testing() must run at the top level for ctest to find tests
+# from the build root. The legacy integration suite lives under Samples/Tests
+# (built with MAFIANET_BUILD_SAMPLES); the GoogleTest unit suite lives under
+# Tests/ (built with MAFIANET_BUILD_TESTS).
+if(MAFIANET_BUILD_SAMPLES OR MAFIANET_BUILD_TESTS)
+    enable_testing()
+endif()
+
 # Samples and extensions
 if(MAFIANET_BUILD_SAMPLES)
     # Fetch sample/extension dependencies (bzip2, miniupnpc, jansson)
     include(FetchDependencies)
     add_subdirectory(Samples)
     add_subdirectory(DependentExtensions)
+endif()
+
+# Unit test suite (GoogleTest)
+if(MAFIANET_BUILD_TESTS)
+    if(NOT MAFIANET_BUILD_STATIC)
+        message(FATAL_ERROR "MAFIANET_BUILD_TESTS requires MAFIANET_BUILD_STATIC")
+    endif()
+    add_subdirectory(Tests)
 endif()
