@@ -91,7 +91,27 @@ ctest --test-dir build -R "DispatcherLive"          # by name pattern
 
 For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTests --gtest_filter='DispatcherLive.*'`; reproduce flakes with `--gtest_repeat=100 --gtest_break_on_failure`.
 
-Integration tests must prefer OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")` + `GetInternalID().GetPort()`) over fixed ports, and must poll for conditions with a deadline rather than assert immediately after a state change (packets surface asynchronously from the network thread). Peers must be cleaned up in fixture `TearDown()` (or RAII `Peer` handles) so a failed `ASSERT_` doesn't leak them. CI retries transient integration failures via `ctest --repeat until-pass:3`; content/correctness assertions should be written so a real regression fails deterministically on every attempt.
+## Writing Tests
+
+**Every change to library code in `Source/` needs tests, written in the new paradigm.** Do not create new test harnesses, `main()` functions, standalone test executables, or sample apps that act as tests — add GoogleTest cases to the existing suites. New `.cpp` files under `Tests/Unit/` and `Tests/Integration/` are picked up automatically by the build (glob); no CMake edits are needed unless you add a new directory.
+
+**Default to Unit; escalate to Integration only when the behavior under test genuinely requires traffic.** Ask: can this be tested by calling the API synchronously? Serialization, containers, builders, dispatch tables, ID assignment, string/GUID utilities, replica-visibility queries — all Unit. Only reliability, connection lifecycle, and anything that must cross the network thread belongs in Integration.
+
+**Unit tests** (`Tests/Unit/<Feature>Tests.cpp`):
+- Hermetic and deterministic: no `Connect()`, no `RakSleep`-with-deadline polling, no dependence on wall-clock time or packet arrival. A started-but-unconnected peer with purely synchronous assertions is acceptable (see `GuidUtilTests.cpp`, `VirtualWorldTests.cpp`).
+- Split independent checks into separate `TEST()`/`TEST_F()` cases with descriptive names (`TEST(Dispatcher, AutoAssignedIdsFollowRegistrationOrder)`) — under ctest each case is reported, filtered, and retried individually. See `PointGridSectorizerTests.cpp` for the pattern.
+- Deterministic pseudo-randomness is fine and encouraged for stress tests (fixed-seed LCG differential testing against a reference model).
+
+**Integration tests** (`Tests/Integration/<Feature>Tests.cpp`):
+- One `TEST_F` per sequential scenario. Never split phases that share connection state into separate `TEST`s — each `TEST` runs in its own process under ctest.
+- Ports: use OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")`, then `peer->GetInternalID().GetPort()`), never a new fixed port. (Some ported legacy tests still bind fixed ports; that is why the suite is `RUN_SERIAL` — do not add to the problem.)
+- Waiting: always poll for a condition with a deadline (`while (GetTimeMS() - start < N && !condition) { pump; RakSleep(30); }`), never assert immediately after a state change — packets surface asynchronously from each peer's network thread, and both sides of a handshake must be pumped until *each* has observed the event.
+- Never use a bare `RakSleep(N)` as a synchronization primitive; sleep only as the polling interval inside a deadline loop.
+- Cleanup must survive a failed `ASSERT_`: destroy peers in fixture `TearDown()` (`Shutdown(100)` then `DestroyInstance` for every peer created) or use RAII `Peer`/`PacketPtr` handles from `mafianet/PeerHandle.h`. Never rely on code after the assertions to clean up.
+- Write correctness assertions so a real regression fails on every attempt: CI retries transient integration failures (`ctest --repeat until-pass:3`), which must only absorb timing misses, never actual bugs. Do not add retry loops inside tests.
+- Reusable connect/wait helpers live in `Tests/Support/` (`CommonFunctions.h`, `TestHelpers.h`); extend those rather than duplicating polling loops.
+
+**Before claiming a change is done**, build with `-DMAFIANET_BUILD_TESTS=ON` and run at minimum `ctest --test-dir build -L unit` plus the integration tests touching the changed subsystem (`ctest -R <pattern>`); run the full suite for changes to the reliability layer, peer lifecycle, or message routing. For a new integration test, prove it is not flaky: `./build/Tests/IntegrationTests --gtest_filter='<Suite>.*' --gtest_repeat=10 --gtest_break_on_failure`.
 
 ## Architecture
 
