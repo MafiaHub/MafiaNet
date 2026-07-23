@@ -528,6 +528,70 @@ void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 #endif
 }
 
+#if defined(MAFIANET_USE_RECVMMSG) && defined(__linux__)
+void RNS2_Berkley::RecvFromBatchedLoop(void)
+{
+	RNS2RecvStruct *slots[MMSG_BATCH_MAX];
+	struct mmsghdr msgs[MMSG_BATCH_MAX];
+	struct iovec iovecs[MMSG_BATCH_MAX];
+	sockaddr_storage addrs[MMSG_BATCH_MAX];
+	int lens[MMSG_BATCH_MAX];
+
+	while ( endThreads == false )
+	{
+		// Preallocate a batch of recv structs and point each iovec at its data
+		// buffer, so recvmmsg writes straight into the structs we will hand to
+		// the event handler -- no extra copy.
+		unsigned allocated=0;
+		for (; allocated<MMSG_BATCH_MAX; ++allocated)
+		{
+			RNS2RecvStruct *s = binding.eventHandler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
+			if (s==nullptr)
+				break;
+			s->socket=this;
+			slots[allocated]=s;
+			iovecs[allocated].iov_base=s->data;
+			iovecs[allocated].iov_len=sizeof(s->data);
+			memset(&msgs[allocated], 0, sizeof(msgs[allocated]));
+			msgs[allocated].msg_hdr.msg_iov=&iovecs[allocated];
+			msgs[allocated].msg_hdr.msg_iovlen=1;
+			msgs[allocated].msg_hdr.msg_name=&addrs[allocated];
+			msgs[allocated].msg_hdr.msg_namelen=sizeof(addrs[allocated]);
+		}
+		if (allocated==0)
+		{
+			RakSleep(0);
+			continue;
+		}
+
+		// MSG_WAITFORONE: block until at least one datagram is ready, then return
+		// everything already queued. Without it recvmmsg would wait to fill the
+		// whole array (or hit a timeout), adding latency at low packet rates.
+		int n = recvmmsg(rns2Socket, msgs, allocated, MSG_WAITFORONE, nullptr);
+		MafiaNet::TimeUS now = MafiaNet::GetTimeUS();
+
+		if (n<0)
+		{
+			// Interrupted / error (includes the shutdown poke unblocking us).
+			// Release the whole batch and re-evaluate endThreads.
+			for (unsigned i=0; i<allocated; ++i)
+				binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
+			RakSleep(0);
+			continue;
+		}
+
+		for (unsigned i=0; i<allocated; ++i)
+			lens[i] = (i < (unsigned) n) ? (int) msgs[i].msg_len : 0;
+
+		// Fan the received datagrams out to the handler and free the unused tail.
+		// DispatchRecvBatch is the same portable, unit-tested routine exercised
+		// by the hermetic MmsgBatch tests.
+		DispatchRecvBatch(binding.eventHandler, slots, allocated, lens, addrs,
+		                  (unsigned) n, this, now);
+	}
+}
+#endif // MAFIANET_USE_RECVMMSG && __linux__
+
 #endif // file header
 
 #endif // #ifdef RAKNET_SOCKET_2_INLINE_FUNCTIONS
