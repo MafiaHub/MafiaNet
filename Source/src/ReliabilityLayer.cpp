@@ -19,6 +19,7 @@
 
 
 #include "mafianet/ReliabilityLayer.h"
+#include "mafianet/MmsgBatch.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/PluginInterface2.h"
@@ -2202,6 +2203,11 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 		}
 
 
+#if defined(MAFIANET_USE_SENDMMSG)
+		// Coalesce this update's datagrams (all to the same peer) into one
+		// sendmmsg. Loop-local: flushed at the single loop exit below.
+		RNS2SendBatch sendBatch(s, systemAddress);
+#endif
 		for (unsigned int datagramIndex=0; datagramIndex < packetsToSendThisUpdateDatagramBoundaries.Size(); datagramIndex++)
 		{
 			if (datagramIndex>0)
@@ -2275,7 +2281,11 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 
 			congestionManager.OnSendBytes(time,UDP_HEADER_SIZE+DatagramHeaderFormat::GetDataHeaderByteLength());
 
+#if defined(MAFIANET_USE_SENDMMSG)
+			SendBitStream( s, systemAddress, &updateBitStream, rnr, time, &sendBatch );
+#else
 			SendBitStream( s, systemAddress, &updateBitStream, rnr, time );
+#endif
 
 			bandwidthExceededStatistic=outgoingPacketBuffer.Size()>0;
 			// 			bandwidthExceededStatistic=sendPacketSet[0].IsEmpty()==false ||
@@ -2290,6 +2300,11 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 			else
 				timeOfLastContinualSend=0;
 		}
+
+#if defined(MAFIANET_USE_SENDMMSG)
+		// Single flush point for the whole update's datagrams.
+		sendBatch.Flush();
+#endif
 
 		ClearPacketsAndDatagrams();
 
@@ -2309,10 +2324,11 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 //-------------------------------------------------------------------------------------------------------
 // Writes a bitstream to the socket
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime)
+void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime, RNS2SendBatch *sendBatch)
 {
 	(void) systemAddress;
 	(void) rnr;
+	(void) sendBatch;
 
 	unsigned int length;
 
@@ -2395,11 +2411,23 @@ void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAdd
 #else
 	// SocketLayer::SendTo( s, ( char* ) bitStream->GetData(), length, systemAddress, __FILE__, __LINE__  );
 
-	RNS2_SendParameters bsp;
-	bsp.data = (char*) bitStream->GetData();
-	bsp.length = length;
-	bsp.systemAddress = systemAddress;
-	s->Send(&bsp, _FILE_AND_LINE_);
+#if defined(MAFIANET_USE_SENDMMSG)
+	if (sendBatch)
+	{
+		// Defer only the transmit: the datagram above is fully prepared
+		// (encrypted, metered). The batch flushes via sendmmsg at the caller's
+		// loop boundary.
+		sendBatch->Add((const char*) bitStream->GetData(), (int) length);
+	}
+	else
+#endif
+	{
+		RNS2_SendParameters bsp;
+		bsp.data = (char*) bitStream->GetData();
+		bsp.length = length;
+		bsp.systemAddress = systemAddress;
+		s->Send(&bsp, _FILE_AND_LINE_);
+	}
 #endif
 }
 

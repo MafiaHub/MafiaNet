@@ -3,6 +3,12 @@
 # Copyright (c) 2024, MafiaHub
 # Licensed under MIT-style license
 
+# Batched datagram I/O (Linux). OFF by default; the portable helpers in
+# MmsgBatch.h are always compiled and unit-tested, but the recvmmsg/sendmmsg
+# syscall paths and their wiring only activate on Linux when these are ON.
+option(MAFIANET_USE_RECVMMSG "Batch UDP receives with recvmmsg (Linux only)" OFF)
+option(MAFIANET_USE_SENDMMSG "Batch UDP sends with sendmmsg (Linux only)" OFF)
+
 # Source files (explicit list, no GLOB)
 set(MAFIANET_SOURCES
     src/_FindFirst.cpp
@@ -47,6 +53,7 @@ set(MAFIANET_SOURCES
     src/LocklessTypes.cpp
     src/LogCommandParser.cpp
     src/MessageFilter.cpp
+    src/MmsgBatch.cpp
     src/NatPunchthroughClient.cpp
     src/NatPunchthroughServer.cpp
     src/NatTypeDetectionClient.cpp
@@ -200,6 +207,7 @@ set(MAFIANET_HEADERS
     include/mafianet/memoryoverride.h
     include/mafianet/MessageFilter.h
     include/mafianet/MessageIdentifiers.h
+    include/mafianet/MmsgBatch.h
     include/mafianet/MTUSize.h
     include/mafianet/NativeFeatureIncludes.h
     include/mafianet/NativeFeatureIncludesOverrides.h
@@ -337,6 +345,13 @@ function(mafianet_configure_target target_name)
         PRIVATE
             $<$<CONFIG:Debug>:_DEBUG>
             $<$<CONFIG:Release>:NDEBUG>
+        # PUBLIC so consumers including MmsgBatch.h / socket2.h see the same
+        # conditional declarations (RNS2SendBatch, the SendBatch override) the
+        # library was compiled with -- avoids a header/ABI mismatch when a
+        # downstream build turns batching on.
+        PUBLIC
+            $<$<BOOL:${MAFIANET_USE_RECVMMSG}>:MAFIANET_USE_RECVMMSG>
+            $<$<BOOL:${MAFIANET_USE_SENDMMSG}>:MAFIANET_USE_SENDMMSG>
     )
 
     set_target_properties(${target_name} PROPERTIES

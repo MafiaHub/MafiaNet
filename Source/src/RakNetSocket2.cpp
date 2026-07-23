@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/socket2.h"
+#include "mafianet/MmsgBatch.h"
 #include "mafianet/memoryoverride.h"
 #include "mafianet/assert.h"
 #include "mafianet/sleep.h"
@@ -54,6 +55,19 @@ void RakNetSocket2Allocator::DeallocRNS2(RakNetSocket2 *s) { MafiaNet::OP_DELETE
 RakNetSocket2::RakNetSocket2() {eventHandler=0;}
 RakNetSocket2::~RakNetSocket2() {}
 void RakNetSocket2::SetRecvEventHandler(RNS2EventHandler *_eventHandler) {eventHandler=_eventHandler;}
+RNS2SendResult RakNetSocket2::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
+{
+	// Portable default: send each datagram individually. Platforms with a real
+	// batched syscall (Linux/sendmmsg) override this.
+	RNS2SendResult total=0;
+	for (unsigned i=0; i<count; ++i)
+	{
+		RNS2SendResult r = Send(&sends[i], file, line);
+		if (r>0)
+			total += r;
+	}
+	return total;
+}
 RNS2Type RakNetSocket2::GetSocketType(void) const {return socketType;}
 void RakNetSocket2::SetSocketType(RNS2Type t) {socketType=t;}
 bool RakNetSocket2::IsBerkleySocket(void) const {
@@ -154,7 +168,13 @@ RAK_THREAD_DECLARATION(RNS2_Berkley::RecvFromLoop)
 unsigned RNS2_Berkley::RecvFromLoopInt(void)
 {
 	isRecvFromLoopThreadActive.Increment();
-	
+
+#if defined(MAFIANET_USE_RECVMMSG) && defined(__linux__)
+	// Drain the socket in batches with a single recvmmsg per burst instead of
+	// one recvfrom per datagram. Falls through to the scalar loop below on any
+	// other platform / when the flag is off.
+	RecvFromBatchedLoop();
+#else
 	while ( endThreads == false )
 	{
 		RNS2RecvStruct *recvFromStruct;
@@ -176,6 +196,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 			}
 		}
 	}
+#endif // MAFIANET_USE_RECVMMSG && __linux__
 	isRecvFromLoopThreadActive.Decrement();
 
 	return 0;
@@ -263,5 +284,47 @@ SocketLayerOverride* RNS2_Windows::GetSocketLayerOverride(void) {return slo;}
 #else
 RNS2BindResult RNS2_Linux::Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line ) {return BindShared(bindParameters, file, line);}
 RNS2SendResult RNS2_Linux::Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line ) {return Send_Windows_Linux_360NoVDP(rns2Socket,sendParameters, file, line);}
+#if defined(MAFIANET_USE_SENDMMSG)
+RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
+{
+	(void) file;
+	(void) line;
+
+	// DriveBatchedSend handles the partial-send resume; each transmit() call
+	// coalesces up to MMSG_BATCH_MAX datagrams into one sendmmsg. sendmmsg
+	// returns the number of messages sent (>=1) or -1 (nothing sent), which
+	// DriveBatchedSend interprets exactly as documented.
+	const RNS2SendResult sent = DriveBatchedSend(count,
+		[&](unsigned offset, unsigned remaining) -> int
+		{
+			unsigned chunk = remaining < MMSG_BATCH_MAX ? remaining : MMSG_BATCH_MAX;
+			struct mmsghdr msgs[MMSG_BATCH_MAX];
+			struct iovec iovecs[MMSG_BATCH_MAX];
+			for (unsigned i=0; i<chunk; ++i)
+			{
+				RNS2_SendParameters *p = &sends[offset+i];
+				iovecs[i].iov_base = p->data;
+				iovecs[i].iov_len = (size_t) p->length;
+				memset(&msgs[i], 0, sizeof(msgs[i]));
+				msgs[i].msg_hdr.msg_iov = &iovecs[i];
+				msgs[i].msg_hdr.msg_iovlen = 1;
+				if (p->systemAddress.address.addr4.sin_family==AF_INET)
+				{
+					msgs[i].msg_hdr.msg_name = (void*) &p->systemAddress.address.addr4;
+					msgs[i].msg_hdr.msg_namelen = sizeof(sockaddr_in);
+				}
+				else
+				{
+#if RAKNET_SUPPORT_IPV6==1
+					msgs[i].msg_hdr.msg_name = (void*) &p->systemAddress.address.addr6;
+					msgs[i].msg_hdr.msg_namelen = sizeof(sockaddr_in6);
+#endif
+				}
+			}
+			return sendmmsg(rns2Socket, msgs, chunk, 0);
+		});
+	return sent;
+}
+#endif
 void RNS2_Linux::GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] ) {return GetMyIP_Windows_Linux(addresses);}
 #endif // Linux

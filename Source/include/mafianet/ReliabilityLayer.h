@@ -63,6 +63,7 @@ namespace MafiaNet {
 	/// Forward declarations
 class PluginInterface2;
 class RakNetRandom;
+class RNS2SendBatch; // MmsgBatch.h; only defined when MAFIANET_USE_SENDMMSG is set
 typedef uint64_t reliabilityHeapWeightType;
 
 // #med - consider a more suitable name for the class / maybe even make an internal class to SplitPacketChannel?
@@ -271,7 +272,12 @@ private:
 	/// \param[in] s The socket used for sending data
 	/// \param[in] systemAddress The address and port to send to
 	/// \param[in] bitStream The data to send.
-	void SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime);
+	/// \param[in] sendBatch If non-null, the fully-prepared datagram is appended
+	///            to this batch (coalesced into a sendmmsg) instead of being sent
+	///            immediately. All other processing (encryption, loss simulation,
+	///            metrics) still happens per datagram. Only used when
+	///            MAFIANET_USE_SENDMMSG is enabled.
+	void SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime, RNS2SendBatch *sendBatch = nullptr);
 
 	///Parse an internalPacket and create a bitstream to represent this data
 	/// \return Returns number of bits used

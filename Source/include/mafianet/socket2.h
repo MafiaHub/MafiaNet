@@ -113,6 +113,10 @@ public:
 	// In order for the handler to trigger, some platforms must call PollRecvFrom, some platforms this create an internal thread.
 	void SetRecvEventHandler(RNS2EventHandler *_eventHandler);
 	virtual RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line )=0;
+	// Batched send. The base implementation simply loops Send() so every socket
+	// type has a working default; RNS2_Linux overrides it with sendmmsg when
+	// MAFIANET_USE_SENDMMSG is enabled. Returns the total datagrams accepted.
+	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
@@ -196,6 +200,10 @@ protected:
 	RNS2_BerkleyBindParameters binding;
 
 	unsigned RecvFromLoopInt(void);
+	// Batched drain of the recv socket via recvmmsg (Linux + MAFIANET_USE_RECVMMSG).
+	// Declared unconditionally; only ever called from RecvFromLoopInt under the
+	// same guard, and only defined on that platform.
+	void RecvFromBatchedLoop(void);
 	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 	volatile bool endThreads;
 	// Constructor not called!
@@ -256,6 +264,9 @@ class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux_360
 public:
 	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
 	RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
+#if defined(MAFIANET_USE_SENDMMSG)
+	RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
+#endif
 
 	// ----------- STATICS ------------
 	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
