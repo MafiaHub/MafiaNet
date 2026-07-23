@@ -20,6 +20,7 @@
 #define __MAFIANET_MMSG_BATCH_H
 
 #include "mafianet/socket2.h"
+#include "mafianet/assert.h"
 
 #include <string.h> // memcpy
 
@@ -101,24 +102,21 @@ class RNS2SendBatch
 {
 public:
 	RNS2SendBatch(RakNetSocket2 *socket, const SystemAddress &dest)
-		: socket(socket), dest(dest), count(0)
-	{
-		// Heap-backed so a full batch (MMSG_BATCH_MAX * MTU) never sits on the
-		// network thread's stack.
-		buffers = new char[(size_t) MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE];
-	}
-	~RNS2SendBatch()
-	{
-		Flush();
-		delete[] buffers;
-	}
+		: socket(socket), dest(dest), count(0) {}
+	~RNS2SendBatch() { Flush(); }
 
+	/// Append one already-prepared datagram. Oversized datagrams are rejected
+	/// rather than truncated: the scalar send path never truncates, and silently
+	/// clamping would ship corrupted bytes with no error signal. Callers already
+	/// keep datagrams within the MTU (RakAssert in ReliabilityLayer), so this is
+	/// a release-build backstop, not the normal path.
 	void Add(const char *data, int length)
 	{
+		RakAssert(length >= 0 && length <= MAXIMUM_MTU_SIZE);
+		if (length < 0 || length > MAXIMUM_MTU_SIZE)
+			return; // drop, don't corrupt; the reliability layer will resend
 		if (count == MMSG_BATCH_MAX)
 			Flush();
-		if (length > MAXIMUM_MTU_SIZE)
-			length = MAXIMUM_MTU_SIZE;
 		memcpy(Slot(count), data, (size_t) length);
 		lengths[count] = length;
 		++count;
@@ -141,12 +139,19 @@ public:
 	}
 
 private:
-	char *Slot(unsigned i) { return buffers + (size_t) i * MAXIMUM_MTU_SIZE; }
+	// One buffer block per update thread, reused across every connection and
+	// tick -- the batch is filled and flushed synchronously within a single
+	// UpdateInternal call, so there is no reentrancy. This keeps the send path
+	// allocation-free (the old per-tick new[] churned ~95 KB each call).
+	static char *Slot(unsigned i)
+	{
+		static thread_local char buffers[MMSG_BATCH_MAX][MAXIMUM_MTU_SIZE];
+		return buffers[i];
+	}
 
 	RakNetSocket2 *socket;
 	SystemAddress dest;
 	unsigned count;
-	char *buffers;
 	int lengths[MMSG_BATCH_MAX];
 };
 #endif // MAFIANET_USE_SENDMMSG

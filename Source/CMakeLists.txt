@@ -345,6 +345,11 @@ function(mafianet_configure_target target_name)
         PRIVATE
             $<$<CONFIG:Debug>:_DEBUG>
             $<$<CONFIG:Release>:NDEBUG>
+        # PUBLIC so consumers including MmsgBatch.h / socket2.h see the same
+        # conditional declarations (RNS2SendBatch, the SendBatch override) the
+        # library was compiled with -- avoids a header/ABI mismatch when a
+        # downstream build turns batching on.
+        PUBLIC
             $<$<BOOL:${MAFIANET_USE_RECVMMSG}>:MAFIANET_USE_RECVMMSG>
             $<$<BOOL:${MAFIANET_USE_SENDMMSG}>:MAFIANET_USE_SENDMMSG>
     )

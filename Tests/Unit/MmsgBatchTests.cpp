@@ -18,7 +18,11 @@
 #include "mafianet/socket2.h"
 #include "mafianet/types.h"
 
-#include <arpa/inet.h>
+#ifdef _WIN32
+#include <ws2tcpip.h> // inet_pton, htons (winsock2 pulled in via socket2.h)
+#else
+#include <arpa/inet.h> // inet_pton, htons
+#endif
 #include <cstring>
 #include <vector>
 
