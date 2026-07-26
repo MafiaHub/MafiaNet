@@ -23,6 +23,7 @@
 #include "mafianet/memoryoverride.h"
 
 #include <string.h> // memcpy
+#include <stdio.h>  // RAKNET_DEBUG_PRINTF defaults to printf
 
 namespace MafiaNet
 {
@@ -143,7 +144,13 @@ public:
 	{
 		RakAssert(length >= 0 && length <= MAXIMUM_MTU_SIZE);
 		if (length < 0 || length > MAXIMUM_MTU_SIZE)
-			return; // drop, don't corrupt; the reliability layer will resend
+		{
+			// Drop rather than corrupt. Reliable traffic is resent by the
+			// reliability layer; an unreliable datagram is simply lost, which is
+			// why the diagnostic below is the only trace it leaves.
+			RAKNET_DEBUG_PRINTF("RNS2SendBatch dropped an oversized datagram (%d bytes).\n", length);
+			return;
+		}
 		if (count == MMSG_BATCH_MAX)
 			Flush();
 		memcpy(Slot(count), data, (size_t) length);
@@ -163,7 +170,12 @@ public:
 			sends[i].systemAddress = dest;
 			sends[i].ttl = 0;
 		}
-		socket->SendBatch(sends, count, __FILE__, __LINE__);
+		// SendBatch returns a datagram count, or a negative error when nothing at
+		// all went out. Either shortfall means datagrams were dropped; the scalar
+		// path reports its sendto failures the same way, so don't lose the signal.
+		const RNS2SendResult sent = socket->SendBatch(sends, count, _FILE_AND_LINE_);
+		if (sent < 0 || (unsigned) sent < count)
+			RAKNET_DEBUG_PRINTF("SendBatch sent %d of %u datagrams.\n", (int) sent, count);
 		count = 0;
 	}
 

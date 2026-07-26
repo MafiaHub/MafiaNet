@@ -64,13 +64,13 @@ void DispatchRecvBatch(RNS2EventHandler *handler,
 			// Zero-length read (same as the scalar bytesRead<=0 branch) or an
 			// undecodable source address -- free the struct rather than
 			// surfacing a packet we cannot attribute to a peer.
-			handler->DeallocRNS2RecvStruct(s, __FILE__, __LINE__);
+			handler->DeallocRNS2RecvStruct(s, _FILE_AND_LINE_);
 		}
 	}
 
 	// Hand back the unused tail so no preallocated buffer leaks.
 	for (unsigned i = received; i < allocated; ++i)
-		handler->DeallocRNS2RecvStruct(slots[i], __FILE__, __LINE__);
+		handler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
 }
 
 } // namespace MafiaNet

@@ -537,11 +537,17 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 	sockaddr_storage addrs[MMSG_BATCH_MAX];
 	int lens[MMSG_BATCH_MAX];
 
-	// Recv structs are held across a failed recvmmsg rather than reallocated
-	// each pass: Linux reports asynchronous errors on a connectionless UDP
-	// socket (ECONNREFUSED when a peer's port is closed), and rebuilding the
-	// whole batch on every one of those would churn MMSG_BATCH_MAX alloc/free
-	// round trips per pass instead of the scalar path's one.
+	// Recv structs live across passes rather than being rebuilt each time. Only
+	// the slots that actually received a datagram change hands; the untouched
+	// tail is carried over, so the steady state costs one alloc/free round trip
+	// per datagram -- the same as the scalar path -- instead of MMSG_BATCH_MAX of
+	// them per pass. Each of those round trips takes the event handler's pool
+	// mutex, and at typical packet rates recvmmsg returns far fewer than
+	// MMSG_BATCH_MAX datagrams, so rebuilding the batch would dominate the
+	// syscall saving the batching exists for. The same carry-over covers failed
+	// passes: Linux reports asynchronous errors on a connectionless UDP socket
+	// (ECONNREFUSED when a peer's port is closed) and those must not churn the
+	// pool either.
 	unsigned allocated=0;
 	unsigned consecutiveErrors=0;
 
@@ -586,10 +592,13 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 
 		if (n<0)
 		{
-			// Interrupted / error (includes the shutdown poke unblocking us).
-			// Keep the batch and re-evaluate endThreads. Back off progressively
-			// so a persistent error cannot spin this thread at 100%; the loop
-			// condition is still checked first, so shutdown stays prompt.
+			// Interrupted or an asynchronous socket error. (Shutdown does not
+			// come through here: BlockOnStopRecvPollingThread pokes the socket
+			// with a real datagram, so it surfaces as a normal n>=1 pass and the
+			// loop condition below catches endThreads.) Keep the batch and back
+			// off progressively so a persistent error cannot spin this thread at
+			// 100%; the loop condition is still checked first, so shutdown stays
+			// prompt.
 			if (consecutiveErrors<MMSG_ERROR_BACKOFF_MAX_MS)
 				++consecutiveErrors;
 			RakSleep(consecutiveErrors);
@@ -597,15 +606,21 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		}
 		consecutiveErrors=0;
 
-		for (unsigned i=0; i<allocated; ++i)
-			lens[i] = (i < (unsigned) n) ? (int) msgs[i].msg_len : 0;
+		const unsigned received=(unsigned) n;
+		for (unsigned i=0; i<received; ++i)
+			lens[i] = (int) msgs[i].msg_len;
 
-		// Fan the received datagrams out to the handler and free the unused tail.
-		// DispatchRecvBatch is the same portable, unit-tested routine exercised
-		// by the hermetic MmsgBatch tests. It takes ownership of every slot.
-		DispatchRecvBatch(binding.eventHandler, slots, allocated, lens, addrs,
-		                  (unsigned) n, this, now);
-		allocated=0;
+		// Hand the handler exactly the slots that received a datagram -- it takes
+		// ownership of those and of those alone. DispatchRecvBatch is the same
+		// portable, unit-tested routine exercised by the hermetic MmsgBatch tests.
+		DispatchRecvBatch(binding.eventHandler, slots, received, lens, addrs,
+		                  received, this, now);
+
+		// Carry the untouched tail over to the next pass; only the consumed slots
+		// are topped back up at the head of the loop.
+		allocated-=received;
+		if (allocated>0)
+			memmove(slots, slots+received, allocated*sizeof(slots[0]));
 	}
 
 	// Release whatever the last pass was still holding.

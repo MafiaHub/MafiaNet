@@ -83,6 +83,19 @@ namespace
 		return ss;
 	}
 
+#if RAKNET_SUPPORT_IPV6 == 1
+	sockaddr_storage MakeV6(const char *ip, unsigned short port)
+	{
+		sockaddr_storage ss;
+		memset(&ss, 0, sizeof(ss));
+		sockaddr_in6 *in6 = reinterpret_cast<sockaddr_in6 *>(&ss);
+		in6->sin6_family = AF_INET6;
+		in6->sin6_port = htons(port);
+		inet_pton(AF_INET6, ip, &in6->sin6_addr);
+		return ss;
+	}
+#endif
+
 	// Records every datagram handed to Send(), so tests can assert on what the
 	// batch flushed and when. SendBatch is deliberately NOT overridden: these
 	// tests exercise the portable base implementation.
@@ -92,6 +105,7 @@ namespace
 		{
 			std::string payload;
 			unsigned short port;
+			int ttl;
 		};
 
 		std::vector<Sent> sent;
@@ -104,7 +118,7 @@ namespace
 			if (failFrom >= 0 && index >= (unsigned) failFrom)
 				return -1;
 			sent.push_back({std::string(p->data, (size_t) p->length),
-			                p->systemAddress.GetPort()});
+			                p->systemAddress.GetPort(), p->ttl});
 			return p->length; // Send() reports bytes, not a datagram count
 		}
 	};
@@ -212,6 +226,31 @@ TEST(SockaddrToSystemAddress, PreservesIPv4Address)
 	SockaddrToSystemAddress(ss, &out);
 	EXPECT_EQ(out.address.addr4.sin_addr.s_addr, in->sin_addr.s_addr);
 }
+
+#if RAKNET_SUPPORT_IPV6 == 1
+TEST(SockaddrToSystemAddress, DecodesIPv6PortToHostOrder)
+{
+	sockaddr_storage ss = MakeV6("2001:db8::1", 4660);
+	const sockaddr_in6 *in6 = reinterpret_cast<const sockaddr_in6 *>(&ss);
+	SystemAddress out;
+	ASSERT_TRUE(SockaddrToSystemAddress(ss, &out));
+	EXPECT_EQ(out.GetPort(), 4660);
+	EXPECT_EQ(out.debugPort, 4660);
+	EXPECT_EQ(out.GetIPVersion(), 6);
+	EXPECT_EQ(memcmp(&out.address.addr6.sin6_addr, &in6->sin6_addr,
+	                 sizeof(in6->sin6_addr)),
+	          0);
+}
+#else
+TEST(SockaddrToSystemAddress, RejectsIPv6SourceOnIPv4OnlyBuild)
+{
+	// An IPv6 sender reaching an IPv4-only build has no representable address;
+	// the caller must be told so rather than handed a half-decoded one.
+	SystemAddress out;
+	EXPECT_FALSE(SockaddrToSystemAddress(MakeFamily(AF_INET6), &out));
+	EXPECT_EQ(out, UNASSIGNED_SYSTEM_ADDRESS);
+}
+#endif
 
 TEST(SockaddrToSystemAddress, RejectsUndecodableFamilyWithoutKeepingStaleAddress)
 {
@@ -328,6 +367,30 @@ TEST(DispatchRecvBatch, FreesDatagramsWhoseSourceAddressCannotBeDecoded)
 	EXPECT_EQ(handler.deallocated[0], slots[0]);
 }
 
+TEST(DispatchRecvBatch, ClampsAReceivedCountLargerThanTheAllocation)
+{
+	// Defensive clamp: a received count above the number of slots would otherwise
+	// walk off the end of the arrays. Nothing beyond the allocation is touched.
+	const unsigned allocated = 2;
+	std::vector<RNS2RecvStruct> storage(allocated);
+	RNS2RecvStruct *slots[allocated];
+	for (unsigned i = 0; i < allocated; ++i)
+		slots[i] = &storage[i];
+
+	int lens[allocated] = {11, 22};
+	sockaddr_storage addrs[allocated] = {MakeV4("10.0.0.1", 1111),
+	                                     MakeV4("10.0.0.2", 2222)};
+
+	RecordingHandler handler;
+	DispatchRecvBatch(&handler, slots, allocated, lens, addrs,
+	                  /*received=*/9, kSentinelSocket, /*now=*/1);
+
+	ASSERT_EQ(handler.received.size(), 2u);
+	EXPECT_EQ(handler.received[0].port, 1111);
+	EXPECT_EQ(handler.received[1].port, 2222);
+	EXPECT_TRUE(handler.deallocated.empty());
+}
+
 // ---------------------------------------------------------------------------
 // RakNetSocket2::SendBatch -- the portable default must match the sendmmsg
 // override's contract: a datagram COUNT, and an error only if nothing went out.
@@ -371,9 +434,44 @@ TEST(SocketSendBatch, PropagatesErrorOnlyWhenNothingWasSent)
 	EXPECT_EQ(partial.sent.size(), 2u);
 }
 
+TEST(SocketSendBatch, ForwardsPerDatagramTtl)
+{
+	// sendmmsg has no per-message TTL, so RNS2_Linux::SendBatch defers a batch
+	// carrying one to this base loop. That only preserves the TTL if the loop
+	// hands the whole parameter through to Send() untouched.
+	RecordingSocket socket;
+	RNS2_SendParameters sends[2];
+	char payload[4] = {};
+	for (unsigned i = 0; i < 2; ++i)
+	{
+		sends[i].data = payload;
+		sends[i].length = 4;
+		sends[i].systemAddress = MakeDest(1000);
+		sends[i].ttl = (int) (i + 1);
+	}
+
+	EXPECT_EQ(socket.SendBatch(sends, 2, _FILE_AND_LINE_), 2);
+	ASSERT_EQ(socket.sent.size(), 2u);
+	EXPECT_EQ(socket.sent[0].ttl, 1);
+	EXPECT_EQ(socket.sent[1].ttl, 2);
+}
+
 // ---------------------------------------------------------------------------
 // RNS2SendBatch -- accumulating datagrams and flushing them through SendBatch.
 // ---------------------------------------------------------------------------
+
+TEST(RNS2SendBatch, FlushesWithoutATtlSoTheSendmmsgPathIsNeverDeferred)
+{
+	// The reliability layer never asks for a TTL; keeping it zero is what lets
+	// RNS2_Linux::SendBatch take the real sendmmsg path on every flush.
+	RecordingSocket socket;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		batch.Add("x", 1);
+	}
+	ASSERT_EQ(socket.sent.size(), 1u);
+	EXPECT_EQ(socket.sent[0].ttl, 0);
+}
 
 TEST(RNS2SendBatch, CopiesPayloadsSoCallerCanReuseItsBuffer)
 {

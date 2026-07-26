@@ -291,6 +291,18 @@ RNS2SendResult RNS2_Linux::Send( RNS2_SendParameters *sendParameters, const char
 #if defined(MAFIANET_USE_SENDMMSG)
 RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
 {
+	// sendmmsg has no per-message TTL, whereas the scalar Send() honours
+	// RNS2_SendParameters::ttl by bracketing the sendto with setsockopt(IP_TTL).
+	// Batching must not silently drop that: hand any batch carrying a TTL back to
+	// the portable base implementation, which is the same Send() loop. The
+	// reliability layer never sets ttl, so this is not the hot path -- only NAT
+	// punchthrough style callers reach it.
+	for (unsigned i=0; i<count; ++i)
+	{
+		if (sends[i].ttl>0)
+			return RakNetSocket2::SendBatch(sends, count, file, line);
+	}
+
 	(void) file;
 	(void) line;
 

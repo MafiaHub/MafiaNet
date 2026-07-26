@@ -120,6 +120,8 @@ public:
 	// byte total Send() returns -- or a negative error code if the very first
 	// datagram failed, mirroring sendmmsg(2). Both implementations must agree on
 	// this; see MmsgBatchTests.
+	// RNS2_SendParameters::ttl is honoured either way: sendmmsg has no per-message
+	// TTL, so the override defers a batch carrying one to this base loop.
 	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
