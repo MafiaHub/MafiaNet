@@ -117,9 +117,11 @@ public:
 	// type has a working default; RNS2_Linux overrides it with sendmmsg when
 	// MAFIANET_USE_SENDMMSG is enabled.
 	// Returns the number of datagrams accepted (0..count) -- a count, NOT the
-	// byte total Send() returns -- or a negative error code if the very first
-	// datagram failed, mirroring sendmmsg(2). Both implementations must agree on
-	// this; see MmsgBatchTests.
+	// byte total Send() returns -- or a negative error code when no datagram at
+	// all went out, mirroring sendmmsg(2). A datagram that fails on its own
+	// (bad destination, oversized) is dropped and the rest of the batch is still
+	// sent, so the count may be short without an error being reported. Both
+	// implementations must agree on this; see MmsgBatchTests.
 	// RNS2_SendParameters::ttl is honoured either way: sendmmsg has no per-message
 	// TTL, so the override defers a batch carrying one to this base loop.
 	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );

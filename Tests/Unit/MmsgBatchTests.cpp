@@ -23,6 +23,7 @@
 #else
 #include <arpa/inet.h> // inet_pton, htons
 #endif
+#include <cerrno>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -111,11 +112,14 @@ namespace
 		std::vector<Sent> sent;
 		unsigned sendCalls = 0;
 		int failFrom = -1; // fail every Send() from this index on
+		int failOnly = -1; // fail only the Send() at this index
 
 		RNS2SendResult Send(RNS2_SendParameters *p, const char *, unsigned int) override
 		{
 			const unsigned index = sendCalls++;
 			if (failFrom >= 0 && index >= (unsigned) failFrom)
+				return -1;
+			if (failOnly >= 0 && index == (unsigned) failOnly)
 				return -1;
 			sent.push_back({std::string(p->data, (size_t) p->length),
 			                p->systemAddress.GetPort(), p->ttl});
@@ -161,23 +165,61 @@ TEST(DriveBatchedSend, ResumesFromOffsetAcrossPartialSends)
 	EXPECT_EQ(offsets, (std::vector<unsigned>{0u, 3u, 6u}));
 }
 
-TEST(DriveBatchedSend, ReturnsErrorWhenFirstCallSendsNothing)
+TEST(DriveBatchedSend, ReturnsErrorWhenNothingCouldBeSent)
 {
-	// sendmmsg only reports -1 when NO datagram could be sent; propagate it so
-	// the caller sees errno exactly as for a scalar sendto.
+	// Every message fails permanently, so nothing goes out: report the first
+	// error, mirroring sendmmsg's -1-only-when-nothing-was-sent contract.
 	int sent = DriveBatchedSend(4, [&](unsigned, unsigned) { return -1; });
 	EXPECT_EQ(sent, -1);
 }
 
-TEST(DriveBatchedSend, ReturnsProgressWhenErrorFollowsPartialSend)
+TEST(DriveBatchedSend, ReturnsTheFirstErrorNotTheLast)
 {
-	// First call sends 4, second fails: we already made progress, so report the
-	// 4 that went out rather than the error.
+	int call = 0;
+	int sent = DriveBatchedSend(3, [&](unsigned, unsigned) {
+		return (call++ == 0) ? -EMSGSIZE : -EINVAL;
+	});
+	EXPECT_EQ(sent, -EMSGSIZE);
+}
+
+TEST(DriveBatchedSend, SkipsAPermanentlyFailedMessageAndSendsTheRest)
+{
+	// A negative return means the message at `offset` itself is undeliverable.
+	// Stopping there would silently discard every datagram after it -- the
+	// scalar Send() loop would have delivered those.
+	std::vector<unsigned> offsets;
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned count) {
+		offsets.push_back(offset);
+		if (offset == 2)
+			return -EMSGSIZE; // the third datagram is the bad one
+		return (int) std::min(count, 1u);
+	});
+	EXPECT_EQ(sent, 4) << "only the bad datagram should be lost";
+	EXPECT_EQ(offsets, (std::vector<unsigned>{0u, 1u, 2u, 3u, 4u}));
+}
+
+TEST(DriveBatchedSend, ReturnsProgressWhenEveryRemainingMessageFails)
+{
+	// First call sends 4, the rest are all undeliverable: we already made
+	// progress, so report the 4 that went out rather than the error.
 	int call = 0;
 	int sent = DriveBatchedSend(9, [&](unsigned, unsigned) {
 		return (call++ == 0) ? 4 : -1;
 	});
 	EXPECT_EQ(sent, 4);
+}
+
+TEST(DriveBatchedSend, StopsOnATransientFailureInsteadOfSkippingMessages)
+{
+	// A transient socket-wide condition (EAGAIN) is reported as 0, not as a
+	// negative: the messages are fine, so they must not be dropped one by one.
+	int calls = 0;
+	int sent = DriveBatchedSend(5, [&](unsigned, unsigned) {
+		++calls;
+		return calls == 1 ? 2 : 0;
+	});
+	EXPECT_EQ(sent, 2);
+	EXPECT_EQ(calls, 2) << "must not burn a call per remaining datagram";
 }
 
 TEST(DriveBatchedSend, StopsOnNoProgressWithoutLooping)
@@ -434,6 +476,28 @@ TEST(SocketSendBatch, PropagatesErrorOnlyWhenNothingWasSent)
 	EXPECT_EQ(partial.sent.size(), 2u);
 }
 
+TEST(SocketSendBatch, DropsOnlyTheDatagramThatFailed)
+{
+	// One bad destination in the middle must not take the rest of the batch with
+	// it -- the plain Send() loop this replaced kept going after a failed sendto.
+	RecordingSocket socket;
+	socket.failOnly = 1;
+	RNS2_SendParameters sends[4];
+	char payload[4] = {};
+	for (unsigned i = 0; i < 4; ++i)
+	{
+		sends[i].data = payload;
+		sends[i].length = 4;
+		sends[i].systemAddress = MakeDest((unsigned short) (1000 + i));
+	}
+
+	EXPECT_EQ(socket.SendBatch(sends, 4, _FILE_AND_LINE_), 3);
+	ASSERT_EQ(socket.sent.size(), 3u);
+	EXPECT_EQ(socket.sent[0].port, 1000);
+	EXPECT_EQ(socket.sent[1].port, 1002) << "the datagram after the bad one must still go out";
+	EXPECT_EQ(socket.sent[2].port, 1003);
+}
+
 TEST(SocketSendBatch, ForwardsPerDatagramTtl)
 {
 	// sendmmsg has no per-message TTL, so RNS2_Linux::SendBatch defers a batch
@@ -555,6 +619,41 @@ TEST(RNS2SendBatch, DropsOversizedDatagramsInsteadOfTruncating)
 	ASSERT_EQ(socket.sent.size(), 1u);
 	EXPECT_EQ(socket.sent[0].payload, "ok");
 #endif
+}
+
+TEST(RNS2SendBatch, FailedFlushDropsTheBatchInsteadOfRetryingIt)
+{
+	// Flush clears the batch unconditionally. Carrying refused datagrams into
+	// the next flush would resend them behind whatever was queued meanwhile,
+	// reordering the stream; the reliability layer already handles the resend.
+	RecordingSocket socket;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		socket.failFrom = 0;
+		batch.Add("dropped", 7);
+		batch.Flush();
+		EXPECT_TRUE(socket.sent.empty());
+
+		socket.failFrom = -1;
+		batch.Add("fresh", 5);
+	}
+	ASSERT_EQ(socket.sent.size(), 1u) << "the refused datagram must not be resent";
+	EXPECT_EQ(socket.sent[0].payload, "fresh");
+}
+
+TEST(RNS2SendBatch, PartiallyFailedFlushStillDeliversTheRest)
+{
+	RecordingSocket socket;
+	socket.failOnly = 1;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		batch.Add("aa", 2);
+		batch.Add("bb", 2);
+		batch.Add("cc", 2);
+	}
+	ASSERT_EQ(socket.sent.size(), 2u);
+	EXPECT_EQ(socket.sent[0].payload, "aa");
+	EXPECT_EQ(socket.sent[1].payload, "cc");
 }
 
 TEST(RNS2SendBatch, EmptyBatchSendsNothing)

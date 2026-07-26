@@ -64,6 +64,9 @@ RNS2SendResult RakNetSocket2::SendBatch( RNS2_SendParameters *sends, unsigned co
 	// only when nothing at all went out. Send() reports bytes, so a successful
 	// send is normalized to 1 (a zero-byte return still counts as one datagram
 	// accepted; it must not be mistaken for DriveBatchedSend's "no progress").
+	// A failed Send() is reported as a per-message error, so DriveBatchedSend
+	// drops that datagram and continues -- matching the plain Send() loop this
+	// replaced, which ignored an individual sendto failure and kept going.
 	return DriveBatchedSend(count,
 		[&](unsigned offset, unsigned remaining) -> int
 		{
@@ -308,8 +311,10 @@ RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count
 
 	// DriveBatchedSend handles the partial-send resume; each transmit() call
 	// coalesces up to MMSG_BATCH_MAX datagrams into one sendmmsg. sendmmsg
-	// returns the number of messages sent (>=1) or -1 (nothing sent), which
-	// DriveBatchedSend interprets exactly as documented.
+	// returns the number of messages sent (>=1) or -1 (nothing sent). It funnels
+	// both transient socket-wide conditions and permanent per-message failures
+	// through that same -1, so classify errno before handing it back: the two
+	// mean opposite things to DriveBatchedSend (stop vs. drop one and continue).
 	const RNS2SendResult sent = DriveBatchedSend(count,
 		[&](unsigned offset, unsigned remaining) -> int
 		{
@@ -334,10 +339,30 @@ RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count
 #if RAKNET_SUPPORT_IPV6==1
 					msgs[i].msg_hdr.msg_name = (void*) &p->systemAddress.address.addr6;
 					msgs[i].msg_hdr.msg_namelen = sizeof(sockaddr_in6);
+#else
+					// Nothing to point msg_name at: this build has no sockaddr_in6.
+					// Leaving it null makes sendmmsg fail EDESTADDRREQ for this one
+					// datagram, which DriveBatchedSend drops while still delivering
+					// the rest of the batch.
+					RakAssert(false && "non-IPv4 destination on an IPv4-only build");
 #endif
 				}
 			}
-			return sendmmsg(rns2Socket, msgs, chunk, 0);
+			const int r = sendmmsg(rns2Socket, msgs, chunk, 0);
+			if (r>=0)
+				return r;
+			const int err = errno;
+			// Transient and socket-wide: the send buffer is full or the call was
+			// interrupted. Nothing in this batch can go out right now, and the
+			// messages themselves are fine -- stop rather than burn a syscall per
+			// remaining datagram. Reliable traffic is resent by the reliability
+			// layer on a later tick.
+			if (err==EAGAIN || err==EWOULDBLOCK || err==ENOBUFS || err==EINTR)
+				return 0;
+			// Anything else (EMSGSIZE, EINVAL, EDESTADDRREQ, an ICMP error posted
+			// against a prior send) is a property of the message at `offset`.
+			// Report it as a per-message failure so the remainder still ships.
+			return -err;
 		});
 	return sent;
 }

@@ -14,6 +14,7 @@
 # Build directories
 build/
 Build/
+build-*/
 out/
 
 # Compiled libraries
@@ -47,3 +48,6 @@ Makefile
 # Package files
 *.tar.gz
 *.zip
+
+# Agent scratch space (plans, specs) -- kept on disk, never committed
+docs/superpowers/

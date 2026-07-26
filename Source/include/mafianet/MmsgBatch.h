@@ -53,36 +53,52 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 /// \a transmit is invoked as transmit(offset, count) to send the messages in
 /// [offset, offset+count). It must return:
 ///   - a positive count of messages accepted this call (advance and continue),
-///   - 0 to signal no further progress is possible right now (stop), or
-///   - a negative errno-style value meaning the call failed with nothing sent.
+///   - 0 when no further progress is possible right now -- a transient,
+///     whole-socket condition such as EAGAIN/ENOBUFS (stop, don't spin), or
+///   - a negative errno-style value meaning the message at \a offset itself
+///     cannot be sent (a permanent per-message error such as EMSGSIZE or
+///     EDESTADDRREQ): it is dropped and the rest of the batch continues.
 ///
-/// This mirrors sendmmsg(2), which returns the number of messages sent and only
-/// reports an error (-1) when *no* datagram could be sent. Returns the total
-/// number of messages sent (0..total). If the very first call fails before any
-/// message is sent, the negative error code is propagated unchanged so the
-/// caller can inspect errno exactly as it would for a scalar sendto.
+/// The 0-vs-negative split matters: sendmmsg reports both through the same -1,
+/// so the caller's transmit() must classify errno. Treating a permanent
+/// per-message error as "stop" would silently discard every datagram *after*
+/// the bad one, which the scalar Send() loop would have delivered.
+///
+/// Returns the total number of messages actually sent (0..total), or -- when
+/// nothing at all went out and at least one message failed permanently -- the
+/// first negative error code seen. Note that the drop-and-continue behaviour
+/// means further syscalls may run after that first failure, so errno is not
+/// preserved; transmit() should encode the error in its return value if the
+/// caller needs it.
 template <typename TransmitFn>
 int DriveBatchedSend(unsigned total, TransmitFn transmit)
 {
-	unsigned sent = 0;
-	while (sent < total)
+	unsigned sent = 0;    // messages actually accepted by the socket
+	unsigned offset = 0;  // next message to attempt; may run ahead of `sent`
+	int firstError = 0;   // first permanent per-message error seen, if any
+	while (offset < total)
 	{
-		int r = transmit(sent, total - sent);
+		int r = transmit(offset, total - offset);
 		if (r > 0)
 		{
-			sent += (unsigned) r; // accepted r messages; retry the remainder
+			// Accepted r messages; retry the remainder from the new offset.
+			sent += (unsigned) r;
+			offset += (unsigned) r;
 			continue;
 		}
 		if (r == 0)
 			break; // no progress possible right now; don't spin
-		// r < 0: this call failed with nothing sent. Propagate the error only
-		// if we have not managed to send anything yet (mirrors sendmmsg, which
-		// reports -1 solely when no datagram at all could be sent); otherwise
-		// report the progress already made.
-		if (sent == 0)
-			return r;
-		break;
+		// r < 0: the message at `offset` is undeliverable. Drop just that one
+		// and keep going, so a single bad datagram cannot take the rest of the
+		// batch down with it.
+		if (firstError == 0)
+			firstError = r;
+		++offset;
 	}
+	// Mirror sendmmsg, which reports an error only when no datagram at all went
+	// out; otherwise report the progress made.
+	if (sent == 0 && firstError != 0)
+		return firstError;
 	return (int) sent;
 }
 
@@ -174,8 +190,16 @@ public:
 		// all went out. Either shortfall means datagrams were dropped; the scalar
 		// path reports its sendto failures the same way, so don't lose the signal.
 		const RNS2SendResult sent = socket->SendBatch(sends, count, _FILE_AND_LINE_);
+		// A return above `count` means an override handed back a byte total
+		// instead of a datagram count -- the one contract the RNS2_Linux sendmmsg
+		// override cannot be unit-tested against, so check it at runtime here.
+		RakAssert(sent <= (RNS2SendResult) count && "SendBatch must return a datagram count, not a byte total");
 		if (sent < 0 || (unsigned) sent < count)
 			RAKNET_DEBUG_PRINTF("SendBatch sent %d of %u datagrams.\n", (int) sent, count);
+		// Cleared unconditionally: a datagram the socket refused is dropped here,
+		// not carried into the next flush. Reliable traffic is resent by the
+		// reliability layer; retrying in place would reorder it against the
+		// datagrams queued after it.
 		count = 0;
 	}
 

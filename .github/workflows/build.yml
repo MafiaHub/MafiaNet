@@ -50,14 +50,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libssl-dev
 
       - name: Configure CMake
+        # Debug on purpose: this is the only job that compiles the mmsg paths,
+        # and RakAssert (which is compiled out unless _DEBUG) is what guards the
+        # invariants they rely on -- the SendBatch count-not-bytes return
+        # contract, the RNS2SendBatch reentrancy guard, the IPv4-only address
+        # branch. In Release those checks would not run anywhere.
         run: |
           cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
             -DMAFIANET_BUILD_TESTS=ON \
             -DMAFIANET_USE_RECVMMSG=ON \
             -DMAFIANET_USE_SENDMMSG=ON
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4
+        run: cmake --build build --parallel 4
 
       - name: Run tests
         run: |
