@@ -115,7 +115,11 @@ public:
 	virtual RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line )=0;
 	// Batched send. The base implementation simply loops Send() so every socket
 	// type has a working default; RNS2_Linux overrides it with sendmmsg when
-	// MAFIANET_USE_SENDMMSG is enabled. Returns the total datagrams accepted.
+	// MAFIANET_USE_SENDMMSG is enabled.
+	// Returns the number of datagrams accepted (0..count) -- a count, NOT the
+	// byte total Send() returns -- or a negative error code if the very first
+	// datagram failed, mirroring sendmmsg(2). Both implementations must agree on
+	// this; see MmsgBatchTests.
 	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);

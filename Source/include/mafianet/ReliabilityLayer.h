@@ -63,7 +63,7 @@ namespace MafiaNet {
 	/// Forward declarations
 class PluginInterface2;
 class RakNetRandom;
-class RNS2SendBatch; // MmsgBatch.h; only defined when MAFIANET_USE_SENDMMSG is set
+class RNS2SendBatch; // MmsgBatch.h
 typedef uint64_t reliabilityHeapWeightType;
 
 // #med - consider a more suitable name for the class / maybe even make an internal class to SplitPacketChannel?

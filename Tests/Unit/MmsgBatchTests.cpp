@@ -24,6 +24,7 @@
 #include <arpa/inet.h> // inet_pton, htons
 #endif
 #include <cstring>
+#include <string>
 #include <vector>
 
 using namespace MafiaNet;
@@ -73,6 +74,47 @@ namespace
 
 	// A sentinel non-null socket pointer; DispatchRecvBatch only stores it.
 	RakNetSocket2 *const kSentinelSocket = reinterpret_cast<RakNetSocket2 *>(0xF00D);
+
+	sockaddr_storage MakeFamily(unsigned short family)
+	{
+		sockaddr_storage ss;
+		memset(&ss, 0, sizeof(ss));
+		ss.ss_family = family;
+		return ss;
+	}
+
+	// Records every datagram handed to Send(), so tests can assert on what the
+	// batch flushed and when. SendBatch is deliberately NOT overridden: these
+	// tests exercise the portable base implementation.
+	struct RecordingSocket : RakNetSocket2
+	{
+		struct Sent
+		{
+			std::string payload;
+			unsigned short port;
+		};
+
+		std::vector<Sent> sent;
+		unsigned sendCalls = 0;
+		int failFrom = -1; // fail every Send() from this index on
+
+		RNS2SendResult Send(RNS2_SendParameters *p, const char *, unsigned int) override
+		{
+			const unsigned index = sendCalls++;
+			if (failFrom >= 0 && index >= (unsigned) failFrom)
+				return -1;
+			sent.push_back({std::string(p->data, (size_t) p->length),
+			                p->systemAddress.GetPort()});
+			return p->length; // Send() reports bytes, not a datagram count
+		}
+	};
+
+	SystemAddress MakeDest(unsigned short port)
+	{
+		SystemAddress a;
+		a.FromStringExplicitPort("127.0.0.1", port);
+		return a;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +213,20 @@ TEST(SockaddrToSystemAddress, PreservesIPv4Address)
 	EXPECT_EQ(out.address.addr4.sin_addr.s_addr, in->sin_addr.s_addr);
 }
 
+TEST(SockaddrToSystemAddress, RejectsUndecodableFamilyWithoutKeepingStaleAddress)
+{
+	// recv structs are recycled, so `out` arrives holding the previous sender.
+	// An address family this build cannot decode must not leave that in place --
+	// the datagram would be attributed to the wrong peer.
+	SystemAddress out;
+	ASSERT_TRUE(SockaddrToSystemAddress(MakeV4("198.51.100.9", 5555), &out));
+	ASSERT_EQ(out.GetPort(), 5555);
+
+	sockaddr_storage unknown = MakeFamily(AF_UNSPEC);
+	EXPECT_FALSE(SockaddrToSystemAddress(unknown, &out));
+	EXPECT_EQ(out, UNASSIGNED_SYSTEM_ADDRESS);
+}
+
 // ---------------------------------------------------------------------------
 // DispatchRecvBatch -- fanning a received batch out to the handler.
 // ---------------------------------------------------------------------------
@@ -245,4 +301,170 @@ TEST(DispatchRecvBatch, FreesEverythingWhenNothingReceived)
 
 	EXPECT_TRUE(handler.received.empty());
 	EXPECT_EQ(handler.deallocated.size(), 3u);
+}
+
+TEST(DispatchRecvBatch, FreesDatagramsWhoseSourceAddressCannotBeDecoded)
+{
+	const unsigned allocated = 2;
+	std::vector<RNS2RecvStruct> storage(allocated);
+	RNS2RecvStruct *slots[allocated];
+	for (unsigned i = 0; i < allocated; ++i)
+		slots[i] = &storage[i];
+
+	int lens[allocated] = {11, 22};
+	sockaddr_storage addrs[allocated] = {MakeFamily(AF_UNSPEC),
+	                                     MakeV4("10.0.0.2", 2222)};
+
+	RecordingHandler handler;
+	DispatchRecvBatch(&handler, slots, allocated, lens, addrs,
+	                  /*received=*/2, kSentinelSocket, /*now=*/1);
+
+	// Slot 0 has bytes but no usable source address: free it rather than
+	// surfacing a packet attributed to the recycled struct's previous sender.
+	ASSERT_EQ(handler.received.size(), 1u);
+	EXPECT_EQ(handler.received[0].bytesRead, 22);
+	EXPECT_EQ(handler.received[0].port, 2222);
+	ASSERT_EQ(handler.deallocated.size(), 1u);
+	EXPECT_EQ(handler.deallocated[0], slots[0]);
+}
+
+// ---------------------------------------------------------------------------
+// RakNetSocket2::SendBatch -- the portable default must match the sendmmsg
+// override's contract: a datagram COUNT, and an error only if nothing went out.
+// ---------------------------------------------------------------------------
+
+TEST(SocketSendBatch, ReturnsDatagramCountNotByteTotal)
+{
+	RecordingSocket socket;
+	RNS2_SendParameters sends[3];
+	char payload[64] = {};
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		sends[i].data = payload;
+		sends[i].length = 40; // 3 * 40 bytes, but only 3 datagrams
+		sends[i].systemAddress = MakeDest(1000);
+	}
+
+	EXPECT_EQ(socket.SendBatch(sends, 3, _FILE_AND_LINE_), 3);
+	EXPECT_EQ(socket.sent.size(), 3u);
+}
+
+TEST(SocketSendBatch, PropagatesErrorOnlyWhenNothingWasSent)
+{
+	RNS2_SendParameters sends[4];
+	char payload[8] = {};
+	for (unsigned i = 0; i < 4; ++i)
+	{
+		sends[i].data = payload;
+		sends[i].length = 8;
+		sends[i].systemAddress = MakeDest(1000);
+	}
+
+	RecordingSocket allFail;
+	allFail.failFrom = 0;
+	EXPECT_EQ(allFail.SendBatch(sends, 4, _FILE_AND_LINE_), -1);
+
+	// Two out, then a failure: report the progress made, like sendmmsg does.
+	RecordingSocket partial;
+	partial.failFrom = 2;
+	EXPECT_EQ(partial.SendBatch(sends, 4, _FILE_AND_LINE_), 2);
+	EXPECT_EQ(partial.sent.size(), 2u);
+}
+
+// ---------------------------------------------------------------------------
+// RNS2SendBatch -- accumulating datagrams and flushing them through SendBatch.
+// ---------------------------------------------------------------------------
+
+TEST(RNS2SendBatch, CopiesPayloadsSoCallerCanReuseItsBuffer)
+{
+	// The reliability layer reuses one serialization buffer per datagram, so the
+	// batch must copy rather than alias.
+	RecordingSocket socket;
+	char scratch[8];
+	{
+		RNS2SendBatch batch(&socket, MakeDest(4242));
+		memcpy(scratch, "first", 5);
+		batch.Add(scratch, 5);
+		memcpy(scratch, "secnd", 5);
+		batch.Add(scratch, 5);
+		EXPECT_TRUE(socket.sent.empty()) << "nothing should go out before Flush";
+	}
+
+	ASSERT_EQ(socket.sent.size(), 2u);
+	EXPECT_EQ(socket.sent[0].payload, "first");
+	EXPECT_EQ(socket.sent[1].payload, "secnd");
+	EXPECT_EQ(socket.sent[0].port, 4242);
+	EXPECT_EQ(socket.sent[1].port, 4242);
+}
+
+TEST(RNS2SendBatch, DestructorFlushesAsBackstop)
+{
+	RecordingSocket socket;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		batch.Add("x", 1);
+	}
+	ASSERT_EQ(socket.sent.size(), 1u);
+	EXPECT_EQ(socket.sent[0].payload, "x");
+}
+
+TEST(RNS2SendBatch, ExplicitFlushIsNotRepeatedByTheDestructor)
+{
+	RecordingSocket socket;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		batch.Add("x", 1);
+		batch.Flush();
+		EXPECT_EQ(socket.sent.size(), 1u);
+	}
+	EXPECT_EQ(socket.sent.size(), 1u) << "destructor must not re-send a flushed batch";
+}
+
+TEST(RNS2SendBatch, FlushesAtTheBatchBoundaryInsteadOfOverrunning)
+{
+	RecordingSocket socket;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(7000));
+		for (unsigned i = 0; i < MMSG_BATCH_MAX + 3; ++i)
+		{
+			const char byte = (char) ('a' + (i % 26));
+			batch.Add(&byte, 1);
+		}
+		// The first MMSG_BATCH_MAX are flushed when slot MMSG_BATCH_MAX is added.
+		EXPECT_EQ(socket.sent.size(), (size_t) MMSG_BATCH_MAX);
+	}
+
+	ASSERT_EQ(socket.sent.size(), (size_t) MMSG_BATCH_MAX + 3);
+	for (unsigned i = 0; i < MMSG_BATCH_MAX + 3; ++i)
+		EXPECT_EQ(socket.sent[i].payload, std::string(1, (char) ('a' + (i % 26))))
+		    << "datagram " << i << " out of order or corrupted across the boundary";
+}
+
+TEST(RNS2SendBatch, DropsOversizedDatagramsInsteadOfTruncating)
+{
+	// Silently clamping would ship corrupted bytes with no error signal; the
+	// reliability layer resends what never went out.
+#if defined(_DEBUG)
+	GTEST_SKIP() << "the oversized case trips RakAssert by design in debug builds";
+#else
+	RecordingSocket socket;
+	std::vector<char> oversized(MAXIMUM_MTU_SIZE + 1, 'z');
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		batch.Add(oversized.data(), MAXIMUM_MTU_SIZE + 1);
+		batch.Add("ok", 2);
+	}
+	ASSERT_EQ(socket.sent.size(), 1u);
+	EXPECT_EQ(socket.sent[0].payload, "ok");
+#endif
+}
+
+TEST(RNS2SendBatch, EmptyBatchSendsNothing)
+{
+	RecordingSocket socket;
+	{
+		RNS2SendBatch batch(&socket, MakeDest(1234));
+		(void) batch;
+	}
+	EXPECT_EQ(socket.sendCalls, 0u);
 }

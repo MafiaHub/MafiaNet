@@ -537,12 +537,19 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 	sockaddr_storage addrs[MMSG_BATCH_MAX];
 	int lens[MMSG_BATCH_MAX];
 
+	// Recv structs are held across a failed recvmmsg rather than reallocated
+	// each pass: Linux reports asynchronous errors on a connectionless UDP
+	// socket (ECONNREFUSED when a peer's port is closed), and rebuilding the
+	// whole batch on every one of those would churn MMSG_BATCH_MAX alloc/free
+	// round trips per pass instead of the scalar path's one.
+	unsigned allocated=0;
+	unsigned consecutiveErrors=0;
+
 	while ( endThreads == false )
 	{
-		// Preallocate a batch of recv structs and point each iovec at its data
-		// buffer, so recvmmsg writes straight into the structs we will hand to
+		// Top the batch back up to full, then point each iovec at the struct's
+		// data buffer so recvmmsg writes straight into the structs we hand to
 		// the event handler -- no extra copy.
-		unsigned allocated=0;
 		for (; allocated<MMSG_BATCH_MAX; ++allocated)
 		{
 			RNS2RecvStruct *s = binding.eventHandler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
@@ -550,18 +557,25 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 				break;
 			s->socket=this;
 			slots[allocated]=s;
-			iovecs[allocated].iov_base=s->data;
-			iovecs[allocated].iov_len=sizeof(s->data);
-			memset(&msgs[allocated], 0, sizeof(msgs[allocated]));
-			msgs[allocated].msg_hdr.msg_iov=&iovecs[allocated];
-			msgs[allocated].msg_hdr.msg_iovlen=1;
-			msgs[allocated].msg_hdr.msg_name=&addrs[allocated];
-			msgs[allocated].msg_hdr.msg_namelen=sizeof(addrs[allocated]);
 		}
 		if (allocated==0)
 		{
-			RakSleep(0);
+			// Out of recv structs entirely; back off rather than spin.
+			RakSleep(1);
 			continue;
+		}
+
+		// Rebuilt every pass, not just on allocation: recvmmsg writes back
+		// msg_namelen and msg_flags, so a reused header must be reset.
+		for (unsigned i=0; i<allocated; ++i)
+		{
+			iovecs[i].iov_base=slots[i]->data;
+			iovecs[i].iov_len=sizeof(slots[i]->data);
+			memset(&msgs[i], 0, sizeof(msgs[i]));
+			msgs[i].msg_hdr.msg_iov=&iovecs[i];
+			msgs[i].msg_hdr.msg_iovlen=1;
+			msgs[i].msg_hdr.msg_name=&addrs[i];
+			msgs[i].msg_hdr.msg_namelen=sizeof(addrs[i]);
 		}
 
 		// MSG_WAITFORONE: block until at least one datagram is ready, then return
@@ -573,22 +587,30 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		if (n<0)
 		{
 			// Interrupted / error (includes the shutdown poke unblocking us).
-			// Release the whole batch and re-evaluate endThreads.
-			for (unsigned i=0; i<allocated; ++i)
-				binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
-			RakSleep(0);
+			// Keep the batch and re-evaluate endThreads. Back off progressively
+			// so a persistent error cannot spin this thread at 100%; the loop
+			// condition is still checked first, so shutdown stays prompt.
+			if (consecutiveErrors<MMSG_ERROR_BACKOFF_MAX_MS)
+				++consecutiveErrors;
+			RakSleep(consecutiveErrors);
 			continue;
 		}
+		consecutiveErrors=0;
 
 		for (unsigned i=0; i<allocated; ++i)
 			lens[i] = (i < (unsigned) n) ? (int) msgs[i].msg_len : 0;
 
 		// Fan the received datagrams out to the handler and free the unused tail.
 		// DispatchRecvBatch is the same portable, unit-tested routine exercised
-		// by the hermetic MmsgBatch tests.
+		// by the hermetic MmsgBatch tests. It takes ownership of every slot.
 		DispatchRecvBatch(binding.eventHandler, slots, allocated, lens, addrs,
 		                  (unsigned) n, this, now);
+		allocated=0;
 	}
+
+	// Release whatever the last pass was still holding.
+	for (unsigned i=0; i<allocated; ++i)
+		binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
 }
 #endif // MAFIANET_USE_RECVMMSG && __linux__
 

@@ -9,18 +9,18 @@
 /// \brief Portable helpers for batched datagram I/O (recvmmsg / sendmmsg).
 ///
 /// The Linux-only syscall glue lives in RakNetSocket2_Berkley.cpp behind the
-/// MAFIANET_USE_RECVMMSG / MAFIANET_USE_SENDMMSG build flags. The logic that is
-/// actually bug-prone -- the sendmmsg partial-send resume loop, the byte-order
-/// handling when turning a raw sockaddr into a SystemAddress, and fanning a
-/// received batch out to the event handler -- is factored out here so it is
-/// portable and unit-testable on platforms that lack the mmsg syscalls (macOS,
-/// Windows, the BSDs).
+/// MAFIANET_USE_RECVMMSG / MAFIANET_USE_SENDMMSG build flags. Everything in this
+/// header is portable and compiled unconditionally -- including RNS2SendBatch,
+/// which only needs RakNetSocket2::SendBatch (whose base implementation works on
+/// every platform) -- so the logic that is actually bug-prone is unit-testable
+/// even where the mmsg syscalls do not exist (macOS, Windows, the BSDs).
 
 #ifndef __MAFIANET_MMSG_BATCH_H
 #define __MAFIANET_MMSG_BATCH_H
 
 #include "mafianet/socket2.h"
 #include "mafianet/assert.h"
+#include "mafianet/memoryoverride.h"
 
 #include <string.h> // memcpy
 
@@ -30,11 +30,22 @@ namespace MafiaNet
 /// Maximum datagrams coalesced into a single recvmmsg/sendmmsg system call.
 static const unsigned MMSG_BATCH_MAX = 64;
 
+/// Upper bound (ms) of the progressive back-off the batched recv loop applies
+/// after consecutive recvmmsg failures, so a persistent asynchronous socket
+/// error cannot spin the polling thread.
+static const unsigned MMSG_ERROR_BACKOFF_MAX_MS = 10;
+
 /// Convert a raw sockaddr (IPv4 or IPv6) into a SystemAddress, reproducing the
 /// byte-order handling of the scalar recvfrom path in RNS2_Berkley. \a out
 /// receives the address; its port is stored in network order in the address
 /// union and mirrored (host order) into debugPort.
-void SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
+///
+/// Returns false for an address family this build cannot represent (anything
+/// other than AF_INET when RAKNET_SUPPORT_IPV6 is off, or AF_UNSPEC), in which
+/// case \a out is set to UNASSIGNED_SYSTEM_ADDRESS rather than left holding
+/// whatever the recycled recv struct contained. Callers must not dispatch a
+/// datagram whose address failed to decode.
+bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 
 /// Drive a sendmmsg-style batched send to completion, handling partial sends.
 ///
@@ -81,7 +92,8 @@ int DriveBatchedSend(unsigned total, TransmitFn transmit)
 /// each i in [0,received) with lens[i] > 0 the struct is stamped with the byte
 /// count, source address (from addrs[i]), timestamp \a now and \a socket, then
 /// handed to handler->OnRNS2Recv. Every other struct -- short reads
-/// (lens[i] <= 0) and the unused tail [received,allocated) -- is returned via
+/// (lens[i] <= 0), datagrams whose source address failed to decode, and the
+/// unused tail [received,allocated) -- is returned via
 /// handler->DeallocRNS2RecvStruct so no buffer leaks.
 void DispatchRecvBatch(RNS2EventHandler *handler,
                        RNS2RecvStruct **slots, unsigned allocated,
@@ -89,10 +101,10 @@ void DispatchRecvBatch(RNS2EventHandler *handler,
                        unsigned received, RakNetSocket2 *socket,
                        MafiaNet::TimeUS now);
 
-#if defined(MAFIANET_USE_SENDMMSG)
 /// Accumulates already-prepared datagrams (post-encryption, post packet-loss
 /// simulation) destined for a single peer and flushes them via
-/// RakNetSocket2::SendBatch -- one sendmmsg per burst on Linux.
+/// RakNetSocket2::SendBatch -- one sendmmsg per burst on Linux, a plain Send()
+/// loop everywhere else.
 ///
 /// Bytes are copied in because the caller's serialization buffer is reused for
 /// the next datagram. It is meant to be loop-local: construct it before a send
@@ -102,8 +114,25 @@ class RNS2SendBatch
 {
 public:
 	RNS2SendBatch(RakNetSocket2 *socket, const SystemAddress &dest)
-		: socket(socket), dest(dest), count(0) {}
-	~RNS2SendBatch() { Flush(); }
+		: socket(socket), dest(dest), count(0)
+	{
+		// The datagram buffers are a single block shared by every batch on this
+		// thread (see Slot), so two live batches would silently overwrite each
+		// other's payloads. The class is loop-local by construction; this catches
+		// a future caller that nests one inside another.
+		RakAssert(ThreadBatchLive() == false && "RNS2SendBatch is not reentrant");
+		ThreadBatchLive() = true;
+	}
+	~RNS2SendBatch()
+	{
+		Flush();
+		ThreadBatchLive() = false;
+	}
+
+	// Non-copyable, non-movable: a copy would alias the same shared buffers and
+	// flush the same datagrams a second time from its destructor.
+	RNS2SendBatch(const RNS2SendBatch &) = delete;
+	RNS2SendBatch &operator=(const RNS2SendBatch &) = delete;
 
 	/// Append one already-prepared datagram. Oversized datagrams are rejected
 	/// rather than truncated: the scalar send path never truncates, and silently
@@ -139,14 +168,30 @@ public:
 	}
 
 private:
-	// One buffer block per update thread, reused across every connection and
-	// tick -- the batch is filled and flushed synchronously within a single
-	// UpdateInternal call, so there is no reentrancy. This keeps the send path
-	// allocation-free (the old per-tick new[] churned ~95 KB each call).
+	// One buffer block per thread that actually batches, reused across every
+	// connection and tick -- the batch is filled and flushed synchronously
+	// within a single UpdateInternal call, so there is no reentrancy. This keeps
+	// the send path allocation-free (the old per-tick new[] churned ~95 KB each
+	// call) while keeping the block off the stack and out of TLS for the many
+	// threads that never send a batch: it is allocated on this thread's first
+	// Add() and released when the thread exits.
 	static char *Slot(unsigned i)
 	{
-		static thread_local char buffers[MMSG_BATCH_MAX][MAXIMUM_MTU_SIZE];
-		return buffers[i];
+		struct Block
+		{
+			char *bytes;
+			Block() : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
+			~Block() { MafiaNet::OP_DELETE_ARRAY(bytes, _FILE_AND_LINE_); }
+		};
+		static thread_local Block block;
+		return block.bytes + (size_t) i * MAXIMUM_MTU_SIZE;
+	}
+
+	// Debug-only guard against a second live batch on the same thread.
+	static bool &ThreadBatchLive()
+	{
+		static thread_local bool live = false;
+		return live;
 	}
 
 	RakNetSocket2 *socket;
@@ -154,7 +199,6 @@ private:
 	unsigned count;
 	int lengths[MMSG_BATCH_MAX];
 };
-#endif // MAFIANET_USE_SENDMMSG
 
 } // namespace MafiaNet
 

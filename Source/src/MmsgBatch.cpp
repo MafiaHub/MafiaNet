@@ -10,7 +10,7 @@
 namespace MafiaNet
 {
 
-void SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
+bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
 {
 	// Mirrors the byte-order handling of RNS2_Berkley::RecvFromBlockingIPV4And6:
 	// the sockaddr keeps the port in network order (copied verbatim into the
@@ -20,15 +20,24 @@ void SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
 		memcpy(&out->address.addr4,
 		       reinterpret_cast<const sockaddr_in *>(&from), sizeof(sockaddr_in));
 		out->debugPort = ntohs(out->address.addr4.sin_port);
+		return true;
 	}
 #if RAKNET_SUPPORT_IPV6 == 1
-	else
+	if (from.ss_family == AF_INET6)
 	{
 		memcpy(&out->address.addr6,
 		       reinterpret_cast<const sockaddr_in6 *>(&from), sizeof(sockaddr_in6));
 		out->debugPort = ntohs(out->address.addr6.sin6_port);
+		return true;
 	}
 #endif
+
+	// A family this build cannot represent (an IPv6 source on an IPv4-only
+	// build, or AF_UNSPEC from a failed read). Overwrite rather than leave the
+	// recycled struct's previous sender in place -- that would attribute the
+	// datagram to the wrong peer.
+	*out = UNASSIGNED_SYSTEM_ADDRESS;
+	return false;
 }
 
 void DispatchRecvBatch(RNS2EventHandler *handler,
@@ -43,18 +52,18 @@ void DispatchRecvBatch(RNS2EventHandler *handler,
 	for (unsigned i = 0; i < received; ++i)
 	{
 		RNS2RecvStruct *s = slots[i];
-		if (lens[i] > 0)
+		if (lens[i] > 0 && SockaddrToSystemAddress(addrs[i], &s->systemAddress))
 		{
 			s->bytesRead = lens[i];
 			s->timeRead = now;
 			s->socket = socket;
-			SockaddrToSystemAddress(addrs[i], &s->systemAddress);
 			handler->OnRNS2Recv(s);
 		}
 		else
 		{
-			// Zero-length read: same as the scalar bytesRead<=0 branch -- free
-			// the struct rather than surfacing an empty packet.
+			// Zero-length read (same as the scalar bytesRead<=0 branch) or an
+			// undecodable source address -- free the struct rather than
+			// surfacing a packet we cannot attribute to a peer.
 			handler->DeallocRNS2RecvStruct(s, __FILE__, __LINE__);
 		}
 	}

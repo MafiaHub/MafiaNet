@@ -34,6 +34,47 @@ jobs:
           path: test-results/junit.xml
           if-no-files-found: ignore
 
+  # Linux with batched datagram I/O turned on. The recvmmsg/sendmmsg paths and
+  # their reliability-layer wiring are compiled out of every other job, so
+  # without this they would never even be built. Runs both suites so the
+  # batched send path is exercised over real loopback traffic.
+  linux-mmsg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DMAFIANET_BUILD_TESTS=ON \
+            -DMAFIANET_USE_RECVMMSG=ON \
+            -DMAFIANET_USE_SENDMMSG=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Run tests
+        run: |
+          ctest --test-dir build \
+            --output-on-failure \
+            --repeat until-pass:3 \
+            --timeout 600 \
+            --output-junit junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux-mmsg
+          path: build/junit.xml
+          if-no-files-found: ignore
+
   # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest

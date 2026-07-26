@@ -58,15 +58,19 @@ void RakNetSocket2::SetRecvEventHandler(RNS2EventHandler *_eventHandler) {eventH
 RNS2SendResult RakNetSocket2::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
 {
 	// Portable default: send each datagram individually. Platforms with a real
-	// batched syscall (Linux/sendmmsg) override this.
-	RNS2SendResult total=0;
-	for (unsigned i=0; i<count; ++i)
-	{
-		RNS2SendResult r = Send(&sends[i], file, line);
-		if (r>0)
-			total += r;
-	}
-	return total;
+	// batched syscall (Linux/sendmmsg) override this. Driving it through
+	// DriveBatchedSend -- one datagram per "call" -- gives the same return
+	// contract as the sendmmsg override: a datagram count, and the error code
+	// only when nothing at all went out. Send() reports bytes, so a successful
+	// send is normalized to 1 (a zero-byte return still counts as one datagram
+	// accepted; it must not be mistaken for DriveBatchedSend's "no progress").
+	return DriveBatchedSend(count,
+		[&](unsigned offset, unsigned remaining) -> int
+		{
+			(void) remaining;
+			RNS2SendResult r = Send(&sends[offset], file, line);
+			return r>=0 ? 1 : (int) r;
+		});
 }
 RNS2Type RakNetSocket2::GetSocketType(void) const {return socketType;}
 void RakNetSocket2::SetSocketType(RNS2Type t) {socketType=t;}

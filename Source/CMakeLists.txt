@@ -3,9 +3,10 @@
 # Copyright (c) 2024, MafiaHub
 # Licensed under MIT-style license
 
-# Batched datagram I/O (Linux). OFF by default; the portable helpers in
-# MmsgBatch.h are always compiled and unit-tested, but the recvmmsg/sendmmsg
-# syscall paths and their wiring only activate on Linux when these are ON.
+# Batched datagram I/O (Linux). OFF by default; everything in MmsgBatch.h --
+# the helpers and the RNS2SendBatch accumulator alike -- is always compiled and
+# unit-tested, but the recvmmsg/sendmmsg syscall paths and their wiring into the
+# reliability layer only activate on Linux when these are ON.
 option(MAFIANET_USE_RECVMMSG "Batch UDP receives with recvmmsg (Linux only)" OFF)
 option(MAFIANET_USE_SENDMMSG "Batch UDP sends with sendmmsg (Linux only)" OFF)
 
