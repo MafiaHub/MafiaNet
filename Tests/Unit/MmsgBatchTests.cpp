@@ -247,6 +247,75 @@ TEST(DriveBatchedSend, EmptyBatchNeverCallsTransmit)
 }
 
 // ---------------------------------------------------------------------------
+// ClassifySendmmsgErrno -- the transient-vs-permanent split the RNS2_Linux
+// sendmmsg override feeds into DriveBatchedSend. Getting this backwards loses
+// traffic silently (a permanent error read as "stop" discards the whole batch
+// tail; a transient one read as "drop" throws away a healthy datagram), and the
+// syscall itself cannot be provoked from a unit test -- hence testing the
+// mapping directly.
+// ---------------------------------------------------------------------------
+
+TEST(ClassifySendmmsgErrno, TransientSocketWideErrorsStopTheBatch)
+{
+	// 0 == "no progress possible right now", so DriveBatchedSend stops without
+	// dropping anything. EAGAIN and EWOULDBLOCK are the same value on Linux;
+	// both are listed because that is not guaranteed everywhere.
+	EXPECT_EQ(ClassifySendmmsgErrno(EAGAIN), 0);
+	EXPECT_EQ(ClassifySendmmsgErrno(EWOULDBLOCK), 0);
+	EXPECT_EQ(ClassifySendmmsgErrno(ENOBUFS), 0);
+	EXPECT_EQ(ClassifySendmmsgErrno(EINTR), 0);
+}
+
+TEST(ClassifySendmmsgErrno, PermanentPerMessageErrorsDropOnlyThatDatagram)
+{
+	// A negative return names the message at the current offset as undeliverable,
+	// so DriveBatchedSend drops it and still ships the rest of the batch.
+	EXPECT_EQ(ClassifySendmmsgErrno(EMSGSIZE), -EMSGSIZE);
+	EXPECT_EQ(ClassifySendmmsgErrno(EINVAL), -EINVAL);
+	EXPECT_EQ(ClassifySendmmsgErrno(EDESTADDRREQ), -EDESTADDRREQ);
+	EXPECT_EQ(ClassifySendmmsgErrno(ECONNREFUSED), -ECONNREFUSED);
+}
+
+TEST(ClassifySendmmsgErrno, UnsetErrnoStopsRatherThanSpinning)
+{
+	// errno left at 0 cannot be attributed to a single message, and -0 == 0 would
+	// read as "stop" anyway. Pinned so it can never become a value that makes
+	// DriveBatchedSend loop.
+	EXPECT_EQ(ClassifySendmmsgErrno(0), 0);
+	EXPECT_EQ(ClassifySendmmsgErrno(-1), 0);
+}
+
+TEST(ClassifySendmmsgErrno, DrivesTheBatchTailPastAPermanentFailure)
+{
+	// The end-to-end reason the split exists: a permanent error on the first
+	// message must not cost the remaining four.
+	std::vector<unsigned> offsets;
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned remaining) {
+		offsets.push_back(offset);
+		if (offset == 0)
+			return ClassifySendmmsgErrno(EMSGSIZE);
+		return (int) remaining;
+	});
+	EXPECT_EQ(sent, 4);
+	EXPECT_EQ(offsets, (std::vector<unsigned>{0, 1}));
+}
+
+TEST(ClassifySendmmsgErrno, StopsTheBatchTailOnATransientFailure)
+{
+	// The mirror image: a full send buffer must not be mistaken for a bad
+	// datagram, which would drop one healthy message per remaining slot.
+	std::vector<unsigned> offsets;
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned) {
+		offsets.push_back(offset);
+		if (offset == 0)
+			return 2; // two accepted, then the buffer fills up
+		return ClassifySendmmsgErrno(ENOBUFS);
+	});
+	EXPECT_EQ(sent, 2);
+	EXPECT_EQ(offsets, (std::vector<unsigned>{0, 2}));
+}
+
+// ---------------------------------------------------------------------------
 // SockaddrToSystemAddress -- byte-order handling.
 // ---------------------------------------------------------------------------
 

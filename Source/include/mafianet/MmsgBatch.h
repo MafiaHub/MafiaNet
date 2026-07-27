@@ -24,6 +24,20 @@
 
 #include <string.h> // memcpy
 #include <stdio.h>  // RAKNET_DEBUG_PRINTF defaults to printf
+#include <errno.h>  // error numbers classified by ClassifySendmmsgErrno
+
+/// Diagnostics for dropped datagrams, debug builds only. RAKNET_DEBUG_PRINTF
+/// resolves to a plain printf in *every* configuration, and both call sites
+/// below sit on the network thread's send path -- a routine ENOBUFS burst on a
+/// loaded server would turn them into unbounded, stdout-lock-taking spam inside
+/// the very loop batching exists to speed up. Staying silent in a shipping
+/// build matches the scalar send path, which ignores an individual sendto
+/// failure without a word.
+#if defined(_DEBUG)
+#define MMSG_BATCH_DEBUG_PRINTF(...) RAKNET_DEBUG_PRINTF(__VA_ARGS__)
+#else
+#define MMSG_BATCH_DEBUG_PRINTF(...) ((void) 0)
+#endif
 
 namespace MafiaNet
 {
@@ -102,6 +116,35 @@ int DriveBatchedSend(unsigned total, TransmitFn transmit)
 	return (int) sent;
 }
 
+/// Map the errno of a failed sendmmsg(2) onto DriveBatchedSend's transmit()
+/// return contract. sendmmsg funnels two opposite conditions through the same
+/// -1, so this split is the whole correctness of the batched send path:
+///   - transient and socket-wide (the send buffer is full, or the call was
+///     interrupted) -> 0, "no progress possible right now". The messages
+///     themselves are fine; stop rather than burn a syscall per remaining
+///     datagram. Reliable traffic is resent by the reliability layer on a later
+///     tick.
+///   - anything else (EMSGSIZE, EINVAL, EDESTADDRREQ, an ICMP error posted
+///     against a prior send) -> -err, a property of the message at the current
+///     offset. DriveBatchedSend drops that one datagram and still ships the
+///     rest; treating it as "stop" would silently discard every datagram after
+///     the bad one, which the scalar Send() loop would have delivered.
+///
+/// Free function rather than inline in the override so the mapping is unit
+/// testable without a real socket -- it is the one part of the sendmmsg glue
+/// where getting it backwards loses traffic silently.
+inline int ClassifySendmmsgErrno(int err)
+{
+	// A caller that hands us a non-error (errno unset, or a nonsensical
+	// negative) gets "stop": it cannot be attributed to a single message, and
+	// stopping can never spin.
+	if (err <= 0)
+		return 0;
+	if (err == EAGAIN || err == EWOULDBLOCK || err == ENOBUFS || err == EINTR)
+		return 0;
+	return -err;
+}
+
 /// Fan a received batch out to the event handler.
 ///
 /// \a slots[0..allocated) are pre-allocated recv structs whose .data buffers
@@ -162,9 +205,10 @@ public:
 		if (length < 0 || length > MAXIMUM_MTU_SIZE)
 		{
 			// Drop rather than corrupt. Reliable traffic is resent by the
-			// reliability layer; an unreliable datagram is simply lost, which is
-			// why the diagnostic below is the only trace it leaves.
-			RAKNET_DEBUG_PRINTF("RNS2SendBatch dropped an oversized datagram (%d bytes).\n", length);
+			// reliability layer; an unreliable datagram is simply lost. The
+			// RakAssert above and the diagnostic below are both debug-only, so in
+			// a shipping build this drop is silent by design.
+			MMSG_BATCH_DEBUG_PRINTF("RNS2SendBatch dropped an oversized datagram (%d bytes).\n", length);
 			return;
 		}
 		if (count == MMSG_BATCH_MAX)
@@ -195,7 +239,7 @@ public:
 		// override cannot be unit-tested against, so check it at runtime here.
 		RakAssert(sent <= (RNS2SendResult) count && "SendBatch must return a datagram count, not a byte total");
 		if (sent < 0 || (unsigned) sent < count)
-			RAKNET_DEBUG_PRINTF("SendBatch sent %d of %u datagrams.\n", (int) sent, count);
+			MMSG_BATCH_DEBUG_PRINTF("SendBatch sent %d of %u datagrams.\n", (int) sent, count);
 		// Cleared unconditionally: a datagram the socket refused is dropped here,
 		// not carried into the next flush. Reliable traffic is resent by the
 		// reliability layer; retrying in place would reorder it against the

@@ -291,7 +291,9 @@ SocketLayerOverride* RNS2_Windows::GetSocketLayerOverride(void) {return slo;}
 #else
 RNS2BindResult RNS2_Linux::Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line ) {return BindShared(bindParameters, file, line);}
 RNS2SendResult RNS2_Linux::Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line ) {return Send_Windows_Linux_360NoVDP(rns2Socket,sendParameters, file, line);}
-#if defined(MAFIANET_USE_SENDMMSG)
+// See the declaration in socket2.h for why __linux__ is required here and not
+// just the build flag.
+#if defined(MAFIANET_USE_SENDMMSG) && defined(__linux__)
 RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
 {
 	// sendmmsg has no per-message TTL, whereas the scalar Send() honours
@@ -313,8 +315,9 @@ RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count
 	// coalesces up to MMSG_BATCH_MAX datagrams into one sendmmsg. sendmmsg
 	// returns the number of messages sent (>=1) or -1 (nothing sent). It funnels
 	// both transient socket-wide conditions and permanent per-message failures
-	// through that same -1, so classify errno before handing it back: the two
-	// mean opposite things to DriveBatchedSend (stop vs. drop one and continue).
+	// through that same -1, so ClassifySendmmsgErrno (unit-tested in
+	// MmsgBatchTests) splits them before handing the result back: the two mean
+	// opposite things to DriveBatchedSend (stop vs. drop one and continue).
 	const RNS2SendResult sent = DriveBatchedSend(count,
 		[&](unsigned offset, unsigned remaining) -> int
 		{
@@ -351,18 +354,7 @@ RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count
 			const int r = sendmmsg(rns2Socket, msgs, chunk, 0);
 			if (r>=0)
 				return r;
-			const int err = errno;
-			// Transient and socket-wide: the send buffer is full or the call was
-			// interrupted. Nothing in this batch can go out right now, and the
-			// messages themselves are fine -- stop rather than burn a syscall per
-			// remaining datagram. Reliable traffic is resent by the reliability
-			// layer on a later tick.
-			if (err==EAGAIN || err==EWOULDBLOCK || err==ENOBUFS || err==EINTR)
-				return 0;
-			// Anything else (EMSGSIZE, EINVAL, EDESTADDRREQ, an ICMP error posted
-			// against a prior send) is a property of the message at `offset`.
-			// Report it as a per-message failure so the remainder still ships.
-			return -err;
+			return ClassifySendmmsgErrno(errno);
 		});
 	return sent;
 }

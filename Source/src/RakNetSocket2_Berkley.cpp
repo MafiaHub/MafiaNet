@@ -590,9 +590,11 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		int n = recvmmsg(rns2Socket, msgs, allocated, MSG_WAITFORONE, nullptr);
 		MafiaNet::TimeUS now = MafiaNet::GetTimeUS();
 
-		if (n<0)
+		if (n<=0)
 		{
-			// Interrupted or an asynchronous socket error. (Shutdown does not
+			// Interrupted, an asynchronous socket error, or -- not expected under
+			// MSG_WAITFORONE, but not worth a hot spin if a kernel ever does it --
+			// a pass that returned no datagrams at all. (Shutdown does not
 			// come through here: BlockOnStopRecvPollingThread pokes the socket
 			// with a real datagram, so it surfaces as a normal n>=1 pass and the
 			// loop condition below catches endThreads.) Keep the batch and back

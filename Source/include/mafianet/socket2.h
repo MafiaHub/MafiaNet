@@ -272,7 +272,11 @@ class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux_360
 public:
 	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
 	RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
-#if defined(MAFIANET_USE_SENDMMSG)
+	// __linux__ as well as the flag: RNS2_Linux is the non-Windows socket class,
+	// so macOS and the BSDs compile it too, and sendmmsg/mmsghdr do not exist
+	// there. Those platforms keep the portable base SendBatch (a Send() loop),
+	// which is why turning the flag on off-Linux is a no-op rather than an error.
+#if defined(MAFIANET_USE_SENDMMSG) && defined(__linux__)
 	RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 #endif
 
