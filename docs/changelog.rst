@@ -3,6 +3,53 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.12.0
+--------------
+
+**Networking**
+
+* **Batched datagram I/O** (``recvmmsg`` / ``sendmmsg``). On Linux the reliability
+  layer now coalesces a tick's outgoing datagrams into a single ``sendmmsg`` and
+  drains the socket with a single ``recvmmsg`` per burst, instead of one
+  ``sendto``/``recvfrom`` per packet. Measured at **~31x fewer system calls** on a
+  2560-message reliable-ordered burst (5525 to 178, median of 3 runs under
+  ``strace -c``); at low packet rates it changes nothing measurable.
+
+  There is **nothing to configure**: batching is a platform capability, guarded by
+  a plain ``#if defined(__linux__)``, and is always on where the syscalls exist.
+  Every other platform (macOS, Windows, the BSDs) compiles the portable
+  per-datagram paths. Delivery semantics are identical either way -- the same
+  datagrams arrive, in the same order, with the same reliability.
+
+* **Runtime fallback when the syscalls are unavailable.** If ``recvmmsg`` or
+  ``sendmmsg`` report ``ENOSYS`` -- a seccomp profile, gVisor, user-mode emulation,
+  or a kernel older than the syscall -- the process latches the condition once and
+  both paths revert to the portable per-datagram code for the rest of its life.
+  Only ``ENOSYS`` latches: ``EPERM`` is excluded because a firewall rejecting a
+  single destination reports it too. Verified end to end under a seccomp profile
+  forcing ``errno`` 38.
+
+* ``RakNetSocket2::SendBatch`` is a new virtual on the socket interface, with a
+  portable ``Send()``-loop default and a ``sendmmsg`` override on Linux. It returns
+  a datagram **count** (not a byte total), or a negative error only when nothing at
+  all went out, mirroring ``sendmmsg(2)``. A datagram that fails on its own is
+  dropped and the rest of the batch is still sent.
+
+**Testing / CI**
+
+* ``Tests/Unit/MmsgBatchTests.cpp`` (58 cases) covers the partial-send resume state
+  machine, the transient-vs-permanent ``errno`` split, missing-syscall detection,
+  ``sockaddr`` decoding, and the recv-slot carry-over including a 500-pass
+  fixed-seed stress that no slot is leaked or double-freed.
+* ``Tests/Integration/MmsgBatchLiveTests.cpp`` drives bursts far past the batch
+  boundary -- the rest of the suite sends about one datagram per tick and never
+  fills a batch. Each message is its own checksum, so truncation, payload aliasing
+  and reordering each fail a distinct assertion.
+* New ``linux-native`` CI job builds and tests Debug and Release natively. The
+  hermetic unit suite now runs exactly once; ``--repeat until-pass:3`` is reserved
+  for the integration suite, where it absorbs loopback timing misses rather than
+  masking nondeterminism.
+
 Version 0.11.0
 --------------
 

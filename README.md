@@ -318,7 +318,13 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.11.0 (Latest)
+### Version 0.12.0 (Latest)
+- **Batched datagram I/O (`recvmmsg` / `sendmmsg`)**: on Linux the reliability layer coalesces a tick's outgoing datagrams into a single `sendmmsg` and drains the socket with a single `recvmmsg` per burst, instead of one `sendto`/`recvfrom` per packet — **~31x fewer system calls** on a 2560-message reliable-ordered burst (5525 → 178, median of 3 runs under `strace -c`). Nothing to configure: it is a platform capability guarded by `#if defined(__linux__)`, always on where the syscalls exist, with the portable per-datagram paths compiled everywhere else. Delivery, ordering and reliability are unchanged
+- **Runtime fallback on `ENOSYS`**: if a seccomp profile, sandbox, or old kernel does not implement the syscalls, the process latches once and both paths revert to the portable code — verified under a seccomp profile forcing `errno` 38. Only `ENOSYS` latches; `EPERM` is excluded because a firewall rejecting one destination reports it too
+- **`RakNetSocket2::SendBatch`**: new virtual with a portable `Send()`-loop default and a `sendmmsg` override on Linux, returning a datagram count (not a byte total) and mirroring `sendmmsg(2)`'s "error only if nothing was sent" contract
+- **Testing**: 58 unit cases over the batching helpers (partial-send resume, `errno` classification, recv-slot carry-over stress) plus live integration tests that actually fill batches; new `linux-native` CI job covering Debug and Release, with the hermetic unit suite no longer retried
+
+### Version 0.11.0
 - **Range-based receive `Peer::incoming()`**: drains the receive queue with a range-`for`; each iteration yields a fresh `PacketPtr` freed at end of scope, and `pkt.id()` returns the `ID_TIMESTAMP`-aware identifier
 - **Startup builders `Peer::server()` / `Peer::client()`**: fluent chain folding `SocketDescriptor` + `Startup` + result check + `SetMaximumIncomingConnections` / `Connect` into one call; `start()` returns a move-only `Result<Peer>` whose error preserves the underlying `StartupResult` / `ConnectionAttemptResult` (tagged by `PeerStage`) instead of collapsing to a bool. Security stays opt-in (`secure()` / `public_key()`)
 - **Serialization archives** (`mafianet/Archive.h`): one `serialize(Ar&)` member template describes a type's wire format for both directions; `WriteArchive` / `ReadArchive` adapt a `BitStream`, recursing into nested `serialize()` types and falling through to `operator<<`/`operator>>` (incl. per-type specializations) for everything else
