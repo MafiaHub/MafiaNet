@@ -644,6 +644,11 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 {
 	RakAssert(packet);
 
+	// Every branch below dispatches on data[0]; an empty packet would read past the
+	// buffer before any handler gets a chance to validate.
+	if (packet == nullptr || packet->length == 0)
+		return RR_CONTINUE_PROCESSING;
+
 	switch (packet->data[0])
 	{
 	case ID_RAKVOICE_OPEN_CHANNEL_REQUEST:
@@ -701,6 +706,14 @@ void RakVoice::OnOpenChannelReply(Packet *packet)
 {
 	if (voiceChannels.HasData(packet->guid))
 		return;
+
+	// Same guard as OnOpenChannelRequest. Without it an unsolicited reply opens a
+	// channel on an uninitialised instance, where bufferSizeBytes is 0 and the rings
+	// below are allocated empty. Off the relay path the encoder create would fail
+	// first and bail, but a decode-only relay channel skips that create entirely.
+	if (bufferedOutput == nullptr)
+		return;
+
 	OpenChannel(packet);
 }
 
@@ -715,13 +728,20 @@ void RakVoice::OpenChannel(Packet *packet)
 	channel->guid = packet->guid;
 	channel->isSendingVoiceData = false;
 
-	int newSampleRate;
-	in.Read(newSampleRate);
+	// A truncated packet leaves newSampleRate indeterminate, so the read is checked
+	// rather than assumed. Both this and the range check below reject silently: the
+	// value arrives from a remote peer, and RakAssert is a real assert() in debug
+	// builds, so asserting on it hands any peer a way to abort a debug server.
+	int newSampleRate = 0;
+	if (in.Read(newSampleRate) == false)
+	{
+		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		return;
+	}
 	channel->remoteSampleRate = newSampleRate;
 
 	if (newSampleRate != 8000 && newSampleRate != 16000 && newSampleRate != 24000 && newSampleRate != 48000)
 	{
-		RakAssert(0);
 		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
 		return;
 	}

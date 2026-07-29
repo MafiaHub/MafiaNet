@@ -205,6 +205,8 @@ namespace {
     class RelayChannelProbe : public RakVoice {
       public:
         using RakVoice::GetOrCreateChannel;
+        using RakVoice::OnOpenChannelReply;
+        using RakVoice::OnReceive;
         unsigned OpenChannelCount() const {
             return voiceChannels.Size();
         }
@@ -250,4 +252,107 @@ TEST(RakVoiceRelayCap, KeepsServingSpeakersAlreadyOpenOnceFull) {
 TEST(RakVoiceRelayCap, RefusesChannelsBeforeInit) {
     RelayChannelProbe voice;
     EXPECT_EQ(voice.GetOrCreateChannel(RakNetGUID(0x3000ull)), nullptr);
+}
+
+// --- Hostile channel-open input ---------------------------------------------
+//
+// OnOpenChannelRequest/Reply parse a sample rate straight out of a remote
+// packet. These paths predate relay mode and are reachable by any connected
+// peer, so they are pinned here alongside it.
+
+namespace {
+    // A channel-open packet body: [id][int32 sample rate], as RequestVoiceChannel writes it.
+    std::vector<unsigned char> MakeOpenChannelPacket(int32_t sampleRate, bool truncated = false) {
+        std::vector<unsigned char> f(1 + sizeof(int32_t), 0);
+        f[0] = ID_RAKVOICE_OPEN_CHANNEL_REPLY;
+        // BitStream writes integers big-endian on little-endian hosts.
+        const unsigned char *r = reinterpret_cast<const unsigned char *>(&sampleRate);
+        for (size_t i = 0; i < sizeof(int32_t); i++) {
+            f[1 + i] = r[sizeof(int32_t) - 1 - i];
+        }
+        if (truncated) {
+            f.resize(2); // id + one stray byte: not enough for the rate
+        }
+        return f;
+    }
+} // namespace
+
+// RakAssert is a real assert() in debug builds, so asserting on a remotely
+// supplied sample rate would hand any peer a way to abort a debug server.
+TEST(RakVoiceOpenChannel, RejectsOutOfRangeSampleRateWithoutAsserting) {
+    RelayChannelProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+
+    for (int32_t bogus : {0, 1, -1, 44100, 96000, 2147483647}) {
+        auto bytes = MakeOpenChannelPacket(bogus);
+        Packet p = MakePacket(bytes);
+        p.guid = RakNetGUID(0x9000ull + static_cast<uint64_t>(bogus & 0xFF));
+
+        voice.OnOpenChannelReply(&p);
+    }
+
+    EXPECT_EQ(voice.OpenChannelCount(), 0u) << "no channel may be opened at an invalid rate";
+    voice.Deinit();
+}
+
+// A packet too short to hold the rate leaves the read incomplete; the value must
+// not be consumed.
+TEST(RakVoiceOpenChannel, RejectsTruncatedSampleRate) {
+    RelayChannelProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+
+    auto bytes = MakeOpenChannelPacket(48000, /*truncated=*/true);
+    Packet p = MakePacket(bytes);
+    p.guid = RakNetGUID(0x9100ull);
+
+    voice.OnOpenChannelReply(&p);
+
+    EXPECT_EQ(voice.OpenChannelCount(), 0u);
+    voice.Deinit();
+}
+
+TEST(RakVoiceOpenChannel, AcceptsEachSupportedSampleRate) {
+    for (int32_t rate : {8000, 16000, 24000, 48000}) {
+        RelayChannelProbe voice;
+        voice.Init(48000, 960 * sizeof(short));
+
+        auto bytes = MakeOpenChannelPacket(rate);
+        Packet p = MakePacket(bytes);
+        p.guid = RakNetGUID(0x9200ull);
+
+        voice.OnOpenChannelReply(&p);
+
+        EXPECT_EQ(voice.OpenChannelCount(), 1u) << "rate=" << rate;
+        voice.Deinit();
+    }
+}
+
+// An uninitialised instance has bufferSizeBytes == 0, so opening a channel would
+// allocate empty rings. OnOpenChannelRequest already guarded this; the reply path
+// did not, and a decode-only relay channel skips the encoder create that would
+// otherwise have failed first.
+TEST(RakVoiceOpenChannel, RefusesUnsolicitedReplyBeforeInit) {
+    RelayChannelProbe voice;
+
+    auto bytes = MakeOpenChannelPacket(48000);
+    Packet p = MakePacket(bytes);
+    p.guid = RakNetGUID(0x9300ull);
+
+    voice.OnOpenChannelReply(&p);
+
+    EXPECT_EQ(voice.OpenChannelCount(), 0u);
+}
+
+// OnReceive dispatches on data[0] before any handler can validate.
+TEST(RakVoiceOpenChannel, EmptyPacketDoesNotReadPastTheBuffer) {
+    RelayChannelProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+
+    Packet p {};
+    p.data = nullptr;
+    p.length = 0;
+    p.guid = RakNetGUID(0x9400ull);
+
+    EXPECT_EQ(voice.OnReceive(&p), RR_CONTINUE_PROCESSING);
+    voice.Deinit();
 }
