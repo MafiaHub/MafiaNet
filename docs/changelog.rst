@@ -3,6 +3,89 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.13.0
+--------------
+
+**Voice**
+
+* **Relay mode for RakVoice.** ``SendFrame`` has always transmitted peer-to-peer,
+  which a dedicated-server game cannot use: clients are connected only to the
+  server, never to each other. In relay mode clients send frames to a host that
+  forwards them **without decoding**, so the server stays authoritative over who
+  hears whom without paying for a codec -- a hacked client cannot hear players it
+  is not allowed to, because it never receives their bytes.
+
+  The relay frame carries the talker's GUID, since the sender is now the relay
+  rather than the speaker, plus a format-version byte::
+
+    [id][format version][origin guid][channel id][sequence][opus payload]
+
+  The version byte is a deliberate escape hatch: a future layout change is
+  rejected by today's build instead of being misparsed. Every offset derives from
+  the one before it, so the writer and both readers cannot drift apart.
+
+* **Origin-keyed channels.** In relay mode a frame is looked up by its origin GUID
+  rather than ``packet->guid``; otherwise every speaker arrives under the relay's
+  GUID and collapses into a single decoder.
+
+* **Per-speaker output.** ``SetPerSpeakerOutput`` stops ``ReceiveFrame`` mixing all
+  speakers into one buffer, and ``ReceiveFrameFrom`` pulls one speaker's decoded
+  PCM. The pre-mix leaves no way to position speakers individually, so this is what
+  makes 3D voice possible above this layer.
+
+* **Bounded relay state.** Concurrent relay speakers are capped
+  (``RAKVOICE_MAX_RELAY_SPEAKERS``) because origins are attacker-influenced and each
+  costs a decoder plus two ring buffers. Idle relay channels are reaped:
+  ``OnClosedConnection`` never fires for them, since relay speakers are peers of the
+  host rather than of us.
+
+* ``RelayFrame`` validates centrally -- origin against the transport-authenticated
+  sender, frame size, packet id, recipient list -- rather than trusting each host to
+  remember. A host that forgets the impersonation check is otherwise silently
+  exploitable.
+
+* Peer-to-peer behaviour is unchanged when relay mode is off.
+
+**Security / robustness**
+
+Five pre-existing remote-input bugs, all reachable by any connected peer and none
+requiring relay mode, found while auditing RakVoice's packet entry points:
+
+* ``OnVoiceData`` read out of bounds on a 1-2 byte ``ID_RAKVOICE_DATA`` packet: the
+  header ``memcpy`` ran past the buffer and ``packet->length - headerSize``
+  underflowed to a huge unsigned value passed to ``opus_decode`` as the payload
+  length.
+* ``OpenChannel`` called ``RakAssert`` on a **remotely supplied** sample rate.
+  ``RakAssert`` is a real ``assert()`` in debug builds, so a single malformed
+  channel-open packet aborted a debug server.
+* ``OpenChannel`` used that sample rate without checking the read succeeded; a
+  packet too short to carry it left the value indeterminate.
+* ``OnReceive`` dispatched on ``data[0]`` with no length check.
+* ``OnOpenChannelReply`` lacked the initialisation guard ``OnOpenChannelRequest``
+  has, so an unsolicited reply on an uninitialised instance opened a channel with
+  ``bufferSizeBytes`` of 0 and allocated empty rings.
+
+Two further latent bugs fixed: the constructor never initialised
+``zeroBufferedOutput`` or ``bufferedOutputCount``, so ``Update()`` read
+indeterminate values on any attached-but-uninitialised instance; and
+``CloseVoiceChannel`` sent ``ID_RAKVOICE_CLOSE_CHANNEL`` unconditionally, so a peer
+that never opened a channel still received one on disconnect.
+
+**Testing**
+
+* ``Tests/Unit/RakVoiceRelayTests.cpp`` (23 cases) covers the wire layout, hostile
+  relay input (truncation, unknown format versions, the sentinel origin, the
+  origin/sender mismatch a host must reject), the concurrent-speaker cap, and the
+  channel-open parsing paths.
+
+.. warning::
+
+   **Breaking change.** ``ID_RAKVOICE_RELAY_DATA`` is inserted after
+   ``ID_RAKVOICE_DATA`` and shifts every subsequent message id, including
+   ``ID_READY_EVENT_SET``, the RPC4 and two-way-authentication ids, and
+   ``ID_USER_PACKET_ENUM``. Peers must be rebuilt together: a peer built against the
+   old header misparses everything past that point.
+
 Version 0.12.0
 --------------
 

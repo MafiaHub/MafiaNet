@@ -318,7 +318,15 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.12.0 (Latest)
+### Version 0.13.0 (Latest)
+- **RakVoice relay mode**: `SendFrame` has always been peer-to-peer, which a dedicated-server game cannot use — clients connect only to the server. In relay mode clients send frames to a host that forwards them **without decoding**, so the server stays authoritative over who hears whom without running a codec. Relay frames carry the talker's GUID (the sender is now the relay, not the speaker) plus a format-version byte, so a future layout change is rejected rather than misparsed
+- **Origin-keyed channels and per-speaker output**: frames are keyed by origin instead of `packet->guid`, so each speaker gets its own decoder rather than collapsing into one; `SetPerSpeakerOutput` / `ReceiveFrameFrom` pull one speaker's PCM instead of the pre-mix, which is what makes 3D positioning possible above this layer. Peer-to-peer behaviour is unchanged when relay mode is off
+- **Bounded relay state**: concurrent relay speakers are capped, and idle relay channels are reaped — `OnClosedConnection` never fires for them because relay speakers are peers of the host, not of us. `RelayFrame` validates origin-vs-sender, frame size, packet id and recipient list centrally rather than trusting every host to remember
+- **Five pre-existing remote-input bugs fixed**, all reachable by any connected peer with no relay mode involved: an out-of-bounds read in `OnVoiceData` on a 1–2 byte packet (with an unsigned underflow reaching `opus_decode`), a `RakAssert` on a remotely supplied sample rate that aborts a debug server, that sample rate consumed without checking the read succeeded, `OnReceive` dispatching on `data[0]` with no length check, and `OnOpenChannelReply` missing the initialisation guard its sibling has
+- **Testing**: 23 unit cases over the wire layout, hostile relay input, the speaker cap and the channel-open paths
+- **Breaking**: `ID_RAKVOICE_RELAY_DATA` is inserted after `ID_RAKVOICE_DATA` and shifts every subsequent message id — peers must be rebuilt together
+
+### Version 0.12.0
 - **Batched datagram I/O (`recvmmsg` / `sendmmsg`)**: on Linux the reliability layer coalesces a tick's outgoing datagrams into a single `sendmmsg` and drains the socket with a single `recvmmsg` per burst, instead of one `sendto`/`recvfrom` per packet — **~31x fewer system calls** on a 2560-message reliable-ordered burst (5525 → 178, median of 3 runs under `strace -c`). Nothing to configure: it is a platform capability guarded by `#if defined(__linux__)`, always on where the syscalls exist, with the portable per-datagram paths compiled everywhere else. Delivery, ordering and reliability are unchanged
 - **Runtime fallback on `ENOSYS`**: if a seccomp profile, sandbox, or old kernel does not implement the syscalls, the process latches once and both paths revert to the portable code — verified under a seccomp profile forcing `errno` 38. Only `ENOSYS` latches; `EPERM` is excluded because a firewall rejecting one destination reports it too
 - **`RakNetSocket2::SendBatch`**: new virtual with a portable `Send()`-loop default and a `sendmmsg` override on Linux, returning a datagram count (not a byte total) and mirroring `sendmmsg(2)`'s "error only if nothing was sent" contract
