@@ -78,6 +78,41 @@ To build with samples:
 cmake -DMAFIANET_BUILD_SAMPLES=ON ..
 ```
 
+### Batched Datagram I/O
+
+On Linux, MafiaNet coalesces multiple datagrams into a single `recvmmsg`/`sendmmsg`
+system call instead of one `recvfrom`/`sendto` per packet. **This is automatic — there
+is nothing to configure.** On platforms without those syscalls (macOS, Windows, the
+BSDs) the portable per-datagram paths compile instead; behaviour is identical either
+way, only the number of system calls differs.
+
+Measured on the 2560-message reliable-ordered burst in
+`Tests/Integration/MmsgBatchLiveTests.cpp` (Linux, Release, `strace -c`, median of
+3 runs):
+
+| syscall | per-datagram | batched |
+|---|---:|---:|
+| `sendto` | 2907 | 35 |
+| `sendmmsg` | 0 | 58 |
+| `recvfrom` | 2618 | 0 |
+| `recvmmsg` | 0 | 85 |
+| **total** | **5525** | **178** |
+
+**~31x fewer system calls.** Up to 64 datagrams (`MMSG_BATCH_MAX`) are coalesced per
+call. Counts vary by a percent or two between runs — congestion control decides how
+many datagrams are ready per tick — so treat the ratio as the result, not the exact
+figures. Reproduce with:
+
+```bash
+strace -f -c -e trace=sendmmsg,sendto,recvmmsg,recvfrom \
+  ./build/Tests/IntegrationTests \
+  --gtest_filter='MmsgBatchLive.LargeReliableOrderedBurstArrivesIntactAndInOrder'
+```
+
+The per-datagram column is what every non-Linux platform runs; to reproduce it on
+Linux, flip the `#if defined(__linux__)` batching guards in `RakNetSocket2.cpp`,
+`RakNetSocket2_Berkley.cpp`, `ReliabilityLayer.cpp` and `socket2.h` to `#if 0`.
+
 ### Basic Usage
 
 ```cpp

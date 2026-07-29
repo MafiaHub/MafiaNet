@@ -63,6 +63,38 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_BUILD_SAMPLES` | OFF | Build sample applications |
 | `MAFIANET_BUILD_TESTS` | OFF | Build test suite |
 
+### Batched Datagram I/O (recvmmsg / sendmmsg)
+
+Always on where the syscalls exist. **There is no build option and no macro** — the
+paths are guarded by a plain `#if defined(__linux__)`. Do not reintroduce a flag or a
+capability macro for this; a CMake option here was removed deliberately because it
+left the shipping path uncompiled on most machines.
+
+The portable helpers in `MmsgBatch.h` (`DriveBatchedSend`, `ClassifySendmmsgErrno`,
+`SockaddrToSystemAddress`, `CompactRecvSlots`, `RNS2SendBatch`) compile and are unit
+tested on **every** platform; only the syscall glue is gated. Keep it that way — new
+logic belongs in a portable helper with a unit test, not inside the `#if`.
+
+When changing `Source/src/MmsgBatch.cpp`, `RakNetSocket2*.cpp`, or the send path in
+`ReliabilityLayer.cpp`, a macOS/Windows build proves nothing about the batched paths.
+Verify on Linux, in **both** `Debug` and `Release` (`RakAssert` only fires in Debug;
+Release is what ships and exercises the backstops the asserts hide):
+
+```bash
+docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -c '
+  apt-get update -qq && apt-get install -y -qq build-essential cmake libssl-dev git ca-certificates
+  cp -r /src /work && cd /work
+  for cfg in Debug Release; do
+    cmake -B /b-$cfg -S . -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON
+    cmake --build /b-$cfg --parallel "$(nproc)"
+    ctest --test-dir /b-$cfg --output-on-failure --timeout 600 || exit 1
+  done'
+```
+
+`Tests/Integration/MmsgBatchLiveTests.cpp` is the suite that actually fills batches
+(the rest of the suite sends ~1 datagram per tick and never crosses `MMSG_BATCH_MAX`).
+Keep its message counts above `MMSG_BATCH_MAX` or that coverage silently disappears.
+
 **Requirements:**
 - CMake 3.21+
 - C++17 compiler

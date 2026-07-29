@@ -3,6 +3,10 @@
 # Copyright (c) 2024, MafiaHub
 # Licensed under MIT-style license
 
+# Batched datagram I/O (recvmmsg/sendmmsg) needs no option: it is a platform
+# capability, guarded by a plain #if defined(__linux__), and is always on where
+# the syscalls exist. See docs/getting-started/building.rst.
+
 # Source files (explicit list, no GLOB)
 set(MAFIANET_SOURCES
     src/_FindFirst.cpp
@@ -47,6 +51,7 @@ set(MAFIANET_SOURCES
     src/LocklessTypes.cpp
     src/LogCommandParser.cpp
     src/MessageFilter.cpp
+    src/MmsgBatch.cpp
     src/NatPunchthroughClient.cpp
     src/NatPunchthroughServer.cpp
     src/NatTypeDetectionClient.cpp
@@ -200,6 +205,7 @@ set(MAFIANET_HEADERS
     include/mafianet/memoryoverride.h
     include/mafianet/MessageFilter.h
     include/mafianet/MessageIdentifiers.h
+    include/mafianet/MmsgBatch.h
     include/mafianet/MTUSize.h
     include/mafianet/NativeFeatureIncludes.h
     include/mafianet/NativeFeatureIncludesOverrides.h

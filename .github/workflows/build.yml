@@ -34,6 +34,71 @@ jobs:
           path: test-results/junit.xml
           if-no-files-found: ignore
 
+  # Native Linux builds. Batched datagram I/O (recvmmsg/sendmmsg) is always on
+  # here -- it is a platform capability, not an option -- so these are the jobs
+  # that compile and exercise it over real loopback traffic.
+  #
+  # Both configurations, because each covers what the other cannot:
+  #   Debug   - RakAssert is compiled out unless _DEBUG, and it is what guards the
+  #             invariants these paths rely on (the SendBatch count-not-bytes
+  #             return contract, the RNS2SendBatch reentrancy guard, the
+  #             IPv4-only address branch). Only here do those checks run.
+  #   Release - the configuration that actually ships. Exercises the NDEBUG
+  #             behaviour the asserts hide: the oversized-datagram drop backstop
+  #             (its unit test skips itself under _DEBUG, where the assert fires
+  #             first) and the silent IPv4-only branch in the sendmmsg override.
+  linux-native:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+    name: linux-native (${{ matrix.build_type }})
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DMAFIANET_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      # The unit suite is hermetic and deterministic by construction, so it runs
+      # exactly once: retrying it could only ever hide a genuine nondeterminism
+      # bug. Retries are reserved for the integration suite, where they absorb
+      # real loopback timing misses.
+      - name: Run unit tests
+        run: |
+          ctest --test-dir build -L unit \
+            --output-on-failure \
+            --timeout 600 \
+            --output-junit junit-unit.xml
+
+      - name: Run integration tests
+        run: |
+          ctest --test-dir build -L integration \
+            --output-on-failure \
+            --repeat until-pass:3 \
+            --timeout 600 \
+            --output-junit junit-integration.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux-native-${{ matrix.build_type }}
+          path: build/junit-*.xml
+          if-no-files-found: ignore
+
   # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest

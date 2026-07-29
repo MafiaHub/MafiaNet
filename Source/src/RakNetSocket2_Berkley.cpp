@@ -528,6 +528,127 @@ void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 #endif
 }
 
+#if defined(__linux__)
+void RNS2_Berkley::RecvFromBatchedLoop(void)
+{
+	RNS2RecvStruct *slots[MMSG_BATCH_MAX];
+	struct mmsghdr msgs[MMSG_BATCH_MAX];
+	struct iovec iovecs[MMSG_BATCH_MAX];
+	sockaddr_storage addrs[MMSG_BATCH_MAX];
+	int lens[MMSG_BATCH_MAX];
+
+	// Recv structs live across passes rather than being rebuilt each time. Only
+	// the slots that actually received a datagram change hands; the untouched
+	// tail is carried over, so the steady state costs one alloc/free round trip
+	// per datagram -- the same as the scalar path -- instead of MMSG_BATCH_MAX of
+	// them per pass. Each of those round trips takes the event handler's pool
+	// mutex, and at typical packet rates recvmmsg returns far fewer than
+	// MMSG_BATCH_MAX datagrams, so rebuilding the batch would dominate the
+	// syscall saving the batching exists for. The same carry-over covers failed
+	// passes: Linux reports asynchronous errors on a connectionless UDP socket
+	// (ECONNREFUSED when a peer's port is closed) and those must not churn the
+	// pool either.
+	// Already known missing on this system (another socket hit it first):
+	// hand straight back to RecvFromLoopInt's scalar loop.
+	if (MmsgUnavailable())
+		return;
+
+	unsigned allocated=0;
+	unsigned consecutiveErrors=0;
+
+	while ( endThreads == false )
+	{
+		// Top the batch back up to full, then point each iovec at the struct's
+		// data buffer so recvmmsg writes straight into the structs we hand to
+		// the event handler -- no extra copy.
+		for (; allocated<MMSG_BATCH_MAX; ++allocated)
+		{
+			RNS2RecvStruct *s = binding.eventHandler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
+			if (s==nullptr)
+				break;
+			s->socket=this;
+			slots[allocated]=s;
+		}
+		if (allocated==0)
+		{
+			// Out of recv structs entirely; back off rather than spin.
+			RakSleep(1);
+			continue;
+		}
+
+		// Rebuilt every pass, not just on allocation: recvmmsg writes back
+		// msg_namelen and msg_flags, so a reused header must be reset.
+		for (unsigned i=0; i<allocated; ++i)
+		{
+			iovecs[i].iov_base=slots[i]->data;
+			iovecs[i].iov_len=sizeof(slots[i]->data);
+			memset(&msgs[i], 0, sizeof(msgs[i]));
+			msgs[i].msg_hdr.msg_iov=&iovecs[i];
+			msgs[i].msg_hdr.msg_iovlen=1;
+			msgs[i].msg_hdr.msg_name=&addrs[i];
+			msgs[i].msg_hdr.msg_namelen=sizeof(addrs[i]);
+		}
+
+		// MSG_WAITFORONE: block until at least one datagram is ready, then return
+		// everything already queued. Without it recvmmsg would wait to fill the
+		// whole array (or hit a timeout), adding latency at low packet rates.
+		int n = recvmmsg(rns2Socket, msgs, allocated, MSG_WAITFORONE, nullptr);
+		// Read errno before anything else can clobber it -- GetTimeUS() below
+		// is a syscall too, and errno is only meaningful immediately after the
+		// call that failed.
+		const int recvErrno = (n<0) ? errno : 0;
+		MafiaNet::TimeUS now = MafiaNet::GetTimeUS();
+
+		if (n<0 && MmsgSyscallMissing(recvErrno))
+		{
+			// No recvmmsg on this kernel/sandbox. Backing off would spin this
+			// thread forever without ever surfacing a packet, so give the slots
+			// back and let RecvFromLoopInt's scalar loop take over permanently.
+			MarkMmsgUnavailable();
+			break;
+		}
+
+		if (n<=0)
+		{
+			// Interrupted, an asynchronous socket error, or -- not expected under
+			// MSG_WAITFORONE, but not worth a hot spin if a kernel ever does it --
+			// a pass that returned no datagrams at all. (Shutdown does not
+			// come through here: BlockOnStopRecvPollingThread pokes the socket
+			// with a real datagram, so it surfaces as a normal n>=1 pass and the
+			// loop condition below catches endThreads.) Keep the batch and back
+			// off progressively so a persistent error cannot spin this thread at
+			// 100%; the loop condition is still checked first, so shutdown stays
+			// prompt.
+			if (consecutiveErrors<MMSG_ERROR_BACKOFF_MAX_MS)
+				++consecutiveErrors;
+			RakSleep(consecutiveErrors);
+			continue;
+		}
+		consecutiveErrors=0;
+
+		const unsigned received=(unsigned) n;
+		for (unsigned i=0; i<received; ++i)
+			lens[i] = (int) msgs[i].msg_len;
+
+		// Hand the handler exactly the slots that received a datagram -- it takes
+		// ownership of those and of those alone. DispatchRecvBatch is the same
+		// portable, unit-tested routine exercised by the hermetic MmsgBatch tests.
+		DispatchRecvBatch(binding.eventHandler, slots, received, lens, addrs,
+		                  received, this, now);
+
+		// Carry the untouched tail over to the next pass; only the consumed slots
+		// are topped back up at the head of the loop. The arithmetic lives in
+		// CompactRecvSlots so it is unit tested (MmsgBatchTests) rather than only
+		// ever exercised here, on Linux, at runtime.
+		allocated=CompactRecvSlots(slots, allocated, received);
+	}
+
+	// Release whatever the last pass was still holding.
+	for (unsigned i=0; i<allocated; ++i)
+		binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
+}
+#endif // __linux__
+
 #endif // file header
 
 #endif // #ifdef RAKNET_SOCKET_2_INLINE_FUNCTIONS

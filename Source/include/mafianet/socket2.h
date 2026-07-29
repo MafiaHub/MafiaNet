@@ -23,6 +23,22 @@
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "Export.h"
 
+// Batched datagram I/O (recvmmsg / sendmmsg) is guarded by a plain
+// `#if defined(__linux__)` wherever it appears. There is no macro and no build
+// option for it: the syscalls exist on Linux and nowhere else MafiaNet targets,
+// so it is simply always on there. Every other platform compiles the portable
+// fallbacks instead -- RakNetSocket2::SendBatch loops Send(), and the scalar
+// recvfrom loop drains the socket.
+//
+// Delivery semantics are identical either way: the same datagrams arrive, in
+// the same order, with the same reliability, and nothing differs that
+// application code can observe. Two internals DO differ -- the number of
+// system calls, and how SendBatch reports a transient send failure: the
+// batched override classifies errno and can return 0 ("nothing sent, retry
+// later"), whereas the portable loop cannot read errno through Send() and
+// reports every failure as permanent. See the SendBatch contract below.
+// Either way the datagrams are dropped and the reliability layer resends.
+
 // For CFSocket
 // https://developer.apple.com/library/mac/#documentation/CoreFOundation/Reference/CFSocketRef/Reference/reference.html
 // Reason: http://sourceforge.net/p/open-dis/discussion/683284/thread/0929d6a0
@@ -113,6 +129,29 @@ public:
 	// In order for the handler to trigger, some platforms must call PollRecvFrom, some platforms this create an internal thread.
 	void SetRecvEventHandler(RNS2EventHandler *_eventHandler);
 	virtual RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line )=0;
+	// Batched send. The base implementation simply loops Send() so every socket
+	// type has a working default; RNS2_Linux overrides it with sendmmsg where the
+	// syscall exists (Linux).
+	// Returns a datagram COUNT, NOT the byte total Send() returns:
+	//   > 0        datagrams accepted (may be < count -- see the drop rule below)
+	//   0          nothing went out, but nothing is permanently wrong: a transient
+	//              socket-wide condition (send buffer full, interrupted call).
+	//              Retry on a later tick.
+	//   < 0        nothing went out and at least one datagram failed permanently;
+	//              the value is the first such error, mirroring sendmmsg(2)'s
+	//              "an error is returned only if no datagrams could be sent".
+	// A datagram that fails on its own (bad destination, oversized) is dropped and
+	// the rest of the batch is still sent, so the count may be short without an
+	// error being reported.
+	// Both implementations agree on the sign convention above, but NOT on how they
+	// detect the transient case: the sendmmsg override classifies errno
+	// (ClassifySendmmsgErrno) and so can return 0, whereas the base loop cannot
+	// portably read errno through Send() and reports every failure as permanent.
+	// A caller must therefore treat "0" and "negative" alike as "these datagrams
+	// did not go out"; only the diagnostics differ. See MmsgBatchTests.
+	// RNS2_SendParameters::ttl is honoured either way: sendmmsg has no per-message
+	// TTL, so the override defers a batch carrying one to this base loop.
+	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
@@ -196,6 +235,10 @@ protected:
 	RNS2_BerkleyBindParameters binding;
 
 	unsigned RecvFromLoopInt(void);
+	// Batched drain of the recv socket via recvmmsg (Linux).
+	// Declared unconditionally; only ever called from RecvFromLoopInt under the
+	// same guard, and only defined on that platform.
+	void RecvFromBatchedLoop(void);
 	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 	volatile bool endThreads;
 	// Constructor not called!
@@ -256,6 +299,12 @@ class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux_360
 public:
 	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
 	RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
+	// Guarded because RNS2_Linux is the non-Windows socket class: macOS and the
+	// BSDs compile it too, and sendmmsg/mmsghdr do not exist there. Those
+	// platforms inherit the portable base SendBatch (a Send() loop).
+#if defined(__linux__)
+	RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
+#endif
 
 	// ----------- STATICS ------------
 	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );

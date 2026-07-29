@@ -60,6 +60,72 @@ Example with options:
 
    cmake -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON ..
 
+Batched Datagram I/O
+--------------------
+
+On Linux, MafiaNet coalesces multiple datagrams into a single ``recvmmsg(2)`` /
+``sendmmsg(2)`` system call instead of one ``recvfrom``/``sendto`` per packet. On a
+server pushing high packet rates this removes most of the per-datagram syscall
+overhead; at low rates it changes nothing measurable.
+
+**There is nothing to configure.** Batching is a platform capability, not a build
+option: it is always on where the syscalls exist, and every other platform compiles
+the portable per-datagram paths instead. Delivery semantics are identical either
+way -- the same datagrams arrive, in the same order, with the same reliability,
+and nothing differs that application code can observe.
+
+Two internals do differ: the number of system calls, and how a transient send
+failure is reported inside ``RakNetSocket2::SendBatch``. The batched override
+classifies ``errno`` and can report "nothing sent, retry later"; the portable
+loop cannot read ``errno`` portably through ``Send()`` and reports every failure
+as permanent. Either way the datagrams are dropped and the reliability layer
+resends them.
+
+Measured on the 2560-message reliable-ordered burst in
+``Tests/Integration/MmsgBatchLiveTests.cpp`` (Linux, Release build, ``strace -c``,
+median of 3 runs):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 30 30
+
+   * - Syscall
+     - Per-datagram
+     - Batched
+   * - ``sendto``
+     - 2907
+     - 35
+   * - ``sendmmsg``
+     - 0
+     - 58
+   * - ``recvfrom``
+     - 2618
+     - 0
+   * - ``recvmmsg``
+     - 0
+     - 85
+   * - **Total**
+     - **5525**
+     - **178**
+
+**~31x fewer system calls.** Up to ``MMSG_BATCH_MAX`` (64) datagrams are coalesced
+per call.
+
+Counts vary by a percent or two between runs -- congestion control decides how many
+datagrams are ready on each tick -- so the ratio is the result, not the exact
+figures. Reproduce with:
+
+.. code-block:: bash
+
+   strace -f -c -e trace=sendmmsg,sendto,recvmmsg,recvfrom \
+     ./build/Tests/IntegrationTests \
+     --gtest_filter='MmsgBatchLive.LargeReliableOrderedBurstArrivesIntactAndInOrder'
+
+The per-datagram column is the code every non-Linux platform runs. To reproduce it
+on Linux, flip the ``#if defined(__linux__)`` batching guards in
+``RakNetSocket2.cpp``, ``RakNetSocket2_Berkley.cpp``, ``ReliabilityLayer.cpp`` and
+``socket2.h`` to ``#if 0``.
+
 Running Tests
 -------------
 

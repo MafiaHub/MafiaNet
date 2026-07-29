@@ -1,0 +1,126 @@
+/*
+ *  Copyright (c) 2026, MafiaHub
+ *
+ *  This source code is licensed under the MIT-style license found in the
+ *  license.txt file in the root directory of this source tree.
+ */
+
+#include "mafianet/MmsgBatch.h"
+
+#include <atomic>
+
+namespace MafiaNet
+{
+
+namespace
+{
+	// Relaxed is sufficient: the flag guards nothing but itself. A thread that
+	// reads a stale false simply attempts one more doomed syscall and latches it
+	// again; there is no data published alongside it that needs ordering.
+	std::atomic<bool> g_mmsgUnavailable(false);
+}
+
+bool MmsgUnavailable(void)
+{
+	return g_mmsgUnavailable.load(std::memory_order_relaxed);
+}
+
+void MarkMmsgUnavailable(void)
+{
+	g_mmsgUnavailable.store(true, std::memory_order_relaxed);
+}
+
+// One buffer block per thread that actually batches -- see the declaration in
+// MmsgBatch.h for why these live here rather than inline in the header.
+char *RNS2SendBatch::Slot(unsigned i)
+{
+	struct Block
+	{
+		char *bytes;
+		Block() : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
+		~Block() { MafiaNet::OP_DELETE_ARRAY(bytes, _FILE_AND_LINE_); }
+	};
+	static thread_local Block block;
+	return block.bytes + (size_t) i * MAXIMUM_MTU_SIZE;
+}
+
+bool &RNS2SendBatch::ThreadBatchLive()
+{
+	static thread_local bool live = false;
+	return live;
+}
+
+bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
+{
+	// Mirrors the byte-order handling of RNS2_Berkley::RecvFromBlockingIPV4And6:
+	// the sockaddr keeps the port in network order (copied verbatim into the
+	// address union), and debugPort caches the host-order value.
+	if (from.ss_family == AF_INET)
+	{
+		memcpy(&out->address.addr4,
+		       reinterpret_cast<const sockaddr_in *>(&from), sizeof(sockaddr_in));
+		out->debugPort = ntohs(out->address.addr4.sin_port);
+		return true;
+	}
+#if RAKNET_SUPPORT_IPV6 == 1
+	if (from.ss_family == AF_INET6)
+	{
+		memcpy(&out->address.addr6,
+		       reinterpret_cast<const sockaddr_in6 *>(&from), sizeof(sockaddr_in6));
+		out->debugPort = ntohs(out->address.addr6.sin6_port);
+		return true;
+	}
+#endif
+
+	// A family this build cannot represent (an IPv6 source on an IPv4-only
+	// build, or AF_UNSPEC from a failed read). Overwrite rather than leave the
+	// recycled struct's previous sender in place -- that would attribute the
+	// datagram to the wrong peer.
+	*out = UNASSIGNED_SYSTEM_ADDRESS;
+	return false;
+}
+
+unsigned CompactRecvSlots(RNS2RecvStruct **slots, unsigned allocated, unsigned consumed)
+{
+	if (consumed > allocated)
+		consumed = allocated;
+	const unsigned remaining = allocated - consumed;
+	if (remaining > 0 && consumed > 0)
+		memmove(slots, slots + consumed, remaining * sizeof(slots[0]));
+	return remaining;
+}
+
+void DispatchRecvBatch(RNS2EventHandler *handler,
+                       RNS2RecvStruct **slots, unsigned allocated,
+                       const int *lens, const sockaddr_storage *addrs,
+                       unsigned received, RakNetSocket2 *socket,
+                       MafiaNet::TimeUS now)
+{
+	if (received > allocated)
+		received = allocated;
+
+	for (unsigned i = 0; i < received; ++i)
+	{
+		RNS2RecvStruct *s = slots[i];
+		if (lens[i] > 0 && SockaddrToSystemAddress(addrs[i], &s->systemAddress))
+		{
+			s->bytesRead = lens[i];
+			s->timeRead = now;
+			s->socket = socket;
+			handler->OnRNS2Recv(s);
+		}
+		else
+		{
+			// Zero-length read (same as the scalar bytesRead<=0 branch) or an
+			// undecodable source address -- free the struct rather than
+			// surfacing a packet we cannot attribute to a peer.
+			handler->DeallocRNS2RecvStruct(s, _FILE_AND_LINE_);
+		}
+	}
+
+	// Hand back the unused tail so no preallocated buffer leaks.
+	for (unsigned i = received; i < allocated; ++i)
+		handler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
+}
+
+} // namespace MafiaNet
