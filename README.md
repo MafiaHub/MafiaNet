@@ -78,6 +78,24 @@ To build with samples:
 cmake -DMAFIANET_BUILD_SAMPLES=ON ..
 ```
 
+### Batched Datagram I/O
+
+On Linux, MafiaNet coalesces multiple datagrams into a single `recvmmsg`/`sendmmsg`
+system call instead of one `recvfrom`/`sendto` per packet. **This is automatic — there
+is nothing to configure.** On platforms without those syscalls (macOS, Windows, the
+BSDs) the portable per-datagram paths compile instead; behaviour is identical either
+way, only the number of system calls differs.
+
+Measured on a 2560-message reliable-ordered burst (Linux, Release):
+
+| | per-datagram | batched |
+|---|---|---|
+| `sendto` / `sendmmsg` | 2937 | 36 / 61 |
+| `recvfrom` / `recvmmsg` | 2618 | 0 / 87 |
+| **total syscalls** | **5555** | **184** |
+
+Up to 64 datagrams (`MMSG_BATCH_MAX`) are coalesced per call.
+
 ### Basic Usage
 
 ```cpp
