@@ -186,6 +186,23 @@ void RakVoice::RelayFrame(Packet *packet, const RakNetGUID *recipients, int coun
 	if (packet == nullptr || rakPeerInterface == nullptr)
 		return;
 
+	if (recipients == nullptr || count <= 0)
+		return;
+
+	// Validate centrally rather than trusting each host to remember. A host that
+	// forgets any of these is silently exploitable, so the safe path is the default
+	// one: callers may re-check, but they cannot forget.
+	if (packet->length <= RAKVOICE_RELAY_HEADER_SIZE ||
+		packet->length > RAKVOICE_RELAY_HEADER_SIZE + RAKVOICE_MAX_OPUS_PACKET_SIZE ||
+		packet->data[0] != ID_RAKVOICE_RELAY_DATA)
+		return;
+
+	// Anti-impersonation: the origin is written by the client, so a modified client
+	// could stamp another player's GUID and be relayed as them. packet->guid is the
+	// transport-authenticated sender and is the only trustworthy identity here.
+	if (ReadRelayOrigin(packet) != packet->guid)
+		return;
+
 	for (int i = 0; i < count; i++)
 	{
 		// Unreliable, NOT UnreliableSequenced: every relayed frame reaches the recipient from
@@ -884,6 +901,12 @@ void RakVoice::OnVoiceData(Packet *packet)
 	unsigned short packetMessageNumber;
 	static const int headerSize = sizeof(unsigned char) + sizeof(unsigned short);
 
+	// A packet shorter than the header would read past the buffer here, and the
+	// payload length below would underflow to a huge unsigned value that reaches
+	// opus_decode. Remote-triggerable, so it is checked before anything else.
+	if (packet->length <= (unsigned)headerSize)
+		return;
+
 	index = voiceChannels.GetIndexFromKey(packet->guid, &objectExists);
 	if (objectExists)
 	{
@@ -949,6 +972,14 @@ VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
 		return voiceChannels[index];
 
 	if (IsInitialized() == false)
+		return nullptr;
+
+	// Each new origin costs a decoder plus two bufferSizeBytes*100 rings. Without a
+	// cap, fabricated origins -- from a compromised host, or a sender spoofing them --
+	// drive unbounded allocation held for RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS. This is a
+	// memory backstop, not an application policy: a caller wanting fewer simultaneous
+	// speakers should enforce that above, where it can choose which ones to keep.
+	if (voiceChannels.Size() >= RAKVOICE_MAX_RELAY_SPEAKERS)
 		return nullptr;
 
 	// Lazily allocate a decoder the first time we hear from this speaker. Relay speakers are

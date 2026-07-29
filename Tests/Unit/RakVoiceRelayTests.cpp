@@ -193,3 +193,61 @@ TEST(RakVoiceRelaySizing, HeaderOnlyFrameCarriesNoPayload) {
     auto bytes = MakeRelayFrame(0x4444444444444444ull, 0);
     EXPECT_EQ(bytes.size(), RAKVOICE_RELAY_HEADER_SIZE);
 }
+
+// --- Concurrent relay speaker cap -------------------------------------------
+//
+// Each relay speaker costs a decoder plus two ring buffers, and origins are
+// attacker-influenced, so channel creation must be bounded. GetOrCreateChannel
+// is protected and needs only Init() (not a live peer), so a test-only subclass
+// can drive it directly.
+
+namespace {
+    class RelayChannelProbe : public RakVoice {
+      public:
+        using RakVoice::GetOrCreateChannel;
+        unsigned OpenChannelCount() const {
+            return voiceChannels.Size();
+        }
+    };
+} // namespace
+
+TEST(RakVoiceRelayCap, StopsAllocatingPastTheSpeakerCeiling) {
+    RelayChannelProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+
+    unsigned created = 0;
+    for (unsigned i = 0; i < RAKVOICE_MAX_RELAY_SPEAKERS + 16; i++) {
+        // Distinct fabricated origins, as a spoofing sender would produce.
+        if (voice.GetOrCreateChannel(RakNetGUID(0x1000ull + i)) != nullptr) {
+            created++;
+        }
+    }
+
+    EXPECT_EQ(voice.OpenChannelCount(), RAKVOICE_MAX_RELAY_SPEAKERS);
+    EXPECT_EQ(created, RAKVOICE_MAX_RELAY_SPEAKERS);
+
+    voice.Deinit();
+}
+
+TEST(RakVoiceRelayCap, KeepsServingSpeakersAlreadyOpenOnceFull) {
+    RelayChannelProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+
+    const RakNetGUID first(0x2000ull);
+    VoiceChannel *original = voice.GetOrCreateChannel(first);
+    ASSERT_NE(original, nullptr);
+
+    for (unsigned i = 1; i < RAKVOICE_MAX_RELAY_SPEAKERS + 8; i++) {
+        voice.GetOrCreateChannel(RakNetGUID(0x2000ull + i));
+    }
+
+    // An established speaker must not be starved by a flood of fabricated ones.
+    EXPECT_EQ(voice.GetOrCreateChannel(first), original);
+
+    voice.Deinit();
+}
+
+TEST(RakVoiceRelayCap, RefusesChannelsBeforeInit) {
+    RelayChannelProbe voice;
+    EXPECT_EQ(voice.GetOrCreateChannel(RakNetGUID(0x3000ull)), nullptr);
+}

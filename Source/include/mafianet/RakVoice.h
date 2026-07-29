@@ -56,6 +56,13 @@ constexpr unsigned RAKVOICE_RELAY_OFFSET_CHANNEL_ID = RAKVOICE_RELAY_OFFSET_ORIG
 constexpr unsigned RAKVOICE_RELAY_OFFSET_SEQUENCE = RAKVOICE_RELAY_OFFSET_CHANNEL_ID + sizeof(uint16_t);
 constexpr unsigned RAKVOICE_RELAY_HEADER_SIZE = RAKVOICE_RELAY_OFFSET_SEQUENCE + sizeof(unsigned short);
 
+// Hard ceiling on concurrent relay speakers. Each costs a decoder plus two
+// bufferSizeBytes*100 rings, so without a bound a stream of fabricated origin GUIDs
+// drives unbounded allocation. Sized as a memory backstop rather than an application
+// policy -- callers wanting fewer simultaneous speakers should cap above this layer,
+// where they can choose which speakers to keep.
+constexpr unsigned RAKVOICE_MAX_RELAY_SPEAKERS = 32;
+
 // Codec-level backstop for reaping relay speakers we have stopped hearing from.
 // Relay speakers are peers of the server, not of us, so OnClosedConnection never fires
 // for them and nothing else would ever free their channels. Deliberately much longer
@@ -134,9 +141,10 @@ public:
 	void SetSignalType(int signalType);
 
 	/// \brief Sets the target Opus encoder bitrate, in bits per second.
-	/// Applied to channels opened after this call. Pass 0 to leave Opus at its own
-	/// default. Callers that care about bandwidth must set this: Opus otherwise picks a
-	/// rate from the sample rate alone.
+	/// Applied immediately to every open encoding channel and to channels opened
+	/// later. Passing 0 leaves Opus at its own default for future channels; encoders
+	/// already open keep whatever bitrate was last applied. Callers that care about
+	/// bandwidth must set this: Opus otherwise picks a rate from the sample rate alone.
 	/// \param[in] bitsPerSecond target bitrate, or 0 for the Opus default
 	void SetEncoderBitrate(int bitsPerSecond);
 
