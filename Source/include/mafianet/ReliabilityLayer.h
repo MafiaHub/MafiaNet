@@ -275,8 +275,8 @@ private:
 	/// \param[in] sendBatch If non-null, the fully-prepared datagram is appended
 	///            to this batch (coalesced into a sendmmsg) instead of being sent
 	///            immediately. All other processing (encryption, loss simulation,
-	///            metrics) still happens per datagram. Only used when
-	///            MAFIANET_USE_SENDMMSG is enabled.
+	///            metrics) still happens per datagram. Non-null only where the
+	///            batched syscalls exist (MAFIANET_HAS_MMSG).
 	void SendBitStream( RakNetSocket2 *s, SystemAddress &systemAddress, MafiaNet::BitStream *bitStream, RakNetRandom *rnr, CCTimeType currentTime, RNS2SendBatch *sendBatch = nullptr);
 
 	///Parse an internalPacket and create a bitstream to represent this data

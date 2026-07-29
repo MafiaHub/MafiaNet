@@ -23,7 +23,9 @@
 #else
 #include <arpa/inet.h> // inet_pton, htons
 #endif
+#include <algorithm> // sort, adjacent_find (CompactRecvSlots accounting)
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -263,6 +265,9 @@ TEST(ClassifySendmmsgErrno, TransientSocketWideErrorsStopTheBatch)
 	EXPECT_EQ(ClassifySendmmsgErrno(EAGAIN), 0);
 	EXPECT_EQ(ClassifySendmmsgErrno(EWOULDBLOCK), 0);
 	EXPECT_EQ(ClassifySendmmsgErrno(ENOBUFS), 0);
+	// sendmsg(2) lists ENOMEM alongside ENOBUFS; it clears on its own, so it must
+	// not be read as "this datagram is undeliverable".
+	EXPECT_EQ(ClassifySendmmsgErrno(ENOMEM), 0);
 	EXPECT_EQ(ClassifySendmmsgErrno(EINTR), 0);
 }
 
@@ -500,6 +505,123 @@ TEST(DispatchRecvBatch, ClampsAReceivedCountLargerThanTheAllocation)
 	EXPECT_EQ(handler.received[0].port, 1111);
 	EXPECT_EQ(handler.received[1].port, 2222);
 	EXPECT_TRUE(handler.deallocated.empty());
+}
+
+// ---------------------------------------------------------------------------
+// CompactRecvSlots -- the recv-slot carry-over. The batched recv loop reuses its
+// RNS2RecvStruct slots across passes; only the ones that received a datagram are
+// handed to the event handler, and the rest must survive, in order, at the front
+// of the array. Getting this wrong either leaks slots (never re-dispatched) or
+// double-frees them (handed over twice), and on Linux it is the one piece of the
+// loop that a clean loopback run never stresses -- every pass there consumes
+// everything it allocated.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+	// Distinct dummy pointers; CompactRecvSlots only moves them, never derefs.
+	RNS2RecvStruct *SlotId(unsigned i)
+	{
+		return reinterpret_cast<RNS2RecvStruct *>(0x1000 + (uintptr_t) i);
+	}
+
+	std::vector<RNS2RecvStruct *> MakeSlots(unsigned n)
+	{
+		std::vector<RNS2RecvStruct *> v(n);
+		for (unsigned i = 0; i < n; ++i)
+			v[i] = SlotId(i);
+		return v;
+	}
+}
+
+TEST(CompactRecvSlots, ShiftsSurvivorsToTheFrontPreservingOrder)
+{
+	// Three of eight slots were dispatched: the remaining five must move down to
+	// [0,5) in their original order, ready to be topped back up behind them.
+	std::vector<RNS2RecvStruct *> slots = MakeSlots(8);
+	const unsigned remaining = CompactRecvSlots(slots.data(), 8, 3);
+
+	ASSERT_EQ(remaining, 5u);
+	for (unsigned i = 0; i < remaining; ++i)
+		EXPECT_EQ(slots[i], SlotId(i + 3)) << "survivor " << i << " is not the expected slot";
+}
+
+TEST(CompactRecvSlots, ConsumingNothingLeavesTheArrayUntouched)
+{
+	// A pass that dispatched nothing (recvmmsg failed) must keep every slot
+	// exactly where it was -- re-allocating them would churn the handler's pool
+	// on every transient error.
+	std::vector<RNS2RecvStruct *> slots = MakeSlots(6);
+	const std::vector<RNS2RecvStruct *> before = slots;
+
+	EXPECT_EQ(CompactRecvSlots(slots.data(), 6, 0), 6u);
+	EXPECT_EQ(slots, before);
+}
+
+TEST(CompactRecvSlots, ConsumingEverythingEmptiesTheArray)
+{
+	std::vector<RNS2RecvStruct *> slots = MakeSlots(4);
+	EXPECT_EQ(CompactRecvSlots(slots.data(), 4, 4), 0u);
+}
+
+TEST(CompactRecvSlots, ConsumedCountAboveTheAllocationIsClamped)
+{
+	// Defensive: recvmmsg cannot return more messages than the vlen it was given,
+	// but trusting that would read past the end of the array.
+	std::vector<RNS2RecvStruct *> slots = MakeSlots(4);
+	EXPECT_EQ(CompactRecvSlots(slots.data(), 4, 9), 0u);
+}
+
+TEST(CompactRecvSlots, EmptyArrayIsANoOp)
+{
+	EXPECT_EQ(CompactRecvSlots(nullptr, 0, 0), 0u);
+}
+
+TEST(CompactRecvSlots, RepeatedPartialPassesNeverLoseOrDuplicateASlot)
+{
+	// The steady state: each pass consumes a few slots and the caller tops the
+	// array back up. Across many passes every slot must be accounted for exactly
+	// once -- no slot silently dropped (leak) or left behind twice (double free).
+	const unsigned capacity = MMSG_BATCH_MAX;
+	std::vector<RNS2RecvStruct *> slots = MakeSlots(capacity);
+	unsigned allocated = capacity;
+	unsigned nextId = capacity; // ids handed out when refilling
+
+	// Deterministic pseudo-random consume counts (fixed-seed LCG).
+	uint32_t seed = 12345;
+	std::vector<RNS2RecvStruct *> dispatched;
+
+	for (int pass = 0; pass < 500; ++pass)
+	{
+		seed = seed * 1103515245u + 12345u;
+		const unsigned consumed = allocated == 0 ? 0 : (seed >> 16) % (allocated + 1);
+
+		// Record what the loop would have handed to the event handler.
+		for (unsigned i = 0; i < consumed; ++i)
+			dispatched.push_back(slots[i]);
+
+		allocated = CompactRecvSlots(slots.data(), allocated, consumed);
+
+		// Survivors must still be a contiguous, duplicate-free prefix.
+		std::vector<RNS2RecvStruct *> prefix(slots.begin(), slots.begin() + allocated);
+		std::vector<RNS2RecvStruct *> sorted = prefix;
+		std::sort(sorted.begin(), sorted.end());
+		ASSERT_EQ(std::adjacent_find(sorted.begin(), sorted.end()), sorted.end())
+			<< "duplicate slot in the carry-over on pass " << pass;
+
+		// Refill exactly like the loop does, behind the survivors.
+		for (; allocated < capacity; ++allocated)
+			slots[allocated] = SlotId(nextId++);
+	}
+
+	// Every slot ever created was either dispatched once or is still held.
+	std::vector<RNS2RecvStruct *> accounted = dispatched;
+	accounted.insert(accounted.end(), slots.begin(), slots.begin() + capacity);
+	std::sort(accounted.begin(), accounted.end());
+	EXPECT_EQ(std::adjacent_find(accounted.begin(), accounted.end()), accounted.end())
+		<< "a slot was dispatched twice or carried over twice";
+	EXPECT_EQ(accounted.size(), (size_t) nextId)
+		<< "slots went missing: created " << nextId << ", accounted for " << accounted.size();
 }
 
 // ---------------------------------------------------------------------------

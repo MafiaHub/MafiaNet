@@ -3,12 +3,9 @@
 # Copyright (c) 2024, MafiaHub
 # Licensed under MIT-style license
 
-# Batched datagram I/O (Linux). OFF by default; everything in MmsgBatch.h --
-# the helpers and the RNS2SendBatch accumulator alike -- is always compiled and
-# unit-tested, but the recvmmsg/sendmmsg syscall paths and their wiring into the
-# reliability layer only activate on Linux when these are ON.
-option(MAFIANET_USE_RECVMMSG "Batch UDP receives with recvmmsg (Linux only)" OFF)
-option(MAFIANET_USE_SENDMMSG "Batch UDP sends with sendmmsg (Linux only)" OFF)
+# Batched datagram I/O (recvmmsg/sendmmsg) needs no option: it is a platform
+# capability, selected by MAFIANET_HAS_MMSG in socket2.h, and is always on where
+# the syscalls exist. See docs/getting-started/building.rst.
 
 # Source files (explicit list, no GLOB)
 set(MAFIANET_SOURCES
@@ -346,13 +343,6 @@ function(mafianet_configure_target target_name)
         PRIVATE
             $<$<CONFIG:Debug>:_DEBUG>
             $<$<CONFIG:Release>:NDEBUG>
-        # PUBLIC so consumers including MmsgBatch.h / socket2.h see the same
-        # conditional declarations (RNS2SendBatch, the SendBatch override) the
-        # library was compiled with -- avoids a header/ABI mismatch when a
-        # downstream build turns batching on.
-        PUBLIC
-            $<$<BOOL:${MAFIANET_USE_RECVMMSG}>:MAFIANET_USE_RECVMMSG>
-            $<$<BOOL:${MAFIANET_USE_SENDMMSG}>:MAFIANET_USE_SENDMMSG>
     )
 
     set_target_properties(${target_name} PROPERTIES

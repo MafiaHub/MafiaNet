@@ -2203,7 +2203,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 		}
 
 
-#if defined(MAFIANET_USE_SENDMMSG)
+#if MAFIANET_HAS_MMSG
 		// Coalesce this update's datagrams (all to the same peer) into one
 		// sendmmsg. Loop-local: flushed at the single loop exit below.
 		RNS2SendBatch sendBatch(s, systemAddress);
@@ -2281,7 +2281,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 
 			congestionManager.OnSendBytes(time,UDP_HEADER_SIZE+DatagramHeaderFormat::GetDataHeaderByteLength());
 
-#if defined(MAFIANET_USE_SENDMMSG)
+#if MAFIANET_HAS_MMSG
 			SendBitStream( s, systemAddress, &updateBitStream, rnr, time, &sendBatch );
 #else
 			SendBitStream( s, systemAddress, &updateBitStream, rnr, time );
@@ -2301,7 +2301,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 				timeOfLastContinualSend=0;
 		}
 
-#if defined(MAFIANET_USE_SENDMMSG)
+#if MAFIANET_HAS_MMSG
 		// Single flush point for the whole update's datagrams.
 		sendBatch.Flush();
 #endif
@@ -2411,7 +2411,7 @@ void ReliabilityLayer::SendBitStream( RakNetSocket2 *s, SystemAddress &systemAdd
 #else
 	// SocketLayer::SendTo( s, ( char* ) bitStream->GetData(), length, systemAddress, __FILE__, __LINE__  );
 
-#if defined(MAFIANET_USE_SENDMMSG)
+#if MAFIANET_HAS_MMSG
 	if (sendBatch)
 	{
 		// Defer only the transmit: the datagram above is fully prepared

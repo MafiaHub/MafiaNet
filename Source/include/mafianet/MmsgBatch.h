@@ -8,12 +8,16 @@
 /// \file MmsgBatch.h
 /// \brief Portable helpers for batched datagram I/O (recvmmsg / sendmmsg).
 ///
-/// The Linux-only syscall glue lives in RakNetSocket2_Berkley.cpp behind the
-/// MAFIANET_USE_RECVMMSG / MAFIANET_USE_SENDMMSG build flags. Everything in this
-/// header is portable and compiled unconditionally -- including RNS2SendBatch,
-/// which only needs RakNetSocket2::SendBatch (whose base implementation works on
-/// every platform) -- so the logic that is actually bug-prone is unit-testable
-/// even where the mmsg syscalls do not exist (macOS, Windows, the BSDs).
+/// Batching is always on where the syscalls exist; there is no build option to
+/// turn it on or off (see MAFIANET_HAS_MMSG in socket2.h). The Linux-only
+/// syscall glue lives in RakNetSocket2_Berkley.cpp and RakNetSocket2.cpp behind
+/// that single guard.
+///
+/// Everything in this header is portable and compiled unconditionally --
+/// including RNS2SendBatch, which only needs RakNetSocket2::SendBatch (whose
+/// base implementation works on every platform) -- so the logic that is actually
+/// bug-prone is unit-testable even where the mmsg syscalls do not exist (macOS,
+/// Windows, the BSDs).
 
 #ifndef __MAFIANET_MMSG_BATCH_H
 #define __MAFIANET_MMSG_BATCH_H
@@ -140,7 +144,11 @@ inline int ClassifySendmmsgErrno(int err)
 	// stopping can never spin.
 	if (err <= 0)
 		return 0;
-	if (err == EAGAIN || err == EWOULDBLOCK || err == ENOBUFS || err == EINTR)
+	// ENOMEM joins ENOBUFS here: sendmsg(2) lists both as "no memory/buffer space
+	// available", a whole-socket condition that clears on its own. Classifying it
+	// as permanent would drop one healthy datagram per remaining slot and burn a
+	// syscall doing it.
+	if (err == EAGAIN || err == EWOULDBLOCK || err == ENOBUFS || err == ENOMEM || err == EINTR)
 		return 0;
 	return -err;
 }
@@ -160,6 +168,25 @@ void DispatchRecvBatch(RNS2EventHandler *handler,
                        const int *lens, const sockaddr_storage *addrs,
                        unsigned received, RakNetSocket2 *socket,
                        MafiaNet::TimeUS now);
+
+/// Compact the recv-slot array after a batch has been dispatched.
+///
+/// The batched recv loop keeps its RNS2RecvStruct slots across passes: only the
+/// slots that actually received a datagram change hands (DispatchRecvBatch gives
+/// them to the event handler), and the untouched tail is carried over so the
+/// steady state costs one alloc/free round trip per datagram rather than
+/// MMSG_BATCH_MAX per pass. \a consumed slots have been handed away; the
+/// survivors are shifted down to the front of \a slots, preserving their order,
+/// and the new slot count is returned.
+///
+/// \a consumed is clamped to \a allocated: recvmmsg cannot report more messages
+/// than the vlen it was given, but getting this wrong would read off the end of
+/// the array, so the guard is explicit rather than assumed.
+///
+/// Free function so the carry-over arithmetic -- the subtlest part of the
+/// batched recv loop, and the part that only ever runs on Linux -- is unit
+/// testable on every platform without a socket.
+unsigned CompactRecvSlots(RNS2RecvStruct **slots, unsigned allocated, unsigned consumed);
 
 /// Accumulates already-prepared datagrams (post-encryption, post packet-loss
 /// simulation) destined for a single peer and flushes them via
@@ -255,24 +282,19 @@ private:
 	// call) while keeping the block off the stack and out of TLS for the many
 	// threads that never send a batch: it is allocated on this thread's first
 	// Add() and released when the thread exits.
-	static char *Slot(unsigned i)
-	{
-		struct Block
-		{
-			char *bytes;
-			Block() : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
-			~Block() { MafiaNet::OP_DELETE_ARRAY(bytes, _FILE_AND_LINE_); }
-		};
-		static thread_local Block block;
-		return block.bytes + (size_t) i * MAXIMUM_MTU_SIZE;
-	}
+	//
+	// Defined in MmsgBatch.cpp, deliberately NOT inline here. Both hold
+	// thread_local state, and this is a public header, so a consumer could
+	// instantiate RNS2SendBatch in its own translation unit. Inline definitions
+	// would then give that consumer its own copy of the buffer block and of the
+	// reentrancy flag across a shared-library boundary (Windows DLLs,
+	// -fvisibility=hidden), silently disarming the guard below and handing the two
+	// copies separate buffers. One out-of-line definition in the library keeps a
+	// single instance per thread, whoever calls.
+	static char *Slot(unsigned i);
 
 	// Debug-only guard against a second live batch on the same thread.
-	static bool &ThreadBatchLive()
-	{
-		static thread_local bool live = false;
-		return live;
-	}
+	static bool &ThreadBatchLive();
 
 	RakNetSocket2 *socket;
 	SystemAddress dest;

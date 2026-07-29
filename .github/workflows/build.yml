@@ -34,12 +34,26 @@ jobs:
           path: test-results/junit.xml
           if-no-files-found: ignore
 
-  # Linux with batched datagram I/O turned on. The recvmmsg/sendmmsg paths and
-  # their reliability-layer wiring are compiled out of every other job, so
-  # without this they would never even be built. Runs both suites so the
-  # batched send path is exercised over real loopback traffic.
-  linux-mmsg:
+  # Native Linux builds. Batched datagram I/O (recvmmsg/sendmmsg) is always on
+  # here -- it is a platform capability, not an option -- so these are the jobs
+  # that compile and exercise it over real loopback traffic.
+  #
+  # Both configurations, because each covers what the other cannot:
+  #   Debug   - RakAssert is compiled out unless _DEBUG, and it is what guards the
+  #             invariants these paths rely on (the SendBatch count-not-bytes
+  #             return contract, the RNS2SendBatch reentrancy guard, the
+  #             IPv4-only address branch). Only here do those checks run.
+  #   Release - the configuration that actually ships. Exercises the NDEBUG
+  #             behaviour the asserts hide: the oversized-datagram drop backstop
+  #             (its unit test skips itself under _DEBUG, where the assert fires
+  #             first) and the silent IPv4-only branch in the sendmmsg override.
+  linux-native:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+    name: linux-native (${{ matrix.build_type }})
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,17 +64,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libssl-dev
 
       - name: Configure CMake
-        # Debug on purpose: this is the only job that compiles the mmsg paths,
-        # and RakAssert (which is compiled out unless _DEBUG) is what guards the
-        # invariants they rely on -- the SendBatch count-not-bytes return
-        # contract, the RNS2SendBatch reentrancy guard, the IPv4-only address
-        # branch. In Release those checks would not run anywhere.
         run: |
           cmake -B build \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DMAFIANET_BUILD_TESTS=ON \
-            -DMAFIANET_USE_RECVMMSG=ON \
-            -DMAFIANET_USE_SENDMMSG=ON
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DMAFIANET_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --parallel 4
@@ -77,7 +84,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-linux-mmsg
+          name: test-results-linux-native-${{ matrix.build_type }}
           path: build/junit.xml
           if-no-files-found: ignore
 

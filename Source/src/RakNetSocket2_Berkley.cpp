@@ -528,7 +528,7 @@ void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 #endif
 }
 
-#if defined(MAFIANET_USE_RECVMMSG) && defined(__linux__)
+#if MAFIANET_HAS_MMSG
 void RNS2_Berkley::RecvFromBatchedLoop(void)
 {
 	RNS2RecvStruct *slots[MMSG_BATCH_MAX];
@@ -619,17 +619,17 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		                  received, this, now);
 
 		// Carry the untouched tail over to the next pass; only the consumed slots
-		// are topped back up at the head of the loop.
-		allocated-=received;
-		if (allocated>0)
-			memmove(slots, slots+received, allocated*sizeof(slots[0]));
+		// are topped back up at the head of the loop. The arithmetic lives in
+		// CompactRecvSlots so it is unit tested (MmsgBatchTests) rather than only
+		// ever exercised here, on Linux, at runtime.
+		allocated=CompactRecvSlots(slots, allocated, received);
 	}
 
 	// Release whatever the last pass was still holding.
 	for (unsigned i=0; i<allocated; ++i)
 		binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
 }
-#endif // MAFIANET_USE_RECVMMSG && __linux__
+#endif // MAFIANET_HAS_MMSG
 
 #endif // file header
 

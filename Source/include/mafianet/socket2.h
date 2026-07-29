@@ -23,6 +23,25 @@
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "Export.h"
 
+/// \def MAFIANET_HAS_MMSG
+/// Whether this build has the batched datagram I/O paths (recvmmsg / sendmmsg).
+///
+/// This is a platform capability, not a user option: the syscalls exist on Linux
+/// and nowhere else MafiaNet targets, so the decision is made here rather than
+/// asked of whoever is configuring the build. On every other platform the
+/// portable fallbacks compile instead -- RakNetSocket2::SendBatch loops Send(),
+/// and the scalar recvfrom loop drains the socket -- so behaviour is identical
+/// either way and only the number of system calls differs.
+///
+/// Note it is deliberately defined to 0/1 rather than defined/undefined, so
+/// `#if MAFIANET_HAS_MMSG` is a compile error on a typo instead of silently
+/// taking the fallback branch.
+#if defined(__linux__)
+#define MAFIANET_HAS_MMSG 1
+#else
+#define MAFIANET_HAS_MMSG 0
+#endif
+
 // For CFSocket
 // https://developer.apple.com/library/mac/#documentation/CoreFOundation/Reference/CFSocketRef/Reference/reference.html
 // Reason: http://sourceforge.net/p/open-dis/discussion/683284/thread/0929d6a0
@@ -114,14 +133,25 @@ public:
 	void SetRecvEventHandler(RNS2EventHandler *_eventHandler);
 	virtual RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line )=0;
 	// Batched send. The base implementation simply loops Send() so every socket
-	// type has a working default; RNS2_Linux overrides it with sendmmsg when
-	// MAFIANET_USE_SENDMMSG is enabled.
-	// Returns the number of datagrams accepted (0..count) -- a count, NOT the
-	// byte total Send() returns -- or a negative error code when no datagram at
-	// all went out, mirroring sendmmsg(2). A datagram that fails on its own
-	// (bad destination, oversized) is dropped and the rest of the batch is still
-	// sent, so the count may be short without an error being reported. Both
-	// implementations must agree on this; see MmsgBatchTests.
+	// type has a working default; RNS2_Linux overrides it with sendmmsg where the
+	// syscall exists (MAFIANET_HAS_MMSG).
+	// Returns a datagram COUNT, NOT the byte total Send() returns:
+	//   > 0        datagrams accepted (may be < count -- see the drop rule below)
+	//   0          nothing went out, but nothing is permanently wrong: a transient
+	//              socket-wide condition (send buffer full, interrupted call).
+	//              Retry on a later tick.
+	//   < 0        nothing went out and at least one datagram failed permanently;
+	//              the value is the first such error, mirroring sendmmsg(2)'s
+	//              "an error is returned only if no datagrams could be sent".
+	// A datagram that fails on its own (bad destination, oversized) is dropped and
+	// the rest of the batch is still sent, so the count may be short without an
+	// error being reported.
+	// Both implementations agree on the sign convention above, but NOT on how they
+	// detect the transient case: the sendmmsg override classifies errno
+	// (ClassifySendmmsgErrno) and so can return 0, whereas the base loop cannot
+	// portably read errno through Send() and reports every failure as permanent.
+	// A caller must therefore treat "0" and "negative" alike as "these datagrams
+	// did not go out"; only the diagnostics differ. See MmsgBatchTests.
 	// RNS2_SendParameters::ttl is honoured either way: sendmmsg has no per-message
 	// TTL, so the override defers a batch carrying one to this base loop.
 	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
@@ -208,7 +238,7 @@ protected:
 	RNS2_BerkleyBindParameters binding;
 
 	unsigned RecvFromLoopInt(void);
-	// Batched drain of the recv socket via recvmmsg (Linux + MAFIANET_USE_RECVMMSG).
+	// Batched drain of the recv socket via recvmmsg (MAFIANET_HAS_MMSG).
 	// Declared unconditionally; only ever called from RecvFromLoopInt under the
 	// same guard, and only defined on that platform.
 	void RecvFromBatchedLoop(void);
@@ -272,11 +302,10 @@ class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux_360
 public:
 	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
 	RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
-	// __linux__ as well as the flag: RNS2_Linux is the non-Windows socket class,
-	// so macOS and the BSDs compile it too, and sendmmsg/mmsghdr do not exist
-	// there. Those platforms keep the portable base SendBatch (a Send() loop),
-	// which is why turning the flag on off-Linux is a no-op rather than an error.
-#if defined(MAFIANET_USE_SENDMMSG) && defined(__linux__)
+	// Guarded because RNS2_Linux is the non-Windows socket class: macOS and the
+	// BSDs compile it too, and sendmmsg/mmsghdr do not exist there. Those
+	// platforms inherit the portable base SendBatch (a Send() loop).
+#if MAFIANET_HAS_MMSG
 	RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 #endif
 

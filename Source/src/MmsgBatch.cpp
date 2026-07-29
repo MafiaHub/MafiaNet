@@ -10,6 +10,26 @@
 namespace MafiaNet
 {
 
+// One buffer block per thread that actually batches -- see the declaration in
+// MmsgBatch.h for why these live here rather than inline in the header.
+char *RNS2SendBatch::Slot(unsigned i)
+{
+	struct Block
+	{
+		char *bytes;
+		Block() : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
+		~Block() { MafiaNet::OP_DELETE_ARRAY(bytes, _FILE_AND_LINE_); }
+	};
+	static thread_local Block block;
+	return block.bytes + (size_t) i * MAXIMUM_MTU_SIZE;
+}
+
+bool &RNS2SendBatch::ThreadBatchLive()
+{
+	static thread_local bool live = false;
+	return live;
+}
+
 bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
 {
 	// Mirrors the byte-order handling of RNS2_Berkley::RecvFromBlockingIPV4And6:
@@ -38,6 +58,16 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
 	// datagram to the wrong peer.
 	*out = UNASSIGNED_SYSTEM_ADDRESS;
 	return false;
+}
+
+unsigned CompactRecvSlots(RNS2RecvStruct **slots, unsigned allocated, unsigned consumed)
+{
+	if (consumed > allocated)
+		consumed = allocated;
+	const unsigned remaining = allocated - consumed;
+	if (remaining > 0 && consumed > 0)
+		memmove(slots, slots + consumed, remaining * sizeof(slots[0]));
+	return remaining;
 }
 
 void DispatchRecvBatch(RNS2EventHandler *handler,
