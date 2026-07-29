@@ -321,6 +321,52 @@ TEST(ClassifySendmmsgErrno, StopsTheBatchTailOnATransientFailure)
 }
 
 // ---------------------------------------------------------------------------
+// MmsgSyscallMissing -- "this system has no recvmmsg/sendmmsg" vs "this call
+// failed". Batching is not a build option, so this is what keeps a kernel or
+// sandbox that filters the syscalls from losing all traffic: it selects a
+// runtime fallback to the per-datagram paths instead of failing every datagram.
+// ---------------------------------------------------------------------------
+
+TEST(MmsgSyscallMissing, ENOSYSMeansTheSyscallIsAbsent)
+{
+	EXPECT_TRUE(MmsgSyscallMissing(ENOSYS));
+}
+
+TEST(MmsgSyscallMissing, OrdinarySocketErrorsAreNotMistakenForAMissingSyscall)
+{
+	// Latching batching off process-wide for any of these would be a severe
+	// overreaction -- they are per-datagram or transient conditions.
+	EXPECT_FALSE(MmsgSyscallMissing(EAGAIN));
+	EXPECT_FALSE(MmsgSyscallMissing(ENOBUFS));
+	EXPECT_FALSE(MmsgSyscallMissing(ENOMEM));
+	EXPECT_FALSE(MmsgSyscallMissing(EINTR));
+	EXPECT_FALSE(MmsgSyscallMissing(EMSGSIZE));
+	EXPECT_FALSE(MmsgSyscallMissing(EINVAL));
+	EXPECT_FALSE(MmsgSyscallMissing(EDESTADDRREQ));
+	EXPECT_FALSE(MmsgSyscallMissing(ECONNREFUSED));
+	EXPECT_FALSE(MmsgSyscallMissing(0));
+}
+
+TEST(MmsgSyscallMissing, EPERMIsNotTreatedAsAMissingSyscall)
+{
+	// Some seccomp policies report EPERM for a filtered syscall, but a firewall
+	// rejecting one destination reports EPERM too. Disabling batching for the
+	// whole process on that basis would be wrong, so EPERM stays a per-datagram
+	// error and only ENOSYS latches the fallback.
+	EXPECT_FALSE(MmsgSyscallMissing(EPERM));
+}
+
+TEST(MmsgSyscallMissing, ENOSYSIsNotSilentlySwallowedByTheErrnoClassifier)
+{
+	// The send path checks MmsgSyscallMissing BEFORE ClassifySendmmsgErrno,
+	// because the classifier would call ENOSYS a permanent per-message error --
+	// which drops one datagram per remaining slot and takes out the whole batch.
+	// Pinned so the two cannot be reordered without a test failing.
+	EXPECT_EQ(ClassifySendmmsgErrno(ENOSYS), -ENOSYS);
+	EXPECT_TRUE(MmsgSyscallMissing(ENOSYS));
+}
+
+// ---------------------------------------------------------------------------
 // SockaddrToSystemAddress -- byte-order handling.
 // ---------------------------------------------------------------------------
 

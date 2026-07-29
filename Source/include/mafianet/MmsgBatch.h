@@ -153,6 +153,43 @@ inline int ClassifySendmmsgErrno(int err)
 	return -err;
 }
 
+/// Whether \a err from a failed recvmmsg/sendmmsg means the syscall does not
+/// exist on this system, as opposed to something wrong with the socket or the
+/// datagram.
+///
+/// ENOSYS only, deliberately. It is the unambiguous "not implemented" signal:
+/// a kernel older than the syscall, a seccomp profile or sandbox that filters
+/// it (gVisor, restrictive container runtimes), or user-mode emulation. EPERM
+/// is NOT included even though some seccomp policies return it, because a
+/// firewall rejecting one destination reports EPERM too -- latching batching
+/// off process-wide for that would be badly wrong.
+///
+/// Compiled everywhere so the classification is unit testable off Linux.
+inline bool MmsgSyscallMissing(int err)
+{
+#if defined(ENOSYS)
+	return err == ENOSYS;
+#else
+	(void) err;
+	return false;
+#endif
+}
+
+/// Process-wide latch: has recvmmsg/sendmmsg been observed to be unavailable?
+///
+/// Batching is not optional at build time, so a system that filters these
+/// syscalls needs a *runtime* fallback -- without one, every send would be
+/// dropped a datagram at a time and the recv loop would never surface a packet,
+/// i.e. total loss of networking on an otherwise healthy host. Both call sites
+/// fall back to the portable per-datagram paths once this latches.
+///
+/// Availability is a property of the kernel/sandbox, not of a socket, so one
+/// latch for the process is right. It is one-way (never cleared): the condition
+/// cannot change while the process runs, and never clearing keeps it free of
+/// races beyond the single relaxed store.
+bool MmsgUnavailable(void);
+void MarkMmsgUnavailable(void);
+
 /// Fan a received batch out to the event handler.
 ///
 /// \a slots[0..allocated) are pre-allocated recv structs whose .data buffers

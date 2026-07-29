@@ -7,8 +7,28 @@
 
 #include "mafianet/MmsgBatch.h"
 
+#include <atomic>
+
 namespace MafiaNet
 {
+
+namespace
+{
+	// Relaxed is sufficient: the flag guards nothing but itself. A thread that
+	// reads a stale false simply attempts one more doomed syscall and latches it
+	// again; there is no data published alongside it that needs ordering.
+	std::atomic<bool> g_mmsgUnavailable(false);
+}
+
+bool MmsgUnavailable(void)
+{
+	return g_mmsgUnavailable.load(std::memory_order_relaxed);
+}
+
+void MarkMmsgUnavailable(void)
+{
+	g_mmsgUnavailable.store(true, std::memory_order_relaxed);
+}
 
 // One buffer block per thread that actually batches -- see the declaration in
 // MmsgBatch.h for why these live here rather than inline in the header.

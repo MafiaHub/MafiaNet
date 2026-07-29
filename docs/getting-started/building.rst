@@ -74,8 +74,9 @@ the portable per-datagram paths instead. Behaviour is identical either way --
 delivery, ordering and reliability are unchanged; only the number of system calls
 differs.
 
-Measured on a 2560-message reliable-ordered burst (Linux, Release build,
-``strace -c``):
+Measured on the 2560-message reliable-ordered burst in
+``Tests/Integration/MmsgBatchLiveTests.cpp`` (Linux, Release build, ``strace -c``,
+median of 3 runs):
 
 .. list-table::
    :header-rows: 1
@@ -85,22 +86,38 @@ Measured on a 2560-message reliable-ordered burst (Linux, Release build,
      - Per-datagram
      - Batched
    * - ``sendto``
-     - 2937
-     - 36
+     - 2907
+     - 35
    * - ``sendmmsg``
      - 0
-     - 61
+     - 58
    * - ``recvfrom``
      - 2618
      - 0
    * - ``recvmmsg``
      - 0
-     - 87
+     - 85
    * - **Total**
-     - **5555**
-     - **184**
+     - **5525**
+     - **178**
 
-Up to ``MMSG_BATCH_MAX`` (64) datagrams are coalesced per call.
+**~31x fewer system calls.** Up to ``MMSG_BATCH_MAX`` (64) datagrams are coalesced
+per call.
+
+Counts vary by a percent or two between runs -- congestion control decides how many
+datagrams are ready on each tick -- so the ratio is the result, not the exact
+figures. Reproduce with:
+
+.. code-block:: bash
+
+   strace -f -c -e trace=sendmmsg,sendto,recvmmsg,recvfrom \
+     ./build/Tests/IntegrationTests \
+     --gtest_filter='MmsgBatchLive.LargeReliableOrderedBurstArrivesIntactAndInOrder'
+
+The per-datagram column is the code every non-Linux platform runs. To reproduce it
+on Linux, flip the ``#if defined(__linux__)`` batching guards in
+``RakNetSocket2.cpp``, ``RakNetSocket2_Berkley.cpp``, ``ReliabilityLayer.cpp`` and
+``socket2.h`` to ``#if 0``.
 
 Running Tests
 -------------

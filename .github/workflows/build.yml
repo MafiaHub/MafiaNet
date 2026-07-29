@@ -72,20 +72,31 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 4
 
-      - name: Run tests
+      # The unit suite is hermetic and deterministic by construction, so it runs
+      # exactly once: retrying it could only ever hide a genuine nondeterminism
+      # bug. Retries are reserved for the integration suite, where they absorb
+      # real loopback timing misses.
+      - name: Run unit tests
         run: |
-          ctest --test-dir build \
+          ctest --test-dir build -L unit \
+            --output-on-failure \
+            --timeout 600 \
+            --output-junit junit-unit.xml
+
+      - name: Run integration tests
+        run: |
+          ctest --test-dir build -L integration \
             --output-on-failure \
             --repeat until-pass:3 \
             --timeout 600 \
-            --output-junit junit.xml
+            --output-junit junit-integration.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-linux-native-${{ matrix.build_type }}
-          path: build/junit.xml
+          path: build/junit-*.xml
           if-no-files-found: ignore
 
   # macOS: Build and run both suites (unit + integration).

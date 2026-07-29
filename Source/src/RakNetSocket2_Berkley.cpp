@@ -548,6 +548,11 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 	// passes: Linux reports asynchronous errors on a connectionless UDP socket
 	// (ECONNREFUSED when a peer's port is closed) and those must not churn the
 	// pool either.
+	// Already known missing on this system (another socket hit it first):
+	// hand straight back to RecvFromLoopInt's scalar loop.
+	if (MmsgUnavailable())
+		return;
+
 	unsigned allocated=0;
 	unsigned consecutiveErrors=0;
 
@@ -588,7 +593,20 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		// everything already queued. Without it recvmmsg would wait to fill the
 		// whole array (or hit a timeout), adding latency at low packet rates.
 		int n = recvmmsg(rns2Socket, msgs, allocated, MSG_WAITFORONE, nullptr);
+		// Read errno before anything else can clobber it -- GetTimeUS() below
+		// is a syscall too, and errno is only meaningful immediately after the
+		// call that failed.
+		const int recvErrno = (n<0) ? errno : 0;
 		MafiaNet::TimeUS now = MafiaNet::GetTimeUS();
+
+		if (n<0 && MmsgSyscallMissing(recvErrno))
+		{
+			// No recvmmsg on this kernel/sandbox. Backing off would spin this
+			// thread forever without ever surfacing a packet, so give the slots
+			// back and let RecvFromLoopInt's scalar loop take over permanently.
+			MarkMmsgUnavailable();
+			break;
+		}
 
 		if (n<=0)
 		{

@@ -178,10 +178,12 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 
 #if defined(__linux__)
 	// Drain the socket in batches with a single recvmmsg per burst instead of
-	// one recvfrom per datagram. Falls through to the scalar loop below on any
-	// other platform / when the flag is off.
+	// one recvfrom per datagram. Returns when endThreads is set -- in which
+	// case the scalar loop below sees the same flag and exits immediately --
+	// or straight away if this kernel/sandbox has no recvmmsg, handing over to
+	// the scalar loop for the life of the thread.
 	RecvFromBatchedLoop();
-#else
+#endif
 	while ( endThreads == false )
 	{
 		RNS2RecvStruct *recvFromStruct;
@@ -203,7 +205,6 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 			}
 		}
 	}
-#endif // __linux__
 	isRecvFromLoopThreadActive.Decrement();
 
 	return 0;
@@ -308,6 +309,11 @@ RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count
 			return RakNetSocket2::SendBatch(sends, count, file, line);
 	}
 
+	// This kernel/sandbox does not implement sendmmsg (see MmsgUnavailable).
+	// Every call would fail identically, so go straight to the portable loop.
+	if (MmsgUnavailable())
+		return RakNetSocket2::SendBatch(sends, count, file, line);
+
 	(void) file;
 	(void) line;
 
@@ -354,8 +360,23 @@ RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count
 			const int r = sendmmsg(rns2Socket, msgs, chunk, 0);
 			if (r>=0)
 				return r;
-			return ClassifySendmmsgErrno(errno);
+			const int err = errno;
+			if (MmsgSyscallMissing(err))
+			{
+				// Not a property of this datagram: the syscall is absent, so it
+				// fails on the very first call and nothing has gone out yet.
+				// Returning 0 stops the drive loop WITHOUT dropping anything --
+				// classifying ENOSYS as a per-message error would discard the
+				// entire batch one datagram at a time, burning a syscall each.
+				MarkMmsgUnavailable();
+				return 0;
+			}
+			return ClassifySendmmsgErrno(err);
 		});
+	// sendmmsg turned out to be missing. It fails on the first call, so
+	// `sent` is 0 and no datagram was duplicated by resending the batch.
+	if (sent==0 && MmsgUnavailable())
+		return RakNetSocket2::SendBatch(sends, count, file, line);
 	return sent;
 }
 #endif
