@@ -196,6 +196,9 @@ enum DefaultMessageIDTypes
 	ID_RAKVOICE_CLOSE_CHANNEL,
 	/// RakVoice plugin - Voice data
 	ID_RAKVOICE_DATA,
+	/// RakVoice relay frame: origin GUID + format version + channel + sequence
+	/// + Opus payload. Routed through a relay host rather than peer-to-peer.
+	ID_RAKVOICE_RELAY_DATA,
 
 	/// Autopatcher plugin - Get a list of files that have changed since a certain date
 	ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE,

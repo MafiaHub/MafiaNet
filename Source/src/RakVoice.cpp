@@ -32,7 +32,8 @@
 using namespace MafiaNet;
 
 #define SAMPLESIZE 2
-#define MAX_OPUS_PACKET_SIZE 4000
+// Single definition lives in RakVoice.h so relay hosts can bound inbound frames.
+#define MAX_OPUS_PACKET_SIZE ((int)MafiaNet::RAKVOICE_MAX_OPUS_PACKET_SIZE)
 
 // RNNoise frame size is fixed at 480 samples (10ms at 48kHz)
 #define RNNOISE_FRAME_SIZE 480
@@ -49,13 +50,23 @@ int MafiaNet::VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &dat
 RakVoice::RakVoice()
 {
 	bufferedOutput = nullptr;
+	// Only assigned in Init(), but Update() reads them and a relay host never calls Init().
+	// Leaving them indeterminate makes that read UB, and a non-zero zeroBufferedOutput would
+	// send the zeroing loop through the null bufferedOutput for a garbage count.
+	bufferedOutputCount = 0;
+	zeroBufferedOutput = false;
 	defaultVADState = true;
 	defaultDENOISEState = false;
+	defaultBitrate = 0;
 	defaultVBRState = false;
 	defaultSignalType = OPUS_SIGNAL_VOICE;
 	loopbackMode = false;
 	sampleRate = 0;
 	bufferSizeBytes = 0;
+	relayMode = false;
+	relayHost = false;
+	perSpeakerOutput = false;
+	relayTarget = UNASSIGNED_RAKNET_GUID;
 }
 
 RakVoice::~RakVoice()
@@ -79,6 +90,12 @@ void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
 	for (unsigned i = 0; i < bufferedOutputCount; i++)
 		bufferedOutput[i] = 0.0f;
 	zeroBufferedOutput = false;
+
+	if (relayMode && rakPeerInterface != nullptr)
+	{
+		// Local encoder state for the outgoing stream; see SetRelayMode.
+		GetOrCreateChannel(rakPeerInterface->GetMyGUID());
+	}
 }
 
 void RakVoice::Deinit(void)
@@ -117,6 +134,70 @@ bool RakVoice::IsLoopbackMode(void) const
 	return loopbackMode;
 }
 
+void RakVoice::SetRelayMode(bool enable)
+{
+	relayMode = enable;
+
+	// SendFrame() requires an open channel to hold the encoder and the outgoing ring, and
+	// the normal way to get one is the RequestVoiceChannel handshake with a peer. There is
+	// no peer to handshake with in relay mode, so open a channel keyed on our own GUID and
+	// use it purely as local encoder state. Only meaningful once Init() has run, so the
+	// client calls SetRelayMode before Init and this is re-checked there.
+	if (enable && rakPeerInterface != nullptr && IsInitialized())
+	{
+		GetOrCreateChannel(rakPeerInterface->GetMyGUID());
+	}
+}
+
+void RakVoice::SetRelayTarget(RakNetGUID server)
+{
+	relayTarget = server;
+}
+
+void RakVoice::SetRelayHost(bool enable)
+{
+	relayHost = enable;
+}
+
+void RakVoice::SetPerSpeakerOutput(bool enable)
+{
+	perSpeakerOutput = enable;
+}
+
+RakNetGUID RakVoice::ReadRelayOrigin(Packet *packet)
+{
+	// Offsets are derived in RakVoice.h, so this stays correct as the header grows.
+	if (packet == nullptr || packet->length < RAKVOICE_RELAY_OFFSET_ORIGIN + sizeof(uint64_t))
+		return UNASSIGNED_RAKNET_GUID;
+
+	// Reject unknown wire formats before trusting any field position.
+	if (packet->data[RAKVOICE_RELAY_OFFSET_VERSION] != RAKVOICE_RELAY_FORMAT_VERSION)
+		return UNASSIGNED_RAKNET_GUID;
+
+	RakNetGUID origin;
+	memcpy(&origin.g, packet->data + RAKVOICE_RELAY_OFFSET_ORIGIN, sizeof(uint64_t));
+	return origin;
+}
+
+void RakVoice::RelayFrame(Packet *packet, const RakNetGUID *recipients, int count)
+{
+	// Forward the payload untouched. The origin GUID is already in the header, written by
+	// the talker, so the server does not need to rewrite anything and never decodes.
+	if (packet == nullptr || rakPeerInterface == nullptr)
+		return;
+
+	for (int i = 0; i < count; i++)
+	{
+		// Unreliable, NOT UnreliableSequenced: every relayed frame reaches the recipient from
+		// a single sender (the server) on ordering channel 0, so all speakers would share one
+		// sequence stream and whichever speaker lost the race would be discarded whenever two
+		// people talk at once. The relay header carries a per-speaker sequence number that
+		// already drives PLC, so ordering is handled a layer up.
+		rakPeerInterface->Send((const char*)packet->data, packet->length,
+			MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, recipients[i], false);
+	}
+}
+
 void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 {
 	MafiaNet::BitStream out;
@@ -127,6 +208,13 @@ void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 
 void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 {
+	// Tested before FreeChannelMemory, which removes the entry. Without this a peer that
+	// never opened a channel -- every peer on a server that attaches RakVoice purely as a
+	// relay host -- would still be sent ID_RAKVOICE_CLOSE_CHANNEL on a clean disconnect,
+	// which a client with no RakVoice attached sees as an unknown packet id.
+	if (!voiceChannels.HasData(recipient))
+		return;
+
 	FreeChannelMemory(recipient);
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
@@ -320,6 +408,15 @@ void RakVoice::Update(void)
 	unsigned char encodedBuffer[MAX_OPUS_PACKET_SIZE];
 	char tempOutput[2048];
 	static const int headerSize = sizeof(unsigned char) + sizeof(unsigned short);
+
+	// A relay host attaches the plugin without ever calling Init(): it forwards payloads
+	// through RelayFrame() and owns no codec. Everything below operates on the buffered
+	// output and the voice channels, neither of which exists before Init(), so there is
+	// genuinely nothing to do -- including for a relay host, whose channel list is always
+	// empty (OnOpenChannelRequest refuses to open one while bufferedOutput is null).
+	if (!IsInitialized())
+		return;
+
 	tempOutput[0] = ID_RAKVOICE_DATA;
 
 	MafiaNet::TimeMS currentTime = MafiaNet::GetTimeMS();
@@ -332,6 +429,24 @@ void RakVoice::Update(void)
 		for (i = 0; i < voiceChannels.Size(); i++)
 			voiceChannels[i]->copiedOutgoingBufferToBufferedOutput = false;
 		zeroBufferedOutput = false;
+	}
+
+	if (relayMode)
+	{
+		// Relay speakers are peers of the server, not of us, so OnClosedConnection never
+		// fires for them and nothing else would ever free their channels. Reap the ones we
+		// have stopped hearing from. Walked backwards so removal cannot skip an entry.
+		// Never reaps the self-keyed channel: it holds our outgoing encoder state, which is
+		// written by SendFrame() and never decoded into.
+		RakNetGUID selfGuid = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
+		for (i = voiceChannels.Size(); i > 0; i--)
+		{
+			channel = voiceChannels[i - 1];
+			if (channel->guid == selfGuid)
+				continue;
+			if (currentTime - channel->lastDecode > RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS)
+				FreeChannelMemory(i - 1, true);
+		}
 	}
 
 	for (i = 0; i < voiceChannels.Size(); i++)
@@ -350,7 +465,9 @@ void RakVoice::Update(void)
 			opusBlockSize = channel->frameSizeSamples * SAMPLESIZE;
 			opusFramesAvailable = bytesAvailable / opusBlockSize;
 
-			if (opusFramesAvailable > 0)
+			// A decode-only relay channel has no encoder; it also never has outgoing bytes,
+			// so this is belt and braces. Always true off the relay path.
+			if (opusFramesAvailable > 0 && channel->encoder != nullptr)
 			{
 				while (opusFramesAvailable-- > 0)
 				{
@@ -375,6 +492,13 @@ void RakVoice::Update(void)
 					{
 						// RNNoise works at 48kHz with 480 sample frames
 						// For other sample rates, we skip denoising (or could resample)
+						//
+						// NOTE: unreachable at the MafiaHub Framework's frame size.
+						// GetFrameSizeSamples() returns sampleRate/50, i.e. 960 (20ms) at 48kHz,
+						// which is what Framework::Voice::kFrameSamples uses, so this branch never
+						// runs and voice ships undenoised. Fixing it means either 10ms frames or
+						// running RNNoise twice per frame with shared state; see the voice design
+						// spec, deferred to M2.
 						if (sampleRate == 48000 && channel->frameSizeSamples == RNNOISE_FRAME_SIZE)
 						{
 							float floatSamples[RNNOISE_FRAME_SIZE];
@@ -389,8 +513,10 @@ void RakVoice::Update(void)
 					}
 
 					// Encode with Opus
+					// Bound the encoder by what actually fits in tempOutput after the largest
+					// header, not by MAX_OPUS_PACKET_SIZE (4000 > sizeof(tempOutput)).
 					int encodedBytes = opus_encode(channel->encoder, samples, channel->frameSizeSamples,
-					                               encodedBuffer, MAX_OPUS_PACKET_SIZE);
+					                               encodedBuffer, (opus_int32)(sizeof(tempOutput) - RAKVOICE_RELAY_HEADER_SIZE));
 
 					channel->outgoingReadIndex = (channel->outgoingReadIndex + opusBlockSize) % totalBufferSize;
 
@@ -408,22 +534,44 @@ void RakVoice::Update(void)
 
 					channel->isSendingVoiceData = true;
 
-					// Build packet: ID (1 byte) + message number (2 bytes) + encoded data
-					memcpy(tempOutput + 1, &channel->outgoingMessageNumber, sizeof(unsigned short));
-					memcpy(tempOutput + headerSize, encodedBuffer, encodedBytes);
-					channel->outgoingMessageNumber++;
-
-					MafiaNet::BitStream tempOutputBs((unsigned char*)tempOutput, encodedBytes + headerSize, false);
-					SendUnified(&tempOutputBs, MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, channel->guid, false);
-
-					if (loopbackMode)
+					if (relayMode)
 					{
-						Packet p;
-						p.length = encodedBytes + headerSize;
-						p.data = (unsigned char*)tempOutput;
-						p.guid = channel->guid;
-						p.systemAddress = rakPeerInterface->GetSystemAddressFromGuid(p.guid);
-						OnVoiceData(&p);
+						// Build packet: ID (1 byte) + format version (1 byte) + origin guid (8 bytes)
+						// + channel id (2 bytes) + message number (2 bytes) + encoded data
+						RakNetGUID self = rakPeerInterface->GetMyGUID();
+						uint16_t channelId = 0; // M1: proximity only. M2 sets this per channel.
+
+						tempOutput[0] = ID_RAKVOICE_RELAY_DATA;
+						tempOutput[RAKVOICE_RELAY_OFFSET_VERSION] = (char)RAKVOICE_RELAY_FORMAT_VERSION;
+						memcpy(tempOutput + RAKVOICE_RELAY_OFFSET_ORIGIN, &self.g, sizeof(uint64_t));
+						memcpy(tempOutput + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
+						memcpy(tempOutput + RAKVOICE_RELAY_OFFSET_SEQUENCE, &channel->outgoingMessageNumber, sizeof(unsigned short));
+						memcpy(tempOutput + RAKVOICE_RELAY_HEADER_SIZE, encodedBuffer, encodedBytes);
+						channel->outgoingMessageNumber++;
+
+						rakPeerInterface->Send(tempOutput, encodedBytes + (int)RAKVOICE_RELAY_HEADER_SIZE,
+							MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 0, relayTarget, false);
+					}
+					else
+					{
+						// Build packet: ID (1 byte) + message number (2 bytes) + encoded data
+						tempOutput[0] = ID_RAKVOICE_DATA;
+						memcpy(tempOutput + 1, &channel->outgoingMessageNumber, sizeof(unsigned short));
+						memcpy(tempOutput + headerSize, encodedBuffer, encodedBytes);
+						channel->outgoingMessageNumber++;
+
+						MafiaNet::BitStream tempOutputBs((unsigned char*)tempOutput, encodedBytes + headerSize, false);
+						SendUnified(&tempOutputBs, MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, channel->guid, false);
+
+						if (loopbackMode)
+						{
+							Packet p;
+							p.length = encodedBytes + headerSize;
+							p.data = (unsigned char*)tempOutput;
+							p.guid = channel->guid;
+							p.systemAddress = rakPeerInterface->GetSystemAddressFromGuid(p.guid);
+							OnVoiceData(&p);
+						}
 					}
 				}
 
@@ -431,8 +579,10 @@ void RakVoice::Update(void)
 			}
 		}
 
-		// Mix incoming audio to output buffer
-		if (channel->copiedOutgoingBufferToBufferedOutput == false)
+		// Mix incoming audio to output buffer.
+		// With per-speaker output the ring buffers still fill, but nothing is summed here:
+		// ReceiveFrameFrom() drains each speaker individually instead.
+		if (perSpeakerOutput == false && channel->copiedOutgoingBufferToBufferedOutput == false)
 		{
 			if (channel->incomingReadIndex <= channel->incomingWriteIndex)
 				bytesWaitingToReturn = channel->incomingWriteIndex - channel->incomingReadIndex;
@@ -490,6 +640,14 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 		break;
 	case ID_RAKVOICE_DATA:
 		OnVoiceData(packet);
+		return RR_STOP_PROCESSING_AND_DEALLOCATE;
+	case ID_RAKVOICE_RELAY_DATA:
+		// A relay host never decodes. Plugin OnReceive runs inside RakPeer::Receive, before
+		// the packet reaches the application loop, so swallowing it here would leave the
+		// server with nothing to hand to RelayFrame(). Pass it through instead.
+		if (relayHost)
+			return RR_CONTINUE_PROCESSING;
+		OnRelayVoiceData(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
 
@@ -551,33 +709,48 @@ void RakVoice::OpenChannel(Packet *packet)
 		return;
 	}
 
+	// In relay mode every channel except the self-keyed one is a remote talker we only ever
+	// decode, so it needs no encoder and no denoiser. Always false off the relay path, which
+	// keeps the non-relay lifecycle unchanged.
+	const bool decodeOnly = relayMode && rakPeerInterface != nullptr && packet->guid != rakPeerInterface->GetMyGUID();
+
 	// Create Opus encoder
-	int error;
-	channel->encoder = opus_encoder_create(sampleRate, 1, OPUS_APPLICATION_VOIP, &error);
-	if (error != OPUS_OK || channel->encoder == nullptr)
+	int error = OPUS_OK;
+	channel->encoder = nullptr;
+	if (decodeOnly == false)
 	{
-		RakAssert(0);
-		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
-		return;
+		channel->encoder = opus_encoder_create(sampleRate, 1, OPUS_APPLICATION_VOIP, &error);
+		if (error != OPUS_OK || channel->encoder == nullptr)
+		{
+			RakAssert(0);
+			MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+			return;
+		}
 	}
 
 	// Create Opus decoder (using remote sample rate)
 	channel->decoder = opus_decoder_create(channel->remoteSampleRate, 1, &error);
 	if (error != OPUS_OK || channel->decoder == nullptr)
 	{
-		opus_encoder_destroy(channel->encoder);
+		if (channel->encoder)
+			opus_encoder_destroy(channel->encoder);
 		RakAssert(0);
 		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
 		return;
 	}
 
 	// Configure encoder
-	opus_encoder_ctl(channel->encoder, OPUS_SET_VBR(defaultVBRState ? 1 : 0));
-	opus_encoder_ctl(channel->encoder, OPUS_SET_DTX(defaultVADState ? 1 : 0));
-	opus_encoder_ctl(channel->encoder, OPUS_SET_SIGNAL(defaultSignalType));
+	if (channel->encoder)
+	{
+		opus_encoder_ctl(channel->encoder, OPUS_SET_VBR(defaultVBRState ? 1 : 0));
+		opus_encoder_ctl(channel->encoder, OPUS_SET_DTX(defaultVADState ? 1 : 0));
+		opus_encoder_ctl(channel->encoder, OPUS_SET_SIGNAL(defaultSignalType));
+		if (defaultBitrate > 0)
+			opus_encoder_ctl(channel->encoder, OPUS_SET_BITRATE(defaultBitrate));
+	}
 
 	// Create RNNoise denoiser (only works well at 48kHz)
-	channel->denoiser = rnnoise_create(nullptr);
+	channel->denoiser = decodeOnly ? nullptr : rnnoise_create(nullptr);
 
 	// Calculate frame sizes
 	channel->frameSizeSamples = GetFrameSizeSamples(sampleRate);
@@ -595,6 +768,9 @@ void RakVoice::OpenChannel(Packet *packet)
 	channel->incomingReadIndex = 0;
 	channel->incomingWriteIndex = 0;
 	channel->lastSend = 0;
+	// Stamped now, not 0: a channel that has never decoded must not be reaped on the very
+	// next Update() call.
+	channel->lastDecode = MafiaNet::GetTimeMS();
 	channel->incomingMessageNumber = 0;
 
 	voiceChannels.Insert(packet->guid, channel, true, _FILE_AND_LINE_);
@@ -605,6 +781,9 @@ void RakVoice::SetVAD(bool enable)
 	defaultVADState = enable;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
+		// Decode-only relay channels have no encoder.
+		if (voiceChannels[index]->encoder == nullptr)
+			continue;
 		opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_DTX(enable ? 1 : 0));
 	}
 }
@@ -614,11 +793,27 @@ void RakVoice::SetNoiseFilter(bool enable)
 	defaultDENOISEState = enable;
 }
 
+void RakVoice::SetEncoderBitrate(int bitsPerSecond)
+{
+	defaultBitrate = bitsPerSecond;
+	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	{
+		// Decode-only relay channels have no encoder.
+		if (voiceChannels[index]->encoder == nullptr)
+			continue;
+		if (bitsPerSecond > 0)
+			opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_BITRATE(bitsPerSecond));
+	}
+}
+
 void RakVoice::SetVBR(bool enable)
 {
 	defaultVBRState = enable;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
+		// Decode-only relay channels have no encoder.
+		if (voiceChannels[index]->encoder == nullptr)
+			continue;
 		opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_VBR(enable ? 1 : 0));
 	}
 }
@@ -628,6 +823,9 @@ void RakVoice::SetSignalType(int signalType)
 	defaultSignalType = signalType;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
+		// Decode-only relay channels have no encoder.
+		if (voiceChannels[index]->encoder == nullptr)
+			continue;
 		opus_encoder_ctl(voiceChannels[index]->encoder, OPUS_SET_SIGNAL(signalType));
 	}
 }
@@ -683,53 +881,169 @@ void RakVoice::OnVoiceData(Packet *packet)
 {
 	bool objectExists;
 	unsigned index;
-	unsigned short packetMessageNumber, messagesSkipped;
-	VoiceChannel *channel;
-	short decodedBuffer[960 * 2]; // Max frame size for 48kHz
+	unsigned short packetMessageNumber;
 	static const int headerSize = sizeof(unsigned char) + sizeof(unsigned short);
 
 	index = voiceChannels.GetIndexFromKey(packet->guid, &objectExists);
 	if (objectExists)
 	{
-		channel = voiceChannels[index];
 		memcpy(&packetMessageNumber, packet->data + 1, sizeof(unsigned short));
 
-		// Intentional overflow for sequence handling
-		messagesSkipped = packetMessageNumber - channel->incomingMessageNumber;
-		if (messagesSkipped > ((unsigned short)-1) / 2)
-		{
-			// Underflow, ignore
-			return;
-		}
+		DecodeIntoChannel(voiceChannels[index], packetMessageNumber,
+			packet->data + headerSize, packet->length - headerSize);
+	}
+}
 
-		// Handle missing packets with PLC (Packet Loss Concealment)
-		int maxSkip = (int)(100.0f / (1000.0f / 50.0f)); // Max 100ms of missing audio
-		int decodedFrameSize = GetFrameSizeSamples(channel->remoteSampleRate);
+void RakVoice::DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMessageNumber,
+	const unsigned char *payload, unsigned payloadLength)
+{
+	unsigned short messagesSkipped;
+	short decodedBuffer[960 * 2]; // Max frame size for 48kHz
 
-		for (unsigned i = 0; i < (unsigned)messagesSkipped && i < (unsigned)maxSkip; i++)
-		{
-			// Use Opus PLC by passing NULL for the packet
-			int samples = opus_decode(channel->decoder, nullptr, 0, decodedBuffer, decodedFrameSize, 0);
-			if (samples > 0)
-			{
-				WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
-			}
-		}
+	// Liveness stamp for the relay-mode reap in Update(). Unused on the non-relay path.
+	channel->lastDecode = MafiaNet::GetTimeMS();
 
-		channel->incomingMessageNumber = packetMessageNumber + 1;
+	// Intentional overflow for sequence handling
+	messagesSkipped = packetMessageNumber - channel->incomingMessageNumber;
+	if (messagesSkipped > ((unsigned short)-1) / 2)
+	{
+		// Underflow, ignore
+		return;
+	}
 
-		// Decode the actual packet
-		int samples = opus_decode(channel->decoder,
-		                          packet->data + headerSize,
-		                          packet->length - headerSize,
-		                          decodedBuffer,
-		                          decodedFrameSize,
-		                          0);
+	// Handle missing packets with PLC (Packet Loss Concealment)
+	int maxSkip = (int)(100.0f / (1000.0f / 50.0f)); // Max 100ms of missing audio
+	int decodedFrameSize = GetFrameSizeSamples(channel->remoteSampleRate);
 
+	for (unsigned i = 0; i < (unsigned)messagesSkipped && i < (unsigned)maxSkip; i++)
+	{
+		// Use Opus PLC by passing NULL for the packet
+		int samples = opus_decode(channel->decoder, nullptr, 0, decodedBuffer, decodedFrameSize, 0);
 		if (samples > 0)
 		{
 			WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
 		}
+	}
+
+	channel->incomingMessageNumber = packetMessageNumber + 1;
+
+	// Decode the actual packet
+	int samples = opus_decode(channel->decoder,
+	                          payload,
+	                          payloadLength,
+	                          decodedBuffer,
+	                          decodedFrameSize,
+	                          0);
+
+	if (samples > 0)
+	{
+		WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
+	}
+}
+
+VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
+{
+	bool objectExists;
+	unsigned index = voiceChannels.GetIndexFromKey(origin, &objectExists);
+	if (objectExists)
+		return voiceChannels[index];
+
+	if (IsInitialized() == false)
+		return nullptr;
+
+	// Lazily allocate a decoder the first time we hear from this speaker. Relay speakers are
+	// peers of the server rather than of us, so OnClosedConnection never fires for them;
+	// they are freed only by the RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS reap in Update().
+	// OpenChannel() parses the remote sample rate out of the packet body, so synthesise the
+	// same layout RequestVoiceChannel() would have produced, using our own sample rate.
+	Packet synthetic;
+	MafiaNet::BitStream out;
+	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
+	out.Write((int32_t)sampleRate);
+	synthetic.data = out.GetData();
+	synthetic.length = out.GetNumberOfBytesUsed();
+	synthetic.systemAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	synthetic.guid = origin;
+	OpenChannel(&synthetic);
+
+	index = voiceChannels.GetIndexFromKey(origin, &objectExists);
+	return objectExists ? voiceChannels[index] : nullptr;
+}
+
+void RakVoice::OnRelayVoiceData(Packet *packet)
+{
+	if (packet->length <= RAKVOICE_RELAY_HEADER_SIZE)
+		return;
+
+	// Unknown wire format: drop silently and early, before reading any other field.
+	if (packet->data[RAKVOICE_RELAY_OFFSET_VERSION] != RAKVOICE_RELAY_FORMAT_VERSION)
+		return;
+
+	RakNetGUID origin = ReadRelayOrigin(packet);
+	if (origin == UNASSIGNED_RAKNET_GUID || origin == rakPeerInterface->GetMyGUID())
+		return;
+
+	VoiceChannel *channel = GetOrCreateChannel(origin);
+	if (channel == nullptr)
+		return;
+
+	// Reuse the existing decode path by handing it the payload in the same shape the
+	// non-relay decoder gets, keyed on the channel we just resolved.
+	unsigned short packetMessageNumber;
+	memcpy(&packetMessageNumber, packet->data + RAKVOICE_RELAY_OFFSET_SEQUENCE, sizeof(unsigned short));
+
+	DecodeIntoChannel(channel, packetMessageNumber,
+		packet->data + RAKVOICE_RELAY_HEADER_SIZE, packet->length - RAKVOICE_RELAY_HEADER_SIZE);
+}
+
+bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
+{
+	bool objectExists;
+	unsigned index = voiceChannels.GetIndexFromKey(origin, &objectExists);
+	if (!objectExists)
+		return false;
+
+	VoiceChannel *channel = voiceChannels[index];
+	unsigned totalBufferSize = bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT;
+
+	unsigned available = (channel->incomingWriteIndex >= channel->incomingReadIndex)
+		? channel->incomingWriteIndex - channel->incomingReadIndex
+		: totalBufferSize - channel->incomingReadIndex + channel->incomingWriteIndex;
+
+	if (available < bufferSizeBytes)
+		return false;
+
+	char *dst = (char*)out;
+	unsigned firstChunk = totalBufferSize - channel->incomingReadIndex;
+	if (firstChunk >= bufferSizeBytes)
+	{
+		memcpy(dst, channel->incomingBuffer + channel->incomingReadIndex, bufferSizeBytes);
+	}
+	else
+	{
+		memcpy(dst, channel->incomingBuffer + channel->incomingReadIndex, firstChunk);
+		memcpy(dst + firstChunk, channel->incomingBuffer, bufferSizeBytes - firstChunk);
+	}
+
+	channel->incomingReadIndex += bufferSizeBytes;
+	if (channel->incomingReadIndex >= totalBufferSize)
+		channel->incomingReadIndex -= totalBufferSize;
+
+	return true;
+}
+
+void RakVoice::GetActiveSpeakers(DataStructures::List<RakNetGUID> &out)
+{
+	// The self-keyed channel holds outgoing encoder state in relay mode, not a remote
+	// talker, so it is never reported as a speaker.
+	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
+
+	out.Clear(false, _FILE_AND_LINE_);
+	for (unsigned i = 0; i < voiceChannels.Size(); i++)
+	{
+		if (voiceChannels[i]->guid == self)
+			continue;
+		out.Push(voiceChannels[i]->guid, _FILE_AND_LINE_);
 	}
 }
 

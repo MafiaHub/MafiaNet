@@ -1,0 +1,195 @@
+/*
+ *  Copyright (c) 2026, MafiaHub
+ *
+ *  This source code is licensed under the MIT-style license found in the
+ *  license.txt file in the root directory of this source tree.
+ */
+
+// Wire-layout and parsing tests for the RakVoice relay frame.
+//
+// These pin the two things a relay host cannot afford to get wrong and that no
+// higher layer can check for it: the byte offsets the writer and both readers
+// share, and ReadRelayOrigin's handling of hostile input. ReadRelayOrigin is
+// static precisely so it can be exercised without a live RakPeerInterface, which
+// is what makes this suite possible at all.
+
+#include <gtest/gtest.h>
+
+#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/RakVoice.h"
+#include "mafianet/types.h"
+
+#include <cstring>
+#include <vector>
+
+using namespace MafiaNet;
+
+namespace {
+    // Builds a well-formed relay frame with the given origin, then lets a test
+    // corrupt one field. Mirrors the writer in RakVoice::Update byte for byte —
+    // if the two ever disagree, the offset assertions below fail first.
+    std::vector<unsigned char> MakeRelayFrame(uint64_t origin, unsigned payloadBytes = 8,
+                                              unsigned char version = RAKVOICE_RELAY_FORMAT_VERSION) {
+        std::vector<unsigned char> f(RAKVOICE_RELAY_HEADER_SIZE + payloadBytes, 0);
+        f[0] = ID_RAKVOICE_RELAY_DATA;
+        f[RAKVOICE_RELAY_OFFSET_VERSION] = version;
+        memcpy(f.data() + RAKVOICE_RELAY_OFFSET_ORIGIN, &origin, sizeof(uint64_t));
+
+        const uint16_t channelId = 0;
+        memcpy(f.data() + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
+
+        const unsigned short sequence = 0;
+        memcpy(f.data() + RAKVOICE_RELAY_OFFSET_SEQUENCE, &sequence, sizeof(unsigned short));
+        return f;
+    }
+
+    // ReadRelayOrigin only reads data/length, so a stack Packet is sufficient.
+    Packet MakePacket(std::vector<unsigned char> &bytes) {
+        Packet p {};
+        p.data = bytes.data();
+        p.length = static_cast<unsigned int>(bytes.size());
+        return p;
+    }
+} // namespace
+
+// --- Layout -----------------------------------------------------------------
+
+// The writer and both readers derive every offset from these. A change here is a
+// wire-format break, so it must be a deliberate edit that also bumps the format
+// version, not an accident.
+TEST(RakVoiceRelayLayout, OffsetsAreContiguousAndHeaderIsFourteenBytes) {
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_VERSION, 1u);
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_ORIGIN, 2u);
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_CHANNEL_ID, 10u);
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_SEQUENCE, 12u);
+    EXPECT_EQ(RAKVOICE_RELAY_HEADER_SIZE, 14u);
+}
+
+TEST(RakVoiceRelayLayout, FieldsDoNotOverlap) {
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_ORIGIN, RAKVOICE_RELAY_OFFSET_VERSION + sizeof(uint8_t));
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_CHANNEL_ID, RAKVOICE_RELAY_OFFSET_ORIGIN + sizeof(uint64_t));
+    EXPECT_EQ(RAKVOICE_RELAY_OFFSET_SEQUENCE, RAKVOICE_RELAY_OFFSET_CHANNEL_ID + sizeof(uint16_t));
+    EXPECT_EQ(RAKVOICE_RELAY_HEADER_SIZE, RAKVOICE_RELAY_OFFSET_SEQUENCE + sizeof(unsigned short));
+}
+
+// --- ReadRelayOrigin: happy path --------------------------------------------
+
+TEST(RakVoiceRelayOrigin, RoundTripsTheOriginGuid) {
+    auto bytes = MakeRelayFrame(0x0123456789ABCDEFull);
+    Packet p = MakePacket(bytes);
+
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(&p).g, 0x0123456789ABCDEFull);
+}
+
+TEST(RakVoiceRelayOrigin, ReadsOriginIndependentlyOfPayloadLength) {
+    for (unsigned payload : {0u, 1u, 8u, 512u, RAKVOICE_MAX_OPUS_PACKET_SIZE}) {
+        auto bytes = MakeRelayFrame(0xFEEDFACECAFEBEEFull, payload);
+        Packet p = MakePacket(bytes);
+        EXPECT_EQ(RakVoice::ReadRelayOrigin(&p).g, 0xFEEDFACECAFEBEEFull) << "payload=" << payload;
+    }
+}
+
+// --- ReadRelayOrigin: hostile input -----------------------------------------
+//
+// Every rejection must return UNASSIGNED_RAKNET_GUID, because that is the value
+// callers treat as "drop this frame". Failing open here would let a malformed
+// packet reach the decoder or, on a relay host, be forwarded to other players.
+
+TEST(RakVoiceRelayOrigin, RejectsNullPacket) {
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(nullptr), UNASSIGNED_RAKNET_GUID);
+}
+
+TEST(RakVoiceRelayOrigin, RejectsPacketTruncatedInsideTheOriginField) {
+    // One byte short of a complete origin: reading it would overrun the buffer.
+    auto bytes = MakeRelayFrame(0x1122334455667788ull);
+    bytes.resize(RAKVOICE_RELAY_OFFSET_ORIGIN + sizeof(uint64_t) - 1);
+    Packet p = MakePacket(bytes);
+
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID);
+}
+
+TEST(RakVoiceRelayOrigin, RejectsPacketTooShortToHoldTheVersionByte) {
+    auto bytes = MakeRelayFrame(0x1122334455667788ull);
+    bytes.resize(1); // id only
+    Packet p = MakePacket(bytes);
+
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID);
+}
+
+TEST(RakVoiceRelayOrigin, RejectsEmptyPacket) {
+    std::vector<unsigned char> empty;
+    Packet p {};
+    p.data = nullptr;
+    p.length = 0;
+
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID);
+}
+
+// The version byte is the forward-compatibility escape hatch: a future format
+// must be rejected by today's build rather than misparsed as version 1.
+TEST(RakVoiceRelayOrigin, RejectsUnknownFormatVersion) {
+    for (unsigned char v : {0, 2, 7, 255}) {
+        auto bytes = MakeRelayFrame(0xAABBCCDDEEFF0011ull, 8, v);
+        Packet p = MakePacket(bytes);
+        EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID) << "version=" << int(v);
+    }
+}
+
+TEST(RakVoiceRelayOrigin, AcceptsExactlyTheCurrentFormatVersion) {
+    auto bytes = MakeRelayFrame(0xAABBCCDDEEFF0011ull, 8, RAKVOICE_RELAY_FORMAT_VERSION);
+    Packet p = MakePacket(bytes);
+
+    EXPECT_NE(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID);
+}
+
+// An all-ones origin is indistinguishable from the sentinel, so it must be
+// treated as a rejection rather than as a valid speaker.
+TEST(RakVoiceRelayOrigin, TreatsSentinelOriginAsRejected) {
+    auto bytes = MakeRelayFrame(static_cast<uint64_t>(-1));
+    Packet p = MakePacket(bytes);
+
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID);
+}
+
+// --- Impersonation ----------------------------------------------------------
+//
+// A relay host must compare the stamped origin against the sender's own GUID and
+// drop any mismatch; otherwise a modified client stamps someone else's GUID and
+// speaks as them. The comparison is the host's to make, but it is only sound if
+// ReadRelayOrigin reports the stamped value faithfully rather than the sender's —
+// which is what this pins.
+TEST(RakVoiceRelayOrigin, ReportsTheStampedOriginNotTheSender) {
+    const uint64_t sender = 0x1111111111111111ull;
+    const uint64_t claimed = 0x2222222222222222ull;
+
+    auto bytes = MakeRelayFrame(claimed);
+    Packet p = MakePacket(bytes);
+    p.guid = RakNetGUID(sender); // as the transport would set it
+
+    const RakNetGUID parsed = RakVoice::ReadRelayOrigin(&p);
+    EXPECT_EQ(parsed.g, claimed);
+    EXPECT_NE(parsed, p.guid) << "a host comparing these must see a mismatch";
+}
+
+TEST(RakVoiceRelayOrigin, MatchesWhenAClientStampsItsOwnGuid) {
+    const uint64_t self = 0x3333333333333333ull;
+
+    auto bytes = MakeRelayFrame(self);
+    Packet p = MakePacket(bytes);
+    p.guid = RakNetGUID(self);
+
+    EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), p.guid);
+}
+
+// --- Frame sizing -----------------------------------------------------------
+
+// A relay host bounds inbound frames with these two constants. If the header
+// grew without the bound moving, oversized frames would be forwarded.
+TEST(RakVoiceRelaySizing, MaxFrameIsHeaderPlusMaxOpusPacket) {
+    EXPECT_EQ(RAKVOICE_RELAY_HEADER_SIZE + RAKVOICE_MAX_OPUS_PACKET_SIZE, 14u + 4000u);
+}
+
+TEST(RakVoiceRelaySizing, HeaderOnlyFrameCarriesNoPayload) {
+    auto bytes = MakeRelayFrame(0x4444444444444444ull, 0);
+    EXPECT_EQ(bytes.size(), RAKVOICE_RELAY_HEADER_SIZE);
+}
