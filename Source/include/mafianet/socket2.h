@@ -28,8 +28,16 @@
 // option for it: the syscalls exist on Linux and nowhere else MafiaNet targets,
 // so it is simply always on there. Every other platform compiles the portable
 // fallbacks instead -- RakNetSocket2::SendBatch loops Send(), and the scalar
-// recvfrom loop drains the socket -- so behaviour is identical either way and
-// only the number of system calls differs.
+// recvfrom loop drains the socket.
+//
+// Delivery semantics are identical either way: the same datagrams arrive, in
+// the same order, with the same reliability, and nothing differs that
+// application code can observe. Two internals DO differ -- the number of
+// system calls, and how SendBatch reports a transient send failure: the
+// batched override classifies errno and can return 0 ("nothing sent, retry
+// later"), whereas the portable loop cannot read errno through Send() and
+// reports every failure as permanent. See the SendBatch contract below.
+// Either way the datagrams are dropped and the reliability layer resends.
 
 // For CFSocket
 // https://developer.apple.com/library/mac/#documentation/CoreFOundation/Reference/CFSocketRef/Reference/reference.html

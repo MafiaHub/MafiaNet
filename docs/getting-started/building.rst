@@ -70,9 +70,16 @@ overhead; at low rates it changes nothing measurable.
 
 **There is nothing to configure.** Batching is a platform capability, not a build
 option: it is always on where the syscalls exist, and every other platform compiles
-the portable per-datagram paths instead. Behaviour is identical either way --
-delivery, ordering and reliability are unchanged; only the number of system calls
-differs.
+the portable per-datagram paths instead. Delivery semantics are identical either
+way -- the same datagrams arrive, in the same order, with the same reliability,
+and nothing differs that application code can observe.
+
+Two internals do differ: the number of system calls, and how a transient send
+failure is reported inside ``RakNetSocket2::SendBatch``. The batched override
+classifies ``errno`` and can report "nothing sent, retry later"; the portable
+loop cannot read ``errno`` portably through ``Send()`` and reports every failure
+as permanent. Either way the datagrams are dropped and the reliability layer
+resends them.
 
 Measured on the 2560-message reliable-ordered burst in
 ``Tests/Integration/MmsgBatchLiveTests.cpp`` (Linux, Release build, ``strace -c``,
