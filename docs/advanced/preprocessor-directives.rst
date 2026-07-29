@@ -118,34 +118,21 @@ CMake build options (passed via ``-D``):
 Batched Datagram I/O
 --------------------
 
-``MAFIANET_HAS_MMSG`` (defined in ``mafianet/socket2.h``) selects the batched
-``recvmmsg``/``sendmmsg`` paths. It is a **platform capability, not a build option**:
-it evaluates to 1 on Linux and 0 everywhere else, and nothing in the build system
-sets it. There is no CMake flag, and consumer code should not define one.
+The batched ``recvmmsg``/``sendmmsg`` paths are selected by a plain platform check.
+**There is no macro and no build option for them** -- nothing in the build system
+configures batching, and consumer code should not try to:
 
 .. code-block:: cpp
 
    #if defined(__linux__)
-   #define MAFIANET_HAS_MMSG 1
-   #else
-   #define MAFIANET_HAS_MMSG 0
-   #endif
-
-It is deliberately ``0``/``1`` rather than defined/undefined, so ``#if
-MAFIANET_HAS_MMSG`` fails loudly on a typo instead of silently selecting the
-fallback. Use ``#if MAFIANET_HAS_MMSG``, never ``#ifdef``.
-
-The guard is needed in addition to the platform check because ``RNS2_Linux`` is the
-non-Windows socket class and therefore also compiles on macOS and the BSDs, where
-``sendmmsg``/``recvmmsg`` do not exist. Those platforms inherit the portable
-``Send()``-loop implementation of ``RakNetSocket2::SendBatch``:
-
-.. code-block:: cpp
-
-   #if MAFIANET_HAS_MMSG
    RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count,
                              const char *file, unsigned int line );
    #endif
+
+The guard is needed even inside ``RNS2_Linux`` because that is the *non-Windows*
+socket class, so it also compiles on macOS and the BSDs, where
+``sendmmsg``/``recvmmsg`` do not exist. Those platforms inherit the portable
+``Send()``-loop implementation of ``RakNetSocket2::SendBatch``.
 
 See Also
 --------

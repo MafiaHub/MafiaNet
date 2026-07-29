@@ -9,7 +9,7 @@
 /// \brief Portable helpers for batched datagram I/O (recvmmsg / sendmmsg).
 ///
 /// Batching is always on where the syscalls exist; there is no build option to
-/// turn it on or off (see MAFIANET_HAS_MMSG in socket2.h). The Linux-only
+/// turn it on or off. The Linux-only
 /// syscall glue lives in RakNetSocket2_Berkley.cpp and RakNetSocket2.cpp behind
 /// that single guard.
 ///

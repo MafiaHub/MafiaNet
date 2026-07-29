@@ -69,10 +69,10 @@ server pushing high packet rates this removes most of the per-datagram syscall
 overhead; at low rates it changes nothing measurable.
 
 **There is nothing to configure.** Batching is a platform capability, not a build
-option: ``MAFIANET_HAS_MMSG`` (declared in ``mafianet/socket2.h``) is 1 on Linux and
-0 on every other platform, where the portable per-datagram paths compile instead.
-Behaviour is identical either way -- delivery, ordering and reliability are
-unchanged; only the number of system calls differs.
+option: it is always on where the syscalls exist, and every other platform compiles
+the portable per-datagram paths instead. Behaviour is identical either way --
+delivery, ordering and reliability are unchanged; only the number of system calls
+differs.
 
 Measured on a 2560-message reliable-ordered burst (Linux, Release build,
 ``strace -c``):

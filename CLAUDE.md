@@ -65,10 +65,10 @@ Available generators (run `cmake --help` for full list):
 
 ### Batched Datagram I/O (recvmmsg / sendmmsg)
 
-Always on where the syscalls exist. **There is no build option** — the decision is
-`MAFIANET_HAS_MMSG` in `socket2.h`, which is 1 on Linux and 0 everywhere else. Do not
-reintroduce a build flag for it; a CMake option here was removed deliberately because
-it left the shipping path uncompiled on most machines.
+Always on where the syscalls exist. **There is no build option and no macro** — the
+paths are guarded by a plain `#if defined(__linux__)`. Do not reintroduce a flag or a
+capability macro for this; a CMake option here was removed deliberately because it
+left the shipping path uncompiled on most machines.
 
 The portable helpers in `MmsgBatch.h` (`DriveBatchedSend`, `ClassifySendmmsgErrno`,
 `SockaddrToSystemAddress`, `CompactRecvSlots`, `RNS2SendBatch`) compile and are unit

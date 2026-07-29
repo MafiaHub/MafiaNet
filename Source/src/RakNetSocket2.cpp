@@ -176,7 +176,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 {
 	isRecvFromLoopThreadActive.Increment();
 
-#if MAFIANET_HAS_MMSG
+#if defined(__linux__)
 	// Drain the socket in batches with a single recvmmsg per burst instead of
 	// one recvfrom per datagram. Falls through to the scalar loop below on any
 	// other platform / when the flag is off.
@@ -203,7 +203,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 			}
 		}
 	}
-#endif // MAFIANET_HAS_MMSG
+#endif // __linux__
 	isRecvFromLoopThreadActive.Decrement();
 
 	return 0;
@@ -293,7 +293,7 @@ RNS2BindResult RNS2_Linux::Bind( RNS2_BerkleyBindParameters *bindParameters, con
 RNS2SendResult RNS2_Linux::Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line ) {return Send_Windows_Linux_360NoVDP(rns2Socket,sendParameters, file, line);}
 // See the declaration in socket2.h for why __linux__ is required here and not
 // just the build flag.
-#if MAFIANET_HAS_MMSG
+#if defined(__linux__)
 RNS2SendResult RNS2_Linux::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
 {
 	// sendmmsg has no per-message TTL, whereas the scalar Send() honours

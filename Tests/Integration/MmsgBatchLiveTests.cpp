@@ -14,12 +14,10 @@
  *  deliberately queue far more datagrams per tick than MMSG_BATCH_MAX so that
  *  path runs, and assert the stream survives it byte-for-byte and in order.
  *
- *  They are meaningful on every platform: where MAFIANET_HAS_MMSG is 0 they pin
- *  the portable per-datagram path's behaviour as the reference, and on Linux the
- *  identical assertions run against the batched paths. A divergence between the
- *  two shows up as a failure here rather than as corrupted traffic in
- *  production. The linux-native (release-no-mmsg) CI job runs them with the
- *  escape hatch on, so both sides are covered on the same OS.
+ *  They are meaningful on every platform: off Linux they pin the portable
+ *  per-datagram path's behaviour as the reference, and on Linux the identical
+ *  assertions run against the batched paths. A divergence between the two shows
+ *  up as a failure here rather than as corrupted traffic in production.
  */
 
 #include <gtest/gtest.h>

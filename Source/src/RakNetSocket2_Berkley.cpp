@@ -528,7 +528,7 @@ void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 #endif
 }
 
-#if MAFIANET_HAS_MMSG
+#if defined(__linux__)
 void RNS2_Berkley::RecvFromBatchedLoop(void)
 {
 	RNS2RecvStruct *slots[MMSG_BATCH_MAX];
@@ -629,7 +629,7 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 	for (unsigned i=0; i<allocated; ++i)
 		binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
 }
-#endif // MAFIANET_HAS_MMSG
+#endif // __linux__
 
 #endif // file header
 

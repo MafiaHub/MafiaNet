@@ -23,24 +23,13 @@
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "Export.h"
 
-/// \def MAFIANET_HAS_MMSG
-/// Whether this build has the batched datagram I/O paths (recvmmsg / sendmmsg).
-///
-/// This is a platform capability, not a user option: the syscalls exist on Linux
-/// and nowhere else MafiaNet targets, so the decision is made here rather than
-/// asked of whoever is configuring the build. On every other platform the
-/// portable fallbacks compile instead -- RakNetSocket2::SendBatch loops Send(),
-/// and the scalar recvfrom loop drains the socket -- so behaviour is identical
-/// either way and only the number of system calls differs.
-///
-/// Note it is deliberately defined to 0/1 rather than defined/undefined, so
-/// `#if MAFIANET_HAS_MMSG` is a compile error on a typo instead of silently
-/// taking the fallback branch.
-#if defined(__linux__)
-#define MAFIANET_HAS_MMSG 1
-#else
-#define MAFIANET_HAS_MMSG 0
-#endif
+// Batched datagram I/O (recvmmsg / sendmmsg) is guarded by a plain
+// `#if defined(__linux__)` wherever it appears. There is no macro and no build
+// option for it: the syscalls exist on Linux and nowhere else MafiaNet targets,
+// so it is simply always on there. Every other platform compiles the portable
+// fallbacks instead -- RakNetSocket2::SendBatch loops Send(), and the scalar
+// recvfrom loop drains the socket -- so behaviour is identical either way and
+// only the number of system calls differs.
 
 // For CFSocket
 // https://developer.apple.com/library/mac/#documentation/CoreFOundation/Reference/CFSocketRef/Reference/reference.html
@@ -134,7 +123,7 @@ public:
 	virtual RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line )=0;
 	// Batched send. The base implementation simply loops Send() so every socket
 	// type has a working default; RNS2_Linux overrides it with sendmmsg where the
-	// syscall exists (MAFIANET_HAS_MMSG).
+	// syscall exists (Linux).
 	// Returns a datagram COUNT, NOT the byte total Send() returns:
 	//   > 0        datagrams accepted (may be < count -- see the drop rule below)
 	//   0          nothing went out, but nothing is permanently wrong: a transient
@@ -238,7 +227,7 @@ protected:
 	RNS2_BerkleyBindParameters binding;
 
 	unsigned RecvFromLoopInt(void);
-	// Batched drain of the recv socket via recvmmsg (MAFIANET_HAS_MMSG).
+	// Batched drain of the recv socket via recvmmsg (Linux).
 	// Declared unconditionally; only ever called from RecvFromLoopInt under the
 	// same guard, and only defined on that platform.
 	void RecvFromBatchedLoop(void);
@@ -305,7 +294,7 @@ public:
 	// Guarded because RNS2_Linux is the non-Windows socket class: macOS and the
 	// BSDs compile it too, and sendmmsg/mmsghdr do not exist there. Those
 	// platforms inherit the portable base SendBatch (a Send() loop).
-#if MAFIANET_HAS_MMSG
+#if defined(__linux__)
 	RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
 #endif
 

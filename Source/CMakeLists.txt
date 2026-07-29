@@ -4,7 +4,7 @@
 # Licensed under MIT-style license
 
 # Batched datagram I/O (recvmmsg/sendmmsg) needs no option: it is a platform
-# capability, selected by MAFIANET_HAS_MMSG in socket2.h, and is always on where
+# capability, guarded by a plain #if defined(__linux__), and is always on where
 # the syscalls exist. See docs/getting-started/building.rst.
 
 # Source files (explicit list, no GLOB)
