@@ -318,7 +318,12 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.13.0 (Latest)
+### Version 0.14.0 (Latest)
+- **Bounded relay decode (`SetMaxDecodedSpeakers`)**: relay frames are decoded in `OnReceive`, inside `RakPeer::Receive`, so by the time an application sees a frame the codec work is already done — a speaker cap applied above this layer bounds mixing, not CPU, and there was no way to bound decode at all. At the cap a newly-heard speaker takes the decoder of whichever current speaker has been silent longest, provided it has been idle for at least `RAKVOICE_RELAY_EVICT_IDLE_MS`; otherwise its frame is dropped undecoded. Preferring eviction over refusal keeps decoders following whoever is actually talking, and the idle requirement stops a steady stream of talkers past the cap from creating and destroying a decoder every frame
+- The count excludes the self-keyed channel, which in relay mode holds outgoing encoder state rather than a remote talker, so a caller asking for n decoders gets n
+- **Non-breaking**: additive and off by default (`0` leaves only the existing `RAKVOICE_MAX_RELAY_SPEAKERS` memory backstop), and only the relay path is affected — direct peer-to-peer voice does not go through `GetOrCreateChannel`. No message ids move, so peers built against 0.13.0 remain wire-compatible
+
+### Version 0.13.0
 - **RakVoice relay mode**: `SendFrame` has always been peer-to-peer, which a dedicated-server game cannot use — clients connect only to the server. In relay mode clients send frames to a host that forwards them **without decoding**, so the server stays authoritative over who hears whom without running a codec. Relay frames carry the talker's GUID (the sender is now the relay, not the speaker) plus a format-version byte, so a future layout change is rejected rather than misparsed
 - **Origin-keyed channels and per-speaker output**: frames are keyed by origin instead of `packet->guid`, so each speaker gets its own decoder rather than collapsing into one; `SetPerSpeakerOutput` / `ReceiveFrameFrom` pull one speaker's PCM instead of the pre-mix, which is what makes 3D positioning possible above this layer. Peer-to-peer behaviour is unchanged when relay mode is off
 - **Bounded relay state**: concurrent relay speakers are capped, and idle relay channels are reaped — `OnClosedConnection` never fires for them because relay speakers are peers of the host, not of us. `RelayFrame` validates origin-vs-sender, frame size, packet id and recipient list centrally rather than trusting every host to remember

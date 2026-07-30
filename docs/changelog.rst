@@ -3,6 +3,19 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.14.0
+--------------
+
+**Voice**
+
+* **Bounded relay decode.** ``SetMaxDecodedSpeakers(n)`` caps how many relay speakers may hold a decoder at once. Relay frames are decoded in ``OnReceive``, inside ``RakPeer::Receive``, so by the time an application sees a frame the codec work is already done -- a speaker cap applied above this layer bounds mixing rather than CPU, and there was previously no way to bound decode at all.
+
+* At the cap, a newly-heard speaker takes the decoder of whichever current speaker has been silent longest, provided it has been idle for at least ``RAKVOICE_RELAY_EVICT_IDLE_MS``; otherwise its frame is dropped undecoded. Preferring eviction over outright refusal keeps decoders following whoever is actually talking, and the idle requirement is what stops a steady stream of talkers past the cap from creating and destroying a decoder every frame.
+
+* The count excludes the self-keyed channel, which in relay mode carries outgoing encoder state rather than a remote talker, so a caller asking for ``n`` decoders gets ``n``.
+
+* Additive and off by default: ``0`` leaves only the existing ``RAKVOICE_MAX_RELAY_SPEAKERS`` memory backstop. Only the relay path is affected -- direct peer-to-peer voice does not go through ``GetOrCreateChannel``. No message ids move, so peers built against 0.13.0 stay wire-compatible.
+
 Version 0.13.0
 --------------
 
