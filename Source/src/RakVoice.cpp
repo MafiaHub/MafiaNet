@@ -66,6 +66,7 @@ RakVoice::RakVoice()
 	relayMode = false;
 	relayHost = false;
 	perSpeakerOutput = false;
+	maxDecodedSpeakers = 0;
 	relayTarget = UNASSIGNED_RAKNET_GUID;
 }
 
@@ -162,6 +163,73 @@ void RakVoice::SetRelayHost(bool enable)
 void RakVoice::SetPerSpeakerOutput(bool enable)
 {
 	perSpeakerOutput = enable;
+}
+
+void RakVoice::SetMaxDecodedSpeakers(unsigned maxSpeakers)
+{
+	// Clamped rather than honoured as-is: RAKVOICE_MAX_RELAY_SPEAKERS bounds the allocation
+	// this class is willing to hold at all, so a larger request cannot be granted and
+	// storing it would misreport the effective cap through GetMaxDecodedSpeakers.
+	if (maxSpeakers > RAKVOICE_MAX_RELAY_SPEAKERS)
+		maxSpeakers = RAKVOICE_MAX_RELAY_SPEAKERS;
+
+	maxDecodedSpeakers = maxSpeakers;
+}
+
+unsigned RakVoice::GetMaxDecodedSpeakers(void) const
+{
+	return maxDecodedSpeakers;
+}
+
+unsigned RakVoice::CountRelaySpeakers(void) const
+{
+	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
+
+	unsigned count = 0;
+	for (unsigned i = 0; i < voiceChannels.Size(); i++)
+	{
+		if (voiceChannels[i]->guid != self)
+			count++;
+	}
+
+	return count;
+}
+
+bool RakVoice::EvictIdlestRelaySpeaker(MafiaNet::TimeMS now)
+{
+	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
+
+	unsigned victim = (unsigned)-1;
+	MafiaNet::TimeMS victimIdle = 0;
+
+	for (unsigned i = 0; i < voiceChannels.Size(); i++)
+	{
+		VoiceChannel *channel = voiceChannels[i];
+
+		// Never the self-keyed channel: it holds the outgoing encoder, is never decoded into,
+		// and so would always look like the idlest candidate.
+		if (channel->guid == self)
+			continue;
+
+		// Unsigned subtraction, so a lastDecode stamped in the future (a clock that moved
+		// backwards) wraps to a huge idle time and would make that channel look like the best
+		// victim. Treat it as freshly active instead.
+		if (now < channel->lastDecode)
+			continue;
+
+		const MafiaNet::TimeMS idle = now - channel->lastDecode;
+		if (victim == (unsigned)-1 || idle > victimIdle)
+		{
+			victim = i;
+			victimIdle = idle;
+		}
+	}
+
+	if (victim == (unsigned)-1 || victimIdle < RAKVOICE_RELAY_EVICT_IDLE_MS)
+		return false;
+
+	FreeChannelMemory(victim, true);
+	return true;
 }
 
 RakNetGUID RakVoice::ReadRelayOrigin(Packet *packet)
@@ -996,11 +1064,20 @@ VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
 
 	// Each new origin costs a decoder plus two bufferSizeBytes*100 rings. Without a
 	// cap, fabricated origins -- from a compromised host, or a sender spoofing them --
-	// drive unbounded allocation held for RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS. This is a
-	// memory backstop, not an application policy: a caller wanting fewer simultaneous
-	// speakers should enforce that above, where it can choose which ones to keep.
+	// drive unbounded allocation held for RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS.
 	if (voiceChannels.Size() >= RAKVOICE_MAX_RELAY_SPEAKERS)
 		return nullptr;
+
+	// Application decode cap, on top of that memory backstop. Counted excluding the
+	// self-keyed encoder channel, so a caller asking for N decoders gets N.
+	if (maxDecodedSpeakers != 0 && CountRelaySpeakers() >= maxDecodedSpeakers)
+	{
+		// Prefer the speaker who has gone quiet longest over refusing the newcomer outright,
+		// so decoders follow whoever is actually talking. Refuses only when every current
+		// speaker is still active, which is also what stops decoder churn.
+		if (EvictIdlestRelaySpeaker(MafiaNet::GetTimeMS()) == false)
+			return nullptr;
+	}
 
 	// Lazily allocate a decoder the first time we hear from this speaker. Relay speakers are
 	// peers of the server rather than of us, so OnClosedConnection never fires for them;

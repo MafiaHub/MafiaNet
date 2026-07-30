@@ -63,6 +63,13 @@ constexpr unsigned RAKVOICE_RELAY_HEADER_SIZE = RAKVOICE_RELAY_OFFSET_SEQUENCE +
 // where they can choose which speakers to keep.
 constexpr unsigned RAKVOICE_MAX_RELAY_SPEAKERS = 32;
 
+// How long a relay speaker must have gone undecoded before a newly-heard speaker may take
+// its decoder, once SetMaxDecodedSpeakers' cap is reached. Without an idle requirement a
+// steady stream of talkers past the cap would create and destroy a decoder every frame,
+// which costs far more than the decode it was meant to avoid. Well under the client-side
+// silence timeout, so a slot frees up before the application has given up on the speaker.
+constexpr MafiaNet::TimeMS RAKVOICE_RELAY_EVICT_IDLE_MS = 200;
+
 // Codec-level backstop for reaping relay speakers we have stopped hearing from.
 // Relay speakers are peers of the server, not of us, so OnClosedConnection never fires
 // for them and nothing else would ever free their channels. Deliberately much longer
@@ -247,6 +254,22 @@ public:
 	/// \brief Reads the origin GUID out of an ID_RAKVOICE_RELAY_DATA packet.
 	static RakNetGUID ReadRelayOrigin(Packet *packet);
 
+	/// \brief Caps how many relay speakers may hold a decoder at once.
+	/// This is the only place a decode bound can be applied: relay frames are decoded in
+	/// OnReceive, inside RakPeer::Receive, so by the time the application sees anything the
+	/// codec work is already done. An application-side speaker cap therefore bounds mixing,
+	/// not CPU; this bounds CPU.
+	/// When the cap is reached, a newly-heard speaker takes the decoder of whichever current
+	/// speaker has been silent longest, provided it has been idle for at least
+	/// RAKVOICE_RELAY_EVICT_IDLE_MS; otherwise its frame is dropped undecoded. That keeps
+	/// active talkers decoding while still letting slots turn over as people move.
+	/// \param[in] maxSpeakers concurrent decoders to allow, or 0 for no limit beyond the
+	/// RAKVOICE_MAX_RELAY_SPEAKERS memory backstop. Clamped to that backstop.
+	void SetMaxDecodedSpeakers(unsigned maxSpeakers);
+
+	/// \brief Returns the cap set by SetMaxDecodedSpeakers, or 0 if unset.
+	unsigned GetMaxDecodedSpeakers(void) const;
+
 	/// \brief Stops ReceiveFrame() mixing speakers together, so each can be pulled separately.
 	void SetPerSpeakerOutput(bool enable);
 
@@ -279,6 +302,15 @@ protected:
 	VoiceChannel *GetOrCreateChannel(RakNetGUID origin);
 	void OnRelayVoiceData(Packet *packet);
 
+	/// Relay speakers currently holding a decoder. Excludes the self-keyed channel, which in
+	/// relay mode carries outgoing encoder state rather than a remote talker -- counting it
+	/// would silently cost the caller one of the decoders it asked for.
+	unsigned CountRelaySpeakers(void) const;
+
+	/// Frees the decoder of the relay speaker silent longest, if it has been idle at least
+	/// RAKVOICE_RELAY_EVICT_IDLE_MS. Returns true if a slot was freed.
+	bool EvictIdlestRelaySpeaker(MafiaNet::TimeMS now);
+
 	/// Get frame size in samples for the given sample rate (20ms frames)
 	static int GetFrameSizeSamples(int sampleRate);
 
@@ -298,6 +330,8 @@ protected:
 	bool relayMode;
 	bool relayHost;
 	bool perSpeakerOutput;
+	/// Concurrent relay decoders the application allows; 0 means only the memory backstop.
+	unsigned maxDecodedSpeakers;
 	RakNetGUID relayTarget;
 };
 
