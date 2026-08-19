@@ -57,6 +57,10 @@ file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
 )
 add_executable(UnitTests ${UNIT_TEST_SOURCES})
 target_link_libraries(UnitTests PRIVATE TestSupport GTest::gtest_main)
+# Mirror the library's Debug definition (Source/CMakeLists.txt) so tests can
+# tell whether the library was built with RakAssert live — some tests exercise
+# release-only backstops that would trip the assert in Debug.
+target_compile_definitions(UnitTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 set_target_properties(UnitTests PROPERTIES FOLDER "Tests")
 
 gtest_discover_tests(UnitTests
