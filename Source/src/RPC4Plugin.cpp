@@ -47,11 +47,12 @@ RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *fun
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
-	for (i=0; uniqueID[i]; i++)
+	for (i=0; uniqueID[i] && i < RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1; i++)
 	{
-		RakAssert(i<=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1);
 		globalRegistrationBuffer[globalRegistrationIndex].functionName[i]=uniqueID[i];
 	}
+	RakAssert(uniqueID[i]==0); // uniqueID must fit in functionName including the NUL terminator
+	globalRegistrationBuffer[globalRegistrationIndex].functionName[i]='\0';
 	globalRegistrationBuffer[globalRegistrationIndex].registerFunctionPointer=functionPointer;
 	globalRegistrationBuffer[globalRegistrationIndex].registerBlockingFunctionPointer=0;
 	globalRegistrationBuffer[globalRegistrationIndex].context=context;
@@ -62,11 +63,12 @@ RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *fun
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
-	for (i=0; uniqueID[i]; i++)
+	for (i=0; uniqueID[i] && i < RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1; i++)
 	{
-		RakAssert(i<=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1);
 		globalRegistrationBuffer[globalRegistrationIndex].functionName[i]=uniqueID[i];
 	}
+	RakAssert(uniqueID[i]==0); // uniqueID must fit in functionName including the NUL terminator
+	globalRegistrationBuffer[globalRegistrationIndex].functionName[i]='\0';
 	globalRegistrationBuffer[globalRegistrationIndex].registerFunctionPointer=functionPointer;
 	globalRegistrationBuffer[globalRegistrationIndex].registerBlockingFunctionPointer=0;
 	globalRegistrationBuffer[globalRegistrationIndex].context=context;
@@ -78,11 +80,12 @@ RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, void ( *fun
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
-	for (i=0; uniqueID[i]; i++)
+	for (i=0; uniqueID[i] && i < RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1; i++)
 	{
-		RakAssert(i<=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1);
 		globalRegistrationBuffer[globalRegistrationIndex].functionName[i]=uniqueID[i];
 	}
+	RakAssert(uniqueID[i]==0); // uniqueID must fit in functionName including the NUL terminator
+	globalRegistrationBuffer[globalRegistrationIndex].functionName[i]='\0';
 	globalRegistrationBuffer[globalRegistrationIndex].registerFunctionPointer=0;
 	globalRegistrationBuffer[globalRegistrationIndex].registerBlockingFunctionPointer=functionPointer;
 	globalRegistrationBuffer[globalRegistrationIndex].context=context;
@@ -92,11 +95,12 @@ RPC4GlobalRegistration::RPC4GlobalRegistration(const char* uniqueID, MessageID m
 {
 	RakAssert(globalRegistrationIndex!=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTIONS);
 	unsigned int i;
-	for (i=0; uniqueID[i]; i++)
+	for (i=0; uniqueID[i] && i < RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1; i++)
 	{
-		RakAssert(i<=RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH-1);
 		globalRegistrationBuffer[globalRegistrationIndex].functionName[i]=uniqueID[i];
 	}
+	RakAssert(uniqueID[i]==0); // uniqueID must fit in functionName including the NUL terminator
+	globalRegistrationBuffer[globalRegistrationIndex].functionName[i]='\0';
 	globalRegistrationBuffer[globalRegistrationIndex].registerFunctionPointer=0;
 	globalRegistrationBuffer[globalRegistrationIndex].registerBlockingFunctionPointer=0;
 	globalRegistrationBuffer[globalRegistrationIndex].context=0;
