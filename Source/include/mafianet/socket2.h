@@ -23,6 +23,8 @@
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "Export.h"
 
+#include <atomic>
+
 // Batched datagram I/O (recvmmsg / sendmmsg) is guarded by a plain
 // `#if defined(__linux__)` wherever it appears. There is no macro and no build
 // option for it: the syscalls exist on Linux and nowhere else MafiaNet targets,
@@ -240,7 +242,13 @@ protected:
 	// same guard, and only defined on that platform.
 	void RecvFromBatchedLoop(void);
 	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
-	volatile bool endThreads;
+	std::atomic<bool> endThreads;
+	// The recv polling thread is joinable so teardown can wait for it to fully
+	// exit before the socket (and the RakPeer it calls back into) are freed.
+	// A detached thread with a bounded wait allowed a leaked thread to keep
+	// dereferencing both after Shutdown (issue #7).
+	RakThread::ThreadHandle recvThread;
+	bool recvThreadJoinable;
 	// Constructor not called!
 
 #if defined(__APPLE__)

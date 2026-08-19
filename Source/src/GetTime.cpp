@@ -46,10 +46,11 @@
 #else
 #include <sys/time.h>
 #include <unistd.h>
-MafiaNet::TimeUS initialTime;
 #endif
 
+#if defined(_WIN32)
 static bool initialized=false;
+#endif
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 #include "mafianet/SimpleMutex.h"
@@ -177,16 +178,21 @@ MafiaNet::TimeUS GetTimeUS_Windows( void )
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 }
 #elif defined(__GNUC__)  || defined(__GCCXML__) || defined(__S3E__)
+static MafiaNet::TimeUS GetInitialTime_Linux( void )
+{
+	timeval tp;
+	gettimeofday( &tp, 0 );
+	return ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
+}
+
 MafiaNet::TimeUS GetTimeUS_Linux( void )
 {
 	timeval tp;
-	if ( initialized == false)
-	{
-		gettimeofday( &tp, 0 );
-		initialized=true;
-		// I do this because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
-		initialTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
-	}
+	// Thread-safe first-use initialization (C++11 magic static). Every RakPeer
+	// startup spawns threads that call this concurrently; a plain lazy-init
+	// bool/global raced, letting a thread read a torn or stale base time.
+	// I subtract an initial time because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
+	static const MafiaNet::TimeUS initialTime = GetInitialTime_Linux();
 
 	// GCC
 	MafiaNet::TimeUS curTime;

@@ -212,6 +212,8 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 RNS2_Berkley::RNS2_Berkley()
 {
 	rns2Socket=(RNS2Socket)INVALID_SOCKET;
+	endThreads=false;
+	recvThreadJoinable=false;
 }
 RNS2_Berkley::~RNS2_Berkley()
 {
@@ -231,7 +233,25 @@ int RNS2_Berkley::CreateRecvPollingThread(int threadPriority)
 {
 	endThreads=false;
 
-	int errorCode = MafiaNet::RakThread::Create(RecvFromLoop, this, threadPriority);
+	// Bound the time a blocking recvfrom/recvmmsg can sit in the kernel so the
+	// polling thread re-checks endThreads even if the wake-up datagram sent by
+	// BlockOnStopRecvPollingThread is lost. Both recv loops already treat a
+	// zero/negative return (EAGAIN/WSAETIMEDOUT) as "no data" and loop.
+#if defined(_WIN32)
+	DWORD recvTimeout = 500; // milliseconds
+	setsockopt__(rns2Socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &recvTimeout, sizeof(recvTimeout));
+#else
+	timeval recvTimeout;
+	recvTimeout.tv_sec = 0;
+	recvTimeout.tv_usec = 500000;
+	setsockopt__(rns2Socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &recvTimeout, sizeof(recvTimeout));
+#endif
+
+	// Joinable, not detached: BlockOnStopRecvPollingThread must be able to wait
+	// for the thread to fully exit before the socket and its event handler are
+	// freed (issue #7).
+	int errorCode = MafiaNet::RakThread::CreateJoinable(RecvFromLoop, this, &recvThread, threadPriority);
+	recvThreadJoinable = (errorCode==0);
 	return errorCode;
 }
 void RNS2_Berkley::SignalStopRecvPollingThread(void)
@@ -242,7 +262,11 @@ void RNS2_Berkley::BlockOnStopRecvPollingThread(void)
 {
 	endThreads=true;
 
-	// Get recvfrom to unblock
+	if (recvThreadJoinable==false)
+		return;
+
+	// Get recvfrom to unblock promptly (SO_RCVTIMEO bounds the wait even if
+	// this datagram is lost)
 	RNS2_SendParameters bsp;
 	unsigned long zero=0;
 	bsp.data=(char*) &zero;
@@ -251,13 +275,19 @@ void RNS2_Berkley::BlockOnStopRecvPollingThread(void)
 	bsp.ttl=0;
 	Send(&bsp, _FILE_AND_LINE_);
 
-	MafiaNet::TimeMS timeout = MafiaNet::GetTimeMS()+1000;
-	while ( isRecvFromLoopThreadActive.GetValue()>0 && MafiaNet::GetTimeMS()<timeout )
+	while ( isRecvFromLoopThreadActive.GetValue()>0 )
 	{
 		// Get recvfrom to unblock
 		Send(&bsp, _FILE_AND_LINE_);
 		RakSleep(30);
 	}
+
+	// Never abandon the thread on a deadline: the caller frees this socket and
+	// the RakPeer the thread calls back into right after we return, so leaving
+	// the thread running was a use-after-free (issue #7). Join also gives the
+	// happens-before edge that makes the thread's writes visible.
+	MafiaNet::RakThread::Join(recvThread);
+	recvThreadJoinable=false;
 }
 const RNS2_BerkleyBindParameters *RNS2_Berkley::GetBindings(void) const {return &binding;}
 RNS2Socket RNS2_Berkley::GetSocket(void) const {return rns2Socket;}

@@ -215,6 +215,7 @@ RakPeer::RakPeer()
 	bytesSentPerSecond = bytesReceivedPerSecond = 0;
 	endThreads = true;
 	isMainLoopThreadActive = false;
+	updateThreadJoinable = false;
 	incomingDatagramEventHandler=0;
 
 
@@ -663,8 +664,10 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 
 
-					errorCode = MafiaNet::RakThread::Create(UpdateNetworkLoop, this, threadPriority);
-
+					// Joinable so Shutdown() can wait for the thread to fully exit
+					// before tearing down the connection state it uses (issue #7).
+					errorCode = MafiaNet::RakThread::CreateJoinable(UpdateNetworkLoop, this, &updateThread, threadPriority);
+					updateThreadJoinable = (errorCode==0);
 
 					if ( errorCode != 0 )
 					{
@@ -1111,6 +1114,16 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	}
 	*/
 
+	// Join the update/network thread rather than spin-waiting on a flag: the
+	// join both guarantees the thread has fully exited and establishes the
+	// happens-before edge that makes its writes visible before the connection
+	// state below is torn down (issue #7).
+	if ( updateThreadJoinable )
+	{
+		MafiaNet::RakThread::Join(updateThread);
+		updateThreadJoinable = false;
+	}
+	// Fallback for configurations where no joinable thread was created.
 	while ( isMainLoopThreadActive )
 	{
 		RakSleep(15);
@@ -5722,7 +5735,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 	}
 
-	if (requestedConnectionQueue.IsEmpty()==false)
+	// The queue is filled from the user thread (Connect/SendConnectionRequest),
+	// so even the emptiness probe must hold the mutex.
+	requestedConnectionQueueMutex.Lock();
+	const bool requestedConnectionQueueHasEntries = requestedConnectionQueue.IsEmpty()==false;
+	requestedConnectionQueueMutex.Unlock();
+	if (requestedConnectionQueueHasEntries)
 	{
 		if (timeNS==0)
 		{
