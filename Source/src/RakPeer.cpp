@@ -2587,13 +2587,11 @@ unsigned int RakPeer::GetNumberOfAddresses( void )
 		FillIPList();
 	}
 
-	for (unsigned int i = 0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS && ipList[i] != UNASSIGNED_SYSTEM_ADDRESS; i++) {
-		if (ipList[i] == UNASSIGNED_SYSTEM_ADDRESS) {
-			return i; // first unassigned address entry found -> end of address list reached
-		}
-	}
+	unsigned int i = 0;
+	while (i < MAXIMUM_NUMBER_OF_INTERNAL_IDS && ipList[i] != UNASSIGNED_SYSTEM_ADDRESS)
+		i++; // count assigned entries until the first unassigned one (end of list)
 
-	return MAXIMUM_NUMBER_OF_INTERNAL_IDS;
+	return i;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
