@@ -19,6 +19,8 @@
 #include "mafianet/sleep.h"
 #include "mafianet/GetTime.h"
 
+#include <vector>
+
 using namespace MafiaNet;
 
 class PeerTeardown : public ::testing::Test
@@ -30,6 +32,10 @@ protected:
 		// their server-side slots linger as zombies until the server's timeout
 		// reaps them. Give the server enough headroom that every churn round can
 		// connect fresh clients while earlier rounds' zombies are still pending.
+		// TrackNewClient() hands out references into this vector; reserve enough
+		// that no test can trigger a reallocation and invalidate them.
+		clients.reserve(kServerCapacity);
+
 		server = RakPeerInterface::GetInstance();
 		SocketDescriptor sd(0, "127.0.0.1");
 		ASSERT_EQ(server->Startup(kServerCapacity, &sd, 1), RAKNET_STARTED);
@@ -37,13 +43,40 @@ protected:
 		serverPort = server->GetInternalID().GetPort();
 	}
 
+	// Every client is registered in `clients`, so cleanup survives a failed
+	// fatal assertion mid-test: any peer not already destroyed by the test body
+	// is shut down here.
 	void TearDown() override
 	{
+		for (RakPeerInterface *&client : clients)
+		{
+			if (client)
+			{
+				client->Shutdown(100);
+				RakPeerInterface::DestroyInstance(client);
+				client = nullptr;
+			}
+		}
 		if (server)
 		{
 			server->Shutdown(100);
 			RakPeerInterface::DestroyInstance(server);
 		}
+	}
+
+	// Create a client peer that TearDown() will clean up if the test body
+	// doesn't destroy it first. Returns a reference to the tracked slot so the
+	// test can mark it destroyed (slot = nullptr) after DestroyInstance.
+	RakPeerInterface *&TrackNewClient()
+	{
+		clients.push_back(RakPeerInterface::GetInstance());
+		return clients.back();
+	}
+
+	static void DestroyTrackedClient(RakPeerInterface *&slot)
+	{
+		RakPeerInterface::DestroyInstance(slot);
+		slot = nullptr;
 	}
 
 	// Pump a peer's receive queue so its user-thread bookkeeping advances.
@@ -54,15 +87,20 @@ protected:
 			peer->DeallocatePacket(packet);
 	}
 
+	// Wait until BOTH sides have observed the connection: the client reports
+	// IS_CONNECTED to the server address, and the server reports IS_CONNECTED
+	// for the client's bound address.
 	bool WaitForConnection(RakPeerInterface *client, TimeMS timeoutMs)
 	{
 		SystemAddress serverAddress("127.0.0.1", serverPort);
+		SystemAddress clientAddress("127.0.0.1", client->GetInternalID().GetPort());
 		TimeMS start = GetTimeMS();
 		while (GetTimeMS() - start < timeoutMs)
 		{
 			Pump(client);
 			Pump(server);
-			if (client->GetConnectionState(serverAddress) == IS_CONNECTED)
+			if (client->GetConnectionState(serverAddress) == IS_CONNECTED &&
+				server->GetConnectionState(clientAddress) == IS_CONNECTED)
 				return true;
 			RakSleep(10);
 		}
@@ -73,6 +111,7 @@ protected:
 	static const int kServerCapacity = 64;
 	RakPeerInterface *server = nullptr;
 	unsigned short serverPort = 0;
+	std::vector<RakPeerInterface *> clients;
 };
 
 // A single client repeatedly connects and is torn down mid-connection. Every
@@ -83,7 +122,7 @@ TEST_F(PeerTeardown, DestroyWithLiveConnectionThenRecreateRepeatedly)
 	const int kCycles = 12;
 	for (int cycle = 0; cycle < kCycles; cycle++)
 	{
-		RakPeerInterface *client = RakPeerInterface::GetInstance();
+		RakPeerInterface *&client = TrackNewClient();
 		SocketDescriptor clientSd(0, "127.0.0.1");
 		ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED)
 			<< "cycle " << cycle << ": client failed to start";
@@ -91,25 +130,25 @@ TEST_F(PeerTeardown, DestroyWithLiveConnectionThenRecreateRepeatedly)
 		ASSERT_EQ(client->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED)
 			<< "cycle " << cycle;
 		ASSERT_TRUE(WaitForConnection(client, 5000))
-			<< "cycle " << cycle << ": client never connected";
+			<< "cycle " << cycle << ": connection not observed on both sides";
 
 		// Tear the peer down while the connection is fully live. Alternate
 		// between a graceful window and an immediate teardown so both paths
 		// (flush-and-close and drop-everything) run under sanitizers.
 		client->Shutdown(cycle % 2 == 0 ? 100 : 0);
 		EXPECT_FALSE(client->IsActive()) << "cycle " << cycle;
-		RakPeerInterface::DestroyInstance(client);
+		DestroyTrackedClient(client);
 	}
 
 	// The server must survive all of that with its own threads intact: it can
 	// still accept a fresh connection afterwards.
-	RakPeerInterface *client = RakPeerInterface::GetInstance();
+	RakPeerInterface *&client = TrackNewClient();
 	SocketDescriptor clientSd(0, "127.0.0.1");
 	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
 	ASSERT_EQ(client->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 	EXPECT_TRUE(WaitForConnection(client, 5000)) << "server no longer accepts connections after churn";
 	client->Shutdown(100);
-	RakPeerInterface::DestroyInstance(client);
+	DestroyTrackedClient(client);
 }
 
 // Several clients are destroyed at once while all their connections are live,
@@ -117,23 +156,24 @@ TEST_F(PeerTeardown, DestroyWithLiveConnectionThenRecreateRepeatedly)
 // ManyClientsOneServerDeallocateBlockingTests that exposed the race.
 TEST_F(PeerTeardown, DestroyManyClientsSimultaneouslyWhileConnected)
 {
-	RakPeerInterface *clients[kMaxClients];
-
 	for (int round = 0; round < 3; round++)
 	{
+		// Indices into the fixture-tracked list for this round's clients.
+		std::vector<size_t> roundClients;
 		for (int i = 0; i < kMaxClients; i++)
 		{
-			clients[i] = RakPeerInterface::GetInstance();
+			RakPeerInterface *&client = TrackNewClient();
+			roundClients.push_back(clients.size() - 1);
 			SocketDescriptor sd(0, "127.0.0.1");
-			ASSERT_EQ(clients[i]->Startup(1, &sd, 1), RAKNET_STARTED) << "round " << round << " client " << i;
-			ASSERT_EQ(clients[i]->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+			ASSERT_EQ(client->Startup(1, &sd, 1), RAKNET_STARTED) << "round " << round << " client " << i;
+			ASSERT_EQ(client->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 		}
 		for (int i = 0; i < kMaxClients; i++)
-			ASSERT_TRUE(WaitForConnection(clients[i], 5000)) << "round " << round << " client " << i;
+			ASSERT_TRUE(WaitForConnection(clients[roundClients[i]], 5000)) << "round " << round << " client " << i;
 
 		// No Shutdown() call first: DestroyInstance itself must cope with live
 		// connections and running threads.
-		for (int i = 0; i < kMaxClients; i++)
-			RakPeerInterface::DestroyInstance(clients[i]);
+		for (size_t index : roundClients)
+			DestroyTrackedClient(clients[index]);
 	}
 }

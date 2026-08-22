@@ -48,9 +48,6 @@
 #include <unistd.h>
 #endif
 
-#if defined(_WIN32)
-static bool initialized=false;
-#endif
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 #include "mafianet/SimpleMutex.h"
@@ -142,21 +139,9 @@ MafiaNet::TimeMS MafiaNet::GetTimeMS( void )
 #if   defined(_WIN32)
 MafiaNet::TimeUS GetTimeUS_Windows( void )
 {
-	if ( initialized == false)
-	{
-		initialized = true;
-
-		// Save the current process
-//		HANDLE mProc = GetCurrentProcess();
-
-		// Get the current Affinity
-#if defined (_M_X64)
-//		GetProcessAffinityMask(mProc, (PDWORD_PTR)&mProcMask, (PDWORD_PTR)&mSysMask);
-#else
-//		GetProcessAffinityMask(mProc, &mProcMask, &mSysMask);
-#endif
-//		mThread = GetCurrentThread();
-	}	
+	// A first-call `initialized` guard used to live here; its body was entirely
+	// commented out, so all it did was write a non-atomic flag from every
+	// calling thread (a data race). Removed.
 
 	// 9/26/2010 In China running LuDaShi, QueryPerformanceFrequency has to be called every time because CPU clock speeds can be different
 	MafiaNet::TimeUS curTime;

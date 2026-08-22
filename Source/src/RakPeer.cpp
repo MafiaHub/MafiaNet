@@ -5750,12 +5750,16 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 		bool condition1, condition2;
 		unsigned requestedConnectionQueueIndex=0;
+		// Hold the mutex for the whole pass: CancelConnectionAttempt (user
+		// thread) deletes entries under this mutex, so dropping it while still
+		// dereferencing rcs was a use-after-free. The only OnDirectSocketSend
+		// implementers (PacketLogger, StatisticsHistory) don't call back into
+		// connection APIs, so the callbacks below cannot re-enter this lock.
 		requestedConnectionQueueMutex.Lock();
 		while (requestedConnectionQueueIndex < requestedConnectionQueue.Size())
 		{
 			RequestedConnectionStruct *rcs;
 			rcs = requestedConnectionQueue[requestedConnectionQueueIndex];
-			requestedConnectionQueueMutex.Unlock();
 			if (rcs->nextRequestTime < timeMS)
 			{
 				condition1=rcs->requestsMade==rcs->sendConnectionAttemptCount+1;
@@ -5783,18 +5787,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					CAT_AUDIT_PRINTF("AUDIT: Connection attempt FAILED so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
 					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 #endif
+					// Unlink before deleting (both under the held mutex) so the
+					// queue never holds a dangling pointer.
+					requestedConnectionQueue.RemoveAtIndex(requestedConnectionQueueIndex);
 					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
-
-					requestedConnectionQueueMutex.Lock();
-					for (unsigned int k=0; k < requestedConnectionQueue.Size(); k++)
-					{
-						if (requestedConnectionQueue[k]==rcs)
-						{
-							requestedConnectionQueue.RemoveAtIndex(k);
-							break;
-						}
-					}
-					requestedConnectionQueueMutex.Unlock();
 				}
 				else
 				{
@@ -5874,8 +5870,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			}
 			else
 				requestedConnectionQueueIndex++;
-
-			requestedConnectionQueueMutex.Lock();
 		}
 		requestedConnectionQueueMutex.Unlock();
 	}

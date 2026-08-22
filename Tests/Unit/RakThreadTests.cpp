@@ -56,7 +56,14 @@ TEST(RakThread, JoinReapsMultipleThreadsIndependently)
 	RakThread::ThreadHandle handleA;
 	RakThread::ThreadHandle handleB;
 	ASSERT_EQ(RakThread::CreateJoinable(IncrementCounterThread, &counterA, &handleA), 0);
-	ASSERT_EQ(RakThread::CreateJoinable(IncrementCounterThread, &counterB, &handleB), 0);
+	const int createB = RakThread::CreateJoinable(IncrementCounterThread, &counterB, &handleB);
+	if (createB != 0)
+	{
+		// Reap thread A before the fatal exit: it references this frame's
+		// counterA, which dies when the assertion returns.
+		RakThread::Join(handleA);
+		FAIL() << "second CreateJoinable failed: " << createB;
+	}
 
 	RakThread::Join(handleB);
 	EXPECT_EQ(counterB.load(), 1);
