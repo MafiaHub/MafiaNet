@@ -36,6 +36,36 @@ Connection Messages
    * - ``ID_ALREADY_CONNECTED``
      - Already connected to this system
 
+Session Handshake Messages
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exchanged after the transport connection is established but before either side reports it. See
+:doc:`connecting` for the full flow.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - ID
+     - Description
+   * - ``ID_SESSION_CONFIG_REQUEST``
+     - Client to server: the connecting peer's session payload. Surfaced to the application only
+       under ``SetSessionConfigInteractive(true)``, which must then answer with ``AcceptSession()``
+       or ``RejectSession()``.
+   * - ``ID_SESSION_CONFIG``
+     - Server to client: the accepting peer's session payload. Consumed internally; read it with
+       ``GetRemoteSessionConfig()``. Ignored if a client sends it to a server.
+   * - ``ID_SESSION_CONFIG_REJECTED``
+     - Server to client: the connection was refused after inspecting the client's payload. The
+       client reports ``ID_CONNECTION_ATTEMPT_FAILED`` with the reason at ``data + 1``. Ignored if
+       a client sends it to a server.
+
+.. note::
+
+   ``ID_CONNECTION_REQUEST_ACCEPTED`` and ``ID_NEW_INCOMING_CONNECTION`` are withheld until this
+   exchange completes, so receiving either one means the remote peer's session payload is already
+   available.
+
 Ping Messages
 ~~~~~~~~~~~~~
 

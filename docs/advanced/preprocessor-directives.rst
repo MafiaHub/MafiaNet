@@ -68,6 +68,12 @@ Performance Options
    // Send buffer size
    #define RAKNET_SEND_BUFFER_SIZE 8192
 
+   // Largest session-handshake payload accepted, in bytes (default: 65536).
+   // Enforced on send and receive; an oversized inbound payload closes the connection.
+   // This is also the per-connection memory a remote peer can force, so lower it if a
+   // deployment does not need large payloads. See advanced/session-handshake-security.
+   #define MAXIMUM_SESSION_CONFIG_SIZE 65536
+
 Debug Options
 -------------
 

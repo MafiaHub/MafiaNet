@@ -76,6 +76,11 @@ file(GLOB INTEGRATION_TEST_SOURCES CONFIGURE_DEPENDS
 )
 add_executable(IntegrationTests ${INTEGRATION_TEST_SOURCES})
 target_link_libraries(IntegrationTests PRIVATE TestSupport GTest::gtest_main)
+# Must match the library: RakPeer carries _DEBUG-only members, so a translation unit that
+# disagrees about _DEBUG disagrees about sizeof(RakPeer) and about every member offset after
+# them. Harmless while tests only ever hold pointers returned by RakPeerInterface::GetInstance(),
+# and memory corruption the moment one constructs a RakPeer-derived object itself.
+target_compile_definitions(IntegrationTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 set_target_properties(IntegrationTests PROPERTIES FOLDER "Tests")
 
 gtest_discover_tests(IntegrationTests

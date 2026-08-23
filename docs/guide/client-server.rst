@@ -112,6 +112,45 @@ Sending to Specific Client
        server->Send(bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, client, false);
    }
 
+Per-Server Configuration
+------------------------
+
+A server usually has state a client needs *before* it can do anything useful -- game mode, map,
+content version. The session handshake carries it as part of connecting, so the client has it the
+moment the connection is reported rather than one round trip later:
+
+.. code-block:: cpp
+
+   // Server, before Startup()
+   server->SetSessionConfig(configJson.c_str(), (unsigned int)configJson.size());
+
+   // Client
+   case ID_CONNECTION_REQUEST_ACCEPTED: {
+       unsigned int length = 0;
+       const char *config = client->GetRemoteSessionConfig(packet->guid, &length);
+       // Already available -- the packet is not produced until the payload has arrived.
+       break;
+   }
+
+To validate each client before answering (build token, protocol version, ban list), turn on
+interactive mode and answer per peer. The client's payload arrives first, so a peer can be refused
+without the server disclosing anything:
+
+.. code-block:: cpp
+
+   server->SetSessionConfigInteractive(true);
+
+   case ID_SESSION_CONFIG_REQUEST:
+       if (BuildMatches(packet->data + 1, packet->length - 1))
+           server->AcceptSession(packet->guid, configJson.c_str(), (unsigned int)configJson.size());
+       else
+           server->RejectSession(packet->guid, "build mismatch");
+       break;
+
+A refused peer never appears as a connection on either side. See :doc:`../basics/connecting` for the
+full flow and :doc:`../advanced/session-handshake-security` for what the payload can and cannot be
+trusted to contain.
+
 Connection Timeout
 ------------------
 

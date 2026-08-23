@@ -104,6 +104,14 @@
 #define MAXIMUM_NUMBER_OF_INTERNAL_IDS 10
 #endif
 
+// Maximum size in bytes of a session-handshake payload (see RakPeerInterface::SetSessionConfig).
+// Enforced on both send and receive; an oversized inbound payload is a protocol violation and
+// closes the connection. The payload rides the reliability layer after MTU negotiation, so it is
+// split into ordinary reliable datagrams rather than sent as one oversized burst.
+#ifndef MAXIMUM_SESSION_CONFIG_SIZE
+#define MAXIMUM_SESSION_CONFIG_SIZE 65536
+#endif
+
 #ifndef RakAssert
 #if   defined(__native_client__)
 #define RakAssert(x)

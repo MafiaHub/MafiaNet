@@ -383,6 +383,53 @@ public:
 	/// \sa SetOfflinePingResponse
 	virtual void GetOfflinePingResponse( char **data, unsigned int *length )=0;
 
+	// --------------------------------------------------------------------------------------------Session Handshake - Payloads exchanged before a connection is reported--------------------------------------------------------------------------------------------
+	/// Sets this peer's session-handshake payload.
+	/// \details The session handshake runs after the transport connection is up but before either side
+	/// reports it: a client sends this payload in ID_SESSION_CONFIG_REQUEST, a server answers with it in
+	/// ID_SESSION_CONFIG. Neither peer produces ID_CONNECTION_REQUEST_ACCEPTED / ID_NEW_INCOMING_CONNECTION
+	/// until the exchange completes, so those packets mean "the remote's session payload is in hand".
+	/// The bytes are opaque to MafiaNet. Call before Startup()/Connect().
+	/// \param[in] data A block of data to send, or 0 for none
+	/// \param[in] length The length of data in bytes, or 0 for none; at most MAXIMUM_SESSION_CONFIG_SIZE
+	virtual void SetSessionConfig( const char *data, unsigned int length )=0;
+
+	/// Returns a pointer to the payload passed to SetSessionConfig
+	/// \param[out] data A pointer to the data passed to SetSessionConfig()
+	/// \param[out] length A pointer filled in with the length of that data
+	/// \sa SetSessionConfig
+	virtual void GetSessionConfig( char **data, unsigned int *length )=0;
+
+	/// Returns the session payload the remote peer sent during the handshake.
+	/// \details Valid from the moment ID_CONNECTION_REQUEST_ACCEPTED or ID_NEW_INCOMING_CONNECTION surfaces
+	/// for this system, for the lifetime of that connection.
+	/// \param[in] systemIdentifier The connection to read
+	/// \param[out] length Filled in with the payload length, or 0 when there is none
+	/// \return Pointer to the payload owned by that connection, or 0 when there is none
+	virtual const char *GetRemoteSessionConfig( const AddressOrGUID systemIdentifier, unsigned int *length )=0;
+
+	/// Server: decide each client's session answer individually instead of replying automatically.
+	/// \details With this on, ID_SESSION_CONFIG_REQUEST is surfaced to the application and the connection
+	/// stays unreported until AcceptSession() or RejectSession() is called for that peer. Off by default, in
+	/// which case the payload set by SetSessionConfig() answers every client and no application code is
+	/// required. A peer that is never answered is timed out like any other incomplete connection attempt.
+	/// \param[in] interactive Whether to surface ID_SESSION_CONFIG_REQUEST for a per-client decision
+	virtual void SetSessionConfigInteractive( bool interactive )=0;
+
+	/// Server: accept a pending session request, sending \a data as this connection's payload.
+	/// \details Completes the handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION. Only
+	/// meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST; ignored otherwise.
+	/// \param[in] systemIdentifier The peer whose request to accept
+	/// \param[in] data This connection's session payload, or 0 for none
+	/// \param[in] length The length of data in bytes, at most MAXIMUM_SESSION_CONFIG_SIZE
+	virtual void AcceptSession( const AddressOrGUID systemIdentifier, const char *data, unsigned int length )=0;
+
+	/// Server: refuse a pending session request.
+	/// \details The client reports ID_CONNECTION_ATTEMPT_FAILED and neither side ever reports a connection.
+	/// \param[in] systemIdentifier The peer whose request to refuse
+	/// \param[in] reason Delivered to the client in ID_SESSION_CONFIG_REJECTED; may be 0
+	virtual void RejectSession( const AddressOrGUID systemIdentifier, const char *reason )=0;
+
 	//--------------------------------------------------------------------------------------------Network Functions - Functions dealing with the network in general--------------------------------------------------------------------------------------------
 	/// Return the unique address identifier that represents you or another system on the the network and is based on your local IP / port.
 	/// \note Not supported by the XBOX

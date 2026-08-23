@@ -82,6 +82,7 @@ MafiaNet Documentation
    advanced/ipv6-support
    advanced/congestion-control
    advanced/debugging-disconnects
+   advanced/session-handshake-security
 
 .. toctree::
    :maxdepth: 2
