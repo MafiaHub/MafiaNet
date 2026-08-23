@@ -433,3 +433,163 @@ TEST_F(SessionConfigLive, StalledHandshakeStillConsumesAnIncomingSlot)
 
 	EXPECT_TRUE(refused) << "a peer stalled in the session handshake did not count against the incoming limit";
 }
+
+namespace
+{
+	const int kUserMessageId = ID_USER_PACKET_ENUM + 1;
+
+	// Drive a complete connection lifecycle and assert every stage behaves identically whether or not a
+	// session payload is configured. The handshake sits in front of everything else a peer does, so the
+	// question is not only "does the payload arrive" but "does normal traffic, teardown and reconnect
+	// still work with it in the path".
+	//
+	// The reconnect leg is the load-bearing one: it reuses the server's slot, so a payload that outlived
+	// its connection, or session state that was not cleared on teardown, shows up here and nowhere else.
+	//
+	// The parameter is a plain bool rather than a struct so ctest renders a readable test name; gtest
+	// appends the printed parameter to the discovered name, and a struct prints as "1-byte object <00>".
+} // namespace
+
+class SessionConfigPipeline : public SessionConfigLive, public ::testing::WithParamInterface<bool>
+{
+};
+
+TEST_P(SessionConfigPipeline, FullConnectionLifecycleBehavesIdentically)
+{
+	const bool withConfig = GetParam();
+	const unsigned int expectedServerLen = withConfig ? (unsigned int)strlen(kServerPayload) : 0u;
+	const unsigned int expectedClientLen = withConfig ? (unsigned int)strlen(kClientPayload) : 0u;
+
+	if (withConfig)
+	{
+		server->SetSessionConfig(kServerPayload, (unsigned int)strlen(kServerPayload));
+		client->SetSessionConfig(kClientPayload, (unsigned int)strlen(kClientPayload));
+	}
+
+	const unsigned short port = StartPeers();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	// ---- stage 1: both sides report the connection -------------------------------------------------
+	Packet *accepted = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
+	ASSERT_NE(accepted, nullptr) << "client never connected";
+	const RakNetGUID serverGuid = accepted->guid;
+	client->DeallocatePacket(accepted);
+
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr) << "server never reported the connection";
+	const RakNetGUID clientGuid = incoming->guid;
+	server->DeallocatePacket(incoming);
+
+	unsigned int length = 12345;
+	client->GetRemoteSessionConfig(serverGuid, &length);
+	EXPECT_EQ(length, expectedServerLen);
+	length = 12345;
+	server->GetRemoteSessionConfig(clientGuid, &length);
+	EXPECT_EQ(length, expectedClientLen);
+
+	EXPECT_EQ(client->GetConnectionState(serverGuid), IS_CONNECTED);
+	EXPECT_EQ(server->GetConnectionState(clientGuid), IS_CONNECTED);
+
+	// ---- stage 2: ordinary traffic flows both ways -------------------------------------------------
+	{
+		MafiaNet::BitStream up;
+		up.Write((MessageID)kUserMessageId);
+		up.Write("client-to-server", 16);
+		client->Send(&up, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+
+		Packet *got = PumpUntil(server, kUserMessageId, client, kConnectTimeoutMs);
+		ASSERT_NE(got, nullptr) << "server never received client traffic";
+		ASSERT_EQ(got->length, (unsigned int)(1 + 16));
+		EXPECT_EQ(memcmp(got->data + 1, "client-to-server", 16), 0);
+		server->DeallocatePacket(got);
+	}
+	{
+		MafiaNet::BitStream down;
+		down.Write((MessageID)kUserMessageId);
+		down.Write("server-to-client", 16);
+		server->Send(&down, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+
+		Packet *got = PumpUntil(client, kUserMessageId, server, kConnectTimeoutMs);
+		ASSERT_NE(got, nullptr) << "client never received server traffic";
+		ASSERT_EQ(got->length, (unsigned int)(1 + 16));
+		EXPECT_EQ(memcmp(got->data + 1, "server-to-client", 16), 0);
+		client->DeallocatePacket(got);
+	}
+
+	// ---- stage 3: clean teardown still notifies ----------------------------------------------------
+	// This connection WAS reported, so unlike a rejected peer it must produce a disconnect notification.
+	client->CloseConnection(serverGuid, true);
+
+	Packet *bye = PumpUntil(server, ID_DISCONNECTION_NOTIFICATION, client, kConnectTimeoutMs);
+	ASSERT_NE(bye, nullptr) << "server was not notified of a clean disconnect";
+	server->DeallocatePacket(bye);
+
+	// ---- stage 4: reconnect over the reused slot ---------------------------------------------------
+	// CloseConnection is asynchronous on the closing side as well, so the local slot is still occupied
+	// for a moment after the notification reaches the peer. Reconnecting before it frees returns
+	// ALREADY_CONNECTED_TO_ENDPOINT; wait for the teardown rather than racing it.
+	{
+		TimeMS entry = GetTimeMS();
+		while (GetTimeMS() - entry < (TimeMS)kConnectTimeoutMs)
+		{
+			const ConnectionState state = client->GetConnectionState(serverGuid);
+			if (state == IS_NOT_CONNECTED || state == IS_DISCONNECTED)
+				break;
+			Packet *drain;
+			for (drain = client->Receive(); drain; client->DeallocatePacket(drain), drain = client->Receive())
+				;
+			for (drain = server->Receive(); drain; server->DeallocatePacket(drain), drain = server->Receive())
+				;
+			RakSleep(15);
+		}
+	}
+
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *accepted2 = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
+	ASSERT_NE(accepted2, nullptr) << "client could not reconnect";
+	const RakNetGUID serverGuid2 = accepted2->guid;
+	client->DeallocatePacket(accepted2);
+
+	Packet *incoming2 = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming2, nullptr) << "server did not report the reconnection";
+	const RakNetGUID clientGuid2 = incoming2->guid;
+	server->DeallocatePacket(incoming2);
+
+	// The payload must be freshly delivered for the new connection -- neither stale from the previous
+	// one nor lost because teardown cleared it and nothing repopulated it.
+	length = 12345;
+	const char *serverCfg = client->GetRemoteSessionConfig(serverGuid2, &length);
+	EXPECT_EQ(length, expectedServerLen) << "server payload wrong after reconnect";
+	if (withConfig)
+	{
+		ASSERT_NE(serverCfg, nullptr);
+		EXPECT_EQ(memcmp(serverCfg, kServerPayload, expectedServerLen), 0);
+	}
+
+	length = 12345;
+	const char *clientCfg = server->GetRemoteSessionConfig(clientGuid2, &length);
+	EXPECT_EQ(length, expectedClientLen) << "client payload wrong after reconnect";
+	if (withConfig)
+	{
+		ASSERT_NE(clientCfg, nullptr);
+		EXPECT_EQ(memcmp(clientCfg, kClientPayload, expectedClientLen), 0);
+	}
+
+	// ---- stage 5: traffic still flows on the reconnected session -----------------------------------
+	MafiaNet::BitStream again;
+	again.Write((MessageID)kUserMessageId);
+	again.Write("after-reconnect!", 16);
+	client->Send(&again, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+
+	Packet *got = PumpUntil(server, kUserMessageId, client, kConnectTimeoutMs);
+	ASSERT_NE(got, nullptr) << "traffic did not flow after reconnect";
+	EXPECT_EQ(memcmp(got->data + 1, "after-reconnect!", 16), 0);
+	server->DeallocatePacket(got);
+}
+
+INSTANTIATE_TEST_SUITE_P(WithAndWithoutSessionConfig, SessionConfigPipeline,
+	::testing::Values(false, true),
+	[](const ::testing::TestParamInfo<bool> &info) {
+		return info.param ? "WithSessionConfig" : "WithoutSessionConfig";
+	});
