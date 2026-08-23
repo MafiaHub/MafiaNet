@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "mafianet/peer.h"
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
@@ -117,6 +118,28 @@ namespace
 		}
 		return false;
 	}
+
+	// A peer that does not respect the protocol: it can put application-layer bytes onto an established
+	// connection while bypassing the public Send() handshake gate.
+	//
+	// Needed because the gates added for un-accepted peers are mutually masking between two conforming
+	// peers -- the sender's broadcast filter and directed-send check mean nothing reaches the wire, so a
+	// negative assertion on the receiver passes whether or not the receiving-side check exists. Injecting
+	// below the gate is the only way to prove the receiving side actually rejects what it is sent.
+	//
+	// SendBuffered rather than SendImmediate: it is the layer the public Send() drops into once its own
+	// checks pass, so the injected traffic still crosses the network thread exactly like real traffic.
+	// SendImmediate from a test thread would race the network thread.
+	class NonConformingPeer : public RakPeer
+	{
+	public:
+		void InjectPastTheSendGate(const MafiaNet::BitStream &bs, const AddressOrGUID &target)
+		{
+			SendBuffered((const char *)bs.GetData(), bs.GetNumberOfBitsUsed(), MafiaNet::Priority::Immediate,
+				MafiaNet::Reliability::ReliableOrdered, 0, target, false,
+				RemoteSystemStruct::NO_ACTION, 0);
+		}
+	};
 
 	class SessionConfigLive : public ::testing::Test
 	{
@@ -349,41 +372,68 @@ TEST_F(SessionConfigLive, UnansweredHandshakeTimesOut)
 // ever expects for its OWN outbound connects) into the server's receive queue.
 TEST_F(SessionConfigLive, ServerIgnoresSessionRepliesSentByAClient)
 {
+	// Uses the non-conforming injector deliberately. A conforming client cannot send these at all --
+	// its own broadcast filter and directed-send gate stop them before the wire -- so driving this
+	// through the public Send() would make every assertion below pass even with the server-side role
+	// checks deleted. The point of this test is the SERVER's rejection, so the client has to be able to
+	// actually transmit.
+	NonConformingPeer forger;
 	server->SetSessionConfigInteractive(true);
 
-	const unsigned short port = StartPeers();
-	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(8, &serverSd, 1), RAKNET_STARTED);
+	server->SetMaximumIncomingConnections(8);
+	server->SetTimeoutTime(kHandshakeTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+	const unsigned short port = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
 
-	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, client, kConnectTimeoutMs);
+	SocketDescriptor forgerSd(0, "127.0.0.1");
+	ASSERT_EQ(forger.Startup(1, &forgerSd, 1), RAKNET_STARTED);
+	forger.SetTimeoutTime(kHandshakeTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+	ASSERT_EQ(forger.Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, &forger, kConnectTimeoutMs);
 	ASSERT_NE(request, nullptr);
 	const RakNetGUID clientGuid = request->guid;
 	server->DeallocatePacket(request);
+	// The server is parked in EXCHANGING_SESSION_DATA awaiting a decision. Forge both server-to-client
+	// replies back at it, in the wrong direction.
 
-	// The server is now parked in EXCHANGING_SESSION_DATA awaiting a decision. Send it both replies
-	// from the client, in the wrong direction.
-	const char rejected[] = "\x00" "spoofed";
+	// The forger has no packet carrying the server's guid -- ID_CONNECTION_REQUEST_ACCEPTED is withheld
+	// precisely because the handshake has not finished -- so address the server by its endpoint.
+	SystemAddress serverAddr;
+	serverAddr.SetBinaryAddress("127.0.0.1");
+	serverAddr.SetPortHostOrder(port);
+
+	const char reason[] = "spoofed";
 	MafiaNet::BitStream rejectBs;
 	rejectBs.Write((MessageID)ID_SESSION_CONFIG_REJECTED);
-	rejectBs.Write("spoofed", 7);
-	client->Send(&rejectBs, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	rejectBs.Write(reason, (unsigned int)strlen(reason));
+	forger.InjectPastTheSendGate(rejectBs, serverAddr);
 
 	MafiaNet::BitStream configBs;
 	configBs.Write((MessageID)ID_SESSION_CONFIG);
 	configBs.Write("spoofed-config", 14);
-	client->Send(&configBs, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
-	(void)rejected;
+	forger.InjectPastTheSendGate(configBs, serverAddr);
 
-	EXPECT_FALSE(SawWithin(server, ID_CONNECTION_ATTEMPT_FAILED, client, 700))
-		<< "a client forged ID_CONNECTION_ATTEMPT_FAILED into the server's queue";
-	EXPECT_FALSE(SawWithin(server, ID_NEW_INCOMING_CONNECTION, client, 300))
+	const std::vector<int> serverSaw = CollectIds(server, &forger, 1500);
+
+	// ID_SESSION_CONFIG_REJECTED is the dangerous one: unbound, it turns into ID_CONNECTION_ATTEMPT_FAILED
+	// on the receiver, a packet an application only ever expects for its OWN outbound connects.
+	EXPECT_FALSE(Contains(serverSaw, ID_CONNECTION_ATTEMPT_FAILED))
+		<< "a client forged ID_CONNECTION_ATTEMPT_FAILED into a listening server's queue";
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION))
 		<< "a client completed the server's half of the handshake by replying to itself";
+	EXPECT_FALSE(Contains(serverSaw, ID_DISCONNECTION_NOTIFICATION))
+		<< "the forged replies tore down a connection that was never reported";
 
 	// The legitimate path must still work afterwards.
 	server->AcceptSession(clientGuid, kServerPayload, (unsigned int)strlen(kServerPayload));
 
-	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, &forger, kConnectTimeoutMs);
 	ASSERT_NE(incoming, nullptr) << "the spoof attempt broke the real handshake";
 	server->DeallocatePacket(incoming);
+
+	forger.Shutdown(100);
 }
 
 // The stored payload is arbitrary attacker-controlled bytes. It is kept NUL-terminated past the
@@ -672,4 +722,69 @@ TEST_F(SessionConfigLive, ApplicationTrafficIsBlockedUntilTheHandshakeCompletes)
 	ASSERT_NE(got, nullptr) << "traffic did not flow after the handshake completed";
 	EXPECT_EQ(memcmp(got->data + 1, "after-accept-ok!", 16), 0);
 	client->DeallocatePacket(got);
+}
+
+// The receiving half of the traffic gate, provable only with the non-conforming injector: a peer that
+// ignores its own send gate and pushes application data during the handshake must not have it
+// delivered, because the application has not been told that connection exists.
+//
+// The sending half -- the broadcast fan-out skipping such peers -- has no equivalent test. Proving it
+// means observing bytes on the wire, and any receiver capable of observing them also runs the inbound
+// drop asserted here. It stays as defence for the case that matters, which is bytes leaving the
+// machine toward a peer the application never accepted and may still refuse.
+TEST_F(SessionConfigLive, InboundApplicationDataDuringHandshakeIsNotDelivered)
+{
+	NonConformingPeer forger;
+	server->SetSessionConfigInteractive(true);
+
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(8, &serverSd, 1), RAKNET_STARTED);
+	server->SetMaximumIncomingConnections(8);
+	server->SetTimeoutTime(kHandshakeTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+	const unsigned short port = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
+
+	SocketDescriptor forgerSd(0, "127.0.0.1");
+	ASSERT_EQ(forger.Startup(1, &forgerSd, 1), RAKNET_STARTED);
+	forger.SetTimeoutTime(kHandshakeTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+	ASSERT_EQ(forger.Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, &forger, kConnectTimeoutMs);
+	ASSERT_NE(request, nullptr);
+	const RakNetGUID clientGuid = request->guid;
+	server->DeallocatePacket(request);
+
+	SystemAddress serverAddr;
+	serverAddr.SetBinaryAddress("127.0.0.1");
+	serverAddr.SetPortHostOrder(port);
+
+	MafiaNet::BitStream early;
+	early.Write((MessageID)kUserMessageId);
+	early.Write("premature-inbound", 17);
+	forger.InjectPastTheSendGate(early, serverAddr);
+
+	const std::vector<int> serverSaw = CollectIds(server, &forger, 1500);
+	EXPECT_FALSE(Contains(serverSaw, kUserMessageId))
+		<< "application data from a peer mid-handshake reached the application";
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION))
+		<< "server reported a connection before answering the session request";
+
+	// Once accepted, the same peer's traffic is delivered normally -- the gate is about the state, not
+	// about this peer being permanently distrusted.
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int)strlen(kServerPayload));
+
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, &forger, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr);
+	server->DeallocatePacket(incoming);
+
+	MafiaNet::BitStream now;
+	now.Write((MessageID)kUserMessageId);
+	now.Write("after-accept-ok!", 16);
+	forger.InjectPastTheSendGate(now, serverAddr);
+
+	Packet *got = PumpUntil(server, kUserMessageId, &forger, kConnectTimeoutMs);
+	ASSERT_NE(got, nullptr) << "traffic was still dropped after the handshake completed";
+	EXPECT_EQ(memcmp(got->data + 1, "after-accept-ok!", 16), 0);
+	server->DeallocatePacket(got);
+
+	forger.Shutdown(100);
 }
