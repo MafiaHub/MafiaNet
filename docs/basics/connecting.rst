@@ -262,6 +262,13 @@ it must remember to check.
 The payload is opaque to MafiaNet: encode it however the application likes, up to
 ``MAXIMUM_SESSION_CONFIG_SIZE`` bytes.
 
+.. warning::
+
+   A payload received from a remote peer is **untrusted, unauthenticated input** -- it arrives before
+   any application-level authentication has run. Parse it as defensively as any other packet from an
+   unknown source, and never put secrets in a payload sent from static mode. See
+   :doc:`../advanced/session-handshake-security`.
+
 Static payloads
 ~~~~~~~~~~~~~~~
 

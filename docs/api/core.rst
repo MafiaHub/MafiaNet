@@ -109,6 +109,21 @@ StartupResult
 
 .. doxygenenum:: MafiaNet::StartupResult
 
+Session Handshake
+-----------------
+
+An opaque application payload exchanged in both directions before either side reports a connection.
+``ID_CONNECTION_REQUEST_ACCEPTED`` and ``ID_NEW_INCOMING_CONNECTION`` are withheld until it
+completes. See :doc:`../basics/connecting` for the flow and
+:doc:`../advanced/session-handshake-security` for the trust model.
+
+.. doxygenfunction:: MafiaNet::RakPeerInterface::SetSessionConfig
+.. doxygenfunction:: MafiaNet::RakPeerInterface::GetSessionConfig
+.. doxygenfunction:: MafiaNet::RakPeerInterface::GetRemoteSessionConfig
+.. doxygenfunction:: MafiaNet::RakPeerInterface::SetSessionConfigInteractive
+.. doxygenfunction:: MafiaNet::RakPeerInterface::AcceptSession
+.. doxygenfunction:: MafiaNet::RakPeerInterface::RejectSession
+
 ConnectionAttemptResult
 ~~~~~~~~~~~~~~~~~~~~~~~
 

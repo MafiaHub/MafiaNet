@@ -629,6 +629,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			remoteSystemList[ i ].withheldConnectionPacketData = 0;
 			remoteSystemList[ i ].withheldConnectionPacketLength = 0;
 			remoteSystemList[ i ].sessionConfigAwaitingLocalDecision = false;
+			remoteSystemList[ i ].sessionConfigIsConnectingSide = false;
 			remoteSystemList[ i ].sessionConfigStartTime = 0;
 #ifdef _DEBUG
 			remoteSystemList[ i ].reliabilityLayer.ApplyNetworkSimulator(_packetloss, _minExtraPing, _extraPingVariance);
@@ -3711,6 +3712,7 @@ void RakPeer::ClearSessionConfig( RemoteSystemStruct *remoteSystem )
 	}
 	remoteSystem->withheldConnectionPacketLength=0;
 	remoteSystem->sessionConfigAwaitingLocalDecision=false;
+	remoteSystem->sessionConfigIsConnectingSide=false;
 	remoteSystem->sessionConfigStartTime=0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3734,11 +3736,15 @@ bool RakPeer::StoreRemoteSessionConfig( RemoteSystemStruct *remoteSystem, const 
 	if (data==0 || length==0)
 		return true;
 
-	remoteSystem->remoteSessionConfigData = (unsigned char*) rakMalloc_Ex(length, _FILE_AND_LINE_);
+	// One extra byte, always zeroed and never counted in the reported length. The payload is
+	// attacker-controlled and arbitrary bytes, so an application that reaches for strlen/printf on it
+	// would otherwise run off the end of the buffer. Length remains the authoritative bound.
+	remoteSystem->remoteSessionConfigData = (unsigned char*) rakMalloc_Ex(length + 1, _FILE_AND_LINE_);
 	if (remoteSystem->remoteSessionConfigData==0)
 		return false;
 
 	memcpy(remoteSystem->remoteSessionConfigData, data, length);
+	remoteSystem->remoteSessionConfigData[length] = 0;
 	remoteSystem->remoteSessionConfigLength = length;
 	return true;
 }
@@ -4284,7 +4290,27 @@ SystemAddress RakPeer::GetLoopbackAddress(void) const
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::AllowIncomingConnections(void) const
 {
-	return GetNumberOfRemoteInitiatedConnections() < GetMaximumIncomingConnections();
+	// Counts peers still running the session handshake as well as fully established ones.
+	// GetNumberOfRemoteInitiatedConnections() deliberately reports only CONNECTED peers -- that is what
+	// an application means by "players" -- but admission control must not share that view: a peer parked
+	// in EXCHANGING_SESSION_DATA already owns a slot, and counting only CONNECTED would let peers that
+	// stall the handshake push the real total past SetMaximumIncomingConnections().
+	if ( remoteSystemList == 0 || endThreads == true )
+		return false;
+
+	unsigned int occupied = 0;
+	for (unsigned int i=0; i < activeSystemListSize; i++)
+	{
+		if ((activeSystemList[i])->isActive &&
+			((activeSystemList[i])->connectMode==RakPeer::RemoteSystemStruct::CONNECTED ||
+			 (activeSystemList[i])->connectMode==RakPeer::RemoteSystemStruct::EXCHANGING_SESSION_DATA) &&
+			(activeSystemList[i])->weInitiatedTheConnection==false
+			)
+		{
+			occupied++;
+		}
+	}
+	return occupied < GetMaximumIncomingConnections();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
@@ -6194,9 +6220,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					else if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA)
 						// Dropped mid-session-handshake. The connecting side still has an attempt outstanding; the
 						// accepting side never reported anything, so a lost connection is all it can report.
-						packet->data[ 0 ] = (remoteSystem->withheldConnectionPacketData!=0 &&
-							remoteSystem->withheldConnectionPacketLength>0 &&
-							remoteSystem->withheldConnectionPacketData[0]==(unsigned char)ID_CONNECTION_REQUEST_ACCEPTED)
+						packet->data[ 0 ] = remoteSystem->sessionConfigIsConnectingSide
 							? (unsigned char)ID_CONNECTION_ATTEMPT_FAILED : (unsigned char)ID_CONNECTION_LOST;
 					else if (remoteSystem->connectMode==RemoteSystemStruct::CONNECTED)
 						packet->data[ 0 ] = ID_CONNECTION_LOST; // DeadConnection
@@ -6238,9 +6262,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 				timeMS - remoteSystem->sessionConfigStartTime > remoteSystem->reliabilityLayer.GetTimeoutTime() )
 			{
 				// Only the connecting side reports a failure; a server just drops the half-open slot.
-				if (remoteSystem->withheldConnectionPacketData!=0 &&
-					remoteSystem->withheldConnectionPacketLength>0 &&
-					remoteSystem->withheldConnectionPacketData[0]==(unsigned char)ID_CONNECTION_REQUEST_ACCEPTED)
+				if (remoteSystem->sessionConfigIsConnectingSide)
 				{
 					Packet *timeoutPacket=AllocPacket(sizeof(MessageID), _FILE_AND_LINE_);
 					timeoutPacket->data[0]=(unsigned char)ID_CONNECTION_ATTEMPT_FAILED;
@@ -6346,6 +6368,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							// Transport is up, but the application is not told so until the client's session payload
 							// arrives in ID_SESSION_CONFIG_REQUEST and we answer it.
 							remoteSystem->connectMode=RemoteSystemStruct::EXCHANGING_SESSION_DATA;
+							remoteSystem->sessionConfigIsConnectingSide=false;
 							remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
 							PingInternal( systemAddress, true, MafiaNet::Reliability::Unreliable );
 
@@ -6508,7 +6531,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					{
 						// Client side of the session handshake: the server's payload is the last thing we needed, so
 						// the withheld ID_CONNECTION_REQUEST_ACCEPTED goes out now and the connection becomes real.
-						if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA)
+						// Only the peer that initiated the connection may be answered this way, so a client cannot
+						// push a payload at a server by replying with the server's own message.
+						if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
 						{
 							if (StoreRemoteSessionConfig(remoteSystem, (const unsigned char*)data + sizeof(MessageID), byteSize - (unsigned int)sizeof(MessageID))==false)
 							{
@@ -6525,7 +6550,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					}
 					else if ( (unsigned char)(data)[0] == ID_SESSION_CONFIG_REJECTED )
 					{
-						if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA)
+						// Only meaningful to the peer that initiated the connection. Without this a malicious client
+						// could inject ID_CONNECTION_ATTEMPT_FAILED -- a message the application only ever expects for
+						// its own outbound connects -- into a listening server's queue.
+						if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
 						{
 							// Rewrite in place so the reason string the server supplied stays at data+1, matching the
 							// ID_DISCONNECTION_NOTIFICATION reason convention. No connection is ever reported.
@@ -6627,6 +6655,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 								// Hold the connection-complete packet until the session handshake finishes. The bytes are
 								// copied because `data` is freed as soon as this branch returns.
 								ClearSessionConfig(remoteSystem);
+								remoteSystem->sessionConfigIsConnectingSide=true;
 								remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
 								remoteSystem->withheldConnectionPacketData = (unsigned char*) rakMalloc_Ex(byteSize, _FILE_AND_LINE_);
 								if (remoteSystem->withheldConnectionPacketData!=0)

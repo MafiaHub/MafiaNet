@@ -278,3 +278,111 @@ TEST_F(SessionConfigLive, UnansweredHandshakeTimesOut)
 
 	EXPECT_NE(client->GetConnectionState(server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS)), IS_CONNECTED);
 }
+
+// Role binding: the session-handshake replies are server->client messages, so a malicious client
+// must not be able to push them at a listening server. ID_SESSION_CONFIG_REJECTED is the dangerous
+// one -- unbound, it lets a client inject ID_CONNECTION_ATTEMPT_FAILED (a packet an application only
+// ever expects for its OWN outbound connects) into the server's receive queue.
+TEST_F(SessionConfigLive, ServerIgnoresSessionRepliesSentByAClient)
+{
+	server->SetSessionConfigInteractive(true);
+
+	const unsigned short port = StartPeers();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, client, kConnectTimeoutMs);
+	ASSERT_NE(request, nullptr);
+	const RakNetGUID clientGuid = request->guid;
+	server->DeallocatePacket(request);
+
+	// The server is now parked in EXCHANGING_SESSION_DATA awaiting a decision. Send it both replies
+	// from the client, in the wrong direction.
+	const char rejected[] = "\x00" "spoofed";
+	MafiaNet::BitStream rejectBs;
+	rejectBs.Write((MessageID)ID_SESSION_CONFIG_REJECTED);
+	rejectBs.Write("spoofed", 7);
+	client->Send(&rejectBs, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+
+	MafiaNet::BitStream configBs;
+	configBs.Write((MessageID)ID_SESSION_CONFIG);
+	configBs.Write("spoofed-config", 14);
+	client->Send(&configBs, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	(void)rejected;
+
+	EXPECT_FALSE(SawWithin(server, ID_CONNECTION_ATTEMPT_FAILED, client, 700))
+		<< "a client forged ID_CONNECTION_ATTEMPT_FAILED into the server's queue";
+	EXPECT_FALSE(SawWithin(server, ID_NEW_INCOMING_CONNECTION, client, 300))
+		<< "a client completed the server's half of the handshake by replying to itself";
+
+	// The legitimate path must still work afterwards.
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int)strlen(kServerPayload));
+
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr) << "the spoof attempt broke the real handshake";
+	server->DeallocatePacket(incoming);
+}
+
+// The stored payload is arbitrary attacker-controlled bytes. It is kept NUL-terminated past the
+// reported length so an application that reaches for a C-string API cannot run off the buffer.
+TEST_F(SessionConfigLive, RemotePayloadIsNulTerminatedPastItsLength)
+{
+	const char payload[] = "no-trailing-nul";
+	server->SetSessionConfig(payload, (unsigned int)strlen(payload));
+
+	const unsigned short port = StartPeers();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *accepted = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
+	ASSERT_NE(accepted, nullptr);
+	const RakNetGUID serverGuid = accepted->guid;
+	client->DeallocatePacket(accepted);
+
+	unsigned int length = 0;
+	const char *config = client->GetRemoteSessionConfig(serverGuid, &length);
+	ASSERT_NE(config, nullptr);
+	ASSERT_EQ(length, (unsigned int)strlen(payload));
+	// The terminator is past the reported length, so it never changes what the length means.
+	EXPECT_EQ(config[length], '\0');
+	EXPECT_EQ(strlen(config), (size_t)length);
+}
+
+// Admission control must see peers that are still running the session handshake. They already own a
+// slot, so counting only CONNECTED peers would let clients that stall the handshake push the real
+// total past SetMaximumIncomingConnections() -- and do it invisibly, since the application is never
+// told those peers exist.
+TEST_F(SessionConfigLive, StalledHandshakeStillConsumesAnIncomingSlot)
+{
+	server->SetSessionConfigInteractive(true); // never answered, so the first client parks mid-handshake
+
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(8, &serverSd, 1), RAKNET_STARTED);
+	server->SetMaximumIncomingConnections(1); // exactly one incoming slot
+	server->SetTimeoutTime(60000, UNASSIGNED_SYSTEM_ADDRESS); // outlive the test, so the stall persists
+
+	SocketDescriptor clientSd(0, "127.0.0.1");
+	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
+
+	const unsigned short port = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, client, kConnectTimeoutMs);
+	ASSERT_NE(request, nullptr);
+	server->DeallocatePacket(request);
+	// The first client now occupies the only slot while parked in EXCHANGING_SESSION_DATA.
+
+	RakPeerInterface *second = RakPeerInterface::GetInstance();
+	ASSERT_NE(second, nullptr);
+	SocketDescriptor secondSd(0, "127.0.0.1");
+	ASSERT_EQ(second->Startup(1, &secondSd, 1), RAKNET_STARTED);
+	ASSERT_EQ(second->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *full = PumpUntil(second, ID_NO_FREE_INCOMING_CONNECTIONS, server, kConnectTimeoutMs);
+	const bool refused = full != nullptr;
+	if (full)
+		second->DeallocatePacket(full);
+
+	second->Shutdown(100);
+	RakPeerInterface::DestroyInstance(second);
+
+	EXPECT_TRUE(refused) << "a peer stalled in the session handshake did not count against the incoming limit";
+}

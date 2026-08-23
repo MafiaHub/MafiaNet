@@ -752,6 +752,13 @@ public:
 		// the server surfaced ID_SESSION_CONFIG_REQUEST and is waiting for AcceptSession()/RejectSession().
 		bool sessionConfigAwaitingLocalDecision;
 
+		// True when WE initiated this connection, i.e. we are the peer that will report
+		// ID_CONNECTION_REQUEST_ACCEPTED. Recorded explicitly rather than inferred from the withheld
+		// packet so it stays correct even if that allocation failed, and so the session-handshake
+		// messages can be bound to the role that is allowed to send them. In a simultaneous
+		// (cross-connection) handshake both peers legitimately have this set.
+		bool sessionConfigIsConnectingSide;
+
 		// GetTimeMS() at which this connection entered EXCHANGING_SESSION_DATA, so a handshake that never
 		// completes is timed out instead of pinning the slot forever.
 		MafiaNet::TimeMS sessionConfigStartTime;
