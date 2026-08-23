@@ -9,6 +9,7 @@
 
 #include <string.h>
 #include <string>
+#include <vector>
 
 #include "mafianet/peerinterface.h"
 #include "mafianet/MessageIdentifiers.h"
@@ -79,6 +80,40 @@ namespace
 		{
 			wanted->DeallocatePacket(p);
 			return true;
+		}
+		return false;
+	}
+
+	// Drain everything a peer receives over a fixed window and keep the ids.
+	//
+	// Negative assertions must not be built out of successive SawWithin() probes: that helper discards
+	// every packet that is not the one it is waiting for, so the first probe swallows the very packet a
+	// later probe looks for and the test then passes for the wrong reason. Collect once, assert after.
+	std::vector<int> CollectIds(RakPeerInterface *wanted, RakPeerInterface *alsoPump, int windowMs)
+	{
+		std::vector<int> ids;
+		TimeMS entry = GetTimeMS();
+		while (GetTimeMS() - entry < (TimeMS)windowMs)
+		{
+			Packet *p;
+			for (p = wanted->Receive(); p; wanted->DeallocatePacket(p), p = wanted->Receive())
+				ids.push_back((int)p->data[0]);
+			if (alsoPump)
+			{
+				for (p = alsoPump->Receive(); p; alsoPump->DeallocatePacket(p), p = alsoPump->Receive())
+					;
+			}
+			RakSleep(15);
+		}
+		return ids;
+	}
+
+	bool Contains(const std::vector<int> &ids, int id)
+	{
+		for (size_t i = 0; i < ids.size(); ++i)
+		{
+			if (ids[i] == id)
+				return true;
 		}
 		return false;
 	}
@@ -254,8 +289,20 @@ TEST_F(SessionConfigLive, InteractiveRejectFailsTheConnectionAttempt)
 	EXPECT_EQ(memcmp(failed->data + 1, reason, strlen(reason)), 0);
 	client->DeallocatePacket(failed);
 
-	EXPECT_FALSE(SawWithin(server, ID_NEW_INCOMING_CONNECTION, client, 500))
+	// Collect everything the server sees for long enough that the DISCONNECT_ON_NO_ACK teardown has
+	// completed -- the refusal is sent reliably, so the slot closes once the client acks it. The server
+	// was never told this peer connected, so it must be told nothing at all about it going away: no
+	// ID_NEW_INCOMING_CONNECTION, and equally no close notification for a connection that never was.
+	const std::vector<int> serverSaw = CollectIds(server, client, 3000);
+
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION))
 		<< "server reported a connection it had rejected";
+	EXPECT_FALSE(Contains(serverSaw, ID_DISCONNECTION_NOTIFICATION))
+		<< "server was notified of a disconnect for a connection it never reported";
+	EXPECT_FALSE(Contains(serverSaw, ID_CONNECTION_LOST))
+		<< "server was notified of a lost connection it never reported";
+	EXPECT_FALSE(Contains(serverSaw, ID_CONNECTION_ATTEMPT_FAILED))
+		<< "server was told an inbound connection attempt failed; that is a connecting-side message";
 }
 
 // An interactive server that never answers must not pin the slot or hang the client: acks keep

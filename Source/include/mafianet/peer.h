@@ -759,6 +759,12 @@ public:
 		// (cross-connection) handshake both peers legitimately have this set.
 		bool sessionConfigIsConnectingSide;
 
+		// True once the withheld connection packet has actually been handed to the application. A
+		// connection refused by RejectSession(), or dropped while still exchanging session data, never
+		// reaches this point on the accepting side -- and a close notification for a connection the
+		// application was never told about would be a lie.
+		bool connectionReportedToApplication;
+
 		// GetTimeMS() at which this connection entered EXCHANGING_SESSION_DATA, so a handshake that never
 		// completes is timed out instead of pinning the slot forever.
 		MafiaNet::TimeMS sessionConfigStartTime;

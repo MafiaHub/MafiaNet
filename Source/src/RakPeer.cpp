@@ -630,6 +630,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			remoteSystemList[ i ].withheldConnectionPacketLength = 0;
 			remoteSystemList[ i ].sessionConfigAwaitingLocalDecision = false;
 			remoteSystemList[ i ].sessionConfigIsConnectingSide = false;
+			remoteSystemList[ i ].connectionReportedToApplication = false;
 			remoteSystemList[ i ].sessionConfigStartTime = 0;
 #ifdef _DEBUG
 			remoteSystemList[ i ].reliabilityLayer.ApplyNetworkSimulator(_packetloss, _minExtraPing, _extraPingVariance);
@@ -3713,6 +3714,7 @@ void RakPeer::ClearSessionConfig( RemoteSystemStruct *remoteSystem )
 	remoteSystem->withheldConnectionPacketLength=0;
 	remoteSystem->sessionConfigAwaitingLocalDecision=false;
 	remoteSystem->sessionConfigIsConnectingSide=false;
+	remoteSystem->connectionReportedToApplication=false;
 	remoteSystem->sessionConfigStartTime=0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3780,6 +3782,7 @@ void RakPeer::ProduceWithheldConnectionPacket( RemoteSystemStruct *remoteSystem,
 	packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
 	packet->guid = remoteSystem->guid;
 	packet->guid.systemIndex = packet->systemAddress.systemIndex;
+	remoteSystem->connectionReportedToApplication=true;
 	AddPacketToProducer(packet);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -5929,7 +5932,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			// Validate here rather than in the user-thread API: only the network thread may read connectMode
 			// and the awaiting flag without racing the receive path.
 			RemoteSystemStruct *sessionSystem = GetRemoteSystem( bcs->systemIdentifier, true, true );
-			if (sessionSystem && sessionSystem->isActive && sessionSystem->sessionConfigAwaitingLocalDecision)
+			// connectMode is checked as well as the awaiting flag: a peer that disconnects while the decision
+			// is queued leaves the flag set (the teardown path does not clear session state), and answering
+			// then would send on a dying connection and report a connection for a peer that has already gone.
+			if (sessionSystem && sessionSystem->isActive &&
+				sessionSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA &&
+				sessionSystem->sessionConfigAwaitingLocalDecision)
 			{
 				sessionSystem->sessionConfigAwaitingLocalDecision = false;
 				const unsigned int sessionPayloadLength = (unsigned int) BITS_TO_BYTES(bcs->numberOfBitsToSend);
@@ -6200,9 +6208,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 				// Failed.  Inform the user?
 				// TODO - RakNet 4.0 - Return a different message identifier for DISCONNECT_ASAP_SILENTLY and DISCONNECT_ASAP than for DISCONNECT_ON_NO_ACK
 				// The first two mean we called CloseConnection(), the last means the other system sent us ID_DISCONNECTION_NOTIFICATION
-				if (remoteSystem->connectMode==RemoteSystemStruct::CONNECTED || remoteSystem->connectMode==RemoteSystemStruct::REQUESTED_CONNECTION
+				// A connection the application was never told about must not produce a close notification for
+				// it. On the accepting side that covers a peer refused by RejectSession() (which parks the slot
+				// in DISCONNECT_ON_NO_ACK so the refusal is delivered first) and one dropped mid-handshake.
+				// The connecting side is exempt: it has an outstanding Connect() to resolve either way.
+				const bool reportableConnection = remoteSystem->connectionReportedToApplication || remoteSystem->weInitiatedTheConnection;
+				if (reportableConnection &&
+					(remoteSystem->connectMode==RemoteSystemStruct::CONNECTED || remoteSystem->connectMode==RemoteSystemStruct::REQUESTED_CONNECTION
 					|| remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA
-					|| remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+					|| remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ON_NO_ACK))
 				{
 
 //					MafiaNet::BitStream undeliveredMessages;

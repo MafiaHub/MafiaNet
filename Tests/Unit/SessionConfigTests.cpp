@@ -95,12 +95,14 @@ TEST_F(PeerFixture, SessionConfigClearsOnZeroLength)
 // The cap is enforced on the way in, so an application cannot stage a payload that the
 // receiving peer would reject as a protocol violation.
 //
-// Passing an oversized payload is a programmer error, so Debug builds trip RakAssert on it by
-// design; the silent clamp is the Release backstop that assert hides. Only Release can exercise it.
+// Passing an oversized payload is a programmer error, so RakAssert trips on it by design; the silent
+// clamp is the backstop that assert hides. RakAssert is armed by _DEBUG specifically (see defines.h),
+// so gate on that rather than on the absence of NDEBUG -- a build that defines neither still has
+// RakAssert compiled out and can exercise the clamp.
 TEST_F(PeerFixture, SessionConfigIsCappedAtMaximum)
 {
-#ifndef NDEBUG
-	GTEST_SKIP() << "RakAssert fires on oversized input in Debug; the clamp is the Release backstop";
+#if defined(_DEBUG)
+	GTEST_SKIP() << "RakAssert is armed by _DEBUG and fires on oversized input; the clamp is the non-_DEBUG backstop";
 #else
 	const unsigned int oversized = MAXIMUM_SESSION_CONFIG_SIZE + 512;
 	char *big = new char[oversized];

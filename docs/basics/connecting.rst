@@ -316,7 +316,7 @@ While the decision is outstanding the connection stays unreported on both sides.
 ``packet->data + 1``, and no connection is ever reported anywhere.
 
 A peer that is never answered is timed out like any other incomplete connection attempt, using the
-timeout set by :cpp:func:`SetTimeoutTime`. During the exchange ``GetConnectionState()`` reports
+timeout set by :cpp:func:`MafiaNet::RakPeerInterface::SetTimeoutTime`. During the exchange ``GetConnectionState()`` reports
 ``IS_CONNECTING``.
 
 .. note::
