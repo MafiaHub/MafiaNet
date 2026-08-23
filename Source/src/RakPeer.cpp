@@ -2398,7 +2398,12 @@ void RakPeer::AcceptSession( const AddressOrGUID systemIdentifier, const char *d
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::RejectSession( const AddressOrGUID systemIdentifier, const char *reason )
 {
-	const unsigned int reasonLength = (reason && reason[0]) ? (unsigned int) strlen(reason) : 0;
+	unsigned int reasonLength = (reason && reason[0]) ? (unsigned int) strlen(reason) : 0;
+	// Bounded like every other payload that crosses the handshake. A reason is meant to be a short
+	// string, so an oversized one is a caller mistake rather than something to transmit.
+	RakAssert(reasonLength <= MAXIMUM_SESSION_CONFIG_SIZE);
+	if (reasonLength > MAXIMUM_SESSION_CONFIG_SIZE)
+		reasonLength = MAXIMUM_SESSION_CONFIG_SIZE;
 	QueueSessionDecision(systemIdentifier, false, reason, reasonLength);
 }
 
