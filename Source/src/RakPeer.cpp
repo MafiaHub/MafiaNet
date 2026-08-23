@@ -1308,6 +1308,25 @@ uint32_t RakPeer::IncrementNextSendReceipt(void)
 // Returns:
 // \return 0 on bad input. Otherwise a number that identifies this message. If \a reliability is a type that returns a receipt, on a later call to Receive() you will get ID_SND_RECEIPT_ACKED or ID_SND_RECEIPT_LOSS with bytes 1-4 inclusive containing this number
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// A peer mid-session-handshake has not been reported to the application, so the application must not be
+// able to address it. Checked here rather than in SendImmediate because the handshake's own messages go
+// through SendImmediate directly and must still reach that peer.
+bool RakPeer::IsExchangingSessionData( const AddressOrGUID systemIdentifier )
+{
+	if (remoteSystemList==0)
+		return false;
+
+	int index;
+	if (systemIdentifier.systemAddress!=UNASSIGNED_SYSTEM_ADDRESS)
+		index = GetIndexFromSystemAddress(systemIdentifier.systemAddress, false);
+	else
+		index = GetIndexFromGuid(systemIdentifier.rakNetGuid);
+
+	return index!=-1 && remoteSystemList[index].isActive &&
+		remoteSystemList[index].connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 uint32_t RakPeer::Send( const char *data, const int length, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, uint32_t forceReceiptNumber )
 {
 #ifdef _DEBUG
@@ -1324,6 +1343,9 @@ uint32_t RakPeer::Send( const char *data, const int length, MafiaNet::Priority p
 		return 0;
 
 	if ( broadcast == false && systemIdentifier.IsUndefined())
+		return 0;
+
+	if ( broadcast == false && IsExchangingSessionData(systemIdentifier) )
 		return 0;
 
 	uint32_t usedSendReceipt;
@@ -1383,6 +1405,9 @@ uint32_t RakPeer::Send( const MafiaNet::BitStream * bitStream, MafiaNet::Priorit
 		return 0;
 
 	if ( broadcast == false && systemIdentifier.IsUndefined() )
+		return 0;
+
+	if ( broadcast == false && IsExchangingSessionData(systemIdentifier) )
 		return 0;
 
 	uint32_t usedSendReceipt;
@@ -1453,6 +1478,9 @@ uint32_t RakPeer::SendList( const char **data, const int *lengths, const int num
 		return 0;
 
 	if ( broadcast == false && systemIdentifier.IsUndefined() )
+		return 0;
+
+	if ( broadcast == false && IsExchangingSessionData(systemIdentifier) )
 		return 0;
 
 	uint32_t usedSendReceipt;
@@ -4640,7 +4668,12 @@ bool RakPeer::SendImmediate( char *data, BitSize_t numberOfBitsToSend, MafiaNet:
 			if (remoteSystemIndex!=(unsigned int) -1 && idx==remoteSystemIndex)
 				continue;
 
-			if ( remoteSystemList[ idx ].isActive && remoteSystemList[ idx ].systemAddress != UNASSIGNED_SYSTEM_ADDRESS )
+			// Peers still running the session handshake are excluded: the application has not been told they
+			// exist, so broadcasting to them would hand application data to a peer it never accepted -- and
+			// possibly to one it is about to refuse with RejectSession(). Internal handshake traffic is always
+			// directed, so it never reaches this branch.
+			if ( remoteSystemList[ idx ].isActive && remoteSystemList[ idx ].systemAddress != UNASSIGNED_SYSTEM_ADDRESS &&
+				remoteSystemList[ idx ].connectMode != RemoteSystemStruct::EXCHANGING_SESSION_DATA )
 				sendList[sendListSize++]=idx;
 		}
 	}
@@ -6725,8 +6758,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						// What do I do if I get a message from a system, before I am fully connected?
 						// I can either ignore it or give it to the user
 						// It seems like giving it to the user is a better option
+						//
+						// Except while the session handshake is running: the application has not been told this
+						// connection exists, so handing it application data from that peer would deliver a packet
+						// for a guid it has never seen connect -- and from a peer it may still refuse. A peer that
+						// respects the protocol cannot send here anyway: its own public send path is gated on the
+						// same state, so anything arriving in this window is malformed or hostile.
 						if ((data[0]>=(MessageID)ID_TIMESTAMP || data[0]==ID_SND_RECEIPT_ACKED || data[0]==ID_SND_RECEIPT_LOSS) &&
-							remoteSystem->isActive
+							remoteSystem->isActive &&
+							remoteSystem->connectMode!=RemoteSystemStruct::EXCHANGING_SESSION_DATA
 							)
 						{
 							packet=AllocPacket(byteSize, data, _FILE_AND_LINE_);

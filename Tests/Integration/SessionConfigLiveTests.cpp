@@ -129,8 +129,24 @@ namespace
 			ASSERT_NE(client, nullptr);
 		}
 
+		// A third peer for tests that need one. Fixture-owned rather than local, so a failed ASSERT_
+		// still destroys it -- a leaked peer keeps a socket bound and a network thread alive for the rest
+		// of the process, which in a serial suite shows up as an unrelated later test failing to bind.
+		RakPeerInterface *MakeExtraPeer()
+		{
+			EXPECT_EQ(extra, nullptr) << "only one extra peer is supported";
+			extra = RakPeerInterface::GetInstance();
+			return extra;
+		}
+
 		void TearDown() override
 		{
+			if (extra)
+			{
+				extra->Shutdown(100);
+				RakPeerInterface::DestroyInstance(extra);
+				extra = 0;
+			}
 			if (client)
 			{
 				client->Shutdown(100);
@@ -162,6 +178,7 @@ namespace
 
 		RakPeerInterface *server = 0;
 		RakPeerInterface *client = 0;
+		RakPeerInterface *extra = 0;
 	};
 
 	const char kServerPayload[] = "{\"season\":\"winter\",\"map_file\":\"downtown.m2map\"}";
@@ -417,21 +434,15 @@ TEST_F(SessionConfigLive, StalledHandshakeStillConsumesAnIncomingSlot)
 	server->DeallocatePacket(request);
 	// The first client now occupies the only slot while parked in EXCHANGING_SESSION_DATA.
 
-	RakPeerInterface *second = RakPeerInterface::GetInstance();
+	RakPeerInterface *second = MakeExtraPeer();
 	ASSERT_NE(second, nullptr);
 	SocketDescriptor secondSd(0, "127.0.0.1");
 	ASSERT_EQ(second->Startup(1, &secondSd, 1), RAKNET_STARTED);
 	ASSERT_EQ(second->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
 	Packet *full = PumpUntil(second, ID_NO_FREE_INCOMING_CONNECTIONS, server, kConnectTimeoutMs);
-	const bool refused = full != nullptr;
-	if (full)
-		second->DeallocatePacket(full);
-
-	second->Shutdown(100);
-	RakPeerInterface::DestroyInstance(second);
-
-	EXPECT_TRUE(refused) << "a peer stalled in the session handshake did not count against the incoming limit";
+	ASSERT_NE(full, nullptr) << "a peer stalled in the session handshake did not count against the incoming limit";
+	second->DeallocatePacket(full);
 }
 
 namespace
@@ -593,3 +604,72 @@ INSTANTIATE_TEST_SUITE_P(WithAndWithoutSessionConfig, SessionConfigPipeline,
 	[](const ::testing::TestParamInfo<bool> &info) {
 		return info.param ? "WithSessionConfig" : "WithoutSessionConfig";
 	});
+
+// Application traffic must not cross a connection the application has not been told about.
+//
+// Three defences, and they are NOT equally testable, so be precise about what this asserts:
+//
+//   directed send  - Send() to an un-accepted peer returns 0. Directly observable, asserted below.
+//   broadcast      - the fan-out skips peers mid-handshake.
+//   inbound        - application data from a peer mid-handshake is dropped instead of delivered.
+//
+// The last two cannot be exercised against each other by two conforming peers: the sender's
+// broadcast filter means nothing reaches the wire, and even if it did the receiver's inbound drop
+// would discard it. Each masks the other, so an assertion on either would pass vacuously whether or
+// not the code is present -- which is worse than no assertion, because it reads like coverage. They
+// are wire-level defences against a peer that does NOT respect the protocol (an old client, a custom
+// implementation, an attacker), which this harness cannot synthesise. Asserted here instead: the
+// state the connection is in, that no connection is reported, and that everything works after accept.
+TEST_F(SessionConfigLive, ApplicationTrafficIsBlockedUntilTheHandshakeCompletes)
+{
+	server->SetSessionConfigInteractive(true);
+
+	const unsigned short port = StartPeers();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, client, kConnectTimeoutMs);
+	ASSERT_NE(request, nullptr);
+	const RakNetGUID clientGuid = request->guid;
+	server->DeallocatePacket(request);
+	// Both peers are now parked in EXCHANGING_SESSION_DATA awaiting the server's decision.
+
+	EXPECT_EQ(server->GetConnectionState(clientGuid), IS_CONNECTING)
+		<< "a peer mid-handshake must not read as connected";
+
+	// The application only holds this guid because interactive mode surfaced the request to it. Sending
+	// to it would hand data to a peer it has not accepted and may still refuse.
+	MafiaNet::BitStream world;
+	world.Write((MessageID)kUserMessageId);
+	world.Write("world-state-leak", 16);
+	EXPECT_EQ(server->Send(&world, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, clientGuid, false), 0u)
+		<< "a directed send reached a peer the application has not accepted";
+
+	const std::vector<int> serverSaw = CollectIds(server, client, 700);
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION))
+		<< "server reported a connection before answering the session request";
+	const std::vector<int> clientSaw = CollectIds(client, server, 400);
+	EXPECT_FALSE(Contains(clientSaw, ID_CONNECTION_REQUEST_ACCEPTED))
+		<< "client reported a connection before the handshake completed";
+
+	// ---- once accepted, both directions work normally ----------------------------------------------
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int)strlen(kServerPayload));
+
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr);
+	server->DeallocatePacket(incoming);
+	Packet *accepted = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
+	ASSERT_NE(accepted, nullptr);
+	client->DeallocatePacket(accepted);
+
+	// The same directed send that was refused a moment ago must now be accepted.
+	MafiaNet::BitStream now;
+	now.Write((MessageID)kUserMessageId);
+	now.Write("after-accept-ok!", 16);
+	EXPECT_NE(server->Send(&now, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, clientGuid, false), 0u)
+		<< "a directed send was still refused after the handshake completed";
+
+	Packet *got = PumpUntil(client, kUserMessageId, server, kConnectTimeoutMs);
+	ASSERT_NE(got, nullptr) << "traffic did not flow after the handshake completed";
+	EXPECT_EQ(memcmp(got->data + 1, "after-accept-ok!", 16), 0);
+	client->DeallocatePacket(got);
+}

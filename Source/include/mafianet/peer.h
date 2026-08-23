@@ -1142,6 +1142,9 @@ protected:
 		void SendSessionConfigRejection(RemoteSystemStruct *remoteSystem, const char *reason, unsigned int reasonLength);
 		/// Queue an application session decision for the network thread (see BCS_SESSION_ACCEPT).
 		void QueueSessionDecision(const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length);
+		/// True when a directed application send must be refused because the target is still running the
+		/// session handshake and so has not been reported to the application yet.
+		bool IsExchangingSessionData(const AddressOrGUID systemIdentifier);
 		/// Produce the connection packet that was withheld while the session handshake ran.
 		void ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId);
 }
