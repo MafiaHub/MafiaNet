@@ -408,6 +408,45 @@ public:
 	/// \param[out] length A pointer filled in with the length parameter passed to SetOfflinePingResponse()
 	/// \sa SetOfflinePingResponse
 	void GetOfflinePingResponse( char **data, unsigned int *length );
+
+	// --------------------------------------------------------------------------------------------------------------
+	// Session handshake
+	// --------------------------------------------------------------------------------------------------------------
+	/// \brief Sets this peer's session-handshake payload.
+	/// \details Exchanged before either side reports a connection: a client sends it in
+	/// ID_SESSION_CONFIG_REQUEST, a server answers with it in ID_SESSION_CONFIG. The bytes are opaque to
+	/// MafiaNet. Call before Startup()/Connect().
+	/// \param[in] data Payload to send, or 0 for none.
+	/// \param[in] length Length of \a data in bytes; must not exceed MAXIMUM_SESSION_CONFIG_SIZE.
+	void SetSessionConfig( const char *data, unsigned int length );
+
+	/// \brief Returns a pointer to the payload passed to SetSessionConfig.
+	void GetSessionConfig( char **data, unsigned int *length );
+
+	/// \brief Returns the remote peer's session payload.
+	/// \details Valid from the moment ID_CONNECTION_REQUEST_ACCEPTED or ID_NEW_INCOMING_CONNECTION
+	/// surfaces for \a systemIdentifier, for the lifetime of that connection.
+	/// \param[in] systemIdentifier The connection to read.
+	/// \param[out] length Filled in with the payload length; 0 when there is none.
+	/// \return Pointer to the payload owned by the connection, or 0 when there is none.
+	const char *GetRemoteSessionConfig( const AddressOrGUID systemIdentifier, unsigned int *length );
+
+	/// \brief Server: decide each client's session answer individually instead of replying automatically.
+	/// \details With this on, ID_SESSION_CONFIG_REQUEST is surfaced to the application and the connection
+	/// stays unreported until AcceptSession() or RejectSession() is called for that peer. Off by default,
+	/// in which case the payload set by SetSessionConfig() answers every client and no application code is
+	/// required.
+	void SetSessionConfigInteractive( bool interactive );
+
+	/// \brief Server: accept a pending session request, sending \a data as this connection's payload.
+	/// \details Only meaningful for a peer that surfaced ID_SESSION_CONFIG_REQUEST. Completes the
+	/// handshake and surfaces the withheld ID_NEW_INCOMING_CONNECTION.
+	void AcceptSession( const AddressOrGUID systemIdentifier, const char *data, unsigned int length );
+
+	/// \brief Server: refuse a pending session request.
+	/// \details The client reports ID_CONNECTION_ATTEMPT_FAILED and neither side ever reports a
+	/// connection. \a reason is delivered to the client in ID_SESSION_CONFIG_REJECTED; it may be 0.
+	void RejectSession( const AddressOrGUID systemIdentifier, const char *reason );
 	
 	//--------------------------------------------------------------------------------------------Network Functions - Functions dealing with the network in general--------------------------------------------------------------------------------------------
 	/// \brief Returns the unique address identifier that represents you or another system on the the network
@@ -703,7 +742,32 @@ public:
 		char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
 #endif
 
-		enum ConnectMode {NO_ACTION, DISCONNECT_ASAP, DISCONNECT_ASAP_SILENTLY, DISCONNECT_ON_NO_ACK, REQUESTED_CONNECTION, HANDLING_CONNECTION_REQUEST, UNVERIFIED_SENDER, CONNECTED} connectMode;
+		// Session-handshake payload received from the remote peer (see RakPeerInterface::SetSessionConfig).
+		// null/0 until the exchange completes. Owned by this struct; freed via ClearSessionConfig() on every
+		// slot teardown and on slot reuse, exactly like disconnectReasonData above.
+		unsigned char* remoteSessionConfigData;
+		unsigned int remoteSessionConfigLength;
+
+		// Set while connectMode==EXCHANGING_SESSION_DATA and SetSessionConfigInteractive(true) is in effect:
+		// the server surfaced ID_SESSION_CONFIG_REQUEST and is waiting for AcceptSession()/RejectSession().
+		bool sessionConfigAwaitingLocalDecision;
+
+		// GetTimeMS() at which this connection entered EXCHANGING_SESSION_DATA, so a handshake that never
+		// completes is timed out instead of pinning the slot forever.
+		MafiaNet::TimeMS sessionConfigStartTime;
+
+		// The ID_CONNECTION_REQUEST_ACCEPTED / ID_NEW_INCOMING_CONNECTION bytes held back while the session
+		// handshake runs, replayed verbatim by ProduceWithheldConnectionPacket() once it completes. Owned by
+		// this struct; freed via ClearSessionConfig().
+		unsigned char* withheldConnectionPacketData;
+		unsigned int withheldConnectionPacketLength;
+
+		// EXCHANGING_SESSION_DATA sits between HANDLING_CONNECTION_REQUEST and CONNECTED: the reliability
+		// layer is fully up (MTU negotiated, acks flowing) but the application has NOT been told a
+		// connection exists. ID_CONNECTION_REQUEST_ACCEPTED / ID_NEW_INCOMING_CONNECTION are withheld until
+		// the session payloads have been exchanged, so those packets mean "the remote's session payload is
+		// in hand" and an application can never observe a connection without it.
+		enum ConnectMode {NO_ACTION, DISCONNECT_ASAP, DISCONNECT_ASAP_SILENTLY, DISCONNECT_ON_NO_ACK, REQUESTED_CONNECTION, HANDLING_CONNECTION_REQUEST, UNVERIFIED_SENDER, EXCHANGING_SESSION_DATA, CONNECTED} connectMode;
 	};
 
 	// DS_APR
@@ -778,6 +842,12 @@ protected:
 	///Store the maximum incoming connection allowed 
 	unsigned int maximumIncomingConnections;
 	MafiaNet::BitStream offlinePingResponse;
+	/// Our own session-handshake payload (see SetSessionConfig). On a client it is sent in
+	/// ID_SESSION_CONFIG_REQUEST; on a server it is the default answer in ID_SESSION_CONFIG.
+	MafiaNet::BitStream sessionConfig;
+	/// When true a server surfaces ID_SESSION_CONFIG_REQUEST and waits for AcceptSession()/RejectSession()
+	/// instead of answering automatically with sessionConfig.
+	bool sessionConfigInteractive;
 	///Local Player ID
 	// SystemAddress mySystemAddress[MAXIMUM_NUMBER_OF_INTERNAL_IDS];
 	char incomingPassword[256];
@@ -816,6 +886,7 @@ protected:
 		// Only put these mutexes in user thread functions!
 		requestedConnectionList_Mutex,
 		offlinePingResponse_Mutex,
+		sessionConfig_Mutex,
 		NUMBER_OF_RAKPEER_MUTEXES
 	};
 	SimpleMutex rakPeerMutexes[ NUMBER_OF_RAKPEER_MUTEXES ];
@@ -900,7 +971,11 @@ protected:
 		RakNetSocket2* socket;
 		unsigned short port;
 		uint32_t receipt;
-		enum {BCS_SEND, BCS_CLOSE_CONNECTION, BCS_GET_SOCKET, BCS_CHANGE_SYSTEM_ADDRESS,/* BCS_USE_USER_SOCKET, BCS_REBIND_SOCKET_ADDRESS, BCS_RPC, BCS_RPC_SHIFT,*/ BCS_DO_NOTHING} command;
+		// BCS_SESSION_ACCEPT / BCS_SESSION_REJECT carry an application's answer to ID_SESSION_CONFIG_REQUEST
+		// from the user thread to the network thread: data holds the payload (accept) or reason (reject) and
+		// numberOfBitsToSend its length. The decision must not be applied inline because it sends on the
+		// connection and mutates connectMode, both of which belong to the network thread.
+		enum {BCS_SEND, BCS_CLOSE_CONNECTION, BCS_GET_SOCKET, BCS_CHANGE_SYSTEM_ADDRESS,/* BCS_USE_USER_SOCKET, BCS_REBIND_SOCKET_ADDRESS, BCS_RPC, BCS_RPC_SHIFT,*/ BCS_SESSION_ACCEPT, BCS_SESSION_REJECT, BCS_DO_NOTHING} command;
 	};
 
 	// Single producer single consumer queue using a linked list
@@ -1042,6 +1117,20 @@ protected:
 		void CloseConnectionInternal2(const AddressOrGUID& systemIdentifier, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel, MafiaNet::Priority disconnectionNotificationPriority, RakNetSocket2& socket, const MafiaNet::BitStream *reasonData=nullptr);
 		// Free and null any stashed disconnect-reason payload for the given remote system (safe on null).
 		void ClearDisconnectReason(RemoteSystemStruct *remoteSystem);
+		/// Free any stashed session payload on this slot.
+		void ClearSessionConfig(RemoteSystemStruct *remoteSystem);
+		/// Store a received session payload on the slot, enforcing MAXIMUM_SESSION_CONFIG_SIZE.
+		/// Returns false if the payload is oversized (a protocol violation).
+		bool StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const unsigned char *data, unsigned int length);
+		/// Send our session payload to a peer that is waiting in EXCHANGING_SESSION_DATA and, on the
+		/// server, promote the slot to CONNECTED and surface the withheld ID_NEW_INCOMING_CONNECTION.
+		void SendSessionConfigResponse(RemoteSystemStruct *remoteSystem, const char *data, unsigned int length);
+		/// Refuse a pending session request and drop the connection once the refusal is acknowledged.
+		void SendSessionConfigRejection(RemoteSystemStruct *remoteSystem, const char *reason, unsigned int reasonLength);
+		/// Queue an application session decision for the network thread (see BCS_SESSION_ACCEPT).
+		void QueueSessionDecision(const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length);
+		/// Produce the connection packet that was withheld while the session handshake ran.
+		void ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId);
 }
 // #if defined(SN_TARGET_PSP2)
 // __attribute__((aligned(8)))

@@ -247,6 +247,77 @@ Checking Connection State
            break;
    }
 
+The Session Handshake
+---------------------
+
+After the transport connection is established but **before** either side reports it, MafiaNet
+exchanges an opaque application payload in both directions. The connecting peer sends its payload in
+``ID_SESSION_CONFIG_REQUEST``; the accepting peer answers with ``ID_SESSION_CONFIG``.
+
+Neither ``ID_CONNECTION_REQUEST_ACCEPTED`` nor ``ID_NEW_INCOMING_CONNECTION`` is produced until that
+exchange completes. Those packets therefore mean *"the remote peer's session payload is in hand"* --
+an application cannot observe a connection without its session data, and there is no window in which
+it must remember to check.
+
+The payload is opaque to MafiaNet: encode it however the application likes, up to
+``MAXIMUM_SESSION_CONFIG_SIZE`` bytes.
+
+Static payloads
+~~~~~~~~~~~~~~~
+
+The common case needs no application code beyond staging the bytes:
+
+.. code-block:: cpp
+
+   // Server: published to every client that connects
+   server->SetSessionConfig(configJson.c_str(), (unsigned int)configJson.size());
+
+   // Client: sent up with the connection request
+   client->SetSessionConfig(buildToken.c_str(), (unsigned int)buildToken.size());
+
+Read the remote payload as soon as the connection surfaces:
+
+.. code-block:: cpp
+
+   case ID_CONNECTION_REQUEST_ACCEPTED: {
+       unsigned int length = 0;
+       const char *config = client->GetRemoteSessionConfig(packet->guid, &length);
+       // config is already available here -- that is the point of the handshake
+       break;
+   }
+
+Per-client decisions
+~~~~~~~~~~~~~~~~~~~~
+
+A server that needs to inspect each client before answering turns on interactive mode. The client's
+payload arrives first, so the server can refuse without ever having disclosed its own:
+
+.. code-block:: cpp
+
+   server->SetSessionConfigInteractive(true);
+
+   case ID_SESSION_CONFIG_REQUEST:
+       if (BuildTokenMatches(packet->data + 1, packet->length - 1)) {
+           server->AcceptSession(packet->guid, configJson.c_str(), (unsigned int)configJson.size());
+       } else {
+           server->RejectSession(packet->guid, "build mismatch");
+       }
+       break;
+
+While the decision is outstanding the connection stays unreported on both sides.
+``RejectSession()`` produces ``ID_CONNECTION_ATTEMPT_FAILED`` on the client with the reason string at
+``packet->data + 1``, and no connection is ever reported anywhere.
+
+A peer that is never answered is timed out like any other incomplete connection attempt, using the
+timeout set by :cpp:func:`SetTimeoutTime`. During the exchange ``GetConnectionState()`` reports
+``IS_CONNECTING``.
+
+.. note::
+
+   The session handshake changes the wire protocol, so ``RAKNET_PROTOCOL_VERSION`` was raised to 7.
+   Peers built against an older MafiaNet are rejected during the offline connection phase with
+   ``ID_INCOMPATIBLE_PROTOCOL_VERSION``.
+
 See Also
 --------
 

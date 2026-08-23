@@ -426,9 +426,19 @@ enum DefaultMessageIDTypes
 	ID_NAT_REQUEST_BOUND_ADDRESSES,
 	ID_NAT_RESPOND_BOUND_ADDRESSES,
 	ID_FCM2_UPDATE_USER_CONTEXT,
-	ID_RESERVED_3,
-	ID_RESERVED_4,
-	ID_RESERVED_5,
+	/// RakPeer - Client->server during the session handshake: the connecting peer's session payload
+	/// (see RakPeerInterface::SetSessionConfig). Surfaced to the server application only when
+	/// SetSessionConfigInteractive(true) was called, in which case the application must answer with
+	/// AcceptSession() or RejectSession().
+	ID_SESSION_CONFIG_REQUEST,
+	/// RakPeer - Server->client during the session handshake: the server's session payload. Consumed
+	/// internally; read it back with GetRemoteSessionConfig() once ID_CONNECTION_REQUEST_ACCEPTED
+	/// surfaces.
+	ID_SESSION_CONFIG,
+	/// RakPeer - Server->client during the session handshake: the server refused the connection after
+	/// inspecting the client's session payload. Byte 1 onward is the reason string passed to
+	/// RejectSession(). The client reports ID_CONNECTION_ATTEMPT_FAILED.
+	ID_SESSION_CONFIG_REJECTED,
 	ID_RESERVED_6,
 	ID_RESERVED_7,
 	ID_RESERVED_8,
