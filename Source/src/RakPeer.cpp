@@ -3919,6 +3919,10 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignSystemAddressToRemoteSystemList( co
 			ReferenceRemoteSystem(systemAddress, assignedIndex);
 			// Stale reason payload from a prior occupant of this slot must never leak into a new connection.
 			ClearDisconnectReason(remoteSystem);
+			// Same for session state: peer.h documents it as cleared on slot reuse, and only the teardown
+			// paths do it today. Without this, any future path that deactivates a slot without going
+			// through CloseConnectionInternal2 would hand the previous occupant payload to the new one.
+			ClearSessionConfig(remoteSystem);
 			remoteSystem->MTUSize=defaultMTUSize;
 			remoteSystem->guid=guid;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
