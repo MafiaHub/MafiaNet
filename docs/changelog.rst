@@ -3,6 +3,25 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.15.0
+--------------
+
+**Peer**
+
+* **Session handshake: connection reporting is now gated on a session-config exchange.** An opaque application payload is exchanged in both directions after the transport connection is up but before either side reports a connection. ``ID_CONNECTION_REQUEST_ACCEPTED`` and ``ID_NEW_INCOMING_CONNECTION`` are withheld until the exchange completes, so those packets mean "the remote peer's session payload is in hand" -- an application can no longer act on a connection whose configuration has not arrived yet.
+
+* New API, modelled on ``SetOfflinePingResponse``/``GetOfflinePingResponse``: ``SetSessionConfig`` / ``GetSessionConfig`` / ``GetRemoteSessionConfig``, plus ``SetSessionConfigInteractive`` / ``AcceptSession`` / ``RejectSession`` for servers that want to inspect a client's payload before admitting it. Static mode needs no application code beyond ``SetSessionConfig``; interactive mode surfaces ``ID_SESSION_CONFIG_REQUEST`` through the normal ``Receive()`` loop -- no network-thread callbacks. The exchange is client-first, so a refused peer is refused having received nothing.
+
+* The handshake payload crosses the wire before any application-level authentication, so it was hardened accordingly: admission control counts peers still in the handshake (a stalled handshake cannot push past ``SetMaximumIncomingConnections`` invisibly), server-to-client handshake messages are bound to the connection's initiator (a client cannot forge ``ID_CONNECTION_ATTEMPT_FAILED`` into a listening server's queue), ``GetRemoteSessionConfig()`` buffers always carry a NUL terminator beyond the reported length, payloads are capped at 64 KB in both directions, and application traffic is blocked across a connection that has not been reported -- outbound broadcasts skip handshaking peers, directed sends to them are refused, and inbound application data from them is dropped. A rejected peer never produces ``ID_DISCONNECTION_NOTIFICATION`` for a connection the application was never told existed. See ``advanced/session-handshake-security.rst`` for the trust model.
+
+* **Breaking**: ``RAKNET_PROTOCOL_VERSION`` 6 -> 7. Peers built against an older MafiaNet are rejected during the offline connection phase with ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` rather than stalling in the new handshake state. The three new message ids are carved out of the reserved block, so ``ID_USER_PACKET_ENUM`` does not move.
+
+* **Fixed:** ``GetNumberOfAddresses()`` always returned ``MAXIMUM_NUMBER_OF_INTERNAL_IDS`` (10): the loop's unassigned-entry check was dead code, so callers iterating ``GetLocalIP(0..count-1)`` printed ``UNASSIGNED_SYSTEM_ADDRESS`` garbage entries. Inherited from SLikeNet.
+
+**RPC4**
+
+* **Fixed:** the four ``RPC4GlobalRegistration`` constructors never wrote a terminating NUL, so a function name of exactly the maximum length filled the buffer and the later ``strlen`` read past the array. The copy is now clamped to what fits and always terminated; ``RakAssert`` still flags truncation in debug builds.
+
 Version 0.14.0
 --------------
 

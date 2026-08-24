@@ -318,7 +318,13 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.14.0 (Latest)
+### Version 0.15.0 (Latest)
+- **Session handshake**: connection reporting is now gated on a session-config exchange — an opaque application payload sent in both directions after the transport connection is up but before either side reports a connection. `ID_CONNECTION_REQUEST_ACCEPTED` / `ID_NEW_INCOMING_CONNECTION` are withheld until the exchange completes, so an application can no longer act on a connection whose configuration has not arrived yet. New API: `SetSessionConfig` / `GetSessionConfig` / `GetRemoteSessionConfig`, plus `SetSessionConfigInteractive` / `AcceptSession` / `RejectSession` for servers that inspect a client's payload before admitting it — surfaced through the normal `Receive()` loop, no network-thread callbacks
+- **Hardened by design**: admission control counts handshaking peers, server-to-client handshake messages are bound to the connection's initiator, remote payload buffers are always NUL-terminated beyond the reported length, payloads are capped at 64 KB, and application traffic cannot cross a connection the application has not been told about — in either direction
+- **Breaking**: `RAKNET_PROTOCOL_VERSION` 6 → 7 — older peers are rejected with `ID_INCOMPATIBLE_PROTOCOL_VERSION` instead of stalling. The new message ids come out of the reserved block, so `ID_USER_PACKET_ENUM` does not move
+- **Fixed**: `GetNumberOfAddresses()` always returned `MAXIMUM_NUMBER_OF_INTERNAL_IDS` (10) instead of the real local address count (inherited from SLikeNet); the `RPC4GlobalRegistration` constructors never NUL-terminated a maximum-length function name, causing a read past the array
+
+### Version 0.14.0
 - **Bounded relay decode (`SetMaxDecodedSpeakers`)**: relay frames are decoded in `OnReceive`, inside `RakPeer::Receive`, so by the time an application sees a frame the codec work is already done — a speaker cap applied above this layer bounds mixing, not CPU, and there was no way to bound decode at all. At the cap a newly-heard speaker takes the decoder of whichever current speaker has been silent longest, provided it has been idle for at least `RAKVOICE_RELAY_EVICT_IDLE_MS`; otherwise its frame is dropped undecoded. Preferring eviction over refusal keeps decoders following whoever is actually talking, and the idle requirement stops a steady stream of talkers past the cap from creating and destroying a decoder every frame
 - The count excludes the self-keyed channel, which in relay mode holds outgoing encoder state rather than a remote talker, so a caller asking for n decoders gets n
 - **Non-breaking**: additive and off by default (`0` leaves only the existing `RAKVOICE_MAX_RELAY_SPEAKERS` memory backstop), and only the relay path is affected — direct peer-to-peer voice does not go through `GetOrCreateChannel`. No message ids move, so peers built against 0.13.0 remain wire-compatible
