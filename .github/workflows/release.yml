@@ -1,0 +1,221 @@
+name: Release
+
+# Builds precompiled MafiaNet packages for every supported platform when a
+# release tag (vX.Y.Z) is pushed, then creates/updates the GitHub release for
+# that tag with the archives attached.
+#
+# Each archive is a full install tree (cmake --install): shared + static
+# libraries, the bundled opus/rnnoise static libs, all public headers, and the
+# MafiaNet CMake package (MafiaNetConfig.cmake / MafiaNetTargets.cmake) — so a
+# consumer can unpack it, point CMAKE_PREFIX_PATH at it, and
+# find_package(MafiaNet) without compiling the engine themselves. OpenSSL is a
+# public dependency resolved on the consumer's machine via find_dependency.
+#
+# workflow_dispatch runs the builds and uploads workflow artifacts only (dry
+# run); the release itself is only touched on a tag push.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Fail fast if the tag does not match the version baked into CMakeLists.txt
+  # (the canonical source of truth per the release procedure).
+  verify-version:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check tag matches project version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          cmake_version=$(sed -n 's/^[[:space:]]*VERSION[[:space:]]\+\([0-9.]\+\).*/\1/p' CMakeLists.txt | head -n1)
+          echo "tag: $tag_version, CMakeLists.txt: $cmake_version"
+          if [ "$tag_version" != "$cmake_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match project(MafiaNet VERSION $cmake_version) in CMakeLists.txt"
+            exit 1
+          fi
+
+  # Linux build runs in an ubuntu:22.04 container so the binaries link against
+  # an older glibc and stay usable on a wider range of distributions than the
+  # ubuntu-latest runner image would allow.
+  linux:
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq build-essential cmake git ca-certificates libssl-dev
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMAFIANET_BUILD_SHARED=ON \
+            -DMAFIANET_BUILD_STATIC=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ "${GITHUB_REF_TYPE}" = "tag" ] || VERSION="${GITHUB_SHA::8}"
+          NAME="MafiaNet-${VERSION}-linux-x86_64"
+          cmake --install build --prefix "stage/${NAME}"
+          cp LICENSE.md README.md "stage/${NAME}/"
+          tar -C stage -czf "${NAME}.tar.gz" "${NAME}"
+          echo "PACKAGE_NAME=${NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: ${{ env.PACKAGE_NAME }}.tar.gz
+          if-no-files-found: error
+
+  # Windows x86 and x64. OpenSSL comes from vcpkg with the static-md triplets:
+  # OpenSSL is linked statically into MafiaNet.dll (no OpenSSL DLLs to ship)
+  # while keeping the default /MD runtime that the MafiaNet targets use.
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            platform: x64
+            triplet: x64-windows-static-md
+          - arch: x86
+            platform: Win32
+            triplet: x86-windows-static-md
+    name: windows (${{ matrix.arch }})
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install OpenSSL (vcpkg)
+        run: vcpkg install openssl:${{ matrix.triplet }}
+
+      - name: Configure
+        run: |
+          cmake -B build -A ${{ matrix.platform }} `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} `
+            -DMAFIANET_BUILD_SHARED=ON `
+            -DMAFIANET_BUILD_STATIC=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Package
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($env:GITHUB_REF_TYPE -ne 'tag') { $version = $env:GITHUB_SHA.Substring(0, 8) }
+          $name = "MafiaNet-$version-windows-${{ matrix.arch }}"
+          cmake --install build --config Release --prefix "stage/$name"
+          Copy-Item LICENSE.md, README.md "stage/$name/"
+          Compress-Archive -Path "stage/$name" -DestinationPath "$name.zip"
+          "PACKAGE_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: ${{ env.PACKAGE_NAME }}.zip
+          if-no-files-found: error
+
+  # macOS Intel (macos-15-intel runner) and Apple Silicon (macos-latest).
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+            deployment_target: "10.15"
+          - arch: arm64
+            runner: macos-latest
+            deployment_target: "11.0"
+    name: macos (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install OpenSSL
+        run: brew install openssl@3
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.deployment_target }} \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DMAFIANET_BUILD_SHARED=ON \
+            -DMAFIANET_BUILD_STATIC=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ "${GITHUB_REF_TYPE}" = "tag" ] || VERSION="${GITHUB_SHA::8}"
+          NAME="MafiaNet-${VERSION}-macos-${{ matrix.arch }}"
+          cmake --install build --prefix "stage/${NAME}"
+          cp LICENSE.md README.md "stage/${NAME}/"
+          tar -C stage -czf "${NAME}.tar.gz" "${NAME}"
+          echo "PACKAGE_NAME=${NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: ${{ env.PACKAGE_NAME }}.tar.gz
+          if-no-files-found: error
+
+  # Create the GitHub release for the tag (or update it if it already exists,
+  # e.g. when the release was created manually first) and attach every archive.
+  release:
+    if: github.event_name == 'push'
+    needs: [verify-version, linux, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List packages
+        run: ls -lh dist/
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
