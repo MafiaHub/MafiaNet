@@ -72,6 +72,8 @@ jobs:
         run: cmake --build build --parallel 4
 
       - name: Package
+        # The container's default step shell is sh; ${GITHUB_SHA::8} needs bash.
+        shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           [ "${GITHUB_REF_TYPE}" = "tag" ] || VERSION="${GITHUB_SHA::8}"
