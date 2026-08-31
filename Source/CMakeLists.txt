@@ -52,6 +52,7 @@ set(MAFIANET_SOURCES
     src/LogCommandParser.cpp
     src/MessageFilter.cpp
     src/MmsgBatch.cpp
+    src/MtuBlackHole.cpp
     src/NatPunchthroughClient.cpp
     src/NatPunchthroughServer.cpp
     src/NatTypeDetectionClient.cpp
@@ -206,6 +207,7 @@ set(MAFIANET_HEADERS
     include/mafianet/MessageFilter.h
     include/mafianet/MessageIdentifiers.h
     include/mafianet/MmsgBatch.h
+    include/mafianet/MtuBlackHole.h
     include/mafianet/MTUSize.h
     include/mafianet/NativeFeatureIncludes.h
     include/mafianet/NativeFeatureIncludesOverrides.h

@@ -122,6 +122,15 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	/// If the reliability type requires a receipt, then return this number with it
 	uint32_t sendReceiptSerial;
 
+	/// Sender-side bookkeeping, never transmitted: for a split fragment, the
+	/// byte length of the whole original message. All fragments of one message
+	/// share their data through refCountedData->sharedDataBlock, so together
+	/// with this length the original message can be rebuilt and re-split at a
+	/// smaller size when an in-session MTU black hole forces the negotiated
+	/// MTU down (see ReliabilityLayer::ReSplitOversizedMessages). Zero for
+	/// anything that is not a split fragment.
+	unsigned int splitOriginalByteLength;
+
 	// Used for the resend queue
 	// Linked list implementation so I can remove from the list via a pointer, without finding it in the list
 	InternalPacket *resendPrev, *resendNext,*unreliablePrev,*unreliableNext;

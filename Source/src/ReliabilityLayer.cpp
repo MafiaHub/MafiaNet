@@ -20,6 +20,7 @@
 
 #include "mafianet/ReliabilityLayer.h"
 #include "mafianet/MmsgBatch.h"
+#include "mafianet/MtuBlackHole.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/PluginInterface2.h"
@@ -424,6 +425,13 @@ void ReliabilityLayer::Reset(bool resetVariables, int mtuSize, bool _useSecurity
 #endif // LIBCAT_SECURITY
 		congestionManager.Init(MafiaNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE);
 	}
+	currentMtuBytes = mtuSize;
+}
+
+//-------------------------------------------------------------------------------------------------------
+int ReliabilityLayer::GetCurrentMtuBytes(void) const
+{
+	return currentMtuBytes;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -455,6 +463,7 @@ void ReliabilityLayer::InitializeVariables()
 	memset( &heapIndexOffsets, 0, sizeof( heapIndexOffsets ) );
 	
 	statistics.connectionStartTime = MafiaNet::GetTimeUS();
+	currentMtuBytes = MAXIMUM_MTU_SIZE;
 	splitPacketId = 0;
 	elapsedTimeSinceLastUpdate=0;
 	throughputCapCountdown=0;
@@ -1957,6 +1966,25 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 		dhf.hasBAndAS=false;
 		ResetPacketsAndDatagrams();
 
+		// In-session path-MTU black-hole detection. The handshake probed the
+		// path in one direction only; a tunnel that drops large datagrams on
+		// the other direction leaves the head of the resend queue burning its
+		// resend budget on a packet that can never arrive. Checked only here,
+		// before any packet is pushed this tick, because the step-down frees
+		// queued packets and packetsToSendThisUpdate must not hold pointers to
+		// them.
+		if (IsResendQueueEmpty()==false)
+		{
+			InternalPacket *stuck = resendLinkedListHead;
+			if (time - stuck->nextActionTime < (((CCTimeType)-1)/2))
+			{
+				const int requiredDatagramBytes = (int) BITS_TO_BYTES(stuck->headerLength + stuck->dataBitLength) +
+					(int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE;
+				if (ShouldStepDownMtu(stuck->timesSent, requiredDatagramBytes, currentMtuBytes))
+					StepDownMtuAfterBlackHole();
+			}
+		}
+
 		int transmissionBandwidth = congestionManager.GetTransmissionBandwidth(time, timeSinceLastTick, unacknowledgedBytes,dhf.isContinuousSend);
 		int retransmissionBandwidth = congestionManager.GetRetransmissionBandwidth(time, timeSinceLastTick, unacknowledgedBytes,dhf.isContinuousSend);
 		if (retransmissionBandwidth>0 || transmissionBandwidth>0)
@@ -3094,6 +3122,7 @@ void ReliabilityLayer::SplitPacket( InternalPacket *internalPacket )
 		internalPacketArray[ splitPacketIndex ]->splitPacketIndex = splitPacketIndex;
 		internalPacketArray[ splitPacketIndex ]->splitPacketId = splitPacketId;
 		internalPacketArray[ splitPacketIndex ]->splitPacketCount = internalPacket->splitPacketCount;
+		internalPacketArray[ splitPacketIndex ]->splitOriginalByteLength = dataByteLength;
 		RakAssert(internalPacketArray[ splitPacketIndex ]->dataBitLength<BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 	} while ( ++splitPacketIndex < internalPacket->splitPacketCount );
 
@@ -3129,6 +3158,209 @@ void ReliabilityLayer::SplitPacket( InternalPacket *internalPacket )
 
 	if (usedAlloca==false)
 		rakFree_Ex(internalPacketArray, _FILE_AND_LINE_ );
+}
+
+//-------------------------------------------------------------------------------------------------------
+// In-session path-MTU black-hole recovery. Documented in ReliabilityLayer.h.
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::StepDownMtuAfterBlackHole(void)
+{
+	const int nextMtu = NextLowerMtu(currentMtuBytes);
+	if (nextMtu == 0)
+		return;
+	currentMtuBytes = nextMtu;
+	congestionManager.SetMTU((uint32_t) (nextMtu - UDP_HEADER_SIZE));
+	ReSplitOversizedMessages();
+}
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::ReSplitOversizedMessages(void)
+{
+	const BitSize_t maxDatagramBits = GetMaxDatagramSizeExcludingMessageHeaderBits();
+	unsigned int i;
+	InternalPacket *p;
+
+	DataStructures::List<SplitPacketIdType> staleSplitIds;
+	DataStructures::List<InternalPacket*> rebuiltMessages;
+	DataStructures::List<InternalPacket*> resendVictims;
+
+	// Rebuild a full-length copy of the message pkt belongs to, before any of
+	// its packets are freed. Returns 0 (leaving the queues untouched) when the
+	// rebuild is impossible, so a failure degrades to the old stalled-resend
+	// behaviour rather than losing a reliable message.
+	auto rebuildMessage = [this](InternalPacket *pkt) -> InternalPacket* {
+		unsigned char *source;
+		unsigned int byteLength;
+		if (pkt->splitPacketCount > 0)
+		{
+			// Fragments carry a slice of a shared, refcounted copy of the whole
+			// message; splitOriginalByteLength is its full length.
+			RakAssert(pkt->allocationScheme == InternalPacket::REF_COUNTED);
+			RakAssert(pkt->refCountedData != 0 && pkt->splitOriginalByteLength > 0);
+			if (pkt->allocationScheme != InternalPacket::REF_COUNTED || pkt->refCountedData == 0 || pkt->splitOriginalByteLength == 0)
+				return 0;
+			source = pkt->refCountedData->sharedDataBlock;
+			byteLength = pkt->splitOriginalByteLength;
+		}
+		else
+		{
+			source = pkt->data;
+			byteLength = (unsigned int) BITS_TO_BYTES(pkt->dataBitLength);
+		}
+		unsigned char *copy = (unsigned char*) rakMalloc_Ex(byteLength, _FILE_AND_LINE_);
+		if (copy == 0)
+		{
+			notifyOutOfMemory(_FILE_AND_LINE_);
+			return 0;
+		}
+		memcpy(copy, source, byteLength);
+		InternalPacket *rebuilt = AllocateFromInternalPacketPool();
+		if (rebuilt == 0)
+		{
+			rakFree_Ex(copy, _FILE_AND_LINE_);
+			notifyOutOfMemory(_FILE_AND_LINE_);
+			return 0;
+		}
+		// Keep reliability, priority, ordering/sequencing indices and receipt
+		// serial: the receiver's ordered channel is waiting on exactly this
+		// ordering index, so the re-split message slots into the stream where
+		// the original stalled.
+		*rebuilt = *pkt;
+		AllocInternalPacketData(rebuilt, copy);
+		rebuilt->refCountedData = 0;
+		rebuilt->dataBitLength = BYTES_TO_BITS(byteLength);
+		rebuilt->splitPacketCount = 0;
+		rebuilt->splitPacketIndex = 0;
+		rebuilt->splitPacketId = 0;
+		rebuilt->splitOriginalByteLength = 0;
+		rebuilt->messageNumberAssigned = false;
+		rebuilt->timesSent = 0;
+		rebuilt->nextActionTime = 0;
+		rebuilt->retransmissionTime = 0;
+		return rebuilt;
+	};
+
+	auto isStaleId = [&staleSplitIds](SplitPacketIdType id) -> bool {
+		for (unsigned int k = 0; k < staleSplitIds.Size(); k++)
+			if (staleSplitIds[k] == id)
+				return true;
+		return false;
+	};
+
+	// An oversized fragment marks its whole message stale: every sibling is
+	// pulled from the queues below and the message re-sent re-split under a
+	// fresh splitPacketId. The receiver's partial channel for the old id never
+	// completes and is simply superseded.
+	auto noteStaleSplit = [&](InternalPacket *pkt) {
+		if (isStaleId(pkt->splitPacketId))
+			return;
+		InternalPacket *rebuilt = rebuildMessage(pkt);
+		if (rebuilt == 0)
+			return;
+		staleSplitIds.Push(pkt->splitPacketId, _FILE_AND_LINE_);
+		rebuiltMessages.Push(rebuilt, _FILE_AND_LINE_);
+	};
+
+	// Drop a not-yet-sent packet in place. The outgoing buffer is a heap, so
+	// entries cannot be unlinked by identity; the pop path already discards
+	// data==0 tombstones (and settles the send-buffer statistics then).
+	auto tombstoneOutgoing = [this](InternalPacket *pkt) {
+		FreeInternalPacketData(pkt, _FILE_AND_LINE_);
+		pkt->data = 0;
+		pkt->allocationScheme = InternalPacket::NORMAL;
+		pkt->refCountedData = 0;
+		RemoveFromUnreliableLinkedList(pkt);
+	};
+
+	// Pass 1: find every message with a packet that no longer fits a datagram.
+	if (resendLinkedListHead)
+	{
+		p = resendLinkedListHead;
+		do
+		{
+			if (GetMessageHeaderLengthBits(p) + p->dataBitLength > maxDatagramBits)
+			{
+				if (p->splitPacketCount > 0)
+					noteStaleSplit(p);
+				else
+				{
+					InternalPacket *rebuilt = rebuildMessage(p);
+					if (rebuilt)
+					{
+						rebuiltMessages.Push(rebuilt, _FILE_AND_LINE_);
+						resendVictims.Push(p, _FILE_AND_LINE_);
+					}
+				}
+			}
+			p = p->resendNext;
+		} while (p != resendLinkedListHead);
+	}
+	for (i = 0; i < outgoingPacketBuffer.Size(); i++)
+	{
+		p = outgoingPacketBuffer[i];
+		if (p->data == 0)
+			continue;
+		if (GetMessageHeaderLengthBits(p) + p->dataBitLength <= maxDatagramBits)
+			continue;
+		if (p->splitPacketCount > 0)
+			noteStaleSplit(p);
+		else
+		{
+			bool isReliable =
+				p->reliability != MafiaNet::Reliability::Unreliable &&
+				p->reliability != MafiaNet::Reliability::UnreliableSequenced &&
+				p->reliability != MafiaNet::Reliability::UnreliableWithAckReceipt;
+			if (isReliable)
+			{
+				InternalPacket *rebuilt = rebuildMessage(p);
+				if (rebuilt == 0)
+					continue;
+				rebuiltMessages.Push(rebuilt, _FILE_AND_LINE_);
+			}
+			// An unreliable message the path already black-holed is not owed
+			// delivery; dropping it here is what the network was doing anyway.
+			tombstoneOutgoing(p);
+		}
+	}
+
+	// Pass 2: sweep every packet of the stale messages out of both queues --
+	// including small tail fragments that still fit, since the whole message
+	// is re-sent under its new id.
+	if (staleSplitIds.Size() > 0)
+	{
+		if (resendLinkedListHead)
+		{
+			p = resendLinkedListHead;
+			do
+			{
+				if (p->splitPacketCount > 0 && isStaleId(p->splitPacketId))
+					resendVictims.Push(p, _FILE_AND_LINE_);
+				p = p->resendNext;
+			} while (p != resendLinkedListHead);
+		}
+		for (i = 0; i < outgoingPacketBuffer.Size(); i++)
+		{
+			p = outgoingPacketBuffer[i];
+			if (p->data != 0 && p->splitPacketCount > 0 && isStaleId(p->splitPacketId))
+				tombstoneOutgoing(p);
+		}
+	}
+
+	// Unlink the resend-list victims the way an ack would, minus the receipt.
+	for (i = 0; i < resendVictims.Size(); i++)
+	{
+		p = resendVictims[i];
+		if (resendBuffer[p->reliableMessageNumber & (uint32_t) RESEND_BUFFER_ARRAY_MASK] == p)
+			resendBuffer[p->reliableMessageNumber & (uint32_t) RESEND_BUFFER_ARRAY_MASK] = 0;
+		statistics.messagesInResendBuffer--;
+		statistics.bytesInResendBuffer -= BITS_TO_BYTES(p->dataBitLength);
+		RemoveFromList(p, true);
+		FreeInternalPacketData(p, _FILE_AND_LINE_);
+		ReleaseToInternalPacketPool(p);
+	}
+
+	// Queue the rebuilt messages, split at the new, smaller size.
+	for (i = 0; i < rebuiltMessages.Size(); i++)
+		SplitPacket(rebuiltMessages[i]);
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -3788,6 +4020,7 @@ InternalPacket* ReliabilityLayer::AllocateFromInternalPacketPool(void)
 	ip->allocationScheme=InternalPacket::NORMAL;
 	ip->data=0;
 	ip->timesSent=0;
+	ip->splitOriginalByteLength=0;
 	return ip;
 }
 //-------------------------------------------------------------------------------------------------------
