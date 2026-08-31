@@ -3,6 +3,25 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.16.0
+--------------
+
+**Peer**
+
+* **Fixed: tunnelled clients could not connect, because the negotiated MTU black-holed their traffic.** The connection handshake probes the path in one direction only -- the connecting peer pads ``ID_OPEN_CONNECTION_REQUEST_1`` down the MTU ladder and the accepting peer echoes back whatever size arrived -- and the result is then frozen for the life of the connection and applied to *both* directions. Nothing re-probes, and nothing detects a path-MTU black hole afterwards, so a datagram too large for the return path is resent at the same size until the connection times out. Every handshake packet is small enough to survive that, so the failure landed on the first split payload instead: the peer connected and then hung or dropped. Which tunnelled peers it hit depended entirely on their exit node's encapsulation overhead, which is why it looked intermittent.
+
+* ``MAXIMUM_MTU_SIZE`` 1492 -> **1400**, so the top rung clears WireGuard (1420) and typical IPSec/IKEv2 (1400) on a 1500-byte path without the peer having to discover anything. The ladder gains 1280 -- the IPv6 minimum MTU, and where WireGuard-derived tunnels commonly sit -- and 1024, so a peer that does step down gives up far less payload capacity than the old 1492 -> 1200 jump cost it. Lowering ``MAXIMUM_MTU_SIZE`` further is safe; raising it past ~1420 reintroduces the failure, and a unit test now fails if it is.
+
+* **Security: an MTU reported by a remote peer is clamped to ``MAXIMUM_MTU_SIZE``.** It arrives in ``ID_OPEN_CONNECTION_REQUEST_2`` / ``ID_OPEN_CONNECTION_REPLY_2`` before any authentication and sizes every datagram the reliability layer builds into ``MAXIMUM_MTU_SIZE``-byte buffers, so a larger value wrote past the end of them. A peer built against a higher cap produces one; a hostile peer can name any ``uint16``. The only guard was a ``RakAssert``, compiled out of exactly the builds that ship -- a release build would adopt an MTU of 65535 from a single forged datagram.
+
+* **Fixed:** a connection attempt whose datagram the local interface refused outright spent that MTU rung's entire attempt budget on sends that never left the machine. The check compared ``Send()``'s return value against ``10040``, which ``sendto`` never yields -- it yields ``SOCKET_ERROR`` -- so the branch was dead. New portable helpers ``RNS2_GetLastSocketError()`` and ``RNS2_IsDatagramTooLargeError()`` read the real error instead.
+
+* **Fixed:** a single ``sendto`` blocking for over 100 ms abandoned the whole connection attempt when the peer was already on the lowest MTU rung, turning a transient stall on a virtual adapter -- a tunnel renegotiating, a full transmit queue -- into ``ID_CONNECTION_ATTEMPT_FAILED`` with attempts to spare. It still drops to the lowest MTU, but keeps trying.
+
+* **Fixed:** ``Connect()`` divided ``sendConnectionAttemptCount`` by the number of MTU rungs and enforced no lower bound on it, so any value below the rung count divided by zero on the first tick of the network thread. Latent only because the default (12) exceeded the ladder.
+
+* **Non-breaking.** ``RAKNET_PROTOCOL_VERSION`` stays at 7 and no message ids move. Two peers converge on the smaller of their two caps, because the accepting side clamps to its own ``MAXIMUM_MTU_SIZE`` before replying and both sides clamp what they are told -- so a server rebuilt on 0.16.0 caps every connection, including peers still built against 0.15.0, with no client update required.
+
 Version 0.15.0
 --------------
 
