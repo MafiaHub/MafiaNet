@@ -6283,7 +6283,13 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			// The reliability layer steps the negotiated MTU down when it
 			// detects an in-session path-MTU black hole; keep the value
 			// GetMTUSize() reports in sync with what is actually on the wire.
-			remoteSystem->MTUSize = remoteSystem->reliabilityLayer.GetCurrentMtuBytes();
+			// Written only on an actual step-down: GetMTUSize() reads this
+			// field from the user thread without synchronization (as it always
+			// has for the connect-time write), so avoid turning it into a
+			// continuously-written field.
+			const int reliabilityMtu = remoteSystem->reliabilityLayer.GetCurrentMtuBytes();
+			if (remoteSystem->MTUSize != reliabilityMtu)
+				remoteSystem->MTUSize = reliabilityMtu;
 
 			// Check for failure conditions
 			if ( remoteSystem->reliabilityLayer.IsDeadConnection() ||

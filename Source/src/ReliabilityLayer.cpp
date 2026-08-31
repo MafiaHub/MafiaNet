@@ -3122,7 +3122,7 @@ void ReliabilityLayer::SplitPacket( InternalPacket *internalPacket )
 		internalPacketArray[ splitPacketIndex ]->splitPacketIndex = splitPacketIndex;
 		internalPacketArray[ splitPacketIndex ]->splitPacketId = splitPacketId;
 		internalPacketArray[ splitPacketIndex ]->splitPacketCount = internalPacket->splitPacketCount;
-		internalPacketArray[ splitPacketIndex ]->splitOriginalByteLength = dataByteLength;
+		internalPacketArray[ splitPacketIndex ]->splitOriginalBitLength = internalPacket->dataBitLength;
 		RakAssert(internalPacketArray[ splitPacketIndex ]->dataBitLength<BYTES_TO_BITS(MAXIMUM_MTU_SIZE));
 	} while ( ++splitPacketIndex < internalPacket->splitPacketCount );
 
@@ -3189,23 +3189,24 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 	// behaviour rather than losing a reliable message.
 	auto rebuildMessage = [this](InternalPacket *pkt) -> InternalPacket* {
 		unsigned char *source;
-		unsigned int byteLength;
+		BitSize_t bitLength;
 		if (pkt->splitPacketCount > 0)
 		{
 			// Fragments carry a slice of a shared, refcounted copy of the whole
-			// message; splitOriginalByteLength is its full length.
+			// message; splitOriginalBitLength is its exact full length.
 			RakAssert(pkt->allocationScheme == InternalPacket::REF_COUNTED);
-			RakAssert(pkt->refCountedData != 0 && pkt->splitOriginalByteLength > 0);
-			if (pkt->allocationScheme != InternalPacket::REF_COUNTED || pkt->refCountedData == 0 || pkt->splitOriginalByteLength == 0)
+			RakAssert(pkt->refCountedData != 0 && pkt->splitOriginalBitLength > 0);
+			if (pkt->allocationScheme != InternalPacket::REF_COUNTED || pkt->refCountedData == 0 || pkt->splitOriginalBitLength == 0)
 				return 0;
 			source = pkt->refCountedData->sharedDataBlock;
-			byteLength = pkt->splitOriginalByteLength;
+			bitLength = pkt->splitOriginalBitLength;
 		}
 		else
 		{
 			source = pkt->data;
-			byteLength = (unsigned int) BITS_TO_BYTES(pkt->dataBitLength);
+			bitLength = pkt->dataBitLength;
 		}
+		const unsigned int byteLength = (unsigned int) BITS_TO_BYTES(bitLength);
 		unsigned char *copy = (unsigned char*) rakMalloc_Ex(byteLength, _FILE_AND_LINE_);
 		if (copy == 0)
 		{
@@ -3227,11 +3228,11 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 		*rebuilt = *pkt;
 		AllocInternalPacketData(rebuilt, copy);
 		rebuilt->refCountedData = 0;
-		rebuilt->dataBitLength = BYTES_TO_BITS(byteLength);
+		rebuilt->dataBitLength = bitLength;
 		rebuilt->splitPacketCount = 0;
 		rebuilt->splitPacketIndex = 0;
 		rebuilt->splitPacketId = 0;
-		rebuilt->splitOriginalByteLength = 0;
+		rebuilt->splitOriginalBitLength = 0;
 		rebuilt->messageNumberAssigned = false;
 		rebuilt->timesSent = 0;
 		rebuilt->nextActionTime = 0;
@@ -4020,7 +4021,7 @@ InternalPacket* ReliabilityLayer::AllocateFromInternalPacketPool(void)
 	ip->allocationScheme=InternalPacket::NORMAL;
 	ip->data=0;
 	ip->timesSent=0;
-	ip->splitOriginalByteLength=0;
+	ip->splitOriginalBitLength=0;
 	return ip;
 }
 //-------------------------------------------------------------------------------------------------------

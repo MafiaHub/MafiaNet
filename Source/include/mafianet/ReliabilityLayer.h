@@ -602,12 +602,13 @@ private:
 	
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL==1
 	MafiaNet::CCRakNetSlidingWindow congestionManager;
-	// Current wire MTU in bytes including UDP/IP headers. Seeded from Reset()'s
-	// mtuSize, stepped down by black-hole detection. See GetCurrentMtuBytes().
-	int currentMtuBytes;
 #else
 	MafiaNet::CCRakNetUDT congestionManager;
 #endif
+
+	// Current wire MTU in bytes including UDP/IP headers. Seeded from Reset()'s
+	// mtuSize, stepped down by black-hole detection. See GetCurrentMtuBytes().
+	int currentMtuBytes;
 
 
 	uint32_t unacknowledgedBytes;

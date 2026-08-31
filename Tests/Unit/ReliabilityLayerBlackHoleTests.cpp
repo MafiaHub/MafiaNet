@@ -24,6 +24,7 @@
 
 #include "mafianet/BitStream.h"
 #include "mafianet/DS_List.h"
+#include "mafianet/GetTime.h"
 #include "mafianet/MTUSize.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/MtuBlackHole.h"
@@ -38,7 +39,7 @@ using namespace MafiaNet;
 namespace {
 
 const int TEST_MTU = MAXIMUM_MTU_SIZE;
-const MafiaNet::TimeMS TEST_TIMEOUT_MS = 200000;
+const MafiaNet::TimeMS TEST_TIMEOUT_MS = 1000000;
 
 // Captures every datagram the reliability layer hands to the OS, so the test
 // fixture can shuttle it to the other endpoint (or drop it, like a tunnel).
@@ -76,10 +77,11 @@ protected:
 	uint32_t lcgState;
 
 	std::vector<std::vector<unsigned char> > received; // complete messages b got
+	std::vector<BitSize_t> receivedBits;               // their exact bit lengths
 
 	RelLayerBlackHole()
 		: updateBitStream(MAXIMUM_MTU_SIZE)
-		, now(1000000)
+		, now(0)
 		, aToBDropOverBytes(MAXIMUM_MTU_SIZE)
 		, aToBLossPercent(0)
 		, lcgState(0x12345678)
@@ -88,6 +90,14 @@ protected:
 
 	virtual void SetUp()
 	{
+		// The simulated clock must start at the real clock: ReliabilityLayer
+		// stamps timeLastDatagramArrived with the real GetTimeMS() on every
+		// receive, and AckTimeout compares that against the time we pass in.
+		// A fixed fake epoch fails on any machine whose process uptime exceeds
+		// it (this killed every test on Windows CI). All progress is still
+		// driven by fixed fake increments from this anchor.
+		now = MafiaNet::GetTimeUS();
+
 		ASSERT_TRUE(aAddr.FromStringExplicitPort("127.0.0.1", 40001));
 		ASSERT_TRUE(bAddr.FromStringExplicitPort("127.0.0.1", 40002));
 		a.Reset(true, TEST_MTU, false);
@@ -144,6 +154,7 @@ protected:
 		while ((bitSize = b.Receive(&data)) > 0)
 		{
 			received.push_back(std::vector<unsigned char>(data, data + BITS_TO_BYTES(bitSize)));
+			receivedBits.push_back(bitSize);
 			rakFree_Ex(data, _FILE_AND_LINE_);
 		}
 	}
@@ -273,6 +284,23 @@ TEST_F(RelLayerBlackHole, DeliversTheAckReceiptForAReSplitMessage)
 		}
 	}
 	EXPECT_TRUE(gotReceipt) << "ID_SND_RECEIPT_ACKED never surfaced for the re-split message";
+}
+
+TEST_F(RelLayerBlackHole, PreservesSubByteBitLengthAcrossAReSplit)
+{
+	// Send() takes a length in BITS and SplitPacket deliberately keeps the
+	// exact count on the last fragment, so a normally-split message reassembles
+	// to its precise bit length. A re-split must not round it up to a whole
+	// byte: BitStream consumers on the receiver see the message's bit size.
+	aToBDropOverBytes = 1100;
+
+	std::vector<unsigned char> msg = PatternMessage(8000, 41);
+	const BitSize_t oddBits = BYTES_TO_BITS((BitSize_t) msg.size()) - 3;
+	ASSERT_TRUE(a.Send((char *) &msg[0], oddBits,
+		MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, true, TEST_MTU, now, 0));
+
+	ASSERT_TRUE(PumpUntilReceived(1, 150000));
+	EXPECT_EQ(oddBits, receivedBits[0]);
 }
 
 TEST_F(RelLayerBlackHole, OrdinaryPacketLossDoesNotShrinkTheMtu)
