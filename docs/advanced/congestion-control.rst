@@ -86,8 +86,13 @@ Tuning Parameters
 
 .. code-block:: cpp
 
-   // MTU discovery (finds optimal packet size)
-   peer->SetMTUSize(1492);  // Default, good for most networks
+   // MTU is negotiated per connection during the handshake -- the connecting peer
+   // probes 1400, 1280, 1024 then 576 and keeps the largest size the path passed.
+   // There is no setter; read the result back with:
+   peer->GetMTUSize(remoteAddress);
+
+   // The ceiling is compile-time. Lower MAXIMUM_MTU_SIZE (mafianet/MTUSize.h) if
+   // your peers sit behind tunnelling with more overhead than 1400 leaves room for.
 
    // Timeout settings
    peer->SetTimeoutTime(10000, remoteAddress);  // 10 seconds

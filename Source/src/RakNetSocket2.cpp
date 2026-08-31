@@ -22,6 +22,7 @@
 #include "mafianet/GetTime.h"
 #include <stdio.h>
 #include <string.h> // memcpy
+#include <errno.h>  // EMSGSIZE, classified by RNS2_IsDatagramTooLargeError
 
 using namespace MafiaNet;
 
@@ -50,6 +51,31 @@ using namespace MafiaNet;
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET -1
 #endif
+
+int MafiaNet::RNS2_GetLastSocketError(void)
+{
+#ifdef _WIN32
+	return WSAGetLastError();
+#else
+	return errno;
+#endif
+}
+
+bool MafiaNet::RNS2_IsDatagramTooLargeError(int err)
+{
+#ifdef _WIN32
+	// Winsock reports the condition as WSAEMSGSIZE. A Windows CRT also defines
+	// EMSGSIZE, with a different value, and nothing here produces it -- but
+	// accepting it costs nothing and keeps the classification total.
+	if (err == WSAEMSGSIZE)
+		return true;
+#endif
+#ifdef EMSGSIZE
+	if (err == EMSGSIZE)
+		return true;
+#endif
+	return false;
+}
 
 void RakNetSocket2Allocator::DeallocRNS2(RakNetSocket2 *s) { MafiaNet::OP_DELETE(s,_FILE_AND_LINE_);}
 RakNetSocket2::RakNetSocket2() {eventHandler=0;}

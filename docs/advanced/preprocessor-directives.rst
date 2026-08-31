@@ -59,8 +59,10 @@ Performance Options
    // Congestion control algorithm
    #define USE_SLIDING_WINDOW_CONGESTION_CONTROL 1
 
-   // Maximum MTU size (default: 1492)
-   #define MAXIMUM_MTU_SIZE 1492
+   // Ceiling on the negotiated per-connection MTU, and the size of every datagram
+   // buffer in the library (default: 1400). Lowering it is safe; raising it is
+   // only safe if every peer agrees, since it sizes those buffers.
+   #define MAXIMUM_MTU_SIZE 1400
 
    // Packet pool sizes
    #define RAKNET_MESSAGE_HANDLER_LIST_SIZE 32

@@ -42,8 +42,10 @@ Use TCP (TCPInterface) for:
 
 **What's the maximum packet size?**
 
-Default MTU is 1492 bytes. Larger messages are automatically fragmented and
-reassembled. For best performance, keep frequent messages under MTU.
+MTU is negotiated per connection, up to 1400 bytes, by probing the path during
+the handshake. Larger messages are automatically fragmented and reassembled. For
+best performance, keep frequent messages under the MTU reported by
+``GetMTUSize()``.
 
 **How many connections can I handle?**
 
