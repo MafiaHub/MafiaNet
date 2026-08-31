@@ -104,11 +104,36 @@ extern void Console2GetIPAndPort(unsigned int, char *, unsigned short *, unsigne
 #endif
 
 
-static const int NUM_MTU_SIZES=3;
+static const int NUM_MTU_SIZES=4;
 
 
 
-static const int mtuSizes[NUM_MTU_SIZES]={MAXIMUM_MTU_SIZE, 1200, 576};
+// Probed high to low while connecting: the connecting peer pads
+// ID_OPEN_CONNECTION_REQUEST_1 to a rung and steps down when nothing comes back,
+// so the negotiated MTU is the largest rung that survived the path. Each rung is
+// a whole IP datagram, MAXIMUM_MTU_SIZE first.
+//
+// 1280 is both the IPv6 minimum MTU and what WireGuard-derived tunnels commonly
+// settle on, which makes it the single most valuable intermediate rung; 1024
+// covers heavier or stacked encapsulation; 576 is the dial-up floor. The gap
+// from MAXIMUM_MTU_SIZE straight to 1200 that used to sit here meant a peer one
+// byte over the top rung gave up ~20% of its payload capacity to find that out.
+static const int mtuSizes[NUM_MTU_SIZES]={MAXIMUM_MTU_SIZE, 1280, 1024, 576};
+
+// How many connection attempts are spent on each rung of mtuSizes before
+// stepping down.
+//
+// Never zero. Connect() takes sendConnectionAttemptCount from the caller and
+// documents no lower bound, so a caller asking for fewer attempts than there are
+// rungs used to divide by zero here -- a crash that was unreachable only because
+// the default (12) happened to exceed NUM_MTU_SIZES. Such a caller now gets one
+// attempt per rung and stops when its budget runs out, having tried the largest
+// sizes first.
+static unsigned GetConnectionAttemptsPerMTU(unsigned sendConnectionAttemptCount)
+{
+	const unsigned attemptsPerMTU = sendConnectionAttemptCount / (unsigned) NUM_MTU_SIZES;
+	return attemptsPerMTU > 0 ? attemptsPerMTU : 1;
+}
 
 
 // Note to self - if I change this it might affect RECIPIENT_OFFLINE_MESSAGE_INTERVAL in Natpunchthrough.cpp
@@ -3932,6 +3957,16 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignSystemAddressToRemoteSystemList( co
 			remoteSystem->guid=guid;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			// Reserve this reliability layer for ourselves.
+			//
+			// incomingMTU comes off the wire -- ID_OPEN_CONNECTION_REQUEST_2 on the accepting side,
+			// ID_OPEN_CONNECTION_REPLY_2 on the connecting one -- so it is whatever the remote peer
+			// said, and must be clamped rather than trusted. MTUSize sizes every datagram the
+			// reliability layer builds into buffers declared MAXIMUM_MTU_SIZE bytes long, so a
+			// larger value writes past the end of them. A peer built against a higher cap is enough
+			// to produce one; a hostile peer can name any uint16. This used to be a bare RakAssert,
+			// which is compiled out of exactly the builds that ship.
+			if (incomingMTU > MAXIMUM_MTU_SIZE)
+				incomingMTU = MAXIMUM_MTU_SIZE;
 			if (incomingMTU > remoteSystem->MTUSize)
 				remoteSystem->MTUSize=incomingMTU;
 			RakAssert(remoteSystem->MTUSize <= MAXIMUM_MTU_SIZE);
@@ -6107,7 +6142,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 				else
 				{
 
-					int MTUSizeIndex = rcs->requestsMade / (rcs->sendConnectionAttemptCount/NUM_MTU_SIZES);
+					const unsigned attemptsPerMTU = GetConnectionAttemptsPerMTU(rcs->sendConnectionAttemptCount);
+					int MTUSizeIndex = rcs->requestsMade / attemptsPerMTU;
 					if (MTUSizeIndex>=NUM_MTU_SIZES)
 						MTUSizeIndex=NUM_MTU_SIZES-1;
 					rcs->requestsMade++;
@@ -6148,11 +6184,17 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					bsp.data = (char*) bitStream.GetData();
 					bsp.length = bitStream.GetNumberOfBytesUsed();
 					bsp.systemAddress = rcs->systemAddress;
-					if (socketToUse->Send(&bsp, _FILE_AND_LINE_) == 10040)
-					// if (SocketLayer::SendTo( socketToUse, (const char*) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), rcs->systemAddress, _FILE_AND_LINE_ )==-10040)
+					const RNS2SendResult sendResult = socketToUse->Send(&bsp, _FILE_AND_LINE_);
+					// Send() reports failure as sendto's own return value and drops the reason, so
+					// the error has to be read back off the thread before anything else touches a
+					// socket. The old test here compared that return value against 10040 directly,
+					// which sendto never yields -- it yields SOCKET_ERROR -- so this branch was dead
+					// and a locally-refused MTU burned its rung's entire attempt budget.
+					if (sendResult < 0 && RNS2_IsDatagramTooLargeError(RNS2_GetLastSocketError()))
 					{
-						// Don't use this MTU size again
-						rcs->requestsMade = (unsigned char) ((MTUSizeIndex + 1) * (rcs->sendConnectionAttemptCount/NUM_MTU_SIZES));
+						// The local interface refused the datagram outright. Every attempt at this
+						// size fails the same way, so step down now.
+						rcs->requestsMade = (unsigned char) ((MTUSizeIndex + 1) * attemptsPerMTU);
 						rcs->nextRequestTime=timeMS;
 					}
 					else
@@ -6160,15 +6202,18 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						MafiaNet::Time sendToEnd= MafiaNet::GetTime();
 						if (sendToEnd-sendToStart>100)
 						{
-							// Drop to lowest MTU
-							int lowestMtuIndex = rcs->sendConnectionAttemptCount/NUM_MTU_SIZES * (NUM_MTU_SIZES - 1);
-							if (lowestMtuIndex > rcs->requestsMade)
+							// A send that blocks this long means the outgoing interface is
+							// struggling: a virtual VPN adapter renegotiating its tunnel, or a full
+							// transmit queue. Smaller datagrams are likelier to get through, so drop
+							// to the lowest MTU -- but keep trying. Giving up here (which is what
+							// this did when already on the lowest rung) turned a transient stall
+							// into ID_CONNECTION_ATTEMPT_FAILED with most of the budget unspent.
+							const int lowestMtuIndex = (int) (attemptsPerMTU * (unsigned) (NUM_MTU_SIZES - 1));
+							if (lowestMtuIndex > (int) rcs->requestsMade)
 							{
 								rcs->requestsMade = (unsigned char) lowestMtuIndex;
 								rcs->nextRequestTime=timeMS;
 							}
-							else
-								rcs->requestsMade=(unsigned char)(rcs->sendConnectionAttemptCount+1);
 						}
 					}
 					// SocketLayer::SetDoNotFragment(socketToUse, 0);

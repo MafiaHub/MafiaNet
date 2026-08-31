@@ -71,6 +71,29 @@ enum RNS2BindResult
 
 typedef int RNS2SendResult;
 
+/// The last socket error the calling thread raised, as WSAGetLastError() on
+/// Windows and errno everywhere else.
+///
+/// Send() collapses every failure to a single negative RNS2SendResult (sendto's
+/// own return value), which loses the reason. Call this immediately after a
+/// failing socket call on the same thread to recover it -- any intervening
+/// socket call may overwrite it.
+int RNS2_GetLastSocketError(void);
+
+/// Does \a err mean "that datagram was larger than the outgoing interface's
+/// MTU"? WSAEMSGSIZE on Windows, EMSGSIZE elsewhere.
+///
+/// This is a local refusal, not a network event: the stack rejected the send
+/// outright, so every retry at that size fails identically and instantly. The
+/// connection handshake uses it to abandon an MTU rung the moment the local
+/// interface refuses it -- a VPN or PPPoE adapter with a small MTU -- instead of
+/// spending that rung's whole attempt budget on sends that never leave the
+/// machine.
+///
+/// Split out as a free function taking a plain int so the classification is
+/// unit testable without provoking a real socket failure.
+bool RNS2_IsDatagramTooLargeError(int err);
+
 enum RNS2Type
 {
 	RNS2T_WINDOWS,
