@@ -3,6 +3,21 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.17.0
+--------------
+
+**Reliability layer**
+
+* **In-session path-MTU black-hole detection and recovery** -- the follow-up 0.16.0 deferred. The handshake still probes the path in one direction only, so a tunnel that drops large datagrams on the *return* path only (OpenVPN's default configuration does not fragment oversized UDP, and its drops are direction-asymmetric), or a path that shrinks mid-session, passed the probe and then hung the connection on the first split payload while the same too-large datagram was resent until timeout. The reliability layer now recognises the black-hole signature -- a reliable packet that has gone unacked through its resend budget *and* that would actually shrink if the MTU dropped a rung -- steps the connection's MTU one rung down the same ladder the handshake probes, and re-splits every queued message that no longer fits. Detection completes within a few retransmission timeouts, well inside the connection timeout.
+
+* Packets that already fit the next rung down can never trigger a step-down, no matter how often they are resent: resending them at the same size after a step-down would change nothing on the wire, so their failures indicate loss, not size. Ordinary packet loss therefore never shrinks a healthy connection's MTU.
+
+* Stuck split messages are rebuilt at full length from the shared data block their fragments reference and re-sent re-split under a fresh split id, with ordering and sequencing indices, exact bit length, and ack-receipt serials preserved -- the receiver's stalled partial reassembly is superseded in place and ordered channels resume exactly where they blocked. Oversized unsplit reliable messages are simply split; oversized unsplit unreliable messages are dropped, which is what the network was already doing to them.
+
+* New API: ``ReliabilityLayer::GetCurrentMtuBytes()``, and ``RakPeerInterface::GetMTUSize()`` now reports the stepped-down value after a recovery instead of the stale handshake result.
+
+* **Non-breaking.** ``RAKNET_PROTOCOL_VERSION`` stays at 7, no message ids move, and the split/reassembly wire format is unchanged -- the new per-fragment bookkeeping is sender-side only. A step-down is permanent for the life of the connection; the MTU never probes back up.
+
 Version 0.16.0
 --------------
 

@@ -318,7 +318,14 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.16.0 (Latest)
+### Version 0.17.0 (Latest)
+- **In-session path-MTU black-hole detection and recovery** — the follow-up 0.16.0 deferred. A tunnel dropping large datagrams on the *return* path only (OpenVPN's defaults do exactly this), or a path shrinking mid-session, passed the one-directional handshake probe and then hung the connection on the first split payload. The reliability layer now recognises the signature — a reliable packet unacked through its resend budget that would actually shrink if the MTU dropped a rung — steps the MTU down the same ladder the handshake probes, and re-splits every queued message that no longer fits
+- Packets that already fit the next rung never trigger a step-down, however often they are resent — ordinary packet loss cannot shrink a healthy connection's MTU
+- Stuck split messages are rebuilt from the shared data block their fragments reference and re-sent under a fresh split id with ordering indices, exact bit length and ack receipts preserved; ordered channels resume exactly where they blocked
+- New API: `ReliabilityLayer::GetCurrentMtuBytes()`; `GetMTUSize()` now reports the stepped-down value after a recovery
+- **Non-breaking**: `RAKNET_PROTOCOL_VERSION` stays at 7, no message ids move, and the wire format is unchanged — the new bookkeeping is sender-side only
+
+### Version 0.16.0
 - **Fixed: tunnelled clients could not connect** — the handshake probes the path in one direction only (the connecting peer pads `ID_OPEN_CONNECTION_REQUEST_1` down the MTU ladder, the accepting peer echoes back whatever size arrived), and the result is then frozen for the life of the connection and applied to **both** directions with no black-hole detection afterwards. Handshake packets are small enough to survive that, so the failure landed on the first split payload: the peer connected and then hung or dropped, depending entirely on its exit node's encapsulation overhead
 - `MAXIMUM_MTU_SIZE` 1492 → **1400**, clearing WireGuard (1420) and typical IPSec/IKEv2 (1400) on a 1500-byte path without the peer having to discover anything. The ladder gains 1280 (the IPv6 minimum, and where WireGuard-derived tunnels sit) and 1024, so stepping down costs far less payload capacity than the old 1492 → 1200 jump
 - **Security**: an MTU reported by a remote peer is now clamped to `MAXIMUM_MTU_SIZE`. It arrives unauthenticated and sizes datagrams built into `MAXIMUM_MTU_SIZE`-byte buffers, and the only guard was a `RakAssert` — compiled out of shipping builds, where a single forged datagram set it to 65535
