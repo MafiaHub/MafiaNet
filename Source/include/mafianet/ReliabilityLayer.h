@@ -177,6 +177,12 @@ public:
 	/// \param[out] the value passed to SetTimeoutTime
 	MafiaNet::TimeMS GetTimeoutTime(void);
 
+	/// The connection's current MTU in bytes, including UDP/IP headers. Starts
+	/// at the handshake-negotiated size passed to Reset() and steps down the
+	/// ladder in MtuBlackHole.h when an in-session path-MTU black hole is
+	/// detected. Never rises again for the life of the connection.
+	int GetCurrentMtuBytes(void) const;
+
 	/// Packets are read directly from the socket layer and skip the reliability layer because unconnected players do not use the reliability layer
 	/// This function takes packet data after a player has been confirmed as connected.
 	/// \param[in] buffer The socket data
@@ -323,6 +329,24 @@ private:
 
 	/// Split the passed packet into chunks under MTU_SIZE bytes (including headers) and save those new chunks
 	void SplitPacket( InternalPacket *internalPacket );
+
+	/// In-session path-MTU black-hole recovery: drop currentMtuBytes one rung
+	/// down the ladder in MtuBlackHole.h, shrink the congestion manager's
+	/// datagram ceiling to match, and re-split every queued message that no
+	/// longer fits. Called from Update() when a too-large reliable packet has
+	/// burnt its resend budget without an ack (ShouldStepDownMtu).
+	void StepDownMtuAfterBlackHole(void);
+
+	/// Rebuild and re-split, at the current (lowered) MTU, every queued message
+	/// with a packet too large for one datagram: split messages are
+	/// reconstructed from the shared data block their fragments reference and
+	/// re-split under a fresh splitPacketId (the receiver's partial channel for
+	/// the old id never completes and is superseded because the ordering
+	/// indices are preserved); oversized unsplit reliable messages are simply
+	/// split; oversized unsplit unreliable messages are dropped, as the network
+	/// was already free to drop them. Must only run when
+	/// packetsToSendThisUpdate is empty, since it frees queued packets.
+	void ReSplitOversizedMessages(void);
 
 	/// Insert a packet into the split packet list
 	void InsertIntoSplitPacketList( InternalPacket * internalPacket, CCTimeType time );
@@ -581,6 +605,10 @@ private:
 #else
 	MafiaNet::CCRakNetUDT congestionManager;
 #endif
+
+	// Current wire MTU in bytes including UDP/IP headers. Seeded from Reset()'s
+	// mtuSize, stepped down by black-hole detection. See GetCurrentMtuBytes().
+	int currentMtuBytes;
 
 
 	uint32_t unacknowledgedBytes;

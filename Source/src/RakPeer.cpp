@@ -41,6 +41,7 @@
 #include <string.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
+#include "mafianet/MtuBlackHole.h"
 #include "mafianet/DS_HuffmanEncodingTree.h"
 #include "mafianet/Rand.h"
 #include "mafianet/PluginInterface2.h"
@@ -104,10 +105,6 @@ extern void Console2GetIPAndPort(unsigned int, char *, unsigned short *, unsigne
 #endif
 
 
-static const int NUM_MTU_SIZES=4;
-
-
-
 // Probed high to low while connecting: the connecting peer pads
 // ID_OPEN_CONNECTION_REQUEST_1 to a rung and steps down when nothing comes back,
 // so the negotiated MTU is the largest rung that survived the path. Each rung is
@@ -118,7 +115,11 @@ static const int NUM_MTU_SIZES=4;
 // covers heavier or stacked encapsulation; 576 is the dial-up floor. The gap
 // from MAXIMUM_MTU_SIZE straight to 1200 that used to sit here meant a peer one
 // byte over the top rung gave up ~20% of its payload capacity to find that out.
-static const int mtuSizes[NUM_MTU_SIZES]={MAXIMUM_MTU_SIZE, 1280, 1024, 576};
+//
+// The ladder itself lives in MtuBlackHole.h: the in-session black-hole
+// step-down (ReliabilityLayer) walks the same rungs this handshake probes.
+static const int NUM_MTU_SIZES=MafiaNet::MTU_LADDER_SIZE;
+static const int *const mtuSizes=MafiaNet::MTU_LADDER;
 
 // How many connection attempts are spent on each rung of mtuSizes before
 // stepping down.
@@ -6278,6 +6279,17 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 				remoteSystem->reliabilityLayer.UpdateAndForceACKs( remoteSystem->rakNetSocket, systemAddress, remoteSystem->MTUSize, timeNS, maxOutgoingBPS, pluginListNTS, &rnr, updateBitStream ); // systemAddress only used for the internet simulator test
 			else
 				remoteSystem->reliabilityLayer.Update( remoteSystem->rakNetSocket, systemAddress, remoteSystem->MTUSize, timeNS, maxOutgoingBPS, pluginListNTS, &rnr, updateBitStream ); // systemAddress only used for the internet simulator test
+
+			// The reliability layer steps the negotiated MTU down when it
+			// detects an in-session path-MTU black hole; keep the value
+			// GetMTUSize() reports in sync with what is actually on the wire.
+			// Written only on an actual step-down: GetMTUSize() reads this
+			// field from the user thread without synchronization (as it always
+			// has for the connect-time write), so avoid turning it into a
+			// continuously-written field.
+			const int reliabilityMtu = remoteSystem->reliabilityLayer.GetCurrentMtuBytes();
+			if (remoteSystem->MTUSize != reliabilityMtu)
+				remoteSystem->MTUSize = reliabilityMtu;
 
 			// Check for failure conditions
 			if ( remoteSystem->reliabilityLayer.IsDeadConnection() ||
