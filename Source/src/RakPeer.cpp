@@ -241,6 +241,7 @@ RakPeer::RakPeer()
 	bytesSentPerSecond = bytesReceivedPerSecond = 0;
 	endThreads = true;
 	isMainLoopThreadActive = false;
+	updateThreadJoinable = false;
 	incomingDatagramEventHandler=0;
 	sessionConfigInteractive=false;
 
@@ -698,8 +699,10 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 
 
-					errorCode = MafiaNet::RakThread::Create(UpdateNetworkLoop, this, threadPriority);
-
+					// Joinable so Shutdown() can wait for the thread to fully exit
+					// before tearing down the connection state it uses (issue #7).
+					errorCode = MafiaNet::RakThread::CreateJoinable(UpdateNetworkLoop, this, &updateThread, threadPriority);
+					updateThreadJoinable = (errorCode==0);
 
 					if ( errorCode != 0 )
 					{
@@ -1146,6 +1149,16 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	}
 	*/
 
+	// Join the update/network thread rather than spin-waiting on a flag: the
+	// join both guarantees the thread has fully exited and establishes the
+	// happens-before edge that makes its writes visible before the connection
+	// state below is torn down (issue #7).
+	if ( updateThreadJoinable )
+	{
+		MafiaNet::RakThread::Join(updateThread);
+		updateThreadJoinable = false;
+	}
+	// Fallback for configurations where no joinable thread was created.
 	while ( isMainLoopThreadActive )
 	{
 		RakSleep(15);
@@ -6084,7 +6097,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 	}
 
-	if (requestedConnectionQueue.IsEmpty()==false)
+	// The queue is filled from the user thread (Connect/SendConnectionRequest),
+	// so even the emptiness probe must hold the mutex.
+	requestedConnectionQueueMutex.Lock();
+	const bool requestedConnectionQueueHasEntries = requestedConnectionQueue.IsEmpty()==false;
+	requestedConnectionQueueMutex.Unlock();
+	if (requestedConnectionQueueHasEntries)
 	{
 		if (timeNS==0)
 		{
@@ -6094,12 +6112,16 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 		bool condition1, condition2;
 		unsigned requestedConnectionQueueIndex=0;
+		// Hold the mutex for the whole pass: CancelConnectionAttempt (user
+		// thread) deletes entries under this mutex, so dropping it while still
+		// dereferencing rcs was a use-after-free. The only OnDirectSocketSend
+		// implementers (PacketLogger, StatisticsHistory) don't call back into
+		// connection APIs, so the callbacks below cannot re-enter this lock.
 		requestedConnectionQueueMutex.Lock();
 		while (requestedConnectionQueueIndex < requestedConnectionQueue.Size())
 		{
 			RequestedConnectionStruct *rcs;
 			rcs = requestedConnectionQueue[requestedConnectionQueueIndex];
-			requestedConnectionQueueMutex.Unlock();
 			if (rcs->nextRequestTime < timeMS)
 			{
 				condition1=rcs->requestsMade==rcs->sendConnectionAttemptCount+1;
@@ -6127,18 +6149,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					CAT_AUDIT_PRINTF("AUDIT: Connection attempt FAILED so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
 					MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
 #endif
+					// Unlink before deleting (both under the held mutex) so the
+					// queue never holds a dangling pointer.
+					requestedConnectionQueue.RemoveAtIndex(requestedConnectionQueueIndex);
 					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
-
-					requestedConnectionQueueMutex.Lock();
-					for (unsigned int k=0; k < requestedConnectionQueue.Size(); k++)
-					{
-						if (requestedConnectionQueue[k]==rcs)
-						{
-							requestedConnectionQueue.RemoveAtIndex(k);
-							break;
-						}
-					}
-					requestedConnectionQueueMutex.Unlock();
 				}
 				else
 				{
@@ -6228,8 +6242,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			}
 			else
 				requestedConnectionQueueIndex++;
-
-			requestedConnectionQueueMutex.Lock();
 		}
 		requestedConnectionQueueMutex.Unlock();
 	}

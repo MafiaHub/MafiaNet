@@ -452,7 +452,8 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 		DWORD dwIOError = GetLastError();
 		// 10035 = WSAEWOULDBLOCK (expected for non-blocking sockets)
 		// 10054 = WSAECONNRESET (expected for UDP - prior sendto received ICMP port unreachable)
-		if (dwIOError != 10035 && dwIOError != 10054)
+		// 10060 = WSAETIMEDOUT (expected: SO_RCVTIMEO is set so the recv polling thread can re-check shutdown flags)
+		if (dwIOError != 10035 && dwIOError != 10054 && dwIOError != 10060)
 		{
 			LPVOID messageBuffer;
 			FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,

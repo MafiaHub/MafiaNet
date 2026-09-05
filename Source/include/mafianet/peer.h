@@ -42,6 +42,8 @@
 #include "LocklessTypes.h"
 #include "DS_Queue.h"
 
+#include <atomic>
+
 namespace MafiaNet {
 /// Forward declarations
 class HuffmanEncodingTree;
@@ -838,11 +840,16 @@ protected:
 	bool IsLoopbackAddress(const AddressOrGUID &systemIdentifier, bool matchPort) const;
 	SystemAddress GetLoopbackAddress(void) const;
 
-	///Set this to true to terminate the Peer thread execution 
-	volatile bool endThreads;
-	///true if the peer thread is active. 
-	volatile bool isMainLoopThreadActive;
-	
+	///Set this to true to terminate the Peer thread execution
+	std::atomic<bool> endThreads;
+	///true if the peer thread is active.
+	std::atomic<bool> isMainLoopThreadActive;
+	/// Joinable handle for the update/network thread. Shutdown() joins it so the
+	/// thread has fully exited -- with all its writes visible -- before any
+	/// connection state is torn down (issue #7).
+	RakThread::ThreadHandle updateThread;
+	bool updateThreadJoinable;
+
 	// MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 
 
