@@ -3,6 +3,21 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.18.0
+--------------
+
+**RakVoice**
+
+* **New API: ``RakVoice::SetOrderingChannels(frameChannel, controlChannel)``.** RakVoice sent every audio frame and every channel open/close control message on ordering channel 0, the channel most applications also use for their own sequenced stream. A voice frame that overtook one of the application's sequenced messages made the receiver discard that message as stale, and a lost control message held back every later sequenced message on the channel until it was retransmitted. Both channels default to 0, so existing callers keep the old behaviour. Values outside ``0..NUMBER_OF_ORDERED_STREAMS-1`` are rejected and the call returns ``false`` with both channels unchanged.
+
+* The frame channel applies to the relay-mode ``UnreliableSequenced`` send from a client to its relay host. Frames the relay host forwards, and frames sent directly between peers, go out plain ``Unreliable`` and carry no ordering channel; the relay header's per-speaker sequence number orders them, so several speakers never compete for one sequenced stream.
+
+**Documentation**
+
+* The reliability guide now explains what an ordering channel protects against -- a lost ``ReliableOrdered`` message holds back every later sequenced message on its channel, and a sequenced stream discards by channel rather than by object -- gives the layout that follows, and tables where each plugin's channel is set. Examples that put a position stream on the same channel as reliable events are corrected, and the RakVoice, RPC4, ReplicaManager3, FileListTransfer and DirectoryDeltaTransfer pages each gain an ordering-channel section.
+
+* **Non-breaking.** ``RAKNET_PROTOCOL_VERSION`` stays at 7, no message ids move, and ordering channels are a sender-side choice that any receiver decodes.
+
 Version 0.17.0
 --------------
 

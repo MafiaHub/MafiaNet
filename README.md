@@ -318,7 +318,12 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.17.0 (Latest)
+### Version 0.18.0 (Latest)
+- **New API: `RakVoice::SetOrderingChannels(frameChannel, controlChannel)`** — RakVoice sent every audio frame and every channel open/close message on ordering channel 0, where a frame overtaking the application's own sequenced message made the receiver discard that message, and a lost control message held back every later sequenced message until it was retransmitted. Both default to 0; values outside `0..NUMBER_OF_ORDERED_STREAMS-1` are rejected. The frame channel applies to the relay-mode `UnreliableSequenced` send; forwarded and direct frames stay plain `Unreliable` and carry no channel
+- **Documentation**: the reliability guide now states the two rules that decide what may share an ordering channel, gives the layout that follows, and tables where each plugin's channel is set; corrected examples, and an ordering-channel section on the RakVoice, RPC4, ReplicaManager3, FileListTransfer and DirectoryDeltaTransfer pages
+- **Non-breaking**: `RAKNET_PROTOCOL_VERSION` stays at 7, no message ids move, and ordering channels are a sender-side choice any receiver decodes
+
+### Version 0.17.0
 - **In-session path-MTU black-hole detection and recovery** — the follow-up 0.16.0 deferred. A tunnel dropping large datagrams on the *return* path only (OpenVPN's defaults do exactly this), or a path shrinking mid-session, passed the one-directional handshake probe and then hung the connection on the first split payload. The reliability layer now recognises the signature — a reliable packet unacked through its resend budget that would actually shrink if the MTU dropped a rung — steps the MTU down the same ladder the handshake probes, and re-splits every queued message that no longer fits
 - Packets that already fit the next rung never trigger a step-down, however often they are resent — ordinary packet loss cannot shrink a healthy connection's MTU
 - Stuck split messages are rebuilt from the shared data block their fragments reference and re-sent under a fresh split id with ordering indices, exact bit length and ack receipts preserved; ordered channels resume exactly where they blocked
