@@ -21,6 +21,7 @@
 #include "mafianet/PacketPriority.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/peerinterface.h"
+#include "mafianet/ReliabilityLayer.h"
 #include <stdlib.h>
 #include <cstring>
 #include "mafianet/GetTime.h"
@@ -162,10 +163,13 @@ void RakVoice::SetRelayHost(bool enable)
 	relayHost = enable;
 }
 
-void RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
+bool RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
 {
+	if (frameChannel < 0 || frameChannel >= NUMBER_OF_ORDERED_STREAMS || controlChannel < 0 || controlChannel >= NUMBER_OF_ORDERED_STREAMS)
+		return false;
 	frameOrderingChannel = frameChannel;
 	controlOrderingChannel = controlChannel;
+	return true;
 }
 
 void RakVoice::SetPerSpeakerOutput(bool enable)
@@ -287,7 +291,7 @@ void RakVoice::RelayFrame(Packet *packet, const RakNetGUID *recipients, int coun
 		// people talk at once. The relay header carries a per-speaker sequence number that
 		// already drives PLC, so ordering is handled a layer up.
 		rakPeerInterface->Send((const char*)packet->data, packet->length,
-			MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, frameOrderingChannel, recipients[i], false);
+			MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, recipients[i], false);
 	}
 }
 
@@ -654,7 +658,7 @@ void RakVoice::Update(void)
 						channel->outgoingMessageNumber++;
 
 						MafiaNet::BitStream tempOutputBs((unsigned char*)tempOutput, encodedBytes + headerSize, false);
-						SendUnified(&tempOutputBs, MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, frameOrderingChannel, channel->guid, false);
+						SendUnified(&tempOutputBs, MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, channel->guid, false);
 
 						if (loopbackMode)
 						{

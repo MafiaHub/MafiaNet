@@ -241,8 +241,11 @@ public:
 	/// \brief Sets the server that relay-mode frames are sent to.
 	void SetRelayTarget(RakNetGUID server);
 
-	/// \brief Ordering channels for outgoing audio frames and channel open/close control; both default to 0.
-	void SetOrderingChannels(char frameChannel, char controlChannel);
+	/// \brief Ordering channels for the relay-mode UnreliableSequenced frame send and the ReliableOrdered
+	/// channel open/close control messages; both default to 0. Plain Unreliable sends (the relay host's
+	/// forwarded frames, direct peer frames) carry no ordering channel and are unaffected.
+	/// \return false, leaving both unchanged, if either value is outside 0..NUMBER_OF_ORDERED_STREAMS-1.
+	bool SetOrderingChannels(char frameChannel, char controlChannel);
 
 	/// \brief Marks this peer as the relay host (the server).
 	/// A relay host never decodes: incoming ID_RAKVOICE_RELAY_DATA packets are passed
