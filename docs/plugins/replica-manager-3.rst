@@ -171,6 +171,28 @@ For runtime **dimension** scoping — separating players so they only see others
 the same virtual world (e.g. apartments) — see :doc:`virtual-worlds`, which
 provides this on top of ReplicaManager3 without per-object filtering code.
 
+Ordering Channels
+-----------------
+
+Construction, destruction and scope-change messages go out ``ReliableOrdered`` on the channel set with ``SetDefaultOrderingChannel()`` (default 0). Each of the ``RM3_NUM_OUTPUT_BITSTREAM_CHANNELS`` serialize channels is sent as its own message with the priority, reliability and ordering channel in ``SerializeParameters::pro[channel]``, which default to the manager's settings. Set them inside ``Serialize()``:
+
+.. code-block:: cpp
+
+   virtual MafiaNet::RM3SerializationResult Serialize(MafiaNet::SerializeParameters* params) override {
+       // Pose: unreliable, alone on its channel, so a lost reliable message never delays it.
+       params->outputBitstream[0].Write(position);
+       params->pro[0].reliability     = MafiaNet::Reliability::Unreliable;
+       params->pro[0].orderingChannel = 0;
+
+       // State that must arrive, reliable-ordered on another channel.
+       params->outputBitstream[1].Write(health);
+       params->pro[1].reliability     = MafiaNet::Reliability::ReliableOrdered;
+       params->pro[1].orderingChannel = 1;
+       return MafiaNet::RM3SR_BROADCAST_IDENTICALLY;
+   }
+
+Send the reliable RPCs that name replicas on the manager's default channel, so a message about an object cannot overtake its construction. Sequenced serialization shares one sequence stream per channel across every replica, so a reordered update for one replica discards every other replica's older update; with many replicas prefer ``Unreliable`` plus ``timeStamp`` ordering in ``Deserialize()``. See :ref:`ordering-channels`.
+
 See Also
 --------
 

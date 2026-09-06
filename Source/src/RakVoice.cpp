@@ -21,6 +21,7 @@
 #include "mafianet/PacketPriority.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/peerinterface.h"
+#include "mafianet/ReliabilityLayer.h"
 #include <stdlib.h>
 #include <cstring>
 #include "mafianet/GetTime.h"
@@ -68,6 +69,8 @@ RakVoice::RakVoice()
 	perSpeakerOutput = false;
 	maxDecodedSpeakers = 0;
 	relayTarget = UNASSIGNED_RAKNET_GUID;
+	frameOrderingChannel = 0;
+	controlOrderingChannel = 0;
 }
 
 RakVoice::~RakVoice()
@@ -158,6 +161,15 @@ void RakVoice::SetRelayTarget(RakNetGUID server)
 void RakVoice::SetRelayHost(bool enable)
 {
 	relayHost = enable;
+}
+
+bool RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
+{
+	if (frameChannel < 0 || frameChannel >= NUMBER_OF_ORDERED_STREAMS || controlChannel < 0 || controlChannel >= NUMBER_OF_ORDERED_STREAMS)
+		return false;
+	frameOrderingChannel = frameChannel;
+	controlOrderingChannel = controlChannel;
+	return true;
 }
 
 void RakVoice::SetPerSpeakerOutput(bool enable)
@@ -274,7 +286,7 @@ void RakVoice::RelayFrame(Packet *packet, const RakNetGUID *recipients, int coun
 	for (int i = 0; i < count; i++)
 	{
 		// Unreliable, NOT UnreliableSequenced: every relayed frame reaches the recipient from
-		// a single sender (the server) on ordering channel 0, so all speakers would share one
+		// a single sender (the server) on one ordering channel, so all speakers would share one
 		// sequence stream and whichever speaker lost the race would be discarded whenever two
 		// people talk at once. The relay header carries a per-speaker sequence number that
 		// already drives PLC, so ordering is handled a layer up.
@@ -288,7 +300,7 @@ void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
 	out.Write((int32_t)sampleRate);
-	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipient, false);
+	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, recipient, false);
 }
 
 void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
@@ -303,7 +315,7 @@ void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 	FreeChannelMemory(recipient);
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
-	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipient, false);
+	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, recipient, false);
 }
 
 void RakVoice::CloseAllChannels(void)
@@ -313,7 +325,7 @@ void RakVoice::CloseAllChannels(void)
 
 	for (unsigned index = 0; index < voiceChannels.Size(); index++)
 	{
-		SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, voiceChannels[index]->guid, false);
+		SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, voiceChannels[index]->guid, false);
 		FreeChannelMemory(index, false);
 	}
 
@@ -635,7 +647,7 @@ void RakVoice::Update(void)
 						channel->outgoingMessageNumber++;
 
 						rakPeerInterface->Send(tempOutput, encodedBytes + (int)RAKVOICE_RELAY_HEADER_SIZE,
-							MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 0, relayTarget, false);
+							MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, frameOrderingChannel, relayTarget, false);
 					}
 					else
 					{
@@ -767,7 +779,7 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 	MafiaNet::BitStream out;
 	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REPLY);
 	out.Write((int32_t)sampleRate);
-	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
+	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, packet->systemAddress, false);
 }
 
 void RakVoice::OnOpenChannelReply(Packet *packet)
