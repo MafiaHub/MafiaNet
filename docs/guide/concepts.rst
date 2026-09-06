@@ -93,13 +93,15 @@ MafiaNet supports several reliability modes:
 Ordering Channels
 -----------------
 
-Messages can be sent on different ordering channels (0-31). Messages on different channels are ordered independently.
+Messages can be sent on different ordering channels (0-31). Messages on different channels are ordered independently; on one channel a lost ``ReliableOrdered`` message holds back every later sequenced message until it is retransmitted, so a sequenced stream should never share its channel with reliable traffic.
 
 .. code-block:: cpp
 
-   // Channel 0 for game state, channel 1 for chat
-   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, address, false);  // Game state
-   peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 1, address, false);  // Chat
+   // Channel 0 for the pose stream alone, channel 1 for reliable events
+   peer->Send(&pose, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 0, address, false);
+   peer->Send(&event, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 1, address, false);
+
+Plugins send on channel 0 by default. See :ref:`ordering-channels` for the rules and where each plugin's channel is set.
 
 BitStream
 ---------

@@ -73,6 +73,11 @@ Configuration Options
 * ``GetPendingFilesToAddress()`` - Check transfer queue
 * ``SetCallbackThreadSafe()`` - Enable thread-safe callbacks
 
+Ordering Channel
+----------------
+
+``Send()`` takes the ordering channel for every chunk of the transfer. Use a channel nothing else sends on: the transfer is ``ReliableOrdered``, and a lost chunk holds back every later message on its channel until the chunk is retransmitted. See :ref:`ordering-channels`.
+
 See Also
 --------
 

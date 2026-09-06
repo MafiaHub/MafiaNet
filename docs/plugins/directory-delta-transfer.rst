@@ -75,6 +75,11 @@ Configuration Options
 * ``ClearUploads()`` - Remove all upload directories
 * ``GenerateHashes()`` - Pre-compute file hashes
 
+Ordering Channel
+----------------
+
+The downloading side passes the channel to ``DownloadFromSubdirectory()``; the serving side sets it with ``SetUploadSendParameters()``, which otherwise uploads on channel 0. Use a channel nothing else sends on: a transfer is ``ReliableOrdered``, and a lost chunk holds back every later message on its channel until it is retransmitted. See :ref:`ordering-channels`.
+
 See Also
 --------
 

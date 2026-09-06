@@ -66,7 +66,7 @@ Delivery guarantees. See :doc:`reliability-types`.
 orderingChannel
 ~~~~~~~~~~~~~~~
 
-Channel 0-31 for independent ordering streams. Messages on different channels don't block each other.
+Channel 0-31 for independent ordering streams. Messages on different channels never wait for or discard each other; messages on the same channel do, whatever their reliability. Ignored for ``Unreliable`` and ``Reliable``. See :ref:`ordering-channels`.
 
 systemIdentifier
 ~~~~~~~~~~~~~~~~
@@ -121,17 +121,21 @@ Using Ordering Channels
 
 .. code-block:: cpp
 
-   // Game state updates on channel 0
-   peer->Send(&positionUpdate, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
+   // Position updates alone on channel 0: a lost reliable message on this
+   // channel would hold them back until it is retransmitted.
+   peer->Send(&positionUpdate, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 0,
               addr, false);
 
-   // Chat messages on channel 1
+   // Chat and other reliable events on channel 1
    peer->Send(&chatMessage, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 1,
               addr, false);
 
-   // Voice data on channel 2 (doesn't need ordering)
+   // Voice data on channel 2, away from the position stream it would otherwise
+   // share a sequence with
    peer->Send(&voiceData, MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, 2,
               addr, false);
+
+Plugins send on channel 0 unless configured otherwise; see :ref:`ordering-channels` for the rules and each plugin's setting.
 
 .. _typed-send-broadcast:
 

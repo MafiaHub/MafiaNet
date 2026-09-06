@@ -83,6 +83,21 @@ Configuration
    // Set signal type hint for Opus encoder
    rakVoice.SetSignalType(OPUS_SIGNAL_VOICE);  // or OPUS_SIGNAL_MUSIC
 
+Ordering Channels
+-----------------
+
+RakVoice sends on ordering channel 0 unless told otherwise. That is the channel most applications also use for their own sequenced stream, and voice traffic interferes with it in two ways: a frame that overtakes one of the application's sequenced messages makes the receiver discard that message as stale, and a lost open/close control message holds back every later sequenced message on the channel until it is retransmitted.
+
+.. code-block:: cpp
+
+   // Before Init(): frames on one channel, open/close control on another,
+   // both away from anything the application sequences itself.
+   if (!rakVoice.SetOrderingChannels(4, 5)) {
+       // a value outside 0..NUMBER_OF_ORDERED_STREAMS-1 was rejected; both channels are unchanged
+   }
+
+The frame channel applies to the relay-mode ``UnreliableSequenced`` send from a client to its relay host. Frames the relay host forwards, and frames sent directly between peers, go out plain ``Unreliable`` and carry no ordering channel: the relay header's per-speaker sequence number orders them and drives packet-loss concealment, so several speakers never compete for one sequenced stream. The control channel carries the ``ReliableOrdered`` channel open, reply and close messages. See :ref:`ordering-channels`.
+
 Audio Backends
 --------------
 
