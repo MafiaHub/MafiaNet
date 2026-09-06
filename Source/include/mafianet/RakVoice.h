@@ -241,6 +241,9 @@ public:
 	/// \brief Sets the server that relay-mode frames are sent to.
 	void SetRelayTarget(RakNetGUID server);
 
+	/// \brief Ordering channels for outgoing audio frames and channel open/close control; both default to 0.
+	void SetOrderingChannels(char frameChannel, char controlChannel);
+
 	/// \brief Marks this peer as the relay host (the server).
 	/// A relay host never decodes: incoming ID_RAKVOICE_RELAY_DATA packets are passed
 	/// through to the application loop so they can be handed back to RelayFrame().
@@ -333,6 +336,8 @@ protected:
 	/// Concurrent relay decoders the application allows; 0 means only the memory backstop.
 	unsigned maxDecodedSpeakers;
 	RakNetGUID relayTarget;
+	char frameOrderingChannel;
+	char controlOrderingChannel;
 };
 
 } // namespace MafiaNet
