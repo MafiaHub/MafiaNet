@@ -72,6 +72,46 @@ namespace
 		return 0;
 	}
 
+	// Waits for one packet on each of two peers at once, for the stages where both sides are notified
+	// of the same event. Pumping them one at a time with PumpUntil() discards the other peer's packets
+	// while waiting on the first, so whichever notification lands first on the "wrong" peer is thrown
+	// away and the next wait times out. Returns false on timeout; on success both packets are the
+	// caller's to deallocate.
+	bool PumpUntilBoth(RakPeerInterface *first, int firstId, Packet **firstOut, RakPeerInterface *second, int secondId, Packet **secondOut, int timeoutMs)
+	{
+		*firstOut = 0;
+		*secondOut = 0;
+		TimeMS entry = GetTimeMS();
+		while (GetTimeMS() - entry < (TimeMS)timeoutMs)
+		{
+			Packet *p;
+			for (p = first->Receive(); p; p = first->Receive())
+			{
+				if (*firstOut == 0 && p->data[0] == (unsigned char)firstId)
+					*firstOut = p;
+				else
+					first->DeallocatePacket(p);
+			}
+			for (p = second->Receive(); p; p = second->Receive())
+			{
+				if (*secondOut == 0 && p->data[0] == (unsigned char)secondId)
+					*secondOut = p;
+				else
+					second->DeallocatePacket(p);
+			}
+			if (*firstOut && *secondOut)
+				return true;
+			RakSleep(15);
+		}
+		if (*firstOut)
+			first->DeallocatePacket(*firstOut);
+		if (*secondOut)
+			second->DeallocatePacket(*secondOut);
+		*firstOut = 0;
+		*secondOut = 0;
+		return false;
+	}
+
 	// True if the id shows up within the window. Used for the negative assertions, where the point
 	// is that a packet must NOT arrive.
 	bool SawWithin(RakPeerInterface *wanted, int wantedId, RakPeerInterface *alsoPump, int windowMs)
@@ -525,13 +565,12 @@ TEST_P(SessionConfigPipeline, FullConnectionLifecycleBehavesIdentically)
 	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
 	// ---- stage 1: both sides report the connection -------------------------------------------------
-	Packet *accepted = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
-	ASSERT_NE(accepted, nullptr) << "client never connected";
+	Packet *accepted = 0;
+	Packet *incoming = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, &accepted, server, ID_NEW_INCOMING_CONNECTION, &incoming, kConnectTimeoutMs)) << "the connection was not reported on both sides";
 	const RakNetGUID serverGuid = accepted->guid;
 	client->DeallocatePacket(accepted);
 
-	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
-	ASSERT_NE(incoming, nullptr) << "server never reported the connection";
 	const RakNetGUID clientGuid = incoming->guid;
 	server->DeallocatePacket(incoming);
 
@@ -601,13 +640,12 @@ TEST_P(SessionConfigPipeline, FullConnectionLifecycleBehavesIdentically)
 
 	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
-	Packet *accepted2 = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
-	ASSERT_NE(accepted2, nullptr) << "client could not reconnect";
+	Packet *accepted2 = 0;
+	Packet *incoming2 = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, &accepted2, server, ID_NEW_INCOMING_CONNECTION, &incoming2, kConnectTimeoutMs)) << "the reconnection was not reported on both sides";
 	const RakNetGUID serverGuid2 = accepted2->guid;
 	client->DeallocatePacket(accepted2);
 
-	Packet *incoming2 = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
-	ASSERT_NE(incoming2, nullptr) << "server did not report the reconnection";
 	const RakNetGUID clientGuid2 = incoming2->guid;
 	server->DeallocatePacket(incoming2);
 

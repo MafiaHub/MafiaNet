@@ -40,6 +40,8 @@
 #include <ctype.h> // toupper
 #include <string.h>
 #include "mafianet/GetTime.h"
+#include <atomic>
+#include <random>
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/MtuBlackHole.h"
 #include "mafianet/DS_HuffmanEncodingTree.h"
@@ -4892,9 +4894,23 @@ uint64_t RakPeerInterface::Get64BitUniqueRandomNumber(void)
 	return g;
 
 #else
+	// The time alone is not unique: two peers constructed within the same microsecond -- a server
+	// and a client created back to back in one process -- got the same GUID, and a peer then
+	// resolved the other's GUID to itself, so CloseConnection() and friends silently did nothing.
+	// Mix in the OS entropy source and a per-process counter.
 	struct timeval tv;
 	gettimeofday(&tv, nullptr);
-	return tv.tv_usec + tv.tv_sec * 1000000;
+	uint64_t g = (uint64_t)tv.tv_usec + (uint64_t)tv.tv_sec * 1000000;
+
+	static std::atomic<uint64_t> sequence {0};
+	std::random_device entropy;
+	g ^= ((uint64_t)entropy() << 32) ^ (uint64_t)entropy();
+	g ^= (sequence.fetch_add(1, std::memory_order_relaxed) + 1) * 0x9E3779B97F4A7C15ull;
+
+	// Neither value is a usable GUID: 0 means "not generated" and all-ones is UNASSIGNED_RAKNET_GUID.
+	if (g == 0 || g == (uint64_t)-1)
+		g = 1;
+	return g;
 #endif
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
