@@ -18,6 +18,10 @@ Version 0.19.0
 
 * ``VoiceChannel`` gains the receive-ordering state (``incomingSeeded``, ``lastEmit``, ``held``), about 20KB per channel.
 
+**Peer**
+
+* **Fix: two peers in one process no longer share a GUID on Linux and macOS.** Off Windows the GUID was ``gettimeofday()`` in microseconds and nothing else, so two peers constructed within the same microsecond -- a server and a client created back to back -- got the same one. A peer then resolved the other's GUID to itself, and ``CloseConnection()`` silently did nothing. The GUID now also mixes in ``std::random_device`` and a per-process counter, and is never 0 or ``UNASSIGNED_RAKNET_GUID``.
+
 * **Non-breaking.** ``RAKNET_PROTOCOL_VERSION`` stays at 7, no message ids move, and the relay wire format is unchanged.
 
 Version 0.18.0

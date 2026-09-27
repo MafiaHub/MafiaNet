@@ -322,6 +322,7 @@ To debug a single test, run the binary directly with a filter:
 - **RakVoice: relayed frames are put back in order before decoding** — frames used to be decoded on arrival with any gap concealed right then, so every reordering became a concealed frame plus the real one dropped as late, and a loss after a stall was concealed only after the silence it had already cost: a cut, then the decaying echo of the previous word. Frames behind a gap are now held up to 40ms for the missing one, and gaps are filled in place: from the next frame's in-band FEC, by extrapolation while it still lands in time, by silence after
 - **RakVoice: in-band FEC on** — the encoder now carries a low-bitrate copy of each previous frame, planned for 10% loss; packets stay standard Opus
 - **Fix: RakVoice seeds a speaker's receive sequence from the first frame heard** — it started at zero, so a sender whose counter had passed 32767 went silent whenever their decoder was re-created
+- **Fix: peers no longer share a GUID on Linux/macOS** — the GUID was the time in microseconds alone, so two peers created in the same microsecond collided and `CloseConnection()` on one silently did nothing; it now also mixes in `std::random_device` and a per-process counter
 - **Non-breaking**: `RAKNET_PROTOCOL_VERSION` stays at 7, no message ids move, the relay wire format is unchanged
 
 ### Version 0.18.0
