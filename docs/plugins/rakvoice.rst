@@ -12,7 +12,7 @@ RakVoice enables real-time voice communication between players using:
 - **RNNoise** for neural network-based noise suppression
 - Voice Activity Detection (VAD) via Opus DTX
 - Variable bitrate (VBR) encoding
-- Low latency transmission with packet loss concealment
+- Low latency transmission with in-band FEC and packet loss concealment
 
 RakVoice is built into the core MafiaNet library — no extra build option or
 separate extension library is needed. Its codec dependencies (Opus, RNNoise)
@@ -97,6 +97,18 @@ RakVoice sends on ordering channel 0 unless told otherwise. That is the channel 
    }
 
 The frame channel applies to the relay-mode ``UnreliableSequenced`` send from a client to its relay host. Frames the relay host forwards, and frames sent directly between peers, go out plain ``Unreliable`` and carry no ordering channel: the relay header's per-speaker sequence number orders them and drives packet-loss concealment, so several speakers never compete for one sequenced stream. The control channel carries the ``ReliableOrdered`` channel open, reply and close messages. See :ref:`ordering-channels`.
+
+Receive Ordering and Loss
+-------------------------
+
+Voice frames travel unreliable, so they can arrive out of order or not at all. Each carries its sender's sequence number, and RakVoice decodes a speaker's frames strictly in that order.
+
+- A frame behind a gap is held for up to ``RAKVOICE_REORDER_WAIT_MS`` (40ms) for the missing one, or until ``RAKVOICE_REORDER_MAX_HELD`` later frames are held. A late frame that arrives in that time is simply decoded in its place.
+- A gap that stays open is filled, so the audio after it keeps its timing. The frame just before the held one is rebuilt from that frame's in-band FEC. Any before it are extrapolated by Opus packet-loss concealment if the last frame was decoded within ``RAKVOICE_CONCEAL_WINDOW_MS``, and are silence otherwise: by then the reader may already have played the gap as silence, and an extrapolation played after that would be the decaying echo of the word before it.
+- At most ``RAKVOICE_MAX_CONCEALED_FRAMES`` are filled; the rest of a longer gap is skipped. A frame more than ``RAKVOICE_REORDER_WINDOW`` ahead restarts the stream from itself.
+- ``Update()`` settles gaps whose wait has run out, so call it every tick.
+
+A reader should keep its own playout buffer deeper than the reorder wait, and no deeper than about 200ms, which the concealment window is sized to.
 
 Audio Backends
 --------------

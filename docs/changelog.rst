@@ -3,6 +3,23 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.19.0
+--------------
+
+**RakVoice**
+
+* **Relayed frames are put back in order before they are decoded.** ``DecodeIntoChannel`` decoded each frame on arrival and concealed any sequence gap right then. On an unordered link every reordering became a concealed frame followed by the real one discarded as late, and a loss after a stall was concealed only once the next frame landed -- after the silence the stall had already cost, so the listener heard a cut followed by the decaying echo of the word before it. A frame behind a gap is now held for up to ``RAKVOICE_REORDER_WAIT_MS`` (40ms) for the missing one, or until ``RAKVOICE_REORDER_MAX_HELD`` later frames have arrived. ``Update()`` settles gaps whose wait has run out.
+
+* **Gaps are filled in place.** A gap that stays open is filled so everything after it keeps its timing. The frame right before the held one is rebuilt from that frame's in-band FEC; any before it are extrapolated while that can still land in time (``RAKVOICE_CONCEAL_WINDOW_MS``, 250ms since the last decoded frame), and silence after, with the decoder reset rather than left to extrapolate from a word the listener may have heard cut off. At most ``RAKVOICE_MAX_CONCEALED_FRAMES`` are filled; the rest of a longer gap is skipped.
+
+* **In-band FEC is on.** The encoder now sets ``OPUS_SET_INBAND_FEC(1)`` and plans for ``RAKVOICE_FEC_LOSS_PERCENT`` (10%) loss, so each frame carries a low-bitrate copy of the one before it. Packets stay standard Opus: an older receiver decodes them as before and ignores the extra data.
+
+* **Fix: a speaker's receive sequence is seeded from the first frame heard.** It started at zero, so every frame of a sender whose counter had passed 32767 -- about eleven minutes of talking -- read as late and was dropped until the counter wrapped. That happened whenever a decoder was re-created: after the 30s relay reap, or after eviction under ``SetMaxDecodedSpeakers``.
+
+* ``VoiceChannel`` gains the receive-ordering state (``incomingSeeded``, ``lastEmit``, ``held``), about 20KB per channel.
+
+* **Non-breaking.** ``RAKNET_PROTOCOL_VERSION`` stays at 7, no message ids move, and the relay wire format is unchanged.
+
 Version 0.18.0
 --------------
 

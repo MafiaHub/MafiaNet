@@ -318,7 +318,13 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.18.0 (Latest)
+### Version 0.19.0 (Latest)
+- **RakVoice: relayed frames are put back in order before decoding** — frames used to be decoded on arrival with any gap concealed right then, so every reordering became a concealed frame plus the real one dropped as late, and a loss after a stall was concealed only after the silence it had already cost: a cut, then the decaying echo of the previous word. Frames behind a gap are now held up to 40ms for the missing one, and gaps are filled in place: from the next frame's in-band FEC, by extrapolation while it still lands in time, by silence after
+- **RakVoice: in-band FEC on** — the encoder now carries a low-bitrate copy of each previous frame, planned for 10% loss; packets stay standard Opus
+- **Fix: RakVoice seeds a speaker's receive sequence from the first frame heard** — it started at zero, so a sender whose counter had passed 32767 went silent whenever their decoder was re-created
+- **Non-breaking**: `RAKNET_PROTOCOL_VERSION` stays at 7, no message ids move, the relay wire format is unchanged
+
+### Version 0.18.0
 - **New API: `RakVoice::SetOrderingChannels(frameChannel, controlChannel)`** — RakVoice sent every audio frame and every channel open/close message on ordering channel 0, where a frame overtaking the application's own sequenced message made the receiver discard that message, and a lost control message held back every later sequenced message until it was retransmitted. Both default to 0; values outside `0..NUMBER_OF_ORDERED_STREAMS-1` are rejected. The frame channel applies to the relay-mode `UnreliableSequenced` send; forwarded and direct frames stay plain `Unreliable` and carry no channel
 - **Documentation**: the reliability guide now states the two rules that decide what may share an ordering channel, gives the layout that follows, and tables where each plugin's channel is set; corrected examples, and an ordering-channel section on the RakVoice, RPC4, ReplicaManager3, FileListTransfer and DirectoryDeltaTransfer pages
 - **Non-breaking**: `RAKNET_PROTOCOL_VERSION` stays at 7, no message ids move, and ordering channels are a sender-side choice any receiver decodes
