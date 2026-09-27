@@ -76,6 +76,49 @@ constexpr MafiaNet::TimeMS RAKVOICE_RELAY_EVICT_IDLE_MS = 200;
 // than the speaker timeout the client layer applies on top, so the two do not fight.
 constexpr MafiaNet::TimeMS RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS = 30000;
 
+// --- Receive ordering (DecodeIntoChannel) -------------------------------------------------
+//
+// Voice frames travel unreliable, so they arrive out of order or not at all. Decoding each on
+// arrival turns every reordering into a concealed frame followed by the real one discarded as
+// late, and conceals a loss after a stall only once the next frame lands -- after the silence
+// the stall already cost, as the decaying echo of the word before. So frames behind a gap are
+// held briefly for the missing one, and a gap that stays open is filled in place: from the
+// next frame's in-band FEC where it can be, by extrapolation while that still lands in time,
+// and by silence once it would not.
+
+// A frame held behind a gap waits this long for the missing one before the gap is settled.
+// Short against any sensible playout depth, or the wait itself would run it dry.
+constexpr MafiaNet::TimeMS RAKVOICE_REORDER_WAIT_MS = 40;
+
+// Frames held behind a gap that settle it without waiting: Update() flushes two or three frames
+// per datagram, so a fourth means a later datagram has already landed and the missing frame is
+// lost rather than late.
+constexpr unsigned RAKVOICE_REORDER_MAX_HELD = 4;
+
+// How far ahead of the next expected frame one may land and still be held. Beyond it the stream
+// is taken to have moved on, and ordering restarts from that frame.
+constexpr unsigned RAKVOICE_REORDER_WINDOW = 16;
+
+// Longest run of missing frames that is filled; the rest of a longer gap is skipped.
+constexpr unsigned RAKVOICE_MAX_CONCEALED_FRAMES = 5;
+
+// A gap settled later than this after the previous frame was decoded is filled with silence
+// rather than extrapolated. By then the reader may well have run dry and played the gap as
+// silence already, and an extrapolation played after that cut is the decaying echo of the
+// word before it. The gap is still filled, not skipped: a reader that did not run dry would
+// otherwise lose that much depth and run dry a moment later instead. Sized past the deepest
+// playout buffer a reader should keep (~200ms) plus the reorder wait: anything shorter turns
+// ordinary jitter into silence while the reader still had audio to play.
+constexpr MafiaNet::TimeMS RAKVOICE_CONCEAL_WINDOW_MS = 250;
+
+// Largest Opus packet one 20ms frame can produce (RFC 6716, 3.4). A held frame's storage.
+constexpr unsigned RAKVOICE_MAX_FRAME_PAYLOAD = 1275;
+
+// The loss rate the encoder plans its in-band FEC for. Each frame then carries a
+// low-bitrate copy of the one before it, which the receiver decodes when that one is lost
+// -- a real reconstruction rather than an extrapolation.
+constexpr int RAKVOICE_FEC_LOSS_PERCENT = 10;
+
 /// \internal
 struct VoiceChannel
 {
@@ -107,6 +150,22 @@ struct VoiceChannel
 	MafiaNet::TimeMS lastSend;
 	// When we last decoded a frame into this channel. Drives the relay-mode reap in Update().
 	MafiaNet::TimeMS lastDecode;
+
+	// Receive ordering. incomingMessageNumber is the next frame expected; it is seeded from the
+	// first frame heard, whatever its number, since the sender's counter has been running since
+	// they joined.
+	struct HeldFrame
+	{
+		bool valid;
+		unsigned short sequence;
+		unsigned short bytes;
+		MafiaNet::TimeMS arrival;
+		unsigned char payload[RAKVOICE_MAX_FRAME_PAYLOAD];
+	};
+	bool incomingSeeded;
+	// When a frame was last handed to the output, decoded or concealed.
+	MafiaNet::TimeMS lastEmit;
+	HeldFrame held[RAKVOICE_REORDER_WINDOW];
 };
 int VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data );
 
@@ -305,6 +364,14 @@ protected:
 	void WriteOutputToChannel(VoiceChannel *channel, char *dataToWrite, int bytesToWrite);
 	void DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMessageNumber,
 		const unsigned char *payload, unsigned payloadLength);
+	/// Decodes held frames that are next in line.
+	void DrainHeldFrames(VoiceChannel *channel, MafiaNet::TimeMS now);
+	/// Settles gaps whose wait is up by filling them in place.
+	void SettleHeldFrames(VoiceChannel *channel, MafiaNet::TimeMS now);
+	/// Writes one frame of silence into the channel's output.
+	void WriteSilenceToChannel(VoiceChannel *channel);
+	/// Decodes one frame into the channel's output; a null payload conceals one instead.
+	void DecodeFrame(VoiceChannel *channel, const unsigned char *payload, unsigned payloadLength, bool fec);
 	VoiceChannel *GetOrCreateChannel(RakNetGUID origin);
 	void OnRelayVoiceData(Packet *packet);
 

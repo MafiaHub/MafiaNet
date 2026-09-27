@@ -546,6 +546,10 @@ void RakVoice::Update(void)
 		}
 	}
 
+	// A gap behind the last frame of a burst must not wait for the next burst to be noticed.
+	for (i = 0; i < voiceChannels.Size(); i++)
+		SettleHeldFrames(voiceChannels[i], currentTime);
+
 	for (i = 0; i < voiceChannels.Size(); i++)
 	{
 		channel = voiceChannels[i];
@@ -864,6 +868,11 @@ void RakVoice::OpenChannel(Packet *packet)
 		opus_encoder_ctl(channel->encoder, OPUS_SET_SIGNAL(defaultSignalType));
 		if (defaultBitrate > 0)
 			opus_encoder_ctl(channel->encoder, OPUS_SET_BITRATE(defaultBitrate));
+
+		// In-band FEC: every frame carries a low-bitrate copy of the one before, which
+		// DecodeIntoChannel's receiver decodes when that one never arrives.
+		opus_encoder_ctl(channel->encoder, OPUS_SET_INBAND_FEC(1));
+		opus_encoder_ctl(channel->encoder, OPUS_SET_PACKET_LOSS_PERC(RAKVOICE_FEC_LOSS_PERCENT));
 	}
 
 	// Create RNNoise denoiser (only works well at 48kHz)
@@ -889,6 +898,10 @@ void RakVoice::OpenChannel(Packet *packet)
 	// next Update() call.
 	channel->lastDecode = MafiaNet::GetTimeMS();
 	channel->incomingMessageNumber = 0;
+	channel->incomingSeeded = false;
+	channel->lastEmit = 0;
+	for (unsigned slot = 0; slot < RAKVOICE_REORDER_WINDOW; slot++)
+		channel->held[slot].valid = false;
 
 	voiceChannels.Insert(packet->guid, channel, true, _FILE_AND_LINE_);
 }
@@ -1020,48 +1033,168 @@ void RakVoice::OnVoiceData(Packet *packet)
 void RakVoice::DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMessageNumber,
 	const unsigned char *payload, unsigned payloadLength)
 {
-	unsigned short messagesSkipped;
-	short decodedBuffer[960 * 2]; // Max frame size for 48kHz
+	const MafiaNet::TimeMS now = MafiaNet::GetTimeMS();
 
 	// Liveness stamp for the relay-mode reap in Update(). Unused on the non-relay path.
-	channel->lastDecode = MafiaNet::GetTimeMS();
+	channel->lastDecode = now;
+
+	if (payloadLength == 0 || payloadLength > RAKVOICE_MAX_FRAME_PAYLOAD)
+		return;
+
+	// The first frame heard defines where the stream is. Seeding from zero instead would read
+	// every frame of a sender whose counter has passed 32767 as late, and drop them all.
+	if (channel->incomingSeeded == false)
+	{
+		channel->incomingSeeded = true;
+		channel->incomingMessageNumber = packetMessageNumber;
+	}
 
 	// Intentional overflow for sequence handling
-	messagesSkipped = packetMessageNumber - channel->incomingMessageNumber;
-	if (messagesSkipped > ((unsigned short)-1) / 2)
+	const unsigned short ahead = packetMessageNumber - channel->incomingMessageNumber;
+
+	// Already decoded or concealed.
+	if (ahead > ((unsigned short)-1) / 2)
+		return;
+
+	// Too far ahead to be a reordering: the stream moved on while we were not hearing it.
+	// Nothing held can still be played in order, so start again from this frame.
+	if (ahead >= RAKVOICE_REORDER_WINDOW)
 	{
-		// Underflow, ignore
+		for (unsigned slot = 0; slot < RAKVOICE_REORDER_WINDOW; slot++)
+			channel->held[slot].valid = false;
+		opus_decoder_ctl(channel->decoder, OPUS_RESET_STATE);
+		channel->incomingMessageNumber = packetMessageNumber;
+	}
+
+	if (packetMessageNumber == channel->incomingMessageNumber)
+	{
+		DecodeFrame(channel, payload, payloadLength, false);
+		channel->incomingMessageNumber++;
+		channel->lastEmit = now;
+		DrainHeldFrames(channel, now);
 		return;
 	}
 
-	// Handle missing packets with PLC (Packet Loss Concealment)
-	int maxSkip = (int)(100.0f / (1000.0f / 50.0f)); // Max 100ms of missing audio
-	int decodedFrameSize = GetFrameSizeSamples(channel->remoteSampleRate);
+	VoiceChannel::HeldFrame &slot = channel->held[packetMessageNumber % RAKVOICE_REORDER_WINDOW];
+	if (slot.valid && slot.sequence == packetMessageNumber)
+		return;
 
-	for (unsigned i = 0; i < (unsigned)messagesSkipped && i < (unsigned)maxSkip; i++)
+	slot.valid = true;
+	slot.sequence = packetMessageNumber;
+	slot.bytes = (unsigned short)payloadLength;
+	slot.arrival = now;
+	memcpy(slot.payload, payload, payloadLength);
+
+	SettleHeldFrames(channel, now);
+}
+
+void RakVoice::DrainHeldFrames(VoiceChannel *channel, MafiaNet::TimeMS now)
+{
+	for (;;)
 	{
-		// Use Opus PLC by passing NULL for the packet
-		int samples = opus_decode(channel->decoder, nullptr, 0, decodedBuffer, decodedFrameSize, 0);
-		if (samples > 0)
-		{
-			WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
-		}
+		VoiceChannel::HeldFrame &slot = channel->held[channel->incomingMessageNumber % RAKVOICE_REORDER_WINDOW];
+		if (slot.valid == false || slot.sequence != channel->incomingMessageNumber)
+			return;
+
+		slot.valid = false;
+		DecodeFrame(channel, slot.payload, slot.bytes, false);
+		channel->incomingMessageNumber++;
+		channel->lastEmit = now;
 	}
+}
 
-	channel->incomingMessageNumber = packetMessageNumber + 1;
+void RakVoice::SettleHeldFrames(VoiceChannel *channel, MafiaNet::TimeMS now)
+{
+	if (channel->decoder == nullptr)
+		return;
 
-	// Decode the actual packet
-	int samples = opus_decode(channel->decoder,
-	                          payload,
-	                          payloadLength,
-	                          decodedBuffer,
-	                          decodedFrameSize,
-	                          0);
+	for (;;)
+	{
+		// The nearest held frame bounds the gap; the oldest decides whether its wait is up.
+		unsigned short gap = RAKVOICE_REORDER_WINDOW;
+		unsigned held = 0;
+		unsigned nearest = 0;
+		MafiaNet::TimeMS oldest = now;
+		for (unsigned index = 0; index < RAKVOICE_REORDER_WINDOW; index++)
+		{
+			const VoiceChannel::HeldFrame &slot = channel->held[index];
+			if (slot.valid == false)
+				continue;
+
+			held++;
+			const unsigned short ahead = slot.sequence - channel->incomingMessageNumber;
+			if (ahead < gap)
+			{
+				gap = ahead;
+				nearest = index;
+			}
+			if (slot.arrival < oldest)
+				oldest = slot.arrival;
+		}
+
+		if (held == 0)
+			return;
+
+		if (held < RAKVOICE_REORDER_MAX_HELD && now - oldest < RAKVOICE_REORDER_WAIT_MS)
+			return;
+
+		// The missing frames are filled in place, so everything after them keeps its timing.
+		// In time they are extrapolated from the audio before; late, they are silence and the
+		// decoder starts clean, since what it would extrapolate from may be a word the listener
+		// heard cut off. The frame right before the held one is rebuilt from that frame's
+		// in-band FEC either way: that is the real audio, not a guess. A gap longer than the
+		// run allowed is filled up to it and the rest is skipped.
+		const bool inTime = now - channel->lastEmit <= RAKVOICE_CONCEAL_WINDOW_MS;
+		const bool whole = gap <= RAKVOICE_MAX_CONCEALED_FRAMES;
+		const unsigned filled = whole ? gap - 1u : RAKVOICE_MAX_CONCEALED_FRAMES;
+
+		if (inTime == false)
+			opus_decoder_ctl(channel->decoder, OPUS_RESET_STATE);
+
+		for (unsigned i = 0; i < filled; i++)
+		{
+			if (inTime)
+				DecodeFrame(channel, nullptr, 0, false);
+			else
+				WriteSilenceToChannel(channel);
+		}
+
+		if (whole)
+		{
+			const VoiceChannel::HeldFrame &next = channel->held[nearest];
+			DecodeFrame(channel, next.payload, next.bytes, true);
+		}
+		else
+		{
+			opus_decoder_ctl(channel->decoder, OPUS_RESET_STATE);
+		}
+
+		channel->incomingMessageNumber += gap;
+		channel->lastEmit = now;
+		DrainHeldFrames(channel, now);
+	}
+}
+
+void RakVoice::WriteSilenceToChannel(VoiceChannel *channel)
+{
+	short silence[960 * 2] = {};
+	WriteOutputToChannel(channel, (char*)silence, GetFrameSizeSamples(channel->remoteSampleRate) * SAMPLESIZE);
+}
+
+void RakVoice::DecodeFrame(VoiceChannel *channel, const unsigned char *payload, unsigned payloadLength, bool fec)
+{
+	short decodedBuffer[960 * 2]; // Max frame size for 48kHz
+	const int decodedFrameSize = GetFrameSizeSamples(channel->remoteSampleRate);
+
+	int samples = opus_decode(channel->decoder, payload, (opus_int32)payloadLength, decodedBuffer, decodedFrameSize, fec ? 1 : 0);
+
+	// A frame the codec rejects is concealed rather than dropped, so the stream keeps its length
+	// and the frames after it stay where they belong.
+	if (samples <= 0 && payload != nullptr)
+		samples = opus_decode(channel->decoder, nullptr, 0, decodedBuffer, decodedFrameSize, 0);
 
 	if (samples > 0)
-	{
 		WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
-	}
 }
 
 VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)

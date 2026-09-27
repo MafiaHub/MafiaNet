@@ -207,6 +207,8 @@ namespace {
         using RakVoice::GetOrCreateChannel;
         using RakVoice::OnOpenChannelReply;
         using RakVoice::OnReceive;
+        using RakVoice::DecodeIntoChannel;
+        using RakVoice::SettleHeldFrames;
         unsigned OpenChannelCount() const {
             return voiceChannels.Size();
         }
@@ -355,4 +357,166 @@ TEST(RakVoiceOpenChannel, EmptyPacketDoesNotReadPastTheBuffer) {
 
     EXPECT_EQ(voice.OnReceive(&p), RR_CONTINUE_PROCESSING);
     voice.Deinit();
+}
+
+// --- Receive ordering -------------------------------------------------------
+//
+// Relayed frames arrive unordered and unreliable. Each case counts the frames the
+// channel hands to its reader after every packet: a frame held behind a gap adds
+// nothing until the gap is settled, where decoding on arrival would add a concealed
+// frame at once and then discard the real one as late.
+
+namespace {
+    // A CELT-only 20ms fullband TOC byte and a byte of payload: enough for the decoder to
+    // return one frame, which is all these cases count.
+    const unsigned char kFrame[] = {0xF8, 0x80};
+
+    unsigned DrainFrames(RakVoice &voice, RakNetGUID origin) {
+        short frame[960];
+        unsigned count = 0;
+        while (voice.ReceiveFrameFrom(origin, frame)) {
+            count++;
+        }
+        return count;
+    }
+
+    struct OrderingFixture {
+        RelayChannelProbe voice;
+        RakNetGUID origin {0x5000ull};
+        VoiceChannel *channel = nullptr;
+
+        OrderingFixture() {
+            voice.Init(48000, 960 * sizeof(short));
+            channel = voice.GetOrCreateChannel(origin);
+        }
+
+        ~OrderingFixture() {
+            voice.Deinit();
+        }
+
+        unsigned Push(unsigned short sequence) {
+            voice.DecodeIntoChannel(channel, sequence, kFrame, sizeof(kFrame));
+            return DrainFrames(voice, origin);
+        }
+
+        unsigned Settle(MafiaNet::TimeMS now) {
+            voice.SettleHeldFrames(channel, now);
+            return DrainFrames(voice, origin);
+        }
+    };
+} // namespace
+
+TEST(RakVoiceOrdering, DecodesInOrderFramesStraightAway) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(10), 1u);
+    EXPECT_EQ(f.Push(11), 1u);
+    EXPECT_EQ(f.Push(12), 1u);
+}
+
+TEST(RakVoiceOrdering, SeedsFromTheFirstFrameHoweverFarTheCounterHasRun) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    // Seeded from zero, 40000 reads as 25536 frames late and every frame is dropped.
+    EXPECT_EQ(f.Push(40000), 1u);
+    EXPECT_EQ(f.Push(40001), 1u);
+}
+
+TEST(RakVoiceOrdering, HoldsAFrameBehindAGapAndPlaysTheSwappedPairInOrder) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    EXPECT_EQ(f.Push(3), 0u);
+    EXPECT_EQ(f.Push(2), 2u);
+    EXPECT_EQ(f.channel->incomingMessageNumber, 4);
+}
+
+TEST(RakVoiceOrdering, ConcealsALostFrameInPlaceOnceTheWaitIsUp) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    EXPECT_EQ(f.Push(3), 0u);
+
+    const MafiaNet::TimeMS held = f.channel->held[3 % RAKVOICE_REORDER_WINDOW].arrival;
+    EXPECT_EQ(f.Settle(held + RAKVOICE_REORDER_WAIT_MS - 1), 0u);
+
+    // In time: the missing frame is rebuilt, then the held one plays.
+    f.channel->lastEmit = held;
+    EXPECT_EQ(f.Settle(held + RAKVOICE_REORDER_WAIT_MS), 2u);
+    EXPECT_EQ(f.Push(2), 0u);
+}
+
+TEST(RakVoiceOrdering, SettlesWithoutWaitingOnceEnoughLaterFramesAreHeld) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    unsigned out = 0;
+    for (unsigned short sequence = 3; sequence < 3 + RAKVOICE_REORDER_MAX_HELD; sequence++) {
+        out += f.Push(sequence);
+    }
+    EXPECT_EQ(out, 1u + RAKVOICE_REORDER_MAX_HELD);
+}
+
+TEST(RakVoiceOrdering, FillsALateGapWithSilenceRatherThanAnEcho) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    EXPECT_EQ(f.Push(4), 0u);
+
+    // A stall: the last frame went out longer ago than extrapolation can still land in place.
+    const MafiaNet::TimeMS held = f.channel->held[4 % RAKVOICE_REORDER_WINDOW].arrival;
+    f.channel->lastEmit = held - RAKVOICE_CONCEAL_WINDOW_MS - 1 - RAKVOICE_REORDER_WAIT_MS;
+    f.voice.SettleHeldFrames(f.channel, held + RAKVOICE_REORDER_WAIT_MS);
+
+    // Frame 2 is silence, frame 3 is rebuilt from 4's FEC, then 4 itself: the gap keeps its
+    // length, so whatever the reader had buffered stays in step.
+    short frame[960];
+    ASSERT_TRUE(f.voice.ReceiveFrameFrom(f.origin, frame));
+    bool silent = true;
+    for (short sample : frame) {
+        silent = silent && sample == 0;
+    }
+    EXPECT_TRUE(silent);
+    EXPECT_EQ(DrainFrames(f.voice, f.origin), 2u);
+}
+
+TEST(RakVoiceOrdering, ConcealsAtMostTheConfiguredRun) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    EXPECT_EQ(f.Push(12), 0u);
+
+    const MafiaNet::TimeMS held = f.channel->held[12 % RAKVOICE_REORDER_WINDOW].arrival;
+    f.channel->lastEmit = held;
+    EXPECT_EQ(f.Settle(held + RAKVOICE_REORDER_WAIT_MS), RAKVOICE_MAX_CONCEALED_FRAMES + 1u);
+    EXPECT_EQ(f.channel->incomingMessageNumber, 13);
+}
+
+TEST(RakVoiceOrdering, RestartsFromAFrameTooFarAheadToBeAReordering) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    EXPECT_EQ(f.Push(1 + RAKVOICE_REORDER_WINDOW + 4), 1u);
+    EXPECT_EQ(f.Push(2 + RAKVOICE_REORDER_WINDOW + 4), 1u);
+}
+
+TEST(RakVoiceOrdering, FollowsTheSequenceAcrossItsWrap) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(65534), 1u);
+    EXPECT_EQ(f.Push(0), 0u);
+    EXPECT_EQ(f.Push(65535), 2u);
+    EXPECT_EQ(f.Push(1), 1u);
+}
+
+TEST(RakVoiceOrdering, DropsAFrameThatArrivesAfterItsGapWasSettled) {
+    OrderingFixture f;
+    ASSERT_NE(f.channel, nullptr);
+    EXPECT_EQ(f.Push(1), 1u);
+    EXPECT_EQ(f.Push(3), 0u);
+    const MafiaNet::TimeMS held = f.channel->held[3 % RAKVOICE_REORDER_WINDOW].arrival;
+    f.channel->lastEmit = held;
+    EXPECT_EQ(f.Settle(held + RAKVOICE_REORDER_WAIT_MS), 2u);
+    EXPECT_EQ(f.Push(2), 0u);
+    EXPECT_EQ(f.Push(4), 1u);
 }
