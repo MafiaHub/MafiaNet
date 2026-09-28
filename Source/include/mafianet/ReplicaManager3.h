@@ -374,8 +374,8 @@ protected:
 	// Used to lookup in Replica3LSRComp. I don't want to rely on GetNetworkID() in case it changes at runtime
 	uint32_t nextReferenceIndex;
 
-	// For O(1) lookup
-	RM3World *worldsArray[255];
+	// For O(1) lookup. One slot per WorldId value: an id read off the wire indexes it before it is checked.
+	RM3World *worldsArray[256];
 	// For fast traversal
 	DataStructures::List<RM3World *> worldsList;
 private:

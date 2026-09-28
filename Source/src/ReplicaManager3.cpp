@@ -93,7 +93,7 @@ ReplicaManager3::ReplicaManager3()
 	autoDestroyConnections=true;
 	currentlyDeallocatingReplica=0;
 
-	for (unsigned int i=0; i < 255; i++)
+	for (unsigned int i=0; i < sizeof(worldsArray) / sizeof(worldsArray[0]); i++)
 		worldsArray[i]=0;
 
 	AddWorld(0);
@@ -688,6 +688,21 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 	}
 	worldsArray[worldId]=0;
 
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+WorldId ReplicaManager3::GetWorldIdAtIndex(unsigned int index)
+{
+	RakAssert(index < worldsList.Size());
+	return worldsList[index]->worldId;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+unsigned int ReplicaManager3::GetWorldCount(void) const
+{
+	return worldsList.Size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
