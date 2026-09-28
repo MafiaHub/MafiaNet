@@ -318,7 +318,14 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.19.0 (Latest)
+### Version 0.20.0 (Latest)
+- **Fix: ReplicaManager3 sends no message for a channel group with nothing to send** — a state-only change on a replica with an unreliable pose channel also sent an empty unreliable pose message; channels are now grouped by send parameters and a group goes out only when it carries selected data
+- **Fix: ReplicaManager3 world 255** — the world table had 255 slots for a byte-sized id, so a packet naming world 255 read past it; `GetWorldCount()` and `GetWorldIdAtIndex()`, declared but never defined, now link
+- **New API: `TwoWayAuthentication::SetTimeout()`** — one timeout for both the outgoing challenge and the nonce it answers (default 5s, now exact); every expired nonce is removed at once instead of one per update
+- **New API: `StatisticsHistoryPlugin::SetSampleInterval()`** — a minimum time between samples, so a busy receive loop no longer samples every connection per packet; 0 keeps the old behaviour
+- **Non-breaking on the wire**: `RAKNET_PROTOCOL_VERSION` stays at 7, no message ids move, serialize messages keep their layout; rebuild against the new headers
+
+### Version 0.19.0
 - **RakVoice: relayed frames are put back in order before decoding** — frames used to be decoded on arrival with any gap concealed right then, so every reordering became a concealed frame plus the real one dropped as late, and a loss after a stall was concealed only after the silence it had already cost: a cut, then the decaying echo of the previous word. Frames behind a gap are now held up to 40ms for the missing one, and gaps are filled in place: from the next frame's in-band FEC, by extrapolation while it still lands in time, by silence after
 - **RakVoice: in-band FEC on** — the encoder now carries a low-bitrate copy of each previous frame, planned for 10% loss; packets stay standard Opus
 - **Fix: RakVoice seeds a speaker's receive sequence from the first frame heard** — it started at zero, so a sender whose counter had passed 32767 went silent whenever their decoder was re-created

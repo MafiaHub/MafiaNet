@@ -3,6 +3,33 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.20.0
+--------------
+
+**ReplicaManager3**
+
+* **Fix: no message for a channel group with nothing to send.** ``Connection_RM3::SendSerialize`` split the channels into messages wherever neighbouring channels had different send parameters, and sent every message it opened. A state-only change on a replica with an unreliable pose channel and a reliable state channel also sent an empty unreliable message for the pose channel. Channels are now grouped by their send parameters wherever they sit, and a group is sent only when one of its channels is selected and carries data. Channels that share parameters without being adjacent now share one message.
+
+* **Fix: world 255 has a slot.** ``worldsArray`` held 255 entries for a ``uint8_t`` ``WorldId``, and ``OnReceive`` indexes it with the world id read off the wire before checking it, so a packet naming world 255 read past the array.
+
+* **Fix: ``GetWorldCount()`` and ``GetWorldIdAtIndex()`` are defined.** Both were declared in the public header and never implemented, so any caller failed to link.
+
+**TwoWayAuthentication**
+
+* **New API: ``SetTimeout()`` / ``GetTimeout()``.** One value bounds both how long a ``Challenge()`` waits for its answer and how long a nonce handed to another system stays redeemable, so the two ends of a handshake cannot disagree. The default, ``TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS``, is five seconds; challenges used to time out after three to six. Expiry is now exact rather than checked every three seconds.
+
+* **Fix: every expired nonce is removed at once.** ``NonceGenerator::Update`` removed at most one per call, so a busy peer kept expired nonces long past their lifetime. It now takes the lifetime as an argument.
+
+**StatisticsHistoryPlugin**
+
+* **New API: ``SetSampleInterval()``.** RakPeer updates every plugin on each ``Receive()``, so a busy receive loop sampled every connection once per packet. The interval sets a minimum time between samples; the default, 0, samples on every update as before.
+
+**Documentation**
+
+* The TwoWayAuthentication page listed setters that do not exist; the statistics guide attached ``StatisticsHistory``, which is not a plugin. Both are corrected.
+
+* **Non-breaking on the wire.** ``RAKNET_PROTOCOL_VERSION`` stays at 7, no message ids move, and ReplicaManager3 serialize messages keep their layout. ``NonceGenerator::Update`` gains a parameter and ``ReplicaManager3``'s layout changes, so code built against 0.19 must be rebuilt.
+
 Version 0.19.0
 --------------
 
