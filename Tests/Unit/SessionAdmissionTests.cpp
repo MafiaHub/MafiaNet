@@ -44,7 +44,7 @@ namespace
 		return counts;
 	}
 
-	class PeerFixture : public ::testing::Test
+	class SessionAdmissionPeer : public ::testing::Test
 	{
 	public:
 		void SetUp() override
@@ -193,7 +193,7 @@ TEST(SessionAdmission, MatchesAReferenceModelOverRandomInputs)
 
 // ---- the peer API is inert where it has nothing to act on --------------------------------------------------
 
-TEST_F(PeerFixture, PendingSessionLimitsCanBeSetBeforeStartup)
+TEST_F(SessionAdmissionPeer, PendingSessionLimitsCanBeSetBeforeStartup)
 {
 	peer->SetMaximumPendingSessions(16, 2);
 	peer->SetMaximumPendingSessions(0, 5);
@@ -202,14 +202,14 @@ TEST_F(PeerFixture, PendingSessionLimitsCanBeSetBeforeStartup)
 	SUCCEED();
 }
 
-TEST_F(PeerFixture, SessionStatusToAnUnknownSystemIsANoOp)
+TEST_F(SessionAdmissionPeer, SessionStatusToAnUnknownSystemIsANoOp)
 {
 	peer->SendSessionStatus(UNASSIGNED_SYSTEM_ADDRESS, "queued", 6);
 	peer->SendSessionStatus(UNASSIGNED_RAKNET_GUID, 0, 0);
 	SUCCEED();
 }
 
-TEST_F(PeerFixture, SessionStatusOnAStartedPeerWithNoConnectionsIsANoOp)
+TEST_F(SessionAdmissionPeer, SessionStatusOnAStartedPeerWithNoConnectionsIsANoOp)
 {
 	SocketDescriptor sd(0, "127.0.0.1");
 	ASSERT_EQ(peer->Startup(4, &sd, 1), RAKNET_STARTED);
