@@ -318,7 +318,15 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.20.0 (Latest)
+### Version 0.21.0 (Latest)
+- **New API: `SetMaximumPendingSessions(total, perAddress)`** — peers still in the session handshake count against a pool of their own, with a per-IP share, instead of against the incoming limit, so stalled or slow handshakes (an interactive server checking a whitelist, a queue) never take a player's slot or count as connected; a handshake may start on a full server, and an accept past the limit is refused. 0, the default, keeps the previous accounting
+- **New API: `SetSessionTimeout()`** — how long a session handshake waits for its answer, on either end, instead of the connection timeout
+- **New API: `SendSessionStatus()` / `ID_SESSION_CONFIG_STATUS`** — tell a peer awaiting a decision what is happening; restarts the session timeout on both ends
+- **New: `ID_SESSION_CONFIG_ABANDONED`** — the server is told when a request it was holding goes away unanswered
+- **New guide: Admission and Queues** — the pool, timeouts, status and a complete queue
+- **Wire-compatible**: `RAKNET_PROTOCOL_VERSION` stays at 7 and both new ids take reserved slots, so no other id moves; `RakPeerInterface` gains virtuals, so rebuild against the new headers
+
+### Version 0.20.0
 - **Fix: ReplicaManager3 sends no message for a channel group with nothing to send** — a state-only change on a replica with an unreliable pose channel also sent an empty unreliable pose message; channels are now grouped by send parameters and a group goes out only when it carries selected data
 - **Fix: ReplicaManager3 world 255** — the world table had 255 slots for a byte-sized id, so a packet naming world 255 read past it; `GetWorldCount()` and `GetWorldIdAtIndex()`, declared but never defined, now link
 - **New API: `TwoWayAuthentication::SetTimeout()`** — one timeout for both the outgoing challenge and the nonce it answers (default 5s, now exact); every expired nonce is removed at once instead of one per update
