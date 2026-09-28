@@ -717,6 +717,9 @@ StatisticsHistoryPlugin::StatisticsHistoryPlugin()
 	addNewConnections = true;
 	removeLostConnections = true;
 	newConnectionsObjectType = 0;
+	sampleIntervalMs = 0;
+	lastSampleTime = 0;
+	hasSampled = false;
 }
 StatisticsHistoryPlugin::~StatisticsHistoryPlugin()
 {
@@ -727,14 +730,31 @@ void StatisticsHistoryPlugin::SetTrackConnections(bool _addNewConnections, int _
 	removeLostConnections = _removeLostConnections;
 	newConnectionsObjectType = _newConnectionsObjectType;
 }
+void StatisticsHistoryPlugin::SetSampleInterval(Time intervalMs)
+{
+	sampleIntervalMs = intervalMs;
+}
+void StatisticsHistoryPlugin::OnRakPeerShutdown(void)
+{
+	hasSampled = false;
+}
 void StatisticsHistoryPlugin::Update(void)
 {
+	UpdateAt(GetTime());
+}
+bool StatisticsHistoryPlugin::UpdateAt(Time curTime)
+{
+	// A clock that stepped backwards samples at once rather than stalling until it catches up.
+	if (hasSampled && curTime >= lastSampleTime && curTime - lastSampleTime < sampleIntervalMs)
+		return false;
+	hasSampled = true;
+	lastSampleTime = curTime;
+
 	DataStructures::List<SystemAddress> addresses;
 	DataStructures::List<RakNetGUID> guids;
 	DataStructures::List<RakNetStatistics> stats;
 	rakPeerInterface->GetStatisticsList(addresses, guids, stats);
 
-	Time curTime = GetTime();
 	for (unsigned int idx = 0; idx < guids.Size(); idx++)
 	{
 		unsigned int objectIndex = statistics.GetObjectIndex(guids[idx].g);
@@ -797,6 +817,7 @@ void StatisticsHistoryPlugin::Update(void)
 
 	}
 	*/
+	return true;
 }
 /*
 void StatisticsHistoryPlugin::OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)

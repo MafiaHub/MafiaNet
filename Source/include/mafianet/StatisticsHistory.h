@@ -216,9 +216,20 @@ public:
 	StatisticsHistoryPlugin();
 	virtual ~StatisticsHistoryPlugin();
 	void SetTrackConnections(bool _addNewConnections, int newConnectionsObjectType, bool _removeLostConnections);
-	
+
+	/// \brief Sets the minimum time between two samples of the connection statistics
+	/// \details RakPeer updates every plugin on each Receive() call, so an application draining a busy
+	/// receive queue would otherwise sample every connection once per packet. 0 (the default) samples
+	/// on every update.
+	void SetSampleInterval(Time intervalMs);
+
+	/// \internal Samples when \a curTime is at least the sample interval past the previous sample.
+	/// \return Whether a sample was taken
+	bool UpdateAt(Time curTime);
+
 protected:
 	virtual void Update(void);
+	virtual void OnRakPeerShutdown(void);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 
@@ -231,6 +242,9 @@ protected:
 	bool addNewConnections;
 	bool removeLostConnections;
 	int newConnectionsObjectType;
+	Time sampleIntervalMs;
+	Time lastSampleTime;
+	bool hasSampled;
 };
 
 } // namespace MafiaNet

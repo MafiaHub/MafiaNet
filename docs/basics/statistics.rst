@@ -168,9 +168,13 @@ For tracking statistics over time, use the StatisticsHistory plugin:
 
    #include "mafianet/StatisticsHistory.h"
 
-   MafiaNet::StatisticsHistory* statsHistory =
-       MafiaNet::StatisticsHistory::GetInstance();
+   MafiaNet::StatisticsHistoryPlugin* statsHistory =
+       MafiaNet::StatisticsHistoryPlugin::GetInstance();
    peer->AttachPlugin(statsHistory);
+
+   // RakPeer updates plugins on every Receive(), so a busy receive loop would
+   // otherwise sample every connection once per packet.
+   statsHistory->SetSampleInterval(100);
 
    // Later, query historical data
    // ...
