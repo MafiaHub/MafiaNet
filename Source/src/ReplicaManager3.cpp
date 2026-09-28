@@ -1589,18 +1589,20 @@ void Connection_RM3::ClearDownloadGroup(RakPeerInterface *rakPeerInterface)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, MafiaNet::Time curTime)
 {
-	bool channelHasData;
-	BitSize_t sum=0;
+	// A channel goes out only when it is selected and holds data. The selection is what counts: a
+	// replica's cached broadcast record keeps the bytes of channels it no longer selects.
+	bool pending[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+	bool anyPending=false;
 	for (int z=0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 	{
-		if (indicesToSend[z])
-			sum+=serializationData[z].GetNumberOfBitsUsed();
+		pending[z]=indicesToSend[z] && serializationData[z].GetNumberOfBitsUsed()>0;
+		anyPending=anyPending || pending[z];
 	}
 
 	MafiaNet::BitStream out;
 	BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
 
-	if (sum==0)
+	if (anyPending==false)
 	{
 		memset(bitsPerChannel, 0, sizeof(bitsPerChannel));
 		replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
@@ -1609,75 +1611,41 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *r
 
 	RakAssert(replica->GetNetworkID()!=UNASSIGNED_NETWORK_ID);
 
-	BitSize_t bitsUsed;
-
-	int channelIndex;
-	PRO lastPro=sendParameters[0];
-
-	for (channelIndex=0; channelIndex < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channelIndex++)
+	// One message per distinct set of send parameters, in channel order. Channels that share their
+	// parameters share the message; a group with nothing to carry is never sent, so a state-only
+	// change no longer costs an empty message on the channel before it.
+	for (int first=0; first < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; first++)
 	{
-		if (channelIndex==0)
+		if (pending[first]==false)
+			continue;
+
+		const PRO pro=sendParameters[first];
+		SendSerializeHeader(replica, timestamp, &out, worldId);
+		for (int z=0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
-			SendSerializeHeader(replica, timestamp, &out, worldId);
-		}
-		else if (lastPro!=sendParameters[channelIndex])
-		{
-			// Write out remainder
-			for (int channelIndex2=channelIndex; channelIndex2 < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channelIndex2++)
+			const bool channelHasData = pending[z] && sendParameters[z]==pro;
+			out.Write(channelHasData);
+			if (channelHasData)
 			{
-				bitsPerChannel[channelIndex2]=0;
-				out.Write(false);
+				bitsPerChannel[z] = serializationData[z].GetNumberOfBitsUsed();
+				out.WriteCompressed(bitsPerChannel[z]);
+				out.AlignWriteToByteBoundary();
+				out.Write(serializationData[z]);
+				// The same bitstream is written again for the next connection.
+				serializationData[z].ResetReadPointer();
+				pending[z]=false;
 			}
-
-			// Send remainder
-			replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
-			rakPeer->Send(&out,lastPro.priority,lastPro.reliability,lastPro.orderingChannel,systemAddress,false,lastPro.sendReceipt);
-
-			// If no data left to send, quit out
-			bool anyData=false;
-			for (int channelIndex2=channelIndex; channelIndex2 < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channelIndex2++)
+			else
 			{
-				if (serializationData[channelIndex2].GetNumberOfBitsUsed()>0)
-				{
-					anyData=true;
-					break;
-				}
+				bitsPerChannel[z] = 0;
 			}
-			if (anyData==false)
-				return SSICR_SENT_DATA;
-
-			// Restart stream
-			SendSerializeHeader(replica, timestamp, &out, worldId);
-
-			for (int channelIndex2=0; channelIndex2 < channelIndex; channelIndex2++)
-			{
-				bitsPerChannel[channelIndex2]=0;
-				out.Write(false);
-			}
-			lastPro=sendParameters[channelIndex];
 		}
-
-		bitsUsed=serializationData[channelIndex].GetNumberOfBitsUsed();
-		channelHasData = indicesToSend[channelIndex]==true && bitsUsed>0;
-		out.Write(channelHasData);
-		if (channelHasData)
-		{
-			bitsPerChannel[channelIndex] = bitsUsed;
-			out.WriteCompressed(bitsUsed);
-			out.AlignWriteToByteBoundary();
-			out.Write(serializationData[channelIndex]);
-			// Crap, forgot this line, was a huge bug in that I'd only send to the first 3 systems
-			serializationData[channelIndex].ResetReadPointer();
-		}
-		else
-		{
-			bitsPerChannel[channelIndex] = 0;
-		}
+		replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
+		rakPeer->Send(&out,pro.priority,pro.reliability,pro.orderingChannel,systemAddress,false,pro.sendReceipt);
 	}
-	replica->OnSerializeTransmission(&out, this, bitsPerChannel, curTime);
-	rakPeer->Send(&out,lastPro.priority,lastPro.reliability,lastPro.orderingChannel,systemAddress,false,lastPro.sendReceipt);
 	return SSICR_SENT_DATA;
 }
+
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 

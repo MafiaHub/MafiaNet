@@ -174,7 +174,7 @@ provides this on top of ReplicaManager3 without per-object filtering code.
 Ordering Channels
 -----------------
 
-Construction, destruction and scope-change messages go out ``ReliableOrdered`` on the channel set with ``SetDefaultOrderingChannel()`` (default 0). Each of the ``RM3_NUM_OUTPUT_BITSTREAM_CHANNELS`` serialize channels is sent as its own message with the priority, reliability and ordering channel in ``SerializeParameters::pro[channel]``, which default to the manager's settings. Set them inside ``Serialize()``:
+Construction, destruction and scope-change messages go out ``ReliableOrdered`` on the channel set with ``SetDefaultOrderingChannel()`` (default 0). Serialize channels are sent with the priority, reliability and ordering channel in ``SerializeParameters::pro[channel]``, which default to the manager's settings; channels with the same settings share one message, and a channel with nothing selected to send costs no message. Set them inside ``Serialize()``:
 
 .. code-block:: cpp
 
