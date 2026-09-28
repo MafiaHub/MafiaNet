@@ -42,6 +42,7 @@ MafiaNet Documentation
 
    guide/concepts
    guide/client-server
+   guide/admission-queue
    guide/peer-to-peer
    guide/plugins
 

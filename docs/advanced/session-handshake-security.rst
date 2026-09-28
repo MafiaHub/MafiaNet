@@ -101,9 +101,19 @@ such defences should keep the timeout short and treat ``SetMaximumIncomingConnec
 real bound.
 
 **Interactive mode extends the window.** With interactive mode on, how long a peer can hold a slot
-depends on how quickly the application answers. Answer from the ``Receive()`` loop rather than
-deferring behind slow work such as a database lookup or an HTTP call; if validation must be slow,
-reject fast and let the peer retry rather than holding the handshake open.
+depends on how quickly the application answers. Without a pending pool, answer from the ``Receive()``
+loop rather than deferring behind slow work such as a database lookup or an HTTP call; if validation
+must be slow, reject fast and let the peer retry rather than holding the handshake open.
+
+**A pending pool takes the handshake out of the player slots.** ``SetMaximumPendingSessions(total,
+perAddress)`` counts every peer that is not yet connected -- from its first open-connection request,
+not only once it sends its payload -- against ``total`` instead of against
+``SetMaximumIncomingConnections()``, and bounds how many of them one IP may hold. A flood of stalled
+or slow handshakes then exhausts the pool and is refused there, while connected players keep their
+slots and the connected count (``NumberOfConnections()``) never includes a peer that is only
+waiting. This is what makes slow, interactive admission safe to deploy. ``SetSessionTimeout()`` still
+bounds how long any one of them may wait, and ``ID_SESSION_CONFIG_ABANDONED`` lets the application
+drop the work it was doing for one that left. See :doc:`../guide/admission-queue`.
 
 Not addressed here
 ------------------

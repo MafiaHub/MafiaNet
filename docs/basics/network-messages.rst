@@ -59,6 +59,14 @@ Exchanged after the transport connection is established but before either side r
      - Server to client: the connection was refused after inspecting the client's payload. The
        client reports ``ID_CONNECTION_ATTEMPT_FAILED`` with the reason at ``data + 1``. Ignored if
        a client sends it to a server.
+   * - ``ID_SESSION_CONFIG_STATUS``
+     - Server to client, while an interactive server decides: the payload of ``SendSessionStatus()``
+       at ``data + 1``, surfaced to the connecting application before any connection is reported.
+       Restarts the session timeout on both ends. Ignored if a client sends it to a server.
+   * - ``ID_SESSION_CONFIG_ABANDONED``
+     - Server only: a request the application was holding went away unanswered (the client left,
+       the transport dropped, or the session timeout passed). Carries the request's guid; answering
+       it afterwards does nothing.
 
 .. note::
 

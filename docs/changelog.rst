@@ -3,6 +3,25 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+**RakPeer: session handshake for admission control**
+
+* **New API: ``SetMaximumPendingSessions(total, perAddress)``.** A peer in the session handshake used to count against ``SetMaximumIncomingConnections()``, so peers that stalled it -- or an interactive server still deciding on them -- took the slots meant for players. With a pool, every remote-initiated peer that is not yet ``CONNECTED``, from its first open-connection request on, counts against ``total`` instead, and at most ``perAddress`` of them may come from one IP. The incoming limit then bounds ``CONNECTED`` peers only: a handshake may start on a full server, so an interactive server can queue, and an ``AcceptSession()`` that would exceed the limit refuses the peer instead. ``Startup()``'s ``maxConnections`` must leave room for both. ``total`` 0, the default, keeps the previous accounting exactly.
+
+* **New API: ``SetSessionTimeout()``.** Bounds how long a session handshake waits for its answer, on either end, instead of the connection timeout. 0, the default, keeps using the connection timeout.
+
+* **New API: ``SendSessionStatus()`` and ``ID_SESSION_CONFIG_STATUS``.** An interactive server can tell a peer awaiting its decision what is happening ("checking the whitelist", a queue position). The client receives it before any connection is reported, and it restarts the session timeout on both ends. A client cannot push one at a server.
+
+* **New: ``ID_SESSION_CONFIG_ABANDONED``.** An interactive server is told when a request it was holding goes away unanswered -- the client left, the transport dropped, or the session timeout passed -- so it can drop the decision it was working on. Sent once, never for a request the application answered.
+
+* **New header: ``SessionAdmission.h``.** The slot accounting as pure functions, unit tested directly.
+
+* **New guide: Admission and Queues.** How the pool, the session timeout, status and abandonment fit together, with a complete queue.
+
+* **Wire-compatible.** ``RAKNET_PROTOCOL_VERSION`` stays at 7; both message ids take reserved slots (``ID_RESERVED_6`` and ``ID_RESERVED_7``), so every other id keeps its value. ``RakPeerInterface`` gains virtual functions, so code built against 0.20 must be rebuilt.
+
 Version 0.20.0
 --------------
 

@@ -316,8 +316,35 @@ While the decision is outstanding the connection stays unreported on both sides.
 ``packet->data + 1``, and no connection is ever reported anywhere.
 
 A peer that is never answered is timed out like any other incomplete connection attempt, using the
-timeout set by :cpp:func:`MafiaNet::RakPeerInterface::SetTimeoutTime`. During the exchange ``GetConnectionState()`` reports
-``IS_CONNECTING``.
+timeout set by :cpp:func:`MafiaNet::RakPeerInterface::SetTimeoutTime`, or the one set by
+:cpp:func:`MafiaNet::RakPeerInterface::SetSessionTimeout` when there is one. During the exchange
+``GetConnectionState()`` reports ``IS_CONNECTING``. If it goes away before it is answered, the server
+receives ``ID_SESSION_CONFIG_ABANDONED`` for it.
+
+Holding peers while deciding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A decision that takes time -- a database lookup, a queue -- should not cost a player slot. With a
+pending pool, peers still in the handshake are counted against a budget of their own instead of
+against the incoming limit, which then bounds connected peers only:
+
+.. code-block:: cpp
+
+   server->SetSessionConfigInteractive(true);
+   server->SetMaximumPendingSessions(32, 4);        // 32 may wait, at most 4 from one IP
+   server->SetSessionTimeout(45000);                // how long an answer may take
+   server->Startup(maxPlayers + 32, &sd, 1);        // room for both
+   server->SetMaximumIncomingConnections(maxPlayers);
+
+   // While deciding, tell the peer what is happening; this also restarts the timeout on both ends.
+   server->SendSessionStatus(guid, "You are 3rd in the queue", 24);
+
+A handshake may start while the server is full, which is what makes a queue possible. An
+``AcceptSession()`` that would exceed the incoming limit refuses the peer instead, so check
+``NumberOfConnections()`` before accepting and refuse with a reason of your own. The client should
+call ``SetSessionTimeout()`` too, generously: whichever end gives up first ends the attempt.
+
+:doc:`../guide/admission-queue` walks through a complete queue built on this.
 
 .. note::
 
@@ -329,4 +356,5 @@ See Also
 --------
 
 * :doc:`startup` - Starting MafiaNet
+* :doc:`../guide/admission-queue` - Admission checks and queues before a connection exists
 * :doc:`../advanced/debugging-disconnects` - Troubleshooting connection issues
