@@ -88,10 +88,13 @@ Configuration Options
 ---------------------
 
 * ``AddPassword()`` - Register valid credentials
-* ``RemovePassword()`` - Remove credentials
 * ``Challenge()`` - Initiate authentication
-* ``SetChallengeSendInterval()`` - Retry timing
-* ``SetChallengeTimeout()`` - Failure timeout
+* ``SetTimeout()`` - How long one handshake may take, 5 seconds by default. It
+  bounds both how long a ``Challenge()`` waits for its answer before
+  ``ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT`` and how long a nonce
+  handed to the other system stays redeemable, so raise it on both ends when a
+  peer may stall for longer
+* ``Clear()`` - Forget every password and pending challenge
 
 See Also
 --------

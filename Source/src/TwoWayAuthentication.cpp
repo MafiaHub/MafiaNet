@@ -46,6 +46,12 @@ enum NegotiationIdentifiers
 	ID_HASHED_NONCE_AND_PASSWORD,
 };
 
+// A clock that stepped backwards never expires anything.
+static bool HasExpired(MafiaNet::Time curTime, MafiaNet::Time since, MafiaNet::Time lifetimeMs)
+{
+	return curTime >= since && curTime - since >= lifetimeMs;
+}
+
 TwoWayAuthentication::NonceGenerator::NonceGenerator() {nextRequestId=0;}
 TwoWayAuthentication::NonceGenerator::~NonceGenerator()
 {
@@ -114,18 +120,34 @@ void TwoWayAuthentication::NonceGenerator::ClearByAddress(MafiaNet::AddressOrGUI
 		}
 	}
 }
-void TwoWayAuthentication::NonceGenerator::Update(MafiaNet::Time curTime)
+void TwoWayAuthentication::NonceGenerator::Update(MafiaNet::Time curTime, MafiaNet::Time lifetimeMs)
 {
-	if (generatedNonces.Size()>0 && GreaterThan(curTime-5000, generatedNonces[0]->whenGenerated))
+	// Generated in time order, so the expired ones are a prefix. All of them go: removing one per
+	// call let a busy peer keep nonces far past their lifetime.
+	unsigned int expired=0;
+	while (expired < generatedNonces.Size() && HasExpired(curTime, generatedNonces[expired]->whenGenerated, lifetimeMs))
 	{
-		MafiaNet::OP_DELETE(generatedNonces[0], _FILE_AND_LINE_);
-		generatedNonces.RemoveAtIndex(0);
+		MafiaNet::OP_DELETE(generatedNonces[expired], _FILE_AND_LINE_);
+		expired++;
 	}
+	if (expired==0)
+		return;
+	for (unsigned int i=expired; i < generatedNonces.Size(); i++)
+		generatedNonces[i-expired]=generatedNonces[i];
+	generatedNonces.RemoveFromEnd(expired);
 }
 TwoWayAuthentication::TwoWayAuthentication()
 {
-	whenLastTimeoutCheck= MafiaNet::GetTime();
+	timeoutMs=TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS;
 	seedMT(MafiaNet::GetTimeMS());
+}
+void TwoWayAuthentication::SetTimeout(MafiaNet::Time _timeoutMs)
+{
+	timeoutMs=_timeoutMs;
+}
+MafiaNet::Time TwoWayAuthentication::GetTimeout(void) const
+{
+	return timeoutMs;
 }
 TwoWayAuthentication::~TwoWayAuthentication()
 {
@@ -170,19 +192,17 @@ bool TwoWayAuthentication::Challenge(MafiaNet::RakString identifier, AddressOrGU
 }
 void TwoWayAuthentication::Update(void)
 {
-	MafiaNet::Time curTime = MafiaNet::GetTime();
-	nonceGenerator.Update(curTime);
-	if (GreaterThan(curTime - CHALLENGE_MINIMUM_TIMEOUT, whenLastTimeoutCheck))
+	UpdateTimeouts(MafiaNet::GetTime());
+}
+void TwoWayAuthentication::UpdateTimeouts(MafiaNet::Time curTime)
+{
+	nonceGenerator.Update(curTime, timeoutMs);
+	while (outgoingChallenges.Size() && HasExpired(curTime, outgoingChallenges.Peek().time, timeoutMs))
 	{
-		while (outgoingChallenges.Size() && GreaterThan(curTime - CHALLENGE_MINIMUM_TIMEOUT, outgoingChallenges.Peek().time))
-		{
-			PendingChallenge pc = outgoingChallenges.Pop();
+		PendingChallenge pc = outgoingChallenges.Pop();
 
-			// Tell the user about the timeout
-			PushToUser(ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT, pc.identifier, pc.remoteSystem);					
-		}
-
-		whenLastTimeoutCheck=curTime+CHALLENGE_MINIMUM_TIMEOUT;
+		// Tell the user about the timeout
+		PushToUser(ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT, pc.identifier, pc.remoteSystem);
 	}
 }
 PluginReceiveResult TwoWayAuthentication::OnReceive(Packet *packet)

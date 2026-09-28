@@ -28,8 +28,10 @@
 
 // How often to change the nonce.
 #define NONCE_TIMEOUT_MS 10000
-// How often to check for ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT, and the minimum timeout time. Maximum is double this value.
+// Deprecated and unused: challenge and nonce timeouts are now exact, see TwoWayAuthentication::SetTimeout().
 #define CHALLENGE_MINIMUM_TIMEOUT 3000
+// Default for TwoWayAuthentication::SetTimeout().
+#define TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS 5000
 
 #if LIBCAT_SECURITY==1
 // From CPP FILE:
@@ -89,11 +91,25 @@ public:
 	/// \return True on success, false on remote system not connected, or identifier not previously added with AddPassword()
 	bool Challenge(MafiaNet::RakString identifier, AddressOrGUID remoteSystem);
 
+	/// \brief Sets how long one challenge/response handshake may take
+	/// \details Covers both halves of the handshake, so they cannot disagree: how long an outgoing
+	/// Challenge() waits for its answer before ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT,
+	/// and how long a nonce handed to another system stays redeemable. Raise it on both ends when a
+	/// peer may stall for longer than TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS; raising it on one end
+	/// alone still loses the handshake to the other end's shorter window.
+	/// \param[in] timeoutMs Milliseconds, measured from Challenge() and from nonce generation
+	void SetTimeout(MafiaNet::Time timeoutMs);
+
+	/// \return The value set by SetTimeout()
+	MafiaNet::Time GetTimeout(void) const;
+
 	/// \brief Free all memory
 	void Clear(void);
 
 	/// \internal
 	virtual void Update(void);
+	/// \internal Expires every challenge and nonce older than the timeout at \a curTime.
+	void UpdateTimeouts(MafiaNet::Time curTime);
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	/// \internal
@@ -130,7 +146,7 @@ public:
 		bool GetNonceById(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short requestId, MafiaNet::AddressOrGUID remoteSystem, bool popIfFound);
 		void Clear(void);
 		void ClearByAddress(MafiaNet::AddressOrGUID remoteSystem);
-		void Update(MafiaNet::Time curTime);
+		void Update(MafiaNet::Time curTime, MafiaNet::Time lifetimeMs);
 
 		DataStructures::List<TwoWayAuthentication::NonceAndRemoteSystemRequest*> generatedNonces;
 		unsigned short nextRequestId;
@@ -141,7 +157,7 @@ protected:
 	// Key is identifier, data is password
 	DataStructures::Hash<MafiaNet::RakString, MafiaNet::RakString, 16, MafiaNet::RakString::ToInteger > passwords;
 
-	MafiaNet::Time whenLastTimeoutCheck;
+	MafiaNet::Time timeoutMs;
 
 	NonceGenerator nonceGenerator;
 
