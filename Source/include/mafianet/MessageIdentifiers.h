@@ -439,8 +439,16 @@ enum DefaultMessageIDTypes
 	/// inspecting the client's session payload. Byte 1 onward is the reason string passed to
 	/// RejectSession(). The client reports ID_CONNECTION_ATTEMPT_FAILED.
 	ID_SESSION_CONFIG_REJECTED,
-	ID_RESERVED_6,
-	ID_RESERVED_7,
+	/// RakPeer - Server->client while an interactive server holds the session handshake: a status the
+	/// server application sent with SendSessionStatus() ("checking the whitelist", a queue position).
+	/// Byte 1 onward is the payload, opaque to MafiaNet. Surfaced to the connecting application only,
+	/// before any connection is reported, and restarts the session timeout on both ends.
+	ID_SESSION_CONFIG_STATUS,
+	/// RakPeer - Server only: a peer whose ID_SESSION_CONFIG_REQUEST the application was holding went away
+	/// before AcceptSession()/RejectSession() -- it disconnected, was lost, or the session timeout passed.
+	/// The guid is the one the request carried; no connection was ever reported for it, and answering it
+	/// now does nothing.
+	ID_SESSION_CONFIG_ABANDONED,
 	ID_RESERVED_8,
 	ID_RESERVED_9,
 

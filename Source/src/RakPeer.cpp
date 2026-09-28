@@ -22,6 +22,7 @@
 
 #include "mafianet/defines.h"
 #include "mafianet/peer.h"
+#include "mafianet/SessionAdmission.h"
 #include "mafianet/types.h"
 
 #ifdef _WIN32
@@ -245,6 +246,9 @@ RakPeer::RakPeer()
 	isMainLoopThreadActive = false;
 	incomingDatagramEventHandler=0;
 	sessionConfigInteractive=false;
+	maximumPendingSessions=0;
+	maximumPendingSessionsPerAddress=0;
+	sessionTimeout=0;
 
 
 
@@ -2436,13 +2440,41 @@ void RakPeer::RejectSession( const AddressOrGUID systemIdentifier, const char *r
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SetMaximumPendingSessions( unsigned short total, unsigned short perAddress )
+{
+	maximumPendingSessions = total;
+	maximumPendingSessionsPerAddress = total != 0 ? perAddress : 0;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SetSessionTimeout( MafiaNet::TimeMS timeMS )
+{
+	sessionTimeout = timeMS;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SendSessionStatus( const AddressOrGUID systemIdentifier, const char *data, unsigned int length )
+{
+	RakAssert(length <= MAXIMUM_SESSION_CONFIG_SIZE);
+	if (length > MAXIMUM_SESSION_CONFIG_SIZE)
+		length = MAXIMUM_SESSION_CONFIG_SIZE;
+	QueueSessionCommand(systemIdentifier, BufferedCommandStruct::BCS_SESSION_STATUS, data, length);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Hand an application's accept/reject over to the network thread. Applying it here would send on the
 // connection and mutate connectMode from the user thread, which the rest of RakPeer never does.
 void RakPeer::QueueSessionDecision( const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length )
 {
+	QueueSessionCommand(systemIdentifier, accept ? BufferedCommandStruct::BCS_SESSION_ACCEPT : BufferedCommandStruct::BCS_SESSION_REJECT, data, length);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::QueueSessionCommand( const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length )
+{
 	BufferedCommandStruct *bcs;
 	bcs=bufferedCommands.Allocate( _FILE_AND_LINE_ );
-	bcs->command = accept ? BufferedCommandStruct::BCS_SESSION_ACCEPT : BufferedCommandStruct::BCS_SESSION_REJECT;
+	bcs->command = (decltype(bcs->command)) command;
 	bcs->systemIdentifier = systemIdentifier;
 	bcs->numberOfBitsToSend = BYTES_TO_BITS(length);
 	bcs->broadcast = false;
@@ -3847,6 +3879,24 @@ void RakPeer::ProduceWithheldConnectionPacket( RemoteSystemStruct *remoteSystem,
 	AddPacketToProducer(packet);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::ProduceSessionAbandoned( RemoteSystemStruct *remoteSystem )
+{
+	if (remoteSystem==0 || remoteSystem->weInitiatedTheConnection || remoteSystem->sessionConfigAwaitingLocalDecision==false)
+		return;
+
+	// Once only: the flag is what made the request the application's to answer.
+	remoteSystem->sessionConfigAwaitingLocalDecision=false;
+
+	Packet *packet=AllocPacket(sizeof(MessageID), _FILE_AND_LINE_);
+	packet->data[0]=(unsigned char)ID_SESSION_CONFIG_ABANDONED;
+	packet->bitSize=sizeof(MessageID)*8;
+	packet->systemAddress=remoteSystem->systemAddress;
+	packet->systemAddress.systemIndex=remoteSystem->remoteSystemIndex;
+	packet->guid=remoteSystem->guid;
+	packet->guid.systemIndex=packet->systemAddress.systemIndex;
+	AddPacketToProducer(packet);
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Server side of the session handshake: answer the client's request, promote the connection to
 // CONNECTED and release the ID_NEW_INCOMING_CONNECTION that was withheld.
 void RakPeer::SendSessionConfigResponse( RemoteSystemStruct *remoteSystem, const char *data, unsigned int length )
@@ -4376,19 +4426,59 @@ bool RakPeer::AllowIncomingConnections(void) const
 	if ( remoteSystemList == 0 || endThreads == true )
 		return false;
 
-	unsigned int occupied = 0;
+	return AllowIncomingConnection(UNASSIGNED_SYSTEM_ADDRESS);
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::AllowIncomingConnection(const SystemAddress &address) const
+{
+	if ( remoteSystemList == 0 || endThreads == true )
+		return false;
+
+	SessionAdmission::Limits limits;
+	limits.maxIncoming = GetMaximumIncomingConnections();
+	limits.maxPending = maximumPendingSessions;
+	limits.maxPendingPerAddress = maximumPendingSessionsPerAddress;
+
+	SessionAdmission::Counts counts;
+	CountRemoteInitiatedPeers(address, counts.connected, counts.exchanging, counts.pending, counts.pendingFromAddress);
+	return SessionAdmission::MayStartConnecting(limits, counts);
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// A pending peer is one that asked to connect and is not CONNECTED yet: still proving the transport
+// (UNVERIFIED_SENDER, HANDLING_CONNECTION_REQUEST) or in the session handshake. A peer being torn down is
+// in none of these, so a refusal frees its share of the pool at once rather than after the ack.
+void RakPeer::CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &connected, unsigned int &exchanging, unsigned int &pending, unsigned int &pendingFromAddress) const
+{
+	connected = exchanging = pending = pendingFromAddress = 0;
 	for (unsigned int i=0; i < activeSystemListSize; i++)
 	{
-		if ((activeSystemList[i])->isActive &&
-			((activeSystemList[i])->connectMode==RakPeer::RemoteSystemStruct::CONNECTED ||
-			 (activeSystemList[i])->connectMode==RakPeer::RemoteSystemStruct::EXCHANGING_SESSION_DATA) &&
-			(activeSystemList[i])->weInitiatedTheConnection==false
-			)
+		const RemoteSystemStruct *system = activeSystemList[i];
+		if (!system->isActive || system->weInitiatedTheConnection)
+			continue;
+
+		switch (system->connectMode)
 		{
-			occupied++;
+		case RemoteSystemStruct::CONNECTED:
+			connected++;
+			break;
+		case RemoteSystemStruct::EXCHANGING_SESSION_DATA:
+			exchanging++;
+			// fallthrough: a peer in the handshake is pending too
+		case RemoteSystemStruct::UNVERIFIED_SENDER:
+		case RemoteSystemStruct::HANDLING_CONNECTION_REQUEST:
+			pending++;
+			if (address!=UNASSIGNED_SYSTEM_ADDRESS && system->systemAddress.EqualsExcludingPort(address))
+				pendingFromAddress++;
+			break;
+		default:
+			break;
 		}
 	}
-	return occupied < GetMaximumIncomingConnections();
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+MafiaNet::TimeMS RakPeer::GetSessionTimeoutFor(RemoteSystemStruct *remoteSystem) const
+{
+	return sessionTimeout != 0 ? sessionTimeout : remoteSystem->reliabilityLayer.GetTimeoutTime();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
@@ -5728,7 +5818,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				return true;
 			}
 
-			if (rakPeer->AllowIncomingConnections()==false)
+			if (rakPeer->AllowIncomingConnection(systemAddress)==false)
 			{
 				bsOut.Write((MessageID)ID_NO_FREE_INCOMING_CONNECTIONS);
 				bsOut.WriteAlignedBytes((const unsigned char*) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
@@ -6036,9 +6126,44 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 				sessionSystem->sessionConfigAwaitingLocalDecision = false;
 				const unsigned int sessionPayloadLength = (unsigned int) BITS_TO_BYTES(bcs->numberOfBitsToSend);
 				if (bcs->command==BufferedCommandStruct::BCS_SESSION_ACCEPT)
-					SendSessionConfigResponse(sessionSystem, bcs->data, sessionPayloadLength);
+				{
+					// With a pending pool the handshake may have started while the server was full, so the
+					// incoming limit is enforced here. The application should check first; this is the backstop
+					// that keeps two accepts racing one free slot from both getting it.
+					SessionAdmission::Limits limits;
+					limits.maxIncoming = GetMaximumIncomingConnections();
+					limits.maxPending = maximumPendingSessions;
+					limits.maxPendingPerAddress = maximumPendingSessionsPerAddress;
+					SessionAdmission::Counts counts;
+					CountRemoteInitiatedPeers(UNASSIGNED_SYSTEM_ADDRESS, counts.connected, counts.exchanging, counts.pending, counts.pendingFromAddress);
+					if (SessionAdmission::MayAccept(limits, counts))
+						SendSessionConfigResponse(sessionSystem, bcs->data, sessionPayloadLength);
+					else
+						SendSessionConfigRejection(sessionSystem, 0, 0);
+				}
 				else
 					SendSessionConfigRejection(sessionSystem, bcs->data, sessionPayloadLength);
+			}
+			if (bcs->data)
+				rakFree_Ex(bcs->data, _FILE_AND_LINE_ );
+		}
+		else if (bcs->command==BufferedCommandStruct::BCS_SESSION_STATUS)
+		{
+			// Only a server peer still awaiting its application's decision may be told anything, and telling
+			// it restarts the session timer here as well as on the client when it arrives.
+			RemoteSystemStruct *sessionSystem = GetRemoteSystem( bcs->systemIdentifier, true, true );
+			if (sessionSystem && sessionSystem->isActive &&
+				sessionSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA &&
+				sessionSystem->sessionConfigAwaitingLocalDecision &&
+				sessionSystem->sessionConfigIsConnectingSide==false)
+			{
+				MafiaNet::BitStream statusStream;
+				statusStream.Write((MessageID)ID_SESSION_CONFIG_STATUS);
+				const unsigned int statusLength = (unsigned int) BITS_TO_BYTES(bcs->numberOfBitsToSend);
+				if (bcs->data && statusLength > 0)
+					statusStream.Write(bcs->data, statusLength);
+				SendImmediate((char*)statusStream.GetData(), statusStream.GetNumberOfBitsUsed(), MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, sessionSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
+				sessionSystem->sessionConfigStartTime = MafiaNet::GetTimeMS();
 			}
 			if (bcs->data)
 				rakFree_Ex(bcs->data, _FILE_AND_LINE_ );
@@ -6320,6 +6445,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			{
 			//	RAKNET_DEBUG_PRINTF("timeMS=%i remoteSystem->connectionTime=%i\n", timeMS, remoteSystem->connectionTime );
 
+				// Before the close notification logic: a held session request is not a reported connection, but
+				// the application is holding a decision for it and has to learn it will never be needed.
+				ProduceSessionAbandoned(remoteSystem);
+
 				// Failed.  Inform the user?
 				// TODO - RakNet 4.0 - Return a different message identifier for DISCONNECT_ASAP_SILENTLY and DISCONNECT_ASAP than for DISCONNECT_ON_NO_ACK
 				// The first two mean we called CloseConnection(), the last means the other system sent us ID_DISCONNECTION_NOTIFICATION
@@ -6388,7 +6517,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			if ( remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA &&
 				remoteSystem->sessionConfigStartTime!=0 &&
 				timeMS > remoteSystem->sessionConfigStartTime &&
-				timeMS - remoteSystem->sessionConfigStartTime > remoteSystem->reliabilityLayer.GetTimeoutTime() )
+				timeMS - remoteSystem->sessionConfigStartTime > GetSessionTimeoutFor(remoteSystem) )
 			{
 				// Only the connecting side reports a failure; a server just drops the half-open slot.
 				if (remoteSystem->sessionConfigIsConnectingSide)
@@ -6401,6 +6530,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					timeoutPacket->guid=remoteSystem->guid;
 					timeoutPacket->guid.systemIndex=timeoutPacket->systemAddress.systemIndex;
 					AddPacketToProducer(timeoutPacket);
+				}
+				else
+				{
+					ProduceSessionAbandoned(remoteSystem);
 				}
 
 				remoteSystem->reliabilityLayer.UpdateAndForceACKs(remoteSystem->rakNetSocket, systemAddress, remoteSystem->MTUSize, timeNS, maxOutgoingBPS, pluginListNTS, &rnr, updateBitStream);
@@ -6676,6 +6809,27 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							}
 						}
 						rakFree_Ex(data, _FILE_AND_LINE_ );
+					}
+					else if ( (unsigned char)(data)[0] == ID_SESSION_CONFIG_STATUS )
+					{
+						// Client side, while the server's application decides: surface the status and restart our own
+						// session timer, which is what lets a queued client wait longer than the timeout. Bound to the
+						// connecting side like the other replies, so a client cannot push one at a server.
+						if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
+						{
+							remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
+							packet=AllocPacket(byteSize, data, _FILE_AND_LINE_);
+							packet->bitSize = bitSize;
+							packet->systemAddress = systemAddress;
+							packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
+							packet->guid = remoteSystem->guid;
+							packet->guid.systemIndex=packet->systemAddress.systemIndex;
+							AddPacketToProducer(packet);
+						}
+						else
+						{
+							rakFree_Ex(data, _FILE_AND_LINE_ );
+						}
 					}
 					else if ( (unsigned char)(data)[0] == ID_SESSION_CONFIG_REJECTED )
 					{

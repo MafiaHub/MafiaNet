@@ -430,6 +430,34 @@ public:
 	/// \param[in] reason Delivered to the client in ID_SESSION_CONFIG_REJECTED; may be 0
 	virtual void RejectSession( const AddressOrGUID systemIdentifier, const char *reason )=0;
 
+	/// Server: hold peers in the session handshake in a pool of their own instead of in the incoming limit.
+	/// \details By default a peer mid-handshake counts against SetMaximumIncomingConnections(), so peers that
+	/// stall the handshake take the slots of the players it is meant for. With a pool, every remote-initiated
+	/// peer that is not yet CONNECTED -- from its first open-connection request until the application
+	/// answers -- counts against  total instead, and at most  perAddress of them may come from one IP.
+	/// SetMaximumIncomingConnections() then bounds CONNECTED peers only: a handshake starts even while it is
+	/// full, so an interactive server can queue, and an AcceptSession() that would exceed it refuses the peer
+	/// instead. Startup()'s maxConnections must leave room for both, i.e. at least incoming +  total.
+	/// \param[in] total Peers that may be in the handshake at once; 0 restores the default accounting
+	/// \param[in] perAddress Of those, how many may share one IP address; 0 for no per-address bound
+	virtual void SetMaximumPendingSessions( unsigned short total, unsigned short perAddress )=0;
+
+	/// Bounds how long a session handshake may wait for its answer, instead of the connection timeout.
+	/// \details On a server it is how long an interactive decision may take; on a client how long it waits
+	/// for the server's answer. Every SendSessionStatus() restarts it on both ends, so a server that keeps a
+	/// queued peer informed is never timed out by it. Set both ends: a client that gives up first fails the
+	/// attempt however long the server is prepared to wait.
+	/// \param[in] timeMS Milliseconds, or 0 to use the connection timeout (the default)
+	virtual void SetSessionTimeout( MafiaNet::TimeMS timeMS )=0;
+
+	/// Server: send a status to a peer whose session request awaits AcceptSession()/RejectSession().
+	/// \details The client receives it as ID_SESSION_CONFIG_STATUS with the payload after the id, and the
+	/// session timeout restarts on both ends. Ignored for a peer that is not awaiting a decision.
+	/// \param[in] systemIdentifier The waiting peer
+	/// \param[in] data Payload, opaque to MafiaNet
+	/// \param[in] length The length of data in bytes, at most MAXIMUM_SESSION_CONFIG_SIZE
+	virtual void SendSessionStatus( const AddressOrGUID systemIdentifier, const char *data, unsigned int length )=0;
+
 	//--------------------------------------------------------------------------------------------Network Functions - Functions dealing with the network in general--------------------------------------------------------------------------------------------
 	/// Return the unique address identifier that represents you or another system on the the network and is based on your local IP / port.
 	/// \note Not supported by the XBOX

@@ -447,6 +447,16 @@ public:
 	/// \details The client reports ID_CONNECTION_ATTEMPT_FAILED and neither side ever reports a
 	/// connection. \a reason is delivered to the client in ID_SESSION_CONFIG_REJECTED; it may be 0.
 	void RejectSession( const AddressOrGUID systemIdentifier, const char *reason );
+
+	/// rief Server: hold peers in the session handshake in a pool of their own instead of in the incoming limit.
+	/// \details See RakPeerInterface::SetMaximumPendingSessions.
+	void SetMaximumPendingSessions( unsigned short total, unsigned short perAddress );
+
+	/// rief Bounds how long a session handshake may wait for its answer; 0 uses the connection timeout.
+	void SetSessionTimeout( MafiaNet::TimeMS timeMS );
+
+	/// rief Server: send ID_SESSION_CONFIG_STATUS to a peer awaiting a session decision.
+	void SendSessionStatus( const AddressOrGUID systemIdentifier, const char *data, unsigned int length );
 	
 	//--------------------------------------------------------------------------------------------Network Functions - Functions dealing with the network in general--------------------------------------------------------------------------------------------
 	/// \brief Returns the unique address identifier that represents you or another system on the the network
@@ -861,6 +871,11 @@ protected:
 	/// When true a server surfaces ID_SESSION_CONFIG_REQUEST and waits for AcceptSession()/RejectSession()
 	/// instead of answering automatically with sessionConfig.
 	bool sessionConfigInteractive;
+	/// SetMaximumPendingSessions(). 0 total keeps peers mid-handshake in the incoming limit.
+	unsigned short maximumPendingSessions;
+	unsigned short maximumPendingSessionsPerAddress;
+	/// SetSessionTimeout(). 0 uses the connection timeout.
+	MafiaNet::TimeMS sessionTimeout;
 	///Local Player ID
 	// SystemAddress mySystemAddress[MAXIMUM_NUMBER_OF_INTERNAL_IDS];
 	char incomingPassword[256];
@@ -988,7 +1003,7 @@ protected:
 		// from the user thread to the network thread: data holds the payload (accept) or reason (reject) and
 		// numberOfBitsToSend its length. The decision must not be applied inline because it sends on the
 		// connection and mutates connectMode, both of which belong to the network thread.
-		enum {BCS_SEND, BCS_CLOSE_CONNECTION, BCS_GET_SOCKET, BCS_CHANGE_SYSTEM_ADDRESS,/* BCS_USE_USER_SOCKET, BCS_REBIND_SOCKET_ADDRESS, BCS_RPC, BCS_RPC_SHIFT,*/ BCS_SESSION_ACCEPT, BCS_SESSION_REJECT, BCS_DO_NOTHING} command;
+		enum {BCS_SEND, BCS_CLOSE_CONNECTION, BCS_GET_SOCKET, BCS_CHANGE_SYSTEM_ADDRESS,/* BCS_USE_USER_SOCKET, BCS_REBIND_SOCKET_ADDRESS, BCS_RPC, BCS_RPC_SHIFT,*/ BCS_SESSION_ACCEPT, BCS_SESSION_REJECT, BCS_SESSION_STATUS, BCS_DO_NOTHING} command;
 	};
 
 	// Single producer single consumer queue using a linked list
@@ -1021,6 +1036,10 @@ protected:
 
 
 	bool AllowIncomingConnections(void) const;
+	/// Admission for one new remote-initiated peer from  address, by SessionAdmission's rules.
+	bool AllowIncomingConnection(const SystemAddress &address) const;
+	/// How long  remoteSystem's session handshake may wait: sessionTimeout, or its connection timeout.
+	MafiaNet::TimeMS GetSessionTimeoutFor(RemoteSystemStruct *remoteSystem) const;
 
 	void PingInternal( const SystemAddress target, bool performImmediate, MafiaNet::Reliability reliability );
 	// This stores the user send calls to be handled by the update thread.  This way we don't have thread contention over systemAddresss
@@ -1142,6 +1161,12 @@ protected:
 		void SendSessionConfigRejection(RemoteSystemStruct *remoteSystem, const char *reason, unsigned int reasonLength);
 		/// Queue an application session decision for the network thread (see BCS_SESSION_ACCEPT).
 		void QueueSessionDecision(const AddressOrGUID systemIdentifier, bool accept, const char *data, unsigned int length);
+		/// Queue any session command (accept, reject, status) with a copy of its payload.
+		/// Server: tell the application a session request it was holding is gone (ID_SESSION_CONFIG_ABANDONED).
+		void ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem);
+		void QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length);
+		/// Counts remote-initiated peers for SessionAdmission; pendingFromAddress is for \a address, or 0 when unassigned.
+		void CountRemoteInitiatedPeers(const SystemAddress &address, unsigned int &connected, unsigned int &exchanging, unsigned int &pending, unsigned int &pendingFromAddress) const;
 		/// True when a directed application send must be refused because the target is still running the
 		/// session handshake and so has not been reported to the application yet.
 		bool IsExchangingSessionData(const AddressOrGUID systemIdentifier);

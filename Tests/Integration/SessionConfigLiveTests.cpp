@@ -817,3 +817,410 @@ TEST_F(SessionConfigLive, InboundApplicationDataDuringHandshakeIsNotDelivered)
 	EXPECT_EQ(memcmp(got->data + 1, "after-accept-ok!", 16), 0);
 	server->DeallocatePacket(got);
 }
+
+// =========================================================================================================
+// Pending-session pool, session timeout, status and abandonment (SetMaximumPendingSessions,
+// SetSessionTimeout, SendSessionStatus, ID_SESSION_CONFIG_STATUS, ID_SESSION_CONFIG_ABANDONED).
+//
+// The pool is what lets an interactive server hold a connection while it decides without that connection
+// taking a player's slot: a flood of stalled handshakes exhausts the pool, never the server.
+// =========================================================================================================
+
+namespace
+{
+	// Starts the server with an incoming limit and a pending pool, and the client plain. Returns the port.
+	unsigned short StartPooled(RakPeerInterface *server, RakPeerInterface *client, unsigned short maxIncoming, unsigned short pool, unsigned short perAddress, TimeMS connectionTimeoutMs = 60000)
+	{
+		server->SetSessionConfigInteractive(true);
+		server->SetMaximumPendingSessions(pool, perAddress);
+
+		SocketDescriptor serverSd(0, "127.0.0.1");
+		EXPECT_EQ(server->Startup((unsigned int)maxIncoming + pool, &serverSd, 1), RAKNET_STARTED);
+		server->SetMaximumIncomingConnections(maxIncoming);
+		server->SetTimeoutTime(connectionTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+
+		SocketDescriptor clientSd(0, "127.0.0.1");
+		EXPECT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
+		client->SetTimeoutTime(connectionTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+
+		return server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
+	}
+
+	// Starts a further client and has it connect.
+	void StartAndConnect(RakPeerInterface *peer, unsigned short port, TimeMS connectionTimeoutMs = 60000)
+	{
+		SocketDescriptor sd(0, "127.0.0.1");
+		EXPECT_EQ(peer->Startup(1, &sd, 1), RAKNET_STARTED);
+		peer->SetTimeoutTime(connectionTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+		EXPECT_EQ(peer->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+	}
+
+	// Waits for a session request on the server, pumping another peer meanwhile; hands back its guid.
+	bool WaitForRequest(RakPeerInterface *server, RakPeerInterface *alsoPump, RakNetGUID &guid)
+	{
+		Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, alsoPump, kConnectTimeoutMs);
+		if (!request)
+			return false;
+		guid = request->guid;
+		server->DeallocatePacket(request);
+		return true;
+	}
+} // namespace
+
+// A handshake parked with the server undecided does not take the player slot: with the only slot's
+// would-be owner stalled, another player still gets in. Without the pool the same setup refuses the
+// second player (StalledHandshakeStillConsumesAnIncomingSlot).
+TEST_F(SessionConfigLive, PendingPoolKeepsStalledHandshakesOutOfThePlayerSlots)
+{
+	const unsigned short port = StartPooled(server, client, 1, 4, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID stalledGuid;
+	ASSERT_TRUE(WaitForRequest(server, client, stalledGuid)) << "first client never reached the handshake";
+	// Deliberately never answered.
+
+	RakPeerInterface *second = MakeExtraPeer();
+	ASSERT_NE(second, nullptr);
+	StartAndConnect(second, port);
+
+	RakNetGUID secondGuid;
+	ASSERT_TRUE(WaitForRequest(server, second, secondGuid)) << "the stalled handshake took the only player slot";
+	EXPECT_NE(secondGuid, stalledGuid);
+
+	server->AcceptSession(secondGuid, kServerPayload, (unsigned int)strlen(kServerPayload));
+
+	Packet *accepted = 0;
+	Packet *incoming = 0;
+	ASSERT_TRUE(PumpUntilBoth(second, ID_CONNECTION_REQUEST_ACCEPTED, &accepted, server, ID_NEW_INCOMING_CONNECTION, &incoming, kConnectTimeoutMs))
+		<< "the second player was not let in while the first sat in the handshake";
+	EXPECT_EQ(incoming->guid, secondGuid);
+	second->DeallocatePacket(accepted);
+	server->DeallocatePacket(incoming);
+
+	EXPECT_EQ(server->NumberOfConnections(), 1u) << "a peer still in the handshake must not read as connected";
+	EXPECT_EQ(server->GetConnectionState(stalledGuid), IS_CONNECTING);
+}
+
+// The pool is itself bounded: once it is full a newcomer is refused at the transport, the same way a
+// full server always refused one.
+TEST_F(SessionConfigLive, PendingPoolRefusesNewcomersOnceFull)
+{
+	const unsigned short port = StartPooled(server, client, 8, 1, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID stalledGuid;
+	ASSERT_TRUE(WaitForRequest(server, client, stalledGuid));
+
+	RakPeerInterface *second = MakeExtraPeer();
+	ASSERT_NE(second, nullptr);
+	StartAndConnect(second, port);
+
+	Packet *full = PumpUntil(second, ID_NO_FREE_INCOMING_CONNECTIONS, server, kConnectTimeoutMs);
+	ASSERT_NE(full, nullptr) << "a full pending pool let another handshake start";
+	second->DeallocatePacket(full);
+}
+
+// One address cannot fill the pool on its own. Both clients are on 127.0.0.1, so the second is the same
+// address as the first.
+TEST_F(SessionConfigLive, PendingPoolBoundsWhatOneAddressMayHold)
+{
+	const unsigned short port = StartPooled(server, client, 8, 8, 1);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID stalledGuid;
+	ASSERT_TRUE(WaitForRequest(server, client, stalledGuid));
+
+	RakPeerInterface *second = MakeExtraPeer();
+	ASSERT_NE(second, nullptr);
+	StartAndConnect(second, port);
+
+	Packet *full = PumpUntil(second, ID_NO_FREE_INCOMING_CONNECTIONS, server, kConnectTimeoutMs);
+	ASSERT_NE(full, nullptr) << "one address held more pending handshakes than its share";
+	second->DeallocatePacket(full);
+}
+
+// A decision gives the pool slot back. A refused peer lingers only to deliver the refusal, and that must
+// not keep the next newcomer out.
+TEST_F(SessionConfigLive, PendingPoolSlotIsFreedByADecision)
+{
+	const unsigned short port = StartPooled(server, client, 8, 1, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID firstGuid;
+	ASSERT_TRUE(WaitForRequest(server, client, firstGuid));
+	server->RejectSession(firstGuid, "not on the whitelist");
+
+	Packet *failed = PumpUntil(client, ID_CONNECTION_ATTEMPT_FAILED, server, kConnectTimeoutMs);
+	ASSERT_NE(failed, nullptr);
+	client->DeallocatePacket(failed);
+
+	RakPeerInterface *second = MakeExtraPeer();
+	ASSERT_NE(second, nullptr);
+	StartAndConnect(second, port);
+
+	// Collected rather than waited on with PumpUntil: the refused peer must not be reported as abandoned.
+	std::vector<int> serverSaw;
+	RakNetGUID secondGuid;
+	bool gotRequest = false;
+	const TimeMS entry = GetTimeMS();
+	while (GetTimeMS() - entry < (TimeMS)kConnectTimeoutMs && !gotRequest)
+	{
+		Packet *p;
+		for (p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+		{
+			serverSaw.push_back((int)p->data[0]);
+			if (p->data[0] == ID_SESSION_CONFIG_REQUEST)
+			{
+				gotRequest = true;
+				secondGuid = p->guid;
+			}
+		}
+		for (p = second->Receive(); p; second->DeallocatePacket(p), p = second->Receive())
+			;
+		for (p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
+			;
+		RakSleep(15);
+	}
+	ASSERT_TRUE(gotRequest) << "the refused peer still held the only pool slot";
+	EXPECT_NE(secondGuid, firstGuid);
+	EXPECT_FALSE(Contains(serverSaw, ID_SESSION_CONFIG_ABANDONED)) << "a peer the application refused was reported as abandoned";
+}
+
+// With a pool the handshake may start on a full server -- that is what makes a queue possible -- but an
+// AcceptSession() that would overfill it is refused rather than honoured.
+TEST_F(SessionConfigLive, AcceptSessionCannotOverfillTheIncomingLimit)
+{
+	const unsigned short port = StartPooled(server, client, 1, 4, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID firstGuid;
+	ASSERT_TRUE(WaitForRequest(server, client, firstGuid));
+	server->AcceptSession(firstGuid, 0, 0);
+
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr);
+	server->DeallocatePacket(incoming);
+	// The only player slot is now taken.
+
+	RakPeerInterface *second = MakeExtraPeer();
+	ASSERT_NE(second, nullptr);
+	StartAndConnect(second, port);
+
+	RakNetGUID secondGuid;
+	ASSERT_TRUE(WaitForRequest(server, second, secondGuid)) << "a full server with a pool refused to even start the handshake";
+
+	server->AcceptSession(secondGuid, 0, 0);
+
+	Packet *failed = PumpUntil(second, ID_CONNECTION_ATTEMPT_FAILED, server, kConnectTimeoutMs);
+	ASSERT_NE(failed, nullptr) << "an accept past the incoming limit was honoured";
+	second->DeallocatePacket(failed);
+
+	const std::vector<int> serverSaw = CollectIds(server, second, 1000);
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION)) << "the server reported a connection past its limit";
+	EXPECT_EQ(server->NumberOfConnections(), 1u);
+}
+
+// SetMaximumPendingSessions(0, ...) restores the historic accounting exactly.
+TEST_F(SessionConfigLive, ClearingThePoolRestoresTheDefaultAccounting)
+{
+	server->SetMaximumPendingSessions(4, 0);
+	server->SetMaximumPendingSessions(0, 0);
+	server->SetSessionConfigInteractive(true);
+
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(8, &serverSd, 1), RAKNET_STARTED);
+	server->SetMaximumIncomingConnections(1);
+	server->SetTimeoutTime(60000, UNASSIGNED_SYSTEM_ADDRESS);
+
+	SocketDescriptor clientSd(0, "127.0.0.1");
+	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
+
+	const unsigned short port = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID stalledGuid;
+	ASSERT_TRUE(WaitForRequest(server, client, stalledGuid));
+
+	RakPeerInterface *second = MakeExtraPeer();
+	ASSERT_NE(second, nullptr);
+	StartAndConnect(second, port);
+
+	Packet *full = PumpUntil(second, ID_NO_FREE_INCOMING_CONNECTIONS, server, kConnectTimeoutMs);
+	ASSERT_NE(full, nullptr) << "without a pool a stalled handshake must still hold its incoming slot";
+	second->DeallocatePacket(full);
+}
+
+// The session timeout replaces the connection timeout for the handshake, on both ends, and the server is
+// told the request it was holding is gone.
+TEST_F(SessionConfigLive, SessionTimeoutBoundsAnUnansweredHandshake)
+{
+	const TimeMS sessionTimeoutMs = 1000;
+	server->SetSessionTimeout(sessionTimeoutMs);
+	client->SetSessionTimeout(sessionTimeoutMs);
+	// A connection timeout far longer than the test, so only the session timeout can end the attempt.
+	const unsigned short port = StartPooled(server, client, 8, 4, 0, 60000);
+
+	const TimeMS begin = GetTimeMS();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, client, guid));
+
+	Packet *failed = 0;
+	Packet *abandoned = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_ATTEMPT_FAILED, &failed, server, ID_SESSION_CONFIG_ABANDONED, &abandoned, 15000))
+		<< "the session timeout did not end the handshake on both ends";
+	const TimeMS elapsed = GetTimeMS() - begin;
+	EXPECT_EQ(abandoned->guid, guid);
+	client->DeallocatePacket(failed);
+	server->DeallocatePacket(abandoned);
+
+	EXPECT_LT(elapsed, (TimeMS)15000) << "the handshake waited out something other than the session timeout";
+	EXPECT_GE(elapsed, sessionTimeoutMs);
+}
+
+// Status reaches the client before any connection is reported, carries its payload, and restarts the
+// session timeout on both ends: a peer kept informed for three timeouts' worth is still let in.
+TEST_F(SessionConfigLive, SessionStatusReachesTheClientAndKeepsTheHandshakeAlive)
+{
+	const TimeMS sessionTimeoutMs = 1000;
+	server->SetSessionTimeout(sessionTimeoutMs);
+	client->SetSessionTimeout(sessionTimeoutMs);
+	const unsigned short port = StartPooled(server, client, 8, 4, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, client, guid));
+
+	std::vector<std::string> statuses;
+	bool reportedEarly = false;
+	bool failed = false;
+	const TimeMS holdFor = sessionTimeoutMs * 3;
+	const TimeMS begin = GetTimeMS();
+	TimeMS lastStatus = 0;
+	int sent = 0;
+	while (GetTimeMS() - begin < holdFor)
+	{
+		if (sent == 0 || GetTimeMS() - lastStatus >= 400)
+		{
+			const std::string status = "queue:" + std::to_string(++sent);
+			server->SendSessionStatus(guid, status.data(), (unsigned int)status.size());
+			lastStatus = GetTimeMS();
+		}
+		Packet *p;
+		for (p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
+		{
+			if (p->data[0] == ID_SESSION_CONFIG_STATUS)
+				statuses.push_back(std::string((const char *)p->data + 1, p->length - 1));
+			else if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
+				reportedEarly = true;
+			else if (p->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
+				failed = true;
+		}
+		for (p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+		{
+			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
+				reportedEarly = true;
+			else if (p->data[0] == ID_SESSION_CONFIG_ABANDONED)
+				failed = true;
+		}
+		RakSleep(15);
+	}
+
+	EXPECT_FALSE(failed) << "status did not keep the handshake alive past the session timeout";
+	EXPECT_FALSE(reportedEarly) << "a connection was reported while the server was still deciding";
+	ASSERT_GE(statuses.size(), 3u) << "status did not reach the client";
+	EXPECT_EQ(statuses[0], "queue:1");
+	EXPECT_EQ(statuses[1], "queue:2");
+	EXPECT_EQ(server->GetConnectionState(guid), IS_CONNECTING);
+
+	server->AcceptSession(guid, kServerPayload, (unsigned int)strlen(kServerPayload));
+
+	Packet *accepted = 0;
+	Packet *incoming = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, &accepted, server, ID_NEW_INCOMING_CONNECTION, &incoming, kConnectTimeoutMs))
+		<< "a peer held with status was not let in when accepted";
+	client->DeallocatePacket(accepted);
+	server->DeallocatePacket(incoming);
+}
+
+// Status is for a peer awaiting a decision only; once accepted nothing more is sent.
+TEST_F(SessionConfigLive, SessionStatusIsIgnoredOnceTheSessionIsDecided)
+{
+	const unsigned short port = StartPooled(server, client, 8, 4, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, client, guid));
+	server->AcceptSession(guid, 0, 0);
+
+	Packet *accepted = 0;
+	Packet *incoming = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, &accepted, server, ID_NEW_INCOMING_CONNECTION, &incoming, kConnectTimeoutMs));
+	const RakNetGUID serverGuid = accepted->guid;
+	client->DeallocatePacket(accepted);
+	server->DeallocatePacket(incoming);
+
+	server->SendSessionStatus(guid, "late", 4);
+	const std::vector<int> clientSaw = CollectIds(client, server, 800);
+	EXPECT_FALSE(Contains(clientSaw, ID_SESSION_CONFIG_STATUS)) << "status reached a peer that was already accepted";
+	EXPECT_EQ(client->GetConnectionState(serverGuid), IS_CONNECTED);
+}
+
+// Role binding: status is a server-to-client message. A client pushing one at a server must not have it
+// surfaced there.
+TEST_F(SessionConfigLive, ServerIgnoresSessionStatusSentByAClient)
+{
+	const unsigned short port = StartPooled(server, client, 8, 4, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, client, guid));
+
+	SystemAddress serverAddr;
+	serverAddr.SetBinaryAddress("127.0.0.1");
+	serverAddr.SetPortHostOrder(port);
+
+	MafiaNet::BitStream forged;
+	forged.Write((MessageID)ID_SESSION_CONFIG_STATUS);
+	forged.Write("spoofed", 7);
+	SendGateBypass::Inject(client, forged, serverAddr);
+
+	const std::vector<int> serverSaw = CollectIds(server, client, 1200);
+	EXPECT_FALSE(Contains(serverSaw, ID_SESSION_CONFIG_STATUS)) << "a client pushed a status into the server's queue";
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION));
+
+	// The real handshake is unaffected.
+	server->AcceptSession(guid, 0, 0);
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr);
+	server->DeallocatePacket(incoming);
+}
+
+// A client that gives up while the server decides is reported to the server as abandoned, exactly once,
+// and answering it afterwards is inert.
+TEST_F(SessionConfigLive, ClientLeavingMidDecisionIsReportedAsAbandoned)
+{
+	const unsigned short port = StartPooled(server, client, 8, 4, 0);
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	RakNetGUID guid;
+	ASSERT_TRUE(WaitForRequest(server, client, guid));
+
+	// Shutdown with a block duration sends the disconnection notification, so the server learns now
+	// rather than after a timeout.
+	client->Shutdown(300);
+
+	Packet *abandoned = PumpUntil(server, ID_SESSION_CONFIG_ABANDONED, 0, kConnectTimeoutMs);
+	ASSERT_NE(abandoned, nullptr) << "the server was never told the held request went away";
+	EXPECT_EQ(abandoned->guid, guid);
+	server->DeallocatePacket(abandoned);
+
+	server->AcceptSession(guid, 0, 0);
+	const std::vector<int> serverSaw = CollectIds(server, 0, 1200);
+	EXPECT_FALSE(Contains(serverSaw, ID_SESSION_CONFIG_ABANDONED)) << "abandonment was reported twice";
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION)) << "accepting an abandoned request reported a connection";
+	EXPECT_FALSE(Contains(serverSaw, ID_CONNECTION_LOST)) << "a connection never reported was reported lost";
+	EXPECT_FALSE(Contains(serverSaw, ID_DISCONNECTION_NOTIFICATION)) << "a connection never reported was reported closed";
+	EXPECT_EQ(server->NumberOfConnections(), 0u);
+}
