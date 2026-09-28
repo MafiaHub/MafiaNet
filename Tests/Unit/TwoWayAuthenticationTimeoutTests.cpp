@@ -67,24 +67,22 @@ TEST(TwoWayAuthentication, OnlyTheExpiredPrefixIsRemoved)
 {
 	TwoWayAuthentication::NonceGenerator generator;
 	GenerateNonces(generator, 2);
-	Time oldest, newest;
-	NonceTimes(generator, oldest, newest);
-	// Age the first nonce without touching the second.
-	generator.generatedNonces[0]->whenGenerated = newest - 1000;
-	generator.generatedNonces[1]->whenGenerated = newest;
+	// Fixed stamps: GetTime() counts from process start on Linux, so it can be too small to subtract from.
+	generator.generatedNonces[0]->whenGenerated = 10000;
+	generator.generatedNonces[1]->whenGenerated = 11000;
 
-	generator.Update(newest + 500, 1000);
+	generator.Update(11500, 1000);
 	ASSERT_EQ(generator.generatedNonces.Size(), 1u);
-	EXPECT_EQ(generator.generatedNonces[0]->whenGenerated, newest);
+	EXPECT_EQ(generator.generatedNonces[0]->whenGenerated, static_cast<Time>(11000));
 }
 
 TEST(TwoWayAuthentication, ClockSteppingBackwardsExpiresNothing)
 {
 	TwoWayAuthentication::NonceGenerator generator;
 	GenerateNonces(generator, 1);
-	const Time generated = generator.generatedNonces[0]->whenGenerated;
+	generator.generatedNonces[0]->whenGenerated = 10000;
 
-	generator.Update(generated - 1, 0);
+	generator.Update(9999, 0);
 	EXPECT_EQ(generator.generatedNonces.Size(), 1u);
 }
 
