@@ -318,7 +318,11 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.21.0 (Latest)
+### Version 0.21.1 (Latest)
+- **Fix: RakVoice sends nothing while a talker is silent** — with VAD on, Opus still codes a full frame every 400ms of silence to refresh the far end's comfort noise; RakVoice sent those, and the receiver, which runs no comfort-noise generation, played each as an isolated burst of noise. Frames coded while the encoder reports `OPUS_GET_IN_DTX` are now dropped
+- **Wire-compatible**: fewer voice frames are sent, their format is unchanged
+
+### Version 0.21.0
 - **New API: `SetMaximumPendingSessions(total, perAddress)`** — peers still in the session handshake count against a pool of their own, with a per-IP share, instead of against the incoming limit, so stalled or slow handshakes (an interactive server checking a whitelist, a queue) never take a player's slot or count as connected; a handshake may start on a full server, and an accept past the limit is refused. 0, the default, keeps the previous accounting
 - **New API: `SetSessionTimeout()`** — how long a session handshake waits for its answer, on either end, instead of the connection timeout
 - **New API: `SendSessionStatus()` / `ID_SESSION_CONFIG_STATUS`** — tell a peer awaiting a decision what is happening; restarts the session timeout on both ends
