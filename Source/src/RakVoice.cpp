@@ -613,25 +613,14 @@ void RakVoice::Update(void)
 						}
 					}
 
-					// Encode with Opus
 					// Bound the encoder by what actually fits in tempOutput after the largest
 					// header, not by MAX_OPUS_PACKET_SIZE (4000 > sizeof(tempOutput)).
-					int encodedBytes = opus_encode(channel->encoder, samples, channel->frameSizeSamples,
-					                               encodedBuffer, (opus_int32)(sizeof(tempOutput) - RAKVOICE_RELAY_HEADER_SIZE));
+					int encodedBytes = EncodeFrame(channel, samples, encodedBuffer, (int)(sizeof(tempOutput) - RAKVOICE_RELAY_HEADER_SIZE));
 
 					channel->outgoingReadIndex = (channel->outgoingReadIndex + opusBlockSize) % totalBufferSize;
 
-					if (encodedBytes < 0)
-					{
-						// Opus encoding error
+					if (encodedBytes == 0)
 						continue;
-					}
-
-					// DTX: if encoded bytes is very small (just a DTX packet), skip if VAD enabled
-					if (defaultVADState && encodedBytes <= 2)
-					{
-						continue;
-					}
 
 					channel->isSendingVoiceData = true;
 
@@ -1195,6 +1184,30 @@ void RakVoice::DecodeFrame(VoiceChannel *channel, const unsigned char *payload, 
 
 	if (samples > 0)
 		WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
+}
+
+int RakVoice::EncodeFrame(VoiceChannel *channel, short *samples, unsigned char *out, int capacity)
+{
+	int encodedBytes = opus_encode(channel->encoder, samples, channel->frameSizeSamples, out, (opus_int32)capacity);
+	if (encodedBytes < 0)
+		return 0;
+
+	if (defaultVADState == false)
+		return encodedBytes;
+
+	// DTX: a packet this small is a DTX packet, carrying nothing to play.
+	if (encodedBytes <= 2)
+		return 0;
+
+	// Still in DTX, yet a whole frame: Opus codes one every 400ms of silence to refresh the far
+	// end's comfort noise. The receiver here never runs comfort-noise generation -- it cannot
+	// tell DTX from the talker stopping -- so that frame arrives alone and plays as an isolated
+	// burst of noise in the middle of the silence.
+	opus_int32 inDtx = 0;
+	if (opus_encoder_ctl(channel->encoder, OPUS_GET_IN_DTX(&inDtx)) == OPUS_OK && inDtx != 0)
+		return 0;
+
+	return encodedBytes;
 }
 
 VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)

@@ -19,6 +19,7 @@
 #include "mafianet/RakVoice.h"
 #include "mafianet/types.h"
 
+#include <cmath>
 #include <cstring>
 #include <vector>
 
@@ -519,4 +520,133 @@ TEST(RakVoiceOrdering, DropsAFrameThatArrivesAfterItsGapWasSettled) {
     EXPECT_EQ(f.Settle(held + RAKVOICE_REORDER_WAIT_MS), 2u);
     EXPECT_EQ(f.Push(2), 0u);
     EXPECT_EQ(f.Push(4), 1u);
+}
+
+// --- Discontinuous transmission ---------------------------------------------
+//
+// With VAD on, Opus's DTX stops coding a silent talker -- but every 400ms it still
+// codes one full frame to refresh the far end's comfort noise. RakVoice's receiver
+// has no idea DTX happened: it never runs comfort-noise generation, and a frame
+// arriving alone after 400ms of nothing is played as an isolated blip of noise.
+
+namespace {
+    class EncodeProbe : public RakVoice {
+      public:
+        using RakVoice::EncodeFrame;
+        using RakVoice::GetOrCreateChannel;
+    };
+
+    // A voiced, syllable-shaped signal loud enough for Opus's VAD, then room noise.
+    void MakeSpeechFrame(short *frame, unsigned index) {
+        for (unsigned i = 0; i < 960; i++) {
+            const double t = (index * 960 + i) / 48000.0;
+            const double envelope = 0.6 + 0.4 * std::sin(2.0 * 3.14159265358979 * 4.0 * t);
+            double sample = 0.0;
+            for (int harmonic = 1; harmonic <= 12; harmonic++) {
+                sample += std::sin(2.0 * 3.14159265358979 * 140.0 * harmonic * t) / harmonic;
+            }
+            frame[i] = static_cast<short>(6000.0 * envelope * sample);
+        }
+    }
+
+    void MakeRoomNoiseFrame(short *frame, unsigned &seed) {
+        for (unsigned i = 0; i < 960; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            frame[i] = static_cast<short>(static_cast<int>((seed >> 16) % 41u) - 20);
+        }
+    }
+} // namespace
+
+TEST(RakVoiceDtx, SendsNothingOnceATalkerHasGoneQuiet) {
+    EncodeProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+    voice.SetEncoderBitrate(40000);
+    voice.SetVBR(true);
+    VoiceChannel *channel = voice.GetOrCreateChannel(RakNetGUID(0x6000ull));
+    ASSERT_NE(channel, nullptr);
+
+    short frame[960];
+    unsigned char packet[1500];
+
+    unsigned speechSent = 0;
+    for (unsigned i = 0; i < 100; i++) {
+        MakeSpeechFrame(frame, i);
+        if (voice.EncodeFrame(channel, frame, packet, sizeof(packet)) > 0)
+            speechSent++;
+    }
+    EXPECT_GE(speechSent, 95u) << "speech must not be mistaken for silence";
+
+    // The first frames of quiet are the tail of the word and go out until Opus's VAD has
+    // settled on the room noise -- 600ms for this signal. A second in, nothing should,
+    // comfort-noise refreshes included.
+    unsigned seed = 1;
+    unsigned quietSentAfterOnset = 0;
+    for (unsigned i = 0; i < 150; i++) {
+        MakeRoomNoiseFrame(frame, seed);
+        if (voice.EncodeFrame(channel, frame, packet, sizeof(packet)) > 0 && i >= 50)
+            quietSentAfterOnset++;
+    }
+    EXPECT_EQ(quietSentAfterOnset, 0u);
+
+    // And the next word still goes out from its first frame.
+    MakeSpeechFrame(frame, 0);
+    EXPECT_GT(voice.EncodeFrame(channel, frame, packet, sizeof(packet)), 0);
+
+    voice.Deinit();
+}
+
+// Dropping DTX frames must never reach into speech: a pause between two words is
+// shorter than DTX's onset, and cutting it would chop every sentence.
+TEST(RakVoiceDtx, KeepsEveryFrameThroughAPauseBetweenWords) {
+    EncodeProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+    voice.SetEncoderBitrate(40000);
+    voice.SetVBR(true);
+    VoiceChannel *channel = voice.GetOrCreateChannel(RakNetGUID(0x6100ull));
+    ASSERT_NE(channel, nullptr);
+
+    short frame[960];
+    unsigned char packet[1500];
+    unsigned seed = 7;
+    unsigned sent = 0;
+    unsigned total = 0;
+
+    for (unsigned word = 0; word < 4; word++) {
+        for (unsigned i = 0; i < 25; i++, total++) {
+            MakeSpeechFrame(frame, word * 25 + i);
+            if (voice.EncodeFrame(channel, frame, packet, sizeof(packet)) > 0)
+                sent++;
+        }
+        // 100ms between words.
+        for (unsigned i = 0; i < 5; i++, total++) {
+            MakeRoomNoiseFrame(frame, seed);
+            if (voice.EncodeFrame(channel, frame, packet, sizeof(packet)) > 0)
+                sent++;
+        }
+    }
+
+    EXPECT_EQ(sent, total);
+    voice.Deinit();
+}
+
+// VAD off means the caller wants a continuous stream: nothing is dropped, silence included.
+TEST(RakVoiceDtx, SendsSilenceWhenVadIsOff) {
+    EncodeProbe voice;
+    voice.Init(48000, 960 * sizeof(short));
+    voice.SetVAD(false);
+    VoiceChannel *channel = voice.GetOrCreateChannel(RakNetGUID(0x6200ull));
+    ASSERT_NE(channel, nullptr);
+
+    short frame[960];
+    unsigned char packet[1500];
+    unsigned seed = 3;
+    unsigned sent = 0;
+    for (unsigned i = 0; i < 100; i++) {
+        MakeRoomNoiseFrame(frame, seed);
+        if (voice.EncodeFrame(channel, frame, packet, sizeof(packet)) > 0)
+            sent++;
+    }
+
+    EXPECT_EQ(sent, 100u);
+    voice.Deinit();
 }

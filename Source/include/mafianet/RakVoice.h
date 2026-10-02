@@ -372,6 +372,10 @@ protected:
 	void WriteSilenceToChannel(VoiceChannel *channel);
 	/// Decodes one frame into the channel's output; a null payload conceals one instead.
 	void DecodeFrame(VoiceChannel *channel, const unsigned char *payload, unsigned payloadLength, bool fec);
+	/// Encodes one frame of the channel's outgoing audio into `out`. Returns the payload size,
+	/// or 0 for a frame that must not go on the wire -- an encoder error, or silence while VAD
+	/// is on.
+	int EncodeFrame(VoiceChannel *channel, short *samples, unsigned char *out, int capacity);
 	VoiceChannel *GetOrCreateChannel(RakNetGUID origin);
 	void OnRelayVoiceData(Packet *packet);
 
