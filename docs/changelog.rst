@@ -3,6 +3,15 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+**RakVoice**
+
+* **Fix: nothing is sent while a talker is silent.** With VAD on, Opus's DTX stops coding a silent talker, but every 400ms it still codes one full frame to refresh the far end's comfort noise. Only the 1-2 byte DTX packets were dropped, so those refresh frames went out; the receiver has no comfort-noise generation and cannot tell DTX from the talker stopping, so each arrived alone and played as an isolated burst of noise in the middle of the silence. A frame coded while the encoder reports ``OPUS_GET_IN_DTX`` is now dropped too. The decision lives in the new protected ``EncodeFrame()``.
+
+* **Wire-compatible.** Fewer frames are sent; their format is unchanged.
+
 Version 0.21.0
 --------------
 

@@ -71,7 +71,8 @@ Configuration
 
 .. code-block:: cpp
 
-   // Enable/disable Voice Activity Detection (reduces bandwidth on silence)
+   // Enable/disable Voice Activity Detection: nothing is sent while the talker is
+   // silent, comfort-noise refreshes included (reduces bandwidth on silence)
    rakVoice.SetVAD(true);  // Default: true
 
    // Enable/disable RNNoise noise suppression
