@@ -3,8 +3,8 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
-Unreleased
-----------
+Version 0.22.0
+--------------
 
 **FileListTransfer**
 

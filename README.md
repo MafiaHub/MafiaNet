@@ -318,7 +318,11 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.21.1 (Latest)
+### Version 0.22.0 (Latest)
+- **New: `FileListTransfer::SetReferencePushWindow()`** — a transfer read through an `IncrementalReadInterface` keeps several chunks in flight instead of one per round trip; the default of 1 keeps the previous behaviour
+- **Wire-compatible**: no message changes; `FileListTransfer` gains a member, so rebuild against 0.22
+
+### Version 0.21.1
 - **Fix: RakVoice sends nothing while a talker is silent** — with VAD on, Opus still codes a full frame every 400ms of silence to refresh the far end's comfort noise; RakVoice sent those, and the receiver, which runs no comfort-noise generation, played each as an isolated burst of noise. Frames coded while the encoder reports `OPUS_GET_IN_DTX` are now dropped
 - **Wire-compatible**: fewer voice frames are sent, their format is unchanged
 
