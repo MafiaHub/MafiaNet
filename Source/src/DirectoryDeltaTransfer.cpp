@@ -25,6 +25,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/FileOperations.h"
+#include "mafianet/DS_List.h"
 #include "mafianet/SuperFastHash.h"
 #include "mafianet/IncrementalReadInterface.h"
 #include "mafianet/linux_adapter.h"
@@ -32,6 +33,10 @@
 
 using namespace MafiaNet;
 
+// Writes each received file below outputSubdir. A file pushed through an IncrementalReadInterface
+// is written chunk by chunk as it arrives, at its offset, instead of being held in memory whole until
+// its last chunk: a download then costs one chunk of memory however large its files are. A file sent
+// in one piece is written when it completes, as before.
 class DDTCallback : public FileListTransferCBInterface
 {
 public:
@@ -41,19 +46,17 @@ public:
 
 	DDTCallback() {}
 	virtual ~DDTCallback() {}
-	
+
 	virtual bool OnFile(OnFileStruct *onFileStruct)
 	{
 		char fullPathToDir[1024];
 
-		if (onFileStruct->fileData && subdirLen < strlen(onFileStruct->fileName))
-		{
-			strcpy_s(fullPathToDir, outputSubdir);
-			strcat_s(fullPathToDir, onFileStruct->fileName+subdirLen);
+		// A streamed file is already on disk, written by OnFileProgress.
+		const bool streamed = streamedFiles.GetIndexOf(onFileStruct->fileIndex) != MAX_UNSIGNED_LONG;
+		if (streamed)
+			streamedFiles.RemoveAtIndexFast(streamedFiles.GetIndexOf(onFileStruct->fileIndex));
+		else if (onFileStruct->fileData && TargetPath(onFileStruct->fileName, fullPathToDir))
 			WriteFileWithDirectories(fullPathToDir, (char*)onFileStruct->fileData, (unsigned int ) onFileStruct->byteLengthOfThisFile);
-		}
-		else
-			fullPathToDir[0]=0;
 
 		return onFileCallback->OnFile(onFileStruct);
 	}
@@ -62,13 +65,17 @@ public:
 	{
 		char fullPathToDir[1024];
 
-		if (subdirLen < strlen(fps->onFileStruct->fileName))
+		// iriDataChunk is set only once a whole chunk has arrived; partial notifications carry none.
+		if (fps->iriDataChunk && fps->dataChunkLength > 0 && TargetPath(fps->onFileStruct->fileName, fullPathToDir))
 		{
-			strcpy_s(fullPathToDir, outputSubdir);
-			strcat_s(fullPathToDir, fps->onFileStruct->fileName+subdirLen);
+			if (WriteChunk(fullPathToDir, fps->iriWriteOffset, fps->iriDataChunk, fps->dataChunkLength))
+			{
+				if (streamedFiles.GetIndexOf(fps->onFileStruct->fileIndex) == MAX_UNSIGNED_LONG)
+					streamedFiles.Insert(fps->onFileStruct->fileIndex, _FILE_AND_LINE_);
+				// Nothing for FileListTransfer to keep: the chunk is on disk.
+				fps->allocateIrIDataChunkAutomatically = false;
+			}
 		}
-		else
-			fullPathToDir[0]=0;
 
 		onFileCallback->OnFileProgress(fps);
 	}
@@ -76,6 +83,41 @@ public:
 	{
 		return onFileCallback->OnDownloadComplete(dcs);
 	}
+
+private:
+	bool TargetPath(const char *fileName, char *out)
+	{
+		if (subdirLen >= strlen(fileName))
+		{
+			out[0]=0;
+			return false;
+		}
+		strcpy_s(out, 1024, outputSubdir);
+		strcat_s(out, 1024, fileName+subdirLen);
+		return true;
+	}
+
+	// The first chunk creates the file (and its directories); later ones are written in place.
+	static bool WriteChunk(const char *path, unsigned int offset, const char *data, unsigned int length)
+	{
+		if (offset == 0)
+			return WriteFileWithDirectories(path, (char*) data, length);
+
+		FILE *fp;
+		if (fopen_s(&fp, path, "r+b") != 0 || fp == 0)
+			return false;
+#ifdef _WIN32
+		const bool positioned = _fseeki64(fp, (__int64) offset, SEEK_SET) == 0;
+#else
+		const bool positioned = fseeko(fp, (off_t) offset, SEEK_SET) == 0;
+#endif
+		const bool written = positioned && fwrite(data, 1, length, fp) == length;
+		fclose(fp);
+		return written;
+	}
+
+	// File indices of this set being written chunk by chunk.
+	DataStructures::List<unsigned int> streamedFiles;
 };
 
 STATIC_FACTORY_DEFINITIONS(DirectoryDeltaTransfer,DirectoryDeltaTransfer);
