@@ -73,6 +73,19 @@ public:
 	/// \param[in] numThreads how many worker threads to start
 	/// \param[in] threadPriority Passed to the thread creation routine. Use THREAD_PRIORITY_NORMAL for Windows. For Linux based systems, you MUST pass something reasonable based on the thread priorities for your application.
 	void StartIncrementalReadThreads(int numThreads, int threadPriority=-99999);
+
+	/// \brief How many IncrementalReadInterface chunks one Send() keeps in flight.
+	/// \details By default a sender reads and sends one chunk, then waits for the recipient's
+	/// ID_FILE_LIST_REFERENCE_PUSH_ACK before the next, so a transfer moves one chunk per round trip.
+	/// A window of N keeps N chunks outstanding: Send() primes N, and every acknowledgement sends one
+	/// more, which lifts the ceiling to N chunks per round trip. The chunks still go out one after
+	/// another on the transfer's ordering channel, so recipients need no change.
+	/// Treated as 1 once StartIncrementalReadThreads() has run: worker threads could then send one
+	/// transfer's chunks out of order.
+	/// \param[in] chunksInFlight Clamped to at least 1. Each in-flight chunk is buffered by the
+	/// sender, so memory per transfer is up to chunksInFlight times the chunk size.
+	void SetReferencePushWindow(unsigned int chunksInFlight);
+	unsigned int GetReferencePushWindow(void) const;
 	
 	/// \brief Allows one corresponding Send() call from another system to arrive.
 	/// \param[in] handler The class to call on each file
@@ -140,6 +153,7 @@ protected:
 
 	DataStructures::Map<unsigned short, FileListReceiver*> fileListReceivers;
 	unsigned short setId;
+	unsigned int referencePushWindow;
 	DataStructures::List<FileListProgress*> fileListProgressCallbacks;
 
 	struct FileToPush

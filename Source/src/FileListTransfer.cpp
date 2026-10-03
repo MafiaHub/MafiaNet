@@ -102,12 +102,21 @@ void FileListTransfer::FileToPushRecipient::Deref(void)
 FileListTransfer::FileListTransfer()
 {
 	setId=0;
+	referencePushWindow=1;
 	DataStructures::Map<unsigned short, FileListReceiver*>::IMPLEMENT_DEFAULT_COMPARISON();
 }
 FileListTransfer::~FileListTransfer()
 {
 	threadPool.StopThreads();
 	Clear();
+}
+void FileListTransfer::SetReferencePushWindow(unsigned int chunksInFlight)
+{
+	referencePushWindow = chunksInFlight < 1 ? 1 : chunksInFlight;
+}
+unsigned int FileListTransfer::GetReferencePushWindow(void) const
+{
+	return referencePushWindow;
 }
 void FileListTransfer::StartIncrementalReadThreads(int numThreads, int threadPriority)
 {
@@ -257,7 +266,11 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 			}
 			// ftpr out of scope
 			ftpr->Deref();
-			SendIRIToAddress(recipient, setID);
+			// Prime the window: each call sends the next chunk, and each acknowledgement sends one
+			// more. A call that finds the set already finished does nothing.
+			const unsigned int window = threadPool.WasStarted() ? 1 : referencePushWindow;
+			for (unsigned int primed = 0; primed < window; ++primed)
+				SendIRIToAddress(recipient, setID);
 			return;
 		}
 		else
