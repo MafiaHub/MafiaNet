@@ -25,6 +25,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/FileOperations.h"
+#include "mafianet/SuperFastHash.h"
 #include "mafianet/IncrementalReadInterface.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
@@ -137,7 +138,23 @@ void DirectoryDeltaTransfer::SetUploadSendParameters(MafiaNet::Priority _priorit
 }
 void DirectoryDeltaTransfer::AddFile(const char* filePath, const char* fileName)
 {
-	availableUploads->AddFile(filePath, fileName, FileListNodeContext(0, 0, 0, 0));
+	// Recorded the way AddUploadsFromSubdirectory records a file -- its hash and length, not its
+	// contents -- because that is what a downloader sends to compare against. Holding the contents
+	// made every comparison fail, so every download re-sent every file, and kept each upload in
+	// memory whole. A download reads the file from disk when it is sent.
+	FILE *fp;
+	if (filePath == 0 || fileName == 0 || fopen_s(&fp, filePath, "rb") != 0 || fp == 0)
+		return;
+	fseek(fp, 0, SEEK_END);
+	const long length = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	unsigned int hash = SuperFastHashFilePtr(fp);
+	fclose(fp);
+	if (length < 0)
+		return;
+	if (MafiaNet::BitStream::DoEndianSwap())
+		MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+	availableUploads->AddFile(fileName, filePath, (const char*) &hash, (unsigned int) sizeof(hash), (unsigned int) length, FileListNodeContext(0, 0, 0, 0));
 }
 void DirectoryDeltaTransfer::AddUploadsFromSubdirectory(const char *subdir)
 {

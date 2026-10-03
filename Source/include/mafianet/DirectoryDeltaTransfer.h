@@ -104,6 +104,7 @@ public:
 	/// </summary>
 	/// <param name="filePath">relative path to the file</param>
 	/// <param name="fileName">name of the particular file, without path</param>
+	/// <remarks>Records the file's hash and length, as AddUploadsFromSubdirectory does; its contents are read when a download sends it. Call ClearUploads() and add it again after it changes.</remarks>
 	void AddFile(const char *filePath, const char *fileName);
 
 	/// \brief Downloads files from the matching parameter \a subdir in AddUploadsFromSubdirectory.
