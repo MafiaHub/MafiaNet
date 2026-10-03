@@ -3,6 +3,15 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+**FileListTransfer**
+
+* **New API: ``SetReferencePushWindow(chunksInFlight)``.** A transfer read through an ``IncrementalReadInterface`` sent one chunk, then waited for the recipient's ``ID_FILE_LIST_REFERENCE_PUSH_ACK`` before the next, so it moved one chunk per round trip whatever the link could carry. With a window of N, ``Send()`` primes N chunks and every acknowledgement sends one more, lifting the ceiling to N chunks per round trip. The chunks still go out in order on the transfer's ordering channel, so recipients need no change. Each in-flight chunk is buffered by the sender. The window is treated as 1 once ``StartIncrementalReadThreads()`` has run, since worker threads could then send one transfer's chunks out of order. The default, 1, keeps the previous behaviour exactly.
+
+* **Wire-compatible.** No message changes; a windowed sender works with any recipient. ``FileListTransfer`` gains a member, so code built against 0.21 must be rebuilt.
+
 Version 0.21.1
 --------------
 
