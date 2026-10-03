@@ -3,6 +3,17 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+**DirectoryDeltaTransfer**
+
+* **Fix: files added with ``AddFile()`` are compared by hash.** ``AddFile`` stored each upload's whole contents while a downloader sends the hash of each file it already has, so the comparison never matched and every download re-sent every file added that way. The server also held every such upload in memory, and refused any file over 536MB. ``AddFile`` now records the hash and length, as ``AddUploadsFromSubdirectory`` does; call ``ClearUploads()`` and add a file again after it changes.
+
+* **Fix: streamed downloads are written as they arrive.** A file pushed through an ``IncrementalReadInterface`` was buffered whole by the downloader and written when its last chunk arrived. Each chunk is now written at its offset as it arrives, so a download costs one chunk of memory however large its files are. A file sent in one piece is written when it completes, as before.
+
+* **Wire-compatible.** No message changes.
+
 Version 0.22.0
 --------------
 
