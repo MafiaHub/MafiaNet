@@ -318,7 +318,12 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.22.0 (Latest)
+### Version 0.22.1 (Latest)
+- **Fix: `DirectoryDeltaTransfer::AddFile()` uploads are compared by hash** — they stored whole contents, so every download re-sent every such file and the server held them all in memory
+- **Fix: streamed downloads are written as they arrive** — a download no longer holds each file in memory until its last chunk
+- **Wire-compatible**: no message changes
+
+### Version 0.22.0
 - **New: `FileListTransfer::SetReferencePushWindow()`** — a transfer read through an `IncrementalReadInterface` keeps several chunks in flight instead of one per round trip; the default of 1 keeps the previous behaviour
 - **Wire-compatible**: no message changes; `FileListTransfer` gains a member, so rebuild against 0.22
 
