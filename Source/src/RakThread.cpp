@@ -116,6 +116,53 @@ int RakThread::Create( void* start_address( void* ), void *arglist, int priority
 #endif
 }
 
+#if defined(_WIN32)
+int RakThread::CreateJoinable( unsigned __stdcall start_address( void* ), void *arglist, ThreadHandle *handle, int priority)
+#else
+int RakThread::CreateJoinable( void* start_address( void* ), void *arglist, ThreadHandle *handle, int priority)
+#endif
+{
+#ifdef _WIN32
+	HANDLE threadHandle;
+	unsigned threadID = 0;
+
+	threadHandle = (HANDLE) _beginthreadex(nullptr, MAX_ALLOCA_STACK_ALLOCATION*2, start_address, arglist, 0, &threadID );
+
+	if (threadHandle==0)
+	{
+		return 1;
+	}
+
+	SetThreadPriority(threadHandle, priority);
+	*handle = threadHandle;
+	return 0;
+#else
+	pthread_t threadHandle;
+	pthread_attr_t attr;
+	sched_param param;
+	param.sched_priority=priority;
+	pthread_attr_init( &attr );
+	pthread_attr_setschedparam(&attr, &param);
+	pthread_attr_setstacksize(&attr, MAX_ALLOCA_STACK_ALLOCATION*2);
+	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_JOINABLE );
+	int res = pthread_create( &threadHandle, &attr, start_address, arglist );
+	RakAssert(res==0 && "pthread_create in RakThread.cpp failed.")
+	if (res==0)
+		*handle = threadHandle;
+	return res;
+#endif
+}
+
+void RakThread::Join( ThreadHandle handle )
+{
+#ifdef _WIN32
+	WaitForSingleObject( (HANDLE) handle, INFINITE );
+	CloseHandle( (HANDLE) handle );
+#else
+	pthread_join( handle, nullptr );
+#endif
+}
+
 
 
 

@@ -46,10 +46,8 @@
 #else
 #include <sys/time.h>
 #include <unistd.h>
-MafiaNet::TimeUS initialTime;
 #endif
 
-static bool initialized=false;
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 #include "mafianet/SimpleMutex.h"
@@ -141,21 +139,9 @@ MafiaNet::TimeMS MafiaNet::GetTimeMS( void )
 #if   defined(_WIN32)
 MafiaNet::TimeUS GetTimeUS_Windows( void )
 {
-	if ( initialized == false)
-	{
-		initialized = true;
-
-		// Save the current process
-//		HANDLE mProc = GetCurrentProcess();
-
-		// Get the current Affinity
-#if defined (_M_X64)
-//		GetProcessAffinityMask(mProc, (PDWORD_PTR)&mProcMask, (PDWORD_PTR)&mSysMask);
-#else
-//		GetProcessAffinityMask(mProc, &mProcMask, &mSysMask);
-#endif
-//		mThread = GetCurrentThread();
-	}	
+	// A first-call `initialized` guard used to live here; its body was entirely
+	// commented out, so all it did was write a non-atomic flag from every
+	// calling thread (a data race). Removed.
 
 	// 9/26/2010 In China running LuDaShi, QueryPerformanceFrequency has to be called every time because CPU clock speeds can be different
 	MafiaNet::TimeUS curTime;
@@ -177,16 +163,21 @@ MafiaNet::TimeUS GetTimeUS_Windows( void )
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 }
 #elif defined(__GNUC__)  || defined(__GCCXML__) || defined(__S3E__)
+static MafiaNet::TimeUS GetInitialTime_Linux( void )
+{
+	timeval tp;
+	gettimeofday( &tp, 0 );
+	return ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
+}
+
 MafiaNet::TimeUS GetTimeUS_Linux( void )
 {
 	timeval tp;
-	if ( initialized == false)
-	{
-		gettimeofday( &tp, 0 );
-		initialized=true;
-		// I do this because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
-		initialTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
-	}
+	// Thread-safe first-use initialization (C++11 magic static). Every RakPeer
+	// startup spawns threads that call this concurrently; a plain lazy-init
+	// bool/global raced, letting a thread read a torn or stale base time.
+	// I subtract an initial time because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
+	static const MafiaNet::TimeUS initialTime = GetInitialTime_Linux();
 
 	// GCC
 	MafiaNet::TimeUS curTime;

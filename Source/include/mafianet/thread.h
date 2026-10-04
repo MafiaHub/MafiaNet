@@ -18,6 +18,10 @@
 
 #include "Export.h"
 
+#if !defined(_WIN32)
+#include <pthread.h>
+#endif
+
 namespace MafiaNet
 {
 /// To define a thread, use RAK_THREAD_DECLARATION(functionName);
@@ -50,6 +54,30 @@ public:
 #else
 	static int Create( void* start_address( void* ), void *arglist, int priority=0);
 #endif
+
+	/// Handle to a joinable thread created with CreateJoinable(). Must be
+	/// reaped with Join() exactly once, or the thread's resources leak.
+#if defined(_WIN32)
+	typedef void *ThreadHandle; // HANDLE
+#else
+	typedef pthread_t ThreadHandle;
+#endif
+
+	/// Like Create(), but the thread is joinable: the caller receives a handle
+	/// and MUST call Join() on it. Join() blocks until the thread function has
+	/// returned and establishes a happens-before edge with all of the thread's
+	/// writes -- use this for threads whose owner frees state the thread uses.
+	/// \param[out] handle Receives the thread handle on success; unchanged on failure.
+	/// \return 0=success. >0 = error code
+#if defined(_WIN32)
+	static int CreateJoinable( unsigned __stdcall start_address( void* ), void *arglist, ThreadHandle *handle, int priority=0);
+#else
+	static int CreateJoinable( void* start_address( void* ), void *arglist, ThreadHandle *handle, int priority=0);
+#endif
+
+	/// Block until the thread behind \a handle has fully exited, then release
+	/// the handle. Call exactly once per CreateJoinable().
+	static void Join( ThreadHandle handle );
 };
 
 }

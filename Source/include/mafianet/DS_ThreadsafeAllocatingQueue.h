@@ -70,15 +70,16 @@ void ThreadsafeAllocatingQueue<structureType>::Push(structureType *s)
 template <class structureType>
 structureType *ThreadsafeAllocatingQueue<structureType>::PopInaccurate(void)
 {
+	// Historically this probed queue.IsEmpty() without the mutex as a fast path
+	// ("inaccurate"); that unlocked read raced with Push from other threads. An
+	// uncontended lock is cheap enough that the fast path isn't worth the UB.
 	structureType *s;
-	if (queue.IsEmpty())
-		return 0;
 	queueMutex.Lock();
 	if (queue.IsEmpty()==false)
 		s=queue.Pop();
 	else
 		s=0;
-	queueMutex.Unlock();	
+	queueMutex.Unlock();
 	return s;
 }
 
