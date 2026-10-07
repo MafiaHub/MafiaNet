@@ -39,10 +39,6 @@
 
 #include "FMODVoiceAdapter.h"
 
-#if defined(_PS3) || defined(__PS3__)
-#include "Console2Includes.h"
-#include "fmodps3.h"
-#endif
 
 
 // Reads and writes per second of the sound data

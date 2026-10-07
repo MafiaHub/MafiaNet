@@ -69,15 +69,12 @@ set(MAFIANET_SOURCES
     src/PeerHandle.cpp
     src/PluginInterface2.cpp
     src/PointGridSectorizer.cpp
-    src/PS4Includes.cpp
     src/Rackspace.cpp
     src/RakMemoryOverride.cpp
     src/RakNetCommandParser.cpp
-    src/RakNetSocket.cpp
     src/RakNetSocket2.cpp
     src/RakNetSocket2_Berkley.cpp
     src/RakNetSocket2_Windows_Linux.cpp
-    src/RakNetSocket2_Windows_Linux_360.cpp
     src/RakNetStatistics.cpp
     src/RakNetTransport2.cpp
     src/RakNetTypes.cpp
@@ -118,7 +115,6 @@ set(MAFIANET_SOURCES
     src/VariableDeltaSerializer.cpp
     src/VariableListDeltaTracker.cpp
     src/VariadicSQLParser.cpp
-    src/VitaIncludes.cpp
     src/WSAStartupSingleton.cpp
 )
 
@@ -232,8 +228,6 @@ set(MAFIANET_HEADERS
     include/mafianet/peerinterface.h
     include/mafianet/PluginInterface2.h
     include/mafianet/PointGridSectorizer.h
-    include/mafianet/PS3Includes.h
-    include/mafianet/PS4Includes.h
     include/mafianet/Rackspace.h
     include/mafianet/RakVoice.h
     include/mafianet/Rand.h
@@ -255,7 +249,6 @@ set(MAFIANET_HEADERS
     include/mafianet/sleep.h
     include/mafianet/mafianet.h
     include/mafianet/smartptr.h
-    include/mafianet/socket.h
     include/mafianet/socket2.h
     include/mafianet/SocketDefines.h
     include/mafianet/SocketIncludes.h
@@ -290,11 +283,9 @@ set(MAFIANET_HEADERS
     include/mafianet/version.h
     include/mafianet/VirtualWorld.h
     include/mafianet/VirtualWorldReplica3.h
-    include/mafianet/VitaIncludes.h
     include/mafianet/WindowsIncludes.h
     include/mafianet/WSAStartupSingleton.h
     include/mafianet/wstring.h
-    include/mafianet/XBox360Includes.h
 )
 
 set(MAFIANET_CRYPTO_HEADERS
@@ -315,6 +306,74 @@ set(MAFIANET_ALL_HEADERS
     ${MAFIANET_HEADERS}
     ${MAFIANET_CRYPTO_HEADERS}
 )
+
+# Optional plugins, one per _RAKNET_SUPPORT_<Name> flag in NativeFeatureIncludes.h.
+# Anything not in this list (BitStream, RakPeer, the reliability layer, the
+# socket layer, RakVoice, ...) is the core and always builds. Keep this list in
+# sync with the header when adding or removing a plugin.
+set(MAFIANET_OPTIONAL_FEATURES
+    CloudClient
+    CloudServer
+    ConnectionGraph2
+    ConsoleServer
+    DirectoryDeltaTransfer
+    DynDNS
+    EmailSender
+    FileListTransfer
+    FullyConnectedMesh2
+    HTTPConnection
+    HTTPConnection2
+    LogCommandParser
+    MessageFilter
+    NatPunchthroughClient
+    NatPunchthroughServer
+    NatTypeDetectionClient
+    NatTypeDetectionServer
+    PacketLogger
+    PacketizedTCP
+    Rackspace
+    RakNetCommandParser
+    RakNetTransport
+    ReadyEvent
+    RelayPlugin
+    ReplicaManager3
+    Router2
+    RPC4Plugin
+    StatisticsHistory
+    TCPInterface
+    TeamBalancer
+    TeamManager
+    TelnetTransport
+    TwoWayAuthentication
+    UDPForwarder
+    UDPProxyClient
+    UDPProxyCoordinator
+    UDPProxyServer
+)
+
+# Resolve MAFIANET_MINIMAL / MAFIANET_DISABLED_FEATURES (set at the top level)
+# into the list of _RAKNET_SUPPORT_<Name>=0 definitions applied to every
+# library target. Unknown names are a configure error rather than a silent
+# no-op, since a typo here would otherwise ship the plugin it meant to drop.
+set(MAFIANET_FEATURE_DEFINITIONS "")
+if(MAFIANET_MINIMAL)
+    set(_mafianet_disabled ${MAFIANET_OPTIONAL_FEATURES})
+else()
+    set(_mafianet_disabled ${MAFIANET_DISABLED_FEATURES})
+endif()
+foreach(_feature IN LISTS _mafianet_disabled)
+    if(NOT _feature IN_LIST MAFIANET_OPTIONAL_FEATURES)
+        message(FATAL_ERROR
+            "MAFIANET_DISABLED_FEATURES: '${_feature}' is not an optional plugin. "
+            "Known names: ${MAFIANET_OPTIONAL_FEATURES}")
+    endif()
+    list(APPEND MAFIANET_FEATURE_DEFINITIONS "_RAKNET_SUPPORT_${_feature}=0")
+endforeach()
+if(MAFIANET_FEATURE_DEFINITIONS)
+    list(LENGTH _mafianet_disabled _mafianet_disabled_count)
+    message(STATUS "MafiaNet: compiling out ${_mafianet_disabled_count} optional plugin(s): ${_mafianet_disabled}")
+endif()
+unset(_mafianet_disabled)
 
 # Common target setup function
 function(mafianet_configure_target target_name)
@@ -345,6 +404,10 @@ function(mafianet_configure_target target_name)
         PRIVATE
             $<$<CONFIG:Debug>:_DEBUG>
             $<$<CONFIG:Release>:NDEBUG>
+        PUBLIC
+            # Plugins compiled out of this build. PUBLIC so a consumer's view of
+            # NativeFeatureIncludes.h matches the library it links against.
+            ${MAFIANET_FEATURE_DEFINITIONS}
     )
 
     set_target_properties(${target_name} PROPERTIES

@@ -56,18 +56,13 @@ void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
 		//sockAddr.ToString(false,str);
 		sockets[0]->GetBoundAddress().ToString(false,str,static_cast<size_t>(64));
 		c2=CreateNonblockingBoundSocket(str
-#ifdef __native_client__
-			, sockets[0]->chromeInstance
-#endif
 			,this
 			);
 		//c2Port=SocketLayer::GetLocalPort(c2);
 	}
 
-#if !defined(__native_client__)
 	if (c2->IsBerkleySocket())
 		((RNS2_Berkley*) c2)->CreateRecvPollingThread(0);
-#endif
 
 	serverAddress=_serverAddress;
 
@@ -214,10 +209,8 @@ void NatTypeDetectionClient::Shutdown(void)
 	serverAddress=UNASSIGNED_SYSTEM_ADDRESS;
 	if (c2!=0)
 	{
-#if !defined(__native_client__)
 		if (c2->IsBerkleySocket())
 			((RNS2_Berkley *)c2)->BlockOnStopRecvPollingThread();
-#endif
 
 		MafiaNet::OP_DELETE(c2, _FILE_AND_LINE_);
 		c2=0;

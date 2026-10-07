@@ -122,7 +122,7 @@ void RNS2_Berkley::SetSocketOptions(void)
 	RakAssert(r==0);
 
 	// Immediate hard close. Don't linger the socket, or recreating the socket quickly on Vista fails.
-	// Fail with voice and xbox
+	// Fails on some platforms when the socket protocol is not plain UDP
 
 	sock_opt=0;
 	r = setsockopt__( rns2Socket, SOL_SOCKET, SO_LINGER, ( char * ) & sock_opt, sizeof ( sock_opt ) );

@@ -67,20 +67,6 @@ public:
 	~SocketLayer();
 	
 	/*
-	/// Creates a bound socket to listen for incoming connections on the specified port
-	/// \param[in] port the port number 
-	/// \param[in] blockingSocket 
-	/// \return A new socket used for accepting clients 
-	static RakNetSocket* CreateBoundSocket( RakPeer *peer, unsigned short port, bool blockingSocket, const char *forceHostAddress, unsigned int sleepOn10048, unsigned int extraSocketOptions, unsigned short socketFamily, _PP_Instance_ chromeInstance );
-	static RakNetSocket* CreateBoundSocket_IPV4( RakPeer *peer, unsigned short port, bool blockingSocket, const char *forceHostAddress, unsigned int sleepOn10048, unsigned int extraSocketOptions, _PP_Instance_ chromeInstance );
-	#if RAKNET_SUPPORT_IPV6==1
-		static RakNetSocket* CreateBoundSocket_SupportIPV4And6( RakPeer *peer, unsigned short port, bool blockingSocket, const char *forceHostAddress, unsigned int sleepOn10048, unsigned int extraSocketOptions, unsigned short socketFamily, _PP_Instance_ chromeInstance );
-	#endif
-	static RakNetSocket* CreateBoundSocket_PS3Lobby( unsigned short port, bool blockingSocket, const char *forceHostAddress, unsigned short socketFamily );
-	static RakNetSocket* CreateBoundSocket_PSP2( unsigned short port, bool blockingSocket, const char *forceHostAddress, unsigned short socketFamily );
-	*/
-
-	/*
 	/// Returns if this specified port is in use, for UDP
 	/// \param[in] port the port number 
 	/// \return If this port is already in use
@@ -128,15 +114,6 @@ public:
 	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
 
 	
-	/// Call sendto (UDP obviously)
-	/// \param[in] s the socket
-	/// \param[in] data The byte buffer to send 
-	/// \param[in] length The length of the \a data in bytes
-	/// \param[in] ip The address of the remote host in dotted notation.
-	/// \param[in] port The port number to send to.
-	/// \return 0 on success, nonzero on failure.
-//	static int SendTo( UDPSOCKET s, const char *data, int length, const char ip[ 16 ], unsigned short port, unsigned short remotePortRakNetWasStartedOn_PS3, unsigned int extraSocketOptions, const char *file, const long line );
-
 	/// Call sendto' (UDP obviously)
 	/// It won't reach the recipient, except on a LAN
 	/// However, this is good for opening routers / firewalls
@@ -168,9 +145,6 @@ public:
 //	static void SetSocketLayerOverride(SocketLayerOverride *_slo);
 //	static SocketLayerOverride* GetSocketLayerOverride(void) {return slo;}
 
-// 	static int SendTo_PS3Lobby( RakNetSocket *s, const char *data, int length, const SystemAddress &systemAddress );
-// 	static int SendTo_PSP2( RakNetSocket *s, const char *data, int length, const SystemAddress &systemAddress );
-// 	static int SendTo_360( RakNetSocket *s, const char *data, int length, const char *voiceData, int voiceLength, const SystemAddress &systemAddress );
 // 	static int SendTo_PC( RakNetSocket *s, const char *data, int length, const SystemAddress &systemAddress, const char *file, const long line );
 // 
 // 	static void SetDoNotFragment( RakNetSocket* listenSocket, int opt );

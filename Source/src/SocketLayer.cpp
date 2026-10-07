@@ -40,12 +40,6 @@
 
 using namespace MafiaNet;
 
-/*
-#if defined(__native_client__)
-using namespace pp;
-#endif
-*/
-
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
 #include "mafianet/CCRakNetUDT.h"
 #else
@@ -102,9 +96,6 @@ void PrepareAddrInfoHints(addrinfo *hints)
  
 void SocketLayer::SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSocket, bool setBroadcast)
 {
-#ifdef __native_client__
-	(void) listenSocket;
-#else
 	int sock_opt = 1;
 
 	// This doubles the max throughput rate
@@ -112,7 +103,7 @@ void SocketLayer::SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSoc
 	setsockopt__(listenSocket, SOL_SOCKET, SO_RCVBUF, ( char * ) & sock_opt, sizeof ( sock_opt ) );
 
 	// Immediate hard close. Don't linger the socket, or recreating the socket quickly on Vista fails.
-	// Fail with voice and xbox
+	// Fails on some platforms when the socket protocol is not plain UDP
 
 	sock_opt=0;
 	setsockopt__(listenSocket, SOL_SOCKET, SO_LINGER, ( char * ) & sock_opt, sizeof ( sock_opt ) );
@@ -133,7 +124,7 @@ void SocketLayer::SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSoc
 	}
 	if (setBroadcast)
 	{
-		// Note: Fails with VDP but not xbox
+		// Note: Fails when the socket protocol is not plain UDP
 		// Set broadcast capable
 		sock_opt=1;
 		if ( setsockopt__(listenSocket, SOL_SOCKET, SO_BROADCAST, ( char * ) & sock_opt, sizeof( sock_opt ) ) == -1 )
@@ -155,7 +146,6 @@ void SocketLayer::SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSoc
 #endif
 		}
 	}
-#endif
 }
  
 MafiaNet::RakString SocketLayer::GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, MafiaNet::RakString inIpString)
@@ -355,9 +345,6 @@ unsigned short SocketLayer::GetLocalPort(__UDPSOCKET__ s)
 }
 void SocketLayer::GetSystemAddress_Old ( __UDPSOCKET__ s, SystemAddress *systemAddressOut )
 {
-#if defined(__native_client__)
-	*systemAddressOut = UNASSIGNED_SYSTEM_ADDRESS;
-#else
 	sockaddr_in sa;
 	memset(&sa,0,sizeof(sockaddr_in));
 	socklen_t len = sizeof(sa);
@@ -381,7 +368,6 @@ void SocketLayer::GetSystemAddress_Old ( __UDPSOCKET__ s, SystemAddress *systemA
 
 	systemAddressOut->SetPortNetworkOrder(sa.sin_port);
 	systemAddressOut->address.addr4.sin_addr.s_addr=sa.sin_addr.s_addr;
-#endif
 }
 
 /*

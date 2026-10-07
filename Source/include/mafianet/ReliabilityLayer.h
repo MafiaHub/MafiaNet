@@ -585,7 +585,6 @@ private:
 		unsigned int length;
 		MafiaNet::TimeMS sendTime;
 		//	SystemAddress systemAddress;
-		unsigned short remotePortRakNetWasStartedOn_PS3;
 		unsigned int extraSocketOptions;
 	};
 	DataStructures::Queue<DataAndTime*> delayList;

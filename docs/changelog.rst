@@ -3,6 +3,25 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased
+----------
+
+**Build**
+
+* **New CMake options: ``MAFIANET_DISABLED_FEATURES`` and ``MAFIANET_MINIMAL``.** The ``_RAKNET_SUPPORT_<Name>`` plugin flags from ``NativeFeatureIncludes.h`` can now be set from CMake (``-DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin"`` or ``-DMAFIANET_MINIMAL=ON`` for the core transport alone). The definitions are ``PUBLIC`` on the library targets so consumers see the same configuration. Unknown names are a configure error. A ``linux-minimal`` CI job builds the ``MAFIANET_MINIMAL`` configuration. See :doc:`/getting-started/building`.
+
+**Removed: dead platform code.** Xbox 360, PlayStation 3, PlayStation 4, PlayStation Vita and Google Native Client could not be targeted for years; their remaining headers were already empty. Removed in this release:
+
+* ``XBox360Includes.h``, ``PS3Includes.h``, ``PS4Includes.h``, ``VitaIncludes.h`` and the matching empty source files, plus ``Samples/nacl_sdk``.
+* ``socket.h`` / ``RakNetSocket.cpp``, the pre-``RakNetSocket2`` socket class, which had no remaining consumers and survived only as commented-out console code.
+* Every ``__native_client__``, ``_PS3`` / ``__PS3__`` / ``SN_TARGET_PS3``, ``_PS4`` and ``SN_TARGET_PSP2`` preprocessor branch.
+* ``SocketDescriptor::remotePortRakNetWasStartedOn_PS3_PSP2`` and ``SocketDescriptor::chromeInstance``, and ``RNS2_BerkleyBindParameters::remotePortRakNetWasStartedOn_PS3_PS4_PSP2``. These were only read by the removed console and Native Client paths. Code that initialised them must drop those lines; ``SocketDescriptor`` is now smaller, so code built against 0.22 must be rebuilt.
+* The ``RNS2_Windows_Linux_360`` mix-in is now ``RNS2_Windows_Linux`` and its send function ``Send_Windows_Linux``; both are internal to the socket layer.
+
+The ``ID_XBOX_360_*`` and ``ID_XBOX_LOBBY`` message identifiers are kept as reserved values so the wire values that follow them do not shift.
+
+**Wire-compatible.** No message changes.
+
 Version 0.22.1
 --------------
 

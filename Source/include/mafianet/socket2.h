@@ -208,7 +208,6 @@ struct RNS2_BerkleyBindParameters
 	int doNotFragment;
 	int pollingThreadPriority;
 	RNS2EventHandler *eventHandler;
-	unsigned short remotePortRakNetWasStartedOn_PS3_PS4_PSP2;
 };
 
 // Berkeley sockets interface - base class for all platforms
@@ -275,11 +274,11 @@ protected:
 };
 
 #if defined(_WIN32) || defined(__GNUC__)  || defined(__GCCXML__) || defined(__S3E__)
-class RNS2_Windows_Linux_360
+class RNS2_Windows_Linux
 {
 public:
 protected:
-	static RNS2SendResult Send_Windows_Linux_360NoVDP( RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
+	static RNS2SendResult Send_Windows_Linux( RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
 };
 #endif
 
@@ -299,7 +298,7 @@ public:
 	virtual int RakNetRecvFrom( char dataOut[ MAXIMUM_MTU_SIZE ], SystemAddress *senderOut, bool calledFromMainThread )=0;
 };
 
-class RNS2_Windows : public RNS2_Berkley, public RNS2_Windows_Linux_360
+class RNS2_Windows : public RNS2_Berkley, public RNS2_Windows_Linux
 {
 public:
 	RNS2_Windows();
@@ -317,7 +316,7 @@ protected:
 };
 
 #else
-class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux_360
+class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux
 {
 public:
 	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );

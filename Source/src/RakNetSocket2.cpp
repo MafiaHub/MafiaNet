@@ -44,7 +44,6 @@ using namespace MafiaNet;
 
 #define RAKNET_SOCKET_2_INLINE_FUNCTIONS
 #include "RakNetSocket2_Windows_Linux.cpp"
-#include "RakNetSocket2_Windows_Linux_360.cpp"
 #include "RakNetSocket2_Berkley.cpp"
 #undef RAKNET_SOCKET_2_INLINE_FUNCTIONS
 
@@ -139,7 +138,6 @@ void RakNetSocket2::DomainNameToIP( const char *domainName, char ip[65] ) {
 
 bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type ) {
 	RNS2_BerkleyBindParameters bbp;
-	bbp.remotePortRakNetWasStartedOn_PS3_PS4_PSP2=0;
 	bbp.port=port; bbp.hostAddress=(char*) hostAddress;	bbp.addressFamily=addressFamily;
 	bbp.type=type; bbp.protocol=0; bbp.nonBlockingSocket=false;
 	bbp.setBroadcast=false;	bbp.doNotFragment=false; bbp.protocol=0;
@@ -310,14 +308,14 @@ RNS2SendResult RNS2_Windows::Send( RNS2_SendParameters *sendParameters, const ch
 		if (len>=0)
 			return len;
 	} 
-	return Send_Windows_Linux_360NoVDP(rns2Socket,sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket,sendParameters, file, line);
 }
 void RNS2_Windows::GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] ) {return GetMyIP_Windows_Linux(addresses);}
 void RNS2_Windows::SetSocketLayerOverride(SocketLayerOverride *_slo) {slo = _slo;}
 SocketLayerOverride* RNS2_Windows::GetSocketLayerOverride(void) {return slo;}
 #else
 RNS2BindResult RNS2_Linux::Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line ) {return BindShared(bindParameters, file, line);}
-RNS2SendResult RNS2_Linux::Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line ) {return Send_Windows_Linux_360NoVDP(rns2Socket,sendParameters, file, line);}
+RNS2SendResult RNS2_Linux::Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line ) {return Send_Windows_Linux(rns2Socket,sendParameters, file, line);}
 // See the declaration in socket2.h for why __linux__ is required here and not
 // just the build flag.
 #if defined(__linux__)

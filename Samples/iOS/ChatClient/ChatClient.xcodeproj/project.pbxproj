@@ -103,7 +103,6 @@
 		B23EA420147F5A43002B8C06 /* VariableDeltaSerializer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA3B7147F5A43002B8C06 /* VariableDeltaSerializer.cpp */; };
 		B23EA421147F5A43002B8C06 /* VariableListDeltaTracker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA3B9147F5A43002B8C06 /* VariableListDeltaTracker.cpp */; };
 		B23EA422147F5A43002B8C06 /* VariadicSQLParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA3BB147F5A43002B8C06 /* VariadicSQLParser.cpp */; };
-		B23EA423147F5A43002B8C06 /* VitaIncludes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA3BD147F5A43002B8C06 /* VitaIncludes.cpp */; };
 		B23EA424147F5A43002B8C06 /* WSAStartupSingleton.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA3C0147F5A43002B8C06 /* WSAStartupSingleton.cpp */; };
 		B24A1D60147EDC330029E45E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B24A1D5F147EDC330029E45E /* UIKit.framework */; };
 		B24A1D62147EDC330029E45E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B24A1D61147EDC330029E45E /* Foundation.framework */; };
@@ -253,7 +252,6 @@
 		B23EA352147F5A43002B8C06 /* PacketPriority.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PacketPriority.h; path = ../../../Source/PacketPriority.h; sourceTree = "<group>"; };
 		B23EA353147F5A43002B8C06 /* PluginInterface2.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = PluginInterface2.cpp; path = ../../../Source/PluginInterface2.cpp; sourceTree = "<group>"; };
 		B23EA354147F5A43002B8C06 /* PluginInterface2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PluginInterface2.h; path = ../../../Source/PluginInterface2.h; sourceTree = "<group>"; };
-		B23EA355147F5A43002B8C06 /* PS3Includes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PS3Includes.h; path = ../../../Source/PS3Includes.h; sourceTree = "<group>"; };
 		B23EA356147F5A43002B8C06 /* Rackspace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Rackspace.cpp; path = ../../../Source/Rackspace.cpp; sourceTree = "<group>"; };
 		B23EA357147F5A43002B8C06 /* Rackspace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Rackspace.h; path = ../../../Source/Rackspace.h; sourceTree = "<group>"; };
 		B23EA358147F5A43002B8C06 /* RakAlloca.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RakAlloca.h; path = ../../../Source/RakAlloca.h; sourceTree = "<group>"; };
@@ -357,12 +355,9 @@
 		B23EA3BA147F5A43002B8C06 /* VariableListDeltaTracker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VariableListDeltaTracker.h; path = ../../../Source/VariableListDeltaTracker.h; sourceTree = "<group>"; };
 		B23EA3BB147F5A43002B8C06 /* VariadicSQLParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = VariadicSQLParser.cpp; path = ../../../Source/VariadicSQLParser.cpp; sourceTree = "<group>"; };
 		B23EA3BC147F5A43002B8C06 /* VariadicSQLParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VariadicSQLParser.h; path = ../../../Source/VariadicSQLParser.h; sourceTree = "<group>"; };
-		B23EA3BD147F5A43002B8C06 /* VitaIncludes.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = VitaIncludes.cpp; path = ../../../Source/VitaIncludes.cpp; sourceTree = "<group>"; };
-		B23EA3BE147F5A43002B8C06 /* VitaIncludes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VitaIncludes.h; path = ../../../Source/VitaIncludes.h; sourceTree = "<group>"; };
 		B23EA3BF147F5A43002B8C06 /* WindowsIncludes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WindowsIncludes.h; path = ../../../Source/WindowsIncludes.h; sourceTree = "<group>"; };
 		B23EA3C0147F5A43002B8C06 /* WSAStartupSingleton.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = WSAStartupSingleton.cpp; path = ../../../Source/WSAStartupSingleton.cpp; sourceTree = "<group>"; };
 		B23EA3C1147F5A43002B8C06 /* WSAStartupSingleton.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WSAStartupSingleton.h; path = ../../../Source/WSAStartupSingleton.h; sourceTree = "<group>"; };
-		B23EA3C2147F5A43002B8C06 /* XBox360Includes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XBox360Includes.h; path = ../../../Source/XBox360Includes.h; sourceTree = "<group>"; };
 		B24A1D5B147EDC330029E45E /* ChatClient.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChatClient.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B24A1D5F147EDC330029E45E /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		B24A1D61147EDC330029E45E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -590,7 +585,6 @@
 				B23EA352147F5A43002B8C06 /* PacketPriority.h */,
 				B23EA353147F5A43002B8C06 /* PluginInterface2.cpp */,
 				B23EA354147F5A43002B8C06 /* PluginInterface2.h */,
-				B23EA355147F5A43002B8C06 /* PS3Includes.h */,
 				B23EA356147F5A43002B8C06 /* Rackspace.cpp */,
 				B23EA357147F5A43002B8C06 /* Rackspace.h */,
 				B23EA358147F5A43002B8C06 /* RakAlloca.h */,
@@ -694,12 +688,9 @@
 				B23EA3BA147F5A43002B8C06 /* VariableListDeltaTracker.h */,
 				B23EA3BB147F5A43002B8C06 /* VariadicSQLParser.cpp */,
 				B23EA3BC147F5A43002B8C06 /* VariadicSQLParser.h */,
-				B23EA3BD147F5A43002B8C06 /* VitaIncludes.cpp */,
-				B23EA3BE147F5A43002B8C06 /* VitaIncludes.h */,
 				B23EA3BF147F5A43002B8C06 /* WindowsIncludes.h */,
 				B23EA3C0147F5A43002B8C06 /* WSAStartupSingleton.cpp */,
 				B23EA3C1147F5A43002B8C06 /* WSAStartupSingleton.h */,
-				B23EA3C2147F5A43002B8C06 /* XBox360Includes.h */,
 			);
 			name = RakNet;
 			sourceTree = "<group>";
@@ -867,7 +858,6 @@
 				B23EA420147F5A43002B8C06 /* VariableDeltaSerializer.cpp in Sources */,
 				B23EA421147F5A43002B8C06 /* VariableListDeltaTracker.cpp in Sources */,
 				B23EA422147F5A43002B8C06 /* VariadicSQLParser.cpp in Sources */,
-				B23EA423147F5A43002B8C06 /* VitaIncludes.cpp in Sources */,
 				B23EA424147F5A43002B8C06 /* WSAStartupSingleton.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

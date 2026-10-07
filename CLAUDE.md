@@ -62,6 +62,16 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_BUILD_STATIC` | ON | Build static library (.lib/.a) |
 | `MAFIANET_BUILD_SAMPLES` | OFF | Build sample applications |
 | `MAFIANET_BUILD_TESTS` | OFF | Build test suite |
+| `MAFIANET_DISABLED_FEATURES` | (empty) | Semicolon list of plugins to compile out (`_RAKNET_SUPPORT_<Name>=0`); names validated against `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` |
+| `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
+
+When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, update
+`MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake
+plugin selection silently drifts from `NativeFeatureIncludes.h`.
+
+Dead platforms (Xbox 360, PS3, PS4, Vita, Native Client) were removed on purpose.
+Do not reintroduce `__native_client__`, `_PS3`, `_PS4`, `SN_TARGET_*` or Xbox
+preprocessor islands; MafiaNet targets Windows, Linux, macOS and the BSDs.
 
 ### Batched Datagram I/O (recvmmsg / sendmmsg)
 

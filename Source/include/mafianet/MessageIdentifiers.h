@@ -34,6 +34,8 @@ enum OutOfBandIdentifiers
 	ID_ROUTER_2_REPLY_TO_SPECIFIED_PORT,
 	ID_ROUTER_2_MINI_PUNCH_REPLY,
 	ID_ROUTER_2_MINI_PUNCH_REPLY_BOUNCE,
+	// Reserved: formerly Xbox 360 integration. The identifiers stay so the
+	// wire values of everything after them do not shift.
 	ID_XBOX_360_VOICE,
 	ID_XBOX_360_GET_NETWORK_ROOM,
 	ID_XBOX_360_RETURN_NETWORK_ROOM,
@@ -388,7 +390,7 @@ enum DefaultMessageIDTypes
 	/// Gamebryo Lightspeed integration
 	ID_LIGHTSPEED_INTEGRATION,
 
-	/// XBOX integration
+	/// Reserved: formerly Xbox integration. Kept so later wire values do not shift.
 	ID_XBOX_LOBBY,
 
 	/// The password we used to challenge the other system passed, meaning the other system has called TwoWayAuthentication::AddPassword() with the same password we passed to TwoWayAuthentication::Challenge()

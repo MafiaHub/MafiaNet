@@ -99,6 +99,34 @@ jobs:
           path: build/junit-*.xml
           if-no-files-found: ignore
 
+  # Minimal configuration: every optional plugin compiled out through
+  # MAFIANET_MINIMAL (see docs/getting-started/building.rst, "Minimal builds").
+  # Proves the core transport builds without the plugins and that no plugin
+  # header leaks into the core. The test suites use the plugins, so this job
+  # builds both library targets and nothing else.
+  linux-minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Configure CMake (minimal)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMAFIANET_MINIMAL=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Report library size
+        run: ls -l build/Source/libMafiaNetStatic.a build/Source/libmafianet.so*
+
   # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest

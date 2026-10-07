@@ -340,7 +340,7 @@ int main(void)
 						peer1GotMessage=true;
 						printf("Host got: ");
 						PrintPacketHeader(packet);
-#if defined(_DEBUG) && !defined(__native_client__)
+#if defined(_DEBUG)
 						if (doTwoWayAuthentication)
 						{
 							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];
@@ -355,7 +355,7 @@ int main(void)
 						peer2GotMessage=true;
 						printf("Connecting system got: ");
 						PrintPacketHeader(packet);
-#if defined(_DEBUG) && !defined(__native_client__)
+#if defined(_DEBUG)
 						if (doTwoWayAuthentication)
 						{
 							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];

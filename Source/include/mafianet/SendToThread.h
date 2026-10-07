@@ -37,7 +37,6 @@ public:
 	{
 		SOCKET s;
 		SystemAddress systemAddress;
-		unsigned short remotePortRakNetWasStartedOn_PS3;
 		unsigned int extraSocketOptions;
 		char data[MAXIMUM_MTU_SIZE];
 		unsigned short dataWriteOffset;

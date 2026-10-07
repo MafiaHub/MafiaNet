@@ -25,7 +25,6 @@
 #include "mafianet/DS_OrderedList.h"
 #include "mafianet/LinuxStrings.h"
 #include "mafianet/SocketDefines.h"
-#include "mafianet/VitaIncludes.h"
 #include "errno.h"
 
 #ifdef _WIN32
@@ -191,7 +190,6 @@ void UDPForwarder::StopForwarding(SystemAddress source, SystemAddress destinatio
 }
 void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry)
 {
-#ifndef __native_client__
 	char data[ MAXIMUM_MTU_SIZE ];
 
 #if RAKNET_SUPPORT_IPV6==1
@@ -396,18 +394,9 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 	while ( len == 0 );
 
 	forwardEntry->timeLastDatagramForwarded=curTime;
-#endif  // __native_client__
 }
 void UDPForwarder::UpdateUDPForwarder(void)
 {
-	/*
-#if !defined(SN_TARGET_PSP2)
-	timeval tv;
-	tv.tv_sec=0;
-	tv.tv_usec=0;
-#endif
-	*/
-
 	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 
 	StartForwardingInputStruct *sfis;

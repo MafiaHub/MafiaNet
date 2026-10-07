@@ -24,8 +24,6 @@
 
 
 #ifdef _WIN32
-#elif defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
-
 #else
 #include <stdlib.h>//atoi
 #endif

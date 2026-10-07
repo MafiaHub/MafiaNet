@@ -469,53 +469,8 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			addrToBind=socketDescriptors[i].hostAddress;
 			*/
 
-
-
-
-
-
-
-
-
-		/*
-#if RAKNET_SUPPORT_IPV6==1
-		if (SocketLayer::IsSocketFamilySupported(addrToBind, socketDescriptors[i].socketFamily)==false)
-			return SOCKET_FAMILY_NOT_SUPPORTED;
-#endif
-
-		if (socketDescriptors[i].port!=0 && SocketLayer::IsPortInUse(socketDescriptors[i].port, addrToBind, socketDescriptors[i].socketFamily)==true)
-		{
-			DerefAllSockets();
-			return SOCKET_PORT_ALREADY_IN_USE;
-		}
-
-		RakNetSocket* rns = 0;
-		if (socketDescriptors[i].remotePortRakNetWasStartedOn_PS3_PSP2==0)
-		{
-			rns = SocketLayer::CreateBoundSocket( this, socketDescriptors[i].port, socketDescriptors[i].blockingSocket, addrToBind, 100, socketDescriptors[i].extraSocketOptions, socketDescriptors[i].socketFamily, socketDescriptors[i].chromeInstance );
-		}
-		else
-		{
-#if defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(_PS4)
-			rns = SocketLayer::CreateBoundSocket_PS3Lobby( socketDescriptors[i].port, socketDescriptors[i].blockingSocket, addrToBind, socketDescriptors[i].socketFamily );
-#elif  defined(SN_TARGET_PSP2)
-			rns = SocketLayer::CreateBoundSocket_PSP2( socketDescriptors[i].port, socketDescriptors[i].blockingSocket, addrToBind, socketDescriptors[i].socketFamily );
-#endif
-		}
-		*/
-
 		RakNetSocket2 *r2 = RakNetSocket2Allocator::AllocRNS2();
 		r2->SetUserConnectionSocketIndex(i);
-		#if defined(__native_client__)
-		NativeClientBindParameters ncbp;
-		RNS2_NativeClient * nativeClientSocket = (RNS2_NativeClient*) r2;
-		ncbp.eventHandler=this;
-		ncbp.forceHostAddress=(char*) socketDescriptors[i].hostAddress;
-		ncbp.is_ipv6=socketDescriptors[i].socketFamily==AF_INET6;
-		ncbp.nativeClientInstance=socketDescriptors[i].chromeInstance;
-		ncbp.port=socketDescriptors[i].port;
-		nativeClientSocket->Bind(&ncbp, _FILE_AND_LINE_);
-		#else
 		if (r2->IsBerkleySocket())
 		{
 			RNS2_BerkleyBindParameters bbp;
@@ -530,7 +485,6 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			bbp.doNotFragment=false;
 			bbp.pollingThreadPriority=threadPriority;
 			bbp.eventHandler=this;
-			bbp.remotePortRakNetWasStartedOn_PS3_PS4_PSP2=socketDescriptors[i].remotePortRakNetWasStartedOn_PS3_PSP2;
 			RNS2BindResult br = ((RNS2_Berkley*) r2)->Bind(&bbp, _FILE_AND_LINE_);
 
 			if (
@@ -564,51 +518,21 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 		{
 			RakAssert("TODO" && 0);
 		}
-		#endif
-/*
-
-		SystemAddress saOut;
-		SocketLayer::GetSystemAddress( rns, &saOut );
-		rns->SetBoundAddress(saOut);
-		rns->SetRemotePortRakNetWasStartedOn(socketDescriptors[i].remotePortRakNetWasStartedOn_PS3_PSP2);
-		rns->SetChromeInstance(socketDescriptors[i].chromeInstance);
-		rns->SetExtraSocketOptions(socketDescriptors[i].extraSocketOptions);
-		rns->SetUserConnectionSocketIndex(i);
-		rns->SetBlockingSocket(socketDescriptors[i].blockingSocket);
-
-#if RAKNET_SUPPORT_IPV6==0
-		if (addrToBind==0)
-			rns->SetBoundAddressToLoopback(4);
-#endif
-
-		// GetBoundAddress is asynch, which isn't supported by this architecture
-#if !defined(__native_client__)
-		int zero=0;
-		if (SocketLayer::SendTo(rns, (const char*) &zero,4, rns->GetBoundAddress(), _FILE_AND_LINE_)!=0)
-		{
-			DerefAllSockets();
-			return SOCKET_FAILED_TEST_SEND;
-		}
-#endif
-		*/
 
 		socketList.Push(r2, _FILE_AND_LINE_ );
 
 	}
 
-#if !defined(__native_client__)
 	for (i=0; i<socketDescriptorCount; i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
 			((RNS2_Berkley*) socketList[i])->CreateRecvPollingThread(threadPriority);
 	}
-#endif
 
 	for (i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 	{
 		if (ipList[i]==UNASSIGNED_SYSTEM_ADDRESS)
 			break;
-#if !defined(__native_client__)
 		// #high - using the 1st socket here is flawed - in cases of having multiple sockets (f.e. different ports and different families (i.e. IPv4/IPv6) we must use the proper
 		//         socket for each IP address in the list
 		if (socketList[0]->IsBerkleySocket())
@@ -617,8 +541,6 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			ipList[i].SetPortHostOrder(port);
 
 		}
-#endif
-// 		ipList[i].SetPort(((RNS2_360_720*)socketList[0])->GetBoundAddress().GetPort());
 	}
 
 	if ( maximumNumberOfPeers == 0 )
@@ -724,13 +646,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 #if RAKPEER_USER_THREADED!=1
 
-	#if defined(SN_TARGET_PSP2)
-				sprintf_s(threadName, "RecvFromLoop_%p", this);
-				//errorCode = MafiaNet::RakThread::Create(RecvFromLoop, rpai, threadPriority, threadName, 1+i, runtime);
-				errorCode = MafiaNet::RakThread::Create(RecvFromLoop, rpai, threadPriority, threadName, 1024*1);
-	#else
 				errorCode = MafiaNet::RakThread::Create(RecvFromLoop, rpai, threadPriority);
-	#endif
 
 				if ( errorCode != 0 )
 				{
@@ -1133,7 +1049,6 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 //	MafiaNet::TimeMS timeout;
 #if RAKPEER_USER_THREADED!=1
 
-#if !defined(__native_client__)
 	for (i=0; i < socketList.Size(); i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
@@ -1141,7 +1056,6 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 			((RNS2_Berkley *)socketList[i])->SignalStopRecvPollingThread();
 		}
 	}
-#endif
 
 	/*
 	// Get recvfrom to unblock
@@ -1173,7 +1087,6 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	}
 	*/
 
-#if !defined(__native_client__)
 	for (i=0; i < socketList.Size(); i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
@@ -1181,7 +1094,6 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 			((RNS2_Berkley *)socketList[i])->BlockOnStopRecvPollingThread();
 		}
 	}
-#endif
 
 
 #endif // RAKPEER_USER_THREADED!=1
@@ -1558,11 +1470,9 @@ Packet* RakPeer::Receive( void )
 		{
 			recvFromStruct=bufferedPackets.Allocate( _FILE_AND_LINE_ );
 			recvFromStruct->s=socketList[i]->s;
-			recvFromStruct->remotePortRakNetWasStartedOn_PS3=socketList[i]->remotePortRakNetWasStartedOn_PS3_PSP2;
 			recvFromStruct->extraSocketOptions=socketList[i]->extraSocketOptions;
 			SocketLayer::RecvFromBlocking(
-				recvFromStruct->s, this, recvFromStruct->remotePortRakNetWasStartedOn_PS3,
-				recvFromStruct->extraSocketOptions, recvFromStruct->data, &recvFromStruct->bytesRead, &recvFromStruct->systemAddress, &recvFromStruct->timeRead);
+				recvFromStruct->s, this, recvFromStruct->extraSocketOptions, recvFromStruct->data, &recvFromStruct->bytesRead, &recvFromStruct->systemAddress, &recvFromStruct->timeRead);
 			if (recvFromStruct->bytesRead<=0)
 			{
 				bufferedPackets.Deallocate(recvFromStruct, _FILE_AND_LINE_);
@@ -2925,7 +2835,6 @@ void RakPeer::SetUnreliableTimeout(MafiaNet::TimeMS timeoutMS)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SendTTL( const char* host, unsigned short remotePort, int ttl, unsigned connectionSocketIndex )
 {
-#if !defined(__native_client__)
 	char fakeData[2];
 	fakeData[0]=0;
 	fakeData[1]=1;
@@ -2943,7 +2852,6 @@ void RakPeer::SendTTL( const char* host, unsigned short remotePort, int ttl, uns
 			pluginListNTS[i]->OnDirectSocketSend((const char*)bsp.data, BYTES_TO_BITS(bsp.length), bsp.systemAddress);
 		socketList[realIndex]->Send(&bsp, _FILE_AND_LINE_);
 	}
-#endif
 }
 
 
@@ -4063,58 +3971,6 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignSystemAddressToRemoteSystemList( co
 				//}
 				//else
 				//{
-					/*
-					// Force binding
-					unsigned int socketListIndex;
-					for (socketListIndex=0; socketListIndex < socketList.Size(); socketListIndex++)
-					{
-						if (socketList[socketListIndex]->GetBoundAddress()==bindingAddress)
-						{
-							// Force binding with existing socket
-							remoteSystem->rakNetSocket=socketList[socketListIndex];
-							break;
-						}
-					}
-
-					if (socketListIndex==socketList.Size())
-					{
-						char ipListFoundIndexStr[128];
-						ipList[foundIndex].ToString(false,str);
-
-						// Force binding with new socket
-						RakNetSocket* rns(MafiaNet::OP_NEW<RakNetSocket>(_FILE_AND_LINE_));
-						if (incomingRakNetSocket->GetRemotePortRakNetWasStartedOn()==0)
-							rns = SocketLayer::CreateBoundSocket( this, bindingAddress.GetPort(), incomingRakNetSocket->GetBlockingSocket(), ipListFoundIndexStr, 0, incomingRakNetSocket->GetExtraSocketOptions(), incomingRakNetSocket->GetSocketFamily(), incomingRakNetSocket->GetChromeInstance() );
-						else
-							rns = SocketLayer::CreateBoundSocket_PS3Lobby( bindingAddress.GetPort(), incomingRakNetSocket->GetBlockingSocket(), ipListFoundIndexStr, incomingRakNetSocket->GetSocketFamily() );
-
-
-						if (rns==0)
-						{
-							// Can't bind. Just use whatever socket it came in on
-							remoteSystem->rakNetSocket=incomingRakNetSocket;
-						}
-						else
-						{
-							rns->GetBoundAddress()=bindingAddress;
-							rns->SetUserConnectionSocketIndex((unsigned int)-1);
-							socketList.Push(rns, _FILE_AND_LINE_ );
-							remoteSystem->rakNetSocket=rns;
-
-
-#ifdef _WIN32
-							int highPriority=THREAD_PRIORITY_ABOVE_NORMAL;
-#else
-							int highPriority=-10;
-#endif
-
-							highPriority=0;
-
-
-						}
-					}
-
-					*/
 				//}
 			}
 
@@ -6314,10 +6170,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						socketToUse = rcs->socket;
 
 					rcs->systemAddress.FixForIPVersion(socketToUse->GetBoundAddress());
-#if !defined(__native_client__)
 					if (socketToUse->IsBerkleySocket())
 						((RNS2_Berkley*)socketToUse)->SetDoNotFragment(1);
-#endif
 
 //					SocketLayer::SetDoNotFragment(socketToUse, 1);
 					MafiaNet::Time sendToStart= MafiaNet::GetTime();
@@ -6359,10 +6213,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						}
 					}
 					// SocketLayer::SetDoNotFragment(socketToUse, 0);
-#if !defined(__native_client__)
 					if (socketToUse->IsBerkleySocket())
 						((RNS2_Berkley*)socketToUse)->SetDoNotFragment(0);
-#endif
 
 					requestedConnectionQueueIndex++;
 				}
@@ -7046,37 +6898,6 @@ void RakPeer::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-/*
-RAK_THREAD_DECLARATION(MafiaNet::RecvFromLoop)
-{
-#if defined(SN_TARGET_PSP2)
-	RakPeerAndIndex *rpai = ( RakPeerAndIndex * ) RakThread::GetRealThreadArgument(callGetRealThreadArgument);
-#else
-	RakPeerAndIndex *rpai = ( RakPeerAndIndex * ) arguments;
-#endif
-	RakPeer * rakPeer = rpai->rakPeer;
-	RakNetSocket *s = rpai->s;
-	MafiaNet::OP_DELETE(rpai,_FILE_AND_LINE_);
-
-	rakPeer->isRecvFromLoopThreadActive.Increment();
-
-	while ( rakPeer->endThreads == false )
-	{
-		if (rakPeer->RunRecvFromOnce(s)==false &&
-			s->GetBlockingSocket()==false)
-			RakSleep(0);
-	}
-	rakPeer->isRecvFromLoopThreadActive.Decrement();
-
-#if defined(SN_TARGET_PSP2)
-	return sceKernelExitDeleteThread(0);
-#else
-	return 0;
-#endif
-}
-*/
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 {
 

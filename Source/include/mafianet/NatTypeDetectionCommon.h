@@ -69,14 +69,9 @@ namespace MafiaNet
 
 	/// \internal
 	RAK_DLL_EXPORT RakNetSocket2* CreateNonblockingBoundSocket(const char *bindAddr
-#ifdef __native_client__
-		,_PP_Instance_ chromeInstance
-#endif
 		, RNS2EventHandler *eventHandler
 		);
 
-	/// \internal
-	//int NatTypeRecvFrom(char *data, RakNetSocket2* socket, SystemAddress &sender, RNS2EventHandler *eventHandler);
 }
 
 #endif // #if _RAKNET_SUPPORT_NatTypeDetectionServer==1 || _RAKNET_SUPPORT_NatTypeDetectionClient==1

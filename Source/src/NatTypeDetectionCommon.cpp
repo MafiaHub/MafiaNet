@@ -100,23 +100,10 @@ const char *MafiaNet::NATTypeDetectionResultToStringFriendly(NATTypeDetectionRes
 
 
 RakNetSocket2* MafiaNet::CreateNonblockingBoundSocket(const char *bindAddr
-#ifdef __native_client__
-											,_PP_Instance_ chromeInstance
-#endif
 											, RNS2EventHandler *eventHandler
 	)
 {
 	RakNetSocket2 *r2 = RakNetSocket2Allocator::AllocRNS2();
-#if defined(__native_client__)
-	NativeClientBindParameters ncbp;
-	RNS2_NativeClient * nativeClientSocket = (RNS2_NativeClient*) r2;
-	ncbp.eventHandler=eventHandler;
-	ncbp.forceHostAddress=(char*) bindAddr;
-	ncbp.is_ipv6=false;
-	ncbp.nativeClientInstance=chromeInstance;
-	ncbp.port=0;
-	nativeClientSocket->Bind(&ncbp, _FILE_AND_LINE_);
-#else
 	if (r2->IsBerkleySocket())
 	{
 		RNS2_BerkleyBindParameters bbp;
@@ -131,7 +118,6 @@ RakNetSocket2* MafiaNet::CreateNonblockingBoundSocket(const char *bindAddr
 		bbp.doNotFragment=false;
 		bbp.pollingThreadPriority=0;
 		bbp.eventHandler=eventHandler;
-		bbp.remotePortRakNetWasStartedOn_PS3_PS4_PSP2=0;
 		RNS2BindResult br = ((RNS2_Berkley*) r2)->Bind(&bbp, _FILE_AND_LINE_);
 
 		if (br==BR_FAILED_TO_BIND_SOCKET)
@@ -155,56 +141,8 @@ RakNetSocket2* MafiaNet::CreateNonblockingBoundSocket(const char *bindAddr
 	{
 		RakAssert("TODO" && 0);
 	}
-#endif
 
 	return r2;
-
-	/*
-	#ifdef __native_client__
-	RakNetSocket2 *s = SocketLayer::CreateBoundSocket( 0, 0, false, bindAddr, true, 0, AF_INET, chromeInstance );
-	#else
-	RakNetSocket2 *s = SocketLayer::CreateBoundSocket( 0, 0, false, bindAddr, true, 0, AF_INET, 0 );
-	#endif
-
-	#ifdef _WIN32
-		unsigned long nonblocking = 1;
-		s->IOCTLSocket( FIONBIO, &nonblocking );
-	#elif defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(_PS4) || defined(SN_TARGET_PSP2)
-		int sock_opt=1;
-		s->SetSockOpt(SOL_SOCKET, SO_NBIO, ( char * ) & sock_opt, sizeof ( sock_opt ) );
-	#elif defined(__native_client__)
-		// Nop
-	#else
-		s->Fcntl( F_SETFL, O_NONBLOCK );
-	#endif
-	return s;
-	*/
 }
-
-/*
-int MafiaNet::NatTypeRecvFrom(char *data, RakNetSocket2* socket, SystemAddress &sender, RNS2EventHandler *eventHandler)
-{
-#if defined(__native_client__)
-	RakAssert("TODO" && 0);
-#else
-	if (socket->IsBerkleySocket())
-	{
-		RNS2RecvStruct *recvFromStruct;
-		recvFromStruct=AllocRNS2RecvStruct(_FILE_AND_LINE_);
-		if (recvFromStruct != nullptr)
-		{
-			recvFromStruct->socket=this;
-			socket->RecvFromBlocking(recvFromStruct);
-		}
-		if (recvFromStruct->bytesRead>0)
-		{
-			sender = recvFromStruct->systemAddress;
-		}
-		return recvFromStruct->bytesRead;
-	}
-	return 0;
-#endif
-}
-*/
 
 #endif // #if _RAKNET_SUPPORT_NatTypeDetectionServer==1 || _RAKNET_SUPPORT_NatTypeDetectionClient==1

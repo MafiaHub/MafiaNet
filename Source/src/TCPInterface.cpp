@@ -174,9 +174,6 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 
 bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnections, unsigned short maxConnections, int _threadPriority, unsigned short socketFamily, const char *bindAddress)
 {
-#ifdef __native_client__
-	return false;
-#else
 	(void) socketFamily;
 
 	if (isStarted.GetValue()>0)
@@ -234,7 +231,6 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 		messageHandlerList[i]->OnRakPeerStartup();
 
 	return true;
-#endif  // __native_client__
 }
 void TCPInterface::Stop(void)
 {
@@ -242,7 +238,6 @@ void TCPInterface::Stop(void)
 	for (i=0; i < messageHandlerList.Size(); i++)
 		messageHandlerList[i]->OnRakPeerShutdown();
 
-#ifndef __native_client__
 	if (isStarted.GetValue()==0)
 		return;
 
@@ -324,7 +319,6 @@ void TCPInterface::Stop(void)
 
 
 
-#endif  // __native_client__
 }
 SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort, bool block, unsigned short socketFamily, const char *bindAddress)
 {
@@ -773,9 +767,6 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 }
 __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress)
 {
-#ifdef __native_client__
-	return 0;
-#else
 	int connectResult;
 	(void) connectResult;
 	(void) socketFamily;
@@ -880,7 +871,6 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 	}
 
 	return sockfd;
-#endif  // __native_client__
 }
 
 RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
@@ -1278,7 +1268,7 @@ void RemoteClient::SetActive(bool a)
 void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, const int numParameters)
 {
 	// True can save memory and buffer copies, but gives worse performance overall
-	// Do not use true for the XBOX, as it just locks up
+	// Keep false unless sends from the user thread are known to be safe on the target
 	const bool ALLOW_SEND_FROM_USER_THREAD=false;
 
 	int parameterIndex;
@@ -1417,19 +1407,11 @@ int RemoteClient::Recv(char *data, const int dataSize)
 #else
 int RemoteClient::Send(const char *data, unsigned int length)
 {
-#ifdef __native_client__
-	return -1;
-#else
 	return send__(socket, data, length, 0);
-#endif
 }
 int RemoteClient::Recv(char *data, const int dataSize)
 {
-#ifdef __native_client__
-	return -1;
-#else
 	return recv__(socket, data, dataSize, 0);
-#endif
 }
 #endif
 

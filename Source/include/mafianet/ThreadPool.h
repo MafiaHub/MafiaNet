@@ -188,9 +188,6 @@ protected:
 
 	MafiaNet::SignaledEvent quitAndIncomingDataEvents;
 
-// #if defined(SN_TARGET_PSP2)
-// 	MafiaNet::RakThread::UltUlThreadRuntime *runtime;
-// #endif
 };
 
 #include "ThreadPool.h"
@@ -335,9 +332,6 @@ bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSi
 {
 	(void) stackSize;
 
-// #if defined(SN_TARGET_PSP2)
-// 	runtime = MafiaNet::RakThread::AllocRuntime(numThreads);
-// #endif
 
 	runThreadsMutex.Lock();
 	if (runThreads==true)
@@ -423,10 +417,6 @@ void ThreadPool<InputType, OutputType>::StopThreads(void)
 
 	quitAndIncomingDataEvents.CloseEvent();
 
-// #if defined(SN_TARGET_PSP2)
-// 	MafiaNet::RakThread::DeallocRuntime(runtime);
-// 	runtime=0;
-// #endif
 
 }
 template <class InputType, class OutputType>

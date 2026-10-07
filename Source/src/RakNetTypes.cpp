@@ -107,25 +107,15 @@ bool MafiaNet::NonNumericHostString( const char *host )
 }
 
 SocketDescriptor::SocketDescriptor() {
-#ifdef __native_client__
-	blockingSocket=false;
-#else
 	blockingSocket=true;
-#endif
 	port=0;
 	hostAddress[0]=0;
-	remotePortRakNetWasStartedOn_PS3_PSP2=0;
 	extraSocketOptions=0;
 	socketFamily=AF_INET;
 }
 SocketDescriptor::SocketDescriptor(unsigned short _port, const char *_hostAddress)
 {
-	#ifdef __native_client__
-		blockingSocket=false;
-	#else
 		blockingSocket=true;
-	#endif
-	remotePortRakNetWasStartedOn_PS3_PSP2=0;
 	port=_port;
 	if (_hostAddress)
 		strcpy_s(hostAddress, _hostAddress);
