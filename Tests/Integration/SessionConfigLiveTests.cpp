@@ -17,6 +17,8 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"
 #include "mafianet/get_time.h"
+#include "mafianet/native_feature_includes.h"
+#include "mafianet/packet_logger.h"
 
 using namespace MafiaNet;
 
@@ -47,6 +49,23 @@ namespace
 	const int kConnectTimeoutMs = 15000;
 	// Shortened from the 10s default so the never-answered case does not dominate suite runtime.
 	const TimeMS kHandshakeTimeoutMs = 3000;
+
+	// Message ids are printed by name so a timeout says which handshake step is missing rather than a
+	// bare number. BaseIDTOString() returns 0 for ids it does not know (user messages), so fall back.
+	std::string IdName(int id)
+	{
+#if _RAKNET_SUPPORT_PacketLogger==1
+		const char *name = PacketLogger::BaseIDTOString((unsigned char)id);
+#else
+		const char *name = 0; // names come from PacketLogger, which this build compiled out
+#endif
+		char buf[64];
+		if (name)
+			snprintf(buf, sizeof(buf), "%s (%d)", name, id);
+		else
+			snprintf(buf, sizeof(buf), "id %d", id);
+		return std::string(buf);
+	}
 
 	// Drain a peer, returning the first packet with the given id, or 0 if the deadline passes.
 	// Packets that are not the wanted id are discarded; both peers are pumped so a handshake that
@@ -88,9 +107,13 @@ namespace
 	// Waits for one packet on each of two peers at once, for the stages where both sides are notified
 	// of the same event. Pumping them one at a time with PumpUntil() discards the other peer's packets
 	// while waiting on the first, so whichever notification lands first on the "wrong" peer is thrown
-	// away and the next wait times out. Returns false on timeout; on success both packets are the
-	// caller's to deallocate.
-	bool PumpUntilBoth(RakPeerInterface *first, int firstId, Packet **firstOut, RakPeerInterface *second, int secondId, Packet **secondOut, int timeoutMs)
+	// away and the next wait times out. On success both packets are the caller's to deallocate.
+	//
+	// Returns an AssertionResult rather than a bool so a timeout reports WHICH side was still missing.
+	// Both out-params are nulled before returning, so the information is gone by the time the caller
+	// sees it; ASSERT_TRUE prints the message below ahead of the caller's own, and every call site
+	// already wraps this in ASSERT_TRUE, so nothing needed changing to gain it.
+	::testing::AssertionResult PumpUntilBoth(RakPeerInterface *first, int firstId, Packet **firstOut, RakPeerInterface *second, int secondId, Packet **secondOut, int timeoutMs)
 	{
 		*firstOut = 0;
 		*secondOut = 0;
@@ -113,16 +136,28 @@ namespace
 					second->DeallocatePacket(p);
 			}
 			if (*firstOut && *secondOut)
-				return true;
+				return ::testing::AssertionSuccess();
 			RakSleep(15);
 		}
+		const bool hadFirst = (*firstOut != 0);
+		const bool hadSecond = (*secondOut != 0);
 		if (*firstOut)
 			first->DeallocatePacket(*firstOut);
 		if (*secondOut)
 			second->DeallocatePacket(*secondOut);
 		*firstOut = 0;
 		*secondOut = 0;
-		return false;
+
+		::testing::AssertionResult failure = ::testing::AssertionFailure();
+		failure << "timed out after " << timeoutMs << " ms waiting for " << IdName(firstId)
+			<< " on the first peer and " << IdName(secondId) << " on the second: ";
+		if (!hadFirst && !hadSecond)
+			failure << "neither arrived";
+		else if (!hadFirst)
+			failure << IdName(secondId) << " arrived, " << IdName(firstId) << " did not";
+		else
+			failure << IdName(firstId) << " arrived, " << IdName(secondId) << " did not";
+		return failure;
 	}
 
 	// True if the id shows up within the window. Used for the negative assertions, where the point
