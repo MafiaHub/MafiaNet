@@ -264,10 +264,20 @@ TEST_F(SessionConfigLive, StaticExchangeDeliversBothPayloads)
 	const unsigned short port = StartPeers();
 	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
-	Packet *accepted = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
-	ASSERT_NE(accepted, nullptr) << "client never reported a connection";
+	// Both waits have to run in the same loop. In static mode the server releases its withheld
+	// ID_NEW_INCOMING_CONNECTION in the same step that it sends ID_SESSION_CONFIG, so it is queued
+	// strictly BEFORE the client turns that message into ID_CONNECTION_REQUEST_ACCEPTED. Waiting on
+	// the client first with PumpUntil() discards whatever the server has queued meanwhile, so any
+	// scheduling gap between the two throws ID_NEW_INCOMING_CONNECTION away and the second wait then
+	// burns its full deadline.
+	Packet *accepted = 0;
+	Packet *incoming = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, &accepted, server, ID_NEW_INCOMING_CONNECTION, &incoming, kConnectTimeoutMs))
+		<< "the connection was not reported on both sides";
 	const RakNetGUID serverGuid = accepted->guid;
+	const RakNetGUID clientGuid = incoming->guid;
 	client->DeallocatePacket(accepted);
+	server->DeallocatePacket(incoming);
 
 	// The payload must already be readable — that is the whole contract of the withheld packet.
 	unsigned int length = 0;
@@ -275,11 +285,6 @@ TEST_F(SessionConfigLive, StaticExchangeDeliversBothPayloads)
 	ASSERT_NE(fromServer, nullptr);
 	ASSERT_EQ(length, (unsigned int)strlen(kServerPayload));
 	EXPECT_EQ(memcmp(fromServer, kServerPayload, length), 0);
-
-	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
-	ASSERT_NE(incoming, nullptr) << "server never reported a connection";
-	const RakNetGUID clientGuid = incoming->guid;
-	server->DeallocatePacket(incoming);
 
 	length = 0;
 	const char *fromClient = server->GetRemoteSessionConfig(clientGuid, &length);
@@ -294,18 +299,20 @@ TEST_F(SessionConfigLive, EmptyPayloadsStillConnect)
 	const unsigned short port = StartPeers();
 	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
-	Packet *accepted = PumpUntil(client, ID_CONNECTION_REQUEST_ACCEPTED, server, kConnectTimeoutMs);
-	ASSERT_NE(accepted, nullptr);
+	// Same ordering hazard as StaticExchangeDeliversBothPayloads: the handshake still runs with empty
+	// payloads, so the server's connection packet is queued before the client's and must not be
+	// discarded by a one-sided wait.
+	Packet *accepted = 0;
+	Packet *incoming = 0;
+	ASSERT_TRUE(PumpUntilBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, &accepted, server, ID_NEW_INCOMING_CONNECTION, &incoming, kConnectTimeoutMs))
+		<< "the connection was not reported on both sides";
 	const RakNetGUID serverGuid = accepted->guid;
 	client->DeallocatePacket(accepted);
+	server->DeallocatePacket(incoming);
 
 	unsigned int length = 12345;
 	client->GetRemoteSessionConfig(serverGuid, &length);
 	EXPECT_EQ(length, 0u);
-
-	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
-	ASSERT_NE(incoming, nullptr);
-	server->DeallocatePacket(incoming);
 }
 
 // The load-bearing assertion. In interactive mode the server holds the decision, so neither peer may
