@@ -1,10 +1,20 @@
 name: Build & Test
 
+# Runs on pull requests only. Pushes to master do not build or test: master is
+# only ever changed by merging a PR that already passed this workflow, and a
+# release tag (vX.Y.Z) triggers release.yml, which packages without testing.
+# workflow_dispatch allows a manual run on any branch.
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+  workflow_dispatch:
+
+# A new push to the same PR cancels the run still in flight for it.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   # Linux: Build and test in Docker container (full network access).
