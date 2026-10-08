@@ -16,7 +16,7 @@
 #ifndef __SENDTO_THREAD
 #define __SENDTO_THREAD
 
-#include "defines.h"
+#include "RakNetDefines.h"
 
 #ifdef USE_THREADED_SEND
 

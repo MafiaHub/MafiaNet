@@ -11,7 +11,7 @@
 #pragma once
 
 
-#include "mafianet/time.h"
+#include "mafianet/RakNetTime.h"
 #include "mafianet/GetTime.h"
 
 using namespace MafiaNet;

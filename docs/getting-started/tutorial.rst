@@ -38,9 +38,9 @@ Create ``ChatServer.cpp``:
 
 .. code-block:: cpp
 
-   #include "mafianet/peerinterface.h"
+   #include "mafianet/RakPeerInterface.h"
    #include "mafianet/BitStream.h"
-   #include "mafianet/string.h"
+   #include "mafianet/RakString.h"
    #include "ChatCommon.h"
    #include <cstdio>
 
@@ -112,9 +112,9 @@ Create ``ChatClient.cpp``:
 
 .. code-block:: cpp
 
-   #include "mafianet/peerinterface.h"
+   #include "mafianet/RakPeerInterface.h"
    #include "mafianet/BitStream.h"
-   #include "mafianet/string.h"
+   #include "mafianet/RakString.h"
    #include "mafianet/Gets.h"
    #include "ChatCommon.h"
    #include <cstdio>

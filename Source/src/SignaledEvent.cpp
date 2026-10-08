@@ -14,8 +14,8 @@
  */
 
 #include "mafianet/SignaledEvent.h"
-#include "mafianet/assert.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakSleep.h"
 
 #if defined(__GNUC__) 
 #include <sys/time.h>

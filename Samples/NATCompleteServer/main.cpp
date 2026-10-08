@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakSleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +22,7 @@
 #include "mafianet/Kbhit.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/UDPProxyServer.h"
 #include "mafianet/UDPProxyCoordinator.h"
 #include "mafianet/NatPunchthroughServer.h"
@@ -32,10 +32,10 @@
 #include "mafianet/Gets.h"
 #include "CloudServerHelper.h"
 #include "mafianet/CloudClient.h"
-#include "mafianet/statistics.h"
+#include "mafianet/RakNetStatistics.h"
 #include "mafianet/RelayPlugin.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 //#define VERBOSE_LOGGING
 

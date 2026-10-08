@@ -22,7 +22,7 @@
 #ifndef __BYTE_QUEUE_H
 #define __BYTE_QUEUE_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "Export.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures

@@ -20,7 +20,7 @@
 #include "mafianet/VirtualWorldReplica3.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/NetworkIDManager.h"
 
 using namespace MafiaNet;

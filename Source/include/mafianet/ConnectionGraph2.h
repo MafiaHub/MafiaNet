@@ -24,8 +24,8 @@
 #ifndef __CONNECTION_GRAPH_2_H
 #define __CONNECTION_GRAPH_2_H
 
-#include "memoryoverride.h"
-#include "types.h"
+#include "RakMemoryOverride.h"
+#include "RakNetTypes.h"
 #include "PluginInterface2.h"
 #include "DS_List.h"
 #include "DS_WeightedGraph.h"

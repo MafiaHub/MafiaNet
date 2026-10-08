@@ -13,9 +13,9 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/string.h"
-#include "mafianet/assert.h"
-#include "mafianet/memoryoverride.h"
+#include "mafianet/RakString.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakMemoryOverride.h"
 #include "mafianet/BitStream.h"
 #include <stdarg.h>
 #include <string.h>
@@ -25,8 +25,8 @@
 #include <stdlib.h>
 #include "mafianet/Itoa.h"
 #include <limits>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 
@@ -1573,7 +1573,7 @@ void RakString::UnlockMutex(void)
 }
 
 /*
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 #include <string>
 #include "mafianet/GetTime.h"
 

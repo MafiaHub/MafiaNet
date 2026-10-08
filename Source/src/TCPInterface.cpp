@@ -31,10 +31,10 @@
 #include <pthread.h>
 #endif
 #include <string.h>
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include <stdio.h>
-#include "mafianet/assert.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/StringTable.h"
 #include "mafianet/Itoa.h"
@@ -58,8 +58,8 @@ RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
 #ifdef _MSC_VER
 #pragma warning( push )
 #endif
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

@@ -130,7 +130,7 @@ Example: Basic Server Startup
 
 .. code-block:: cpp
 
-   #include "mafianet/peerinterface.h"
+   #include "mafianet/RakPeerInterface.h"
 
    MafiaNet::RakPeerInterface* server = MafiaNet::RakPeerInterface::GetInstance();
 

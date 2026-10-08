@@ -17,7 +17,7 @@
 #define __ROOMS_BROWSER_GFX3_RAKNET
 
 #include "mafianet/WindowsIncludes.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "Lobby2Message.h"
 #include "mafianet/PluginInterface2.h"
 #include "RoomsBrowserGFx3.h"

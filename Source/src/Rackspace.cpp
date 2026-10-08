@@ -17,7 +17,7 @@
 #if _RAKNET_SUPPORT_Rackspace==1 && _RAKNET_SUPPORT_TCPInterface==1
 
 #include "mafianet/Rackspace.h"
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 #include "mafianet/TCPInterface.h"
 
 using namespace MafiaNet;

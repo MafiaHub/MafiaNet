@@ -16,16 +16,16 @@
 
 // RakNet headers
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/statistics.h"
-#include "mafianet/types.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakNetStatistics.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/PacketLogger.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 
 // For simplicity, this sample doesn't support secure connections
 #if LIBCAT_SECURITY==1

@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/socket2.h"
+#include "mafianet/RakNetSocket2.h"
 #include "mafianet/MTUSize.h"
 
 #include <errno.h>

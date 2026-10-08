@@ -26,10 +26,10 @@
 #define __FULLY_CONNECTED_MESH_2_H
 
 #include "PluginInterface2.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "NativeTypes.h"
 #include "DS_List.h"
-#include "string.h"
+#include "RakString.h"
 #include "BitStream.h"
 
 typedef int64_t FCM2Guid;

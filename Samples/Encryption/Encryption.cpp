@@ -19,18 +19,18 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
 #include "mafianet/Rand.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/NativeFeatureIncludes.h"
 #include <assert.h>
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/SecureHandshake.h" // Include header for secure handshake
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 using namespace MafiaNet;
 
 #if LIBCAT_SECURITY!=1

@@ -28,7 +28,7 @@
 
 
 #endif
-#include "mafianet/defines.h"
+#include "mafianet/RakNetDefines.h"
 #include <stdio.h>
 
 #ifdef _WIN32

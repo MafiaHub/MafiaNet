@@ -19,18 +19,18 @@
 #include <limits> // used for std::numeric_limits
 #include "portaudio.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/RakVoice.h"
-#include "mafianet/statistics.h"
+#include "mafianet/RakNetStatistics.h"
 #include "mafianet/NatPunchthroughClient.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/Getche.h"
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
+#include "mafianet/GuidUtil.h"
 
 /// To test sending to myself. Also uncomment in RakVoice.cpp
 //#define _TEST_LOOPBACK

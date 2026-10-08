@@ -15,10 +15,10 @@
 
 #include "ProfanityFilter.h"
 #include "mafianet/Rand.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #if defined(_WIN32)
 #include <malloc.h> // alloca

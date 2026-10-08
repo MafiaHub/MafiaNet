@@ -31,7 +31,7 @@
 #include "mafianet/Kbhit.h"
 
 #include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"
@@ -44,15 +44,15 @@
 #include "mafianet/TwoWayAuthentication.h"
 #include "mafianet/CloudClient.h"
 #include "mafianet/DynDNS.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/ConnectionGraph2.h"
 #include "CloudServerHelper.h"
 #include "mafianet/HTTPConnection2.h"
 #include "Rackspace2.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"

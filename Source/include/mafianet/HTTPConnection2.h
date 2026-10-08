@@ -26,9 +26,9 @@
 #define __HTTP_CONNECTION_2
 
 #include "Export.h"
-#include "string.h"
-#include "memoryoverride.h"
-#include "types.h"
+#include "RakString.h"
+#include "RakMemoryOverride.h"
+#include "RakNetTypes.h"
 #include "DS_List.h"
 #include "DS_Queue.h"
 #include "PluginInterface2.h"

@@ -31,10 +31,10 @@
 #define __TEAM_MANAGER_H
 
 #include "PluginInterface2.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "NativeTypes.h"
 #include "DS_List.h"
-#include "types.h"
+#include "RakNetTypes.h"
 #include "DS_Hash.h"
 #include "DS_OrderedList.h"
 

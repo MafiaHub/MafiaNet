@@ -17,7 +17,7 @@
 #define __PROFANITY_FILTER__H__
 
 #include "mafianet/DS_List.h"
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 
 namespace MafiaNet {
 

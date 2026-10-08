@@ -13,13 +13,13 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/wstring.h"
+#include "mafianet/RakWString.h"
 #include "mafianet/BitStream.h"
 #include <string.h>
 #include <wchar.h>
 #include <stdlib.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

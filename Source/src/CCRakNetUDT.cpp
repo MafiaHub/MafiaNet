@@ -23,8 +23,8 @@
 #include <math.h>
 #include <stdlib.h>
 //#include <memory.h>
-#include "mafianet/assert.h"
-#include "mafianet/alloca.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakAlloca.h"
 
 using namespace MafiaNet;
 

@@ -20,12 +20,12 @@
 #include "mafianet/Gets.h"
 
 #include "mafianet/TCPInterface.h"
-#include "mafianet/string.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakString.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/DR_SHA1.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #include "mafianet/Base64Encoder.h"
 

@@ -16,7 +16,7 @@
 #ifndef __TABLE_SERIALIZER_H
 #define __TABLE_SERIALIZER_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "DS_Table.h"
 #include "Export.h"
 

@@ -9,7 +9,7 @@
  */
 
 #include "SQLiteServerLoggerPlugin.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/PacketizedTCP.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "SQLiteLoggerCommon.h"
@@ -29,7 +29,7 @@
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-#include "mafianet/linux_adapter.h"
+#include "mafianet/LinuxAdapter.h"
 
 // http://web.utk.edu/~jplyon/sqlite/SQLite_optimization_FAQ.html
 

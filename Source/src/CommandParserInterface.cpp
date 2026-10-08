@@ -16,7 +16,7 @@
 #include "mafianet/CommandParserInterface.h"
 #include "mafianet/TransportInterface.h"
 #include <string.h>
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include <stdio.h>
 
 

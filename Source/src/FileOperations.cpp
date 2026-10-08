@@ -15,7 +15,7 @@
 
 #include "mafianet/FileOperations.h"
 #if _RAKNET_SUPPORT_FileOperations==1
-#include "mafianet/memoryoverride.h"
+#include "mafianet/RakMemoryOverride.h"
 #include "mafianet/_FindFirst.h" // For linux
 #include <stdio.h>
 #include <string.h>
@@ -29,8 +29,8 @@
 #include "mafianet/_FindFirst.h"
 #endif
 #include "errno.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #ifndef MAX_PATH
 #define MAX_PATH 260

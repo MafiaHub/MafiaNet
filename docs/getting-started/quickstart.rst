@@ -65,7 +65,7 @@ Basic Server
 
 .. code-block:: cpp
 
-   #include "mafianet/peerinterface.h"
+   #include "mafianet/RakPeerInterface.h"
    #include "mafianet/MessageIdentifiers.h"
 
    int main() {
@@ -108,7 +108,7 @@ Basic Client
 
 .. code-block:: cpp
 
-   #include "mafianet/peerinterface.h"
+   #include "mafianet/RakPeerInterface.h"
    #include "mafianet/MessageIdentifiers.h"
 
    int main() {

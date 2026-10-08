@@ -24,9 +24,9 @@
 
 #include "Export.h"
 #include "DS_List.h"
-#include "types.h"
+#include "RakNetTypes.h"
 #include "DS_Queue.h"
-#include "string.h"
+#include "RakString.h"
 
 #ifndef __RACKSPACE_H
 #define __RACKSPACE_H

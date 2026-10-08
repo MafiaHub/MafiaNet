@@ -16,14 +16,14 @@
 /// \file
 ///
 
-#include "mafianet/types.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakNetTypes.h"
+#include "mafianet/RakAssert.h"
 #include <string.h>
 #include <stdio.h>
 #include "mafianet/WindowsIncludes.h"
 #include "mafianet/WSAStartupSingleton.h"
 #include "mafianet/SocketDefines.h"
-#include "mafianet/socket2.h"
+#include "mafianet/RakNetSocket2.h"
 
 #if   defined(_WIN32)
 // extern __int64 _strtoui64(const char*, char**, int); // needed for Code::Blocks. Does not compile on Visual Studio 2010
@@ -42,8 +42,8 @@
 #include "mafianet/SocketLayer.h"
 #include "mafianet/SuperFastHash.h"
 #include <stdlib.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 
@@ -68,7 +68,7 @@ const char *AddressOrGUID::ToString(bool writePort) const
 	{
 		// Rotating static buffer, mirroring SystemAddress::ToString below.
 		// NOT THREADSAFE — for an owning, thread-safe string use
-		// MafiaNet::to_string(guid) from "mafianet/guid_util.h".
+		// MafiaNet::to_string(guid) from "mafianet/GuidUtil.h".
 		static unsigned char strIndex=0;
 		static char str[8][64];
 		unsigned char lastStrIndex=strIndex;

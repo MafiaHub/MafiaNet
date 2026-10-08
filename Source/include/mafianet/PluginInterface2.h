@@ -22,7 +22,7 @@
 #define __PLUGIN_INTERFACE_2_H
 
 #include "NativeFeatureIncludes.h"
-#include "types.h"
+#include "RakNetTypes.h"
 #include "Export.h"
 #include "PacketPriority.h"
 

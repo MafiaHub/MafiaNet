@@ -16,11 +16,11 @@
 #include "mafianet/DS_Table.h"
 #include "mafianet/DS_OrderedList.h"
 #include <string.h>
-#include "mafianet/assert.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/Itoa.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace DataStructures;
 

@@ -19,13 +19,13 @@
 
 #include "mafianet/TCPInterface.h"
 #include "mafianet/ConsoleServer.h"
-#include "mafianet/commandparser.h"
+#include "mafianet/RakNetCommandParser.h"
 #include "mafianet/TelnetTransport.h"
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/LogCommandParser.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/transport2.h"
+#include "mafianet/RakNetTransport2.h"
 #include "mafianet/LinuxStrings.h"
 #include <stdio.h>
 

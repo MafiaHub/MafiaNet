@@ -23,18 +23,18 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/RakVoice.h"
-#include "mafianet/statistics.h"
+#include "mafianet/RakNetStatistics.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/Gets.h"
 #include "DSoundVoiceAdapter.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 // Reads and writes per second of the sound data
 // Opus supports: 8000, 16000, 24000, 48000

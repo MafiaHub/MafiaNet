@@ -16,7 +16,7 @@
 #ifndef __LOBBY_2_PRESENCE_H
 #define __LOBBY_2_PRESENCE_H
 
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 
 
 

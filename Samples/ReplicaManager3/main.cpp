@@ -16,7 +16,7 @@
 // Demonstrates ReplicaManager 3: A system to automatically create, destroy, and serialize objects
 
 #include "mafianet/StringTable.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include <stdio.h>
 #include "mafianet/Kbhit.h"
@@ -25,18 +25,18 @@
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/ReplicaManager3.h"
 #include "mafianet/NetworkIDManager.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/FormatString.h"
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/Getche.h"
 #include "mafianet/Rand.h"
 #include "mafianet/VariableDeltaSerializer.h"
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
+#include "mafianet/GuidUtil.h"
 
 enum
 {

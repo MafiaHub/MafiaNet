@@ -17,14 +17,21 @@
 ///
 
 
+// Deprecated: DS_BytePool.h has no consumer in the library and is scheduled for removal in the next
+// minor release. Copy it into your project if you depend on it.
+// Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/DS_BytePool.h is deprecated and will be removed; copy it into your project if you use it")
+#endif
+
 #ifndef __BYTE_POOL_H
 #define __BYTE_POOL_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "DS_MemoryPool.h"
 #include "Export.h"
 #include "SimpleMutex.h"
-#include "assert.h"
+#include "RakAssert.h"
 
 // #define _DISABLE_BYTE_POOL
 // #define _THREADSAFE_BYTE_POOL

@@ -14,7 +14,7 @@
  */
 
 #include "Lobby2ResultCode.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 
 using namespace MafiaNet;
 

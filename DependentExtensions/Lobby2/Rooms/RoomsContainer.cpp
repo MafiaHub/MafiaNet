@@ -15,12 +15,12 @@
 
 #include "RoomsContainer.h"
 #include "ProfanityFilter.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/TableSerializer.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 static const MafiaNet::TimeMS MINIMUM_QUICK_JOIN_TIMEOUT=5000;
 static const MafiaNet::TimeMS MAXIMUM_QUICK_JOIN_TIMEOUT=60000 * 5;

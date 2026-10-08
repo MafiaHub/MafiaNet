@@ -26,12 +26,12 @@
 #define __UDP_FORWARDER_H
 
 #include "Export.h"
-#include "types.h"
+#include "RakNetTypes.h"
 #include "SocketIncludes.h"
 #include "UDPProxyCommon.h"
 #include "SimpleMutex.h"
-#include "string.h"
-#include "thread.h"
+#include "RakString.h"
+#include "RakThread.h"
 #include "DS_Queue.h"
 #include "DS_OrderedList.h"
 #include "LocklessTypes.h"

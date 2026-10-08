@@ -19,10 +19,17 @@
 ///
 
  
+// Deprecated: DS_HuffmanEncodingTreeFactory.h has no consumer in the library and is scheduled for removal in the next
+// minor release. Copy it into your project if you depend on it.
+// Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/DS_HuffmanEncodingTreeFactory.h is deprecated and will be removed; copy it into your project if you use it")
+#endif
+
 #ifndef __HUFFMAN_ENCODING_TREE_FACTORY
 #define __HUFFMAN_ENCODING_TREE_FACTORY
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 
 namespace MafiaNet {
 /// Forward declarations

@@ -53,6 +53,9 @@ Configure build options with CMake:
    * - ``MAFIANET_BUILD_TESTS``
      - OFF
      - Build GoogleTest suite (requires ``MAFIANET_BUILD_STATIC=ON``)
+   * - ``MAFIANET_BUILD_EXTRAS``
+     - OFF
+     - Build ``MafiaNetExtras`` (SMTP, HTTP client, telnet/console transports). Forced ON by ``MAFIANET_BUILD_SAMPLES``. See `The extras library`_.
    * - ``MAFIANET_DISABLED_FEATURES``
      - (empty)
      - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;RPC4Plugin"``. See `Minimal builds`_.
@@ -98,6 +101,31 @@ disabling ``FileListTransfer`` while keeping ``DirectoryDeltaTransfer`` keeps
 A minimal build is exercised in CI (the ``linux-minimal`` job), which
 configures with ``-DMAFIANET_MINIMAL=ON`` and builds both library targets.
 The test suites need the plugins, so they are not built in that configuration.
+
+The extras library
+------------------
+
+Utilities that are not game networking live in a separate static library,
+``MafiaNetExtras`` (``MafiaNet::MafiaNetExtras``), built only when
+``MAFIANET_BUILD_EXTRAS=ON``:
+
+* ``EmailSender`` (SMTP client)
+* ``HTTPConnection`` and ``HTTPConnection2`` (HTTP clients over ``TCPInterface``)
+* ``TelnetTransport`` and ``RakNetTransport2`` (command transports)
+* ``ConsoleServer``, ``CommandParserInterface``, ``RakNetCommandParser`` and ``LogCommandParser`` (remote console)
+* ``PacketConsoleLogger`` (packet logger writing to a ``LogCommandParser``)
+
+Their headers stay under ``include/mafianet/``, so include paths are unchanged;
+only the link line changes. The extras target links the core library
+``PUBLIC``, so linking it alone is enough:
+
+.. code-block:: cmake
+
+   find_package(MafiaNet REQUIRED)
+   target_link_libraries(my_tool PRIVATE MafiaNet::MafiaNetExtras)
+
+The classes still honour their ``_RAKNET_SUPPORT_<Name>`` flags, and
+``MAFIANET_DISABLED_FEATURES`` applies to the extras target too.
 
 Using ``NativeFeatureIncludesOverrides.h`` to set the same flags still works,
 but the CMake route keeps the configuration in the build system, where it is
@@ -167,7 +195,7 @@ figures. Reproduce with:
 The per-datagram column is the code every non-Linux platform runs. To reproduce it
 on Linux, flip the ``#if defined(__linux__)`` batching guards in
 ``RakNetSocket2.cpp``, ``RakNetSocket2_Berkley.cpp``, ``ReliabilityLayer.cpp`` and
-``socket2.h`` to ``#if 0``.
+``RakNetSocket2.h`` to ``#if 0``.
 
 Running Tests
 -------------

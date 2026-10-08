@@ -1,26 +1,14 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
- *  All rights reserved.
+ * Copyright (c) 2026, MafiaHub
+ * Licensed under MIT-style license
  *
- *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
- *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
- *
+ * Deprecated include path. "mafianet/alloca.h" was renamed to "mafianet/RakAlloca.h" so
+ * every header follows the PascalCase name of the class it declares. This
+ * forwarding header is kept for one release cycle and will then be removed.
+ * Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
  */
-
-#if defined(__FreeBSD__)
-#include <stdlib.h>
-
-
-
-
-#elif defined ( __APPLE__ ) || defined ( __APPLE_CC__ )
-#include <malloc/malloc.h>
-#include <alloca.h>
-#elif defined(_WIN32)
-#include <malloc.h>
-#else
-#include <malloc.h>
-// Alloca needed on Ubuntu apparently
-#include <alloca.h>
+#pragma once
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/alloca.h is deprecated; include mafianet/RakAlloca.h instead")
 #endif
+#include "RakAlloca.h"

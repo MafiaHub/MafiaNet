@@ -20,7 +20,7 @@
 #include "mafianet/DS_Table.h"
 #include "RoomsErrorCodes.h"
 #include "mafianet/DS_List.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "IntervalTimer.h"
 #include "RoomTypes.h"
 

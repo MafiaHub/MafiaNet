@@ -19,8 +19,8 @@
 
 #include "mafianet/NetworkIDObject.h"
 #include "mafianet/NetworkIDManager.h"
-#include "mafianet/assert.h"
-#include "mafianet/alloca.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakAlloca.h"
 
 using namespace MafiaNet;
 

@@ -16,7 +16,7 @@
 #ifndef __MY_SQL_INTERFACE_H
 #define __MY_SQL_INTERFACE_H
 
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 
 struct st_mysql_res;
 struct st_mysql;

@@ -15,7 +15,7 @@
 
 #if defined(_WIN32) && !defined(__GNUC__)  &&!defined(__GCCXML__)
 
-#include "mafianet/gettimeofday.h"
+#include "mafianet/GetTimeOfDay.h"
 
 // From http://www.openasthra.com/c-tidbits/gettimeofday-function-for-windows/
 

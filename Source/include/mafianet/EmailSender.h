@@ -23,8 +23,8 @@
 #ifndef __EMAIL_SENDER_H
 #define __EMAIL_SENDER_H
 
-#include "types.h"
-#include "memoryoverride.h"
+#include "RakNetTypes.h"
+#include "RakMemoryOverride.h"
 #include "Export.h"
 #include "Rand.h"
 #include "TCPInterface.h"

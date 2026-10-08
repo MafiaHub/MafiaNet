@@ -20,9 +20,9 @@
 // ----------------------------------------------------------------------
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/types.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/BitStream.h"
 #include <assert.h>
@@ -30,11 +30,11 @@
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
+#include "mafianet/GuidUtil.h"
 
 int main(void)
 {

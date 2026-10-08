@@ -22,11 +22,11 @@
 #ifndef __SINGLE_PRODUCER_CONSUMER_H
 #define __SINGLE_PRODUCER_CONSUMER_H
 
-#include "assert.h"
+#include "RakAssert.h"
 
 static const int MINIMUM_LIST_SIZE=8;
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "Export.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures

@@ -24,10 +24,10 @@
 // Use stdlib and not malloc for compatibility
 #include <stdlib.h>
 #endif
-#include "assert.h"
+#include "RakAssert.h"
 #include "Export.h"
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 
 // DS_MEMORY_POOL_MAX_FREE_PAGES must be > 1
 #define DS_MEMORY_POOL_MAX_FREE_PAGES 4

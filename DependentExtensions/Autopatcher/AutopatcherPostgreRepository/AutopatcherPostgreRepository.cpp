@@ -27,8 +27,8 @@
 // #include "mafianet/DR_SHA1.h"
 #include <stdlib.h>
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 // localtime
 #include <time.h>
 

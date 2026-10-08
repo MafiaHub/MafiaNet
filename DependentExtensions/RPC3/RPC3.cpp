@@ -14,11 +14,11 @@
  */
 
 #include "RPC3.h"
-#include "mafianet/memoryoverride.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/NetworkIDManager.h"
 #include <stdlib.h>

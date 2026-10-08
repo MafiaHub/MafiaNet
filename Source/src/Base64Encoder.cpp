@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/Base64Encoder.h"
-#include "mafianet/memoryoverride.h"
+#include "mafianet/RakMemoryOverride.h"
 
 const char *Base64Map(void) {return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";}
 const char *base64Map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

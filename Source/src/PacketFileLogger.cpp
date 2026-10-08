@@ -18,9 +18,9 @@
 
 #include "mafianet/PacketFileLogger.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#include "mafianet/memoryoverride.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
+#include "mafianet/RakMemoryOverride.h"
 
 using namespace MafiaNet;
 

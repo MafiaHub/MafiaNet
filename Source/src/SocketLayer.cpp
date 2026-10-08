@@ -18,14 +18,14 @@
 ///
 
 #include "mafianet/SocketLayer.h"
-#include "mafianet/assert.h"
-#include "mafianet/types.h"
-#include "mafianet/peer.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakNetTypes.h"
+#include "mafianet/RakPeer.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/LinuxStrings.h"
 #include "mafianet/SocketDefines.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 #if (defined(__GNUC__)  || defined(__GCCXML__)) && !defined(__WIN32__)
 #include <netdb.h>
 #endif
@@ -72,7 +72,7 @@ using namespace MafiaNet;
 
 #endif
 
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include <stdio.h>
 #include "mafianet/Itoa.h"
 

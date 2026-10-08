@@ -1,17 +1,14 @@
 /*
- *  Copyright (c) 2014, Oculus VR, Inc.
- *  All rights reserved.
+ * Copyright (c) 2026, MafiaHub
+ * Licensed under MIT-style license
  *
- *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
- *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
- *
- *
- *  Modified work: Copyright (c) 2017, SLikeSoft UG (haftungsbeschränkt)
- *
- *  This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
- *  license found in the license.txt file in the root directory of this source tree.
+ * Deprecated include path. "mafianet/assert.h" was renamed to "mafianet/RakAssert.h" so
+ * every header follows the PascalCase name of the class it declares. This
+ * forwarding header is kept for one release cycle and will then be removed.
+ * Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
  */
-
-#include <assert.h>
-#include "defines.h"
+#pragma once
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/assert.h is deprecated; include mafianet/RakAssert.h instead")
+#endif
+#include "RakAssert.h"

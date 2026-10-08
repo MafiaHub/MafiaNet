@@ -14,8 +14,8 @@
  */
 
 #include "DSoundVoiceAdapter.h"
-#include "mafianet/assert.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakPeerInterface.h"
 #include <tchar.h>
 
 /// To test sending to myself

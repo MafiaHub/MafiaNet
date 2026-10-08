@@ -21,7 +21,7 @@
 #include "mafianet/NativeTypes.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/alloca.h"
+#include "mafianet/RakAlloca.h"
 
 using namespace MafiaNet;
 

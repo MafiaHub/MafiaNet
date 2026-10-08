@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/GridSectorizer.h"
 //#include <stdlib.h>
 #include <math.h>

@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
@@ -27,9 +27,9 @@
 #else
 #include <unistd.h> // usleep
 #include <strings.h>
-#include "mafianet/linux_adapter.h"
+#include "mafianet/LinuxAdapter.h"
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/OsxAdapter.h"
 
 //linux doesn't have stricmp but strcasecmp is same functionality
 #define stricmp strcasecmp

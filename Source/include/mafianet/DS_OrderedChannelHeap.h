@@ -19,6 +19,13 @@
 ///
 
 
+// Deprecated: DS_OrderedChannelHeap.h has no consumer in the library and is scheduled for removal in the next
+// minor release. Copy it into your project if you depend on it.
+// Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/DS_OrderedChannelHeap.h is deprecated and will be removed; copy it into your project if you use it")
+#endif
+
 #ifndef __RAKNET_ORDERED_CHANNEL_HEAP_H
 #define __RAKNET_ORDERED_CHANNEL_HEAP_H
 
@@ -26,7 +33,7 @@
 #include "DS_Map.h"
 #include "DS_Queue.h"
 #include "Export.h"
-#include "assert.h"
+#include "RakAssert.h"
 #include "Rand.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures

@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/Rand.h" // randomMT
 #include "mafianet/MessageIdentifiers.h" // Enumerations
-#include "mafianet/types.h" // SystemAddress
+#include "mafianet/RakNetTypes.h" // SystemAddress
 #include "mafianet/Kbhit.h"
 #include "mafianet/Gets.h"
 #include <cstdio>

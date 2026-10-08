@@ -20,11 +20,11 @@
 #include <cstring>
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/StatisticsHistory.h"
 #include <math.h>
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 
 using namespace MafiaNet;
 

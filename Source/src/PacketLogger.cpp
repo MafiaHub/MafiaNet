@@ -20,7 +20,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/DS_List.h"
 #include "mafianet/InternalPacket.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/GetTime.h"
@@ -30,9 +30,9 @@
 #include "mafianet/Itoa.h"
 #include <time.h>
 #include "mafianet/SocketIncludes.h"
-#include "mafianet/gettimeofday.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/GetTimeOfDay.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

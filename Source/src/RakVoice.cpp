@@ -20,7 +20,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/PacketPriority.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/ReliabilityLayer.h"
 #include <stdlib.h>
 #include <cstring>

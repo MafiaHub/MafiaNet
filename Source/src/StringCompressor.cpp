@@ -21,8 +21,8 @@
 #include "mafianet/StringCompressor.h"
 #include "mafianet/DS_HuffmanEncodingTree.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/string.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakString.h"
+#include "mafianet/RakAssert.h"
 #include <string.h>
 
 #include <memory.h>

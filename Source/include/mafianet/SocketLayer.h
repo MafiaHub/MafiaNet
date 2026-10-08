@@ -23,13 +23,13 @@
 #ifndef __SOCKET_LAYER_H
 #define __SOCKET_LAYER_H
 
-#include "memoryoverride.h"
-#include "types.h"
-#include "smartptr.h"
+#include "RakMemoryOverride.h"
+#include "RakNetTypes.h"
+#include "RakNetSmartPtr.h"
 //#include "socket.h"
 #include "Export.h"
 #include "MTUSize.h"
-#include "string.h"
+#include "RakString.h"
 
 //#include "ClientContextStruct.h"
 

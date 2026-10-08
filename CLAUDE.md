@@ -62,12 +62,20 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_BUILD_STATIC` | ON | Build static library (.lib/.a) |
 | `MAFIANET_BUILD_SAMPLES` | OFF | Build sample applications |
 | `MAFIANET_BUILD_TESTS` | OFF | Build test suite |
+| `MAFIANET_BUILD_EXTRAS` | OFF | Build `MafiaNetExtras` (EmailSender, HTTPConnection*, Telnet/RakNet transports, ConsoleServer, command parsers, PacketConsoleLogger); forced ON by `MAFIANET_BUILD_SAMPLES` |
 | `MAFIANET_DISABLED_FEATURES` | (empty) | Semicolon list of plugins to compile out (`_RAKNET_SUPPORT_<Name>=0`); names validated against `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` |
 | `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
 
 When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, update
 `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake
 plugin selection silently drifts from `NativeFeatureIncludes.h`.
+
+Public headers use the PascalCase name of the class they declare, matching the
+`.cpp` (`RakPeerInterface.h`, `RakString.h`, `RakNetTypes.h`). The only lowercase
+header is the umbrella `mafianet/mafianet.h`. The lowercase names that remain
+(`peerinterface.h`, `string.h`, ...) are deprecated forwarding shims listed in
+`MAFIANET_DEPRECATED_HEADERS`; never include them from library code and do not add
+new lowercase headers.
 
 Dead platforms (Xbox 360, PS3, PS4, Vita, Native Client) were removed on purpose.
 Do not reintroduce `__native_client__`, `_PS3`, `_PS4`, `SN_TARGET_*` or Xbox
@@ -159,7 +167,7 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 
 ### Namespaces
 - Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`) — used exclusively throughout the library
-- Short-hand alias: the `MNet` preprocessor macro (defined in `mafianet/defines.h`) expands to `MafiaNet` as a convenience shorthand
+- Short-hand alias: the `MNet` preprocessor macro (defined in `mafianet/RakNetDefines.h`) expands to `MafiaNet` as a convenience shorthand
 
 ### Key Components
 
@@ -203,7 +211,7 @@ Dependencies (bzip2, miniupnpc, Opus, RNNoise) are automatically fetched via CMa
 ### Basic Usage Pattern
 
 ```cpp
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 
@@ -251,7 +259,7 @@ cutting a release, bump **every** location below to the new version:
 | File | What to change |
 |------|----------------|
 | `CMakeLists.txt` | `project(MafiaNet VERSION X.Y.Z ...)` — the canonical source of truth |
-| `Source/include/mafianet/version.h` | `MAFIANET_VERSION`, `MAFIANET_VERSION_NUMBER_INT`, and the `MAJOR`/`MINOR`/`PATCH` defines (leave the deprecated `RAKNET_*` / `SLIKENET_*` defines untouched) |
+| `Source/include/mafianet/Version.h` | `MAFIANET_VERSION`, `MAFIANET_VERSION_NUMBER_INT`, and the `MAJOR`/`MINOR`/`PATCH` defines (leave the deprecated `RAKNET_*` / `SLIKENET_*` defines untouched) |
 | `docs/conf.py` | `version` and `release` |
 | `docs/Doxyfile` | `PROJECT_NUMBER` |
 | `docs/changelog.rst` | Add a new `Version X.Y.Z` section at the top |

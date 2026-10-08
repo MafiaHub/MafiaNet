@@ -18,8 +18,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 char * FormatString(const char *format, ...)
 {

@@ -37,13 +37,13 @@
 //#include <stdlib.h>
 #endif
 
-#include "mafianet/string.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakString.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/FormatString.h"
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #define PQEXECPARAM_FORMAT_TEXT		0
 #define PQEXECPARAM_FORMAT_BINARY	1

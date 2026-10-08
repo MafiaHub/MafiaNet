@@ -5,7 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/guid_util.h"
+#include "mafianet/GuidUtil.h"
 
 namespace MafiaNet {
 

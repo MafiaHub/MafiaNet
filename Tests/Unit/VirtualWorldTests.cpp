@@ -11,7 +11,7 @@
 #include "mafianet/VirtualWorld.h"
 #include "mafianet/VirtualWorldReplica3.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 using namespace MafiaNet;
 

@@ -18,9 +18,7 @@ set(MAFIANET_SOURCES
     src/CloudClient.cpp
     src/CloudCommon.cpp
     src/CloudServer.cpp
-    src/CommandParserInterface.cpp
     src/ConnectionGraph2.cpp
-    src/ConsoleServer.cpp
     src/DataCompressor.cpp
     src/DirectoryDeltaTransfer.cpp
     src/DR_SHA1.cpp
@@ -29,7 +27,6 @@ set(MAFIANET_SOURCES
     src/DS_HuffmanEncodingTree.cpp
     src/DS_Table.cpp
     src/DynDNS.cpp
-    src/EmailSender.cpp
     src/EpochTimeToString.cpp
     src/FileList.cpp
     src/FileListTransfer.cpp
@@ -39,17 +36,14 @@ set(MAFIANET_SOURCES
     src/Getche.cpp
     src/Gets.cpp
     src/GetTime.cpp
-    src/gettimeofday.cpp
+    src/GetTimeOfDay.cpp
     src/GridSectorizer.cpp
-    src/guid_util.cpp
-    src/HTTPConnection.cpp
-    src/HTTPConnection2.cpp
+    src/GuidUtil.cpp
     src/IncrementalReadInterface.cpp
     src/Itoa.cpp
-    src/linux_adapter.cpp
+    src/LinuxAdapter.cpp
     src/LinuxStrings.cpp
     src/LocklessTypes.cpp
-    src/LogCommandParser.cpp
     src/MessageFilter.cpp
     src/MmsgBatch.cpp
     src/MtuBlackHole.cpp
@@ -60,8 +54,7 @@ set(MAFIANET_SOURCES
     src/NatTypeDetectionServer.cpp
     src/NetworkIDManager.cpp
     src/NetworkIDObject.cpp
-    src/osx_adapter.cpp
-    src/PacketConsoleLogger.cpp
+    src/OsxAdapter.cpp
     src/PacketFileLogger.cpp
     src/PacketizedTCP.cpp
     src/PacketLogger.cpp
@@ -71,12 +64,10 @@ set(MAFIANET_SOURCES
     src/PointGridSectorizer.cpp
     src/Rackspace.cpp
     src/RakMemoryOverride.cpp
-    src/RakNetCommandParser.cpp
     src/RakNetSocket2.cpp
     src/RakNetSocket2_Berkley.cpp
     src/RakNetSocket2_Windows_Linux.cpp
     src/RakNetStatistics.cpp
-    src/RakNetTransport2.cpp
     src/RakNetTypes.cpp
     src/RakPeer.cpp
     src/RakSleep.cpp
@@ -105,7 +96,6 @@ set(MAFIANET_SOURCES
     src/TCPInterface.cpp
     src/TeamBalancer.cpp
     src/TeamManager.cpp
-    src/TelnetTransport.cpp
     src/ThreadsafePacketLogger.cpp
     src/TwoWayAuthentication.cpp
     src/UDPForwarder.cpp
@@ -118,6 +108,23 @@ set(MAFIANET_SOURCES
     src/WSAStartupSingleton.cpp
 )
 
+# Extras: utilities that are not game networking (SMTP, HTTP client, telnet and
+# console command transports, console packet logger). Built into the separate
+# MafiaNetExtras target when MAFIANET_BUILD_EXTRAS is ON; their headers stay in
+# include/mafianet/ so include paths are unchanged. See issue #50, stage 2.
+set(MAFIANET_EXTRAS_SOURCES
+    src/CommandParserInterface.cpp
+    src/ConsoleServer.cpp
+    src/EmailSender.cpp
+    src/HTTPConnection.cpp
+    src/HTTPConnection2.cpp
+    src/LogCommandParser.cpp
+    src/PacketConsoleLogger.cpp
+    src/RakNetCommandParser.cpp
+    src/RakNetTransport2.cpp
+    src/TelnetTransport.cpp
+)
+
 set(MAFIANET_CRYPTO_SOURCES
     src/crypto/cryptomanager.cpp
     src/crypto/factory.cpp
@@ -127,8 +134,8 @@ set(MAFIANET_CRYPTO_SOURCES
 
 set(MAFIANET_HEADERS
     include/mafianet/_FindFirst.h
-    include/mafianet/alloca.h
-    include/mafianet/assert.h
+    include/mafianet/RakAlloca.h
+    include/mafianet/RakAssert.h
     include/mafianet/AutopatcherPatchContext.h
     include/mafianet/AutopatcherRepositoryInterface.h
     include/mafianet/Base64Encoder.h
@@ -139,13 +146,13 @@ set(MAFIANET_HEADERS
     include/mafianet/CloudClient.h
     include/mafianet/CloudCommon.h
     include/mafianet/CloudServer.h
-    include/mafianet/commandparser.h
+    include/mafianet/RakNetCommandParser.h
     include/mafianet/CommandParserInterface.h
     include/mafianet/ConnectionGraph2.h
     include/mafianet/ConsoleServer.h
     include/mafianet/DataCompressor.h
-    include/mafianet/defineoverrides.h
-    include/mafianet/defines.h
+    include/mafianet/RakNetDefinesOverrides.h
+    include/mafianet/RakNetDefines.h
     include/mafianet/DirectoryDeltaTransfer.h
     include/mafianet/DR_SHA1.h
     include/mafianet/DS_BinarySearchTree.h
@@ -186,20 +193,20 @@ set(MAFIANET_HEADERS
     include/mafianet/Getche.h
     include/mafianet/Gets.h
     include/mafianet/GetTime.h
-    include/mafianet/gettimeofday.h
+    include/mafianet/GetTimeOfDay.h
     include/mafianet/GridSectorizer.h
-    include/mafianet/guid_util.h
+    include/mafianet/GuidUtil.h
     include/mafianet/HTTPConnection.h
     include/mafianet/HTTPConnection2.h
     include/mafianet/IncrementalReadInterface.h
     include/mafianet/InternalPacket.h
     include/mafianet/Itoa.h
     include/mafianet/Kbhit.h
-    include/mafianet/linux_adapter.h
+    include/mafianet/LinuxAdapter.h
     include/mafianet/LinuxStrings.h
     include/mafianet/LocklessTypes.h
     include/mafianet/LogCommandParser.h
-    include/mafianet/memoryoverride.h
+    include/mafianet/RakMemoryOverride.h
     include/mafianet/MessageFilter.h
     include/mafianet/MessageIdentifiers.h
     include/mafianet/MmsgBatch.h
@@ -215,7 +222,7 @@ set(MAFIANET_HEADERS
     include/mafianet/NatTypeDetectionServer.h
     include/mafianet/NetworkIDManager.h
     include/mafianet/NetworkIDObject.h
-    include/mafianet/osx_adapter.h
+    include/mafianet/OsxAdapter.h
     include/mafianet/PacketConsoleLogger.h
     include/mafianet/PacketFileLogger.h
     include/mafianet/PacketizedTCP.h
@@ -224,8 +231,8 @@ set(MAFIANET_HEADERS
     include/mafianet/PacketPool.h
     include/mafianet/PacketPriority.h
     include/mafianet/PeerHandle.h
-    include/mafianet/peer.h
-    include/mafianet/peerinterface.h
+    include/mafianet/RakPeer.h
+    include/mafianet/RakPeerInterface.h
     include/mafianet/PluginInterface2.h
     include/mafianet/PointGridSectorizer.h
     include/mafianet/Rackspace.h
@@ -246,16 +253,16 @@ set(MAFIANET_HEADERS
     include/mafianet/SimpleMutex.h
     include/mafianet/SimpleTCPServer.h
     include/mafianet/SingleProducerConsumer.h
-    include/mafianet/sleep.h
+    include/mafianet/RakSleep.h
     include/mafianet/mafianet.h
-    include/mafianet/smartptr.h
-    include/mafianet/socket2.h
+    include/mafianet/RakNetSmartPtr.h
+    include/mafianet/RakNetSocket2.h
     include/mafianet/SocketDefines.h
     include/mafianet/SocketIncludes.h
     include/mafianet/SocketLayer.h
-    include/mafianet/statistics.h
+    include/mafianet/RakNetStatistics.h
     include/mafianet/StatisticsHistory.h
-    include/mafianet/string.h
+    include/mafianet/RakString.h
     include/mafianet/StringCompressor.h
     include/mafianet/StringTable.h
     include/mafianet/SuperFastHash.h
@@ -264,14 +271,14 @@ set(MAFIANET_HEADERS
     include/mafianet/TeamBalancer.h
     include/mafianet/TeamManager.h
     include/mafianet/TelnetTransport.h
-    include/mafianet/thread.h
+    include/mafianet/RakThread.h
     include/mafianet/ThreadPool.h
     include/mafianet/ThreadsafePacketLogger.h
-    include/mafianet/time.h
-    include/mafianet/transport2.h
+    include/mafianet/RakNetTime.h
+    include/mafianet/RakNetTransport2.h
     include/mafianet/TransportInterface.h
     include/mafianet/TwoWayAuthentication.h
-    include/mafianet/types.h
+    include/mafianet/RakNetTypes.h
     include/mafianet/UDPForwarder.h
     include/mafianet/UDPProxyClient.h
     include/mafianet/UDPProxyCommon.h
@@ -280,11 +287,36 @@ set(MAFIANET_HEADERS
     include/mafianet/VariableDeltaSerializer.h
     include/mafianet/VariableListDeltaTracker.h
     include/mafianet/VariadicSQLParser.h
-    include/mafianet/version.h
+    include/mafianet/Version.h
     include/mafianet/VirtualWorld.h
     include/mafianet/VirtualWorldReplica3.h
     include/mafianet/WindowsIncludes.h
     include/mafianet/WSAStartupSingleton.h
+    include/mafianet/RakWString.h
+)
+
+# Deprecated lowercase forwarding headers (one release cycle, see docs/changelog.rst)
+set(MAFIANET_DEPRECATED_HEADERS
+    include/mafianet/alloca.h
+    include/mafianet/assert.h
+    include/mafianet/commandparser.h
+    include/mafianet/defineoverrides.h
+    include/mafianet/defines.h
+    include/mafianet/guid_util.h
+    include/mafianet/linux_adapter.h
+    include/mafianet/memoryoverride.h
+    include/mafianet/osx_adapter.h
+    include/mafianet/peer.h
+    include/mafianet/peerinterface.h
+    include/mafianet/sleep.h
+    include/mafianet/smartptr.h
+    include/mafianet/socket2.h
+    include/mafianet/statistics.h
+    include/mafianet/string.h
+    include/mafianet/thread.h
+    include/mafianet/time.h
+    include/mafianet/transport2.h
+    include/mafianet/types.h
     include/mafianet/wstring.h
 )
 
@@ -304,6 +336,7 @@ set(MAFIANET_ALL_SOURCES
 
 set(MAFIANET_ALL_HEADERS
     ${MAFIANET_HEADERS}
+    ${MAFIANET_DEPRECATED_HEADERS}
     ${MAFIANET_CRYPTO_HEADERS}
 )
 
@@ -463,6 +496,29 @@ if(MAFIANET_BUILD_SHARED)
     endif()
 endif()
 
+# Extras library (off by default). Links the core library PUBLIC so consumers
+# get the core, its include directories and its feature definitions through
+# this one target.
+if(MAFIANET_BUILD_EXTRAS)
+    add_library(MafiaNetExtras STATIC ${MAFIANET_EXTRAS_SOURCES})
+    add_library(MafiaNet::MafiaNetExtras ALIAS MafiaNetExtras)
+
+    if(MAFIANET_BUILD_STATIC)
+        target_link_libraries(MafiaNetExtras PUBLIC MafiaNetStatic)
+    else()
+        target_link_libraries(MafiaNetExtras PUBLIC MafiaNet)
+    endif()
+
+    target_include_directories(MafiaNetExtras PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(MafiaNetExtras
+        PRIVATE
+            $<$<CONFIG:Debug>:_DEBUG>
+            $<$<CONFIG:Release>:NDEBUG>
+    )
+    set_target_properties(MafiaNetExtras PROPERTIES FOLDER "Libraries")
+    source_group("Source Files" FILES ${MAFIANET_EXTRAS_SOURCES})
+endif()
+
 # Installation
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -474,6 +530,9 @@ if(MAFIANET_BUILD_STATIC)
 endif()
 if(MAFIANET_BUILD_SHARED)
     list(APPEND MAFIANET_INSTALL_TARGETS MafiaNet)
+endif()
+if(MAFIANET_BUILD_EXTRAS)
+    list(APPEND MAFIANET_INSTALL_TARGETS MafiaNetExtras)
 endif()
 
 # Install targets

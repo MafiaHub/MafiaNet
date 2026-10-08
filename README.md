@@ -116,7 +116,7 @@ Linux, flip the `#if defined(__linux__)` batching guards in `RakNetSocket2.cpp`,
 ### Basic Usage
 
 ```cpp
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 // Create a peer
@@ -408,9 +408,9 @@ To debug a single test, run the binary directly with a filter:
 
 ### Version 0.10.0
 - **Umbrella header `mafianet/mafianet.h`**: aggregates the core public headers (`RakPeerInterface`, types, message IDs, `PacketPriority`, `BitStream`, `GetTime`, `Statistics`) so the common path only needs `#include "mafianet/mafianet.h"`. Additive — granular headers remain; encryption headers are intentionally omitted (security stays opt-in via `InitializeSecurity()`)
-- **Canonical type aliases** (`mafianet/aliases.h`): `PeerInterface` (`RakPeerInterface`), `Guid` (`RakNetGUID`), `Statistics` (`RakNetStatistics`), `UnassignedGuid`. `using` aliases denoting the same types, so old and new names interoperate; legacy names left untouched
+- **Canonical type aliases** (`mafianet/Aliases.h`): `PeerInterface` (`RakPeerInterface`), `Guid` (`RakNetGUID`), `Statistics` (`RakNetStatistics`), `UnassignedGuid`. `using` aliases denoting the same types, so old and new names interoperate; legacy names left untouched
 - **RAII handles `Peer` & `PacketPtr`** (`mafianet/PeerHandle.h`): own a `RakPeerInterface` / received `Packet` and clean up on scope exit, removing manual `DestroyInstance` / `DeallocatePacket` bookkeeping. ChatExample client rewritten to use them
-- **Thread-safe GUID value accessors** (`mafianet/guid_util.h`): `MafiaNet::to_string(const RakNetGUID&)` owns its buffer; `connected_address(...)` returns `std::optional<SystemAddress>` (sentinel → `nullopt`)
+- **Thread-safe GUID value accessors** (`mafianet/GuidUtil.h`): `MafiaNet::to_string(const RakNetGUID&)` owns its buffer; `connected_address(...)` returns `std::optional<SystemAddress>` (sentinel → `nullopt`)
 - **`PointGridSectorizer`**: uniform point grid with O(1) `RemoveEntry`/`MoveEntry` via per-entry hash + swap-remove (early-out on same-cell moves), upsert add/move semantics, duplicate-free `GetEntries`, and edge-cell clamping. `GridSectorizer` left untouched
 - **Breaking — scoped enum classes**: the global `PacketPriority` / `PacketReliability` C enums are removed in favour of scoped `MafiaNet::Priority` / `MafiaNet::Reliability`. Enumerator order (and the wire field) is preserved, but call sites must update (`HIGH_PRIORITY` → `MafiaNet::Priority::High`, `RELIABLE_ORDERED` → `MafiaNet::Reliability::ReliableOrdered`); `NUMBER_OF_*` sentinels are now `constexpr` counts in `MafiaNet`
 - **Breaking — removed non-thread-safe `RakNetGUID::ToString(void)`** (shared static buffer); use `MafiaNet::to_string(g).c_str()`

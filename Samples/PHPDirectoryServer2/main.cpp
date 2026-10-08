@@ -20,8 +20,8 @@
 #include "mafianet/TCPInterface.h"
 #include "mafianet/HTTPConnection.h"
 #include "PHPDirectoryServer2.h"
-#include "mafianet/sleep.h"
-#include "mafianet/string.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/RakString.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/DS_Table.h"
 #include <cstring>
@@ -29,8 +29,8 @@
 #include <cstdio>
 #include "mafianet/Gets.h"
 #include "mafianet/Getche.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

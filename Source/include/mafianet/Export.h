@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "defines.h"
+#include "RakNetDefines.h"
 
 #if defined(_WIN32) && !(defined(__GNUC__)  || defined(__GCCXML__)) && !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
 #define RAK_DLL_EXPORT __declspec(dllexport)

@@ -23,10 +23,10 @@
 #ifndef __LIST_H
 #define __LIST_H 
 
-#include "assert.h"
+#include "RakAssert.h"
 #include <string.h> // memmove
 #include "Export.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 
 /// Maximum unsigned long
 static const unsigned int MAX_UNSIGNED_LONG = 4294967295U;

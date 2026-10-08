@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/StatisticsHistory.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 using namespace MafiaNet;
 

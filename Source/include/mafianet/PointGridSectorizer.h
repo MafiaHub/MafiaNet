@@ -22,7 +22,7 @@
 #define MAFIANET_POINT_GRID_SECTORIZER_H
 
 #include "Export.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "DS_List.h"
 
 namespace MafiaNet

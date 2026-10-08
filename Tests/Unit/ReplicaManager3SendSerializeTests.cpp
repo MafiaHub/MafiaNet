@@ -11,7 +11,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/NetworkIDManager.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include <vector>
 

@@ -10,6 +10,12 @@ Unreleased
 
 * **New CMake options: ``MAFIANET_DISABLED_FEATURES`` and ``MAFIANET_MINIMAL``.** The ``_RAKNET_SUPPORT_<Name>`` plugin flags from ``NativeFeatureIncludes.h`` can now be set from CMake (``-DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin"`` or ``-DMAFIANET_MINIMAL=ON`` for the core transport alone). The definitions are ``PUBLIC`` on the library targets so consumers see the same configuration. Unknown names are a configure error. A ``linux-minimal`` CI job builds the ``MAFIANET_MINIMAL`` configuration. See :doc:`/getting-started/building`.
 
+**Header names.** Every public header now carries the PascalCase name of the class or facility it declares, matching its ``.cpp``. The lowercase names inherited from SLikeNet were renamed (``peerinterface.h`` → ``RakPeerInterface.h``, ``peer.h`` → ``RakPeer.h``, ``types.h`` → ``RakNetTypes.h``, ``string.h`` → ``RakString.h``, ``wstring.h`` → ``RakWString.h``, ``time.h`` → ``RakNetTime.h``, ``sleep.h`` → ``RakSleep.h``, ``thread.h`` → ``RakThread.h``, ``assert.h`` → ``RakAssert.h``, ``alloca.h`` → ``RakAlloca.h``, ``defines.h`` → ``RakNetDefines.h``, ``defineoverrides.h`` → ``RakNetDefinesOverrides.h``, ``memoryoverride.h`` → ``RakMemoryOverride.h``, ``smartptr.h`` → ``RakNetSmartPtr.h``, ``socket2.h`` → ``RakNetSocket2.h``, ``statistics.h`` → ``RakNetStatistics.h``, ``transport2.h`` → ``RakNetTransport2.h``, ``commandparser.h`` → ``RakNetCommandParser.h``, ``guid_util.h`` → ``GuidUtil.h``, ``linux_adapter.h`` → ``LinuxAdapter.h``, ``osx_adapter.h`` → ``OsxAdapter.h``, ``gettimeofday.h`` → ``GetTimeOfDay.h``, ``aliases.h`` → ``Aliases.h``, ``version.h`` → ``Version.h``). The umbrella header stays ``mafianet/mafianet.h``. Every old name except ``aliases.h``, ``version.h`` and ``gettimeofday.h`` (which differ from the new name only by case and so cannot coexist on Windows or macOS) remains as a forwarding header that emits a ``#pragma message`` and will be removed in the next minor release; define ``MAFIANET_SILENCE_DEPRECATED_INCLUDES`` to quiet it. The matching sources were renamed too (``GuidUtil.cpp``, ``LinuxAdapter.cpp``, ``OsxAdapter.cpp``, ``GetTimeOfDay.cpp``).
+
+**Extras library.** ``EmailSender``, ``HTTPConnection``, ``HTTPConnection2``, ``TelnetTransport``, ``RakNetTransport2``, ``ConsoleServer``, ``CommandParserInterface``, ``RakNetCommandParser``, ``LogCommandParser`` and ``PacketConsoleLogger`` moved out of the core library into ``MafiaNetExtras`` (``MafiaNet::MafiaNetExtras``), built with ``MAFIANET_BUILD_EXTRAS=ON`` (forced on by ``MAFIANET_BUILD_SAMPLES``). Headers and include paths are unchanged; code using these classes must link the extras target. See :doc:`/getting-started/building`.
+
+**Deprecated containers.** ``DS_BinarySearchTree.h``, ``DS_QueueLinkedList.h``, ``DS_HuffmanEncodingTreeFactory.h``, ``DS_OrderedChannelHeap.h`` and ``DS_BytePool.h`` have no consumer in the library. They now emit a ``#pragma message`` on inclusion and will be removed in the next minor release; copy them into your project if you depend on them.
+
 **Removed: dead platform code.** Xbox 360, PlayStation 3, PlayStation 4, PlayStation Vita and Google Native Client could not be targeted for years; their remaining headers were already empty. Removed in this release:
 
 * ``XBox360Includes.h``, ``PS3Includes.h``, ``PS4Includes.h``, ``VitaIncludes.h`` and the matching empty source files, plus ``Samples/nacl_sdk``.
@@ -410,7 +416,7 @@ Version 0.10.0
   headers are intentionally omitted; connection security stays opt-in via
   ``RakPeerInterface::InitializeSecurity()``.
 
-* **Canonical type aliases** in ``mafianet/aliases.h`` over the legacy
+* **Canonical type aliases** in ``mafianet/Aliases.h`` over the legacy
   RakNet-named public types: ``PeerInterface`` (``RakPeerInterface``), ``Guid``
   (``RakNetGUID``), ``Statistics`` (``RakNetStatistics``) and ``UnassignedGuid``
   (``UNASSIGNED_RAKNET_GUID``). These are ``using`` aliases denoting the exact
@@ -425,7 +431,7 @@ Version 0.10.0
   ``DestroyInstance`` / ``DeallocatePacket`` bookkeeping. The ChatExample client
   is rewritten to demonstrate them.
 
-* **Thread-safe value-type GUID accessors** in ``mafianet/guid_util.h``:
+* **Thread-safe value-type GUID accessors** in ``mafianet/GuidUtil.h``:
   ``std::string MafiaNet::to_string(const RakNetGUID&)`` owns its buffer and is
   thread-safe, and ``std::optional<SystemAddress> connected_address(...)`` maps
   the ``UNASSIGNED_SYSTEM_ADDRESS`` sentinel to ``std::nullopt``.
@@ -611,7 +617,7 @@ Version 0.5.0
 
 **Breaking Changes**
 
-* Legacy include spellings are gone — include public headers via the ``mafianet/...`` path (e.g. ``mafianet/string.h`` instead of ``RakString.h``)
+* Legacy include spellings are gone — include public headers via the ``mafianet/...`` path (e.g. ``mafianet/RakString.h`` instead of ``RakString.h``)
 * The ``SLNet`` namespace macro has been removed — use ``MafiaNet`` (or the new ``MNet`` shorthand)
 * Serializing a non-trivially-copyable type through the generic ``BitStream::Write``/``Read`` now fails to compile by design; provide an explicit ``Serialize()`` or a type specialization
 

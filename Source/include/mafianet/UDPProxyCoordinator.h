@@ -25,9 +25,9 @@
 #define __UDP_PROXY_COORDINATOR_H
 
 #include "Export.h"
-#include "types.h"
+#include "RakNetTypes.h"
 #include "PluginInterface2.h"
-#include "string.h"
+#include "RakString.h"
 #include "BitStream.h"
 #include "DS_Queue.h"
 #include "DS_OrderedList.h"

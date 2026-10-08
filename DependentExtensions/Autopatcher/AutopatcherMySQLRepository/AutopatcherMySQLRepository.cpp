@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 #include "AutopatcherMySQLRepository.h"
 #include "mafianet/AutopatcherPatchContext.h"
 #include "mafianet/FileList.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/DS_List.h"
 // ntohl
 #ifdef _WIN32
@@ -33,8 +33,8 @@
 // #include "mafianet/DR_SHA1.h"
 #include <stdlib.h>
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

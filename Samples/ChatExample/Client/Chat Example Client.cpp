@@ -21,10 +21,10 @@
 
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/PeerHandle.h"
-#include "mafianet/statistics.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetStatistics.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/PacketLogger.h"
 #include <assert.h>
@@ -32,7 +32,7 @@
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/Kbhit.h"
 #ifdef _WIN32
 #include "mafianet/WindowsIncludes.h" // Sleep
@@ -40,9 +40,9 @@
 #include <unistd.h> // usleep
 #endif
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
+#include "mafianet/GuidUtil.h"
 
 #if LIBCAT_SECURITY==1
 #include "mafianet/SecureHandshake.h" // Include header for secure handshake

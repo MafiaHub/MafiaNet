@@ -24,7 +24,7 @@
 #ifndef __PACKET_LOGGER_H
 #define __PACKET_LOGGER_H
 
-#include "types.h"
+#include "RakNetTypes.h"
 #include "PluginInterface2.h"
 #include "Export.h"
 

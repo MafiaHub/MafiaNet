@@ -20,7 +20,7 @@
 #ifndef __AUTOPATCHER_CLIENT_H
 #define __AUTOPATCHER_CLIENT_H
 
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/Export.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/PacketPriority.h"

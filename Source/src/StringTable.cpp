@@ -15,12 +15,12 @@
 
 #include "mafianet/StringTable.h"
 #include <string.h>
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include <stdio.h>
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 using namespace MafiaNet;
 
 StringTable* StringTable::instance=0;

@@ -13,8 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+// The header is deprecated; this is its own implementation file.
+#define MAFIANET_SILENCE_DEPRECATED_INCLUDES
 #include "mafianet/DS_BytePool.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #ifndef __APPLE__
 // Use stdlib and not malloc for compatibility
 #include <stdlib.h>

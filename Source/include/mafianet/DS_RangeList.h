@@ -24,8 +24,8 @@
 
 #include "DS_OrderedList.h"
 #include "BitStream.h"
-#include "memoryoverride.h"
-#include "assert.h"
+#include "RakMemoryOverride.h"
+#include "RakAssert.h"
 
 namespace DataStructures
 {

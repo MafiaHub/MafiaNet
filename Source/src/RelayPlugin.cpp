@@ -18,7 +18,7 @@
 
 #include "mafianet/RelayPlugin.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/BitStream.h"
 
 using namespace MafiaNet;

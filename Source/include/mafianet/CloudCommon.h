@@ -19,8 +19,8 @@
 #ifndef __CLOUD_COMMON_H
 #define __CLOUD_COMMON_H
 
-#include "types.h"
-#include "string.h"
+#include "RakNetTypes.h"
+#include "RakString.h"
 
 namespace MafiaNet
 {

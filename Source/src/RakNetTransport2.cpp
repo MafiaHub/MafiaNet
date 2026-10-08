@@ -16,17 +16,17 @@
 #include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_TelnetTransport==1
 
-#include "mafianet/transport2.h"
+#include "mafianet/RakNetTransport2.h"
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

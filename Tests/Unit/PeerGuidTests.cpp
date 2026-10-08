@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/BitStream.h"
 
 #include <type_traits>

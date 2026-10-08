@@ -24,7 +24,7 @@
 #ifndef __ROUTER_2_PLUGIN_H
 #define __ROUTER_2_PLUGIN_H
 
-#include "types.h"
+#include "RakNetTypes.h"
 #include "PluginInterface2.h"
 #include "PacketPriority.h"
 #include "Export.h"

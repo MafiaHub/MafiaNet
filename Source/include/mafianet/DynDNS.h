@@ -25,7 +25,7 @@
 #ifndef __DYN_DNS_H
 #define __DYN_DNS_H
 
-#include "string.h"
+#include "RakString.h"
 
 namespace MafiaNet
 {

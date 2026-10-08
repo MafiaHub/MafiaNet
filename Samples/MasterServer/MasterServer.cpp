@@ -15,12 +15,12 @@
 
 #include "MasterServer.h"
 #include "MasterServerMessageIDs.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/statistics.h"
+#include "mafianet/RakNetStatistics.h"
 #include "mafianet/PacketPriority.h"
 using namespace MafiaNet;
 

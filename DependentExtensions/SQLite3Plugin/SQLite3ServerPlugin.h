@@ -27,13 +27,13 @@
 /// \ingroup SQL_LITE_3_PLUGIN
 #define SQLite3_STATEMENT_EXECUTE_THREADED
 
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/Export.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/PacketPriority.h"
 #include "mafianet/SocketIncludes.h"
 #include "mafianet/DS_Multilist.h"
-#include "mafianet/string.h"
+#include "mafianet/RakString.h"
 #include "sqlite3.h"
 #include "SQLite3PluginCommon.h"
 

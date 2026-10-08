@@ -8,8 +8,8 @@
 
 // #med - review the include order - defines.h defines SLNET_VERIFY but doesn't enforce including assert.h which it honestly should
 #include "mafianet/crypto/cryptomanager.h" // used for CCryptoManager
-#include "mafianet/assert.h"               // used for assert() (via SLNET_VERIFY)
-#include "mafianet/memoryoverride.h"       // used for OP_NEW_ARRAY
+#include "mafianet/RakAssert.h"               // used for assert() (via SLNET_VERIFY)
+#include "mafianet/RakMemoryOverride.h"       // used for OP_NEW_ARRAY
 
 #include <cstring> // used for std::memcpy
 #include <limits>  // used for std::numeric_limits

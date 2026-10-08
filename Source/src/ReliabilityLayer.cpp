@@ -24,15 +24,15 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/PluginInterface2.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/Rand.h"
 #include "mafianet/MessageIdentifiers.h"
 #ifdef USE_THREADED_SEND
 #include "mafianet/SendToThread.h"
 #endif
 #include <math.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

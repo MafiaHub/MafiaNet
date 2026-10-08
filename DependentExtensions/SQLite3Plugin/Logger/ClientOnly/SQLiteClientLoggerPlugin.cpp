@@ -12,8 +12,8 @@
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/PacketizedTCP.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 static const char COLUMN_NAMES_DELIMITER=',';
 static const int MAX_COLUMN_NAMES_LENGTH=512;

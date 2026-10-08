@@ -20,10 +20,10 @@
 
 #define CAT_NEUTER_EXPORT /* Neuter dllimport for libcat */
 
-#include "mafianet/defines.h"
-#include "mafianet/peer.h"
+#include "mafianet/RakNetDefines.h"
+#include "mafianet/RakPeer.h"
 #include "mafianet/SessionAdmission.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 
 #ifdef _WIN32
 
@@ -51,19 +51,19 @@
 #include "mafianet/StringCompressor.h"
 #include "mafianet/StringTable.h"
 #include "mafianet/NetworkIDObject.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/DR_SHA1.h"
-#include "mafianet/sleep.h"
-#include "mafianet/assert.h"
-#include "mafianet/version.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/Version.h"
 #include "mafianet/NetworkIDManager.h"
-#include "mafianet/gettimeofday.h"
+#include "mafianet/GetTimeOfDay.h"
 #include "mafianet/SignaledEvent.h"
 #include "mafianet/SuperFastHash.h"
-#include "mafianet/alloca.h"
+#include "mafianet/RakAlloca.h"
 #include "mafianet/WSAStartupSingleton.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #ifdef USE_THREADED_SEND
 #include "mafianet/SendToThread.h"

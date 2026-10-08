@@ -37,7 +37,7 @@
 		B23EA3DE147F5A43002B8C06 /* Getche.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA31A147F5A43002B8C06 /* Getche.cpp */; };
 		B23EA3DF147F5A43002B8C06 /* Gets.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA31C147F5A43002B8C06 /* Gets.cpp */; };
 		B23EA3E0147F5A43002B8C06 /* GetTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA31E147F5A43002B8C06 /* GetTime.cpp */; };
-		B23EA3E1147F5A43002B8C06 /* gettimeofday.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA320147F5A43002B8C06 /* gettimeofday.cpp */; };
+		B23EA3E1147F5A43002B8C06 /* GetTimeOfDay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA320147F5A43002B8C06 /* GetTimeOfDay.cpp */; };
 		B23EA3E2147F5A43002B8C06 /* GridSectorizer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA322147F5A43002B8C06 /* GridSectorizer.cpp */; };
 		B23EA3E3147F5A43002B8C06 /* HTTPConnection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA324147F5A43002B8C06 /* HTTPConnection.cpp */; };
 		B23EA3E4147F5A43002B8C06 /* IncrementalReadInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA326147F5A43002B8C06 /* IncrementalReadInterface.cpp */; };
@@ -199,7 +199,7 @@
 		B23EA31D147F5A43002B8C06 /* Gets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Gets.h; path = ../../../Source/Gets.h; sourceTree = "<group>"; };
 		B23EA31E147F5A43002B8C06 /* GetTime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GetTime.cpp; path = ../../../Source/GetTime.cpp; sourceTree = "<group>"; };
 		B23EA31F147F5A43002B8C06 /* GetTime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GetTime.h; path = ../../../Source/GetTime.h; sourceTree = "<group>"; };
-		B23EA320147F5A43002B8C06 /* gettimeofday.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gettimeofday.cpp; path = ../../../Source/gettimeofday.cpp; sourceTree = "<group>"; };
+		B23EA320147F5A43002B8C06 /* GetTimeOfDay.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GetTimeOfDay.cpp; path = ../../../Source/GetTimeOfDay.cpp; sourceTree = "<group>"; };
 		B23EA321147F5A43002B8C06 /* gettimeofday.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gettimeofday.h; path = ../../../Source/gettimeofday.h; sourceTree = "<group>"; };
 		B23EA322147F5A43002B8C06 /* GridSectorizer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GridSectorizer.cpp; path = ../../../Source/GridSectorizer.cpp; sourceTree = "<group>"; };
 		B23EA323147F5A43002B8C06 /* GridSectorizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GridSectorizer.h; path = ../../../Source/GridSectorizer.h; sourceTree = "<group>"; };
@@ -532,7 +532,7 @@
 				B23EA31D147F5A43002B8C06 /* Gets.h */,
 				B23EA31E147F5A43002B8C06 /* GetTime.cpp */,
 				B23EA31F147F5A43002B8C06 /* GetTime.h */,
-				B23EA320147F5A43002B8C06 /* gettimeofday.cpp */,
+				B23EA320147F5A43002B8C06 /* GetTimeOfDay.cpp */,
 				B23EA321147F5A43002B8C06 /* gettimeofday.h */,
 				B23EA322147F5A43002B8C06 /* GridSectorizer.cpp */,
 				B23EA323147F5A43002B8C06 /* GridSectorizer.h */,
@@ -795,7 +795,7 @@
 				B23EA3DE147F5A43002B8C06 /* Getche.cpp in Sources */,
 				B23EA3DF147F5A43002B8C06 /* Gets.cpp in Sources */,
 				B23EA3E0147F5A43002B8C06 /* GetTime.cpp in Sources */,
-				B23EA3E1147F5A43002B8C06 /* gettimeofday.cpp in Sources */,
+				B23EA3E1147F5A43002B8C06 /* GetTimeOfDay.cpp in Sources */,
 				B23EA3E2147F5A43002B8C06 /* GridSectorizer.cpp in Sources */,
 				B23EA3E3147F5A43002B8C06 /* HTTPConnection.cpp in Sources */,
 				B23EA3E4147F5A43002B8C06 /* IncrementalReadInterface.cpp in Sources */,

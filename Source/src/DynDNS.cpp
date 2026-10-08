@@ -17,7 +17,7 @@
 #if _RAKNET_SUPPORT_DynDNS==1 && _RAKNET_SUPPORT_TCPInterface==1
 
 #include "mafianet/TCPInterface.h"
-#include "mafianet/socket2.h"
+#include "mafianet/RakNetSocket2.h"
 #include "mafianet/DynDNS.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/Base64Encoder.h"

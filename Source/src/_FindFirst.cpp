@@ -19,14 +19,14 @@
 #include <sys/stat.h>
 
 #include <fnmatch.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 
 static DataStructures::List< _findinfo_t* > fileInfo;
 	
-#include "mafianet/memoryoverride.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/RakAssert.h"
 
 /**
 * _findfirst - equivalent

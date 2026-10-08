@@ -13,23 +13,23 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/FileListTransfer.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/FileListTransferCBInterface.h"
 #include "mafianet/FileOperations.h"
 #include "mafianet/SuperFastHash.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/IncrementalReadInterface.h"
 #include "mafianet/PacketizedTCP.h"
 #include "mafianet/SocketLayer.h"
 #include <stdio.h>
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 MafiaNet::RakString file;
 MafiaNet::RakString fileCopy;

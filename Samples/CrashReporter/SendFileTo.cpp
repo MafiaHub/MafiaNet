@@ -19,8 +19,8 @@
 #include <tchar.h>
 #include <stdio.h>
 #include <direct.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, const char *strAttachmentFileName, const char *strSubject, const char *strBody, const char *strRecipient)
 {

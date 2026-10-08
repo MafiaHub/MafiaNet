@@ -22,17 +22,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/Gets.h"
 
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/RakVoice.h"
-#include "mafianet/statistics.h"
+#include "mafianet/RakNetStatistics.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/assert.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #include "fmod.hpp"
 #include "fmod_errors.h"

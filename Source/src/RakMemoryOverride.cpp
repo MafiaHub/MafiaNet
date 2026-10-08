@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/memoryoverride.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/RakAssert.h"
 #include <stdlib.h>
 
 #ifdef _RAKNET_SUPPORT_DL_MALLOC

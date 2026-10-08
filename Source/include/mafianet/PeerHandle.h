@@ -19,8 +19,8 @@
 #include <string>   // std::string (owned password / bind-address in the builders)
 #include <utility>  // std::move
 
-#include "mafianet/peerinterface.h" // RakPeerInterface, Send, Receive, DeallocatePacket, GetInstance, DestroyInstance
-#include "mafianet/types.h"         // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, PublicKey, AddressOrGUID
+#include "mafianet/RakPeerInterface.h" // RakPeerInterface, Send, Receive, DeallocatePacket, GetInstance, DestroyInstance
+#include "mafianet/RakNetTypes.h"         // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, PublicKey, AddressOrGUID
 #include "mafianet/PacketPriority.h"// Priority, Reliability (scoped enums with the send defaults)
 #include "mafianet/BitStream.h"     // BitStream (the encode() scratch buffer for send/broadcast)
 #include "mafianet/Export.h"        // RAK_DLL_EXPORT

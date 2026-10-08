@@ -21,7 +21,7 @@
 #ifndef __CHECKSUM_H
 #define __CHECKSUM_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 
 /// Generates and validates checksums
 class CheckSum

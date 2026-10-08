@@ -7,8 +7,8 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/types.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakNetTypes.h"
 
 #include <string>
 

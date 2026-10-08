@@ -18,20 +18,20 @@
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/FullyConnectedMesh2.h"
 #include "mafianet/TeamManager.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/sleep.h"
-#include "mafianet/types.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/RakNetTypes.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/ReplicaManager3.h"
 #include "mafianet/NetworkIDManager.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/OsxAdapter.h"
 #include "mafianet/Gets.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/GuidUtil.h"
 
 using namespace MafiaNet;
 

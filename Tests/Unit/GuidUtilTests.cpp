@@ -7,9 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/guid_util.h"
-#include "mafianet/types.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/GuidUtil.h"
+#include "mafianet/RakNetTypes.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include <atomic>
 #include <string>

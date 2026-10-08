@@ -24,7 +24,7 @@
 #include <stdlib.h>
 
 #include "mafianet/SocketIncludes.h"
-#include "mafianet/defines.h"
+#include "mafianet/RakNetDefines.h"
 
 #if   defined(_WIN32)
 #include "mafianet/WindowsIncludes.h"
@@ -37,8 +37,8 @@
 #include <cmath>
 #endif
 #endif
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 // MSWin uses _copysign, others use copysign...
 #ifndef _WIN32

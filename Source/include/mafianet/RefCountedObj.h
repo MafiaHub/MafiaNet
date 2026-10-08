@@ -22,7 +22,7 @@
 #ifndef __REF_COUNTED_OBJ_H
 #define __REF_COUNTED_OBJ_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 
 /// World's simplest class :)
 class RefCountedObj

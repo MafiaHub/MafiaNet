@@ -22,7 +22,7 @@
 #define __GET_TIME_H
 
 #include "Export.h"
-#include "time.h" // For MafiaNet::TimeMS
+#include "RakNetTime.h" // For MafiaNet::TimeMS
 
 namespace MafiaNet
 {

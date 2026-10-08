@@ -17,7 +17,7 @@
 #define __LOBBY_2_CLIENT_GFX3_IMPL_H
 
 #include "mafianet/WindowsIncludes.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 #include "FxGameDelegate.h"
 #include "Lobby2Message.h"
 #include "mafianet/PluginInterface2.h"

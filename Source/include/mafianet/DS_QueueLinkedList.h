@@ -19,12 +19,19 @@
 ///
 
 
+// Deprecated: DS_QueueLinkedList.h has only used by the deprecated DS_BinarySearchTree and is scheduled for removal in the next
+// minor release. Copy it into your project if you depend on it.
+// Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/DS_QueueLinkedList.h is deprecated and will be removed; copy it into your project if you use it")
+#endif
+
 #ifndef __QUEUE_LINKED_LIST_H
 #define __QUEUE_LINKED_LIST_H
 
 #include "DS_LinkedList.h" 
 #include "Export.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures
 /// As these data structures are stand-alone, you can use them outside of RakNet for your own projects if you wish.

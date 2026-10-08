@@ -38,7 +38,7 @@
 #endif
 
 #include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"
@@ -50,9 +50,9 @@
 #include "AutopatcherClient.h"
 #include "mafianet/AutopatcherPatchContext.h"
 #include "mafianet/Gets.h"
-#include "mafianet/sleep.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 char WORKING_DIRECTORY[MAX_PATH];
 char PATH_TO_XDELTA_EXE[MAX_PATH];

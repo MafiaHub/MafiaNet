@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakSleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +22,7 @@
 #include "mafianet/Kbhit.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/NatPunchthroughClient.h"
 #include "mafianet/NatTypeDetectionClient.h"
 #include "mafianet/Getche.h"
@@ -31,9 +31,9 @@
 #include "mafianet/UDPProxyClient.h"
 #include "mafianet/Gets.h"
 #include "mafianet/Itoa.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
+#include "mafianet/GuidUtil.h"
 
 // To include miniupnp, see Samples\NATCompleteClient\readme.txt
 #include "miniupnpc.h"

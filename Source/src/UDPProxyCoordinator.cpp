@@ -19,7 +19,7 @@
 #include "mafianet/UDPProxyCoordinator.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/UDPProxyCommon.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/Rand.h"
 #include "mafianet/GetTime.h"

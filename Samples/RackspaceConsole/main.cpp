@@ -19,9 +19,9 @@
 #include "mafianet/Rackspace.h"
 #include "mafianet/TCPInterface.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/sleep.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 struct CommandAndDescription
 {

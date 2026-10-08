@@ -19,7 +19,7 @@
 #include "mafianet/DirectoryDeltaTransfer.h"
 #include "mafianet/FileList.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/FileListTransfer.h"
 #include "mafianet/FileListTransferCBInterface.h"
 #include "mafianet/BitStream.h"
@@ -28,8 +28,8 @@
 #include "mafianet/DS_List.h"
 #include "mafianet/SuperFastHash.h"
 #include "mafianet/IncrementalReadInterface.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

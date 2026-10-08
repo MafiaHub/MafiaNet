@@ -14,7 +14,7 @@
  */
 
 #include "RoomsPlugin.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include "ProfanityFilter.h"
 #include "mafianet/MessageIdentifiers.h"

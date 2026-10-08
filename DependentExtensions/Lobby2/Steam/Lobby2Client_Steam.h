@@ -18,7 +18,7 @@
 
 #include "Lobby2Plugin.h"
 #include "mafianet/DS_OrderedList.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 
 namespace MafiaNet
 {

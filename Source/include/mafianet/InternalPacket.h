@@ -21,11 +21,11 @@
 #define __INTERNAL_PACKET_H
 
 #include "PacketPriority.h"
-#include "types.h"
-#include "memoryoverride.h"
-#include "defines.h"
+#include "RakNetTypes.h"
+#include "RakMemoryOverride.h"
+#include "RakNetDefines.h"
 #include "NativeTypes.h"
-#include "defines.h"
+#include "RakNetDefines.h"
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
 #include "CCRakNetUDT.h"
 #else

@@ -21,7 +21,7 @@
 #define __MASTER_SERVER_H
 
 #include "MasterCommon.h"
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 
 /// \ingroup MASTER_SERVER_GROUP
 /// \brief implements the master server

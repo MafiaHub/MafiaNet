@@ -19,11 +19,11 @@
 
 #include "mafianet/NetworkIDManager.h"
 #include "mafianet/NetworkIDObject.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/SuperFastHash.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 using namespace MafiaNet;
 

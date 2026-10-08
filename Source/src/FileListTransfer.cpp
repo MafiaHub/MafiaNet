@@ -23,12 +23,12 @@
 #include "mafianet/FileList.h"
 #include "mafianet/DS_Queue.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/types.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/statistics.h"
+#include "mafianet/RakNetTypes.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/RakNetStatistics.h"
 #include "mafianet/IncrementalReadInterface.h"
-#include "mafianet/assert.h"
-#include "mafianet/alloca.h"
+#include "mafianet/RakAssert.h"
+#include "mafianet/RakAlloca.h"
 
 namespace MafiaNet
 {

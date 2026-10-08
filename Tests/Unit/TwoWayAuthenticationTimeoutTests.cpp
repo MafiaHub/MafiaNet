@@ -9,7 +9,7 @@
 
 #include "mafianet/TwoWayAuthentication.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 using namespace MafiaNet;
 

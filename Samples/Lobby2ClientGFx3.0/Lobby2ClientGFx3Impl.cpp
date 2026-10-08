@@ -18,7 +18,7 @@
 #include <stdlib.h>
 
 #include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "Lobby2ClientGFx3Impl.h"

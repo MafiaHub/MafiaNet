@@ -28,14 +28,14 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/Base64Encoder.h"
 #include <stdio.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 
 
 
 
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 
 using namespace MafiaNet;
 

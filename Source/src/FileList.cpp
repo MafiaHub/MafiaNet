@@ -18,7 +18,7 @@
 #if _RAKNET_SUPPORT_FileOperations==1
 
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #if defined(ANDROID)
 #include <asm/io.h>
 #elif defined(_WIN32) || defined(__CYGWIN__)
@@ -47,10 +47,10 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/FileOperations.h"
 #include "mafianet/SuperFastHash.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/LinuxStrings.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #define MAX_FILENAME_LENGTH 512
 static const unsigned HASH_LENGTH=4;
@@ -74,7 +74,7 @@ using namespace MafiaNet;
 #include <stdint.h> //defines intptr_t
 #endif
 
-#include "mafianet/alloca.h"
+#include "mafianet/RakAlloca.h"
 
 //int RAK_DLL_EXPORT FileListNodeComp( char * const &key, const FileListNode &data )
 //{

@@ -32,8 +32,8 @@
 #include "mafianet/FileList.h"
 #include "mafianet/FileOperations.h"
 #include "mafianet/SimpleMutex.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

@@ -19,7 +19,7 @@
 #include "Lobby2Message.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/PacketPriority.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 /// \defgroup LOBBY_2_GROUP Lobby2Plugin
 /// \brief SQL based lobby system, with support for users, friends, clans, emails, ranking, and a message board

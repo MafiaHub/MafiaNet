@@ -14,12 +14,12 @@
  */
 
 #include "Lobby2Message.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include "mafianet/MessageIdentifiers.h"
 #include "Lobby2Client.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "RoomsErrorCodes.h"
 #include "mafianet/DS_Queue.h"
 #include <ctype.h>
@@ -27,8 +27,8 @@
 #include <limits> // used for std::numeric_limits
 #include "mafianet/LinuxStrings.h"
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 static const int NUM_CONNECTIONS=2;
 MafiaNet::Lobby2Client lobby2Client[NUM_CONNECTIONS];

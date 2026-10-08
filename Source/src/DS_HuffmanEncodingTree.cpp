@@ -16,7 +16,7 @@
 #include "mafianet/DS_HuffmanEncodingTree.h"
 #include "mafianet/DS_Queue.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/assert.h" 
+#include "mafianet/RakAssert.h" 
 
 using namespace MafiaNet;
 

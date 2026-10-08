@@ -20,8 +20,8 @@
 #if !defined(_WIN32)
 #include <stdint.h>
 #endif
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 #undef get16bits
 

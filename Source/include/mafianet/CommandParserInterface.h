@@ -21,8 +21,8 @@
 #ifndef __COMMAND_PARSER_INTERFACE
 #define __COMMAND_PARSER_INTERFACE
 
-#include "memoryoverride.h"
-#include "types.h"
+#include "RakMemoryOverride.h"
+#include "RakNetTypes.h"
 #include "DS_OrderedList.h"
 #include "Export.h"
 

@@ -22,7 +22,7 @@
 #ifndef __DATA_COMPRESSOR_H
 #define __DATA_COMPRESSOR_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "DS_HuffmanEncodingTree.h"
 #include "Export.h"
 

@@ -21,10 +21,10 @@
 #if _RAKNET_SUPPORT_FullyConnectedMesh2==1
 
 #include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/RakPeerInterface.h"
+#include "mafianet/GuidUtil.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
 #include "mafianet/DS_OrderedList.h"

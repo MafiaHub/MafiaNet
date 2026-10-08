@@ -14,14 +14,14 @@
 #include <string>
 #include <vector>
 
-#include "mafianet/peer.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeer.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/FileListTransfer.h"
 #include "mafianet/FileListTransferCBInterface.h"
 #include "mafianet/DirectoryDeltaTransfer.h"
 #include "mafianet/IncrementalReadInterface.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "mafianet/GetTime.h"
 
 using namespace MafiaNet;

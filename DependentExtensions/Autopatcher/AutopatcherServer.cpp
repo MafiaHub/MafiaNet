@@ -21,13 +21,13 @@
 #include "mafianet/DirectoryDeltaTransfer.h"
 #include "mafianet/FileList.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/FileListTransfer.h"
 #include "mafianet/FileListTransferCBInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/AutopatcherRepositoryInterface.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include "mafianet/AutopatcherPatchContext.h"
 #include <stdio.h>
 #include <time.h>

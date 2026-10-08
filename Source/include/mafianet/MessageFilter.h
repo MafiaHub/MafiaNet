@@ -23,7 +23,7 @@
 #ifndef __MESSAGE_FILTER_PLUGIN_H
 #define __MESSAGE_FILTER_PLUGIN_H
 
-#include "types.h"
+#include "RakNetTypes.h"
 #include "PluginInterface2.h"
 #include "DS_OrderedList.h"
 #include "DS_Hash.h"

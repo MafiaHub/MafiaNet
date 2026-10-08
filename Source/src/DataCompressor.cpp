@@ -15,7 +15,7 @@
 
 #include "mafianet/DataCompressor.h"
 #include "mafianet/DS_HuffmanEncodingTree.h"
-#include "mafianet/assert.h"
+#include "mafianet/RakAssert.h"
 #include <string.h> // Use string.h rather than memory.h for a console
 
 using namespace MafiaNet;

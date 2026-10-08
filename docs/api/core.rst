@@ -153,7 +153,7 @@ opt-in via ``RakPeerInterface::InitializeSecurity()`` (see
 Canonical Type Aliases
 ----------------------
 
-``mafianet/aliases.h`` (also pulled in by the umbrella header) provides
+``mafianet/Aliases.h`` (also pulled in by the umbrella header) provides
 canonical MafiaNet names over the legacy RakNet-named public types. They are
 ``using`` aliases denoting the *exact same* types/objects, so old and new names
 interoperate freely:
@@ -374,7 +374,7 @@ identifier must be known), and the raw ``Send()`` remains untouched.
 Value-Type GUID Helpers
 -----------------------
 
-``mafianet/guid_util.h`` provides modern, thread-safe value-type accessors:
+``mafianet/GuidUtil.h`` provides modern, thread-safe value-type accessors:
 
 * ``std::string MafiaNet::to_string(const RakNetGUID&)`` — owns its buffer and
   is thread-safe (replaces the removed ``RakNetGUID::ToString(void)``).

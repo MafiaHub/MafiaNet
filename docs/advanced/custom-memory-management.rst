@@ -21,7 +21,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/memoryoverride.h"
+   #include "mafianet/RakMemoryOverride.h"
 
    // Define custom allocation functions
    void* MyMalloc(size_t size) {

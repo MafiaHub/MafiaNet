@@ -22,9 +22,9 @@
 
 #include "DS_List.h"
 #include "DS_BPlusTree.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "Export.h"
-#include "string.h"
+#include "RakString.h"
 
 #define _TABLE_BPLUS_TREE_ORDER 16
 #define _TABLE_MAX_COLUMN_NAME_LENGTH 64

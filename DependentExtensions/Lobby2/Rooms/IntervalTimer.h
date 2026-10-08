@@ -16,7 +16,7 @@
 #ifndef __INTERVAL_TIMER_H
 #define __INTERVAL_TIMER_H
 
-#include "mafianet/types.h"
+#include "mafianet/RakNetTypes.h"
 
 struct IntervalTimer
 {

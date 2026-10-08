@@ -24,8 +24,8 @@
 #ifndef __REPLICA_MANAGER_3
 #define __REPLICA_MANAGER_3
 
-#include "types.h"
-#include "time.h"
+#include "RakNetTypes.h"
+#include "RakNetTime.h"
 #include "BitStream.h"
 #include "PacketPriority.h"
 #include "PluginInterface2.h"

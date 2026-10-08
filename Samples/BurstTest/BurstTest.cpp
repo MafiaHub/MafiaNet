@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
@@ -22,16 +22,16 @@
 #include <cstring>
 #include <stdlib.h>
 #include "mafianet/Rand.h"
-#include "mafianet/statistics.h"
-#include "mafianet/sleep.h"
-#include "mafianet/memoryoverride.h"
+#include "mafianet/RakNetStatistics.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/RakMemoryOverride.h"
 #include <stdio.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/Gets.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/sleep.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/RakSleep.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 using namespace MafiaNet;
 

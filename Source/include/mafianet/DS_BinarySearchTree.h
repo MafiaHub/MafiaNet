@@ -19,11 +19,18 @@
 ///
 
 
+// Deprecated: DS_BinarySearchTree.h has no consumer in the library and is scheduled for removal in the next
+// minor release. Copy it into your project if you depend on it.
+// Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/DS_BinarySearchTree.h is deprecated and will be removed; copy it into your project if you use it")
+#endif
+
 #ifndef __BINARY_SEARCH_TREE_H
 #define __BINARY_SEARCH_TREE_H
 
 #include "DS_QueueLinkedList.h"
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "Export.h"
 
 

@@ -1,40 +1,14 @@
 /*
- *  Original work: Copyright (c) 2014, Oculus VR, Inc.
- *  All rights reserved.
+ * Copyright (c) 2026, MafiaHub
+ * Licensed under MIT-style license
  *
- *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
- *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
- *
- *
- *  Modified work: Copyright (c) 2016-2017, SLikeSoft UG (haftungsbeschränkt)
- *
- *  This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
- *  license found in the license.txt file in the root directory of this source tree.
+ * Deprecated include path. "mafianet/time.h" was renamed to "mafianet/RakNetTime.h" so
+ * every header follows the PascalCase name of the class it declares. This
+ * forwarding header is kept for one release cycle and will then be removed.
+ * Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
  */
-
-#ifndef __RAKNET_TIME_H
-#define __RAKNET_TIME_H
-
-#include "NativeTypes.h"
-#include "defines.h"
-
-namespace MafiaNet {
-
-// Define __GET_TIME_64BIT if you want to use large types for GetTime (takes more bandwidth when you transmit time though!)
-// You would want to do this if your system is going to run long enough to overflow the millisecond counter (over a month)
-#if __GET_TIME_64BIT==1
-typedef uint64_t Time;
-#define RAK_TIME_FORMAT_STRING "%llu"
-typedef uint32_t TimeMS;
-typedef uint64_t TimeUS;
-#else
-typedef uint32_t Time;
-#define RAK_TIME_FORMAT_STRING "%u"
-typedef uint32_t TimeMS;
-typedef uint64_t TimeUS;
+#pragma once
+#ifndef MAFIANET_SILENCE_DEPRECATED_INCLUDES
+#pragma message("mafianet/time.h is deprecated; include mafianet/RakNetTime.h instead")
 #endif
-
-} // namespace MafiaNet
-
-#endif
+#include "RakNetTime.h"

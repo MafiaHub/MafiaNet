@@ -14,11 +14,11 @@
  */
 
 #include "Lobby2Message.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/sleep.h"
+#include "mafianet/RakSleep.h"
 #include "Lobby2Server_PGSQL.h"
 #include "Lobby2Message_PGSQL.h"
 #include "ProfanityFilter.h"
@@ -26,8 +26,8 @@
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/Gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/LinuxAdapter.h"
+#include "mafianet/OsxAdapter.h"
 
 
 #ifdef __INTEGRATE_LOBBY2_WITH_ROOMS_PLUGIN

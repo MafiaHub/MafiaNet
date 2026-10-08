@@ -23,10 +23,10 @@
 #ifndef __RAKNET_HEAP_H
 #define __RAKNET_HEAP_H
 
-#include "memoryoverride.h"
+#include "RakMemoryOverride.h"
 #include "DS_List.h"
 #include "Export.h"
-#include "assert.h"
+#include "RakAssert.h"
 
 #ifdef _MSC_VER
 #pragma warning( push )

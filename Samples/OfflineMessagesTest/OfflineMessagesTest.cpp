@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/RakPeerInterface.h"
 
 #include "mafianet/BitStream.h"
 #include <stdlib.h> // For atoi
@@ -22,7 +22,7 @@
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/Gets.h"
-#include "mafianet/guid_util.h"
+#include "mafianet/GuidUtil.h"
 
 #ifdef _WIN32
 #include "mafianet/WindowsIncludes.h" // Sleep
