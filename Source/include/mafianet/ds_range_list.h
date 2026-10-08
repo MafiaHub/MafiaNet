@@ -225,6 +225,20 @@ namespace DataStructures
 
 		if (index < ranges[insertionIndex].minIndex-(range_type)1)
 		{
+			// Too far below this range to touch it, but it may still sit directly above the range
+			// BEFORE it, in which case it extends that one instead of becoming a range of its own.
+			// Without this, acks arriving as 0, then 3, then 1 left [0,0] [1,1] [3,3] rather than
+			// [0,1] [3,3]: coverage was right but the list carried an entry it did not need, and every
+			// such entry is extra bytes in the ACK/NAK message built from it.
+			//
+			// No right-hand fuse is possible here: this branch means index+1 < minIndex, so extending
+			// the previous range cannot make it adjacent to the range at insertionIndex.
+			if (insertionIndex>0 && ranges[insertionIndex-1].maxIndex+(range_type)1==index)
+			{
+				ranges[insertionIndex-1].maxIndex++;
+				return;
+			}
+
 			// Insert here
 			ranges.InsertAtIndex(RangeNode<range_type>(index, index), insertionIndex, _FILE_AND_LINE_);
 			return;
