@@ -6,6 +6,10 @@ All notable changes to MafiaNet are documented here.
 Unreleased
 ----------
 
+**FileList / DirectoryDeltaTransfer**
+
+* **Fix: directory walks never terminated on Linux.** ``FileList::AddFilesFromDirectory`` (and so every ``DirectoryDeltaTransfer`` download) looped forever on Linux, allocating until the process was killed. The ``_findnext`` emulation copied each entry name with a count equal to the destination size; the ``strncpy_s`` shim then read one byte past the end of ``dirent::d_name`` to decide whether the copy fit, saw garbage, returned ``ERANGE`` and an empty name. The empty name defeated the ``"."``/``".."`` filter and the walk recursed into ``dir//`` without end. macOS happened to read a zero byte there and never showed it. ``_findnext`` now copies with ``_TRUNCATE``, and the shim reads at most ``count`` bytes of the source and rejects a copy that would not fit, as MSVC does, instead of writing its terminator one byte past the destination. Unit tests cover the shim's bounds and the walk's termination.
+
 **Build**
 
 * **CI runs only where it is useful.** Build & Test runs on pull requests (and on demand); pushes to master no longer rebuild or retest, since master only changes through a PR that already passed. A release tag triggers the release packaging workflow and the documentation deploy, neither of which runs tests. A new push to a PR cancels that PR's run still in flight.

@@ -137,7 +137,7 @@ int _findnext(long h, _finddata_t *f)
                                  // are not supported.
 
                 f->size = filestat.st_size;
-                strncpy_s(f->name, entry->d_name, STRING_BUFFER_SIZE);
+                strncpy_s(f->name, entry->d_name, _TRUNCATE);
                 
                 return 0;
 	}
