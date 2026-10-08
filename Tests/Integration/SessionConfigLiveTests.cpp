@@ -51,7 +51,15 @@ namespace
 	// Drain a peer, returning the first packet with the given id, or 0 if the deadline passes.
 	// Packets that are not the wanted id are discarded; both peers are pumped so a handshake that
 	// needs traffic from either side can make progress.
-	Packet *PumpUntil(RakPeerInterface *wanted, int wantedId, RakPeerInterface *alsoPump, int timeoutMs)
+	//
+	// The optional ledgers record the id of every packet this helper drains and throws away, from the
+	// waited-on peer and from alsoPump respectively. A negative assertion placed AFTER a wait cannot
+	// otherwise see those packets -- they were deallocated in here -- so a violation that surfaces
+	// early is swallowed by the very wait that precedes the assertion looking for it. Pass a ledger
+	// whenever a later assertion needs to know what already went by; see
+	// InteractiveAcceptGatesBothConnectionPackets.
+	Packet *PumpUntil(RakPeerInterface *wanted, int wantedId, RakPeerInterface *alsoPump, int timeoutMs,
+		std::vector<int> *seenOnWanted = 0, std::vector<int> *seenOnAlsoPump = 0)
 	{
 		TimeMS entry = GetTimeMS();
 		while (GetTimeMS() - entry < (TimeMS)timeoutMs)
@@ -61,11 +69,16 @@ namespace
 			{
 				if (p->data[0] == (unsigned char)wantedId)
 					return p; // caller deallocates
+				if (seenOnWanted)
+					seenOnWanted->push_back((int)p->data[0]);
 			}
 			if (alsoPump)
 			{
 				for (p = alsoPump->Receive(); p; alsoPump->DeallocatePacket(p), p = alsoPump->Receive())
-					;
+				{
+					if (seenOnAlsoPump)
+						seenOnAlsoPump->push_back((int)p->data[0]);
+				}
 			}
 			RakSleep(15);
 		}
@@ -147,6 +160,27 @@ namespace
 			RakSleep(15);
 		}
 		return ids;
+	}
+
+	// Drain BOTH peers over a window, appending every id each one yields to its own ledger.
+	//
+	// The single-peer CollectIds() above discards the other peer's packets, and two successive
+	// SawWithin()/CollectIds() probes swallow each other's evidence for the same reason. A negative
+	// assertion about a PAIR of events -- neither peer may report a connection -- therefore has to
+	// drain both in one loop. Appends rather than assigns so a ledger already carrying what an earlier
+	// PumpUntil() drained keeps it.
+	void CollectIdsBoth(RakPeerInterface *a, std::vector<int> *aIds, RakPeerInterface *b, std::vector<int> *bIds, int windowMs)
+	{
+		TimeMS entry = GetTimeMS();
+		while (GetTimeMS() - entry < (TimeMS)windowMs)
+		{
+			Packet *p;
+			for (p = a->Receive(); p; a->DeallocatePacket(p), p = a->Receive())
+				aIds->push_back((int)p->data[0]);
+			for (p = b->Receive(); p; b->DeallocatePacket(p), p = b->Receive())
+				bIds->push_back((int)p->data[0]);
+			RakSleep(15);
+		}
 	}
 
 	bool Contains(const std::vector<int> &ids, int id)
@@ -326,7 +360,12 @@ TEST_F(SessionConfigLive, InteractiveAcceptGatesBothConnectionPackets)
 	const unsigned short port = StartPeers();
 	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
-	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, client, kConnectTimeoutMs);
+	// Ledgers, because the wait below drains and frees everything that is not the session request --
+	// including an early connection packet, which is precisely the violation this test exists to
+	// catch. Asserting only over a window that starts after the wait cannot see it.
+	std::vector<int> serverSaw;
+	std::vector<int> clientSaw;
+	Packet *request = PumpUntil(server, ID_SESSION_CONFIG_REQUEST, client, kConnectTimeoutMs, &serverSaw, &clientSaw);
 	ASSERT_NE(request, nullptr) << "server never saw the session request";
 	const RakNetGUID clientGuid = request->guid;
 
@@ -335,10 +374,13 @@ TEST_F(SessionConfigLive, InteractiveAcceptGatesBothConnectionPackets)
 	EXPECT_EQ(memcmp(request->data + 1, kClientPayload, strlen(kClientPayload)), 0);
 	server->DeallocatePacket(request);
 
-	// Nothing may be reported while the decision is outstanding.
-	EXPECT_FALSE(SawWithin(server, ID_NEW_INCOMING_CONNECTION, client, 400))
+	// Nothing may be reported while the decision is outstanding. Both peers are drained in one loop
+	// and both ledgers carry forward what the wait above already consumed, so neither assertion can
+	// pass because the other probe -- or the wait -- swallowed its evidence.
+	CollectIdsBoth(server, &serverSaw, client, &clientSaw, 400);
+	EXPECT_FALSE(Contains(serverSaw, ID_NEW_INCOMING_CONNECTION))
 		<< "server reported a connection before answering the session request";
-	EXPECT_FALSE(SawWithin(client, ID_CONNECTION_REQUEST_ACCEPTED, server, 400))
+	EXPECT_FALSE(Contains(clientSaw, ID_CONNECTION_REQUEST_ACCEPTED))
 		<< "client reported a connection before the server answered";
 
 	server->AcceptSession(clientGuid, kServerPayload, (unsigned int)strlen(kServerPayload));
