@@ -256,6 +256,50 @@ namespace
 		}
 	};
 
+	// Reads the server's own view of a connection slot.
+	//
+	// Needed because static-mode gating has no observable signature from outside the library. The
+	// server releases its withheld ID_NEW_INCOMING_CONNECTION in the same step that it answers the
+	// client's request, so a peer that wrongly released it early still looks correct to a polling test:
+	// by the time the poll comes round, the payload it should have waited for has arrived anyway. The
+	// invariant only holds still on the slot itself.
+	//
+	// Never instantiated, and the peer must still come from RakPeerInterface::GetInstance() -- see
+	// SendGateBypass above for why constructing a RakPeer-derived object here would be silent memory
+	// corruption rather than a compile error.
+	class SlotInspector : public RakPeer
+	{
+	public:
+		struct Snapshot
+		{
+			bool sawSlot;
+			bool reported;
+			unsigned int payloadLength;
+		};
+
+		// The tests using this have exactly one remote, so the first active slot is it.
+		static Snapshot FirstActiveSlot(RakPeerInterface *peer)
+		{
+			SlotInspector *self = static_cast<SlotInspector *>(static_cast<RakPeer *>(peer));
+			Snapshot out;
+			out.sawSlot = false;
+			out.reported = false;
+			out.payloadLength = 0;
+			if (self->remoteSystemList == 0)
+				return out;
+			for (unsigned int i = 0; i < self->maximumNumberOfPeers; ++i)
+			{
+				if (self->remoteSystemList[i].isActive == false)
+					continue;
+				out.sawSlot = true;
+				out.reported = self->remoteSystemList[i].connectionReportedToApplication;
+				out.payloadLength = self->remoteSystemList[i].remoteSessionConfigLength;
+				return out;
+			}
+			return out;
+		}
+	};
+
 	class SessionConfigLive : public ::testing::Test
 	{
 	public:
@@ -360,6 +404,79 @@ TEST_F(SessionConfigLive, StaticExchangeDeliversBothPayloads)
 	ASSERT_NE(fromClient, nullptr);
 	ASSERT_EQ(length, (unsigned int)strlen(kClientPayload));
 	EXPECT_EQ(memcmp(fromClient, kClientPayload, length), 0);
+}
+
+// Static-mode gating. The interactive tests prove the connection packet is withheld while the
+// APPLICATION decides; this proves it is withheld while the library waits for the client's payload,
+// which is a different trigger reaching the same release point.
+//
+// Why it is written against the slot rather than against received packets: in static mode the server
+// answers the request the instant it arrives, so correct code and code that released the packet at
+// transport-up are indistinguishable to a poll -- both have the payload in hand by the time the test
+// looks. The assertion is therefore the slot invariant "reported implies payload stored", sampled
+// continuously, and the client's payload is deliberately large enough to need many datagrams so the
+// handshake spends a long, reliably observable time in the gated state.
+//
+// A mutant that releases the packet at transport-up in static mode only (leaving the interactive path
+// gated) passes all 23 other tests in this suite and fails this one.
+TEST_F(SessionConfigLive, StaticModeWithholdsTheConnectionUntilTheClientPayloadArrives)
+{
+	// Large enough to split across many datagrams, so the gated window is milliseconds rather than
+	// microseconds. Distinctive bytes so a truncated or mixed-up payload fails the length check below.
+	std::string bigPayload;
+	bigPayload.reserve(48000);
+	while (bigPayload.size() < 48000)
+		bigPayload.push_back((char)('a' + (int)(bigPayload.size() % 26)));
+
+	server->SetSessionConfig(kServerPayload, (unsigned int)strlen(kServerPayload));
+	client->SetSessionConfig(bigPayload.data(), (unsigned int)bigPayload.size());
+
+	const unsigned short port = StartPeers();
+	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
+
+	// Sample the server's slot as tightly as possible for the whole handshake. The invariant must hold
+	// at every single sample: the connection is never reported to the application while the client's
+	// payload is still missing.
+	bool sawGatedState = false;
+	unsigned int violations = 0;
+	bool reportedWithPayload = false;
+	TimeMS entry = GetTimeMS();
+	while (GetTimeMS() - entry < (TimeMS)kConnectTimeoutMs)
+	{
+		SlotInspector::Snapshot snap = SlotInspector::FirstActiveSlot(server);
+		if (snap.sawSlot)
+		{
+			if (snap.reported == false && snap.payloadLength == 0)
+				sawGatedState = true; // the window this test exists to observe
+			if (snap.reported && snap.payloadLength == 0)
+				++violations;
+			if (snap.reported && snap.payloadLength == bigPayload.size())
+				reportedWithPayload = true;
+		}
+		if (reportedWithPayload)
+			break;
+		// No sleep: the gated window is short and every sample counts.
+	}
+
+	EXPECT_EQ(violations, 0u)
+		<< "the server reported the connection to the application " << violations
+		<< " times while the client's session payload was still missing";
+	EXPECT_TRUE(sawGatedState)
+		<< "never observed the handshake in its gated state, so this test proved nothing";
+	ASSERT_TRUE(reportedWithPayload)
+		<< "the server never reported the connection with the client's payload in hand";
+
+	// And the payload really did survive the split and reassembly.
+	Packet *incoming = PumpUntil(server, ID_NEW_INCOMING_CONNECTION, client, kConnectTimeoutMs);
+	ASSERT_NE(incoming, nullptr);
+	const RakNetGUID clientGuid = incoming->guid;
+	server->DeallocatePacket(incoming);
+
+	unsigned int length = 0;
+	const char *fromClient = server->GetRemoteSessionConfig(clientGuid, &length);
+	ASSERT_NE(fromClient, nullptr);
+	ASSERT_EQ(length, (unsigned int)bigPayload.size());
+	EXPECT_EQ(memcmp(fromClient, bigPayload.data(), length), 0);
 }
 
 // A peer that configures no payload still completes the handshake; the remote simply reads none.
