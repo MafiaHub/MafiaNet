@@ -121,6 +121,17 @@ protected:
 	}
 
 	DataStructures::List<RakPeerInterface *> destroyList;
+
+	// Fixture-owned, not a local in the test body. A failed ASSERT_ returns before any cleanup the
+	// body would have done, and the peers are destroyed later in TearDown() -- Shutdown() makes a
+	// virtual call into every attached plugin (peer.cpp, OnRakPeerShutdown), and the network thread
+	// can still deliver OnInternalPacket during the shutdown window. A stack-local plugin is already
+	// destroyed by then, which ASAN reports as a BUS on a corrupted vtable pointer: one failed
+	// assertion becomes a crash that hides the original failure.
+	//
+	// A fixture member is destroyed after TearDown() returns, so no explicit detach is needed: the
+	// plugin outlives every peer that could call into it.
+	ConnectedPingCounter counter;
 };
 
 TEST_F(PingTests, PingStatisticsAndOccasionalPing)
@@ -252,8 +263,6 @@ TEST_F(PingTests, PingStatisticsAndOccasionalPing)
 // when it is off.
 TEST_F(PingTests, OccasionalPingIsObservableAsPingTraffic)
 {
-	ConnectedPingCounter counter;
-
 	RakPeerInterface *receiver = RakPeerInterface::GetInstance();
 	destroyList.Push(receiver, _FILE_AND_LINE_);
 	receiver->AttachPlugin(&counter); // before Startup: UsesReliabilityLayer() is true
@@ -314,6 +323,4 @@ TEST_F(PingTests, OccasionalPingIsObservableAsPingTraffic)
 	EXPECT_GT(withOccasionalPing, withoutOccasionalPing)
 		<< "occasional ping made no difference: " << withOccasionalPing << " pings with it enabled vs "
 		<< withoutOccasionalPing << " with it disabled";
-
-	receiver->DetachPlugin(&counter); // before TearDown destroys the peer
 }
