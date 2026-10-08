@@ -30,15 +30,15 @@
 #ifndef __AUTOPATCHER_SERVER_H
 #define __AUTOPATCHER_SERVER_H
 
-#include "mafianet/Types.h"
-#include "mafianet/Export.h"
-#include "mafianet/PluginInterface2.h"
-#include "mafianet/PacketPriority.h"
-#include "mafianet/ThreadPool.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/String.h"
-#include "mafianet/FileList.h"
-#include "mafianet/IncrementalReadInterface.h"
+#include "mafianet/types.h"
+#include "mafianet/export.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/thread_pool.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/string.h"
+#include "mafianet/file_list.h"
+#include "mafianet/incremental_read_interface.h"
 
 namespace MafiaNet
 {

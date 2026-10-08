@@ -20,7 +20,7 @@
 #ifndef __MASTER_SERVER_MESSAGE_IDS_H
 #define __MASTER_SERVER_MESSAGE_IDS_H
 
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/message_identifiers.h"
 
 /// Master Server message IDs - these were removed from core MafiaNet
 /// and are now sample-specific. They start at ID_USER_PACKET_ENUM.

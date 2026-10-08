@@ -15,19 +15,19 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "Lobby2Client_Steam.h" // If Lobby2Client_Steam.h is included before SocketLayer.h, then it will use the steam send functions
+#include "Lobby2Client_Steam.h" // If Lobby2Client_Steam.h is included before socket_layer.h, then it will use the steam send functions
 #include "Lobby2Message_Steam.h"
-#include "mafianet/Time.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/Types.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/time.h"
+#include "mafianet/sleep.h"
+#include "mafianet/types.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/get_time.h"
+#include "mafianet/message_identifiers.h"
 #include <windows.h>
-#include <mafianet/Kbhit.h>
-#include "mafianet/Gets.h"
-#include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/GuidUtil.h"
+#include <mafianet/kbhit.h>
+#include "mafianet/gets.h"
+#include "mafianet/fully_connected_mesh2.h"
+#include "mafianet/guid_util.h"
 #pragma warning( push )
 #pragma warning(disable:4127)	// conditional expression is constant (with Steamworks 1.23a)
 #include "steam_api.h"

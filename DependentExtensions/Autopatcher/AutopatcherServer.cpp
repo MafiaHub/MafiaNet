@@ -18,17 +18,17 @@
 
 
 #include "AutopatcherServer.h"
-#include "mafianet/DirectoryDeltaTransfer.h"
-#include "mafianet/FileList.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/FileListTransfer.h"
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/AutopatcherRepositoryInterface.h"
-#include "mafianet/Assert.h"
-#include "mafianet/AutopatcherPatchContext.h"
+#include "mafianet/directory_delta_transfer.h"
+#include "mafianet/file_list.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/file_list_transfer.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/autopatcher_repository_interface.h"
+#include "mafianet/assert.h"
+#include "mafianet/autopatcher_patch_context.h"
 #include <stdio.h>
 #include <time.h>
 

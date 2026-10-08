@@ -17,20 +17,20 @@
 /// \brief This file is a sample for using HTTPConnection and PHPDirectoryServer2
 
 
-#include "mafianet/TCPInterface.h"
-#include "mafianet/HTTPConnection.h"
+#include "mafianet/tcp_interface.h"
+#include "mafianet/http_connection.h"
 #include "PHPDirectoryServer2.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/String.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/DS_Table.h"
+#include "mafianet/sleep.h"
+#include "mafianet/string.h"
+#include "mafianet/get_time.h"
+#include "mafianet/ds_table.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
-#include "mafianet/Gets.h"
-#include "mafianet/Getche.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/gets.h"
+#include "mafianet/getche.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 

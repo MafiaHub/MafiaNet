@@ -13,14 +13,14 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/WindowsIncludes.h"
+#include "mafianet/windows_includes.h"
 #include "SendFileTo.h"
 #include <shlwapi.h>
 #include <tchar.h>
 #include <stdio.h>
 #include <direct.h>
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, const char *strAttachmentFileName, const char *strSubject, const char *strBody, const char *strRecipient)
 {

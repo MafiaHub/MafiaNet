@@ -1,10 +1,10 @@
 # DirectoryDeltaTransfer sample
-# There are two test files with main() - build only DirectoryDeltaTransfer.cpp
+# There are two test files with main() - build only directory_delta_transfer.cpp
 
 mafianet_add_sample(
     NAME DirectoryDeltaTransfer
     FOLDER "FileTransfer"
-    SOURCES DirectoryDeltaTransfer.cpp
+    SOURCES directory_delta_transfer.cpp
 )
 
 # Optionally build the test version as a separate target

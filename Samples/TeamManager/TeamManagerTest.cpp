@@ -16,22 +16,22 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "mafianet/GetTime.h"
-#include "mafianet/Rand.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/TeamManager.h"
-#include "mafianet/Kbhit.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/Types.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/SocketLayer.h"
-#include "mafianet/ReplicaManager3.h"
-#include "mafianet/NetworkIDManager.h"
-#include "mafianet/OsxAdapter.h"
-#include "mafianet/Gets.h"
-#include "mafianet/GuidUtil.h"
+#include "mafianet/get_time.h"
+#include "mafianet/rand.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/fully_connected_mesh2.h"
+#include "mafianet/team_manager.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/sleep.h"
+#include "mafianet/types.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/socket_layer.h"
+#include "mafianet/replica_manager3.h"
+#include "mafianet/network_id_manager.h"
+#include "mafianet/osx_adapter.h"
+#include "mafianet/gets.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 

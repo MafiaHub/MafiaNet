@@ -11,8 +11,8 @@
 #pragma once
 
 
-#include "mafianet/Time.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/time.h"
+#include "mafianet/get_time.h"
 
 using namespace MafiaNet;
 class RakTimer

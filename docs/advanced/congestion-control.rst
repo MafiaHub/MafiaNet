@@ -91,7 +91,7 @@ Tuning Parameters
    // There is no setter; read the result back with:
    peer->GetMTUSize(remoteAddress);
 
-   // The ceiling is compile-time. Lower MAXIMUM_MTU_SIZE (mafianet/MTUSize.h) if
+   // The ceiling is compile-time. Lower MAXIMUM_MTU_SIZE (mafianet/mtu_size.h) if
    // your peers sit behind tunnelling with more overhead than 1400 leaves room for.
 
    // Timeout settings

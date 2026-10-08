@@ -22,14 +22,14 @@
 
 // Most of the internals of the boost code to make this work
 #include "RPC3_Boost.h"
-#include "mafianet/PluginInterface2.h"
-#include "mafianet/PacketPriority.h"
-#include "mafianet/Types.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/String.h"
-#include "mafianet/NetworkIDObject.h"
-#include "mafianet/DS_Hash.h"
-#include "mafianet/DS_OrderedList.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/types.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/string.h"
+#include "mafianet/network_id_object.h"
+#include "mafianet/ds_hash.h"
+#include "mafianet/ds_ordered_list.h"
 
 /// \defgroup RPC_3_GROUP RPC3
 /// \brief Remote procedure calls, powered by the 3rd party library Boost

@@ -65,7 +65,7 @@
 // #include "DbgHelp.h"
 // Link with Dbghelp.lib ws2_32.lib
 
-#include "mafianet/Defines.h" // provides the MNet short-hand alias for the MafiaNet namespace
+#include "mafianet/defines.h" // provides the MNet short-hand alias for the MafiaNet namespace
 namespace MafiaNet {
 
 // Possible actions to take on a crash.  If you want to restart the app as well, see the CrashRelauncher sample.

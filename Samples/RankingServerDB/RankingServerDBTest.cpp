@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <conio.h>
-#include "mafianet/GetTime.h"
+#include "mafianet/get_time.h"
 #include "FunctionThread.h"
 #include "RankingServer_PostgreSQL.h"
 

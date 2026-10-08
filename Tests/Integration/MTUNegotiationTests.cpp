@@ -10,13 +10,13 @@
 #include <string.h>
 #include <vector>
 
-#include "mafianet/Peer.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/MTUSize.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/peer.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/mtu_size.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/get_time.h"
 
 #ifdef _WIN32
 #include <ws2tcpip.h> // inet_pton, htons (winsock2 pulled in via peer.h)
@@ -158,7 +158,7 @@ namespace
 		return false;
 	}
 
-	// Mirrors the constant of the same name in RakPeer.cpp, which is file-static and so cannot be
+	// Mirrors the constant of the same name in peer.cpp, which is file-static and so cannot be
 	// included. It is the marker that makes a receiving peer treat a datagram as an offline
 	// (pre-connection) message rather than reliability-layer traffic. Duplicated deliberately: a
 	// test for what an unconforming peer can put on the wire should pin the wire format itself.

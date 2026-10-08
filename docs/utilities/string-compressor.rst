@@ -12,8 +12,8 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/StringCompressor.h"
-   #include "mafianet/BitStream.h"
+   #include "mafianet/string_compressor.h"
+   #include "mafianet/bit_stream.h"
 
    // Get the global instance
    MafiaNet::StringCompressor* compressor =

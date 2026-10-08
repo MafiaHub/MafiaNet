@@ -63,6 +63,19 @@ jobs:
       - name: Install OpenSSL
         run: sudo apt-get update && sudo apt-get install -y libssl-dev
 
+      # File names under Source/ are snake_case, and library headers include each
+      # other only as "mafianet/<name>.h". A bare #include "string.h" inside
+      # include/mafianet/ would resolve to the library's own string.h instead of
+      # the C header, so both rules are enforced here.
+      - name: Check file naming and include style
+        run: |
+          bad=$(find Source/include Source/src -type f \( -name '*.h' -o -name '*.cpp' \) | grep -E '/[^/]*[A-Z][^/]*$' || true)
+          if [ -n "$bad" ]; then echo "Non-snake_case file names:"; echo "$bad"; exit 1; fi
+          bad=$(grep -rnE '^\s*#include "[a-z0-9_]+\.h"' Source/include/mafianet | while IFS=: read -r f l rest; do
+                  n=$(echo "$rest" | sed -E 's/.*"([^"]+)".*/\1/')
+                  [ -e "Source/include/mafianet/$n" ] && echo "$f:$l: $rest"; done || true)
+          if [ -n "$bad" ]; then echo "Bare includes of library headers (use \"mafianet/<name>.h\"):"; echo "$bad"; exit 1; fi
+
       - name: Configure CMake
         run: |
           cmake -B build \

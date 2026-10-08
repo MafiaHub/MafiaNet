@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/TelnetTransport.h"
-#include "mafianet/ConsoleServer.h"
-#include "mafianet/LogCommandParser.h"
-#include "mafianet/PacketConsoleLogger.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/Sleep.h"
+#include "mafianet/telnet_transport.h"
+#include "mafianet/console_server.h"
+#include "mafianet/log_command_parser.h"
+#include "mafianet/packet_console_logger.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/sleep.h"
 #include <stdio.h>
-#include "mafianet/Getche.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/getche.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/kbhit.h"
 
 using namespace MafiaNet;
 

@@ -16,11 +16,11 @@
 #ifndef __LOBBY_2_SERVER_H
 #define __LOBBY_2_SERVER_H
 
-#include "mafianet/Export.h"
-#include "mafianet/Types.h"
+#include "mafianet/export.h"
+#include "mafianet/types.h"
 #include "Lobby2Plugin.h"
-#include "mafianet/DS_OrderedList.h"
-#include "mafianet/ThreadPool.h"
+#include "mafianet/ds_ordered_list.h"
+#include "mafianet/thread_pool.h"
 #include "Lobby2Presence.h"
 
 //class PostgreSQLInterface;

@@ -18,21 +18,21 @@
 #include <memory.h>
 #include <limits> // used for std::numeric_limits
 #include "portaudio.h"
-#include "mafianet/Kbhit.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 
-#include "mafianet/RakVoice.h"
-#include "mafianet/Statistics.h"
-#include "mafianet/NatPunchthroughClient.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/Getche.h"
-#include "mafianet/Gets.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
-#include "mafianet/GuidUtil.h"
+#include "mafianet/voice.h"
+#include "mafianet/statistics.h"
+#include "mafianet/nat_punchthrough_client.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/getche.h"
+#include "mafianet/gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
-/// To test sending to myself. Also uncomment in RakVoice.cpp
+/// To test sending to myself. Also uncomment in voice.cpp
 //#define _TEST_LOOPBACK
 
 // RakVoice only works with 16-bits sound data

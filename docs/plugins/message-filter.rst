@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/MessageFilter.h"
+   #include "mafianet/message_filter.h"
 
    MafiaNet::MessageFilter messageFilter;
    peer->AttachPlugin(&messageFilter);

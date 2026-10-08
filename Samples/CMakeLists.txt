@@ -75,7 +75,7 @@ add_subdirectory(RakVoice)
 # specific third-party dependencies, platforms, or special configuration:
 #
 # - AutopatcherClientGFx3.0 (requires Scaleform GFx)
-# - Encryption (requires LIBCAT_SECURITY=1 in NativeFeatureIncludesOverrides.h)
+# - Encryption (requires LIBCAT_SECURITY=1 in native_feature_includes_overrides.h)
 # - AutoPatcherServer_MySQL (requires MySQL)
 # - CrashRelauncher (Windows-specific)
 # - iOS (requires iOS SDK)

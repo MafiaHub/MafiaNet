@@ -14,15 +14,15 @@
 #include <string>
 #include <vector>
 
-#include "mafianet/Peer.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/FileList.h"
-#include "mafianet/FileListTransfer.h"
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/IncrementalReadInterface.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/peer.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/file_list.h"
+#include "mafianet/file_list_transfer.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/incremental_read_interface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/get_time.h"
 
 using namespace MafiaNet;
 

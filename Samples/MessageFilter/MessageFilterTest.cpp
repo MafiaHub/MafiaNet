@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/PeerInterface.h"
+#include "mafianet/peer_interface.h"
 
-#include "mafianet/MessageFilter.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Sleep.h"
+#include "mafianet/message_filter.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/sleep.h"
 #include <stdio.h>
 
 int main()

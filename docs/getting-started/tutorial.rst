@@ -20,7 +20,7 @@ Create ``ChatCommon.h``:
 .. code-block:: cpp
 
    #pragma once
-   #include "mafianet/MessageIdentifiers.h"
+   #include "mafianet/message_identifiers.h"
 
    // Custom message types
    enum ChatMessages {
@@ -38,9 +38,9 @@ Create ``ChatServer.cpp``:
 
 .. code-block:: cpp
 
-   #include "mafianet/PeerInterface.h"
-   #include "mafianet/BitStream.h"
-   #include "mafianet/String.h"
+   #include "mafianet/peer_interface.h"
+   #include "mafianet/bit_stream.h"
+   #include "mafianet/string.h"
    #include "ChatCommon.h"
    #include <cstdio>
 
@@ -112,10 +112,10 @@ Create ``ChatClient.cpp``:
 
 .. code-block:: cpp
 
-   #include "mafianet/PeerInterface.h"
-   #include "mafianet/BitStream.h"
-   #include "mafianet/String.h"
-   #include "mafianet/Gets.h"
+   #include "mafianet/peer_interface.h"
+   #include "mafianet/bit_stream.h"
+   #include "mafianet/string.h"
+   #include "mafianet/gets.h"
    #include "ChatCommon.h"
    #include <cstdio>
    #include <cstring>

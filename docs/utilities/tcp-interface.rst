@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/TCPInterface.h"
+   #include "mafianet/tcp_interface.h"
 
    MafiaNet::TCPInterface tcp;
 

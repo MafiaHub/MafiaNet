@@ -18,7 +18,7 @@
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
 #include "libpq-fe.h"
 #include "PostgreSQLInterface.h"
-#include "mafianet/EpochTimeToString.h"
+#include "mafianet/epoch_time_to_string.h"
 
 #ifndef __LOBBY_2_MESSAGE_PGSQL_H
 #define __LOBBY_2_MESSAGE_PGSQL_H

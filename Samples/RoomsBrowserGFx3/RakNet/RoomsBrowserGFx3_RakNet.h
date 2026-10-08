@@ -16,10 +16,10 @@
 #ifndef __ROOMS_BROWSER_GFX3_RAKNET
 #define __ROOMS_BROWSER_GFX3_RAKNET
 
-#include "mafianet/WindowsIncludes.h"
-#include "mafianet/Types.h"
+#include "mafianet/windows_includes.h"
+#include "mafianet/types.h"
 #include "Lobby2Message.h"
-#include "mafianet/PluginInterface2.h"
+#include "mafianet/plugin_interface2.h"
 #include "RoomsBrowserGFx3.h"
 #include "RoomsPlugin.h"
 

@@ -7,8 +7,8 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/Types.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/types.h"
+#include "mafianet/bit_stream.h"
 
 #include <type_traits>
 #include <string.h>

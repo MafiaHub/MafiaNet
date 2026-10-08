@@ -24,8 +24,8 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/MtuBlackHole.h"
-#include "mafianet/MTUSize.h"
+#include "mafianet/mtu_black_hole.h"
+#include "mafianet/mtu_size.h"
 
 using namespace MafiaNet;
 

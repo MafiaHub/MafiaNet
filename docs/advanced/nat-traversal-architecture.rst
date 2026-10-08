@@ -40,8 +40,8 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughServer.h"
-   #include "mafianet/UDPProxyCoordinator.h"
+   #include "mafianet/nat_punchthrough_server.h"
+   #include "mafianet/udp_proxy_coordinator.h"
 
    MafiaNet::NatPunchthroughServer natServer;
    MafiaNet::UDPProxyCoordinator proxyCoord;
@@ -53,7 +53,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughClient.h"
+   #include "mafianet/nat_punchthrough_client.h"
 
    MafiaNet::NatPunchthroughClient natClient;
    peer->AttachPlugin(&natClient);
@@ -77,7 +77,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughClient.h"
+   #include "mafianet/nat_punchthrough_client.h"
 
    // Attempt UPnP port mapping first
    natClient.SetUPNP(true);

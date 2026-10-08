@@ -75,7 +75,7 @@ Minimal builds
 Every optional plugin in the core library (``ReplicaManager3``, ``RPC4Plugin``,
 ``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
 users, and so on) is guarded by a ``_RAKNET_SUPPORT_<Name>`` flag declared in
-``mafianet/NativeFeatureIncludes.h``. The transport itself, ``BitStream``,
+``mafianet/native_feature_includes.h``. The transport itself, ``BitStream``,
 ``RakPeer``, the reliability layer and ``RakVoice`` are always built.
 
 The supported way to compile plugins out is through CMake, not by editing the
@@ -127,7 +127,7 @@ only the link line changes. The extras target links the core library
 The classes still honour their ``_RAKNET_SUPPORT_<Name>`` flags, and
 ``MAFIANET_DISABLED_FEATURES`` applies to the extras target too.
 
-Using ``NativeFeatureIncludesOverrides.h`` to set the same flags still works,
+Using ``native_feature_includes_overrides.h`` to set the same flags still works,
 but the CMake route keeps the configuration in the build system, where it is
 visible to consumers through the exported targets.
 
@@ -194,7 +194,7 @@ figures. Reproduce with:
 
 The per-datagram column is the code every non-Linux platform runs. To reproduce it
 on Linux, flip the ``#if defined(__linux__)`` batching guards in
-``RakNetSocket2.cpp``, ``RakNetSocket2_Berkley.cpp``, ``ReliabilityLayer.cpp`` and
+``socket2.cpp``, ``socket2_berkley.cpp``, ``reliability_layer.cpp`` and
 ``RakNetSocket2.h`` to ``#if 0``.
 
 Running Tests

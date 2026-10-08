@@ -75,9 +75,9 @@ Configuration for network sockets.
 Message Identifiers
 -------------------
 
-Built-in message types are defined in ``MessageIdentifiers.h``.
+Built-in message types are defined in ``message_identifiers.h``.
 
-.. doxygenfile:: MessageIdentifiers.h
+.. doxygenfile:: message_identifiers.h
    :sections: enum
 
 Enumerations
@@ -153,7 +153,7 @@ opt-in via ``RakPeerInterface::InitializeSecurity()`` (see
 Canonical Type Aliases
 ----------------------
 
-``mafianet/Aliases.h`` (also pulled in by the umbrella header) provides
+``mafianet/aliases.h`` (also pulled in by the umbrella header) provides
 canonical MafiaNet names over the legacy RakNet-named public types. They are
 ``using`` aliases denoting the *exact same* types/objects, so old and new names
 interoperate freely:
@@ -176,7 +176,7 @@ interoperate freely:
 RAII Handles (Peer / PacketPtr)
 -------------------------------
 
-``mafianet/PeerHandle.h`` (exported from the umbrella header) provides two RAII
+``mafianet/peer_handle.h`` (exported from the umbrella header) provides two RAII
 owners that remove manual ``DestroyInstance`` / ``DeallocatePacket``
 bookkeeping:
 
@@ -264,7 +264,7 @@ returns.
 Serialization Archives (WriteArchive / ReadArchive)
 ---------------------------------------------------
 
-``mafianet/Archive.h`` (pulled in by the umbrella header) provides a single
+``mafianet/archive.h`` (pulled in by the umbrella header) provides a single
 serialization convention over ``BitStream``. A user type describes its wire
 format once with a member template, and the same ``serialize()`` serves both
 directions — no duplicated read/write field lists:
@@ -304,7 +304,7 @@ are the :ref:`Dispatcher <typed-dispatcher>`'s job.
 Typed Message Dispatcher (Dispatcher / Sender)
 ----------------------------------------------
 
-``mafianet/Dispatcher.h`` (pulled in by the umbrella header) replaces the
+``mafianet/dispatcher.h`` (pulled in by the umbrella header) replaces the
 classic giant ``switch`` on ``packet->data[0]`` — plus the hand-rolled
 ``ID_TIMESTAMP``-skipping helper — with typed handlers. It builds on the
 receive iterator, ``PacketPtr``, and the serialization archives:
@@ -374,7 +374,7 @@ identifier must be known), and the raw ``Send()`` remains untouched.
 Value-Type GUID Helpers
 -----------------------
 
-``mafianet/GuidUtil.h`` provides modern, thread-safe value-type accessors:
+``mafianet/guid_util.h`` provides modern, thread-safe value-type accessors:
 
 * ``std::string MafiaNet::to_string(const RakNetGUID&)`` — owns its buffer and
   is thread-safe (replaces the removed ``RakNetGUID::ToString(void)``).

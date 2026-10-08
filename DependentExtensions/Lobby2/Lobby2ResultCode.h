@@ -16,7 +16,7 @@
 #ifndef __LOBBY_2_RESULT_CODE_H
 #define __LOBBY_2_RESULT_CODE_H
 
-#include "mafianet/Defines.h" // provides the MNet short-hand alias for the MafiaNet namespace
+#include "mafianet/defines.h" // provides the MNet short-hand alias for the MafiaNet namespace
 namespace MafiaNet
 {
 

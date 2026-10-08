@@ -28,31 +28,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 
-#include "mafianet/GetTime.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/FileListTransfer.h"
-#include "mafianet/FileList.h" // FLP_Printf
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/Gets.h"
+#include "mafianet/get_time.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/file_list_transfer.h"
+#include "mafianet/file_list.h" // FLP_Printf
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/gets.h"
 #include "CloudServerHelper.h"
-#include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/TwoWayAuthentication.h"
-#include "mafianet/CloudClient.h"
-#include "mafianet/DynDNS.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/ConnectionGraph2.h"
+#include "mafianet/fully_connected_mesh2.h"
+#include "mafianet/two_way_authentication.h"
+#include "mafianet/cloud_client.h"
+#include "mafianet/dyn_dns.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/connection_graph2.h"
 #include "CloudServerHelper.h"
-#include "mafianet/HTTPConnection2.h"
+#include "mafianet/http_connection2.h"
 #include "Rackspace2.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/get_time.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
@@ -63,7 +63,7 @@
 #include "AutopatcherPostgreRepository.h"
 
 #ifdef _WIN32
-#include "mafianet/WindowsIncludes.h" // Sleep
+#include "mafianet/windows_includes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

@@ -53,7 +53,7 @@ The ``ReplicaManager3`` plugin handles object replication:
 
 .. code-block:: cpp
 
-   #include "mafianet/ReplicaManager3.h"
+   #include "mafianet/replica_manager3.h"
 
    class MyReplica : public MafiaNet::Replica3 {
    public:
@@ -82,7 +82,7 @@ Call functions on remote peers:
 
 .. code-block:: cpp
 
-   #include "mafianet/RPC4Plugin.h"
+   #include "mafianet/rpc4_plugin.h"
 
    MafiaNet::RPC4* rpc = MafiaNet::RPC4::GetInstance();
    peer->AttachPlugin(rpc);

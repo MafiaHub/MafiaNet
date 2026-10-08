@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/EmailSender.h"
-#include "mafianet/FileList.h"
+#include "mafianet/email_sender.h"
+#include "mafianet/file_list.h"
 #include <stdio.h>
-#include "mafianet/Gets.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 int main()
 {

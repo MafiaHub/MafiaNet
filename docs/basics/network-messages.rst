@@ -6,7 +6,7 @@ MafiaNet uses message IDs to identify packet types. The first byte of every pack
 Built-in Message IDs
 --------------------
 
-MafiaNet reserves IDs 0-134 for internal use. These are defined in ``MessageIdentifiers.h``.
+MafiaNet reserves IDs 0-134 for internal use. These are defined in ``message_identifiers.h``.
 
 Connection Messages
 ~~~~~~~~~~~~~~~~~~~

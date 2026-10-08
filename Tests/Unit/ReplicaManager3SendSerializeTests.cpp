@@ -7,11 +7,11 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/ReplicaManager3.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/NetworkIDManager.h"
-#include "mafianet/PeerInterface.h"
+#include "mafianet/replica_manager3.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/network_id_manager.h"
+#include "mafianet/peer_interface.h"
 
 #include <vector>
 

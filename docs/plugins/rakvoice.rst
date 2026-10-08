@@ -23,7 +23,7 @@ Setup
 
 .. code-block:: cpp
 
-   #include "mafianet/RakVoice.h"
+   #include "mafianet/voice.h"
 
    MafiaNet::RakVoice rakVoice;
    peer->AttachPlugin(&rakVoice);

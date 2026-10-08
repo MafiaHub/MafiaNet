@@ -14,7 +14,7 @@
  */
 
 #include "RoomsErrorCodes.h"
-#include "mafianet/Assert.h"
+#include "mafianet/assert.h"
 
 using namespace MafiaNet;
 

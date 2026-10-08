@@ -7,8 +7,8 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/String.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/string.h"
+#include "mafianet/bit_stream.h"
 
 #include <cstring>
 #include <string>

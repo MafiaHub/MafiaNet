@@ -8,13 +8,13 @@ Unreleased
 
 **Build**
 
-* **New CMake options: ``MAFIANET_DISABLED_FEATURES`` and ``MAFIANET_MINIMAL``.** The ``_RAKNET_SUPPORT_<Name>`` plugin flags from ``NativeFeatureIncludes.h`` can now be set from CMake (``-DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin"`` or ``-DMAFIANET_MINIMAL=ON`` for the core transport alone). The definitions are ``PUBLIC`` on the library targets so consumers see the same configuration. Unknown names are a configure error. A ``linux-minimal`` CI job builds the ``MAFIANET_MINIMAL`` configuration. See :doc:`/getting-started/building`.
+* **New CMake options: ``MAFIANET_DISABLED_FEATURES`` and ``MAFIANET_MINIMAL``.** The ``_RAKNET_SUPPORT_<Name>`` plugin flags from ``native_feature_includes.h`` can now be set from CMake (``-DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin"`` or ``-DMAFIANET_MINIMAL=ON`` for the core transport alone). The definitions are ``PUBLIC`` on the library targets so consumers see the same configuration. Unknown names are a configure error. A ``linux-minimal`` CI job builds the ``MAFIANET_MINIMAL`` configuration. See :doc:`/getting-started/building`.
 
-**Header names.** Every public header is now PascalCase, without the RakNet prefix the project dropped (``peerinterface.h`` → ``PeerInterface.h``, ``peer.h`` → ``Peer.h``, ``types.h`` → ``Types.h``, ``string.h`` → ``String.h``, ``wstring.h`` → ``WString.h``, ``time.h`` → ``Time.h``, ``sleep.h`` → ``Sleep.h``, ``thread.h`` → ``Thread.h``, ``assert.h`` → ``Assert.h``, ``alloca.h`` → ``Alloca.h``, ``defines.h`` → ``Defines.h``, ``defineoverrides.h`` → ``DefineOverrides.h``, ``memoryoverride.h`` → ``MemoryOverride.h``, ``smartptr.h`` → ``SmartPtr.h``, ``socket2.h`` → ``Socket2.h``, ``statistics.h`` → ``Statistics.h``, ``transport2.h`` → ``Transport2.h``, ``commandparser.h`` → ``CommandParser.h``, ``guid_util.h`` → ``GuidUtil.h``, ``linux_adapter.h`` → ``LinuxAdapter.h``, ``osx_adapter.h`` → ``OsxAdapter.h``, ``gettimeofday.h`` → ``GetTimeOfDay.h``, ``aliases.h`` → ``Aliases.h``, ``version.h`` → ``Version.h``). The umbrella header stays ``mafianet/mafianet.h``. On Windows and macOS the old lowercase spellings still resolve, since those file systems ignore case; on Linux includes must be updated. ``guid_util.h``, ``linux_adapter.h`` and ``osx_adapter.h`` remain as forwarding headers that emit a ``#pragma message`` and will be removed in the next minor release (define ``MAFIANET_SILENCE_DEPRECATED_INCLUDES`` to quiet it). The matching sources were renamed too (``GuidUtil.cpp``, ``LinuxAdapter.cpp``, ``OsxAdapter.cpp``, ``GetTimeOfDay.cpp``).
+**File names are snake_case.** Every header and source under ``Source/`` is now lowercase ``snake_case`` (``BitStream.h`` → ``bit_stream.h``, ``ReliabilityLayer.h`` → ``reliability_layer.h``, ``peerinterface.h`` → ``peer_interface.h``, ``DS_List.h`` → ``ds_list.h``, ``HTTPConnection2.h`` → ``http_connection2.h``), and the RakNet prefix is gone from file names (``RakVoice.h`` → ``voice.h``, ``RakPeer.cpp`` → ``peer.cpp``, ``CCRakNetUDT.h`` → ``cc_udt.h``). Class names are unchanged. The umbrella header stays ``mafianet/mafianet.h`` and the ``crypto/`` headers were already lowercase. Since almost every rename differs from the old name only by case, no forwarding headers are possible: on Windows and macOS the old spellings still resolve, on Linux every ``#include "mafianet/..."`` must be updated (a case-insensitive search-and-replace over the names above). Library headers now include each other only as ``"mafianet/<name>.h"``; a CI check rejects bare quoted includes inside ``include/mafianet/`` so that ``string.h``, ``time.h`` and ``assert.h`` can never shadow the C headers.
 
 **Extras library.** ``EmailSender``, ``HTTPConnection``, ``HTTPConnection2``, ``TelnetTransport``, ``RakNetTransport2``, ``ConsoleServer``, ``CommandParserInterface``, ``RakNetCommandParser``, ``LogCommandParser`` and ``PacketConsoleLogger`` moved out of the core library into ``MafiaNetExtras`` (``MafiaNet::MafiaNetExtras``), built with ``MAFIANET_BUILD_EXTRAS=ON`` (forced on by ``MAFIANET_BUILD_SAMPLES``). Headers and include paths are unchanged; code using these classes must link the extras target. See :doc:`/getting-started/building`.
 
-**Deprecated containers.** ``DS_BinarySearchTree.h``, ``DS_QueueLinkedList.h``, ``DS_HuffmanEncodingTreeFactory.h``, ``DS_OrderedChannelHeap.h`` and ``DS_BytePool.h`` have no consumer in the library. They now emit a ``#pragma message`` on inclusion and will be removed in the next minor release; copy them into your project if you depend on them.
+**Deprecated containers.** ``ds_binary_search_tree.h``, ``ds_queue_linked_list.h``, ``ds_huffman_encoding_tree_factory.h``, ``ds_ordered_channel_heap.h`` and ``ds_byte_pool.h`` have no consumer in the library. They now emit a ``#pragma message`` on inclusion and will be removed in the next minor release; copy them into your project if you depend on them.
 
 **Removed: dead platform code.** Xbox 360, PlayStation 3, PlayStation 4, PlayStation Vita and Google Native Client could not be targeted for years; their remaining headers were already empty. Removed in this release:
 
@@ -70,7 +70,7 @@ Version 0.21.0
 
 * **New: ``ID_SESSION_CONFIG_ABANDONED``.** An interactive server is told when a request it was holding goes away unanswered -- the client left, the transport dropped, or the session timeout passed -- so it can drop the decision it was working on. Sent once, never for a request the application answered.
 
-* **New header: ``SessionAdmission.h``.** The slot accounting as pure functions, unit tested directly.
+* **New header: ``session_admission.h``.** The slot accounting as pure functions, unit tested directly.
 
 * **New guide: Admission and Queues.** How the pool, the session timeout, status and abandonment fit together, with a complete queue.
 
@@ -355,7 +355,7 @@ Version 0.11.0
   failure — never collapsed to a bool. Security stays opt-in
   (``ServerBuilder::secure()``, ``ClientBuilder::public_key()``).
 
-* **Serialization archives** in ``mafianet/Archive.h``. A single
+* **Serialization archives** in ``mafianet/archive.h``. A single
   ``serialize()`` convention over ``BitStream``: a user type describes its wire
   format once (``template <class Ar> void serialize(Ar& ar) { ar & a & b; }``)
   and ``WriteArchive`` / ``ReadArchive`` run it in either direction. Fields
@@ -363,7 +363,7 @@ Version 0.11.0
   ``BitStream``'s ``operator<<`` / ``operator>>`` and its per-type
   specializations. Exported from the umbrella header.
 
-* **Typed message dispatcher** in ``mafianet/Dispatcher.h``.
+* **Typed message dispatcher** in ``mafianet/dispatcher.h``.
   ``MafiaNet::Dispatcher`` replaces the giant switch-on-first-byte receive
   loop: ``on<T>(handler)`` registers a typed handler (auto-assigning
   identifiers from ``ID_USER_PACKET_ENUM`` in registration order — a documented
@@ -384,8 +384,8 @@ Version 0.11.0
 
 **Build**
 
-* **RakVoice is built into the core library.** ``RakVoice.h`` moved to
-  ``mafianet/RakVoice.h`` and its codec dependencies (Opus, RNNoise) are
+* **RakVoice is built into the core library.** ``voice.h`` moved to
+  ``mafianet/voice.h`` and its codec dependencies (Opus, RNNoise) are
   fetched and linked into the core library automatically — no separate
   extension build required.
 
@@ -416,7 +416,7 @@ Version 0.10.0
   headers are intentionally omitted; connection security stays opt-in via
   ``RakPeerInterface::InitializeSecurity()``.
 
-* **Canonical type aliases** in ``mafianet/Aliases.h`` over the legacy
+* **Canonical type aliases** in ``mafianet/aliases.h`` over the legacy
   RakNet-named public types: ``PeerInterface`` (``RakPeerInterface``), ``Guid``
   (``RakNetGUID``), ``Statistics`` (``RakNetStatistics``) and ``UnassignedGuid``
   (``UNASSIGNED_RAKNET_GUID``). These are ``using`` aliases denoting the exact
@@ -424,14 +424,14 @@ Version 0.10.0
   declarations are left untouched and un-deprecated. Pulled into the umbrella
   header.
 
-* **RAII handles** ``Peer`` and ``PacketPtr`` in ``mafianet/PeerHandle.h``
+* **RAII handles** ``Peer`` and ``PacketPtr`` in ``mafianet/peer_handle.h``
   (exported from the umbrella header). ``Peer`` owns a ``RakPeerInterface``
   instance and destroys it on scope exit; ``PacketPtr`` owns a received
   ``Packet`` and deallocates it automatically — removing manual
   ``DestroyInstance`` / ``DeallocatePacket`` bookkeeping. The ChatExample client
   is rewritten to demonstrate them.
 
-* **Thread-safe value-type GUID accessors** in ``mafianet/GuidUtil.h``:
+* **Thread-safe value-type GUID accessors** in ``mafianet/guid_util.h``:
   ``std::string MafiaNet::to_string(const RakNetGUID&)`` owns its buffer and is
   thread-safe, and ``std::optional<SystemAddress> connected_address(...)`` maps
   the ``UNASSIGNED_SYSTEM_ADDRESS`` sentinel to ``std::nullopt``.
@@ -540,13 +540,13 @@ Version 0.7.0
   world (or the ``VIRTUAL_WORLD_GLOBAL`` sentinel), switchable on the fly with no
   reconnect, while staying on the same connection and the same RM3 ``WorldId``.
   Derive entities from the new ``VirtualWorldReplica3`` base
-  (``mafianet/VirtualWorldReplica3.h``); ``Connection_RM3`` gains
+  (``mafianet/virtual_world_replica3.h``); ``Connection_RM3`` gains
   ``Get/SetVirtualWorld``; ``ReplicaManager3`` gains
   ``GetConnectionsInVirtualWorld`` / ``GetGuidsInVirtualWorld`` (recipient-filter
   helpers for scoping non-replica traffic like chat and RPC) and
   ``SetPlayerVirtualWorld``. The filter is applied only by the authority for an
   (entity, connection) pair, so a downloaded copy never despawns the entity at
-  its owner. See ``mafianet/VirtualWorld.h`` and the ``Samples/VirtualWorld`` demo.
+  its owner. See ``mafianet/virtual_world.h`` and the ``Samples/VirtualWorld`` demo.
 
 **Documentation**
 

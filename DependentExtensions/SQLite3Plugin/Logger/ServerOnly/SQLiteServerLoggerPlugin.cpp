@@ -9,14 +9,14 @@
  */
 
 #include "SQLiteServerLoggerPlugin.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/message_identifiers.h"
 #include "SQLiteLoggerCommon.h"
 #include "jpeglib.h"
 #include "jpeg_memory_dest.h"
-#include "mafianet/FileOperations.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/file_operations.h"
+#include "mafianet/get_time.h"
 #include <time.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -29,7 +29,7 @@
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-#include "mafianet/LinuxAdapter.h"
+#include "mafianet/linux_adapter.h"
 
 // http://web.utk.edu/~jplyon/sqlite/SQLite_optimization_FAQ.html
 

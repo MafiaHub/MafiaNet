@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/NatTypeDetectionClient.h"
+   #include "mafianet/nat_type_detection_client.h"
 
    MafiaNet::NatTypeDetectionClient natClient;
    peer->AttachPlugin(&natClient);
@@ -55,7 +55,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/NatTypeDetectionServer.h"
+   #include "mafianet/nat_type_detection_server.h"
 
    // Server requires 3 different IP addresses
    MafiaNet::NatTypeDetectionServer natServer;

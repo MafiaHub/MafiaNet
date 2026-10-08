@@ -65,8 +65,8 @@ Basic Server
 
 .. code-block:: cpp
 
-   #include "mafianet/PeerInterface.h"
-   #include "mafianet/MessageIdentifiers.h"
+   #include "mafianet/peer_interface.h"
+   #include "mafianet/message_identifiers.h"
 
    int main() {
        // Create the peer interface
@@ -108,8 +108,8 @@ Basic Client
 
 .. code-block:: cpp
 
-   #include "mafianet/PeerInterface.h"
-   #include "mafianet/MessageIdentifiers.h"
+   #include "mafianet/peer_interface.h"
+   #include "mafianet/message_identifiers.h"
 
    int main() {
        MafiaNet::RakPeerInterface* client = MafiaNet::RakPeerInterface::GetInstance();
@@ -159,7 +159,7 @@ Send a message using BitStream:
 
 .. code-block:: cpp
 
-   #include "mafianet/BitStream.h"
+   #include "mafianet/bit_stream.h"
 
    // Create message
    MafiaNet::BitStream bs;

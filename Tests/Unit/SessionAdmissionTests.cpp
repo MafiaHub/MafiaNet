@@ -9,10 +9,10 @@
 
 #include <stdint.h>
 
-#include "mafianet/SessionAdmission.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Defines.h"
+#include "mafianet/session_admission.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/defines.h"
 
 using namespace MafiaNet;
 

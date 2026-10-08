@@ -43,7 +43,7 @@ Diagnostic Tools
 
 .. code-block:: cpp
 
-   #include "mafianet/PacketLogger.h"
+   #include "mafianet/packet_logger.h"
 
    MafiaNet::PacketLogger logger;
    peer->AttachPlugin(&logger);

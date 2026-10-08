@@ -16,17 +16,17 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "mafianet/GetTime.h"
-#include "mafianet/Rand.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Gets.h"
-#include "mafianet/PacketLogger.h"
+#include "mafianet/get_time.h"
+#include "mafianet/rand.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/gets.h"
+#include "mafianet/packet_logger.h"
 #include <assert.h>
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 
 #ifdef _WIN32
-#include "mafianet/WindowsIncludes.h" // Sleep
+#include "mafianet/windows_includes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

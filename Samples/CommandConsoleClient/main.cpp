@@ -13,29 +13,29 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/PeerInterface.h"
+#include "mafianet/peer_interface.h"
 
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #ifdef _WIN32
-#include "mafianet/WindowsIncludes.h" // Sleep
+#include "mafianet/windows_includes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #include <strings.h>
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/LinuxStrings.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/linux_strings.h"
+#include "mafianet/osx_adapter.h"
 
 //linux doesn't have stricmp but strcasecmp is same functionality
 #define stricmp strcasecmp
 #endif
 
-#include "mafianet/Gets.h"
+#include "mafianet/gets.h"
 
 
 int main()

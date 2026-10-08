@@ -87,7 +87,7 @@ Use StringCompressor for repeated strings:
 
 .. code-block:: cpp
 
-   #include "mafianet/StringCompressor.h"
+   #include "mafianet/string_compressor.h"
 
    // Add common strings to table
    MafiaNet::StringCompressor::Instance()->AddReference(
@@ -111,7 +111,7 @@ For larger data blocks:
 
 .. code-block:: cpp
 
-   #include "mafianet/DataCompressor.h"
+   #include "mafianet/data_compressor.h"
 
    // Compress
    unsigned compressedSize;

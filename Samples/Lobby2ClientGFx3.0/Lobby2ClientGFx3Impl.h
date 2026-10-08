@@ -16,11 +16,11 @@
 #ifndef __LOBBY_2_CLIENT_GFX3_IMPL_H
 #define __LOBBY_2_CLIENT_GFX3_IMPL_H
 
-#include "mafianet/WindowsIncludes.h"
-#include "mafianet/Types.h"
+#include "mafianet/windows_includes.h"
+#include "mafianet/types.h"
 #include "FxGameDelegate.h"
 #include "Lobby2Message.h"
-#include "mafianet/PluginInterface2.h"
+#include "mafianet/plugin_interface2.h"
 
 #define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs& pparams);
 #define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName) \

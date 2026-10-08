@@ -43,7 +43,7 @@ if(MAFIANET_BUILD_SAMPLES AND NOT MAFIANET_BUILD_EXTRAS)
 endif()
 
 # Plugin selection. Every optional plugin in the core library is guarded by a
-# _RAKNET_SUPPORT_<Name> flag from NativeFeatureIncludes.h. These two settings
+# _RAKNET_SUPPORT_<Name> flag from native_feature_includes.h. These two settings
 # are the supported way to compile plugins out without editing that header:
 #   -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin"   drop specific plugins
 #   -DMAFIANET_MINIMAL=ON                                         drop every optional plugin

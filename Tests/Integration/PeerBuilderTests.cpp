@@ -7,15 +7,15 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/String.h"
-#include "mafianet/DS_List.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/PeerHandle.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/Time.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/string.h"
+#include "mafianet/ds_list.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/peer_handle.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/time.h"
+#include "mafianet/get_time.h"
 
 #include <utility> // std::move
 

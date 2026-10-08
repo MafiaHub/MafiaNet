@@ -12,8 +12,8 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/FileListTransfer.h"
-   #include "mafianet/FileList.h"
+   #include "mafianet/file_list_transfer.h"
+   #include "mafianet/file_list.h"
 
    MafiaNet::FileListTransfer flt;
    peer->AttachPlugin(&flt);

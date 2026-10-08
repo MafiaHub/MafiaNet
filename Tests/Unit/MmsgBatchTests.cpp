@@ -5,7 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  *
  *  Hermetic unit tests for the portable batched-datagram helpers in
- *  MmsgBatch.h. These exercise the logic that is genuinely bug-prone in a
+ *  mmsg_batch.h. These exercise the logic that is genuinely bug-prone in a
  *  recvmmsg/sendmmsg integration -- the sendmmsg partial-send resume loop, the
  *  byte-order handling when decoding a raw sockaddr, and fanning a received
  *  batch out to the event handler -- without touching any actual syscall, so
@@ -14,9 +14,9 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/MmsgBatch.h"
-#include "mafianet/Socket2.h"
-#include "mafianet/Types.h"
+#include "mafianet/mmsg_batch.h"
+#include "mafianet/socket2.h"
+#include "mafianet/types.h"
 
 #ifdef _WIN32
 #include <ws2tcpip.h> // inet_pton, htons (winsock2 pulled in via socket2.h)

@@ -13,25 +13,25 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/PeerInterface.h"
+#include "mafianet/peer_interface.h"
 #include <stdio.h>
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #include <string.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Router2.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/Rand.h"
-#include "mafianet/Assert.h"
-#include "mafianet/SocketLayer.h"
-#include "mafianet/Getche.h"
-#include "mafianet/Gets.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
-#include "mafianet/GuidUtil.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/router2.h"
+#include "mafianet/sleep.h"
+#include "mafianet/get_time.h"
+#include "mafianet/rand.h"
+#include "mafianet/assert.h"
+#include "mafianet/socket_layer.h"
+#include "mafianet/getche.h"
+#include "mafianet/gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 using namespace MafiaNet;
 

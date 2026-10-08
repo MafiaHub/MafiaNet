@@ -87,7 +87,7 @@ if(NOT TARGET rnnoise)
     target_include_directories(rnnoise
         PUBLIC
             # Build-interface only: rnnoise is bundled into the MafiaNet export,
-            # but its headers are not installed (RakVoice.h forward-declares the
+            # but its headers are not installed (voice.h forward-declares the
             # RNNoise types), so this build-tree path must not leak into the
             # exported/installed interface.
             $<BUILD_INTERFACE:${rnnoise_SOURCE_DIR}/include>

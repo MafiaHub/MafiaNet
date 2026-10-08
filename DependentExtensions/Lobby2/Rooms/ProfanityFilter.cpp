@@ -14,11 +14,11 @@
  */
 
 #include "ProfanityFilter.h"
-#include "mafianet/Rand.h"
-#include "mafianet/Assert.h"
-#include "mafianet/LinuxStrings.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/rand.h"
+#include "mafianet/assert.h"
+#include "mafianet/linux_strings.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #if defined(_WIN32)
 #include <malloc.h> // alloca

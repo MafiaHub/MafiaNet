@@ -18,23 +18,23 @@
 // Filename ChatExample.cpp
 // Very basic chat engine example
 // ----------------------------------------------------------------------
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/message_identifiers.h"
 
-#include "mafianet/PeerInterface.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/Types.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/types.h"
+#include "mafianet/get_time.h"
+#include "mafianet/bit_stream.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Sleep.h"
-#include "mafianet/Gets.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
-#include "mafianet/GuidUtil.h"
+#include "mafianet/sleep.h"
+#include "mafianet/gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 int main(void)
 {

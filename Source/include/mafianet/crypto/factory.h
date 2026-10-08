@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "securestring.h"   // used for MafiaNet::Crypto::CSecureString
-#include "ifileencrypter.h" // used for MafiaNet::Crypto::IFileEncrypter
+#include "mafianet/crypto/securestring.h"   // used for MafiaNet::Crypto::CSecureString
+#include "mafianet/crypto/ifileencrypter.h" // used for MafiaNet::Crypto::IFileEncrypter
 
 namespace MafiaNet
 {

@@ -50,8 +50,8 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bspatch/bspatch.c,v 1.1 2005/08/06 01:59:
 typedef int ssize_t;
 #include <wchar.h>
 #include <io.h>
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 #define fseeko fseek
 static void err(int i, ...)
 {
@@ -65,15 +65,15 @@ static void errx(int i, ...)
 // Unix/POSIX includes and Windows API compatibility
 #include <err.h>
 #include <unistd.h>
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 // Map Windows API names to POSIX equivalents
 #define _open open
 #define _lseek lseek
 #define _read read
 #define _write write
 #define _close close
-// fopen_s is provided by OsxAdapter.h
+// fopen_s is provided by osx_adapter.h
 #endif
 #include <fcntl.h>
 

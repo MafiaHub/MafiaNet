@@ -15,9 +15,9 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakVoice.h"
-#include "mafianet/Types.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/voice.h"
+#include "mafianet/types.h"
 
 #include <cmath>
 #include <cstring>

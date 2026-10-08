@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/PeerInterface.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/RelayPlugin.h"
-#include "mafianet/Gets.h"
-#include "mafianet/Kbhit.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/relay_plugin.h"
+#include "mafianet/gets.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 #include <limits> // used for std::numeric_limits
 
 using namespace MafiaNet;

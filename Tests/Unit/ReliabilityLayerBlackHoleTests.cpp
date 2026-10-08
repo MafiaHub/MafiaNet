@@ -22,17 +22,17 @@
 #include <cstring>
 #include <vector>
 
-#include "mafianet/BitStream.h"
-#include "mafianet/DS_List.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/MTUSize.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/MtuBlackHole.h"
-#include "mafianet/PacketPriority.h"
-#include "mafianet/PluginInterface2.h"
-#include "mafianet/Rand.h"
-#include "mafianet/ReliabilityLayer.h"
-#include "mafianet/Socket2.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/ds_list.h"
+#include "mafianet/get_time.h"
+#include "mafianet/mtu_size.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/mtu_black_hole.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/rand.h"
+#include "mafianet/reliability_layer.h"
+#include "mafianet/socket2.h"
 
 using namespace MafiaNet;
 

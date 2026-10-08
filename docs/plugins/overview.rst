@@ -8,7 +8,7 @@ Using Plugins
 
 .. code-block:: cpp
 
-   #include "mafianet/PluginInterface2.h"
+   #include "mafianet/plugin_interface2.h"
 
    // Create plugin instance
    MafiaNet::SomePlugin* plugin = MafiaNet::SomePlugin::GetInstance();

@@ -16,8 +16,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 
 #include "FMODVoiceAdapter.h"
 #include "fmod_errors.h"

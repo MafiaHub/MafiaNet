@@ -10,7 +10,7 @@ The ``FullyConnectedMesh2`` plugin helps establish fully connected peer-to-peer 
 
 .. code-block:: cpp
 
-   #include "mafianet/FullyConnectedMesh2.h"
+   #include "mafianet/fully_connected_mesh2.h"
 
    MafiaNet::FullyConnectedMesh2* fcm2 = MafiaNet::FullyConnectedMesh2::GetInstance();
    peer->AttachPlugin(fcm2);
@@ -27,7 +27,7 @@ For peers behind NAT, use the NAT punchthrough system.
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughServer.h"
+   #include "mafianet/nat_punchthrough_server.h"
 
    MafiaNet::NatPunchthroughServer* natServer =
        MafiaNet::NatPunchthroughServer::GetInstance();
@@ -37,7 +37,7 @@ For peers behind NAT, use the NAT punchthrough system.
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughClient.h"
+   #include "mafianet/nat_punchthrough_client.h"
 
    MafiaNet::NatPunchthroughClient* natClient =
        MafiaNet::NatPunchthroughClient::GetInstance();

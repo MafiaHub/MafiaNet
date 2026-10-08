@@ -7,10 +7,10 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/Sleep.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/sleep.h"
 #include "CommonFunctions.h"
 
 using namespace MafiaNet;

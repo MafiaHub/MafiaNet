@@ -14,20 +14,20 @@
  */
 
 #include "RPC3.h"
-#include "mafianet/PeerInterface.h"
+#include "mafianet/peer_interface.h"
 
 #include <stdio.h>
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #include <string.h>
 #include <stdlib.h>
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/NetworkIDObject.h"
-#include "mafianet/NetworkIDManager.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/Gets.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/sleep.h"
+#include "mafianet/network_id_object.h"
+#include "mafianet/network_id_manager.h"
+#include "mafianet/get_time.h"
+#include "mafianet/gets.h"
 
 // This has to be a pointer, because it uses UNASSIGNED_NETWORK_ID, initialized globally
 MafiaNet::RPC3 *rpc3Inst;
@@ -39,7 +39,7 @@ public:
 	float x,y,z;
 };
 
-// Shift operators have to be in the namespace MafiaNet or they might use the default one in BitStream.h instead. Error occurs with std::string
+// Shift operators have to be in the namespace MafiaNet or they might use the default one in bit_stream.h instead. Error occurs with std::string
 namespace MafiaNet
 {
 	// Specialize the << and >> operator to serialize each element of NormalizedVector individually

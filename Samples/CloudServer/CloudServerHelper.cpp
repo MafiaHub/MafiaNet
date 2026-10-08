@@ -14,22 +14,22 @@
  */
 
 #include "CloudServerHelper.h"
-#include "mafianet/Sleep.h"
+#include "mafianet/sleep.h"
 
-#include "mafianet/Gets.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/TwoWayAuthentication.h"
-#include "mafianet/CloudClient.h"
-#include "mafianet/DynDNS.h"
-#include "mafianet/SocketLayer.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/ConnectionGraph2.h"
+#include "mafianet/gets.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/fully_connected_mesh2.h"
+#include "mafianet/two_way_authentication.h"
+#include "mafianet/cloud_client.h"
+#include "mafianet/dyn_dns.h"
+#include "mafianet/socket_layer.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/connection_graph2.h"
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 #define CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY "CloudConnCount"

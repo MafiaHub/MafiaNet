@@ -18,11 +18,11 @@
 
 #include "MasterCommon.h"
 #include "MasterClient.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Gets.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/gets.h"
 
 #include <cstdio>
 #include <cstring>

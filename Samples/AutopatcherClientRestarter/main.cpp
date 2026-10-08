@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 #if defined(_WIN32)
-#include "mafianet/WindowsIncludes.h" // Sleep and CreateProcess
+#include "mafianet/windows_includes.h" // Sleep and CreateProcess
 #include <process.h> // system
 #else
 #include <unistd.h> // usleep
@@ -26,9 +26,9 @@
 #include <unistd.h>
 #endif
 
-#include "mafianet/Gets.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 #include <iostream>
 

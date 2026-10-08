@@ -12,8 +12,8 @@
 #define _SQLITE_LOGGER_COMMON_H
 
 #include <string.h>
-#include "mafianet/Defines.h"
-#include "mafianet/NativeTypes.h"
+#include "mafianet/defines.h"
+#include "mafianet/native_types.h"
 
 namespace MafiaNet
 {

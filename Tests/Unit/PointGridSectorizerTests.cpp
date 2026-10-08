@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/PointGridSectorizer.h"
+#include "mafianet/point_grid_sectorizer.h"
 
 #include <limits>
 #include <type_traits>

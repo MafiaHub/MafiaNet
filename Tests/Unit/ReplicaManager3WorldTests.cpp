@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/ReplicaManager3.h"
+#include "mafianet/replica_manager3.h"
 
 using namespace MafiaNet;
 

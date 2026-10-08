@@ -17,7 +17,7 @@
 #define __LOBBY_2_CLIENT_H
 
 #include "Lobby2Plugin.h"
-#include "mafianet/DS_OrderedList.h"
+#include "mafianet/ds_ordered_list.h"
 
 namespace MafiaNet
 {

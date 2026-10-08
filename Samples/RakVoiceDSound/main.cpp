@@ -16,25 +16,25 @@
 #define INTERACTIVE
 
 #if defined(INTERACTIVE)
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/PeerInterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 
-#include "mafianet/Sleep.h"
-#include "mafianet/RakVoice.h"
-#include "mafianet/Statistics.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/Assert.h"
-#include "mafianet/Gets.h"
+#include "mafianet/sleep.h"
+#include "mafianet/voice.h"
+#include "mafianet/statistics.h"
+#include "mafianet/get_time.h"
+#include "mafianet/assert.h"
+#include "mafianet/gets.h"
 #include "DSoundVoiceAdapter.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
 
 // Reads and writes per second of the sound data
 // Opus supports: 8000, 16000, 24000, 48000

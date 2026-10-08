@@ -19,29 +19,29 @@
 // Very basic chat engine example
 // ----------------------------------------------------------------------
 
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/message_identifiers.h"
 
-#include "mafianet/PeerInterface.h"
-#include "mafianet/Statistics.h"
-#include "mafianet/Types.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/Sleep.h"
-#include "mafianet/PacketLogger.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/statistics.h"
+#include "mafianet/types.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/sleep.h"
+#include "mafianet/packet_logger.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #include <stdio.h>
 #include <string.h>
-#include "mafianet/Gets.h"
-#include "mafianet/LinuxAdapter.h"
-#include "mafianet/OsxAdapter.h"
-#include "mafianet/GuidUtil.h"
+#include "mafianet/gets.h"
+#include "mafianet/linux_adapter.h"
+#include "mafianet/osx_adapter.h"
+#include "mafianet/guid_util.h"
 
 #if LIBCAT_SECURITY==1
-#include "mafianet/SecureHandshake.h" // Include header for secure handshake
+#include "mafianet/secure_handshake.h" // Include header for secure handshake
 #endif
 
 #if defined(_CONSOLE_2)

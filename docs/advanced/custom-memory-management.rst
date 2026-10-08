@@ -21,7 +21,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/MemoryOverride.h"
+   #include "mafianet/memory_override.h"
 
    // Define custom allocation functions
    void* MyMalloc(size_t size) {
@@ -72,7 +72,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/DS_MemoryPool.h"
+   #include "mafianet/ds_memory_pool.h"
 
    // Create a pool for fixed-size objects
    MafiaNet::DataStructures::MemoryPool<MyPacketData> packetPool;
