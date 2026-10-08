@@ -156,7 +156,6 @@ set(MAFIANET_HEADERS
     include/mafianet/directory_delta_transfer.h
     include/mafianet/dr_sha1.h
     include/mafianet/ds_binary_search_tree.h
-    include/mafianet/ds_bplus_tree.h
     include/mafianet/ds_byte_pool.h
     include/mafianet/ds_byte_queue.h
     include/mafianet/ds_hash.h

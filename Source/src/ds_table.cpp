@@ -16,6 +16,7 @@
 #include "mafianet/ds_table.h"
 #include "mafianet/ds_ordered_list.h"
 #include <string.h>
+#include <iterator> // std::advance, for GetRowByIndex
 #include "mafianet/assert.h"
 #include "mafianet/assert.h"
 #include "mafianet/itoa.h"
@@ -297,7 +298,8 @@ unsigned Table::AddColumn(const char columnName[_TABLE_MAX_COLUMN_NAME_LENGTH], 
 	columns.Insert(Table::ColumnDescriptor(columnName, columnType), _FILE_AND_LINE_);
 
 	// Extend the rows by one
-	rows.ForEachData(ExtendRows);
+	for (std::map<unsigned, Row*>::iterator it = rows.begin(); it != rows.end(); ++it)
+		ExtendRows(it->second, 0);
 
 	return columns.Size()-1;
 }
@@ -309,17 +311,10 @@ void Table::RemoveColumn(unsigned columnIndex)
 	columns.RemoveAtIndex(columnIndex);
 
 	// Remove this index from each row.
-	int i;
-	DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur = rows.GetListHead();
-	while (cur)
+	for (std::map<unsigned, Row*>::iterator it = rows.begin(); it != rows.end(); ++it)
 	{
-		for (i=0; i < cur->size; i++)
-		{
-			MafiaNet::OP_DELETE(cur->data[i]->cells[columnIndex], _FILE_AND_LINE_);
-			cur->data[i]->cells.RemoveAtIndex(columnIndex);
-		}
-
-		cur=cur->next;
+		MafiaNet::OP_DELETE(it->second->cells[columnIndex], _FILE_AND_LINE_);
+		it->second->cells.RemoveAtIndex(columnIndex);
 	}
 }
 unsigned Table::ColumnIndex(const char *columnName) const
@@ -354,13 +349,13 @@ unsigned Table::GetColumnCount(void) const
 }
 unsigned Table::GetRowCount(void) const
 {
-	return rows.Size();
+	return (unsigned) rows.size();
 }
 Table::Row* Table::AddRow(unsigned rowId)
 {
 	Row *newRow;
 	newRow = MafiaNet::OP_NEW<Row>( _FILE_AND_LINE_ );
-	if (rows.Insert(rowId, newRow)==false)
+	if (rows.insert(std::make_pair(rowId, newRow)).second==false)
 	{
 		MafiaNet::OP_DELETE(newRow, _FILE_AND_LINE_);
 		return 0; // Already exists
@@ -386,7 +381,7 @@ Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell> &initialCel
 		else
 			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
 	}
-	rows.Insert(rowId, newRow);
+	rows[rowId] = newRow;
 	return newRow;
 }
 Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell*> &initialCellValues, bool copyCells)
@@ -409,7 +404,7 @@ Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell*> &initialCe
 		else
 			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
 	}
-	rows.Insert(rowId, newRow);
+	rows[rowId] = newRow;
 	return newRow;
 }
 Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<unsigned> columnIndices)
@@ -432,14 +427,16 @@ Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<
 			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
 		}
 	}
-	rows.Insert(rowId, newRow);
+	rows[rowId] = newRow;
 	return newRow;
 }
 bool Table::RemoveRow(unsigned rowId)
 {
-	Row *out;
-	if (rows.Delete(rowId, out))
+	std::map<unsigned, Row*>::iterator it = rows.find(rowId);
+	if (it != rows.end())
 	{
+		Row *out = it->second;
+		rows.erase(it);
 		DeleteRow(out);
 		return true;
 	}
@@ -447,16 +444,9 @@ bool Table::RemoveRow(unsigned rowId)
 }
 void Table::RemoveRows(Table *tableContainingRowIDs)
 {
-	unsigned i;
-	DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur = tableContainingRowIDs->GetRows().GetListHead();
-	while (cur)
-	{
-		for (i=0; i < (unsigned)cur->size; i++)
-		{
-			rows.Delete(cur->keys[i]);
-		}
-		cur=cur->next;
-	}
+	const std::map<unsigned, Row*> &rowIds = tableContainingRowIDs->GetRows();
+	for (std::map<unsigned, Row*>::const_iterator it = rowIds.begin(); it != rowIds.end(); ++it)
+		rows.erase(it->first);
 	return;
 }
 bool Table::UpdateCell(unsigned rowId, unsigned columnIndex, int value)
@@ -587,29 +577,21 @@ Table::FilterQuery::FilterQuery(unsigned column, Cell *cell, FilterQueryType op)
 }
 Table::Row* Table::GetRowByID(unsigned rowId) const
 {
-	Row *row;
-	if (rows.Get(rowId, row))
-		return row;
+	std::map<unsigned, Row*>::const_iterator it = rows.find(rowId);
+	if (it != rows.end())
+		return it->second;
 	return 0;
 }
 
 Table::Row* Table::GetRowByIndex(unsigned rowIndex, unsigned *key) const
 {
-	DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur = rows.GetListHead();
-	while (cur)
-	{
-		if (rowIndex < (unsigned)cur->size)
-		{
-			if (key)
-				*key=cur->keys[rowIndex];
-			return cur->data[rowIndex];
-		}
-		if (rowIndex <= (unsigned)cur->size)
-			rowIndex-=cur->size;
-		else
-			return 0;
-		cur=cur->next;
-	}
+	if (rowIndex >= rows.size())
+		return 0;
+	std::map<unsigned, Row*>::const_iterator it = rows.begin();
+	std::advance(it, rowIndex);
+	if (key)
+		*key = it->first;
+	return it->second;
 	return 0;
 }
 
@@ -661,25 +643,18 @@ void Table::QueryTable(unsigned *columnIndicesSubset, unsigned numColumnSubset, 
 	if (rowIds==0 || numRowIDs==0)
 	{
 		// All rows
-		DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur = rows.GetListHead();
-		while (cur)
-		{
-			for (i=0; i < (unsigned)cur->size; i++)
-			{
-				QueryRow(inclusionFilterColumnIndices, columnIndicesToReturn, cur->keys[i], cur->data[i], inclusionFilters, result);
-			}
-			cur=cur->next;
-		}
+		for (std::map<unsigned, Row*>::const_iterator it = rows.begin(); it != rows.end(); ++it)
+			QueryRow(inclusionFilterColumnIndices, columnIndicesToReturn, it->first, it->second, inclusionFilters, result);
 	}
 	else
 	{
 		// Specific rows
-		Row *row;
 		for (i=0; i < numRowIDs; i++)
 		{
-			if (rows.Get(rowIds[i], row))
+			std::map<unsigned, Row*>::const_iterator it = rows.find(rowIds[i]);
+			if (it != rows.end())
 			{
-				QueryRow(inclusionFilterColumnIndices, columnIndicesToReturn, rowIds[i], row, inclusionFilters, result);
+				QueryRow(inclusionFilterColumnIndices, columnIndicesToReturn, rowIds[i], it->second, inclusionFilters, result);
 			}
 		}
 	}
@@ -923,32 +898,21 @@ void Table::SortTable(Table::SortQuery *sortQueries, unsigned numSortQueries, Ta
 			columnIndices.Insert((unsigned)-1, _FILE_AND_LINE_); // Means don't check this column
 	}
 
-	DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur;
-	cur = rows.GetListHead();
+	std::map<unsigned, Row*>::const_iterator it;
 	if (anyValid==false)
 	{
 		outLength=0;
-		while (cur)
-		{
-			for (i=0; i < (unsigned)cur->size; i++)
-			{
-				out[(outLength)++]=cur->data[i];
-			}
-			cur=cur->next;
-		}
+		for (it = rows.begin(); it != rows.end(); ++it)
+			out[(outLength)++]=it->second;
 		return;
 	}
 
 	// Start adding to ordered list.
 	DataStructures::OrderedList<Row*, Row*, RowSort> orderedList;
-	while (cur)
+	for (it = rows.begin(); it != rows.end(); ++it)
 	{
-		for (i=0; i < (unsigned)cur->size; i++)
-		{
-			RakAssert(cur->data[i]);
-			orderedList.Insert(cur->data[i],cur->data[i], true, _FILE_AND_LINE_);
-		}
-		cur=cur->next;
+		RakAssert(it->second);
+		orderedList.Insert(it->second,it->second, true, _FILE_AND_LINE_);
 	}
 
 	outLength=0;
@@ -1072,47 +1036,37 @@ void Table::PrintRow(char *out, int outLength, char columnDelineator, bool print
 
 void Table::Clear(void)
 {
-	rows.ForEachData(FreeRow);
-	rows.Clear();
+	for (std::map<unsigned, Row*>::iterator it = rows.begin(); it != rows.end(); ++it)
+		FreeRow(it->second, 0);
+	rows.clear();
 	columns.Clear(true, _FILE_AND_LINE_);
 }
 const List<Table::ColumnDescriptor>& Table::GetColumns(void) const
 {
 	return columns;
 }
-const DataStructures::BPlusTree<unsigned, Table::Row*, _TABLE_BPLUS_TREE_ORDER>& Table::GetRows(void) const
+const std::map<unsigned, Table::Row*>& Table::GetRows(void) const
 {
 	return rows;
-}
-DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> * Table::GetListHead(void)
-{
-	return rows.GetListHead();
 }
 unsigned Table::GetAvailableRowId(void) const
 {
 	bool setKey=false;
 	unsigned key=0;
 	int i;
-	DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur = rows.GetListHead();
-	
-	while (cur)
+	for (std::map<unsigned, Row*>::const_iterator it = rows.begin(); it != rows.end(); ++it)
 	{
-		for (i=0; i < cur->size; i++)
+		if (setKey==false)
 		{
-			if (setKey==false)
-			{
-				key=cur->keys[i]+1;
-				setKey=true;
-			}
-			else
-			{
-				if (key!=cur->keys[i])
-					return key;
-				key++;
-			}
+			key=it->first+1;
+			setKey=true;
 		}
-
-		cur=cur->next;
+		else
+		{
+			if (key!=it->first)
+				return key;
+			key++;
+		}
 	}
 	return key;
 }
@@ -1133,16 +1087,9 @@ Table& Table::operator = ( const Table& input )
 	for (i=0; i < input.GetColumnCount(); i++)
 		AddColumn(input.ColumnName(i), input.GetColumnType(i));
 
-	DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> *cur = input.GetRows().GetListHead();
-	while (cur)
-	{
-		for (i=0; i < (unsigned int) cur->size; i++)
-		{
-			AddRow(cur->keys[i], cur->data[i]->cells, false);
-		}
-
-		cur=cur->next;
-	}
+	const std::map<unsigned, Row*> &inputRows = input.GetRows();
+	for (std::map<unsigned, Row*>::const_iterator it = inputRows.begin(); it != inputRows.end(); ++it)
+		AddRow(it->first, it->second->cells, false);
 
 	return *this;
 }
