@@ -24,7 +24,7 @@
 #define __UDP_PROXY_CLIENT_H
 
 #include "Export.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "PluginInterface2.h"
 #include "DS_List.h"
 

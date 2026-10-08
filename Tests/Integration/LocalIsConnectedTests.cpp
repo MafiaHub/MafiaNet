@@ -7,13 +7,13 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/RakString.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/String.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakPeer.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakNetTime.h"
+#include "mafianet/Peer.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/Time.h"
 #include "mafianet/GetTime.h"
 #include "CommonFunctions.h"
 

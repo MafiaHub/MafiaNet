@@ -18,9 +18,9 @@
 
 #include "mafianet/BitStream.h"
 #include "Lobby2ResultCode.h"
-#include "mafianet/RakString.h"
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakNetSmartPtr.h"
+#include "mafianet/String.h"
+#include "mafianet/Assert.h"
+#include "mafianet/SmartPtr.h"
 #include "mafianet/SimpleMutex.h"
 #include "Lobby2Presence.h"
 

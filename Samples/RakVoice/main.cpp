@@ -19,11 +19,11 @@
 #include <limits> // used for std::numeric_limits
 #include "portaudio.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/RakVoice.h"
-#include "mafianet/RakNetStatistics.h"
+#include "mafianet/Statistics.h"
 #include "mafianet/NatPunchthroughClient.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/Getche.h"

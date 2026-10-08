@@ -27,11 +27,11 @@
 
 #include "PHPDirectoryServer2.h"
 #include "mafianet/HTTPConnection.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakString.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/String.h"
+#include "mafianet/Types.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>

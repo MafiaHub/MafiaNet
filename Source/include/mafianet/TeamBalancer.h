@@ -27,10 +27,10 @@
 #define __TEAM_BALANCER_H
 
 #include "PluginInterface2.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "NativeTypes.h"
 #include "DS_List.h"
-#include "RakString.h"
+#include "String.h"
 
 namespace MafiaNet
 {

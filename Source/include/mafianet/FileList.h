@@ -25,10 +25,10 @@
 
 #include "Export.h"
 #include "DS_List.h"
-#include "RakMemoryOverride.h"
-#include "RakNetTypes.h"
+#include "MemoryOverride.h"
+#include "Types.h"
 #include "FileListNodeContext.h"
-#include "RakString.h"
+#include "String.h"
 
 namespace MafiaNet
 {

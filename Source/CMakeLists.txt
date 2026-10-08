@@ -134,8 +134,8 @@ set(MAFIANET_CRYPTO_SOURCES
 
 set(MAFIANET_HEADERS
     include/mafianet/_FindFirst.h
-    include/mafianet/RakAlloca.h
-    include/mafianet/RakAssert.h
+    include/mafianet/Alloca.h
+    include/mafianet/Assert.h
     include/mafianet/AutopatcherPatchContext.h
     include/mafianet/AutopatcherRepositoryInterface.h
     include/mafianet/Base64Encoder.h
@@ -146,13 +146,13 @@ set(MAFIANET_HEADERS
     include/mafianet/CloudClient.h
     include/mafianet/CloudCommon.h
     include/mafianet/CloudServer.h
-    include/mafianet/RakNetCommandParser.h
+    include/mafianet/CommandParser.h
     include/mafianet/CommandParserInterface.h
     include/mafianet/ConnectionGraph2.h
     include/mafianet/ConsoleServer.h
     include/mafianet/DataCompressor.h
-    include/mafianet/RakNetDefinesOverrides.h
-    include/mafianet/RakNetDefines.h
+    include/mafianet/DefineOverrides.h
+    include/mafianet/Defines.h
     include/mafianet/DirectoryDeltaTransfer.h
     include/mafianet/DR_SHA1.h
     include/mafianet/DS_BinarySearchTree.h
@@ -206,7 +206,7 @@ set(MAFIANET_HEADERS
     include/mafianet/LinuxStrings.h
     include/mafianet/LocklessTypes.h
     include/mafianet/LogCommandParser.h
-    include/mafianet/RakMemoryOverride.h
+    include/mafianet/MemoryOverride.h
     include/mafianet/MessageFilter.h
     include/mafianet/MessageIdentifiers.h
     include/mafianet/MmsgBatch.h
@@ -231,8 +231,8 @@ set(MAFIANET_HEADERS
     include/mafianet/PacketPool.h
     include/mafianet/PacketPriority.h
     include/mafianet/PeerHandle.h
-    include/mafianet/RakPeer.h
-    include/mafianet/RakPeerInterface.h
+    include/mafianet/Peer.h
+    include/mafianet/PeerInterface.h
     include/mafianet/PluginInterface2.h
     include/mafianet/PointGridSectorizer.h
     include/mafianet/Rackspace.h
@@ -253,16 +253,16 @@ set(MAFIANET_HEADERS
     include/mafianet/SimpleMutex.h
     include/mafianet/SimpleTCPServer.h
     include/mafianet/SingleProducerConsumer.h
-    include/mafianet/RakSleep.h
+    include/mafianet/Sleep.h
     include/mafianet/mafianet.h
-    include/mafianet/RakNetSmartPtr.h
-    include/mafianet/RakNetSocket2.h
+    include/mafianet/SmartPtr.h
+    include/mafianet/Socket2.h
     include/mafianet/SocketDefines.h
     include/mafianet/SocketIncludes.h
     include/mafianet/SocketLayer.h
-    include/mafianet/RakNetStatistics.h
+    include/mafianet/Statistics.h
     include/mafianet/StatisticsHistory.h
-    include/mafianet/RakString.h
+    include/mafianet/String.h
     include/mafianet/StringCompressor.h
     include/mafianet/StringTable.h
     include/mafianet/SuperFastHash.h
@@ -271,14 +271,14 @@ set(MAFIANET_HEADERS
     include/mafianet/TeamBalancer.h
     include/mafianet/TeamManager.h
     include/mafianet/TelnetTransport.h
-    include/mafianet/RakThread.h
+    include/mafianet/Thread.h
     include/mafianet/ThreadPool.h
     include/mafianet/ThreadsafePacketLogger.h
-    include/mafianet/RakNetTime.h
-    include/mafianet/RakNetTransport2.h
+    include/mafianet/Time.h
+    include/mafianet/Transport2.h
     include/mafianet/TransportInterface.h
     include/mafianet/TwoWayAuthentication.h
-    include/mafianet/RakNetTypes.h
+    include/mafianet/Types.h
     include/mafianet/UDPForwarder.h
     include/mafianet/UDPProxyClient.h
     include/mafianet/UDPProxyCommon.h
@@ -292,32 +292,14 @@ set(MAFIANET_HEADERS
     include/mafianet/VirtualWorldReplica3.h
     include/mafianet/WindowsIncludes.h
     include/mafianet/WSAStartupSingleton.h
-    include/mafianet/RakWString.h
+    include/mafianet/WString.h
 )
 
 # Deprecated lowercase forwarding headers (one release cycle, see docs/changelog.rst)
 set(MAFIANET_DEPRECATED_HEADERS
-    include/mafianet/alloca.h
-    include/mafianet/assert.h
-    include/mafianet/commandparser.h
-    include/mafianet/defineoverrides.h
-    include/mafianet/defines.h
     include/mafianet/guid_util.h
     include/mafianet/linux_adapter.h
-    include/mafianet/memoryoverride.h
     include/mafianet/osx_adapter.h
-    include/mafianet/peer.h
-    include/mafianet/peerinterface.h
-    include/mafianet/sleep.h
-    include/mafianet/smartptr.h
-    include/mafianet/socket2.h
-    include/mafianet/statistics.h
-    include/mafianet/string.h
-    include/mafianet/thread.h
-    include/mafianet/time.h
-    include/mafianet/transport2.h
-    include/mafianet/types.h
-    include/mafianet/wstring.h
 )
 
 set(MAFIANET_CRYPTO_HEADERS

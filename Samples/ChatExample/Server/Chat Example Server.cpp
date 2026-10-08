@@ -21,11 +21,11 @@
 
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/RakPeerInterface.h"
-#include "mafianet/RakNetStatistics.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/PeerInterface.h"
+#include "mafianet/Statistics.h"
+#include "mafianet/Types.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/PacketLogger.h"
 #include <assert.h>
 #include <cstdio>

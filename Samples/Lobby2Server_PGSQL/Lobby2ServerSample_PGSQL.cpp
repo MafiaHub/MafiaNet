@@ -14,11 +14,11 @@
  */
 
 #include "Lobby2Message.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "Lobby2Server_PGSQL.h"
 #include "Lobby2Message_PGSQL.h"
 #include "ProfanityFilter.h"

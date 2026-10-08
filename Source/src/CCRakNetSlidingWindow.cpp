@@ -29,8 +29,8 @@ static const CCTimeType SYN=10000;
 #include <stdio.h>
 #include <cmath>
 #include <stdlib.h>
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakAlloca.h"
+#include "mafianet/Assert.h"
+#include "mafianet/Alloca.h"
 
 using namespace MafiaNet;
 

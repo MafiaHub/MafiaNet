@@ -20,7 +20,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/DS_List.h"
 #include "mafianet/InternalPacket.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/GetTime.h"

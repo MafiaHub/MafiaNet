@@ -17,11 +17,11 @@
 #if _RAKNET_SUPPORT_PacketLogger==1
 
 #if defined(UNICODE)
-#include "mafianet/RakWString.h"
+#include "mafianet/WString.h"
 #endif
 
 #include "mafianet/PacketOutputWindowLogger.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #if defined(_WIN32)
 #include "mafianet/WindowsIncludes.h"
 #endif

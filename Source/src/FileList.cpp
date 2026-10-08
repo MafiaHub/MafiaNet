@@ -18,7 +18,7 @@
 #if _RAKNET_SUPPORT_FileOperations==1
 
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #if defined(ANDROID)
 #include <asm/io.h>
 #elif defined(_WIN32) || defined(__CYGWIN__)
@@ -47,7 +47,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/FileOperations.h"
 #include "mafianet/SuperFastHash.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/LinuxStrings.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"
@@ -74,7 +74,7 @@ using namespace MafiaNet;
 #include <stdint.h> //defines intptr_t
 #endif
 
-#include "mafianet/RakAlloca.h"
+#include "mafianet/Alloca.h"
 
 //int RAK_DLL_EXPORT FileListNodeComp( char * const &key, const FileListNode &data )
 //{

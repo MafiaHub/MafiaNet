@@ -24,13 +24,13 @@
 #ifndef __FILE_LIST_TRANFER_H
 #define __FILE_LIST_TRANFER_H
 
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "Export.h"
 #include "PluginInterface2.h"
 #include "DS_Map.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "PacketPriority.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "FileList.h"
 #include "DS_Queue.h"
 #include "SimpleMutex.h"

@@ -19,7 +19,7 @@
 // From http://www.codeproject.com/KB/cpp/SmartPointers.aspx
 // with bugs fixed
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "Export.h"
 
 //static int allocCount=0;

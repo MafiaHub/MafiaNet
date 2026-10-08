@@ -17,10 +17,10 @@
 #include <stdlib.h>
 #include "Lobby2Client_Steam.h" // If Lobby2Client_Steam.h is included before SocketLayer.h, then it will use the steam send functions
 #include "Lobby2Message_Steam.h"
-#include "mafianet/RakNetTime.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakNetTypes.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/Time.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/Types.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include <windows.h>

@@ -25,9 +25,9 @@
 #define __HTTP_CONNECTION
 
 #include "Export.h"
-#include "RakString.h"
-#include "RakMemoryOverride.h"
-#include "RakNetTypes.h"
+#include "String.h"
+#include "MemoryOverride.h"
+#include "Types.h"
 #include "DS_Queue.h"
 
 namespace MafiaNet

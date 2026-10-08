@@ -14,7 +14,7 @@
  */
 
 #include "MySQLInterface.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/FormatString.h"
 #include "mafianet/LinuxStrings.h"

@@ -16,14 +16,14 @@
 /// \file
 ///
 
-#include "mafianet/RakNetTypes.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Types.h"
+#include "mafianet/Assert.h"
 #include <string.h>
 #include <stdio.h>
 #include "mafianet/WindowsIncludes.h"
 #include "mafianet/WSAStartupSingleton.h"
 #include "mafianet/SocketDefines.h"
-#include "mafianet/RakNetSocket2.h"
+#include "mafianet/Socket2.h"
 
 #if   defined(_WIN32)
 // extern __int64 _strtoui64(const char*, char**, int); // needed for Code::Blocks. Does not compile on Visual Studio 2010

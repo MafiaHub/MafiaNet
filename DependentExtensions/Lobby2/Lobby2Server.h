@@ -17,7 +17,7 @@
 #define __LOBBY_2_SERVER_H
 
 #include "mafianet/Export.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "Lobby2Plugin.h"
 #include "mafianet/DS_OrderedList.h"
 #include "mafianet/ThreadPool.h"

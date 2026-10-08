@@ -38,7 +38,7 @@
 #endif
 
 #include "mafianet/GetTime.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"
@@ -50,7 +50,7 @@
 #include "AutopatcherClient.h"
 #include "mafianet/AutopatcherPatchContext.h"
 #include "mafianet/Gets.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"
 

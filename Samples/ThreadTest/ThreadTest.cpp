@@ -17,17 +17,17 @@
 /// \brief Tests multiple readers and writers on the same instance of RakPeer.
 
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include "mafianet/GetTime.h"
-#include "mafianet/RakNetStatistics.h"
+#include "mafianet/Statistics.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/Kbhit.h"
 #include <stdio.h> // Printf
 #include "mafianet/WindowsIncludes.h" // Sleep
 //#include <process.h>
-#include "mafianet/RakThread.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Thread.h"
+#include "mafianet/Sleep.h"
 using namespace MafiaNet;
 
 RakPeerInterface *peer1, *peer2;

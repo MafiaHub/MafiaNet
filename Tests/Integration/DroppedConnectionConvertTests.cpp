@@ -7,9 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h" // randomMT
 

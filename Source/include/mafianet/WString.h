@@ -17,8 +17,8 @@
 #define __RAK_W_STRING_H 
 
 #include "Export.h"
-#include "RakNetTypes.h" // int64_t
-#include "RakString.h"
+#include "Types.h" // int64_t
+#include "String.h"
 
 #ifdef _WIN32
 #include "WindowsIncludes.h"

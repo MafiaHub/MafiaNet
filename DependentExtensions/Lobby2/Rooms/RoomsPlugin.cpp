@@ -17,9 +17,9 @@
 #include "mafianet/BitStream.h"
 #include "RoomsErrorCodes.h"
 #include "mafianet/TableSerializer.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "ProfanityFilter.h"
 #include "mafianet/GetTime.h"
 

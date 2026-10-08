@@ -21,10 +21,10 @@
 
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/PeerHandle.h"
-#include "mafianet/RakNetStatistics.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Statistics.h"
+#include "mafianet/Types.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/PacketLogger.h"
 #include <assert.h>
@@ -32,7 +32,7 @@
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/Kbhit.h"
 #ifdef _WIN32
 #include "mafianet/WindowsIncludes.h" // Sleep

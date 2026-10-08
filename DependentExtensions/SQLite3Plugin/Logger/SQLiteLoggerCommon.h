@@ -12,7 +12,7 @@
 #define _SQLITE_LOGGER_COMMON_H
 
 #include <string.h>
-#include "mafianet/RakNetDefines.h"
+#include "mafianet/Defines.h"
 #include "mafianet/NativeTypes.h"
 
 namespace MafiaNet

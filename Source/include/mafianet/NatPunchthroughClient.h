@@ -23,13 +23,13 @@
 #ifndef __NAT_PUNCHTHROUGH_CLIENT_H
 #define __NAT_PUNCHTHROUGH_CLIENT_H
 
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "Export.h"
 #include "PluginInterface2.h"
 #include "PacketPriority.h"
 #include "SocketIncludes.h"
 #include "DS_List.h"
-#include "RakString.h"
+#include "String.h"
 #include "DS_Queue.h"
 
 // Trendnet TEW-632BRP sometimes starts at port 1024 and increments sequentially.

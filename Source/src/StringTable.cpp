@@ -15,7 +15,7 @@
 
 #include "mafianet/StringTable.h"
 #include <string.h>
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include <stdio.h>
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"

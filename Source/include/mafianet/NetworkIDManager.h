@@ -20,9 +20,9 @@
 #ifndef __NETWORK_ID_MANAGER_H
 #define __NETWORK_ID_MANAGER_H
 
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "Export.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "NetworkIDObject.h"
 #include "Rand.h"
 

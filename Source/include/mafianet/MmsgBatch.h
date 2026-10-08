@@ -22,9 +22,9 @@
 #ifndef __MAFIANET_MMSG_BATCH_H
 #define __MAFIANET_MMSG_BATCH_H
 
-#include "mafianet/RakNetSocket2.h"
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/Socket2.h"
+#include "mafianet/Assert.h"
+#include "mafianet/MemoryOverride.h"
 
 #include <string.h> // memcpy
 #include <stdio.h>  // RAKNET_DEBUG_PRINTF defaults to printf

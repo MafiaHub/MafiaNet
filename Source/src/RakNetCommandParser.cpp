@@ -16,11 +16,11 @@
 #include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_RakNetCommandParser==1
 
-#include "mafianet/RakNetCommandParser.h"
+#include "mafianet/CommandParser.h"
 #include "mafianet/TransportInterface.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

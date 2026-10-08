@@ -9,7 +9,7 @@
  */
 
 #include "SQLiteServerLoggerPlugin.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/PacketizedTCP.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "SQLiteLoggerCommon.h"

@@ -123,7 +123,7 @@ Namespaces
 ----------
 
 - ``MafiaNet::`` - Primary namespace for all classes
-- ``MNet`` - Preprocessor macro shorthand that expands to ``MafiaNet`` (defined in ``mafianet/RakNetDefines.h``)
+- ``MNet`` - Preprocessor macro shorthand that expands to ``MafiaNet`` (defined in ``mafianet/Defines.h``)
 - ``DataStructures::`` - Container classes (DS_List, DS_Queue, etc.)
 
 Common Patterns

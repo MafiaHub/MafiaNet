@@ -23,9 +23,9 @@
 
 #pragma once
 
-#include "mafianet/RakPeerInterface.h" // RakPeerInterface
-#include "mafianet/RakNetTypes.h"         // RakNetGUID, UNASSIGNED_RAKNET_GUID
-#include "mafianet/RakNetStatistics.h"    // RakNetStatistics
+#include "mafianet/PeerInterface.h" // RakPeerInterface
+#include "mafianet/Types.h"         // RakNetGUID, UNASSIGNED_RAKNET_GUID
+#include "mafianet/Statistics.h"    // RakNetStatistics
 
 namespace MafiaNet {
 

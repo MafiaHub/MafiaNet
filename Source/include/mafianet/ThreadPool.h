@@ -16,11 +16,11 @@
 #ifndef __THREAD_POOL_H
 #define __THREAD_POOL_H
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "DS_Queue.h"
 #include "SimpleMutex.h"
 #include "Export.h"
-#include "RakThread.h"
+#include "Thread.h"
 #include "SignaledEvent.h"
 
 class ThreadDataInterface
@@ -191,7 +191,7 @@ protected:
 };
 
 #include "ThreadPool.h"
-#include "RakSleep.h"
+#include "Sleep.h"
 #ifdef _WIN32
 
 #else

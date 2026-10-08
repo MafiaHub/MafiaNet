@@ -30,7 +30,7 @@ pthread_mutex_t fakeMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t fakeCond = PTHREAD_COND_INITIALIZER;
 #endif
 
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 
 void RakSleep(unsigned int ms)
 {

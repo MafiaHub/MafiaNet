@@ -25,7 +25,7 @@
 #define __RELAY_PLUGIN_H
 
 #include "PluginInterface2.h"
-#include "RakString.h"
+#include "String.h"
 #include "DS_Hash.h"
 
 /// \defgroup RELAY_PLUGIN_GROUP RelayPlugin

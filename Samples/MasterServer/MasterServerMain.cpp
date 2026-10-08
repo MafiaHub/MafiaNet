@@ -17,7 +17,7 @@
 
 #include "MasterCommon.h"
 #include "MasterServer.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/Gets.h"
 #include <cstdio>
 #include <cstring>

@@ -17,13 +17,13 @@
 /// \brief Tests connecting two peers at the same time with the internet simulator running.
 
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include "mafianet/PacketLogger.h"
 #include "mafianet/Rand.h"
 #include "mafianet/Kbhit.h"
 #include <stdio.h> // Printf
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/GetTime.h"

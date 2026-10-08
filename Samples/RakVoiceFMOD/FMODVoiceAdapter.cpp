@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 #include "FMODVoiceAdapter.h"

@@ -15,7 +15,7 @@
 
 #include "mafianet/SendToThread.h"
 #ifdef USE_THREADED_SEND
-#include "mafianet/RakThread.h"
+#include "mafianet/Thread.h"
 #include "mafianet/InternalPacket.h"
 #include "mafianet/GetTime.h"
 

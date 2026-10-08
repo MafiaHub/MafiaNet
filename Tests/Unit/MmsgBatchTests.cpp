@@ -15,8 +15,8 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/MmsgBatch.h"
-#include "mafianet/RakNetSocket2.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Socket2.h"
+#include "mafianet/Types.h"
 
 #ifdef _WIN32
 #include <ws2tcpip.h> // inet_pton, htons (winsock2 pulled in via socket2.h)

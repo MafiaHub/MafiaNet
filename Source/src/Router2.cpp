@@ -17,9 +17,9 @@
 #if _RAKNET_SUPPORT_Router2==1 && _RAKNET_SUPPORT_UDPForwarder==1
 
 #include "mafianet/Router2.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakNetTime.h"
+#include "mafianet/Time.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/DS_OrderedList.h"
 #include "mafianet/SocketLayer.h"

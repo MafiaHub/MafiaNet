@@ -14,7 +14,7 @@
  */
 
 #include "CloudServerHelper.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 
 #include "mafianet/Gets.h"
 #include "mafianet/MessageIdentifiers.h"
@@ -24,7 +24,7 @@
 #include "mafianet/CloudClient.h"
 #include "mafianet/DynDNS.h"
 #include "mafianet/SocketLayer.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/ConnectionGraph2.h"
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits

@@ -18,9 +18,9 @@
 ///
 
 #include "mafianet/SocketLayer.h"
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakNetTypes.h"
-#include "mafianet/RakPeer.h"
+#include "mafianet/Assert.h"
+#include "mafianet/Types.h"
+#include "mafianet/Peer.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/LinuxStrings.h"
 #include "mafianet/SocketDefines.h"
@@ -72,7 +72,7 @@ using namespace MafiaNet;
 
 #endif
 
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include <stdio.h>
 #include "mafianet/Itoa.h"
 

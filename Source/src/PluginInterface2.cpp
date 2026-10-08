@@ -16,7 +16,7 @@
 
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/PacketizedTCP.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/BitStream.h"
 
 using namespace MafiaNet;

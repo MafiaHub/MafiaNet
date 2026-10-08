@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/RPC4Plugin.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include <string>
 

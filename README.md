@@ -116,7 +116,7 @@ Linux, flip the `#if defined(__linux__)` batching guards in `RakNetSocket2.cpp`,
 ### Basic Usage
 
 ```cpp
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 // Create a peer

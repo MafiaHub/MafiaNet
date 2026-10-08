@@ -21,11 +21,11 @@
 #ifndef __HASH_H
 #define __HASH_H 
 
-#include "RakAssert.h"
+#include "Assert.h"
 #include <string.h> // memmove
 #include "Export.h"
-#include "RakMemoryOverride.h"
-#include "RakString.h"
+#include "MemoryOverride.h"
+#include "String.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures
 /// As these data structures are stand-alone, you can use them outside of RakNet for your own projects if you wish.

@@ -17,7 +17,7 @@
 
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/RakVoice.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 
 #include <cmath>
 #include <cstring>

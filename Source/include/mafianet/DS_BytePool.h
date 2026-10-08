@@ -27,11 +27,11 @@
 #ifndef __BYTE_POOL_H
 #define __BYTE_POOL_H
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "DS_MemoryPool.h"
 #include "Export.h"
 #include "SimpleMutex.h"
-#include "RakAssert.h"
+#include "Assert.h"
 
 // #define _DISABLE_BYTE_POOL
 // #define _THREADSAFE_BYTE_POOL

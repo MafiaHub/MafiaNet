@@ -24,9 +24,9 @@
 #ifndef __CONSOLE_SERVER_H
 #define __CONSOLE_SERVER_H
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "DS_List.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "Export.h"
 
 namespace MafiaNet

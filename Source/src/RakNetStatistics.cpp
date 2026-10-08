@@ -18,10 +18,10 @@
 
 
 
-#include "mafianet/RakNetStatistics.h"
+#include "mafianet/Statistics.h"
 #include <stdio.h> // sprintf
 #include "mafianet/GetTime.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"
 

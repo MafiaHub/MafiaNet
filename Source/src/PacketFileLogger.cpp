@@ -20,7 +20,7 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"
-#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/MemoryOverride.h"
 
 using namespace MafiaNet;
 

@@ -24,14 +24,14 @@
 #ifndef __SIMPLE_TCP_SERVER
 #define __SIMPLE_TCP_SERVER
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "DS_List.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "Export.h"
-#include "RakThread.h"
+#include "Thread.h"
 #include "DS_Queue.h"
 #include "SimpleMutex.h"
-#include "RakNetDefines.h"
+#include "Defines.h"
 #include "SocketIncludes.h"
 #include "DS_ByteQueue.h"
 #include "DS_ThreadsafeAllocatingQueue.h"

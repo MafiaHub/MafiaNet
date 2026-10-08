@@ -18,8 +18,8 @@
 
 #include "mafianet/StatisticsHistory.h"
 #include "mafianet/GetTime.h"
-#include "mafianet/RakNetStatistics.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/Statistics.h"
+#include "mafianet/PeerInterface.h"
 
 using namespace MafiaNet;
 

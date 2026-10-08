@@ -17,7 +17,7 @@
 #define __SQL_LITE_3_PLUGIN_COMMON_H
 
 #include "mafianet/DS_Multilist.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #include "mafianet/BitStream.h"
 
 /// \defgroup SQL_LITE_3_PLUGIN SQLite3Plugin

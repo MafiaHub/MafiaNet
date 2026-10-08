@@ -16,9 +16,9 @@
 #include "mafianet/NativeFeatureIncludes.h"
 #if _RAKNET_SUPPORT_TelnetTransport==1
 
-#include "mafianet/RakNetTransport2.h"
+#include "mafianet/Transport2.h"
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include <stdio.h>

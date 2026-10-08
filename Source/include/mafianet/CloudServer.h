@@ -26,9 +26,9 @@
 #define __CLOUD_SERVER_H
 
 #include "PluginInterface2.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "NativeTypes.h"
-#include "RakString.h"
+#include "String.h"
 #include "DS_Hash.h"
 #include "CloudCommon.h"
 #include "DS_OrderedList.h"

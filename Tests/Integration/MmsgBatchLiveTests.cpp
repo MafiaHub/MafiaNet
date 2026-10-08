@@ -22,12 +22,12 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/PeerHandle.h" // Peer, PacketPtr (RAII: survives a failed ASSERT)
 #include "mafianet/GetTime.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/MmsgBatch.h" // MMSG_BATCH_MAX
 
 #include <string>

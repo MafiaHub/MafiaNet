@@ -30,13 +30,13 @@
 #ifndef __AUTOPATCHER_SERVER_H
 #define __AUTOPATCHER_SERVER_H
 
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/Export.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/PacketPriority.h"
 #include "mafianet/ThreadPool.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #include "mafianet/FileList.h"
 #include "mafianet/IncrementalReadInterface.h"
 

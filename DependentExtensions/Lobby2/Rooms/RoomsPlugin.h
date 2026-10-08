@@ -22,7 +22,7 @@
 #ifndef __ROOMS_PLUGIN_H
 #define __ROOMS_PLUGIN_H
 
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/DS_OrderedList.h"
 #include "mafianet/Export.h"

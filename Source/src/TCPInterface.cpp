@@ -31,10 +31,10 @@
 #include <pthread.h>
 #endif
 #include <string.h>
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include <stdio.h>
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Assert.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/StringTable.h"
 #include "mafianet/Itoa.h"

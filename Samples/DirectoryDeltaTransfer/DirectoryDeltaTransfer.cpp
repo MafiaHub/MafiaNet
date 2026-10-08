@@ -14,9 +14,9 @@
  */
 
 #include "mafianet/GetTime.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakNetStatistics.h"
+#include "mafianet/Statistics.h"
 #include "mafianet/DirectoryDeltaTransfer.h"
 #include "mafianet/FileListTransfer.h"
 #include "mafianet/FileList.h"

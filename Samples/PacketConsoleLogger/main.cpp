@@ -17,8 +17,8 @@
 #include "mafianet/ConsoleServer.h"
 #include "mafianet/LogCommandParser.h"
 #include "mafianet/PacketConsoleLogger.h"
-#include "mafianet/RakPeerInterface.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/PeerInterface.h"
+#include "mafianet/Sleep.h"
 #include <stdio.h>
 #include "mafianet/Getche.h"
 #include "mafianet/MessageIdentifiers.h"

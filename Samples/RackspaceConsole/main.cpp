@@ -19,7 +19,7 @@
 #include "mafianet/Rackspace.h"
 #include "mafianet/TCPInterface.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"
 

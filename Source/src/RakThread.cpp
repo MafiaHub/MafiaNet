@@ -13,11 +13,11 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/RakThread.h"
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakNetDefines.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/Thread.h"
+#include "mafianet/Assert.h"
+#include "mafianet/Defines.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/MemoryOverride.h"
 
 using namespace MafiaNet;
 

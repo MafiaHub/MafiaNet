@@ -10,12 +10,12 @@
 #include <string.h>
 #include <vector>
 
-#include "mafianet/RakPeer.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/Peer.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/MTUSize.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/GetTime.h"
 
 #ifdef _WIN32

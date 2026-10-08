@@ -16,8 +16,8 @@
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/CloudClient.h"
-#include "mafianet/RakPeerInterface.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/PeerInterface.h"
+#include "mafianet/Sleep.h"
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
 

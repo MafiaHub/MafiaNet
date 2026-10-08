@@ -14,12 +14,12 @@
  */
 
 #include "Lobby2Message.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include "mafianet/MessageIdentifiers.h"
 #include "Lobby2Client.h"
 #include "mafianet/Kbhit.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "RoomsErrorCodes.h"
 #include "mafianet/DS_Queue.h"
 #include <ctype.h>

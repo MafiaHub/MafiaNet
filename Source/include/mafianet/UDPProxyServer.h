@@ -25,10 +25,10 @@
 #define __UDP_PROXY_SERVER_H
 
 #include "Export.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "PluginInterface2.h"
 #include "UDPForwarder.h"
-#include "RakString.h"
+#include "String.h"
 
 namespace MafiaNet
 {

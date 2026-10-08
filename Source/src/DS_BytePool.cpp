@@ -16,7 +16,7 @@
 // The header is deprecated; this is its own implementation file.
 #define MAFIANET_SILENCE_DEPRECATED_INCLUDES
 #include "mafianet/DS_BytePool.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #ifndef __APPLE__
 // Use stdlib and not malloc for compatibility
 #include <stdlib.h>

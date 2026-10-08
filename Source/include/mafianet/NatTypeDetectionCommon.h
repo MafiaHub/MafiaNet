@@ -26,8 +26,8 @@
 #if _RAKNET_SUPPORT_NatTypeDetectionServer==1 || _RAKNET_SUPPORT_NatTypeDetectionClient==1
 
 #include "SocketIncludes.h"
-#include "RakNetTypes.h"
-#include "RakNetSocket2.h"
+#include "Types.h"
+#include "Socket2.h"
 
 namespace MafiaNet
 {

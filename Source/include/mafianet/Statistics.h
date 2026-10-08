@@ -24,7 +24,7 @@
 
 #include "PacketPriority.h"
 #include "Export.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 
 namespace MafiaNet
 {

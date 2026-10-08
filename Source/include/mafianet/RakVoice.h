@@ -20,7 +20,7 @@
 #ifndef __RAK_VOICE_H
 #define __RAK_VOICE_H
 
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/DS_OrderedList.h"
 #include "mafianet/NativeTypes.h"

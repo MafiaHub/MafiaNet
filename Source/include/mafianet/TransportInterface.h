@@ -22,9 +22,9 @@
 #ifndef __TRANSPORT_INTERFACE_H
 #define __TRANSPORT_INTERFACE_H
 
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "Export.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 
 #define REMOTE_MAX_TEXT_INPUT 2048
 

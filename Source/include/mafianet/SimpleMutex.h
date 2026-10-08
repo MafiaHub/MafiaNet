@@ -22,7 +22,7 @@
 #ifndef __SIMPLE_MUTEX_H
 #define __SIMPLE_MUTEX_H
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 
 
 #if   defined(_WIN32)

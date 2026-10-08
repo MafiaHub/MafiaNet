@@ -14,8 +14,8 @@
  */
 
 #include "MasterCommon.h"
-#include "mafianet/RakPeerInterface.h"
-#include "mafianet/RakNetDefines.h"
+#include "mafianet/PeerInterface.h"
+#include "mafianet/Defines.h"
 #include <cstring>
 #include "mafianet/GetTime.h"
 #include "mafianet/StringCompressor.h"

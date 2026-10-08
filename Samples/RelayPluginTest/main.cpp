@@ -13,8 +13,8 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/RakPeerInterface.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/PeerInterface.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/RelayPlugin.h"
 #include "mafianet/Gets.h"
 #include "mafianet/Kbhit.h"

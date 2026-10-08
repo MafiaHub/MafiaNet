@@ -21,8 +21,8 @@
 #include <optional>
 #include <string>
 
-#include "RakNetTypes.h"
-#include "RakPeerInterface.h"
+#include "Types.h"
+#include "PeerInterface.h"
 
 namespace MafiaNet {
 

@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/PacketPriority.h"
 #include "mafianet/MessageIdentifiers.h"

@@ -22,9 +22,9 @@
 
 #include "mafianet/TCPInterface.h"
 #include "mafianet/HTTPConnection.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakString.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/String.h"
+#include "mafianet/Assert.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

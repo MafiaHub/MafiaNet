@@ -25,8 +25,8 @@
 
 static DataStructures::List< _findinfo_t* > fileInfo;
 	
-#include "mafianet/RakMemoryOverride.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/MemoryOverride.h"
+#include "mafianet/Assert.h"
 
 /**
 * _findfirst - equivalent

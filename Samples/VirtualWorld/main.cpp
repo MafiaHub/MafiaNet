@@ -27,14 +27,14 @@
 // The sample is non-interactive: it drives the peers, prints what each client
 // sees at each step, and returns 0 only if visibility matched expectations.
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/ReplicaManager3.h"
 #include "mafianet/VirtualWorld.h"
 #include "mafianet/VirtualWorldReplica3.h"
 #include "mafianet/NetworkIDManager.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 
 #include <stdio.h>
 

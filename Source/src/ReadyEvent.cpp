@@ -17,10 +17,10 @@
 #if _RAKNET_SUPPORT_ReadyEvent==1
 
 #include "mafianet/ReadyEvent.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 
 using namespace MafiaNet;
 

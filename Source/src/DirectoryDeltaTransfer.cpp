@@ -19,7 +19,7 @@
 #include "mafianet/DirectoryDeltaTransfer.h"
 #include "mafianet/FileList.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/FileListTransfer.h"
 #include "mafianet/FileListTransferCBInterface.h"
 #include "mafianet/BitStream.h"

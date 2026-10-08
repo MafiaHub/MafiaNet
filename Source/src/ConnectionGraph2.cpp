@@ -17,7 +17,7 @@
 #if _RAKNET_SUPPORT_ConnectionGraph2==1
 
 #include "mafianet/ConnectionGraph2.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 

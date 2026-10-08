@@ -15,7 +15,7 @@
 
 #include "mafianet/FileOperations.h"
 #if _RAKNET_SUPPORT_FileOperations==1
-#include "mafianet/RakMemoryOverride.h"
+#include "mafianet/MemoryOverride.h"
 #include "mafianet/_FindFirst.h" // For linux
 #include <stdio.h>
 #include <string.h>

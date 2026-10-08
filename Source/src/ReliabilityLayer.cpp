@@ -24,7 +24,7 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/PluginInterface2.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/Rand.h"
 #include "mafianet/MessageIdentifiers.h"
 #ifdef USE_THREADED_SEND

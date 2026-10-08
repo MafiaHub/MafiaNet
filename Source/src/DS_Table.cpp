@@ -16,8 +16,8 @@
 #include "mafianet/DS_Table.h"
 #include "mafianet/DS_OrderedList.h"
 #include <string.h>
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/Itoa.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"

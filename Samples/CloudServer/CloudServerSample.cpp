@@ -20,8 +20,8 @@
 #include "mafianet/TwoWayAuthentication.h"
 #include "mafianet/CloudClient.h"
 #include "mafianet/DynDNS.h"
-#include "mafianet/RakPeerInterface.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/PeerInterface.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/ConnectionGraph2.h"
 
 int main(int argc, char **argv)

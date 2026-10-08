@@ -20,8 +20,8 @@
 #include "mafianet/Gets.h"
 
 #include "mafianet/TCPInterface.h"
-#include "mafianet/RakString.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/String.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/DR_SHA1.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/LinuxAdapter.h"

@@ -35,7 +35,7 @@
 
 
 
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 
 using namespace MafiaNet;
 

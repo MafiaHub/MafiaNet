@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "RakNetDefines.h"
+#include "Defines.h"
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
 
@@ -21,8 +21,8 @@
 #define __CONGESTION_CONTROL_UDT_H
 
 #include "NativeTypes.h"
-#include "RakNetTime.h"
-#include "RakNetTypes.h"
+#include "Time.h"
+#include "Types.h"
 #include "DS_Queue.h"
 
 /// Set to 4 if you are using the iPod Touch TG. See http://www.jenkinssoftware.com/forum/index.php?topic=2717.0

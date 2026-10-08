@@ -18,9 +18,9 @@
 
 #include "mafianet/NatTypeDetectionServer.h"
 #include "mafianet/SocketLayer.h"
-#include "mafianet/RakNetSmartPtr.h"
+#include "mafianet/SmartPtr.h"
 #include "mafianet/SocketIncludes.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/BitStream.h"

@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/Archive.h"
 

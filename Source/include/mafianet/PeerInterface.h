@@ -23,12 +23,12 @@
 #define __RAK_PEER_INTERFACE_H
 
 #include "PacketPriority.h"
-#include "RakNetTypes.h"
-#include "RakMemoryOverride.h"
+#include "Types.h"
+#include "MemoryOverride.h"
 #include "Export.h"
 #include "DS_List.h"
-#include "RakNetSmartPtr.h"
-#include "RakNetSocket2.h"
+#include "SmartPtr.h"
+#include "Socket2.h"
 
 namespace MafiaNet
 {

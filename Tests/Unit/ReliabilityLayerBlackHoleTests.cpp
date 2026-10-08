@@ -32,7 +32,7 @@
 #include "mafianet/PluginInterface2.h"
 #include "mafianet/Rand.h"
 #include "mafianet/ReliabilityLayer.h"
-#include "mafianet/RakNetSocket2.h"
+#include "mafianet/Socket2.h"
 
 using namespace MafiaNet;
 

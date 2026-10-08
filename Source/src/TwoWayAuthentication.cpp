@@ -21,7 +21,7 @@
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #if LIBCAT_SECURITY==1
 static const int HASH_BITS = 256;

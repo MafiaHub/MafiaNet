@@ -14,7 +14,7 @@
 #include <openssl/rsa.h> // used for RSA_xxxx
 
 #include "mafianet/crypto/cryptomanager.h" // used for MafiaNet::Experimental::Crypto::CCryptoManager
-#include "mafianet/RakAssert.h"               // used for RakAssert
+#include "mafianet/Assert.h"               // used for RakAssert
 
 #include "mafianet/LinuxAdapter.h" // used for strcpy_s
 #include "mafianet/OsxAdapter.h"   // used for strcpy_s

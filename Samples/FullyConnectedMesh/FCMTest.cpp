@@ -18,14 +18,14 @@
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 #include "mafianet/FullyConnectedMesh2.h"
 #include "mafianet/ConnectionGraph2.h"
 #include <assert.h>
 #include "mafianet/Kbhit.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 
 static const unsigned short NUM_PEERS=8;
 MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];

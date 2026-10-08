@@ -55,8 +55,8 @@
 #include "mafianet/MessageIdentifiers.h" // ID_TIMESTAMP, ID_USER_PACKET_ENUM
 #include "mafianet/PeerHandle.h"         // PacketPtr
 #include "mafianet/GuidUtil.h"          // MafiaNet::to_string (owning, thread-safe)
-#include "mafianet/RakNetTime.h"               // MafiaNet::Time (timestamp-prefix width)
-#include "mafianet/RakNetTypes.h"              // Packet, MessageID, RakNetGUID, SystemAddress, PeerGuid
+#include "mafianet/Time.h"               // MafiaNet::Time (timestamp-prefix width)
+#include "mafianet/Types.h"              // Packet, MessageID, RakNetGUID, SystemAddress, PeerGuid
 
 namespace MafiaNet {
 

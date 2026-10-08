@@ -17,11 +17,11 @@
 #if _RAKNET_SUPPORT_MessageFilter==1
 
 #include "mafianet/MessageFilter.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakAssert.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/Assert.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/PacketizedTCP.h"
 #include "mafianet/BitStream.h"
 

@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "FxGameDelegate.h"
 
 namespace MafiaNet {

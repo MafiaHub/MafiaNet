@@ -24,7 +24,7 @@
 
 #include "Export.h"
 #include "DS_Map.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "NativeTypes.h"
 
 #ifdef _STD_STRING_COMPRESSOR

@@ -14,7 +14,7 @@
  */
 
 #include "RPC3.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include <stdio.h>
 #include "mafianet/Kbhit.h"
@@ -23,7 +23,7 @@
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/NetworkIDObject.h"
 #include "mafianet/NetworkIDManager.h"
 #include "mafianet/GetTime.h"

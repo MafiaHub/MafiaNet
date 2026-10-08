@@ -21,8 +21,8 @@
 #if !defined(__NETWORK_ID_GENERATOR)
 #define      __NETWORK_ID_GENERATOR
 
-#include "RakNetTypes.h"
-#include "RakMemoryOverride.h"
+#include "Types.h"
+#include "MemoryOverride.h"
 #include "Export.h"
 
 namespace MafiaNet

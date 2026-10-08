@@ -18,10 +18,10 @@
 
 #include "mafianet/RPC4Plugin.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/PacketizedTCP.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakNetDefines.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/Defines.h"
 #include "mafianet/DS_Queue.h"
 //#include "mafianet/GetTime.h"
 #include "mafianet/LinuxAdapter.h"

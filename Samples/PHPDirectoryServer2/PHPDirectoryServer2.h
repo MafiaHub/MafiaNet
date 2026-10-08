@@ -31,9 +31,9 @@
 #define __PHP_DIRECTORY_SERVER_2
 
 #include "mafianet/Export.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #include "mafianet/HTTPConnection.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/DS_Queue.h"
 #include "mafianet/DS_Table.h"
 #include "mafianet/DS_Map.h"

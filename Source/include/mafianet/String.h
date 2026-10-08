@@ -18,7 +18,7 @@
 
 #include "Export.h"
 #include "DS_List.h"
-#include "RakNetTypes.h" // int64_t
+#include "Types.h" // int64_t
 #include <stdio.h>
 #include "stdarg.h"
 

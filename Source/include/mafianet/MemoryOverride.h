@@ -23,7 +23,7 @@
 #define __RAK_MEMORY_H
 
 #include "Export.h"
-#include "RakNetDefines.h"
+#include "Defines.h"
 #include <new>
 
 
@@ -32,7 +32,7 @@
 
 
 
-#include "RakAlloca.h"
+#include "Alloca.h"
 
 // #if _USE_RAK_MEMORY_OVERRIDE==1
 // 	#if defined(new)

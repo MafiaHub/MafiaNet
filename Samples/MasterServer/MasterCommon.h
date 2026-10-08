@@ -19,7 +19,7 @@
 #define __MASTER_COMMON_H
 
 #include "mafianet/DS_List.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/PluginInterface2.h"
 using namespace MafiaNet;

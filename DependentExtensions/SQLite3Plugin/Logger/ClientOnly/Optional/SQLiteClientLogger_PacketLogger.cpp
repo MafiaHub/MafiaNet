@@ -10,7 +10,7 @@
 
 #include "SQLiteClientLogger_PacketLogger.h"
 #include "SQLiteClientLoggerPlugin.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/InternalPacket.h"
 #include "mafianet/MessageIdentifiers.h"
 

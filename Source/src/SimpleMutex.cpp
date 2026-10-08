@@ -19,7 +19,7 @@
 
 
 #include "mafianet/SimpleMutex.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 
 using namespace MafiaNet;
 

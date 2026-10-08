@@ -37,8 +37,8 @@
 //#include <stdlib.h>
 #endif
 
-#include "mafianet/RakString.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/String.h"
+#include "mafianet/Assert.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/FormatString.h"
 #include "mafianet/LinuxStrings.h"

@@ -7,13 +7,13 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/Rand.h"
-#include "mafianet/RakNetStatistics.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Statistics.h"
+#include "mafianet/Sleep.h"
 
 #include <cstdlib> // For atoi
 #include <cstring>

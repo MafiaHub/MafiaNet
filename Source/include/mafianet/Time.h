@@ -17,7 +17,7 @@
 #define __RAKNET_TIME_H
 
 #include "NativeTypes.h"
-#include "RakNetDefines.h"
+#include "Defines.h"
 
 namespace MafiaNet {
 

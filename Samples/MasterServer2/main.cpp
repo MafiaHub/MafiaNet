@@ -62,8 +62,8 @@ void main_sockets(void)
 }
 
 #include "mafianet/TCPInterface.h"
-#include "mafianet/RakString.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/String.h"
+#include "mafianet/Sleep.h"
 #include "jansson.h"
 #include "mafianet/GetTime.h"
 

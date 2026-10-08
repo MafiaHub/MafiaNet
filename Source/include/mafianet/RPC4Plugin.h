@@ -26,9 +26,9 @@
 
 #include "PluginInterface2.h"
 #include "PacketPriority.h"
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "BitStream.h"
-#include "RakString.h"
+#include "String.h"
 #include "NetworkIDObject.h"
 #include "DS_Hash.h"
 #include "DS_OrderedList.h"

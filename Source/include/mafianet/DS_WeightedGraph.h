@@ -28,8 +28,8 @@
 #include "DS_Heap.h"
 #include "DS_Queue.h"
 #include "DS_Tree.h"
-#include "RakAssert.h"
-#include "RakMemoryOverride.h"
+#include "Assert.h"
+#include "MemoryOverride.h"
 #ifdef _DEBUG
 #include <stdio.h>
 #endif

@@ -21,7 +21,7 @@
 #ifndef __RELIABILITY_LAYER_H
 #define __RELIABILITY_LAYER_H
 
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "MTUSize.h"
 #include "DS_LinkedList.h"
 #include "DS_List.h"
@@ -30,20 +30,20 @@
 #include "DS_Queue.h"
 #include "BitStream.h"
 #include "InternalPacket.h"
-#include "RakNetStatistics.h"
+#include "Statistics.h"
 #include "DR_SHA1.h"
 #include "DS_OrderedList.h"
 #include "DS_RangeList.h"
 #include "DS_BPlusTree.h"
 #include "DS_MemoryPool.h"
-#include "RakNetDefines.h"
+#include "Defines.h"
 #include "DS_Heap.h"
 #include "BitStream.h"
 #include "NativeFeatureIncludes.h"
 #include "SecureHandshake.h"
 #include "PluginInterface2.h"
 #include "Rand.h"
-#include "RakNetSocket2.h"
+#include "Socket2.h"
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
 #include "CCRakNetUDT.h"

@@ -28,12 +28,12 @@
 #include "mafianet/Kbhit.h"
 
 #include "mafianet/GetTime.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"
 #include "mafianet/PacketizedTCP.h"
-#include "mafianet/RakNetSocket2.h"
+#include "mafianet/Socket2.h"
 
 // Client only includes
 #include "mafianet/FileListTransferCBInterface.h"
@@ -41,7 +41,7 @@
 #include "AutopatcherClient.h"
 #include "mafianet/AutopatcherPatchContext.h"
 #include "mafianet/Gets.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/CloudClient.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"

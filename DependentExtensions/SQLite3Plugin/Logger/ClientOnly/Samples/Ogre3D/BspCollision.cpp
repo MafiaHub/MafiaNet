@@ -46,7 +46,7 @@ static const int num_rows = 3;
 #include "SQLiteClientLoggerPlugin.h"
 #include "mafianet/PacketizedTCP.h"
 #include "Ogre3D_DX9_BackbufferGrabber.h"
-#include "mafianet/RakNetTime.h"
+#include "mafianet/Time.h"
 #include "mafianet/GetTime.h"
 
 // Event handler to add ability to alter curvature

@@ -40,7 +40,7 @@ else use congestion avoidance
 
 */
 
-#include "RakNetDefines.h"
+#include "Defines.h"
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL==1
 
@@ -48,8 +48,8 @@ else use congestion avoidance
 #define __CONGESTION_CONTROL_SLIDING_WINDOW_H
 
 #include "NativeTypes.h"
-#include "RakNetTime.h"
-#include "RakNetTypes.h"
+#include "Time.h"
+#include "Types.h"
 #include "DS_Queue.h"
 
 /// Sizeof an UDP header in byte

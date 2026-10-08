@@ -17,11 +17,11 @@
 #if _RAKNET_SUPPORT_NatTypeDetectionClient==1
 
 #include "mafianet/NatTypeDetectionClient.h"
-#include "mafianet/RakNetSmartPtr.h"
+#include "mafianet/SmartPtr.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/SocketIncludes.h"
-#include "mafianet/RakString.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/String.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/SocketDefines.h"

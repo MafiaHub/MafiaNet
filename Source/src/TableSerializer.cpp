@@ -17,7 +17,7 @@
 #include "mafianet/DS_Table.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 
 using namespace MafiaNet;
 

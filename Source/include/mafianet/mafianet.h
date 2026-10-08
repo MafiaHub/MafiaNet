@@ -22,11 +22,11 @@
 
 #pragma once
 
-#include "mafianet/RakPeerInterface.h"      // RakPeerInterface — main entry point
-#include "mafianet/RakNetTypes.h"              // Packet, SystemAddress, RakNetGUID, enums
+#include "mafianet/PeerInterface.h"      // RakPeerInterface — main entry point
+#include "mafianet/Types.h"              // Packet, SystemAddress, RakNetGUID, enums
 #include "mafianet/MessageIdentifiers.h" // ID_* message IDs + ID_USER_PACKET_ENUM
 #include "mafianet/PacketPriority.h"     // MafiaNet::Priority / MafiaNet::Reliability
-#include "mafianet/RakNetStatistics.h"         // RakNetStatistics — return type of GetStatistics()
+#include "mafianet/Statistics.h"         // RakNetStatistics — return type of GetStatistics()
 #include "mafianet/BitStream.h"          // binary serialization
 #include "mafianet/Archive.h"            // serialize() convention over BitStream
 #include "mafianet/GetTime.h"            // MafiaNet::GetTime / TimeMS

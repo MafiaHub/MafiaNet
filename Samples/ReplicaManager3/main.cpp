@@ -16,7 +16,7 @@
 // Demonstrates ReplicaManager 3: A system to automatically create, destroy, and serialize objects
 
 #include "mafianet/StringTable.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 
 #include <stdio.h>
 #include "mafianet/Kbhit.h"
@@ -25,9 +25,9 @@
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/ReplicaManager3.h"
 #include "mafianet/NetworkIDManager.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/FormatString.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/Getche.h"

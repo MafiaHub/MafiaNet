@@ -11,13 +11,13 @@
 #pragma once
 
 
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakPeer.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Peer.h"
+#include "mafianet/Sleep.h"
 #include "DebugTools.h"
 #include "CommonFunctions.h"
 #include "RakTimer.h"

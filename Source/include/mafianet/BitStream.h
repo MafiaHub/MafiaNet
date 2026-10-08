@@ -21,13 +21,13 @@
 #ifndef __BITSTREAM_H
 #define __BITSTREAM_H
 
-#include "RakMemoryOverride.h"
-#include "RakNetDefines.h"
+#include "MemoryOverride.h"
+#include "Defines.h"
 #include "Export.h"
-#include "RakNetTypes.h"
-#include "RakString.h"
-#include "RakWString.h"
-#include "RakAssert.h"
+#include "Types.h"
+#include "String.h"
+#include "WString.h"
+#include "Assert.h"
 #include <cmath>
 #include <float.h>
 #include <string>

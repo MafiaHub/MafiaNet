@@ -14,7 +14,7 @@
  */
 
 #include "Lobby2Server.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/MessageIdentifiers.h"
 
 //#define __INTEGRATE_LOBBY2_WITH_ROOMS_PLUGIN

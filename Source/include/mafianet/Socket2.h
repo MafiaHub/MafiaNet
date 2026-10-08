@@ -16,10 +16,10 @@
 #ifndef __RAKNET_SOCKET_2_H
 #define __RAKNET_SOCKET_2_H
 
-#include "RakNetTypes.h"
+#include "Types.h"
 #include "MTUSize.h"
 #include "LocklessTypes.h"
-#include "RakThread.h"
+#include "Thread.h"
 #include "DS_ThreadsafeAllocatingQueue.h"
 #include "Export.h"
 

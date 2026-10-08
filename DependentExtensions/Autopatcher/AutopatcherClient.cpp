@@ -17,7 +17,7 @@
 #include "mafianet/DirectoryDeltaTransfer.h"
 #include "mafianet/FileList.h"
 #include "mafianet/StringCompressor.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/FileListTransfer.h"
 #include "mafianet/FileListTransferCBInterface.h"
 #include "mafianet/BitStream.h"
@@ -28,7 +28,7 @@
 //#include "mafianet/DR_SHA1.h"
 #include <stdio.h>
 #include "mafianet/FileOperations.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/ThreadPool.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"

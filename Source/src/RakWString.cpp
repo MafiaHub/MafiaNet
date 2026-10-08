@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/RakWString.h"
+#include "mafianet/WString.h"
 #include "mafianet/BitStream.h"
 #include <string.h>
 #include <wchar.h>

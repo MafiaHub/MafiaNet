@@ -8,15 +8,15 @@
  * license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "SQLiteClientLoggerPlugin.h"
 #include "mafianet/BitStream.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 
 #include "mafianet/Kbhit.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/PacketizedTCP.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/rand.h"
 #define M_PI 3.14159265358979323846
 

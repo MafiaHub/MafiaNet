@@ -18,13 +18,13 @@
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
 #include "mafianet/Rand.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 #include "mafianet/ReadyEvent.h"
 #include <assert.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/Kbhit.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/SocketLayer.h"
 #include "mafianet/FullyConnectedMesh2.h"
 #include "mafianet/ConnectionGraph2.h"

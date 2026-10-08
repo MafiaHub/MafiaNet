@@ -24,7 +24,7 @@
 #include <stdlib.h>
 
 #include "mafianet/SocketIncludes.h"
-#include "mafianet/RakNetDefines.h"
+#include "mafianet/Defines.h"
 
 #if   defined(_WIN32)
 #include "mafianet/WindowsIncludes.h"

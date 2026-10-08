@@ -21,10 +21,10 @@
 #ifndef __MULTILIST_H
 #define __MULTILIST_H 
 
-#include "RakAssert.h"
+#include "Assert.h"
 #include <string.h> // memmove
 #include "Export.h"
-#include "RakMemoryOverride.h"
+#include "MemoryOverride.h"
 #include "NativeTypes.h"
 
 

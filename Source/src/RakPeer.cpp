@@ -20,10 +20,10 @@
 
 #define CAT_NEUTER_EXPORT /* Neuter dllimport for libcat */
 
-#include "mafianet/RakNetDefines.h"
-#include "mafianet/RakPeer.h"
+#include "mafianet/Defines.h"
+#include "mafianet/Peer.h"
 #include "mafianet/SessionAdmission.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 
 #ifdef _WIN32
 
@@ -51,16 +51,16 @@
 #include "mafianet/StringCompressor.h"
 #include "mafianet/StringTable.h"
 #include "mafianet/NetworkIDObject.h"
-#include "mafianet/RakNetTypes.h"
+#include "mafianet/Types.h"
 #include "mafianet/DR_SHA1.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/Assert.h"
 #include "mafianet/Version.h"
 #include "mafianet/NetworkIDManager.h"
 #include "mafianet/GetTimeOfDay.h"
 #include "mafianet/SignaledEvent.h"
 #include "mafianet/SuperFastHash.h"
-#include "mafianet/RakAlloca.h"
+#include "mafianet/Alloca.h"
 #include "mafianet/WSAStartupSingleton.h"
 #include "mafianet/LinuxAdapter.h"
 #include "mafianet/OsxAdapter.h"

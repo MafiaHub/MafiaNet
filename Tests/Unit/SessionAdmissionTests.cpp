@@ -10,9 +10,9 @@
 #include <stdint.h>
 
 #include "mafianet/SessionAdmission.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
-#include "mafianet/RakNetDefines.h"
+#include "mafianet/Defines.h"
 
 using namespace MafiaNet;
 

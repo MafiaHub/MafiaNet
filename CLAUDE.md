@@ -70,12 +70,12 @@ When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, upd
 `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake
 plugin selection silently drifts from `NativeFeatureIncludes.h`.
 
-Public headers use the PascalCase name of the class they declare, matching the
-`.cpp` (`RakPeerInterface.h`, `RakString.h`, `RakNetTypes.h`). The only lowercase
-header is the umbrella `mafianet/mafianet.h`. The lowercase names that remain
-(`peerinterface.h`, `string.h`, ...) are deprecated forwarding shims listed in
-`MAFIANET_DEPRECATED_HEADERS`; never include them from library code and do not add
-new lowercase headers.
+Public headers are PascalCase without the RakNet prefix (`PeerInterface.h`,
+`String.h`, `Types.h`); this is MafiaNet, so never bring `Rak`/`RakNet` back into
+file names. The only lowercase header is the umbrella `mafianet/mafianet.h`. The
+remaining lowercase names (`guid_util.h`, `linux_adapter.h`, `osx_adapter.h`) are
+deprecated forwarding shims listed in `MAFIANET_DEPRECATED_HEADERS`; never include
+them from library code and do not add new lowercase headers.
 
 Dead platforms (Xbox 360, PS3, PS4, Vita, Native Client) were removed on purpose.
 Do not reintroduce `__native_client__`, `_PS3`, `_PS4`, `SN_TARGET_*` or Xbox
@@ -167,7 +167,7 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 
 ### Namespaces
 - Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`) — used exclusively throughout the library
-- Short-hand alias: the `MNet` preprocessor macro (defined in `mafianet/RakNetDefines.h`) expands to `MafiaNet` as a convenience shorthand
+- Short-hand alias: the `MNet` preprocessor macro (defined in `mafianet/Defines.h`) expands to `MafiaNet` as a convenience shorthand
 
 ### Key Components
 
@@ -211,7 +211,7 @@ Dependencies (bzip2, miniupnpc, Opus, RNNoise) are automatically fetched via CMa
 ### Basic Usage Pattern
 
 ```cpp
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/MessageIdentifiers.h"
 

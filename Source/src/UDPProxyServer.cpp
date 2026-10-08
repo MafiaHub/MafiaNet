@@ -19,7 +19,7 @@
 #include "mafianet/UDPProxyServer.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/UDPProxyCommon.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
 using namespace MafiaNet;

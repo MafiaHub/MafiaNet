@@ -11,7 +11,7 @@
 #pragma once
 
 
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 
 using namespace MafiaNet;
 class DebugTools

@@ -15,7 +15,7 @@
 
 #include "mafianet/WindowsIncludes.h"
 #include "FxGameDelegate.h"
-#include "mafianet/RakString.h"
+#include "mafianet/String.h"
 
 #define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs& pparams);
 #define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName) \

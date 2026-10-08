@@ -17,11 +17,11 @@
 #include <cstring>
 #include <stdlib.h>
 #include "mafianet/GetTime.h"
-#include "mafianet/RakPeerInterface.h"
+#include "mafianet/PeerInterface.h"
 #include "mafianet/MessageIdentifiers.h"
 
-#include "mafianet/RakNetTypes.h"
-#include "mafianet/RakSleep.h"
+#include "mafianet/Types.h"
+#include "mafianet/Sleep.h"
 #include "mafianet/FullyConnectedMesh2.h"
 #include "mafianet/ConnectionGraph2.h"
 #include <assert.h>

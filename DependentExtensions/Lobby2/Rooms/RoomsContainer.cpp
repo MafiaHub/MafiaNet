@@ -15,7 +15,7 @@
 
 #include "RoomsContainer.h"
 #include "ProfanityFilter.h"
-#include "mafianet/RakAssert.h"
+#include "mafianet/Assert.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/BitStream.h"
 #include "mafianet/TableSerializer.h"

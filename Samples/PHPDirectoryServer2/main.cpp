@@ -20,8 +20,8 @@
 #include "mafianet/TCPInterface.h"
 #include "mafianet/HTTPConnection.h"
 #include "PHPDirectoryServer2.h"
-#include "mafianet/RakSleep.h"
-#include "mafianet/RakString.h"
+#include "mafianet/Sleep.h"
+#include "mafianet/String.h"
 #include "mafianet/GetTime.h"
 #include "mafianet/DS_Table.h"
 #include <cstring>
