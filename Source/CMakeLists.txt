@@ -169,15 +169,12 @@ set(MAFIANET_HEADERS
     include/mafianet/ds_map.h
     include/mafianet/ds_memory_pool.h
     include/mafianet/ds_multilist.h
-    include/mafianet/ds_ordered_channel_heap.h
     include/mafianet/ds_ordered_list.h
     include/mafianet/ds_queue.h
     include/mafianet/ds_queue_linked_list.h
     include/mafianet/ds_range_list.h
     include/mafianet/ds_table.h
     include/mafianet/ds_threadsafe_allocating_queue.h
-    include/mafianet/ds_tree.h
-    include/mafianet/ds_weighted_graph.h
     include/mafianet/dyn_dns.h
     include/mafianet/email_sender.h
     include/mafianet/empty_header.h
