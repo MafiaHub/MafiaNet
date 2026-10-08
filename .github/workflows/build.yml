@@ -1,10 +1,20 @@
 name: Build & Test
 
+# Runs on pull requests only. Pushes to master do not build or test: master is
+# only ever changed by merging a PR that already passed this workflow, and a
+# release tag (vX.Y.Z) triggers release.yml, which packages without testing.
+# workflow_dispatch allows a manual run on any branch.
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+  workflow_dispatch:
+
+# A new push to the same PR cancels the run still in flight for it.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   # Linux: Build and test in Docker container (full network access).
@@ -63,11 +73,25 @@ jobs:
       - name: Install OpenSSL
         run: sudo apt-get update && sudo apt-get install -y libssl-dev
 
+      # File names under Source/ are snake_case, and library headers include each
+      # other only as "mafianet/<name>.h". A bare #include "string.h" inside
+      # include/mafianet/ would resolve to the library's own string.h instead of
+      # the C header, so both rules are enforced here.
+      - name: Check file naming and include style
+        run: |
+          bad=$(find Source/include Source/src -type f \( -name '*.h' -o -name '*.cpp' \) | grep -E '/[^/]*[A-Z][^/]*$' || true)
+          if [ -n "$bad" ]; then echo "Non-snake_case file names:"; echo "$bad"; exit 1; fi
+          bad=$(grep -rnE '^\s*#include "[a-z0-9_]+\.h"' Source/include/mafianet | while IFS=: read -r f l rest; do
+                  n=$(echo "$rest" | sed -E 's/.*"([^"]+)".*/\1/')
+                  [ -e "Source/include/mafianet/$n" ] && echo "$f:$l: $rest"; done || true)
+          if [ -n "$bad" ]; then echo "Bare includes of library headers (use \"mafianet/<name>.h\"):"; echo "$bad"; exit 1; fi
+
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DMAFIANET_BUILD_TESTS=ON
+            -DMAFIANET_BUILD_TESTS=ON \
+            -DMAFIANET_BUILD_EXTRAS=ON
 
       - name: Build
         run: cmake --build build --parallel 4
@@ -98,6 +122,34 @@ jobs:
           name: test-results-linux-native-${{ matrix.build_type }}
           path: build/junit-*.xml
           if-no-files-found: ignore
+
+  # Minimal configuration: every optional plugin compiled out through
+  # MAFIANET_MINIMAL (see docs/getting-started/building.rst, "Minimal builds").
+  # Proves the core transport builds without the plugins and that no plugin
+  # header leaks into the core. The test suites use the plugins, so this job
+  # builds both library targets and nothing else.
+  linux-minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Configure CMake (minimal)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMAFIANET_MINIMAL=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Report library size
+        run: ls -l build/Source/libMafiaNetStatic.a build/Source/libmafianet.so*
 
   # macOS: Build and run both suites (unit + integration).
   macos:

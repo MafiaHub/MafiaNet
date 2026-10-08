@@ -13,21 +13,21 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/FileListTransfer.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/file_list_transfer.h"
 #include "mafianet/sleep.h"
 
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/FileOperations.h"
-#include "mafianet/SuperFastHash.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/file_operations.h"
+#include "mafianet/super_fast_hash.h"
 #include "mafianet/assert.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/IncrementalReadInterface.h"
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/SocketLayer.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/incremental_read_interface.h"
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/socket_layer.h"
 #include <stdio.h>
-#include "mafianet/Gets.h"
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

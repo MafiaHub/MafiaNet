@@ -14,14 +14,14 @@
  */
 
 #include "RoomsPlugin.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/bit_stream.h"
 #include "RoomsErrorCodes.h"
-#include "mafianet/TableSerializer.h"
+#include "mafianet/table_serializer.h"
 #include "mafianet/assert.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/peer_interface.h"
 #include "ProfanityFilter.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/get_time.h"
 
 using namespace MafiaNet;
 

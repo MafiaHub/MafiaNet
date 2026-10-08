@@ -16,7 +16,7 @@
 #ifndef __PROFANITY_FILTER__H__
 #define __PROFANITY_FILTER__H__
 
-#include "mafianet/DS_List.h"
+#include "mafianet/ds_list.h"
 #include "mafianet/string.h"
 
 namespace MafiaNet {

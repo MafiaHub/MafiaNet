@@ -2,7 +2,8 @@ name: Release
 
 # Builds precompiled MafiaNet packages for every supported platform when a
 # release tag (vX.Y.Z) is pushed, then creates/updates the GitHub release for
-# that tag with the archives attached.
+# that tag with the archives attached. No tests run here: the commit being
+# tagged reached master through a pull request that already ran build.yml.
 #
 # Each archive is a full install tree (cmake --install): shared + static
 # libraries, the bundled opus/rnnoise static libs, all public headers, and the

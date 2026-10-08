@@ -14,10 +14,10 @@
  */
 
 #include "Lobby2Message.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/kbhit.h"
 #include "mafianet/sleep.h"
 #include "Lobby2Server_PGSQL.h"
 #include "Lobby2Message_PGSQL.h"
@@ -25,7 +25,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Gets.h"
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
@@ -35,11 +35,11 @@
 #endif
 
 //#define _ALSO_ACT_AS_NAT_PUNCH_SERVER
-#include "mafianet/NatPunchthroughServer.h"
-#include "mafianet/UDPProxyCoordinator.h"
-#include "mafianet/UDPProxyServer.h"
-#include "mafianet/NatTypeDetectionServer.h"
-#include "mafianet/SocketLayer.h"
+#include "mafianet/nat_punchthrough_server.h"
+#include "mafianet/udp_proxy_coordinator.h"
+#include "mafianet/udp_proxy_server.h"
+#include "mafianet/nat_type_detection_server.h"
+#include "mafianet/socket_layer.h"
 static const char *COORDINATOR_PASSWORD="Dummy Coordinator Password";
 
 void main(void)

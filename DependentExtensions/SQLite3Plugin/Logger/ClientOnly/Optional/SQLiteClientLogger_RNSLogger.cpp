@@ -10,9 +10,9 @@
 
 #include "SQLiteClientLogger_RNSLogger.h"
 #include "mafianet/time.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/get_time.h"
 #include "mafianet/statistics.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "SQLiteClientLoggerPlugin.h"
 
 using namespace MafiaNet;

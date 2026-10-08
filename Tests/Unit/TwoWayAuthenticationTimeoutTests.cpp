@@ -7,9 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/TwoWayAuthentication.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/two_way_authentication.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/peer_interface.h"
 
 using namespace MafiaNet;
 

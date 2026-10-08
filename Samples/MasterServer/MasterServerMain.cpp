@@ -17,8 +17,8 @@
 
 #include "MasterCommon.h"
 #include "MasterServer.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/Gets.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/gets.h"
 #include <cstdio>
 #include <cstring>
 #ifdef WIN32

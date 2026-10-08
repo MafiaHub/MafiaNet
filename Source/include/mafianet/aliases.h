@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "mafianet/peerinterface.h" // RakPeerInterface
+#include "mafianet/peer_interface.h" // RakPeerInterface
 #include "mafianet/types.h"         // RakNetGUID, UNASSIGNED_RAKNET_GUID
 #include "mafianet/statistics.h"    // RakNetStatistics
 

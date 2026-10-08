@@ -17,16 +17,16 @@
 /// \brief Tests connecting two peers at the same time with the internet simulator running.
 
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 
-#include "mafianet/PacketLogger.h"
-#include "mafianet/Rand.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/packet_logger.h"
+#include "mafianet/rand.h"
+#include "mafianet/kbhit.h"
 #include <stdio.h> // Printf
 #include "mafianet/sleep.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/get_time.h"
 
 using namespace MafiaNet;
 

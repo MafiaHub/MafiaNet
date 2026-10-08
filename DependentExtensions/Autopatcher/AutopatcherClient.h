@@ -21,13 +21,13 @@
 #define __AUTOPATCHER_CLIENT_H
 
 #include "mafianet/types.h"
-#include "mafianet/Export.h"
-#include "mafianet/PluginInterface2.h"
-#include "mafianet/PacketPriority.h"
-#include "mafianet/FileList.h"
-#include "mafianet/SimpleMutex.h"
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/AutopatcherPatchContext.h"
+#include "mafianet/export.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/file_list.h"
+#include "mafianet/simple_mutex.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/autopatcher_patch_context.h"
 
 namespace MafiaNet
 {

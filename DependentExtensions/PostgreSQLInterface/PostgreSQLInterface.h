@@ -23,7 +23,7 @@ struct pg_result;
 typedef struct pg_result PGresult;
 
 #include "mafianet/string.h"
-#include "mafianet/DS_OrderedList.h"
+#include "mafianet/ds_ordered_list.h"
 
 class PostgreSQLInterface
 {

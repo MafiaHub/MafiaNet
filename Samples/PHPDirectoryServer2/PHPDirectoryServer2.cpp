@@ -26,16 +26,16 @@
 /// License as published by the Free Software Foundation
 
 #include "PHPDirectoryServer2.h"
-#include "mafianet/HTTPConnection.h"
+#include "mafianet/http_connection.h"
 #include "mafianet/sleep.h"
 #include "mafianet/string.h"
 #include "mafianet/types.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/get_time.h"
 #include "mafianet/assert.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
-#include "mafianet/Itoa.h"
+#include "mafianet/itoa.h"
 
 // Column with this header contains the name of the game, passed to UploadTable()
 static const char *GAME_NAME_COMMAND="__GAME_NAME";

@@ -13,10 +13,10 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/CloudClient.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/cloud_client.h"
+#include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits

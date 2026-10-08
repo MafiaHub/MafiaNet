@@ -23,7 +23,7 @@
 
 // If you want to change these defines, put them in RakNetDefinesOverrides so your changes are not lost when updating RakNet
 // The user should not edit this file
-#include "defineoverrides.h"
+#include "mafianet/define_overrides.h"
 
 /// Define __GET_TIME_64BIT to have MafiaNet::TimeMS use a 64, rather than 32 bit value.  A 32 bit value will overflow after about 5 weeks.
 /// However, this doubles the bandwidth use for sending times, so don't do it unless you have a reason to.
@@ -113,18 +113,14 @@
 #endif
 
 #ifndef RakAssert
-#if   defined(__native_client__)
-#define RakAssert(x)
-#else
 #if defined(_DEBUG)
 #define RakAssert(x) assert(x);
 #else
 #define RakAssert(x) 
 #endif
 #endif
-#endif
 
-#if !defined(_DEBUG) || defined(__native_client__)
+#if !defined(_DEBUG)
 #define SLNET_VERIFY(x) ((void)(x))
 #else
 #define SLNET_VERIFY(x) RakAssert(x)
@@ -187,10 +183,6 @@
 
 #ifndef RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH
 #define RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH 48
-#endif
-
-#ifndef XBOX_BYPASS_SECURITY
-#define XBOX_BYPASS_SECURITY 1
 #endif
 
 // Controls how many allocations occur at once for the memory pool of incoming datagrams waiting to be transferred between the recvfrom thread and the main update thread

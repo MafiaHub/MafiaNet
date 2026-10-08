@@ -9,9 +9,9 @@
  */
 
 #include "SQLiteClientLoggerPlugin.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/get_time.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

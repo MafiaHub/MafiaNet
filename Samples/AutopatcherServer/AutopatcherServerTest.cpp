@@ -18,11 +18,11 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
-// Pull in winsock2.h (via WindowsIncludes.h) BEFORE windows.h. Including
+// Pull in winsock2.h (via windows_includes.h) BEFORE windows.h. Including
 // <windows.h> directly drags in the legacy Winsock 1 header, which then
 // clashes with the winsock2.h pulled in later, causing struct redefinition
 // errors (sockaddr, fd_set, ...) under MSVC.
-#include "mafianet/WindowsIncludes.h"
+#include "mafianet/windows_includes.h"
 #include <shellapi.h>
 #else
 #include <limits.h>
@@ -32,17 +32,17 @@
 #endif
 #endif
 
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 
-#include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/FileListTransfer.h"
-#include "mafianet/FileList.h" // FLP_Printf
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/Gets.h"
+#include "mafianet/get_time.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/file_list_transfer.h"
+#include "mafianet/file_list.h" // FLP_Printf
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
@@ -52,7 +52,7 @@
 #include "AutopatcherPostgreRepository.h"
 
 #ifdef _WIN32
-#include "mafianet/WindowsIncludes.h" // Sleep
+#include "mafianet/windows_includes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

@@ -14,4 +14,4 @@
  */
 
 #include <assert.h>
-#include "defines.h"
+#include "mafianet/defines.h"

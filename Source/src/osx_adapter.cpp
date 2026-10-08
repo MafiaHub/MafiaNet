@@ -252,12 +252,16 @@ errno_t strncpy_s(char *strDest, size_t numberOfElements, const char *strSource,
 		}
 	}
 	else {
-		// otherwise we use count, but have to check that the destination buffer is of sufficient size
-		if ((count > numberOfElements) || ((count == numberOfElements) && (strSource[count] != '\0'))) {
+		// Otherwise copy at most count characters. Only read as far as count:
+		// the source need not be terminated within reach (dirent::d_name is
+		// 256 bytes, callers pass larger counts), and reading past it is what
+		// made this shim return garbage on Linux. The copy plus its terminator
+		// must fit the destination, as with MSVC.
+		numChars = strnlen(strSource, count);
+		if (numChars >= numberOfElements) {
 			strDest[0] = '\0'; // ensure trailing \0 is written
 			return 34; // error: ERANGE
 		}
-		numChars = count;
 	}
 
 	(void)strncpy(strDest, strSource, numChars);

@@ -21,8 +21,8 @@
 #include <optional>
 #include <string>
 
-#include "types.h"
-#include "peerinterface.h"
+#include "mafianet/types.h"
+#include "mafianet/peer_interface.h"
 
 namespace MafiaNet {
 

@@ -110,14 +110,14 @@ strace -f -c -e trace=sendmmsg,sendto,recvmmsg,recvfrom \
 ```
 
 The per-datagram column is what every non-Linux platform runs; to reproduce it on
-Linux, flip the `#if defined(__linux__)` batching guards in `RakNetSocket2.cpp`,
-`RakNetSocket2_Berkley.cpp`, `ReliabilityLayer.cpp` and `socket2.h` to `#if 0`.
+Linux, flip the `#if defined(__linux__)` batching guards in `socket2.cpp`,
+`socket2_berkley.cpp`, `reliability_layer.cpp` and `socket2.h` to `#if 0`.
 
 ### Basic Usage
 
 ```cpp
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 
 // Create a peer
 MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
@@ -268,7 +268,7 @@ MafiaNet/
 ├── DependentExtensions/    # Optional integrations
 │   ├── Autopatcher/        # Delta patching system
 │   ├── Lobby2/             # Matchmaking and lobbies
-│   ├── RakVoice.cpp/h      # Voice communication
+│   ├── voice.cpp/h      # Voice communication
 │   ├── MySQLInterface/     # MySQL connectivity
 │   ├── PostgreSQLInterface/# PostgreSQL connectivity
 │   ├── SQLite3Plugin/      # SQLite integration
@@ -400,16 +400,16 @@ To debug a single test, run the binary directly with a filter:
 ### Version 0.11.0
 - **Range-based receive `Peer::incoming()`**: drains the receive queue with a range-`for`; each iteration yields a fresh `PacketPtr` freed at end of scope, and `pkt.id()` returns the `ID_TIMESTAMP`-aware identifier
 - **Startup builders `Peer::server()` / `Peer::client()`**: fluent chain folding `SocketDescriptor` + `Startup` + result check + `SetMaximumIncomingConnections` / `Connect` into one call; `start()` returns a move-only `Result<Peer>` whose error preserves the underlying `StartupResult` / `ConnectionAttemptResult` (tagged by `PeerStage`) instead of collapsing to a bool. Security stays opt-in (`secure()` / `public_key()`)
-- **Serialization archives** (`mafianet/Archive.h`): one `serialize(Ar&)` member template describes a type's wire format for both directions; `WriteArchive` / `ReadArchive` adapt a `BitStream`, recursing into nested `serialize()` types and falling through to `operator<<`/`operator>>` (incl. per-type specializations) for everything else
-- **Typed message dispatcher** (`mafianet/Dispatcher.h`): `on<T>(handler)` auto-assigns ids from `ID_USER_PACKET_ENUM` in registration order (documented wire contract; `on<T>(id, handler)` pins explicit ids), `on(id, handler)` covers system messages, `dispatch()` skips `ID_TIMESTAMP` prefixes and hands handlers a deserialized `T` plus a `Sender` (`guid()`/`peer_guid()`/`address()`/`guid_string()`); `encode()` is the symmetric write path. Opt-in — the raw `switch` stays fully usable
+- **Serialization archives** (`mafianet/archive.h`): one `serialize(Ar&)` member template describes a type's wire format for both directions; `WriteArchive` / `ReadArchive` adapt a `BitStream`, recursing into nested `serialize()` types and falling through to `operator<<`/`operator>>` (incl. per-type specializations) for everything else
+- **Typed message dispatcher** (`mafianet/dispatcher.h`): `on<T>(handler)` auto-assigns ids from `ID_USER_PACKET_ENUM` in registration order (documented wire contract; `on<T>(id, handler)` pins explicit ids), `on(id, handler)` covers system messages, `dispatch()` skips `ID_TIMESTAMP` prefixes and hands handlers a deserialized `T` plus a `Sender` (`guid()`/`peer_guid()`/`address()`/`guid_string()`); `encode()` is the symmetric write path. Opt-in — the raw `switch` stays fully usable
 - **Typed `Peer::send` / `Peer::broadcast`**: serialize-and-send a registered message in one call via the dispatcher registry, with overridable defaults (`Priority::High`, `Reliability::ReliableOrdered`, channel 0); destination accepts `SystemAddress` or `RakNetGUID`; raw `Send()` untouched
-- **RakVoice built into the core library**: header now `mafianet/RakVoice.h`; Opus and RNNoise are fetched and linked into the core automatically — no separate extension build
+- **RakVoice built into the core library**: header now `mafianet/voice.h`; Opus and RNNoise are fetched and linked into the core automatically — no separate extension build
 - **Full GoogleTest migration**: all 29 legacy tests ported, the `Samples/Tests` `TestInterface` harness deleted; hermetic `UnitTests` + loopback `IntegrationTests` under `Tests/`, one process per test via CTest, `MAFIANET_BUILD_TESTS` builds everything test-related (requires `MAFIANET_BUILD_STATIC`); CI runs ctest with JUnit artifacts on all platforms
 
 ### Version 0.10.0
 - **Umbrella header `mafianet/mafianet.h`**: aggregates the core public headers (`RakPeerInterface`, types, message IDs, `PacketPriority`, `BitStream`, `GetTime`, `Statistics`) so the common path only needs `#include "mafianet/mafianet.h"`. Additive — granular headers remain; encryption headers are intentionally omitted (security stays opt-in via `InitializeSecurity()`)
 - **Canonical type aliases** (`mafianet/aliases.h`): `PeerInterface` (`RakPeerInterface`), `Guid` (`RakNetGUID`), `Statistics` (`RakNetStatistics`), `UnassignedGuid`. `using` aliases denoting the same types, so old and new names interoperate; legacy names left untouched
-- **RAII handles `Peer` & `PacketPtr`** (`mafianet/PeerHandle.h`): own a `RakPeerInterface` / received `Packet` and clean up on scope exit, removing manual `DestroyInstance` / `DeallocatePacket` bookkeeping. ChatExample client rewritten to use them
+- **RAII handles `Peer` & `PacketPtr`** (`mafianet/peer_handle.h`): own a `RakPeerInterface` / received `Packet` and clean up on scope exit, removing manual `DestroyInstance` / `DeallocatePacket` bookkeeping. ChatExample client rewritten to use them
 - **Thread-safe GUID value accessors** (`mafianet/guid_util.h`): `MafiaNet::to_string(const RakNetGUID&)` owns its buffer; `connected_address(...)` returns `std::optional<SystemAddress>` (sentinel → `nullopt`)
 - **`PointGridSectorizer`**: uniform point grid with O(1) `RemoveEntry`/`MoveEntry` via per-entry hash + swap-remove (early-out on same-cell moves), upsert add/move semantics, duplicate-free `GetEntries`, and edge-cell clamping. `GridSectorizer` left untouched
 - **Breaking — scoped enum classes**: the global `PacketPriority` / `PacketReliability` C enums are removed in favour of scoped `MafiaNet::Priority` / `MafiaNet::Reliability`. Enumerator order (and the wire field) is preserved, but call sites must update (`HIGH_PRIORITY` → `MafiaNet::Priority::High`, `RELIABLE_ORDERED` → `MafiaNet::Reliability::ReliableOrdered`); `NUMBER_OF_*` sentinels are now `constexpr` counts in `MafiaNet`

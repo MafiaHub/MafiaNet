@@ -17,14 +17,14 @@
 /// \brief A sample for the SQLite3Plugin, that creates a table to track connections on the server
 /// The SQLite3Plugin is used with SQLite version 3 to transmit over the network calls to sqlite3_exec
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "SQLite3ServerPlugin.h"
 #include "SQLite3ClientPlugin.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"
-#include "mafianet/Gets.h"
-#include "mafianet/Kbhit.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/gets.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/get_time.h"
 
 using namespace MafiaNet;
 

@@ -28,7 +28,7 @@ Inherit from NetworkIDObject
 
 .. code-block:: cpp
 
-   #include "mafianet/NetworkIDObject.h"
+   #include "mafianet/network_id_object.h"
 
    class Player : public MafiaNet::NetworkIDObject {
    public:

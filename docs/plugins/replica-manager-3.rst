@@ -18,7 +18,7 @@ Setup
 
 .. code-block:: cpp
 
-   #include "mafianet/ReplicaManager3.h"
+   #include "mafianet/replica_manager3.h"
 
    // Create and attach
    MafiaNet::ReplicaManager3* replicaManager =

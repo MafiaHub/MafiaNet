@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/WindowsIncludes.h"
+#include "mafianet/windows_includes.h"
 #include "SendFileTo.h"
 #include <shlwapi.h>
 #include <tchar.h>

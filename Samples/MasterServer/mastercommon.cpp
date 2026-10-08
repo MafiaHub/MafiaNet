@@ -14,12 +14,12 @@
  */
 
 #include "MasterCommon.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "mafianet/defines.h"
 #include <cstring>
-#include "mafianet/GetTime.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/get_time.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/bit_stream.h"
 using namespace MafiaNet;
 
 // For debugging

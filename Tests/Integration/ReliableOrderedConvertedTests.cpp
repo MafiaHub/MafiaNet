@@ -7,11 +7,11 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/Rand.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/get_time.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/rand.h"
 #include "mafianet/statistics.h"
 #include "mafianet/sleep.h"
 

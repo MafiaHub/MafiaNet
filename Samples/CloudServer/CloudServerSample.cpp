@@ -14,15 +14,15 @@
  */
 
 #include "CloudServerHelper.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/TwoWayAuthentication.h"
-#include "mafianet/CloudClient.h"
-#include "mafianet/DynDNS.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/fully_connected_mesh2.h"
+#include "mafianet/two_way_authentication.h"
+#include "mafianet/cloud_client.h"
+#include "mafianet/dyn_dns.h"
+#include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
-#include "mafianet/ConnectionGraph2.h"
+#include "mafianet/connection_graph2.h"
 
 int main(int argc, char **argv)
 {

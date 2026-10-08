@@ -13,7 +13,7 @@ Basic Usage
 .. code-block:: cpp
 
    #include "AutopatcherServer.h"
-   #include "mafianet/AutopatcherRepositoryInterface.h"
+   #include "mafianet/autopatcher_repository_interface.h"
 
    // Use file-based or database repository
    MafiaNet::AutopatcherServer autopatcherServer;

@@ -22,7 +22,7 @@
 #ifndef __SQL_LITE_CLIENT_LOGGER_RAKNET_STATISTICS_H_
 #define __SQL_LITE_CLIENT_LOGGER_RAKNET_STATISTICS_H_
 
-#include "mafianet/PluginInterface2.h"
+#include "mafianet/plugin_interface2.h"
 
 namespace MafiaNet
 {

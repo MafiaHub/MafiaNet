@@ -20,7 +20,7 @@
 #ifndef __FMODVOICEBRIDGE_H
 #define __FMODVOICEBRIDGE_H
 
-#include "mafianet/RakVoice.h"
+#include "mafianet/voice.h"
 
 // If you get:
 // Error	1	fatal error C1083: Cannot open include file: 'fmod.hpp': No such file or directory	c:\raknet\samples\rakvoicefmod\fmodvoiceadapter.h	9

@@ -40,7 +40,7 @@ Server Setup (Facilitator)
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughServer.h"
+   #include "mafianet/nat_punchthrough_server.h"
 
    MafiaNet::RakPeerInterface* server = MafiaNet::RakPeerInterface::GetInstance();
 
@@ -59,7 +59,7 @@ Client Setup
 
 .. code-block:: cpp
 
-   #include "mafianet/NatPunchthroughClient.h"
+   #include "mafianet/nat_punchthrough_client.h"
 
    MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();
 

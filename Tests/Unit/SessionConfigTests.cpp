@@ -9,8 +9,8 @@
 
 #include <string.h>
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/defines.h"
 
 using namespace MafiaNet;

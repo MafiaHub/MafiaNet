@@ -13,15 +13,15 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/get_time.h"
 #include "mafianet/sleep.h"
-#include "mafianet/Gets.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/CloudServer.h"
-#include "mafianet/CloudClient.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/gets.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/cloud_server.h"
+#include "mafianet/cloud_client.h"
+#include "mafianet/kbhit.h"
 
 enum
 {

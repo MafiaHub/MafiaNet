@@ -16,12 +16,12 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "mafianet/GetTime.h"
-#include "mafianet/Rand.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/TwoWayAuthentication.h"
+#include "mafianet/get_time.h"
+#include "mafianet/rand.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/two_way_authentication.h"
 #include "mafianet/sleep.h"
 
 static const int NUM_PEERS=2;

@@ -30,13 +30,13 @@
 #ifndef __PHP_DIRECTORY_SERVER_2
 #define __PHP_DIRECTORY_SERVER_2
 
-#include "mafianet/Export.h"
+#include "mafianet/export.h"
 #include "mafianet/string.h"
-#include "mafianet/HTTPConnection.h"
+#include "mafianet/http_connection.h"
 #include "mafianet/types.h"
-#include "mafianet/DS_Queue.h"
-#include "mafianet/DS_Table.h"
-#include "mafianet/DS_Map.h"
+#include "mafianet/ds_queue.h"
+#include "mafianet/ds_table.h"
+#include "mafianet/ds_map.h"
 
 namespace MafiaNet {
 

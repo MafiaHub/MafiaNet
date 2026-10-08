@@ -12,7 +12,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/DS_Table.h"
+#include "mafianet/ds_table.h"
 
 #ifndef __ROOM_TYPES_H
 #define __ROOM_TYPES_H

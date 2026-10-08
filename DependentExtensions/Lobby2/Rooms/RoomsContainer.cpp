@@ -16,9 +16,9 @@
 #include "RoomsContainer.h"
 #include "ProfanityFilter.h"
 #include "mafianet/assert.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/TableSerializer.h"
+#include "mafianet/get_time.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/table_serializer.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

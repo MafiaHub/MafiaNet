@@ -12,8 +12,8 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/ConsoleServer.h"
-   #include "mafianet/TCPInterface.h"
+   #include "mafianet/console_server.h"
+   #include "mafianet/tcp_interface.h"
 
    MafiaNet::TCPInterface tcp;
    MafiaNet::ConsoleServer console;

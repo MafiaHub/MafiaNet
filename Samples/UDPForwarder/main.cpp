@@ -13,18 +13,18 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <string.h>
-#include "mafianet/Kbhit.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"
-#include "mafianet/UDPForwarder.h"
-#include "mafianet/SocketLayer.h"
+#include "mafianet/udp_forwarder.h"
+#include "mafianet/socket_layer.h"
 
 int main()
 {

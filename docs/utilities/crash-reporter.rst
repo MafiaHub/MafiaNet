@@ -56,7 +56,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/TCPInterface.h"
+   #include "mafianet/tcp_interface.h"
 
    // Simple crash report receiver
    void RunCrashServer() {

@@ -17,16 +17,16 @@
 /// \brief Test the command console implementations
 
 
-#include "mafianet/TCPInterface.h"
-#include "mafianet/ConsoleServer.h"
-#include "mafianet/commandparser.h"
-#include "mafianet/TelnetTransport.h"
+#include "mafianet/tcp_interface.h"
+#include "mafianet/console_server.h"
+#include "mafianet/command_parser.h"
+#include "mafianet/telnet_transport.h"
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/LogCommandParser.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/log_command_parser.h"
+#include "mafianet/get_time.h"
 #include "mafianet/transport2.h"
-#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_strings.h"
 #include <stdio.h>
 
 

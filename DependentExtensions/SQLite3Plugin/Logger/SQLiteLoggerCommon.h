@@ -13,7 +13,7 @@
 
 #include <string.h>
 #include "mafianet/defines.h"
-#include "mafianet/NativeTypes.h"
+#include "mafianet/native_types.h"
 
 namespace MafiaNet
 {

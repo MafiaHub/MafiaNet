@@ -18,7 +18,7 @@ Setup
 
 .. code-block:: cpp
 
-   #include "mafianet/TeamBalancer.h"
+   #include "mafianet/team_balancer.h"
 
    MafiaNet::TeamBalancer* balancer = MafiaNet::TeamBalancer::GetInstance();
    peer->AttachPlugin(balancer);

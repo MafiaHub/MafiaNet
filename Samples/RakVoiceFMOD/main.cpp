@@ -16,20 +16,20 @@
 #define INTERACTIVE
 
 #if defined(INTERACTIVE)
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Gets.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/gets.h"
 
 #include "mafianet/sleep.h"
-#include "mafianet/RakVoice.h"
+#include "mafianet/voice.h"
 #include "mafianet/statistics.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/get_time.h"
 #include "mafianet/assert.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
@@ -39,10 +39,6 @@
 
 #include "FMODVoiceAdapter.h"
 
-#if defined(_PS3) || defined(__PS3__)
-#include "Console2Includes.h"
-#include "fmodps3.h"
-#endif
 
 
 // Reads and writes per second of the sound data

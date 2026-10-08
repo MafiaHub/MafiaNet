@@ -14,9 +14,9 @@
  */
 
 #include "ProfanityFilter.h"
-#include "mafianet/Rand.h"
+#include "mafianet/rand.h"
 #include "mafianet/assert.h"
-#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_strings.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

@@ -82,7 +82,7 @@ template<size_t BufferSize> int vsnprintf_s(char (&buffer)[BufferSize], size_t c
 
 // MS gets_s function adapter - wraps MafiaNet's Gets function
 // Note: Samples should include this header for gets_s support on macOS
-#include "Gets.h"
+#include "mafianet/gets.h"
 template<size_t BufferSize> char* gets_s(char (&buffer)[BufferSize])
 {
 	return Gets(buffer, static_cast<int>(BufferSize));

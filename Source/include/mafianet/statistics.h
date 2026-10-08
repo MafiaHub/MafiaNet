@@ -22,9 +22,9 @@
 #ifndef __RAK_NET_STATISTICS_H
 #define __RAK_NET_STATISTICS_H
 
-#include "PacketPriority.h"
-#include "Export.h"
-#include "types.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/export.h"
+#include "mafianet/types.h"
 
 namespace MafiaNet
 {

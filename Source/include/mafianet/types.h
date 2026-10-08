@@ -19,13 +19,12 @@
 #ifndef __NETWORK_TYPES_H
 #define __NETWORK_TYPES_H
 
-#include "defines.h"
-#include "NativeTypes.h"
-#include "time.h"
-#include "Export.h"
-#include "WindowsIncludes.h"
-#include "XBox360Includes.h"
-#include "SocketIncludes.h"
+#include "mafianet/defines.h"
+#include "mafianet/native_types.h"
+#include "mafianet/time.h"
+#include "mafianet/export.h"
+#include "mafianet/windows_includes.h"
+#include "mafianet/socket_includes.h"
 
 namespace MafiaNet {
 /// Forward declarations
@@ -83,7 +82,7 @@ enum ConnectionState
 #define BITS_TO_BYTES(x) (((x)+7)>>3)
 #define BYTES_TO_BITS(x) ((x)<<3)
 
-/// \sa NetworkIDObject.h
+/// \sa network_id_object.h
 typedef unsigned char UniqueIDType;
 typedef unsigned short SystemIndex;
 typedef unsigned char RPCIndex;
@@ -155,15 +154,10 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	/// \pre RAKNET_SUPPORT_IPV6 must be set to 1 in RakNetDefines.h for AF_INET6
 	short socketFamily;
 
-	unsigned short remotePortRakNetWasStartedOn_PS3_PSP2;
-
-	// Required for Google chrome
-	_PP_Instance_ chromeInstance;
-
 	// Set to true to use a blocking socket (default, do not change unless you have a reason to)
 	bool blockingSocket;
 
-	/// XBOX only: set IPPROTO_VDP if you want to use VDP. If enabled, this socket does not support broadcast to 255.255.255.255
+	/// Protocol argument passed to socket(). Leave 0 (the default) for plain UDP.
 	unsigned int extraSocketOptions;
 };
 

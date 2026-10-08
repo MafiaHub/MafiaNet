@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/EmailSender.h"
+   #include "mafianet/email_sender.h"
 
    MafiaNet::EmailSender emailSender;
 
@@ -63,7 +63,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/FileList.h"
+   #include "mafianet/file_list.h"
 
    MafiaNet::FileList attachments;
    attachments.AddFile("report.txt", "report.txt",

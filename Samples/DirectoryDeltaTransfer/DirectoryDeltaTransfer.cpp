@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/get_time.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/statistics.h"
-#include "mafianet/DirectoryDeltaTransfer.h"
-#include "mafianet/FileListTransfer.h"
-#include "mafianet/FileList.h"
-#include "mafianet/DataCompressor.h"
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/Gets.h"
+#include "mafianet/directory_delta_transfer.h"
+#include "mafianet/file_list_transfer.h"
+#include "mafianet/file_list.h"
+#include "mafianet/data_compressor.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/gets.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -32,7 +32,7 @@
 #include <conio.h>
 #else
 #include <unistd.h> // usleep
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #endif
 
 using namespace MafiaNet;

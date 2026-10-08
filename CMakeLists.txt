@@ -31,6 +31,28 @@ option(MAFIANET_BUILD_SHARED "Build shared library" ON)
 option(MAFIANET_BUILD_STATIC "Build static library" ON)
 option(MAFIANET_BUILD_SAMPLES "Build sample applications" OFF)
 option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
+# Non-networking utilities (EmailSender, HTTPConnection/HTTPConnection2,
+# TelnetTransport, RakNetTransport2, ConsoleServer, LogCommandParser,
+# RakNetCommandParser, PacketConsoleLogger) live in the separate MafiaNetExtras
+# target. Off by default; several samples use them, so MAFIANET_BUILD_SAMPLES
+# turns it on.
+option(MAFIANET_BUILD_EXTRAS "Build the MafiaNetExtras library (SMTP, HTTP, telnet/console transports)" OFF)
+if(MAFIANET_BUILD_SAMPLES AND NOT MAFIANET_BUILD_EXTRAS)
+    message(STATUS "MafiaNet: MAFIANET_BUILD_SAMPLES requires the extras library; enabling MAFIANET_BUILD_EXTRAS")
+    set(MAFIANET_BUILD_EXTRAS ON CACHE BOOL "Build the MafiaNetExtras library (SMTP, HTTP, telnet/console transports)" FORCE)
+endif()
+
+# Plugin selection. Every optional plugin in the core library is guarded by a
+# _RAKNET_SUPPORT_<Name> flag from native_feature_includes.h. These two settings
+# are the supported way to compile plugins out without editing that header:
+#   -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin"   drop specific plugins
+#   -DMAFIANET_MINIMAL=ON                                         drop every optional plugin
+# The resulting defines are PUBLIC on the library targets, so consumers see the
+# same header configuration the library was built with. See
+# docs/getting-started/building.rst ("Minimal builds") and Source/CMakeLists.txt.
+set(MAFIANET_DISABLED_FEATURES "" CACHE STRING
+    "Semicolon-separated plugin names to compile out (see MAFIANET_OPTIONAL_FEATURES in Source/CMakeLists.txt)")
+option(MAFIANET_MINIMAL "Compile out every optional plugin (core transport only)" OFF)
 
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)

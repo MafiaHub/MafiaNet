@@ -13,17 +13,17 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/FileOperations.h"
-#include "mafianet/memoryoverride.h"
-#include "mafianet/ConsoleServer.h"
-#include "mafianet/LogCommandParser.h"
-#include "mafianet/commandparser.h"
-#include "mafianet/PacketLogger.h"
-#include "mafianet/DS_List.h"
-#include "mafianet/SocketLayer.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/file_operations.h"
+#include "mafianet/memory_override.h"
+#include "mafianet/console_server.h"
+#include "mafianet/log_command_parser.h"
+#include "mafianet/command_parser.h"
+#include "mafianet/packet_logger.h"
+#include "mafianet/ds_list.h"
+#include "mafianet/socket_layer.h"
 #include "mafianet/sleep.h"
-#include "mafianet/TCPInterface.h"
+#include "mafianet/tcp_interface.h"
 
 using namespace MafiaNet;
 

@@ -7,10 +7,10 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/Dispatcher.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/dispatcher.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/get_time.h"
 
 #include <string>
 

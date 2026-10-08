@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/CloudServer.h"
+   #include "mafianet/cloud_server.h"
 
    MafiaNet::CloudServer cloudServer;
    peer->AttachPlugin(&cloudServer);
@@ -25,7 +25,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/CloudClient.h"
+   #include "mafianet/cloud_client.h"
 
    MafiaNet::CloudClient cloudClient;
    peer->AttachPlugin(&cloudClient);

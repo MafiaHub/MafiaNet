@@ -22,7 +22,7 @@
 #ifndef __SQL_LITE_CLIENT_LOGGER_PACKET_LOGGER_H_
 #define __SQL_LITE_CLIENT_LOGGER_PACKET_LOGGER_H_
 
-#include "mafianet/PacketLogger.h"
+#include "mafianet/packet_logger.h"
 
 namespace MafiaNet
 {

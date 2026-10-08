@@ -8,8 +8,8 @@
 // Virtual World (dimension) sample.
 //
 // Demonstrates scoping player visibility at runtime with the virtual world
-// feature layered on ReplicaManager3 (see mafianet/VirtualWorld.h and
-// mafianet/VirtualWorldReplica3.h). This is the SA-MP SetPlayerVirtualWorld /
+// feature layered on ReplicaManager3 (see mafianet/virtual_world.h and
+// mafianet/virtual_world_replica3.h). This is the SA-MP SetPlayerVirtualWorld /
 // routing-bucket model: a player dropped into a dimension only sees players in
 // that same dimension, switchable on the fly with no reconnect.
 //
@@ -27,13 +27,13 @@
 // The sample is non-interactive: it drives the peers, prints what each client
 // sees at each step, and returns 0 only if visibility matched expectations.
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/ReplicaManager3.h"
-#include "mafianet/VirtualWorld.h"
-#include "mafianet/VirtualWorldReplica3.h"
-#include "mafianet/NetworkIDManager.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/replica_manager3.h"
+#include "mafianet/virtual_world.h"
+#include "mafianet/virtual_world_replica3.h"
+#include "mafianet/network_id_manager.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/sleep.h"
 
 #include <stdio.h>

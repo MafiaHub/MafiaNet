@@ -9,7 +9,7 @@
  */
 
 #include "SQLiteLoggerCommon.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

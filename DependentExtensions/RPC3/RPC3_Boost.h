@@ -45,9 +45,9 @@
 // Not needed?
 //#include <boost/fusion/container/generation/make_vector.hpp>
 
-#include "mafianet/NetworkIDManager.h"
-#include "mafianet/NetworkIDObject.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/network_id_manager.h"
+#include "mafianet/network_id_object.h"
+#include "mafianet/bit_stream.h"
 
 namespace MafiaNet
 {

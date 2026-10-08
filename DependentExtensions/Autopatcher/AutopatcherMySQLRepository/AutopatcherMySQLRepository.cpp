@@ -15,10 +15,10 @@
 
 #include "mafianet/string.h"
 #include "AutopatcherMySQLRepository.h"
-#include "mafianet/AutopatcherPatchContext.h"
-#include "mafianet/FileList.h"
+#include "mafianet/autopatcher_patch_context.h"
+#include "mafianet/file_list.h"
 #include "mafianet/assert.h"
-#include "mafianet/DS_List.h"
+#include "mafianet/ds_list.h"
 // ntohl
 #ifdef _WIN32
 #include <Winsock2.h>
@@ -29,10 +29,10 @@
 // If you get fatal error C1083: Cannot open include file: 'mysql.h' then you need to install MySQL. See readme.txt in this sample directory.
 #include "mysql.h"
 #include "CreatePatch.h"
-#include "mafianet/AutopatcherPatchContext.h"
-// #include "mafianet/DR_SHA1.h"
+#include "mafianet/autopatcher_patch_context.h"
+// #include "mafianet/dr_sha1.h"
 #include <stdlib.h>
-#include "mafianet/LinuxStrings.h"
+#include "mafianet/linux_strings.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

@@ -13,12 +13,12 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/Rackspace.h"
+#include "mafianet/rackspace.h"
 #include <stdio.h>
-#include "mafianet/Gets.h"
-#include "mafianet/Rackspace.h"
-#include "mafianet/TCPInterface.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/gets.h"
+#include "mafianet/rackspace.h"
+#include "mafianet/tcp_interface.h"
+#include "mafianet/kbhit.h"
 #include "mafianet/sleep.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"

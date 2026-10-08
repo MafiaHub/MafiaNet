@@ -13,18 +13,18 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/bit_stream.h"
 #include <stdlib.h> // For atoi
 #include <cstring> // For strlen
 #include "mafianet/statistics.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/MTUSize.h"
+#include "mafianet/get_time.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/mtu_size.h"
 #include <stdio.h>
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #include "mafianet/sleep.h"
-#include "mafianet/Gets.h"
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
@@ -201,7 +201,7 @@ int main(void)
 					unsigned int total;
 					unsigned int partLength;
 
-					// Disable endian swapping on reading this, as it's generated locally in ReliabilityLayer.cpp
+					// Disable endian swapping on reading this, as it's generated locally in reliability_layer.cpp
 					progressBS.ReadBits( (unsigned char* ) &progress, BYTES_TO_BITS(sizeof(progress)), true );
 					progressBS.ReadBits( (unsigned char* ) &total, BYTES_TO_BITS(sizeof(total)), true );
 					progressBS.ReadBits( (unsigned char* ) &partLength, BYTES_TO_BITS(sizeof(partLength)), true );

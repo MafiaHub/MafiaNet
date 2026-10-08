@@ -15,13 +15,13 @@
 
 #include "MasterServer.h"
 #include "MasterServerMessageIDs.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/get_time.h"
 #include "mafianet/statistics.h"
-#include "mafianet/PacketPriority.h"
+#include "mafianet/packet_priority.h"
 using namespace MafiaNet;
 
 // Uncomment this define for debugging printfs

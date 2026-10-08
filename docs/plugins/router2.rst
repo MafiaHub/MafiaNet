@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/Router2.h"
+   #include "mafianet/router2.h"
 
    MafiaNet::Router2 router2;
    peer->AttachPlugin(&router2);

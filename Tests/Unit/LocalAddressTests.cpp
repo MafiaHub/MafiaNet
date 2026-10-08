@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "mafianet/types.h"
 
 #include <string>

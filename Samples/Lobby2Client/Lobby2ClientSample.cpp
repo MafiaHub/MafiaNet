@@ -14,19 +14,19 @@
  */
 
 #include "Lobby2Message.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/message_identifiers.h"
 #include "Lobby2Client.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 #include "mafianet/sleep.h"
 #include "RoomsErrorCodes.h"
-#include "mafianet/DS_Queue.h"
+#include "mafianet/ds_queue.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/LinuxStrings.h"
-#include "mafianet/Gets.h"
+#include "mafianet/linux_strings.h"
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

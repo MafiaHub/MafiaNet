@@ -14,9 +14,9 @@
  */
 
 #include "SQLite3ServerPlugin.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/get_time.h"
 
 using namespace MafiaNet;
 

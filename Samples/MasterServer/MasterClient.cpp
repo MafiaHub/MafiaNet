@@ -15,11 +15,11 @@
 
 #include "MasterClient.h"
 #include "MasterServerMessageIDs.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/PacketPriority.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/get_time.h"
+#include "mafianet/packet_priority.h"
 #include <cstring>
 using namespace MafiaNet;
 

@@ -15,7 +15,7 @@
 
 #include "DSoundVoiceAdapter.h"
 #include "mafianet/assert.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include <tchar.h>
 
 /// To test sending to myself

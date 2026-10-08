@@ -14,7 +14,7 @@
  */
 
 #include "PostgreSQLInterface.h"
-#include "mafianet/VariadicSQLParser.h"
+#include "mafianet/variadic_sql_parser.h"
 
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
 #include "libpq-fe.h"
@@ -39,9 +39,9 @@
 
 #include "mafianet/string.h"
 #include "mafianet/assert.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/FormatString.h"
-#include "mafianet/LinuxStrings.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/format_string.h"
+#include "mafianet/linux_strings.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

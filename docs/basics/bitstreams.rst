@@ -18,7 +18,7 @@ BitStream is templated to accept any data type:
 
 .. code-block:: cpp
 
-   #include "mafianet/BitStream.h"
+   #include "mafianet/bit_stream.h"
 
    MafiaNet::BitStream bs;
 
@@ -81,7 +81,7 @@ The serialize() Convention (Archives)
 
 Instead of writing both shift operators, a type can describe its wire format
 once with a member ``serialize()`` template and be read/written through the
-``WriteArchive`` / ``ReadArchive`` adapters (``mafianet/Archive.h``):
+``WriteArchive`` / ``ReadArchive`` adapters (``mafianet/archive.h``):
 
 .. code-block:: cpp
 

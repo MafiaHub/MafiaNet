@@ -16,19 +16,19 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/get_time.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/types.h"
 #include "mafianet/sleep.h"
-#include "mafianet/FullyConnectedMesh2.h"
-#include "mafianet/ConnectionGraph2.h"
+#include "mafianet/fully_connected_mesh2.h"
+#include "mafianet/connection_graph2.h"
 #include <assert.h>
-#include "mafianet/SocketLayer.h"
-#include "mafianet/Kbhit.h"
-#include "mafianet/PacketLogger.h"
-#include "mafianet/Gets.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/socket_layer.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/packet_logger.h"
+#include "mafianet/gets.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/guid_util.h"
 
 using namespace MafiaNet;

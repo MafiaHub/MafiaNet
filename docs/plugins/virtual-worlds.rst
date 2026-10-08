@@ -42,7 +42,7 @@ global value:
 
 .. code-block:: cpp
 
-   #include "mafianet/VirtualWorld.h"
+   #include "mafianet/virtual_world.h"
 
    typedef uint32_t VirtualWorldId;                  // many dimensions
    static const VirtualWorldId VIRTUAL_WORLD_DEFAULT = 0;          // the overworld
@@ -64,7 +64,7 @@ topology defaults. You do **not** override the ``Query*`` methods themselves.
 
 .. code-block:: cpp
 
-   #include "mafianet/VirtualWorldReplica3.h"
+   #include "mafianet/virtual_world_replica3.h"
 
    class Player : public MafiaNet::VirtualWorldReplica3 {
    public:

@@ -1,12 +1,11 @@
 name: Deploy Documentation
 
+# Published documentation follows releases: it is rebuilt when a release tag
+# (vX.Y.Z) is pushed, never on ordinary pushes to master. workflow_dispatch
+# allows a manual rebuild.
 on:
   push:
-    branches: [master]
-    paths:
-      - 'docs/**'
-      - 'Source/include/**'
-      - '.github/workflows/docs.yml'
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:

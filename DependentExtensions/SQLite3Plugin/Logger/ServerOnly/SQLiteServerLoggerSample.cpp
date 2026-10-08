@@ -8,14 +8,14 @@
  * license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "SQLiteServerLoggerPlugin.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"
 
-#include "mafianet/Kbhit.h"
-#include "mafianet/GetTime.h"
-#include "mafianet/PacketizedTCP.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/get_time.h"
+#include "mafianet/packetized_tcp.h"
 
 
 int main(void)

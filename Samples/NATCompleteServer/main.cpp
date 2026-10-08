@@ -13,27 +13,27 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 #include "mafianet/sleep.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Kbhit.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"
-#include "mafianet/UDPProxyServer.h"
-#include "mafianet/UDPProxyCoordinator.h"
-#include "mafianet/NatPunchthroughServer.h"
-#include "mafianet/NatTypeDetectionServer.h"
-#include "mafianet/SocketLayer.h"
-#include "mafianet/Getche.h"
-#include "mafianet/Gets.h"
+#include "mafianet/udp_proxy_server.h"
+#include "mafianet/udp_proxy_coordinator.h"
+#include "mafianet/nat_punchthrough_server.h"
+#include "mafianet/nat_type_detection_server.h"
+#include "mafianet/socket_layer.h"
+#include "mafianet/getche.h"
+#include "mafianet/gets.h"
 #include "CloudServerHelper.h"
-#include "mafianet/CloudClient.h"
+#include "mafianet/cloud_client.h"
 #include "mafianet/statistics.h"
-#include "mafianet/RelayPlugin.h"
+#include "mafianet/relay_plugin.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

@@ -11,10 +11,10 @@
 #pragma once
 
 #include "mafianet/types.h"
-#include "mafianet/PluginInterface2.h"
-#include "mafianet/PacketPriority.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/InternalPacket.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/internal_packet.h"
 
 using namespace MafiaNet;
 class PacketChangerPlugin: public PluginInterface2

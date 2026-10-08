@@ -16,12 +16,12 @@
 #ifndef __RAK_W_STRING_H
 #define __RAK_W_STRING_H 
 
-#include "Export.h"
-#include "types.h" // int64_t
-#include "string.h"
+#include "mafianet/export.h"
+#include "mafianet/types.h" // int64_t
+#include "mafianet/string.h"
 
 #ifdef _WIN32
-#include "WindowsIncludes.h"
+#include "mafianet/windows_includes.h"
 #endif
 
 namespace MafiaNet

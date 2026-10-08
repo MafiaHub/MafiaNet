@@ -28,17 +28,17 @@
 #define SQLite3_STATEMENT_EXECUTE_THREADED
 
 #include "mafianet/types.h"
-#include "mafianet/Export.h"
-#include "mafianet/PluginInterface2.h"
-#include "mafianet/PacketPriority.h"
-#include "mafianet/SocketIncludes.h"
-#include "mafianet/DS_Multilist.h"
+#include "mafianet/export.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/socket_includes.h"
+#include "mafianet/ds_multilist.h"
 #include "mafianet/string.h"
 #include "sqlite3.h"
 #include "SQLite3PluginCommon.h"
 
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
-#include "mafianet/ThreadPool.h"
+#include "mafianet/thread_pool.h"
 #endif
 
 class RakPeerInterface;

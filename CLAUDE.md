@@ -62,6 +62,24 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_BUILD_STATIC` | ON | Build static library (.lib/.a) |
 | `MAFIANET_BUILD_SAMPLES` | OFF | Build sample applications |
 | `MAFIANET_BUILD_TESTS` | OFF | Build test suite |
+| `MAFIANET_BUILD_EXTRAS` | OFF | Build `MafiaNetExtras` (EmailSender, HTTPConnection*, Telnet/RakNet transports, ConsoleServer, command parsers, PacketConsoleLogger); forced ON by `MAFIANET_BUILD_SAMPLES` |
+| `MAFIANET_DISABLED_FEATURES` | (empty) | Semicolon list of plugins to compile out (`_RAKNET_SUPPORT_<Name>=0`); names validated against `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` |
+| `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
+
+When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, update
+`MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake
+plugin selection silently drifts from `native_feature_includes.h`.
+
+File names under `Source/` are lowercase `snake_case` (`bit_stream.h`, `peer_interface.h`,
+`reliability_layer.cpp`) with no `Rak`/`RakNet` prefix; this is MafiaNet. Class names keep
+their historical spelling. Inside `Source/include/mafianet/`, include sibling headers only
+as `"mafianet/<name>.h"`, never as a bare `"<name>.h"`: several library headers share a name
+with a C header (`string.h`, `time.h`, `assert.h`) and a bare quoted include would shadow
+it. CI greps for this. Do not add PascalCase or shim headers.
+
+Dead platforms (Xbox 360, PS3, PS4, Vita, Native Client) were removed on purpose.
+Do not reintroduce `__native_client__`, `_PS3`, `_PS4`, `SN_TARGET_*` or Xbox
+preprocessor islands; MafiaNet targets Windows, Linux, macOS and the BSDs.
 
 ### Batched Datagram I/O (recvmmsg / sendmmsg)
 
@@ -70,13 +88,13 @@ paths are guarded by a plain `#if defined(__linux__)`. Do not reintroduce a flag
 capability macro for this; a CMake option here was removed deliberately because it
 left the shipping path uncompiled on most machines.
 
-The portable helpers in `MmsgBatch.h` (`DriveBatchedSend`, `ClassifySendmmsgErrno`,
+The portable helpers in `mmsg_batch.h` (`DriveBatchedSend`, `ClassifySendmmsgErrno`,
 `SockaddrToSystemAddress`, `CompactRecvSlots`, `RNS2SendBatch`) compile and are unit
 tested on **every** platform; only the syscall glue is gated. Keep it that way — new
 logic belongs in a portable helper with a unit test, not inside the `#if`.
 
-When changing `Source/src/MmsgBatch.cpp`, `RakNetSocket2*.cpp`, or the send path in
-`ReliabilityLayer.cpp`, a macOS/Windows build proves nothing about the batched paths.
+When changing `Source/src/mmsg_batch.cpp`, `RakNetSocket2*.cpp`, or the send path in
+`reliability_layer.cpp`, a macOS/Windows build proves nothing about the batched paths.
 Verify on Linux, in **both** `Debug` and `Release` (`RakAssert` only fires in Debug;
 Release is what ships and exercises the backstops the asserts hide):
 
@@ -139,7 +157,7 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 - Ports: use OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")`, then `peer->GetInternalID().GetPort()`), never a new fixed port. (Some ported legacy tests still bind fixed ports; that is why the suite is `RUN_SERIAL` — do not add to the problem.)
 - Waiting: always poll for a condition with a deadline (`while (GetTimeMS() - start < N && !condition) { pump; RakSleep(30); }`), never assert immediately after a state change — packets surface asynchronously from each peer's network thread, and both sides of a handshake must be pumped until *each* has observed the event.
 - Never use a bare `RakSleep(N)` as a synchronization primitive; sleep only as the polling interval inside a deadline loop.
-- Cleanup must survive a failed `ASSERT_`: destroy peers in fixture `TearDown()` (`Shutdown(100)` then `DestroyInstance` for every peer created) or use RAII `Peer`/`PacketPtr` handles from `mafianet/PeerHandle.h`. Never rely on code after the assertions to clean up.
+- Cleanup must survive a failed `ASSERT_`: destroy peers in fixture `TearDown()` (`Shutdown(100)` then `DestroyInstance` for every peer created) or use RAII `Peer`/`PacketPtr` handles from `mafianet/peer_handle.h`. Never rely on code after the assertions to clean up.
 - Write correctness assertions so a real regression fails on every attempt: CI retries transient integration failures (`ctest --repeat until-pass:3`), which must only absorb timing misses, never actual bugs. Do not add retry loops inside tests.
 - Reusable connect/wait helpers live in `Tests/Support/` (`CommonFunctions.h`, `TestHelpers.h`); extend those rather than duplicating polling loops.
 
@@ -158,7 +176,7 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 - `BitStream` - Binary serialization for packets
 - `Packet` - Received network data container
 - `SystemAddress` - Network endpoint identifier
-- `MessageIdentifiers.h` - Packet type IDs (extend with `ID_USER_PACKET_ENUM`)
+- `message_identifiers.h` - Packet type IDs (extend with `ID_USER_PACKET_ENUM`)
 
 **Plugin System** (`PluginInterface2`):
 - Extend functionality by attaching plugins to RakPeerInterface
@@ -193,9 +211,9 @@ Dependencies (bzip2, miniupnpc, Opus, RNNoise) are automatically fetched via CMa
 ### Basic Usage Pattern
 
 ```cpp
-#include "mafianet/peerinterface.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
 
 // Create peer
 MafiaNet::RakPeerInterface* peer = MafiaNet::RakPeerInterface::GetInstance();

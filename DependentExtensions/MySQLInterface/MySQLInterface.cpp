@@ -15,17 +15,15 @@
 
 #include "MySQLInterface.h"
 #include "mafianet/assert.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/FormatString.h"
-#include "mafianet/LinuxStrings.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/format_string.h"
+#include "mafianet/linux_strings.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 #include <errmsg.h>
 
 
 #ifdef _WIN32
-#elif defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
-
 #else
 #include <stdlib.h>//atoi
 #endif

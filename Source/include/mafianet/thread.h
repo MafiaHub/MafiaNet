@@ -16,7 +16,7 @@
 #ifndef __RAK_THREAD_H
 #define __RAK_THREAD_H
 
-#include "Export.h"
+#include "mafianet/export.h"
 
 namespace MafiaNet
 {

@@ -13,28 +13,28 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/get_time.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/statistics.h"
-#include "mafianet/DirectoryDeltaTransfer.h"
-#include "mafianet/FileListTransfer.h"
+#include "mafianet/directory_delta_transfer.h"
+#include "mafianet/file_list_transfer.h"
 #include <cstdio>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Kbhit.h"
-#include "mafianet/FileList.h"
-#include "mafianet/DataCompressor.h"
-#include "mafianet/FileListTransferCBInterface.h"
+#include "mafianet/kbhit.h"
+#include "mafianet/file_list.h"
+#include "mafianet/data_compressor.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
 #include "mafianet/sleep.h"
-#include "mafianet/IncrementalReadInterface.h"
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/Gets.h"
+#include "mafianet/incremental_read_interface.h"
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
 #ifdef _WIN32
-#include "mafianet/WindowsIncludes.h" // Sleep
+#include "mafianet/windows_includes.h" // Sleep
 #else
 #include <unistd.h> // usleep
 #endif

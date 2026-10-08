@@ -7,9 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/Dispatcher.h"
-#include "mafianet/PeerHandle.h" // Peer, PacketPtr (live round-trip)
-#include "mafianet/GetTime.h"    // GetTime, GetTimeMS
+#include "mafianet/dispatcher.h"
+#include "mafianet/peer_handle.h" // Peer, PacketPtr (live round-trip)
+#include "mafianet/get_time.h"    // GetTime, GetTimeMS
 #include "mafianet/sleep.h"      // RakSleep
 
 #include <string>

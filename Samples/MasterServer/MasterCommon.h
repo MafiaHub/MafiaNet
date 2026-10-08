@@ -18,10 +18,10 @@
 #ifndef __MASTER_COMMON_H
 #define __MASTER_COMMON_H
 
-#include "mafianet/DS_List.h"
+#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/PluginInterface2.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/plugin_interface2.h"
 using namespace MafiaNet;
 
 // IP, Port, Ping - case sensitive!

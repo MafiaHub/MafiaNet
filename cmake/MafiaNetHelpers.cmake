@@ -32,8 +32,11 @@ function(mafianet_add_sample)
 
     add_executable(${SAMPLE_NAME} ${SAMPLE_SOURCES})
 
+    # Several samples use the extras plugins (EmailSender, HTTPConnection,
+    # console transports); MAFIANET_BUILD_SAMPLES forces that target on. It
+    # links the core PUBLIC, so link one or the other, never both.
     target_link_libraries(${SAMPLE_NAME} PRIVATE
-        MafiaNet::MafiaNetStatic
+        $<IF:$<TARGET_EXISTS:MafiaNetExtras>,MafiaNet::MafiaNetExtras,MafiaNet::MafiaNetStatic>
         ${SAMPLE_LIBS}
     )
 

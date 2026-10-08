@@ -7,11 +7,11 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/ReplicaManager3.h"
-#include "mafianet/VirtualWorld.h"
-#include "mafianet/VirtualWorldReplica3.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/replica_manager3.h"
+#include "mafianet/virtual_world.h"
+#include "mafianet/virtual_world_replica3.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/peer_interface.h"
 
 using namespace MafiaNet;
 

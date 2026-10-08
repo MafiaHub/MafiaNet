@@ -24,23 +24,23 @@
 #ifndef __RAK_PEER_H
 #define __RAK_PEER_H
 
-#include "ReliabilityLayer.h"
-#include "peerinterface.h"
-#include "BitStream.h"
-#include "SingleProducerConsumer.h"
-#include "SimpleMutex.h"
-#include "DS_OrderedList.h"
-#include "Export.h"
-#include "string.h"
-#include "thread.h"
+#include "mafianet/reliability_layer.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/single_producer_consumer.h"
+#include "mafianet/simple_mutex.h"
+#include "mafianet/ds_ordered_list.h"
+#include "mafianet/export.h"
+#include "mafianet/string.h"
+#include "mafianet/thread.h"
 //#include "socket.h"
-#include "smartptr.h"
-#include "DS_ThreadsafeAllocatingQueue.h"
-#include "SignaledEvent.h"
-#include "NativeFeatureIncludes.h"
-#include "SecureHandshake.h"
-#include "LocklessTypes.h"
-#include "DS_Queue.h"
+#include "mafianet/smart_ptr.h"
+#include "mafianet/ds_threadsafe_allocating_queue.h"
+#include "mafianet/signaled_event.h"
+#include "mafianet/native_feature_includes.h"
+#include "mafianet/secure_handshake.h"
+#include "mafianet/lockless_types.h"
+#include "mafianet/ds_queue.h"
 
 namespace MafiaNet {
 /// Forward declarations
@@ -76,7 +76,7 @@ public:
 	/// \note Call SetMaximumIncomingConnections if you want to accept incoming connections.
 	/// \param[in] maxConnections Maximum number of connections between this instance of RakPeer and another instance of RakPeer. Required so that the network can preallocate and for thread safety. A pure client would set this to 1.  A pure server would set it to the number of allowed clients.A hybrid would set it to the sum of both types of connections.
 	/// \param[in] localPort The port to listen for connections on. On linux the system may be set up so thast ports under 1024 are restricted for everything but the root user. Use a higher port for maximum compatibility. 
-	/// \param[in] socketDescriptors An array of SocketDescriptor structures to force RakNet to listen on a particular IP address or port (or both).  Each SocketDescriptor will represent one unique socket.  Do not pass redundant structures.  To listen on a specific port, you can pass SocketDescriptor(myPort,0); such as for a server.  For a client, it is usually OK to just pass SocketDescriptor(); However, on the XBOX be sure to use IPPROTO_VDP
+	/// \param[in] socketDescriptors An array of SocketDescriptor structures to force RakNet to listen on a particular IP address or port (or both).  Each SocketDescriptor will represent one unique socket.  Do not pass redundant structures.  To listen on a specific port, you can pass SocketDescriptor(myPort,0); such as for a server.  For a client, it is usually OK to just pass SocketDescriptor();
 	/// \param[in] socketDescriptorCount The size of the \a socketDescriptors array.  Pass 1 if you are not sure what to pass.
 	/// \param[in] threadPriority Passed to the thread creation routine. Use THREAD_PRIORITY_NORMAL for Windows. For Linux based systems, you MUST pass something reasonable based on the thread priorities for your application.
 	/// \return RAKNET_STARTED on success, otherwise appropriate failure enumeration.
@@ -87,7 +87,7 @@ public:
 	/// x64 builds require under 25% of the CPU time of other builds
 	/// See the Encryption sample for example usage
 	/// \pre Must be called while offline
-	/// \pre LIBCAT_SECURITY must be defined to 1 in NativeFeatureIncludes.h for this function to have any effect
+	/// \pre LIBCAT_SECURITY must be defined to 1 in native_feature_includes.h for this function to have any effect
 	/// \param[in] publicKey A pointer to the public key for accepting new connections
 	/// \param[in] privateKey A pointer to the private key for accepting new connections
 	/// \param[in] bRequireClientKey: Should be set to false for most servers.  Allows the server to accept a public key from connecting clients as a proof of identity but eats twice as much CPU time as a normal connection
@@ -216,8 +216,8 @@ public:
 	/// \note The first byte should be a message identifier starting at ID_USER_PACKET_ENUM.
 	/// \param[in] data Block of data to send.
 	/// \param[in] length Size in bytes of the data to send.
-	/// \param[in] priority Priority level to send on.  See PacketPriority.h
-	/// \param[in] reliability How reliably to send this data.  See PacketPriority.h
+	/// \param[in] priority Priority level to send on.  See packet_priority.h
+	/// \param[in] reliability How reliably to send this data.  See packet_priority.h
 	/// \param[in] orderingChannel When using ordered or sequenced messages, the channel to order these on. Messages are only ordered relative to other messages on the same stream.
 	/// \param[in] systemIdentifier Who to send this packet to, or in the case of broadcasting who not to send it to. Pass either a SystemAddress structure or a RakNetGUID structure. Use UNASSIGNED_SYSTEM_ADDRESS or to specify none
 	/// \param[in] broadcast True to send this packet to all connected systems. If true, then systemAddress specifies who not to send the packet to.
@@ -237,8 +237,8 @@ public:
 	/// 
 	/// Same as the above version, but takes a BitStream as input.
 	/// \param[in] bitStream Bitstream to send
-	/// \param[in] priority Priority level to send on.  See PacketPriority.h
-	/// \param[in] reliability How reliably to send this data.  See PacketPriority.h
+	/// \param[in] priority Priority level to send on.  See packet_priority.h
+	/// \param[in] reliability How reliably to send this data.  See packet_priority.h
 	/// \param[in] orderingChannel Channel to order the messages on, when using ordered or sequenced messages. Messages are only ordered relative to other messages on the same stream.
 	/// \param[in] systemIdentifier System Address or RakNetGUID to send this packet to, or in the case of broadcasting, the address not to send it to.  Use UNASSIGNED_SYSTEM_ADDRESS to specify none.
 	/// \param[in] broadcast True to send this packet to all connected systems. If true, then systemAddress specifies who not to send the packet to.
@@ -260,8 +260,8 @@ public:
 	/// \param[in] data An array of pointers to blocks of data
 	/// \param[in] lengths An array of integers indicating the length of each block of data
 	/// \param[in] numParameters Length of the arrays data and lengths
-	/// \param[in] priority Priority level to send on.  See PacketPriority.h
-	/// \param[in] reliability How reliably to send this data.  See PacketPriority.h
+	/// \param[in] priority Priority level to send on.  See packet_priority.h
+	/// \param[in] reliability How reliably to send this data.  See packet_priority.h
 	/// \param[in] orderingChannel Channel to order the messages on, when using ordered or sequenced messages. Messages are only ordered relative to other messages on the same stream.
 	/// \param[in] systemIdentifier System Address or RakNetGUID to send this packet to, or in the case of broadcasting, the address not to send it to.  Use UNASSIGNED_SYSTEM_ADDRESS to specify none.
 	/// \param[in] broadcast True to send this packet to all connected systems. If true, then systemAddress specifies who not to send the packet to.
@@ -460,7 +460,6 @@ public:
 	
 	//--------------------------------------------------------------------------------------------Network Functions - Functions dealing with the network in general--------------------------------------------------------------------------------------------
 	/// \brief Returns the unique address identifier that represents you or another system on the the network
-	/// \note Not supported by the XBOX
 	/// \param[in] systemAddress Use UNASSIGNED_SYSTEM_ADDRESS to get your behind-LAN address. Use a connected system to get their behind-LAN address. This does not return the port.
 	/// \param[in] index When you have multiple internal IDs, which index to return? Currently limited to MAXIMUM_NUMBER_OF_INTERNAL_IDS (so the maximum value of this variable is MAXIMUM_NUMBER_OF_INTERNAL_IDS-1)
 	/// \return Identifier of your system internally, which may not be how other systems see if you if you are behind a NAT or proxy.
@@ -695,7 +694,7 @@ public:
 	/// \internal
 	// Call manually if RAKPEER_USER_THREADED==1 at least every 30 milliseconds.
 	// Call in a loop until returns false if the socket is non-blocking
-	// remotePortRakNetWasStartedOn_PS3 and extraSocketOptions are from SocketDescriptor when the socket was created
+	// extraSocketOptions is from SocketDescriptor when the socket was created
 	// bool RunRecvFromOnce( RakNetSocket *s );
 
 	/// \internal
@@ -994,7 +993,6 @@ protected:
 		char *data;
 		bool haveRakNetCloseSocket;
 		unsigned connectionSocketIndex;
-		unsigned short remotePortRakNetWasStartedOn_PS3;
 		unsigned int extraSocketOptions;
 		RakNetSocket2* socket;
 		unsigned short port;
@@ -1173,9 +1171,6 @@ protected:
 		/// Produce the connection packet that was withheld while the session handshake ran.
 		void ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId);
 }
-// #if defined(SN_TARGET_PSP2)
-// __attribute__((aligned(8)))
-// #endif
 ;
 
 } // namespace MafiaNet

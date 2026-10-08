@@ -166,7 +166,7 @@ For tracking statistics over time, use the StatisticsHistory plugin:
 
 .. code-block:: cpp
 
-   #include "mafianet/StatisticsHistory.h"
+   #include "mafianet/statistics_history.h"
 
    MafiaNet::StatisticsHistoryPlugin* statsHistory =
        MafiaNet::StatisticsHistoryPlugin::GetInstance();

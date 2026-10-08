@@ -23,7 +23,7 @@
 #define __MASTER_CLIENT_H
 
 #include "MasterCommon.h"
-#include "mafianet/BitStream.h"
+#include "mafianet/bit_stream.h"
 
 /// \ingroup MasterServer
 /// \brief implements the master client

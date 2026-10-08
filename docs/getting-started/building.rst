@@ -53,12 +53,83 @@ Configure build options with CMake:
    * - ``MAFIANET_BUILD_TESTS``
      - OFF
      - Build GoogleTest suite (requires ``MAFIANET_BUILD_STATIC=ON``)
+   * - ``MAFIANET_BUILD_EXTRAS``
+     - OFF
+     - Build ``MafiaNetExtras`` (SMTP, HTTP client, telnet/console transports). Forced ON by ``MAFIANET_BUILD_SAMPLES``. See `The extras library`_.
+   * - ``MAFIANET_DISABLED_FEATURES``
+     - (empty)
+     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;RPC4Plugin"``. See `Minimal builds`_.
+   * - ``MAFIANET_MINIMAL``
+     - OFF
+     - Compile out every optional plugin, leaving the core transport only. See `Minimal builds`_.
 
 Example with options:
 
 .. code-block:: bash
 
    cmake -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON ..
+
+Minimal builds
+--------------
+
+Every optional plugin in the core library (``ReplicaManager3``, ``RPC4Plugin``,
+``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
+users, and so on) is guarded by a ``_RAKNET_SUPPORT_<Name>`` flag declared in
+``mafianet/native_feature_includes.h``. The transport itself, ``BitStream``,
+``RakPeer``, the reliability layer and ``RakVoice`` are always built.
+
+The supported way to compile plugins out is through CMake, not by editing the
+header:
+
+.. code-block:: bash
+
+   # Drop specific plugins
+   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin;TeamManager"
+
+   # Core transport only: every optional plugin compiled out
+   cmake -B build -DMAFIANET_MINIMAL=ON
+
+The names accepted by ``MAFIANET_DISABLED_FEATURES`` are listed in
+``MAFIANET_OPTIONAL_FEATURES`` in ``Source/CMakeLists.txt``; an unknown name
+is a configure error. The resulting ``_RAKNET_SUPPORT_<Name>=0`` definitions
+are ``PUBLIC`` on the library targets, so code that links ``MafiaNet::MafiaNet``
+or ``MafiaNet::MafiaNetStatic`` sees the same header configuration the library
+was built with. Plugins that depend on one another are resolved by the header:
+disabling ``FileListTransfer`` while keeping ``DirectoryDeltaTransfer`` keeps
+``FileListTransfer`` enabled, for instance.
+
+A minimal build is exercised in CI (the ``linux-minimal`` job), which
+configures with ``-DMAFIANET_MINIMAL=ON`` and builds both library targets.
+The test suites need the plugins, so they are not built in that configuration.
+
+The extras library
+------------------
+
+Utilities that are not game networking live in a separate static library,
+``MafiaNetExtras`` (``MafiaNet::MafiaNetExtras``), built only when
+``MAFIANET_BUILD_EXTRAS=ON``:
+
+* ``EmailSender`` (SMTP client)
+* ``HTTPConnection`` and ``HTTPConnection2`` (HTTP clients over ``TCPInterface``)
+* ``TelnetTransport`` and ``RakNetTransport2`` (command transports)
+* ``ConsoleServer``, ``CommandParserInterface``, ``RakNetCommandParser`` and ``LogCommandParser`` (remote console)
+* ``PacketConsoleLogger`` (packet logger writing to a ``LogCommandParser``)
+
+Their headers stay under ``include/mafianet/``, so include paths are unchanged;
+only the link line changes. The extras target links the core library
+``PUBLIC``, so linking it alone is enough:
+
+.. code-block:: cmake
+
+   find_package(MafiaNet REQUIRED)
+   target_link_libraries(my_tool PRIVATE MafiaNet::MafiaNetExtras)
+
+The classes still honour their ``_RAKNET_SUPPORT_<Name>`` flags, and
+``MAFIANET_DISABLED_FEATURES`` applies to the extras target too.
+
+Using ``native_feature_includes_overrides.h`` to set the same flags still works,
+but the CMake route keeps the configuration in the build system, where it is
+visible to consumers through the exported targets.
 
 Batched Datagram I/O
 --------------------
@@ -123,8 +194,8 @@ figures. Reproduce with:
 
 The per-datagram column is the code every non-Linux platform runs. To reproduce it
 on Linux, flip the ``#if defined(__linux__)`` batching guards in
-``RakNetSocket2.cpp``, ``RakNetSocket2_Berkley.cpp``, ``ReliabilityLayer.cpp`` and
-``socket2.h`` to ``#if 0``.
+``socket2.cpp``, ``socket2_berkley.cpp``, ``reliability_layer.cpp`` and
+``RakNetSocket2.h`` to ``#if 0``.
 
 Running Tests
 -------------

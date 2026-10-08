@@ -16,25 +16,25 @@
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
-#include "mafianet/GetTime.h"
-#include "mafianet/Rand.h"
-#include "mafianet/Rand.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/get_time.h"
+#include "mafianet/rand.h"
+#include "mafianet/rand.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
 
 #include "mafianet/types.h"
-#include "mafianet/NativeFeatureIncludes.h"
+#include "mafianet/native_feature_includes.h"
 #include <assert.h>
 #include "mafianet/sleep.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/SecureHandshake.h" // Include header for secure handshake
-#include "mafianet/Gets.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/secure_handshake.h" // Include header for secure handshake
+#include "mafianet/gets.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 using namespace MafiaNet;
 
 #if LIBCAT_SECURITY!=1
-#error "Define LIBCAT_SECURITY 1 in NativeFeatureIncludesOverrides.h to enable Encryption"
+#error "Define LIBCAT_SECURITY 1 in native_feature_includes_overrides.h to enable Encryption"
 #endif
 
 void PrintOptions(void)
@@ -340,7 +340,7 @@ int main(void)
 						peer1GotMessage=true;
 						printf("Host got: ");
 						PrintPacketHeader(packet);
-#if defined(_DEBUG) && !defined(__native_client__)
+#if defined(_DEBUG)
 						if (doTwoWayAuthentication)
 						{
 							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];
@@ -355,7 +355,7 @@ int main(void)
 						peer2GotMessage=true;
 						printf("Connecting system got: ");
 						PrintPacketHeader(packet);
-#if defined(_DEBUG) && !defined(__native_client__)
+#if defined(_DEBUG)
 						if (doTwoWayAuthentication)
 						{
 							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];

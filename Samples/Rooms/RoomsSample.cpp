@@ -14,13 +14,13 @@
  */
 
 #include "RoomsPlugin.h"
-#include "mafianet/peerinterface.h"
+#include "mafianet/peer_interface.h"
 
 #include "ProfanityFilter.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/Kbhit.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/kbhit.h"
 #include <ctype.h>
-#include "mafianet/Gets.h"
+#include "mafianet/gets.h"
 
 struct SampleCallbacks : public MafiaNet::RoomsCallback
 {

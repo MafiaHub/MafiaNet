@@ -18,17 +18,17 @@
 ///
 
 
-#include "NativeFeatureIncludes.h"
+#include "mafianet/native_feature_includes.h"
 #if _RAKNET_SUPPORT_TelnetTransport==1
 
 #ifndef __RAKNET_TRANSPORT_2
 #define __RAKNET_TRANSPORT_2
 
-#include "TransportInterface.h"
-#include "DS_Queue.h"
-#include "CommandParserInterface.h"
-#include "PluginInterface2.h"
-#include "Export.h"
+#include "mafianet/transport_interface.h"
+#include "mafianet/ds_queue.h"
+#include "mafianet/command_parser_interface.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/export.h"
 
 namespace MafiaNet
 {

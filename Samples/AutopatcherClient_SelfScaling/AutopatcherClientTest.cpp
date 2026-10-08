@@ -25,24 +25,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
-#include "mafianet/Kbhit.h"
+#include "mafianet/kbhit.h"
 
-#include "mafianet/GetTime.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/PacketizedTCP.h"
+#include "mafianet/get_time.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/packetized_tcp.h"
 #include "mafianet/socket2.h"
 
 // Client only includes
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/FileListTransfer.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/file_list_transfer.h"
 #include "AutopatcherClient.h"
-#include "mafianet/AutopatcherPatchContext.h"
-#include "mafianet/Gets.h"
+#include "mafianet/autopatcher_patch_context.h"
+#include "mafianet/gets.h"
 #include "mafianet/sleep.h"
-#include "mafianet/CloudClient.h"
+#include "mafianet/cloud_client.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 

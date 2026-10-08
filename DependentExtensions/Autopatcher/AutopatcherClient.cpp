@@ -14,28 +14,28 @@
  */
 
 #include "AutopatcherClient.h"
-#include "mafianet/DirectoryDeltaTransfer.h"
-#include "mafianet/FileList.h"
-#include "mafianet/StringCompressor.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/FileListTransfer.h"
-#include "mafianet/FileListTransferCBInterface.h"
-#include "mafianet/BitStream.h"
-#include "mafianet/MessageIdentifiers.h"
-#include "mafianet/AutopatcherPatchContext.h"
+#include "mafianet/directory_delta_transfer.h"
+#include "mafianet/file_list.h"
+#include "mafianet/string_compressor.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/file_list_transfer.h"
+#include "mafianet/file_list_transfer_cb_interface.h"
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/autopatcher_patch_context.h"
 #include "ApplyPatch.h"
-#include "mafianet/FileOperations.h"
-//#include "mafianet/DR_SHA1.h"
+#include "mafianet/file_operations.h"
+//#include "mafianet/dr_sha1.h"
 #include <stdio.h>
-#include "mafianet/FileOperations.h"
+#include "mafianet/file_operations.h"
 #include "mafianet/assert.h"
-#include "mafianet/ThreadPool.h"
+#include "mafianet/thread_pool.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 
-#include "mafianet/SuperFastHash.h"
+#include "mafianet/super_fast_hash.h"
 static const unsigned HASH_LENGTH=4;
 
 #define COPY_ON_RESTART_EXTENSION ".patched.tmp"

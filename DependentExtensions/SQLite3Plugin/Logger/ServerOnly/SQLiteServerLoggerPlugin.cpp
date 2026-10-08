@@ -9,14 +9,14 @@
  */
 
 #include "SQLiteServerLoggerPlugin.h"
-#include "mafianet/peerinterface.h"
-#include "mafianet/PacketizedTCP.h"
-#include "mafianet/MessageIdentifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/packetized_tcp.h"
+#include "mafianet/message_identifiers.h"
 #include "SQLiteLoggerCommon.h"
 #include "jpeglib.h"
 #include "jpeg_memory_dest.h"
-#include "mafianet/FileOperations.h"
-#include "mafianet/GetTime.h"
+#include "mafianet/file_operations.h"
+#include "mafianet/get_time.h"
 #include <time.h>
 #include <stdio.h>
 #include <sys/types.h>

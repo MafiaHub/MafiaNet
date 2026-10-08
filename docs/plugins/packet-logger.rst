@@ -12,7 +12,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/PacketLogger.h"
+   #include "mafianet/packet_logger.h"
 
    MafiaNet::PacketLogger packetLogger;
    peer->AttachPlugin(&packetLogger);

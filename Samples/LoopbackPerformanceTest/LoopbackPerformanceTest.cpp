@@ -13,16 +13,16 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/peerinterface.h"
-#include "mafianet/MessageIdentifiers.h" // Enumerations
-#include "mafianet/GetTime.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/message_identifiers.h" // Enumerations
+#include "mafianet/get_time.h"
 #include "mafianet/statistics.h"
 #include <cstdio>
 #include <stdlib.h>
-#include "mafianet/Gets.h"
+#include "mafianet/gets.h"
 
 #ifdef _WIN32
-#include "mafianet/WindowsIncludes.h" // Sleep
+#include "mafianet/windows_includes.h" // Sleep
 #define SLEEP(arg) ( Sleep( (arg) ) )
 #else
 #include <unistd.h> // usleep
