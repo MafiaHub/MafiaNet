@@ -207,7 +207,22 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	listenSocket=0;
 	if (maxIncomingConnections>0)
 	{
-		CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress);
+		// The result was discarded, so a failed bind -- the port already in use, say
+		// -- left Start() returning true with nothing listening, and the caller had
+		// no way to find out.
+		if (CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress)==false)
+		{
+			if (listenSocket!=0)
+			{
+				closesocket__(listenSocket);
+				listenSocket=0;
+			}
+			remoteClientsLength=0;
+			MafiaNet::OP_DELETE_ARRAY(remoteClients,_FILE_AND_LINE_);
+			remoteClients=0;
+			isStarted.Decrement();
+			return false;
+		}
 	}
 
 
@@ -266,6 +281,11 @@ void TCPInterface::Stop(void)
 	{
 		closesocket__(blockingSocketList[i]);
 	}
+	// The list was not cleared here, so a second Stop() -- or the one in the
+	// destructor -- closed the same descriptors again. Descriptor numbers are
+	// reused, so the second close can land on a socket something else has since
+	// opened.
+	blockingSocketList.clear();
 	blockingSocketListMutex.Unlock();
 
 	// Wait for the thread to stop
@@ -279,7 +299,14 @@ void TCPInterface::Stop(void)
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i=0; i < remoteClientsLength; i++)
 	{
-		closesocket__(remoteClients[i].socket);
+		// 0 is this class's "no socket" value (RemoteClient's constructor sets it,
+		// and RemoteClient::SetActive guards on it), but it is also a perfectly
+		// valid descriptor. Closing it unconditionally closed descriptor 0 --
+		// stdin in a normal process -- once per unused slot. Beyond the obvious,
+		// that freed descriptor 0 for reuse, and the next socket created in the
+		// process got it and was then read as "no socket" by every check here.
+		if (remoteClients[i].socket!=0)
+			closesocket__(remoteClients[i].socket);
 #if OPEN_SSL_CLIENT_SUPPORT==1
 		remoteClients[i].FreeSSL();
 #endif
