@@ -27,6 +27,8 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/ds_hash.h"
+#include <unordered_map>
+#include <vector>
 #include "mafianet/export.h"
 
 /// MessageIdentifier (ID_*) values shoudln't go higher than this.  Change it if you do.
@@ -188,9 +190,28 @@ protected:
 	FilterSet* GetFilterSetByID(int filterSetID);
 	void OnInvalidMessage(FilterSet *filterSet, AddressOrGUID systemAddress, unsigned char messageID);
 
-	DataStructures::OrderedList<int, FilterSet*, FilterSetComp> filterList;
+	// Kept sorted ascending by FilterSet::filterSetID and searched with std::lower_bound,
+	// matching the OrderedList it replaces. GetFilterSetIDByIndex publishes this index.
+	std::vector<FilterSet *> filterList;
+
 	// Change to guid
-	DataStructures::Hash<AddressOrGUID, FilteredSystem, 2048, AddressOrGUID::ToInteger> systemList;
+	// Same hash and same equality as the DataStructures::Hash this replaces, so behaviour is
+	// unchanged -- including a pre-existing quirk worth knowing about: AddressOrGUID::operator==
+	// matches when EITHER the guid or the address matches, while ToInteger hashes on the guid
+	// when one is set and the address otherwise. Two keys that compare equal can therefore hash
+	// differently and miss each other. That is inherited deliberately; changing key equality
+	// would change which systems a filter set matches.
+	struct AddressOrGUIDKeyHash
+	{
+		size_t operator()(const AddressOrGUID &aog) const
+		{
+			return (size_t) AddressOrGUID::ToInteger(aog);
+		}
+	};
+	std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash> systemList;
+
+	// Position of filterSetID in filterList, or of where it would be inserted.
+	unsigned int IndexForFilterSetID(int filterSetID, bool *found) const;
 
 	int autoAddNewConnectionsToFilter;
 	MafiaNet::Time whenLastTimeoutCheck;
