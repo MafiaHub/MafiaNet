@@ -25,7 +25,7 @@
 #include "mafianet/ds_huffman_encoding_tree_node.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/export.h"
-#include "mafianet/ds_linked_list.h" 
+#include <list>
 
 namespace MafiaNet
 {
@@ -71,7 +71,7 @@ private:
 
 	CharacterEncoding encodingTable[ 256 ];
 
-	void InsertNodeIntoSortedList( HuffmanEncodingTreeNode * node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList ) const;
+	void InsertNodeIntoSortedList( HuffmanEncodingTreeNode * node, std::list<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList ) const;
 };
 
 } // namespace MafiaNet

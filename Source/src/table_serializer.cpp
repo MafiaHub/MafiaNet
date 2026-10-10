@@ -23,19 +23,14 @@ using namespace MafiaNet;
 
 void TableSerializer::SerializeTable(DataStructures::Table *in, MafiaNet::BitStream *out)
 {
-	DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> *cur = in->GetRows().GetListHead();
+	const std::map<unsigned, DataStructures::Table::Row*> &rows = in->GetRows();
 	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns=in->GetColumns();
 	SerializeColumns(in, out);
-	out->Write((unsigned)in->GetRows().Size());
-	unsigned rowIndex;
-	while (cur)
-	{
-		for (rowIndex=0; rowIndex < (unsigned)cur->size; rowIndex++)
-		{
-			SerializeRow(cur->data[rowIndex], cur->keys[rowIndex], columns, out);
-		}
-		cur=cur->next;
-	}
+	out->Write((unsigned)rows.size());
+	// Ascending key order, exactly as the B+ tree leaf walk this replaced, so the wire order of rows
+	// is unchanged and an old peer deserializes a new peer's table identically.
+	for (std::map<unsigned, DataStructures::Table::Row*>::const_iterator it = rows.begin(); it != rows.end(); ++it)
+		SerializeRow(it->second, it->first, columns, out);
 }
 void TableSerializer::SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out)
 {

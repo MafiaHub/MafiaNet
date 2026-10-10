@@ -21,12 +21,11 @@
 #define __TABLE_H
 
 #include "mafianet/ds_list.h"
-#include "mafianet/ds_bplus_tree.h"
+#include <map>
 #include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 #include "mafianet/string.h"
 
-#define _TABLE_BPLUS_TREE_ORDER 16
 #define _TABLE_MAX_COLUMN_NAME_LENGTH 64
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures
@@ -320,10 +319,9 @@ namespace DataStructures
 		const DataStructures::List<ColumnDescriptor>& GetColumns(void) const;
 
 		/// \brief Direct access to make things easier.
-		const DataStructures::BPlusTree<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER>& GetRows(void) const;
-
-		/// \brief Get the head of a linked list containing all the row data.
-		DataStructures::Page<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> * GetListHead(void);
+		/// Rows are keyed by row id and iterate in ascending id order, as the B+ tree this replaced
+		/// did, so serialization and query order are unchanged.
+		const std::map<unsigned, Row*>& GetRows(void) const;
 
 		/// \brief Get the first free row id.
 		/// This could be made more efficient.
@@ -338,9 +336,7 @@ namespace DataStructures
 
 		void QueryRow(DataStructures::List<unsigned> &inclusionFilterColumnIndices, DataStructures::List<unsigned> &columnIndicesToReturn, unsigned key, Table::Row* row, FilterQuery *inclusionFilters, Table *result);
 
-		// 16 is arbitrary and is the order of the BPlus tree.  Higher orders are better for searching while lower orders are better for
-		// Insertions and deletions.
-		DataStructures::BPlusTree<unsigned, Row*, _TABLE_BPLUS_TREE_ORDER> rows;
+		std::map<unsigned, Row*> rows;
 
 		// Columns in the table.
 		DataStructures::List<ColumnDescriptor> columns;

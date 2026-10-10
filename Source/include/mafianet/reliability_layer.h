@@ -34,10 +34,9 @@
 #include "mafianet/dr_sha1.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/ds_range_list.h"
-#include "mafianet/ds_bplus_tree.h"
 #include "mafianet/ds_memory_pool.h"
 #include "mafianet/defines.h"
-#include "mafianet/ds_heap.h"
+#include "mafianet/weighted_heap.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/native_feature_includes.h"
 #include "mafianet/secure_handshake.h"
@@ -480,7 +479,7 @@ private:
 //	CCTimeType lastPacketlossTime;
 
 	//DataStructures::Queue<InternalPacket*> sendPacketSet[ MafiaNet::NUMBER_OF_PRIORITIES ];
-	DataStructures::Heap<reliabilityHeapWeightType, InternalPacket*, false> outgoingPacketBuffer;
+	MafiaNet::WeightedHeap<reliabilityHeapWeightType, InternalPacket*> outgoingPacketBuffer;
 	reliabilityHeapWeightType outgoingPacketBufferNextWeights[MafiaNet::NUMBER_OF_PRIORITIES];
 	void InitHeapWeights(void);
 	reliabilityHeapWeightType GetNextWeight(int priorityLevel);
@@ -528,7 +527,7 @@ private:
 	OrderingIndexType orderedReadIndex[NUMBER_OF_ORDERED_STREAMS];
 	// Highest value received for sequencedWriteIndex for the current value of orderedReadIndex on the same channel.
 	OrderingIndexType highestSequencedReadIndex[NUMBER_OF_ORDERED_STREAMS];
-	DataStructures::Heap<reliabilityHeapWeightType, InternalPacket*, false> orderingHeaps[NUMBER_OF_ORDERED_STREAMS];
+	MafiaNet::WeightedHeap<reliabilityHeapWeightType, InternalPacket*> orderingHeaps[NUMBER_OF_ORDERED_STREAMS];
 	OrderingIndexType heapIndexOffsets[NUMBER_OF_ORDERED_STREAMS];
 
 	

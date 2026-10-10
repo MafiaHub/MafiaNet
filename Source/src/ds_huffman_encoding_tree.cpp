@@ -72,7 +72,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 	HuffmanEncodingTreeNode * node;
 	HuffmanEncodingTreeNode *leafList[ 256 ]; // Keep a copy of the pointers to all the leaves so we can generate the encryption table bottom-up, which is easier
 	// 1.  Make 256 trees each with a weight equal to the frequency of the corresponding character
-	DataStructures::LinkedList<HuffmanEncodingTreeNode *> huffmanEncodingTreeNodeList;
+	std::list<HuffmanEncodingTreeNode *> huffmanEncodingTreeNodeList;
 
 	FreeMemory();
 
@@ -97,10 +97,11 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 	// children of a new node, where the new node has the weight the sum of the weight of the left and right child nodes.
 	for(;;)
 	{
-		huffmanEncodingTreeNodeList.Beginning();
 		HuffmanEncodingTreeNode *lesser, *greater;
-		lesser = huffmanEncodingTreeNodeList.Pop();
-		greater = huffmanEncodingTreeNodeList.Pop();
+		lesser = huffmanEncodingTreeNodeList.front();
+		huffmanEncodingTreeNodeList.pop_front();
+		greater = huffmanEncodingTreeNodeList.front();
+		huffmanEncodingTreeNodeList.pop_front();
 		node = MafiaNet::OP_NEW<HuffmanEncodingTreeNode>( _FILE_AND_LINE_ );
 		node->left = lesser;
 		node->right = greater;
@@ -108,7 +109,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable( unsigned int frequencyTabl
 		lesser->parent = node;  // This is done to make generating the encryption table easier
 		greater->parent = node;  // This is done to make generating the encryption table easier
 
-		if ( huffmanEncodingTreeNodeList.Size() == 0 )
+		if ( huffmanEncodingTreeNodeList.empty() )
 		{
 			// 3. Assign the one remaining node in the list to the root node.
 			root = node;
@@ -258,36 +259,12 @@ void HuffmanEncodingTree::DecodeArray( unsigned char *input, BitSize_t sizeInBit
 }
 
 // Insertion sort.  Slow but easy to write in this case
-void HuffmanEncodingTree::InsertNodeIntoSortedList( HuffmanEncodingTreeNode * node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList ) const
+void HuffmanEncodingTree::InsertNodeIntoSortedList( HuffmanEncodingTreeNode * node, std::list<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList ) const
 {
-	if ( huffmanEncodingTreeNodeList->Size() == 0 )
-	{
-		huffmanEncodingTreeNodeList->Insert( node );
-		return ;
-	}
+	std::list<HuffmanEncodingTreeNode *>::iterator it = huffmanEncodingTreeNodeList->begin();
+	while ( it != huffmanEncodingTreeNodeList->end() && (*it)->weight < node->weight )
+		++it;
 
-	huffmanEncodingTreeNodeList->Beginning();
-
-	unsigned counter = 0;
-	for(;;)
-	{
-		if ( huffmanEncodingTreeNodeList->Peek()->weight < node->weight )
-			++( *huffmanEncodingTreeNodeList );
-		else
-		{
-			huffmanEncodingTreeNodeList->Insert( node );
-			break;
-		}
-
-		// Didn't find a spot in the middle - add to the end
-		if ( ++counter == huffmanEncodingTreeNodeList->Size() )
-		{
-			huffmanEncodingTreeNodeList->End();
-
-			huffmanEncodingTreeNodeList->Add( node )
-
-				; // Add to the end
-			break;
-		}
-	}
+	// insert() before end() is the "add to the end" case the cursor walk handled separately.
+	huffmanEncodingTreeNodeList->insert( it, node );
 }

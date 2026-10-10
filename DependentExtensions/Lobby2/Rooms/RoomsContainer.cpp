@@ -1224,20 +1224,15 @@ RoomsErrorCode PerGameRoomsContainer::SearchByFilter( RoomsParticipant* roomsPar
 	roomsTable.QueryTable(columnIndices,1,roomQuery->queries,roomQuery->numQueries,0,0,&resultTable);
 
 	roomsOutput.Clear(false, _FILE_AND_LINE_);
-	DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> *cur = resultTable.GetRows().GetListHead();
-	int i;
+	const std::map<unsigned, DataStructures::Table::Row*> &resultRows = resultTable.GetRows();
 	Room *room;
-	while (cur)
+	for (std::map<unsigned, DataStructures::Table::Row*>::const_iterator it = resultRows.begin(); it != resultRows.end(); ++it)
 	{
-		for (i=0; i < cur->size; i++)
-		{
-			// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
-			room = (Room*) cur->data[i]->cells[0]->ptr;
-			if ( (onlyJoinable==false || room->ParticipantCanJoinRoom(roomsParticipant, false, true)==PCJRR_SUCCESS) &&
-				room->IsHiddenToParticipant(roomsParticipant)==false)
-				roomsOutput.Insert(room,room,true, _FILE_AND_LINE_ );
-		}
-		cur=cur->next;
+		// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
+		room = (Room*) it->second->cells[0]->ptr;
+		if ( (onlyJoinable==false || room->ParticipantCanJoinRoom(roomsParticipant, false, true)==PCJRR_SUCCESS) &&
+			room->IsHiddenToParticipant(roomsParticipant)==false)
+			roomsOutput.Insert(room,room,true, _FILE_AND_LINE_ );
 	}
 	return REC_SUCCESS;
 }
@@ -1271,19 +1266,15 @@ void PerGameRoomsContainer::RoomPrioritySort( RoomsParticipant* roomsParticipant
 	roomsTable.QueryTable(columnIndices,1,roomQuery->queries,roomQuery->numQueries,0,0,&resultTable);
 
 	roomsOutput.Clear(false, _FILE_AND_LINE_);
-	DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> *cur = resultTable.GetRows().GetListHead();
+	const std::map<unsigned, DataStructures::Table::Row*> &resultRows = resultTable.GetRows();
 	Room *room;
-	while (cur)
+	for (std::map<unsigned, DataStructures::Table::Row*>::const_iterator it = resultRows.begin(); it != resultRows.end(); ++it)
 	{
-		for (i=0; i < cur->size; i++)
-		{
-			// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
-			room = (Room*) cur->data[i]->cells[0]->ptr;
-			if (room->ParticipantCanJoinRoom(roomsParticipant, false, true)==PCJRR_SUCCESS &&
-				room->IsHiddenToParticipant(roomsParticipant)==false)
-				roomsOutput.Insert(room,room,true, _FILE_AND_LINE_ );
-		}
-		cur=cur->next;
+		// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
+		room = (Room*) it->second->cells[0]->ptr;
+		if (room->ParticipantCanJoinRoom(roomsParticipant, false, true)==PCJRR_SUCCESS &&
+			room->IsHiddenToParticipant(roomsParticipant)==false)
+			roomsOutput.Insert(room,room,true, _FILE_AND_LINE_ );
 	}
 }
 Room* PerGameRoomsContainer::GetRoomByLobbyRoomID(RoomID lobbyRoomID)
@@ -1310,27 +1301,17 @@ Room * PerGameRoomsContainer::GetRoomByName(MafiaNet::RakString roomName)
 }
 void PerGameRoomsContainer::GetAllRooms(DataStructures::List<Room*> &rooms)
 {
-	DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> *cur = roomsTable.GetRows().GetListHead();
-	int i;
+	const std::map<unsigned, DataStructures::Table::Row*> &allRows = roomsTable.GetRows();
 	rooms.Clear(false, _FILE_AND_LINE_);
-	while (cur)
-	{
-		for (i=0; i < cur->size; i++)
-			rooms.Insert((Room*)cur->data[i]->cells[DefaultRoomColumns::TC_LOBBY_ROOM_PTR]->ptr, _FILE_AND_LINE_ );
-		cur=cur->next;
-	}
+	for (std::map<unsigned, DataStructures::Table::Row*>::const_iterator it = allRows.begin(); it != allRows.end(); ++it)
+		rooms.Insert((Room*)it->second->cells[DefaultRoomColumns::TC_LOBBY_ROOM_PTR]->ptr, _FILE_AND_LINE_ );
 }
 void PerGameRoomsContainer::GetRoomNames(DataStructures::List<MafiaNet::RakString> &roomNames)
 {
-	DataStructures::Page<unsigned, DataStructures::Table::Row*, _TABLE_BPLUS_TREE_ORDER> *cur = roomsTable.GetRows().GetListHead();
-	int i;
+	const std::map<unsigned, DataStructures::Table::Row*> &nameRows = roomsTable.GetRows();
 	roomNames.Clear(false, _FILE_AND_LINE_);
-	while (cur)
-	{
-		for (i=0; i < cur->size; i++)
-			roomNames.Insert(MafiaNet::RakString(cur->data[i]->cells[DefaultRoomColumns::TC_ROOM_NAME]->c), _FILE_AND_LINE_ );
-		cur=cur->next;
-	}
+	for (std::map<unsigned, DataStructures::Table::Row*>::const_iterator it = nameRows.begin(); it != nameRows.end(); ++it)
+		roomNames.Insert(MafiaNet::RakString(it->second->cells[DefaultRoomColumns::TC_ROOM_NAME]->c), _FILE_AND_LINE_ );
 }
 
 unsigned int PerGameRoomsContainer::GetQuickJoinIndex(RoomsParticipant* roomsParticipant)
