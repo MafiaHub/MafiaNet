@@ -32,6 +32,8 @@
 #include "mafianet/sleep.h"
 #include "TestHelpers.h"
 
+#include <string.h>
+
 #include <string>
 #include <vector>
 
@@ -365,6 +367,147 @@ TEST_F(PacketizedTCPFraming, TwoClientsAreFramedSeparately)
 		|| (got[0] == fromSecond && got[1] == fromFirst);
 	ASSERT_TRUE(matched) << "payloads were mixed between the two connections: got "
 		<< got[0].size() << " and " << got[1].size() << " bytes";
+}
+
+// The progress notifications the other tests skip over: they must actually be
+// emitted for a payload far larger than the socket buffers, and each one must be
+// internally consistent -- its bitSize has to describe its own length.
+//
+// The size is what makes this deterministic. The progress branch only runs when a
+// message is still incomplete after Receive() has drained everything available,
+// so a payload that fits in the socket buffers may complete in one go and emit
+// nothing; 4MB cannot, and the poll below runs Receive() with no sleep so it
+// keeps looking while the transfer is still in flight.
+TEST_F(PacketizedTCPFraming, LargeTransfersEmitWellFormedProgressPackets)
+{
+	ASSERT_NE(ConnectAndWait(), UNASSIGNED_SYSTEM_ADDRESS);
+
+	const size_t payloadSize = 4u * 1024u * 1024u;
+	std::string payload(payloadSize, 'Z');
+	client->Send(payload.c_str(), (unsigned) payload.size(), UNASSIGNED_SYSTEM_ADDRESS, true);
+
+	int progressSeen = 0;
+	bool progressWellFormed = true;
+	bool completed = false;
+
+	const TimeMS start = GetTimeMS();
+	while (completed == false && GetTimeMS() - start < 30000)
+	{
+		Packet *p = server->Receive();
+		if (p == 0)
+			continue; // no sleep: keep polling while the transfer is in flight
+
+		if (p->length > 0 && p->data[0] == ID_DOWNLOAD_PROGRESS)
+		{
+			progressSeen++;
+			if (p->bitSize != BYTES_TO_BITS(p->length))
+				progressWellFormed = false;
+		}
+		else if (p->length == payloadSize)
+			completed = true;
+
+		server->DeallocatePacket(p);
+	}
+
+	ASSERT_TRUE(completed) << "the 4MB message never completed";
+	ASSERT_GT(progressSeen, 0) << "no ID_DOWNLOAD_PROGRESS was emitted for a 4MB transfer";
+	ASSERT_TRUE(progressWellFormed)
+		<< "an ID_DOWNLOAD_PROGRESS packet's bitSize did not match its own length";
+}
+
+// Receive() reassembles everything available and returns one message, leaving the
+// rest in waitingPackets. Stop() used to free those and leave the freed pointers
+// in the queue, so a Receive() after Stop() handed one straight back.
+TEST_F(PacketizedTCPFraming, ReceiveAfterStopReturnsNothing)
+{
+	ASSERT_NE(ConnectAndWait(), UNASSIGNED_SYSTEM_ADDRESS);
+
+	for (int i = 0; i < 6; i++)
+	{
+		char buf[16];
+		snprintf(buf, sizeof(buf), "m%d", i);
+		client->Send(buf, (unsigned) strlen(buf), UNASSIGNED_SYSTEM_ADDRESS, true);
+	}
+
+	// One Receive gets the first message and queues the other five.
+	Packet *first = 0;
+	const TimeMS start = GetTimeMS();
+	while (first == 0 && GetTimeMS() - start < 10000)
+	{
+		first = server->Receive();
+		if (first == 0)
+			RakSleep(10);
+	}
+	ASSERT_NE(first, nullptr);
+	server->DeallocatePacket(first);
+
+	server->Stop();
+
+	ASSERT_EQ(server->Receive(), nullptr) << "Receive() returned a packet Stop() had already freed";
+}
+
+// Destroying the instance with messages still queued. ~PacketizedTCP freed the
+// per-connection buffers but not the reassembled messages, so everything still
+// waiting for Receive leaked. The leak itself is only visible under
+// LeakSanitizer (Linux; macOS ASAN has no leak detection), so what this case
+// asserts on every platform is that the destroy path runs clean -- it exists to
+// give LSAN the scenario to look at in the Linux gate.
+TEST_F(PacketizedTCPFraming, DestroyingTheInstanceWithQueuedMessagesIsClean)
+{
+	ASSERT_NE(ConnectAndWait(), UNASSIGNED_SYSTEM_ADDRESS);
+
+	for (int i = 0; i < 6; i++)
+	{
+		char buf[16];
+		snprintf(buf, sizeof(buf), "m%d", i);
+		client->Send(buf, (unsigned) strlen(buf), UNASSIGNED_SYSTEM_ADDRESS, true);
+	}
+
+	Packet *first = 0;
+	const TimeMS start = GetTimeMS();
+	while (first == 0 && GetTimeMS() - start < 10000)
+	{
+		first = server->Receive();
+		if (first == 0)
+			RakSleep(10);
+	}
+	ASSERT_NE(first, nullptr);
+	server->DeallocatePacket(first);
+
+	// No Stop(), no drain: straight to the destructor with five messages queued.
+	PacketizedTCP::DestroyInstance(server);
+	server = 0;
+
+	SUCCEED();
+}
+
+// And stopping twice must not free them twice.
+TEST_F(PacketizedTCPFraming, StoppingTwiceWithQueuedMessagesIsSafe)
+{
+	ASSERT_NE(ConnectAndWait(), UNASSIGNED_SYSTEM_ADDRESS);
+
+	for (int i = 0; i < 6; i++)
+	{
+		char buf[16];
+		snprintf(buf, sizeof(buf), "m%d", i);
+		client->Send(buf, (unsigned) strlen(buf), UNASSIGNED_SYSTEM_ADDRESS, true);
+	}
+
+	Packet *first = 0;
+	const TimeMS start = GetTimeMS();
+	while (first == 0 && GetTimeMS() - start < 10000)
+	{
+		first = server->Receive();
+		if (first == 0)
+			RakSleep(10);
+	}
+	ASSERT_NE(first, nullptr);
+	server->DeallocatePacket(first);
+
+	server->Stop();
+	server->Stop();
+
+	ASSERT_EQ(server->Receive(), nullptr);
 }
 
 #endif // _RAKNET_SUPPORT_PacketizedTCP

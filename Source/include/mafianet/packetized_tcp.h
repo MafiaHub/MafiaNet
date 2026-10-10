@@ -73,6 +73,8 @@ public:
 
 protected:
 	void ClearAllConnections(void);
+	/// Frees every reassembled message still waiting for Receive, and empties the queue.
+	void ClearWaitingPackets(void);
 	void RemoveFromConnectionList(const SystemAddress &sa);
 	void AddToConnectionList(const SystemAddress &sa);
 	void PushNotificationsToQueues(void);

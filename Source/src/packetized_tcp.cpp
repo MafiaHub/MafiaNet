@@ -35,14 +35,19 @@ PacketizedTCP::PacketizedTCP()
 }
 PacketizedTCP::~PacketizedTCP()
 {
+	// Anything still in waitingPackets was leaked: only Stop() freed it, and
+	// nothing calls Stop() on the way out.
+	ClearWaitingPackets();
 	ClearAllConnections();
 }
 
 void PacketizedTCP::Stop(void)
 {
 	TCPInterface::Stop();
-	for (size_t i=0; i < waitingPackets.size(); i++)
-		DeallocatePacket(waitingPackets[i]);
+	// The pointers used to be left in the queue after being freed, so a second
+	// Stop() double-freed them and a Receive() after Stop() handed one back to the
+	// caller.
+	ClearWaitingPackets();
 	ClearAllConnections();
 }
 
@@ -222,7 +227,10 @@ Packet* PacketizedTCP::Receive( void )
 							sizeof(unsigned int)*2 +
 							sizeof(unsigned int) +
 							65536;
-						outgoingPacket->bitSize=BYTES_TO_BITS(incomingPacket->length);
+						// This took its bit size from the *incoming* packet, which has
+						// nothing to do with the progress packet's own length, so
+						// bitSize and length disagreed on every ID_DOWNLOAD_PROGRESS.
+						outgoingPacket->bitSize=BYTES_TO_BITS(outgoingPacket->length);
 						outgoingPacket->guid=UNASSIGNED_RAKNET_GUID;
 						outgoingPacket->systemAddress=incomingPacket->systemAddress;
 						outgoingPacket->deleteData=false;
@@ -322,6 +330,12 @@ void PacketizedTCP::AddToConnectionList(const SystemAddress &sa)
 		return;
 	}
 	connections[sa] = MafiaNet::OP_NEW<DataStructures::ByteQueue>(_FILE_AND_LINE_);
+}
+void PacketizedTCP::ClearWaitingPackets(void)
+{
+	for (size_t i=0; i < waitingPackets.size(); i++)
+		DeallocatePacket(waitingPackets[i]);
+	waitingPackets.clear();
 }
 void PacketizedTCP::ClearAllConnections(void)
 {
