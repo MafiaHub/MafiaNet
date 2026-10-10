@@ -423,8 +423,11 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 
 		if (errorCode!=0)
 		{
+			// Read the address out before freeing s: this used to report
+			// s->systemAddress after the delete.
+			const SystemAddress failedAddress = s->systemAddress;
 			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
-			failedConnectionAttempts.push_back(s->systemAddress);
+			failedConnectionAttempts.push_back(failedAddress);
 		}
 		return UNASSIGNED_SYSTEM_ADDRESS;
 	}	
@@ -819,11 +822,21 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 #if RAKNET_SUPPORT_IPV6!=1
 	sockaddr_in serverAddress;
 
-	struct addrinfo *curAddress = nullptr;
-	int err = getaddrinfo(host, nullptr, nullptr, &curAddress);
+	// addressList owns the list getaddrinfo allocated and is what has to be freed.
+	// curAddress walks it; the walk used to overwrite the only pointer to the head,
+	// and nothing freed it on any path, so every connect attempt leaked the list.
+	struct addrinfo *addressList = nullptr;
+	const int err = getaddrinfo(host, nullptr, nullptr, &addressList);
+	if (err != 0)
+	{
+		if (addressList != nullptr)
+			freeaddrinfo(addressList);
+		return 0;
+	}
 
 	// #med This should also work with IPv6 addresses in principle. However the old code in RakNet only worked with IPv4. Hence this behavior change won't be in MaxNet 0.1.
 	// get the (first) IPv4 address
+	struct addrinfo *curAddress = addressList;
 	while(curAddress != nullptr) {
 		if (curAddress->ai_family == AF_INET) {
 			break; // found an IPv4 address
@@ -832,15 +845,17 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 	}
 
 	if (curAddress == nullptr)
+	{
+		freeaddrinfo(addressList);
 		return 0;
-
-	if (err != 0)
-		return 0;
-
+	}
 
 		__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
-		if (sockfd < 0) 
+		if (sockfd < 0)
+		{
+			freeaddrinfo(addressList);
 			return 0;
+		}
 
 	memset(&serverAddress, 0, sizeof(serverAddress));
 	serverAddress.sin_family = AF_INET;
@@ -880,6 +895,8 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 
 	// This is blocking
 	connectResult = connect__( sockfd, ( struct sockaddr * ) &serverAddress, sizeof( struct sockaddr ) );
+
+	freeaddrinfo(addressList);
 
 #else
 
@@ -935,11 +952,15 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	TCPInterface *tcpInterface = s->tcpInterface;
 	int newRemoteClientIndex=systemAddress.systemIndex;
 	unsigned short socketFamily = s->socketFamily;
+	// bindAddress has to be copied out too. It used to be read as s->bindAddress
+	// *after* this delete, on every non-blocking Connect -- the default.
+	char bindAddress[sizeof(s->bindAddress)];
+	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
 	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 
 	char str1[64];
 	systemAddress.ToString(false, str1, static_cast<size_t>(64));
-	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, s->bindAddress);
+	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress);
 	if (sockfd==0)
 	{
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
