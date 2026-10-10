@@ -40,9 +40,8 @@ PacketizedTCP::~PacketizedTCP()
 
 void PacketizedTCP::Stop(void)
 {
-	unsigned int i;
 	TCPInterface::Stop();
-	for (i=0; i < waitingPackets.Size(); i++)
+	for (size_t i=0; i < waitingPackets.size(); i++)
 		DeallocatePacket(waitingPackets[i]);
 	ClearAllConnections();
 }
@@ -110,27 +109,27 @@ void PacketizedTCP::PushNotificationsToQueues(void)
 	sa = TCPInterface::HasNewIncomingConnection();
 	if (sa!=UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		_newIncomingConnections.Push(sa, _FILE_AND_LINE_ );
+		_newIncomingConnections.push_back(sa);
 		AddToConnectionList(sa);
 	}
 
 	sa = TCPInterface::HasFailedConnectionAttempt();
 	if (sa!=UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		_failedConnectionAttempts.Push(sa, _FILE_AND_LINE_ );
+		_failedConnectionAttempts.push_back(sa);
 	}
 
 	sa = TCPInterface::HasLostConnection();
 	if (sa!=UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		_lostConnections.Push(sa, _FILE_AND_LINE_ );
+		_lostConnections.push_back(sa);
 		RemoveFromConnectionList(sa);
 	}
 
 	sa = TCPInterface::HasCompletedConnectionAttempt();
 	if (sa!=UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		_completedConnectionAttempts.Push(sa, _FILE_AND_LINE_ );
+		_completedConnectionAttempts.push_back(sa);
 		AddToConnectionList(sa);
 	}
 }
@@ -148,15 +147,12 @@ Packet* PacketizedTCP::Receive( void )
 
 	Packet *incomingPacket;
 	incomingPacket = TCPInterface::ReceiveInt();
-	unsigned int index;
 
 	while (incomingPacket)
 	{
-		if (connections.Has(incomingPacket->systemAddress))
-			index = connections.GetIndexAtKey(incomingPacket->systemAddress);
-		else
-			index=(unsigned int) -1;
-		if ((unsigned int)index==(unsigned int)-1)
+		std::map<SystemAddress, DataStructures::ByteQueue *>::iterator connection =
+			connections.find(incomingPacket->systemAddress);
+		if (connection == connections.end())
 		{
 			DeallocatePacket(incomingPacket);
 			incomingPacket = TCPInterface::ReceiveInt();
@@ -168,9 +164,8 @@ Packet* PacketizedTCP::Receive( void )
 		{
 			// Came from network
 			SystemAddress systemAddressFromPacket;
-			if (index < connections.Size())
 			{
-				DataStructures::ByteQueue *bq = connections[index];
+				DataStructures::ByteQueue *bq = connection->second;
 				// Buffer data
 				bq->WriteBytes((const char*) incomingPacket->data,incomingPacket->length, _FILE_AND_LINE_);
 				systemAddressFromPacket=incomingPacket->systemAddress;
@@ -201,7 +196,7 @@ Packet* PacketizedTCP::Receive( void )
 						}
 						bq->ReadBytes((char*) outgoingPacket->data,dataLength,false);
 
-						waitingPackets.Push(outgoingPacket, _FILE_AND_LINE_ );
+						waitingPackets.push_back(outgoingPacket);
 
 						// Peek the header to see if a full message is waiting
 						if (bq->ReadBytes((char*) &dataLength,sizeof(PTCPHeader),true))
@@ -250,7 +245,7 @@ Packet* PacketizedTCP::Receive( void )
 						bq->ReadBytes((char*) outgoingPacket->data+sizeof(MessageID)+sizeof(unsigned int)*3,oneChunkSize,true);
 						bq->DecrementReadOffset(sizeof(PTCPHeader));
 
-						waitingPackets.Push(outgoingPacket, _FILE_AND_LINE_ );
+						waitingPackets.push_back(outgoingPacket);
 					}
 				}
 
@@ -260,7 +255,7 @@ Packet* PacketizedTCP::Receive( void )
 			incomingPacket=0;
 		}
 		else
-			waitingPackets.Push(incomingPacket, _FILE_AND_LINE_ );
+			waitingPackets.push_back(incomingPacket);
 
 		incomingPacket = TCPInterface::ReceiveInt();
 	}
@@ -271,9 +266,10 @@ Packet *PacketizedTCP::ReturnOutgoingPacket(void)
 {
 	Packet *outgoingPacket=0;
 	unsigned int i;
-	while (outgoingPacket==0 && waitingPackets.IsEmpty()==false)
+	while (outgoingPacket==0 && waitingPackets.empty()==false)
 	{
-		outgoingPacket=waitingPackets.Pop();
+		outgoingPacket=waitingPackets.front();
+		waitingPackets.pop_front();
 		PluginReceiveResult pluginResult;
 		for (i=0; i < messageHandlerList.size(); i++)
 		{
@@ -303,59 +299,83 @@ void PacketizedTCP::RemoveFromConnectionList(const SystemAddress &sa)
 {
 	if (sa==UNASSIGNED_SYSTEM_ADDRESS)
 		return;
-	if (connections.Has(sa))
+	std::map<SystemAddress, DataStructures::ByteQueue *>::iterator it = connections.find(sa);
+	if (it != connections.end())
 	{
-		unsigned int index = connections.GetIndexAtKey(sa);
-		if (index!=(unsigned int)-1)
-		{
-			MafiaNet::OP_DELETE(connections[index],_FILE_AND_LINE_);
-			connections.RemoveAtIndex(index);
-		}
+		MafiaNet::OP_DELETE(it->second,_FILE_AND_LINE_);
+		connections.erase(it);
 	}
 }
 void PacketizedTCP::AddToConnectionList(const SystemAddress &sa)
 {
 	if (sa==UNASSIGNED_SYSTEM_ADDRESS)
 		return;
-	connections.SetNew(sa, MafiaNet::OP_NEW<DataStructures::ByteQueue>(_FILE_AND_LINE_));
+	// DataStructures::Map::SetNew asserted on a duplicate key under _DEBUG and then
+	// replaced the value, which leaked the old buffer. Keep the assert, and if it
+	// does happen, free what was there instead of dropping it on the floor.
+	std::map<SystemAddress, DataStructures::ByteQueue *>::iterator existing = connections.find(sa);
+	RakAssert(existing == connections.end());
+	if (existing != connections.end())
+	{
+		MafiaNet::OP_DELETE(existing->second,_FILE_AND_LINE_);
+		existing->second = MafiaNet::OP_NEW<DataStructures::ByteQueue>(_FILE_AND_LINE_);
+		return;
+	}
+	connections[sa] = MafiaNet::OP_NEW<DataStructures::ByteQueue>(_FILE_AND_LINE_);
 }
 void PacketizedTCP::ClearAllConnections(void)
 {
-	unsigned int i;
-	for (i=0; i < connections.Size(); i++)
-		MafiaNet::OP_DELETE(connections[i],_FILE_AND_LINE_);
-	connections.Clear();
+	for (std::map<SystemAddress, DataStructures::ByteQueue *>::iterator it = connections.begin();
+		it != connections.end(); ++it)
+		MafiaNet::OP_DELETE(it->second,_FILE_AND_LINE_);
+	connections.clear();
 }
 SystemAddress PacketizedTCP::HasCompletedConnectionAttempt(void)
 {
 	PushNotificationsToQueues();
 
-	if (_completedConnectionAttempts.IsEmpty()==false)
-		return _completedConnectionAttempts.Pop();
+	if (_completedConnectionAttempts.empty()==false)
+	{
+		const SystemAddress sa = _completedConnectionAttempts.front();
+		_completedConnectionAttempts.pop_front();
+		return sa;
+	}
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 SystemAddress PacketizedTCP::HasFailedConnectionAttempt(void)
 {
 	PushNotificationsToQueues();
 
-	if (_failedConnectionAttempts.IsEmpty()==false)
-		return _failedConnectionAttempts.Pop();
+	if (_failedConnectionAttempts.empty()==false)
+	{
+		const SystemAddress sa = _failedConnectionAttempts.front();
+		_failedConnectionAttempts.pop_front();
+		return sa;
+	}
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 SystemAddress PacketizedTCP::HasNewIncomingConnection(void)
 {
 	PushNotificationsToQueues();
 
-	if (_newIncomingConnections.IsEmpty()==false)
-		return _newIncomingConnections.Pop();
+	if (_newIncomingConnections.empty()==false)
+	{
+		const SystemAddress sa = _newIncomingConnections.front();
+		_newIncomingConnections.pop_front();
+		return sa;
+	}
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 SystemAddress PacketizedTCP::HasLostConnection(void)
 {
 	PushNotificationsToQueues();
 
-	if (_lostConnections.IsEmpty()==false)
-		return _lostConnections.Pop();
+	if (_lostConnections.empty()==false)
+	{
+		const SystemAddress sa = _lostConnections.front();
+		_lostConnections.pop_front();
+		return sa;
+	}
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 

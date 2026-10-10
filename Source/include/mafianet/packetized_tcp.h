@@ -26,7 +26,9 @@
 
 #include "mafianet/tcp_interface.h"
 #include "mafianet/ds_byte_queue.h"
-#include "mafianet/ds_map.h"
+
+#include <deque>
+#include <map>
 
 namespace MafiaNet
 {
@@ -77,11 +79,15 @@ protected:
 	Packet *ReturnOutgoingPacket(void);
 
 	// A single TCP recieve may generate multiple split packets. They are stored in the waitingPackets list until Receive is called
-	DataStructures::Queue<Packet*> waitingPackets;
-	DataStructures::Map<SystemAddress, DataStructures::ByteQueue *> connections;
+	std::deque<Packet*> waitingPackets;
+
+	// Per-connection reassembly buffers, keyed by address. Ordered by
+	// SystemAddress::operator<, as DataStructures::Map was; nothing depends on the
+	// order, only on lookup by address.
+	std::map<SystemAddress, DataStructures::ByteQueue *> connections;
 
 	// Mirrors single producer / consumer, but processes them in Receive() before returning to user
-	DataStructures::Queue<SystemAddress> _newIncomingConnections, _lostConnections, _failedConnectionAttempts, _completedConnectionAttempts;
+	std::deque<SystemAddress> _newIncomingConnections, _lostConnections, _failedConnectionAttempts, _completedConnectionAttempts;
 };
 
 } // namespace MafiaNet
