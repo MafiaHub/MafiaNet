@@ -36,6 +36,8 @@
 #include "mafianet/ds_list.h"
 #include "mafianet/types.h"
 #include "mafianet/ds_hash.h"
+#include <unordered_map>
+#include <vector>
 #include "mafianet/ds_ordered_list.h"
 
 namespace MafiaNet
@@ -272,16 +274,16 @@ protected:
 	NetworkID networkId;
 	TM_World* world;
 	// Teams we are a member of. We can be on more than one team, but not on the same team more than once
-	DataStructures::List<TM_Team*> teams;
+	std::vector<TM_Team *> teams;
 	// If teams is empty, which subcategory of noTeam we are on
 	NoTeamId noTeamSubcategory;
 	// Teams we have requested to join. Mutually exclusive with teams we are already on. Cannot request the same team more than once.
-	DataStructures::List<RequestedTeam> teamsRequested;
+	std::vector<RequestedTeam> teamsRequested;
 	// If teamsRequested is not empty, we want to join a specific team
 	// If teamsRequested is empty, then joinTeamType is either JOIN_NO_TEAM or JOIN_ANY_AVAILABLE_TEAM
 	JoinTeamType joinTeamType;
 	// Set by StoreLastTeams()
-	DataStructures::List<TM_Team*> lastTeams;
+	std::vector<TM_Team *> lastTeams;
 	MafiaNet::Time whenJoinAnyRequested;
 	unsigned int joinAnyRequestIndex;
 	void *owner;
@@ -400,7 +402,7 @@ protected:
 	NetworkID ID;
 	TM_World* world;
 	// Which members are on this team. The same member cannot be on the same team more than once
-	DataStructures::List<TM_TeamMember*> teamMembers;
+	std::vector<TM_TeamMember *> teamMembers;
 	// Permissions on who can join this team
 	JoinPermissions joinPermissions;
 	// Whether or not to consider this team when balancing teams
@@ -566,7 +568,10 @@ protected:
 	void FillRequestedSlots(void);
 	unsigned int GetAvailableTeamIndexWithFewestMembers(TeamMemberLimit secondaryLimit, JoinPermissions joinPermissions);
 
-	void GetSortedJoinRequests(DataStructures::OrderedList<JoinRequestHelper, JoinRequestHelper, JoinRequestHelperComp> &joinRequests);
+	// Sorted ascending by JoinRequestHelperComp. requestIndex breaks ties and is a
+	// monotonically increasing per-request counter, so no two requests compare equal and a
+	// sort is equivalent to the ordered inserts this replaced.
+	void GetSortedJoinRequests(std::vector<JoinRequestHelper> &joinRequests);
 
 
 	// Send a message to all participants
@@ -580,19 +585,22 @@ protected:
 	// 2. Else return 0
 	TM_Team* JoinAnyTeam(TM_TeamMember *teamMember, int *resultCode);
 
-	int JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave, DataStructures::List<TM_Team*> &teamsWeAreLeaving);
+	int JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave, std::vector<TM_Team *> &teamsWeAreLeaving);
 
 	TeamMemberLimit GetBalancedTeamLimit(void) const;
 
-	// For fast lookup. Shares pointers with list teams
-	DataStructures::Hash<NetworkID, TM_Team*, 256, TM_Team::ToUint32> teamsHash;
+	// For fast lookup. Shares pointers with list teams. NetworkID is an integer type, so the
+	// default std::hash applies and the ToUint32 projection the old table needed is not used.
+	std::unordered_map<NetworkID, TM_Team *> teamsHash;
 	// For fast lookup. Shares pointers with list teamMembers
-	DataStructures::Hash<NetworkID, TM_TeamMember*, 256, TM_TeamMember::ToUint32> teamMembersHash;
+	std::unordered_map<NetworkID, TM_TeamMember *> teamMembersHash;
 
 	TeamManager *teamManager;
-	DataStructures::List<RakNetGUID> participants;
-	DataStructures::List<TM_Team*> teams;
-	DataStructures::List<TM_TeamMember*> teamMembers;
+	std::vector<RakNetGUID> participants;
+	// Order-preserving: GetTeamByIndex and GetTeamIndex publish this index and
+	// DereferenceTeam shifts the remainder down rather than swapping.
+	std::vector<TM_Team *> teams;
+	std::vector<TM_TeamMember *> teamMembers;
 	bool balanceTeamsIsActive;
 	RakNetGUID hostGuid;
 	WorldId worldId;
@@ -744,8 +752,9 @@ protected:
 
 	// O(1) lookup for a given world. If I need more worlds, change this to a hash or ordered list
 	TM_World *worldsArray[255];
-	// All allocated worlds for linear traversal
-	DataStructures::List<TM_World*> worldsList;
+	// All allocated worlds for linear traversal. Unlike the team lists above, RemoveWorld
+	// swaps the last world into the hole, which GetWorldAtIndex exposes.
+	std::vector<TM_World *> worldsList;
 	bool autoAddParticipants;
 	TMTopology topology;
 

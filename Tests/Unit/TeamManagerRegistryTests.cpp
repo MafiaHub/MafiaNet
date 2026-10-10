@@ -247,19 +247,24 @@ TEST_F(TeamManagerRegistry, RemoveWorldSwapsTheLastWorldIntoTheHole)
 	manager.AddWorld(3);
 	ASSERT_EQ(manager.GetWorldCount(), 4u);
 
+	TM_World *w1 = manager.GetWorldWithId(1);
 	TM_World *w2 = manager.GetWorldWithId(2);
 	TM_World *w3 = manager.GetWorldWithId(3);
-	ASSERT_NE(w2, (TM_World *) 0);
-	ASSERT_NE(w3, (TM_World *) 0);
+	ASSERT_NE(w1, (TM_World *) 0);
+	ASSERT_EQ(manager.GetWorldAtIndex(1), w1);
 	ASSERT_EQ(manager.GetWorldAtIndex(2), w2);
 	ASSERT_EQ(manager.GetWorldAtIndex(3), w3);
 
-	manager.RemoveWorld(2); // index 2, with index 3 being last
+	// Remove index 1 with TWO worlds after it. Removing the second-to-last would be degenerate:
+	// swapping the last into the hole and shifting the remainder down give the same answer there,
+	// so such a case cannot tell the two idioms apart.
+	manager.RemoveWorld(1);
 
 	ASSERT_EQ(manager.GetWorldCount(), 3u);
-	EXPECT_EQ(manager.GetWorldAtIndex(2), w3)
+	EXPECT_EQ(manager.GetWorldAtIndex(1), w3)
 		<< "the last world must be swapped into the hole, not shifted up";
-	EXPECT_EQ(manager.GetWorldWithId(2), (TM_World *) 0);
+	EXPECT_EQ(manager.GetWorldAtIndex(2), w2);
+	EXPECT_EQ(manager.GetWorldWithId(1), (TM_World *) 0);
 	EXPECT_EQ(manager.GetWorldWithId(3), w3);
 }
 

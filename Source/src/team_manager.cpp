@@ -17,11 +17,35 @@
 #if _RAKNET_SUPPORT_TeamManager==1
 
 #include "mafianet/team_manager.h"
+#include <algorithm>
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/get_time.h"
 
 using namespace MafiaNet;
+
+namespace
+{
+	// Replaces DataStructures::List::GetIndexOf, including its (unsigned)-1 "not found" value.
+	template <class T>
+	unsigned int IndexOf(const std::vector<T> &v, const T &value)
+	{
+		typename std::vector<T>::const_iterator it = std::find(v.begin(), v.end(), value);
+		if (it == v.end())
+			return (unsigned int) -1;
+		return (unsigned int) (it - v.begin());
+	}
+
+	// Fills a still-public DataStructures::List out-parameter from an internal std::vector.
+	// Stage 3 of #60 changes those signatures and removes these conversions.
+	template <class T>
+	void CopyToList(const std::vector<T> &from, DataStructures::List<T> &to)
+	{
+		to.Clear(true, _FILE_AND_LINE_);
+		for (size_t i = 0; i < from.size(); ++i)
+			to.Push(from[i], _FILE_AND_LINE_);
+	}
+}
 
 
 enum TeamManagerOperations
@@ -126,7 +150,7 @@ bool TM_TeamMember::RequestTeam(TeamSelection teamSelection)
 		// - remote Host executes JoinNoTeam() and broadcasts event. This may cause may cause rebalance if team balancing is on. 
 		// - - JoinNoTeam(): Remove from all current and requested teams. Set no-team category.
 
-		if (teams.Size()==0 && noTeamSubcategory==teamSelection.teamParameter.noTeamSubcategory)
+		if (teams.size()==0 && noTeamSubcategory==teamSelection.teamParameter.noTeamSubcategory)
 		{
 			// No change
 			return false;
@@ -246,7 +270,7 @@ bool TM_TeamMember::RequestTeamSwitch(TM_Team *teamToJoin, TM_Team *teamToLeave)
 
 TeamSelection TM_TeamMember::GetRequestedTeam(void) const
 {
-	if (teamsRequested.Size()>0)
+	if (teamsRequested.size()>0)
 		return TeamSelection::SpecificTeam(teamsRequested[0].requested);
 	else if (joinTeamType==JOIN_NO_TEAM)
 		return TeamSelection::NoTeam(noTeamSubcategory);
@@ -259,7 +283,7 @@ TeamSelection TM_TeamMember::GetRequestedTeam(void) const
 void TM_TeamMember::GetRequestedSpecificTeams(DataStructures::List<TM_Team*> &requestedTeams) const
 {
 	requestedTeams.Clear(true, _FILE_AND_LINE_);
-	for (unsigned int i=0; i < teamsRequested.Size(); i++)
+	for (unsigned int i=0; i < teamsRequested.size(); i++)
 		requestedTeams.Push(teamsRequested[i].requested, _FILE_AND_LINE_);
 }
 
@@ -278,7 +302,7 @@ bool TM_TeamMember::HasRequestedTeam(TM_Team *team) const
 unsigned int TM_TeamMember::GetRequestedTeamIndex(TM_Team *team) const
 {
 	unsigned int i;
-	for (i=0; i < teamsRequested.Size(); i++)
+	for (i=0; i < teamsRequested.size(); i++)
 	{
 		if (teamsRequested[i].requested==team)
 			return i;
@@ -290,7 +314,7 @@ unsigned int TM_TeamMember::GetRequestedTeamIndex(TM_Team *team) const
 
 unsigned int TM_TeamMember::GetRequestedTeamCount(void) const
 {
-	return teamsRequested.Size();
+	return teamsRequested.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -329,7 +353,7 @@ bool TM_TeamMember::LeaveTeam(TM_Team* team, NoTeamId _noTeamSubcategory)
 		return false;
 
 	RemoveFromSpecificTeamInternal(team);
-	if (teams.Size()==0)
+	if (teams.size()==0)
 	{
 		noTeamSubcategory=_noTeamSubcategory;
 		joinTeamType=JOIN_NO_TEAM;
@@ -382,7 +406,7 @@ bool TM_TeamMember::LeaveAllTeams(NoTeamId inNoTeamSubcategory)
 
 TM_Team* TM_TeamMember::GetCurrentTeam(void) const
 {
-	if (teams.Size()>0)
+	if (teams.size()>0)
 		return teams[0];
 	return 0;
 }
@@ -391,7 +415,7 @@ TM_Team* TM_TeamMember::GetCurrentTeam(void) const
 
 unsigned int TM_TeamMember::GetCurrentTeamCount(void) const
 {
-	return teams.Size();
+	return teams.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -405,14 +429,14 @@ TM_Team* TM_TeamMember::GetCurrentTeamByIndex(unsigned int index)
 
 void TM_TeamMember::GetCurrentTeams(DataStructures::List<TM_Team*> &_teams) const
 {
-	_teams=teams;
+	CopyToList(teams, _teams);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void TM_TeamMember::GetLastTeams(DataStructures::List<TM_Team*> &_teams) const
 {
-	_teams=lastTeams;
+	CopyToList(lastTeams, _teams);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -420,7 +444,7 @@ void TM_TeamMember::GetLastTeams(DataStructures::List<TM_Team*> &_teams) const
 bool TM_TeamMember::IsOnTeam(TM_Team *team) const
 {
 	unsigned int i;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		if (teams[i]==team)
 			return true;
@@ -449,8 +473,8 @@ void TM_TeamMember::SerializeConstruction(BitStream *constructionBitstream)
 	// Write requested teams
 	constructionBitstream->Write(world->GetWorldId());
 	constructionBitstream->Write(networkId);
-	constructionBitstream->WriteCasted<uint16_t>(teamsRequested.Size());
-	for (unsigned int i=0; i < teamsRequested.Size(); i++)
+	constructionBitstream->WriteCasted<uint16_t>(teamsRequested.size());
+	for (unsigned int i=0; i < teamsRequested.size(); i++)
 	{
 		constructionBitstream->Write(teamsRequested[i].isTeamSwitch);
 		if (teamsRequested[i].teamToLeave)
@@ -526,7 +550,7 @@ bool TM_TeamMember::DeserializeConstruction(TeamManager *teamManager, BitStream 
 			(hasTeamRequested==false || (hasTeamRequested==true && rt.requested!=0))
 			)
 		{
-			teamsRequested.Push(rt, _FILE_AND_LINE_);
+			teamsRequested.push_back(rt);
 		}
 	}
 
@@ -575,12 +599,12 @@ unsigned long TM_TeamMember::ToUint32( const NetworkID &g )
 
 void TM_TeamMember::UpdateListsToNoTeam(NoTeamId nti)
 {
-	teamsRequested.Clear(true, _FILE_AND_LINE_ );
-	for (unsigned int i=0; i < teams.Size(); i++)
+	teamsRequested.clear();
+	for (unsigned int i=0; i < teams.size(); i++)
 	{
 		teams[i]->RemoveFromTeamMemberList(this);
 	}
-	teams.Clear(true, _FILE_AND_LINE_ );
+	teams.clear();
 	noTeamSubcategory=nti;
 	joinTeamType=JOIN_NO_TEAM;
 }
@@ -590,11 +614,11 @@ void TM_TeamMember::UpdateListsToNoTeam(NoTeamId nti)
 bool TM_TeamMember::JoinAnyTeamCheck(void) const
 {
 	// - - If already on a team, return false
-	if (teams.Size() > 0)
+	if (teams.size() > 0)
 		return false;
 
 	// - - If any team is already in requested teams, return false.
-	if (teamsRequested.Size()==0 && joinTeamType==JOIN_ANY_AVAILABLE_TEAM)
+	if (teamsRequested.size()==0 && joinTeamType==JOIN_ANY_AVAILABLE_TEAM)
 		return false;
 
 	return true;
@@ -612,7 +636,7 @@ bool TM_TeamMember::JoinSpecificTeamCheck(TM_Team *specificTeamToJoin, bool igno
 		return true;
 
 	unsigned int i;
-	for (i=0; i < teamsRequested.Size(); i++)
+	for (i=0; i < teamsRequested.size(); i++)
 	{
 		if (teamsRequested[i].requested==specificTeamToJoin)
 		{
@@ -648,7 +672,7 @@ bool TM_TeamMember::SwitchSpecificTeamCheck(TM_Team *teamToJoin, TM_Team *teamTo
 		return true;
 
 	unsigned int i;
-	for (i=0; i < teamsRequested.Size(); i++)
+	for (i=0; i < teamsRequested.size(); i++)
 	{
 		if (teamsRequested[i].requested==teamToJoin)
 		{
@@ -680,7 +704,7 @@ bool TM_TeamMember::LeaveTeamCheck(TM_Team *team) const
 
 void TM_TeamMember::UpdateTeamsRequestedToAny(void)
 {
-	teamsRequested.Clear(true, _FILE_AND_LINE_);
+	teamsRequested.clear();
 	joinTeamType=JOIN_ANY_AVAILABLE_TEAM;
 	whenJoinAnyRequested= MafiaNet::GetTime();
 	joinAnyRequestIndex=world->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
@@ -690,7 +714,7 @@ void TM_TeamMember::UpdateTeamsRequestedToAny(void)
 
 void TM_TeamMember::UpdateTeamsRequestedToNone(void)
 {
-	teamsRequested.Clear(true, _FILE_AND_LINE_);
+	teamsRequested.clear();
 	joinTeamType=JOIN_NO_TEAM;
 }
 
@@ -706,7 +730,7 @@ void TM_TeamMember::AddToRequestedTeams(TM_Team *teamToJoin)
 	rt.teamToLeave=0;
 	rt.whenRequested= MafiaNet::GetTime();
 	rt.requestIndex=world->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
-	teamsRequested.Push(rt, _FILE_AND_LINE_ );
+	teamsRequested.push_back(rt);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -721,7 +745,7 @@ void TM_TeamMember::AddToRequestedTeams(TM_Team *teamToJoin, TM_Team *teamToLeav
 	rt.teamToLeave=teamToLeave;
 	rt.whenRequested= MafiaNet::GetTime();
 	rt.requestIndex=world->teamRequestIndex++; // In case whenRequested is the same between two teams when sorting team requests
-	teamsRequested.Push(rt, _FILE_AND_LINE_ );
+	teamsRequested.push_back(rt);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -730,19 +754,19 @@ bool TM_TeamMember::RemoveFromRequestedTeams(TM_Team *team)
 {
 	if (team==0)
 	{
-		teamsRequested.Clear(true, _FILE_AND_LINE_);
+		teamsRequested.clear();
 		joinTeamType=JOIN_NO_TEAM;
 		return true;
 	}
 	else
 	{
 		unsigned int i;
-		for (i=0; i < teamsRequested.Size(); i++)
+		for (i=0; i < teamsRequested.size(); i++)
 		{
 			if (teamsRequested[i].requested==team)
 			{
-				teamsRequested.RemoveAtIndex(i);
-				if (teamsRequested.Size()==0)
+				teamsRequested.erase(teamsRequested.begin() + i);
+				if (teamsRequested.size()==0)
 				{
 					joinTeamType=JOIN_NO_TEAM;
 				}
@@ -757,8 +781,8 @@ bool TM_TeamMember::RemoveFromRequestedTeams(TM_Team *team)
 
 void TM_TeamMember::AddToTeamList(TM_Team *team)
 {
-	team->teamMembers.Push(this, _FILE_AND_LINE_ );
-	teams.Push(team, _FILE_AND_LINE_ );
+	team->teamMembers.push_back(this);
+	teams.push_back(team);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -766,19 +790,19 @@ void TM_TeamMember::AddToTeamList(TM_Team *team)
 void TM_TeamMember::RemoveFromSpecificTeamInternal(TM_Team *team)
 {
 	unsigned int i,j;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		if (teams[i]==team)
 		{
-			for (j=0; j < team->teamMembers.Size(); j++)
+			for (j=0; j < team->teamMembers.size(); j++)
 			{
 				if (team->teamMembers[j]==this)
 				{
-					team->teamMembers.RemoveAtIndex(j);
+					team->teamMembers.erase(team->teamMembers.begin() + j);
 					break;
 				}
 			}
-			teams.RemoveAtIndex(i);
+			teams.erase(teams.begin() + i);
 			break;
 		}
 	}
@@ -790,20 +814,20 @@ void TM_TeamMember::RemoveFromAllTeamsInternal(void)
 {
 	TM_Team *team;
 	unsigned int i,j;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		team = teams[i];
 
-		for (j=0; j < team->teamMembers.Size(); j++)
+		for (j=0; j < team->teamMembers.size(); j++)
 		{
 			if (team->teamMembers[j]==this)
 			{
-				team->teamMembers.RemoveAtIndex(j);
+				team->teamMembers.erase(team->teamMembers.begin() + j);
 				break;
 			}
 		}
 	}
-	teams.Clear(true, _FILE_AND_LINE_);
+	teams.clear();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -934,14 +958,14 @@ bool TM_Team::GetBalancingApplies(void) const
 
 void TM_Team::GetTeamMembers(DataStructures::List<TM_TeamMember*> &_teamMembers) const
 {
-	_teamMembers=teamMembers;
+	CopyToList(teamMembers, _teamMembers);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 unsigned int TM_Team::GetTeamMembersCount(void) const
 {
-	return teamMembers.Size();
+	return teamMembers.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1032,9 +1056,9 @@ void TM_Team::SetOwner(void *o)
 
 void TM_Team::RemoveFromTeamMemberList(TM_TeamMember *teamMember)
 {
-	unsigned int index = teamMembers.GetIndexOf(teamMember);
+	unsigned int index = IndexOf(teamMembers, teamMember);
 	RakAssert(index != (unsigned int) -1);
-	teamMembers.RemoveAtIndex(index);
+	teamMembers.erase(teamMembers.begin() + index);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1042,7 +1066,7 @@ void TM_Team::RemoveFromTeamMemberList(TM_TeamMember *teamMember)
 unsigned int TM_Team::GetMemberWithRequestedSingleTeamSwitch(TM_Team *team)
 {
 	unsigned int i;
-	for (i=0; i < teamMembers.Size(); i++)
+	for (i=0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i]->GetCurrentTeamCount()==1)
 		{
@@ -1093,7 +1117,7 @@ TeamManager *TM_World::GetTeamManager(void) const
 
 void TM_World::AddParticipant(RakNetGUID rakNetGUID)
 {
-	participants.Push(rakNetGUID, _FILE_AND_LINE_ );
+	participants.push_back(rakNetGUID);
 
 	// Send to remote system status of balanceTeamsIsActive
 
@@ -1114,9 +1138,9 @@ void TM_World::AddParticipant(RakNetGUID rakNetGUID)
 void TM_World::RemoveParticipant(RakNetGUID rakNetGUID)
 {
 	unsigned int i;
-	i = participants.GetIndexOf(rakNetGUID);
+	i = IndexOf(participants, rakNetGUID);
 	if (i!=(unsigned int)-1)
-		participants.RemoveAtIndex(i);
+		participants.erase(participants.begin() + i);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1130,7 +1154,7 @@ void TM_World::SetAutoManageConnections(bool autoAdd)
 
 void TM_World::GetParticipantList(DataStructures::List<RakNetGUID> &participantList)
 {
-	participantList = participants;
+	CopyToList(participants, participantList);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1138,7 +1162,7 @@ void TM_World::GetParticipantList(DataStructures::List<RakNetGUID> &participantL
 void TM_World::ReferenceTeam(TM_Team *team, NetworkID networkId, bool applyBalancing)
 {
 	unsigned int i;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		if (teams[i]==team)
 			return;
@@ -1149,9 +1173,9 @@ void TM_World::ReferenceTeam(TM_Team *team, NetworkID networkId, bool applyBalan
 	team->world=this;
 
 	// Add this team to the list of teams
-	teams.Push(team, _FILE_AND_LINE_);
+	teams.push_back(team);
 
-	teamsHash.Push(networkId,team,_FILE_AND_LINE_);
+	teamsHash.insert(std::make_pair(networkId, team));
 
 	// If autobalancing is on, and the team lock state supports it, then call EnforceTeamBalancing()
 	if (applyBalancing && balanceTeamsIsActive)
@@ -1165,18 +1189,18 @@ void TM_World::ReferenceTeam(TM_Team *team, NetworkID networkId, bool applyBalan
 void TM_World::DereferenceTeam(TM_Team *team, NoTeamId noTeamSubcategory)
 {
 	unsigned int i;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		if (teams[i]==team)
 		{
 			TM_Team *curTeam = teams[i];
-			while (curTeam->teamMembers.Size())
+			while (curTeam->teamMembers.size())
 			{
-				curTeam->teamMembers[curTeam->teamMembers.Size()-1]->LeaveTeam(curTeam, noTeamSubcategory);
+				curTeam->teamMembers[curTeam->teamMembers.size()-1]->LeaveTeam(curTeam, noTeamSubcategory);
 			}
-			teams.RemoveAtIndex(i);
+			teams.erase(teams.begin() + i);
 
-			teamsHash.Remove(curTeam->GetNetworkID(),_FILE_AND_LINE_);
+			teamsHash.erase(curTeam->GetNetworkID());
 
 			break;
 		}
@@ -1187,7 +1211,7 @@ void TM_World::DereferenceTeam(TM_Team *team, NoTeamId noTeamSubcategory)
 
 unsigned int TM_World::GetTeamCount(void) const
 {
-	return teams.Size();
+	return teams.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1201,10 +1225,10 @@ TM_Team *TM_World::GetTeamByIndex(unsigned int index) const
 
 TM_Team *TM_World::GetTeamByNetworkID(NetworkID teamId)
 {
-	DataStructures::HashIndex hi = teamsHash.GetIndexOf(teamId);
-	if (hi.IsInvalid())
+	std::unordered_map<NetworkID, TM_Team *>::const_iterator it = teamsHash.find(teamId);
+	if (it == teamsHash.end())
 		return 0;
-	return teamsHash.ItemAtIndex(hi);
+	return it->second;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1212,7 +1236,7 @@ TM_Team *TM_World::GetTeamByNetworkID(NetworkID teamId)
 unsigned int TM_World::GetTeamIndex(const TM_Team *team) const
 {
 	unsigned int i;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		if (teams[i]==team)
 			return i;
@@ -1225,7 +1249,7 @@ unsigned int TM_World::GetTeamIndex(const TM_Team *team) const
 void TM_World::ReferenceTeamMember(TM_TeamMember *teamMember, NetworkID networkId)
 {
 	unsigned int i;
-	for (i=0; i < teamMembers.Size(); i++)
+	for (i=0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i]==teamMember)
 			return;
@@ -1234,9 +1258,9 @@ void TM_World::ReferenceTeamMember(TM_TeamMember *teamMember, NetworkID networkI
 	teamMember->world=this;
 	teamMember->networkId=networkId;
 
-	teamMembers.Push(teamMember, _FILE_AND_LINE_);
+	teamMembers.push_back(teamMember);
 
-	teamMembersHash.Push(networkId,teamMember,_FILE_AND_LINE_);
+	teamMembersHash.insert(std::make_pair(networkId, teamMember));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1244,13 +1268,13 @@ void TM_World::ReferenceTeamMember(TM_TeamMember *teamMember, NetworkID networkI
 void TM_World::DereferenceTeamMember(TM_TeamMember *teamMember)
 {
 	unsigned int i;
-	for (i=0; i < teamMembers.Size(); i++)
+	for (i=0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i]==teamMember)
 		{
 			teamMembers[i]->UpdateListsToNoTeam(0);
-			teamMembersHash.Remove(teamMembers[i]->GetNetworkID(),_FILE_AND_LINE_);
-			teamMembers.RemoveAtIndex(i);
+			teamMembersHash.erase(teamMembers[i]->GetNetworkID());
+			teamMembers.erase(teamMembers.begin() + i);
 			break;
 		}
 	}
@@ -1260,7 +1284,7 @@ void TM_World::DereferenceTeamMember(TM_TeamMember *teamMember)
 
 unsigned int TM_World::GetTeamMemberCount(void) const
 {
-	return teamMembers.Size();
+	return teamMembers.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1281,10 +1305,10 @@ NetworkID TM_World::GetTeamMemberIDByIndex(unsigned int index) const
 
 TM_TeamMember *TM_World::GetTeamMemberByNetworkID(NetworkID teamMemberId)
 {
-	DataStructures::HashIndex hi = teamMembersHash.GetIndexOf(teamMemberId);
-	if (hi.IsInvalid())
+	std::unordered_map<NetworkID, TM_TeamMember *>::const_iterator it = teamMembersHash.find(teamMemberId);
+	if (it == teamMembersHash.end())
 		return 0;
-	return teamMembersHash.ItemAtIndex(hi);
+	return it->second;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1292,7 +1316,7 @@ TM_TeamMember *TM_World::GetTeamMemberByNetworkID(NetworkID teamMemberId)
 unsigned int TM_World::GetTeamMemberIndex(const TM_TeamMember *teamMember) const
 {
 	unsigned int i;
-	for (i=0; i < teamMembers.Size(); i++)
+	for (i=0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i]==teamMember)
 			return i;
@@ -1361,17 +1385,17 @@ WorldId TM_World::GetWorldId(void) const
 
 void TM_World::Clear(void)
 {
-	for (unsigned int i=0; i < teams.Size(); i++)
+	for (unsigned int i=0; i < teams.size(); i++)
 	{
 		teams[i]->world=0;
 	}
-	for (unsigned int i=0; i < teamMembers.Size(); i++)
+	for (unsigned int i=0; i < teamMembers.size(); i++)
 	{
 		teamMembers[i]->world=0;
 	}
-	participants.Clear(true, _FILE_AND_LINE_);
-	teams.Clear(true, _FILE_AND_LINE_);
-	teamMembers.Clear(true, _FILE_AND_LINE_);
+	participants.clear();
+	teams.clear();
+	teamMembers.clear();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1424,13 +1448,13 @@ void TM_World::KickExcessMembers(NoTeamId noTeamId)
 
 	TM_Team *team, *teamToJoin;
 	unsigned int i, teamIndex;
-	for (i=0; i < teams.Size(); i++)
+	for (i=0; i < teams.size(); i++)
 	{
 		team = teams[i];
 		while (team->GetMemberLimitSetting() < team->GetTeamMembersCount() ||
 			(balancedTeamLimit < team->GetTeamMembersCount() && team->GetBalancingApplies()) )
 		{
-			TM_TeamMember *teamMember = team->teamMembers[team->teamMembers.Size()-1];
+			TM_TeamMember *teamMember = team->teamMembers[team->teamMembers.size()-1];
 
 			teamIndex = GetAvailableTeamIndexWithFewestMembers(balancedTeamLimit, ALLOW_JOIN_REBALANCING);
 			if (teamIndex == (unsigned int)-1)
@@ -1479,14 +1503,14 @@ void TM_World::FillRequestedSlots(void)
 	unsigned int teamIndex, indexIntoTeamsRequested = (unsigned int)-1;
 	TM_Team *team;
 	TM_TeamMember *teamMember;
-	DataStructures::OrderedList<TM_World::JoinRequestHelper, TM_World::JoinRequestHelper, JoinRequestHelperComp> joinRequests;
+	std::vector<TM_World::JoinRequestHelper> joinRequests;
 	GetSortedJoinRequests(joinRequests);
 	unsigned int joinRequestIndex;
 
-	for (joinRequestIndex=0; joinRequestIndex < joinRequests.Size(); joinRequestIndex++)
+	for (joinRequestIndex=0; joinRequestIndex < joinRequests.size(); joinRequestIndex++)
 	{
 		teamMember = teamMembers[joinRequests[joinRequestIndex].teamMemberIndex];
-		if (teamMember->teamsRequested.Size()==0)
+		if (teamMember->teamsRequested.size()==0)
 		{
 			if (teamMember->joinTeamType==JOIN_ANY_AVAILABLE_TEAM)
 				teamIndex = GetAvailableTeamIndexWithFewestMembers(balancedTeamLimit, ALLOW_JOIN_ANY_AVAILABLE_TEAM);
@@ -1502,7 +1526,7 @@ void TM_World::FillRequestedSlots(void)
 				team->GetTeamMembersCount() < team->GetMemberLimitSetting() &&
 				(ALLOW_JOIN_SPECIFIC_TEAM & team->GetJoinPermissions())!=0)
 			{
-				teamIndex=teams.GetIndexOf(team);
+				teamIndex=IndexOf(teams, team);
 			}
 			else
 			{
@@ -1514,7 +1538,7 @@ void TM_World::FillRequestedSlots(void)
 		{
 			team = teams[teamIndex];
 
-			if (teamMember->teamsRequested.Size()==0)
+			if (teamMember->teamsRequested.size()==0)
 			{
 				if (teamMember->joinTeamType==JOIN_ANY_AVAILABLE_TEAM)
 				{
@@ -1536,7 +1560,7 @@ void TM_World::FillRequestedSlots(void)
 			else
 			{
 				// Switch or join specific
-				DataStructures::List<TM_Team*> teamsWeAreLeaving;
+				std::vector<TM_Team *> teamsWeAreLeaving;
 				bool isSwitch = teamMember->teamsRequested[indexIntoTeamsRequested].isTeamSwitch;
 				TM_Team *teamToLeave;
 				if (isSwitch)
@@ -1546,7 +1570,7 @@ void TM_World::FillRequestedSlots(void)
 					{
 						if (teamMember->IsOnTeam(teamToLeave))
 						{
-							teamsWeAreLeaving.Push(teamToLeave, _FILE_AND_LINE_);
+							teamsWeAreLeaving.push_back(teamToLeave);
 						}
 						else
 						{
@@ -1596,7 +1620,7 @@ unsigned int TM_World::GetAvailableTeamIndexWithFewestMembers(TeamMemberLimit se
 	unsigned int lowestTeamMembers = (unsigned int) -1;
 	unsigned int lowestIndex = (unsigned int) -1;
 
-	for (teamIndex=0; teamIndex < teams.Size(); teamIndex++)
+	for (teamIndex=0; teamIndex < teams.size(); teamIndex++)
 	{
 		if (teams[teamIndex]->GetTeamMembersCount() < secondaryLimit && 
 			teams[teamIndex]->GetTeamMembersCount() < teams[teamIndex]->GetMemberLimitSetting() &&
@@ -1613,14 +1637,14 @@ unsigned int TM_World::GetAvailableTeamIndexWithFewestMembers(TeamMemberLimit se
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void TM_World::GetSortedJoinRequests(DataStructures::OrderedList<TM_World::JoinRequestHelper, TM_World::JoinRequestHelper, JoinRequestHelperComp> &joinRequests)
+void TM_World::GetSortedJoinRequests(std::vector<TM_World::JoinRequestHelper> &joinRequests)
 {
 	unsigned int i;
 
-	for (i=0; i < teamMembers.Size(); i++)
+	for (i=0; i < teamMembers.size(); i++)
 	{
 		TM_TeamMember *teamMember = teamMembers[i];
-		if (teamMember->teamsRequested.Size()==0)
+		if (teamMember->teamsRequested.size()==0)
 		{
 			if (teamMember->joinTeamType==JOIN_ANY_AVAILABLE_TEAM)
 			{
@@ -1628,30 +1652,37 @@ void TM_World::GetSortedJoinRequests(DataStructures::OrderedList<TM_World::JoinR
 				jrh.whenRequestMade=teamMember->whenJoinAnyRequested;
 				jrh.teamMemberIndex=i;
 				jrh.requestIndex=teamMember->joinAnyRequestIndex;
-				joinRequests.Insert(jrh, jrh, true, _FILE_AND_LINE_);
+				joinRequests.push_back(jrh);
 			}
 		}
 		else
 		{
 			unsigned int j;
-			for (j=0; j < teamMember->teamsRequested.Size(); j++)
+			for (j=0; j < teamMember->teamsRequested.size(); j++)
 			{
 				TM_World::JoinRequestHelper jrh;
 				jrh.whenRequestMade=teamMember->teamsRequested[j].whenRequested;
 				jrh.teamMemberIndex=i;
 				jrh.indexIntoTeamsRequested=j;
 				jrh.requestIndex=teamMember->teamsRequested[j].requestIndex;
-				joinRequests.Insert(jrh, jrh, true, _FILE_AND_LINE_);
+				joinRequests.push_back(jrh);
 			}
 
 		}
 	}
+
+	// Same ordering the OrderedList maintained on insert.
+	std::sort(joinRequests.begin(), joinRequests.end(),
+		[](const JoinRequestHelper &a, const JoinRequestHelper &b)
+		{
+			return JoinRequestHelperComp(a, b) < 0;
+		});
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void TM_World::BroadcastToParticipants(MafiaNet::BitStream *bsOut, RakNetGUID exclusionGuid)
 {
-	for (unsigned int i=0; i < participants.Size(); i++)
+	for (unsigned int i=0; i < participants.size(); i++)
 	{
 		if (participants[i]==exclusionGuid)
 			continue;
@@ -1663,7 +1694,7 @@ void TM_World::BroadcastToParticipants(MafiaNet::BitStream *bsOut, RakNetGUID ex
 
 void TM_World::BroadcastToParticipants(unsigned char *data, const int length, RakNetGUID exclusionGuid)
 {
-	for (unsigned int i=0; i < participants.Size(); i++)
+	for (unsigned int i=0; i < participants.size(); i++)
 	{
 		if (participants[i]==exclusionGuid)
 			continue;
@@ -1681,7 +1712,7 @@ TM_Team* TM_World::JoinAnyTeam(TM_TeamMember *teamMember, int *resultCode)
 	if (idx == (unsigned int ) -1)
 	{
 		// If any team is joinable but full, return full. Otherwise return locked
-		for (idx=0; idx < teams.Size(); idx++)
+		for (idx=0; idx < teams.size(); idx++)
 		{
 			if ((teams[idx]->GetTeamMembersCount() >= balancedLimit ||
 				teams[idx]->GetTeamMembersCount()  >= teams[idx]->GetMemberLimitSetting()) &&
@@ -1712,11 +1743,11 @@ TM_Team* TM_World::JoinAnyTeam(TM_TeamMember *teamMember, int *resultCode)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-int TM_World::JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave, DataStructures::List<TM_Team*> &teamsWeAreLeaving)
+int TM_World::JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave, std::vector<TM_Team *> &teamsWeAreLeaving)
 {
 	if (team->GetJoinPermissions() & ALLOW_JOIN_SPECIFIC_TEAM)
 	{
-		if (balanceTeamsIsActive==false || teamsWeAreLeaving.Size()==0)
+		if (balanceTeamsIsActive==false || teamsWeAreLeaving.size()==0)
 		{
 			if (team->GetMemberLimit() > team->GetTeamMembersCount())
 			{
@@ -1737,7 +1768,7 @@ int TM_World::JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool is
 
 			// Do limited team swap
 			// We must be on one team, target must be on one team, and we want to exchange teams
-			if (teamsWeAreLeaving.Size()==1)
+			if (teamsWeAreLeaving.size()==1)
 			{
 				unsigned int j = team->GetMemberWithRequestedSingleTeamSwitch(teamsWeAreLeaving[0]);
 				if (j!=(unsigned int)-1)
@@ -1774,7 +1805,7 @@ int TM_World::JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool is
 
 TeamMemberLimit TM_World::GetBalancedTeamLimit(void) const
 {
-	if (teams.Size()==0)
+	if (teams.size()==0)
 		return 0;
 
 	if (balanceTeamsIsActive==false)
@@ -1783,23 +1814,25 @@ TeamMemberLimit TM_World::GetBalancedTeamLimit(void) const
 	unsigned int i;
 	bool additionalTeamsExcluded;
 	TeamMemberLimit balancedLimit;
-	unsigned int teamsCount=teams.Size();
-	unsigned int membersCount=teamMembers.Size();
-	DataStructures::List<TM_Team*> consideredTeams = teams;
+	unsigned int teamsCount=teams.size();
+	unsigned int membersCount=teamMembers.size();
+	std::vector<TM_Team *> consideredTeams = teams;
 
 	do 
 	{
 		additionalTeamsExcluded=false;
 		balancedLimit = (TeamMemberLimit) ((membersCount+(teamsCount-1))/(teamsCount));
 		i=0;
-		while (i < consideredTeams.Size())
+		while (i < consideredTeams.size())
 		{
 			if (consideredTeams[i]->GetMemberLimitSetting() < balancedLimit)
 			{
 				additionalTeamsExcluded=true;
 				membersCount-=consideredTeams[i]->GetMemberLimitSetting();
 				teamsCount--;
-				consideredTeams.RemoveAtIndexFast(i);
+				// Swap-remove as before: this is a local working copy and the loop re-tests index i.
+				consideredTeams[i] = consideredTeams.back();
+				consideredTeams.pop_back();
 			}
 			else
 			{
@@ -1843,7 +1876,7 @@ TM_World* TeamManager::AddWorld(WorldId worldId)
 	newWorld->teamManager=this;
 	newWorld->hostGuid=GetMyGUIDUnified();
 	worldsArray[worldId]=newWorld;
-	worldsList.Push(newWorld,_FILE_AND_LINE_);
+	worldsList.push_back(newWorld);
 	return newWorld;
 }
 
@@ -1852,12 +1885,15 @@ TM_World* TeamManager::AddWorld(WorldId worldId)
 void TeamManager::RemoveWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId]!=0 && "World not in use");
-	for (unsigned int i=0; i < worldsList.Size(); i++)
+	for (unsigned int i=0; i < worldsList.size(); i++)
 	{
 		if (worldsList[i]==worldsArray[worldId])
 		{
 			MafiaNet::OP_DELETE(worldsList[i],_FILE_AND_LINE_);
-			worldsList.RemoveAtIndexFast(i);
+			// Swap-remove, not erase: GetWorldAtIndex exposes this index and RemoveWorld has
+			// always swapped the last world in, unlike the team lists which shift down.
+			worldsList[i] = worldsList.back();
+			worldsList.pop_back();
 			break;
 		}
 	}
@@ -1868,7 +1904,7 @@ void TeamManager::RemoveWorld(WorldId worldId)
 
 unsigned int TeamManager::GetWorldCount(void) const
 {
-	return worldsList.Size();
+	return worldsList.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1891,7 +1927,7 @@ void TeamManager::SetAutoManageConnections(bool autoAdd)
 {
 	autoAddParticipants=autoAdd;
 
-	for (unsigned int i=0; i < worldsList.Size(); i++)
+	for (unsigned int i=0; i < worldsList.size(); i++)
 	{
 		worldsList[i]->SetAutoManageConnections(autoAdd);
 	}
@@ -1990,8 +2026,8 @@ void TeamManager::EncodeTeamAssigned(MafiaNet::BitStream *bitStream, TM_TeamMemb
 {
 	bitStream->Write(teamMember->world->GetWorldId());
 	bitStream->Write(teamMember->GetNetworkID());
-	bitStream->WriteCasted<uint16_t>(teamMember->teams.Size());
-	for (unsigned int i=0; i < teamMember->teams.Size(); i++)
+	bitStream->WriteCasted<uint16_t>(teamMember->teams.size());
+	for (unsigned int i=0; i < teamMember->teams.size(); i++)
 	{
 		bitStream->Write(teamMember->teams[i]->GetNetworkID());
 	}
@@ -2124,7 +2160,7 @@ void TeamManager::DecodeTeamAssigned(BitStream *bsIn, TM_World **world, TM_TeamM
 
 		if (*teamMember)
 		{
-			for (unsigned int i=0; i < (*teamMember)->teams.Size(); i++)
+			for (unsigned int i=0; i < (*teamMember)->teams.size(); i++)
 			{
 				TM_Team *team = (*teamMember)->teams[i];
 				if (newTeam.GetIndexOf(team)==(unsigned int)-1)
@@ -2135,7 +2171,7 @@ void TeamManager::DecodeTeamAssigned(BitStream *bsIn, TM_World **world, TM_TeamM
 		for (unsigned int i=0; i < newTeam.Size(); i++)
 		{
 			TM_Team *team = newTeam[i];
-			if ((*teamMember)->teams.GetIndexOf(team)==(unsigned int)-1)
+			if (IndexOf((*teamMember)->teams, team)==(unsigned int)-1)
 				teamsJoined.Push(team, _FILE_AND_LINE_);
 		}
 
@@ -2152,13 +2188,13 @@ void TeamManager::DecodeTeamAssigned(BitStream *bsIn, TM_World **world, TM_TeamM
 
 void TeamManager::Clear(void)
 {
-	for (unsigned int i=0; i < worldsList.Size(); i++)
+	for (unsigned int i=0; i < worldsList.size(); i++)
 	{
 		worldsArray[worldsList[i]->worldId]=0;
 		worldsList[i]->Clear();
 		MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
 	}
-	worldsList.Clear(false, _FILE_AND_LINE_);
+	worldsList.clear();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2176,7 +2212,7 @@ PluginReceiveResult TeamManager::OnReceive(Packet *packet)
 	case ID_FCM2_NEW_HOST:
 		{
 			unsigned int i;
-			for (i=0; i < worldsList.Size(); i++)
+			for (i=0; i < worldsList.size(); i++)
 				worldsList[i]->SetHost(packet->guid);
 		}
 		break;
@@ -2265,7 +2301,7 @@ PluginReceiveResult TeamManager::OnReceive(Packet *packet)
 
 void TeamManager::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
 {
-	for (unsigned int i=0; i < worldsList.Size(); i++)
+	for (unsigned int i=0; i < worldsList.size(); i++)
 	{
 		worldsList[i]->OnClosedConnection(systemAddress, rakNetGUID, lostConnectionReason);
 	}
@@ -2275,7 +2311,7 @@ void TeamManager::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 
 void TeamManager::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
 {
-	for (unsigned int i=0; i < worldsList.Size(); i++)
+	for (unsigned int i=0; i < worldsList.size(); i++)
 	{
 		worldsList[i]->OnNewConnection(systemAddress, rakNetGUID, isIncoming);
 	}
@@ -2493,7 +2529,7 @@ void TeamManager::OnJoinRequestedTeam(Packet *packet, TM_World *world)
 			teamMember->AddToRequestedTeams(teamToJoin);
 		}
 
-		DataStructures::List<TM_Team*> teamsWeAreLeaving;
+		std::vector<TM_Team *> teamsWeAreLeaving;
 		if (isTeamSwitch)
 		{
 			if (teamToLeave==0)
@@ -2503,10 +2539,10 @@ void TeamManager::OnJoinRequestedTeam(Packet *packet, TM_World *world)
 			else
 			{
 				if (teamMember->IsOnTeam(teamToLeave))
-					teamsWeAreLeaving.Push(teamToLeave, _FILE_AND_LINE_);
+					teamsWeAreLeaving.push_back(teamToLeave);
 			}
 
-			if (teamsWeAreLeaving.Size()==0)
+			if (teamsWeAreLeaving.size()==0)
 				isTeamSwitch=false;
 		}
 
