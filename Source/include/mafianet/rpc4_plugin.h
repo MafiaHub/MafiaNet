@@ -31,6 +31,8 @@
 #include "mafianet/string.h"
 #include "mafianet/network_id_object.h"
 #include "mafianet/ds_hash.h"
+#include <unordered_map>
+#include <vector>
 #include "mafianet/ds_ordered_list.h"
 
 /// \defgroup RPC_PLUGIN_GROUP RPC
@@ -238,9 +240,24 @@ class NetworkIDManager;
 			void *context;
 		};
 
-		DataStructures::Hash<MafiaNet::RakString, RegisteredNonblockingFunction,64, MafiaNet::RakString::ToInteger> registeredNonblockingFunctions;
-		DataStructures::Hash<MafiaNet::RakString, RegisteredBlockingFunction,64, MafiaNet::RakString::ToInteger> registeredBlockingFunctions;
-		DataStructures::OrderedList<MessageID,LocalCallback*,RPC4::LocalCallbackComp> localCallbacks;
+		// RakString has no std::hash specialisation; reuse the hash the replaced
+		// DataStructures::Hash instantiations were given.
+		struct RakStringKeyHash
+		{
+			size_t operator()(const MafiaNet::RakString &s) const
+			{
+				return (size_t) MafiaNet::RakString::ToInteger(s);
+			}
+		};
+		std::unordered_map<MafiaNet::RakString, RegisteredNonblockingFunction, RakStringKeyHash> registeredNonblockingFunctions;
+		std::unordered_map<MafiaNet::RakString, RegisteredBlockingFunction, RakStringKeyHash> registeredBlockingFunctions;
+		// Kept sorted ascending by LocalCallback::messageId and searched with std::lower_bound,
+		// matching the OrderedList it replaces. Nothing publishes this index, but the dispatch
+		// path looks up by message id on every received packet, so the ordering is kept.
+		std::vector<LocalCallback *> localCallbacks;
+
+		// Position of messageId, or of where it would be inserted; *found reports which.
+		unsigned int IndexForMessageId(MessageID messageId, bool *found) const;
 
 		MafiaNet::BitStream blockingReturnValue;
 		bool gotBlockingReturnValue;
