@@ -492,9 +492,15 @@ void ThreadPool<InputType, OutputType>::Clear(void)
 	}
 	else
 	{
+		// This branch used to return with runThreadsMutex still held, so any later
+		// lock of it -- StartThreads, StopThreads, Pause, WasStarted, or ~ThreadPool
+		// calling StopThreads -- deadlocked on a non-recursive SimpleMutex. Nothing
+		// in the library calls Clear(), which is why it went unnoticed, but it is a
+		// public header.
 		inputFunctionQueue.Clear(_FILE_AND_LINE_);
 		inputQueue.Clear(_FILE_AND_LINE_);
 		outputQueue.Clear(_FILE_AND_LINE_);
+		runThreadsMutex.Unlock();
 	}
 }
 template <class InputType, class OutputType>
