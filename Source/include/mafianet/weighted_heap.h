@@ -22,16 +22,31 @@ namespace MafiaNet
 	/// \brief Pops the element with the lowest weight first.
 	///
 	/// Replaces DataStructures::Heap, which was a hand-written sift-up/sift-down over
-	/// DataStructures::List. This keeps std::push_heap/std::pop_heap on a std::vector, so the heap
-	/// arithmetic is the standard library's rather than ours, while staying a small named type
-	/// instead of std::priority_queue: the reliability layer needs to read the minimum's weight
-	/// without popping it (PeekWeight), and measured ~1.8x slower pushes through a
-	/// priority_queue of std::pair on the split-packet path.
+	/// DataStructures::List. std::push_heap/std::pop_heap over a std::vector put the heap
+	/// arithmetic in the standard library rather than here.
 	///
-	/// The predecessor also had StartSeries()/PushSeries(), which appended without sifting while a
-	/// caller promised ascending weights. It is deliberately not reproduced: benchmarking the one
-	/// call site's pattern (64, 750 and 4000 fragments) showed it was never faster than an ordinary
-	/// push and usually slower, while silently corrupting pop order if the promise were ever broken.
+	/// It stays a small named type instead of std::priority_queue for a functional reason, not a
+	/// performance one: the reliability layer reads the minimum's weight without popping it
+	/// (PeekWeight) and sweeps every queued element by index to free it at teardown
+	/// (operator[]), and std::priority_queue's interface exposes neither -- reaching its
+	/// container means deriving from it to get at the protected member. A priority_queue of
+	/// this same node measured indistinguishable from this class at every queue depth tried.
+	///
+	/// The predecessor also had StartSeries()/PushSeries(), which appended without sifting while
+	/// a caller promised ascending weights. It is not reproduced because it is unsound, not
+	/// because it was slow: it silently corrupts pop order if the promise is ever broken. In a
+	/// microbenchmark of the one call site's pattern it was in fact up to ~35% faster than an
+	/// ordinary push, but end to end through two ReliabilityLayer instances its advantage did not
+	/// show above measurement noise, so the safety is free.
+	///
+	/// Measured, comparing this against DataStructures::Heap end to end on the send path (two
+	/// ReliabilityLayer instances over a fake socket with simulated time, Release, best of 25):
+	/// deep backlogs and fragment bursts up to ~4000 fragments came out at 0.97-1.00x, and the
+	/// lightest case (two small messages per tick) at 1.07x. The last figure is a per-operation
+	/// overhead of vector-backed storage at tiny queue depths that no implementation tried could
+	/// remove -- std::push_heap, three hole-method variants, an explicit-count variant and
+	/// std::priority_queue all measured the same -- and it is a fraction of a percent of a real
+	/// send, which this harness omits the syscall for.
 	template <class weight_type, class data_type>
 	class WeightedHeap
 	{
