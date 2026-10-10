@@ -314,3 +314,132 @@ TEST(RangeList, AckLikeArrivalPatternMatchesTheModel)
 		ASSERT_EQ(list.Size(), ExpectedRangeCount(model)) << "step " << step << ", value " << value;
 	}
 }
+
+// ---------------------------------------------------------------------------------------------
+// The reliability layer instantiates RangeList with DatagramSequenceNumberType, which is uint24_t
+// -- a type that WRAPS at 0xFFFFFF. The cases above all use unsigned, so none of them exercise the
+// arithmetic the shipping instantiation actually performs: Insert() compares against
+// minIndex-(range_type)1 and maxIndex+(range_type)1, and at the extremes those wrap.
+//
+// These pin what the type does today rather than asserting a wrap-aware design it does not have.
+// RangeNodeComp orders by raw value, so a range list spanning the wrap point is ordered by value
+// and not by sequence adjacency; that is a pre-existing property of the structure, recorded here so
+// a future change to it is a deliberate one.
+// ---------------------------------------------------------------------------------------------
+
+namespace
+{
+	typedef DataStructures::RangeList<MafiaNet::uint24_t> SeqRangeList;
+	const uint32_t kUint24Max = 0x00FFFFFF;
+}
+
+TEST(RangeListUint24, ContiguousSequenceNumbersMergeAwayFromTheWrapPoint)
+{
+	SeqRangeList list;
+	for (uint32_t i = 1000; i <= 1010; ++i)
+		list.Insert(MafiaNet::uint24_t(i));
+
+	EXPECT_EQ(list.Size(), 1u);
+	EXPECT_EQ(list.RangeSum(), 11u);
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(1000)));
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(1010)));
+	EXPECT_FALSE(list.IsWithinRange(MafiaNet::uint24_t(1011)));
+}
+
+// The fix for the missed merge added arithmetic on the previous range's maxIndex. Exercise it with
+// the wrapping type, at the top of the range where maxIndex+1 wraps to 0.
+TEST(RangeListUint24, MergingJustBelowTheWrapPointBehavesLikeAnywhereElse)
+{
+	SeqRangeList list;
+	list.Insert(MafiaNet::uint24_t(kUint24Max - 2));
+	list.Insert(MafiaNet::uint24_t(kUint24Max));       // leaves a one-wide gap at max-1
+	ASSERT_EQ(list.Size(), 2u);
+
+	list.Insert(MafiaNet::uint24_t(kUint24Max - 1));   // closes it
+
+	EXPECT_EQ(list.Size(), 1u) << "the gap below the wrap point must fuse like any other";
+	EXPECT_EQ(list.RangeSum(), 3u);
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(kUint24Max - 2)));
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(kUint24Max - 1)));
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(kUint24Max)));
+}
+
+// The missed-merge case that was fixed, expressed in the shipping type: a value sitting directly
+// above the previous range must extend it rather than becoming its own entry.
+TEST(RangeListUint24, ValueAbovePreviousRangeExtendsItRatherThanAddingAnEntry)
+{
+	SeqRangeList list;
+	list.Insert(MafiaNet::uint24_t(100));
+	list.Insert(MafiaNet::uint24_t(103));
+	list.Insert(MafiaNet::uint24_t(101));
+
+	EXPECT_EQ(list.Size(), 2u) << "101 must extend [100,100] instead of starting a third entry";
+	EXPECT_EQ(list.RangeSum(), 3u);
+}
+
+// Crossing the wrap boundary. Ordering is by raw value, so 0 does NOT merge with 0xFFFFFF even
+// though they are adjacent as sequence numbers. Recorded as current behaviour: coverage stays
+// correct, which is what the ack path depends on.
+TEST(RangeListUint24, WrapAroundDoesNotFuseButKeepsCoverageCorrect)
+{
+	SeqRangeList list;
+	list.Insert(MafiaNet::uint24_t(kUint24Max - 1));
+	list.Insert(MafiaNet::uint24_t(kUint24Max));
+	list.Insert(MafiaNet::uint24_t(0));
+	list.Insert(MafiaNet::uint24_t(1));
+
+	// Two entries, not one: [0,1] and [max-1,max], ordered by value.
+	EXPECT_EQ(list.Size(), 2u);
+	EXPECT_EQ(list.RangeSum(), 4u) << "no value may be lost or double counted across the wrap";
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(0)));
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(1)));
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(kUint24Max - 1)));
+	EXPECT_TRUE(list.IsWithinRange(MafiaNet::uint24_t(kUint24Max)));
+	EXPECT_FALSE(list.IsWithinRange(MafiaNet::uint24_t(2)));
+	EXPECT_FALSE(list.IsWithinRange(MafiaNet::uint24_t(kUint24Max - 2)));
+}
+
+TEST(RangeListUint24, SerializeRoundTripsSequenceNumbersIncludingTheExtremes)
+{
+	SeqRangeList source;
+	source.Insert(MafiaNet::uint24_t(0));
+	source.Insert(MafiaNet::uint24_t(1));
+	source.Insert(MafiaNet::uint24_t(5000));
+	source.Insert(MafiaNet::uint24_t(kUint24Max));
+
+	MafiaNet::BitStream bs;
+	source.Serialize(&bs, 2048, false);
+	bs.SetReadOffset(0);
+
+	SeqRangeList restored;
+	ASSERT_TRUE(restored.Deserialize(&bs));
+
+	EXPECT_EQ(restored.Size(), source.Size());
+	EXPECT_EQ(restored.RangeSum(), source.RangeSum());
+	EXPECT_TRUE(restored.IsWithinRange(MafiaNet::uint24_t(0)));
+	EXPECT_TRUE(restored.IsWithinRange(MafiaNet::uint24_t(1)));
+	EXPECT_TRUE(restored.IsWithinRange(MafiaNet::uint24_t(5000)));
+	EXPECT_TRUE(restored.IsWithinRange(MafiaNet::uint24_t(kUint24Max)));
+}
+
+// Differential with the wrapping type, staying inside a window well away from the boundary so the
+// model and the structure agree on adjacency.
+TEST(RangeListUint24, DifferentialAgainstAModelWithinAWindow)
+{
+	SeqRangeList list;
+	std::set<unsigned> model;
+
+	unsigned seed = 0x24b17799u;
+	const unsigned base = 70000;
+	for (int step = 0; step < 3000; ++step)
+	{
+		seed = seed * 1103515245u + 12345u;
+		const unsigned value = base + ((seed >> 16) % 200u);
+
+		list.Insert(MafiaNet::uint24_t(value));
+		model.insert(value);
+
+		ASSERT_EQ(list.RangeSum(), (unsigned)model.size()) << "step " << step << ", value " << value;
+		ASSERT_EQ(list.Size(), ExpectedRangeCount(model)) << "step " << step << ", value " << value;
+	}
+}

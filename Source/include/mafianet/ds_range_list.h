@@ -294,7 +294,12 @@ namespace DataStructures
 	{
 		unsigned sum = 0, i;
 		for (i = 0; i < ranges.Size(); i++) {
-			sum += ranges[i].maxIndex-ranges[i].minIndex + 1;
+			// Widened explicitly. range_type is uint24_t in the shipping instantiation, and
+			// "uint24_t + int" is ambiguous between its operator uint32_t() conversion and its own
+			// operator+, so this line never compiled for that type -- RangeSum() has no caller in
+			// Source/, which is why nobody noticed. Subtracting first is safe because maxIndex >=
+			// minIndex within a single range by construction.
+			sum += (unsigned)ranges[i].maxIndex - (unsigned)ranges[i].minIndex + 1;
 		}
         return sum;
 	}
