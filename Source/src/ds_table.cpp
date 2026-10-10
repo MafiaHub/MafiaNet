@@ -381,7 +381,18 @@ Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell> &initialCel
 		else
 			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_ );
 	}
-	rows[rowId] = newRow;
+	// Refuse a duplicate id rather than replacing the row, which is what the B+ tree Insert this
+	// replaced did. Overwriting would leak the row already held and leave anyone holding a pointer to
+	// it -- Room::tableRow, for one -- pointing at a row no longer in the table.
+	//
+	// Returning 0 matches the AddRow(unsigned) overload. The B+ tree version ignored Insert's result
+	// here and handed back a row it had not stored, which leaked the new row and gave the caller
+	// something the table did not contain.
+	if (rows.insert(std::make_pair(rowId, newRow)).second==false)
+	{
+		DeleteRow(newRow);
+		return 0;
+	}
 	return newRow;
 }
 Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell*> &initialCellValues, bool copyCells)
@@ -404,7 +415,18 @@ Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell*> &initialCe
 		else
 			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
 	}
-	rows[rowId] = newRow;
+	// Refuse a duplicate id rather than replacing the row, which is what the B+ tree Insert this
+	// replaced did. Overwriting would leak the row already held and leave anyone holding a pointer to
+	// it -- Room::tableRow, for one -- pointing at a row no longer in the table.
+	//
+	// Returning 0 matches the AddRow(unsigned) overload. The B+ tree version ignored Insert's result
+	// here and handed back a row it had not stored, which leaked the new row and gave the caller
+	// something the table did not contain.
+	if (rows.insert(std::make_pair(rowId, newRow)).second==false)
+	{
+		DeleteRow(newRow);
+		return 0;
+	}
 	return newRow;
 }
 Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<unsigned> columnIndices)
@@ -427,7 +449,18 @@ Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<
 			newRow->cells.Insert(MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_), _FILE_AND_LINE_);
 		}
 	}
-	rows[rowId] = newRow;
+	// Refuse a duplicate id rather than replacing the row, which is what the B+ tree Insert this
+	// replaced did. Overwriting would leak the row already held and leave anyone holding a pointer to
+	// it -- Room::tableRow, for one -- pointing at a row no longer in the table.
+	//
+	// Returning 0 matches the AddRow(unsigned) overload. The B+ tree version ignored Insert's result
+	// here and handed back a row it had not stored, which leaked the new row and gave the caller
+	// something the table did not contain.
+	if (rows.insert(std::make_pair(rowId, newRow)).second==false)
+	{
+		DeleteRow(newRow);
+		return 0;
+	}
 	return newRow;
 }
 bool Table::RemoveRow(unsigned rowId)

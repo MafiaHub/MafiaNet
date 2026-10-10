@@ -97,6 +97,52 @@ TEST(Table, AddRowRejectsADuplicateIdWithoutReplacingTheRow)
 	EXPECT_EQ(table.GetRowCount(), 1u);
 }
 
+// The AddRow overloads that take initial cell values must refuse a duplicate id too. Only the plain
+// AddRow(unsigned) overload was covered when the rows moved to std::map, and the others were written
+// as rows[rowId] = newRow -- which replaced the stored row, leaked it, and left anything holding a
+// pointer to it (Room::tableRow in the Lobby2 rooms container, for one) pointing outside the table.
+TEST(Table, AddRowWithInitialCellValuesRefusesADuplicateId)
+{
+	Table table;
+	table.AddColumn("value", Table::NUMERIC);
+
+	DataStructures::List<Table::Cell> initial;
+	Table::Cell cell;
+	cell.Set(5);
+	initial.Insert(cell, _FILE_AND_LINE_);
+
+	Table::Row *first = table.AddRow(1, initial);
+	ASSERT_NE(first, nullptr);
+	ASSERT_EQ(table.GetRowCount(), 1u);
+
+	Table::Row *second = table.AddRow(1, initial);
+	EXPECT_EQ(second, nullptr) << "a duplicate id must be refused, not overwrite the stored row";
+	EXPECT_EQ(table.GetRowCount(), 1u);
+	EXPECT_EQ(table.GetRowByID(1), first) << "the originally stored row must still be the one held";
+}
+
+TEST(Table, AddRowWithCellPointersRefusesADuplicateId)
+{
+	Table table;
+	table.AddColumn("value", Table::NUMERIC);
+
+	DataStructures::List<Table::Cell*> initial;
+	Table::Cell *cell = MafiaNet::OP_NEW<Table::Cell>(_FILE_AND_LINE_);
+	cell->Set(7);
+	initial.Insert(cell, _FILE_AND_LINE_);
+
+	Table::Row *first = table.AddRow(2, initial, true);
+	ASSERT_NE(first, nullptr);
+	ASSERT_EQ(table.GetRowCount(), 1u);
+
+	Table::Row *second = table.AddRow(2, initial, true);
+	EXPECT_EQ(second, nullptr) << "a duplicate id must be refused, not overwrite the stored row";
+	EXPECT_EQ(table.GetRowCount(), 1u);
+	EXPECT_EQ(table.GetRowByID(2), first);
+
+	MafiaNet::OP_DELETE(cell, _FILE_AND_LINE_);
+}
+
 TEST(Table, GetRowByIdFindsPresentRowsAndReportsMissingOnes)
 {
 	Table table;
