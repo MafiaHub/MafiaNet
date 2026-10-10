@@ -1870,7 +1870,9 @@ void Connection_RM3::OnLocalReference(Replica3* replica3, ReplicaManager3 *repli
 		}
 	}
 
-	if (constructedReplicaList.HasData(replica3)==true)
+	bool alreadyConstructed;
+	IndexForReplica(replica3, &alreadyConstructed);
+	if (alreadyConstructed==true)
 	{
 		RakAssert("replica added to queryToConstructReplicaList when already in constructedReplicaList" && 0);
 	}

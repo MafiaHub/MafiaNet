@@ -74,6 +74,10 @@ protected:
 	// When non-zero, drop this fraction (in percent) of ALL a->b datagrams,
 	// deterministically, to model plain loss.
 	int aToBLossPercent;
+	// When true, the datagrams a produced during one tick are delivered to b in reverse order.
+	// Plain reordering, which a real path does routinely, and the only way from here to make a
+	// later split-packet id reach b before an earlier one.
+	bool reverseAToBWithinTick;
 	uint32_t lcgState;
 
 	std::vector<std::vector<unsigned char> > received; // complete messages b got
@@ -84,6 +88,7 @@ protected:
 		, now(0)
 		, aToBDropOverBytes(MAXIMUM_MTU_SIZE)
 		, aToBLossPercent(0)
+		, reverseAToBWithinTick(false)
 		, lcgState(0x12345678)
 	{
 	}
@@ -132,8 +137,9 @@ protected:
 		a.Update(&aSock, bAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
 		b.Update(&bSock, aAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
 
-		for (size_t i = 0; i < aSock.sent.size(); i++)
+		for (size_t n = 0; n < aSock.sent.size(); n++)
 		{
+			const size_t i = reverseAToBWithinTick ? aSock.sent.size() - 1 - n : n;
 			if (DropAToB((int) aSock.sent[i].size()))
 				continue;
 			b.HandleSocketReceiveFromConnectedPlayer(&aSock.sent[i][0], (unsigned int) aSock.sent[i].size(),
@@ -408,5 +414,68 @@ TEST_F(RelLayerBlackHole, ThreeConcurrentSplitMessagesAllReassemble)
 	ASSERT_TRUE(PumpUntilReceived(3, 300000));
 	ASSERT_EQ(received.size(), 3u);
 	for (size_t i = 0; i < sent.size(); i++)
+		EXPECT_EQ(received[i], sent[i]) << "split message " << i << " reassembled wrongly";
+}
+
+// The case that actually pins splitPacketChannelList's ordering. Sending several split messages
+// is not enough on its own: split-packet ids are handed out in ascending order, so a channel list
+// that merely appends stays sorted by accident and a broken lookup still works. Reversing each
+// tick's datagrams makes the higher id's first fragment reach b first, so the list is only sorted
+// if the insert actually places it.
+TEST_F(RelLayerBlackHole, ConcurrentSplitMessagesReassembleWhenDatagramsAreReordered)
+{
+	reverseAToBWithinTick = true;
+
+	std::vector<unsigned char> first = PatternMessage(9000, 91);
+	std::vector<unsigned char> second = PatternMessage(9000, 92);
+
+	SendFromA(first);
+	SendFromA(second);
+
+	ASSERT_TRUE(PumpUntilReceived(2, 300000));
+	ASSERT_EQ(received.size(), 2u);
+	EXPECT_EQ(received[0], first);
+	EXPECT_EQ(received[1], second);
+}
+
+TEST_F(RelLayerBlackHole, ReorderedDatagramsStillDeliverManyMessagesInOrder)
+{
+	reverseAToBWithinTick = true;
+
+	const int count = 60;
+	std::vector<std::vector<unsigned char> > sent;
+	for (int i = 0; i < count; i++)
+	{
+		std::vector<unsigned char> msg = PatternMessage(40, (unsigned char) (100 + i));
+		sent.push_back(msg);
+		SendFromA(msg);
+	}
+
+	ASSERT_TRUE(PumpUntilReceived((size_t) count, 300000));
+	ASSERT_EQ(received.size(), (size_t) count);
+	for (int i = 0; i < count; i++)
+		EXPECT_EQ(received[i], sent[i]) << "ordered delivery broke at index " << i;
+}
+
+// Eight split messages in flight with reordering, so splitPacketChannelList holds many entries
+// and a fragment of an early id has to be matched against a list whose entries were created in
+// a different order.
+TEST_F(RelLayerBlackHole, ManyConcurrentSplitMessagesReassembleUnderReordering)
+{
+	reverseAToBWithinTick = true;
+
+	const int count = 8;
+	std::vector<std::vector<unsigned char> > sent;
+	for (int i = 0; i < count; i++)
+	{
+		std::vector<unsigned char> msg = PatternMessage(5000 + i * 700, (unsigned char) (120 + i));
+		sent.push_back(msg);
+		SendFromA(msg);
+	}
+
+	ASSERT_TRUE(PumpUntilReceived((size_t) count, 600000)) << "only " << received.size()
+		<< " of " << count << " split messages reassembled";
+	ASSERT_EQ(received.size(), (size_t) count);
+	for (int i = 0; i < count; i++)
 		EXPECT_EQ(received[i], sent[i]) << "split message " << i << " reassembled wrongly";
 }

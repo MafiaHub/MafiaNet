@@ -49,6 +49,8 @@
 #define INCLUDE_TIMESTAMP_WITH_DATAGRAMS 1
 #else
 #include "mafianet/cc_sliding_window.h"
+#include <deque>
+#include <vector>
 #define INCLUDE_TIMESTAMP_WITH_DATAGRAMS 0
 #endif
 
@@ -408,7 +410,7 @@ private:
 	// Used ONLY for MafiaNet::Reliability::ReliableOrdered
 	// MafiaNet::Reliability::ReliableSequenced just returns the newest one
 	// DataStructures::List<DataStructures::LinkedList<InternalPacket*>*> orderingList;
-	DataStructures::Queue<InternalPacket*> outputQueue;
+	std::deque<InternalPacket *> outputQueue;
 	int splitMessageProgressInterval;
 	CCTimeType unreliableTimeout;
 
@@ -430,7 +432,9 @@ private:
 	// Queue length is programmatically restricted to DATAGRAM_MESSAGE_ID_ARRAY_LENGTH
 	// This is essentially an O(1) lookup to get a DatagramHistoryNode given an index
 	// datagramHistory holds a linked list of MessageNumberNode. Each MessageNumberNode refers to one element in resendList which can be cleared on an ack.
-	DataStructures::Queue<DatagramHistoryNode> datagramHistory;
+	// A sliding window: index 0 is datagram number datagramHistoryPopCount, and lookups index
+	// it by (datagramNumber - datagramHistoryPopCount) in wrapping uint24_t arithmetic.
+	std::deque<DatagramHistoryNode> datagramHistory;
 	DataStructures::MemoryPool<MessageNumberNode> datagramHistoryMessagePool;
 
 	struct UnreliableWithAckReceiptNode
@@ -443,7 +447,7 @@ private:
 		uint32_t sendReceiptSerial;
 		MafiaNet::TimeUS nextActionTime;
 	};
-	DataStructures::List<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
+	std::vector<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
 
 	void RemoveFromDatagramHistory(DatagramSequenceNumberType index);
 	MessageNumberNode* GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent);
@@ -487,7 +491,10 @@ private:
 //	double bytesInSendBuffer[MafiaNet::NUMBER_OF_PRIORITIES];
 
 
-    DataStructures::OrderedList<SplitPacketIdType, SplitPacketChannel*, SplitPacketChannelComp> splitPacketChannelList;
+	// Kept sorted by split-packet id and searched with std::lower_bound through
+	// IndexForSplitPacketId, matching the OrderedList it replaces. Several split messages can
+	// be in flight at once, so the keyed lookup decides which message a fragment belongs to.
+	std::vector<SplitPacketChannel *> splitPacketChannelList;
 
 	MessageNumberType sendReliableMessageNumberIndex;
 	MessageNumberType internalOrderIndex;
@@ -549,7 +556,10 @@ private:
 	/// If we get a packet number where (receivedPacketsBaseIndex-packetNumber) is less than half the range of receivedPacketsBaseIndex then it is a duplicate
 	/// Otherwise, it is a duplicate packet (and ignore it).
 	// DataStructures::Queue<CCTimeType> hasReceivedPacketQueue;
-	DataStructures::Queue<bool> hasReceivedPacketQueue;
+	// Sliding window of holes, indexed from the head. std::deque frees blocks as it drains, so
+	// the predecessor's manual AllocationSize()/Compress() compaction is gone -- that existed
+	// only because its ring buffer never shrank on its own.
+	std::deque<bool> hasReceivedPacketQueue;
 	DatagramSequenceNumberType receivedPacketsBaseIndex;
 	bool resetReceivedPackets;
 
@@ -586,7 +596,7 @@ private:
 		//	SystemAddress systemAddress;
 		unsigned int extraSocketOptions;
 	};
-	DataStructures::Queue<DataAndTime*> delayList;
+	std::deque<DataAndTime *> delayList;
 
 	// Internet simulator
 	double packetloss;
@@ -623,15 +633,23 @@ private:
 	void AddToListTail(InternalPacket *internalPacket, bool modifyUnacknowledgedBytes);
 	void PopListHead(bool modifyUnacknowledgedBytes);
 	bool IsResendQueueEmpty(void) const;
-	void SortSplitPacketList(DataStructures::List<InternalPacket*> &data, unsigned int leftEdge, unsigned int rightEdge) const;
+	void SortSplitPacketList(std::vector<InternalPacket *> &data, unsigned int leftEdge, unsigned int rightEdge) const;
+
+	// Position of a split-packet id in splitPacketChannelList, or where it would be inserted.
+	unsigned int IndexForSplitPacketId(SplitPacketIdType id, bool *found) const;
+	// Sorted insert; returns the index, or (unsigned)-1 if that id is already present, matching
+	// the OrderedList::Insert(assertOnDuplicate=true) it replaces. The id is passed in rather
+	// than read back out of the channel: at the call site the channel's split packet list has
+	// not been populated yet, so its own id is not readable there.
+	unsigned int InsertSplitPacketChannel(SplitPacketIdType id, SplitPacketChannel *channel);
 	void SendACKs(RakNetSocket2 *s, SystemAddress &systemAddress, CCTimeType time, RakNetRandom *rnr, BitStream &updateBitStream);
 
-	DataStructures::List<InternalPacket*> packetsToSendThisUpdate;
-	DataStructures::List<bool> packetsToDeallocThisUpdate;
+	std::vector<InternalPacket *> packetsToSendThisUpdate;
+	std::vector<bool> packetsToDeallocThisUpdate;
 	// boundary is in packetsToSendThisUpdate, inclusive
-	DataStructures::List<unsigned int> packetsToSendThisUpdateDatagramBoundaries;
-	DataStructures::List<bool> datagramsToSendThisUpdateIsPair;
-	DataStructures::List<unsigned int> datagramSizesInBytes;
+	std::vector<unsigned int> packetsToSendThisUpdateDatagramBoundaries;
+	std::vector<bool> datagramsToSendThisUpdateIsPair;
+	std::vector<unsigned int> datagramSizesInBytes;
 	BitSize_t datagramSizeSoFar;
 	BitSize_t allDatagramSizesSoFar;
 	double totalUserDataBytesAcked;
