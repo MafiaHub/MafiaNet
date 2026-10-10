@@ -64,6 +64,25 @@ RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
 
 using namespace MafiaNet;
 
+namespace
+{
+	// accept()/socket() report failure as -1 on POSIX and INVALID_SOCKET on Windows,
+	// while this class uses 0 as its "no socket" value. Everything else here tested
+	// only against 0, so a failed accept was treated as a new connection and its -1
+	// was stored as a client socket; the next FD_SET(-1, ...) is undefined, and
+	// glibc's fortified fd_set aborts on it in a Release build ("bit out of range
+	// 0 - FD_SETSIZE on fd_set") while a Debug build corrupts the set in silence.
+	bool IsUsableSocket(__TCPSOCKET__ s)
+	{
+#ifdef _WIN32
+		return s != INVALID_SOCKET && s != 0;
+#else
+		return s > 0;
+#endif
+	}
+}
+
+
 STATIC_FACTORY_DEFINITIONS(TCPInterface,TCPInterface);
 
 TCPInterface::TCPInterface()
@@ -103,8 +122,14 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 	(void) socketFamily;
 #if RAKNET_SUPPORT_IPV6!=1
 	listenSocket = socket__(AF_INET, SOCK_STREAM, 0);
-	if ((int)listenSocket ==-1)
+	if (IsUsableSocket(listenSocket)==false)
+	{
+		// `(int)listenSocket == -1` was the old test: on Windows SOCKET is unsigned,
+		// so the cast is what made INVALID_SOCKET match at all, and a socket
+		// numbered 0 -- which this class cannot represent -- was accepted.
+		listenSocket=0;
 		return false;
+	}
 
 	struct sockaddr_in serverAddress;
 	memset(&serverAddress,0,sizeof(sockaddr_in));
@@ -851,7 +876,7 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 	}
 
 		__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
-		if (sockfd < 0)
+		if (IsUsableSocket(sockfd)==false)
 		{
 			freeaddrinfo(addressList);
 			return 0;
@@ -1120,9 +1145,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 			{
 				newSock = accept__(sts->listenSocket, (sockaddr*)&sockAddr, (socklen_t*)&sockAddrSize);
 
-				if (newSock != 0)
+				if (IsUsableSocket(newSock))
 				{
-					int newRemoteClientIndex=-1;
+					int newRemoteClientIndex;
+					bool slotFound=false;
 					for (newRemoteClientIndex=0; newRemoteClientIndex < sts->remoteClientsLength; newRemoteClientIndex++)
 					{
 						sts->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -1155,13 +1181,19 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 							*newConnectionSystemAddress=sts->remoteClients[newRemoteClientIndex].systemAddress;
 							sts->newIncomingConnections.Push(newConnectionSystemAddress);
 
+							slotFound=true;
 							break;
 						}
 						sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 					}
-					if (newRemoteClientIndex==-1)
+					if (slotFound==false)
 					{
-						closesocket__(sts->listenSocket);
+						// The loop above leaves newRemoteClientIndex at
+						// remoteClientsLength when every slot is taken, never at -1,
+						// so the old `newRemoteClientIndex==-1` test never fired --
+						// and when it was meant to, it closed the *listen* socket
+						// instead of the connection it could not accommodate.
+						closesocket__(newSock);
 					}
 				}
 				else

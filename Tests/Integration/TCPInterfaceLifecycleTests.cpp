@@ -179,4 +179,79 @@ TEST_F(TCPInterfaceLifecycle, AnInterfaceWhoseStartFailedCanStartAgain)
 	ASSERT_TRUE(restarted) << "a failed Start left the interface unusable";
 }
 
+// A connection accepted when every client slot is already taken used to be
+// leaked: the "no free slot" branch tested `newRemoteClientIndex == -1`, which
+// the loop above can never produce -- it leaves the index at remoteClientsLength
+// -- so the accepted socket was never closed and the client was left connected to
+// a server that would never service it. And had the branch fired, it closed the
+// *listen* socket rather than the connection it could not take.
+TEST_F(TCPInterfaceLifecycle, AConnectionRefusedForLackOfSlotsIsClosed)
+{
+	TCPInterface server;
+	const unsigned short port = TestHelpers::StartTcpOnAFreePort(server, 1); // exactly one slot
+	ASSERT_NE(port, 0);
+
+	TCPInterface first;
+	ASSERT_TRUE(first.Start(0, 0));
+	first.Connect("127.0.0.1", port, false);
+
+	SystemAddress accepted = UNASSIGNED_SYSTEM_ADDRESS;
+	TimeMS start = GetTimeMS();
+	while (accepted == UNASSIGNED_SYSTEM_ADDRESS && GetTimeMS() - start < 10000)
+	{
+		accepted = server.HasNewIncomingConnection();
+		if (accepted == UNASSIGNED_SYSTEM_ADDRESS)
+			RakSleep(10);
+	}
+
+	TCPInterface second;
+	bool secondStarted = false;
+	SystemAddress secondLost = UNASSIGNED_SYSTEM_ADDRESS;
+	SystemAddress stillAccepting = UNASSIGNED_SYSTEM_ADDRESS;
+
+	if (accepted != UNASSIGNED_SYSTEM_ADDRESS)
+	{
+		secondStarted = second.Start(0, 0);
+		if (secondStarted)
+		{
+			second.Connect("127.0.0.1", port, false);
+
+			// The server has no slot for it, so the server must close the socket and
+			// the client must see the connection go away.
+			start = GetTimeMS();
+			while (secondLost == UNASSIGNED_SYSTEM_ADDRESS && GetTimeMS() - start < 10000)
+			{
+				secondLost = second.HasLostConnection();
+				if (secondLost == UNASSIGNED_SYSTEM_ADDRESS)
+					RakSleep(10);
+			}
+
+			// Freeing the slot must let a later connection in -- the listener has to
+			// have survived the refusal.
+			server.CloseConnection(accepted);
+			RakSleep(100);
+
+			second.Connect("127.0.0.1", port, false);
+			start = GetTimeMS();
+			while (stillAccepting == UNASSIGNED_SYSTEM_ADDRESS && GetTimeMS() - start < 10000)
+			{
+				stillAccepting = server.HasNewIncomingConnection();
+				if (stillAccepting == UNASSIGNED_SYSTEM_ADDRESS)
+					RakSleep(10);
+			}
+		}
+	}
+
+	second.Stop();
+	first.Stop();
+	server.Stop();
+
+	ASSERT_NE(accepted, UNASSIGNED_SYSTEM_ADDRESS) << "the first connection was never accepted";
+	ASSERT_TRUE(secondStarted);
+	ASSERT_NE(secondLost, UNASSIGNED_SYSTEM_ADDRESS)
+		<< "the refused connection was left open instead of being closed";
+	ASSERT_NE(stillAccepting, UNASSIGNED_SYSTEM_ADDRESS)
+		<< "the listener stopped accepting after refusing a connection";
+}
+
 #endif // _RAKNET_SUPPORT_TCPInterface
