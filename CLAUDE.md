@@ -101,12 +101,34 @@ Release is what ships and exercises the backstops the asserts hide):
 ```bash
 docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -c '
   apt-get update -qq && apt-get install -y -qq build-essential cmake libssl-dev git ca-certificates
-  cp -r /src /work && cd /work
   for cfg in Debug Release; do
-    cmake -B /b-$cfg -S . -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON
+    cmake -B /b-$cfg -S /src -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON
     cmake --build /b-$cfg --parallel "$(nproc)"
     ctest --test-dir /b-$cfg --output-on-failure --timeout 600 || exit 1
   done'
+```
+
+Build straight from the read-only mount with `-S /src`; **do not** `cp -r /src /work`
+first. A local `build/` directory is a few hundred MB, the copy pulls it in, and once
+the container's writable layer fills up it truncates files *silently* -- the symptom
+is gcc reporting "unterminated #if" in a source file that compiles fine everywhere
+else. CMake never writes into the source tree, so there is nothing to copy for.
+
+To check for leaks and memory errors, add a sanitizer to the same invocation and run
+the binaries directly (LeakSanitizer is Linux-only; macOS ASAN has no leak
+detection):
+
+```bash
+docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -c '
+  apt-get update -qq && apt-get install -y -qq build-essential cmake libssl-dev git ca-certificates
+  cmake -B /b -S /src -DCMAKE_BUILD_TYPE=Debug -DMAFIANET_BUILD_TESTS=ON \
+    -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+    -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+    -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address"
+  cmake --build /b --parallel "$(nproc)"
+  ASAN_OPTIONS=detect_leaks=1 /b/Tests/UnitTests
+  ASAN_OPTIONS=detect_leaks=1 /b/Tests/IntegrationTests --gtest_filter="<Suite>.*"'
 ```
 
 `Tests/Integration/MmsgBatchLiveTests.cpp` is the suite that actually fills batches
