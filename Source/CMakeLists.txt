@@ -159,7 +159,7 @@ set(MAFIANET_HEADERS
     include/mafianet/ds_byte_pool.h
     include/mafianet/ds_byte_queue.h
     include/mafianet/ds_hash.h
-    include/mafianet/ds_heap.h
+    include/mafianet/weighted_heap.h
     include/mafianet/ds_huffman_encoding_tree.h
     include/mafianet/ds_huffman_encoding_tree_factory.h
     include/mafianet/ds_huffman_encoding_tree_node.h
