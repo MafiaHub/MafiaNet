@@ -32,6 +32,8 @@
 #include "mafianet/network_id_object.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/ds_queue.h"
+#include <deque>
+#include <vector>
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
@@ -376,8 +378,10 @@ protected:
 
 	// For O(1) lookup. One slot per WorldId value: an id read off the wire indexes it before it is checked.
 	RM3World *worldsArray[256];
-	// For fast traversal
-	DataStructures::List<RM3World *> worldsList;
+	// For fast traversal. RemoveWorld swaps the last element into the hole rather than
+	// shifting -- that is documented on GetWorldIdAtIndex and publicly observable, so it is
+	// reproduced explicitly rather than with erase().
+	std::vector<RM3World *> worldsList;
 private:
 	// #med - reconsider visibility here --- should be properly encapsulated so to not allow access to worldsList by derived classes (which could bypass the mutex)
 	// mutex to ensure thread safe access to worldsList member
@@ -644,6 +648,15 @@ public:
 
 	static int Replica3LSRComp( Replica3 * const &replica3, LastSerializationResult * const &data );
 
+	// Position of replica3 in constructedReplicaList, or of where it would be inserted;
+	// *found reports which. Replaces OrderedList::GetIndexFromKey.
+	unsigned int IndexForReplica(Replica3 *replica3, bool *found) const;
+
+	// Sorted insert into constructedReplicaList. Returns the index, or (unsigned)-1 if the
+	// replica is already present -- the same contract as the OrderedList::Insert it replaces,
+	// which refused duplicates and asserted on them.
+	unsigned int InsertConstructedReplica(LastSerializationResult *lsr);
+
 	// Internal
 	void ClearDownloadGroup(RakPeerInterface *rakPeerInterface);
 protected:
@@ -717,27 +730,33 @@ protected:
 	// The list of objects that our local system and this remote system both have
 	// Either we sent this object to them, or they sent this object to us
 	// A given Replica can be either in queryToConstructReplicaList or constructedReplicaList but not both at the same time
-	DataStructures::OrderedList<Replica3*, LastSerializationResult*, Connection_RM3::Replica3LSRComp> constructedReplicaList;
+	// Kept sorted ascending by Replica3::referenceIndex and searched with std::lower_bound,
+	// matching the OrderedList it replaces. Lookup runs on the serialize path for every
+	// replica every tick, so the ordering is kept rather than traded for a linear scan.
+	std::vector<LastSerializationResult *> constructedReplicaList;
 
 	// Objects that we have, but this system does not, and we will query each tick to see if it should be sent to them
 	// If we do send it to them, the replica is moved to constructedReplicaList
 	// A given Replica can be either in queryToConstructReplicaList or constructedReplicaList but not both at the same time
-	DataStructures::List<LastSerializationResult*> queryToConstructReplicaList;
+	std::vector<LastSerializationResult *> queryToConstructReplicaList;
 
 	// Objects that this system has constructed are added at the same time to queryToSerializeReplicaList
 	// This list is used to serialize all objects that this system has to this connection
-	DataStructures::List<LastSerializationResult*> queryToSerializeReplicaList;
+	std::vector<LastSerializationResult *> queryToSerializeReplicaList;
 
 	// Objects that are constructed on this system are also queried if they should be destroyed to this system
-	DataStructures::List<LastSerializationResult*> queryToDestructReplicaList;
+	std::vector<LastSerializationResult *> queryToDestructReplicaList;
 
 	// Working lists
+	// Handed straight to the public virtuals QueryReplicaList and SendConstruction, which take
+	// DataStructures::List&. Left as-is deliberately: converting here would copy both lists
+	// every tick on the serialize path. Stage 3 moves them with those signatures.
 	DataStructures::List<Replica3*> constructedReplicasCulled, destroyedReplicasCulled;
 
 	// This is used if QueryGroupDownloadMessages() returns true when ID_REPLICA_MANAGER_DOWNLOAD_STARTED arrives
 	// Packets will be gathered and not returned until ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE arrives
 	bool groupConstructionAndSerialize;
-	DataStructures::Queue<Packet*> downloadGroup;
+	std::deque<Packet *> downloadGroup;
 
 	// Stores if we got download complete for this connection
 	bool gotDownloadComplete;
