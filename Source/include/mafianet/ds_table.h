@@ -25,6 +25,7 @@
 #include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 #include "mafianet/string.h"
+#include <vector>
 
 #define _TABLE_MAX_COLUMN_NAME_LENGTH 64
 
@@ -330,11 +331,11 @@ namespace DataStructures
 		Table& operator = ( const Table& input );
 
 	protected:
-		Table::Row* AddRowColumns(unsigned rowId, Row *row, DataStructures::List<unsigned> columnIndices);
+		Table::Row* AddRowColumns(unsigned rowId, Row *row, std::vector<unsigned> columnIndices);
 
 		void DeleteRow(Row *row);
 
-		void QueryRow(DataStructures::List<unsigned> &inclusionFilterColumnIndices, DataStructures::List<unsigned> &columnIndicesToReturn, unsigned key, Table::Row* row, FilterQuery *inclusionFilters, Table *result);
+		void QueryRow(std::vector<unsigned> &inclusionFilterColumnIndices, std::vector<unsigned> &columnIndicesToReturn, unsigned key, Table::Row* row, FilterQuery *inclusionFilters, Table *result);
 
 		std::map<unsigned, Row*> rows;
 
