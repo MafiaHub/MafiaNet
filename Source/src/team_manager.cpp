@@ -2043,18 +2043,18 @@ void TeamManager::ProcessTeamAssigned(MafiaNet::BitStream *bsIn)
 	TM_TeamMember *teamMember;
 	NoTeamId noTeamId;
 	JoinTeamType joinTeamType;
-	DataStructures::List<TM_Team *> newTeam;
-	DataStructures::List<TM_Team *> teamsLeft;
-	DataStructures::List<TM_Team *> teamsJoined;
+	std::vector<TM_Team *> newTeam;
+	std::vector<TM_Team *> teamsLeft;
+	std::vector<TM_Team *> teamsJoined;
 	DecodeTeamAssigned(bsIn, &world, &teamMember, noTeamId, joinTeamType, newTeam, teamsLeft, teamsJoined);
 	if (teamMember)
 	{
 		teamMember->StoreLastTeams();
-		for (unsigned int i=0; i < teamsLeft.Size(); i++)
+		for (unsigned int i=0; i < teamsLeft.size(); i++)
 		{
 			teamMember->RemoveFromSpecificTeamInternal(teamsLeft[i]);
 		}
-		for (unsigned int i=0; i < teamsJoined.Size(); i++)
+		for (unsigned int i=0; i < teamsJoined.size(); i++)
 		{
 			if (teamMember->IsOnTeam(teamsJoined[i])==false)
 			{
@@ -2127,13 +2127,13 @@ void TeamManager::DecodeTeamCancelled(Packet *packet, TM_World **world, TM_TeamM
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void TeamManager::DecodeTeamAssigned(BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, NoTeamId &noTeamId,
-										JoinTeamType &joinTeamType, DataStructures::List<TM_Team *> &newTeam,
-										DataStructures::List<TM_Team *> &teamsLeft, DataStructures::List<TM_Team *> &teamsJoined
+										JoinTeamType &joinTeamType, std::vector<TM_Team *> &newTeam,
+										std::vector<TM_Team *> &teamsLeft, std::vector<TM_Team *> &teamsJoined
 										)
 {
-	newTeam.Clear(true, _FILE_AND_LINE_);
-	teamsLeft.Clear(true, _FILE_AND_LINE_);
-	teamsJoined.Clear(true, _FILE_AND_LINE_);
+	newTeam.clear();
+	teamsLeft.clear();
+	teamsJoined.clear();
 
 	WorldId worldId;
 	NetworkID teamMemberId;
@@ -2154,7 +2154,7 @@ void TeamManager::DecodeTeamAssigned(BitStream *bsIn, TM_World **world, TM_TeamM
 			TM_Team * team = (*world)->GetTeamByNetworkID(teamId);
 			RakAssert(team);
 			if (team)
-				newTeam.Push(team, _FILE_AND_LINE_);
+				newTeam.push_back(team);
 			// else probably didn't reference team first
 		}
 
@@ -2163,16 +2163,16 @@ void TeamManager::DecodeTeamAssigned(BitStream *bsIn, TM_World **world, TM_TeamM
 			for (unsigned int i=0; i < (*teamMember)->teams.size(); i++)
 			{
 				TM_Team *team = (*teamMember)->teams[i];
-				if (newTeam.GetIndexOf(team)==(unsigned int)-1)
-					teamsLeft.Push(team, _FILE_AND_LINE_);
+				if (IndexOf(newTeam, team)==(unsigned int)-1)
+					teamsLeft.push_back(team);
 			}
 		}
 
-		for (unsigned int i=0; i < newTeam.Size(); i++)
+		for (unsigned int i=0; i < newTeam.size(); i++)
 		{
 			TM_Team *team = newTeam[i];
 			if (IndexOf((*teamMember)->teams, team)==(unsigned int)-1)
-				teamsJoined.Push(team, _FILE_AND_LINE_);
+				teamsJoined.push_back(team);
 		}
 
 		bsIn->Read(noTeamId);

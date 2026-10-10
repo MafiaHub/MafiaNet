@@ -747,8 +747,8 @@ protected:
 	/// \param[in] A packet where packet->data[0]==ID_TEAM_BALANCER_TEAM_ASSIGNED
 	/// \return true on success, false on read error
 	void DecodeTeamAssigned(MafiaNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, NoTeamId &noTeamSubcategory,
-		JoinTeamType &joinTeamType, DataStructures::List<TM_Team *> &newTeam,
-		DataStructures::List<TM_Team *> &teamsLeft, DataStructures::List<TM_Team *> &teamsJoined);
+		JoinTeamType &joinTeamType, std::vector<TM_Team *> &newTeam,
+		std::vector<TM_Team *> &teamsLeft, std::vector<TM_Team *> &teamsJoined);
 
 	// O(1) lookup for a given world. If I need more worlds, change this to a hash or ordered list
 	TM_World *worldsArray[255];
