@@ -42,6 +42,9 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/ds_queue.h"
 
+#include <deque>
+#include <vector>
+
 namespace MafiaNet {
 /// Forward declarations
 class HuffmanEncodingTree;
@@ -970,11 +973,11 @@ protected:
 #endif
 
 	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;
-	DataStructures::List<BanStruct*> banList;
+	std::vector<BanStruct*> banList;
 	// Threadsafe, and not thread safe
 	DataStructures::List<PluginInterface2*> pluginListTS, pluginListNTS;
 
-	DataStructures::Queue<RequestedConnectionStruct*> requestedConnectionQueue;
+	std::deque<RequestedConnectionStruct*> requestedConnectionQueue;
 	SimpleMutex requestedConnectionQueueMutex;
 
 	// void RunMutexedUpdateCycle(void);
@@ -1012,9 +1015,9 @@ protected:
 
 	// DataStructures::ThreadsafeAllocatingQueue<RNS2RecvStruct> bufferedPackets;
 
-	DataStructures::Queue<RNS2RecvStruct*> bufferedPacketsFreePool;
+	std::deque<RNS2RecvStruct*> bufferedPacketsFreePool;
 	MafiaNet::SimpleMutex bufferedPacketsFreePoolMutex;
-	DataStructures::Queue<RNS2RecvStruct*> bufferedPacketsQueue;
+	std::deque<RNS2RecvStruct*> bufferedPacketsQueue;
 	MafiaNet::SimpleMutex bufferedPacketsQueueMutex;
 
 	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line);
@@ -1027,7 +1030,7 @@ protected:
 	{
 		SocketQueryOutput() {}
 		~SocketQueryOutput() {}
-		DataStructures::List<RakNetSocket2* > sockets;
+		std::vector<RakNetSocket2*> sockets;
 	};
 
 	DataStructures::ThreadsafeAllocatingQueue<SocketQueryOutput> socketQueryOutput;
@@ -1060,7 +1063,7 @@ protected:
 	bool trackFrequencyTable;
 
 	// Smart pointer so I can return the object to the user
-	DataStructures::List<RakNetSocket2* > socketList;
+	std::vector<RakNetSocket2*> socketList;
 	void DerefAllSockets(void);
 	unsigned int GetRakNetSocketFromUserConnectionSocketIndex(unsigned int userIndex) const;
 	// Used for RPC replies
@@ -1095,7 +1098,7 @@ protected:
 	bool (*incomingDatagramEventHandler)(RNS2RecvStruct *);
 
 	// Systems in this list will not go through the secure connection process, even when secure connections are turned on. Wildcards are accepted.
-	DataStructures::List<MafiaNet::RakString> securityExceptionList;
+	std::vector<MafiaNet::RakString> securityExceptionList;
 
 	SystemAddress ipList[ MAXIMUM_NUMBER_OF_INTERNAL_IDS ];
 
@@ -1112,7 +1115,7 @@ protected:
 	DataStructures::MemoryPool<Packet> packetAllocationPool;
 
 	SimpleMutex packetReturnMutex;
-	DataStructures::Queue<Packet*> packetReturnQueue;
+	std::deque<Packet*> packetReturnQueue;
 	Packet *AllocPacket(unsigned dataSize, const char *file, unsigned int line);
 	Packet *AllocPacket(unsigned dataSize, unsigned char *data, const char *file, unsigned int line);
 
