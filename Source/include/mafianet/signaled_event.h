@@ -50,6 +50,14 @@ public:
 	void WaitOnEvent(int timeoutMs);
 
 protected:
+	/// Guards SetEvent and WaitOnEvent against running before InitEvent, or after
+	/// CloseEvent. On POSIX the condition variable and mutex below are only
+	/// initialised by InitEvent, and pthread_cond_broadcast on an uninitialised
+	/// pthread_cond_t blocks forever on glibc rather than failing, so an
+	/// unguarded SetEvent hung the caller. Read and written under isSignaledMutex
+	/// on POSIX; on Windows the INVALID_HANDLE_VALUE check serves the same purpose.
+	bool isInitialized;
+
 #ifdef _WIN32
 	HANDLE eventList;
 

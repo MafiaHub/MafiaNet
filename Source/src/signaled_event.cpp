@@ -30,6 +30,7 @@ using namespace MafiaNet;
 
 SignaledEvent::SignaledEvent()
 {
+	isInitialized=false;
 #ifdef _WIN32
 	eventList=INVALID_HANDLE_VALUE;
 
@@ -47,7 +48,18 @@ void SignaledEvent::InitEvent(void)
 {
 #if defined(_WIN32)
 		eventList=CreateEvent(0, false, false, 0);
+		isInitialized=true;
 #else
+
+		isSignaledMutex.Lock();
+		if (isInitialized)
+		{
+			// pthread_cond_init on an already-initialised condition variable is
+			// undefined, so a second InitEvent without a CloseEvent is a no-op.
+			isSignaledMutex.Unlock();
+			return;
+		}
+		isSignaledMutex.Unlock();
 
 #if !defined(ANDROID)
 		pthread_condattr_init( &condAttr );
@@ -57,12 +69,17 @@ void SignaledEvent::InitEvent(void)
 #endif
 		pthread_mutexattr_init( &mutexAttr	);
 		pthread_mutex_init(&hMutex, &mutexAttr);
+
+		isSignaledMutex.Lock();
+		isInitialized=true;
+		isSignaledMutex.Unlock();
 #endif
 }
 
 void SignaledEvent::CloseEvent(void)
 {
 #ifdef _WIN32
+	isInitialized=false;
 	if (eventList!=INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(eventList);
@@ -78,6 +95,16 @@ void SignaledEvent::CloseEvent(void)
 
 
 #else
+	isSignaledMutex.Lock();
+	if (isInitialized==false)
+	{
+		// Nothing was ever created; destroying it would be undefined.
+		isSignaledMutex.Unlock();
+		return;
+	}
+	isInitialized=false;
+	isSignaledMutex.Unlock();
+
 	pthread_cond_destroy(&eventList);
 	pthread_mutex_destroy(&hMutex);
 #if !defined(ANDROID)
@@ -90,6 +117,8 @@ void SignaledEvent::CloseEvent(void)
 void SignaledEvent::SetEvent(void)
 {
 #ifdef _WIN32
+	if (eventList==INVALID_HANDLE_VALUE)
+		return;
 	::SetEvent(eventList);
 
 
@@ -106,10 +135,14 @@ void SignaledEvent::SetEvent(void)
 	// We have to record manually that the event was signaled
 	isSignaledMutex.Lock();
 	isSignaled=true;
+	const bool broadcast = isInitialized;
 	isSignaledMutex.Unlock();
 
-	// Unblock waiting threads
-	pthread_cond_broadcast(&eventList);
+	// Unblock waiting threads. Skipped when there is no condition variable yet:
+	// isSignaled above is still recorded, so a WaitOnEvent after a later
+	// InitEvent still sees the signal.
+	if (broadcast)
+		pthread_cond_broadcast(&eventList);
 #endif
 }
 
@@ -121,6 +154,8 @@ void SignaledEvent::WaitOnEvent(int timeoutMs)
 //		eventList,
 //		false,
 //		timeoutMs);
+	if (eventList==INVALID_HANDLE_VALUE)
+		return;
 	WaitForSingleObjectEx(eventList,timeoutMs,FALSE);
 
 
@@ -170,6 +205,13 @@ void SignaledEvent::WaitOnEvent(int timeoutMs)
 	if (isSignaled==true)
 	{
 		isSignaled=false;
+		isSignaledMutex.Unlock();
+		return;
+	}
+	if (isInitialized==false)
+	{
+		// No condition variable to wait on: pthread_cond_timedwait below would be
+		// undefined. Return as though the wait timed out.
 		isSignaledMutex.Unlock();
 		return;
 	}
