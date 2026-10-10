@@ -139,7 +139,7 @@ Packet* PacketizedTCP::Receive( void )
 	PushNotificationsToQueues();
 
 	unsigned int i;
-	for (i=0; i < messageHandlerList.Size(); i++)
+	for (i=0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->Update();
 
 	Packet *outgoingPacket=ReturnOutgoingPacket();
@@ -275,7 +275,7 @@ Packet *PacketizedTCP::ReturnOutgoingPacket(void)
 	{
 		outgoingPacket=waitingPackets.Pop();
 		PluginReceiveResult pluginResult;
-		for (i=0; i < messageHandlerList.Size(); i++)
+		for (i=0; i < messageHandlerList.size(); i++)
 		{
 			pluginResult=messageHandlerList[i]->OnReceive(outgoingPacket);
 			if (pluginResult==RR_STOP_PROCESSING_AND_DEALLOCATE)
