@@ -417,8 +417,8 @@ void TCPInterface::StartSSLClient(SystemAddress systemAddress)
 	SystemAddress *id = startSSL.Allocate( _FILE_AND_LINE_ );
 	*id=systemAddress;
 	startSSL.Push(id);
-	unsigned index = (unsigned) (std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress) - activeSSLConnections.begin());
-	if (index==(unsigned)-1)
+	if (std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress)
+		== activeSSLConnections.end())
 		activeSSLConnections.push_back(systemAddress);
 }
 bool TCPInterface::IsSSLActive(SystemAddress systemAddress)
@@ -554,15 +554,15 @@ void TCPInterface::DetachPlugin( PluginInterface2 *plugin )
 	if (plugin==0)
 		return;
 
-	unsigned int index;
-	index = (unsigned int) (std::find(messageHandlerList.begin(), messageHandlerList.end(), plugin) - messageHandlerList.begin());
-	if (index!=MAX_UNSIGNED_LONG)
+	std::vector<PluginInterface2 *>::iterator it =
+		std::find(messageHandlerList.begin(), messageHandlerList.end(), plugin);
+	if (it!=messageHandlerList.end())
 	{
-		messageHandlerList[index]->OnDetach();
+		(*it)->OnDetach();
 		// Unordered list so delete from end for speed
 		// Swap-remove, exactly as before: the handler order is not published and this avoids
 		// shifting the rest.
-		messageHandlerList[index]=messageHandlerList.back();
+		*it=messageHandlerList.back();
 		messageHandlerList.pop_back();
 		plugin->SetTCPInterface(0);
 	}
@@ -601,9 +601,10 @@ void TCPInterface::CloseConnection( SystemAddress systemAddress )
 
 
 #if OPEN_SSL_CLIENT_SUPPORT==1
-	unsigned index = (unsigned) (std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress) - activeSSLConnections.begin());
-	if (index!=(unsigned)-1)
-		activeSSLConnections.erase(activeSSLConnections.begin() + index);
+	std::vector<SystemAddress>::iterator sslIt =
+		std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress);
+	if (sslIt!=activeSSLConnections.end())
+		activeSSLConnections.erase(sslIt);
 #endif
 }
 void TCPInterface::DeallocatePacket( Packet *packet )
@@ -876,13 +877,15 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 
 	if (connectResult==-1)
 	{
-		unsigned sockfdIndex;
 		blockingSocketListMutex.Lock();
-		sockfdIndex=(unsigned) (std::find(blockingSocketList.begin(), blockingSocketList.end(), sockfd) - blockingSocketList.begin());
-		if (sockfdIndex!=(unsigned)-1)
+		std::vector<__TCPSOCKET__>::iterator sockfdIt =
+			std::find(blockingSocketList.begin(), blockingSocketList.end(), sockfd);
+		if (sockfdIt!=blockingSocketList.end())
+		{
 			// Swap-remove as before; this order is not published.
-			blockingSocketList[sockfdIndex]=blockingSocketList.back();
+			*sockfdIt=blockingSocketList.back();
 			blockingSocketList.pop_back();
+		}
 		blockingSocketListMutex.Unlock();
 
 		closesocket__(sockfd);
