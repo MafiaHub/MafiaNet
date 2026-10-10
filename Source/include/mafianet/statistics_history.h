@@ -27,6 +27,8 @@
 #include "mafianet/memory_override.h"
 #include "mafianet/native_types.h"
 #include "mafianet/ds_list.h"
+#include <unordered_map>
+#include <vector>
 #include "mafianet/types.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/string.h"
@@ -190,15 +192,34 @@ public:
 	static int TrackedObjectComp( const uint64_t &key, TrackedObject* const &data );
 protected:
 
+	// RakString has no std::hash specialisation; reuse the hash the replaced
+	// DataStructures::Hash instantiation was given.
+	struct RakStringKeyHash
+	{
+		size_t operator()(const MafiaNet::RakString &s) const
+		{
+			return (size_t) MafiaNet::RakString::ToInteger(s);
+		}
+	};
+
 	struct TrackedObject
 	{
 		TrackedObject();
 		~TrackedObject();
 		TrackedObjectData trackedObjectData;
-		DataStructures::Hash<MafiaNet::RakString, TimeAndValueQueue*, 32, MafiaNet::RakString::ToInteger> dataQueues;
+		// Keyed by the caller's key string. Unordered: the only consumers either sort the result
+		// (GetHistorySorted) or treat it as a set (GetUniqueKeyList), so bucket order never mattered.
+		std::unordered_map<MafiaNet::RakString, TimeAndValueQueue *, RakStringKeyHash> dataQueues;
 	};
 
-	DataStructures::OrderedList<uint64_t, TrackedObject*,TrackedObjectComp> objects;
+	// Kept sorted ascending by trackedObjectData.objectId. The sort order is a public contract:
+	// GetObjectIndex, GetObjectAtIndex and RemoveObjectAtIndex all expose this index, so a
+	// replacement must stay both sorted and O(1) indexable -- hence a vector with lower_bound
+	// rather than a std::map. Insert through IndexForObjectId to preserve it.
+	std::vector<TrackedObject *> objects;
+
+	// Position of objectId, or of where it would be inserted; *found reports which.
+	unsigned int IndexForObjectId(uint64_t objectId, bool *found) const;
 
 	Time timeToTrack;
 };

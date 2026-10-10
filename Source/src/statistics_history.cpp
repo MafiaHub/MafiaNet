@@ -17,6 +17,7 @@
 #if _RAKNET_SUPPORT_StatisticsHistory==1
 
 #include "mafianet/statistics_history.h"
+#include <algorithm>
 #include "mafianet/get_time.h"
 #include "mafianet/statistics.h"
 #include "mafianet/peer_interface.h"
@@ -77,12 +78,12 @@ Time StatisticsHistory::GetDefaultTimeToTrack(void) const {return timeToTrack;}
 bool StatisticsHistory::AddObject(TrackedObjectData tod)
 {
 	bool objectExists;
-	unsigned int idx = objects.GetIndexFromKey(tod.objectId, &objectExists);
+	unsigned int idx = IndexForObjectId(tod.objectId, &objectExists);
 	if (objectExists)
 		return false;
 	TrackedObject *to = MafiaNet::OP_NEW<TrackedObject>(_FILE_AND_LINE_);
 	to->trackedObjectData=tod;
-	objects.InsertAtIndex(to,idx,_FILE_AND_LINE_);
+	objects.insert(objects.begin() + idx, to);
 	return true;
 }
 bool StatisticsHistory::RemoveObject(uint64_t objectId, void **userData)
@@ -98,18 +99,18 @@ bool StatisticsHistory::RemoveObject(uint64_t objectId, void **userData)
 void StatisticsHistory::RemoveObjectAtIndex(unsigned int index)
 {
 	TrackedObject *to = objects[index];
-	objects.RemoveAtIndex(index);
+	objects.erase(objects.begin() + index);
 	MafiaNet::OP_DELETE(to, _FILE_AND_LINE_);
 }
 void StatisticsHistory::Clear(void)
 {
-	for (unsigned int idx=0; idx < objects.Size(); idx++)
+	for (unsigned int idx=0; idx < objects.size(); idx++)
 	{
 		MafiaNet::OP_DELETE(objects[idx], _FILE_AND_LINE_);
 	}
-	objects.Clear(false, _FILE_AND_LINE_);
+	objects.clear();
 }
-unsigned int StatisticsHistory::GetObjectCount(void) const {return objects.Size();}
+unsigned int StatisticsHistory::GetObjectCount(void) const {return (unsigned int) objects.size();}
 StatisticsHistory::TrackedObjectData * StatisticsHistory::GetObjectAtIndex(unsigned int index) const {return &objects[index]->trackedObjectData;}
 bool StatisticsHistory::AddValueByObjectID(uint64_t objectId, RakString key, SHValueType val, Time curTime, bool combineEqualTimes)
 {
@@ -123,17 +124,18 @@ void StatisticsHistory::AddValueByIndex(unsigned int index, RakString key, SHVal
 {
 	TimeAndValueQueue *queue;
 	TrackedObject *to = objects[index];
-	DataStructures::HashIndex hi = to->dataQueues.GetIndexOf(key);
-	if (hi.IsInvalid())
+	std::unordered_map<RakString, TimeAndValueQueue *, RakStringKeyHash>::iterator it =
+		to->dataQueues.find(key);
+	if (it == to->dataQueues.end())
 	{
 		queue = MafiaNet::OP_NEW<TimeAndValueQueue>(_FILE_AND_LINE_);
 		queue->key=key;
 		queue->timeToTrackValues = timeToTrack;
-		to->dataQueues.Push(key, queue, _FILE_AND_LINE_);
+		to->dataQueues.insert(std::make_pair(key, queue));
 	}
 	else
 	{
-		queue = to->dataQueues.ItemAtIndex(hi);
+		queue = it->second;
 	}
 
 	TimeAndValue tav;
@@ -173,10 +175,11 @@ StatisticsHistory::SHErrorCode StatisticsHistory::GetHistoryForKey(uint64_t obje
 	if (idx == (unsigned int) -1)
 		return SH_UKNOWN_OBJECT;
 	TrackedObject *to = objects[idx];
-	DataStructures::HashIndex hi = to->dataQueues.GetIndexOf(key);
-	if (hi.IsInvalid())
+	std::unordered_map<RakString, TimeAndValueQueue *, RakStringKeyHash>::const_iterator it =
+		to->dataQueues.find(key);
+	if (it == to->dataQueues.end())
 		return SH_UKNOWN_KEY;
-	*values = to->dataQueues.ItemAtIndex(hi);
+	*values = it->second;
 	(*values)->CullExpiredValues(curTime);
 	return SH_OK;
 }
@@ -186,13 +189,15 @@ bool StatisticsHistory::GetHistorySorted(uint64_t objectId, SHSortOperation sort
 	if (idx == (unsigned int) -1)
 		return false;
 	TrackedObject *to = objects[idx];
-	DataStructures::List<TimeAndValueQueue*> itemList;
-	DataStructures::List<RakString> keyList;
-	to->dataQueues.GetAsList(itemList,keyList,_FILE_AND_LINE_);
+	std::vector<TimeAndValueQueue *> itemList;
+	itemList.reserve(to->dataQueues.size());
+	for (std::unordered_map<RakString, TimeAndValueQueue *, RakStringKeyHash>::const_iterator
+		it = to->dataQueues.begin(); it != to->dataQueues.end(); ++it)
+		itemList.push_back(it->second);
 	Time curTime = GetTime();
 
-	DataStructures::OrderedList<TimeAndValueQueue*, TimeAndValueQueue*,TimeAndValueQueueCompAsc> sortedQueues;
-	for (unsigned int i=0; i < itemList.Size(); i++)
+	bool ascending = false;
+	for (unsigned int i=0; i < itemList.size(); i++)
 	{
 		TimeAndValueQueue *tavq = itemList[i];
 		tavq->CullExpiredValues(curTime);
@@ -226,13 +231,21 @@ bool StatisticsHistory::GetHistorySorted(uint64_t objectId, SHSortOperation sort
 			sortType == SH_SORT_BY_RECENT_LOWEST_ASCENDING ||
 			sortType == SH_SORT_BY_LONG_TERM_HIGHEST_ASCENDING ||
 			sortType == SH_SORT_BY_LONG_TERM_LOWEST_ASCENDING)
-			sortedQueues.Insert(tavq, tavq, false, _FILE_AND_LINE_, TimeAndValueQueueCompAsc);
-		else
-			sortedQueues.Insert(tavq, tavq, false, _FILE_AND_LINE_, TimeAndValueQueueCompDesc);
+			ascending = true;
 	}
 
-	for (unsigned int i=0; i < sortedQueues.Size(); i++)
-		values.Push(sortedQueues[i], _FILE_AND_LINE_);
+	// Same comparators the OrderedList was given. They order by sortValue and tie-break on the
+	// key name, and keys are unique within an object, so no two distinct queues compare equal.
+	if (ascending)
+		std::sort(itemList.begin(), itemList.end(),
+			[](TimeAndValueQueue *a, TimeAndValueQueue *b) { return TimeAndValueQueueCompAsc(a, b) < 0; });
+	else
+		std::sort(itemList.begin(), itemList.end(),
+			[](TimeAndValueQueue *a, TimeAndValueQueue *b) { return TimeAndValueQueueCompDesc(a, b) < 0; });
+
+	// values is a public DataStructures::List out-parameter; stage 3 changes the signature.
+	for (unsigned int i=0; i < itemList.size(); i++)
+		values.Push(itemList[i], _FILE_AND_LINE_);
 	return true;
 }
 void StatisticsHistory::MergeAllObjectsOnKey(RakString key, TimeAndValueQueue *tavqOutput, SHDataCategory dataCategory) const
@@ -242,13 +255,14 @@ void StatisticsHistory::MergeAllObjectsOnKey(RakString key, TimeAndValueQueue *t
 	Time curTime = GetTime();
 
 	// Find every object with this key
-	for (unsigned int idx=0; idx < objects.Size(); idx++)
+	for (unsigned int idx=0; idx < objects.size(); idx++)
 	{
 		TrackedObject *to = objects[idx];
-		DataStructures::HashIndex hi = to->dataQueues.GetIndexOf(key);
-		if (hi.IsInvalid()==false)
+		std::unordered_map<RakString, TimeAndValueQueue *, RakStringKeyHash>::const_iterator it =
+			to->dataQueues.find(key);
+		if (it != to->dataQueues.end())
 		{
-			TimeAndValueQueue *tavqInput = to->dataQueues.ItemAtIndex(hi);
+			TimeAndValueQueue *tavqInput = it->second;
 			tavqInput->CullExpiredValues(curTime);
 			TimeAndValueQueue::MergeSets(tavqOutput, dataCategory, tavqInput, dataCategory, tavqOutput);
 		}
@@ -258,18 +272,16 @@ void StatisticsHistory::GetUniqueKeyList(DataStructures::List<RakString> &keys)
 {
 	keys.Clear(true, _FILE_AND_LINE_);
 
-	for (unsigned int idx=0; idx < objects.Size(); idx++)
+	for (unsigned int idx=0; idx < objects.size(); idx++)
 	{
 		TrackedObject *to = objects[idx];
-		DataStructures::List<TimeAndValueQueue*> itemList;
-		DataStructures::List<MafiaNet::RakString> keyList;
-		to->dataQueues.GetAsList(itemList, keyList, _FILE_AND_LINE_);
-		for (unsigned int k=0; k < keyList.Size(); k++)
+		for (std::unordered_map<RakString, TimeAndValueQueue *, RakStringKeyHash>::const_iterator
+			it = to->dataQueues.begin(); it != to->dataQueues.end(); ++it)
 		{
 			bool hasKey=false;
 			for (unsigned int j=0; j < keys.Size(); j++)
 			{
-				if (keys[j]==keyList[k])
+				if (keys[j]==it->first)
 				{
 					hasKey=true;
 					break;
@@ -277,7 +289,7 @@ void StatisticsHistory::GetUniqueKeyList(DataStructures::List<RakString> &keys)
 			}
 
 			if (hasKey==false)
-				keys.Push(keyList[k], _FILE_AND_LINE_);
+				keys.Push(it->first, _FILE_AND_LINE_);
 		}
 	}
 }
@@ -699,15 +711,31 @@ StatisticsHistory::TimeAndValueQueue& StatisticsHistory::TimeAndValueQueue::oper
 StatisticsHistory::TrackedObject::TrackedObject() {}
 StatisticsHistory::TrackedObject::~TrackedObject()
 {
-	DataStructures::List<StatisticsHistory::TimeAndValueQueue*> itemList;
-	DataStructures::List<RakString> keyList;
-	for (unsigned int idx=0; idx < itemList.Size(); idx++)
-		MafiaNet::OP_DELETE(itemList[idx], _FILE_AND_LINE_);
+	// This used to declare two empty local lists and then iterate the empty one, never
+	// calling GetAsList, so every TimeAndValueQueue this object owned leaked -- one per
+	// distinct key passed to AddValueByObjectID. Confirmed under LeakSanitizer.
+	for (std::unordered_map<MafiaNet::RakString, TimeAndValueQueue *, RakStringKeyHash>::iterator
+		it = dataQueues.begin(); it != dataQueues.end(); ++it)
+		MafiaNet::OP_DELETE(it->second, _FILE_AND_LINE_);
+	dataQueues.clear();
+}
+unsigned int StatisticsHistory::IndexForObjectId(uint64_t objectId, bool *found) const
+{
+	// objects is sorted ascending by objectId; see the declaration for why that is a contract.
+	std::vector<TrackedObject *>::const_iterator it = std::lower_bound(
+		objects.begin(), objects.end(), objectId,
+		[](TrackedObject * const &candidate, uint64_t id)
+		{
+			return candidate->trackedObjectData.objectId < id;
+		});
+	unsigned int idx = (unsigned int) (it - objects.begin());
+	*found = (it != objects.end() && (*it)->trackedObjectData.objectId == objectId);
+	return idx;
 }
 unsigned int StatisticsHistory::GetObjectIndex(uint64_t objectId) const
 {
 	bool objectExists;
-	unsigned int idx = objects.GetIndexFromKey(objectId, &objectExists);
+	unsigned int idx = IndexForObjectId(objectId, &objectExists);
 	if (objectExists)
 		return idx;
 	return (unsigned int) -1;
