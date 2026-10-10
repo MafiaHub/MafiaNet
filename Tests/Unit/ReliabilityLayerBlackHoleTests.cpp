@@ -74,6 +74,10 @@ protected:
 	// When non-zero, drop this fraction (in percent) of ALL a->b datagrams,
 	// deterministically, to model plain loss.
 	int aToBLossPercent;
+	// When true, the datagrams a produced during one tick are delivered to b in reverse order.
+	// Plain reordering, which a real path does routinely, and the only way from here to make a
+	// later split-packet id reach b before an earlier one.
+	bool reverseAToBWithinTick;
 	uint32_t lcgState;
 
 	std::vector<std::vector<unsigned char> > received; // complete messages b got
@@ -84,6 +88,7 @@ protected:
 		, now(0)
 		, aToBDropOverBytes(MAXIMUM_MTU_SIZE)
 		, aToBLossPercent(0)
+		, reverseAToBWithinTick(false)
 		, lcgState(0x12345678)
 	{
 	}
@@ -132,8 +137,9 @@ protected:
 		a.Update(&aSock, bAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
 		b.Update(&bSock, aAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
 
-		for (size_t i = 0; i < aSock.sent.size(); i++)
+		for (size_t n = 0; n < aSock.sent.size(); n++)
 		{
+			const size_t i = reverseAToBWithinTick ? aSock.sent.size() - 1 - n : n;
 			if (DropAToB((int) aSock.sent[i].size()))
 				continue;
 			b.HandleSocketReceiveFromConnectedPlayer(&aSock.sent[i][0], (unsigned int) aSock.sent[i].size(),
@@ -320,3 +326,156 @@ TEST_F(RelLayerBlackHole, OrdinaryPacketLossDoesNotShrinkTheMtu)
 }
 
 } // namespace
+
+// --------------------------------------------------------------------------------------------
+// The cases below are not about MTU black holes. They exist because stage 2 of #60 moves
+// ReliabilityLayer's protected containers to the standard library, and two of them had no
+// coverage that could tell a correct migration from a broken one:
+//
+//  - datagramHistory is a sliding window indexed by (datagramNumber - datagramHistoryPopCount)
+//    in WRAPPING uint24_t arithmetic. Every existing test sends few enough datagrams that the
+//    pop count stays at or near zero, where an off-by-one in that arithmetic is invisible.
+//  - splitPacketChannelList is an ordered list keyed by split-packet id, and every existing
+//    test has exactly ONE split message in flight. With a single element any ordering or lookup
+//    passes, so the container's whole job is untested.
+// --------------------------------------------------------------------------------------------
+
+// Drives datagramHistory well past its initial window: hundreds of datagrams pushed, acked and
+// popped, with loss forcing resends so lookups land at varying offsets into the window.
+TEST_F(RelLayerBlackHole, SustainedTrafficKeepsOrderWhileDatagramHistoryAdvances)
+{
+	aToBLossPercent = 10;
+
+	const int count = 300;
+	std::vector<std::vector<unsigned char> > sent;
+	for (int i = 0; i < count; i++)
+	{
+		// Small messages, so each is its own datagram and the history advances once per message.
+		std::vector<unsigned char> msg = PatternMessage(40, (unsigned char) i);
+		sent.push_back(msg);
+		SendFromA(msg);
+		Tick();
+	}
+
+	ASSERT_TRUE(PumpUntilReceived((size_t) count, 600000)) << "only " << received.size() << " of "
+		<< count << " messages arrived";
+	ASSERT_EQ(received.size(), (size_t) count);
+	for (int i = 0; i < count; i++)
+		EXPECT_EQ(received[i], sent[i]) << "reliable-ordered delivery broke at index " << i;
+}
+
+// Two split messages in flight at once, so splitPacketChannelList holds more than one entry and
+// its keyed lookup actually decides which message a fragment belongs to.
+TEST_F(RelLayerBlackHole, TwoConcurrentSplitMessagesBothReassembleCorrectly)
+{
+	std::vector<unsigned char> first = PatternMessage(9000, 61);
+	std::vector<unsigned char> second = PatternMessage(7000, 62);
+
+	// Queued back to back, so their fragments interleave on the wire.
+	SendFromA(first);
+	SendFromA(second);
+
+	ASSERT_TRUE(PumpUntilReceived(2, 150000));
+	ASSERT_EQ(received.size(), 2u);
+	EXPECT_EQ(received[0], first) << "the first split message reassembled wrongly";
+	EXPECT_EQ(received[1], second) << "the second split message reassembled wrongly";
+}
+
+// Same, under loss, so fragments of both messages are resent and arrive interleaved with the
+// fragments of the other -- the case where a wrong split-packet lookup silently mixes payloads.
+TEST_F(RelLayerBlackHole, ConcurrentSplitMessagesSurviveLossWithoutMixingPayloads)
+{
+	aToBLossPercent = 10;
+
+	std::vector<unsigned char> first = PatternMessage(9000, 71);
+	std::vector<unsigned char> second = PatternMessage(9000, 72);
+
+	SendFromA(first);
+	SendFromA(second);
+
+	ASSERT_TRUE(PumpUntilReceived(2, 600000));
+	ASSERT_EQ(received.size(), 2u);
+	EXPECT_EQ(received[0], first);
+	EXPECT_EQ(received[1], second);
+	EXPECT_NE(received[0], received[1]) << "the two messages must not have been conflated";
+}
+
+// Three split messages at once, to push splitPacketChannelList past two entries.
+TEST_F(RelLayerBlackHole, ThreeConcurrentSplitMessagesAllReassemble)
+{
+	std::vector<std::vector<unsigned char> > sent;
+	sent.push_back(PatternMessage(6000, 81));
+	sent.push_back(PatternMessage(9000, 82));
+	sent.push_back(PatternMessage(12000, 83));
+
+	for (size_t i = 0; i < sent.size(); i++)
+		SendFromA(sent[i]);
+
+	ASSERT_TRUE(PumpUntilReceived(3, 300000));
+	ASSERT_EQ(received.size(), 3u);
+	for (size_t i = 0; i < sent.size(); i++)
+		EXPECT_EQ(received[i], sent[i]) << "split message " << i << " reassembled wrongly";
+}
+
+// The case that actually pins splitPacketChannelList's ordering. Sending several split messages
+// is not enough on its own: split-packet ids are handed out in ascending order, so a channel list
+// that merely appends stays sorted by accident and a broken lookup still works. Reversing each
+// tick's datagrams makes the higher id's first fragment reach b first, so the list is only sorted
+// if the insert actually places it.
+TEST_F(RelLayerBlackHole, ConcurrentSplitMessagesReassembleWhenDatagramsAreReordered)
+{
+	reverseAToBWithinTick = true;
+
+	std::vector<unsigned char> first = PatternMessage(9000, 91);
+	std::vector<unsigned char> second = PatternMessage(9000, 92);
+
+	SendFromA(first);
+	SendFromA(second);
+
+	ASSERT_TRUE(PumpUntilReceived(2, 300000));
+	ASSERT_EQ(received.size(), 2u);
+	EXPECT_EQ(received[0], first);
+	EXPECT_EQ(received[1], second);
+}
+
+TEST_F(RelLayerBlackHole, ReorderedDatagramsStillDeliverManyMessagesInOrder)
+{
+	reverseAToBWithinTick = true;
+
+	const int count = 60;
+	std::vector<std::vector<unsigned char> > sent;
+	for (int i = 0; i < count; i++)
+	{
+		std::vector<unsigned char> msg = PatternMessage(40, (unsigned char) (100 + i));
+		sent.push_back(msg);
+		SendFromA(msg);
+	}
+
+	ASSERT_TRUE(PumpUntilReceived((size_t) count, 300000));
+	ASSERT_EQ(received.size(), (size_t) count);
+	for (int i = 0; i < count; i++)
+		EXPECT_EQ(received[i], sent[i]) << "ordered delivery broke at index " << i;
+}
+
+// Eight split messages in flight with reordering, so splitPacketChannelList holds many entries
+// and a fragment of an early id has to be matched against a list whose entries were created in
+// a different order.
+TEST_F(RelLayerBlackHole, ManyConcurrentSplitMessagesReassembleUnderReordering)
+{
+	reverseAToBWithinTick = true;
+
+	const int count = 8;
+	std::vector<std::vector<unsigned char> > sent;
+	for (int i = 0; i < count; i++)
+	{
+		std::vector<unsigned char> msg = PatternMessage(5000 + i * 700, (unsigned char) (120 + i));
+		sent.push_back(msg);
+		SendFromA(msg);
+	}
+
+	ASSERT_TRUE(PumpUntilReceived((size_t) count, 600000)) << "only " << received.size()
+		<< " of " << count << " split messages reassembled";
+	ASSERT_EQ(received.size(), (size_t) count);
+	for (int i = 0; i < count; i++)
+		EXPECT_EQ(received[i], sent[i]) << "split message " << i << " reassembled wrongly";
+}

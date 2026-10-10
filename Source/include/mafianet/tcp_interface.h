@@ -37,6 +37,8 @@
 #include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
+#include <deque>
+#include <vector>
 
 #if OPEN_SSL_CLIENT_SUPPORT==1
 #include <openssl/crypto.h>
@@ -147,12 +149,15 @@ protected:
 	bool CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *hostAddress);
 
 	// Plugins
-	DataStructures::List<PluginInterface2*> messageHandlerList;
+	// DetachPlugin swaps the last handler into the hole; see the implementation.
+	std::vector<PluginInterface2 *> messageHandlerList;
 
 	MafiaNet::LocklessUint32_t isStarted, threadRunning;
 	__TCPSOCKET__ listenSocket;
 
-	DataStructures::Queue<Packet*> headPush, tailPush;
+	// FIFO within each queue, and ReceiveInt drains headPush before tailPush. Both are
+	// touched only by the calling thread.
+	std::deque<Packet *> headPush, tailPush;
 	RemoteClient* remoteClients;
 	unsigned short remoteClientsLength;
 
@@ -180,11 +185,12 @@ protected:
 	DataStructures::ThreadsafeAllocatingQueue<SystemAddress> newIncomingConnections, lostConnections, requestedCloseConnections;
 	DataStructures::ThreadsafeAllocatingQueue<RemoteClient*> newRemoteClients;
 	SimpleMutex completedConnectionAttemptMutex, failedConnectionAttemptMutex;
-	DataStructures::Queue<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
+	std::deque<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
 
 	int threadPriority;
 
-	DataStructures::List<__TCPSOCKET__> blockingSocketList;
+	// Order is not published; the blocking-connect helper swap-removes, as before.
+	std::vector<__TCPSOCKET__> blockingSocketList;
 	SimpleMutex blockingSocketListMutex;
 
 
@@ -211,7 +217,7 @@ protected:
 	SSL_CTX* ctx;
 	SSL_METHOD *meth;
 	DataStructures::ThreadsafeAllocatingQueue<SystemAddress> startSSL;
-	DataStructures::List<SystemAddress> activeSSLConnections;
+	std::vector<SystemAddress> activeSSLConnections;
 	SimpleMutex sharedSslMutex;
 #endif
 };

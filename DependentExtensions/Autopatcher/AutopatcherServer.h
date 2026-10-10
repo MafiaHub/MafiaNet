@@ -35,6 +35,7 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/thread_pool.h"
+#include "mafianet/ds_queue.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
 #include "mafianet/file_list.h"

@@ -519,7 +519,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			RakAssert("TODO" && 0);
 		}
 
-		socketList.Push(r2, _FILE_AND_LINE_ );
+		socketList.push_back(r2);
 
 	}
 
@@ -787,32 +787,32 @@ void RakPeer::DisableSecurity( void )
 void RakPeer::AddToSecurityExceptionList(const char *ip)
 {
 	securityExceptionMutex.Lock();
-	securityExceptionList.Insert(RakString(ip), _FILE_AND_LINE_);
+	securityExceptionList.push_back(RakString(ip));
 	securityExceptionMutex.Unlock();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::RemoveFromSecurityExceptionList(const char *ip)
 {
-	if (securityExceptionList.Size()==0)
+	if (securityExceptionList.size()==0)
 		return;
 
 	if (ip==0)
 	{
 		securityExceptionMutex.Lock();
-		securityExceptionList.Clear(false, _FILE_AND_LINE_);
+		securityExceptionList.clear();
 		securityExceptionMutex.Unlock();
 	}
 	else
 	{
 		unsigned i=0;
 		securityExceptionMutex.Lock();
-		while (i < securityExceptionList.Size())
+		while (i < securityExceptionList.size())
 		{
 			if (securityExceptionList[i].IPAddressMatch(ip))
 			{
-				securityExceptionList[i]=securityExceptionList[securityExceptionList.Size()-1];
-				securityExceptionList.RemoveAtIndex(securityExceptionList.Size()-1);
+				securityExceptionList[i]=securityExceptionList.back();
+				securityExceptionList.pop_back();
 			}
 			else
 				i++;
@@ -823,12 +823,12 @@ void RakPeer::RemoveFromSecurityExceptionList(const char *ip)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::IsInSecurityExceptionList(const char *ip)
 {
-	if (securityExceptionList.Size()==0)
+	if (securityExceptionList.size()==0)
 		return false;
 
 	unsigned i=0;
 	securityExceptionMutex.Lock();
-	for (; i < securityExceptionList.Size(); i++)
+	for (; i < securityExceptionList.size(); i++)
 	{
 		if (securityExceptionList[i].IPAddressMatch(ip))
 		{
@@ -940,7 +940,7 @@ void RakPeer::GetIncomingPassword( char* passwordData, int *passwordDataLength  
 ConnectionAttemptResult RakPeer::Connect( const char* host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime )
 {
 	// If endThreads is true here you didn't call Startup() first.
-	if ( host == 0 || endThreads || connectionSocketIndex>=socketList.Size() )
+	if ( host == 0 || endThreads || connectionSocketIndex>=socketList.size() )
 		return INVALID_PARAMETER;
 
 	RakAssert(remotePort!=0);
@@ -1049,7 +1049,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 //	MafiaNet::TimeMS timeout;
 #if RAKPEER_USER_THREADED!=1
 
-	for (i=0; i < socketList.Size(); i++)
+	for (i=0; i < socketList.size(); i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
 		{
@@ -1059,7 +1059,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 
 	/*
 	// Get recvfrom to unblock
-	for (i=0; i < socketList.Size(); i++)
+	for (i=0; i < socketList.size(); i++)
 	{
 		if (SocketLayer::SendTo(socketList[i], (const char*) &i,1,socketList[i]->GetBoundAddress(), _FILE_AND_LINE_)!=0)
 			break;
@@ -1078,7 +1078,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	while ( isRecvFromLoopThreadActive.GetValue()>0 && MafiaNet::GetTimeMS()<timeout )
 	{
 		// Get recvfrom to unblock
-		for (i=0; i < socketList.Size(); i++)
+		for (i=0; i < socketList.size(); i++)
 		{
 			SocketLayer::SendTo(socketList[i], (const char*) &i,1,socketList[i]->GetBoundAddress(), _FILE_AND_LINE_);
 		}
@@ -1087,7 +1087,7 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	}
 	*/
 
-	for (i=0; i < socketList.Size(); i++)
+	for (i=0; i < socketList.size(); i++)
 	{
 		if (socketList[i]->IsBerkleySocket())
 		{
@@ -1122,9 +1122,9 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 
 	// Free any packets the user didn't deallocate
 	packetReturnMutex.Lock();
-	for (i=0; i < packetReturnQueue.Size(); i++)
+	for (i=0; i < packetReturnQueue.size(); i++)
 		DeallocatePacket(packetReturnQueue[i]);
-	packetReturnQueue.Clear(_FILE_AND_LINE_);
+	packetReturnQueue.clear();
 	packetReturnMutex.Unlock();
 	packetAllocationPoolMutex.Lock();
 	packetAllocationPool.Clear(_FILE_AND_LINE_);
@@ -1464,7 +1464,7 @@ Packet* RakPeer::Receive( void )
 	/*
 #if RAKPEER_SINGLE_THREADED==1
 	RakPeer::RecvFromStruct *recvFromStruct;
-	for (i=0; i < socketList.Size(); i++)
+	for (i=0; i < socketList.size(); i++)
 	{
 		for(;;)
 		{
@@ -1507,10 +1507,13 @@ Packet* RakPeer::Receive( void )
 	do
 	{
 		packetReturnMutex.Lock();
-		if (packetReturnQueue.IsEmpty())
+		if (packetReturnQueue.empty())
 			packet=0;
 		else
-			packet = packetReturnQueue.Pop();
+		{
+			packet = packetReturnQueue.front();
+			packetReturnQueue.pop_front();
+		}
 		packetReturnMutex.Unlock();
 		if (packet==0)
 			return 0;
@@ -1644,7 +1647,7 @@ void RakPeer::CloseConnection( const AddressOrGUID target, bool sendDisconnectio
 	// the BCS_CLOSE_CONNECTION path below. With no socket at all there is nothing to
 	// close, so bail out.
 	RakNetSocket2 *closeSocket = (remoteSystemListIndex != -1) ? remoteSystemList[remoteSystemListIndex].rakNetSocket : nullptr;
-	if (closeSocket == nullptr && socketList.Size() > 0)
+	if (closeSocket == nullptr && socketList.size() > 0)
 		closeSocket = socketList[0];
 	if (closeSocket == nullptr)
 		return;
@@ -1676,7 +1679,7 @@ void RakPeer::CancelConnectionAttempt( const SystemAddress target )
 	// Cancel pending connection attempt, if there is one
 	i=0;
 	requestedConnectionQueueMutex.Lock();
-	while (i < requestedConnectionQueue.Size())
+	while (i < requestedConnectionQueue.size())
 	{
 		if (requestedConnectionQueue[i]->systemAddress==target)
 		{
@@ -1685,7 +1688,7 @@ void RakPeer::CancelConnectionAttempt( const SystemAddress target )
 			MafiaNet::OP_DELETE(requestedConnectionQueue[i]->client_handshake, _FILE_AND_LINE_ );
 #endif
 			MafiaNet::OP_DELETE(requestedConnectionQueue[i], _FILE_AND_LINE_ );
-			requestedConnectionQueue.RemoveAtIndex(i);
+			requestedConnectionQueue.erase(requestedConnectionQueue.begin() + i);
 			break;
 		}
 		else
@@ -1703,7 +1706,7 @@ ConnectionState RakPeer::GetConnectionState(const AddressOrGUID systemIdentifier
 	{
 		unsigned int i=0;
 		requestedConnectionQueueMutex.Lock();
-		for (; i < requestedConnectionQueue.Size(); i++)
+		for (; i < requestedConnectionQueue.size(); i++)
 		{
 			if (requestedConnectionQueue[i]->systemAddress==systemIdentifier.systemAddress)
 			{
@@ -1856,7 +1859,7 @@ void RakPeer::AddToBanList( const char *IP, MafiaNet::TimeMS milliseconds )
 
 	banListMutex.Lock();
 
-	for ( ; index < banList.Size(); index++ )
+	for ( ; index < banList.size(); index++ )
 	{
 		if ( strcmp( IP, banList[ index ]->IP ) == 0 )
 		{
@@ -1880,7 +1883,7 @@ void RakPeer::AddToBanList( const char *IP, MafiaNet::TimeMS milliseconds )
 		banStruct->timeout=time+milliseconds;
 	strcpy_s( banStruct->IP, 16, IP );
 	banListMutex.Lock();
-	banList.Insert( banStruct, _FILE_AND_LINE_ );
+	banList.push_back(banStruct);
 	banListMutex.Unlock();
 }
 
@@ -1905,13 +1908,13 @@ void RakPeer::RemoveFromBanList( const char *IP )
 
 	banListMutex.Lock();
 
-	for ( ; index < banList.Size(); index++ )
+	for ( ; index < banList.size(); index++ )
 	{
 		if ( strcmp( IP, banList[ index ]->IP ) == 0 )
 		{
 			temp = banList[ index ];
-			banList[ index ] = banList[ banList.Size() - 1 ];
-			banList.RemoveAtIndex( banList.Size() - 1 );
+			banList[ index ] = banList.back();
+			banList.pop_back();
 			break;
 		}
 	}
@@ -1936,13 +1939,13 @@ void RakPeer::ClearBanList( void )
 	index = 0;
 	banListMutex.Lock();
 
-	for ( ; index < banList.Size(); index++ )
+	for ( ; index < banList.size(); index++ )
 	{
 		rakFree_Ex(banList[ index ]->IP, _FILE_AND_LINE_ );
 		MafiaNet::OP_DELETE(banList[ index ], _FILE_AND_LINE_);
 	}
 
-	banList.Clear(false, _FILE_AND_LINE_);
+	banList.clear();
 
 	banListMutex.Unlock();
 }
@@ -1974,21 +1977,21 @@ bool RakPeer::IsBanned( const char *IP )
 
 	banListIndex = 0;
 
-	if ( banList.Size() == 0 )
+	if ( banList.size() == 0 )
 		return false; // Skip the mutex if possible
 
 	time = MafiaNet::GetTimeMS();
 
 	banListMutex.Lock();
 
-	while ( banListIndex < banList.Size() )
+	while ( banListIndex < banList.size() )
 	{
 		if (banList[ banListIndex ]->timeout>0 && banList[ banListIndex ]->timeout<time)
 		{
 			// Delete expired ban
 			temp = banList[ banListIndex ];
-			banList[ banListIndex ] = banList[ banList.Size() - 1 ];
-			banList.RemoveAtIndex( banList.Size() - 1 );
+			banList[ banListIndex ] = banList.back();
+			banList.pop_back();
 			rakFree_Ex(temp->IP, _FILE_AND_LINE_ );
 			MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
 		}
@@ -2075,7 +2078,7 @@ bool RakPeer::Ping( const char* host, unsigned short remotePort, bool onlyReplyO
 		return false;
 
 	// If this assert hits then Startup wasn't called or the call failed.
-	RakAssert(connectionSocketIndex < socketList.Size());
+	RakAssert(connectionSocketIndex < socketList.size());
 
 //	if ( IsActive() == false )
 //		return;
@@ -2939,9 +2942,9 @@ void RakPeer::PushBackPacket( Packet *packet, bool pushAtHead)
 
 	packetReturnMutex.Lock();
 	if (pushAtHead)
-		packetReturnQueue.PushAtHead(packet,0,_FILE_AND_LINE_);
+		packetReturnQueue.push_front(packet);
 	else
-		packetReturnQueue.Push(packet,_FILE_AND_LINE_);
+		packetReturnQueue.push_back(packet);
 	packetReturnMutex.Unlock();
 }
 
@@ -2987,8 +2990,11 @@ RakNetSocket2* RakPeer::GetSocket( const SystemAddress target )
 		sqo = socketQueryOutput.Pop();
 		if (sqo)
 		{
-			output=sqo->sockets;
-			sqo->sockets.Clear(false, _FILE_AND_LINE_);
+			// output is a fresh local filled at most once, and sockets is cleared at the
+			// top of GetSockets, so neither needs clearing here.
+			for (size_t socketIndex = 0; socketIndex < sqo->sockets.size(); socketIndex++)
+				output.Push(sqo->sockets[socketIndex], _FILE_AND_LINE_);
+			sqo->sockets.clear();
 			socketQueryOutput.Deallocate(sqo, _FILE_AND_LINE_);
 			if (output.Size())
 				return output[0];
@@ -3024,8 +3030,9 @@ void RakPeer::GetSockets( DataStructures::List<RakNetSocket2* > &sockets )
 		sqo = socketQueryOutput.Pop();
 		if (sqo)
 		{
-			sockets=sqo->sockets;
-			sqo->sockets.Clear(false, _FILE_AND_LINE_);
+			for (size_t socketIndex = 0; socketIndex < sqo->sockets.size(); socketIndex++)
+				sockets.Push(sqo->sockets[socketIndex], _FILE_AND_LINE_);
+			sqo->sockets.clear();
 			socketQueryOutput.Deallocate(sqo, _FILE_AND_LINE_);
 			return;
 		}
@@ -3113,7 +3120,7 @@ bool RakPeer::SendOutOfBand(const char *host, unsigned short remotePort, const c
 		return false;
 
 	// If this assert hits then Startup wasn't called or the call failed.
-	RakAssert(connectionSocketIndex < socketList.Size());
+	RakAssert(connectionSocketIndex < socketList.size());
 
 	// This is a security measure.  Don't send data longer than this value
 	RakAssert(dataLength <= (MAX_OFFLINE_DATA_LENGTH + sizeof(unsigned char)+sizeof(MafiaNet::Time)+RakNetGUID::size()+sizeof(OFFLINE_MESSAGE_DATA_ID)));
@@ -3241,7 +3248,7 @@ unsigned int RakPeer::GetReceiveBufferSize(void)
 {
 	unsigned int size;
 	packetReturnMutex.Lock();
-	size=packetReturnQueue.Size();
+	size=packetReturnQueue.size();
 	packetReturnMutex.Unlock();
 	return size;
 }
@@ -3413,7 +3420,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
 	requestedConnectionQueueMutex.Lock();
-	for (; i < requestedConnectionQueue.Size(); i++)
+	for (; i < requestedConnectionQueue.size(); i++)
 	{
 		if (requestedConnectionQueue[i]->systemAddress==systemAddress)
 		{
@@ -3424,7 +3431,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
-	requestedConnectionQueue.Push(rcs, _FILE_AND_LINE_ );
+	requestedConnectionQueue.push_back(rcs);
 	requestedConnectionQueueMutex.Unlock();
 
 	return CONNECTION_ATTEMPT_STARTED;
@@ -3467,7 +3474,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	// Return false if already pending, else push on queue
 	unsigned int i=0;
 	requestedConnectionQueueMutex.Lock();
-	for (; i < requestedConnectionQueue.Size(); i++)
+	for (; i < requestedConnectionQueue.size(); i++)
 	{
 		if (requestedConnectionQueue[i]->systemAddress==systemAddress)
 		{
@@ -3478,7 +3485,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
-	requestedConnectionQueue.Push(rcs, _FILE_AND_LINE_ );
+	requestedConnectionQueue.push_back(rcs);
 	requestedConnectionQueueMutex.Unlock();
 
 	return CONNECTION_ATTEMPT_STARTED;
@@ -4339,17 +4346,23 @@ MafiaNet::TimeMS RakPeer::GetSessionTimeoutFor(RemoteSystemStruct *remoteSystem)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
 {
+	// file/line were only ever the allocation-tracking arguments DataStructures::Queue
+	// took; std::deque does not.
+	(void) file;
+	(void) line;
+
 	bufferedPacketsFreePoolMutex.Lock();
-	bufferedPacketsFreePool.Push(s, file, line);
+	bufferedPacketsFreePool.push_back(s);
 	bufferedPacketsFreePoolMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RNS2RecvStruct *RakPeer::AllocRNS2RecvStruct(const char *file, unsigned int line)
 {
 	bufferedPacketsFreePoolMutex.Lock();
-	if (bufferedPacketsFreePool.Size()>0)
+	if (bufferedPacketsFreePool.empty()==false)
 	{
-		RNS2RecvStruct *s = bufferedPacketsFreePool.Pop();
+		RNS2RecvStruct *s = bufferedPacketsFreePool.front();
+		bufferedPacketsFreePool.pop_front();
 		bufferedPacketsFreePoolMutex.Unlock();
 		return s;
 	}
@@ -4363,13 +4376,19 @@ RNS2RecvStruct *RakPeer::AllocRNS2RecvStruct(const char *file, unsigned int line
 void RakPeer::ClearBufferedPackets(void)
 {
 	bufferedPacketsFreePoolMutex.Lock();
-	while (bufferedPacketsFreePool.Size()>0)
-		MafiaNet::OP_DELETE(bufferedPacketsFreePool.Pop(), _FILE_AND_LINE_);
+	while (bufferedPacketsFreePool.empty()==false)
+	{
+		MafiaNet::OP_DELETE(bufferedPacketsFreePool.front(), _FILE_AND_LINE_);
+		bufferedPacketsFreePool.pop_front();
+	}
 	bufferedPacketsFreePoolMutex.Unlock();
 
 	bufferedPacketsQueueMutex.Lock();
-	while (bufferedPacketsQueue.Size()>0)
-		MafiaNet::OP_DELETE(bufferedPacketsQueue.Pop(), _FILE_AND_LINE_);
+	while (bufferedPacketsQueue.empty()==false)
+	{
+		MafiaNet::OP_DELETE(bufferedPacketsQueue.front(), _FILE_AND_LINE_);
+		bufferedPacketsQueue.pop_front();
+	}
 	bufferedPacketsQueueMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4380,16 +4399,17 @@ void RakPeer::SetupBufferedPackets(void)
 void RakPeer::PushBufferedPacket(RNS2RecvStruct * p)
 {
 	bufferedPacketsQueueMutex.Lock();
-	bufferedPacketsQueue.Push(p, _FILE_AND_LINE_);
+	bufferedPacketsQueue.push_back(p);
 	bufferedPacketsQueueMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RNS2RecvStruct *RakPeer::PopBufferedPacket(void)
 {
 	bufferedPacketsQueueMutex.Lock();
-	if (bufferedPacketsQueue.Size()>0)
+	if (bufferedPacketsQueue.empty()==false)
 	{
-		RNS2RecvStruct *s = bufferedPacketsQueue.Pop();
+		RNS2RecvStruct *s = bufferedPacketsQueue.front();
+		bufferedPacketsQueue.pop_front();
 		bufferedPacketsQueueMutex.Unlock();
 		return s;
 	}
@@ -4759,16 +4779,19 @@ void RakPeer::ClearSocketQueryOutput(void)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ClearRequestedConnectionList(void)
 {
-	DataStructures::Queue<RequestedConnectionStruct*> freeQueue;
+	std::deque<RequestedConnectionStruct*> freeQueue;
 	requestedConnectionQueueMutex.Lock();
-	while (requestedConnectionQueue.Size())
-		freeQueue.Push(requestedConnectionQueue.Pop(), _FILE_AND_LINE_ );
+	while (requestedConnectionQueue.empty()==false)
+	{
+		freeQueue.push_back(requestedConnectionQueue.front());
+		requestedConnectionQueue.pop_front();
+	}
 	requestedConnectionQueueMutex.Unlock();
-	unsigned i;
-	for (i=0; i < freeQueue.Size(); i++)
+	size_t i;
+	for (i=0; i < freeQueue.size(); i++)
 	{
 #if LIBCAT_SECURITY==1
-		CAT_AUDIT_PRINTF("AUDIT: In ClearRequestedConnectionList(), Deleting freeQueue index %i client_handshake %x\n", i, freeQueue[i]->client_handshake);
+		CAT_AUDIT_PRINTF("AUDIT: In ClearRequestedConnectionList(), Deleting freeQueue index %i client_handshake %x\n", (int) i, freeQueue[i]->client_handshake);
 		MafiaNet::OP_DELETE(freeQueue[i]->client_handshake,_FILE_AND_LINE_);
 #endif
 		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_ );
@@ -4777,7 +4800,7 @@ void RakPeer::ClearRequestedConnectionList(void)
 inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 {
 	packetReturnMutex.Lock();
-	packetReturnQueue.Push(p,_FILE_AND_LINE_);
+	packetReturnQueue.push_back(p);
 	packetReturnMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -5098,7 +5121,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 				bsOut.Write(cookie);
 
 			rakPeer->requestedConnectionQueueMutex.Lock();
-			for (i=0; i <  rakPeer->requestedConnectionQueue.Size(); i++)
+			for (i=0; i <  rakPeer->requestedConnectionQueue.size(); i++)
 			{
 				RakPeer::RequestedConnectionStruct *rcs;
 				rcs=rakPeer->requestedConnectionQueue[i];
@@ -5239,7 +5262,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			RakPeer::RequestedConnectionStruct *rcs;
 			bool unlock=true;
 			rakPeer->requestedConnectionQueueMutex.Lock();
-			for (i=0; i <  rakPeer->requestedConnectionQueue.Size(); i++)
+			for (i=0; i <  rakPeer->requestedConnectionQueue.size(); i++)
 			{
 				rcs=rakPeer->requestedConnectionQueue[i];
 
@@ -5377,11 +5400,11 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 					}
 
 					rakPeer->requestedConnectionQueueMutex.Lock();
-					for (unsigned int k=0; k < rakPeer->requestedConnectionQueue.Size(); k++)
+					for (unsigned int k=0; k < rakPeer->requestedConnectionQueue.size(); k++)
 					{
 						if (rakPeer->requestedConnectionQueue[k]->systemAddress==systemAddress)
 						{
-							rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
+							rakPeer->requestedConnectionQueue.erase(rakPeer->requestedConnectionQueue.begin() + k);
 							break;
 						}
 					}
@@ -5425,13 +5448,13 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			RakPeer::RequestedConnectionStruct *rcs;
 			bool connectionAttemptCancelled=false;
 			rakPeer->requestedConnectionQueueMutex.Lock();
-			for (i=0; i <  rakPeer->requestedConnectionQueue.Size(); i++)
+			for (i=0; i <  rakPeer->requestedConnectionQueue.size(); i++)
 			{
 				rcs=rakPeer->requestedConnectionQueue[i];
 				if (rcs->actionToTake==RakPeer::RequestedConnectionStruct::CONNECT && rcs->systemAddress==systemAddress)
 				{
 					connectionAttemptCancelled=true;
-					rakPeer->requestedConnectionQueue.RemoveAtIndex(i);
+					rakPeer->requestedConnectionQueue.erase(rakPeer->requestedConnectionQueue.begin() + i);
 
 #if LIBCAT_SECURITY==1
 					CAT_AUDIT_PRINTF("AUDIT: Connection attempt canceled so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
@@ -5823,17 +5846,17 @@ unsigned int RakPeer::GenerateSeedFromGuid(void)
 void RakPeer::DerefAllSockets(void)
 {
 	unsigned int i;
-	for (i=0; i < socketList.Size(); i++)
+	for (i=0; i < socketList.size(); i++)
 	{
 		MafiaNet::OP_DELETE(socketList[i], _FILE_AND_LINE_);
 	}
-	socketList.Clear(false, _FILE_AND_LINE_);
+	socketList.clear();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 unsigned int RakPeer::GetRakNetSocketFromUserConnectionSocketIndex(unsigned int userIndex) const
 {
 	unsigned int i;
-	for (i=0; i < socketList.Size(); i++)
+	for (i=0; i < socketList.size(); i++)
 	{
 		if (socketList[i]->GetUserConnectionSocketIndex()==userIndex)
 			return i;
@@ -5933,12 +5956,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 	while ((recvFromStruct=PopBufferedPacket())!=0)
 	{
 		/*
-		for (socketListIndex=0; socketListIndex < socketList.Size(); socketListIndex++)
+		for (socketListIndex=0; socketListIndex < socketList.size(); socketListIndex++)
 		{
 			if ((RakNetSocket*) socketList[socketListIndex]==recvFromStruct->s)
 				break;
 		}
-		if (socketListIndex!=socketList.Size())
+		if (socketListIndex!=socketList.size())
 		*/
 			ProcessNetworkPacket(recvFromStruct->systemAddress, recvFromStruct->data, recvFromStruct->bytesRead, this, recvFromStruct->socket, recvFromStruct->timeRead, updateBitStream);
 			DeallocRNS2RecvStruct(recvFromStruct, _FILE_AND_LINE_);
@@ -6031,7 +6054,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 			// RakAssert is a no-op in release (NDEBUG), so guard explicitly and fall back
 			// to the primary socket to avoid dereferencing null in CloseConnectionInternal2.
 			RakNetSocket2 *closeSocket = bcs->socket;
-			if (closeSocket == nullptr && socketList.Size() > 0)
+			if (closeSocket == nullptr && socketList.size() > 0)
 				closeSocket = socketList[0];
 			if (closeSocket != nullptr)
 				CloseConnectionInternal2(bcs->systemIdentifier, false, true, bcs->orderingChannel, bcs->priority, *closeSocket);
@@ -6060,10 +6083,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 				remoteSystem=GetRemoteSystem( bcs->systemIdentifier, true, true );
 				sqo = socketQueryOutput.Allocate( _FILE_AND_LINE_ );
 
-				sqo->sockets.Clear(false, _FILE_AND_LINE_);
+				sqo->sockets.clear();
 				if (remoteSystem)
 				{
-					sqo->sockets.Push(remoteSystem->rakNetSocket, _FILE_AND_LINE_ );
+					sqo->sockets.push_back(remoteSystem->rakNetSocket);
 				}
 				else
 				{
@@ -6081,7 +6104,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 	}
 
-	if (requestedConnectionQueue.IsEmpty()==false)
+	if (requestedConnectionQueue.empty()==false)
 	{
 		if (timeNS==0)
 		{
@@ -6092,7 +6115,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 		bool condition1, condition2;
 		unsigned requestedConnectionQueueIndex=0;
 		requestedConnectionQueueMutex.Lock();
-		while (requestedConnectionQueueIndex < requestedConnectionQueue.Size())
+		while (requestedConnectionQueueIndex < requestedConnectionQueue.size())
 		{
 			RequestedConnectionStruct *rcs;
 			rcs = requestedConnectionQueue[requestedConnectionQueueIndex];
@@ -6127,11 +6150,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 					MafiaNet::OP_DELETE(rcs,_FILE_AND_LINE_);
 
 					requestedConnectionQueueMutex.Lock();
-					for (unsigned int k=0; k < requestedConnectionQueue.Size(); k++)
+					for (unsigned int k=0; k < requestedConnectionQueue.size(); k++)
 					{
 						if (requestedConnectionQueue[k]==rcs)
 						{
-							requestedConnectionQueue.RemoveAtIndex(k);
+							requestedConnectionQueue.erase(requestedConnectionQueue.begin() + k);
 							break;
 						}
 					}
@@ -6971,7 +6994,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 		{
 			WSAEVENT eventArray[256];
 			unsigned int i, eventArrayIndex;
-			for (i=0,eventArrayIndex=0; i < rakPeer->socketList.Size(); i++)
+			for (i=0,eventArrayIndex=0; i < rakPeer->socketList.size(); i++)
 			{
 				if (rakPeer->socketList[i]->recvEvent!=INVALID_HANDLE_VALUE)
 				{

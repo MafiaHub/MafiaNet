@@ -17,11 +17,13 @@
 #define __THREAD_POOL_H
 
 #include "mafianet/memory_override.h"
-#include "mafianet/ds_queue.h"
+#include "mafianet/assert.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/export.h"
 #include "mafianet/thread.h"
 #include "mafianet/signaled_event.h"
+
+#include <deque>
 
 class ThreadDataInterface
 {
@@ -158,9 +160,9 @@ protected:
 
 	// inputFunctionQueue & inputQueue are paired arrays so if you delete from one at a particular index you must delete from the other
 	// at the same index
-	DataStructures::Queue<OutputType (*)(InputType, bool *, void*)> inputFunctionQueue;
-	DataStructures::Queue<InputType> inputQueue;
-	DataStructures::Queue<OutputType> outputQueue;
+	std::deque<OutputType (*)(InputType, bool *, void*)> inputFunctionQueue;
+	std::deque<InputType> inputQueue;
+	std::deque<OutputType> outputQueue;
 
 	ThreadDataInterface *threadDataInterface;
 	void *tdiContext;
@@ -268,10 +270,12 @@ void* WorkerThread( void* arguments )
 		// Read input data
 		userCallback=0;
 		threadPool->inputQueueMutex.Lock();
-		if (threadPool->inputFunctionQueue.Size())
+		if (threadPool->inputFunctionQueue.empty()==false)
 		{
-			userCallback=threadPool->inputFunctionQueue.Pop();
-			inputData=threadPool->inputQueue.Pop();
+			userCallback=threadPool->inputFunctionQueue.front();
+			threadPool->inputFunctionQueue.pop_front();
+			inputData=threadPool->inputQueue.front();
+			threadPool->inputQueue.pop_front();
 		}
 		threadPool->inputQueueMutex.Unlock();
 
@@ -281,7 +285,7 @@ void* WorkerThread( void* arguments )
 			if (returnOutput)
 			{
 				threadPool->outputQueueMutex.Lock();
-				threadPool->outputQueue.Push(callbackOutput, _FILE_AND_LINE_ );
+				threadPool->outputQueue.push_back(callbackOutput);
 				threadPool->outputQueueMutex.Unlock();
 			}			
 		}
@@ -423,8 +427,8 @@ template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::AddInput(OutputType (*workerThreadCallback)(InputType, bool *returnOutput, void* perThreadData), InputType inputData)
 {
 	inputQueueMutex.Lock();
-	inputQueue.Push(inputData, _FILE_AND_LINE_ );
-	inputFunctionQueue.Push(workerThreadCallback, _FILE_AND_LINE_ );
+	inputQueue.push_back(inputData);
+	inputFunctionQueue.push_back(workerThreadCallback);
 	inputQueueMutex.Unlock();
 
 	quitAndIncomingDataEvents.SetEvent();
@@ -433,34 +437,34 @@ template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::AddOutput(OutputType outputData)
 {
 	outputQueueMutex.Lock();
-	outputQueue.Push(outputData, _FILE_AND_LINE_ );
+	outputQueue.push_back(outputData);
 	outputQueueMutex.Unlock();
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasOutputFast(void)
 {
-	return outputQueue.IsEmpty()==false;
+	return outputQueue.empty()==false;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasOutput(void)
 {
 	bool res;
 	outputQueueMutex.Lock();
-	res=outputQueue.IsEmpty()==false;
+	res=outputQueue.empty()==false;
 	outputQueueMutex.Unlock();
 	return res;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasInputFast(void)
 {
-	return inputQueue.IsEmpty()==false;
+	return inputQueue.empty()==false;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasInput(void)
 {
 	bool res;
 	inputQueueMutex.Lock();
-	res=inputQueue.IsEmpty()==false;
+	res=inputQueue.empty()==false;
 	inputQueueMutex.Unlock();
 	return res;
 }
@@ -470,7 +474,9 @@ OutputType ThreadPool<InputType, OutputType>::GetOutput(void)
 	// Real output check
 	OutputType output;
 	outputQueueMutex.Lock();
-	output=outputQueue.Pop();
+	RakAssert(outputQueue.empty()==false);
+	output=outputQueue.front();
+	outputQueue.pop_front();
 	outputQueueMutex.Unlock();
 	return output;
 }
@@ -482,19 +488,25 @@ void ThreadPool<InputType, OutputType>::Clear(void)
 	{
 		runThreadsMutex.Unlock();
 		inputQueueMutex.Lock();
-		inputFunctionQueue.Clear(_FILE_AND_LINE_);
-		inputQueue.Clear(_FILE_AND_LINE_);
+		inputFunctionQueue.clear();
+		inputQueue.clear();
 		inputQueueMutex.Unlock();
 
 		outputQueueMutex.Lock();
-		outputQueue.Clear(_FILE_AND_LINE_);
+		outputQueue.clear();
 		outputQueueMutex.Unlock();
 	}
 	else
 	{
-		inputFunctionQueue.Clear(_FILE_AND_LINE_);
-		inputQueue.Clear(_FILE_AND_LINE_);
-		outputQueue.Clear(_FILE_AND_LINE_);
+		// This branch used to return with runThreadsMutex still held, so any later
+		// lock of it -- StartThreads, StopThreads, Pause, WasStarted, or ~ThreadPool
+		// calling StopThreads -- deadlocked on a non-recursive SimpleMutex. Nothing
+		// in the library calls Clear(), which is why it went unnoticed, but it is a
+		// public header.
+		inputFunctionQueue.clear();
+		inputQueue.clear();
+		outputQueue.clear();
+		runThreadsMutex.Unlock();
 	}
 }
 template <class InputType, class OutputType>
@@ -510,18 +522,25 @@ void ThreadPool<InputType, OutputType>::UnlockInput(void)
 template <class InputType, class OutputType>
 unsigned ThreadPool<InputType, OutputType>::InputSize(void)
 {
-	return inputQueue.Size();
+	return (unsigned) inputQueue.size();
 }
 template <class InputType, class OutputType>
 InputType ThreadPool<InputType, OutputType>::GetInputAtIndex(unsigned index)
 {
+	RakAssert(index < inputQueue.size());
 	return inputQueue[index];
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::RemoveInputAtIndex(unsigned index)
 {
-	inputQueue.RemoveAtIndex(index);
-	inputFunctionQueue.RemoveAtIndex(index);
+	RakAssert(index < inputQueue.size());
+	if (index >= inputQueue.size())
+		return;
+
+	// Paired arrays: the same index has to go from both, or every later input is
+	// run with the wrong callback.
+	inputQueue.erase(inputQueue.begin() + index);
+	inputFunctionQueue.erase(inputFunctionQueue.begin() + index);
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::LockOutput(void)
@@ -536,29 +555,34 @@ void ThreadPool<InputType, OutputType>::UnlockOutput(void)
 template <class InputType, class OutputType>
 unsigned ThreadPool<InputType, OutputType>::OutputSize(void)
 {
-	return outputQueue.Size();
+	return (unsigned) outputQueue.size();
 }
 template <class InputType, class OutputType>
 OutputType ThreadPool<InputType, OutputType>::GetOutputAtIndex(unsigned index)
 {
+	RakAssert(index < outputQueue.size());
 	return outputQueue[index];
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::RemoveOutputAtIndex(unsigned index)
 {
-	outputQueue.RemoveAtIndex(index);
+	RakAssert(index < outputQueue.size());
+	if (index >= outputQueue.size())
+		return;
+
+	outputQueue.erase(outputQueue.begin() + index);
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::ClearInput(void)
 {
-	inputQueue.Clear(_FILE_AND_LINE_);
-	inputFunctionQueue.Clear(_FILE_AND_LINE_);
+	inputQueue.clear();
+	inputFunctionQueue.clear();
 }
 
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::ClearOutput(void)
 {
-	outputQueue.Clear(_FILE_AND_LINE_);
+	outputQueue.clear();
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::IsWorking(void)

@@ -23,6 +23,7 @@
 
 
 #include "mafianet/tcp_interface.h"
+#include <algorithm>
 #ifdef _WIN32
 	typedef int socklen_t;
 #else
@@ -63,6 +64,25 @@ RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
 
 using namespace MafiaNet;
 
+namespace
+{
+	// accept()/socket() report failure as -1 on POSIX and INVALID_SOCKET on Windows,
+	// while this class uses 0 as its "no socket" value. Everything else here tested
+	// only against 0, so a failed accept was treated as a new connection and its -1
+	// was stored as a client socket; the next FD_SET(-1, ...) is undefined, and
+	// glibc's fortified fd_set aborts on it in a Release build ("bit out of range
+	// 0 - FD_SETSIZE on fd_set") while a Debug build corrupts the set in silence.
+	bool IsUsableSocket(__TCPSOCKET__ s)
+	{
+#ifdef _WIN32
+		return s != INVALID_SOCKET && s != 0;
+#else
+		return s > 0;
+#endif
+	}
+}
+
+
 STATIC_FACTORY_DEFINITIONS(TCPInterface,TCPInterface);
 
 TCPInterface::TCPInterface()
@@ -102,8 +122,14 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 	(void) socketFamily;
 #if RAKNET_SUPPORT_IPV6!=1
 	listenSocket = socket__(AF_INET, SOCK_STREAM, 0);
-	if ((int)listenSocket ==-1)
+	if (IsUsableSocket(listenSocket)==false)
+	{
+		// `(int)listenSocket == -1` was the old test: on Windows SOCKET is unsigned,
+		// so the cast is what made INVALID_SOCKET match at all, and a socket
+		// numbered 0 -- which this class cannot represent -- was accepted.
+		listenSocket=0;
 		return false;
+	}
 
 	struct sockaddr_in serverAddress;
 	memset(&serverAddress,0,sizeof(sockaddr_in));
@@ -206,7 +232,22 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	listenSocket=0;
 	if (maxIncomingConnections>0)
 	{
-		CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress);
+		// The result was discarded, so a failed bind -- the port already in use, say
+		// -- left Start() returning true with nothing listening, and the caller had
+		// no way to find out.
+		if (CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress)==false)
+		{
+			if (listenSocket!=0)
+			{
+				closesocket__(listenSocket);
+				listenSocket=0;
+			}
+			remoteClientsLength=0;
+			MafiaNet::OP_DELETE_ARRAY(remoteClients,_FILE_AND_LINE_);
+			remoteClients=0;
+			isStarted.Decrement();
+			return false;
+		}
 	}
 
 
@@ -227,7 +268,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 		RakSleep(0);
 	
 	unsigned int i;
-	for (i=0; i < messageHandlerList.Size(); i++)
+	for (i=0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnRakPeerStartup();
 
 	return true;
@@ -235,7 +276,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 void TCPInterface::Stop(void)
 {
 	unsigned int i;
-	for (i=0; i < messageHandlerList.Size(); i++)
+	for (i=0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnRakPeerShutdown();
 
 	if (isStarted.GetValue()==0)
@@ -261,10 +302,15 @@ void TCPInterface::Stop(void)
 
 	// Abort waiting connect calls
 	blockingSocketListMutex.Lock();
-	for (i=0; i < blockingSocketList.Size(); i++)
+	for (i=0; i < blockingSocketList.size(); i++)
 	{
 		closesocket__(blockingSocketList[i]);
 	}
+	// The list was not cleared here, so a second Stop() -- or the one in the
+	// destructor -- closed the same descriptors again. Descriptor numbers are
+	// reused, so the second close can land on a socket something else has since
+	// opened.
+	blockingSocketList.clear();
 	blockingSocketListMutex.Unlock();
 
 	// Wait for the thread to stop
@@ -278,7 +324,14 @@ void TCPInterface::Stop(void)
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i=0; i < remoteClientsLength; i++)
 	{
-		closesocket__(remoteClients[i].socket);
+		// 0 is this class's "no socket" value (RemoteClient's constructor sets it,
+		// and RemoteClient::SetActive guards on it), but it is also a perfectly
+		// valid descriptor. Closing it unconditionally closed descriptor 0 --
+		// stdin in a normal process -- once per unused slot. Beyond the obvious,
+		// that freed descriptor 0 for reuse, and the next socket created in the
+		// process got it and was then read as "no socket" by every check here.
+		if (remoteClients[i].socket!=0)
+			closesocket__(remoteClients[i].socket);
 #if OPEN_SSL_CLIENT_SUPPORT==1
 		remoteClients[i].FreeSSL();
 #endif
@@ -299,20 +352,20 @@ void TCPInterface::Stop(void)
 	newRemoteClients.Clear(_FILE_AND_LINE_);
 	lostConnections.Clear(_FILE_AND_LINE_);
 	requestedCloseConnections.Clear(_FILE_AND_LINE_);
-	failedConnectionAttempts.Clear(_FILE_AND_LINE_);
-	completedConnectionAttempts.Clear(_FILE_AND_LINE_);
-	failedConnectionAttempts.Clear(_FILE_AND_LINE_);
-	for (i=0; i < headPush.Size(); i++)
+	failedConnectionAttempts.clear();
+	completedConnectionAttempts.clear();
+	failedConnectionAttempts.clear();
+	for (i=0; i < headPush.size(); i++)
 		DeallocatePacket(headPush[i]);
-	headPush.Clear(_FILE_AND_LINE_);
-	for (i=0; i < tailPush.Size(); i++)
+	headPush.clear();
+	for (i=0; i < tailPush.size(); i++)
 		DeallocatePacket(tailPush[i]);
-	tailPush.Clear(_FILE_AND_LINE_);
+	tailPush.clear();
 
 #if OPEN_SSL_CLIENT_SUPPORT==1
 	SSL_CTX_free (ctx);
 	startSSL.Clear(_FILE_AND_LINE_);
-	activeSSLConnections.Clear(false, _FILE_AND_LINE_);
+	activeSSLConnections.clear();
 #endif
 
 
@@ -358,7 +411,7 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 			remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 			failedConnectionAttemptMutex.Lock();
-			failedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_ );
+			failedConnectionAttempts.push_back(systemAddress);
 			failedConnectionAttemptMutex.Unlock();
 
 			return UNASSIGNED_SYSTEM_ADDRESS;
@@ -368,7 +421,7 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 		remoteClients[newRemoteClientIndex].systemAddress=systemAddress;
 
 		completedConnectionAttemptMutex.Lock();
-		completedConnectionAttempts.Push(remoteClients[newRemoteClientIndex].systemAddress, _FILE_AND_LINE_ );
+		completedConnectionAttempts.push_back(remoteClients[newRemoteClientIndex].systemAddress);
 		completedConnectionAttemptMutex.Unlock();
 
 		return remoteClients[newRemoteClientIndex].systemAddress;
@@ -395,8 +448,11 @@ SystemAddress TCPInterface::Connect(const char* host, unsigned short remotePort,
 
 		if (errorCode!=0)
 		{
+			// Read the address out before freeing s: this used to report
+			// s->systemAddress after the delete.
+			const SystemAddress failedAddress = s->systemAddress;
 			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
-			failedConnectionAttempts.Push(s->systemAddress, _FILE_AND_LINE_ );
+			failedConnectionAttempts.push_back(failedAddress);
 		}
 		return UNASSIGNED_SYSTEM_ADDRESS;
 	}	
@@ -416,13 +472,13 @@ void TCPInterface::StartSSLClient(SystemAddress systemAddress)
 	SystemAddress *id = startSSL.Allocate( _FILE_AND_LINE_ );
 	*id=systemAddress;
 	startSSL.Push(id);
-	unsigned index = activeSSLConnections.GetIndexOf(systemAddress);
-	if (index==(unsigned)-1)
-		activeSSLConnections.Insert(systemAddress,_FILE_AND_LINE_);
+	if (std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress)
+		== activeSSLConnections.end())
+		activeSSLConnections.push_back(systemAddress);
 }
 bool TCPInterface::IsSSLActive(SystemAddress systemAddress)
 {
-	return activeSSLConnections.GetIndexOf(systemAddress)!=-1;
+	return std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress) != activeSSLConnections.end();
 }
 #endif
 void TCPInterface::Send( const char *data, unsigned length, const SystemAddress &systemAddress, bool broadcast )
@@ -483,12 +539,12 @@ bool TCPInterface::SendList( const char **data, const unsigned int *lengths, con
 }
 bool TCPInterface::ReceiveHasPackets( void )
 {
-	return headPush.IsEmpty()==false || incomingMessages.IsEmpty()==false || tailPush.IsEmpty()==false;
+	return headPush.empty()==false || incomingMessages.IsEmpty()==false || tailPush.empty()==false;
 }
 Packet* TCPInterface::Receive( void )
 {
 	unsigned int i;
-	for (i=0; i < messageHandlerList.Size(); i++)
+	for (i=0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->Update();
 
 	Packet* outgoingPacket = ReceiveInt();
@@ -496,7 +552,7 @@ Packet* TCPInterface::Receive( void )
 	if (outgoingPacket)
 	{
 		PluginReceiveResult pluginResult;
-		for (i=0; i < messageHandlerList.Size(); i++)
+		for (i=0; i < messageHandlerList.size(); i++)
 		{
 			pluginResult=messageHandlerList[i]->OnReceive(outgoingPacket);
 			if (pluginResult==RR_STOP_PROCESSING_AND_DEALLOCATE)
@@ -520,22 +576,30 @@ Packet* TCPInterface::ReceiveInt( void )
 {
 	if (isStarted.GetValue()==0)
 		return 0;
-	if (headPush.IsEmpty()==false)
-		return headPush.Pop();
+	if (headPush.empty()==false)
+	{
+		Packet *held = headPush.front();
+		headPush.pop_front();
+		return held;
+	}
 	Packet *p = incomingMessages.PopInaccurate();
 	if (p)
 		return p;
-	if (tailPush.IsEmpty()==false)
-		return tailPush.Pop();
+	if (tailPush.empty()==false)
+	{
+		Packet *held = tailPush.front();
+		tailPush.pop_front();
+		return held;
+	}
 	return 0;
 }
 
 
 void TCPInterface::AttachPlugin( PluginInterface2 *plugin )
 {
-	if (messageHandlerList.GetIndexOf(plugin)==MAX_UNSIGNED_LONG)
+	if (std::find(messageHandlerList.begin(), messageHandlerList.end(), plugin) == messageHandlerList.end())
 	{
-		messageHandlerList.Insert(plugin, _FILE_AND_LINE_);
+		messageHandlerList.push_back(plugin);
 		plugin->SetTCPInterface(this);
 		plugin->OnAttach();
 	}
@@ -545,14 +609,16 @@ void TCPInterface::DetachPlugin( PluginInterface2 *plugin )
 	if (plugin==0)
 		return;
 
-	unsigned int index;
-	index = messageHandlerList.GetIndexOf(plugin);
-	if (index!=MAX_UNSIGNED_LONG)
+	std::vector<PluginInterface2 *>::iterator it =
+		std::find(messageHandlerList.begin(), messageHandlerList.end(), plugin);
+	if (it!=messageHandlerList.end())
 	{
-		messageHandlerList[index]->OnDetach();
+		(*it)->OnDetach();
 		// Unordered list so delete from end for speed
-		messageHandlerList[index]=messageHandlerList[messageHandlerList.Size()-1];
-		messageHandlerList.RemoveFromEnd();
+		// Swap-remove, exactly as before: the handler order is not published and this avoids
+		// shifting the rest.
+		*it=messageHandlerList.back();
+		messageHandlerList.pop_back();
 		plugin->SetTCPInterface(0);
 	}
 }
@@ -564,7 +630,7 @@ void TCPInterface::CloseConnection( SystemAddress systemAddress )
 		return;
 
 	unsigned int i;
-	for (i=0; i < messageHandlerList.Size(); i++)
+	for (i=0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnClosedConnection(systemAddress, UNASSIGNED_RAKNET_GUID, LCR_CLOSED_BY_USER);
 
 	if (systemAddress.systemIndex<remoteClientsLength && remoteClients[systemAddress.systemIndex].systemAddress==systemAddress)
@@ -590,9 +656,10 @@ void TCPInterface::CloseConnection( SystemAddress systemAddress )
 
 
 #if OPEN_SSL_CLIENT_SUPPORT==1
-	unsigned index = activeSSLConnections.GetIndexOf(systemAddress);
-	if (index!=(unsigned)-1)
-		activeSSLConnections.RemoveAtIndex(index);
+	std::vector<SystemAddress>::iterator sslIt =
+		std::find(activeSSLConnections.begin(), activeSSLConnections.end(), systemAddress);
+	if (sslIt!=activeSSLConnections.end())
+		activeSSLConnections.erase(sslIt);
 #endif
 }
 void TCPInterface::DeallocatePacket( Packet *packet )
@@ -626,9 +693,9 @@ Packet* TCPInterface::AllocatePacket(unsigned dataSize)
 void TCPInterface::PushBackPacket( Packet *packet, bool pushAtHead )
 {
 	if (pushAtHead)
-		headPush.Push(packet, _FILE_AND_LINE_ );
+		headPush.push_back(packet);
 	else
-		tailPush.Push(packet, _FILE_AND_LINE_ );
+		tailPush.push_back(packet);
 }
 bool TCPInterface::WasStarted(void) const
 {
@@ -638,14 +705,17 @@ SystemAddress TCPInterface::HasCompletedConnectionAttempt(void)
 {
 	SystemAddress sysAddr=UNASSIGNED_SYSTEM_ADDRESS;
 	completedConnectionAttemptMutex.Lock();
-	if (completedConnectionAttempts.IsEmpty()==false)
-		sysAddr=completedConnectionAttempts.Pop();
+	if (completedConnectionAttempts.empty()==false)
+	{
+		sysAddr=completedConnectionAttempts.front();
+		completedConnectionAttempts.pop_front();
+	}
 	completedConnectionAttemptMutex.Unlock();
 
 	if (sysAddr!=UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		unsigned int i;
-		for (i=0; i < messageHandlerList.Size(); i++)
+		for (i=0; i < messageHandlerList.size(); i++)
 			messageHandlerList[i]->OnNewConnection(sysAddr, UNASSIGNED_RAKNET_GUID, true);
 	}
 
@@ -655,14 +725,17 @@ SystemAddress TCPInterface::HasFailedConnectionAttempt(void)
 {
 	SystemAddress sysAddr=UNASSIGNED_SYSTEM_ADDRESS;
 	failedConnectionAttemptMutex.Lock();
-	if (failedConnectionAttempts.IsEmpty()==false)
-		sysAddr=failedConnectionAttempts.Pop();
+	if (failedConnectionAttempts.empty()==false)
+	{
+		sysAddr=failedConnectionAttempts.front();
+		failedConnectionAttempts.pop_front();
+	}
 	failedConnectionAttemptMutex.Unlock();
 
 	if (sysAddr!=UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		unsigned int i;
-		for (i=0; i < messageHandlerList.Size(); i++)
+		for (i=0; i < messageHandlerList.size(); i++)
 		{
 			Packet p;
 			p.systemAddress=sysAddr;
@@ -685,7 +758,7 @@ SystemAddress TCPInterface::HasNewIncomingConnection(void)
 		newIncomingConnections.Deallocate(out, _FILE_AND_LINE_);
 
 		unsigned int i;
-		for (i=0; i < messageHandlerList.Size(); i++)
+		for (i=0; i < messageHandlerList.size(); i++)
 			messageHandlerList[i]->OnNewConnection(out2, UNASSIGNED_RAKNET_GUID, true);
 
 		return *out;
@@ -705,7 +778,7 @@ SystemAddress TCPInterface::HasLostConnection(void)
 		lostConnections.Deallocate(out, _FILE_AND_LINE_);
 
 		unsigned int i;
-		for (i=0; i < messageHandlerList.Size(); i++)
+		for (i=0; i < messageHandlerList.size(); i++)
 			messageHandlerList[i]->OnClosedConnection(out2, UNASSIGNED_RAKNET_GUID, LCR_DISCONNECTION_NOTIFICATION);
 
 		return *out;
@@ -774,11 +847,21 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 #if RAKNET_SUPPORT_IPV6!=1
 	sockaddr_in serverAddress;
 
-	struct addrinfo *curAddress = nullptr;
-	int err = getaddrinfo(host, nullptr, nullptr, &curAddress);
+	// addressList owns the list getaddrinfo allocated and is what has to be freed.
+	// curAddress walks it; the walk used to overwrite the only pointer to the head,
+	// and nothing freed it on any path, so every connect attempt leaked the list.
+	struct addrinfo *addressList = nullptr;
+	const int err = getaddrinfo(host, nullptr, nullptr, &addressList);
+	if (err != 0)
+	{
+		if (addressList != nullptr)
+			freeaddrinfo(addressList);
+		return 0;
+	}
 
 	// #med This should also work with IPv6 addresses in principle. However the old code in RakNet only worked with IPv4. Hence this behavior change won't be in MaxNet 0.1.
 	// get the (first) IPv4 address
+	struct addrinfo *curAddress = addressList;
 	while(curAddress != nullptr) {
 		if (curAddress->ai_family == AF_INET) {
 			break; // found an IPv4 address
@@ -787,15 +870,17 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 	}
 
 	if (curAddress == nullptr)
+	{
+		freeaddrinfo(addressList);
 		return 0;
-
-	if (err != 0)
-		return 0;
-
+	}
 
 		__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
-		if (sockfd < 0) 
+		if (IsUsableSocket(sockfd)==false)
+		{
+			freeaddrinfo(addressList);
 			return 0;
+		}
 
 	memset(&serverAddress, 0, sizeof(serverAddress));
 	serverAddress.sin_family = AF_INET;
@@ -830,11 +915,13 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 
 
 	blockingSocketListMutex.Lock();
-	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
+	blockingSocketList.push_back(sockfd);
 	blockingSocketListMutex.Unlock();
 
 	// This is blocking
 	connectResult = connect__( sockfd, ( struct sockaddr * ) &serverAddress, sizeof( struct sockaddr ) );
+
+	freeaddrinfo(addressList);
 
 #else
 
@@ -849,7 +936,7 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 	getaddrinfo(host, portStr, &hints, &res);
 	sockfd = socket__(res->ai_family, res->ai_socktype, res->ai_protocol);
 	blockingSocketListMutex.Lock();
-	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
+	blockingSocketList.push_back(sockfd);
 	blockingSocketListMutex.Unlock();
 	// #low - review usage of static cast here
 	connectResult=connect__(sockfd, res->ai_addr, static_cast<int>(res->ai_addrlen));
@@ -859,11 +946,15 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 
 	if (connectResult==-1)
 	{
-		unsigned sockfdIndex;
 		blockingSocketListMutex.Lock();
-		sockfdIndex=blockingSocketList.GetIndexOf(sockfd);
-		if (sockfdIndex!=(unsigned)-1)
-			blockingSocketList.RemoveAtIndexFast(sockfdIndex);
+		std::vector<__TCPSOCKET__>::iterator sockfdIt =
+			std::find(blockingSocketList.begin(), blockingSocketList.end(), sockfd);
+		if (sockfdIt!=blockingSocketList.end())
+		{
+			// Swap-remove as before; this order is not published.
+			*sockfdIt=blockingSocketList.back();
+			blockingSocketList.pop_back();
+		}
 		blockingSocketListMutex.Unlock();
 
 		closesocket__(sockfd);
@@ -886,11 +977,15 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	TCPInterface *tcpInterface = s->tcpInterface;
 	int newRemoteClientIndex=systemAddress.systemIndex;
 	unsigned short socketFamily = s->socketFamily;
+	// bindAddress has to be copied out too. It used to be read as s->bindAddress
+	// *after* this delete, on every non-blocking Connect -- the default.
+	char bindAddress[sizeof(s->bindAddress)];
+	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
 	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 
 	char str1[64];
 	systemAddress.ToString(false, str1, static_cast<size_t>(64));
-	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, s->bindAddress);
+	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress);
 	if (sockfd==0)
 	{
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -898,7 +993,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 		tcpInterface->failedConnectionAttemptMutex.Lock();
-		tcpInterface->failedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_ );
+		tcpInterface->failedConnectionAttempts.push_back(systemAddress);
 		tcpInterface->failedConnectionAttemptMutex.Unlock();
 		return 0;
 	}
@@ -910,7 +1005,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	if (tcpInterface->threadRunning.GetValue()>0)
 	{
 		tcpInterface->completedConnectionAttemptMutex.Lock();
-		tcpInterface->completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_ );
+		tcpInterface->completedConnectionAttempts.push_back(systemAddress);
 		tcpInterface->completedConnectionAttemptMutex.Unlock();
 	}	
 
@@ -1050,9 +1145,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 			{
 				newSock = accept__(sts->listenSocket, (sockaddr*)&sockAddr, (socklen_t*)&sockAddrSize);
 
-				if (newSock != 0)
+				if (IsUsableSocket(newSock))
 				{
-					int newRemoteClientIndex=-1;
+					int newRemoteClientIndex;
+					bool slotFound=false;
 					for (newRemoteClientIndex=0; newRemoteClientIndex < sts->remoteClientsLength; newRemoteClientIndex++)
 					{
 						sts->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -1085,13 +1181,19 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 							*newConnectionSystemAddress=sts->remoteClients[newRemoteClientIndex].systemAddress;
 							sts->newIncomingConnections.Push(newConnectionSystemAddress);
 
+							slotFound=true;
 							break;
 						}
 						sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 					}
-					if (newRemoteClientIndex==-1)
+					if (slotFound==false)
 					{
-						closesocket__(sts->listenSocket);
+						// The loop above leaves newRemoteClientIndex at
+						// remoteClientsLength when every slot is taken, never at -1,
+						// so the old `newRemoteClientIndex==-1` test never fired --
+						// and when it was meant to, it closed the *listen* socket
+						// instead of the connection it could not accommodate.
+						closesocket__(newSock);
 					}
 				}
 				else

@@ -21,6 +21,7 @@
 #include "Lobby2Plugin.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/thread_pool.h"
+#include "mafianet/ds_queue.h"
 #include "Lobby2Presence.h"
 
 //class PostgreSQLInterface;

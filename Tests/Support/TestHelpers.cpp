@@ -10,6 +10,15 @@
 
 #include "TestHelpers.h"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#endif
+
 TestHelpers::TestHelpers(void)
 {
 }
@@ -131,4 +140,72 @@ void RecieveForXTime(RakPeerInterface *reciever,int millisecondsToWait)
 
 	}
 
+}
+
+unsigned short TestHelpers::FindFreeTcpPort(void)
+{
+#ifdef _WIN32
+	// TCPInterface::Start calls WSAStartup, but this helper runs before it, so ask
+	// for Winsock here too. WSAStartup/WSACleanup are reference counted.
+	WSADATA wsaData;
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+		return 0;
+#endif
+
+	unsigned short port = 0;
+
+#ifdef _WIN32
+	SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s != INVALID_SOCKET)
+#else
+	int s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s >= 0)
+#endif
+	{
+		sockaddr_in addr;
+		memset(&addr, 0, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_port = 0; // let the OS choose
+		addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+		if (bind(s, (sockaddr *) &addr, sizeof(addr)) == 0)
+		{
+			sockaddr_in bound;
+			memset(&bound, 0, sizeof(bound));
+#ifdef _WIN32
+			int boundLen = (int) sizeof(bound);
+#else
+			socklen_t boundLen = (socklen_t) sizeof(bound);
+#endif
+			if (getsockname(s, (sockaddr *) &bound, &boundLen) == 0)
+				port = ntohs(bound.sin_port);
+		}
+
+#ifdef _WIN32
+		closesocket(s);
+#else
+		close(s);
+#endif
+	}
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
+
+	return port;
+}
+
+unsigned short TestHelpers::StartTcpOnAFreePort(TCPInterface &tcp, unsigned short maxIncomingConnections,
+	int attempts)
+{
+	for (int i = 0; i < attempts; i++)
+	{
+		const unsigned short port = FindFreeTcpPort();
+		if (port == 0)
+			continue;
+		if (tcp.Start(port, maxIncomingConnections))
+			return port;
+		// Start() tears itself down on a failed bind, so it is safe to call again.
+	}
+	return 0;
 }

@@ -17,6 +17,7 @@
 #if _RAKNET_SUPPORT_MessageFilter==1
 
 #include "mafianet/message_filter.h"
+#include <algorithm>
 #include "mafianet/assert.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
@@ -50,6 +51,19 @@ MessageFilter::MessageFilter()
 MessageFilter::~MessageFilter()
 {
 	Clear();
+}
+unsigned int MessageFilter::IndexForFilterSetID(int filterSetID, bool *found) const
+{
+	// filterList is sorted ascending by filterSetID; GetFilterSetIDByIndex publishes the index.
+	std::vector<FilterSet *>::const_iterator it = std::lower_bound(
+		filterList.begin(), filterList.end(), filterSetID,
+		[](FilterSet * const &candidate, int key)
+		{
+			return candidate->filterSetID < key;
+		});
+	unsigned int i = (unsigned int) (it - filterList.begin());
+	*found = (it != filterList.end() && (*it)->filterSetID == filterSetID);
+	return i;
 }
 void MessageFilter::SetAutoAddNewConnectionsToFilter(int filterSetID)
 {
@@ -123,11 +137,12 @@ int MessageFilter::GetSystemFilterSet(AddressOrGUID systemAddress)
 // 	else
 // 		return systemList[index].filter->filterSetID;
 
-	DataStructures::HashIndex index = systemList.GetIndexOf(systemAddress);
-	if (index.IsInvalid())
+	std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash>::const_iterator it =
+		systemList.find(systemAddress);
+	if (it == systemList.end())
 		return -1;
 	else
-		return systemList.ItemAtIndex(index).filter->filterSetID;
+		return it->second.filter->filterSetID;
 }
 void MessageFilter::SetSystemFilterSet(AddressOrGUID addressOrGUID, int filterSetID)
 {
@@ -136,8 +151,9 @@ void MessageFilter::SetSystemFilterSet(AddressOrGUID addressOrGUID, int filterSe
 //	bool objectExists;
 // 	unsigned index = systemList.GetIndexFromKey(addressOrGUID, &objectExists);
 // 	if (objectExists==false)
-	DataStructures::HashIndex index = systemList.GetIndexOf(addressOrGUID);
-	if (index.IsInvalid())
+	std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash>::iterator index =
+		systemList.find(addressOrGUID);
+	if (index == systemList.end())
 	{
 		if (filterSetID<0)
 			return;
@@ -147,19 +163,19 @@ void MessageFilter::SetSystemFilterSet(AddressOrGUID addressOrGUID, int filterSe
 	//	filteredSystem.addressOrGUID=addressOrGUID;
 		filteredSystem.timeEnteredThisSet= MafiaNet::GetTimeMS();
 	//	systemList.Insert(addressOrGUID, filteredSystem, true, _FILE_AND_LINE_);
-		systemList.Push(addressOrGUID,filteredSystem,_FILE_AND_LINE_);
+		systemList.insert(std::make_pair(addressOrGUID, filteredSystem));
 	}
 	else
 	{
 		if (filterSetID>=0)
 		{
 			FilterSet *filterSet = GetFilterSetByID(filterSetID);
-			systemList.ItemAtIndex(index).timeEnteredThisSet= MafiaNet::GetTimeMS();
-			systemList.ItemAtIndex(index).filter=filterSet;
+			index->second.timeEnteredThisSet= MafiaNet::GetTimeMS();
+			index->second.filter=filterSet;
 		}
 		else
 		{
-			systemList.RemoveAtIndex(index, _FILE_AND_LINE_);
+			systemList.erase(index);
 		}
 	}	
 }
@@ -167,24 +183,21 @@ unsigned MessageFilter::GetSystemCount(int filterSetID) const
 {
 	if (filterSetID==-1)
 	{
-		return systemList.Size();
+		return systemList.size();
 	}
 	else
 	{
-		unsigned i;
 		unsigned count=0;
-		DataStructures::List< FilteredSystem > itemList;
-		DataStructures::List< AddressOrGUID > keyList;
-		systemList.GetAsList(itemList, keyList, _FILE_AND_LINE_);
-		for (i=0; i < itemList.Size(); i++)
-			if (itemList[i].filter->filterSetID==filterSetID)
+		for (std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash>::const_iterator
+			it = systemList.begin(); it != systemList.end(); ++it)
+			if (it->second.filter->filterSetID==filterSetID)
 				++count;
 		return count;
 	}
 }
 unsigned MessageFilter::GetFilterSetCount(void) const
 {
-	return filterList.Size();
+	return filterList.size();
 }
 int MessageFilter::GetFilterSetIDByIndex(unsigned index)
 {
@@ -195,28 +208,26 @@ void MessageFilter::DeleteFilterSet(int filterSetID)
 	FilterSet *filterSet;
 	bool objectExists;
 	unsigned i,index;
-	index = filterList.GetIndexFromKey(filterSetID, &objectExists);
+	index = IndexForFilterSetID(filterSetID, &objectExists);
 	if (objectExists)
 	{
 		filterSet=filterList[index];
 		DeallocateFilterSet(filterSet);
-		filterList.RemoveAtIndex(index);
+		filterList.erase(filterList.begin() + index);
 
-		DataStructures::List< FilteredSystem > itemList;
-		DataStructures::List< AddressOrGUID > keyList;
-		systemList.GetAsList(itemList, keyList, _FILE_AND_LINE_);
-		for (i=0; i < itemList.Size(); i++)
+		for (std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash>::iterator
+			it = systemList.begin(); it != systemList.end(); )
 		{
-			if (itemList[i].filter==filterSet)
-			{
-				systemList.Remove(keyList[i], _FILE_AND_LINE_);
-			}
+			if (it->second.filter==filterSet)
+				it = systemList.erase(it);
+			else
+				++it;
 		}
 
 		/*
 		// Don't reference this pointer any longer
 		i=0;
-		while (i < systemList.Size())
+		while (i < systemList.size())
 		{
 			if (systemList[i].filter==filterSet)
 				systemList.RemoveAtIndex(i);
@@ -229,10 +240,10 @@ void MessageFilter::DeleteFilterSet(int filterSetID)
 void MessageFilter::Clear(void)
 {
 	unsigned i;
-	systemList.Clear(_FILE_AND_LINE_);
-	for (i=0; i < filterList.Size(); i++)
+	systemList.clear();
+	for (i=0; i < filterList.size(); i++)
 		DeallocateFilterSet(filterList[i]);
-	filterList.Clear(false, _FILE_AND_LINE_);
+	filterList.clear();
 }
 void MessageFilter::DeallocateFilterSet(FilterSet* filterSet)
 {
@@ -243,7 +254,7 @@ FilterSet* MessageFilter::GetFilterSetByID(int filterSetID)
 	RakAssert(filterSetID>=0);
 	bool objectExists;
 	unsigned index;
-	index = filterList.GetIndexFromKey(filterSetID, &objectExists);
+	index = IndexForFilterSetID(filterSetID, &objectExists);
 	if (objectExists)
 		return filterList[index];
 	else
@@ -260,7 +271,7 @@ FilterSet* MessageFilter::GetFilterSetByID(int filterSetID)
 		newFilterSet->invalidMessageCallback=0;
 		newFilterSet->timeoutCallback=0;
 		newFilterSet->timeoutUserData=0;
-		filterList.Insert(filterSetID, newFilterSet, true, _FILE_AND_LINE_);
+		filterList.insert(filterList.begin() + index, newFilterSet);
 		return newFilterSet;
 	}
 }
@@ -290,12 +301,21 @@ void MessageFilter::Update(void)
 	MafiaNet::Time curTime = MafiaNet::GetTime();
 	if (GreaterThan(curTime - 1000, whenLastTimeoutCheck))
 	{
-		DataStructures::List< FilteredSystem > itemList;
-		DataStructures::List< AddressOrGUID > keyList;
-		systemList.GetAsList(itemList, keyList, _FILE_AND_LINE_);
+		// A snapshot, because the callbacks below can close connections and so reach back into
+		// systemList; the DataStructures::List copy this replaces had the same effect.
+		std::vector<FilteredSystem> itemList;
+		std::vector<AddressOrGUID> keyList;
+		itemList.reserve(systemList.size());
+		keyList.reserve(systemList.size());
+		for (std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash>::const_iterator
+			it = systemList.begin(); it != systemList.end(); ++it)
+		{
+			itemList.push_back(it->second);
+			keyList.push_back(it->first);
+		}
 
 		unsigned int index;
-		for (index=0; index < itemList.Size(); index++)
+		for (index=0; index < itemList.size(); index++)
 		{
 			if (itemList[index].filter &&
 				itemList[index].filter->maxMemberTimeMS>0 &&
@@ -317,7 +337,7 @@ void MessageFilter::Update(void)
 					tcpInterface->CloseConnection(keyList[index].systemAddress);
 #endif
 
-				systemList.Remove(keyList[index], _FILE_AND_LINE_);
+				systemList.erase(keyList[index]);
 			}
 		}
 
@@ -335,7 +355,7 @@ void MessageFilter::OnNewConnection(const SystemAddress &systemAddress, RakNetGU
 	aog.systemAddress=systemAddress;
 
 	// New system, automatically assign to filter set if appropriate
-	if (autoAddNewConnectionsToFilter>=0 && systemList.HasData(aog)==false)
+	if (autoAddNewConnectionsToFilter>=0 && systemList.find(aog)==systemList.end())
 		SetSystemFilterSet(aog, autoAddNewConnectionsToFilter);
 }
 void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
@@ -348,11 +368,10 @@ void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNe
 	aog.systemAddress=systemAddress;
 
 	// Lost system, remove from the list
-	systemList.Remove(aog, _FILE_AND_LINE_);
+	systemList.erase(aog);
 }
  PluginReceiveResult MessageFilter::OnReceive(Packet *packet)
 {
-	DataStructures::HashIndex index;
 	unsigned char messageId;
 
 	switch (packet->data[0]) 
@@ -385,12 +404,13 @@ void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNe
 			messageId=packet->data[0];
 		// If this system is filtered, check if this message is allowed.  If not allowed, return RR_STOP_PROCESSING_AND_DEALLOCATE
 		// index = systemList.GetIndexFromKey(packet->addressOrGUID, &objectExists);
-		index = systemList.GetIndexOf(packet);
-		if (index.IsInvalid())
+		std::unordered_map<AddressOrGUID, FilteredSystem, AddressOrGUIDKeyHash>::const_iterator sysIt =
+			systemList.find(packet);
+		if (sysIt == systemList.end())
 			break;
-		if (systemList.ItemAtIndex(index).filter->allowedIDs[messageId]==false)
+		if (sysIt->second.filter->allowedIDs[messageId]==false)
 		{
-			OnInvalidMessage(systemList.ItemAtIndex(index).filter, packet, packet->data[0]);
+			OnInvalidMessage(sysIt->second.filter, packet, packet->data[0]);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
 		if (packet->data[0]==ID_RPC_PLUGIN)
@@ -399,9 +419,9 @@ void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNe
 			bsIn.IgnoreBytes(2);
 			MafiaNet::RakString functionName;
 			bsIn.ReadCompressed(functionName);
-			if (systemList.ItemAtIndex(index).filter->allowedRPC4.HasData(functionName)==false)
+			if (sysIt->second.filter->allowedRPC4.HasData(functionName)==false)
 			{
-				OnInvalidMessage(systemList.ItemAtIndex(index).filter, packet, packet->data[0]);
+				OnInvalidMessage(sysIt->second.filter, packet, packet->data[0]);
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;
 			}
 		}

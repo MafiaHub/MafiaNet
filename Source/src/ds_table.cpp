@@ -429,11 +429,11 @@ Table::Row* Table::AddRow(unsigned rowId, DataStructures::List<Cell*> &initialCe
 	}
 	return newRow;
 }
-Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, DataStructures::List<unsigned> columnIndices)
+Table::Row* Table::AddRowColumns(unsigned rowId, Row *row, std::vector<unsigned> columnIndices)
 {
 	Row *newRow = MafiaNet::OP_NEW<Row>( _FILE_AND_LINE_ );
 	unsigned columnIndex;
-	for (columnIndex=0; columnIndex < columnIndices.Size(); columnIndex++)
+	for (columnIndex=0; columnIndex < columnIndices.size(); columnIndex++)
 	{
 		if (row->cells[columnIndices[columnIndex]]->isEmpty==false)
 		{
@@ -631,7 +631,7 @@ Table::Row* Table::GetRowByIndex(unsigned rowIndex, unsigned *key) const
 void Table::QueryTable(unsigned *columnIndicesSubset, unsigned numColumnSubset, FilterQuery *inclusionFilters, unsigned numInclusionFilters, unsigned *rowIds, unsigned numRowIDs, Table *result)
 {
 	unsigned i;
-	DataStructures::List<unsigned> columnIndicesToReturn;
+	std::vector<unsigned> columnIndicesToReturn;
 
 	// Clear the result table.
 	result->Clear();
@@ -641,25 +641,25 @@ void Table::QueryTable(unsigned *columnIndicesSubset, unsigned numColumnSubset, 
 		for (i=0; i < numColumnSubset; i++)
 		{
 			if (columnIndicesSubset[i]<columns.Size())
-				columnIndicesToReturn.Insert(columnIndicesSubset[i], _FILE_AND_LINE_);
+				columnIndicesToReturn.push_back(columnIndicesSubset[i]);
 		}
 	}
 	else
 	{
 		for (i=0; i < columns.Size(); i++)
-			columnIndicesToReturn.Insert(i, _FILE_AND_LINE_);
+			columnIndicesToReturn.push_back(i);
 	}
 
-	if (columnIndicesToReturn.Size()==0)
+	if (columnIndicesToReturn.size()==0)
 		return; // No valid columns specified
 
-	for (i=0; i < columnIndicesToReturn.Size(); i++)
+	for (i=0; i < columnIndicesToReturn.size(); i++)
 	{
 		result->AddColumn(columns[columnIndicesToReturn[i]].columnName,columns[columnIndicesToReturn[i]].columnType);
 	}
 
 	// Get the column indices of the filter queries.
-	DataStructures::List<unsigned> inclusionFilterColumnIndices;
+	std::vector<unsigned> inclusionFilterColumnIndices;
 	if (inclusionFilters && numInclusionFilters>0)
 	{
 		for (i=0; i < numInclusionFilters; i++)
@@ -667,9 +667,9 @@ void Table::QueryTable(unsigned *columnIndicesSubset, unsigned numColumnSubset, 
 			if (inclusionFilters[i].columnName[0])
 				inclusionFilters[i].columnIndex=ColumnIndex(inclusionFilters[i].columnName);
 			if (inclusionFilters[i].columnIndex<columns.Size())
-				inclusionFilterColumnIndices.Insert(inclusionFilters[i].columnIndex, _FILE_AND_LINE_);
+				inclusionFilterColumnIndices.push_back(inclusionFilters[i].columnIndex);
 			else
-				inclusionFilterColumnIndices.Insert((unsigned)-1, _FILE_AND_LINE_);
+				inclusionFilterColumnIndices.push_back((unsigned)-1);
 		}
 	}
 
@@ -693,21 +693,21 @@ void Table::QueryTable(unsigned *columnIndicesSubset, unsigned numColumnSubset, 
 	}
 }
 
-void Table::QueryRow(DataStructures::List<unsigned> &inclusionFilterColumnIndices, DataStructures::List<unsigned> &columnIndicesToReturn, unsigned key, Table::Row* row, FilterQuery *inclusionFilters, Table *result)
+void Table::QueryRow(std::vector<unsigned> &inclusionFilterColumnIndices, std::vector<unsigned> &columnIndicesToReturn, unsigned key, Table::Row* row, FilterQuery *inclusionFilters, Table *result)
 {
 	bool pass=false;
 	unsigned columnIndex;
 	unsigned j;
 
 	// If no inclusion filters, just add the row
-	if (inclusionFilterColumnIndices.Size()==0)
+	if (inclusionFilterColumnIndices.size()==0)
 	{
 		result->AddRowColumns(key, row, columnIndicesToReturn);
 	}
 	else
 	{
 		// Go through all inclusion filters.  Only add this row if all filters pass.
-		for (j=0; j<inclusionFilterColumnIndices.Size(); j++)
+		for (j=0; j<inclusionFilterColumnIndices.size(); j++)
 		{
 			columnIndex=inclusionFilterColumnIndices[j];
 			if (columnIndex!=(unsigned)-1 && row->cells[columnIndex]->isEmpty==false )
@@ -852,7 +852,7 @@ void Table::QueryRow(DataStructures::List<unsigned> &inclusionFilterColumnIndice
 
 static Table::SortQuery *_sortQueries;
 static unsigned _numSortQueries;
-static DataStructures::List<unsigned> *_columnIndices;
+static std::vector<unsigned> *_columnIndices;
 static DataStructures::List<Table::ColumnDescriptor> *_columns;
 int RowSort(Table::Row* const &first, Table::Row* const &second) // first is the one inserting, second is the one already there.
 {
@@ -913,7 +913,7 @@ void Table::SortTable(Table::SortQuery *sortQueries, unsigned numSortQueries, Ta
 {
 	unsigned i;
 	unsigned outLength;
-	DataStructures::List<unsigned> columnIndices;
+	std::vector<unsigned> columnIndices;
 	_sortQueries=sortQueries;
 	_numSortQueries=numSortQueries;
 	_columnIndices=&columnIndices;
@@ -924,11 +924,11 @@ void Table::SortTable(Table::SortQuery *sortQueries, unsigned numSortQueries, Ta
 	{
 		if (sortQueries[i].columnIndex<columns.Size() && columns[sortQueries[i].columnIndex].columnType!=BINARY)
 		{
-			columnIndices.Insert(sortQueries[i].columnIndex, _FILE_AND_LINE_);
+			columnIndices.push_back(sortQueries[i].columnIndex);
 			anyValid=true;
 		}
 		else
-			columnIndices.Insert((unsigned)-1, _FILE_AND_LINE_); // Means don't check this column
+			columnIndices.push_back((unsigned)-1); // Means don't check this column
 	}
 
 	std::map<unsigned, Row*>::const_iterator it;
