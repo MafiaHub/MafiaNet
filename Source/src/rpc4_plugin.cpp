@@ -254,8 +254,12 @@ bool RPC4::UnregisterLocalCallback(const char* uniqueID, MessageID messageId)
 			{
 				MafiaNet::OP_DELETE(lc,_FILE_AND_LINE_);
 				localCallbacks.RemoveAtIndex(index);
-				return true;
 			}
+			// The documented contract is "true if the combination of uniqueID and messageId was
+			// in use, and hence removed". The return used to sit inside the branch above, so a
+			// message id with more than one registered name reported false after successfully
+			// removing one.
+			return true;
 		}
 	}
 	return false;
