@@ -3,8 +3,16 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
-Unreleased
-----------
+Version 0.23.0
+--------------
+
+**RakPeer / FileListTransfer**
+
+* **Fix: a shutdown from inside receive dispatch no longer frees what its callers still use.** ``Shutdown()`` called from a plugin callback, a ``FileListTransfer`` download callback, or code handling a packet ``Receive`` returned cleared the packet pool under the packet being dispatched, and ``FileListTransfer::Clear()`` deleted the receiver whose callback was running, which was then dereferenced and deleted again (an access violation or a ``0xC0000374`` double free). The pool is now kept while any packet is out, ``Receive`` stops a packet whose callbacks shut the peer down, and every ``FileListTransfer`` path re-checks its receiver after each callback, which also covers ``RemoveReceiver`` and ``CancelReceive`` from a callback.
+
+**PacketLogger**
+
+* **Fix: message names are no longer shifted by one.** The name table was missing ``ID_RAKVOICE_RELAY_DATA``, so every id from 48 to 132 printed the next id's name.
 
 **FileList / DirectoryDeltaTransfer**
 

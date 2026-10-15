@@ -318,7 +318,13 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.22.1 (Latest)
+### Version 0.23.0 (Latest)
+- **Fix: a `Shutdown()` from inside receive dispatch is safe** — from a plugin callback, a `FileListTransfer` download callback or code handling a returned packet, it no longer frees the packet or transfer receiver still in use
+- **Fix: `PacketLogger` names ids 48–132 correctly**
+- **Breaking: snake_case file names, an extras library, removed console platforms** — see the changelog; rebuild against 0.23
+- **Wire-compatible**: no message changes
+
+### Version 0.22.1
 - **Fix: `DirectoryDeltaTransfer::AddFile()` uploads are compared by hash** â€” they stored whole contents, so every download re-sent every such file and the server held them all in memory
 - **Fix: streamed downloads are written as they arrive** â€” a download no longer holds each file in memory until its last chunk
 - **Wire-compatible**: no message changes
