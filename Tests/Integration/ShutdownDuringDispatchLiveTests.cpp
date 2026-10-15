@@ -67,13 +67,15 @@ namespace
 			RakPeerInterface::DestroyInstance(server);
 		}
 
-		bool Connect(unsigned short port)
+		// Both peers bind ephemeral ports, so tests can run side by side.
+		bool Connect()
 		{
-			SocketDescriptor serverSocket(port, "127.0.0.1");
+			SocketDescriptor serverSocket(0, "127.0.0.1");
 			SocketDescriptor clientSocket(0, "127.0.0.1");
 			if (server->Startup(4, &serverSocket, 1) != RAKNET_STARTED || client->Startup(1, &clientSocket, 1) != RAKNET_STARTED)
 				return false;
 			server->SetMaximumIncomingConnections(4);
+			const unsigned short port = server->GetMyBoundAddress().GetPort();
 			if (client->Connect("127.0.0.1", port, 0, 0) != CONNECTION_ATTEMPT_STARTED)
 				return false;
 
@@ -155,14 +157,14 @@ namespace
 		}
 	};
 
-	void RunReactingTransfer(unsigned short port, bool withFile, Reaction reaction)
+	void RunReactingTransfer(bool withFile, Reaction reaction)
 	{
 		PeerPair peers;
 		FileListTransfer serverTransfer;
 		FileListTransfer clientTransfer;
 		peers.server->AttachPlugin(&serverTransfer);
 		peers.client->AttachPlugin(&clientTransfer);
-		ASSERT_TRUE(peers.Connect(port));
+		ASSERT_TRUE(peers.Connect());
 
 		ReactingReceiver receiver;
 		receiver.peer     = peers.client;
@@ -239,22 +241,22 @@ namespace
 
 TEST(ShutdownDuringDispatch, EmptySetReceiverShutsThePeerDown)
 {
-	RunReactingTransfer(61231, false, Reaction::ShutdownPeer);
+	RunReactingTransfer(false, Reaction::ShutdownPeer);
 }
 
 TEST(ShutdownDuringDispatch, LastFileReceiverShutsThePeerDown)
 {
-	RunReactingTransfer(61232, true, Reaction::ShutdownPeer);
+	RunReactingTransfer(true, Reaction::ShutdownPeer);
 }
 
 TEST(ShutdownDuringDispatch, EmptySetReceiverRemovesItself)
 {
-	RunReactingTransfer(61233, false, Reaction::RemoveReceiver);
+	RunReactingTransfer(false, Reaction::RemoveReceiver);
 }
 
 TEST(ShutdownDuringDispatch, LastFileReceiverRemovesItself)
 {
-	RunReactingTransfer(61234, true, Reaction::RemoveReceiver);
+	RunReactingTransfer(true, Reaction::RemoveReceiver);
 }
 
 TEST(ShutdownDuringDispatch, PluginShutdownStopsThePacket)
@@ -264,7 +266,7 @@ TEST(ShutdownDuringDispatch, PluginShutdownStopsThePacket)
 	LaterPlugin later;
 	peers.server->AttachPlugin(&shutting);
 	peers.server->AttachPlugin(&later);
-	ASSERT_TRUE(peers.Connect(61235));
+	ASSERT_TRUE(peers.Connect());
 
 	SendProbe(peers);
 	bool probeReturned = false;
@@ -291,7 +293,7 @@ TEST(ShutdownDuringDispatch, PluginShutdownStopsThePacket)
 TEST(ShutdownDuringDispatch, ReturnedPacketOutlivesShutdown)
 {
 	PeerPair peers;
-	ASSERT_TRUE(peers.Connect(61236));
+	ASSERT_TRUE(peers.Connect());
 
 	SendProbe(peers);
 	Packet *probe = nullptr;
@@ -326,7 +328,7 @@ TEST(ShutdownDuringDispatch, ReturnedPacketOutlivesShutdown)
 	// The pool the packet went back to still serves a fresh session.
 	peers.client->Shutdown(0);
 	peers.serverAddress = peers.clientAddress = UNASSIGNED_SYSTEM_ADDRESS;
-	ASSERT_TRUE(peers.Connect(61237));
+	ASSERT_TRUE(peers.Connect());
 	SendProbe(peers);
 	bool received = false;
 	const TimeMS again = GetTimeMS();
