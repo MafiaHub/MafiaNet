@@ -1110,6 +1110,12 @@ protected:
 
 	SimpleMutex packetAllocationPoolMutex;
 	DataStructures::MemoryPool<Packet> packetAllocationPool;
+	// Pool packets not yet given back through DeallocatePacket, under packetAllocationPoolMutex.
+	// Shutdown() keeps the pool while any are out: Receive may be dispatching one, and the
+	// application may still hold one it is handling.
+	unsigned int packetsOutstanding;
+	// Bumped by every Shutdown(), so Receive can tell its dispatch was cut short by one.
+	unsigned int shutdownGeneration;
 
 	SimpleMutex packetReturnMutex;
 	DataStructures::Queue<Packet*> packetReturnQueue;

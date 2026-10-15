@@ -184,6 +184,7 @@ Packet *RakPeer::AllocPacket(unsigned dataSize, const char *file, unsigned int l
 	MafiaNet::Packet *p;
 	packetAllocationPoolMutex.Lock();
 	p = packetAllocationPool.Allocate(file,line);
+	++packetsOutstanding;
 	packetAllocationPoolMutex.Unlock();
 	p = new ((void*)p) Packet;
 	p->data=(unsigned char*) rakMalloc_Ex(dataSize,file,line);
@@ -201,6 +202,7 @@ Packet *RakPeer::AllocPacket(unsigned dataSize, unsigned char *data, const char 
 	MafiaNet::Packet *p;
 	packetAllocationPoolMutex.Lock();
 	p = packetAllocationPool.Allocate(file,line);
+	++packetsOutstanding;
 	packetAllocationPoolMutex.Unlock();
 	p = new ((void*)p) Packet;
 	RakAssert(p);
@@ -293,7 +295,9 @@ RakPeer::RakPeer()
 
 	packetAllocationPoolMutex.Lock();
 	packetAllocationPool.SetPageSize(sizeof(DataStructures::MemoryPool<Packet>::MemoryWithPage)*32);
+	packetsOutstanding = 0;
 	packetAllocationPoolMutex.Unlock();
+	shutdownGeneration = 0;
 
 	remoteSystemIndexPool.SetPageSize(sizeof(DataStructures::MemoryPool<RemoteSystemIndex>::MemoryWithPage)*32);
 
@@ -998,6 +1002,8 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	//unsigned short systemListSize = remoteSystemListSize; // This is done for threading reasons
 	unsigned int systemListSize = maximumNumberOfPeers;
 
+	++shutdownGeneration;
+
 	if ( blockDuration > 0 )
 	{
 		for ( i = 0; i < systemListSize; i++ )
@@ -1126,8 +1132,12 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 		DeallocatePacket(packetReturnQueue[i]);
 	packetReturnQueue.Clear(_FILE_AND_LINE_);
 	packetReturnMutex.Unlock();
+	// Packets still out live in the pool's pages: a Shutdown() from inside Receive's dispatch,
+	// or from code handling a packet Receive returned, must not free the packet under it. The
+	// pages are reused by the next session and freed by a later Shutdown() or the destructor.
 	packetAllocationPoolMutex.Lock();
-	packetAllocationPool.Clear(_FILE_AND_LINE_);
+	if (packetsOutstanding == 0)
+		packetAllocationPool.Clear(_FILE_AND_LINE_);
 	packetAllocationPoolMutex.Unlock();
 
 	/*
@@ -1532,12 +1542,27 @@ Packet* RakPeer::Receive( void )
 // 			return packet;
 
 
+		// A callback may shut the peer down. The plugins have been reset by then and the packet
+		// belongs to a closed session, so it goes no further and Receive returns nothing.
+		const unsigned int generation = shutdownGeneration;
+
 		CallPluginCallbacks(pluginListTS, packet);
 		CallPluginCallbacks(pluginListNTS, packet);
+		if (shutdownGeneration != generation)
+		{
+			DeallocatePacket( packet );
+			return 0;
+		}
 
 		for (i=0; i < pluginListTS.Size(); i++)
 		{
  			pluginResult=pluginListTS[i]->OnReceive(packet);
+			if (shutdownGeneration != generation)
+			{
+				if (pluginResult!=RR_STOP_PROCESSING)
+					DeallocatePacket( packet );
+				return 0;
+			}
 			if (pluginResult==RR_STOP_PROCESSING_AND_DEALLOCATE)
 			{
 				DeallocatePacket( packet );
@@ -1554,6 +1579,12 @@ Packet* RakPeer::Receive( void )
 		for (i=0; i < pluginListNTS.Size(); i++)
 		{
 			pluginResult=pluginListNTS[i]->OnReceive(packet);
+			if (shutdownGeneration != generation)
+			{
+				if (pluginResult!=RR_STOP_PROCESSING)
+					DeallocatePacket( packet );
+				return 0;
+			}
 			if (pluginResult==RR_STOP_PROCESSING_AND_DEALLOCATE)
 			{
 				DeallocatePacket( packet );
@@ -1591,6 +1622,7 @@ void RakPeer::DeallocatePacket( Packet *packet )
 		packet->~Packet();
 		packetAllocationPoolMutex.Lock();
 		packetAllocationPool.Release(packet,_FILE_AND_LINE_);
+		--packetsOutstanding;
 		packetAllocationPoolMutex.Unlock();
 	}
 	else
