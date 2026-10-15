@@ -146,6 +146,7 @@ protected:
 	bool DecodeFile(Packet *packet, bool fullFile);
 
 	void Clear(void);
+	bool IsReceiverLive(unsigned short inSetId, const FileListReceiver *receiver);
 
 	void OnReferencePush(Packet *packet, bool fullFile);
 	void OnReferencePushAck(Packet *packet);

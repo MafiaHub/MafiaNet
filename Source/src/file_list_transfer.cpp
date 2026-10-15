@@ -342,7 +342,7 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 		dcs.senderSystemAddress=packet->systemAddress;
 		dcs.senderGuid=packet->guid;
 
-		if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs)==false)
+		if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs)==false && IsReceiverLive(setID, fileListReceiver))
 		{
 			fileListReceiver->downloadHandler->OnDereference();
 			fileListReceivers.Delete(setID);
@@ -445,12 +445,19 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 		fps.senderSystemAddress=packet->systemAddress;
 		fps.senderGuid=packet->guid;
 		fileListReceiver->downloadHandler->OnFileProgress(&fps);
+		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
+		{
+			rakFree_Ex(onFileStruct.fileData, _FILE_AND_LINE_ );
+			return true;
+		}
 
 		// Got a complete file
 		// Either we are using IncrementalReadInterface and it was a small file or
 		// We are not using IncrementalReadInterface
 		if (fileListReceiver->downloadHandler->OnFile(&onFileStruct))
 			rakFree_Ex(onFileStruct.fileData, _FILE_AND_LINE_ );
+		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
+			return true;
 
 		fileListReceiver->filesReceived++;
 
@@ -464,7 +471,7 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 			dcs.senderSystemAddress=packet->systemAddress;
 			dcs.senderGuid=packet->guid;
 
-			if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs)==false)
+			if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs)==false && IsReceiverLive(onFileStruct.setID, fileListReceiver))
 			{
 				fileListReceiver->downloadHandler->OnDereference();
 				if (fileListReceiver->deleteDownloadHandler)
@@ -672,13 +679,24 @@ void FileListTransfer::GetCallbacks(DataStructures::List<FileListProgress*> &cal
 	callbacks = fileListProgressCallbacks;
 }
 
+bool FileListTransfer::IsReceiverLive(unsigned short inSetId, const FileListReceiver *receiver)
+{
+	// A download callback may remove its own receiver -- through CancelReceive, RemoveReceiver,
+	// or a Shutdown() that clears every one -- so the caller re-checks before touching it again.
+	return fileListReceivers.Has(inSetId) && fileListReceivers.Get(inSetId)==receiver;
+}
 void FileListTransfer::Update(void)
 {
 	unsigned i;
 	i=0;
 	while (i < fileListReceivers.Size())
 	{
-		if (fileListReceivers[i]->downloadHandler->Update()==false)
+		FileListReceiver *receiver = fileListReceivers[i];
+		const bool keep = receiver->downloadHandler->Update();
+		// Update() may have dropped receivers, this one included
+		if (i >= fileListReceivers.Size() || fileListReceivers[i] != receiver)
+			continue;
+		if (keep==false)
 		{
 			fileListReceivers[i]->downloadHandler->OnDereference();
 			if (fileListReceivers[i]->deleteDownloadHandler)
@@ -861,11 +879,15 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 		if (fps.partTotal==1)
 			fps.onFileStruct->fileData=fps.iriDataChunk;
 		fileListReceiver->downloadHandler->OnFileProgress(&fps);
+		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
+			return;
 
 		// Incremental read interface sent us a file chunk
 		// This is the last file chunk we were waiting for to consider the file done
 		if (fileListReceiver->downloadHandler->OnFile(&onFileStruct))
 			rakFree_Ex(oldFileData, _FILE_AND_LINE_ );
+		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
+			return;
 		fileListReceiver->pushedFiles.Delete(onFileStruct.fileIndex);
 
 		fileListReceiver->filesReceived++;
@@ -880,7 +902,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 			dcs.senderSystemAddress=packet->systemAddress;
 			dcs.senderGuid=packet->guid;
 
-			if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs)==false)
+			if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs)==false && IsReceiverLive(onFileStruct.setID, fileListReceiver))
 			{
 				fileListReceiver->downloadHandler->OnDereference();
 				fileListReceivers.Delete(onFileStruct.setID);
@@ -896,6 +918,8 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 		{
 			// 12/23/09 Don't use OnReferencePush anymore, just use OnFileProgress
 			fileListReceiver->downloadHandler->OnFileProgress(&fps);
+			if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
+				return;
 
 			if (fps.allocateIrIDataChunkAutomatically==false)
 			{
