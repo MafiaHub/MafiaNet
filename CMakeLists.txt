@@ -54,9 +54,40 @@ set(MAFIANET_DISABLED_FEATURES "" CACHE STRING
     "Semicolon-separated plugin names to compile out (see MAFIANET_OPTIONAL_FEATURES in Source/CMakeLists.txt)")
 option(MAFIANET_MINIMAL "Compile out every optional plugin (core transport only)" OFF)
 
+# Sanitizers (Clang/GCC only): a "+"- or ","-separated list such as
+# "address+undefined" or "thread" ("thread" cannot be combined with "address").
+# Recoverable UBSan findings are made fatal so they fail the test that hit them.
+set(MAFIANET_SANITIZER "" CACHE STRING "Build with sanitizers (e.g. address+undefined, thread)")
+
+# Compiler cache. sccache or ccache is picked up automatically when installed,
+# unless the caller already chose a launcher (CI passes one explicitly).
+option(MAFIANET_USE_COMPILER_CACHE "Use sccache/ccache when available" ON)
+
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
     message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")
+endif()
+
+if(MAFIANET_USE_COMPILER_CACHE AND NOT CMAKE_CXX_COMPILER_LAUNCHER AND NOT CMAKE_C_COMPILER_LAUNCHER)
+    find_program(MAFIANET_COMPILER_CACHE NAMES sccache ccache)
+    if(MAFIANET_COMPILER_CACHE)
+        message(STATUS "MafiaNet: compiler cache ${MAFIANET_COMPILER_CACHE}")
+        set(CMAKE_C_COMPILER_LAUNCHER "${MAFIANET_COMPILER_CACHE}")
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${MAFIANET_COMPILER_CACHE}")
+    endif()
+endif()
+
+# Applied globally, so FetchContent dependencies are instrumented too: a
+# sanitizer runtime with half the program uninstrumented reports false positives
+# (notably TSan) and misses overflows that cross into third-party code.
+if(MAFIANET_SANITIZER)
+    if(MSVC)
+        message(FATAL_ERROR "MAFIANET_SANITIZER is not supported with MSVC")
+    endif()
+    string(REPLACE "+" "," _mafianet_san "${MAFIANET_SANITIZER}")
+    message(STATUS "MafiaNet: sanitizers ${_mafianet_san}")
+    add_compile_options(-fsanitize=${_mafianet_san} -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=${_mafianet_san})
 endif()
 
 # Dependencies

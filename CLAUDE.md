@@ -65,6 +65,14 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_BUILD_EXTRAS` | OFF | Build `MafiaNetExtras` (EmailSender, HTTPConnection*, Telnet/RakNet transports, ConsoleServer, command parsers, PacketConsoleLogger); forced ON by `MAFIANET_BUILD_SAMPLES` |
 | `MAFIANET_DISABLED_FEATURES` | (empty) | Semicolon list of plugins to compile out (`_RAKNET_SUPPORT_<Name>=0`); names validated against `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` |
 | `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
+| `MAFIANET_SANITIZER` | (empty) | `address+undefined` or `thread`; applied to every target. Prefer the `asan` / `tsan` presets |
+| `MAFIANET_USE_COMPILER_CACHE` | ON | Use sccache/ccache as compiler launcher when found on `PATH` |
+
+Presets (`CMakePresets.json`, CMake 3.25+): `debug`, `release`, `ci`, `minimal`, `asan`, `tsan`.
+`cmake --workflow --preset <debug|asan|tsan>` configures, builds and tests in one go; run
+sanitizer tests through `ctest --preset asan|tsan` so the sanitizer options and
+`ci/tsan.supp` are applied. Known by-design TSan races live in `ci/tsan.supp`; add an entry only
+for a race that is part of RakNet's lock-free getter model, never to silence a new bug.
 
 When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, update
 `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake

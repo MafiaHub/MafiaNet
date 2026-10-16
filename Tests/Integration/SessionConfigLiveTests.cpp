@@ -242,6 +242,10 @@ namespace
 	// in this translation unit would size it with THIS unit's view of the class, and a mismatch there is
 	// silent memory corruption rather than a compile error.
 	//
+	// The derived type only names the member; the call goes through a pointer-to-member on the real
+	// RakPeer. Downcasting the peer to this type instead would be undefined behaviour (it is not one),
+	// and UBSan's vptr check aborts on it.
+	//
 	// SendBuffered rather than SendImmediate: it is the layer the public Send() drops into once its own
 	// checks pass, so injected traffic still crosses the network thread exactly like real traffic.
 	class SendGateBypass : public RakPeer
@@ -249,7 +253,7 @@ namespace
 	public:
 		static void Inject(RakPeerInterface *peer, const MafiaNet::BitStream &bs, const AddressOrGUID &target)
 		{
-			static_cast<SendGateBypass *>(static_cast<RakPeer *>(peer))->SendBuffered(
+			(static_cast<RakPeer *>(peer)->*&SendGateBypass::SendBuffered)(
 				(const char *)bs.GetData(), bs.GetNumberOfBitsUsed(), MafiaNet::Priority::Immediate,
 				MafiaNet::Reliability::ReliableOrdered, 0, target, false,
 				RemoteSystemStruct::NO_ACTION, 0);
@@ -265,8 +269,8 @@ namespace
 	// invariant only holds still on the slot itself.
 	//
 	// Never instantiated, and the peer must still come from RakPeerInterface::GetInstance() -- see
-	// SendGateBypass above for why constructing a RakPeer-derived object here would be silent memory
-	// corruption rather than a compile error.
+	// SendGateBypass above for why, and for why members are read through pointers-to-member rather than
+	// by downcasting.
 	class SlotInspector : public RakPeer
 	{
 	public:
@@ -280,20 +284,22 @@ namespace
 		// The tests using this have exactly one remote, so the first active slot is it.
 		static Snapshot FirstActiveSlot(RakPeerInterface *peer)
 		{
-			SlotInspector *self = static_cast<SlotInspector *>(static_cast<RakPeer *>(peer));
+			const RakPeer *rakPeer = static_cast<RakPeer *>(peer);
+			const RemoteSystemStruct *slots = rakPeer->*&SlotInspector::remoteSystemList;
+			const unsigned int slotCount = rakPeer->*&SlotInspector::maximumNumberOfPeers;
 			Snapshot out;
 			out.sawSlot = false;
 			out.reported = false;
 			out.payloadLength = 0;
-			if (self->remoteSystemList == 0)
+			if (slots == 0)
 				return out;
-			for (unsigned int i = 0; i < self->maximumNumberOfPeers; ++i)
+			for (unsigned int i = 0; i < slotCount; ++i)
 			{
-				if (self->remoteSystemList[i].isActive == false)
+				if (slots[i].isActive == false)
 					continue;
 				out.sawSlot = true;
-				out.reported = self->remoteSystemList[i].connectionReportedToApplication;
-				out.payloadLength = self->remoteSystemList[i].remoteSessionConfigLength;
+				out.reported = slots[i].connectionReportedToApplication;
+				out.payloadLength = slots[i].remoteSessionConfigLength;
 				return out;
 			}
 			return out;

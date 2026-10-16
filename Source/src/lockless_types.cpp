@@ -17,41 +17,20 @@
 
 using namespace MafiaNet;
 
-LocklessUint32_t::LocklessUint32_t()
+LocklessUint32_t::LocklessUint32_t() : value(0)
 {
-	value=0;
 }
-LocklessUint32_t::LocklessUint32_t(uint32_t initial)
+LocklessUint32_t::LocklessUint32_t(uint32_t initial) : value(initial)
 {
-	value=initial;
 }
+// GetValue() used to read the counter without the lock or barrier the writers
+// used, and the Linux path returned the value *before* the change, contrary to
+// the header. std::atomic fixes both on every platform.
 uint32_t LocklessUint32_t::Increment(void)
 {
-#ifdef _WIN32
-	return (uint32_t) InterlockedIncrement(&value);
-#elif defined(ANDROID) || defined(__S3E__) || defined(__APPLE__)
-	uint32_t v;
-	mutex.Lock();
-	++value;
-	v=value;
-	mutex.Unlock();
-	return v;
-#else
-	return __sync_fetch_and_add (&value, (uint32_t) 1);
-#endif
+	return value.fetch_add(1) + 1;
 }
 uint32_t LocklessUint32_t::Decrement(void)
 {
-#ifdef _WIN32
-	return (uint32_t) InterlockedDecrement(&value);
-#elif defined(ANDROID) || defined(__S3E__) || defined(__APPLE__)
-	uint32_t v;
-	mutex.Lock();
-	--value;
-	v=value;
-	mutex.Unlock();
-	return v;
-#else
-	return __sync_fetch_and_add (&value, (uint32_t) -1);
-#endif
+	return value.fetch_sub(1) - 1;
 }

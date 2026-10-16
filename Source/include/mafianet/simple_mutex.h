@@ -58,6 +58,11 @@ public:
 	// Unlocks the mutex.
 	void Unlock(void);
 
+	// Locks the mutex if no other thread holds it, without blocking. Returns
+	// true if the lock was taken; the caller must then Unlock(). On Windows the
+	// lock is re-entrant, so this succeeds for the thread already holding it.
+	bool TryLock(void);
+
 
 
 

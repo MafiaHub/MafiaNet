@@ -1,0 +1,5 @@
+# clangd reads compile_commands.json from the `debug` preset's build tree
+# (cmake --preset debug). Point it elsewhere locally with a user config if you
+# work from another preset.
+CompileFlags:
+  CompilationDatabase: build/debug

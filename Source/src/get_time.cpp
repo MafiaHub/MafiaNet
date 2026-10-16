@@ -46,10 +46,11 @@
 #else
 #include <sys/time.h>
 #include <unistd.h>
-MafiaNet::TimeUS initialTime;
 #endif
 
+#if defined(_WIN32)
 static bool initialized=false;
+#endif
 
 #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 #include "mafianet/simple_mutex.h"
@@ -180,13 +181,15 @@ MafiaNet::TimeUS GetTimeUS_Windows( void )
 MafiaNet::TimeUS GetTimeUS_Linux( void )
 {
 	timeval tp;
-	if ( initialized == false)
+	// Time is reported relative to the first call, otherwise MafiaNet::Time in
+	// milliseconds underflows when dividing by 1000. A function-local static is
+	// initialised exactly once even when the network and user threads race here.
+	static const MafiaNet::TimeUS initialTime = []
 	{
-		gettimeofday( &tp, 0 );
-		initialized=true;
-		// I do this because otherwise MafiaNet::Time in milliseconds won't work as it will underflow when dividing by 1000 to do the conversion
-		initialTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
-	}
+		timeval t;
+		gettimeofday( &t, 0 );
+		return ( t.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( t.tv_usec );
+	}();
 
 	// GCC
 	MafiaNet::TimeUS curTime;

@@ -32,7 +32,11 @@ namespace
 		std::filesystem::path root;
 		TempTree()
 		{
-			root = std::filesystem::temp_directory_path() / "mafianet_filelist_unit";
+			// One directory per test: ctest may run these in parallel, and a
+			// shared path lets one test delete another's tree mid-walk.
+			root = std::filesystem::temp_directory_path() /
+				(std::string("mafianet_filelist_unit_") +
+				 ::testing::UnitTest::GetInstance()->current_test_info()->name());
 			std::filesystem::remove_all(root);
 			std::filesystem::create_directories(root / "sub" / "deeper");
 			Write("a.bin", 10);
