@@ -41,6 +41,7 @@
 #include "mafianet/secure_handshake.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/ds_queue.h"
+#include <atomic>
 
 namespace MafiaNet {
 /// Forward declarations
@@ -847,10 +848,12 @@ protected:
 	bool IsLoopbackAddress(const AddressOrGUID &systemIdentifier, bool matchPort) const;
 	SystemAddress GetLoopbackAddress(void) const;
 
-	///Set this to true to terminate the Peer thread execution 
-	volatile bool endThreads;
-	///true if the peer thread is active. 
-	volatile bool isMainLoopThreadActive;
+	/// Set this to true to terminate the Peer thread execution.
+	/// Atomic, not volatile: the update thread and Startup/Shutdown hand off
+	/// through these flags, and volatile gives no happens-before edge.
+	std::atomic<bool> endThreads;
+	/// true if the peer thread is active.
+	std::atomic<bool> isMainLoopThreadActive;
 	
 	// MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 

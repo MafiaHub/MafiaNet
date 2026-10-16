@@ -19,10 +19,7 @@
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
 #include "mafianet/windows_includes.h"
-#if defined(ANDROID) || defined(__S3E__) || defined(__APPLE__)
-// __sync_fetch_and_add not supported apparently
-#include "mafianet/simple_mutex.h"
-#endif
+#include <atomic>
 
 namespace MafiaNet
 {
@@ -36,18 +33,10 @@ public:
 	uint32_t Increment(void);
 	// Returns variable value after changing it
 	uint32_t Decrement(void);
-	uint32_t GetValue(void) const {return value;}
+	uint32_t GetValue(void) const {return value.load();}
 
 protected:
-#ifdef _WIN32
-	volatile LONG value;
-#elif defined(ANDROID) || defined(__S3E__) || defined(__APPLE__)
-	// __sync_fetch_and_add not supported apparently
-	SimpleMutex mutex;
-	uint32_t value;
-#else
-	volatile uint32_t value;
-#endif
+	std::atomic<uint32_t> value;
 };
 
 }

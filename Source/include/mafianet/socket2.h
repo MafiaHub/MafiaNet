@@ -22,6 +22,7 @@
 #include "mafianet/thread.h"
 #include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/export.h"
+#include <atomic>
 
 // Batched datagram I/O (recvmmsg / sendmmsg) is guarded by a plain
 // `#if defined(__linux__)` wherever it appears. There is no macro and no build
@@ -262,7 +263,8 @@ protected:
 	// same guard, and only defined on that platform.
 	void RecvFromBatchedLoop(void);
 	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
-	volatile bool endThreads;
+	// Atomic, not volatile: set by the owning thread, polled by the recv thread.
+	std::atomic<bool> endThreads;
 	// Constructor not called!
 
 #if defined(__APPLE__)
