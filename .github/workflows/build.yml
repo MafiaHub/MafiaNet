@@ -16,6 +16,12 @@ concurrency:
 permissions:
   contents: read
 
+# sccache keeps compiled objects in the GitHub Actions cache, so a PR rebuilds
+# only the translation units it touched. Jobs opt in by running
+# mozilla-actions/sccache-action and passing it as the compiler launcher.
+env:
+  SCCACHE_GHA_ENABLED: "true"
+
 jobs:
   # Linux: Build and test in Docker container (full network access).
   # Tests run through CTest inside the container: one process per test,
@@ -86,10 +92,15 @@ jobs:
                   [ -e "Source/include/mafianet/$n" ] && echo "$f:$l: $rest"; done || true)
           if [ -n "$bad" ]; then echo "Bare includes of library headers (use \"mafianet/<name>.h\"):"; echo "$bad"; exit 1; fi
 
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DMAFIANET_BUILD_TESTS=ON \
             -DMAFIANET_BUILD_EXTRAS=ON
 
@@ -139,10 +150,15 @@ jobs:
       - name: Install OpenSSL
         run: sudo apt-get update && sudo apt-get install -y libssl-dev
 
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
       - name: Configure CMake (minimal)
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DMAFIANET_MINIMAL=ON
 
       - name: Build
@@ -150,6 +166,75 @@ jobs:
 
       - name: Report library size
         run: ls -l build/Source/libMafiaNetStatic.a build/Source/libmafianet.so*
+
+  # Sanitizers, via the asan / tsan presets (RelWithDebInfo + tests; see
+  # CMakePresets.json for why not Debug). Every target is instrumented,
+  # third-party dependencies included, so TSan sees both sides of each access.
+  #
+  # TSan is advisory: RakNet's public getters read connection state owned by the
+  # network thread without locking, by design. Those races are baselined in
+  # ci/tsan.supp so the job flags new ones; removing them needs a
+  # concurrency-model change, not a CI tweak.
+  sanitizers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: ${{ matrix.preset == 'tsan' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [asan, tsan]
+    name: sanitizers (${{ matrix.preset }})
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+
+      # Ubuntu 24.04 runners use 32 bits of mmap randomisation, which older TSan
+      # runtimes cannot map their shadow memory around.
+      - name: Reduce ASLR entropy for TSan
+        if: matrix.preset == 'tsan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Configure CMake
+        run: |
+          cmake --preset ${{ matrix.preset }} -G Ninja \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Run unit tests
+        run: |
+          ctest --preset ${{ matrix.preset }} -L unit \
+            --parallel 4 \
+            --output-junit junit-unit.xml
+
+      # Retries absorb loopback timing misses, which sanitizer slowdown makes
+      # more frequent. A report that only fires on some attempts can still pass
+      # here, so check the log of any test that needed a retry.
+      - name: Run integration tests
+        run: |
+          ctest --preset ${{ matrix.preset }} -L integration \
+            --repeat until-pass:3 \
+            --output-junit junit-integration.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-sanitizers-${{ matrix.preset }}
+          path: build/${{ matrix.preset }}/junit-*.xml
+          if-no-files-found: ignore
 
   # macOS: Build and run both suites (unit + integration).
   macos:
@@ -163,10 +248,15 @@ jobs:
       - name: Install OpenSSL
         run: brew install openssl@3
 
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
       - name: Configure CMake
         run: |
           cmake -B build \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DMAFIANET_BUILD_SAMPLES=ON \
             -DMAFIANET_BUILD_TESTS=ON
 
