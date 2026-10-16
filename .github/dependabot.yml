@@ -1,0 +1,25 @@
+# GitHub Actions and the docs toolchain. The CMake FetchContent pins
+# (cmake/Fetch*.cmake, Tests/CMakeLists.txt) are not covered by Dependabot and
+# are bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: monthly
+    groups:
+      docs:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

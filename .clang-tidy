@@ -1,0 +1,34 @@
+# clang-tidy checks for MafiaNet, read by clangd (inline diagnostics) and by
+# `run-clang-tidy -p build/<preset>`. Focused on correctness plus the
+# mechanical modernizations clang-tidy can fix on its own. Not a CI gate: on
+# the legacy tree it would drown the signal.
+---
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-using,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-use-bool-literals,
+  modernize-loop-convert,
+  modernize-use-emplace,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-virtual-class-destructor,
+  readability-redundant-control-flow,
+  readability-redundant-string-init,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-reserved-identifier,
+  -performance-no-int-to-ptr,
+  -performance-enum-size
+
+# Diagnostics only.
+WarningsAsErrors: ''
+
+# Only diagnose project headers, not fetched third-party dependencies.
+HeaderFilterRegex: 'Source/(include|src)/.*'
+
+FormatStyle: none

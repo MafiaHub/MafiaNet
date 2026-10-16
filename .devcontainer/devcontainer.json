@@ -1,0 +1,25 @@
+// Linux development container. Mainly for working on the Linux-only batched
+// datagram paths (recvmmsg/sendmmsg) and running the sanitizer presets from a
+// macOS or Windows host: open the folder in VS Code / Codespaces, then
+// `cmake --workflow --preset debug` (or asan / tsan).
+{
+	"name": "MafiaNet",
+	"image": "mcr.microsoft.com/devcontainers/cpp:1-ubuntu-24.04",
+	// ptrace for gdb; the default seccomp profile also blocks the personality()
+	// call TSan uses to disable ASLR.
+	"runArgs": ["--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"],
+	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends libssl-dev clang clangd clang-tidy ccache",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"llvm-vs-code-extensions.vscode-clangd",
+				"ms-vscode.cmake-tools",
+				"vadimcn.vscode-lldb"
+			],
+			"settings": {
+				"cmake.useCMakePresets": "always",
+				"C_Cpp.intelliSenseEngine": "disabled"
+			}
+		}
+	}
+}
