@@ -3430,7 +3430,10 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->actionToTake=RequestedConnectionStruct::CONNECT;
 	rcs->sendConnectionAttemptCount=sendConnectionAttemptCount;
 	rcs->timeBetweenSendConnectionAttemptsMS=timeBetweenSendConnectionAttemptsMS;
-	memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
+	// No password means passwordData is null. memcpy's source is declared nonnull,
+	// so a null source is undefined behaviour even with a length of 0.
+	if (passwordDataLength > 0)
+		memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
 	rcs->outgoingPasswordLength=(unsigned char) passwordDataLength;
 	rcs->timeoutTime=timeoutTime;
 
@@ -3484,7 +3487,10 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest( const char* host, unsign
 	rcs->actionToTake=RequestedConnectionStruct::CONNECT;
 	rcs->sendConnectionAttemptCount=sendConnectionAttemptCount;
 	rcs->timeBetweenSendConnectionAttemptsMS=timeBetweenSendConnectionAttemptsMS;
-	memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
+	// No password means passwordData is null. memcpy's source is declared nonnull,
+	// so a null source is undefined behaviour even with a length of 0.
+	if (passwordDataLength > 0)
+		memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
 	rcs->outgoingPasswordLength=(unsigned char) passwordDataLength;
 	rcs->timeoutTime=timeoutTime;
 	rcs->socket=socket;
