@@ -62,6 +62,12 @@ Configure build options with CMake:
    * - ``MAFIANET_MINIMAL``
      - OFF
      - Compile out every optional plugin, leaving the core transport only. See `Minimal builds`_.
+   * - ``MAFIANET_SANITIZER``
+     - (empty)
+     - Clang/GCC sanitizers, ``+``-separated: ``address+undefined`` or ``thread``. Applied to every target, dependencies included. See `Sanitizers`_.
+   * - ``MAFIANET_USE_COMPILER_CACHE``
+     - ON
+     - Use ``sccache`` or ``ccache`` as the compiler launcher when one is on ``PATH``. An explicit ``CMAKE_<LANG>_COMPILER_LAUNCHER`` takes precedence.
 
 Example with options:
 
@@ -196,6 +202,58 @@ The per-datagram column is the code every non-Linux platform runs. To reproduce 
 on Linux, flip the ``#if defined(__linux__)`` batching guards in
 ``socket2.cpp``, ``socket2_berkley.cpp``, ``reliability_layer.cpp`` and
 ``RakNetSocket2.h`` to ``#if 0``.
+
+CMake presets
+-------------
+
+``CMakePresets.json`` (CMake 3.25+) covers the common configurations. Each
+preset builds into ``build/<preset>``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Preset
+     - Configuration
+   * - ``debug``
+     - Debug, samples and tests. ``.clangd`` reads this tree's ``compile_commands.json``.
+   * - ``release``
+     - Release, libraries only.
+   * - ``ci``
+     - Release, samples and tests.
+   * - ``minimal``
+     - Release with ``MAFIANET_MINIMAL=ON``.
+   * - ``asan`` / ``tsan``
+     - RelWithDebInfo and tests under AddressSanitizer + UBSan, or ThreadSanitizer. Not available on Windows.
+
+Workflow presets configure, build and test in one command:
+
+.. code-block:: bash
+
+   cmake --workflow --preset debug
+   cmake --workflow --preset asan
+
+   # Or step by step; test presets "unit" and "integration" filter by label
+   cmake --preset debug && cmake --build --preset debug
+   ctest --preset unit
+
+Sanitizers
+----------
+
+The ``asan`` and ``tsan`` presets build with ``RelWithDebInfo`` rather than
+``Debug``: ``_DEBUG`` enables ``RakAssert`` checks that abort before the
+sanitizer can report, and ``NDEBUG`` is what ships. Their test presets set
+``ASAN_OPTIONS`` / ``UBSAN_OPTIONS`` / ``TSAN_OPTIONS``, so run them through
+``ctest --preset`` rather than plain ``ctest``.
+
+ThreadSanitizer reports RakNet's by-design unlocked reads of connection state
+from the public getters. Those are listed in ``ci/tsan.supp``; the CI TSan job
+is advisory and exists to catch new races. On Linux hosts with
+``vm.mmap_rnd_bits`` above 28, TSan may fail to start; lower it with
+``sudo sysctl vm.mmap_rnd_bits=28``.
+
+On macOS, the ``.devcontainer`` gives a Linux environment for running the
+sanitizers and the Linux-only batched datagram paths.
 
 Running Tests
 -------------

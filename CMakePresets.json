@@ -1,8 +1,8 @@
 {
-    "version": 4,
+    "version": 6,
     "cmakeMinimumRequired": {
         "major": 3,
-        "minor": 21,
+        "minor": 25,
         "patch": 0
     },
     "configurePresets": [
@@ -41,20 +41,134 @@
                 "MAFIANET_BUILD_SAMPLES": "ON",
                 "MAFIANET_BUILD_TESTS": "ON"
             }
+        },
+        {
+            "name": "minimal",
+            "inherits": "base",
+            "displayName": "Minimal (core transport only)",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "MAFIANET_MINIMAL": "ON"
+            }
+        },
+        {
+            "name": "sanitizer-base",
+            "hidden": true,
+            "inherits": "base",
+            "description": "RelWithDebInfo, not Debug: _DEBUG enables RakAsserts that abort before the sanitizer can report, and NDEBUG is what ships.",
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "MAFIANET_BUILD_TESTS": "ON"
+            }
+        },
+        {
+            "name": "asan",
+            "inherits": "sanitizer-base",
+            "displayName": "AddressSanitizer + UBSan",
+            "cacheVariables": {
+                "MAFIANET_SANITIZER": "address+undefined"
+            }
+        },
+        {
+            "name": "tsan",
+            "inherits": "sanitizer-base",
+            "displayName": "ThreadSanitizer",
+            "cacheVariables": {
+                "MAFIANET_SANITIZER": "thread"
+            }
         }
     ],
     "buildPresets": [
+        { "name": "debug", "configurePreset": "debug" },
+        { "name": "release", "configurePreset": "release" },
+        { "name": "ci", "configurePreset": "ci" },
+        { "name": "minimal", "configurePreset": "minimal" },
+        { "name": "asan", "configurePreset": "asan" },
+        { "name": "tsan", "configurePreset": "tsan" }
+    ],
+    "testPresets": [
+        {
+            "name": "test-base",
+            "hidden": true,
+            "output": { "outputOnFailure": true },
+            "execution": { "timeout": 600 }
+        },
         {
             "name": "debug",
+            "inherits": "test-base",
             "configurePreset": "debug"
         },
         {
-            "name": "release",
-            "configurePreset": "release"
+            "name": "unit",
+            "inherits": "test-base",
+            "displayName": "Unit tests (debug)",
+            "configurePreset": "debug",
+            "filter": { "include": { "label": "unit" } },
+            "execution": { "jobs": 0 }
+        },
+        {
+            "name": "integration",
+            "inherits": "test-base",
+            "displayName": "Integration tests (debug)",
+            "configurePreset": "debug",
+            "filter": { "include": { "label": "integration" } }
         },
         {
             "name": "ci",
-            "configurePreset": "ci"
+            "inherits": "test-base",
+            "configurePreset": "ci",
+            "configuration": "Release"
+        },
+        {
+            "name": "asan",
+            "inherits": "test-base",
+            "configurePreset": "asan",
+            "environment": {
+                "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1:halt_on_error=1",
+                "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+            }
+        },
+        {
+            "name": "tsan",
+            "inherits": "test-base",
+            "configurePreset": "tsan",
+            "environment": {
+                "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1:suppressions=${sourceDir}/ci/tsan.supp"
+            }
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "debug",
+            "displayName": "Configure, build and test (Debug)",
+            "steps": [
+                { "type": "configure", "name": "debug" },
+                { "type": "build", "name": "debug" },
+                { "type": "test", "name": "debug" }
+            ]
+        },
+        {
+            "name": "asan",
+            "displayName": "Configure, build and test under ASan + UBSan",
+            "steps": [
+                { "type": "configure", "name": "asan" },
+                { "type": "build", "name": "asan" },
+                { "type": "test", "name": "asan" }
+            ]
+        },
+        {
+            "name": "tsan",
+            "displayName": "Configure, build and test under TSan",
+            "steps": [
+                { "type": "configure", "name": "tsan" },
+                { "type": "build", "name": "tsan" },
+                { "type": "test", "name": "tsan" }
+            ]
         }
     ]
 }
