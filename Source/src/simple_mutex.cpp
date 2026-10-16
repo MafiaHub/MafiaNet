@@ -165,6 +165,15 @@ void SimpleMutex::Unlock(void)
 #endif
 }
 
+bool SimpleMutex::TryLock(void)
+{
+#ifdef _WIN32
+	return TryEnterCriticalSection(&criticalSection) != 0;
+#else
+	return pthread_mutex_trylock(&hMutex) == 0;
+#endif
+}
+
 void SimpleMutex::Init(void)
 {
 #if defined(_WIN32)

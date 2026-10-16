@@ -7,31 +7,66 @@
 
 #include <gtest/gtest.h>
 
+#include "mafianet/simple_mutex.h"
 #include "mafianet/thread_pool.h"
 
-#include <chrono>
-#include <future>
-#include <memory>
 #include <thread>
+
+using namespace MafiaNet;
+
+namespace
+{
+	// TryLock from a second thread: it never blocks, and it is not fooled by
+	// the re-entrant Windows lock the way a same-thread attempt would be.
+	bool FreeFromAnotherThread(SimpleMutex &mutex)
+	{
+		bool acquired = false;
+		std::thread([&mutex, &acquired]
+		{
+			acquired = mutex.TryLock();
+			if (acquired)
+				mutex.Unlock();
+		}).join();
+		return acquired;
+	}
+
+	// ThreadPool is a header-only template, so constructing a derived pool in
+	// this translation unit is safe; the subclass only exposes the lock.
+	class InspectablePool : public ThreadPool<int, int>
+	{
+	public:
+		SimpleMutex &RunThreadsMutex() { return runThreadsMutex; }
+	};
+}
+
+TEST(SimpleMutex, TryLockTakesAFreeMutex)
+{
+	SimpleMutex mutex;
+	EXPECT_TRUE(FreeFromAnotherThread(mutex));
+}
+
+TEST(SimpleMutex, TryLockFailsWhileAnotherThreadHoldsIt)
+{
+	SimpleMutex mutex;
+	mutex.Lock();
+	EXPECT_FALSE(FreeFromAnotherThread(mutex));
+	mutex.Unlock();
+	EXPECT_TRUE(FreeFromAnotherThread(mutex));
+}
 
 // Clear() on a pool whose threads were never started used to return with
 // runThreadsMutex still held. The destructor calls Clear(), so every
 // FileListTransfer destroyed a locked mutex, and any later call that takes the
 // lock from another thread blocked forever.
 //
-// The deadline only bounds the failure: with the bug, WasStarted() never
-// returns. The blocked thread is detached so a failure reports instead of
-// hanging the test binary.
+// A pool that kept its lock is leaked on purpose: its destructor calls Clear()
+// again, which would deadlock re-locking the mutex and hang instead of failing.
 TEST(ThreadPool, ClearOnAnUnstartedPoolReleasesItsLock)
 {
-	auto pool = std::make_shared<ThreadPool<int, int>>();
+	InspectablePool *pool = new InspectablePool;
 	pool->Clear();
-
-	auto done = std::make_shared<std::promise<bool>>();
-	std::future<bool> wasStarted = done->get_future();
-	std::thread([pool, done] { done->set_value(pool->WasStarted()); }).detach();
-
-	ASSERT_EQ(wasStarted.wait_for(std::chrono::seconds(10)), std::future_status::ready)
-		<< "WasStarted() blocked: Clear() left runThreadsMutex locked";
-	EXPECT_FALSE(wasStarted.get());
+	const bool released = FreeFromAnotherThread(pool->RunThreadsMutex());
+	EXPECT_TRUE(released) << "Clear() left runThreadsMutex locked";
+	if (released)
+		delete pool;
 }
