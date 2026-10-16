@@ -318,7 +318,11 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.23.0 (Latest)
+### Version 0.23.1 (Latest)
+- **Fix: resizing a delta-tracked variable keeps the next one's dirty flag** â€” a resend requested through `FlagDirtyFromBitArray` or a lost-send receipt is no longer dropped, and resizing the last variable no longer writes past the list
+- **Wire-compatible**: no message changes
+
+### Version 0.23.0
 - **Fix: a `Shutdown()` from inside receive dispatch is safe** — from a plugin callback, a `FileListTransfer` download callback or code handling a returned packet, it no longer frees the packet or transfer receiver still in use
 - **Fix: `PacketLogger` names ids 48–132 correctly**
 - **Breaking: snake_case file names, an extras library, removed console platforms** — see the changelog; rebuild against 0.23

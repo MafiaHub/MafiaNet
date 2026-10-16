@@ -3,6 +3,14 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.23.1
+--------------
+
+**VariableDeltaSerializer**
+
+* **Fix: a variable whose serialized size changes no longer clears the next variable's dirty flag.** ``VariableListDeltaTracker::WriteVar`` advanced its index before clearing the flag, so the resized variable was resent on the next pass for nothing, the following one lost a resend requested through ``FlagDirtyFromBitArray`` or a lost-send receipt, and resizing the last variable wrote one past the end of the list.
+* **Wire-compatible**: no message changes.
+
 Version 0.23.0
 --------------
 
