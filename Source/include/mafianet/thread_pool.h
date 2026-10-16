@@ -495,6 +495,7 @@ void ThreadPool<InputType, OutputType>::Clear(void)
 		inputFunctionQueue.Clear(_FILE_AND_LINE_);
 		inputQueue.Clear(_FILE_AND_LINE_);
 		outputQueue.Clear(_FILE_AND_LINE_);
+		runThreadsMutex.Unlock();
 	}
 }
 template <class InputType, class OutputType>
