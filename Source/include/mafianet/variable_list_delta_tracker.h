@@ -56,8 +56,8 @@ public:
 			variableList[nextWriteIndex].lastData=(char*) rakRealloc_Ex(variableList[nextWriteIndex].lastData, temp.GetNumberOfBytesUsed(),_FILE_AND_LINE_);
 			variableList[nextWriteIndex].byteLength=temp.GetNumberOfBytesUsed();
 			memcpy(variableList[nextWriteIndex].lastData,temp.GetData(),temp.GetNumberOfBytesUsed());
-			nextWriteIndex++;
 			variableList[nextWriteIndex].isDirty=false;
+			nextWriteIndex++;
 			return true; // Different because the serialized size is different
 		}
 		if (variableList[nextWriteIndex].isDirty==false && memcmp(temp.GetData(),variableList[nextWriteIndex].lastData, variableList[nextWriteIndex].byteLength)==0)
