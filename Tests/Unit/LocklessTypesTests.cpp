@@ -44,8 +44,8 @@ TEST(LocklessUint32, DecrementWrapsBelowZero)
 // counter is race-free.
 TEST(LocklessUint32, ConcurrentIncrementsAndDecrementsBalance)
 {
-	constexpr int kThreads = 8;
-	constexpr int kIterations = 10000;
+	static constexpr int kThreads = 8;
+	static constexpr int kIterations = 10000;
 	LocklessUint32_t counter(1000);
 
 	std::vector<std::thread> threads;
