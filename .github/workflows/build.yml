@@ -231,6 +231,8 @@ jobs:
 
       - name: Fail on sanitizer reports from any attempt
         run: |
+          # A missing log would make grep exit 2, which the if reads as "clean".
+          test -f build/${{ matrix.preset }}/integration.log || { echo "::error::integration.log missing"; exit 1; }
           if grep -nE 'ERROR: AddressSanitizer|WARNING: ThreadSanitizer|runtime error:' \
                build/${{ matrix.preset }}/integration.log; then
             echo "::error::A sanitizer reported an error in an attempt that a retry later passed"
