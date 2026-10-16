@@ -220,20 +220,31 @@ jobs:
             --output-junit junit-unit.xml
 
       # Retries absorb loopback timing misses, which sanitizer slowdown makes
-      # more frequent. A report that only fires on some attempts can still pass
-      # here, so check the log of any test that needed a retry.
+      # more frequent. They must not absorb a sanitizer report, so the log of
+      # every attempt is kept and the next step fails on any report in it.
       - name: Run integration tests
         run: |
           ctest --preset ${{ matrix.preset }} -L integration \
             --repeat until-pass:3 \
+            --output-log build/${{ matrix.preset }}/integration.log \
             --output-junit junit-integration.xml
+
+      - name: Fail on sanitizer reports from any attempt
+        run: |
+          if grep -nE 'ERROR: AddressSanitizer|WARNING: ThreadSanitizer|runtime error:' \
+               build/${{ matrix.preset }}/integration.log; then
+            echo "::error::A sanitizer reported an error in an attempt that a retry later passed"
+            exit 1
+          fi
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-sanitizers-${{ matrix.preset }}
-          path: build/${{ matrix.preset }}/junit-*.xml
+          path: |
+            build/${{ matrix.preset }}/junit-*.xml
+            build/${{ matrix.preset }}/integration.log
           if-no-files-found: ignore
 
   # macOS: Build and run both suites (unit + integration).

@@ -108,8 +108,7 @@
             "inherits": "test-base",
             "displayName": "Unit tests (debug)",
             "configurePreset": "debug",
-            "filter": { "include": { "label": "unit" } },
-            "execution": { "jobs": 0 }
+            "filter": { "include": { "label": "unit" } }
         },
         {
             "name": "integration",
