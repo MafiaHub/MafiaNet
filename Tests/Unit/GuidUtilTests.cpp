@@ -46,7 +46,7 @@ TEST(GuidUtil, UnassignedSentinelStringifiesToDocumentedLabel)
 TEST(GuidUtil, ToStringIsThreadSafe)
 {
 	const unsigned threadCount = 16;
-	constexpr unsigned iterations = 20000;
+	static constexpr unsigned iterations = 20000; // static: MSVC would need it captured, Clang flags the capture
 	std::atomic<bool> corrupted(false);
 
 	std::vector<std::thread> threads;
