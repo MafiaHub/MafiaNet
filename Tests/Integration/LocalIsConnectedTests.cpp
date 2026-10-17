@@ -141,7 +141,7 @@ TEST_F(LocalIsConnected, ConnectionStateAndLocalAddressQueries)
 
 	// Testing SendLoopback
 	char str[]="AAAAAAAAAA";
-	str[0]=(char)(ID_USER_PACKET_ENUM+1);
+	str[0]=(char)(unsigned char)(ID_USER_PACKET_ENUM+1);
 	client->SendLoopback(str, (int) strlen(str)+1);
 	client->SendLoopback(str, (int) strlen(str)+1);
 	client->SendLoopback(str, (int) strlen(str)+1);

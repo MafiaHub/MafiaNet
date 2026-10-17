@@ -124,6 +124,15 @@
                 "MAFIANET_BUILD_FUZZERS": "ON",
                 "MAFIANET_SANITIZER": "address+undefined+fuzzer-no-link"
             }
+        },
+        {
+            "name": "fuzz-debug",
+            "inherits": "fuzz",
+            "displayName": "libFuzzer harnesses with RakAssert enabled",
+            "description": "Debug defines _DEBUG, so any RakAssert a remote can reach through crafted input aborts and is reported as a crash. Network input must never trip an assert.",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
         }
     ],
     "buildPresets": [
@@ -134,6 +143,7 @@
         { "name": "asan", "configurePreset": "asan" },
         { "name": "tsan", "configurePreset": "tsan" },
         { "name": "fuzz", "configurePreset": "fuzz" },
+        { "name": "fuzz-debug", "configurePreset": "fuzz-debug" },
         { "name": "coverage", "configurePreset": "coverage" },
         { "name": "bench", "configurePreset": "bench", "targets": ["MafiaNetBenchmarks"] }
     ],

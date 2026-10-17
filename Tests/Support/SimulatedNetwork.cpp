@@ -278,12 +278,17 @@ namespace MafiaNet
 		return RunUntil([&] { return Received(peer, id); }, maxSimMs);
 	}
 
-	bool SimulatedNetwork::Connect(RakPeer *client, RakPeer *server, uint32_t maxSimMs)
+	ConnectionAttemptResult SimulatedNetwork::StartConnect(RakPeer *from, const RakPeer *to)
 	{
-		const SystemAddress target = AddressOf(server);
+		const SystemAddress target = AddressOf(to);
 		char host[64];
 		target.ToString(false, host, sizeof(host));
-		if (client->Connect(host, target.GetPort(), nullptr, 0) != CONNECTION_ATTEMPT_STARTED)
+		return from->Connect(host, target.GetPort(), nullptr, 0);
+	}
+
+	bool SimulatedNetwork::Connect(RakPeer *client, RakPeer *server, uint32_t maxSimMs)
+	{
+		if (StartConnect(client, server) != CONNECTION_ATTEMPT_STARTED)
 			return false;
 		return RunUntil([&] {
 			return Received(client, ID_CONNECTION_REQUEST_ACCEPTED) && Received(server, ID_NEW_INCOMING_CONNECTION);

@@ -84,7 +84,7 @@ bool TestHelpers::BroadCastTestPacket(RakPeerInterface *sender,MafiaNet::Reliabi
 {
 
 	char str2[]="AAAAAAAAAA";
-	str2[0]=typeNum;
+	str2[0]=(char)(unsigned char)typeNum;
 	return sender->Send(str2,(int) strlen(str2)+1, pr, rel  ,0, UNASSIGNED_SYSTEM_ADDRESS, true)>0;
 }
 
@@ -94,10 +94,10 @@ bool TestHelpers::SendTestPacketDirected(RakPeerInterface *sender,char * ip,int 
 	SystemAddress recAddress;
 
 	recAddress.SetBinaryAddress(ip);
-	recAddress.SetPortHostOrder(port);
+	recAddress.SetPortHostOrder((unsigned short)port);
 
 	char str2[]="AAAAAAAAAA";
-	str2[0]=typeNum;
+	str2[0]=(char)(unsigned char)typeNum;
 	return sender->Send(str2,(int) strlen(str2)+1, pr, rel  ,0, recAddress, false)>0;
 }
 

@@ -639,7 +639,10 @@ public:
 	void SetSocketFactory(RakNetSocket2Factory *factory);
 	/// No internal update thread: the caller drives the peer with
 	/// RunManualUpdate(). Shutdown(blockDuration) then flushes once instead of
-	/// waiting, since nothing else would advance the peer meanwhile.
+	/// waiting, since nothing else would advance the peer meanwhile. That flush
+	/// sends nothing if the clock has not moved since the last update (the
+	/// reliability layer skips a zero-length tick), so advance a test clock
+	/// before shutting down if the disconnection notification must go out.
 	void SetManualUpdate(bool manual);
 	/// One update-thread iteration: the user update callback, then the update
 	/// cycle. Only valid with SetManualUpdate(true).
