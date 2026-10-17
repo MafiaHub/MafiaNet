@@ -6485,11 +6485,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 			while ( bitSize > 0 )
 			{
-				// These types are for internal use and should never arrive from a network packet
+				// These types are for internal use and should never arrive from a network packet.
+				// A remote that sends one anyway gets it dropped: freed, and the rest of the
+				// queue still processed (this used to leak it and stall the queue, and to
+				// RakAssert in Debug).
 				if (data[0]==ID_CONNECTION_ATTEMPT_FAILED)
 				{
-					RakAssert(0);
-					bitSize=0;
+					rakFree_Ex(data, _FILE_AND_LINE_ );
+					bitSize = remoteSystem->reliabilityLayer.Receive( &data );
 					continue;
 				}
 
