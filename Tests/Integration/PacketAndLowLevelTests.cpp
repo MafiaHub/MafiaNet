@@ -80,6 +80,8 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 
 	TestHelpers::StandardClientPrep(client, destroyList);
 	TestHelpers::StandardServerPrep(server, destroyList);
+	ASSERT_TRUE(client->IsActive()) << "Client failed to start";
+	ASSERT_NE(TestHelpers::BoundPort(server), 0) << "Server failed to start";
 	// Connecting to server
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000))
 		<< "Client failed to connect to server";
@@ -132,11 +134,9 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 
 		pluginClient->AttachPlugin(myPlug); // safe: peer not started yet
 
-		SocketDescriptor pluginServerSd(60001, 0);
-		pluginServer->Startup(1, &pluginServerSd, 1);
-		pluginServer->SetMaximumIncomingConnections(1);
+		ASSERT_NE(TestHelpers::StartOnLoopback(pluginServer, 1, 1), 0) << "Plugin server failed to start";
 		SocketDescriptor pluginClientSd;
-		pluginClient->Startup(1, &pluginClientSd, 1);
+		ASSERT_EQ(pluginClient->Startup(1, &pluginClientSd, 1), RAKNET_STARTED);
 
 		ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(pluginClient, pluginServer, 5000))
 			<< "Client failed to connect to server";

@@ -16,6 +16,7 @@
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
 #include "CommonFunctions.h"
+#include "TestHelpers.h"
 
 #include <string.h>
 
@@ -93,10 +94,9 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 	client=RakPeerInterface::GetInstance();
 
 	SocketDescriptor clientSd;
-	client->Startup(1, &clientSd, 1);
-	SocketDescriptor serverSd(60000, 0);
-	server->Startup(1, &serverSd, 1);
-	server->SetMaximumIncomingConnections(1);
+	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
+	const unsigned short serverPort = TestHelpers::StartOnLoopback(server, 1, 1);
+	ASSERT_NE(serverPort, 0) << "Server failed to start";
 	server->SetIncomingPassword(thePassword,(int)strlen(thePassword));
 
 	char returnedPass[22];
@@ -109,7 +109,7 @@ TEST_F(SecurityFunctions, PasswordAndBanList)
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(60000);
+	serverAddress.SetPortHostOrder(serverPort);
 	TimeMS entryTime=GetTimeMS();
 
 	// Testing if no password is rejected

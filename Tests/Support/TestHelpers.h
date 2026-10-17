@@ -29,6 +29,14 @@ public:
 	TestHelpers(void);
 	~TestHelpers(void);
 
+	// Starts peer on 127.0.0.1 with a port the OS assigns, so tests can run in
+	// parallel. Returns that port (0 if Startup failed). Never bind a fixed
+	// port in a test.
+	static unsigned short StartOnLoopback(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
+	// The port a started peer is bound to.
+	static unsigned short BoundPort(RakPeerInterface *peer);
+
+	// Server on an OS-assigned port: read it with BoundPort(server).
 	static void StandardServerPrep(RakPeerInterface *&server);
 	static void StandardClientPrep(RakPeerInterface *&client);
 		static void StandardServerPrep(RakPeerInterface *&server,DataStructures::List <RakPeerInterface *> &destroyList);

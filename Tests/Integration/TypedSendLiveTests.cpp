@@ -18,9 +18,6 @@ using namespace MafiaNet;
 
 namespace
 {
-	// A distinct port so a full-suite run does not collide with other tests.
-	const unsigned short TYPED_SEND_TEST_PORT = 61018;
-
 	// One typed message, registered identically on both ends so encode()/dispatch()
 	// agree on its auto-assigned id (ID_USER_PACKET_ENUM).
 	struct ChatMessage
@@ -64,10 +61,10 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	RakSleep(2);
 	Peer clientB;
 
-	SocketDescriptor serverSd(TYPED_SEND_TEST_PORT, 0);
-	ASSERT_EQ(server->Startup(2, &serverSd, 1), RAKNET_STARTED)
-		<< "Server Startup failed (port " << TYPED_SEND_TEST_PORT << " in use?)";
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(2, &serverSd, 1), RAKNET_STARTED) << "Server Startup failed";
 	server->SetMaximumIncomingConnections(2);
+	const unsigned short serverPort = server->GetInternalID().GetPort();
 
 	SocketDescriptor clientSd;
 	ASSERT_TRUE(clientA->Startup(1, &clientSd, 1) == RAKNET_STARTED && clientB->Startup(1, &clientSd, 1) == RAKNET_STARTED)
@@ -75,7 +72,7 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 
 	SystemAddress serverAddress;
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(TYPED_SEND_TEST_PORT);
+	serverAddress.SetPortHostOrder(serverPort);
 
 	// Server dispatcher: counts typed ChatMessages and remembers the last one.
 	int chatReceived = 0;
@@ -95,8 +92,8 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	clientAD.on<ChatMessage>([&](const ChatMessage &m, const Sender &) { ++chatA; lastA = m; });
 	clientBD.on<ChatMessage>([&](const ChatMessage &m, const Sender &) { ++chatB; lastB = m; });
 
-	ASSERT_TRUE(clientA->Connect("127.0.0.1", TYPED_SEND_TEST_PORT, 0, 0) == CONNECTION_ATTEMPT_STARTED &&
-	            clientB->Connect("127.0.0.1", TYPED_SEND_TEST_PORT, 0, 0) == CONNECTION_ATTEMPT_STARTED)
+	ASSERT_TRUE(clientA->Connect("127.0.0.1", serverPort, 0, 0) == CONNECTION_ATTEMPT_STARTED &&
+	            clientB->Connect("127.0.0.1", serverPort, 0, 0) == CONNECTION_ATTEMPT_STARTED)
 		<< "Connect did not start";
 
 	// Wait until the server reports two connected systems.

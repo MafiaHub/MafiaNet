@@ -4,8 +4,10 @@
 #   UnitTests        (Tests/Unit)        label "unit"        — hermetic and
 #     deterministic: no loopback networking, no wall-clock deadlines.
 #   IntegrationTests (Tests/Integration) label "integration" — real UDP over
-#     loopback. RUN_SERIAL (several tests bind fixed ports) with a per-test
-#     timeout; CI retries transient timing misses (ctest --repeat until-pass:3).
+#     loopback on OS-assigned ports, so it runs in parallel; per-test timeout;
+#     CI retries transient timing misses (ctest --repeat until-pass:3).
+#   FuzzCorpus.*     (Tests/Fuzz)        label "unit"        — replays the
+#     checked-in fuzz corpus through each harness.
 #
 # Under ctest every TEST() runs in its own process, so no state (sockets,
 # peers, GUIDs) can bleed between tests — the historical source of CI flakes.
@@ -86,8 +88,10 @@ target_compile_definitions(IntegrationTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 set_target_properties(IntegrationTests PROPERTIES FOLDER "Tests")
 mafianet_enable_warnings(IntegrationTests)
 
+# Every integration test binds OS-assigned ports (TestHelpers::StartOnLoopback)
+# and its own temp directories, so the suite runs in parallel under ctest -j.
 gtest_discover_tests(IntegrationTests
-    PROPERTIES LABELS integration RUN_SERIAL TRUE TIMEOUT 600
+    PROPERTIES LABELS integration TIMEOUT 600
     DISCOVERY_TIMEOUT 60
 )
 

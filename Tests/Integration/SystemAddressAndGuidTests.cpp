@@ -77,13 +77,18 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 	destroyList.Push(client, _FILE_AND_LINE_);
 	ASSERT_FALSE(client->IsActive()) << "Client was active but shouldn't be yet";
 
-	SocketDescriptor clientSd(60001, 0);
-	client->Startup(1, &clientSd, 1);
+	// All interfaces as before, but on an OS-assigned port.
+	SocketDescriptor clientSd(0, 0);
+	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
+	const unsigned short clientPort = TestHelpers::BoundPort(client);
+	ASSERT_NE(clientPort, 0);
 
 	ASSERT_TRUE(client->IsActive()) << "Client was not active but should be";
 
 	//Passed by reference for initializations
 	TestHelpers::StandardServerPrep(server, destroyList);
+	const unsigned short serverPort = TestHelpers::BoundPort(server);
+	ASSERT_NE(serverPort, 0) << "Server failed to start";
 
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000)) << "Could not connect the client";
 
@@ -124,7 +129,7 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 	printf("Test GetSystemListValues of the system and guid list\n");
 	SystemAddress serverAddress;
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(60000);
+	serverAddress.SetPortHostOrder(serverPort);
 
 	ASSERT_TRUE(systemList[0] == serverAddress) << "System address from list is wrong.";
 
@@ -146,7 +151,7 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 
 	SystemAddress clientAddress;
 	clientAddress.SetBinaryAddress("127.0.0.1");
-	clientAddress.SetPortHostOrder(60001);
+	clientAddress.SetPortHostOrder(clientPort);
 
 	printf("Test GetExternalID, automatic testing is not only required for this\nbecause of it's nature\nShould be supplemented by internet tests\n");
 

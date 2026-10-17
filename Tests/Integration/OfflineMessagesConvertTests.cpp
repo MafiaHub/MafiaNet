@@ -76,11 +76,10 @@ TEST_F(OfflineMessagesConvert, AdvertiseSystemAndOfflinePing)
 
 	nextTest = 0;
 
-	peer1->SetMaximumIncomingConnections(1);
-	SocketDescriptor socketDescriptor(60001, 0);
-	peer1->Startup(1, &socketDescriptor, 1);
-	socketDescriptor.port = 60002;
-	peer2->Startup(1, &socketDescriptor, 1);
+	const unsigned short peer1Port = TestHelpers::StartOnLoopback(peer1, 1, 1);
+	ASSERT_NE(peer1Port, 0) << "peer1 failed to start";
+	const unsigned short peer2Port = TestHelpers::StartOnLoopback(peer2, 1);
+	ASSERT_NE(peer2Port, 0) << "peer2 failed to start";
 	char *pingResponseData = 0;
 	unsigned int responseLen = 0;
 	peer1->SetOfflinePingResponse("Offline Ping Data", (int) strlen("Offline Ping Data") + 1);
@@ -91,7 +90,7 @@ TEST_F(OfflineMessagesConvert, AdvertiseSystemAndOfflinePing)
 	// Wait for connection to complete
 	RakSleep(300);
 
-	peer1->AdvertiseSystem("127.0.0.1", 60002, "hello world", (int) strlen("hello world") + 1);
+	peer1->AdvertiseSystem("127.0.0.1", peer2Port, "hello world", (int) strlen("hello world") + 1);
 
 	TimeMS entryTime = GetTimeMS();//Loop entry time
 
@@ -107,7 +106,7 @@ TEST_F(OfflineMessagesConvert, AdvertiseSystemAndOfflinePing)
 				ASSERT_STREQ((const char *) (packet->data + 1), "hello world") << "Got Advertise system with unexpected data";
 				recievedProperOfflineData = true;
 
-				peer2->Ping("127.0.0.1", 60001, false);
+				peer2->Ping("127.0.0.1", peer1Port, false);
 				nextTest++;
 			}
 			else if (packet->data[0] == ID_UNCONNECTED_PONG)

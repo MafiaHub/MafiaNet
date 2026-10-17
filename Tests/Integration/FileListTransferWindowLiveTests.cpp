@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -98,9 +99,11 @@ namespace
 		return bytes;
 	}
 
-	void RunTransfer(unsigned int window, unsigned short port)
+	void RunTransfer(unsigned int window)
 	{
-		const std::filesystem::path root = std::filesystem::temp_directory_path() / ("mafianet_flt_window_" + std::to_string(window));
+		// A per-run suffix keeps concurrent runs of the same test from sharing a directory.
+		const std::filesystem::path root = std::filesystem::temp_directory_path() /
+			("mafianet_flt_window_" + std::to_string(window) + "_" + std::to_string(std::random_device{}()));
 		std::filesystem::remove_all(root);
 		std::filesystem::create_directories(root);
 
@@ -126,10 +129,11 @@ namespace
 		serverTransfer.SetReferencePushWindow(window);
 		EXPECT_EQ(serverTransfer.GetReferencePushWindow(), window);
 
-		SocketDescriptor serverSocket(port, "127.0.0.1");
+		SocketDescriptor serverSocket(0, "127.0.0.1");
 		SocketDescriptor clientSocket(0, "127.0.0.1");
 		ASSERT_EQ(server->Startup(4, &serverSocket, 1), RAKNET_STARTED);
 		ASSERT_EQ(client->Startup(1, &clientSocket, 1), RAKNET_STARTED);
+		const unsigned short port = server->GetInternalID().GetPort();
 		server->SetMaximumIncomingConnections(4);
 		ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 
@@ -189,17 +193,17 @@ namespace
 
 TEST(FileListTransferWindow, UnwindowedTransferIsIntact)
 {
-	RunTransfer(1, 61201);
+	RunTransfer(1);
 }
 
 TEST(FileListTransferWindow, WindowOfFourDeliversTheSameBytes)
 {
-	RunTransfer(4, 61202);
+	RunTransfer(4);
 }
 
 TEST(FileListTransferWindow, WindowOfSixteenDeliversTheSameBytes)
 {
-	RunTransfer(16, 61203);
+	RunTransfer(16);
 }
 
 TEST(FileListTransferWindow, ZeroIsClampedToOne)

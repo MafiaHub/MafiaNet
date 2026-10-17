@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -96,8 +97,9 @@ namespace
 
 TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 {
-	const unsigned short port = 61211;
-	const std::filesystem::path root = std::filesystem::temp_directory_path() / "mafianet_ddt_streaming";
+	// A per-run suffix keeps concurrent runs of this test from sharing a directory.
+	const std::filesystem::path root = std::filesystem::temp_directory_path() /
+		("mafianet_ddt_streaming_" + std::to_string(std::random_device{}()));
 	const std::filesystem::path source = root / "source";
 	const std::filesystem::path output = root / "output";
 	std::filesystem::remove_all(root);
@@ -139,10 +141,11 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 	const std::string outputDir = output.string() + "/";
 	clientDelta.SetApplicationDirectory(outputDir.c_str());
 
-	SocketDescriptor serverSocket(port, "127.0.0.1");
+	SocketDescriptor serverSocket(0, "127.0.0.1");
 	SocketDescriptor clientSocket(0, "127.0.0.1");
 	ASSERT_EQ(server->Startup(4, &serverSocket, 1), RAKNET_STARTED);
 	ASSERT_EQ(client->Startup(1, &clientSocket, 1), RAKNET_STARTED);
+	const unsigned short port = server->GetInternalID().GetPort();
 	server->SetMaximumIncomingConnections(4);
 	ASSERT_EQ(client->Connect("127.0.0.1", port, 0, 0), CONNECTION_ATTEMPT_STARTED);
 

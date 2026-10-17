@@ -71,11 +71,13 @@ TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 	DataStructures::List<RakNetSocket2*> sockets;
 	TestHelpers::StandardClientPrep(client,destroyList);
 	TestHelpers::StandardServerPrep(server,destroyList);
+	const unsigned short serverPort=TestHelpers::BoundPort(server);
+	ASSERT_NE(serverPort,0) << "Server failed to start";
 
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(60000);
+	serverAddress.SetPortHostOrder(serverPort);
 
 	char loopbackIp[]="127.0.0.1";
 
@@ -87,7 +89,7 @@ TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server,5000)) << "Control test send didn't work";
 
 	// Disconnecting client
-	CommonFunctions::DisconnectAndWait(client,loopbackIp,60000);
+	CommonFunctions::DisconnectAndWait(client,loopbackIp,serverPort);
 
 	RakNetSocket2 *theSocket;
 
@@ -117,7 +119,7 @@ TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server,5000)) << "Server did not recieve test packet from client";
 
 	// Disconnecting client
-	CommonFunctions::DisconnectAndWait(client,loopbackIp,60000);
+	CommonFunctions::DisconnectAndWait(client,loopbackIp,serverPort);
 
 	// Testing ConnectWithSocket using socket from GetSocket
 	theSocket=client->GetSocket(UNASSIGNED_SYSTEM_ADDRESS);//Get open Socket

@@ -77,22 +77,22 @@ TEST_F(DroppedConnectionConvert, LostConnectionsDetected)
 	unsigned short numberOfSystems2;
 	int sender;
 
-	// Used to refer to systems.  We already know the IP
-	unsigned short serverPort = 20000;
-	serverID.FromStringExplicitPort("127.0.0.1", serverPort);
-
 	server = RegisterPeer(RakPeerInterface::GetInstance());
 	//	server->InitializeSecurity(0,0,0,0);
-	SocketDescriptor socketDescriptor(serverPort,0);
+	SocketDescriptor socketDescriptor(0,"127.0.0.1");
 	StartupResult serverResult = server->Startup(NUMBER_OF_CLIENTS, &socketDescriptor, 1);
 	ASSERT_EQ(serverResult, RAKNET_STARTED) << "Connect failed: Server failed to start (error " << serverResult << ")";
+
+	// Used to refer to systems.  We already know the IP
+	const unsigned short serverPort = server->GetInternalID().GetPort();
+	serverID.FromStringExplicitPort("127.0.0.1", serverPort);
 	server->SetMaximumIncomingConnections(NUMBER_OF_CLIENTS);
 	server->SetTimeoutTime(2000,UNASSIGNED_SYSTEM_ADDRESS);
 
 	for (index=0; index < NUMBER_OF_CLIENTS; index++)
 	{
 		clients[index] = RegisterPeer(RakPeerInterface::GetInstance());
-		SocketDescriptor socketDescriptor2(serverPort+1+index,0);
+		SocketDescriptor socketDescriptor2(0,0);
 		StartupResult clientResult = clients[index]->Startup(1, &socketDescriptor2, 1);
 		ASSERT_EQ(clientResult, RAKNET_STARTED) << "Connect failed: Client " << index << " failed to start (error " << clientResult << ")";
 		ASSERT_EQ(clients[index]->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED) << "Connect function failed.";
