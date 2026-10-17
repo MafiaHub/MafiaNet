@@ -48,8 +48,3 @@ race:MafiaNet::RakPeer::SetOccasionalPing
 #     pending a review of the intended locking discipline ---
 race:DataStructures::Queue<MafiaNet::RakPeer::BufferedCommandStruct*>::Push
 race:DataStructures::Queue<MafiaNet::RakPeer::RequestedConnectionStruct*>::Push
-
-# --- Test-only: SessionConfigLive's SlotInspector samples the server's slot
-#     state from the test thread without a lock, deliberately, to observe the
-#     static-mode gating window (see the comment on it in the test) ---
-race:SlotInspector::FirstActiveSlot

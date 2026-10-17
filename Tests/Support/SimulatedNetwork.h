@@ -88,6 +88,9 @@ namespace MafiaNet
 		bool RunUntilReceived(const RakPeer *peer, MessageID id, uint32_t maxSimMs);
 		// Client connects to server and both see the connection.
 		bool Connect(RakPeer *client, RakPeer *server, uint32_t maxSimMs = 5000);
+		// Start a connection attempt from `from` to `to` without stepping: the
+		// raw RakPeer::Connect result, for scenarios that drive the handshake.
+		ConnectionAttemptResult StartConnect(RakPeer *from, const RakPeer *to);
 
 		// Deliver raw bytes to a peer as if `from` had sent them, bypassing link
 		// rules: for fuzzing what an unconnected remote can send.
