@@ -203,8 +203,8 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 		out.write(changedBytes.data(), (std::streamsize)changedBytes.size());
 	}
 	serverDelta.ClearUploads();
-	for (const auto &entry : expected)
-		serverDelta.AddFile((source / entry.first).string().c_str(), entry.first.c_str());
+	for (const auto &file : expected)
+		serverDelta.AddFile((source / file.first).string().c_str(), file.first.c_str());
 	Observer changed;
 	download(changed);
 	EXPECT_TRUE(changed.complete);

@@ -67,7 +67,7 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
 | `MAFIANET_SANITIZER` | (empty) | `address+undefined` or `thread`; applied to every target. Prefer the `asan` / `tsan` presets |
 | `MAFIANET_USE_COMPILER_CACHE` | ON | Use sccache/ccache as compiler launcher when found on `PATH` |
-| `MAFIANET_WARNINGS_AS_ERRORS` | OFF | `-Werror` / `/WX` on MafiaNet's own targets (on in the Linux/macOS CI jobs) |
+| `MAFIANET_WARNINGS_AS_ERRORS` | OFF | `-Werror` / `/WX` on MafiaNet's own targets (on in every CI job except the oldest-toolchain Docker one) |
 | `MAFIANET_BUILD_FUZZERS` | OFF | libFuzzer harnesses in `Tests/Fuzz` (Clang); use the `fuzz` preset |
 | `MAFIANET_BUILD_BENCHMARKS` | OFF | google/benchmark microbenchmarks in `Benchmarks/`; use the `bench` preset |
 | `MAFIANET_COVERAGE` | OFF | `--coverage` instrumentation; use the `coverage` preset, report with gcovr |
@@ -79,7 +79,8 @@ sanitizer tests through `ctest --preset asan|tsan` so the sanitizer options and
 `ci/tsan.supp` are applied. Known by-design TSan races live in `ci/tsan.supp`; add an entry only
 for a race that is part of RakNet's lock-free getter model, never to silence a new bug.
 
-**Warnings:** MafiaNet's own code builds with zero `-Wall -Wextra` warnings on Clang and GCC, and
+**Warnings:** MafiaNet's own code builds with zero `-Wall -Wextra` warnings on Clang and GCC and zero `/W4`
+warnings on MSVC (C4251 is disabled), and
 CI enforces it (`MAFIANET_WARNINGS_AS_ERRORS`). Fix a new warning properly; suppress only with a
 narrow, commented `[[maybe_unused]]` or pragma, never by loosening the flags. Warnings are applied
 per target by `mafianet_enable_warnings()` (`cmake/MafiaNetHelpers.cmake`), never globally, so

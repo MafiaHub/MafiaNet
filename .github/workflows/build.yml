@@ -444,7 +444,7 @@ jobs:
           persist-credentials: false
 
       - name: Configure CMake
-        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON
+        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON -DMAFIANET_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4

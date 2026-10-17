@@ -1172,10 +1172,10 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 						internalPacket->orderingChannel = 255; // Use 255 to designate not sequenced and not ordered
 
 					// Insert may free the fragment (duplicate or malformed): read its id first.
-					const SplitPacketIdType splitPacketId = internalPacket->splitPacketId;
+					const SplitPacketIdType fragmentMessageId = internalPacket->splitPacketId;
 					InsertIntoSplitPacketList( internalPacket, timeRead );
 
-					internalPacket = BuildPacketFromSplitPacketList( splitPacketId, timeRead,
+					internalPacket = BuildPacketFromSplitPacketList( fragmentMessageId, timeRead,
 						s, systemAddress, rnr, extraSocketOptions);
 
 					if ( internalPacket == 0 )
@@ -1269,10 +1269,10 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 						internalPacket->orderingChannel = 255; // Use 255 to designate not sequenced and not ordered
 
 					// Insert may free the fragment (duplicate or malformed): read its id first.
-					const SplitPacketIdType splitPacketId = internalPacket->splitPacketId;
+					const SplitPacketIdType fragmentMessageId = internalPacket->splitPacketId;
 					InsertIntoSplitPacketList( internalPacket, timeRead );
 
-					internalPacket = BuildPacketFromSplitPacketList( splitPacketId, timeRead,
+					internalPacket = BuildPacketFromSplitPacketList( fragmentMessageId, timeRead,
 						s, systemAddress, rnr, updateBitStream);
 
 					if ( internalPacket == 0 )

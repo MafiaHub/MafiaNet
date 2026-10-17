@@ -93,9 +93,9 @@ namespace MafiaNet
 		// rules: for fuzzing what an unconnected remote can send.
 		void InjectDatagram(const SystemAddress &from, const RakPeer *to, const unsigned char *data, int length);
 		// Called with every datagram any peer sends (before link rules).
-		void SetTap(std::function<void(const SystemAddress &from, const SystemAddress &to, const char *data, int length)> tap)
+		void SetTap(std::function<void(const SystemAddress &from, const SystemAddress &to, const char *data, int length)> callback)
 		{
-			this->tap = std::move(tap);
+			tap = std::move(callback);
 		}
 
 		TimeUS Now() const;
