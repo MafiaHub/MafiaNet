@@ -105,7 +105,9 @@ TEST_F(PeerConnectDisconnectWithCancelPendingSim, MeshReconnectsWithCancelledPen
 		{
 			peers[i]->CancelConnectionAttempt(net.AddressOf(peers[j]));
 			if (net.StartConnect(peers[i], peers[j]) != CONNECTION_ATTEMPT_STARTED)
+			{
 				ASSERT_NE(0, ConnectionCount(i)) << "Connect " << i << " -> " << j << " refused with no connection at all";
+			}
 		}
 
 	net.RunUntil([&] {

@@ -86,9 +86,11 @@ TEST(MaximumConnectSim, MeshNeverExceedsTheConnectionLimit)
 		// Both ends agree on every link.
 		for (int j = 0; j < kPeerNum; ++j)
 			if (i != j)
+			{
 				EXPECT_EQ(peers[i]->GetConnectionState(net.AddressOf(peers[j])) == IS_CONNECTED,
 					peers[j]->GetConnectionState(net.AddressOf(peers[i])) == IS_CONNECTED)
 					<< "asymmetric link " << i << " <-> " << j;
+			}
 	}
 	// A full mesh would need 7 per peer: some attempts were refused, but the
 	// peers did connect rather than refusing everything. (Not every peer

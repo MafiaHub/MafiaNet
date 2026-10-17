@@ -141,7 +141,9 @@ TEST_F(EightPeerSim, ReliableOrderedBroadcastArrivesCompleteAndInOrder)
 		}
 		for (int j = 0; j < kPeerNum; ++j)
 			if (j != i)
+			{
 				EXPECT_EQ(kNumPackets, nextFrom[j]) << "peer " << i << " received " << nextFrom[j] << " from " << j;
+			}
 	}
 	ExpectNoFailures();
 }

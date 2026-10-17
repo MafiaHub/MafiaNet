@@ -95,8 +95,10 @@ TEST_F(PeerConnectDisconnectSim, MeshReconnectsAfterRepeatedDisconnects)
 		for (int i = 0; i < kPeerNum; ++i)
 			for (int j = i + 1; j < kPeerNum; ++j)
 				if (!BusyOrConnected(i, j))
+				{
 					ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(peers[i], peers[j]))
 						<< "cycle " << cycle << ": " << i << " -> " << j << " in state " << StateOf(i, j);
+				}
 
 		ASSERT_TRUE(net.RunUntil([&] { return ConnectionRequestsComplete(); }, 10000))
 			<< "cycle " << cycle << ": connection requests never completed";

@@ -131,7 +131,9 @@ TEST(DisconnectReason, SamePeersReconnectAndCarryEachReasonInTurn)
 		ASSERT_NE(nullptr, note);
 		ASSERT_EQ(expectedLength[round], note->data.size());
 		if (round == 0)
+		{
 			EXPECT_EQ(42, note->data[1]);
+		}
 
 		// Both sides must release the slot before the next round's Connect().
 		ASSERT_TRUE(net.RunUntil([&] {

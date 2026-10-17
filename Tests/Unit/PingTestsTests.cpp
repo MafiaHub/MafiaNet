@@ -172,6 +172,11 @@ TEST(PingTests, OccasionalPingIsObservableAsPingTraffic)
 	counter.senderA = net.AddressOf(pinging);
 	counter.senderB = net.AddressOf(quiet);
 
+	// The keep-alive also pings, every half timeout without reliable traffic,
+	// and the default timeout is 30 s in Debug but 10 s in Release. Pin it so
+	// only occasional pings fall inside the measured window in every build.
+	for (RakPeer *peer : {receiver, pinging, quiet})
+		peer->SetTimeoutTime(30000, UNASSIGNED_SYSTEM_ADDRESS);
 	pinging->SetOccasionalPing(true);
 	quiet->SetOccasionalPing(false);
 	ASSERT_TRUE(net.Connect(pinging, receiver));

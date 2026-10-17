@@ -130,7 +130,9 @@ TEST_F(DroppedConnectionConvertSim, RandomDropsAndReconnectsStayConsistent)
 		{
 			const int index = (int) (NextRandom() % kClients);
 			if (!BusyOrConnected(index))
+			{
 				ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(clients[index], server)) << "client " << index;
+			}
 			break;
 		}
 		case 2: // every client: drop (silently or not) or reconnect
@@ -139,7 +141,9 @@ TEST_F(DroppedConnectionConvertSim, RandomDropsAndReconnectsStayConsistent)
 				if (NextRandom() % 2 == 0)
 					clients[index]->CloseConnection(serverAddress, NextRandom() % 2 == 0, 0);
 				else if (!BusyOrConnected(index))
+				{
 					ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(clients[index], server)) << "client " << index;
+				}
 			}
 			break;
 		case 3: // quiet period: the server must catch up with every drop
@@ -163,7 +167,9 @@ TEST_F(DroppedConnectionConvertSim, RandomDropsAndReconnectsStayConsistent)
 	const bool allBack = net.RunUntil([&] {
 		for (int index = 0; index < kClients; ++index)
 			if (!BusyOrConnected(index))
+			{
 				EXPECT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(clients[index], server)) << "client " << index;
+			}
 		return ConnectedClients() == kClients && ConnectionCount(server) == kClients;
 	}, 20000, 100);
 	EXPECT_TRUE(allBack) << ConnectedClients() << " clients and " << ConnectionCount(server) << " server connections";
