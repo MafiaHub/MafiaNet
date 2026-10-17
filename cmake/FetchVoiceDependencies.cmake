@@ -45,24 +45,15 @@ FetchContent_Declare(
     rnnoise_model
     URL      https://media.xiph.org/rnnoise/models/rnnoise_data-${RNNOISE_MODEL_VERSION}.tar.gz
     URL_HASH SHA256=4ac81c5c0884ec4bd5907026aaae16209b7b76cd9d7f71af582094a2f98f4b43
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 # -----------------------------------------------------------------------------
 # Fetch dependencies
 # -----------------------------------------------------------------------------
-FetchContent_MakeAvailable(Opus)
-
-# Fetch rnnoise separately (needs manual target creation)
-FetchContent_GetProperties(rnnoise)
-if(NOT rnnoise_POPULATED)
-    FetchContent_Populate(rnnoise)
-endif()
-
-# Fetch rnnoise model data
-FetchContent_GetProperties(rnnoise_model)
-if(NOT rnnoise_model_POPULATED)
-    FetchContent_Populate(rnnoise_model)
-endif()
+# Neither rnnoise nor its model archive ships a CMakeLists.txt, so
+# MakeAvailable only downloads them; the rnnoise target is created below.
+FetchContent_MakeAvailable(Opus rnnoise rnnoise_model)
 
 # -----------------------------------------------------------------------------
 # RNNoise - manual target creation (no upstream CMakeLists.txt)
