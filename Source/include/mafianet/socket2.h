@@ -98,7 +98,10 @@ bool RNS2_IsDatagramTooLargeError(int err);
 enum RNS2Type
 {
 	RNS2T_WINDOWS,
-	RNS2T_LINUX
+	RNS2T_LINUX,
+	/// Supplied by a RakNetSocket2Factory, not a Berkeley socket: RakPeer never
+	/// binds it, sets options on it or starts a receive thread for it.
+	RNS2T_USER
 };
 
 struct RNS2_SendParameters
@@ -119,6 +122,21 @@ struct RNS2RecvStruct
 	SystemAddress systemAddress;
 	MafiaNet::TimeUS timeRead;
 	RakNetSocket2 *socket;
+};
+
+/// \internal Testing seam: hands RakPeer its sockets instead of binding OS
+/// sockets. See RakPeer::SetSocketFactory and Tests/Support/SimulatedNetwork.
+class RAK_DLL_EXPORT RakNetSocket2Factory
+{
+public:
+	virtual ~RakNetSocket2Factory() {}
+	/// An already-bound socket of type RNS2T_USER for socket descriptor
+	/// \a index, or nullptr (Startup then fails with SOCKET_PORT_ALREADY_IN_USE).
+	/// RakPeer installs itself as the socket's event handler; deliver received
+	/// datagrams through it (AllocRNS2RecvStruct, then OnRNS2Recv).
+	virtual RakNetSocket2 *Create( const SocketDescriptor &descriptor, unsigned int index ) = 0;
+	/// Called instead of deleting a socket Create returned.
+	virtual void Destroy( RakNetSocket2 *socket ) = 0;
 };
 
 class RakNetSocket2Allocator

@@ -77,7 +77,16 @@ bool MafiaNet::RNS2_IsDatagramTooLargeError(int err)
 }
 
 void RakNetSocket2Allocator::DeallocRNS2(RakNetSocket2 *s) { MafiaNet::OP_DELETE(s,_FILE_AND_LINE_);}
-RakNetSocket2::RakNetSocket2() {eventHandler=0;}
+RakNetSocket2::RakNetSocket2()
+	: eventHandler(0)
+#ifdef _WIN32
+	, socketType(RNS2T_WINDOWS)
+#else
+	, socketType(RNS2T_LINUX)
+#endif
+	, userConnectionSocketIndex(0)
+{
+}
 RakNetSocket2::~RakNetSocket2() {}
 void RakNetSocket2::SetRecvEventHandler(RNS2EventHandler *_eventHandler) {eventHandler=_eventHandler;}
 RNS2SendResult RakNetSocket2::SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line )
@@ -103,7 +112,8 @@ RNS2SendResult RakNetSocket2::SendBatch( RNS2_SendParameters *sends, unsigned co
 RNS2Type RakNetSocket2::GetSocketType(void) const {return socketType;}
 void RakNetSocket2::SetSocketType(RNS2Type t) {socketType=t;}
 bool RakNetSocket2::IsBerkleySocket(void) const {
-	return true; // All supported platforms use Berkeley sockets
+	// Every OS socket is a Berkeley socket; only factory-supplied ones are not.
+	return socketType != RNS2T_USER;
 }
 SystemAddress RakNetSocket2::GetBoundAddress(void) const {return boundAddress;}
 

@@ -246,6 +246,8 @@ RakPeer::RakPeer()
 	bytesSentPerSecond = bytesReceivedPerSecond = 0;
 	endThreads = true;
 	isMainLoopThreadActive = false;
+	socketFactory = nullptr;
+	manualUpdate = false;
 	incomingDatagramEventHandler=0;
 	sessionConfigInteractive=false;
 	maximumPendingSessions=0;
@@ -473,7 +475,12 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			addrToBind=socketDescriptors[i].hostAddress;
 			*/
 
-		RakNetSocket2 *r2 = RakNetSocket2Allocator::AllocRNS2();
+		RakNetSocket2 *r2 = socketFactory ? socketFactory->Create(socketDescriptors[i], i) : RakNetSocket2Allocator::AllocRNS2();
+		if (r2 == nullptr)
+		{
+			DerefAllSockets();
+			return SOCKET_PORT_ALREADY_IN_USE;
+		}
 		r2->SetUserConnectionSocketIndex(i);
 		if (r2->IsBerkleySocket())
 		{
@@ -520,7 +527,8 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 		}
 		else
 		{
-			RakAssert("TODO" && 0);
+			// Factory-supplied: already bound; it delivers datagrams to us.
+			r2->SetRecvEventHandler(this);
 		}
 
 		socketList.Push(r2, _FILE_AND_LINE_ );
@@ -544,6 +552,10 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 			unsigned short port = ((RNS2_Berkley*)socketList[0])->GetBoundAddress().GetPort();
 			ipList[i].SetPortHostOrder(port);
 
+		}
+		else
+		{
+			ipList[i].SetPortHostOrder(socketList[0]->GetBoundAddress().GetPort());
 		}
 	}
 
@@ -618,7 +630,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 		ClearBufferedPackets();
 		ClearSocketQueryOutput();
 
-		if ( isMainLoopThreadActive == false )
+		if ( isMainLoopThreadActive == false && !manualUpdate )
 		{
 #if RAKPEER_USER_THREADED!=1
 
@@ -674,7 +686,7 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 
 #if RAKPEER_USER_THREADED!=1
 		// Wait for the threads to activate.  When they are active they will set these variables to true
-		while (  isMainLoopThreadActive == false )
+		while (  !manualUpdate && isMainLoopThreadActive == false )
 			RakSleep(10);
 #endif // RAKPEER_USER_THREADED!=1
 	}
@@ -1015,7 +1027,11 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 
 		time = MafiaNet::GetTimeMS();
 		startWaitingTime = time;
-		while ( time - startWaitingTime < blockDuration )
+		// Nothing else advances a manually updated peer (or its clock, under a
+		// test's virtual time): flush the notifications once and stop.
+		if (manualUpdate)
+			RunManualUpdate();
+		while ( !manualUpdate && time - startWaitingTime < blockDuration )
 		{
 			anyActive=false;
 			for (j=0; j < systemListSize; j++)
@@ -3009,12 +3025,14 @@ RakNetSocket2* RakPeer::GetSocket( const SystemAddress target )
 	SocketQueryOutput *sqo;
 	MafiaNet::TimeMS stopWaiting = MafiaNet::GetTimeMS()+1000;
 	DataStructures::List<RakNetSocket2* > output;
-	while (MafiaNet::GetTimeMS() < stopWaiting)
+	while (manualUpdate || MafiaNet::GetTimeMS() < stopWaiting)
 	{
-		if (isMainLoopThreadActive==false)
+		if (manualUpdate)
+			RunManualUpdate(); // answers the query on this thread
+		else if (isMainLoopThreadActive==false)
 			return 0;
-
-		RakSleep(0);
+		else
+			RakSleep(0);
 
 		sqo = socketQueryOutput.Pop();
 		if (sqo)
@@ -3048,10 +3066,12 @@ void RakPeer::GetSockets( DataStructures::List<RakNetSocket2* > &sockets )
 //	RakNetSocket2* output;
 	for(;;)
 	{
-		if (isMainLoopThreadActive==false)
+		if (manualUpdate)
+			RunManualUpdate(); // answers the query on this thread
+		else if (isMainLoopThreadActive==false)
 			return;
-
-		RakSleep(0);
+		else
+			RakSleep(0);
 
 		sqo = socketQueryOutput.Pop();
 		if (sqo)
@@ -3129,6 +3149,32 @@ void RakPeer::SetUserUpdateThread(void (*_userUpdateThreadPtr)(RakPeerInterface 
 {
 	userUpdateThreadPtr=_userUpdateThreadPtr;
 	userUpdateThreadData=_userUpdateThreadData;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SetSocketFactory(RakNetSocket2Factory *factory)
+{
+	RakAssert(IsActive() == false);
+	socketFactory = factory;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SetManualUpdate(bool manual)
+{
+	RakAssert(IsActive() == false);
+	manualUpdate = manual;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::RunManualUpdate()
+{
+	RakAssert(manualUpdate);
+	// The same steps as one pass of UpdateNetworkLoop.
+	if (userUpdateThreadPtr)
+		userUpdateThreadPtr(this, userUpdateThreadData);
+	BitStream updateBitStream( MAXIMUM_MTU_SIZE
+#if LIBCAT_SECURITY==1
+		+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
+#endif
+		);
+	RunUpdateCycle(updateBitStream);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SetIncomingDatagramEventHandler( bool (*_incomingDatagramEventHandler)(RNS2RecvStruct *) )
@@ -4852,6 +4898,14 @@ uint64_t RakPeerInterface::Get64BitUniqueRandomNumber(void)
 		diff4Bits >>= j*4;
 		((char*)&g)[j] ^= diff4Bits;
 	}
+	// Timer jitter alone collides when peers are created back to back, and is
+	// constant under a test's virtual clock. Mix in the same entropy as below.
+	static std::atomic<uint64_t> sequence {0};
+	std::random_device entropy;
+	g ^= ((uint64_t)entropy() << 32) ^ (uint64_t)entropy();
+	g ^= (sequence.fetch_add(1, std::memory_order_relaxed) + 1) * 0x9E3779B97F4A7C15ull;
+	if (g == 0 || g == (uint64_t)-1)
+		g = 1;
 	return g;
 
 #else
@@ -5840,7 +5894,10 @@ void RakPeer::DerefAllSockets(void)
 	unsigned int i;
 	for (i=0; i < socketList.Size(); i++)
 	{
-		MafiaNet::OP_DELETE(socketList[i], _FILE_AND_LINE_);
+		if (socketFactory && !socketList[i]->IsBerkleySocket())
+			socketFactory->Destroy(socketList[i]);
+		else
+			MafiaNet::OP_DELETE(socketList[i], _FILE_AND_LINE_);
 	}
 	socketList.Clear(false, _FILE_AND_LINE_);
 }

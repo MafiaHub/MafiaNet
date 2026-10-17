@@ -38,6 +38,15 @@ namespace MafiaNet
 	/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
 	MafiaNet::TimeUS RAK_DLL_EXPORT GetTimeUS( void );
 
+	/// A replacement clock for GetTimeUS (and so GetTime / GetTimeMS).
+	typedef MafiaNet::TimeUS (*TimeSourceUS)( void );
+
+	/// \internal Testing seam: route every MafiaNet time query to \a source,
+	/// process wide; nullptr restores the real clock. The source must be
+	/// monotonic, and nothing should run a real (threaded) peer while it is set.
+	/// Used by the simulated network in Tests/Support.
+	void RAK_DLL_EXPORT SetTimeSourceOverride( TimeSourceUS source );
+
 	/// a > b?
 	extern RAK_DLL_EXPORT bool GreaterThan(MafiaNet::Time a, MafiaNet::Time b);
 	/// a < b?
