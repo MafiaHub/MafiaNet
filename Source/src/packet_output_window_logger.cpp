@@ -34,7 +34,7 @@ PacketOutputWindowLogger::PacketOutputWindowLogger()
 PacketOutputWindowLogger::~PacketOutputWindowLogger()
 {
 }
-void PacketOutputWindowLogger::WriteLog(const char *str)
+void PacketOutputWindowLogger::WriteLog([[maybe_unused]] const char *str) // only Windows has an output window
 {
 #if defined(_WIN32)
 

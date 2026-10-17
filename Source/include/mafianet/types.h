@@ -268,6 +268,10 @@ struct RAK_DLL_EXPORT SystemAddress
 
 	bool IsLANAddress(void);
 
+	// Member-wise copy. The assignment stays out-of-line (defaulted in types.cpp) so the
+	// exported symbol is kept; the copy constructor is declared so it is not the deprecated
+	// implicit one.
+	SystemAddress( const SystemAddress& input ) = default;
 	SystemAddress& operator = ( const SystemAddress& input );
 	bool operator==( const SystemAddress& right ) const;
 	bool operator!=( const SystemAddress& right ) const;
@@ -306,12 +310,8 @@ struct RAK_DLL_EXPORT RakNetGUID
 
 	static unsigned long ToUint32( const RakNetGUID &g );
 
-	RakNetGUID& operator = ( const RakNetGUID& input )
-	{
-		g=input.g;
-		systemIndex=input.systemIndex;
-		return *this;
-	}
+	RakNetGUID( const RakNetGUID& input ) = default;
+	RakNetGUID& operator = ( const RakNetGUID& input ) = default;
 
 	// Used internally for fast lookup. Optional (use -1 to do regular lookup). Don't transmit this.
 	SystemIndex systemIndex;

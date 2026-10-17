@@ -63,6 +63,9 @@ set(MAFIANET_SANITIZER "" CACHE STRING "Build with sanitizers (e.g. address+unde
 # unless the caller already chose a launcher (CI passes one explicitly).
 option(MAFIANET_USE_COMPILER_CACHE "Use sccache/ccache when available" ON)
 
+# Compiler warnings on MafiaNet's own targets (see mafianet_enable_warnings).
+option(MAFIANET_WARNINGS_AS_ERRORS "Treat compiler warnings in MafiaNet code as errors" OFF)
+
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
     message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")

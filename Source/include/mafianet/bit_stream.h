@@ -1770,8 +1770,9 @@ namespace MafiaNet
 		return ReadBitsFromIntegerRange(value,minimum,maximum,requiredBits,allowOutsideRange);
 	}
 	template <class templateType>
-	bool BitStream::ReadBitsFromIntegerRange( templateType &value, const templateType minimum, const templateType maximum, const int requiredBits, bool allowOutsideRange )
+	bool BitStream::ReadBitsFromIntegerRange( templateType &value, const templateType minimum, [[maybe_unused]] const templateType maximum, const int requiredBits, bool allowOutsideRange )
 	{
+		// maximum is only checked by the (debug-only) assert; requiredBits already encodes the range.
 		RakAssert(maximum>=minimum);
 		if (allowOutsideRange)
 		{

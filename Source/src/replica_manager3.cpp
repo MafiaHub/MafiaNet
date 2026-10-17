@@ -928,10 +928,8 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 		for (idx2=0; idx2 < constructedReplicasCulled.Size(); idx2++)
 			OnConstructToThisConnection(constructedReplicasCulled[idx2], replicaManager3);
 
-		bool exists;
 		for (idx2=0; idx2 < destroyedReplicasCulled.Size(); idx2++)
 		{
-			exists=false;
 			bool objectExists;
 			idx1=constructedReplicaList.GetIndexFromKey(destroyedReplicasCulled[idx2], &objectExists);
 			if (objectExists)

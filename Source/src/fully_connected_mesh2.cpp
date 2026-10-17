@@ -833,7 +833,7 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 			bsOut.Write(participatingMembersNotOnClient[i]);
 			bsOut.Write(rakPeerInterface->GetSystemAddressFromGuid(participatingMembersNotOnClient[i]));
 
-			bool written=false;
+			[[maybe_unused]] bool written=false; // only checked by RakAssert (debug builds)
 			for (unsigned int j=0; j < fcm2ParticipantList.Size(); j++)
 			{
 				if (fcm2ParticipantList[j]->rakNetGuid == participatingMembersNotOnClient[i])
@@ -1148,7 +1148,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinCapable(Packet *packet)
 			bsOut.Write(participatingMembersNotOnClient[i]);
 			bsOut.Write(rakPeerInterface->GetSystemAddressFromGuid(participatingMembersNotOnClient[i]));
 
-			bool written=false;
+			[[maybe_unused]] bool written=false; // only checked by RakAssert (debug builds)
 			for (unsigned int j=0; j < fcm2ParticipantList.Size(); j++)
 			{
 				if (fcm2ParticipantList[j]->rakNetGuid == participatingMembersNotOnClient[i])

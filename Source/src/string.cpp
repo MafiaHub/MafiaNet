@@ -31,7 +31,7 @@
 using namespace MafiaNet;
 
 //DataStructures::MemoryPool<RakString::SharedString> RakString::pool;
-RakString::SharedString RakString::emptyString={0,0,0,(char*) "",(char*) ""};
+RakString::SharedString RakString::emptyString={0,0,0,(char*) "",(char*) "",{}};
 //RakString::SharedString *RakString::sharedStringFreeList=0;
 //unsigned int RakString::sharedStringFreeListAllocationCount=0;
 DataStructures::List<RakString::SharedString*> RakString::freeList;
@@ -1234,7 +1234,7 @@ void RakString::Serialize(const char *str, BitStream *bs)
 {
 	unsigned short l = (unsigned short) strlen(str);
 	bs->Write(l);
-	bs->WriteAlignedBytes((const unsigned char*) str, (const unsigned int) l);
+	bs->WriteAlignedBytes((const unsigned char*) str, (unsigned int) l);
 }
 void RakString::SerializeCompressed(BitStream *bs, uint8_t languageId, bool writeLanguageId) const
 {

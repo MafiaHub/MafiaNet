@@ -271,9 +271,9 @@ void TCPInterface::Stop(void)
 	while ( threadRunning.GetValue()>0 )
 		RakSleep(15);
 
-		RakSleep(100);
+	RakSleep(100);
 
-		listenSocket=0;
+	listenSocket=0;
 
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i=0; i < remoteClientsLength; i++)
@@ -793,9 +793,9 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char* host, unsigned short remot
 		return 0;
 
 
-		__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
-		if (sockfd < 0) 
-			return 0;
+	__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0)
+		return 0;
 
 	memset(&serverAddress, 0, sizeof(serverAddress));
 	serverAddress.sin_family = AF_INET;
@@ -886,11 +886,13 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	TCPInterface *tcpInterface = s->tcpInterface;
 	int newRemoteClientIndex=systemAddress.systemIndex;
 	unsigned short socketFamily = s->socketFamily;
+	char bindAddress[sizeof(s->bindAddress)];
+	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
 	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 
 	char str1[64];
 	systemAddress.ToString(false, str1, static_cast<size_t>(64));
-	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, s->bindAddress);
+	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress);
 	if (sockfd==0)
 	{
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();

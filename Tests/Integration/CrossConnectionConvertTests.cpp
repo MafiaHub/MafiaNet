@@ -56,7 +56,7 @@ TEST_F(CrossConnectionConvert, SimultaneousConnectHandshakes)
 {
 	// Reduce test duration in CI environments
 	const bool isCI = (getenv("CI") != nullptr);
-	const int testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
+	const TimeMS testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
 
 	static const unsigned short SERVER_PORT=1234;
 	char serverIP[64];

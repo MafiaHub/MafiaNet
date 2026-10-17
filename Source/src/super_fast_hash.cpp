@@ -123,13 +123,16 @@ uint32_t SuperFastHashFilePtr (FILE *fp)
 	char readBlock[INCREMENTAL_READ_BLOCK];
 	while (bytesRemaining>=(int) sizeof(readBlock))
 	{
-		fread(readBlock, sizeof(readBlock), 1, fp);
+		// A short read would hash uninitialized stack bytes; report it like an unopenable file.
+		if (fread(readBlock, sizeof(readBlock), 1, fp) != 1)
+			return 0;
 		lastHash=SuperFastHashIncremental (readBlock, (int) sizeof(readBlock), lastHash );
 		bytesRemaining-=(int) sizeof(readBlock);
 	}
 	if (bytesRemaining>0)
 	{
-		fread(readBlock, bytesRemaining, 1, fp);
+		if (fread(readBlock, bytesRemaining, 1, fp) != 1)
+			return 0;
 		lastHash=SuperFastHashIncremental (readBlock, bytesRemaining, lastHash );
 	}
 	return lastHash;

@@ -197,7 +197,7 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 #endif
 
 			peerIndex=randomMT()%NUM_PEERS;
-			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
+			snprintf(data+3, sizeof(data)-3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, (int)priority, (int)reliability, orderingChannel, target.GetPort(), broadcast);
 #ifdef _VERIFY_RECIPIENTS
 			memcpy((char*)data+1, (char*)&target.GetPort(), sizeof(unsigned short));
 #endif
@@ -231,12 +231,12 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 			broadcast=false; // Temporarily in so I can check recipients
 #endif
 
-			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
+			snprintf(data+3, sizeof(data)-3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, (int)priority, (int)reliability, orderingChannel, target.GetPort(), broadcast);
 #ifdef _VERIFY_RECIPIENTS
 			memcpy((char*)data, (char*)&target.GetPort(), sizeof(unsigned short));
 #endif
 			data[dataLength-1]=0;
-			sprintf(RPCName, "RPC%i", (randomMT()%4)+1);
+			snprintf(RPCName, sizeof(RPCName), "RPC%u", (unsigned int)(randomMT()%4)+1);
 			//				autoRpc[i]->Call(RPCName);
 			//peers[peerIndex]->RPC(RPCName, data, dataLength*8, priority, reliability, orderingChannel, target, broadcast, 0, UNASSIGNED_NETWORK_ID,0);
 		}

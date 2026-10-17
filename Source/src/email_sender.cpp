@@ -107,16 +107,16 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 			return response;
 		if (password==0)
 			return "Password needed";
-		char *outputData = MafiaNet::OP_NEW_ARRAY<char >((const int) (strlen(sender)+strlen(password)+2)*3, _FILE_AND_LINE_ );
+		char *outputData = MafiaNet::OP_NEW_ARRAY<char >((int) (strlen(sender)+strlen(password)+2)*3, _FILE_AND_LINE_ );
 		MafiaNet::BitStream bs;
 		char zero=0;
 		bs.Write(&zero,1);
-		bs.Write(sender,(const unsigned int)strlen(sender));
-		//bs.Write("jms1@jms1.net",(const unsigned int)strlen("jms1@jms1.net"));
+		bs.Write(sender,(unsigned int)strlen(sender));
+		//bs.Write("jms1@jms1.net",(unsigned int)strlen("jms1@jms1.net"));
 		bs.Write(&zero,1);
-		bs.Write(password,(const unsigned int)strlen(password));
+		bs.Write(password,(unsigned int)strlen(password));
 		bs.Write(&zero,1);
-		//bs.Write("not.my.real.password",(const unsigned int)strlen("not.my.real.password"));
+		//bs.Write("not.my.real.password",(unsigned int)strlen("not.my.real.password"));
 		Base64Encoding((const unsigned char*)bs.GetData(), bs.GetNumberOfBytesUsed(), outputData);
 		sprintf_s(query, "AUTH PLAIN %s", outputData);
 		tcpInterface.Send(query, (unsigned int)strlen(query), emailServer,false);

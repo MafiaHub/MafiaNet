@@ -852,10 +852,7 @@ void BitStream::PrintBits( char *out ) const
 {
 	if (numberOfBitsUsed <= 0)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcpy(out, "No bits\n");
-#pragma warning(pop)
 		return;
 	}
 
@@ -945,10 +942,9 @@ void BitStream::PrintHex( char *out ) const
 	BitSize_t i;
 	for (i = 0; i < GetNumberOfBytesUsed(); i++)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
-		sprintf(out + i * 3, "%02x ", data[i]);
-#pragma warning(pop)
+		// Each byte writes exactly "xx " plus the terminator, so the bound is exact.
+		// The total size of out is the caller's contract in this legacy overload.
+		snprintf(out + i * 3, 4, "%02x ", data[i]);
 	}
 }
 

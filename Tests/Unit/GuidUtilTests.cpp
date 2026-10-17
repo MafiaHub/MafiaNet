@@ -46,7 +46,7 @@ TEST(GuidUtil, UnassignedSentinelStringifiesToDocumentedLabel)
 TEST(GuidUtil, ToStringIsThreadSafe)
 {
 	const unsigned threadCount = 16;
-	const unsigned iterations = 20000;
+	constexpr unsigned iterations = 20000;
 	std::atomic<bool> corrupted(false);
 
 	std::vector<std::thread> threads;
@@ -57,7 +57,7 @@ TEST(GuidUtil, ToStringIsThreadSafe)
 		const uint64_t value = 0x1000000000000000ull + t;
 		const RakNetGUID g(value);
 		const std::string expected = to_string(g);
-		threads.emplace_back([g, expected, iterations, &corrupted]() {
+		threads.emplace_back([g, expected, &corrupted]() {
 			for (unsigned k = 0; k < iterations && !corrupted.load(std::memory_order_relaxed); ++k)
 			{
 				if (to_string(g) != expected)
@@ -113,6 +113,8 @@ TEST_F(GuidUtilConnectedAddressTest, MirrorsLegacyLookup)
 		const bool legacyHas = (legacy != UNASSIGNED_SYSTEM_ADDRESS);
 		ASSERT_EQ(modern.has_value(), legacyHas) << "guid value 0x" << std::hex << sample;
 		if (legacyHas)
+		{
 			EXPECT_EQ(modern.value(), legacy) << "guid value 0x" << std::hex << sample;
+		}
 	}
 }

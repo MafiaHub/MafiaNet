@@ -54,7 +54,7 @@ unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream * input, unsi
 {
 	HuffmanEncodingTree tree;
 	unsigned int bitsUsed, destinationSizeInBytes;
-	unsigned int decompressedBytes;
+	[[maybe_unused]] unsigned int decompressedBytes; // only checked by RakAssert (debug builds)
 	unsigned int frequencyTable[ 256 ];
 	unsigned i;
 	

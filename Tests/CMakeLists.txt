@@ -48,6 +48,7 @@ target_include_directories(TestSupport PUBLIC
     ${PROJECT_SOURCE_DIR}/Source/include
 )
 set_target_properties(TestSupport PROPERTIES FOLDER "Tests")
+mafianet_enable_warnings(TestSupport)
 
 # -----------------------------------------------------------------------------
 # Unit suite
@@ -62,6 +63,7 @@ target_link_libraries(UnitTests PRIVATE TestSupport GTest::gtest_main)
 # release-only backstops that would trip the assert in Debug.
 target_compile_definitions(UnitTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 set_target_properties(UnitTests PROPERTIES FOLDER "Tests")
+mafianet_enable_warnings(UnitTests)
 
 gtest_discover_tests(UnitTests
     PROPERTIES LABELS unit
@@ -82,6 +84,7 @@ target_link_libraries(IntegrationTests PRIVATE TestSupport GTest::gtest_main)
 # and memory corruption the moment one constructs a RakPeer-derived object itself.
 target_compile_definitions(IntegrationTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 set_target_properties(IntegrationTests PROPERTIES FOLDER "Tests")
+mafianet_enable_warnings(IntegrationTests)
 
 gtest_discover_tests(IntegrationTests
     PROPERTIES LABELS integration RUN_SERIAL TRUE TIMEOUT 600

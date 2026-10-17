@@ -47,6 +47,6 @@ RakTimer::~RakTimer(void)
 	bool RakTimer::IsExpired()
 	{
 
-	return (MafiaNet::GetTimeMS()-startTime>timerLength);
+	return (MafiaNet::GetTimeMS()-startTime>(MafiaNet::TimeMS)timerLength);
 	
 	}

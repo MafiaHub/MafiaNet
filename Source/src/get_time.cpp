@@ -222,12 +222,12 @@ MafiaNet::TimeUS MafiaNet::GetTimeUS( void )
 bool MafiaNet::GreaterThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a > b?
-	const MafiaNet::Time halfSpan =(MafiaNet::Time) (((MafiaNet::Time)(const MafiaNet::Time)-1)/(MafiaNet::Time)2);
+	const MafiaNet::Time halfSpan =(MafiaNet::Time) (((MafiaNet::Time)(MafiaNet::Time)-1)/(MafiaNet::Time)2);
 	return b!=a && b-a>halfSpan;
 }
 bool MafiaNet::LessThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a < b?
-	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(const MafiaNet::Time)-1)/(MafiaNet::Time)2;
+	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(MafiaNet::Time)-1)/(MafiaNet::Time)2;
 	return b!=a && b-a<halfSpan;
 }

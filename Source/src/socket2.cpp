@@ -150,7 +150,7 @@ bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, un
 }
 
 #if defined(__APPLE__)
-void SocketReadCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const void *data, void *info)
+void SocketReadCallback(CFSocketRef /*s*/, CFSocketCallBackType /*type*/, CFDataRef /*address*/, const void * /*data*/, void * /*info*/)
 // This C routine is called by CFSocket when there's data waiting on our 
 // UDP socket.  It just redirects the call to Objective-C code.
 { }

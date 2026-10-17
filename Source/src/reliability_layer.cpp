@@ -433,10 +433,15 @@ MafiaNet::TimeMS ReliabilityLayer::GetTimeoutTime()
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::InitializeVariables()
 {
-	memset( orderedWriteIndex, 0, NUMBER_OF_ORDERED_STREAMS * sizeof(OrderingIndexType));
-	memset( sequencedWriteIndex, 0, NUMBER_OF_ORDERED_STREAMS * sizeof(OrderingIndexType) );
-	memset( orderedReadIndex, 0, NUMBER_OF_ORDERED_STREAMS * sizeof(OrderingIndexType) );
-	memset( highestSequencedReadIndex, 0, NUMBER_OF_ORDERED_STREAMS * sizeof(OrderingIndexType) );
+	// OrderingIndexType (uint24_t) is a wrapper around one uint32_t; assigning 0 leaves the
+	// same all-zero state the memset used to, without memset-ing a non-trivial class.
+	for (unsigned int stream=0; stream < NUMBER_OF_ORDERED_STREAMS; stream++)
+	{
+		orderedWriteIndex[stream]=0;
+		sequencedWriteIndex[stream]=0;
+		orderedReadIndex[stream]=0;
+		highestSequencedReadIndex[stream]=0;
+	}
 	memset( &statistics, 0, sizeof( statistics ) );
 	memset( &heapIndexOffsets, 0, sizeof( heapIndexOffsets ) );
 	
@@ -495,7 +500,7 @@ void ReliabilityLayer::InitializeVariables()
 	datagramHistoryPopCount=0;
 
 	InitHeapWeights();
-	for (int i=0; i < MafiaNet::NUMBER_OF_PRIORITIES; i++)
+	for (unsigned int i=0; i < MafiaNet::NUMBER_OF_PRIORITIES; i++)
 	{
 		statistics.messageInSendBuffer[i]=0;
 		statistics.bytesInSendBuffer[i]=0.0;
@@ -995,7 +1000,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 					// or an older out of order packet
 					// The subtraction unsigned overflow is intentional
 					holeCount = (DatagramSequenceNumberType)(internalPacket->reliableMessageNumber - receivedPacketsBaseIndex);
-					const DatagramSequenceNumberType typeRange = (DatagramSequenceNumberType)(const uint32_t)-1;
+					const DatagramSequenceNumberType typeRange = (DatagramSequenceNumberType)(uint32_t)-1;
 
 					// TESTING1
 // 					printf("waiting on reliableMessageNumber=%i holeCount=%i datagramNumber=%i\n", receivedPacketsBaseIndex.val, holeCount.val, dhf.datagramNumber.val);
@@ -1079,7 +1084,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 						hasReceivedPacketQueue.Push(false, _FILE_AND_LINE_ ); // Got the packet
 #ifdef _DEBUG
 						// If this assert hits then DatagramSequenceNumberType has overflowed
-						RakAssert(hasReceivedPacketQueue.Size() < (unsigned int)((DatagramSequenceNumberType)(const uint32_t)(-1)));
+						RakAssert(hasReceivedPacketQueue.Size() < (unsigned int)((DatagramSequenceNumberType)(uint32_t)(-1)));
 #endif
 					}
 
@@ -1751,7 +1756,7 @@ void ReliabilityLayer::UpdateInternal( RakNetSocket2 *s, SystemAddress &systemAd
 {
 	(void) MTUSize;
 
-	MafiaNet::TimeMS timeMs;
+	[[maybe_unused]] MafiaNet::TimeMS timeMs; // only read by the _DEBUG simulated-lag queue below
 #if CC_TIME_TYPE_BYTES==4
 	time/=1000;
 	timeMs=time;
@@ -2807,7 +2812,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream(MafiaNet::Bi
 	// (Incoming data may be all zeros due to padding)
 	bitStream->AlignReadToByteBoundary(); // Potentially unaligned
 	bitStream->ReadBits( ( unsigned char* ) ( &( tempChar ) ), 3 );
-	internalPacket->reliability = ( const MafiaNet::Reliability ) tempChar;
+	internalPacket->reliability = ( MafiaNet::Reliability ) tempChar;
 	readSuccess=bitStream->Read(hasSplitPacket); // Read 1 bit to indicate if splitPacketCount>0
 	bitStream->AlignReadToByteBoundary();
 	unsigned short s; bitStream->ReadAlignedVar16((char*)&s); internalPacket->dataBitLength=s; // Length of message (2 bytes)
@@ -2822,7 +2827,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream(MafiaNet::Bi
 		)
 		bitStream->Read(internalPacket->reliableMessageNumber); // Message sequence number
 	else
-		internalPacket->reliableMessageNumber=(MessageNumberType)(const uint32_t)-1;
+		internalPacket->reliableMessageNumber=(MessageNumberType)(uint32_t)-1;
 	bitStream->AlignReadToByteBoundary(); // Potentially nothing else to Read
 
 	if ( internalPacket->reliability == MafiaNet::Reliability::UnreliableSequenced ||
@@ -3004,7 +3009,7 @@ void ReliabilityLayer::DeleteSequencedPacketsInList( unsigned char orderingChann
 //-------------------------------------------------------------------------------------------------------
 bool ReliabilityLayer::IsOlderOrderedPacket( OrderingIndexType newPacketOrderingIndex, OrderingIndexType waitingForPacketOrderingIndex )
 {
-	OrderingIndexType maxRange = (OrderingIndexType) (const uint32_t)-1;
+	OrderingIndexType maxRange = (OrderingIndexType) (uint32_t)-1;
 
 	if ( waitingForPacketOrderingIndex > maxRange/(OrderingIndexType)2 )
 	{
@@ -3013,16 +3018,17 @@ bool ReliabilityLayer::IsOlderOrderedPacket( OrderingIndexType newPacketOrdering
 			return true;
 		}
 	}
-
 	else
+	{
 		if ( newPacketOrderingIndex >= ( OrderingIndexType ) ( waitingForPacketOrderingIndex - (( OrderingIndexType ) maxRange/(OrderingIndexType)2+(OrderingIndexType)1) ) ||
 			newPacketOrderingIndex < waitingForPacketOrderingIndex )
 		{
 			return true;
 		}
+	}
 
-		// Old packet
-		return false;
+	// Old packet
+	return false;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -3619,8 +3625,10 @@ InternalPacket * ReliabilityLayer::CreateInternalPacketCopy( InternalPacket *ori
 {
 	InternalPacket * copy = AllocateFromInternalPacketPool();
 #ifdef _DEBUG
-	// Remove accessing undefined memory error
-	memset( copy, 255, sizeof( InternalPacket ) );
+	// Remove accessing undefined memory error: deliberately poison every byte so a field this
+	// function forgets to set shows up as 0xFF. The only non-trivial members are uint24_t
+	// wrappers around a uint32_t, so a byte fill is sound; the void* cast says so to the compiler.
+	memset( static_cast<void*>(copy), 255, sizeof( InternalPacket ) );
 #endif
 	// Copy over our chunk of data
 
@@ -4004,7 +4012,7 @@ datagramMessageIDPool.Release(d);
 InternalPacket* ReliabilityLayer::AllocateFromInternalPacketPool(void)
 {
 	InternalPacket *ip = internalPacketPool.Allocate( _FILE_AND_LINE_ );
-	ip->reliableMessageNumber = (MessageNumberType) (const uint32_t)-1;
+	ip->reliableMessageNumber = (MessageNumberType) (uint32_t)-1;
 	ip->messageNumberAssigned=false;
 	ip->nextActionTime = 0;
 	ip->splitPacketCount = 0;
@@ -4255,7 +4263,7 @@ BitSize_t ReliabilityLayer::GetMaxDatagramSizeExcludingMessageHeaderBits(void)
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::InitHeapWeights(void)
 {
-	for (int priorityLevel=0; priorityLevel < MafiaNet::NUMBER_OF_PRIORITIES; priorityLevel++)
+	for (int priorityLevel=0; priorityLevel < static_cast<int>(MafiaNet::NUMBER_OF_PRIORITIES); priorityLevel++)
 		outgoingPacketBufferNextWeights[priorityLevel]=(1<<priorityLevel)*priorityLevel+priorityLevel;
 }
 //-------------------------------------------------------------------------------------------------------

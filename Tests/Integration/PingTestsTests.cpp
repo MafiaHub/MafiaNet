@@ -269,7 +269,6 @@ TEST_F(PingTests, OccasionalPingIsObservableAsPingTraffic)
 	SocketDescriptor receiverSd(0, "127.0.0.1");
 	ASSERT_EQ(receiver->Startup(2, &receiverSd, 1), RAKNET_STARTED);
 	receiver->SetMaximumIncomingConnections(2);
-	const unsigned short receiverPort = receiver->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
 
 	RakPeerInterface *pinging, *quiet;
 	TestHelpers::StandardClientPrep(pinging, destroyList);

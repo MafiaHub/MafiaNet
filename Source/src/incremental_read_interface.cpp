@@ -20,7 +20,7 @@
 
 using namespace MafiaNet;
 
-unsigned int IncrementalReadInterface::GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context)
+unsigned int IncrementalReadInterface::GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext /*context*/)
 {
 	FILE *fp;
 	if (fopen_s(&fp, filename, "rb")!=0)

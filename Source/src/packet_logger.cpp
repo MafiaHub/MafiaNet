@@ -163,8 +163,13 @@ void PacketLogger::FormatLine(char* into, const char* dir, const char* type, uns
 		sprintf_s(str3, "%5u", reliableMessageNumber);
 	}
 
-#pragma warning(push)
-#pragma warning(disable:4996)
+	// This legacy overload is given no size for into, and the line length depends on the
+	// user-set prefix/suffix, so it cannot be bounded here; the caller owns the size
+	// contract. Use the intoLength overload instead.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 	sprintf(into, "%s,%s%s,%s,%s,%5u,%s,%u,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,%i,%i,%i,%i,%s,"
 		, localtime
 		, prefix
@@ -183,7 +188,9 @@ void PacketLogger::FormatLine(char* into, const char* dir, const char* type, uns
 		, orderingIndex
 		, suffix
 	);
-#pragma warning(pop)
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 }
 void PacketLogger::OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {

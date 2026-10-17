@@ -119,7 +119,7 @@ void GetMyIP_Windows(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], co
 #else // _WIN32
 
 // based on https://stackoverflow.com/questions/212528/get-the-ip-address-of-the-machine#265978
-void GetMyIP_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], const bool includeIPv6)
+void GetMyIP_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], [[maybe_unused]] const bool includeIPv6) // unused when RAKNET_SUPPORT_IPV6 is 0
 {
 	struct ifaddrs *pAddresses = nullptr;
 

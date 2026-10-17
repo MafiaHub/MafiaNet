@@ -19,7 +19,7 @@ PacketDropPlugin::~PacketDropPlugin(void)
 {
 }
 
-PluginReceiveResult PacketDropPlugin::OnReceive(Packet *packet)
+PluginReceiveResult PacketDropPlugin::OnReceive(Packet * /*packet*/)
 {
 	if (timer.IsExpired())
 	{

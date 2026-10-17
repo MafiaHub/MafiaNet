@@ -29,21 +29,24 @@ using namespace MafiaNet;
 
 // Verbosity level currently supports 0 (low), 1 (medium), 2 (high)
 // Buffer must be hold enough to hold the output string.  See the source to get an idea of how many bytes will be output
+// This legacy overload is given no buffer size, so the unbounded sprintf/strcat calls below
+// cannot be replaced with bounded ones here; the caller owns the size contract. Use the
+// overload taking bufferLength instead. The deprecation warning is silenced for this
+// function only.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buffer, int verbosityLevel)
 {
 	if (s == 0)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		sprintf(buffer, "stats is a null pointer in statsToString\n");
-#pragma warning(pop)
 		return;
 	}
 
 	if (verbosityLevel == 0)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		sprintf(buffer,
 			"Bytes per second sent     %" PRINTF_64_BIT_MODIFIER "u\n"
 			"Bytes per second received %" PRINTF_64_BIT_MODIFIER "u\n"
@@ -52,12 +55,9 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
 			s->packetlossLastSecond*100.0f
 		);
-#pragma warning(pop)
 	}
 	else if (verbosityLevel == 1)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		sprintf(buffer,
 			"Actual bytes per second sent       %" PRINTF_64_BIT_MODIFIER "u\n"
 			"Actual bytes per second received   %" PRINTF_64_BIT_MODIFIER "u\n"
@@ -78,7 +78,6 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 			s->packetlossTotal*100.0f,
 			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000)
 		);
-#pragma warning(pop)
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
@@ -88,10 +87,7 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 				(long long unsigned int) s->BPSLimitByCongestionControl,
 				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl
 			);
-#pragma warning(push)
-#pragma warning(disable:4996)
 			strcat(buffer, buff2);
-#pragma warning(pop)
 		}
 		if (s->BPSLimitByOutgoingBandwidthLimit != 0)
 		{
@@ -101,16 +97,11 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 				(long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
 				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit
 			);
-#pragma warning(push)
-#pragma warning(disable:4996)
 			strcat(buffer, buff2);
-#pragma warning(pop)
 		}
 	}
 	else
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		sprintf(buffer,
 			"Actual bytes per second sent         %" PRINTF_64_BIT_MODIFIER "u\n"
 			"Actual bytes per second received     %" PRINTF_64_BIT_MODIFIER "u\n"
@@ -155,7 +146,6 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 			s->packetlossTotal*100.0f,
 			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000)
 		);
-#pragma warning(pop)
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
@@ -165,10 +155,7 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 				(long long unsigned int) s->BPSLimitByCongestionControl,
 				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl
 			);
-#pragma warning(push)
-#pragma warning(disable:4996)
 			strcat(buffer, buff2);
-#pragma warning(pop)
 		}
 		if (s->BPSLimitByOutgoingBandwidthLimit != 0)
 		{
@@ -178,13 +165,13 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 				(long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
 				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit
 			);
-#pragma warning(push)
-#pragma warning(disable:4996)
 			strcat(buffer, buff2);
-#pragma warning(pop)
 		}
 	}
 }
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 void RAK_DLL_EXPORT MafiaNet::StatisticsToString( RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel )
 {
 	if ( s == 0 )

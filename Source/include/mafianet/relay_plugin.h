@@ -143,7 +143,7 @@ protected:
 	RelayPlugin::RP_Group* JoinGroup(RP_Group* room, StrAndGuidAndRoom **strAndGuidSender);
 	void LeaveGroup(StrAndGuidAndRoom **strAndGuidSender);
 	void NotifyUsersInRoom(RP_Group *room, int msg, const RakString& message);
-	void SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream* message);
+	void SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream* message, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
 	void SendChatRoomsList(RakNetGUID target);
 	void OnGroupMessageFromClient(Packet *packet);
 	void OnJoinGroupRequestFromClient(Packet *packet);

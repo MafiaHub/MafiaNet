@@ -3980,36 +3980,12 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignSystemAddressToRemoteSystemList( co
 			}
 			else
 			{
-				char str[256];
-				bindingAddress.ToString(true,str,static_cast<size_t>(256));
-				// See if this is an internal IP address.
-				// If so, force binding on it so we reply on the same IP address as they sent to.
-				unsigned int ipListIndex, foundIndex=(unsigned int)-1;
-
-				for (ipListIndex=0; ipListIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS; ipListIndex++)
-				{
-					if (ipList[ipListIndex]==UNASSIGNED_SYSTEM_ADDRESS)
-						break;
-
-					if (bindingAddress.EqualsExcludingPort(ipList[ipListIndex]))
-					{
-						foundIndex=ipListIndex;
-						break;
-					}
-				}
-
-				// 06/26/09 Unconfirmed report that Vista firewall blocks the reply if we force a binding
-				// For now use the incoming socket only
-				// Originally this code was to force a machine with multiple IP addresses to reply back on the IP
-				// that the datagram came in on
-				//if (1 || foundIndex==(unsigned int)-1)
-				//{
-					// Must not be an internal LAN address. Just use whatever socket it came in on
-					remoteSystem->rakNetSocket=incomingRakNetSocket;
-				//}
-				//else
-				//{
-				//}
+				// Originally this searched ipList for the internal address the datagram came in on and
+				// forced the reply onto it, so a multi-homed machine answers from the same IP. That was
+				// disabled upstream (06/26/09, unconfirmed report that the Vista firewall blocks the reply
+				// if we force a binding), which left the search computing an index nobody read. Always
+				// reply on the socket the datagram came in on.
+				remoteSystem->rakNetSocket=incomingRakNetSocket;
 			}
 
 			for ( j = 0; j < (unsigned) PING_TIMES_ARRAY_SIZE; j++ )
@@ -4357,7 +4333,8 @@ void RakPeer::CountRemoteInitiatedPeers(const SystemAddress &address, unsigned i
 			break;
 		case RemoteSystemStruct::EXCHANGING_SESSION_DATA:
 			exchanging++;
-			// fallthrough: a peer in the handshake is pending too
+			// A peer in the handshake is pending too.
+			[[fallthrough]];
 		case RemoteSystemStruct::UNVERIFIED_SENDER:
 		case RemoteSystemStruct::HANDLING_CONNECTION_REQUEST:
 			pending++;
@@ -4963,7 +4940,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 	else if (
 		((unsigned char)data[0] == ID_UNCONNECTED_PING ||
 		(unsigned char)data[0] == ID_UNCONNECTED_PING_OPEN_CONNECTIONS) &&
-		length >= sizeof(unsigned char) + sizeof(MafiaNet::Time) + sizeof(OFFLINE_MESSAGE_DATA_ID))
+		(size_t) length >= sizeof(unsigned char) + sizeof(MafiaNet::Time) + sizeof(OFFLINE_MESSAGE_DATA_ID))
 	{
 		*isOfflineMessage=memcmp(data+sizeof(unsigned char) + sizeof(MafiaNet::Time), OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID))==0;
 	}
@@ -5009,7 +4986,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 
 		// These are all messages from unconnected systems.  Messages here can be any size, but are never processed from connected systems.
 		if ( ( (unsigned char) data[ 0 ] == ID_UNCONNECTED_PING_OPEN_CONNECTIONS
-			|| (unsigned char)(data)[0] == ID_UNCONNECTED_PING)	&& length >= sizeof(unsigned char)+sizeof(MafiaNet::Time)+sizeof(OFFLINE_MESSAGE_DATA_ID) )
+			|| (unsigned char)(data)[0] == ID_UNCONNECTED_PING)	&& (size_t) length >= sizeof(unsigned char)+sizeof(MafiaNet::Time)+sizeof(OFFLINE_MESSAGE_DATA_ID) )
 		{
 			if ( (unsigned char)(data)[0] == ID_UNCONNECTED_PING ||
 				rakPeer->AllowIncomingConnections() ) // Open connections with players
@@ -5254,7 +5231,7 @@ bool ProcessOfflineNetworkPacket( SystemAddress systemAddress, const char *data,
 			RakNetGUID guid;
 			bs.Read(guid);
 			SystemAddress bindingAddress;
-			bool b = bs.Read(bindingAddress);
+			[[maybe_unused]] bool b = bs.Read(bindingAddress); // only checked by RakAssert (debug builds)
 			RakAssert(b);
 			uint16_t mtu;
 			b=bs.Read(mtu);

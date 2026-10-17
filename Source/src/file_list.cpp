@@ -155,8 +155,10 @@ void FileList::AddFile(const char *filepath, const char *filename, FileListNodeC
 		RakAssert(data);
 	}
 
-	fread(data, 1, length, fp);
-	AddFile(filename, filepath, data, length, length, context);
+	// A short read means the file shrank or failed under us; skip it like an unopenable one.
+	const bool readOk = fread(data, 1, length, fp) == (size_t) length;
+	if (readOk)
+		AddFile(filename, filepath, data, length, length, context);
 	fclose(fp);
 
 #if USE_ALLOCA==1
@@ -313,20 +315,23 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 					{
 						fileData= (char*) rakMalloc_Ex( fileInfo.size+HASH_LENGTH, _FILE_AND_LINE_ );
 						RakAssert(fileData);
-						fread(fileData+HASH_LENGTH, fileInfo.size, 1, fp);
+						const bool readOk = fileInfo.size == 0 || fread(fileData+HASH_LENGTH, fileInfo.size, 1, fp) == 1;
 						fclose(fp);
 
-						unsigned int hash = SuperFastHash(fileData+HASH_LENGTH, fileInfo.size);
-						if (MafiaNet::BitStream::DoEndianSwap())
-							MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
-						memcpy(fileData, &hash, HASH_LENGTH);
+						if (readOk)
+						{
+							unsigned int hash = SuperFastHash(fileData+HASH_LENGTH, fileInfo.size);
+							if (MafiaNet::BitStream::DoEndianSwap())
+								MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+							memcpy(fileData, &hash, HASH_LENGTH);
 
-						//					sha1.Reset();
-						//					sha1.Update( ( unsigned char* ) fileData+HASH_LENGTH, fileInfo.size );
-						//					sha1.Final();
-						//					memcpy(fileData, sha1.GetHash(), HASH_LENGTH);
-						// File data and hash
-						AddFile((const char*)fullPath+rootLen, fullPath, fileData, fileInfo.size+HASH_LENGTH, fileInfo.size, context);
+							//					sha1.Reset();
+							//					sha1.Update( ( unsigned char* ) fileData+HASH_LENGTH, fileInfo.size );
+							//					sha1.Final();
+							//					memcpy(fileData, sha1.GetHash(), HASH_LENGTH);
+							// File data and hash
+							AddFile((const char*)fullPath+rootLen, fullPath, fileData, fileInfo.size+HASH_LENGTH, fileInfo.size, context);
+						}
 					}					
 				}
 				else if (writeHash)
@@ -347,12 +352,17 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 				{
 					fileData= (char*) rakMalloc_Ex( fileInfo.size, _FILE_AND_LINE_ );
 					RakAssert(fileData);
-					fopen_s(&fp, fullPath, "rb");
-					fread(fileData, fileInfo.size, 1, fp);
-					fclose(fp);
+					// Skip a file that cannot be opened or read in full, as the hash+data branch
+					// above does; fileData is freed below either way.
+					if (fopen_s(&fp, fullPath, "rb") == 0)
+					{
+						const bool readOk = fileInfo.size == 0 || fread(fileData, fileInfo.size, 1, fp) == 1;
+						fclose(fp);
 
-					// File data only
-					AddFile(fullPath+rootLen, fullPath, fileData, fileInfo.size, fileInfo.size, context);
+						// File data only
+						if (readOk)
+							AddFile(fullPath+rootLen, fullPath, fileData, fileInfo.size, fileInfo.size, context);
+					}
 				}
 				else
 				{
@@ -621,6 +631,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 		{
 			if (writeFileHash || writeFileData)
 			{
+				bool readOk = true;
 				fseek(fp, 0, SEEK_END);
 				fileList[i].fileLengthBytes = ftell(fp);
 				fseek(fp, 0, SEEK_SET);
@@ -631,7 +642,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 						// Hash + data so offset the data by HASH_LENGTH
 						fileList[i].data=(char*) rakMalloc_Ex( fileList[i].fileLengthBytes+HASH_LENGTH, _FILE_AND_LINE_ );
 						RakAssert(fileList[i].data);
-						fread(fileList[i].data+HASH_LENGTH, fileList[i].fileLengthBytes, 1, fp);
+						readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data+HASH_LENGTH, fileList[i].fileLengthBytes, 1, fp) == 1;
 //						sha1.Reset();
 //						sha1.Update((unsigned char*)fileList[i].data+HASH_LENGTH, fileList[i].fileLength);
 //						sha1.Final();
@@ -650,7 +661,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 						else
 							fileList[i].data=(char*) rakMalloc_Ex( fileList[i].fileLengthBytes, _FILE_AND_LINE_ );
 						RakAssert(fileList[i].data);
-						fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp);
+						readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp) == 1;
 				//		sha1.Reset();
 				//		sha1.Update((unsigned char*)fileList[i].data, fileList[i].fileLength);
 				//		sha1.Final();
@@ -667,17 +678,28 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 					fileList[i].dataLengthBytes=fileList[i].fileLengthBytes;
 					fileList[i].data=(char*) rakMalloc_Ex( fileList[i].fileLengthBytes, _FILE_AND_LINE_ );
 					RakAssert(fileList[i].data);
-					fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp);
+					readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp) == 1;
 				}
 
-				fclose(fp);
-				i++;
+				if (!readOk)
+				{
+					// Short read: drop the partial contents rather than keep uninitialized bytes
+					// (and a hash computed over them).
+					rakFree_Ex(fileList[i].data, _FILE_AND_LINE_ );
+					fileList[i].data=0;
+					fileList[i].dataLengthBytes=0;
+				}
 			}
 			else
 			{
 				fileList[i].data=0;
 				fileList[i].dataLengthBytes=0;
 			}
+
+			// Both branches are done with this entry. The no-data/no-hash branch used to skip
+			// these, leaking fp and re-processing entry i forever.
+			fclose(fp);
+			i++;
 		}
 		else
 		{
@@ -795,10 +817,7 @@ bool FileList::FixEndingSlash(char *str)
 #ifdef _WIN32
 	if (str[strlen(str) - 1] != '/' && str[strlen(str) - 1] != '\\')
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcat(str, "\\"); // Only \ works with system commands, used by AutopatcherClient
-#pragma warning(pop)
 		return true;
 	}
 #else
