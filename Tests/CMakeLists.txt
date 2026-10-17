@@ -90,3 +90,8 @@ gtest_discover_tests(IntegrationTests
     PROPERTIES LABELS integration RUN_SERIAL TRUE TIMEOUT 600
     DISCOVERY_TIMEOUT 60
 )
+
+# -----------------------------------------------------------------------------
+# Fuzz harnesses: corpus replay (always) and libFuzzer targets (opt-in)
+# -----------------------------------------------------------------------------
+add_subdirectory(Fuzz)

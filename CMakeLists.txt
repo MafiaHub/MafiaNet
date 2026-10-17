@@ -31,6 +31,12 @@ option(MAFIANET_BUILD_SHARED "Build shared library" ON)
 option(MAFIANET_BUILD_STATIC "Build static library" ON)
 option(MAFIANET_BUILD_SAMPLES "Build sample applications" OFF)
 option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
+# libFuzzer harnesses (Clang only). Their corpus is replayed by the test suite
+# on every compiler regardless; see Tests/Fuzz/.
+option(MAFIANET_BUILD_FUZZERS "Build libFuzzer harnesses (Clang)" OFF)
+option(MAFIANET_BUILD_BENCHMARKS "Build the google/benchmark microbenchmarks" OFF)
+# Line coverage (GCC/Clang --coverage), reported with gcovr; see the coverage preset.
+option(MAFIANET_COVERAGE "Instrument the build for line coverage" OFF)
 # Non-networking utilities (EmailSender, HTTPConnection/HTTPConnection2,
 # TelnetTransport, RakNetTransport2, ConsoleServer, LogCommandParser,
 # RakNetCommandParser, PacketConsoleLogger) live in the separate MafiaNetExtras
@@ -93,6 +99,14 @@ if(MAFIANET_SANITIZER)
     add_link_options(-fsanitize=${_mafianet_san})
 endif()
 
+if(MAFIANET_COVERAGE)
+    if(MSVC)
+        message(FATAL_ERROR "MAFIANET_COVERAGE is not supported with MSVC")
+    endif()
+    add_compile_options(--coverage -O0)
+    add_link_options(--coverage)
+endif()
+
 # Dependencies
 find_package(OpenSSL 3.0.0 REQUIRED)
 find_package(Threads REQUIRED)
@@ -144,4 +158,18 @@ if(MAFIANET_BUILD_TESTS)
         message(FATAL_ERROR "MAFIANET_BUILD_TESTS requires MAFIANET_BUILD_STATIC")
     endif()
     add_subdirectory(Tests)
+endif()
+
+if(MAFIANET_BUILD_BENCHMARKS)
+    if(NOT MAFIANET_BUILD_STATIC)
+        message(FATAL_ERROR "MAFIANET_BUILD_BENCHMARKS requires MAFIANET_BUILD_STATIC")
+    endif()
+    add_subdirectory(Benchmarks)
+endif()
+
+if(MAFIANET_BUILD_FUZZERS AND NOT MAFIANET_BUILD_TESTS)
+    if(NOT MAFIANET_BUILD_STATIC)
+        message(FATAL_ERROR "MAFIANET_BUILD_FUZZERS requires MAFIANET_BUILD_STATIC")
+    endif()
+    add_subdirectory(Tests/Fuzz)
 endif()
