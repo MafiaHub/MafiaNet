@@ -67,12 +67,30 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_MINIMAL` | OFF | Compile out every optional plugin (core transport only); built by the `linux-minimal` CI job |
 | `MAFIANET_SANITIZER` | (empty) | `address+undefined` or `thread`; applied to every target. Prefer the `asan` / `tsan` presets |
 | `MAFIANET_USE_COMPILER_CACHE` | ON | Use sccache/ccache as compiler launcher when found on `PATH` |
+| `MAFIANET_WARNINGS_AS_ERRORS` | OFF | `-Werror` / `/WX` on MafiaNet's own targets (on in the Linux/macOS CI jobs) |
+| `MAFIANET_BUILD_FUZZERS` | OFF | libFuzzer harnesses in `Tests/Fuzz` (Clang); use the `fuzz` preset |
+| `MAFIANET_BUILD_BENCHMARKS` | OFF | google/benchmark microbenchmarks in `Benchmarks/`; use the `bench` preset |
+| `MAFIANET_COVERAGE` | OFF | `--coverage` instrumentation; use the `coverage` preset, report with gcovr |
 
-Presets (`CMakePresets.json`, CMake 3.25+): `debug`, `release`, `ci`, `minimal`, `asan`, `tsan`.
+Presets (`CMakePresets.json`, CMake 3.25+): `debug`, `release`, `ci`, `minimal`, `asan`, `tsan`,
+`fuzz`, `bench`, `coverage`.
 `cmake --workflow --preset <debug|asan|tsan>` configures, builds and tests in one go; run
 sanitizer tests through `ctest --preset asan|tsan` so the sanitizer options and
 `ci/tsan.supp` are applied. Known by-design TSan races live in `ci/tsan.supp`; add an entry only
 for a race that is part of RakNet's lock-free getter model, never to silence a new bug.
+
+**Warnings:** MafiaNet's own code builds with zero `-Wall -Wextra` warnings on Clang and GCC, and
+CI enforces it (`MAFIANET_WARNINGS_AS_ERRORS`). Fix a new warning properly; suppress only with a
+narrow, commented `[[maybe_unused]]` or pragma, never by loosening the flags. Warnings are applied
+per target by `mafianet_enable_warnings()` (`cmake/MafiaNetHelpers.cmake`), never globally, so
+fetched dependencies are not affected; call it for any new target.
+
+**Fuzzing:** `Tests/Fuzz/<name>_fuzz.cpp` harnesses cover code that parses what remote peers send
+(`bit_stream`, `reliability_layer`, `peer_datagram` — a whole server on the simulated network).
+Each is also built as `<name>_replay`, which replays `Tests/Fuzz/corpus/<name>/` as the unit test
+`FuzzCorpus.<name>` on every compiler. When a fuzzer finds a crash, fix it and add the minimized
+reproducer to that corpus directory. Code that parses network input must not `RakAssert` on
+malformed data: a Debug build would then abort on whatever a peer sends — reject and drop instead.
 
 When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, update
 `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake
@@ -133,7 +151,8 @@ Keep its message counts above `MMSG_BATCH_MAX` or that coverage silently disappe
 All tests are GoogleTest, built with `MAFIANET_BUILD_TESTS=ON` (requires `MAFIANET_BUILD_STATIC=ON`) and driven by CTest. Two binaries under `Tests/`:
 
 - **`UnitTests`** (`Tests/Unit/`, label `unit`): hermetic and deterministic — no loopback networking, no wall-clock timing. A started-but-unconnected peer with synchronous assertions is acceptable. New tests for pure logic go here.
-- **`IntegrationTests`** (`Tests/Integration/`, label `integration`): real UDP over loopback. Discovered tests get `RUN_SERIAL` (several bind fixed ports) and a 600s timeout. Shared polling/connect helpers live in `Tests/Support/`.
+- **`IntegrationTests`** (`Tests/Integration/`, label `integration`): real UDP over loopback, real threads. Every test binds OS-assigned ports, so the suite runs in parallel (`ctest -j`); 600s per-test timeout. Shared polling/connect helpers live in `Tests/Support/`.
+- **`FuzzCorpus.*`** (label `unit`): replays the fuzz corpus through each harness (see Fuzzing above).
 
 Under ctest, every `TEST()` runs in its own process — never write tests that depend on state from a previous `TEST()`. Long sequential networking scenarios belong in a single `TEST_F`.
 
@@ -153,7 +172,9 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 
 **Every change to library code in `Source/` needs tests, written in the new paradigm.** Do not create new test harnesses, `main()` functions, standalone test executables, or sample apps that act as tests — add GoogleTest cases to the existing suites. New `.cpp` files under `Tests/Unit/` and `Tests/Integration/` are picked up automatically by the build (glob); no CMake edits are needed unless you add a new directory.
 
-**Default to Unit; escalate to Integration only when the behavior under test genuinely requires traffic.** Ask: can this be tested by calling the API synchronously? Serialization, containers, builders, dispatch tables, ID assignment, string/GUID utilities, replica-visibility queries — all Unit. Only reliability, connection lifecycle, and anything that must cross the network thread belongs in Integration.
+**Default to Unit; escalate to Integration only when the behavior under test genuinely requires real sockets or threads.** Ask: can this be tested by calling the API synchronously? Serialization, containers, builders, dispatch tables, ID assignment, string/GUID utilities, replica-visibility queries — all Unit.
+
+**Peer-level behavior goes in Unit too, on the simulated network.** `Tests/Support/SimulatedNetwork.h` runs whole `RakPeer`s with no sockets, no threads and a virtual clock: connect handshakes, reliability under loss/jitter/reordering, MTU discovery, timeouts, disconnects, plugins. `net.AddPeer(...)`, `net.Connect(client, server)`, `net.SetLinkBothWays(a, b, rule)`, then `net.RunUntilReceived(peer, ID_..., maxSimMs)` — deterministic, milliseconds, no flakes (see `SimulatedPeerTests.cpp`). Integration is for what the simulation cannot show: the OS socket layer (batched recvmmsg/sendmmsg, socket errors, binding), the threaded update loop, and wall-clock behavior.
 
 **Unit tests** (`Tests/Unit/<Feature>Tests.cpp`):
 - Hermetic and deterministic: no `Connect()`, no `RakSleep`-with-deadline polling, no dependence on wall-clock time or packet arrival. A started-but-unconnected peer with purely synchronous assertions is acceptable (see `GuidUtilTests.cpp`, `VirtualWorldTests.cpp`).
@@ -162,7 +183,7 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 
 **Integration tests** (`Tests/Integration/<Feature>Tests.cpp`):
 - One `TEST_F` per sequential scenario. Never split phases that share connection state into separate `TEST`s — each `TEST` runs in its own process under ctest.
-- Ports: use OS-assigned ephemeral ports (`SocketDescriptor(0, "127.0.0.1")`, then `peer->GetInternalID().GetPort()`), never a new fixed port. (Some ported legacy tests still bind fixed ports; that is why the suite is `RUN_SERIAL` — do not add to the problem.)
+- Ports: only OS-assigned ephemeral ports — `TestHelpers::StartOnLoopback(peer, maxConnections, maxIncoming)` returns the port, `TestHelpers::BoundPort(peer)` reads it — never a fixed port. The suite runs in parallel, so a fixed port (or a fixed temp directory) makes tests collide. Check every `Startup()` result.
 - Waiting: always poll for a condition with a deadline (`while (GetTimeMS() - start < N && !condition) { pump; RakSleep(30); }`), never assert immediately after a state change — packets surface asynchronously from each peer's network thread, and both sides of a handshake must be pumped until *each* has observed the event.
 - Never use a bare `RakSleep(N)` as a synchronization primitive; sleep only as the polling interval inside a deadline loop.
 - Cleanup must survive a failed `ASSERT_`: destroy peers in fixture `TearDown()` (`Shutdown(100)` then `DestroyInstance` for every peer created) or use RAII `Peer`/`PacketPtr` handles from `mafianet/peer_handle.h`. Never rely on code after the assertions to clean up.

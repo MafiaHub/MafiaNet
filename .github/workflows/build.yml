@@ -118,6 +118,7 @@ jobs:
         run: |
           ctest --test-dir build -L unit \
             --output-on-failure \
+            --parallel 4 \
             --timeout 600 \
             --output-junit junit-unit.xml
 
@@ -125,6 +126,7 @@ jobs:
         run: |
           ctest --test-dir build -L integration \
             --output-on-failure \
+            --parallel 4 \
             --repeat until-pass:3 \
             --timeout 600 \
             --output-junit junit-integration.xml
@@ -230,6 +232,7 @@ jobs:
       - name: Run integration tests
         run: |
           ctest --preset ${{ matrix.preset }} -L integration \
+            --parallel 2 \
             --repeat until-pass:3 \
             --output-log build/${{ matrix.preset }}/integration.log \
             --output-junit junit-integration.xml
@@ -366,7 +369,7 @@ jobs:
       - name: Run tests
         run: |
           ctest --preset coverage -L unit --parallel 4
-          ctest --preset coverage -L integration --repeat until-pass:3
+          ctest --preset coverage -L integration --parallel 4 --repeat until-pass:3
 
       - name: Report
         if: always()
@@ -416,6 +419,7 @@ jobs:
         run: |
           ctest --test-dir build \
             --output-on-failure \
+            --parallel 4 \
             --repeat until-pass:3 \
             --timeout 600 \
             --output-junit junit.xml
@@ -428,9 +432,8 @@ jobs:
           path: build/junit.xml
           if-no-files-found: ignore
 
-  # Windows: Build everything, run the hermetic unit suite. The legacy
-  # integration suite (loopback networking) is not yet validated on Windows
-  # runners, so it stays build-only for now.
+  # Windows: build everything, run both suites. The integration suite became
+  # runnable here once every test moved to OS-assigned ports.
   windows:
     runs-on: windows-latest
     steps:
@@ -449,13 +452,23 @@ jobs:
         run: |
           ctest --test-dir build -C Release -L unit `
             --output-on-failure `
+            --parallel 4 `
             --timeout 600 `
             --output-junit junit.xml
+
+      - name: Run integration tests
+        run: |
+          ctest --test-dir build -C Release -L integration `
+            --output-on-failure `
+            --parallel 4 `
+            --repeat until-pass:3 `
+            --timeout 600 `
+            --output-junit junit-integration.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-windows
-          path: build/junit.xml
+          path: build/junit*.xml
           if-no-files-found: ignore

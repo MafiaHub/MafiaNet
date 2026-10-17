@@ -28,4 +28,4 @@ RUN cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON \
 # per-test timeout and bounded retries for transient timing misses on loaded
 # runners. JUnit XML is written to /results (mount it to collect the report).
 RUN mkdir -p /results
-CMD ["ctest", "--test-dir", "build", "--output-on-failure", "--repeat", "until-pass:3", "--timeout", "600", "--output-junit", "/results/junit.xml"]
+CMD ["ctest", "--test-dir", "build", "--output-on-failure", "--parallel", "4", "--repeat", "until-pass:3", "--timeout", "600", "--output-junit", "/results/junit.xml"]
