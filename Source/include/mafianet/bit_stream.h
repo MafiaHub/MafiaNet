@@ -1475,10 +1475,11 @@ namespace MafiaNet
 	template <class templateType>
 		inline bool BitStream::ReadDelta(templateType &outTemplateVar)
 	{
-		bool dataWritten;
+		// dataWritten is unset when the read fails at the end of the stream.
+		bool dataWritten=false;
 		bool success;
 		success=Read(dataWritten);
-		if (dataWritten)
+		if (success && dataWritten)
 			success=Read(outTemplateVar);
 		return success;
 	}
@@ -1616,10 +1617,11 @@ namespace MafiaNet
 	template <class templateType>
 		inline bool BitStream::ReadCompressedDelta(templateType &outTemplateVar)
 	{
-		bool dataWritten;
+		// dataWritten is unset when the read fails at the end of the stream.
+		bool dataWritten=false;
 		bool success;
 		success=Read(dataWritten);
-		if (dataWritten)
+		if (success && dataWritten)
 			success=ReadCompressed(outTemplateVar);
 		return success;
 	}
