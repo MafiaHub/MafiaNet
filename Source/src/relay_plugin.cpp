@@ -336,7 +336,7 @@ void RelayPlugin::NotifyUsersInRoom(RP_Group *room, int msg, const RakString& me
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, room->usersInRoom[i].guid, false);
 	}
 }
-void RelayPlugin::SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream* message)
+void RelayPlugin::SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream* message, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel)
 {
 	if ((*strAndGuidSender)->currentRoom.IsEmpty())
 		return;
@@ -357,7 +357,7 @@ void RelayPlugin::SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStr
 			for (unsigned int j=0; j < room->usersInRoom.Size(); j++)
 			{
 				if (room->usersInRoom[j].guid!=(*strAndGuidSender)->guid)
-					SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, room->usersInRoom[j].guid, false);
+					SendUnified(&bsOut, priority, reliability, orderingChannel, room->usersInRoom[j].guid, false);
 			}
 
 			break;
@@ -397,7 +397,10 @@ void RelayPlugin::OnGroupMessageFromClient(Packet *packet)
 	StrAndGuidAndRoom **strAndGuidSender = guidToStrHash.Peek(packet->guid);
 	if (strAndGuidSender)
 	{
-		SendMessageToRoom(strAndGuidSender,&bsData);
+		// Relay with the priority, reliability and channel the sender asked for in
+		// SendGroupMessage(), as RPE_MESSAGE_TO_SERVER_FROM_CLIENT already does. These were
+		// read and then dropped, so every group message went out High/ReliableOrdered/0.
+		SendMessageToRoom(strAndGuidSender,&bsData,priority,reliability,orderingChannel);
 	}
 }
 void RelayPlugin::OnJoinGroupRequestFromClient(Packet *packet)

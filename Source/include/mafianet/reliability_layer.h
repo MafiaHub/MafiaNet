@@ -44,6 +44,7 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/rand.h"
 #include "mafianet/socket2.h"
+#include <map>
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
 #include "mafianet/cc_udt.h"
@@ -67,37 +68,34 @@ class RNS2SendBatch; // mmsg_batch.h
 typedef uint64_t reliabilityHeapWeightType;
 
 // #med - consider a more suitable name for the class / maybe even make an internal class to SplitPacketChannel?
+// The fragments of one split message, keyed by fragment index.
+//
+// Every field here comes from the remote. Storage grows with the fragments that
+// actually arrive, never with the count a fragment claims, so a peer cannot make
+// us allocate more than it sends. Add() rejects any fragment that disagrees with
+// the first one about the fragment count, and any non-final fragment that is not
+// a whole number of bytes: reassembly copies fragments at byte offsets.
 class SplitPacketSort
 {
-	// member variables
 private:
-	InternalPacket **m_data;
-	size_t m_allocationSize;
-	unsigned int m_addedPacketsCount;
+	std::map<SplitPacketIndexType, InternalPacket *> m_fragments;
+	SplitPacketIndexType m_count;
 	SplitPacketIdType m_packetId;
 
-	// construction/destruction
 public:
 	SplitPacketSort();
-	~SplitPacketSort();
 
-	// initialization
-public:
-	void Preallocate(InternalPacket *internalPacket, const char *file, unsigned int line);
+	// Records the message's id and fragment count from its first fragment.
+	void Init(const InternalPacket *firstFragment);
 
-	// accessors
-public:
 	bool AllPacketsAdded() const;
-	size_t GetAllocSize() const;
 	unsigned int GetNumAddedPackets() const;
 	SplitPacketIdType GetPacketId() const;
 
-	// operators
-public:
-	InternalPacket*& operator[](size_t index);
+	// In index order. Once AllPacketsAdded(), indices are exactly 0..count-1.
+	const std::map<SplitPacketIndexType, InternalPacket *> &Fragments() const;
 
-	// container operations
-public:
+	// false (packet not taken) for a duplicate or an inconsistent fragment.
 	bool Add(InternalPacket *internalPacket);
 };
 

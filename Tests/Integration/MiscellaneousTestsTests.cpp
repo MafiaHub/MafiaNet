@@ -57,10 +57,12 @@ TEST_F(MiscellaneousTests, AdvertiseSystem)
 
 	TestHelpers::StandardClientPrep(client, destroyList);
 	TestHelpers::StandardServerPrep(server, destroyList);
+	const unsigned short serverPort = TestHelpers::BoundPort(server);
+	ASSERT_NE(serverPort, 0) << "Server failed to start";
 
 	printf("Testing AdvertiseSystem\n");
 
-	client->AdvertiseSystem("127.0.0.1", 60000, 0, 0);
+	client->AdvertiseSystem("127.0.0.1", serverPort, 0, 0);
 
 	ASSERT_TRUE(CommonFunctions::WaitForMessageWithID(server, ID_ADVERTISE_SYSTEM, 5000)) << "Did not recieve client advertise";
 }

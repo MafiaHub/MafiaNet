@@ -23,7 +23,9 @@ env:
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
-  # Linux: Build and test in Docker container (full network access).
+  # Linux in Docker on Ubuntu 22.04 (GCC 11, CMake 3.22): the oldest toolchain
+  # we support, kept on purpose next to linux-native (ubuntu-latest), so a
+  # change that needs a newer compiler or CMake fails here first.
   # Tests run through CTest inside the container: one process per test,
   # per-test timeout, and bounded retries for transient timing misses.
   linux:
@@ -99,6 +101,7 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DMAFIANET_BUILD_TESTS=ON \
@@ -115,6 +118,7 @@ jobs:
         run: |
           ctest --test-dir build -L unit \
             --output-on-failure \
+            --parallel 4 \
             --timeout 600 \
             --output-junit junit-unit.xml
 
@@ -122,6 +126,7 @@ jobs:
         run: |
           ctest --test-dir build -L integration \
             --output-on-failure \
+            --parallel 4 \
             --repeat until-pass:3 \
             --timeout 600 \
             --output-junit junit-integration.xml
@@ -157,6 +162,7 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DMAFIANET_MINIMAL=ON
@@ -205,6 +211,7 @@ jobs:
       - name: Configure CMake
         run: |
           cmake --preset ${{ matrix.preset }} -G Ninja \
+            -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
@@ -225,6 +232,7 @@ jobs:
       - name: Run integration tests
         run: |
           ctest --preset ${{ matrix.preset }} -L integration \
+            --parallel 2 \
             --repeat until-pass:3 \
             --output-log build/${{ matrix.preset }}/integration.log \
             --output-junit junit-integration.xml
@@ -249,6 +257,137 @@ jobs:
             build/${{ matrix.preset }}/integration.log
           if-no-files-found: ignore
 
+  # Fuzzing smoke run: each libFuzzer harness (Tests/Fuzz) for one minute from
+  # the checked-in corpus, under ASan + UBSan. The nightly fuzz.yml runs longer
+  # and keeps a growing corpus; this catches what a PR breaks right away. A
+  # crash uploads the reproducer: minimize it and add it to
+  # Tests/Fuzz/corpus/<harness>/ with the fix, so every build replays it.
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Build harnesses
+        run: |
+          cmake --preset fuzz -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build --preset fuzz
+
+      - name: Fuzz each harness for 60 seconds
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          mkdir -p fuzz-artifacts
+          status=0
+          for harness in build/fuzz/Tests/Fuzz/*_fuzz; do
+            name=$(basename "$harness" _fuzz)
+            work=$(mktemp -d)
+            cp Tests/Fuzz/corpus/"$name"/* "$work"/
+            echo "::group::$name"
+            "$harness" "$work" -max_total_time=60 -print_final_stats=1 \
+              -artifact_prefix=fuzz-artifacts/"$name"- || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: Upload crash reproducers
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: fuzz-artifacts/
+
+  # Benchmarks smoke run: proves they build and run. Shared runners are too
+  # noisy to gate on numbers; compare locally with the bench preset instead.
+  benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Build
+        run: |
+          cmake --preset bench -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build --preset bench
+
+      - name: Run
+        run: |
+          ./build/bench/Benchmarks/MafiaNetBenchmarks \
+            --benchmark_min_time=0.05s \
+            --benchmark_out=benchmarks.json --benchmark_out_format=json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: benchmarks.json
+
+  # Line coverage of Source/ by both suites, written to the job summary with
+  # an HTML report as an artifact. Informational: nothing gates on it.
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+          pipx install gcovr==8.6
+
+      - name: Build
+        run: |
+          cmake --preset coverage -G Ninja
+          cmake --build --preset coverage
+
+      - name: Run tests
+        run: |
+          ctest --preset coverage -L unit --parallel 4
+          ctest --preset coverage -L integration --parallel 4 --repeat until-pass:3
+
+      - name: Report
+        if: always()
+        run: |
+          mkdir -p coverage-html
+          gcovr --root . --filter 'Source/' build/coverage \
+            --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+            --html-details coverage-html/index.html \
+            --markdown-summary coverage-summary.md --print-summary
+          cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage-html/
+
   # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest
@@ -267,7 +406,8 @@ jobs:
       - name: Configure CMake
         run: |
           cmake -B build \
-            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DMAFIANET_BUILD_SAMPLES=ON \
@@ -280,6 +420,7 @@ jobs:
         run: |
           ctest --test-dir build \
             --output-on-failure \
+            --parallel 4 \
             --repeat until-pass:3 \
             --timeout 600 \
             --output-junit junit.xml
@@ -292,9 +433,8 @@ jobs:
           path: build/junit.xml
           if-no-files-found: ignore
 
-  # Windows: Build everything, run the hermetic unit suite. The legacy
-  # integration suite (loopback networking) is not yet validated on Windows
-  # runners, so it stays build-only for now.
+  # Windows: build everything, run both suites. The integration suite became
+  # runnable here once every test moved to OS-assigned ports.
   windows:
     runs-on: windows-latest
     steps:
@@ -313,13 +453,23 @@ jobs:
         run: |
           ctest --test-dir build -C Release -L unit `
             --output-on-failure `
+            --parallel 4 `
             --timeout 600 `
             --output-junit junit.xml
+
+      - name: Run integration tests
+        run: |
+          ctest --test-dir build -C Release -L integration `
+            --output-on-failure `
+            --parallel 4 `
+            --repeat until-pass:3 `
+            --timeout 600 `
+            --output-junit junit-integration.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-windows
-          path: build/junit.xml
+          path: build/junit*.xml
           if-no-files-found: ignore

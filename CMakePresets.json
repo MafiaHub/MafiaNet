@@ -81,6 +81,49 @@
             "cacheVariables": {
                 "MAFIANET_SANITIZER": "thread"
             }
+        },
+        {
+            "name": "coverage",
+            "inherits": "base",
+            "displayName": "Line coverage (GCC/Clang)",
+            "description": "Run the tests, then: gcovr --root . --filter Source/ build/coverage",
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "MAFIANET_BUILD_TESTS": "ON",
+                "MAFIANET_COVERAGE": "ON"
+            }
+        },
+        {
+            "name": "bench",
+            "inherits": "base",
+            "displayName": "Benchmarks (Release)",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "MAFIANET_BUILD_BENCHMARKS": "ON"
+            }
+        },
+        {
+            "name": "fuzz",
+            "inherits": "base",
+            "displayName": "libFuzzer harnesses (Clang, ASan + UBSan)",
+            "description": "fuzzer-no-link instruments the library for coverage; the harnesses link libFuzzer itself.",
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "MAFIANET_BUILD_FUZZERS": "ON",
+                "MAFIANET_SANITIZER": "address+undefined+fuzzer-no-link"
+            }
         }
     ],
     "buildPresets": [
@@ -89,7 +132,10 @@
         { "name": "ci", "configurePreset": "ci" },
         { "name": "minimal", "configurePreset": "minimal" },
         { "name": "asan", "configurePreset": "asan" },
-        { "name": "tsan", "configurePreset": "tsan" }
+        { "name": "tsan", "configurePreset": "tsan" },
+        { "name": "fuzz", "configurePreset": "fuzz" },
+        { "name": "coverage", "configurePreset": "coverage" },
+        { "name": "bench", "configurePreset": "bench", "targets": ["MafiaNetBenchmarks"] }
     ],
     "testPresets": [
         {
@@ -122,6 +168,11 @@
             "inherits": "test-base",
             "configurePreset": "ci",
             "configuration": "Release"
+        },
+        {
+            "name": "coverage",
+            "inherits": "test-base",
+            "configurePreset": "coverage"
         },
         {
             "name": "asan",
@@ -158,6 +209,14 @@
                 { "type": "configure", "name": "asan" },
                 { "type": "build", "name": "asan" },
                 { "type": "test", "name": "asan" }
+            ]
+        },
+        {
+            "name": "fuzz",
+            "displayName": "Configure and build the libFuzzer harnesses",
+            "steps": [
+                { "type": "configure", "name": "fuzz" },
+                { "type": "build", "name": "fuzz" }
             ]
         },
         {

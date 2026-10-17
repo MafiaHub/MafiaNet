@@ -428,6 +428,8 @@ function(mafianet_configure_target target_name)
     source_group("Source Files\\crypto" FILES ${MAFIANET_CRYPTO_SOURCES})
     source_group("Header Files" FILES ${MAFIANET_HEADERS})
     source_group("Header Files\\crypto" FILES ${MAFIANET_CRYPTO_HEADERS})
+
+    mafianet_enable_warnings(${target_name})
 endfunction()
 
 # Static library
@@ -490,6 +492,7 @@ if(MAFIANET_BUILD_EXTRAS)
             $<$<CONFIG:Release>:NDEBUG>
     )
     set_target_properties(MafiaNetExtras PROPERTIES FOLDER "Libraries")
+    mafianet_enable_warnings(MafiaNetExtras)
     source_group("Source Files" FILES ${MAFIANET_EXTRAS_SOURCES})
 endif()
 

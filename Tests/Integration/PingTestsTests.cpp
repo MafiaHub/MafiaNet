@@ -159,8 +159,8 @@ TEST_F(PingTests, PingStatisticsAndOccasionalPing)
 
 	receiver = RakPeerInterface::GetInstance();
 	destroyList.Push(receiver, _FILE_AND_LINE_);
-	SocketDescriptor receiverSd(0, "127.0.0.1"); // OS-assigned, per CLAUDE.md -- 60000 was fixed
-	receiver->Startup(2, &receiverSd, 1);
+	SocketDescriptor receiverSd(0, "127.0.0.1");
+	ASSERT_EQ(receiver->Startup(2, &receiverSd, 1), RAKNET_STARTED) << "Receiver failed to start";
 	receiver->SetMaximumIncomingConnections(2);
 	const unsigned short receiverPort = receiver->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
 	Packet *packet;
@@ -269,7 +269,6 @@ TEST_F(PingTests, OccasionalPingIsObservableAsPingTraffic)
 	SocketDescriptor receiverSd(0, "127.0.0.1");
 	ASSERT_EQ(receiver->Startup(2, &receiverSd, 1), RAKNET_STARTED);
 	receiver->SetMaximumIncomingConnections(2);
-	const unsigned short receiverPort = receiver->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
 
 	RakPeerInterface *pinging, *quiet;
 	TestHelpers::StandardClientPrep(pinging, destroyList);

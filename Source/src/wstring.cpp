@@ -102,7 +102,7 @@ RakWString& RakWString::operator = ( const wchar_t * const str )
 }
 RakWString& RakWString::operator = ( wchar_t *str )
 {
-	*this = ( const wchar_t * const) str;
+	*this = ( const wchar_t *) str;
 	return *this;
 }
 RakWString& RakWString::operator = ( const char * const str )
@@ -141,7 +141,7 @@ RakWString& RakWString::operator = ( const char * const str )
 }
 RakWString& RakWString::operator = ( char *str )
 {
-	*this = ( const char * const) str;
+	*this = ( const char *) str;
 	return *this;
 }
 RakWString& RakWString::operator +=( const RakWString& right)
@@ -205,7 +205,7 @@ RakWString& RakWString::operator += ( const wchar_t * const right )
 }
 RakWString& RakWString::operator += ( wchar_t *right )
 {
-	return *this += (const wchar_t * const) right;
+	return *this += (const wchar_t *) right;
 }
 bool RakWString::operator==(const RakWString &right) const
 {
@@ -301,7 +301,7 @@ void RakWString::Serialize(const wchar_t * const str, BitStream *bs)
 	multiByteBuffer = (char*) rakMalloc_Ex(allocated, _FILE_AND_LINE_);
 	size_t used = wcstombs(multiByteBuffer, str, allocated);
 	bs->WriteCasted<unsigned short>(used);
-	bs->WriteAlignedBytes((const unsigned char*) multiByteBuffer,(const unsigned int) used);
+	bs->WriteAlignedBytes((const unsigned char*) multiByteBuffer,(unsigned int) used);
 	rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
 #else
 	size_t mbByteLength = wcslen(str);
@@ -326,7 +326,7 @@ bool RakWString::Deserialize(BitStream *bs)
 #if 0
 		char *multiByteBuffer;
 		multiByteBuffer = (char*) rakMalloc_Ex(mbByteLength+1, _FILE_AND_LINE_);
-		bool result = bs->ReadAlignedBytes((unsigned char*) multiByteBuffer,(const unsigned int) mbByteLength);
+		bool result = bs->ReadAlignedBytes((unsigned char*) multiByteBuffer,(unsigned int) mbByteLength);
 		if (result==false)
 		{
 			rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
@@ -365,7 +365,7 @@ bool RakWString::Deserialize(wchar_t *str, BitStream *bs)
 #if 0
 		char *multiByteBuffer;
 		multiByteBuffer = (char*)rakMalloc_Ex(mbByteLength + 1, _FILE_AND_LINE_);
-		bool result = bs->ReadAlignedBytes((unsigned char*)multiByteBuffer, (const unsigned int)mbByteLength);
+		bool result = bs->ReadAlignedBytes((unsigned char*)multiByteBuffer, (unsigned int)mbByteLength);
 		if (result == false)
 		{
 			rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
@@ -390,10 +390,7 @@ bool RakWString::Deserialize(wchar_t *str, BitStream *bs)
 	}
 	else
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		wcscpy(str, L"");
-#pragma warning(pop)
 	}
 	return true;
 }
@@ -406,7 +403,7 @@ bool RakWString::Deserialize(wchar_t *str, size_t strLength, BitStream *bs)
 #if 0
 		char *multiByteBuffer;
 		multiByteBuffer = (char*) rakMalloc_Ex(mbByteLength+1, _FILE_AND_LINE_);
-		bool result = bs->ReadAlignedBytes((unsigned char*) multiByteBuffer,(const unsigned int) mbByteLength);
+		bool result = bs->ReadAlignedBytes((unsigned char*) multiByteBuffer,(unsigned int) mbByteLength);
 		if (result==false)
 		{
 			rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);

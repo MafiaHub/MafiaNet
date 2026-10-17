@@ -186,7 +186,7 @@ void TableSerializer::SerializeCell(MafiaNet::BitStream *out, DataStructures::Ta
 			unsigned binaryLength;
 			binaryLength=(unsigned)cell->i;
 			out->Write(binaryLength);
-			out->WriteAlignedBytes((const unsigned char*) cell->c, (const unsigned int) cell->i);
+			out->WriteAlignedBytes((const unsigned char*) cell->c, (unsigned int) cell->i);
 		}
 	}
 }
@@ -245,7 +245,7 @@ void TableSerializer::SerializeFilterQuery(MafiaNet::BitStream *in, DataStructur
 	if (query->cellValue->isEmpty==false)
 	{
 		in->Write(query->cellValue->i);
-		in->WriteAlignedBytesSafe((const char*)query->cellValue->c,(const unsigned int)query->cellValue->i,10000000); // Sanity check to max binary cell of 10 megabytes
+		in->WriteAlignedBytesSafe((const char*)query->cellValue->c,(unsigned int)query->cellValue->i,10000000); // Sanity check to max binary cell of 10 megabytes
 		in->Write(query->cellValue->ptr);
 
 	}

@@ -132,13 +132,7 @@ SocketDescriptor::SocketDescriptor(unsigned short _port, const char *_hostAddres
 // All systems must use the same value for this variable.
 //bool RAK_DLL_EXPORT NetworkID::peerToPeerMode=false;
 
-SystemAddress& SystemAddress::operator = ( const SystemAddress& input )
-{
-	memcpy(&address, &input.address, sizeof(address));
-	systemIndex = input.systemIndex;
-	debugPort = input.debugPort;
-	return *this;
-}
+SystemAddress& SystemAddress::operator = ( const SystemAddress& input ) = default;
 bool SystemAddress::EqualsExcludingPort( const SystemAddress& right ) const
 {
 	return (address.addr4.sin_family==AF_INET && address.addr4.sin_addr.s_addr==right.address.addr4.sin_addr.s_addr)
@@ -279,10 +273,7 @@ void SystemAddress::ToString_Old(bool writePort, char *dest, char portDelineator
 {
 	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcpy(dest, "UNASSIGNED_SYSTEM_ADDRESS");
-#pragma warning(pop)
 		return;
 	}
 
@@ -294,16 +285,10 @@ void SystemAddress::ToString_Old(bool writePort, char *dest, char portDelineator
 	in.s_addr = address.addr4.sin_addr.s_addr;
 	char buf[1024];
 	inet_ntop(AF_INET, &in, buf, 1024);
-#pragma warning(push)
-#pragma warning(disable:4996)
 	strcpy(dest, buf);
-#pragma warning(pop)
 	if (writePort)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcat(dest, portStr);
-#pragma warning(pop)
 		Itoa(GetPort(), dest + strlen(dest), 10);
 	}
 }
@@ -353,10 +338,7 @@ void SystemAddress::ToString_New(bool writePort, char *dest, char portDelineator
 
 	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcpy(dest, "UNASSIGNED_SYSTEM_ADDRESS");
-#pragma warning(pop)
 		return;
 	}
 
@@ -378,10 +360,7 @@ void SystemAddress::ToString_New(bool writePort, char *dest, char portDelineator
 		unsigned char ch[2];
 		ch[0] = portDelineator;
 		ch[1] = 0;
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcat(dest, (const char*)ch);
-#pragma warning(pop)
 		Itoa(ntohs(address.addr4.sin_port), dest + strlen(dest), 10);
 	}
 }
@@ -730,16 +709,11 @@ bool RakNetGUID::operator < ( const RakNetGUID& right ) const
 void RakNetGUID::ToString(char *dest) const
 {
 	if (*this == UNASSIGNED_RAKNET_GUID)
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcpy(dest, "UNASSIGNED_RAKNET_GUID");
-#pragma warning(pop)
 	else
-		//sprintf_s(dest, destLength, "%u.%u.%u.%u.%u.%u", g[0], g[1], g[2], g[3], g[4], g[5]);
-#pragma warning(push)
-#pragma warning(disable:4996)
-		sprintf(dest, "%" PRINTF_64_BIT_MODIFIER "u", (long long unsigned int) g);
-#pragma warning(pop)
+		// dest has no size in this legacy overload. The output is bounded by the value
+		// itself: UINT64_MAX is 20 decimal digits, plus the terminator.
+		snprintf(dest, 21, "%" PRINTF_64_BIT_MODIFIER "u", (long long unsigned int) g);
 		// sprintf_s(dest, destLength, "%u.%u.%u.%u.%u.%u", g[0], g[1], g[2], g[3], g[4], g[5]);
 }
 void RakNetGUID::ToString(char *dest, size_t destLength) const

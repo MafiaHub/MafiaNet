@@ -72,10 +72,11 @@ Table::Cell::Cell( const Table::Cell & input)
 	isEmpty=input.isEmpty;
 	i=input.i;
 	ptr=input.ptr;
+	// A new cell owns nothing yet: c must not be freed here, and must be null
+	// when the source has no data, or the destructor frees garbage.
+	c=0;
 	if (input.c)
 	{
-		if (c)
-			rakFree_Ex(c, _FILE_AND_LINE_);
 		c =  (char*) rakMalloc_Ex( (int) i, _FILE_AND_LINE_ );
 		memcpy(c, input.c, (int) i);
 	}
@@ -157,10 +158,7 @@ void Table::Cell::Get(double *output)
 void Table::Cell::Get(char *output)
 {
 	RakAssert(isEmpty == false);
-#pragma warning(push)
-#pragma warning(disable:4996)
 	strcpy(output, c);
-#pragma warning(pop)
 }
 void Table::Cell::Get(char *output, size_t outputLength)
 {
@@ -936,6 +934,7 @@ void Table::SortTable(Table::SortQuery *sortQueries, unsigned numSortQueries, Ta
 			}
 			cur=cur->next;
 		}
+		_columnIndices=0;
 		return;
 	}
 
@@ -954,6 +953,8 @@ void Table::SortTable(Table::SortQuery *sortQueries, unsigned numSortQueries, Ta
 	outLength=0;
 	for (i=0; i < orderedList.Size(); i++)
 		out[(outLength)++]=orderedList[i];
+	// RowSort reads the indices only while this function runs.
+	_columnIndices=0;
 }
 void Table::PrintColumnHeaders(char *out, int outLength, char columnDelineator) const
 {

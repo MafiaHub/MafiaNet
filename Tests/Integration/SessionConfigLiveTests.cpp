@@ -160,22 +160,9 @@ namespace
 		return failure;
 	}
 
-	// True if the id shows up within the window. Used for the negative assertions, where the point
-	// is that a packet must NOT arrive.
-	bool SawWithin(RakPeerInterface *wanted, int wantedId, RakPeerInterface *alsoPump, int windowMs)
-	{
-		Packet *p = PumpUntil(wanted, wantedId, alsoPump, windowMs);
-		if (p)
-		{
-			wanted->DeallocatePacket(p);
-			return true;
-		}
-		return false;
-	}
-
 	// Drain everything a peer receives over a fixed window and keep the ids.
 	//
-	// Negative assertions must not be built out of successive SawWithin() probes: that helper discards
+	// Negative assertions must not be built out of successive PumpUntil() probes: that helper discards
 	// every packet that is not the one it is waiting for, so the first probe swallows the very packet a
 	// later probe looks for and the test then passes for the wrong reason. Collect once, assert after.
 	std::vector<int> CollectIds(RakPeerInterface *wanted, RakPeerInterface *alsoPump, int windowMs)
@@ -200,7 +187,7 @@ namespace
 	// Drain BOTH peers over a window, appending every id each one yields to its own ledger.
 	//
 	// The single-peer CollectIds() above discards the other peer's packets, and two successive
-	// SawWithin()/CollectIds() probes swallow each other's evidence for the same reason. A negative
+	// PumpUntil()/CollectIds() probes swallow each other's evidence for the same reason. A negative
 	// assertion about a PAIR of events -- neither peer may report a connection -- therefore has to
 	// drain both in one loop. Appends rather than assigns so a ledger already carrying what an earlier
 	// PumpUntil() drained keeps it.

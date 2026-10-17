@@ -46,6 +46,7 @@
 namespace MafiaNet {
 /// Forward declarations
 class HuffmanEncodingTree;
+class RakNetSocket2Factory;
 class PluginInterface2;
 
 // Sucks but this struct has to be outside the class.  Inside and DevCPP won't let you refer to the struct as RakPeer::RemoteSystemIndex while GCC
@@ -630,6 +631,20 @@ public:
 	/// \param[in] _userUpdateThreadData Passed to C callback function
 	virtual void SetUserUpdateThread(void (*_userUpdateThreadPtr)(RakPeerInterface *, void *), void *_userUpdateThreadData);
 
+	/// \internal Testing seams, used by Tests/Support/SimulatedNetwork to run
+	/// peers over an in-process network with a virtual clock. Call the two
+	/// setters before Startup.
+	///
+	/// Sockets come from \a factory instead of being bound on the OS.
+	void SetSocketFactory(RakNetSocket2Factory *factory);
+	/// No internal update thread: the caller drives the peer with
+	/// RunManualUpdate(). Shutdown(blockDuration) then flushes once instead of
+	/// waiting, since nothing else would advance the peer meanwhile.
+	void SetManualUpdate(bool manual);
+	/// One update-thread iteration: the user update callback, then the update
+	/// cycle. Only valid with SetManualUpdate(true).
+	void RunManualUpdate();
+
 	/// Set a C callback to be called whenever a datagram arrives
 	/// Return true from the callback to have RakPeer handle the datagram. Return false and RakPeer will ignore the datagram.
 	/// This can be used to filter incoming datagrams by system, or to share a recvfrom socket with RakPeer
@@ -854,6 +869,9 @@ protected:
 	std::atomic<bool> endThreads;
 	/// true if the peer thread is active.
 	std::atomic<bool> isMainLoopThreadActive;
+	/// See SetSocketFactory / SetManualUpdate.
+	RakNetSocket2Factory *socketFactory;
+	bool manualUpdate;
 	
 	// MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
 

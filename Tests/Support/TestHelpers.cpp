@@ -18,14 +18,24 @@ TestHelpers::~TestHelpers(void)
 {
 }
 
+unsigned short TestHelpers::StartOnLoopback(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming)
+{
+	SocketDescriptor sd(0, "127.0.0.1");
+	if (peer->Startup(maxConnections, &sd, 1) != RAKNET_STARTED)
+		return 0;
+	peer->SetMaximumIncomingConnections(maxIncoming);
+	return BoundPort(peer);
+}
+
+unsigned short TestHelpers::BoundPort(RakPeerInterface *peer)
+{
+	return peer->GetInternalID().GetPort();
+}
+
 void TestHelpers::StandardServerPrep(RakPeerInterface *&server)
 {
-
 	server=RakPeerInterface::GetInstance();
-	SocketDescriptor serverSd(60000, 0);
-	server->Startup(1, &serverSd, 1);
-	server->SetMaximumIncomingConnections(1);
-
+	StartOnLoopback(server, 1, 1);
 }
 
 void TestHelpers::StandardClientPrep(RakPeerInterface *&client)

@@ -165,7 +165,11 @@ void RakVoice::SetRelayHost(bool enable)
 
 bool RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
 {
-	if (frameChannel < 0 || frameChannel >= NUMBER_OF_ORDERED_STREAMS || controlChannel < 0 || controlChannel >= NUMBER_OF_ORDERED_STREAMS)
+	// char is unsigned on ARM; compare as signed so a negative channel is rejected
+	// the same way on every platform.
+	const int frame = static_cast<signed char>(frameChannel);
+	const int control = static_cast<signed char>(controlChannel);
+	if (frame < 0 || frame >= NUMBER_OF_ORDERED_STREAMS || control < 0 || control >= NUMBER_OF_ORDERED_STREAMS)
 		return false;
 	frameOrderingChannel = frameChannel;
 	controlOrderingChannel = controlChannel;

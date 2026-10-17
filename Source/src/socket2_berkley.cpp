@@ -115,7 +115,7 @@ void DomainNameToIP_Berkley( const char *domainName, char ip[65] )
 
 void RNS2_Berkley::SetSocketOptions(void)
 {
-	int r;
+	[[maybe_unused]] int r; // only checked by RakAssert (debug builds)
 	// This doubles the max throughput rate
 	int sock_opt=1024*256;
 	r = setsockopt__( rns2Socket, SOL_SOCKET, SO_RCVBUF, ( char * ) & sock_opt, sizeof ( sock_opt ) );
@@ -169,7 +169,7 @@ void RNS2_Berkley::SetIPHdrIncl(int ipHdrIncl)
 		setsockopt__( rns2Socket, IPPROTO_IP, IP_HDRINCL, ( char * ) & ipHdrIncl, sizeof( ipHdrIncl ) );
 
 }
-void RNS2_Berkley::SetDoNotFragment( int opt )
+void RNS2_Berkley::SetDoNotFragment( [[maybe_unused]] int opt ) // unused where IP_DONTFRAGMENT does not exist
 {
 	#if defined( IP_DONTFRAGMENT )
  #if defined(_WIN32) && !defined(_DEBUG)

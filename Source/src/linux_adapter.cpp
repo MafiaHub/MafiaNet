@@ -121,7 +121,7 @@ int sprintf_s(char *buffer, size_t sizeOfBuffer, const char *format, ...)
 		return -1;
 	}
 
-	if (numCharsWritten >= sizeOfBuffer) {
+	if (static_cast<size_t>(numCharsWritten) >= sizeOfBuffer) {
 		buffer[0] = '\0'; // buffer too small, write empty string to ensure terminating \0-char
 	}
 
@@ -249,7 +249,9 @@ errno_t strncpy_s(char *strDest, size_t numberOfElements, const char *strSource,
 		}
 	}
 
-	(void)strncpy(strDest, strSource, numChars);
+	// numChars never exceeds the source length, so this is the copy strncpy did, without
+	// its zero padding (there is none to do) or its truncation warning.
+	memcpy(strDest, strSource, numChars);
 
 	// enforce the trailing \0
 	strDest[numChars] = '\0';
@@ -273,14 +275,15 @@ int vsnprintf_s(char *buffer, size_t sizeOfBuffer, size_t count, const char *for
 	}
 
 	int numCharsWritten = vsnprintf(buffer, maxChars, format, argptr);
-	if (numCharsWritten >= maxChars) {
+	if ((numCharsWritten < 0) || (static_cast<size_t>(numCharsWritten) >= maxChars)) {
 		if (count != _TRUNCATE) {
 			buffer[0] = '\0'; // buffer set to empty string
 			return -1;
 		}
 
-		// truncation occurred, add terminating \0
-		buffer[sizeOfBuffer] = '\0';
+		// Truncation occurred. vsnprintf already terminated the output inside the
+		// maxChars (== sizeOfBuffer) bytes it was given; this used to also write
+		// buffer[sizeOfBuffer], one byte past the end.
 	}
 
 	return numCharsWritten;

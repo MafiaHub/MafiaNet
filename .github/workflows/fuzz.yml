@@ -1,0 +1,74 @@
+name: Nightly fuzzing
+
+# Longer libFuzzer runs than the per-PR smoke job in build.yml. The corpus each
+# run grows is cached and restored by the next, so coverage keeps building up
+# across nights instead of restarting from Tests/Fuzz/corpus every time.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds per harness
+        default: "900"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+
+      - name: Build harnesses
+        run: |
+          cmake --preset fuzz -G Ninja
+          cmake --build --preset fuzz
+
+      - name: Restore corpus
+        uses: actions/cache/restore@v4
+        with:
+          path: fuzz-corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+
+      - name: Fuzz
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          SECONDS_PER_HARNESS: ${{ inputs.seconds || '900' }}
+        run: |
+          mkdir -p fuzz-artifacts
+          status=0
+          for harness in build/fuzz/Tests/Fuzz/*_fuzz; do
+            name=$(basename "$harness" _fuzz)
+            mkdir -p fuzz-corpus/"$name"
+            cp -n Tests/Fuzz/corpus/"$name"/* fuzz-corpus/"$name"/ || true
+            echo "::group::$name"
+            "$harness" fuzz-corpus/"$name" -max_total_time="$SECONDS_PER_HARNESS" \
+              -print_final_stats=1 -artifact_prefix=fuzz-artifacts/"$name"- || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: Save corpus
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: fuzz-corpus
+          key: fuzz-corpus-${{ github.run_id }}
+
+      - name: Upload crash reproducers
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: fuzz-artifacts/

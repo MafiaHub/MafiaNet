@@ -27,6 +27,8 @@
 
 #include "mafianet/get_time.h"
 
+#include <atomic>
+
 
 
 
@@ -205,8 +207,20 @@ MafiaNet::TimeUS GetTimeUS_Linux( void )
 }
 #endif
 
+namespace
+{
+	std::atomic<MafiaNet::TimeSourceUS> g_timeSourceOverride{nullptr};
+}
+
+void MafiaNet::SetTimeSourceOverride( TimeSourceUS source )
+{
+	g_timeSourceOverride.store(source, std::memory_order_release);
+}
+
 MafiaNet::TimeUS MafiaNet::GetTimeUS( void )
 {
+	if (TimeSourceUS source = g_timeSourceOverride.load(std::memory_order_acquire))
+		return source();
 
 
 
@@ -222,12 +236,12 @@ MafiaNet::TimeUS MafiaNet::GetTimeUS( void )
 bool MafiaNet::GreaterThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a > b?
-	const MafiaNet::Time halfSpan =(MafiaNet::Time) (((MafiaNet::Time)(const MafiaNet::Time)-1)/(MafiaNet::Time)2);
+	const MafiaNet::Time halfSpan =(MafiaNet::Time) (((MafiaNet::Time)(MafiaNet::Time)-1)/(MafiaNet::Time)2);
 	return b!=a && b-a>halfSpan;
 }
 bool MafiaNet::LessThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a < b?
-	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(const MafiaNet::Time)-1)/(MafiaNet::Time)2;
+	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(MafiaNet::Time)-1)/(MafiaNet::Time)2;
 	return b!=a && b-a<halfSpan;
 }

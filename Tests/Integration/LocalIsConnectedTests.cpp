@@ -16,6 +16,7 @@
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
 #include "CommonFunctions.h"
+#include "TestHelpers.h"
 
 #include <string.h>
 
@@ -78,16 +79,17 @@ TEST_F(LocalIsConnected, ConnectionStateAndLocalAddressQueries)
 	client=RakPeerInterface::GetInstance();
 	destroyList.Push(client,_FILE_AND_LINE_);
 
+	// The client keeps binding all interfaces (port 0): the GetLocalIP/IsLocalIP/
+	// GetInternalID checks below are about its local addresses.
 	SocketDescriptor clientSd;
-	client->Startup(1, &clientSd, 1);
-	SocketDescriptor serverSd(60000, 0);
-	server->Startup(1, &serverSd, 1);
-	server->SetMaximumIncomingConnections(1);
+	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
+	const unsigned short serverPort = TestHelpers::StartOnLoopback(server, 1, 1);
+	ASSERT_NE(serverPort, 0) << "Server failed to start";
 
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(60000);
+	serverAddress.SetPortHostOrder(serverPort);
 	TimeMS entryTime=GetTimeMS();
 	bool lastConnect=false;
 

@@ -1475,10 +1475,11 @@ namespace MafiaNet
 	template <class templateType>
 		inline bool BitStream::ReadDelta(templateType &outTemplateVar)
 	{
-		bool dataWritten;
+		// dataWritten is unset when the read fails at the end of the stream.
+		bool dataWritten=false;
 		bool success;
 		success=Read(dataWritten);
-		if (dataWritten)
+		if (success && dataWritten)
 			success=Read(outTemplateVar);
 		return success;
 	}
@@ -1616,10 +1617,11 @@ namespace MafiaNet
 	template <class templateType>
 		inline bool BitStream::ReadCompressedDelta(templateType &outTemplateVar)
 	{
-		bool dataWritten;
+		// dataWritten is unset when the read fails at the end of the stream.
+		bool dataWritten=false;
 		bool success;
 		success=Read(dataWritten);
-		if (dataWritten)
+		if (success && dataWritten)
 			success=ReadCompressed(outTemplateVar);
 		return success;
 	}
@@ -1768,8 +1770,9 @@ namespace MafiaNet
 		return ReadBitsFromIntegerRange(value,minimum,maximum,requiredBits,allowOutsideRange);
 	}
 	template <class templateType>
-	bool BitStream::ReadBitsFromIntegerRange( templateType &value, const templateType minimum, const templateType maximum, const int requiredBits, bool allowOutsideRange )
+	bool BitStream::ReadBitsFromIntegerRange( templateType &value, const templateType minimum, [[maybe_unused]] const templateType maximum, const int requiredBits, bool allowOutsideRange )
 	{
+		// maximum is only checked by the (debug-only) assert; requiredBits already encodes the range.
 		RakAssert(maximum>=minimum);
 		if (allowOutsideRange)
 		{

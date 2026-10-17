@@ -112,8 +112,7 @@ void LogCommandParser::SendHelp(TransportInterface *transport, const SystemAddre
 }
 void LogCommandParser::AddChannel(const char *channelName)
 {
-	unsigned channelIndex=0;
-	channelIndex = GetChannelIndexFromName(channelName);
+	[[maybe_unused]] unsigned channelIndex = GetChannelIndexFromName(channelName); // only checked by RakAssert (debug builds)
 	// Each channel can only be added once.
 	RakAssert(channelIndex==(unsigned)-1);
 

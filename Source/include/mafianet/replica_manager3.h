@@ -746,7 +746,9 @@ protected:
 private:
 	Connection_RM3() {};
 
-	ConstructionMode constructionMode;
+	// Never read: the mode is always obtained from QueryConstructionMode(). Kept so the
+	// layout of this user-subclassed class does not change.
+	[[maybe_unused]] ConstructionMode constructionMode;
 };
 
 /// \brief Return codes for Connection_RM3::GetConstructionState() and Replica3::QueryConstruction()

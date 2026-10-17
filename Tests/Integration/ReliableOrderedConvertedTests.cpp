@@ -68,7 +68,7 @@ TEST_F(ReliableOrderedConverted, AllPacketsReceivedInOrder)
 	char str[256];
 	char ip[32];
 	TimeMS sendInterval, nextSend, currentTime, quitTime;
-	unsigned short remotePort, localPort;
+	unsigned short remotePort;
 	unsigned char streamNumberSender,streamNumberReceiver;
 	BitStream bitStream;
 	Packet *packet;
@@ -81,6 +81,15 @@ TEST_F(ReliableOrderedConverted, AllPacketsReceivedInOrder)
 
 	}
 
+	// The receiver is started first so the sender can connect to its OS-assigned port.
+	receiver = RegisterPeer(RakPeerInterface::GetInstance());
+
+	SocketDescriptor receiverSd(0, "127.0.0.1");
+	StartupResult receiverResult = receiver->Startup(32, &receiverSd, 1);
+	ASSERT_EQ(receiverResult, RAKNET_STARTED) << "Receiver failed to start (error " << receiverResult << ")";
+	remotePort = receiver->GetInternalID().GetPort();
+	receiver->SetMaximumIncomingConnections(32);
+
 	sender = RegisterPeer(RakPeerInterface::GetInstance());
 	//sender->ApplyNetworkSimulator(.02, 100, 50);
 
@@ -88,25 +97,10 @@ TEST_F(ReliableOrderedConverted, AllPacketsReceivedInOrder)
 
 	strcpy(ip, "127.0.0.1");
 
-	strcpy(str, "60000");
-	remotePort=atoi(str);
-	strcpy(str, "0");
-	localPort=atoi(str);
-
-	SocketDescriptor senderSd(localPort, 0);
+	SocketDescriptor senderSd(0, 0);
 	StartupResult senderResult = sender->Startup(1, &senderSd, 1);
 	ASSERT_EQ(senderResult, RAKNET_STARTED) << "Sender failed to start (error " << senderResult << ")";
 	sender->Connect(ip, remotePort, 0, 0);
-
-	receiver = RegisterPeer(RakPeerInterface::GetInstance());
-
-	strcpy(str, "60000");
-	localPort=atoi(str);
-
-	SocketDescriptor receiverSd(localPort, 0);
-	StartupResult receiverResult = receiver->Startup(32, &receiverSd, 1);
-	ASSERT_EQ(receiverResult, RAKNET_STARTED) << "Receiver failed to start on port " << localPort << " (error " << receiverResult << ")";
-	receiver->SetMaximumIncomingConnections(32);
 
 	//	if (sender)
 	//		sender->ApplyNetworkSimulator(128000, 50, 100);

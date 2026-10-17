@@ -15,6 +15,7 @@
 #include "mafianet/statistics.h"
 
 #include "CommonFunctions.h"
+#include "TestHelpers.h"
 
 #include <cstdlib> // For getenv
 #include <cstring> // For strlen
@@ -52,6 +53,7 @@ protected:
 	}
 
 	RakPeerInterface *peers[NUM_PEERS];
+	unsigned short ports[NUM_PEERS] = {}; // OS-assigned port each peer is bound to
 };
 
 /*
@@ -92,8 +94,11 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 
 		peers[i]=RakPeerInterface::GetInstance();
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
-		SocketDescriptor socketDescriptor(60000+i, 0);
-		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
+		SocketDescriptor socketDescriptor(0, "127.0.0.1");
+		StartupResult startResult = peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
+		ASSERT_EQ(startResult, RAKNET_STARTED) << "Peer " << i << " failed to start (error " << startResult << ")";
+		ports[i] = TestHelpers::BoundPort(peers[i]);
+		ASSERT_NE(ports[i], 0) << "Peer " << i << " has no bound port";
 		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
 
 	}
@@ -104,10 +109,10 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 		portAdd=randomMT()%NUM_PEERS;
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.SetPortHostOrder(60000+portAdd);
+		currentSystem.SetPortHostOrder(ports[portAdd]);
 		if(!CommonFunctions::ConnectionStateMatchesOptions (peers[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{
-			ConnectionAttemptResult resultReturn = peers[i]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
+			ConnectionAttemptResult resultReturn = peers[i]->Connect("127.0.0.1", ports[portAdd], 0, 0);
 			ASSERT_TRUE(resultReturn==CONNECTION_ATTEMPT_STARTED || resultReturn==ALREADY_CONNECTED_TO_ENDPOINT)
 				<< "Connect function failed: Problem while calling connect (result " << resultReturn << ")";
 
@@ -124,17 +129,23 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 		{
 			// Initialize
 			peerIndex=randomMT()%NUM_PEERS;
-			SocketDescriptor socketDescriptor(60000+peerIndex, 0);
-			peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
+			// Peers are never shut down in this test, so this normally returns
+			// RAKNET_ALREADY_STARTED. Should a peer ever be down here, restart it on
+			// the port it was assigned before so the stored address stays valid.
+			SocketDescriptor socketDescriptor(ports[peerIndex], "127.0.0.1");
+			StartupResult startResult = peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
+			ASSERT_TRUE(startResult == RAKNET_STARTED || startResult == RAKNET_ALREADY_STARTED)
+				<< "Peer " << peerIndex << " failed to (re)start on port " << ports[peerIndex] << " (error " << startResult << ")";
+			ports[peerIndex] = TestHelpers::BoundPort(peers[peerIndex]);
 			portAdd=randomMT()%NUM_PEERS;
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.SetPortHostOrder(60000+portAdd);
+			currentSystem.SetPortHostOrder(ports[portAdd]);
 
 
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peers[peerIndex],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
-				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
+				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", ports[portAdd], 0, 0);
 				ASSERT_TRUE(resultReturn==CONNECTION_ATTEMPT_STARTED || resultReturn==ALREADY_CONNECTED_TO_ENDPOINT)
 					<< "Connect function failed: Problem while calling connect (result " << resultReturn << ")";
 
@@ -147,10 +158,10 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 			portAdd=randomMT()%NUM_PEERS;
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.SetPortHostOrder(60000+portAdd);
+			currentSystem.SetPortHostOrder(ports[portAdd]);
 			if(!CommonFunctions::ConnectionStateMatchesOptions (peers[peerIndex],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
-				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", 60000+portAdd, 0, 0);
+				ConnectionAttemptResult resultReturn = peers[peerIndex]->Connect("127.0.0.1", ports[portAdd], 0, 0);
 				ASSERT_TRUE(resultReturn==CONNECTION_ATTEMPT_STARTED || resultReturn==ALREADY_CONNECTED_TO_ENDPOINT)
 					<< "Connect function failed: Problem while calling connect (result " << resultReturn << ")";
 			}
@@ -197,7 +208,7 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 #endif
 
 			peerIndex=randomMT()%NUM_PEERS;
-			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
+			snprintf(data+3, sizeof(data)-3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, (int)priority, (int)reliability, orderingChannel, target.GetPort(), broadcast);
 #ifdef _VERIFY_RECIPIENTS
 			memcpy((char*)data+1, (char*)&target.GetPort(), sizeof(unsigned short));
 #endif
@@ -231,12 +242,12 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 			broadcast=false; // Temporarily in so I can check recipients
 #endif
 
-			sprintf(data+3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
+			snprintf(data+3, sizeof(data)-3, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, (int)priority, (int)reliability, orderingChannel, target.GetPort(), broadcast);
 #ifdef _VERIFY_RECIPIENTS
 			memcpy((char*)data, (char*)&target.GetPort(), sizeof(unsigned short));
 #endif
 			data[dataLength-1]=0;
-			sprintf(RPCName, "RPC%i", (randomMT()%4)+1);
+			snprintf(RPCName, sizeof(RPCName), "RPC%u", (unsigned int)(randomMT()%4)+1);
 			//				autoRpc[i]->Call(RPCName);
 			//peers[peerIndex]->RPC(RPCName, data, dataLength*8, priority, reliability, orderingChannel, target, broadcast, 0, UNASSIGNED_NETWORK_ID,0);
 		}
@@ -252,7 +263,7 @@ TEST_F(ComprehensiveConvert, DoesALittleBitOfEverything)
 		{
 			// Offline Ping
 			peerIndex=randomMT()%NUM_PEERS;
-			peers[peerIndex]->Ping("127.0.0.1", 60000+(randomMT()%NUM_PEERS), (randomMT()%2)>0);
+			peers[peerIndex]->Ping("127.0.0.1", ports[randomMT()%NUM_PEERS], (randomMT()%2)>0);
 		}
 		else if (nextAction < .21f)
 		{

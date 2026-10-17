@@ -16,6 +16,7 @@
 #include "mafianet/get_time.h"
 
 #include "CommonFunctions.h"
+#include "TestHelpers.h"
 
 #include <cstdlib>
 
@@ -59,7 +60,7 @@ protected:
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.SetPortHostOrder(60000);
+			currentSystem.SetPortHostOrder(serverPort);
 
 			while (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,false,true,true) )
 			{
@@ -102,6 +103,7 @@ protected:
 	static const int clientNum= 8;
 	RakPeerInterface *clientList[clientNum];//A list of clients
 	RakPeerInterface *server;
+	unsigned short serverPort = 0;
 };
 
 /*
@@ -192,10 +194,8 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	}
 
 	server=RakPeerInterface::GetInstance();
-	SocketDescriptor serverSd(60000, 0);
-	StartupResult serverResult = server->Startup(clientNum, &serverSd, 1);
-	ASSERT_EQ(serverResult, RAKNET_STARTED) << "Server failed to start (error " << serverResult << ")";
-	server->SetMaximumIncomingConnections(clientNum);
+	serverPort = TestHelpers::StartOnLoopback(server, clientNum, clientNum);
+	ASSERT_NE(serverPort, 0) << "Server failed to start";
 
 	const int timeoutTime=1000;
 	server->SetTimeoutTime(timeoutTime,UNASSIGNED_SYSTEM_ADDRESS);
@@ -209,7 +209,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	{
 
 		//This fails the test, don't bother going on.
-		ASSERT_EQ(clientList[i]->Connect("127.0.0.1", 60000, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
+		ASSERT_EQ(clientList[i]->Connect("127.0.0.1", serverPort, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
 
 	}
 
@@ -247,6 +247,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 					RakSleep(100);
 					loopResult = clientList[i]->Startup(1, &clientSd2, 1);
 				}
+				ASSERT_EQ(loopResult, RAKNET_STARTED) << "Client " << i << " failed to restart (error " << loopResult << ")";
 			}
 
 		}
@@ -259,12 +260,12 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.SetPortHostOrder(60000);
+			currentSystem.SetPortHostOrder(serverPort);
 			if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 			{
 
 				//This fails the test, don't bother going on.
-				ASSERT_EQ(clientList[i]->Connect("127.0.0.1", 60000, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
+				ASSERT_EQ(clientList[i]->Connect("127.0.0.1", serverPort, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
 			}
 
 		}
@@ -285,13 +286,13 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	{
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
-		currentSystem.SetPortHostOrder(60000);
+		currentSystem.SetPortHostOrder(serverPort);
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 		{
 			printf("Calling Connect() for client %i.\n",i);
 
-			if (clientList[i]->Connect("127.0.0.1", 60000, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (clientList[i]->Connect("127.0.0.1", serverPort, 0,0)!=CONNECTION_ATTEMPT_STARTED)
 			{
 				clientList[i]->GetSystemList(systemList,guidList);//Get connectionlist
 

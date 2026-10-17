@@ -32,23 +32,21 @@ using namespace MafiaNet;
 ///   an unresolvable target surfaces the ConnectionAttemptResult (PeerStage::Connect).
 /// - A client builder with no .connect() target still starts up (Startup only).
 
-// A distinct port so a full-suite run does not collide with other tests.
-static const unsigned short PEERBUILDER_TEST_PORT = 61016;
-
 // Shared incoming password, exercised on both the server (SetIncomingPassword)
 // and the client (Connect password argument) sides.
 static const char *PEERBUILDER_PASSWORD = "hunter2";
 
 // --- Server builder replaces the manual 3-call sequence; client connects.
-// Then: startup failure surfaces the underlying StartupResult. Both phases
-// bind PEERBUILDER_TEST_PORT, so they stay in one TEST (the first phase's
-// peers must have freed the port before the clash phase reuses it).
+// Then: startup failure surfaces the underlying StartupResult. Every server
+// binds an OS-assigned port (.port(0)); the clash phase re-binds the port its
+// holder was given.
 TEST(PeerBuilder, ServerClientConnectAndPortClash)
 {
 	// --- 1. Server builder replaces the manual 3-call sequence; client connects ---
 	{
 		auto serverResult = Peer::server()
-			.port(PEERBUILDER_TEST_PORT)
+			.port(0)
+			.host("127.0.0.1")
 			.max_connections(4)
 			.incoming_password(PEERBUILDER_PASSWORD)
 			.start();
@@ -58,10 +56,12 @@ TEST(PeerBuilder, ServerClientConnectAndPortClash)
 		// The builder must have applied SetMaximumIncomingConnections, not just Startup.
 		ASSERT_EQ(serverResult->get()->GetMaximumIncomingConnections(), 4)
 			<< "server incoming-connection cap not set by builder";
+		const unsigned short serverPort = serverResult->get()->GetInternalID().GetPort();
+		ASSERT_NE(serverPort, 0) << "server has no bound port";
 
 		auto clientResult = Peer::client()
 			.max_connections(1)
-			.connect("127.0.0.1", PEERBUILDER_TEST_PORT, PEERBUILDER_PASSWORD)
+			.connect("127.0.0.1", serverPort, PEERBUILDER_PASSWORD)
 			.start();
 		ASSERT_TRUE(clientResult)
 			<< "client builder start() failed: stage " << (int) clientResult.error().stage;
@@ -96,21 +96,22 @@ TEST(PeerBuilder, ServerClientConnectAndPortClash)
 		}
 		ASSERT_TRUE(clientAccepted) << "client was not accepted within 10s";
 		ASSERT_TRUE(serverGotIncoming) << "server did not observe the incoming connection within 10s";
-		// server/client are RAII Peers: they DestroyInstance here, freeing the
-		// port before the next sub-test reuses it.
+		// server/client are RAII Peers: they DestroyInstance here.
 	}
 
 	// --- 2. Startup failure surfaces the underlying StartupResult ---
 	{
-		// Hold the port so the second server cannot bind it.
+		// Hold an OS-assigned port so the second server cannot bind it.
 		auto holder = Peer::server()
-			.port(PEERBUILDER_TEST_PORT)
+			.port(0)
 			.max_connections(1)
 			.start();
 		ASSERT_TRUE(holder) << "port-holder server failed to start";
+		const unsigned short heldPort = holder->get()->GetInternalID().GetPort();
+		ASSERT_NE(heldPort, 0) << "port-holder server has no bound port";
 
 		auto clash = Peer::server()
-			.port(PEERBUILDER_TEST_PORT)
+			.port(heldPort)
 			.max_connections(1)
 			.start();
 		ASSERT_FALSE(clash) << "second server unexpectedly bound an in-use port";
@@ -127,10 +128,10 @@ TEST(PeerBuilder, ConnectFailureSurfacesConnectionAttemptResult)
 {
 	// A syntactically invalid host fails address resolution synchronously
 	// (getaddrinfo rejects it), so Connect returns CANNOT_RESOLVE_DOMAIN_NAME
-	// without any network round-trip.
+	// without any network round-trip, so the remote port is never used.
 	auto badClient = Peer::client()
 		.max_connections(1)
-		.connect("!!!not_a_valid_host!!!", PEERBUILDER_TEST_PORT)
+		.connect("!!!not_a_valid_host!!!", 1)
 		.start();
 	ASSERT_FALSE(badClient) << "client unexpectedly connected to an invalid host";
 	ASSERT_EQ(badClient.error().stage, PeerStage::Connect)

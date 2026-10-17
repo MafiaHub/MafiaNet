@@ -85,6 +85,73 @@ TEST(FileListDirectory, NonRecursiveWalkStaysInTheTopDirectory)
 	EXPECT_EQ(list.fileList[0].fileLengthBytes, 10u);
 }
 
+TEST(FileListDirectory, WriteDataReadsContentsIncludingAnEmptyFile)
+{
+	TempTree tree;
+	tree.Write("empty.bin", 0);
+	const std::string dir = tree.root.string() + "/";
+
+	FileList list;
+	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, true, false, FileListNodeContext(0, 0, 0, 0));
+
+	// The read checks must not mistake a zero-length file for a failed read.
+	ASSERT_EQ(Names(list), (std::set<std::string>{"a.bin", "empty.bin"}));
+	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	{
+		const FileListNode &node = list.fileList[i];
+		if (node.filename == "a.bin")
+		{
+			ASSERT_EQ(node.dataLengthBytes, 10u);
+			EXPECT_EQ(std::string(node.data, node.dataLengthBytes), std::string(10, 'x'));
+		}
+		else
+		{
+			EXPECT_EQ(node.dataLengthBytes, 0u);
+		}
+	}
+}
+
+TEST(FileListDirectory, PopulateDataFromDiskReadsEveryFile)
+{
+	TempTree tree;
+	const std::string dir = tree.root.string() + "/";
+
+	FileList list;
+	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, false, true, FileListNodeContext(0, 0, 0, 0));
+	ASSERT_EQ(list.fileList.Size(), 3u);
+
+	list.PopulateDataFromDisk(dir.c_str(), true, false, false);
+
+	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	{
+		const FileListNode &node = list.fileList[i];
+		ASSERT_NE(node.data, nullptr) << node.filename.C_String();
+		EXPECT_EQ(node.dataLengthBytes, node.fileLengthBytes);
+		EXPECT_EQ(std::string(node.data, node.dataLengthBytes), std::string(node.fileLengthBytes, 'x'));
+	}
+}
+
+TEST(FileListDirectory, PopulateDataFromDiskWithoutDataOrHashTerminates)
+{
+	// With neither data nor hash requested, the loop used to skip i++ (and fclose) for every
+	// file that exists, re-processing the first entry forever.
+	TempTree tree;
+	const std::string dir = tree.root.string() + "/";
+
+	FileList list;
+	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, true, true, FileListNodeContext(0, 0, 0, 0));
+	ASSERT_EQ(list.fileList.Size(), 3u);
+
+	list.PopulateDataFromDisk(dir.c_str(), false, false, false);
+
+	ASSERT_EQ(list.fileList.Size(), 3u);
+	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	{
+		EXPECT_EQ(list.fileList[i].data, nullptr);
+		EXPECT_EQ(list.fileList[i].dataLengthBytes, 0u);
+	}
+}
+
 #ifndef _WIN32
 // The shim is only compiled on Linux and macOS; MSVC provides the real function.
 

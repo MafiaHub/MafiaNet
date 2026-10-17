@@ -56,9 +56,8 @@ TEST_F(CrossConnectionConvert, SimultaneousConnectHandshakes)
 {
 	// Reduce test duration in CI environments
 	const bool isCI = (getenv("CI") != nullptr);
-	const int testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
+	const TimeMS testDurationMs = isCI ? 2000 : 10000;  // 2 seconds in CI
 
-	static const unsigned short SERVER_PORT=1234;
 	char serverIP[64];
 
 	strcpy(serverIP,"127.0.0.1");
@@ -70,14 +69,15 @@ TEST_F(CrossConnectionConvert, SimultaneousConnectHandshakes)
 	server = RegisterPeer(RakPeerInterface::GetInstance());
 	client = RegisterPeer(RakPeerInterface::GetInstance());
 
-	SocketDescriptor serverSd(SERVER_PORT, 0);
-	server->Startup(1, &serverSd, 1);
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(1, &serverSd, 1), RAKNET_STARTED) << "Server failed to start";
 	server->SetMaximumIncomingConnections(1);
+	const unsigned short serverPort=server->GetInternalID().GetPort();
 
 	SocketDescriptor clientSd(0, 0);
-	client->Startup(1, &clientSd, 1);
+	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED) << "Client failed to start";
 
-	client->Ping(serverIP,SERVER_PORT,false);
+	client->Ping(serverIP,serverPort,false);
 
 	//	PacketLogger pl;
 	//	pl.LogHeader();
@@ -163,7 +163,7 @@ TEST_F(CrossConnectionConvert, SimultaneousConnectHandshakes)
 			connectionAttemptTime=0;
 
 			server->Connect(clientIP,clientPort,0,0);
-			client->Connect(serverIP,SERVER_PORT,0,0);
+			client->Connect(serverIP,serverPort,0,0);
 
 			connectionResultDeterminationTime=GetTimeMS()+2000;
 		}
@@ -174,7 +174,7 @@ TEST_F(CrossConnectionConvert, SimultaneousConnectHandshakes)
 
 			SystemAddress sa;
 			sa.SetBinaryAddress(serverIP);
-			sa.SetPortHostOrder(SERVER_PORT);
+			sa.SetPortHostOrder(serverPort);
 			client->CancelConnectionAttempt(sa);
 
 			sa.SetBinaryAddress(clientIP);
@@ -190,7 +190,7 @@ TEST_F(CrossConnectionConvert, SimultaneousConnectHandshakes)
 		}
 		if (nextTestStartTime!=0 && GetTimeMS()>=nextTestStartTime)
 		{
-			client->Ping(serverIP,SERVER_PORT,false);
+			client->Ping(serverIP,serverPort,false);
 			nextTestStartTime=0;
 		}
 		RakSleep(0);

@@ -17,7 +17,13 @@ extern "C" {
 
 char * Gets ( char * str, int num )
 {
-	fgets(str, num, stdin);
+	if (fgets(str, num, stdin) == NULL)
+	{
+		// EOF or read error: nothing was read, so do not hand back stale buffer contents.
+		if (num > 0)
+			str[0]=0;
+		return str;
+	}
 	if (str[0]=='\n' || str[0]=='\r')
 		str[0]=0;
 

@@ -148,7 +148,7 @@ void SocketLayer::SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSoc
 	}
 }
  
-MafiaNet::RakString SocketLayer::GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, MafiaNet::RakString inIpString)
+MafiaNet::RakString SocketLayer::GetSubNetForSocketAndIp([[maybe_unused]] __UDPSOCKET__ inSock, MafiaNet::RakString inIpString) // inSock: Windows only; POSIX opens its own query socket
 {
 	MafiaNet::RakString netMaskString;
 	MafiaNet::RakString ipString;

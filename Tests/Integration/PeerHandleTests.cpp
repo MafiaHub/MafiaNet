@@ -29,9 +29,6 @@ using namespace MafiaNet;
 /// - Peer::receive() yields an empty PacketPtr when nothing is queued, and the
 ///   move-assignment in a receive loop frees each real packet without leaking.
 
-// A distinct port so a full-suite run does not collide with other tests.
-static const unsigned short PEERHANDLE_TEST_PORT = 61015;
-
 // A user message id carried behind an ID_TIMESTAMP prefix, used to exercise the
 // timestamp-aware branch of PacketPtr::id().
 static const unsigned char PEERHANDLE_TS_ID = (unsigned char) (ID_USER_PACKET_ENUM + 7);
@@ -74,19 +71,19 @@ TEST(PeerHandle, LoopbackIdBranchesAndIncomingRange)
 	Peer server;
 	Peer client;
 
-	SocketDescriptor serverSd(PEERHANDLE_TEST_PORT, 0);
-	ASSERT_EQ(server->Startup(1, &serverSd, 1), RAKNET_STARTED)
-		<< "server Startup failed (port " << PEERHANDLE_TEST_PORT << " in use?)";
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(1, &serverSd, 1), RAKNET_STARTED) << "server Startup failed";
 	server->SetMaximumIncomingConnections(1);
+	const unsigned short serverPort = server->GetInternalID().GetPort();
 
 	SocketDescriptor clientSd;
 	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED) << "client Startup failed";
 
 	SystemAddress serverAddress;
 	serverAddress.SetBinaryAddress("127.0.0.1");
-	serverAddress.SetPortHostOrder(PEERHANDLE_TEST_PORT);
+	serverAddress.SetPortHostOrder(serverPort);
 
-	ASSERT_EQ(client->Connect("127.0.0.1", PEERHANDLE_TEST_PORT, 0, 0), CONNECTION_ATTEMPT_STARTED)
+	ASSERT_EQ(client->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED)
 		<< "Connect did not start";
 
 	// Wait for ID_CONNECTION_REQUEST_ACCEPTED on the client. This identifier is

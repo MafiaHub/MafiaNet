@@ -533,14 +533,12 @@ void StatisticsHistory::TimeAndValueQueue::ResizeSampleSet( int maxSamples, Data
 	unsigned int dataIndex;
 	Time timeBoundary;
 	StatisticsHistory::TimeAndValue currentSum;
-	Time currentTime;
 	SHValueType numSamples;
 	Time endTime;
 	
 	numSamples=0;
 	endTime = values[values.Size()-1].time;
 	dataIndex=0;
-	currentTime=values[0].time;
 	currentSum.val=0;
 	currentSum.time=values[0].time + interval / 2;
 	timeBoundary = values[0].time + interval;
@@ -664,8 +662,8 @@ SHValueType StatisticsHistory::TimeAndValueQueue::Interpolate(StatisticsHistory:
 		return (t1.val + t2.val) / 2;
 //	if (t2.time > t1.time)
 //	{
-		SHValueType slope = (t2.val - t1.val) / ((SHValueType) t2.time - (SHValueType) t1.time);
-		return t1.val + slope * ((SHValueType) time - (SHValueType) t1.time);
+	SHValueType slope = (t2.val - t1.val) / ((SHValueType) t2.time - (SHValueType) t1.time);
+	return t1.val + slope * ((SHValueType) time - (SHValueType) t1.time);
 // 	}
 // 	else
 // 	{

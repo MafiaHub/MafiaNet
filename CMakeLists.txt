@@ -31,6 +31,12 @@ option(MAFIANET_BUILD_SHARED "Build shared library" ON)
 option(MAFIANET_BUILD_STATIC "Build static library" ON)
 option(MAFIANET_BUILD_SAMPLES "Build sample applications" OFF)
 option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
+# libFuzzer harnesses (Clang only). Their corpus is replayed by the test suite
+# on every compiler regardless; see Tests/Fuzz/.
+option(MAFIANET_BUILD_FUZZERS "Build libFuzzer harnesses (Clang)" OFF)
+option(MAFIANET_BUILD_BENCHMARKS "Build the google/benchmark microbenchmarks" OFF)
+# Line coverage (GCC/Clang --coverage), reported with gcovr; see the coverage preset.
+option(MAFIANET_COVERAGE "Instrument the build for line coverage" OFF)
 # Non-networking utilities (EmailSender, HTTPConnection/HTTPConnection2,
 # TelnetTransport, RakNetTransport2, ConsoleServer, LogCommandParser,
 # RakNetCommandParser, PacketConsoleLogger) live in the separate MafiaNetExtras
@@ -63,6 +69,9 @@ set(MAFIANET_SANITIZER "" CACHE STRING "Build with sanitizers (e.g. address+unde
 # unless the caller already chose a launcher (CI passes one explicitly).
 option(MAFIANET_USE_COMPILER_CACHE "Use sccache/ccache when available" ON)
 
+# Compiler warnings on MafiaNet's own targets (see mafianet_enable_warnings).
+option(MAFIANET_WARNINGS_AS_ERRORS "Treat compiler warnings in MafiaNet code as errors" OFF)
+
 # Ensure at least one library type is built
 if(NOT MAFIANET_BUILD_SHARED AND NOT MAFIANET_BUILD_STATIC)
     message(FATAL_ERROR "At least one of MAFIANET_BUILD_SHARED or MAFIANET_BUILD_STATIC must be ON")
@@ -88,6 +97,16 @@ if(MAFIANET_SANITIZER)
     message(STATUS "MafiaNet: sanitizers ${_mafianet_san}")
     add_compile_options(-fsanitize=${_mafianet_san} -fno-sanitize-recover=all -fno-omit-frame-pointer)
     add_link_options(-fsanitize=${_mafianet_san})
+endif()
+
+if(MAFIANET_COVERAGE)
+    if(MSVC)
+        message(FATAL_ERROR "MAFIANET_COVERAGE is not supported with MSVC")
+    endif()
+    # Atomic counters: the network threads update them concurrently, and
+    # non-atomic ones come out negative, which gcovr rejects.
+    add_compile_options(--coverage -O0 -fprofile-update=atomic)
+    add_link_options(--coverage)
 endif()
 
 # Dependencies
@@ -141,4 +160,18 @@ if(MAFIANET_BUILD_TESTS)
         message(FATAL_ERROR "MAFIANET_BUILD_TESTS requires MAFIANET_BUILD_STATIC")
     endif()
     add_subdirectory(Tests)
+endif()
+
+if(MAFIANET_BUILD_BENCHMARKS)
+    if(NOT MAFIANET_BUILD_STATIC)
+        message(FATAL_ERROR "MAFIANET_BUILD_BENCHMARKS requires MAFIANET_BUILD_STATIC")
+    endif()
+    add_subdirectory(Benchmarks)
+endif()
+
+if(MAFIANET_BUILD_FUZZERS AND NOT MAFIANET_BUILD_TESTS)
+    if(NOT MAFIANET_BUILD_STATIC)
+        message(FATAL_ERROR "MAFIANET_BUILD_FUZZERS requires MAFIANET_BUILD_STATIC")
+    endif()
+    add_subdirectory(Tests/Fuzz)
 endif()

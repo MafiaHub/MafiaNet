@@ -227,11 +227,7 @@ protected:
 		server = RakPeerInterface::GetInstance();
 		client = RakPeerInterface::GetInstance();
 
-		// Bind the server to an OS-assigned ephemeral port rather than a fixed one.
-		// Most tests in this suite share port 60000; running them all in one process
-		// (as CI does) means a prior test's socket can still be lingering on that port
-		// when this one starts, disrupting the fresh connection and intermittently
-		// swallowing the disconnect notification. An ephemeral port sidesteps that.
+		// Bind the server to an OS-assigned ephemeral port.
 		SocketDescriptor sdServer(0, "127.0.0.1");
 		ASSERT_EQ(server->Startup(8, &sdServer, 1), RAKNET_STARTED) << "Server failed to start";
 		server->SetMaximumIncomingConnections(8);

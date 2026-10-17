@@ -349,14 +349,14 @@ double CCRakNetSlidingWindow::GetRTT(void) const
 bool CCRakNetSlidingWindow::GreaterThan(DatagramSequenceNumberType a, DatagramSequenceNumberType b)
 {
 	// a > b?
-	const DatagramSequenceNumberType halfSpan =(DatagramSequenceNumberType) (((DatagramSequenceNumberType)(const uint32_t)-1)/(DatagramSequenceNumberType)2);
+	const DatagramSequenceNumberType halfSpan =(DatagramSequenceNumberType) (((DatagramSequenceNumberType)(uint32_t)-1)/(DatagramSequenceNumberType)2);
 	return b!=a && b-a>halfSpan;
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 bool CCRakNetSlidingWindow::LessThan(DatagramSequenceNumberType a, DatagramSequenceNumberType b)
 {
 	// a < b?
-	const DatagramSequenceNumberType halfSpan = ((DatagramSequenceNumberType)(const uint32_t)-1)/(DatagramSequenceNumberType)2;
+	const DatagramSequenceNumberType halfSpan = ((DatagramSequenceNumberType)(uint32_t)-1)/(DatagramSequenceNumberType)2;
 	return b!=a && b-a<halfSpan;
 }
 // ----------------------------------------------------------------------------------------------------------------------------

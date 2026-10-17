@@ -954,33 +954,33 @@ namespace DataStructures
 	{
 		if ( this->list_size == 0 )
 			return ;
+
+		if ( this->list_size == 1 )  // {MafiaNet::OP_DELETE(root->item); MafiaNet::OP_DELETE(root, _FILE_AND_LINE_);}
+		{
+			MafiaNet::OP_DELETE(this->root, _FILE_AND_LINE_);
+		}
+
 		else
-			if ( this->list_size == 1 )  // {MafiaNet::OP_DELETE(root->item); MafiaNet::OP_DELETE(root, _FILE_AND_LINE_);}
+		{
+			node* current;
+			node* temp;
+
+			current = this->root;
+
+			do
 			{
-				MafiaNet::OP_DELETE(this->root, _FILE_AND_LINE_);
+				temp = current;
+				current = current->next;
+				// MafiaNet::OP_DELETE(temp->item, _FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
 			}
 
-			else
-			{
-				node* current;
-				node* temp;
+			while ( current != this->root );
+		}
 
-				current = this->root;
-
-				do
-				{
-					temp = current;
-					current = current->next;
-					// MafiaNet::OP_DELETE(temp->item, _FILE_AND_LINE_);
-					MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
-				}
-
-				while ( current != this->root );
-			}
-
-			this->list_size = 0;
-			this->root = 0;
-			this->position = 0;
+		this->list_size = 0;
+		this->root = 0;
+		this->position = 0;
 	}
 
 	template <class CircularLinkedListType>

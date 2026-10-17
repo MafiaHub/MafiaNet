@@ -18,7 +18,7 @@ CommonFunctions::~CommonFunctions(void)
 {
 }
 
-bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer,SystemAddress currentSystem,bool isConnected,bool isConnecting,bool isPending,bool isDisconnecting,bool isNotConnected,bool isLoopBack , bool isSilentlyDisconnecting)
+bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer,SystemAddress currentSystem,bool isConnected,bool isConnecting,bool isPending,bool isDisconnecting,bool isNotConnected,bool /*isLoopBack*/ , bool isSilentlyDisconnecting)
 {
 	ConnectionState connectionState=peer->GetConnectionState(currentSystem);
 	switch(connectionState)
@@ -53,7 +53,7 @@ bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer,Syste
 	}
 }
 
-bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,char* ip,unsigned short int port,int millisecondsToWait)
+bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,const char* ip,unsigned short int port,int millisecondsToWait)
 {
 
 	SystemAddress connectToAddress;
@@ -62,7 +62,7 @@ bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,char* ip,unsigned sh
 	connectToAddress.SetPortHostOrder(port);
 	TimeMS entryTime=GetTimeMS();
 
-	while(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true)&&GetTimeMS()-entryTime<millisecondsToWait)
+	while(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true)&&GetTimeMS()-entryTime<(TimeMS)millisecondsToWait)
 	{
 
 		if(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true,true,true,true))

@@ -15,6 +15,7 @@
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
 #include "CommonFunctions.h"
+#include "TestHelpers.h"
 
 #include <vector>
 
@@ -33,7 +34,7 @@ protected:
 			RakPeerInterface::DestroyInstance(peer);
 	}
 
-	static void WaitForConnectionRequestsToComplete(RakPeerInterface **peerList, int peerNum)
+	static void WaitForConnectionRequestsToComplete(RakPeerInterface **peerList, const unsigned short *ports, int peerNum)
 	{
 		SystemAddress currentSystem;
 		bool msgWasPrinted=false;
@@ -43,7 +44,7 @@ protected:
 			for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 			{
 				currentSystem.SetBinaryAddress("127.0.0.1");
-				currentSystem.SetPortHostOrder(60000+j);
+				currentSystem.SetPortHostOrder(ports[j]);
 
 				while (CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,false,true,true) )
 				{
@@ -59,9 +60,9 @@ protected:
 		}
 	}
 
-	static void WaitAndPrintResults(RakPeerInterface **peerList, int peerNum)
+	static void WaitAndPrintResults(RakPeerInterface **peerList, const unsigned short *ports, int peerNum)
 	{
-		WaitForConnectionRequestsToComplete(peerList,peerNum);
+		WaitForConnectionRequestsToComplete(peerList,ports,peerNum);
 
 		Packet *packet;
 
@@ -109,6 +110,7 @@ TEST_F(PeerConnectDisconnect, MeshReconnectsAfterRepeatedDisconnects)
 	const int peerNum= 8;
 	const int maxConnections=peerNum*3;//Max allowed connections for test set to times 3 to eliminate problem variables
 	RakPeerInterface *peerList[peerNum];//A list of 8 peers
+	unsigned short ports[peerNum];//OS-assigned port of each peer
 
 	SystemAddress currentSystem;
 
@@ -118,9 +120,10 @@ TEST_F(PeerConnectDisconnect, MeshReconnectsAfterRepeatedDisconnects)
 		peerList[i]=RakPeerInterface::GetInstance();
 		destroyList.push_back(peerList[i]);
 
-		SocketDescriptor sd(60000+i, 0);
+		SocketDescriptor sd(0, "127.0.0.1");
 		StartupResult result = peerList[i]->Startup(maxConnections, &sd, 1);
 		ASSERT_EQ(result, RAKNET_STARTED) << "Peer " << i << " failed to start (error " << result << ")";
+		ports[i] = TestHelpers::BoundPort(peerList[i]);
 		peerList[i]->SetMaximumIncomingConnections(maxConnections);
 
 	}
@@ -133,7 +136,7 @@ TEST_F(PeerConnectDisconnect, MeshReconnectsAfterRepeatedDisconnects)
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
 
-			ASSERT_EQ(peerList[i]->Connect("127.0.0.1", 60000+j, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed. Problem while calling connect.";
+			ASSERT_EQ(peerList[i]->Connect("127.0.0.1", ports[j], 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed. Problem while calling connect.";
 
 		}
 
@@ -175,22 +178,22 @@ TEST_F(PeerConnectDisconnect, MeshReconnectsAfterRepeatedDisconnects)
 			{
 
 				currentSystem.SetBinaryAddress("127.0.0.1");
-				currentSystem.SetPortHostOrder(60000+j);
+				currentSystem.SetPortHostOrder(ports[j]);
 				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
 
-					ASSERT_EQ(peerList[i]->Connect("127.0.0.1", 60000+j, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed. Problem while calling connect.";
+					ASSERT_EQ(peerList[i]->Connect("127.0.0.1", ports[j], 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed. Problem while calling connect.";
 				}
 
 			}
 
 		}
 
-		WaitAndPrintResults(peerList,peerNum);
+		WaitAndPrintResults(peerList,ports,peerNum);
 
 	}
 
-	WaitAndPrintResults(peerList,peerNum);
+	WaitAndPrintResults(peerList,ports,peerNum);
 
 	printf("Connecting peers\n");
 
@@ -213,10 +216,10 @@ TEST_F(PeerConnectDisconnect, MeshReconnectsAfterRepeatedDisconnects)
 			for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 			{
 				currentSystem.SetBinaryAddress("127.0.0.1");
-				currentSystem.SetPortHostOrder(60000+j);
+				currentSystem.SetPortHostOrder(ports[j]);
 				if(!CommonFunctions::ConnectionStateMatchesOptions (peerList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
 				{
-					ConnectionAttemptResult car=peerList[i]->Connect("127.0.0.1", 60000+j, 0,0);
+					ConnectionAttemptResult car=peerList[i]->Connect("127.0.0.1", ports[j], 0,0);
 					// STARTED is success. ALREADY_CONNECTED_TO_ENDPOINT and
 					// CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS are benign races (the link came up
 					// between the state check above and this call) and are expected while the
@@ -226,13 +229,13 @@ TEST_F(PeerConnectDisconnect, MeshReconnectsAfterRepeatedDisconnects)
 					ASSERT_TRUE(car==CONNECTION_ATTEMPT_STARTED ||
 						car==ALREADY_CONNECTED_TO_ENDPOINT ||
 						car==CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS)
-						<< "The connect function failed. Connect() from peer " << i << " to 127.0.0.1:" << 60000+j
+						<< "The connect function failed. Connect() from peer " << i << " to 127.0.0.1:" << ports[j]
 						<< " (" << currentSystem.ToString() << ") failed with result " << (int)car << ".";
 				}
 			}
 		}
 
-		WaitAndPrintResults(peerList,peerNum);
+		WaitAndPrintResults(peerList,ports,peerNum);
 
 		allConnected = true;
 		for (int i=0;i<peerNum;i++)

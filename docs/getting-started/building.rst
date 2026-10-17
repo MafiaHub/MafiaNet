@@ -68,6 +68,18 @@ Configure build options with CMake:
    * - ``MAFIANET_USE_COMPILER_CACHE``
      - ON
      - Use ``sccache`` or ``ccache`` as the compiler launcher when one is on ``PATH``. An explicit ``CMAKE_<LANG>_COMPILER_LAUNCHER`` takes precedence.
+   * - ``MAFIANET_WARNINGS_AS_ERRORS``
+     - OFF
+     - Treat warnings in MafiaNet's own code (``-Wall -Wextra``, ``/W4``) as errors. Fetched dependencies are never affected.
+   * - ``MAFIANET_BUILD_FUZZERS``
+     - OFF
+     - Build the libFuzzer harnesses (Clang only). See `Fuzzing`_.
+   * - ``MAFIANET_BUILD_BENCHMARKS``
+     - OFF
+     - Build the google/benchmark microbenchmarks. See `Benchmarks`_.
+   * - ``MAFIANET_COVERAGE``
+     - OFF
+     - Instrument for line coverage (GCC/Clang). See `Coverage`_.
 
 Example with options:
 
@@ -225,6 +237,12 @@ preset builds into ``build/<preset>``:
      - Release with ``MAFIANET_MINIMAL=ON``.
    * - ``asan`` / ``tsan``
      - RelWithDebInfo and tests under AddressSanitizer + UBSan, or ThreadSanitizer. Not available on Windows.
+   * - ``fuzz``
+     - Clang, RelWithDebInfo, the libFuzzer harnesses under ASan + UBSan.
+   * - ``bench``
+     - Release, the microbenchmarks.
+   * - ``coverage``
+     - Debug and tests with ``--coverage``.
 
 Workflow presets configure, build and test in one command:
 
@@ -254,6 +272,52 @@ is advisory and exists to catch new races. On Linux hosts with
 
 On macOS, the ``.devcontainer`` gives a Linux environment for running the
 sanitizers and the Linux-only batched datagram paths.
+
+Fuzzing
+-------
+
+``Tests/Fuzz/`` holds libFuzzer harnesses for the code that parses what remote
+peers send: ``bit_stream`` (BitStream deserialization), ``reliability_layer``
+(the datagram parser of a connected ReliabilityLayer) and ``peer_datagram``
+(a whole server peer on the simulated network, from offline messages through
+a connected session). Build and run them with Clang:
+
+.. code-block:: bash
+
+   cmake --workflow --preset fuzz
+   ./build/fuzz/Tests/Fuzz/peer_datagram_fuzz Tests/Fuzz/corpus/peer_datagram -max_total_time=300
+
+Pass a scratch copy of the corpus directory if you do not want new inputs
+written into the source tree. Every harness is also built as
+``<name>_replay`` with the tests, on every compiler, and replays
+``Tests/Fuzz/corpus/<name>/`` as the unit test ``FuzzCorpus.<name>``. When the
+fuzzer finds a crash, fix it and add the minimized reproducer
+(``-minimize_crash=1``) to that directory so every build keeps checking it.
+
+CI fuzzes each harness for one minute on every pull request, and for fifteen
+minutes nightly with a corpus that persists between runs.
+
+Benchmarks
+----------
+
+.. code-block:: bash
+
+   cmake --preset bench && cmake --build --preset bench
+   ./build/bench/Benchmarks/MafiaNetBenchmarks --benchmark_filter=ReliabilityLayer
+
+Numbers only mean something against a baseline on the same machine: run the
+benchmarks on both revisions with ``--benchmark_out=<file>
+--benchmark_out_format=json`` and compare them with google/benchmark's
+``tools/compare.py``.
+
+Coverage
+--------
+
+.. code-block:: bash
+
+   cmake --preset coverage && cmake --build --preset coverage
+   ctest --preset coverage
+   gcovr --root . --filter Source/ build/coverage --html-details coverage/index.html
 
 Running Tests
 -------------

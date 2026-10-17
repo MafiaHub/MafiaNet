@@ -15,6 +15,7 @@
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
 #include "CommonFunctions.h"
+#include "TestHelpers.h"
 
 #include <vector>
 
@@ -76,6 +77,7 @@ TEST_F(PeerConnectDisconnectWithCancelPending, MeshReconnectsWithCancelledPendin
 	const int peerNum= 8;
 	const int maxConnections=peerNum*3;//Max allowed connections for test set to times 3 to eliminate problem variables
 	RakPeerInterface *peerList[peerNum];//A list of 8 peers
+	unsigned short ports[peerNum];//OS-assigned port of each peer
 
 	SystemAddress currentSystem;
 
@@ -87,9 +89,10 @@ TEST_F(PeerConnectDisconnectWithCancelPending, MeshReconnectsWithCancelledPendin
 		peerList[i]=RakPeerInterface::GetInstance();
 		destroyList.push_back(peerList[i]);
 
-		SocketDescriptor sd(60000+i, 0);
+		SocketDescriptor sd(0, "127.0.0.1");
 		StartupResult result = peerList[i]->Startup(maxConnections, &sd, 1);
 		ASSERT_EQ(result, RAKNET_STARTED) << "Peer " << i << " failed to start (error " << result << ")";
+		ports[i] = TestHelpers::BoundPort(peerList[i]);
 		peerList[i]->SetMaximumIncomingConnections(maxConnections);
 
 	}
@@ -102,7 +105,7 @@ TEST_F(PeerConnectDisconnectWithCancelPending, MeshReconnectsWithCancelledPendin
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
 
-			ASSERT_EQ(peerList[i]->Connect("127.0.0.1", 60000+j, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed. Problem while calling connect.";
+			ASSERT_EQ(peerList[i]->Connect("127.0.0.1", ports[j], 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed. Problem while calling connect.";
 
 		}
 
@@ -143,7 +146,7 @@ TEST_F(PeerConnectDisconnectWithCancelPending, MeshReconnectsWithCancelledPendin
 			{
 
 				currentSystem.SetBinaryAddress("127.0.0.1");
-				currentSystem.SetPortHostOrder(60000+j);
+				currentSystem.SetPortHostOrder(ports[j]);
 
 				peerList[i]->CancelConnectionAttempt(currentSystem);  	//Make sure a connection is not pending before trying to connect.
 
@@ -160,11 +163,11 @@ TEST_F(PeerConnectDisconnectWithCancelPending, MeshReconnectsWithCancelledPendin
 			for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 			{
 
-				if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+				if (peerList[i]->Connect("127.0.0.1", ports[j], 0,0)!=CONNECTION_ATTEMPT_STARTED)
 				{
 
 					currentSystem.SetBinaryAddress("127.0.0.1");
-					currentSystem.SetPortHostOrder(60000+j);
+					currentSystem.SetPortHostOrder(ports[j]);
 
 					peerList[i]->GetSystemList(systemList,guidList);//Get connectionlist
 
@@ -224,11 +227,11 @@ TEST_F(PeerConnectDisconnectWithCancelPending, MeshReconnectsWithCancelledPendin
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
-			currentSystem.SetPortHostOrder(60000+j);
+			currentSystem.SetPortHostOrder(ports[j]);
 
 			peerList[i]->CancelConnectionAttempt(currentSystem);  	//Make sure a connection is not pending before trying to connect.
 
-			if (peerList[i]->Connect("127.0.0.1", 60000+j, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (peerList[i]->Connect("127.0.0.1", ports[j], 0,0)!=CONNECTION_ATTEMPT_STARTED)
 			{
 
 				peerList[i]->GetSystemList(systemList,guidList);//Get connectionlist

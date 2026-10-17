@@ -14,6 +14,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
+#include "TestHelpers.h"
 
 #include <vector>
 
@@ -60,6 +61,7 @@ TEST_F(EightPeer, FullMeshReliableOrderedBroadcast)
 {
 	const int peerNum= 8;
 	RakPeerInterface *peerList[peerNum];//A list of 8 peers
+	unsigned short ports[peerNum];//OS-assigned port of each peer
 	int connectionAmount[peerNum];//Counter for me to keep track of connection requests and accepts
 	int recievedFromList[peerNum][peerNum];//Counter for me to keep track of packets received
 	int lastNumberReceivedFromList[peerNum][peerNum];//Counter for me to keep track of last recieved sequence number
@@ -80,9 +82,10 @@ TEST_F(EightPeer, FullMeshReliableOrderedBroadcast)
 			lastNumberReceivedFromList[i][j]=0;
 		}
 
-		SocketDescriptor sd(60000+i, 0);
+		SocketDescriptor sd(0, "127.0.0.1");
 		StartupResult result = peerList[i]->Startup(peerNum*2, &sd, 1);
-		ASSERT_EQ(result, RAKNET_STARTED) << "Peer " << i << " failed to start on port " << 60000+i << " (error " << result << ")";
+		ASSERT_EQ(result, RAKNET_STARTED) << "Peer " << i << " failed to start (error " << result << ")";
+		ports[i] = TestHelpers::BoundPort(peerList[i]);
 		peerList[i]->SetMaximumIncomingConnections(peerNum);
 
 	}
@@ -95,7 +98,7 @@ TEST_F(EightPeer, FullMeshReliableOrderedBroadcast)
 	{
 		for (int j=i+1;j<peerNum;j++)//Start at i+1 so don't connect two of the same together.
 		{
-			ASSERT_EQ(peerList[i]->Connect("127.0.0.1", 60000+j, 0,0), CONNECTION_ATTEMPT_STARTED) << "Connect function returned failure. Problem while calling connect.";
+			ASSERT_EQ(peerList[i]->Connect("127.0.0.1", ports[j], 0,0), CONNECTION_ATTEMPT_STARTED) << "Connect function returned failure. Problem while calling connect.";
 		}
 
 	}

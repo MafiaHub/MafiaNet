@@ -67,8 +67,8 @@ void HTTPConnection::Get(const char *path)
 
 bool HTTPConnection::HasBadResponse(int *code, MafiaNet::RakString *data)
 {
-    if(badResponses.IsEmpty())
-        return false;
+	if(badResponses.IsEmpty())
+		return false;
 
 	if (code)
 		*code = badResponses.Peek().code;

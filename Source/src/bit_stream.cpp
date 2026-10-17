@@ -263,11 +263,14 @@ bool BitStream::Read( BitStream &bitStream )
 // Read an array or casted stream
 bool BitStream::Read( char* outByteArray, const unsigned int numberOfBytes )
 {
+	// Compare wide: numberOfBytes << 3 wraps in 32 bits for lengths of 512 MB
+	// and up, and a wrapped check let memcpy read past the stream.
+	if ((uint64_t) numberOfBytes * 8 > GetNumberOfUnreadBits())
+		return false;
+
 	// Optimization:
 	if ((readOffset & 7) == 0)
 	{
-		if (GetNumberOfUnreadBits() < (numberOfBytes << 3))
-			return false;
 
 		// Write the data
 		memcpy( outByteArray, data + ( readOffset >> 3 ), (size_t) numberOfBytes );
@@ -372,7 +375,8 @@ bool BitStream::ReadAlignedBytes( unsigned char* inOutByteArray, const unsigned 
 	// Byte align
 	AlignReadToByteBoundary();
 
-	if (GetNumberOfUnreadBits() < (numberOfBytesToRead << 3))
+	// Wide, as in Read(char*, unsigned int): a 32-bit shift wraps.
+	if ((uint64_t) numberOfBytesToRead * 8 > GetNumberOfUnreadBits())
 		return false;
 
 	// Write the data
@@ -411,7 +415,13 @@ bool BitStream::ReadAlignedBytesSafeAlloc( char ** outByteArray, unsigned int &i
 	if (inputLength==0)
 		return true;
 	*outByteArray = (char*) rakMalloc_Ex( (size_t) inputLength, _FILE_AND_LINE_ );
-	return ReadAlignedBytes((unsigned char*) *outByteArray, inputLength);
+	if (ReadAlignedBytes((unsigned char*) *outByteArray, inputLength))
+		return true;
+	// Callers commonly free only on success; do not hand back a buffer with
+	// nothing read into it.
+	rakFree_Ex(*outByteArray, _FILE_AND_LINE_ );
+	*outByteArray=0;
+	return false;
 }
 
 // Write numberToWrite bits from the input source
@@ -842,10 +852,7 @@ void BitStream::PrintBits( char *out ) const
 {
 	if (numberOfBitsUsed <= 0)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
 		strcpy(out, "No bits\n");
-#pragma warning(pop)
 		return;
 	}
 
@@ -935,10 +942,9 @@ void BitStream::PrintHex( char *out ) const
 	BitSize_t i;
 	for (i = 0; i < GetNumberOfBytesUsed(); i++)
 	{
-#pragma warning(push)
-#pragma warning(disable:4996)
-		sprintf(out + i * 3, "%02x ", data[i]);
-#pragma warning(pop)
+		// Each byte writes exactly "xx " plus the terminator, so the bound is exact.
+		// The total size of out is the caller's contract in this legacy overload.
+		snprintf(out + i * 3, 4, "%02x ", data[i]);
 	}
 }
 

@@ -103,3 +103,20 @@ function(mafianet_add_extension)
         FOLDER "Extensions"
     )
 endfunction()
+
+# mafianet_enable_warnings(<target>...)
+#
+# Compiler warnings for MafiaNet's own code. Applied per target, never
+# globally, so fetched dependencies keep their own flags.
+# MAFIANET_WARNINGS_AS_ERRORS turns them into errors (CI).
+function(mafianet_enable_warnings)
+    foreach(target IN LISTS ARGN)
+        if(MSVC)
+            target_compile_options(${target} PRIVATE /W4
+                $<$<BOOL:${MAFIANET_WARNINGS_AS_ERRORS}>:/WX>)
+        else()
+            target_compile_options(${target} PRIVATE -Wall -Wextra
+                $<$<BOOL:${MAFIANET_WARNINGS_AS_ERRORS}>:-Werror>)
+        endif()
+    endforeach()
+endfunction()
