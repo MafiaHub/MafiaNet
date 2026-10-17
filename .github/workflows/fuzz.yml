@@ -16,9 +16,16 @@ permissions:
   contents: read
 
 jobs:
+  # fuzz: optimized, NDEBUG, as shipped. fuzz-debug: RakAssert enabled, so any
+  # assert a remote can reach through crafted input is reported as a crash.
   fuzz:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [fuzz, fuzz-debug]
+    name: fuzz (${{ matrix.preset }})
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,15 +37,15 @@ jobs:
 
       - name: Build harnesses
         run: |
-          cmake --preset fuzz -G Ninja
-          cmake --build --preset fuzz
+          cmake --preset ${{ matrix.preset }} -G Ninja
+          cmake --build --preset ${{ matrix.preset }}
 
       - name: Restore corpus
         uses: actions/cache/restore@v4
         with:
           path: fuzz-corpus
-          key: fuzz-corpus-${{ github.run_id }}
-          restore-keys: fuzz-corpus-
+          key: fuzz-corpus-${{ matrix.preset }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.preset }}-
 
       - name: Fuzz
         env:
@@ -48,7 +55,7 @@ jobs:
         run: |
           mkdir -p fuzz-artifacts
           status=0
-          for harness in build/fuzz/Tests/Fuzz/*_fuzz; do
+          for harness in build/${{ matrix.preset }}/Tests/Fuzz/*_fuzz; do
             name=$(basename "$harness" _fuzz)
             mkdir -p fuzz-corpus/"$name"
             cp -n Tests/Fuzz/corpus/"$name"/* fuzz-corpus/"$name"/ || true
@@ -64,11 +71,11 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: fuzz-corpus
-          key: fuzz-corpus-${{ github.run_id }}
+          key: fuzz-corpus-${{ matrix.preset }}-${{ github.run_id }}
 
       - name: Upload crash reproducers
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-crashes
+          name: fuzz-crashes-${{ matrix.preset }}
           path: fuzz-artifacts/
