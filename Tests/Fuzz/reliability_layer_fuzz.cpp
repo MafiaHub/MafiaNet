@@ -13,7 +13,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <cstring>
+#include <memory>
 
 #include "mafianet/bit_stream.h"
 #include "mafianet/ds_list.h"
@@ -61,14 +62,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		if (length > MAXIMUM_MTU_SIZE)
 			length = MAXIMUM_MTU_SIZE;
 
-		// The layer's parser takes a mutable buffer; give it its own copy so a
-		// write past the datagram is caught by ASan instead of corrupting input.
-		std::vector<char> datagram(data + offset, data + offset + length);
-		offset += length;
-		if (datagram.empty())
+		// The layer's parser takes a mutable buffer; give it its own exactly
+		// sized copy so a read or write past the datagram is caught by ASan.
+		if (length == 0)
 			continue;
+		std::unique_ptr<char[]> datagram(new char[length]);
+		std::memcpy(datagram.get(), data + offset, length);
+		offset += length;
 
-		layer.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(),
+		layer.HandleSocketReceiveFromConnectedPlayer(datagram.get(), (unsigned int) length,
 			remote, handlers, MAXIMUM_MTU_SIZE, &socket, &rnr, now, updateBitStream);
 
 		now += 10000;
