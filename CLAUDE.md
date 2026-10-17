@@ -73,7 +73,7 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_COVERAGE` | OFF | `--coverage` instrumentation; use the `coverage` preset, report with gcovr |
 
 Presets (`CMakePresets.json`, CMake 3.25+): `debug`, `release`, `ci`, `minimal`, `asan`, `tsan`,
-`fuzz`, `bench`, `coverage`.
+`fuzz`, `fuzz-debug` (harnesses with RakAssert enabled), `bench`, `coverage`.
 `cmake --workflow --preset <debug|asan|tsan>` configures, builds and tests in one go; run
 sanitizer tests through `ctest --preset asan|tsan` so the sanitizer options and
 `ci/tsan.supp` are applied. Known by-design TSan races live in `ci/tsan.supp`; add an entry only
@@ -92,6 +92,7 @@ Each is also built as `<name>_replay`, which replays `Tests/Fuzz/corpus/<name>/`
 `FuzzCorpus.<name>` on every compiler. When a fuzzer finds a crash, fix it and add the minimized
 reproducer to that corpus directory. Code that parses network input must not `RakAssert` on
 malformed data: a Debug build would then abort on whatever a peer sends — reject and drop instead.
+The `fuzz-debug` preset (run nightly) builds the harnesses with asserts enabled to find such cases.
 
 When adding or removing a plugin guarded by a `_RAKNET_SUPPORT_<Name>` flag, update
 `MAFIANET_OPTIONAL_FEATURES` in `Source/CMakeLists.txt` as well, or the CMake
