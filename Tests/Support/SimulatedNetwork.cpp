@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 #include "mafianet/assert.h"
 #include "mafianet/message_identifiers.h"

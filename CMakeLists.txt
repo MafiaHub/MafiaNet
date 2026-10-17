@@ -103,7 +103,9 @@ if(MAFIANET_COVERAGE)
     if(MSVC)
         message(FATAL_ERROR "MAFIANET_COVERAGE is not supported with MSVC")
     endif()
-    add_compile_options(--coverage -O0)
+    # Atomic counters: the network threads update them concurrently, and
+    # non-atomic ones come out negative, which gcovr rejects.
+    add_compile_options(--coverage -O0 -fprofile-update=atomic)
     add_link_options(--coverage)
 endif()
 
