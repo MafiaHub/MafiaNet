@@ -140,6 +140,7 @@ void RakVoice::SetLoopbackMode(bool enabled)
 
 bool RakVoice::IsLoopbackMode(void) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return loopbackMode;
 }
 
@@ -215,6 +216,7 @@ void RakVoice::SetMaxDecodedSpeakers(unsigned maxSpeakers)
 
 unsigned RakVoice::GetMaxDecodedSpeakers(void) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return maxDecodedSpeakers;
 }
 
@@ -434,16 +436,19 @@ void RakVoice::ReceiveFrame(void *outputBuffer)
 
 int RakVoice::GetSampleRate(void) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return sampleRate;
 }
 
 int RakVoice::GetBufferSizeBytes(void) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return bufferSizeBytes;
 }
 
 bool RakVoice::IsInitialized(void) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return (bufferedOutput != nullptr);
 }
 
@@ -1060,16 +1065,19 @@ void RakVoice::SetSignalType(int signalType)
 
 bool RakVoice::IsVADActive(void)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return defaultVADState;
 }
 
 bool RakVoice::IsNoiseFilterActive()
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return defaultDENOISEState;
 }
 
 bool RakVoice::IsVBRActive()
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	return defaultVBRState;
 }
 

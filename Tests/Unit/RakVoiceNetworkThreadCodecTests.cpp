@@ -13,7 +13,9 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cmath>
+#include <thread>
 #include <vector>
 
 #include "SimulatedNetwork.h"
@@ -189,4 +191,42 @@ TEST(RakVoiceNetworkThreadCodec, OffByDefaultTheListenerStillDecodesInReceive)
 	rig.Speak(20);
 	rig.net.Step(200);
 	EXPECT_GE(rig.HeardFrom(rig.talker->GetMyGUID()), 15u);
+}
+
+TEST(RakVoiceNetworkThreadCodec, SettersAndGettersMayRaceAcrossThreads)
+{
+	// The codec option makes every public method callable from any thread, the getters
+	// included. Under TSan an unlocked getter racing its setter fails this test.
+	RakVoice voice;
+	voice.SetNetworkThreadCodec(true);
+	std::atomic<bool> running{true};
+	std::thread writer([&]
+	                   {
+		for (unsigned i = 0; running; ++i)
+		{
+			voice.SetMaxDecodedSpeakers(i % 8);
+			voice.SetVAD((i % 3) == 0);
+			voice.SetNoiseFilter((i % 5) == 0);
+			voice.SetVBR((i % 7) == 0);
+			if ((i % 16) == 0)
+				voice.Init(kRate, kFrameBytes);
+			else if ((i % 16) == 8)
+				voice.Deinit();
+		} });
+
+	unsigned observed = 0;
+	for (int i = 0; i < 20000; ++i)
+	{
+		observed += voice.GetMaxDecodedSpeakers();
+		observed += voice.IsLoopbackMode() ? 1u : 0u;
+		observed += voice.IsInitialized() ? 1u : 0u;
+		observed += voice.IsVADActive() ? 1u : 0u;
+		observed += voice.IsNoiseFilterActive() ? 1u : 0u;
+		observed += voice.IsVBRActive() ? 1u : 0u;
+		observed += (unsigned) voice.GetSampleRate() + (unsigned) voice.GetBufferSizeBytes();
+	}
+	running = false;
+	writer.join();
+	voice.Deinit();
+	EXPECT_GT(observed, 0u);
 }

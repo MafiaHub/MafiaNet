@@ -373,6 +373,9 @@ public:
 	/// ReceiveFrameFrom() or ReceiveFrame(). Called on whichever thread decodes -- the network
 	/// thread with SetNetworkThreadCodec(true) -- while RakVoice holds its codec lock, so it must
 	/// return quickly, must not keep \a samples, and must not call SetSpeakerFrameHandler().
+	/// On the network thread the rules of PluginInterface2::OnReceiveNetworkThread() also apply:
+	/// AttachPlugin()/DetachPlugin() do nothing, Shutdown() must not be called, and it must never
+	/// wait on a thread that may be inside DetachPlugin(), Shutdown() or a RakVoice method.
 	/// Pass nullptr to buffer frames again.
 	void SetSpeakerFrameHandler(std::function<void(RakNetGUID origin, const short *samples, unsigned sampleCount)> handler);
 
