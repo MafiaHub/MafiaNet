@@ -44,7 +44,10 @@ namespace
 		if (!(bs.Read(id) && bs.Read(index) && bs.Read(x) && bs.Read(y) && bs.Read(z) &&
 			bs.ReadNormQuat(qw, qx, qy, qz) && bs.Read(a) && bs.Read(b) && bs.ReadCompressed(c) &&
 			bs.ReadBitsFromIntegerRange(r, 0u, 100u)))
+		{
 			state.SkipWithError("read failed");
+			return;
+		}
 		benchmark::DoNotOptimize(x + y + z + qw + c + r);
 	}
 }
