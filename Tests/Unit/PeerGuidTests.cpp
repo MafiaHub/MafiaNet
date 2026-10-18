@@ -9,7 +9,9 @@
 
 #include "mafianet/types.h"
 #include "mafianet/bit_stream.h"
+#include "mafianet/peer_interface.h"
 
+#include <set>
 #include <type_traits>
 #include <string.h>
 
@@ -78,5 +80,21 @@ TEST(PeerGuid, SerializesByteIdenticallyToUint64)
 		PeerGuid readBack = static_cast<PeerGuid>(0);
 		ASSERT_TRUE(bsIn.Read(readBack) && readBack == p)
 			<< "PeerGuid did not round-trip through a BitStream for 0x" << std::hex << v;
+	}
+}
+
+// Every peer's GUID comes from Get64BitUniqueRandomNumber. Peers created back to back in
+// one process -- a server and its clients in a test, or several peers in one tool -- must
+// still get distinct values, and neither 0 ("not generated") nor all-ones (the unassigned
+// sentinel) may ever come out.
+TEST(PeerGuid, UniqueRandomNumbersAreDistinctBackToBack)
+{
+	std::set<uint64_t> seen;
+	for (int i = 0; i < 10000; ++i)
+	{
+		const uint64_t g = RakPeerInterface::Get64BitUniqueRandomNumber();
+		ASSERT_NE(0u, g);
+		ASSERT_NE(UNASSIGNED_RAKNET_GUID.g, g);
+		ASSERT_TRUE(seen.insert(g).second) << "repeated after " << i << " calls";
 	}
 }
