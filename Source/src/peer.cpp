@@ -245,6 +245,7 @@ RakPeer::RakPeer()
 	remoteSystemLookup=0;
 	bytesSentPerSecond = bytesReceivedPerSecond = 0;
 	endThreads = true;
+	networkThreadReceiveStopped = false;
 	isMainLoopThreadActive = false;
 	socketFactory = nullptr;
 	manualUpdate = false;
@@ -1055,6 +1056,10 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 			time = MafiaNet::GetTimeMS();
 		}
 	}
+	// Plugins tear down in OnRakPeerShutdown while the update thread may still be running; stop
+	// offering them messages there first, so no hook is mid-call or starts after this point.
+	SetNetworkThreadReceiveStopped(true);
+
 	for (i=0; i < pluginListTS.Size(); i++)
 	{
 		pluginListTS[i]->OnRakPeerShutdown();
@@ -1092,6 +1097,11 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	{
 		RakSleep(15);
 	}
+
+	// The update thread has exited, so nothing can be in or enter the hook: re-arm it for the next
+	// Startup(). Re-arming here rather than in Startup() means the constructor's value is the one
+	// the first Startup() runs with.
+	SetNetworkThreadReceiveStopped(false);
 
 	activeSystemListSize = 0;
 
@@ -2910,6 +2920,9 @@ void RakPeer::SendTTL( const char* host, unsigned short remotePort, int ttl, uns
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::AttachPlugin( PluginInterface2 *plugin )
 {
+	if (IsInsideNetworkThreadReceive())
+		return;
+
 	bool isNotThreadsafe = plugin->UsesReliabilityLayer();
 	if (isNotThreadsafe)
 	{
@@ -2929,6 +2942,11 @@ void RakPeer::AttachPlugin( PluginInterface2 *plugin )
 			pluginListTS.Insert(plugin, _FILE_AND_LINE_);
 		}
 	}
+
+	pluginListNetworkThreadMutex.Lock();
+	if (pluginListNetworkThread.GetIndexOf(plugin)==MAX_UNSIGNED_LONG)
+		pluginListNetworkThread.Insert(plugin, _FILE_AND_LINE_);
+	pluginListNetworkThreadMutex.Unlock();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2938,7 +2956,7 @@ void RakPeer::AttachPlugin( PluginInterface2 *plugin )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::DetachPlugin( PluginInterface2 *plugin )
 {
-	if (plugin==0)
+	if (plugin==0 || IsInsideNetworkThreadReceive())
 		return;
 
 	unsigned int index;
@@ -2964,6 +2982,17 @@ void RakPeer::DetachPlugin( PluginInterface2 *plugin )
 			pluginListTS.RemoveFromEnd();
 		}
 	}
+	// Removed under the lock the update thread dispatches under, so once this returns the plugin
+	// is not inside OnReceiveNetworkThread and will not be called again.
+	pluginListNetworkThreadMutex.Lock();
+	index = pluginListNetworkThread.GetIndexOf(plugin);
+	if (index!=MAX_UNSIGNED_LONG)
+	{
+		pluginListNetworkThread[index]=pluginListNetworkThread[pluginListNetworkThread.Size()-1];
+		pluginListNetworkThread.RemoveFromEnd();
+	}
+	pluginListNetworkThreadMutex.Unlock();
+
 	plugin->OnDetach();
 	plugin->SetRakPeerInterface(0);
 }
@@ -4835,6 +4864,39 @@ void RakPeer::ClearRequestedConnectionList(void)
 		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_ );
 	}
 }
+bool RakPeer::IsInsideNetworkThreadReceive(void) const
+{
+	return networkThreadDispatcher.load()==std::this_thread::get_id();
+}
+
+void RakPeer::SetNetworkThreadReceiveStopped(bool stopped)
+{
+	pluginListNetworkThreadMutex.Lock();
+	networkThreadReceiveStopped = stopped;
+	pluginListNetworkThreadMutex.Unlock();
+}
+
+bool RakPeer::DispatchNetworkThreadReceive(Packet *packet)
+{
+	pluginListNetworkThreadMutex.Lock();
+	if (networkThreadReceiveStopped)
+	{
+		pluginListNetworkThreadMutex.Unlock();
+		return false;
+	}
+
+	networkThreadDispatcher = std::this_thread::get_id();
+	PluginReceiveResult result = RR_CONTINUE_PROCESSING;
+	for (unsigned int i=0; i < pluginListNetworkThread.Size() && result==RR_CONTINUE_PROCESSING; i++)
+		result = pluginListNetworkThread[i]->OnReceiveNetworkThread(packet);
+	networkThreadDispatcher = std::thread::id();
+	pluginListNetworkThreadMutex.Unlock();
+
+	if (result==RR_STOP_PROCESSING_AND_DEALLOCATE)
+		DeallocatePacket(packet);
+	return result!=RR_CONTINUE_PROCESSING;
+}
+
 inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 {
 	packetReturnMutex.Lock();
@@ -6938,7 +7000,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
 							packet->guid = remoteSystem->guid;
 							packet->guid.systemIndex=packet->systemAddress.systemIndex;
-							AddPacketToProducer(packet);
+							if (!DispatchNetworkThreadReceive(packet))
+								AddPacketToProducer(packet);
 						}
 						else
 						{

@@ -139,6 +139,22 @@ public:
 	/// If true, then you cannot call RakPeer::AttachPlugin() or RakPeer::DetachPlugin() for this plugin, while RakPeer is active
 	virtual bool UsesReliabilityLayer(void) const {return false;}
 
+	/// Called on RakPeer's network update thread for each message from a connected system, before
+	/// it is queued for RakPeer::Receive(). Use it for traffic that must not wait for the
+	/// application to call Receive(), such as voice. Connection notifications are not routed here.
+	/// Runs concurrently with the user thread, so anything the plugin shares with its other
+	/// callbacks must be synchronized. RakPeer::Send() is safe to call from here; AttachPlugin() and
+	/// DetachPlugin() do nothing when called from here, and Shutdown() must not be called from here.
+	/// Not called once Shutdown() has begun calling OnRakPeerShutdown(). ID_TIMESTAMP payloads arrive
+	/// unshifted. A sender's messages can arrive here before the user thread has processed its
+	/// connection notification, so do not assume the application already knows the sender.
+	/// DetachPlugin() and Shutdown() wait for a call in progress, so this must never wait on a
+	/// thread that may be inside either of them.
+	/// \param[in] packet The message. RR_STOP_PROCESSING_AND_DEALLOCATE frees it, RR_STOP_PROCESSING
+	///            hands it to the plugin (free it with RakPeer::DeallocatePacket), and
+	///            RR_CONTINUE_PROCESSING queues it for Receive() as usual.
+	virtual PluginReceiveResult OnReceiveNetworkThread(Packet *packet) {(void) packet; return RR_CONTINUE_PROCESSING;}
+
 	/// Called on a send to the socket, per datagram, that does not go through the reliability layer
 	/// \pre To be called, UsesReliabilityLayer() must return true
 	/// \param[in] data The data being sent

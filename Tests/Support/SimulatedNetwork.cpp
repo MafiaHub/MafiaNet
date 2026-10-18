@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iterator>
+#include <new>
 
 #include "mafianet/assert.h"
 #include "mafianet/message_identifiers.h"
@@ -61,7 +62,10 @@ namespace MafiaNet
 		for (RakPeer *peer : peers)
 		{
 			peer->Shutdown(0);
-			RakPeerInterface::DestroyInstance(peer);
+			if (peersInStorage.count(peer) != 0)
+				peer->~RakPeer();
+			else
+				RakPeerInterface::DestroyInstance(peer);
 		}
 		SetTimeSourceOverride(nullptr);
 		g_networkAlive = false;
@@ -79,7 +83,20 @@ namespace MafiaNet
 
 	RakPeer *SimulatedNetwork::AddPeer(unsigned int maxConnections, unsigned short maxIncoming, unsigned short port)
 	{
-		RakPeer *peer = static_cast<RakPeer *>(RakPeerInterface::GetInstance());
+		return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port);
+	}
+
+	RakPeer *SimulatedNetwork::AddPeerInStorage(void *storage, unsigned int maxConnections, unsigned short maxIncoming,
+		unsigned short port)
+	{
+		RakPeer *peer = new (storage) RakPeer();
+		peersInStorage.insert(peer);
+		return StartPeer(peer, maxConnections, maxIncoming, port);
+	}
+
+	RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming,
+		unsigned short port)
+	{
 		peer->SetSocketFactory(this);
 		peer->SetManualUpdate(true);
 
@@ -232,6 +249,8 @@ namespace MafiaNet
 			for (RakPeer *peer : peers)
 			{
 				peer->RunManualUpdate();
+				if (receiveDisabled.count(peer) != 0)
+					continue;
 				for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
 				{
 					Message message;
@@ -244,6 +263,14 @@ namespace MafiaNet
 				}
 			}
 		}
+	}
+
+	void SimulatedNetwork::SetReceiveEnabled(const RakPeer *peer, bool enabled)
+	{
+		if (enabled)
+			receiveDisabled.erase(peer);
+		else
+			receiveDisabled.insert(peer);
 	}
 
 	bool SimulatedNetwork::RunUntil(const std::function<bool()> &pred, uint32_t maxSimMs, uint32_t stepMs)

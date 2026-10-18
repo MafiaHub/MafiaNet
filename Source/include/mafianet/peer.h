@@ -42,6 +42,7 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/ds_queue.h"
 #include <atomic>
+#include <thread>
 
 namespace MafiaNet {
 /// Forward declarations
@@ -997,6 +998,19 @@ protected:
 	DataStructures::List<BanStruct*> banList;
 	// Threadsafe, and not thread safe
 	DataStructures::List<PluginInterface2*> pluginListTS, pluginListNTS;
+	// Every attached plugin again, for OnReceiveNetworkThread. The mutex lets AttachPlugin and
+	// DetachPlugin run while the update thread is dispatching.
+	DataStructures::List<PluginInterface2*> pluginListNetworkThread;
+	SimpleMutex pluginListNetworkThreadMutex;
+	// The thread inside DispatchNetworkThreadReceive. AttachPlugin/DetachPlugin called from a hook
+	// on it are ignored: they would deadlock on the lock that thread holds, and they also change
+	// the plugin lists Receive() walks on the user thread.
+	std::atomic<std::thread::id> networkThreadDispatcher;
+	// Set once Shutdown() starts telling plugins, cleared again once its update thread has exited.
+	// Starts false, so the first Startup() offers messages. Guarded by the mutex above.
+	bool networkThreadReceiveStopped;
+	bool IsInsideNetworkThreadReceive(void) const;
+	void SetNetworkThreadReceiveStopped(bool stopped);
 
 	DataStructures::Queue<RequestedConnectionStruct*> requestedConnectionQueue;
 	SimpleMutex requestedConnectionQueueMutex;
@@ -1154,6 +1168,8 @@ protected:
 	void ResetSendReceipt(void);
 	void OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPongTime, RemoteSystemStruct *remoteSystem);
 	void CallPluginCallbacks(DataStructures::List<PluginInterface2*> &pluginList, Packet *packet);
+	// Offers a message to the network-thread plugins; true if one of them took it.
+	bool DispatchNetworkThreadReceive(Packet *packet);
 
 #if LIBCAT_SECURITY==1
 	// Encryption and security

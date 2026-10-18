@@ -28,6 +28,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "mafianet/get_time.h"
@@ -66,6 +67,11 @@ namespace MafiaNet
 
 		// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 		RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+		// The same, but the peer is constructed in caller-owned storage (at least
+		// sizeof(RakPeer) bytes, suitably aligned) that must outlive this network.
+		// Lets a test pre-fill that memory to prove the constructor sets what it must.
+		RakPeer *AddPeerInStorage(void *storage, unsigned int maxConnections, unsigned short maxIncoming = 0,
+			unsigned short port = 0);
 		SystemAddress AddressOf(const RakPeer *peer) const;
 
 		// Rules apply per direction; unset links use the default rule.
@@ -79,6 +85,11 @@ namespace MafiaNet
 
 		// Step until pred() holds or maxSimMs of simulated time passed.
 		bool RunUntil(const std::function<bool()> &pred, uint32_t maxSimMs, uint32_t stepMs = 10);
+
+		// While disabled, Step() still runs the peer's update cycle (its "network
+		// thread") but never calls its Receive(): models an application whose main
+		// thread has stalled. Packets queue inside the peer until re-enabled.
+		void SetReceiveEnabled(const RakPeer *peer, bool enabled);
 
 		std::vector<Message> &Inbox(const RakPeer *peer);
 		// First message with this id in peer's inbox, or null.
@@ -124,12 +135,15 @@ namespace MafiaNet
 
 		void Enqueue(const SystemAddress &from, const SystemAddress &to, const char *data, int length);
 		void DeliverDue();
+		RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port);
 		const LinkRule &RuleFor(const SystemAddress &from, const SystemAddress &to) const;
 		uint32_t NextRandom();
 		static TimeUS VirtualClock();
 
 		std::vector<RakPeer *> peers;
+		std::set<const RakPeer *> peersInStorage;
 		std::map<const RakPeer *, std::vector<Message> > inboxes;
+		std::set<const RakPeer *> receiveDisabled;
 		std::map<SystemAddress, SimSocket *> sockets;
 		std::map<std::pair<SystemAddress, SystemAddress>, LinkRule> links;
 		LinkRule defaultRule;

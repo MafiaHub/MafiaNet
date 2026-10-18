@@ -66,6 +66,7 @@ RakVoice::RakVoice()
 	bufferSizeBytes = 0;
 	relayMode = false;
 	relayHost = false;
+	hasPendingRelay = false;
 	perSpeakerOutput = false;
 	maxDecodedSpeakers = 0;
 	relayTarget = UNASSIGNED_RAKNET_GUID;
@@ -158,9 +159,22 @@ void RakVoice::SetRelayTarget(RakNetGUID server)
 	relayTarget = server;
 }
 
-void RakVoice::SetRelayHost(bool enable)
+void RakVoice::SetRelayHost(std::function<void(Packet *packet)> relay)
 {
-	relayHost = enable;
+	// Swapped under the lock OnReceiveNetworkThread calls it under, so a relay being replaced is
+	// never mid-call when this returns.
+	if (relayThread.load() == std::this_thread::get_id())
+	{
+		// From inside the running relay, which holds the lock: swap once it returns.
+		pendingRelay = std::move(relay);
+		hasPendingRelay = true;
+		return;
+	}
+
+	relayFrameHandlerMutex.Lock();
+	relayHost = static_cast<bool>(relay);
+	relayFrameHandler = std::move(relay);
+	relayFrameHandlerMutex.Unlock();
 }
 
 bool RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
@@ -741,16 +755,41 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 		OnVoiceData(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_RAKVOICE_RELAY_DATA:
-		// A relay host never decodes. Plugin OnReceive runs inside RakPeer::Receive, before
-		// the packet reaches the application loop, so swallowing it here would leave the
-		// server with nothing to hand to RelayFrame(). Pass it through instead.
+		// A relay host never decodes. OnReceiveNetworkThread relays these before they are
+		// queued; one only gets here if it was queued just before SetRelayHost() took effect.
 		if (relayHost)
-			return RR_CONTINUE_PROCESSING;
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		OnRelayVoiceData(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
 
 	return RR_CONTINUE_PROCESSING;
+}
+
+PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
+{
+	if (!relayHost || packet == nullptr || packet->length == 0 || packet->data[0] != ID_RAKVOICE_RELAY_DATA)
+		return RR_CONTINUE_PROCESSING;
+
+	relayFrameHandlerMutex.Lock();
+	// Re-checked under the lock: SetRelayHost(nullptr) may have run since the test above.
+	if (!relayFrameHandler)
+	{
+		relayFrameHandlerMutex.Unlock();
+		return RR_CONTINUE_PROCESSING;
+	}
+	relayThread = std::this_thread::get_id();
+	relayFrameHandler(packet);
+	relayThread = std::thread::id();
+	if (hasPendingRelay)
+	{
+		relayHost = static_cast<bool>(pendingRelay);
+		relayFrameHandler = std::move(pendingRelay);
+		pendingRelay = nullptr;
+		hasPendingRelay = false;
+	}
+	relayFrameHandlerMutex.Unlock();
+	return RR_STOP_PROCESSING_AND_DEALLOCATE;
 }
 
 void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
