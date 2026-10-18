@@ -13,6 +13,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cstring>
+#include <new>
 #include <vector>
 
 #include "SimulatedNetwork.h"
@@ -475,4 +477,29 @@ TEST(NetworkThreadReceive, HookCanSeeASenderBeforeTheApplicationSeesItConnect)
 	p.net.SetReceiveEnabled(p.server, true);
 	EXPECT_TRUE(p.net.RunUntilReceived(p.server, ID_NEW_INCOMING_CONNECTION, 2000));
 	p.server->DetachPlugin(&probe);
+}
+
+TEST(NetworkThreadReceive, FirstStartupOffersMessagesWhateverTheMemoryHeldBefore)
+{
+	// The constructor must clear the hook's stop flag: the first Startup() runs with
+	// that value. Building the peer over memory full of set bits makes a missing
+	// initialisation fail every time, instead of only when the allocator leaves junk.
+	struct Storage
+	{
+		void *bytes = ::operator new(sizeof(RakPeer));
+		Storage() { std::memset(bytes, 0xFF, sizeof(RakPeer)); }
+		~Storage() { ::operator delete(bytes); }
+	} storage; // declared first: it must outlive the network that destroys the peer
+
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeerInStorage(storage.bytes, 2, 2);
+	RakPeer *client = net.AddPeer(1);
+	NetworkThreadProbe probe;
+	server->AttachPlugin(&probe);
+	ASSERT_TRUE(net.Connect(client, server));
+
+	net.SetReceiveEnabled(server, false);
+	SendId(client, net.AddressOf(server), ID_NT_CONSUMED);
+	EXPECT_TRUE(net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
+	server->DetachPlugin(&probe);
 }
