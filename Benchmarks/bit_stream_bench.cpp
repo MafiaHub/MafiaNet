@@ -33,7 +33,7 @@ namespace
 		bs.WriteBitsFromIntegerRange((uint32_t) (i % 100), 0u, 100u);
 	}
 
-	void ReadEntityState(BitStream &bs, benchmark::State &state)
+	bool ReadEntityState(BitStream &bs, benchmark::State &state)
 	{
 		uint8_t id;
 		uint32_t index;
@@ -46,9 +46,10 @@ namespace
 			bs.ReadBitsFromIntegerRange(r, 0u, 100u)))
 		{
 			state.SkipWithError("read failed");
-			return;
+			return false;
 		}
 		benchmark::DoNotOptimize(x + y + z + qw + c + r);
+		return true;
 	}
 }
 
@@ -73,7 +74,8 @@ static void BitStream_ReadEntityState(benchmark::State &state)
 	for (auto _ : state)
 	{
 		BitStream bs(written.GetData(), written.GetNumberOfBytesUsed(), false);
-		ReadEntityState(bs, state);
+		if (!ReadEntityState(bs, state))
+			break; // SkipWithError does not stop the loop
 	}
 	state.SetBytesProcessed(state.iterations() * written.GetNumberOfBytesUsed());
 }
