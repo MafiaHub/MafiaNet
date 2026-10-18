@@ -24,6 +24,10 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/native_types.h"
+#include "mafianet/simple_mutex.h"
+
+#include <atomic>
+#include <functional>
 
 // Forward declarations for Opus and RNNoise
 struct OpusEncoder;
@@ -312,6 +316,17 @@ public:
 	/// Distinct from SetRelayMode(), which is what a talking/listening client enables.
 	void SetRelayHost(bool enable);
 
+	/// rief Relays frames on RakPeer's network thread instead of the application loop.
+	/// With a handler set, a relay host hands each incoming ID_RAKVOICE_RELAY_DATA packet to
+	///  handler on the network update thread and frees it afterwards, so the frame never
+	/// reaches Receive() and is forwarded even while the application's main thread is busy.
+	/// The handler typically picks recipients and calls RelayFrame(), which is safe there; it must
+	/// not keep the packet, and whatever it reads must be safe to read from that thread.
+	/// Pass nullptr to go back to passing frames through to Receive(). Once this returns, the
+	/// previous handler is not running and will not be called again, so do not call this from
+	/// inside the handler. Ignored unless relay host.
+	void SetRelayFrameHandler(std::function<void(Packet *packet)> handler);
+
 	/// \brief Forwards a received relay frame to a set of recipients without decoding it.
 	/// Costs one Send per recipient; no codec state is touched.
 	void RelayFrame(Packet *packet, const RakNetGUID *recipients, int count);
@@ -352,6 +367,8 @@ public:
 	virtual void OnShutdown(void);
 	virtual void Update(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
+	virtual bool UsesNetworkThreadReceive(void) const { return true; }
+	virtual PluginReceiveResult OnReceiveNetworkThread(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
 
 protected:
@@ -405,7 +422,10 @@ protected:
 	int defaultSignalType;
 	bool loopbackMode;
 	bool relayMode;
-	bool relayHost;
+	// Read on the network thread by OnReceiveNetworkThread.
+	std::atomic<bool> relayHost;
+	std::function<void(Packet *packet)> relayFrameHandler;
+	MafiaNet::SimpleMutex relayFrameHandlerMutex;
 	bool perSpeakerOutput;
 	/// Concurrent relay decoders the application allows; 0 means only the memory backstop.
 	unsigned maxDecodedSpeakers;

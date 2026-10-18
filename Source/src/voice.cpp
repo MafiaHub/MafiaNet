@@ -163,6 +163,15 @@ void RakVoice::SetRelayHost(bool enable)
 	relayHost = enable;
 }
 
+void RakVoice::SetRelayFrameHandler(std::function<void(Packet *packet)> handler)
+{
+	// Swapped under the lock OnReceiveNetworkThread calls it under, so a handler being cleared is
+	// never mid-call when this returns.
+	relayFrameHandlerMutex.Lock();
+	relayFrameHandler = std::move(handler);
+	relayFrameHandlerMutex.Unlock();
+}
+
 bool RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
 {
 	// char is unsigned on ARM; compare as signed so a negative channel is rejected
@@ -743,7 +752,8 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 	case ID_RAKVOICE_RELAY_DATA:
 		// A relay host never decodes. Plugin OnReceive runs inside RakPeer::Receive, before
 		// the packet reaches the application loop, so swallowing it here would leave the
-		// server with nothing to hand to RelayFrame(). Pass it through instead.
+		// server with nothing to hand to RelayFrame(). Pass it through instead. With a relay
+		// frame handler set, OnReceiveNetworkThread has already taken it and it never gets here.
 		if (relayHost)
 			return RR_CONTINUE_PROCESSING;
 		OnRelayVoiceData(packet);
@@ -751,6 +761,22 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 	}
 
 	return RR_CONTINUE_PROCESSING;
+}
+
+PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
+{
+	if (!relayHost || packet == nullptr || packet->length == 0 || packet->data[0] != ID_RAKVOICE_RELAY_DATA)
+		return RR_CONTINUE_PROCESSING;
+
+	relayFrameHandlerMutex.Lock();
+	if (!relayFrameHandler)
+	{
+		relayFrameHandlerMutex.Unlock();
+		return RR_CONTINUE_PROCESSING;
+	}
+	relayFrameHandler(packet);
+	relayFrameHandlerMutex.Unlock();
+	return RR_STOP_PROCESSING_AND_DEALLOCATE;
 }
 
 void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)

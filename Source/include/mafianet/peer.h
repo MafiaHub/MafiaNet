@@ -994,6 +994,10 @@ protected:
 	DataStructures::List<BanStruct*> banList;
 	// Threadsafe, and not thread safe
 	DataStructures::List<PluginInterface2*> pluginListTS, pluginListNTS;
+	// Plugins that opted into OnReceiveNetworkThread. Also in one of the lists above. The mutex
+	// lets AttachPlugin/DetachPlugin run while the update thread is dispatching.
+	DataStructures::List<PluginInterface2*> pluginListNetworkThread;
+	SimpleMutex pluginListNetworkThreadMutex;
 
 	DataStructures::Queue<RequestedConnectionStruct*> requestedConnectionQueue;
 	SimpleMutex requestedConnectionQueueMutex;
@@ -1151,6 +1155,8 @@ protected:
 	void ResetSendReceipt(void);
 	void OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPongTime, RemoteSystemStruct *remoteSystem);
 	void CallPluginCallbacks(DataStructures::List<PluginInterface2*> &pluginList, Packet *packet);
+	// Offers a message to the network-thread plugins; true if one of them took it.
+	bool DispatchNetworkThreadReceive(Packet *packet);
 
 #if LIBCAT_SECURITY==1
 	// Encryption and security

@@ -232,6 +232,8 @@ namespace MafiaNet
 			for (RakPeer *peer : peers)
 			{
 				peer->RunManualUpdate();
+				if (receiveDisabled.count(peer) != 0)
+					continue;
 				for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
 				{
 					Message message;
@@ -244,6 +246,14 @@ namespace MafiaNet
 				}
 			}
 		}
+	}
+
+	void SimulatedNetwork::SetReceiveEnabled(const RakPeer *peer, bool enabled)
+	{
+		if (enabled)
+			receiveDisabled.erase(peer);
+		else
+			receiveDisabled.insert(peer);
 	}
 
 	bool SimulatedNetwork::RunUntil(const std::function<bool()> &pred, uint32_t maxSimMs, uint32_t stepMs)

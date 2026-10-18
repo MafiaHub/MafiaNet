@@ -2929,6 +2929,14 @@ void RakPeer::AttachPlugin( PluginInterface2 *plugin )
 			pluginListTS.Insert(plugin, _FILE_AND_LINE_);
 		}
 	}
+
+	if (plugin->UsesNetworkThreadReceive())
+	{
+		pluginListNetworkThreadMutex.Lock();
+		if (pluginListNetworkThread.GetIndexOf(plugin)==MAX_UNSIGNED_LONG)
+			pluginListNetworkThread.Insert(plugin, _FILE_AND_LINE_);
+		pluginListNetworkThreadMutex.Unlock();
+	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2964,6 +2972,17 @@ void RakPeer::DetachPlugin( PluginInterface2 *plugin )
 			pluginListTS.RemoveFromEnd();
 		}
 	}
+	// Removed under the lock the update thread dispatches under, so once this returns the plugin
+	// is not inside OnReceiveNetworkThread and will not be called again.
+	pluginListNetworkThreadMutex.Lock();
+	index = pluginListNetworkThread.GetIndexOf(plugin);
+	if (index!=MAX_UNSIGNED_LONG)
+	{
+		pluginListNetworkThread[index]=pluginListNetworkThread[pluginListNetworkThread.Size()-1];
+		pluginListNetworkThread.RemoveFromEnd();
+	}
+	pluginListNetworkThreadMutex.Unlock();
+
 	plugin->OnDetach();
 	plugin->SetRakPeerInterface(0);
 }
@@ -4834,6 +4853,27 @@ void RakPeer::ClearRequestedConnectionList(void)
 #endif
 		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_ );
 	}
+}
+bool RakPeer::DispatchNetworkThreadReceive(Packet *packet)
+{
+	pluginListNetworkThreadMutex.Lock();
+	for (unsigned int i=0; i < pluginListNetworkThread.Size(); i++)
+	{
+		const PluginReceiveResult result = pluginListNetworkThread[i]->OnReceiveNetworkThread(packet);
+		if (result==RR_STOP_PROCESSING_AND_DEALLOCATE)
+		{
+			pluginListNetworkThreadMutex.Unlock();
+			DeallocatePacket(packet);
+			return true;
+		}
+		if (result==RR_STOP_PROCESSING)
+		{
+			pluginListNetworkThreadMutex.Unlock();
+			return true;
+		}
+	}
+	pluginListNetworkThreadMutex.Unlock();
+	return false;
 }
 inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 {
@@ -6935,7 +6975,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
 							packet->guid = remoteSystem->guid;
 							packet->guid.systemIndex=packet->systemAddress.systemIndex;
-							AddPacketToProducer(packet);
+							if (!DispatchNetworkThreadReceive(packet))
+								AddPacketToProducer(packet);
 						}
 						else
 						{
