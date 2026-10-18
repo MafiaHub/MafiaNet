@@ -66,6 +66,7 @@ RakVoice::RakVoice()
 	bufferSizeBytes = 0;
 	relayMode = false;
 	relayHost = false;
+	hasPendingRelay = false;
 	perSpeakerOutput = false;
 	maxDecodedSpeakers = 0;
 	relayTarget = UNASSIGNED_RAKNET_GUID;
@@ -162,6 +163,14 @@ void RakVoice::SetRelayHost(std::function<void(Packet *packet)> relay)
 {
 	// Swapped under the lock OnReceiveNetworkThread calls it under, so a relay being replaced is
 	// never mid-call when this returns.
+	if (relayThread.load() == std::this_thread::get_id())
+	{
+		// From inside the running relay, which holds the lock: swap once it returns.
+		pendingRelay = std::move(relay);
+		hasPendingRelay = true;
+		return;
+	}
+
 	relayFrameHandlerMutex.Lock();
 	relayHost = static_cast<bool>(relay);
 	relayFrameHandler = std::move(relay);
@@ -769,7 +778,16 @@ PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
 		relayFrameHandlerMutex.Unlock();
 		return RR_CONTINUE_PROCESSING;
 	}
+	relayThread = std::this_thread::get_id();
 	relayFrameHandler(packet);
+	relayThread = std::thread::id();
+	if (hasPendingRelay)
+	{
+		relayHost = static_cast<bool>(pendingRelay);
+		relayFrameHandler = std::move(pendingRelay);
+		pendingRelay = nullptr;
+		hasPendingRelay = false;
+	}
 	relayFrameHandlerMutex.Unlock();
 	return RR_STOP_PROCESSING_AND_DEALLOCATE;
 }

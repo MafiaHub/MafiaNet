@@ -28,6 +28,7 @@
 
 #include <atomic>
 #include <functional>
+#include <thread>
 
 // Forward declarations for Opus and RNNoise
 struct OpusEncoder;
@@ -317,7 +318,8 @@ public:
 	/// \a relay typically picks recipients and calls RelayFrame(), which is safe there; it must
 	/// not keep the packet, and whatever it reads must be safe to read from that thread.
 	/// Pass nullptr to stop being a relay host. Once this returns, the previous \a relay is not
-	/// running and will not be called again, so do not call this from inside it.
+	/// running and will not be called again. Called from inside \a relay, the change takes
+	/// effect as soon as that call returns.
 	/// Distinct from SetRelayMode(), which is what a talking/listening client enables.
 	void SetRelayHost(std::function<void(Packet *packet)> relay);
 
@@ -419,6 +421,11 @@ protected:
 	std::atomic<bool> relayHost;
 	std::function<void(Packet *packet)> relayFrameHandler;
 	MafiaNet::SimpleMutex relayFrameHandlerMutex;
+	// The thread running relayFrameHandler, and a SetRelayHost() it made from inside: applied once
+	// the handler returns, since replacing a std::function while it runs destroys it mid-call.
+	std::atomic<std::thread::id> relayThread;
+	std::function<void(Packet *packet)> pendingRelay;
+	bool hasPendingRelay;
 	bool perSpeakerOutput;
 	/// Concurrent relay decoders the application allows; 0 means only the memory backstop.
 	unsigned maxDecodedSpeakers;

@@ -42,6 +42,7 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/ds_queue.h"
 #include <atomic>
+#include <thread>
 
 namespace MafiaNet {
 /// Forward declarations
@@ -998,6 +999,14 @@ protected:
 	// DetachPlugin run while the update thread is dispatching.
 	DataStructures::List<PluginInterface2*> pluginListNetworkThread;
 	SimpleMutex pluginListNetworkThreadMutex;
+	// The thread inside DispatchNetworkThreadReceive. AttachPlugin/DetachPlugin called from a hook
+	// on it are ignored: they would deadlock on the lock that thread holds, and they also change
+	// the plugin lists Receive() walks on the user thread.
+	std::atomic<std::thread::id> networkThreadDispatcher;
+	// Set once Shutdown() starts telling plugins, cleared by Startup(). Guarded by the mutex above.
+	bool networkThreadReceiveStopped;
+	bool IsInsideNetworkThreadReceive(void) const;
+	void SetNetworkThreadReceiveStopped(bool stopped);
 
 	DataStructures::Queue<RequestedConnectionStruct*> requestedConnectionQueue;
 	SimpleMutex requestedConnectionQueueMutex;

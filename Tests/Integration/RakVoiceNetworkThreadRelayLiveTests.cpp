@@ -20,6 +20,8 @@
 #include "mafianet/voice.h"
 
 #include <atomic>
+#include <future>
+#include <thread>
 #include <cstring>
 #include <vector>
 
@@ -120,5 +122,69 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 
 	// Stop relaying before the locals the relay captures can go away.
 	voice.SetRelayHost(nullptr);
+	server->DetachPlugin(&voice);
+}
+
+TEST_F(RakVoiceNetworkThreadRelayLive, ClearingTheRelayWaitsForOneThatIsMidCall)
+{
+	// After SetRelayHost(nullptr) returns the application may free what its relay
+	// captured, so the call must not return while that relay is still running.
+	RakVoice voice;
+	Peer server;
+	RakSleep(2);
+	Peer talker;
+
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	ASSERT_EQ(server->Startup(1, &serverSd, 1), RAKNET_STARTED);
+	server->SetMaximumIncomingConnections(1);
+	const unsigned short serverPort = server->GetInternalID().GetPort();
+
+	std::promise<void> entered, release;
+	std::atomic<bool> blockOnce {true};
+	voice.SetRelayHost([&](Packet *) {
+		if (blockOnce.exchange(false))
+		{
+			entered.set_value();
+			release.get_future().wait();
+		}
+	});
+	server->AttachPlugin(&voice);
+
+	SocketDescriptor clientSd;
+	ASSERT_EQ(talker->Startup(1, &clientSd, 1), RAKNET_STARTED);
+	ASSERT_EQ(talker->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED);
+	SystemAddress serverAddress;
+	serverAddress.SetBinaryAddress("127.0.0.1");
+	serverAddress.SetPortHostOrder(serverPort);
+	TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 10000 && talker->GetConnectionState(serverAddress) != IS_CONNECTED)
+	{
+		for (auto pkt : talker.incoming()) (void) pkt;
+		RakSleep(30);
+	}
+	ASSERT_EQ(IS_CONNECTED, talker->GetConnectionState(serverAddress));
+
+	std::future<void> inRelay = entered.get_future();
+	unsigned short sequence = 0;
+	start = GetTimeMS();
+	while (GetTimeMS() - start < 10000 && inRelay.wait_for(std::chrono::milliseconds(20)) != std::future_status::ready)
+	{
+		const std::vector<unsigned char> frame = RelayFrameFrom(talker->GetMyGUID(), ++sequence);
+		talker->Send((const char *) frame.data(), (int) frame.size(), Priority::High, Reliability::Unreliable, 0,
+			serverAddress, false);
+	}
+	ASSERT_EQ(std::future_status::ready, inRelay.wait_for(std::chrono::seconds(0)));
+
+	std::atomic<bool> cleared {false};
+	std::thread clearer([&] {
+		voice.SetRelayHost(nullptr);
+		cleared = true;
+	});
+	RakSleep(200);
+	EXPECT_FALSE(cleared.load());
+
+	release.set_value();
+	clearer.join();
+	EXPECT_TRUE(cleared.load());
 	server->DetachPlugin(&voice);
 }

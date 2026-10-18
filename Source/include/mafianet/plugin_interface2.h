@@ -144,7 +144,9 @@ public:
 	/// application to call Receive(), such as voice. Connection notifications are not routed here.
 	/// Runs concurrently with the user thread, so anything the plugin shares with its other
 	/// callbacks must be synchronized. RakPeer::Send() is safe to call from here; AttachPlugin() and
-	/// DetachPlugin() are not (they wait for this call to return). ID_TIMESTAMP payloads arrive unshifted.
+	/// DetachPlugin() do nothing when called from here, and Shutdown() must not be called from here.
+	/// Not called once Shutdown() has begun calling OnRakPeerShutdown(). ID_TIMESTAMP payloads arrive
+	/// unshifted.
 	/// \param[in] packet The message. RR_STOP_PROCESSING_AND_DEALLOCATE frees it, RR_STOP_PROCESSING
 	///            hands it to the plugin (free it with RakPeer::DeallocatePacket), and
 	///            RR_CONTINUE_PROCESSING queues it for Receive() as usual.
