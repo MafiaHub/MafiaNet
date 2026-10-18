@@ -47,7 +47,7 @@ int main(void)
 	char serverPort[30], clientPort[30];
 	MafiaNet::TimeMS quitTime;
 	// Holds packets
-	MafiaNet::Packet* p;
+	MafiaNet::Packet *p;
 
 	printf("A client / server sample showing how clients can broadcast offline packets\n");
 	printf("to find active servers.\n");
@@ -57,64 +57,67 @@ int main(void)
 	printf("Run as (s)erver or (c)lient?\n");
 	Gets(str, sizeof(str));
 
-	if (str[0]=='s' || str[0]=='S')
+	if (str[0] == 's' || str[0] == 'S')
 	{
-		client=0;
-		server= MafiaNet::RakPeerInterface::GetInstance();
+		client = 0;
+		server = MafiaNet::RakPeerInterface::GetInstance();
 		// A server
 		printf("Enter the server port\n");
-		Gets(serverPort,sizeof(serverPort));
-		if (serverPort[0]==0)
+		Gets(serverPort, sizeof(serverPort));
+		if (serverPort[0] == 0)
 			strcpy_s(serverPort, "60001");
 		const int intServerPort = atoi(serverPort);
-		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 			return 2;
 		}
 
 		printf("Starting server.\n");
 		// The server has to be started to respond to pings.
-		MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
-		socketDescriptor.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
-		b = server->Startup(2, &socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
+		MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort), 0);
+		socketDescriptor.socketFamily = AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
+		b = server->Startup(2, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED;
 		server->SetMaximumIncomingConnections(2);
 		if (b)
 			printf("Server started, waiting for connections.\n");
 		else
-		{ 
+		{
 			printf("Server failed to start.  Terminating.\n");
 			exit(1);
 		}
 	}
 	else
 	{
-		client= MafiaNet::RakPeerInterface::GetInstance();
-		server=0;
+		client = MafiaNet::RakPeerInterface::GetInstance();
+		server = 0;
 
 		// Get our input
 		printf("Enter the client port to listen on, or 0\n");
-		Gets(clientPort,sizeof(clientPort));
-		if (clientPort[0]==0)
+		Gets(clientPort, sizeof(clientPort));
+		if (clientPort[0] == 0)
 			strcpy_s(clientPort, "60000");
 		const int intClientPort = atoi(clientPort);
-		if ((intClientPort < 0) || (intClientPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intClientPort < 0) || (intClientPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified client port %d is outside valid bounds [0, %u]", intClientPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
 		unsigned short cPort = static_cast<unsigned short>(intClientPort);
 
 		printf("Enter the port to ping\n");
-		Gets(serverPort,sizeof(serverPort));
-		if (serverPort[0]==0)
+		Gets(serverPort, sizeof(serverPort));
+		if (serverPort[0] == 0)
 			strcpy_s(serverPort, "60001");
 		const int intServerPort = atoi(serverPort);
-		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 			return 2;
 		}
 		unsigned short sPort = static_cast<unsigned short>(intServerPort);
-		MafiaNet::SocketDescriptor socketDescriptor(cPort,0);
-		socketDescriptor.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
+		MafiaNet::SocketDescriptor socketDescriptor(cPort, 0);
+		socketDescriptor.socketFamily = AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 		client->Startup(1, &socketDescriptor, 1);
 
 		// Connecting the client is very simple.  0 means we don't care about
@@ -127,7 +130,7 @@ int main(void)
 
 	printf("How many seconds to run this sample for?\n");
 	Gets(str, sizeof(str));
-	if (str[0]==0)
+	if (str[0] == 0)
 	{
 		printf("Defaulting to 5 seconds\n");
 		quitTime = MafiaNet::GetTimeMS() + 5000;
@@ -140,10 +143,10 @@ int main(void)
 	{
 		if (server)
 			p = server->Receive();
-		else 
+		else
 			p = client->Receive();
 
-		if (p==0)
+		if (p == 0)
 		{
 			RakSleep(30);
 			continue;
@@ -152,21 +155,21 @@ int main(void)
 			server->DeallocatePacket(p);
 		else
 		{
-			if (p->data[0]==ID_UNCONNECTED_PONG)
+			if (p->data[0] == ID_UNCONNECTED_PONG)
 			{
 				MafiaNet::TimeMS time;
-				MafiaNet::BitStream bsIn(p->data,p->length,false);
+				MafiaNet::BitStream bsIn(p->data, p->length, false);
 				bsIn.IgnoreBytes(1);
 				bsIn.Read(time);
 				printf("Got pong from %s with time %i\n", p->systemAddress.ToString(), MafiaNet::GetTimeMS() - time);
 			}
-			else if (p->data[0]==ID_UNCONNECTED_PING)
+			else if (p->data[0] == ID_UNCONNECTED_PING)
 			{
-				printf("ID_UNCONNECTED_PING from %s\n",MafiaNet::to_string(p->guid).c_str());
+				printf("ID_UNCONNECTED_PING from %s\n", MafiaNet::to_string(p->guid).c_str());
 			}
-			else if (p->data[0]==ID_UNCONNECTED_PING_OPEN_CONNECTIONS)
+			else if (p->data[0] == ID_UNCONNECTED_PING_OPEN_CONNECTIONS)
 			{
-				printf("ID_UNCONNECTED_PING_OPEN_CONNECTIONS from %s\n",MafiaNet::to_string(p->guid).c_str());
+				printf("ID_UNCONNECTED_PING_OPEN_CONNECTIONS from %s\n", MafiaNet::to_string(p->guid).c_str());
 			}
 			client->DeallocatePacket(p);
 		}

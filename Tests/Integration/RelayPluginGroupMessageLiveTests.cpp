@@ -26,52 +26,52 @@ using namespace MafiaNet;
 
 namespace
 {
-	// Records the reliability and ordering channel of every inbound RPE_GROUP_MSG_FROM_SERVER.
-	class GroupMessageObserver : public PluginInterface2
+// Records the reliability and ordering channel of every inbound RPE_GROUP_MSG_FROM_SERVER.
+class GroupMessageObserver : public PluginInterface2
+{
+public:
+	struct Seen
 	{
-	public:
-		struct Seen
-		{
-			Reliability reliability;
-			unsigned char orderingChannel;
-			unsigned char tag;
-		};
-		std::vector<Seen> seen;
-
-		bool UsesReliabilityLayer(void) const override { return true; }
-		void OnInternalPacket(InternalPacket *internalPacket, unsigned /*frameNumber*/, SystemAddress /*remoteSystemAddress*/, TimeMS /*time*/, int isSend) override
-		{
-			// Unsplit payload: ID_RELAY_PLUGIN, RPE_GROUP_MSG_FROM_SERVER, sender name, data.
-			if (isSend || internalPacket->splitPacketCount > 0 || internalPacket->dataBitLength < 16)
-				return;
-			if (internalPacket->data[0] != ID_RELAY_PLUGIN || internalPacket->data[1] != RPE_GROUP_MSG_FROM_SERVER)
-				return;
-			const unsigned int bytes = BITS_TO_BYTES(internalPacket->dataBitLength);
-			seen.push_back({internalPacket->reliability, internalPacket->orderingChannel, internalPacket->data[bytes - 1]});
-		}
+		Reliability reliability;
+		unsigned char orderingChannel;
+		unsigned char tag;
 	};
+	std::vector<Seen> seen;
 
-	// Pump every peer; return true once pred() holds, false at the deadline.
-	template <class Pred>
-	bool PumpUntil(std::vector<Peer *> peers, Pred pred, std::vector<unsigned char> *clientRelayEvents = nullptr)
+	bool UsesReliabilityLayer(void) const override { return true; }
+	void OnInternalPacket(InternalPacket *internalPacket, unsigned /*frameNumber*/, SystemAddress /*remoteSystemAddress*/, TimeMS /*time*/, int isSend) override
 	{
-		const TimeMS start = GetTimeMS();
-		while (GetTimeMS() - start < 10000)
-		{
-			for (size_t i = 0; i < peers.size(); i++)
-			{
-				for (auto pkt : peers[i]->incoming())
-				{
-					if (clientRelayEvents && i > 0 && pkt->length >= 2 && pkt->data[0] == ID_RELAY_PLUGIN)
-						clientRelayEvents->push_back(pkt->data[1]);
-				}
-			}
-			if (pred())
-				return true;
-			RakSleep(30);
-		}
-		return pred();
+		// Unsplit payload: ID_RELAY_PLUGIN, RPE_GROUP_MSG_FROM_SERVER, sender name, data.
+		if (isSend || internalPacket->splitPacketCount > 0 || internalPacket->dataBitLength < 16)
+			return;
+		if (internalPacket->data[0] != ID_RELAY_PLUGIN || internalPacket->data[1] != RPE_GROUP_MSG_FROM_SERVER)
+			return;
+		const unsigned int bytes = BITS_TO_BYTES(internalPacket->dataBitLength);
+		seen.push_back({internalPacket->reliability, internalPacket->orderingChannel, internalPacket->data[bytes - 1]});
 	}
+};
+
+// Pump every peer; return true once pred() holds, false at the deadline.
+template <class Pred>
+bool PumpUntil(std::vector<Peer *> peers, Pred pred, std::vector<unsigned char> *clientRelayEvents = nullptr)
+{
+	const TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 10000)
+	{
+		for (size_t i = 0; i < peers.size(); i++)
+		{
+			for (auto pkt : peers[i]->incoming())
+			{
+				if (clientRelayEvents && i > 0 && pkt->length >= 2 && pkt->data[0] == ID_RELAY_PLUGIN)
+					clientRelayEvents->push_back(pkt->data[1]);
+			}
+		}
+		if (pred())
+			return true;
+		RakSleep(30);
+	}
+	return pred();
+}
 }
 
 class RelayPluginGroupMessageLive : public ::testing::Test
@@ -113,13 +113,14 @@ TEST_F(RelayPluginGroupMessageLive, GroupMessageKeepsRequestedReliabilityAndChan
 	ASSERT_EQ(clientB->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 
 	std::vector<Peer *> peers{&server, &clientA, &clientB};
-	ASSERT_TRUE(PumpUntil(peers, [&] {
-		return server->NumberOfConnections() == 2 && clientA->NumberOfConnections() == 1 && clientB->NumberOfConnections() == 1;
-	})) << "peers did not connect";
+	ASSERT_TRUE(PumpUntil(peers, [&]
+	                      { return server->NumberOfConnections() == 2 && clientA->NumberOfConnections() == 1 && clientB->NumberOfConnections() == 1; }))
+	    << "peers did not connect";
 
 	const RakNetGUID serverGuid = server->GetMyGUID();
 	std::vector<unsigned char> relayEvents;
-	auto count = [&](unsigned char e) {
+	auto count = [&](unsigned char e)
+	{
 		size_t n = 0;
 		for (unsigned char x : relayEvents)
 			n += (x == e);
@@ -128,13 +129,15 @@ TEST_F(RelayPluginGroupMessageLive, GroupMessageKeepsRequestedReliabilityAndChan
 
 	relayA.AddParticipantRequestFromClient("a", serverGuid);
 	relayB.AddParticipantRequestFromClient("b", serverGuid);
-	ASSERT_TRUE(PumpUntil(peers, [&] { return count(RPE_ADD_CLIENT_SUCCESS) == 2; }, &relayEvents))
-		<< "participants were not added";
+	ASSERT_TRUE(PumpUntil(peers, [&]
+	                      { return count(RPE_ADD_CLIENT_SUCCESS) == 2; }, &relayEvents))
+	    << "participants were not added";
 
 	relayA.JoinGroupRequest(serverGuid, "room");
 	relayB.JoinGroupRequest(serverGuid, "room");
-	ASSERT_TRUE(PumpUntil(peers, [&] { return count(RPE_JOIN_GROUP_SUCCESS) == 2; }, &relayEvents))
-		<< "clients did not join the group";
+	ASSERT_TRUE(PumpUntil(peers, [&]
+	                      { return count(RPE_JOIN_GROUP_SUCCESS) == 2; }, &relayEvents))
+	    << "clients did not join the group";
 
 	// Two group messages from A, each with settings the old relay overwrote.
 	BitStream ordered;
@@ -144,8 +147,9 @@ TEST_F(RelayPluginGroupMessageLive, GroupMessageKeepsRequestedReliabilityAndChan
 	reliable.Write((unsigned char) 2);
 	relayA.SendGroupMessage(serverGuid, &reliable, Priority::Medium, Reliability::Reliable, 0);
 
-	ASSERT_TRUE(PumpUntil(peers, [&] { return observerB.seen.size() >= 2; }, &relayEvents))
-		<< "client B did not receive both group messages";
+	ASSERT_TRUE(PumpUntil(peers, [&]
+	                      { return observerB.seen.size() >= 2; }, &relayEvents))
+	    << "client B did not receive both group messages";
 
 	bool sawOrdered = false, sawReliable = false;
 	for (const auto &s : observerB.seen)

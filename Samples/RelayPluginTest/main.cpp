@@ -33,18 +33,19 @@ int main(void)
 
 	char str[64], str2[64];
 
-	MafiaNet::RakPeerInterface *peer= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *peer = MafiaNet::RakPeerInterface::GetInstance();
 	RelayPlugin *relayPlugin = RelayPlugin::GetInstance();
 	peer->AttachPlugin(relayPlugin);
 
 	// Get our input
 	char ip[64], serverPort[30], listenPort[30];
 	puts("Enter the port to listen on");
-	Gets(listenPort,sizeof(listenPort));
-	if (listenPort[0]==0)
+	Gets(listenPort, sizeof(listenPort));
+	if (listenPort[0] == 0)
 		strcpy_s(listenPort, "1234");
 	const int intListenPort = atoi(listenPort);
-	if ((intListenPort < 0) || (intListenPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intListenPort < 0) || (intListenPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified listen port %d is outside valid bounds [0, %u]", intListenPort, std::numeric_limits<unsigned short>::max());
 		return 2;
 	}
@@ -53,9 +54,9 @@ int main(void)
 
 	// Connecting the client is very simple.  0 means we don't care about
 	// a connectionValidationInteger, and false for low priority threads
-	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intListenPort),0);
-	socketDescriptor.socketFamily=AF_INET;
-	peer->Startup(8,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intListenPort), 0);
+	socketDescriptor.socketFamily = AF_INET;
+	peer->Startup(8, &socketDescriptor, 1);
 	peer->SetMaximumIncomingConnections(8);
 	peer->SetOccasionalPing(true);
 
@@ -65,11 +66,12 @@ int main(void)
 	if (ip[0])
 	{
 		puts("Enter the port to connect to");
-		Gets(serverPort,sizeof(serverPort));
-		if (serverPort[0]==0)
+		Gets(serverPort, sizeof(serverPort));
+		if (serverPort[0] == 0)
 			strcpy_s(serverPort, "1234");
 		const int intServerPort = atoi(serverPort);
-		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
@@ -91,32 +93,31 @@ int main(void)
 	printf("(Q)uit\n");
 
 	char name[128];
-	for(;;)
+	for (;;)
 	{
 		if (_kbhit())
 		{
 			int ch = _getch();
-			if (ch=='a' || ch=='A')
+			if (ch == 'a' || ch == 'A')
 			{
 				printf("Enter name of participant: ");
 				Gets(name, sizeof(name));
 				if (name[0])
 				{
-					relayPlugin->AddParticipantRequestFromClient(name,peer->GetGUIDFromIndex(0));
+					relayPlugin->AddParticipantRequestFromClient(name, peer->GetGUIDFromIndex(0));
 					printf("Done\n");
 				}
 				else
 				{
 					printf("Operation aborted\n");
 				}
-
 			}
-			else if (ch=='r' || ch=='R')
+			else if (ch == 'r' || ch == 'R')
 			{
 				relayPlugin->RemoveParticipantRequestFromClient(peer->GetGUIDFromIndex(0));
 				printf("Done\n");
 			}
-			else if (ch=='p' || ch=='P')
+			else if (ch == 'p' || ch == 'P')
 			{
 				printf("Enter name of participant: ");
 				Gets(name, sizeof(name));
@@ -128,7 +129,7 @@ int main(void)
 					RakString msgRs = msg;
 					BitStream msgBs;
 					msgBs.WriteCompressed(msgRs);
-					relayPlugin->SendToParticipant(peer->GetGUIDFromIndex(0), name, &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0 );
+					relayPlugin->SendToParticipant(peer->GetGUIDFromIndex(0), name, &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0);
 					printf("Done\n");
 				}
 				else
@@ -136,7 +137,7 @@ int main(void)
 					printf("Operation aborted\n");
 				}
 			}
-			else if (ch=='s' || ch=='S')
+			else if (ch == 's' || ch == 'S')
 			{
 				printf("Enter message to send: ");
 				char msg[256];
@@ -144,10 +145,10 @@ int main(void)
 				RakString msgRs = msg;
 				BitStream msgBs;
 				msgBs.Write(msgRs);
-				relayPlugin->SendGroupMessage(peer->GetGUIDFromIndex(0), &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0 );
+				relayPlugin->SendGroupMessage(peer->GetGUIDFromIndex(0), &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0);
 				printf("Done\n");
 			}
-			else if (ch=='j' || ch=='J')
+			else if (ch == 'j' || ch == 'J')
 			{
 				printf("Enter group name to join: ");
 				char msg[256];
@@ -155,40 +156,40 @@ int main(void)
 				relayPlugin->JoinGroupRequest(peer->GetGUIDFromIndex(0), msg);
 				printf("Done\n");
 			}
-			else if (ch=='l' || ch=='l')
+			else if (ch == 'l' || ch == 'l')
 			{
 				relayPlugin->LeaveGroup(peer->GetGUIDFromIndex(0));
 				printf("Done\n");
 			}
-			else if (ch=='g' || ch=='G')
+			else if (ch == 'g' || ch == 'G')
 			{
 				relayPlugin->GetGroupList(peer->GetGUIDFromIndex(0));
 				printf("Done\n");
 			}
-			else if (ch=='q')
+			else if (ch == 'q')
 			{
 				break;
 			}
 		}
 
 		Packet *packet;
-		for (packet=peer->Receive(); packet; peer->DeallocatePacket(packet), packet=peer->Receive())
+		for (packet = peer->Receive(); packet; peer->DeallocatePacket(packet), packet = peer->Receive())
 		{
 			packet->guid.ToString(str, 64);
-			packet->systemAddress.ToString(true,str2,static_cast<size_t>(64));
-			if (packet->data[0]==ID_NEW_INCOMING_CONNECTION)
+			packet->systemAddress.ToString(true, str2, static_cast<size_t>(64));
+			if (packet->data[0] == ID_NEW_INCOMING_CONNECTION)
 			{
 				printf("ID_NEW_INCOMING_CONNECTION from %s on %s\n", str, str2);
 			}
-			else if (packet->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)
+			else if (packet->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
 				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s on %s\n", str, str2);
 			}
-			else if (packet->data[0]==ID_CONNECTION_LOST)
+			else if (packet->data[0] == ID_CONNECTION_LOST)
 			{
 				printf("ID_CONNECTION_LOST from %s on %s\n", str, str2);
 			}
-			else if (packet->data[0]==ID_RELAY_PLUGIN)
+			else if (packet->data[0] == ID_RELAY_PLUGIN)
 			{
 				BitStream msgRs;
 				RakString senderRs;
@@ -199,93 +200,92 @@ int main(void)
 				switch (rpe)
 				{
 				case RPE_MESSAGE_TO_CLIENT_FROM_SERVER:
-					{
-						RakString senderName;
-						bsIn.ReadCompressed(senderName);
-						bsIn.AlignReadToByteBoundary();
-						RakString dataInAsStr;
-						bsIn.ReadCompressed(dataInAsStr);
-						printf("RPE_MESSAGE_TO_CLIENT_FROM_SERVER from %s, data=%s\n", senderName.C_String(), dataInAsStr.C_String());
-					}
-					break;
+				{
+					RakString senderName;
+					bsIn.ReadCompressed(senderName);
+					bsIn.AlignReadToByteBoundary();
+					RakString dataInAsStr;
+					bsIn.ReadCompressed(dataInAsStr);
+					printf("RPE_MESSAGE_TO_CLIENT_FROM_SERVER from %s, data=%s\n", senderName.C_String(), dataInAsStr.C_String());
+				}
+				break;
 				case RPE_ADD_CLIENT_NOT_ALLOWED:
-					{
-						RakString senderName;
-						bsIn.ReadCompressed(senderName);
-						printf("RPE_ADD_CLIENT_NOT_ALLOWED for %s\n", senderName.C_String());
-					}
-					break;
+				{
+					RakString senderName;
+					bsIn.ReadCompressed(senderName);
+					printf("RPE_ADD_CLIENT_NOT_ALLOWED for %s\n", senderName.C_String());
+				}
+				break;
 				case RPE_ADD_CLIENT_TARGET_NOT_CONNECTED:
-					{
-						RakString senderName;
-						bsIn.ReadCompressed(senderName);
-						printf("RPE_ADD_CLIENT_TARGET_NOT_CONNECTED for %s\n", senderName.C_String());
-					}
-					break;
+				{
+					RakString senderName;
+					bsIn.ReadCompressed(senderName);
+					printf("RPE_ADD_CLIENT_TARGET_NOT_CONNECTED for %s\n", senderName.C_String());
+				}
+				break;
 				case RPE_ADD_CLIENT_NAME_ALREADY_IN_USE:
-					{
-						RakString senderName;
-						bsIn.ReadCompressed(senderName);
-						printf("RPE_ADD_CLIENT_NAME_ALREADY_IN_USE for %s\n", senderName.C_String());
-					}
-					break;
+				{
+					RakString senderName;
+					bsIn.ReadCompressed(senderName);
+					printf("RPE_ADD_CLIENT_NAME_ALREADY_IN_USE for %s\n", senderName.C_String());
+				}
+				break;
 				case RPE_ADD_CLIENT_SUCCESS:
-					{
-						RakString senderName;
-						bsIn.ReadCompressed(senderName);
-						printf("RPE_ADD_CLIENT_SUCCESS for %s\n", senderName.C_String());
-					}
-					break;
+				{
+					RakString senderName;
+					bsIn.ReadCompressed(senderName);
+					printf("RPE_ADD_CLIENT_SUCCESS for %s\n", senderName.C_String());
+				}
+				break;
 				case RPE_USER_ENTERED_ROOM:
-					{
-						RakString whichUser;
-						bsIn.ReadCompressed(whichUser);
-						printf("RPE_USER_ENTERED_ROOM user=%s\n", whichUser.C_String());
-					}
-					break;
+				{
+					RakString whichUser;
+					bsIn.ReadCompressed(whichUser);
+					printf("RPE_USER_ENTERED_ROOM user=%s\n", whichUser.C_String());
+				}
+				break;
 				case RPE_USER_LEFT_ROOM:
-					{
-						RakString whichUser;
-						bsIn.ReadCompressed(whichUser);
-						printf("RPE_USER_LEFT_ROOM user=%s\n", whichUser.C_String());
-					}
-					break;
+				{
+					RakString whichUser;
+					bsIn.ReadCompressed(whichUser);
+					printf("RPE_USER_LEFT_ROOM user=%s\n", whichUser.C_String());
+				}
+				break;
 				case RPE_GROUP_MSG_FROM_SERVER:
-					{
-						RakString senderName;
-						bsIn.ReadCompressed(senderName);
-						bsIn.AlignReadToByteBoundary();
-						RakString dataInAsStr;
-						bsIn.Read(dataInAsStr);
-						printf("RPE_GROUP_MSG_FROM_SERVER from %s, data=%s\n", senderName.C_String(), dataInAsStr.C_String());
-					}
-					break;
+				{
+					RakString senderName;
+					bsIn.ReadCompressed(senderName);
+					bsIn.AlignReadToByteBoundary();
+					RakString dataInAsStr;
+					bsIn.Read(dataInAsStr);
+					printf("RPE_GROUP_MSG_FROM_SERVER from %s, data=%s\n", senderName.C_String(), dataInAsStr.C_String());
+				}
+				break;
 				case RPE_GET_GROUP_LIST_REPLY_FROM_SERVER:
+				{
+					uint16_t chatRoomsSize, usersInRoomSize;
+					bsIn.Read(chatRoomsSize);
+					RakString roomName;
+					printf("RPE_GET_GROUP_LIST_REPLY_FROM_SERVER %i rooms\n", chatRoomsSize);
+					for (uint16_t chatRoomsIdx = 0; chatRoomsIdx < chatRoomsSize; chatRoomsIdx++)
 					{
-						uint16_t chatRoomsSize, usersInRoomSize;
-						bsIn.Read(chatRoomsSize);
-						RakString roomName;
-						printf("RPE_GET_GROUP_LIST_REPLY_FROM_SERVER %i rooms\n", chatRoomsSize);
-						for (uint16_t chatRoomsIdx=0; chatRoomsIdx < chatRoomsSize; chatRoomsIdx++)
-						{
-							bsIn.ReadCompressed(roomName);
-							bsIn.Read(usersInRoomSize);
-							printf("%i. %s %i users\n", chatRoomsIdx+1, roomName.C_String(), usersInRoomSize);
-						}
+						bsIn.ReadCompressed(roomName);
+						bsIn.Read(usersInRoomSize);
+						printf("%i. %s %i users\n", chatRoomsIdx + 1, roomName.C_String(), usersInRoomSize);
 					}
-					break;
+				}
+				break;
 				default:
-					{
-						RakAssert(0);
-					}
+				{
+					RakAssert(0);
+				}
 				}
 			}
 		}
 
 		RakSleep(30);
 	}
-	
+
 
 	return 1;
 }
-

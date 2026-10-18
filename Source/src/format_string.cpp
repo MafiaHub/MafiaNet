@@ -21,22 +21,22 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-char * FormatString(const char *format, ...)
+char *FormatString(const char *format, ...)
 {
-	static int textIndex=0;
+	static int textIndex = 0;
 	static char text[4][8096];
 	va_list ap;
 	va_start(ap, format);
 
-	if (++textIndex==4)
-		textIndex=0;
+	if (++textIndex == 4)
+		textIndex = 0;
 	vsnprintf_s(text[textIndex], 8096, _TRUNCATE, format, ap);
 	va_end(ap);
 
 	return text[textIndex];
 }
 
-char * FormatStringTS(char *output, const char *format, ...)
+char *FormatStringTS(char *output, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);

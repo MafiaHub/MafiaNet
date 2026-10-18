@@ -55,12 +55,12 @@ int main(int, char **)
 	// MafiaNet::FLP_Printf progressIndicator;
 	MafiaNet::FileListTransfer fileListTransfer;
 	// So only one thread runs per connection, we create an array of connection objects, and tell the autopatcher server to use one thread per item
-	static const int workerThreadCount=4; // Used for checking patches only
-	static const int sqlConnectionObjectCount=32; // Used for both checking patches and downloading
+	static const int workerThreadCount = 4;         // Used for checking patches only
+	static const int sqlConnectionObjectCount = 32; // Used for both checking patches and downloading
 	MafiaNet::AutopatcherMySQLRepository connectionObject[sqlConnectionObjectCount];
 	MafiaNet::AutopatcherRepositoryInterface *connectionObjectAddresses[sqlConnectionObjectCount];
-	for (int i=0; i < sqlConnectionObjectCount; i++)
-		connectionObjectAddresses[i]=&connectionObject[i];
+	for (int i = 0; i < sqlConnectionObjectCount; i++)
+		connectionObjectAddresses[i] = &connectionObject[i];
 	// fileListTransfer.AddCallback(&progressIndicator);
 	autopatcherServer.SetFileListTransferPlugin(&fileListTransfer);
 	// MySQL is extremely slow in AutopatcherMySQLRepository::GetFilePart so running tho incremental reads in a thread allows multiple concurrent users to read
@@ -71,7 +71,7 @@ int main(int, char **)
 	autopatcherServer.SetLoadManagementCallback(&loadNotifier);
 #ifdef USE_TCP
 	MafiaNet::PacketizedTCP packetizedTCP;
-	if (packetizedTCP.Start(LISTEN_PORT,MAX_INCOMING_CONNECTIONS)==false)
+	if (packetizedTCP.Start(LISTEN_PORT, MAX_INCOMING_CONNECTIONS) == false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
 		return 1;
@@ -81,8 +81,8 @@ int main(int, char **)
 #else
 	MafiaNet::RakPeerInterface *rakPeer;
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
-	rakPeer->Startup(MAX_INCOMING_CONNECTIONS,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT, 0);
+	rakPeer->Startup(MAX_INCOMING_CONNECTIONS, &socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(MAX_INCOMING_CONNECTIONS);
 	rakPeer->AttachPlugin(&autopatcherServer);
 	rakPeer->AttachPlugin(&fileListTransfer);
@@ -93,21 +93,21 @@ int main(int, char **)
 	char password[128];
 	char username[256];
 	strcpy_s(username, "root");
-	Gets(password,sizeof(password));
-	if (password[0]==0)
-		strcpy_s(password,"aaaa");
+	Gets(password, sizeof(password));
+	if (password[0] == 0)
+		strcpy_s(password, "aaaa");
 	char db[256];
 	printf("Enter DB schema: ");
 	// To create the schema, go to the command line client and type create schema autopatcher;
-	// You also have to add 
+	// You also have to add
 	// max_allowed_packet=128M
 	// Where 128 is the maximum size file in megabytes you'll ever add
 	// to MySQL\MySQL Server 5.1\my.ini in the [mysqld] section
 	// Be sure to restart the service after doing so
-	Gets(db,sizeof(db));
-	if (db[0]==0)
-		strcpy_s(db,"autopatcher");
-	for (int conIdx=0; conIdx < sqlConnectionObjectCount; conIdx++)
+	Gets(db, sizeof(db));
+	if (db[0] == 0)
+		strcpy_s(db, "autopatcher");
+	for (int conIdx = 0; conIdx < sqlConnectionObjectCount; conIdx++)
 	{
 		if (!connectionObject[conIdx].Connect("localhost", username, password, db, 0, nullptr, 0))
 		{
@@ -126,101 +126,101 @@ int main(int, char **)
 
 	int ch;
 	MafiaNet::Packet *p;
-	for(;;)
+	for (;;)
 	{
 #ifdef USE_TCP
 		MafiaNet::SystemAddress notificationAddress;
-		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasCompletedConnectionAttempt();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
-		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasNewIncomingConnection();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
-		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasLostConnection();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
 
-		p=packetizedTCP.Receive();
+		p = packetizedTCP.Receive();
 		while (p)
 		{
 			packetizedTCP.DeallocatePacket(p);
-			p=packetizedTCP.Receive();
+			p = packetizedTCP.Receive();
 		}
 #else
-		p=rakPeer->Receive();
+		p = rakPeer->Receive();
 		while (p)
 		{
-			if (p->data[0]==ID_NEW_INCOMING_CONNECTION)
+			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 				printf("ID_NEW_INCOMING_CONNECTION\n");
-			else if (p->data[0]==ID_DISCONNECTION_NOTIFICATION)
+			else if (p->data[0] == ID_DISCONNECTION_NOTIFICATION)
 				printf("ID_DISCONNECTION_NOTIFICATION\n");
-			else if (p->data[0]==ID_CONNECTION_LOST)
+			else if (p->data[0] == ID_CONNECTION_LOST)
 				printf("ID_CONNECTION_LOST\n");
 
 			rakPeer->DeallocatePacket(p);
-			p=rakPeer->Receive();
+			p = rakPeer->Receive();
 		}
 #endif
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch=='q')
+			ch = _getch();
+			if (ch == 'q')
 				break;
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
-				if (connectionObject[0].CreateAutopatcherTables()==false)
+				if (connectionObject[0].CreateAutopatcherTables() == false)
 					printf("Error: %s\n", connectionObject[0].GetLastError());
 				else
 					printf("Created\n");
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
-				if (connectionObject[0].DestroyAutopatcherTables()==false)
+				if (connectionObject[0].DestroyAutopatcherTables() == false)
 					printf("Error: %s\n", connectionObject[0].GetLastError());
 				else
 					printf("Destroyed\n");
 			}
-			else if (ch=='a')
+			else if (ch == 'a')
 			{
 				printf("Enter application name to add: ");
 				char appName[512];
-				Gets(appName,sizeof(appName));
-				if (appName[0]==0)
+				Gets(appName, sizeof(appName));
+				if (appName[0] == 0)
 					strcpy_s(appName, "TestApp");
 
-				if (connectionObject[0].AddApplication(appName, username)==false)
+				if (connectionObject[0].AddApplication(appName, username) == false)
 					printf("Error: %s\n", connectionObject[0].GetLastError());
 				else
 					printf("Done\n");
 			}
-			else if (ch=='r')
+			else if (ch == 'r')
 			{
 				printf("Enter application name to remove: ");
 				char appName[512];
-				Gets(appName,sizeof(appName));
-				if (appName[0]==0)
+				Gets(appName, sizeof(appName));
+				if (appName[0] == 0)
 					strcpy_s(appName, "TestApp");
 
-				if (connectionObject[0].RemoveApplication(appName)==false)
+				if (connectionObject[0].RemoveApplication(appName) == false)
 					printf("Error: %s\n", connectionObject[0].GetLastError());
 				else
 					printf("Done\n");
 			}
-			else if (ch=='u')
+			else if (ch == 'u')
 			{
 				printf("Enter application name: ");
 				char appName[512];
-				Gets(appName,sizeof(appName));
-				if (appName[0]==0)
+				Gets(appName, sizeof(appName));
+				if (appName[0] == 0)
 					strcpy_s(appName, "TestApp");
 
 				printf("Enter application directory: ");
 				char appDir[512];
-				Gets(appDir,sizeof(appName));
-				if (appDir[0]==0)
+				Gets(appDir, sizeof(appName));
+				if (appDir[0] == 0)
 					strcpy_s(appDir, "C:/temp");
 
-				if (connectionObject[0].UpdateApplicationFiles(appName, appDir, username, 0)==false)
+				if (connectionObject[0].UpdateApplicationFiles(appName, appDir, username, 0) == false)
 				{
 					printf("Error: %s\n", connectionObject[0].GetLastError());
 				}
@@ -232,8 +232,6 @@ int main(int, char **)
 		}
 
 		RakSleep(30);
-
-
 	}
 
 #ifdef USE_TCP

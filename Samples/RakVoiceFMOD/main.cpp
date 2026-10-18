@@ -40,21 +40,20 @@
 #include "FMODVoiceAdapter.h"
 
 
-
 // Reads and writes per second of the sound data
 // Opus supports: 8000, 16000, 24000, 48000
-#define SAMPLE_RATE  (48000)
+#define SAMPLE_RATE (48000)
 //#define SAMPLE_RATE  (24000)
 //#define SAMPLE_RATE  (16000)
 //#define SAMPLE_RATE  (8000)
 
-#define FRAMES_PER_BUFFER  (SAMPLE_RATE / 50)  // 20ms frame
+#define FRAMES_PER_BUFFER (SAMPLE_RATE / 50) // 20ms frame
 
 // define sample type. Only short(16 bits sound) is supported at the moment.
 typedef short SAMPLE;
 
-MafiaNet::RakPeerInterface *rakPeer= nullptr;
-FMOD::System *fmodSystem= nullptr;
+MafiaNet::RakPeerInterface *rakPeer = nullptr;
+FMOD::System *fmodSystem = nullptr;
 MafiaNet::RakVoice rakVoice;
 bool mute;
 
@@ -70,42 +69,40 @@ void FMOD_ERRCHECK(FMOD_RESULT result)
 	}
 }
 
-struct myStat{
+struct myStat
+{
 	unsigned int time;
 	unsigned int bitsRec;
 	unsigned int bitsSent;
 };
 
-void LogStats(){
-	MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+void LogStats()
+{
+	MafiaNet::RakNetStatistics *rss = rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 	char buffer[1024];
-	StatisticsToString(rss,buffer,1024,1);
+	StatisticsToString(rss, buffer, 1024, 1);
 	printf(buffer);
-
 }
 
 // Prints the current encoder parameters
 void PrintParameters(void)
 {
-	printf("\nNoise filter=%3s VAD=%3s VBR=%3s\n"
-			,(rakVoice.IsNoiseFilterActive()) ? "ON" : "OFF"
-			,(rakVoice.IsVADActive()) ? "ON" : "OFF"
-			,(rakVoice.IsVBRActive()) ? "ON" : "OFF");
+	printf("\nNoise filter=%3s VAD=%3s VBR=%3s\n", (rakVoice.IsNoiseFilterActive()) ? "ON" : "OFF", (rakVoice.IsVADActive()) ? "ON" : "OFF", (rakVoice.IsVBRActive()) ? "ON" : "OFF");
 }
 
 int main(void)
 {
-	FMOD_RESULT    result;
-	unsigned int   version;
+	FMOD_RESULT result;
+	unsigned int version;
 
 	/*
 	Create a System object and initialize.
 	*/
 	result = FMOD::System_Create(&fmodSystem);
-	RakAssert(result>=0);
+	RakAssert(result >= 0);
 
 	result = fmodSystem->getVersion(&version);
-	RakAssert(result>=0);
+	RakAssert(result >= 0);
 
 	if (version < FMOD_VERSION)
 	{
@@ -115,14 +112,14 @@ int main(void)
 
 	//  result = fmodSystem->init(100, FMOD_INIT_NORMAL, (void *)&extradriverdata);
 	result = fmodSystem->init(100, FMOD_INIT_NORMAL, 0);
-	RakAssert(result>=0);
-//	ERRCHECK(result);
+	RakAssert(result >= 0);
+	//	ERRCHECK(result);
 
 	printf("A sample on how to use RakVoice with FMOD. You need a microphone for this sample.\n");
 	printf("RakVoice uses Opus codec for voice encoding and RNNoise for noise suppression.\n");
 	printf("Difficulty: Advanced\n\n");
 
-	mute=false;
+	mute = false;
 	bool quit;
 	char ch;
 
@@ -131,32 +128,33 @@ int main(void)
 #if defined(INTERACTIVE)
 	printf("Enter local port: ");
 	Gets(port, sizeof(port));
-	if (port[0]==0)
+	if (port[0] == 0)
 #endif
 		strcpy_s(port, "60000");
-	MafiaNet::SocketDescriptor socketDescriptor(atoi(port),0);
+	MafiaNet::SocketDescriptor socketDescriptor(atoi(port), 0);
 
 	rakPeer->Startup(4, &socketDescriptor, 1);
 
 	rakPeer->SetMaximumIncomingConnections(4);
 	rakPeer->AttachPlugin(&rakVoice);
 
-	rakVoice.Init(SAMPLE_RATE, FRAMES_PER_BUFFER*sizeof(SAMPLE));
+	rakVoice.Init(SAMPLE_RATE, FRAMES_PER_BUFFER * sizeof(SAMPLE));
 
 
 	// Initialize our connection with FMOD
-	if (!MafiaNet::FMODVoiceAdapter::Instance()->SetupAdapter(fmodSystem, &rakVoice)){
-			printf("An error occurred while initializing FMOD sounds.\n");
-			exit(-1);
-		}
+	if (!MafiaNet::FMODVoiceAdapter::Instance()->SetupAdapter(fmodSystem, &rakVoice))
+	{
+		printf("An error occurred while initializing FMOD sounds.\n");
+		exit(-1);
+	}
 
 	MafiaNet::Packet *p;
-	quit=false;
+	quit = false;
 #if defined(INTERACTIVE)
 	printf("(Q)uit. (C)onnect. (D)isconnect. (M)ute. ' ' for stats.\n");
 	printf("(N)oise filter on/off. (V)AD on/off. (B)vbr on/off.\n");
 #else
-	rakPeer->Connect("1.1.1.1", 60000, 0,0);
+	rakPeer->Connect("1.1.1.1", 60000, 0, 0);
 #endif
 	PrintParameters();
 	while (!quit)
@@ -164,93 +162,95 @@ int main(void)
 #if defined(INTERACTIVE)
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch=='n'){
+			ch = _getch();
+			if (ch == 'n')
+			{
 				// Turn on/off noise filter
 				rakVoice.SetNoiseFilter(!rakVoice.IsNoiseFilterActive());
 				PrintParameters();
 			}
-			else if (ch=='v') {
+			else if (ch == 'v')
+			{
 				// Turn on/off Voice detection
 				rakVoice.SetVAD(!rakVoice.IsVADActive());
 				PrintParameters();
 			}
-			else if (ch=='b') {
+			else if (ch == 'b')
+			{
 				// Turn on/off VBR
 				rakVoice.SetVBR(!rakVoice.IsVBRActive());
 				PrintParameters();
 			}
-			else if (ch=='y')
+			else if (ch == 'y')
 			{
-				quit=true;
+				quit = true;
 			}
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
 				char ip[256];
 				printf("\nEnter IP of remote system: ");
 				Gets(ip, sizeof(ip));
-				if (ip[0]==0)
+				if (ip[0] == 0)
 					strcpy_s(ip, "127.0.0.1");
 				printf("\nEnter port of remote system: ");
 				Gets(port, sizeof(port));
-				if (port[0]==0)
+				if (port[0] == 0)
 					strcpy_s(port, "60000");
-				rakPeer->Connect(ip, atoi(port), 0,0);
+				rakPeer->Connect(ip, atoi(port), 0, 0);
 			}
-			else if (ch=='m')
+			else if (ch == 'm')
 			{
-				mute=!mute;
+				mute = !mute;
 				MafiaNet::FMODVoiceAdapter::Instance()->SetMute(mute);
 				if (mute)
 					printf("\nNow muted.\n");
 				else
 					printf("\nNo longer muted.\n");
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
-				rakPeer->Shutdown(100,0);
+				rakPeer->Shutdown(100, 0);
 			}
-			else if (ch==' ')
+			else if (ch == ' ')
 			{
 				char message[2048];
-				MafiaNet::RakNetStatistics *rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+				MafiaNet::RakNetStatistics *rss = rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 			}
-			else if (ch=='q')
-				quit=true;
-			ch=0;
+			else if (ch == 'q')
+				quit = true;
+			ch = 0;
 		}
 
 #endif
 
-		p=rakPeer->Receive();
+		p = rakPeer->Receive();
 		while (p)
 		{
-			if (p->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)
+			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
 				printf("\nID_CONNECTION_REQUEST_ACCEPTED from %s\n", p->systemAddress.ToString());
 				rakVoice.RequestVoiceChannel(p->guid);
 			}
-			else if (p->data[0]==ID_RAKVOICE_OPEN_CHANNEL_REQUEST)
+			else if (p->data[0] == ID_RAKVOICE_OPEN_CHANNEL_REQUEST)
 			{
 				printf("\nOpen Channel request from %s\n", p->systemAddress.ToString());
 			}
-			else if (p->data[0]==ID_RAKVOICE_OPEN_CHANNEL_REPLY)
+			else if (p->data[0] == ID_RAKVOICE_OPEN_CHANNEL_REPLY)
 			{
 				printf("\nGot new channel from %s\n", p->systemAddress.ToString());
 			}
 
 			rakPeer->DeallocatePacket(p);
-			p=rakPeer->Receive();
+			p = rakPeer->Receive();
 		}
 
 		fmodSystem->update();
 		// Update or connection with FMOD
 		MafiaNet::FMODVoiceAdapter::Instance()->Update();
-	//	LogStats();
+		//	LogStats();
 		RakSleep(20);
-
 	}
 
 	// Release any FMOD resources we used, and shutdown FMOD itself

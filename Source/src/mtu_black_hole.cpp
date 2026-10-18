@@ -9,7 +9,8 @@
 
 #include "mafianet/mtu_size.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 const int MTU_LADDER[MTU_LADDER_SIZE] = {MAXIMUM_MTU_SIZE, 1280, 1024, 576};
 

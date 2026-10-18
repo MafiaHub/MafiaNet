@@ -47,16 +47,17 @@
 
 namespace MafiaNet
 {
-	class RakPeerInterface;
+class RakPeerInterface;
 
 /// \brief Base class for rooms functionality
 /// \details Operations performed on rooms are not in the RoomsPlugin - instead, each structure encapsulates one operation
 /// \ingroup ROOMS_COMMANDS
-struct RoomsPluginFunc {
+struct RoomsPluginFunc
+{
 	RoomsPluginFunc() {}
 	virtual ~RoomsPluginFunc() {}
-	virtual void SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)=0;
-	virtual void SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream)=0;
+	virtual void SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream) = 0;
+	virtual void SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream) = 0;
 	void PrintResult(void);
 	/// \param[in] userName Who is performing this operation. Input parameter
 	MafiaNet::RakString userName;
@@ -66,7 +67,8 @@ struct RoomsPluginFunc {
 };
 /// \brief Create a room. Each user can be in at most one room, so will fail if the user is already in a room
 /// \ingroup ROOMS_COMMANDS
-struct CreateRoom_Func : public RoomsPluginFunc {
+struct CreateRoom_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	NetworkedRoomCreationParameters networkedRoomCreationParameters;
 	GameIdentifier gameIdentifier;
@@ -82,8 +84,9 @@ struct CreateRoom_Func : public RoomsPluginFunc {
 };
 /// \brief Joins a room if possible. If not, creates a room.
 /// \ingroup ROOMS_COMMANDS
-struct EnterRoom_Func : public RoomsPluginFunc {
-	
+struct EnterRoom_Func : public RoomsPluginFunc
+{
+
 	// Input parameters
 	NetworkedRoomCreationParameters networkedRoomCreationParameters;
 	RoomMemberMode roomMemberMode;
@@ -97,7 +100,7 @@ struct EnterRoom_Func : public RoomsPluginFunc {
 
 	void PrintResult(void)
 	{
-		if (resultCode!=REC_SUCCESS)
+		if (resultCode != REC_SUCCESS)
 			printf("Result for user %s: %s\n", userName.C_String(), RoomsErrorCodeDescription::ToEnglish(resultCode));
 		else if (createdRoom)
 			printf("%s created a new room\n", userName.C_String());
@@ -112,7 +115,8 @@ struct EnterRoom_Func : public RoomsPluginFunc {
 /// \details Room joins may fail if the room is locked, or does not have slots of the particular type
 /// Room joins may succeed where they would otherwise fail if the user has an invitation to the room
 /// \ingroup ROOMS_COMMANDS
-struct JoinByFilter_Func : public RoomsPluginFunc {
+struct JoinByFilter_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	GameIdentifier gameIdentifier;
 	RoomMemberMode roomMemberMode;
@@ -123,16 +127,16 @@ struct JoinByFilter_Func : public RoomsPluginFunc {
 
 	void PrintResult(void)
 	{
-		if (resultCode!=REC_SUCCESS)
+		if (resultCode != REC_SUCCESS)
 			printf("Result for user %s: %s\n", userName.C_String(), RoomsErrorCodeDescription::ToEnglish(resultCode));
 		else
 		{
 			printf("Joined room %s with id %i and %.0f used slots\n",
-				joinedRoomResult.roomDescriptor.GetProperty(DefaultRoomColumns::TC_ROOM_NAME)->c, joinedRoomResult.roomDescriptor.lobbyRoomId,
-				joinedRoomResult.roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i);
-			for (unsigned int i=0; i < joinedRoomResult.roomDescriptor.roomMemberList.Size(); i++)
+			       joinedRoomResult.roomDescriptor.GetProperty(DefaultRoomColumns::TC_ROOM_NAME)->c, joinedRoomResult.roomDescriptor.lobbyRoomId,
+			       joinedRoomResult.roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i);
+			for (unsigned int i = 0; i < joinedRoomResult.roomDescriptor.roomMemberList.Size(); i++)
 			{
-				printf("%i. %s (%s)\n", i+1, joinedRoomResult.roomDescriptor.roomMemberList[i].name.C_String(), joinedRoomResult.roomDescriptor.roomMemberList[i].systemAddress.ToString());
+				printf("%i. %s (%s)\n", i + 1, joinedRoomResult.roomDescriptor.roomMemberList[i].name.C_String(), joinedRoomResult.roomDescriptor.roomMemberList[i].systemAddress.ToString());
 			}
 		}
 	}
@@ -143,7 +147,8 @@ struct JoinByFilter_Func : public RoomsPluginFunc {
 };
 /// \brief Leaves a room. You can leave at any time, even if the room is locked.
 /// \ingroup ROOMS_COMMANDS
-struct LeaveRoom_Func : public RoomsPluginFunc {
+struct LeaveRoom_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 	RemoveUserResult removeUserResult;
@@ -153,7 +158,8 @@ struct LeaveRoom_Func : public RoomsPluginFunc {
 };
 /// Gets all invitations to you to various rooms.
 /// \ingroup ROOMS_COMMANDS
-struct GetInvitesToParticipant_Func : public RoomsPluginFunc {
+struct GetInvitesToParticipant_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 	DataStructures::List<InvitedUser> invitedUsers;
@@ -166,7 +172,8 @@ struct GetInvitesToParticipant_Func : public RoomsPluginFunc {
 /// This may fail depending on the room settings - the moderator may not allow other users to send invitations.<BR>
 /// Invitations may be cleared when the moderator changes, depending on the room settings
 /// \ingroup ROOMS_COMMANDS
-struct SendInvite_Func : public RoomsPluginFunc {
+struct SendInvite_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString inviteeName;
 	bool inviteToSpectatorSlot;
@@ -180,7 +187,8 @@ struct SendInvite_Func : public RoomsPluginFunc {
 /// \brief Accept an invitation from a user to a room.
 /// \details Invitations are the only way to join reserved slots. If all reserved slots are full, will join a public slot if possible.
 /// \ingroup ROOMS_COMMANDS
-struct AcceptInvite_Func : public RoomsPluginFunc {
+struct AcceptInvite_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString inviteSender;
 	RoomID roomId;
@@ -192,7 +200,8 @@ struct AcceptInvite_Func : public RoomsPluginFunc {
 /// \brief Begin spectating. Spectators are considered room members that are not playing the game, only watching
 /// \details Spectators do not count towards room ready states. The moderator can lock the room, preventing users from spectating, or not allow spectators at all
 /// \ingroup ROOMS_COMMANDS
-struct StartSpectating_Func : public RoomsPluginFunc {
+struct StartSpectating_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 
@@ -202,7 +211,8 @@ struct StartSpectating_Func : public RoomsPluginFunc {
 /// \brief Stop spectating. This will rejoin the room as a player, using a reserved slot if we were invited, and a public slot if not or if there are no reserved slots
 /// \details This may fail if the moderator locked the room, or if no slots are available.
 /// \ingroup ROOMS_COMMANDS
-struct StopSpectating_Func : public RoomsPluginFunc {
+struct StopSpectating_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 
@@ -211,7 +221,8 @@ struct StopSpectating_Func : public RoomsPluginFunc {
 };
 /// \brief Give moderator to another player. Moderators cannot be spectators.
 /// \ingroup ROOMS_COMMANDS
-struct GrantModerator_Func : public RoomsPluginFunc {
+struct GrantModerator_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString newModerator;
 	// Output parameters
@@ -221,7 +232,8 @@ struct GrantModerator_Func : public RoomsPluginFunc {
 };
 /// \brief Change the allowed slot counts for the room. Setting fewer slot counts than the number of players does not kick out players, though it may prevent changing spectator status
 /// \ingroup ROOMS_COMMANDS
-struct ChangeSlotCounts_Func : public RoomsPluginFunc {
+struct ChangeSlotCounts_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	Slots slots;
 	// Output parameters
@@ -234,7 +246,8 @@ struct ChangeSlotCounts_Func : public RoomsPluginFunc {
 /// These properties are read when searching for rooms, and can be used as query filters to only join rooms with specified properties<BR>
 /// See RoomTypes.h for default room properties.
 /// \ingroup ROOMS_COMMANDS
-struct SetCustomRoomProperties_Func : public RoomsPluginFunc {
+struct SetCustomRoomProperties_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	DataStructures::Table table;
 	// Output parameters
@@ -244,7 +257,8 @@ struct SetCustomRoomProperties_Func : public RoomsPluginFunc {
 };
 /// \brief Given a named room, return the properties of that room, including member list
 /// \ingroup ROOMS_COMMANDS
-struct GetRoomProperties_Func : public RoomsPluginFunc {
+struct GetRoomProperties_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// If blank, uses the room the user is currently in.
 	MafiaNet::RakString roomName;
@@ -253,21 +267,21 @@ struct GetRoomProperties_Func : public RoomsPluginFunc {
 
 	void PrintResult(void)
 	{
-		
-		if (resultCode!=REC_SUCCESS)
+
+		if (resultCode != REC_SUCCESS)
 		{
 			printf("Result for user %s: %s\n", userName.C_String(), RoomsErrorCodeDescription::ToEnglish(resultCode));
 		}
 		else
 		{
-//			char out[8096];
+			//			char out[8096];
 			printf("room %s has %i columns and %i used slots\n", roomName.C_String(),
-				roomDescriptor.roomProperties.GetColumnCount(), roomDescriptor.roomMemberList.Size());
-			RakAssert(roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i==roomDescriptor.roomMemberList.Size()-1);
-	//		roomDescriptor.roomProperties.PrintColumnHeaders(out,8096,',');
-	//		printf(out);
-	//		roomDescriptor.roomProperties.PrintRow(out,8096,',',false,roomDescriptor.roomProperties.GetRowByIndex(0,0));
-	//		printf(out);
+			       roomDescriptor.roomProperties.GetColumnCount(), roomDescriptor.roomMemberList.Size());
+			RakAssert(roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i == roomDescriptor.roomMemberList.Size() - 1);
+			//		roomDescriptor.roomProperties.PrintColumnHeaders(out,8096,',');
+			//		printf(out);
+			//		roomDescriptor.roomProperties.PrintRow(out,8096,',',false,roomDescriptor.roomProperties.GetRowByIndex(0,0));
+			//		printf(out);
 		}
 	}
 
@@ -277,7 +291,8 @@ struct GetRoomProperties_Func : public RoomsPluginFunc {
 
 /// \brief Change the name of the room
 /// \ingroup ROOMS_COMMANDS
-struct ChangeRoomName_Func : public RoomsPluginFunc {
+struct ChangeRoomName_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString newRoomName;
 	// Output parameters
@@ -287,7 +302,8 @@ struct ChangeRoomName_Func : public RoomsPluginFunc {
 };
 /// \brief Set or unset the room hidden from searches. If a room is hidden from searches, it can only be joined through invitations
 /// \ingroup ROOMS_COMMANDS
-struct SetHiddenFromSearches_Func : public RoomsPluginFunc {
+struct SetHiddenFromSearches_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	bool hiddenFromSearches;
 	// Output parameters
@@ -298,7 +314,8 @@ struct SetHiddenFromSearches_Func : public RoomsPluginFunc {
 /// \brief Sets or unsets to destroy the room when the moderator leaves the room
 /// \details If false, the next moderator will be the oldest member that is not a spectator.
 /// \ingroup ROOMS_COMMANDS
-struct SetDestroyOnModeratorLeave_Func : public RoomsPluginFunc {
+struct SetDestroyOnModeratorLeave_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	bool destroyOnModeratorLeave;
 	// Output parameters
@@ -310,7 +327,8 @@ struct SetDestroyOnModeratorLeave_Func : public RoomsPluginFunc {
 /// \details Ready means ready to play the game. This flag can be set or unset by each room member.BR>
 /// When all players are ready, the can will presumably start (although you can use this flag however you want).
 /// \ingroup ROOMS_COMMANDS
-struct SetReadyStatus_Func : public RoomsPluginFunc {
+struct SetReadyStatus_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	bool isReady;
 	// Output parameters
@@ -319,17 +337,17 @@ struct SetReadyStatus_Func : public RoomsPluginFunc {
 
 	void PrintResult(void)
 	{
-		if (resultCode!=REC_SUCCESS)
+		if (resultCode != REC_SUCCESS)
 		{
 			printf("Result for user %s: %s\n", userName.C_String(), RoomsErrorCodeDescription::ToEnglish(resultCode));
 		}
 		else
 		{
 			printf("SetReadyStatus_Func member ready states:\n");
-			if (readyUsers.Size()>0)
+			if (readyUsers.Size() > 0)
 			{
 				printf("Ready: ");
-				for (unsigned int i=0; i < readyUsers.Size(); i++)
+				for (unsigned int i = 0; i < readyUsers.Size(); i++)
 				{
 					printf("%s ", readyUsers[i].C_String());
 				}
@@ -337,17 +355,16 @@ struct SetReadyStatus_Func : public RoomsPluginFunc {
 				printf("\n");
 			}
 
-			if (unreadyUsers.Size()>0)
+			if (unreadyUsers.Size() > 0)
 			{
 				printf("Unready: ");
-				for (unsigned int i=0; i < unreadyUsers.Size(); i++)
+				for (unsigned int i = 0; i < unreadyUsers.Size(); i++)
 				{
 					printf("%s ", unreadyUsers[i].C_String());
 				}
 
 				printf("\n");
 			}
-			
 		}
 	}
 
@@ -356,7 +373,8 @@ struct SetReadyStatus_Func : public RoomsPluginFunc {
 };
 /// \brief Gets the ready states for every user in the room, excluding spectators
 /// \ingroup ROOMS_COMMANDS
-struct GetReadyStatus_Func : public RoomsPluginFunc {
+struct GetReadyStatus_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 	DataStructures::List<MafiaNet::RakString> readyUsers;
@@ -369,7 +387,8 @@ struct GetReadyStatus_Func : public RoomsPluginFunc {
 /// \details If the room is locked, no further players can join regardless of the available room slots. This includes invited players.<BR>
 /// Rooms default to unlocked
 /// \ingroup ROOMS_COMMANDS
-struct SetRoomLockState_Func : public RoomsPluginFunc {
+struct SetRoomLockState_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	RoomLockState roomLockState;
 	// Output parameters
@@ -379,7 +398,8 @@ struct SetRoomLockState_Func : public RoomsPluginFunc {
 };
 /// \brief Gets the lock state of the room
 /// \ingroup ROOMS_COMMANDS
-struct GetRoomLockState_Func : public RoomsPluginFunc {
+struct GetRoomLockState_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 	RoomLockState roomLockState;
@@ -389,7 +409,8 @@ struct GetRoomLockState_Func : public RoomsPluginFunc {
 };
 /// \brief If all members have been set to ready using SetReadyStatus_Func, this operation will set allReady to true.
 /// \ingroup ROOMS_COMMANDS
-struct AreAllMembersReady_Func : public RoomsPluginFunc {
+struct AreAllMembersReady_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 	bool allReady;
@@ -399,7 +420,8 @@ struct AreAllMembersReady_Func : public RoomsPluginFunc {
 };
 /// \brief Kick a member out of the room. This will also automatically ban that member from rejoining as long as the moderator does not change, or the member is unbanned
 /// \ingroup ROOMS_COMMANDS
-struct KickMember_Func : public RoomsPluginFunc {
+struct KickMember_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString kickedMember;
 	MafiaNet::RakString reason;
@@ -410,7 +432,8 @@ struct KickMember_Func : public RoomsPluginFunc {
 };
 /// \brief Allow a member previously kicked out of the room to rejoin.
 /// \ingroup ROOMS_COMMANDS
-struct UnbanMember_Func : public RoomsPluginFunc {
+struct UnbanMember_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString bannedMemberName;
 	// Output parameters
@@ -420,7 +443,8 @@ struct UnbanMember_Func : public RoomsPluginFunc {
 };
 /// \brief For a given room, get the \a reason parameter of KickMember_Func when we were kicked out.
 /// \ingroup ROOMS_COMMANDS
-struct GetBanReason_Func : public RoomsPluginFunc {
+struct GetBanReason_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	RoomID roomId;
 	// Output parameters
@@ -435,7 +459,8 @@ struct GetBanReason_Func : public RoomsPluginFunc {
 /// Older rooms are given priority to quick join.<BR>
 /// If no rooms are available to join, but enough quick join members are present to create a room instead, this will be done. The room custom properties will be any equality comparisons with networkedQuickJoinUser.query
 /// \ingroup ROOMS_COMMANDS
-struct AddUserToQuickJoin_Func : public RoomsPluginFunc {
+struct AddUserToQuickJoin_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	NetworkedQuickJoinUser networkedQuickJoinUser;
 	GameIdentifier gameIdentifier;
@@ -446,7 +471,8 @@ struct AddUserToQuickJoin_Func : public RoomsPluginFunc {
 };
 /// \brief Leave quick join mode
 /// \ingroup ROOMS_COMMANDS
-struct RemoveUserFromQuickJoin_Func : public RoomsPluginFunc {
+struct RemoveUserFromQuickJoin_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 
@@ -455,7 +481,8 @@ struct RemoveUserFromQuickJoin_Func : public RoomsPluginFunc {
 };
 /// \brief Returns if you are waiting in quick join mode
 /// \ingroup ROOMS_COMMANDS
-struct IsInQuickJoin_Func : public RoomsPluginFunc {
+struct IsInQuickJoin_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	// Output parameters
 	bool isInQuickJoin;
@@ -466,7 +493,8 @@ struct IsInQuickJoin_Func : public RoomsPluginFunc {
 /// \brief Return all rooms that pass the \a roomQuery filter
 /// \details Use onlyJoinable to further filter by rooms that you can join (not locked, not banned, public or invited slots)
 /// \ingroup ROOMS_COMMANDS
-struct SearchByFilter_Func : public RoomsPluginFunc {
+struct SearchByFilter_Func : public RoomsPluginFunc
+{
 	SearchByFilter_Func() {}
 	~SearchByFilter_Func();
 	// Input parameters
@@ -474,22 +502,22 @@ struct SearchByFilter_Func : public RoomsPluginFunc {
 	RoomQuery roomQuery;
 	bool onlyJoinable;
 	// Output parameters
-	DataStructures::List<RoomDescriptor*> roomsOutput;
+	DataStructures::List<RoomDescriptor *> roomsOutput;
 
 	void PrintResult(void)
 	{
-		if (resultCode!=REC_SUCCESS)
+		if (resultCode != REC_SUCCESS)
 		{
 			printf("Result for user %s: %s\n", userName.C_String(), RoomsErrorCodeDescription::ToEnglish(resultCode));
 		}
 		else
 		{
 			printf("Found %i rooms\n", roomsOutput.Size());
-			for (unsigned int i=0; i < roomsOutput.Size(); i++)
+			for (unsigned int i = 0; i < roomsOutput.Size(); i++)
 			{
 				// Default types such as room name are in RoomTypes.cpp see defaultRoomColumns
 				// Also can be user defined
-				printf("%i. %s\n", i+1,roomsOutput[i]->GetProperty(DefaultRoomColumns::TC_ROOM_NAME)->c);
+				printf("%i. %s\n", i + 1, roomsOutput[i]->GetProperty(DefaultRoomColumns::TC_ROOM_NAME)->c);
 			}
 		}
 	}
@@ -499,7 +527,8 @@ struct SearchByFilter_Func : public RoomsPluginFunc {
 };
 /// \brief Change your handle
 /// \ingroup ROOMS_COMMANDS
-struct ChangeHandle_Func : public RoomsPluginFunc {
+struct ChangeHandle_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString newHandle;
 	// Output parameters
@@ -509,7 +538,8 @@ struct ChangeHandle_Func : public RoomsPluginFunc {
 };
 /// \brief Send a chat message
 /// \ingroup ROOMS_COMMANDS
-struct Chat_Func : public RoomsPluginFunc {
+struct Chat_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::RakString chatMessage;
 	// Leave recipient blank for all in room
@@ -525,7 +555,8 @@ struct Chat_Func : public RoomsPluginFunc {
 };
 /// \brief Send an arbitrary binary message
 /// \ingroup ROOMS_COMMANDS
-struct Bitstream_Func : public RoomsPluginFunc {
+struct Bitstream_Func : public RoomsPluginFunc
+{
 	// Input parameters
 	MafiaNet::BitStream bsToSend;
 	// Leave recipient blank for all in room
@@ -541,92 +572,103 @@ struct Bitstream_Func : public RoomsPluginFunc {
 };
 /// \brief Base class for notification callbacks
 /// \ingroup ROOMS_GROUP
-struct RoomsPluginNotification {
+struct RoomsPluginNotification
+{
 	virtual ~RoomsPluginNotification() {}
-	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)=0;
-	virtual void PrintResult(void)=0;
+	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream) = 0;
+	virtual void PrintResult(void) = 0;
 	/// Always filled out so you know which user this callback applies to
 	MafiaNet::RakString recipient;
 };
 /// \brief The quick join duration has expired without joining or creating any rooms
 /// \ingroup ROOMS_NOTIFICATIONS
-struct QuickJoinExpired_Notification : public RoomsPluginNotification {
+struct QuickJoinExpired_Notification : public RoomsPluginNotification
+{
 	NetworkedQuickJoinUser networkedQuickJoinUser;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("QuickJoinExpired_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("QuickJoinExpired_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief Quick join succeeded, and you are now in a room
 /// \ingroup ROOMS_NOTIFICATIONS
-struct QuickJoinEnteredRoom_Notification : public RoomsPluginNotification {
+struct QuickJoinEnteredRoom_Notification : public RoomsPluginNotification
+{
 	JoinedRoomResult joinedRoomResult;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("QuickJoinEnteredRoom_Notification to %s. roomId=%i\n", recipient.C_String(), joinedRoomResult.roomDescriptor.lobbyRoomId);}
+	virtual void PrintResult(void) { printf("QuickJoinEnteredRoom_Notification to %s. roomId=%i\n", recipient.C_String(), joinedRoomResult.roomDescriptor.lobbyRoomId); }
 };
 /// \brief Another room member has started spectating
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberStartedSpectating_Notification : public RoomsPluginNotification {
+struct RoomMemberStartedSpectating_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	MafiaNet::RakString userName;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomMemberStartedSpectating_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomMemberStartedSpectating_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief Another room member has stopped spectating
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberStoppedSpectating_Notification : public RoomsPluginNotification {
+struct RoomMemberStoppedSpectating_Notification : public RoomsPluginNotification
+{
 	MafiaNet::RakString userName;
 	RoomID roomId;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomMemberStoppedSpectating_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomMemberStoppedSpectating_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief The room has a new moderator (possibly you)
 /// \ingroup ROOMS_NOTIFICATIONS
-struct ModeratorChanged_Notification : public RoomsPluginNotification {
+struct ModeratorChanged_Notification : public RoomsPluginNotification
+{
 	MafiaNet::RakString newModerator;
 	MafiaNet::RakString oldModerator;
 	RoomID roomId;
-	virtual void PrintResult(void) {printf("ModeratorChanged_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("ModeratorChanged_Notification to %s\n", recipient.C_String()); }
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 /// \brief The slot counts in the room has changed
 /// \ingroup ROOMS_NOTIFICATIONS
-struct SlotCountsSet_Notification : public RoomsPluginNotification {
+struct SlotCountsSet_Notification : public RoomsPluginNotification
+{
 	Slots slots;
 	RoomID roomId;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("SlotCountsSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("SlotCountsSet_Notification to %s\n", recipient.C_String()); }
 };
 
 /// \brief The custom properties for the room has changed
 /// \ingroup ROOMS_NOTIFICATIONS
-struct CustomRoomPropertiesSet_Notification : public RoomsPluginNotification {
+struct CustomRoomPropertiesSet_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	// If tablePtr is set, that will be serialized. Otherwise, table will be serialized.
 	// Deserialization is written to table
 	DataStructures::Table *tablePtr;
 	DataStructures::Table table;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("CustomRoomPropertiesSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("CustomRoomPropertiesSet_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief The name of the room has been changed
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomNameSet_Notification : public RoomsPluginNotification {
+struct RoomNameSet_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	MafiaNet::RakString oldName;
 	MafiaNet::RakString newName;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomNameSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomNameSet_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief The room is now hidden, or no longer hidden, from searches
 /// \ingroup ROOMS_NOTIFICATIONS
-struct HiddenFromSearchesSet_Notification : public RoomsPluginNotification {
+struct HiddenFromSearchesSet_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	bool hiddenFromSearches;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("HiddenFromSearchesSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("HiddenFromSearchesSet_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief Another room member has changed their ready status
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberReadyStatusSet_Notification : public RoomsPluginNotification {
+struct RoomMemberReadyStatusSet_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	bool isReady;
 	MafiaNet::RakString roomMember;
@@ -636,48 +678,57 @@ struct RoomMemberReadyStatusSet_Notification : public RoomsPluginNotification {
 	DataStructures::List<MafiaNet::RakString> unreadyUsers;
 
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomMemberReadyStatusSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomMemberReadyStatusSet_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief The room is now, or is no longer, locked
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomLockStateSet_Notification : public RoomsPluginNotification {
+struct RoomLockStateSet_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	RoomLockState roomLockState;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomLockStateSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomLockStateSet_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief A room member has been kicked out of the room (possibly you)
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberKicked_Notification : public RoomsPluginNotification {
+struct RoomMemberKicked_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	MafiaNet::RakString kickedMember;
 	MafiaNet::RakString moderator;
 	MafiaNet::RakString reason;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomMemberKicked_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomMemberKicked_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief A room member has changed their handle
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberHandleSet_Notification : public RoomsPluginNotification {
+struct RoomMemberHandleSet_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	MafiaNet::RakString oldName;
 	MafiaNet::RakString newName;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomMemberHandleSet_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomMemberHandleSet_Notification to %s\n", recipient.C_String()); }
 };
 /// A room member has left the room
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberLeftRoom_Notification : public RoomsPluginNotification {
+struct RoomMemberLeftRoom_Notification : public RoomsPluginNotification
+{
 	RoomID roomId;
 	MafiaNet::RakString roomMember;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomMemberLeftRoom_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomMemberLeftRoom_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief A room member has joined the room
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomMemberJoinedRoom_Notification : public RoomsPluginNotification {
-	RoomMemberJoinedRoom_Notification() {joinedRoomResult=0;}
-	~RoomMemberJoinedRoom_Notification() {if (joinedRoomResult!=0) MafiaNet::OP_DELETE(joinedRoomResult, _FILE_AND_LINE_);}
+struct RoomMemberJoinedRoom_Notification : public RoomsPluginNotification
+{
+	RoomMemberJoinedRoom_Notification() { joinedRoomResult = 0; }
+	~RoomMemberJoinedRoom_Notification()
+	{
+		if (joinedRoomResult != 0)
+			MafiaNet::OP_DELETE(joinedRoomResult, _FILE_AND_LINE_);
+	}
 	RoomID roomId;
 	JoinedRoomResult *joinedRoomResult;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -688,7 +739,8 @@ struct RoomMemberJoinedRoom_Notification : public RoomsPluginNotification {
 };
 /// \brief You have received an invitation to a room
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomInvitationSent_Notification : public RoomsPluginNotification {
+struct RoomInvitationSent_Notification : public RoomsPluginNotification
+{
 	MafiaNet::RakString invitorName;
 	MafiaNet::RakString inviteeName;
 	bool inviteToSpectatorSlot;
@@ -696,29 +748,32 @@ struct RoomInvitationSent_Notification : public RoomsPluginNotification {
 	MafiaNet::RakString body;
 	RoomID roomId;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomInvitationSent_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomInvitationSent_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief A previous room invitation is no longer valid (possibly due to moderator change, or the room no longer exists)
 /// \ingroup ROOMS_NOTIFICATIONS
-struct RoomInvitationWithdrawn_Notification : public RoomsPluginNotification {
+struct RoomInvitationWithdrawn_Notification : public RoomsPluginNotification
+{
 	InvitedUser invitedUser;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomInvitationWithdrawn_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomInvitationWithdrawn_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief The moderator has left the room, and everyone left is a spectator, or the room was set to be destroyed when the moderator left
 /// \ingroup ROOMS_NOTIFICATIONS
 /// You are no longer in the room
-struct RoomDestroyedOnModeratorLeft_Notification : public RoomsPluginNotification {
+struct RoomDestroyedOnModeratorLeft_Notification : public RoomsPluginNotification
+{
 	MafiaNet::RakString oldModerator;
 	RoomID roomId;
 	RoomDescriptor roomDescriptor;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("RoomDestroyedOnModeratorLeft_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("RoomDestroyedOnModeratorLeft_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief You got a chat message from another user.
 /// \details If you want to support ignoring chat messages from specific users, use Lobby2Client_PC::IsInIgnoreList
 /// \ingroup ROOMS_NOTIFICATIONS
-struct Chat_Notification : public RoomsPluginNotification {
+struct Chat_Notification : public RoomsPluginNotification
+{
 	MafiaNet::RakString sender;
 	// If filled in, this was directed to you. Otherwise it was directed to the room
 	MafiaNet::RakString privateMessageRecipient;
@@ -727,18 +782,19 @@ struct Chat_Notification : public RoomsPluginNotification {
 	// The chat message with profanity filtered, if you want that instead
 	MafiaNet::RakString filteredChatMessage;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("Chat_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("Chat_Notification to %s\n", recipient.C_String()); }
 };
 /// \brief You got a generic bitstream message from another user.
 /// \ingroup ROOMS_NOTIFICATIONS
-struct Bitstream_Notification : public RoomsPluginNotification {
+struct Bitstream_Notification : public RoomsPluginNotification
+{
 	MafiaNet::RakString sender;
 	// If filled in, this was directed to you. Otherwise it was directed to the room
 	MafiaNet::RakString privateMessageRecipient;
 	// The chat message
 	MafiaNet::BitStream bitStreamReceived;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
-	virtual void PrintResult(void) {printf("Bitstream_Notification to %s\n", recipient.C_String());}
+	virtual void PrintResult(void) { printf("Bitstream_Notification to %s\n", recipient.C_String()); }
 };
 /// \ingroup ROOMS_GROUP
 struct RoomsCallback
@@ -746,58 +802,262 @@ struct RoomsCallback
 	// Results of calls
 	RoomsCallback() {}
 	virtual ~RoomsCallback() {}
-	virtual void CreateRoom_Callback( const SystemAddress &senderAddress, CreateRoom_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void EnterRoom_Callback( const SystemAddress &senderAddress, EnterRoom_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void JoinByFilter_Callback( const SystemAddress &senderAddress, JoinByFilter_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void LeaveRoom_Callback( const SystemAddress &senderAddress, LeaveRoom_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void GetInvitesToParticipant_Callback( const SystemAddress &senderAddress, GetInvitesToParticipant_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SendInvite_Callback( const SystemAddress &senderAddress, SendInvite_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void AcceptInvite_Callback( const SystemAddress &senderAddress, AcceptInvite_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void StartSpectating_Callback( const SystemAddress &senderAddress, StartSpectating_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void StopSpectating_Callback( const SystemAddress &senderAddress, StopSpectating_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void GrantModerator_Callback( const SystemAddress &senderAddress, GrantModerator_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void ChangeSlotCounts_Callback( const SystemAddress &senderAddress, ChangeSlotCounts_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SetCustomRoomProperties_Callback( const SystemAddress &senderAddress, SetCustomRoomProperties_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void GetRoomProperties_Callback( const SystemAddress &senderAddress, GetRoomProperties_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void ChangeRoomName_Callback( const SystemAddress &senderAddress, ChangeRoomName_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SetHiddenFromSearches_Callback( const SystemAddress &senderAddress, SetHiddenFromSearches_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SetDestroyOnModeratorLeave_Callback( const SystemAddress &senderAddress, SetDestroyOnModeratorLeave_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SetReadyStatus_Callback( const SystemAddress &senderAddress, SetReadyStatus_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void GetReadyStatus_Callback( const SystemAddress &senderAddress, GetReadyStatus_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SetRoomLockState_Callback( const SystemAddress &senderAddress, SetRoomLockState_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void GetRoomLockState_Callback( const SystemAddress &senderAddress, GetRoomLockState_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void AreAllMembersReady_Callback( const SystemAddress &senderAddress, AreAllMembersReady_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void KickMember_Callback( const SystemAddress &senderAddress, KickMember_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void UnbanMember_Callback( const SystemAddress &senderAddress, UnbanMember_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void GetBanReason_Callback( const SystemAddress &senderAddress, GetBanReason_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void AddUserToQuickJoin_Callback( const SystemAddress &senderAddress, AddUserToQuickJoin_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void RemoveUserFromQuickJoin_Callback( const SystemAddress &senderAddress, RemoveUserFromQuickJoin_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void IsInQuickJoin_Callback( const SystemAddress &senderAddress, IsInQuickJoin_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void SearchByFilter_Callback( const SystemAddress &senderAddress, SearchByFilter_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void ChangeHandle_Callback( const SystemAddress &senderAddress, ChangeHandle_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void Chat_Callback( const SystemAddress &senderAddress, Chat_Func *callResult) {(void) senderAddress; (void) callResult;}
-	virtual void Bitstream_Callback( const SystemAddress &senderAddress, Bitstream_Func *callResult) {(void) senderAddress; (void) callResult;}
+	virtual void CreateRoom_Callback(const SystemAddress &senderAddress, CreateRoom_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void EnterRoom_Callback(const SystemAddress &senderAddress, EnterRoom_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void JoinByFilter_Callback(const SystemAddress &senderAddress, JoinByFilter_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void LeaveRoom_Callback(const SystemAddress &senderAddress, LeaveRoom_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void GetInvitesToParticipant_Callback(const SystemAddress &senderAddress, GetInvitesToParticipant_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SendInvite_Callback(const SystemAddress &senderAddress, SendInvite_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void AcceptInvite_Callback(const SystemAddress &senderAddress, AcceptInvite_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void StartSpectating_Callback(const SystemAddress &senderAddress, StartSpectating_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void StopSpectating_Callback(const SystemAddress &senderAddress, StopSpectating_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void GrantModerator_Callback(const SystemAddress &senderAddress, GrantModerator_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void ChangeSlotCounts_Callback(const SystemAddress &senderAddress, ChangeSlotCounts_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SetCustomRoomProperties_Callback(const SystemAddress &senderAddress, SetCustomRoomProperties_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void GetRoomProperties_Callback(const SystemAddress &senderAddress, GetRoomProperties_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void ChangeRoomName_Callback(const SystemAddress &senderAddress, ChangeRoomName_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SetHiddenFromSearches_Callback(const SystemAddress &senderAddress, SetHiddenFromSearches_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SetDestroyOnModeratorLeave_Callback(const SystemAddress &senderAddress, SetDestroyOnModeratorLeave_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SetReadyStatus_Callback(const SystemAddress &senderAddress, SetReadyStatus_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void GetReadyStatus_Callback(const SystemAddress &senderAddress, GetReadyStatus_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SetRoomLockState_Callback(const SystemAddress &senderAddress, SetRoomLockState_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void GetRoomLockState_Callback(const SystemAddress &senderAddress, GetRoomLockState_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void AreAllMembersReady_Callback(const SystemAddress &senderAddress, AreAllMembersReady_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void KickMember_Callback(const SystemAddress &senderAddress, KickMember_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void UnbanMember_Callback(const SystemAddress &senderAddress, UnbanMember_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void GetBanReason_Callback(const SystemAddress &senderAddress, GetBanReason_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void AddUserToQuickJoin_Callback(const SystemAddress &senderAddress, AddUserToQuickJoin_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void RemoveUserFromQuickJoin_Callback(const SystemAddress &senderAddress, RemoveUserFromQuickJoin_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void IsInQuickJoin_Callback(const SystemAddress &senderAddress, IsInQuickJoin_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void SearchByFilter_Callback(const SystemAddress &senderAddress, SearchByFilter_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void ChangeHandle_Callback(const SystemAddress &senderAddress, ChangeHandle_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void Chat_Callback(const SystemAddress &senderAddress, Chat_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
+	virtual void Bitstream_Callback(const SystemAddress &senderAddress, Bitstream_Func *callResult)
+	{
+		(void) senderAddress;
+		(void) callResult;
+	}
 	// Notifications due to other room members
-	virtual void QuickJoinExpired_Callback( const SystemAddress &senderAddress, QuickJoinExpired_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void QuickJoinEnteredRoom_Callback( const SystemAddress &senderAddress, QuickJoinEnteredRoom_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberStartedSpectating_Callback( const SystemAddress &senderAddress, RoomMemberStartedSpectating_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberStoppedSpectating_Callback( const SystemAddress &senderAddress, RoomMemberStoppedSpectating_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void ModeratorChanged_Callback( const SystemAddress &senderAddress, ModeratorChanged_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void SlotCountsSet_Callback( const SystemAddress &senderAddress, SlotCountsSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void CustomRoomPropertiesSet_Callback( const SystemAddress &senderAddress, CustomRoomPropertiesSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomNameSet_Callback( const SystemAddress &senderAddress, RoomNameSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void HiddenFromSearchesSet_Callback( const SystemAddress &senderAddress, HiddenFromSearchesSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberReadyStatusSet_Callback( const SystemAddress &senderAddress, RoomMemberReadyStatusSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomLockStateSet_Callback( const SystemAddress &senderAddress, RoomLockStateSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberKicked_Callback( const SystemAddress &senderAddress, RoomMemberKicked_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberHandleSet_Callback( const SystemAddress &senderAddress, RoomMemberHandleSet_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberLeftRoom_Callback( const SystemAddress &senderAddress, RoomMemberLeftRoom_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomMemberJoinedRoom_Callback( const SystemAddress &senderAddress, RoomMemberJoinedRoom_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomInvitationSent_Callback( const SystemAddress &senderAddress, RoomInvitationSent_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomInvitationWithdrawn_Callback( const SystemAddress &senderAddress, RoomInvitationWithdrawn_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void RoomDestroyedOnModeratorLeft_Callback( const SystemAddress &senderAddress, RoomDestroyedOnModeratorLeft_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void Chat_Callback( const SystemAddress &senderAddress, Chat_Notification *notification) {(void) senderAddress; (void) notification;}
-	virtual void Bitstream_Callback( const SystemAddress &senderAddress, Bitstream_Notification *notification) {(void) senderAddress; (void) notification;}
+	virtual void QuickJoinExpired_Callback(const SystemAddress &senderAddress, QuickJoinExpired_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void QuickJoinEnteredRoom_Callback(const SystemAddress &senderAddress, QuickJoinEnteredRoom_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberStartedSpectating_Callback(const SystemAddress &senderAddress, RoomMemberStartedSpectating_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberStoppedSpectating_Callback(const SystemAddress &senderAddress, RoomMemberStoppedSpectating_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void ModeratorChanged_Callback(const SystemAddress &senderAddress, ModeratorChanged_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void SlotCountsSet_Callback(const SystemAddress &senderAddress, SlotCountsSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void CustomRoomPropertiesSet_Callback(const SystemAddress &senderAddress, CustomRoomPropertiesSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomNameSet_Callback(const SystemAddress &senderAddress, RoomNameSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void HiddenFromSearchesSet_Callback(const SystemAddress &senderAddress, HiddenFromSearchesSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberReadyStatusSet_Callback(const SystemAddress &senderAddress, RoomMemberReadyStatusSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomLockStateSet_Callback(const SystemAddress &senderAddress, RoomLockStateSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberKicked_Callback(const SystemAddress &senderAddress, RoomMemberKicked_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberHandleSet_Callback(const SystemAddress &senderAddress, RoomMemberHandleSet_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberLeftRoom_Callback(const SystemAddress &senderAddress, RoomMemberLeftRoom_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomMemberJoinedRoom_Callback(const SystemAddress &senderAddress, RoomMemberJoinedRoom_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomInvitationSent_Callback(const SystemAddress &senderAddress, RoomInvitationSent_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomInvitationWithdrawn_Callback(const SystemAddress &senderAddress, RoomInvitationWithdrawn_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void RoomDestroyedOnModeratorLeft_Callback(const SystemAddress &senderAddress, RoomDestroyedOnModeratorLeft_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void Chat_Callback(const SystemAddress &senderAddress, Chat_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
+	virtual void Bitstream_Callback(const SystemAddress &senderAddress, Bitstream_Notification *notification)
+	{
+		(void) senderAddress;
+		(void) notification;
+	}
 };
 
 /// \brief Used to create rooms for players where they can matchmake
@@ -828,7 +1088,7 @@ struct RoomsCallback
 /// </OL>
 /// \sa AllGamesRoomsContainer
 /// \sa TeamManager TeamManager performs some of the same functions as RoomsPlugin in a more flexible way
-/// \sa 
+/// \sa
 /// \ingroup ROOMS_GROUP
 class RAK_DLL_EXPORT RoomsPlugin : public PluginInterface2, public RoomsCallback
 {
@@ -871,7 +1131,7 @@ public:
 
 	/// \brief Sets the remote server address that is running RoomsPlugin. Send calls will go to this function
 	/// \param[in] systemAddress The remote system, which should be connected while calling client functions
-	void SetServerAddress( SystemAddress systemAddress );
+	void SetServerAddress(SystemAddress systemAddress);
 
 	// --------------------------------------------------------------------------------------------
 	// Server functions.
@@ -943,7 +1203,7 @@ public:
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 protected:
 	void Clear(void);
@@ -968,50 +1228,50 @@ protected:
 	// Logged in room members
 	struct RoomsPluginParticipant : public RoomsParticipant
 	{
-		RoomsPluginParticipant() {lastRoomJoined=(RoomID)-1;}
+		RoomsPluginParticipant() { lastRoomJoined = (RoomID) -1; }
 		RoomID lastRoomJoined;
 	};
-	static int RoomsPluginParticipantCompByRakString( const MafiaNet::RakString &key, RoomsPluginParticipant* const &data );
-	DataStructures::OrderedList<MafiaNet::RakString, RoomsPluginParticipant*, RoomsPluginParticipantCompByRakString> roomsParticipants;
+	static int RoomsPluginParticipantCompByRakString(const MafiaNet::RakString &key, RoomsPluginParticipant *const &data);
+	DataStructures::OrderedList<MafiaNet::RakString, RoomsPluginParticipant *, RoomsPluginParticipantCompByRakString> roomsParticipants;
 
-	RoomsPluginParticipant* GetParticipantByHandle(MafiaNet::RakString handle, const SystemAddress &systemAddress);
-	RoomsPluginParticipant* ValidateUserHandle(RoomsPluginFunc* func, const SystemAddress &systemAddress);
+	RoomsPluginParticipant *GetParticipantByHandle(MafiaNet::RakString handle, const SystemAddress &systemAddress);
+	RoomsPluginParticipant *ValidateUserHandle(RoomsPluginFunc *func, const SystemAddress &systemAddress);
 	void ProcessRemoveUserResult(RemoveUserResult *removeUserResult);
 
-	virtual void CreateRoom_Callback( const SystemAddress &senderAddress, CreateRoom_Func *callResult);
-	virtual void EnterRoom_Callback( const SystemAddress &senderAddress, EnterRoom_Func *callResult);
-	virtual void JoinByFilter_Callback( const SystemAddress &senderAddress, JoinByFilter_Func *callResult);
-	virtual void LeaveRoom_Callback( const SystemAddress &senderAddress, LeaveRoom_Func *callResult);
-	virtual void GetInvitesToParticipant_Callback( const SystemAddress &senderAddress, GetInvitesToParticipant_Func *callResult);
-	virtual void SendInvite_Callback( const SystemAddress &senderAddress, SendInvite_Func *callResult);
-	virtual void AcceptInvite_Callback( const SystemAddress &senderAddress, AcceptInvite_Func *callResult);
-	virtual void StartSpectating_Callback( const SystemAddress &senderAddress, StartSpectating_Func *callResult);
-	virtual void StopSpectating_Callback( const SystemAddress &senderAddress, StopSpectating_Func *callResult);
-	virtual void GrantModerator_Callback( const SystemAddress &senderAddress, GrantModerator_Func *callResult);
-	virtual void ChangeSlotCounts_Callback( const SystemAddress &senderAddress, ChangeSlotCounts_Func *callResult);
-	virtual void SetCustomRoomProperties_Callback( const SystemAddress &senderAddress, SetCustomRoomProperties_Func *callResult);
-	virtual void GetRoomProperties_Callback( const SystemAddress &senderAddress, GetRoomProperties_Func *callResult);
-	virtual void ChangeRoomName_Callback( const SystemAddress &senderAddress, ChangeRoomName_Func *callResult);
-	virtual void SetHiddenFromSearches_Callback( const SystemAddress &senderAddress, SetHiddenFromSearches_Func *callResult);
-	virtual void SetDestroyOnModeratorLeave_Callback( const SystemAddress &senderAddress, SetDestroyOnModeratorLeave_Func *callResult);
-	virtual void SetReadyStatus_Callback( const SystemAddress &senderAddress, SetReadyStatus_Func *callResult);
-	virtual void GetReadyStatus_Callback( const SystemAddress &senderAddress, GetReadyStatus_Func *callResult);
-	virtual void SetRoomLockState_Callback( const SystemAddress &senderAddress, SetRoomLockState_Func *callResult);
-	virtual void GetRoomLockState_Callback( const SystemAddress &senderAddress, GetRoomLockState_Func *callResult);
-	virtual void AreAllMembersReady_Callback( const SystemAddress &senderAddress, AreAllMembersReady_Func *callResult);
-	virtual void KickMember_Callback( const SystemAddress &senderAddress, KickMember_Func *callResult);
-	virtual void UnbanMember_Callback( const SystemAddress &senderAddress, UnbanMember_Func *callResult);
-	virtual void GetBanReason_Callback( const SystemAddress &senderAddress, GetBanReason_Func *callResult);
-	virtual void AddUserToQuickJoin_Callback( const SystemAddress &senderAddress, AddUserToQuickJoin_Func *callResult);
-	virtual void RemoveUserFromQuickJoin_Callback( const SystemAddress &senderAddress, RemoveUserFromQuickJoin_Func *callResult);
-	virtual void IsInQuickJoin_Callback( const SystemAddress &senderAddress, IsInQuickJoin_Func *callResult);
-	virtual void SearchByFilter_Callback( const SystemAddress &senderAddress, SearchByFilter_Func *callResult);
-	virtual void ChangeHandle_Callback( const SystemAddress &senderAddress, ChangeHandle_Func *callResult);
-	virtual void Chat_Callback( const SystemAddress &senderAddress, Chat_Func *callResult);
-	virtual void Bitstream_Callback( const SystemAddress &senderAddress, Bitstream_Func *callResult);
+	virtual void CreateRoom_Callback(const SystemAddress &senderAddress, CreateRoom_Func *callResult);
+	virtual void EnterRoom_Callback(const SystemAddress &senderAddress, EnterRoom_Func *callResult);
+	virtual void JoinByFilter_Callback(const SystemAddress &senderAddress, JoinByFilter_Func *callResult);
+	virtual void LeaveRoom_Callback(const SystemAddress &senderAddress, LeaveRoom_Func *callResult);
+	virtual void GetInvitesToParticipant_Callback(const SystemAddress &senderAddress, GetInvitesToParticipant_Func *callResult);
+	virtual void SendInvite_Callback(const SystemAddress &senderAddress, SendInvite_Func *callResult);
+	virtual void AcceptInvite_Callback(const SystemAddress &senderAddress, AcceptInvite_Func *callResult);
+	virtual void StartSpectating_Callback(const SystemAddress &senderAddress, StartSpectating_Func *callResult);
+	virtual void StopSpectating_Callback(const SystemAddress &senderAddress, StopSpectating_Func *callResult);
+	virtual void GrantModerator_Callback(const SystemAddress &senderAddress, GrantModerator_Func *callResult);
+	virtual void ChangeSlotCounts_Callback(const SystemAddress &senderAddress, ChangeSlotCounts_Func *callResult);
+	virtual void SetCustomRoomProperties_Callback(const SystemAddress &senderAddress, SetCustomRoomProperties_Func *callResult);
+	virtual void GetRoomProperties_Callback(const SystemAddress &senderAddress, GetRoomProperties_Func *callResult);
+	virtual void ChangeRoomName_Callback(const SystemAddress &senderAddress, ChangeRoomName_Func *callResult);
+	virtual void SetHiddenFromSearches_Callback(const SystemAddress &senderAddress, SetHiddenFromSearches_Func *callResult);
+	virtual void SetDestroyOnModeratorLeave_Callback(const SystemAddress &senderAddress, SetDestroyOnModeratorLeave_Func *callResult);
+	virtual void SetReadyStatus_Callback(const SystemAddress &senderAddress, SetReadyStatus_Func *callResult);
+	virtual void GetReadyStatus_Callback(const SystemAddress &senderAddress, GetReadyStatus_Func *callResult);
+	virtual void SetRoomLockState_Callback(const SystemAddress &senderAddress, SetRoomLockState_Func *callResult);
+	virtual void GetRoomLockState_Callback(const SystemAddress &senderAddress, GetRoomLockState_Func *callResult);
+	virtual void AreAllMembersReady_Callback(const SystemAddress &senderAddress, AreAllMembersReady_Func *callResult);
+	virtual void KickMember_Callback(const SystemAddress &senderAddress, KickMember_Func *callResult);
+	virtual void UnbanMember_Callback(const SystemAddress &senderAddress, UnbanMember_Func *callResult);
+	virtual void GetBanReason_Callback(const SystemAddress &senderAddress, GetBanReason_Func *callResult);
+	virtual void AddUserToQuickJoin_Callback(const SystemAddress &senderAddress, AddUserToQuickJoin_Func *callResult);
+	virtual void RemoveUserFromQuickJoin_Callback(const SystemAddress &senderAddress, RemoveUserFromQuickJoin_Func *callResult);
+	virtual void IsInQuickJoin_Callback(const SystemAddress &senderAddress, IsInQuickJoin_Func *callResult);
+	virtual void SearchByFilter_Callback(const SystemAddress &senderAddress, SearchByFilter_Func *callResult);
+	virtual void ChangeHandle_Callback(const SystemAddress &senderAddress, ChangeHandle_Func *callResult);
+	virtual void Chat_Callback(const SystemAddress &senderAddress, Chat_Func *callResult);
+	virtual void Bitstream_Callback(const SystemAddress &senderAddress, Bitstream_Func *callResult);
 
 	void ExecuteNotification(RoomsPluginNotification *func, RoomsPluginParticipant *recipient);
-	void ExecuteNotificationToOtherRoomMembers(Room *room, RoomsPluginParticipant* roomsPluginParticipant, RoomsPluginNotification *notification);
+	void ExecuteNotificationToOtherRoomMembers(Room *room, RoomsPluginParticipant *roomsPluginParticipant, RoomsPluginNotification *notification);
 };
 
 /// \ingroup ROOMS_GROUP

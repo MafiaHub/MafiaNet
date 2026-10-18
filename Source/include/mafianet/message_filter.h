@@ -18,7 +18,7 @@
 ///
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_MessageFilter==1
+#if _RAKNET_SUPPORT_MessageFilter == 1
 
 #ifndef __MESSAGE_FILTER_PLUGIN_H
 #define __MESSAGE_FILTER_PLUGIN_H
@@ -38,7 +38,7 @@ namespace MafiaNet
 class RakPeerInterface;
 
 /// \internal Has to be public so some of the shittier compilers can use it.
-int RAK_DLL_EXPORT MessageFilterStrComp( char *const &key,char *const &data );
+int RAK_DLL_EXPORT MessageFilterStrComp(char *const &key, char *const &data);
 
 /// \internal Has to be public so some of the shittier compilers can use it.
 struct FilterSet
@@ -59,7 +59,7 @@ struct FilterSet
 };
 
 /// \internal Has to be public so some of the shittier compilers can use it.
-int RAK_DLL_EXPORT FilterSetComp( const int &key, FilterSet * const &data );
+int RAK_DLL_EXPORT FilterSetComp(const int &key, FilterSet *const &data);
 
 /// \internal Has to be public so some of the shittier compilers can use it.
 struct FilteredSystem
@@ -85,7 +85,6 @@ struct FilteredSystem
 class RAK_DLL_EXPORT MessageFilter : public PluginInterface2
 {
 public:
-
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(MessageFilter)
 
@@ -108,13 +107,13 @@ public:
 	/// \param[in] messageIDStart The first ID_* message to allow in the range.  Inclusive.
 	/// \param[in] messageIDEnd The last ID_* message to allow in the range.  Inclusive.
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
-	void SetAllowMessageID(bool allow, int messageIDStart, int messageIDEnd,int filterSetID);
+	void SetAllowMessageID(bool allow, int messageIDStart, int messageIDEnd, int filterSetID);
 
 	/// Allow a specific RPC4 call
 	/// \pre MessageFilter must be attached before RPC4
 	/// \param[in] uniqueID Identifier passed to RegisterFunction()
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
-	void SetAllowRPC4(bool allow, const char* uniqueID, int filterSetID);
+	void SetAllowRPC4(bool allow, const char *uniqueID, int filterSetID);
 
 	/// What action to take on a disallowed message.  You can kick or not.  You can add them to the ban list for some time
 	/// By default no action is taken.  The message is simply ignored.
@@ -169,7 +168,7 @@ public:
 	/// \param[in] An index between 0 and GetFilterSetCount()-1 inclusive
 	int GetFilterSetIDByIndex(unsigned index);
 
-    /// Delete a FilterSet.  All systems formerly subscribed to this filter are now unrestricted.
+	/// Delete a FilterSet.  All systems formerly subscribed to this filter are now unrestricted.
 	/// \param[in] filterSetID The ID of the filter set to delete.
 	void DeleteFilterSet(int filterSetID);
 
@@ -179,16 +178,15 @@ public:
 	virtual void Update(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 protected:
-
 	void Clear(void);
 	void DeallocateFilterSet(FilterSet *filterSet);
-	FilterSet* GetFilterSetByID(int filterSetID);
+	FilterSet *GetFilterSetByID(int filterSetID);
 	void OnInvalidMessage(FilterSet *filterSet, AddressOrGUID systemAddress, unsigned char messageID);
 
-	DataStructures::OrderedList<int, FilterSet*, FilterSetComp> filterList;
+	DataStructures::OrderedList<int, FilterSet *, FilterSetComp> filterList;
 	// Change to guid
 	DataStructures::Hash<AddressOrGUID, FilteredSystem, 2048, AddressOrGUID::ToInteger> systemList;
 

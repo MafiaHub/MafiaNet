@@ -23,7 +23,7 @@
 #ifndef _WIN32
 #include <sys/types.h> // used for getifaddrs()
 #include <ifaddrs.h>   // used for getifaddrs()
-#endif // _WIN32
+#endif                 // _WIN32
 
 #include <string> // used for std::string
 
@@ -34,14 +34,16 @@
 void GetMyIP_Windows(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], const ULONG addressFamily)
 {
 	ULONG outBufLen = 45 * 1024; // reserve 45 KB of memory which is the upper limit taken from the sample in MSDN (ie. 15 KB * 3 iterations)
-	PIP_ADAPTER_ADDRESSES pAddresses = static_cast<IP_ADAPTER_ADDRESSES*>(rakMalloc_Ex(outBufLen, _FILE_AND_LINE_));
-	if (pAddresses == nullptr) {
+	PIP_ADAPTER_ADDRESSES pAddresses = static_cast<IP_ADAPTER_ADDRESSES *>(rakMalloc_Ex(outBufLen, _FILE_AND_LINE_));
+	if (pAddresses == nullptr)
+	{
 		// #med - error logging and/or throw exception?
 		return;
 	}
 
 	DWORD error = GetAdaptersAddresses(addressFamily, GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_FRIENDLY_NAME, nullptr, pAddresses, &outBufLen);
-	if (error != ERROR_SUCCESS) {
+	if (error != ERROR_SUCCESS)
+	{
 		// #med - error logging and/or throw exception?
 		rakFree_Ex(pAddresses, _FILE_AND_LINE_);
 		return;
@@ -49,32 +51,38 @@ void GetMyIP_Windows(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], co
 
 	PIP_ADAPTER_ADDRESSES pCurAdapter = pAddresses;
 	size_t outAddressIndex = 0;
-	while ((pCurAdapter != nullptr) && (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS)) {
+	while ((pCurAdapter != nullptr) && (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS))
+	{
 		// skip loopback adapters
-		if (pCurAdapter->IfType != IF_TYPE_SOFTWARE_LOOPBACK) {
+		if (pCurAdapter->IfType != IF_TYPE_SOFTWARE_LOOPBACK)
+		{
 
 			// parse the adapter's unicast addresses
 			PIP_ADAPTER_UNICAST_ADDRESS curAddress = pCurAdapter->FirstUnicastAddress;
-			while ((curAddress != nullptr) && (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS)) {
+			while ((curAddress != nullptr) && (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS))
+			{
 				// note: we'd only requested IPV4 addresses, so this check should be redundant - double-check just to be on the safe side
 				// #med - log a warning
 				const ADDRESS_FAMILY curAddressFamily = curAddress->Address.lpSockaddr->sa_family;
-				if (curAddressFamily == AF_INET) {
-					const sockaddr_in*const curSocketAddress = reinterpret_cast<const sockaddr_in*>(curAddress->Address.lpSockaddr);
+				if (curAddressFamily == AF_INET)
+				{
+					const sockaddr_in *const curSocketAddress = reinterpret_cast<const sockaddr_in *>(curAddress->Address.lpSockaddr);
 
 					// #med - review, is this really necessary?
 					// skip source only addresses (aka: 0.0.0.0/8 - see RFC1700 p.4)
-					if (curSocketAddress->sin_addr.S_un.S_un_b.s_b1 != 0) {
+					if (curSocketAddress->sin_addr.S_un.S_un_b.s_b1 != 0)
+					{
 						// store the adapter's address
 						addresses[outAddressIndex++].address.addr4 = *curSocketAddress;
 					}
 				}
 #if RAKNET_SUPPORT_IPV6 == 1
-				else if (curAddressFamily == AF_INET6) {
+				else if (curAddressFamily == AF_INET6)
+				{
 					// note: not const ptr since inet_ntop() requires non-const ptr
-					sockaddr_in6*const curSocketAddress = reinterpret_cast<sockaddr_in6*>(curAddress->Address.lpSockaddr);
+					sockaddr_in6 *const curSocketAddress = reinterpret_cast<sockaddr_in6 *>(curAddress->Address.lpSockaddr);
 
-					char buffer[INET6_ADDRSTRLEN] = { 0 };
+					char buffer[INET6_ADDRSTRLEN] = {0};
 					// #med - add return value check
 					inet_ntop(AF_INET6, &(curSocketAddress->sin6_addr), buffer, INET6_ADDRSTRLEN);
 
@@ -83,22 +91,27 @@ void GetMyIP_Windows(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], co
 					// detect and skip non-external addresses
 					bool isLocal = false;
 					bool isSpecial = false;
-					if (ipv6String.find("fe") == 0) {
+					if (ipv6String.find("fe") == 0)
+					{
 						const char c = ipv6String[2];
-						if (c == '8' || c == '9' || c == 'a' || c == 'b') {
+						if (c == '8' || c == '9' || c == 'a' || c == 'b')
+						{
 							isLocal = true;
 						}
 					}
-					else if (ipv6String.find("2001:0:") == 0) {
+					else if (ipv6String.find("2001:0:") == 0)
+					{
 						isSpecial = true;
 					}
 
-					if (!(isLocal || isSpecial)) {
+					if (!(isLocal || isSpecial))
+					{
 						// store the adapter's address
 						addresses[outAddressIndex++].address.addr6 = *curSocketAddress;
 					}
 				}
 #endif // RAKNET_SUPPORT_IPV6 == 1
+
 				// else skip the address (neither IPv4 nor IPv6 address)
 
 				// continue with next address
@@ -111,7 +124,8 @@ void GetMyIP_Windows(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], co
 	}
 	rakFree_Ex(pAddresses, _FILE_AND_LINE_);
 
-	while (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS) {
+	while (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS)
+	{
 		addresses[outAddressIndex++] = UNASSIGNED_SYSTEM_ADDRESS;
 	}
 }
@@ -128,15 +142,19 @@ void GetMyIP_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], [[ma
 
 	struct ifaddrs *pCurAdapter = pAddresses;
 	size_t outAddressIndex = 0;
-	while ((pCurAdapter != nullptr) && (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS)) {
+	while ((pCurAdapter != nullptr) && (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS))
+	{
 		// skip interfaces which don't have any address assigned (according to the manual, this would only apply for BSD, but still we'd check for null here just in case)
-		if (pCurAdapter->ifa_addr != nullptr) {
+		if (pCurAdapter->ifa_addr != nullptr)
+		{
 			// skip loopback adapters
-			if ((pCurAdapter->ifa_flags & IFF_LOOPBACK) == 0) {
-				if (pCurAdapter->ifa_addr->sa_family == AF_INET) {
-					const sockaddr_in*const curSocketAddress = reinterpret_cast<const sockaddr_in*>(pCurAdapter->ifa_addr);
+			if ((pCurAdapter->ifa_flags & IFF_LOOPBACK) == 0)
+			{
+				if (pCurAdapter->ifa_addr->sa_family == AF_INET)
+				{
+					const sockaddr_in *const curSocketAddress = reinterpret_cast<const sockaddr_in *>(pCurAdapter->ifa_addr);
 
-					char buffer[INET_ADDRSTRLEN] = { 0 };
+					char buffer[INET_ADDRSTRLEN] = {0};
 					// #med - add return value check
 					inet_ntop(AF_INET, &(curSocketAddress->sin_addr), buffer, INET_ADDRSTRLEN);
 
@@ -144,16 +162,18 @@ void GetMyIP_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], [[ma
 
 					// #med - review, is this really necessary?
 					// skip source only addresses (aka: 0.0.0.0/8 - see RFC1700 p.4)
-					if (ipv4String.find("0.") != 0) {
+					if (ipv4String.find("0.") != 0)
+					{
 						// store the adapter's address
 						addresses[outAddressIndex++].address.addr4 = *curSocketAddress;
 					}
 				}
 #if RAKNET_SUPPORT_IPV6 == 1
-				else if (includeIPv6 && pCurAdapter->ifa_addr->sa_family == AF_INET6) {
-					const sockaddr_in6*const curSocketAddress = reinterpret_cast<const sockaddr_in6*>(pCurAdapter->ifa_addr);
+				else if (includeIPv6 && pCurAdapter->ifa_addr->sa_family == AF_INET6)
+				{
+					const sockaddr_in6 *const curSocketAddress = reinterpret_cast<const sockaddr_in6 *>(pCurAdapter->ifa_addr);
 
-					char buffer[INET6_ADDRSTRLEN] = { 0 };
+					char buffer[INET6_ADDRSTRLEN] = {0};
 					// #med - add return value check
 					inet_ntop(AF_INET6, &(curSocketAddress->sin6_addr), buffer, INET6_ADDRSTRLEN);
 
@@ -162,22 +182,27 @@ void GetMyIP_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], [[ma
 					// detect and skip non-external addresses
 					bool isLocal = false;
 					bool isSpecial = false;
-					if (ipv6String.find("fe") == 0) {
+					if (ipv6String.find("fe") == 0)
+					{
 						const char c = ipv6String[2];
-						if (c == '8' || c == '9' || c == 'a' || c == 'b') {
+						if (c == '8' || c == '9' || c == 'a' || c == 'b')
+						{
 							isLocal = true;
 						}
 					}
-					else if (ipv6String.find("2001:0:") == 0) {
+					else if (ipv6String.find("2001:0:") == 0)
+					{
 						isSpecial = true;
 					}
 
-					if (!(isLocal || isSpecial)) {
+					if (!(isLocal || isSpecial))
+					{
 						// store the adapter's address
 						addresses[outAddressIndex++].address.addr6 = *curSocketAddress;
 					}
 				}
 #endif // RAKNET_SUPPORT_IPV6 == 1
+
 				// else skip the address (neither IPv4 nor IPv6 address)
 			}
 		}
@@ -188,7 +213,8 @@ void GetMyIP_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS], [[ma
 	if (pAddresses != nullptr)
 		freeifaddrs(pAddresses);
 
-	while (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS) {
+	while (outAddressIndex < MAXIMUM_NUMBER_OF_INTERNAL_IDS)
+	{
 		addresses[outAddressIndex++] = UNASSIGNED_SYSTEM_ADDRESS;
 	}
 }
@@ -201,7 +227,7 @@ void GetMyIP_Windows_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_ID
 
 #ifdef _WIN32
 	GetMyIP_Windows(addresses, AF_UNSPEC);
-#else // _WIN32
+#else  // _WIN32
 	GetMyIP_Linux(addresses, true);
 #endif // _WIN32
 
@@ -209,7 +235,7 @@ void GetMyIP_Windows_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_ID
 
 #ifdef _WIN32
 	GetMyIP_Windows(addresses, AF_INET);
-#else // _WIN32
+#else  // _WIN32
 	GetMyIP_Linux(addresses, false);
 #endif // _WIN32
 
@@ -217,52 +243,52 @@ void GetMyIP_Windows_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_ID
 }
 
 
-RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux( RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line ) {
+RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
+{
 
-	int len=0;
+	int len = 0;
 	do
 	{
 		(void) file;
 		(void) line;
 
 
-			int oldTTL=-1;
-			if (sendParameters->ttl>0)
-			{
-				socklen_t opLen=sizeof(oldTTL);
-				// Get the current TTL
-				if (getsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, ( char * ) & oldTTL, &opLen ) != -1)
-				{
-					int newTTL=sendParameters->ttl;
-					setsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, ( char * ) & newTTL, sizeof ( newTTL ) );
-				}
-			}
-
-
-		if (sendParameters->systemAddress.address.addr4.sin_family==AF_INET)
+		int oldTTL = -1;
+		if (sendParameters->ttl > 0)
 		{
-			len = sendto__( rns2Socket, sendParameters->data, sendParameters->length, 0, ( const sockaddr* ) & sendParameters->systemAddress.address.addr4, sizeof( sockaddr_in ) );
+			socklen_t opLen = sizeof(oldTTL);
+			// Get the current TTL
+			if (getsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, (char *) &oldTTL, &opLen) != -1)
+			{
+				int newTTL = sendParameters->ttl;
+				setsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, (char *) &newTTL, sizeof(newTTL));
+			}
+		}
+
+
+		if (sendParameters->systemAddress.address.addr4.sin_family == AF_INET)
+		{
+			len = sendto__(rns2Socket, sendParameters->data, sendParameters->length, 0, (const sockaddr *) &sendParameters->systemAddress.address.addr4, sizeof(sockaddr_in));
 		}
 		else
 		{
-#if RAKNET_SUPPORT_IPV6==1
-			len = sendto__( rns2Socket, sendParameters->data, sendParameters->length, 0, ( const sockaddr* ) & sendParameters->systemAddress.address.addr6, sizeof( sockaddr_in6 ) );
+#if RAKNET_SUPPORT_IPV6 == 1
+			len = sendto__(rns2Socket, sendParameters->data, sendParameters->length, 0, (const sockaddr *) &sendParameters->systemAddress.address.addr6, sizeof(sockaddr_in6));
 #endif
 		}
 
-		if (len<0)
+		if (len < 0)
 		{
 			RAKNET_DEBUG_PRINTF("sendto failed with code %i for char %i and length %i.\n", len, sendParameters->data[0], sendParameters->length);
 		}
 
 
-			if (oldTTL!=-1)
-			{
-				setsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, ( char * ) & oldTTL, sizeof ( oldTTL ) );
-			}
+		if (oldTTL != -1)
+		{
+			setsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, (char *) &oldTTL, sizeof(oldTTL));
+		}
 
-	}
-	while ( len == 0 );
+	} while (len == 0);
 	return len;
 }
 

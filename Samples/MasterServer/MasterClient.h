@@ -41,7 +41,7 @@ public:
 	// masterServerPort is the master server port
 	// masterClientPort is the port the master client should use (must be different than gamePort)
 	// gamePort is the port your game server or game client is using.
-	bool Connect(char* host, int masterServerPort);
+	bool Connect(char *host, int masterServerPort);
 
 	// Disconnect and terminate.  Game servers should stay connected to use NAT punch-through.  Game clients,
 	// or game servers that do not need NAT punch-through can disconnect.
@@ -108,7 +108,6 @@ public:
 	void OnConnectionRequest(const char *clientIP, unsigned short clientPort);
 
 protected:
-
 	void Update(RakPeerInterface *peer);
 	bool OnReceive(RakPeerInterface *peer, Packet *packet);
 

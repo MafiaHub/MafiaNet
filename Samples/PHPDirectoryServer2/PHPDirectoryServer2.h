@@ -38,7 +38,8 @@
 #include "mafianet/ds_table.h"
 #include "mafianet/ds_map.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 struct SystemAddress;
 
@@ -54,7 +55,7 @@ enum HTTPReadResult
 class RAK_DLL_EXPORT PHPDirectoryServer2
 {
 public:
-    PHPDirectoryServer2();
+	PHPDirectoryServer2();
 	virtual ~PHPDirectoryServer2();
 
 	/// Associate PHPDirectoryServer2 with the HTTPConnection class it will communicate through
@@ -62,7 +63,7 @@ public:
 	/// \param[in] _path The path to the PHP file on the remote server. For example, if the path is mysite.com/raknet/DirectoryServer.php then you would enter raknet/DirectoryServer.php
 	void Init(HTTPConnection *_http, const char *_path);
 
-    /// Set a parameter (these are passed to the server)
+	/// Set a parameter (these are passed to the server)
 	/// To delete a column, just pass an empty string for value
 	/// Store the game name and port with UploadTable, rather than SetField, as these columns are required and use reserved column names
 	/// \param[in] columnName The name of the column to store
@@ -89,7 +90,7 @@ public:
 	/// On success:
 	/// 1. HTTPConnection::HasRead() will return true.
 	/// 2. Pass the value returned by HTTPConnection::Read() to PHPDirectoryServer2::ProcessHTTPRead().
-	/// 3. The return value of PHPDirectoryServer2::ProcessHTTPRead() will be HTTP_RESULT_EMPTY		
+	/// 3. The return value of PHPDirectoryServer2::ProcessHTTPRead() will be HTTP_RESULT_EMPTY
 	/// \param[in] uploadPassword The upload password set in the PHP page itself when you first uploaded and viewed it in the webpage.
 	/// \param[in] gameName Every entry must have a game name. Pass it here.
 	/// \param[in] gamePort Every entry must have a game port. Pass it here. The IP address will be stored automatically, or you can manually set it by passing a field named _System_Address
@@ -126,11 +127,11 @@ public:
 
 	/// Call this periodically - it will handle connection states and refreshing updates to the server
 	void Update(void);
-    
+
 private:
-    HTTPConnection *http;
+	HTTPConnection *http;
 	MafiaNet::RakString pathToPHP;
-    
+
 	MafiaNet::RakString gameNameParam;
 	unsigned short gamePortParam;
 
@@ -141,10 +142,8 @@ private:
 	DataStructures::Map<MafiaNet::RakString, MafiaNet::RakString> fields;
 	MafiaNet::RakString currentOperation;
 	MafiaNet::TimeMS nextRepost;
-
 };
 
 } // namespace MafiaNet
 
 #endif
-

@@ -16,7 +16,7 @@
 
 using namespace MafiaNet;
 
-static const char *DEFAULT_PACKET_LOGGER_TABLE="PacketLogger";
+static const char *DEFAULT_PACKET_LOGGER_TABLE = "PacketLogger";
 
 SQLiteClientLogger_PacketLogger::SQLiteClientLogger_PacketLogger()
 {
@@ -33,9 +33,9 @@ void SQLiteClientLogger_PacketLogger::OnDirectSocketSend(const char *data, const
 	remoteSystemAddress.ToString(true, str3, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(remoteSystemAddress).ToString(str4, 64);
 
-	
-	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc", \
-	          ("Snd", "Raw",0,          0,          IDTOString(data[0]), bitsUsed, str1, str2, str3, str4, "","","","","") );
+
+	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc",
+	          ("Snd", "Raw", 0, 0, IDTOString(data[0]), bitsUsed, str1, str2, str3, str4, "", "", "", "", ""));
 }
 void SQLiteClientLogger_PacketLogger::OnDirectSocketReceive(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
@@ -45,14 +45,14 @@ void SQLiteClientLogger_PacketLogger::OnDirectSocketReceive(const char *data, co
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
 	remoteSystemAddress.ToString(true, str3, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(remoteSystemAddress).ToString(str4, 64);
-	
-	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc", \
-		     ("Rcv", "Raw", "",         "",         IDTOString(data[0]),bitsUsed, str1, str2, str3, str4, "","","","","") );
+
+	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc",
+	          ("Rcv", "Raw", "", "", IDTOString(data[0]), bitsUsed, str1, str2, str3, str4, "", "", "", "", ""));
 }
 void SQLiteClientLogger_PacketLogger::OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, bool isSend)
 {
 	// unused parameters
-	(void)time;
+	(void) time;
 
 	char str1[64], str2[62], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
@@ -60,29 +60,29 @@ void SQLiteClientLogger_PacketLogger::OnInternalPacket(InternalPacket *internalP
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
 	remoteSystemAddress.ToString(true, str3, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(remoteSystemAddress).ToString(str4, 64);
-	
+
 	unsigned char typeByte;
 	char *typeStr;
-	if (internalPacket->data[0]==ID_TIMESTAMP && BITS_TO_BYTES(internalPacket->dataBitLength)>sizeof(MafiaNet::TimeMS)+1)
+	if (internalPacket->data[0] == ID_TIMESTAMP && BITS_TO_BYTES(internalPacket->dataBitLength) > sizeof(MafiaNet::TimeMS) + 1)
 	{
-		typeByte=internalPacket->data[1+sizeof(MafiaNet::TimeMS)];
-		typeStr="Timestamp";
+		typeByte = internalPacket->data[1 + sizeof(MafiaNet::TimeMS)];
+		typeStr = "Timestamp";
 	}
 	else
 	{
-		typeByte=internalPacket->data[0];
-		typeStr="Normal";
+		typeByte = internalPacket->data[0];
+		typeStr = "Normal";
 	}
-	
-	const char* sendType = (isSend) ? "Snd" : "Rcv";
-	
-	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc", \
-		     (sendType, typeStr, internalPacket->reliableMessageNumber, frameNumber, IDTOString(typeByte), internalPacket->dataBitLength, str1, str2, str3, str4, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex,"") );
+
+	const char *sendType = (isSend) ? "Snd" : "Rcv";
+
+	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc",
+	          (sendType, typeStr, internalPacket->reliableMessageNumber, frameNumber, IDTOString(typeByte), internalPacket->dataBitLength, str1, str2, str3, str4, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex, ""));
 }
 void SQLiteClientLogger_PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time)
 {
 	// unused parameters
-	(void)time;
+	(void) time;
 
 	char str1[64], str2[62], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
@@ -90,9 +90,9 @@ void SQLiteClientLogger_PacketLogger::OnAck(unsigned int messageNumber, SystemAd
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
 	remoteSystemAddress.ToString(true, str3, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(remoteSystemAddress).ToString(str4, 64);
-	
-	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc", \
-		          ("Rcv", "Ack",messageNumber, "", "", "", str1, str2, str3, str4, "","","","","") );
+
+	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc",
+	          ("Rcv", "Ack", messageNumber, "", "", "", str1, str2, str3, str4, "", "", "", "", ""));
 }
 void SQLiteClientLogger_PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
@@ -102,12 +102,12 @@ void SQLiteClientLogger_PacketLogger::OnPushBackPacket(const char *data, const B
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
 	remoteSystemAddress.ToString(true, str3, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(remoteSystemAddress).ToString(str4, 64);
-	
-	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc", \
-		          ("Local", "PushBackPacket","",  "", IDTOString(data[0]), bitsUsed, str1, str2, str3, str4, "","","","","") );
+
+	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc",
+	          ("Local", "PushBackPacket", "", "", IDTOString(data[0]), bitsUsed, str1, str2, str3, str4, "", "", "", "", ""));
 }
 void SQLiteClientLogger_PacketLogger::WriteMiscellaneous(const char *type, const char *msg)
 {
-	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc", \
-		          ("Local", type,"",  "", "", "", "", "", "","","","","","",msg) );
+	rakSqlLog(DEFAULT_PACKET_LOGGER_TABLE, "SndRcv,Type,PacketNumber,FrameNumber,PacketID,BitLength,LocalIP,LocalGuid,RemoteIP,RemoteGuid,splitPacketId,SplitPacketIndex,splitPacketCount,orderingIndex,misc",
+	          ("Local", type, "", "", "", "", "", "", "", "", "", "", "", "", msg));
 }

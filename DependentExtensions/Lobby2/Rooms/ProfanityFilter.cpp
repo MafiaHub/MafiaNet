@@ -22,7 +22,7 @@
 
 #if defined(_WIN32)
 #include <malloc.h> // alloca
-#elif (defined(__GNUC__)  || defined(__GCCXML__))
+#elif (defined(__GNUC__) || defined(__GCCXML__))
 #include <alloca.h>
 #else
 #endif
@@ -38,7 +38,6 @@ ProfanityFilter::ProfanityFilter()
 
 ProfanityFilter::~ProfanityFilter()
 {
-
 }
 
 char ProfanityFilter::RandomBanChar()
@@ -49,7 +48,7 @@ char ProfanityFilter::RandomBanChar()
 
 bool ProfanityFilter::HasProfanity(const char *str)
 {
-	return FilterProfanity(str, 0, 0,false) > 0;
+	return FilterProfanity(str, 0, 0, false) > 0;
 }
 
 int ProfanityFilter::FilterProfanity(const char *input, char *output, bool filter)
@@ -58,7 +57,7 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, bool filte
 		return 0;
 
 	int count = 0;
-	char* b = (char *)alloca(strlen(input) + 1);
+	char *b = (char *) alloca(strlen(input) + 1);
 	strcpy_s(b, strlen(input) + 1, input);
 	_strlwr(b);
 	char *start = b;
@@ -75,7 +74,7 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, bool filte
 			char saveChar = start[len];
 			start[len] = '\0';
 
-			// loop through profanity list			
+			// loop through profanity list
 			for (unsigned int i = 0, size = words.Size(); i < size; i++)
 			{
 				if (_stricmp(start, words[i].C_String()) == 0)
@@ -105,16 +104,16 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, bool filte
 
 int ProfanityFilter::FilterProfanity(const char *input, char *output, size_t outputLength, bool filter)
 {
-	if (input==0 || input[0]==0)
+	if (input == 0 || input[0] == 0)
 		return 0;
 
 	int count = 0;
-	char* b = (char *) alloca(strlen(input) + 1); 
+	char *b = (char *) alloca(strlen(input) + 1);
 	strcpy_s(b, strlen(input) + 1, input);
 	_strlwr(b);
 	char *start = b;
 	if (output)
-		strcpy_s(output,outputLength,input);
+		strcpy_s(output, outputLength, input);
 
 	start = strpbrk(start, WORDCHARS);
 	while (start != 0)
@@ -126,7 +125,7 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, size_t out
 			char saveChar = start[len];
 			start[len] = '\0';
 
-			// loop through profanity list			
+			// loop through profanity list
 			for (unsigned int i = 0, size = words.Size(); i < size; i++)
 			{
 				if (_stricmp(start, words[i].C_String()) == 0)
@@ -142,7 +141,7 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, size_t out
 						}
 					}
 					break;
-				}				
+				}
 			}
 			start[len] = saveChar;
 		}
@@ -160,5 +159,5 @@ int ProfanityFilter::Count()
 }
 void ProfanityFilter::AddWord(MafiaNet::RakString newWord)
 {
-	words.Insert(newWord, _FILE_AND_LINE_ );
+	words.Insert(newWord, _FILE_AND_LINE_);
 }

@@ -18,7 +18,6 @@
 ///
 
 
-
 #ifndef __RAK_NET_STATISTICS_H
 #define __RAK_NET_STATISTICS_H
 
@@ -57,9 +56,9 @@ enum RNSPerSecondMetrics
 	RNS_PER_SECOND_METRICS_COUNT
 };
 
-/// \brief Network Statisics Usage 
+/// \brief Network Statisics Usage
 ///
-/// Store Statistics information related to network usage 
+/// Store Statistics information related to network usage
 struct RAK_DLL_EXPORT RakNetStatistics
 {
 	/// For each type in RNSPerSecondMetrics, what is the value over the last 1 second?
@@ -67,7 +66,7 @@ struct RAK_DLL_EXPORT RakNetStatistics
 
 	/// For each type in RNSPerSecondMetrics, what is the total value over the lifetime of the connection?
 	uint64_t runningTotal[RNS_PER_SECOND_METRICS_COUNT];
-	
+
 	/// When did the connection start?
 	/// \sa MafiaNet::GetTimeUS()
 	MafiaNet::TimeUS connectionStartTime;
@@ -92,7 +91,7 @@ struct RAK_DLL_EXPORT RakNetStatistics
 	double bytesInSendBuffer[MafiaNet::NUMBER_OF_PRIORITIES];
 
 	/// How many messages are waiting in the resend buffer? This includes messages waiting for an ack, so should normally be a small value
-	/// If the value is rising over time, you are exceeding the bandwidth capacity. See BPSLimitByCongestionControl 
+	/// If the value is rising over time, you are exceeding the bandwidth capacity. See BPSLimitByCongestionControl
 	unsigned int messagesInResendBuffer;
 
 	/// How many bytes are waiting in the resend buffer. See also messagesInResendBuffer
@@ -104,19 +103,19 @@ struct RAK_DLL_EXPORT RakNetStatistics
 	/// What is the average total packetloss over the lifetime of the connection?
 	float packetlossTotal;
 
-	RakNetStatistics& operator +=(const RakNetStatistics& other)
+	RakNetStatistics &operator+=(const RakNetStatistics &other)
 	{
 		unsigned i;
-		for (i=0; i < MafiaNet::NUMBER_OF_PRIORITIES; i++)
+		for (i = 0; i < MafiaNet::NUMBER_OF_PRIORITIES; i++)
 		{
-			messageInSendBuffer[i]+=other.messageInSendBuffer[i];
-			bytesInSendBuffer[i]+=other.bytesInSendBuffer[i];
+			messageInSendBuffer[i] += other.messageInSendBuffer[i];
+			bytesInSendBuffer[i] += other.bytesInSendBuffer[i];
 		}
 
-		for (i=0; i < RNS_PER_SECOND_METRICS_COUNT; i++)
+		for (i = 0; i < RNS_PER_SECOND_METRICS_COUNT; i++)
 		{
-			valueOverLastSecond[i]+=other.valueOverLastSecond[i];
-			runningTotal[i]+=other.runningTotal[i];
+			valueOverLastSecond[i] += other.valueOverLastSecond[i];
+			runningTotal[i] += other.runningTotal[i];
 		}
 
 		return *this;
@@ -127,13 +126,13 @@ struct RAK_DLL_EXPORT RakNetStatistics
 /// \param[in] s The Statistical information to format out
 /// \param[in] buffer The buffer containing a formated report
 /// \param[in] bufferLength The size (in characters) of the buffer
-/// \param[in] verbosityLevel 
+/// \param[in] verbosityLevel
 /// 0 low
-/// 1 medium 
-/// 2 high 
+/// 1 medium
+/// 2 high
 /// 3 debugging congestion control
 void RAK_DLL_EXPORT StatisticsToString(RakNetStatistics *s, char *buffer, int verbosityLevel);
-void RAK_DLL_EXPORT StatisticsToString( RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel );
+void RAK_DLL_EXPORT StatisticsToString(RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel);
 
 } // namespace MafiaNet
 

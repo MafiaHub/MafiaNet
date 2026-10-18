@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_NatPunchthroughServer==1
+#if _RAKNET_SUPPORT_NatPunchthroughServer == 1
 
 #ifndef __NAT_PUNCHTHROUGH_SERVER_H
 #define __NAT_PUNCHTHROUGH_SERVER_H
@@ -37,7 +37,7 @@ namespace MafiaNet
 /// Forward declarations
 class RakPeerInterface;
 struct Packet;
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 class PacketLogger;
 #endif
 
@@ -51,7 +51,7 @@ struct RAK_DLL_EXPORT NatPunchthroughServerDebugInterface
 {
 	NatPunchthroughServerDebugInterface() {}
 	virtual ~NatPunchthroughServerDebugInterface() {}
-	virtual void OnServerMessage(const char *msg)=0;
+	virtual void OnServerMessage(const char *msg) = 0;
 };
 
 /// \ingroup NAT_PUNCHTHROUGH_GROUP
@@ -60,14 +60,14 @@ struct RAK_DLL_EXPORT NatPunchthroughServerDebugInterface_Printf : public NatPun
 	virtual void OnServerMessage(const char *msg);
 };
 
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 /// \ingroup NAT_PUNCHTHROUGH_GROUP
 struct RAK_DLL_EXPORT NatPunchthroughServerDebugInterface_PacketLogger : public NatPunchthroughServerDebugInterface
 {
 	// Set to non-zero to write to the packetlogger!
 	PacketLogger *pl;
 
-	NatPunchthroughServerDebugInterface_PacketLogger() {pl=0;}
+	NatPunchthroughServerDebugInterface_PacketLogger() { pl = 0; }
 	~NatPunchthroughServerDebugInterface_PacketLogger() {}
 	virtual void OnServerMessage(const char *msg);
 };
@@ -83,7 +83,6 @@ struct RAK_DLL_EXPORT NatPunchthroughServerDebugInterface_PacketLogger : public 
 class RAK_DLL_EXPORT NatPunchthroughServer : public PluginInterface2
 {
 public:
-
 	STATIC_FACTORY_DECLARATIONS(NatPunchthroughServer)
 
 	// Constructor
@@ -103,14 +102,20 @@ public:
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 
 	/// \internal For plugin handling
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 
 	// Each connected user has a ready state. Ready means ready for nat punchthrough.
 	struct User;
 	struct ConnectionAttempt
 	{
-		ConnectionAttempt() {sender=0; recipient=0; startTime=0; attemptPhase=NAT_ATTEMPT_PHASE_NOT_STARTED;}
+		ConnectionAttempt()
+		{
+			sender = 0;
+			recipient = 0;
+			startTime = 0;
+			attemptPhase = NAT_ATTEMPT_PHASE_NOT_STARTED;
+		}
 		User *sender, *recipient;
 		uint16_t sessionId;
 		MafiaNet::Time startTime;
@@ -126,7 +131,7 @@ public:
 		SystemAddress systemAddress;
 		unsigned short mostRecentPort;
 		bool isReady;
-		DataStructures::OrderedList<RakNetGUID,RakNetGUID> groupPunchthroughRequests;
+		DataStructures::OrderedList<RakNetGUID, RakNetGUID> groupPunchthroughRequests;
 
 		DataStructures::List<ConnectionAttempt *> connectionAttempts;
 		bool HasConnectionAttemptToUser(User *user);
@@ -135,23 +140,23 @@ public:
 		void LogConnectionAttempts(MafiaNet::RakString &rs);
 	};
 	MafiaNet::Time lastUpdate;
-	static int NatPunchthroughUserComp( const RakNetGUID &key, User * const &data );
+	static int NatPunchthroughUserComp(const RakNetGUID &key, User *const &data);
+
 protected:
 	void OnNATPunchthroughRequest(Packet *packet);
-	DataStructures::OrderedList<RakNetGUID, User*, NatPunchthroughServer::NatPunchthroughUserComp> users;
+	DataStructures::OrderedList<RakNetGUID, User *, NatPunchthroughServer::NatPunchthroughUserComp> users;
 
 	void OnGetMostRecentPort(Packet *packet);
 	void OnClientReady(Packet *packet);
 
 	void SendTimestamps(void);
 	void StartPendingPunchthrough(void);
-	void StartPunchthroughForUser(User*user);
+	void StartPunchthroughForUser(User *user);
 	uint16_t sessionId;
 	NatPunchthroughServerDebugInterface *natPunchthroughServerDebugInterface;
 
 	SystemAddress boundAddresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS];
 	unsigned char boundAddressCount;
-
 };
 
 } // namespace MafiaNet

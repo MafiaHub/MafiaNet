@@ -18,15 +18,15 @@ using namespace MafiaNet;
 
 namespace
 {
-	// 0x20000001 << 3 wraps to 8 in 32 bits: the old bounds checks compared
-	// against 8 bits, passed, and copied 512 MB.
-	const unsigned int kWrappingLength = 0x20000001u;
+// 0x20000001 << 3 wraps to 8 in 32 bits: the old bounds checks compared
+// against 8 bits, passed, and copied 512 MB.
+const unsigned int kWrappingLength = 0x20000001u;
 
-	void FillSixteenBytes(BitStream &bs)
-	{
-		for (int i = 0; i < 16; ++i)
-			bs.Write((unsigned char) i);
-	}
+void FillSixteenBytes(BitStream &bs)
+{
+	for (int i = 0; i < 16; ++i)
+		bs.Write((unsigned char) i);
+}
 }
 
 TEST(BitStreamBounds, AlignedReadLongerThanTheStreamWhoseBitCountWrapsIsRejected)

@@ -27,19 +27,20 @@
 // It is because this project depends on Fmod.  If you don't have FMOD you can't use it.
 #include "fmod.hpp"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 /// \brief Connects FMOD with RakVoice.
-class RAK_DLL_EXPORT FMODVoiceAdapter {
+class RAK_DLL_EXPORT FMODVoiceAdapter
+{
 
 public:
-
 	// --------------------------------------------------------------------------------------------
 	// User functions
 	// --------------------------------------------------------------------------------------------
 
 	/// Returns the singleton
-	static FMODVoiceAdapter* Instance();
+	static FMODVoiceAdapter *Instance();
 
 	/// \brief Setups the connection between FMOD and RakVoice
 	/// You must call this method to create the connection between FMOD and RakVoice.
@@ -61,7 +62,6 @@ public:
 	void SetMute(bool mute);
 
 private:
-
 	void UpdateSound(bool isRec);
 	void BroadcastFrame(void *ptr);
 
@@ -72,14 +72,14 @@ private:
 	FMODVoiceAdapter();
 	FMODVoiceAdapter(const FMODVoiceAdapter &obj) {};
 
-	//  FMOD releases all his resources at shutdown, so we don't need to do anything, which 
-    // cames in handy, as we don't need to worry about when to destroy the singleton.
+	//  FMOD releases all his resources at shutdown, so we don't need to do anything, which
+	// cames in handy, as we don't need to worry about when to destroy the singleton.
 	~FMODVoiceAdapter() {};
 
 	RakVoice *rakVoice;
 	FMOD::System *fmodSystem;
 	FMOD::Sound *recSound; // sound used for recording
-	FMOD::Sound *sound; // sound used to play what we hear
+	FMOD::Sound *sound;    // sound used to play what we hear
 	FMOD::Channel *channel;
 	bool mute;
 	unsigned int lastPlayPos;

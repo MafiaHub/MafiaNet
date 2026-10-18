@@ -35,50 +35,51 @@ using namespace MafiaNet;
 
 namespace
 {
-	const MessageID ID_BIG = ID_USER_PACKET_ENUM + 1;
+const MessageID ID_BIG = ID_USER_PACKET_ENUM + 1;
 
-	size_t CountOf(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
-	{
-		size_t n = 0;
-		for (const auto &message : net.Inbox(peer))
-			n += message.id == id;
-		return n;
-	}
+size_t CountOf(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
+{
+	size_t n = 0;
+	for (const auto &message : net.Inbox(peer))
+		n += message.id == id;
+	return n;
+}
 
-	// Mirrors the file-static OFFLINE_MESSAGE_DATA_ID in peer.cpp. Duplicated
-	// deliberately: a test of what an unconforming peer can put on the wire
-	// should pin the wire format itself.
-	const unsigned char kOfflineMessageDataId[16] =
-		{0x00,0xFF,0xFF,0x00,0xFE,0xFE,0xFE,0xFE,0xFD,0xFD,0xFD,0xFD,0x12,0x34,0x56,0x78};
+// Mirrors the file-static OFFLINE_MESSAGE_DATA_ID in peer.cpp. Duplicated
+// deliberately: a test of what an unconforming peer can put on the wire
+// should pin the wire format itself.
+const unsigned char kOfflineMessageDataId[16] =
+    {0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78};
 
-	// The ID_OPEN_CONNECTION_REQUEST_2 an accepting peer parses, with a
-	// caller-chosen MTU, written with the calls the real handshake uses.
-	void WriteOpenConnectionRequest2(BitStream &out, const SystemAddress &bindingAddress, uint16_t mtu, const RakNetGUID &guid)
-	{
-		out.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
-		out.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
-		out.Write(bindingAddress);
-		out.Write(mtu);
-		out.Write(guid);
-	}
+// The ID_OPEN_CONNECTION_REQUEST_2 an accepting peer parses, with a
+// caller-chosen MTU, written with the calls the real handshake uses.
+void WriteOpenConnectionRequest2(BitStream &out, const SystemAddress &bindingAddress, uint16_t mtu, const RakNetGUID &guid)
+{
+	out.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
+	out.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+	out.Write(bindingAddress);
+	out.Write(mtu);
+	out.Write(guid);
+}
 
-	// Injects a forged REQUEST_2 from an address no peer owns and returns the
-	// MTU the server assigned that address, or -1 if it never assigned a slot.
-	//
-	// An address with no slot reports defaultMTUSize, which doubles as "not
-	// yet", so callers must not forge an MTU equal to defaultMTUSize.
-	int ForgeRequest2(SimulatedNetwork &net, RakPeer *server, uint16_t mtu, uint64_t guid)
-	{
-		SystemAddress forger("10.0.0.200", 4321);
-		BitStream forged;
-		WriteOpenConnectionRequest2(forged, net.AddressOf(server), mtu, RakNetGUID(guid));
-		net.InjectDatagram(forger, server, forged.GetData(), (int) forged.GetNumberOfBytesUsed());
+// Injects a forged REQUEST_2 from an address no peer owns and returns the
+// MTU the server assigned that address, or -1 if it never assigned a slot.
+//
+// An address with no slot reports defaultMTUSize, which doubles as "not
+// yet", so callers must not forge an MTU equal to defaultMTUSize.
+int ForgeRequest2(SimulatedNetwork &net, RakPeer *server, uint16_t mtu, uint64_t guid)
+{
+	SystemAddress forger("10.0.0.200", 4321);
+	BitStream forged;
+	WriteOpenConnectionRequest2(forged, net.AddressOf(server), mtu, RakNetGUID(guid));
+	net.InjectDatagram(forger, server, forged.GetData(), (int) forged.GetNumberOfBytesUsed());
 
-		const int unassigned = server->GetMTUSize(UNASSIGNED_SYSTEM_ADDRESS);
-		if (!net.RunUntil([&] { return server->GetMTUSize(forger) != unassigned; }, 2000))
-			return -1;
-		return server->GetMTUSize(forger);
-	}
+	const int unassigned = server->GetMTUSize(UNASSIGNED_SYSTEM_ADDRESS);
+	if (!net.RunUntil([&]
+	                  { return server->GetMTUSize(forger) != unassigned; }, 2000))
+		return -1;
+	return server->GetMTUSize(forger);
+}
 }
 
 // With no ceiling the top rung passes, so the value is exact -- which also
@@ -176,21 +177,23 @@ TEST(MTUNegotiation, ConnectWorksWithFewerAttemptsThanMTURungs)
 		const size_t closed = CountOf(net, server, ID_DISCONNECTION_NOTIFICATION);
 
 		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED,
-			client->Connect(host, serverAddress.GetPort(), nullptr, 0, nullptr, 0, attempts, 500, 0));
-		ASSERT_TRUE(net.RunUntil([&] {
-			return CountOf(net, client, ID_CONNECTION_REQUEST_ACCEPTED) > accepted &&
-				CountOf(net, server, ID_NEW_INCOMING_CONNECTION) > incoming;
-		}, 5000)) << "both peers did not report the connection";
+		          client->Connect(host, serverAddress.GetPort(), nullptr, 0, nullptr, 0, attempts, 500, 0));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return CountOf(net, client, ID_CONNECTION_REQUEST_ACCEPTED) > accepted &&
+			                              CountOf(net, server, ID_NEW_INCOMING_CONNECTION) > incoming; }, 5000))
+		    << "both peers did not report the connection";
 
 		EXPECT_EQ(MAXIMUM_MTU_SIZE, client->GetMTUSize(serverAddress));
 
 		client->CloseConnection(serverAddress, true);
-		ASSERT_TRUE(net.RunUntil([&] { return CountOf(net, server, ID_DISCONNECTION_NOTIFICATION) > closed; }, 5000))
-			<< "the server never saw the connection close";
-		ASSERT_TRUE(net.RunUntil([&] {
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return CountOf(net, server, ID_DISCONNECTION_NOTIFICATION) > closed; }, 5000))
+		    << "the server never saw the connection close";
+		ASSERT_TRUE(net.RunUntil([&]
+		                         {
 			const ConnectionState state = client->GetConnectionState(serverAddress);
-			return state == IS_NOT_CONNECTED || state == IS_DISCONNECTED;
-		}, 5000)) << "the client never released its connection slot";
+			return state == IS_NOT_CONNECTED || state == IS_DISCONNECTED; }, 5000))
+		    << "the client never released its connection slot";
 	}
 }
 

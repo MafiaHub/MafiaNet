@@ -17,10 +17,20 @@
 
 using namespace MafiaNet;
 
-VariableDeltaSerializer::VariableDeltaSerializer() {didComparisonThisTick=false;}
-VariableDeltaSerializer::~VariableDeltaSerializer() {RemoveRemoteSystemVariableHistory();}
+VariableDeltaSerializer::VariableDeltaSerializer()
+{
+	didComparisonThisTick = false;
+}
+VariableDeltaSerializer::~VariableDeltaSerializer()
+{
+	RemoveRemoteSystemVariableHistory();
+}
 
-VariableDeltaSerializer::SerializationContext::SerializationContext() {variableHistoryIdentical=0; variableHistoryUnique=0;}
+VariableDeltaSerializer::SerializationContext::SerializationContext()
+{
+	variableHistoryIdentical = 0;
+	variableHistoryUnique = 0;
+}
 VariableDeltaSerializer::SerializationContext::~SerializationContext() {}
 
 void VariableDeltaSerializer::OnMessageReceipt(RakNetGUID guid, uint32_t receiptId, bool messageArrived)
@@ -30,56 +40,55 @@ void VariableDeltaSerializer::OnMessageReceipt(RakNetGUID guid, uint32_t receipt
 		FreeVarsAssociatedWithReceipt(guid, receiptId);
 	else
 		DirtyAndFreeVarsAssociatedWithReceipt(guid, receiptId);
-
 }
 
 void VariableDeltaSerializer::BeginUnreliableAckedSerialize(SerializationContext *context, RakNetGUID _guid, BitStream *_bitStream, uint32_t _sendReceipt)
 {
-	RakAssert(_guid!=UNASSIGNED_RAKNET_GUID);
-	context->anyVariablesWritten=false;
-	context->guid=_guid;
-	context->bitStream=_bitStream;
-	if (context->variableHistoryUnique==0)
-		context->variableHistoryUnique=StartVariableHistoryWrite(_guid);
-	context->variableHistory=context->variableHistoryUnique;
-	context->sendReceipt=_sendReceipt;
+	RakAssert(_guid != UNASSIGNED_RAKNET_GUID);
+	context->anyVariablesWritten = false;
+	context->guid = _guid;
+	context->bitStream = _bitStream;
+	if (context->variableHistoryUnique == 0)
+		context->variableHistoryUnique = StartVariableHistoryWrite(_guid);
+	context->variableHistory = context->variableHistoryUnique;
+	context->sendReceipt = _sendReceipt;
 	context->changedVariables = AllocChangedVariablesList();
-	context->newSystemSend=false;
-	context->serializationMode=MafiaNet::Reliability::UnreliableWithAckReceipt;
+	context->newSystemSend = false;
+	context->serializationMode = MafiaNet::Reliability::UnreliableWithAckReceipt;
 }
 
 void VariableDeltaSerializer::BeginUniqueSerialize(SerializationContext *context, RakNetGUID _guid, BitStream *_bitStream)
 {
-	RakAssert(_guid!=UNASSIGNED_RAKNET_GUID);
-	context->anyVariablesWritten=false;
-	context->guid=_guid;
-	context->bitStream=_bitStream;
-	if (context->variableHistoryUnique==0)
-		context->variableHistoryUnique=StartVariableHistoryWrite(_guid);
-	context->variableHistory=context->variableHistoryUnique;
-	context->newSystemSend=false;
+	RakAssert(_guid != UNASSIGNED_RAKNET_GUID);
+	context->anyVariablesWritten = false;
+	context->guid = _guid;
+	context->bitStream = _bitStream;
+	if (context->variableHistoryUnique == 0)
+		context->variableHistoryUnique = StartVariableHistoryWrite(_guid);
+	context->variableHistory = context->variableHistoryUnique;
+	context->newSystemSend = false;
 
-	context->serializationMode=MafiaNet::Reliability::Reliable;
+	context->serializationMode = MafiaNet::Reliability::Reliable;
 }
 
 
 void VariableDeltaSerializer::BeginIdenticalSerialize(SerializationContext *context, bool _isFirstSendToRemoteSystem, BitStream *_bitStream)
 {
-	context->anyVariablesWritten=false;
-	context->guid=UNASSIGNED_RAKNET_GUID;
-	context->bitStream=_bitStream;
-	context->serializationMode=MafiaNet::Reliability::Reliable;
-	if (context->variableHistoryIdentical==0)
-		context->variableHistoryIdentical=StartVariableHistoryWrite(UNASSIGNED_RAKNET_GUID);
-	context->variableHistory=context->variableHistoryIdentical;
-	context->newSystemSend=_isFirstSendToRemoteSystem;
+	context->anyVariablesWritten = false;
+	context->guid = UNASSIGNED_RAKNET_GUID;
+	context->bitStream = _bitStream;
+	context->serializationMode = MafiaNet::Reliability::Reliable;
+	if (context->variableHistoryIdentical == 0)
+		context->variableHistoryIdentical = StartVariableHistoryWrite(UNASSIGNED_RAKNET_GUID);
+	context->variableHistory = context->variableHistoryIdentical;
+	context->newSystemSend = _isFirstSendToRemoteSystem;
 }
 
 void VariableDeltaSerializer::EndSerialize(SerializationContext *context)
 {
-	if (context->serializationMode==MafiaNet::Reliability::UnreliableWithAckReceipt)
+	if (context->serializationMode == MafiaNet::Reliability::UnreliableWithAckReceipt)
 	{
-		if (context->anyVariablesWritten==false)
+		if (context->anyVariablesWritten == false)
 		{
 			context->bitStream->Reset();
 			FreeChangedVariablesList(context->changedVariables);
@@ -92,12 +101,12 @@ void VariableDeltaSerializer::EndSerialize(SerializationContext *context)
 	{
 		if (context->variableHistoryIdentical)
 		{
-			if (didComparisonThisTick==false)
+			if (didComparisonThisTick == false)
 			{
-				didComparisonThisTick=true;
+				didComparisonThisTick = true;
 				identicalSerializationBs.Reset();
 
-				if (context->anyVariablesWritten==false)
+				if (context->anyVariablesWritten == false)
 				{
 					context->bitStream->Reset();
 					return;
@@ -112,7 +121,7 @@ void VariableDeltaSerializer::EndSerialize(SerializationContext *context)
 				identicalSerializationBs.ResetReadPointer();
 			}
 		}
-		else if (context->anyVariablesWritten==false)
+		else if (context->anyVariablesWritten == false)
 		{
 			context->bitStream->Reset();
 			return;
@@ -122,7 +131,7 @@ void VariableDeltaSerializer::EndSerialize(SerializationContext *context)
 
 void VariableDeltaSerializer::BeginDeserialize(DeserializationContext *context, BitStream *_bitStream)
 {
-	context->bitStream=_bitStream;
+	context->bitStream = _bitStream;
 }
 
 void VariableDeltaSerializer::EndDeserialize(DeserializationContext *context)
@@ -137,15 +146,15 @@ void VariableDeltaSerializer::AddRemoteSystemVariableHistory(RakNetGUID guid)
 
 void VariableDeltaSerializer::RemoveRemoteSystemVariableHistory(RakNetGUID guid)
 {
-	unsigned int idx,idx2;
+	unsigned int idx, idx2;
 	idx = GetVarsWrittenPerRemoteSystemListIndex(guid);
-	if (idx==(unsigned int)-1)
+	if (idx == (unsigned int) -1)
 		return;
 
-	if (remoteSystemVariableHistoryList[idx]->guid==guid)
+	if (remoteSystemVariableHistoryList[idx]->guid == guid)
 	{
 		// Memory pool doesn't call destructor
-		for (idx2=0; idx2 < remoteSystemVariableHistoryList[idx]->updatedVariablesHistory.Size(); idx2++)
+		for (idx2 = 0; idx2 < remoteSystemVariableHistoryList[idx]->updatedVariablesHistory.Size(); idx2++)
 		{
 			FreeChangedVariablesList(remoteSystemVariableHistoryList[idx]->updatedVariablesHistory[idx2]);
 		}
@@ -156,11 +165,11 @@ void VariableDeltaSerializer::RemoveRemoteSystemVariableHistory(RakNetGUID guid)
 	}
 }
 
-int MafiaNet::VariableDeltaSerializer::UpdatedVariablesListPtrComp( const uint32_t &key, ChangedVariablesList* const &data )
+int MafiaNet::VariableDeltaSerializer::UpdatedVariablesListPtrComp(const uint32_t &key, ChangedVariablesList *const &data)
 {
-	if (key<data->sendReceipt)
+	if (key < data->sendReceipt)
 		return -1;
-	if (key==data->sendReceipt)
+	if (key == data->sendReceipt)
 		return 0;
 	return 1;
 }
@@ -169,12 +178,12 @@ void VariableDeltaSerializer::FreeVarsAssociatedWithReceipt(RakNetGUID guid, uin
 {
 	unsigned int idx, idx2;
 	idx = GetVarsWrittenPerRemoteSystemListIndex(guid);
-	if (idx==(unsigned int)-1)
+	if (idx == (unsigned int) -1)
 		return;
 
-	RemoteSystemVariableHistory* vprs = remoteSystemVariableHistoryList[idx];
+	RemoteSystemVariableHistory *vprs = remoteSystemVariableHistoryList[idx];
 	bool objectExists;
-	idx2=vprs->updatedVariablesHistory.GetIndexFromKey(receiptId,&objectExists);
+	idx2 = vprs->updatedVariablesHistory.GetIndexFromKey(receiptId, &objectExists);
 	if (objectExists)
 	{
 		// Free this history node
@@ -187,12 +196,12 @@ void VariableDeltaSerializer::DirtyAndFreeVarsAssociatedWithReceipt(RakNetGUID g
 {
 	unsigned int idx, idx2;
 	idx = GetVarsWrittenPerRemoteSystemListIndex(guid);
-	if (idx==(unsigned int)-1)
+	if (idx == (unsigned int) -1)
 		return;
 
-	RemoteSystemVariableHistory* vprs = remoteSystemVariableHistoryList[idx];
+	RemoteSystemVariableHistory *vprs = remoteSystemVariableHistoryList[idx];
 	bool objectExists;
-	idx2=vprs->updatedVariablesHistory.GetIndexFromKey(receiptId,&objectExists);
+	idx2 = vprs->updatedVariablesHistory.GetIndexFromKey(receiptId, &objectExists);
 	if (objectExists)
 	{
 		// 'Dirty' all variables sent this update, meaning they will be resent the next time Serialize() is called
@@ -206,29 +215,29 @@ void VariableDeltaSerializer::DirtyAndFreeVarsAssociatedWithReceipt(RakNetGUID g
 unsigned int VariableDeltaSerializer::GetVarsWrittenPerRemoteSystemListIndex(RakNetGUID guid)
 {
 	unsigned int idx;
-	for (idx=0; idx < remoteSystemVariableHistoryList.Size(); idx++)
+	for (idx = 0; idx < remoteSystemVariableHistoryList.Size(); idx++)
 	{
-		if (remoteSystemVariableHistoryList[idx]->guid==guid)
+		if (remoteSystemVariableHistoryList[idx]->guid == guid)
 			return idx;
 	}
 	return (unsigned int) -1;
 }
 void VariableDeltaSerializer::RemoveRemoteSystemVariableHistory(void)
 {
-	unsigned int idx,idx2;
-	for (idx=0; idx < remoteSystemVariableHistoryList.Size(); idx++)
+	unsigned int idx, idx2;
+	for (idx = 0; idx < remoteSystemVariableHistoryList.Size(); idx++)
 	{
-		for (idx2=0; idx2 < remoteSystemVariableHistoryList[idx]->updatedVariablesHistory.Size(); idx2++)
+		for (idx2 = 0; idx2 < remoteSystemVariableHistoryList[idx]->updatedVariablesHistory.Size(); idx2++)
 		{
 			FreeChangedVariablesList(remoteSystemVariableHistoryList[idx]->updatedVariablesHistory[idx2]);
 		}
 
 		delete remoteSystemVariableHistoryList[idx];
 	}
-	remoteSystemVariableHistoryList.Clear(false,_FILE_AND_LINE_);
+	remoteSystemVariableHistoryList.Clear(false, _FILE_AND_LINE_);
 }
 
-VariableDeltaSerializer::RemoteSystemVariableHistory* VariableDeltaSerializer::GetRemoteSystemVariableHistory(RakNetGUID guid)
+VariableDeltaSerializer::RemoteSystemVariableHistory *VariableDeltaSerializer::GetRemoteSystemVariableHistory(RakNetGUID guid)
 {
 	unsigned int rshli = GetRemoteSystemHistoryListIndex(guid);
 	return remoteSystemVariableHistoryList[rshli];
@@ -237,8 +246,8 @@ VariableDeltaSerializer::RemoteSystemVariableHistory* VariableDeltaSerializer::G
 VariableDeltaSerializer::ChangedVariablesList *VariableDeltaSerializer::AllocChangedVariablesList(void)
 {
 	VariableDeltaSerializer::ChangedVariablesList *p = updatedVariablesMemoryPool.Allocate(_FILE_AND_LINE_);
-	p->bitWriteIndex=0;
-	p->bitField[0]=0;
+	p->bitWriteIndex = 0;
+	p->bitField[0] = 0;
 	return p;
 }
 void VariableDeltaSerializer::FreeChangedVariablesList(ChangedVariablesList *changedVariables)
@@ -247,8 +256,8 @@ void VariableDeltaSerializer::FreeChangedVariablesList(ChangedVariablesList *cha
 }
 void VariableDeltaSerializer::StoreChangedVariablesList(RemoteSystemVariableHistory *variableHistory, ChangedVariablesList *changedVariables, uint32_t sendReceipt)
 {
-	changedVariables->sendReceipt=sendReceipt;
-	variableHistory->updatedVariablesHistory.Insert(changedVariables->sendReceipt,changedVariables,true,_FILE_AND_LINE_);
+	changedVariables->sendReceipt = sendReceipt;
+	variableHistory->updatedVariablesHistory.Insert(changedVariables->sendReceipt, changedVariables, true, _FILE_AND_LINE_);
 }
 
 VariableDeltaSerializer::RemoteSystemVariableHistory *VariableDeltaSerializer::StartVariableHistoryWrite(RakNetGUID guid)
@@ -256,15 +265,15 @@ VariableDeltaSerializer::RemoteSystemVariableHistory *VariableDeltaSerializer::S
 	RemoteSystemVariableHistory *variableHistory;
 
 	unsigned int rshli = GetRemoteSystemHistoryListIndex(guid);
-	if (rshli==(unsigned int) -1)
+	if (rshli == (unsigned int) -1)
 	{
 		variableHistory = new RemoteSystemVariableHistory;
-		variableHistory->guid=guid;
-		remoteSystemVariableHistoryList.Push(variableHistory,_FILE_AND_LINE_);
+		variableHistory->guid = guid;
+		remoteSystemVariableHistoryList.Push(variableHistory, _FILE_AND_LINE_);
 	}
 	else
 	{
-		variableHistory=remoteSystemVariableHistoryList[rshli];
+		variableHistory = remoteSystemVariableHistoryList[rshli];
 	}
 
 	variableHistory->variableListDeltaTracker.StartWrite();
@@ -274,9 +283,9 @@ unsigned int VariableDeltaSerializer::GetRemoteSystemHistoryListIndex(RakNetGUID
 {
 	// Find the variable tracker for the target system
 	unsigned int idx;
-	for (idx=0; idx < remoteSystemVariableHistoryList.Size(); idx++)
+	for (idx = 0; idx < remoteSystemVariableHistoryList.Size(); idx++)
 	{
-		if (remoteSystemVariableHistoryList[idx]->guid==guid)
+		if (remoteSystemVariableHistoryList[idx]->guid == guid)
 		{
 			return idx;
 		}
@@ -286,5 +295,5 @@ unsigned int VariableDeltaSerializer::GetRemoteSystemHistoryListIndex(RakNetGUID
 
 void VariableDeltaSerializer::OnPreSerializeTick(void)
 {
-	didComparisonThisTick=false;
+	didComparisonThisTick = false;
 }

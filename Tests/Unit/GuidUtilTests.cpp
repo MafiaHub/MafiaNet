@@ -20,7 +20,7 @@ using namespace MafiaNet;
 
 namespace
 {
-	const uint64_t kSamples[] = { 0u, 1u, 42u, 0x123456789ABCDEF0ull, (uint64_t) -2 };
+const uint64_t kSamples[] = {0u, 1u, 42u, 0x123456789ABCDEF0ull, (uint64_t) -2};
 }
 
 TEST(GuidUtil, ToStringMatchesLegacyMember)
@@ -57,13 +57,13 @@ TEST(GuidUtil, ToStringIsThreadSafe)
 		const uint64_t value = 0x1000000000000000ull + t;
 		const RakNetGUID g(value);
 		const std::string expected = to_string(g);
-		threads.emplace_back([g, expected, &corrupted]() {
+		threads.emplace_back([g, expected, &corrupted]()
+		                     {
 			for (unsigned k = 0; k < iterations && !corrupted.load(std::memory_order_relaxed); ++k)
 			{
 				if (to_string(g) != expected)
 					corrupted.store(true, std::memory_order_relaxed);
-			}
-		});
+			} });
 	}
 	for (std::thread &th : threads)
 		th.join();

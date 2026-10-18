@@ -27,7 +27,7 @@
 
 namespace MafiaNet
 {
-	
+
 struct Lobby2Message;
 class RoomsPlugin;
 
@@ -52,18 +52,18 @@ struct Lobby2ServerCommand
 /// \ingroup LOBBY_2_SERVER
 class RAK_DLL_EXPORT Lobby2Server : public MafiaNet::Lobby2Plugin, public ThreadDataInterface
 {
-public:	
+public:
 	Lobby2Server();
 	virtual ~Lobby2Server();
-	
+
 	/// \brief Connect to the database \a numWorkerThreads times using the connection string
 	/// \param[in] conninfo See the postgre docs
 	/// \return True on success, false on failure.
-	virtual bool ConnectToDB(const char *conninfo, int numWorkerThreads)=0;
+	virtual bool ConnectToDB(const char *conninfo, int numWorkerThreads) = 0;
 	/// \internal
-	virtual void AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle)=0;
+	virtual void AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle) = 0;
 	/// \internal
-	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle)=0;
+	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle) = 0;
 
 	/// \brief Lobby2Message encapsulates a user command, containing both input and output data
 	/// \details This will serialize and transmit that command
@@ -97,7 +97,7 @@ public:
 
 	/// \brief Clears all addresses added with AddRankingAddress()
 	void ClearRankingAddresses(void);
-	
+
 	/// \brief To use RoomsPlugin and Lobby2Server together, register RoomsPlugin with this funcrtion
 	/// \details The rooms plugin does not automatically handle users logging in and logging off, or renaming users.
 	/// You can have Lobby2Server manage this for you by calling SetRoomsPlugin() with a pointer to the rooms plugin, if it is on the local system.
@@ -115,7 +115,12 @@ public:
 	/// \brief Server configuration properties, to customize how the server runs specific commands
 	struct ConfigurationProperties
 	{
-		ConfigurationProperties() {requiresEmailAddressValidationToLogin=false; requiresTitleToLogin=false; accountRegistrationRequiredAgeYears=0;}
+		ConfigurationProperties()
+		{
+			requiresEmailAddressValidationToLogin = false;
+			requiresTitleToLogin = false;
+			accountRegistrationRequiredAgeYears = 0;
+		}
 
 		/// \brief If true, Client_Login will fail with Client_Login_EMAIL_ADDRESS_NOT_VALIDATED unless the email address registered with Client_RegisterAccount is verified with the command System_SetEmailAddressValidated
 		bool requiresEmailAddressValidationToLogin;
@@ -164,7 +169,7 @@ public:
 	};
 
 	/// \internal
-	static int UserCompByUsername( const RakString &key, Lobby2Server::User * const &data );
+	static int UserCompByUsername(const RakString &key, Lobby2Server::User *const &data);
 
 	/// \internal
 	struct ThreadAction
@@ -173,15 +178,14 @@ public:
 		Lobby2ServerCommand command;
 	};
 
-	const DataStructures::OrderedList<RakString, User*, Lobby2Server::UserCompByUsername>& GetUsers(void) const {return users;}
+	const DataStructures::OrderedList<RakString, User *, Lobby2Server::UserCompByUsername> &GetUsers(void) const { return users; }
 	void GetUserOnlineStatus(UsernameAndOnlineStatus &userInfo) const;
-	
+
 
 protected:
-
 	void Update(void);
 	PluginReceiveResult OnReceive(Packet *packet);
-	void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	void OnShutdown(void);
 	void OnMessage(Packet *packet);
 	void Clear(void);
@@ -190,7 +194,7 @@ protected:
 	unsigned int GetUserIndexByGUID(RakNetGUID guid) const;
 	unsigned int GetUserIndexByUsername(MafiaNet::RakString userName) const;
 	void StopThreads(void);
-	void SendRemoteLoginNotification(MafiaNet::RakString handle, const DataStructures::List<SystemAddress>& recipients);
+	void SendRemoteLoginNotification(MafiaNet::RakString handle, const DataStructures::List<SystemAddress> &recipients);
 
 	/// \internal
 	void RemoveUser(RakString userName);
@@ -198,17 +202,17 @@ protected:
 	void RemoveUser(unsigned int index);
 	void LogoffFromRooms(User *user);
 
-	virtual void* PerThreadFactory(void *context)=0;
-	virtual void PerThreadDestructor(void* factoryResult, void *context)=0;
-	virtual void AddInputCommand(Lobby2ServerCommand command)=0;
+	virtual void *PerThreadFactory(void *context) = 0;
+	virtual void PerThreadDestructor(void *factoryResult, void *context) = 0;
+	virtual void AddInputCommand(Lobby2ServerCommand command) = 0;
 	virtual void ClearConnections(void) {};
 
 	DataStructures::OrderedList<SystemAddress, SystemAddress> adminAddresses;
 	DataStructures::OrderedList<SystemAddress, SystemAddress> rankingAddresses;
-	DataStructures::OrderedList<RakString, User*, Lobby2Server::UserCompByUsername> users;
+	DataStructures::OrderedList<RakString, User *, Lobby2Server::UserCompByUsername> users;
 	RoomsPlugin *roomsPlugin;
 	SystemAddress roomsPluginAddress;
-	ThreadPool<Lobby2ServerCommand,Lobby2ServerCommand> threadPool;
+	ThreadPool<Lobby2ServerCommand, Lobby2ServerCommand> threadPool;
 	SimpleMutex connectionPoolMutex;
 	ConfigurationProperties configurationProperties;
 	DataStructures::Queue<ThreadAction> threadActionQueue;
@@ -216,9 +220,9 @@ protected:
 
 	//DataStructures::List<PostgreSQLInterface *> connectionPool;
 	//#med - rename curOrderingChannel back to orderingChannel and instead rename class member orderingChannel to m_orderingChannel
-	void SendUnifiedToMultiple( const MafiaNet::BitStream * bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses );
+	void SendUnifiedToMultiple(const MafiaNet::BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses);
 };
-	
+
 }
 
 #endif

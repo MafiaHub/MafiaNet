@@ -20,7 +20,7 @@
 #include <cstddef>
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_HTTPConnection2==1 && _RAKNET_SUPPORT_TCPInterface==1
+#if _RAKNET_SUPPORT_HTTPConnection2 == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #ifndef __HTTP_CONNECTION_2
 #define __HTTP_CONNECTION_2
@@ -49,8 +49,8 @@ public:
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(HTTPConnection2)
 
-    HTTPConnection2();
-    virtual ~HTTPConnection2();
+	HTTPConnection2();
+	virtual ~HTTPConnection2();
 
 	/// \brief Connect to, then transmit a request to a TCP based server
 	/// \param[in] tcp An instance of TCPInterface that previously had TCPInterface::Start() called
@@ -62,7 +62,7 @@ public:
 	/// \param[in] useAddress Assume we are connected to this address and send to it, rather than do a lookup
 	/// \param[in] userData
 	/// \return false if host is not a valid IP address or domain name
-	bool TransmitRequest(const char* stringToTransmit, const char* host, unsigned short port=80, bool useSSL=false, int ipVersion=4, SystemAddress useAddress=UNASSIGNED_SYSTEM_ADDRESS, void *userData=0);
+	bool TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port = 80, bool useSSL = false, int ipVersion = 4, SystemAddress useAddress = UNASSIGNED_SYSTEM_ADDRESS, void *userData = 0);
 
 	/// \brief Check for and return a response from a prior call to TransmitRequest()
 	/// As TCP is stream based, you may get a webserver reply over several calls to TCPInterface::Receive()
@@ -75,8 +75,8 @@ public:
 	/// \param[out] contentOffset The offset from the start of responseReceived to the data body. Equivalent to searching for \r\n\r\n in responseReceived.
 	/// \param[out] userData Whatever you passed to TransmitRequest
 	/// \return true if there was a response. false if not.
-	bool GetResponse( RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData );
-	bool GetResponse( RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset );
+	bool GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData);
+	bool GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset);
 
 	/// \brief Return if any requests are pending
 	bool IsBusy(void) const;
@@ -104,24 +104,22 @@ public:
 
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	virtual void OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAttemptReason failedConnectionAttemptReason);
 
 protected:
-
 	bool IsConnected(SystemAddress sa);
 	void SendRequest(Request *request);
 	void RemovePendingRequest(SystemAddress sa);
 	void SendNextPendingRequest(void);
 	void SendPendingRequestToConnectedSystem(SystemAddress sa);
 
-	DataStructures::Queue<Request*> pendingRequests;
-	DataStructures::List<Request*> sentRequests;
-	DataStructures::List<Request*> completedRequests;
+	DataStructures::Queue<Request *> pendingRequests;
+	DataStructures::List<Request *> sentRequests;
+	DataStructures::List<Request *> completedRequests;
 
 	SimpleMutex pendingRequestsMutex, sentRequestsMutex, completedRequestsMutex;
-
 };
 
 } // namespace MafiaNet

@@ -26,7 +26,8 @@
 #include "mafianet/windows_includes.h"
 #include "mafianet/socket_includes.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 /// Forward declarations
 class RakPeerInterface;
 class BitStream;
@@ -79,15 +80,15 @@ enum ConnectionState
 };
 
 /// Given a number of bits, return how many bytes are needed to represent that.
-#define BITS_TO_BYTES(x) (((x)+7)>>3)
-#define BYTES_TO_BITS(x) ((x)<<3)
+#define BITS_TO_BYTES(x) (((x) + 7) >> 3)
+#define BYTES_TO_BITS(x) ((x) << 3)
 
 /// \sa network_id_object.h
 typedef unsigned char UniqueIDType;
 typedef unsigned short SystemIndex;
 typedef unsigned char RPCIndex;
-const int MAX_RPC_MAP_SIZE=((RPCIndex)-1)-1;
-const int UNDEFINED_RPC_INDEX=((RPCIndex)-1);
+const int MAX_RPC_MAP_SIZE = ((RPCIndex) -1) - 1;
+const int UNDEFINED_RPC_INDEX = ((RPCIndex) -1);
 
 /// First byte of a network message
 typedef unsigned char MessageID;
@@ -161,7 +162,7 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	unsigned int extraSocketOptions;
 };
 
-extern bool NonNumericHostString( const char *host );
+extern bool NonNumericHostString(const char *host);
 
 /// \brief Network address for a system
 /// \details Corresponds to a network address<BR>
@@ -176,9 +177,9 @@ struct RAK_DLL_EXPORT SystemAddress
 	SystemAddress(const char *str, unsigned short port);
 
 	/// SystemAddress, with RAKNET_SUPPORT_IPV6 defined, holds both an sockaddr_in6 and a sockaddr_in
-	union// In6OrIn4
+	union // In6OrIn4
 	{
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 		struct sockaddr_storage sa_stor;
 		sockaddr_in6 addr6;
 #endif
@@ -217,14 +218,14 @@ struct RAK_DLL_EXPORT SystemAddress
 	// Returns a static string
 	// NOT THREADSAFE
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
-	const char *ToString(bool writePort=true, char portDelineator='|') const;
+	const char *ToString(bool writePort = true, char portDelineator = '|') const;
 
 	// Return the systemAddress as a string in the format <IP>|<Port>
 	// dest must be large enough to hold the output
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	// THREADSAFE
 	void ToString(bool writePort, char *dest, char portDelineator = '|') const;
-	void ToString(bool writePort, char *dest, size_t destLength, char portDelineator='|') const;
+	void ToString(bool writePort, char *dest, size_t destLength, char portDelineator = '|') const;
 
 	/// Set the system address from a printable IP string, for example "192.0.2.1" or "2001:db8:63b3:1::3490"
 	/// You can write the port as well, using the portDelineator, for example "192.0.2.1|1234"
@@ -233,16 +234,16 @@ struct RAK_DLL_EXPORT SystemAddress
 	/// \param[in] ipVersion Only used if str is a pre-defined address in the wrong format, such as 127.0.0.1 but you want ip version 6, so you can pass 6 here to do the conversion
 	/// \note The current port is unchanged if a port is not specified in \a str
 	/// \return True on success, false on ipVersion does not match type of passed string
-	bool FromString(const char *str, char portDelineator='|', int ipVersion=0);
+	bool FromString(const char *str, char portDelineator = '|', int ipVersion = 0);
 
 	/// Same as FromString(), but you explicitly set a port at the same time
-	bool FromStringExplicitPort(const char *str, unsigned short port, int ipVersion=0);
+	bool FromStringExplicitPort(const char *str, unsigned short port, int ipVersion = 0);
 
 	/// Copy the port from another SystemAddress structure
-	void CopyPort( const SystemAddress& right );
+	void CopyPort(const SystemAddress &right);
 
 	/// Returns if two system addresses have the same IP (port is not checked)
-	bool EqualsExcludingPort( const SystemAddress& right ) const;
+	bool EqualsExcludingPort(const SystemAddress &right) const;
 
 	/// Returns the port in host order (this is what you normally use)
 	unsigned short GetPort(void) const;
@@ -258,7 +259,7 @@ struct RAK_DLL_EXPORT SystemAddress
 	void SetPortNetworkOrder(unsigned short s);
 
 	/// Old version, for crap platforms that don't support newer socket functions
-	bool SetBinaryAddress(const char *str, char portDelineator=':');
+	bool SetBinaryAddress(const char *str, char portDelineator = ':');
 	/// Old version, for crap platforms that don't support newer socket functions
 	void ToString_Old(bool writePort, char *dest, char portDelineator = ':') const;
 	void ToString_Old(bool writePort, char *dest, size_t destLength, char portDelineator = ':') const;
@@ -271,21 +272,20 @@ struct RAK_DLL_EXPORT SystemAddress
 	// Member-wise copy. The assignment stays out-of-line (defaulted in types.cpp) so the
 	// exported symbol is kept; the copy constructor is declared so it is not the deprecated
 	// implicit one.
-	SystemAddress( const SystemAddress& input ) = default;
-	SystemAddress& operator = ( const SystemAddress& input );
-	bool operator==( const SystemAddress& right ) const;
-	bool operator!=( const SystemAddress& right ) const;
-	bool operator > ( const SystemAddress& right ) const;
-	bool operator < ( const SystemAddress& right ) const;
+	SystemAddress(const SystemAddress &input) = default;
+	SystemAddress &operator=(const SystemAddress &input);
+	bool operator==(const SystemAddress &right) const;
+	bool operator!=(const SystemAddress &right) const;
+	bool operator>(const SystemAddress &right) const;
+	bool operator<(const SystemAddress &right) const;
 
 	/// \internal Used internally for fast lookup. Optional (use -1 to do regular lookup). Don't transmit this.
 	SystemIndex systemIndex;
 
-	private:
-
-#if RAKNET_SUPPORT_IPV6==1
-		void ToString_New(bool writePort, char *dest, char portDelineator) const;
-		void ToString_New(bool writePort, char *dest, size_t destLength, char portDelineator) const;
+private:
+#if RAKNET_SUPPORT_IPV6 == 1
+	void ToString_New(bool writePort, char *dest, char portDelineator) const;
+	void ToString_New(bool writePort, char *dest, size_t destLength, char portDelineator) const;
 #endif
 };
 
@@ -294,8 +294,12 @@ struct RAK_DLL_EXPORT SystemAddress
 struct RAK_DLL_EXPORT RakNetGUID
 {
 	RakNetGUID();
-	explicit RakNetGUID(uint64_t _g) {g=_g; systemIndex=(SystemIndex)-1;}
-//	uint32_t g[6];
+	explicit RakNetGUID(uint64_t _g)
+	{
+		g = _g;
+		systemIndex = (SystemIndex) -1;
+	}
+	//	uint32_t g[6];
 	uint64_t g;
 
 	// Return the GUID as a string.
@@ -308,30 +312,38 @@ struct RAK_DLL_EXPORT RakNetGUID
 
 	bool FromString(const char *source);
 
-	static unsigned long ToUint32( const RakNetGUID &g );
+	static unsigned long ToUint32(const RakNetGUID &g);
 
-	RakNetGUID( const RakNetGUID& input ) = default;
-	RakNetGUID& operator = ( const RakNetGUID& input ) = default;
+	RakNetGUID(const RakNetGUID &input) = default;
+	RakNetGUID &operator=(const RakNetGUID &input) = default;
 
 	// Used internally for fast lookup. Optional (use -1 to do regular lookup). Don't transmit this.
 	SystemIndex systemIndex;
-	static int size() {return (int) sizeof(uint64_t);}
+	static int size() { return (int) sizeof(uint64_t); }
 
-	bool operator==( const RakNetGUID& right ) const;
-	bool operator!=( const RakNetGUID& right ) const;
-	bool operator > ( const RakNetGUID& right ) const;
-	bool operator < ( const RakNetGUID& right ) const;
+	bool operator==(const RakNetGUID &right) const;
+	bool operator!=(const RakNetGUID &right) const;
+	bool operator>(const RakNetGUID &right) const;
+	bool operator<(const RakNetGUID &right) const;
 };
 
 /// Strong type for a peer's RakNetGUID value, distinct from NetworkID so the two
 /// can't be passed interchangeably. Trivially copyable and 8 bytes, so it is
 /// wire-compatible with the raw uint64_t it replaces. Convert with ToPeerGuid()/ToGuid().
-enum class PeerGuid : uint64_t {};
+enum class PeerGuid : uint64_t
+{
+};
 
-inline PeerGuid ToPeerGuid( const RakNetGUID& guid ) { return static_cast<PeerGuid>(guid.g); }
-inline RakNetGUID ToGuid( PeerGuid guid ) { return RakNetGUID(static_cast<uint64_t>(guid)); }
+inline PeerGuid ToPeerGuid(const RakNetGUID &guid)
+{
+	return static_cast<PeerGuid>(guid.g);
+}
+inline RakNetGUID ToGuid(PeerGuid guid)
+{
+	return RakNetGUID(static_cast<uint64_t>(guid));
+}
 
-constexpr PeerGuid UNASSIGNED_PEER_GUID = static_cast<PeerGuid>((uint64_t)-1);
+constexpr PeerGuid UNASSIGNED_PEER_GUID = static_cast<PeerGuid>((uint64_t) -1);
 
 /// Index of an invalid SystemAddress
 //const SystemAddress UNASSIGNED_SYSTEM_ADDRESS =
@@ -353,53 +365,63 @@ struct RAK_DLL_EXPORT AddressOrGUID
 	RakNetGUID rakNetGuid;
 	SystemAddress systemAddress;
 
-	SystemIndex GetSystemIndex(void) const {if (rakNetGuid!=UNASSIGNED_RAKNET_GUID) return rakNetGuid.systemIndex; else return systemAddress.systemIndex;}
-	bool IsUndefined(void) const {return rakNetGuid==UNASSIGNED_RAKNET_GUID && systemAddress==UNASSIGNED_SYSTEM_ADDRESS;}
-	void SetUndefined(void) {rakNetGuid=UNASSIGNED_RAKNET_GUID; systemAddress=UNASSIGNED_SYSTEM_ADDRESS;}
-	static unsigned long ToInteger( const AddressOrGUID &aog );
-	const char *ToString(bool writePort=true) const;
+	SystemIndex GetSystemIndex(void) const
+	{
+		if (rakNetGuid != UNASSIGNED_RAKNET_GUID)
+			return rakNetGuid.systemIndex;
+		else
+			return systemAddress.systemIndex;
+	}
+	bool IsUndefined(void) const { return rakNetGuid == UNASSIGNED_RAKNET_GUID && systemAddress == UNASSIGNED_SYSTEM_ADDRESS; }
+	void SetUndefined(void)
+	{
+		rakNetGuid = UNASSIGNED_RAKNET_GUID;
+		systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+	}
+	static unsigned long ToInteger(const AddressOrGUID &aog);
+	const char *ToString(bool writePort = true) const;
 	void ToString(bool writePort, char *dest) const;
 	void ToString(bool writePort, char *dest, size_t destLength) const;
 
 	AddressOrGUID() {}
-	AddressOrGUID( const AddressOrGUID& input )
+	AddressOrGUID(const AddressOrGUID &input)
 	{
-		rakNetGuid=input.rakNetGuid;
-		systemAddress=input.systemAddress;
+		rakNetGuid = input.rakNetGuid;
+		systemAddress = input.systemAddress;
 	}
-	AddressOrGUID( const SystemAddress& input )
+	AddressOrGUID(const SystemAddress &input)
 	{
-		rakNetGuid=UNASSIGNED_RAKNET_GUID;
-		systemAddress=input;
+		rakNetGuid = UNASSIGNED_RAKNET_GUID;
+		systemAddress = input;
 	}
-	AddressOrGUID( Packet *packet );
-	AddressOrGUID( const RakNetGUID& input )
+	AddressOrGUID(Packet *packet);
+	AddressOrGUID(const RakNetGUID &input)
 	{
-		rakNetGuid=input;
-		systemAddress=UNASSIGNED_SYSTEM_ADDRESS;
+		rakNetGuid = input;
+		systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 	}
-	AddressOrGUID& operator = ( const AddressOrGUID& input )
+	AddressOrGUID &operator=(const AddressOrGUID &input)
 	{
-		rakNetGuid=input.rakNetGuid;
-		systemAddress=input.systemAddress;
+		rakNetGuid = input.rakNetGuid;
+		systemAddress = input.systemAddress;
 		return *this;
 	}
 
-	AddressOrGUID& operator = ( const SystemAddress& input )
+	AddressOrGUID &operator=(const SystemAddress &input)
 	{
-		rakNetGuid=UNASSIGNED_RAKNET_GUID;
-		systemAddress=input;
+		rakNetGuid = UNASSIGNED_RAKNET_GUID;
+		systemAddress = input;
 		return *this;
 	}
 
-	AddressOrGUID& operator = ( const RakNetGUID& input )
+	AddressOrGUID &operator=(const RakNetGUID &input)
 	{
-		rakNetGuid=input;
-		systemAddress=UNASSIGNED_SYSTEM_ADDRESS;
+		rakNetGuid = input;
+		systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 		return *this;
 	}
 
-	inline bool operator==( const AddressOrGUID& right ) const {return (rakNetGuid!=UNASSIGNED_RAKNET_GUID && rakNetGuid==right.rakNetGuid) || (systemAddress!=UNASSIGNED_SYSTEM_ADDRESS && systemAddress==right.systemAddress);}
+	inline bool operator==(const AddressOrGUID &right) const { return (rakNetGuid != UNASSIGNED_RAKNET_GUID && rakNetGuid == right.rakNetGuid) || (systemAddress != UNASSIGNED_SYSTEM_ADDRESS && systemAddress == right.systemAddress); }
 };
 
 typedef uint64_t NetworkID;
@@ -422,7 +444,7 @@ struct Packet
 	BitSize_t bitSize;
 
 	/// The data from the sender
-	unsigned char* data;
+	unsigned char *data;
 
 	/// @internal
 	/// Indicates whether to delete the data, or to simply delete the packet.
@@ -449,37 +471,92 @@ struct RAK_DLL_EXPORT uint24_t
 	inline operator uint32_t() { return val; }
 	inline operator uint32_t() const { return val; }
 
-	inline uint24_t(const uint24_t& a) {val=a.val;}
-	inline uint24_t operator++() {++val; val&=0x00FFFFFF; return *this;}
-	inline uint24_t operator--() {--val; val&=0x00FFFFFF; return *this;}
-	inline uint24_t operator++(int) {uint24_t temp(val); ++val; val&=0x00FFFFFF; return temp;}
-	inline uint24_t operator--(int) {uint24_t temp(val); --val; val&=0x00FFFFFF; return temp;}
-	inline uint24_t operator&(const uint24_t& a) {return uint24_t(val&a.val);}
-	inline uint24_t& operator=(const uint24_t& a) { val=a.val; return *this; }
-	inline uint24_t& operator+=(const uint24_t& a) { val+=a.val; val&=0x00FFFFFF; return *this; }
-	inline uint24_t& operator-=(const uint24_t& a) { val-=a.val; val&=0x00FFFFFF; return *this; }
-	inline bool operator==( const uint24_t& right ) const {return val==right.val;}
-	inline bool operator!=( const uint24_t& right ) const {return val!=right.val;}
-	inline bool operator > ( const uint24_t& right ) const {return val>right.val;}
-	inline bool operator < ( const uint24_t& right ) const {return val<right.val;}
-	inline const uint24_t operator+( const uint24_t &other ) const { return uint24_t(val+other.val); }
-	inline const uint24_t operator-( const uint24_t &other ) const { return uint24_t(val-other.val); }
-	inline const uint24_t operator/( const uint24_t &other ) const { return uint24_t(val/other.val); }
-	inline const uint24_t operator*( const uint24_t &other ) const { return uint24_t(val*other.val); }
+	inline uint24_t(const uint24_t &a) { val = a.val; }
+	inline uint24_t operator++()
+	{
+		++val;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline uint24_t operator--()
+	{
+		--val;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline uint24_t operator++(int)
+	{
+		uint24_t temp(val);
+		++val;
+		val &= 0x00FFFFFF;
+		return temp;
+	}
+	inline uint24_t operator--(int)
+	{
+		uint24_t temp(val);
+		--val;
+		val &= 0x00FFFFFF;
+		return temp;
+	}
+	inline uint24_t operator&(const uint24_t &a) { return uint24_t(val & a.val); }
+	inline uint24_t &operator=(const uint24_t &a)
+	{
+		val = a.val;
+		return *this;
+	}
+	inline uint24_t &operator+=(const uint24_t &a)
+	{
+		val += a.val;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline uint24_t &operator-=(const uint24_t &a)
+	{
+		val -= a.val;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline bool operator==(const uint24_t &right) const { return val == right.val; }
+	inline bool operator!=(const uint24_t &right) const { return val != right.val; }
+	inline bool operator>(const uint24_t &right) const { return val > right.val; }
+	inline bool operator<(const uint24_t &right) const { return val < right.val; }
+	inline const uint24_t operator+(const uint24_t &other) const { return uint24_t(val + other.val); }
+	inline const uint24_t operator-(const uint24_t &other) const { return uint24_t(val - other.val); }
+	inline const uint24_t operator/(const uint24_t &other) const { return uint24_t(val / other.val); }
+	inline const uint24_t operator*(const uint24_t &other) const { return uint24_t(val * other.val); }
 
-	inline uint24_t(const uint32_t& a) {val=a; val&=0x00FFFFFF;}
-	inline uint24_t operator&(const uint32_t& a) {return uint24_t(val&a);}
-	inline uint24_t& operator=(const uint32_t& a) { val=a; val&=0x00FFFFFF; return *this; }
-	inline uint24_t& operator+=(const uint32_t& a) { val+=a; val&=0x00FFFFFF; return *this; }
-	inline uint24_t& operator-=(const uint32_t& a) { val-=a; val&=0x00FFFFFF; return *this; }
-	inline bool operator==( const uint32_t& right ) const {return val==(right&0x00FFFFFF);}
-	inline bool operator!=( const uint32_t& right ) const {return val!=(right&0x00FFFFFF);}
-	inline bool operator > ( const uint32_t& right ) const {return val>(right&0x00FFFFFF);}
-	inline bool operator < ( const uint32_t& right ) const {return val<(right&0x00FFFFFF);}
-	inline const uint24_t operator+( const uint32_t &other ) const { return uint24_t(val+other); }
-	inline const uint24_t operator-( const uint32_t &other ) const { return uint24_t(val-other); }
-	inline const uint24_t operator/( const uint32_t &other ) const { return uint24_t(val/other); }
-	inline const uint24_t operator*( const uint32_t &other ) const { return uint24_t(val*other); }
+	inline uint24_t(const uint32_t &a)
+	{
+		val = a;
+		val &= 0x00FFFFFF;
+	}
+	inline uint24_t operator&(const uint32_t &a) { return uint24_t(val & a); }
+	inline uint24_t &operator=(const uint32_t &a)
+	{
+		val = a;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline uint24_t &operator+=(const uint32_t &a)
+	{
+		val += a;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline uint24_t &operator-=(const uint32_t &a)
+	{
+		val -= a;
+		val &= 0x00FFFFFF;
+		return *this;
+	}
+	inline bool operator==(const uint32_t &right) const { return val == (right & 0x00FFFFFF); }
+	inline bool operator!=(const uint32_t &right) const { return val != (right & 0x00FFFFFF); }
+	inline bool operator>(const uint32_t &right) const { return val > (right & 0x00FFFFFF); }
+	inline bool operator<(const uint32_t &right) const { return val < (right & 0x00FFFFFF); }
+	inline const uint24_t operator+(const uint32_t &other) const { return uint24_t(val + other); }
+	inline const uint24_t operator-(const uint32_t &other) const { return uint24_t(val - other); }
+	inline const uint24_t operator/(const uint32_t &other) const { return uint24_t(val / other); }
+	inline const uint24_t operator*(const uint32_t &other) const { return uint24_t(val * other); }
 };
 
 } // namespace MafiaNet

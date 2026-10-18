@@ -18,9 +18,8 @@
 ///
 
 
-
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_UDPForwarder==1
+#if _RAKNET_SUPPORT_UDPForwarder == 1
 
 #ifndef __UDP_FORWARDER_H
 #define __UDP_FORWARDER_H
@@ -90,9 +89,9 @@ public:
 	/// \param[out] forwardingSocket New opened socket for forwarding
 	/// \return UDPForwarderResult
 	UDPForwarderResult StartForwarding(
-		SystemAddress source, SystemAddress destination, MafiaNet::TimeMS timeoutOnNoDataMS,
-		const char *forceHostAddress, unsigned short socketFamily,
-		unsigned short *forwardingPort, __UDPSOCKET__ *forwardingSocket);
+	    SystemAddress source, SystemAddress destination, MafiaNet::TimeMS timeoutOnNoDataMS,
+	    const char *forceHostAddress, unsigned short socketFamily,
+	    unsigned short *forwardingPort, __UDPSOCKET__ *forwardingSocket);
 
 	/// No longer forward datagrams from source to destination
 	/// \param[in] source The source IP and port
@@ -149,12 +148,11 @@ protected:
 	unsigned int nextInputId;
 
 	// New entries are added to forwardListNotUpdated
-	DataStructures::List<ForwardEntry*> forwardListNotUpdated;
-//	SimpleMutex forwardListNotUpdatedMutex;
+	DataStructures::List<ForwardEntry *> forwardListNotUpdated;
+	//	SimpleMutex forwardListNotUpdatedMutex;
 
 	unsigned short maxForwardEntries;
 	MafiaNet::LocklessUint32_t isRunning, threadRunning;
-
 };
 
 } // End namespace

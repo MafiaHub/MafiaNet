@@ -25,45 +25,45 @@ using namespace MafiaNet;
 
 namespace
 {
-	std::vector<unsigned char> RelayFrameFrom(RakNetGUID origin, unsigned payloadBytes = 16)
+std::vector<unsigned char> RelayFrameFrom(RakNetGUID origin, unsigned payloadBytes = 16)
+{
+	std::vector<unsigned char> f(RAKVOICE_RELAY_HEADER_SIZE + payloadBytes, 0x5A);
+	f[0] = ID_RAKVOICE_RELAY_DATA;
+	f[RAKVOICE_RELAY_OFFSET_VERSION] = RAKVOICE_RELAY_FORMAT_VERSION;
+	std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_ORIGIN, &origin.g, sizeof(uint64_t));
+	const uint16_t channelId = 0;
+	std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
+	const unsigned short sequence = 1;
+	std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_SEQUENCE, &sequence, sizeof(unsigned short));
+	return f;
+}
+
+struct RelayRig
+{
+	SimulatedNetwork net;
+	RakVoice voice;
+	RakPeer *server = nullptr;
+	RakPeer *talker = nullptr;
+	RakPeer *listener = nullptr;
+
+	bool Start()
 	{
-		std::vector<unsigned char> f(RAKVOICE_RELAY_HEADER_SIZE + payloadBytes, 0x5A);
-		f[0] = ID_RAKVOICE_RELAY_DATA;
-		f[RAKVOICE_RELAY_OFFSET_VERSION] = RAKVOICE_RELAY_FORMAT_VERSION;
-		std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_ORIGIN, &origin.g, sizeof(uint64_t));
-		const uint16_t channelId = 0;
-		std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
-		const unsigned short sequence = 1;
-		std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_SEQUENCE, &sequence, sizeof(unsigned short));
-		return f;
+		server = net.AddPeer(4, 4);
+		server->AttachPlugin(&voice);
+		talker = net.AddPeer(1);
+		listener = net.AddPeer(1);
+		return net.Connect(talker, server) && net.Connect(listener, server);
 	}
 
-	struct RelayRig
+	void Talk()
 	{
-		SimulatedNetwork net;
-		RakVoice voice;
-		RakPeer *server = nullptr;
-		RakPeer *talker = nullptr;
-		RakPeer *listener = nullptr;
+		const std::vector<unsigned char> frame = RelayFrameFrom(talker->GetMyGUID());
+		talker->Send((const char *) frame.data(), (int) frame.size(), Priority::High, Reliability::Unreliable, 0,
+		             net.AddressOf(server), false);
+	}
 
-		bool Start()
-		{
-			server = net.AddPeer(4, 4);
-			server->AttachPlugin(&voice);
-			talker = net.AddPeer(1);
-			listener = net.AddPeer(1);
-			return net.Connect(talker, server) && net.Connect(listener, server);
-		}
-
-		void Talk()
-		{
-			const std::vector<unsigned char> frame = RelayFrameFrom(talker->GetMyGUID());
-			talker->Send((const char *) frame.data(), (int) frame.size(), Priority::High, Reliability::Unreliable, 0,
-				net.AddressOf(server), false);
-		}
-
-		~RelayRig() { server->DetachPlugin(&voice); }
-	};
+	~RelayRig() { server->DetachPlugin(&voice); }
+};
 }
 
 TEST(RakVoiceNetworkThreadRelay, RelaysFramesWhileServerReceiveIsStalled)
@@ -71,14 +71,15 @@ TEST(RakVoiceNetworkThreadRelay, RelaysFramesWhileServerReceiveIsStalled)
 	RelayRig rig;
 	ASSERT_TRUE(rig.Start());
 	const RakNetGUID listener = rig.listener->GetMyGUID();
-	rig.voice.SetRelayHost([&](Packet *packet) { rig.voice.RelayFrame(packet, &listener, 1); });
+	rig.voice.SetRelayHost([&](Packet *packet)
+	                       { rig.voice.RelayFrame(packet, &listener, 1); });
 
 	rig.net.SetReceiveEnabled(rig.server, false);
 	rig.Talk();
 	ASSERT_TRUE(rig.net.RunUntilReceived(rig.listener, ID_RAKVOICE_RELAY_DATA, 2000));
 
 	const SimulatedNetwork::Message *relayed = rig.net.Find(rig.listener, ID_RAKVOICE_RELAY_DATA);
-	Packet view {};
+	Packet view{};
 	view.data = const_cast<unsigned char *>(relayed->data.data());
 	view.length = (unsigned int) relayed->data.size();
 	EXPECT_EQ(rig.talker->GetMyGUID(), RakVoice::ReadRelayOrigin(&view));
@@ -89,11 +90,13 @@ TEST(RakVoiceNetworkThreadRelay, RelayedFramesNeverReachTheApplication)
 {
 	RelayRig rig;
 	ASSERT_TRUE(rig.Start());
-	std::atomic<int> relayed {0};
-	rig.voice.SetRelayHost([&](Packet *) { ++relayed; });
+	std::atomic<int> relayed{0};
+	rig.voice.SetRelayHost([&](Packet *)
+	                       { ++relayed; });
 
 	rig.Talk();
-	ASSERT_TRUE(rig.net.RunUntil([&] { return relayed.load() == 1; }, 2000));
+	ASSERT_TRUE(rig.net.RunUntil([&]
+	                             { return relayed.load() == 1; }, 2000));
 	rig.net.Step(50);
 	EXPECT_FALSE(rig.net.Received(rig.server, ID_RAKVOICE_RELAY_DATA));
 }
@@ -103,11 +106,11 @@ TEST(RakVoiceNetworkThreadRelay, ClearingTheRelayHostStopsRelaying)
 	RelayRig rig;
 	ASSERT_TRUE(rig.Start());
 	const RakNetGUID listener = rig.listener->GetMyGUID();
-	std::atomic<int> relayed {0};
-	rig.voice.SetRelayHost([&](Packet *packet) {
+	std::atomic<int> relayed{0};
+	rig.voice.SetRelayHost([&](Packet *packet)
+	                       {
 		++relayed;
-		rig.voice.RelayFrame(packet, &listener, 1);
-	});
+		rig.voice.RelayFrame(packet, &listener, 1); });
 	rig.voice.SetRelayHost(nullptr);
 
 	rig.Talk();
@@ -120,33 +123,34 @@ TEST(RakVoiceNetworkThreadRelay, ClearingTheRelayHostStopsRelaying)
 
 namespace
 {
-	Packet View(std::vector<unsigned char> &bytes, RakNetGUID from)
-	{
-		Packet p {};
-		p.data = bytes.data();
-		p.length = (unsigned int) bytes.size();
-		p.guid = from;
-		return p;
-	}
+Packet View(std::vector<unsigned char> &bytes, RakNetGUID from)
+{
+	Packet p{};
+	p.data = bytes.data();
+	p.length = (unsigned int) bytes.size();
+	p.guid = from;
+	return p;
+}
 
-	RakNetGUID Guid(uint64_t g)
-	{
-		RakNetGUID guid;
-		guid.g = g;
-		return guid;
-	}
+RakNetGUID Guid(uint64_t g)
+{
+	RakNetGUID guid;
+	guid.g = g;
+	return guid;
+}
 }
 
 TEST(RakVoiceNetworkThreadRelay, OnlyRelayFramesAreTakenOnTheNetworkThread)
 {
 	RakVoice voice;
 	int relayed = 0;
-	voice.SetRelayHost([&](Packet *) { ++relayed; });
+	voice.SetRelayHost([&](Packet *)
+	                   { ++relayed; });
 
 	for (unsigned char id : {(unsigned char) ID_RAKVOICE_DATA, (unsigned char) ID_RAKVOICE_OPEN_CHANNEL_REQUEST,
-			 (unsigned char) ID_RAKVOICE_CLOSE_CHANNEL, (unsigned char) ID_USER_PACKET_ENUM})
+	                         (unsigned char) ID_RAKVOICE_CLOSE_CHANNEL, (unsigned char) ID_USER_PACKET_ENUM})
 	{
-		std::vector<unsigned char> bytes {id, 1, 2, 3};
+		std::vector<unsigned char> bytes{id, 1, 2, 3};
 		Packet p = View(bytes, Guid(7));
 		EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(&p)) << "id=" << int(id);
 	}
@@ -162,9 +166,10 @@ TEST(RakVoiceNetworkThreadRelay, EmptyOrNullPacketIsLeftAlone)
 {
 	RakVoice voice;
 	int relayed = 0;
-	voice.SetRelayHost([&](Packet *) { ++relayed; });
+	voice.SetRelayHost([&](Packet *)
+	                   { ++relayed; });
 
-	Packet empty {};
+	Packet empty{};
 	EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(&empty));
 	EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(nullptr));
 	EXPECT_EQ(0, relayed);
@@ -182,7 +187,8 @@ TEST(RakVoiceNetworkThreadRelay, TheRelayIsHandedThePacketItWasGiven)
 {
 	RakVoice voice;
 	Packet *seen = nullptr;
-	voice.SetRelayHost([&](Packet *packet) { seen = packet; });
+	voice.SetRelayHost([&](Packet *packet)
+	                   { seen = packet; });
 
 	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
 	Packet p = View(frame, Guid(7));
@@ -194,8 +200,10 @@ TEST(RakVoiceNetworkThreadRelay, ReplacingTheRelayRoutesLaterFramesToTheNewOne)
 {
 	RakVoice voice;
 	int first = 0, second = 0;
-	voice.SetRelayHost([&](Packet *) { ++first; });
-	voice.SetRelayHost([&](Packet *) { ++second; });
+	voice.SetRelayHost([&](Packet *)
+	                   { ++first; });
+	voice.SetRelayHost([&](Packet *)
+	                   { ++second; });
 
 	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
 	Packet p = View(frame, Guid(7));
@@ -210,10 +218,10 @@ TEST(RakVoiceNetworkThreadRelay, RelayCanClearItselfFromInside)
 	RakVoice voice;
 	int relayed = 0;
 	std::vector<int> captured(64, 1); // gives the lambda state worth corrupting
-	voice.SetRelayHost([&voice, &relayed, captured](Packet *) {
+	voice.SetRelayHost([&voice, &relayed, captured](Packet *)
+	                   {
 		voice.SetRelayHost(nullptr);
-		relayed += captured[63];
-	});
+		relayed += captured[63]; });
 
 	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
 	Packet p = View(frame, Guid(7));
@@ -227,10 +235,10 @@ TEST(RakVoiceNetworkThreadRelay, RelayCanReplaceItselfFromInside)
 {
 	RakVoice voice;
 	int first = 0, second = 0;
-	voice.SetRelayHost([&](Packet *) {
+	voice.SetRelayHost([&](Packet *)
+	                   {
 		++first;
-		voice.SetRelayHost([&](Packet *) { ++second; });
-	});
+		voice.SetRelayHost([&](Packet *) { ++second; }); });
 
 	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
 	Packet p = View(frame, Guid(7));
@@ -260,16 +268,17 @@ TEST(RakVoiceNetworkThreadRelay, SpoofedOriginIsNotRelayed)
 	RelayRig rig;
 	ASSERT_TRUE(rig.Start());
 	const RakNetGUID listener = rig.listener->GetMyGUID();
-	std::atomic<int> relayed {0};
-	rig.voice.SetRelayHost([&](Packet *packet) {
+	std::atomic<int> relayed{0};
+	rig.voice.SetRelayHost([&](Packet *packet)
+	                       {
 		++relayed;
-		rig.voice.RelayFrame(packet, &listener, 1);
-	});
+		rig.voice.RelayFrame(packet, &listener, 1); });
 
 	const std::vector<unsigned char> spoofed = RelayFrameFrom(listener); // talker claims to be the listener
 	rig.talker->Send((const char *) spoofed.data(), (int) spoofed.size(), Priority::High, Reliability::Unreliable, 0,
-		rig.net.AddressOf(rig.server), false);
-	ASSERT_TRUE(rig.net.RunUntil([&] { return relayed.load() == 1; }, 2000));
+	                 rig.net.AddressOf(rig.server), false);
+	ASSERT_TRUE(rig.net.RunUntil([&]
+	                             { return relayed.load() == 1; }, 2000));
 	rig.net.Step(200);
 	EXPECT_FALSE(rig.net.Received(rig.listener, ID_RAKVOICE_RELAY_DATA));
 }
@@ -282,8 +291,9 @@ TEST(RakVoiceNetworkThreadRelay, FrameQueuedBeforeBecomingRelayHostIsDropped)
 	rig.Talk();
 	rig.net.Step(200); // the frame is now queued for the server's Receive()
 
-	std::atomic<int> relayed {0};
-	rig.voice.SetRelayHost([&](Packet *) { ++relayed; });
+	std::atomic<int> relayed{0};
+	rig.voice.SetRelayHost([&](Packet *)
+	                       { ++relayed; });
 	rig.net.SetReceiveEnabled(rig.server, true);
 	rig.net.Step(50);
 	EXPECT_EQ(0, relayed.load());
@@ -295,7 +305,8 @@ TEST(RakVoiceNetworkThreadRelay, EveryFrameOfABurstIsRelayedInOrder)
 	RelayRig rig;
 	ASSERT_TRUE(rig.Start());
 	const RakNetGUID listener = rig.listener->GetMyGUID();
-	rig.voice.SetRelayHost([&](Packet *packet) { rig.voice.RelayFrame(packet, &listener, 1); });
+	rig.voice.SetRelayHost([&](Packet *packet)
+	                       { rig.voice.RelayFrame(packet, &listener, 1); });
 	rig.net.SetReceiveEnabled(rig.server, false);
 
 	const unsigned short kFrames = 50;
@@ -304,7 +315,7 @@ TEST(RakVoiceNetworkThreadRelay, EveryFrameOfABurstIsRelayedInOrder)
 		std::vector<unsigned char> frame = RelayFrameFrom(rig.talker->GetMyGUID());
 		std::memcpy(frame.data() + RAKVOICE_RELAY_OFFSET_SEQUENCE, &seq, sizeof(seq));
 		rig.talker->Send((const char *) frame.data(), (int) frame.size(), Priority::High, Reliability::Unreliable, 0,
-			rig.net.AddressOf(rig.server), false);
+		                 rig.net.AddressOf(rig.server), false);
 		rig.net.Step(20);
 	}
 	rig.net.Step(200);
@@ -329,12 +340,14 @@ TEST(RakVoiceNetworkThreadRelay, SetRelayHostAfterARelayCallTakesEffectAtOnce)
 	// SetRelayHost from that same thread would be parked as if made from inside.
 	RakVoice voice;
 	int first = 0, second = 0;
-	voice.SetRelayHost([&](Packet *) { ++first; });
+	voice.SetRelayHost([&](Packet *)
+	                   { ++first; });
 
 	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
 	Packet p = View(frame, Guid(7));
 	voice.OnReceiveNetworkThread(&p);
-	voice.SetRelayHost([&](Packet *) { ++second; });
+	voice.SetRelayHost([&](Packet *)
+	                   { ++second; });
 	voice.OnReceiveNetworkThread(&p);
 	EXPECT_EQ(1, first);
 	EXPECT_EQ(1, second);
@@ -347,11 +360,11 @@ TEST(RakVoiceNetworkThreadRelay, LastSetRelayHostFromInsideWins)
 {
 	RakVoice voice;
 	int first = 0, second = 0, third = 0;
-	voice.SetRelayHost([&](Packet *) {
+	voice.SetRelayHost([&](Packet *)
+	                   {
 		++first;
 		voice.SetRelayHost([&](Packet *) { ++second; });
-		voice.SetRelayHost([&](Packet *) { ++third; });
-	});
+		voice.SetRelayHost([&](Packet *) { ++third; }); });
 
 	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
 	Packet p = View(frame, Guid(7));
@@ -370,15 +383,15 @@ TEST(RakVoiceNetworkThreadRelay, LastSetRelayHostFromInsideWins)
 
 namespace
 {
-	bool HasSpeaker(RakVoice &voice, RakNetGUID who)
-	{
-		DataStructures::List<RakNetGUID> speakers;
-		voice.GetActiveSpeakers(speakers);
-		for (unsigned i = 0; i < speakers.Size(); ++i)
-			if (speakers[i] == who)
-				return true;
-		return false;
-	}
+bool HasSpeaker(RakVoice &voice, RakNetGUID who)
+{
+	DataStructures::List<RakNetGUID> speakers;
+	voice.GetActiveSpeakers(speakers);
+	for (unsigned i = 0; i < speakers.Size(); ++i)
+		if (speakers[i] == who)
+			return true;
+	return false;
+}
 }
 
 TEST(RakVoiceNetworkThreadRelay, ClearedRelayHostDecodesRelayFramesAgain)
@@ -391,7 +404,8 @@ TEST(RakVoiceNetworkThreadRelay, ClearedRelayHostDecodesRelayFramesAgain)
 	rig.voice.SetRelayHost(nullptr);
 
 	rig.Talk();
-	ASSERT_TRUE(rig.net.RunUntil([&] { return HasSpeaker(rig.voice, rig.talker->GetMyGUID()); }, 2000));
+	ASSERT_TRUE(rig.net.RunUntil([&]
+	                             { return HasSpeaker(rig.voice, rig.talker->GetMyGUID()); }, 2000));
 }
 
 TEST(RakVoiceNetworkThreadRelay, RelayHostClearedFromInsideDecodesRelayFramesAgain)
@@ -400,17 +414,19 @@ TEST(RakVoiceNetworkThreadRelay, RelayHostClearedFromInsideDecodesRelayFramesAga
 	rig.voice.Init(48000, 960 * sizeof(short));
 	ASSERT_TRUE(rig.voice.IsInitialized());
 	ASSERT_TRUE(rig.Start());
-	std::atomic<int> relayed {0};
-	rig.voice.SetRelayHost([&](Packet *) {
+	std::atomic<int> relayed{0};
+	rig.voice.SetRelayHost([&](Packet *)
+	                       {
 		++relayed;
-		rig.voice.SetRelayHost(nullptr);
-	});
+		rig.voice.SetRelayHost(nullptr); });
 
 	rig.Talk();
-	ASSERT_TRUE(rig.net.RunUntil([&] { return relayed.load() == 1; }, 2000));
+	ASSERT_TRUE(rig.net.RunUntil([&]
+	                             { return relayed.load() == 1; }, 2000));
 	EXPECT_FALSE(HasSpeaker(rig.voice, rig.talker->GetMyGUID()));
 	rig.Talk();
-	ASSERT_TRUE(rig.net.RunUntil([&] { return HasSpeaker(rig.voice, rig.talker->GetMyGUID()); }, 2000));
+	ASSERT_TRUE(rig.net.RunUntil([&]
+	                             { return HasSpeaker(rig.voice, rig.talker->GetMyGUID()); }, 2000));
 	EXPECT_EQ(1, relayed.load());
 }
 

@@ -14,10 +14,10 @@ using namespace MafiaNet;
 
 namespace
 {
-	unsigned char DirtyBit(unsigned int index)
-	{
-		return static_cast<unsigned char>(0x80 >> (index & 7));
-	}
+unsigned char DirtyBit(unsigned int index)
+{
+	return static_cast<unsigned char>(0x80 >> (index & 7));
+}
 }
 
 TEST(VariableListDeltaTracker, UnchangedValueIsNotWrittenAgain)
@@ -36,7 +36,7 @@ TEST(VariableListDeltaTracker, ResizedValueKeepsTheNextVariableDirty)
 	tracker.WriteVar(RakString("a"));
 	tracker.WriteVar(5);
 
-	unsigned char dirty[1] = { DirtyBit(1) };
+	unsigned char dirty[1] = {DirtyBit(1)};
 	tracker.FlagDirtyFromBitArray(dirty);
 
 	tracker.StartWrite();
@@ -51,7 +51,7 @@ TEST(VariableListDeltaTracker, ResizedValueClearsItsOwnDirtyFlag)
 	tracker.WriteVar(RakString("a"));
 	tracker.WriteVar(5);
 
-	unsigned char dirty[1] = { DirtyBit(0) };
+	unsigned char dirty[1] = {DirtyBit(0)};
 	tracker.FlagDirtyFromBitArray(dirty);
 
 	tracker.StartWrite();

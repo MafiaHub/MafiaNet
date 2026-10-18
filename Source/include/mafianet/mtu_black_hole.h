@@ -29,7 +29,8 @@
 
 #include "mafianet/export.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 /// The MTU rung ladder, in bytes including UDP/IP headers, highest first.
 /// The same rungs the connection handshake probes (mtuSizes in peer.cpp);

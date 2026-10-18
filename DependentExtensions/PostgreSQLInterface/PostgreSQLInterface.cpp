@@ -45,15 +45,15 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-#define PQEXECPARAM_FORMAT_TEXT		0
-#define PQEXECPARAM_FORMAT_BINARY	1
+#define PQEXECPARAM_FORMAT_TEXT 0
+#define PQEXECPARAM_FORMAT_BINARY 1
 
 PostgreSQLInterface::PostgreSQLInterface()
 {
-	pgConn=0;
-	isConnected=false;
-	lastError[0]=0;
-	pgConnAllocatedHere=false;
+	pgConn = 0;
+	isConnected = false;
+	lastError[0] = 0;
+	pgConnAllocatedHere = false;
 }
 PostgreSQLInterface::~PostgreSQLInterface()
 {
@@ -62,29 +62,29 @@ PostgreSQLInterface::~PostgreSQLInterface()
 }
 bool PostgreSQLInterface::Connect(const char *conninfo)
 {
-	if (isConnected==false)
+	if (isConnected == false)
 	{
-		_conninfo=conninfo;
+		_conninfo = conninfo;
 
-		pgConn=PQconnectdb(conninfo);
+		pgConn = PQconnectdb(conninfo);
 		ConnStatusType status = PQstatus(pgConn);
-		isConnected=status==CONNECTION_OK;
-		if (isConnected==false)
+		isConnected = status == CONNECTION_OK;
+		if (isConnected == false)
 		{
 			PQfinish(pgConn);
 			return false;
 		}
-		pgConnAllocatedHere=true;
+		pgConnAllocatedHere = true;
 	}
 
 	return isConnected;
 }
 void PostgreSQLInterface::AssignConnection(PGconn *_pgConn)
 {
-	pgConnAllocatedHere=false;
-	pgConn=_pgConn;
+	pgConnAllocatedHere = false;
+	pgConn = _pgConn;
 	ConnStatusType status = PQstatus(pgConn);
-	isConnected=status==CONNECTION_OK;
+	isConnected = status == CONNECTION_OK;
 }
 PGconn *PostgreSQLInterface::GetPGConn(void) const
 {
@@ -95,7 +95,7 @@ void PostgreSQLInterface::Disconnect(void)
 	if (isConnected)
 	{
 		PQfinish(pgConn);
-		isConnected=false;
+		isConnected = false;
 	}
 }
 void PostgreSQLInterface::Rollback(void)
@@ -105,21 +105,21 @@ void PostgreSQLInterface::Rollback(void)
 }
 bool PostgreSQLInterface::IsResultSuccessful(PGresult *result, bool rollbackOnFailure)
 {
-	if (result==0)
+	if (result == 0)
 		return false;
 
-	bool success=false;
+	bool success = false;
 	ExecStatusType execStatus = PQresultStatus(result);
-	strcpy_s(lastError,PQresultErrorMessage(result));
+	strcpy_s(lastError, PQresultErrorMessage(result));
 	switch (execStatus)
 	{
 	case PGRES_COMMAND_OK:
-		success=true;
+		success = true;
 		break;
 	case PGRES_EMPTY_QUERY:
 		break;
 	case PGRES_TUPLES_OK:
-		success=true;
+		success = true;
 		break;
 	case PGRES_COPY_OUT:
 		break;
@@ -143,93 +143,105 @@ bool PostgreSQLInterface::ExecuteBlockingCommand(const char *command, PGresult *
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(int *output, PGresult *result, unsigned int rowIndex, const char *columnName)
 {
-	return PQGetValueFromBinary(output,result,(int) rowIndex,columnName);
+	return PQGetValueFromBinary(output, result, (int) rowIndex, columnName);
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(int *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
+		return false;
 	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
-	if (binaryData==0)
+	if (binaryData == 0)
 		return false;
 	if (binaryData)
 	{
-		RakAssert(PQgetlength(result, rowIndex, columnIndex)==sizeof(int));
+		RakAssert(PQgetlength(result, rowIndex, columnIndex) == sizeof(int));
 		memcpy(output, binaryData, sizeof(int));
-		EndianSwapInPlace((char*)output, sizeof(int));
+		EndianSwapInPlace((char *) output, sizeof(int));
 		return true;
 	}
 	return false;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(unsigned int *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
+		return false;
 	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
-	if (binaryData==0 || PQgetlength(result, rowIndex, columnIndex)==0)
-		return false;	
+	if (binaryData == 0 || PQgetlength(result, rowIndex, columnIndex) == 0)
+		return false;
 	if (binaryData)
 	{
-		RakAssert(PQgetlength(result, rowIndex, columnIndex)==sizeof(unsigned int));
+		RakAssert(PQgetlength(result, rowIndex, columnIndex) == sizeof(unsigned int));
 		memcpy(output, binaryData, sizeof(unsigned int));
-		EndianSwapInPlace((char*)output, sizeof(unsigned int));
+		EndianSwapInPlace((char *) output, sizeof(unsigned int));
 		return true;
 	}
 	return false;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(long long *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
+		return false;
 	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
-	if (binaryData==0)
+	if (binaryData == 0)
 		return false;
 	if (binaryData)
 	{
-		RakAssert(PQgetlength(result, rowIndex, columnIndex)==sizeof(long long));
+		RakAssert(PQgetlength(result, rowIndex, columnIndex) == sizeof(long long));
 		memcpy(output, binaryData, sizeof(long long));
-		EndianSwapInPlace((char*)output, sizeof(long long));
+		EndianSwapInPlace((char *) output, sizeof(long long));
 		return true;
 	}
 	return false;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(float *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
+		return false;
 	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
-	if (binaryData==0)
+	if (binaryData == 0)
 		return false;
 	RakAssert(PQgetlength(result, rowIndex, columnIndex) == sizeof(float));
 	RakAssert(binaryData);
 	if (binaryData)
 	{
 		memcpy(output, binaryData, sizeof(float));
-		EndianSwapInPlace((char*)output, sizeof(float));
+		EndianSwapInPlace((char *) output, sizeof(float));
 		return true;
 	}
 	return false;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(double *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
+		return false;
 	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
-	if (binaryData==0)
+	if (binaryData == 0)
 		return false;
 	RakAssert(PQgetlength(result, rowIndex, columnIndex) == sizeof(double));
 	RakAssert(binaryData);
 	if (binaryData)
 	{
 		memcpy(output, binaryData, sizeof(double));
-		EndianSwapInPlace((char*)output, sizeof(double));
+		EndianSwapInPlace((char *) output, sizeof(double));
 		return true;
 	}
 	return false;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(bool *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
-	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
-	if (binaryData==0)
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
 		return false;
-	*output = binaryData[0]!=0;
-	
+	char *binaryData = PQgetvalue(result, rowIndex, columnIndex);
+	if (binaryData == 0)
+		return false;
+	*output = binaryData[0] != 0;
+
 	// Seems to return 1 byte only
 	/*
 	int tempResult=0;
@@ -244,58 +256,59 @@ bool PostgreSQLInterface::PQGetValueFromBinary(bool *output, PGresult *result, i
 		return true;
 	}
 	*/
-	
+
 	return true;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(MafiaNet::RakString *output, PGresult *result, int rowIndex, const char *columnName)
 {
-	int columnIndex = PQfnumber(result, columnName); if (columnIndex==-1) return false;
+	int columnIndex = PQfnumber(result, columnName);
+	if (columnIndex == -1)
+		return false;
 	char *gv;
 	gv = PQgetvalue(result, rowIndex, columnIndex);
 	if (gv && gv[0])
-		*output=gv;
+		*output = gv;
 	else
 		output->Clear();
-	return output->IsEmpty()==false;
+	return output->IsEmpty() == false;
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(char **output, unsigned int *outputLength, PGresult *result, int rowIndex, const char *columnName)
 {
-	return PQGetValueFromBinary(output, (int*) outputLength,result, rowIndex,columnName);
+	return PQGetValueFromBinary(output, (int *) outputLength, result, rowIndex, columnName);
 }
 bool PostgreSQLInterface::PQGetValueFromBinary(char **output, int *outputLength, PGresult *result, int rowIndex, const char *columnName)
 {
 	int columnIndex = PQfnumber(result, columnName);
-	if (columnIndex!=-1)
+	if (columnIndex != -1)
 	{
-		*outputLength=PQgetlength(result, rowIndex, columnIndex);
-		if (*outputLength==0)
+		*outputLength = PQgetlength(result, rowIndex, columnIndex);
+		if (*outputLength == 0)
 		{
-			*output=0;
+			*output = 0;
 			return false;
 		}
 		else
 		{
-			*output = (char*) rakMalloc_Ex(*outputLength,_FILE_AND_LINE_);
+			*output = (char *) rakMalloc_Ex(*outputLength, _FILE_AND_LINE_);
 			memcpy(*output, PQgetvalue(result, rowIndex, columnIndex), *outputLength);
 			return true;
 		}
 	}
 	else
 		return false;
-	
 }
-void PostgreSQLInterface::EndianSwapInPlace(char* data, int dataLength)
+void PostgreSQLInterface::EndianSwapInPlace(char *data, int dataLength)
 {
-	static bool alreadyNetworkOrder=(htonl(12345) == 12345);
+	static bool alreadyNetworkOrder = (htonl(12345) == 12345);
 	if (alreadyNetworkOrder)
 		return;
 	int i;
 	char tmp;
-	for (i=0; i < dataLength/2; i++)
+	for (i = 0; i < dataLength / 2; i++)
 	{
-		tmp=data[i];
-		data[i]=data[dataLength-1-i];
-		data[dataLength-1-i]=tmp;
+		tmp = data[i];
+		data[i] = data[dataLength - 1 - i];
+		data[dataLength - 1 - i] = tmp;
 	}
 }
 
@@ -306,21 +319,21 @@ char *PostgreSQLInterface::GetLocalTimestamp(void)
 	PGresult *result;
 	if (ExecuteBlockingCommand("SELECT LOCALTIMESTAMP", &result, false))
 	{
-		char *ts=PQgetvalue(result, 0, 0);
+		char *ts = PQgetvalue(result, 0, 0);
 		if (ts)
 		{
-			sprintf_s(strRes,"Local timestamp is: %s\n", ts);
+			sprintf_s(strRes, "Local timestamp is: %s\n", ts);
 		}
 		else
 		{
-			sprintf_s(strRes,"Can't read current time\n");
+			sprintf_s(strRes, "Can't read current time\n");
 		}
 		PQclear(result);
 	}
 	else
-		sprintf_s(strRes,"Failed to read LOCALTIMESTAMP\n");
+		sprintf_s(strRes, "Failed to read LOCALTIMESTAMP\n");
 
-	return (char*)strRes;
+	return (char *) strRes;
 }
 long long PostgreSQLInterface::GetEpoch(void)
 {
@@ -332,18 +345,18 @@ long long PostgreSQLInterface::GetEpoch(void)
 	return out;
 }
 
-const char* PostgreSQLInterface::GetLastError(void) const
+const char *PostgreSQLInterface::GetLastError(void) const
 {
-	return (char*)lastError;
+	return (char *) lastError;
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, unsigned int value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (paramTypeStr.IsEmpty()==false)
+	if (paramTypeStr.IsEmpty() == false)
 	{
 		paramTypeStr += ", ";
 		valueStr += ", ";
@@ -353,12 +366,12 @@ void PostgreSQLInterface::EncodeQueryInput(const char *colName, unsigned int val
 }
 void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, unsigned int value, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (valueStr.IsEmpty()==false)
+	if (valueStr.IsEmpty() == false)
 	{
 		valueStr += ", ";
 	}
@@ -368,12 +381,12 @@ void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, unsigned int va
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, int value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (paramTypeStr.IsEmpty()==false)
+	if (paramTypeStr.IsEmpty() == false)
 	{
 		paramTypeStr += ", ";
 		valueStr += ", ";
@@ -383,12 +396,12 @@ void PostgreSQLInterface::EncodeQueryInput(const char *colName, int value, Mafia
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, bool value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (paramTypeStr.IsEmpty()==false)
+	if (paramTypeStr.IsEmpty() == false)
 	{
 		paramTypeStr += ", ";
 		valueStr += ", ";
@@ -401,12 +414,12 @@ void PostgreSQLInterface::EncodeQueryInput(const char *colName, bool value, Mafi
 }
 void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, int value, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (valueStr.IsEmpty()==false)
+	if (valueStr.IsEmpty() == false)
 	{
 		valueStr += ", ";
 	}
@@ -416,12 +429,12 @@ void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, int value, Mafi
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, float value, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (paramTypeStr.IsEmpty()==false)
+	if (paramTypeStr.IsEmpty() == false)
 	{
 		paramTypeStr += ", ";
 		valueStr += ", ";
@@ -431,12 +444,12 @@ void PostgreSQLInterface::EncodeQueryInput(const char *colName, float value, Maf
 }
 void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, float value, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	(void)numParams;
-	(void)paramData;
-	(void)paramLength;
-	(void)paramFormat;
+	(void) numParams;
+	(void) paramData;
+	(void) paramLength;
+	(void) paramFormat;
 
-	if (valueStr.IsEmpty()==false)
+	if (valueStr.IsEmpty() == false)
 	{
 		valueStr += ", ";
 	}
@@ -446,100 +459,100 @@ void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, float value, Ma
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, char *binaryData, int binaryDataLength, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty)
 {
-	if (writeEmpty==false && (binaryData==0 || binaryDataLength==0))
+	if (writeEmpty == false && (binaryData == 0 || binaryDataLength == 0))
 		return;
 
-	if (binaryData==0)
-		binaryDataLength=0;
+	if (binaryData == 0)
+		binaryDataLength = 0;
 
-	if (paramTypeStr.IsEmpty()==false)
+	if (paramTypeStr.IsEmpty() == false)
 	{
 		paramTypeStr += ", ";
 		valueStr += ", ";
 	}
 	paramTypeStr += colName;
-	valueStr+=FormatString("$%i::bytea", numParams+1);
+	valueStr += FormatString("$%i::bytea", numParams + 1);
 
-	paramData[numParams]=binaryData;
-	paramLength[numParams]=binaryDataLength;
-	paramFormat[numParams]=PQEXECPARAM_FORMAT_BINARY;
+	paramData[numParams] = binaryData;
+	paramLength[numParams] = binaryDataLength;
+	paramFormat[numParams] = PQEXECPARAM_FORMAT_BINARY;
 	numParams++;
 }
 void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, char *binaryData, int binaryDataLength, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat)
 {
-	if (binaryData==0 || binaryDataLength==0)
+	if (binaryData == 0 || binaryDataLength == 0)
 		return;
 
-	if (binaryData==0)
-		binaryDataLength=0;
+	if (binaryData == 0)
+		binaryDataLength = 0;
 
-	if (valueStr.IsEmpty()==false)
+	if (valueStr.IsEmpty() == false)
 	{
 		valueStr += ", ";
 	}
 	valueStr += colName;
 	valueStr += " = ";
-	valueStr+=FormatString("$%i::bytea", numParams+1);
+	valueStr += FormatString("$%i::bytea", numParams + 1);
 
-	paramData[numParams]=binaryData;
-	paramLength[numParams]=binaryDataLength;
-	paramFormat[numParams]=PQEXECPARAM_FORMAT_BINARY;
+	paramData[numParams] = binaryData;
+	paramLength[numParams] = binaryDataLength;
+	paramFormat[numParams] = PQEXECPARAM_FORMAT_BINARY;
 	numParams++;
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, const char *str, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty, const char *type)
 {
-	if (writeEmpty==false && (str==0 || str[0]==0))
+	if (writeEmpty == false && (str == 0 || str[0] == 0))
 		return;
 
-	static char *emptyStr=(char*)"";
-	static char *emptyDate=(char*)"01/01/01";
+	static char *emptyStr = (char *) "";
+	static char *emptyDate = (char *) "01/01/01";
 
-	if (paramTypeStr.IsEmpty()==false)
+	if (paramTypeStr.IsEmpty() == false)
 	{
 		paramTypeStr += ", ";
 		valueStr += ", ";
 	}
 	paramTypeStr += colName;
-	valueStr+=FormatString("$%i::%s", numParams+1, type);
+	valueStr += FormatString("$%i::%s", numParams + 1, type);
 
-	if (writeEmpty && (str==0 || str[0]==0))
+	if (writeEmpty && (str == 0 || str[0] == 0))
 	{
-		if (strcmp(type,"date")==0)
+		if (strcmp(type, "date") == 0)
 		{
-			paramData[numParams]=emptyDate;
-			paramLength[numParams]=(int)strlen(emptyDate);
+			paramData[numParams] = emptyDate;
+			paramLength[numParams] = (int) strlen(emptyDate);
 		}
 		else
 		{
-			paramData[numParams]=emptyStr;
-			paramLength[numParams]=0;
-		}		
+			paramData[numParams] = emptyStr;
+			paramLength[numParams] = 0;
+		}
 	}
 	else
 	{
-		paramData[numParams]=(char*) str;
-		paramLength[numParams]=(int) strlen(str);
-	}	
-	paramFormat[numParams]=PQEXECPARAM_FORMAT_TEXT;
+		paramData[numParams] = (char *) str;
+		paramLength[numParams] = (int) strlen(str);
+	}
+	paramFormat[numParams] = PQEXECPARAM_FORMAT_TEXT;
 	numParams++;
 }
 void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, const char *str, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, const char *type)
 {
-	if (str==0 || str[0]==0)
+	if (str == 0 || str[0] == 0)
 		return;
 
-	if (valueStr.IsEmpty()==false)
+	if (valueStr.IsEmpty() == false)
 	{
 		valueStr += ", ";
 	}
 	valueStr += colName;
-	valueStr+=" = ";
-	valueStr+=FormatString("$%i::%s", numParams+1, type);
+	valueStr += " = ";
+	valueStr += FormatString("$%i::%s", numParams + 1, type);
 
-	paramData[numParams]=(char*) str;
-	paramLength[numParams]=(int) strlen(str);
+	paramData[numParams] = (char *) str;
+	paramLength[numParams] = (int) strlen(str);
 
-	paramFormat[numParams]=PQEXECPARAM_FORMAT_TEXT;
+	paramFormat[numParams] = PQEXECPARAM_FORMAT_TEXT;
 	numParams++;
 }
 void PostgreSQLInterface::EncodeQueryInput(const char *colName, const MafiaNet::RakString &str, MafiaNet::RakString &paramTypeStr, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, bool writeEmpty, const char *type)
@@ -553,67 +566,67 @@ void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, const MafiaNet:
 MafiaNet::RakString PostgreSQLInterface::GetEscapedString(const char *input) const
 {
 	unsigned long len = (unsigned long) strlen(input);
-	char *fn = (char*) rakMalloc_Ex(len*2+1,_FILE_AND_LINE_);
+	char *fn = (char *) rakMalloc_Ex(len * 2 + 1, _FILE_AND_LINE_);
 	int error;
 	PQescapeStringConn(pgConn, fn, input, len, &error);
 	MafiaNet::RakString output;
 	// Use assignment so it doesn't parse printf escape strings
 	output = fn;
-	rakFree_Ex(fn,_FILE_AND_LINE_);
+	rakFree_Ex(fn, _FILE_AND_LINE_);
 	return output;
 }
 
-PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
+PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 {
 	MafiaNet::RakString query;
 	PGresult *result;
 	DataStructures::List<VariadicSQLParser::IndexAndType> indices;
-	if ( input==0 || input[0]==0 )
+	if (input == 0 || input[0] == 0)
 		return 0;
 
 	// Lookup this query in the stored query table. If it doesn't exist, prepare it.
 	MafiaNet::RakString inputStr;
-	inputStr=input;
+	inputStr = input;
 	unsigned int preparedQueryIndex;
-	for (preparedQueryIndex=0; preparedQueryIndex < preparedQueries.Size(); preparedQueryIndex++)
+	for (preparedQueryIndex = 0; preparedQueryIndex < preparedQueries.Size(); preparedQueryIndex++)
 	{
-		if (preparedQueries[preparedQueryIndex].StrICmp(inputStr)==0)
+		if (preparedQueries[preparedQueryIndex].StrICmp(inputStr) == 0)
 			break;
 	}
 
 	// Find out how many params there are
 	// Find out the type of each param (%f, %s)
 	indices.Clear(false, _FILE_AND_LINE_);
-	GetTypeMappingIndices( input, indices );
+	GetTypeMappingIndices(input, indices);
 
-	if (preparedQueryIndex==preparedQueries.Size())
+	if (preparedQueryIndex == preparedQueries.Size())
 	{
-//		if (indices.Size()>0)
-//			query += " (";
+		//		if (indices.Size()>0)
+		//			query += " (";
 		MafiaNet::RakString formatCopy;
 		MafiaNet::RakString insertion;
-		formatCopy=input;
+		formatCopy = input;
 		unsigned int i;
-		unsigned int indexOffset=0;
-		for (i=0; i < indices.Size(); i++)
+		unsigned int indexOffset = 0;
+		for (i = 0; i < indices.Size(); i++)
 		{
-//			if (i!=0)
-//				query += ",";
-//			query+=typeMappings[indices[i].typeMappingIndex].type;
-			formatCopy.SetChar(indices[i].strIndex+indexOffset, '$');
-//			if (i < 9)
-//				formatCopy.SetChar(indices[i].strIndex+1, i+1+'0');
-//			else
-			insertion= MafiaNet::RakString("%i::%s", i+1, VariadicSQLParser::GetTypeMappingAtIndex(indices[i].typeMappingIndex));
-			formatCopy.SetChar(indices[i].strIndex+1+indexOffset, insertion);
-			indexOffset+=(unsigned int) insertion.GetLength()-1;
+			//			if (i!=0)
+			//				query += ",";
+			//			query+=typeMappings[indices[i].typeMappingIndex].type;
+			formatCopy.SetChar(indices[i].strIndex + indexOffset, '$');
+			//			if (i < 9)
+			//				formatCopy.SetChar(indices[i].strIndex+1, i+1+'0');
+			//			else
+			insertion = MafiaNet::RakString("%i::%s", i + 1, VariadicSQLParser::GetTypeMappingAtIndex(indices[i].typeMappingIndex));
+			formatCopy.SetChar(indices[i].strIndex + 1 + indexOffset, insertion);
+			indexOffset += (unsigned int) insertion.GetLength() - 1;
 		}
-//		if (indices.Size()>0)
-//			query += ")";
-//		query += " AS ";
+		//		if (indices.Size()>0)
+		//			query += ")";
+		//		query += " AS ";
 		query += formatCopy;
-	//	query += ";\n";
-		formatCopy+= ";\n";
+		//	query += ";\n";
+		formatCopy += ";\n";
 		result = PQprepare(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueries.Size()), formatCopy.C_String(), indices.Size(), nullptr);
 		if (IsResultSuccessful(result, false))
 		{
@@ -631,9 +644,9 @@ PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
 		}
 	}
 
-//	char *paramData[512];
-//	int paramLength[512];
-//	int paramFormat[512];
+	//	char *paramData[512];
+	//	int paramLength[512];
+	//	int paramFormat[512];
 
 	va_list argptr;
 	va_start(argptr, input);
@@ -641,15 +654,15 @@ PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
 	int *paramLength;
 	int *paramFormat;
 	ExtractArguments(argptr, indices, &paramData, &paramLength);
-	paramFormat= MafiaNet::OP_NEW_ARRAY<int>(indices.Size(),_FILE_AND_LINE_);
-	for (unsigned int i=0; i < indices.Size(); i++)
-		paramFormat[i]=PQEXECPARAM_FORMAT_BINARY;
-	result = PQexecPrepared(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueryIndex), indices.Size(), paramData, paramLength, paramFormat, PQEXECPARAM_FORMAT_BINARY );
+	paramFormat = MafiaNet::OP_NEW_ARRAY<int>(indices.Size(), _FILE_AND_LINE_);
+	for (unsigned int i = 0; i < indices.Size(); i++)
+		paramFormat[i] = PQEXECPARAM_FORMAT_BINARY;
+	result = PQexecPrepared(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueryIndex), indices.Size(), paramData, paramLength, paramFormat, PQEXECPARAM_FORMAT_BINARY);
 	VariadicSQLParser::FreeArguments(indices, paramData, paramLength);
-	MafiaNet::OP_DELETE_ARRAY(paramFormat,_FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(paramFormat, _FILE_AND_LINE_);
 	va_end(argptr);
 
-	if (IsResultSuccessful(result, false)==false)
+	if (IsResultSuccessful(result, false) == false)
 	{
 		printf(lastError);
 		PQclear(result);

@@ -37,100 +37,102 @@ using namespace MafiaNet;
 
 namespace
 {
-	// Payload large enough that each message becomes its own datagram rather than
-	// being coalesced with its neighbours into one. Comfortably under the MTU so
-	// nothing splits either -- a split message would be several datagrams for one
-	// sequence number and blunt the ordering assertions.
-	const int PAYLOAD_BYTES = 900;
+// Payload large enough that each message becomes its own datagram rather than
+// being coalesced with its neighbours into one. Comfortably under the MTU so
+// nothing splits either -- a split message would be several datagrams for one
+// sequence number and blunt the ordering assertions.
+const int PAYLOAD_BYTES = 900;
 
-	// Enough messages that the send loop must cross the MMSG_BATCH_MAX boundary
-	// many times over once congestion control opens up.
-	const unsigned MESSAGE_COUNT = MMSG_BATCH_MAX * 40; // 2560
+// Enough messages that the send loop must cross the MMSG_BATCH_MAX boundary
+// many times over once congestion control opens up.
+const unsigned MESSAGE_COUNT = MMSG_BATCH_MAX * 40; // 2560
 
-	const unsigned char ID_BATCH_TEST = ID_USER_PACKET_ENUM + 1;
+const unsigned char ID_BATCH_TEST = ID_USER_PACKET_ENUM + 1;
 
-	// A message is its own checksum: a 4-byte sequence number followed by a body
-	// derived from it. Any datagram that gets truncated, aliased against the next
-	// one (the batch copies payloads because the caller reuses its serialization
-	// buffer), or reordered fails a specific assertion rather than a vague count.
-	void BuildMessage(std::vector<char> &out, uint32_t sequence)
+// A message is its own checksum: a 4-byte sequence number followed by a body
+// derived from it. Any datagram that gets truncated, aliased against the next
+// one (the batch copies payloads because the caller reuses its serialization
+// buffer), or reordered fails a specific assertion rather than a vague count.
+void BuildMessage(std::vector<char> &out, uint32_t sequence)
+{
+	out.assign((size_t) PAYLOAD_BYTES, 0);
+	out[0] = (char) ID_BATCH_TEST;
+	out[1] = (char) (sequence & 0xFF);
+	out[2] = (char) ((sequence >> 8) & 0xFF);
+	out[3] = (char) ((sequence >> 16) & 0xFF);
+	out[4] = (char) ((sequence >> 24) & 0xFF);
+	for (size_t i = 5; i < out.size(); ++i)
+		out[i] = (char) ((sequence + i) & 0xFF);
+}
+
+// Returns false with a reason if the packet is not exactly the message that
+// BuildMessage would have produced for its embedded sequence number.
+bool VerifyMessage(const unsigned char *data, unsigned length, uint32_t *sequenceOut,
+                   std::string *reason)
+{
+	if (length != (unsigned) PAYLOAD_BYTES)
 	{
-		out.assign((size_t) PAYLOAD_BYTES, 0);
-		out[0] = (char) ID_BATCH_TEST;
-		out[1] = (char) (sequence & 0xFF);
-		out[2] = (char) ((sequence >> 8) & 0xFF);
-		out[3] = (char) ((sequence >> 16) & 0xFF);
-		out[4] = (char) ((sequence >> 24) & 0xFF);
-		for (size_t i = 5; i < out.size(); ++i)
-			out[i] = (char) ((sequence + i) & 0xFF);
+		*reason = "wrong length: got " + std::to_string(length) +
+		          ", expected " + std::to_string(PAYLOAD_BYTES);
+		return false;
+	}
+	const uint32_t sequence = (uint32_t) data[1] | ((uint32_t) data[2] << 8) |
+	                          ((uint32_t) data[3] << 16) | ((uint32_t) data[4] << 24);
+	std::vector<char> expected;
+	BuildMessage(expected, sequence);
+	if (memcmp(expected.data(), data, (size_t) PAYLOAD_BYTES) != 0)
+	{
+		*reason = "payload corrupted for sequence " + std::to_string(sequence);
+		return false;
+	}
+	*sequenceOut = sequence;
+	return true;
+}
+
+// Bring up a server and a client on OS-assigned ephemeral ports and wait for
+// the connection to be observed by both. Returns the server's port.
+bool ConnectLocally(Peer &server, Peer &client, unsigned maxConnections,
+                    unsigned short *serverPortOut, std::string *reason)
+{
+	SocketDescriptor serverSd(0, "127.0.0.1");
+	if (server->Startup(maxConnections, &serverSd, 1) != RAKNET_STARTED)
+	{
+		*reason = "server Startup failed";
+		return false;
+	}
+	server->SetMaximumIncomingConnections((unsigned short) maxConnections);
+	const unsigned short serverPort = server->GetInternalID().GetPort();
+
+	SocketDescriptor clientSd(0, "127.0.0.1");
+	if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)
+	{
+		*reason = "client Startup failed";
+		return false;
+	}
+	if (client->Connect("127.0.0.1", serverPort, 0, 0) != CONNECTION_ATTEMPT_STARTED)
+	{
+		*reason = "Connect did not start";
+		return false;
 	}
 
-	// Returns false with a reason if the packet is not exactly the message that
-	// BuildMessage would have produced for its embedded sequence number.
-	bool VerifyMessage(const unsigned char *data, unsigned length, uint32_t *sequenceOut,
-	                   std::string *reason)
+	const TimeMS deadline = GetTimeMS() + 15000;
+	while (GetTimeMS() < deadline &&
+	       !(server->NumberOfConnections() >= 1 && client->NumberOfConnections() >= 1))
 	{
-		if (length != (unsigned) PAYLOAD_BYTES)
-		{
-			*reason = "wrong length: got " + std::to_string(length) +
-			          ", expected " + std::to_string(PAYLOAD_BYTES);
-			return false;
-		}
-		const uint32_t sequence = (uint32_t) data[1] | ((uint32_t) data[2] << 8) |
-		                          ((uint32_t) data[3] << 16) | ((uint32_t) data[4] << 24);
-		std::vector<char> expected;
-		BuildMessage(expected, sequence);
-		if (memcmp(expected.data(), data, (size_t) PAYLOAD_BYTES) != 0)
-		{
-			*reason = "payload corrupted for sequence " + std::to_string(sequence);
-			return false;
-		}
-		*sequenceOut = sequence;
-		return true;
+		for (auto pkt : server.incoming())
+			(void) pkt;
+		for (auto pkt : client.incoming())
+			(void) pkt;
+		RakSleep(15);
 	}
-
-	// Bring up a server and a client on OS-assigned ephemeral ports and wait for
-	// the connection to be observed by both. Returns the server's port.
-	bool ConnectLocally(Peer &server, Peer &client, unsigned maxConnections,
-	                    unsigned short *serverPortOut, std::string *reason)
+	if (server->NumberOfConnections() < 1 || client->NumberOfConnections() < 1)
 	{
-		SocketDescriptor serverSd(0, "127.0.0.1");
-		if (server->Startup(maxConnections, &serverSd, 1) != RAKNET_STARTED)
-		{
-			*reason = "server Startup failed";
-			return false;
-		}
-		server->SetMaximumIncomingConnections((unsigned short) maxConnections);
-		const unsigned short serverPort = server->GetInternalID().GetPort();
-
-		SocketDescriptor clientSd(0, "127.0.0.1");
-		if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED)
-		{
-			*reason = "client Startup failed";
-			return false;
-		}
-		if (client->Connect("127.0.0.1", serverPort, 0, 0) != CONNECTION_ATTEMPT_STARTED)
-		{
-			*reason = "Connect did not start";
-			return false;
-		}
-
-		const TimeMS deadline = GetTimeMS() + 15000;
-		while (GetTimeMS() < deadline &&
-		       !(server->NumberOfConnections() >= 1 && client->NumberOfConnections() >= 1))
-		{
-			for (auto pkt : server.incoming()) (void) pkt;
-			for (auto pkt : client.incoming()) (void) pkt;
-			RakSleep(15);
-		}
-		if (server->NumberOfConnections() < 1 || client->NumberOfConnections() < 1)
-		{
-			*reason = "peers did not connect within 15s";
-			return false;
-		}
-		*serverPortOut = serverPort;
-		return true;
+		*reason = "peers did not connect within 15s";
+		return false;
 	}
+	*serverPortOut = serverPort;
+	return true;
+}
 }
 
 // Reliable-ordered burst large enough to fill many batches. Verifies the batched
@@ -160,7 +162,7 @@ TEST(MmsgBatchLive, LargeReliableOrderedBurstArrivesIntactAndInOrder)
 		ASSERT_NE(client->Send(message.data(), PAYLOAD_BYTES, MafiaNet::Priority::High,
 		                       MafiaNet::Reliability::ReliableOrdered, 0, serverAddress, false),
 		          0u)
-			<< "Send rejected message " << i;
+		    << "Send rejected message " << i;
 	}
 
 	// Drain until every message arrives or the deadline expires. Reliable-ordered
@@ -188,19 +190,20 @@ TEST(MmsgBatchLive, LargeReliableOrderedBurstArrivesIntactAndInOrder)
 			// densely in order. A batch flushed out of order, or a datagram
 			// silently dropped and never resent, breaks exactly here.
 			ASSERT_EQ(sequence, nextExpected)
-				<< "out-of-order delivery: expected " << nextExpected << ", got " << sequence;
+			    << "out-of-order delivery: expected " << nextExpected << ", got " << sequence;
 			++nextExpected;
 
 			seen[sequence] = true;
 			++received;
 		}
-		for (auto pkt : client.incoming()) (void) pkt;
+		for (auto pkt : client.incoming())
+			(void) pkt;
 		RakSleep(5);
 	}
 
 	ASSERT_EQ(received, MESSAGE_COUNT)
-		<< "only " << received << " of " << MESSAGE_COUNT
-		<< " messages arrived; first missing sequence is " << nextExpected;
+	    << "only " << received << " of " << MESSAGE_COUNT
+	    << " messages arrived; first missing sequence is " << nextExpected;
 }
 
 // Several clients bursting at one server simultaneously. This is the receive
@@ -239,15 +242,17 @@ TEST(MmsgBatchLive, ConcurrentSendersAreEachAttributedToTheRightPeer)
 		SocketDescriptor clientSd(0, "127.0.0.1");
 		ASSERT_EQ(clients[c]->Startup(1, &clientSd, 1), RAKNET_STARTED) << "client " << c;
 		ASSERT_EQ(clients[c]->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED)
-			<< "client " << c;
+		    << "client " << c;
 	}
 
 	TimeMS deadline = GetTimeMS() + 20000;
 	while (GetTimeMS() < deadline && server->NumberOfConnections() < CLIENT_COUNT)
 	{
-		for (auto pkt : server.incoming()) (void) pkt;
+		for (auto pkt : server.incoming())
+			(void) pkt;
 		for (unsigned c = 0; c < CLIENT_COUNT; ++c)
-			for (auto pkt : clients[c].incoming()) (void) pkt;
+			for (auto pkt : clients[c].incoming())
+				(void) pkt;
 		RakSleep(15);
 	}
 	ASSERT_EQ(server->NumberOfConnections(), CLIENT_COUNT) << "clients did not all connect";
@@ -268,7 +273,7 @@ TEST(MmsgBatchLive, ConcurrentSendersAreEachAttributedToTheRightPeer)
 			ASSERT_NE(clients[c]->Send(message.data(), PAYLOAD_BYTES, MafiaNet::Priority::High,
 			                           MafiaNet::Reliability::ReliableOrdered, 0, serverAddress, false),
 			          0u)
-				<< "client " << c << " Send rejected message " << i;
+			    << "client " << c << " Send rejected message " << i;
 		}
 	}
 
@@ -297,10 +302,11 @@ TEST(MmsgBatchLive, ConcurrentSendersAreEachAttributedToTheRightPeer)
 			// would land here.
 			const unsigned owner = sequence / PER_CLIENT;
 			ASSERT_EQ(pkt->guid, clients[owner]->GetMyGUID())
-				<< "message " << sequence << " attributed to the wrong peer";
+			    << "message " << sequence << " attributed to the wrong peer";
 		}
 		for (unsigned c = 0; c < CLIENT_COUNT; ++c)
-			for (auto pkt : clients[c].incoming()) (void) pkt;
+			for (auto pkt : clients[c].incoming())
+				(void) pkt;
 		RakSleep(5);
 	}
 
@@ -360,7 +366,8 @@ TEST(MmsgBatchLive, SustainedBidirectionalTrafficStaysIntact)
 		{
 			for (auto pkt : server.incoming())
 			{
-				if (pkt->data[0] != ID_BATCH_TEST) continue;
+				if (pkt->data[0] != ID_BATCH_TEST)
+					continue;
 				uint32_t sequence = 0;
 				std::string why;
 				ASSERT_TRUE(VerifyMessage(pkt->data, pkt->length, &sequence, &why)) << why;
@@ -369,7 +376,8 @@ TEST(MmsgBatchLive, SustainedBidirectionalTrafficStaysIntact)
 			}
 			for (auto pkt : client.incoming())
 			{
-				if (pkt->data[0] != ID_BATCH_TEST) continue;
+				if (pkt->data[0] != ID_BATCH_TEST)
+					continue;
 				uint32_t sequence = 0;
 				std::string why;
 				ASSERT_TRUE(VerifyMessage(pkt->data, pkt->length, &sequence, &why)) << why;

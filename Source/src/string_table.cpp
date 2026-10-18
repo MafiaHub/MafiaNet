@@ -23,35 +23,34 @@
 #include "mafianet/osx_adapter.h"
 using namespace MafiaNet;
 
-StringTable* StringTable::instance=0;
-int StringTable::referenceCount=0;
+StringTable *StringTable::instance = 0;
+int StringTable::referenceCount = 0;
 
 
-int MafiaNet::StrAndBoolComp( char *const &key, const StrAndBool &data )
+int MafiaNet::StrAndBoolComp(char *const &key, const StrAndBool &data)
 {
-	return strcmp(key,(const char*)data.str);
+	return strcmp(key, (const char *) data.str);
 }
 
 StringTable::StringTable()
 {
-	
 }
 
 StringTable::~StringTable()
 {
 	unsigned i;
-	for (i=0; i < orderedStringList.Size(); i++)
+	for (i = 0; i < orderedStringList.Size(); i++)
 	{
 		if (orderedStringList[i].b)
-			rakFree_Ex(orderedStringList[i].str, _FILE_AND_LINE_ );
+			rakFree_Ex(orderedStringList[i].str, _FILE_AND_LINE_);
 	}
 }
 
 void StringTable::AddReference(void)
 {
-	if (++referenceCount==1)
+	if (++referenceCount == 1)
 	{
-		instance = MafiaNet::OP_NEW<StringTable>( _FILE_AND_LINE_ );
+		instance = MafiaNet::OP_NEW<StringTable>(_FILE_AND_LINE_);
 	}
 }
 void StringTable::RemoveReference(void)
@@ -60,15 +59,15 @@ void StringTable::RemoveReference(void)
 
 	if (referenceCount > 0)
 	{
-		if (--referenceCount==0)
+		if (--referenceCount == 0)
 		{
 			MafiaNet::OP_DELETE(instance, _FILE_AND_LINE_);
-			instance=0;
+			instance = 0;
 		}
 	}
 }
 
-StringTable* StringTable::Instance(void)
+StringTable *StringTable::Instance(void)
 {
 	return instance;
 }
@@ -76,34 +75,33 @@ StringTable* StringTable::Instance(void)
 void StringTable::AddString(const char *str, bool copyString)
 {
 	StrAndBool sab;
-	sab.b=copyString;
+	sab.b = copyString;
 	if (copyString)
 	{
-		sab.str = (char*) rakMalloc_Ex( strlen(str)+1, _FILE_AND_LINE_ );
-		strcpy_s(sab.str, strlen(str)+1, str);
+		sab.str = (char *) rakMalloc_Ex(strlen(str) + 1, _FILE_AND_LINE_);
+		strcpy_s(sab.str, strlen(str) + 1, str);
 	}
 	else
 	{
-		sab.str=(char*)str;
+		sab.str = (char *) str;
 	}
 
 	// If it asserts inside here you are adding duplicate strings.
-	orderedStringList.Insert(sab.str,sab, true, _FILE_AND_LINE_);
+	orderedStringList.Insert(sab.str, sab, true, _FILE_AND_LINE_);
 
 	// If this assert hits you need to increase the range of StringTableType
-	RakAssert(orderedStringList.Size() < (StringTableType)-1);	
-	
+	RakAssert(orderedStringList.Size() < (StringTableType) -1);
 }
-void StringTable::EncodeString( const char *input, int maxCharsToWrite, MafiaNet::BitStream *output )
+void StringTable::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output)
 {
 	unsigned index;
 	bool objectExists;
 	// This is fast because the list is kept ordered.
-	index=orderedStringList.GetIndexFromKey((char*)input, &objectExists);
+	index = orderedStringList.GetIndexFromKey((char *) input, &objectExists);
 	if (objectExists)
 	{
 		output->Write(true);
-		output->Write((StringTableType)index);
+		output->Write((StringTableType) index);
 	}
 	else
 	{
@@ -113,16 +111,16 @@ void StringTable::EncodeString( const char *input, int maxCharsToWrite, MafiaNet
 	}
 }
 
-bool StringTable::DecodeString( char *output, int maxCharsToWrite, MafiaNet::BitStream *input )
+bool StringTable::DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitStream *input)
 {
-	bool hasIndex=false;
-	RakAssert(maxCharsToWrite>0);
+	bool hasIndex = false;
+	RakAssert(maxCharsToWrite > 0);
 
-	if (maxCharsToWrite==0)
+	if (maxCharsToWrite == 0)
 		return false;
 	if (!input->Read(hasIndex))
 		return false;
-	if (hasIndex==false)
+	if (hasIndex == false)
 	{
 		StringCompressor::Instance()->DecodeString(output, maxCharsToWrite, input);
 	}
@@ -140,9 +138,9 @@ bool StringTable::DecodeString( char *output, int maxCharsToWrite, MafiaNet::Bit
 #endif
 			return false;
 		}
-		
+
 		strncpy_s(output, maxCharsToWrite, orderedStringList[index].str, maxCharsToWrite);
-		output[maxCharsToWrite-1]=0;
+		output[maxCharsToWrite - 1] = 0;
 	}
 
 	return true;

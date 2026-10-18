@@ -31,11 +31,11 @@ using namespace MafiaNet;
 
 RakPeerInterface *rakPeer;
 
-void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet, void *context )
+void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet, void *context)
 {
 	// unused parameters
-	(void)packet;
-	(void)context;
+	(void) packet;
+	(void) context;
 
 	printf("CFunc1 ");
 	MafiaNet::RakString data;
@@ -43,11 +43,11 @@ void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet, void *context )
 	printf("%s\n", data.C_String());
 };
 
-void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet, void *context )
+void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet, void *context)
 {
 	// unused parameters
-	(void)packet;
-	(void)context;
+	(void) packet;
+	(void) context;
 
 	printf("CFunc2 ");
 	MafiaNet::RakString data;
@@ -55,11 +55,11 @@ void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet, void *context )
 	printf("%s\n", data.C_String());
 };
 
-void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Packet *packet, void *context )
+void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Packet *packet, void *context)
 {
 	// unused parameters
-	(void)packet;
-	(void)context;
+	(void) packet;
+	(void) context;
 
 	printf("CFunc3 ");
 	MafiaNet::RakString data;
@@ -73,24 +73,25 @@ int main(void)
 	printf("Demonstration of the RPC4 plugin.\n");
 	printf("Difficulty: Beginner\n\n");
 
-	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
-	
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+
 	// Holds user data
 	char ip[64], serverPort[30], clientPort[30];
 
 	// Get our input
 	puts("Enter the port to listen on");
-	Gets(clientPort,sizeof(clientPort));
-	if (clientPort[0]==0)
+	Gets(clientPort, sizeof(clientPort));
+	if (clientPort[0] == 0)
 		strcpy_s(clientPort, "0");
 	const int intClientPort = atoi(clientPort);
-	if ((intClientPort < 0) || (intClientPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intClientPort < 0) || (intClientPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified client port %d is outside valid bounds [0, %u]", intClientPort, std::numeric_limits<unsigned short>::max());
 		return 2;
 	}
 
-	MafiaNet::SocketDescriptor sd1(static_cast<unsigned short>(intClientPort),0);
-	rakPeer->Startup(8,&sd1,1);
+	MafiaNet::SocketDescriptor sd1(static_cast<unsigned short>(intClientPort), 0);
+	rakPeer->Startup(8, &sd1, 1);
 	rakPeer->SetMaximumIncomingConnections(8);
 
 	puts("Enter IP to connect to, or enter for none");
@@ -107,9 +108,10 @@ int main(void)
 	if (ip[0])
 	{
 		puts("Enter the port to connect to");
-		Gets(serverPort,sizeof(serverPort));
+		Gets(serverPort, sizeof(serverPort));
 		const int intServerPort = atoi(serverPort);
-		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
@@ -117,20 +119,20 @@ int main(void)
 
 		RakSleep(1000);
 
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 			;
 
 		MafiaNet::BitStream testBs;
 		testBs.WriteCompressed("testData");
-	//	rpc.Signal("Event1", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
+		//	rpc.Signal("Event1", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
 
 		RakSleep(100);
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), rakPeer->Receive())
 			;
 
 		// Needs 2 program instances, because while the call is blocking rakPeer2->Receive() isn't getting called
 		MafiaNet::BitStream testBlockingReturn;
-		rpc.CallBlocking("Blocking", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),&testBlockingReturn);
+		rpc.CallBlocking("Blocking", &testBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, rakPeer->GetSystemAddressFromIndex(0), &testBlockingReturn);
 
 		MafiaNet::RakString data;
 		testBlockingReturn.ReadCompressed(data);
@@ -140,16 +142,16 @@ int main(void)
 	{
 		printf("Waiting for connections.\n");
 
-		for(;;)
+		for (;;)
 		{
 			RakSleep(100);
-			for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+			for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 				;
 		}
 	}
-	
 
-	rakPeer->Shutdown(100,0);
+
+	rakPeer->Shutdown(100, 0);
 	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 1;

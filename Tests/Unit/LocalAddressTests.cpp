@@ -16,32 +16,32 @@ using namespace MafiaNet;
 
 namespace
 {
-	const char kUnassignedLabel[] = "UNASSIGNED_SYSTEM_ADDRESS";
+const char kUnassignedLabel[] = "UNASSIGNED_SYSTEM_ADDRESS";
 
-	// GetNumberOfAddresses must return exactly the number of leading assigned
-	// entries in the local address list: every index below the count is a real
-	// address, and the entry at the count (when one exists) is unassigned.
-	void ExpectAddressCountMatchesList(RakPeerInterface *peer)
+// GetNumberOfAddresses must return exactly the number of leading assigned
+// entries in the local address list: every index below the count is a real
+// address, and the entry at the count (when one exists) is unassigned.
+void ExpectAddressCountMatchesList(RakPeerInterface *peer)
+{
+	const unsigned int count = peer->GetNumberOfAddresses();
+	ASSERT_GE(count, 1u) << "every host has at least one local address";
+	ASSERT_LE(count, (unsigned int) MAXIMUM_NUMBER_OF_INTERNAL_IDS);
+
+	for (unsigned int i = 0; i < count; ++i)
 	{
-		const unsigned int count = peer->GetNumberOfAddresses();
-		ASSERT_GE(count, 1u) << "every host has at least one local address";
-		ASSERT_LE(count, (unsigned int) MAXIMUM_NUMBER_OF_INTERNAL_IDS);
-
-		for (unsigned int i = 0; i < count; ++i)
-		{
-			const std::string ip = peer->GetLocalIP(i);
-			EXPECT_FALSE(ip.empty()) << "index " << i;
-			EXPECT_NE(ip, kUnassignedLabel)
-				<< "GetNumberOfAddresses() returned " << count
-				<< " but index " << i << " is unassigned";
-		}
-
-		if (count < MAXIMUM_NUMBER_OF_INTERNAL_IDS)
-		{
-			EXPECT_EQ(std::string(peer->GetLocalIP(count)), kUnassignedLabel)
-				<< "count " << count << " is not the exact end of the address list";
-		}
+		const std::string ip = peer->GetLocalIP(i);
+		EXPECT_FALSE(ip.empty()) << "index " << i;
+		EXPECT_NE(ip, kUnassignedLabel)
+		    << "GetNumberOfAddresses() returned " << count
+		    << " but index " << i << " is unassigned";
 	}
+
+	if (count < MAXIMUM_NUMBER_OF_INTERNAL_IDS)
+	{
+		EXPECT_EQ(std::string(peer->GetLocalIP(count)), kUnassignedLabel)
+		    << "count " << count << " is not the exact end of the address list";
+	}
+}
 }
 
 // An unstarted peer fills the address list on demand.

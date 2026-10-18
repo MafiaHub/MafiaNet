@@ -10,7 +10,7 @@
 #include "mafianet/dispatcher.h"
 #include "mafianet/peer_handle.h" // Peer, PacketPtr, send()/broadcast()
 #include "mafianet/get_time.h"    // GetTimeMS
-#include "mafianet/sleep.h"      // RakSleep
+#include "mafianet/sleep.h"       // RakSleep
 
 #include <string>
 
@@ -18,28 +18,28 @@ using namespace MafiaNet;
 
 namespace
 {
-	// One typed message, registered identically on both ends so encode()/dispatch()
-	// agree on its auto-assigned id (ID_USER_PACKET_ENUM).
-	struct ChatMessage
-	{
-		std::string text;
-		int channel = 0;
+// One typed message, registered identically on both ends so encode()/dispatch()
+// agree on its auto-assigned id (ID_USER_PACKET_ENUM).
+struct ChatMessage
+{
+	std::string text;
+	int channel = 0;
 
-		template <class Ar>
-		void serialize(Ar &ar) { ar & text & channel; }
+	template <class Ar>
+	void serialize(Ar &ar) { ar & text & channel; }
 
-		bool operator==(const ChatMessage &o) const { return text == o.text && channel == o.channel; }
-	};
+	bool operator==(const ChatMessage &o) const { return text == o.text && channel == o.channel; }
+};
 
-	// Pump both peers once, running server-received packets through serverD and
-	// client-received packets through clientD.
-	void Pump(Peer &server, Dispatcher &serverD, Peer &client, Dispatcher &clientD)
-	{
-		for (auto pkt : server.incoming())
-			serverD.dispatch(pkt);
-		for (auto pkt : client.incoming())
-			clientD.dispatch(pkt);
-	}
+// Pump both peers once, running server-received packets through serverD and
+// client-received packets through clientD.
+void Pump(Peer &server, Dispatcher &serverD, Peer &client, Dispatcher &clientD)
+{
+	for (auto pkt : server.incoming())
+		serverD.dispatch(pkt);
+	for (auto pkt : client.incoming())
+		clientD.dispatch(pkt);
+}
 }
 
 class TypedSendLive : public ::testing::Test
@@ -68,7 +68,7 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 
 	SocketDescriptor clientSd;
 	ASSERT_TRUE(clientA->Startup(1, &clientSd, 1) == RAKNET_STARTED && clientB->Startup(1, &clientSd, 1) == RAKNET_STARTED)
-		<< "Client Startup failed";
+	    << "Client Startup failed";
 
 	SystemAddress serverAddress;
 	serverAddress.SetBinaryAddress("127.0.0.1");
@@ -79,30 +79,35 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	ChatMessage lastChat;
 	RakNetGUID lastChatGuid;
 	Dispatcher serverD;
-	serverD.on<ChatMessage>([&](const ChatMessage &m, const Sender &from) {
+	serverD.on<ChatMessage>([&](const ChatMessage &m, const Sender &from)
+	                        {
 		++chatReceived;
 		lastChat = m;
-		lastChatGuid = from.guid();
-	});
+		lastChatGuid = from.guid(); });
 
 	// Each client dispatcher registers ChatMessage in the same order -> same id.
 	int chatA = 0, chatB = 0;
 	ChatMessage lastA, lastB;
 	Dispatcher clientAD, clientBD;
-	clientAD.on<ChatMessage>([&](const ChatMessage &m, const Sender &) { ++chatA; lastA = m; });
-	clientBD.on<ChatMessage>([&](const ChatMessage &m, const Sender &) { ++chatB; lastB = m; });
+	clientAD.on<ChatMessage>([&](const ChatMessage &m, const Sender &)
+	                         { ++chatA; lastA = m; });
+	clientBD.on<ChatMessage>([&](const ChatMessage &m, const Sender &)
+	                         { ++chatB; lastB = m; });
 
 	ASSERT_TRUE(clientA->Connect("127.0.0.1", serverPort, 0, 0) == CONNECTION_ATTEMPT_STARTED &&
 	            clientB->Connect("127.0.0.1", serverPort, 0, 0) == CONNECTION_ATTEMPT_STARTED)
-		<< "Connect did not start";
+	    << "Connect did not start";
 
 	// Wait until the server reports two connected systems.
 	TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 10000 && server->NumberOfConnections() < 2)
 	{
-		for (auto pkt : server.incoming()) (void) pkt;
-		for (auto pkt : clientA.incoming()) (void) pkt;
-		for (auto pkt : clientB.incoming()) (void) pkt;
+		for (auto pkt : server.incoming())
+			(void) pkt;
+		for (auto pkt : clientA.incoming())
+			(void) pkt;
+		for (auto pkt : clientB.incoming())
+			(void) pkt;
 		RakSleep(30);
 	}
 	ASSERT_GE(server->NumberOfConnections(), 2u) << "Both clients did not connect within 10s";
@@ -118,11 +123,12 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	while (GetTimeMS() - start < 5000 && chatReceived < 1)
 	{
 		Pump(server, serverD, clientA, clientAD);
-		for (auto pkt : clientB.incoming()) clientBD.dispatch(pkt);
+		for (auto pkt : clientB.incoming())
+			clientBD.dispatch(pkt);
 		RakSleep(30);
 	}
 	ASSERT_TRUE(chatReceived >= 1 && lastChat == m1)
-		<< "Default send did not round-trip (received=" << chatReceived << ")";
+	    << "Default send did not round-trip (received=" << chatReceived << ")";
 	ASSERT_EQ(lastChatGuid, clientA->GetMyGUID()) << "Sender guid mismatch on default send";
 
 	// --- 2. Reliability overridable per call: clientA -> server, ReliableSequenced ---
@@ -130,17 +136,18 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	m2.text = "explicit reliability";
 	m2.channel = -1;
 	ASSERT_NE(clientA.send(clientAD, m2, serverAddress, Reliability::ReliableSequenced), 0u)
-		<< "Explicit-reliability send returned a 0 receipt";
+	    << "Explicit-reliability send returned a 0 receipt";
 
 	start = GetTimeMS();
 	while (GetTimeMS() - start < 5000 && chatReceived < 2)
 	{
 		Pump(server, serverD, clientA, clientAD);
-		for (auto pkt : clientB.incoming()) clientBD.dispatch(pkt);
+		for (auto pkt : clientB.incoming())
+			clientBD.dispatch(pkt);
 		RakSleep(30);
 	}
 	ASSERT_TRUE(chatReceived >= 2 && lastChat == m2)
-		<< "Explicit-reliability send did not round-trip (received=" << chatReceived << ")";
+	    << "Explicit-reliability send did not round-trip (received=" << chatReceived << ")";
 
 	// --- 3. Broadcast reaches every connected peer: server -> {clientA, clientB} ---
 	ChatMessage bc;
@@ -151,12 +158,15 @@ TEST_F(TypedSendLive, SendDeliversTypedMessagesAndBroadcastReachesAllPeers)
 	start = GetTimeMS();
 	while (GetTimeMS() - start < 5000 && (chatA < 1 || chatB < 1))
 	{
-		for (auto pkt : server.incoming()) serverD.dispatch(pkt);
-		for (auto pkt : clientA.incoming()) clientAD.dispatch(pkt);
-		for (auto pkt : clientB.incoming()) clientBD.dispatch(pkt);
+		for (auto pkt : server.incoming())
+			serverD.dispatch(pkt);
+		for (auto pkt : clientA.incoming())
+			clientAD.dispatch(pkt);
+		for (auto pkt : clientB.incoming())
+			clientBD.dispatch(pkt);
 		RakSleep(30);
 	}
 	ASSERT_TRUE(chatA >= 1 && chatB >= 1)
-		<< "Broadcast did not reach both clients (A=" << chatA << " B=" << chatB << ")";
+	    << "Broadcast did not reach both clients (A=" << chatA << " B=" << chatB << ")";
 	ASSERT_TRUE(lastA == bc && lastB == bc) << "Broadcast payload mismatch";
 }

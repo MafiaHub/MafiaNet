@@ -19,7 +19,7 @@
 
 
 #ifndef __MESSAGE_IDENTIFIERS_H
-#define __MESSAGE_IDENTIFIERS_H 
+#define __MESSAGE_IDENTIFIERS_H
 
 #if defined(RAKNET_USE_CUSTOM_PACKET_IDS)
 #include "CustomPacketIdentifiers.h"
@@ -44,15 +44,15 @@ enum OutOfBandIdentifiers
 };
 
 /// You should not edit the file message_identifiers.h as it is a part of RakNet static library
-/// To define your own message id, define an enum following the code example that follows. 
+/// To define your own message id, define an enum following the code example that follows.
 ///
 /// \code
 /// enum {
 ///   ID_MYPROJECT_MSG_1 = ID_USER_PACKET_ENUM,
-///   ID_MYPROJECT_MSG_2, 
-///    ... 
+///   ID_MYPROJECT_MSG_2,
+///    ...
 /// };
-/// \endcode 
+/// \endcode
 ///
 /// \note All these enumerations should be casted to (unsigned char) before writing them to MafiaNet::BitStream
 enum DefaultMessageIDTypes
@@ -63,7 +63,7 @@ enum DefaultMessageIDTypes
 	//
 	/// These types are never returned to the user.
 	/// Ping from a connected system.  Update timestamps (internal use only)
-	ID_CONNECTED_PING,  
+	ID_CONNECTED_PING,
 	/// Ping from an unconnected system.  Reply but do not update timestamps. (internal use only)
 	ID_UNCONNECTED_PING,
 	/// Ping from an unconnected system.  Only reply if we have open connections. Do not update timestamps. (internal use only)
@@ -108,7 +108,7 @@ enum DefaultMessageIDTypes
 	/// message did not arrive (it may or may not have been delivered, probably not). On disconnect or shutdown, you will not get
 	/// ID_SND_RECEIPT_LOSS for unsent messages, you should consider those messages as all lost.
 	ID_SND_RECEIPT_LOSS,
-	
+
 
 	//
 	// USER TYPES - DO NOT CHANGE THESE
@@ -116,7 +116,7 @@ enum DefaultMessageIDTypes
 
 	/// RakPeer - In a client/server environment, our connection request to the server has been accepted.
 	ID_CONNECTION_REQUEST_ACCEPTED,
-	/// RakPeer - Sent to the player when a connection request cannot be completed due to inability to connect. 
+	/// RakPeer - Sent to the player when a connection request cannot be completed due to inability to connect.
 	ID_CONNECTION_ATTEMPT_FAILED,
 	/// RakPeer - Sent a connect request to a system we are currently connected to.
 	ID_ALREADY_CONNECTED,
@@ -125,10 +125,10 @@ enum DefaultMessageIDTypes
 	/// RakPeer - The system we attempted to connect to is not accepting new connections.
 	ID_NO_FREE_INCOMING_CONNECTIONS,
 	/// RakPeer - The system specified in Packet::systemAddress has disconnected from us.  For the client, this would mean the
-	/// server has shutdown. 
+	/// server has shutdown.
 	ID_DISCONNECTION_NOTIFICATION,
 	/// RakPeer - Reliable packets cannot be delivered to the system specified in Packet::systemAddress.  The connection to that
-	/// system has been closed. 
+	/// system has been closed.
 	ID_CONNECTION_LOST,
 	/// RakPeer - We are banned from the system we attempted to connect to.
 	ID_CONNECTION_BANNED,
@@ -144,7 +144,7 @@ enum DefaultMessageIDTypes
 	/// RakPeer - The sizeof(RakNetTime) bytes following this byte represent a value which is automatically modified by the difference
 	/// in system times between the sender and the recipient. Requires that you call SetOccasionalPing.
 	ID_TIMESTAMP,
-    /// RakPeer - Pong from an unconnected system.  First byte is ID_UNCONNECTED_PONG, second sizeof(MafiaNet::TimeMS) bytes is the ping,
+	/// RakPeer - Pong from an unconnected system.  First byte is ID_UNCONNECTED_PONG, second sizeof(MafiaNet::TimeMS) bytes is the ping,
 	/// following bytes is system specific enumeration data.
 	/// Read using bitstreams
 	ID_UNCONNECTED_PONG,
@@ -156,7 +156,7 @@ enum DefaultMessageIDTypes
 	/// partLength (unsigned int), first part data (length <= MAX_MTU_SIZE). See the three parameters partCount, partTotal
 	///  and partLength in OnFileProgress in file_list_transfer_cb_interface.h
 	ID_DOWNLOAD_PROGRESS,
-	
+
 	/// ConnectionGraph2 plugin - In a client/server environment, a client other than ourselves has disconnected gracefully.
 	///   Packet::systemAddress is modified to reflect the systemAddress of this client.
 	ID_REMOTE_DISCONNECTION_NOTIFICATION,
@@ -175,19 +175,19 @@ enum DefaultMessageIDTypes
 
 	/// DirectoryDeltaTransfer plugin - Request from a remote system for a download of a directory
 	ID_DDT_DOWNLOAD_REQUEST,
-	
+
 	/// RakNetTransport plugin - Transport provider message, used for remote console
 	ID_TRANSPORT_STRING,
 
- 	/// ReplicaManager plugin - Create an object
+	/// ReplicaManager plugin - Create an object
 	ID_REPLICA_MANAGER_CONSTRUCTION,
- 	/// ReplicaManager plugin - Changed scope of an object
- 	ID_REPLICA_MANAGER_SCOPE_CHANGE,
- 	/// ReplicaManager plugin - Serialized data of an object
+	/// ReplicaManager plugin - Changed scope of an object
+	ID_REPLICA_MANAGER_SCOPE_CHANGE,
+	/// ReplicaManager plugin - Serialized data of an object
 	ID_REPLICA_MANAGER_SERIALIZE,
- 	/// ReplicaManager plugin - New connection, about to send all world objects
+	/// ReplicaManager plugin - New connection, about to send all world objects
 	ID_REPLICA_MANAGER_DOWNLOAD_STARTED,
- 	/// ReplicaManager plugin - Finished downloading all serialized objects
+	/// ReplicaManager plugin - Finished downloading all serialized objects
 	ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE,
 
 	/// RakVoice plugin - Open a communication channel
@@ -316,7 +316,7 @@ enum DefaultMessageIDTypes
 	/// \internal The client has completed processing for all systems designated in ID_FCM2_VERIFIED_JOIN_START
 	ID_FCM2_VERIFIED_JOIN_CAPABLE,
 	/// Client failed to connect to a required systems notified via FullyConnectedMesh2::StartVerifiedJoin()
-	/// RakPeerInterface::CloseConnection() was automatically called for all systems connected due to ID_FCM2_VERIFIED_JOIN_START 
+	/// RakPeerInterface::CloseConnection() was automatically called for all systems connected due to ID_FCM2_VERIFIED_JOIN_START
 	/// Programmer should inform the player via the UI that they cannot join this session, and to choose a different session
 	/// \note Server normally sends us this message, however if connection to the server was lost, message will be returned locally
 	/// \note Only the designated client gets this message
@@ -399,7 +399,7 @@ enum DefaultMessageIDTypes
 	ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS,
 	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS,
 	/// A remote system sent us a challenge using TwoWayAuthentication::Challenge(), and the challenge failed.
-	/// If the other system must pass the challenge to stay connected, you should call RakPeer::CloseConnection() to terminate the connection to the other system. 
+	/// If the other system must pass the challenge to stay connected, you should call RakPeer::CloseConnection() to terminate the connection to the other system.
 	ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE,
 	/// The other system did not add the password we used to TwoWayAuthentication::AddPassword()
 	/// You can read the identifier used to challenge as follows:
@@ -457,7 +457,7 @@ enum DefaultMessageIDTypes
 	// For the user to use.  Start your first enumeration at this value.
 	ID_USER_PACKET_ENUM
 	//-------------------------------------------------------------------------------------------------------------
- 
+
 };
 
 #endif // RAKNET_USE_CUSTOM_PACKET_IDS

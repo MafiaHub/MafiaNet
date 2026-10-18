@@ -24,18 +24,18 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-char * EpochTimeToString(long long time)
+char *EpochTimeToString(long long time)
 {
-	static int textIndex=0;
+	static int textIndex = 0;
 	static char text[4][64];
 
-	if (++textIndex==4)
-		textIndex=0;
+	if (++textIndex == 4)
+		textIndex = 0;
 
 	struct tm timeinfo;
 	time_t t = time;
-	localtime_s ( &timeinfo, &t );
-	strftime (text[textIndex],64,"%c.",&timeinfo);
+	localtime_s(&timeinfo, &t);
+	strftime(text[textIndex], 64, "%c.", &timeinfo);
 
 	/*
 	time_t

@@ -13,19 +13,20 @@ using namespace MafiaNet;
 
 namespace
 {
-	class WorldTestConnection : public Connection_RM3
-	{
-	public:
-		WorldTestConnection(const SystemAddress &sa, RakNetGUID g) : Connection_RM3(sa, g) {}
-		Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
-	};
+class WorldTestConnection : public Connection_RM3
+{
+public:
+	WorldTestConnection(const SystemAddress &sa, RakNetGUID g)
+	    : Connection_RM3(sa, g) {}
+	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
+};
 
-	class WorldTestManager : public ReplicaManager3
-	{
-	public:
-		Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new WorldTestConnection(sa, g); }
-		void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
-	};
+class WorldTestManager : public ReplicaManager3
+{
+public:
+	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new WorldTestConnection(sa, g); }
+	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
+};
 }
 
 TEST(ReplicaManager3Worlds, DefaultWorldIsCounted)

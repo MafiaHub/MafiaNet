@@ -33,7 +33,7 @@
 #include "mafianet/osx_adapter.h"
 using namespace MafiaNet;
 
-#if LIBCAT_SECURITY!=1
+#if LIBCAT_SECURITY != 1
 #error "Define LIBCAT_SECURITY 1 in native_feature_includes_overrides.h to enable Encryption"
 #endif
 
@@ -56,58 +56,58 @@ void PrintPacketHeader(Packet *packet)
 {
 	switch (packet->data[0])
 	{
-		case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
-			printf("Connection request failed - Remote system requires secure connections, pass a public key to RakPeerInterface::Connect()\n");
-			break;
-		case ID_OUR_SYSTEM_REQUIRES_SECURITY:
-			printf("Connection request failed - We passed a public key to RakPeerInterface::Connect(), but the other system did not have security turned on\n");
-			break;
-		case ID_PUBLIC_KEY_MISMATCH:
-			printf("Connection request failed - Wrong public key passed to Connect().\n");
-			break;
-		case ID_CONNECTION_REQUEST_ACCEPTED:
-			printf("Connection request accepted.\n");
-			break;
-		case ID_CONNECTION_ATTEMPT_FAILED:
-			printf("Connection request FAILED.\n");
-			break;
-		case ID_NEW_INCOMING_CONNECTION:
-			{
-				char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
+	case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
+		printf("Connection request failed - Remote system requires secure connections, pass a public key to RakPeerInterface::Connect()\n");
+		break;
+	case ID_OUR_SYSTEM_REQUIRES_SECURITY:
+		printf("Connection request failed - We passed a public key to RakPeerInterface::Connect(), but the other system did not have security turned on\n");
+		break;
+	case ID_PUBLIC_KEY_MISMATCH:
+		printf("Connection request failed - Wrong public key passed to Connect().\n");
+		break;
+	case ID_CONNECTION_REQUEST_ACCEPTED:
+		printf("Connection request accepted.\n");
+		break;
+	case ID_CONNECTION_ATTEMPT_FAILED:
+		printf("Connection request FAILED.\n");
+		break;
+	case ID_NEW_INCOMING_CONNECTION:
+	{
+		char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
 
-				printf("New incoming connection.\n");
+		printf("New incoming connection.\n");
 
-				if (rakPeer1->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key))
-				{
-					printf("Client public key:\n");
-					for (int ii = 0; ii < (int)sizeof(client_public_key); ++ii)
-						printf("%02x ", (cat::u8)client_public_key[ii]);
-					printf("\n");
-				}
-				else
-				{
-					printf("Server: New connected client provided no public key. (This is an error if you are doing two-way authentication)\n");
-				}
-
-				// Transmit test message
-				MafiaNet::BitStream testBlockLargerThanMTU;
-				testBlockLargerThanMTU.Write((MessageID) ID_USER_PACKET_ENUM);
-				testBlockLargerThanMTU.PadWithZeroToByteLength(10000);
-				rakPeer1->Send(&testBlockLargerThanMTU, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
-			}
-			break;
-		case ID_USER_PACKET_ENUM:
-			printf("Got test message\n");
-			break;
-		case ID_DISCONNECTION_NOTIFICATION:
-			printf("RakPeer - The system specified in Packet::systemAddress has disconnected from us.  For the client, this would mean the server has shutdown.\n");
-			break;
-		default:
-			printf("Got type %i : ", (int)packet->data[0]);
-			for (int ii = 0; ii < (int)packet->length; ++ii)
-				printf("%02x ", (cat::u8)packet->data[ii]);
+		if (rakPeer1->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key))
+		{
+			printf("Client public key:\n");
+			for (int ii = 0; ii < (int) sizeof(client_public_key); ++ii)
+				printf("%02x ", (cat::u8) client_public_key[ii]);
 			printf("\n");
-			break;
+		}
+		else
+		{
+			printf("Server: New connected client provided no public key. (This is an error if you are doing two-way authentication)\n");
+		}
+
+		// Transmit test message
+		MafiaNet::BitStream testBlockLargerThanMTU;
+		testBlockLargerThanMTU.Write((MessageID) ID_USER_PACKET_ENUM);
+		testBlockLargerThanMTU.PadWithZeroToByteLength(10000);
+		rakPeer1->Send(&testBlockLargerThanMTU, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
+	}
+	break;
+	case ID_USER_PACKET_ENUM:
+		printf("Got test message\n");
+		break;
+	case ID_DISCONNECTION_NOTIFICATION:
+		printf("RakPeer - The system specified in Packet::systemAddress has disconnected from us.  For the client, this would mean the server has shutdown.\n");
+		break;
+	default:
+		printf("Got type %i : ", (int) packet->data[0]);
+		for (int ii = 0; ii < (int) packet->length; ++ii)
+			printf("%02x ", (cat::u8) packet->data[ii]);
+		printf("\n");
+		break;
 	}
 }
 
@@ -118,12 +118,12 @@ int main(void)
 
 	bool doTwoWayAuthentication;
 	FILE *fp;
-	rakPeer1=RakPeerInterface::GetInstance();
-	rakPeer2=RakPeerInterface::GetInstance();
+	rakPeer1 = RakPeerInterface::GetInstance();
+	rakPeer2 = RakPeerInterface::GetInstance();
 	Packet *packet;
 	bool peer1GotMessage, peer2GotMessage;
 
-	keyLoaded=false;
+	keyLoaded = false;
 
 	printf("Demonstrates how to setup RakNet to use secure connections\n");
 	printf("Also shows how to read and write keys to and from disk\n");
@@ -140,11 +140,11 @@ int main(void)
 	char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
 	char client_private_key[cat::EasyHandshake::PRIVATE_KEY_BYTES];
 
-	for(;;)
+	for (;;)
 	{
 		Gets(str, sizeof(str));
 
-		if (str[0]=='1')
+		if (str[0] == '1')
 		{
 			printf("Generating keys...");
 
@@ -152,23 +152,23 @@ int main(void)
 			if (!handshake.GenerateServerKey(public_key, private_key))
 			{
 				printf("ERROR:Unable to generate server keys for some reason!\n");
-				keyLoaded=false;
+				keyLoaded = false;
 			}
 			else
 			{
-				keyLoaded=true;
+				keyLoaded = true;
 				printf("Keys generated.  Save to disk? (y/n)\n");
 
 				Gets(str, sizeof(str));
-				if (str[0]=='y' || str[0]=='Y')
+				if (str[0] == 'y' || str[0] == 'Y')
 				{
-						printf("Enter filename to save public key to: ");
+					printf("Enter filename to save public key to: ");
 					Gets(str, sizeof(str));
 					if (str[0])
 					{
 						printf("Writing public key... ");
 						fopen_s(&fp, str, "wb");
-							fwrite(public_key, sizeof(public_key), 1, fp);
+						fwrite(public_key, sizeof(public_key), 1, fp);
 						fclose(fp);
 						printf("Done.\n");
 					}
@@ -181,7 +181,7 @@ int main(void)
 					{
 						printf("Writing private key... ");
 						fopen_s(&fp, str, "wb");
-							fwrite(private_key, sizeof(private_key), 1, fp);
+						fwrite(private_key, sizeof(private_key), 1, fp);
 						fclose(fp);
 						printf("Done.\n");
 					}
@@ -191,7 +191,7 @@ int main(void)
 			}
 			PrintOptions();
 		}
-		else if (str[0]=='2')
+		else if (str[0] == '2')
 		{
 			printf("Enter filename to load public key from: ");
 			Gets(str, sizeof(str));
@@ -214,7 +214,7 @@ int main(void)
 							fread(private_key, sizeof(private_key), 1, fp);
 							fclose(fp);
 							printf("Done.\n");
-							keyLoaded=true;
+							keyLoaded = true;
 						}
 						else
 						{
@@ -234,7 +234,7 @@ int main(void)
 
 			PrintOptions();
 		}
-		else if (str[0]=='3' || str[0] == '4')
+		else if (str[0] == '3' || str[0] == '4')
 		{
 			bool run_test = true;
 
@@ -301,11 +301,11 @@ int main(void)
 			else
 			{
 				printf("Initializing peers.\n");
-				SocketDescriptor socketDescriptor(TEST_SERVER_PORT,0);
-				rakPeer1->Startup(8,&socketDescriptor, 1);
+				SocketDescriptor socketDescriptor(TEST_SERVER_PORT, 0);
+				rakPeer1->Startup(8, &socketDescriptor, 1);
 				rakPeer1->SetMaximumIncomingConnections(8);
-				socketDescriptor.port=0;
-				rakPeer2->Startup(1,&socketDescriptor, 1);
+				socketDescriptor.port = 0;
+				rakPeer2->Startup(1, &socketDescriptor, 1);
 				printf("Connecting to server with known public key...\n");
 
 				// Pass in the public key on Connect()
@@ -329,37 +329,37 @@ int main(void)
 				}
 				printf("Running connection for 12 seconds.\n");
 
-				peer1GotMessage=false;
-				peer2GotMessage=false;
+				peer1GotMessage = false;
+				peer2GotMessage = false;
 				TimeMS time = MafiaNet::GetTimeMS() + 12000;
 				while (MafiaNet::GetTimeMS() < time)
 				{
-					packet=rakPeer1->Receive();
+					packet = rakPeer1->Receive();
 					if (packet)
 					{
-						peer1GotMessage=true;
+						peer1GotMessage = true;
 						printf("Host got: ");
 						PrintPacketHeader(packet);
 #if defined(_DEBUG)
 						if (doTwoWayAuthentication)
 						{
 							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-							RakAssert(rakPeer1->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key_copy)==true)
+							RakAssert(rakPeer1->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key_copy) == true)
 						}
 #endif
 						rakPeer1->DeallocatePacket(packet);
 					}
-					packet=rakPeer2->Receive();
+					packet = rakPeer2->Receive();
 					if (packet)
 					{
-						peer2GotMessage=true;
+						peer2GotMessage = true;
 						printf("Connecting system got: ");
 						PrintPacketHeader(packet);
 #if defined(_DEBUG)
 						if (doTwoWayAuthentication)
 						{
 							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-							RakAssert(rakPeer2->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key_copy)==true)
+							RakAssert(rakPeer2->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key_copy) == true)
 						}
 #endif
 						rakPeer2->DeallocatePacket(packet);
@@ -368,26 +368,26 @@ int main(void)
 					RakSleep(30);
 				}
 
-				if (peer1GotMessage==false)
-						printf("ERROR: Host got no packets\n");
-				if (peer2GotMessage==false)
-						printf("ERROR: Connecting system got no packets\n");
+				if (peer1GotMessage == false)
+					printf("ERROR: Host got no packets\n");
+				if (peer2GotMessage == false)
+					printf("ERROR: Connecting system got no packets\n");
 
 				if (peer1GotMessage && peer2GotMessage)
-						printf("Test successful as long as you got no error messages\n");
+					printf("Test successful as long as you got no error messages\n");
 				rakPeer2->Shutdown(0);
 				rakPeer1->Shutdown(0);
 			}
 			PrintOptions();
 		}
-		else if (str[0]=='h' || str[0]=='H')
+		else if (str[0] == 'h' || str[0] == 'H')
 		{
 			PrintOptions();
 		}
-		else if (str[0]=='q' || str[0]=='Q')
+		else if (str[0] == 'q' || str[0] == 'Q')
 			break;
 
-		str[0]=0;
+		str[0] = 0;
 	}
 
 	RakPeerInterface::DestroyInstance(rakPeer1);

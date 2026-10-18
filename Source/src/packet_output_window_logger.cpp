@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 
 #if defined(UNICODE)
 #include "mafianet/wstring.h"
@@ -38,15 +38,15 @@ void PacketOutputWindowLogger::WriteLog([[maybe_unused]] const char *str) // onl
 {
 #if defined(_WIN32)
 
-	#if defined(UNICODE)
+#if defined(UNICODE)
 	MafiaNet::RakWString str2 = str;
-		str2+="\n";
-		OutputDebugString(str2.C_String());
-	#else
+	str2 += "\n";
+	OutputDebugString(str2.C_String());
+#else
 	MafiaNet::RakString str2 = str;
-		str2+="\n";
-		OutputDebugString(str2.C_String());
-	#endif
+	str2 += "\n";
+	OutputDebugString(str2.C_String());
+#endif
 #endif
 }
 

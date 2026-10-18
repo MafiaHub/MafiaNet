@@ -34,7 +34,7 @@ public:
 	// Call before using a series of WriteVar
 	void StartWrite(void);
 
-	bool IsPastEndOfList(void) const {return nextWriteIndex>=variableList.Size();}
+	bool IsPastEndOfList(void) const { return nextWriteIndex >= variableList.Size(); }
 
 	/// Records the passed value of the variable to memory, and returns true if the value is different from the write before that (or if it is the first write)
 	/// \pre Call StartWrite() before doing the first of a series of calls to WriteVar or other functions that call WriteVar
@@ -44,30 +44,30 @@ public:
 	{
 		MafiaNet::BitStream temp;
 		temp.Write(varData);
-		if (nextWriteIndex>=variableList.Size())
+		if (nextWriteIndex >= variableList.Size())
 		{
-			variableList.Push(VariableLastValueNode(temp.GetData(),temp.GetNumberOfBytesUsed()),_FILE_AND_LINE_);
+			variableList.Push(VariableLastValueNode(temp.GetData(), temp.GetNumberOfBytesUsed()), _FILE_AND_LINE_);
 			nextWriteIndex++;
 			return true; // Different because it's new
 		}
 
-		if (temp.GetNumberOfBytesUsed()!=variableList[nextWriteIndex].byteLength)
+		if (temp.GetNumberOfBytesUsed() != variableList[nextWriteIndex].byteLength)
 		{
-			variableList[nextWriteIndex].lastData=(char*) rakRealloc_Ex(variableList[nextWriteIndex].lastData, temp.GetNumberOfBytesUsed(),_FILE_AND_LINE_);
-			variableList[nextWriteIndex].byteLength=temp.GetNumberOfBytesUsed();
-			memcpy(variableList[nextWriteIndex].lastData,temp.GetData(),temp.GetNumberOfBytesUsed());
-			variableList[nextWriteIndex].isDirty=false;
+			variableList[nextWriteIndex].lastData = (char *) rakRealloc_Ex(variableList[nextWriteIndex].lastData, temp.GetNumberOfBytesUsed(), _FILE_AND_LINE_);
+			variableList[nextWriteIndex].byteLength = temp.GetNumberOfBytesUsed();
+			memcpy(variableList[nextWriteIndex].lastData, temp.GetData(), temp.GetNumberOfBytesUsed());
+			variableList[nextWriteIndex].isDirty = false;
 			nextWriteIndex++;
 			return true; // Different because the serialized size is different
 		}
-		if (variableList[nextWriteIndex].isDirty==false && memcmp(temp.GetData(),variableList[nextWriteIndex].lastData, variableList[nextWriteIndex].byteLength)==0)
+		if (variableList[nextWriteIndex].isDirty == false && memcmp(temp.GetData(), variableList[nextWriteIndex].lastData, variableList[nextWriteIndex].byteLength) == 0)
 		{
 			nextWriteIndex++;
 			return false; // Same because not dirty and memcmp is the same
 		}
 
-		variableList[nextWriteIndex].isDirty=false;
-		memcpy(variableList[nextWriteIndex].lastData,temp.GetData(),temp.GetNumberOfBytesUsed());
+		variableList[nextWriteIndex].isDirty = false;
+		memcpy(variableList[nextWriteIndex].lastData, temp.GetData(), temp.GetNumberOfBytesUsed());
 		nextWriteIndex++;
 		return true; // Different because dirty or memcmp was different
 	}
@@ -88,21 +88,21 @@ public:
 	template <class VarType>
 	bool WriteVarToBitstream(const VarType &varData, MafiaNet::BitStream *bitStream, unsigned char *bArray, unsigned short writeOffset)
 	{
-		if (WriteVarToBitstream(varData,bitStream)==true)
+		if (WriteVarToBitstream(varData, bitStream) == true)
 		{
 			BitSize_t numberOfBitsMod8 = writeOffset & 7;
 
-			if ( numberOfBitsMod8 == 0 )
-				bArray[ writeOffset >> 3 ] = 0x80;
+			if (numberOfBitsMod8 == 0)
+				bArray[writeOffset >> 3] = 0x80;
 			else
-				bArray[ writeOffset >> 3 ] |= 0x80 >> ( numberOfBitsMod8 ); // Set the bit to 1
+				bArray[writeOffset >> 3] |= 0x80 >> (numberOfBitsMod8); // Set the bit to 1
 
 			return true;
 		}
 		else
 		{
-			if ( ( writeOffset & 7 ) == 0 )
-				bArray[ writeOffset >> 3 ] = 0;
+			if ((writeOffset & 7) == 0)
+				bArray[writeOffset >> 3] = 0;
 
 			return false;
 		}
@@ -113,11 +113,11 @@ public:
 	static bool ReadVarFromBitstream(VarType &varData, MafiaNet::BitStream *bitStream)
 	{
 		bool wasWritten;
-		if (bitStream->Read(wasWritten)==false)
+		if (bitStream->Read(wasWritten) == false)
 			return false;
 		if (wasWritten)
 		{
-			if (bitStream->Read(varData)==false)
+			if (bitStream->Read(varData) == false)
 				return false;
 		}
 		return wasWritten;

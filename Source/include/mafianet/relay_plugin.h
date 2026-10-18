@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_RelayPlugin==1
+#if _RAKNET_SUPPORT_RelayPlugin == 1
 
 #ifndef __RELAY_PLUGIN_H
 #define __RELAY_PLUGIN_H
@@ -78,7 +78,7 @@ public:
 
 	/// \brief Forward messages from any system, to the system specified by the combination of key and guid. The sending system only needs to know the key.
 	/// \param[in] key A string to identify the target's RakNetGUID. This is so the sending system does not need to know the RakNetGUID of the target system. The key should be unique among all guids added. If the key is not unique, only one system will be sent to (at random).
-	/// \param[in] guid The RakNetGuid of the system to send to. If this system disconnects, it is removed from the internal hash 
+	/// \param[in] guid The RakNetGuid of the system to send to. If this system disconnects, it is removed from the internal hash
 	/// \return RPE_ADD_CLIENT_TARGET_NOT_CONNECTED, RPE_ADD_CLIENT_NAME_ALREADY_IN_USE, or RPE_ADD_CLIENT_OK
 	RelayPluginEnums AddParticipantOnServer(const RakString &key, const RakNetGUID &guid);
 
@@ -116,7 +116,7 @@ public:
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 	struct StrAndGuidAndRoom
 	{
@@ -136,24 +136,22 @@ public:
 		RakString roomName;
 		DataStructures::List<StrAndGuid> usersInRoom;
 	};
-	
-protected:
 
-	RelayPlugin::RP_Group* JoinGroup(RakNetGUID userGuid, RakString roomName);
-	RelayPlugin::RP_Group* JoinGroup(RP_Group* room, StrAndGuidAndRoom **strAndGuidSender);
+protected:
+	RelayPlugin::RP_Group *JoinGroup(RakNetGUID userGuid, RakString roomName);
+	RelayPlugin::RP_Group *JoinGroup(RP_Group *room, StrAndGuidAndRoom **strAndGuidSender);
 	void LeaveGroup(StrAndGuidAndRoom **strAndGuidSender);
-	void NotifyUsersInRoom(RP_Group *room, int msg, const RakString& message);
-	void SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream* message, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
+	void NotifyUsersInRoom(RP_Group *room, int msg, const RakString &message);
+	void SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream *message, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
 	void SendChatRoomsList(RakNetGUID target);
 	void OnGroupMessageFromClient(Packet *packet);
 	void OnJoinGroupRequestFromClient(Packet *packet);
 	void OnLeaveGroupRequestFromClient(Packet *packet);
 
-	DataStructures::Hash<RakString, StrAndGuidAndRoom*, 8096, MafiaNet::RakString::ToInteger> strToGuidHash;
-	DataStructures::Hash<RakNetGUID, StrAndGuidAndRoom*, 8096, MafiaNet::RakNetGUID::ToUint32> guidToStrHash;
-	DataStructures::List<RP_Group*> chatRooms;
+	DataStructures::Hash<RakString, StrAndGuidAndRoom *, 8096, MafiaNet::RakString::ToInteger> strToGuidHash;
+	DataStructures::Hash<RakNetGUID, StrAndGuidAndRoom *, 8096, MafiaNet::RakNetGUID::ToUint32> guidToStrHash;
+	DataStructures::List<RP_Group *> chatRooms;
 	bool acceptAddParticipantRequests;
-
 };
 
 } // End namespace

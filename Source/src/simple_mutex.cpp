@@ -17,54 +17,14 @@
 ///
 
 
-
 #include "mafianet/simple_mutex.h"
 #include "mafianet/assert.h"
 
 using namespace MafiaNet;
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 SimpleMutex::SimpleMutex() //: isInitialized(false)
 {
-
-
-
-
-
 
 
 	// Prior implementation of Initializing in Lock() was not threadsafe
@@ -80,20 +40,9 @@ SimpleMutex::~SimpleMutex()
 	DeleteCriticalSection(&criticalSection);
 
 
-
-
-
-
 #else
 	pthread_mutex_destroy(&hMutex);
 #endif
-
-
-
-
-
-
-
 }
 
 #ifdef _WIN32
@@ -104,8 +53,8 @@ SimpleMutex::~SimpleMutex()
 
 void SimpleMutex::Lock(void)
 {
-// 	if (isInitialized==false)
-// 		Init();
+	// 	if (isInitialized==false)
+	// 		Init();
 
 #ifdef _WIN32
 	/*
@@ -140,14 +89,10 @@ void SimpleMutex::Lock(void)
 	EnterCriticalSection(&criticalSection);
 
 
-
-
-
-
 #else
 	int error = pthread_mutex_lock(&hMutex);
 	(void) error;
-	RakAssert(error==0);
+	RakAssert(error == 0);
 #endif
 }
 
@@ -161,7 +106,7 @@ void SimpleMutex::Unlock(void)
 #else
 	int error = pthread_mutex_unlock(&hMutex);
 	(void) error;
-	RakAssert(error==0);
+	RakAssert(error == 0);
 #endif
 }
 
@@ -183,7 +128,7 @@ void SimpleMutex::Init(void)
 #else
 	int error = pthread_mutex_init(&hMutex, 0);
 	(void) error;
-	RakAssert(error==0);
+	RakAssert(error == 0);
 #endif
-//	isInitialized=true;
+	//	isInitialized=true;
 }

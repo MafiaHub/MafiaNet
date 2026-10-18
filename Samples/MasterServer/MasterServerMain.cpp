@@ -37,7 +37,9 @@
 
 using namespace MafiaNet;
 
-#define READCHAR(arg) Gets(arg, sizeof(arg)); ch=arg[0];
+#define READCHAR(arg)       \
+	Gets(arg, sizeof(arg)); \
+	ch = arg[0];
 
 int main(void)
 {
@@ -71,41 +73,41 @@ int main(void)
 		if (kbhit())
 		{
 			READCHAR(buff);
-			if (ch=='q')
+			if (ch == 'q')
 				break;
-			else if (ch=='p')
+			else if (ch == 'p')
 			{
-				serverListSize=masterServer.GetServerListSize();
-				if (serverListSize==0)
+				serverListSize = masterServer.GetServerListSize();
+				if (serverListSize == 0)
 				{
 					printf("No servers in list\n");
 				}
 				else
 				{
-					for (index=0; index < serverListSize; index++)
+					for (index = 0; index < serverListSize; index++)
 					{
 						printf("%i. ", index);
-						outputString=masterServer.GetServerListRuleAsString(index, "IP", &identiferFound);
+						outputString = masterServer.GetServerListRuleAsString(index, "IP", &identiferFound);
 						if (identiferFound)
 							printf("%s:", outputString);
 						else
 							printf("NO_IP:");
-						outputInt=masterServer.GetServerListRuleAsInt(index, "Port", &identiferFound);
+						outputInt = masterServer.GetServerListRuleAsInt(index, "Port", &identiferFound);
 						if (identiferFound)
 							printf("%i ", outputInt);
 						else
 							printf("NO_PORT ");
-						outputString=masterServer.GetServerListRuleAsString(index, "Game type", &identiferFound);
+						outputString = masterServer.GetServerListRuleAsString(index, "Game type", &identiferFound);
 						if (identiferFound)
 							printf("%s ", outputString);
 						else
 							printf("NIL_GT ");
-						outputString=masterServer.GetServerListRuleAsString(index, "Game name", &identiferFound);
+						outputString = masterServer.GetServerListRuleAsString(index, "Game name", &identiferFound);
 						if (identiferFound)
 							printf("%s ", outputString);
 						else
 							printf("NIL_GN ");
-						outputInt=masterServer.GetServerListRuleAsInt(index, "Score", &identiferFound);
+						outputInt = masterServer.GetServerListRuleAsInt(index, "Score", &identiferFound);
 						if (identiferFound)
 							printf("%i\n", outputInt);
 						else
@@ -113,7 +115,7 @@ int main(void)
 					}
 				}
 			}
-			ch=0;
+			ch = 0;
 		}
 
 		p = testGameMasterServer->Receive();

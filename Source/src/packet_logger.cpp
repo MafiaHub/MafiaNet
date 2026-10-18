@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 
 #include "mafianet/packet_logger.h"
 #include "mafianet/bit_stream.h"
@@ -36,28 +36,27 @@
 
 using namespace MafiaNet;
 
-STATIC_FACTORY_DEFINITIONS(PacketLogger,PacketLogger);
+STATIC_FACTORY_DEFINITIONS(PacketLogger, PacketLogger);
 
 PacketLogger::PacketLogger()
 {
-	printId=true;
-	printAcks=true;
-	prefix[0]=0;
-	suffix[0]=0;
-	logDirectMessages=true;
+	printId = true;
+	printAcks = true;
+	prefix[0] = 0;
+	suffix[0] = 0;
+	logDirectMessages = true;
 }
 PacketLogger::~PacketLogger()
 {
 }
-void PacketLogger::FormatLine(char* into, const char* dir, const char* type, unsigned int reliableMessageNumber, unsigned int frame
-	, unsigned char id, const BitSize_t bitLen, unsigned long long time, const SystemAddress& local, const SystemAddress& remote,
-	unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
+void PacketLogger::FormatLine(char *into, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, unsigned char id, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
+                              unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
 	char numericID[16];
-	const char* idToPrint = nullptr;
+	const char *idToPrint = nullptr;
 	if (printId)
 	{
-		if (splitPacketCount > 0 && splitPacketCount != (unsigned int)-1)
+		if (splitPacketCount > 0 && splitPacketCount != (unsigned int) -1)
 			idToPrint = "(SPLIT PACKET)";
 		else
 			idToPrint = IDTOString(id);
@@ -74,35 +73,33 @@ void PacketLogger::FormatLine(char* into, const char* dir, const char* type, uns
 	FormatLine(into, dir, type, reliableMessageNumber, frame, idToPrint, bitLen, time, local, remote, splitPacketId, splitPacketIndex, splitPacketCount, orderingIndex);
 }
 void PacketLogger::FormatLine(
-char* into, size_t intoLength, const char* dir, const char* type, unsigned int reliableMessageNumber, unsigned int frame, unsigned char id
-, const BitSize_t bitLen, unsigned long long time, const SystemAddress& local, const SystemAddress& remote,
-unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
+    char *into, size_t intoLength, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, unsigned char id, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
+    unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
 	char numericID[16];
-	const char* idToPrint = nullptr;
-	if(printId)
+	const char *idToPrint = nullptr;
+	if (printId)
 	{
-		if (splitPacketCount>0 && splitPacketCount!=(unsigned int)-1)
-			idToPrint="(SPLIT PACKET)";
+		if (splitPacketCount > 0 && splitPacketCount != (unsigned int) -1)
+			idToPrint = "(SPLIT PACKET)";
 		else
-			idToPrint =	IDTOString(id);
+			idToPrint = IDTOString(id);
 	}
 	// If printId is false, idToPrint will be nullptr, as it will
 	// in the case of an unrecognized id. Testing printId for false
 	// would just be redundant.
-	if(idToPrint == nullptr)
+	if (idToPrint == nullptr)
 	{
 		sprintf_s(numericID, "%5u", id);
 		idToPrint = numericID;
 	}
 
-	FormatLine(into, intoLength, dir, type, reliableMessageNumber, frame, idToPrint, bitLen, time, local, remote,splitPacketId,splitPacketIndex,splitPacketCount, orderingIndex);
+	FormatLine(into, intoLength, dir, type, reliableMessageNumber, frame, idToPrint, bitLen, time, local, remote, splitPacketId, splitPacketIndex, splitPacketCount, orderingIndex);
 }
 
 void PacketLogger::FormatLine(
-char* into, size_t intoLength, const char* dir, const char* type, unsigned int reliableMessageNumber, unsigned int frame, const char* idToPrint
-, const BitSize_t bitLen, unsigned long long time, const SystemAddress& local, const SystemAddress& remote,
-unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
+    char *into, size_t intoLength, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, const char *idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
+    unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
 	char str1[64], str2[62];
 	local.ToString(true, str1, static_cast<size_t>(64));
@@ -110,40 +107,22 @@ unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPac
 	char localtime[128];
 	GetLocalTime(localtime);
 	char str3[64];
-	if (reliableMessageNumber==(unsigned int)-1)
+	if (reliableMessageNumber == (unsigned int) -1)
 	{
-		str3[0]='N';
-		str3[1]='/';
-		str3[2]='A';
-		str3[3]=0;
+		str3[0] = 'N';
+		str3[1] = '/';
+		str3[2] = 'A';
+		str3[3] = 0;
 	}
 	else
 	{
-		sprintf_s(str3,"%5u",reliableMessageNumber);
+		sprintf_s(str3, "%5u", reliableMessageNumber);
 	}
 
-	sprintf_s(into, intoLength, "%s,%s%s,%s,%s,%5u,%s,%u,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,%i,%i,%i,%i,%s,"
-					, localtime
-					, prefix
-					, dir
-					, type
-					, str3
-					, frame
-					, idToPrint
-					, bitLen
-					, time
-					, str1
-					, str2
-					, splitPacketId
-					, splitPacketIndex
-					, splitPacketCount
-					, orderingIndex
-					, suffix
-					);
+	sprintf_s(into, intoLength, "%s,%s%s,%s,%s,%5u,%s,%u,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,%i,%i,%i,%i,%s,", localtime, prefix, dir, type, str3, frame, idToPrint, bitLen, time, str1, str2, splitPacketId, splitPacketIndex, splitPacketCount, orderingIndex, suffix);
 }
-void PacketLogger::FormatLine(char* into, const char* dir, const char* type, unsigned int reliableMessageNumber, unsigned int frame
-	, const char* idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress& local, const SystemAddress& remote,
-	unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
+void PacketLogger::FormatLine(char *into, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, const char *idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
+                              unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
 	char str1[64], str2[62];
 	local.ToString(true, str1, static_cast<size_t>(64));
@@ -151,7 +130,7 @@ void PacketLogger::FormatLine(char* into, const char* dir, const char* type, uns
 	char localtime[128];
 	GetLocalTime(localtime);
 	char str3[64];
-	if (reliableMessageNumber == (unsigned int)-1)
+	if (reliableMessageNumber == (unsigned int) -1)
 	{
 		str3[0] = 'N';
 		str3[1] = '/';
@@ -170,35 +149,18 @@ void PacketLogger::FormatLine(char* into, const char* dir, const char* type, uns
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
-	sprintf(into, "%s,%s%s,%s,%s,%5u,%s,%u,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,%i,%i,%i,%i,%s,"
-		, localtime
-		, prefix
-		, dir
-		, type
-		, str3
-		, frame
-		, idToPrint
-		, bitLen
-		, time
-		, str1
-		, str2
-		, splitPacketId
-		, splitPacketIndex
-		, splitPacketCount
-		, orderingIndex
-		, suffix
-	);
+	sprintf(into, "%s,%s%s,%s,%s,%5u,%s,%u,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,%i,%i,%i,%i,%s,", localtime, prefix, dir, type, str3, frame, idToPrint, bitLen, time, str1, str2, splitPacketId, splitPacketIndex, splitPacketCount, orderingIndex, suffix);
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 }
 void PacketLogger::OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
-	if (logDirectMessages==false)
+	if (logDirectMessages == false)
 		return;
 
 	char str[256];
-	FormatLine(str, 256, "Snd", "Raw", 0, 0, data[0], bitsUsed, MafiaNet::GetTimeMS(), rakPeerInterface->GetExternalID(remoteSystemAddress), remoteSystemAddress, (unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
+	FormatLine(str, 256, "Snd", "Raw", 0, 0, data[0], bitsUsed, MafiaNet::GetTimeMS(), rakPeerInterface->GetExternalID(remoteSystemAddress), remoteSystemAddress, (unsigned int) -1, (unsigned int) -1, (unsigned int) -1, (unsigned int) -1);
 	AddToLog(str);
 }
 
@@ -209,11 +171,11 @@ void PacketLogger::LogHeader(void)
 }
 void PacketLogger::OnDirectSocketReceive(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
-	if (logDirectMessages==false)
+	if (logDirectMessages == false)
 		return;
 
 	char str[256];
-	FormatLine(str, 256, "Rcv", "Raw", 0, 0, data[0], bitsUsed, MafiaNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
+	FormatLine(str, 256, "Rcv", "Raw", 0, 0, data[0], bitsUsed, MafiaNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress, (unsigned int) -1, (unsigned int) -1, (unsigned int) -1, (unsigned int) -1);
 	AddToLog(str);
 }
 void PacketLogger::OnReliabilityLayerNotification(const char *errorMessage, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress, bool isError)
@@ -221,12 +183,12 @@ void PacketLogger::OnReliabilityLayerNotification(const char *errorMessage, cons
 	char str[1024];
 	char *type;
 	if (isError)
-		type=(char*) "RcvErr";
+		type = (char *) "RcvErr";
 	else
-		type=(char*) "RcvWrn";
-	FormatLine(str, 1024, type, errorMessage, 0, 0, "", bitsUsed, MafiaNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1,(unsigned int)-1);
+		type = (char *) "RcvWrn";
+	FormatLine(str, 1024, type, errorMessage, 0, 0, "", bitsUsed, MafiaNet::GetTime(), rakPeerInterface->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS), remoteSystemAddress, (unsigned int) -1, (unsigned int) -1, (unsigned int) -1, (unsigned int) -1);
 	AddToLog(str);
-	RakAssert(isError==false);
+	RakAssert(isError == false);
 }
 void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time)
 {
@@ -238,13 +200,7 @@ void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemA
 	char localtime[128];
 	GetLocalTime(localtime);
 
-	sprintf_s(str, "%s,Rcv,Ack,%i,,,,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,,,,,,"
-					, localtime
-					, messageNumber
-					, (unsigned long long) time
-					, str1
-					, str2
-					);
+	sprintf_s(str, "%s,Rcv,Ack,%i,,,,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,,,,,,", localtime, messageNumber, (unsigned long long) time, str1, str2);
 	AddToLog(str);
 }
 void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
@@ -258,46 +214,39 @@ void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, 
 	char localtime[128];
 	GetLocalTime(localtime);
 
-	sprintf_s(str, "%s,Lcl,PBP,,,%s,%i,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,,,,,,"
-					, localtime
-					, BaseIDTOString(data[0])
-					, bitsUsed
-					, (unsigned long long) time
-					, str1
-					, str2
-					);
+	sprintf_s(str, "%s,Lcl,PBP,,,%s,%i,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,,,,,,", localtime, BaseIDTOString(data[0]), bitsUsed, (unsigned long long) time, str1, str2);
 	AddToLog(str);
 }
 void PacketLogger::OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend)
 {
 	char str[256];
 	const char *sendTypes[] =
-	{
-		"Rcv",
-		"Snd",
-		"Err1",
-		"Err2",
-		"Err3",
-		"Err4",
-		"Err5",
-		"Err6",
-	};
+	    {
+	        "Rcv",
+	        "Snd",
+	        "Err1",
+	        "Err2",
+	        "Err3",
+	        "Err4",
+	        "Err5",
+	        "Err6",
+	    };
 	const char *sendType = sendTypes[isSend];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 
 	unsigned int reliableMessageNumber;
-	if (internalPacket->reliability==MafiaNet::Reliability::Unreliable || internalPacket->reliability==MafiaNet::Reliability::UnreliableSequenced || internalPacket->reliability==MafiaNet::Reliability::UnreliableWithAckReceipt)
-		reliableMessageNumber=(unsigned int)-1;
+	if (internalPacket->reliability == MafiaNet::Reliability::Unreliable || internalPacket->reliability == MafiaNet::Reliability::UnreliableSequenced || internalPacket->reliability == MafiaNet::Reliability::UnreliableWithAckReceipt)
+		reliableMessageNumber = (unsigned int) -1;
 	else
-		reliableMessageNumber=internalPacket->reliableMessageNumber;
+		reliableMessageNumber = internalPacket->reliableMessageNumber;
 
-	if (internalPacket->data[0]==ID_TIMESTAMP)
+	if (internalPacket->data[0] == ID_TIMESTAMP)
 	{
-		FormatLine(str, 256, sendType, "Tms", reliableMessageNumber, frameNumber, internalPacket->data[1+sizeof(MafiaNet::Time)], internalPacket->dataBitLength, (unsigned long long)time, localSystemAddress, remoteSystemAddress, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex);
+		FormatLine(str, 256, sendType, "Tms", reliableMessageNumber, frameNumber, internalPacket->data[1 + sizeof(MafiaNet::Time)], internalPacket->dataBitLength, (unsigned long long) time, localSystemAddress, remoteSystemAddress, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex);
 	}
 	else
 	{
-		FormatLine(str, 256, sendType, "Nrm", reliableMessageNumber, frameNumber, internalPacket->data[0], internalPacket->dataBitLength, (unsigned long long)time, localSystemAddress, remoteSystemAddress, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex);
+		FormatLine(str, 256, sendType, "Nrm", reliableMessageNumber, frameNumber, internalPacket->data[0], internalPacket->dataBitLength, (unsigned long long) time, localSystemAddress, remoteSystemAddress, internalPacket->splitPacketId, internalPacket->splitPacketIndex, internalPacket->splitPacketCount, internalPacket->orderingIndex);
 	}
 
 	AddToLog(str);
@@ -320,182 +269,175 @@ void PacketLogger::WriteMiscellaneous(const char *type, const char *msg)
 	char localtime[128];
 	GetLocalTime(localtime);
 
-	sprintf_s(str, "%s,Lcl,%s,,,,,%" PRINTF_64_BIT_MODIFIER "u,%s,,,,,,,%s"
-					, localtime
-					, type
-					, (unsigned long long) time
-					, str1
-					, msg
-					);
+	sprintf_s(str, "%s,Lcl,%s,,,,,%" PRINTF_64_BIT_MODIFIER "u,%s,,,,,,,%s", localtime, type, (unsigned long long) time, str1, msg);
 
 	AddToLog(msg);
 }
 void PacketLogger::SetPrintID(bool print)
 {
-	printId=print;
+	printId = print;
 }
 void PacketLogger::SetPrintAcks(bool print)
 {
-	printAcks=print;
+	printAcks = print;
 }
-const char* PacketLogger::BaseIDTOString(unsigned char Id)
+const char *PacketLogger::BaseIDTOString(unsigned char Id)
 {
 	if (Id >= ID_USER_PACKET_ENUM)
-        return 0;
+		return 0;
 
-	const char *IDTable[((int)ID_USER_PACKET_ENUM)+1]=
-	{
-		"ID_CONNECTED_PING",
-		"ID_UNCONNECTED_PING",
-		"ID_UNCONNECTED_PING_OPEN_CONNECTIONS",
-		"ID_CONNECTED_PONG",
-		"ID_DETECT_LOST_CONNECTIONS",
-		"ID_OPEN_CONNECTION_REQUEST_1",
-		"ID_OPEN_CONNECTION_REPLY_1",
-		"ID_OPEN_CONNECTION_REQUEST_2",
-		"ID_OPEN_CONNECTION_REPLY_2",
-		"ID_CONNECTION_REQUEST",
-		"ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY",
-		"ID_OUR_SYSTEM_REQUIRES_SECURITY",
-		"ID_PUBLIC_KEY_MISMATCH",
-		"ID_OUT_OF_BAND_INTERNAL",
-		"ID_SND_RECEIPT_ACKED",
-		"ID_SND_RECEIPT_LOSS",
-		"ID_CONNECTION_REQUEST_ACCEPTED",
-		"ID_CONNECTION_ATTEMPT_FAILED",
-		"ID_ALREADY_CONNECTED",
-		"ID_NEW_INCOMING_CONNECTION",
-		"ID_NO_FREE_INCOMING_CONNECTIONS",
-		"ID_DISCONNECTION_NOTIFICATION",
-		"ID_CONNECTION_LOST",
-		"ID_CONNECTION_BANNED",
-		"ID_INVALID_PASSWORD",
-		"ID_INCOMPATIBLE_PROTOCOL_VERSION",
-		"ID_IP_RECENTLY_CONNECTED",
-		"ID_TIMESTAMP",
-		"ID_UNCONNECTED_PONG",
-		"ID_ADVERTISE_SYSTEM",
-		"ID_DOWNLOAD_PROGRESS",
-		"ID_REMOTE_DISCONNECTION_NOTIFICATION",
-		"ID_REMOTE_CONNECTION_LOST",
-		"ID_REMOTE_NEW_INCOMING_CONNECTION",
-		"ID_FILE_LIST_TRANSFER_HEADER",
-		"ID_FILE_LIST_TRANSFER_FILE",
-		"ID_FILE_LIST_REFERENCE_PUSH_ACK",
-		"ID_DDT_DOWNLOAD_REQUEST",
-		"ID_TRANSPORT_STRING",
-		"ID_REPLICA_MANAGER_CONSTRUCTION",
-		"ID_REPLICA_MANAGER_SCOPE_CHANGE",
-		"ID_REPLICA_MANAGER_SERIALIZE",
-		"ID_REPLICA_MANAGER_DOWNLOAD_STARTED",
-		"ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE",
-		"ID_RAKVOICE_OPEN_CHANNEL_REQUEST",
-		"ID_RAKVOICE_OPEN_CHANNEL_REPLY",
-		"ID_RAKVOICE_CLOSE_CHANNEL",
-		"ID_RAKVOICE_DATA",
-		"ID_RAKVOICE_RELAY_DATA",
-		"ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE",
-		"ID_AUTOPATCHER_CREATION_LIST",
-		"ID_AUTOPATCHER_DELETION_LIST",
-		"ID_AUTOPATCHER_GET_PATCH",
-		"ID_AUTOPATCHER_PATCH_LIST",
-		"ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR",
-		"ID_AUTOPATCHER_CANNOT_DOWNLOAD_ORIGINAL_UNMODIFIED_FILES",
-		"ID_AUTOPATCHER_FINISHED_INTERNAL",
-		"ID_AUTOPATCHER_FINISHED",
-		"ID_AUTOPATCHER_RESTART_APPLICATION",
-		"ID_NAT_PUNCHTHROUGH_REQUEST",
-		"ID_NAT_CONNECT_AT_TIME",
-		"ID_NAT_GET_MOST_RECENT_PORT",
-		"ID_NAT_CLIENT_READY",
-		"ID_NAT_TARGET_NOT_CONNECTED",
-		"ID_NAT_TARGET_UNRESPONSIVE",
-		"ID_NAT_CONNECTION_TO_TARGET_LOST",
-		"ID_NAT_ALREADY_IN_PROGRESS",
-		"ID_NAT_PUNCHTHROUGH_FAILED",
-		"ID_NAT_PUNCHTHROUGH_SUCCEEDED",
-		"ID_READY_EVENT_SET",
-		"ID_READY_EVENT_UNSET",
-		"ID_READY_EVENT_ALL_SET",
-		"ID_READY_EVENT_QUERY",
-		"ID_LOBBY_GENERAL",
-		"ID_RPC_REMOTE_ERROR",
-		"ID_RPC_PLUGIN",
-		"ID_FILE_LIST_REFERENCE_PUSH",
-		"ID_READY_EVENT_FORCE_ALL_SET",
-		"ID_ROOMS_EXECUTE_FUNC",
-		"ID_ROOMS_LOGON_STATUS",
-		"ID_ROOMS_HANDLE_CHANGE",
-		"ID_LOBBY2_SEND_MESSAGE",
-		"ID_LOBBY2_SERVER_ERROR",
-		"ID_FCM2_NEW_HOST",
-		"ID_FCM2_REQUEST_FCMGUID",
-		"ID_FCM2_RESPOND_CONNECTION_COUNT",
-		"ID_FCM2_INFORM_FCMGUID",
-		"ID_FCM2_UPDATE_MIN_TOTAL_CONNECTION_COUNT",
-		"ID_FCM2_VERIFIED_JOIN_START",
-		"ID_FCM2_VERIFIED_JOIN_CAPABLE",
-		"ID_FCM2_VERIFIED_JOIN_FAILED",
-		"ID_FCM2_VERIFIED_JOIN_ACCEPTED",
-		"ID_FCM2_VERIFIED_JOIN_REJECTED",
-		"ID_UDP_PROXY_GENERAL",
-		"ID_SQLite3_EXEC",
-		"ID_SQLite3_UNKNOWN_DB",
-		"ID_SQLLITE_LOGGER",
-		"ID_NAT_TYPE_DETECTION_REQUEST",
-		"ID_NAT_TYPE_DETECTION_RESULT",
-		"ID_ROUTER_2_INTERNAL",
-		"ID_ROUTER_2_FORWARDING_NO_PATH",
-		"ID_ROUTER_2_FORWARDING_ESTABLISHED",
-		"ID_ROUTER_2_REROUTED",
-		"ID_TEAM_BALANCER_INTERNAL",
-		"ID_TEAM_BALANCER_REQUESTED_TEAM_FULL",
-		"ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED",
-		"ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED",
-		"ID_TEAM_BALANCER_TEAM_ASSIGNED",
-		"ID_LIGHTSPEED_INTEGRATION",
-		"ID_XBOX_LOBBY",
-		"ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS",
-		"ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS",
-		"ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE",
-		"ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE",
-		"ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT",
-		"ID_TWO_WAY_AUTHENTICATION_NEGOTIATION",
-		"ID_CLOUD_POST_REQUEST",
-		"ID_CLOUD_RELEASE_REQUEST",
-		"ID_CLOUD_GET_REQUEST",
-		"ID_CLOUD_GET_RESPONSE",
-		"ID_CLOUD_UNSUBSCRIBE_REQUEST",
-		"ID_CLOUD_SERVER_TO_SERVER_COMMAND",
-		"ID_CLOUD_SUBSCRIPTION_NOTIFICATION",
-		"ID_LIB_VOICE",
-		"ID_RELAY_PLUGIN",
-		"ID_NAT_REQUEST_BOUND_ADDRESSES",
-		"ID_NAT_RESPOND_BOUND_ADDRESSES",
-		"ID_FCM2_UPDATE_USER_CONTEXT",
-		"ID_SESSION_CONFIG_REQUEST",
-		"ID_SESSION_CONFIG",
-		"ID_SESSION_CONFIG_REJECTED",
-		"ID_SESSION_CONFIG_STATUS",
-		"ID_SESSION_CONFIG_ABANDONED",
-		"ID_RESERVED_8",
-		"ID_RESERVED_9",
-		"ID_USER_PACKET_ENUM"
-	};
+	const char *IDTable[((int) ID_USER_PACKET_ENUM) + 1] =
+	    {
+	        "ID_CONNECTED_PING",
+	        "ID_UNCONNECTED_PING",
+	        "ID_UNCONNECTED_PING_OPEN_CONNECTIONS",
+	        "ID_CONNECTED_PONG",
+	        "ID_DETECT_LOST_CONNECTIONS",
+	        "ID_OPEN_CONNECTION_REQUEST_1",
+	        "ID_OPEN_CONNECTION_REPLY_1",
+	        "ID_OPEN_CONNECTION_REQUEST_2",
+	        "ID_OPEN_CONNECTION_REPLY_2",
+	        "ID_CONNECTION_REQUEST",
+	        "ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY",
+	        "ID_OUR_SYSTEM_REQUIRES_SECURITY",
+	        "ID_PUBLIC_KEY_MISMATCH",
+	        "ID_OUT_OF_BAND_INTERNAL",
+	        "ID_SND_RECEIPT_ACKED",
+	        "ID_SND_RECEIPT_LOSS",
+	        "ID_CONNECTION_REQUEST_ACCEPTED",
+	        "ID_CONNECTION_ATTEMPT_FAILED",
+	        "ID_ALREADY_CONNECTED",
+	        "ID_NEW_INCOMING_CONNECTION",
+	        "ID_NO_FREE_INCOMING_CONNECTIONS",
+	        "ID_DISCONNECTION_NOTIFICATION",
+	        "ID_CONNECTION_LOST",
+	        "ID_CONNECTION_BANNED",
+	        "ID_INVALID_PASSWORD",
+	        "ID_INCOMPATIBLE_PROTOCOL_VERSION",
+	        "ID_IP_RECENTLY_CONNECTED",
+	        "ID_TIMESTAMP",
+	        "ID_UNCONNECTED_PONG",
+	        "ID_ADVERTISE_SYSTEM",
+	        "ID_DOWNLOAD_PROGRESS",
+	        "ID_REMOTE_DISCONNECTION_NOTIFICATION",
+	        "ID_REMOTE_CONNECTION_LOST",
+	        "ID_REMOTE_NEW_INCOMING_CONNECTION",
+	        "ID_FILE_LIST_TRANSFER_HEADER",
+	        "ID_FILE_LIST_TRANSFER_FILE",
+	        "ID_FILE_LIST_REFERENCE_PUSH_ACK",
+	        "ID_DDT_DOWNLOAD_REQUEST",
+	        "ID_TRANSPORT_STRING",
+	        "ID_REPLICA_MANAGER_CONSTRUCTION",
+	        "ID_REPLICA_MANAGER_SCOPE_CHANGE",
+	        "ID_REPLICA_MANAGER_SERIALIZE",
+	        "ID_REPLICA_MANAGER_DOWNLOAD_STARTED",
+	        "ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE",
+	        "ID_RAKVOICE_OPEN_CHANNEL_REQUEST",
+	        "ID_RAKVOICE_OPEN_CHANNEL_REPLY",
+	        "ID_RAKVOICE_CLOSE_CHANNEL",
+	        "ID_RAKVOICE_DATA",
+	        "ID_RAKVOICE_RELAY_DATA",
+	        "ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE",
+	        "ID_AUTOPATCHER_CREATION_LIST",
+	        "ID_AUTOPATCHER_DELETION_LIST",
+	        "ID_AUTOPATCHER_GET_PATCH",
+	        "ID_AUTOPATCHER_PATCH_LIST",
+	        "ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR",
+	        "ID_AUTOPATCHER_CANNOT_DOWNLOAD_ORIGINAL_UNMODIFIED_FILES",
+	        "ID_AUTOPATCHER_FINISHED_INTERNAL",
+	        "ID_AUTOPATCHER_FINISHED",
+	        "ID_AUTOPATCHER_RESTART_APPLICATION",
+	        "ID_NAT_PUNCHTHROUGH_REQUEST",
+	        "ID_NAT_CONNECT_AT_TIME",
+	        "ID_NAT_GET_MOST_RECENT_PORT",
+	        "ID_NAT_CLIENT_READY",
+	        "ID_NAT_TARGET_NOT_CONNECTED",
+	        "ID_NAT_TARGET_UNRESPONSIVE",
+	        "ID_NAT_CONNECTION_TO_TARGET_LOST",
+	        "ID_NAT_ALREADY_IN_PROGRESS",
+	        "ID_NAT_PUNCHTHROUGH_FAILED",
+	        "ID_NAT_PUNCHTHROUGH_SUCCEEDED",
+	        "ID_READY_EVENT_SET",
+	        "ID_READY_EVENT_UNSET",
+	        "ID_READY_EVENT_ALL_SET",
+	        "ID_READY_EVENT_QUERY",
+	        "ID_LOBBY_GENERAL",
+	        "ID_RPC_REMOTE_ERROR",
+	        "ID_RPC_PLUGIN",
+	        "ID_FILE_LIST_REFERENCE_PUSH",
+	        "ID_READY_EVENT_FORCE_ALL_SET",
+	        "ID_ROOMS_EXECUTE_FUNC",
+	        "ID_ROOMS_LOGON_STATUS",
+	        "ID_ROOMS_HANDLE_CHANGE",
+	        "ID_LOBBY2_SEND_MESSAGE",
+	        "ID_LOBBY2_SERVER_ERROR",
+	        "ID_FCM2_NEW_HOST",
+	        "ID_FCM2_REQUEST_FCMGUID",
+	        "ID_FCM2_RESPOND_CONNECTION_COUNT",
+	        "ID_FCM2_INFORM_FCMGUID",
+	        "ID_FCM2_UPDATE_MIN_TOTAL_CONNECTION_COUNT",
+	        "ID_FCM2_VERIFIED_JOIN_START",
+	        "ID_FCM2_VERIFIED_JOIN_CAPABLE",
+	        "ID_FCM2_VERIFIED_JOIN_FAILED",
+	        "ID_FCM2_VERIFIED_JOIN_ACCEPTED",
+	        "ID_FCM2_VERIFIED_JOIN_REJECTED",
+	        "ID_UDP_PROXY_GENERAL",
+	        "ID_SQLite3_EXEC",
+	        "ID_SQLite3_UNKNOWN_DB",
+	        "ID_SQLLITE_LOGGER",
+	        "ID_NAT_TYPE_DETECTION_REQUEST",
+	        "ID_NAT_TYPE_DETECTION_RESULT",
+	        "ID_ROUTER_2_INTERNAL",
+	        "ID_ROUTER_2_FORWARDING_NO_PATH",
+	        "ID_ROUTER_2_FORWARDING_ESTABLISHED",
+	        "ID_ROUTER_2_REROUTED",
+	        "ID_TEAM_BALANCER_INTERNAL",
+	        "ID_TEAM_BALANCER_REQUESTED_TEAM_FULL",
+	        "ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED",
+	        "ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED",
+	        "ID_TEAM_BALANCER_TEAM_ASSIGNED",
+	        "ID_LIGHTSPEED_INTEGRATION",
+	        "ID_XBOX_LOBBY",
+	        "ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS",
+	        "ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS",
+	        "ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE",
+	        "ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE",
+	        "ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT",
+	        "ID_TWO_WAY_AUTHENTICATION_NEGOTIATION",
+	        "ID_CLOUD_POST_REQUEST",
+	        "ID_CLOUD_RELEASE_REQUEST",
+	        "ID_CLOUD_GET_REQUEST",
+	        "ID_CLOUD_GET_RESPONSE",
+	        "ID_CLOUD_UNSUBSCRIBE_REQUEST",
+	        "ID_CLOUD_SERVER_TO_SERVER_COMMAND",
+	        "ID_CLOUD_SUBSCRIPTION_NOTIFICATION",
+	        "ID_LIB_VOICE",
+	        "ID_RELAY_PLUGIN",
+	        "ID_NAT_REQUEST_BOUND_ADDRESSES",
+	        "ID_NAT_RESPOND_BOUND_ADDRESSES",
+	        "ID_FCM2_UPDATE_USER_CONTEXT",
+	        "ID_SESSION_CONFIG_REQUEST",
+	        "ID_SESSION_CONFIG",
+	        "ID_SESSION_CONFIG_REJECTED",
+	        "ID_SESSION_CONFIG_STATUS",
+	        "ID_SESSION_CONFIG_ABANDONED",
+	        "ID_RESERVED_8",
+	        "ID_RESERVED_9",
+	        "ID_USER_PACKET_ENUM"};
 
-	return (char*)IDTable[Id];
+	return (char *) IDTable[Id];
 }
-const char* PacketLogger::UserIDTOString(unsigned char Id)
+const char *PacketLogger::UserIDTOString(unsigned char Id)
 {
 	// Users should override this
 	static char str[256];
 	Itoa(Id, str, 10);
-	return (const char*) str;
+	return (const char *) str;
 }
-const char* PacketLogger::IDTOString(unsigned char Id)
+const char *PacketLogger::IDTOString(unsigned char Id)
 {
 	const char *out;
-	out=BaseIDTOString(Id);
+	out = BaseIDTOString(Id);
 	if (out)
 		return out;
 	return UserIDTOString(Id);
@@ -503,30 +445,30 @@ const char* PacketLogger::IDTOString(unsigned char Id)
 void PacketLogger::SetPrefix(const char *_prefix)
 {
 	strncpy_s(prefix, _prefix, 255);
-	prefix[255]=0;
+	prefix[255] = 0;
 }
 void PacketLogger::SetSuffix(const char *_suffix)
 {
 	strncpy_s(suffix, _suffix, 255);
-	suffix[255]=0;
+	suffix[255] = 0;
 }
 void PacketLogger::GetLocalTime(char buffer[128])
 {
-#if defined(_WIN32) && !defined(__GNUC__)  && !defined(__GCCXML__)
-    time_t rawtime;
+#if defined(_WIN32) && !defined(__GNUC__) && !defined(__GCCXML__)
+	time_t rawtime;
 	struct timeval tv;
 	// If you get an arror about an incomplete type, just delete this file
 	struct timezone tz;
 	gettimeofday(&tv, &tz);
 	// time ( &rawtime );
-	rawtime=tv.tv_sec;
+	rawtime = tv.tv_sec;
 
 	struct tm timeinfo;
-	localtime_s ( &timeinfo, &rawtime );
-	strftime (buffer,128,"%x %X",&timeinfo);
+	localtime_s(&timeinfo, &rawtime);
+	strftime(buffer, 128, "%x %X", &timeinfo);
 	char buff[32];
 	sprintf_s(buff, ".%i", tv.tv_usec);
-	strcat_s(buffer,128,buff);
+	strcat_s(buffer, 128, buff);
 
 	// Commented version puts the time first
 	/*
@@ -541,12 +483,12 @@ void PacketLogger::GetLocalTime(char buffer[128])
 	strcat_s(buffer,128,buff2);
 	*/
 #else
-    buffer[0]=0;
+	buffer[0] = 0;
 #endif
 }
 void PacketLogger::SetLogDirectMessages(bool send)
 {
-	logDirectMessages=send;
+	logDirectMessages = send;
 }
 
 #endif // _RAKNET_SUPPORT_*

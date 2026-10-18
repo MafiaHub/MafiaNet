@@ -18,10 +18,10 @@ CommonFunctions::~CommonFunctions(void)
 {
 }
 
-bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer,SystemAddress currentSystem,bool isConnected,bool isConnecting,bool isPending,bool isDisconnecting,bool isNotConnected,bool /*isLoopBack*/ , bool isSilentlyDisconnecting)
+bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer, SystemAddress currentSystem, bool isConnected, bool isConnecting, bool isPending, bool isDisconnecting, bool isNotConnected, bool /*isLoopBack*/, bool isSilentlyDisconnecting)
 {
-	ConnectionState connectionState=peer->GetConnectionState(currentSystem);
-	switch(connectionState)
+	ConnectionState connectionState = peer->GetConnectionState(currentSystem);
+	switch (connectionState)
 	{
 	case IS_CONNECTED:
 		return isConnected;
@@ -53,28 +53,27 @@ bool CommonFunctions::ConnectionStateMatchesOptions(RakPeerInterface *peer,Syste
 	}
 }
 
-bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,const char* ip,unsigned short int port,int millisecondsToWait)
+bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer, const char *ip, unsigned short int port, int millisecondsToWait)
 {
 
 	SystemAddress connectToAddress;
 
 	connectToAddress.SetBinaryAddress(ip);
 	connectToAddress.SetPortHostOrder(port);
-	TimeMS entryTime=GetTimeMS();
+	TimeMS entryTime = GetTimeMS();
 
-	while(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true)&&GetTimeMS()-entryTime<(TimeMS)millisecondsToWait)
+	while (!CommonFunctions::ConnectionStateMatchesOptions(peer, connectToAddress, true) && GetTimeMS() - entryTime < (TimeMS) millisecondsToWait)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (peer,connectToAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(peer, connectToAddress, true, true, true, true))
 		{
-			peer->Connect(ip,port,0,0);
+			peer->Connect(ip, port, 0, 0);
 		}
 
 		RakSleep(100);
-
 	}
 
-	if (ConnectionStateMatchesOptions (peer,connectToAddress,true))
+	if (ConnectionStateMatchesOptions(peer, connectToAddress, true))
 	{
 		return 1;
 	}
@@ -82,63 +81,59 @@ bool CommonFunctions::WaitAndConnect(RakPeerInterface *peer,const char* ip,unsig
 	return 0;
 }
 
-void CommonFunctions::DisconnectAndWait(RakPeerInterface *peer,char* ip,unsigned short int port)
+void CommonFunctions::DisconnectAndWait(RakPeerInterface *peer, char *ip, unsigned short int port)
 {
 	SystemAddress targetAddress;
 
 	targetAddress.SetBinaryAddress(ip);
 	targetAddress.SetPortHostOrder(port);
 
-	while(CommonFunctions::ConnectionStateMatchesOptions (peer,targetAddress,true,true,true,true))//disconnect client
+	while (CommonFunctions::ConnectionStateMatchesOptions(peer, targetAddress, true, true, true, true)) //disconnect client
 	{
 
-		peer->CloseConnection (targetAddress,true,0,MafiaNet::Priority::Low); 
+		peer->CloseConnection(targetAddress, true, 0, MafiaNet::Priority::Low);
 	}
-
 }
 
-bool CommonFunctions::WaitForMessageWithID(RakPeerInterface *reciever,int id,int millisecondsToWait)
+bool CommonFunctions::WaitForMessageWithID(RakPeerInterface *reciever, int id, int millisecondsToWait)
 {
 
 	RakTimer timer(millisecondsToWait);
 
 	Packet *packet;
-	while(!timer.IsExpired())
+	while (!timer.IsExpired())
 	{
-		for (packet=reciever->Receive(); packet;reciever->DeallocatePacket(packet), packet=reciever->Receive())
+		for (packet = reciever->Receive(); packet; reciever->DeallocatePacket(packet), packet = reciever->Receive())
 		{
 
 			//printf("Packet %i\n",packet->data[0]);
-			if (packet->data[0]==id)
+			if (packet->data[0] == id)
 			{
 				reciever->DeallocatePacket(packet);
 				return true;
 			}
-
 		}
-
 	}
 
 	return false;
 }
 
-Packet *CommonFunctions::WaitAndReturnMessageWithID(RakPeerInterface *reciever,int id,int millisecondsToWait)
+Packet *CommonFunctions::WaitAndReturnMessageWithID(RakPeerInterface *reciever, int id, int millisecondsToWait)
 {
 
 	RakTimer timer(millisecondsToWait);
 
 	Packet *packet;
-	while(!timer.IsExpired())
+	while (!timer.IsExpired())
 	{
-		for (packet=reciever->Receive(); packet;reciever->DeallocatePacket(packet), packet=reciever->Receive())
+		for (packet = reciever->Receive(); packet; reciever->DeallocatePacket(packet), packet = reciever->Receive())
 		{
 
-		//	printf("Packet %i\n",packet->data[0]);
-			if (packet->data[0]==id)
+			//	printf("Packet %i\n",packet->data[0]);
+			if (packet->data[0] == id)
 			{
 				return packet;
 			}
-
 		}
 
 		// Yield the CPU between drains. Spinning Receive() in a tight loop pins a
@@ -146,7 +141,6 @@ Packet *CommonFunctions::WaitAndReturnMessageWithID(RakPeerInterface *reciever,i
 		// network threads that send/resend reliable traffic (e.g. the reliable
 		// ID_DISCONNECTION_NOTIFICATION) — making the wait time out spuriously.
 		RakSleep(5);
-
 	}
 
 	return 0;

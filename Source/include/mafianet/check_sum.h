@@ -28,14 +28,13 @@ class CheckSum
 {
 
 public:
-	
- /// Default constructor
-	
+	/// Default constructor
+
 	CheckSum()
 	{
 		Clear();
 	}
-	
+
 	void Clear()
 	{
 		sum = 0;
@@ -43,21 +42,21 @@ public:
 		c1 = 52845;
 		c2 = 22719;
 	}
-	
-	void Add ( unsigned int w );
-	
-	
-	void Add ( unsigned short w );
-	
-	void Add ( unsigned char* b, unsigned int length );
-	
-	void Add ( unsigned char b );
-	
-	unsigned int Get ()
+
+	void Add(unsigned int w);
+
+
+	void Add(unsigned short w);
+
+	void Add(unsigned char *b, unsigned int length);
+
+	void Add(unsigned char b);
+
+	unsigned int Get()
 	{
 		return sum;
 	}
-	
+
 protected:
 	unsigned short r;
 	unsigned short c1;

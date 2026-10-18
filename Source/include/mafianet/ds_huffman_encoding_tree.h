@@ -25,7 +25,7 @@
 #include "mafianet/ds_huffman_encoding_tree_node.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/export.h"
-#include "mafianet/ds_linked_list.h" 
+#include "mafianet/ds_linked_list.h"
 
 namespace MafiaNet
 {
@@ -42,21 +42,20 @@ public:
 	/// \param [in] input Array of bytes to encode
 	/// \param [in] sizeInBytes size of \a input
 	/// \param [out] output The bitstream to write to
-	void EncodeArray( unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream * output );
+	void EncodeArray(unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream *output);
 
 	// \brief Decodes an array encoded by EncodeArray().
-	unsigned DecodeArray(MafiaNet::BitStream * input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output );
-	void DecodeArray( unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream * output );
+	unsigned DecodeArray(MafiaNet::BitStream *input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output);
+	void DecodeArray(unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream *output);
 
 	/// \brief Given a frequency table of 256 elements, all with a frequency of 1 or more, generate the tree.
-	void GenerateFromFrequencyTable( unsigned int frequencyTable[ 256 ] );
+	void GenerateFromFrequencyTable(unsigned int frequencyTable[256]);
 
 	/// \brief Free the memory used by the tree.
-	void FreeMemory( void );
+	void FreeMemory(void);
 
 private:
-
-	/// The root node of the tree 
+	/// The root node of the tree
 
 	HuffmanEncodingTreeNode *root;
 
@@ -65,13 +64,13 @@ private:
 
 	struct CharacterEncoding
 	{
-		unsigned char* encoding;
+		unsigned char *encoding;
 		unsigned short bitLength;
 	};
 
-	CharacterEncoding encodingTable[ 256 ];
+	CharacterEncoding encodingTable[256];
 
-	void InsertNodeIntoSortedList( HuffmanEncodingTreeNode * node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList ) const;
+	void InsertNodeIntoSortedList(HuffmanEncodingTreeNode *node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList) const;
 };
 
 } // namespace MafiaNet

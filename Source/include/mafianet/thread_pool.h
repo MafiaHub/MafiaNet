@@ -29,8 +29,8 @@ public:
 	ThreadDataInterface() {}
 	virtual ~ThreadDataInterface() {}
 
-	virtual void* PerThreadFactory(void *context)=0;
-	virtual void PerThreadDestructor(void* factoryResult, void *context)=0;
+	virtual void *PerThreadFactory(void *context) = 0;
+	virtual void PerThreadDestructor(void *factoryResult, void *context) = 0;
 };
 /// A simple class to create worker threads that processes a queue of functions with data.
 /// This class does not allocate or deallocate memory.  It is up to the user to handle memory management.
@@ -48,7 +48,7 @@ struct RAK_DLL_EXPORT ThreadPool
 	/// \param[in] _perThreadInit User callback to return data stored per thread.  Pass 0 if not needed.
 	/// \param[in] _perThreadDeinit User callback to destroy data stored per thread, created by _perThreadInit.  Pass 0 if not needed.
 	/// \return True on success, false on failure.
-	bool StartThreads(int numThreads, int stackSize, void* (*_perThreadInit)()=0, void (*_perThreadDeinit)(void*)=0);
+	bool StartThreads(int numThreads, int stackSize, void *(*_perThreadInit)() = 0, void (*_perThreadDeinit)(void *) = 0);
 
 	// Alternate form of _perThreadDataFactory, _perThreadDataDestructor
 	void SetThreadDataInterface(ThreadDataInterface *tdi, void *context);
@@ -64,7 +64,7 @@ struct RAK_DLL_EXPORT ThreadPool
 	/// not all output was returned, you can iterate through outputQueue and deallocate it there.
 	/// \param[in] workerThreadCallback The function to call from the thread
 	/// \param[in] inputData The parameter to pass to \a userCallback
-	void AddInput(OutputType (*workerThreadCallback)(InputType, bool *returnOutput, void* perThreadData), InputType inputData);
+	void AddInput(OutputType (*workerThreadCallback)(InputType, bool *returnOutput, void *perThreadData), InputType inputData);
 
 	/// Adds to the output queue
 	/// Use it if you want to inject output into the same queue that the system uses. Normally you would not use this. Consider it a convenience function.
@@ -114,7 +114,7 @@ struct RAK_DLL_EXPORT ThreadPool
 	/// Lock the output buffer before calling the functions OutputSize, OutputAtIndex, and RemoveOutputAtIndex
 	/// It is only necessary to lock the input or output while the threads are running
 	void LockOutput(void);
-	
+
 	/// Unlock the output buffer after you are done with the functions OutputSize, GetOutputAtIndex, and RemoveOutputAtIndex
 	void UnlockOutput(void);
 
@@ -153,19 +153,19 @@ protected:
 	// Scan the list, and remove the item you don't want.
 	MafiaNet::SimpleMutex inputQueueMutex, outputQueueMutex, workingThreadCountMutex, runThreadsMutex;
 
-	void* (*perThreadDataFactory)();
-	void (*perThreadDataDestructor)(void*);
+	void *(*perThreadDataFactory)();
+	void (*perThreadDataDestructor)(void *);
 
 	// inputFunctionQueue & inputQueue are paired arrays so if you delete from one at a particular index you must delete from the other
 	// at the same index
-	DataStructures::Queue<OutputType (*)(InputType, bool *, void*)> inputFunctionQueue;
+	DataStructures::Queue<OutputType (*)(InputType, bool *, void *)> inputFunctionQueue;
 	DataStructures::Queue<InputType> inputQueue;
 	DataStructures::Queue<OutputType> outputQueue;
 
 	ThreadDataInterface *threadDataInterface;
 	void *tdiContext;
 
-	
+
 	template <class ThreadInputType, class ThreadOutputType>
 	friend RAK_THREAD_DECLARATION(WorkerThread);
 
@@ -187,7 +187,6 @@ protected:
 	MafiaNet::SimpleMutex numThreadsRunningMutex;
 
 	MafiaNet::SignaledEvent quitAndIncomingDataEvents;
-
 };
 
 #include "mafianet/thread_pool.h"
@@ -202,8 +201,8 @@ protected:
 // disable false-positive warnings 4701/4703 about inputData not being initialized (which it isn't in the case it's used)
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable:4701) // potentially uninitialized local variable
-#pragma warning(disable:4703) // potentially uninitialized local pointer
+#pragma warning(disable : 4701) // potentially uninitialized local variable
+#pragma warning(disable : 4703) // potentially uninitialized local pointer
 #endif
 template <class ThreadInputType, class ThreadOutputType>
 RAK_THREAD_DECLARATION(WorkerThread)
@@ -217,44 +216,43 @@ void* WorkerThread( void* arguments )
 {
 
 
-
-	ThreadPool<ThreadInputType, ThreadOutputType> *threadPool = (ThreadPool<ThreadInputType, ThreadOutputType>*) arguments;
+	ThreadPool<ThreadInputType, ThreadOutputType> *threadPool = (ThreadPool<ThreadInputType, ThreadOutputType> *) arguments;
 
 
 	bool returnOutput;
-	ThreadOutputType (*userCallback)(ThreadInputType, bool *, void*);
+	ThreadOutputType (*userCallback)(ThreadInputType, bool *, void *);
 	ThreadInputType inputData;
 	ThreadOutputType callbackOutput;
 
-	userCallback=0;
+	userCallback = 0;
 
 	void *perThreadData;
 	if (threadPool->perThreadDataFactory)
-		perThreadData=threadPool->perThreadDataFactory();
+		perThreadData = threadPool->perThreadDataFactory();
 	else if (threadPool->threadDataInterface)
-		perThreadData=threadPool->threadDataInterface->PerThreadFactory(threadPool->tdiContext);
+		perThreadData = threadPool->threadDataInterface->PerThreadFactory(threadPool->tdiContext);
 	else
-		perThreadData=0;
+		perThreadData = 0;
 
 	// Increase numThreadsRunning
 	threadPool->numThreadsRunningMutex.Lock();
 	++threadPool->numThreadsRunning;
 	threadPool->numThreadsRunningMutex.Unlock();
 
-	for(;;)
+	for (;;)
 	{
-//#ifdef _WIN32
-		if (userCallback==0)
+		//#ifdef _WIN32
+		if (userCallback == 0)
 		{
 			threadPool->quitAndIncomingDataEvents.WaitOnEvent(1000);
 		}
-// #else
-// 		if (userCallback==0)
-// 			RakSleep(30);
-// #endif
+		// #else
+		// 		if (userCallback==0)
+		// 			RakSleep(30);
+		// #endif
 
 		threadPool->runThreadsMutex.Lock();
-		if (threadPool->runThreads==false)
+		if (threadPool->runThreads == false)
 		{
 			threadPool->runThreadsMutex.Unlock();
 			break;
@@ -266,24 +264,24 @@ void* WorkerThread( void* arguments )
 		threadPool->workingThreadCountMutex.Unlock();
 
 		// Read input data
-		userCallback=0;
+		userCallback = 0;
 		threadPool->inputQueueMutex.Lock();
 		if (threadPool->inputFunctionQueue.Size())
 		{
-			userCallback=threadPool->inputFunctionQueue.Pop();
-			inputData=threadPool->inputQueue.Pop();
+			userCallback = threadPool->inputFunctionQueue.Pop();
+			inputData = threadPool->inputQueue.Pop();
 		}
 		threadPool->inputQueueMutex.Unlock();
 
 		if (userCallback)
 		{
-			callbackOutput=userCallback(inputData, &returnOutput,perThreadData);
+			callbackOutput = userCallback(inputData, &returnOutput, perThreadData);
 			if (returnOutput)
 			{
 				threadPool->outputQueueMutex.Lock();
-				threadPool->outputQueue.Push(callbackOutput, _FILE_AND_LINE_ );
+				threadPool->outputQueue.Push(callbackOutput, _FILE_AND_LINE_);
 				threadPool->outputQueueMutex.Unlock();
-			}			
+			}
 		}
 
 		threadPool->workingThreadCountMutex.Lock();
@@ -295,17 +293,14 @@ void* WorkerThread( void* arguments )
 	threadPool->numThreadsRunningMutex.Lock();
 	--threadPool->numThreadsRunning;
 	threadPool->numThreadsRunningMutex.Unlock();
-	
+
 	if (threadPool->perThreadDataDestructor)
 		threadPool->perThreadDataDestructor(perThreadData);
 	else if (threadPool->threadDataInterface)
 		threadPool->threadDataInterface->PerThreadDestructor(perThreadData, threadPool->tdiContext);
 
 
-
-
 	return 0;
-
 }
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -314,12 +309,11 @@ void* WorkerThread( void* arguments )
 template <class InputType, class OutputType>
 ThreadPool<InputType, OutputType>::ThreadPool()
 {
-	runThreads=false;
-	numThreadsRunning=0;
-	threadDataInterface=0;
-	tdiContext=0;
-	numThreadsWorking=0;
-
+	runThreads = false;
+	numThreadsRunning = 0;
+	threadDataInterface = 0;
+	tdiContext = 0;
+	numThreadsWorking = 0;
 }
 template <class InputType, class OutputType>
 ThreadPool<InputType, OutputType>::~ThreadPool()
@@ -328,13 +322,13 @@ ThreadPool<InputType, OutputType>::~ThreadPool()
 	Clear();
 }
 template <class InputType, class OutputType>
-bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSize, void* (*_perThreadDataFactory)(), void (*_perThreadDataDestructor)(void *))
+bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSize, void *(*_perThreadDataFactory)(), void (*_perThreadDataDestructor)(void *))
 {
 	(void) stackSize;
 
 
 	runThreadsMutex.Lock();
-	if (runThreads==true)
+	if (runThreads == true)
 	{
 		// Already running
 		runThreadsMutex.Unlock();
@@ -344,40 +338,38 @@ bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSi
 
 	quitAndIncomingDataEvents.InitEvent();
 
-	perThreadDataFactory=_perThreadDataFactory;
-	perThreadDataDestructor=_perThreadDataDestructor;
+	perThreadDataFactory = _perThreadDataFactory;
+	perThreadDataDestructor = _perThreadDataDestructor;
 
 	runThreadsMutex.Lock();
-	runThreads=true;
+	runThreads = true;
 	runThreadsMutex.Unlock();
 
-	numThreadsWorking=0;
+	numThreadsWorking = 0;
 	unsigned threadId = 0;
 	(void) threadId;
 	int i;
-	for (i=0; i < numThreads; i++)
+	for (i = 0; i < numThreads; i++)
 	{
 		int errorCode;
 
 
-
-
 		errorCode = MafiaNet::RakThread::Create(WorkerThread<InputType, OutputType>, this);
 
-		if (errorCode!=0)
+		if (errorCode != 0)
 		{
 			StopThreads();
 			return false;
 		}
 	}
 	// Wait for number of threads running to increase to numThreads
-	bool done=false;
-	while (done==false)
+	bool done = false;
+	while (done == false)
 	{
 		RakSleep(50);
 		numThreadsRunningMutex.Lock();
-		if (numThreadsRunning==numThreads)
-			done=true;
+		if (numThreadsRunning == numThreads)
+			done = true;
 		numThreadsRunningMutex.Unlock();
 	}
 
@@ -386,45 +378,43 @@ bool ThreadPool<InputType, OutputType>::StartThreads(int numThreads, int stackSi
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::SetThreadDataInterface(ThreadDataInterface *tdi, void *context)
 {
-	threadDataInterface=tdi;
-	tdiContext=context;
+	threadDataInterface = tdi;
+	tdiContext = context;
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::StopThreads(void)
 {
 	runThreadsMutex.Lock();
-	if (runThreads==false)
+	if (runThreads == false)
 	{
 		runThreadsMutex.Unlock();
 		return;
 	}
 
-	runThreads=false;
+	runThreads = false;
 	runThreadsMutex.Unlock();
 
 	// Wait for number of threads running to decrease to 0
-	bool done=false;
-	while (done==false)
+	bool done = false;
+	while (done == false)
 	{
 		quitAndIncomingDataEvents.SetEvent();
 
 		RakSleep(50);
 		numThreadsRunningMutex.Lock();
-		if (numThreadsRunning==0)
-			done=true;
+		if (numThreadsRunning == 0)
+			done = true;
 		numThreadsRunningMutex.Unlock();
 	}
 
 	quitAndIncomingDataEvents.CloseEvent();
-
-
 }
 template <class InputType, class OutputType>
-void ThreadPool<InputType, OutputType>::AddInput(OutputType (*workerThreadCallback)(InputType, bool *returnOutput, void* perThreadData), InputType inputData)
+void ThreadPool<InputType, OutputType>::AddInput(OutputType (*workerThreadCallback)(InputType, bool *returnOutput, void *perThreadData), InputType inputData)
 {
 	inputQueueMutex.Lock();
-	inputQueue.Push(inputData, _FILE_AND_LINE_ );
-	inputFunctionQueue.Push(workerThreadCallback, _FILE_AND_LINE_ );
+	inputQueue.Push(inputData, _FILE_AND_LINE_);
+	inputFunctionQueue.Push(workerThreadCallback, _FILE_AND_LINE_);
 	inputQueueMutex.Unlock();
 
 	quitAndIncomingDataEvents.SetEvent();
@@ -433,34 +423,34 @@ template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::AddOutput(OutputType outputData)
 {
 	outputQueueMutex.Lock();
-	outputQueue.Push(outputData, _FILE_AND_LINE_ );
+	outputQueue.Push(outputData, _FILE_AND_LINE_);
 	outputQueueMutex.Unlock();
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasOutputFast(void)
 {
-	return outputQueue.IsEmpty()==false;
+	return outputQueue.IsEmpty() == false;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasOutput(void)
 {
 	bool res;
 	outputQueueMutex.Lock();
-	res=outputQueue.IsEmpty()==false;
+	res = outputQueue.IsEmpty() == false;
 	outputQueueMutex.Unlock();
 	return res;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasInputFast(void)
 {
-	return inputQueue.IsEmpty()==false;
+	return inputQueue.IsEmpty() == false;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasInput(void)
 {
 	bool res;
 	inputQueueMutex.Lock();
-	res=inputQueue.IsEmpty()==false;
+	res = inputQueue.IsEmpty() == false;
 	inputQueueMutex.Unlock();
 	return res;
 }
@@ -470,7 +460,7 @@ OutputType ThreadPool<InputType, OutputType>::GetOutput(void)
 	// Real output check
 	OutputType output;
 	outputQueueMutex.Lock();
-	output=outputQueue.Pop();
+	output = outputQueue.Pop();
 	outputQueueMutex.Unlock();
 	return output;
 }
@@ -565,12 +555,12 @@ template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::IsWorking(void)
 {
 	bool isWorking;
-//	workingThreadCountMutex.Lock();
-//	isWorking=numThreadsWorking!=0;
-//	workingThreadCountMutex.Unlock();
+	//	workingThreadCountMutex.Lock();
+	//	isWorking=numThreadsWorking!=0;
+	//	workingThreadCountMutex.Unlock();
 
-//	if (isWorking)
-//		return true;
+	//	if (isWorking)
+	//		return true;
 
 	// Bug fix: Originally the order of these two was reversed.
 	// It's possible with the thread timing that working could have been false, then it picks up the data in the other thread, then it checks
@@ -583,7 +573,7 @@ bool ThreadPool<InputType, OutputType>::IsWorking(void)
 
 	// Need to check is working again, in case the thread was between the first and second checks
 	workingThreadCountMutex.Lock();
-	isWorking=numThreadsWorking!=0;
+	isWorking = numThreadsWorking != 0;
 	workingThreadCountMutex.Unlock();
 
 	return isWorking;
@@ -607,11 +597,11 @@ bool ThreadPool<InputType, OutputType>::WasStarted(void)
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::Pause(void)
 {
-	if (WasStarted()==false)
+	if (WasStarted() == false)
 		return false;
 
 	workingThreadCountMutex.Lock();
-	while (numThreadsWorking>0)
+	while (numThreadsWorking > 0)
 	{
 		RakSleep(30);
 	}
@@ -624,4 +614,3 @@ void ThreadPool<InputType, OutputType>::Resume(void)
 }
 
 #endif
-

@@ -56,7 +56,7 @@ public:
 	int Partition(int low, int high, bool ascending);
 	int GetIndexBySystemAddress(SystemAddress playerID);
 
-	DataStructures::List<GameServer*> serverList;
+	DataStructures::List<GameServer *> serverList;
 };
 
 /// \ingroup MASTER_SERVER_GROUP
@@ -83,7 +83,7 @@ public:
 	// GetServerListRuleAsString should be used for string values
 	unsigned int GetServerListSize(void);
 	int GetServerListRuleAsInt(int serverIndex, char *ruleIdentifier, bool *identifierFound);
-	const char* GetServerListRuleAsString(int serverIndex, char *ruleIdentifier, bool *identifierFound);
+	const char *GetServerListRuleAsString(int serverIndex, char *ruleIdentifier, bool *identifierFound);
 
 protected:
 	void OnAttach(RakPeerInterface *peer);
@@ -120,7 +120,7 @@ protected:
 	// deleteSingleRules means if a match is found and a rule exists in the old
 	// server but not the new, then delete that rule.
 	// Returns the new or updated server
-	GameServer * UpdateServerList(GameServer *gameServer, bool deleteSingleRules, bool *newServerAdded);
+	GameServer *UpdateServerList(GameServer *gameServer, bool deleteSingleRules, bool *newServerAdded);
 
 	RakPeerInterface *rakPeer;
 	GameServerList gameServerList;
@@ -149,13 +149,13 @@ struct GameServer
 	int numberOfKeysFound;
 	Time lastUpdateTime;
 	SystemAddress connectionIdentifier; // The game server
-	SystemAddress originationId; // Only used by the server - the master client SystemAddress
+	SystemAddress originationId;        // Only used by the server - the master client SystemAddress
 	int failedPingResponses;
 	Time nextPingTime;
 
 	// When inserting rules, don't forget that IP and ping should always be added.
 	// These are required for any game server
-	DataStructures::List<GameServerRule*> serverRules;
+	DataStructures::List<GameServerRule *> serverRules;
 };
 
 

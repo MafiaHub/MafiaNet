@@ -46,59 +46,59 @@ thread; each RakPeerInterface is still only ever touched by one thread.
 
 namespace
 {
-	// Observation state for the C-style handlers. The feature under test is what
-	// lets production code AVOID globals; the test itself may use file-static
-	// state to observe what each invocation received.
-	struct Observation
-	{
-		void *firstSlotContext;
-		void *secondSlotContext;
-		int slotInvocations;
-		void *functionContext;
-		int functionInvocations;
-		void *blockingContext;
-		int blockingInvocations;
-	};
-	Observation g_observed;
+// Observation state for the C-style handlers. The feature under test is what
+// lets production code AVOID globals; the test itself may use file-static
+// state to observe what each invocation received.
+struct Observation
+{
+	void *firstSlotContext;
+	void *secondSlotContext;
+	int slotInvocations;
+	void *functionContext;
+	int functionInvocations;
+	void *blockingContext;
+	int blockingInvocations;
+};
+Observation g_observed;
 
-	void ResetObservation()
-	{
-		g_observed.firstSlotContext = nullptr;
-		g_observed.secondSlotContext = nullptr;
-		g_observed.slotInvocations = 0;
-		g_observed.functionContext = nullptr;
-		g_observed.functionInvocations = 0;
-		g_observed.blockingContext = nullptr;
-		g_observed.blockingInvocations = 0;
-	}
+void ResetObservation()
+{
+	g_observed.firstSlotContext = nullptr;
+	g_observed.secondSlotContext = nullptr;
+	g_observed.slotInvocations = 0;
+	g_observed.functionContext = nullptr;
+	g_observed.functionInvocations = 0;
+	g_observed.blockingContext = nullptr;
+	g_observed.blockingInvocations = 0;
+}
 
-	void SlotHandler(MafiaNet::BitStream *userData, Packet *packet, void *context)
-	{
-		(void)userData;
-		(void)packet;
-		if (g_observed.slotInvocations == 0)
-			g_observed.firstSlotContext = context;
-		else
-			g_observed.secondSlotContext = context;
-		g_observed.slotInvocations++;
-	}
+void SlotHandler(MafiaNet::BitStream *userData, Packet *packet, void *context)
+{
+	(void) userData;
+	(void) packet;
+	if (g_observed.slotInvocations == 0)
+		g_observed.firstSlotContext = context;
+	else
+		g_observed.secondSlotContext = context;
+	g_observed.slotInvocations++;
+}
 
-	void FunctionHandler(MafiaNet::BitStream *userData, Packet *packet, void *context)
-	{
-		(void)userData;
-		(void)packet;
-		g_observed.functionContext = context;
-		g_observed.functionInvocations++;
-	}
+void FunctionHandler(MafiaNet::BitStream *userData, Packet *packet, void *context)
+{
+	(void) userData;
+	(void) packet;
+	g_observed.functionContext = context;
+	g_observed.functionInvocations++;
+}
 
-	void BlockingHandler(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context)
-	{
-		(void)userData;
-		(void)packet;
-		g_observed.blockingContext = context;
-		g_observed.blockingInvocations++;
-		returnData->Write((unsigned char)1); // CallBlocking requires a reply to unblock the caller
-	}
+void BlockingHandler(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context)
+{
+	(void) userData;
+	(void) packet;
+	g_observed.blockingContext = context;
+	g_observed.blockingInvocations++;
+	returnData->Write((unsigned char) 1); // CallBlocking requires a reply to unblock the caller
+}
 }
 
 class RPC4Context : public ::testing::Test
@@ -208,14 +208,14 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	// CallBlocking blocks the caller (pumping only the client's Receive), so run
 	// it on a worker thread while the main thread drives the server.
 	MafiaNet::BitStream blockingParams;
-	blockingParams.Write((unsigned char)42);
+	blockingParams.Write((unsigned char) 42);
 	RakNetGUID serverGuid = server->GetMyGUID();
 	std::atomic<int> blockingResult(-1); // -1 = running, 0 = false, 1 = true
-	std::thread caller([&]() {
+	std::thread caller([&]()
+	                   {
 		MafiaNet::BitStream returnData;
 		bool ok = rpc.CallBlocking("Blocking", &blockingParams, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, serverGuid, &returnData);
-		blockingResult.store(ok ? 1 : 0);
-	});
+		blockingResult.store(ok ? 1 : 0); });
 
 	for (int i = 0; i < 500 && blockingResult.load() == -1; i++)
 	{
@@ -227,7 +227,7 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	caller.join();
 
 	ASSERT_TRUE(blockingResult.load() == 1 && g_observed.blockingInvocations != 0)
-		<< "Blocking function handler was not invoked (or call failed)";
+	    << "Blocking function handler was not invoked (or call failed)";
 	ASSERT_EQ(g_observed.blockingContext, &markerBlocking)
-		<< "Blocking function did not receive its registered context";
+	    << "Blocking function did not receive its registered context";
 }

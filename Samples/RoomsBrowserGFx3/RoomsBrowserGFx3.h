@@ -17,13 +17,13 @@
 #include "FxGameDelegate.h"
 #include "mafianet/string.h"
 
-#define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs& pparams);
-#define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName) \
-	void functionName(const FxDelegateArgs& pparams) \
-{ \
-	((className*)pparams.GetHandler())->functionName(pparams);  \
-} \
-	void className::functionName(const FxDelegateArgs& pparams)
+#define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs &pparams);
+#define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName)      \
+	void functionName(const FxDelegateArgs &pparams)                 \
+	{                                                                \
+		((className *) pparams.GetHandler())->functionName(pparams); \
+	}                                                                \
+	void className::functionName(const FxDelegateArgs &pparams)
 
 // GFxPlayerTinyD3D9.cpp has an instance of this class, and callls the corresponding 3 function
 // This keeps the patching code out of the GFx sample as much as possible
@@ -35,13 +35,13 @@ public:
 	virtual void Init(GPtr<FxDelegate> pDelegate, GPtr<GFxMovieView> pMovie);
 
 	// Update all callbacks from flash
-	void                Accept(CallbackProcessor* cbreg);
+	void Accept(CallbackProcessor *cbreg);
 
 	void Shutdown(void);
 
-	virtual const char *QueryPlatform(void) const=0;
-	virtual void SaveProperty(const char *propertyId, const char *propertyValue)=0;
-	virtual void LoadProperty(const char *propertyId, MafiaNet::RakString &propertyOut)=0;
+	virtual const char *QueryPlatform(void) const = 0;
+	virtual void SaveProperty(const char *propertyId, const char *propertyValue) = 0;
+	virtual void LoadProperty(const char *propertyId, MafiaNet::RakString &propertyOut) = 0;
 
 	// Calls from Flash
 	ACTIONSCRIPT_CALLABLE_HEADER(f2c_QueryPlatform);
@@ -49,6 +49,5 @@ public:
 	ACTIONSCRIPT_CALLABLE_HEADER(f2c_LoadProperty);
 
 	GPtr<FxDelegate> delegate;
-	GPtr<GFxMovieView>      movie;
+	GPtr<GFxMovieView> movie;
 };
-

@@ -38,12 +38,12 @@
 
 using namespace MafiaNet;
 
-static const unsigned HASH_LENGTH=sizeof(unsigned int);
+static const unsigned HASH_LENGTH = sizeof(unsigned int);
 
 struct FileInfo
-{	
+{
 	MafiaNet::RakString filename;
-	char contentHash [HASH_LENGTH];
+	char contentHash[HASH_LENGTH];
 	bool createFile;
 };
 
@@ -56,12 +56,12 @@ struct FileInfo
 #endif
 
 
-#define PQEXECPARAM_FORMAT_TEXT		0
-#define PQEXECPARAM_FORMAT_BINARY	1
+#define PQEXECPARAM_FORMAT_TEXT 0
+#define PQEXECPARAM_FORMAT_BINARY 1
 
 AutopatcherMySQLRepository::AutopatcherMySQLRepository()
 {
-	filePartConnection=0;
+	filePartConnection = 0;
 }
 
 AutopatcherMySQLRepository::~AutopatcherMySQLRepository()
@@ -78,56 +78,71 @@ bool AutopatcherMySQLRepository::CreateAutopatcherTables(void)
 	ExecuteBlockingCommand("BEGIN;");
 
 	if (!ExecuteBlockingCommand(
-		"CREATE TABLE Applications ("
-		"applicationID INT AUTO_INCREMENT,"
-		"applicationName VARCHAR(255) NOT NULL UNIQUE,"
-		"changeSetID integer NOT NULL DEFAULT 0,"
-		"userName TEXT NOT NULL,"
-		"PRIMARY KEY (applicationID));"
-		)) {Rollback(); return false;}
+	        "CREATE TABLE Applications ("
+	        "applicationID INT AUTO_INCREMENT,"
+	        "applicationName VARCHAR(255) NOT NULL UNIQUE,"
+	        "changeSetID integer NOT NULL DEFAULT 0,"
+	        "userName TEXT NOT NULL,"
+	        "PRIMARY KEY (applicationID));"))
+	{
+		Rollback();
+		return false;
+	}
 
 	if (!ExecuteBlockingCommand(
-		"CREATE TABLE FileVersionHistory ("
-		"fileID INT AUTO_INCREMENT,"
-		"applicationID INT NOT NULL, "
-		"filename VARCHAR(255) NOT NULL,"
-		"fileLength  INT,"
-		"content LONGBLOB,"
-		"contentHash TINYBLOB,"
-		"patch LONGBLOB,"
-		"createFile TINYINT NOT NULL,"
-		"modificationDate double precision DEFAULT (EXTRACT(EPOCH FROM now())),"
-		"lastSentDate double precision,"
-		"timesSent INT NOT NULL DEFAULT 0,"
-		"changeSetID INT NOT NULL,"
-		"userName TEXT NOT NULL,"
-		"PRIMARY KEY (fileID)); "
-		)) {Rollback(); return false;}
+	        "CREATE TABLE FileVersionHistory ("
+	        "fileID INT AUTO_INCREMENT,"
+	        "applicationID INT NOT NULL, "
+	        "filename VARCHAR(255) NOT NULL,"
+	        "fileLength  INT,"
+	        "content LONGBLOB,"
+	        "contentHash TINYBLOB,"
+	        "patch LONGBLOB,"
+	        "createFile TINYINT NOT NULL,"
+	        "modificationDate double precision DEFAULT (EXTRACT(EPOCH FROM now())),"
+	        "lastSentDate double precision,"
+	        "timesSent INT NOT NULL DEFAULT 0,"
+	        "changeSetID INT NOT NULL,"
+	        "userName TEXT NOT NULL,"
+	        "PRIMARY KEY (fileID)); "))
+	{
+		Rollback();
+		return false;
+	}
 
 	if (!ExecuteBlockingCommand(
-		"CREATE INDEX FV_appID on FileVersionHistory(applicationID);"
-		)) {Rollback(); return false;}
+	        "CREATE INDEX FV_appID on FileVersionHistory(applicationID);"))
+	{
+		Rollback();
+		return false;
+	}
 
 	if (!ExecuteBlockingCommand(
-		"CREATE INDEX FV_fname on FileVersionHistory(filename);"
-		)) {Rollback(); return false;}
+	        "CREATE INDEX FV_fname on FileVersionHistory(filename);"))
+	{
+		Rollback();
+		return false;
+	}
 
 	if (!ExecuteBlockingCommand(
-		"CREATE VIEW AutoPatcherView AS SELECT "
-		"FileVersionHistory.applicationid,"
-		"Applications.applicationName,"
-		"FileVersionHistory.fileID,"
-		"FileVersionHistory.fileName,"
-		"FileVersionHistory.createFile,"
-		"FileVersionHistory.fileLength,"
-		"FileVersionHistory.changeSetID,"
-		"FileVersionHistory.lastSentDate," 
-		"FileVersionHistory.modificationDate,"
-		"FileVersionHistory.timesSent "
-		"FROM (FileVersionHistory JOIN Applications ON "
-		"( FileVersionHistory.applicationID = Applications.applicationID )) "
-		"ORDER BY Applications.applicationID ASC, FileVersionHistory.fileID ASC;"
-		)) {Rollback(); return false;}
+	        "CREATE VIEW AutoPatcherView AS SELECT "
+	        "FileVersionHistory.applicationid,"
+	        "Applications.applicationName,"
+	        "FileVersionHistory.fileID,"
+	        "FileVersionHistory.fileName,"
+	        "FileVersionHistory.createFile,"
+	        "FileVersionHistory.fileLength,"
+	        "FileVersionHistory.changeSetID,"
+	        "FileVersionHistory.lastSentDate,"
+	        "FileVersionHistory.modificationDate,"
+	        "FileVersionHistory.timesSent "
+	        "FROM (FileVersionHistory JOIN Applications ON "
+	        "( FileVersionHistory.applicationID = Applications.applicationID )) "
+	        "ORDER BY Applications.applicationID ASC, FileVersionHistory.fileID ASC;"))
+	{
+		Rollback();
+		return false;
+	}
 
 	bool b = ExecuteBlockingCommand("COMMIT;");
 	//sqlCommandMutex.Unlock();
@@ -162,7 +177,7 @@ bool AutopatcherMySQLRepository::AddApplication(const char *applicationName, con
 }
 bool AutopatcherMySQLRepository::RemoveApplication(const char *applicationName)
 {
-	char query[512];	
+	char query[512];
 	sprintf_s(query, "DELETE FROM Applications WHERE applicationName='%s';", GetEscapedString(applicationName).C_String());
 	//sqlCommandMutex.Lock();
 	bool b = ExecuteBlockingCommand(query);
@@ -187,22 +202,24 @@ bool AutopatcherMySQLRepository::GetChangelistSinceDate(const char *applicationN
 	}
 	//sqlCommandMutex.Unlock();
 
-	if (sinceDate!=0)
+	if (sinceDate != 0)
 		sprintf_s(query,
-		"SELECT filename, fileLength, contentHash, createFile, fileId FROM FileVersionHistory "
-		"JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND modificationDate > %f GROUP BY fileName) MaxId "
-		"ON FileVersionHistory.fileId = MaxId.maxId "
-		"ORDER BY filename DESC;", applicationID,sinceDate);
+		          "SELECT filename, fileLength, contentHash, createFile, fileId FROM FileVersionHistory "
+		          "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND modificationDate > %f GROUP BY fileName) MaxId "
+		          "ON FileVersionHistory.fileId = MaxId.maxId "
+		          "ORDER BY filename DESC;",
+		          applicationID, sinceDate);
 	else
 		sprintf_s(query,
-		"SELECT filename, fileLength, contentHash, createFile, fileId FROM FileVersionHistory "
-		"JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i GROUP BY fileName) MaxId "
-		"ON FileVersionHistory.fileId = MaxId.maxId "
-		"ORDER BY filename DESC;", applicationID);
+		          "SELECT filename, fileLength, contentHash, createFile, fileId FROM FileVersionHistory "
+		          "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i GROUP BY fileName) MaxId "
+		          "ON FileVersionHistory.fileId = MaxId.maxId "
+		          "ORDER BY filename DESC;",
+		          applicationID);
 
-	MYSQL_RES * result = 0;
+	MYSQL_RES *result = 0;
 	//sqlCommandMutex.Lock();
-	if (!ExecuteBlockingCommand (query, &result))
+	if (!ExecuteBlockingCommand(query, &result))
 	{
 		//sqlCommandMutex.Unlock();
 		return false;
@@ -210,22 +227,22 @@ bool AutopatcherMySQLRepository::GetChangelistSinceDate(const char *applicationN
 	//sqlCommandMutex.Unlock();
 
 	MYSQL_ROW row;
-	while ((row = mysql_fetch_row (result)) != 0)
+	while ((row = mysql_fetch_row(result)) != 0)
 	{
-		const char * createFileResult = row [3]; 
-		const char * hardDriveFilename = row [0];
-		if (createFileResult[0]=='1')
+		const char *createFileResult = row[3];
+		const char *hardDriveFilename = row[0];
+		if (createFileResult[0] == '1')
 		{
-			const char * hardDriveHash = row [2]; 
-			int fileLength = atoi (row [1]);
+			const char *hardDriveHash = row[2];
+			int fileLength = atoi(row[1]);
 			addedOrModifiedFilesWithHashData->AddFile(hardDriveFilename, hardDriveFilename, hardDriveHash, HASH_LENGTH, fileLength, FileListNodeContext(), false);
 		}
 		else
 		{
-			deletedFiles->AddFile(hardDriveFilename,hardDriveFilename,0,0,0,FileListNodeContext(), false);
+			deletedFiles->AddFile(hardDriveFilename, hardDriveFilename, 0, 0, 0, FileListNodeContext(), false);
 		}
 	}
-	mysql_free_result (result);
+	mysql_free_result(result);
 
 	return true;
 }
@@ -237,56 +254,56 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 	sprintf_s(query, "SELECT applicationID FROM Applications WHERE applicationName='%s';", escapedApplicationName.C_String());
 	int applicationID;
 	//sqlCommandMutex.Lock();
-	if (!ExecuteQueryReadInt (query, &applicationID))
+	if (!ExecuteQueryReadInt(query, &applicationID))
 	{
 		//sqlCommandMutex.Unlock();
-	    sprintf_s(lastError,"ERROR: %s not found in GetPatches\n",applicationName);
-	    return false;
+		sprintf_s(lastError, "ERROR: %s not found in GetPatches\n", applicationName);
+		return false;
 	}
 	//sqlCommandMutex.Unlock();
 
 	// Go through the input list.
-	for (unsigned inputIndex=0; inputIndex < input->fileList.Size(); inputIndex++)
+	for (unsigned inputIndex = 0; inputIndex < input->fileList.Size(); inputIndex++)
 	{
-		const char * userHash=input->fileList[inputIndex].data;
-		const char * userFilename=input->fileList[inputIndex].filename;
+		const char *userHash = input->fileList[inputIndex].data;
+		const char *userFilename = input->fileList[inputIndex].filename;
 
-		char *fn = new char [(strlen(userFilename))*2+1];
+		char *fn = new char[(strlen(userFilename)) * 2 + 1];
 		mysql_real_escape_string(mySqlConnection, fn, userFilename, (unsigned long) strlen(userFilename));
 
-		if (userHash==0)
+		if (userHash == 0)
 		{
 			// If the user does not have a hash in the input list, get the contents of latest version of this named file and write it to the patch list
-		//	sprintf_s(query, "SELECT content FROM FileVersionHistory "
-		//	               "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND filename='%s') MaxId "
-		//	               "ON FileVersionHistory.fileId = MaxId.maxId", 
-		//		applicationID, fn);
+			//	sprintf_s(query, "SELECT content FROM FileVersionHistory "
+			//	               "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND filename='%s') MaxId "
+			//	               "ON FileVersionHistory.fileId = MaxId.maxId",
+			//		applicationID, fn);
 
 			sprintf_s(query, "SELECT fileId, fileLength, changeSetID FROM FileVersionHistory "
-				"JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND filename='%s') MaxId "
-				"ON FileVersionHistory.fileId = MaxId.maxId", 
-				applicationID, fn);
+			                 "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND filename='%s') MaxId "
+			                 "ON FileVersionHistory.fileId = MaxId.maxId",
+			          applicationID, fn);
 
-			MYSQL_RES * result = 0;
+			MYSQL_RES *result = 0;
 			//sqlCommandMutex.Lock();
-			if (!ExecuteBlockingCommand (query, &result))
+			if (!ExecuteBlockingCommand(query, &result))
 			{
 				//sqlCommandMutex.Unlock();
-				delete [] fn;
+				delete[] fn;
 				return false;
 			}
 			//sqlCommandMutex.Unlock();
 
-			MYSQL_ROW row = mysql_fetch_row (result);	
+			MYSQL_ROW row = mysql_fetch_row(result);
 			if (row != 0)
 			{
 				//const char * content = row [0];
 				//unsigned long contentLength=mysql_fetch_lengths (result) [0];
 				//patchList->AddFile(userFilename, content, contentLength, contentLength, FileListNodeContext(PC_WRITE_FILE,0));
-				const int fileId = atoi (row [0]); 
-				const int fileLength = atoi (row [1]); 
-				const int changeSetID = atoi (row [2]); 
-				if (allowDownloadOfOriginalUnmodifiedFiles==false && changeSetID==0)
+				const int fileId = atoi(row[0]);
+				const int fileLength = atoi(row[1]);
+				const int changeSetID = atoi(row[2]);
+				if (allowDownloadOfOriginalUnmodifiedFiles == false && changeSetID == 0)
 				{
 					printf("Failure: allowDownloadOfOriginalUnmodifiedFiles==false for %s length %i\n", userFilename, fileLength);
 
@@ -294,60 +311,60 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 					return false;
 				}
 
-				patchList->AddFile(userFilename,userFilename, 0, fileLength, fileLength, FileListNodeContext(PC_WRITE_FILE,fileId,0,0), true);
+				patchList->AddFile(userFilename, userFilename, 0, fileLength, fileLength, FileListNodeContext(PC_WRITE_FILE, fileId, 0, 0), true);
 			}
 			mysql_free_result(result);
 		}
 		else // Assuming the user does have a hash.
 		{
-			if (input->fileList[inputIndex].dataLengthBytes!=HASH_LENGTH)
+			if (input->fileList[inputIndex].dataLengthBytes != HASH_LENGTH)
 			{
-				delete [] fn;
+				delete[] fn;
 				return false;
 			}
 
 			// Get the hash and ID of the latest version of this file, by filename.
-			sprintf_s(query, 
-				"SELECT contentHash, fileId, fileLength FROM FileVersionHistory "
-				"JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND filename='%s') MaxId "
-				"ON FileVersionHistory.fileId = MaxId.maxId",
-				applicationID, fn);
+			sprintf_s(query,
+			          "SELECT contentHash, fileId, fileLength FROM FileVersionHistory "
+			          "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i AND filename='%s') MaxId "
+			          "ON FileVersionHistory.fileId = MaxId.maxId",
+			          applicationID, fn);
 
-			MYSQL_RES * result = 0;
+			MYSQL_RES *result = 0;
 			//sqlCommandMutex.Lock();
-			if (!ExecuteBlockingCommand (query, &result))
+			if (!ExecuteBlockingCommand(query, &result))
 			{
 				//sqlCommandMutex.Unlock();
-				delete [] fn;
+				delete[] fn;
 				return false;
 			}
 			//sqlCommandMutex.Unlock();
 
-			MYSQL_ROW row = mysql_fetch_row (result);	
+			MYSQL_ROW row = mysql_fetch_row(result);
 			if (row != 0)
 			{
-				const char * contentHash = row [0];
-				const int fileId = atoi (row [1]); 
-				const int fileLength = atoi (row [2]);   // double check if this works
+				const char *contentHash = row[0];
+				const int fileId = atoi(row[1]);
+				const int fileLength = atoi(row[2]); // double check if this works
 
-				if (memcmp(contentHash, userHash, HASH_LENGTH)!=0)
+				if (memcmp(contentHash, userHash, HASH_LENGTH) != 0)
 				{
-					char buf [2 * HASH_LENGTH + 1];
+					char buf[2 * HASH_LENGTH + 1];
 					mysql_real_escape_string(mySqlConnection, buf, userHash, HASH_LENGTH);
-					
+
 					sprintf_s(query, "SELECT patch FROM FileVersionHistory WHERE applicationId=%i AND filename='%s' AND contentHash='%s'; ", applicationID, fn, buf);
-                    MYSQL_RES * patchResult = 0;
+					MYSQL_RES *patchResult = 0;
 					//sqlCommandMutex.Lock();
-                    if (!ExecuteBlockingCommand (query, &patchResult))
+					if (!ExecuteBlockingCommand(query, &patchResult))
 					{
 						//sqlCommandMutex.Unlock();
-						delete [] fn;
-                        return false;
+						delete[] fn;
+						return false;
 					}
 					//sqlCommandMutex.Unlock();
 
-                    row = mysql_fetch_row (patchResult);
-					if (row==0)
+					row = mysql_fetch_row(patchResult);
+					if (row == 0)
 					{
 						// If no patch found, then this is a non-release version, or a very old version we are no longer tracking.
 						// Get the contents of latest version of this named file by fileId and return it.
@@ -370,25 +387,24 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 						patchList->AddFile(userFilename, file, fileLength, contentLength, FileListNodeContext(PC_WRITE_FILE,0));
 						mysql_free_result(substrresult);
 						*/
-						patchList->AddFile(userFilename,userFilename, 0, fileLength, fileLength, FileListNodeContext(PC_WRITE_FILE,fileId,0,0), true);
+						patchList->AddFile(userFilename, userFilename, 0, fileLength, fileLength, FileListNodeContext(PC_WRITE_FILE, fileId, 0, 0), true);
 					}
 					else
 					{
 						// Otherwise, write the hash of the new version and then write the patch to get to that version.
-						// 
-						char * patch = row [0];
-						unsigned long patchLength = mysql_fetch_lengths (patchResult) [0];
+						//
+						char *patch = row[0];
+						unsigned long patchLength = mysql_fetch_lengths(patchResult)[0];
 
-						char *temp = new char [patchLength + HASH_LENGTH];
+						char *temp = new char[patchLength + HASH_LENGTH];
 						memcpy(temp, contentHash, HASH_LENGTH);
-						memcpy(temp+HASH_LENGTH, patch, patchLength);
+						memcpy(temp + HASH_LENGTH, patch, patchLength);
 
-						patchList->AddFile(userFilename,userFilename, temp, HASH_LENGTH+patchLength, fileLength, FileListNodeContext(PC_HASH_1_WITH_PATCH,0,0,0) );
-						delete [] temp;
+						patchList->AddFile(userFilename, userFilename, temp, HASH_LENGTH + patchLength, fileLength, FileListNodeContext(PC_HASH_1_WITH_PATCH, 0, 0, 0));
+						delete[] temp;
 					}
 
 					mysql_free_result(patchResult);
-
 				}
 				else
 				{
@@ -402,7 +418,7 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 			mysql_free_result(result);
 		}
 
-		delete [] fn;
+		delete[] fn;
 	}
 
 	return true;
@@ -411,13 +427,13 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 bool AutopatcherMySQLRepository::GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime)
 {
 	// unused parameters
-	(void)applicationName;
-	(void)patchedFiles;
-	(void)addedFiles;
-	(void)addedOrModifiedFileHashes;
-	(void)deletedFiles;
-	(void)priorRowPatchTime;
-	(void)mostRecentRowPatchTime;
+	(void) applicationName;
+	(void) patchedFiles;
+	(void) addedFiles;
+	(void) addedOrModifiedFileHashes;
+	(void) deletedFiles;
+	(void) priorRowPatchTime;
+	(void) mostRecentRowPatchTime;
 
 	// Not yet implemented
 	return false;
@@ -425,18 +441,18 @@ bool AutopatcherMySQLRepository::GetMostRecentChangelistWithPatches(MafiaNet::Ra
 
 bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationName, const char *applicationDirectory, const char *userName, FileListProgress *cb)
 {
-	MYSQL_STMT    *stmt;
-	MYSQL_BIND    bind[3];
+	MYSQL_STMT *stmt;
+	MYSQL_BIND bind[3];
 	char query[512];
 	FileList filesOnHarddrive;
 	filesOnHarddrive.AddCallback(cb);
 	int prepareResult;
-	my_bool falseVar=false;
+	my_bool falseVar = false;
 	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
-	filesOnHarddrive.AddFilesFromDirectory(applicationDirectory,"", true, true, true, FileListNodeContext());
-	if (filesOnHarddrive.fileList.Size()==0)
+	filesOnHarddrive.AddFilesFromDirectory(applicationDirectory, "", true, true, true, FileListNodeContext());
+	if (filesOnHarddrive.fileList.Size() == 0)
 	{
-		sprintf_s(lastError,"ERROR: Can't find files at %s in UpdateApplicationFiles\n",applicationDirectory);
+		sprintf_s(lastError, "ERROR: Can't find files at %s in UpdateApplicationFiles\n", applicationDirectory);
 		return false;
 	}
 
@@ -447,7 +463,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	if (!ExecuteQueryReadInt(query, &applicationID))
 	{
 		//sqlCommandMutex.Unlock();
-		sprintf_s(lastError,"ERROR: %s not found in UpdateApplicationFiles\n",escapedApplicationName.C_String());
+		sprintf_s(lastError, "ERROR: %s not found in UpdateApplicationFiles\n", escapedApplicationName.C_String());
 		return false;
 	}
 
@@ -462,7 +478,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	//sqlCommandMutex.Lock();
 	if (!ExecuteBlockingCommand(query))
 	{
-		Rollback ();
+		Rollback();
 		//sqlCommandMutex.Unlock();
 		return false;
 	}
@@ -472,7 +488,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	//sqlCommandMutex.Lock();
 	if (!ExecuteQueryReadInt(query, &changeSetId))
 	{
-		Rollback ();
+		Rollback();
 		//sqlCommandMutex.Unlock();
 		return false;
 	}
@@ -483,9 +499,10 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 
 	// Gets all newest files
 	sprintf_s(query, "SELECT filename, contentHash, createFile FROM FileVersionHistory "
-	               "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i GROUP BY fileName) MaxId "
-	               "ON FileVersionHistory.fileId = MaxId.maxId "
-	               "ORDER BY filename DESC;", applicationID);
+	                 "JOIN (SELECT max(fileId) maxId FROM FileVersionHistory WHERE applicationId=%i GROUP BY fileName) MaxId "
+	                 "ON FileVersionHistory.fileId = MaxId.maxId "
+	                 "ORDER BY filename DESC;",
+	          applicationID);
 
 	MYSQL_RES *result = 0;
 	//sqlCommandMutex.Lock();
@@ -496,45 +513,45 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 		return false;
 	}
 	//sqlCommandMutex.Unlock();
-	DataStructures::List <FileInfo> newestFiles;
+	DataStructures::List<FileInfo> newestFiles;
 	MYSQL_ROW row;
-	while ((row = mysql_fetch_row (result)) != 0)
+	while ((row = mysql_fetch_row(result)) != 0)
 	{
-	    FileInfo fi;
-		fi.filename = row [0];
-		fi.createFile = (atoi (row [2]) != 0);
+		FileInfo fi;
+		fi.filename = row[0];
+		fi.createFile = (atoi(row[2]) != 0);
 		if (fi.createFile)
 		{
-			RakAssert(mysql_fetch_lengths (result) [1] == HASH_LENGTH);  // check the data is sensible
-			memcpy (fi.contentHash, row [1], HASH_LENGTH);
+			RakAssert(mysql_fetch_lengths(result)[1] == HASH_LENGTH); // check the data is sensible
+			memcpy(fi.contentHash, row[1], HASH_LENGTH);
 		}
-	    newestFiles.Insert (fi, _FILE_AND_LINE_ );
-	}    
+		newestFiles.Insert(fi, _FILE_AND_LINE_);
+	}
 	mysql_free_result(result);
 
 
 	FileList newFiles;
 	// Loop through files on filesOnHarddrive
 	// If the file in filesOnHarddrive does not exist in the query result, or if it does but the hash is different or non-existent, add this file to the create list
-	for (unsigned fileListIndex=0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+	for (unsigned fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
 	{
-		bool addFile=true;
-		if (fileListIndex%10==0)
-			printf("Hashing files %i/%i\n", fileListIndex+1, filesOnHarddrive.fileList.Size());
+		bool addFile = true;
+		if (fileListIndex % 10 == 0)
+			printf("Hashing files %i/%i\n", fileListIndex + 1, filesOnHarddrive.fileList.Size());
 
-		const char * hardDriveFilename=filesOnHarddrive.fileList[fileListIndex].filename;
-		const char * hardDriveHash=filesOnHarddrive.fileList[fileListIndex].data;
+		const char *hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
+		const char *hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
 
-		for (unsigned i = 0; i != newestFiles.Size (); ++i)
+		for (unsigned i = 0; i != newestFiles.Size(); ++i)
 		{
-			const FileInfo & fi = newestFiles [i];
-                        
-			if (_stricmp(hardDriveFilename, fi.filename)==0)
+			const FileInfo &fi = newestFiles[i];
+
+			if (_stricmp(hardDriveFilename, fi.filename) == 0)
 			{
-				if (fi.createFile && memcmp(fi.contentHash, hardDriveHash, HASH_LENGTH)==0)
+				if (fi.createFile && memcmp(fi.contentHash, hardDriveHash, HASH_LENGTH) == 0)
 				{
 					// File exists in database and is the same
-					addFile=false;
+					addFile = false;
 				}
 
 				break;
@@ -544,51 +561,51 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 		// Unless set to false, file does not exist in query result or is different.
 		if (addFile)
 		{
-			newFiles.AddFile(hardDriveFilename,hardDriveFilename, filesOnHarddrive.fileList[fileListIndex].data, filesOnHarddrive.fileList[fileListIndex].dataLengthBytes, filesOnHarddrive.fileList[fileListIndex].fileLengthBytes, FileListNodeContext(), false, true);
-			filesOnHarddrive.fileList[fileListIndex].data=0;
+			newFiles.AddFile(hardDriveFilename, hardDriveFilename, filesOnHarddrive.fileList[fileListIndex].data, filesOnHarddrive.fileList[fileListIndex].dataLengthBytes, filesOnHarddrive.fileList[fileListIndex].fileLengthBytes, FileListNodeContext(), false, true);
+			filesOnHarddrive.fileList[fileListIndex].data = 0;
 		}
 	}
-	
+
 	// Go through query results that are marked as create
 	// If a file that is currently in the database is not on the harddrive, add it to the delete list
 	FileList deletedFiles;
-	for (unsigned i = 0; i != newestFiles.Size (); ++i)
+	for (unsigned i = 0; i != newestFiles.Size(); ++i)
 	{
-		const FileInfo & fi = newestFiles [i];
+		const FileInfo &fi = newestFiles[i];
 		if (!fi.createFile)
 			continue; // If already false don't mark false again.
 
-		bool fileOnHarddrive=false;
-		for (unsigned fileListIndex=0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+		bool fileOnHarddrive = false;
+		for (unsigned fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
 		{
-			const char * hardDriveFilename=filesOnHarddrive.fileList[fileListIndex].filename;
+			const char *hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
 			//hardDriveHash=filesOnHarddrive.fileList[fileListIndex].data;
 
-			if (_stricmp(hardDriveFilename, fi.filename)==0)
+			if (_stricmp(hardDriveFilename, fi.filename) == 0)
 			{
-				fileOnHarddrive=true;
+				fileOnHarddrive = true;
 				break;
 			}
 		}
 
 		if (!fileOnHarddrive)
-			deletedFiles.AddFile(fi.filename,fi.filename,0,0,0,FileListNodeContext(), false);
+			deletedFiles.AddFile(fi.filename, fi.filename, 0, 0, 0, FileListNodeContext(), false);
 	}
 
 	// files on harddrive no longer needed.  Free this memory since generating all the patches is memory intensive.
 	filesOnHarddrive.Clear();
 
 	// For each file in the delete list add a row indicating file deletion
-	for (unsigned fileListIndex=0; fileListIndex < deletedFiles.fileList.Size(); fileListIndex++)
+	for (unsigned fileListIndex = 0; fileListIndex < deletedFiles.fileList.Size(); fileListIndex++)
 	{
-		if (fileListIndex%10==0)
-			printf("Tagging deleted files %i/%i\n", fileListIndex+1, deletedFiles.fileList.Size());
+		if (fileListIndex % 10 == 0)
+			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, deletedFiles.fileList.Size());
 
-		sprintf_s(query, "INSERT INTO FileVersionHistory(applicationID, filename, createFile, changeSetID, userName) VALUES (%i, '%s', FALSE,%i,'%s');", 
-			applicationID, GetEscapedString(deletedFiles.fileList[fileListIndex].filename).C_String(), changeSetId, GetEscapedString(userName).C_String());
-		
+		sprintf_s(query, "INSERT INTO FileVersionHistory(applicationID, filename, createFile, changeSetID, userName) VALUES (%i, '%s', FALSE,%i,'%s');",
+		          applicationID, GetEscapedString(deletedFiles.fileList[fileListIndex].filename).C_String(), changeSetId, GetEscapedString(userName).C_String());
+
 		//sqlCommandMutex.Lock();
-		if (!ExecuteBlockingCommand (query))
+		if (!ExecuteBlockingCommand(query))
 		{
 			Rollback();
 			//sqlCommandMutex.Unlock();
@@ -598,25 +615,25 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 		}
 		//sqlCommandMutex.Unlock();
 	}
-	
+
 	// Clear the delete list as it is no longer needed.
 	deletedFiles.Clear();
 
 	// For each file in the create list
-	for (unsigned fileListIndex=0; fileListIndex < newFiles.fileList.Size(); fileListIndex++)
+	for (unsigned fileListIndex = 0; fileListIndex < newFiles.fileList.Size(); fileListIndex++)
 	{
-		if (fileListIndex%10==0)
-			printf("Adding file %i/%i\n", fileListIndex+1, newFiles.fileList.Size());
-		const char * hardDriveFilename=newFiles.fileList[fileListIndex].filename;
-		const char * hardDriveData=newFiles.fileList[fileListIndex].data+HASH_LENGTH;
-		const char * hardDriveHash=newFiles.fileList[fileListIndex].data;
-		unsigned     hardDriveDataLength=newFiles.fileList[fileListIndex].fileLengthBytes;
+		if (fileListIndex % 10 == 0)
+			printf("Adding file %i/%i\n", fileListIndex + 1, newFiles.fileList.Size());
+		const char *hardDriveFilename = newFiles.fileList[fileListIndex].filename;
+		const char *hardDriveData = newFiles.fileList[fileListIndex].data + HASH_LENGTH;
+		const char *hardDriveHash = newFiles.fileList[fileListIndex].data;
+		unsigned hardDriveDataLength = newFiles.fileList[fileListIndex].fileLengthBytes;
 
-		sprintf_s( query, "SELECT fileID from FileVersionHistory WHERE applicationID=%i AND filename='%s' AND createFile=TRUE;", applicationID, GetEscapedString(hardDriveFilename).C_String() );
+		sprintf_s(query, "SELECT fileID from FileVersionHistory WHERE applicationID=%i AND filename='%s' AND createFile=TRUE;", applicationID, GetEscapedString(hardDriveFilename).C_String());
 
-		MYSQL_RES * res = 0;
+		MYSQL_RES *res = 0;
 		//sqlCommandMutex.Lock();
-		if (!ExecuteBlockingCommand (query, &res))
+		if (!ExecuteBlockingCommand(query, &res))
 		{
 			Rollback();
 			//sqlCommandMutex.Unlock();
@@ -624,17 +641,17 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 			return false;
 		}
 		//sqlCommandMutex.Unlock();
-		
+
 		// Create new patches for every create version
-		while ((row = mysql_fetch_row (res)) != 0)
+		while ((row = mysql_fetch_row(res)) != 0)
 		{
-			const char * fileID = row [0];
-			
+			const char *fileID = row[0];
+
 			// The last query handled all the relevant comparisons
-			sprintf_s(query, "SELECT content from FileVersionHistory WHERE fileID=%s", fileID );
-			MYSQL_RES * queryResult = 0;
+			sprintf_s(query, "SELECT content from FileVersionHistory WHERE fileID=%s", fileID);
+			MYSQL_RES *queryResult = 0;
 			//sqlCommandMutex.Lock();
-			if (!ExecuteBlockingCommand (query, &queryResult))
+			if (!ExecuteBlockingCommand(query, &queryResult))
 			{
 				Rollback();
 				//sqlCommandMutex.Unlock();
@@ -643,17 +660,17 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 				return false;
 			}
 			//sqlCommandMutex.Unlock();
-		
-			MYSQL_ROW queryRow = mysql_fetch_row (queryResult);
 
-			const unsigned contentLength=mysql_fetch_lengths (queryResult) [0];
-			const char * content=queryRow [0];
+			MYSQL_ROW queryRow = mysql_fetch_row(queryResult);
+
+			const unsigned contentLength = mysql_fetch_lengths(queryResult)[0];
+			const char *content = queryRow[0];
 
 			char *patch;
-			unsigned patchLength;	
+			unsigned patchLength;
 			if (!CreatePatch(content, contentLength, (char *) hardDriveData, hardDriveDataLength, &patch, &patchLength))
 			{
-				strcpy_s(lastError,"CreatePatch failed.\n");
+				strcpy_s(lastError, "CreatePatch failed.\n");
 				Rollback();
 
 				newFiles.Clear();
@@ -661,13 +678,13 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 				mysql_free_result(queryResult);
 				return false;
 			}
-			
+
 			char buf[512];
 			stmt = mysql_stmt_init(mySqlConnection);
-			sprintf (buf, "UPDATE FileVersionHistory SET patch=? where fileID=%s;", fileID);
-			if ((prepareResult=mysql_stmt_prepare(stmt, buf, (unsigned long) strlen(buf)))!=0)
+			sprintf(buf, "UPDATE FileVersionHistory SET patch=? where fileID=%s;", fileID);
+			if ((prepareResult = mysql_stmt_prepare(stmt, buf, (unsigned long) strlen(buf))) != 0)
 			{
-				strcpy (lastError, mysql_stmt_error (stmt));
+				strcpy(lastError, mysql_stmt_error(stmt));
 				mysql_stmt_close(stmt);
 				Rollback();
 				return false;
@@ -675,16 +692,16 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 			memset(bind, 0, sizeof(bind));
 
 			unsigned long l1;
-			l1=patchLength;
-			bind[0].buffer_type= MYSQL_TYPE_LONG_BLOB;
-			bind[0].buffer= patch;
-			bind[0].buffer_length= patchLength;
-			bind[0].is_null= &falseVar;
-			bind[0].length=&l1;
+			l1 = patchLength;
+			bind[0].buffer_type = MYSQL_TYPE_LONG_BLOB;
+			bind[0].buffer = patch;
+			bind[0].buffer_length = patchLength;
+			bind[0].is_null = &falseVar;
+			bind[0].length = &l1;
 
 			if (mysql_stmt_bind_param(stmt, bind))
 			{
-				strcpy (lastError, mysql_stmt_error (stmt));
+				strcpy(lastError, mysql_stmt_error(stmt));
 				mysql_stmt_close(stmt);
 				Rollback();
 				return false;
@@ -693,87 +710,87 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 			//sqlCommandMutex.Lock();
 			if (mysql_stmt_execute(stmt))
 			{
-				strcpy (lastError, mysql_stmt_error (stmt));
+				strcpy(lastError, mysql_stmt_error(stmt));
 				mysql_stmt_close(stmt);
 				Rollback();
 				//sqlCommandMutex.Unlock();
 				newFiles.Clear();
 				mysql_free_result(res);
 				mysql_free_result(queryResult);
-				delete [] patch;
+				delete[] patch;
 				return false;
 			}
 			//sqlCommandMutex.Unlock();
 
 			mysql_stmt_close(stmt);
-			delete [] patch;
+			delete[] patch;
 
 			mysql_free_result(queryResult);
 		}
-         mysql_free_result(res);
+		mysql_free_result(res);
 
-		 stmt = mysql_stmt_init(mySqlConnection);
-		 sprintf_s(query, "INSERT INTO FileVersionHistory (applicationID, filename, fileLength, content, contentHash, createFile, changeSetID, userName) "
-			 "VALUES (%i, ?, %i,?,?, TRUE, %i, '%s' );", 
-			 applicationID, hardDriveDataLength, changeSetId, GetEscapedString(userName).C_String());
+		stmt = mysql_stmt_init(mySqlConnection);
+		sprintf_s(query, "INSERT INTO FileVersionHistory (applicationID, filename, fileLength, content, contentHash, createFile, changeSetID, userName) "
+		                 "VALUES (%i, ?, %i,?,?, TRUE, %i, '%s' );",
+		          applicationID, hardDriveDataLength, changeSetId, GetEscapedString(userName).C_String());
 
-		 if ((prepareResult=mysql_stmt_prepare(stmt, query, (unsigned long) strlen(query)))!=0)
-		 {
-			 strcpy (lastError, mysql_stmt_error (stmt));
-			 mysql_stmt_close(stmt);
-			 Rollback();
-			 return false;
-		 }
-		 memset(bind, 0, sizeof(bind));
+		if ((prepareResult = mysql_stmt_prepare(stmt, query, (unsigned long) strlen(query))) != 0)
+		{
+			strcpy(lastError, mysql_stmt_error(stmt));
+			mysql_stmt_close(stmt);
+			Rollback();
+			return false;
+		}
+		memset(bind, 0, sizeof(bind));
 
-		 unsigned long l2,l3,l4;
-		 l2=(unsigned long) strlen(hardDriveFilename);
-		 l3=hardDriveDataLength;
-		 l4=HASH_LENGTH;
-		 bind[0].buffer_type= MYSQL_TYPE_STRING;
-		 bind[0].buffer= (void*) hardDriveFilename;
-		 bind[0].buffer_length= (unsigned long) strlen(hardDriveFilename);
-		 bind[0].is_null= &falseVar;
-		 bind[0].length=&l2;
+		unsigned long l2, l3, l4;
+		l2 = (unsigned long) strlen(hardDriveFilename);
+		l3 = hardDriveDataLength;
+		l4 = HASH_LENGTH;
+		bind[0].buffer_type = MYSQL_TYPE_STRING;
+		bind[0].buffer = (void *) hardDriveFilename;
+		bind[0].buffer_length = (unsigned long) strlen(hardDriveFilename);
+		bind[0].is_null = &falseVar;
+		bind[0].length = &l2;
 
-		 bind[1].buffer_type= MYSQL_TYPE_LONG_BLOB;
-		 bind[1].buffer= (void*) hardDriveData;
-		 bind[1].buffer_length= hardDriveDataLength;
-		 bind[1].is_null= &falseVar;
-		 bind[1].length=&l3;
+		bind[1].buffer_type = MYSQL_TYPE_LONG_BLOB;
+		bind[1].buffer = (void *) hardDriveData;
+		bind[1].buffer_length = hardDriveDataLength;
+		bind[1].is_null = &falseVar;
+		bind[1].length = &l3;
 
-		 bind[2].buffer_type= MYSQL_TYPE_TINY_BLOB;
-		 bind[2].buffer= (void*) hardDriveHash;
-		 bind[2].buffer_length= HASH_LENGTH;
-		 bind[2].is_null= &falseVar;
-		 bind[2].length=&l4;
+		bind[2].buffer_type = MYSQL_TYPE_TINY_BLOB;
+		bind[2].buffer = (void *) hardDriveHash;
+		bind[2].buffer_length = HASH_LENGTH;
+		bind[2].is_null = &falseVar;
+		bind[2].length = &l4;
 
-		 if (mysql_stmt_bind_param(stmt, bind))
-		 {
-			 strcpy (lastError, mysql_stmt_error (stmt));
-			 mysql_stmt_close(stmt);
-			 Rollback();
-			 return false;
-		 }
+		if (mysql_stmt_bind_param(stmt, bind))
+		{
+			strcpy(lastError, mysql_stmt_error(stmt));
+			mysql_stmt_close(stmt);
+			Rollback();
+			return false;
+		}
 
-		 //sqlCommandMutex.Lock();
-		 if (mysql_stmt_execute(stmt))
-		 {
-			 strcpy (lastError, mysql_stmt_error (stmt));
-			 mysql_stmt_close(stmt);
-			 Rollback();
-			 //sqlCommandMutex.Unlock();
-			 return false;
-		 }
-		 //sqlCommandMutex.Unlock();
+		//sqlCommandMutex.Lock();
+		if (mysql_stmt_execute(stmt))
+		{
+			strcpy(lastError, mysql_stmt_error(stmt));
+			mysql_stmt_close(stmt);
+			Rollback();
+			//sqlCommandMutex.Unlock();
+			return false;
+		}
+		//sqlCommandMutex.Unlock();
 
-		 mysql_stmt_close(stmt);
+		mysql_stmt_close(stmt);
 	}
 
 	//sqlCommandMutex.Lock();
 	if (!ExecuteBlockingCommand("COMMIT;"))
 	{
-        Rollback ();
+		Rollback();
 		//sqlCommandMutex.Unlock();
 		return false;
 	}
@@ -786,51 +803,51 @@ const char *AutopatcherMySQLRepository::GetLastError(void) const
 {
 	return MySQLInterface::GetLastError();
 }
-unsigned int AutopatcherMySQLRepository::GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context)
+unsigned int AutopatcherMySQLRepository::GetFilePart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context)
 {
 	// unused parameters
-	(void)filename;
+	(void) filename;
 
 	char query[512];
-	sprintf_s(query, "SELECT substring(content from %i for %i) FROM FileVersionHistory WHERE fileId=%i;", startReadBytes+1,numBytesToRead,context.flnc_extraData1);
+	sprintf_s(query, "SELECT substring(content from %i for %i) FROM FileVersionHistory WHERE fileId=%i;", startReadBytes + 1, numBytesToRead, context.flnc_extraData1);
 
 	// CREATE NEW CONNECTION JUST FOR THIS QUERY
 	// This is because the autopatcher is sharing this class, but this is called from multiple threads and mysql is not threadsafe
 
-	MYSQL_RES * result;
+	MYSQL_RES *result;
 
 	char error[512];
 	filePartConnectionMutex.Lock();
-	if (filePartConnection==0)
+	if (filePartConnection == 0)
 	{
 		filePartConnection = mysql_init(0);
-		mysql_real_connect (filePartConnection, _host, _user, _passwd, _db, _port, _unix_socket, _clientflag);
+		mysql_real_connect(filePartConnection, _host, _user, _passwd, _db, _port, _unix_socket, _clientflag);
 	}
 
-	if (mysql_query(filePartConnection, query)!=0)
+	if (mysql_query(filePartConnection, query) != 0)
 	{
 		// #med - review --- should this set the class member maybe?
-		strcpy (error, mysql_error (filePartConnection));
+		strcpy(error, mysql_error(filePartConnection));
 	}
-	result = mysql_store_result (filePartConnection);
+	result = mysql_store_result(filePartConnection);
 
 	if (result)
 	{
 		// This has very poor performance with any size for GetIncrementalReadChunkSize, but especially for larger sizes
-		MYSQL_ROW row = mysql_fetch_row (result);	
+		MYSQL_ROW row = mysql_fetch_row(result);
 		if (row != 0)
 		{
-			const char * content = row [0];
-			unsigned long contentLength=mysql_fetch_lengths (result) [0];
-			memcpy(preallocatedDestination,content,contentLength);
-			mysql_free_result (result);
+			const char *content = row[0];
+			unsigned long contentLength = mysql_fetch_lengths(result)[0];
+			memcpy(preallocatedDestination, content, contentLength);
+			mysql_free_result(result);
 
 			filePartConnectionMutex.Unlock();
 
 			return contentLength;
 		}
 
-		mysql_free_result (result);
+		mysql_free_result(result);
 	}
 
 	filePartConnectionMutex.Unlock();
@@ -840,5 +857,5 @@ unsigned int AutopatcherMySQLRepository::GetFilePart( const char *filename, unsi
 const int AutopatcherMySQLRepository::GetIncrementalReadChunkSize(void) const
 {
 	// AutopatcherMySQLRepository::GetFilePart is extremely slow with larger files
-	return 262144*4;
+	return 262144 * 4;
 }

@@ -24,7 +24,7 @@ using namespace MafiaNet;
 
 namespace
 {
-	const std::string kOriginal = "Hello, MafiaNet!";
+const std::string kOriginal = "Hello, MafiaNet!";
 }
 
 // On-wire size must be the length-prefixed string form (unsigned short
@@ -35,9 +35,9 @@ TEST(BitStreamString, WritesLengthPrefixedWireFormat)
 	BitStream bsOut;
 	bsOut.Write(kOriginal);
 
-	const BitSize_t expectedBytes = (BitSize_t)(sizeof(unsigned short) + kOriginal.length());
+	const BitSize_t expectedBytes = (BitSize_t) (sizeof(unsigned short) + kOriginal.length());
 	EXPECT_EQ(bsOut.GetNumberOfBytesUsed(), expectedBytes)
-		<< "std::string serialized as a raw object copy (wrong byte count)";
+	    << "std::string serialized as a raw object copy (wrong byte count)";
 }
 
 // Round-trip a std::string through a BitStream.
@@ -50,7 +50,7 @@ TEST(BitStreamString, RoundTripsThroughBitStream)
 	std::string roundTripped;
 	ASSERT_TRUE(bsIn.Read(roundTripped)) << "Failed to read std::string back from the bitstream";
 	EXPECT_EQ(roundTripped, kOriginal)
-		<< "std::string round-trip produced a different value: got '" << roundTripped << "'";
+	    << "std::string round-trip produced a different value: got '" << roundTripped << "'";
 }
 
 // std::string written -> RakString read.
@@ -61,7 +61,7 @@ TEST(BitStreamString, StdStringToRakStringInterop)
 	RakString rs;
 	ASSERT_TRUE(bs.Read(rs)) << "std::string -> RakString wire interop failed (read)";
 	EXPECT_EQ(strcmp(rs.C_String(), kOriginal.c_str()), 0)
-		<< "std::string -> RakString wire interop failed: '" << rs.C_String() << "'";
+	    << "std::string -> RakString wire interop failed: '" << rs.C_String() << "'";
 }
 
 // RakString written -> std::string read.
@@ -73,7 +73,7 @@ TEST(BitStreamString, RakStringToStdStringInterop)
 	std::string out;
 	ASSERT_TRUE(bs.Read(out)) << "RakString -> std::string wire interop failed (read)";
 	EXPECT_EQ(out, kOriginal)
-		<< "RakString -> std::string wire interop failed: '" << out << "'";
+	    << "RakString -> std::string wire interop failed: '" << out << "'";
 }
 
 // Binary safety: a string with an embedded null must round-trip in full.
@@ -85,5 +85,5 @@ TEST(BitStreamString, EmbeddedNullRoundTrips)
 	std::string out;
 	ASSERT_TRUE(bs.Read(out)) << "std::string with embedded null did not round-trip (read)";
 	EXPECT_EQ(out, binary)
-		<< "std::string with embedded null did not round-trip (len " << (unsigned) out.size() << ")";
+	    << "std::string with embedded null did not round-trip (len " << (unsigned) out.size() << ")";
 }

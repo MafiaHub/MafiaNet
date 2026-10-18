@@ -16,15 +16,9 @@
 #include "mafianet/wsa_startup_singleton.h"
 
 
-
-
-
-#if   defined(_WIN32)
+#if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
-
-
-
 
 
 #endif
@@ -39,7 +33,7 @@
 #endif
 #endif
 
-int WSAStartupSingleton::refCount=0;
+int WSAStartupSingleton::refCount = 0;
 
 WSAStartupSingleton::WSAStartupSingleton() {}
 WSAStartupSingleton::~WSAStartupSingleton() {}
@@ -48,27 +42,24 @@ void WSAStartupSingleton::AddRef(void)
 #if defined(_WIN32)
 
 	refCount++;
-	
-	if (refCount!=1)
+
+	if (refCount != 1)
 		return;
 
 
-
-
-
 	WSADATA winsockInfo;
-	if ( WSAStartup( MAKEWORD( 2, 2 ), &winsockInfo ) != 0 )
+	if (WSAStartup(MAKEWORD(2, 2), &winsockInfo) != 0)
 	{
-#if  defined(_DEBUG)
+#if defined(_DEBUG)
 		DWORD dwIOError = GetLastError();
 		LPTSTR messageBuffer;
-		FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			nullptr, dwIOError, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),  // Default language
-			( LPTSTR ) & messageBuffer, 0, nullptr);
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		              nullptr, dwIOError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+		              (LPTSTR) &messageBuffer, 0, nullptr);
 		// something has gone wrong here...
-		RAKNET_DEBUG_TPRINTF( _T("WSAStartup failed:Error code - %lu\n%s"), dwIOError, messageBuffer );
+		RAKNET_DEBUG_TPRINTF(_T("WSAStartup failed:Error code - %lu\n%s"), dwIOError, messageBuffer);
 		//Free the buffer.
-		LocalFree( messageBuffer );
+		LocalFree(messageBuffer);
 #endif
 	}
 
@@ -77,22 +68,18 @@ void WSAStartupSingleton::AddRef(void)
 void WSAStartupSingleton::Deref(void)
 {
 #if defined(_WIN32)
-	if (refCount==0)
+	if (refCount == 0)
 		return;
-		
-	if (refCount>1)
+
+	if (refCount > 1)
 	{
 		refCount--;
 		return;
 	}
-	
+
 	WSACleanup();
 
 
-
-
-
-	
-	refCount=0;
+	refCount = 0;
 #endif
 }

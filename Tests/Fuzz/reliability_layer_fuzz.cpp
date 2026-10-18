@@ -29,14 +29,14 @@ using namespace MafiaNet;
 
 namespace
 {
-	// Acks and resends the layer emits are discarded.
-	struct NullSocket : public RakNetSocket2
+// Acks and resends the layer emits are discarded.
+struct NullSocket : public RakNetSocket2
+{
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
 	{
-		RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
-		{
-			return sendParameters->length;
-		}
-	};
+		return sendParameters->length;
+	}
+};
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
@@ -71,7 +71,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		offset += length;
 
 		layer.HandleSocketReceiveFromConnectedPlayer(datagram.get(), (unsigned int) length,
-			remote, handlers, MAXIMUM_MTU_SIZE, &socket, &rnr, now, updateBitStream);
+		                                             remote, handlers, MAXIMUM_MTU_SIZE, &socket, &rnr, now, updateBitStream);
 
 		now += 10000;
 		layer.Update(&socket, remote, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);

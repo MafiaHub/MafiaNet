@@ -85,104 +85,113 @@ struct InvokeArgs
 	NetworkIDObject *thisPtr;
 };
 
-typedef boost::fusion::tuple<bool, boost::function<InvokeResultCodes (InvokeArgs)> > FunctionPointer;
+typedef boost::fusion::tuple<bool, boost::function<InvokeResultCodes(InvokeArgs)>> FunctionPointer;
 
 struct StrWithDestructor
 {
 	char *c;
-	~StrWithDestructor() {if (c) delete c;}
+	~StrWithDestructor()
+	{
+		if (c)
+			delete c;
+	}
 };
 
 enum RPC3TagFlag
 {
-	RPC3_TAG_FLAG_DEREF=1,
-	RPC3_TAG_FLAG_ARRAY=2,
+	RPC3_TAG_FLAG_DEREF = 1,
+	RPC3_TAG_FLAG_ARRAY = 2,
 };
 
 struct RPC3Tag
 {
 	RPC3Tag() {}
-	RPC3Tag(void *_v, unsigned int _count, RPC3TagFlag _flag) : v(_v), count(_count), flag((unsigned char)_flag) {}
-	void* v;
+	RPC3Tag(void *_v, unsigned int _count, RPC3TagFlag _flag)
+	    : v(_v), count(_count), flag((unsigned char) _flag) {}
+	void *v;
 	unsigned int count;
 	unsigned char flag;
 };
 
 // Track the pointers tagged with MafiaNet::_RPC3::Deref
-static RPC3Tag __RPC3TagPtrs[BOOST_FUSION_INVOKE_MAX_ARITY+1];
-static int __RPC3TagHead=0;
-static int __RPC3TagTail=0;
+static RPC3Tag __RPC3TagPtrs[BOOST_FUSION_INVOKE_MAX_ARITY + 1];
+static int __RPC3TagHead = 0;
+static int __RPC3TagTail = 0;
 
 // If this assert hits, then MafiaNet::_RPC3::Deref was called more times than the argument was passed to the function
 static void __RPC3_Tag_AddHead(const RPC3Tag &p)
 {
 	// Update tag if already in array
 	int i;
-	for (i=__RPC3TagTail; i!=__RPC3TagHead; i=(i+1)%BOOST_FUSION_INVOKE_MAX_ARITY)
+	for (i = __RPC3TagTail; i != __RPC3TagHead; i = (i + 1) % BOOST_FUSION_INVOKE_MAX_ARITY)
 	{
-		if (__RPC3TagPtrs[i].v==p.v)
+		if (__RPC3TagPtrs[i].v == p.v)
 		{
-			if (p.flag==RPC3_TAG_FLAG_ARRAY)
+			if (p.flag == RPC3_TAG_FLAG_ARRAY)
 			{
-				__RPC3TagPtrs[i].count=p.count;
+				__RPC3TagPtrs[i].count = p.count;
 			}
-			__RPC3TagPtrs[i].flag|=p.flag;
+			__RPC3TagPtrs[i].flag |= p.flag;
 
 			return;
 		}
 	}
 
-	__RPC3TagPtrs[__RPC3TagHead]=p;
+	__RPC3TagPtrs[__RPC3TagHead] = p;
 	__RPC3TagHead = (__RPC3TagHead + 1) % BOOST_FUSION_INVOKE_MAX_ARITY;
-	assert(__RPC3TagHead!=__RPC3TagTail);
+	assert(__RPC3TagHead != __RPC3TagTail);
 }
-static void __RPC3ClearTail(void) {
-	while (__RPC3TagTail!=__RPC3TagHead)
+static void __RPC3ClearTail(void)
+{
+	while (__RPC3TagTail != __RPC3TagHead)
 	{
-		if (__RPC3TagPtrs[__RPC3TagTail].v==0)
-			__RPC3TagTail = (__RPC3TagTail+1) % BOOST_FUSION_INVOKE_MAX_ARITY;
+		if (__RPC3TagPtrs[__RPC3TagTail].v == 0)
+			__RPC3TagTail = (__RPC3TagTail + 1) % BOOST_FUSION_INVOKE_MAX_ARITY;
 		else
 			return;
 	}
 }
-static bool __RPC3ClearPtr(void* p, RPC3Tag *tag) {
+static bool __RPC3ClearPtr(void *p, RPC3Tag *tag)
+{
 	int i;
-	for (i=__RPC3TagTail; i!=__RPC3TagHead; i=(i+1)%BOOST_FUSION_INVOKE_MAX_ARITY)
+	for (i = __RPC3TagTail; i != __RPC3TagHead; i = (i + 1) % BOOST_FUSION_INVOKE_MAX_ARITY)
 	{
-		if (__RPC3TagPtrs[i].v==p)
+		if (__RPC3TagPtrs[i].v == p)
 		{
-			*tag=__RPC3TagPtrs[i];
-			__RPC3TagPtrs[i].v=0;
-			__RPC3ClearTail();			
+			*tag = __RPC3TagPtrs[i];
+			__RPC3TagPtrs[i].v = 0;
+			__RPC3ClearTail();
 			return true;
 		}
 	}
-	tag->flag=0;
-	tag->count=1;
+	tag->flag = 0;
+	tag->count = 1;
 	return false;
 }
 
 template <class templateType>
-inline const templateType& Deref(const templateType & t) {
-	__RPC3_Tag_AddHead(RPC3Tag((void*)t,1,RPC3_TAG_FLAG_DEREF));
+inline const templateType &Deref(const templateType &t)
+{
+	__RPC3_Tag_AddHead(RPC3Tag((void *) t, 1, RPC3_TAG_FLAG_DEREF));
 	return t;
 }
 
 template <class templateType>
-inline const templateType& PtrToArray(unsigned int count, const templateType & t) {
-	__RPC3_Tag_AddHead(RPC3Tag((void*)t,count,RPC3_TAG_FLAG_ARRAY));
+inline const templateType &PtrToArray(unsigned int count, const templateType &t)
+{
+	__RPC3_Tag_AddHead(RPC3Tag((void *) t, count, RPC3_TAG_FLAG_ARRAY));
 	return t;
 }
 
 struct ReadBitstream
 {
-	static void applyArray(MafiaNet::BitStream &bitStream, MafiaNet::BitStream* t){apply(bitStream,t);}
+	static void applyArray(MafiaNet::BitStream &bitStream, MafiaNet::BitStream *t) { apply(bitStream, t); }
 
-	static void apply(MafiaNet::BitStream &bitStream, MafiaNet::BitStream* t)
+	static void apply(MafiaNet::BitStream &bitStream, MafiaNet::BitStream *t)
 	{
 		BitSize_t numBitsUsed;
 		bitStream.ReadCompressed(numBitsUsed);
-		bitStream.Read(t,numBitsUsed);
+		bitStream.Read(t, numBitsUsed);
 	}
 };
 
@@ -190,75 +199,75 @@ struct ReadBitstream
 struct ReadPtr
 {
 	template <typename T2>
-	static inline void applyArray(MafiaNet::BitStream &bitStream, T2 *t) {bitStream >> (*t);}
+	static inline void applyArray(MafiaNet::BitStream &bitStream, T2 *t) { bitStream >> (*t); }
 	template <typename T2>
-	static inline void apply(MafiaNet::BitStream &bitStream, T2 *t) {bitStream >> (*t);}
+	static inline void apply(MafiaNet::BitStream &bitStream, T2 *t) { bitStream >> (*t); }
 
-	static inline void apply(MafiaNet::BitStream &bitStream, char *&t) {applyStr(bitStream, (char *&) t);}
-	static inline void apply(MafiaNet::BitStream &bitStream, unsigned char *&t) {applyStr(bitStream, (char *&) t);}
-	static inline void apply(MafiaNet::BitStream &bitStream, const char *&t) {applyStr(bitStream, (char *&) t);}
-	static inline void apply(MafiaNet::BitStream &bitStream, const unsigned char *&t) {applyStr(bitStream, (char *&) t);}
+	static inline void apply(MafiaNet::BitStream &bitStream, char *&t) { applyStr(bitStream, (char *&) t); }
+	static inline void apply(MafiaNet::BitStream &bitStream, unsigned char *&t) { applyStr(bitStream, (char *&) t); }
+	static inline void apply(MafiaNet::BitStream &bitStream, const char *&t) { applyStr(bitStream, (char *&) t); }
+	static inline void apply(MafiaNet::BitStream &bitStream, const unsigned char *&t) { applyStr(bitStream, (char *&) t); }
 	static inline void applyStr(MafiaNet::BitStream &bitStream, char *&t)
 	{
 		MafiaNet::RakString rs;
 		bitStream >> rs;
-		size_t len = rs.GetLength()+1;
-		
+		size_t len = rs.GetLength() + 1;
+
 		// The caller should have already allocated memory, so we need to free
 		// it and allocate a new buffer.
 		RakAssert("Expected allocated array, got a null pointer" && (nullptr != t));
-		delete [] t;
+		delete[] t;
 
-		t = new char [len];
-		memcpy(t,rs.C_String(),len);
+		t = new char[len];
+		memcpy(t, rs.C_String(), len);
 	}
 };
 
 
-template< typename T >
+template <typename T>
 struct DoRead
 {
 	typedef typename boost::mpl::if_<
-		boost::is_convertible<T*, MafiaNet::BitStream*>,
-		ReadBitstream,
-		ReadPtr >::type type;
+	    boost::is_convertible<T *, MafiaNet::BitStream *>,
+	    ReadBitstream,
+	    ReadPtr>::type type;
 };
 
 
-template< typename T >
+template <typename T>
 struct ReadWithoutNetworkIDNoPtr
 {
 	static InvokeResultCodes apply(InvokeArgs args, T &t)
 	{
-//		printf("ReadWithoutNetworkIDNoPtr\n");
+		//		printf("ReadWithoutNetworkIDNoPtr\n");
 
-		DoRead< typename boost::remove_pointer<T>::type >::type::apply(* (args.bitStream),&t);
+		DoRead<typename boost::remove_pointer<T>::type>::type::apply(*(args.bitStream), &t);
 
 		return IRC_SUCCESS;
 	}
 
 	// typedef boost::mpl::false_ Cleanup;
-	template< typename T2 >
+	template <typename T2>
 	static void Cleanup(T2 &t)
 	{
 		// unused parameters
-		(void)t;
+		(void) t;
 	}
 };
 
-template< typename T >
+template <typename T>
 struct ReadWithNetworkIDPtr
 {
 	static InvokeResultCodes apply(InvokeArgs args, T &t)
 	{
-//		printf("ReadWithNetworkIDPtr\n");
+		//		printf("ReadWithNetworkIDPtr\n");
 		// Read the network ID
 
 		bool isNull;
 		args.bitStream->Read(isNull);
 		if (isNull)
 		{
-			t=0;
+			t = 0;
 			return IRC_SUCCESS;
 		}
 
@@ -269,12 +278,12 @@ struct ReadWithNetworkIDPtr
 		if (isArray)
 			args.bitStream->ReadCompressed(count);
 		else
-			count=1;
+			count = 1;
 		NetworkID networkId;
-		for (unsigned int i=0; i < count; i++)
+		for (unsigned int i = 0; i < count; i++)
 		{
 			args.bitStream->Read(networkId);
-			t = args.networkIDManager->GET_OBJECT_FROM_ID< T >(networkId);
+			t = args.networkIDManager->GET_OBJECT_FROM_ID<T>(networkId);
 			if (deref)
 			{
 				BitSize_t bitsUsed;
@@ -283,7 +292,7 @@ struct ReadWithNetworkIDPtr
 
 				if (t)
 				{
-					DoRead< typename boost::remove_pointer<T>::type >::type::apply(* (args.bitStream),t);
+					DoRead<typename boost::remove_pointer<T>::type>::type::apply(*(args.bitStream), t);
 				}
 				else
 				{
@@ -292,83 +301,83 @@ struct ReadWithNetworkIDPtr
 				}
 			}
 		}
-		
+
 		return IRC_SUCCESS;
 	}
 
-	template< typename T2 >
+	template <typename T2>
 	static void Cleanup(T2 &t)
 	{
 		// unused parameters
-		(void)t;
+		(void) t;
 	}
 };
 
-template< typename T >
+template <typename T>
 struct ReadWithoutNetworkIDPtr
 {
 	template <typename T2>
 	static InvokeResultCodes apply(InvokeArgs args, T2 &t)
 	{
-//		printf("ReadWithoutNetworkIDPtr\n");
-		
-		bool isNull=false;
+		//		printf("ReadWithoutNetworkIDPtr\n");
+
+		bool isNull = false;
 		args.bitStream->Read(isNull);
 		if (isNull)
 		{
-			t=0;
+			t = 0;
 			return IRC_SUCCESS;
 		}
 
-		typedef typename boost::remove_pointer< T >::type ActualObjectType;
+		typedef typename boost::remove_pointer<T>::type ActualObjectType;
 
-		bool isArray=false;
+		bool isArray = false;
 		unsigned int count;
 		args.bitStream->Read(isArray);
 		if (isArray)
 			args.bitStream->ReadCompressed(count);
 		else
-			count=1;
+			count = 1;
 
 		t = new ActualObjectType[count]();
 		if (isArray)
 		{
-			for (unsigned int i=0; i < count; i++)
+			for (unsigned int i = 0; i < count; i++)
 			{
-				DoRead< typename boost::remove_pointer<T>::type >::type::applyArray(* (args.bitStream),t+i);
+				DoRead<typename boost::remove_pointer<T>::type>::type::applyArray(*(args.bitStream), t + i);
 			}
 		}
 		else
 		{
-			DoRead< typename boost::remove_pointer<T>::type >::type::apply(* (args.bitStream),t);
+			DoRead<typename boost::remove_pointer<T>::type>::type::apply(*(args.bitStream), t);
 		}
 
 		return IRC_SUCCESS;
 	}
 
-	template< typename T2 >
+	template <typename T2>
 	static void Cleanup(T2 &t)
 	{
 		if (t)
-			delete [] t;
+			delete[] t;
 	}
 };
 
-template< typename T >
+template <typename T>
 struct SetRPC3Ptr
 {
 	static InvokeResultCodes apply(InvokeArgs args, T &obj)
 	{
-		obj=args.caller;
+		obj = args.caller;
 		return IRC_SUCCESS;
 	}
 
 	//typedef boost::mpl::false_ Cleanup;
-	template< typename T2 >
+	template <typename T2>
 	static void Cleanup(T2 &t)
 	{
 		// unused parameters
-		(void)t;
+		(void) t;
 	}
 };
 
@@ -384,32 +393,31 @@ struct ReadWithNetworkID
 };
 */
 
-template< typename T >
+template <typename T>
 struct ReadWithoutNetworkID
 {
 	typedef typename boost::mpl::if_<
-		boost::is_pointer<T>
-		, ReadWithoutNetworkIDPtr<T> // true
-		, ReadWithoutNetworkIDNoPtr<T>
-	>::type type;
+	    boost::is_pointer<T>, ReadWithoutNetworkIDPtr<T> // true
+	    ,
+	    ReadWithoutNetworkIDNoPtr<T>>::type type;
 };
 
-template< typename T >
-struct identity 
+template <typename T>
+struct identity
 {
 	typedef T type;
 };
 
-template< typename T >
+template <typename T>
 struct IsRPC3Ptr
 {
 	typedef typename boost::mpl::if_<
-		boost::is_convertible<T,RPC3*>,
-		boost::mpl::true_,
-		boost::mpl::false_>::type type;
+	    boost::is_convertible<T, RPC3 *>,
+	    boost::mpl::true_,
+	    boost::mpl::false_>::type type;
 };
 
-template< typename T >
+template <typename T>
 struct ShouldReadNetworkID
 {
 	/*
@@ -425,12 +433,12 @@ struct ShouldReadNetworkID
 		*/
 
 	typedef typename boost::mpl::if_<
-		boost::is_convertible<T,NetworkIDObject*>,
-		boost::mpl::true_,
-		boost::mpl::false_>::type type;
+	    boost::is_convertible<T, NetworkIDObject *>,
+	    boost::mpl::true_,
+	    boost::mpl::false_>::type type;
 };
 
-template< typename T >
+template <typename T>
 struct GetReadFunction
 {
 	/*
@@ -442,78 +450,61 @@ struct GetReadFunction
 	*/
 
 	typedef typename boost::mpl::if_<
-		typename ShouldReadNetworkID<T>::type
-		, ReadWithNetworkIDPtr<T>
-		, typename ReadWithoutNetworkID<T>::type
-	>::type type;
+	    typename ShouldReadNetworkID<T>::type, ReadWithNetworkIDPtr<T>, typename ReadWithoutNetworkID<T>::type>::type type;
 };
 
-template< typename T >
+template <typename T>
 struct ProcessArgType
 {
 	typedef typename boost::mpl::if_<
-		typename IsRPC3Ptr<T>::type
-		, SetRPC3Ptr<T>
-		, typename GetReadFunction<T>::type
-	>::type type;
+	    typename IsRPC3Ptr<T>::type, SetRPC3Ptr<T>, typename GetReadFunction<T>::type>::type type;
 };
 
-template< typename Function
-	, class From = typename boost::mpl::begin< boost::function_types::parameter_types<Function> >::type
-	, class To   = typename boost::mpl::end< boost::function_types::parameter_types<Function> >::type
->
+template <typename Function, class From = typename boost::mpl::begin<boost::function_types::parameter_types<Function>>::type, class To = typename boost::mpl::end<boost::function_types::parameter_types<Function>>::type>
 struct BoostRPCInvoker
 {
 	// add an argument to a Fusion cons-list for each parameter type
-	template<typename Args>
-	static inline
-		InvokeResultCodes apply(Function func, InvokeArgs functionArgs, Args const &args)
+	template <typename Args>
+	static inline InvokeResultCodes apply(Function func, InvokeArgs functionArgs, Args const &args)
 	{
 		typedef typename boost::mpl::deref<From>::type arg_type;
 		typedef typename boost::mpl::next<From>::type next_iter_type;
 		typedef typename boost::remove_reference<arg_type>::type arg_type_no_ref;
 
 		arg_type_no_ref argType;
-		ProcessArgType< arg_type_no_ref >::type::apply(functionArgs, argType);
+		ProcessArgType<arg_type_no_ref>::type::apply(functionArgs, argType);
 
-		InvokeResultCodes irc = BoostRPCInvoker<Function, next_iter_type, To>::apply
-			( func, functionArgs, boost::fusion::push_back(args, boost::ref(argType) ) );
+		InvokeResultCodes irc = BoostRPCInvoker<Function, next_iter_type, To>::apply(func, functionArgs, boost::fusion::push_back(args, boost::ref(argType)));
 
-		ProcessArgType< arg_type_no_ref >::type::Cleanup(argType);
+		ProcessArgType<arg_type_no_ref>::type::Cleanup(argType);
 		return irc;
 	}
 };
 
-template< typename Function
-, class From = typename boost::mpl::begin< boost::function_types::parameter_types<Function> >::type
-, class To   = typename boost::mpl::end< boost::function_types::parameter_types<Function> >::type
->
+template <typename Function, class From = typename boost::mpl::begin<boost::function_types::parameter_types<Function>>::type, class To = typename boost::mpl::end<boost::function_types::parameter_types<Function>>::type>
 struct BoostRPCInvoker_ThisPtr
 {
 	// add an argument to a Fusion cons-list for each parameter type
-	template<typename Args>
-	static inline
-		InvokeResultCodes apply(Function func, InvokeArgs functionArgs, Args const &args)
+	template <typename Args>
+	static inline InvokeResultCodes apply(Function func, InvokeArgs functionArgs, Args const &args)
 	{
 		typedef typename boost::mpl::deref<From>::type arg_type;
 		typedef typename boost::mpl::next<From>::type next_iter_type;
 
-		arg_type argType = (arg_type) *(functionArgs.thisPtr);
+		arg_type argType = (arg_type) * (functionArgs.thisPtr);
 
-		return BoostRPCInvoker<Function, next_iter_type, To>::apply
-			( func, functionArgs, boost::fusion::push_back(args, boost::ref(argType) ) );
+		return BoostRPCInvoker<Function, next_iter_type, To>::apply(func, functionArgs, boost::fusion::push_back(args, boost::ref(argType)));
 	}
 };
 
-template<typename Function, class To>
-struct BoostRPCInvoker<Function,To,To>
+template <typename Function, class To>
+struct BoostRPCInvoker<Function, To, To>
 {
 	// the argument list is complete, now call the function
-	template<typename Args>
-	static inline
-		InvokeResultCodes apply(Function func, InvokeArgs&, Args const &args)
+	template <typename Args>
+	static inline InvokeResultCodes apply(Function func, InvokeArgs &, Args const &args)
 	{
-		boost::fusion::invoke(func,args);
+		boost::fusion::invoke(func, args);
 
 		return IRC_SUCCESS;
 	}
@@ -522,18 +513,18 @@ struct BoostRPCInvoker<Function,To,To>
 template <typename T>
 struct DoNothing
 {
-	static void apply(MafiaNet::BitStream &bitStream, T& t)
+	static void apply(MafiaNet::BitStream &bitStream, T &t)
 	{
 		(void) bitStream;
 		(void) t;
-//		printf("DoNothing\n");
+		//		printf("DoNothing\n");
 	}
 };
 
 struct WriteBitstream
 {
-	static void applyArray(MafiaNet::BitStream &bitStream, MafiaNet::BitStream* t) {apply(bitStream,t);}
-	static void apply(MafiaNet::BitStream &bitStream, MafiaNet::BitStream* t)
+	static void applyArray(MafiaNet::BitStream &bitStream, MafiaNet::BitStream *t) { apply(bitStream, t); }
+	static void apply(MafiaNet::BitStream &bitStream, MafiaNet::BitStream *t)
 	{
 		BitSize_t oldReadOffset = t->GetReadOffset();
 		t->ResetReadPointer();
@@ -547,94 +538,94 @@ struct WriteBitstream
 struct WritePtr
 {
 	template <typename T2>
-	static inline void applyArray(MafiaNet::BitStream &bitStream, T2 *t) {bitStream << (*t);}
+	static inline void applyArray(MafiaNet::BitStream &bitStream, T2 *t) { bitStream << (*t); }
 	template <typename T2>
-	static inline void apply(MafiaNet::BitStream &bitStream, T2 *t) {bitStream << (*t);}
-//	template <>
-	static inline void apply(MafiaNet::BitStream &bitStream, char *t) {bitStream << t;}
-//	template <>
-	static inline void apply(MafiaNet::BitStream &bitStream, unsigned char *t) {bitStream << t;}
-//	template <>
-	static inline void apply(MafiaNet::BitStream &bitStream, const char *t) {bitStream << t;}
-//	template <>
-	static inline void apply(MafiaNet::BitStream &bitStream, const unsigned char *t) {bitStream << t;}
+	static inline void apply(MafiaNet::BitStream &bitStream, T2 *t) { bitStream << (*t); }
+	//	template <>
+	static inline void apply(MafiaNet::BitStream &bitStream, char *t) { bitStream << t; }
+	//	template <>
+	static inline void apply(MafiaNet::BitStream &bitStream, unsigned char *t) { bitStream << t; }
+	//	template <>
+	static inline void apply(MafiaNet::BitStream &bitStream, const char *t) { bitStream << t; }
+	//	template <>
+	static inline void apply(MafiaNet::BitStream &bitStream, const unsigned char *t) { bitStream << t; }
 };
 
-template< typename T >
+template <typename T>
 struct DoWrite
 {
 	typedef typename boost::mpl::if_<
-		boost::is_convertible<T*, MafiaNet::BitStream*>,
-		WriteBitstream,
-		WritePtr >::type type;
+	    boost::is_convertible<T *, MafiaNet::BitStream *>,
+	    WriteBitstream,
+	    WritePtr>::type type;
 };
 
 template <typename T>
 struct WriteWithNetworkIDPtr
 {
-	static void apply(MafiaNet::BitStream &bitStream, T& t)
+	static void apply(MafiaNet::BitStream &bitStream, T &t)
 	{
 		bool isNull;
-		isNull=(t==0);
+		isNull = (t == 0);
 		bitStream.Write(isNull);
 		if (isNull)
 			return;
 		RPC3Tag tag;
 		__RPC3ClearPtr(t, &tag);
-		bool deref = (tag.flag & RPC3_TAG_FLAG_DEREF) !=0;
-		bool isArray = (tag.flag & RPC3_TAG_FLAG_ARRAY) !=0;
+		bool deref = (tag.flag & RPC3_TAG_FLAG_DEREF) != 0;
+		bool isArray = (tag.flag & RPC3_TAG_FLAG_ARRAY) != 0;
 		bitStream.Write(deref);
 		bitStream.Write(isArray);
 		if (isArray)
 		{
 			bitStream.WriteCompressed(tag.count);
 		}
-		for (unsigned int i=0; i < tag.count; i++)
+		for (unsigned int i = 0; i < tag.count; i++)
 		{
-			NetworkID inNetworkID=t->GetNetworkID();
+			NetworkID inNetworkID = t->GetNetworkID();
 			bitStream << inNetworkID;
 			if (deref)
 			{
 				// skip bytes, write data, go back, write number of bits written, reset cursor
 				bitStream.AlignWriteToByteBoundary();
 				BitSize_t writeOffset1 = bitStream.GetWriteOffset();
-				BitSize_t bitsUsed1=bitStream.GetNumberOfBitsUsed();
+				BitSize_t bitsUsed1 = bitStream.GetNumberOfBitsUsed();
 				bitStream.Write(bitsUsed1);
-				bitsUsed1=bitStream.GetNumberOfBitsUsed();
-				DoWrite< typename boost::remove_pointer<T>::type >::type::apply(bitStream,t);
+				bitsUsed1 = bitStream.GetNumberOfBitsUsed();
+				DoWrite<typename boost::remove_pointer<T>::type>::type::apply(bitStream, t);
 				BitSize_t writeOffset2 = bitStream.GetWriteOffset();
-				BitSize_t bitsUsed2=bitStream.GetNumberOfBitsUsed();
+				BitSize_t bitsUsed2 = bitStream.GetNumberOfBitsUsed();
 				bitStream.SetWriteOffset(writeOffset1);
-				bitStream.Write(bitsUsed2-bitsUsed1);
+				bitStream.Write(bitsUsed2 - bitsUsed1);
 				bitStream.SetWriteOffset(writeOffset2);
 			}
-		}		
+		}
 	}
 };
 
 template <typename T>
 struct WriteWithoutNetworkIDNoPtr
 {
-	static void apply(MafiaNet::BitStream &bitStream, T& t)
+	static void apply(MafiaNet::BitStream &bitStream, T &t)
 	{
-		DoWrite< typename boost::remove_pointer<T>::type >::type::apply(bitStream,&t);
+		DoWrite<typename boost::remove_pointer<T>::type>::type::apply(bitStream, &t);
 	}
 };
 
 template <typename T>
 struct WriteWithoutNetworkIDPtr
 {
-	static void apply(MafiaNet::BitStream &bitStream, T& t)
+	static void apply(MafiaNet::BitStream &bitStream, T &t)
 	{
 		bool isNull;
-		isNull=(t==0);
+		isNull = (t == 0);
 		bitStream.Write(isNull);
 		if (isNull)
 			return;
 
 		RPC3Tag tag;
-		__RPC3ClearPtr((void*) t, &tag);
-		bool isArray = (tag.flag & RPC3_TAG_FLAG_ARRAY) !=0;
+		__RPC3ClearPtr((void *) t, &tag);
+		bool isArray = (tag.flag & RPC3_TAG_FLAG_ARRAY) != 0;
 		bitStream.Write(isArray);
 		if (isArray)
 		{
@@ -642,14 +633,13 @@ struct WriteWithoutNetworkIDPtr
 		}
 		if (isArray)
 		{
-			for (unsigned int i=0; i < tag.count; i++)
-				DoWrite< typename boost::remove_pointer<T>::type >::type::applyArray(bitStream,t+i);
+			for (unsigned int i = 0; i < tag.count; i++)
+				DoWrite<typename boost::remove_pointer<T>::type>::type::applyArray(bitStream, t + i);
 		}
 		else
 		{
-			DoWrite< typename boost::remove_pointer<T>::type >::type::apply(bitStream,t);
+			DoWrite<typename boost::remove_pointer<T>::type>::type::apply(bitStream, t);
 		}
-		
 	}
 };
 
@@ -657,52 +647,40 @@ template <typename T>
 struct SerializeCallParameterBranch
 {
 	typedef typename boost::mpl::if_<
-		typename IsRPC3Ptr<T>::type
-		, DoNothing<T>
-		, WriteWithoutNetworkIDPtr<T>
-	>::type typeCheck1;
+	    typename IsRPC3Ptr<T>::type, DoNothing<T>, WriteWithoutNetworkIDPtr<T>>::type typeCheck1;
 
 	typedef typename boost::mpl::if_<
-		boost::is_pointer<T>
-		, typeCheck1
-		, WriteWithoutNetworkIDNoPtr<T>
-	>::type typeCheck2;
+	    boost::is_pointer<T>, typeCheck1, WriteWithoutNetworkIDNoPtr<T>>::type typeCheck2;
 
 	typedef typename boost::mpl::if_<
-		typename ShouldReadNetworkID<T>::type
-		, WriteWithNetworkIDPtr<T>
-		, typeCheck2
-	>::type type;
+	    typename ShouldReadNetworkID<T>::type, WriteWithNetworkIDPtr<T>, typeCheck2>::type type;
 };
-template<typename Function>
+template <typename Function>
 struct GetBoundPointer_C
 {
-//	typedef typename GetBoundPointer_C type;
+	//	typedef typename GetBoundPointer_C type;
 	static FunctionPointer GetBoundPointer(Function f)
 	{
-		return FunctionPointer(false, boost::bind( & BoostRPCInvoker<Function>::template apply<boost::fusion::nil>, f, _1, boost::fusion::nil() ));
+		return FunctionPointer(false, boost::bind(&BoostRPCInvoker<Function>::template apply<boost::fusion::nil>, f, _1, boost::fusion::nil()));
 	}
 };
 
-template<typename Function>
+template <typename Function>
 struct GetBoundPointer_CPP
 {
-//	typedef typename GetBoundPointer_CPP type;
+	//	typedef typename GetBoundPointer_CPP type;
 	static FunctionPointer GetBoundPointer(Function f)
 	{
-		return FunctionPointer(true, boost::bind( & BoostRPCInvoker_ThisPtr<Function>::template apply<boost::fusion::nil>, f, _1, boost::fusion::nil() ));
+		return FunctionPointer(true, boost::bind(&BoostRPCInvoker_ThisPtr<Function>::template apply<boost::fusion::nil>, f, _1, boost::fusion::nil()));
 	}
 };
-template<typename Function>
+template <typename Function>
 FunctionPointer GetBoundPointer(Function f)
 {
 	return boost::mpl::if_<
-	boost::is_member_function_pointer<Function>
-	, GetBoundPointer_CPP<Function>
-	, GetBoundPointer_C<Function>
-	>::type::GetBoundPointer(f);
-	
-//	return FunctionPointer(true, boost::bind( & BoostRPCInvoker<Function>::template apply<boost::fusion::nil>, f, _1, boost::fusion::nil() ) );
+	    boost::is_member_function_pointer<Function>, GetBoundPointer_CPP<Function>, GetBoundPointer_C<Function>>::type::GetBoundPointer(f);
+
+	//	return FunctionPointer(true, boost::bind( & BoostRPCInvoker<Function>::template apply<boost::fusion::nil>, f, _1, boost::fusion::nil() ) );
 }
 
 

@@ -286,9 +286,9 @@ enum Lobby2ResultCode
 	L2RC_Notification_Console_CableDisconnected,
 	L2RC_Notification_ContextError_SignedOut,
 	L2RC_Notification_ContextError_SystemError,
-	
+
 	L2RC_COUNT,
-};	
+};
 
 struct Lobby2ResultCodeDescription
 {

@@ -19,11 +19,12 @@
 #include "mafianet/native_types.h"
 #include "mafianet/defines.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 // Define __GET_TIME_64BIT if you want to use large types for GetTime (takes more bandwidth when you transmit time though!)
 // You would want to do this if your system is going to run long enough to overflow the millisecond counter (over a month)
-#if __GET_TIME_64BIT==1
+#if __GET_TIME_64BIT == 1
 typedef uint64_t Time;
 #define RAK_TIME_FORMAT_STRING "%llu"
 typedef uint32_t TimeMS;

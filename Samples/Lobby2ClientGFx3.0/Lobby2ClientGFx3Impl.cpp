@@ -35,27 +35,24 @@ Lobby2ClientGFx3Impl::~Lobby2ClientGFx3Impl()
 }
 void Lobby2ClientGFx3Impl::Init(MafiaNet::Lobby2Client *_lobby2Client, MafiaNet::Lobby2MessageFactory *_messageFactory, RakPeerInterface *_rakPeer, GPtr<FxDelegate> pDelegate, GPtr<GFxMovieView> pMovie)
 {
-	lobby2Client=_lobby2Client;
-	messageFactory=_messageFactory;
+	lobby2Client = _lobby2Client;
+	messageFactory = _messageFactory;
 	pDelegate->RegisterHandler(this);
-	delegate=pDelegate;
-	movie=pMovie;
-	rakPeer=_rakPeer;
-
+	delegate = pDelegate;
+	movie = pMovie;
+	rakPeer = _rakPeer;
 }
 void Lobby2ClientGFx3Impl::Update(void)
 {
-	
 }
 void Lobby2ClientGFx3Impl::Shutdown(void)
 {
-	if (delegate.GetPtr()!=0)
+	if (delegate.GetPtr() != 0)
 	{
 		delegate->UnregisterHandler(this);
 		delegate.Clear();
 	}
 	movie.Clear();
-	
 }
 
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_ResetDatabase)
@@ -65,10 +62,9 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_ResetDatabase)
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Connect)
 {
-	rakPeer->Connect(pparams[0].GetString(), atoi(pparams[1].GetString()), 0,0);
+	rakPeer->Connect(pparams[0].GetString(), atoi(pparams[1].GetString()), 0, 0);
 	lobby2Client->SetServerAddress(
-		SystemAddress(pparams[0].GetString(), atoi(pparams[1].GetString()))
-		);
+	    SystemAddress(pparams[0].GetString(), atoi(pparams[1].GetString())));
 
 	FxResponseArgs<0> rargs;
 	FxDelegate::Invoke2(movie, "c2f_NotifyConnectingToServer", rargs);
@@ -76,19 +72,19 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Connect)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RecoverPasswordByUsername)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_GetPasswordRecoveryQuestionByHandle, m1);
-	m1->userName=pparams[0].GetString();
+	m1->userName = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetPasswordByPasswordRecoveryAnswer)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_GetPasswordByPasswordRecoveryAnswer, m1);
-	m1->userName=pparams[0].GetString();
-	m1->passwordRecoveryAnswer=pparams[1].GetString();
+	m1->userName = pparams[0].GetString();
+	m1->passwordRecoveryAnswer = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RegisterAccountStateQuery)
 {
-	bool needsCdKeyToLogin=true;
+	bool needsCdKeyToLogin = true;
 	if (needsCdKeyToLogin)
 	{
 		FxResponseArgs<0> rargs;
@@ -103,8 +99,8 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RegisterAccountStateQue
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_DeleteAccount)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, System_DeleteAccount, m1);
-	m1->userName=pparams[0].GetString();
-	m1->password=pparams[1].GetString();
+	m1->userName = pparams[0].GetString();
+	m1->password = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetAccountDetails)
@@ -115,11 +111,11 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetAccountDetails)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_LoginToAccount)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_Login, m1);
-	m1->titleName="Test Title Name";
-	m1->titleSecretKey="Test secret key";
-	m1->userName=pparams[0].GetString();
-	m1->userPassword=pparams[1].GetString();
-	bool savePassword=pparams[2].GetBool();
+	m1->titleName = "Test Title Name";
+	m1->titleSecretKey = "Test secret key";
+	m1->userName = pparams[0].GetString();
+	m1->userPassword = pparams[1].GetString();
+	bool savePassword = pparams[2].GetBool();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_DisconnectFromServer)
@@ -129,12 +125,12 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_DisconnectFromServer)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_CheckCDKey)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, CDKey_GetStatus, m1);
-	m1->titleName="Test Title Name";
-	m1->cdKey=pparams[0].GetString();
+	m1->titleName = "Test Title Name";
+	m1->cdKey = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 void ReadAccountBinaryData(FxResponseArgsList &rargs,
-						   MafiaNet::BitStream *serializedBinaryData)
+                           MafiaNet::BitStream *serializedBinaryData)
 {
 
 	MafiaNet::RakString aboutMe;
@@ -159,7 +155,7 @@ void ReadAccountBinaryData(FxResponseArgsList &rargs,
 	rargs.Add(favoriteBooks.C_String());
 	rargs.Add(favoriteQuotations.C_String());
 }
-void WriteAccountBinaryData(MafiaNet::BitStream *serializedBinaryData, const FxDelegateArgs& pparams, int &index)
+void WriteAccountBinaryData(MafiaNet::BitStream *serializedBinaryData, const FxDelegateArgs &pparams, int &index)
 {
 	MafiaNet::RakString aboutMe = pparams[index++].GetString();
 	MafiaNet::RakString activities = pparams[index++].GetString();
@@ -179,57 +175,57 @@ void WriteAccountBinaryData(MafiaNet::BitStream *serializedBinaryData, const FxD
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RegisterAccount)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_RegisterAccount, m1);
-	int index=0;
-	m1->createAccountParameters.firstName=pparams[index++].GetString();
-	m1->createAccountParameters.middleName=pparams[index++].GetString();
-	m1->createAccountParameters.lastName=pparams[index++].GetString();
-	m1->createAccountParameters.race=pparams[index++].GetString();
-	m1->createAccountParameters.sex_male=pparams[index++].GetBool();
-	m1->createAccountParameters.homeAddress1=pparams[index++].GetString();
-	m1->createAccountParameters.homeAddress2=pparams[index++].GetString();
-	m1->createAccountParameters.homeCity=pparams[index++].GetString();
-	m1->createAccountParameters.homeState=pparams[index++].GetString();
-	m1->createAccountParameters.homeCountry=pparams[index++].GetString();
-	m1->createAccountParameters.homeZipCode=pparams[index++].GetString();
-	m1->createAccountParameters.billingAddress1=pparams[index++].GetString();
-	m1->createAccountParameters.billingAddress2=pparams[index++].GetString();
-	m1->createAccountParameters.billingCity=pparams[index++].GetString();
-	m1->createAccountParameters.billingState=pparams[index++].GetString();
-	m1->createAccountParameters.billingCountry=pparams[index++].GetString();
-	m1->createAccountParameters.billingZipCode=pparams[index++].GetString();
-	m1->createAccountParameters.emailAddress=pparams[index++].GetString();
-	m1->createAccountParameters.password=pparams[index++].GetString();
-	m1->createAccountParameters.passwordRecoveryQuestion=pparams[index++].GetString();
-	m1->createAccountParameters.passwordRecoveryAnswer=pparams[index++].GetString();
-	m1->createAccountParameters.caption1=pparams[index++].GetString();
-	m1->createAccountParameters.caption2=pparams[index++].GetString();
-	m1->createAccountParameters.ageInDays=atoi(pparams[index++].GetString());
-	m1->titleName="Test Title Name";
-	m1->cdKey="Test CD Key";
-	m1->userName=pparams[index++].GetString();
+	int index = 0;
+	m1->createAccountParameters.firstName = pparams[index++].GetString();
+	m1->createAccountParameters.middleName = pparams[index++].GetString();
+	m1->createAccountParameters.lastName = pparams[index++].GetString();
+	m1->createAccountParameters.race = pparams[index++].GetString();
+	m1->createAccountParameters.sex_male = pparams[index++].GetBool();
+	m1->createAccountParameters.homeAddress1 = pparams[index++].GetString();
+	m1->createAccountParameters.homeAddress2 = pparams[index++].GetString();
+	m1->createAccountParameters.homeCity = pparams[index++].GetString();
+	m1->createAccountParameters.homeState = pparams[index++].GetString();
+	m1->createAccountParameters.homeCountry = pparams[index++].GetString();
+	m1->createAccountParameters.homeZipCode = pparams[index++].GetString();
+	m1->createAccountParameters.billingAddress1 = pparams[index++].GetString();
+	m1->createAccountParameters.billingAddress2 = pparams[index++].GetString();
+	m1->createAccountParameters.billingCity = pparams[index++].GetString();
+	m1->createAccountParameters.billingState = pparams[index++].GetString();
+	m1->createAccountParameters.billingCountry = pparams[index++].GetString();
+	m1->createAccountParameters.billingZipCode = pparams[index++].GetString();
+	m1->createAccountParameters.emailAddress = pparams[index++].GetString();
+	m1->createAccountParameters.password = pparams[index++].GetString();
+	m1->createAccountParameters.passwordRecoveryQuestion = pparams[index++].GetString();
+	m1->createAccountParameters.passwordRecoveryAnswer = pparams[index++].GetString();
+	m1->createAccountParameters.caption1 = pparams[index++].GetString();
+	m1->createAccountParameters.caption2 = pparams[index++].GetString();
+	m1->createAccountParameters.ageInDays = atoi(pparams[index++].GetString());
+	m1->titleName = "Test Title Name";
+	m1->cdKey = "Test CD Key";
+	m1->userName = pparams[index++].GetString();
 
 	MafiaNet::BitStream serializedBinaryData;
 	WriteAccountBinaryData(&serializedBinaryData, pparams, index);
 	m1->createAccountParameters.binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);
-	m1->createAccountParameters.binaryData->binaryData=(char*) serializedBinaryData.GetData();
-	m1->createAccountParameters.binaryData->binaryDataLength=serializedBinaryData.GetNumberOfBytesUsed();
+	m1->createAccountParameters.binaryData->binaryData = (char *) serializedBinaryData.GetData();
+	m1->createAccountParameters.binaryData->binaryDataLength = serializedBinaryData.GetNumberOfBytesUsed();
 	lobby2Client->SendMsg(m1);
-	m1->createAccountParameters.binaryData->binaryData=0; // So it doesn't get deallocated
+	m1->createAccountParameters.binaryData->binaryData = 0; // So it doesn't get deallocated
 	messageFactory->Dealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_ValidateHandle)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_ValidateHandle, m1);
-	m1->userName=pparams[0].GetString();
+	m1->userName = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_ChangeHandle)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_ChangeHandle, m1);
-	m1->userName=pparams[0].GetString();
-	m1->password=pparams[1].GetString();
-	m1->newHandle=pparams[2].GetString();
-	m1->requiresPasswordToChangeHandle=true;
+	m1->userName = pparams[0].GetString();
+	m1->password = pparams[1].GetString();
+	m1->newHandle = pparams[2].GetString();
+	m1->requiresPasswordToChangeHandle = true;
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Logoff)
@@ -240,50 +236,50 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Logoff)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_UpdateAccount)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_UpdateAccount, m1);
-	int index=0;
-	m1->createAccountParameters.firstName=pparams[index++].GetString();
-	m1->createAccountParameters.middleName=pparams[index++].GetString();
-	m1->createAccountParameters.lastName=pparams[index++].GetString();
-	m1->createAccountParameters.race=pparams[index++].GetString();
-	m1->createAccountParameters.sex_male=pparams[index++].GetBool();
-	m1->createAccountParameters.homeAddress1=pparams[index++].GetString();
-	m1->createAccountParameters.homeAddress2=pparams[index++].GetString();
-	m1->createAccountParameters.homeCity=pparams[index++].GetString();
-	m1->createAccountParameters.homeState=pparams[index++].GetString();
-	m1->createAccountParameters.homeCountry=pparams[index++].GetString();
-	m1->createAccountParameters.homeZipCode=pparams[index++].GetString();
-	m1->createAccountParameters.billingAddress1=pparams[index++].GetString();
-	m1->createAccountParameters.billingAddress2=pparams[index++].GetString();
-	m1->createAccountParameters.billingCity=pparams[index++].GetString();
-	m1->createAccountParameters.billingState=pparams[index++].GetString();
-	m1->createAccountParameters.billingCountry=pparams[index++].GetString();
-	m1->createAccountParameters.billingZipCode=pparams[index++].GetString();
-	m1->createAccountParameters.emailAddress=pparams[index++].GetString();
-	m1->createAccountParameters.password=pparams[index++].GetString();
-	m1->createAccountParameters.passwordRecoveryQuestion=pparams[index++].GetString();
-	m1->createAccountParameters.passwordRecoveryAnswer=pparams[index++].GetString();
-	m1->createAccountParameters.caption1=pparams[index++].GetString();
-	m1->createAccountParameters.caption2=pparams[index++].GetString();
-	m1->createAccountParameters.ageInDays=atoi(pparams[index++].GetString());
+	int index = 0;
+	m1->createAccountParameters.firstName = pparams[index++].GetString();
+	m1->createAccountParameters.middleName = pparams[index++].GetString();
+	m1->createAccountParameters.lastName = pparams[index++].GetString();
+	m1->createAccountParameters.race = pparams[index++].GetString();
+	m1->createAccountParameters.sex_male = pparams[index++].GetBool();
+	m1->createAccountParameters.homeAddress1 = pparams[index++].GetString();
+	m1->createAccountParameters.homeAddress2 = pparams[index++].GetString();
+	m1->createAccountParameters.homeCity = pparams[index++].GetString();
+	m1->createAccountParameters.homeState = pparams[index++].GetString();
+	m1->createAccountParameters.homeCountry = pparams[index++].GetString();
+	m1->createAccountParameters.homeZipCode = pparams[index++].GetString();
+	m1->createAccountParameters.billingAddress1 = pparams[index++].GetString();
+	m1->createAccountParameters.billingAddress2 = pparams[index++].GetString();
+	m1->createAccountParameters.billingCity = pparams[index++].GetString();
+	m1->createAccountParameters.billingState = pparams[index++].GetString();
+	m1->createAccountParameters.billingCountry = pparams[index++].GetString();
+	m1->createAccountParameters.billingZipCode = pparams[index++].GetString();
+	m1->createAccountParameters.emailAddress = pparams[index++].GetString();
+	m1->createAccountParameters.password = pparams[index++].GetString();
+	m1->createAccountParameters.passwordRecoveryQuestion = pparams[index++].GetString();
+	m1->createAccountParameters.passwordRecoveryAnswer = pparams[index++].GetString();
+	m1->createAccountParameters.caption1 = pparams[index++].GetString();
+	m1->createAccountParameters.caption2 = pparams[index++].GetString();
+	m1->createAccountParameters.ageInDays = atoi(pparams[index++].GetString());
 
 	MafiaNet::BitStream serializedBinaryData;
-	WriteAccountBinaryData(&serializedBinaryData, pparams,index);
-	m1->createAccountParameters.binaryData->binaryData=(char*) serializedBinaryData.GetData();
-	m1->createAccountParameters.binaryData->binaryDataLength=serializedBinaryData.GetNumberOfBytesUsed();
+	WriteAccountBinaryData(&serializedBinaryData, pparams, index);
+	m1->createAccountParameters.binaryData->binaryData = (char *) serializedBinaryData.GetData();
+	m1->createAccountParameters.binaryData->binaryDataLength = serializedBinaryData.GetNumberOfBytesUsed();
 	lobby2Client->SendMsg(m1);
-	m1->createAccountParameters.binaryData->binaryData=0;
+	m1->createAccountParameters.binaryData->binaryData = 0;
 	messageFactory->Dealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_StartIgnore)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_StartIgnore, m1);
-	m1->targetHandle=pparams[0].GetString();
+	m1->targetHandle = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_StopIgnore)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Client_StopIgnore, m1);
-	m1->targetHandle=pparams[0].GetString();
+	m1->targetHandle = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetIgnoreList)
@@ -295,37 +291,37 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetIgnoreList)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_SendInvite)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Friends_SendInvite, m1);
-	m1->targetHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_AcceptInvite)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Friends_AcceptInvite, m1);
-	m1->targetHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RejectInvite)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Friends_RejectInvite, m1);
-	m1->targetHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RemoveFriend)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Friends_Remove, m1);
-	m1->targetHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetFriendInvites)
@@ -342,30 +338,30 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_SendEmail)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Emails_Send, m1);
 	unsigned int index;
-	for (index=0; index < 8; index++)
+	for (index = 0; index < 8; index++)
 	{
 		if (pparams[index].GetString() && pparams[index].GetString()[0])
 			m1->recipients.Push(MafiaNet::RakString(pparams[index].GetString()), _FILE_AND_LINE_);
 	}
-	m1->subject=pparams[index++].GetString();
-	m1->body=pparams[index++].GetString();
-	m1->status=atoi(pparams[index++].GetString());
+	m1->subject = pparams[index++].GetString();
+	m1->body = pparams[index++].GetString();
+	m1->status = atoi(pparams[index++].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_DeleteEmail)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Emails_Delete, m1);
-	m1->emailId=atoi(pparams[0].GetString());
+	m1->emailId = atoi(pparams[0].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_UpdateEmail)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Emails_SetStatus, m1);
-	m1->emailId=atoi(pparams[0].GetString());
-	m1->updateStatusFlag=pparams[1].GetBool();
-	m1->updateMarkedRead=pparams[2].GetBool();
-	m1->newStatusFlag=atoi(pparams[3].GetString());
-	m1->isNowMarkedRead=pparams[4].GetBool();
+	m1->emailId = atoi(pparams[0].GetString());
+	m1->updateStatusFlag = pparams[1].GetBool();
+	m1->updateMarkedRead = pparams[2].GetBool();
+	m1->newStatusFlag = atoi(pparams[3].GetString());
+	m1->isNowMarkedRead = pparams[4].GetBool();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetEmails)
@@ -376,77 +372,77 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_GetEmails)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_Create)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_Create, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->failIfAlreadyInClan=pparams[1].GetBool();
-	m1->requiresInvitationsToJoin=pparams[2].GetBool();
-	m1->description=pparams[3].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->failIfAlreadyInClan = pparams[1].GetBool();
+	m1->requiresInvitationsToJoin = pparams[2].GetBool();
+	m1->description = pparams[3].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_SetProperties)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_SetProperties, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->description=pparams[1].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->description = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_GetProperties)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_GetProperties, m1);
-	m1->clanHandle=pparams[0].GetString();
+	m1->clanHandle = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_SetMyMemberProperties)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_SetMyMemberProperties, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->description=pparams[1].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->description = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_GrantLeader)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_GrantLeader, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->targetHandle=pparams[1].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->targetHandle = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_SetSubleaderStatus)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_SetSubleaderStatus, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->targetHandle=pparams[1].GetString();
-	m1->setToSubleader=pparams[2].GetBool();
+	m1->clanHandle = pparams[0].GetString();
+	m1->targetHandle = pparams[1].GetString();
+	m1->setToSubleader = pparams[2].GetBool();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_SetMemberRank)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_SetMemberRank, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->targetHandle=pparams[1].GetString();
-	m1->newRank=atoi(pparams[2].GetString());
+	m1->clanHandle = pparams[0].GetString();
+	m1->targetHandle = pparams[1].GetString();
+	m1->newRank = atoi(pparams[2].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_GetMemberProperties)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_GetMemberProperties, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->targetHandle=pparams[1].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->targetHandle = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_ChangeHandle)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_ChangeHandle, m1);
-	m1->oldClanHandle=pparams[0].GetString();
-	m1->newClanHandle=pparams[1].GetString();
+	m1->oldClanHandle = pparams[0].GetString();
+	m1->newClanHandle = pparams[1].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_Leave)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_Leave, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->dissolveIfClanLeader=pparams[4].GetBool();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->dissolveIfClanLeader = pparams[4].GetBool();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_Get)
@@ -457,39 +453,39 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_Get)
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_SendJoinInvitation)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_SendJoinInvitation, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->targetHandle=pparams[4].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[4].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_WithdrawJoinInvitation)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_WithdrawJoinInvitation, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->targetHandle=pparams[4].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[4].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_AcceptJoinInvitation)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_AcceptJoinInvitation, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_RejectJoinInvitation)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_RejectJoinInvitation, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_DownloadInvitationList)
@@ -500,40 +496,40 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_DownloadInvitatio
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_SendJoinRequest)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_SendJoinRequest, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_WithdrawJoinRequest)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_WithdrawJoinRequest, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_AcceptJoinRequest)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_AcceptJoinRequest, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->requestingUserHandle=pparams[4].GetString();
-	m1->failIfAlreadyInClan=pparams[5].GetBool();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->requestingUserHandle = pparams[4].GetString();
+	m1->failIfAlreadyInClan = pparams[5].GetBool();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_RejectJoinRequest)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_RejectJoinRequest, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->requestingUserHandle=pparams[4].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->requestingUserHandle = pparams[4].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_DownloadRequestList)
@@ -544,36 +540,36 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_DownloadRequestLi
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_KickAndBlacklistUser)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_KickAndBlacklistUser, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->targetHandle=pparams[4].GetString();
-	m1->kick=pparams[5].GetBool();
-	m1->blacklist=pparams[6].GetBool();
-	m1->reason=pparams[7].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[4].GetString();
+	m1->kick = pparams[5].GetBool();
+	m1->blacklist = pparams[6].GetBool();
+	m1->reason = pparams[7].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_UnblacklistUser)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_UnblacklistUser, m1);
-	m1->clanHandle=pparams[0].GetString();
-	m1->subject=pparams[1].GetString();
-	m1->body=pparams[2].GetString();
-	m1->emailStatus=atoi(pparams[3].GetString());
-	m1->targetHandle=pparams[4].GetString();
+	m1->clanHandle = pparams[0].GetString();
+	m1->subject = pparams[1].GetString();
+	m1->body = pparams[2].GetString();
+	m1->emailStatus = atoi(pparams[3].GetString());
+	m1->targetHandle = pparams[4].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_GetBlacklist)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_GetBlacklist, m1);
-	m1->clanHandle=pparams[0].GetString();
+	m1->clanHandle = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_GetMembers)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, Clans_GetMembers, m1);
-	m1->clanHandle=pparams[0].GetString();
+	m1->clanHandle = pparams[0].GetString();
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_Clans_GetList)
@@ -597,8 +593,8 @@ void Lobby2ClientGFx3Impl::MessageResult(Client_RegisterAccount *message)
 
 	// TODO - once the GUI is implemented, comment this out to make sure the implemtor handled not having a valid email address
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, System_SetEmailAddressValidated, m1);
-	m1->validated=true;
-	m1->userName=message->userName;
+	m1->validated = true;
+	m1->userName = message->userName;
 	lobby2Client->SendMsgAndDealloc(m1);
 }
 void Lobby2ClientGFx3Impl::MessageResult(Client_UpdateAccount *message)
@@ -625,7 +621,7 @@ void Lobby2ClientGFx3Impl::MessageResult(System_DeleteAccount *message)
 }
 void Lobby2ClientGFx3Impl::MessageResult(Client_Login *message)
 {
-	if (message->resultCode==L2RC_SUCCESS)
+	if (message->resultCode == L2RC_SUCCESS)
 	{
 		FxResponseArgs<0> rargs;
 		FxDelegate::Invoke2(movie, "c2f_NotifyLoginResultSuccess", rargs);
@@ -633,7 +629,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Client_Login *message)
 	else
 	{
 		FxResponseArgs<4> rargs;
-		switch(message->resultCode)
+		switch (message->resultCode)
 		{
 		case L2RC_Client_Login_BANNED:
 			rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
@@ -643,29 +639,29 @@ void Lobby2ClientGFx3Impl::MessageResult(Client_Login *message)
 			break;
 		default:
 			rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-			rargs.Add(""); rargs.Add(""); rargs.Add("");
+			rargs.Add("");
+			rargs.Add("");
+			rargs.Add("");
 			break;
 		}
 
 		FxDelegate::Invoke2(movie, "c2f_NotifyLoginResultFailure", rargs);
 	}
-
-	
 }
 void Lobby2ClientGFx3Impl::MessageResult(System_CreateDatabase *message)
 {
 	// After the database is created (immediately above), create the first title and cd key
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, System_CreateTitle, m2);
-	m2->requiredAge=0;
-	m2->titleName="Test Title Name";
-	m2->titleSecretKey="Test secret key";
+	m2->requiredAge = 0;
+	m2->titleName = "Test Title Name";
+	m2->titleSecretKey = "Test secret key";
 	lobby2Client->SendMsgAndDealloc(m2);
 }
 void Lobby2ClientGFx3Impl::MessageResult(System_CreateTitle *message)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, CDKey_Add, m3);
 	m3->cdKeys.Insert("Test CD Key", _FILE_AND_LINE_);
-	m3->titleName="Test Title Name";
+	m3->titleName = "Test Title Name";
 	lobby2Client->SendMsgAndDealloc(m3);
 }
 void Lobby2ClientGFx3Impl::MessageResult(Client_ChangeHandle *message)
@@ -703,10 +699,10 @@ void Lobby2ClientGFx3Impl::MessageResult(Client_GetAccountDetails *message)
 	rargs.Add(message->createAccountParameters.passwordRecoveryAnswer.C_String());
 	rargs.Add(message->createAccountParameters.caption1.C_String());
 	rargs.Add(message->createAccountParameters.caption2.C_String());
-	rargs.Add((Double)message->createAccountParameters.ageInDays);
+	rargs.Add((Double) message->createAccountParameters.ageInDays);
 
-	MafiaNet::BitStream serializedBinaryData((unsigned char*) message->createAccountParameters.binaryData->binaryData, message->createAccountParameters.binaryData->binaryDataLength,false);
-	ReadAccountBinaryData(rargs,&serializedBinaryData);
+	MafiaNet::BitStream serializedBinaryData((unsigned char *) message->createAccountParameters.binaryData->binaryData, message->createAccountParameters.binaryData->binaryDataLength, false);
+	ReadAccountBinaryData(rargs, &serializedBinaryData);
 	FxDelegate::Invoke2(movie, "c2f_GetAccountDetailsResult", rargs);
 }
 void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_StartIgnore *message)
@@ -724,7 +720,7 @@ void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_StopIgnore *message)
 void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_GetIgnoreList *message)
 {
 	FxResponseArgsList rargs;
-	for (unsigned int i=0; i < message->ignoredHandles.Size(); i++)
+	for (unsigned int i = 0; i < message->ignoredHandles.Size(); i++)
 		rargs.Add(message->ignoredHandles[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetIgnoreListResult", rargs);
 }
@@ -774,18 +770,18 @@ void Lobby2ClientGFx3Impl::MessageResult(Friends_Remove *message)
 void Lobby2ClientGFx3Impl::MessageResult(Friends_GetInvites *message)
 {
 	FxResponseArgsList rargs;
-	rargs.Add((Double)message->invitesSent.Size());
-	rargs.Add((Double)message->invitesReceived.Size());
-	for (unsigned int i=0; i < message->invitesSent.Size(); i++)
+	rargs.Add((Double) message->invitesSent.Size());
+	rargs.Add((Double) message->invitesReceived.Size());
+	for (unsigned int i = 0; i < message->invitesSent.Size(); i++)
 		rargs.Add(message->invitesSent[i].usernameAndStatus.handle.C_String());
-	for (unsigned int i=0; i < message->invitesReceived.Size(); i++)
+	for (unsigned int i = 0; i < message->invitesReceived.Size(); i++)
 		rargs.Add(message->invitesReceived[i].usernameAndStatus.handle.C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetFriendInvites", rargs);
 }
 void Lobby2ClientGFx3Impl::MessageResult(Friends_GetFriends *message)
 {
 	FxResponseArgsList rargs;
-	for (unsigned int i=0; i < message->myFriends.Size(); i++)
+	for (unsigned int i = 0; i < message->myFriends.Size(); i++)
 		rargs.Add(message->myFriends[i].usernameAndStatus.handle.C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetFriends", rargs);
 }
@@ -810,7 +806,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Emails_SetStatus *message)
 void Lobby2ClientGFx3Impl::MessageResult(Emails_Get *message)
 {
 	FxResponseArgsList rargs;
-	for (unsigned int i=0; i < message->emailResults.Size(); i++)
+	for (unsigned int i = 0; i < message->emailResults.Size(); i++)
 	{
 		rargs.Add(message->emailResults[i].sender.C_String());
 		rargs.Add(message->emailResults[i].recipient.C_String());
@@ -880,7 +876,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetMemberProperties *message)
 	FxResponseArgs<6> rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
 	rargs.Add(message->description.C_String());
-	rargs.Add((Double)message->rank);
+	rargs.Add((Double) message->rank);
 	rargs.Add(message->isSubleader);
 	switch (message->clanMemberState)
 	{
@@ -925,14 +921,14 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_Get *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	rargs.Add((Double)message->clans.Size());
-	for (unsigned int i=0; i < message->clans.Size(); i++)
+	rargs.Add((Double) message->clans.Size());
+	for (unsigned int i = 0; i < message->clans.Size(); i++)
 	{
 		rargs.Add(message->clans[i].clanName.C_String());
 		rargs.Add(message->clans[i].description.C_String());
 		rargs.Add(message->clans[i].clanLeader.C_String());
-		rargs.Add((Double)message->clans[i].clanMembersOtherThanLeader.Size());
-		for (unsigned int j=0; j < message->clans[i].clanMembersOtherThanLeader.Size(); j++)
+		rargs.Add((Double) message->clans[i].clanMembersOtherThanLeader.Size());
+		for (unsigned int j = 0; j < message->clans[i].clanMembersOtherThanLeader.Size(); j++)
 			rargs.Add(message->clans[i].clanMembersOtherThanLeader[j].C_String());
 	}
 	FxDelegate::Invoke2(movie, "c2f_Clans_Get", rargs);
@@ -971,13 +967,13 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_DownloadInvitationList *message)
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
 	rargs.Add((Double) message->invitationsSentToMe.Size());
-	for (unsigned int i=0; i < message->invitationsSentToMe.Size(); i++)
+	for (unsigned int i = 0; i < message->invitationsSentToMe.Size(); i++)
 	{
 		rargs.Add(message->invitationsSentToMe[i].clanHandle.C_String());
 	}
-	
+
 	rargs.Add((Double) message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Size());
-	for (unsigned int i=0; i < message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Size(); i++)
+	for (unsigned int i = 0; i < message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Size(); i++)
 	{
 		rargs.Add(message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf[i].sourceClan.C_String());
 		rargs.Add(message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf[i].dateSent.C_String());
@@ -1020,15 +1016,15 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_DownloadRequestList *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	rargs.Add((Double)message->joinRequestsToMyClan.Size());
-	rargs.Add((Double)message->joinRequestsFromMe.Size());
-	for (unsigned int i=0; i < message->joinRequestsToMyClan.Size(); i++)
+	rargs.Add((Double) message->joinRequestsToMyClan.Size());
+	rargs.Add((Double) message->joinRequestsFromMe.Size());
+	for (unsigned int i = 0; i < message->joinRequestsToMyClan.Size(); i++)
 	{
 		rargs.Add(message->joinRequestsToMyClan[i].targetClan.C_String());
 		rargs.Add(message->joinRequestsToMyClan[i].dateSent.C_String());
 		rargs.Add(message->joinRequestsToMyClan[i].joinRequestSender.C_String());
 	}
-	for (unsigned int i=0; i < message->joinRequestsFromMe.Size(); i++)
+	for (unsigned int i = 0; i < message->joinRequestsFromMe.Size(); i++)
 	{
 		rargs.Add(message->joinRequestsFromMe[i].targetClan.C_String());
 		rargs.Add(message->joinRequestsFromMe[i].dateSent.C_String());
@@ -1056,7 +1052,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetBlacklist *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	for (unsigned int i=0; i < message->blacklistedUsers.Size(); i++)
+	for (unsigned int i = 0; i < message->blacklistedUsers.Size(); i++)
 		rargs.Add(message->blacklistedUsers[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_Clans_GetBlacklist", rargs);
 }
@@ -1066,7 +1062,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetMembers *message)
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
 	rargs.Add(message->clanLeader.C_String());
-	for (unsigned int i=0; i < message->clanMembersOtherThanLeader.Size(); i++)
+	for (unsigned int i = 0; i < message->clanMembersOtherThanLeader.Size(); i++)
 		rargs.Add(message->clanMembersOtherThanLeader[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_Clans_GetMembers", rargs);
 }
@@ -1075,7 +1071,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetList *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	for (unsigned int i=0; i < message->clanNames.Size(); i++)
+	for (unsigned int i = 0; i < message->clanNames.Size(); i++)
 		rargs.Add(message->clanNames[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_Clans_GetList", rargs);
 }
@@ -1144,7 +1140,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Notification_Emails_Received *message)
 	FxResponseArgs<3> rargs;
 	rargs.Add(message->sender.C_String());
 	rargs.Add(message->subject.C_String());
-	rargs.Add((Double)message->emailId);
+	rargs.Add((Double) message->emailId);
 	FxDelegate::Invoke2(movie, "c2f_Notification_Emails_Received", rargs);
 }
 void Lobby2ClientGFx3Impl::MessageResult(Notification_Clans_GrantLeader *message)
@@ -1170,7 +1166,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Notification_Clans_SetMemberRank *messa
 	rargs.Add(message->clanHandle.C_String());
 	rargs.Add(message->targetHandle.C_String());
 	rargs.Add(message->leaderHandle.C_String());
-	rargs.Add((Double)message->newRank);
+	rargs.Add((Double) message->newRank);
 	FxDelegate::Invoke2(movie, "c2f_Notification_Clans_SetMemberRank", rargs);
 }
 void Lobby2ClientGFx3Impl::MessageResult(Notification_Clans_ChangeHandle *message)
@@ -1252,70 +1248,68 @@ void Lobby2ClientGFx3Impl::MessageResult(Notification_Clans_Destroyed *message)
 	rargs.Add(message->oldClanLeader.C_String());
 	FxDelegate::Invoke2(movie, "c2f_Notification_Clans_Destroyed", rargs);
 }
-void Lobby2ClientGFx3Impl::Accept(CallbackProcessor* cbreg)
+void Lobby2ClientGFx3Impl::Accept(CallbackProcessor *cbreg)
 {
-	cbreg->Process( "f2c_ResetDatabase", &::f2c_ResetDatabase );
-	cbreg->Process( "f2c_Connect", &::f2c_Connect );
-	cbreg->Process( "f2c_RecoverPasswordByUsername", &::f2c_RecoverPasswordByUsername );
-	cbreg->Process( "f2c_GetPasswordByPasswordRecoveryAnswer", &::f2c_GetPasswordByPasswordRecoveryAnswer );
-	cbreg->Process( "f2c_RegisterAccountStateQuery", &::f2c_RegisterAccountStateQuery );
-	cbreg->Process( "f2c_DeleteAccount", &::f2c_DeleteAccount );
-	cbreg->Process( "f2c_LoginToAccount", &::f2c_LoginToAccount );
-	cbreg->Process( "f2c_GetAccountDetails", &::f2c_GetAccountDetails );
-	cbreg->Process( "f2c_DisconnectFromServer", &::f2c_DisconnectFromServer );
-	cbreg->Process( "f2c_CheckCDKey", &::f2c_CheckCDKey );
-	cbreg->Process( "f2c_RegisterAccount", &::f2c_RegisterAccount );
-	cbreg->Process( "f2c_ValidateHandle", &::f2c_ValidateHandle );
-	cbreg->Process( "f2c_ChangeHandle", &::f2c_ChangeHandle );
-	cbreg->Process( "f2c_Logoff", &::f2c_Logoff );
-	cbreg->Process( "f2c_UpdateAccount", &::f2c_UpdateAccount );
-	cbreg->Process( "f2c_StartIgnore", &::f2c_StartIgnore );
-	cbreg->Process( "f2c_StopIgnore", &::f2c_StopIgnore );
-	cbreg->Process( "f2c_GetIgnoreList", &::f2c_GetIgnoreList );
-	cbreg->Process( "f2c_SendInvite", &::f2c_SendInvite );
-	cbreg->Process( "f2c_AcceptInvite", &::f2c_AcceptInvite );
-	cbreg->Process( "f2c_RejectInvite", &::f2c_RejectInvite );
-	cbreg->Process( "f2c_RemoveFriend", &::f2c_RemoveFriend );
-	cbreg->Process( "f2c_GetFriendInvites", &::f2c_GetFriendInvites );
-	cbreg->Process( "f2c_GetFriends", &::f2c_GetFriends );
-	cbreg->Process( "f2c_SendEmail", &::f2c_SendEmail );
-	cbreg->Process( "f2c_DeleteEmail", &::f2c_DeleteEmail );
-	cbreg->Process( "f2c_UpdateEmail", &::f2c_UpdateEmail );
-	cbreg->Process( "f2c_GetEmails", &::f2c_GetEmails );
-	cbreg->Process( "f2c_Clans_Create", &::f2c_Clans_Create );
-	cbreg->Process( "f2c_Clans_SetProperties", &::f2c_Clans_SetProperties );
-	cbreg->Process( "f2c_Clans_GetProperties", &::f2c_Clans_GetProperties );
-	cbreg->Process( "f2c_Clans_SetMyMemberProperties", &::f2c_Clans_SetMyMemberProperties );
-	cbreg->Process( "f2c_Clans_GrantLeader", &::f2c_Clans_GrantLeader );
-	cbreg->Process( "f2c_Clans_SetSubleaderStatus", &::f2c_Clans_SetSubleaderStatus );
-	cbreg->Process( "f2c_Clans_SetMemberRank", &::f2c_Clans_SetMemberRank );
-	cbreg->Process( "f2c_Clans_GetMemberProperties", &::f2c_Clans_GetMemberProperties );
-	cbreg->Process( "f2c_Clans_ChangeHandle", &::f2c_Clans_ChangeHandle );
-	cbreg->Process( "f2c_Clans_Leave", &::f2c_Clans_Leave );
-	cbreg->Process( "f2c_Clans_Get", &::f2c_Clans_Get );
-	cbreg->Process( "f2c_Clans_SendJoinInvitation", &::f2c_Clans_SendJoinInvitation );
-	cbreg->Process( "f2c_Clans_WithdrawJoinInvitation", &::f2c_Clans_WithdrawJoinInvitation );
-	cbreg->Process( "f2c_Clans_AcceptJoinInvitation", &::f2c_Clans_AcceptJoinInvitation );
-	cbreg->Process( "f2c_Clans_RejectJoinInvitation", &::f2c_Clans_RejectJoinInvitation );
-	cbreg->Process( "f2c_Clans_DownloadInvitationList", &::f2c_Clans_DownloadInvitationList );
-	cbreg->Process( "f2c_Clans_SendJoinRequest", &::f2c_Clans_SendJoinRequest );
-	cbreg->Process( "f2c_Clans_WithdrawJoinRequest", &::f2c_Clans_WithdrawJoinRequest );
-	cbreg->Process( "f2c_Clans_AcceptJoinRequest", &::f2c_Clans_AcceptJoinRequest );
-	cbreg->Process( "f2c_Clans_RejectJoinRequest", &::f2c_Clans_RejectJoinRequest );
-	cbreg->Process( "f2c_Clans_DownloadRequestList", &::f2c_Clans_DownloadRequestList );
-	cbreg->Process( "f2c_Clans_KickAndBlacklistUser", &::f2c_Clans_KickAndBlacklistUser );
-	cbreg->Process( "f2c_Clans_UnblacklistUser", &::f2c_Clans_UnblacklistUser );
-	cbreg->Process( "f2c_Clans_GetBlacklist", &::f2c_Clans_GetBlacklist );
-	cbreg->Process( "f2c_Clans_GetMembers", &::f2c_Clans_GetMembers );
-	cbreg->Process( "f2c_Clans_GetList", &::f2c_Clans_GetList );
+	cbreg->Process("f2c_ResetDatabase", &::f2c_ResetDatabase);
+	cbreg->Process("f2c_Connect", &::f2c_Connect);
+	cbreg->Process("f2c_RecoverPasswordByUsername", &::f2c_RecoverPasswordByUsername);
+	cbreg->Process("f2c_GetPasswordByPasswordRecoveryAnswer", &::f2c_GetPasswordByPasswordRecoveryAnswer);
+	cbreg->Process("f2c_RegisterAccountStateQuery", &::f2c_RegisterAccountStateQuery);
+	cbreg->Process("f2c_DeleteAccount", &::f2c_DeleteAccount);
+	cbreg->Process("f2c_LoginToAccount", &::f2c_LoginToAccount);
+	cbreg->Process("f2c_GetAccountDetails", &::f2c_GetAccountDetails);
+	cbreg->Process("f2c_DisconnectFromServer", &::f2c_DisconnectFromServer);
+	cbreg->Process("f2c_CheckCDKey", &::f2c_CheckCDKey);
+	cbreg->Process("f2c_RegisterAccount", &::f2c_RegisterAccount);
+	cbreg->Process("f2c_ValidateHandle", &::f2c_ValidateHandle);
+	cbreg->Process("f2c_ChangeHandle", &::f2c_ChangeHandle);
+	cbreg->Process("f2c_Logoff", &::f2c_Logoff);
+	cbreg->Process("f2c_UpdateAccount", &::f2c_UpdateAccount);
+	cbreg->Process("f2c_StartIgnore", &::f2c_StartIgnore);
+	cbreg->Process("f2c_StopIgnore", &::f2c_StopIgnore);
+	cbreg->Process("f2c_GetIgnoreList", &::f2c_GetIgnoreList);
+	cbreg->Process("f2c_SendInvite", &::f2c_SendInvite);
+	cbreg->Process("f2c_AcceptInvite", &::f2c_AcceptInvite);
+	cbreg->Process("f2c_RejectInvite", &::f2c_RejectInvite);
+	cbreg->Process("f2c_RemoveFriend", &::f2c_RemoveFriend);
+	cbreg->Process("f2c_GetFriendInvites", &::f2c_GetFriendInvites);
+	cbreg->Process("f2c_GetFriends", &::f2c_GetFriends);
+	cbreg->Process("f2c_SendEmail", &::f2c_SendEmail);
+	cbreg->Process("f2c_DeleteEmail", &::f2c_DeleteEmail);
+	cbreg->Process("f2c_UpdateEmail", &::f2c_UpdateEmail);
+	cbreg->Process("f2c_GetEmails", &::f2c_GetEmails);
+	cbreg->Process("f2c_Clans_Create", &::f2c_Clans_Create);
+	cbreg->Process("f2c_Clans_SetProperties", &::f2c_Clans_SetProperties);
+	cbreg->Process("f2c_Clans_GetProperties", &::f2c_Clans_GetProperties);
+	cbreg->Process("f2c_Clans_SetMyMemberProperties", &::f2c_Clans_SetMyMemberProperties);
+	cbreg->Process("f2c_Clans_GrantLeader", &::f2c_Clans_GrantLeader);
+	cbreg->Process("f2c_Clans_SetSubleaderStatus", &::f2c_Clans_SetSubleaderStatus);
+	cbreg->Process("f2c_Clans_SetMemberRank", &::f2c_Clans_SetMemberRank);
+	cbreg->Process("f2c_Clans_GetMemberProperties", &::f2c_Clans_GetMemberProperties);
+	cbreg->Process("f2c_Clans_ChangeHandle", &::f2c_Clans_ChangeHandle);
+	cbreg->Process("f2c_Clans_Leave", &::f2c_Clans_Leave);
+	cbreg->Process("f2c_Clans_Get", &::f2c_Clans_Get);
+	cbreg->Process("f2c_Clans_SendJoinInvitation", &::f2c_Clans_SendJoinInvitation);
+	cbreg->Process("f2c_Clans_WithdrawJoinInvitation", &::f2c_Clans_WithdrawJoinInvitation);
+	cbreg->Process("f2c_Clans_AcceptJoinInvitation", &::f2c_Clans_AcceptJoinInvitation);
+	cbreg->Process("f2c_Clans_RejectJoinInvitation", &::f2c_Clans_RejectJoinInvitation);
+	cbreg->Process("f2c_Clans_DownloadInvitationList", &::f2c_Clans_DownloadInvitationList);
+	cbreg->Process("f2c_Clans_SendJoinRequest", &::f2c_Clans_SendJoinRequest);
+	cbreg->Process("f2c_Clans_WithdrawJoinRequest", &::f2c_Clans_WithdrawJoinRequest);
+	cbreg->Process("f2c_Clans_AcceptJoinRequest", &::f2c_Clans_AcceptJoinRequest);
+	cbreg->Process("f2c_Clans_RejectJoinRequest", &::f2c_Clans_RejectJoinRequest);
+	cbreg->Process("f2c_Clans_DownloadRequestList", &::f2c_Clans_DownloadRequestList);
+	cbreg->Process("f2c_Clans_KickAndBlacklistUser", &::f2c_Clans_KickAndBlacklistUser);
+	cbreg->Process("f2c_Clans_UnblacklistUser", &::f2c_Clans_UnblacklistUser);
+	cbreg->Process("f2c_Clans_GetBlacklist", &::f2c_Clans_GetBlacklist);
+	cbreg->Process("f2c_Clans_GetMembers", &::f2c_Clans_GetMembers);
+	cbreg->Process("f2c_Clans_GetList", &::f2c_Clans_GetList);
 
-	cbreg->Process( "openSite", &Lobby2ClientGFx3Impl::OpenSite );
-
-
+	cbreg->Process("openSite", &Lobby2ClientGFx3Impl::OpenSite);
 }
-void Lobby2ClientGFx3Impl::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void Lobby2ClientGFx3Impl::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
-	if (systemAddress==lobby2Client->GetServerAddress())
+	if (systemAddress == lobby2Client->GetServerAddress())
 	{
 		// lost connection
 		FxResponseArgs<1> rargs;
@@ -1336,7 +1330,7 @@ void Lobby2ClientGFx3Impl::OnClosedConnection(const SystemAddress &systemAddress
 }
 void Lobby2ClientGFx3Impl::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
 {
-	if (systemAddress==lobby2Client->GetServerAddress())
+	if (systemAddress == lobby2Client->GetServerAddress())
 	{
 		// is connected
 		FxResponseArgs<0> rargs;
@@ -1345,11 +1339,11 @@ void Lobby2ClientGFx3Impl::OnNewConnection(const SystemAddress &systemAddress, R
 }
 void Lobby2ClientGFx3Impl::OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAttemptReason failedConnectionAttemptReason)
 {
-	if (packet->systemAddress==lobby2Client->GetServerAddress())
+	if (packet->systemAddress == lobby2Client->GetServerAddress())
 	{
 		// isn't connected
 		FxResponseArgs<1> rargs;
-		switch(failedConnectionAttemptReason)
+		switch (failedConnectionAttemptReason)
 		{
 		case FCAR_CONNECTION_ATTEMPT_FAILED:
 			rargs.Add("FCAR_CONNECTION_ATTEMPT_FAILED");
@@ -1389,10 +1383,9 @@ void Lobby2ClientGFx3Impl::OnFailedConnectionAttempt(Packet *packet, PI2_FailedC
 	}
 }
 
-void Lobby2ClientGFx3Impl::OpenSite(const FxDelegateArgs& pparams)
+void Lobby2ClientGFx3Impl::OpenSite(const FxDelegateArgs &pparams)
 {
-	Lobby2ClientGFx3Impl* prt = (Lobby2ClientGFx3Impl*)pparams.GetHandler();
+	Lobby2ClientGFx3Impl *prt = (Lobby2ClientGFx3Impl *) pparams.GetHandler();
 	const char *siteType = pparams[0].GetString();
 	ShellExecute(nullptr, "open", siteType, nullptr, nullptr, SW_SHOWNORMAL);
 }
-

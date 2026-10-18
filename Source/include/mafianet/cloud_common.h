@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_CloudClient==1 || _RAKNET_SUPPORT_CloudServer==1
+#if _RAKNET_SUPPORT_CloudClient == 1 || _RAKNET_SUPPORT_CloudServer == 1
 
 #ifndef __CLOUD_COMMON_H
 #define __CLOUD_COMMON_H
@@ -37,7 +37,7 @@ public:
 	virtual ~CloudAllocator() {}
 
 	/// \brief Allocate a row
-	virtual CloudQueryRow* AllocateCloudQueryRow(void);
+	virtual CloudQueryRow *AllocateCloudQueryRow(void);
 	/// \brief Free a row
 	virtual void DeallocateCloudQueryRow(CloudQueryRow *row);
 	/// \brief Allocate CloudQueryRow::data
@@ -51,7 +51,8 @@ public:
 struct RAK_DLL_EXPORT CloudKey
 {
 	CloudKey() {}
-	CloudKey(MafiaNet::RakString _primaryKey, uint32_t _secondaryKey) : primaryKey(_primaryKey), secondaryKey(_secondaryKey) {}
+	CloudKey(MafiaNet::RakString _primaryKey, uint32_t _secondaryKey)
+	    : primaryKey(_primaryKey), secondaryKey(_secondaryKey) {}
 	~CloudKey() {}
 
 	/// Identifies the primary key. This is intended to be a major category, such as the name of the application
@@ -72,7 +73,12 @@ int CloudKeyComp(const CloudKey &key, const CloudKey &data);
 /// \ingroup CLOUD_GROUP
 struct RAK_DLL_EXPORT CloudQuery
 {
-	CloudQuery() {startingRowIndex=0; maxRowsToReturn=0; subscribeToResults=false;}
+	CloudQuery()
+	{
+		startingRowIndex = 0;
+		maxRowsToReturn = 0;
+		subscribeToResults = false;
+	}
 
 	/// List of keys to query. Must be at least of length 1.
 	/// This query is run on uploads from all clients, and those that match the combination of primaryKey and secondaryKey are potentially returned
@@ -127,7 +133,7 @@ struct RAK_DLL_EXPORT CloudQueryResult
 	CloudQuery cloudQuery;
 
 	/// Results returned from query. If there were multiple keys in CloudQuery::keys then see resultKeyIndices
-	DataStructures::List<CloudQueryRow*> rowsReturned;
+	DataStructures::List<CloudQueryRow *> rowsReturned;
 
 	/// If there were multiple keys in CloudQuery::keys, then each key is processed in order and the result concatenated to rowsReturned
 	/// The starting index of each query is written to resultKeyIndices

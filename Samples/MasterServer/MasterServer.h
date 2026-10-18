@@ -30,6 +30,7 @@ class MasterServer : public MasterCommon
 public:
 	MasterServer();
 	~MasterServer();
+
 protected:
 	virtual void Update(RakPeerInterface *peer);
 	virtual bool OnReceive(RakPeerInterface *peer, Packet *packet);

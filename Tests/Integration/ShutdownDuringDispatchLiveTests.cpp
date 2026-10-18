@@ -43,200 +43,202 @@ change across Shutdown(), or a crash.
 
 namespace
 {
-	const int kConnectTimeoutMs = 15000;
-	const int kWaitTimeoutMs    = 15000;
+const int kConnectTimeoutMs = 15000;
+const int kWaitTimeoutMs = 15000;
 
-	struct PeerPair
+struct PeerPair
+{
+	RakPeerInterface *server = nullptr;
+	RakPeerInterface *client = nullptr;
+	SystemAddress serverAddress = UNASSIGNED_SYSTEM_ADDRESS;
+	SystemAddress clientAddress = UNASSIGNED_SYSTEM_ADDRESS;
+
+	PeerPair()
 	{
-		RakPeerInterface *server = nullptr;
-		RakPeerInterface *client = nullptr;
-		SystemAddress serverAddress = UNASSIGNED_SYSTEM_ADDRESS;
-		SystemAddress clientAddress = UNASSIGNED_SYSTEM_ADDRESS;
+		server = RakPeerInterface::GetInstance();
+		client = RakPeerInterface::GetInstance();
+	}
 
-		PeerPair()
-		{
-			server = RakPeerInterface::GetInstance();
-			client = RakPeerInterface::GetInstance();
-		}
-
-		~PeerPair()
-		{
-			client->Shutdown(0);
-			server->Shutdown(0);
-			RakPeerInterface::DestroyInstance(client);
-			RakPeerInterface::DestroyInstance(server);
-		}
-
-		// Both peers bind ephemeral ports, so tests can run side by side.
-		bool Connect()
-		{
-			SocketDescriptor serverSocket(0, "127.0.0.1");
-			SocketDescriptor clientSocket(0, "127.0.0.1");
-			if (server->Startup(4, &serverSocket, 1) != RAKNET_STARTED || client->Startup(1, &clientSocket, 1) != RAKNET_STARTED)
-				return false;
-			server->SetMaximumIncomingConnections(4);
-			const unsigned short port = server->GetMyBoundAddress().GetPort();
-			if (client->Connect("127.0.0.1", port, 0, 0) != CONNECTION_ATTEMPT_STARTED)
-				return false;
-
-			const TimeMS entry = GetTimeMS();
-			while ((clientAddress == UNASSIGNED_SYSTEM_ADDRESS || serverAddress == UNASSIGNED_SYSTEM_ADDRESS) && GetTimeMS() - entry < (TimeMS)kConnectTimeoutMs)
-			{
-				for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
-					if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
-						clientAddress = p->systemAddress;
-				for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
-					if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
-						serverAddress = p->systemAddress;
-				RakSleep(5);
-			}
-			return clientAddress != UNASSIGNED_SYSTEM_ADDRESS && serverAddress != UNASSIGNED_SYSTEM_ADDRESS;
-		}
-
-		// Pumps both peers until done() holds or the wait runs out.
-		template <typename Done>
-		bool PumpUntil(Done done)
-		{
-			const TimeMS entry = GetTimeMS();
-			while (!done() && GetTimeMS() - entry < (TimeMS)kWaitTimeoutMs)
-			{
-				for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
-					;
-				for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
-					;
-				RakSleep(1);
-			}
-			return done();
-		}
-
-		// Pumps both peers for a fixed time, for traffic that must not arrive.
-		void Drain(int ms)
-		{
-			const TimeMS entry = GetTimeMS();
-			PumpUntil([&] { return GetTimeMS() - entry >= (TimeMS)ms; });
-		}
-	};
-
-	enum class Reaction
+	~PeerPair()
 	{
-		ShutdownPeer,
-		RemoveReceiver,
-	};
+		client->Shutdown(0);
+		server->Shutdown(0);
+		RakPeerInterface::DestroyInstance(client);
+		RakPeerInterface::DestroyInstance(server);
+	}
 
-	// Reacts from the callback that ends the set, as a client refusing a join does.
-	class ReactingReceiver : public FileListTransferCBInterface
+	// Both peers bind ephemeral ports, so tests can run side by side.
+	bool Connect()
 	{
-	public:
-		RakPeerInterface *peer = nullptr;
-		FileListTransfer *transfer = nullptr;
-		SystemAddress sender = UNASSIGNED_SYSTEM_ADDRESS;
-		Reaction reaction = Reaction::ShutdownPeer;
-		int completions = 0;
-		int dereferences = 0;
-
-		bool OnFile(OnFileStruct *) override
-		{
-			return true;
-		}
-
-		void OnFileProgress(FileProgressStruct *) override {}
-
-		bool OnDownloadComplete(DownloadCompleteStruct *) override
-		{
-			++completions;
-			if (reaction == Reaction::ShutdownPeer)
-				peer->Shutdown(0);
-			else
-				transfer->RemoveReceiver(sender);
+		SocketDescriptor serverSocket(0, "127.0.0.1");
+		SocketDescriptor clientSocket(0, "127.0.0.1");
+		if (server->Startup(4, &serverSocket, 1) != RAKNET_STARTED || client->Startup(1, &clientSocket, 1) != RAKNET_STARTED)
 			return false;
-		}
+		server->SetMaximumIncomingConnections(4);
+		const unsigned short port = server->GetMyBoundAddress().GetPort();
+		if (client->Connect("127.0.0.1", port, 0, 0) != CONNECTION_ATTEMPT_STARTED)
+			return false;
 
-		void OnDereference(void) override
+		const TimeMS entry = GetTimeMS();
+		while ((clientAddress == UNASSIGNED_SYSTEM_ADDRESS || serverAddress == UNASSIGNED_SYSTEM_ADDRESS) && GetTimeMS() - entry < (TimeMS) kConnectTimeoutMs)
 		{
-			++dereferences;
+			for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+				if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
+					clientAddress = p->systemAddress;
+			for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
+				if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
+					serverAddress = p->systemAddress;
+			RakSleep(5);
 		}
-	};
-
-	void RunReactingTransfer(bool withFile, Reaction reaction)
-	{
-		PeerPair peers;
-		FileListTransfer serverTransfer;
-		FileListTransfer clientTransfer;
-		peers.server->AttachPlugin(&serverTransfer);
-		peers.client->AttachPlugin(&clientTransfer);
-		ASSERT_TRUE(peers.Connect());
-
-		ReactingReceiver receiver;
-		receiver.peer     = peers.client;
-		receiver.transfer = &clientTransfer;
-		receiver.sender   = peers.serverAddress;
-		receiver.reaction = reaction;
-		const unsigned short setId = clientTransfer.SetupReceive(&receiver, false, peers.serverAddress);
-
-		FileList list;
-		if (withFile)
-		{
-			const std::vector<char> bytes(900, 'x');
-			list.AddFile("small.bin", "small.bin", bytes.data(), (unsigned)bytes.size(), (unsigned)bytes.size(), FileListNodeContext(0, 0, 0, 0));
-		}
-		serverTransfer.Send(&list, peers.server, peers.clientAddress, setId, Priority::Medium, 0);
-
-		EXPECT_TRUE(peers.PumpUntil([&] { return receiver.completions > 0; }));
-		// Anything still queued must not reach the dropped receiver either.
-		peers.Drain(500);
-
-		EXPECT_EQ(receiver.completions, 1);
-		EXPECT_EQ(receiver.dereferences, 1);
-
-		peers.server->DetachPlugin(&serverTransfer);
-		peers.client->DetachPlugin(&clientTransfer);
+		return clientAddress != UNASSIGNED_SYSTEM_ADDRESS && serverAddress != UNASSIGNED_SYSTEM_ADDRESS;
 	}
 
-	const MessageID kProbe = ID_USER_PACKET_ENUM + 7;
-
-	// Shuts the peer down on the probe, from inside Receive's plugin dispatch.
-	class ShuttingPlugin : public PluginInterface2
+	// Pumps both peers until done() holds or the wait runs out.
+	template <typename Done>
+	bool PumpUntil(Done done)
 	{
-	public:
-		int probes = 0;
-
-		PluginReceiveResult OnReceive(Packet *packet) override
+		const TimeMS entry = GetTimeMS();
+		while (!done() && GetTimeMS() - entry < (TimeMS) kWaitTimeoutMs)
 		{
-			if (packet->data[0] != kProbe)
-				return RR_CONTINUE_PROCESSING;
+			for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+				;
+			for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
+				;
+			RakSleep(1);
+		}
+		return done();
+	}
+
+	// Pumps both peers for a fixed time, for traffic that must not arrive.
+	void Drain(int ms)
+	{
+		const TimeMS entry = GetTimeMS();
+		PumpUntil([&]
+		          { return GetTimeMS() - entry >= (TimeMS) ms; });
+	}
+};
+
+enum class Reaction
+{
+	ShutdownPeer,
+	RemoveReceiver,
+};
+
+// Reacts from the callback that ends the set, as a client refusing a join does.
+class ReactingReceiver : public FileListTransferCBInterface
+{
+public:
+	RakPeerInterface *peer = nullptr;
+	FileListTransfer *transfer = nullptr;
+	SystemAddress sender = UNASSIGNED_SYSTEM_ADDRESS;
+	Reaction reaction = Reaction::ShutdownPeer;
+	int completions = 0;
+	int dereferences = 0;
+
+	bool OnFile(OnFileStruct *) override
+	{
+		return true;
+	}
+
+	void OnFileProgress(FileProgressStruct *) override {}
+
+	bool OnDownloadComplete(DownloadCompleteStruct *) override
+	{
+		++completions;
+		if (reaction == Reaction::ShutdownPeer)
+			peer->Shutdown(0);
+		else
+			transfer->RemoveReceiver(sender);
+		return false;
+	}
+
+	void OnDereference(void) override
+	{
+		++dereferences;
+	}
+};
+
+void RunReactingTransfer(bool withFile, Reaction reaction)
+{
+	PeerPair peers;
+	FileListTransfer serverTransfer;
+	FileListTransfer clientTransfer;
+	peers.server->AttachPlugin(&serverTransfer);
+	peers.client->AttachPlugin(&clientTransfer);
+	ASSERT_TRUE(peers.Connect());
+
+	ReactingReceiver receiver;
+	receiver.peer = peers.client;
+	receiver.transfer = &clientTransfer;
+	receiver.sender = peers.serverAddress;
+	receiver.reaction = reaction;
+	const unsigned short setId = clientTransfer.SetupReceive(&receiver, false, peers.serverAddress);
+
+	FileList list;
+	if (withFile)
+	{
+		const std::vector<char> bytes(900, 'x');
+		list.AddFile("small.bin", "small.bin", bytes.data(), (unsigned) bytes.size(), (unsigned) bytes.size(), FileListNodeContext(0, 0, 0, 0));
+	}
+	serverTransfer.Send(&list, peers.server, peers.clientAddress, setId, Priority::Medium, 0);
+
+	EXPECT_TRUE(peers.PumpUntil([&]
+	                            { return receiver.completions > 0; }));
+	// Anything still queued must not reach the dropped receiver either.
+	peers.Drain(500);
+
+	EXPECT_EQ(receiver.completions, 1);
+	EXPECT_EQ(receiver.dereferences, 1);
+
+	peers.server->DetachPlugin(&serverTransfer);
+	peers.client->DetachPlugin(&clientTransfer);
+}
+
+const MessageID kProbe = ID_USER_PACKET_ENUM + 7;
+
+// Shuts the peer down on the probe, from inside Receive's plugin dispatch.
+class ShuttingPlugin : public PluginInterface2
+{
+public:
+	int probes = 0;
+
+	PluginReceiveResult OnReceive(Packet *packet) override
+	{
+		if (packet->data[0] != kProbe)
+			return RR_CONTINUE_PROCESSING;
+		++probes;
+		GetRakPeerInterface()->Shutdown(0);
+		return RR_CONTINUE_PROCESSING;
+	}
+};
+
+// Attached after the shutting plugin; must never see the probe.
+class LaterPlugin : public PluginInterface2
+{
+public:
+	int probes = 0;
+	int shutdowns = 0;
+
+	PluginReceiveResult OnReceive(Packet *packet) override
+	{
+		if (packet->data[0] == kProbe)
 			++probes;
-			GetRakPeerInterface()->Shutdown(0);
-			return RR_CONTINUE_PROCESSING;
-		}
-	};
-
-	// Attached after the shutting plugin; must never see the probe.
-	class LaterPlugin : public PluginInterface2
-	{
-	public:
-		int probes = 0;
-		int shutdowns = 0;
-
-		PluginReceiveResult OnReceive(Packet *packet) override
-		{
-			if (packet->data[0] == kProbe)
-				++probes;
-			return RR_CONTINUE_PROCESSING;
-		}
-
-		void OnRakPeerShutdown(void) override
-		{
-			++shutdowns;
-		}
-	};
-
-	void SendProbe(PeerPair &peers)
-	{
-		BitStream out;
-		out.Write(kProbe);
-		out.Write((uint32_t)0x5AFEC0DE);
-		peers.client->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, peers.serverAddress, false);
+		return RR_CONTINUE_PROCESSING;
 	}
+
+	void OnRakPeerShutdown(void) override
+	{
+		++shutdowns;
+	}
+};
+
+void SendProbe(PeerPair &peers)
+{
+	BitStream out;
+	out.Write(kProbe);
+	out.Write((uint32_t) 0x5AFEC0DE);
+	peers.client->Send(&out, Priority::High, Reliability::ReliableOrdered, 0, peers.serverAddress, false);
+}
 } // namespace
 
 TEST(ShutdownDuringDispatch, EmptySetReceiverShutsThePeerDown)
@@ -271,7 +273,7 @@ TEST(ShutdownDuringDispatch, PluginShutdownStopsThePacket)
 	SendProbe(peers);
 	bool probeReturned = false;
 	const TimeMS entry = GetTimeMS();
-	while (shutting.probes == 0 && GetTimeMS() - entry < (TimeMS)kWaitTimeoutMs)
+	while (shutting.probes == 0 && GetTimeMS() - entry < (TimeMS) kWaitTimeoutMs)
 	{
 		for (Packet *p = peers.server->Receive(); p; peers.server->DeallocatePacket(p), p = peers.server->Receive())
 			probeReturned |= p->data[0] == kProbe;
@@ -298,7 +300,7 @@ TEST(ShutdownDuringDispatch, ReturnedPacketOutlivesShutdown)
 	SendProbe(peers);
 	Packet *probe = nullptr;
 	const TimeMS entry = GetTimeMS();
-	while (probe == nullptr && GetTimeMS() - entry < (TimeMS)kWaitTimeoutMs)
+	while (probe == nullptr && GetTimeMS() - entry < (TimeMS) kWaitTimeoutMs)
 	{
 		for (Packet *p = peers.server->Receive(); p; p = peers.server->Receive())
 		{
@@ -314,7 +316,7 @@ TEST(ShutdownDuringDispatch, ReturnedPacketOutlivesShutdown)
 	ASSERT_NE(probe, nullptr);
 
 	const unsigned int length = probe->length;
-	const RakNetGUID guid     = probe->guid;
+	const RakNetGUID guid = probe->guid;
 	const std::vector<unsigned char> data(probe->data, probe->data + probe->length);
 
 	// As an application does when a packet it is handling makes it disconnect.
@@ -332,7 +334,7 @@ TEST(ShutdownDuringDispatch, ReturnedPacketOutlivesShutdown)
 	SendProbe(peers);
 	bool received = false;
 	const TimeMS again = GetTimeMS();
-	while (!received && GetTimeMS() - again < (TimeMS)kWaitTimeoutMs)
+	while (!received && GetTimeMS() - again < (TimeMS) kWaitTimeoutMs)
 	{
 		for (Packet *p = peers.server->Receive(); p; peers.server->DeallocatePacket(p), p = peers.server->Receive())
 			received |= p->data[0] == kProbe;

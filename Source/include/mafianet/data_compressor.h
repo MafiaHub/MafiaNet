@@ -14,7 +14,7 @@
  */
 
 /// \file data_compressor.h
-/// \brief DataCompressor does compression on a block of data.  
+/// \brief DataCompressor does compression on a block of data.
 /// \details Not very good compression, but it's small and fast so is something you can use per-message at runtime.
 ///
 
@@ -36,8 +36,8 @@ public:
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(DataCompressor)
 
-	static void Compress( unsigned char *userData, unsigned sizeInBytes, MafiaNet::BitStream * output );
-	static unsigned DecompressAndAllocate(MafiaNet::BitStream * input, unsigned char **output );
+	static void Compress(unsigned char *userData, unsigned sizeInBytes, MafiaNet::BitStream *output);
+	static unsigned DecompressAndAllocate(MafiaNet::BitStream *input, unsigned char **output);
 };
 
 } // namespace MafiaNet

@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 
 #include "mafianet/packet_file_logger.h"
 #include "mafianet/get_time.h"
@@ -24,11 +24,11 @@
 
 using namespace MafiaNet;
 
-STATIC_FACTORY_DEFINITIONS(PacketFileLogger,PacketFileLogger);
+STATIC_FACTORY_DEFINITIONS(PacketFileLogger, PacketFileLogger);
 
 PacketFileLogger::PacketFileLogger()
 {
-	packetLogFile=0;
+	packetLogFile = 0;
 }
 PacketFileLogger::~PacketFileLogger()
 {
@@ -43,9 +43,9 @@ void PacketFileLogger::StartLog(const char *filenamePrefix)
 	// Open file for writing
 	char filename[256];
 	if (filenamePrefix)
-		sprintf_s(filename, "%s_%i.csv", filenamePrefix, (int)MafiaNet::GetTimeMS());
+		sprintf_s(filename, "%s_%i.csv", filenamePrefix, (int) MafiaNet::GetTimeMS());
 	else
-		sprintf_s(filename, "PacketLog_%i.csv", (int)MafiaNet::GetTimeMS());
+		sprintf_s(filename, "PacketLog_%i.csv", (int) MafiaNet::GetTimeMS());
 	errno_t error = fopen_s(&packetLogFile, filename, "wt");
 	LogHeader();
 	if (error == 0)

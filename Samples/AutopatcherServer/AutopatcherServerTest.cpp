@@ -79,19 +79,19 @@ class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPos
 		fseek(fpNew, 0, SEEK_END);
 		int contentLengthNew = ftell(fpNew);
 
-		if ((contentLengthOld < 33554432 && contentLengthNew < 33554432) || PATH_TO_XDELTA_EXE[0]==0)
+		if ((contentLengthOld < 33554432 && contentLengthNew < 33554432) || PATH_TO_XDELTA_EXE[0] == 0)
 		{
 			// Use bsdiff, which does a good job but takes a lot of memory based on the size of the file
-			*patchAlgorithm=0;
+			*patchAlgorithm = 0;
 			bool b = MakePatchBSDiff(fpOld, contentLengthOld, fpNew, contentLengthNew, patch, patchLength);
 			fclose(fpOld);
 			fclose(fpNew);
-			return b==false ? -1 : 0;
+			return b == false ? -1 : 0;
 		}
 		else
 		{
 #ifdef _WIN32
-			*patchAlgorithm=1;
+			*patchAlgorithm = 1;
 			fclose(fpOld);
 			fclose(fpNew);
 
@@ -102,8 +102,8 @@ class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPos
 			// Invoke xdelta
 			// See https://code.google.com/p/xdelta/wiki/CommandLineSyntax
 			char commandLine[512];
-			_snprintf(commandLine, sizeof(commandLine)-1, "-f -s %s %s patchServer_%s.tmp", oldFile, newFile, buff);
-			commandLine[511]=0;
+			_snprintf(commandLine, sizeof(commandLine) - 1, "-f -s %s %s patchServer_%s.tmp", oldFile, newFile, buff);
+			commandLine[511] = 0;
 
 			SHELLEXECUTEINFOA shellExecuteInfo;
 			shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFOA);
@@ -124,27 +124,28 @@ class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPos
 			FILE *fpPatch;
 			errno_t error = fopen_s(&fpPatch, pathToPatch, "r+b");
 			MafiaNet::TimeUS stopWaiting = time + 60000000 * 5;
-			while (error!=0 && MafiaNet::GetTimeUS() < stopWaiting)
+			while (error != 0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				error = fopen_s(&fpPatch, pathToPatch, "r+b");
 			}
-			if (error!=0)
+			if (error != 0)
 				return 1;
 			fseek(fpPatch, 0, SEEK_END);
 			*patchLength = ftell(fpPatch);
 			fseek(fpPatch, 0, SEEK_SET);
-			*patch = (char*) rakMalloc_Ex(*patchLength, _FILE_AND_LINE_);
+			*patch = (char *) rakMalloc_Ex(*patchLength, _FILE_AND_LINE_);
 			fread(*patch, 1, *patchLength, fpPatch);
 			fclose(fpPatch);
 
 			int unlinkRes = _unlink(pathToPatch);
-			while (unlinkRes!=0 && MafiaNet::GetTimeUS() < stopWaiting)
+			while (unlinkRes != 0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				unlinkRes = _unlink(pathToPatch);
 			}
-			if (unlinkRes!=0) {
+			if (unlinkRes != 0)
+			{
 				char buff2[1024];
 				strerror_s(buff2, errno);
 				printf("\nWARNING: unlink %s failed.\nerr=%i (%s)\n", pathToPatch, errno, buff2);
@@ -153,11 +154,11 @@ class AutopatcherPostgreRepository2_WithXDelta : public MafiaNet::AutopatcherPos
 			return 0;
 #else
 			// xdelta not supported on non-Windows, use bsdiff for large files
-			*patchAlgorithm=0;
+			*patchAlgorithm = 0;
 			bool b = MakePatchBSDiff(fpOld, contentLengthOld, fpNew, contentLengthNew, patch, patchLength);
 			fclose(fpOld);
 			fclose(fpNew);
-			return b==false ? -1 : 0;
+			return b == false ? -1 : 0;
 #endif
 		}
 	}
@@ -169,13 +170,13 @@ int main(int, char **)
 	MafiaNet::AutopatcherServer autopatcherServer;
 	// MafiaNet::FLP_Printf progressIndicator;
 	MafiaNet::FileListTransfer fileListTransfer;
-	static const int workerThreadCount=4; // Used for checking patches only
-	static const int sqlConnectionObjectCount=32; // Used for both checking patches and downloading
+	static const int workerThreadCount = 4;         // Used for checking patches only
+	static const int sqlConnectionObjectCount = 32; // Used for both checking patches and downloading
 	AutopatcherPostgreRepository2_WithXDelta connectionObject[sqlConnectionObjectCount];
 	MafiaNet::AutopatcherRepositoryInterface *connectionObjectAddresses[sqlConnectionObjectCount];
-	for (int i=0; i < sqlConnectionObjectCount; i++)
-		connectionObjectAddresses[i]=&connectionObject[i];
-//	fileListTransfer.AddCallback(&progressIndicator);
+	for (int i = 0; i < sqlConnectionObjectCount; i++)
+		connectionObjectAddresses[i] = &connectionObject[i];
+	//	fileListTransfer.AddCallback(&progressIndicator);
 	autopatcherServer.SetFileListTransferPlugin(&fileListTransfer);
 	// PostgreSQL is fast, so this may not be necessary, or could use fewer threads
 	// This is used to read increments of large files concurrently, thereby serving users downloads as other users read from the DB
@@ -185,7 +186,7 @@ int main(int, char **)
 	autopatcherServer.SetLoadManagementCallback(&loadNotifier);
 #ifdef USE_TCP
 	MafiaNet::PacketizedTCP packetizedTCP;
-	if (packetizedTCP.Start(LISTEN_PORT,MAX_INCOMING_CONNECTIONS)==false)
+	if (packetizedTCP.Start(LISTEN_PORT, MAX_INCOMING_CONNECTIONS) == false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
 		return 1;
@@ -195,8 +196,8 @@ int main(int, char **)
 #else
 	MafiaNet::RakPeerInterface *rakPeer;
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT,0);
-	rakPeer->Startup(MAX_INCOMING_CONNECTIONS,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(LISTEN_PORT, 0);
+	rakPeer->Startup(MAX_INCOMING_CONNECTIONS, &socketDescriptor, 1);
 	rakPeer->SetMaximumIncomingConnections(MAX_INCOMING_CONNECTIONS);
 	rakPeer->AttachPlugin(&autopatcherServer);
 	rakPeer->AttachPlugin(&fileListTransfer);
@@ -204,18 +205,19 @@ int main(int, char **)
 	printf("started.\n");
 
 	printf("Enter database password:\n");
-	char connectionString[256],password[128];
+	char connectionString[256], password[128];
 	char username[256];
 	strcpy_s(username, "postgres");
 	gets_s(password);
-	if (password[0]==0) strcpy_s(password, "aaaa");
+	if (password[0] == 0)
+		strcpy_s(password, "aaaa");
 	strcpy_s(connectionString, "user=");
 	strcat_s(connectionString, username);
 	strcat_s(connectionString, " password=");
 	strcat_s(connectionString, password);
-	for (int conIdx=0; conIdx < sqlConnectionObjectCount; conIdx++)
+	for (int conIdx = 0; conIdx < sqlConnectionObjectCount; conIdx++)
 	{
-		if (connectionObject[conIdx].Connect(connectionString)==false)
+		if (connectionObject[conIdx].Connect(connectionString) == false)
 		{
 			printf("Database connection failed.\n");
 			return 1;
@@ -226,7 +228,7 @@ int main(int, char **)
 	printf("Starting threads\n");
 	// 4 Worker threads, which is CPU intensive
 	// A greater number of SQL connections, which read files incrementally for large downloads
-	autopatcherServer.StartThreads(workerThreadCount,sqlConnectionObjectCount, connectionObjectAddresses);
+	autopatcherServer.StartThreads(workerThreadCount, sqlConnectionObjectCount, connectionObjectAddresses);
 	autopatcherServer.CacheMostRecentPatch(0);
 	// autopatcherServer.SetAllowDownloadOfOriginalUnmodifiedFiles(false);
 	printf("System ready for connections\n");
@@ -235,17 +237,17 @@ int main(int, char **)
 	// https://code.google.com/p/xdelta/downloads/list
 	printf("Optional: Enter path to xdelta.exe: ");
 	Gets(PATH_TO_XDELTA_EXE, sizeof(PATH_TO_XDELTA_EXE));
-	if (PATH_TO_XDELTA_EXE[0]==0)
+	if (PATH_TO_XDELTA_EXE[0] == 0)
 		strcpy_s(PATH_TO_XDELTA_EXE, "c:/xdelta3-3.0.6-win32.exe");
 
 	if (PATH_TO_XDELTA_EXE[0])
 	{
 		printf("Enter working directory to store temporary files: ");
 		Gets(WORKING_DIRECTORY, sizeof(WORKING_DIRECTORY));
-		if (WORKING_DIRECTORY[0]==0)
+		if (WORKING_DIRECTORY[0] == 0)
 			GetTempPathA(MAX_PATH, WORKING_DIRECTORY);
-		if (WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='\\' || WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='/')
-			WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=0;
+		if (WORKING_DIRECTORY[strlen(WORKING_DIRECTORY) - 1] == '\\' || WORKING_DIRECTORY[strlen(WORKING_DIRECTORY) - 1] == '/')
+			WORKING_DIRECTORY[strlen(WORKING_DIRECTORY) - 1] = 0;
 	}
 #else
 	// xdelta not supported on non-Windows platforms
@@ -257,98 +259,98 @@ int main(int, char **)
 
 	int ch;
 	MafiaNet::Packet *p;
-	for(;;)
+	for (;;)
 	{
 #ifdef USE_TCP
 		MafiaNet::SystemAddress notificationAddress;
-		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasCompletedConnectionAttempt();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
-		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasNewIncomingConnection();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
-		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasLostConnection();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
 
-		p=packetizedTCP.Receive();
+		p = packetizedTCP.Receive();
 		while (p)
 		{
 			packetizedTCP.DeallocatePacket(p);
-			p=packetizedTCP.Receive();
+			p = packetizedTCP.Receive();
 		}
 #else
-		p=rakPeer->Receive();
+		p = rakPeer->Receive();
 		while (p)
 		{
-			if (p->data[0]==ID_NEW_INCOMING_CONNECTION)
+			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 				printf("ID_NEW_INCOMING_CONNECTION\n");
-			else if (p->data[0]==ID_DISCONNECTION_NOTIFICATION)
+			else if (p->data[0] == ID_DISCONNECTION_NOTIFICATION)
 				printf("ID_DISCONNECTION_NOTIFICATION\n");
-			else if (p->data[0]==ID_CONNECTION_LOST)
+			else if (p->data[0] == ID_CONNECTION_LOST)
 				printf("ID_CONNECTION_LOST\n");
 
 			rakPeer->DeallocatePacket(p);
-			p=rakPeer->Receive();
+			p = rakPeer->Receive();
 		}
 #endif
 
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch=='q')
+			ch = _getch();
+			if (ch == 'q')
 				break;
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
-				if (connectionObject[0].CreateAutopatcherTables()==false)
+				if (connectionObject[0].CreateAutopatcherTables() == false)
 					printf("%s", connectionObject[0].GetLastError());
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
-                if (connectionObject[0].DestroyAutopatcherTables()==false)
+				if (connectionObject[0].DestroyAutopatcherTables() == false)
 					printf("%s", connectionObject[0].GetLastError());
 			}
-			else if (ch=='a')
+			else if (ch == 'a')
 			{
 				printf("Enter application name to add: ");
 				char appName[512];
-				Gets(appName,sizeof(appName));
-				if (appName[0]==0)
+				Gets(appName, sizeof(appName));
+				if (appName[0] == 0)
 					strcpy_s(appName, "TestApp");
 
-				if (connectionObject[0].AddApplication(appName, username)==false)
+				if (connectionObject[0].AddApplication(appName, username) == false)
 					printf("%s", connectionObject[0].GetLastError());
 				else
 					printf("Done\n");
 			}
-			else if (ch=='r')
+			else if (ch == 'r')
 			{
 				printf("Enter application name to remove: ");
 				char appName[512];
-				Gets(appName,sizeof(appName));
-				if (appName[0]==0)
+				Gets(appName, sizeof(appName));
+				if (appName[0] == 0)
 					strcpy_s(appName, "TestApp");
 
-				if (connectionObject[0].RemoveApplication(appName)==false)
+				if (connectionObject[0].RemoveApplication(appName) == false)
 					printf("%s", connectionObject[0].GetLastError());
 				else
 					printf("Done\n");
 			}
-			else if (ch=='u')
+			else if (ch == 'u')
 			{
 				printf("Enter application name: ");
 				char appName[512];
-				Gets(appName,sizeof(appName));
-				if (appName[0]==0)
+				Gets(appName, sizeof(appName));
+				if (appName[0] == 0)
 					strcpy_s(appName, "TestApp");
 
 				printf("Enter application directory: ");
 				char appDir[512];
-				Gets(appDir,sizeof(appDir));
-				if (appDir[0]==0)
+				Gets(appDir, sizeof(appDir));
+				if (appDir[0] == 0)
 					strcpy_s(appDir, "D:\\temp");
-				
-				if (connectionObject[0].UpdateApplicationFiles(appName, appDir, username, 0)==false)
+
+				if (connectionObject[0].UpdateApplicationFiles(appName, appDir, username, 0) == false)
 				{
 					printf("%s", connectionObject[0].GetLastError());
 				}
@@ -371,5 +373,5 @@ int main(int, char **)
 #endif
 
 
-return 0;
+	return 0;
 }

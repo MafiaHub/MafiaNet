@@ -18,53 +18,53 @@ using namespace MafiaNet;
 
 namespace
 {
-	SessionAdmission::Limits Legacy(unsigned int maxIncoming)
+SessionAdmission::Limits Legacy(unsigned int maxIncoming)
+{
+	SessionAdmission::Limits limits;
+	limits.maxIncoming = maxIncoming;
+	return limits;
+}
+
+SessionAdmission::Limits Pool(unsigned int maxIncoming, unsigned int maxPending, unsigned int perAddress)
+{
+	SessionAdmission::Limits limits;
+	limits.maxIncoming = maxIncoming;
+	limits.maxPending = maxPending;
+	limits.maxPendingPerAddress = perAddress;
+	return limits;
+}
+
+SessionAdmission::Counts Counts(unsigned int connected, unsigned int exchanging, unsigned int pending, unsigned int pendingFromAddress)
+{
+	SessionAdmission::Counts counts;
+	counts.connected = connected;
+	counts.exchanging = exchanging;
+	counts.pending = pending;
+	counts.pendingFromAddress = pendingFromAddress;
+	return counts;
+}
+
+class SessionAdmissionPeer : public ::testing::Test
+{
+public:
+	void SetUp() override
 	{
-		SessionAdmission::Limits limits;
-		limits.maxIncoming = maxIncoming;
-		return limits;
+		peer = RakPeerInterface::GetInstance();
+		ASSERT_NE(peer, nullptr);
 	}
 
-	SessionAdmission::Limits Pool(unsigned int maxIncoming, unsigned int maxPending, unsigned int perAddress)
+	void TearDown() override
 	{
-		SessionAdmission::Limits limits;
-		limits.maxIncoming = maxIncoming;
-		limits.maxPending = maxPending;
-		limits.maxPendingPerAddress = perAddress;
-		return limits;
-	}
-
-	SessionAdmission::Counts Counts(unsigned int connected, unsigned int exchanging, unsigned int pending, unsigned int pendingFromAddress)
-	{
-		SessionAdmission::Counts counts;
-		counts.connected = connected;
-		counts.exchanging = exchanging;
-		counts.pending = pending;
-		counts.pendingFromAddress = pendingFromAddress;
-		return counts;
-	}
-
-	class SessionAdmissionPeer : public ::testing::Test
-	{
-	public:
-		void SetUp() override
+		if (peer)
 		{
-			peer = RakPeerInterface::GetInstance();
-			ASSERT_NE(peer, nullptr);
+			peer->Shutdown(100);
+			RakPeerInterface::DestroyInstance(peer);
+			peer = 0;
 		}
+	}
 
-		void TearDown() override
-		{
-			if (peer)
-			{
-				peer->Shutdown(100);
-				RakPeerInterface::DestroyInstance(peer);
-				peer = 0;
-			}
-		}
-
-		RakPeerInterface *peer = 0;
-	};
+	RakPeerInterface *peer = 0;
+};
 } // namespace
 
 // ---- without a pool: the historic rule, unchanged ------------------------------------------------------
@@ -157,7 +157,8 @@ TEST(SessionAdmission, WithAPoolAcceptanceIsBoundedByTheIncomingLimit)
 TEST(SessionAdmission, MatchesAReferenceModelOverRandomInputs)
 {
 	uint32_t state = 0x5E55104Du;
-	const auto next = [&state](uint32_t bound) {
+	const auto next = [&state](uint32_t bound)
+	{
 		state = state * 1664525u + 1013904223u;
 		return (state >> 8) % bound;
 	};
@@ -223,17 +224,17 @@ TEST_F(SessionAdmissionPeer, SessionStatusOnAStartedPeerWithNoConnectionsIsANoOp
 
 TEST(SessionAdmissionMessageIds, AreBelowUserPacketEnum)
 {
-	EXPECT_LT((int)ID_SESSION_CONFIG_STATUS, (int)ID_USER_PACKET_ENUM);
-	EXPECT_LT((int)ID_SESSION_CONFIG_ABANDONED, (int)ID_USER_PACKET_ENUM);
+	EXPECT_LT((int) ID_SESSION_CONFIG_STATUS, (int) ID_USER_PACKET_ENUM);
+	EXPECT_LT((int) ID_SESSION_CONFIG_ABANDONED, (int) ID_USER_PACKET_ENUM);
 }
 
 // Both took reserved slots rather than inserting, so every id after them keeps its value and a peer built
 // against the previous release still decodes everything else the same.
 TEST(SessionAdmissionMessageIds, TookTheReservedSlotsWithoutShiftingLaterIds)
 {
-	EXPECT_EQ((int)ID_SESSION_CONFIG_STATUS, (int)ID_SESSION_CONFIG_REJECTED + 1);
-	EXPECT_EQ((int)ID_SESSION_CONFIG_ABANDONED, (int)ID_SESSION_CONFIG_REJECTED + 2);
-	EXPECT_EQ((int)ID_RESERVED_8, (int)ID_SESSION_CONFIG_REJECTED + 3);
+	EXPECT_EQ((int) ID_SESSION_CONFIG_STATUS, (int) ID_SESSION_CONFIG_REJECTED + 1);
+	EXPECT_EQ((int) ID_SESSION_CONFIG_ABANDONED, (int) ID_SESSION_CONFIG_REJECTED + 2);
+	EXPECT_EQ((int) ID_RESERVED_8, (int) ID_SESSION_CONFIG_REJECTED + 3);
 }
 
 TEST(SessionAdmissionMessageIds, AreDistinctFromTheOtherHandshakeIds)

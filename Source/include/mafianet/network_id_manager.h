@@ -50,9 +50,10 @@ public:
 	/// Supports NetworkIDObject anywhere in the inheritance hierarchy
 	/// \pre You must first call SetNetworkIDManager before using this function
 	template <class returnType>
-	returnType GET_OBJECT_FROM_ID(NetworkID x) {
+	returnType GET_OBJECT_FROM_ID(NetworkID x)
+	{
 		NetworkIDObject *nio = GET_BASE_OBJECT_FROM_ID(x);
-		if (nio==0)
+		if (nio == 0)
 			return 0;
 		if (nio->GetParent())
 			return (returnType) nio->GetParent();
@@ -77,7 +78,6 @@ protected:
 	uint64_t startingOffset;
 	/// \internal
 	NetworkID GetNewNetworkID(void);
-
 };
 
 } // namespace MafiaNet

@@ -25,9 +25,6 @@
 #include "Lobby2Presence.h"
 
 
-
-
-
 #pragma once
 
 namespace MafiaNet
@@ -40,7 +37,7 @@ struct BinaryDataBlock;
 struct Lobby2ServerCommand;
 class Lobby2Plugin;
 
-const unsigned int L2_MAX_BINARY_DATA_LENGTH=1000000;
+const unsigned int L2_MAX_BINARY_DATA_LENGTH = 1000000;
 
 
 // --------------------------------------------- Enumeration list of all message IDs --------------------------------------------
@@ -209,8 +206,8 @@ enum Lobby2MessageID
 	L2MID_Notification_Console_MemberJoinedParty,
 	L2MID_Notification_Console_MemberLeftParty,
 	L2MID_Notification_Console_Game_Started, // XBOX only
-	L2MID_Notification_Console_Game_Ending, // XBOX only
-	L2MID_Notification_Console_Game_Ended, // XBOX only
+	L2MID_Notification_Console_Game_Ending,  // XBOX only
+	L2MID_Notification_Console_Game_Ended,   // XBOX only
 	L2MID_Notification_Console_Got_Room_Invite,
 	L2MID_Notification_Console_Accepted_Room_Invite,
 
@@ -221,7 +218,7 @@ enum Lobby2MessageID
 /// \ingroup LOBBY_2_COMMANDS
 enum ClanMemberState
 {
-	CMD_UNDEFINED=0,
+	CMD_UNDEFINED = 0,
 	CMD_ACTIVE,
 	CMD_BANNED,
 	CMD_JOIN_INVITED,
@@ -243,95 +240,101 @@ struct Lobby2Message
 	virtual ~Lobby2Message() {}
 
 	/// Every message has an ID identifying it across the network
-	virtual Lobby2MessageID GetID(void) const=0;
+	virtual Lobby2MessageID GetID(void) const = 0;
 
 	/// Is this message something that should only be run by a system with admin privileges?
 	/// Set admin privileges with Lobby2Server::AddAdminAddress()
-	virtual bool RequiresAdmin(void) const=0;
+	virtual bool RequiresAdmin(void) const = 0;
 
 	/// Is this message something that should only be run by a system with ranking upload priviledges?
 	/// Set ranking privileges with Lobby2Server::AddRankingAddress()
-	virtual bool RequiresRankingPermission(void) const=0;
+	virtual bool RequiresRankingPermission(void) const = 0;
 
 	/// Should this message not be processed on the server if the requesting user disconnects before it completes?
 	/// This should be true for functions that only return data. False for functions that affect other users, or change the database
-	virtual bool CancelOnDisconnect(void) const=0;
+	virtual bool CancelOnDisconnect(void) const = 0;
 
 	/// Does this function require logging into the server before it can be executed?
 	/// If true, the user id and user handle will be automatically inferred by the last login by looking up the sender's system address.
 	/// If false, the message should include the username so the database query can lookup which user is performing this operation.
-	virtual bool RequiresLogin(void) const=0;
-	
+	virtual bool RequiresLogin(void) const = 0;
+
 	// Serialize data in this class. Currently just the resultCode
 	void SerializeBase(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
-	
+
 	/// Overridable serialization of the contents of this message. Defaults to SerializeBase()
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-	
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+
 	/// If data members can be validated for correctness in the server's main thread, override this function and do those checks here.
 	/// \return True for input OK. False if the input is bad and does not need to be further processed in the database threads.
 	virtual bool PrevalidateInput(void);
-	
+
 	/// Override to do any Lobby2Client functionality when the message is returned from the server (usually nothing).
 	/// \return True to call CallCallback immediately. False to defer for some reason (always true on the PC)
 	virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
-	
+
 	/// This message has been processed by the server and has arrived back on the client.
 	/// Call the client informing the user of this event.
-	virtual void CallCallback(Lobby2Callbacks *cb)=0;
-	
+	virtual void CallCallback(Lobby2Callbacks *cb) = 0;
+
 	/// Do any Lobby2Server	functionality when the message first arrives on the server, and after it has returned true from PrevalidateInput()
 	/// If it returns true, the message has been handled, and the result is sent to the client
 	/// If it returns false, the message continues to ServerDBImpl
-	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle);
+	virtual bool ServerPreDBMemoryImpl(Lobby2Server *server, RakString curUserHandle);
 
 	/// Do any Lobby2Server	functionality after the message has been processed by the database, in the server thread.
-	virtual void ServerPostDBMemoryImpl( Lobby2Server *server, RakString userHandle );
-	
+	virtual void ServerPostDBMemoryImpl(Lobby2Server *server, RakString userHandle);
+
 	/// Do any Lobby2Server	functionality when the message is processed in a database thread on the server.
 	/// It is safe to do slow database calls in this function.
 	/// If it returns true, the message has been handled, and the result is sent to the client
 	/// If it returns false, that means ignore the message
-	virtual bool ServerDBImpl( Lobby2ServerCommand *command, void *databaseInterface );
+	virtual bool ServerDBImpl(Lobby2ServerCommand *command, void *databaseInterface);
 
 	/// The only non-printable character is space
 	/// Cannot start with space
 	/// Cannot end with space
 	/// Cannot have two spaces in a row
-	bool ValidateHandle(MafiaNet::RakString *handle );
+	bool ValidateHandle(MafiaNet::RakString *handle);
 
 	/// Binary data cannot be longer than L2_MAX_BINARY_DATA_LENGTH
-	bool ValidateBinary( RakNetSmartPtr<BinaryDataBlock>binaryDataBlock);
+	bool ValidateBinary(RakNetSmartPtr<BinaryDataBlock> binaryDataBlock);
 
 	/// Required text cannot be empty.
-	bool ValidateRequiredText(MafiaNet::RakString *text );
+	bool ValidateRequiredText(MafiaNet::RakString *text);
 
 	/// Passwords must contain at least 5 characters
-	bool ValidatePassword(MafiaNet::RakString *text );
+	bool ValidatePassword(MafiaNet::RakString *text);
 
 	/// Check email address format
-	bool ValidateEmailAddress(MafiaNet::RakString *text );
+	bool ValidateEmailAddress(MafiaNet::RakString *text);
 
 	/// Convert the enumeration representing this message to a string, and return it. Done automatically by macros.
-	virtual const char *GetName(void) const=0;
-	
+	virtual const char *GetName(void) const = 0;
+
 	/// Write the result of this message to out(). Done automatically by macros.
-	virtual void DebugMsg(MafiaNet::RakString &out) const=0;
+	virtual void DebugMsg(MafiaNet::RakString &out) const = 0;
 
 	/// Print the result of DebugMsg
 	virtual void DebugPrintf(void) const
 	{
-		MafiaNet::RakString out; DebugMsg(out); printf(out.C_String());
+		MafiaNet::RakString out;
+		DebugMsg(out);
+		printf(out.C_String());
 	}
-	
+
 	/// Result of the operation. L2RC_SUCCESS means the result completed. Anything else means an error
 	MafiaNet::Lobby2ResultCode resultCode;
 
 	// For polling, when necessary
-	virtual bool WasCompleted(MafiaNet::Lobby2Plugin *client ) {(void) client; return false;}
+	virtual bool WasCompleted(MafiaNet::Lobby2Plugin *client)
+	{
+		(void) client;
+		return false;
+	}
 
 	// Is this message a notification / callback?
-	virtual bool IsNotification(void) const {return false;}
+	virtual bool IsNotification(void) const { return false; }
 
 	/// Just a number, representing which instance of Lobby2Callbacks should process the result of this operation
 	/// -1 means all
@@ -340,24 +343,35 @@ struct Lobby2Message
 	/// Used for consoles
 	int extendedResultCode;
 
-	void AddRef(void) {refCountMutex.Lock(); refCount++; refCountMutex.Unlock(); }
-	void Deref(void) {refCountMutex.Lock(); refCount--; refCountMutex.Unlock();}
-	int GetRefCount(void) {int r; refCountMutex.Lock(); r = refCount; refCountMutex.Unlock(); return r;}
+	void AddRef(void)
+	{
+		refCountMutex.Lock();
+		refCount++;
+		refCountMutex.Unlock();
+	}
+	void Deref(void)
+	{
+		refCountMutex.Lock();
+		refCount--;
+		refCountMutex.Unlock();
+	}
+	int GetRefCount(void)
+	{
+		int r;
+		refCountMutex.Lock();
+		r = refCount;
+		refCountMutex.Unlock();
+		return r;
+	}
 
 	/// Just a number, uniquely identifying each allocation of Lobby2Message.
 	/// Use it if you need to lookup queries on the callback reply
 
 
-
 	uint64_t requestId;
 
 
-
-
-
-
 private:
-
 	SimpleMutex refCountMutex;
 	/// Reference count
 	int refCount;
@@ -537,7 +551,7 @@ struct Notification_Console_Accepted_Room_Invite;
 /// \ingroup LOBBY_2_GROUP
 struct Lobby2Callbacks
 {
-	Lobby2Callbacks() {callbackId=nextCallbackId++;}
+	Lobby2Callbacks() { callbackId = nextCallbackId++; }
 	virtual ~Lobby2Callbacks() {}
 	virtual void MessageResult(Platform_Startup *message);
 	virtual void MessageResult(Platform_Shutdown *message);
@@ -692,7 +706,7 @@ struct Lobby2Callbacks
 	virtual void MessageResult(Notification_Console_RoomOwnerChanged *message);
 	virtual void MessageResult(Notification_Console_RoomChatMessage *message);
 	virtual void MessageResult(Notification_Console_RoomMessage *message);
-//	virtual void MessageResult(Notification_Console_RoomMemberConnectivityUpdate *message);
+	//	virtual void MessageResult(Notification_Console_RoomMemberConnectivityUpdate *message);
 	virtual void MessageResult(Notification_Console_ChatEvent *message);
 	virtual void MessageResult(Notification_Console_MuteListChanged *message);
 	virtual void MessageResult(Notification_Console_Local_Users_Changed *message);
@@ -705,7 +719,7 @@ struct Lobby2Callbacks
 	virtual void MessageResult(Notification_Console_Got_Room_Invite *message);
 	virtual void MessageResult(Notification_Console_Accepted_Room_Invite *message);
 
-	virtual void ExecuteDefaultResult(Lobby2Message *message) { (void)message; }
+	virtual void ExecuteDefaultResult(Lobby2Message *message) { (void) message; }
 
 	uint32_t callbackId;
 	static uint32_t nextCallbackId;
@@ -715,7 +729,7 @@ struct Lobby2Callbacks
 /// \ingroup LOBBY_2_GROUP
 struct Lobby2Printf : public Lobby2Callbacks
 {
-	virtual void ExecuteDefaultResult(Lobby2Message *message) {message->DebugPrintf();}
+	virtual void ExecuteDefaultResult(Lobby2Message *message) { message->DebugPrintf(); }
 };
 
 // --------------------------------------------- Types --------------------------------------------
@@ -724,18 +738,29 @@ struct BinaryDataBlock
 {
 	char *binaryData;
 	unsigned int binaryDataLength;
-	BinaryDataBlock() {binaryData=0; binaryDataLength=0;}
-	~BinaryDataBlock() {
+	BinaryDataBlock()
+	{
+		binaryData = 0;
+		binaryDataLength = 0;
+	}
+	~BinaryDataBlock()
+	{
 		if (binaryData)
-			rakFree_Ex(binaryData, _FILE_AND_LINE_ );
+			rakFree_Ex(binaryData, _FILE_AND_LINE_);
 	}
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 /// Used to unify different platforms for room search and search properties. Only applies if specifically used
 struct IndexedIntegerValue
 {
-	IndexedIntegerValue() {index=0; value=0; searchOperator=-1;}
-	IndexedIntegerValue(unsigned int idx, unsigned int val) : index(idx), value(val) {searchOperator=-1;}
+	IndexedIntegerValue()
+	{
+		index = 0;
+		value = 0;
+		searchOperator = -1;
+	}
+	IndexedIntegerValue(unsigned int idx, unsigned int val)
+	    : index(idx), value(val) { searchOperator = -1; }
 	/// Index of the value to set, required.
 	unsigned int index;
 	/// Value to set
@@ -746,9 +771,25 @@ struct IndexedIntegerValue
 /// Used to unify different platforms for room search and search properties. Only applies if specifically used
 struct IndexedBinaryValue
 {
-	IndexedBinaryValue() {index=0; value=0; valueByteLength=0; searchOperator=-1; type=(unsigned char)-1;}
-	IndexedBinaryValue(unsigned int idx, char* val, unsigned short valLength) : index(idx), value(val), valueByteLength(valLength) {searchOperator=-1; type=(unsigned char)-1;}
-	~IndexedBinaryValue() {if (value) rakFree_Ex(value,_FILE_AND_LINE_);};
+	IndexedBinaryValue()
+	{
+		index = 0;
+		value = 0;
+		valueByteLength = 0;
+		searchOperator = -1;
+		type = (unsigned char) -1;
+	}
+	IndexedBinaryValue(unsigned int idx, char *val, unsigned short valLength)
+	    : index(idx), value(val), valueByteLength(valLength)
+	{
+		searchOperator = -1;
+		type = (unsigned char) -1;
+	}
+	~IndexedBinaryValue()
+	{
+		if (value)
+			rakFree_Ex(value, _FILE_AND_LINE_);
+	};
 
 	/// Index of the value to set, required.
 	unsigned int index;
@@ -763,8 +804,12 @@ struct IndexedBinaryValue
 };
 struct CreateAccountParameters
 {
-	CreateAccountParameters() {ageInDays=0; binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~CreateAccountParameters() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	CreateAccountParameters()
+	{
+		ageInDays = 0;
+		binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);
+	}
+	~CreateAccountParameters() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	/// [in] Self-apparent
 	MafiaNet::RakString firstName;
 	/// [in] Self-apparent
@@ -815,14 +860,14 @@ struct CreateAccountParameters
 	unsigned int ageInDays;
 	/// [in] binary data
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
-	
+
 
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 struct PendingInvite
 {
-	PendingInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~PendingInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	PendingInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~PendingInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	MafiaNet::RakString sender;
 	MafiaNet::RakString subject;
 	MafiaNet::RakString body;
@@ -833,9 +878,9 @@ struct PendingInvite
 struct UsernameAndOnlineStatus
 {
 	UsernameAndOnlineStatus();
-	UsernameAndOnlineStatus(const UsernameAndOnlineStatus& input);
+	UsernameAndOnlineStatus(const UsernameAndOnlineStatus &input);
 	~UsernameAndOnlineStatus() {}
-	UsernameAndOnlineStatus& operator = ( const UsernameAndOnlineStatus& input );
+	UsernameAndOnlineStatus &operator=(const UsernameAndOnlineStatus &input);
 
 	MafiaNet::RakString handle;
 	bool isOnline;
@@ -847,16 +892,16 @@ struct UsernameAndOnlineStatus
 struct FriendInfo
 {
 	FriendInfo();
-	FriendInfo(const FriendInfo& input);
-	FriendInfo& operator = ( const FriendInfo& input );
+	FriendInfo(const FriendInfo &input);
+	FriendInfo &operator=(const FriendInfo &input);
 
 	UsernameAndOnlineStatus usernameAndStatus;
-	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream) {usernameAndStatus.Serialize(writeToBitstream,bitStream);}
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream) { usernameAndStatus.Serialize(writeToBitstream, bitStream); }
 };
 struct EmailResult
 {
-	EmailResult() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~EmailResult() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	EmailResult() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~EmailResult() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	MafiaNet::RakString sender;
 	MafiaNet::RakString recipient;
 	MafiaNet::RakString subject;
@@ -873,7 +918,8 @@ struct EmailResult
 struct MatchParticipant
 {
 	MatchParticipant() {}
-	MatchParticipant(MafiaNet::RakString _handle, float _score) : handle(_handle), score(_score) {}
+	MatchParticipant(MafiaNet::RakString _handle, float _score)
+	    : handle(_handle), score(_score) {}
 	MafiaNet::RakString handle;
 	float score;
 
@@ -881,8 +927,8 @@ struct MatchParticipant
 };
 struct SubmittedMatch
 {
-	SubmittedMatch() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~SubmittedMatch() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	SubmittedMatch() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~SubmittedMatch() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	DataStructures::List<MatchParticipant> matchParticipants;
 	MafiaNet::RakString matchNote;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
@@ -894,8 +940,8 @@ struct SubmittedMatch
 };
 struct ClanInfo
 {
-	ClanInfo() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~ClanInfo() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	ClanInfo() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~ClanInfo() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	MafiaNet::RakString clanName;
 	MafiaNet::RakString description;
 	MafiaNet::RakString clanLeader;
@@ -934,23 +980,40 @@ struct BookmarkedUser
 
 // --------------------------------------------- Actual body of all messages, including DB specific implementation --------------------------------------------
 
-#define __L2_MSG_BASE_IMPL(__NAME__) \
-	virtual void CallCallback(Lobby2Callbacks *cb) {cb->MessageResult(this);}; \
-	virtual Lobby2MessageID GetID(void) const {return (Lobby2MessageID) L2MID_##__NAME__;} \
-	virtual const char* GetName(void) const {return #__NAME__;} \
-	virtual void DebugMsg(MafiaNet::RakString &out) const {out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode));};
+#define __L2_MSG_BASE_IMPL(__NAME__)                                                           \
+	virtual void CallCallback(Lobby2Callbacks *cb)                                             \
+	{                                                                                          \
+		cb->MessageResult(this);                                                               \
+	};                                                                                         \
+	virtual Lobby2MessageID GetID(void) const                                                  \
+	{                                                                                          \
+		return (Lobby2MessageID) L2MID_##__NAME__;                                             \
+	}                                                                                          \
+	virtual const char *GetName(void) const                                                    \
+	{                                                                                          \
+		return #__NAME__;                                                                      \
+	}                                                                                          \
+	virtual void DebugMsg(MafiaNet::RakString &out) const                                      \
+	{                                                                                          \
+		out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode)); \
+	};
 
 /// \brief Platform specific startup. Unused on the PC
 /// \ingroup LOBBY_2_COMMANDS
 struct Platform_Startup : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Platform_Startup)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool PrevalidateInput(void) {return true;}
-	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle) { (void)server; (void)curUserHandle; return true; }
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool PrevalidateInput(void) { return true; }
+	virtual bool ServerPreDBMemoryImpl(Lobby2Server *server, RakString curUserHandle)
+	{
+		(void) server;
+		(void) curUserHandle;
+		return true;
+	}
 };
 
 /// \brief Platform specific startup. Unused on the PC
@@ -958,12 +1021,17 @@ struct Platform_Startup : public Lobby2Message
 struct Platform_Shutdown : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Platform_Shutdown)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool PrevalidateInput(void) {return true;}
-	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle) { (void)server; (void)curUserHandle; return true; }
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool PrevalidateInput(void) { return true; }
+	virtual bool ServerPreDBMemoryImpl(Lobby2Server *server, RakString curUserHandle)
+	{
+		(void) server;
+		(void) curUserHandle;
+		return true;
+	}
 };
 
 /// \brief Create all tables and stored procedures on a system that does not already have them
@@ -971,35 +1039,35 @@ struct Platform_Shutdown : public Lobby2Message
 struct System_CreateDatabase : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_CreateDatabase)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool PrevalidateInput(void) {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool PrevalidateInput(void) { return true; }
 };
 /// \brief Destroy all tables and stored procedures created with System_CreateDatabase
 /// \ingroup LOBBY_2_COMMANDS
 struct System_DestroyDatabase : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_DestroyDatabase)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool PrevalidateInput(void) {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool PrevalidateInput(void) { return true; }
 };
 /// \brief Each title essentially corresponds to a game. For example, the same lobby system may be used for both asteroids and Pac-man. When logging in, and for some functions, it is necessary to specify which title you are logging in under. This way users playing asteroids do not interact with users playing pac-man, where such interactions are game specific (such as ranking).
 /// \ingroup LOBBY_2_COMMANDS
 struct System_CreateTitle : public Lobby2Message
 {
-	System_CreateTitle() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~System_CreateTitle() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	System_CreateTitle() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~System_CreateTitle() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	__L2_MSG_BASE_IMPL(System_CreateTitle)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1013,28 +1081,27 @@ struct System_CreateTitle : public Lobby2Message
 struct System_DestroyTitle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_DestroyTitle)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-	virtual bool PrevalidateInput(void) {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+	virtual bool PrevalidateInput(void) { return true; }
 
 	// Input parameters
 	MafiaNet::RakString titleName;
-
 };
 /// \brief Get the required age set with System_CreateTitle
 /// \ingroup LOBBY_2_COMMANDS
 struct System_GetTitleRequiredAge : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_GetTitleRequiredAge)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-	virtual bool PrevalidateInput(void) {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+	virtual bool PrevalidateInput(void) { return true; }
 
 	// Input parameters
 	MafiaNet::RakString titleName;
@@ -1046,15 +1113,15 @@ struct System_GetTitleRequiredAge : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct System_GetTitleBinaryData : public Lobby2Message
 {
-	System_GetTitleBinaryData() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~System_GetTitleBinaryData() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	System_GetTitleBinaryData() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~System_GetTitleBinaryData() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	__L2_MSG_BASE_IMPL(System_GetTitleBinaryData)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-	virtual bool PrevalidateInput(void) {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+	virtual bool PrevalidateInput(void) { return true; }
 
 	// Input parameters
 	MafiaNet::RakString titleName;
@@ -1067,18 +1134,18 @@ struct System_GetTitleBinaryData : public Lobby2Message
 struct System_RegisterProfanity : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_RegisterProfanity)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void)
 	{
-		for (unsigned int i=0; i < profanityWords.Size(); i++)
+		for (unsigned int i = 0; i < profanityWords.Size(); i++)
 		{
 			if (profanityWords[i].IsEmpty())
 			{
-				resultCode=L2RC_System_RegisterProfanity_CANNOT_REGISTER_EMPTY_STRINGS;
+				resultCode = L2RC_System_RegisterProfanity_CANNOT_REGISTER_EMPTY_STRINGS;
 				return false;
 			}
 		}
@@ -1095,11 +1162,11 @@ struct System_RegisterProfanity : public Lobby2Message
 struct System_BanUser : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_BanUser)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1108,19 +1175,17 @@ struct System_BanUser : public Lobby2Message
 	MafiaNet::RakString userName;
 
 	// Output parameters
-
-
 };
 /// \brief Unban a user banned with System_BanUser
 /// \ingroup LOBBY_2_COMMANDS
 struct System_UnbanUser : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_UnbanUser)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1133,11 +1198,11 @@ struct System_UnbanUser : public Lobby2Message
 struct CDKey_Add : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(CDKey_Add)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1152,11 +1217,11 @@ struct CDKey_Add : public Lobby2Message
 struct CDKey_GetStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(CDKey_GetStatus)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1175,11 +1240,11 @@ struct CDKey_GetStatus : public Lobby2Message
 struct CDKey_Use : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(CDKey_Use)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1196,11 +1261,11 @@ struct CDKey_Use : public Lobby2Message
 struct CDKey_FlagStolen : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(CDKey_FlagStolen)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1226,20 +1291,20 @@ struct CDKey_FlagStolen : public Lobby2Message
 struct Client_Login : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_Login)
-	Client_Login() {allowMultipleLogins=false;}
+	Client_Login() { allowMultipleLogins = false; }
 	virtual ~Client_Login() {}
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
 	MafiaNet::RakString userPassword;
 	bool allowMultipleLogins; // PC only, allow login with the same username from multiple computers at once
-	// Used if check 
+	// Used if check
 	MafiaNet::RakString titleName;
 	MafiaNet::RakString titleSecretKey;
 	MafiaNet::RakString userName;
@@ -1254,21 +1319,21 @@ struct Client_Login : public Lobby2Message
 struct Client_Logoff : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_Logoff)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 /// \brief This creates a new account in the database, which can be used in a subsequent call to Login. Most parameters are optional. handle is not optional, and must be unique using case-insensitive compare. emailAddress should be validated to have a sensible format, including an @ sign and a period with a 3 letter extension. allowLoginWithoutEmailAddressValidation is used in Client_Login to potentially disallow logon attempts with unverified email addresses.
 /// \ingroup LOBBY_2_COMMANDS
 struct Client_RegisterAccount : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_RegisterAccount)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1286,11 +1351,11 @@ struct Client_RegisterAccount : public Lobby2Message
 struct System_SetEmailAddressValidated : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_SetEmailAddressValidated)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1304,11 +1369,11 @@ struct System_SetEmailAddressValidated : public Lobby2Message
 struct Client_ValidateHandle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_ValidateHandle)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	MafiaNet::RakString userName;
@@ -1318,11 +1383,11 @@ struct Client_ValidateHandle : public Lobby2Message
 struct System_DeleteAccount : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_DeleteAccount)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1340,11 +1405,11 @@ struct System_DeleteAccount : public Lobby2Message
 struct System_PruneAccounts : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(System_PruneAccounts)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1357,11 +1422,11 @@ struct System_PruneAccounts : public Lobby2Message
 struct Client_GetEmailAddress : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_GetEmailAddress)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1370,17 +1435,17 @@ struct Client_GetEmailAddress : public Lobby2Message
 	// Output parameters
 	MafiaNet::RakString emailAddress;
 	bool emailAddressValidated;
-
 };
 /// \brief Returns the passwordRecoveryQuestion associated with handle, invalid handle
 /// \ingroup LOBBY_2_COMMANDS
 struct Client_GetPasswordRecoveryQuestionByHandle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_GetPasswordRecoveryQuestionByHandle)
-		virtual bool RequiresAdmin(void) const {return false;}virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input/output parameters
@@ -1395,11 +1460,11 @@ struct Client_GetPasswordRecoveryQuestionByHandle : public Lobby2Message
 struct Client_GetPasswordByPasswordRecoveryAnswer : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_GetPasswordByPasswordRecoveryAnswer)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1414,12 +1479,12 @@ struct Client_GetPasswordByPasswordRecoveryAnswer : public Lobby2Message
 struct Client_ChangeHandle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_ChangeHandle)
-	Client_ChangeHandle() {requiresPasswordToChangeHandle=false;}
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	Client_ChangeHandle() { requiresPasswordToChangeHandle = false; }
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1438,11 +1503,11 @@ struct Client_ChangeHandle : public Lobby2Message
 struct Client_UpdateAccount : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_UpdateAccount)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1457,11 +1522,11 @@ struct Client_UpdateAccount : public Lobby2Message
 struct Client_GetAccountDetails : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_GetAccountDetails)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 
@@ -1474,11 +1539,11 @@ struct Client_GetAccountDetails : public Lobby2Message
 struct Client_StartIgnore : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_StartIgnore)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1495,11 +1560,11 @@ struct Client_StartIgnore : public Lobby2Message
 struct Client_StopIgnore : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_StopIgnore)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1509,18 +1574,17 @@ struct Client_StopIgnore : public Lobby2Message
 	MafiaNet::RakString targetHandle;
 
 	// Output parameters
-
 };
 /// \brief Returns all users I have ignored
 /// \ingroup LOBBY_2_COMMANDS
 struct Client_GetIgnoreList : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_GetIgnoreList)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool ClientImpl(MafiaNet::Lobby2Plugin *client);
 
@@ -1532,11 +1596,11 @@ struct Client_GetIgnoreList : public Lobby2Message
 struct Client_PerTitleIntegerStorage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_PerTitleIntegerStorage)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	/// [in] Name of a created title
@@ -1582,13 +1646,13 @@ struct Client_PerTitleIntegerStorage : public Lobby2Message
 struct Client_PerTitleBinaryStorage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_PerTitleBinaryStorage)
-		Client_PerTitleBinaryStorage() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Client_PerTitleBinaryStorage() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	Client_PerTitleBinaryStorage() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Client_PerTitleBinaryStorage() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	/// [in] Name of a created title
@@ -1614,12 +1678,12 @@ struct Client_PerTitleBinaryStorage : public Lobby2Message
 struct Client_SetPresence : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_SetPresence)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-//	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+	//	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle );
 
 	/// \param[in] Presence info to set.
 	MafiaNet::Lobby2Presence presence;
@@ -1630,12 +1694,12 @@ struct Client_SetPresence : public Lobby2Message
 struct Client_GetPresence : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_GetPresence)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-//	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+	//	virtual bool ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle );
 
 	/// \param[in] Which user we are looking up ( can be ourselves )
 	MafiaNet::RakString userHandle;
@@ -1648,14 +1712,14 @@ struct Client_GetPresence : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Friends_SendInvite : public Lobby2Message
 {
-	Friends_SendInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_SendInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_SendInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Friends_SendInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	__L2_MSG_BASE_IMPL(Friends_SendInvite)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1674,14 +1738,14 @@ struct Friends_SendInvite : public Lobby2Message
 struct Friends_AcceptInvite : public Lobby2Message
 {
 
-	Friends_AcceptInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_AcceptInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_AcceptInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Friends_AcceptInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 	__L2_MSG_BASE_IMPL(Friends_AcceptInvite)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1702,13 +1766,13 @@ struct Friends_RejectInvite : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Friends_RejectInvite)
 
-	Friends_RejectInvite() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_RejectInvite() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	Friends_RejectInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Friends_RejectInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1726,11 +1790,11 @@ struct Friends_RejectInvite : public Lobby2Message
 struct Friends_GetInvites : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Friends_GetInvites)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 
@@ -1744,11 +1808,11 @@ struct Friends_GetInvites : public Lobby2Message
 struct Friends_GetFriends : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Friends_GetFriends)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	// Input parameters
 
 	// Output parameters
@@ -1758,15 +1822,15 @@ struct Friends_GetFriends : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Friends_Remove : public Lobby2Message
 {
-	Friends_Remove() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Friends_Remove() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Friends_Remove() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Friends_Remove() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Friends_Remove)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1787,11 +1851,11 @@ struct Friends_Remove : public Lobby2Message
 struct BookmarkedUsers_Add : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(BookmarkedUsers_Add)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1799,18 +1863,17 @@ struct BookmarkedUsers_Add : public Lobby2Message
 	MafiaNet::RakString targetHandle;
 	int type;
 	MafiaNet::RakString description;
-
 };
 /// \brief Remove a user added with BookmarkedUsers_Add
 /// \ingroup LOBBY_2_COMMANDS
 struct BookmarkedUsers_Remove : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(BookmarkedUsers_Remove)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1823,11 +1886,11 @@ struct BookmarkedUsers_Remove : public Lobby2Message
 struct BookmarkedUsers_Get : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(BookmarkedUsers_Get)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 
@@ -1840,15 +1903,15 @@ struct BookmarkedUsers_Get : public Lobby2Message
 struct Emails_Send : public Lobby2Message
 {
 
-	Emails_Send() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	virtual ~Emails_Send() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Emails_Send() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	virtual ~Emails_Send() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Emails_Send)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1865,19 +1928,23 @@ struct Emails_Send : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Emails_Get : public Lobby2Message
 {
-	Emails_Get() {unreadEmailsOnly=false; emailIdsOnly=false;}
+	Emails_Get()
+	{
+		unreadEmailsOnly = false;
+		emailIdsOnly = false;
+	}
 	virtual ~Emails_Get() {}
 
 	__L2_MSG_BASE_IMPL(Emails_Get)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
-	bool unreadEmailsOnly;  //If this is true then it will only return emails that have not been read by the user.
-	bool emailIdsOnly; //When this is set only the emailIds are filled out and no data is returned.
+	bool unreadEmailsOnly;                               //If this is true then it will only return emails that have not been read by the user.
+	bool emailIdsOnly;                                   //When this is set only the emailIds are filled out and no data is returned.
 	DataStructures::List<unsigned int> emailsToRetrieve; //If this has entries then it will only get the emails in the list, otherwise it will get all emails.
 
 	// Output parameters
@@ -1889,11 +1956,11 @@ struct Emails_Get : public Lobby2Message
 struct Emails_Delete : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Emails_Delete)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 	unsigned int emailId;
@@ -1905,11 +1972,11 @@ struct Emails_Delete : public Lobby2Message
 struct Emails_SetStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Emails_SetStatus)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
@@ -1926,11 +1993,11 @@ struct Emails_SetStatus : public Lobby2Message
 struct Ranking_SubmitMatch : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_SubmitMatch)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return true;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return true; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1946,11 +2013,11 @@ struct Ranking_SubmitMatch : public Lobby2Message
 struct Ranking_GetMatches : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_GetMatches)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -1962,20 +2029,20 @@ struct Ranking_GetMatches : public Lobby2Message
 	/// \param[out] submittedMatches (excluding binary data, up to caller to deallocate)
 	DataStructures::List<SubmittedMatch> submittedMatches;
 };
-/// \brief Because of the large amount of binary data potentially returned, this function is used to retrieve binary data for a particular match. 
+/// \brief Because of the large amount of binary data potentially returned, this function is used to retrieve binary data for a particular match.
 /// \ingroup LOBBY_2_COMMANDS
 struct Ranking_GetMatchBinaryData : public Lobby2Message
 {
 
-	Ranking_GetMatchBinaryData() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Ranking_GetMatchBinaryData() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Ranking_GetMatchBinaryData() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Ranking_GetMatchBinaryData() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Ranking_GetMatchBinaryData)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 	unsigned int matchID;
@@ -1988,11 +2055,11 @@ struct Ranking_GetMatchBinaryData : public Lobby2Message
 struct Ranking_GetTotalScore : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_GetTotalScore)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2011,11 +2078,11 @@ struct Ranking_GetTotalScore : public Lobby2Message
 struct Ranking_WipeScoresForPlayer : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_WipeScoresForPlayer)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return true;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return true; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2031,11 +2098,11 @@ struct Ranking_WipeScoresForPlayer : public Lobby2Message
 struct Ranking_WipeMatches : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_WipeMatches)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return true;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return true; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2050,11 +2117,11 @@ struct Ranking_WipeMatches : public Lobby2Message
 struct Ranking_PruneMatches : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_PruneMatches)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return true;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return true; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 	unsigned int pruneTimeDays;
@@ -2066,11 +2133,11 @@ struct Ranking_PruneMatches : public Lobby2Message
 struct Ranking_UpdateRating : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_UpdateRating)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return true;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return true; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2087,11 +2154,11 @@ struct Ranking_UpdateRating : public Lobby2Message
 struct Ranking_WipeRatings : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_WipeRatings)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return true;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return true; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2106,11 +2173,11 @@ struct Ranking_WipeRatings : public Lobby2Message
 struct Ranking_GetRating : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Ranking_GetRating)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2129,15 +2196,15 @@ struct Ranking_GetRating : public Lobby2Message
 struct Clans_Create : public Lobby2Message
 {
 
-	Clans_Create() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_Create() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_Create() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_Create() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_Create)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2156,15 +2223,15 @@ struct Clans_Create : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SetProperties : public Lobby2Message
 {
-	Clans_SetProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_SetProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SetProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_SetProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SetProperties)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2177,15 +2244,15 @@ struct Clans_SetProperties : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetProperties : public Lobby2Message
 {
-	Clans_GetProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_GetProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_GetProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_GetProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_GetProperties)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2202,15 +2269,15 @@ struct Clans_GetProperties : public Lobby2Message
 struct Clans_SetMyMemberProperties : public Lobby2Message
 {
 
-	Clans_SetMyMemberProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_SetMyMemberProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SetMyMemberProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_SetMyMemberProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SetMyMemberProperties)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2226,11 +2293,11 @@ struct Clans_SetMyMemberProperties : public Lobby2Message
 struct Clans_GrantLeader : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GrantLeader)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2243,11 +2310,11 @@ struct Clans_GrantLeader : public Lobby2Message
 struct Clans_SetSubleaderStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_SetSubleaderStatus)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2262,11 +2329,11 @@ struct Clans_SetSubleaderStatus : public Lobby2Message
 struct Clans_SetMemberRank : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_SetMemberRank)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2279,15 +2346,15 @@ struct Clans_SetMemberRank : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetMemberProperties : public Lobby2Message
 {
-	Clans_GetMemberProperties() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_GetMemberProperties() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_GetMemberProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_GetMemberProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_GetMemberProperties)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2308,11 +2375,11 @@ struct Clans_GetMemberProperties : public Lobby2Message
 struct Clans_ChangeHandle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_ChangeHandle)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2327,15 +2394,15 @@ struct Clans_ChangeHandle : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_Leave : public Lobby2Message
 {
-	Clans_Leave() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_Leave() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_Leave() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_Leave() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_Leave)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2349,18 +2416,18 @@ struct Clans_Leave : public Lobby2Message
 
 	// Output parameters
 	bool wasDissolved;
-	MafiaNet::RakString newClanLeader; // If not dissolved	
+	MafiaNet::RakString newClanLeader; // If not dissolved
 };
 /// \brief Returns all clans that userHandle is a member of. Clans and clan members should be sorted by name, using ascending or descending sort as specified.
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_Get : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_Get)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 
 	// Input parameters
@@ -2372,16 +2439,16 @@ struct Clans_Get : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SendJoinInvitation : public Lobby2Message
 {
-	
-	Clans_SendJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-		~Clans_SendJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+
+	Clans_SendJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_SendJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SendJoinInvitation)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2399,15 +2466,15 @@ struct Clans_SendJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_WithdrawJoinInvitation : public Lobby2Message
 {
-	Clans_WithdrawJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_WithdrawJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_WithdrawJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_WithdrawJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_WithdrawJoinInvitation)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2423,15 +2490,15 @@ struct Clans_WithdrawJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_AcceptJoinInvitation : public Lobby2Message
 {
-	Clans_AcceptJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_AcceptJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_AcceptJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_AcceptJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_AcceptJoinInvitation)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2449,15 +2516,15 @@ struct Clans_AcceptJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_RejectJoinInvitation : public Lobby2Message
 {
-	Clans_RejectJoinInvitation() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_RejectJoinInvitation() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_RejectJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_RejectJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_RejectJoinInvitation)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2475,11 +2542,11 @@ struct Clans_RejectJoinInvitation : public Lobby2Message
 struct Clans_DownloadInvitationList : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_DownloadInvitationList)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Output parameters
 	DataStructures::List<OpenInvite> invitationsSentToMe;
@@ -2492,15 +2559,15 @@ struct Clans_DownloadInvitationList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SendJoinRequest : public Lobby2Message
 {
-	Clans_SendJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_SendJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_SendJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_SendJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SendJoinRequest)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2518,15 +2585,15 @@ struct Clans_SendJoinRequest : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_WithdrawJoinRequest : public Lobby2Message
 {
-	Clans_WithdrawJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_WithdrawJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_WithdrawJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_WithdrawJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_WithdrawJoinRequest)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2538,21 +2605,20 @@ struct Clans_WithdrawJoinRequest : public Lobby2Message
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 
 	// Output parameters
-
 };
 /// \brief A clan leader or subleader accepts a join request from requestingUserHandle to this clan. requestingUserHandle joins the clan as a regular member.  Use Emails_Send() to send an email from requestingUserHandle to all clan members with the specified subject and body.
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_AcceptJoinRequest : public Lobby2Message
 {
-	Clans_AcceptJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_AcceptJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_AcceptJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_AcceptJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_AcceptJoinRequest)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2563,23 +2629,23 @@ struct Clans_AcceptJoinRequest : public Lobby2Message
 	int emailStatus;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
 	MafiaNet::RakString requestingUserHandle;
-	bool failIfAlreadyInClan;	
+	bool failIfAlreadyInClan;
 
 	// Output parameters
 };
 /// \brief Rejects a clan join request from requestingUserHandle. Send an email from myPrimaryKey to requestingUserHandle with the specified subject and body.
-/// \details 
+/// \details
 struct Clans_RejectJoinRequest : public Lobby2Message
 {
-	Clans_RejectJoinRequest() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_RejectJoinRequest() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_RejectJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_RejectJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_RejectJoinRequest)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2598,11 +2664,11 @@ struct Clans_RejectJoinRequest : public Lobby2Message
 struct Clans_DownloadRequestList : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_DownloadRequestList)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 
 	// Input parameters
@@ -2611,19 +2677,19 @@ struct Clans_DownloadRequestList : public Lobby2Message
 	// joinRequestsToMyClan is only filled out for clans you are a leader or subleader in
 	DataStructures::List<ClanJoinRequest> joinRequestsToMyClan, joinRequestsFromMe;
 };
-/// \brief Kicks a user from the clan and/or blacklists a user so they cannot join. Only a clan leader or subleader can perform this operation. The operation can only be performed on members of lower status (leader can perform on subleader or regular member or nonmember, subleader on regular members or nonmember). If a member is banned, they are added to the banned table which contains the member's primary key, which user banned them, and the reason. Email is sent from myPrimaryKey to all leaders if a clan member is banned. Emails is furthermore sent to all clan members if successfully kicked. 
+/// \brief Kicks a user from the clan and/or blacklists a user so they cannot join. Only a clan leader or subleader can perform this operation. The operation can only be performed on members of lower status (leader can perform on subleader or regular member or nonmember, subleader on regular members or nonmember). If a member is banned, they are added to the banned table which contains the member's primary key, which user banned them, and the reason. Email is sent from myPrimaryKey to all leaders if a clan member is banned. Emails is furthermore sent to all clan members if successfully kicked.
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_KickAndBlacklistUser : public Lobby2Message
 {
-	Clans_KickAndBlacklistUser() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_KickAndBlacklistUser() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_KickAndBlacklistUser() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_KickAndBlacklistUser() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_KickAndBlacklistUser)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2642,15 +2708,15 @@ struct Clans_KickAndBlacklistUser : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_UnblacklistUser : public Lobby2Message
 {
-	Clans_UnblacklistUser() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_UnblacklistUser() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_UnblacklistUser() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_UnblacklistUser() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_UnblacklistUser)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2667,11 +2733,11 @@ struct Clans_UnblacklistUser : public Lobby2Message
 struct Clans_GetBlacklist : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GetBlacklist)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2686,11 +2752,11 @@ struct Clans_GetBlacklist : public Lobby2Message
 struct Clans_GetMembers : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GetMembers)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2706,11 +2772,11 @@ struct Clans_GetMembers : public Lobby2Message
 struct Clans_GetList : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GetList)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 
@@ -2721,15 +2787,15 @@ struct Clans_GetList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_CreateBoard : public Lobby2Message
 {
-	Clans_CreateBoard() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_CreateBoard() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_CreateBoard() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_CreateBoard() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_CreateBoard)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2748,11 +2814,11 @@ struct Clans_CreateBoard : public Lobby2Message
 struct Clans_DestroyBoard : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_DestroyBoard)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2766,15 +2832,15 @@ struct Clans_DestroyBoard : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_CreateNewTopic : public Lobby2Message
 {
-	Clans_CreateNewTopic() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_CreateNewTopic() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_CreateNewTopic() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_CreateNewTopic() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_CreateNewTopic)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2792,15 +2858,15 @@ struct Clans_CreateNewTopic : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_ReplyToTopic : public Lobby2Message
 {
-	Clans_ReplyToTopic() {binaryData= MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);}
-	~Clans_ReplyToTopic() {/*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/}
+	Clans_ReplyToTopic() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
+	~Clans_ReplyToTopic() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_ReplyToTopic)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2815,17 +2881,15 @@ struct Clans_ReplyToTopic : public Lobby2Message
 struct Clans_RemovePost : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_RemovePost)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
 	unsigned int postId; // returned from Clans_CreateTopic()
 	bool removeEntireTopic;
-
-
 };
 
 /// \brief Gets clan boards created for clanHandle. Boards are returned if we are a clan member, or if allowPublicReads in Clans_CreateBoard() was passed as false. However, if we are banned from this clan, no boards are returned.
@@ -2833,11 +2897,11 @@ struct Clans_RemovePost : public Lobby2Message
 struct Clans_GetBoards : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GetBoards)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2846,19 +2910,17 @@ struct Clans_GetBoards : public Lobby2Message
 
 	// Output parameters
 	DataStructures::List<MafiaNet::RakString> clanBoardsNames;
-
-
 };
 /// \brief Gets topics (posts that are not replies to other posts, created with Clans_CreateTopic()) for the specified clanHandle and clanBoardName. If we are not a clan member and the clan was created with allowPublicReads==false, then the user is not allowed to read topics
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetTopics : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GetTopics)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2871,11 +2933,11 @@ struct Clans_GetTopics : public Lobby2Message
 struct Clans_GetPosts : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Clans_GetPosts)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	virtual bool PrevalidateInput(void);
 
@@ -2886,19 +2948,19 @@ struct Clans_GetPosts : public Lobby2Message
 struct Console_GameBootCheck : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GameBootCheck)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_GetGameBootInviteDetails : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GetGameBootInviteDetails)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 // \brief Call the function to get the list of servers available.
@@ -2906,10 +2968,10 @@ struct Console_GetGameBootInviteDetails : public Lobby2Message
 struct Console_GetServerStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GetServerStatus)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 // \brief Given a server, get the list of worlds
@@ -2917,10 +2979,10 @@ struct Console_GetServerStatus : public Lobby2Message
 struct Console_GetWorldListFromServer : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GetWorldListFromServer)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 // Given a world, get the list of lobbies
@@ -2928,10 +2990,10 @@ struct Console_GetWorldListFromServer : public Lobby2Message
 struct Console_GetLobbyListFromWorld : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GetLobbyListFromWorld)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 // Given a lobby, join that lobby
@@ -2939,10 +3001,10 @@ struct Console_GetLobbyListFromWorld : public Lobby2Message
 struct Console_JoinLobby : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_JoinLobby)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 // Given a lobby, leave that lobby.
@@ -2950,10 +3012,10 @@ struct Console_JoinLobby : public Lobby2Message
 struct Console_LeaveLobby : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_LeaveLobby)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 // Send a message to a lobby that you have joined
@@ -2961,11 +3023,11 @@ struct Console_LeaveLobby : public Lobby2Message
 struct Console_SendLobbyChatMessage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SendLobbyChatMessage)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
-	
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
+
 	// Input
 	MafiaNet::RakString message;
 };
@@ -2975,10 +3037,10 @@ struct Console_SendLobbyChatMessage : public Lobby2Message
 struct Console_SearchRooms : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SearchRooms)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 
@@ -2987,10 +3049,10 @@ struct Console_SearchRooms : public Lobby2Message
 struct Console_GetRoomDetails : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GetRoomDetails)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 
@@ -2999,19 +3061,19 @@ struct Console_GetRoomDetails : public Lobby2Message
 struct Console_GetLobbyMemberData : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_GetLobbyMemberData)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_CreateRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_CreateRoom)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 
 	int publicSlots;
 	int privateSlots;
@@ -3021,149 +3083,149 @@ struct Console_CreateRoom : public Lobby2Message
 struct Console_SignIntoRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SignIntoRoom)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_SetRoomSearchProperties : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SetRoomSearchProperties)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_UpdateRoomParameters : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_UpdateRoomParameters)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_JoinRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_JoinRoom)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_LeaveRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_LeaveRoom)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_SendLobbyInvitationToRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SendLobbyInvitationToRoom)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_SendGUIInvitationToRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SendGUIInvitationToRoom)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_SendDataMessageToUser : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SendDataMessageToUser)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 
 struct Console_SendRoomChatMessage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_SendRoomChatMessage)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 
 	MafiaNet::RakString message;
 };
 struct Console_ShowFriendsUI : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_ShowFriendsUI)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_EndGame : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_EndGame)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_StartGame : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_StartGame)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_ShowPartyUI : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_ShowPartyUI)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_ShowMessagesUI : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_ShowMessagesUI)
-		virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_ShowGUIInvitationsToRooms : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_ShowGUIInvitationsToRooms)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 struct Console_EnableDisableRoomVoiceChat : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Console_EnableDisableRoomVoiceChat)
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Client_RemoteLogin : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Client_RemoteLogin)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString handle;
 };
@@ -3171,12 +3233,12 @@ struct Notification_Client_RemoteLogin : public Lobby2Message
 struct Notification_Client_IgnoreStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Client_IgnoreStatus)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	bool nowIgnored;
 	MafiaNet::RakString otherHandle;
@@ -3185,12 +3247,12 @@ struct Notification_Client_IgnoreStatus : public Lobby2Message
 struct Notification_Friends_StatusChange : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Friends_StatusChange)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	enum Status
 	{
 		FRIEND_LOGGED_IN,
@@ -3203,7 +3265,8 @@ struct Notification_Friends_StatusChange : public Lobby2Message
 		THEY_ACCEPTED_OUR_INVITATION_TO_BE_FRIENDS,
 		THEY_REJECTED_OUR_INVITATION_TO_BE_FRIENDS,
 	} op;
-	const char *OpToString(void) const {
+	const char *OpToString(void) const
+	{
 		switch (op)
 		{
 		case FRIEND_LOGGED_IN:
@@ -3236,26 +3299,26 @@ struct Notification_Friends_StatusChange : public Lobby2Message
 struct Notification_Friends_PresenceUpdate : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Friends_PresenceUpdate)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-	
-	Lobby2Presence newPresence; 
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+
+	Lobby2Presence newPresence;
 	MafiaNet::RakString otherHandle;
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_User_ChangedHandle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_User_ChangedHandle)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString oldHandle, newHandle;
 };
@@ -3263,12 +3326,12 @@ struct Notification_User_ChangedHandle : public Lobby2Message
 struct Notification_Friends_CreatedClan : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Friends_CreatedClan)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString otherHandle;
 	MafiaNet::RakString clanName;
@@ -3277,12 +3340,12 @@ struct Notification_Friends_CreatedClan : public Lobby2Message
 struct Notification_Emails_Received : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Emails_Received)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString sender;
 	MafiaNet::RakString subject;
@@ -3292,12 +3355,12 @@ struct Notification_Emails_Received : public Lobby2Message
 struct Notification_Clans_GrantLeader : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_GrantLeader)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString newLeader;
@@ -3307,12 +3370,12 @@ struct Notification_Clans_GrantLeader : public Lobby2Message
 struct Notification_Clans_SetSubleaderStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_SetSubleaderStatus)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString targetHandle;
@@ -3323,12 +3386,12 @@ struct Notification_Clans_SetSubleaderStatus : public Lobby2Message
 struct Notification_Clans_SetMemberRank : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_SetMemberRank)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString targetHandle;
@@ -3339,12 +3402,12 @@ struct Notification_Clans_SetMemberRank : public Lobby2Message
 struct Notification_Clans_ChangeHandle : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_ChangeHandle)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString oldClanHandle;
 	MafiaNet::RakString newClanHandle;
@@ -3354,12 +3417,12 @@ struct Notification_Clans_ChangeHandle : public Lobby2Message
 struct Notification_Clans_Leave : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_Leave)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString targetHandle;
@@ -3368,12 +3431,12 @@ struct Notification_Clans_Leave : public Lobby2Message
 struct Notification_Clans_PendingJoinStatus : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_PendingJoinStatus)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString sourceHandle;
@@ -3400,12 +3463,12 @@ struct Notification_Clans_PendingJoinStatus : public Lobby2Message
 struct Notification_Clans_NewClanMember : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_NewClanMember)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString targetHandle;
@@ -3414,12 +3477,12 @@ struct Notification_Clans_NewClanMember : public Lobby2Message
 struct Notification_Clans_KickAndBlacklistUser : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_KickAndBlacklistUser)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString targetHandle;
@@ -3432,12 +3495,12 @@ struct Notification_Clans_KickAndBlacklistUser : public Lobby2Message
 struct Notification_Clans_UnblacklistUser : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_UnblacklistUser)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString targetHandle;
@@ -3448,12 +3511,12 @@ struct Notification_Clans_UnblacklistUser : public Lobby2Message
 struct Notification_Clans_Destroyed : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Clans_Destroyed)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	MafiaNet::RakString clanHandle;
 	MafiaNet::RakString oldClanLeader;
@@ -3462,31 +3525,31 @@ struct Notification_Clans_Destroyed : public Lobby2Message
 struct Notification_Console_CableDisconnected : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_CableDisconnected)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_ContextError : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_ContextError)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MemberJoinedLobby : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MemberJoinedLobby)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString targetHandle;
 };
@@ -3494,11 +3557,11 @@ struct Notification_Console_MemberJoinedLobby : public Lobby2Message
 struct Notification_Console_MemberLeftLobby : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MemberLeftLobby)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString targetHandle;
 };
@@ -3506,31 +3569,31 @@ struct Notification_Console_MemberLeftLobby : public Lobby2Message
 struct Notification_Console_LobbyDestroyed : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_LobbyDestroyed)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_LobbyMemberDataUpdated : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_LobbyMemberDataUpdated)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_LobbyGotChatMessage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_LobbyGotChatMessage)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString sender;
 	MafiaNet::RakString message;
@@ -3539,11 +3602,11 @@ struct Notification_Console_LobbyGotChatMessage : public Lobby2Message
 struct Notification_Console_LobbyGotRoomInvitation : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_LobbyGotRoomInvitation)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString sender;
 };
@@ -3551,11 +3614,11 @@ struct Notification_Console_LobbyGotRoomInvitation : public Lobby2Message
 struct Notification_Console_MemberJoinedRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MemberJoinedRoom)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString memberName;
 };
@@ -3563,11 +3626,11 @@ struct Notification_Console_MemberJoinedRoom : public Lobby2Message
 struct Notification_Console_MemberLeftRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MemberLeftRoom)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString memberName;
 };
@@ -3575,51 +3638,51 @@ struct Notification_Console_MemberLeftRoom : public Lobby2Message
 struct Notification_Console_KickedOutOfRoom : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_KickedOutOfRoom)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_RoomWasDestroyed : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_RoomWasDestroyed)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_UpdateRoomParameters : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_UpdateRoomParameters)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_RoomOwnerChanged : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_RoomOwnerChanged)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_RoomChatMessage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_RoomChatMessage)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 	MafiaNet::RakString sender;
 	MafiaNet::RakString message;
@@ -3628,11 +3691,11 @@ struct Notification_Console_RoomChatMessage : public Lobby2Message
 struct Notification_Console_RoomMessage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_RoomMessage)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 
 
 	MafiaNet::RakString sender;
@@ -3658,119 +3721,128 @@ struct Notification_Console_RoomMemberConnectivityUpdate : public Lobby2Message
 struct Notification_Console_ChatEvent : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_ChatEvent)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MuteListChanged : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MuteListChanged)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_Local_Users_Changed : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_Local_Users_Changed)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_ReceivedDataMessageFromUser : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_ReceivedDataMessageFromUser)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MemberJoinedParty : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MemberJoinedParty)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_MemberLeftParty : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_MemberLeftParty)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_Game_Started : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_Game_Started)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_Game_Ending : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_Game_Ending)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_Game_Ended : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_Game_Ended)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_Got_Room_Invite : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_Got_Room_Invite)
-	virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 /// \ingroup LOBBY_2_NOTIFICATIONS
 struct Notification_Console_Accepted_Room_Invite : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Notification_Console_Accepted_Room_Invite)
-		virtual bool RequiresAdmin(void) const {return true;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return false;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual bool IsNotification(void) const {return true;}
+	virtual bool RequiresAdmin(void) const { return true; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return false; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual bool IsNotification(void) const { return true; }
 };
 // --------------------------------------------- Base interface of factory class for all messages --------------------------------------------
-#define __L2_ALLOCATE_AND_DEFINE(FACTORY, __TYPE__,VAR_NAME) MafiaNet::__TYPE__ *VAR_NAME = (MafiaNet::__TYPE__ *) FACTORY->Alloc(L2MID_##__TYPE__); RakAssert(VAR_NAME);
-#define __L2_MSG_FACTORY_BASE(__NAME__) {case L2MID_##__NAME__ : Lobby2Message *m = MafiaNet::OP_NEW< __NAME__ >( _FILE_AND_LINE_ ) ; RakAssert(m->GetID()==L2MID_##__NAME__ ); m->requestId=nextRequestId++; return m;}
+#define __L2_ALLOCATE_AND_DEFINE(FACTORY, __TYPE__, VAR_NAME)                               \
+	MafiaNet::__TYPE__ *VAR_NAME = (MafiaNet::__TYPE__ *) FACTORY->Alloc(L2MID_##__TYPE__); \
+	RakAssert(VAR_NAME);
+#define __L2_MSG_FACTORY_BASE(__NAME__)                                 \
+	{                                                                   \
+	case L2MID_##__NAME__:                                              \
+		Lobby2Message *m = MafiaNet::OP_NEW<__NAME__>(_FILE_AND_LINE_); \
+		RakAssert(m->GetID() == L2MID_##__NAME__);                      \
+		m->requestId = nextRequestId++;                                 \
+		return m;                                                       \
+	}
 /// \ingroup LOBBY_2_GROUP
 struct Lobby2MessageFactory
 {
-	Lobby2MessageFactory() {nextRequestId=0;}
+	Lobby2MessageFactory() { nextRequestId = 0; }
 	virtual ~Lobby2MessageFactory() {}
 	virtual Lobby2Message *Alloc(Lobby2MessageID id)
 	{
@@ -3890,7 +3962,7 @@ struct Lobby2MessageFactory
 			__L2_MSG_FACTORY_BASE(Console_SendDataMessageToUser);
 			__L2_MSG_FACTORY_BASE(Console_SendRoomChatMessage);
 			__L2_MSG_FACTORY_BASE(Console_ShowFriendsUI);
-			__L2_MSG_FACTORY_BASE(Console_EndGame); // Currently xbox only
+			__L2_MSG_FACTORY_BASE(Console_EndGame);   // Currently xbox only
 			__L2_MSG_FACTORY_BASE(Console_StartGame); // Currently xbox only
 			__L2_MSG_FACTORY_BASE(Console_ShowPartyUI);
 			__L2_MSG_FACTORY_BASE(Console_ShowMessagesUI);
@@ -3927,7 +3999,7 @@ struct Lobby2MessageFactory
 			__L2_MSG_FACTORY_BASE(Notification_Console_RoomOwnerChanged);
 			__L2_MSG_FACTORY_BASE(Notification_Console_RoomChatMessage);
 			__L2_MSG_FACTORY_BASE(Notification_Console_RoomMessage);
-//			__L2_MSG_FACTORY_BASE(Notification_Console_RoomMemberConnectivityUpdate);
+			//			__L2_MSG_FACTORY_BASE(Notification_Console_RoomMemberConnectivityUpdate);
 			__L2_MSG_FACTORY_BASE(Notification_Console_ChatEvent);
 			__L2_MSG_FACTORY_BASE(Notification_Console_MuteListChanged);
 			__L2_MSG_FACTORY_BASE(Notification_Console_Local_Users_Changed);
@@ -3935,8 +4007,8 @@ struct Lobby2MessageFactory
 			__L2_MSG_FACTORY_BASE(Notification_Console_MemberJoinedParty);
 			__L2_MSG_FACTORY_BASE(Notification_Console_MemberLeftParty);
 			__L2_MSG_FACTORY_BASE(Notification_Console_Game_Started); // Currently XBOX only
-			__L2_MSG_FACTORY_BASE(Notification_Console_Game_Ending); // Currently XBOX only
-			__L2_MSG_FACTORY_BASE(Notification_Console_Game_Ended); // Currently XBOX only
+			__L2_MSG_FACTORY_BASE(Notification_Console_Game_Ending);  // Currently XBOX only
+			__L2_MSG_FACTORY_BASE(Notification_Console_Game_Ended);   // Currently XBOX only
 			__L2_MSG_FACTORY_BASE(Notification_Console_Got_Room_Invite);
 			__L2_MSG_FACTORY_BASE(Notification_Console_Accepted_Room_Invite);
 
@@ -3944,14 +4016,15 @@ struct Lobby2MessageFactory
 			return 0;
 		};
 	}
-	void Dealloc(Lobby2Message *msg) {
+	void Dealloc(Lobby2Message *msg)
+	{
 		msg->Deref();
-		if (msg->GetRefCount()<=0)
+		if (msg->GetRefCount() <= 0)
 		{
 			// Only delete one message at a time or else GetRefCount may be called on the same message in two threads at the same time and not be accurate
 			deallocateLockMutex.Lock();
-			if (msg->GetRefCount()<=0)
-				MafiaNet::OP_DELETE<Lobby2Message>(msg, _FILE_AND_LINE_ );
+			if (msg->GetRefCount() <= 0)
+				MafiaNet::OP_DELETE<Lobby2Message>(msg, _FILE_AND_LINE_);
 			deallocateLockMutex.Unlock();
 		}
 	}
@@ -3963,4 +4036,3 @@ struct Lobby2MessageFactory
 } // namespace MafiaNet
 
 #endif
-

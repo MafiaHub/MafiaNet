@@ -29,24 +29,24 @@
 /// As these data structures are stand-alone, you can use them outside of RakNet for your own projects if you wish.
 namespace DataStructures
 {
-	class ByteQueue
-	{
-	public:
-		ByteQueue();
-		~ByteQueue();
-		void WriteBytes(const char *in, unsigned length, const char *file, unsigned int line);
-		bool ReadBytes(char *out, unsigned maxLengthToRead, bool peek);
-		unsigned GetBytesWritten(void) const;
-		char* PeekContiguousBytes(unsigned int *outLength) const;
-		void IncrementReadOffset(unsigned length);
-		void DecrementReadOffset(unsigned length);
-		void Clear(const char *file, unsigned int line);
-		void Print(void);
+class ByteQueue
+{
+public:
+	ByteQueue();
+	~ByteQueue();
+	void WriteBytes(const char *in, unsigned length, const char *file, unsigned int line);
+	bool ReadBytes(char *out, unsigned maxLengthToRead, bool peek);
+	unsigned GetBytesWritten(void) const;
+	char *PeekContiguousBytes(unsigned int *outLength) const;
+	void IncrementReadOffset(unsigned length);
+	void DecrementReadOffset(unsigned length);
+	void Clear(const char *file, unsigned int line);
+	void Print(void);
 
-	protected:
-		char *data;
-		unsigned readOffset, writeOffset, lengthAllocated;
-	};
+protected:
+	char *data;
+	unsigned readOffset, writeOffset, lengthAllocated;
+};
 }
 
 #endif

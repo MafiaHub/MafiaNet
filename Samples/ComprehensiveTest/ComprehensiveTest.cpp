@@ -17,7 +17,7 @@
 
 #include "mafianet/bit_stream.h"
 #include <stdlib.h> // For atoi
-#include <cstring> // For strlen
+#include <cstring>  // For strlen
 #include "mafianet/rand.h"
 #include "mafianet/statistics.h"
 #include "mafianet/message_identifiers.h"
@@ -55,63 +55,63 @@ int main(void)
 	printf("Using seed %i\n", seed);
 	seedMT(seed);
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 	{
-		peers[i]= MafiaNet::RakPeerInterface::GetInstance();
+		peers[i] = MafiaNet::RakPeerInterface::GetInstance();
 		peers[i]->SetMaximumIncomingConnections(CONNECTIONS_PER_SYSTEM);
-		MafiaNet::SocketDescriptor socketDescriptor(60000+i, 0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000 + i, 0);
 		peers[i]->Startup(NUM_PEERS, &socketDescriptor, 1);
-		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int)strlen("Offline Ping Data")+1);
+		peers[i]->SetOfflinePingResponse("Offline Ping Data", (int) strlen("Offline Ping Data") + 1);
 	}
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 	{
-		peers[i]->Connect("127.0.0.1", 60000+(randomMT()%NUM_PEERS), 0, 0);		
+		peers[i]->Connect("127.0.0.1", 60000 + (randomMT() % NUM_PEERS), 0, 0);
 	}
 
-	MafiaNet::TimeMS endTime = MafiaNet::GetTimeMS()+600000;
-	while (MafiaNet::GetTimeMS()<endTime)
+	MafiaNet::TimeMS endTime = MafiaNet::GetTimeMS() + 600000;
+	while (MafiaNet::GetTimeMS() < endTime)
 	{
 		nextAction = frandomMT();
 
 		if (nextAction < .04f)
 		{
 			// Initialize
-			peerIndex=randomMT()%NUM_PEERS;
-			MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex, 0);
+			peerIndex = randomMT() % NUM_PEERS;
+			MafiaNet::SocketDescriptor socketDescriptor(60000 + peerIndex, 0);
 			peers[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
-			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0);
+			peers[peerIndex]->Connect("127.0.0.1", 60000 + randomMT() % NUM_PEERS, 0, 0);
 		}
 		else if (nextAction < .09f)
 		{
 			// Connect
-			peerIndex=randomMT()%NUM_PEERS;
-			peers[peerIndex]->Connect("127.0.0.1", 60000+randomMT() % NUM_PEERS, 0, 0);
+			peerIndex = randomMT() % NUM_PEERS;
+			peers[peerIndex]->Connect("127.0.0.1", 60000 + randomMT() % NUM_PEERS, 0, 0);
 		}
 		else if (nextAction < .10f)
 		{
 			// Disconnect
-			peerIndex=randomMT()%NUM_PEERS;
-		//	peers[peerIndex]->Shutdown(randomMT() % 100);
+			peerIndex = randomMT() % NUM_PEERS;
+			//	peers[peerIndex]->Shutdown(randomMT() % 100);
 		}
 		else if (nextAction < .12f)
 		{
 			// GetConnectionList
-			peerIndex=randomMT()%NUM_PEERS;
+			peerIndex = randomMT() % NUM_PEERS;
 			SystemAddress remoteSystems[NUM_PEERS];
-			unsigned short numSystems=NUM_PEERS;
+			unsigned short numSystems = NUM_PEERS;
 			peers[peerIndex]->GetConnectionList(remoteSystems, &numSystems);
-			if (numSystems>0)
+			if (numSystems > 0)
 			{
 #ifdef _DO_PRINTF
-				printf("%i: ", 60000+numSystems);
-				for (unsigned short i=0; i < numSystems; i++)
+				printf("%i: ", 60000 + numSystems);
+				for (unsigned short i = 0; i < numSystems; i++)
 				{
 					printf("%i: ", remoteSystems[i].GetPort());
 				}
 				printf("\n");
 #endif
-			}			
+			}
 		}
 		else if (nextAction < .14f)
 		{
@@ -123,30 +123,30 @@ int main(void)
 			SystemAddress target;
 			bool broadcast;
 
-		//	data[0]=ID_RESERVED1+(randomMT()%10);
-			data[0]=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
-			dataLength=3+(randomMT()%8000);
-//			dataLength=600+(randomMT()%7000);
-			priority=(MafiaNet::Priority)(randomMT()%(int)MafiaNet::NUMBER_OF_PRIORITIES);
-			reliability=(MafiaNet::Reliability)(randomMT()%((int)MafiaNet::Reliability::ReliableSequenced+1));
-			orderingChannel=randomMT()%32;
+			//	data[0]=ID_RESERVED1+(randomMT()%10);
+			data[0] = static_cast<unsigned char>(ID_USER_PACKET_ENUM);
+			dataLength = 3 + (randomMT() % 8000);
+			//			dataLength=600+(randomMT()%7000);
+			priority = (MafiaNet::Priority)(randomMT() % (int) MafiaNet::NUMBER_OF_PRIORITIES);
+			reliability = (MafiaNet::Reliability)(randomMT() % ((int) MafiaNet::Reliability::ReliableSequenced + 1));
+			orderingChannel = randomMT() % 32;
 			peerIndex = randomMT() % NUM_PEERS;
-			if ((randomMT()%NUM_PEERS)==0)
-				target= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+			if ((randomMT() % NUM_PEERS) == 0)
+				target = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 			else
-				target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
+				target = peers[peerIndex]->GetSystemAddressFromIndex(randomMT() % NUM_PEERS);
 
-			broadcast=(randomMT()%2)?true:false;
+			broadcast = (randomMT() % 2) ? true : false;
 #ifdef _VERIFY_RECIPIENTS
-			broadcast=false; // Temporarily in so I can check recipients
+			broadcast = false; // Temporarily in so I can check recipients
 #endif
 
-			sprintf_s(data+3, 8093, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
+			sprintf_s(data + 3, 8093, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
 			//unsigned short localPort=60000+i;
 #ifdef _VERIFY_RECIPIENTS
-			memcpy((char*)data+1, (char*)&target.port, sizeof(unsigned short));
+			memcpy((char *) data + 1, (char *) &target.port, sizeof(unsigned short));
 #endif
-			data[dataLength-1]=0;
+			data[dataLength - 1] = 0;
 			peers[peerIndex]->Send(data, dataLength, priority, reliability, orderingChannel, target, broadcast);
 		}
 		else if (nextAction < .18f)
@@ -158,63 +158,62 @@ int main(void)
 			SystemAddress target;
 			bool broadcast;
 
-			data[0]=ID_USER_PACKET_ENUM+(randomMT()%10);
-			dataLength=3+(randomMT()%8000);
-//			dataLength=600+(randomMT()%7000);
-			priority=(MafiaNet::Priority)(randomMT()%(int)MafiaNet::NUMBER_OF_PRIORITIES);
-			reliability=(MafiaNet::Reliability)(randomMT()%((int)MafiaNet::Reliability::ReliableSequenced+1));
-			orderingChannel=randomMT()%32;
-			peerIndex=randomMT()%NUM_PEERS;
-			if ((randomMT()%NUM_PEERS)==0)
-				target= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+			data[0] = ID_USER_PACKET_ENUM + (randomMT() % 10);
+			dataLength = 3 + (randomMT() % 8000);
+			//			dataLength=600+(randomMT()%7000);
+			priority = (MafiaNet::Priority)(randomMT() % (int) MafiaNet::NUMBER_OF_PRIORITIES);
+			reliability = (MafiaNet::Reliability)(randomMT() % ((int) MafiaNet::Reliability::ReliableSequenced + 1));
+			orderingChannel = randomMT() % 32;
+			peerIndex = randomMT() % NUM_PEERS;
+			if ((randomMT() % NUM_PEERS) == 0)
+				target = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 			else
-				target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
-			broadcast=(randomMT()%2)?true:false;
+				target = peers[peerIndex]->GetSystemAddressFromIndex(randomMT() % NUM_PEERS);
+			broadcast = (randomMT() % 2) ? true : false;
 #ifdef _VERIFY_RECIPIENTS
-			broadcast=false; // Temporarily in so I can check recipients
+			broadcast = false; // Temporarily in so I can check recipients
 #endif
 
-			sprintf_s(data+3, 8093, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
+			sprintf_s(data + 3, 8093, "dataLength=%i priority=%i reliability=%i orderingChannel=%i target=%i broadcast=%i\n", dataLength, priority, reliability, orderingChannel, target.GetPort(), broadcast);
 #ifdef _VERIFY_RECIPIENTS
-			memcpy((char*)data, (char*)&target.port, sizeof(unsigned short));
+			memcpy((char *) data, (char *) &target.port, sizeof(unsigned short));
 #endif
-			data[dataLength-1]=0;
+			data[dataLength - 1] = 0;
 		}
 		else if (nextAction < .181f)
 		{
 			// CloseConnection
 			SystemAddress target;
-			peerIndex=randomMT()%NUM_PEERS;
-			target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
-			peers[peerIndex]->CloseConnection(target, (randomMT()%2)?true:false, 0);
+			peerIndex = randomMT() % NUM_PEERS;
+			target = peers[peerIndex]->GetSystemAddressFromIndex(randomMT() % NUM_PEERS);
+			peers[peerIndex]->CloseConnection(target, (randomMT() % 2) ? true : false, 0);
 		}
 		else if (nextAction < .20f)
 		{
 			// Offline Ping
-			peerIndex=randomMT()%NUM_PEERS;
-			peers[peerIndex]->Ping("127.0.0.1", 60000+(randomMT()%NUM_PEERS), (randomMT()%2)?true:false);
+			peerIndex = randomMT() % NUM_PEERS;
+			peers[peerIndex]->Ping("127.0.0.1", 60000 + (randomMT() % NUM_PEERS), (randomMT() % 2) ? true : false);
 		}
 		else if (nextAction < .21f)
 		{
 			// Online Ping
 			SystemAddress target;
-			peerIndex=randomMT()%NUM_PEERS;
-			target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
+			peerIndex = randomMT() % NUM_PEERS;
+			target = peers[peerIndex]->GetSystemAddressFromIndex(randomMT() % NUM_PEERS);
 			peers[peerIndex]->Ping(target);
 		}
 		else if (nextAction < .24f)
 		{
-
 		}
 		else if (nextAction < .25f)
 		{
 			// GetStatistics
 			SystemAddress target, mySystemAddress;
 			RakNetStatistics *rss;
-			peerIndex=randomMT()%NUM_PEERS;
-			mySystemAddress=peers[peerIndex]->GetInternalID();
-			target=peers[peerIndex]->GetSystemAddressFromIndex(randomMT()%NUM_PEERS);
-			rss=peers[peerIndex]->GetStatistics(mySystemAddress);
+			peerIndex = randomMT() % NUM_PEERS;
+			mySystemAddress = peers[peerIndex]->GetInternalID();
+			target = peers[peerIndex]->GetSystemAddressFromIndex(randomMT() % NUM_PEERS);
+			rss = peers[peerIndex]->GetStatistics(mySystemAddress);
 			if (rss)
 			{
 				StatisticsToString(rss, data, 8096, 0);
@@ -222,19 +221,19 @@ int main(void)
 				printf("Statistics for local system %i:\n%s", mySystemAddress.GetPort(), data);
 #endif
 			}
-			
-			rss=peers[peerIndex]->GetStatistics(target);
+
+			rss = peers[peerIndex]->GetStatistics(target);
 			if (rss)
 			{
 				StatisticsToString(rss, data, 8096, 0);
 #ifdef _DO_PRINTF
 				printf("Statistics for target system %i:\n%s", target.GetPort(), data);
 #endif
-			}			
+			}
 		}
 
-		for (unsigned short i=0; i < NUM_PEERS; i++)
-            peers[i]->DeallocatePacket(peers[i]->Receive());
+		for (unsigned short i = 0; i < NUM_PEERS; i++)
+			peers[i]->DeallocatePacket(peers[i]->Receive());
 
 #ifdef _WIN32
 		Sleep(0);
@@ -244,7 +243,7 @@ int main(void)
 	}
 
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 		MafiaNet::RakPeerInterface::DestroyInstance(peers[i]);
 
 	return 0;

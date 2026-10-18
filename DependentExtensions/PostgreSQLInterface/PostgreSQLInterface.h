@@ -81,17 +81,17 @@ public:
 	static void EncodeQueryUpdate(const char *colName, const MafiaNet::RakString &str, MafiaNet::RakString &valueStr, int &numParams, char **paramData, int *paramLength, int *paramFormat, const char *type = "text");
 
 	// Standard query
-	PGresult * QueryVariadic( const char *input, ... );
+	PGresult *QueryVariadic(const char *input, ...);
 	static void ClearResult(PGresult *result);
 
 	// Pass queries to the server
 	bool ExecuteBlockingCommand(const char *command, PGresult **result, bool rollbackOnFailure);
 	bool IsResultSuccessful(PGresult *result, bool rollbackOnFailure);
 	void Rollback(void);
-	static void EndianSwapInPlace(char* data, int dataLength);
+	static void EndianSwapInPlace(char *data, int dataLength);
 	MafiaNet::RakString GetEscapedString(const char *input) const;
-protected:	
 
+protected:
 	PGconn *pgConn;
 	bool pgConnAllocatedHere;
 	bool isConnected;

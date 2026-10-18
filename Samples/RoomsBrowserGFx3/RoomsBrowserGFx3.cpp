@@ -17,21 +17,19 @@
 
 RoomsBrowserGFx3::RoomsBrowserGFx3()
 {
-
 }
 RoomsBrowserGFx3::~RoomsBrowserGFx3()
 {
-
 }
 void RoomsBrowserGFx3::Init(GPtr<FxDelegate> pDelegate, GPtr<GFxMovieView> pMovie)
 {
 	pDelegate->RegisterHandler(this);
-	delegate=pDelegate;
-	movie=pMovie;
+	delegate = pDelegate;
+	movie = pMovie;
 }
 void RoomsBrowserGFx3::Shutdown(void)
 {
-	if (delegate.GetPtr()!=0)
+	if (delegate.GetPtr() != 0)
 	{
 		delegate->UnregisterHandler(this);
 		delegate.Clear();
@@ -44,7 +42,7 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(RoomsBrowserGFx3, f2c_QueryPlatform)
 	FxResponseArgs<1> rargs;
 	rargs.Add(QueryPlatform());
 	// pparams.Respond(rargs);
-	
+
 	FxDelegate::Invoke2(movie, pparams[0].GetString(), rargs);
 }
 
@@ -62,9 +60,9 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(RoomsBrowserGFx3, f2c_LoadProperty)
 
 	FxDelegate::Invoke2(movie, pparams[1].GetString(), rargs);
 }
-void RoomsBrowserGFx3::Accept(CallbackProcessor* cbreg)
+void RoomsBrowserGFx3::Accept(CallbackProcessor *cbreg)
 {
-	cbreg->Process( "f2c_QueryPlatform", &::f2c_QueryPlatform );
-	cbreg->Process( "f2c_SaveProperty", &::f2c_SaveProperty );
-	cbreg->Process( "f2c_LoadProperty", &::f2c_LoadProperty );
+	cbreg->Process("f2c_QueryPlatform", &::f2c_QueryPlatform);
+	cbreg->Process("f2c_SaveProperty", &::f2c_SaveProperty);
+	cbreg->Process("f2c_LoadProperty", &::f2c_LoadProperty);
 }

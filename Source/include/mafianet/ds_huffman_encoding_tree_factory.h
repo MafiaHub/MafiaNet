@@ -18,7 +18,7 @@
 /// \brief Creates instances of the class HuffmanEncodingTree
 ///
 
- 
+
 // Deprecated: ds_huffman_encoding_tree_factory.h has no consumer in the library and is scheduled for removal in the next
 // minor release. Copy it into your project if you depend on it.
 // Define MAFIANET_SILENCE_DEPRECATED_INCLUDES to suppress the message.
@@ -31,7 +31,8 @@
 
 #include "mafianet/memory_override.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 /// Forward declarations
 class HuffmanEncodingTree;
 
@@ -42,33 +43,32 @@ class HuffmanEncodingTreeFactory
 public:
 	/// Default constructor
 	HuffmanEncodingTreeFactory();
-	
-	/// \brief Reset the frequency table. 
+
+	/// \brief Reset the frequency table.
 	/// \details You don't need to call this unless you want to reuse the class for a new tree
-	void Reset( void );
-	
+	void Reset(void);
+
 	/// \brief Pass an array of bytes to this to add those elements to the frequency table.
-	/// \param[in] array the data to insert into the frequency table 
-	/// \param[in] size the size of the data to insert 
-	void AddToFrequencyTable( unsigned char *array, int size );
-	
+	/// \param[in] array the data to insert into the frequency table
+	/// \param[in] size the size of the data to insert
+	void AddToFrequencyTable(unsigned char *array, int size);
+
 	/// \brief Copies the frequency table to the array passed. Retrieve the frequency table.
 	/// \param[in] _frequency The frequency table used currently
-	void GetFrequencyTable( unsigned int _frequency[ 256 ] );
-	
+	void GetFrequencyTable(unsigned int _frequency[256]);
+
 	/// \brief Returns the frequency table as a pointer.
-	/// \return the address of the frenquency table 
-	unsigned int * GetFrequencyTable( void );
-	
+	/// \return the address of the frenquency table
+	unsigned int *GetFrequencyTable(void);
+
 	/// \brief Generate a HuffmanEncodingTree.
 	/// \details You can also use GetFrequencyTable and GenerateFromFrequencyTable in the tree itself
 	/// \return The generated instance of HuffmanEncodingTree
-	HuffmanEncodingTree * GenerateTree( void );
-	
-private:
+	HuffmanEncodingTree *GenerateTree(void);
 
+private:
 	/// Frequency table
-	unsigned int frequency[ 256 ];
+	unsigned int frequency[256];
 };
 
 } // namespace MafiaNet

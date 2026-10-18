@@ -22,10 +22,10 @@ namespace MafiaNet
 {
 /// To define a thread, use RAK_THREAD_DECLARATION(functionName);
 #if defined(_WIN32)
-#define RAK_THREAD_DECLARATION(functionName) unsigned __stdcall functionName( void* arguments )
+#define RAK_THREAD_DECLARATION(functionName) unsigned __stdcall functionName(void *arguments)
 
 #else
-#define RAK_THREAD_DECLARATION(functionName) void* functionName( void* arguments )
+#define RAK_THREAD_DECLARATION(functionName) void *functionName(void *arguments)
 #endif
 
 class RAK_DLL_EXPORT RakThread
@@ -46,9 +46,9 @@ public:
 	+15 to +19 	THREAD_PRIORITY_LOWEST
 	*/
 #if defined(_WIN32)
-	static int Create( unsigned __stdcall start_address( void* ), void *arglist, int priority=0);
+	static int Create(unsigned __stdcall start_address(void *), void *arglist, int priority = 0);
 #else
-	static int Create( void* start_address( void* ), void *arglist, int priority=0);
+	static int Create(void *start_address(void *), void *arglist, int priority = 0);
 #endif
 };
 

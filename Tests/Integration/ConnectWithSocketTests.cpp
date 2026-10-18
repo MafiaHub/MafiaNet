@@ -51,96 +51,94 @@ class ConnectWithSocket : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize=destroyList.Size();
+		int theSize = destroyList.Size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i=0; i < theSize; i++)
+		for (int i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i=0; i < theSize; i++)
+		for (int i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List <RakPeerInterface *> destroyList;
+	DataStructures::List<RakPeerInterface *> destroyList;
 };
 
 TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 {
-	RakPeerInterface *server,*client;
+	RakPeerInterface *server, *client;
 
-	DataStructures::List<RakNetSocket2*> sockets;
-	TestHelpers::StandardClientPrep(client,destroyList);
-	TestHelpers::StandardServerPrep(server,destroyList);
-	const unsigned short serverPort=TestHelpers::BoundPort(server);
-	ASSERT_NE(serverPort,0) << "Server failed to start";
+	DataStructures::List<RakNetSocket2 *> sockets;
+	TestHelpers::StandardClientPrep(client, destroyList);
+	TestHelpers::StandardServerPrep(server, destroyList);
+	const unsigned short serverPort = TestHelpers::BoundPort(server);
+	ASSERT_NE(serverPort, 0) << "Server failed to start";
 
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
 	serverAddress.SetPortHostOrder(serverPort);
 
-	char loopbackIp[]="127.0.0.1";
+	char loopbackIp[] = "127.0.0.1";
 
 	// Testing normal connect before test
-	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client,server,5000)) << "Client did not connect after 5 seconds";
+	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000)) << "Client did not connect after 5 seconds";
 
 	TestHelpers::BroadCastTestPacket(client);
 
-	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server,5000)) << "Control test send didn't work";
+	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 5000)) << "Control test send didn't work";
 
 	// Disconnecting client
-	CommonFunctions::DisconnectAndWait(client,loopbackIp,serverPort);
+	CommonFunctions::DisconnectAndWait(client, loopbackIp, serverPort);
 
 	RakNetSocket2 *theSocket;
 
 	client->GetSockets(sockets);
 
-	theSocket=sockets[0];
+	theSocket = sockets[0];
 
 	RakTimer timer2(5000);
 
 	// Testing ConnectWithSocket using socket from GetSockets
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&!timer2.IsExpired())
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && !timer2.IsExpired())
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket);
+			client->ConnectWithSocket("127.0.0.1", serverAddress.GetPort(), 0, 0, theSocket);
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client did not connect after 5 secods Using ConnectWithSocket, could be GetSockets or ConnectWithSocket problem";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client did not connect after 5 secods Using ConnectWithSocket, could be GetSockets or ConnectWithSocket problem";
 
 	TestHelpers::BroadCastTestPacket(client);
 
-	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server,5000)) << "Server did not recieve test packet from client";
+	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 5000)) << "Server did not recieve test packet from client";
 
 	// Disconnecting client
-	CommonFunctions::DisconnectAndWait(client,loopbackIp,serverPort);
+	CommonFunctions::DisconnectAndWait(client, loopbackIp, serverPort);
 
 	// Testing ConnectWithSocket using socket from GetSocket
-	theSocket=client->GetSocket(UNASSIGNED_SYSTEM_ADDRESS);//Get open Socket
+	theSocket = client->GetSocket(UNASSIGNED_SYSTEM_ADDRESS); //Get open Socket
 
 	timer2.Start();
 
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&!timer2.IsExpired())
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && !timer2.IsExpired())
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->ConnectWithSocket("127.0.0.1",serverAddress.GetPort(),0,0,theSocket);
+			client->ConnectWithSocket("127.0.0.1", serverAddress.GetPort(), 0, 0, theSocket);
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client did not connect after 5 secods Using ConnectWithSocket, could be GetSocket or ConnectWithSocket problem";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client did not connect after 5 secods Using ConnectWithSocket, could be GetSocket or ConnectWithSocket problem";
 
 	TestHelpers::BroadCastTestPacket(client);
 
-	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server,5000)) << "Server did not recieve test packet from client";
+	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 5000)) << "Server did not recieve test packet from client";
 }

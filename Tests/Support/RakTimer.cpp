@@ -12,13 +12,13 @@
 
 RakTimer::RakTimer(void)
 {
-	timerLength=1000;
+	timerLength = 1000;
 	Start();
 }
 
 RakTimer::RakTimer(int lengthInMilliseconds)
 {
-	timerLength=lengthInMilliseconds;
+	timerLength = lengthInMilliseconds;
 	Start();
 }
 
@@ -26,27 +26,25 @@ RakTimer::~RakTimer(void)
 {
 }
 
-    void RakTimer::SetTimerLength(int lengthInMilliseconds)
-	{
-	timerLength=lengthInMilliseconds;
-	}
-	void RakTimer::Start()
-	{
-		startTime=MafiaNet::GetTimeMS();
+void RakTimer::SetTimerLength(int lengthInMilliseconds)
+{
+	timerLength = lengthInMilliseconds;
+}
+void RakTimer::Start()
+{
+	startTime = MafiaNet::GetTimeMS();
+}
+void RakTimer::Pause()
+{
+	pauseOffset = (int) (MafiaNet::GetTimeMS() - startTime);
+}
+void RakTimer::Resume()
+{
+	startTime = MafiaNet::GetTimeMS() - pauseOffset;
+}
 
-	}
-    void RakTimer::Pause()
-	{
-	pauseOffset=(int)(MafiaNet::GetTimeMS()-startTime);
-	}
-	void RakTimer::Resume()
-	{
-	startTime=MafiaNet::GetTimeMS()-pauseOffset;
-	}
+bool RakTimer::IsExpired()
+{
 
-	bool RakTimer::IsExpired()
-	{
-
-	return (MafiaNet::GetTimeMS()-startTime>(MafiaNet::TimeMS)timerLength);
-	
-	}
+	return (MafiaNet::GetTimeMS() - startTime > (MafiaNet::TimeMS) timerLength);
+}

@@ -26,31 +26,31 @@
 
 namespace MafiaNet
 {
-	/// Same as GetTimeMS
-	/// Holds the time in either a 32 or 64 bit variable, depending on __GET_TIME_64BIT
-	MafiaNet::Time RAK_DLL_EXPORT GetTime( void );
+/// Same as GetTimeMS
+/// Holds the time in either a 32 or 64 bit variable, depending on __GET_TIME_64BIT
+MafiaNet::Time RAK_DLL_EXPORT GetTime(void);
 
-	/// Return the time as 32 bit
-	/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
-	MafiaNet::TimeMS RAK_DLL_EXPORT GetTimeMS( void );
-	
-	/// Return the time as 64 bit
-	/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
-	MafiaNet::TimeUS RAK_DLL_EXPORT GetTimeUS( void );
+/// Return the time as 32 bit
+/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
+MafiaNet::TimeMS RAK_DLL_EXPORT GetTimeMS(void);
 
-	/// A replacement clock for GetTimeUS (and so GetTime / GetTimeMS).
-	typedef MafiaNet::TimeUS (*TimeSourceUS)( void );
+/// Return the time as 64 bit
+/// \note The maximum delta between returned calls is 1 second - however, RakNet calls this constantly anyway. See NormalizeTime() in the cpp.
+MafiaNet::TimeUS RAK_DLL_EXPORT GetTimeUS(void);
 
-	/// \internal Testing seam: route every MafiaNet time query to \a source,
-	/// process wide; nullptr restores the real clock. The source must be
-	/// monotonic, and nothing should run a real (threaded) peer while it is set.
-	/// Used by the simulated network in Tests/Support.
-	void RAK_DLL_EXPORT SetTimeSourceOverride( TimeSourceUS source );
+/// A replacement clock for GetTimeUS (and so GetTime / GetTimeMS).
+typedef MafiaNet::TimeUS (*TimeSourceUS)(void);
 
-	/// a > b?
-	extern RAK_DLL_EXPORT bool GreaterThan(MafiaNet::Time a, MafiaNet::Time b);
-	/// a < b?
-	extern RAK_DLL_EXPORT bool LessThan(MafiaNet::Time a, MafiaNet::Time b);
+/// \internal Testing seam: route every MafiaNet time query to \a source,
+/// process wide; nullptr restores the real clock. The source must be
+/// monotonic, and nothing should run a real (threaded) peer while it is set.
+/// Used by the simulated network in Tests/Support.
+void RAK_DLL_EXPORT SetTimeSourceOverride(TimeSourceUS source);
+
+/// a > b?
+extern RAK_DLL_EXPORT bool GreaterThan(MafiaNet::Time a, MafiaNet::Time b);
+/// a < b?
+extern RAK_DLL_EXPORT bool LessThan(MafiaNet::Time a, MafiaNet::Time b);
 }
 
 #endif

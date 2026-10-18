@@ -26,81 +26,82 @@ using namespace MafiaNet;
 
 namespace
 {
-	const MessageID ID_LIVE_NT = ID_USER_PACKET_ENUM + 30;
+const MessageID ID_LIVE_NT = ID_USER_PACKET_ENUM + 30;
 
-	// Blocks inside the hook until released, so a test can act while it is mid-call.
-	class BlockingProbe : public PluginInterface2
+// Blocks inside the hook until released, so a test can act while it is mid-call.
+class BlockingProbe : public PluginInterface2
+{
+public:
+	PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
 	{
-	public:
-		PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
+		if (packet->data[0] != ID_LIVE_NT)
+			return RR_CONTINUE_PROCESSING;
+		++calls;
+		if (block.exchange(false))
 		{
-			if (packet->data[0] != ID_LIVE_NT)
-				return RR_CONTINUE_PROCESSING;
-			++calls;
-			if (block.exchange(false))
-			{
-				entered.set_value();
-				release.get_future().wait();
-			}
-			// Lingering inside the call makes it likely one is in flight when Shutdown() starts,
-			// which is the case the guarantee is about.
-			if (dwellMs > 0)
-				RakSleep(dwellMs);
-			if (shutdownStarted.load())
-				++callsAfterShutdownStarted;
-			return RR_STOP_PROCESSING_AND_DEALLOCATE;
+			entered.set_value();
+			release.get_future().wait();
 		}
+		// Lingering inside the call makes it likely one is in flight when Shutdown() starts,
+		// which is the case the guarantee is about.
+		if (dwellMs > 0)
+			RakSleep(dwellMs);
+		if (shutdownStarted.load())
+			++callsAfterShutdownStarted;
+		return RR_STOP_PROCESSING_AND_DEALLOCATE;
+	}
 
-		void OnRakPeerShutdown(void) override { shutdownStarted = true; }
+	void OnRakPeerShutdown(void) override { shutdownStarted = true; }
 
-		std::atomic<bool> block {false};
-		unsigned dwellMs = 0;
-		std::promise<void> entered;
-		std::promise<void> release;
-		std::atomic<int> calls {0};
-		std::atomic<bool> shutdownStarted {false};
-		std::atomic<int> callsAfterShutdownStarted {0};
-	};
+	std::atomic<bool> block{false};
+	unsigned dwellMs = 0;
+	std::promise<void> entered;
+	std::promise<void> release;
+	std::atomic<int> calls{0};
+	std::atomic<bool> shutdownStarted{false};
+	std::atomic<int> callsAfterShutdownStarted{0};
+};
 
-	struct LivePair
+struct LivePair
+{
+	Peer server;
+	Peer client;
+	SystemAddress serverAddress;
+
+	bool Start()
 	{
-		Peer server;
-		Peer client;
-		SystemAddress serverAddress;
+		SocketDescriptor serverSd(0, "127.0.0.1");
+		if (server->Startup(1, &serverSd, 1) != RAKNET_STARTED)
+			return false;
+		server->SetMaximumIncomingConnections(1);
+		const unsigned short port = server->GetInternalID().GetPort();
+		serverAddress.SetBinaryAddress("127.0.0.1");
+		serverAddress.SetPortHostOrder(port);
 
-		bool Start()
+		RakSleep(2); // distinct microsecond-seeded GUIDs on POSIX
+		SocketDescriptor clientSd;
+		if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED ||
+		    client->Connect("127.0.0.1", port, 0, 0) != CONNECTION_ATTEMPT_STARTED)
+			return false;
+
+		const TimeMS start = GetTimeMS();
+		while (GetTimeMS() - start < 10000 &&
+		       !(server->NumberOfConnections() == 1 && client->GetConnectionState(serverAddress) == IS_CONNECTED))
 		{
-			SocketDescriptor serverSd(0, "127.0.0.1");
-			if (server->Startup(1, &serverSd, 1) != RAKNET_STARTED)
-				return false;
-			server->SetMaximumIncomingConnections(1);
-			const unsigned short port = server->GetInternalID().GetPort();
-			serverAddress.SetBinaryAddress("127.0.0.1");
-			serverAddress.SetPortHostOrder(port);
-
-			RakSleep(2); // distinct microsecond-seeded GUIDs on POSIX
-			SocketDescriptor clientSd;
-			if (client->Startup(1, &clientSd, 1) != RAKNET_STARTED ||
-				client->Connect("127.0.0.1", port, 0, 0) != CONNECTION_ATTEMPT_STARTED)
-				return false;
-
-			const TimeMS start = GetTimeMS();
-			while (GetTimeMS() - start < 10000 &&
-				!(server->NumberOfConnections() == 1 && client->GetConnectionState(serverAddress) == IS_CONNECTED))
-			{
-				for (auto pkt : client.incoming()) (void) pkt;
-				RakSleep(30);
-			}
-			return client->GetConnectionState(serverAddress) == IS_CONNECTED;
+			for (auto pkt : client.incoming())
+				(void) pkt;
+			RakSleep(30);
 		}
+		return client->GetConnectionState(serverAddress) == IS_CONNECTED;
+	}
 
-		void Send()
-		{
-			BitStream bs;
-			bs.Write(ID_LIVE_NT);
-			client->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, serverAddress, false);
-		}
-	};
+	void Send()
+	{
+		BitStream bs;
+		bs.Write(ID_LIVE_NT);
+		client->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, serverAddress, false);
+	}
+};
 }
 
 class NetworkThreadReceiveLive : public ::testing::Test
@@ -121,11 +122,11 @@ TEST_F(NetworkThreadReceiveLive, DetachWaitsForAHookThatIsMidCall)
 	pair.Send();
 	ASSERT_EQ(std::future_status::ready, entered.wait_for(std::chrono::seconds(10)));
 
-	std::atomic<bool> detached {false};
-	std::thread detacher([&] {
+	std::atomic<bool> detached{false};
+	std::thread detacher([&]
+	                     {
 		pair.server->DetachPlugin(&probe);
-		detached = true;
-	});
+		detached = true; });
 	// The hook is still running, so DetachPlugin must not have returned.
 	RakSleep(200);
 	EXPECT_FALSE(detached.load());
@@ -152,14 +153,14 @@ TEST_F(NetworkThreadReceiveLive, HookNeverRunsOnceShutdownHasStarted)
 	pair.server->AttachPlugin(&probe);
 	ASSERT_TRUE(pair.Start());
 
-	std::atomic<bool> flooding {true};
-	std::thread flooder([&] {
+	std::atomic<bool> flooding{true};
+	std::thread flooder([&]
+	                    {
 		while (flooding.load())
 		{
 			pair.Send();
 			RakSleep(1);
-		}
-	});
+		} });
 	const TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 5000 && probe.calls.load() < 20)
 		RakSleep(5);
@@ -201,14 +202,14 @@ TEST_F(NetworkThreadReceiveLive, AttachAndDetachWhileMessagesFlowIsSafe)
 	LivePair pair;
 	ASSERT_TRUE(pair.Start());
 
-	std::atomic<bool> flooding {true};
-	std::thread flooder([&] {
+	std::atomic<bool> flooding{true};
+	std::thread flooder([&]
+	                    {
 		while (flooding.load())
 		{
 			pair.Send();
 			RakSleep(1);
-		}
-	});
+		} });
 	for (int i = 0; i < 300; ++i)
 	{
 		pair.server->AttachPlugin(&probe);

@@ -38,13 +38,13 @@
 #include "mafianet/itoa.h"
 
 // Column with this header contains the name of the game, passed to UploadTable()
-static const char *GAME_NAME_COMMAND="__GAME_NAME";
+static const char *GAME_NAME_COMMAND = "__GAME_NAME";
 // Column with this header contains the port of the game, passed to UploadTable()
-static const char *GAME_PORT_COMMAND="__GAME_PORT";
+static const char *GAME_PORT_COMMAND = "__GAME_PORT";
 // Column with this header contains the IP address of the game, passed to UploadTable()
-static const char *SYSTEM_ADDRESS_COMMAND="_System_Address";
+static const char *SYSTEM_ADDRESS_COMMAND = "_System_Address";
 // Returned from the PHP server indicating when this row was last updated.
-static const char *LAST_UPDATE_COMMAND="__SEC_AFTER_EPOCH_SINCE_LAST_UPDATE";
+static const char *LAST_UPDATE_COMMAND = "__SEC_AFTER_EPOCH_SINCE_LAST_UPDATE";
 
 using namespace MafiaNet;
 using namespace DataStructures;
@@ -52,31 +52,31 @@ using namespace DataStructures;
 PHPDirectoryServer2::PHPDirectoryServer2()
     : nextRepost(0)
 {
-    Map<RakString, RakString>::IMPLEMENT_DEFAULT_COMPARISON();
+	Map<RakString, RakString>::IMPLEMENT_DEFAULT_COMPARISON();
 }
 PHPDirectoryServer2::~PHPDirectoryServer2()
 {
 }
 void PHPDirectoryServer2::Init(HTTPConnection *_http, const char *_path)
 {
-	http=_http;
-	pathToPHP=_path;
+	http = _http;
+	pathToPHP = _path;
 }
 
-void PHPDirectoryServer2::SetField(MafiaNet::RakString columnName, MafiaNet::RakString value )
+void PHPDirectoryServer2::SetField(MafiaNet::RakString columnName, MafiaNet::RakString value)
 {
 	if (columnName.IsEmpty())
 		return;
 
-	if (columnName==GAME_NAME_COMMAND ||
-		columnName==GAME_PORT_COMMAND ||
-		columnName==LAST_UPDATE_COMMAND)
+	if (columnName == GAME_NAME_COMMAND ||
+	    columnName == GAME_PORT_COMMAND ||
+	    columnName == LAST_UPDATE_COMMAND)
 	{
 		RakAssert("PHPDirectoryServer2::SetField attempted to set reserved column name" && 0);
 		return;
 	}
 
-    fields.Set(columnName, value);
+	fields.Set(columnName, value);
 }
 unsigned int PHPDirectoryServer2::GetFieldCount(void) const
 {
@@ -85,8 +85,8 @@ unsigned int PHPDirectoryServer2::GetFieldCount(void) const
 void PHPDirectoryServer2::GetField(unsigned int index, MafiaNet::RakString &columnName, MafiaNet::RakString &value)
 {
 	RakAssert(index < fields.Size());
-	columnName=fields.GetKeyAtIndex(index);
-	value=fields[index];
+	columnName = fields.GetKeyAtIndex(index);
+	value = fields[index];
 }
 void PHPDirectoryServer2::SetFields(DataStructures::Table *table)
 {
@@ -94,13 +94,13 @@ void PHPDirectoryServer2::SetFields(DataStructures::Table *table)
 
 	unsigned columnIndex, rowIndex;
 	DataStructures::Table::Row *row;
-	
-	for (rowIndex=0; rowIndex < table->GetRowCount(); rowIndex++)
+
+	for (rowIndex = 0; rowIndex < table->GetRowCount(); rowIndex++)
 	{
 		row = table->GetRowByIndex(rowIndex, 0);
-		for (columnIndex=0; columnIndex < table->GetColumnCount(); columnIndex++)
+		for (columnIndex = 0; columnIndex < table->GetColumnCount(); columnIndex++)
 		{
-			SetField( table->ColumnName(columnIndex), row->cells[columnIndex]->ToString(table->GetColumnType(columnIndex)) );
+			SetField(table->ColumnName(columnIndex), row->cells[columnIndex]->ToString(table->GetColumnType(columnIndex)));
 		}
 	}
 }
@@ -108,70 +108,70 @@ void PHPDirectoryServer2::SetFields(DataStructures::Table *table)
 void PHPDirectoryServer2::ClearFields(void)
 {
 	fields.Clear();
-	nextRepost=0;
+	nextRepost = 0;
 }
 
 void PHPDirectoryServer2::UploadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost)
 {
-	gameNameParam=gameName;
-	gamePortParam=gamePort;
-	currentOperation="";
-	currentOperation="?query=upload&uploadPassword=";
-	currentOperation+=uploadPassword;
+	gameNameParam = gameName;
+	gamePortParam = gamePort;
+	currentOperation = "";
+	currentOperation = "?query=upload&uploadPassword=";
+	currentOperation += uploadPassword;
 	SendOperation();
 
 	if (autoRepost)
-		nextRepost= MafiaNet::GetTimeMS()+50000;
+		nextRepost = MafiaNet::GetTimeMS() + 50000;
 	else
-		nextRepost=0;
+		nextRepost = 0;
 }
 void PHPDirectoryServer2::DownloadTable(MafiaNet::RakString downloadPassword)
 {
-	currentOperation="?query=download&downloadPassword=";
-	currentOperation+=downloadPassword;
+	currentOperation = "?query=download&downloadPassword=";
+	currentOperation += downloadPassword;
 	SendOperation();
 }
 void PHPDirectoryServer2::UploadAndDownloadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString downloadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost)
 {
-	gameNameParam=gameName;
-	gamePortParam=gamePort;
-	currentOperation="?query=upDown&downloadPassword=";
-	currentOperation+=downloadPassword;
-	currentOperation+="&uploadPassword=";
-	currentOperation+=uploadPassword;
+	gameNameParam = gameName;
+	gamePortParam = gamePort;
+	currentOperation = "?query=upDown&downloadPassword=";
+	currentOperation += downloadPassword;
+	currentOperation += "&uploadPassword=";
+	currentOperation += uploadPassword;
 
 	SendOperation();
 
 	if (autoRepost)
-		nextRepost= MafiaNet::GetTimeMS()+50000;
+		nextRepost = MafiaNet::GetTimeMS() + 50000;
 	else
-		nextRepost=0;
+		nextRepost = 0;
 }
 
 HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead)
 {
-	const char *c = (const char*) httpRead.C_String(); // current position
-	HTTPReadResult resultCode=HTTP_RESULT_EMPTY;
+	const char *c = (const char *) httpRead.C_String(); // current position
+	HTTPReadResult resultCode = HTTP_RESULT_EMPTY;
 
 	lastDownloadedTable.Clear();
 
 
-	if (*c=='\n')
+	if (*c == '\n')
 		c++;
 	char buff[256];
 	int buffIndex;
-	bool isCommand=true;
+	bool isCommand = true;
 	DataStructures::List<MafiaNet::RakString> columns;
 	DataStructures::List<MafiaNet::RakString> values;
 	MafiaNet::RakString curString;
-	bool isComment=false;
-	buffIndex=0;
-	while(c && *c)
+	bool isComment = false;
+	buffIndex = 0;
+	while (c && *c)
 	{
 		// 3 is comment
-		if (*c=='\003')
+		if (*c == '\003')
 		{
-			isComment=!isComment;
+			isComment = !isComment;
 			c++;
 			continue;
 		}
@@ -183,45 +183,44 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 
 		// 1 or 2 separates fields
 		// 4 separates rows
-		if (*c=='\001')
+		if (*c == '\001')
 		{
 			if (isCommand)
 			{
-				buff[buffIndex]=0;
+				buff[buffIndex] = 0;
 				columns.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
-				isCommand=false;
-				if (buff[0]!=0)
-					resultCode=HTTP_RESULT_GOT_TABLE;
+				isCommand = false;
+				if (buff[0] != 0)
+					resultCode = HTTP_RESULT_GOT_TABLE;
 			}
 			else
 			{
-				buff[buffIndex]=0;
+				buff[buffIndex] = 0;
 				values.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
-				isCommand=true;
+				isCommand = true;
 			}
-			buffIndex=0;
+			buffIndex = 0;
 		}
-		else if (*c=='\002')
+		else if (*c == '\002')
 		{
-			buff[buffIndex]=0;
-			buffIndex=0;
+			buff[buffIndex] = 0;
+			buffIndex = 0;
 			values.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
-			isCommand=true;
+			isCommand = true;
 			PushColumnsAndValues(columns, values);
 			columns.Clear(true, _FILE_AND_LINE_);
 			values.Clear(true, _FILE_AND_LINE_);
-
 		}
 		else
 		{
-			if (buffIndex<256-1)
-				buff[buffIndex++]=*c;
+			if (buffIndex < 256 - 1)
+				buff[buffIndex++] = *c;
 		}
 		c++;
 	}
-	if (buff[0] && columns.Size()==values.Size()+1)
+	if (buff[0] && columns.Size() == values.Size() + 1)
 	{
-		buff[buffIndex]=0;
+		buff[buffIndex] = 0;
 		values.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
 	}
 
@@ -231,24 +230,24 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 }
 void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values)
 {
-	DataStructures::Table::Row *row=0;
+	DataStructures::Table::Row *row = 0;
 
 	unsigned int i;
-	for (i=0; i < columns.Size() && i < values.Size(); i++)
+	for (i = 0; i < columns.Size() && i < values.Size(); i++)
 	{
-		if (columns[i].IsEmpty()==false)
+		if (columns[i].IsEmpty() == false)
 		{
 			unsigned col = lastDownloadedTable.ColumnIndex(columns[i]);
-			if(col == (unsigned)-1)
+			if (col == (unsigned) -1)
 			{
 				col = lastDownloadedTable.AddColumn(columns[i], DataStructures::Table::STRING);
 			}
 
-			if (row==0)
+			if (row == 0)
 			{
 				row = lastDownloadedTable.AddRow(lastDownloadedTable.GetAvailableRowId());
 			}
-			row->UpdateCell(col,values[i].C_String());
+			row->UpdateCell(col, values[i].C_String());
 		}
 	}
 }
@@ -263,7 +262,7 @@ void PHPDirectoryServer2::SendOperation(void)
 
 	outgoingMessageBody += GAME_PORT_COMMAND;
 	outgoingMessageBody += '\001';
-	outgoingMessageBody += Itoa(gamePortParam,buff,10);
+	outgoingMessageBody += Itoa(gamePortParam, buff, 10);
 	outgoingMessageBody += '\001';
 	outgoingMessageBody += GAME_NAME_COMMAND;
 	outgoingMessageBody += '\001';
@@ -274,15 +273,14 @@ void PHPDirectoryServer2::SendOperation(void)
 		RakString value = fields[i];
 		value.URLEncode();
 		outgoingMessageBody += RakString("\001%s\001%s",
-			fields.GetKeyAtIndex(i).C_String(),
-			value.C_String());
+		                                 fields.GetKeyAtIndex(i).C_String(),
+		                                 value.C_String());
 	}
 
 	RakString postURL;
-	postURL+=pathToPHP;
-	postURL+=currentOperation;
+	postURL += pathToPHP;
+	postURL += currentOperation;
 	http->Post(postURL.C_String(), outgoingMessageBody, "application/x-www-form-urlencoded");
-
 }
 void PHPDirectoryServer2::Update(void)
 {
@@ -290,7 +288,7 @@ void PHPDirectoryServer2::Update(void)
 		return;
 
 
-	if (nextRepost==0 || fields.Size()==0)
+	if (nextRepost == 0 || fields.Size() == 0)
 		return;
 
 	MafiaNet::TimeMS time = GetTimeMS();
@@ -298,7 +296,7 @@ void PHPDirectoryServer2::Update(void)
 	// Entry deletes itself after 60 seconds, so keep reposting if set to do so
 	if (time > nextRepost)
 	{
-		nextRepost= MafiaNet::GetTimeMS()+50000;
+		nextRepost = MafiaNet::GetTimeMS() + 50000;
 		SendOperation();
 	}
 }

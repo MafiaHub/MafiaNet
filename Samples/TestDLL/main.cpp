@@ -27,17 +27,17 @@
 
 using namespace MafiaNet;
 
-void* MyMalloc (size_t size)
+void *MyMalloc(size_t size)
 {
 	return malloc(size);
 }
 
-void* MyRealloc (void *p, size_t size)
+void *MyRealloc(void *p, size_t size)
 {
-	return realloc(p,size);
+	return realloc(p, size);
 }
 
-void MyFree (void *p)
+void MyFree(void *p)
 {
 	free(p);
 }
@@ -46,22 +46,23 @@ void MyFree (void *p)
 int main()
 {
 	// Just test allocation and deallocation across the DLL.  If it crashes it failed, otherwise it worked.
-	ConsoleServer* a=ConsoleServer::GetInstance( );
-	LogCommandParser* c=LogCommandParser::GetInstance( );
-	PacketLogger* d=PacketLogger::GetInstance( );
-	RakNetCommandParser* e=RakNetCommandParser::GetInstance( );
-	RakPeerInterface * f=RakPeerInterface::GetInstance( );
-	TCPInterface *g=TCPInterface::GetInstance();
+	ConsoleServer *a = ConsoleServer::GetInstance();
+	LogCommandParser *c = LogCommandParser::GetInstance();
+	PacketLogger *d = PacketLogger::GetInstance();
+	RakNetCommandParser *e = RakNetCommandParser::GetInstance();
+	RakPeerInterface *f = RakPeerInterface::GetInstance();
+	TCPInterface *g = TCPInterface::GetInstance();
 	SystemAddress sa = UNASSIGNED_SYSTEM_ADDRESS;
 
-	SocketDescriptor sd(5555,0);
-	if(f->Startup(32,&sd,1) != RAKNET_STARTED) {		
-			printf("NetworkNode::startup(): failed to start server\n");
-			return 0;
-		}
+	SocketDescriptor sd(5555, 0);
+	if (f->Startup(32, &sd, 1) != RAKNET_STARTED)
+	{
+		printf("NetworkNode::startup(): failed to start server\n");
+		return 0;
+	}
 	f->SetMaximumIncomingConnections(32);
-	
-	DataStructures::List<RakNetSocket2* > sockets;
+
+	DataStructures::List<RakNetSocket2 *> sockets;
 	f->GetSockets(sockets);
 	f->ReleaseSockets(sockets);
 
@@ -70,27 +71,26 @@ int main()
 	SetRealloc(MyRealloc);
 	SetFree(MyFree);
 
-	char *cArray = MafiaNet::OP_NEW_ARRAY<char>(10,_FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(cArray,_FILE_AND_LINE_);
+	char *cArray = MafiaNet::OP_NEW_ARRAY<char>(10, _FILE_AND_LINE_);
+	MafiaNet::OP_DELETE_ARRAY(cArray, _FILE_AND_LINE_);
 
 	DataStructures::List<int> intList;
-	intList.Push(5, _FILE_AND_LINE_ );
-	
+	intList.Push(5, _FILE_AND_LINE_);
+
 	f->GetMTUSize(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	SystemAddress p1;
 	SystemAddress p2;
-	p1=p2;
+	p1 = p2;
 
 	RakSleep(300);
 
 
-	ConsoleServer::DestroyInstance( a );
-	LogCommandParser::DestroyInstance( c );
-	PacketLogger::DestroyInstance( d );
-	RakNetCommandParser::DestroyInstance( e );
-	MafiaNet::RakPeerInterface::DestroyInstance( f );
-	TCPInterface::DestroyInstance( g );
+	ConsoleServer::DestroyInstance(a);
+	LogCommandParser::DestroyInstance(c);
+	PacketLogger::DestroyInstance(d);
+	RakNetCommandParser::DestroyInstance(e);
+	MafiaNet::RakPeerInterface::DestroyInstance(f);
+	TCPInterface::DestroyInstance(g);
 
 	return 0;
 }
-

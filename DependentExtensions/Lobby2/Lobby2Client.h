@@ -39,10 +39,10 @@ struct Lobby2Message;
 /// \ingroup LOBBY_2_CLIENT
 class RAK_DLL_EXPORT Lobby2Client : public MafiaNet::Lobby2Plugin
 {
-public:	
+public:
 	Lobby2Client();
 	virtual ~Lobby2Client();
-	
+
 	/// \brief Set the address of the server. When you call SendMsg() the packet will be sent to this address.
 	void SetServerAddress(SystemAddress addr);
 
@@ -74,16 +74,15 @@ public:
 	*/
 
 protected:
-
 	PluginReceiveResult OnReceive(Packet *packet);
-	void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	void OnShutdown(void);
 	void OnMessage(Packet *packet);
 
 	SystemAddress serverAddress;
 	Lobby2Callbacks *callback;
 };
-	
+
 }
 
 #endif

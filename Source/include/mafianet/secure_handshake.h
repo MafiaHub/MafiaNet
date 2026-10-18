@@ -17,19 +17,19 @@
 
 #include "mafianet/native_feature_includes.h"
 
-#if LIBCAT_SECURITY==1
+#if LIBCAT_SECURITY == 1
 
 // If building a MafiaNet DLL, be sure to tweak the CAT_EXPORT macro meaning
 #if !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
-# define CAT_BUILD_DLL
+#define CAT_BUILD_DLL
 #else
-# define CAT_NEUTER_EXPORT
+#define CAT_NEUTER_EXPORT
 #endif
 
 // Include DependentExtensions in your path to include this
 #ifdef _M_X64
 #pragma warning(push)
-#pragma warning(disable:4838)
+#pragma warning(disable : 4838)
 #endif
 #include "cat/AllTunnel.hpp"
 #ifdef _M_X64

@@ -34,12 +34,12 @@ using namespace MafiaNet;
 
 #define SAMPLESIZE 2
 // Single definition lives in voice.h so relay hosts can bound inbound frames.
-#define MAX_OPUS_PACKET_SIZE ((int)MafiaNet::RAKVOICE_MAX_OPUS_PACKET_SIZE)
+#define MAX_OPUS_PACKET_SIZE ((int) MafiaNet::RAKVOICE_MAX_OPUS_PACKET_SIZE)
 
 // RNNoise frame size is fixed at 480 samples (10ms at 48kHz)
 #define RNNOISE_FRAME_SIZE 480
 
-int MafiaNet::VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data )
+int MafiaNet::VoiceChannelComp(const RakNetGUID &key, VoiceChannel *const &data)
 {
 	if (key < data->guid)
 		return -1;
@@ -82,7 +82,7 @@ RakVoice::~RakVoice()
 int RakVoice::GetFrameSizeSamples(int sampleRate)
 {
 	// 20ms frame size for all sample rates
-	return sampleRate / 50;  // sampleRate * 0.020
+	return sampleRate / 50; // sampleRate * 0.020
 }
 
 void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
@@ -91,7 +91,7 @@ void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
 	sampleRate = newSampleRate;
 	bufferSizeBytes = newBufferSizeBytes;
 	bufferedOutputCount = newBufferSizeBytes / SAMPLESIZE;
-	bufferedOutput = (float*)rakMalloc_Ex(sizeof(float) * bufferedOutputCount, _FILE_AND_LINE_);
+	bufferedOutput = (float *) rakMalloc_Ex(sizeof(float) * bufferedOutputCount, _FILE_AND_LINE_);
 	for (unsigned i = 0; i < bufferedOutputCount; i++)
 		bufferedOutput[i] = 0.0f;
 	zeroBufferedOutput = false;
@@ -119,8 +119,8 @@ void RakVoice::SetLoopbackMode(bool enabled)
 	{
 		Packet p;
 		MafiaNet::BitStream out;
-		out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
-		out.Write((int32_t)sampleRate);
+		out.Write((unsigned char) ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
+		out.Write((int32_t) sampleRate);
 		p.data = out.GetData();
 		p.systemAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		p.guid = UNASSIGNED_RAKNET_GUID;
@@ -229,7 +229,7 @@ bool RakVoice::EvictIdlestRelaySpeaker(MafiaNet::TimeMS now)
 {
 	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
 
-	unsigned victim = (unsigned)-1;
+	unsigned victim = (unsigned) -1;
 	MafiaNet::TimeMS victimIdle = 0;
 
 	for (unsigned i = 0; i < voiceChannels.Size(); i++)
@@ -248,14 +248,14 @@ bool RakVoice::EvictIdlestRelaySpeaker(MafiaNet::TimeMS now)
 			continue;
 
 		const MafiaNet::TimeMS idle = now - channel->lastDecode;
-		if (victim == (unsigned)-1 || idle > victimIdle)
+		if (victim == (unsigned) -1 || idle > victimIdle)
 		{
 			victim = i;
 			victimIdle = idle;
 		}
 	}
 
-	if (victim == (unsigned)-1 || victimIdle < RAKVOICE_RELAY_EVICT_IDLE_MS)
+	if (victim == (unsigned) -1 || victimIdle < RAKVOICE_RELAY_EVICT_IDLE_MS)
 		return false;
 
 	FreeChannelMemory(victim, true);
@@ -291,8 +291,8 @@ void RakVoice::RelayFrame(Packet *packet, const RakNetGUID *recipients, int coun
 	// forgets any of these is silently exploitable, so the safe path is the default
 	// one: callers may re-check, but they cannot forget.
 	if (packet->length <= RAKVOICE_RELAY_HEADER_SIZE ||
-		packet->length > RAKVOICE_RELAY_HEADER_SIZE + RAKVOICE_MAX_OPUS_PACKET_SIZE ||
-		packet->data[0] != ID_RAKVOICE_RELAY_DATA)
+	    packet->length > RAKVOICE_RELAY_HEADER_SIZE + RAKVOICE_MAX_OPUS_PACKET_SIZE ||
+	    packet->data[0] != ID_RAKVOICE_RELAY_DATA)
 		return;
 
 	// Anti-impersonation: the origin is written by the client, so a modified client
@@ -308,16 +308,16 @@ void RakVoice::RelayFrame(Packet *packet, const RakNetGUID *recipients, int coun
 		// sequence stream and whichever speaker lost the race would be discarded whenever two
 		// people talk at once. The relay header carries a per-speaker sequence number that
 		// already drives PLC, so ordering is handled a layer up.
-		rakPeerInterface->Send((const char*)packet->data, packet->length,
-			MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, recipients[i], false);
+		rakPeerInterface->Send((const char *) packet->data, packet->length,
+		                       MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, recipients[i], false);
 	}
 }
 
 void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 {
 	MafiaNet::BitStream out;
-	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
-	out.Write((int32_t)sampleRate);
+	out.Write((unsigned char) ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
+	out.Write((int32_t) sampleRate);
 	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, recipient, false);
 }
 
@@ -332,14 +332,14 @@ void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 
 	FreeChannelMemory(recipient);
 	MafiaNet::BitStream out;
-	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
+	out.Write((unsigned char) ID_RAKVOICE_CLOSE_CHANNEL);
 	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, recipient, false);
 }
 
 void RakVoice::CloseAllChannels(void)
 {
 	MafiaNet::BitStream out;
-	out.Write((unsigned char)ID_RAKVOICE_CLOSE_CHANNEL);
+	out.Write((unsigned char) ID_RAKVOICE_CLOSE_CHANNEL);
 
 	for (unsigned index = 0; index < voiceChannels.Size(); index++)
 	{
@@ -406,7 +406,7 @@ bool RakVoice::IsSendingVoiceDataTo(RakNetGUID recipient)
 
 void RakVoice::ReceiveFrame(void *outputBuffer)
 {
-	short *out = (short*)outputBuffer;
+	short *out = (short *) outputBuffer;
 	for (unsigned i = 0; i < bufferSizeBytes / SAMPLESIZE; i++)
 	{
 		if (bufferedOutput[i] > 32767.0f)
@@ -414,7 +414,7 @@ void RakVoice::ReceiveFrame(void *outputBuffer)
 		else if (bufferedOutput[i] < -32768.0f)
 			out[i] = -32768;
 		else
-			out[i] = (short)bufferedOutput[i];
+			out[i] = (short) bufferedOutput[i];
 	}
 
 	zeroBufferedOutput = true;
@@ -435,7 +435,7 @@ bool RakVoice::IsInitialized(void) const
 	return (bufferedOutput != nullptr);
 }
 
-RakPeerInterface* RakVoice::GetRakPeerInterface(void) const
+RakPeerInterface *RakVoice::GetRakPeerInterface(void) const
 {
 	return rakPeerInterface;
 }
@@ -604,7 +604,7 @@ void RakVoice::Update(void)
 						inputBuffer = channel->outgoingBuffer + channel->outgoingReadIndex;
 					}
 
-					short *samples = (short*)inputBuffer;
+					short *samples = (short *) inputBuffer;
 
 					// Apply RNNoise denoising if enabled
 					if (defaultDENOISEState && channel->denoiser)
@@ -622,18 +622,18 @@ void RakVoice::Update(void)
 						{
 							float floatSamples[RNNOISE_FRAME_SIZE];
 							for (int s = 0; s < RNNOISE_FRAME_SIZE; s++)
-								floatSamples[s] = (float)samples[s];
+								floatSamples[s] = (float) samples[s];
 
 							rnnoise_process_frame(channel->denoiser, floatSamples, floatSamples);
 
 							for (int s = 0; s < RNNOISE_FRAME_SIZE; s++)
-								samples[s] = (short)floatSamples[s];
+								samples[s] = (short) floatSamples[s];
 						}
 					}
 
 					// Bound the encoder by what actually fits in tempOutput after the largest
 					// header, not by MAX_OPUS_PACKET_SIZE (4000 > sizeof(tempOutput)).
-					int encodedBytes = EncodeFrame(channel, samples, encodedBuffer, (int)(sizeof(tempOutput) - RAKVOICE_RELAY_HEADER_SIZE));
+					int encodedBytes = EncodeFrame(channel, samples, encodedBuffer, (int) (sizeof(tempOutput) - RAKVOICE_RELAY_HEADER_SIZE));
 
 					channel->outgoingReadIndex = (channel->outgoingReadIndex + opusBlockSize) % totalBufferSize;
 
@@ -650,15 +650,15 @@ void RakVoice::Update(void)
 						uint16_t channelId = 0; // M1: proximity only. M2 sets this per channel.
 
 						tempOutput[0] = ID_RAKVOICE_RELAY_DATA;
-						tempOutput[RAKVOICE_RELAY_OFFSET_VERSION] = (char)RAKVOICE_RELAY_FORMAT_VERSION;
+						tempOutput[RAKVOICE_RELAY_OFFSET_VERSION] = (char) RAKVOICE_RELAY_FORMAT_VERSION;
 						memcpy(tempOutput + RAKVOICE_RELAY_OFFSET_ORIGIN, &self.g, sizeof(uint64_t));
 						memcpy(tempOutput + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
 						memcpy(tempOutput + RAKVOICE_RELAY_OFFSET_SEQUENCE, &channel->outgoingMessageNumber, sizeof(unsigned short));
 						memcpy(tempOutput + RAKVOICE_RELAY_HEADER_SIZE, encodedBuffer, encodedBytes);
 						channel->outgoingMessageNumber++;
 
-						rakPeerInterface->Send(tempOutput, encodedBytes + (int)RAKVOICE_RELAY_HEADER_SIZE,
-							MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, frameOrderingChannel, relayTarget, false);
+						rakPeerInterface->Send(tempOutput, encodedBytes + (int) RAKVOICE_RELAY_HEADER_SIZE,
+						                       MafiaNet::Priority::High, MafiaNet::Reliability::UnreliableSequenced, frameOrderingChannel, relayTarget, false);
 					}
 					else
 					{
@@ -668,14 +668,14 @@ void RakVoice::Update(void)
 						memcpy(tempOutput + headerSize, encodedBuffer, encodedBytes);
 						channel->outgoingMessageNumber++;
 
-						MafiaNet::BitStream tempOutputBs((unsigned char*)tempOutput, encodedBytes + headerSize, false);
+						MafiaNet::BitStream tempOutputBs((unsigned char *) tempOutput, encodedBytes + headerSize, false);
 						SendUnified(&tempOutputBs, MafiaNet::Priority::High, MafiaNet::Reliability::Unreliable, 0, channel->guid, false);
 
 						if (loopbackMode)
 						{
 							Packet p;
 							p.length = encodedBytes + headerSize;
-							p.data = (unsigned char*)tempOutput;
+							p.data = (unsigned char *) tempOutput;
 							p.guid = channel->guid;
 							p.systemAddress = rakPeerInterface->GetSystemAddressFromGuid(p.guid);
 							OnVoiceData(&p);
@@ -717,7 +717,7 @@ void RakVoice::Update(void)
 						channel->incomingWriteIndex -= totalBufferSize;
 				}
 
-				short *in = (short*)(channel->incomingBuffer + channel->incomingReadIndex);
+				short *in = (short *) (channel->incomingBuffer + channel->incomingReadIndex);
 				for (j = 0; j < bytesWaitingToReturn / SAMPLESIZE; j++)
 				{
 					bufferedOutput[j] += in[j % (totalBufferSize / SAMPLESIZE)];
@@ -794,7 +794,7 @@ PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
 
 void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
-	(void)systemAddress;
+	(void) systemAddress;
 
 	if (lostConnectionReason == LCR_CLOSED_BY_USER)
 		CloseVoiceChannel(rakNetGUID);
@@ -813,8 +813,8 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 	OpenChannel(packet);
 
 	MafiaNet::BitStream out;
-	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REPLY);
-	out.Write((int32_t)sampleRate);
+	out.Write((unsigned char) ID_RAKVOICE_OPEN_CHANNEL_REPLY);
+	out.Write((int32_t) sampleRate);
 	SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, packet->systemAddress, false);
 }
 
@@ -915,14 +915,14 @@ void RakVoice::OpenChannel(Packet *packet)
 	channel->maxPacketBytes = MAX_OPUS_PACKET_SIZE;
 
 	// Allocate buffers
-	channel->outgoingBuffer = (char*)rakMalloc_Ex(bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT, _FILE_AND_LINE_);
+	channel->outgoingBuffer = (char *) rakMalloc_Ex(bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT, _FILE_AND_LINE_);
 	channel->outgoingReadIndex = 0;
 	channel->outgoingWriteIndex = 0;
 	channel->bufferOutput = true;
 	channel->outgoingMessageNumber = 0;
 	channel->copiedOutgoingBufferToBufferedOutput = false;
 
-	channel->incomingBuffer = (char*)rakMalloc_Ex(bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT, _FILE_AND_LINE_);
+	channel->incomingBuffer = (char *) rakMalloc_Ex(bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT, _FILE_AND_LINE_);
 	channel->incomingReadIndex = 0;
 	channel->incomingWriteIndex = 0;
 	channel->lastSend = 0;
@@ -1049,7 +1049,7 @@ void RakVoice::OnVoiceData(Packet *packet)
 	// A packet shorter than the header would read past the buffer here, and the
 	// payload length below would underflow to a huge unsigned value that reaches
 	// opus_decode. Remote-triggerable, so it is checked before anything else.
-	if (packet->length <= (unsigned)headerSize)
+	if (packet->length <= (unsigned) headerSize)
 		return;
 
 	index = voiceChannels.GetIndexFromKey(packet->guid, &objectExists);
@@ -1058,12 +1058,12 @@ void RakVoice::OnVoiceData(Packet *packet)
 		memcpy(&packetMessageNumber, packet->data + 1, sizeof(unsigned short));
 
 		DecodeIntoChannel(voiceChannels[index], packetMessageNumber,
-			packet->data + headerSize, packet->length - headerSize);
+		                  packet->data + headerSize, packet->length - headerSize);
 	}
 }
 
 void RakVoice::DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMessageNumber,
-	const unsigned char *payload, unsigned payloadLength)
+                                 const unsigned char *payload, unsigned payloadLength)
 {
 	const MafiaNet::TimeMS now = MafiaNet::GetTimeMS();
 
@@ -1085,7 +1085,7 @@ void RakVoice::DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMes
 	const unsigned short ahead = packetMessageNumber - channel->incomingMessageNumber;
 
 	// Already decoded or concealed.
-	if (ahead > ((unsigned short)-1) / 2)
+	if (ahead > ((unsigned short) -1) / 2)
 		return;
 
 	// Too far ahead to be a reordering: the stream moved on while we were not hearing it.
@@ -1113,7 +1113,7 @@ void RakVoice::DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMes
 
 	slot.valid = true;
 	slot.sequence = packetMessageNumber;
-	slot.bytes = (unsigned short)payloadLength;
+	slot.bytes = (unsigned short) payloadLength;
 	slot.arrival = now;
 	memcpy(slot.payload, payload, payloadLength);
 
@@ -1210,7 +1210,7 @@ void RakVoice::SettleHeldFrames(VoiceChannel *channel, MafiaNet::TimeMS now)
 void RakVoice::WriteSilenceToChannel(VoiceChannel *channel)
 {
 	short silence[960 * 2] = {};
-	WriteOutputToChannel(channel, (char*)silence, GetFrameSizeSamples(channel->remoteSampleRate) * SAMPLESIZE);
+	WriteOutputToChannel(channel, (char *) silence, GetFrameSizeSamples(channel->remoteSampleRate) * SAMPLESIZE);
 }
 
 void RakVoice::DecodeFrame(VoiceChannel *channel, const unsigned char *payload, unsigned payloadLength, bool fec)
@@ -1218,7 +1218,7 @@ void RakVoice::DecodeFrame(VoiceChannel *channel, const unsigned char *payload, 
 	short decodedBuffer[960 * 2]; // Max frame size for 48kHz
 	const int decodedFrameSize = GetFrameSizeSamples(channel->remoteSampleRate);
 
-	int samples = opus_decode(channel->decoder, payload, (opus_int32)payloadLength, decodedBuffer, decodedFrameSize, fec ? 1 : 0);
+	int samples = opus_decode(channel->decoder, payload, (opus_int32) payloadLength, decodedBuffer, decodedFrameSize, fec ? 1 : 0);
 
 	// A frame the codec rejects is concealed rather than dropped, so the stream keeps its length
 	// and the frames after it stay where they belong.
@@ -1226,12 +1226,12 @@ void RakVoice::DecodeFrame(VoiceChannel *channel, const unsigned char *payload, 
 		samples = opus_decode(channel->decoder, nullptr, 0, decodedBuffer, decodedFrameSize, 0);
 
 	if (samples > 0)
-		WriteOutputToChannel(channel, (char*)decodedBuffer, samples * SAMPLESIZE);
+		WriteOutputToChannel(channel, (char *) decodedBuffer, samples * SAMPLESIZE);
 }
 
 int RakVoice::EncodeFrame(VoiceChannel *channel, short *samples, unsigned char *out, int capacity)
 {
-	int encodedBytes = opus_encode(channel->encoder, samples, channel->frameSizeSamples, out, (opus_int32)capacity);
+	int encodedBytes = opus_encode(channel->encoder, samples, channel->frameSizeSamples, out, (opus_int32) capacity);
 	if (encodedBytes < 0)
 		return 0;
 
@@ -1287,8 +1287,8 @@ VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
 	// same layout RequestVoiceChannel() would have produced, using our own sample rate.
 	Packet synthetic;
 	MafiaNet::BitStream out;
-	out.Write((unsigned char)ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
-	out.Write((int32_t)sampleRate);
+	out.Write((unsigned char) ID_RAKVOICE_OPEN_CHANNEL_REQUEST);
+	out.Write((int32_t) sampleRate);
 	synthetic.data = out.GetData();
 	synthetic.length = out.GetNumberOfBytesUsed();
 	synthetic.systemAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
@@ -1322,7 +1322,7 @@ void RakVoice::OnRelayVoiceData(Packet *packet)
 	memcpy(&packetMessageNumber, packet->data + RAKVOICE_RELAY_OFFSET_SEQUENCE, sizeof(unsigned short));
 
 	DecodeIntoChannel(channel, packetMessageNumber,
-		packet->data + RAKVOICE_RELAY_HEADER_SIZE, packet->length - RAKVOICE_RELAY_HEADER_SIZE);
+	                  packet->data + RAKVOICE_RELAY_HEADER_SIZE, packet->length - RAKVOICE_RELAY_HEADER_SIZE);
 }
 
 bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
@@ -1336,13 +1336,13 @@ bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
 	unsigned totalBufferSize = bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT;
 
 	unsigned available = (channel->incomingWriteIndex >= channel->incomingReadIndex)
-		? channel->incomingWriteIndex - channel->incomingReadIndex
-		: totalBufferSize - channel->incomingReadIndex + channel->incomingWriteIndex;
+	                         ? channel->incomingWriteIndex - channel->incomingReadIndex
+	                         : totalBufferSize - channel->incomingReadIndex + channel->incomingWriteIndex;
 
 	if (available < bufferSizeBytes)
 		return false;
 
-	char *dst = (char*)out;
+	char *dst = (char *) out;
 	unsigned firstChunk = totalBufferSize - channel->incomingReadIndex;
 	if (firstChunk >= bufferSizeBytes)
 	{
@@ -1399,7 +1399,7 @@ void RakVoice::WriteOutputToChannel(VoiceChannel *channel, char *dataToWrite, in
 	}
 	channel->incomingWriteIndex = (channel->incomingWriteIndex + bytesToWrite) % totalBufferSize;
 
-	if ((unsigned)bytesToWrite >= remainingBufferSize)
+	if ((unsigned) bytesToWrite >= remainingBufferSize)
 	{
 		RakAssert(0); // Buffer overflow warning
 		channel->incomingReadIndex += bufferSizeBytes;

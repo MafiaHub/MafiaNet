@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ConnectionGraph2==1
+#if _RAKNET_SUPPORT_ConnectionGraph2 == 1
 
 #ifndef __CONNECTION_GRAPH_2_H
 #define __CONNECTION_GRAPH_2_H
@@ -40,19 +40,18 @@ class RakPeerInterface;
 /// \brief A one hop connection graph.
 /// \details Sends ID_REMOTE_CONNECTION_LOST, ID_REMOTE_DISCONNECTION_NOTIFICATION, ID_REMOTE_NEW_INCOMING_CONNECTION<BR>
 /// All identifiers are followed by SystemAddress, then RakNetGUID
-/// Also stores the list for you, which you can access with GetConnectionListForRemoteSystem 
+/// Also stores the list for you, which you can access with GetConnectionListForRemoteSystem
 /// \ingroup CONNECTION_GRAPH_GROUP
 class RAK_DLL_EXPORT ConnectionGraph2 : public PluginInterface2
 {
 public:
-
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(ConnectionGraph2)
 
 	ConnectionGraph2();
 	~ConnectionGraph2();
 
-	/// \brief Given a remote system identified by RakNetGUID, return the list of SystemAddresses and RakNetGUIDs they are connected to 
+	/// \brief Given a remote system identified by RakNetGUID, return the list of SystemAddresses and RakNetGUIDs they are connected to
 	/// \param[in] remoteSystemGuid Which system we are referring to. This only works for remote systems, not ourselves.
 	/// \param[out] saOut A preallocated array to hold the output list of SystemAddress. Can be 0 if you don't care.
 	/// \param[out] guidOut A preallocated array to hold the output list of RakNetGUID. Can be 0 if you don't care.
@@ -98,30 +97,29 @@ public:
 		uint16_t sendersPingToThatSystem;
 	};
 	/// \internal
-	static int SystemAddressAndGuidComp( const SystemAddressAndGuid &key, const SystemAddressAndGuid &data );
+	static int SystemAddressAndGuidComp(const SystemAddressAndGuid &key, const SystemAddressAndGuid &data);
 
 	/// \internal
 	struct RemoteSystem
 	{
-		DataStructures::OrderedList<SystemAddressAndGuid,SystemAddressAndGuid,ConnectionGraph2::SystemAddressAndGuidComp> remoteConnections;
+		DataStructures::OrderedList<SystemAddressAndGuid, SystemAddressAndGuid, ConnectionGraph2::SystemAddressAndGuidComp> remoteConnections;
 		RakNetGUID guid;
 	};
 	/// \internal
-	static int RemoteSystemComp( const RakNetGUID &key, RemoteSystem * const &data );
-	
+	static int RemoteSystemComp(const RakNetGUID &key, RemoteSystem *const &data);
+
 protected:
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	/// \internal
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 
 	// List of systems I am connected to, which in turn stores which systems they are connected to
-	DataStructures::OrderedList<RakNetGUID, RemoteSystem*, ConnectionGraph2::RemoteSystemComp> remoteSystems;
+	DataStructures::OrderedList<RakNetGUID, RemoteSystem *, ConnectionGraph2::RemoteSystemComp> remoteSystems;
 
 	bool autoProcessNewConnections;
-
 };
 
 } // namespace MafiaNet

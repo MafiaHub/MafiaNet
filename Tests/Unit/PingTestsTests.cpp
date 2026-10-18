@@ -25,59 +25,59 @@ using namespace MafiaNet;
 
 namespace
 {
-	const uint32_t kOneWayDelayMs = 20;
+const uint32_t kOneWayDelayMs = 20;
 
-	// The round trip on the wire plus two 1 ms ticks of turnaround: the ping is
-	// stamped between steps and goes out on the next tick, and the receiver
-	// answers it on the tick after the one it arrived on.
-	const int kTurnaroundMs = 2;
-	const int kExpectedRttMs = kTurnaroundMs + 2 * (int) kOneWayDelayMs;
+// The round trip on the wire plus two 1 ms ticks of turnaround: the ping is
+// stamped between steps and goes out on the next tick, and the receiver
+// answers it on the tick after the one it arrived on.
+const int kTurnaroundMs = 2;
+const int kExpectedRttMs = kTurnaroundMs + 2 * (int) kOneWayDelayMs;
 
-	// Counts ID_CONNECTED_PING arriving at the peer it is attached to, per
-	// sender. SetOccasionalPing has no public observable -- the pings it
-	// triggers are consumed inside the library -- but OnInternalPacket sees them.
-	class ConnectedPingCounter : public PluginInterface2
+// Counts ID_CONNECTED_PING arriving at the peer it is attached to, per
+// sender. SetOccasionalPing has no public observable -- the pings it
+// triggers are consumed inside the library -- but OnInternalPacket sees them.
+class ConnectedPingCounter : public PluginInterface2
+{
+public:
+	SystemAddress senderA;
+	SystemAddress senderB;
+	int countA = 0;
+	int countB = 0;
+
+	bool UsesReliabilityLayer(void) const override { return true; }
+
+	void OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber,
+	                      SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend) override
 	{
-	public:
-		SystemAddress senderA;
-		SystemAddress senderB;
-		int countA = 0;
-		int countB = 0;
-
-		bool UsesReliabilityLayer(void) const override { return true; }
-
-		void OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber,
-			SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend) override
-		{
-			(void) frameNumber;
-			(void) time;
-			if (isSend || internalPacket == nullptr || internalPacket->data == nullptr || internalPacket->dataBitLength < 8)
-				return;
-			if (internalPacket->data[0] != (unsigned char) ID_CONNECTED_PING)
-				return;
-			if (remoteSystemAddress == senderA)
-				++countA;
-			else if (remoteSystemAddress == senderB)
-				++countB;
-		}
-	};
-
-	SimulatedNetwork::LinkRule FixedDelay()
-	{
-		SimulatedNetwork::LinkRule rule;
-		rule.delayMs = kOneWayDelayMs;
-		return rule;
+		(void) frameNumber;
+		(void) time;
+		if (isSend || internalPacket == nullptr || internalPacket->data == nullptr || internalPacket->dataBitLength < 8)
+			return;
+		if (internalPacket->data[0] != (unsigned char) ID_CONNECTED_PING)
+			return;
+		if (remoteSystemAddress == senderA)
+			++countA;
+		else if (remoteSystemAddress == senderB)
+			++countB;
 	}
+};
 
-	// Calls Ping() every intervalMs for durationMs of simulated time.
-	void PingRepeatedly(SimulatedNetwork &net, RakPeer *from, const SystemAddress &to, uint32_t intervalMs, uint32_t durationMs)
+SimulatedNetwork::LinkRule FixedDelay()
+{
+	SimulatedNetwork::LinkRule rule;
+	rule.delayMs = kOneWayDelayMs;
+	return rule;
+}
+
+// Calls Ping() every intervalMs for durationMs of simulated time.
+void PingRepeatedly(SimulatedNetwork &net, RakPeer *from, const SystemAddress &to, uint32_t intervalMs, uint32_t durationMs)
+{
+	for (uint32_t elapsed = 0; elapsed < durationMs; elapsed += intervalMs)
 	{
-		for (uint32_t elapsed = 0; elapsed < durationMs; elapsed += intervalMs)
-		{
-			from->Ping(to);
-			net.Step(intervalMs);
-		}
+		from->Ping(to);
+		net.Step(intervalMs);
 	}
+}
 }
 
 TEST(PingTests, NoStatisticsForAnUnknownSystem)

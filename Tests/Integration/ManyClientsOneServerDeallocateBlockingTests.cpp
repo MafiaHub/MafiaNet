@@ -39,12 +39,12 @@ protected:
 			return;
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i=0; i < clientNum; i++)
+		for (int i = 0; i < clientNum; i++)
 			if (clientList[i])
 				clientList[i]->Shutdown(100);
 		server->Shutdown(100);
 
-		for (int i=0; i < clientNum; i++)
+		for (int i = 0; i < clientNum; i++)
 			if (clientList[i])
 				RakPeerInterface::DestroyInstance(clientList[i]);
 
@@ -54,25 +54,24 @@ protected:
 	void WaitForConnectionRequestsToComplete()
 	{
 		SystemAddress currentSystem;
-		bool msgWasPrinted=false;
+		bool msgWasPrinted = false;
 
-		for (int i=0;i<clientNum;i++)
+		for (int i = 0; i < clientNum; i++)
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
 			currentSystem.SetPortHostOrder(serverPort);
 
-			while (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,false,true,true) )
+			while (CommonFunctions::ConnectionStateMatchesOptions(clientList[i], currentSystem, false, true, true))
 			{
-				if (msgWasPrinted==false)
+				if (msgWasPrinted == false)
 				{
 					printf("Waiting for connection requests to complete.\n");
-					msgWasPrinted=true;
+					msgWasPrinted = true;
 				}
 
 				RakSleep(30);
 			}
-
 		}
 	}
 
@@ -83,25 +82,24 @@ protected:
 		Packet *packet;
 
 		// Drain all events for the server
-		for (packet=server->Receive(); packet;server->DeallocatePacket(packet), packet=server->Receive())
+		for (packet = server->Receive(); packet; server->DeallocatePacket(packet), packet = server->Receive())
 		{
 		}
 
 		//RakSleep(100);
 
 		// Drain all events per peer
-		for (int i=0;i<clientNum;i++)//Receive for all peers
+		for (int i = 0; i < clientNum; i++) //Receive for all peers
 		{
-			for (packet=clientList[i]->Receive(); packet; clientList[i]->DeallocatePacket(packet), packet=clientList[i]->Receive())
+			for (packet = clientList[i]->Receive(); packet; clientList[i]->DeallocatePacket(packet), packet = clientList[i]->Receive())
 			{
 			}
 		}
-
 	}
 
 	// Reduced from 256 for stability - many clients creates too much resource pressure
-	static const int clientNum= 8;
-	RakPeerInterface *clientList[clientNum];//A list of clients
+	static const int clientNum = 8;
+	RakPeerInterface *clientList[clientNum]; //A list of clients
 	RakPeerInterface *server;
 	unsigned short serverPort = 0;
 };
@@ -182,62 +180,60 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	SystemAddress currentSystem;
 
 	//Initializations of the arrays
-	for (int i=0;i<clientNum;i++)
+	for (int i = 0; i < clientNum; i++)
 	{
 
-		clientList[i]=RakPeerInterface::GetInstance();
+		clientList[i] = RakPeerInterface::GetInstance();
 
 		SocketDescriptor clientSd;
 		StartupResult result = clientList[i]->Startup(1, &clientSd, 1);
 		ASSERT_EQ(result, RAKNET_STARTED) << "Client " << i << " failed to start (error " << result << ")";
-
 	}
 
-	server=RakPeerInterface::GetInstance();
+	server = RakPeerInterface::GetInstance();
 	serverPort = TestHelpers::StartOnLoopback(server, clientNum, clientNum);
 	ASSERT_NE(serverPort, 0) << "Server failed to start";
 
-	const int timeoutTime=1000;
-	server->SetTimeoutTime(timeoutTime,UNASSIGNED_SYSTEM_ADDRESS);
+	const int timeoutTime = 1000;
+	server->SetTimeoutTime(timeoutTime, UNASSIGNED_SYSTEM_ADDRESS);
 
-	int retTimeout=(int)server->GetTimeoutTime(UNASSIGNED_SYSTEM_ADDRESS);
+	int retTimeout = (int) server->GetTimeoutTime(UNASSIGNED_SYSTEM_ADDRESS);
 	ASSERT_EQ(retTimeout, timeoutTime) << "GetTimeoutTime did not match the timeout that was set";
 
 	//Connect all the clients to the server
 
-	for (int i=0;i<clientNum;i++)
+	for (int i = 0; i < clientNum; i++)
 	{
 
 		//This fails the test, don't bother going on.
-		ASSERT_EQ(clientList[i]->Connect("127.0.0.1", serverPort, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
-
+		ASSERT_EQ(clientList[i]->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
 	}
 
-	TimeMS entryTime=GetTimeMS();//Loop entry time
+	TimeMS entryTime = GetTimeMS(); //Loop entry time
 
-	DataStructures::List< SystemAddress  > systemList;
-	DataStructures::List< RakNetGUID > guidList;
+	DataStructures::List<SystemAddress> systemList;
+	DataStructures::List<RakNetGUID> guidList;
 
 	printf("Entering disconnect loop \n");
 
-	while(GetTimeMS()-entryTime<testDurationMs)//Run for testDurationMs
+	while (GetTimeMS() - entryTime < testDurationMs) //Run for testDurationMs
 	{
 
 		//Deallocate client IF connected
-		for (int i=0;i<clientNum;i++)
+		for (int i = 0; i < clientNum; i++)
 		{
 			// Skip invalid peers
 			if (!clientList[i] || !clientList[i]->IsActive())
 				continue;
 
-			clientList[i]->GetSystemList(systemList,guidList);//Get connectionlist
-			int len=systemList.Size();
+			clientList[i]->GetSystemList(systemList, guidList); //Get connectionlist
+			int len = systemList.Size();
 
-			if(len>=1)
+			if (len >= 1)
 			{
 				clientList[i]->Shutdown(100);
 				RakPeerInterface::DestroyInstance(clientList[i]);
-				clientList[i]=RakPeerInterface::GetInstance();
+				clientList[i] = RakPeerInterface::GetInstance();
 
 				SocketDescriptor clientSd2;
 				StartupResult loopResult = clientList[i]->Startup(1, &clientSd2, 1);
@@ -249,68 +245,63 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 				}
 				ASSERT_EQ(loopResult, RAKNET_STARTED) << "Client " << i << " failed to restart (error " << loopResult << ")";
 			}
-
 		}
 
-		RakSleep(sleepTimeMs);//Allow connections to timeout.
+		RakSleep(sleepTimeMs); //Allow connections to timeout.
 
 		//Connect
 
-		for (int i=0;i<clientNum;i++)
+		for (int i = 0; i < clientNum; i++)
 		{
 
 			currentSystem.SetBinaryAddress("127.0.0.1");
 			currentSystem.SetPortHostOrder(serverPort);
-			if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
+			if (!CommonFunctions::ConnectionStateMatchesOptions(clientList[i], currentSystem, true, true, true, true)) //Are we connected or is there a pending operation ?
 			{
 
 				//This fails the test, don't bother going on.
-				ASSERT_EQ(clientList[i]->Connect("127.0.0.1", serverPort, 0,0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
+				ASSERT_EQ(clientList[i]->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED) << "The connect function failed";
 			}
-
 		}
 
 		WaitAndPrintResults();
-
 	}
 
 	WaitAndPrintResults();
 
 	printf("Connecting clients\n");
 
-	RakSleep(sleepTimeMs);//Allow connections to timeout.
+	RakSleep(sleepTimeMs); //Allow connections to timeout.
 
 	//Connect
 
-	for (int i=0;i<clientNum;i++)
+	for (int i = 0; i < clientNum; i++)
 	{
 
 		currentSystem.SetBinaryAddress("127.0.0.1");
 		currentSystem.SetPortHostOrder(serverPort);
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true,true,true,true) )//Are we connected or is there a pending operation ?
+		if (!CommonFunctions::ConnectionStateMatchesOptions(clientList[i], currentSystem, true, true, true, true)) //Are we connected or is there a pending operation ?
 		{
-			printf("Calling Connect() for client %i.\n",i);
+			printf("Calling Connect() for client %i.\n", i);
 
-			if (clientList[i]->Connect("127.0.0.1", serverPort, 0,0)!=CONNECTION_ATTEMPT_STARTED)
+			if (clientList[i]->Connect("127.0.0.1", serverPort, 0, 0) != CONNECTION_ATTEMPT_STARTED)
 			{
-				clientList[i]->GetSystemList(systemList,guidList);//Get connectionlist
+				clientList[i]->GetSystemList(systemList, guidList); //Get connectionlist
 
 				//This fails the test, don't bother going on.
 				FAIL() << "The connect function failed";
-
 			}
 		}
 		else
 		{
-			if (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,false,false,false,true)==false)
-				printf("Not calling Connect() for client %i because it is disconnecting.\n",i);
-			else if (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,false,true,true)==false)
-				printf("Not calling Connect() for client %i  because it is connecting.\n",i);
-			else if (CommonFunctions::ConnectionStateMatchesOptions (clientList[i],currentSystem,true)==false)
-				printf("Not calling Connect() for client %i because it is connected).\n",i);
+			if (CommonFunctions::ConnectionStateMatchesOptions(clientList[i], currentSystem, false, false, false, true) == false)
+				printf("Not calling Connect() for client %i because it is disconnecting.\n", i);
+			else if (CommonFunctions::ConnectionStateMatchesOptions(clientList[i], currentSystem, false, true, true) == false)
+				printf("Not calling Connect() for client %i  because it is connecting.\n", i);
+			else if (CommonFunctions::ConnectionStateMatchesOptions(clientList[i], currentSystem, true) == false)
+				printf("Not calling Connect() for client %i because it is connected).\n", i);
 		}
-
 	}
 
 	printf("Final WaitAndPrintResults...\n");
@@ -335,7 +326,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	if (skipDetailedVerification)
 	{
 		// Simple check in CI - just count active peers without calling GetSystemList
-		for (int i=0;i<clientNum;i++)
+		for (int i = 0; i < clientNum; i++)
 		{
 			if (clientList[i] && clientList[i]->IsActive())
 			{
@@ -346,7 +337,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	}
 	else
 	{
-		for (int i=0;i<clientNum;i++)
+		for (int i = 0; i < clientNum; i++)
 		{
 			// Check if peer exists and is active before accessing it
 			if (!clientList[i] || !clientList[i]->IsActive())
@@ -355,9 +346,9 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 			}
 			activeCount++;
 
-			clientList[i]->GetSystemList(systemList,guidList);
-			int connNum=guidList.Size();
-			if (connNum==1)
+			clientList[i]->GetSystemList(systemList, guidList);
+			int connNum = guidList.Size();
+			if (connNum == 1)
 				connectedCount++;
 		}
 		printf("Active: %d, Connected: %d out of %d clients\n", activeCount, connectedCount, clientNum);
@@ -367,5 +358,4 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 	// No strict requirements on connection counts
 
 	printf("Test completed, cleaning up...\n");
-
 }

@@ -45,263 +45,265 @@ read between every pair of update cycles rather than whenever the poll happened 
 
 namespace
 {
-	typedef SimulatedNetwork::Message Message;
+typedef SimulatedNetwork::Message Message;
 
-	const uint32_t kConnectTimeoutMs = 15000;
-	// Shortened from the 10s default, as in the loopback version.
-	const TimeMS kHandshakeTimeoutMs = 3000;
-	const MessageID kUserMessageId = ID_USER_PACKET_ENUM + 1;
+const uint32_t kConnectTimeoutMs = 15000;
+// Shortened from the 10s default, as in the loopback version.
+const TimeMS kHandshakeTimeoutMs = 3000;
+const MessageID kUserMessageId = ID_USER_PACKET_ENUM + 1;
 
-	const char kServerPayload[] = "{\"season\":\"winter\",\"map_file\":\"downtown.m2map\"}";
-	const char kClientPayload[] = "{\"build\":\"m2o|1.2.3\"}";
+const char kServerPayload[] = "{\"season\":\"winter\",\"map_file\":\"downtown.m2map\"}";
+const char kClientPayload[] = "{\"build\":\"m2o|1.2.3\"}";
 
-	// Injects application-layer bytes onto an established connection while bypassing the public Send()
-	// handshake gate, standing in for a peer that does not respect the protocol.
-	//
-	// Needed because the gates for un-accepted peers mask each other between two conforming peers: the
-	// sender's broadcast filter and directed-send check mean nothing reaches the wire, so a negative
-	// assertion on the receiver holds whether or not the receiving-side check exists.
-	//
-	// Never instantiated: the peer comes from RakPeerInterface::GetInstance() (SimulatedNetwork::AddPeer
-	// uses it too), so it has the library's own layout. The derived type only names the protected member;
-	// the call goes through a pointer-to-member on the real RakPeer, because downcasting to this type
-	// would be undefined behaviour (UBSan's vptr check aborts on it).
-	//
-	// SendBuffered is the layer the public Send() drops into once its own checks pass, so the injected
-	// bytes are framed and sent by the next update cycle exactly like real traffic.
-	class SendGateBypass : public RakPeer
+// Injects application-layer bytes onto an established connection while bypassing the public Send()
+// handshake gate, standing in for a peer that does not respect the protocol.
+//
+// Needed because the gates for un-accepted peers mask each other between two conforming peers: the
+// sender's broadcast filter and directed-send check mean nothing reaches the wire, so a negative
+// assertion on the receiver holds whether or not the receiving-side check exists.
+//
+// Never instantiated: the peer comes from RakPeerInterface::GetInstance() (SimulatedNetwork::AddPeer
+// uses it too), so it has the library's own layout. The derived type only names the protected member;
+// the call goes through a pointer-to-member on the real RakPeer, because downcasting to this type
+// would be undefined behaviour (UBSan's vptr check aborts on it).
+//
+// SendBuffered is the layer the public Send() drops into once its own checks pass, so the injected
+// bytes are framed and sent by the next update cycle exactly like real traffic.
+class SendGateBypass : public RakPeer
+{
+public:
+	static void Inject(RakPeer *peer, const BitStream &bs, const AddressOrGUID &target)
 	{
-	public:
-		static void Inject(RakPeer *peer, const BitStream &bs, const AddressOrGUID &target)
-		{
-			(peer->*&SendGateBypass::SendBuffered)(
-				(const char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::Immediate,
-				Reliability::ReliableOrdered, 0, target, false,
-				RemoteSystemStruct::NO_ACTION, 0);
-		}
+		(peer->*&SendGateBypass::SendBuffered)(
+		    (const char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::Immediate,
+		    Reliability::ReliableOrdered, 0, target, false,
+		    RemoteSystemStruct::NO_ACTION, 0);
+	}
+};
+
+// Reads a peer's own view of a connection slot. Never instantiated; see SendGateBypass.
+class SlotInspector : public RakPeer
+{
+public:
+	struct Snapshot
+	{
+		bool sawSlot = false;
+		bool reported = false;
+		unsigned int payloadLength = 0;
 	};
 
-	// Reads a peer's own view of a connection slot. Never instantiated; see SendGateBypass.
-	class SlotInspector : public RakPeer
+	// The tests using this have exactly one remote, so the first active slot is it.
+	static Snapshot FirstActiveSlot(const RakPeer *peer)
 	{
-	public:
-		struct Snapshot
+		const RemoteSystemStruct *slots = peer->*&SlotInspector::remoteSystemList;
+		const unsigned int slotCount = peer->*&SlotInspector::maximumNumberOfPeers;
+		Snapshot out;
+		if (slots == nullptr)
+			return out;
+		for (unsigned int i = 0; i < slotCount; ++i)
 		{
-			bool sawSlot = false;
-			bool reported = false;
-			unsigned int payloadLength = 0;
-		};
-
-		// The tests using this have exactly one remote, so the first active slot is it.
-		static Snapshot FirstActiveSlot(const RakPeer *peer)
-		{
-			const RemoteSystemStruct *slots = peer->*&SlotInspector::remoteSystemList;
-			const unsigned int slotCount = peer->*&SlotInspector::maximumNumberOfPeers;
-			Snapshot out;
-			if (slots == nullptr)
-				return out;
-			for (unsigned int i = 0; i < slotCount; ++i)
-			{
-				if (!slots[i].isActive)
-					continue;
-				out.sawSlot = true;
-				out.reported = slots[i].connectionReportedToApplication;
-				out.payloadLength = slots[i].remoteSessionConfigLength;
-				return out;
-			}
+			if (!slots[i].isActive)
+				continue;
+			out.sawSlot = true;
+			out.reported = slots[i].connectionReportedToApplication;
+			out.payloadLength = slots[i].remoteSessionConfigLength;
 			return out;
 		}
-	};
+		return out;
+	}
+};
 
-	std::string IdList(const std::vector<Message> &inbox)
+std::string IdList(const std::vector<Message> &inbox)
+{
+	std::string out;
+	for (const Message &message : inbox)
 	{
-		std::string out;
-		for (const Message &message : inbox)
+		if (!out.empty())
+			out += ",";
+		out += std::to_string((int) message.id);
+	}
+	return "[" + out + "]";
+}
+
+class SessionConfigSim : public ::testing::Test
+{
+protected:
+	void TearDown() override
+	{
+		// Peers the fixture drives itself go before the network the fixture owns.
+		for (RakPeer *peer : manual)
 		{
-			if (!out.empty())
-				out += ",";
-			out += std::to_string((int) message.id);
+			if (peer->IsActive())
+				peer->Shutdown(0);
+			RakPeerInterface::DestroyInstance(peer);
 		}
-		return "[" + out + "]";
+		manual.clear();
 	}
 
-	class SessionConfigSim : public ::testing::Test
+	// The server and first client of StartPeers() in the loopback version.
+	RakPeer *AddServer(unsigned int maxConnections, unsigned short maxIncoming, TimeMS timeoutMs = kHandshakeTimeoutMs)
 	{
-	protected:
-		void TearDown() override
+		RakPeer *peer = net.AddPeer(maxConnections, maxIncoming);
+		peer->SetTimeoutTime(timeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+		return peer;
+	}
+
+	RakPeer *AddClient(TimeMS timeoutMs = kHandshakeTimeoutMs)
+	{
+		RakPeer *peer = net.AddPeer(1);
+		peer->SetTimeoutTime(timeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+		return peer;
+	}
+
+	// A client the fixture drives itself rather than SimulatedNetwork, for two things the network's
+	// own peers cannot do: share a host with another peer (per-address limits), and Shutdown() in
+	// the middle of a test (the network keeps updating its peers until it is destroyed).
+	RakPeer *AddManualClient(const char *host, unsigned short port, TimeMS timeoutMs = kHandshakeTimeoutMs)
+	{
+		RakPeer *peer = static_cast<RakPeer *>(RakPeerInterface::GetInstance());
+		manual.push_back(peer);
+		peer->SetSocketFactory(&net);
+		peer->SetManualUpdate(true);
+		peer->SetInternalID(SystemAddress(host, port), 0);
+		SocketDescriptor descriptor(port, host);
+		EXPECT_EQ(RAKNET_STARTED, peer->Startup(1, &descriptor, 1));
+		peer->SetTimeoutTime(timeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+		manualInbox[peer];
+		return peer;
+	}
+
+	RakPeer *AddManualClientBeside(const RakPeer *neighbour, TimeMS timeoutMs = kHandshakeTimeoutMs)
+	{
+		const SystemAddress address = net.AddressOf(neighbour);
+		char host[64];
+		address.ToString(false, host, sizeof(host));
+		return AddManualClient(host, (unsigned short) (address.GetPort() + 1), timeoutMs);
+	}
+
+	std::vector<Message> &Inbox(const RakPeer *peer)
+	{
+		auto it = manualInbox.find(peer);
+		return it != manualInbox.end() ? it->second : net.Inbox(peer);
+	}
+
+	const Message *Find(const RakPeer *peer, MessageID id)
+	{
+		for (const Message &message : Inbox(peer))
+			if (message.id == id)
+				return &message;
+		return nullptr;
+	}
+
+	bool Has(const RakPeer *peer, MessageID id) { return Find(peer, id) != nullptr; }
+
+	size_t Count(const RakPeer *peer, MessageID id)
+	{
+		size_t n = 0;
+		for (const Message &message : Inbox(peer))
+			n += message.id == id ? 1 : 0;
+		return n;
+	}
+
+	uint32_t NowMs() const { return (uint32_t) (net.Now() / 1000); }
+
+	// One update cycle per millisecond for every peer.
+	void Pump(uint32_t ms)
+	{
+		for (uint32_t i = 0; i < ms; ++i)
 		{
-			// Peers the fixture drives itself go before the network the fixture owns.
+			net.Step(1);
 			for (RakPeer *peer : manual)
 			{
-				if (peer->IsActive())
-					peer->Shutdown(0);
-				RakPeerInterface::DestroyInstance(peer);
-			}
-			manual.clear();
-		}
-
-		// The server and first client of StartPeers() in the loopback version.
-		RakPeer *AddServer(unsigned int maxConnections, unsigned short maxIncoming, TimeMS timeoutMs = kHandshakeTimeoutMs)
-		{
-			RakPeer *peer = net.AddPeer(maxConnections, maxIncoming);
-			peer->SetTimeoutTime(timeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
-			return peer;
-		}
-
-		RakPeer *AddClient(TimeMS timeoutMs = kHandshakeTimeoutMs)
-		{
-			RakPeer *peer = net.AddPeer(1);
-			peer->SetTimeoutTime(timeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
-			return peer;
-		}
-
-		// A client the fixture drives itself rather than SimulatedNetwork, for two things the network's
-		// own peers cannot do: share a host with another peer (per-address limits), and Shutdown() in
-		// the middle of a test (the network keeps updating its peers until it is destroyed).
-		RakPeer *AddManualClient(const char *host, unsigned short port, TimeMS timeoutMs = kHandshakeTimeoutMs)
-		{
-			RakPeer *peer = static_cast<RakPeer *>(RakPeerInterface::GetInstance());
-			manual.push_back(peer);
-			peer->SetSocketFactory(&net);
-			peer->SetManualUpdate(true);
-			peer->SetInternalID(SystemAddress(host, port), 0);
-			SocketDescriptor descriptor(port, host);
-			EXPECT_EQ(RAKNET_STARTED, peer->Startup(1, &descriptor, 1));
-			peer->SetTimeoutTime(timeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
-			manualInbox[peer];
-			return peer;
-		}
-
-		RakPeer *AddManualClientBeside(const RakPeer *neighbour, TimeMS timeoutMs = kHandshakeTimeoutMs)
-		{
-			const SystemAddress address = net.AddressOf(neighbour);
-			char host[64];
-			address.ToString(false, host, sizeof(host));
-			return AddManualClient(host, (unsigned short) (address.GetPort() + 1), timeoutMs);
-		}
-
-		std::vector<Message> &Inbox(const RakPeer *peer)
-		{
-			auto it = manualInbox.find(peer);
-			return it != manualInbox.end() ? it->second : net.Inbox(peer);
-		}
-
-		const Message *Find(const RakPeer *peer, MessageID id)
-		{
-			for (const Message &message : Inbox(peer))
-				if (message.id == id)
-					return &message;
-			return nullptr;
-		}
-
-		bool Has(const RakPeer *peer, MessageID id) { return Find(peer, id) != nullptr; }
-
-		size_t Count(const RakPeer *peer, MessageID id)
-		{
-			size_t n = 0;
-			for (const Message &message : Inbox(peer))
-				n += message.id == id ? 1 : 0;
-			return n;
-		}
-
-		uint32_t NowMs() const { return (uint32_t) (net.Now() / 1000); }
-
-		// One update cycle per millisecond for every peer.
-		void Pump(uint32_t ms)
-		{
-			for (uint32_t i = 0; i < ms; ++i)
-			{
-				net.Step(1);
-				for (RakPeer *peer : manual)
+				if (!peer->IsActive())
+					continue;
+				peer->RunManualUpdate();
+				for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
 				{
-					if (!peer->IsActive())
-						continue;
-					peer->RunManualUpdate();
-					for (Packet *packet = peer->Receive(); packet; packet = peer->Receive())
-					{
-						Message message;
-						message.id = packet->length ? packet->data[0] : 0;
-						message.data.assign(packet->data, packet->data + packet->length);
-						message.systemAddress = packet->systemAddress;
-						message.guid = packet->guid;
-						manualInbox[peer].push_back(std::move(message));
-						peer->DeallocatePacket(packet);
-					}
+					Message message;
+					message.id = packet->length ? packet->data[0] : 0;
+					message.data.assign(packet->data, packet->data + packet->length);
+					message.systemAddress = packet->systemAddress;
+					message.guid = packet->guid;
+					manualInbox[peer].push_back(std::move(message));
+					peer->DeallocatePacket(packet);
 				}
 			}
 		}
-
-		// Pump until pred() holds, checking after every update cycle.
-		bool Until(const std::function<bool()> &pred, uint32_t maxMs)
-		{
-			for (uint32_t elapsed = 0; elapsed < maxMs; ++elapsed)
-			{
-				if (pred())
-					return true;
-				Pump(1);
-			}
-			return pred();
-		}
-
-		bool WaitFor(const RakPeer *peer, MessageID id, uint32_t maxMs = kConnectTimeoutMs)
-		{
-			return Until([&] { return Has(peer, id); }, maxMs);
-		}
-
-		bool WaitForBoth(const RakPeer *a, MessageID aId, const RakPeer *b, MessageID bId, uint32_t maxMs = kConnectTimeoutMs)
-		{
-			return Until([&] { return Has(a, aId) && Has(b, bId); }, maxMs);
-		}
-
-		// Waits for the session request on the server and hands back its guid.
-		bool WaitForRequest(const RakPeer *server, RakNetGUID &guid)
-		{
-			if (!WaitFor(server, ID_SESSION_CONFIG_REQUEST))
-				return false;
-			guid = Find(server, ID_SESSION_CONFIG_REQUEST)->guid;
-			return true;
-		}
-
-		ConnectionAttemptResult StartConnect(RakPeer *client, const RakPeer *server)
-		{
-			const SystemAddress target = net.AddressOf(server);
-			char host[64];
-			target.ToString(false, host, sizeof(host));
-			return client->Connect(host, target.GetPort(), nullptr, 0);
-		}
-
-		// The pending-session pool setup: an interactive server with an incoming limit and a pool.
-		RakPeer *AddPooledServer(unsigned short maxIncoming, unsigned short pool, unsigned short perAddress, TimeMS timeoutMs = 60000)
-		{
-			RakPeer *peer = AddServer((unsigned int) maxIncoming + pool, maxIncoming, timeoutMs);
-			peer->SetSessionConfigInteractive(true);
-			peer->SetMaximumPendingSessions(pool, perAddress);
-			return peer;
-		}
-
-		SimulatedNetwork net;
-		std::vector<RakPeer *> manual;
-		std::map<const RakPeer *, std::vector<Message> > manualInbox;
-	};
-
-	void ExpectPayload(const char *got, unsigned int length, const char *expected, size_t expectedLength)
-	{
-		ASSERT_NE(got, nullptr);
-		ASSERT_EQ(length, (unsigned int) expectedLength);
-		EXPECT_EQ(0, std::memcmp(got, expected, length));
 	}
 
-	void WriteUserMessage(BitStream &bs, const char *text)
+	// Pump until pred() holds, checking after every update cycle.
+	bool Until(const std::function<bool()> &pred, uint32_t maxMs)
 	{
-		bs.Write(kUserMessageId);
-		bs.Write(text, (unsigned int) std::strlen(text));
+		for (uint32_t elapsed = 0; elapsed < maxMs; ++elapsed)
+		{
+			if (pred())
+				return true;
+			Pump(1);
+		}
+		return pred();
 	}
 
-	bool CarriesText(const Message *message, const char *text)
+	bool WaitFor(const RakPeer *peer, MessageID id, uint32_t maxMs = kConnectTimeoutMs)
 	{
-		const size_t n = std::strlen(text);
-		return message && message->data.size() == 1 + n && std::memcmp(message->data.data() + 1, text, n) == 0;
+		return Until([&]
+		             { return Has(peer, id); }, maxMs);
 	}
+
+	bool WaitForBoth(const RakPeer *a, MessageID aId, const RakPeer *b, MessageID bId, uint32_t maxMs = kConnectTimeoutMs)
+	{
+		return Until([&]
+		             { return Has(a, aId) && Has(b, bId); }, maxMs);
+	}
+
+	// Waits for the session request on the server and hands back its guid.
+	bool WaitForRequest(const RakPeer *server, RakNetGUID &guid)
+	{
+		if (!WaitFor(server, ID_SESSION_CONFIG_REQUEST))
+			return false;
+		guid = Find(server, ID_SESSION_CONFIG_REQUEST)->guid;
+		return true;
+	}
+
+	ConnectionAttemptResult StartConnect(RakPeer *client, const RakPeer *server)
+	{
+		const SystemAddress target = net.AddressOf(server);
+		char host[64];
+		target.ToString(false, host, sizeof(host));
+		return client->Connect(host, target.GetPort(), nullptr, 0);
+	}
+
+	// The pending-session pool setup: an interactive server with an incoming limit and a pool.
+	RakPeer *AddPooledServer(unsigned short maxIncoming, unsigned short pool, unsigned short perAddress, TimeMS timeoutMs = 60000)
+	{
+		RakPeer *peer = AddServer((unsigned int) maxIncoming + pool, maxIncoming, timeoutMs);
+		peer->SetSessionConfigInteractive(true);
+		peer->SetMaximumPendingSessions(pool, perAddress);
+		return peer;
+	}
+
+	SimulatedNetwork net;
+	std::vector<RakPeer *> manual;
+	std::map<const RakPeer *, std::vector<Message>> manualInbox;
+};
+
+void ExpectPayload(const char *got, unsigned int length, const char *expected, size_t expectedLength)
+{
+	ASSERT_NE(got, nullptr);
+	ASSERT_EQ(length, (unsigned int) expectedLength);
+	EXPECT_EQ(0, std::memcmp(got, expected, length));
+}
+
+void WriteUserMessage(BitStream &bs, const char *text)
+{
+	bs.Write(kUserMessageId);
+	bs.Write(text, (unsigned int) std::strlen(text));
+}
+
+bool CarriesText(const Message *message, const char *text)
+{
+	const size_t n = std::strlen(text);
+	return message && message->data.size() == 1 + n && std::memcmp(message->data.data() + 1, text, n) == 0;
+}
 } // namespace
 
 // Static mode: no application code beyond SetSessionConfig. Each peer can read the other's payload at
@@ -317,7 +319,8 @@ TEST_F(SessionConfigSim, StaticExchangeDeliversBothPayloads)
 	// Read the payload in the same cycle the connection packet surfaces, not some time after.
 	bool clientChecked = false;
 	bool serverChecked = false;
-	ASSERT_TRUE(Until([&] {
+	ASSERT_TRUE(Until([&]
+	                  {
 		if (!clientChecked && Has(client, ID_CONNECTION_REQUEST_ACCEPTED))
 		{
 			unsigned int length = 0;
@@ -332,8 +335,8 @@ TEST_F(SessionConfigSim, StaticExchangeDeliversBothPayloads)
 			ExpectPayload(fromClient, length, kClientPayload, std::strlen(kClientPayload));
 			serverChecked = true;
 		}
-		return clientChecked && serverChecked;
-	}, kConnectTimeoutMs)) << "client " << IdList(Inbox(client)) << " server " << IdList(Inbox(server));
+		return clientChecked && serverChecked; }, kConnectTimeoutMs))
+	    << "client " << IdList(Inbox(client)) << " server " << IdList(Inbox(server));
 }
 
 // Static-mode gating: the server's connection packet is withheld while the library waits for the
@@ -371,7 +374,7 @@ TEST_F(SessionConfigSim, StaticModeWithholdsTheConnectionUntilTheClientPayloadAr
 	}
 
 	EXPECT_EQ(0u, violations)
-		<< "the server reported the connection while the client's session payload was still missing";
+	    << "the server reported the connection while the client's session payload was still missing";
 	EXPECT_GT(gatedCycles, 1u) << "never observed the handshake in its gated state, so this test proved nothing";
 	ASSERT_TRUE(reportedWithPayload) << "the server never reported the connection with the client's payload in hand";
 
@@ -562,7 +565,7 @@ TEST_F(SessionConfigSim, StalledHandshakeStillConsumesAnIncomingSlot)
 	RakPeer *second = AddClient();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
 	ASSERT_TRUE(WaitFor(second, ID_NO_FREE_INCOMING_CONNECTIONS))
-		<< "a peer stalled in the session handshake did not count against the incoming limit";
+	    << "a peer stalled in the session handshake did not count against the incoming limit";
 	EXPECT_EQ(1u, Count(server, ID_SESSION_CONFIG_REQUEST));
 }
 
@@ -590,7 +593,7 @@ TEST_P(SessionConfigSimPipeline, FullConnectionLifecycleBehavesIdentically)
 	// ---- stage 1: both sides report the connection --------------------------------------------------
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	ASSERT_TRUE(WaitForBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION))
-		<< "the connection was not reported on both sides";
+	    << "the connection was not reported on both sides";
 	const RakNetGUID serverGuid = Find(client, ID_CONNECTION_REQUEST_ACCEPTED)->guid;
 	const RakNetGUID clientGuid = Find(server, ID_NEW_INCOMING_CONNECTION)->guid;
 
@@ -627,16 +630,16 @@ TEST_P(SessionConfigSimPipeline, FullConnectionLifecycleBehavesIdentically)
 	// ---- stage 4: reconnect over the reused slot ----------------------------------------------------
 	// CloseConnection is asynchronous on the closing side too: reconnecting before the local slot frees
 	// returns ALREADY_CONNECTED_TO_ENDPOINT, so wait for the teardown.
-	ASSERT_TRUE(Until([&] {
+	ASSERT_TRUE(Until([&]
+	                  {
 		const ConnectionState state = client->GetConnectionState(serverGuid);
-		return state == IS_NOT_CONNECTED || state == IS_DISCONNECTED;
-	}, kConnectTimeoutMs));
+		return state == IS_NOT_CONNECTED || state == IS_DISCONNECTED; }, kConnectTimeoutMs));
 
 	Inbox(client).clear();
 	Inbox(server).clear();
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
 	ASSERT_TRUE(WaitForBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION))
-		<< "the reconnection was not reported on both sides";
+	    << "the reconnection was not reported on both sides";
 	const RakNetGUID serverGuid2 = Find(client, ID_CONNECTION_REQUEST_ACCEPTED)->guid;
 	const RakNetGUID clientGuid2 = Find(server, ID_NEW_INCOMING_CONNECTION)->guid;
 
@@ -663,10 +666,11 @@ TEST_P(SessionConfigSimPipeline, FullConnectionLifecycleBehavesIdentically)
 }
 
 INSTANTIATE_TEST_SUITE_P(WithAndWithoutSessionConfig, SessionConfigSimPipeline,
-	::testing::Values(false, true),
-	[](const ::testing::TestParamInfo<bool> &info) {
-		return info.param ? "WithSessionConfig" : "WithoutSessionConfig";
-	});
+                         ::testing::Values(false, true),
+                         [](const ::testing::TestParamInfo<bool> &info)
+                         {
+	                         return info.param ? "WithSessionConfig" : "WithoutSessionConfig";
+                         });
 
 // Application traffic must not cross a connection the application has not been told about. This one
 // covers the directed-send half and the connection state; the inbound half is the next test.
@@ -685,7 +689,7 @@ TEST_F(SessionConfigSim, ApplicationTrafficIsBlockedUntilTheHandshakeCompletes)
 	BitStream world;
 	WriteUserMessage(world, "world-state-leak");
 	EXPECT_EQ(0u, server->Send(&world, Priority::High, Reliability::ReliableOrdered, 0, clientGuid, false))
-		<< "a directed send reached a peer the application has not accepted";
+	    << "a directed send reached a peer the application has not accepted";
 
 	Pump(700);
 	EXPECT_FALSE(Has(server, ID_NEW_INCOMING_CONNECTION)) << "server reported a connection before answering the session request";
@@ -699,7 +703,7 @@ TEST_F(SessionConfigSim, ApplicationTrafficIsBlockedUntilTheHandshakeCompletes)
 	BitStream now;
 	WriteUserMessage(now, "after-accept-ok!");
 	EXPECT_NE(0u, server->Send(&now, Priority::High, Reliability::ReliableOrdered, 0, clientGuid, false))
-		<< "a directed send was still refused after the handshake completed";
+	    << "a directed send was still refused after the handshake completed";
 	ASSERT_TRUE(WaitFor(client, kUserMessageId)) << "traffic did not flow after the handshake completed";
 	EXPECT_TRUE(CarriesText(Find(client, kUserMessageId), "after-accept-ok!"));
 	EXPECT_EQ(1u, Count(client, kUserMessageId));
@@ -736,7 +740,7 @@ TEST_F(SessionConfigSim, InboundApplicationDataDuringHandshakeIsNotDelivered)
 	SendGateBypass::Inject(client, now, serverAddr);
 	ASSERT_TRUE(WaitFor(server, kUserMessageId)) << "traffic was still dropped after the handshake completed";
 	EXPECT_TRUE(CarriesText(Find(server, kUserMessageId), "after-accept-ok!"))
-		<< "the message dropped during the handshake was delivered late instead";
+	    << "the message dropped during the handshake was delivered late instead";
 	EXPECT_EQ(1u, Count(server, kUserMessageId));
 }
 
@@ -758,8 +762,9 @@ TEST_F(SessionConfigSim, PendingPoolKeepsStalledHandshakesOutOfThePlayerSlots)
 
 	RakPeer *second = AddClient(60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(Until([&] { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
-		<< "the stalled handshake took the only player slot; second saw " << IdList(Inbox(second));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
+	    << "the stalled handshake took the only player slot; second saw " << IdList(Inbox(second));
 	const RakNetGUID secondGuid = Inbox(server).back().guid;
 	ASSERT_EQ(ID_SESSION_CONFIG_REQUEST, Inbox(server).back().id);
 	EXPECT_NE(stalledGuid, secondGuid);
@@ -767,7 +772,7 @@ TEST_F(SessionConfigSim, PendingPoolKeepsStalledHandshakesOutOfThePlayerSlots)
 
 	server->AcceptSession(secondGuid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
 	ASSERT_TRUE(WaitForBoth(second, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION))
-		<< "the second player was not let in while the first sat in the handshake";
+	    << "the second player was not let in while the first sat in the handshake";
 	EXPECT_EQ(secondGuid, Find(server, ID_NEW_INCOMING_CONNECTION)->guid);
 	EXPECT_EQ(1u, server->NumberOfConnections()) << "a peer still in the handshake must not read as connected";
 	EXPECT_EQ(IS_CONNECTING, server->GetConnectionState(stalledGuid));
@@ -808,8 +813,9 @@ TEST_F(SessionConfigSim, PendingPoolBoundsWhatOneAddressMayHold)
 	// The limit is per address, not a smaller pool: a client on another host still gets in.
 	RakPeer *third = AddClient(60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(third, server));
-	ASSERT_TRUE(Until([&] { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
-		<< "third saw " << IdList(Inbox(third));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
+	    << "third saw " << IdList(Inbox(third));
 }
 
 // A decision gives the pool slot back. A refused peer lingers only to deliver the refusal, and that must
@@ -827,8 +833,9 @@ TEST_F(SessionConfigSim, PendingPoolSlotIsFreedByADecision)
 
 	RakPeer *second = AddClient(60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(Until([&] { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
-		<< "the refused peer still held the only pool slot; second saw " << IdList(Inbox(second));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
+	    << "the refused peer still held the only pool slot; second saw " << IdList(Inbox(second));
 	EXPECT_EQ(second->GetMyGUID(), Inbox(server).back().guid);
 	EXPECT_NE(firstGuid, Inbox(server).back().guid);
 	EXPECT_FALSE(Has(server, ID_SESSION_CONFIG_ABANDONED)) << "a peer the application refused was reported as abandoned";
@@ -850,8 +857,9 @@ TEST_F(SessionConfigSim, AcceptSessionCannotOverfillTheIncomingLimit)
 
 	RakPeer *second = AddClient(60000);
 	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(second, server));
-	ASSERT_TRUE(Until([&] { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
-		<< "a full server with a pool refused to even start the handshake; second saw " << IdList(Inbox(second));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(server, ID_SESSION_CONFIG_REQUEST) == 2; }, kConnectTimeoutMs))
+	    << "a full server with a pool refused to even start the handshake; second saw " << IdList(Inbox(second));
 	const RakNetGUID secondGuid = Inbox(server).back().guid;
 
 	server->AcceptSession(secondGuid, nullptr, 0);
@@ -899,7 +907,7 @@ TEST_F(SessionConfigSim, SessionTimeoutBoundsAnUnansweredHandshake)
 	ASSERT_TRUE(WaitForRequest(server, guid));
 
 	ASSERT_TRUE(WaitForBoth(client, ID_CONNECTION_ATTEMPT_FAILED, server, ID_SESSION_CONFIG_ABANDONED))
-		<< "the session timeout did not end the handshake on both ends";
+	    << "the session timeout did not end the handshake on both ends";
 	const uint32_t elapsed = NowMs() - begin;
 	EXPECT_EQ(guid, Find(server, ID_SESSION_CONFIG_ABANDONED)->guid);
 	EXPECT_EQ(1u, Count(server, ID_SESSION_CONFIG_ABANDONED));
@@ -953,7 +961,7 @@ TEST_F(SessionConfigSim, SessionStatusReachesTheClientAndKeepsTheHandshakeAlive)
 
 	server->AcceptSession(guid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
 	ASSERT_TRUE(WaitForBoth(client, ID_CONNECTION_REQUEST_ACCEPTED, server, ID_NEW_INCOMING_CONNECTION))
-		<< "a peer held with status was not let in when accepted";
+	    << "a peer held with status was not let in when accepted";
 }
 
 // Status is for a peer awaiting a decision only; once accepted nothing more is sent.

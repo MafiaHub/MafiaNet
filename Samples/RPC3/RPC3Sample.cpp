@@ -35,62 +35,83 @@ MafiaNet::RPC3 *rpc3Inst;
 struct NormalizedVector
 {
 public:
-	NormalizedVector() {x=1.0f; y=0.0f; z=0.0f;}
-	float x,y,z;
+	NormalizedVector()
+	{
+		x = 1.0f;
+		y = 0.0f;
+		z = 0.0f;
+	}
+	float x, y, z;
 };
 
 // Shift operators have to be in the namespace MafiaNet or they might use the default one in bit_stream.h instead. Error occurs with std::string
 namespace MafiaNet
 {
-	// Specialize the << and >> operator to serialize each element of NormalizedVector individually
-	// This allows us to endian swap each parameter (which could not otherwise happen) and also send the data in a compressed form
-	MafiaNet::BitStream& operator<<(MafiaNet::BitStream& out, NormalizedVector& in)
-	{
-		out.WriteNormVector(in.x,in.y,in.z);
-		return out;
-	}
-	MafiaNet::BitStream& operator>>(MafiaNet::BitStream& in, NormalizedVector& out)
-	{
-		SLNET_VERIFY(in.ReadNormVector(out.x,out.y,out.z));
-		return in;
-	}
+// Specialize the << and >> operator to serialize each element of NormalizedVector individually
+// This allows us to endian swap each parameter (which could not otherwise happen) and also send the data in a compressed form
+MafiaNet::BitStream &operator<<(MafiaNet::BitStream &out, NormalizedVector &in)
+{
+	out.WriteNormVector(in.x, in.y, in.z);
+	return out;
+}
+MafiaNet::BitStream &operator>>(MafiaNet::BitStream &in, NormalizedVector &out)
+{
+	SLNET_VERIFY(in.ReadNormVector(out.x, out.y, out.z));
+	return in;
+}
 }
 
 class C;
 class D;
 
-class A {
-public: A() {a=1;} int a;};
-class B {
+class A
+{
 public:
-	B() {b=2;} int b;
+	A() { a = 1; }
+	int a;
+};
+class B
+{
+public:
+	B() { b = 2; }
+	int b;
 	virtual void ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, MafiaNet::BitStream &bs2, MafiaNet::RPC3 *rpc3Inst);
 };
-class C : public A, public B, public MafiaNet::NetworkIDObject {
+class C : public A, public B, public MafiaNet::NetworkIDObject
+{
 public:
-	C() {c=3;} int c;
+	C() { c = 3; }
+	int c;
 	virtual void ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, MafiaNet::BitStream &bs2, MafiaNet::RPC3 *rpc3Inst);
 	void ClassMemberFunc2(MafiaNet::RPC3 *rpc3Inst);
-	virtual void TestSlot(void) {printf("C::TestSlot\n");}
+	virtual void TestSlot(void) { printf("C::TestSlot\n"); }
 };
 
-class D : public B, public MafiaNet::NetworkIDObject {
+class D : public B, public MafiaNet::NetworkIDObject
+{
 public:
 	D()
 	{
-		for (char i=0; i < 10; i++)
-			tenBytes[i]=i;
+		for (char i = 0; i < 10; i++)
+			tenBytes[i] = i;
 	}
 	char tenBytes[10];
-	bool Verify(void) {for (int i=0; i < 10; i++) if (tenBytes[i]!=i) return false; return true;}
-	virtual void TestSlot(void) {printf("D::TestSlot\n");}
+	bool Verify(void)
+	{
+		for (int i = 0; i < 10; i++)
+			if (tenBytes[i] != i)
+				return false;
+		return true;
+	}
+	virtual void TestSlot(void) { printf("D::TestSlot\n"); }
 };
 
 // The number of parameters for a C++ function is limited by BOOST_FUSION_INVOKE_MAX_ARITY-1 found in boost/fusion/functional/invocation/limits.hpp
 // I define this in RPC3_Boost.h to be 10. The default is 6.
 // rpcFromNetwork is automatically filled in from the RPC class. Pass 0 when calling locally. Will be set to the plugin instance when this function is called from the remote system
-void B::ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, MafiaNet::BitStream &bs2, MafiaNet::RPC3 *rpcFromNetwork){
-	if (rpcFromNetwork==0)
+void B::ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, MafiaNet::BitStream &bs2, MafiaNet::RPC3 *rpcFromNetwork)
+{
+	if (rpcFromNetwork == 0)
 		printf("\nB::ClassMemberFunc called locally\n");
 	else
 		printf("\nB::ClassMemberFunc called from %s\n", rpcFromNetwork->GetLastSenderAddress().ToString());
@@ -105,33 +126,35 @@ void B::ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, Ma
 }
 
 // C and D derive from networkIDObject, so cannot be passed as references. A pointer is required to do the object lookup
-void C::ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, MafiaNet::BitStream &bs2, MafiaNet::RPC3 *rpcFromNetwork)	{
+void C::ClassMemberFunc(A *a1, A &a2, C *c1, D *d1, MafiaNet::BitStream *bs1, MafiaNet::BitStream &bs2, MafiaNet::RPC3 *rpcFromNetwork)
+{
 	printf("\nC::ClassMemberFunc\n");
-	B::ClassMemberFunc(a1,a2,c1,d1,bs1,bs2,rpcFromNetwork);
+	B::ClassMemberFunc(a1, a2, c1, d1, bs1, bs2, rpcFromNetwork);
 
-	if (rpcFromNetwork==0)
+	if (rpcFromNetwork == 0)
 	{
 		// The MafiaNet::RPC3 * parameter can be passed to Call() if you want to - it is skipped and not serialized or deserialized so it doesn't matter.
 		// The point of it is so when this function is called on the remote system, it is set to the instance of the plugin so you can query network parameters from the caller
-		// 
+		//
 		// By default, pointers to objects that derive from NetworkIDObject (classes C and D), only transmit the NetworkID of the object.
 		// If you also want to dereference the pointer and serialize the object itself, use MafiaNet::_RPC3::Deref(myVariable)
 		// In this case, parameters that both derive from NetworkIDObject and are pointers are the variables c1 and d1
 		// c1 will only transmit c1->GetNetworkID() (default behavior)
 		// d1 will transmit d1->GetNetworkID() and also bitStream << (*d1) (contents of the pointer)
 		//
-		rpc3Inst->CallCPP("&C::ClassMemberFunc", GetNetworkID(), a1,a2,c1, MafiaNet::_RPC3::Deref(d1),bs1,bs2,rpcFromNetwork);
+		rpc3Inst->CallCPP("&C::ClassMemberFunc", GetNetworkID(), a1, a2, c1, MafiaNet::_RPC3::Deref(d1), bs1, bs2, rpcFromNetwork);
 	}
-}	
+}
 
-void C::ClassMemberFunc2(MafiaNet::RPC3 *rpcFromNetwork)	{
+void C::ClassMemberFunc2(MafiaNet::RPC3 *rpcFromNetwork)
+{
 	printf("\nC::ClassMemberFunc2\n");
 
-	if (rpcFromNetwork==0)
+	if (rpcFromNetwork == 0)
 	{
 		// The MafiaNet::RPC3 * parameter can be passed to Call() if you want to - it is skipped and not serialized or deserialized so it doesn't matter.
 		// The point of it is so when this function is called on the remote system, it is set to the instance of the plugin so you can query network parameters from the caller
-		// 
+		//
 		// By default, pointers to objects that derive from NetworkIDObject (classes C and D), only transmit the NetworkID of the object.
 		// If you also want to dereference the pointer and serialize the object itself, use MafiaNet::_RPC3::Deref(myVariable)
 		// In this case, parameters that both derive from NetworkIDObject and are pointers are the variables c1 and d1
@@ -140,20 +163,20 @@ void C::ClassMemberFunc2(MafiaNet::RPC3 *rpcFromNetwork)	{
 		//
 		rpc3Inst->CallCPP("&C::ClassMemberFunc2", GetNetworkID(), rpcFromNetwork);
 	}
-}	
+}
 
 // The number of parameters for a C function is limited by BOOST_FUSION_INVOKE_MAX_ARITY found in boost/fusion/functional/invocation/limits.hpp
 // I define this in RPC3_Boost.h to be 9. The default is 6.
-void CFunc(MafiaNet::RakString rakString, int intArray[10], C *c1, const char *str, NormalizedVector *nv1, NormalizedVector &nv2, MafiaNet::RPC3 *rpcFromNetwork )
+void CFunc(MafiaNet::RakString rakString, int intArray[10], C *c1, const char *str, NormalizedVector *nv1, NormalizedVector &nv2, MafiaNet::RPC3 *rpcFromNetwork)
 {
 	// We pass 0 to the rpcFromNetwork when calling this function locally. When it is called by the RPC3 system, it is set to the address of the plugin
-	if (rpcFromNetwork==0)
+	if (rpcFromNetwork == 0)
 		printf("\nCFunc called locally\n");
 	else
 		printf("\nCFunc called from %s\n", rpcFromNetwork->GetLastSenderAddress().ToString());
 	printf("rakString=%s\n", rakString.C_String());
 	printf("intArray = ");
-	for (int i=0; i < 10; i++)
+	for (int i = 0; i < 10; i++)
 		printf("%i ", intArray[i]);
 	printf("\n");
 	printf("c1=%i\n", c1->c);
@@ -165,8 +188,8 @@ void CFunc(MafiaNet::RakString rakString, int intArray[10], C *c1, const char *s
 	// the parameter "int intArray[10]" is actually a pointer due to the design of C and C++
 	// The MafiaNet::_RPC3::PtrToArray() function will tell the RPC3 system that this is actually an array of n elements
 	// Each element will be endian swapped appropriately
-	if (rpcFromNetwork==0)
-		rpc3Inst->CallC("CFunc", rakString, MafiaNet::_RPC3::PtrToArray(10,intArray),c1,str,nv1,nv2,rpcFromNetwork);
+	if (rpcFromNetwork == 0)
+		rpc3Inst->CallC("CFunc", rakString, MafiaNet::_RPC3::PtrToArray(10, intArray), c1, str, nv1, nv2, rpcFromNetwork);
 }
 int main(void)
 {
@@ -175,11 +198,11 @@ int main(void)
 	printf("serializes and deserializes the parameters to the function call\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	DataStructures::OrderedList<int,int> ol;
-	ol.Insert(3,3,false,_FILE_AND_LINE_);
-	ol.Insert(4,4,false,_FILE_AND_LINE_);
-	ol.Insert(5,5,false,_FILE_AND_LINE_);
-	ol.Insert(4,4,false,_FILE_AND_LINE_);
+	DataStructures::OrderedList<int, int> ol;
+	ol.Insert(3, 3, false, _FILE_AND_LINE_);
+	ol.Insert(4, 4, false, _FILE_AND_LINE_);
+	ol.Insert(5, 5, false, _FILE_AND_LINE_);
+	ol.Insert(4, 4, false, _FILE_AND_LINE_);
 
 	MafiaNet::RakPeerInterface *rakPeer;
 	MafiaNet::SystemAddress tempAddr = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
@@ -189,13 +212,13 @@ int main(void)
 	D d;
 
 	NormalizedVector normalizedVector;
-	MafiaNet::TimeMS stage2=0;
+	MafiaNet::TimeMS stage2 = 0;
 	MafiaNet::NetworkIDManager networkIDManager;
 	rpc3Inst = new MafiaNet::RPC3;
 	rpc3Inst->SetNetworkIDManager(&networkIDManager);
 	MafiaNet::NetworkID idZero, idOne;
-	idZero=0;
-	idOne=1;
+	idZero = 0;
+	idOne = 1;
 	rpc3Inst->SetNetworkIDManager(&networkIDManager);
 	c.SetNetworkIDManager(&networkIDManager);
 	d.SetNetworkIDManager(&networkIDManager);
@@ -210,44 +233,44 @@ int main(void)
 	RPC3_REGISTER_FUNCTION(rpc3Inst, &C::ClassMemberFunc2);
 
 	// All slots are called when a signal is sent. This is true whether the slot is local or remote
-	rpc3Inst->RegisterSlot("TestSlot",&C::TestSlot, c.GetNetworkID(), 0);
-	rpc3Inst->RegisterSlot("TestSlot",&D::TestSlot, d.GetNetworkID(), 0);
+	rpc3Inst->RegisterSlot("TestSlot", &C::TestSlot, c.GetNetworkID(), 0);
+	rpc3Inst->RegisterSlot("TestSlot", &D::TestSlot, d.GetNetworkID(), 0);
 
 	printf("(S)erver or (C)lient?: ");
 	bool isServer;
 	char str[256];
 	Gets(str, sizeof(str));
-	if (str[0]=='s' || str[0]=='S')
-		isServer=true;
+	if (str[0] == 's' || str[0] == 'S')
+		isServer = true;
 	else
-		isServer=false;
+		isServer = false;
 
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	if (isServer)
 	{
-		MafiaNet::SocketDescriptor socketDescriptor(50000,0);
-		socketDescriptor.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
+		MafiaNet::SocketDescriptor socketDescriptor(50000, 0);
+		socketDescriptor.socketFamily = AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 		rakPeer->Startup(10, &socketDescriptor, 1);
 		rakPeer->SetMaximumIncomingConnections(10);
 		printf("Server started.\n");
 	}
 	else
 	{
-		MafiaNet::SocketDescriptor socketDescriptor(0,0);
-		socketDescriptor.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
+		MafiaNet::SocketDescriptor socketDescriptor(0, 0);
+		socketDescriptor.socketFamily = AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
 		rakPeer->Startup(1, &socketDescriptor, 1);
 
 		// Send out a LAN broadcast to find other instances on the same computer
-		rakPeer->Ping( "255.255.255.255", 50000, true, 0 );
+		rakPeer->Ping("255.255.255.255", 50000, true, 0);
 
 		printf("Client started. Will automatically connect to running servers.\n");
 	}
 	rakPeer->AttachPlugin(rpc3Inst);
 
 	MafiaNet::Packet *p;
-	for(;;)
+	for (;;)
 	{
-		for (p=rakPeer->Receive(); p; rakPeer->DeallocatePacket(p), p=rakPeer->Receive())
+		for (p = rakPeer->Receive(); p; rakPeer->DeallocatePacket(p), p = rakPeer->Receive())
 		{
 			switch (p->data[0])
 			{
@@ -265,7 +288,7 @@ int main(void)
 				break;
 			case ID_UNCONNECTED_PONG:
 				// Found the server
-				rakPeer->Connect(p->systemAddress.ToString(false),p->systemAddress.GetPort(),0,0,0);
+				rakPeer->Connect(p->systemAddress.ToString(false), p->systemAddress.GetPort(), 0, 0, 0);
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				// This tells the client they have connected
@@ -276,68 +299,68 @@ int main(void)
 				MafiaNet::BitStream testBitStream1, testBitStream2;
 				testBitStream1.Write("Hello World 1");
 				testBitStream2.Write("Hello World 2");
-				c.ClassMemberFunc(&a,a,&c,&d,&testBitStream1,testBitStream2,0);
+				c.ClassMemberFunc(&a, a, &c, &d, &testBitStream1, testBitStream2, 0);
 				c.ClassMemberFunc2(0);
 				MafiaNet::RakString rs("RakString test");
 				int intArray[10];
-				for (int i=0; i < sizeof(intArray)/sizeof(int); i++)
-					intArray[i]=i;
-				CFunc(rs, intArray,&c,"Test string",&normalizedVector,normalizedVector,0);
-				stage2= MafiaNet::GetTimeMS()+500;
+				for (int i = 0; i < sizeof(intArray) / sizeof(int); i++)
+					intArray[i] = i;
+				CFunc(rs, intArray, &c, "Test string", &normalizedVector, normalizedVector, 0);
+				stage2 = MafiaNet::GetTimeMS() + 500;
 				break;
-			}				
+			}
 			case ID_RPC_REMOTE_ERROR:
+			{
+				// Recipient system returned an error
+				switch (p->data[1])
 				{
-					// Recipient system returned an error
-					switch (p->data[1])
-					{
-					case MafiaNet::RPC_ERROR_NETWORK_ID_MANAGER_UNAVAILABLE:
-						printf("RPC_ERROR_NETWORK_ID_MANAGER_UNAVAILABLE\n");
-						break;
-					case MafiaNet::RPC_ERROR_OBJECT_DOES_NOT_EXIST:
-						printf("RPC_ERROR_OBJECT_DOES_NOT_EXIST\n");
-						break;
-					case MafiaNet::RPC_ERROR_FUNCTION_INDEX_OUT_OF_RANGE:
-						printf("RPC_ERROR_FUNCTION_INDEX_OUT_OF_RANGE\n");
-						break;
-					case MafiaNet::RPC_ERROR_FUNCTION_NOT_REGISTERED:
-						printf("RPC_ERROR_FUNCTION_NOT_REGISTERED\n");
-						break;
-					case MafiaNet::RPC_ERROR_FUNCTION_NO_LONGER_REGISTERED:
-						printf("RPC_ERROR_FUNCTION_NO_LONGER_REGISTERED\n");
-						break;
-					case MafiaNet::RPC_ERROR_CALLING_CPP_AS_C:
-						printf("RPC_ERROR_CALLING_CPP_AS_C\n");
-						break;
-					case MafiaNet::RPC_ERROR_CALLING_C_AS_CPP:
-						printf("RPC_ERROR_CALLING_C_AS_CPP\n");
-						break;
-					}
-					printf("Function: %s", p->data+2);
+				case MafiaNet::RPC_ERROR_NETWORK_ID_MANAGER_UNAVAILABLE:
+					printf("RPC_ERROR_NETWORK_ID_MANAGER_UNAVAILABLE\n");
+					break;
+				case MafiaNet::RPC_ERROR_OBJECT_DOES_NOT_EXIST:
+					printf("RPC_ERROR_OBJECT_DOES_NOT_EXIST\n");
+					break;
+				case MafiaNet::RPC_ERROR_FUNCTION_INDEX_OUT_OF_RANGE:
+					printf("RPC_ERROR_FUNCTION_INDEX_OUT_OF_RANGE\n");
+					break;
+				case MafiaNet::RPC_ERROR_FUNCTION_NOT_REGISTERED:
+					printf("RPC_ERROR_FUNCTION_NOT_REGISTERED\n");
+					break;
+				case MafiaNet::RPC_ERROR_FUNCTION_NO_LONGER_REGISTERED:
+					printf("RPC_ERROR_FUNCTION_NO_LONGER_REGISTERED\n");
+					break;
+				case MafiaNet::RPC_ERROR_CALLING_CPP_AS_C:
+					printf("RPC_ERROR_CALLING_CPP_AS_C\n");
+					break;
+				case MafiaNet::RPC_ERROR_CALLING_C_AS_CPP:
+					printf("RPC_ERROR_CALLING_C_AS_CPP\n");
+					break;
 				}
+				printf("Function: %s", p->data + 2);
+			}
 			}
 		}
 
 		if (stage2 && stage2 < MafiaNet::GetTimeMS())
 		{
-			stage2=0;
+			stage2 = 0;
 
 			MafiaNet::BitStream testBitStream1, testBitStream2;
 			testBitStream1.Write("Hello World 1 (2)");
 			testBitStream2.Write("Hello World 2 (2)");
-			c.ClassMemberFunc(&a,a,&c,&d,&testBitStream1,testBitStream2,0);
+			c.ClassMemberFunc(&a, a, &c, &d, &testBitStream1, testBitStream2, 0);
 			MafiaNet::RakString rs("RakString test (2)");
 			int intArray[10];
-			for (int i=0; i < sizeof(intArray)/sizeof(int); i++)
-				intArray[i]=i;
-			CFunc(rs, intArray,&c,"Test string (2)",&normalizedVector,normalizedVector,0);
+			for (int i = 0; i < sizeof(intArray) / sizeof(int); i++)
+				intArray[i] = i;
+			CFunc(rs, intArray, &c, "Test string (2)", &normalizedVector, normalizedVector, 0);
 			rpc3Inst->Signal("TestSlot");
 		}
 
 		RakSleep(0);
 	}
 
-	rakPeer->Shutdown(100,0);
+	rakPeer->Shutdown(100, 0);
 	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	delete rpc3Inst;
 

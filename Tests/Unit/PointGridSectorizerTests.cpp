@@ -17,25 +17,28 @@ using namespace MafiaNet;
 // The grid owns raw memory (cell lists and the entry-record table); a
 // memberwise copy would double-free it. The type must not be copyable.
 static_assert(!std::is_copy_constructible<PointGridSectorizer>::value,
-	"PointGridSectorizer must not be copy-constructible (owns raw memory)");
+              "PointGridSectorizer must not be copy-constructible (owns raw memory)");
 static_assert(!std::is_copy_assignable<PointGridSectorizer>::value,
-	"PointGridSectorizer must not be copy-assignable (owns raw memory)");
+              "PointGridSectorizer must not be copy-assignable (owns raw memory)");
 
 namespace
 {
-	// Opaque entity pointers for the grid: addresses into a static array.
-	int dummies[1024];
-	void *E(int i) { return &dummies[i]; }
+// Opaque entity pointers for the grid: addresses into a static array.
+int dummies[1024];
+void *E(int i)
+{
+	return &dummies[i];
+}
 
-	// Number of times ptr occurs in the list (point entries must never duplicate).
-	unsigned int CountOf(const DataStructures::List<void *> &list, void *ptr)
-	{
-		unsigned int count = 0;
-		for (unsigned int i = 0; i < list.Size(); ++i)
-			if (list[i] == ptr)
-				++count;
-		return count;
-	}
+// Number of times ptr occurs in the list (point entries must never duplicate).
+unsigned int CountOf(const DataStructures::List<void *> &list, void *ptr)
+{
+	unsigned int count = 0;
+	for (unsigned int i = 0; i < list.Size(); ++i)
+		if (list[i] == ptr)
+			++count;
+	return count;
+}
 }
 
 // 100x100 world of 10x10 cells -> a 10x10 grid.
@@ -142,8 +145,8 @@ TEST_F(PointGridSectorizerTest, ReAddingExistingEntryRelocatesIt)
 
 TEST_F(PointGridSectorizerTest, OutOfBoundsPositionsClampToEdgeCells)
 {
-	grid.AddEntry(E(4), -50.0f, 50.0f);   // clamps to x cell 0
-	grid.AddEntry(E(5), 150.0f, 150.0f);  // clamps to cell (9,9)
+	grid.AddEntry(E(4), -50.0f, 50.0f);  // clamps to x cell 0
+	grid.AddEntry(E(5), 150.0f, 150.0f); // clamps to cell (9,9)
 
 	grid.GetEntries(hits, 0.0f, 50.0f, 9.0f, 59.0f);
 	EXPECT_EQ(CountOf(hits, E(4)), 1u) << "entry added at x=-50 not clamped into the x=0 edge cell";
@@ -181,7 +184,7 @@ TEST_F(PointGridSectorizerTest, SwapRemoveBookkeepingSurvivesInterleavedRemovals
 	for (i = 0; i < denseCount; ++i)
 	{
 		EXPECT_EQ(CountOf(hits, E(i)), (i % 2 == 0 ? 0u : 1u))
-			<< "entry " << i << " membership wrong after interleaved removals";
+		    << "entry " << i << " membership wrong after interleaved removals";
 	}
 
 	// Moves out of a dense cell also use the swap-remove path.
@@ -224,7 +227,7 @@ TEST_F(PointGridSectorizerTest, ExtremeAndNonFinitePositionsClamp)
 	grid.AddEntry(E(10), 1.0e30f, 1.0e30f);   // far past max -> cell (9,9)
 	grid.AddEntry(E(11), -1.0e30f, -1.0e30f); // far past min -> cell (0,0)
 	const float nan = std::numeric_limits<float>::quiet_NaN();
-	grid.AddEntry(E(12), nan, nan);           // non-finite -> defined: cell (0,0)
+	grid.AddEntry(E(12), nan, nan); // non-finite -> defined: cell (0,0)
 
 	grid.GetEntries(hits, 90.0f, 90.0f, 99.0f, 99.0f);
 	EXPECT_EQ(CountOf(hits, E(10)), 1u) << "entry at +1e30 not clamped to the max edge cell";
@@ -258,7 +261,7 @@ TEST(PointGridSectorizerLifecycle, DegenerateInitFailsCleanlyAndRecovers)
 	PointGridSectorizer degenerate;
 	DataStructures::List<void *> hits;
 
-	EXPECT_FALSE(degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 0.0f, 50.0f));   // zero-width world
+	EXPECT_FALSE(degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 0.0f, 50.0f));    // zero-width world
 	EXPECT_FALSE(degenerate.Init(-5.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f)); // negative cell size
 
 	degenerate.AddEntry(E(0), 5.0f, 5.0f);
@@ -267,7 +270,7 @@ TEST(PointGridSectorizerLifecycle, DegenerateInitFailsCleanlyAndRecovers)
 	EXPECT_EQ(hits.Size(), 0u);
 
 	ASSERT_TRUE(degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f))
-		<< "valid re-Init after failed Init did not recover";
+	    << "valid re-Init after failed Init did not recover";
 	degenerate.AddEntry(E(0), 5.0f, 5.0f);
 	degenerate.GetEntries(hits, 0.0f, 0.0f, 9.0f, 9.0f);
 	EXPECT_EQ(CountOf(hits, E(0)), 1u) << "grid unusable after recovering from failed Init";
@@ -283,11 +286,11 @@ TEST(PointGridSectorizerLifecycle, CellCountOverflowingIntIsRejected)
 
 TEST_F(PointGridSectorizerTest, AddAndMoveReportCellTransitions)
 {
-	EXPECT_TRUE(grid.MoveEntry(E(0), 5.0f, 5.0f));    // insert
-	EXPECT_FALSE(grid.MoveEntry(E(0), 7.0f, 7.0f));   // same cell
-	EXPECT_TRUE(grid.MoveEntry(E(0), 55.0f, 55.0f));  // cross cell
-	EXPECT_FALSE(grid.AddEntry(E(0), 56.0f, 56.0f));  // same cell via AddEntry
-	EXPECT_TRUE(grid.AddEntry(E(1), 5.0f, 5.0f));     // insert via AddEntry
+	EXPECT_TRUE(grid.MoveEntry(E(0), 5.0f, 5.0f));   // insert
+	EXPECT_FALSE(grid.MoveEntry(E(0), 7.0f, 7.0f));  // same cell
+	EXPECT_TRUE(grid.MoveEntry(E(0), 55.0f, 55.0f)); // cross cell
+	EXPECT_FALSE(grid.AddEntry(E(0), 56.0f, 56.0f)); // same cell via AddEntry
+	EXPECT_TRUE(grid.AddEntry(E(1), 5.0f, 5.0f));    // insert via AddEntry
 
 	PointGridSectorizer uninitialized;
 	EXPECT_FALSE(uninitialized.MoveEntry(E(0), 5.0f, 5.0f)); // pre-Init -> no transition
@@ -313,10 +316,10 @@ TEST_F(PointGridSectorizerTest, RandomizedStressMatchesReferenceModel)
 	unsigned int rng = 0x12345678u; // deterministic LCG
 	for (int iter = 0; iter < 30000; ++iter)
 	{
-		rng = rng*1664525u + 1013904223u;
-		const int target = (int)((rng >> 8) % stressEntities);
-		const float px = (float)((rng >> 4) % 120) - 10.0f;  // includes out-of-bounds
-		const float py = (float)((rng >> 12) % 120) - 10.0f;
+		rng = rng * 1664525u + 1013904223u;
+		const int target = (int) ((rng >> 8) % stressEntities);
+		const float px = (float) ((rng >> 4) % 120) - 10.0f; // includes out-of-bounds
+		const float py = (float) ((rng >> 12) % 120) - 10.0f;
 		switch ((rng >> 28) % 3)
 		{
 		case 0: // upsert via AddEntry
@@ -332,7 +335,7 @@ TEST_F(PointGridSectorizerTest, RandomizedStressMatchesReferenceModel)
 			break;
 		case 2: // remove
 			ASSERT_EQ(grid.RemoveEntry(E(target)), present[target])
-				<< "RemoveEntry disagreed with the model at iteration " << iter;
+			    << "RemoveEntry disagreed with the model at iteration " << iter;
 			if (present[target])
 				--liveCount;
 			present[target] = false;
@@ -346,9 +349,9 @@ TEST_F(PointGridSectorizerTest, RandomizedStressMatchesReferenceModel)
 			for (int i = 0; i < stressEntities; ++i)
 			{
 				ASSERT_EQ(CountOf(hits, E(i)), (present[i] ? 1u : 0u))
-					<< "entry " << i << " membership wrong at iteration " << iter;
+				    << "entry " << i << " membership wrong at iteration " << iter;
 				ASSERT_EQ(grid.HasEntry(E(i)), present[i])
-					<< "entry " << i << " membership wrong at iteration " << iter;
+				    << "entry " << i << " membership wrong at iteration " << iter;
 			}
 		}
 	}

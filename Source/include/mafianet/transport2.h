@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_TelnetTransport==1
+#if _RAKNET_SUPPORT_TelnetTransport == 1
 
 #ifndef __RAKNET_TRANSPORT_2
 #define __RAKNET_TRANSPORT_2
@@ -53,7 +53,7 @@ public:
 	STATIC_FACTORY_DECLARATIONS(RakNetTransport2)
 
 	RakNetTransport2();
-    virtual ~RakNetTransport2();
+	virtual ~RakNetTransport2();
 
 	/// Start the transport provider on the indicated port.
 	/// \param[in] port The port to start the transport provider on
@@ -70,22 +70,22 @@ public:
 	/// \param[in] systemAddress The player to send the string to
 	/// \param[in] data format specifier - same as RAKNET_DEBUG_PRINTF
 	/// \param[in] ... format specification arguments - same as RAKNET_DEBUG_PRINTF
-	void Send( SystemAddress systemAddress, const char *data, ... );
+	void Send(SystemAddress systemAddress, const char *data, ...);
 
 	/// Disconnect \a systemAddress .  The binary address and port defines the SystemAddress structure.
 	/// \param[in] systemAddress The player/address to disconnect
-	void CloseConnection( SystemAddress systemAddress );
+	void CloseConnection(SystemAddress systemAddress);
 
 	/// Return a string. The string should be allocated and written to Packet::data .
 	/// The byte length should be written to Packet::length .  The player/address should be written to Packet::systemAddress
 	/// If your transport protocol adds special formatting to the data stream you should parse it out before returning it in the packet
 	/// and thus only return a string in Packet::data
 	/// \return The packet structure containing the result of Receive, or 0 if no data is available
-	Packet* Receive( void );
+	Packet *Receive(void);
 
 	/// Deallocate the Packet structure returned by Receive
 	/// \param[in] The packet to deallocate
-	void DeallocatePacket( Packet *packet );
+	void DeallocatePacket(Packet *packet);
 
 	/// If a new system connects to you, you should queue that event and return the systemAddress/address of that player in this function.
 	/// \return The SystemAddress/address of the system
@@ -95,17 +95,18 @@ public:
 	/// \return The SystemAddress/address of the system
 	SystemAddress HasLostConnection(void);
 
-	virtual CommandParserInterface* GetCommandParser(void) {return 0;}
+	virtual CommandParserInterface *GetCommandParser(void) { return 0; }
 
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	/// \internal
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
+
 protected:
 	DataStructures::Queue<SystemAddress> newConnections, lostConnections;
-	DataStructures::Queue<Packet*> packetQueue;
+	DataStructures::Queue<Packet *> packetQueue;
 };
 
 } // namespace MafiaNet

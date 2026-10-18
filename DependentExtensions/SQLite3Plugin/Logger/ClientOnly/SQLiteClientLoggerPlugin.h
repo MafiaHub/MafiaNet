@@ -36,124 +36,140 @@
 
 namespace MafiaNet
 {
-	/// \ingroup SQL_LITE_3_PLUGIN
-	/// \brief Result codes for logging
-	enum SQLLogResult
+/// \ingroup SQL_LITE_3_PLUGIN
+/// \brief Result codes for logging
+enum SQLLogResult
+{
+	/// OK
+	SQLLR_OK,
+
+	/// Didn't instantiate SQLiteClientLoggerPlugin
+	SQLLR_NOT_INSTANTIATED,
+
+	/// Didn't call SQLiteClientLoggerPlugin::SetServerParameters
+	SQLLR_NO_DATABASE_SET,
+
+	/// String passed for column names unreasonably long (set by MAX_COLUMN_NAMES_LENGTH)
+	SQLLR_COLUMN_NAMES_NOT_TERMINATED,
+
+	/// tableName parameter is blank
+	SQLLR_TABLE_NAME_BLANK,
+
+	/// Syntax of column names doesn't make sense. Should be column1,column2,column3,...
+	SQLLR_TABLE_DESCRIPTOR_FORMAT_INVALID_SYNTAX,
+
+	/// Syntax of column names indicated n columns, but actual number of parameters != n
+	SQLLR_TABLE_DESCRIPTOR_FORMAT_WRONG_PARAMETER_COUNT,
+
+	/// Logging when already in a log function
+	SQLLR_RECURSION,
+
+	/// Out of memory. See SQLiteClientLoggerPlugin::SetMemoryConstraint
+	SQLLR_WOULD_EXCEED_MEMORY_CONSTRAINT
+};
+
+/// \brief Contains utility functions to write logs, which are then sent to a connected instance of SQLite3ServerLoggerPlugin
+/// \details Connect with RakPeerInterface or PacketizedTCP first, then use the sqlLog or functionLog to write logs.
+/// Don't use this class directly, except to call SetServerParameters()
+/// \ingroup SQL_LITE_3_PLUGIN
+class RAK_DLL_EXPORT SQLiteClientLoggerPlugin : public SQLite3ClientPlugin
+{
+public:
+	SQLiteClientLoggerPlugin();
+	virtual ~SQLiteClientLoggerPlugin();
+
+	/// Required to use the system. Call SetServerParameters() before calling sqlLog() or functionLog()
+	/// systemAddress Address of the server we are already connected to
+	/// _dbIdentifier session identifier. If the server is using CREATE_SHARED_NAMED_DB_HANDLE or CREATE_EACH_NAMED_DB_HANDLE then this is the name of the created file. Otherwise, it is the dbIdentifier passed to SQLite3ServerPlugin::AddDBHandle();
+	void SetServerParameters(const SystemAddress &systemAddress, MafiaNet::RakString _dbIdentifier);
+
+	/// Every entry in the table has a tick count
+	/// Call this function to increment it by one
+	void IncrementAutoTickCount(void);
+
+	/// If the amount of data buffered to go out on TCP exceeds this amount, then the log is aborted rather than sent
+	/// This is only used when sending through TCP
+	/// \param[in] constraint Use 0 for unlimited. Otherwise specify the amount in bytes
+	void SetMemoryConstraint(unsigned int constraint);
+
+	// ---------------------------------- INTERNAL -------------------------------
+	SQLLogResult CheckQuery(bool isFunction, const char *tableName, const char *columnNames, unsigned int numParameters);
+
+	struct ParameterListHelper
 	{
-		/// OK
-		SQLLR_OK,
+		ParameterListHelper()
+		    : paramCount(0) {}
 
-		/// Didn't instantiate SQLiteClientLoggerPlugin
-		SQLLR_NOT_INSTANTIATED,
+		template <class T1>
+		ParameterListHelper(const T1 &t1)
+		    : p0(t1), paramCount(1) {}
 
-		/// Didn't call SQLiteClientLoggerPlugin::SetServerParameters
-		SQLLR_NO_DATABASE_SET,
+		template <class T1, class T2>
+		ParameterListHelper(const T1 &t1, const T2 &t2)
+		    : p0(t1), p1(t2), paramCount(2) {}
 
-		/// String passed for column names unreasonably long (set by MAX_COLUMN_NAMES_LENGTH)
-		SQLLR_COLUMN_NAMES_NOT_TERMINATED,
+		template <class T1, class T2, class T3>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3)
+		    : p0(t1), p1(t2), p2(t3), paramCount(3) {}
 
-		/// tableName parameter is blank
-		SQLLR_TABLE_NAME_BLANK,
+		template <class T1, class T2, class T3, class T4>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), paramCount(4) {}
 
-		/// Syntax of column names doesn't make sense. Should be column1,column2,column3,...
-		SQLLR_TABLE_DESCRIPTOR_FORMAT_INVALID_SYNTAX,
+		template <class T1, class T2, class T3, class T4, class T5>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), paramCount(5) {}
 
-		/// Syntax of column names indicated n columns, but actual number of parameters != n
-		SQLLR_TABLE_DESCRIPTOR_FORMAT_WRONG_PARAMETER_COUNT,
+		template <class T1, class T2, class T3, class T4, class T5, class T6>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), paramCount(6) {}
 
-		/// Logging when already in a log function
-		SQLLR_RECURSION,
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), paramCount(7) {}
 
-		/// Out of memory. See SQLiteClientLoggerPlugin::SetMemoryConstraint
-		SQLLR_WOULD_EXCEED_MEMORY_CONSTRAINT
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), paramCount(8) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), paramCount(9) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), paramCount(10) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), paramCount(11) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), paramCount(12) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12, class T13>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12, const T13 &t13)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), p12(t13), paramCount(13) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12, class T13, class T14>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12, const T13 &t13, const T14 &t14)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), p12(t13), p13(t14), paramCount(14) {}
+
+		template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12, class T13, class T14, class T15>
+		ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12, const T13 &t13, const T14 &t14, const T15 &t15)
+		    : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), p12(t13), p13(t14), p14(t15), paramCount(15) {}
+
+		// Array doesn't work - no constructor initialization
+		//const LogParameter parms[12];
+		const LogParameter p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14;
+		const unsigned int paramCount;
 	};
 
-	/// \brief Contains utility functions to write logs, which are then sent to a connected instance of SQLite3ServerLoggerPlugin
-	/// \details Connect with RakPeerInterface or PacketizedTCP first, then use the sqlLog or functionLog to write logs.
-	/// Don't use this class directly, except to call SetServerParameters()
-	/// \ingroup SQL_LITE_3_PLUGIN
-	class RAK_DLL_EXPORT SQLiteClientLoggerPlugin : public SQLite3ClientPlugin
-	{
-	public:
-		SQLiteClientLoggerPlugin();
-		virtual ~SQLiteClientLoggerPlugin();
 
-		/// Required to use the system. Call SetServerParameters() before calling sqlLog() or functionLog()
-		/// systemAddress Address of the server we are already connected to
-		/// _dbIdentifier session identifier. If the server is using CREATE_SHARED_NAMED_DB_HANDLE or CREATE_EACH_NAMED_DB_HANDLE then this is the name of the created file. Otherwise, it is the dbIdentifier passed to SQLite3ServerPlugin::AddDBHandle();
-		void SetServerParameters(const SystemAddress &systemAddress, MafiaNet::RakString _dbIdentifier);
+	SQLLogResult SqlLog(bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const ParameterListHelper &parameterList);
 
-		/// Every entry in the table has a tick count
-		/// Call this function to increment it by one
-		void IncrementAutoTickCount(void);
-
-		/// If the amount of data buffered to go out on TCP exceeds this amount, then the log is aborted rather than sent
-		/// This is only used when sending through TCP
-		/// \param[in] constraint Use 0 for unlimited. Otherwise specify the amount in bytes
-		void SetMemoryConstraint(unsigned int constraint);
-
-		// ---------------------------------- INTERNAL -------------------------------
-		SQLLogResult CheckQuery(bool isFunction, const char *tableName, const char *columnNames, unsigned int numParameters);
-
-		struct ParameterListHelper
-		{
-			ParameterListHelper() : paramCount(0) {}
-
-			template <class T1>
-			ParameterListHelper(const T1 &t1) : p0(t1), paramCount(1) {}
-
-			template <class T1, class T2>
-			ParameterListHelper(const T1 &t1, const T2 &t2) : p0(t1), p1(t2), paramCount(2) {}
-
-			template <class T1, class T2, class T3>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3) : p0(t1), p1(t2), p2(t3), paramCount(3) {}
-
-			template <class T1, class T2, class T3, class T4>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4) : p0(t1), p1(t2), p2(t3), p3(t4), paramCount(4) {}
-
-			template <class T1, class T2, class T3, class T4, class T5>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), paramCount(5) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), paramCount(6) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), paramCount(7) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), paramCount(8) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), paramCount(9) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), paramCount(10) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), paramCount(11) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), paramCount(12) {}
-			
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12, class T13>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12, const T13 &t13) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), p12(t13), paramCount(13) {}
-			
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12, class T13, class T14>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12, const T13 &t13, const T14 &t14) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), p12(t13), p13(t14), paramCount(14) {}
-
-			template <class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10, class T11, class T12, class T13, class T14, class T15>
-			ParameterListHelper(const T1 &t1, const T2 &t2, const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7, const T8 &t8, const T9 &t9, const T10 &t10, const T11 &t11, const T12 &t12, const T13 &t13, const T14 &t14, const T15 &t15) : p0(t1), p1(t2), p2(t3), p3(t4), p4(t5), p5(t6), p6(t7), p7(t8), p8(t9), p9(t10), p10(t11), p11(t12), p12(t13), p13(t14), p14(t15), paramCount(15) {}
-
-			// Array doesn't work - no constructor initialization
-			//const LogParameter parms[12];
-			const LogParameter p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14;
-			const unsigned int paramCount;
-		};
-
-
-		SQLLogResult SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const ParameterListHelper &parameterList );
-
-		/*
+	/*
 		SQLLogResult SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line );
 		SQLLogResult SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1 );
 		SQLLogResult SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2 );
@@ -169,15 +185,18 @@ namespace MafiaNet
 		SQLLogResult SqlLog( bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, const LogParameter *p1, const LogParameter *p2, const LogParameter *p3, const LogParameter *p4, const LogParameter *p5, const LogParameter *p6, const LogParameter *p7, const LogParameter *p8, const LogParameter *p9, const LogParameter *p10, const LogParameter *p11, const LogParameter *p12  );
 		*/
 
-		static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const ParameterListHelper &parameterList )
-		{
-			if (logger==0) return SQLLR_NOT_INSTANTIATED;
-			SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames,parameterList.paramCount); if (r!=SQLLR_OK) return r;
-			r = logger->SqlLog(isFunction, tableName, columnNames, file, line, parameterList);
+	static MafiaNet::SQLLogResult __sqlLogInternal(bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line, const ParameterListHelper &parameterList)
+	{
+		if (logger == 0)
+			return SQLLR_NOT_INSTANTIATED;
+		SQLLogResult r = logger->CheckQuery(isFunction, tableName, columnNames, parameterList.paramCount);
+		if (r != SQLLR_OK)
 			return r;
-		}
+		r = logger->SqlLog(isFunction, tableName, columnNames, file, line, parameterList);
+		return r;
+	}
 
-		/*
+	/*
 		static MafiaNet::SQLLogResult __sqlLogInternal( bool isFunction, const char *tableName, const char *columnNames, const char *file, const int line )
 		{
 			if (logger==0) return MafiaNet::SQLLR_NOT_INSTANTIATED;
@@ -360,20 +379,20 @@ namespace MafiaNet
 		}
 		*/
 
-		virtual void Update(void);
+	virtual void Update(void);
 
-		static SQLiteClientLoggerPlugin* logger;
+	static SQLiteClientLoggerPlugin *logger;
 
 
-	protected:
-		void SerializeHeader(MafiaNet::BitStream *bitStream, bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, unsigned char parameterCount ) const;
+protected:
+	void SerializeHeader(MafiaNet::BitStream *bitStream, bool isFunctionCall, const char *tableName, const char *columnNames, const char *file, const int line, unsigned char parameterCount) const;
 
-		SystemAddress serverAddress;
-		MafiaNet::RakString dbIdentifier;
-		uint32_t tickCount;
-		bool recursiveCheck;
-		unsigned int memoryConstraint;
-	};
+	SystemAddress serverAddress;
+	MafiaNet::RakString dbIdentifier;
+	uint32_t tickCount;
+	bool recursiveCheck;
+	unsigned int memoryConstraint;
+};
 }
 
 /*

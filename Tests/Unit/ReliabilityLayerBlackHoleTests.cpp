@@ -36,7 +36,8 @@
 
 using namespace MafiaNet;
 
-namespace {
+namespace
+{
 
 const int TEST_MTU = MAXIMUM_MTU_SIZE;
 const MafiaNet::TimeMS TEST_TIMEOUT_MS = 1000000;
@@ -45,7 +46,7 @@ const MafiaNet::TimeMS TEST_TIMEOUT_MS = 1000000;
 // fixture can shuttle it to the other endpoint (or drop it, like a tunnel).
 struct CapturingSocket : public RakNetSocket2
 {
-	std::vector<std::vector<char> > sent;
+	std::vector<std::vector<char>> sent;
 
 	virtual RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
 	{
@@ -62,7 +63,7 @@ protected:
 	ReliabilityLayer a, b;
 	CapturingSocket aSock, bSock;
 	SystemAddress aAddr, bAddr;
-	DataStructures::List<PluginInterface2*> handlers;
+	DataStructures::List<PluginInterface2 *> handlers;
 	RakNetRandom rnr;
 	BitStream updateBitStream;
 	CCTimeType now;
@@ -76,15 +77,11 @@ protected:
 	int aToBLossPercent;
 	uint32_t lcgState;
 
-	std::vector<std::vector<unsigned char> > received; // complete messages b got
-	std::vector<BitSize_t> receivedBits;               // their exact bit lengths
+	std::vector<std::vector<unsigned char>> received; // complete messages b got
+	std::vector<BitSize_t> receivedBits;              // their exact bit lengths
 
 	RelLayerBlackHole()
-		: updateBitStream(MAXIMUM_MTU_SIZE)
-		, now(0)
-		, aToBDropOverBytes(MAXIMUM_MTU_SIZE)
-		, aToBLossPercent(0)
-		, lcgState(0x12345678)
+	    : updateBitStream(MAXIMUM_MTU_SIZE), now(0), aToBDropOverBytes(MAXIMUM_MTU_SIZE), aToBLossPercent(0), lcgState(0x12345678)
 	{
 	}
 
@@ -113,7 +110,7 @@ protected:
 		if (aToBLossPercent > 0)
 		{
 			lcgState = lcgState * 1664525u + 1013904223u;
-			if ((int)(lcgState % 100u) < aToBLossPercent)
+			if ((int) (lcgState % 100u) < aToBLossPercent)
 				return true;
 		}
 		return false;
@@ -122,7 +119,7 @@ protected:
 	void SendFromA(const std::vector<unsigned char> &payload)
 	{
 		ASSERT_TRUE(a.Send((char *) &payload[0], BYTES_TO_BITS((BitSize_t) payload.size()),
-			MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, true, TEST_MTU, now, 0));
+		                   MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, true, TEST_MTU, now, 0));
 	}
 
 	// One 10ms tick: update both layers, then deliver the surviving datagrams.
@@ -137,7 +134,7 @@ protected:
 			if (DropAToB((int) aSock.sent[i].size()))
 				continue;
 			b.HandleSocketReceiveFromConnectedPlayer(&aSock.sent[i][0], (unsigned int) aSock.sent[i].size(),
-				aAddr, handlers, TEST_MTU, &bSock, &rnr, now, updateBitStream);
+			                                         aAddr, handlers, TEST_MTU, &bSock, &rnr, now, updateBitStream);
 		}
 		aSock.sent.clear();
 
@@ -145,7 +142,7 @@ protected:
 		{
 			// The return path is clean: the black hole under test is one-directional.
 			a.HandleSocketReceiveFromConnectedPlayer(&bSock.sent[i][0], (unsigned int) bSock.sent[i].size(),
-				bAddr, handlers, TEST_MTU, &aSock, &rnr, now, updateBitStream);
+			                                         bAddr, handlers, TEST_MTU, &aSock, &rnr, now, updateBitStream);
 		}
 		bSock.sent.clear();
 
@@ -219,7 +216,7 @@ TEST_F(RelLayerBlackHole, PreservesOrderedDeliveryAcrossAStepDown)
 	// come out in send order once the step-down unblocks the channel.
 	aToBDropOverBytes = 1100;
 
-	std::vector<std::vector<unsigned char> > messages;
+	std::vector<std::vector<unsigned char>> messages;
 	messages.push_back(PatternMessage(8000, 11));
 	messages.push_back(PatternMessage(60, 13));
 	// Big enough to black-hole but small enough that it was never split: the
@@ -259,7 +256,7 @@ TEST_F(RelLayerBlackHole, DeliversTheAckReceiptForAReSplitMessage)
 	std::vector<unsigned char> msg = PatternMessage(8000, 37);
 	const uint32_t receiptSerial = 777;
 	ASSERT_TRUE(a.Send((char *) &msg[0], BYTES_TO_BITS((BitSize_t) msg.size()),
-		MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrderedWithAckReceipt, 0, true, TEST_MTU, now, receiptSerial));
+	                   MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrderedWithAckReceipt, 0, true, TEST_MTU, now, receiptSerial));
 
 	ASSERT_TRUE(PumpUntilReceived(1, 150000));
 	EXPECT_EQ(msg, received[0]);
@@ -297,7 +294,7 @@ TEST_F(RelLayerBlackHole, PreservesSubByteBitLengthAcrossAReSplit)
 	std::vector<unsigned char> msg = PatternMessage(8000, 41);
 	const BitSize_t oddBits = BYTES_TO_BITS((BitSize_t) msg.size()) - 3;
 	ASSERT_TRUE(a.Send((char *) &msg[0], oddBits,
-		MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, true, TEST_MTU, now, 0));
+	                   MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, true, TEST_MTU, now, 0));
 
 	ASSERT_TRUE(PumpUntilReceived(1, 150000));
 	EXPECT_EQ(oddBits, receivedBits[0]);

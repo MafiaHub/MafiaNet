@@ -19,7 +19,6 @@
 /// field by the reliability layer).
 
 
-
 #ifndef __PACKET_PRIORITY_H
 #define __PACKET_PRIORITY_H
 

@@ -49,57 +49,57 @@ unchanged file is sent again, or a download does not complete in time.
 
 namespace
 {
-	const int kConnectTimeoutMs  = 15000;
-	const int kTransferTimeoutMs = 60000;
-	const unsigned int kChunkSize = 64 * 1024;
+const int kConnectTimeoutMs = 15000;
+const int kTransferTimeoutMs = 60000;
+const unsigned int kChunkSize = 64 * 1024;
 
-	class Observer : public FileListTransferCBInterface
+class Observer : public FileListTransferCBInterface
+{
+public:
+	std::map<std::string, bool> buffered;
+	bool complete = false;
+	int completions = 0;
+
+	bool OnFile(OnFileStruct *onFileStruct) override
 	{
-	public:
-		std::map<std::string, bool> buffered;
-		bool complete = false;
-		int completions = 0;
-
-		bool OnFile(OnFileStruct *onFileStruct) override
-		{
-			buffered[onFileStruct->fileName] = onFileStruct->fileData != 0;
-			return true;
-		}
-
-		void OnFileProgress(FileProgressStruct *) override {}
-
-		bool OnDownloadComplete(DownloadCompleteStruct *) override
-		{
-			complete = true;
-			++completions;
-			return false;
-		}
-	};
-
-	std::vector<char> Pattern(size_t size, unsigned seed)
-	{
-		std::vector<char> bytes(size);
-		unsigned value = seed * 2654435761u + 1;
-		for (size_t i = 0; i < size; ++i)
-		{
-			value = value * 1103515245u + 12345u;
-			bytes[i] = (char)(value >> 16);
-		}
-		return bytes;
+		buffered[onFileStruct->fileName] = onFileStruct->fileData != 0;
+		return true;
 	}
 
-	std::vector<char> ReadAll(const std::filesystem::path &path)
+	void OnFileProgress(FileProgressStruct *) override {}
+
+	bool OnDownloadComplete(DownloadCompleteStruct *) override
 	{
-		std::ifstream in(path, std::ios::binary);
-		return std::vector<char>(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+		complete = true;
+		++completions;
+		return false;
 	}
+};
+
+std::vector<char> Pattern(size_t size, unsigned seed)
+{
+	std::vector<char> bytes(size);
+	unsigned value = seed * 2654435761u + 1;
+	for (size_t i = 0; i < size; ++i)
+	{
+		value = value * 1103515245u + 12345u;
+		bytes[i] = (char) (value >> 16);
+	}
+	return bytes;
+}
+
+std::vector<char> ReadAll(const std::filesystem::path &path)
+{
+	std::ifstream in(path, std::ios::binary);
+	return std::vector<char>(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
 } // namespace
 
 TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 {
 	// A per-run suffix keeps concurrent runs of this test from sharing a directory.
 	const std::filesystem::path root = std::filesystem::temp_directory_path() /
-		("mafianet_ddt_streaming_" + std::to_string(std::random_device{}()));
+	                                   ("mafianet_ddt_streaming_" + std::to_string(std::random_device{}()));
 	const std::filesystem::path source = root / "source";
 	const std::filesystem::path output = root / "output";
 	std::filesystem::remove_all(root);
@@ -108,14 +108,14 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 
 	// Many chunks; less than one chunk; ends mid-chunk.
 	const std::map<std::string, std::vector<char>> expected = {
-		{"large.bin", Pattern(kChunkSize * 37 + 1234, 1)},
-		{"small.bin", Pattern(900, 2)},
-		{"ragged.bin", Pattern(kChunkSize * 3 + 77, 3)},
+	    {"large.bin", Pattern(kChunkSize * 37 + 1234, 1)},
+	    {"small.bin", Pattern(900, 2)},
+	    {"ragged.bin", Pattern(kChunkSize * 3 + 77, 3)},
 	};
 	for (const auto &entry : expected)
 	{
 		std::ofstream out(source / entry.first, std::ios::binary);
-		out.write(entry.second.data(), (std::streamsize)entry.second.size());
+		out.write(entry.second.data(), (std::streamsize) entry.second.size());
 	}
 
 	RakPeerInterface *server = RakPeerInterface::GetInstance();
@@ -152,7 +152,7 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 	SystemAddress serverAddress = UNASSIGNED_SYSTEM_ADDRESS;
 	bool serverSawClient = false;
 	TimeMS entry = GetTimeMS();
-	while ((serverAddress == UNASSIGNED_SYSTEM_ADDRESS || !serverSawClient) && GetTimeMS() - entry < (TimeMS)kConnectTimeoutMs)
+	while ((serverAddress == UNASSIGNED_SYSTEM_ADDRESS || !serverSawClient) && GetTimeMS() - entry < (TimeMS) kConnectTimeoutMs)
 	{
 		for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
 			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
@@ -165,10 +165,11 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 	ASSERT_NE(serverAddress, UNASSIGNED_SYSTEM_ADDRESS);
 	ASSERT_TRUE(serverSawClient);
 
-	const auto download = [&](Observer &observer) {
+	const auto download = [&](Observer &observer)
+	{
 		clientDelta.DownloadFromSubdirectory(nullptr, nullptr, true, serverAddress, &observer, Priority::Medium, 0, nullptr);
 		const TimeMS began = GetTimeMS();
-		while (!observer.complete && GetTimeMS() - began < (TimeMS)kTransferTimeoutMs)
+		while (!observer.complete && GetTimeMS() - began < (TimeMS) kTransferTimeoutMs)
 		{
 			for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
 				;
@@ -200,7 +201,7 @@ TEST(DirectoryDeltaTransferStreaming, LargeFilesAreWrittenChunkByChunk)
 	const std::vector<char> changedBytes = Pattern(1500, 9);
 	{
 		std::ofstream out(source / "small.bin", std::ios::binary | std::ios::trunc);
-		out.write(changedBytes.data(), (std::streamsize)changedBytes.size());
+		out.write(changedBytes.data(), (std::streamsize) changedBytes.size());
 	}
 	serverDelta.ClearUploads();
 	for (const auto &file : expected)

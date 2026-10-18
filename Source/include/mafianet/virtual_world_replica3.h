@@ -9,7 +9,7 @@
 /// \brief Replica3 base class that scopes visibility by virtual world.
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ReplicaManager3==1
+#if _RAKNET_SUPPORT_ReplicaManager3 == 1
 
 #ifndef __VIRTUAL_WORLD_REPLICA_3_H
 #define __VIRTUAL_WORLD_REPLICA_3_H
@@ -42,7 +42,8 @@ namespace MafiaNet
 class RAK_DLL_EXPORT VirtualWorldReplica3 : public Replica3
 {
 public:
-	VirtualWorldReplica3() : virtualWorld(VIRTUAL_WORLD_DEFAULT) {}
+	VirtualWorldReplica3()
+	    : virtualWorld(VIRTUAL_WORLD_DEFAULT) {}
 	virtual ~VirtualWorldReplica3() {}
 
 	/// \brief Set the virtual world this entity exists in.
@@ -109,8 +110,8 @@ protected:
 	/// only if you also drive per-connection destruction from within a world.
 	virtual RM3DestructionState QueryDestructionWithinWorld(Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
-		(void)destinationConnection;
-		(void)replicaManager3;
+		(void) destinationConnection;
+		(void) replicaManager3;
 		return RM3DS_NO_ACTION;
 	}
 

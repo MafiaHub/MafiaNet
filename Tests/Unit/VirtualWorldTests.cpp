@@ -17,53 +17,54 @@ using namespace MafiaNet;
 
 namespace
 {
-	// Minimal concrete Connection_RM3: never downloads anything.
-	class VWTestConnection : public Connection_RM3
-	{
-	public:
-		VWTestConnection(const SystemAddress &sa, RakNetGUID g) : Connection_RM3(sa, g) {}
-		Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
-	};
+// Minimal concrete Connection_RM3: never downloads anything.
+class VWTestConnection : public Connection_RM3
+{
+public:
+	VWTestConnection(const SystemAddress &sa, RakNetGUID g)
+	    : Connection_RM3(sa, g) {}
+	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
+};
 
-	// Minimal concrete VirtualWorldReplica3. The within-world hooks return
-	// distinctive values so the test can prove the filter delegated to them
-	// (rather than short-circuiting).
-	class VWTestReplica : public VirtualWorldReplica3
-	{
-	public:
-		void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
-		bool QueryRemoteConstruction(Connection_RM3 *) { return true; }
-		void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
-		bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return true; }
-		void SerializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) {}
-		bool DeserializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) { return true; }
-		RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const { return RM3AOPC_DO_NOTHING; }
-		void DeallocReplica(Connection_RM3 *) {}
-		RM3SerializationResult Serialize(SerializeParameters *) { return RM3SR_DO_NOT_SERIALIZE; }
-		void Deserialize(DeserializeParameters *) {}
+// Minimal concrete VirtualWorldReplica3. The within-world hooks return
+// distinctive values so the test can prove the filter delegated to them
+// (rather than short-circuiting).
+class VWTestReplica : public VirtualWorldReplica3
+{
+public:
+	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
+	bool QueryRemoteConstruction(Connection_RM3 *) { return true; }
+	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
+	bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return true; }
+	void SerializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) {}
+	bool DeserializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) { return true; }
+	RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const { return RM3AOPC_DO_NOTHING; }
+	void DeallocReplica(Connection_RM3 *) {}
+	RM3SerializationResult Serialize(SerializeParameters *) { return RM3SR_DO_NOT_SERIALIZE; }
+	void Deserialize(DeserializeParameters *) {}
 
-	protected:
-		RM3ConstructionState QueryConstructionWithinWorld(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_SEND_CONSTRUCTION; }
-		RM3QuerySerializationResult QuerySerializationWithinWorld(Connection_RM3 *) { return RM3QSR_CALL_SERIALIZE; }
-		// QueryDestructionWithinWorld uses the base default (RM3DS_NO_ACTION).
-	};
+protected:
+	RM3ConstructionState QueryConstructionWithinWorld(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_SEND_CONSTRUCTION; }
+	RM3QuerySerializationResult QuerySerializationWithinWorld(Connection_RM3 *) { return RM3QSR_CALL_SERIALIZE; }
+	// QueryDestructionWithinWorld uses the base default (RM3DS_NO_ACTION).
+};
 
-	// A replica whose within-world topology decision is NOT to construct toward
-	// this connection (e.g. a downloaded copy on a non-authority, like a server
-	// object on a client). The virtual world filter must NOT be applied here:
-	// such a copy must never tell the owner to destroy the object or suppress it.
-	class VWTestReplicaNonAuth : public VWTestReplica
-	{
-	protected:
-		RM3ConstructionState QueryConstructionWithinWorld(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_NEVER_CONSTRUCT; }
-	};
+// A replica whose within-world topology decision is NOT to construct toward
+// this connection (e.g. a downloaded copy on a non-authority, like a server
+// object on a client). The virtual world filter must NOT be applied here:
+// such a copy must never tell the owner to destroy the object or suppress it.
+class VWTestReplicaNonAuth : public VWTestReplica
+{
+protected:
+	RM3ConstructionState QueryConstructionWithinWorld(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_NEVER_CONSTRUCT; }
+};
 
-	class VWTestRM3 : public ReplicaManager3
-	{
-	public:
-		Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new VWTestConnection(sa, g); }
-		void DeallocConnection(Connection_RM3 *c) const { delete c; }
-	};
+class VWTestRM3 : public ReplicaManager3
+{
+public:
+	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new VWTestConnection(sa, g); }
+	void DeallocConnection(Connection_RM3 *c) const { delete c; }
+};
 }
 
 // --- VirtualWorldsCanSee: equality-or-global ---
@@ -80,7 +81,7 @@ TEST(VirtualWorld, ConnectionObserverWorldDefaultsAndRoundTrips)
 {
 	VWTestConnection conn(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(1));
 	ASSERT_EQ(conn.GetVirtualWorld(), VIRTUAL_WORLD_DEFAULT)
-		<< "Connection default virtual world should be VIRTUAL_WORLD_DEFAULT";
+	    << "Connection default virtual world should be VIRTUAL_WORLD_DEFAULT";
 	conn.SetVirtualWorld(42);
 	ASSERT_EQ(conn.GetVirtualWorld(), 42u) << "Connection SetVirtualWorld did not round-trip";
 }
@@ -90,7 +91,7 @@ TEST(VirtualWorld, ReplicaQueriesFilterByVirtualWorld)
 {
 	VWTestReplica replica;
 	ASSERT_EQ(replica.GetVirtualWorld(), VIRTUAL_WORLD_DEFAULT)
-		<< "Replica default virtual world should be VIRTUAL_WORLD_DEFAULT";
+	    << "Replica default virtual world should be VIRTUAL_WORLD_DEFAULT";
 
 	VWTestConnection observer(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(2));
 
@@ -98,25 +99,25 @@ TEST(VirtualWorld, ReplicaQueriesFilterByVirtualWorld)
 	replica.SetVirtualWorld(3);
 	observer.SetVirtualWorld(3);
 	ASSERT_EQ(replica.QueryConstruction(&observer, 0), RM3CS_SEND_CONSTRUCTION)
-		<< "QueryConstruction (same world) should delegate to within-world";
+	    << "QueryConstruction (same world) should delegate to within-world";
 	ASSERT_EQ(replica.QueryDestruction(&observer, 0), RM3DS_NO_ACTION)
-		<< "QueryDestruction (same world) should be RM3DS_NO_ACTION";
+	    << "QueryDestruction (same world) should be RM3DS_NO_ACTION";
 	ASSERT_EQ(replica.QuerySerialization(&observer), RM3QSR_CALL_SERIALIZE)
-		<< "QuerySerialization (same world) should delegate to within-world";
+	    << "QuerySerialization (same world) should delegate to within-world";
 
 	// Different virtual world -> not visible.
 	observer.SetVirtualWorld(4);
 	ASSERT_EQ(replica.QueryConstruction(&observer, 0), RM3CS_NO_ACTION)
-		<< "QueryConstruction (different world) should be RM3CS_NO_ACTION";
+	    << "QueryConstruction (different world) should be RM3CS_NO_ACTION";
 	ASSERT_EQ(replica.QueryDestruction(&observer, 0), RM3DS_SEND_DESTRUCTION)
-		<< "QueryDestruction (different world) should be RM3DS_SEND_DESTRUCTION";
+	    << "QueryDestruction (different world) should be RM3DS_SEND_DESTRUCTION";
 	ASSERT_EQ(replica.QuerySerialization(&observer), RM3QSR_DO_NOT_CALL_SERIALIZE)
-		<< "QuerySerialization (different world) should be RM3QSR_DO_NOT_CALL_SERIALIZE";
+	    << "QuerySerialization (different world) should be RM3QSR_DO_NOT_CALL_SERIALIZE";
 
 	// Global observer sees everything.
 	observer.SetVirtualWorld(VIRTUAL_WORLD_GLOBAL);
 	ASSERT_EQ(replica.QueryConstruction(&observer, 0), RM3CS_SEND_CONSTRUCTION)
-		<< "QueryConstruction (global observer) should delegate to within-world";
+	    << "QueryConstruction (global observer) should delegate to within-world";
 }
 
 // --- Non-authority must NOT apply the virtual world filter ---
@@ -132,14 +133,14 @@ TEST(VirtualWorld, NonAuthorityDoesNotApplyVirtualWorldFilter)
 
 	// Must not despawn upstream just because worlds differ.
 	ASSERT_EQ(replica.QueryDestruction(&observer, 0), RM3DS_NO_ACTION)
-		<< "Non-authority QueryDestruction (diff world) must be RM3DS_NO_ACTION (no upstream despawn)";
+	    << "Non-authority QueryDestruction (diff world) must be RM3DS_NO_ACTION (no upstream despawn)";
 	// Construction defers to the (non-constructing) topology default.
 	ASSERT_EQ(replica.QueryConstruction(&observer, 0), RM3CS_NEVER_CONSTRUCT)
-		<< "Non-authority QueryConstruction (diff world) must defer to topology (RM3CS_NEVER_CONSTRUCT)";
+	    << "Non-authority QueryConstruction (diff world) must defer to topology (RM3CS_NEVER_CONSTRUCT)";
 	// Even with matching worlds, a non-authority still does not construct.
 	observer.SetVirtualWorld(3);
 	ASSERT_EQ(replica.QueryConstruction(&observer, 0), RM3CS_NEVER_CONSTRUCT)
-		<< "Non-authority QueryConstruction (same world) must still be RM3CS_NEVER_CONSTRUCT";
+	    << "Non-authority QueryConstruction (same world) must still be RM3CS_NEVER_CONSTRUCT";
 }
 
 // --- ReplicaManager3 registry queries ---
@@ -242,7 +243,7 @@ TEST_F(VirtualWorldRegistry, GuidVariantReturnsMatchingGuids)
 	DataStructures::List<RakNetGUID> out;
 	rm3.GetGuidsInVirtualWorld(7, out, false);
 	ASSERT_TRUE(out.Size() == 1 && out[0] == RakNetGUID(103))
-		<< "GetGuidsInVirtualWorld(7) should return the single matching guid";
+	    << "GetGuidsInVirtualWorld(7) should return the single matching guid";
 }
 
 TEST_F(VirtualWorldRegistry, QueryingGlobalIsMembershipNotVisibility)
@@ -253,7 +254,7 @@ TEST_F(VirtualWorldRegistry, QueryingGlobalIsMembershipNotVisibility)
 	DataStructures::List<Connection_RM3 *> out;
 	rm3.GetConnectionsInVirtualWorld(VIRTUAL_WORLD_GLOBAL, out, true);
 	ASSERT_TRUE(out.Size() == 1 && out[0] == cg)
-		<< "GetConnectionsInVirtualWorld(GLOBAL) must return only global-tagged connections";
+	    << "GetConnectionsInVirtualWorld(GLOBAL) must return only global-tagged connections";
 }
 
 // --- SetPlayerVirtualWorld sets both observer and avatar ---
@@ -262,5 +263,5 @@ TEST_F(VirtualWorldRegistry, SetPlayerVirtualWorldSetsObserverAndAvatar)
 	VWTestReplica avatar;
 	rm3.SetPlayerVirtualWorld(c7, &avatar, 9);
 	ASSERT_TRUE(c7->GetVirtualWorld() == 9 && avatar.GetVirtualWorld() == 9)
-		<< "SetPlayerVirtualWorld should set both observer and avatar";
+	    << "SetPlayerVirtualWorld should set both observer and avatar";
 }

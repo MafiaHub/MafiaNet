@@ -16,11 +16,11 @@
 #include <stdio.h>
 #if defined(_WIN32)
 #include "mafianet/windows_includes.h" // Sleep and CreateProcess
-#include <process.h> // system
+#include <process.h>                   // system
 #else
 #include <unistd.h> // usleep
 #include <cstdio>
-#include <signal.h>  //kill
+#include <signal.h> //kill
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -40,13 +40,13 @@ int main(int argc, char **argv)
 {
 	// Run commands on argv[1] and launch argv[2];
 	// Run commands on argv[1] and launch argv[2];
-	if (argc!=2)
+	if (argc != 2)
 	{
 		printf("Usage: FileContainingCommands\n");
 		return 1;
 	}
 
-	bool deleteFile=false;
+	bool deleteFile = false;
 	FILE *fp;
 	if (fopen_s(&fp, argv[1], "rt") != 0)
 	{
@@ -55,62 +55,62 @@ int main(int argc, char **argv)
 	}
 
 	char buff[256];
-	if (fgets(buff,255,fp)==0)
+	if (fgets(buff, 255, fp) == 0)
 		return 1;
-	buff[strlen(buff)]=0;
+	buff[strlen(buff)] = 0;
 	while (buff[0])
 	{
-		if (strncmp(buff, "#Sleep ", 7)==0)
+		if (strncmp(buff, "#Sleep ", 7) == 0)
 		{
-			int sleepTime=atoi(buff+7);
+			int sleepTime = atoi(buff + 7);
 #ifdef _WIN32
 			Sleep(sleepTime);
 #else
 			usleep(sleepTime * 1000);
 #endif
 		}
-		else if (strncmp(buff, "#DeleteThisFile", 15)==0)
-			deleteFile=true;
-		else if (strncmp(buff, "#CreateProcess ", 15)==0)
+		else if (strncmp(buff, "#DeleteThisFile", 15) == 0)
+			deleteFile = true;
+		else if (strncmp(buff, "#CreateProcess ", 15) == 0)
 		{
 #ifdef _WIN32
 			PROCESS_INFORMATION pi;
 			STARTUPINFOA si;
 
 			// Set up the start up info struct.
-			memset(&si, 0,  sizeof(STARTUPINFOA));
+			memset(&si, 0, sizeof(STARTUPINFOA));
 			si.cb = sizeof(STARTUPINFOA);
 
 			// Launch the child process.
 			if (!CreateProcessA(
-				nullptr,
-				buff+15,
-				nullptr, nullptr,
-				TRUE,
-				CREATE_NEW_CONSOLE,
-				nullptr, nullptr,
-				&si,
-				&pi))
+			        nullptr,
+			        buff + 15,
+			        nullptr, nullptr,
+			        TRUE,
+			        CREATE_NEW_CONSOLE,
+			        nullptr, nullptr,
+			        &si,
+			        &pi))
 				return 1;
 
-			CloseHandle( pi.hProcess );
-			CloseHandle( pi.hThread );
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
 #else
-            char PathName[255];
+			char PathName[255];
 
-            strcpy_s(PathName, buff+15);
+			strcpy_s(PathName, buff + 15);
 
-            system(PathName);  //This actually runs the application.
+			system(PathName); //This actually runs the application.
 #endif
 		}
 		else
 		{
-            system(buff);
+			system(buff);
 		}
 
-		if (fgets(buff,255,fp)==0)
+		if (fgets(buff, 255, fp) == 0)
 			break;
-		buff[strlen(buff)]=0;
+		buff[strlen(buff)] = 0;
 	}
 
 	fclose(fp);

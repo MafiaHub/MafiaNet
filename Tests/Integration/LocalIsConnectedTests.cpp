@@ -57,27 +57,27 @@ class LocalIsConnected : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize=destroyList.Size();
+		int theSize = destroyList.Size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i=0; i < theSize; i++)
+		for (int i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i=0; i < theSize; i++)
+		for (int i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List <RakPeerInterface *> destroyList;
+	DataStructures::List<RakPeerInterface *> destroyList;
 };
 
 TEST_F(LocalIsConnected, ConnectionStateAndLocalAddressQueries)
 {
-	RakPeerInterface *server,*client;
+	RakPeerInterface *server, *client;
 
-	server=RakPeerInterface::GetInstance();
-	destroyList.Push(server,_FILE_AND_LINE_);
-	client=RakPeerInterface::GetInstance();
-	destroyList.Push(client,_FILE_AND_LINE_);
+	server = RakPeerInterface::GetInstance();
+	destroyList.Push(server, _FILE_AND_LINE_);
+	client = RakPeerInterface::GetInstance();
+	destroyList.Push(client, _FILE_AND_LINE_);
 
 	// The client keeps binding all interfaces (port 0): the GetLocalIP/IsLocalIP/
 	// GetInternalID checks below are about its local addresses.
@@ -90,95 +90,91 @@ TEST_F(LocalIsConnected, ConnectionStateAndLocalAddressQueries)
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
 	serverAddress.SetPortHostOrder(serverPort);
-	TimeMS entryTime=GetTimeMS();
-	bool lastConnect=false;
+	TimeMS entryTime = GetTimeMS();
+	bool lastConnect = false;
 
 	// Testing GetConnectionState
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			lastConnect=client->Connect("127.0.0.1",serverAddress.GetPort(),0,0)==CONNECTION_ATTEMPT_STARTED;
+			lastConnect = client->Connect("127.0.0.1", serverAddress.GetPort(), 0, 0) == CONNECTION_ATTEMPT_STARTED;
 		}
 
 		RakSleep(100);
-
 	}
 
 	//Use thise method to only check if the connect function fails, detecting connected client is done next
 	ASSERT_TRUE(lastConnect) << "Client could not connect after 5 seconds";
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "IsConnected did not detect connected client";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "IsConnected did not detect connected client";
 
-	client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low);
+	client->CloseConnection(serverAddress, true, 0, MafiaNet::Priority::Low);
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,false,false,true)) << "IsConnected did not detect disconnecting client";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, false, false, true)) << "IsConnected did not detect disconnecting client";
 
 	RakSleep(1000);
-	client->Connect("127.0.0.1",serverAddress.GetPort(),0,0);
+	client->Connect("127.0.0.1", serverAddress.GetPort(), 0, 0);
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true)) << "IsConnected did not detect connecting client";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true)) << "IsConnected did not detect connecting client";
 
-	entryTime=GetTimeMS();
+	entryTime = GetTimeMS();
 
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),0,0);
+			client->Connect("127.0.0.1", serverAddress.GetPort(), 0, 0);
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client could not connect after 5 seconds";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client could not connect after 5 seconds";
 
 	// Testing IsLocalIP
 	ASSERT_TRUE(client->IsLocalIP("127.0.0.1")) << "IsLocalIP failed test";
 
 	// Testing SendLoopback
-	char str[]="AAAAAAAAAA";
-	str[0]=(char)(unsigned char)(ID_USER_PACKET_ENUM+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
-	client->SendLoopback(str, (int) strlen(str)+1);
+	char str[] = "AAAAAAAAAA";
+	str[0] = (char) (unsigned char) (ID_USER_PACKET_ENUM + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
+	client->SendLoopback(str, (int) strlen(str) + 1);
 
-	bool recievedPacket=false;
+	bool recievedPacket = false;
 	Packet *packet;
 
-	TimeMS	stopWaiting = GetTimeMS() + 1000;
-	while (GetTimeMS()<stopWaiting)
+	TimeMS stopWaiting = GetTimeMS() + 1000;
+	while (GetTimeMS() < stopWaiting)
 	{
 
-		for (packet=client->Receive(); packet; client->DeallocatePacket(packet), packet=client->Receive())
+		for (packet = client->Receive(); packet; client->DeallocatePacket(packet), packet = client->Receive())
 		{
 
-			if (packet->data[0]==ID_USER_PACKET_ENUM+1)
+			if (packet->data[0] == ID_USER_PACKET_ENUM + 1)
 			{
 
-				recievedPacket=true;
-
+				recievedPacket = true;
 			}
 		}
-
 	}
 
 	ASSERT_TRUE(recievedPacket) << "SendLoopback failed test";
 
 	// Testing GetLocalIP
-	const char * localIp=client->GetLocalIP(0);
+	const char *localIp = client->GetLocalIP(0);
 
 	ASSERT_TRUE(client->IsLocalIP(localIp)) << "GetLocalIP failed test";
 
 	// Testing GetInternalID
-	SystemAddress localAddress=client->GetInternalID();
+	SystemAddress localAddress = client->GetInternalID();
 
 	char convertedIp[65];
 	localAddress.ToString(false, convertedIp);

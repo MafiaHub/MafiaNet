@@ -29,17 +29,17 @@ using namespace MafiaNet;
 
 namespace
 {
-	std::vector<unsigned char> RelayFrameFrom(RakNetGUID origin, unsigned short sequence)
-	{
-		std::vector<unsigned char> f(RAKVOICE_RELAY_HEADER_SIZE + 16, 0x5A);
-		f[0] = ID_RAKVOICE_RELAY_DATA;
-		f[RAKVOICE_RELAY_OFFSET_VERSION] = RAKVOICE_RELAY_FORMAT_VERSION;
-		std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_ORIGIN, &origin.g, sizeof(uint64_t));
-		const uint16_t channelId = 0;
-		std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
-		std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_SEQUENCE, &sequence, sizeof(unsigned short));
-		return f;
-	}
+std::vector<unsigned char> RelayFrameFrom(RakNetGUID origin, unsigned short sequence)
+{
+	std::vector<unsigned char> f(RAKVOICE_RELAY_HEADER_SIZE + 16, 0x5A);
+	f[0] = ID_RAKVOICE_RELAY_DATA;
+	f[RAKVOICE_RELAY_OFFSET_VERSION] = RAKVOICE_RELAY_FORMAT_VERSION;
+	std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_ORIGIN, &origin.g, sizeof(uint64_t));
+	const uint16_t channelId = 0;
+	std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_CHANNEL_ID, &channelId, sizeof(uint16_t));
+	std::memcpy(f.data() + RAKVOICE_RELAY_OFFSET_SEQUENCE, &sequence, sizeof(unsigned short));
+	return f;
+}
 }
 
 class RakVoiceNetworkThreadRelayLive : public ::testing::Test
@@ -62,14 +62,14 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 	server->SetMaximumIncomingConnections(2);
 	const unsigned short serverPort = server->GetInternalID().GetPort();
 
-	std::atomic<uint64_t> listenerGuid {UNASSIGNED_RAKNET_GUID.g};
-	std::atomic<int> handled {0};
-	voice.SetRelayHost([&](Packet *packet) {
+	std::atomic<uint64_t> listenerGuid{UNASSIGNED_RAKNET_GUID.g};
+	std::atomic<int> handled{0};
+	voice.SetRelayHost([&](Packet *packet)
+	                   {
 		RakNetGUID to;
 		to.g = listenerGuid.load();
 		voice.RelayFrame(packet, &to, 1);
-		++handled;
-	});
+		++handled; });
 	server->AttachPlugin(&voice);
 
 	SocketDescriptor clientSd;
@@ -85,15 +85,18 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 
 	// The server is never pumped; the handshake completes on its update thread. Wait for
 	// both clients too: the server counts a connection before the client has seen it accepted.
-	auto allConnected = [&] {
+	auto allConnected = [&]
+	{
 		return server->NumberOfConnections() == 2 && talker->GetConnectionState(serverAddress) == IS_CONNECTED &&
-			listener->GetConnectionState(serverAddress) == IS_CONNECTED;
+		       listener->GetConnectionState(serverAddress) == IS_CONNECTED;
 	};
 	TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 10000 && !allConnected())
 	{
-		for (auto pkt : talker.incoming()) (void) pkt;
-		for (auto pkt : listener.incoming()) (void) pkt;
+		for (auto pkt : talker.incoming())
+			(void) pkt;
+		for (auto pkt : listener.incoming())
+			(void) pkt;
 		RakSleep(30);
 	}
 	ASSERT_TRUE(allConnected());
@@ -105,8 +108,9 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 	{
 		const std::vector<unsigned char> frame = RelayFrameFrom(talker->GetMyGUID(), ++sequence);
 		talker->Send((const char *) frame.data(), (int) frame.size(), Priority::High, Reliability::Unreliable, 0,
-			serverAddress, false);
-		for (auto pkt : talker.incoming()) (void) pkt;
+		             serverAddress, false);
+		for (auto pkt : talker.incoming())
+			(void) pkt;
 		for (auto pkt : listener.incoming())
 		{
 			if (pkt->length > 0 && pkt->data[0] == ID_RAKVOICE_RELAY_DATA)
@@ -140,14 +144,14 @@ TEST_F(RakVoiceNetworkThreadRelayLive, ClearingTheRelayWaitsForOneThatIsMidCall)
 	const unsigned short serverPort = server->GetInternalID().GetPort();
 
 	std::promise<void> entered, release;
-	std::atomic<bool> blockOnce {true};
-	voice.SetRelayHost([&](Packet *) {
+	std::atomic<bool> blockOnce{true};
+	voice.SetRelayHost([&](Packet *)
+	                   {
 		if (blockOnce.exchange(false))
 		{
 			entered.set_value();
 			release.get_future().wait();
-		}
-	});
+		} });
 	server->AttachPlugin(&voice);
 
 	SocketDescriptor clientSd;
@@ -159,7 +163,8 @@ TEST_F(RakVoiceNetworkThreadRelayLive, ClearingTheRelayWaitsForOneThatIsMidCall)
 	TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 10000 && talker->GetConnectionState(serverAddress) != IS_CONNECTED)
 	{
-		for (auto pkt : talker.incoming()) (void) pkt;
+		for (auto pkt : talker.incoming())
+			(void) pkt;
 		RakSleep(30);
 	}
 	ASSERT_EQ(IS_CONNECTED, talker->GetConnectionState(serverAddress));
@@ -171,15 +176,15 @@ TEST_F(RakVoiceNetworkThreadRelayLive, ClearingTheRelayWaitsForOneThatIsMidCall)
 	{
 		const std::vector<unsigned char> frame = RelayFrameFrom(talker->GetMyGUID(), ++sequence);
 		talker->Send((const char *) frame.data(), (int) frame.size(), Priority::High, Reliability::Unreliable, 0,
-			serverAddress, false);
+		             serverAddress, false);
 	}
 	ASSERT_EQ(std::future_status::ready, inRelay.wait_for(std::chrono::seconds(0)));
 
-	std::atomic<bool> cleared {false};
-	std::thread clearer([&] {
+	std::atomic<bool> cleared{false};
+	std::thread clearer([&]
+	                    {
 		voice.SetRelayHost(nullptr);
-		cleared = true;
-	});
+		cleared = true; });
 	RakSleep(200);
 	EXPECT_FALSE(cleared.load());
 
@@ -195,11 +200,12 @@ TEST_F(RakVoiceNetworkThreadRelayLive, TogglingTheRelayWhileFramesArriveIsSafe)
 	// can. The hook must never call an emptied relay (std::bad_function_call) or see a
 	// half-swapped one; under TSan this also checks the state is properly guarded.
 	RakVoice voice;
-	std::atomic<int> relayed {0};
-	std::atomic<bool> threw {false};
-	std::atomic<bool> done {false};
+	std::atomic<int> relayed{0};
+	std::atomic<bool> threw{false};
+	std::atomic<bool> done{false};
 
-	std::thread network([&] {
+	std::thread network([&]
+	                    {
 		std::vector<unsigned char> frame = RelayFrameFrom(RakNetGUID(7), 1);
 		Packet p {};
 		p.data = frame.data();
@@ -213,13 +219,13 @@ TEST_F(RakVoiceNetworkThreadRelayLive, TogglingTheRelayWhileFramesArriveIsSafe)
 		{
 			threw = true;
 		}
-		done = true;
-	});
+		done = true; });
 
 	int toggles = 0;
 	while (!done.load())
 	{
-		voice.SetRelayHost([&](Packet *) { ++relayed; });
+		voice.SetRelayHost([&](Packet *)
+		                   { ++relayed; });
 		voice.SetRelayHost(nullptr);
 		++toggles;
 	}
@@ -230,7 +236,7 @@ TEST_F(RakVoiceNetworkThreadRelayLive, TogglingTheRelayWhileFramesArriveIsSafe)
 	voice.SetRelayHost(nullptr);
 	const int after = relayed.load();
 	std::vector<unsigned char> frame = RelayFrameFrom(RakNetGUID(7), 1);
-	Packet p {};
+	Packet p{};
 	p.data = frame.data();
 	p.length = (unsigned int) frame.size();
 	EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(&p));
@@ -239,43 +245,43 @@ TEST_F(RakVoiceNetworkThreadRelayLive, TogglingTheRelayWhileFramesArriveIsSafe)
 
 namespace
 {
-	// Reaches the relay lock so a test can hold it from another thread, the way a
-	// relay call in progress on the network thread would.
-	class RelayLockProbe : public RakVoice
-	{
-	public:
-		void LockRelay() { relayFrameHandlerMutex.Lock(); }
-		void UnlockRelay() { relayFrameHandlerMutex.Unlock(); }
-	};
+// Reaches the relay lock so a test can hold it from another thread, the way a
+// relay call in progress on the network thread would.
+class RelayLockProbe : public RakVoice
+{
+public:
+	void LockRelay() { relayFrameHandlerMutex.Lock(); }
+	void UnlockRelay() { relayFrameHandlerMutex.Unlock(); }
+};
 
-	// Runs voice.OnReceiveNetworkThread(frame) while another thread holds the relay
-	// lock. Returns whether the call finished without waiting for that lock.
-	bool FinishesWhileTheRelayLockIsHeld(RelayLockProbe &voice, std::vector<unsigned char> frame)
-	{
-		std::promise<void> locked, release;
-		std::thread holder([&] {
+// Runs voice.OnReceiveNetworkThread(frame) while another thread holds the relay
+// lock. Returns whether the call finished without waiting for that lock.
+bool FinishesWhileTheRelayLockIsHeld(RelayLockProbe &voice, std::vector<unsigned char> frame)
+{
+	std::promise<void> locked, release;
+	std::thread holder([&]
+	                   {
 			voice.LockRelay();
 			locked.set_value();
 			release.get_future().wait();
-			voice.UnlockRelay();
-		});
-		locked.get_future().wait();
+			voice.UnlockRelay(); });
+	locked.get_future().wait();
 
-		std::promise<void> finished;
-		std::future<void> done = finished.get_future();
-		std::thread caller([&] {
+	std::promise<void> finished;
+	std::future<void> done = finished.get_future();
+	std::thread caller([&]
+	                   {
 			Packet p {};
 			p.data = frame.data();
 			p.length = (unsigned int) frame.size();
 			voice.OnReceiveNetworkThread(&p);
-			finished.set_value();
-		});
-		const bool unblocked = done.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
-		release.set_value();
-		holder.join();
-		caller.join();
-		return unblocked;
-	}
+			finished.set_value(); });
+	const bool unblocked = done.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+	release.set_value();
+	holder.join();
+	caller.join();
+	return unblocked;
+}
 }
 
 TEST_F(RakVoiceNetworkThreadRelayLive, AClientNeverWaitsOnTheRelayLock)
@@ -290,7 +296,7 @@ TEST_F(RakVoiceNetworkThreadRelayLive, ARelayHostOnlyWaitsOnTheRelayLockForRelay
 {
 	RelayLockProbe voice;
 	voice.SetRelayHost([](Packet *) {});
-	std::vector<unsigned char> other {ID_RAKVOICE_DATA, 1, 2, 3};
+	std::vector<unsigned char> other{ID_RAKVOICE_DATA, 1, 2, 3};
 	EXPECT_TRUE(FinishesWhileTheRelayLockIsHeld(voice, other));
 	// Control: a relay frame on a relay host does wait, which is what proves the two
 	// checks above are exercising the lock at all.

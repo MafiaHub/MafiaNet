@@ -24,10 +24,11 @@
 #pragma once
 
 #include "mafianet/peer_interface.h" // RakPeerInterface
-#include "mafianet/types.h"         // RakNetGUID, UNASSIGNED_RAKNET_GUID
-#include "mafianet/statistics.h"    // RakNetStatistics
+#include "mafianet/types.h"          // RakNetGUID, UNASSIGNED_RAKNET_GUID
+#include "mafianet/statistics.h"     // RakNetStatistics
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 /// Canonical name for the main entry point, RakPeerInterface.
 using PeerInterface = RakPeerInterface;
@@ -40,6 +41,6 @@ using Statistics = RakNetStatistics;
 
 /// Canonical name for the unassigned-GUID sentinel, UNASSIGNED_RAKNET_GUID.
 /// Bound by reference so it remains the same object as the legacy sentinel.
-inline const Guid& UnassignedGuid = UNASSIGNED_RAKNET_GUID;
+inline const Guid &UnassignedGuid = UNASSIGNED_RAKNET_GUID;
 
 } // namespace MafiaNet

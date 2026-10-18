@@ -33,14 +33,14 @@ enum HistoryObject
 	HO_SIN_WAVE,
 	HO_COS_WAVE,
 };
-static const int numGraphColumns=79;
-static const int numGraphRows=5;
+static const int numGraphColumns = 79;
+static const int numGraphRows = 5;
 
 void PrintGraph(DataStructures::Queue<StatisticsHistory::TimeAndValue> &histogram, SHValueType highest, SHValueType lowest)
 {
-	if (histogram.Size()==0)
+	if (histogram.Size() == 0)
 		return;
-	
+
 
 	SHValueType range = highest - lowest;
 	bool drawPoint[numGraphRows][numGraphColumns];
@@ -50,19 +50,19 @@ void PrintGraph(DataStructures::Queue<StatisticsHistory::TimeAndValue> &histogra
 
 	for (unsigned int col = 0; col < histogram.Size() && col < numGraphColumns; col++)
 	{
-		double r = (double) numGraphRows * ((histogram[col].val-lowest) / range);
-		if (r - floor(r)>.5)
-			r=ceil(r);
+		double r = (double) numGraphRows * ((histogram[col].val - lowest) / range);
+		if (r - floor(r) > .5)
+			r = ceil(r);
 		else
-			r=floor(r);
+			r = floor(r);
 		numR = (unsigned int) r;
 		for (unsigned int row = 0; row < numR && row < numGraphRows; row++)
 		{
-			drawPoint[row][col]=true;
+			drawPoint[row][col] = true;
 		}
 	}
 
-	for (int row=numGraphRows-1; row >= 0; row--)
+	for (int row = numGraphRows - 1; row >= 0; row--)
 	{
 		for (unsigned int col = 0; col < numGraphColumns; col++)
 		{
@@ -87,19 +87,19 @@ int main(void)
 	StatisticsHistory::TimeAndValueQueue tavInst;
 	StatisticsHistory statisticsHistory;
 	statisticsHistory.SetDefaultTimeToTrack(10000);
-	statisticsHistory.AddObject(StatisticsHistory::TrackedObjectData(HO_SIN_WAVE,0,0));
-	statisticsHistory.AddObject(StatisticsHistory::TrackedObjectData(HO_COS_WAVE,0,0));
+	statisticsHistory.AddObject(StatisticsHistory::TrackedObjectData(HO_SIN_WAVE, 0, 0));
+	statisticsHistory.AddObject(StatisticsHistory::TrackedObjectData(HO_COS_WAVE, 0, 0));
 	double f;
 
-	Time nextPrint=0;
-	for(;;)
+	Time nextPrint = 0;
+	for (;;)
 	{
-		f = (double) ((double)GetTime() / (double)1000);
-		statisticsHistory.AddValueByObjectID(HO_SIN_WAVE,"Waveform",sin(f),GetTime(), false);
-		statisticsHistory.AddValueByObjectID(HO_COS_WAVE,"Waveform",cos(f),GetTime(), false);
+		f = (double) ((double) GetTime() / (double) 1000);
+		statisticsHistory.AddValueByObjectID(HO_SIN_WAVE, "Waveform", sin(f), GetTime(), false);
+		statisticsHistory.AddValueByObjectID(HO_COS_WAVE, "Waveform", cos(f), GetTime(), false);
 
 		// Show sin wave
-		if (GetTime()>nextPrint)
+		if (GetTime() > nextPrint)
 		{
 			system("cls");
 
@@ -125,8 +125,7 @@ int main(void)
 
 		RakSleep(30);
 	}
-	
+
 
 	return 1;
 }
-

@@ -14,13 +14,13 @@
  */
 
 /// \file fully_connected_mesh2.h
-/// \brief Fully connected mesh plugin, revision 2.  
+/// \brief Fully connected mesh plugin, revision 2.
 /// \details This will connect RakPeer to all connecting peers, and all peers the connecting peer knows about.
 ///
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_FullyConnectedMesh2==1
+#if _RAKNET_SUPPORT_FullyConnectedMesh2 == 1
 
 #ifndef __FULLY_CONNECTED_MESH_2_H
 #define __FULLY_CONNECTED_MESH_2_H
@@ -65,7 +65,7 @@ public:
 	/// If includeCalculating is true, will return the estimated calculated host as long as the calculation is nearly complete
 	/// includeCalculating should be true if you are taking action based on another system becoming host, because not all host calculations may complete at the exact same time
 	/// \sa ConnectionGraph2::GetLowestAveragePingSystem() . If you need one system in the peer to peer group to relay data, have the host call this function after host migration, and use that system
-	/// \return System address of whichever system is host. 
+	/// \return System address of whichever system is host.
 	RakNetGUID GetConnectedHost(void) const;
 	SystemAddress GetConnectedHostAddr(void) const;
 
@@ -93,7 +93,7 @@ public:
 	/// Call this to reset the running time of the host just before joining/creating a game room for networking
 	void ResetHostCalculation(void);
 
-	/// \brief if SetAutoparticipateConnections() is called with false, then you need to use AddParticipant before these systems will be added to the mesh 
+	/// \brief if SetAutoparticipateConnections() is called with false, then you need to use AddParticipant before these systems will be added to the mesh
 	/// FullyConnectedMesh2 will track who is the who host among a fully connected mesh of participants
 	/// Each remote system that you want to check should be added as a participant, either through SetAutoparticipateConnections() or by calling this function
 	/// \param[in] participant The new participant
@@ -153,12 +153,12 @@ public:
 	/// 4C. If the client successfully connected to all participants, the server gets ID_FCM2_VERIFIED_JOIN_CAPABLE. The server programmer, on the same frame, should execute RespondOnVerifiedJoinCapable() to either accept or reject the client.
 	/// 5. If the client got ID_FCM2_VERIFIED_JOIN_ACCEPTED, AddParticipant() is automatically called for each system in the mesh.
 	/// 6. If the client got ID_FCM2_VERIFIED_JOIN_REJECTED, CloseConnection() is automatically called for each system in the mesh. The connection is NOT automatically closed to the original host that sent StartVerifiedJoin().
-	/// 7. If the client's connection to the server was lost before getting ID_FCM2_VERIFIED_JOIN_ACCEPTED or ID_FCM2_VERIFIED_JOIN_REJECTED, return to the programmer ID_FCM2_VERIFIED_JOIN_FAILED and call RakPeerInterface::CloseConnection() 
+	/// 7. If the client's connection to the server was lost before getting ID_FCM2_VERIFIED_JOIN_ACCEPTED or ID_FCM2_VERIFIED_JOIN_REJECTED, return to the programmer ID_FCM2_VERIFIED_JOIN_FAILED and call RakPeerInterface::CloseConnection()
 	///
 	/// \brief Notify the client of GetParticipantList() in order to connect to each of those systems until the mesh has been completed
 	/// \param[in] client The system to send ID_FCM2_VERIFIED_JOIN_START to
 	virtual void StartVerifiedJoin(RakNetGUID client);
-	
+
 	/// \brief On ID_FCM2_VERIFIED_JOIN_CAPABLE , accept or reject the new connection
 	/// \code
 	/// fullyConnectedMesh->RespondOnVerifiedJoinCapable(packet, true, 0);
@@ -182,9 +182,9 @@ public:
 	/// \param[out] guids RakNetGUID values of systems to connect to. List has the same number and order as \a guids
 	/// \param[out] userData What was written with WriteVJSUserData
 	virtual void GetVerifiedJoinRequiredProcessingList(RakNetGUID host,
-		DataStructures::List<SystemAddress> &addresses,
-		DataStructures::List<RakNetGUID> &guids,
-		DataStructures::List<BitStream*> &userData);
+	                                                   DataStructures::List<SystemAddress> &addresses,
+	                                                   DataStructures::List<RakNetGUID> &guids,
+	                                                   DataStructures::List<BitStream *> &userData);
 
 	/// \brief On ID_FCM2_VERIFIED_JOIN_ACCEPTED, read additional data passed to RespondOnVerifiedJoinCapable()
 	/// \code
@@ -209,7 +209,7 @@ public:
 	virtual void GetVerifiedJoinRejectedAdditionalData(Packet *packet, BitStream *additionalData);
 
 	/// Override to write data when ID_FCM2_VERIFIED_JOIN_CAPABLE is sent
-	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) {(void) bsOut;}
+	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) { (void) bsOut; }
 
 	/// Use to read data written from WriteVJCUserData()
 	/// \code
@@ -224,7 +224,11 @@ public:
 	/// \param[in] userGuid The RakNetGuid of the user you are writing for
 	/// \param[in] userContext The data set with SetMyContext() for that system. May be empty. To properly write userContext, you will need to first write userContext->GetNumberOfBitsUsed(), followed by bsOut->Write(userContext);
 	//virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid, BitStream *userContext) {(void) bsOut; (void) userGuid; (void) userContext;}
-	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) {(void) bsOut; (void) userGuid;}
+	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid)
+	{
+		(void) bsOut;
+		(void) userGuid;
+	}
 
 	/// \internal
 	MafiaNet::TimeUS GetElapsedRuntime(void);
@@ -238,7 +242,7 @@ public:
 	/// \internal
 	virtual void OnRakPeerShutdown(void);
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	/// \internal
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	/// \internal
@@ -248,7 +252,8 @@ public:
 	struct FCM2Participant
 	{
 		FCM2Participant() {}
-		FCM2Participant(const FCM2Guid &_fcm2Guid, const RakNetGUID &_rakNetGuid) : fcm2Guid(_fcm2Guid), rakNetGuid(_rakNetGuid) {}
+		FCM2Participant(const FCM2Guid &_fcm2Guid, const RakNetGUID &_rakNetGuid)
+		    : fcm2Guid(_fcm2Guid), rakNetGuid(_rakNetGuid) {}
 
 		// Low half is a random number.
 		// High half is the order we connected in (totalConnectionCount)
@@ -299,7 +304,7 @@ protected:
 	void AssignOurFCMGuid(void);
 	void CalculateHost(RakNetGUID *rakNetGuid, FCM2Guid *fcm2Guid);
 	// bool AddParticipantInternal( RakNetGUID rakNetGuid, FCM2Guid theirFCMGuid, BitStream *userContext );
-	bool AddParticipantInternal( RakNetGUID rakNetGuid, FCM2Guid theirFCMGuid );
+	bool AddParticipantInternal(RakNetGUID rakNetGuid, FCM2Guid theirFCMGuid);
 	void CalculateAndPushHost(void);
 	bool ParticipantListComplete(void);
 	void IncrementTotalConnectionCount(unsigned int i);
@@ -316,11 +321,11 @@ protected:
 	void DecomposeJoinCapable(Packet *packet, VerifiedJoinInProgress *vjip);
 	void WriteVerifiedJoinCapable(MafiaNet::BitStream *bsOut, VerifiedJoinInProgress *vjip);
 	void CategorizeVJIP(VerifiedJoinInProgress *vjip,
-		DataStructures::List<RakNetGUID> &participatingMembersOnClientSucceeded,
-		DataStructures::List<RakNetGUID> &participatingMembersOnClientFailed,
-		DataStructures::List<RakNetGUID> &participatingMembersNotOnClient,
-		DataStructures::List<RakNetGUID> &clientMembersNotParticipatingSucceeded,
-		DataStructures::List<RakNetGUID> &clientMembersNotParticipatingFailed);
+	                    DataStructures::List<RakNetGUID> &participatingMembersOnClientSucceeded,
+	                    DataStructures::List<RakNetGUID> &participatingMembersOnClientFailed,
+	                    DataStructures::List<RakNetGUID> &participatingMembersNotOnClient,
+	                    DataStructures::List<RakNetGUID> &clientMembersNotParticipatingSucceeded,
+	                    DataStructures::List<RakNetGUID> &clientMembersNotParticipatingFailed);
 
 	// Used to track how long RakNet has been running. This is so we know who has been running longest
 	MafiaNet::TimeUS startupTime;
@@ -337,7 +342,7 @@ protected:
 	FCM2Guid ourFCMGuid;
 
 	/// List of systems we know the FCM2Guid for
-	DataStructures::List<FCM2Participant*> fcm2ParticipantList;
+	DataStructures::List<FCM2Participant *> fcm2ParticipantList;
 
 	RakNetGUID lastPushedHost;
 
@@ -348,7 +353,7 @@ protected:
 	MafiaNet::RakString connectionPassword;
 	bool connectOnNewRemoteConnections;
 
-	DataStructures::List<VerifiedJoinInProgress*> joinsInProgress;
+	DataStructures::List<VerifiedJoinInProgress *> joinsInProgress;
 	BitStream myContext;
 };
 

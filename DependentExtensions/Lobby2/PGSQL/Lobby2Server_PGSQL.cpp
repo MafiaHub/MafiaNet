@@ -18,14 +18,14 @@
 
 using namespace MafiaNet;
 
-STATIC_FACTORY_DEFINITIONS(Lobby2Server_PGSQL,Lobby2Server_PGSQL);
+STATIC_FACTORY_DEFINITIONS(Lobby2Server_PGSQL, Lobby2Server_PGSQL);
 
-Lobby2ServerCommand Lobby2ServerWorkerThread(Lobby2ServerCommand input, bool *returnOutput, void* perThreadData)
+Lobby2ServerCommand Lobby2ServerWorkerThread(Lobby2ServerCommand input, bool *returnOutput, void *perThreadData)
 {
 	PostgreSQLInterface *postgreSQLInterface = (PostgreSQLInterface *) perThreadData;
 	input.returnToSender = input.lobby2Message->ServerDBImpl(&input, postgreSQLInterface);
-	*returnOutput=input.returnToSender;
-	if (input.deallocMsgWhenDone && input.returnToSender==false)
+	*returnOutput = input.returnToSender;
+	if (input.deallocMsgWhenDone && input.returnToSender == false)
 		MafiaNet::OP_DELETE(input.lobby2Message, _FILE_AND_LINE_);
 	return input;
 }
@@ -40,12 +40,12 @@ Lobby2Server_PGSQL::~Lobby2Server_PGSQL()
 void Lobby2Server_PGSQL::AddInputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle)
 {
 	Lobby2ServerCommand command;
-	command.lobby2Message=msg;
-	command.deallocMsgWhenDone=true;
-	command.returnToSender=true;
-	command.callerUserId=targetUserId;
-	command.callingUserName=targetUserHandle;
-	command.server=this;
+	command.lobby2Message = msg;
+	command.deallocMsgWhenDone = true;
+	command.returnToSender = true;
+	command.callerUserId = targetUserId;
+	command.callingUserName = targetUserHandle;
+	command.server = this;
 	AddInputCommand(command);
 }
 void Lobby2Server_PGSQL::AddInputCommand(Lobby2ServerCommand command)
@@ -55,64 +55,64 @@ void Lobby2Server_PGSQL::AddInputCommand(Lobby2ServerCommand command)
 void Lobby2Server_PGSQL::AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle)
 {
 	Lobby2ServerCommand command;
-	command.lobby2Message=msg;
-	command.deallocMsgWhenDone=true;
-	command.returnToSender=true;
-	command.callerUserId=targetUserId;
-	command.callingUserName=targetUserHandle;
-	command.server=this;
-	msg->resultCode=L2RC_SUCCESS;
+	command.lobby2Message = msg;
+	command.deallocMsgWhenDone = true;
+	command.returnToSender = true;
+	command.callerUserId = targetUserId;
+	command.callingUserName = targetUserHandle;
+	command.server = this;
+	msg->resultCode = L2RC_SUCCESS;
 	threadPool.AddOutput(command);
 }
 bool Lobby2Server_PGSQL::ConnectToDB(const char *conninfo, int numWorkerThreads)
 {
-	if (numWorkerThreads<=0)
+	if (numWorkerThreads <= 0)
 		return false;
 
 	StopThreads();
 
 	int i;
 	PostgreSQLInterface *connection;
-	for (i=0; i < numWorkerThreads; i++)
+	for (i = 0; i < numWorkerThreads; i++)
 	{
-		connection = MafiaNet::OP_NEW<PostgreSQLInterface>( _FILE_AND_LINE_ );
-		if (connection->Connect(conninfo)==false)
+		connection = MafiaNet::OP_NEW<PostgreSQLInterface>(_FILE_AND_LINE_);
+		if (connection->Connect(conninfo) == false)
 		{
 			MafiaNet::OP_DELETE(connection, _FILE_AND_LINE_);
 			ClearConnections();
 			return false;
 		}
 		connectionPoolMutex.Lock();
-		connectionPool.Insert(connection, _FILE_AND_LINE_ );
+		connectionPool.Insert(connection, _FILE_AND_LINE_);
 		connectionPoolMutex.Unlock();
 	}
 
-	threadPool.SetThreadDataInterface(this,0);
-	threadPool.StartThreads(numWorkerThreads,0,0,0);
+	threadPool.SetThreadDataInterface(this, 0);
+	threadPool.StartThreads(numWorkerThreads, 0, 0, 0);
 	return true;
 }
-void* Lobby2Server_PGSQL::PerThreadFactory(void *context)
+void *Lobby2Server_PGSQL::PerThreadFactory(void *context)
 {
-	(void)context;
+	(void) context;
 
-	PostgreSQLInterface* p;
+	PostgreSQLInterface *p;
 	connectionPoolMutex.Lock();
-	p=connectionPool.Pop();
+	p = connectionPool.Pop();
 	connectionPoolMutex.Unlock();
 	return p;
 }
-void Lobby2Server_PGSQL::PerThreadDestructor(void* factoryResult, void *context)
+void Lobby2Server_PGSQL::PerThreadDestructor(void *factoryResult, void *context)
 {
-	(void)context;
+	(void) context;
 
-	PostgreSQLInterface* p = (PostgreSQLInterface*)factoryResult;
+	PostgreSQLInterface *p = (PostgreSQLInterface *) factoryResult;
 	MafiaNet::OP_DELETE(p, _FILE_AND_LINE_);
 }
 void Lobby2Server_PGSQL::ClearConnections(void)
 {
 	unsigned int i;
 	connectionPoolMutex.Lock();
-	for (i=0; i < connectionPool.Size(); i++)
+	for (i = 0; i < connectionPool.Size(); i++)
 		MafiaNet::OP_DELETE(connectionPool[i], _FILE_AND_LINE_);
 	connectionPool.Clear(false, _FILE_AND_LINE_);
 	connectionPoolMutex.Unlock();

@@ -42,7 +42,7 @@ else use congestion avoidance
 
 #include "mafianet/defines.h"
 
-#if USE_SLIDING_WINDOW_CONGESTION_CONTROL==1
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL == 1
 
 #ifndef __CONGESTION_CONTROL_SLIDING_WINDOW_H
 #define __CONGESTION_CONTROL_SLIDING_WINDOW_H
@@ -56,10 +56,10 @@ else use congestion avoidance
 #define UDP_HEADER_SIZE 28
 
 #define CC_DEBUG_PRINTF_1(x)
-#define CC_DEBUG_PRINTF_2(x,y)
-#define CC_DEBUG_PRINTF_3(x,y,z)
-#define CC_DEBUG_PRINTF_4(x,y,z,a)
-#define CC_DEBUG_PRINTF_5(x,y,z,a,b)
+#define CC_DEBUG_PRINTF_2(x, y)
+#define CC_DEBUG_PRINTF_3(x, y, z)
+#define CC_DEBUG_PRINTF_4(x, y, z, a)
+#define CC_DEBUG_PRINTF_5(x, y, z, a, b)
 //#define CC_DEBUG_PRINTF_1(x) printf(x)
 //#define CC_DEBUG_PRINTF_2(x,y) printf(x,y)
 //#define CC_DEBUG_PRINTF_3(x,y,z) printf(x,y,z)
@@ -69,7 +69,7 @@ else use congestion avoidance
 /// Set to 4 if you are using the iPod Touch TG. See http://www.jenkinssoftware.com/forum/index.php?topic=2717.0
 #define CC_TIME_TYPE_BYTES 8
 
-#if CC_TIME_TYPE_BYTES==8
+#if CC_TIME_TYPE_BYTES == 8
 typedef MafiaNet::TimeUS CCTimeType;
 #else
 typedef MafiaNet::TimeMS CCTimeType;
@@ -85,8 +85,7 @@ namespace MafiaNet
 
 class CCRakNetSlidingWindow
 {
-	public:
-	
+public:
 	CCRakNetSlidingWindow();
 	~CCRakNetSlidingWindow();
 
@@ -133,10 +132,10 @@ class CCRakNetSlidingWindow
 	/// Call this when an ACK arrives.
 	/// hasBAndAS are possibly written with the ack, see OnSendAck()
 	/// B and AS are used in the calculations in UpdateWindowSizeAndAckOnAckPerSyn
-	/// B and AS are updated at most once per SYN 
-	void OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBAndAS, BytesPerMicrosecond _B, BytesPerMicrosecond _AS, double totalUserDataBytesAcked, bool isContinuousSend, DatagramSequenceNumberType sequenceNumber );
-	void OnDuplicateAck( CCTimeType curTime, DatagramSequenceNumberType sequenceNumber );
-	
+	/// B and AS are updated at most once per SYN
+	void OnAck(CCTimeType curTime, CCTimeType rtt, bool hasBAndAS, BytesPerMicrosecond _B, BytesPerMicrosecond _AS, double totalUserDataBytesAcked, bool isContinuousSend, DatagramSequenceNumberType sequenceNumber);
+	void OnDuplicateAck(CCTimeType curTime, DatagramSequenceNumberType sequenceNumber);
+
 	/// Call when you send an ack, to see if the ack should have the B and AS parameters transmitted
 	/// Call before calling OnSendAck()
 	void OnSendAckGetBAndAS(CCTimeType curTime, bool *hasBAndAS, BytesPerMicrosecond *_B, BytesPerMicrosecond *_AS);
@@ -150,7 +149,7 @@ class CCRakNetSlidingWindow
 	/// Call when we send a NACK
 	/// Also updates SND, the period between sends, since data is written out
 	void OnSendNACK(CCTimeType curTime, uint32_t numBytes);
-	
+
 	/// Retransmission time out for the sender
 	/// If the time difference between when a message was last transmitted, and the current time is greater than RTO then packet is eligible for retransmission, pending congestion control
 	/// RTO = (RTT + 4 * RTTVar) + SYN
@@ -167,33 +166,32 @@ class CCRakNetSlidingWindow
 	uint32_t GetMTU(void) const;
 
 	/// Query for statistics
-	BytesPerMicrosecond GetLocalSendRate(void) const {return 0;}
+	BytesPerMicrosecond GetLocalSendRate(void) const { return 0; }
 	BytesPerMicrosecond GetLocalReceiveRate(CCTimeType currentTime) const;
-	BytesPerMicrosecond GetRemoveReceiveRate(void) const {return 0;}
+	BytesPerMicrosecond GetRemoveReceiveRate(void) const { return 0; }
 	//BytesPerMicrosecond GetEstimatedBandwidth(void) const {return B;}
-	BytesPerMicrosecond GetEstimatedBandwidth(void) const {return GetLinkCapacityBytesPerSecond()*1000000.0;}
-	double GetLinkCapacityBytesPerSecond(void) const {return 0;}
+	BytesPerMicrosecond GetEstimatedBandwidth(void) const { return GetLinkCapacityBytesPerSecond() * 1000000.0; }
+	double GetLinkCapacityBytesPerSecond(void) const { return 0; }
 
 	/// Query for statistics
 	double GetRTT(void) const;
 
-	bool GetIsInSlowStart(void) const {return IsInSlowStart();}
-	uint32_t GetCWNDLimit(void) const {return (uint32_t) 0;}
+	bool GetIsInSlowStart(void) const { return IsInSlowStart(); }
+	uint32_t GetCWNDLimit(void) const { return (uint32_t) 0; }
 
 
 	/// Is a > b, accounting for variable overflow?
 	static bool GreaterThan(DatagramSequenceNumberType a, DatagramSequenceNumberType b);
 	/// Is a < b, accounting for variable overflow?
 	static bool LessThan(DatagramSequenceNumberType a, DatagramSequenceNumberType b);
-//	void SetTimeBetweenSendsLimit(unsigned int bitsPerSecond);
+	//	void SetTimeBetweenSendsLimit(unsigned int bitsPerSecond);
 	uint64_t GetBytesPerSecondLimitByCongestionControl(void) const;
-	  
-	protected:
 
+protected:
 	// Maximum amount of bytes that the user can send, e.g. the size of one full datagram
 	uint32_t MAXIMUM_MTU_INCLUDING_UDP_HEADER;
 
-	double cwnd; // max bytes on wire
+	double cwnd;     // max bytes on wire
 	double ssThresh; // Threshhold between slow start and congestion avoidance
 
 	/// When we get an ack, if oldestUnsentAck==0, set it to the current time
@@ -215,7 +213,6 @@ class CCRakNetSlidingWindow
 	bool IsInSlowStart(void) const;
 
 	double lastRtt, estimatedRTT, deviationRtt;
-
 };
 
 }

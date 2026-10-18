@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#if   defined(_WIN32)
+#if defined(_WIN32)
 #include <conio.h> /* _getche() */
 
 #else
@@ -21,4 +21,4 @@
 #include <stdio.h>
 #include <unistd.h>
 char _getche();
-#endif 
+#endif

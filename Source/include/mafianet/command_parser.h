@@ -18,7 +18,7 @@
 ///
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_RakNetCommandParser==1
+#if _RAKNET_SUPPORT_RakNetCommandParser == 1
 
 #ifndef __RAKNET_COMMAND_PARSER
 #define __RAKNET_COMMAND_PARSER
@@ -62,8 +62,8 @@ public:
 	/// Records the instance of RakPeer to perform the desired commands on
 	/// \param[in] rakPeer The RakPeer instance, or a derived class (e.g. RakPeer or RakPeer)
 	void SetRakPeerInterface(MafiaNet::RakPeerInterface *rakPeer);
-protected:
 
+protected:
 	/// Which instance of RakPeer we are working on.  Set from SetRakPeerInterface()
 	RakPeerInterface *peer;
 };

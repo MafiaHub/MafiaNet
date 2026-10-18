@@ -25,7 +25,7 @@
 class CSendFileTo
 {
 public:
-	bool SendMail(HWND hWndParent, const char *strAttachmentFilePath, const char *strAttachmentFileName,const char *strSubject, const char *strBody, const char *strRecipient);
+	bool SendMail(HWND hWndParent, const char *strAttachmentFilePath, const char *strAttachmentFileName, const char *strSubject, const char *strBody, const char *strRecipient);
 };
 
 #endif

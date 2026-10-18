@@ -29,60 +29,60 @@ using namespace MafiaNet;
 
 namespace
 {
-	// A flat user type that describes its wire format once. The same serialize()
-	// drives both the write and the read direction.
-	struct ChatMessage
+// A flat user type that describes its wire format once. The same serialize()
+// drives both the write and the read direction.
+struct ChatMessage
+{
+	std::string text;
+	int channel = 0;
+
+	template <class Ar>
+	void serialize(Ar &ar) { ar & text & channel; }
+
+	bool operator==(const ChatMessage &o) const
 	{
-		std::string text;
-		int channel = 0;
-
-		template <class Ar>
-		void serialize(Ar &ar) { ar & text & channel; }
-
-		bool operator==(const ChatMessage &o) const
-		{
-			return text == o.text && channel == o.channel;
-		}
-	};
-
-	// A nested type: one of its members (lastMessage) is itself a serialize()-able
-	// type. This must recurse through the archive, NOT fall through to the
-	// BitStream catch-all Write() which would raw-copy the std::string inside.
-	struct PlayerState
-	{
-		std::string name;
-		unsigned int health = 0;
-		ChatMessage lastMessage;
-
-		template <class Ar>
-		void serialize(Ar &ar) { ar & name & health & lastMessage; }
-
-		bool operator==(const PlayerState &o) const
-		{
-			return name == o.name && health == o.health && lastMessage == o.lastMessage;
-		}
-	};
-
-	// A type with no serialize() but with its own BitStream operator<< / operator>>.
-	// The archive must fall through to those, not require a serialize() method.
-	struct Color
-	{
-		unsigned char r = 0, g = 0, b = 0;
-		bool operator==(const Color &o) const { return r == o.r && g == o.g && b == o.b; }
-	};
-
-	// Round-trip a serialize()-able value through a fresh pair of BitStreams.
-	template <class T>
-	void RoundTrip(const T &in, T &out)
-	{
-		BitStream bsOut;
-		WriteArchive w(bsOut);
-		w & const_cast<T &>(in);
-
-		BitStream bsIn(bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), false);
-		ReadArchive r(bsIn);
-		r & out;
+		return text == o.text && channel == o.channel;
 	}
+};
+
+// A nested type: one of its members (lastMessage) is itself a serialize()-able
+// type. This must recurse through the archive, NOT fall through to the
+// BitStream catch-all Write() which would raw-copy the std::string inside.
+struct PlayerState
+{
+	std::string name;
+	unsigned int health = 0;
+	ChatMessage lastMessage;
+
+	template <class Ar>
+	void serialize(Ar &ar) { ar & name & health & lastMessage; }
+
+	bool operator==(const PlayerState &o) const
+	{
+		return name == o.name && health == o.health && lastMessage == o.lastMessage;
+	}
+};
+
+// A type with no serialize() but with its own BitStream operator<< / operator>>.
+// The archive must fall through to those, not require a serialize() method.
+struct Color
+{
+	unsigned char r = 0, g = 0, b = 0;
+	bool operator==(const Color &o) const { return r == o.r && g == o.g && b == o.b; }
+};
+
+// Round-trip a serialize()-able value through a fresh pair of BitStreams.
+template <class T>
+void RoundTrip(const T &in, T &out)
+{
+	BitStream bsOut;
+	WriteArchive w(bsOut);
+	w &const_cast<T &>(in);
+
+	BitStream bsIn(bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), false);
+	ReadArchive r(bsIn);
+	r & out;
+}
 }
 
 // operator<< / operator>> for Color live in the MafiaNet namespace so the
@@ -90,20 +90,20 @@ namespace
 // catch-all template.
 namespace MafiaNet
 {
-	static BitStream &operator<<(BitStream &out, const Color &c)
-	{
-		out.Write(c.r);
-		out.Write(c.g);
-		out.Write(c.b);
-		return out;
-	}
-	static BitStream &operator>>(BitStream &in, Color &c)
-	{
-		in.Read(c.r);
-		in.Read(c.g);
-		in.Read(c.b);
-		return in;
-	}
+static BitStream &operator<<(BitStream &out, const Color &c)
+{
+	out.Write(c.r);
+	out.Write(c.g);
+	out.Write(c.b);
+	return out;
+}
+static BitStream &operator>>(BitStream &in, Color &c)
+{
+	in.Read(c.r);
+	in.Read(c.g);
+	in.Read(c.b);
+	return in;
+}
 }
 
 // A flat struct with serialize() round-trips (write then read == original).
@@ -116,8 +116,8 @@ TEST(Archive, FlatSerializeStructRoundTrips)
 	ChatMessage restored;
 	RoundTrip(original, restored);
 	EXPECT_TRUE(restored == original)
-		<< "Flat serialize() struct did not round-trip: text='" << restored.text
-		<< "' channel=" << restored.channel;
+	    << "Flat serialize() struct did not round-trip: text='" << restored.text
+	    << "' channel=" << restored.channel;
 }
 
 // std::string with an embedded null must survive (binary-safe, length-prefixed).
@@ -130,8 +130,8 @@ TEST(Archive, EmbeddedNullStringRoundTrips)
 	ChatMessage restored;
 	RoundTrip(original, restored);
 	EXPECT_TRUE(restored == original)
-		<< "std::string with embedded null did not round-trip (len "
-		<< (unsigned) restored.text.size() << ")";
+	    << "std::string with embedded null did not round-trip (len "
+	    << (unsigned) restored.text.size() << ")";
 }
 
 // A nested serialize()-able type recurses through the archive.
@@ -146,16 +146,16 @@ TEST(Archive, NestedSerializeTypeRecurses)
 	PlayerState restored;
 	RoundTrip(original, restored);
 	EXPECT_TRUE(restored == original)
-		<< "Nested serialize() type did not round-trip: name='" << restored.name
-		<< "' health=" << restored.health
-		<< " inner='" << restored.lastMessage.text << "'/" << restored.lastMessage.channel;
+	    << "Nested serialize() type did not round-trip: name='" << restored.name
+	    << "' health=" << restored.health
+	    << " inner='" << restored.lastMessage.text << "'/" << restored.lastMessage.channel;
 }
 
 // A type without serialize() but with its own operator<< / operator>>
 // still works through the archive (falls through to the BitStream ops).
 TEST(Archive, OperatorStreamFallthroughRoundTrips)
 {
-	Color original{ 10, 20, 30 };
+	Color original{10, 20, 30};
 	Color restored;
 
 	BitStream bsOut;
@@ -167,8 +167,8 @@ TEST(Archive, OperatorStreamFallthroughRoundTrips)
 	r & restored;
 
 	EXPECT_TRUE(restored == original)
-		<< "operator<< / operator>> fallthrough did not round-trip: "
-		<< (unsigned) restored.r << "," << (unsigned) restored.g << "," << (unsigned) restored.b;
+	    << "operator<< / operator>> fallthrough did not round-trip: "
+	    << (unsigned) restored.r << "," << (unsigned) restored.g << "," << (unsigned) restored.b;
 }
 
 // A bare primitive also works through the archive (no serialize needed).

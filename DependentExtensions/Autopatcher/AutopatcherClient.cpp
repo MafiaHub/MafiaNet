@@ -36,7 +36,7 @@
 using namespace MafiaNet;
 
 #include "mafianet/super_fast_hash.h"
-static const unsigned HASH_LENGTH=4;
+static const unsigned HASH_LENGTH = 4;
 
 #define COPY_ON_RESTART_EXTENSION ".patched.tmp"
 
@@ -45,7 +45,7 @@ static const unsigned HASH_LENGTH=4;
 PatchContext AutopatcherClientCBInterface::ApplyPatchBase(const char *oldFilePath, char **newFileContents, unsigned int *newFileSize, char *patchContents, unsigned int patchSize, uint32_t patchAlgorithm)
 {
 	// unused parameters
-	(void)patchAlgorithm;
+	(void) patchAlgorithm;
 
 	return ApplyPatchBSDiff(oldFilePath, newFileContents, newFileSize, patchContents, patchSize);
 }
@@ -53,22 +53,22 @@ PatchContext AutopatcherClientCBInterface::ApplyPatchBase(const char *oldFilePat
 PatchContext AutopatcherClientCBInterface::ApplyPatchBSDiff(const char *oldFilePath, char **newFileContents, unsigned int *newFileSize, char *patchContents, unsigned int patchSize)
 {
 	FILE *fp;
-	if (fopen_s(&fp, oldFilePath, "rb")!=0)
+	if (fopen_s(&fp, oldFilePath, "rb") != 0)
 		return PC_ERROR_PATCH_TARGET_MISSING;
 
 	fseek(fp, 0, SEEK_END);
 	unsigned int prePatchLength = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	char *prePatchFile = (char*) rakMalloc_Ex(prePatchLength, _FILE_AND_LINE_);
+	char *prePatchFile = (char *) rakMalloc_Ex(prePatchLength, _FILE_AND_LINE_);
 	fread(prePatchFile, prePatchLength, 1, fp);
 	fclose(fp);
 
 	bool result = ApplyPatch(prePatchFile, prePatchLength, newFileContents, newFileSize, patchContents, patchSize);
 	rakFree_Ex(prePatchFile, _FILE_AND_LINE_);
 
-	if (result==false)
+	if (result == false)
 		return PC_ERROR_PATCH_APPLICATION_FAILURE;
-	
+
 	return PC_WRITE_FILE;
 }
 
@@ -88,91 +88,91 @@ struct AutopatcherClientThreadInfo
 	AutopatcherClientCBInterface *cbInterface;
 };
 // -----------------------------------------------------------------
-AutopatcherClientThreadInfo* AutopatcherClientWorkerThread(AutopatcherClientThreadInfo* input, bool *returnOutput, void* perThreadData)
+AutopatcherClientThreadInfo *AutopatcherClientWorkerThread(AutopatcherClientThreadInfo *input, bool *returnOutput, void *perThreadData)
 {
 	// unused parameters
-	(void)perThreadData;
+	(void) perThreadData;
 
 	char fullPathToDir[1024];
-	*returnOutput=true;
+	*returnOutput = true;
 
 	strcpy_s(fullPathToDir, input->applicationDirectory);
 	strcat_s(fullPathToDir, input->onFileStruct.fileName);
-	if (input->onFileStruct.context.op==PC_WRITE_FILE)
+	if (input->onFileStruct.context.op == PC_WRITE_FILE)
 	{
-		if (WriteFileWithDirectories(fullPathToDir, (char*)input->onFileStruct.fileData, input->onFileStruct.byteLengthOfThisFile)==false)
+		if (WriteFileWithDirectories(fullPathToDir, (char *) input->onFileStruct.fileData, input->onFileStruct.byteLengthOfThisFile) == false)
 		{
 			char newDir[1024];
 			strcpy_s(newDir, fullPathToDir);
 			strcat_s(newDir, COPY_ON_RESTART_EXTENSION);
-			if (WriteFileWithDirectories(newDir, (char*)input->onFileStruct.fileData, input->onFileStruct.byteLengthOfThisFile))
+			if (WriteFileWithDirectories(newDir, (char *) input->onFileStruct.fileData, input->onFileStruct.byteLengthOfThisFile))
 			{
-				input->result=PC_NOTICE_WILL_COPY_ON_RESTART;
+				input->result = PC_NOTICE_WILL_COPY_ON_RESTART;
 			}
 			else
 			{
-				input->result=PC_ERROR_FILE_WRITE_FAILURE;
+				input->result = PC_ERROR_FILE_WRITE_FAILURE;
 			}
 		}
 		else
 		{
-			input->result=(PatchContext) input->onFileStruct.context.op;
+			input->result = (PatchContext) input->onFileStruct.context.op;
 		}
 	}
 	else
 	{
-		RakAssert(input->onFileStruct.context.op==PC_HASH_1_WITH_PATCH || input->onFileStruct.context.op==PC_HASH_2_WITH_PATCH);
+		RakAssert(input->onFileStruct.context.op == PC_HASH_1_WITH_PATCH || input->onFileStruct.context.op == PC_HASH_2_WITH_PATCH);
 
-//		CSHA1 sha1;
-		
+		//		CSHA1 sha1;
+
 
 		//				printf("apply patch %i bytes\n", byteLengthOfThisFile-SHA1_LENGTH);
 		//				for (int i=0; i < byteLengthOfThisFile-SHA1_LENGTH; i++)
 		//					printf("%i ", fileData[SHA1_LENGTH+i]);
 		//				printf("\n");
 		int hashMultiplier;
-		if (input->onFileStruct.context.op==PC_HASH_1_WITH_PATCH)
-			hashMultiplier=1;
+		if (input->onFileStruct.context.op == PC_HASH_1_WITH_PATCH)
+			hashMultiplier = 1;
 		else
-			hashMultiplier=2; // else op==PC_HASH_2_WITH_PATCH
+			hashMultiplier = 2; // else op==PC_HASH_2_WITH_PATCH
 
-		PatchContext result = input->cbInterface->ApplyPatchBase(fullPathToDir, &input->postPatchFile, &input->postPatchLength, (char*)input->onFileStruct.fileData+HASH_LENGTH*hashMultiplier, input->onFileStruct.byteLengthOfThisFile-HASH_LENGTH*hashMultiplier, input->onFileStruct.context.flnc_extraData2);
-		if (result == PC_ERROR_PATCH_APPLICATION_FAILURE || input->result==PC_ERROR_PATCH_TARGET_MISSING)
+		PatchContext result = input->cbInterface->ApplyPatchBase(fullPathToDir, &input->postPatchFile, &input->postPatchLength, (char *) input->onFileStruct.fileData + HASH_LENGTH * hashMultiplier, input->onFileStruct.byteLengthOfThisFile - HASH_LENGTH * hashMultiplier, input->onFileStruct.context.flnc_extraData2);
+		if (result == PC_ERROR_PATCH_APPLICATION_FAILURE || input->result == PC_ERROR_PATCH_TARGET_MISSING)
 		{
-			input->result=result;
+			input->result = result;
 			return input;
 		}
 
 		unsigned int hash = SuperFastHash(input->postPatchFile, input->postPatchLength);
 		if (MafiaNet::BitStream::DoEndianSwap())
-			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash, sizeof(hash));
+			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
 
 		//if (memcmp(sha1.GetHash(), input->onFileStruct.fileData, HASH_LENGTH)!=0)
 
-		if (memcmp(&hash, input->onFileStruct.fileData+HASH_LENGTH*(hashMultiplier-1), HASH_LENGTH)!=0)
+		if (memcmp(&hash, input->onFileStruct.fileData + HASH_LENGTH * (hashMultiplier - 1), HASH_LENGTH) != 0)
 		{
-			input->result=PC_ERROR_PATCH_RESULT_CHECKSUM_FAILURE;
+			input->result = PC_ERROR_PATCH_RESULT_CHECKSUM_FAILURE;
 		}
 		else
 		{
 			// Write postPatchFile over the existing file
-			if (WriteFileWithDirectories(fullPathToDir, (char*)input->postPatchFile, input->postPatchLength)==false)
+			if (WriteFileWithDirectories(fullPathToDir, (char *) input->postPatchFile, input->postPatchLength) == false)
 			{
 				char newDir[1024];
 				strcpy_s(newDir, fullPathToDir);
 				strcat_s(newDir, COPY_ON_RESTART_EXTENSION);
-				if (WriteFileWithDirectories(newDir, (char*)input->postPatchFile, input->postPatchLength))
+				if (WriteFileWithDirectories(newDir, (char *) input->postPatchFile, input->postPatchLength))
 				{
-					input->result=PC_NOTICE_WILL_COPY_ON_RESTART;
+					input->result = PC_NOTICE_WILL_COPY_ON_RESTART;
 				}
 				else
 				{
-					input->result=PC_ERROR_FILE_WRITE_FAILURE;
+					input->result = PC_ERROR_FILE_WRITE_FAILURE;
 				}
 			}
 			else
 			{
-				input->result=(PatchContext)input->onFileStruct.context.op;
+				input->result = (PatchContext) input->onFileStruct.context.op;
 			}
 		}
 	}
@@ -185,7 +185,7 @@ namespace MafiaNet
 class AutopatcherClientCallback : public FileListTransferCBInterface
 {
 public:
-	ThreadPool<AutopatcherClientThreadInfo*,AutopatcherClientThreadInfo*> threadPool;
+	ThreadPool<AutopatcherClientThreadInfo *, AutopatcherClientThreadInfo *> threadPool;
 	char applicationDirectory[512];
 	AutopatcherClientCBInterface *onFileCallback;
 	AutopatcherClient *client;
@@ -194,9 +194,9 @@ public:
 
 	AutopatcherClientCallback(void)
 	{
-		threadPool.StartThreads(1,0);
-		canDeleteUser=false;
-		downloadComplete=false;
+		threadPool.StartThreads(1, 0);
+		canDeleteUser = false;
+		downloadComplete = false;
 	}
 	virtual ~AutopatcherClientCallback(void)
 	{
@@ -205,31 +205,31 @@ public:
 	void StopThreads(void)
 	{
 		threadPool.StopThreads();
-		RakAssert(threadPool.NumThreadsWorking()==0);
+		RakAssert(threadPool.NumThreadsWorking() == 0);
 
 		unsigned i;
-		AutopatcherClientThreadInfo* info;
-		for (i=0; i < threadPool.InputSize(); i++)
+		AutopatcherClientThreadInfo *info;
+		for (i = 0; i < threadPool.InputSize(); i++)
 		{
 			info = threadPool.GetInputAtIndex(i);
-//			if (info->prePatchFile)
-//				rakFree_Ex(info->prePatchFile, _FILE_AND_LINE_ );
+			//			if (info->prePatchFile)
+			//				rakFree_Ex(info->prePatchFile, _FILE_AND_LINE_ );
 			if (info->postPatchFile)
-				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_ );
+				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_);
 			if (info->onFileStruct.fileData)
-				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_ );
+				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(info, _FILE_AND_LINE_);
 		}
 		threadPool.ClearInput();
-		for (i=0; i < threadPool.OutputSize(); i++)
+		for (i = 0; i < threadPool.OutputSize(); i++)
 		{
 			info = threadPool.GetOutputAtIndex(i);
-//			if (info->prePatchFile)
-//				rakFree_Ex(info->prePatchFile, _FILE_AND_LINE_ );
+			//			if (info->prePatchFile)
+			//				rakFree_Ex(info->prePatchFile, _FILE_AND_LINE_ );
 			if (info->postPatchFile)
-				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_ );
+				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_);
 			if (info->onFileStruct.fileData)
-				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_ );
+				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(info, _FILE_AND_LINE_);
 		}
 		threadPool.ClearOutput();
@@ -241,96 +241,96 @@ public:
 		{
 			AutopatcherClientThreadInfo *threadInfo = threadPool.GetOutput();
 			// #med - add proper range-check for threadInfo->result
-			threadInfo->onFileStruct.context.op=static_cast<unsigned char>(threadInfo->result);
+			threadInfo->onFileStruct.context.op = static_cast<unsigned char>(threadInfo->result);
 			switch (threadInfo->result)
 			{
-				case PC_NOTICE_WILL_COPY_ON_RESTART:
+			case PC_NOTICE_WILL_COPY_ON_RESTART:
+			{
+				client->CopyAndRestart(threadInfo->onFileStruct.fileName);
+				if (threadInfo->onFileStruct.context.op == PC_WRITE_FILE)
 				{
-					client->CopyAndRestart(threadInfo->onFileStruct.fileName);
-					if (threadInfo->onFileStruct.context.op==PC_WRITE_FILE)
-					{
-						// Regular file in use but we can write the temporary file.  Restart and copy it over the existing
-						onFileCallback->OnFile(&threadInfo->onFileStruct);
-					}
-					else
-					{
-						// Regular file in use but we can write the temporary file.  Restart and copy it over the existing
-						rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_ );
-						threadInfo->onFileStruct.fileData=threadInfo->postPatchFile;
-						onFileCallback->OnFile(&threadInfo->onFileStruct);
-						threadInfo->onFileStruct.fileData=0;
-					}
+					// Regular file in use but we can write the temporary file.  Restart and copy it over the existing
+					onFileCallback->OnFile(&threadInfo->onFileStruct);
 				}
-				break;
-				case PC_ERROR_FILE_WRITE_FAILURE:
+				else
 				{
-					if (threadInfo->onFileStruct.context.op==PC_WRITE_FILE)
-					{
-						onFileCallback->OnFile(&threadInfo->onFileStruct);
-					}
-					else
-					{
-						rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_ );
-						threadInfo->onFileStruct.fileData=threadInfo->postPatchFile;
-						threadInfo->onFileStruct.byteLengthOfThisFile=threadInfo->postPatchLength;
-						onFileCallback->OnFile(&threadInfo->onFileStruct);
-						threadInfo->onFileStruct.fileData=0;
-					}					
+					// Regular file in use but we can write the temporary file.  Restart and copy it over the existing
+					rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
+					threadInfo->onFileStruct.fileData = threadInfo->postPatchFile;
+					onFileCallback->OnFile(&threadInfo->onFileStruct);
+					threadInfo->onFileStruct.fileData = 0;
 				}
-				break;
-				case PC_ERROR_PATCH_TARGET_MISSING:
+			}
+			break;
+			case PC_ERROR_FILE_WRITE_FAILURE:
+			{
+				if (threadInfo->onFileStruct.context.op == PC_WRITE_FILE)
 				{
 					onFileCallback->OnFile(&threadInfo->onFileStruct);
-					client->Redownload(threadInfo->onFileStruct.fileName);
 				}
-				break;
-				case PC_ERROR_PATCH_APPLICATION_FAILURE:
+				else
 				{
-					// Failure - signal class and download this file.
+					rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
+					threadInfo->onFileStruct.fileData = threadInfo->postPatchFile;
+					threadInfo->onFileStruct.byteLengthOfThisFile = threadInfo->postPatchLength;
 					onFileCallback->OnFile(&threadInfo->onFileStruct);
-					client->Redownload(threadInfo->onFileStruct.fileName);
+					threadInfo->onFileStruct.fileData = 0;
 				}
-				break;
-				case PC_ERROR_PATCH_RESULT_CHECKSUM_FAILURE:
+			}
+			break;
+			case PC_ERROR_PATCH_TARGET_MISSING:
+			{
+				onFileCallback->OnFile(&threadInfo->onFileStruct);
+				client->Redownload(threadInfo->onFileStruct.fileName);
+			}
+			break;
+			case PC_ERROR_PATCH_APPLICATION_FAILURE:
+			{
+				// Failure - signal class and download this file.
+				onFileCallback->OnFile(&threadInfo->onFileStruct);
+				client->Redownload(threadInfo->onFileStruct.fileName);
+			}
+			break;
+			case PC_ERROR_PATCH_RESULT_CHECKSUM_FAILURE:
+			{
+				// Failure - signal class and download this file.
+				onFileCallback->OnFile(&threadInfo->onFileStruct);
+				client->Redownload(threadInfo->onFileStruct.fileName);
+			}
+			break;
+			default:
+			{
+				if (threadInfo->onFileStruct.context.op == PC_WRITE_FILE)
 				{
-					// Failure - signal class and download this file.
 					onFileCallback->OnFile(&threadInfo->onFileStruct);
-					client->Redownload(threadInfo->onFileStruct.fileName);
 				}
-				break;
-				default:
+				else
 				{
-					if (threadInfo->onFileStruct.context.op==PC_WRITE_FILE)
-					{
-						onFileCallback->OnFile(&threadInfo->onFileStruct);
-					}
-					else
-					{
-						rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_ );
-						threadInfo->onFileStruct.fileData=threadInfo->postPatchFile;
-						onFileCallback->OnFile(&threadInfo->onFileStruct);
-						threadInfo->onFileStruct.fileData=0;
-					}
+					rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
+					threadInfo->onFileStruct.fileData = threadInfo->postPatchFile;
+					onFileCallback->OnFile(&threadInfo->onFileStruct);
+					threadInfo->onFileStruct.fileData = 0;
 				}
-				break;
+			}
+			break;
 			}
 
-//			if (threadInfo->prePatchFile)
-//				rakFree_Ex(threadInfo->prePatchFile, _FILE_AND_LINE_ );
+			//			if (threadInfo->prePatchFile)
+			//				rakFree_Ex(threadInfo->prePatchFile, _FILE_AND_LINE_ );
 			if (threadInfo->postPatchFile)
-				rakFree_Ex(threadInfo->postPatchFile, _FILE_AND_LINE_ );
+				rakFree_Ex(threadInfo->postPatchFile, _FILE_AND_LINE_);
 			if (threadInfo->onFileStruct.fileData)
-				rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_ );
+				rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(threadInfo, _FILE_AND_LINE_);
 		}
 
 		// If both input and output are empty, we are done.
-		if (onFileCallback->Update()==false)
-			canDeleteUser=true;
+		if (onFileCallback->Update() == false)
+			canDeleteUser = true;
 
-		if ( downloadComplete &&
-			canDeleteUser &&
-			threadPool.IsWorking()==false)
+		if (downloadComplete &&
+		    canDeleteUser &&
+		    threadPool.IsWorking() == false)
 		{
 			// Stop threads before calling OnThreadCompletion, in case the other thread starts a new instance of this thread.
 			StopThreads();
@@ -342,10 +342,10 @@ public:
 	}
 	virtual bool OnDownloadComplete(DownloadCompleteStruct *dcs)
 	{
-		downloadComplete=true;
-		if (onFileCallback->OnDownloadComplete(dcs)==false)
+		downloadComplete = true;
+		if (onFileCallback->OnDownloadComplete(dcs) == false)
 		{
-			canDeleteUser=true;
+			canDeleteUser = true;
 		}
 		return true;
 	};
@@ -356,17 +356,17 @@ public:
 	}
 	virtual bool OnFile(OnFileStruct *onFileStruct)
 	{
-		AutopatcherClientThreadInfo *inStruct = MafiaNet::OP_NEW<AutopatcherClientThreadInfo>( _FILE_AND_LINE_ );
-		memset(inStruct,0,sizeof(AutopatcherClientThreadInfo));
-//		inStruct->prePatchFile=0;
-		inStruct->postPatchFile=0;
-		inStruct->cbInterface=onFileCallback;
+		AutopatcherClientThreadInfo *inStruct = MafiaNet::OP_NEW<AutopatcherClientThreadInfo>(_FILE_AND_LINE_);
+		memset(inStruct, 0, sizeof(AutopatcherClientThreadInfo));
+		//		inStruct->prePatchFile=0;
+		inStruct->postPatchFile = 0;
+		inStruct->cbInterface = onFileCallback;
 		memcpy(&(inStruct->onFileStruct), onFileStruct, sizeof(OnFileStruct));
-		strcpy_s(inStruct->applicationDirectory,applicationDirectory);
-		if (onFileStruct->context.op==PC_HASH_1_WITH_PATCH || onFileStruct->context.op==PC_HASH_2_WITH_PATCH)
-			onFileStruct->context.op=PC_NOTICE_FILE_DOWNLOADED_PATCH;
+		strcpy_s(inStruct->applicationDirectory, applicationDirectory);
+		if (onFileStruct->context.op == PC_HASH_1_WITH_PATCH || onFileStruct->context.op == PC_HASH_2_WITH_PATCH)
+			onFileStruct->context.op = PC_NOTICE_FILE_DOWNLOADED_PATCH;
 		else
-			onFileStruct->context.op=PC_NOTICE_FILE_DOWNLOADED;
+			onFileStruct->context.op = PC_NOTICE_FILE_DOWNLOADED;
 		onFileCallback->OnFile(onFileStruct);
 		threadPool.AddInput(AutopatcherClientWorkerThread, inStruct);
 
@@ -388,16 +388,16 @@ public:
 }
 AutopatcherClient::AutopatcherClient()
 {
-	serverId=UNASSIGNED_SYSTEM_ADDRESS;
+	serverId = UNASSIGNED_SYSTEM_ADDRESS;
 	// #med - use unsigned short max?
-	serverIdIndex=static_cast<unsigned short>(-1);
-	applicationDirectory[0]=0;
-	fileListTransfer=0;
-    priority=MafiaNet::Priority::High;
-	orderingChannel=0;
-	serverDate=0;
-	userCB=0;
-	processThreadCompletion=false;
+	serverIdIndex = static_cast<unsigned short>(-1);
+	applicationDirectory[0] = 0;
+	fileListTransfer = 0;
+	priority = MafiaNet::Priority::High;
+	orderingChannel = 0;
+	serverDate = 0;
+	userCB = 0;
+	processThreadCompletion = false;
 }
 AutopatcherClient::~AutopatcherClient()
 {
@@ -407,19 +407,19 @@ void AutopatcherClient::Clear(void)
 {
 	if (fileListTransfer)
 		fileListTransfer->RemoveReceiver(serverId);
-	serverId=UNASSIGNED_SYSTEM_ADDRESS;
-	setId=(unsigned short)-1;
+	serverId = UNASSIGNED_SYSTEM_ADDRESS;
+	setId = (unsigned short) -1;
 	redownloadList.Clear();
 	copyAndRestartList.Clear();
 }
 void AutopatcherClient::SetUploadSendParameters(MafiaNet::Priority _priority, char _orderingChannel)
 {
-	priority=_priority;
-	orderingChannel=_orderingChannel;
+	priority = _priority;
+	orderingChannel = _orderingChannel;
 }
 void AutopatcherClient::SetFileListTransferPlugin(FileListTransfer *flt)
 {
-	fileListTransfer=flt;
+	fileListTransfer = flt;
 }
 double AutopatcherClient::GetServerDate(void) const
 {
@@ -433,7 +433,7 @@ void AutopatcherClient::CancelDownload(void)
 void AutopatcherClient::OnThreadCompletion(void)
 {
 	processThreadCompletionMutex.Lock();
-	processThreadCompletion=true;
+	processThreadCompletion = true;
 	processThreadCompletionMutex.Unlock();
 }
 bool AutopatcherClient::IsPatching(void) const
@@ -442,33 +442,33 @@ bool AutopatcherClient::IsPatching(void) const
 }
 bool AutopatcherClient::PatchApplication(const char *_applicationName, const char *_applicationDirectory, double lastUpdateDate, SystemAddress host, AutopatcherClientCBInterface *onFileCallback, const char *restartOutputFilename, const char *pathToRestartExe)
 {
-    RakAssert(applicationName);
+	RakAssert(applicationName);
 	RakAssert(applicationDirectory);
 	RakAssert(pathToRestartExe);
 	RakAssert(restartOutputFilename);
 
-//	if (rakPeerInterface->GetIndexFromSystemAddress(host)==-1)
-//		return false;
+	//	if (rakPeerInterface->GetIndexFromSystemAddress(host)==-1)
+	//		return false;
 	if (IsPatching())
 		return false; // Already in the middle of patching.
 
 	strcpy_s(applicationDirectory, _applicationDirectory);
 	FileList::FixEndingSlash(applicationDirectory, 512);
 	strcpy_s(applicationName, _applicationName);
-	serverId=host;
-	patchComplete=false;
-	userCB=onFileCallback;
+	serverId = host;
+	patchComplete = false;
+	userCB = onFileCallback;
 	strcpy_s(copyOnRestartOut, restartOutputFilename);
 	strcpy_s(restartExe, pathToRestartExe);
 	processThreadCompletionMutex.Lock();
-	processThreadCompletion=false;
+	processThreadCompletion = false;
 	processThreadCompletionMutex.Unlock();
 
 	MafiaNet::BitStream outBitStream;
-	outBitStream.Write((unsigned char)ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE);
+	outBitStream.Write((unsigned char) ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE);
 	StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
 	outBitStream.Write(lastUpdateDate);
-    SendUnified(&outBitStream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, host, false);
+	SendUnified(&outBitStream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, host, false);
 	return true;
 }
 void AutopatcherClient::Update(void)
@@ -476,7 +476,7 @@ void AutopatcherClient::Update(void)
 	processThreadCompletionMutex.Lock();
 	if (processThreadCompletion)
 	{
-		processThreadCompletion=false;
+		processThreadCompletion = false;
 		processThreadCompletionMutex.Unlock();
 
 		fileListTransfer->RemoveReceiver(serverId);
@@ -486,16 +486,16 @@ void AutopatcherClient::Update(void)
 		{
 			MafiaNet::BitStream outBitStream;
 			AutopatcherClientCallback *transferCallback;
-			transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>( _FILE_AND_LINE_ );
+			transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>(_FILE_AND_LINE_);
 			strcpy_s(transferCallback->applicationDirectory, applicationDirectory);
-			transferCallback->onFileCallback=userCB;
-			transferCallback->client=this;
+			transferCallback->onFileCallback = userCB;
+			transferCallback->client = this;
 			setId = fileListTransfer->SetupReceive(transferCallback, true, serverId);
 
 			// Ask for patches for the files in the list that are different from what we have.
-			outBitStream.Write((unsigned char)ID_AUTOPATCHER_GET_PATCH);
+			outBitStream.Write((unsigned char) ID_AUTOPATCHER_GET_PATCH);
 			outBitStream.Write(setId);
-			double lastUpdateData=0;
+			double lastUpdateData = 0;
 			outBitStream.Write(lastUpdateData);
 			StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
 			redownloadList.Serialize(&outBitStream);
@@ -505,11 +505,11 @@ void AutopatcherClient::Update(void)
 		else if (copyAndRestartList.fileList.Size())
 		{
 			Packet *p = AllocatePacketUnified(1);
-			p->bitSize=p->length*8;
-			p->data[0]=ID_AUTOPATCHER_RESTART_APPLICATION;
-			p->systemAddress=serverId;
-			p->systemAddress.systemIndex=serverIdIndex;
-			PushBackPacketUnified(p,false);
+			p->bitSize = p->length * 8;
+			p->data[0] = ID_AUTOPATCHER_RESTART_APPLICATION;
+			p->systemAddress = serverId;
+			p->systemAddress.systemIndex = serverIdIndex;
+			PushBackPacketUnified(p, false);
 
 			FILE *fp;
 			errno_t error = fopen_s(&fp, copyOnRestartOut, "wt");
@@ -518,7 +518,7 @@ void AutopatcherClient::Update(void)
 			{
 				fprintf(fp, "#Sleep 1000\n");
 				unsigned i;
-				for (i=0; i < copyAndRestartList.fileList.Size(); i++)
+				for (i = 0; i < copyAndRestartList.fileList.Size(); i++)
 				{
 #ifdef _WIN32
 					fprintf(fp, "del /q \"%s%s\"\n", applicationDirectory, copyAndRestartList.fileList[i].filename.C_String());
@@ -544,11 +544,11 @@ void AutopatcherClient::Update(void)
 		else
 		{
 			Packet *p = AllocatePacketUnified(1);
-			p->bitSize=p->length*8;
-			p->data[0]=ID_AUTOPATCHER_FINISHED;
-			p->systemAddress=serverId;
-			p->systemAddress.systemIndex=serverIdIndex;
-			PushBackPacketUnified(p,false);
+			p->bitSize = p->length * 8;
+			p->data[0] = ID_AUTOPATCHER_FINISHED;
+			p->systemAddress = serverId;
+			p->systemAddress.systemIndex = serverIdIndex;
+			PushBackPacketUnified(p, false);
 		}
 	}
 	else
@@ -556,18 +556,18 @@ void AutopatcherClient::Update(void)
 		processThreadCompletionMutex.Unlock();
 	}
 }
-void AutopatcherClient::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void AutopatcherClient::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	// unused parameters
-	(void)rakNetGUID;
-	(void)lostConnectionReason;
+	(void) rakNetGUID;
+	(void) lostConnectionReason;
 
-	if (systemAddress==serverId)
+	if (systemAddress == serverId)
 		Clear();
 }
 PluginReceiveResult AutopatcherClient::OnReceive(Packet *packet)
 {
-	switch (packet->data[0]) 
+	switch (packet->data[0])
 	{
 	case ID_AUTOPATCHER_CREATION_LIST:
 		return OnCreationList(packet);
@@ -594,14 +594,14 @@ void AutopatcherClient::OnShutdown(void)
 PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 {
 	RakAssert(fileListTransfer);
-	if (packet->systemAddress!=serverId)
+	if (packet->systemAddress != serverId)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	MafiaNet::BitStream outBitStream;
 	FileList remoteFileList, missingOrChanged;
 	inBitStream.IgnoreBits(8);
-	if (remoteFileList.Deserialize(&inBitStream)==false)
+	if (remoteFileList.Deserialize(&inBitStream) == false)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 
 	inBitStream.Read(serverDate);
@@ -611,22 +611,22 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 	// Go through the list of hashes.  For each file we already have, remove it from the list.
 	remoteFileList.ListMissingOrChangedFiles(applicationDirectory, &missingOrChanged, true, false);
 
-	if (missingOrChanged.fileList.Size()==0)
+	if (missingOrChanged.fileList.Size() == 0)
 	{
-		packet->data[0]=ID_AUTOPATCHER_FINISHED;
+		packet->data[0] = ID_AUTOPATCHER_FINISHED;
 		return RR_CONTINUE_PROCESSING; // Pass to user
 	}
 
 	// Prepare the transfer plugin to get a file list.
 	AutopatcherClientCallback *transferCallback;
-	transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>( _FILE_AND_LINE_ );
+	transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>(_FILE_AND_LINE_);
 	strcpy_s(transferCallback->applicationDirectory, applicationDirectory);
-	transferCallback->onFileCallback=userCB;
-	transferCallback->client=this;
+	transferCallback->onFileCallback = userCB;
+	transferCallback->client = this;
 	setId = fileListTransfer->SetupReceive(transferCallback, true, packet->systemAddress);
 
 	// Ask for patches for the files in the list that are different from what we have.
-	outBitStream.Write((unsigned char)ID_AUTOPATCHER_GET_PATCH);
+	outBitStream.Write((unsigned char) ID_AUTOPATCHER_GET_PATCH);
 	outBitStream.Write(setId);
 	outBitStream.Write(patchApplicationLastUpdateDate);
 	StringCompressor::Instance()->EncodeString(applicationName, 512, &outBitStream);
@@ -637,14 +637,14 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 }
 void AutopatcherClient::OnDeletionList(Packet *packet)
 {
-	if (packet->systemAddress!=serverId)
+	if (packet->systemAddress != serverId)
 		return;
 
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	MafiaNet::BitStream outBitStream;
 	inBitStream.IgnoreBits(8);
 	FileList fileList;
-	if (fileList.Deserialize(&inBitStream)==false)
+	if (fileList.Deserialize(&inBitStream) == false)
 		return;
 	fileList.DeleteFiles(applicationDirectory);
 }
@@ -653,12 +653,12 @@ PluginReceiveResult AutopatcherClient::OnDownloadFinished(Packet *packet)
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
 	// This may have been created internally, with no serverDate written (line 469 or so)
-	if (inBitStream.GetNumberOfUnreadBits()>7)
+	if (inBitStream.GetNumberOfUnreadBits() > 7)
 	{
 		inBitStream.Read(serverDate);
 	}
-	serverId=packet->systemAddress;
-	serverIdIndex=packet->systemAddress.systemIndex;
+	serverId = packet->systemAddress;
+	serverIdIndex = packet->systemAddress.systemIndex;
 
 	return RR_CONTINUE_PROCESSING;
 }
@@ -666,8 +666,8 @@ PluginReceiveResult AutopatcherClient::OnDownloadFinishedInternal(Packet *packet
 {
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	inBitStream.IgnoreBits(8);
-	serverId=packet->systemAddress;
-	serverIdIndex=packet->systemAddress.systemIndex;
+	serverId = packet->systemAddress;
+	serverIdIndex = packet->systemAddress.systemIndex;
 	inBitStream.Read(serverDate);
 
 	return RR_STOP_PROCESSING_AND_DEALLOCATE;
@@ -675,9 +675,9 @@ PluginReceiveResult AutopatcherClient::OnDownloadFinishedInternal(Packet *packet
 void AutopatcherClient::CopyAndRestart(const char *filePath)
 {
 	// We weren't able to write applicationDirectory + filePath so we wrote applicationDirectory + filePath + COPY_ON_RESTART_EXTENSION instead
-	copyAndRestartList.AddFile(filePath,filePath, 0, 0, 0, FileListNodeContext(0,0,0,0));
+	copyAndRestartList.AddFile(filePath, filePath, 0, 0, 0, FileListNodeContext(0, 0, 0, 0));
 }
 void AutopatcherClient::Redownload(const char *filePath)
 {
-	redownloadList.AddFile(filePath,filePath, 0, 0, 0, FileListNodeContext(0,0,0,0));
+	redownloadList.AddFile(filePath, filePath, 0, 0, 0, FileListNodeContext(0, 0, 0, 0));
 }

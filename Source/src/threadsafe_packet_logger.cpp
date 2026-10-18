@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 
 #include "mafianet/threadsafe_packet_logger.h"
 #include <string.h>
@@ -25,14 +25,13 @@ using namespace MafiaNet;
 
 ThreadsafePacketLogger::ThreadsafePacketLogger()
 {
-
 }
 ThreadsafePacketLogger::~ThreadsafePacketLogger()
 {
 	char **msg;
 	while ((msg = logMessages.ReadLock()) != 0)
 	{
-		rakFree_Ex((*msg), _FILE_AND_LINE_ );
+		rakFree_Ex((*msg), _FILE_AND_LINE_);
 	}
 }
 void ThreadsafePacketLogger::Update(void)
@@ -41,14 +40,14 @@ void ThreadsafePacketLogger::Update(void)
 	while ((msg = logMessages.ReadLock()) != 0)
 	{
 		WriteLog(*msg);
-		rakFree_Ex((*msg), _FILE_AND_LINE_ );
+		rakFree_Ex((*msg), _FILE_AND_LINE_);
 	}
 }
 void ThreadsafePacketLogger::AddToLog(const char *str)
 {
 	char **msg = logMessages.WriteLock();
-	*msg = (char*) rakMalloc_Ex( strlen(str)+1, _FILE_AND_LINE_ );
-	strcpy_s(*msg, strlen(str)+1, str);
+	*msg = (char *) rakMalloc_Ex(strlen(str) + 1, _FILE_AND_LINE_);
+	strcpy_s(*msg, strlen(str) + 1, str);
 	logMessages.WriteUnlock();
 }
 

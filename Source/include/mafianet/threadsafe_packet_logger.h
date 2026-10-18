@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 
 #ifndef __THREADSAFE_PACKET_LOGGER_H
 #define __THREADSAFE_PACKET_LOGGER_H
@@ -43,7 +43,7 @@ public:
 protected:
 	virtual void AddToLog(const char *str);
 
-	DataStructures::SingleProducerConsumer<char*> logMessages;
+	DataStructures::SingleProducerConsumer<char *> logMessages;
 };
 
 } // namespace MafiaNet

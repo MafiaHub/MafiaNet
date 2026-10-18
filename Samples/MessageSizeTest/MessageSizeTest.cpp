@@ -35,7 +35,7 @@ int main(int, char **)
 	printf("This project tests sending messages of various sizes.\n");
 	sender = MafiaNet::RakPeerInterface::GetInstance();
 	receiver = MafiaNet::RakPeerInterface::GetInstance();
-	MafiaNet::SocketDescriptor sd1(1234,0),sd2(1235,0);
+	MafiaNet::SocketDescriptor sd1(1234, 0), sd2(1235, 0);
 	receiver->Startup(32, &sd1, 1);
 	receiver->SetMaximumIncomingConnections(32);
 	sender->Startup(1, &sd2, 1);
@@ -43,45 +43,45 @@ int main(int, char **)
 	RakSleep(100);
 
 	unsigned char data[4000];
-	data[0]=ID_USER_PACKET_ENUM;
-	for (unsigned int i=1; i < 4000; i++)
-		data[i]=i%256;
+	data[0] = ID_USER_PACKET_ENUM;
+	for (unsigned int i = 1; i < 4000; i++)
+		data[i] = i % 256;
 	int stride, sum;
 	int sendCount, receiveCount;
-	for (stride=1; stride < 2000; stride++)
+	for (stride = 1; stride < 2000; stride++)
 	{
-		sendCount=0;
-		receiveCount=0;
-		for (sum=0; sum < 4000; sum+=stride)
+		sendCount = 0;
+		receiveCount = 0;
+		for (sum = 0; sum < 4000; sum += stride)
 		{
-			sender->Send((const char*) data,stride,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS,true);
+			sender->Send((const char *) data, stride, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			sendCount++;
 		}
 
 		MafiaNet::Packet *p;
-		for (p=sender->Receive(); p; sender->DeallocatePacket(p), p=sender->Receive())
+		for (p = sender->Receive(); p; sender->DeallocatePacket(p), p = sender->Receive())
 			;
 
-		MafiaNet::Time timeout= MafiaNet::GetTime()+1000;
-		while (MafiaNet::GetTime()<timeout)
+		MafiaNet::Time timeout = MafiaNet::GetTime() + 1000;
+		while (MafiaNet::GetTime() < timeout)
 		{
-			for (p=receiver->Receive(); p; receiver->DeallocatePacket(p), p=receiver->Receive())
+			for (p = receiver->Receive(); p; receiver->DeallocatePacket(p), p = receiver->Receive())
 			{
-				if (p->data[0]==ID_USER_PACKET_ENUM)
+				if (p->data[0] == ID_USER_PACKET_ENUM)
 				{
 					receiveCount++;
 				}
-				for (unsigned int i=1; i < p->length; i++)
+				for (unsigned int i = 1; i < p->length; i++)
 				{
-					RakAssert(data[i]==i%256);
+					RakAssert(data[i] == i % 256);
 				}
 			}
 			RakSleep(30);
-			if (receiveCount==sendCount)
+			if (receiveCount == sendCount)
 				break;
 		}
 
-		if (sendCount==receiveCount)
+		if (sendCount == receiveCount)
 			printf("Stride=%i Sends=%i Receives=%i\n", stride, sendCount, receiveCount);
 		else
 			printf("ERROR! Stride=%i Sends=%i Receives=%i\n", stride, sendCount, receiveCount);

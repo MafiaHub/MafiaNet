@@ -27,96 +27,96 @@ using namespace MafiaNet;
 
 namespace
 {
-	const MessageID ID_NT_CONSUMED = ID_USER_PACKET_ENUM + 20;
-	const MessageID ID_NT_PASSED = ID_USER_PACKET_ENUM + 21;
-	const MessageID ID_NT_KEPT = ID_USER_PACKET_ENUM + 22;
-	const MessageID ID_NT_ECHO = ID_USER_PACKET_ENUM + 23;
+const MessageID ID_NT_CONSUMED = ID_USER_PACKET_ENUM + 20;
+const MessageID ID_NT_PASSED = ID_USER_PACKET_ENUM + 21;
+const MessageID ID_NT_KEPT = ID_USER_PACKET_ENUM + 22;
+const MessageID ID_NT_ECHO = ID_USER_PACKET_ENUM + 23;
 
-	// Consumes ID_NT_CONSUMED, keeps ID_NT_KEPT (frees it later itself), echoes
-	// ID_NT_ECHO back to its sender, passes everything else through.
-	class NetworkThreadProbe : public PluginInterface2
+// Consumes ID_NT_CONSUMED, keeps ID_NT_KEPT (frees it later itself), echoes
+// ID_NT_ECHO back to its sender, passes everything else through.
+class NetworkThreadProbe : public PluginInterface2
+{
+public:
+	PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
 	{
-	public:
-		PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
+		networkThreadIds.push_back(packet->data[0]);
+		switch (packet->data[0])
 		{
-			networkThreadIds.push_back(packet->data[0]);
-			switch (packet->data[0])
-			{
-			case ID_NT_CONSUMED:
-				return RR_STOP_PROCESSING_AND_DEALLOCATE;
-			case ID_NT_KEPT:
-				kept.push_back(packet);
-				return RR_STOP_PROCESSING;
-			case ID_NT_ECHO:
-				GetRakPeerInterface()->Send((const char *) packet->data, (int) packet->length, Priority::High,
-					Reliability::Reliable, 0, packet->guid, false);
-				return RR_STOP_PROCESSING_AND_DEALLOCATE;
-			default:
-				return RR_CONTINUE_PROCESSING;
-			}
-		}
-
-		PluginReceiveResult OnReceive(Packet *packet) override
-		{
-			userThreadIds.push_back(packet->data[0]);
+		case ID_NT_CONSUMED:
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
+		case ID_NT_KEPT:
+			kept.push_back(packet);
+			return RR_STOP_PROCESSING;
+		case ID_NT_ECHO:
+			GetRakPeerInterface()->Send((const char *) packet->data, (int) packet->length, Priority::High,
+			                            Reliability::Reliable, 0, packet->guid, false);
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
+		default:
 			return RR_CONTINUE_PROCESSING;
 		}
-
-		size_t NetworkThreadCount(MessageID id) const { return Count(networkThreadIds, id); }
-		size_t UserThreadCount(MessageID id) const { return Count(userThreadIds, id); }
-
-		std::vector<Packet *> kept;
-
-	private:
-		static size_t Count(const std::vector<MessageID> &ids, MessageID id)
-		{
-			size_t n = 0;
-			for (MessageID seen : ids)
-				n += seen == id ? 1 : 0;
-			return n;
-		}
-
-		std::vector<MessageID> networkThreadIds;
-		std::vector<MessageID> userThreadIds;
-	};
-
-	// Overrides only OnReceive, like every plugin written before the hook existed.
-	class ReceiveOnlyPlugin : public PluginInterface2
-	{
-	public:
-		PluginReceiveResult OnReceive(Packet *packet) override
-		{
-			ids.push_back(packet->data[0]);
-			return RR_CONTINUE_PROCESSING;
-		}
-
-		std::vector<MessageID> ids;
-	};
-
-	void SendId(RakPeer *from, const SystemAddress &to, MessageID id)
-	{
-		BitStream bs;
-		bs.Write(id);
-		bs.Write((uint32_t) 0xC0FFEEu);
-		ASSERT_NE(0u, from->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, to, false));
 	}
 
-	size_t InboxCount(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
+	PluginReceiveResult OnReceive(Packet *packet) override
+	{
+		userThreadIds.push_back(packet->data[0]);
+		return RR_CONTINUE_PROCESSING;
+	}
+
+	size_t NetworkThreadCount(MessageID id) const { return Count(networkThreadIds, id); }
+	size_t UserThreadCount(MessageID id) const { return Count(userThreadIds, id); }
+
+	std::vector<Packet *> kept;
+
+private:
+	static size_t Count(const std::vector<MessageID> &ids, MessageID id)
 	{
 		size_t n = 0;
-		for (const auto &message : net.Inbox(peer))
-			n += message.id == id ? 1 : 0;
+		for (MessageID seen : ids)
+			n += seen == id ? 1 : 0;
 		return n;
 	}
 
-	struct Pair
-	{
-		SimulatedNetwork net;
-		RakPeer *server = net.AddPeer(2, 2);
-		RakPeer *client = net.AddPeer(1);
+	std::vector<MessageID> networkThreadIds;
+	std::vector<MessageID> userThreadIds;
+};
 
-		bool Start() { return net.Connect(client, server); }
-	};
+// Overrides only OnReceive, like every plugin written before the hook existed.
+class ReceiveOnlyPlugin : public PluginInterface2
+{
+public:
+	PluginReceiveResult OnReceive(Packet *packet) override
+	{
+		ids.push_back(packet->data[0]);
+		return RR_CONTINUE_PROCESSING;
+	}
+
+	std::vector<MessageID> ids;
+};
+
+void SendId(RakPeer *from, const SystemAddress &to, MessageID id)
+{
+	BitStream bs;
+	bs.Write(id);
+	bs.Write((uint32_t) 0xC0FFEEu);
+	ASSERT_NE(0u, from->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, to, false));
+}
+
+size_t InboxCount(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
+{
+	size_t n = 0;
+	for (const auto &message : net.Inbox(peer))
+		n += message.id == id ? 1 : 0;
+	return n;
+}
+
+struct Pair
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(2, 2);
+	RakPeer *client = net.AddPeer(1);
+
+	bool Start() { return net.Connect(client, server); }
+};
 }
 
 TEST(NetworkThreadReceive, ConsumedMessageIsSeenWithoutReceiveAndNeverQueued)
@@ -128,7 +128,8 @@ TEST(NetworkThreadReceive, ConsumedMessageIsSeenWithoutReceiveAndNeverQueued)
 
 	p.net.SetReceiveEnabled(p.server, false);
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
 
 	p.net.SetReceiveEnabled(p.server, true);
 	p.net.Step(50);
@@ -146,7 +147,8 @@ TEST(NetworkThreadReceive, ContinuedMessageStillReachesReceiveAndOnReceive)
 
 	p.net.SetReceiveEnabled(p.server, false);
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_PASSED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_PASSED) == 1; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return probe.NetworkThreadCount(ID_NT_PASSED) == 1; }, 2000));
 	EXPECT_EQ(0u, InboxCount(p.net, p.server, ID_NT_PASSED));
 
 	p.net.SetReceiveEnabled(p.server, true);
@@ -165,7 +167,8 @@ TEST(NetworkThreadReceive, StopProcessingHandsOwnershipToThePlugin)
 	ASSERT_TRUE(p.Start());
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_KEPT);
-	ASSERT_TRUE(p.net.RunUntil([&] { return probe.kept.size() == 1; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return probe.kept.size() == 1; }, 2000));
 	p.net.Step(50);
 	EXPECT_EQ(0u, InboxCount(p.net, p.server, ID_NT_KEPT));
 
@@ -234,39 +237,40 @@ TEST(NetworkThreadReceive, ConnectionEventsAreNotRoutedThroughTheHook)
 
 namespace
 {
-	// Records the order plugins are offered a message in, and does one thing to a
-	// chosen id: consume it, or attach/detach a plugin from inside the hook.
-	class OrderProbe : public PluginInterface2
+// Records the order plugins are offered a message in, and does one thing to a
+// chosen id: consume it, or attach/detach a plugin from inside the hook.
+class OrderProbe : public PluginInterface2
+{
+public:
+	OrderProbe(std::vector<int> &order, int tag)
+	    : order(order), tag(tag) {}
+
+	PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
 	{
-	public:
-		OrderProbe(std::vector<int> &order, int tag) : order(order), tag(tag) {}
-
-		PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
-		{
-			if (packet->data[0] == ID_TIMESTAMP)
-				sawTimestamp = true;
-			if (packet->data[0] < ID_USER_PACKET_ENUM && packet->data[0] != ID_TIMESTAMP)
-				return RR_CONTINUE_PROCESSING;
-			order.push_back(tag);
-			if (packet->data[0] == consumeId)
-				return RR_STOP_PROCESSING_AND_DEALLOCATE;
-			if (packet->data[0] == detachSelfOn)
-				GetRakPeerInterface()->DetachPlugin(this);
-			if (packet->data[0] == attachOn && toAttach != nullptr)
-				GetRakPeerInterface()->AttachPlugin(toAttach);
+		if (packet->data[0] == ID_TIMESTAMP)
+			sawTimestamp = true;
+		if (packet->data[0] < ID_USER_PACKET_ENUM && packet->data[0] != ID_TIMESTAMP)
 			return RR_CONTINUE_PROCESSING;
-		}
+		order.push_back(tag);
+		if (packet->data[0] == consumeId)
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
+		if (packet->data[0] == detachSelfOn)
+			GetRakPeerInterface()->DetachPlugin(this);
+		if (packet->data[0] == attachOn && toAttach != nullptr)
+			GetRakPeerInterface()->AttachPlugin(toAttach);
+		return RR_CONTINUE_PROCESSING;
+	}
 
-		MessageID consumeId = 0;
-		MessageID detachSelfOn = 0;
-		MessageID attachOn = 0;
-		PluginInterface2 *toAttach = nullptr;
-		bool sawTimestamp = false;
+	MessageID consumeId = 0;
+	MessageID detachSelfOn = 0;
+	MessageID attachOn = 0;
+	PluginInterface2 *toAttach = nullptr;
+	bool sawTimestamp = false;
 
-	private:
-		std::vector<int> &order;
-		int tag;
-	};
+private:
+	std::vector<int> &order;
+	int tag;
+};
 }
 
 TEST(NetworkThreadReceive, PluginsAreOfferedInAttachOrderAndTheFirstToConsumeWins)
@@ -281,9 +285,10 @@ TEST(NetworkThreadReceive, PluginsAreOfferedInAttachOrderAndTheFirstToConsumeWin
 	ASSERT_TRUE(p.Start());
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return order.size() >= 2; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return order.size() >= 2; }, 2000));
 	p.net.Step(50);
-	EXPECT_EQ((std::vector<int> {1, 2}), order);
+	EXPECT_EQ((std::vector<int>{1, 2}), order);
 	EXPECT_EQ(0u, InboxCount(p.net, p.server, ID_NT_CONSUMED));
 	p.server->DetachPlugin(&first);
 	p.server->DetachPlugin(&second);
@@ -302,7 +307,7 @@ TEST(NetworkThreadReceive, MessageNoPluginTakesIsOfferedToEachOnceAndQueuedOnce)
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_PASSED);
 	ASSERT_TRUE(p.net.RunUntilReceived(p.server, ID_NT_PASSED, 2000));
 	p.net.Step(50);
-	EXPECT_EQ((std::vector<int> {1, 2}), order);
+	EXPECT_EQ((std::vector<int>{1, 2}), order);
 	EXPECT_EQ(1u, InboxCount(p.net, p.server, ID_NT_PASSED));
 	p.server->DetachPlugin(&first);
 	p.server->DetachPlugin(&second);
@@ -319,7 +324,7 @@ TEST(NetworkThreadReceive, AttachingTheSamePluginTwiceOffersEachMessageOnce)
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_PASSED);
 	ASSERT_TRUE(p.net.RunUntilReceived(p.server, ID_NT_PASSED, 2000));
-	EXPECT_EQ((std::vector<int> {1}), order);
+	EXPECT_EQ((std::vector<int>{1}), order);
 	p.server->DetachPlugin(&probe);
 }
 
@@ -332,7 +337,8 @@ TEST(NetworkThreadReceive, PluginAttachedAfterTheConnectionGetsTheHook)
 
 	p.net.SetReceiveEnabled(p.server, false);
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
-	EXPECT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
+	EXPECT_TRUE(p.net.RunUntil([&]
+	                           { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
 	p.server->DetachPlugin(&probe);
 }
 
@@ -369,7 +375,8 @@ TEST(NetworkThreadReceive, DetachFromInsideTheHookIsIgnored)
 	ASSERT_TRUE(p.net.RunUntilReceived(p.server, ID_NT_PASSED, 2000));
 	probe.consumeId = ID_NT_CONSUMED;
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return order.size() == 2; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return order.size() == 2; }, 2000));
 	EXPECT_EQ(p.server, probe.GetRakPeerInterface());
 	p.server->DetachPlugin(&probe);
 	EXPECT_EQ(nullptr, probe.GetRakPeerInterface());
@@ -389,20 +396,20 @@ TEST(NetworkThreadReceive, AttachFromInsideTheHookIsIgnored)
 	ASSERT_TRUE(p.net.RunUntilReceived(p.server, ID_NT_PASSED, 2000));
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
 	ASSERT_TRUE(p.net.RunUntilReceived(p.server, ID_NT_CONSUMED, 2000));
-	EXPECT_EQ((std::vector<int> {1, 1}), order);
+	EXPECT_EQ((std::vector<int>{1, 1}), order);
 	EXPECT_EQ(nullptr, attached.GetRakPeerInterface());
 	p.server->DetachPlugin(&attacher);
 }
 
 namespace
 {
-	// RakPeer::packetsOutstanding counts packets allocated and not yet freed. Read
-	// through a pointer-to-member formed in a derived class, which is how a protected
-	// member of another object may legally be reached.
-	struct PacketCount : RakPeer
-	{
-		static unsigned int Outstanding(const RakPeer *peer) { return peer->*(&PacketCount::packetsOutstanding); }
-	};
+// RakPeer::packetsOutstanding counts packets allocated and not yet freed. Read
+// through a pointer-to-member formed in a derived class, which is how a protected
+// member of another object may legally be reached.
+struct PacketCount : RakPeer
+{
+	static unsigned int Outstanding(const RakPeer *peer) { return peer->*(&PacketCount::packetsOutstanding); }
+};
 }
 
 TEST(NetworkThreadReceive, ConsumedMessagesAreFreed)
@@ -416,7 +423,8 @@ TEST(NetworkThreadReceive, ConsumedMessagesAreFreed)
 
 	for (int i = 0; i < 20; ++i)
 		SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 20; }, 5000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 20; }, 5000));
 	p.net.Step(50);
 	EXPECT_EQ(baseline, PacketCount::Outstanding(p.server));
 	p.server->DetachPlugin(&probe);
@@ -432,7 +440,8 @@ TEST(NetworkThreadReceive, KeptMessageStaysAllocatedUntilThePluginFreesIt)
 	const unsigned int baseline = PacketCount::Outstanding(p.server);
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_KEPT);
-	ASSERT_TRUE(p.net.RunUntil([&] { return probe.kept.size() == 1; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return probe.kept.size() == 1; }, 2000));
 	p.net.Step(50);
 	EXPECT_EQ(baseline + 1, PacketCount::Outstanding(p.server));
 	p.server->DeallocatePacket(probe.kept.front());
@@ -451,7 +460,8 @@ TEST(NetworkThreadReceive, ContinuedMessagesAreFreedByReceiveAsUsual)
 
 	for (int i = 0; i < 20; ++i)
 		SendId(p.client, p.net.AddressOf(p.server), ID_NT_PASSED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return InboxCount(p.net, p.server, ID_NT_PASSED) == 20; }, 5000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return InboxCount(p.net, p.server, ID_NT_PASSED) == 20; }, 5000));
 	EXPECT_EQ(baseline, PacketCount::Outstanding(p.server));
 	p.server->DetachPlugin(&probe);
 }
@@ -471,7 +481,8 @@ TEST(NetworkThreadReceive, HookCanSeeASenderBeforeTheApplicationSeesItConnect)
 	ASSERT_TRUE(p.net.RunUntilReceived(p.client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
-	ASSERT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
+	ASSERT_TRUE(p.net.RunUntil([&]
+	                           { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
 	EXPECT_FALSE(p.net.Received(p.server, ID_NEW_INCOMING_CONNECTION));
 
 	p.net.SetReceiveEnabled(p.server, true);
@@ -500,6 +511,7 @@ TEST(NetworkThreadReceive, FirstStartupOffersMessagesWhateverTheMemoryHeldBefore
 
 	net.SetReceiveEnabled(server, false);
 	SendId(client, net.AddressOf(server), ID_NT_CONSUMED);
-	EXPECT_TRUE(net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
+	EXPECT_TRUE(net.RunUntil([&]
+	                         { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
 	server->DetachPlugin(&probe);
 }

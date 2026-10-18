@@ -18,14 +18,13 @@
 ///
 
 
-
 #ifndef __SIMPLE_MUTEX_H
 #define __SIMPLE_MUTEX_H
 
 #include "mafianet/memory_override.h"
 
 
-#if   defined(_WIN32)
+#if defined(_WIN32)
 #include "mafianet/windows_includes.h"
 
 
@@ -39,13 +38,12 @@ namespace MafiaNet
 {
 
 /// \brief An easy to use mutex.
-/// 
+///
 /// I wrote this because the version that comes with Windows is too complicated and requires too much code to use.
 /// @remark Previously I used this everywhere, and in fact for a year or two RakNet was totally threadsafe.  While doing profiling, I saw that this function was incredibly slow compared to the blazing performance of everything else, so switched to single producer / consumer everywhere.  Now the user thread of RakNet is not threadsafe, but it's 100X faster than before.
 class RAK_DLL_EXPORT SimpleMutex
 {
 public:
-
 	// Constructor
 	SimpleMutex();
 
@@ -64,11 +62,6 @@ public:
 	bool TryLock(void);
 
 
-
-
-
-
-
 private:
 	void Init(void);
 #ifdef _WIN32
@@ -85,4 +78,3 @@ private:
 } // namespace MafiaNet
 
 #endif
-

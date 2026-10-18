@@ -46,12 +46,12 @@ public:
 
 	// Adds and removes in one pass, more efficient than calling both functions consecutively
 	void MoveEntry(void *entry, const float sourceMinX, const float sourceMinY, const float sourceMaxX, const float sourceMaxY,
-		const float destMinX, const float destMinY, const float destMaxX, const float destMaxY);
+	               const float destMinX, const float destMinY, const float destMaxX, const float destMaxY);
 
 #endif
 
 	// Adds to intersectionList all entries in a certain radius
-	void GetEntries(DataStructures::List<void*>& intersectionList, const float minX, const float minY, const float maxX, const float maxY);
+	void GetEntries(DataStructures::List<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY);
 
 	void Clear(void);
 
@@ -74,9 +74,9 @@ protected:
 	// int gridWidth, gridHeight;
 
 #ifdef _USE_ORDERED_LIST
-	DataStructures::OrderedList<void*, void*>* grid;
+	DataStructures::OrderedList<void *, void *> *grid;
 #else
-	DataStructures::List<void*>* grid;
+	DataStructures::List<void *> *grid;
 #endif
 };
 

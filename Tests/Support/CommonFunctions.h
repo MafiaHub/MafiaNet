@@ -21,7 +21,7 @@
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
 #include "DebugTools.h"
-	#include "RakTimer.h"
+#include "RakTimer.h"
 
 using namespace MafiaNet;
 class CommonFunctions
@@ -30,9 +30,9 @@ public:
 	CommonFunctions(void);
 	~CommonFunctions(void);
 
-	static bool WaitAndConnect(RakPeerInterface *peer,const char* ip,unsigned short int port,int millisecondsToWait);
-	static bool WaitForMessageWithID(RakPeerInterface *reciever,int id,int millisecondsToWait);
-	static Packet * WaitAndReturnMessageWithID(RakPeerInterface *reciever,int id,int millisecondsToWait);
-	static void DisconnectAndWait(RakPeerInterface *peer,char* ip,unsigned short int port);
-    static bool ConnectionStateMatchesOptions(RakPeerInterface *peer, SystemAddress currentSystem, bool isConnected, bool isConnecting=false, bool isPending=false, bool isDisconnecting=false, bool isNotConnected=false, bool isLoopBack=false, bool isSilentlyDisconnecting=false);
+	static bool WaitAndConnect(RakPeerInterface *peer, const char *ip, unsigned short int port, int millisecondsToWait);
+	static bool WaitForMessageWithID(RakPeerInterface *reciever, int id, int millisecondsToWait);
+	static Packet *WaitAndReturnMessageWithID(RakPeerInterface *reciever, int id, int millisecondsToWait);
+	static void DisconnectAndWait(RakPeerInterface *peer, char *ip, unsigned short int port);
+	static bool ConnectionStateMatchesOptions(RakPeerInterface *peer, SystemAddress currentSystem, bool isConnected, bool isConnecting = false, bool isPending = false, bool isDisconnecting = false, bool isNotConnected = false, bool isLoopBack = false, bool isSilentlyDisconnecting = false);
 };

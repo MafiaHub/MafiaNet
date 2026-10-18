@@ -47,8 +47,8 @@ public:
 
 	// Owns raw memory (cell lists and the entry-record table); a memberwise
 	// copy would double-free it.
-	PointGridSectorizer(const PointGridSectorizer&) = delete;
-	PointGridSectorizer& operator=(const PointGridSectorizer&) = delete;
+	PointGridSectorizer(const PointGridSectorizer &) = delete;
+	PointGridSectorizer &operator=(const PointGridSectorizer &) = delete;
 
 	/// (Re-)initializes the grid, discarding any current entries.
 	/// \param[in] _cellWidth, _cellHeight Size of each cell in world units
@@ -81,7 +81,7 @@ public:
 	/// Resets \a intersectionList (size 0, capacity kept for reuse) and fills
 	/// it with every entry in the cells overlapping the rectangle, each exactly
 	/// once. O(cells overlapped + entries returned).
-	void GetEntries(DataStructures::List<void*> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const;
+	void GetEntries(DataStructures::List<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const;
 
 	/// Returns whether the entry is currently in the grid. O(1).
 	bool HasEntry(void *entry) const;
@@ -103,7 +103,7 @@ protected:
 		unsigned int slotIndex;
 	};
 
-	EntryRecord* FindRecord(void *entry) const;
+	EntryRecord *FindRecord(void *entry) const;
 	void InsertRecord(void *entry, const int cellIndex, const unsigned int slotIndex);
 	void EraseRecord(EntryRecord *record);
 	void GrowRecordTable(void);
@@ -121,7 +121,7 @@ protected:
 
 	/// Per-cell unordered entry lists; removal swaps the last element into the
 	/// freed slot, so order within a cell is not meaningful.
-	DataStructures::List<void*> *grid;
+	DataStructures::List<void *> *grid;
 
 	/// Open-addressing record table (linear probing, backward-shift deletion).
 	/// Power-of-two capacity, grown with the entry count, never shrunk.

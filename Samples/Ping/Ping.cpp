@@ -39,17 +39,17 @@ int main(void)
 {
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program
-	MafiaNet::RakPeerInterface *client= MafiaNet::RakPeerInterface::GetInstance();
-	MafiaNet::RakPeerInterface *server= MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *client = MafiaNet::RakPeerInterface::GetInstance();
+	MafiaNet::RakPeerInterface *server = MafiaNet::RakPeerInterface::GetInstance();
 
 	// #med - review whether the call is actually required at all
 	server->GetNumberOfAddresses();
 
 	// Holds packets
-	MafiaNet::Packet* p;
+	MafiaNet::Packet *p;
 
 	// Record the first client that connects to us so we can pass it to the ping function
-	MafiaNet::SystemAddress clientID= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress clientID = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	bool packetFromServer;
 	char portstring[30];
 
@@ -59,11 +59,12 @@ int main(void)
 
 	// A server
 	puts("Enter the server port to listen on");
-	Gets(portstring,sizeof(portstring));
-	if (portstring[0]==0)
-		strcpy_s(portstring,"60000");
+	Gets(portstring, sizeof(portstring));
+	if (portstring[0] == 0)
+		strcpy_s(portstring, "60000");
 	int intServerPort = atoi(portstring);
-	if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 		return 2;
 	}
@@ -72,39 +73,39 @@ int main(void)
 	puts("Enter offline ping response data (for return by a LAN discovery for example)");
 	puts("Hit enter for none.");
 	char enumData[512];
-	Gets(enumData,sizeof(enumData));
+	Gets(enumData, sizeof(enumData));
 	if (enumData[0])
-		server->SetOfflinePingResponse(enumData, (const unsigned int) strlen(enumData)+1);
+		server->SetOfflinePingResponse(enumData, (const unsigned int) strlen(enumData) + 1);
 
 	puts("Starting server.");
 
 	// The server has to be started to respond to pings.
-	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort),0);
-	bool b = server->Startup(2, &socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intServerPort), 0);
+	bool b = server->Startup(2, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED;
 	server->SetMaximumIncomingConnections(2);
 	if (b)
 		puts("Server started, waiting for connections.");
 	else
-	{ 
+	{
 		puts("Server failed to start.  Terminating.");
 		exit(1);
 	}
 
-	socketDescriptor.port=0;
-	client->Startup(1,&socketDescriptor, 1);
+	socketDescriptor.port = 0;
+	client->Startup(1, &socketDescriptor, 1);
 
 	puts("'q' to quit, any other key to send a ping from the client.");
 	char buff[256];
 
 	// Loop for input
-	for(;;)
+	for (;;)
 	{
 		if (_kbhit())
 		{
 			// Holds user data
 			char ip[64], serverPort[30];
 
-			if (Gets(buff,sizeof(buff))&&(buff[0]=='q'))
+			if (Gets(buff, sizeof(buff)) && (buff[0] == 'q'))
 				break;
 			else
 			{
@@ -112,14 +113,15 @@ int main(void)
 				// Get our input
 				puts("Enter IP to ping");
 				Gets(ip, sizeof(ip));
-				if (ip[0]==0)
+				if (ip[0] == 0)
 					strcpy_s(ip, "127.0.0.1");
 				puts("Enter the port to ping");
-				Gets(serverPort,sizeof(serverPort));
-				if (serverPort[0]==0)
+				Gets(serverPort, sizeof(serverPort));
+				if (serverPort[0] == 0)
 					strcpy_s(serverPort, "60000");
 				intServerPort = atoi(serverPort);
-				if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+				if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+				{
 					printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 					return 2;
 				}
@@ -133,45 +135,45 @@ int main(void)
 		// Get a packet from either the server or the client
 		p = server->Receive();
 
-		if (p==0)
+		if (p == 0)
 		{
-			packetFromServer=false;
+			packetFromServer = false;
 			p = client->Receive();
 		}
 		else
-			packetFromServer=true;
+			packetFromServer = true;
 
-		if (p==0)
+		if (p == 0)
 			continue;
 
 
 		// Check if this is a network message packet
 		switch (p->data[0])
 		{
-			case ID_UNCONNECTED_PONG:
-				{
-					unsigned int dataLength;
-					MafiaNet::TimeMS time;
-					MafiaNet::BitStream bsIn(p->data,p->length,false);
-					bsIn.IgnoreBytes(1);
-					bsIn.Read(time);
-					dataLength = p->length - sizeof(unsigned char) - sizeof(MafiaNet::TimeMS);
-					printf("ID_UNCONNECTED_PONG from SystemAddress %s.\n", p->systemAddress.ToString(true));
-					printf("Time is %i\n",time);
-					printf("Ping is %i\n", (unsigned int)(MafiaNet::GetTimeMS()-time));
-					printf("Data is %i bytes long.\n", dataLength);
-					if (dataLength > 0)
-						printf("Data is %s\n", p->data+sizeof(unsigned char)+sizeof(MafiaNet::TimeMS));
+		case ID_UNCONNECTED_PONG:
+		{
+			unsigned int dataLength;
+			MafiaNet::TimeMS time;
+			MafiaNet::BitStream bsIn(p->data, p->length, false);
+			bsIn.IgnoreBytes(1);
+			bsIn.Read(time);
+			dataLength = p->length - sizeof(unsigned char) - sizeof(MafiaNet::TimeMS);
+			printf("ID_UNCONNECTED_PONG from SystemAddress %s.\n", p->systemAddress.ToString(true));
+			printf("Time is %i\n", time);
+			printf("Ping is %i\n", (unsigned int) (MafiaNet::GetTimeMS() - time));
+			printf("Data is %i bytes long.\n", dataLength);
+			if (dataLength > 0)
+				printf("Data is %s\n", p->data + sizeof(unsigned char) + sizeof(MafiaNet::TimeMS));
 
-					// In this sample since the client is not running a game we can save CPU cycles by
-					// Stopping the network threads after receiving the pong.
-					client->Shutdown(100);
-				}
-				break;
-			case ID_UNCONNECTED_PING:
-				break;
-			case ID_UNCONNECTED_PING_OPEN_CONNECTIONS:
-				break;			
+			// In this sample since the client is not running a game we can save CPU cycles by
+			// Stopping the network threads after receiving the pong.
+			client->Shutdown(100);
+		}
+		break;
+		case ID_UNCONNECTED_PING:
+			break;
+		case ID_UNCONNECTED_PING_OPEN_CONNECTIONS:
+			break;
 		}
 
 		// We're done with the packet

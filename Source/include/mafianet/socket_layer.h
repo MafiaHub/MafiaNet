@@ -18,8 +18,6 @@
 ///
 
 
-
-
 #ifndef __SOCKET_LAYER_H
 #define __SOCKET_LAYER_H
 
@@ -59,13 +57,12 @@ class RAK_DLL_EXPORT SocketLayer
 {
 
 public:
-	
 	/// Default Constructor
 	SocketLayer();
-	
-	// Destructor	
+
+	// Destructor
 	~SocketLayer();
-	
+
 	/*
 	/// Returns if this specified port is in use, for UDP
 	/// \param[in] port the port number 
@@ -75,89 +72,88 @@ public:
 	static bool IsSocketFamilySupported(const char *hostAddress, unsigned short socketFamily);
 	*/
 
-//	static const char* DomainNameToIP_Old( const char *domainName );
-//	static const char* DomainNameToIP( const char *domainName );
-	
+	//	static const char* DomainNameToIP_Old( const char *domainName );
+	//	static const char* DomainNameToIP( const char *domainName );
+
 	/// Write \a data of length \a length to \a writeSocket
 	/// \param[in] writeSocket The socket to write to
 	/// \param[in] data The data to write
-	/// \param[in] length The length of \a data	
+	/// \param[in] length The length of \a data
 	// static void Write( RakNetSocket*writeSocket, const char* data, const int length );
-	
-	/// Read data from a socket 
-	/// \param[in] s the socket 
+
+	/// Read data from a socket
+	/// \param[in] s the socket
 	/// \param[in] rakPeer The instance of rakPeer containing the recvFrom C callback
 	/// \param[in] errorCode An error code if an error occured .
 	/// \param[in] connectionSocketIndex Which of the sockets in RakPeer we are using
 	/// \return Returns true if you successfully read data, false on error.
-//	static void RecvFromBlocking_IPV4( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
-// 	#if RAKNET_SUPPORT_IPV6==1
-// 		static void RecvFromBlockingIPV4And6( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
-// 	#endif
-//	static void RecvFromBlocking( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
+	//	static void RecvFromBlocking_IPV4( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
+	// 	#if RAKNET_SUPPORT_IPV6==1
+	// 		static void RecvFromBlockingIPV4And6( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
+	// 	#endif
+	//	static void RecvFromBlocking( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
 
 	/// Given a socket and IP, retrieves the subnet mask, on linux the socket is unused
-	/// \param[in] inSock the socket 
+	/// \param[in] inSock the socket
 	/// \param[in] inIpString The ip of the interface you wish to retrieve the subnet mask from
 	/// \return Returns the ip dotted subnet mask if successful, otherwise returns empty string ("")
 	static MafiaNet::RakString GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, MafiaNet::RakString inIpString);
 
 
-	/// Sets the socket flags to nonblocking 
+	/// Sets the socket flags to nonblocking
 	/// \param[in] listenSocket the socket to set
-//	static void SetNonBlocking( RakNetSocket* listenSocket);
+	//	static void SetNonBlocking( RakNetSocket* listenSocket);
 
 
 	/// Retrieve all local IP address in a string format.
 	/// \param[in] s The socket whose port we are referring to
 	/// \param[in] ipList An array of ip address in dotted notation.
-	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
+	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 
-	
+
 	/// Call sendto' (UDP obviously)
 	/// It won't reach the recipient, except on a LAN
 	/// However, this is good for opening routers / firewalls
 	/// \param[in] s the socket
-	/// \param[in] data The byte buffer to send 
+	/// \param[in] data The byte buffer to send
 	/// \param[in] length The length of the \a data in bytes
 	/// \param[in] ip The address of the remote host in dotted notation.
 	/// \param[in] port The port number to send to.
 	/// \param[in] ttl Max hops of datagram
 	/// \return 0 on success, nonzero on failure.
-//	static int SendToTTL( RakNetSocket *s, const char *data, int length, SystemAddress &systemAddress, int ttl );
+	//	static int SendToTTL( RakNetSocket *s, const char *data, int length, SystemAddress &systemAddress, int ttl );
 
 	/// Call sendto (UDP obviously)
 	/// \param[in] s the socket
-	/// \param[in] data The byte buffer to send 
+	/// \param[in] data The byte buffer to send
 	/// \param[in] length The length of the \a data in bytes
 	/// \param[in] binaryAddress The address of the remote host in binary format.
 	/// \param[in] port The port number to send to.
 	/// \return 0 on success, nonzero on failure.
-//	static int SendTo( RakNetSocket *s, const char *data, int length, SystemAddress systemAddress, const char *file, const long line );
+	//	static int SendTo( RakNetSocket *s, const char *data, int length, SystemAddress systemAddress, const char *file, const long line );
 
-//	static unsigned short GetLocalPort(RakNetSocket *s);
-	static unsigned short GetLocalPort( __UDPSOCKET__ s);
-//	static void GetSystemAddress_Old ( RakNetSocket *s, SystemAddress *systemAddressOut );
-	static void GetSystemAddress_Old ( __UDPSOCKET__ s, SystemAddress *systemAddressOut );
-//	static void GetSystemAddress ( RakNetSocket *s, SystemAddress *systemAddressOut );
-	static void GetSystemAddress ( __UDPSOCKET__ s, SystemAddress *systemAddressOut );
+	//	static unsigned short GetLocalPort(RakNetSocket *s);
+	static unsigned short GetLocalPort(__UDPSOCKET__ s);
+	//	static void GetSystemAddress_Old ( RakNetSocket *s, SystemAddress *systemAddressOut );
+	static void GetSystemAddress_Old(__UDPSOCKET__ s, SystemAddress *systemAddressOut);
+	//	static void GetSystemAddress ( RakNetSocket *s, SystemAddress *systemAddressOut );
+	static void GetSystemAddress(__UDPSOCKET__ s, SystemAddress *systemAddressOut);
 
-//	static void SetSocketLayerOverride(SocketLayerOverride *_slo);
-//	static SocketLayerOverride* GetSocketLayerOverride(void) {return slo;}
+	//	static void SetSocketLayerOverride(SocketLayerOverride *_slo);
+	//	static SocketLayerOverride* GetSocketLayerOverride(void) {return slo;}
 
-// 	static int SendTo_PC( RakNetSocket *s, const char *data, int length, const SystemAddress &systemAddress, const char *file, const long line );
-// 
-// 	static void SetDoNotFragment( RakNetSocket* listenSocket, int opt );
-// 	static void SetSocketOptions( RakNetSocket* listenSocket, bool blockingSocket, bool setBroadcast);
-	static void SetSocketOptions( __UDPSOCKET__ listenSocket, bool blockingSocket, bool setBroadcast);
-	
+	// 	static int SendTo_PC( RakNetSocket *s, const char *data, int length, const SystemAddress &systemAddress, const char *file, const long line );
+	//
+	// 	static void SetDoNotFragment( RakNetSocket* listenSocket, int opt );
+	// 	static void SetSocketOptions( RakNetSocket* listenSocket, bool blockingSocket, bool setBroadcast);
+	static void SetSocketOptions(__UDPSOCKET__ listenSocket, bool blockingSocket, bool setBroadcast);
+
 
 	// AF_INET (default). For IPV6, use AF_INET6. To autoselect, use AF_UNSPEC.
 	static bool GetFirstBindableIP(char firstBindable[128], int ipProto);
 
 private:
-
-//	static SocketLayerOverride *slo;
+	//	static SocketLayerOverride *slo;
 };
 
 } // namespace MafiaNet

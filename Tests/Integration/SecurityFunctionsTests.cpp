@@ -88,171 +88,164 @@ protected:
 
 TEST_F(SecurityFunctions, PasswordAndBanList)
 {
-	char thePassword[]="password";
-	server=RakPeerInterface::GetInstance();
+	char thePassword[] = "password";
+	server = RakPeerInterface::GetInstance();
 
-	client=RakPeerInterface::GetInstance();
+	client = RakPeerInterface::GetInstance();
 
 	SocketDescriptor clientSd;
 	ASSERT_EQ(client->Startup(1, &clientSd, 1), RAKNET_STARTED);
 	const unsigned short serverPort = TestHelpers::StartOnLoopback(server, 1, 1);
 	ASSERT_NE(serverPort, 0) << "Server failed to start";
-	server->SetIncomingPassword(thePassword,(int)strlen(thePassword));
+	server->SetIncomingPassword(thePassword, (int) strlen(thePassword));
 
 	char returnedPass[22];
-	int returnedLen=22;
-	server->GetIncomingPassword(returnedPass,&returnedLen);
-	returnedPass[returnedLen]=0;//Password is a data block convert to null terminated string to make the test easier
+	int returnedLen = 22;
+	server->GetIncomingPassword(returnedPass, &returnedLen);
+	returnedPass[returnedLen] = 0; //Password is a data block convert to null terminated string to make the test easier
 
-	ASSERT_STREQ(returnedPass,thePassword) << "GetIncomingPassword returned wrong password";
+	ASSERT_STREQ(returnedPass, thePassword) << "GetIncomingPassword returned wrong password";
 
 	SystemAddress serverAddress;
 
 	serverAddress.SetBinaryAddress("127.0.0.1");
 	serverAddress.SetPortHostOrder(serverPort);
-	TimeMS entryTime=GetTimeMS();
+	TimeMS entryTime = GetTimeMS();
 
 	// Testing if no password is rejected
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),0,0);
+			client->Connect("127.0.0.1", serverAddress.GetPort(), 0, 0);
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client connected with no password";
+	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client connected with no password";
 
 	// Testing if incorrect password is rejected
-	char badPass[]="badpass";
-	entryTime=GetTimeMS();
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	char badPass[] = "badpass";
+	entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),badPass,(int)strlen(badPass));
+			client->Connect("127.0.0.1", serverAddress.GetPort(), badPass, (int) strlen(badPass));
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client connected with wrong password";
+	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client connected with wrong password";
 
 	// Testing if correct password is accepted
-	entryTime=GetTimeMS();
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client failed to connect with correct password";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client failed to connect with correct password";
 
-	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
+	while (CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true)) //disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low);
+		client->CloseConnection(serverAddress, true, 0, MafiaNet::Priority::Low);
 	}
 
 	// Testing if connection is rejected after adding to ban list
-	server->AddToBanList("127.0.0.1",0);
+	server->AddToBanList("127.0.0.1", 0);
 
-	entryTime=GetTimeMS();
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
 		RakSleep(100);
-
 	}
 
 	ASSERT_TRUE(server->IsBanned("127.0.0.1")) << "IsBanned does not show localhost as banned";
 
-	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client was banned but connected anyways";
+	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client was banned but connected anyways";
 
 	// Testing if connection is accepted after ban removal by RemoveFromBanList
 	server->RemoveFromBanList("127.0.0.1");
 	ASSERT_FALSE(server->IsBanned("127.0.0.1")) << "Localhost was not unbanned";
 
-	entryTime=GetTimeMS();
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client failed to connect after banlist removal";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client failed to connect after banlist removal";
 
-	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
+	while (CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true)) //disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low);
+		client->CloseConnection(serverAddress, true, 0, MafiaNet::Priority::Low);
 	}
 
 	// Testing if connection is rejected after adding to ban list
-	server->AddToBanList("127.0.0.1",0);
+	server->AddToBanList("127.0.0.1", 0);
 
-	entryTime=GetTimeMS();
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
 		RakSleep(100);
-
 	}
 
 	ASSERT_TRUE(server->IsBanned("127.0.0.1")) << "IsBanned does not show localhost as banned";
 
-	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client was banned but connected anyways";
+	ASSERT_FALSE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client was banned but connected anyways";
 
 	// Testing if connection is accepted after ban removal by ClearBanList
 	server->ClearBanList();
 	ASSERT_FALSE(server->IsBanned("127.0.0.1")) << "Localhost was not unbanned";
 
-	entryTime=GetTimeMS();
-	while(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)&&GetTimeMS()-entryTime<5000)
+	entryTime = GetTimeMS();
+	while (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true) && GetTimeMS() - entryTime < 5000)
 	{
 
-		if(!CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))
+		if (!CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true))
 		{
-			client->Connect("127.0.0.1",serverAddress.GetPort(),thePassword,(int)strlen(thePassword));
+			client->Connect("127.0.0.1", serverAddress.GetPort(), thePassword, (int) strlen(thePassword));
 		}
 
 		RakSleep(100);
-
 	}
 
-	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true)) << "Client failed to connect after banlist removal with clear function";
+	ASSERT_TRUE(CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true)) << "Client failed to connect after banlist removal with clear function";
 
-	while(CommonFunctions::ConnectionStateMatchesOptions (client,serverAddress,true,true,true,true))//disconnect client
+	while (CommonFunctions::ConnectionStateMatchesOptions(client, serverAddress, true, true, true, true)) //disconnect client
 	{
 
-		client->CloseConnection (serverAddress,true,0,MafiaNet::Priority::Low);
+		client->CloseConnection(serverAddress, true, 0, MafiaNet::Priority::Low);
 	}
 }

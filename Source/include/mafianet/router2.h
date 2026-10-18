@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_Router2==1 && _RAKNET_SUPPORT_UDPForwarder==1
+#if _RAKNET_SUPPORT_Router2 == 1 && _RAKNET_SUPPORT_UDPForwarder == 1
 
 #ifndef __ROUTER_2_PLUGIN_H
 #define __ROUTER_2_PLUGIN_H
@@ -104,7 +104,7 @@ public:
 	// --------------------------------------------------------------------------------------------
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void Update(void);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAttemptReason failedConnectionAttemptReason);
 	virtual void OnRakPeerShutdown(void);
 
@@ -163,10 +163,9 @@ public:
 	};
 
 protected:
-
-	bool UpdateForwarding(ConnnectRequest* connectionRequest);
+	bool UpdateForwarding(ConnnectRequest *connectionRequest);
 	void RemoveConnectionRequest(unsigned int connectionRequestIndex);
-	void RequestForwarding(ConnnectRequest* connectionRequest);
+	void RequestForwarding(ConnnectRequest *connectionRequest);
 	void OnQueryForwarding(Packet *packet);
 	void OnQueryForwardingReply(Packet *packet);
 	void OnRequestForwarding(Packet *packet);
@@ -181,7 +180,7 @@ protected:
 	UDPForwarder *udpForwarder;
 	int maximumForwardingRequests;
 	SimpleMutex connectionRequestsMutex, miniPunchesInProgressMutex, forwardedConnectionListMutex;
-	DataStructures::List<ConnnectRequest*> connectionRequests;
+	DataStructures::List<ConnnectRequest *> connectionRequests;
 	DataStructures::List<MiniPunchRequest> miniPunchesInProgress;
 	// Forwarding we have initiated
 	DataStructures::List<ForwardedConnection> forwardedConnectionList;

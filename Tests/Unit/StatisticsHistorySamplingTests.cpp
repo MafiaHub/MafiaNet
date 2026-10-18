@@ -14,24 +14,24 @@ using namespace MafiaNet;
 
 namespace
 {
-	// An idle peer: the plugin can sample it, and it has no connections to sample.
-	class StatisticsHistorySampling : public ::testing::Test
+// An idle peer: the plugin can sample it, and it has no connections to sample.
+class StatisticsHistorySampling : public ::testing::Test
+{
+protected:
+	void SetUp() override
 	{
-	protected:
-		void SetUp() override
-		{
-			peer = RakPeerInterface::GetInstance();
-			peer->AttachPlugin(&plugin);
-		}
-		void TearDown() override
-		{
-			peer->DetachPlugin(&plugin);
-			RakPeerInterface::DestroyInstance(peer);
-		}
+		peer = RakPeerInterface::GetInstance();
+		peer->AttachPlugin(&plugin);
+	}
+	void TearDown() override
+	{
+		peer->DetachPlugin(&plugin);
+		RakPeerInterface::DestroyInstance(peer);
+	}
 
-		RakPeerInterface *peer = nullptr;
-		StatisticsHistoryPlugin plugin;
-	};
+	RakPeerInterface *peer = nullptr;
+	StatisticsHistoryPlugin plugin;
+};
 }
 
 TEST_F(StatisticsHistorySampling, SamplesEveryUpdateByDefault)

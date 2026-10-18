@@ -19,7 +19,8 @@
 #include "mafianet/ds_list.h"
 #include "mafianet/string.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 class ProfanityFilter
 {
@@ -32,13 +33,14 @@ public:
 
 	// Removes profanity. Returns number of occurrences of profanity matches (including 0)
 	int FilterProfanity(const char *input, char *output, bool filter = true);
-	int FilterProfanity(const char *input, char *output, size_t outputLength, bool filter = true); 		
-	
+	int FilterProfanity(const char *input, char *output, size_t outputLength, bool filter = true);
+
 	// Number of profanity words loaded
 	int Count();
 
 	void AddWord(MafiaNet::RakString newWord);
-private:	
+
+private:
 	DataStructures::List<MafiaNet::RakString> words;
 
 	char RandomBanChar();

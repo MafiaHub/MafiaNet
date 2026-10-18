@@ -42,7 +42,7 @@ struct RAK_DLL_EXPORT RegisteredCommand
 };
 
 /// List of commands registered with RegisterCommand()
-int RAK_DLL_EXPORT RegisteredCommandComp( const char* const & key, const RegisteredCommand &data );
+int RAK_DLL_EXPORT RegisteredCommandComp(const char *const &key, const RegisteredCommand &data);
 
 /// \brief The interface used by command parsers.
 /// \details CommandParserInterface provides a set of functions and interfaces that plug into the ConsoleServer class.
@@ -56,12 +56,12 @@ public:
 	/// You are responsible for overriding this function and returning a static string, which will identifier your parser.
 	/// This should return a static string
 	/// \return The name that you return.
-	virtual const char *GetName(void) const=0;
+	virtual const char *GetName(void) const = 0;
 
 	/// \brief A callback for when \a systemAddress has connected to us.
 	/// \param[in] systemAddress The player that has connected.
 	/// \param[in] transport The transport interface that sent us this information.  Can be used to send messages to this or other players.
-	virtual void  OnNewIncomingConnection(const SystemAddress &systemAddress, TransportInterface *transport);
+	virtual void OnNewIncomingConnection(const SystemAddress &systemAddress, TransportInterface *transport);
 
 	/// \brief A callback for when \a systemAddress has disconnected, either gracefully or forcefully
 	/// \param[in] systemAddress The player that has disconnected.
@@ -71,7 +71,7 @@ public:
 	/// \brief A callback for when you are expected to send a brief description of your parser to \a systemAddress
 	/// \param[in] transport The transport interface we can use to write to
 	/// \param[in] systemAddress The player that requested help.
-	virtual void SendHelp(TransportInterface *transport, const SystemAddress &systemAddress)=0;
+	virtual void SendHelp(TransportInterface *transport, const SystemAddress &systemAddress) = 0;
 
 	/// \brief Given \a command with parameters \a parameterList , do whatever processing you wish.
 	/// \param[in] command The command to process
@@ -80,9 +80,9 @@ public:
 	/// \param[in] transport The transport interface we can use to write to
 	/// \param[in] systemAddress The player that sent this command.
 	/// \param[in] originalString The string that was actually sent over the network, in case you want to do your own parsing
-	virtual bool OnCommand(const char *command, unsigned numParameters, char **parameterList, TransportInterface *transport, const SystemAddress &systemAddress, const char *originalString)=0;
+	virtual bool OnCommand(const char *command, unsigned numParameters, char **parameterList, TransportInterface *transport, const SystemAddress &systemAddress, const char *originalString) = 0;
 
-	/// \brief This is called every time transport interface is registered.  
+	/// \brief This is called every time transport interface is registered.
 	/// \details If you want to save a copy of the TransportInterface pointer
 	/// This is the place to do it
 	/// \param[in] transport The new TransportInterface
@@ -132,7 +132,7 @@ public:
 	virtual void ReturnResult(bool res, const char *command, TransportInterface *transport, const SystemAddress &systemAddress);
 	virtual void ReturnResult(char *res, const char *command, TransportInterface *transport, const SystemAddress &systemAddress);
 	virtual void ReturnResult(SystemAddress res, const char *command, TransportInterface *transport, const SystemAddress &systemAddress);
-	virtual void ReturnResult(int res, const char *command,TransportInterface *transport, const SystemAddress &systemAddress);
+	virtual void ReturnResult(int res, const char *command, TransportInterface *transport, const SystemAddress &systemAddress);
 
 	/// \brief Just writes a string to the remote system when you are calling a function that has no return value.
 	/// \details This is not necessary to call, but makes it easier to return results of function calls.
@@ -140,13 +140,12 @@ public:
 	/// \param[in] command The command that this result came from
 	/// \param[in] transport The transport interface that will be written to
 	/// \param[in] systemAddress The player this result will be sent to
-	virtual void ReturnResult(const char *command,TransportInterface *transport, const SystemAddress &systemAddress);
+	virtual void ReturnResult(const char *command, TransportInterface *transport, const SystemAddress &systemAddress);
 
 protected:
-	DataStructures::OrderedList<const char*, RegisteredCommand, RegisteredCommandComp> commandList;
+	DataStructures::OrderedList<const char *, RegisteredCommand, RegisteredCommandComp> commandList;
 };
 
 } // namespace MafiaNet
 
 #endif
-

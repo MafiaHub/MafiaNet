@@ -34,14 +34,14 @@ int main(void)
 {
 	char serverIP[64];
 
-	RakPeerInterface *rakClient= MafiaNet::RakPeerInterface::GetInstance();
-	RakPeerInterface *rakServer= MafiaNet::RakPeerInterface::GetInstance();
+	RakPeerInterface *rakClient = MafiaNet::RakPeerInterface::GetInstance();
+	RakPeerInterface *rakServer = MafiaNet::RakPeerInterface::GetInstance();
 	rakClient->SetOccasionalPing(true);
 	rakServer->SetOccasionalPing(true);
 
 	int ch;
 	bool isServer;
-	
+
 	printf("Demonstrates RakNet's timestamping system, used to get a common\n");
 	printf("network time without relying on NTP.\n");
 	printf("Difficulty: Beginner\n\n");
@@ -49,37 +49,37 @@ int main(void)
 	printf("Hit 'c' to run as a client.  Hit 's' to run as a server. Hit 'q' to quit\n");
 	char buff[256];
 
-	for(;;)
+	for (;;)
 	{
 		gets_s(buff);
 		ch = buff[0];
 
-		if (ch=='c')
+		if (ch == 'c')
 		{
 			// Run as a client.  If you don't have another machine, just run 2 instances of this program and use "127.0.0.1"
-			puts ("Enter server IP\n");
-			Gets(serverIP,sizeof(serverIP));
-			if (serverIP[0]==0)
+			puts("Enter server IP\n");
+			Gets(serverIP, sizeof(serverIP));
+			if (serverIP[0] == 0)
 				strcpy_s(serverIP, "127.0.0.1");
 
-			MafiaNet::SocketDescriptor socketDescriptor(0,0);
+			MafiaNet::SocketDescriptor socketDescriptor(0, 0);
 			rakClient->Startup(1, &socketDescriptor, 1);
 			rakClient->Connect(serverIP, 2100, 0, 0);
 			printf("Connecting client\n");
-			isServer=false;
+			isServer = false;
 			break;
 		}
-		else if (ch=='s')
+		else if (ch == 's')
 		{
 			// Run as a server.
-			MafiaNet::SocketDescriptor socketDescriptor(2100,0);
-			rakServer->Startup(32,&socketDescriptor, 1);
+			MafiaNet::SocketDescriptor socketDescriptor(2100, 0);
+			rakServer->Startup(32, &socketDescriptor, 1);
 			rakServer->SetMaximumIncomingConnections(32);
 			printf("Server started\n");
-			isServer=true;
+			isServer = true;
 			break;
 		}
-		else if (ch=='q')
+		else if (ch == 'q')
 			return 0;
 		else
 		{
@@ -90,63 +90,63 @@ int main(void)
 	printf("Entering main loop.  Press 'q' to quit\n'c' to send from the client.\n's' to send from the server.\n");
 	MafiaNet::Packet *packet;
 	MafiaNet::Time time;
-	ch=0;
+	ch = 0;
 	bool packetFromServer;
-	for(;;)
+	for (;;)
 	{
 		if (_kbhit())
 		{
 #ifndef _WIN32
-			Gets(buff,sizeof(buff));
-			ch=buff[0];
+			Gets(buff, sizeof(buff));
+			ch = buff[0];
 #else
-			ch=_getch();
+			ch = _getch();
 #endif
 		}
 
-		if (ch=='q')
+		if (ch == 'q')
 			break;
 
-		if (ch=='c' && rakClient->GetSystemAddressFromIndex(0)!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (ch == 'c' && rakClient->GetSystemAddressFromIndex(0) != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			BitStream bitStream;
 
 			// When writing a timestamp, the first byte is ID_TIMESTAMP
 			// The next 4 bytes is the timestamp itself.
 
-			bitStream.Write((unsigned char)ID_TIMESTAMP);
-			
-			time= MafiaNet::GetTime();
+			bitStream.Write((unsigned char) ID_TIMESTAMP);
+
+			time = MafiaNet::GetTime();
 			bitStream.Write(time);
 			rakClient->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			printf("Sending message from client at time %" PRINTF_64_BIT_MODIFIER "u\n", time);
 		}
-		else if (ch=='s' && rakServer->IsActive())
+		else if (ch == 's' && rakServer->IsActive())
 		{
 			BitStream bitStream;
-			bitStream.Write((unsigned char)ID_TIMESTAMP);
+			bitStream.Write((unsigned char) ID_TIMESTAMP);
 
-			time= MafiaNet::GetTime();
+			time = MafiaNet::GetTime();
 			bitStream.Write(time);
 			rakServer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 			printf("Sending packet from server at time %" PRINTF_64_BIT_MODIFIER "u\n", time);
 		}
 
-        if (isServer==false)
+		if (isServer == false)
 		{
-			packetFromServer=false;
-			packet=rakClient->Receive();
+			packetFromServer = false;
+			packet = rakClient->Receive();
 		}
 		else
 		{
-			packetFromServer=true;
-			packet=rakServer->Receive();
+			packetFromServer = true;
+			packet = rakServer->Receive();
 		}
-		
-		if (packet && packet->data[0]==ID_TIMESTAMP)
+
+		if (packet && packet->data[0] == ID_TIMESTAMP)
 		{
 			// Write the bytes after the first to a variable.  That is the time the packet was sent.
-			MafiaNet::BitStream timeBS(packet->data+1, sizeof(MafiaNet::Time), false);
+			MafiaNet::BitStream timeBS(packet->data + 1, sizeof(MafiaNet::Time), false);
 			timeBS.Read(time);
 			printf("Time difference is %" PRINTF_64_BIT_MODIFIER "u\n", MafiaNet::GetTime() - time);
 		}
@@ -159,7 +159,7 @@ int main(void)
 				rakClient->DeallocatePacket(packet);
 		}
 
-		ch=0;
+		ch = 0;
 
 		RakSleep(0);
 	}
@@ -173,4 +173,3 @@ int main(void)
 
 	return 0;
 }
-

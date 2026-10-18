@@ -45,10 +45,10 @@ class TestCB : public MafiaNet::FileListTransferCBInterface
 {
 public:
 	bool OnFile(
-		OnFileStruct *onFileStruct)
+	    OnFileStruct *onFileStruct)
 	{
 		assert(onFileStruct->byteLengthOfThisFile >= onFileStruct->bytesDownloadedForThisFile);
-        printf("%i. (100%%) %i/%i %s %ib / %ib\n", onFileStruct->setID, onFileStruct->fileIndex+1, onFileStruct->numberOfFilesInThisSet, onFileStruct->fileName, onFileStruct->byteLengthOfThisFile, onFileStruct->byteLengthOfThisSet);
+		printf("%i. (100%%) %i/%i %s %ib / %ib\n", onFileStruct->setID, onFileStruct->fileIndex + 1, onFileStruct->numberOfFilesInThisSet, onFileStruct->fileName, onFileStruct->byteLengthOfThisFile, onFileStruct->byteLengthOfThisSet);
 
 		// Return true to have RakNet delete the memory allocated to hold this file.
 		// False if you hold onto the memory, and plan to delete it yourself later
@@ -58,18 +58,18 @@ public:
 	virtual void OnFileProgress(FileProgressStruct *fps)
 	{
 		assert(fps->onFileStruct->byteLengthOfThisFile >= fps->onFileStruct->bytesDownloadedForThisFile);
-		printf("%i (%i%%) %i/%i %s %ib / %ib\n", fps->onFileStruct->setID, (int) (100.0*(double)fps->partCount/(double)fps->partTotal),
-			fps->onFileStruct->fileIndex+1,
-			fps->onFileStruct->numberOfFilesInThisSet,
-			fps->onFileStruct->fileName,
-			fps->onFileStruct->byteLengthOfThisFile,
-			fps->onFileStruct->byteLengthOfThisSet);
+		printf("%i (%i%%) %i/%i %s %ib / %ib\n", fps->onFileStruct->setID, (int) (100.0 * (double) fps->partCount / (double) fps->partTotal),
+		       fps->onFileStruct->fileIndex + 1,
+		       fps->onFileStruct->numberOfFilesInThisSet,
+		       fps->onFileStruct->fileName,
+		       fps->onFileStruct->byteLengthOfThisFile,
+		       fps->onFileStruct->byteLengthOfThisSet);
 	}
 
 	virtual bool OnDownloadComplete(DownloadCompleteStruct *dcs)
 	{
 		// unused parameters
-		(void)dcs;
+		(void) dcs;
 
 		printf("Download complete.\n");
 
@@ -120,21 +120,23 @@ int main(void)
 	unsigned short localPort;
 	char str[256];
 	Gets(str, sizeof(str));
-	if (str[0]==0)
-		localPort=60000;
-	else {
+	if (str[0] == 0)
+		localPort = 60000;
+	else
+	{
 		const int intLocalPort = atoi(str);
-		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 			return 2;
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
 	}
-	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+	MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 #ifdef USE_TCP
 	SLNET_VERIFY(tcp1.Start(localPort, 8));
 #else
-	if (rakPeer->Startup(8,&socketDescriptor, 1)!= MafiaNet::RAKNET_STARTED)
+	if (rakPeer->Startup(8, &socketDescriptor, 1) != MafiaNet::RAKNET_STARTED)
 	{
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 		printf("RakNet initialize failed.  Possibly duplicate port.\n");
@@ -151,11 +153,11 @@ int main(void)
 	printf("C(o)nnect to another system.\n");
 	printf("(Q)uit.\n");
 
-	MafiaNet::SystemAddress sysAddrZero= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress sysAddrZero = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	// MafiaNet::TimeMS nextStatTime = MafiaNet::GetTimeMS() + 1000;
 
 	MafiaNet::Packet *p;
-	for(;;)
+	for (;;)
 	{
 		/*
 		if (//directoryDeltaTransfer.GetNumberOfFilesForUpload()>0 &&
@@ -177,28 +179,28 @@ int main(void)
 
 		// Process packets
 #ifdef USE_TCP
-		p=tcp1.Receive();
+		p = tcp1.Receive();
 #else
-		p=rakPeer->Receive();
+		p = rakPeer->Receive();
 #endif
 
 #ifdef USE_TCP
 		MafiaNet::SystemAddress sa;
-		sa=tcp1.HasNewIncomingConnection();
-		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		sa = tcp1.HasNewIncomingConnection();
+		if (sa != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_NEW_INCOMING_CONNECTION\n");
-			sysAddrZero=sa;
+			sysAddrZero = sa;
 		}
-		if (tcp1.HasLostConnection()!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (tcp1.HasLostConnection() != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_DISCONNECTION_NOTIFICATION\n");
-		if (tcp1.HasFailedConnectionAttempt()!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		if (tcp1.HasFailedConnectionAttempt() != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_ATTEMPT_FAILED\n");
-		sa=tcp1.HasCompletedConnectionAttempt();
-		if (sa!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		sa = tcp1.HasCompletedConnectionAttempt();
+		if (sa != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
-			sysAddrZero=sa;
+			sysAddrZero = sa;
 		}
 #endif
 
@@ -210,103 +212,105 @@ int main(void)
 			tcp1.Receive();
 #else
 
-			if (p->data[0]==ID_NEW_INCOMING_CONNECTION)
+			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 			{
 				printf("ID_NEW_INCOMING_CONNECTION\n");
-				sysAddrZero=p->systemAddress;
+				sysAddrZero = p->systemAddress;
 			}
-			else if (p->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)
+			else if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
 				printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
-				sysAddrZero=p->systemAddress;
+				sysAddrZero = p->systemAddress;
 			}
-			else if (p->data[0]==ID_DISCONNECTION_NOTIFICATION)
+			else if (p->data[0] == ID_DISCONNECTION_NOTIFICATION)
 				printf("ID_DISCONNECTION_NOTIFICATION\n");
-			else if (p->data[0]==ID_CONNECTION_LOST)
+			else if (p->data[0] == ID_CONNECTION_LOST)
 				printf("ID_CONNECTION_LOST\n");
-			else if (p->data[0]==ID_CONNECTION_ATTEMPT_FAILED)
+			else if (p->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
 				printf("ID_CONNECTION_ATTEMPT_FAILED\n");
 			rakPeer->DeallocatePacket(p);
-			p=rakPeer->Receive();
+			p = rakPeer->Receive();
 #endif
 		}
 
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch=='s')
+			ch = _getch();
+			if (ch == 's')
 			{
 				printf("Enter application directory\n");
 				Gets(str, sizeof(str));
-				if (str[0]==0)
+				if (str[0] == 0)
 					strcpy_s(str, "C:/Temp");
 				directoryDeltaTransfer.SetApplicationDirectory(str);
 				printf("This directory will be prefixed to upload and download subdirectories.\n");
 			}
-			else if (ch=='a')
+			else if (ch == 'a')
 			{
 				printf("Enter uploads subdirectory\n");
 				Gets(str, sizeof(str));
 				directoryDeltaTransfer.AddUploadsFromSubdirectory(str);
 				printf("%i files for upload.\n", directoryDeltaTransfer.GetNumberOfFilesForUpload());
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
 				char subdir[256];
 				char outputSubdir[256];
 				printf("Enter remote subdirectory to download from.\n");
 				printf("This directory may be any uploaded directory, or a subdir therein.\n");
-				Gets(subdir,sizeof(subdir));
+				Gets(subdir, sizeof(subdir));
 				printf("Enter subdirectory to output to.\n");
-				Gets(outputSubdir,sizeof(outputSubdir));
-                
+				Gets(outputSubdir, sizeof(outputSubdir));
+
 				unsigned short setId;
 
-				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, sysAddrZero, &transferCallback, MafiaNet::Priority::High, 0, 0);
-				if (setId==(unsigned short)-1)
+				setId = directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, sysAddrZero, &transferCallback, MafiaNet::Priority::High, 0, 0);
+				if (setId == (unsigned short) -1)
 					printf("Download failed.  Host unreachable.\n");
 				else
 					printf("Downloading set %i\n", setId);
 			}
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
 				directoryDeltaTransfer.ClearUploads();
 				printf("Uploads cleared.\n");
 			}
-			else if (ch=='o')
+			else if (ch == 'o')
 			{
 				char host[256];
 				printf("Enter host IP: ");
-				Gets(host,sizeof(host));
-				if (host[0]==0)
+				Gets(host, sizeof(host));
+				if (host[0] == 0)
 					strcpy_s(host, "127.0.0.1");
 				unsigned short remotePort;
 				printf("Enter host port: ");
 				Gets(str, sizeof(str));
-				if (str[0]==0)
-					remotePort=60000;
-				else {
+				if (str[0] == 0)
+					remotePort = 60000;
+				else
+				{
 					const int intRemotePort = atoi(str);
-					if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max())) {
+					if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max()))
+					{
 						printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 						return 3;
 					}
 					remotePort = static_cast<unsigned short>(intRemotePort);
 				}
 #ifdef USE_TCP
-				tcp1.Connect(host,remotePort,false);
+				tcp1.Connect(host, remotePort, false);
 #else
 				rakPeer->Connect(host, remotePort, 0, 0);
 #endif
 				printf("Connecting.\n");
 			}
-			else if (ch=='q')
+			else if (ch == 'q')
 			{
 				printf("Bye!\n");
 #ifdef USE_TCP
 				tcp1.Stop();
 #else
-				rakPeer->Shutdown(1000,0);
+				rakPeer->Shutdown(1000, 0);
 #endif
 				break;
 			}

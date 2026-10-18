@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_CloudServer==1
+#if _RAKNET_SUPPORT_CloudServer == 1
 
 #include "mafianet/cloud_server.h"
 #include "mafianet/get_time.h"
@@ -36,7 +36,7 @@ enum ServerToServerCommands
 
 using namespace MafiaNet;
 
-int CloudServer::RemoteServerComp(const RakNetGUID &key, RemoteServer* const &data )
+int CloudServer::RemoteServerComp(const RakNetGUID &key, RemoteServer *const &data)
 {
 	if (key < data->serverAddress)
 		return -1;
@@ -44,7 +44,7 @@ int CloudServer::RemoteServerComp(const RakNetGUID &key, RemoteServer* const &da
 		return 1;
 	return 0;
 }
-int CloudServer::KeySubscriberIDComp(const CloudKey &key, KeySubscriberID * const &data )
+int CloudServer::KeySubscriberIDComp(const CloudKey &key, KeySubscriberID *const &data)
 {
 	if (key.primaryKey < data->key.primaryKey)
 		return -1;
@@ -56,7 +56,7 @@ int CloudServer::KeySubscriberIDComp(const CloudKey &key, KeySubscriberID * cons
 		return 1;
 	return 0;
 }
-int CloudServer::KeyDataPtrComp( const RakNetGUID &key, CloudData* const &data )
+int CloudServer::KeyDataPtrComp(const RakNetGUID &key, CloudData *const &data)
 {
 	if (key < data->clientGUID)
 		return -1;
@@ -64,7 +64,7 @@ int CloudServer::KeyDataPtrComp( const RakNetGUID &key, CloudData* const &data )
 		return 1;
 	return 0;
 }
-int CloudServer::KeyDataListComp( const CloudKey &key, CloudDataList * const &data )
+int CloudServer::KeyDataListComp(const CloudKey &key, CloudDataList *const &data)
 {
 	if (key.primaryKey < data->key.primaryKey)
 		return -1;
@@ -76,7 +76,7 @@ int CloudServer::KeyDataListComp( const CloudKey &key, CloudDataList * const &da
 		return 1;
 	return 0;
 }
-int CloudServer::BufferedGetResponseFromServerComp(const RakNetGUID &key, CloudServer::BufferedGetResponseFromServer* const &data )
+int CloudServer::BufferedGetResponseFromServerComp(const RakNetGUID &key, CloudServer::BufferedGetResponseFromServer *const &data)
 {
 	if (key < data->serverAddress)
 		return -1;
@@ -84,7 +84,7 @@ int CloudServer::BufferedGetResponseFromServerComp(const RakNetGUID &key, CloudS
 		return 1;
 	return 0;
 }
-int CloudServer::GetRequestComp(const uint32_t &key, CloudServer::GetRequest* const &data )
+int CloudServer::GetRequestComp(const uint32_t &key, CloudServer::GetRequest *const &data)
 {
 	if (key < data->requestId)
 		return -1;
@@ -99,8 +99,8 @@ void CloudServer::CloudQueryWithAddresses::Serialize(bool writeToBitstream, BitS
 	if (writeToBitstream)
 	{
 		bitStream->WriteCasted<uint16_t>(specificSystems.Size());
-		RakAssert(specificSystems.Size() < (uint16_t)-1 );
-		for (uint16_t i=0; i < specificSystems.Size(); i++)
+		RakAssert(specificSystems.Size() < (uint16_t) -1);
+		for (uint16_t i = 0; i < specificSystems.Size(); i++)
 		{
 			bitStream->Write(specificSystems[i]);
 		}
@@ -110,7 +110,7 @@ void CloudServer::CloudQueryWithAddresses::Serialize(bool writeToBitstream, BitS
 		uint16_t specificSystemsCount;
 		RakNetGUID addressOrGuid;
 		bitStream->Read(specificSystemsCount);
-		for (uint16_t i=0; i < specificSystemsCount; i++)
+		for (uint16_t i = 0; i < specificSystemsCount; i++)
 		{
 			bitStream->Read(addressOrGuid);
 			specificSystems.Push(addressOrGuid, _FILE_AND_LINE_);
@@ -120,15 +120,15 @@ void CloudServer::CloudQueryWithAddresses::Serialize(bool writeToBitstream, BitS
 bool CloudServer::GetRequest::AllRemoteServersHaveResponded(void) const
 {
 	unsigned int i;
-	for (i=0; i < remoteServerResponses.Size(); i++)
-		if (remoteServerResponses[i]->gotResult==false)
+	for (i = 0; i < remoteServerResponses.Size(); i++)
+		if (remoteServerResponses[i]->gotResult == false)
 			return false;
 	return true;
 }
 void CloudServer::GetRequest::Clear(CloudAllocator *allocator)
 {
 	unsigned int i;
-	for (i=0; i < remoteServerResponses.Size(); i++)
+	for (i = 0; i < remoteServerResponses.Size(); i++)
 	{
 		remoteServerResponses[i]->Clear(allocator);
 		MafiaNet::OP_DELETE(remoteServerResponses[i], _FILE_AND_LINE_);
@@ -138,7 +138,7 @@ void CloudServer::GetRequest::Clear(CloudAllocator *allocator)
 void CloudServer::BufferedGetResponseFromServer::Clear(CloudAllocator *allocator)
 {
 	unsigned int i;
-	for (i=0; i < queryResult.rowsReturned.Size(); i++)
+	for (i = 0; i < queryResult.rowsReturned.Size(); i++)
 	{
 		allocator->DeallocateRowData(queryResult.rowsReturned[i]->data);
 		allocator->DeallocateCloudQueryRow(queryResult.rowsReturned[i]);
@@ -147,10 +147,10 @@ void CloudServer::BufferedGetResponseFromServer::Clear(CloudAllocator *allocator
 }
 CloudServer::CloudServer()
 {
-	maxUploadBytesPerClient=0;
-	maxBytesPerDowload=0;
-	nextGetRequestId=0;
-	nextGetRequestsCheck=0;
+	maxUploadBytesPerClient = 0;
+	maxBytesPerDowload = 0;
+	nextGetRequestId = 0;
+	nextGetRequestsCheck = 0;
 }
 CloudServer::~CloudServer()
 {
@@ -158,11 +158,11 @@ CloudServer::~CloudServer()
 }
 void CloudServer::SetMaxUploadBytesPerClient(uint64_t bytes)
 {
-	maxUploadBytesPerClient=bytes;
+	maxUploadBytesPerClient = bytes;
 }
 void CloudServer::SetMaxBytesPerDownload(uint64_t bytes)
 {
-	maxBytesPerDowload=bytes;
+	maxBytesPerDowload = bytes;
 }
 void CloudServer::Update(void)
 {
@@ -170,9 +170,9 @@ void CloudServer::Update(void)
 	MafiaNet::Time time = MafiaNet::Time();
 	if (time > nextGetRequestsCheck)
 	{
-		nextGetRequestsCheck=time+1000;
+		nextGetRequestsCheck = time + 1000;
 
-		unsigned int i=0;
+		unsigned int i = 0;
 		while (i < getRequests.Size())
 		{
 			if (time - getRequests[i]->requestStartTime > 3000)
@@ -180,7 +180,7 @@ void CloudServer::Update(void)
 				// Remote server is not responding, just send back data with whoever did respond
 				ProcessAndTransmitGetRequest(getRequests[i]);
 				getRequests[i]->Clear(this);
-				MafiaNet::OP_DELETE(getRequests[i],_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(getRequests[i], _FILE_AND_LINE_);
 				getRequests.RemoveAtIndex(i);
 			}
 			else
@@ -207,7 +207,7 @@ PluginReceiveResult CloudServer::OnReceive(Packet *packet)
 		OnUnsubscribeRequest(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_CLOUD_SERVER_TO_SERVER_COMMAND:
-		if (packet->length>1)
+		if (packet->length > 1)
 		{
 			switch (packet->data[1])
 			{
@@ -246,32 +246,32 @@ void CloudServer::OnPostRequest(Packet *packet)
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	CloudKey key;
-	key.Serialize(false,&bsIn);
+	key.Serialize(false, &bsIn);
 	uint32_t dataLengthBytes;
 	bsIn.Read(dataLengthBytes);
-	if (maxUploadBytesPerClient>0 && dataLengthBytes>maxUploadBytesPerClient)
+	if (maxUploadBytesPerClient > 0 && dataLengthBytes > maxUploadBytesPerClient)
 		return; // Exceeded max upload bytes
 
 	bsIn.AlignReadToByteBoundary();
-	for (unsigned int filterIndex=0; filterIndex < queryFilters.Size(); filterIndex++)
+	for (unsigned int filterIndex = 0; filterIndex < queryFilters.Size(); filterIndex++)
 	{
-		if (queryFilters[filterIndex]->OnPostRequest(packet->guid, packet->systemAddress, key, dataLengthBytes, (const char*) bsIn.GetData()+BITS_TO_BYTES(bsIn.GetReadOffset()))==false)
+		if (queryFilters[filterIndex]->OnPostRequest(packet->guid, packet->systemAddress, key, dataLengthBytes, (const char *) bsIn.GetData() + BITS_TO_BYTES(bsIn.GetReadOffset())) == false)
 			return;
 	}
 
 	unsigned char *data;
-	if (dataLengthBytes>CLOUD_SERVER_DATA_STACK_SIZE)
+	if (dataLengthBytes > CLOUD_SERVER_DATA_STACK_SIZE)
 	{
-		data = (unsigned char *) rakMalloc_Ex(dataLengthBytes,_FILE_AND_LINE_);
-		if (data==0)
+		data = (unsigned char *) rakMalloc_Ex(dataLengthBytes, _FILE_AND_LINE_);
+		if (data == 0)
 		{
 			notifyOutOfMemory(_FILE_AND_LINE_);
 			return;
 		}
-		bsIn.ReadAlignedBytes(data,dataLengthBytes);
+		bsIn.ReadAlignedBytes(data, dataLengthBytes);
 	}
 	else
-		data=0;
+		data = 0;
 
 	// Add this system to remoteSystems if they aren't there already
 	DataStructures::HashIndex remoteSystemsHashIndex = remoteSystems.GetIndexOf(packet->guid);
@@ -279,8 +279,8 @@ void CloudServer::OnPostRequest(Packet *packet)
 	if (remoteSystemsHashIndex.IsInvalid())
 	{
 		remoteCloudClient = MafiaNet::OP_NEW<RemoteCloudClient>(_FILE_AND_LINE_);
-		remoteCloudClient->uploadedKeys.Insert(key,key,true,_FILE_AND_LINE_);
-		remoteCloudClient->uploadedBytes=0;
+		remoteCloudClient->uploadedKeys.Insert(key, key, true, _FILE_AND_LINE_);
+		remoteCloudClient->uploadedBytes = 0;
 		remoteSystems.Push(packet->guid, remoteCloudClient, _FILE_AND_LINE_);
 	}
 	else
@@ -288,8 +288,8 @@ void CloudServer::OnPostRequest(Packet *packet)
 		remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemsHashIndex);
 		bool objectExists;
 		// Add to RemoteCloudClient::uploadedKeys if it isn't there already
-		unsigned int uploadedKeysIndex = remoteCloudClient->uploadedKeys.GetIndexFromKey(key,&objectExists);
-		if (objectExists==false)
+		unsigned int uploadedKeysIndex = remoteCloudClient->uploadedKeys.GetIndexFromKey(key, &objectExists);
+		if (objectExists == false)
 		{
 			remoteCloudClient->uploadedKeys.InsertAtIndex(key, uploadedKeysIndex, _FILE_AND_LINE_);
 		}
@@ -298,29 +298,29 @@ void CloudServer::OnPostRequest(Packet *packet)
 	bool cloudDataAlreadyUploaded;
 	unsigned int dataRepositoryIndex;
 	bool dataRepositoryExists;
-	CloudDataList* cloudDataList = GetOrAllocateCloudDataList(key, &dataRepositoryExists, dataRepositoryIndex);
-	if (dataRepositoryExists==false)
+	CloudDataList *cloudDataList = GetOrAllocateCloudDataList(key, &dataRepositoryExists, dataRepositoryIndex);
+	if (dataRepositoryExists == false)
 	{
-		cloudDataList->uploaderCount=1;
-		cloudDataAlreadyUploaded=false;
+		cloudDataList->uploaderCount = 1;
+		cloudDataAlreadyUploaded = false;
 	}
 	else
 	{
-		cloudDataAlreadyUploaded=cloudDataList->uploaderCount>0;
+		cloudDataAlreadyUploaded = cloudDataList->uploaderCount > 0;
 		cloudDataList->uploaderCount++;
 	}
 
 	CloudData *cloudData;
 	bool keyDataListExists;
 	unsigned int keyDataListIndex = cloudDataList->keyData.GetIndexFromKey(packet->guid, &keyDataListExists);
-	if (keyDataListExists==false)
+	if (keyDataListExists == false)
 	{
-		if (maxUploadBytesPerClient>0 && remoteCloudClient->uploadedBytes+dataLengthBytes>maxUploadBytesPerClient)
+		if (maxUploadBytesPerClient > 0 && remoteCloudClient->uploadedBytes + dataLengthBytes > maxUploadBytesPerClient)
 		{
 			// Undo prior insertion of cloudDataList into cloudData if needed
-			if (keyDataListExists==false)
+			if (keyDataListExists == false)
 			{
-				MafiaNet::OP_DELETE(cloudDataList,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
 				dataRepository.RemoveAtIndex(dataRepositoryIndex);
 			}
 
@@ -330,66 +330,66 @@ void CloudServer::OnPostRequest(Packet *packet)
 				remoteSystems.Remove(packet->guid, _FILE_AND_LINE_);
 			}
 
-			if (dataLengthBytes>CLOUD_SERVER_DATA_STACK_SIZE)
+			if (dataLengthBytes > CLOUD_SERVER_DATA_STACK_SIZE)
 				rakFree_Ex(data, _FILE_AND_LINE_);
 
 			return;
 		}
 
 		cloudData = MafiaNet::OP_NEW<CloudData>(_FILE_AND_LINE_);
-		cloudData->dataLengthBytes=dataLengthBytes;
-		cloudData->isUploaded=true;
-		if (forceAddress!=UNASSIGNED_SYSTEM_ADDRESS)
+		cloudData->dataLengthBytes = dataLengthBytes;
+		cloudData->isUploaded = true;
+		if (forceAddress != UNASSIGNED_SYSTEM_ADDRESS)
 		{
-			cloudData->serverSystemAddress=forceAddress;
+			cloudData->serverSystemAddress = forceAddress;
 			cloudData->serverSystemAddress.SetPortHostOrder(rakPeerInterface->GetExternalID(packet->systemAddress).GetPort());
 		}
 		else
 		{
-			cloudData->serverSystemAddress=rakPeerInterface->GetExternalID(packet->systemAddress);
+			cloudData->serverSystemAddress = rakPeerInterface->GetExternalID(packet->systemAddress);
 			if (cloudData->serverSystemAddress.IsLoopback())
 				cloudData->serverSystemAddress.FromString(rakPeerInterface->GetLocalIP(0));
 		}
-		if (cloudData->serverSystemAddress.GetPort()==0)
+		if (cloudData->serverSystemAddress.GetPort() == 0)
 		{
 			// Fix localhost port
 			cloudData->serverSystemAddress.SetPortHostOrder(rakPeerInterface->GetSocket(UNASSIGNED_SYSTEM_ADDRESS)->GetBoundAddress().GetPort());
 		}
-		cloudData->clientSystemAddress=packet->systemAddress;
-		cloudData->serverGUID=rakPeerInterface->GetMyGUID();
-		cloudData->clientGUID=packet->guid;
-		cloudDataList->keyData.Insert(packet->guid,cloudData,true,_FILE_AND_LINE_);
+		cloudData->clientSystemAddress = packet->systemAddress;
+		cloudData->serverGUID = rakPeerInterface->GetMyGUID();
+		cloudData->clientGUID = packet->guid;
+		cloudDataList->keyData.Insert(packet->guid, cloudData, true, _FILE_AND_LINE_);
 	}
 	else
 	{
 		cloudData = cloudDataList->keyData[keyDataListIndex];
 
-		if (cloudDataAlreadyUploaded==false)
+		if (cloudDataAlreadyUploaded == false)
 		{
-			if (forceAddress!=UNASSIGNED_SYSTEM_ADDRESS)
+			if (forceAddress != UNASSIGNED_SYSTEM_ADDRESS)
 			{
-				cloudData->serverSystemAddress=forceAddress;
+				cloudData->serverSystemAddress = forceAddress;
 				cloudData->serverSystemAddress.SetPortHostOrder(rakPeerInterface->GetExternalID(packet->systemAddress).GetPort());
 			}
 			else
 			{
-				cloudData->serverSystemAddress=rakPeerInterface->GetExternalID(packet->systemAddress);
+				cloudData->serverSystemAddress = rakPeerInterface->GetExternalID(packet->systemAddress);
 			}
-			if (cloudData->serverSystemAddress.GetPort()==0)
+			if (cloudData->serverSystemAddress.GetPort() == 0)
 			{
 				// Fix localhost port
 				cloudData->serverSystemAddress.SetPortHostOrder(rakPeerInterface->GetSocket(UNASSIGNED_SYSTEM_ADDRESS)->GetBoundAddress().GetPort());
 			}
 
-			cloudData->clientSystemAddress=packet->systemAddress;
+			cloudData->clientSystemAddress = packet->systemAddress;
 		}
 
-		if (maxUploadBytesPerClient>0 && remoteCloudClient->uploadedBytes-cloudData->dataLengthBytes+dataLengthBytes>maxUploadBytesPerClient)
+		if (maxUploadBytesPerClient > 0 && remoteCloudClient->uploadedBytes - cloudData->dataLengthBytes + dataLengthBytes > maxUploadBytesPerClient)
 		{
 			// Undo prior insertion of cloudDataList into cloudData if needed
-			if (dataRepositoryExists==false)
+			if (dataRepositoryExists == false)
 			{
-				MafiaNet::OP_DELETE(cloudDataList,_FILE_AND_LINE_);
+				MafiaNet::OP_DELETE(cloudDataList, _FILE_AND_LINE_);
 				dataRepository.RemoveAtIndex(dataRepositoryIndex);
 			}
 			return;
@@ -397,40 +397,40 @@ void CloudServer::OnPostRequest(Packet *packet)
 		else
 		{
 			// Subtract already used bytes we are overwriting
-			remoteCloudClient->uploadedBytes-=cloudData->dataLengthBytes;
+			remoteCloudClient->uploadedBytes -= cloudData->dataLengthBytes;
 		}
 
-		if (cloudData->allocatedData!=0)
-			rakFree_Ex(cloudData->allocatedData,_FILE_AND_LINE_);
+		if (cloudData->allocatedData != 0)
+			rakFree_Ex(cloudData->allocatedData, _FILE_AND_LINE_);
 	}
 
-	if (dataLengthBytes>CLOUD_SERVER_DATA_STACK_SIZE)
+	if (dataLengthBytes > CLOUD_SERVER_DATA_STACK_SIZE)
 	{
 		// Data already allocated
-		cloudData->allocatedData=data;
-		cloudData->dataPtr=data;
+		cloudData->allocatedData = data;
+		cloudData->dataPtr = data;
 	}
 	else
 	{
 		// Read to stack
-		if (dataLengthBytes>0)
-			bsIn.ReadAlignedBytes(cloudData->stackData,dataLengthBytes);
-		cloudData->allocatedData=0;
-		cloudData->dataPtr=cloudData->stackData;
+		if (dataLengthBytes > 0)
+			bsIn.ReadAlignedBytes(cloudData->stackData, dataLengthBytes);
+		cloudData->allocatedData = 0;
+		cloudData->dataPtr = cloudData->stackData;
 	}
 	// Update how many bytes were written for this data
-	cloudData->dataLengthBytes=dataLengthBytes;
-	remoteCloudClient->uploadedBytes+=dataLengthBytes;
+	cloudData->dataLengthBytes = dataLengthBytes;
+	remoteCloudClient->uploadedBytes += dataLengthBytes;
 
-	if (cloudDataAlreadyUploaded==false)
+	if (cloudDataAlreadyUploaded == false)
 	{
 		// New data field
 		SendUploadedKeyToServers(cloudDataList->key);
 	}
 
 	// Existing data field changed
-	NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudData->specificSubscribers, true );
-	NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudDataList->nonSpecificSubscribers, true );
+	NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudData->specificSubscribers, true);
+	NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudDataList->nonSpecificSubscribers, true);
 
 	// Send update to all remote servers that subscribed to this key
 	NotifyServerSubscribersOfDataChange(cloudData, cloudDataList->key, true);
@@ -447,45 +447,45 @@ void CloudServer::OnReleaseRequest(Packet *packet)
 	uint16_t keyCount;
 	bsIn.Read(keyCount);
 
-	if (keyCount==0)
+	if (keyCount == 0)
 		return;
 
 	DataStructures::HashIndex remoteSystemIndex = remoteSystems.GetIndexOf(packet->guid);
-	if (remoteSystemIndex.IsInvalid()==true)
+	if (remoteSystemIndex.IsInvalid() == true)
 		return;
 
-	RemoteCloudClient* remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemIndex);
+	RemoteCloudClient *remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemIndex);
 
 	CloudKey key;
 
 	// Read all in a list first so I can run filter on it
 	DataStructures::List<CloudKey> cloudKeys;
-	for (uint16_t keyCountIndex=0; keyCountIndex < keyCount; keyCountIndex++)
+	for (uint16_t keyCountIndex = 0; keyCountIndex < keyCount; keyCountIndex++)
 	{
 		key.Serialize(false, &bsIn);
 		cloudKeys.Push(key, _FILE_AND_LINE_);
 	}
 
-	for (unsigned int filterIndex=0; filterIndex < queryFilters.Size(); filterIndex++)
+	for (unsigned int filterIndex = 0; filterIndex < queryFilters.Size(); filterIndex++)
 	{
-		if (queryFilters[filterIndex]->OnReleaseRequest(packet->guid, packet->systemAddress, cloudKeys)==false)
+		if (queryFilters[filterIndex]->OnReleaseRequest(packet->guid, packet->systemAddress, cloudKeys) == false)
 			return;
 	}
 
-	for (uint16_t keyCountIndex=0; keyCountIndex < keyCount; keyCountIndex++)
+	for (uint16_t keyCountIndex = 0; keyCountIndex < keyCount; keyCountIndex++)
 	{
 		// Serialize in list above so I can run the filter on it
 		// key.Serialize(false, &bsIn);
-		key=cloudKeys[keyCountIndex];
+		key = cloudKeys[keyCountIndex];
 
 		// Remove remote systems uploaded keys
 		bool objectExists;
-		unsigned int uploadedKeysIndex = remoteCloudClient->uploadedKeys.GetIndexFromKey(key,&objectExists);
+		unsigned int uploadedKeysIndex = remoteCloudClient->uploadedKeys.GetIndexFromKey(key, &objectExists);
 		if (objectExists)
 		{
 			bool dataRepositoryExists;
 			unsigned int dataRepositoryIndex = dataRepository.GetIndexFromKey(key, &dataRepositoryExists);
-			CloudDataList* cloudDataList = dataRepository[dataRepositoryIndex];
+			CloudDataList *cloudDataList = dataRepository[dataRepositoryIndex];
 			RakAssert(cloudDataList);
 
 			CloudData *cloudData;
@@ -494,13 +494,13 @@ void CloudServer::OnReleaseRequest(Packet *packet)
 			cloudData = cloudDataList->keyData[keyDataListIndex];
 
 			remoteCloudClient->uploadedKeys.RemoveAtIndex(uploadedKeysIndex);
-			remoteCloudClient->uploadedBytes-=cloudData->dataLengthBytes;
+			remoteCloudClient->uploadedBytes -= cloudData->dataLengthBytes;
 			cloudDataList->uploaderCount--;
 
 			// Broadcast destruction of this key to subscribers
-			NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudData->specificSubscribers, false );
-			NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudDataList->nonSpecificSubscribers, false );
-			NotifyServerSubscribersOfDataChange(cloudData, cloudDataList->key, false );
+			NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudData->specificSubscribers, false);
+			NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudDataList->nonSpecificSubscribers, false);
+			NotifyServerSubscribersOfDataChange(cloudData, cloudDataList->key, false);
 
 			cloudData->Clear();
 
@@ -541,52 +541,52 @@ void CloudServer::OnGetRequest(Packet *packet)
 	GetRequest *getRequest;
 	getRequest = MafiaNet::OP_NEW<GetRequest>(_FILE_AND_LINE_);
 	getRequest->cloudQueryWithAddresses.cloudQuery.Serialize(false, &bsIn);
-	getRequest->requestingClient=packet->guid;
+	getRequest->requestingClient = packet->guid;
 
 	RakNetGUID addressOrGuid;
 	bsIn.Read(specificSystemsCount);
-	for (uint16_t i=0; i < specificSystemsCount; i++)
+	for (uint16_t i = 0; i < specificSystemsCount; i++)
 	{
 		bsIn.Read(addressOrGuid);
 		getRequest->cloudQueryWithAddresses.specificSystems.Push(addressOrGuid, _FILE_AND_LINE_);
 	}
 
-	if (getRequest->cloudQueryWithAddresses.cloudQuery.keys.Size()==0)
+	if (getRequest->cloudQueryWithAddresses.cloudQuery.keys.Size() == 0)
 	{
 		MafiaNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
 		return;
 	}
 
-	for (unsigned int filterIndex=0; filterIndex < queryFilters.Size(); filterIndex++)
+	for (unsigned int filterIndex = 0; filterIndex < queryFilters.Size(); filterIndex++)
 	{
-		if (queryFilters[filterIndex]->OnGetRequest(packet->guid, packet->systemAddress, getRequest->cloudQueryWithAddresses.cloudQuery, getRequest->cloudQueryWithAddresses.specificSystems )==false)
+		if (queryFilters[filterIndex]->OnGetRequest(packet->guid, packet->systemAddress, getRequest->cloudQueryWithAddresses.cloudQuery, getRequest->cloudQueryWithAddresses.specificSystems) == false)
 			return;
 	}
 
-	getRequest->requestStartTime= MafiaNet::GetTime();
-	getRequest->requestId=nextGetRequestId++;
+	getRequest->requestStartTime = MafiaNet::GetTime();
+	getRequest->requestId = nextGetRequestId++;
 
 	// Send request to servers that have this data
-	DataStructures::List<RemoteServer*> remoteServersWithData;
+	DataStructures::List<RemoteServer *> remoteServersWithData;
 	GetServersWithUploadedKeys(getRequest->cloudQueryWithAddresses.cloudQuery.keys, remoteServersWithData);
 
-	if (remoteServersWithData.Size()==0)
+	if (remoteServersWithData.Size() == 0)
 	{
 		ProcessAndTransmitGetRequest(getRequest);
 	}
 	else
 	{
 		MafiaNet::BitStream bsOut;
-		bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-		bsOut.Write((MessageID)STSC_PROCESS_GET_REQUEST);
+		bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+		bsOut.Write((MessageID) STSC_PROCESS_GET_REQUEST);
 		getRequest->cloudQueryWithAddresses.Serialize(true, &bsOut);
 		bsOut.Write(getRequest->requestId);
 
-		for (unsigned int remoteServerIndex=0; remoteServerIndex < remoteServersWithData.Size(); remoteServerIndex++)
+		for (unsigned int remoteServerIndex = 0; remoteServerIndex < remoteServersWithData.Size(); remoteServerIndex++)
 		{
-			BufferedGetResponseFromServer* bufferedGetResponseFromServer = MafiaNet::OP_NEW<BufferedGetResponseFromServer>(_FILE_AND_LINE_);
-			bufferedGetResponseFromServer->serverAddress=remoteServersWithData[remoteServerIndex]->serverAddress;
-			bufferedGetResponseFromServer->gotResult=false;
+			BufferedGetResponseFromServer *bufferedGetResponseFromServer = MafiaNet::OP_NEW<BufferedGetResponseFromServer>(_FILE_AND_LINE_);
+			bufferedGetResponseFromServer->serverAddress = remoteServersWithData[remoteServerIndex]->serverAddress;
+			bufferedGetResponseFromServer->gotResult = false;
 			getRequest->remoteServerResponses.Insert(remoteServersWithData[remoteServerIndex]->serverAddress, bufferedGetResponseFromServer, true, _FILE_AND_LINE_);
 
 			SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServersWithData[remoteServerIndex]->serverAddress, false);
@@ -604,7 +604,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 		if (remoteSystemsHashIndex.IsInvalid())
 		{
 			remoteCloudClient = MafiaNet::OP_NEW<RemoteCloudClient>(_FILE_AND_LINE_);
-			remoteCloudClient->uploadedBytes=0;
+			remoteCloudClient->uploadedBytes = 0;
 			remoteSystems.Push(packet->guid, remoteCloudClient, _FILE_AND_LINE_);
 		}
 		else
@@ -613,14 +613,14 @@ void CloudServer::OnGetRequest(Packet *packet)
 		}
 
 		unsigned int keyIndex;
-		for (keyIndex=0; keyIndex < getRequest->cloudQueryWithAddresses.cloudQuery.keys.Size(); keyIndex++)
+		for (keyIndex = 0; keyIndex < getRequest->cloudQueryWithAddresses.cloudQuery.keys.Size(); keyIndex++)
 		{
 			cloudKey = getRequest->cloudQueryWithAddresses.cloudQuery.keys[keyIndex];
 
 			unsigned int keySubscriberIndex;
 			bool hasKeySubscriber;
 			keySubscriberIndex = remoteCloudClient->subscribedKeys.GetIndexFromKey(cloudKey, &hasKeySubscriber);
-			KeySubscriberID* keySubscriberId;
+			KeySubscriberID *keySubscriberId;
 			if (hasKeySubscriber)
 			{
 				DataStructures::List<RakNetGUID> specificSystems;
@@ -628,10 +628,10 @@ void CloudServer::OnGetRequest(Packet *packet)
 			}
 
 			keySubscriberId = MafiaNet::OP_NEW<KeySubscriberID>(_FILE_AND_LINE_);
-			keySubscriberId->key=cloudKey;
+			keySubscriberId->key = cloudKey;
 
 			unsigned int specificSystemIndex;
-			for (specificSystemIndex=0; specificSystemIndex < getRequest->cloudQueryWithAddresses.specificSystems.Size(); specificSystemIndex++)
+			for (specificSystemIndex = 0; specificSystemIndex < getRequest->cloudQueryWithAddresses.specificSystems.Size(); specificSystemIndex++)
 			{
 				keySubscriberId->specificSystemsSubscribedTo.Insert(getRequest->cloudQueryWithAddresses.specificSystems[specificSystemIndex], getRequest->cloudQueryWithAddresses.specificSystems[specificSystemIndex], true, _FILE_AND_LINE_);
 			}
@@ -641,10 +641,10 @@ void CloudServer::OnGetRequest(Packet *packet)
 			// Add CloudData in a similar way
 			unsigned int dataRepositoryIndex;
 			bool dataRepositoryExists;
-			CloudDataList* cloudDataList = GetOrAllocateCloudDataList(cloudKey, &dataRepositoryExists, dataRepositoryIndex);
+			CloudDataList *cloudDataList = GetOrAllocateCloudDataList(cloudKey, &dataRepositoryExists, dataRepositoryIndex);
 
 			// If this is the first local client to subscribe to this key, call SendSubscribedKeyToServers
-			if (cloudDataList->subscriberCount==0)
+			if (cloudDataList->subscriberCount == 0)
 				SendSubscribedKeyToServers(cloudKey);
 
 			// If the subscription is specific, may have to also allocate CloudData
@@ -653,23 +653,23 @@ void CloudServer::OnGetRequest(Packet *packet)
 				CloudData *cloudData;
 				bool keyDataListExists;
 
-				for (specificSystemIndex=0; specificSystemIndex < getRequest->cloudQueryWithAddresses.specificSystems.Size(); specificSystemIndex++)
+				for (specificSystemIndex = 0; specificSystemIndex < getRequest->cloudQueryWithAddresses.specificSystems.Size(); specificSystemIndex++)
 				{
 					RakNetGUID specificSystem = getRequest->cloudQueryWithAddresses.specificSystems[specificSystemIndex];
 
 					unsigned int keyDataListIndex = cloudDataList->keyData.GetIndexFromKey(specificSystem, &keyDataListExists);
-					if (keyDataListExists==false)
+					if (keyDataListExists == false)
 					{
 						cloudData = MafiaNet::OP_NEW<CloudData>(_FILE_AND_LINE_);
-						cloudData->dataLengthBytes=0;
-						cloudData->allocatedData=0;
-						cloudData->isUploaded=false;
-						cloudData->dataPtr=0;
-						cloudData->serverSystemAddress=UNASSIGNED_SYSTEM_ADDRESS;
-						cloudData->clientSystemAddress=UNASSIGNED_SYSTEM_ADDRESS;
-						cloudData->serverGUID=rakPeerInterface->GetMyGUID();
-						cloudData->clientGUID=specificSystem;
-						cloudDataList->keyData.Insert(specificSystem,cloudData,true,_FILE_AND_LINE_);
+						cloudData->dataLengthBytes = 0;
+						cloudData->allocatedData = 0;
+						cloudData->isUploaded = false;
+						cloudData->dataPtr = 0;
+						cloudData->serverSystemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+						cloudData->clientSystemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+						cloudData->serverGUID = rakPeerInterface->GetMyGUID();
+						cloudData->clientGUID = specificSystem;
+						cloudDataList->keyData.Insert(specificSystem, cloudData, true, _FILE_AND_LINE_);
 					}
 					else
 					{
@@ -692,7 +692,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 				if (subscribedKeysIndexExists)
 				{
 					keySubscriberId = remoteCloudClient->subscribedKeys[subscribedKeysIndex];
-					for (specificSystemIndex=0; specificSystemIndex < keySubscriberId->specificSystemsSubscribedTo.Size(); specificSystemIndex++)
+					for (specificSystemIndex = 0; specificSystemIndex < keySubscriberId->specificSystemsSubscribedTo.Size(); specificSystemIndex++)
 					{
 						bool keyDataExists;
 						unsigned int keyDataIndex = cloudDataList->keyData.GetIndexFromKey(keySubscriberId->specificSystemsSubscribedTo[specificSystemIndex], &keyDataExists);
@@ -707,7 +707,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 			}
 		}
 
-		if (remoteCloudClient->subscribedKeys.Size()==0)
+		if (remoteCloudClient->subscribedKeys.Size() == 0)
 		{
 			// Didn't do anything
 			remoteSystems.Remove(packet->guid, _FILE_AND_LINE_);
@@ -715,7 +715,7 @@ void CloudServer::OnGetRequest(Packet *packet)
 		}
 	}
 
-	if (remoteServersWithData.Size()==0)
+	if (remoteServersWithData.Size() == 0)
 		MafiaNet::OP_DELETE(getRequest, _FILE_AND_LINE_);
 }
 void CloudServer::OnUnsubscribeRequest(Packet *packet)
@@ -724,10 +724,10 @@ void CloudServer::OnUnsubscribeRequest(Packet *packet)
 	bsIn.IgnoreBytes(sizeof(MessageID));
 
 	DataStructures::HashIndex remoteSystemIndex = remoteSystems.GetIndexOf(packet->guid);
-	if (remoteSystemIndex.IsInvalid()==true)
+	if (remoteSystemIndex.IsInvalid() == true)
 		return;
 
-	RemoteCloudClient* remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemIndex);
+	RemoteCloudClient *remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemIndex);
 
 	uint16_t keyCount, specificSystemCount;
 	DataStructures::List<CloudKey> cloudKeys;
@@ -736,7 +736,7 @@ void CloudServer::OnUnsubscribeRequest(Packet *packet)
 
 	CloudKey cloudKey;
 	bsIn.Read(keyCount);
-	for (index=0; index < keyCount; index++)
+	for (index = 0; index < keyCount; index++)
 	{
 		cloudKey.Serialize(false, &bsIn);
 		cloudKeys.Push(cloudKey, _FILE_AND_LINE_);
@@ -744,37 +744,37 @@ void CloudServer::OnUnsubscribeRequest(Packet *packet)
 
 	RakNetGUID specificSystem;
 	bsIn.Read(specificSystemCount);
-	for (index=0; index < specificSystemCount; index++)
+	for (index = 0; index < specificSystemCount; index++)
 	{
 		bsIn.Read(specificSystem);
 		specificSystems.Push(specificSystem, _FILE_AND_LINE_);
 	}
 
-	for (unsigned int filterIndex=0; filterIndex < queryFilters.Size(); filterIndex++)
+	for (unsigned int filterIndex = 0; filterIndex < queryFilters.Size(); filterIndex++)
 	{
-		if (queryFilters[filterIndex]->OnUnsubscribeRequest(packet->guid, packet->systemAddress, cloudKeys, specificSystems )==false)
+		if (queryFilters[filterIndex]->OnUnsubscribeRequest(packet->guid, packet->systemAddress, cloudKeys, specificSystems) == false)
 			return;
 	}
 
-//	CloudDataList *cloudDataList;
+	//	CloudDataList *cloudDataList;
 	bool dataRepositoryExists;
-//	unsigned int dataRepositoryIndex;
+	//	unsigned int dataRepositoryIndex;
 
-	for (index=0; index < keyCount; index++)
+	for (index = 0; index < keyCount; index++)
 	{
 		cloudKey = cloudKeys[index];
 
-	//	dataRepositoryIndex = 
-			dataRepository.GetIndexFromKey(cloudKey, &dataRepositoryExists);
-		if (dataRepositoryExists==false)
+		//	dataRepositoryIndex =
+		dataRepository.GetIndexFromKey(cloudKey, &dataRepositoryExists);
+		if (dataRepositoryExists == false)
 			continue;
-//		cloudDataList = dataRepository[dataRepositoryIndex];
+		//		cloudDataList = dataRepository[dataRepositoryIndex];
 
 		unsigned int keySubscriberIndex;
 		bool hasKeySubscriber;
 		keySubscriberIndex = remoteCloudClient->subscribedKeys.GetIndexFromKey(cloudKey, &hasKeySubscriber);
 
-		if (hasKeySubscriber==false)
+		if (hasKeySubscriber == false)
 			continue;
 
 		UnsubscribeFromKey(remoteCloudClient, packet->guid, keySubscriberIndex, cloudKey, specificSystems);
@@ -788,28 +788,28 @@ void CloudServer::OnUnsubscribeRequest(Packet *packet)
 }
 void CloudServer::OnServerToServerGetRequest(Packet *packet)
 {
-//	unsigned int remoteServerIndex;
+	//	unsigned int remoteServerIndex;
 	bool objectExists;
 	//remoteServerIndex =
-		remoteServers.GetIndexFromKey(packet->guid, &objectExists);
-	if (objectExists==false)
+	remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	CloudQueryWithAddresses cloudQueryWithAddresses;
 	uint32_t requestId;
 	cloudQueryWithAddresses.Serialize(false, &bsIn);
 	bsIn.Read(requestId);
 
-	DataStructures::List<CloudData*> cloudDataResultList;
+	DataStructures::List<CloudData *> cloudDataResultList;
 	DataStructures::List<CloudKey> cloudKeyResultList;
 	ProcessCloudQueryWithAddresses(cloudQueryWithAddresses, cloudDataResultList, cloudKeyResultList);
 
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_PROCESS_GET_RESPONSE);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_PROCESS_GET_RESPONSE);
 	bsOut.Write(requestId);
 	WriteCloudQueryRowFromResultList(cloudDataResultList, cloudKeyResultList, &bsOut);
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
@@ -819,15 +819,15 @@ void CloudServer::OnServerToServerGetResponse(Packet *packet)
 	unsigned int remoteServerIndex;
 	bool objectExists;
 	remoteServerIndex = remoteServers.GetIndexFromKey(packet->guid, &objectExists);
-	if (objectExists==false)
+	if (objectExists == false)
 		return;
 
 	RemoteServer *remoteServer = remoteServers[remoteServerIndex];
-	if (remoteServer==0)
+	if (remoteServer == 0)
 		return;
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	uint32_t requestId;
 	bsIn.Read(requestId);
@@ -836,19 +836,19 @@ void CloudServer::OnServerToServerGetResponse(Packet *packet)
 	bool hasGetRequest;
 	unsigned int getRequestIndex;
 	getRequestIndex = getRequests.GetIndexFromKey(requestId, &hasGetRequest);
-	if (hasGetRequest==false)
+	if (hasGetRequest == false)
 		return;
 	GetRequest *getRequest = getRequests[getRequestIndex];
 	bool hasRemoteServer;
 	unsigned int remoteServerResponsesIndex;
 	remoteServerResponsesIndex = getRequest->remoteServerResponses.GetIndexFromKey(packet->guid, &hasRemoteServer);
-	if (hasRemoteServer==false)
+	if (hasRemoteServer == false)
 		return;
 	BufferedGetResponseFromServer *bufferedGetResponseFromServer;
 	bufferedGetResponseFromServer = getRequest->remoteServerResponses[remoteServerResponsesIndex];
-	if (bufferedGetResponseFromServer->gotResult==true)
+	if (bufferedGetResponseFromServer->gotResult == true)
 		return;
-	bufferedGetResponseFromServer->gotResult=true;
+	bufferedGetResponseFromServer->gotResult = true;
 	uint32_t numRows;
 	bufferedGetResponseFromServer->queryResult.SerializeNumRows(false, numRows, &bsIn);
 	bufferedGetResponseFromServer->queryResult.SerializeCloudQueryRows(false, numRows, &bsIn, this);
@@ -864,7 +864,7 @@ void CloudServer::OnServerToServerGetResponse(Packet *packet)
 		getRequests.RemoveAtIndex(getRequestIndex);
 	}
 }
-void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	(void) lostConnectionReason;
 	(void) systemAddress;
@@ -875,7 +875,7 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 	if (objectExists)
 	{
 		// Update remoteServerResponses by removing this server and sending the response if it is now complete
-		unsigned int getRequestIndex=0;
+		unsigned int getRequestIndex = 0;
 		while (getRequestIndex < getRequests.Size())
 		{
 			GetRequest *getRequest = getRequests[getRequestIndex];
@@ -902,23 +902,23 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 				getRequestIndex++;
 		}
 
-		MafiaNet::OP_DELETE(remoteServers[remoteServerIndex],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteServers[remoteServerIndex], _FILE_AND_LINE_);
 		remoteServers.RemoveAtIndex(remoteServerIndex);
 	}
 
 	DataStructures::HashIndex remoteSystemIndex = remoteSystems.GetIndexOf(rakNetGUID);
-	if (remoteSystemIndex.IsInvalid()==false)
+	if (remoteSystemIndex.IsInvalid() == false)
 	{
-		RemoteCloudClient* remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemIndex);
+		RemoteCloudClient *remoteCloudClient = remoteSystems.ItemAtIndex(remoteSystemIndex);
 		unsigned int uploadedKeysIndex;
-		for (uploadedKeysIndex=0; uploadedKeysIndex < remoteCloudClient->uploadedKeys.Size(); uploadedKeysIndex++)
+		for (uploadedKeysIndex = 0; uploadedKeysIndex < remoteCloudClient->uploadedKeys.Size(); uploadedKeysIndex++)
 		{
 			// Delete keys this system has uploaded
 			bool keyDataRepositoryExists;
 			unsigned int dataRepositoryIndex = dataRepository.GetIndexFromKey(remoteCloudClient->uploadedKeys[uploadedKeysIndex], &keyDataRepositoryExists);
 			if (keyDataRepositoryExists)
 			{
-				CloudDataList* cloudDataList = dataRepository[dataRepositoryIndex];
+				CloudDataList *cloudDataList = dataRepository[dataRepositoryIndex];
 				bool keyDataExists;
 				unsigned int keyDataIndex = cloudDataList->keyData.GetIndexFromKey(rakNetGUID, &keyDataExists);
 				if (keyDataExists)
@@ -926,15 +926,15 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 					CloudData *cloudData = cloudDataList->keyData[keyDataIndex];
 					cloudDataList->uploaderCount--;
 
-					NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudData->specificSubscribers, false );
-					NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudDataList->nonSpecificSubscribers, false );
-					NotifyServerSubscribersOfDataChange(cloudData, cloudDataList->key, false );
+					NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudData->specificSubscribers, false);
+					NotifyClientSubscribersOfDataChange(cloudData, cloudDataList->key, cloudDataList->nonSpecificSubscribers, false);
+					NotifyServerSubscribersOfDataChange(cloudData, cloudDataList->key, false);
 
 					cloudData->Clear();
 
 					if (cloudData->IsUnused())
 					{
-						MafiaNet::OP_DELETE(cloudData,_FILE_AND_LINE_);
+						MafiaNet::OP_DELETE(cloudData, _FILE_AND_LINE_);
 						cloudDataList->keyData.RemoveAtIndex(keyDataIndex);
 
 						if (cloudDataList->IsNotUploaded())
@@ -957,17 +957,17 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 		}
 
 		unsigned int subscribedKeysIndex;
-		for (subscribedKeysIndex=0; subscribedKeysIndex < remoteCloudClient->subscribedKeys.Size(); subscribedKeysIndex++)
+		for (subscribedKeysIndex = 0; subscribedKeysIndex < remoteCloudClient->subscribedKeys.Size(); subscribedKeysIndex++)
 		{
-			KeySubscriberID* keySubscriberId;
+			KeySubscriberID *keySubscriberId;
 			keySubscriberId = remoteCloudClient->subscribedKeys[subscribedKeysIndex];
 
 			bool keyDataRepositoryExists;
 			unsigned int keyDataRepositoryIndex = dataRepository.GetIndexFromKey(remoteCloudClient->subscribedKeys[subscribedKeysIndex]->key, &keyDataRepositoryExists);
 			if (keyDataRepositoryExists)
 			{
-				CloudDataList* cloudDataList = dataRepository[keyDataRepositoryIndex];
-				if (keySubscriberId->specificSystemsSubscribedTo.Size()==0)
+				CloudDataList *cloudDataList = dataRepository[keyDataRepositoryIndex];
+				if (keySubscriberId->specificSystemsSubscribedTo.Size() == 0)
 				{
 					cloudDataList->nonSpecificSubscribers.Remove(rakNetGUID);
 					--cloudDataList->subscriberCount;
@@ -975,7 +975,7 @@ void CloudServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 				else
 				{
 					unsigned int specificSystemIndex;
-					for (specificSystemIndex=0; specificSystemIndex < keySubscriberId->specificSystemsSubscribedTo.Size(); specificSystemIndex++)
+					for (specificSystemIndex = 0; specificSystemIndex < keySubscriberId->specificSystemsSubscribedTo.Size(); specificSystemIndex++)
 					{
 						bool keyDataExists;
 						unsigned int keyDataIndex = cloudDataList->keyData.GetIndexFromKey(keySubscriberId->specificSystemsSubscribedTo[specificSystemIndex], &keyDataExists);
@@ -1003,11 +1003,11 @@ void CloudServer::OnRakPeerShutdown(void)
 }
 void CloudServer::Clear(void)
 {
-	unsigned int i,j;
-	for (i=0; i < dataRepository.Size(); i++)
+	unsigned int i, j;
+	for (i = 0; i < dataRepository.Size(); i++)
 	{
 		CloudDataList *cloudDataList = dataRepository[i];
-		for (j=0; j < cloudDataList->keyData.Size(); j++)
+		for (j = 0; j < cloudDataList->keyData.Size(); j++)
 		{
 			cloudDataList->keyData[j]->Clear();
 			MafiaNet::OP_DELETE(cloudDataList->keyData[j], _FILE_AND_LINE_);
@@ -1016,13 +1016,13 @@ void CloudServer::Clear(void)
 	}
 	dataRepository.Clear(false, _FILE_AND_LINE_);
 
-	for (i=0; i < remoteServers.Size(); i++)
+	for (i = 0; i < remoteServers.Size(); i++)
 	{
 		MafiaNet::OP_DELETE(remoteServers[i], _FILE_AND_LINE_);
 	}
 	remoteServers.Clear(false, _FILE_AND_LINE_);
 
-	for (i=0; i < getRequests.Size(); i++)
+	for (i = 0; i < getRequests.Size(); i++)
 	{
 		GetRequest *getRequest = getRequests[i];
 		getRequest->Clear(this);
@@ -1031,12 +1031,12 @@ void CloudServer::Clear(void)
 	getRequests.Clear(false, _FILE_AND_LINE_);
 
 	DataStructures::List<RakNetGUID> keyList;
-	DataStructures::List<RemoteCloudClient*> itemList;
+	DataStructures::List<RemoteCloudClient *> itemList;
 	remoteSystems.GetAsList(itemList, keyList, _FILE_AND_LINE_);
-	for (i=0; i < itemList.Size(); i++)
+	for (i = 0; i < itemList.Size(); i++)
 	{
-		RemoteCloudClient* remoteCloudClient = itemList[i];
-		for (j=0; j < remoteCloudClient->subscribedKeys.Size(); j++)
+		RemoteCloudClient *remoteCloudClient = itemList[i];
+		for (j = 0; j < remoteCloudClient->subscribedKeys.Size(); j++)
 		{
 			MafiaNet::OP_DELETE(remoteCloudClient->subscribedKeys[j], _FILE_AND_LINE_);
 		}
@@ -1044,84 +1044,84 @@ void CloudServer::Clear(void)
 	}
 	remoteSystems.Clear(_FILE_AND_LINE_);
 }
-void CloudServer::WriteCloudQueryRowFromResultList(DataStructures::List<CloudData*> &cloudDataResultList, DataStructures::List<CloudKey> &cloudKeyResultList, BitStream *bsOut)
+void CloudServer::WriteCloudQueryRowFromResultList(DataStructures::List<CloudData *> &cloudDataResultList, DataStructures::List<CloudKey> &cloudKeyResultList, BitStream *bsOut)
 {
 	bsOut->WriteCasted<uint32_t>(cloudKeyResultList.Size());
 	unsigned int i;
-	for (i=0; i < cloudKeyResultList.Size(); i++)
+	for (i = 0; i < cloudKeyResultList.Size(); i++)
 	{
 		WriteCloudQueryRowFromResultList(i, cloudDataResultList, cloudKeyResultList, bsOut);
 	}
 }
-void CloudServer::WriteCloudQueryRowFromResultList(unsigned int i, DataStructures::List<CloudData*> &cloudDataResultList, DataStructures::List<CloudKey> &cloudKeyResultList, BitStream *bsOut)
+void CloudServer::WriteCloudQueryRowFromResultList(unsigned int i, DataStructures::List<CloudData *> &cloudDataResultList, DataStructures::List<CloudKey> &cloudKeyResultList, BitStream *bsOut)
 {
 	CloudQueryRow cloudQueryRow;
 	CloudData *cloudData = cloudDataResultList[i];
-	cloudQueryRow.key=cloudKeyResultList[i];
-	cloudQueryRow.data=cloudData->dataPtr;
-	cloudQueryRow.length=cloudData->dataLengthBytes;
-	cloudQueryRow.serverSystemAddress=cloudData->serverSystemAddress;
-	cloudQueryRow.clientSystemAddress=cloudData->clientSystemAddress;
-	cloudQueryRow.serverGUID=cloudData->serverGUID;
-	cloudQueryRow.clientGUID=cloudData->clientGUID;
+	cloudQueryRow.key = cloudKeyResultList[i];
+	cloudQueryRow.data = cloudData->dataPtr;
+	cloudQueryRow.length = cloudData->dataLengthBytes;
+	cloudQueryRow.serverSystemAddress = cloudData->serverSystemAddress;
+	cloudQueryRow.clientSystemAddress = cloudData->clientSystemAddress;
+	cloudQueryRow.serverGUID = cloudData->serverGUID;
+	cloudQueryRow.clientGUID = cloudData->clientGUID;
 	cloudQueryRow.Serialize(true, bsOut, 0);
 }
-void CloudServer::NotifyClientSubscribersOfDataChange( CloudData *cloudData, CloudKey &key, DataStructures::OrderedList<RakNetGUID, RakNetGUID> &subscribers, bool wasUpdated )
+void CloudServer::NotifyClientSubscribersOfDataChange(CloudData *cloudData, CloudKey &key, DataStructures::OrderedList<RakNetGUID, RakNetGUID> &subscribers, bool wasUpdated)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_SUBSCRIPTION_NOTIFICATION);
 	bsOut.Write(wasUpdated);
 	CloudQueryRow row;
-	row.key=key;
-	row.data=cloudData->dataPtr;
-	row.length=cloudData->dataLengthBytes;
-	row.serverSystemAddress=cloudData->serverSystemAddress;
-	row.clientSystemAddress=cloudData->clientSystemAddress;
-	row.serverGUID=cloudData->serverGUID;
-	row.clientGUID=cloudData->clientGUID;
-	row.Serialize(true,&bsOut,0);
+	row.key = key;
+	row.data = cloudData->dataPtr;
+	row.length = cloudData->dataLengthBytes;
+	row.serverSystemAddress = cloudData->serverSystemAddress;
+	row.clientSystemAddress = cloudData->clientSystemAddress;
+	row.serverGUID = cloudData->serverGUID;
+	row.clientGUID = cloudData->clientGUID;
+	row.Serialize(true, &bsOut, 0);
 
 	unsigned int i;
-	for (i=0; i < subscribers.Size(); i++)
+	for (i = 0; i < subscribers.Size(); i++)
 	{
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, subscribers[i], false);
 	}
 }
-void CloudServer::NotifyClientSubscribersOfDataChange( CloudQueryRow *row, DataStructures::OrderedList<RakNetGUID, RakNetGUID> &subscribers, bool wasUpdated )
+void CloudServer::NotifyClientSubscribersOfDataChange(CloudQueryRow *row, DataStructures::OrderedList<RakNetGUID, RakNetGUID> &subscribers, bool wasUpdated)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_SUBSCRIPTION_NOTIFICATION);
 	bsOut.Write(wasUpdated);
-	row->Serialize(true,&bsOut,0);
+	row->Serialize(true, &bsOut, 0);
 
 	unsigned int i;
-	for (i=0; i < subscribers.Size(); i++)
+	for (i = 0; i < subscribers.Size(); i++)
 	{
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, subscribers[i], false);
 	}
 }
-void CloudServer::NotifyServerSubscribersOfDataChange( CloudData *cloudData, CloudKey &key, bool wasUpdated )
+void CloudServer::NotifyServerSubscribersOfDataChange(CloudData *cloudData, CloudKey &key, bool wasUpdated)
 {
 	// Find every server that has subscribed
 	// Send them change notifications
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_DATA_CHANGED);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_DATA_CHANGED);
 	bsOut.Write(wasUpdated);
 	CloudQueryRow row;
-	row.key=key;
-	row.data=cloudData->dataPtr;
-	row.length=cloudData->dataLengthBytes;
-	row.serverSystemAddress=cloudData->serverSystemAddress;
-	row.clientSystemAddress=cloudData->clientSystemAddress;
-	row.serverGUID=cloudData->serverGUID;
-	row.clientGUID=cloudData->clientGUID;
-	row.Serialize(true,&bsOut,0);
+	row.key = key;
+	row.data = cloudData->dataPtr;
+	row.length = cloudData->dataLengthBytes;
+	row.serverSystemAddress = cloudData->serverSystemAddress;
+	row.clientSystemAddress = cloudData->clientSystemAddress;
+	row.serverGUID = cloudData->serverGUID;
+	row.clientGUID = cloudData->clientGUID;
+	row.Serialize(true, &bsOut, 0);
 
 	unsigned int i;
-	for (i=0; i < remoteServers.Size(); i++)
+	for (i = 0; i < remoteServers.Size(); i++)
 	{
-		if (remoteServers[i]->gotSubscribedAndUploadedKeys==false || remoteServers[i]->subscribedKeys.HasData(key))
+		if (remoteServers[i]->gotSubscribedAndUploadedKeys == false || remoteServers[i]->subscribedKeys.HasData(key))
 		{
 			SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServers[i]->serverAddress, false);
 		}
@@ -1130,15 +1130,15 @@ void CloudServer::NotifyServerSubscribersOfDataChange( CloudData *cloudData, Clo
 void CloudServer::AddServer(RakNetGUID systemIdentifier)
 {
 	ConnectionState cs = rakPeerInterface->GetConnectionState(systemIdentifier);
-	if (cs==IS_DISCONNECTED || cs==IS_NOT_CONNECTED)
+	if (cs == IS_DISCONNECTED || cs == IS_NOT_CONNECTED)
 		return;
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(systemIdentifier,&objectExists);
-	if (objectExists==false)
+	unsigned int index = remoteServers.GetIndexFromKey(systemIdentifier, &objectExists);
+	if (objectExists == false)
 	{
 		RemoteServer *remoteServer = MafiaNet::OP_NEW<RemoteServer>(_FILE_AND_LINE_);
-		remoteServer->gotSubscribedAndUploadedKeys=false;
-		remoteServer->serverAddress=systemIdentifier;
+		remoteServer->gotSubscribedAndUploadedKeys = false;
+		remoteServer->serverAddress = systemIdentifier;
 		remoteServers.InsertAtIndex(remoteServer, index, _FILE_AND_LINE_);
 
 		SendUploadedAndSubscribedKeysToServer(systemIdentifier);
@@ -1147,10 +1147,10 @@ void CloudServer::AddServer(RakNetGUID systemIdentifier)
 void CloudServer::RemoveServer(RakNetGUID systemAddress)
 {
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(systemAddress,&objectExists);
-	if (objectExists==true)
+	unsigned int index = remoteServers.GetIndexFromKey(systemAddress, &objectExists);
+	if (objectExists == true)
 	{
-		MafiaNet::OP_DELETE(remoteServers[index],_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(remoteServers[index], _FILE_AND_LINE_);
 		remoteServers.RemoveAtIndex(index);
 	}
 }
@@ -1159,7 +1159,7 @@ void CloudServer::GetRemoteServers(DataStructures::List<RakNetGUID> &remoteServe
 	remoteServersOut.Clear(true, _FILE_AND_LINE_);
 
 	unsigned int i;
-	for (i=0; i < remoteServers.Size(); i++)
+	for (i = 0; i < remoteServers.Size(); i++)
 	{
 		remoteServersOut.Push(remoteServers[i]->serverAddress, _FILE_AND_LINE_);
 	}
@@ -1171,56 +1171,56 @@ void CloudServer::ProcessAndTransmitGetRequest(GetRequest *getRequest)
 
 	//	BufferedGetResponseFromServer getResponse;
 	CloudQueryResult cloudQueryResult;
-	cloudQueryResult.cloudQuery=getRequest->cloudQueryWithAddresses.cloudQuery;
-	cloudQueryResult.subscribeToResults=getRequest->cloudQueryWithAddresses.cloudQuery.subscribeToResults;
+	cloudQueryResult.cloudQuery = getRequest->cloudQueryWithAddresses.cloudQuery;
+	cloudQueryResult.subscribeToResults = getRequest->cloudQueryWithAddresses.cloudQuery.subscribeToResults;
 	cloudQueryResult.SerializeHeader(true, &bsOut);
 
-	DataStructures::List<CloudData*> cloudDataResultList;
+	DataStructures::List<CloudData *> cloudDataResultList;
 	DataStructures::List<CloudKey> cloudKeyResultList;
 	ProcessCloudQueryWithAddresses(getRequest->cloudQueryWithAddresses, cloudDataResultList, cloudKeyResultList);
-	bool unlimitedRows=getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn==0;
+	bool unlimitedRows = getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn == 0;
 
 	uint32_t localNumRows = (uint32_t) cloudDataResultList.Size();
-	if (unlimitedRows==false &&
-		localNumRows > getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex &&
-		localNumRows - getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex > getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn )
-		localNumRows=getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex + getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn;
+	if (unlimitedRows == false &&
+	    localNumRows > getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex &&
+	    localNumRows - getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex > getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn)
+		localNumRows = getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex + getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn;
 
 	BitSize_t bitStreamOffset = bsOut.GetWriteOffset();
 	uint32_t localRowsToWrite;
 	unsigned int skipRows;
-	if (localNumRows>getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex)
+	if (localNumRows > getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex)
 	{
-		localRowsToWrite=localNumRows-getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex;
-		skipRows=0;
+		localRowsToWrite = localNumRows - getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex;
+		skipRows = 0;
 	}
 	else
 	{
-		localRowsToWrite=0;
-		skipRows=getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex-localNumRows;
+		localRowsToWrite = 0;
+		skipRows = getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex - localNumRows;
 	}
 	cloudQueryResult.SerializeNumRows(true, localRowsToWrite, &bsOut);
-	for (unsigned int i=getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex; i < localNumRows; i++)
+	for (unsigned int i = getRequest->cloudQueryWithAddresses.cloudQuery.startingRowIndex; i < localNumRows; i++)
 	{
 		WriteCloudQueryRowFromResultList(i, cloudDataResultList, cloudKeyResultList, &bsOut);
 	}
 
 	// Append remote systems for remaining rows
-	if (unlimitedRows==true || getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn>localRowsToWrite)
+	if (unlimitedRows == true || getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn > localRowsToWrite)
 	{
-		uint32_t remainingRows=0;
-		uint32_t additionalRowsWritten=0;
-		if (unlimitedRows==false)
-			remainingRows=getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn-localRowsToWrite;
+		uint32_t remainingRows = 0;
+		uint32_t additionalRowsWritten = 0;
+		if (unlimitedRows == false)
+			remainingRows = getRequest->cloudQueryWithAddresses.cloudQuery.maxRowsToReturn - localRowsToWrite;
 
 		unsigned int remoteServerResponseIndex;
-		for (remoteServerResponseIndex=0; remoteServerResponseIndex < getRequest->remoteServerResponses.Size(); remoteServerResponseIndex++)
+		for (remoteServerResponseIndex = 0; remoteServerResponseIndex < getRequest->remoteServerResponses.Size(); remoteServerResponseIndex++)
 		{
 			BufferedGetResponseFromServer *bufferedGetResponseFromServer = getRequest->remoteServerResponses[remoteServerResponseIndex];
 			unsigned int cloudQueryRowIndex;
-			for (cloudQueryRowIndex=0; cloudQueryRowIndex < bufferedGetResponseFromServer->queryResult.rowsReturned.Size(); cloudQueryRowIndex++)
+			for (cloudQueryRowIndex = 0; cloudQueryRowIndex < bufferedGetResponseFromServer->queryResult.rowsReturned.Size(); cloudQueryRowIndex++)
 			{
-				if (skipRows>0)
+				if (skipRows > 0)
 				{
 					--skipRows;
 					continue;
@@ -1228,19 +1228,19 @@ void CloudServer::ProcessAndTransmitGetRequest(GetRequest *getRequest)
 				bufferedGetResponseFromServer->queryResult.rowsReturned[cloudQueryRowIndex]->Serialize(true, &bsOut, this);
 
 				++additionalRowsWritten;
-				if (unlimitedRows==false && --remainingRows==0)
+				if (unlimitedRows == false && --remainingRows == 0)
 					break;
 			}
 
-			if (unlimitedRows==false && remainingRows==0)
+			if (unlimitedRows == false && remainingRows == 0)
 				break;
 		}
 
-		if (additionalRowsWritten>0)
+		if (additionalRowsWritten > 0)
 		{
 			BitSize_t curOffset = bsOut.GetWriteOffset();
 			bsOut.SetWriteOffset(bitStreamOffset);
-			localRowsToWrite+=additionalRowsWritten;
+			localRowsToWrite += additionalRowsWritten;
 			cloudQueryResult.SerializeNumRows(true, localRowsToWrite, &bsOut);
 			bsOut.SetWriteOffset(curOffset);
 		}
@@ -1248,34 +1248,34 @@ void CloudServer::ProcessAndTransmitGetRequest(GetRequest *getRequest)
 
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, getRequest->requestingClient, false);
 }
-void CloudServer::ProcessCloudQueryWithAddresses( CloudServer::CloudQueryWithAddresses &cloudQueryWithAddresses, DataStructures::List<CloudData*> &cloudDataResultList, DataStructures::List<CloudKey> &cloudKeyResultList )
+void CloudServer::ProcessCloudQueryWithAddresses(CloudServer::CloudQueryWithAddresses &cloudQueryWithAddresses, DataStructures::List<CloudData *> &cloudDataResultList, DataStructures::List<CloudKey> &cloudKeyResultList)
 {
 	CloudQueryResult cloudQueryResult;
 	CloudQueryRow cloudQueryRow;
 	unsigned int queryIndex;
 	bool dataRepositoryExists;
-	CloudDataList* cloudDataList;
+	CloudDataList *cloudDataList;
 	unsigned int keyDataIndex;
 
 	// If specificSystems list empty, applies to all systems
 	// For each of keys in cloudQueryWithAddresses, return that data, limited by maxRowsToReturn
-	for (queryIndex=0; queryIndex < cloudQueryWithAddresses.cloudQuery.keys.Size(); queryIndex++)
+	for (queryIndex = 0; queryIndex < cloudQueryWithAddresses.cloudQuery.keys.Size(); queryIndex++)
 	{
 		const CloudKey &key = cloudQueryWithAddresses.cloudQuery.keys[queryIndex];
 
 		unsigned int dataRepositoryIndex = dataRepository.GetIndexFromKey(key, &dataRepositoryExists);
 		if (dataRepositoryExists)
 		{
-			cloudDataList=dataRepository[dataRepositoryIndex];
+			cloudDataList = dataRepository[dataRepositoryIndex];
 
-			if (cloudDataList->uploaderCount>0)
+			if (cloudDataList->uploaderCount > 0)
 			{
 				// Return all keyData that was uploaded by specificSystems, or all if not specified
-				if (cloudQueryWithAddresses.specificSystems.Size()>0)
+				if (cloudQueryWithAddresses.specificSystems.Size() > 0)
 				{
 					// Return data for matching systems
 					unsigned int specificSystemIndex;
-					for (specificSystemIndex=0; specificSystemIndex < cloudQueryWithAddresses.specificSystems.Size(); specificSystemIndex++)
+					for (specificSystemIndex = 0; specificSystemIndex < cloudQueryWithAddresses.specificSystems.Size(); specificSystemIndex++)
 					{
 						bool uploaderExists;
 						keyDataIndex = cloudDataList->keyData.GetIndexFromKey(cloudQueryWithAddresses.specificSystems[specificSystemIndex], &uploaderExists);
@@ -1289,7 +1289,7 @@ void CloudServer::ProcessCloudQueryWithAddresses( CloudServer::CloudQueryWithAdd
 				else
 				{
 					// Return data for all systems
-					for (keyDataIndex=0; keyDataIndex < cloudDataList->keyData.Size(); keyDataIndex++)
+					for (keyDataIndex = 0; keyDataIndex < cloudDataList->keyData.Size(); keyDataIndex++)
 					{
 						cloudDataResultList.Push(cloudDataList->keyData[keyDataIndex], _FILE_AND_LINE_);
 						cloudKeyResultList.Push(key, _FILE_AND_LINE_);
@@ -1299,162 +1299,162 @@ void CloudServer::ProcessCloudQueryWithAddresses( CloudServer::CloudQueryWithAdd
 		}
 	}
 }
-void CloudServer::SendUploadedAndSubscribedKeysToServer( RakNetGUID systemAddress )
+void CloudServer::SendUploadedAndSubscribedKeysToServer(RakNetGUID systemAddress)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_ADD_UPLOADED_AND_SUBSCRIBED_KEYS);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_ADD_UPLOADED_AND_SUBSCRIBED_KEYS);
 	bsOut.WriteCasted<uint16_t>(dataRepository.Size());
-	for (unsigned int i=0; i < dataRepository.Size(); i++)
+	for (unsigned int i = 0; i < dataRepository.Size(); i++)
 		dataRepository[i]->key.Serialize(true, &bsOut);
 
 	BitSize_t startOffset, endOffset;
-	uint16_t subscribedKeyCount=0;
-	startOffset=bsOut.GetWriteOffset();
+	uint16_t subscribedKeyCount = 0;
+	startOffset = bsOut.GetWriteOffset();
 	bsOut.WriteCasted<uint16_t>(subscribedKeyCount);
-	for (unsigned int i=0; i < dataRepository.Size(); i++)
+	for (unsigned int i = 0; i < dataRepository.Size(); i++)
 	{
-		if (dataRepository[i]->subscriberCount>0)
+		if (dataRepository[i]->subscriberCount > 0)
 		{
 			dataRepository[i]->key.Serialize(true, &bsOut);
 			subscribedKeyCount++;
 		}
 	}
-	endOffset=bsOut.GetWriteOffset();
+	endOffset = bsOut.GetWriteOffset();
 	bsOut.SetWriteOffset(startOffset);
 	bsOut.WriteCasted<uint16_t>(subscribedKeyCount);
 	bsOut.SetWriteOffset(endOffset);
 
-	if (dataRepository.Size()>0 || subscribedKeyCount>0)
+	if (dataRepository.Size() > 0 || subscribedKeyCount > 0)
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemAddress, false);
 }
-void CloudServer::SendUploadedKeyToServers( CloudKey &cloudKey )
+void CloudServer::SendUploadedKeyToServers(CloudKey &cloudKey)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_ADD_UPLOADED_KEY);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_ADD_UPLOADED_KEY);
 	cloudKey.Serialize(true, &bsOut);
-	for (unsigned int i=0; i < remoteServers.Size(); i++)
+	for (unsigned int i = 0; i < remoteServers.Size(); i++)
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServers[i]->serverAddress, false);
 }
-void CloudServer::SendSubscribedKeyToServers( CloudKey &cloudKey )
+void CloudServer::SendSubscribedKeyToServers(CloudKey &cloudKey)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_ADD_SUBSCRIBED_KEY);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_ADD_SUBSCRIBED_KEY);
 	cloudKey.Serialize(true, &bsOut);
-	for (unsigned int i=0; i < remoteServers.Size(); i++)
+	for (unsigned int i = 0; i < remoteServers.Size(); i++)
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServers[i]->serverAddress, false);
 }
-void CloudServer::RemoveUploadedKeyFromServers( CloudKey &cloudKey )
+void CloudServer::RemoveUploadedKeyFromServers(CloudKey &cloudKey)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_REMOVE_UPLOADED_KEY);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_REMOVE_UPLOADED_KEY);
 	cloudKey.Serialize(true, &bsOut);
-	for (unsigned int i=0; i < remoteServers.Size(); i++)
+	for (unsigned int i = 0; i < remoteServers.Size(); i++)
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServers[i]->serverAddress, false);
 }
-void CloudServer::RemoveSubscribedKeyFromServers( CloudKey &cloudKey )
+void CloudServer::RemoveSubscribedKeyFromServers(CloudKey &cloudKey)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_SERVER_TO_SERVER_COMMAND);
-	bsOut.Write((MessageID)STSC_REMOVE_SUBSCRIBED_KEY);
+	bsOut.Write((MessageID) ID_CLOUD_SERVER_TO_SERVER_COMMAND);
+	bsOut.Write((MessageID) STSC_REMOVE_SUBSCRIBED_KEY);
 	cloudKey.Serialize(true, &bsOut);
-	for (unsigned int i=0; i < remoteServers.Size(); i++)
+	for (unsigned int i = 0; i < remoteServers.Size(); i++)
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, remoteServers[i]->serverAddress, false);
 }
-void CloudServer::OnSendUploadedAndSubscribedKeysToServer( Packet *packet )
+void CloudServer::OnSendUploadedAndSubscribedKeysToServer(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(packet->guid,&objectExists);
-	if (objectExists==false)
+	unsigned int index = remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 	RemoteServer *remoteServer = remoteServers[index];
-	remoteServer->gotSubscribedAndUploadedKeys=true;
+	remoteServer->gotSubscribedAndUploadedKeys = true;
 
-//	unsigned int insertionIndex;
+	//	unsigned int insertionIndex;
 	bool alreadyHasKey;
 	uint16_t numUploadedKeys, numSubscribedKeys;
 	bsIn.Read(numUploadedKeys);
-	for (uint16_t i=0; i < numUploadedKeys; i++)
+	for (uint16_t i = 0; i < numUploadedKeys; i++)
 	{
 		CloudKey cloudKey;
 		cloudKey.Serialize(false, &bsIn);
 
-	//	insertionIndex =
-			remoteServer->uploadedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
-		if (alreadyHasKey==false)
-			remoteServer->uploadedKeys.Insert(cloudKey,cloudKey,true,_FILE_AND_LINE_);
+		//	insertionIndex =
+		remoteServer->uploadedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
+		if (alreadyHasKey == false)
+			remoteServer->uploadedKeys.Insert(cloudKey, cloudKey, true, _FILE_AND_LINE_);
 	}
 
 	bsIn.Read(numSubscribedKeys);
-	for (uint16_t i=0; i < numSubscribedKeys; i++)
+	for (uint16_t i = 0; i < numSubscribedKeys; i++)
 	{
 		CloudKey cloudKey;
 		cloudKey.Serialize(false, &bsIn);
 
 		//insertionIndex =
-			remoteServer->subscribedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
-		if (alreadyHasKey==false)
-			remoteServer->subscribedKeys.Insert(cloudKey,cloudKey,true,_FILE_AND_LINE_);
+		remoteServer->subscribedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
+		if (alreadyHasKey == false)
+			remoteServer->subscribedKeys.Insert(cloudKey, cloudKey, true, _FILE_AND_LINE_);
 	}
 
 	// Potential todo - join servers
 	// For each uploaded key that we subscribe to, query it
 	// For each subscribed key that we have, send it
 }
-void CloudServer::OnSendUploadedKeyToServers( Packet *packet )
+void CloudServer::OnSendUploadedKeyToServers(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(packet->guid,&objectExists);
-	if (objectExists==false)
+	unsigned int index = remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 	RemoteServer *remoteServer = remoteServers[index];
 	CloudKey cloudKey;
 	cloudKey.Serialize(false, &bsIn);
-//	unsigned int insertionIndex;
+	//	unsigned int insertionIndex;
 	bool alreadyHasKey;
-//	insertionIndex =
-		remoteServer->uploadedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
-	if (alreadyHasKey==false)
-		remoteServer->uploadedKeys.Insert(cloudKey,cloudKey,true,_FILE_AND_LINE_);
+	//	insertionIndex =
+	remoteServer->uploadedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
+	if (alreadyHasKey == false)
+		remoteServer->uploadedKeys.Insert(cloudKey, cloudKey, true, _FILE_AND_LINE_);
 }
-void CloudServer::OnSendSubscribedKeyToServers( Packet *packet )
+void CloudServer::OnSendSubscribedKeyToServers(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(packet->guid,&objectExists);
-	if (objectExists==false)
+	unsigned int index = remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 	RemoteServer *remoteServer = remoteServers[index];
 	CloudKey cloudKey;
 	cloudKey.Serialize(false, &bsIn);
-//	unsigned int insertionIndex;
+	//	unsigned int insertionIndex;
 	bool alreadyHasKey;
-//	insertionIndex =
-		remoteServer->subscribedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
+	//	insertionIndex =
+	remoteServer->subscribedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
 
 	// Do not need to send current values, the Get request will do that as the Get request is sent at the same time
-	if (alreadyHasKey==false)
-		remoteServer->subscribedKeys.Insert(cloudKey,cloudKey,true,_FILE_AND_LINE_);
+	if (alreadyHasKey == false)
+		remoteServer->subscribedKeys.Insert(cloudKey, cloudKey, true, _FILE_AND_LINE_);
 }
-void CloudServer::OnRemoveUploadedKeyFromServers( Packet *packet )
+void CloudServer::OnRemoveUploadedKeyFromServers(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(packet->guid,&objectExists);
-	if (objectExists==false)
+	unsigned int index = remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 	RemoteServer *remoteServer = remoteServers[index];
 	CloudKey cloudKey;
@@ -1462,17 +1462,17 @@ void CloudServer::OnRemoveUploadedKeyFromServers( Packet *packet )
 	unsigned int insertionIndex;
 	bool alreadyHasKey;
 	insertionIndex = remoteServer->uploadedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
-	if (alreadyHasKey==true)
+	if (alreadyHasKey == true)
 		remoteServer->uploadedKeys.RemoveAtIndex(insertionIndex);
 }
-void CloudServer::OnRemoveSubscribedKeyFromServers( Packet *packet )
+void CloudServer::OnRemoveSubscribedKeyFromServers(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	bool objectExists;
-	unsigned int index = remoteServers.GetIndexFromKey(packet->guid,&objectExists);
-	if (objectExists==false)
+	unsigned int index = remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 	RemoteServer *remoteServer = remoteServers[index];
 	CloudKey cloudKey;
@@ -1480,21 +1480,21 @@ void CloudServer::OnRemoveSubscribedKeyFromServers( Packet *packet )
 	unsigned int insertionIndex;
 	bool alreadyHasKey;
 	insertionIndex = remoteServer->subscribedKeys.GetIndexFromKey(cloudKey, &alreadyHasKey);
-	if (alreadyHasKey==true)
+	if (alreadyHasKey == true)
 		remoteServer->subscribedKeys.RemoveAtIndex(insertionIndex);
 }
-void CloudServer::OnServerDataChanged( Packet *packet )
+void CloudServer::OnServerDataChanged(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
-	bsIn.IgnoreBytes(sizeof(MessageID)*2);
+	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
 
 	bool objectExists;
-	remoteServers.GetIndexFromKey(packet->guid,&objectExists);
-	if (objectExists==false)
+	remoteServers.GetIndexFromKey(packet->guid, &objectExists);
+	if (objectExists == false)
 		return;
 
 	// Find everyone that cares about this change and relay
-	bool wasUpdated=false;
+	bool wasUpdated = false;
 	bsIn.Read(wasUpdated);
 	CloudQueryRow row;
 	row.Serialize(false, &bsIn, this);
@@ -1503,7 +1503,7 @@ void CloudServer::OnServerDataChanged( Packet *packet )
 	bool dataRepositoryExists;
 	unsigned int dataRepositoryIndex;
 	dataRepositoryIndex = dataRepository.GetIndexFromKey(row.key, &dataRepositoryExists);
-	if (dataRepositoryExists==false)
+	if (dataRepositoryExists == false)
 	{
 		DeallocateRowData(row.data);
 		return;
@@ -1512,45 +1512,44 @@ void CloudServer::OnServerDataChanged( Packet *packet )
 	CloudData *cloudData;
 	bool keyDataListExists;
 	unsigned int keyDataListIndex = cloudDataList->keyData.GetIndexFromKey(row.clientGUID, &keyDataListExists);
-	if (keyDataListExists==true)
+	if (keyDataListExists == true)
 	{
 		cloudData = cloudDataList->keyData[keyDataListIndex];
-		NotifyClientSubscribersOfDataChange(&row, cloudData->specificSubscribers, wasUpdated );
+		NotifyClientSubscribersOfDataChange(&row, cloudData->specificSubscribers, wasUpdated);
 	}
 
-	NotifyClientSubscribersOfDataChange(&row, cloudDataList->nonSpecificSubscribers, wasUpdated );
+	NotifyClientSubscribersOfDataChange(&row, cloudDataList->nonSpecificSubscribers, wasUpdated);
 	DeallocateRowData(row.data);
 }
 void CloudServer::GetServersWithUploadedKeys(
-								DataStructures::List<CloudKey> &keys,
-								DataStructures::List<CloudServer::RemoteServer*> &remoteServersWithData
-								)
+    DataStructures::List<CloudKey> &keys,
+    DataStructures::List<CloudServer::RemoteServer *> &remoteServersWithData)
 {
 	remoteServersWithData.Clear(true, _FILE_AND_LINE_);
 
-	unsigned int i,j;
-	for (i=0; i < remoteServers.Size(); i++)
+	unsigned int i, j;
+	for (i = 0; i < remoteServers.Size(); i++)
 	{
-		remoteServers[i]->workingFlag=false;
+		remoteServers[i]->workingFlag = false;
 	}
 
-	for (i=0; i < remoteServers.Size(); i++)
+	for (i = 0; i < remoteServers.Size(); i++)
 	{
-		if (remoteServers[i]->workingFlag==false)
+		if (remoteServers[i]->workingFlag == false)
 		{
-			if (remoteServers[i]->gotSubscribedAndUploadedKeys==false)
+			if (remoteServers[i]->gotSubscribedAndUploadedKeys == false)
 			{
-				remoteServers[i]->workingFlag=true;
+				remoteServers[i]->workingFlag = true;
 				remoteServersWithData.Push(remoteServers[i], _FILE_AND_LINE_);
 			}
 			else
 			{
-				remoteServers[i]->workingFlag=false;
-				for (j=0; j < keys.Size(); j++)
+				remoteServers[i]->workingFlag = false;
+				for (j = 0; j < keys.Size(); j++)
 				{
-					if (remoteServers[i]->workingFlag==false && remoteServers[i]->uploadedKeys.HasData(keys[j]))
+					if (remoteServers[i]->workingFlag == false && remoteServers[i]->uploadedKeys.HasData(keys[j]))
 					{
-						remoteServers[i]->workingFlag=true;
+						remoteServers[i]->workingFlag = true;
 						remoteServersWithData.Push(remoteServers[i], _FILE_AND_LINE_);
 						break;
 					}
@@ -1565,13 +1564,13 @@ CloudServer::CloudDataList *CloudServer::GetOrAllocateCloudDataList(CloudKey key
 	CloudDataList *cloudDataList;
 
 	dataRepositoryIndex = dataRepository.GetIndexFromKey(key, dataRepositoryExists);
-	if (*dataRepositoryExists==false)
+	if (*dataRepositoryExists == false)
 	{
 		cloudDataList = MafiaNet::OP_NEW<CloudDataList>(_FILE_AND_LINE_);
-		cloudDataList->key=key;
-		cloudDataList->uploaderCount=0;
-		cloudDataList->subscriberCount=0;
-		dataRepository.InsertAtIndex(cloudDataList,dataRepositoryIndex,_FILE_AND_LINE_);
+		cloudDataList->key = key;
+		cloudDataList->uploaderCount = 0;
+		cloudDataList->subscriberCount = 0;
+		dataRepository.InsertAtIndex(cloudDataList, dataRepositoryIndex, _FILE_AND_LINE_);
 	}
 	else
 	{
@@ -1583,27 +1582,27 @@ CloudServer::CloudDataList *CloudServer::GetOrAllocateCloudDataList(CloudKey key
 
 void CloudServer::UnsubscribeFromKey(RemoteCloudClient *remoteCloudClient, RakNetGUID remoteCloudClientGuid, unsigned int keySubscriberIndex, CloudKey &cloudKey, DataStructures::List<RakNetGUID> &specificSystems)
 {
-	KeySubscriberID* keySubscriberId = remoteCloudClient->subscribedKeys[keySubscriberIndex];
+	KeySubscriberID *keySubscriberId = remoteCloudClient->subscribedKeys[keySubscriberIndex];
 
 	// If removing specific systems, but global subscription, fail
-	if (keySubscriberId->specificSystemsSubscribedTo.Size()==0 && specificSystems.Size()>0)
+	if (keySubscriberId->specificSystemsSubscribedTo.Size() == 0 && specificSystems.Size() > 0)
 		return;
 
 	bool dataRepositoryExists;
 	CloudDataList *cloudDataList;
 	unsigned int dataRepositoryIndex = dataRepository.GetIndexFromKey(cloudKey, &dataRepositoryExists);
-	if (dataRepositoryExists==false)
+	if (dataRepositoryExists == false)
 		return;
 
-	unsigned int i,j;
+	unsigned int i, j;
 
 	cloudDataList = dataRepository[dataRepositoryIndex];
-	if (specificSystems.Size()==0)
+	if (specificSystems.Size() == 0)
 	{
 		// Remove global subscriber. If returns false, have to remove specific subscribers
-		if (cloudDataList->RemoveSubscriber(remoteCloudClientGuid)==false)
+		if (cloudDataList->RemoveSubscriber(remoteCloudClientGuid) == false)
 		{
-			for (i=0; i < keySubscriberId->specificSystemsSubscribedTo.Size(); i++)
+			for (i = 0; i < keySubscriberId->specificSystemsSubscribedTo.Size(); i++)
 			{
 				RemoveSpecificSubscriber(keySubscriberId->specificSystemsSubscribedTo[i], cloudDataList, remoteCloudClientGuid);
 			}
@@ -1612,11 +1611,11 @@ void CloudServer::UnsubscribeFromKey(RemoteCloudClient *remoteCloudClient, RakNe
 	}
 	else
 	{
-		for (j=0; j < specificSystems.Size(); j++)
+		for (j = 0; j < specificSystems.Size(); j++)
 		{
 			unsigned int specificSystemsSubscribedToIndex;
 			bool hasSpecificSystemsSubscribedTo;
-			specificSystemsSubscribedToIndex=keySubscriberId->specificSystemsSubscribedTo.GetIndexFromKey(specificSystems[j], &hasSpecificSystemsSubscribedTo);
+			specificSystemsSubscribedToIndex = keySubscriberId->specificSystemsSubscribedTo.GetIndexFromKey(specificSystems[j], &hasSpecificSystemsSubscribedTo);
 			if (hasSpecificSystemsSubscribedTo)
 			{
 				RemoveSpecificSubscriber(specificSystems[j], cloudDataList, remoteCloudClientGuid);
@@ -1625,13 +1624,13 @@ void CloudServer::UnsubscribeFromKey(RemoteCloudClient *remoteCloudClient, RakNe
 		}
 	}
 
-	if (keySubscriberId->specificSystemsSubscribedTo.Size()==0)
+	if (keySubscriberId->specificSystemsSubscribedTo.Size() == 0)
 	{
 		MafiaNet::OP_DELETE(keySubscriberId, _FILE_AND_LINE_);
 		remoteCloudClient->subscribedKeys.RemoveAtIndex(keySubscriberIndex);
 	}
 
-	if (cloudDataList->subscriberCount==0)
+	if (cloudDataList->subscriberCount == 0)
 		RemoveSubscribedKeyFromServers(cloudKey);
 
 	if (cloudDataList->IsUnused())
@@ -1644,7 +1643,7 @@ void CloudServer::RemoveSpecificSubscriber(RakNetGUID specificSubscriber, CloudD
 {
 	bool keyDataListExists;
 	unsigned int keyDataListIndex = cloudDataList->keyData.GetIndexFromKey(specificSubscriber, &keyDataListExists);
-	if (keyDataListExists==false)
+	if (keyDataListExists == false)
 		return;
 	CloudData *cloudData = cloudDataList->keyData[keyDataListIndex];
 	bool hasSpecificSubscriber;
@@ -1664,15 +1663,15 @@ void CloudServer::RemoveSpecificSubscriber(RakNetGUID specificSubscriber, CloudD
 
 void CloudServer::ForceExternalSystemAddress(SystemAddress forcedAddress)
 {
-	forceAddress=forcedAddress;
+	forceAddress = forcedAddress;
 }
-void CloudServer::AddQueryFilter(CloudServerQueryFilter* filter)
+void CloudServer::AddQueryFilter(CloudServerQueryFilter *filter)
 {
-	if (queryFilters.GetIndexOf(filter)!=(unsigned int) -1)
+	if (queryFilters.GetIndexOf(filter) != (unsigned int) -1)
 		return;
 	queryFilters.Push(filter, _FILE_AND_LINE_);
 }
-void CloudServer::RemoveQueryFilter(CloudServerQueryFilter* filter)
+void CloudServer::RemoveQueryFilter(CloudServerQueryFilter *filter)
 {
 	unsigned int index;
 	index = queryFilters.GetIndexOf(filter);

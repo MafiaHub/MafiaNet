@@ -49,19 +49,19 @@ of each frame.
 #pragma comment(lib, "legacy_stdio_definitions.lib")
 #endif
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 class DSoundVoiceAdapter
 {
 
 public:
-
 	// --------------------------------------------------------------------------------------------
 	// User functions
 	// --------------------------------------------------------------------------------------------
 
 	/// Returns the singleton
-	static DSoundVoiceAdapter* Instance();
+	static DSoundVoiceAdapter *Instance();
 
 	/// \brief Setups the connection between RakVoice and DirectSound
 	///   This function initializes all the required DirectSound objects for you. If you already have
@@ -70,7 +70,7 @@ public:
 	/// \param[in] rakVoice RakVoice object to use, fully Initialized AND attached to a RakPeerInterface.
 	/// \param[in] hwnd Your Window Handle. Required for DirectSound initialization
 	/// \param[in] dwCoopLevel DirectSound cooperative level. Required for DirectSound initialization
-	bool SetupAdapter(RakVoice *rakVoice, HWND hwnd, DWORD dwCoopLevel=DSSCL_EXCLUSIVE);
+	bool SetupAdapter(RakVoice *rakVoice, HWND hwnd, DWORD dwCoopLevel = DSSCL_EXCLUSIVE);
 
 	/// \brief Setups the connection between RakVoice and DirectSound
 	/// \param[in] rakVoice RakVoice object to use, fully Initialized AND attached to a RakPeerInterface.
@@ -91,10 +91,9 @@ public:
 	void SetMute(bool mute);
 
 	/// \brief Returns the used DirectSound Device object
-	IDirectSound8* GetDSDeviceObject();
+	IDirectSound8 *GetDSDeviceObject();
 
 private:
-
 	enum
 	{
 		FRAMES_IN_SOUND = 2 // Number of voice frames the DirectSound buffers will contain
@@ -102,7 +101,7 @@ private:
 
 	/// Internal setup function called after proper directsound initialization
 	bool SetupAdapter(RakVoice *rakVoice);
-	bool SetupIncomingBuffer();	
+	bool SetupIncomingBuffer();
 	bool SetupOutgoingBuffer();
 	void BroadcastFrame(void *ptr);
 
@@ -112,16 +111,15 @@ private:
 
 	static DSoundVoiceAdapter instance;
 	RakVoice *m_rakVoice;
-	IDirectSound8 *ds; // Pointer to the DirectSound Device Object
-	IDirectSoundCapture8 *dsC; // Pointer to the DirectSound Capture Device Object
-	IDirectSoundBuffer8 *dsbIncoming; // DirectSound buffer for incoming sound (what  you'll hear)
+	IDirectSound8 *ds;                       // Pointer to the DirectSound Device Object
+	IDirectSoundCapture8 *dsC;               // Pointer to the DirectSound Capture Device Object
+	IDirectSoundBuffer8 *dsbIncoming;        // DirectSound buffer for incoming sound (what  you'll hear)
 	IDirectSoundCaptureBuffer8 *dsbOutgoing; // DirectSound buffer used for outgoing sound (capture from your microphone and send to the other players)
 	bool m_mute;
 
 	// DirectSound notification positions with the required Win32 Event objects
 	DSBPOSITIONNOTIFY incomingBufferNotifications[FRAMES_IN_SOUND];
 	DSBPOSITIONNOTIFY outgoingBufferNotifications[FRAMES_IN_SOUND];
-
 };
 
 } // namespace MafiaNet

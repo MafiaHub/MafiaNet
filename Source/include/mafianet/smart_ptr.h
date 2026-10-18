@@ -34,35 +34,39 @@ private:
 	int refCount;
 
 public:
-	ReferenceCounter() {refCount=0;}
+	ReferenceCounter() { refCount = 0; }
 	~ReferenceCounter() {}
-	void AddRef() {refCount++;}
-	int Release() {return --refCount;}
-	int GetRefCount(void) const {return refCount;}
+	void AddRef() { refCount++; }
+	int Release() { return --refCount; }
+	int GetRefCount(void) const { return refCount; }
 };
 
-template < typename T > class RAK_DLL_EXPORT RakNetSmartPtr
+template <typename T>
+class RAK_DLL_EXPORT RakNetSmartPtr
 {
 private:
-	T*    ptr;       // pointer
-	ReferenceCounter* reference; // Reference refCount
+	T *ptr;                      // pointer
+	ReferenceCounter *reference; // Reference refCount
 
 public:
-	RakNetSmartPtr() : ptr(0), reference(0)
+	RakNetSmartPtr()
+	    : ptr(0), reference(0)
 	{
 		// Do not allocate by default, wasteful if we just have a list of preallocated and unassigend smart pointers
 	}
 
-	RakNetSmartPtr(T* pValue) : ptr(pValue)
+	RakNetSmartPtr(T *pValue)
+	    : ptr(pValue)
 	{
 		reference = MafiaNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
 		reference->AddRef();
 
-//		allocCount+=2;
-//		printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
+		//		allocCount+=2;
+		//		printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
 	}
 
-	RakNetSmartPtr(const RakNetSmartPtr<T>& sp) : ptr(sp.ptr), reference(sp.reference)
+	RakNetSmartPtr(const RakNetSmartPtr<T> &sp)
+	    : ptr(sp.ptr), reference(sp.reference)
 	{
 		if (reference)
 			reference->AddRef();
@@ -70,53 +74,53 @@ public:
 
 	~RakNetSmartPtr()
 	{
-		if(reference && reference->Release() == 0)
+		if (reference && reference->Release() == 0)
 		{
 			MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
 
-//			deallocCount+=2;
-//			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
+			//			deallocCount+=2;
+			//			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
 		}
 	}
 
 	bool IsNull(void) const
 	{
-		return ptr==0;
+		return ptr == 0;
 	}
 
 	void SetNull(void)
 	{
-		if(reference && reference->Release() == 0)
+		if (reference && reference->Release() == 0)
 		{
 			MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
 
-//			deallocCount+=2;
-//			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
+			//			deallocCount+=2;
+			//			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
 		}
-		ptr=0;
-		reference=0;
+		ptr = 0;
+		reference = 0;
 	}
 
 	bool IsUnique(void) const
 	{
-		return reference->GetRefCount()==1;
+		return reference->GetRefCount() == 1;
 	}
 
 	// Allow you to change the values of the internal contents of the pointer, without changing what is pointed to by other instances of the smart pointer
 	void Clone(bool copyContents)
 	{
-		if (IsUnique()==false)
+		if (IsUnique() == false)
 		{
 			reference->Release();
 
 			reference = MafiaNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
 			reference->AddRef();
-			T* oldPtr=ptr;
-			ptr= MafiaNet::OP_NEW<T>(_FILE_AND_LINE_);
+			T *oldPtr = ptr;
+			ptr = MafiaNet::OP_NEW<T>(_FILE_AND_LINE_);
 			if (copyContents)
-				*ptr=*oldPtr;
+				*ptr = *oldPtr;
 		}
 	}
 
@@ -125,51 +129,51 @@ public:
 		return reference->GetRefCount();
 	}
 
-	T& operator* ()
+	T &operator*()
 	{
 		return *ptr;
 	}
 
-	const T& operator* () const
+	const T &operator*() const
 	{
 		return *ptr;
 	}
 
-	T* operator-> ()
+	T *operator->()
 	{
 		return ptr;
 	}
 
-	const T* operator-> () const
+	const T *operator->() const
 	{
 		return ptr;
 	}
 
-	bool operator == (const RakNetSmartPtr<T>& sp)
+	bool operator==(const RakNetSmartPtr<T> &sp)
 	{
 		return ptr == sp.ptr;
 	}
-	bool operator<( const RakNetSmartPtr<T> &right ) {return ptr < right.ptr;}
-	bool operator>( const RakNetSmartPtr<T> &right ) {return ptr > right.ptr;}
+	bool operator<(const RakNetSmartPtr<T> &right) { return ptr < right.ptr; }
+	bool operator>(const RakNetSmartPtr<T> &right) { return ptr > right.ptr; }
 
-	bool operator != (const RakNetSmartPtr<T>& sp)
+	bool operator!=(const RakNetSmartPtr<T> &sp)
 	{
 		return ptr != sp.ptr;
 	}
 
-	RakNetSmartPtr<T>& operator = (const RakNetSmartPtr<T>& sp)
+	RakNetSmartPtr<T> &operator=(const RakNetSmartPtr<T> &sp)
 	{
 		// Assignment operator
 
 		if (this != &sp) // Avoid self assignment
 		{
-			if(reference && reference->Release() == 0)
+			if (reference && reference->Release() == 0)
 			{
 				MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
 				MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
 
-//				deallocCount+=2;
-//				printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
+				//				deallocCount+=2;
+				//				printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
 			}
 
 			ptr = sp.ptr;
@@ -179,8 +183,6 @@ public:
 		}
 		return *this;
 	}
-
-
 };
 
 } // namespace MafiaNet

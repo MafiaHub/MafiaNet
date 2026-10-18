@@ -25,31 +25,31 @@ using namespace MafiaNet;
 
 namespace
 {
-	const uint32_t kNotificationBudgetMs = 2000;
+const uint32_t kNotificationBudgetMs = 2000;
 
-	// Connects a fresh client to the server, has the server close it with the
-	// given reason, and returns the notification the client received (or null).
-	const SimulatedNetwork::Message *KickWithReason(SimulatedNetwork &net, RakPeer *server, RakPeer *client,
-		const BitStream *reasonData)
+// Connects a fresh client to the server, has the server close it with the
+// given reason, and returns the notification the client received (or null).
+const SimulatedNetwork::Message *KickWithReason(SimulatedNetwork &net, RakPeer *server, RakPeer *client,
+                                                const BitStream *reasonData)
+{
+	if (!net.Connect(client, server))
 	{
-		if (!net.Connect(client, server))
-		{
-			ADD_FAILURE() << "client never connected";
-			return nullptr;
-		}
-		const RakNetGUID clientGuid = net.Find(server, ID_NEW_INCOMING_CONNECTION)->guid;
-		EXPECT_EQ(client->GetMyGUID(), clientGuid);
-
-		server->CloseConnection(clientGuid, true, 0, Priority::Low, reasonData);
-		if (!net.RunUntilReceived(client, ID_DISCONNECTION_NOTIFICATION, kNotificationBudgetMs))
-		{
-			ADD_FAILURE() << "client never received ID_DISCONNECTION_NOTIFICATION";
-			return nullptr;
-		}
-		const SimulatedNetwork::Message *note = net.Find(client, ID_DISCONNECTION_NOTIFICATION);
-		EXPECT_EQ(server->GetMyGUID(), note->guid);
-		return note;
+		ADD_FAILURE() << "client never connected";
+		return nullptr;
 	}
+	const RakNetGUID clientGuid = net.Find(server, ID_NEW_INCOMING_CONNECTION)->guid;
+	EXPECT_EQ(client->GetMyGUID(), clientGuid);
+
+	server->CloseConnection(clientGuid, true, 0, Priority::Low, reasonData);
+	if (!net.RunUntilReceived(client, ID_DISCONNECTION_NOTIFICATION, kNotificationBudgetMs))
+	{
+		ADD_FAILURE() << "client never received ID_DISCONNECTION_NOTIFICATION";
+		return nullptr;
+	}
+	const SimulatedNetwork::Message *note = net.Find(client, ID_DISCONNECTION_NOTIFICATION);
+	EXPECT_EQ(server->GetMyGUID(), note->guid);
+	return note;
+}
 }
 
 TEST(DisconnectReason, ReasonPayloadRoundTripsInTheNotification)
@@ -136,10 +136,10 @@ TEST(DisconnectReason, SamePeersReconnectAndCarryEachReasonInTurn)
 		}
 
 		// Both sides must release the slot before the next round's Connect().
-		ASSERT_TRUE(net.RunUntil([&] {
+		ASSERT_TRUE(net.RunUntil([&]
+		                         {
 			const ConnectionState c = client->GetConnectionState(serverAddress);
 			const ConnectionState s = server->GetConnectionState(clientAddress);
-			return (c == IS_NOT_CONNECTED || c == IS_DISCONNECTED) && (s == IS_NOT_CONNECTED || s == IS_DISCONNECTED);
-		}, 5000));
+			return (c == IS_NOT_CONNECTED || c == IS_DISCONNECTED) && (s == IS_NOT_CONNECTED || s == IS_DISCONNECTED); }, 5000));
 	}
 }

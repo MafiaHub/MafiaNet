@@ -21,7 +21,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_TwoWayAuthentication==1
+#if _RAKNET_SUPPORT_TwoWayAuthentication == 1
 
 #ifndef __TWO_WAY_AUTHENTICATION_H
 #define __TWO_WAY_AUTHENTICATION_H
@@ -33,7 +33,7 @@
 // Default for TwoWayAuthentication::SetTimeout().
 #define TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS 5000
 
-#if LIBCAT_SECURITY==1
+#if LIBCAT_SECURITY == 1
 // From CPP FILE:
 // static const int HASH_BITS = 256;
 // static const int HASH_BYTES = HASH_BITS / 8;
@@ -115,7 +115,7 @@ public:
 	/// \internal
 	virtual void OnRakPeerShutdown(void);
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 	/// \internal
 	struct PendingChallenge
@@ -148,14 +148,14 @@ public:
 		void ClearByAddress(MafiaNet::AddressOrGUID remoteSystem);
 		void Update(MafiaNet::Time curTime, MafiaNet::Time lifetimeMs);
 
-		DataStructures::List<TwoWayAuthentication::NonceAndRemoteSystemRequest*> generatedNonces;
+		DataStructures::List<TwoWayAuthentication::NonceAndRemoteSystemRequest *> generatedNonces;
 		unsigned short nextRequestId;
 	};
 
 protected:
 	void PushToUser(MessageID messageId, MafiaNet::RakString password, MafiaNet::AddressOrGUID remoteSystem);
 	// Key is identifier, data is password
-	DataStructures::Hash<MafiaNet::RakString, MafiaNet::RakString, 16, MafiaNet::RakString::ToInteger > passwords;
+	DataStructures::Hash<MafiaNet::RakString, MafiaNet::RakString, 16, MafiaNet::RakString::ToInteger> passwords;
 
 	MafiaNet::Time timeoutMs;
 

@@ -18,7 +18,6 @@
 ///
 
 
-
 #ifndef ___SQLITE_3_CLIENT_PLUGIN_H
 #define ___SQLITE_3_CLIENT_PLUGIN_H
 
@@ -44,7 +43,6 @@ namespace MafiaNet
 class SQLite3PluginResultInterface
 {
 public:
-
 	/// Query executed, possibly returning data or an error message
 	///
 	/// \param[out] inputStatement Passed to SQLite3Plugin::_sqlite3_exec
@@ -54,11 +52,11 @@ public:
 	/// \param[out] errorMsg If _sqlite3_exec failed, then the error message is here, and table will be empty
 	/// \ingroup SQL_LITE_3_PLUGIN
 	virtual void _sqlite3_exec(
-		MafiaNet::RakString inputStatement,
-		unsigned int queryId,
-		MafiaNet::RakString dbIdentifier,
-		const SQLite3Table &table,
-		MafiaNet::RakString errorMsg)=0;
+	    MafiaNet::RakString inputStatement,
+	    unsigned int queryId,
+	    MafiaNet::RakString dbIdentifier,
+	    const SQLite3Table &table,
+	    MafiaNet::RakString errorMsg) = 0;
 
 	/// dbIdentifier is unknown on the remote system
 	///
@@ -67,9 +65,9 @@ public:
 	/// \param[out] dbIdentifier Passed to SQLite3Plugin::_sqlite3_exec
 	/// \ingroup SQL_LITE_3_PLUGIN
 	virtual void OnUnknownDBIdentifier(
-		MafiaNet::RakString inputStatement,
-		unsigned int queryId,
-		MafiaNet::RakString dbIdentifier)=0;
+	    MafiaNet::RakString inputStatement,
+	    unsigned int queryId,
+	    MafiaNet::RakString dbIdentifier) = 0;
 };
 
 /// Sample callback implementation that just prints to the screen the results
@@ -77,16 +75,16 @@ public:
 class SQLite3PluginResultInterface_Printf : public SQLite3PluginResultInterface
 {
 	virtual void _sqlite3_exec(
-		MafiaNet::RakString inputStatement,
-		unsigned int queryId,
-		MafiaNet::RakString dbIdentifier,
-		const SQLite3Table &table,
-		MafiaNet::RakString errorMsg);
+	    MafiaNet::RakString inputStatement,
+	    unsigned int queryId,
+	    MafiaNet::RakString dbIdentifier,
+	    const SQLite3Table &table,
+	    MafiaNet::RakString errorMsg);
 
 	virtual void OnUnknownDBIdentifier(
-		MafiaNet::RakString inputStatement,
-		unsigned int queryId,
-		MafiaNet::RakString dbIdentifier);
+	    MafiaNet::RakString inputStatement,
+	    unsigned int queryId,
+	    MafiaNet::RakString dbIdentifier);
 };
 
 /// SQLite version 3 supports remote calls via networked file handles, but not over the regular internet
@@ -117,7 +115,7 @@ public:
 	/// \param[in] systemAddress See RakPeerInterface::Send()
 	/// \return Query ID. Will be returned in _sqlite3_exec
 	unsigned int _sqlite3_exec(MafiaNet::RakString dbIdentifier, MafiaNet::RakString inputStatement,
-		MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const SystemAddress &systemAddress);
+	                           MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const SystemAddress &systemAddress);
 
 	/// \internal For plugin handling
 	virtual PluginReceiveResult OnReceive(Packet *packet);

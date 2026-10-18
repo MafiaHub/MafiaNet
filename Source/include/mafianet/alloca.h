@@ -12,9 +12,7 @@
 #include <stdlib.h>
 
 
-
-
-#elif defined ( __APPLE__ ) || defined ( __APPLE_CC__ )
+#elif defined(__APPLE__) || defined(__APPLE_CC__)
 #include <malloc/malloc.h>
 #include <alloca.h>
 #elif defined(_WIN32)

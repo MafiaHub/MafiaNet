@@ -37,13 +37,13 @@ using namespace MafiaNet;
 bool CloudServerHelperFilter::OnPostRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudKey key, uint32_t dataLength, const char *data)
 {
 	// unused parameters
-	(void)clientAddress;
-	(void)dataLength;
-	(void)data;
+	(void) clientAddress;
+	(void) dataLength;
+	(void) data;
 
-	if (clientGuid!=serverGuid)
+	if (clientGuid != serverGuid)
 	{
-		if (key.primaryKey==CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY)
+		if (key.primaryKey == CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY)
 			return false;
 	}
 	return true;
@@ -51,67 +51,78 @@ bool CloudServerHelperFilter::OnPostRequest(RakNetGUID clientGuid, SystemAddress
 bool CloudServerHelperFilter::OnReleaseRequest(RakNetGUID clientGuid, SystemAddress clientAddress, DataStructures::List<CloudKey> &cloudKeys)
 {
 	// unused parameters
-	(void)clientGuid;
-	(void)clientAddress;
-	(void)cloudKeys;
+	(void) clientGuid;
+	(void) clientAddress;
+	(void) cloudKeys;
 
 	return true;
 }
 bool CloudServerHelperFilter::OnGetRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudQuery &query, DataStructures::List<RakNetGUID> &specificSystems)
 {
 	// unused parameters
-	(void)clientGuid;
-	(void)clientAddress;
-	(void)query;
-	(void)specificSystems;
+	(void) clientGuid;
+	(void) clientAddress;
+	(void) query;
+	(void) specificSystems;
 
 	return true;
 }
 bool CloudServerHelperFilter::OnUnsubscribeRequest(RakNetGUID clientGuid, SystemAddress clientAddress, DataStructures::List<CloudKey> &cloudKeys, DataStructures::List<RakNetGUID> &specificSystems)
 {
 	// unused parameters
-	(void)clientGuid;
-	(void)clientAddress;
-	(void)cloudKeys;
-	(void)specificSystems;
+	(void) clientGuid;
+	(void) clientAddress;
+	(void) cloudKeys;
+	(void) specificSystems;
 
 	return true;
 }
 
 bool CloudServerHelper::ParseCommandLineParameters(int argc, char **argv)
 {
-	char *DEFAULT_SERVER_TO_SERVER_PASSWORD="qwerty1234";
-	const unsigned short DEFAULT_SERVER_PORT=60000;
-	const unsigned short DEFAULT_ALLOWED_INCOMING_CONNECTIONS=1024;
-	const unsigned short DEFAULT_ALLOWED_OUTGOING_CONNECTIONS=64;
+	char *DEFAULT_SERVER_TO_SERVER_PASSWORD = "qwerty1234";
+	const unsigned short DEFAULT_SERVER_PORT = 60000;
+	const unsigned short DEFAULT_ALLOWED_INCOMING_CONNECTIONS = 1024;
+	const unsigned short DEFAULT_ALLOWED_OUTGOING_CONNECTIONS = 64;
 
-	if (argc<2) serverToServerPassword=DEFAULT_SERVER_TO_SERVER_PASSWORD;
-	else serverToServerPassword=argv[1];
+	if (argc < 2)
+		serverToServerPassword = DEFAULT_SERVER_TO_SERVER_PASSWORD;
+	else
+		serverToServerPassword = argv[1];
 
-	if (argc<3) rakPeerPort=DEFAULT_SERVER_PORT;
-	else {
+	if (argc < 3)
+		rakPeerPort = DEFAULT_SERVER_PORT;
+	else
+	{
 		const int intPeerPort = atoi(argv[2]);
-		if ((intPeerPort < 0) || (intPeerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intPeerPort < 0) || (intPeerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified peer port %d is outside valid bounds [0, %u]", intPeerPort, std::numeric_limits<unsigned short>::max());
 			return false;
 		}
 		rakPeerPort = static_cast<unsigned short>(rakPeerPort);
 	}
 
-	if (argc<4) allowedIncomingConnections=DEFAULT_ALLOWED_INCOMING_CONNECTIONS;
-	else {
+	if (argc < 4)
+		allowedIncomingConnections = DEFAULT_ALLOWED_INCOMING_CONNECTIONS;
+	else
+	{
 		const int intConnections = atoi(argv[3]);
-		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max())) {
+		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified allowed incoming connections %d is outside valid bounds [0, %u]", intConnections, std::numeric_limits<unsigned short>::max());
 			return false;
 		}
 		allowedIncomingConnections = static_cast<unsigned short>(intConnections);
 	}
 
-	if (argc<5) allowedOutgoingConnections=DEFAULT_ALLOWED_OUTGOING_CONNECTIONS;
-	else {
+	if (argc < 5)
+		allowedOutgoingConnections = DEFAULT_ALLOWED_OUTGOING_CONNECTIONS;
+	else
+	{
 		const int intConnections = atoi(argv[4]);
-		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max())) {
+		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified allowed outgoing connections %d is outside valid bounds [0, %u]", intConnections, std::numeric_limits<unsigned short>::max());
 			return false;
 		}
@@ -123,9 +134,9 @@ bool CloudServerHelper::ParseCommandLineParameters(int argc, char **argv)
 
 bool CloudServerHelper_DynDns::ParseCommandLineParameters(int argc, char **argv)
 {
-	const unsigned short DEFAULT_SERVER_PORT=60000;
-	const unsigned short DEFAULT_ALLOWED_INCOMING_CONNECTIONS=1024;
-	const unsigned short DEFAULT_ALLOWED_OUTGOING_CONNECTIONS=64;
+	const unsigned short DEFAULT_SERVER_PORT = 60000;
+	const unsigned short DEFAULT_ALLOWED_INCOMING_CONNECTIONS = 1024;
+	const unsigned short DEFAULT_ALLOWED_OUTGOING_CONNECTIONS = 64;
 #ifdef _DEBUG
 	char *DEFAULT_DNS_HOST = "test.dnsalias.net";
 	char *DEFAULT_USERNAME_AND_PASSWORD = "test:test";
@@ -134,49 +145,64 @@ bool CloudServerHelper_DynDns::ParseCommandLineParameters(int argc, char **argv)
 
 #ifndef _DEBUG
 	// Only allow insecure defaults for debugging
-	if (argc<4)
+	if (argc < 4)
 	{
 		PrintHelp();
 		return false;
 	}
-	dnsHost=argv[1];
-	dynDNSUsernameAndPassword=argv[2];
-	serverToServerPassword=argv[3];
+	dnsHost = argv[1];
+	dynDNSUsernameAndPassword = argv[2];
+	serverToServerPassword = argv[3];
 #else
-	if (argc<2) dnsHost=DEFAULT_DNS_HOST;
-	else dnsHost=argv[1];
+	if (argc < 2)
+		dnsHost = DEFAULT_DNS_HOST;
+	else
+		dnsHost = argv[1];
 
-	if (argc<3) dynDNSUsernameAndPassword=DEFAULT_USERNAME_AND_PASSWORD;
-	else dynDNSUsernameAndPassword=argv[2];
+	if (argc < 3)
+		dynDNSUsernameAndPassword = DEFAULT_USERNAME_AND_PASSWORD;
+	else
+		dynDNSUsernameAndPassword = argv[2];
 
-	if (argc<4) serverToServerPassword=DEFAULT_SERVER_TO_SERVER_PASSWORD;
-	else serverToServerPassword=argv[3];
+	if (argc < 4)
+		serverToServerPassword = DEFAULT_SERVER_TO_SERVER_PASSWORD;
+	else
+		serverToServerPassword = argv[3];
 #endif
 
-	if (argc<5) rakPeerPort=DEFAULT_SERVER_PORT;
-	else {
+	if (argc < 5)
+		rakPeerPort = DEFAULT_SERVER_PORT;
+	else
+	{
 		const int intPeerPort = atoi(argv[4]);
-		if ((intPeerPort < 0) || (intPeerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intPeerPort < 0) || (intPeerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified peer port %d is outside valid bounds [0, %u]", intPeerPort, std::numeric_limits<unsigned short>::max());
 			return false;
 		}
 		rakPeerPort = static_cast<unsigned short>(rakPeerPort);
 	}
 
-	if (argc<6) allowedIncomingConnections=DEFAULT_ALLOWED_INCOMING_CONNECTIONS;
-	else {
+	if (argc < 6)
+		allowedIncomingConnections = DEFAULT_ALLOWED_INCOMING_CONNECTIONS;
+	else
+	{
 		const int intConnections = atoi(argv[5]);
-		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max())) {
+		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified allowed incoming connections %d is outside valid bounds [0, %u]", intConnections, std::numeric_limits<unsigned short>::max());
 			return false;
 		}
 		allowedIncomingConnections = static_cast<unsigned short>(intConnections);
 	}
 
-	if (argc<7) allowedOutgoingConnections=DEFAULT_ALLOWED_OUTGOING_CONNECTIONS;
-	else {
+	if (argc < 7)
+		allowedOutgoingConnections = DEFAULT_ALLOWED_OUTGOING_CONNECTIONS;
+	else
+	{
 		const int intConnections = atoi(argv[6]);
-		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max())) {
+		if ((intConnections < 0) || (intConnections > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified allowed outgoing connections %d is outside valid bounds [0, %u]", intConnections, std::numeric_limits<unsigned short>::max());
 			return false;
 		}
@@ -206,9 +232,9 @@ void CloudServerHelper::PrintHelp(void)
 
 bool CloudServerHelper::StartRakPeer(MafiaNet::RakPeerInterface *rakPeer)
 {
-	MafiaNet::SocketDescriptor sd(MafiaNet::CloudServerHelper::rakPeerPort,0);
-	MafiaNet::StartupResult sr = rakPeer->Startup(MafiaNet::CloudServerHelper::allowedIncomingConnections+ MafiaNet::CloudServerHelper::allowedOutgoingConnections,&sd,1);
-	if (sr!= MafiaNet::RAKNET_STARTED)
+	MafiaNet::SocketDescriptor sd(MafiaNet::CloudServerHelper::rakPeerPort, 0);
+	MafiaNet::StartupResult sr = rakPeer->Startup(MafiaNet::CloudServerHelper::allowedIncomingConnections + MafiaNet::CloudServerHelper::allowedOutgoingConnections, &sd, 1);
+	if (sr != MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup failed. Reason=%i\n", (int) sr);
 		return false;
@@ -223,17 +249,18 @@ Packet *CloudServerHelper::ConnectToRakPeer(const char *host, unsigned short por
 	printf("RakPeer: Connecting to %s\n", host);
 	ConnectionAttemptResult car;
 	car = rakPeer->Connect(host, port, 0, 0);
-	if (car!=CONNECTION_ATTEMPT_STARTED)
+	if (car != CONNECTION_ATTEMPT_STARTED)
 	{
 		printf("Connect() call failed\n");
-		if (car==CANNOT_RESOLVE_DOMAIN_NAME) printf("Cannot resolve domain name\n");
+		if (car == CANNOT_RESOLVE_DOMAIN_NAME)
+			printf("Cannot resolve domain name\n");
 		return 0;
 	}
 
 	Packet *packet;
-	for(;;)
+	for (;;)
 	{
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 			switch (packet->data[0])
 			{
@@ -250,20 +277,21 @@ Packet *CloudServerHelper::ConnectToRakPeer(const char *host, unsigned short por
 			case ID_IP_RECENTLY_CONNECTED:
 				printf("Remote system full. Retrying...");
 				car = rakPeer->Connect(host, port, 0, 0);
-				if (car!=CONNECTION_ATTEMPT_STARTED)
+				if (car != CONNECTION_ATTEMPT_STARTED)
 				{
 					printf("Connect() call failed\n");
-					if (car==CANNOT_RESOLVE_DOMAIN_NAME) printf("Cannot resolve domain name\n");
+					if (car == CANNOT_RESOLVE_DOMAIN_NAME)
+						printf("Cannot resolve domain name\n");
 					return 0;
 				}
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
-				if (packet->guid==rakPeer->GetMyGUID())
+				if (packet->guid == rakPeer->GetMyGUID())
 				{
 					// Just connected to myself! Host must be pointing to our own IP address.
-					rakPeer->CloseConnection(packet->guid,false);
+					rakPeer->CloseConnection(packet->guid, false);
 					RakSleep(30); // Let the thread clear out
-					packet->data[0]=ID_ALREADY_CONNECTED;
+					packet->data[0] = ID_ALREADY_CONNECTED;
 
 					return packet;
 				}
@@ -278,9 +306,9 @@ Packet *CloudServerHelper::ConnectToRakPeer(const char *host, unsigned short por
 bool CloudServerHelper_DynDns::SetHostDNSToThisSystemBlocking(void)
 {
 	dynDNS->UpdateHostIPAsynch(
-		dnsHost,
-		0,
-		dynDNSUsernameAndPassword);
+	    dnsHost,
+	    0,
+	    dynDNSUsernameAndPassword);
 
 	// Wait for the DNS update to complete
 	do
@@ -305,17 +333,17 @@ MessageID CloudServerHelper::AuthenticateRemoteServerBlocking(RakPeerInterface *
 
 	MessageID messageId;
 	Packet *packet;
-	for(;;)
+	for (;;)
 	{
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 			switch (packet->data[0])
 			{
 			case ID_CONNECTION_LOST:
 			case ID_DISCONNECTION_NOTIFICATION:
-				if (packet->guid==remoteSystem)
+				if (packet->guid == remoteSystem)
 				{
-					messageId=packet->data[0];
+					messageId = packet->data[0];
 					rakPeer->DeallocatePacket(packet);
 					return messageId;
 				}
@@ -323,30 +351,29 @@ MessageID CloudServerHelper::AuthenticateRemoteServerBlocking(RakPeerInterface *
 			case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS:
 			case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT:
 			case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE:
-				{
-					messageId=packet->data[0];
-					rakPeer->DeallocatePacket(packet);
-					return messageId;
-				}
-				break;
+			{
+				messageId = packet->data[0];
+				rakPeer->DeallocatePacket(packet);
+				return messageId;
 			}
-		}			
+			break;
+			}
+		}
 
 		RakSleep(30);
 	}
 }
 void CloudServerHelper::SetupPlugins(
-	MafiaNet::CloudServer *cloudServer,
-	MafiaNet::CloudServerHelperFilter *sampleFilter,
-	MafiaNet::CloudClient *cloudClient,
-	MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-	MafiaNet::TwoWayAuthentication *twoWayAuthentication,
-	MafiaNet::ConnectionGraph2 *connectionGraph2,
-	const char *newServerToServerPassword
-	)
+    MafiaNet::CloudServer *cloudServer,
+    MafiaNet::CloudServerHelperFilter *sampleFilter,
+    MafiaNet::CloudClient *cloudClient,
+    MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+    MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+    MafiaNet::ConnectionGraph2 *connectionGraph2,
+    const char *newServerToServerPassword)
 {
 	// unused parameters
-	(void)cloudClient;
+	(void) cloudClient;
 
 	cloudServer->AddQueryFilter(sampleFilter);
 	// Connect to all systems told about via ConnectionGraph2::AddParticpant(). We are only told about servers that have already been authenticated
@@ -373,18 +400,18 @@ void CloudServerHelper::OnPacket(Packet *packet, RakPeerInterface *rakPeer, Clou
 		MafiaNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
 		break;
 	case ID_CONNECTION_LOST:
-	//	printf("ID_CONNECTION_LOST (UDP) from %s\n", packet->systemAddress.ToString(true));
+		//	printf("ID_CONNECTION_LOST (UDP) from %s\n", packet->systemAddress.ToString(true));
 		MafiaNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
 		break;
 	case ID_DISCONNECTION_NOTIFICATION:
-	//	printf("ID_DISCONNECTION_NOTIFICATION (UDP) from %s\n", packet->systemAddress.ToString(true));
+		//	printf("ID_DISCONNECTION_NOTIFICATION (UDP) from %s\n", packet->systemAddress.ToString(true));
 		MafiaNet::CloudServerHelper::OnConnectionCountChange(rakPeer, cloudClient);
 		break;
 	case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS:
 		printf("New server connected to us from %s\n", packet->systemAddress.ToString(true));
 		// Fallthrough
 	case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS:
-		if (packet->data[0]==ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS)
+		if (packet->data[0] == ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS)
 			printf("We connected to server %s\n", packet->systemAddress.ToString(true));
 		cloudServer->AddServer(packet->guid);
 		fullyConnectedMesh2->AddParticipant(packet->guid);
@@ -393,7 +420,7 @@ void CloudServerHelper::OnPacket(Packet *packet, RakPeerInterface *rakPeer, Clou
 	case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE:
 	case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE:
 	case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT:
-		rakPeer->CloseConnection(packet->guid,false);
+		rakPeer->CloseConnection(packet->guid, false);
 		break;
 	}
 }
@@ -414,7 +441,7 @@ bool CloudServerHelper_DynDns::Update(void)
 		if (dynDNS->IsCompleted())
 		{
 			printf("%s.\n", dynDNS->GetCompletedDescription());
-			if (dynDNS->WasResultSuccessful()==false)
+			if (dynDNS->WasResultSuccessful() == false)
 				return false;
 			printf("Note: The DNS cache update takes about 60 seconds.\n");
 		}
@@ -424,73 +451,71 @@ bool CloudServerHelper_DynDns::Update(void)
 void CloudServerHelper::OnFCMNewHost(Packet *packet, RakPeerInterface *rakPeer)
 {
 	// unused parameters
-	(void)packet;
-	(void)rakPeer;
+	(void) packet;
+	(void) rakPeer;
 }
 void CloudServerHelper_DynDns::OnFCMNewHost(Packet *packet, RakPeerInterface *rakPeer)
 {
-	RakAssert(packet->data[0]==ID_FCM2_NEW_HOST);
+	RakAssert(packet->data[0] == ID_FCM2_NEW_HOST);
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	RakNetGUID oldHost;
 	bsIn.Read(oldHost);
 	RakNetGUID newHost = packet->guid;
-	if (newHost==rakPeer->GetMyGUID() && oldHost!=newHost)
+	if (newHost == rakPeer->GetMyGUID() && oldHost != newHost)
 	{
 		printf("Assuming host. Updating DNS\n");
 
 		// Change dynDNS to point to us
 		dynDNS->UpdateHostIPAsynch(
-			dnsHost,
-			0,
-			dynDNSUsernameAndPassword);
+		    dnsHost,
+		    0,
+		    dynDNSUsernameAndPassword);
 	}
 }
 void CloudServerHelper::OnConnectionCountChange(RakPeerInterface *rakPeer, CloudClient *cloudClient)
 {
 	MafiaNet::BitStream bs;
-	CloudKey cloudKey(CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY,0);
+	CloudKey cloudKey(CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY, 0);
 	unsigned short numberOfSystems;
 	rakPeer->GetConnectionList(0, &numberOfSystems);
 	bs.Write(numberOfSystems);
 	cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), rakPeer->GetMyGUID());
 }
 int CloudServerHelper_DynDns::OnJoinCloudResult(
-	Packet *packet,
-	MafiaNet::RakPeerInterface *rakPeer,
-	MafiaNet::CloudServer *cloudServer,
-	MafiaNet::CloudClient *cloudClient,
-	MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-	MafiaNet::TwoWayAuthentication *twoWayAuthentication,
-	MafiaNet::ConnectionGraph2 *connectionGraph2,
-	const char *rakPeerIpOrDomain,
-	char myPublicIP[32]
-	)
+    Packet *packet,
+    MafiaNet::RakPeerInterface *rakPeer,
+    MafiaNet::CloudServer *cloudServer,
+    MafiaNet::CloudClient *cloudClient,
+    MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+    MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+    MafiaNet::ConnectionGraph2 *connectionGraph2,
+    const char *rakPeerIpOrDomain,
+    char myPublicIP[32])
 {
-	if (packet->data[0]==ID_CONNECTION_ATTEMPT_FAILED)
+	if (packet->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
 	{
 		printf("Failed connection. Changing DNS to point to this system.\n");
 
-		if (SetHostDNSToThisSystemBlocking()==false)
+		if (SetHostDNSToThisSystemBlocking() == false)
 			return 1;
 
 		// dynDNS gets our public IP when it succeeds
-		strcpy_s( myPublicIP, 32, dynDNS->GetMyPublicIP());
+		strcpy_s(myPublicIP, 32, dynDNS->GetMyPublicIP());
 	}
 
 	return CloudServerHelper::OnJoinCloudResult(packet, rakPeer, cloudServer, cloudClient, fullyConnectedMesh2, twoWayAuthentication, connectionGraph2, rakPeerIpOrDomain, myPublicIP);
 }
 int CloudServerHelper::OnJoinCloudResult(
-							  Packet *packet,
-							  MafiaNet::RakPeerInterface *rakPeer,
-							  MafiaNet::CloudServer *cloudServer,
-							  MafiaNet::CloudClient *cloudClient,
-							  MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-							  MafiaNet::TwoWayAuthentication *twoWayAuthentication,
-							  MafiaNet::ConnectionGraph2 *connectionGraph2,
-							  const char *rakPeerIpOrDomain,
-							  char myPublicIP[32]
-							  )
+    Packet *packet,
+    MafiaNet::RakPeerInterface *rakPeer,
+    MafiaNet::CloudServer *cloudServer,
+    MafiaNet::CloudClient *cloudClient,
+    MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+    MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+    MafiaNet::ConnectionGraph2 *connectionGraph2,
+    const char *rakPeerIpOrDomain,
+    char myPublicIP[32])
 {
 
 	MafiaNet::MessageID result;
@@ -500,7 +525,7 @@ int CloudServerHelper::OnJoinCloudResult(
 	packetAddress = packet->systemAddress;
 	packetGuid = packet->guid;
 
-	if (result==ID_CONNECTION_REQUEST_ACCEPTED)
+	if (result == ID_CONNECTION_REQUEST_ACCEPTED)
 	{
 		printf("Connected to host %s.\n", rakPeerIpOrDomain);
 
@@ -510,33 +535,33 @@ int CloudServerHelper::OnJoinCloudResult(
 
 		// Log in to the remote server using two way authentication
 		result = MafiaNet::CloudServerHelper::AuthenticateRemoteServerBlocking(rakPeer, twoWayAuthentication, packetGuid);
-		if (result==ID_CONNECTION_LOST || result==ID_DISCONNECTION_NOTIFICATION)
+		if (result == ID_CONNECTION_LOST || result == ID_DISCONNECTION_NOTIFICATION)
 		{
 			printf("Connection lost while authenticating.\n");
 			printf("Waiting 60 seconds then restarting.\n");
 			RakSleep(60000);
 			return 2;
 		}
-		else if (result==ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT)
+		else if (result == ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT)
 		{
 			// Other system is not running plugin? Fail
 			printf("Remote server did not respond to challenge.\n");
 			return 1;
 		}
-		else if (result==ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE)
+		else if (result == ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE)
 		{
 			printf("Failed remote server challenge.\n");
 			return 1;
 		}
 
-		RakAssert(result==ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS);
+		RakAssert(result == ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS);
 
 		// Add this system as a server, and to FullyConnectedMesh2 as a participant
 		cloudServer->AddServer(packetGuid);
 		fullyConnectedMesh2->AddParticipant(packetGuid);
 		connectionGraph2->AddParticipant(packetAddress, packetGuid);
 	}
-	else if (result==ID_ALREADY_CONNECTED)
+	else if (result == ID_ALREADY_CONNECTED)
 	{
 		printf("Connected to self. DNS entry already points to this server.\n");
 
@@ -549,11 +574,10 @@ int CloudServerHelper::OnJoinCloudResult(
 		*/
 
 		// dnsHost is always public, so if I can connect through it that's my public IP
-		RakNetSocket2::DomainNameToIP( rakPeerIpOrDomain, myPublicIP );
+		RakNetSocket2::DomainNameToIP(rakPeerIpOrDomain, myPublicIP);
 	}
-	else if (result==ID_CONNECTION_ATTEMPT_FAILED)
+	else if (result == ID_CONNECTION_ATTEMPT_FAILED)
 	{
-		
 	}
 	else
 	{
@@ -588,28 +612,27 @@ int CloudServerHelper::OnJoinCloudResult(
 	forceAddress.FromStringExplicitPort(myPublicIP, MafiaNet::CloudServerHelper::rakPeerPort);
 	cloudServer->ForceExternalSystemAddress(forceAddress);
 
-	if (result==ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS)
+	if (result == ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS)
 	{
 		OnConnectionCountChange(rakPeer, cloudClient);
 	}
 	else
 	{
 		MafiaNet::BitStream bs;
-		CloudKey cloudKey(CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY,0);
+		CloudKey cloudKey(CLOUD_SERVER_CONNECTION_COUNT_PRIMARY_KEY, 0);
 		bs.WriteCasted<unsigned short>(0);
 		cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), rakPeer->GetMyGUID());
 	}
 	return 0;
 }
 int CloudServerHelper::JoinCloud(
-	MafiaNet::RakPeerInterface *rakPeer,
-	MafiaNet::CloudServer *cloudServer,
-	MafiaNet::CloudClient *cloudClient,
-	MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
-	MafiaNet::TwoWayAuthentication *twoWayAuthentication,
-	MafiaNet::ConnectionGraph2 *connectionGraph2,
-	const char *rakPeerIpOrDomain
-	)
+    MafiaNet::RakPeerInterface *rakPeer,
+    MafiaNet::CloudServer *cloudServer,
+    MafiaNet::CloudClient *cloudClient,
+    MafiaNet::FullyConnectedMesh2 *fullyConnectedMesh2,
+    MafiaNet::TwoWayAuthentication *twoWayAuthentication,
+    MafiaNet::ConnectionGraph2 *connectionGraph2,
+    const char *rakPeerIpOrDomain)
 {
 
 	Packet *packet;
@@ -621,9 +644,9 @@ int CloudServerHelper::JoinCloud(
 
 	// ---- CONNECT TO EXISTING SERVER ----
 	packet = MafiaNet::CloudServerHelper::ConnectToRakPeer(rakPeerIpOrDomain, MafiaNet::CloudServerHelper::rakPeerPort, rakPeer);
-	if (packet==0)
+	if (packet == 0)
 		return 1;
-	
+
 
 	int res = OnJoinCloudResult(packet, rakPeer, cloudServer, cloudClient, fullyConnectedMesh2, twoWayAuthentication, connectionGraph2, rakPeerIpOrDomain, myPublicIP);
 	rakPeer->DeallocatePacket(packet);

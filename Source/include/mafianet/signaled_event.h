@@ -17,18 +17,14 @@
 #define __SIGNALED_EVENT_H
 
 
-
-#if   defined(_WIN32)
+#if defined(_WIN32)
 #include "mafianet/windows_includes.h"
 
 
-
 #else
-	#include <pthread.h>
-	#include <sys/types.h>
-	#include "mafianet/simple_mutex.h"
-
-
+#include <pthread.h>
+#include <sys/types.h>
+#include "mafianet/simple_mutex.h"
 
 
 #endif
@@ -52,9 +48,6 @@ public:
 protected:
 #ifdef _WIN32
 	HANDLE eventList;
-
-
-
 
 
 #else
