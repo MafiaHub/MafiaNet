@@ -43,6 +43,9 @@ foreach(harness_source IN LISTS MAFIANET_FUZZ_HARNESSES)
         add_executable(${harness} "${harness_source}" ${MAFIANET_FUZZ_SUPPORT})
         target_include_directories(${harness} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../Support")
         target_link_libraries(${harness} PRIVATE MafiaNet::MafiaNetStatic)
+        # Must match the library: several classes the harnesses put on the
+        # stack carry _DEBUG-only members (see Tests/CMakeLists.txt).
+        target_compile_definitions(${harness} PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
         target_compile_options(${harness} PRIVATE -fsanitize=fuzzer)
         target_link_options(${harness} PRIVATE -fsanitize=fuzzer)
         set_target_properties(${harness} PROPERTIES FOLDER "Tests/Fuzz")

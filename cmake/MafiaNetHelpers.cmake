@@ -112,7 +112,9 @@ endfunction()
 function(mafianet_enable_warnings)
     foreach(target IN LISTS ARGN)
         if(MSVC)
-            target_compile_options(${target} PRIVATE /W4
+            # C4251: an exported class has std:: members (std::atomic) without a
+            # DLL interface. Expected for a C++ DLL used from the same toolset.
+            target_compile_options(${target} PRIVATE /W4 /wd4251
                 $<$<BOOL:${MAFIANET_WARNINGS_AS_ERRORS}>:/WX>)
         else()
             target_compile_options(${target} PRIVATE -Wall -Wextra

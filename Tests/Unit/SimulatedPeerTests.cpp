@@ -200,3 +200,23 @@ TEST(SimulatedPeer, SameSeedGivesTheSameTraffic)
 	EXPECT_EQ(sent[0], sent[1]);
 	EXPECT_EQ(dropped[0], dropped[1]);
 }
+
+TEST(SimulatedPeer, InternalOnlyMessageIdFromARemoteIsDroppedAndTheQueueContinues)
+{
+	// ID_CONNECTION_ATTEMPT_FAILED is generated locally only. A connected peer
+	// sending it used to trip a RakAssert (Debug), leak the message and stop
+	// the receive loop for that update (found by the peer_datagram fuzzer).
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(1, 1);
+	RakPeer *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+
+	BitStream forged;
+	forged.Write((MessageID) ID_CONNECTION_ATTEMPT_FAILED);
+	ASSERT_NE(0u, client->Send(&forged, Priority::High, Reliability::ReliableOrdered, 0, net.AddressOf(server), false));
+	SendNumbered(client, net.AddressOf(server), 7, 4);
+
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_TEST_PAYLOAD, 2000));
+	EXPECT_FALSE(net.Received(server, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_EQ(IS_CONNECTED, server->GetConnectionState(net.AddressOf(client)));
+}

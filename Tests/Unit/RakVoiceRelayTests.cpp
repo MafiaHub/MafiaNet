@@ -129,7 +129,7 @@ TEST(RakVoiceRelayOrigin, RejectsEmptyPacket) {
 // The version byte is the forward-compatibility escape hatch: a future format
 // must be rejected by today's build rather than misparsed as version 1.
 TEST(RakVoiceRelayOrigin, RejectsUnknownFormatVersion) {
-    for (unsigned char v : {0, 2, 7, 255}) {
+    for (unsigned char v : {(unsigned char)0, (unsigned char)2, (unsigned char)7, (unsigned char)255}) {
         auto bytes = MakeRelayFrame(0xAABBCCDDEEFF0011ull, 8, v);
         Packet p = MakePacket(bytes);
         EXPECT_EQ(RakVoice::ReadRelayOrigin(&p), UNASSIGNED_RAKNET_GUID) << "version=" << int(v);

@@ -104,7 +104,7 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 
 	for (int i = 0; i < 5; i++)
 	{
-		dataList[i][0] = ID_USER_PACKET_ENUM + 1 + i;
+		dataList[i][0] = (char)(unsigned char)(ID_USER_PACKET_ENUM + 1 + i);
 		lengths[i] = 5;
 	}
 

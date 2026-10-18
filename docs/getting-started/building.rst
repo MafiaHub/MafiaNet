@@ -239,6 +239,8 @@ preset builds into ``build/<preset>``:
      - RelWithDebInfo and tests under AddressSanitizer + UBSan, or ThreadSanitizer. Not available on Windows.
    * - ``fuzz``
      - Clang, RelWithDebInfo, the libFuzzer harnesses under ASan + UBSan.
+   * - ``fuzz-debug``
+     - The same in Debug, so ``RakAssert`` is live: an assert reachable from network input is reported as a crash.
    * - ``bench``
      - Release, the microbenchmarks.
    * - ``coverage``

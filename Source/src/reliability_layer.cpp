@@ -1051,8 +1051,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 						}
 					} else { // holeCount>=receivedPackets.Size()
 						if (holeCount > (DatagramSequenceNumberType)1000000) {
-							RakAssert("Hole count too high. See reliability_layer.h" && 0);
-
+							// A peer jumped its message numbering far ahead: drop the
+							// packet. No RakAssert -- the remote chooses this value.
 							for (unsigned int messageHandlerIndex = 0; messageHandlerIndex < messageHandlerList.Size(); messageHandlerIndex++) {
 								messageHandlerList[messageHandlerIndex]->OnReliabilityLayerNotification("holeCount > 1000000", BYTES_TO_BITS(length), systemAddress, true);
 							}
@@ -1172,10 +1172,10 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 						internalPacket->orderingChannel = 255; // Use 255 to designate not sequenced and not ordered
 
 					// Insert may free the fragment (duplicate or malformed): read its id first.
-					const SplitPacketIdType splitPacketId = internalPacket->splitPacketId;
+					const SplitPacketIdType fragmentMessageId = internalPacket->splitPacketId;
 					InsertIntoSplitPacketList( internalPacket, timeRead );
 
-					internalPacket = BuildPacketFromSplitPacketList( splitPacketId, timeRead,
+					internalPacket = BuildPacketFromSplitPacketList( fragmentMessageId, timeRead,
 						s, systemAddress, rnr, extraSocketOptions);
 
 					if ( internalPacket == 0 )
@@ -1269,10 +1269,10 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 						internalPacket->orderingChannel = 255; // Use 255 to designate not sequenced and not ordered
 
 					// Insert may free the fragment (duplicate or malformed): read its id first.
-					const SplitPacketIdType splitPacketId = internalPacket->splitPacketId;
+					const SplitPacketIdType fragmentMessageId = internalPacket->splitPacketId;
 					InsertIntoSplitPacketList( internalPacket, timeRead );
 
-					internalPacket = BuildPacketFromSplitPacketList( splitPacketId, timeRead,
+					internalPacket = BuildPacketFromSplitPacketList( fragmentMessageId, timeRead,
 						s, systemAddress, rnr, updateBitStream);
 
 					if ( internalPacket == 0 )
@@ -2898,9 +2898,8 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream(MafiaNet::Bi
 
 	if ( bitStreamSucceeded == false )
 	{
-		// If this hits, most likely the variable buff is too small in RunUpdateCycle in peer.cpp
-		RakAssert("Couldn't read all the data"  && 0);
-
+		// The packet claims more data than the datagram carries: malformed or
+		// hostile input, so drop it rather than RakAssert.
 		FreeInternalPacketData(internalPacket, _FILE_AND_LINE_ );
 		ReleaseToInternalPacketPool( internalPacket );
 		return 0;

@@ -6485,11 +6485,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 
 			while ( bitSize > 0 )
 			{
-				// These types are for internal use and should never arrive from a network packet
+				// These types are for internal use and should never arrive from a network packet.
+				// A remote that sends one anyway gets it dropped: freed, and the rest of the
+				// queue still processed (this used to leak it and stall the queue, and to
+				// RakAssert in Debug).
 				if (data[0]==ID_CONNECTION_ATTEMPT_FAILED)
 				{
-					RakAssert(0);
-					bitSize=0;
+					rakFree_Ex(data, _FILE_AND_LINE_ );
+					bitSize = remoteSystem->reliabilityLayer.Receive( &data );
 					continue;
 				}
 
@@ -6555,7 +6558,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							// arrives in ID_SESSION_CONFIG_REQUEST and we answer it.
 							remoteSystem->connectMode=RemoteSystemStruct::EXCHANGING_SESSION_DATA;
 							remoteSystem->sessionConfigIsConnectingSide=false;
-							remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
+							remoteSystem->sessionConfigStartTime=timeMS!=0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 							PingInternal( systemAddress, true, MafiaNet::Reliability::Unreliable );
 
 							// Update again immediately after this tick so the ping goes out right away
@@ -6593,7 +6596,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 							// Hold this until the session handshake completes; the bytes are copied because `data`
 							// is freed as soon as this branch returns.
 							ClearSessionConfig(remoteSystem);
-							remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
+							remoteSystem->sessionConfigStartTime=timeMS!=0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 							remoteSystem->withheldConnectionPacketData = (unsigned char*) rakMalloc_Ex(byteSize, _FILE_AND_LINE_);
 							if (remoteSystem->withheldConnectionPacketData!=0)
 							{
@@ -6741,7 +6744,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 						// connecting side like the other replies, so a client cannot push one at a server.
 						if (remoteSystem->connectMode==RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
 						{
-							remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
+							remoteSystem->sessionConfigStartTime=timeMS!=0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 							packet=AllocPacket(byteSize, data, _FILE_AND_LINE_);
 							packet->bitSize = bitSize;
 							packet->systemAddress = systemAddress;
@@ -6848,7 +6851,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 								// Transport is up, but the application is not told so until the session payloads have been
 								// exchanged. ID_CONNECTION_REQUEST_ACCEPTED is stashed and replayed from ID_SESSION_CONFIG.
 								remoteSystem->connectMode=RemoteSystemStruct::EXCHANGING_SESSION_DATA;
-								remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
+								remoteSystem->sessionConfigStartTime=timeMS!=0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 
 								// Bug: If A connects to B through R, A's firstExternalID is set to R. If A tries to send to R, sends to loopback because R==firstExternalID
 								// Correct fix is to specify in Connect() if target is through a proxy.
@@ -6863,7 +6866,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream )
 								// copied because `data` is freed as soon as this branch returns.
 								ClearSessionConfig(remoteSystem);
 								remoteSystem->sessionConfigIsConnectingSide=true;
-								remoteSystem->sessionConfigStartTime=timeMS!=0 ? timeMS : MafiaNet::GetTimeMS();
+								remoteSystem->sessionConfigStartTime=timeMS!=0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 								remoteSystem->withheldConnectionPacketData = (unsigned char*) rakMalloc_Ex(byteSize, _FILE_AND_LINE_);
 								if (remoteSystem->withheldConnectionPacketData!=0)
 								{
