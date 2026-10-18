@@ -139,17 +139,12 @@ public:
 	/// If true, then you cannot call RakPeer::AttachPlugin() or RakPeer::DetachPlugin() for this plugin, while RakPeer is active
 	virtual bool UsesReliabilityLayer(void) const {return false;}
 
-	/// Queried when attached to RakPeer
-	/// Return true to have OnReceiveNetworkThread() called. Queried once, at AttachPlugin().
-	virtual bool UsesNetworkThreadReceive(void) const {return false;}
-
 	/// Called on RakPeer's network update thread for each message from a connected system, before
 	/// it is queued for RakPeer::Receive(). Use it for traffic that must not wait for the
 	/// application to call Receive(), such as voice. Connection notifications are not routed here.
 	/// Runs concurrently with the user thread, so anything the plugin shares with its other
 	/// callbacks must be synchronized. RakPeer::Send() is safe to call from here; AttachPlugin() and
 	/// DetachPlugin() are not (they wait for this call to return). ID_TIMESTAMP payloads arrive unshifted.
-	/// \pre To be called, UsesNetworkThreadReceive() must return true
 	/// \param[in] packet The message. RR_STOP_PROCESSING_AND_DEALLOCATE frees it, RR_STOP_PROCESSING
 	///            hands it to the plugin (free it with RakPeer::DeallocatePacket), and
 	///            RR_CONTINUE_PROCESSING queues it for Receive() as usual.

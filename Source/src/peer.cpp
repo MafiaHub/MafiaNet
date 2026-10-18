@@ -2930,13 +2930,10 @@ void RakPeer::AttachPlugin( PluginInterface2 *plugin )
 		}
 	}
 
-	if (plugin->UsesNetworkThreadReceive())
-	{
-		pluginListNetworkThreadMutex.Lock();
-		if (pluginListNetworkThread.GetIndexOf(plugin)==MAX_UNSIGNED_LONG)
-			pluginListNetworkThread.Insert(plugin, _FILE_AND_LINE_);
-		pluginListNetworkThreadMutex.Unlock();
-	}
+	pluginListNetworkThreadMutex.Lock();
+	if (pluginListNetworkThread.GetIndexOf(plugin)==MAX_UNSIGNED_LONG)
+		pluginListNetworkThread.Insert(plugin, _FILE_AND_LINE_);
+	pluginListNetworkThreadMutex.Unlock();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

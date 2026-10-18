@@ -310,22 +310,16 @@ public:
 	/// \return false, leaving both unchanged, if either value is outside 0..NUMBER_OF_ORDERED_STREAMS-1.
 	bool SetOrderingChannels(char frameChannel, char controlChannel);
 
-	/// \brief Marks this peer as the relay host (the server).
-	/// A relay host never decodes: incoming ID_RAKVOICE_RELAY_DATA packets are passed
-	/// through to the application loop so they can be handed back to RelayFrame().
-	/// Distinct from SetRelayMode(), which is what a talking/listening client enables.
-	void SetRelayHost(bool enable);
-
-	/// rief Relays frames on RakPeer's network thread instead of the application loop.
-	/// With a handler set, a relay host hands each incoming ID_RAKVOICE_RELAY_DATA packet to
-	///  handler on the network update thread and frees it afterwards, so the frame never
-	/// reaches Receive() and is forwarded even while the application's main thread is busy.
-	/// The handler typically picks recipients and calls RelayFrame(), which is safe there; it must
+	/// \brief Makes this peer the relay host (the server), relaying with \a relay.
+	/// A relay host never decodes. Each incoming ID_RAKVOICE_RELAY_DATA packet is handed to
+	/// \a relay on RakPeer's network update thread and freed afterwards, so frames are forwarded
+	/// even while the application's main thread is busy, and never reach Receive().
+	/// \a relay typically picks recipients and calls RelayFrame(), which is safe there; it must
 	/// not keep the packet, and whatever it reads must be safe to read from that thread.
-	/// Pass nullptr to go back to passing frames through to Receive(). Once this returns, the
-	/// previous handler is not running and will not be called again, so do not call this from
-	/// inside the handler. Ignored unless relay host.
-	void SetRelayFrameHandler(std::function<void(Packet *packet)> handler);
+	/// Pass nullptr to stop being a relay host. Once this returns, the previous \a relay is not
+	/// running and will not be called again, so do not call this from inside it.
+	/// Distinct from SetRelayMode(), which is what a talking/listening client enables.
+	void SetRelayHost(std::function<void(Packet *packet)> relay);
 
 	/// \brief Forwards a received relay frame to a set of recipients without decoding it.
 	/// Costs one Send per recipient; no codec state is touched.
@@ -367,7 +361,6 @@ public:
 	virtual void OnShutdown(void);
 	virtual void Update(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
-	virtual bool UsesNetworkThreadReceive(void) const { return true; }
 	virtual PluginReceiveResult OnReceiveNetworkThread(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
 
@@ -422,7 +415,7 @@ protected:
 	int defaultSignalType;
 	bool loopbackMode;
 	bool relayMode;
-	// Read on the network thread by OnReceiveNetworkThread.
+	// Set together with relayFrameHandler; read on the network thread by OnReceiveNetworkThread.
 	std::atomic<bool> relayHost;
 	std::function<void(Packet *packet)> relayFrameHandler;
 	MafiaNet::SimpleMutex relayFrameHandlerMutex;

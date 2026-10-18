@@ -994,8 +994,8 @@ protected:
 	DataStructures::List<BanStruct*> banList;
 	// Threadsafe, and not thread safe
 	DataStructures::List<PluginInterface2*> pluginListTS, pluginListNTS;
-	// Plugins that opted into OnReceiveNetworkThread. Also in one of the lists above. The mutex
-	// lets AttachPlugin/DetachPlugin run while the update thread is dispatching.
+	// Every attached plugin again, for OnReceiveNetworkThread. The mutex lets AttachPlugin and
+	// DetachPlugin run while the update thread is dispatching.
 	DataStructures::List<PluginInterface2*> pluginListNetworkThread;
 	SimpleMutex pluginListNetworkThreadMutex;
 

@@ -4,7 +4,7 @@
  *  This source code is licensed under the MIT-style license found in the
  *  license.txt file in the root directory of this source tree.
  *
- *  PluginInterface2::OnReceiveNetworkThread: a plugin that opts in sees every
+ *  PluginInterface2::OnReceiveNetworkThread: every attached plugin sees each
  *  message from a connected system inside the update cycle, before it is queued
  *  for RakPeer::Receive(). These run on the SimulatedNetwork with the server's
  *  Receive() switched off, which is what a stalled application main thread looks
@@ -35,10 +35,6 @@ namespace
 	class NetworkThreadProbe : public PluginInterface2
 	{
 	public:
-		explicit NetworkThreadProbe(bool optIn = true) : optIn(optIn) {}
-
-		bool UsesNetworkThreadReceive(void) const override { return optIn; }
-
 		PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
 		{
 			networkThreadIds.push_back(packet->data[0]);
@@ -78,9 +74,21 @@ namespace
 			return n;
 		}
 
-		bool optIn;
 		std::vector<MessageID> networkThreadIds;
 		std::vector<MessageID> userThreadIds;
+	};
+
+	// Overrides only OnReceive, like every plugin written before the hook existed.
+	class ReceiveOnlyPlugin : public PluginInterface2
+	{
+	public:
+		PluginReceiveResult OnReceive(Packet *packet) override
+		{
+			ids.push_back(packet->data[0]);
+			return RR_CONTINUE_PROCESSING;
+		}
+
+		std::vector<MessageID> ids;
 	};
 
 	void SendId(RakPeer *from, const SystemAddress &to, MessageID id)
@@ -180,18 +188,20 @@ TEST(NetworkThreadReceive, PluginCanReplyFromTheHookWhileReceiveIsStalled)
 	p.server->DetachPlugin(&probe);
 }
 
-TEST(NetworkThreadReceive, PluginThatDoesNotOptInIsNeverCalledOnTheNetworkThread)
+TEST(NetworkThreadReceive, PluginWithoutTheHookStillGetsMessagesOnReceive)
 {
 	Pair p;
-	NetworkThreadProbe probe(false);
-	p.server->AttachPlugin(&probe);
+	ReceiveOnlyPlugin plugin;
+	p.server->AttachPlugin(&plugin);
 	ASSERT_TRUE(p.Start());
 
 	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
 	ASSERT_TRUE(p.net.RunUntilReceived(p.server, ID_NT_CONSUMED, 2000));
-	EXPECT_EQ(0u, probe.NetworkThreadCount(ID_NT_CONSUMED));
-	EXPECT_EQ(1u, probe.UserThreadCount(ID_NT_CONSUMED));
-	p.server->DetachPlugin(&probe);
+	size_t seen = 0;
+	for (MessageID id : plugin.ids)
+		seen += id == ID_NT_CONSUMED ? 1 : 0;
+	EXPECT_EQ(1u, seen);
+	p.server->DetachPlugin(&plugin);
 }
 
 TEST(NetworkThreadReceive, DetachedPluginIsNoLongerCalled)

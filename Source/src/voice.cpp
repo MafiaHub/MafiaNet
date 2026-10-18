@@ -158,17 +158,13 @@ void RakVoice::SetRelayTarget(RakNetGUID server)
 	relayTarget = server;
 }
 
-void RakVoice::SetRelayHost(bool enable)
+void RakVoice::SetRelayHost(std::function<void(Packet *packet)> relay)
 {
-	relayHost = enable;
-}
-
-void RakVoice::SetRelayFrameHandler(std::function<void(Packet *packet)> handler)
-{
-	// Swapped under the lock OnReceiveNetworkThread calls it under, so a handler being cleared is
+	// Swapped under the lock OnReceiveNetworkThread calls it under, so a relay being replaced is
 	// never mid-call when this returns.
 	relayFrameHandlerMutex.Lock();
-	relayFrameHandler = std::move(handler);
+	relayHost = static_cast<bool>(relay);
+	relayFrameHandler = std::move(relay);
 	relayFrameHandlerMutex.Unlock();
 }
 
@@ -750,12 +746,10 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 		OnVoiceData(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_RAKVOICE_RELAY_DATA:
-		// A relay host never decodes. Plugin OnReceive runs inside RakPeer::Receive, before
-		// the packet reaches the application loop, so swallowing it here would leave the
-		// server with nothing to hand to RelayFrame(). Pass it through instead. With a relay
-		// frame handler set, OnReceiveNetworkThread has already taken it and it never gets here.
+		// A relay host never decodes. OnReceiveNetworkThread relays these before they are
+		// queued; one only gets here if it was queued just before SetRelayHost() took effect.
 		if (relayHost)
-			return RR_CONTINUE_PROCESSING;
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		OnRelayVoiceData(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
@@ -769,6 +763,7 @@ PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
 		return RR_CONTINUE_PROCESSING;
 
 	relayFrameHandlerMutex.Lock();
+	// Re-checked under the lock: SetRelayHost(nullptr) may have run since the test above.
 	if (!relayFrameHandler)
 	{
 		relayFrameHandlerMutex.Unlock();

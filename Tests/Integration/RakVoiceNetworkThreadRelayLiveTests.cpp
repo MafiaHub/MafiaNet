@@ -5,7 +5,7 @@
  *  license.txt file in the root directory of this source tree.
  */
 
-// A relay host with RakVoice::SetRelayFrameHandler forwards voice on RakPeer's own
+// A RakVoice relay host forwards voice on RakPeer's own
 // update thread. The server here never calls Receive() at all -- the shape of an
 // application whose main thread is stalled -- and the listener must still hear the
 // talker. The unit suite proves the routing on the simulated network; this proves it
@@ -62,8 +62,7 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 
 	std::atomic<uint64_t> listenerGuid {UNASSIGNED_RAKNET_GUID.g};
 	std::atomic<int> handled {0};
-	voice.SetRelayHost(true);
-	voice.SetRelayFrameHandler([&](Packet *packet) {
+	voice.SetRelayHost([&](Packet *packet) {
 		RakNetGUID to;
 		to.g = listenerGuid.load();
 		voice.RelayFrame(packet, &to, 1);
@@ -119,7 +118,7 @@ TEST_F(RakVoiceNetworkThreadRelayLive, RelaysWhileTheServerNeverCallsReceive)
 	EXPECT_TRUE(heard) << "listener never heard a frame relayed on the server's network thread";
 	EXPECT_GT(handled.load(), 0);
 
-	// Stop the handler before the voice it captures can go away.
-	voice.SetRelayFrameHandler(nullptr);
+	// Stop relaying before the locals the relay captures can go away.
+	voice.SetRelayHost(nullptr);
 	server->DetachPlugin(&voice);
 }
