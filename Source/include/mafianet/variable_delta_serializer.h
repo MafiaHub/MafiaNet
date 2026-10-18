@@ -105,7 +105,7 @@ public:
 	/// Advantages: After the first serialization, the last serialized bitStream will be used for subsequent sends
 	/// \pre Call OnPreSerializeTick() before doing any calls to BeginIdenticalSerialize() for each of your objects, once per game tick
 	/// \param[in] context Holds the context of this group of serialize calls. This can be a stack object just passed to the function.
-	/// \param[in] _isFirstSerializeToThisSystem Pass true if this is the first time ever serializing to this system (the initial download). This way all variables will be written, rather than checking against prior sent values. 
+	/// \param[in] _isFirstSerializeToThisSystem Pass true if this is the first time ever serializing to this system (the initial download). This way all variables will be written, rather than checking against prior sent values.
 	/// \param[in] _bitSteam Which bitStream to write to
 	void BeginIdenticalSerialize(SerializationContext *context, bool _isFirstSerializeToThisSystem, BitStream *_bitStream);
 
@@ -138,7 +138,7 @@ public:
 
 	/// Call when getting ID_SND_RECEIPT_LOSS or ID_SND_RECEIPT_ACKED for a particular system
 	/// Example:
-	/// 
+	///
 	/// uint32_t msgNumber;
 	/// memcpy(&msgNumber, packet->data+1, 4);
 	/// DataStructures::List<Replica3*> replicaListOut;
@@ -148,7 +148,7 @@ public:
 	/// {
 	/// 	((SampleReplica*)replicaListOut[idx])->NotifyReplicaOfMessageDeliveryStatus(packet->guid,msgNumber, packet->data[0]==ID_SND_RECEIPT_ACKED);
 	/// }
-	/// 
+	///
 	/// \param[in] guid Which system we are sending to
 	/// \param[in] receiptId Encoded in bytes 1-4 inclusive of ID_SND_RECEIPT_LOSS and ID_SND_RECEIPT_ACKED
 	/// \param[in] messageArrived True for ID_SND_RECEIPT_ACKED, false otherwise
@@ -166,40 +166,40 @@ public:
 	{
 		if (context->newSystemSend)
 		{
-			if (context->variableHistory->variableListDeltaTracker.IsPastEndOfList()==false)
+			if (context->variableHistory->variableListDeltaTracker.IsPastEndOfList() == false)
 			{
 				// previously sent data to another system
 				context->bitStream->Write(true);
 				context->bitStream->Write(variable);
-				context->anyVariablesWritten=true;
+				context->anyVariablesWritten = true;
 			}
 			else
 			{
 				// never sent data to another system
 				context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream);
-				context->anyVariablesWritten=true;
+				context->anyVariablesWritten = true;
 			}
 		}
-		else if (context->serializationMode==MafiaNet::Reliability::UnreliableWithAckReceipt)
+		else if (context->serializationMode == MafiaNet::Reliability::UnreliableWithAckReceipt)
 		{
-			context->anyVariablesWritten|=
-			context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream, context->changedVariables->bitField, context->changedVariables->bitWriteIndex++);
+			context->anyVariablesWritten |=
+			    context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream, context->changedVariables->bitField, context->changedVariables->bitWriteIndex++);
 		}
 		else
 		{
 			if (context->variableHistoryIdentical)
 			{
 				// Identical serialization to a number of systems
-				if (didComparisonThisTick==false)
-					context->anyVariablesWritten|=
-					context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream);
+				if (didComparisonThisTick == false)
+					context->anyVariablesWritten |=
+					    context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream);
 				// Else bitstream is written to at the end
 			}
 			else
 			{
 				// Per-system serialization
-				context->anyVariablesWritten|=
-					context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream);
+				context->anyVariablesWritten |=
+				    context->variableHistory->variableListDeltaTracker.WriteVarToBitstream(variable, context->bitStream);
 			}
 		}
 	}
@@ -216,9 +216,7 @@ public:
 	}
 
 
-
 protected:
-
 	// For a given send receipt from RakPeer::Send() track which variables we updated
 	// That way if that send does not arrive (ID_SND_RECEIPT_LOSS) we can mark those variables as dirty to resend them with current values
 	struct ChangedVariablesList
@@ -230,7 +228,7 @@ protected:
 
 	// static int Replica2ObjectComp( const uint32_t &key, ChangedVariablesList* const &data );
 
-	static int UpdatedVariablesListPtrComp( const uint32_t &key, ChangedVariablesList* const &data );
+	static int UpdatedVariablesListPtrComp(const uint32_t &key, ChangedVariablesList *const &data);
 
 	// For each remote system, track the last values of variables we sent to them, and the history of what values changed per call to Send()
 	// Every serialize if a variable changes from its last value, send it out again
@@ -239,11 +237,11 @@ protected:
 	{
 		RakNetGUID guid;
 		VariableListDeltaTracker variableListDeltaTracker;
-		DataStructures::OrderedList<uint32_t,ChangedVariablesList*,VariableDeltaSerializer::UpdatedVariablesListPtrComp> updatedVariablesHistory;
+		DataStructures::OrderedList<uint32_t, ChangedVariablesList *, VariableDeltaSerializer::UpdatedVariablesListPtrComp> updatedVariablesHistory;
 	};
 	/// A list of RemoteSystemVariableHistory indexed by guid, one per connection that we serialize to
 	/// List is added to when SerializeConstruction is called, and removed from when SerializeDestruction is called, or when a given connection is dropped
-	DataStructures::List<RemoteSystemVariableHistory*> remoteSystemVariableHistoryList;
+	DataStructures::List<RemoteSystemVariableHistory *> remoteSystemVariableHistoryList;
 
 	// Because the ChangedVariablesList is created every serialize and destroyed every receipt I use a pool to avoid fragmentation
 	DataStructures::MemoryPool<ChangedVariablesList> updatedVariablesMemoryPool;
@@ -256,7 +254,7 @@ protected:
 	unsigned int GetVarsWrittenPerRemoteSystemListIndex(RakNetGUID guid);
 	void RemoveRemoteSystemVariableHistory(void);
 
-	RemoteSystemVariableHistory* GetRemoteSystemVariableHistory(RakNetGUID guid);
+	RemoteSystemVariableHistory *GetRemoteSystemVariableHistory(RakNetGUID guid);
 
 	ChangedVariablesList *AllocChangedVariablesList(void);
 	void FreeChangedVariablesList(ChangedVariablesList *changedVariables);
@@ -264,7 +262,6 @@ protected:
 
 	RemoteSystemVariableHistory *StartVariableHistoryWrite(RakNetGUID guid);
 	unsigned int GetRemoteSystemHistoryListIndex(RakNetGUID guid);
-
 };
 
 }

@@ -17,28 +17,28 @@ using namespace MafiaNet;
 
 namespace
 {
-	// RAII holder so a failed ASSERT_ still destroys the peer.
-	class PeerFixture : public ::testing::Test
+// RAII holder so a failed ASSERT_ still destroys the peer.
+class PeerFixture : public ::testing::Test
+{
+public:
+	void SetUp() override
 	{
-	public:
-		void SetUp() override
-		{
-			peer = RakPeerInterface::GetInstance();
-			ASSERT_NE(peer, nullptr);
-		}
+		peer = RakPeerInterface::GetInstance();
+		ASSERT_NE(peer, nullptr);
+	}
 
-		void TearDown() override
+	void TearDown() override
+	{
+		if (peer)
 		{
-			if (peer)
-			{
-				peer->Shutdown(100);
-				RakPeerInterface::DestroyInstance(peer);
-				peer = 0;
-			}
+			peer->Shutdown(100);
+			RakPeerInterface::DestroyInstance(peer);
+			peer = 0;
 		}
+	}
 
-		RakPeerInterface *peer = 0;
-	};
+	RakPeerInterface *peer = 0;
+};
 } // namespace
 
 // A peer with no configured payload reports an empty one rather than a stale pointer.
@@ -53,7 +53,7 @@ TEST_F(PeerFixture, SessionConfigDefaultsToEmpty)
 TEST_F(PeerFixture, SessionConfigRoundTrips)
 {
 	const char payload[] = "{\"season\":\"winter\"}";
-	const unsigned int payloadLength = (unsigned int)strlen(payload);
+	const unsigned int payloadLength = (unsigned int) strlen(payload);
 
 	peer->SetSessionConfig(payload, payloadLength);
 
@@ -113,7 +113,7 @@ TEST_F(PeerFixture, SessionConfigIsCappedAtMaximum)
 	char *data = 0;
 	unsigned int length = 0;
 	peer->GetSessionConfig(&data, &length);
-	EXPECT_EQ(length, (unsigned int)MAXIMUM_SESSION_CONFIG_SIZE);
+	EXPECT_EQ(length, (unsigned int) MAXIMUM_SESSION_CONFIG_SIZE);
 
 	delete[] big;
 #endif
@@ -148,14 +148,14 @@ TEST_F(PeerFixture, SessionConfigInteractiveTogglesWithoutStartup)
 // reserved block precisely so application enums that start at ID_USER_PACKET_ENUM do not shift.
 TEST(SessionConfigMessageIds, AreBelowUserPacketEnum)
 {
-	EXPECT_LT((int)ID_SESSION_CONFIG_REQUEST, (int)ID_USER_PACKET_ENUM);
-	EXPECT_LT((int)ID_SESSION_CONFIG, (int)ID_USER_PACKET_ENUM);
-	EXPECT_LT((int)ID_SESSION_CONFIG_REJECTED, (int)ID_USER_PACKET_ENUM);
+	EXPECT_LT((int) ID_SESSION_CONFIG_REQUEST, (int) ID_USER_PACKET_ENUM);
+	EXPECT_LT((int) ID_SESSION_CONFIG, (int) ID_USER_PACKET_ENUM);
+	EXPECT_LT((int) ID_SESSION_CONFIG_REJECTED, (int) ID_USER_PACKET_ENUM);
 }
 
 TEST(SessionConfigMessageIds, AreDistinct)
 {
-	EXPECT_NE((int)ID_SESSION_CONFIG_REQUEST, (int)ID_SESSION_CONFIG);
-	EXPECT_NE((int)ID_SESSION_CONFIG, (int)ID_SESSION_CONFIG_REJECTED);
-	EXPECT_NE((int)ID_SESSION_CONFIG_REQUEST, (int)ID_SESSION_CONFIG_REJECTED);
+	EXPECT_NE((int) ID_SESSION_CONFIG_REQUEST, (int) ID_SESSION_CONFIG);
+	EXPECT_NE((int) ID_SESSION_CONFIG, (int) ID_SESSION_CONFIG_REJECTED);
+	EXPECT_NE((int) ID_SESSION_CONFIG_REQUEST, (int) ID_SESSION_CONFIG_REJECTED);
 }

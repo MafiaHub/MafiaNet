@@ -41,38 +41,38 @@ using namespace MafiaNet;
 #endif
 
 FILE *fp;
-int memoryUsage=0;
+int memoryUsage = 0;
 void *LoggedMalloc(size_t size, const char *file, unsigned int line)
 {
-	memoryUsage+=size;
+	memoryUsage += size;
 	if (fp)
-		fprintf(fp,"Alloc %s:%i %i bytes %i total\n", file,line,size,memoryUsage);
-	char *p = (char*) malloc(size+sizeof(size));
-	memcpy(p,&size,sizeof(size));
-	return p+sizeof(size);
+		fprintf(fp, "Alloc %s:%i %i bytes %i total\n", file, line, size, memoryUsage);
+	char *p = (char *) malloc(size + sizeof(size));
+	memcpy(p, &size, sizeof(size));
+	return p + sizeof(size);
 }
 void LoggedFree(void *p, const char *file, unsigned int line)
 {
-	char *realP=(char*)p-sizeof(size_t);
+	char *realP = (char *) p - sizeof(size_t);
 	size_t allocatedSize;
-	memcpy(&allocatedSize,realP,sizeof(size_t));
-	memoryUsage-=allocatedSize;
+	memcpy(&allocatedSize, realP, sizeof(size_t));
+	memoryUsage -= allocatedSize;
 	if (fp)
-		fprintf(fp,"Free %s:%i %i bytes %i total\n", file,line,allocatedSize,memoryUsage);
+		fprintf(fp, "Free %s:%i %i bytes %i total\n", file, line, allocatedSize, memoryUsage);
 	free(realP);
 }
-void* LoggedRealloc(void *p, size_t size, const char *file, unsigned int line)
+void *LoggedRealloc(void *p, size_t size, const char *file, unsigned int line)
 {
-	char *realP=(char*)p-sizeof(size_t);
+	char *realP = (char *) p - sizeof(size_t);
 	size_t allocatedSize;
-	memcpy(&allocatedSize,realP,sizeof(size_t));
-	memoryUsage-=allocatedSize;
-	memoryUsage+=size;
-	p = realloc(realP,size+sizeof(size));
-	memcpy(p,&size,sizeof(size));
+	memcpy(&allocatedSize, realP, sizeof(size_t));
+	memoryUsage -= allocatedSize;
+	memoryUsage += size;
+	p = realloc(realP, size + sizeof(size));
+	memcpy(p, &size, sizeof(size));
 	if (fp)
-		fprintf(fp,"Realloc %s:%i %i to %i bytes %i total\n", file,line,allocatedSize,size,memoryUsage);
-	return (char*)p+sizeof(size);
+		fprintf(fp, "Realloc %s:%i %i to %i bytes %i total\n", file, line, allocatedSize, size, memoryUsage);
+	return (char *) p + sizeof(size);
 }
 
 int main(int argc, char **argv)
@@ -89,30 +89,30 @@ int main(int argc, char **argv)
 	unsigned char streamNumber;
 	MafiaNet::BitStream bitStream;
 	MafiaNet::Packet *packet;
-	bool doSend=false;
+	bool doSend = false;
 
-	for (int i=0; i < 32; i++)
-		packetNumber[i]=0;
+	for (int i = 0; i < 32; i++)
+		packetNumber[i] = 0;
 
 	printf("This project tests RakNet's reliable ordered sending system.\n");
 	printf("Difficulty: Beginner\n\n");
 
 	printf("Act as (s)ender or (r)eceiver?\n");
 	Gets(str, sizeof(str));
-	if (str[0]==0)
+	if (str[0] == 0)
 		return 1;
 
-	if (argc==2)
+	if (argc == 2)
 	{
-		fopen_s(&fp,argv[1],"wt");
+		fopen_s(&fp, argv[1], "wt");
 		SetMalloc_Ex(LoggedMalloc);
 		SetRealloc_Ex(LoggedRealloc);
 		SetFree_Ex(LoggedFree);
 	}
 	else
-		fp=0;
+		fp = 0;
 
-	if (str[0]=='s' || str[0]=='S')
+	if (str[0] == 's' || str[0] == 'S')
 	{
 		sender = MafiaNet::RakPeerInterface::GetInstance();
 
@@ -120,23 +120,24 @@ int main(int argc, char **argv)
 
 		printf("Enter number of ms to pass between sends: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
-			sendInterval=33;
+		if (str[0] == 0)
+			sendInterval = 33;
 		else
-			sendInterval=atoi(str);
+			sendInterval = atoi(str);
 
 		printf("Enter remote IP: ");
 		Gets(ip, sizeof(ip));
-		if (ip[0]==0)
+		if (ip[0] == 0)
 			strcpy_s(ip, "127.0.0.1");
-			// strcpy_s(ip, "natpunch.slikesoft.com");
-		
+		// strcpy_s(ip, "natpunch.slikesoft.com");
+
 		printf("Enter remote port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
+		if (str[0] == 0)
 			strcpy_s(str, "60000");
 		const int intRemotePort = atoi(str);
-		if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max())) {
+		if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 			return 2;
 		}
@@ -144,10 +145,11 @@ int main(int argc, char **argv)
 
 		printf("Enter local port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
+		if (str[0] == 0)
 			strcpy_s(str, "0");
 		const int intLocalPort = atoi(str);
-		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
@@ -155,7 +157,7 @@ int main(int argc, char **argv)
 
 
 		printf("Connecting...\n");
-		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 		sender->Startup(8, &socketDescriptor, 1);
 		// sender->ApplyNetworkSimulator(.2, 0, 0);
 		sender->Connect(ip, remotePort, 0, 0);
@@ -164,56 +166,57 @@ int main(int argc, char **argv)
 	{
 		receiver = MafiaNet::RakPeerInterface::GetInstance();
 		// receiver->ApplyNetworkSimulator(.2, 0, 0);
-		sender=0;
+		sender = 0;
 
 		printf("Enter local port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
+		if (str[0] == 0)
 			strcpy_s(str, "60000");
 		const int intLocalPort = atoi(str);
-		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
 
 		printf("Waiting for connections...\n");
-		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 		receiver->Startup(8, &socketDescriptor, 1);
 		receiver->SetMaximumIncomingConnections(8);
 	}
 
 	seedMT(1);
-	
+
 	printf("How long to run this test for, in seconds?\n");
 	Gets(str, sizeof(str));
-	if (str[0]==0)
+	if (str[0] == 0)
 		strcpy_s(str, "12000");
-	
+
 	currentTime = MafiaNet::GetTimeMS();
 	quitTime = atoi(str) * 1000 + currentTime;
 
-	nextSend=currentTime;
+	nextSend = currentTime;
 
 	printf("Test running.\n");
 
 	//while (currentTime < quitTime)
-	for(;;)
+	for (;;)
 	{
 #ifdef _WIN32
 		if (_kbhit())
 		{
-			int ch=_getch();
-			if (ch=='q')
+			int ch = _getch();
+			if (ch == 'q')
 				break;
-			else if (ch==' ')
+			else if (ch == ' ')
 			{
 				RakNetStatistics *rss;
 				char message[2048];
 				if (sender)
-					rss=sender->GetStatistics(sender->GetSystemAddressFromIndex(0));
+					rss = sender->GetStatistics(sender->GetSystemAddressFromIndex(0));
 				else
-					rss=receiver->GetStatistics(receiver->GetSystemAddressFromIndex(0));
+					rss = receiver->GetStatistics(receiver->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 			}
@@ -226,12 +229,12 @@ int main(int argc, char **argv)
 			while (packet)
 			{
 				// PARSE TYPES
-				switch(packet->data[0])
+				switch (packet->data[0])
 				{
 				case ID_CONNECTION_REQUEST_ACCEPTED:
 					printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
-					doSend=true;
-					nextSend=currentTime;
+					doSend = true;
+					nextSend = currentTime;
 					break;
 				case ID_NO_FREE_INCOMING_CONNECTIONS:
 					printf("ID_NO_FREE_INCOMING_CONNECTIONS\n");
@@ -246,11 +249,11 @@ int main(int argc, char **argv)
 					printf("Connection attempt failed\n");
 					break;
 				case ID_SND_RECEIPT_ACKED:
-					memcpy(&msgNumber, packet->data+1, 4);
+					memcpy(&msgNumber, packet->data + 1, 4);
 					printf("Msg #%i was delivered.\n", msgNumber);
 					break;
 				case ID_SND_RECEIPT_LOSS:
-					memcpy(&msgNumber, packet->data+1, 4);
+					memcpy(&msgNumber, packet->data + 1, 4);
 					printf("Msg #%i was probably not delivered.\n", msgNumber);
 					break;
 				}
@@ -259,57 +262,57 @@ int main(int argc, char **argv)
 				packet = sender->Receive();
 			}
 
-			char *type="UNDEFINED";
+			char *type = "UNDEFINED";
 			while (doSend && currentTime > nextSend)
 			{
-				streamNumber=0;
+				streamNumber = 0;
 				streamNumber = randomMT() % 4;
 				// Do the send
 
-                for (int i=0; i < 2; i++)
-                {
+				for (int i = 0; i < 2; i++)
+				{
 					bitStream.Reset();
 					bitStream.Write((unsigned char) (ID_TIMESTAMP));
 					bitStream.Write(MafiaNet::GetTime());
-					bitStream.Write((unsigned char) (ID_USER_PACKET_ENUM+1));
+					bitStream.Write((unsigned char) (ID_USER_PACKET_ENUM + 1));
 					bitStream.Write(packetNumber[streamNumber]);
 					packetNumber[streamNumber]++;
 					bitStream.Write(streamNumber);
 
-                    MafiaNet::Reliability reliability;
+					MafiaNet::Reliability reliability;
 					// #med - review --- was commented out in RakNet via if(0)
-                    /*if (0 && (randomMT()%2)==0)
+					/*if (0 && (randomMT()%2)==0)
                     {
                         type="MafiaNet::Reliability::UnreliableSequenced";
                         reliability=MafiaNet::Reliability::UnreliableSequenced;
                     }
                     else
                     {*/
-                        type="MafiaNet::Reliability::ReliableOrdered";
-                        reliability=MafiaNet::Reliability::ReliableOrdered;
-                    //}
+					type = "MafiaNet::Reliability::ReliableOrdered";
+					reliability = MafiaNet::Reliability::ReliableOrdered;
+					//}
 
-                    int padLength;
+					int padLength;
 					padLength = (randomMT() % 25000) + 1;
-                    bitStream.Write(reliability);
-                    bitStream.PadWithZeroToByteLength(padLength);
+					bitStream.Write(reliability);
+					bitStream.PadWithZeroToByteLength(padLength);
 
-				    if (sender->Send(&bitStream, MafiaNet::Priority::High, reliability ,streamNumber, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true)==0)
-				    {
-					    packetNumber[streamNumber]--;
-				    }
-                }
-				
-//				RakNetStatistics *rssSender;
+					if (sender->Send(&bitStream, MafiaNet::Priority::High, reliability, streamNumber, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true) == 0)
+					{
+						packetNumber[streamNumber]--;
+					}
+				}
+
+				//				RakNetStatistics *rssSender;
 				//rssSender=sender->GetStatistics(sender->GetSystemAddressFromIndex(0));
-					
-				printf("Snd: %i, %s, time %" PRINTF_64_BIT_MODIFIER "u, length %i\n", packetNumber[streamNumber]-1, type, currentTime, bitStream.GetNumberOfBytesUsed());
 
-				nextSend+=sendInterval;
+				printf("Snd: %i, %s, time %" PRINTF_64_BIT_MODIFIER "u, length %i\n", packetNumber[streamNumber] - 1, type, currentTime, bitStream.GetNumberOfBytesUsed());
+
+				nextSend += sendInterval;
 
 				// Test halting
-			//	if (rand()%20==0)
-			//		nextSend+=1000;
+				//	if (rand()%20==0)
+				//		nextSend+=1000;
 			}
 		}
 		else
@@ -317,7 +320,7 @@ int main(int argc, char **argv)
 			packet = receiver->Receive();
 			while (packet)
 			{
-				switch(packet->data[0])
+				switch (packet->data[0])
 				{
 				case ID_NEW_INCOMING_CONNECTION:
 					printf("ID_NEW_INCOMING_CONNECTION\n");
@@ -330,7 +333,7 @@ int main(int argc, char **argv)
 					break;
 				case ID_TIMESTAMP:
 					bitStream.Reset();
-					bitStream.Write((char*)packet->data, packet->length);
+					bitStream.Write((char *) packet->data, packet->length);
 					bitStream.IgnoreBits(8); // Ignore ID_TIMESTAMP
 					bitStream.Read(receivedTime);
 					bitStream.IgnoreBits(8); // Ignore ID_USER_ENUM+1
@@ -338,26 +341,26 @@ int main(int argc, char **argv)
 					bitStream.Read(streamNumber);
 					MafiaNet::Reliability reliability;
 					bitStream.Read(reliability);
-					char *type="UNDEFINED";
-					if (reliability==MafiaNet::Reliability::UnreliableSequenced)
-						type="MafiaNet::Reliability::UnreliableSequenced";
-					else if (reliability==MafiaNet::Reliability::ReliableOrdered)
-						type="MafiaNet::Reliability::ReliableOrdered";
+					char *type = "UNDEFINED";
+					if (reliability == MafiaNet::Reliability::UnreliableSequenced)
+						type = "MafiaNet::Reliability::UnreliableSequenced";
+					else if (reliability == MafiaNet::Reliability::ReliableOrdered)
+						type = "MafiaNet::Reliability::ReliableOrdered";
 
-					if (receivedPacketNumber>packetNumber[streamNumber])
-						printf("Skipped %i got %i %s (channel %i).\n",packetNumber[streamNumber], receivedPacketNumber, type, streamNumber);
-					else if (receivedPacketNumber<packetNumber[streamNumber])
-						printf("Out of order packet! Expecting %i got %i %s (channel %i).\n",packetNumber[streamNumber], receivedPacketNumber, type, streamNumber);
+					if (receivedPacketNumber > packetNumber[streamNumber])
+						printf("Skipped %i got %i %s (channel %i).\n", packetNumber[streamNumber], receivedPacketNumber, type, streamNumber);
+					else if (receivedPacketNumber < packetNumber[streamNumber])
+						printf("Out of order packet! Expecting %i got %i %s (channel %i).\n", packetNumber[streamNumber], receivedPacketNumber, type, streamNumber);
 					else
 						printf("Got %i.%s.CH:%i.Len:%i.\n", packetNumber[streamNumber], type, streamNumber, packet->length);
 
-//					printf("Sent=%" PRINTF_64_BIT_MODIFIER "u Received=%" PRINTF_64_BIT_MODIFIER "u Diff=%i.\n", receivedTime, currentTime, (int)(currentTime - receivedTime));
+					//					printf("Sent=%" PRINTF_64_BIT_MODIFIER "u Received=%" PRINTF_64_BIT_MODIFIER "u Diff=%i.\n", receivedTime, currentTime, (int)(currentTime - receivedTime));
 
-					packetNumber[streamNumber]=receivedPacketNumber+1;
+					packetNumber[streamNumber] = receivedPacketNumber + 1;
 					break;
 				}
 
-				
+
 				receiver->DeallocatePacket(packet);
 				packet = receiver->Receive();
 			}
@@ -370,7 +373,7 @@ int main(int argc, char **argv)
 #else
 		usleep(0);
 #endif
-		currentTime= MafiaNet::GetTimeMS();
+		currentTime = MafiaNet::GetTimeMS();
 	}
 
 	if (sender)

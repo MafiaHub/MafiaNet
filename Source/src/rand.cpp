@@ -59,49 +59,49 @@
 
 //typedef unsigned int uint32;
 
-#define N        (624)       // length of state vector
-#define M        (397)       // a period parameter
-#define K        (0x9908B0DFU)      // a magic constant
-#define hiBit(u)       ((u) & 0x80000000U)   // mask all but highest   bit of u
-#define loBit(u)       ((u) & 0x00000001U)   // mask all but lowest    bit of u
-#define loBits(u)      ((u) & 0x7FFFFFFFU)   // mask  the highest   bit of u
-#define mixBits(u, v)  (hiBit(u)|loBits(v))  // move hi bit of u to hi bit of v
+#define N (624)                              // length of state vector
+#define M (397)                              // a period parameter
+#define K (0x9908B0DFU)                      // a magic constant
+#define hiBit(u) ((u) & 0x80000000U)         // mask all but highest   bit of u
+#define loBit(u) ((u) & 0x00000001U)         // mask all but lowest    bit of u
+#define loBits(u) ((u) & 0x7FFFFFFFU)        // mask  the highest   bit of u
+#define mixBits(u, v) (hiBit(u) | loBits(v)) // move hi bit of u to hi bit of v
 
-static unsigned int _state[ N + 1 ];     // state vector + 1 extra to not violate ANSI C
+static unsigned int _state[N + 1]; // state vector + 1 extra to not violate ANSI C
 static unsigned int *_next;        // next random value is computed from here
-static int _left = -1; // can *next++ this many times before reloading
+static int _left = -1;             // can *next++ this many times before reloading
 
 using namespace MafiaNet;
 
-void seedMT( unsigned int seed, unsigned int *state, unsigned int *&next, int &left );
-unsigned int reloadMT( unsigned int *state, unsigned int *&next, int &left );
-unsigned int randomMT( unsigned int *state, unsigned int *&next, int &left );
-void fillBufferMT( void *buffer, unsigned int bytes, unsigned int *state, unsigned int *&next, int &left );
-float frandomMT( unsigned int *state, unsigned int *&next, int &left );
+void seedMT(unsigned int seed, unsigned int *state, unsigned int *&next, int &left);
+unsigned int reloadMT(unsigned int *state, unsigned int *&next, int &left);
+unsigned int randomMT(unsigned int *state, unsigned int *&next, int &left);
+void fillBufferMT(void *buffer, unsigned int bytes, unsigned int *state, unsigned int *&next, int &left);
+float frandomMT(unsigned int *state, unsigned int *&next, int &left);
 
 // Uses global vars
-void seedMT( unsigned int seed )
+void seedMT(unsigned int seed)
 {
 	seedMT(seed, _state, _next, _left);
 }
-unsigned int reloadMT( void )
+unsigned int reloadMT(void)
 {
 	return reloadMT(_state, _next, _left);
 }
-unsigned int randomMT( void )
+unsigned int randomMT(void)
 {
 	return randomMT(_state, _next, _left);
 }
-float frandomMT( void )
+float frandomMT(void)
 {
 	return frandomMT(_state, _next, _left);
 }
-void fillBufferMT( void *buffer, unsigned int bytes )
+void fillBufferMT(void *buffer, unsigned int bytes)
 {
 	fillBufferMT(buffer, bytes, _state, _next, _left);
 }
 
-void seedMT( unsigned int seed, unsigned int *state, unsigned int *&next, int &left )   // Defined in cokus_c.c
+void seedMT(unsigned int seed, unsigned int *state, unsigned int *&next, int &left) // Defined in cokus_c.c
 {
 	(void) next;
 
@@ -151,113 +151,113 @@ void seedMT( unsigned int seed, unsigned int *state, unsigned int *&next, int &l
 	// so-- that's why the only change I made is to restrict to odd seeds.
 	//
 
-	unsigned int x = ( seed | 1U ) & 0xFFFFFFFFU, *s = state;
+	unsigned int x = (seed | 1U) & 0xFFFFFFFFU, *s = state;
 	int j;
 
-	for ( left = 0, *s++ = x, j = N; --j;
-		*s++ = ( x *= 69069U ) & 0xFFFFFFFFU )
+	for (left = 0, *s++ = x, j = N; --j;
+	     *s++ = (x *= 69069U) & 0xFFFFFFFFU)
 
 		;
 }
 
 
-unsigned int reloadMT( unsigned int *state, unsigned int *&next, int &left )
+unsigned int reloadMT(unsigned int *state, unsigned int *&next, int &left)
 {
-	unsigned int * p0 = state, *p2 = state + 2, *pM = state + M, s0, s1;
+	unsigned int *p0 = state, *p2 = state + 2, *pM = state + M, s0, s1;
 	int j;
 
-	if ( left < -1 )
-		seedMT( 4357U );
+	if (left < -1)
+		seedMT(4357U);
 
 	left = N - 1, next = state + 1;
 
-	for ( s0 = state[ 0 ], s1 = state[ 1 ], j = N - M + 1; --j; s0 = s1, s1 = *p2++ )
-		* p0++ = *pM++ ^ ( mixBits( s0, s1 ) >> 1 ) ^ ( loBit( s1 ) ? K : 0U );
+	for (s0 = state[0], s1 = state[1], j = N - M + 1; --j; s0 = s1, s1 = *p2++)
+		*p0++ = *pM++ ^ (mixBits(s0, s1) >> 1) ^ (loBit(s1) ? K : 0U);
 
-	for ( pM = state, j = M; --j; s0 = s1, s1 = *p2++ )
-		* p0++ = *pM++ ^ ( mixBits( s0, s1 ) >> 1 ) ^ ( loBit( s1 ) ? K : 0U );
+	for (pM = state, j = M; --j; s0 = s1, s1 = *p2++)
+		*p0++ = *pM++ ^ (mixBits(s0, s1) >> 1) ^ (loBit(s1) ? K : 0U);
 
-	s1 = state[ 0 ], *p0 = *pM ^ ( mixBits( s0, s1 ) >> 1 ) ^ ( loBit( s1 ) ? K : 0U );
+	s1 = state[0], *p0 = *pM ^ (mixBits(s0, s1) >> 1) ^ (loBit(s1) ? K : 0U);
 
-	s1 ^= ( s1 >> 11 );
+	s1 ^= (s1 >> 11);
 
-	s1 ^= ( s1 << 7 ) & 0x9D2C5680U;
+	s1 ^= (s1 << 7) & 0x9D2C5680U;
 
-	s1 ^= ( s1 << 15 ) & 0xEFC60000U;
+	s1 ^= (s1 << 15) & 0xEFC60000U;
 
-	return ( s1 ^ ( s1 >> 18 ) );
+	return (s1 ^ (s1 >> 18));
 }
 
 
-unsigned int randomMT( unsigned int *state, unsigned int *&next, int &left )
+unsigned int randomMT(unsigned int *state, unsigned int *&next, int &left)
 {
 	unsigned int y;
 
-	if ( --left < 0 )
-		return ( reloadMT(state, next, left) );
+	if (--left < 0)
+		return (reloadMT(state, next, left));
 
 	y = *next++;
 
-	y ^= ( y >> 11 );
+	y ^= (y >> 11);
 
-	y ^= ( y << 7 ) & 0x9D2C5680U;
+	y ^= (y << 7) & 0x9D2C5680U;
 
-	y ^= ( y << 15 ) & 0xEFC60000U;
+	y ^= (y << 15) & 0xEFC60000U;
 
-	return ( y ^ ( y >> 18 ) );
+	return (y ^ (y >> 18));
 
 	// This change made so the value returned is in the same range as what rand() returns
 	// return(y ^ (y >> 18)) % 32767;
 }
 
-void fillBufferMT( void *buffer, unsigned int bytes, unsigned int *state, unsigned int *&next, int &left )
+void fillBufferMT(void *buffer, unsigned int bytes, unsigned int *state, unsigned int *&next, int &left)
 {
-	unsigned int offset=0;
+	unsigned int offset = 0;
 	unsigned int r;
-	while (bytes-offset>=sizeof(r))
+	while (bytes - offset >= sizeof(r))
 	{
 		r = randomMT(state, next, left);
-		memcpy((char*)buffer+offset, &r, sizeof(r));
-		offset+=sizeof(r);
+		memcpy((char *) buffer + offset, &r, sizeof(r));
+		offset += sizeof(r);
 	}
 
 	r = randomMT(state, next, left);
-	memcpy((char*)buffer+offset, &r, bytes-offset);
+	memcpy((char *) buffer + offset, &r, bytes - offset);
 }
 
-float frandomMT( unsigned int *state, unsigned int *&next, int &left )
+float frandomMT(unsigned int *state, unsigned int *&next, int &left)
 {
-	return ( float ) ( ( double ) randomMT(state, next, left) / 4294967296.0 );
+	return (float) ((double) randomMT(state, next, left) / 4294967296.0);
 }
 RakNetRandom::RakNetRandom()
 {
-	left=-1;
+	left = -1;
 }
 RakNetRandom::~RakNetRandom()
 {
 }
-void RakNetRandom::SeedMT( unsigned int seed )
+void RakNetRandom::SeedMT(unsigned int seed)
 {
-	printf("%i\n",seed);
+	printf("%i\n", seed);
 	seedMT(seed, state, next, left);
 }
 
-unsigned int RakNetRandom::ReloadMT( void )
+unsigned int RakNetRandom::ReloadMT(void)
 {
 	return reloadMT(state, next, left);
 }
 
-unsigned int RakNetRandom::RandomMT( void )
+unsigned int RakNetRandom::RandomMT(void)
 {
 	return randomMT(state, next, left);
 }
 
-float RakNetRandom::FrandomMT( void )
+float RakNetRandom::FrandomMT(void)
 {
 	return frandomMT(state, next, left);
 }
 
-void RakNetRandom::FillBufferMT( void *buffer, unsigned int bytes )
+void RakNetRandom::FillBufferMT(void *buffer, unsigned int bytes)
 {
 	fillBufferMT(buffer, bytes, state, next, left);
 }
@@ -280,4 +280,3 @@ return(EXIT_SUCCESS);
 }
 
 */
-

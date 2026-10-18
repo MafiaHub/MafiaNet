@@ -84,10 +84,10 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 	ASSERT_NE(TestHelpers::BoundPort(server), 0) << "Server failed to start";
 	// Connecting to server
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000))
-		<< "Client failed to connect to server";
+	    << "Client failed to connect to server";
 
 	// Testing SendList
-	char* dataList2[5];
+	char *dataList2[5];
 	char **dataList = (char **) dataList2;
 	int lengths[5];
 	char curString1[] = "AAAA";
@@ -104,13 +104,13 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 
 	for (int i = 0; i < 5; i++)
 	{
-		dataList[i][0] = (char)(unsigned char)(ID_USER_PACKET_ENUM + 1 + i);
+		dataList[i][0] = (char) (unsigned char) (ID_USER_PACKET_ENUM + 1 + i);
 		lengths[i] = 5;
 	}
 
-	client->SendList((const char**) dataList, lengths, 5, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	client->SendList((const char **) dataList, lengths, 5, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 
-	Packet* packet;
+	Packet *packet;
 	packet = CommonFunctions::WaitAndReturnMessageWithID(server, ID_USER_PACKET_ENUM + 1, 1000);
 	ASSERT_TRUE(packet != nullptr) << "Did not recieve all packets from SendList";
 
@@ -118,7 +118,7 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 
 	server->DeallocatePacket(packet);
 
-	PluginInterface2* myPlug = &packetChanger;
+	PluginInterface2 *myPlug = &packetChanger;
 
 	// PacketChangerPlugin uses the reliability layer (OnInternalPacket), so it must be
 	// attached before the peer is active and detached after it is shut down: the plugin
@@ -139,13 +139,13 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 		ASSERT_EQ(pluginClient->Startup(1, &pluginClientSd, 1), RAKNET_STARTED);
 
 		ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(pluginClient, pluginServer, 5000))
-			<< "Client failed to connect to server";
+		    << "Client failed to connect to server";
 
 		// OnInternalPacket rewrites data[0] to ID_USER_PACKET_ENUM+2, so the broadcast
 		// test packet (ID_USER_PACKET_ENUM+1) must not arrive unchanged at the server.
 		TestHelpers::BroadCastTestPacket(pluginClient);
 		ASSERT_FALSE(TestHelpers::WaitForTestPacket(pluginServer, 2000))
-			<< "Attached plugin failed to modify packet";
+		    << "Attached plugin failed to modify packet";
 
 		// Detaching is only safe once the peer's threads are stopped.
 		pluginClient->Shutdown(300);
@@ -170,13 +170,13 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 	server->SetSplitMessageProgressInterval(1);
 
 	ASSERT_EQ(server->GetSplitMessageProgressInterval(), 1)
-		<< "GetSplitMessageProgressInterval returned wrong value";
+	    << "GetSplitMessageProgressInterval returned wrong value";
 
 	ASSERT_TRUE(client->Send((const char *) hugePacket->data, dataSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true))
-		<< "Send to server failed";
+	    << "Send to server failed";
 
 	ASSERT_TRUE(CommonFunctions::WaitForMessageWithID(server, ID_DOWNLOAD_PROGRESS, 2000))
-		<< "Large packet did not split or did not properly get ID_DOWNLOAD_PROGRESS after SetSplitMessageProgressInterval is set to 1 millisecond";
+	    << "Large packet did not split or did not properly get ID_DOWNLOAD_PROGRESS after SetSplitMessageProgressInterval is set to 1 millisecond";
 
 	while (CommonFunctions::WaitForMessageWithID(server, ID_DOWNLOAD_PROGRESS, 500)) //Clear out the rest before next test
 	{
@@ -184,40 +184,40 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 
 	// Making sure still connected, if not connect
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000)) //Make sure connected before test
-		<< "Client failed to connect to server";
+	    << "Client failed to connect to server";
 
 	// Making sure standard send/recieve still functioning
 	TestHelpers::BroadCastTestPacket(client);
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 5000))
-		<< "Send/Recieve failed";
+	    << "Send/Recieve failed";
 
 	// Testing PushBackPacket
 	server->PushBackPacket(hugePacket, false);
 
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 2000))
-		<< "Did not recieve and put on packet made with AllocatePacket and put on recieve stack with PushBackPacket";
+	    << "Did not recieve and put on packet made with AllocatePacket and put on recieve stack with PushBackPacket";
 
 	// Making sure still connected, if not connect
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000)) //Make sure connected before test
-		<< "Client failed to connect to server";
+	    << "Client failed to connect to server";
 
 	// Making sure standard send/recieve still functioning
 	TestHelpers::BroadCastTestPacket(client);
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 2000))
-		<< "PushBackPacket messed up future communication";
+	    << "PushBackPacket messed up future communication";
 
 	// PushBackPacket head true test
 	server->PushBackPacket(hugePacket2, true);
 
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 2000))
-		<< "Did not recieve and put on packet made with AllocatePacket and put on recieve stack with PushBackPacket";
+	    << "Did not recieve and put on packet made with AllocatePacket and put on recieve stack with PushBackPacket";
 
 	// Making sure still connected, if not connect
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000)) //Make sure connected before test
-		<< "Client failed to connect to server";
+	    << "Client failed to connect to server";
 
 	// Run recieve test
 	TestHelpers::BroadCastTestPacket(client);
 	ASSERT_TRUE(TestHelpers::WaitForTestPacket(server, 2000))
-		<< "PushBackPacket messed up future communication";
+	    << "PushBackPacket messed up future communication";
 }

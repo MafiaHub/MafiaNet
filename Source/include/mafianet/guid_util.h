@@ -24,7 +24,8 @@
 #include "mafianet/types.h"
 #include "mafianet/peer_interface.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 /// Return the GUID as an owned \a std::string.
 ///
@@ -33,7 +34,7 @@ namespace MafiaNet {
 /// safe), this allocates a fresh string on every call and shares no state, so
 /// it is safe to call concurrently from multiple threads. It is implemented on
 /// top of the thread-safe \a RakNetGUID::ToString(char*, size_t) member.
-RAK_DLL_EXPORT std::string to_string(const RakNetGUID& g);
+RAK_DLL_EXPORT std::string to_string(const RakNetGUID &g);
 
 /// Look up the SystemAddress currently connected to \a g.
 ///
@@ -41,7 +42,7 @@ RAK_DLL_EXPORT std::string to_string(const RakNetGUID& g);
 /// the legacy \a UNASSIGNED_SYSTEM_ADDRESS "none" sentinel to \a std::nullopt,
 /// so callers can use ordinary optional handling instead of comparing against a
 /// magic value.
-RAK_DLL_EXPORT std::optional<SystemAddress> connected_address(RakPeerInterface& peer, const RakNetGUID& g);
+RAK_DLL_EXPORT std::optional<SystemAddress> connected_address(RakPeerInterface &peer, const RakNetGUID &g);
 
 } // namespace MafiaNet
 

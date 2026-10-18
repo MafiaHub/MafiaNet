@@ -38,121 +38,121 @@ MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
 
 class FullyConnectedMesh2_UserData : public FullyConnectedMesh2
 {
-	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) {bsOut->Write(RakString("WriteVJCUserData test"));}
-	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) {bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", MafiaNet::to_string(userGuid).c_str()));}
+	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) { bsOut->Write(RakString("WriteVJCUserData test")); }
+	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) { bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", MafiaNet::to_string(userGuid).c_str())); }
 };
 
 int main()
 {
 	FullyConnectedMesh2_UserData fcm2[NUM_PEERS];
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 	{
-		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
+		rakPeer[i] = MafiaNet::RakPeerInterface::GetInstance();
 		rakPeer[i]->AttachPlugin(&fcm2[i]);
 		fcm2[i].SetAutoparticipateConnections(false);
 		fcm2[i].SetConnectOnNewRemoteConnection(false, "");
 		MafiaNet::SocketDescriptor sd;
-		sd.port=60000+i;
+		sd.port = 60000 + i;
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		printf("%i. Our guid is %s\n", i, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	}
-	
+
 	RakSleep(100);
 
-	for (int i=1; i < NUM_PEERS; i++)
+	for (int i = 1; i < NUM_PEERS; i++)
 	{
 		SLNET_VERIFY(rakPeer[i]->Connect("127.0.0.1", 60000, 0, 0) == CONNECTION_ATTEMPT_STARTED);
 	}
-	
+
 	RakSleep(100);
-	
-	for (int i=1; i < NUM_PEERS; i++)
+
+	for (int i = 1; i < NUM_PEERS; i++)
 	{
 		fcm2[0].StartVerifiedJoin(rakPeer[i]->GetMyGUID());
 	}
-	
 
-	bool quit=false;
+
+	bool quit = false;
 	MafiaNet::Packet *packet;
 	int ch;
 	while (!quit)
 	{
-		for (int peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+		for (int peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 		{
 			for (packet = rakPeer[peerIndex]->Receive(); packet; rakPeer[peerIndex]->DeallocatePacket(packet), packet = rakPeer[peerIndex]->Receive())
 			{
 				switch (packet->data[0])
 				{
 				case ID_FCM2_VERIFIED_JOIN_START:
+				{
+					printf("%s: Got ID_FCM2_VERIFIED_JOIN_START from %s. address=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
+					DataStructures::List<SystemAddress> addresses;
+					DataStructures::List<RakNetGUID> guids;
+					DataStructures::List<BitStream *> userData;
+					fcm2[peerIndex].GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
+					for (unsigned int i = 0; i < guids.Size(); i++)
 					{
-						printf("%s: Got ID_FCM2_VERIFIED_JOIN_START from %s. address=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
-						DataStructures::List<SystemAddress> addresses;
-						DataStructures::List<RakNetGUID> guids;
-						DataStructures::List<BitStream*> userData;
-						fcm2[peerIndex].GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
-						for (unsigned int i=0; i < guids.Size(); i++)
+						printf("%s:", MafiaNet::to_string(guids[i]).c_str());
+						ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
+						switch (car)
 						{
-							printf("%s:", MafiaNet::to_string(guids[i]).c_str());
-							ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
-							switch (car)
-							{
-							case CONNECTION_ATTEMPT_STARTED:
-								printf("CONNECTION_ATTEMPT_STARTED");
-								break;
-							case ALREADY_CONNECTED_TO_ENDPOINT:
-								printf("ALREADY_CONNECTED_TO_ENDPOINT");
-								break;
-							case CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS:
-								printf("CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS");
-								break;
-							default:
-								printf("Other");
-							}
-							printf(" ");
-
-							RakString userDataAsStr;
-							userData[i]->Read(userDataAsStr);
-							printf(userDataAsStr.C_String());
+						case CONNECTION_ATTEMPT_STARTED:
+							printf("CONNECTION_ATTEMPT_STARTED");
+							break;
+						case ALREADY_CONNECTED_TO_ENDPOINT:
+							printf("ALREADY_CONNECTED_TO_ENDPOINT");
+							break;
+						case CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS:
+							printf("CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS");
+							break;
+						default:
+							printf("Other");
 						}
-						printf("\n");
+						printf(" ");
+
+						RakString userDataAsStr;
+						userData[i]->Read(userDataAsStr);
+						printf(userDataAsStr.C_String());
 					}
-					break;
+					printf("\n");
+				}
+				break;
 
 				case ID_FCM2_VERIFIED_JOIN_FAILED:
 					printf("%s: ID_FCM2_VERIFIED_JOIN_FAILED from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					break;
 
 				case ID_FCM2_VERIFIED_JOIN_CAPABLE:
-					{
-						MafiaNet::BitStream bs(packet->data,packet->length,false);
-						FullyConnectedMesh2::SkipToVJCUserData(&bs);
-						RakString testStr;
-						bs.Read(testStr);
+				{
+					MafiaNet::BitStream bs(packet->data, packet->length, false);
+					FullyConnectedMesh2::SkipToVJCUserData(&bs);
+					RakString testStr;
+					bs.Read(testStr);
 
-						printf("%s: ID_FCM2_VERIFIED_JOIN_CAPABLE from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
-						printf("STR: %s\n", testStr.C_String());
-						fcm2[peerIndex].RespondOnVerifiedJoinCapable(packet, true, 0);
-					}
-					break;
+					printf("%s: ID_FCM2_VERIFIED_JOIN_CAPABLE from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
+					printf("STR: %s\n", testStr.C_String());
+					fcm2[peerIndex].RespondOnVerifiedJoinCapable(packet, true, 0);
+				}
+				break;
 
 				case ID_FCM2_VERIFIED_JOIN_ACCEPTED:
+				{
+					bool thisSystemAccepted;
+					DataStructures::List<RakNetGUID> systemsAccepted;
+					MafiaNet::BitStream additionalData;
+					fcm2[peerIndex].GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, &additionalData);
+					if (thisSystemAccepted)
 					{
-						bool thisSystemAccepted;
-						DataStructures::List<RakNetGUID> systemsAccepted;
-						MafiaNet::BitStream additionalData;
-						fcm2[peerIndex].GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, &additionalData);
-						if (thisSystemAccepted)
-						{
-							printf("%s: ID_FCM2_VERIFIED_JOIN_ACCEPTED from %s. systemsAccepted=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
-							for (unsigned int i=0; i < systemsAccepted.Size(); i++)
-								printf("%s ", MafiaNet::to_string(systemsAccepted[i]).c_str());
-							printf("\n");
-						}
-						break;
+						printf("%s: ID_FCM2_VERIFIED_JOIN_ACCEPTED from %s. systemsAccepted=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
+						for (unsigned int i = 0; i < systemsAccepted.Size(); i++)
+							printf("%s ", MafiaNet::to_string(systemsAccepted[i]).c_str());
+						printf("\n");
 					}
+					break;
+				}
 
 				case ID_FCM2_VERIFIED_JOIN_REJECTED:
 					printf("%s: ID_FCM2_VERIFIED_JOIN_REJECTED from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
@@ -167,11 +167,11 @@ int main()
 
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch=='q' || ch=='Q')
+			ch = _getch();
+			if (ch == 'q' || ch == 'Q')
 			{
 				printf("Quitting.\n");
-				quit=true;
+				quit = true;
 			}
 		}
 
@@ -179,7 +179,7 @@ int main()
 		RakSleep(30);
 	}
 
-	for (int i=0; i < NUM_PEERS; i++)
+	for (int i = 0; i < NUM_PEERS; i++)
 	{
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 	}

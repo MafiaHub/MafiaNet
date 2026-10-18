@@ -23,7 +23,7 @@
 #include "mafianet/statistics.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/kbhit.h"
-#include <stdio.h> // Printf
+#include <stdio.h>                     // Printf
 #include "mafianet/windows_includes.h" // Sleep
 //#include <process.h>
 #include "mafianet/thread.h"
@@ -37,22 +37,22 @@ RAK_THREAD_DECLARATION(ProducerThread)
 {
 	unsigned char i = *((unsigned char *) arguments);
 	unsigned char out[2];
-	out[0]=(unsigned char)ID_USER_PACKET_ENUM;
-	out[1]=i;
+	out[0] = (unsigned char) ID_USER_PACKET_ENUM;
+	out[1] = i;
 
-	while (endThreads==false)
+	while (endThreads == false)
 	{
-//		printf("Thread %u writing...\n", i);
+		//		printf("Thread %u writing...\n", i);
 		// #high - (char*)-cast hack to simply send unsigned char types to the peer - consider changing Send() to accept unsigned char (i.e. ID_USER_PACKET_ENUM exceeds 127)
-		if (i&1)
-			peer1->Send((char*)out, 2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+		if (i & 1)
+			peer1->Send((char *) out, 2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 		else
-			peer2->Send((char*)out, 2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			peer2->Send((char *) out, 2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
-//		printf("Thread %u done writing\n", i);
+		//		printf("Thread %u done writing\n", i);
 		RakSleep(30);
 	}
-	
+
 	return 0;
 }
 
@@ -60,26 +60,26 @@ RAK_THREAD_DECLARATION(ConsumerThread)
 {
 	unsigned char i = *((unsigned char *) arguments);
 	MafiaNet::Packet *p;
-	while (endThreads==false)
+	while (endThreads == false)
 	{
-//		printf("Thread %u reading...\n", i);
-		if (i&1)
-			p=peer1->Receive();
+		//		printf("Thread %u reading...\n", i);
+		if (i & 1)
+			p = peer1->Receive();
 		else
-			p=peer2->Receive();
-	//	printf("Thread %u done reading...\n", i);
+			p = peer2->Receive();
+		//	printf("Thread %u done reading...\n", i);
 
 		if (p)
 		{
-			if (p->data[0]==ID_USER_PACKET_ENUM)
+			if (p->data[0] == ID_USER_PACKET_ENUM)
 				printf("Got data from thread %u\n", p->data[1]);
-			if (i&1)
+			if (i & 1)
 				peer1->DeallocatePacket(p);
 			else
 				peer2->DeallocatePacket(p);
 		}
 
-        RakSleep(30);		
+		RakSleep(30);
 	}
 
 	return 0;
@@ -87,14 +87,14 @@ RAK_THREAD_DECLARATION(ConsumerThread)
 
 int main()
 {
-	peer1= MafiaNet::RakPeerInterface::GetInstance();
-	peer2= MafiaNet::RakPeerInterface::GetInstance();
+	peer1 = MafiaNet::RakPeerInterface::GetInstance();
+	peer2 = MafiaNet::RakPeerInterface::GetInstance();
 	peer1->SetMaximumIncomingConnections(1);
 	peer2->SetMaximumIncomingConnections(1);
-	MafiaNet::SocketDescriptor socketDescriptor(1234,0);
-	peer1->Startup(1,&socketDescriptor, 1);
-	socketDescriptor.port=1235;
-	peer2->Startup(1,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(1234, 0);
+	peer1->Startup(1, &socketDescriptor, 1);
+	socketDescriptor.port = 1235;
+	peer2->Startup(1, &socketDescriptor, 1);
 	RakSleep(500);
 	peer1->Connect("127.0.0.1", 1235, 0, 0);
 	peer2->Connect("127.0.0.1", 1234, 0, 0);
@@ -103,19 +103,18 @@ int main()
 	printf("Difficulty: Beginner\n\n");
 
 
-
-	endThreads=false;
+	endThreads = false;
 	unsigned char count[20];
 	printf("Starting threads\n");
-	for (unsigned char i=0; i < 10; i++)
+	for (unsigned char i = 0; i < 10; i++)
 	{
-		count[i]=i;
-		MafiaNet::RakThread::Create(&ProducerThread, count+i);
+		count[i] = i;
+		MafiaNet::RakThread::Create(&ProducerThread, count + i);
 	}
-	for (unsigned char i=10; i < 20; i++)
+	for (unsigned char i = 10; i < 20; i++)
 	{
-		count[i]=i;
-		MafiaNet::RakThread::Create(&ConsumerThread, count+i);
+		count[i] = i;
+		MafiaNet::RakThread::Create(&ConsumerThread, count + i);
 	}
 
 	printf("Running test\n");
@@ -125,7 +124,7 @@ int main()
 
 		RakSleep(0);
 	}
-	endThreads=true;
+	endThreads = true;
 	printf("Test done!\n");
 
 	MafiaNet::RakPeerInterface::DestroyInstance(peer1);

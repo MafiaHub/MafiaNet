@@ -91,9 +91,9 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 template <typename TransmitFn>
 int DriveBatchedSend(unsigned total, TransmitFn transmit)
 {
-	unsigned sent = 0;    // messages actually accepted by the socket
-	unsigned offset = 0;  // next message to attempt; may run ahead of `sent`
-	int firstError = 0;   // first permanent per-message error seen, if any
+	unsigned sent = 0;   // messages actually accepted by the socket
+	unsigned offset = 0; // next message to attempt; may run ahead of `sent`
+	int firstError = 0;  // first permanent per-message error seen, if any
 	while (offset < total)
 	{
 		int r = transmit(offset, total - offset);
@@ -238,7 +238,7 @@ class RNS2SendBatch
 {
 public:
 	RNS2SendBatch(RakNetSocket2 *socket, const SystemAddress &dest)
-		: socket(socket), dest(dest), count(0)
+	    : socket(socket), dest(dest), count(0)
 	{
 		// The datagram buffers are a single block shared by every batch on this
 		// thread (see Slot), so two live batches would silently overwrite each

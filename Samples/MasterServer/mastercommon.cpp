@@ -27,24 +27,24 @@ using namespace MafiaNet;
 
 GameServerRule::GameServerRule()
 {
-	key=0;
-	stringValue=0;
-	intValue=-1;
+	key = 0;
+	stringValue = 0;
+	intValue = -1;
 }
 GameServerRule::~GameServerRule()
 {
 	if (key)
-		delete [] key;
+		delete[] key;
 	if (stringValue)
-		delete [] stringValue;
+		delete[] stringValue;
 }
 
 GameServer::GameServer()
 {
-	connectionIdentifier=UNASSIGNED_SYSTEM_ADDRESS;
-	nextPingTime=0;
-	failedPingResponses=0;
-	lastUpdateTime=GetTime();
+	connectionIdentifier = UNASSIGNED_SYSTEM_ADDRESS;
+	nextPingTime = 0;
+	failedPingResponses = 0;
+	lastUpdateTime = GetTime();
 }
 GameServer::~GameServer()
 {
@@ -53,21 +53,21 @@ GameServer::~GameServer()
 void GameServer::Clear()
 {
 	unsigned i;
-	for (i=0; i < serverRules.Size(); i++)
+	for (i = 0; i < serverRules.Size(); i++)
 		delete serverRules[i];
 	serverRules.Clear(false, _FILE_AND_LINE_);
 }
 bool GameServer::FindKey(char *key)
 {
 	unsigned i;
-	for (i=0; i < serverRules.Size(); i++)
-		if (strcmp(serverRules[i]->key, key)==0)
+	for (i = 0; i < serverRules.Size(); i++)
+		if (strcmp(serverRules[i]->key, key) == 0)
 		{
-			keyIndex=i;
+			keyIndex = i;
 			return true;
 		}
 
-	keyIndex=-1;
+	keyIndex = -1;
 	return false;
 }
 
@@ -81,7 +81,7 @@ GameServerList::~GameServerList()
 void GameServerList::Clear(void)
 {
 	unsigned i;
-	for (i=0; i < serverList.Size(); i++)
+	for (i = 0; i < serverList.Size(); i++)
 		delete serverList[i];
 	serverList.Clear(false, _FILE_AND_LINE_);
 }
@@ -89,43 +89,42 @@ void GameServerList::SortOnKey(char *key, bool ascending)
 {
 	unsigned i;
 	// Set keyindex
-	for (i=0; i < serverList.Size(); i++)
+	for (i = 0; i < serverList.Size(); i++)
 		serverList[i]->FindKey(key);
 
-	QuickSort(0, serverList.Size()-1,ascending);
+	QuickSort(0, serverList.Size() - 1, ascending);
 }
 
 
 void GameServerList::QuickSort(int low, int high, bool ascending)
 {
 	int pivot;
-	if ( high > low )
+	if (high > low)
 	{
-		pivot = Partition( low, high, ascending);
-		QuickSort( low, pivot-1,ascending);
-		QuickSort( pivot+1, high,ascending);
+		pivot = Partition(low, high, ascending);
+		QuickSort(low, pivot - 1, ascending);
+		QuickSort(pivot + 1, high, ascending);
 	}
 }
 int EQ(GameServer *left, GameServer *right)
 {
-	if (left->keyIndex==-1 || right->keyIndex==-1)
+	if (left->keyIndex == -1 || right->keyIndex == -1)
 		return true;
-	
+
 	if (left->serverRules[left->keyIndex]->stringValue)
-		return strcmp(left->serverRules[left->keyIndex]->stringValue,right->serverRules[right->keyIndex]->stringValue)==0;
+		return strcmp(left->serverRules[left->keyIndex]->stringValue, right->serverRules[right->keyIndex]->stringValue) == 0;
 	else
 		return left->serverRules[left->keyIndex]->intValue == right->serverRules[right->keyIndex]->intValue;
-
 }
 int LT(GameServer *left, GameServer *right)
 {
-	if (left->keyIndex==-1)
+	if (left->keyIndex == -1)
 		return true;
-	if (right->keyIndex==-1)
+	if (right->keyIndex == -1)
 		return false;
 
 	if (left->serverRules[left->keyIndex]->stringValue)
-		return strcmp(left->serverRules[left->keyIndex]->stringValue,right->serverRules[right->keyIndex]->stringValue) < 0;
+		return strcmp(left->serverRules[left->keyIndex]->stringValue, right->serverRules[right->keyIndex]->stringValue) < 0;
 	else
 		return left->serverRules[left->keyIndex]->intValue < right->serverRules[right->keyIndex]->intValue;
 }
@@ -135,13 +134,13 @@ int LTEQ(GameServer *left, GameServer *right)
 }
 int GT(GameServer *left, GameServer *right)
 {
-	if (left->keyIndex==-1)
+	if (left->keyIndex == -1)
 		return false;
-	if (right->keyIndex==-1)
+	if (right->keyIndex == -1)
 		return true;
 
 	if (left->serverRules[left->keyIndex]->stringValue)
-		return strcmp(left->serverRules[left->keyIndex]->stringValue,right->serverRules[right->keyIndex]->stringValue) > 0;
+		return strcmp(left->serverRules[left->keyIndex]->stringValue, right->serverRules[right->keyIndex]->stringValue) > 0;
 	else
 		return left->serverRules[left->keyIndex]->intValue > right->serverRules[right->keyIndex]->intValue;
 }
@@ -156,30 +155,34 @@ int GameServerList::Partition(int low, int high, bool ascending)
 	pivot_item = serverList[low];
 	pivot = left = low;
 	right = high;
-	while ( left < right )
+	while (left < right)
 	{
 		if (ascending)
 		{
 			/* Move left while item < pivot */
-			while( LTEQ(serverList[left], pivot_item) && left < high) left++;
+			while (LTEQ(serverList[left], pivot_item) && left < high)
+				left++;
 			/* Move right while item > pivot */
-			while( GT(serverList[right], pivot_item) && right > 0) right--;
-			if ( left < right )
+			while (GT(serverList[right], pivot_item) && right > 0)
+				right--;
+			if (left < right)
 			{
-				temp=serverList[left];
-				serverList[left]=serverList[right];
-				serverList[right]=temp;
+				temp = serverList[left];
+				serverList[left] = serverList[right];
+				serverList[right] = temp;
 			}
 		}
 		else
 		{
-			while( GTEQ(serverList[left], pivot_item) && left < high) left++;
-			while( LT(serverList[right], pivot_item) && right > 0) right--;
-			if ( left < right )
+			while (GTEQ(serverList[left], pivot_item) && left < high)
+				left++;
+			while (LT(serverList[right], pivot_item) && right > 0)
+				right--;
+			if (left < right)
 			{
-				temp=serverList[left];
-				serverList[left]=serverList[right];
-				serverList[right]=temp;
+				temp = serverList[left];
+				serverList[left] = serverList[right];
+				serverList[right] = temp;
 			}
 		}
 	}
@@ -194,9 +197,9 @@ int GameServerList::Partition(int low, int high, bool ascending)
 int GameServerList::GetIndexBySystemAddress(SystemAddress playerID)
 {
 	int i;
-	for (i=0; i < (int)serverList.Size(); i++)
+	for (i = 0; i < (int) serverList.Size(); i++)
 	{
-		if (serverList[i]->connectionIdentifier==playerID)
+		if (serverList[i]->connectionIdentifier == playerID)
 			return i;
 	}
 	return -1;
@@ -204,7 +207,7 @@ int GameServerList::GetIndexBySystemAddress(SystemAddress playerID)
 
 MasterCommon::MasterCommon()
 {
-//	rakPeer = RakNetworkFactory::GetRakPeerInterface();
+	//	rakPeer = RakNetworkFactory::GetRakPeerInterface();
 }
 void MasterCommon::ClearServerList(void)
 {
@@ -221,61 +224,61 @@ unsigned int MasterCommon::GetServerListSize(void)
 int MasterCommon::GetServerListRuleAsInt(int serverIndex, char *ruleIdentifier, bool *identifierFound)
 {
 	int keyIndex;
-	if (serverIndex >= (int)gameServerList.serverList.Size())
+	if (serverIndex >= (int) gameServerList.serverList.Size())
 	{
-		*identifierFound=false;
+		*identifierFound = false;
 		return -1;
 	}
 
 	gameServerList.serverList[serverIndex]->FindKey(ruleIdentifier);
-	keyIndex=gameServerList.serverList[serverIndex]->keyIndex;
-	if (keyIndex==-1)
+	keyIndex = gameServerList.serverList[serverIndex]->keyIndex;
+	if (keyIndex == -1)
 	{
-		*identifierFound=false;
+		*identifierFound = false;
 		return -1;
 	}
 
 	if (gameServerList.serverList[serverIndex]->serverRules[keyIndex]->stringValue)
 	{
-		*identifierFound=false;
+		*identifierFound = false;
 		return -1;
 	}
 
-	*identifierFound=true;
+	*identifierFound = true;
 	return gameServerList.serverList[serverIndex]->serverRules[keyIndex]->intValue;
 }
-const char* MasterCommon::GetServerListRuleAsString(int serverIndex, char *ruleIdentifier, bool *identifierFound)
+const char *MasterCommon::GetServerListRuleAsString(int serverIndex, char *ruleIdentifier, bool *identifierFound)
 {
 	int keyIndex;
-	if (serverIndex >= (int)gameServerList.serverList.Size())
+	if (serverIndex >= (int) gameServerList.serverList.Size())
 	{
-		*identifierFound=false;
+		*identifierFound = false;
 		return "serverIndex out of bounds";
 	}
 
 	gameServerList.serverList[serverIndex]->FindKey(ruleIdentifier);
-	keyIndex=gameServerList.serverList[serverIndex]->keyIndex;
-	if (keyIndex==-1)
+	keyIndex = gameServerList.serverList[serverIndex]->keyIndex;
+	if (keyIndex == -1)
 	{
-		*identifierFound=false;
+		*identifierFound = false;
 		return "Server does not contain specified rule";
 	}
 
-	if (gameServerList.serverList[serverIndex]->serverRules[keyIndex]->stringValue==0)
+	if (gameServerList.serverList[serverIndex]->serverRules[keyIndex]->stringValue == 0)
 	{
-		*identifierFound=false;
+		*identifierFound = false;
 		return "Server rule is not a string. Use GetServerListRuleAsInt";
 	}
 
-	*identifierFound=true;
+	*identifierFound = true;
 	return gameServerList.serverList[serverIndex]->serverRules[keyIndex]->stringValue;
 }
 
 bool MasterCommon::IsReservedRuleIdentifier(char *ruleIdentifier)
 {
-	if (strcmp(ruleIdentifier, "Ping")==0 || 
-		strcmp(ruleIdentifier, "IP")==0 || 
-		strcmp(ruleIdentifier, "Port")==0)
+	if (strcmp(ruleIdentifier, "Ping") == 0 ||
+	    strcmp(ruleIdentifier, "IP") == 0 ||
+	    strcmp(ruleIdentifier, "Port") == 0)
 		return true;
 
 	return false;
@@ -287,23 +290,23 @@ void MasterCommon::AddDefaultRulesToServer(GameServer *gameServer, SystemAddress
 
 	// Every server has NUMBER_OF_DEFAULT_MASTER_SERVER_KEYS keys by default: IP, port, and ping
 	gameServerRule = new GameServerRule;
-	gameServerRule->key=new char[strlen("IP")+1];
+	gameServerRule->key = new char[strlen("IP") + 1];
 	strcpy(gameServerRule->key, "IP");
-	gameServerRule->stringValue=new char[22]; // Should be enough to hold an IP address
+	gameServerRule->stringValue = new char[22]; // Should be enough to hold an IP address
 	strncpy(gameServerRule->stringValue, systemAddress.ToString(false), 21);
-	gameServerRule->stringValue[21]=0;
+	gameServerRule->stringValue[21] = 0;
 	gameServer->serverRules.Insert(gameServerRule, _FILE_AND_LINE_);
 
 	gameServerRule = new GameServerRule;
-	gameServerRule->key=new char[strlen("Port")+1];
+	gameServerRule->key = new char[strlen("Port") + 1];
 	strcpy(gameServerRule->key, "Port");
-	gameServerRule->intValue=systemAddress.GetPort();
+	gameServerRule->intValue = systemAddress.GetPort();
 	gameServer->serverRules.Insert(gameServerRule, _FILE_AND_LINE_);
 
 	gameServerRule = new GameServerRule;
-	gameServerRule->key=new char[strlen("Ping")+1];
+	gameServerRule->key = new char[strlen("Ping") + 1];
 	strcpy(gameServerRule->key, "Ping");
-	gameServerRule->intValue=9999;
+	gameServerRule->intValue = 9999;
 	gameServer->serverRules.Insert(gameServerRule, _FILE_AND_LINE_);
 }
 void MasterCommon::HandlePong(Packet *packet)
@@ -312,18 +315,18 @@ void MasterCommon::HandlePong(Packet *packet)
 	int serverIndex;
 	unsigned int pingTime;
 
-	serverIndex=gameServerList.GetIndexBySystemAddress(packet->systemAddress);
-	if (serverIndex>=0)
+	serverIndex = gameServerList.GetIndexBySystemAddress(packet->systemAddress);
+	if (serverIndex >= 0)
 	{
-		gameServerList.serverList[serverIndex]->failedPingResponses=0;
+		gameServerList.serverList[serverIndex]->failedPingResponses = 0;
 		if (gameServerList.serverList[serverIndex]->FindKey("Ping"))
 		{
-			BitStream ptime( packet->data+1, sizeof(unsigned int), false);
+			BitStream ptime(packet->data + 1, sizeof(unsigned int), false);
 			ptime.Read(pingTime);
-			gameServerList.serverList[serverIndex]->serverRules[gameServerList.serverList[serverIndex]->keyIndex]->intValue=pingTime;
-			#ifdef _SHOW_MASTER_SERVER_PRINTF
+			gameServerList.serverList[serverIndex]->serverRules[gameServerList.serverList[serverIndex]->keyIndex]->intValue = pingTime;
+#ifdef _SHOW_MASTER_SERVER_PRINTF
 			printf("Got pong. Ping=%i\n", pingTime);
-			#endif
+#endif
 		}
 #ifdef _DEBUG
 		else
@@ -335,7 +338,7 @@ void MasterCommon::HandlePong(Packet *packet)
 bool MasterCommon::UpdateServerRule(GameServer *gameServer, char *ruleIdentifier, char *stringData, int intData)
 {
 	GameServerRule *gameServerRule;
-	gameServer->lastUpdateTime=GetTime();
+	gameServer->lastUpdateTime = GetTime();
 
 	// Add the rule to our local server.  If it changes the local server, set a flag so we upload the
 	// local server on the next update.
@@ -344,19 +347,19 @@ bool MasterCommon::UpdateServerRule(GameServer *gameServer, char *ruleIdentifier
 		// Is the data the same?
 		if (gameServer->serverRules[gameServer->keyIndex]->stringValue)
 		{
-			if (stringData==0)
+			if (stringData == 0)
 			{
 				// No string.  Delete the string and use int data instead
-				delete [] gameServer->serverRules[gameServer->keyIndex]->stringValue;
-				gameServer->serverRules[gameServer->keyIndex]->stringValue=0;
-				gameServer->serverRules[gameServer->keyIndex]->intValue=intData;
+				delete[] gameServer->serverRules[gameServer->keyIndex]->stringValue;
+				gameServer->serverRules[gameServer->keyIndex]->stringValue = 0;
+				gameServer->serverRules[gameServer->keyIndex]->intValue = intData;
 				return true;
 			}
-			else if (strcmp(gameServer->serverRules[gameServer->keyIndex]->stringValue, stringData)!=0)
+			else if (strcmp(gameServer->serverRules[gameServer->keyIndex]->stringValue, stringData) != 0)
 			{
 				// Different string
-				delete [] gameServer->serverRules[gameServer->keyIndex]->stringValue;
-				gameServer->serverRules[gameServer->keyIndex]->stringValue = new char [strlen(stringData)+1];
+				delete[] gameServer->serverRules[gameServer->keyIndex]->stringValue;
+				gameServer->serverRules[gameServer->keyIndex]->stringValue = new char[strlen(stringData) + 1];
 				strcpy(gameServer->serverRules[gameServer->keyIndex]->stringValue, stringData);
 				return true;
 			}
@@ -366,15 +369,15 @@ bool MasterCommon::UpdateServerRule(GameServer *gameServer, char *ruleIdentifier
 			if (stringData)
 			{
 				// Has a string where there is currently none
-				gameServer->serverRules[gameServer->keyIndex]->stringValue = new char [strlen(stringData)+1];
+				gameServer->serverRules[gameServer->keyIndex]->stringValue = new char[strlen(stringData) + 1];
 				strcpy(gameServer->serverRules[gameServer->keyIndex]->stringValue, stringData);
-				gameServer->serverRules[gameServer->keyIndex]->intValue=-1;
+				gameServer->serverRules[gameServer->keyIndex]->intValue = -1;
 				return true;
 			}
-			else if (gameServer->serverRules[gameServer->keyIndex]->intValue!=intData)
+			else if (gameServer->serverRules[gameServer->keyIndex]->intValue != intData)
 			{
 				// Different int value
-				gameServer->serverRules[gameServer->keyIndex]->intValue=intData;
+				gameServer->serverRules[gameServer->keyIndex]->intValue = intData;
 				return true;
 			}
 		}
@@ -383,16 +386,16 @@ bool MasterCommon::UpdateServerRule(GameServer *gameServer, char *ruleIdentifier
 	{
 		// No such key.  Add a new one.
 		gameServerRule = new GameServerRule;
-		gameServerRule->key=new char[strlen(ruleIdentifier)+1];
+		gameServerRule->key = new char[strlen(ruleIdentifier) + 1];
 		strcpy(gameServerRule->key, ruleIdentifier);
 		if (stringData)
 		{
-			gameServerRule->stringValue=new char[strlen(stringData)+1];
+			gameServerRule->stringValue = new char[strlen(stringData) + 1];
 			strcpy(gameServerRule->stringValue, stringData);
 		}
 		else
 		{
-			gameServerRule->intValue=intData;
+			gameServerRule->intValue = intData;
 		}
 		gameServer->serverRules.Insert(gameServerRule, _FILE_AND_LINE_);
 		return true;
@@ -434,14 +437,14 @@ void MasterCommon::SerializeRule(GameServerRule *gameServerRule, BitStream *outp
 }
 void MasterCommon::DeserializeSystemAddress(SystemAddress *playerID, BitStream *inputBitStream)
 {
-	*playerID=UNASSIGNED_SYSTEM_ADDRESS;
+	*playerID = UNASSIGNED_SYSTEM_ADDRESS;
 
 	inputBitStream->Read(playerID->address.addr4.sin_addr.s_addr);
 	unsigned short port;
 	inputBitStream->Read(port);
 	playerID->SetPortHostOrder(port);
 }
-GameServerRule * MasterCommon::DeserializeRule(BitStream *inputBitStream)
+GameServerRule *MasterCommon::DeserializeRule(BitStream *inputBitStream)
 {
 	char output[256];
 	bool isAString;
@@ -450,7 +453,7 @@ GameServerRule * MasterCommon::DeserializeRule(BitStream *inputBitStream)
 	newRule = new GameServerRule;
 
 	StringCompressor::Instance()->DecodeString(output, 256, inputBitStream);
-	if (output[0]==0)
+	if (output[0] == 0)
 	{
 #ifdef _DEBUG
 		assert(0);
@@ -458,9 +461,9 @@ GameServerRule * MasterCommon::DeserializeRule(BitStream *inputBitStream)
 		return 0;
 	}
 
-	newRule->key = new char [strlen(output)+1];
+	newRule->key = new char[strlen(output) + 1];
 	strcpy(newRule->key, output);
-	if (inputBitStream->Read(isAString)==false)
+	if (inputBitStream->Read(isAString) == false)
 	{
 #ifdef _DEBUG
 		assert(0);
@@ -471,19 +474,19 @@ GameServerRule * MasterCommon::DeserializeRule(BitStream *inputBitStream)
 	if (isAString)
 	{
 		StringCompressor::Instance()->DecodeString(output, 256, inputBitStream);
-		if (output[0]==0)
+		if (output[0] == 0)
 		{
 #ifdef _DEBUG
 			assert(0);
 #endif
 			return 0;
 		}
-		newRule->stringValue = new char[strlen(output)+1];
+		newRule->stringValue = new char[strlen(output) + 1];
 		strcpy(newRule->stringValue, output);
 	}
 	else
 	{
-		if (inputBitStream->ReadCompressed(newRule->intValue)==false)
+		if (inputBitStream->ReadCompressed(newRule->intValue) == false)
 		{
 #ifdef _DEBUG
 			assert(0);
@@ -492,20 +495,20 @@ GameServerRule * MasterCommon::DeserializeRule(BitStream *inputBitStream)
 		}
 	}
 
-	return newRule;    
+	return newRule;
 }
 void MasterCommon::SerializeServer(GameServer *gameServer, BitStream *outputBitStream)
 {
 	unsigned serverIndex;
 	unsigned short numberOfRulesToWrite;
 
-	numberOfRulesToWrite=0;
+	numberOfRulesToWrite = 0;
 
 	// Find out how many rules to write.
-	for (serverIndex=0; serverIndex < gameServer->serverRules.Size(); serverIndex++)
+	for (serverIndex = 0; serverIndex < gameServer->serverRules.Size(); serverIndex++)
 	{
 		// We don't write reserved identifiers
-		if (IsReservedRuleIdentifier(gameServer->serverRules[serverIndex]->key)==false)
+		if (IsReservedRuleIdentifier(gameServer->serverRules[serverIndex]->key) == false)
 			numberOfRulesToWrite++;
 	}
 
@@ -516,7 +519,7 @@ void MasterCommon::SerializeServer(GameServer *gameServer, BitStream *outputBitS
 	outputBitStream->WriteCompressed(numberOfRulesToWrite);
 
 	// Write all the rules
-	for (serverIndex=0; serverIndex < gameServer->serverRules.Size(); serverIndex++)
+	for (serverIndex = 0; serverIndex < gameServer->serverRules.Size(); serverIndex++)
 	{
 		if (IsReservedRuleIdentifier(gameServer->serverRules[serverIndex]->key))
 			continue;
@@ -524,27 +527,27 @@ void MasterCommon::SerializeServer(GameServer *gameServer, BitStream *outputBitS
 		SerializeRule(gameServer->serverRules[serverIndex], outputBitStream);
 	}
 }
-GameServer * MasterCommon::DeserializeServer(BitStream *inputBitStream)
+GameServer *MasterCommon::DeserializeServer(BitStream *inputBitStream)
 {
 	unsigned serverIndex;
 	unsigned short numberOfRulesToWrite;
 	GameServer *gameServer;
 	GameServerRule *gameServerRule;
 
-	gameServer= new GameServer;
+	gameServer = new GameServer;
 	DeserializeSystemAddress(&(gameServer->connectionIdentifier), inputBitStream);
 
 	// Read the number of rules
-	if (inputBitStream->ReadCompressed(numberOfRulesToWrite)==false)
+	if (inputBitStream->ReadCompressed(numberOfRulesToWrite) == false)
 	{
 		delete gameServer;
 		return 0;
 	}
 	// Read all the rules
-	for (serverIndex=0; serverIndex < numberOfRulesToWrite; serverIndex++)
+	for (serverIndex = 0; serverIndex < numberOfRulesToWrite; serverIndex++)
 	{
 		gameServerRule = DeserializeRule(inputBitStream);
-		if (gameServerRule==0)
+		if (gameServerRule == 0)
 		{
 			delete gameServer;
 			return 0;
@@ -559,18 +562,18 @@ GameServer * MasterCommon::DeserializeServer(BitStream *inputBitStream)
 
 void MasterCommon::UpdateServer(GameServer *destination, GameServer *source, bool deleteSingleRules)
 {
-	unsigned sourceRuleIndex,destinationRuleIndex;
+	unsigned sourceRuleIndex, destinationRuleIndex;
 
-	destination->lastUpdateTime=GetTime();
+	destination->lastUpdateTime = GetTime();
 
 	// If (deleteSingleRules) then delete any rules that exist in the old and not in the new
 	if (deleteSingleRules)
 	{
-		destinationRuleIndex=0;
+		destinationRuleIndex = 0;
 		while (destinationRuleIndex < destination->serverRules.Size())
 		{
-			if (IsReservedRuleIdentifier(destination->serverRules[destinationRuleIndex]->key)==false &&
-				source->FindKey(destination->serverRules[destinationRuleIndex]->key)==false)
+			if (IsReservedRuleIdentifier(destination->serverRules[destinationRuleIndex]->key) == false &&
+			    source->FindKey(destination->serverRules[destinationRuleIndex]->key) == false)
 			{
 				delete destination->serverRules[destinationRuleIndex];
 				destination->serverRules.RemoveAtIndex(destinationRuleIndex);
@@ -581,7 +584,7 @@ void MasterCommon::UpdateServer(GameServer *destination, GameServer *source, boo
 	}
 
 	// Go through all the rules.
-	for (sourceRuleIndex=0; sourceRuleIndex < source->serverRules.Size(); sourceRuleIndex++)
+	for (sourceRuleIndex = 0; sourceRuleIndex < source->serverRules.Size(); sourceRuleIndex++)
 	{
 		if (IsReservedRuleIdentifier(source->serverRules[sourceRuleIndex]->key))
 			continue;
@@ -592,11 +595,11 @@ void MasterCommon::UpdateServer(GameServer *destination, GameServer *source, boo
 	}
 }
 
-GameServer* MasterCommon::UpdateServerList(GameServer *gameServer, bool deleteSingleRules, bool *newServerAdded)
+GameServer *MasterCommon::UpdateServerList(GameServer *gameServer, bool deleteSingleRules, bool *newServerAdded)
 {
 	int searchIndex;
 
-	if (gameServer==0)
+	if (gameServer == 0)
 	{
 #ifdef _DEBUG
 		assert(0);
@@ -606,12 +609,12 @@ GameServer* MasterCommon::UpdateServerList(GameServer *gameServer, bool deleteSi
 
 	// Find the existing game server that matches this port/address.
 	searchIndex = gameServerList.GetIndexBySystemAddress(gameServer->connectionIdentifier);
-	if (searchIndex<0)
+	if (searchIndex < 0)
 	{
 		// If not found, then add it to the list.
 		AddDefaultRulesToServer(gameServer, gameServer->connectionIdentifier);
 		gameServerList.serverList.Insert(gameServer, _FILE_AND_LINE_);
-		*newServerAdded=true;
+		*newServerAdded = true;
 		return gameServer;
 	}
 	else
@@ -619,12 +622,12 @@ GameServer* MasterCommon::UpdateServerList(GameServer *gameServer, bool deleteSi
 		// Update the existing server
 		UpdateServer(gameServerList.serverList[searchIndex], gameServer, deleteSingleRules);
 		delete gameServer;
-		*newServerAdded=false;
+		*newServerAdded = false;
 		return gameServerList.serverList[searchIndex];
 	}
 }
 
 void MasterCommon::OnAttach(RakPeerInterface *peer)
 {
-	rakPeer=peer;
+	rakPeer = peer;
 }

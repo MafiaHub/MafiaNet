@@ -14,13 +14,13 @@
  */
 
 #ifndef NOMINMAX
-	#define NOMINMAX
+#define NOMINMAX
 #endif
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2tcpip.h>
-#include <IPHlpApi.h> // used for GetAdaptersAddresses()
+#include <IPHlpApi.h>                // used for GetAdaptersAddresses()
 #pragma comment(lib, "IPHLPAPI.lib") // used for GetAdaptersAddresses()
 #endif

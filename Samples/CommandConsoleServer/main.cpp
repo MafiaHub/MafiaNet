@@ -36,16 +36,16 @@ void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, Ma
 int main(void)
 {
 	MafiaNet::RakPeerInterface *rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	MafiaNet::SocketDescriptor sd(60000,0);
- 	rakPeer->Startup(128,&sd,1);
- 	rakPeer->SetMaximumIncomingConnections(128);
+	MafiaNet::SocketDescriptor sd(60000, 0);
+	rakPeer->Startup(128, &sd, 1);
+	rakPeer->SetMaximumIncomingConnections(128);
 
 	MafiaNet::TelnetTransport tt;
 	TestCommandServer(&tt, 23, rakPeer); // Uncomment to use Telnet as a client.  Telnet uses port 23 by default.
 
-// 	MafiaNet::RakNetTransport2 rt2;
-// 	rakPeer->AttachPlugin(&rt2);
-// 	TestCommandServer(&rt2, 60000,rakPeer); // Uncomment to use RakNet as a client
+	// 	MafiaNet::RakNetTransport2 rt2;
+	// 	rakPeer->AttachPlugin(&rt2);
+	// 	TestCommandServer(&rt2, 60000,rakPeer); // Uncomment to use RakNet as a client
 
 	return 1;
 }
@@ -55,7 +55,7 @@ void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, Ma
 	MafiaNet::ConsoleServer consoleServer;
 	MafiaNet::RakNetCommandParser rcp;
 	MafiaNet::LogCommandParser lcp;
-	MafiaNet::TimeMS lastLog=0;
+	MafiaNet::TimeMS lastLog = 0;
 
 	printf("This sample demonstrates the command console server, which can be.\n");
 	printf("a standalone application or part of your game server.  It allows you to\n");
@@ -71,7 +71,7 @@ void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, Ma
 	consoleServer.SetPrompt("> "); // Show this character when waiting for user input
 	rcp.SetRakPeerInterface(rakPeer);
 	lcp.AddChannel("TestChannel");
-	for(;;)
+	for (;;)
 	{
 		consoleServer.Update();
 		// Ignore raknet packets for this sample.
@@ -80,13 +80,13 @@ void TestCommandServer(MafiaNet::TransportInterface *ti, unsigned short port, Ma
 		if (MafiaNet::GetTimeMS() > lastLog + 4000)
 		{
 			lcp.WriteLog("TestChannel", "Test of logger");
-			lastLog= MafiaNet::GetTimeMS();
+			lastLog = MafiaNet::GetTimeMS();
 		}
 
 #ifdef _WIN32
-		Sleep( 30 );
+		Sleep(30);
 #else
-		usleep( 30 * 1000 );
+		usleep(30 * 1000);
 #endif
-	}	
+	}
 }

@@ -43,18 +43,18 @@ public:
 	bool OnFile(OnFileStruct *onFileStruct) override
 	{
 		printf("%i. %i/%i %s %llub / %ub\n",
-			onFileStruct->setID,
-			onFileStruct->fileIndex,
-			onFileStruct->numberOfFilesInThisSet,
-			onFileStruct->fileName,
-			(unsigned long long)onFileStruct->byteLengthOfThisFile,
-			onFileStruct->byteLengthOfThisSet);
+		       onFileStruct->setID,
+		       onFileStruct->fileIndex,
+		       onFileStruct->numberOfFilesInThisSet,
+		       onFileStruct->fileName,
+		       (unsigned long long) onFileStruct->byteLengthOfThisFile,
+		       onFileStruct->byteLengthOfThisSet);
 		return true;
 	}
 	void OnFileProgress(FileProgressStruct *fps) override
 	{
 		// Progress callback - do nothing for this sample
-		(void)fps;
+		(void) fps;
 	}
 } transferCallback;
 
@@ -84,10 +84,10 @@ int main(void)
 	unsigned short localPort;
 	char str[256];
 	Gets(str, sizeof(str));
-	if (str[0]==0)
-		localPort=60000;
+	if (str[0] == 0)
+		localPort = 60000;
 	else
-		localPort=atoi(str);
+		localPort = atoi(str);
 	SocketDescriptor sd(localPort, 0);
 	if (rakPeer->Startup(8, &sd, 1) != RAKNET_STARTED)
 	{
@@ -109,39 +109,39 @@ int main(void)
 	while (1)
 	{
 		// Process packets
-		p=rakPeer->Receive();
+		p = rakPeer->Receive();
 		while (p)
 		{
-			if (p->data[0]==ID_NEW_INCOMING_CONNECTION)
+			if (p->data[0] == ID_NEW_INCOMING_CONNECTION)
 				printf("ID_NEW_INCOMING_CONNECTION\n");
-			else if (p->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)
+			else if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 				printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 
 			rakPeer->DeallocatePacket(p);
-			p=rakPeer->Receive();
+			p = rakPeer->Receive();
 		}
-		
+
 
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch=='s')
+			ch = _getch();
+			if (ch == 's')
 			{
 				printf("Enter application directory\n");
 				Gets(str, sizeof(str));
-				if (str[0]==0)
+				if (str[0] == 0)
 					strcpy(str, "C:/RakNet");
 				directoryDeltaTransfer.SetApplicationDirectory(str);
 				printf("This directory will be prefixed to upload and download subdirectories.\n");
 			}
-			else if (ch=='a')
+			else if (ch == 'a')
 			{
 				printf("Enter uploads subdirectory\n");
 				Gets(str, sizeof(str));
 				directoryDeltaTransfer.AddUploadsFromSubdirectory(str);
 				printf("%i files for upload.\n", directoryDeltaTransfer.GetNumberOfFilesForUpload());
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
 				char subdir[256];
 				char outputSubdir[256];
@@ -150,37 +150,37 @@ int main(void)
 				Gets(subdir, sizeof(subdir));
 				printf("Enter subdirectory to output to.\n");
 				Gets(outputSubdir, sizeof(outputSubdir));
-                
+
 				unsigned short setId;
-				setId=directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetSystemAddressFromIndex(0), &transferCallback, MafiaNet::Priority::High, 0, nullptr);
-				if (setId==(unsigned short)-1)
+				setId = directoryDeltaTransfer.DownloadFromSubdirectory(subdir, outputSubdir, true, rakPeer->GetSystemAddressFromIndex(0), &transferCallback, MafiaNet::Priority::High, 0, nullptr);
+				if (setId == (unsigned short) -1)
 					printf("Download failed.  Host unreachable.\n");
 				else
 					printf("Downloading set %i\n", setId);
 			}
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
 				directoryDeltaTransfer.ClearUploads();
 				printf("Uploads cleared.\n");
 			}
-			else if (ch=='o')
+			else if (ch == 'o')
 			{
 				char host[256];
 				printf("Enter host IP: ");
 				Gets(host, sizeof(host));
-				if (host[0]==0)
+				if (host[0] == 0)
 					strcpy(host, "127.0.0.1");
 				unsigned short remotePort;
 				printf("Enter host port: ");
 				Gets(str, sizeof(str));
-				if (str[0]==0)
-					remotePort=60000;
+				if (str[0] == 0)
+					remotePort = 60000;
 				else
-					remotePort=atoi(str);
+					remotePort = atoi(str);
 				rakPeer->Connect(host, remotePort, 0, 0);
 				printf("Connecting.\n");
 			}
-			else if (ch=='q')
+			else if (ch == 'q')
 			{
 				printf("Bye!\n");
 				break;

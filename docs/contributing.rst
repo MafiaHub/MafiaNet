@@ -20,9 +20,24 @@ Code Style
 ----------
 
 * Use C++17 features where appropriate
-* Follow existing code formatting conventions
 * Add comments for complex logic
 * Keep functions focused and reasonably sized
+
+Formatting is clang-format's job (``.clang-format``: tabs, Allman braces, no
+line wrapping). CI checks every file with clang-format **18.1.8**; other
+versions format a few constructs differently, so use that one:
+
+.. code-block:: bash
+
+   pipx install clang-format==18.1.8   # or: pip install clang-format==18.1.8
+   ci/format.sh                        # reformat the tree in place
+   ci/format.sh --check                # what CI runs
+
+Files that are not ours (vendored third-party code, Objective-C samples) are
+listed in ``.clang-format-ignore``. The commit that first formatted the whole
+tree is listed in ``.git-blame-ignore-revs``; GitHub's blame view skips it, and
+``git config blame.ignoreRevsFile .git-blame-ignore-revs`` makes local
+``git blame`` do the same.
 
 Building and Testing
 --------------------
@@ -46,8 +61,8 @@ Two binaries live under ``Tests/``:
   no loopback networking, no wall-clock timing. A started-but-unconnected peer
   with synchronous assertions is acceptable. New tests for pure logic go here.
 * **IntegrationTests** (``Tests/Integration/``, label ``integration``): real
-  UDP over loopback. Discovered tests run serially (several bind fixed ports)
-  with a generous timeout. Shared polling/connect helpers live in
+  UDP over loopback. Every test binds OS-assigned ports, so the suite runs in
+  parallel (``ctest -j``) with a generous per-test timeout. Shared polling/connect helpers live in
   ``Tests/Support/`` (``CommonFunctions.h``, ``TestHelpers.h``) — extend those
   rather than duplicating polling loops.
 

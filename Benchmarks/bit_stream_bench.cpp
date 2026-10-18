@@ -17,40 +17,40 @@ using namespace MafiaNet;
 
 namespace
 {
-	// A typical entity-state message: id, position, compressed orientation,
-	// flags and a few range-packed values.
-	void WriteEntityState(BitStream &bs, uint32_t i)
-	{
-		bs.Write((uint8_t) 135);
-		bs.Write(i);
-		bs.Write(1.5f * i);
-		bs.Write(2.5f * i);
-		bs.Write(-3.5f * i);
-		bs.WriteNormQuat(1.f, 0.f, 0.f, 0.f);
-		bs.Write((i & 1) != 0);
-		bs.Write((i & 2) != 0);
-		bs.WriteCompressed((uint16_t) (i & 0xfff));
-		bs.WriteBitsFromIntegerRange((uint32_t) (i % 100), 0u, 100u);
-	}
+// A typical entity-state message: id, position, compressed orientation,
+// flags and a few range-packed values.
+void WriteEntityState(BitStream &bs, uint32_t i)
+{
+	bs.Write((uint8_t) 135);
+	bs.Write(i);
+	bs.Write(1.5f * i);
+	bs.Write(2.5f * i);
+	bs.Write(-3.5f * i);
+	bs.WriteNormQuat(1.f, 0.f, 0.f, 0.f);
+	bs.Write((i & 1) != 0);
+	bs.Write((i & 2) != 0);
+	bs.WriteCompressed((uint16_t) (i & 0xfff));
+	bs.WriteBitsFromIntegerRange((uint32_t) (i % 100), 0u, 100u);
+}
 
-	bool ReadEntityState(BitStream &bs, benchmark::State &state)
+bool ReadEntityState(BitStream &bs, benchmark::State &state)
+{
+	uint8_t id;
+	uint32_t index;
+	float x, y, z, qw, qx, qy, qz;
+	bool a, b;
+	uint16_t c;
+	uint32_t r;
+	if (!(bs.Read(id) && bs.Read(index) && bs.Read(x) && bs.Read(y) && bs.Read(z) &&
+	      bs.ReadNormQuat(qw, qx, qy, qz) && bs.Read(a) && bs.Read(b) && bs.ReadCompressed(c) &&
+	      bs.ReadBitsFromIntegerRange(r, 0u, 100u)))
 	{
-		uint8_t id;
-		uint32_t index;
-		float x, y, z, qw, qx, qy, qz;
-		bool a, b;
-		uint16_t c;
-		uint32_t r;
-		if (!(bs.Read(id) && bs.Read(index) && bs.Read(x) && bs.Read(y) && bs.Read(z) &&
-			bs.ReadNormQuat(qw, qx, qy, qz) && bs.Read(a) && bs.Read(b) && bs.ReadCompressed(c) &&
-			bs.ReadBitsFromIntegerRange(r, 0u, 100u)))
-		{
-			state.SkipWithError("read failed");
-			return false;
-		}
-		benchmark::DoNotOptimize(x + y + z + qw + c + r);
-		return true;
+		state.SkipWithError("read failed");
+		return false;
 	}
+	benchmark::DoNotOptimize(x + y + z + qw + c + r);
+	return true;
+}
 }
 
 static void BitStream_WriteEntityState(benchmark::State &state)

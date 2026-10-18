@@ -1,0 +1,12 @@
+# Files clang-format must not touch.
+
+# Objective-C
+Samples/iOS/*/*/*
+
+# Third-party code kept as upstream wrote it
+DependentExtensions/Autopatcher/ApplyPatch.cpp
+DependentExtensions/Autopatcher/CreatePatch.cpp
+DependentExtensions/SQLite3Plugin/Logger/ClientOnly/Samples/D3D9/Matrices.cpp
+Source/include/mafianet/dr_sha1.h
+Source/include/mafianet/kbhit.h
+Source/src/dr_sha1.cpp

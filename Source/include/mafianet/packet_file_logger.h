@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 
 #ifndef __PACKET_FILE_LOGGER_H_
 #define __PACKET_FILE_LOGGER_H_
@@ -32,7 +32,7 @@ namespace MafiaNet
 
 /// \ingroup PACKETLOGGER_GROUP
 /// \brief Packetlogger that outputs to a file
-class RAK_DLL_EXPORT  PacketFileLogger : public PacketLogger
+class RAK_DLL_EXPORT PacketFileLogger : public PacketLogger
 {
 public:
 	// GetInstance() and DestroyInstance(instance*)
@@ -42,6 +42,7 @@ public:
 	virtual ~PacketFileLogger();
 	void StartLog(const char *filenamePrefix);
 	virtual void WriteLog(const char *str);
+
 protected:
 	FILE *packetLogFile;
 };

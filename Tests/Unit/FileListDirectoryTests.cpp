@@ -27,38 +27,38 @@ using namespace MafiaNet;
 
 namespace
 {
-	struct TempTree
+struct TempTree
+{
+	std::filesystem::path root;
+	TempTree()
 	{
-		std::filesystem::path root;
-		TempTree()
-		{
-			// One directory per test: ctest may run these in parallel, and a
-			// shared path lets one test delete another's tree mid-walk.
-			root = std::filesystem::temp_directory_path() /
-				(std::string("mafianet_filelist_unit_") +
-				 ::testing::UnitTest::GetInstance()->current_test_info()->name());
-			std::filesystem::remove_all(root);
-			std::filesystem::create_directories(root / "sub" / "deeper");
-			Write("a.bin", 10);
-			Write("sub/b.bin", 20);
-			Write("sub/deeper/c.bin", 30);
-		}
-		~TempTree() { std::filesystem::remove_all(root); }
-		void Write(const char *rel, size_t size)
-		{
-			std::ofstream out(root / rel, std::ios::binary);
-			std::string bytes(size, 'x');
-			out.write(bytes.data(), (std::streamsize)bytes.size());
-		}
-	};
-
-	std::set<std::string> Names(const FileList &list)
-	{
-		std::set<std::string> names;
-		for (unsigned i = 0; i < list.fileList.Size(); ++i)
-			names.insert(list.fileList[i].filename.C_String());
-		return names;
+		// One directory per test: ctest may run these in parallel, and a
+		// shared path lets one test delete another's tree mid-walk.
+		root = std::filesystem::temp_directory_path() /
+		       (std::string("mafianet_filelist_unit_") +
+		        ::testing::UnitTest::GetInstance()->current_test_info()->name());
+		std::filesystem::remove_all(root);
+		std::filesystem::create_directories(root / "sub" / "deeper");
+		Write("a.bin", 10);
+		Write("sub/b.bin", 20);
+		Write("sub/deeper/c.bin", 30);
 	}
+	~TempTree() { std::filesystem::remove_all(root); }
+	void Write(const char *rel, size_t size)
+	{
+		std::ofstream out(root / rel, std::ios::binary);
+		std::string bytes(size, 'x');
+		out.write(bytes.data(), (std::streamsize) bytes.size());
+	}
+};
+
+std::set<std::string> Names(const FileList &list)
+{
+	std::set<std::string> names;
+	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+		names.insert(list.fileList[i].filename.C_String());
+	return names;
+}
 } // namespace
 
 TEST(FileListDirectory, RecursiveWalkFindsEveryFileAndTerminates)

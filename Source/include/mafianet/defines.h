@@ -42,9 +42,9 @@
 #ifndef SWIG
 #ifdef _RETAIL
 // retail builds do not contain source-code related information in order to reduce the overall EXE size
-#define _FILE_AND_LINE_ "",0
+#define _FILE_AND_LINE_ "", 0
 #else
-#define _FILE_AND_LINE_ __FILE__,__LINE__
+#define _FILE_AND_LINE_ __FILE__, __LINE__
 #endif // _RETAIL
 #endif // SWIG
 #endif // _FILE_AND_LINE_
@@ -71,7 +71,7 @@
 #define USE_WAIT_FOR_MULTIPLE_EVENTS
 
 /// Uncomment to use RakMemoryOverride for custom memory tracking
-/// See memoryoverride.h. 
+/// See memoryoverride.h.
 #ifndef _USE_RAK_MEMORY_OVERRIDE
 #define _USE_RAK_MEMORY_OVERRIDE 0
 #endif
@@ -116,12 +116,12 @@
 #if defined(_DEBUG)
 #define RakAssert(x) assert(x);
 #else
-#define RakAssert(x) 
+#define RakAssert(x)
 #endif
 #endif
 
 #if !defined(_DEBUG)
-#define SLNET_VERIFY(x) ((void)(x))
+#define SLNET_VERIFY(x) ((void) (x))
 #else
 #define SLNET_VERIFY(x) RakAssert(x)
 #endif

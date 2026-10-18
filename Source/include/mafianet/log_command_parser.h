@@ -18,7 +18,7 @@
 ///
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_LogCommandParser==1
+#if _RAKNET_SUPPORT_LogCommandParser == 1
 
 #ifndef __LOG_COMMAND_PARSER
 #define __LOG_COMMAND_PARSER
@@ -85,6 +85,7 @@ public:
 	/// This is the place to do it
 	/// \param[in] transport The new TransportInterface
 	void OnTransportChange(TransportInterface *transport);
+
 protected:
 	/// Sends the currently active channels to the user
 	/// \param[in] systemAddress The player to send to

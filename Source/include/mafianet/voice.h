@@ -35,7 +35,8 @@ struct OpusEncoder;
 struct OpusDecoder;
 struct DenoiseState;
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 class RakPeerInterface;
 
@@ -172,7 +173,7 @@ struct VoiceChannel
 	MafiaNet::TimeMS lastEmit;
 	HeldFrame held[RAKVOICE_REORDER_WINDOW];
 };
-int VoiceChannelComp( const RakNetGUID &key, VoiceChannel * const &data );
+int VoiceChannelComp(const RakNetGUID &key, VoiceChannel *const &data);
 
 /// Voice compression and transmission interface using Opus codec
 class RAK_DLL_EXPORT RakVoice : public PluginInterface2
@@ -277,7 +278,7 @@ public:
 
 	/// Returns the RakPeerInterface that the object is attached to.
 	/// \return the respective RakPeerInterface, or nullptr if not attached.
-	RakPeerInterface* GetRakPeerInterface(void) const;
+	RakPeerInterface *GetRakPeerInterface(void) const;
 
 	/// How many bytes are on the write buffer, waiting to be passed to a call to RakPeer::Send
 	/// \param[in] guid The system to query, or UNASSIGNED_RAKNET_GUID for the sum of all channels.
@@ -367,7 +368,7 @@ public:
 	virtual void Update(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual PluginReceiveResult OnReceiveNetworkThread(Packet *packet);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 protected:
 	void OnOpenChannelRequest(Packet *packet);
@@ -378,7 +379,7 @@ protected:
 	void FreeChannelMemory(unsigned index, bool removeIndex);
 	void WriteOutputToChannel(VoiceChannel *channel, char *dataToWrite, int bytesToWrite);
 	void DecodeIntoChannel(VoiceChannel *channel, unsigned short packetMessageNumber,
-		const unsigned char *payload, unsigned payloadLength);
+	                       const unsigned char *payload, unsigned payloadLength);
 	/// Decodes held frames that are next in line.
 	void DrainHeldFrames(VoiceChannel *channel, MafiaNet::TimeMS now);
 	/// Settles gaps whose wait is up by filling them in place.
@@ -406,7 +407,7 @@ protected:
 	/// Get frame size in samples for the given sample rate (20ms frames)
 	static int GetFrameSizeSamples(int sampleRate);
 
-	DataStructures::OrderedList<RakNetGUID, VoiceChannel*, VoiceChannelComp> voiceChannels;
+	DataStructures::OrderedList<RakNetGUID, VoiceChannel *, VoiceChannelComp> voiceChannels;
 	int32_t sampleRate;
 	unsigned bufferSizeBytes;
 	float *bufferedOutput;

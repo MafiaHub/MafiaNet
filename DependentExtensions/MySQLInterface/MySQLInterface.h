@@ -27,14 +27,14 @@ public:
 	MySQLInterface();
 	virtual ~MySQLInterface();
 
-	/// Calls mysql_real_connect with the implicit mySqlConnection 
-	bool Connect (const char *host,
-		const char *user,
-		const char *passwd,
-		const char *db,
-		unsigned int port,
-		const char *unix_socket,
-		unsigned long clientflag);
+	/// Calls mysql_real_connect with the implicit mySqlConnection
+	bool Connect(const char *host,
+	             const char *user,
+	             const char *passwd,
+	             const char *db,
+	             unsigned int port,
+	             const char *unix_socket,
+	             unsigned long clientflag);
 
 	/// Disconnect from the database
 	void Disconnect(void);
@@ -52,7 +52,7 @@ protected:
 	// Pass queries to the server
 	bool ExecuteBlockingCommand(const char *command);
 	bool ExecuteBlockingCommand(const char *command, st_mysql_res **result, bool rollbackOnFailure = false);
-	bool ExecuteQueryReadInt (const char * query, int *value);
+	bool ExecuteQueryReadInt(const char *query, int *value);
 	void Commit(void);
 	void Rollback(void);
 	MafiaNet::RakString GetEscapedString(const char *input) const;
@@ -68,7 +68,6 @@ protected:
 	unsigned int _port;
 	MafiaNet::RakString _unix_socket;
 	unsigned long _clientflag;
-
 };
 
 #endif

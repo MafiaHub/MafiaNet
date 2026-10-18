@@ -18,7 +18,7 @@
 ///
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_NatPunchthroughClient==1
+#if _RAKNET_SUPPORT_NatPunchthroughClient == 1
 
 #ifndef __NAT_PUNCHTHROUGH_CLIENT_H
 #define __NAT_PUNCHTHROUGH_CLIENT_H
@@ -45,7 +45,7 @@ namespace MafiaNet
 /// Forward declarations
 class RakPeerInterface;
 struct Packet;
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 class PacketLogger;
 #endif
 
@@ -55,18 +55,19 @@ struct RAK_DLL_EXPORT PunchthroughConfiguration
 	/// internal: (15 ms * 2 tries + 30 wait) * 5 ports * 8 players = 2.4 seconds
 	/// external: (50 ms * 8 sends + 200 wait) * 2 port * 8 players = 9.6 seconds
 	/// Total: 8 seconds
-	PunchthroughConfiguration() {
-		TIME_BETWEEN_PUNCH_ATTEMPTS_INTERNAL=15;
-		TIME_BETWEEN_PUNCH_ATTEMPTS_EXTERNAL=50;
-		UDP_SENDS_PER_PORT_INTERNAL=2;
-		UDP_SENDS_PER_PORT_EXTERNAL=8;
-		INTERNAL_IP_WAIT_AFTER_ATTEMPTS=30;
-		MAXIMUM_NUMBER_OF_INTERNAL_IDS_TO_CHECK=5; /// set to 0 to not do lan connects
-		MAX_PREDICTIVE_PORT_RANGE=2;
-		EXTERNAL_IP_WAIT_BETWEEN_PORTS=200;
-		EXTERNAL_IP_WAIT_AFTER_FIRST_TTL=100;
-		EXTERNAL_IP_WAIT_AFTER_ALL_ATTEMPTS=EXTERNAL_IP_WAIT_BETWEEN_PORTS;
-		retryOnFailure=false;
+	PunchthroughConfiguration()
+	{
+		TIME_BETWEEN_PUNCH_ATTEMPTS_INTERNAL = 15;
+		TIME_BETWEEN_PUNCH_ATTEMPTS_EXTERNAL = 50;
+		UDP_SENDS_PER_PORT_INTERNAL = 2;
+		UDP_SENDS_PER_PORT_EXTERNAL = 8;
+		INTERNAL_IP_WAIT_AFTER_ATTEMPTS = 30;
+		MAXIMUM_NUMBER_OF_INTERNAL_IDS_TO_CHECK = 5; /// set to 0 to not do lan connects
+		MAX_PREDICTIVE_PORT_RANGE = 2;
+		EXTERNAL_IP_WAIT_BETWEEN_PORTS = 200;
+		EXTERNAL_IP_WAIT_AFTER_FIRST_TTL = 100;
+		EXTERNAL_IP_WAIT_AFTER_ALL_ATTEMPTS = EXTERNAL_IP_WAIT_BETWEEN_PORTS;
+		retryOnFailure = false;
 	}
 
 	/// How much time between each UDP send
@@ -107,7 +108,7 @@ struct RAK_DLL_EXPORT NatPunchthroughDebugInterface
 {
 	NatPunchthroughDebugInterface() {}
 	virtual ~NatPunchthroughDebugInterface() {}
-	virtual void OnClientMessage(const char *msg)=0;
+	virtual void OnClientMessage(const char *msg) = 0;
 };
 
 /// \ingroup NAT_PUNCHTHROUGH_GROUP
@@ -116,14 +117,14 @@ struct RAK_DLL_EXPORT NatPunchthroughDebugInterface_Printf : public NatPunchthro
 	virtual void OnClientMessage(const char *msg);
 };
 
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 /// \ingroup NAT_PUNCHTHROUGH_GROUP
 struct RAK_DLL_EXPORT NatPunchthroughDebugInterface_PacketLogger : public NatPunchthroughDebugInterface
 {
 	// Set to non-zero to write to the packetlogger!
 	PacketLogger *pl;
 
-	NatPunchthroughDebugInterface_PacketLogger() {pl=0;}
+	NatPunchthroughDebugInterface_PacketLogger() { pl = 0; }
 	~NatPunchthroughDebugInterface_PacketLogger() {}
 	virtual void OnClientMessage(const char *msg);
 };
@@ -139,7 +140,6 @@ struct RAK_DLL_EXPORT NatPunchthroughDebugInterface_PacketLogger : public NatPun
 class RAK_DLL_EXPORT NatPunchthroughClient : public PluginInterface2
 {
 public:
-
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(NatPunchthroughClient)
 
@@ -174,7 +174,7 @@ public:
 
 	/// Modify the system configuration if desired
 	/// Don't modify the variables in the structure while punchthrough is in progress
-	PunchthroughConfiguration* GetPunchthroughConfiguration(void);
+	PunchthroughConfiguration *GetPunchthroughConfiguration(void);
 
 	/// Sets a callback to be called with debug messages
 	/// \param[in] i Pointer to an interface. The pointer is stored, so don't delete it while in progress. Pass 0 to clear.
@@ -193,7 +193,7 @@ public:
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 
 	/// \internal For plugin handling
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 	virtual void OnAttach(void);
 	virtual void OnDetach(void);

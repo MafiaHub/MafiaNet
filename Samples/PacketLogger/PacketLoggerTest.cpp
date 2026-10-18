@@ -31,15 +31,15 @@
 #include <unistd.h> // usleep
 #endif
 
-static const int NUM_PEERS=2;
+static const int NUM_PEERS = 2;
 MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
 MafiaNet::PacketLogger messageHandler[NUM_PEERS];
 void PrintConnections(void);
 
 int main(void)
 {
-	for (unsigned short i=0; i < NUM_PEERS; i++)
-		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
+		rakPeer[i] = MafiaNet::RakPeerInterface::GetInstance();
 
 	printf("Packet Logger Test.\n");
 	printf("Displays all packets being sent or received.\n");
@@ -58,41 +58,41 @@ int main(void)
 	printf("9. Remote System (binary IP followed by port)\n\n");
 
 	// Initialize the message handlers
-	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 	{
 		rakPeer[peerIndex]->AttachPlugin(&messageHandler[peerIndex]);
 		rakPeer[peerIndex]->SetMaximumIncomingConnections(NUM_PEERS);
 	}
 
 	// Initialize the peers
-	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000 + peerIndex, 0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
 
 	printf("Connecting two systems...\n\n");
 
 	messageHandler[0].LogHeader();
-	
+
 	// Connect each peer to the prior peer
-	for (unsigned short peerIndex=1; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 1; peerIndex < NUM_PEERS; peerIndex++)
 	{
-        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0);
+		rakPeer[peerIndex]->Connect("127.0.0.1", 60000 + peerIndex - 1, 0, 0);
 	}
 
 #ifdef WIN32
 	Sleep(5000);
 #else
-	usleep(5000*1000);
+	usleep(5000 * 1000);
 #endif
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 
 	printf("Press enter to continue.\n");
 	char temp[256];
-	Gets(temp,sizeof(temp));
+	Gets(temp, sizeof(temp));
 
 	return 1;
 }

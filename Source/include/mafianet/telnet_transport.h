@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_TelnetTransport==1 && _RAKNET_SUPPORT_TCPInterface==1
+#if _RAKNET_SUPPORT_TelnetTransport == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #ifndef __TELNET_TRANSPORT
 #define __TELNET_TRANSPORT
@@ -48,17 +48,17 @@ public:
 	virtual ~TelnetTransport();
 	bool Start(unsigned short port, bool serverMode);
 	void Stop(void);
-	void Send( SystemAddress systemAddress, const char *data, ... );
-	void CloseConnection( SystemAddress systemAddress );
-	Packet* Receive( void );
-	void DeallocatePacket( Packet *packet );
+	void Send(SystemAddress systemAddress, const char *data, ...);
+	void CloseConnection(SystemAddress systemAddress);
+	Packet *Receive(void);
+	void DeallocatePacket(Packet *packet);
 	SystemAddress HasNewIncomingConnection(void);
 	SystemAddress HasLostConnection(void);
-	CommandParserInterface* GetCommandParser(void);
+	CommandParserInterface *GetCommandParser(void);
 	void SetSendSuffix(const char *suffix);
 	void SetSendPrefix(const char *prefix);
-protected:
 
+protected:
 	struct TelnetClient
 	{
 		SystemAddress systemAddress;
@@ -69,13 +69,12 @@ protected:
 
 	TCPInterface *tcpInterface;
 	void AutoAllocate(void);
-	bool ReassembleLine(TelnetTransport::TelnetClient* telnetClient, unsigned char c);
+	bool ReassembleLine(TelnetTransport::TelnetClient *telnetClient, unsigned char c);
 
 	// Crap this sucks but because windows telnet won't send line at a time, I have to reconstruct the lines at the server per player
-	DataStructures::List<TelnetClient*> remoteClients;
+	DataStructures::List<TelnetClient *> remoteClients;
 
 	char *sendSuffix, *sendPrefix;
-
 };
 
 } // namespace MafiaNet

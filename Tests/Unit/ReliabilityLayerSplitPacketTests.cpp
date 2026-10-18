@@ -33,121 +33,121 @@ using namespace MafiaNet;
 
 namespace
 {
-	struct NullSocket : public RakNetSocket2
+struct NullSocket : public RakNetSocket2
+{
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
 	{
-		RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
-		{
-			return sendParameters->length;
-		}
-	};
+		return sendParameters->length;
+	}
+};
 
-	struct Fragment
+struct Fragment
+{
+	uint32_t count;
+	uint16_t id;
+	uint32_t index;
+	std::vector<unsigned char> data;
+	uint16_t bitLength; // 0 means data.size() * 8
+};
+
+class SplitPacketFixture : public ::testing::Test
+{
+protected:
+	ReliabilityLayer layer;
+	NullSocket socket;
+	SystemAddress remote{"127.0.0.1", 40001};
+	DataStructures::List<PluginInterface2 *> handlers;
+	RakNetRandom rnr;
+	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
+	CCTimeType now = 0;
+	uint32_t nextDatagramNumber = 0;
+
+	void SetUp() override
 	{
-		uint32_t count;
-		uint16_t id;
-		uint32_t index;
-		std::vector<unsigned char> data;
-		uint16_t bitLength; // 0 means data.size() * 8
-	};
+		// ReliabilityLayer stamps arrivals with the real clock; anchor to it
+		// (see ReliabilityLayerBlackHoleTests).
+		now = GetTimeUS();
+		layer.Reset(true, MAXIMUM_MTU_SIZE, false);
+		layer.SetTimeoutTime(1000000);
+	}
 
-	class SplitPacketFixture : public ::testing::Test
+	// One unreliable split fragment in one datagram, in the layer's wire
+	// format (DatagramHeaderFormat::Serialize, WriteToBitStreamFromInternalPacket).
+	void Deliver(const Fragment &f)
 	{
-	protected:
-		ReliabilityLayer layer;
-		NullSocket socket;
-		SystemAddress remote{"127.0.0.1", 40001};
-		DataStructures::List<PluginInterface2 *> handlers;
-		RakNetRandom rnr;
-		BitStream updateBitStream{MAXIMUM_MTU_SIZE};
-		CCTimeType now = 0;
-		uint32_t nextDatagramNumber = 0;
-
-		void SetUp() override
-		{
-			// ReliabilityLayer stamps arrivals with the real clock; anchor to it
-			// (see ReliabilityLayerBlackHoleTests).
-			now = GetTimeUS();
-			layer.Reset(true, MAXIMUM_MTU_SIZE, false);
-			layer.SetTimeoutTime(1000000);
-		}
-
-		// One unreliable split fragment in one datagram, in the layer's wire
-		// format (DatagramHeaderFormat::Serialize, WriteToBitStreamFromInternalPacket).
-		void Deliver(const Fragment &f)
-		{
-			BitStream b;
-			b.Write(true);  // isValid
-			b.Write(false); // isACK
-			b.Write(false); // isNAK
-			b.Write(false); // isPacketPair
-			b.Write(false); // isContinuousSend
-			b.Write(false); // needsBAndAs
-			b.AlignWriteToByteBoundary();
+		BitStream b;
+		b.Write(true);  // isValid
+		b.Write(false); // isACK
+		b.Write(false); // isNAK
+		b.Write(false); // isPacketPair
+		b.Write(false); // isContinuousSend
+		b.Write(false); // needsBAndAs
+		b.AlignWriteToByteBoundary();
 #if INCLUDE_TIMESTAMP_WITH_DATAGRAMS == 1
-			b.Write((MafiaNet::TimeMS) 0);
+		b.Write((MafiaNet::TimeMS) 0);
 #endif
-			b.Write(DatagramSequenceNumberType(nextDatagramNumber++));
+		b.Write(DatagramSequenceNumberType(nextDatagramNumber++));
 
-			b.AlignWriteToByteBoundary();
-			const unsigned char reliability = (unsigned char) MafiaNet::Reliability::Unreliable;
-			b.WriteBits(&reliability, 3, true);
-			b.Write(true); // hasSplitPacket
-			b.AlignWriteToByteBoundary();
-			const uint16_t bits = f.bitLength ? f.bitLength : (uint16_t) (f.data.size() * 8);
-			b.WriteAlignedVar16((const char *) &bits);
-			b.AlignWriteToByteBoundary();
-			b.WriteAlignedVar32((const char *) &f.count);
-			b.WriteAlignedVar16((const char *) &f.id);
-			b.WriteAlignedVar32((const char *) &f.index);
-			b.WriteAlignedBytes(f.data.data(), (unsigned int) f.data.size());
+		b.AlignWriteToByteBoundary();
+		const unsigned char reliability = (unsigned char) MafiaNet::Reliability::Unreliable;
+		b.WriteBits(&reliability, 3, true);
+		b.Write(true); // hasSplitPacket
+		b.AlignWriteToByteBoundary();
+		const uint16_t bits = f.bitLength ? f.bitLength : (uint16_t) (f.data.size() * 8);
+		b.WriteAlignedVar16((const char *) &bits);
+		b.AlignWriteToByteBoundary();
+		b.WriteAlignedVar32((const char *) &f.count);
+		b.WriteAlignedVar16((const char *) &f.id);
+		b.WriteAlignedVar32((const char *) &f.index);
+		b.WriteAlignedBytes(f.data.data(), (unsigned int) f.data.size());
 
-			std::vector<char> datagram(b.GetData(), b.GetData() + b.GetNumberOfBytesUsed());
-			layer.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(),
-				remote, handlers, MAXIMUM_MTU_SIZE, &socket, &rnr, now, updateBitStream);
-			now += 10000;
-			layer.Update(&socket, remote, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
-		}
+		std::vector<char> datagram(b.GetData(), b.GetData() + b.GetNumberOfBytesUsed());
+		layer.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(),
+		                                             remote, handlers, MAXIMUM_MTU_SIZE, &socket, &rnr, now, updateBitStream);
+		now += 10000;
+		layer.Update(&socket, remote, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+	}
 
-		std::vector<std::vector<unsigned char> > Drain()
+	std::vector<std::vector<unsigned char>> Drain()
+	{
+		std::vector<std::vector<unsigned char>> messages;
+		unsigned char *data;
+		BitSize_t bits;
+		while ((bits = layer.Receive(&data)) > 0)
 		{
-			std::vector<std::vector<unsigned char> > messages;
-			unsigned char *data;
-			BitSize_t bits;
-			while ((bits = layer.Receive(&data)) > 0)
-			{
-				messages.emplace_back(data, data + BITS_TO_BYTES(bits));
-				rakFree_Ex(data, _FILE_AND_LINE_);
-			}
-			return messages;
+			messages.emplace_back(data, data + BITS_TO_BYTES(bits));
+			rakFree_Ex(data, _FILE_AND_LINE_);
 		}
+		return messages;
+	}
 
-		static std::vector<unsigned char> Bytes(unsigned char seed, size_t n)
-		{
-			std::vector<unsigned char> v(n);
-			v[0] = 200; // clear of internal message ids
-			for (size_t i = 1; i < n; ++i)
-				v[i] = (unsigned char) (seed + i);
-			return v;
-		}
+	static std::vector<unsigned char> Bytes(unsigned char seed, size_t n)
+	{
+		std::vector<unsigned char> v(n);
+		v[0] = 200; // clear of internal message ids
+		for (size_t i = 1; i < n; ++i)
+			v[i] = (unsigned char) (seed + i);
+		return v;
+	}
 
-		static std::vector<unsigned char> Concat(const std::vector<unsigned char> &a, const std::vector<unsigned char> &b)
-		{
-			std::vector<unsigned char> out(a);
-			out.insert(out.end(), b.begin(), b.end());
-			return out;
-		}
+	static std::vector<unsigned char> Concat(const std::vector<unsigned char> &a, const std::vector<unsigned char> &b)
+	{
+		std::vector<unsigned char> out(a);
+		out.insert(out.end(), b.begin(), b.end());
+		return out;
+	}
 
-		// An honest two-fragment message; proves the layer still works.
-		void ExpectHonestMessageDelivered(uint16_t id)
-		{
-			const std::vector<unsigned char> first = Bytes(1, 8), second = Bytes(50, 8);
-			Deliver({2, id, 0, first, 0});
-			Deliver({2, id, 1, second, 0});
-			const auto messages = Drain();
-			ASSERT_EQ(1u, messages.size());
-			EXPECT_EQ(Concat(first, second), messages[0]);
-		}
-	};
+	// An honest two-fragment message; proves the layer still works.
+	void ExpectHonestMessageDelivered(uint16_t id)
+	{
+		const std::vector<unsigned char> first = Bytes(1, 8), second = Bytes(50, 8);
+		Deliver({2, id, 0, first, 0});
+		Deliver({2, id, 1, second, 0});
+		const auto messages = Drain();
+		ASSERT_EQ(1u, messages.size());
+		EXPECT_EQ(Concat(first, second), messages[0]);
+	}
+};
 }
 
 TEST_F(SplitPacketFixture, HonestFragmentsReassembleInAnyOrder)

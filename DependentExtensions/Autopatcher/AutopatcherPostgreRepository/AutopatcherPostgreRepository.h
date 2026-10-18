@@ -113,17 +113,17 @@ public:
 	/// \param[in] numBytesToRead How many bytes to read. This is also how many bytes have been allocated to preallocatedDestination
 	/// \param[out] preallocatedDestination Write your data here
 	/// \return The number of bytes read, or 0 if none
-	virtual unsigned int GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
+	virtual unsigned int GetFilePart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
 
 	/// \return Passed to FileListTransfer::Send() as the _chunkSize parameter.
 	virtual const int GetIncrementalReadChunkSize(void) const;
-	
+
 	// Use a separate connection for file parts, because PGConn is not threadsafe
 	PGconn *filePartConnection;
 	SimpleMutex filePartConnectionMutex;
 
 protected:
-	virtual unsigned int GetPatchPart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
+	virtual unsigned int GetPatchPart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
 };
 
 
@@ -135,8 +135,8 @@ public:
 	virtual bool CreateAutopatcherTables(void);
 	virtual bool GetMostRecentChangelistWithPatches(MafiaNet::RakString &applicationName, FileList *patchedFiles, FileList *addedFiles, FileList *addedOrModifiedFileHashes, FileList *deletedFiles, double *priorRowPatchTime, double *mostRecentRowPatchTime);
 	virtual bool UpdateApplicationFiles(const char *applicationName, const char *applicationDirectory, const char *userName, FileListProgress *cb);
-	virtual unsigned int GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
-	
+	virtual unsigned int GetFilePart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
+
 	/// Can override this to create patches using a different tool
 	/// \param[in] oldFile Path to the old version of the file, on disk
 	/// \param[in] newFile Path to the updated file, on disk
@@ -144,10 +144,10 @@ public:
 	/// \param[out] patchLength Write the length of the resultant patch here
 	/// \param[out] patchAlgorithm Stored in the database. Use if you want to represent what algorithm was used. Transmitted to the client for decompression
 	virtual int MakePatch(const char *oldFile, const char *newFile, char **patch, unsigned int *patchLength, int *patchAlgorithm);
+
 protected:
 	// Implements MakePatch using bsDiff. Uses a lot of memory, should not use for files above about 100 megabytes.
 	virtual bool MakePatchBSDiff(FILE *fpOld, int contentLengthOld, FILE *fpNew, int contentLengthNew, char **patch, unsigned int *patchLength);
-
 };
 
 } // namespace MafiaNet

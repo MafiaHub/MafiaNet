@@ -21,11 +21,11 @@ using namespace DataStructures;
 // on whatever the stack held.
 namespace
 {
-	Table::Cell *CopyIntoDirtyStorage(void *storage, const Table::Cell &source)
-	{
-		std::memset(storage, 0xAB, sizeof(Table::Cell));
-		return new (storage) Table::Cell(source);
-	}
+Table::Cell *CopyIntoDirtyStorage(void *storage, const Table::Cell &source)
+{
+	std::memset(storage, 0xAB, sizeof(Table::Cell));
+	return new (storage) Table::Cell(source);
+}
 }
 
 TEST(TableCell, CopyOfANumericCellOwnsNoBuffer)

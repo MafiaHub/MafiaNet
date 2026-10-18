@@ -29,98 +29,98 @@ using namespace MafiaNet;
 
 RakWString::RakWString()
 {
-	c_str=0;
-	c_strCharLength=0;
+	c_str = 0;
+	c_strCharLength = 0;
 }
-RakWString::RakWString( const RakString &right )
+RakWString::RakWString(const RakString &right)
 {
-	c_str=0;
-	c_strCharLength=0;
-	*this=right;
+	c_str = 0;
+	c_strCharLength = 0;
+	*this = right;
 }
-RakWString::RakWString( const char *input )
+RakWString::RakWString(const char *input)
 {
-	c_str=0;
-	c_strCharLength=0;
+	c_str = 0;
+	c_strCharLength = 0;
 	*this = input;
 }
-RakWString::RakWString( const wchar_t *input )
+RakWString::RakWString(const wchar_t *input)
 {
-	c_str=0;
-	c_strCharLength=0;
+	c_str = 0;
+	c_strCharLength = 0;
 	*this = input;
 }
-RakWString::RakWString( const RakWString & right)
+RakWString::RakWString(const RakWString &right)
 {
-	c_str=0;
-	c_strCharLength=0;
+	c_str = 0;
+	c_strCharLength = 0;
 	*this = right;
 }
 RakWString::~RakWString()
 {
-	rakFree_Ex(c_str,_FILE_AND_LINE_);
+	rakFree_Ex(c_str, _FILE_AND_LINE_);
 }
-RakWString& RakWString::operator = ( const RakWString& right )
+RakWString &RakWString::operator=(const RakWString &right)
 {
 	Clear();
 	if (right.IsEmpty())
 		return *this;
-	c_str = (wchar_t *) rakMalloc_Ex( (right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+	c_str = (wchar_t *) rakMalloc_Ex((right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	if (!c_str)
 	{
-		c_strCharLength=0;
+		c_strCharLength = 0;
 		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
 	c_strCharLength = right.GetLength();
-	memcpy(c_str,right.C_String(),(right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR);
+	memcpy(c_str, right.C_String(), (right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 
 	return *this;
 }
-RakWString& RakWString::operator = ( const RakString& right )
+RakWString &RakWString::operator=(const RakString &right)
 {
 	return *this = right.C_String();
 }
-RakWString& RakWString::operator = ( const wchar_t * const str )
+RakWString &RakWString::operator=(const wchar_t *const str)
 {
 	Clear();
-	if (str==0)
+	if (str == 0)
 		return *this;
 	c_strCharLength = wcslen(str);
-	if (c_strCharLength==0)
+	if (c_strCharLength == 0)
 		return *this;
-	c_str = (wchar_t *) rakMalloc_Ex( (c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+	c_str = (wchar_t *) rakMalloc_Ex((c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	if (!c_str)
 	{
-		c_strCharLength=0;
+		c_strCharLength = 0;
 		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
-	wcscpy_s(c_str,c_strCharLength+1,str);
+	wcscpy_s(c_str, c_strCharLength + 1, str);
 
 	return *this;
 }
-RakWString& RakWString::operator = ( wchar_t *str )
+RakWString &RakWString::operator=(wchar_t *str)
 {
-	*this = ( const wchar_t *) str;
+	*this = (const wchar_t *) str;
 	return *this;
 }
-RakWString& RakWString::operator = ( const char * const str )
+RakWString &RakWString::operator=(const char *const str)
 {
 	Clear();
 
 // Not supported on android
 #if !defined(ANDROID)
-	if (str==0)
+	if (str == 0)
 		return *this;
-	if (str[0]==0)
+	if (str[0] == 0)
 		return *this;
 
 	mbstowcs_s(&c_strCharLength, nullptr, 0, str, 0);
-	c_str = (wchar_t *) rakMalloc_Ex( (c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+	c_str = (wchar_t *) rakMalloc_Ex((c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	if (!c_str)
 	{
-		c_strCharLength=0;
+		c_strCharLength = 0;
 		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
@@ -139,12 +139,12 @@ RakWString& RakWString::operator = ( const char * const str )
 
 	return *this;
 }
-RakWString& RakWString::operator = ( char *str )
+RakWString &RakWString::operator=(char *str)
 {
-	*this = ( const char *) str;
+	*this = (const char *) str;
 	return *this;
 }
-RakWString& RakWString::operator +=( const RakWString& right)
+RakWString &RakWString::operator+=(const RakWString &right)
 {
 	if (right.IsEmpty())
 		return *this;
@@ -152,9 +152,9 @@ RakWString& RakWString::operator +=( const RakWString& right)
 	wchar_t *newCStr;
 	bool isEmpty = IsEmpty();
 	if (isEmpty)
-		newCStr = (wchar_t *) rakMalloc_Ex( (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) rakMalloc_Ex((newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	else
-		newCStr = (wchar_t *) rakRealloc_Ex( c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) rakRealloc_Ex(c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	if (!newCStr)
 	{
 		notifyOutOfMemory(_FILE_AND_LINE_);
@@ -164,7 +164,7 @@ RakWString& RakWString::operator +=( const RakWString& right)
 	c_strCharLength = newCharLength;
 	if (isEmpty)
 	{
-		memcpy(newCStr,right.C_String(),(right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR);
+		memcpy(newCStr, right.C_String(), (right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	}
 	else
 	{
@@ -173,18 +173,18 @@ RakWString& RakWString::operator +=( const RakWString& right)
 
 	return *this;
 }
-RakWString& RakWString::operator += ( const wchar_t * const right )
+RakWString &RakWString::operator+=(const wchar_t *const right)
 {
-	if (right==0)
+	if (right == 0)
 		return *this;
 	size_t rightLength = wcslen(right);
 	size_t newCharLength = c_strCharLength + rightLength;
 	wchar_t *newCStr;
 	bool isEmpty = IsEmpty();
 	if (isEmpty)
-		newCStr = (wchar_t *) rakMalloc_Ex( (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) rakMalloc_Ex((newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	else
-		newCStr = (wchar_t *) rakRealloc_Ex( c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) rakRealloc_Ex(c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 	if (!newCStr)
 	{
 		notifyOutOfMemory(_FILE_AND_LINE_);
@@ -194,7 +194,7 @@ RakWString& RakWString::operator += ( const wchar_t * const right )
 	c_strCharLength = newCharLength;
 	if (isEmpty)
 	{
-		memcpy(newCStr,right,(rightLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
+		memcpy(newCStr, right, (rightLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	}
 	else
 	{
@@ -203,45 +203,45 @@ RakWString& RakWString::operator += ( const wchar_t * const right )
 
 	return *this;
 }
-RakWString& RakWString::operator += ( wchar_t *right )
+RakWString &RakWString::operator+=(wchar_t *right)
 {
 	return *this += (const wchar_t *) right;
 }
 bool RakWString::operator==(const RakWString &right) const
 {
-	if (GetLength()!=right.GetLength())
+	if (GetLength() != right.GetLength())
 		return false;
-	return wcscmp(C_String(),right.C_String())==0;
+	return wcscmp(C_String(), right.C_String()) == 0;
 }
-bool RakWString::operator < ( const RakWString& right ) const
+bool RakWString::operator<(const RakWString &right) const
 {
-	return wcscmp(C_String(),right.C_String())<0;
+	return wcscmp(C_String(), right.C_String()) < 0;
 }
-bool RakWString::operator <= ( const RakWString& right ) const
+bool RakWString::operator<=(const RakWString &right) const
 {
-	return wcscmp(C_String(),right.C_String())<=0;
+	return wcscmp(C_String(), right.C_String()) <= 0;
 }
-bool RakWString::operator > ( const RakWString& right ) const
+bool RakWString::operator>(const RakWString &right) const
 {
-	return wcscmp(C_String(),right.C_String())>0;
+	return wcscmp(C_String(), right.C_String()) > 0;
 }
-bool RakWString::operator >= ( const RakWString& right ) const
+bool RakWString::operator>=(const RakWString &right) const
 {
-	return wcscmp(C_String(),right.C_String())>=0;
+	return wcscmp(C_String(), right.C_String()) >= 0;
 }
 bool RakWString::operator!=(const RakWString &right) const
 {
-	if (GetLength()!=right.GetLength())
+	if (GetLength() != right.GetLength())
 		return true;
-	return wcscmp(C_String(),right.C_String())!=0;
+	return wcscmp(C_String(), right.C_String()) != 0;
 }
-void RakWString::Set( wchar_t *str )
+void RakWString::Set(wchar_t *str)
 {
 	*this = str;
 }
 bool RakWString::IsEmpty(void) const
 {
-	return GetLength()==0;
+	return GetLength() == 0;
 }
 size_t RakWString::GetLength(void) const
 {
@@ -252,9 +252,9 @@ unsigned long RakWString::ToInteger(const RakWString &rs)
 	unsigned long hash = 0;
 	int c;
 
-	const char *str = (const char *)rs.C_String();
+	const char *str = (const char *) rs.C_String();
 	size_t i;
-	for (i=0; i < rs.GetLength()*MAX_BYTES_PER_UNICODE_CHAR*sizeof(wchar_t); i++)
+	for (i = 0; i < rs.GetLength() * MAX_BYTES_PER_UNICODE_CHAR * sizeof(wchar_t); i++)
 	{
 		c = *str++;
 		hash = c + (hash << 6) + (hash << 16) - hash;
@@ -277,9 +277,9 @@ int RakWString::StrICmp(const RakWString &right) const
 }
 void RakWString::Clear(void)
 {
-	rakFree_Ex(c_str,_FILE_AND_LINE_);
-	c_str=0;
-	c_strCharLength=0;
+	rakFree_Ex(c_str, _FILE_AND_LINE_);
+	c_str = 0;
+	c_strCharLength = 0;
 }
 void RakWString::Printf(void)
 {
@@ -287,13 +287,13 @@ void RakWString::Printf(void)
 }
 void RakWString::FPrintf(FILE *fp)
 {
-	fprintf(fp,"%ls", C_String());
+	fprintf(fp, "%ls", C_String());
 }
 void RakWString::Serialize(BitStream *bs) const
 {
 	Serialize(C_String(), bs);
 }
-void RakWString::Serialize(const wchar_t * const str, BitStream *bs)
+void RakWString::Serialize(const wchar_t *const str, BitStream *bs)
 {
 #if 0
 	char *multiByteBuffer;
@@ -306,7 +306,7 @@ void RakWString::Serialize(const wchar_t * const str, BitStream *bs)
 #else
 	size_t mbByteLength = wcslen(str);
 	bs->WriteCasted<unsigned short>(mbByteLength);
-	for (unsigned int i=0; i < mbByteLength; i++)
+	for (unsigned int i = 0; i < mbByteLength; i++)
 	{
 		uint16_t t;
 		t = (uint16_t) str[i];
@@ -321,7 +321,7 @@ bool RakWString::Deserialize(BitStream *bs)
 
 	size_t mbByteLength;
 	bs->ReadCasted<unsigned short>(mbByteLength);
-	if (mbByteLength>0)
+	if (mbByteLength > 0)
 	{
 #if 0
 		char *multiByteBuffer;
@@ -338,16 +338,16 @@ bool RakWString::Deserialize(BitStream *bs)
 		rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
 		c_str[c_strCharLength]=0;
 #else
-		c_str = (wchar_t*) rakMalloc_Ex((mbByteLength+1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		c_str = (wchar_t *) rakMalloc_Ex((mbByteLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
 		c_strCharLength = mbByteLength;
-		for (unsigned int i=0; i < mbByteLength; i++)
+		for (unsigned int i = 0; i < mbByteLength; i++)
 		{
 			uint16_t t;
 			// Force endian swapping, and read 16 bits
 			bs->Read(t);
-			c_str[i]=t;
+			c_str[i] = t;
 		}
-		c_str[mbByteLength]=0;
+		c_str[mbByteLength] = 0;
 #endif
 		return true;
 	}
@@ -398,7 +398,7 @@ bool RakWString::Deserialize(wchar_t *str, size_t strLength, BitStream *bs)
 {
 	size_t mbByteLength;
 	bs->ReadCasted<unsigned short>(mbByteLength);
-	if (mbByteLength>0)
+	if (mbByteLength > 0)
 	{
 #if 0
 		char *multiByteBuffer;
@@ -415,20 +415,20 @@ bool RakWString::Deserialize(wchar_t *str, size_t strLength, BitStream *bs)
 		rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
 		str[c_strCharLength]=0;
 #else
-		for (unsigned int i=0; i < mbByteLength; i++)
+		for (unsigned int i = 0; i < mbByteLength; i++)
 		{
 			uint16_t t;
 			// Force endian swapping, and read 16 bits
 			bs->Read(t);
-			str[i]=t;
+			str[i] = t;
 		}
-		str[mbByteLength]=0;
+		str[mbByteLength] = 0;
 #endif
 		return true;
 	}
 	else
 	{
-		wcscpy_s(str,strLength,L"");
+		wcscpy_s(str, strLength, L"");
 	}
 	return true;
 }

@@ -22,7 +22,7 @@
 
 namespace MafiaNet
 {
-	class BitStream;
+class BitStream;
 }
 
 namespace MafiaNet
@@ -47,7 +47,7 @@ public:
 	static bool DeserializeFilterQuery(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery *query);
 	static void SerializeFilterQueryList(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries);
 	// Note that this allocates queries, cells, and query->cell->c!. Use DeallocateQueryList to free.
-	static bool DeserializeFilterQueryList(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries=0);
+	static bool DeserializeFilterQueryList(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries = 0);
 	static void DeallocateQueryList(DataStructures::Table::FilterQuery *query, unsigned int numQueries);
 };
 

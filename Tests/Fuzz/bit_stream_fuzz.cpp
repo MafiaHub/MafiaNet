@@ -39,17 +39,72 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 		switch (op % 20)
 		{
-		case 0: { uint8_t v; in.Read(v); break; }
-		case 1: { uint32_t v; in.Read(v); break; }
-		case 2: { uint64_t v; in.ReadCompressed(v); break; }
-		case 3: { int32_t v; in.ReadCompressed(v); break; }
-		case 4: { float v; in.ReadCompressed(v); break; }
-		case 5: { double v; in.Read(v); break; }
-		case 6: { uint16_t v = 0; in.ReadDelta(v); break; }
-		case 7: { uint32_t v = 0; in.ReadCompressedDelta(v); break; }
-		case 8: { RakString s; s.Deserialize(&in); break; }
-		case 9: { RakString s; s.DeserializeCompressed(&in, op & 0x80); break; }
-		case 10: { RakWString s; s.Deserialize(&in); break; }
+		case 0:
+		{
+			uint8_t v;
+			in.Read(v);
+			break;
+		}
+		case 1:
+		{
+			uint32_t v;
+			in.Read(v);
+			break;
+		}
+		case 2:
+		{
+			uint64_t v;
+			in.ReadCompressed(v);
+			break;
+		}
+		case 3:
+		{
+			int32_t v;
+			in.ReadCompressed(v);
+			break;
+		}
+		case 4:
+		{
+			float v;
+			in.ReadCompressed(v);
+			break;
+		}
+		case 5:
+		{
+			double v;
+			in.Read(v);
+			break;
+		}
+		case 6:
+		{
+			uint16_t v = 0;
+			in.ReadDelta(v);
+			break;
+		}
+		case 7:
+		{
+			uint32_t v = 0;
+			in.ReadCompressedDelta(v);
+			break;
+		}
+		case 8:
+		{
+			RakString s;
+			s.Deserialize(&in);
+			break;
+		}
+		case 9:
+		{
+			RakString s;
+			s.DeserializeCompressed(&in, op & 0x80);
+			break;
+		}
+		case 10:
+		{
+			RakWString s;
+			s.Deserialize(&in);
+			break;
+		}
 		case 11:
 		{
 			char *buf = nullptr;
@@ -65,10 +120,30 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 			in.ReadAlignedBytesSafe(buf, len, sizeof(buf));
 			break;
 		}
-		case 13: { uint32_t v; in.ReadBitsFromIntegerRange(v, 10u, 5000u); break; }
-		case 14: { float x, y, z; in.ReadNormVector(x, y, z); break; }
-		case 15: { float x, y, z; in.ReadVector(x, y, z); break; }
-		case 16: { float w, x, y, z; in.ReadNormQuat(w, x, y, z); break; }
+		case 13:
+		{
+			uint32_t v;
+			in.ReadBitsFromIntegerRange(v, 10u, 5000u);
+			break;
+		}
+		case 14:
+		{
+			float x, y, z;
+			in.ReadNormVector(x, y, z);
+			break;
+		}
+		case 15:
+		{
+			float x, y, z;
+			in.ReadVector(x, y, z);
+			break;
+		}
+		case 16:
+		{
+			float w, x, y, z;
+			in.ReadNormQuat(w, x, y, z);
+			break;
+		}
 		case 17:
 		{
 			float m[9];

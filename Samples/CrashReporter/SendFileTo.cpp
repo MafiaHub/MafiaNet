@@ -24,24 +24,25 @@
 
 bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, const char *strAttachmentFileName, const char *strSubject, const char *strBody, const char *strRecipient)
 {
-//	if (strAttachmentFileName==0)
-//		return false;
+	//	if (strAttachmentFileName==0)
+	//		return false;
 
-//	if (!hWndParent || !::IsWindow(hWndParent))
-//		return false;
+	//	if (!hWndParent || !::IsWindow(hWndParent))
+	//		return false;
 
 	HINSTANCE hMAPI = LoadLibrary(_T("MAPI32.DLL"));
 	if (!hMAPI)
 		return false;
 
-	ULONG (PASCAL *SendMail)(ULONG, ULONG_PTR, MapiMessage*, FLAGS, ULONG);
-	(FARPROC&)SendMail = GetProcAddress(hMAPI, "MAPISendMail");
+	ULONG(PASCAL * SendMail)
+	(ULONG, ULONG_PTR, MapiMessage *, FLAGS, ULONG);
+	(FARPROC &) SendMail = GetProcAddress(hMAPI, "MAPISendMail");
 
 	if (!SendMail)
 		return false;
 
-//	char szFileName[_MAX_PATH];
-//	char szPath[_MAX_PATH];
+	//	char szFileName[_MAX_PATH];
+	//	char szPath[_MAX_PATH];
 	char szName[_MAX_PATH];
 	char szSubject[_MAX_PATH];
 	char szBody[_MAX_PATH];
@@ -59,10 +60,10 @@ bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, c
 	char fullPath[_MAX_PATH];
 	if (strAttachmentFileName && strAttachmentFilePath)
 	{
-		if (strlen(strAttachmentFilePath)<3 ||
-			strAttachmentFilePath[1]!=':' ||
-			(strAttachmentFilePath[2]!='\\' && 
-			strAttachmentFilePath[2]!='/'))
+		if (strlen(strAttachmentFilePath) < 3 ||
+		    strAttachmentFilePath[1] != ':' ||
+		    (strAttachmentFilePath[2] != '\\' &&
+		     strAttachmentFilePath[2] != '/'))
 		{
 			// Make relative paths absolute
 			_getcwd(fullPath, _MAX_PATH);
@@ -74,12 +75,12 @@ bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, c
 
 
 		// All slashes have to be \\ and not /
-		int len=(unsigned int)strlen(fullPath);
+		int len = (unsigned int) strlen(fullPath);
 		int i;
-		for (i=0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
-			if (fullPath[i]=='/')
-				fullPath[i]='\\';
+			if (fullPath[i] == '/')
+				fullPath[i] = '\\';
 		}
 	}
 
@@ -88,16 +89,16 @@ bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, c
 	if (strAttachmentFileName && strAttachmentFilePath)
 	{
 		ZeroMemory(&fileDesc, sizeof(fileDesc));
-		fileDesc.nPosition = (ULONG)-1;
+		fileDesc.nPosition = (ULONG) -1;
 		fileDesc.lpszPathName = fullPath;
 		fileDesc.lpszFileName = szName;
 	}
-	
+
 	MapiRecipDesc recipDesc;
 	ZeroMemory(&recipDesc, sizeof(recipDesc));
 	recipDesc.lpszName = szSupport;
 	recipDesc.ulRecipClass = MAPI_TO;
-	recipDesc.lpszName = szAddress+5;
+	recipDesc.lpszName = szAddress + 5;
 	recipDesc.lpszAddress = szAddress;
 
 	MapiMessage message;
@@ -111,8 +112,8 @@ bool CSendFileTo::SendMail(HWND hWndParent, const char *strAttachmentFilePath, c
 		message.nFileCount = 1;
 		message.lpFiles = &fileDesc;
 	}
-	
-	int nError = SendMail(0, (ULONG_PTR)hWndParent, &message, MAPI_LOGON_UI|MAPI_DIALOG, 0);
+
+	int nError = SendMail(0, (ULONG_PTR) hWndParent, &message, MAPI_LOGON_UI | MAPI_DIALOG, 0);
 
 	if (nError != SUCCESS_SUCCESS && nError != MAPI_USER_ABORT && nError != MAPI_E_LOGIN_FAILURE)
 		return false;

@@ -15,20 +15,20 @@
 
 CompressorBase::CompressorBase()
 {
-	output=0;
-	allocatedSize=0;
-	streamInited=false;
-	stream.bzalloc=0;
-	stream.bzfree=0;
-	stream.opaque=0;
-	totalRead=totalWritten=0;
+	output = 0;
+	allocatedSize = 0;
+	streamInited = false;
+	stream.bzalloc = 0;
+	stream.bzfree = 0;
+	stream.opaque = 0;
+	totalRead = totalWritten = 0;
 }
 CompressorBase::~CompressorBase()
 {
 }
 MemoryCompressor::MemoryCompressor()
 {
-	compressedInputLength=0;
+	compressedInputLength = 0;
 }
 MemoryCompressor::~MemoryCompressor()
 {
@@ -41,161 +41,161 @@ MemoryDecompressor::~MemoryDecompressor()
 bool MemoryCompressor::Compress(char *input, const unsigned inputLength, bool finish)
 {
 	int res;
-	unsigned inBefore,outBefore, read;
+	unsigned inBefore, outBefore, read;
 	unsigned written;
 
-	if (output==0)
+	if (output == 0)
 	{
-		allocatedSize=inputLength;
+		allocatedSize = inputLength;
 		if (allocatedSize < BZ_MAX_UNUSED)
-			allocatedSize=BZ_MAX_UNUSED;
-		output=(char*)malloc(allocatedSize);
+			allocatedSize = BZ_MAX_UNUSED;
+		output = (char *) malloc(allocatedSize);
 	}
 
-	if (streamInited==false)
+	if (streamInited == false)
 	{
-		res = BZ2_bzCompressInit ( &stream, 
-			9, // x 100K Block size.  Memory to use = 400k + ( 8 x block size ).  So this is 400K + 9 x 900K = 7.6 megabytes.  Larger sizes give better compression.
-			0, // Verbosity.
-			0 ); // Default work factor
+		res = BZ2_bzCompressInit(&stream,
+		                         9,  // x 100K Block size.  Memory to use = 400k + ( 8 x block size ).  So this is 400K + 9 x 900K = 7.6 megabytes.  Larger sizes give better compression.
+		                         0,  // Verbosity.
+		                         0); // Default work factor
 
-		streamInited=true;
-		if (res!=BZ_OK)
+		streamInited = true;
+		if (res != BZ_OK)
 			return false;
 	}
 
-	read=written=0;
+	read = written = 0;
 	unsigned readThisSession;
-	readThisSession=0;
-	compressedInputLength+=inputLength;
+	readThisSession = 0;
+	compressedInputLength += inputLength;
 
-	if (totalWritten==allocatedSize)
+	if (totalWritten == allocatedSize)
 	{
-		allocatedSize+=inputLength;
-		output=(char*)realloc(output, allocatedSize);
+		allocatedSize += inputLength;
+		output = (char *) realloc(output, allocatedSize);
 	}
 
-	while(1)
+	while (1)
 	{
-		stream.next_out=output+totalWritten;
-		stream.avail_in=inputLength-readThisSession;
-		stream.avail_out=allocatedSize-totalWritten;
-		stream.next_in=input+readThisSession;
-		inBefore=stream.total_in_lo32;
-		outBefore=stream.total_out_lo32;
+		stream.next_out = output + totalWritten;
+		stream.avail_in = inputLength - readThisSession;
+		stream.avail_out = allocatedSize - totalWritten;
+		stream.next_in = input + readThisSession;
+		inBefore = stream.total_in_lo32;
+		outBefore = stream.total_out_lo32;
 		//printf("%i\n", stream.avail_in);
-		res = BZ2_bzCompress( &stream, finish ? BZ_FINISH : BZ_RUN );
-		read=stream.total_in_lo32-inBefore;
-		written=stream.total_out_lo32-outBefore;
-		totalRead+=read;
-		totalWritten+=written;
-		readThisSession+=read;
+		res = BZ2_bzCompress(&stream, finish ? BZ_FINISH : BZ_RUN);
+		read = stream.total_in_lo32 - inBefore;
+		written = stream.total_out_lo32 - outBefore;
+		totalRead += read;
+		totalWritten += written;
+		readThisSession += read;
 
-		if (stream.avail_out>0)
+		if (stream.avail_out > 0)
 		// if ((stream.avail_in==0 && stream.avail_out>0) || (read==0 && written==0))
 		{
 			if (finish)
 			{
-				allocatedSize=GetTotalOutputSize();
-				output=(char*)realloc(output,allocatedSize);
-				BZ2_bzCompressEnd( &stream );
-				streamInited=false;
+				allocatedSize = GetTotalOutputSize();
+				output = (char *) realloc(output, allocatedSize);
+				BZ2_bzCompressEnd(&stream);
+				streamInited = false;
 			}
 
 			return true;
 		}
 
-		if (totalWritten==allocatedSize || read==0)
+		if (totalWritten == allocatedSize || read == 0)
 		{
-			allocatedSize*=2;
-			output=(char*)realloc(output, allocatedSize);
+			allocatedSize *= 2;
+			output = (char *) realloc(output, allocatedSize);
 		}
 	}
 }
 bool MemoryDecompressor::Decompress(char *input, const unsigned inputLength, bool ignoreStreamEnd)
 {
-	unsigned inBefore,outBefore, read;
+	unsigned inBefore, outBefore, read;
 	unsigned written;
 
 	int res;
-	if (output==0)
+	if (output == 0)
 	{
-		allocatedSize=inputLength*2;
+		allocatedSize = inputLength * 2;
 		if (allocatedSize < BZ_MAX_UNUSED)
-			allocatedSize=BZ_MAX_UNUSED;
-		output=(char*)malloc(allocatedSize);
+			allocatedSize = BZ_MAX_UNUSED;
+		output = (char *) malloc(allocatedSize);
 	}
 
-	if (streamInited==false)
+	if (streamInited == false)
 	{
-		res = BZ2_bzDecompressInit( &stream, 
-			0, // Verbosity.
-			0 ); // Disable small memory usage
+		res = BZ2_bzDecompressInit(&stream,
+		                           0,  // Verbosity.
+		                           0); // Disable small memory usage
 
-		streamInited=true;
+		streamInited = true;
 
-		if (res!=BZ_OK)
+		if (res != BZ_OK)
 			return false;
 	}
 
 	unsigned readThisSession;
-	readThisSession=0;
-	read=written=0;
+	readThisSession = 0;
+	read = written = 0;
 
-	if (totalWritten==allocatedSize)
+	if (totalWritten == allocatedSize)
 	{
-		allocatedSize+=inputLength*4;
-		output=(char*)realloc(output, allocatedSize);
+		allocatedSize += inputLength * 4;
+		output = (char *) realloc(output, allocatedSize);
 	}
 
-	while(1)
+	while (1)
 	{
-		stream.next_out=output+totalWritten;
-		stream.avail_in=inputLength-readThisSession;
-		stream.avail_out=allocatedSize-totalWritten;
-		stream.next_in=input+readThisSession;
-		inBefore=stream.total_in_lo32;
-		outBefore=stream.total_out_lo32;
-		res = BZ2_bzDecompress( &stream );
-		read=stream.total_in_lo32-inBefore;
-		written=stream.total_out_lo32-outBefore;
-		readThisSession+=read;
-		totalRead+=read;
-		totalWritten+=written;
+		stream.next_out = output + totalWritten;
+		stream.avail_in = inputLength - readThisSession;
+		stream.avail_out = allocatedSize - totalWritten;
+		stream.next_in = input + readThisSession;
+		inBefore = stream.total_in_lo32;
+		outBefore = stream.total_out_lo32;
+		res = BZ2_bzDecompress(&stream);
+		read = stream.total_in_lo32 - inBefore;
+		written = stream.total_out_lo32 - outBefore;
+		readThisSession += read;
+		totalRead += read;
+		totalWritten += written;
 
-		if (res==BZ_STREAM_END)
+		if (res == BZ_STREAM_END)
 		{
-			BZ2_bzDecompressEnd( &stream );
-			
-			if (ignoreStreamEnd==true)
+			BZ2_bzDecompressEnd(&stream);
+
+			if (ignoreStreamEnd == true)
 			{
 				// Stream end marker but there is more data so just keep reading
-				res = BZ2_bzDecompressInit( &stream, 
-					0, // Verbosity.
-					0 ); // Disable small memory usage
+				res = BZ2_bzDecompressInit(&stream,
+				                           0,  // Verbosity.
+				                           0); // Disable small memory usage
 			}
 			else
 			{
-				streamInited=false;
+				streamInited = false;
 				return true;
 			}
 		}
-		else if ((stream.avail_in==0 && stream.avail_out>0) || (read==0 && written==0))
+		else if ((stream.avail_in == 0 && stream.avail_out > 0) || (read == 0 && written == 0))
 		{
-			allocatedSize=GetTotalOutputSize();
-			output=(char*)realloc(output,allocatedSize);
+			allocatedSize = GetTotalOutputSize();
+			output = (char *) realloc(output, allocatedSize);
 			return true;
 		}
-		else if (res!=BZ_OK)
+		else if (res != BZ_OK)
 		{
 			Clear();
 			return false;
 		}
 
-		if (totalWritten==allocatedSize || read==0)
+		if (totalWritten == allocatedSize || read == 0)
 		{
-			allocatedSize+=inputLength*4;
-			output=(char*)realloc(output, allocatedSize);
+			allocatedSize += inputLength * 4;
+			output = (char *) realloc(output, allocatedSize);
 		}
 	}
 }
@@ -220,23 +220,22 @@ void MemoryCompressor::Clear(void)
 	if (output)
 	{
 		free(output);
-		output=0;
+		output = 0;
 	}
 
 	if (streamInited)
-		BZ2_bzCompressEnd( &stream );
+		BZ2_bzCompressEnd(&stream);
 
-	totalRead=totalWritten=compressedInputLength=0;
+	totalRead = totalWritten = compressedInputLength = 0;
 }
 void MemoryDecompressor::Clear(void)
 {
 	if (output)
 	{
 		free(output);
-		output=0;
+		output = 0;
 	}
 
 	if (streamInited)
-		BZ2_bzDecompressEnd( &stream );
+		BZ2_bzDecompressEnd(&stream);
 }
-

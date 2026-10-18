@@ -21,15 +21,14 @@ using namespace MafiaNet;
 
 Lobby2Client::Lobby2Client()
 {
-	serverAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	serverAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 }
 Lobby2Client::~Lobby2Client()
 {
-
 }
 void Lobby2Client::SetServerAddress(SystemAddress addr)
 {
-	serverAddress=addr;
+	serverAddress = addr;
 }
 SystemAddress Lobby2Client::GetServerAddress(void) const
 {
@@ -39,13 +38,13 @@ void Lobby2Client::SendMsg(Lobby2Message *msg)
 {
 	// Callback must be ready to receive reply
 	RakAssert(callbacks.Size());
-	msg->resultCode=L2RC_PROCESSING;
+	msg->resultCode = L2RC_PROCESSING;
 
 	MafiaNet::BitStream bs;
-	bs.Write((MessageID)ID_LOBBY2_SEND_MESSAGE);
-	bs.Write((MessageID)msg->GetID());
-	msg->Serialize(true,false,&bs);
-	SendUnified(&bs,packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, serverAddress, false);
+	bs.Write((MessageID) ID_LOBBY2_SEND_MESSAGE);
+	bs.Write((MessageID) msg->GetID());
+	msg->Serialize(true, false, &bs);
+	SendUnified(&bs, packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, serverAddress, false);
 }
 void Lobby2Client::SendMsgAndDealloc(Lobby2Message *msg)
 {
@@ -56,7 +55,7 @@ PluginReceiveResult Lobby2Client::OnReceive(Packet *packet)
 {
 	RakAssert(packet);
 
-	switch (packet->data[0]) 
+	switch (packet->data[0])
 	{
 	case ID_LOBBY2_SEND_MESSAGE:
 		OnMessage(packet);
@@ -65,21 +64,21 @@ PluginReceiveResult Lobby2Client::OnReceive(Packet *packet)
 
 	return RR_CONTINUE_PROCESSING;
 }
-void Lobby2Client::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void Lobby2Client::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
-	(void)systemAddress;
-	(void)rakNetGUID;
-	(void)lostConnectionReason;
-//	if (systemAddress==serverAddress)
-//		ClearIgnoreList();
+	(void) systemAddress;
+	(void) rakNetGUID;
+	(void) lostConnectionReason;
+	//	if (systemAddress==serverAddress)
+	//		ClearIgnoreList();
 }
 void Lobby2Client::OnShutdown(void)
 {
-//	ClearIgnoreList();
+	//	ClearIgnoreList();
 }
 void Lobby2Client::OnMessage(Packet *packet)
 {
-	MafiaNet::BitStream bs(packet->data,packet->length,false);
+	MafiaNet::BitStream bs(packet->data, packet->length, false);
 	bs.IgnoreBytes(1); // ID_LOBBY2_SEND_MESSAGE
 	MessageID msgId;
 	bs.Read(msgId);
@@ -87,12 +86,12 @@ void Lobby2Client::OnMessage(Packet *packet)
 	Lobby2Message *lobby2Message = msgFactory->Alloc(lobby2MessageID);
 	if (lobby2Message)
 	{
-		lobby2Message->Serialize(false,true,&bs);
+		lobby2Message->Serialize(false, true, &bs);
 		if (lobby2Message->ClientImpl(this))
 		{
-			for (unsigned long i=0; i < callbacks.Size(); i++)
+			for (unsigned long i = 0; i < callbacks.Size(); i++)
 			{
-				if (lobby2Message->callbackId==(uint32_t)-1 || lobby2Message->callbackId==callbacks[i]->callbackId)
+				if (lobby2Message->callbackId == (uint32_t) -1 || lobby2Message->callbackId == callbacks[i]->callbackId)
 					lobby2Message->CallCallback(callbacks[i]);
 			}
 		}

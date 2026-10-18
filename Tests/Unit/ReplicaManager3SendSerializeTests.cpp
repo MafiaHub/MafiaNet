@@ -19,113 +19,114 @@ using namespace MafiaNet;
 
 namespace
 {
-	// One message as Connection_RM3::SendSerialize hands it to RakPeer, decoded the way
-	// ReplicaManager3::OnSerialize reads it.
-	struct SentMessage
-	{
-		bool written[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS] = {};
-		std::vector<unsigned char> payload[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-		NetworkID networkId = UNASSIGNED_NETWORK_ID;
-	};
+// One message as Connection_RM3::SendSerialize hands it to RakPeer, decoded the way
+// ReplicaManager3::OnSerialize reads it.
+struct SentMessage
+{
+	bool written[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS] = {};
+	std::vector<unsigned char> payload[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+	NetworkID networkId = UNASSIGNED_NETWORK_ID;
+};
 
-	class SendTestConnection : public Connection_RM3
-	{
-	public:
-		SendTestConnection() : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(2)) {}
-		Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
-	};
+class SendTestConnection : public Connection_RM3
+{
+public:
+	SendTestConnection()
+	    : Connection_RM3(UNASSIGNED_SYSTEM_ADDRESS, RakNetGUID(2)) {}
+	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
+};
 
-	// Records every message SendSerialize builds: OnSerializeTransmission sees each one just
-	// before it goes to RakPeer::Send, which an idle peer then drops.
-	class SendTestReplica : public Replica3
-	{
-	public:
-		void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
-		RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_NEVER_CONSTRUCT; }
-		bool QueryRemoteConstruction(Connection_RM3 *) { return false; }
-		void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
-		bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
-		void SerializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) {}
-		bool DeserializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
-		RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const { return RM3AOPC_DO_NOTHING; }
-		void DeallocReplica(Connection_RM3 *) {}
-		RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) { return RM3QSR_CALL_SERIALIZE; }
-		RM3SerializationResult Serialize(SerializeParameters *) { return RM3SR_DO_NOT_SERIALIZE; }
-		void Deserialize(DeserializeParameters *) {}
+// Records every message SendSerialize builds: OnSerializeTransmission sees each one just
+// before it goes to RakPeer::Send, which an idle peer then drops.
+class SendTestReplica : public Replica3
+{
+public:
+	void WriteAllocationID(Connection_RM3 *, MafiaNet::BitStream *) const {}
+	RM3ConstructionState QueryConstruction(Connection_RM3 *, ReplicaManager3 *) { return RM3CS_NEVER_CONSTRUCT; }
+	bool QueryRemoteConstruction(Connection_RM3 *) { return false; }
+	void SerializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) {}
+	bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
+	void SerializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) {}
+	bool DeserializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
+	RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const { return RM3AOPC_DO_NOTHING; }
+	void DeallocReplica(Connection_RM3 *) {}
+	RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) { return RM3QSR_CALL_SERIALIZE; }
+	RM3SerializationResult Serialize(SerializeParameters *) { return RM3SR_DO_NOT_SERIALIZE; }
+	void Deserialize(DeserializeParameters *) {}
 
-		void OnSerializeTransmission(MafiaNet::BitStream *bitStream, Connection_RM3 *, BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], Time)
+	void OnSerializeTransmission(MafiaNet::BitStream *bitStream, Connection_RM3 *, BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], Time)
+	{
+		++transmissions;
+		if (bitStream->GetNumberOfBitsUsed() == 0)
+			return;
+		MafiaNet::BitStream in(bitStream->GetData(), bitStream->GetNumberOfBytesUsed(), false);
+		SentMessage message;
+		MessageID id;
+		WorldId world;
+		in.Read(id);
+		EXPECT_EQ(id, ID_REPLICA_MANAGER_SERIALIZE);
+		in.Read(world);
+		in.Read(message.networkId);
+		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
-			++transmissions;
-			if (bitStream->GetNumberOfBitsUsed() == 0)
-				return;
-			MafiaNet::BitStream in(bitStream->GetData(), bitStream->GetNumberOfBytesUsed(), false);
-			SentMessage message;
-			MessageID id;
-			WorldId world;
-			in.Read(id);
-			EXPECT_EQ(id, ID_REPLICA_MANAGER_SERIALIZE);
-			in.Read(world);
-			in.Read(message.networkId);
-			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+			in.Read(message.written[z]);
+			if (!message.written[z])
 			{
-				in.Read(message.written[z]);
-				if (!message.written[z])
-				{
-					EXPECT_EQ(bitsPerChannel[z], 0u);
-					continue;
-				}
-				BitSize_t bits;
-				in.ReadCompressed(bits);
-				EXPECT_EQ(bits, bitsPerChannel[z]);
-				in.AlignReadToByteBoundary();
-				message.payload[z].resize(BITS_TO_BYTES(bits));
-				in.ReadBits(message.payload[z].data(), bits);
+				EXPECT_EQ(bitsPerChannel[z], 0u);
+				continue;
 			}
-			sent.push_back(message);
+			BitSize_t bits;
+			in.ReadCompressed(bits);
+			EXPECT_EQ(bits, bitsPerChannel[z]);
+			in.AlignReadToByteBoundary();
+			message.payload[z].resize(BITS_TO_BYTES(bits));
+			in.ReadBits(message.payload[z].data(), bits);
 		}
+		sent.push_back(message);
+	}
 
-		std::vector<SentMessage> sent;
-		int transmissions = 0;
-	};
+	std::vector<SentMessage> sent;
+	int transmissions = 0;
+};
 
-	class ReplicaManager3SendSerialize : public ::testing::Test
+class ReplicaManager3SendSerialize : public ::testing::Test
+{
+protected:
+	void SetUp() override
 	{
-	protected:
-		void SetUp() override
+		peer = RakPeerInterface::GetInstance();
+		replica.SetNetworkIDManager(&ids);
+		replica.SetNetworkID(7);
+		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
-			peer = RakPeerInterface::GetInstance();
-			replica.SetNetworkIDManager(&ids);
-			replica.SetNetworkID(7);
-			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
-			{
-				selected[z] = false;
-				parameters[z].priority = Priority::High;
-				parameters[z].reliability = Reliability::ReliableOrdered;
-				parameters[z].orderingChannel = 1;
-				parameters[z].sendReceipt = 0;
-			}
-			// The shape the Framework uses: an unreliable pose channel ahead of reliable state.
-			parameters[0].reliability = Reliability::Unreliable;
-			parameters[0].orderingChannel = 0;
+			selected[z] = false;
+			parameters[z].priority = Priority::High;
+			parameters[z].reliability = Reliability::ReliableOrdered;
+			parameters[z].orderingChannel = 1;
+			parameters[z].sendReceipt = 0;
 		}
-		void TearDown() override
-		{
-			RakPeerInterface::DestroyInstance(peer);
-		}
+		// The shape the Framework uses: an unreliable pose channel ahead of reliable state.
+		parameters[0].reliability = Reliability::Unreliable;
+		parameters[0].orderingChannel = 0;
+	}
+	void TearDown() override
+	{
+		RakPeerInterface::DestroyInstance(peer);
+	}
 
-		SendSerializeIfChangedResult Send()
-		{
-			return connection.SendSerialize(&replica, selected, data, 0, parameters, peer, 0, 0);
-		}
+	SendSerializeIfChangedResult Send()
+	{
+		return connection.SendSerialize(&replica, selected, data, 0, parameters, peer, 0, 0);
+	}
 
-		RakPeerInterface *peer = nullptr;
-		NetworkIDManager ids;
-		SendTestReplica replica;
-		SendTestConnection connection;
-		bool selected[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-		MafiaNet::BitStream data[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-		PRO parameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
-	};
+	RakPeerInterface *peer = nullptr;
+	NetworkIDManager ids;
+	SendTestReplica replica;
+	SendTestConnection connection;
+	bool selected[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+	MafiaNet::BitStream data[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+	PRO parameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+};
 }
 
 TEST_F(ReplicaManager3SendSerialize, NothingSelectedSendsNothing)

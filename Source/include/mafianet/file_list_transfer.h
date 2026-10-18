@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_FileListTransfer==1 && _RAKNET_SUPPORT_FileOperations==1
+#if _RAKNET_SUPPORT_FileListTransfer == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 #ifndef __FILE_LIST_TRANFER_H
 #define __FILE_LIST_TRANFER_H
@@ -62,7 +62,6 @@ struct FileListReceiver;
 class RAK_DLL_EXPORT FileListTransfer : public PluginInterface2
 {
 public:
-
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(FileListTransfer)
 
@@ -72,7 +71,7 @@ public:
 	/// \brief Optionally start worker threads when using _incrementalReadInterface for the Send() operation
 	/// \param[in] numThreads how many worker threads to start
 	/// \param[in] threadPriority Passed to the thread creation routine. Use THREAD_PRIORITY_NORMAL for Windows. For Linux based systems, you MUST pass something reasonable based on the thread priorities for your application.
-	void StartIncrementalReadThreads(int numThreads, int threadPriority=-99999);
+	void StartIncrementalReadThreads(int numThreads, int threadPriority = -99999);
 
 	/// \brief How many IncrementalReadInterface chunks one Send() keeps in flight.
 	/// \details By default a sender reads and sends one chunk, then waits for the recipient's
@@ -86,13 +85,13 @@ public:
 	/// sender, so memory per transfer is up to chunksInFlight times the chunk size.
 	void SetReferencePushWindow(unsigned int chunksInFlight);
 	unsigned int GetReferencePushWindow(void) const;
-	
+
 	/// \brief Allows one corresponding Send() call from another system to arrive.
 	/// \param[in] handler The class to call on each file
 	/// \param[in] deleteHandler True to delete the handler when it is no longer needed.  False to not do so.
 	/// \param[in] allowedSender Which system to allow files from.
 	/// \return A set ID value, which should be passed as the \a setID value to the Send() call on the other system.  This value will be returned in the callback and is unique per file set.  Returns 65535 on failure (not connected to sender)
-    unsigned short SetupReceive(FileListTransferCBInterface *handler, bool deleteHandler, SystemAddress allowedSender);
+	unsigned short SetupReceive(FileListTransferCBInterface *handler, bool deleteHandler, SystemAddress allowedSender);
 
 	/// \brief Send the FileList structure to another system, which must have previously called SetupReceive().
 	/// \param[in] fileList A list of files.  The data contained in FileList::data will be sent incrementally and compressed among all files in the set
@@ -103,7 +102,7 @@ public:
 	/// \param[in] orderingChannel Passed to RakPeerInterface::Send()
 	/// \param[in] _incrementalReadInterface If a file in \a fileList has no data, _incrementalReadInterface will be used to read the file in chunks of size \a chunkSize
 	/// \param[in] _chunkSize How large of a block of a file to read/send at once. Large values use more memory but transfer slightly faster.
-	void Send(FileList *fileList, MafiaNet::RakPeerInterface *rakPeer, SystemAddress recipient, unsigned short setID, MafiaNet::Priority priority, char orderingChannel, IncrementalReadInterface *_incrementalReadInterface=0, unsigned int _chunkSize=262144*4*16);
+	void Send(FileList *fileList, MafiaNet::RakPeerInterface *rakPeer, SystemAddress recipient, unsigned short setID, MafiaNet::Priority priority, char orderingChannel, IncrementalReadInterface *_incrementalReadInterface = 0, unsigned int _chunkSize = 262144 * 4 * 16);
 
 	/// Return number of files waiting to go out to a particular address
 	unsigned int GetPendingFilesToAddress(SystemAddress recipient);
@@ -130,14 +129,14 @@ public:
 
 	/// Returns all callbacks added with AddCallback()
 	/// \param[out] callbacks The list is set to the list of callbacks
-	void GetCallbacks(DataStructures::List<FileListProgress*> &callbacks);
+	void GetCallbacks(DataStructures::List<FileListProgress *> &callbacks);
 
 	/// \internal For plugin handling
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	/// \internal For plugin handling
 	virtual void OnRakPeerShutdown(void);
 	/// \internal For plugin handling
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	/// \internal For plugin handling
 	virtual void Update(void);
 
@@ -152,10 +151,10 @@ protected:
 	void OnReferencePushAck(Packet *packet);
 	void SendIRIToAddress(SystemAddress systemAddress, unsigned short inSetId);
 
-	DataStructures::Map<unsigned short, FileListReceiver*> fileListReceivers;
+	DataStructures::Map<unsigned short, FileListReceiver *> fileListReceivers;
 	unsigned short setId;
 	unsigned int referencePushWindow;
-	DataStructures::List<FileListProgress*> fileListProgressCallbacks;
+	DataStructures::List<FileListProgress *> fileListProgressCallbacks;
 
 	struct FileToPush
 	{
@@ -180,9 +179,9 @@ protected:
 		unsigned short setId;
 
 		//// SimpleMutex filesToPushMutex;
-		DataStructures::Queue<FileToPush*> filesToPush;
+		DataStructures::Queue<FileToPush *> filesToPush;
 	};
-	DataStructures::List< FileToPushRecipient* > fileToPushRecipientList;
+	DataStructures::List<FileToPushRecipient *> fileToPushRecipientList;
 	SimpleMutex fileToPushRecipientListMutex;
 	void RemoveFromList(FileToPushRecipient *ftpr);
 
@@ -195,7 +194,7 @@ protected:
 
 	ThreadPool<ThreadData, int> threadPool;
 
-	friend int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutput, void* perThreadData);
+	friend int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutput, void *perThreadData);
 };
 
 } // namespace MafiaNet

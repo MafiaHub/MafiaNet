@@ -30,19 +30,10 @@
 #include <atomic>
 
 
-
-
 #if defined(_WIN32)
 //DWORD mProcMask;
 //DWORD mSysMask;
 //HANDLE mThread;
-
-
-
-
-
-
-
 
 
 #else
@@ -51,13 +42,13 @@
 #endif
 
 #if defined(_WIN32)
-static bool initialized=false;
+static bool initialized = false;
 #endif
 
-#if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
+#if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT > 0
 #include "mafianet/simple_mutex.h"
-MafiaNet::TimeUS lastNormalizedReturnedValue=0;
-MafiaNet::TimeUS lastNormalizedInputValue=0;
+MafiaNet::TimeUS lastNormalizedReturnedValue = 0;
+MafiaNet::TimeUS lastNormalizedInputValue = 0;
 /// This constraints timer forward jumps to 1 second, and does not let it jump backwards
 /// See http://support.microsoft.com/kb/274323 where the timer can sometimes jump forward by hours or days
 /// This also has the effect where debugging a sending system won't treat the time spent halted past 1 second as elapsed network time
@@ -65,122 +56,76 @@ MafiaNet::TimeUS NormalizeTime(MafiaNet::TimeUS timeIn)
 {
 	MafiaNet::TimeUS diff, lastNormalizedReturnedValueCopy;
 	static MafiaNet::SimpleMutex mutex;
-	
+
 	mutex.Lock();
-	if (timeIn>=lastNormalizedInputValue)
+	if (timeIn >= lastNormalizedInputValue)
 	{
-		diff = timeIn-lastNormalizedInputValue;
+		diff = timeIn - lastNormalizedInputValue;
 		if (diff > GET_TIME_SPIKE_LIMIT)
-			lastNormalizedReturnedValue+=GET_TIME_SPIKE_LIMIT;
+			lastNormalizedReturnedValue += GET_TIME_SPIKE_LIMIT;
 		else
-			lastNormalizedReturnedValue+=diff;
+			lastNormalizedReturnedValue += diff;
 	}
 	else
-		lastNormalizedReturnedValue+=GET_TIME_SPIKE_LIMIT;
+		lastNormalizedReturnedValue += GET_TIME_SPIKE_LIMIT;
 
-	lastNormalizedInputValue=timeIn;
-	lastNormalizedReturnedValueCopy=lastNormalizedReturnedValue;
+	lastNormalizedInputValue = timeIn;
+	lastNormalizedReturnedValueCopy = lastNormalizedReturnedValue;
 	mutex.Unlock();
 
 	return lastNormalizedReturnedValueCopy;
 }
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
-MafiaNet::Time MafiaNet::GetTime( void )
+MafiaNet::Time MafiaNet::GetTime(void)
 {
-	return (MafiaNet::Time)(GetTimeUS()/1000);
+	return (MafiaNet::Time)(GetTimeUS() / 1000);
 }
-MafiaNet::TimeMS MafiaNet::GetTimeMS( void )
+MafiaNet::TimeMS MafiaNet::GetTimeMS(void)
 {
-	return (MafiaNet::TimeMS)(GetTimeUS()/1000);
+	return (MafiaNet::TimeMS)(GetTimeUS() / 1000);
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if   defined(_WIN32)
-MafiaNet::TimeUS GetTimeUS_Windows( void )
+#if defined(_WIN32)
+MafiaNet::TimeUS GetTimeUS_Windows(void)
 {
-	if ( initialized == false)
+	if (initialized == false)
 	{
 		initialized = true;
 
 		// Save the current process
-//		HANDLE mProc = GetCurrentProcess();
+		//		HANDLE mProc = GetCurrentProcess();
 
 		// Get the current Affinity
-#if defined (_M_X64)
+#if defined(_M_X64)
 //		GetProcessAffinityMask(mProc, (PDWORD_PTR)&mProcMask, (PDWORD_PTR)&mSysMask);
 #else
 //		GetProcessAffinityMask(mProc, &mProcMask, &mSysMask);
 #endif
-//		mThread = GetCurrentThread();
-	}	
+		//		mThread = GetCurrentThread();
+	}
 
 	// 9/26/2010 In China running LuDaShi, QueryPerformanceFrequency has to be called every time because CPU clock speeds can be different
 	MafiaNet::TimeUS curTime;
 	LARGE_INTEGER PerfVal;
 	LARGE_INTEGER yo1;
 
-	QueryPerformanceFrequency( &yo1 );
-	QueryPerformanceCounter( &PerfVal );
+	QueryPerformanceFrequency(&yo1);
+	QueryPerformanceCounter(&PerfVal);
 
 	__int64 quotient, remainder;
-	quotient=((PerfVal.QuadPart) / yo1.QuadPart);
-	remainder=((PerfVal.QuadPart) % yo1.QuadPart);
-	curTime = (MafiaNet::TimeUS) quotient*(MafiaNet::TimeUS)1000000 + (remainder*(MafiaNet::TimeUS)1000000 / yo1.QuadPart);
+	quotient = ((PerfVal.QuadPart) / yo1.QuadPart);
+	remainder = ((PerfVal.QuadPart) % yo1.QuadPart);
+	curTime = (MafiaNet::TimeUS) quotient * (MafiaNet::TimeUS) 1000000 + (remainder * (MafiaNet::TimeUS) 1000000 / yo1.QuadPart);
 
-#if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
+#if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT > 0
 	return NormalizeTime(curTime);
 #else
 	return curTime;
 #endif // #if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
 }
-#elif defined(__GNUC__)  || defined(__GCCXML__) || defined(__S3E__)
-MafiaNet::TimeUS GetTimeUS_Linux( void )
+#elif defined(__GNUC__) || defined(__GCCXML__) || defined(__S3E__)
+MafiaNet::TimeUS GetTimeUS_Linux(void)
 {
 	timeval tp;
 	// Time is reported relative to the first call, otherwise MafiaNet::Time in
@@ -189,17 +134,17 @@ MafiaNet::TimeUS GetTimeUS_Linux( void )
 	static const MafiaNet::TimeUS initialTime = []
 	{
 		timeval t;
-		gettimeofday( &t, 0 );
-		return ( t.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( t.tv_usec );
+		gettimeofday(&t, 0);
+		return (t.tv_sec) * (MafiaNet::TimeUS) 1000000 + (t.tv_usec);
 	}();
 
 	// GCC
 	MafiaNet::TimeUS curTime;
-	gettimeofday( &tp, 0 );
+	gettimeofday(&tp, 0);
 
-	curTime = ( tp.tv_sec ) * (MafiaNet::TimeUS) 1000000 + ( tp.tv_usec );
+	curTime = (tp.tv_sec) * (MafiaNet::TimeUS) 1000000 + (tp.tv_usec);
 
-#if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT>0
+#if defined(GET_TIME_SPIKE_LIMIT) && GET_TIME_SPIKE_LIMIT > 0
 	return NormalizeTime(curTime - initialTime);
 #else
 	return curTime - initialTime;
@@ -209,25 +154,21 @@ MafiaNet::TimeUS GetTimeUS_Linux( void )
 
 namespace
 {
-	std::atomic<MafiaNet::TimeSourceUS> g_timeSourceOverride{nullptr};
+std::atomic<MafiaNet::TimeSourceUS> g_timeSourceOverride{nullptr};
 }
 
-void MafiaNet::SetTimeSourceOverride( TimeSourceUS source )
+void MafiaNet::SetTimeSourceOverride(TimeSourceUS source)
 {
 	g_timeSourceOverride.store(source, std::memory_order_release);
 }
 
-MafiaNet::TimeUS MafiaNet::GetTimeUS( void )
+MafiaNet::TimeUS MafiaNet::GetTimeUS(void)
 {
 	if (TimeSourceUS source = g_timeSourceOverride.load(std::memory_order_acquire))
 		return source();
 
 
-
-
-
-
-#if   defined(_WIN32)
+#if defined(_WIN32)
 	return GetTimeUS_Windows();
 #else
 	return GetTimeUS_Linux();
@@ -236,12 +177,12 @@ MafiaNet::TimeUS MafiaNet::GetTimeUS( void )
 bool MafiaNet::GreaterThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a > b?
-	const MafiaNet::Time halfSpan =(MafiaNet::Time) (((MafiaNet::Time)(MafiaNet::Time)-1)/(MafiaNet::Time)2);
-	return b!=a && b-a>halfSpan;
+	const MafiaNet::Time halfSpan = (MafiaNet::Time)(((MafiaNet::Time)(MafiaNet::Time) -1) / (MafiaNet::Time) 2);
+	return b != a && b - a > halfSpan;
 }
 bool MafiaNet::LessThan(MafiaNet::Time a, MafiaNet::Time b)
 {
 	// a < b?
-	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(MafiaNet::Time)-1)/(MafiaNet::Time)2;
-	return b!=a && b-a<halfSpan;
+	const MafiaNet::Time halfSpan = ((MafiaNet::Time)(MafiaNet::Time) -1) / (MafiaNet::Time) 2;
+	return b != a && b - a < halfSpan;
 }

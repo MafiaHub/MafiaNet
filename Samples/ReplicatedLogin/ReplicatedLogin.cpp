@@ -46,7 +46,7 @@ class User : public Replica3
 public:
 	User()
 	{
-		score=0;
+		score = 0;
 	}
 	virtual ~User()
 	{
@@ -54,14 +54,14 @@ public:
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		allocationIdBitstream->Write("User");
 	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
-		(void)replicaManager3;
+		(void) replicaManager3;
 
 		return QueryConstruction_ServerConstruction(destinationConnection, runningAsServer);
 	}
@@ -84,17 +84,17 @@ public:
 	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		SerializeToBitStream(this, constructionBitstream);
 	}
 	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		DeserializeToBitStream(this, constructionBitstream);
-		if (guid==rakPeer->GetMyGUID())
+		if (guid == rakPeer->GetMyGUID())
 			printf("My user created with name %s and score %i\n", username.C_String(), score);
 		else
 			printf("Another user created with name %s and score %i\n", username.C_String(), score);
@@ -104,14 +104,14 @@ public:
 	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)destinationConnection;
+		(void) destructionBitstream;
+		(void) destinationConnection;
 	}
 	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)sourceConnection;
+		(void) destructionBitstream;
+		(void) sourceConnection;
 
 		return true;
 	}
@@ -125,7 +125,7 @@ public:
 	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		delete this;
 	}
@@ -146,10 +146,10 @@ public:
 
 	static void DeleteUserWithGuid(RakNetGUID guid)
 	{
-		for (unsigned int i=0; i < g_replicaManager3->GetReplicaCount(); i++)
+		for (unsigned int i = 0; i < g_replicaManager3->GetReplicaCount(); i++)
 		{
-			User *u = (User *)g_replicaManager3->GetReplicaAtIndex(i);
-			if (u->guid==guid)
+			User *u = (User *) g_replicaManager3->GetReplicaAtIndex(i);
+			if (u->guid == guid)
 			{
 				u->BroadcastDestruction();
 				g_replicaManager3->Dereference(u);
@@ -161,9 +161,9 @@ public:
 	virtual void PreDestruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
-		if (guid==rakPeer->GetMyGUID())
+		if (guid == rakPeer->GetMyGUID())
 			printf("My user destroyed with name %s and score %i\n", username.C_String(), score);
 		else
 			printf("Another user destroyed with name %s and score %i\n", username.C_String(), score);
@@ -178,7 +178,8 @@ public:
 class SampleConnectionRM3 : public Connection_RM3
 {
 public:
-	SampleConnectionRM3(const SystemAddress &_systemAddress, RakNetGUID _guid) : Connection_RM3(_systemAddress, _guid)
+	SampleConnectionRM3(const SystemAddress &_systemAddress, RakNetGUID _guid)
+	    : Connection_RM3(_systemAddress, _guid)
 	{
 	}
 	virtual ~SampleConnectionRM3()
@@ -187,12 +188,13 @@ public:
 	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
-		(void)replicaManager3;
+		(void) replicaManager3;
 
 		RakString objectType;
 		// Types are written by WriteAllocationID()
 		allocationIdBitstream->Read(objectType);
-		if (objectType=="User") return new User;
+		if (objectType == "User")
+			return new User;
 		RakAssert("Unknown type in AllocReplica" && 0);
 		return 0;
 	}
@@ -208,9 +210,9 @@ public:
 	virtual ~SampleRM3()
 	{
 	}
-	virtual Connection_RM3* AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
+	virtual Connection_RM3 *AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
 	{
-		return new SampleConnectionRM3(systemAddress,rakNetGUID);
+		return new SampleConnectionRM3(systemAddress, rakNetGUID);
 	}
 	virtual void DeallocConnection(Connection_RM3 *connection) const
 	{
@@ -223,9 +225,9 @@ int clientMain(void);
 
 int main(void)
 {
-	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 	networkIDManager = NetworkIDManager::GetInstance();
-	g_replicaManager3=new SampleRM3;
+	g_replicaManager3 = new SampleRM3;
 
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Attach plugins
@@ -237,7 +239,7 @@ int main(void)
 
 	printf("(S)erver or (C)lient?\n");
 	int ch = _getch();
-	if (ch=='s' || ch=='S')
+	if (ch == 's' || ch == 'S')
 		return serverMain();
 	else
 		return clientMain();
@@ -245,10 +247,10 @@ int main(void)
 
 int serverMain(void)
 {
-	runningAsServer=true;
+	runningAsServer = true;
 
 	MafiaNet::SocketDescriptor sd;
-	sd.port=60000;
+	sd.port = 60000;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
@@ -256,17 +258,17 @@ int serverMain(void)
 	printf("Waiting for connections\n");
 
 	Packet *packet;
-	for(;;)
+	for (;;)
 	{
 		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 			switch (packet->data[0])
 			{
 			case ID_NEW_INCOMING_CONNECTION:
-					printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_CONNECTION_LOST:
 				printf("ID_CONNECTION_LOST from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
@@ -278,20 +280,20 @@ int serverMain(void)
 				break;
 			// Login
 			case ID_USER_PACKET_ENUM:
-				{
-					BitStream bsIn(packet->data, packet->length, false);
-					bsIn.IgnoreBytes(sizeof(MessageID));
-					RakString username;
-					bsIn.Read(username);
-					printf("Accepting login from %s\n", username.C_String());
+			{
+				BitStream bsIn(packet->data, packet->length, false);
+				bsIn.IgnoreBytes(sizeof(MessageID));
+				RakString username;
+				bsIn.Read(username);
+				printf("Accepting login from %s\n", username.C_String());
 
-					User *newUser = new User;
-					newUser->score=0;
-					newUser->guid=packet->guid;
-					newUser->username = username;
-					g_replicaManager3->Reference(newUser);
-				}
-				break;
+				User *newUser = new User;
+				newUser->score = 0;
+				newUser->guid = packet->guid;
+				newUser->username = username;
+				g_replicaManager3->Reference(newUser);
+			}
+			break;
 			}
 		}
 		RakSleep(30);
@@ -300,10 +302,10 @@ int serverMain(void)
 
 int clientMain(void)
 {
-	runningAsServer=false;
+	runningAsServer = false;
 
 	MafiaNet::SocketDescriptor sd;
-	sd.port=0;
+	sd.port = 0;
 	SLNET_VERIFY(rakPeer->Startup(1, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 
@@ -311,7 +313,7 @@ int clientMain(void)
 	printf("Connecting to server...\n");
 
 	Packet *packet;
-	for(;;)
+	for (;;)
 	{
 		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
@@ -321,17 +323,17 @@ int clientMain(void)
 				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
-				{
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
-					printf("Logging in...\n");
-					BitStream bsOut;
-					// Login
-					bsOut.WriteCasted<MessageID>(ID_USER_PACKET_ENUM);
-					RakString username("User %s", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
-					bsOut.Write(username);
-					rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
-				}
-				break;
+			{
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("Logging in...\n");
+				BitStream bsOut;
+				// Login
+				bsOut.WriteCasted<MessageID>(ID_USER_PACKET_ENUM);
+				RakString username("User %s", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
+				bsOut.Write(username);
+				rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
+			}
+			break;
 			case ID_CONNECTION_LOST:
 				printf("ID_CONNECTION_LOST from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
 				break;

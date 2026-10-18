@@ -14,39 +14,42 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_HTTPConnection2==1 && _RAKNET_SUPPORT_TCPInterface==1
+#if _RAKNET_SUPPORT_HTTPConnection2 == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #include "mafianet/http_connection2.h"
 #include "mafianet/tcp_interface.h"
 
 using namespace MafiaNet;
 
-STATIC_FACTORY_DEFINITIONS(HTTPConnection2,HTTPConnection2);
+STATIC_FACTORY_DEFINITIONS(HTTPConnection2, HTTPConnection2);
 
 HTTPConnection2::HTTPConnection2()
 {
 }
 HTTPConnection2::~HTTPConnection2()
 {
-	for (unsigned int i = 0; i < pendingRequests.Size(); ++i) {
+	for (unsigned int i = 0; i < pendingRequests.Size(); ++i)
+	{
 		MafiaNet::OP_DELETE(pendingRequests[i], _FILE_AND_LINE_);
 	}
-	for (unsigned int i = 0; i < sentRequests.Size(); ++i) {
+	for (unsigned int i = 0; i < sentRequests.Size(); ++i)
+	{
 		MafiaNet::OP_DELETE(sentRequests[i], _FILE_AND_LINE_);
 	}
-	for (unsigned int i = 0; i < completedRequests.Size(); ++i) {
+	for (unsigned int i = 0; i < completedRequests.Size(); ++i)
+	{
 		MafiaNet::OP_DELETE(completedRequests[i], _FILE_AND_LINE_);
 	}
 }
-bool HTTPConnection2::TransmitRequest(const char* stringToTransmit, const char* host, unsigned short port, bool useSSL, int ipVersion, SystemAddress useAddress, void *userData)
+bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, bool useSSL, int ipVersion, SystemAddress useAddress, void *userData)
 {
 	Request *request = MafiaNet::OP_NEW<Request>(_FILE_AND_LINE_);
-	request->host=host;
+	request->host = host;
 	request->chunked = false;
-	if (useAddress!=UNASSIGNED_SYSTEM_ADDRESS)
+	if (useAddress != UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		request->hostEstimatedAddress=useAddress;
-		if (IsConnected(useAddress)==false)
+		request->hostEstimatedAddress = useAddress;
+		if (IsConnected(useAddress) == false)
 		{
 			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
 			return false;
@@ -55,27 +58,27 @@ bool HTTPConnection2::TransmitRequest(const char* stringToTransmit, const char* 
 	else
 	{
 		// #med - this should be changed to not extract the port from the passed in host-address (which is overwritten directly below with the provided port anyway)
-		if (request->hostEstimatedAddress.FromString(host, '|', ipVersion)==false)
+		if (request->hostEstimatedAddress.FromString(host, '|', ipVersion) == false)
 		{
 			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
 			return false;
 		}
 	}
 	request->hostEstimatedAddress.SetPortHostOrder(port);
-	request->port=port;
-	request->stringToTransmit=stringToTransmit;
-	request->contentLength=-1;
-	request->contentOffset=0;
-	request->useSSL=useSSL;
-	request->ipVersion=ipVersion;
-	request->userData=userData;
+	request->port = port;
+	request->stringToTransmit = stringToTransmit;
+	request->contentLength = -1;
+	request->contentOffset = 0;
+	request->useSSL = useSSL;
+	request->ipVersion = ipVersion;
+	request->userData = userData;
 
 	if (IsConnected(request->hostEstimatedAddress))
 	{
 		sentRequestsMutex.Lock();
-		if (sentRequests.Size()==0)
+		if (sentRequests.Size() == 0)
 		{
-			request->hostCompletedAddress=request->hostEstimatedAddress;
+			request->hostCompletedAddress = request->hostEstimatedAddress;
 			sentRequests.Push(request, _FILE_AND_LINE_);
 			sentRequestsMutex.Unlock();
 
@@ -97,31 +100,30 @@ bool HTTPConnection2::TransmitRequest(const char* stringToTransmit, const char* 
 		pendingRequests.Push(request, _FILE_AND_LINE_);
 		pendingRequestsMutex.Unlock();
 
-		if (ipVersion!=6)
+		if (ipVersion != 6)
 		{
 			tcpInterface->Connect(host, port, false, AF_INET);
 		}
 		else
 		{
-			#if RAKNET_SUPPORT_IPV6
-				tcpInterface->Connect(host, port, false, AF_INET6);
-			#else
-				RakAssert("HTTPConnection2::TransmitRequest needs define  RAKNET_SUPPORT_IPV6" && 0);
-			#endif
+#if RAKNET_SUPPORT_IPV6
+			tcpInterface->Connect(host, port, false, AF_INET6);
+#else
+			RakAssert("HTTPConnection2::TransmitRequest needs define  RAKNET_SUPPORT_IPV6" && 0);
+#endif
 		}
 	}
 	return true;
 }
-bool HTTPConnection2::GetResponse( RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset )
+bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset)
 {
 	void *userData;
 	return GetResponse(stringTransmitted, hostTransmitted, responseReceived, hostReceived, contentOffset, &userData);
-
 }
-bool HTTPConnection2::GetResponse( RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData )
+bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData)
 {
 	completedRequestsMutex.Lock();
-	if (completedRequests.Size()>0)
+	if (completedRequests.Size() > 0)
 	{
 		Request *completedRequest = completedRequests[0];
 		completedRequests.RemoveAtIndexFast(0);
@@ -145,26 +147,26 @@ bool HTTPConnection2::GetResponse( RakString &stringTransmitted, RakString &host
 }
 bool HTTPConnection2::IsBusy(void) const
 {
-	return pendingRequests.Size()>0 || sentRequests.Size()>0;
+	return pendingRequests.Size() > 0 || sentRequests.Size() > 0;
 }
 bool HTTPConnection2::HasResponse(void) const
 {
-	return completedRequests.Size()>0;
+	return completedRequests.Size() > 0;
 }
-int ReadChunkSize( char *txtStart, char **txtEnd ) 
+int ReadChunkSize(char *txtStart, char **txtEnd)
 {
-// 	char lengthStr[32];
-// 	memset(lengthStr, 0, 32);
-// 	memcpy(lengthStr, txtStart, txtEnd - txtStart);
-	return strtoul(txtStart, txtEnd,16);
+	// 	char lengthStr[32];
+	// 	memset(lengthStr, 0, 32);
+	// 	memcpy(lengthStr, txtStart, txtEnd - txtStart);
+	return strtoul(txtStart, txtEnd, 16);
 	// return atoi(lengthStr);
 }
-void ReadChunkBlock( size_t &currentChunkSize, size_t &bytesReadSoFar, char *txtIn, RakString &txtOut)
+void ReadChunkBlock(size_t &currentChunkSize, size_t &bytesReadSoFar, char *txtIn, RakString &txtOut)
 {
 	size_t bytesToRead;
 	size_t sLen;
-	
-	do 
+
+	do
 	{
 		bytesToRead = currentChunkSize - bytesReadSoFar;
 		sLen = strlen(txtIn);
@@ -175,11 +177,11 @@ void ReadChunkBlock( size_t &currentChunkSize, size_t &bytesReadSoFar, char *txt
 		bytesReadSoFar += bytesToRead;
 		if (*txtIn == 0)
 		{
-		//	currentChunkSize=0;
+			//	currentChunkSize=0;
 			return;
 		}
 		// char *newLine = strstr(txtIn, "\r\n");
-		if (txtIn[0] && txtIn[0]=='\r' && txtIn[1] && txtIn[1]=='\n' )
+		if (txtIn[0] && txtIn[0] == '\r' && txtIn[1] && txtIn[1] == '\n')
 			txtIn += 2; // Newline
 		char *newLine;
 		currentChunkSize = ReadChunkSize(txtIn, &newLine);
@@ -188,7 +190,7 @@ void ReadChunkBlock( size_t &currentChunkSize, size_t &bytesReadSoFar, char *txt
 			return;
 		if (newLine == 0)
 			return;
-		bytesReadSoFar=0;
+		bytesReadSoFar = 0;
 		txtIn = newLine + 2;
 	} while (txtIn);
 }
@@ -196,15 +198,15 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 {
 	unsigned int i;
 
-	bool locked=true;
+	bool locked = true;
 	sentRequestsMutex.Lock();
-	for (i=0; i < sentRequests.Size(); i++)
+	for (i = 0; i < sentRequests.Size(); i++)
 	{
 		Request *sentRequest = sentRequests[i];
-		if (sentRequest->hostCompletedAddress==packet->systemAddress)
+		if (sentRequest->hostCompletedAddress == packet->systemAddress)
 		{
 			sentRequests.RemoveAtIndexFast(i);
-			locked=false;
+			locked = false;
 			sentRequestsMutex.Unlock();
 
 			/*
@@ -237,20 +239,20 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 			*/
 
 
-			const char *isFirstChunk = strstr((char*) packet->data, "Transfer-Encoding: chunked");
+			const char *isFirstChunk = strstr((char *) packet->data, "Transfer-Encoding: chunked");
 			if (isFirstChunk)
 			{
 				//printf((char*) packet->data);
 
-				locked=false;
+				locked = false;
 				sentRequestsMutex.Unlock();
 
 				sentRequest->chunked = true;
-				char *chunkStrStart = strstr((char*) packet->data, "\r\n\r\n");
+				char *chunkStrStart = strstr((char *) packet->data, "\r\n\r\n");
 				RakAssert(chunkStrStart);
 
 				chunkStrStart += 4; // strlen("\r\n\r\n");
-				char *body_header; // = strstr(chunkStrStart, "\r\n");
+				char *body_header;  // = strstr(chunkStrStart, "\r\n");
 				sentRequest->thisChunkSize = ReadChunkSize(chunkStrStart, &body_header);
 				sentRequest->bytesReadForThisChunk = 0;
 				sentRequest->contentOffset = 0;
@@ -270,10 +272,10 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 
 					// char *offset = strstr((char*) packet->data+1, "2000");
 
-					body_header+=2;
+					body_header += 2;
 					ReadChunkBlock(sentRequest->thisChunkSize, sentRequest->bytesReadForThisChunk, body_header, sentRequest->stringReceived);
 
-					if (sentRequest->thisChunkSize==0)
+					if (sentRequest->thisChunkSize == 0)
 					{
 						// Done
 						completedRequestsMutex.Lock();
@@ -294,9 +296,9 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 			}
 			else if (sentRequest->chunked)
 			{
-				ReadChunkBlock(sentRequest->thisChunkSize, sentRequest->bytesReadForThisChunk, (char*) packet->data, sentRequest->stringReceived);
+				ReadChunkBlock(sentRequest->thisChunkSize, sentRequest->bytesReadForThisChunk, (char *) packet->data, sentRequest->stringReceived);
 
-				if (sentRequest->thisChunkSize==0)
+				if (sentRequest->thisChunkSize == 0)
 				{
 					// Done
 					completedRequestsMutex.Lock();
@@ -313,23 +315,22 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 					sentRequests.Push(sentRequest, _FILE_AND_LINE_);
 					sentRequestsMutex.Unlock();
 				}
-
 			}
 			else
 			{
-				sentRequest->stringReceived+=packet->data;
+				sentRequest->stringReceived += packet->data;
 
-				if (sentRequest->contentLength==-1)
+				if (sentRequest->contentLength == -1)
 				{
 					const char *length_header = strstr(sentRequest->stringReceived.C_String(), "Content-Length: ");
-					if(length_header)
+					if (length_header)
 					{
 						length_header += 16; // strlen("Content-Length: ");
 
 						unsigned int clLength;
-						for (clLength=0; length_header[clLength] && length_header[clLength] >= '0' && length_header[clLength] <= '9'; clLength++)
+						for (clLength = 0; length_header[clLength] && length_header[clLength] >= '0' && length_header[clLength] <= '9'; clLength++)
 							;
-						if (clLength>0 && (length_header[clLength]=='\r' || length_header[clLength]=='\n'))
+						if (clLength > 0 && (length_header[clLength] == '\r' || length_header[clLength] == '\n'))
 						{
 							sentRequest->contentLength = RakString::ReadIntFromSubstring(length_header, 0, clLength);
 						}
@@ -374,7 +375,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 					}
 					else
 					{
-						sentRequest->contentOffset=-1;
+						sentRequest->contentOffset = -1;
 						completedRequestsMutex.Lock();
 						completedRequests.Push(sentRequest, _FILE_AND_LINE_);
 						completedRequestsMutex.Unlock();
@@ -386,13 +387,13 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				else
 				{
 					const char *firstNewlineSet = strstr(sentRequest->stringReceived.C_String(), "\r\n\r\n");
-					if (firstNewlineSet!=0)
+					if (firstNewlineSet != 0)
 					{
 						ptrdiff_t offset = firstNewlineSet - sentRequest->stringReceived.C_String();
-						if (sentRequest->stringReceived.C_String()[offset+4]==0)
-							sentRequest->contentOffset=-1;
+						if (sentRequest->stringReceived.C_String()[offset + 4] == 0)
+							sentRequest->contentOffset = -1;
 						else
-							sentRequest->contentOffset=offset+4;
+							sentRequest->contentOffset = offset + 4;
 						completedRequestsMutex.Lock();
 						completedRequests.Push(sentRequest, _FILE_AND_LINE_);
 						completedRequestsMutex.Unlock();
@@ -409,12 +410,12 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				}
 			}
 
-			
+
 			break;
 		}
 	}
 
-	if (locked==true)
+	if (locked == true)
 		sentRequestsMutex.Unlock();
 
 	return RR_CONTINUE_PROCESSING;
@@ -429,23 +430,23 @@ void HTTPConnection2::OnNewConnection(const SystemAddress &systemAddress, RakNet
 }
 void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 {
-	if (sa==UNASSIGNED_SYSTEM_ADDRESS)
+	if (sa == UNASSIGNED_SYSTEM_ADDRESS)
 		return;
 
-	unsigned int requestsSent=0;
+	unsigned int requestsSent = 0;
 
 	// Search through requests to find a match for this instance of TCPInterface and SystemAddress
 	unsigned int i;
-	i=0;
+	i = 0;
 	pendingRequestsMutex.Lock();
 	while (i < pendingRequests.Size())
 	{
 		Request *request = pendingRequests[i];
-		if (request->hostEstimatedAddress==sa)
+		if (request->hostEstimatedAddress == sa)
 		{
 			pendingRequests.RemoveAtIndex(i);
 			// Send this request
-			request->hostCompletedAddress=sa;
+			request->hostCompletedAddress = sa;
 
 			sentRequestsMutex.Lock();
 			sentRequests.Push(request, _FILE_AND_LINE_);
@@ -453,7 +454,7 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 
 			pendingRequestsMutex.Unlock();
 
-#if OPEN_SSL_CLIENT_SUPPORT==1
+#if OPEN_SSL_CLIENT_SUPPORT == 1
 			if (request->useSSL)
 				tcpInterface->StartSSLClient(sa);
 #endif
@@ -470,7 +471,7 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 	}
 	pendingRequestsMutex.Unlock();
 
-	if (requestsSent==0)
+	if (requestsSent == 0)
 	{
 		pendingRequestsMutex.Lock();
 		if (pendingRequests.Size() > 0)
@@ -479,7 +480,7 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 			Request *request = pendingRequests[0];
 			pendingRequests.RemoveAtIndex(0);
 
-			request->hostCompletedAddress=sa;
+			request->hostCompletedAddress = sa;
 
 			sentRequestsMutex.Lock();
 			sentRequests.Push(request, _FILE_AND_LINE_);
@@ -487,7 +488,7 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 			pendingRequestsMutex.Unlock();
 
 			// Send
-#if OPEN_SSL_CLIENT_SUPPORT==1
+#if OPEN_SSL_CLIENT_SUPPORT == 1
 			if (request->useSSL)
 				tcpInterface->StartSSLClient(sa);
 #endif
@@ -504,12 +505,12 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 void HTTPConnection2::RemovePendingRequest(SystemAddress sa)
 {
 	unsigned int i;
-	i=0;
+	i = 0;
 	pendingRequestsMutex.Lock();
-	for (i=0; i < pendingRequests.Size(); i++)
+	for (i = 0; i < pendingRequests.Size(); i++)
 	{
 		Request *request = pendingRequests[i];
-		if (request->hostEstimatedAddress==sa)
+		if (request->hostEstimatedAddress == sa)
 		{
 			pendingRequests.RemoveAtIndex(i);
 			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
@@ -524,12 +525,12 @@ void HTTPConnection2::SendNextPendingRequest(void)
 {
 	// Send a pending request
 	pendingRequestsMutex.Lock();
-	if (pendingRequests.Size()>0)
+	if (pendingRequests.Size() > 0)
 	{
 		Request *pendingRequest = pendingRequests.Peek();
 		pendingRequestsMutex.Unlock();
 
-		if (pendingRequest->ipVersion!=6)
+		if (pendingRequest->ipVersion != 6)
 		{
 			tcpInterface->Connect(pendingRequest->host.C_String(), pendingRequest->port, false, AF_INET);
 		}
@@ -551,35 +552,35 @@ void HTTPConnection2::SendNextPendingRequest(void)
 void HTTPConnection2::OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAttemptReason failedConnectionAttemptReason)
 {
 	(void) failedConnectionAttemptReason;
-	if (packet->systemAddress==UNASSIGNED_SYSTEM_ADDRESS)
+	if (packet->systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
 		return;
 
 	RemovePendingRequest(packet->systemAddress);
 
 	SendNextPendingRequest();
 }
-void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	(void) lostConnectionReason;
 	(void) rakNetGUID;
 
-	if (systemAddress==UNASSIGNED_SYSTEM_ADDRESS)
+	if (systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
 		return;
 
 	// Update sent requests to completed requests
 	unsigned int i;
-	i=0;
+	i = 0;
 	sentRequestsMutex.Lock();
 	while (i < sentRequests.Size())
 	{
-		if (sentRequests[i]->hostCompletedAddress==systemAddress)
+		if (sentRequests[i]->hostCompletedAddress == systemAddress)
 		{
 			Request *sentRequest = sentRequests[i];
-			if (sentRequest->chunked==false && sentRequest->stringReceived.IsEmpty()==false)
+			if (sentRequest->chunked == false && sentRequest->stringReceived.IsEmpty() == false)
 			{
 				if (strstr(sentRequest->stringReceived.C_String(), "Content-Length: "))
 				{
-					char *body_header = strstr((char*) sentRequest->stringReceived.C_String(), "\r\n\r\n");
+					char *body_header = strstr((char *) sentRequest->stringReceived.C_String(), "\r\n\r\n");
 					if (body_header)
 					{
 						body_header += 4; // strlen("\r\n\r\n");
@@ -589,14 +590,13 @@ void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, Rak
 					{
 						sentRequest->contentOffset = 0;
 					}
-
 				}
 				else
 				{
 					sentRequest->contentOffset = 0;
 				}
 			}
-			
+
 
 			completedRequestsMutex.Lock();
 			completedRequests.Push(sentRequests[i], _FILE_AND_LINE_);
@@ -616,11 +616,11 @@ void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, Rak
 bool HTTPConnection2::IsConnected(SystemAddress sa)
 {
 	SystemAddress remoteSystems[64];
-	unsigned short numberOfSystems=64;
+	unsigned short numberOfSystems = 64;
 	tcpInterface->GetConnectionList(remoteSystems, &numberOfSystems);
-	for (unsigned int i=0; i < numberOfSystems; i++)
+	for (unsigned int i = 0; i < numberOfSystems; i++)
 	{
-		if (remoteSystems[i]==sa)
+		if (remoteSystems[i] == sa)
 		{
 			return true;
 		}

@@ -62,13 +62,13 @@ public:
 	/// Associate identifier with dbHandle, so when we get calls to operate on identifier, we use dbhandle
 	/// If SQLite3_STATEMENT_EXECUTE_THREADED is defined, will start the execution thread the first time a dbHandle is added.
 	/// \return true on success, false on dbIdentifier empty, or already in use
-	virtual bool AddDBHandle(MafiaNet::RakString dbIdentifier, sqlite3 *dbHandle, bool dbAutoCreated=false);
+	virtual bool AddDBHandle(MafiaNet::RakString dbIdentifier, sqlite3 *dbHandle, bool dbAutoCreated = false);
 
 	/// Stop using a dbHandle, lookup either by identifier or by pointer.
 	/// If SQLite3_STATEMENT_EXECUTE_THREADED is defined, do not call this while processing commands, since the commands run in a thread and might be using the dbHandle
 	/// Call before closing the handle or else SQLite3Plugin won't know that it was closed, and will continue using it
-	void RemoveDBHandle(MafiaNet::RakString dbIdentifier, bool alsoCloseConnection=false);
-	void RemoveDBHandle(sqlite3 *dbHandle, bool alsoCloseConnection=false);
+	void RemoveDBHandle(MafiaNet::RakString dbIdentifier, bool alsoCloseConnection = false);
+	void RemoveDBHandle(sqlite3 *dbHandle, bool alsoCloseConnection = false);
 
 	/// \internal For plugin handling
 	virtual PluginReceiveResult OnReceive(Packet *packet);
@@ -89,7 +89,11 @@ public:
 	/// \internal
 	struct SQLExecThreadInput
 	{
-		SQLExecThreadInput() {data=0; packet=0;}
+		SQLExecThreadInput()
+		{
+			data = 0;
+			packet = 0;
+		}
 		char *data;
 		unsigned int length;
 		SystemAddress sender;
@@ -101,7 +105,11 @@ public:
 	/// \internal
 	struct SQLExecThreadOutput
 	{
-		SQLExecThreadOutput() {data=0; packet=0;}
+		SQLExecThreadOutput()
+		{
+			data = 0;
+			packet = 0;
+		}
 		char *data;
 		unsigned int length;
 		SystemAddress sender;
@@ -124,8 +132,8 @@ protected:
 
 };
 
-extern bool operator<( const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls );
-extern bool operator>( const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls );
-extern bool operator==( const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls );
+extern bool operator<(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls);
+extern bool operator>(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls);
+extern bool operator==(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls);
 
 #endif

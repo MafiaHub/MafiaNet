@@ -12,7 +12,7 @@
  *  This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
  *  license found in the license.txt file in the root directory of this source tree.
  */
- 
+
 ///
 /// \file autopatcher_repository_interface.h
 /// \brief An interface used by AutopatcherServer to get the data necessary to run an autopatcher.
@@ -42,7 +42,7 @@ public:
 	/// \param[in] An input date, in whatever format your repository uses
 	/// \param[out] currentDate The current server date, in whatever format your repository uses
 	/// \return True on success, false on failure.
-	virtual bool GetChangelistSinceDate(const char *applicationName, FileList *addedOrModifiedFilesWithHashData, FileList *deletedFiles, double sinceDate)=0;
+	virtual bool GetChangelistSinceDate(const char *applicationName, FileList *addedOrModifiedFilesWithHashData, FileList *deletedFiles, double sinceDate) = 0;
 
 	/// Get patches (or files) for every file in input, assuming that input has a hash for each of those files.
 	/// \param[in] applicationName A null terminated string identifying the application
@@ -50,7 +50,7 @@ public:
 	/// \param[out] patchList You should return list of files with either the filedata or the patch.  This is a subset of \a input.  The context data for each file will be either PC_WRITE_FILE (to just write the file) or PC_HASH_WITH_PATCH (to patch).  If PC_HASH_WITH_PATCH, then the file contains a SHA1_LENGTH byte patch followed by the hash.  The datalength is patchlength + SHA1_LENGTH
 	/// \param[out] currentDate The current server date, in whatever format your repository uses
 	/// \return 1 on success, 0 on database failure, -1 on tried to download original unmodified file
-	virtual int GetPatches(const char *applicationName, FileList *input, bool allowDownloadOfOriginalUnmodifiedFiles, FileList *patchList)=0;
+	virtual int GetPatches(const char *applicationName, FileList *input, bool allowDownloadOfOriginalUnmodifiedFiles, FileList *patchList) = 0;
 
 	/// For the most recent update, return files that were patched, added, or deleted. For files that were patched, return both the patch in \a patchedFiles and the current version in \a updatedFiles
 	/// \param[in,out] applicationName Name of the application to get patches for. If empty, uses the most recently updated application, and the string will be updated to reflect this name.
@@ -61,22 +61,21 @@ public:
 	/// \param[out] whenPatched time in seconds since epoch when patched. Use time() function to get this in C
 	/// \return true on success, false on failure
 	virtual bool GetMostRecentChangelistWithPatches(
-		MafiaNet::RakString &applicationName,
-		FileList *patchedFiles,
-		FileList *updatedFiles,
-		FileList *addedOrModifiedFileHashes,
-		FileList *deletedFiles,
-		double *priorRowPatchTime,
-		double *mostRecentRowPatchTime)=0;
+	    MafiaNet::RakString &applicationName,
+	    FileList *patchedFiles,
+	    FileList *updatedFiles,
+	    FileList *addedOrModifiedFileHashes,
+	    FileList *deletedFiles,
+	    double *priorRowPatchTime,
+	    double *mostRecentRowPatchTime) = 0;
 
 	/// \return Whatever this function returns is sent from the AutopatcherServer to the AutopatcherClient when one of the above functions returns false.
-	virtual const char *GetLastError(void) const=0;
+	virtual const char *GetLastError(void) const = 0;
 
 	/// \return Passed to FileListTransfer::Send() as the _chunkSize parameter.
-	virtual const int GetIncrementalReadChunkSize(void) const=0;
+	virtual const int GetIncrementalReadChunkSize(void) const = 0;
 };
 
 } // namespace MafiaNet
 
 #endif
-

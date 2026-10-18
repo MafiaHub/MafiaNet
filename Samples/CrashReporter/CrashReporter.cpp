@@ -21,7 +21,7 @@
 #include "mafianet/windows_includes.h"
 #pragma warning(push)
 // disable warning 4091 (triggers for enum typedefs in DbgHelp.h in Windows SDK 7.1 and Windows SDK 8.1)
-#pragma warning(disable:4091)
+#pragma warning(disable : 4091)
 #include <DbgHelp.h>
 #pragma warning(pop)
 #include <stdlib.h>
@@ -50,8 +50,8 @@ LONG ProcessException(struct _EXCEPTION_POINTERS *ExceptionInfo)
 	char appDescriptor[_MAX_PATH];
 	if ((CrashReporter::controls.actionToTake & AOC_SILENT_MODE) == 0)
 	{
-		sprintf_s(appDescriptor, "%s has crashed.\nGenerate a report?",  CrashReporter::controls.appName);
-		if (::MessageBoxA(nullptr, appDescriptor, "Crash Reporter", MB_YESNO )==IDNO)
+		sprintf_s(appDescriptor, "%s has crashed.\nGenerate a report?", CrashReporter::controls.appName);
+		if (::MessageBoxA(nullptr, appDescriptor, "Crash Reporter", MB_YESNO) == IDNO)
 		{
 			return EXCEPTION_CONTINUE_SEARCH;
 		}
@@ -62,32 +62,31 @@ LONG ProcessException(struct _EXCEPTION_POINTERS *ExceptionInfo)
 	sprintf_s(appDescriptor, "%s %s - %s %s", CrashReporter::controls.appName, CrashReporter::controls.appVersion, __DATE__, __TIME__);
 
 	if ((CrashReporter::controls.actionToTake & AOC_EMAIL_WITH_ATTACHMENT) ||
-		(CrashReporter::controls.actionToTake & AOC_WRITE_TO_DISK)
-		)
+	    (CrashReporter::controls.actionToTake & AOC_WRITE_TO_DISK))
 	{
 		if (CrashReporter::controls.actionToTake & AOC_WRITE_TO_DISK)
 		{
 			strcpy_s(dumpFilepath, CrashReporter::controls.pathToMinidump);
-			WriteFileWithDirectories(dumpFilepath,0,0);
+			WriteFileWithDirectories(dumpFilepath, 0, 0);
 			AddSlash(dumpFilepath);
 		}
 		else
 		{
 			// Write to a temporary directory if the user doesn't want the dump on the harddrive.
-			if (!GetTempPathA( _MAX_PATH, dumpFilepath ))
-				dumpFilepath[0]=0;
+			if (!GetTempPathA(_MAX_PATH, dumpFilepath))
+				dumpFilepath[0] = 0;
 		}
 		unsigned i, dumpFilenameLen;
 		strcpy_s(dumpFilename, appDescriptor);
-		dumpFilenameLen=(unsigned) strlen(appDescriptor);
-		for (i=0; i < dumpFilenameLen; i++)
-			if (dumpFilename[i]==':' || dumpFilename[i]=='/' || dumpFilename[i]=='\\')
-				dumpFilename[i]='.'; // Remove illegal characters from filename
+		dumpFilenameLen = (unsigned) strlen(appDescriptor);
+		for (i = 0; i < dumpFilenameLen; i++)
+			if (dumpFilename[i] == ':' || dumpFilename[i] == '/' || dumpFilename[i] == '\\')
+				dumpFilename[i] = '.'; // Remove illegal characters from filename
 		strcat_s(dumpFilepath, dumpFilename);
 		strcat_s(dumpFilepath, ".dmp");
 
-		HANDLE hFile = CreateFileA(dumpFilepath,GENERIC_WRITE, FILE_SHARE_READ, nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL, nullptr);
-		if (hFile==INVALID_HANDLE_VALUE)
+		HANDLE hFile = CreateFileA(dumpFilepath, GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (hFile == INVALID_HANDLE_VALUE)
 			return EXCEPTION_CONTINUE_SEARCH;
 
 		MINIDUMP_EXCEPTION_INFORMATION eInfo;
@@ -96,13 +95,13 @@ LONG ProcessException(struct _EXCEPTION_POINTERS *ExceptionInfo)
 		eInfo.ClientPointers = FALSE;
 
 		if (MiniDumpWriteDump(
-			GetCurrentProcess(),
-			GetCurrentProcessId(),
-			hFile,
-			(MINIDUMP_TYPE)CrashReporter::controls.minidumpType,
-			ExceptionInfo ? &eInfo : nullptr,
-			nullptr,
-			nullptr)==false)
+		        GetCurrentProcess(),
+		        GetCurrentProcessId(),
+		        hFile,
+		        (MINIDUMP_TYPE) CrashReporter::controls.minidumpType,
+		        ExceptionInfo ? &eInfo : nullptr,
+		        nullptr,
+		        nullptr) == false)
 			return EXCEPTION_CONTINUE_SEARCH;
 
 		CloseHandle(hFile);
@@ -117,24 +116,24 @@ LONG ProcessException(struct _EXCEPTION_POINTERS *ExceptionInfo)
 
 		if (CrashReporter::controls.actionToTake & AOC_SILENT_MODE)
 		{
-		sprintf_s(silentModeEmailBody, "%s%s version %s has crashed.\r\nIt was compiled on %s %s.\r\n", CrashReporter::controls.emailBody, CrashReporter::controls.appName,CrashReporter::controls.appVersion, __DATE__, __TIME__);
+			sprintf_s(silentModeEmailBody, "%s%s version %s has crashed.\r\nIt was compiled on %s %s.\r\n", CrashReporter::controls.emailBody, CrashReporter::controls.appName, CrashReporter::controls.appVersion, __DATE__, __TIME__);
 
 			if (CrashReporter::controls.actionToTake & AOC_WRITE_TO_DISK)
-				sprintf_s(silentModeEmailBody+strlen(silentModeEmailBody), 1024-strlen(silentModeEmailBody), "Minidump written to %s \r\n", dumpFilepath);
+				sprintf_s(silentModeEmailBody + strlen(silentModeEmailBody), 1024 - strlen(silentModeEmailBody), "Minidump written to %s \r\n", dumpFilepath);
 
 			// Silently send email with attachment
 			EmailSender emailSender;
 			emailSender.Send(CrashReporter::controls.SMTPServer,
-				25,
-				CrashReporter::controls.SMTPAccountName,
-				CrashReporter::controls.emailRecipient,
-				CrashReporter::controls.emailSender,
-				CrashReporter::controls.emailRecipient,
-				subject,
-				silentModeEmailBody,
-				0,
-				false,
-				CrashReporter::controls.emailPassword);
+			                 25,
+			                 CrashReporter::controls.SMTPAccountName,
+			                 CrashReporter::controls.emailRecipient,
+			                 CrashReporter::controls.emailSender,
+			                 CrashReporter::controls.emailRecipient,
+			                 subject,
+			                 silentModeEmailBody,
+			                 0,
+			                 false,
+			                 CrashReporter::controls.emailPassword);
 		}
 		else
 		{
@@ -150,26 +149,26 @@ LONG ProcessException(struct _EXCEPTION_POINTERS *ExceptionInfo)
 
 		if (CrashReporter::controls.actionToTake & AOC_SILENT_MODE)
 		{
-			sprintf_s(silentModeEmailBody, "%s%s version %s has crashed.\r\nIt was compiled on %s %s.\r\n", CrashReporter::controls.emailBody, CrashReporter::controls.appName,CrashReporter::controls.appVersion, __DATE__, __TIME__);
+			sprintf_s(silentModeEmailBody, "%s%s version %s has crashed.\r\nIt was compiled on %s %s.\r\n", CrashReporter::controls.emailBody, CrashReporter::controls.appName, CrashReporter::controls.appVersion, __DATE__, __TIME__);
 
 			if (CrashReporter::controls.actionToTake & AOC_WRITE_TO_DISK)
-				sprintf_s(silentModeEmailBody+strlen(silentModeEmailBody), 1024-strlen(silentModeEmailBody), "Minidump written to %s \r\n", dumpFilepath);
+				sprintf_s(silentModeEmailBody + strlen(silentModeEmailBody), 1024 - strlen(silentModeEmailBody), "Minidump written to %s \r\n", dumpFilepath);
 
 			// Silently send email with attachment
 			EmailSender emailSender;
 			FileList files;
-			files.AddFile(dumpFilepath,dumpFilename,FileListNodeContext(0,0,0,0));
+			files.AddFile(dumpFilepath, dumpFilename, FileListNodeContext(0, 0, 0, 0));
 			emailSender.Send(CrashReporter::controls.SMTPServer,
-				25,
-				CrashReporter::controls.SMTPAccountName,
-				CrashReporter::controls.emailRecipient,
-				CrashReporter::controls.emailSender,
-				CrashReporter::controls.emailRecipient,
-				subject,
-				silentModeEmailBody,
-				&files,
-				false,
-				CrashReporter::controls.emailPassword);
+			                 25,
+			                 CrashReporter::controls.SMTPAccountName,
+			                 CrashReporter::controls.emailRecipient,
+			                 CrashReporter::controls.emailSender,
+			                 CrashReporter::controls.emailRecipient,
+			                 subject,
+			                 silentModeEmailBody,
+			                 &files,
+			                 false,
+			                 CrashReporter::controls.emailPassword);
 		}
 		else
 		{
@@ -181,12 +180,12 @@ LONG ProcessException(struct _EXCEPTION_POINTERS *ExceptionInfo)
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 
-LONG WINAPI CrashExceptionFilter( struct _EXCEPTION_POINTERS *ExceptionInfo )
+LONG WINAPI CrashExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
 {
 	// Mutex here due to http://www.jenkinssoftware.com/raknet/forum/index.php?topic=2305.0;topicseen
 	static SimpleMutex crashExceptionFilterMutex;
 	crashExceptionFilterMutex.Lock();
-	LONG retVal = ProcessException(ExceptionInfo); 
+	LONG retVal = ProcessException(ExceptionInfo);
 	crashExceptionFilterMutex.Unlock();
 	return retVal;
 }
@@ -196,17 +195,17 @@ void DumpMiniDump(PEXCEPTION_POINTERS excpInfo)
 	if (excpInfo == nullptr)
 	{
 		// Generate exception to get proper context in dump
-		__try 
+		__try
 		{
 			RaiseException(EXCEPTION_BREAKPOINT, 0, 0, nullptr);
-		} 
-		__except(DumpMiniDump(GetExceptionInformation()),EXCEPTION_EXECUTE_HANDLER) 
+		}
+		__except (DumpMiniDump(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER)
 		{
 		}
-	} 
+	}
 	else
 	{
-		ProcessException(excpInfo); 
+		ProcessException(excpInfo);
 	}
 }
 

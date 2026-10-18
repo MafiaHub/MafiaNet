@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_NatTypeDetectionClient==1
+#if _RAKNET_SUPPORT_NatTypeDetectionClient == 1
 
 #include "mafianet/nat_type_detection_client.h"
 #include "mafianet/smart_ptr.h"
@@ -28,17 +28,17 @@
 
 using namespace MafiaNet;
 
-STATIC_FACTORY_DEFINITIONS(NatTypeDetectionClient,NatTypeDetectionClient);
+STATIC_FACTORY_DEFINITIONS(NatTypeDetectionClient, NatTypeDetectionClient);
 
 NatTypeDetectionClient::NatTypeDetectionClient()
 {
-	c2=0;
+	c2 = 0;
 }
 NatTypeDetectionClient::~NatTypeDetectionClient()
 {
-	if (c2!=0)
+	if (c2 != 0)
 	{
-		MafiaNet::OP_DELETE(c2,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(c2, _FILE_AND_LINE_);
 	}
 }
 void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
@@ -46,59 +46,57 @@ void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
 	if (IsInProgress())
 		return;
 
-	if (c2==0)
+	if (c2 == 0)
 	{
-		DataStructures::List<RakNetSocket2* > sockets;
+		DataStructures::List<RakNetSocket2 *> sockets;
 		rakPeerInterface->GetSockets(sockets);
 		//SystemAddress sockAddr;
 		//SocketLayer::GetSystemAddress(sockets[0], &sockAddr);
 		char str[64];
 		//sockAddr.ToString(false,str);
-		sockets[0]->GetBoundAddress().ToString(false,str,static_cast<size_t>(64));
-		c2=CreateNonblockingBoundSocket(str
-			,this
-			);
+		sockets[0]->GetBoundAddress().ToString(false, str, static_cast<size_t>(64));
+		c2 = CreateNonblockingBoundSocket(str, this);
 		//c2Port=SocketLayer::GetLocalPort(c2);
 	}
 
 	if (c2->IsBerkleySocket())
-		((RNS2_Berkley*) c2)->CreateRecvPollingThread(0);
+		((RNS2_Berkley *) c2)->CreateRecvPollingThread(0);
 
-	serverAddress=_serverAddress;
+	serverAddress = _serverAddress;
 
 	MafiaNet::BitStream bs;
-	bs.Write((unsigned char)ID_NAT_TYPE_DETECTION_REQUEST);
+	bs.Write((unsigned char) ID_NAT_TYPE_DETECTION_REQUEST);
 	bs.Write(true); // IsRequest
 	bs.Write(c2->GetBoundAddress().GetPort());
-	rakPeerInterface->Send(&bs,MafiaNet::Priority::Medium,MafiaNet::Reliability::Reliable,0,serverAddress,false);
+	rakPeerInterface->Send(&bs, MafiaNet::Priority::Medium, MafiaNet::Reliability::Reliable, 0, serverAddress, false);
 }
 void NatTypeDetectionClient::OnCompletion(NATTypeDetectionResult result)
 {
-	Packet *p = AllocatePacketUnified(sizeof(MessageID)+sizeof(unsigned char)*2);
+	Packet *p = AllocatePacketUnified(sizeof(MessageID) + sizeof(unsigned char) * 2);
 	//printf("Returning nat detection result to the user\n");
-	p->data[0]=ID_NAT_TYPE_DETECTION_RESULT;
-	p->systemAddress=serverAddress;
-	p->systemAddress.systemIndex=(SystemIndex)-1;
-	p->guid=rakPeerInterface->GetGuidFromSystemAddress(serverAddress);
-	p->data[1]=(unsigned char) result;
-	p->wasGeneratedLocally=true;
+	p->data[0] = ID_NAT_TYPE_DETECTION_RESULT;
+	p->systemAddress = serverAddress;
+	p->systemAddress.systemIndex = (SystemIndex) -1;
+	p->guid = rakPeerInterface->GetGuidFromSystemAddress(serverAddress);
+	p->data[1] = (unsigned char) result;
+	p->wasGeneratedLocally = true;
 	rakPeerInterface->PushBackPacket(p, true);
 
 	// Symmetric and port restricted are determined by server, so no need to notify server we are done
-	if (result!=NAT_TYPE_PORT_RESTRICTED && result!=NAT_TYPE_SYMMETRIC)
+	if (result != NAT_TYPE_PORT_RESTRICTED && result != NAT_TYPE_SYMMETRIC)
 	{
 		// Otherwise tell the server we got this message, so it stops sending tests to us
 		MafiaNet::BitStream bs;
-		bs.Write((unsigned char)ID_NAT_TYPE_DETECTION_REQUEST);
+		bs.Write((unsigned char) ID_NAT_TYPE_DETECTION_REQUEST);
 		bs.Write(false); // Done
-		rakPeerInterface->Send(&bs,MafiaNet::Priority::High,MafiaNet::Reliability::Reliable,0,serverAddress,false);
+		rakPeerInterface->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, serverAddress, false);
 	}
 
 	Shutdown();
 }
 bool NatTypeDetectionClient::IsInProgress(void) const
 {
-	return serverAddress!=UNASSIGNED_SYSTEM_ADDRESS;
+	return serverAddress != UNASSIGNED_SYSTEM_ADDRESS;
 }
 void NatTypeDetectionClient::Update(void)
 {
@@ -106,25 +104,25 @@ void NatTypeDetectionClient::Update(void)
 	{
 		RNS2RecvStruct *recvStruct;
 		bufferedPacketsMutex.Lock();
-		if (bufferedPackets.Size()>0)
-			recvStruct=bufferedPackets.Pop();
+		if (bufferedPackets.Size() > 0)
+			recvStruct = bufferedPackets.Pop();
 		else
-			recvStruct=0;
+			recvStruct = 0;
 		bufferedPacketsMutex.Unlock();
 		while (recvStruct)
 		{
-			if (recvStruct->bytesRead==1 && recvStruct->data[0]==NAT_TYPE_NONE)
+			if (recvStruct->bytesRead == 1 && recvStruct->data[0] == NAT_TYPE_NONE)
 			{
 				OnCompletion(NAT_TYPE_NONE);
-				RakAssert(IsInProgress()==false);
+				RakAssert(IsInProgress() == false);
 			}
 			DeallocRNS2RecvStruct(recvStruct, _FILE_AND_LINE_);
 
 			bufferedPacketsMutex.Lock();
-			if (bufferedPackets.Size()>0)
-				recvStruct=bufferedPackets.Pop();
+			if (bufferedPackets.Size() > 0)
+				recvStruct = bufferedPackets.Pop();
 			else
-				recvStruct=0;
+				recvStruct = 0;
 			bufferedPacketsMutex.Unlock();
 		}
 	}
@@ -136,18 +134,18 @@ PluginReceiveResult NatTypeDetectionClient::OnReceive(Packet *packet)
 		switch (packet->data[0])
 		{
 		case ID_OUT_OF_BAND_INTERNAL:
+		{
+			if (packet->length >= 3 && packet->data[1] == ID_NAT_TYPE_DETECT)
 			{
-				if (packet->length>=3 && packet->data[1]==ID_NAT_TYPE_DETECT)
-				{
-					OnCompletion((NATTypeDetectionResult)packet->data[2]);
-					return RR_STOP_PROCESSING_AND_DEALLOCATE;
-				}
+				OnCompletion((NATTypeDetectionResult) packet->data[2]);
+				return RR_STOP_PROCESSING_AND_DEALLOCATE;
 			}
-			break;
+		}
+		break;
 		case ID_NAT_TYPE_DETECTION_RESULT:
-			if (packet->wasGeneratedLocally==false)
+			if (packet->wasGeneratedLocally == false)
 			{
-				OnCompletion((NATTypeDetectionResult)packet->data[1]);
+				OnCompletion((NATTypeDetectionResult) packet->data[1]);
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;
 			}
 			else
@@ -160,12 +158,12 @@ PluginReceiveResult NatTypeDetectionClient::OnReceive(Packet *packet)
 
 	return RR_CONTINUE_PROCESSING;
 }
-void NatTypeDetectionClient::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void NatTypeDetectionClient::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	(void) lostConnectionReason;
 	(void) rakNetGUID;
 
-	if (IsInProgress() && systemAddress==serverAddress)
+	if (IsInProgress() && systemAddress == serverAddress)
 		Shutdown();
 }
 void NatTypeDetectionClient::OnRakPeerShutdown(void)
@@ -178,14 +176,14 @@ void NatTypeDetectionClient::OnDetach(void)
 }
 void NatTypeDetectionClient::OnTestPortRestricted(Packet *packet)
 {
-	MafiaNet::BitStream bsIn(packet->data,packet->length,false);
+	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	MafiaNet::RakString s3p4StrAddress;
 	bsIn.Read(s3p4StrAddress);
 	unsigned short s3p4Port;
 	bsIn.Read(s3p4Port);
 
-	DataStructures::List<RakNetSocket2* > sockets;
+	DataStructures::List<RakNetSocket2 *> sockets;
 	rakPeerInterface->GetSockets(sockets);
 	SystemAddress s3p4Addr = sockets[0]->GetBoundAddress();
 	s3p4Addr.FromStringExplicitPort(s3p4StrAddress.C_String(), s3p4Port);
@@ -195,25 +193,24 @@ void NatTypeDetectionClient::OnTestPortRestricted(Packet *packet)
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) NAT_TYPE_PORT_RESTRICTED);
 	bsOut.Write(rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
-//	SocketLayer::SendTo_PC( sockets[0], (const char*) bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), s3p4Addr, __FILE__, __LINE__ );
+	//	SocketLayer::SendTo_PC( sockets[0], (const char*) bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), s3p4Addr, __FILE__, __LINE__ );
 
 	RNS2_SendParameters bsp;
-	bsp.data = (char*) bsOut.GetData();
+	bsp.data = (char *) bsOut.GetData();
 	bsp.length = bsOut.GetNumberOfBytesUsed();
-	bsp.systemAddress=s3p4Addr;
+	bsp.systemAddress = s3p4Addr;
 	sockets[0]->Send(&bsp, _FILE_AND_LINE_);
-
 }
 void NatTypeDetectionClient::Shutdown(void)
 {
-	serverAddress=UNASSIGNED_SYSTEM_ADDRESS;
-	if (c2!=0)
+	serverAddress = UNASSIGNED_SYSTEM_ADDRESS;
+	if (c2 != 0)
 	{
 		if (c2->IsBerkleySocket())
-			((RNS2_Berkley *)c2)->BlockOnStopRecvPollingThread();
+			((RNS2_Berkley *) c2)->BlockOnStopRecvPollingThread();
 
 		MafiaNet::OP_DELETE(c2, _FILE_AND_LINE_);
-		c2=0;
+		c2 = 0;
 	}
 
 	bufferedPacketsMutex.Lock();
@@ -230,12 +227,12 @@ void NatTypeDetectionClient::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RNS2RecvStruct *NatTypeDetectionClient::AllocRNS2RecvStruct(const char *file, unsigned int line)
 {
-	return MafiaNet::OP_NEW<RNS2RecvStruct>(file,line);
+	return MafiaNet::OP_NEW<RNS2RecvStruct>(file, line);
 }
 void NatTypeDetectionClient::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 {
 	bufferedPacketsMutex.Lock();
-	bufferedPackets.Push(recvStruct,_FILE_AND_LINE_);
+	bufferedPackets.Push(recvStruct, _FILE_AND_LINE_);
 	bufferedPacketsMutex.Unlock();
 }
 

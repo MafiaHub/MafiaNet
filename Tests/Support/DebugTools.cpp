@@ -18,12 +18,12 @@ DebugTools::~DebugTools(void)
 {
 }
 
-void DebugTools::ShowError(RakString errorString,bool pause, unsigned int lineNum,const char *fileName)
+void DebugTools::ShowError(RakString errorString, bool pause, unsigned int lineNum, const char *fileName)
 {
 
 	fflush(stdin);
 
-	printf("%s\nFile:%s \nLine: %i\n",errorString.C_String(),fileName,lineNum);
+	printf("%s\nFile:%s \nLine: %i\n", errorString.C_String(), fileName, lineNum);
 
 	if (pause)
 	{

@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_CloudClient==1
+#if _RAKNET_SUPPORT_CloudClient == 1
 
 #include "mafianet/cloud_client.h"
 #include "mafianet/get_time.h"
@@ -24,51 +24,51 @@
 
 using namespace MafiaNet;
 
-STATIC_FACTORY_DEFINITIONS(CloudClient,CloudClient);
+STATIC_FACTORY_DEFINITIONS(CloudClient, CloudClient);
 
 CloudClient::CloudClient()
 {
-	callback=0;
-	allocator=&unsetDefaultAllocator;
+	callback = 0;
+	allocator = &unsetDefaultAllocator;
 }
 CloudClient::~CloudClient()
 {
 }
 void CloudClient::SetDefaultCallbacks(CloudAllocator *_allocator, CloudClientCallback *_callback)
 {
-	callback=_callback;
-	allocator=_allocator;
+	callback = _callback;
+	allocator = _allocator;
 }
 void CloudClient::Post(CloudKey *cloudKey, const unsigned char *data, uint32_t dataLengthBytes, RakNetGUID systemIdentifier)
 {
 	RakAssert(cloudKey);
-	
+
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_POST_REQUEST);
-	cloudKey->Serialize(true,&bsOut);
-	if (data==0)
-		dataLengthBytes=0;
+	bsOut.Write((MessageID) ID_CLOUD_POST_REQUEST);
+	cloudKey->Serialize(true, &bsOut);
+	if (data == 0)
+		dataLengthBytes = 0;
 	bsOut.Write(dataLengthBytes);
-	if (dataLengthBytes>0)
-		bsOut.WriteAlignedBytes((const unsigned char*) data, dataLengthBytes);
+	if (dataLengthBytes > 0)
+		bsOut.WriteAlignedBytes((const unsigned char *) data, dataLengthBytes);
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 }
 void CloudClient::Release(DataStructures::List<CloudKey> &keys, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_RELEASE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t)-1 );
+	bsOut.Write((MessageID) ID_CLOUD_RELEASE_REQUEST);
+	RakAssert(keys.Size() < (uint16_t) -1);
 	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i=0; i < keys.Size(); i++)	
+	for (uint16_t i = 0; i < keys.Size(); i++)
 	{
-		keys[i].Serialize(true,&bsOut);
+		keys[i].Serialize(true, &bsOut);
 	}
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 }
 bool CloudClient::Get(CloudQuery *keyQuery, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_GET_REQUEST);
+	bsOut.Write((MessageID) ID_CLOUD_GET_REQUEST);
 	keyQuery->Serialize(true, &bsOut);
 	bsOut.WriteCasted<uint16_t>(0); // Specific systems
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
@@ -77,27 +77,27 @@ bool CloudClient::Get(CloudQuery *keyQuery, RakNetGUID systemIdentifier)
 bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_GET_REQUEST);
+	bsOut.Write((MessageID) ID_CLOUD_GET_REQUEST);
 	keyQuery->Serialize(true, &bsOut);
 	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t)-1 );
-	for (uint16_t i=0; i < specificSystems.Size(); i++)
+	RakAssert(specificSystems.Size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.Size(); i++)
 	{
 		bsOut.Write(specificSystems[i]);
 	}
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 	return true;
 }
-bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<CloudQueryRow*> &specificSystems, RakNetGUID systemIdentifier)
+bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_GET_REQUEST);
+	bsOut.Write((MessageID) ID_CLOUD_GET_REQUEST);
 	keyQuery->Serialize(true, &bsOut);
 	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t)-1 );
-	for (uint16_t i=0; i < specificSystems.Size(); i++)
+	RakAssert(specificSystems.Size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.Size(); i++)
 	{
-		if (specificSystems[i]->clientGUID!=UNASSIGNED_RAKNET_GUID)
+		if (specificSystems[i]->clientGUID != UNASSIGNED_RAKNET_GUID)
 		{
 			bsOut.Write(true);
 			bsOut.Write(specificSystems[i]->clientGUID);
@@ -114,12 +114,12 @@ bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<CloudQueryRow*>
 void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_UNSUBSCRIBE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t)-1 );
+	bsOut.Write((MessageID) ID_CLOUD_UNSUBSCRIBE_REQUEST);
+	RakAssert(keys.Size() < (uint16_t) -1);
 	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i=0; i < keys.Size(); i++)	
+	for (uint16_t i = 0; i < keys.Size(); i++)
 	{
-		keys[i].Serialize(true,&bsOut);
+		keys[i].Serialize(true, &bsOut);
 	}
 	bsOut.WriteCasted<uint16_t>(0);
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
@@ -127,36 +127,36 @@ void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, RakNetGUID s
 void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_UNSUBSCRIBE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t)-1 );
+	bsOut.Write((MessageID) ID_CLOUD_UNSUBSCRIBE_REQUEST);
+	RakAssert(keys.Size() < (uint16_t) -1);
 	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i=0; i < keys.Size(); i++)	
+	for (uint16_t i = 0; i < keys.Size(); i++)
 	{
-		keys[i].Serialize(true,&bsOut);
+		keys[i].Serialize(true, &bsOut);
 	}
 	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t)-1 );
-	for (uint16_t i=0; i < specificSystems.Size(); i++)
+	RakAssert(specificSystems.Size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.Size(); i++)
 	{
 		bsOut.Write(specificSystems[i]);
 	}
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 }
-void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<CloudQueryRow*> &specificSystems, RakNetGUID systemIdentifier)
+void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
-	bsOut.Write((MessageID)ID_CLOUD_UNSUBSCRIBE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t)-1 );
+	bsOut.Write((MessageID) ID_CLOUD_UNSUBSCRIBE_REQUEST);
+	RakAssert(keys.Size() < (uint16_t) -1);
 	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i=0; i < keys.Size(); i++)	
+	for (uint16_t i = 0; i < keys.Size(); i++)
 	{
-		keys[i].Serialize(true,&bsOut);
+		keys[i].Serialize(true, &bsOut);
 	}
 	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t)-1 );
-	for (uint16_t i=0; i < specificSystems.Size(); i++)
+	RakAssert(specificSystems.Size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.Size(); i++)
 	{
-		if (specificSystems[i]->clientGUID!=UNASSIGNED_RAKNET_GUID)
+		if (specificSystems[i]->clientGUID != UNASSIGNED_RAKNET_GUID)
 		{
 			bsOut.Write(true);
 			bsOut.Write(specificSystems[i]->clientGUID);
@@ -177,22 +177,22 @@ PluginReceiveResult CloudClient::OnReceive(Packet *packet)
 }
 void CloudClient::OnGetReponse(Packet *packet, CloudClientCallback *_callback, CloudAllocator *_allocator)
 {
-	if (_callback==0)
-		_callback=callback;
-	if (_allocator==0)
-		_allocator=allocator;
+	if (_callback == 0)
+		_callback = callback;
+	if (_allocator == 0)
+		_allocator = allocator;
 
 	CloudQueryResult cloudQueryResult;
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
-	cloudQueryResult.Serialize(false,&bsIn,_allocator);
-	bool deallocateRowsAfterReturn=true;
+	cloudQueryResult.Serialize(false, &bsIn, _allocator);
+	bool deallocateRowsAfterReturn = true;
 	_callback->OnGet(&cloudQueryResult, &deallocateRowsAfterReturn);
 	if (deallocateRowsAfterReturn)
 	{
 		unsigned int i;
-		for (i=0; i < cloudQueryResult.rowsReturned.Size(); i++)
+		for (i = 0; i < cloudQueryResult.rowsReturned.Size(); i++)
 		{
 			_allocator->DeallocateRowData(cloudQueryResult.rowsReturned[i]->data);
 			_allocator->DeallocateCloudQueryRow(cloudQueryResult.rowsReturned[i]);
@@ -201,28 +201,28 @@ void CloudClient::OnGetReponse(Packet *packet, CloudClientCallback *_callback, C
 }
 void CloudClient::OnGetReponse(CloudQueryResult *cloudQueryResult, Packet *packet, CloudAllocator *_allocator)
 {
-	if (_allocator==0)
-		_allocator=allocator;
+	if (_allocator == 0)
+		_allocator = allocator;
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
-	cloudQueryResult->Serialize(false,&bsIn,_allocator);
+	cloudQueryResult->Serialize(false, &bsIn, _allocator);
 }
 void CloudClient::OnSubscriptionNotification(Packet *packet, CloudClientCallback *_callback, CloudAllocator *_allocator)
 {
-	if (_callback==0)
-		_callback=callback;
-	if (_allocator==0)
-		_allocator=allocator;
+	if (_callback == 0)
+		_callback = callback;
+	if (_allocator == 0)
+		_allocator = allocator;
 
-	bool wasUpdated=false;
+	bool wasUpdated = false;
 	CloudQueryRow row;
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
 	bsIn.Read(wasUpdated);
-	row.Serialize(false,&bsIn,_allocator);
-	bool deallocateRowAfterReturn=true;
+	row.Serialize(false, &bsIn, _allocator);
+	bool deallocateRowAfterReturn = true;
 	_callback->OnSubscriptionNotification(&row, wasUpdated, &deallocateRowAfterReturn);
 	if (deallocateRowAfterReturn)
 	{
@@ -231,20 +231,20 @@ void CloudClient::OnSubscriptionNotification(Packet *packet, CloudClientCallback
 }
 void CloudClient::OnSubscriptionNotification(bool *wasUpdated, CloudQueryRow *row, Packet *packet, CloudAllocator *_allocator)
 {
-	if (_allocator==0)
-		_allocator=allocator;
+	if (_allocator == 0)
+		_allocator = allocator;
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
-	bool b=false;
+	bool b = false;
 	bsIn.Read(b);
-	*wasUpdated=b;
-	row->Serialize(false,&bsIn,_allocator);
+	*wasUpdated = b;
+	row->Serialize(false, &bsIn, _allocator);
 }
 void CloudClient::DeallocateWithDefaultAllocator(CloudQueryResult *cloudQueryResult)
 {
 	unsigned int i;
-	for (i=0; i < cloudQueryResult->rowsReturned.Size(); i++)
+	for (i = 0; i < cloudQueryResult->rowsReturned.Size(); i++)
 	{
 		allocator->DeallocateRowData(cloudQueryResult->rowsReturned[i]->data);
 		allocator->DeallocateCloudQueryRow(cloudQueryResult->rowsReturned[i]);

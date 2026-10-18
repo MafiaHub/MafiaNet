@@ -24,8 +24,17 @@
 
 struct FileListNodeContext
 {
-	FileListNodeContext() {dataPtr=0; dataLength=0;}
-	FileListNodeContext(unsigned char o, uint32_t f1, uint32_t f2, uint32_t f3) : op(o), flnc_extraData1(f1), flnc_extraData2(f2), flnc_extraData3(f3) {dataPtr=0; dataLength=0;}
+	FileListNodeContext()
+	{
+		dataPtr = 0;
+		dataLength = 0;
+	}
+	FileListNodeContext(unsigned char o, uint32_t f1, uint32_t f2, uint32_t f3)
+	    : op(o), flnc_extraData1(f1), flnc_extraData2(f2), flnc_extraData3(f3)
+	{
+		dataPtr = 0;
+		dataLength = 0;
+	}
 	~FileListNodeContext() {}
 
 	unsigned char op;
@@ -36,7 +45,7 @@ struct FileListNodeContext
 	unsigned int dataLength;
 };
 
-inline MafiaNet::BitStream& operator<<(MafiaNet::BitStream& out, FileListNodeContext& in)
+inline MafiaNet::BitStream &operator<<(MafiaNet::BitStream &out, FileListNodeContext &in)
 {
 	out.Write(in.op);
 	out.Write(in.flnc_extraData1);
@@ -44,7 +53,7 @@ inline MafiaNet::BitStream& operator<<(MafiaNet::BitStream& out, FileListNodeCon
 	out.Write(in.flnc_extraData3);
 	return out;
 }
-inline MafiaNet::BitStream& operator>>(MafiaNet::BitStream& in, FileListNodeContext& out)
+inline MafiaNet::BitStream &operator>>(MafiaNet::BitStream &in, FileListNodeContext &out)
 {
 	in.Read(out.op);
 	bool success = in.Read(out.flnc_extraData1);

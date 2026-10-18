@@ -23,17 +23,17 @@ using namespace MafiaNet;
 
 // The type-safety guarantee: wire-identical to uint64_t, but not interchangeable with NetworkID.
 static_assert(sizeof(PeerGuid) == 8,
-	"PeerGuid must be 8 bytes to stay wire-compatible with RakNetGUID::g");
+              "PeerGuid must be 8 bytes to stay wire-compatible with RakNetGUID::g");
 static_assert(std::is_trivially_copyable<PeerGuid>::value,
-	"PeerGuid must be trivially copyable to serialize byte-identically");
+              "PeerGuid must be trivially copyable to serialize byte-identically");
 static_assert(!std::is_convertible<PeerGuid, NetworkID>::value,
-	"PeerGuid must NOT implicitly convert to NetworkID");
+              "PeerGuid must NOT implicitly convert to NetworkID");
 static_assert(!std::is_convertible<NetworkID, PeerGuid>::value,
-	"NetworkID must NOT implicitly convert to PeerGuid");
+              "NetworkID must NOT implicitly convert to PeerGuid");
 
 namespace
 {
-	const uint64_t kSamples[] = { 0u, 1u, 0x123456789ABCDEF0ull, (uint64_t)-1 };
+const uint64_t kSamples[] = {0u, 1u, 0x123456789ABCDEF0ull, (uint64_t) -1};
 }
 
 // ToPeerGuid()/ToGuid() round-trip the raw value both ways.
@@ -72,14 +72,14 @@ TEST(PeerGuid, SerializesByteIdenticallyToUint64)
 		bsRaw.Write(v);
 
 		ASSERT_TRUE(bsPeer.GetNumberOfBitsUsed() == bsRaw.GetNumberOfBitsUsed() &&
-			bsPeer.GetNumberOfBytesUsed() == bsRaw.GetNumberOfBytesUsed() &&
-			memcmp(bsPeer.GetData(), bsRaw.GetData(), bsPeer.GetNumberOfBytesUsed()) == 0)
-			<< "PeerGuid serialized to different bytes than the raw uint64_t for 0x" << std::hex << v;
+		            bsPeer.GetNumberOfBytesUsed() == bsRaw.GetNumberOfBytesUsed() &&
+		            memcmp(bsPeer.GetData(), bsRaw.GetData(), bsPeer.GetNumberOfBytesUsed()) == 0)
+		    << "PeerGuid serialized to different bytes than the raw uint64_t for 0x" << std::hex << v;
 
 		BitStream bsIn(bsPeer.GetData(), bsPeer.GetNumberOfBytesUsed(), false);
 		PeerGuid readBack = static_cast<PeerGuid>(0);
 		ASSERT_TRUE(bsIn.Read(readBack) && readBack == p)
-			<< "PeerGuid did not round-trip through a BitStream for 0x" << std::hex << v;
+		    << "PeerGuid did not round-trip through a BitStream for 0x" << std::hex << v;
 	}
 }
 

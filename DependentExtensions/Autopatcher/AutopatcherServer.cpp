@@ -34,7 +34,7 @@
 
 using namespace MafiaNet;
 
-const static unsigned HASH_LENGTH=4;
+const static unsigned HASH_LENGTH = 4;
 
 void AutopatcherServerLoadNotifier_Printf::OnQueueUpdate(SystemAddress remoteSystem, AutopatcherServerLoadNotifier::RequestType requestType, AutopatcherServerLoadNotifier::QueueOperation queueOperation, AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 {
@@ -42,38 +42,38 @@ void AutopatcherServerLoadNotifier_Printf::OnQueueUpdate(SystemAddress remoteSys
 	char *requestTypeString;
 	char systemAddressString[32];
 	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(32));
-	if (requestType==ASUMC_GET_CHANGELIST)
-		requestTypeString="GetChangelist";
+	if (requestType == ASUMC_GET_CHANGELIST)
+		requestTypeString = "GetChangelist";
 	else
-		requestTypeString="GetPatch";
-	if (queueOperation==QO_WAS_ADDED)
-		operationString="added";
-	else if (queueOperation==QO_POPPED_ONTO_TO_PROCESSING_THREAD)
-		operationString="processing";
+		requestTypeString = "GetPatch";
+	if (queueOperation == QO_WAS_ADDED)
+		operationString = "added";
+	else if (queueOperation == QO_POPPED_ONTO_TO_PROCESSING_THREAD)
+		operationString = "processing";
 	else // otherwise queueOperation == QO_WAS_ABORTED
-		operationString="aborted";
+		operationString = "aborted";
 
 	printf("%s %s %s. %i queued. %i working.\n", systemAddressString, requestTypeString, operationString, autopatcherState->requestsQueued, autopatcherState->requestsWorking);
 }
 void AutopatcherServerLoadNotifier_Printf::OnGetChangelistCompleted(
-									  SystemAddress remoteSystem,
-									  AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
-									  AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
+    SystemAddress remoteSystem,
+    AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
+    AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 {
 	char systemAddressString[32];
 	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(32));
 
 	char *changelistString;
-	if (getChangelistResult==GCR_DELETE_FILES)
-		changelistString="Delete files";
-	else if (getChangelistResult==GCR_ADD_FILES)
-		changelistString="Add files";
-	else if (getChangelistResult==GCR_ADD_AND_DELETE_FILES)
-		changelistString="Add and delete files";
-	else if (getChangelistResult==GCR_NOTHING_TO_DO)
-		changelistString="No files in changelist";
+	if (getChangelistResult == GCR_DELETE_FILES)
+		changelistString = "Delete files";
+	else if (getChangelistResult == GCR_ADD_FILES)
+		changelistString = "Add files";
+	else if (getChangelistResult == GCR_ADD_AND_DELETE_FILES)
+		changelistString = "Add and delete files";
+	else if (getChangelistResult == GCR_NOTHING_TO_DO)
+		changelistString = "No files in changelist";
 	else // otherwise getChangelistResult == GCR_REPOSITORY_ERROR
-		changelistString="Repository error";
+		changelistString = "Repository error";
 
 	printf("%s GetChangelist complete. %s. %i queued. %i working.\n", systemAddressString, changelistString, autopatcherState->requestsQueued, autopatcherState->requestsWorking);
 }
@@ -83,34 +83,34 @@ void AutopatcherServerLoadNotifier_Printf::OnGetPatchCompleted(SystemAddress rem
 	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(32));
 
 	char *patchResultString;
-	if (patchResult==PR_NO_FILES_NEEDED_PATCHING)
-		patchResultString="No files needed patching"; 
-	else if (patchResult==PR_REPOSITORY_ERROR)
-		patchResultString="Repository error"; 
-	else if (patchResult==PR_DISALLOWED_DOWNLOADING_ORIGINAL_FILES)
-		patchResultString="Disallowed downloading original files"; 
-	else if (patchResult==PR_PATCHES_WERE_SENT)
-		patchResultString="Files pushed for patching";
-	else if (patchResult==PR_ABORTED_FROM_INPUT_THREAD)
-		patchResultString="Aborted from input thread";
+	if (patchResult == PR_NO_FILES_NEEDED_PATCHING)
+		patchResultString = "No files needed patching";
+	else if (patchResult == PR_REPOSITORY_ERROR)
+		patchResultString = "Repository error";
+	else if (patchResult == PR_DISALLOWED_DOWNLOADING_ORIGINAL_FILES)
+		patchResultString = "Disallowed downloading original files";
+	else if (patchResult == PR_PATCHES_WERE_SENT)
+		patchResultString = "Files pushed for patching";
+	else if (patchResult == PR_ABORTED_FROM_INPUT_THREAD)
+		patchResultString = "Aborted from input thread";
 	else // otherwise patchResult == PR_ABORTED_FROM_DOWNLOAD_THREAD
-		patchResultString="Aborted from download thread";
+		patchResultString = "Aborted from download thread";
 
 	printf("%s GetPatch complete. %s. %i queued. %i working.\n", systemAddressString, patchResultString, autopatcherState->requestsQueued, autopatcherState->requestsWorking);
 }
 
 AutopatcherServer::AutopatcherServer()
 {
-	fileListTransfer=0;
-	priority=MafiaNet::Priority::High;
-	orderingChannel=0;
-//	repository=0;
-	maxConcurrentUsers=0;
-	loadNotifier=0;
-	cache_minTime=0;
-	cache_maxTime=0;
-	cacheLoaded=false;
-	allowDownloadOfOriginalUnmodifiedFiles=true;
+	fileListTransfer = 0;
+	priority = MafiaNet::Priority::High;
+	orderingChannel = 0;
+	//	repository=0;
+	maxConcurrentUsers = 0;
+	loadNotifier = 0;
+	cache_minTime = 0;
+	cache_maxTime = 0;
+	cacheLoaded = false;
+	allowDownloadOfOriginalUnmodifiedFiles = true;
 }
 AutopatcherServer::~AutopatcherServer()
 {
@@ -118,14 +118,14 @@ AutopatcherServer::~AutopatcherServer()
 }
 void AutopatcherServer::SetUploadSendParameters(MafiaNet::Priority _priority, char _orderingChannel)
 {
-	priority=_priority;
-	orderingChannel=_orderingChannel;
+	priority = _priority;
+	orderingChannel = _orderingChannel;
 }
 void AutopatcherServer::SetFileListTransferPlugin(FileListTransfer *flt)
 {
 	if (fileListTransfer)
 		fileListTransfer->RemoveCallback(this);
-	fileListTransfer=flt;
+	fileListTransfer = flt;
 	if (fileListTransfer)
 		fileListTransfer->AddCallback(this);
 }
@@ -134,33 +134,33 @@ void AutopatcherServer::StartThreads(int numThreads, int numSQLConnections, Auto
 	RakAssert(numSQLConnections >= numThreads);
 
 	connectionPoolMutex.Lock();
-	for (int i=0; i < numSQLConnections; i++)
+	for (int i = 0; i < numSQLConnections; i++)
 	{
 		// Test the pointers passed, in case the user incorrectly casted an array of a different type
 		sqlConnectionPtrArray[i]->GetLastError();
-		connectionPool.Push(sqlConnectionPtrArray[i],_FILE_AND_LINE_);
+		connectionPool.Push(sqlConnectionPtrArray[i], _FILE_AND_LINE_);
 	}
 	connectionPoolMutex.Unlock();
-	threadPool.SetThreadDataInterface(this,0);
+	threadPool.SetThreadDataInterface(this, 0);
 	threadPool.StartThreads(numThreads, 0);
 }
 void AutopatcherServer::CacheMostRecentPatch(const char *applicationName)
 {
-	if (connectionPool.Size()>0)
+	if (connectionPool.Size() > 0)
 	{
 		if (applicationName)
-			cache_appName=applicationName;
+			cache_appName = applicationName;
 		else
 			cache_appName.Clear();
 		cache_patchedFiles.Clear();
 		cache_addedFiles.Clear();
 		cache_deletedFiles.Clear();
 		cache_addedOrModifiedFileHashes.Clear();
-		cache_minTime=0;
-		cache_maxTime=0;
+		cache_minTime = 0;
+		cache_maxTime = 0;
 
 		cacheLoaded = connectionPool[0]->GetMostRecentChangelistWithPatches(cache_appName, &cache_patchedFiles, &cache_addedFiles, &cache_addedOrModifiedFileHashes, &cache_deletedFiles, &cache_minTime, &cache_maxTime);
-		if (cacheLoaded==false)
+		if (cacheLoaded == false)
 		{
 			printf("Warning: Cache not loaded. This is OK if no patch was ever saved.\n");
 		}
@@ -175,10 +175,10 @@ void AutopatcherServer::OnDetach(void)
 }
 void AutopatcherServer::Update(void)
 {
-	while (PatchingUserLimitReached()==false && userRequestWaitingQueue.Size()>0)
+	while (PatchingUserLimitReached() == false && userRequestWaitingQueue.Size() > 0)
 	{
 		Packet *packet = PopOffWaitingQueue();
-		switch (packet->data[0]) 
+		switch (packet->data[0])
 		{
 		case ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE:
 			OnGetChangelistSinceDateInt(packet);
@@ -193,7 +193,7 @@ void AutopatcherServer::Update(void)
 }
 PluginReceiveResult AutopatcherServer::OnReceive(Packet *packet)
 {
-	switch (packet->data[0]) 
+	switch (packet->data[0])
 	{
 	case ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE:
 		return OnGetChangelistSinceDate(packet);
@@ -212,14 +212,14 @@ void AutopatcherServer::Clear(void)
 	// Clear the waiting input and output from the thread pool.
 	unsigned i;
 	threadPool.StopThreads();
-	for (i=0; i < threadPool.InputSize(); i++)
+	for (i = 0; i < threadPool.InputSize(); i++)
 	{
 		if (DecrementPatchingUserCount(threadPool.GetInputAtIndex(i).systemAddress))
 			CallPatchCompleteCallback(threadPool.GetInputAtIndex(i).systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_INPUT_THREAD);
 		MafiaNet::OP_DELETE(threadPool.GetInputAtIndex(i).clientList, _FILE_AND_LINE_);
 	}
 	threadPool.ClearInput();
-	for (i=0; i < threadPool.OutputSize(); i++)
+	for (i = 0; i < threadPool.OutputSize(); i++)
 	{
 		MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->patchList, _FILE_AND_LINE_);
 		MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->deletedFiles, _FILE_AND_LINE_);
@@ -235,31 +235,31 @@ void AutopatcherServer::Clear(void)
 void AutopatcherServer::OnStartup(RakPeerInterface *peer)
 {
 	// unused parameters
-	(void)peer;
+	(void) peer;
 }
-void AutopatcherServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void AutopatcherServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	// unused parameters
-	(void)rakNetGUID;
-	(void)lostConnectionReason;
+	(void) rakNetGUID;
+	(void) lostConnectionReason;
 
 	RemoveFromThreadPool(systemAddress);
 
-	unsigned int i=0;
+	unsigned int i = 0;
 	patchingUsersMutex.Lock();
 	while (i < patchingUsers.Size())
 	{
-		if (patchingUsers[i]==systemAddress)
+		if (patchingUsers[i] == systemAddress)
 			patchingUsers.RemoveAtIndexFast(i);
 		else
 			i++;
 	}
 	patchingUsersMutex.Unlock();
 
-	i=0;
+	i = 0;
 	while (i < userRequestWaitingQueue.Size())
 	{
-		if (userRequestWaitingQueue[i]->systemAddress==systemAddress)
+		if (userRequestWaitingQueue[i]->systemAddress == systemAddress)
 			userRequestWaitingQueue.RemoveAtIndex(i);
 		else
 			i++;
@@ -271,7 +271,7 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 	threadPool.LockInput();
 	while (i < threadPool.InputSize())
 	{
-		if (threadPool.GetInputAtIndex(i).systemAddress==systemAddress)
+		if (threadPool.GetInputAtIndex(i).systemAddress == systemAddress)
 		{
 			if (DecrementPatchingUserCount(systemAddress))
 				CallPatchCompleteCallback(threadPool.GetInputAtIndex(i).systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_INPUT_THREAD);
@@ -283,11 +283,11 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 	}
 	threadPool.UnlockInput();
 
-	i=0;
+	i = 0;
 	threadPool.LockOutput();
 	while (i < threadPool.OutputSize())
 	{
-		if (threadPool.GetOutputAtIndex(i)->systemAddress==systemAddress)
+		if (threadPool.GetOutputAtIndex(i)->systemAddress == systemAddress)
 		{
 			MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->patchList, _FILE_AND_LINE_);
 			MafiaNet::OP_DELETE(threadPool.GetOutputAtIndex(i)->deletedFiles, _FILE_AND_LINE_);
@@ -301,39 +301,39 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 }
 namespace MafiaNet
 {
-AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherServer::ThreadData threadData, bool *returnOutput, void* perThreadData)
+AutopatcherServer::ResultTypeAndBitstream *GetChangelistSinceDateCB(AutopatcherServer::ThreadData threadData, bool *returnOutput, void *perThreadData)
 {
-	AutopatcherRepositoryInterface *repository = (AutopatcherRepositoryInterface*)perThreadData;
-	
+	AutopatcherRepositoryInterface *repository = (AutopatcherRepositoryInterface *) perThreadData;
+
 	FileList addedOrModifiedFilesWithHashData, deletedFiles;
 	AutopatcherServer *server = threadData.server;
 
 	//AutopatcherServer::ResultTypeAndBitstream *rtab = MafiaNet::OP_NEW<AutopatcherServer::ResultTypeAndBitstream>( _FILE_AND_LINE_ );
 	AutopatcherServer::ResultTypeAndBitstream rtab;
-	rtab.systemAddress=threadData.systemAddress;
-// 	rtab.deletedFiles=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
-// 	rtab.addedFiles=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
-	rtab.deletedFiles=&deletedFiles;
-	rtab.addedOrModifiedFilesWithHashData=&addedOrModifiedFilesWithHashData;
+	rtab.systemAddress = threadData.systemAddress;
+	// 	rtab.deletedFiles=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+	// 	rtab.addedFiles=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+	rtab.deletedFiles = &deletedFiles;
+	rtab.addedOrModifiedFilesWithHashData = &addedOrModifiedFilesWithHashData;
 
 	// Query the database for a changelist since this date
 	RakAssert(server);
 	//if (server->repository->GetChangelistSinceDate(threadData.applicationName.C_String(), rtab.addedFiles, rtab.deletedFiles, threadData.lastUpdateDate.C_String(), currentDate))
 	if (repository->GetChangelistSinceDate(threadData.applicationName.C_String(), rtab.addedOrModifiedFilesWithHashData, rtab.deletedFiles, threadData.lastUpdateDate))
 	{
-		rtab.resultCode=1;
+		rtab.resultCode = 1;
 	}
 	else
 	{
-		rtab.resultCode=0;
+		rtab.resultCode = 0;
 	}
 
-	rtab.operation=AutopatcherServer::ResultTypeAndBitstream::GET_CHANGELIST_SINCE_DATE;
-	rtab.currentDate=(double) time(nullptr);
+	rtab.operation = AutopatcherServer::ResultTypeAndBitstream::GET_CHANGELIST_SINCE_DATE;
+	rtab.currentDate = (double) time(nullptr);
 	// *returnOutput=true;
 	// return rtab;
 
-	if (rtab.resultCode==1)
+	if (rtab.resultCode == 1)
 	{
 		if (rtab.deletedFiles->fileList.Size())
 		{
@@ -359,37 +359,37 @@ AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherS
 	else
 	{
 		rtab.bitStream2.Write((unsigned char) ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR);
-		StringCompressor::Instance()->EncodeString(repository->GetLastError(), 256, &rtab.bitStream2);	
+		StringCompressor::Instance()->EncodeString(repository->GetLastError(), 256, &rtab.bitStream2);
 	}
-// 	MafiaNet::OP_DELETE(rtab.deletedFiles, _FILE_AND_LINE_);
-// 	MafiaNet::OP_DELETE(rtab.addedFiles, _FILE_AND_LINE_);
+	// 	MafiaNet::OP_DELETE(rtab.deletedFiles, _FILE_AND_LINE_);
+	// 	MafiaNet::OP_DELETE(rtab.addedFiles, _FILE_AND_LINE_);
 
-	*returnOutput=false;
+	*returnOutput = false;
 
 	if (server->DecrementPatchingUserCount(rtab.systemAddress))
 	{
-		if (rtab.bitStream1.GetNumberOfBitsUsed()>0)
+		if (rtab.bitStream1.GetNumberOfBitsUsed() > 0)
 			server->SendUnified(&(rtab.bitStream1), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
-		if (rtab.bitStream2.GetNumberOfBitsUsed()>0)
+		if (rtab.bitStream2.GetNumberOfBitsUsed() > 0)
 			server->SendUnified(&(rtab.bitStream2), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 
 		if (server->loadNotifier)
 		{
 			AutopatcherServerLoadNotifier::AutopatcherState autopatcherState;
-			autopatcherState.requestsQueued=server->userRequestWaitingQueue.Size();
-			autopatcherState.requestsWorking=server->patchingUsers.Size();
+			autopatcherState.requestsQueued = server->userRequestWaitingQueue.Size();
+			autopatcherState.requestsWorking = server->patchingUsers.Size();
 
 			AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult;
-			if (rtab.resultCode!=1)
-				getChangelistResult=AutopatcherServerLoadNotifier::GCR_REPOSITORY_ERROR;
-			else if (rtab.deletedFiles->fileList.Size()==0 && rtab.addedOrModifiedFilesWithHashData->fileList.Size()==0)
-				getChangelistResult=AutopatcherServerLoadNotifier::GCR_NOTHING_TO_DO;
-			else if (rtab.deletedFiles->fileList.Size()==0)
-				getChangelistResult=AutopatcherServerLoadNotifier::GCR_ADD_FILES;
-			else if (rtab.addedOrModifiedFilesWithHashData->fileList.Size()==0)
-				getChangelistResult=AutopatcherServerLoadNotifier::GCR_DELETE_FILES;
+			if (rtab.resultCode != 1)
+				getChangelistResult = AutopatcherServerLoadNotifier::GCR_REPOSITORY_ERROR;
+			else if (rtab.deletedFiles->fileList.Size() == 0 && rtab.addedOrModifiedFilesWithHashData->fileList.Size() == 0)
+				getChangelistResult = AutopatcherServerLoadNotifier::GCR_NOTHING_TO_DO;
+			else if (rtab.deletedFiles->fileList.Size() == 0)
+				getChangelistResult = AutopatcherServerLoadNotifier::GCR_ADD_FILES;
+			else if (rtab.addedOrModifiedFilesWithHashData->fileList.Size() == 0)
+				getChangelistResult = AutopatcherServerLoadNotifier::GCR_DELETE_FILES;
 			else
-				getChangelistResult=AutopatcherServerLoadNotifier::GCR_ADD_AND_DELETE_FILES;
+				getChangelistResult = AutopatcherServerLoadNotifier::GCR_ADD_AND_DELETE_FILES;
 
 			server->loadNotifier->OnGetChangelistCompleted(rtab.systemAddress, getChangelistResult, &autopatcherState);
 		}
@@ -403,32 +403,32 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 {
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	ThreadData threadData;
-	threadData.clientList=0;
+	threadData.clientList = 0;
 	inBitStream.IgnoreBits(8);
 	inBitStream.ReadCompressed(threadData.applicationName);
 	inBitStream.Read(threadData.lastUpdateDate);
 
-	if (cacheLoaded && threadData.lastUpdateDate!=0 && threadData.applicationName==cache_appName)
+	if (cacheLoaded && threadData.lastUpdateDate != 0 && threadData.applicationName == cache_appName)
 	{
 		MafiaNet::BitStream bitStream1;
 		MafiaNet::BitStream bitStream2;
-		double currentDate=(double) time(nullptr);
-		if (cache_maxTime!=0 && threadData.lastUpdateDate>cache_maxTime)
+		double currentDate = (double) time(nullptr);
+		if (cache_maxTime != 0 && threadData.lastUpdateDate > cache_maxTime)
 		{
 			bitStream2.Write((unsigned char) ID_AUTOPATCHER_FINISHED);
 			bitStream2.Write(currentDate);
-			SendUnified(&bitStream2, priority, MafiaNet::Reliability::ReliableOrdered,orderingChannel, packet->systemAddress, false);
+			SendUnified(&bitStream2, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
 
 		// Check in-memory cache, use if possible rather than accessing database
-		if (cache_minTime!=0 && threadData.lastUpdateDate>cache_minTime)
+		if (cache_minTime != 0 && threadData.lastUpdateDate > cache_minTime)
 		{
 			if (cache_deletedFiles.fileList.Size())
 			{
 				bitStream1.Write((unsigned char) ID_AUTOPATCHER_DELETION_LIST);
 				cache_deletedFiles.Serialize(&bitStream1);
-				SendUnified(&bitStream1, priority, MafiaNet::Reliability::ReliableOrdered,orderingChannel, packet->systemAddress, false);
+				SendUnified(&bitStream1, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 			}
 			if (cache_addedOrModifiedFileHashes.fileList.Size())
 			{
@@ -442,7 +442,7 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 				bitStream2.Write((unsigned char) ID_AUTOPATCHER_FINISHED);
 				bitStream2.Write(currentDate);
 			}
-			SendUnified(&bitStream2, priority, MafiaNet::Reliability::ReliableOrdered,orderingChannel, packet->systemAddress, false);
+			SendUnified(&bitStream2, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
@@ -461,7 +461,7 @@ void AutopatcherServer::OnGetChangelistSinceDateInt(Packet *packet)
 {
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
 	ThreadData threadData;
-	threadData.clientList=0;
+	threadData.clientList = 0;
 	inBitStream.IgnoreBits(8);
 	inBitStream.ReadCompressed(threadData.applicationName);
 	inBitStream.Read(threadData.lastUpdateDate);
@@ -470,34 +470,35 @@ void AutopatcherServer::OnGetChangelistSinceDateInt(Packet *packet)
 	{
 		CallPacketCallback(packet, AutopatcherServerLoadNotifier::QO_POPPED_ONTO_TO_PROCESSING_THREAD);
 
-		threadData.server=this;
-		threadData.systemAddress=packet->systemAddress;
+		threadData.server = this;
+		threadData.systemAddress = packet->systemAddress;
 		threadPool.AddInput(GetChangelistSinceDateCB, threadData);
 	}
 }
-namespace MafiaNet {
-AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadData threadData, bool *returnOutput, void* perThreadData)
+namespace MafiaNet
+{
+AutopatcherServer::ResultTypeAndBitstream *GetPatchCB(AutopatcherServer::ThreadData threadData, bool *returnOutput, void *perThreadData)
 {
 	AutopatcherServer *server = threadData.server;
-	AutopatcherRepositoryInterface *repository = (AutopatcherRepositoryInterface*)perThreadData;
+	AutopatcherRepositoryInterface *repository = (AutopatcherRepositoryInterface *) perThreadData;
 
 	// AutopatcherServer::ResultTypeAndBitstream *rtab = MafiaNet::OP_NEW<AutopatcherServer::ResultTypeAndBitstream>( _FILE_AND_LINE_ );
 	AutopatcherServer::ResultTypeAndBitstream rtab;
-	rtab.systemAddress=threadData.systemAddress;
+	rtab.systemAddress = threadData.systemAddress;
 	FileList fileList;
 	// rtab.patchList=MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
-	rtab.patchList=&fileList;
+	rtab.patchList = &fileList;
 	RakAssert(server);
-//	RakAssert(server->repository);
-//	if (server->repository->GetPatches(threadData.applicationName.C_String(), threadData.clientList, rtab.patchList, currentDate))
+	//	RakAssert(server->repository);
+	//	if (server->repository->GetPatches(threadData.applicationName.C_String(), threadData.clientList, rtab.patchList, currentDate))
 	rtab.resultCode = repository->GetPatches(threadData.applicationName.C_String(), threadData.clientList, server->allowDownloadOfOriginalUnmodifiedFiles, rtab.patchList);
-	rtab.operation=AutopatcherServer::ResultTypeAndBitstream::GET_PATCH;
-	rtab.setId=threadData.setId;
-	rtab.currentDate=(double) time(nullptr);
+	rtab.operation = AutopatcherServer::ResultTypeAndBitstream::GET_PATCH;
+	rtab.setId = threadData.setId;
+	rtab.currentDate = (double) time(nullptr);
 
 	MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 
-	if (rtab.resultCode==1)
+	if (rtab.resultCode == 1)
 	{
 		if (rtab.patchList->fileList.Size())
 		{
@@ -517,7 +518,7 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 	else
 	{
 		AutopatcherServerLoadNotifier::PatchResult pr;
-		if (rtab.resultCode==0)
+		if (rtab.resultCode == 0)
 		{
 			rtab.bitStream1.Write((unsigned char) ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR);
 			StringCompressor::Instance()->EncodeString(repository->GetLastError(), 256, &rtab.bitStream1);
@@ -535,16 +536,16 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 		}
 		else
 		{
-			*returnOutput=false;
+			*returnOutput = false;
 			return 0;
 		}
 	}
 
-	*returnOutput=false;
+	*returnOutput = false;
 
-	if (rtab.bitStream1.GetNumberOfBitsUsed()>0)
+	if (rtab.bitStream1.GetNumberOfBitsUsed() > 0)
 		server->SendUnified(&(rtab.bitStream1), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
-	if (rtab.bitStream2.GetNumberOfBitsUsed()>0)
+	if (rtab.bitStream2.GetNumberOfBitsUsed() > 0)
 		server->SendUnified(&(rtab.bitStream2), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 
 	// 12/1/2010 This doesn't scale well. Changing to allocating a connection object per request
@@ -560,7 +561,7 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 		pendingFiles = server->fileListTransfer->GetPendingFilesToAddress(rtab.systemAddress);
 	}
 	*/
-	
+
 	// *returnOutput=true;
 	// return rtab;
 	return 0;
@@ -569,28 +570,28 @@ AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadD
 PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 {
 	MafiaNet::BitStream inBitStream(packet->data, packet->length, false);
-	
+
 	ThreadData threadData;
 	inBitStream.IgnoreBits(8);
 	inBitStream.Read(threadData.setId);
 	double lastUpdateDate;
 	inBitStream.Read(lastUpdateDate);
 	inBitStream.ReadCompressed(threadData.applicationName);
-	threadData.clientList=0;
+	threadData.clientList = 0;
 
 	// Check in-memory cache, use if possible rather than accessing database
-	if (threadData.applicationName==cache_appName && lastUpdateDate!=0 && cacheLoaded && cache_minTime!=0 && lastUpdateDate>cache_minTime)
+	if (threadData.applicationName == cache_appName && lastUpdateDate != 0 && cacheLoaded && cache_minTime != 0 && lastUpdateDate > cache_minTime)
 	{
-		threadData.systemAddress=packet->systemAddress;
-		threadData.server=this;
-		threadData.clientList= MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+		threadData.systemAddress = packet->systemAddress;
+		threadData.server = this;
+		threadData.clientList = MafiaNet::OP_NEW<FileList>(_FILE_AND_LINE_);
 
-		if (threadData.clientList->Deserialize(&inBitStream)==false)
+		if (threadData.clientList->Deserialize(&inBitStream) == false)
 		{
 			MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
-		if (threadData.clientList->fileList.Size()==0)
+		if (threadData.clientList->fileList.Size() == 0)
 		{
 			RakAssert(0);
 			MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
@@ -600,71 +601,71 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 		char *userHash;
 		MafiaNet::RakString userFilename;
 		FileList patchList;
-		bool cacheUpdateFailed=false;
+		bool cacheUpdateFailed = false;
 
-		unsigned int i,j;
+		unsigned int i, j;
 		// FileList is the list of all files missing or changed as determined by the client
-		for (i=0; i < threadData.clientList->fileList.Size(); i++)
+		for (i = 0; i < threadData.clientList->fileList.Size(); i++)
 		{
-			userHash=threadData.clientList->fileList[i].data;
-			userFilename=threadData.clientList->fileList[i].filename;
+			userHash = threadData.clientList->fileList[i].data;
+			userFilename = threadData.clientList->fileList[i].filename;
 
 			if (userHash)
 			{
 				// If the user has a hash, check for this file in cache_patchedFiles. If not found, or hash is wrong, use DB
-				if (threadData.clientList->fileList[i].dataLengthBytes!=HASH_LENGTH)
+				if (threadData.clientList->fileList[i].dataLengthBytes != HASH_LENGTH)
 				{
 					MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
-				for (j=0; j < cache_patchedFiles.fileList.Size(); j++)
+				for (j = 0; j < cache_patchedFiles.fileList.Size(); j++)
 				{
 					if (userFilename == cache_patchedFiles.fileList[j].filename)
-					{			
-						if (memcmp(cache_patchedFiles.fileList[j].data, userHash, HASH_LENGTH)==0)
+					{
+						if (memcmp(cache_patchedFiles.fileList[j].data, userHash, HASH_LENGTH) == 0)
 						{
 							// Send patch
-							RakAssert(cache_patchedFiles.fileList[j].context.op==PC_HASH_2_WITH_PATCH);
-							patchList.AddFile(userFilename,userFilename, 0, cache_patchedFiles.fileList[j].dataLengthBytes, cache_patchedFiles.fileList[j].fileLengthBytes, cache_patchedFiles.fileList[j].context, true, false);
+							RakAssert(cache_patchedFiles.fileList[j].context.op == PC_HASH_2_WITH_PATCH);
+							patchList.AddFile(userFilename, userFilename, 0, cache_patchedFiles.fileList[j].dataLengthBytes, cache_patchedFiles.fileList[j].fileLengthBytes, cache_patchedFiles.fileList[j].context, true, false);
 						}
 						else
 						{
 							// Bad hash
-							cacheUpdateFailed=true;
+							cacheUpdateFailed = true;
 						}
 
 						break;
 					}
 				}
 
-				if (j==cache_patchedFiles.fileList.Size())
+				if (j == cache_patchedFiles.fileList.Size())
 				{
 					// Didn't find the patch even though the client has an older version of the file
-					cacheUpdateFailed=true;
+					cacheUpdateFailed = true;
 				}
 			}
 			else
 			{
 				// If the user does not have a hash, check for this file in cache_addedFiles. If not found, use DB
-				for (j=0; j < cache_addedFiles.fileList.Size(); j++)
+				for (j = 0; j < cache_addedFiles.fileList.Size(); j++)
 				{
 					if (userFilename == cache_addedFiles.fileList[j].filename)
 					{
 						// Send added file
-						patchList.AddFile(userFilename,userFilename, 0, cache_addedFiles.fileList[j].dataLengthBytes, cache_addedFiles.fileList[j].fileLengthBytes, cache_addedFiles.fileList[j].context, true, false);
+						patchList.AddFile(userFilename, userFilename, 0, cache_addedFiles.fileList[j].dataLengthBytes, cache_addedFiles.fileList[j].fileLengthBytes, cache_addedFiles.fileList[j].context, true, false);
 						break;
 					}
 				}
 
-				if (j==cache_addedFiles.fileList.Size())
+				if (j == cache_addedFiles.fileList.Size())
 				{
 					// Didn't find the file in the cache even though the client asked for it
-					cacheUpdateFailed=true;
+					cacheUpdateFailed = true;
 				}
 			}
 
-			if (cacheUpdateFailed==true)
+			if (cacheUpdateFailed == true)
 			{
 				// Failure to find file in cache
 				// Will fall to use database
@@ -673,14 +674,14 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 			}
 		}
 
-		if (patchList.fileList.Size()>0)
+		if (patchList.fileList.Size() > 0)
 		{
 			if (IncrementPatchingUserCount(packet->systemAddress))
 			{
-				fileListTransfer->Send(&patchList, 0, packet->systemAddress, threadData.setId, priority, orderingChannel, this, 262144*4*4);
+				fileListTransfer->Send(&patchList, 0, packet->systemAddress, threadData.setId, priority, orderingChannel, this, 262144 * 4 * 4);
 				MafiaNet::BitStream bitStream1;
 				bitStream1.Write((unsigned char) ID_AUTOPATCHER_FINISHED_INTERNAL);
-				double t =(double) time(nullptr);
+				double t = (double) time(nullptr);
 				bitStream1.Write(t);
 				SendUnified(&bitStream1, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 
@@ -691,7 +692,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 	}
 
 	MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
-	
+
 	if (PatchingUserLimitReached())
 	{
 		AddToWaitingQueue(packet);
@@ -711,16 +712,16 @@ void AutopatcherServer::OnGetPatchInt(Packet *packet)
 	double lastUpdateDate;
 	inBitStream.Read(lastUpdateDate);
 	inBitStream.ReadCompressed(threadData.applicationName);
-	threadData.systemAddress=packet->systemAddress;
-	threadData.server=this;
-	threadData.clientList= MafiaNet::OP_NEW<FileList>( _FILE_AND_LINE_ );
+	threadData.systemAddress = packet->systemAddress;
+	threadData.server = this;
+	threadData.clientList = MafiaNet::OP_NEW<FileList>(_FILE_AND_LINE_);
 
-	if (threadData.clientList->Deserialize(&inBitStream)==false)
+	if (threadData.clientList->Deserialize(&inBitStream) == false)
 	{
 		MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
 		return;
 	}
-	if (threadData.clientList->fileList.Size()==0)
+	if (threadData.clientList->fileList.Size() == 0)
 	{
 		RakAssert(0);
 		MafiaNet::OP_DELETE(threadData.clientList, _FILE_AND_LINE_);
@@ -732,30 +733,30 @@ void AutopatcherServer::OnGetPatchInt(Packet *packet)
 
 	threadPool.AddInput(GetPatchCB, threadData);
 }
-void* AutopatcherServer::PerThreadFactory(void *context)
+void *AutopatcherServer::PerThreadFactory(void *context)
 {
-	(void)context;
+	(void) context;
 
-	AutopatcherRepositoryInterface* p;
+	AutopatcherRepositoryInterface *p;
 	connectionPoolMutex.Lock();
-	p=connectionPool.Pop();
+	p = connectionPool.Pop();
 	connectionPoolMutex.Unlock();
 	return p;
 }
-void AutopatcherServer::PerThreadDestructor(void* factoryResult, void *context)
+void AutopatcherServer::PerThreadDestructor(void *factoryResult, void *context)
 {
-	(void)context;
-	(void)factoryResult;
+	(void) context;
+	(void) factoryResult;
 }
-void AutopatcherServer::OnFilePushesComplete( SystemAddress systemAddress, unsigned short setID )
+void AutopatcherServer::OnFilePushesComplete(SystemAddress systemAddress, unsigned short setID)
 {
 	// unused parameters
-	(void)setID;
+	(void) setID;
 
 	if (DecrementPatchingUserCount(systemAddress))
 		CallPatchCompleteCallback(systemAddress, AutopatcherServerLoadNotifier::PR_PATCHES_WERE_SENT);
 }
-void AutopatcherServer::OnSendAborted( SystemAddress systemAddress )
+void AutopatcherServer::OnSendAborted(SystemAddress systemAddress)
 {
 	if (DecrementPatchingUserCount(systemAddress))
 		CallPatchCompleteCallback(systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_DOWNLOAD_THREAD);
@@ -772,9 +773,9 @@ bool AutopatcherServer::DecrementPatchingUserCount(SystemAddress sa)
 {
 	unsigned int i;
 	patchingUsersMutex.Lock();
-	for (i=0; i < patchingUsers.Size(); i++)
+	for (i = 0; i < patchingUsers.Size(); i++)
 	{
-		if (patchingUsers[i]==sa)
+		if (patchingUsers[i] == sa)
 		{
 			patchingUsers.RemoveAtIndexFast(i);
 			patchingUsersMutex.Unlock();
@@ -786,14 +787,14 @@ bool AutopatcherServer::DecrementPatchingUserCount(SystemAddress sa)
 }
 bool AutopatcherServer::PatchingUserLimitReached(void) const
 {
-	if (maxConcurrentUsers==0)
+	if (maxConcurrentUsers == 0)
 		return false;
 
-	return patchingUsers.Size()>=maxConcurrentUsers;
+	return patchingUsers.Size() >= maxConcurrentUsers;
 }
 void AutopatcherServer::SetMaxConurrentUsers(unsigned int _maxConcurrentUsers)
 {
-	maxConcurrentUsers=_maxConcurrentUsers;
+	maxConcurrentUsers = _maxConcurrentUsers;
 }
 unsigned int AutopatcherServer::GetMaxConurrentUsers(void) const
 {
@@ -804,14 +805,14 @@ void AutopatcherServer::CallPacketCallback(Packet *packet, AutopatcherServerLoad
 	if (loadNotifier)
 	{
 		AutopatcherServerLoadNotifier::AutopatcherState autopatcherState;
-		autopatcherState.requestsQueued=userRequestWaitingQueue.Size();
-		autopatcherState.requestsWorking=patchingUsers.Size();
+		autopatcherState.requestsQueued = userRequestWaitingQueue.Size();
+		autopatcherState.requestsWorking = patchingUsers.Size();
 
 		AutopatcherServerLoadNotifier::RequestType requestType;
-		if (packet->data[0]==ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE)
-			requestType=AutopatcherServerLoadNotifier::ASUMC_GET_CHANGELIST;
+		if (packet->data[0] == ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE)
+			requestType = AutopatcherServerLoadNotifier::ASUMC_GET_CHANGELIST;
 		else
-			requestType=AutopatcherServerLoadNotifier::ASUMC_GET_PATCH;
+			requestType = AutopatcherServerLoadNotifier::ASUMC_GET_PATCH;
 
 		loadNotifier->OnQueueUpdate(packet->systemAddress, requestType, queueOperation, &autopatcherState);
 	}
@@ -821,8 +822,8 @@ void AutopatcherServer::CallPatchCompleteCallback(const SystemAddress &systemAdd
 	if (loadNotifier)
 	{
 		AutopatcherServerLoadNotifier::AutopatcherState autopatcherState;
-		autopatcherState.requestsQueued=userRequestWaitingQueue.Size();
-		autopatcherState.requestsWorking=patchingUsers.Size();
+		autopatcherState.requestsQueued = userRequestWaitingQueue.Size();
+		autopatcherState.requestsWorking = patchingUsers.Size();
 
 		loadNotifier->OnGetPatchCompleted(systemAddress, patchResult, &autopatcherState);
 	}
@@ -835,25 +836,26 @@ void AutopatcherServer::AddToWaitingQueue(Packet *packet)
 Packet *AutopatcherServer::AbortOffWaitingQueue(void)
 {
 	Packet *packet = userRequestWaitingQueue.Pop();
-	CallPacketCallback(packet,AutopatcherServerLoadNotifier::QO_WAS_ABORTED);
+	CallPacketCallback(packet, AutopatcherServerLoadNotifier::QO_WAS_ABORTED);
 	return packet;
 }
 Packet *AutopatcherServer::PopOffWaitingQueue(void)
 {
-	return userRequestWaitingQueue.Pop();;
+	return userRequestWaitingQueue.Pop();
+	;
 }
 void AutopatcherServer::SetLoadManagementCallback(AutopatcherServerLoadNotifier *asumc)
 {
-	loadNotifier=asumc;
+	loadNotifier = asumc;
 }
 void AutopatcherServer::SetAllowDownloadOfOriginalUnmodifiedFiles(bool allow)
 {
 	allowDownloadOfOriginalUnmodifiedFiles = allow;
 }
-unsigned int AutopatcherServer::GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context)
+unsigned int AutopatcherServer::GetFilePart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context)
 {
 	// unused parameters
-	(void)filename;
+	(void) filename;
 
 	/*
 	int offset;
@@ -875,9 +877,9 @@ unsigned int AutopatcherServer::GetFilePart( const char *filename, unsigned int 
 
 	int bytesToRead;
 	if (startReadBytes + numBytesToRead > context.dataLength)
-		bytesToRead=(context.dataLength)-startReadBytes;
+		bytesToRead = (context.dataLength) - startReadBytes;
 	else
-		bytesToRead=numBytesToRead;
+		bytesToRead = numBytesToRead;
 
 	memcpy(preallocatedDestination, context.dataPtr, bytesToRead);
 	return bytesToRead;

@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_MessageFilter==1
+#if _RAKNET_SUPPORT_MessageFilter == 1
 
 #include "mafianet/message_filter.h"
 #include "mafianet/assert.h"
@@ -27,25 +27,25 @@
 
 using namespace MafiaNet;
 
-int MafiaNet::MessageFilterStrComp( char *const &key,char *const &data )
+int MafiaNet::MessageFilterStrComp(char *const &key, char *const &data)
 {
-	return strcmp(key,data);
+	return strcmp(key, data);
 }
 
-int MafiaNet::FilterSetComp( const int &key, FilterSet * const &data )
+int MafiaNet::FilterSetComp(const int &key, FilterSet *const &data)
 {
 	if (key < data->filterSetID)
 		return -1;
-	else if (key==data->filterSetID)
+	else if (key == data->filterSetID)
 		return 0;
 	else
 		return 1;
 }
-STATIC_FACTORY_DEFINITIONS(MessageFilter,MessageFilter);
+STATIC_FACTORY_DEFINITIONS(MessageFilter, MessageFilter);
 
 MessageFilter::MessageFilter()
 {
-		whenLastTimeoutCheck= MafiaNet::GetTime();
+	whenLastTimeoutCheck = MafiaNet::GetTime();
 }
 MessageFilter::~MessageFilter()
 {
@@ -53,37 +53,37 @@ MessageFilter::~MessageFilter()
 }
 void MessageFilter::SetAutoAddNewConnectionsToFilter(int filterSetID)
 {
-	autoAddNewConnectionsToFilter=filterSetID;
+	autoAddNewConnectionsToFilter = filterSetID;
 }
-void MessageFilter::SetAllowMessageID(bool allow, int messageIDStart, int messageIDEnd,int filterSetID)
+void MessageFilter::SetAllowMessageID(bool allow, int messageIDStart, int messageIDEnd, int filterSetID)
 {
 	RakAssert(messageIDStart <= messageIDEnd);
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
 	int i;
-	for (i=messageIDStart; i <= messageIDEnd; ++i)
-		filterSet->allowedIDs[i]=allow;
+	for (i = messageIDStart; i <= messageIDEnd; ++i)
+		filterSet->allowedIDs[i] = allow;
 }
-void MessageFilter::SetAllowRPC4(bool allow, const char* uniqueID, int filterSetID)
+void MessageFilter::SetAllowRPC4(bool allow, const char *uniqueID, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
 	bool objectExists;
 	unsigned int idx = filterSet->allowedRPC4.GetIndexFromKey(uniqueID, &objectExists);
 	if (allow)
 	{
-		if (objectExists==false)
+		if (objectExists == false)
 		{
 			filterSet->allowedRPC4.InsertAtIndex(uniqueID, idx, _FILE_AND_LINE_);
-			filterSet->allowedIDs[ID_RPC_PLUGIN]=true;
+			filterSet->allowedIDs[ID_RPC_PLUGIN] = true;
 		}
 	}
 	else
 	{
-		if (objectExists==true)
+		if (objectExists == true)
 		{
 			filterSet->allowedRPC4.RemoveAtIndex(idx);
-			if (filterSet->allowedRPC4.Size()==0)
+			if (filterSet->allowedRPC4.Size() == 0)
 			{
-				filterSet->allowedIDs[ID_RPC_PLUGIN]=false;
+				filterSet->allowedIDs[ID_RPC_PLUGIN] = false;
 			}
 		}
 	}
@@ -91,37 +91,37 @@ void MessageFilter::SetAllowRPC4(bool allow, const char* uniqueID, int filterSet
 void MessageFilter::SetActionOnDisallowedMessage(bool kickOnDisallowed, bool banOnDisallowed, MafiaNet::TimeMS banTimeMS, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
-	filterSet->kickOnDisallowedMessage=kickOnDisallowed;
-	filterSet->disallowedMessageBanTimeMS=banTimeMS;
-	filterSet->banOnDisallowedMessage=banOnDisallowed;
+	filterSet->kickOnDisallowedMessage = kickOnDisallowed;
+	filterSet->disallowedMessageBanTimeMS = banTimeMS;
+	filterSet->banOnDisallowedMessage = banOnDisallowed;
 }
 void MessageFilter::SetDisallowedMessageCallback(int filterSetID, void *userData, void (*invalidMessageCallback)(RakPeerInterface *peer, AddressOrGUID systemAddress, int filterSetID, void *userData, unsigned char messageID))
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
-	filterSet->invalidMessageCallback=invalidMessageCallback;
-	filterSet->disallowedCallbackUserData=userData;
+	filterSet->invalidMessageCallback = invalidMessageCallback;
+	filterSet->disallowedCallbackUserData = userData;
 }
 void MessageFilter::SetTimeoutCallback(int filterSetID, void *userData, void (*invalidMessageCallback)(RakPeerInterface *peer, AddressOrGUID systemAddress, int filterSetID, void *userData))
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
-	filterSet->timeoutCallback=invalidMessageCallback;
-	filterSet->timeoutUserData=userData;
+	filterSet->timeoutCallback = invalidMessageCallback;
+	filterSet->timeoutUserData = userData;
 }
 void MessageFilter::SetFilterMaxTime(int allowedTimeMS, bool banOnExceed, MafiaNet::TimeMS banTimeMS, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
-	filterSet->maxMemberTimeMS=allowedTimeMS;
-	filterSet->banOnFilterTimeExceed=banOnExceed;
-	filterSet->timeExceedBanTimeMS=banTimeMS;
+	filterSet->maxMemberTimeMS = allowedTimeMS;
+	filterSet->banOnFilterTimeExceed = banOnExceed;
+	filterSet->timeExceedBanTimeMS = banTimeMS;
 }
 int MessageFilter::GetSystemFilterSet(AddressOrGUID systemAddress)
 {
-// 	bool objectExists;
-// 	unsigned index = systemList.GetIndexFromKey(systemAddress, &objectExists);
-// 	if (objectExists==false)
-// 		return -1;
-// 	else
-// 		return systemList[index].filter->filterSetID;
+	// 	bool objectExists;
+	// 	unsigned index = systemList.GetIndexFromKey(systemAddress, &objectExists);
+	// 	if (objectExists==false)
+	// 		return -1;
+	// 	else
+	// 		return systemList[index].filter->filterSetID;
 
 	DataStructures::HashIndex index = systemList.GetIndexOf(systemAddress);
 	if (index.IsInvalid())
@@ -132,52 +132,52 @@ int MessageFilter::GetSystemFilterSet(AddressOrGUID systemAddress)
 void MessageFilter::SetSystemFilterSet(AddressOrGUID addressOrGUID, int filterSetID)
 {
 	// Allocate this filter set if it doesn't exist.
-	RakAssert(addressOrGUID.IsUndefined()==false);
-//	bool objectExists;
-// 	unsigned index = systemList.GetIndexFromKey(addressOrGUID, &objectExists);
-// 	if (objectExists==false)
+	RakAssert(addressOrGUID.IsUndefined() == false);
+	//	bool objectExists;
+	// 	unsigned index = systemList.GetIndexFromKey(addressOrGUID, &objectExists);
+	// 	if (objectExists==false)
 	DataStructures::HashIndex index = systemList.GetIndexOf(addressOrGUID);
 	if (index.IsInvalid())
 	{
-		if (filterSetID<0)
+		if (filterSetID < 0)
 			return;
 
 		FilteredSystem filteredSystem;
 		filteredSystem.filter = GetFilterSetByID(filterSetID);
-	//	filteredSystem.addressOrGUID=addressOrGUID;
-		filteredSystem.timeEnteredThisSet= MafiaNet::GetTimeMS();
-	//	systemList.Insert(addressOrGUID, filteredSystem, true, _FILE_AND_LINE_);
-		systemList.Push(addressOrGUID,filteredSystem,_FILE_AND_LINE_);
+		//	filteredSystem.addressOrGUID=addressOrGUID;
+		filteredSystem.timeEnteredThisSet = MafiaNet::GetTimeMS();
+		//	systemList.Insert(addressOrGUID, filteredSystem, true, _FILE_AND_LINE_);
+		systemList.Push(addressOrGUID, filteredSystem, _FILE_AND_LINE_);
 	}
 	else
 	{
-		if (filterSetID>=0)
+		if (filterSetID >= 0)
 		{
 			FilterSet *filterSet = GetFilterSetByID(filterSetID);
-			systemList.ItemAtIndex(index).timeEnteredThisSet= MafiaNet::GetTimeMS();
-			systemList.ItemAtIndex(index).filter=filterSet;
+			systemList.ItemAtIndex(index).timeEnteredThisSet = MafiaNet::GetTimeMS();
+			systemList.ItemAtIndex(index).filter = filterSet;
 		}
 		else
 		{
 			systemList.RemoveAtIndex(index, _FILE_AND_LINE_);
 		}
-	}	
+	}
 }
 unsigned MessageFilter::GetSystemCount(int filterSetID) const
 {
-	if (filterSetID==-1)
+	if (filterSetID == -1)
 	{
 		return systemList.Size();
 	}
 	else
 	{
 		unsigned i;
-		unsigned count=0;
-		DataStructures::List< FilteredSystem > itemList;
-		DataStructures::List< AddressOrGUID > keyList;
+		unsigned count = 0;
+		DataStructures::List<FilteredSystem> itemList;
+		DataStructures::List<AddressOrGUID> keyList;
 		systemList.GetAsList(itemList, keyList, _FILE_AND_LINE_);
-		for (i=0; i < itemList.Size(); i++)
-			if (itemList[i].filter->filterSetID==filterSetID)
+		for (i = 0; i < itemList.Size(); i++)
+			if (itemList[i].filter->filterSetID == filterSetID)
 				++count;
 		return count;
 	}
@@ -194,20 +194,20 @@ void MessageFilter::DeleteFilterSet(int filterSetID)
 {
 	FilterSet *filterSet;
 	bool objectExists;
-	unsigned i,index;
+	unsigned i, index;
 	index = filterList.GetIndexFromKey(filterSetID, &objectExists);
 	if (objectExists)
 	{
-		filterSet=filterList[index];
+		filterSet = filterList[index];
 		DeallocateFilterSet(filterSet);
 		filterList.RemoveAtIndex(index);
 
-		DataStructures::List< FilteredSystem > itemList;
-		DataStructures::List< AddressOrGUID > keyList;
+		DataStructures::List<FilteredSystem> itemList;
+		DataStructures::List<AddressOrGUID> keyList;
 		systemList.GetAsList(itemList, keyList, _FILE_AND_LINE_);
-		for (i=0; i < itemList.Size(); i++)
+		for (i = 0; i < itemList.Size(); i++)
 		{
-			if (itemList[i].filter==filterSet)
+			if (itemList[i].filter == filterSet)
 			{
 				systemList.Remove(keyList[i], _FILE_AND_LINE_);
 			}
@@ -230,17 +230,17 @@ void MessageFilter::Clear(void)
 {
 	unsigned i;
 	systemList.Clear(_FILE_AND_LINE_);
-	for (i=0; i < filterList.Size(); i++)
+	for (i = 0; i < filterList.Size(); i++)
 		DeallocateFilterSet(filterList[i]);
 	filterList.Clear(false, _FILE_AND_LINE_);
 }
-void MessageFilter::DeallocateFilterSet(FilterSet* filterSet)
+void MessageFilter::DeallocateFilterSet(FilterSet *filterSet)
 {
 	MafiaNet::OP_DELETE(filterSet, _FILE_AND_LINE_);
 }
-FilterSet* MessageFilter::GetFilterSetByID(int filterSetID)
+FilterSet *MessageFilter::GetFilterSetByID(int filterSetID)
 {
-	RakAssert(filterSetID>=0);
+	RakAssert(filterSetID >= 0);
 	bool objectExists;
 	unsigned index;
 	index = filterList.GetIndexFromKey(filterSetID, &objectExists);
@@ -248,18 +248,18 @@ FilterSet* MessageFilter::GetFilterSetByID(int filterSetID)
 		return filterList[index];
 	else
 	{
-		FilterSet *newFilterSet = MafiaNet::OP_NEW<FilterSet>( _FILE_AND_LINE_ );
+		FilterSet *newFilterSet = MafiaNet::OP_NEW<FilterSet>(_FILE_AND_LINE_);
 		memset(newFilterSet->allowedIDs, 0, MESSAGE_FILTER_MAX_MESSAGE_ID * sizeof(bool));
-		newFilterSet->banOnFilterTimeExceed=false;
-		newFilterSet->kickOnDisallowedMessage=false;
-		newFilterSet->banOnDisallowedMessage=false;
-		newFilterSet->disallowedMessageBanTimeMS=0;
-		newFilterSet->timeExceedBanTimeMS=0;
-		newFilterSet->maxMemberTimeMS=0;
-		newFilterSet->filterSetID=filterSetID;
-		newFilterSet->invalidMessageCallback=0;
-		newFilterSet->timeoutCallback=0;
-		newFilterSet->timeoutUserData=0;
+		newFilterSet->banOnFilterTimeExceed = false;
+		newFilterSet->kickOnDisallowedMessage = false;
+		newFilterSet->banOnDisallowedMessage = false;
+		newFilterSet->disallowedMessageBanTimeMS = 0;
+		newFilterSet->timeExceedBanTimeMS = 0;
+		newFilterSet->maxMemberTimeMS = 0;
+		newFilterSet->filterSetID = filterSetID;
+		newFilterSet->invalidMessageCallback = 0;
+		newFilterSet->timeoutCallback = 0;
+		newFilterSet->timeoutUserData = 0;
 		filterList.Insert(filterSetID, newFilterSet, true, _FILE_AND_LINE_);
 		return newFilterSet;
 	}
@@ -278,7 +278,7 @@ void MessageFilter::OnInvalidMessage(FilterSet *filterSet, AddressOrGUID systemA
 	{
 		if (rakPeerInterface)
 			rakPeerInterface->CloseConnection(systemAddress, true, 0);
-#if _RAKNET_SUPPORT_PacketizedTCP==1 && _RAKNET_SUPPORT_TCPInterface==1
+#if _RAKNET_SUPPORT_PacketizedTCP == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 		else
 			tcpInterface->CloseConnection(systemAddress.systemAddress);
 #endif
@@ -290,16 +290,16 @@ void MessageFilter::Update(void)
 	MafiaNet::Time curTime = MafiaNet::GetTime();
 	if (GreaterThan(curTime - 1000, whenLastTimeoutCheck))
 	{
-		DataStructures::List< FilteredSystem > itemList;
-		DataStructures::List< AddressOrGUID > keyList;
+		DataStructures::List<FilteredSystem> itemList;
+		DataStructures::List<AddressOrGUID> keyList;
 		systemList.GetAsList(itemList, keyList, _FILE_AND_LINE_);
 
 		unsigned int index;
-		for (index=0; index < itemList.Size(); index++)
+		for (index = 0; index < itemList.Size(); index++)
 		{
 			if (itemList[index].filter &&
-				itemList[index].filter->maxMemberTimeMS>0 &&
-				curTime-itemList[index].timeEnteredThisSet >= itemList[index].filter->maxMemberTimeMS)
+			    itemList[index].filter->maxMemberTimeMS > 0 &&
+			    curTime - itemList[index].timeEnteredThisSet >= itemList[index].filter->maxMemberTimeMS)
 			{
 				if (itemList[index].filter->timeoutCallback)
 					itemList[index].filter->timeoutCallback(rakPeerInterface, keyList[index], itemList[index].filter->filterSetID, itemList[index].filter->timeoutUserData);
@@ -312,7 +312,7 @@ void MessageFilter::Update(void)
 				}
 				if (rakPeerInterface)
 					rakPeerInterface->CloseConnection(keyList[index], true, 0);
-#if _RAKNET_SUPPORT_PacketizedTCP==1 && _RAKNET_SUPPORT_TCPInterface==1
+#if _RAKNET_SUPPORT_PacketizedTCP == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 				else
 					tcpInterface->CloseConnection(keyList[index].systemAddress);
 #endif
@@ -321,7 +321,7 @@ void MessageFilter::Update(void)
 			}
 		}
 
-		whenLastTimeoutCheck=curTime+1000;
+		whenLastTimeoutCheck = curTime + 1000;
 	}
 }
 void MessageFilter::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
@@ -331,31 +331,31 @@ void MessageFilter::OnNewConnection(const SystemAddress &systemAddress, RakNetGU
 	(void) isIncoming;
 
 	AddressOrGUID aog;
-	aog.rakNetGuid=rakNetGUID;
-	aog.systemAddress=systemAddress;
+	aog.rakNetGuid = rakNetGUID;
+	aog.systemAddress = systemAddress;
 
 	// New system, automatically assign to filter set if appropriate
-	if (autoAddNewConnectionsToFilter>=0 && systemList.HasData(aog)==false)
+	if (autoAddNewConnectionsToFilter >= 0 && systemList.HasData(aog) == false)
 		SetSystemFilterSet(aog, autoAddNewConnectionsToFilter);
 }
-void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	(void) rakNetGUID;
 	(void) lostConnectionReason;
 
 	AddressOrGUID aog;
-	aog.rakNetGuid=rakNetGUID;
-	aog.systemAddress=systemAddress;
+	aog.rakNetGuid = rakNetGUID;
+	aog.systemAddress = systemAddress;
 
 	// Lost system, remove from the list
 	systemList.Remove(aog, _FILE_AND_LINE_);
 }
- PluginReceiveResult MessageFilter::OnReceive(Packet *packet)
+PluginReceiveResult MessageFilter::OnReceive(Packet *packet)
 {
 	DataStructures::HashIndex index;
 	unsigned char messageId;
 
-	switch (packet->data[0]) 
+	switch (packet->data[0])
 	{
 	case ID_NEW_INCOMING_CONNECTION:
 	case ID_CONNECTION_REQUEST_ACCEPTED:
@@ -375,40 +375,40 @@ void MessageFilter::OnClosedConnection(const SystemAddress &systemAddress, RakNe
 	case ID_DOWNLOAD_PROGRESS:
 		break;
 	default:
-		if (packet->data[0]==ID_TIMESTAMP)
+		if (packet->data[0] == ID_TIMESTAMP)
 		{
-			if (packet->length<sizeof(MessageID) + sizeof(MafiaNet::TimeMS))
+			if (packet->length < sizeof(MessageID) + sizeof(MafiaNet::TimeMS))
 				return RR_STOP_PROCESSING_AND_DEALLOCATE; // Invalid message
-			messageId=packet->data[sizeof(MessageID) + sizeof(MafiaNet::TimeMS)];
+			messageId = packet->data[sizeof(MessageID) + sizeof(MafiaNet::TimeMS)];
 		}
 		else
-			messageId=packet->data[0];
+			messageId = packet->data[0];
 		// If this system is filtered, check if this message is allowed.  If not allowed, return RR_STOP_PROCESSING_AND_DEALLOCATE
 		// index = systemList.GetIndexFromKey(packet->addressOrGUID, &objectExists);
 		index = systemList.GetIndexOf(packet);
 		if (index.IsInvalid())
 			break;
-		if (systemList.ItemAtIndex(index).filter->allowedIDs[messageId]==false)
+		if (systemList.ItemAtIndex(index).filter->allowedIDs[messageId] == false)
 		{
 			OnInvalidMessage(systemList.ItemAtIndex(index).filter, packet, packet->data[0]);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
-		if (packet->data[0]==ID_RPC_PLUGIN)
+		if (packet->data[0] == ID_RPC_PLUGIN)
 		{
-			MafiaNet::BitStream bsIn(packet->data,packet->length,false);
+			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(2);
 			MafiaNet::RakString functionName;
 			bsIn.ReadCompressed(functionName);
-			if (systemList.ItemAtIndex(index).filter->allowedRPC4.HasData(functionName)==false)
+			if (systemList.ItemAtIndex(index).filter->allowedRPC4.HasData(functionName) == false)
 			{
 				OnInvalidMessage(systemList.ItemAtIndex(index).filter, packet, packet->data[0]);
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;
 			}
 		}
-		
+
 		break;
 	}
-	
+
 	return RR_CONTINUE_PROCESSING;
 }
 

@@ -63,14 +63,14 @@ enum ServerErrors
 struct Lobby2MessageFactory;
 
 /// \brief Both Lobby2Server and Lobby2Client derive from this class
-/// \details 
+/// \details
 /// \ingroup LOBBY_2_GROUP
 class RAK_DLL_EXPORT Lobby2Plugin : public PluginInterface2
 {
 public:
 	Lobby2Plugin();
 	virtual ~Lobby2Plugin();
-	
+
 	/// \brief Ordering channel to send messages on
 	/// \param[in] oc The ordering channel
 	void SetOrderingChannel(char oc);
@@ -86,27 +86,26 @@ public:
 	void SetMessageFactory(Lobby2MessageFactory *f);
 
 	/// \brief Returns whatever was passed to SetMessageFactory()
-	Lobby2MessageFactory* GetMessageFactory(void) const;
+	Lobby2MessageFactory *GetMessageFactory(void) const;
 
 	/// \brief Set the callback to receive the results of operations via SendMsg()
-	virtual void SetCallbackInterface(Lobby2Callbacks *cb);	
+	virtual void SetCallbackInterface(Lobby2Callbacks *cb);
 
 	/// \brief You can have more than one callback to get called from the results of operations via SendMsg()
-	virtual void AddCallbackInterface(Lobby2Callbacks *cb);	
+	virtual void AddCallbackInterface(Lobby2Callbacks *cb);
 
 	/// \brief Removes a callback added with AddCallbackInterface();
 	virtual void RemoveCallbackInterface(Lobby2Callbacks *cb);
 
 	/// \brief Removes all callbacks added with AddCallbackInterface();
 	virtual void ClearCallbackInterfaces();
-	
+
 protected:
-		
 	char orderingChannel;
-	MafiaNet::Priority packetPriority;	
+	MafiaNet::Priority packetPriority;
 	Lobby2MessageFactory *msgFactory;
 
-	DataStructures::List<Lobby2Callbacks*> callbacks;
+	DataStructures::List<Lobby2Callbacks *> callbacks;
 };
 
 }; // namespace MafiaNet

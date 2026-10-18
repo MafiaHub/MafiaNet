@@ -35,7 +35,7 @@ class DBResultHandler : public TitleValidationDBCBInterface
 	{
 		if (wasCancelled)
 			printf("AddTitle_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("AddTitle_CB call DB failure:\n");
 			printf("%s", callResult->titleValidationServer->GetLastError());
@@ -51,7 +51,7 @@ class DBResultHandler : public TitleValidationDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetTitles_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetTitles_CB call DB failure:\n");
 			printf("%s", callResult->titleValidationServer->GetLastError());
@@ -61,22 +61,22 @@ class DBResultHandler : public TitleValidationDBCBInterface
 			printf("GetTitles_CB success:\n");
 
 			unsigned i;
-			for (i=0; i < callResult->titles.Size(); i++)
+			for (i = 0; i < callResult->titles.Size(); i++)
 			{
-				printf("%i. titleId=%i\n", i+1, callResult->titles[i]->titleId);
-				printf("%i. titleName=%s\n", i+1, callResult->titles[i]->titleName.C_String());
-				printf("%i. titlePasswordLength=%i\n", i+1, callResult->titles[i]->titlePasswordLength);
-				printf("%i. allowClientAccountCreation=%i\n", i+1, callResult->titles[i]->allowClientAccountCreation);
-				printf("%i. lobbyIsGameIndependent=%i\n", i+1, callResult->titles[i]->lobbyIsGameIndependent);
-				printf("%i. requireUserKeyToLogon=%i\n", i+1, callResult->titles[i]->requireUserKeyToLogon);
-				printf("%i. defaultAllowUpdateHandle=%i\n", i+1, callResult->titles[i]->defaultAllowUpdateHandle);
-				printf("%i. defaultAllowUpdateCCInfo=%i\n", i+1, callResult->titles[i]->defaultAllowUpdateCCInfo);
-				printf("%i. defaultAllowUpdateAccountNumber=%i\n", i+1, callResult->titles[i]->defaultAllowUpdateAccountNumber);
-				printf("%i. defaultAllowUpdateAdminLevel=%i\n", i+1, callResult->titles[i]->defaultAllowUpdateAdminLevel);
-				printf("%i. defaultAllowUpdateAccountBalance=%i\n", i+1, callResult->titles[i]->defaultAllowUpdateAccountBalance);
-				printf("%i. defaultAllowClientsUploadActionHistory=%i\n", i+1, callResult->titles[i]->defaultAllowClientsUploadActionHistory);
-				printf("%i. defaultPermissionsStr=%s\n", i+1, callResult->titles[i]->defaultPermissionsStr.C_String());
-				printf("%i. creationDate=%s\n", i+1, EpochTimeToString(callResult->titles[i]->creationDate));
+				printf("%i. titleId=%i\n", i + 1, callResult->titles[i]->titleId);
+				printf("%i. titleName=%s\n", i + 1, callResult->titles[i]->titleName.C_String());
+				printf("%i. titlePasswordLength=%i\n", i + 1, callResult->titles[i]->titlePasswordLength);
+				printf("%i. allowClientAccountCreation=%i\n", i + 1, callResult->titles[i]->allowClientAccountCreation);
+				printf("%i. lobbyIsGameIndependent=%i\n", i + 1, callResult->titles[i]->lobbyIsGameIndependent);
+				printf("%i. requireUserKeyToLogon=%i\n", i + 1, callResult->titles[i]->requireUserKeyToLogon);
+				printf("%i. defaultAllowUpdateHandle=%i\n", i + 1, callResult->titles[i]->defaultAllowUpdateHandle);
+				printf("%i. defaultAllowUpdateCCInfo=%i\n", i + 1, callResult->titles[i]->defaultAllowUpdateCCInfo);
+				printf("%i. defaultAllowUpdateAccountNumber=%i\n", i + 1, callResult->titles[i]->defaultAllowUpdateAccountNumber);
+				printf("%i. defaultAllowUpdateAdminLevel=%i\n", i + 1, callResult->titles[i]->defaultAllowUpdateAdminLevel);
+				printf("%i. defaultAllowUpdateAccountBalance=%i\n", i + 1, callResult->titles[i]->defaultAllowUpdateAccountBalance);
+				printf("%i. defaultAllowClientsUploadActionHistory=%i\n", i + 1, callResult->titles[i]->defaultAllowClientsUploadActionHistory);
+				printf("%i. defaultPermissionsStr=%s\n", i + 1, callResult->titles[i]->defaultPermissionsStr.C_String());
+				printf("%i. creationDate=%s\n", i + 1, EpochTimeToString(callResult->titles[i]->creationDate));
 			}
 		}
 
@@ -86,7 +86,7 @@ class DBResultHandler : public TitleValidationDBCBInterface
 	{
 		if (wasCancelled)
 			printf("UpdateUserKey_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("UpdateUserKey_CB call DB failure:\n");
 			printf("%s", callResult->titleValidationServer->GetLastError());
@@ -103,7 +103,7 @@ class DBResultHandler : public TitleValidationDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetUserKeys_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetUserKeys_CB call DB failure:\n");
 			printf("%s", callResult->titleValidationServer->GetLastError());
@@ -113,18 +113,18 @@ class DBResultHandler : public TitleValidationDBCBInterface
 			printf("GetUserKeys_CB success:\n");
 
 			unsigned i;
-			for (i=0; i < callResult->keys.Size(); i++)
+			for (i = 0; i < callResult->keys.Size(); i++)
 			{
-				printf("%i. userKeyId=%i\n", i+1, callResult->keys[i]->userKeyId);
-				printf("%i. titleId=%i\n", i+1, callResult->keys[i]->titleId);
-				printf("%i. keyPasswordLength=%i\n", i+1, callResult->keys[i]->keyPasswordLength);
-				printf("%i. userId=%i\n", i+1, callResult->keys[i]->userId);
-				printf("%i. userIP=%s\n", i+1, callResult->keys[i]->userIP.C_String());
-				printf("%i. numRegistrations=%i\n", i+1, callResult->keys[i]->numRegistrations);
-				printf("%i. invalidKey=%i\n", i+1, callResult->keys[i]->invalidKey);
-				printf("%i. invalidKeyReason=%s\n", i+1, callResult->keys[i]->invalidKeyReason.C_String());
-				printf("%i. binaryDataLength=%i\n", i+1, callResult->keys[i]->binaryDataLength);
-				printf("%i. creationDate=%s\n", i+1, EpochTimeToString(callResult->keys[i]->creationDate));
+				printf("%i. userKeyId=%i\n", i + 1, callResult->keys[i]->userKeyId);
+				printf("%i. titleId=%i\n", i + 1, callResult->keys[i]->titleId);
+				printf("%i. keyPasswordLength=%i\n", i + 1, callResult->keys[i]->keyPasswordLength);
+				printf("%i. userId=%i\n", i + 1, callResult->keys[i]->userId);
+				printf("%i. userIP=%s\n", i + 1, callResult->keys[i]->userIP.C_String());
+				printf("%i. numRegistrations=%i\n", i + 1, callResult->keys[i]->numRegistrations);
+				printf("%i. invalidKey=%i\n", i + 1, callResult->keys[i]->invalidKey);
+				printf("%i. invalidKeyReason=%s\n", i + 1, callResult->keys[i]->invalidKeyReason.C_String());
+				printf("%i. binaryDataLength=%i\n", i + 1, callResult->keys[i]->binaryDataLength);
+				printf("%i. creationDate=%s\n", i + 1, EpochTimeToString(callResult->keys[i]->creationDate));
 			}
 		}
 
@@ -134,12 +134,12 @@ class DBResultHandler : public TitleValidationDBCBInterface
 	{
 		if (wasCancelled)
 			printf("ValidateUserKey_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("ValidateUserKey_CB call DB failure:\n");
 			printf("%s", callResult->titleValidationServer->GetLastError());
 		}
-		else if (callResult->successful==0)
+		else if (callResult->successful == 0)
 		{
 			printf("ValidateUserKey_CB success\n");
 		}
@@ -181,7 +181,7 @@ void main(int argc, char **argv)
 	titleValidationDB.AssignCallback(&resultHandler);
 
 	printf("Enter database password:\n");
-	char connectionString[256],password[128];
+	char connectionString[256], password[128];
 	char username[256];
 	strcpy(username, "postgres");
 	gets(password);
@@ -190,20 +190,20 @@ void main(int argc, char **argv)
 	strcat(connectionString, " password=");
 	strcat(connectionString, password);
 	// database=blah
-	if (titleValidationDB.Connect(connectionString)==false)
+	if (titleValidationDB.Connect(connectionString) == false)
 	{
 		printf("Database connection failed.\n");
 		return;
 	}
 	printf("Database connection succeeded.\n");
 	printf("(A) Drop tables\n"
-		"(B) Create tables\n"
-		"(C) Add title.\n"
-		"(D) Get titles.\n"
-		"(E) Update user key.\n"
-		"(F) Get user keys.\n"
-		"(F) Validate user key.\n"
-		"(~) Quit\n");
+	       "(B) Create tables\n"
+	       "(C) Add title.\n"
+	       "(D) Get titles.\n"
+	       "(E) Update user key.\n"
+	       "(F) Get user keys.\n"
+	       "(F) Validate user key.\n"
+	       "(~) Quit\n");
 
 	char inputStr[512];
 	char ch;
@@ -211,24 +211,24 @@ void main(int argc, char **argv)
 	{
 		if (kbhit())
 		{
-			ch=getch();
-			if (ch=='~')
+			ch = getch();
+			if (ch == '~')
 				break;
-			else if (ch=='a')
+			else if (ch == 'a')
 			{
-				if (titleValidationDB.DestroyTitleValidationTables()==false)
+				if (titleValidationDB.DestroyTitleValidationTables() == false)
 					printf("%s", titleValidationDB.GetLastError());
 				else
 					printf("Tables dropped.\n");
 			}
-			else if (ch=='b')
+			else if (ch == 'b')
 			{
-				if (titleValidationDB.CreateTitleValidationTables()==false)
+				if (titleValidationDB.CreateTitleValidationTables() == false)
 					printf("%s", titleValidationDB.GetLastError());
 				else
 					printf("Tables created.\n");
 			}
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
 				// We could do new and delete, but this ensures the class is allocated and deallocated in the same DLL, should we use one.
 				// By default deallocation takes place in HandleResult()
@@ -240,84 +240,83 @@ void main(int argc, char **argv)
 				functor->titleName = inputStr;
 				printf("Enter title password (binary): ");
 				gets(inputStr);
-				functor->titlePassword = AddTitle_PostgreSQLImpl::AllocBytes((int) strlen(inputStr)+1);
-				functor->titlePasswordLength = (int) strlen(inputStr)+1;
+				functor->titlePassword = AddTitle_PostgreSQLImpl::AllocBytes((int) strlen(inputStr) + 1);
+				functor->titlePasswordLength = (int) strlen(inputStr) + 1;
 				memcpy(functor->titlePassword, inputStr, functor->titlePasswordLength);
-				functor->allowClientAccountCreation=true;
-				functor->lobbyIsGameIndependent=true;
-				functor->requireUserKeyToLogon=false;
-				functor->allowClientAccountCreation=true;
-				functor->lobbyIsGameIndependent=true;
-				functor->defaultAllowUpdateHandle=true;
-				functor->defaultAllowUpdateCCInfo=true;
-				functor->defaultAllowUpdateAccountNumber=true;
-				functor->defaultAllowUpdateAdminLevel=true;
-				functor->defaultAllowUpdateAccountBalance=true;
-				functor->defaultAllowClientsUploadActionHistory=true;
+				functor->allowClientAccountCreation = true;
+				functor->lobbyIsGameIndependent = true;
+				functor->requireUserKeyToLogon = false;
+				functor->allowClientAccountCreation = true;
+				functor->lobbyIsGameIndependent = true;
+				functor->defaultAllowUpdateHandle = true;
+				functor->defaultAllowUpdateCCInfo = true;
+				functor->defaultAllowUpdateAccountNumber = true;
+				functor->defaultAllowUpdateAdminLevel = true;
+				functor->defaultAllowUpdateAccountBalance = true;
+				functor->defaultAllowClientsUploadActionHistory = true;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
 				titleValidationDB.PushFunctor(functor);
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
 				GetTitles_PostgreSQLImpl *functor = GetTitles_PostgreSQLImpl::Alloc();
 				printf("Getting previously added titles\n");
 				titleValidationDB.PushFunctor(functor);
 			}
-			else if (ch=='e')
+			else if (ch == 'e')
 			{
 				UpdateUserKey_PostgreSQLImpl *functor = UpdateUserKey_PostgreSQLImpl::Alloc();
 				printf("Update/Inserting a user key\n");
 
 				printf("Insert a new key? (y/n): ");
 				gets(inputStr);
-				functor->userKeyIsSet = (inputStr[0]=='n');
+				functor->userKeyIsSet = (inputStr[0] == 'n');
 				if (functor->userKeyIsSet)
 				{
 					printf("Enter existing key (integer): ");
 					gets(inputStr);
-					functor->userKeyId=atoi(inputStr);
+					functor->userKeyId = atoi(inputStr);
 				}
 
 				printf("Enter title Id (integer, required): ");
 				gets(inputStr);
-				functor->titleId=atoi(inputStr);
+				functor->titleId = atoi(inputStr);
 
 				printf("Enter key password (binary): ");
 				gets(inputStr);
-				functor->keyPassword = UpdateUserKey_PostgreSQLImpl::AllocBytes((int) strlen(inputStr)+1);
-				functor->keyPasswordLength = (int) strlen(inputStr)+1;
+				functor->keyPassword = UpdateUserKey_PostgreSQLImpl::AllocBytes((int) strlen(inputStr) + 1);
+				functor->keyPasswordLength = (int) strlen(inputStr) + 1;
 				memcpy(functor->keyPassword, inputStr, functor->keyPasswordLength);
 
 
 				printf("Enter userId (integer, optional): ");
 				gets(inputStr);
-				functor->userId=atoi(inputStr);
+				functor->userId = atoi(inputStr);
 
-				functor->userIP="127.0.0.1";
+				functor->userIP = "127.0.0.1";
 
-				functor->numRegistrations=0;
-				functor->invalidKey=false;
+				functor->numRegistrations = 0;
+				functor->invalidKey = false;
 
-				titleValidationDB.PushFunctor(functor);				
+				titleValidationDB.PushFunctor(functor);
 			}
-			else if (ch=='f')
+			else if (ch == 'f')
 			{
 				GetUserKeys_PostgreSQLImpl *functor = GetUserKeys_PostgreSQLImpl::Alloc();
 				printf("Getting previously added user keys\n");
 				titleValidationDB.PushFunctor(functor);
 			}
-			else if (ch=='g')
+			else if (ch == 'g')
 			{
 				ValidateUserKey_PostgreSQLImpl *functor = ValidateUserKey_PostgreSQLImpl::Alloc();
 				printf("Validating key\n");
 				printf("Enter key password (binary): ");
 				gets(inputStr);
-				functor->keyPassword = UpdateUserKey_PostgreSQLImpl::AllocBytes((int) strlen(inputStr)+1);
-				functor->keyPasswordLength = (int) strlen(inputStr)+1;
+				functor->keyPassword = UpdateUserKey_PostgreSQLImpl::AllocBytes((int) strlen(inputStr) + 1);
+				functor->keyPasswordLength = (int) strlen(inputStr) + 1;
 				titleValidationDB.PushFunctor(functor);
 			}
-			
 		}
 
 		// Causes Functor::HandleResult calls. If this is forgotten you won't get processing result calls.

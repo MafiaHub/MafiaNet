@@ -39,23 +39,37 @@ class AllGamesRoomsContainer;
 class RoomsParticipant
 {
 public:
-	RoomsParticipant() {room=0; inQuickJoin=false;}
+	RoomsParticipant()
+	{
+		room = 0;
+		inQuickJoin = false;
+	}
 	~RoomsParticipant() {}
-	Room * GetRoom(void) const {return room;}
-	void SetPerGameRoomsContainer(PerGameRoomsContainer *p) {perGameRoomsContainer=p;}
-	void SetRoom(Room *_room) {room=_room; inQuickJoin=false;}
-	void SetInQuickJoin(bool b) {inQuickJoin=b; if (b) room=0;}
+	Room *GetRoom(void) const { return room; }
+	void SetPerGameRoomsContainer(PerGameRoomsContainer *p) { perGameRoomsContainer = p; }
+	void SetRoom(Room *_room)
+	{
+		room = _room;
+		inQuickJoin = false;
+	}
+	void SetInQuickJoin(bool b)
+	{
+		inQuickJoin = b;
+		if (b)
+			room = 0;
+	}
 
 	// Name is used for persistent invites and bans. Name should be unique among all participants or else the invites and bans will be applied to the wrong players
-	MafiaNet::RakString GetName(void) const {return name;}
-	void SetName(const char *str) {name = str;}
-	void SetSystemAddress(const SystemAddress &sa) {systemAddress=sa;}
-	SystemAddress GetSystemAddress(void) const {return systemAddress;}
-	void SetGUID(RakNetGUID g) {guid=g;}
-	RakNetGUID GetGUID(void) const {return guid;}
+	MafiaNet::RakString GetName(void) const { return name; }
+	void SetName(const char *str) { name = str; }
+	void SetSystemAddress(const SystemAddress &sa) { systemAddress = sa; }
+	SystemAddress GetSystemAddress(void) const { return systemAddress; }
+	void SetGUID(RakNetGUID g) { guid = g; }
+	RakNetGUID GetGUID(void) const { return guid; }
 
-	PerGameRoomsContainer *GetPerGameRoomsContainer(void) const {return perGameRoomsContainer;}
-	bool GetInQuickJoin(void) const {return inQuickJoin;}
+	PerGameRoomsContainer *GetPerGameRoomsContainer(void) const { return perGameRoomsContainer; }
+	bool GetInQuickJoin(void) const { return inQuickJoin; }
+
 protected:
 	MafiaNet::RakString name;
 	SystemAddress systemAddress;
@@ -95,14 +109,19 @@ struct Slots
 	unsigned int publicSlots;
 	unsigned int reservedSlots;
 	unsigned int spectatorSlots;
-	unsigned int GetTotalSlots(void) const {return publicSlots+reservedSlots+spectatorSlots;}
+	unsigned int GetTotalSlots(void) const { return publicSlots + reservedSlots + spectatorSlots; }
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	RoomsErrorCode Validate(void) const;
 };
 
 struct InvitedUser
 {
-	InvitedUser() {room=0; roomId=0; invitedAsSpectator=false;}
+	InvitedUser()
+	{
+		room = 0;
+		roomId = 0;
+		invitedAsSpectator = false;
+	}
 	Room *room;
 	RoomID roomId;
 	MafiaNet::RakString invitorName;
@@ -128,7 +147,7 @@ struct RemoveUserResult
 	~RemoveUserResult();
 
 	// Why return a deleted pointer?
-//	RoomsParticipant *removedUser;
+	//	RoomsParticipant *removedUser;
 	bool removedFromQuickJoin;
 	bool removedFromRoom;
 	SystemAddress removedUserAddress;
@@ -137,9 +156,9 @@ struct RemoveUserResult
 	// Following members only apply if removedFromRoom==true
 	Room *room;
 	RoomID roomId;
-	bool gotNewModerator; // If you were the moderator before, this is true
+	bool gotNewModerator;                                 // If you were the moderator before, this is true
 	DataStructures::List<InvitedUser> clearedInvitations; // If invitations were cleared when you leave, these are the invitations
-	bool roomDestroyed; // Up to caller to deallocate
+	bool roomDestroyed;                                   // Up to caller to deallocate
 
 	QuickJoinUser *qju;
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -161,7 +180,15 @@ struct RoomMemberDescriptor
 
 struct NetworkedRoomCreationParameters
 {
-	NetworkedRoomCreationParameters() {hiddenFromSearches=false; destroyOnModeratorLeave=false; autoLockReadyStatus=false; inviteToRoomPermission=INVITE_MODE_ANYONE_CAN_INVITE; inviteToSpectatorSlotPermission=INVITE_MODE_ANYONE_CAN_INVITE; clearInvitesOnNewModerator=false;}
+	NetworkedRoomCreationParameters()
+	{
+		hiddenFromSearches = false;
+		destroyOnModeratorLeave = false;
+		autoLockReadyStatus = false;
+		inviteToRoomPermission = INVITE_MODE_ANYONE_CAN_INVITE;
+		inviteToSpectatorSlotPermission = INVITE_MODE_ANYONE_CAN_INVITE;
+		clearInvitesOnNewModerator = false;
+	}
 	// Checked by Validate
 	Slots slots;
 	bool hiddenFromSearches;
@@ -176,7 +203,8 @@ struct NetworkedRoomCreationParameters
 		INVITE_MODE_SPECTATOR_SLOTS_CAN_INVITE,
 		INVITE_MODE_MODERATOR_OR_PUBLIC_SLOTS_CAN_INVITE,
 		INVITE_MODE_MODERATOR_OR_PUBLIC_OR_RESERVED_SLOTS_CAN_INVITE,
-	} inviteToRoomPermission, inviteToSpectatorSlotPermission;
+	} inviteToRoomPermission,
+	    inviteToSpectatorSlotPermission;
 	bool clearInvitesOnNewModerator; // Leave or change
 	MafiaNet::RakString roomName;
 
@@ -195,15 +223,15 @@ struct RoomDescriptor
 	NetworkedRoomCreationParameters::SendInvitePermission inviteToSpectatorSlotPermission;
 	DataStructures::Table roomProperties;
 
-	DataStructures::Table::Cell *GetProperty(const char* columnName)
+	DataStructures::Table::Cell *GetProperty(const char *columnName)
 	{
-		return roomProperties.GetRowByIndex(0,0)->cells[roomProperties.ColumnIndex(columnName)];
+		return roomProperties.GetRowByIndex(0, 0)->cells[roomProperties.ColumnIndex(columnName)];
 	}
 	DataStructures::Table::Cell *GetProperty(int index)
 	{
-		return roomProperties.GetRowByIndex(0,0)->cells[index];
+		return roomProperties.GetRowByIndex(0, 0)->cells[index];
 	}
-	
+
 	void Clear(void)
 	{
 		roomMemberList.Clear(false, _FILE_AND_LINE_);
@@ -216,14 +244,20 @@ struct RoomDescriptor
 
 struct JoinedRoomResult
 {
-	JoinedRoomResult() {roomOutput=0; acceptedInvitor=0; agrc=0; joiningMember=0;}
+	JoinedRoomResult()
+	{
+		roomOutput = 0;
+		acceptedInvitor = 0;
+		agrc = 0;
+		joiningMember = 0;
+	}
 	~JoinedRoomResult() {}
-	Room* roomOutput;
+	Room *roomOutput;
 	RoomDescriptor roomDescriptor;
-	RoomsParticipant* acceptedInvitor;
+	RoomsParticipant *acceptedInvitor;
 	MafiaNet::RakString acceptedInvitorName;
 	SystemAddress acceptedInvitorAddress;
-	RoomsParticipant* joiningMember;
+	RoomsParticipant *joiningMember;
 	MafiaNet::RakString joiningMemberName;
 	SystemAddress joiningMemberAddress;
 	RakNetGUID joiningMemberGuid;
@@ -231,7 +265,7 @@ struct JoinedRoomResult
 	// Needed to serialize
 	AllGamesRoomsContainer *agrc;
 
-	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream );
+	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
 
 
@@ -243,7 +277,7 @@ struct RoomCreationParameters
 	NetworkedRoomCreationParameters networkedRoomCreationParameters;
 
 	// Not checked
-	RoomsParticipant* firstUser;
+	RoomsParticipant *firstUser;
 	GameIdentifier gameIdentifier;
 
 	// Output parameters:
@@ -253,15 +287,15 @@ struct RoomCreationParameters
 
 	// May return REC_ROOM_CREATION_PARAMETERS_* or REC_SUCCESS
 	RoomsErrorCode Validate(
-		const DataStructures::List<MafiaNet::RakString> &otherRoomNames,
-		ProfanityFilter *profanityFilter) const;
+	    const DataStructures::List<MafiaNet::RakString> &otherRoomNames,
+	    ProfanityFilter *profanityFilter) const;
 };
 
 struct RoomMember
 {
 	RoomMember();
 	~RoomMember();
-	RoomsParticipant* roomsParticipant;
+	RoomsParticipant *roomsParticipant;
 	RoomMemberMode roomMemberMode;
 	MafiaNet::TimeMS joinTime;
 	bool isReady;
@@ -270,7 +304,7 @@ struct RoomMember
 };
 struct KickedUser
 {
-	RoomsParticipant* roomsParticipant;
+	RoomsParticipant *roomsParticipant;
 	MafiaNet::RakString reason;
 };
 
@@ -288,10 +322,10 @@ struct RoomQuery
 
 	// Helper functions
 	// Easier to use, but not threadsafe
-	void AddQuery_NUMERIC(const char *columnName, double numericValue, DataStructures::Table::FilterQueryType op=DataStructures::Table::QF_EQUAL);
-	void AddQuery_STRING(const char *columnName, const char *charValue, DataStructures::Table::FilterQueryType op=DataStructures::Table::QF_EQUAL);
-	void AddQuery_BINARY(const char *columnName, const char *input, int inputLength, DataStructures::Table::FilterQueryType op=DataStructures::Table::QF_EQUAL);
-	void AddQuery_POINTER(const char *columnName, void *ptr, DataStructures::Table::FilterQueryType op=DataStructures::Table::QF_EQUAL);
+	void AddQuery_NUMERIC(const char *columnName, double numericValue, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
+	void AddQuery_STRING(const char *columnName, const char *charValue, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
+	void AddQuery_BINARY(const char *columnName, const char *input, int inputLength, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
+	void AddQuery_POINTER(const char *columnName, void *ptr, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
 	RoomsErrorCode Validate(void);
 
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -302,13 +336,17 @@ struct RoomQuery
 private:
 	static DataStructures::Table::FilterQuery fq[32];
 	static DataStructures::Table::Cell cells[32];
-	void SetupNextQuery(const char *columnName,DataStructures::Table::FilterQueryType op);
+	void SetupNextQuery(const char *columnName, DataStructures::Table::FilterQueryType op);
 };
 
 
 struct NetworkedQuickJoinUser
 {
-	NetworkedQuickJoinUser() {timeout=60000; minimumPlayers=2;}
+	NetworkedQuickJoinUser()
+	{
+		timeout = 60000;
+		minimumPlayers = 2;
+	}
 
 	// How long to wait for
 	MafiaNet::TimeMS timeout;
@@ -331,63 +369,63 @@ struct QuickJoinUser
 	MafiaNet::TimeMS totalTimeWaiting;
 
 	// Which user
-	RoomsParticipant* roomsParticipant;
-	static int SortByTotalTimeWaiting( QuickJoinUser* const &key, QuickJoinUser* const &data );
-	static int SortByMinimumSlots( QuickJoinUser* const &key, QuickJoinUser* const &data );
+	RoomsParticipant *roomsParticipant;
+	static int SortByTotalTimeWaiting(QuickJoinUser *const &key, QuickJoinUser *const &data);
+	static int SortByMinimumSlots(QuickJoinUser *const &key, QuickJoinUser *const &data);
 };
 
-int RoomPriorityComp( Room * const &key, Room * const &data );
+int RoomPriorityComp(Room *const &key, Room *const &data);
 
 // PerGameRoomsContainer, mapped by game id
 class AllGamesRoomsContainer
 {
-	public:
+public:
 	AllGamesRoomsContainer();
 	~AllGamesRoomsContainer();
 	static void UnitTest(void);
 
 	RoomsErrorCode CreateRoom(RoomCreationParameters *roomCreationParameters,
-		ProfanityFilter *profanityFilter);
+	                          ProfanityFilter *profanityFilter);
 
 	// Enters a room based on the search queries. If no rooms are available to join, will create a room instead
-	RoomsErrorCode EnterRoom(RoomCreationParameters *roomCreationParameters, 
-		RoomMemberMode roomMemberMode, 
-		ProfanityFilter *profanityFilter,
-		RoomQuery *query,
-		JoinedRoomResult *joinRoomResult);
+	RoomsErrorCode EnterRoom(RoomCreationParameters *roomCreationParameters,
+	                         RoomMemberMode roomMemberMode,
+	                         ProfanityFilter *profanityFilter,
+	                         RoomQuery *query,
+	                         JoinedRoomResult *joinRoomResult);
 
 	// Attempts to join a room by search query filters
 	// Returns REC_JOIN_BY_FILTER_*
-	RoomsErrorCode JoinByFilter(GameIdentifier gameIdentifier, RoomMemberMode roomMemberMode, RoomsParticipant* roomsParticipant, RoomID lastRoomJoined, RoomQuery *query, JoinedRoomResult *joinRoomResult);
+	RoomsErrorCode JoinByFilter(GameIdentifier gameIdentifier, RoomMemberMode roomMemberMode, RoomsParticipant *roomsParticipant, RoomID lastRoomJoined, RoomQuery *query, JoinedRoomResult *joinRoomResult);
 
 	// Add a new title to host games with
 	RoomsErrorCode AddTitle(GameIdentifier gameIdentifier);
 
 	// Get all pending invites to you
-	RoomsErrorCode GetInvitesToParticipant(RoomsParticipant* roomsParticipant, DataStructures::List<InvitedUser*> &invites);
+	RoomsErrorCode GetInvitesToParticipant(RoomsParticipant *roomsParticipant, DataStructures::List<InvitedUser *> &invites);
 
-	RoomsErrorCode RemoveUser(RoomsParticipant* roomsParticipant, RemoveUserResult *removeMemberResult);
+	RoomsErrorCode RemoveUser(RoomsParticipant *roomsParticipant, RemoveUserResult *removeMemberResult);
 
 	// ROOMS OPERATIONS, implicit room
-	RoomsErrorCode SendInvite(RoomsParticipant* roomsParticipant, RoomsParticipant* inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
-	RoomsErrorCode AcceptInvite(RoomID roomId, Room **room, RoomsParticipant* roomsParticipant, MafiaNet::RakString inviteSender);
-	RoomsErrorCode StartSpectating(RoomsParticipant* roomsParticipant);
-	RoomsErrorCode StopSpectating(RoomsParticipant* roomsParticipant);
-	RoomsErrorCode GrantModerator(RoomsParticipant* roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
-	RoomsErrorCode ChangeSlotCounts(RoomsParticipant* roomsParticipant, Slots slots);
-	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant* roomsParticipant, DataStructures::Table *table);
-	RoomsErrorCode ChangeRoomName(RoomsParticipant* roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
-	RoomsErrorCode SetHiddenFromSearches(RoomsParticipant* roomsParticipant, bool _hiddenFromSearches);
-	RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant* roomsParticipant, bool destroyOnModeratorLeave);
-	RoomsErrorCode SetReadyStatus(RoomsParticipant* roomsParticipant, bool isReady);
-	RoomsErrorCode GetReadyStatus( RoomID roomId, Room **room, DataStructures::List<RoomsParticipant*> &readyUsers, DataStructures::List<RoomsParticipant*> &unreadyUsers);
-	RoomsErrorCode SetRoomLockState(RoomsParticipant* roomsParticipant, RoomLockState _roomLockState);
+	RoomsErrorCode SendInvite(RoomsParticipant *roomsParticipant, RoomsParticipant *inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
+	RoomsErrorCode AcceptInvite(RoomID roomId, Room **room, RoomsParticipant *roomsParticipant, MafiaNet::RakString inviteSender);
+	RoomsErrorCode StartSpectating(RoomsParticipant *roomsParticipant);
+	RoomsErrorCode StopSpectating(RoomsParticipant *roomsParticipant);
+	RoomsErrorCode GrantModerator(RoomsParticipant *roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
+	RoomsErrorCode ChangeSlotCounts(RoomsParticipant *roomsParticipant, Slots slots);
+	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant *roomsParticipant, DataStructures::Table *table);
+	RoomsErrorCode ChangeRoomName(RoomsParticipant *roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
+	RoomsErrorCode SetHiddenFromSearches(RoomsParticipant *roomsParticipant, bool _hiddenFromSearches);
+	RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant *roomsParticipant, bool destroyOnModeratorLeave);
+	RoomsErrorCode SetReadyStatus(RoomsParticipant *roomsParticipant, bool isReady);
+	RoomsErrorCode GetReadyStatus(RoomID roomId, Room **room, DataStructures::List<RoomsParticipant *> &readyUsers, DataStructures::List<RoomsParticipant *> &unreadyUsers);
+	RoomsErrorCode SetRoomLockState(RoomsParticipant *roomsParticipant, RoomLockState _roomLockState);
 	RoomsErrorCode GetRoomLockState(RoomID roomId, Room **room, RoomLockState *roomLockState);
 	RoomsErrorCode AreAllMembersReady(RoomID roomId, Room **room, bool *allReady);
-	RoomsErrorCode KickMember(RoomsParticipant* roomsParticipant, RoomsParticipant *kickedParticipant, MafiaNet::RakString reason);
-	RoomsErrorCode UnbanMember(RoomsParticipant* roomsParticipant, MafiaNet::RakString name);
-	RoomsErrorCode GetBanReason( RoomID lobbyRoomId, Room **room, MafiaNet::RakString name, MafiaNet::RakString *reason);
-	RoomsErrorCode LeaveRoom(RoomsParticipant* roomsParticipant, RemoveUserResult *removeUserResult);
+	RoomsErrorCode KickMember(RoomsParticipant *roomsParticipant, RoomsParticipant *kickedParticipant, MafiaNet::RakString reason);
+	RoomsErrorCode UnbanMember(RoomsParticipant *roomsParticipant, MafiaNet::RakString name);
+	RoomsErrorCode GetBanReason(RoomID lobbyRoomId, Room **room, MafiaNet::RakString name, MafiaNet::RakString *reason);
+	RoomsErrorCode LeaveRoom(RoomsParticipant *roomsParticipant, RemoveUserResult *removeUserResult);
 	//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, MafiaNet::RakString *kickReason);
 
 
@@ -411,18 +449,18 @@ class AllGamesRoomsContainer
 	// From greatest minimumPlayers to least
 	// 6. If the current member created a room, find out how many subsequent members would join based on the custom filter
 	// 7. If this satisfies minimumPlayers, have that user create a room and those subsequent members join.
-	// 
+	//
 	// -- EXPIRE
 	//
 	// 5. Remove from list if timeout has expired.
 	// 6. Return results of operation (List<timeoutExpired>, List<joinedARoom>, List<RoomsThatWereJoined>
 	//
 	// Returns false if processing skipped due to optimization timer
-	RoomsErrorCode ProcessQuickJoins( 
-		DataStructures::List<QuickJoinUser*> &timeoutExpired,
-		DataStructures::List<JoinedRoomResult> &joinedRoomMembers,
-		DataStructures::List<QuickJoinUser*> &dereferencedPointers,
-		MafiaNet::TimeMS elapsedTime);
+	RoomsErrorCode ProcessQuickJoins(
+	    DataStructures::List<QuickJoinUser *> &timeoutExpired,
+	    DataStructures::List<JoinedRoomResult> &joinedRoomMembers,
+	    DataStructures::List<QuickJoinUser *> &dereferencedPointers,
+	    MafiaNet::TimeMS elapsedTime);
 
 	// Quick join - Store a list of all members waiting to quick join.
 	// Quick join ends when
@@ -434,14 +472,14 @@ class AllGamesRoomsContainer
 	RoomsErrorCode AddUserToQuickJoin(GameIdentifier gameIdentifier, QuickJoinUser *quickJoinMember);
 
 	// Returns REC_REMOVE_FROM_QUICK_JOIN_*
-	RoomsErrorCode RemoveUserFromQuickJoin(RoomsParticipant* roomsParticipant, QuickJoinUser **qju);
+	RoomsErrorCode RemoveUserFromQuickJoin(RoomsParticipant *roomsParticipant, QuickJoinUser **qju);
 
 	// Is this user in quick join?
-	bool IsInQuickJoin(RoomsParticipant* roomsParticipant);
+	bool IsInQuickJoin(RoomsParticipant *roomsParticipant);
 
 	// Get all rooms for a certain title
-	static int RoomsSortByName( Room* const &key, Room* const &data );
-	RoomsErrorCode SearchByFilter( GameIdentifier gameIdentifier, RoomsParticipant* roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room*, Room*, RoomsSortByName> &roomsOutput, bool onlyJoinable );
+	static int RoomsSortByName(Room *const &key, Room *const &data);
+	RoomsErrorCode SearchByFilter(GameIdentifier gameIdentifier, RoomsParticipant *roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room *, Room *, RoomsSortByName> &roomsOutput, bool onlyJoinable);
 
 	// Deallocate a room
 	void DestroyRoomIfDead(Room *room);
@@ -453,10 +491,10 @@ class AllGamesRoomsContainer
 
 	unsigned int GetPropertyIndex(RoomID lobbyRoomId, const char *propertyName) const;
 
-	DataStructures::Map<GameIdentifier, PerGameRoomsContainer*> perGamesRoomsContainers;
+	DataStructures::Map<GameIdentifier, PerGameRoomsContainer *> perGamesRoomsContainers;
 
-	Room * GetRoomByLobbyRoomID(RoomID lobbyRoomID);
-	Room * GetRoomByName(MafiaNet::RakString roomName);
+	Room *GetRoomByLobbyRoomID(RoomID lobbyRoomID);
+	Room *GetRoomByName(MafiaNet::RakString roomName);
 
 protected:
 	RoomID nextRoomId;
@@ -471,44 +509,43 @@ public:
 	// Has pointer column to class Room
 	DataStructures::Table roomsTable;
 
-	// Members that are waiting to quick join	
-	DataStructures::List<QuickJoinUser*> quickJoinList;
+	// Members that are waiting to quick join
+	DataStructures::List<QuickJoinUser *> quickJoinList;
 
-	static int RoomsSortByTimeThenTotalSlots( Room* const &key, Room* const &data );
-				
-	protected:
+	static int RoomsSortByTimeThenTotalSlots(Room *const &key, Room *const &data);
 
+protected:
 	RoomsErrorCode CreateRoom(RoomCreationParameters *roomCreationParameters,
-		ProfanityFilter *profanityFilter,
-		RoomID lobbyRoomId,
-		bool validate);
-	RoomsErrorCode LeaveRoom(RoomsParticipant* roomsParticipant, bool *gotNewModerator);
-	RoomsErrorCode JoinByFilter(RoomMemberMode roomMemberMode, RoomsParticipant* roomsParticipant, RoomID lastRoomJoined, RoomQuery *query, JoinedRoomResult *joinRoomResult);
+	                          ProfanityFilter *profanityFilter,
+	                          RoomID lobbyRoomId,
+	                          bool validate);
+	RoomsErrorCode LeaveRoom(RoomsParticipant *roomsParticipant, bool *gotNewModerator);
+	RoomsErrorCode JoinByFilter(RoomMemberMode roomMemberMode, RoomsParticipant *roomsParticipant, RoomID lastRoomJoined, RoomQuery *query, JoinedRoomResult *joinRoomResult);
 	RoomsErrorCode AddUserToQuickJoin(QuickJoinUser *quickJoinMember);
-	RoomsErrorCode RemoveUserFromQuickJoin(RoomsParticipant* roomsParticipant, QuickJoinUser **qju);
-	bool IsInQuickJoin(RoomsParticipant* roomsParticipant);
-	unsigned int GetQuickJoinIndex(RoomsParticipant* roomsParticipant);
+	RoomsErrorCode RemoveUserFromQuickJoin(RoomsParticipant *roomsParticipant, QuickJoinUser **qju);
+	bool IsInQuickJoin(RoomsParticipant *roomsParticipant);
+	unsigned int GetQuickJoinIndex(RoomsParticipant *roomsParticipant);
 	void GetRoomNames(DataStructures::List<MafiaNet::RakString> &roomNames);
-	void GetAllRooms(DataStructures::List<Room*> &rooms);
+	void GetAllRooms(DataStructures::List<Room *> &rooms);
 	// Looks for a particular room that has a particular ID
-	Room * GetRoomByLobbyRoomID(RoomID lobbyRoomID);
-	Room * GetRoomByName(MafiaNet::RakString roomName);
-	RoomsErrorCode GetInvitesToParticipant(RoomsParticipant* roomsParticipant, DataStructures::List<InvitedUser*> &invites);
+	Room *GetRoomByLobbyRoomID(RoomID lobbyRoomID);
+	Room *GetRoomByName(MafiaNet::RakString roomName);
+	RoomsErrorCode GetInvitesToParticipant(RoomsParticipant *roomsParticipant, DataStructures::List<InvitedUser *> &invites);
 	bool DestroyRoomIfDead(Room *room);
 	void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
 
-	unsigned ProcessQuickJoins( DataStructures::List<QuickJoinUser*> &timeoutExpired,
-		DataStructures::List<JoinedRoomResult> &joinedRooms,
-		DataStructures::List<QuickJoinUser*> &dereferencedPointers,
-		MafiaNet::TimeMS elapsedTime,
-		RoomID startingRoomId);
+	unsigned ProcessQuickJoins(DataStructures::List<QuickJoinUser *> &timeoutExpired,
+	                           DataStructures::List<JoinedRoomResult> &joinedRooms,
+	                           DataStructures::List<QuickJoinUser *> &dereferencedPointers,
+	                           MafiaNet::TimeMS elapsedTime,
+	                           RoomID startingRoomId);
 
 	// Sort an input list of rooms
 	// Rooms are sorted by time created (longest is higher priority). If within one minute, then subsorted by total playable slot count (lower is higher priority).
 	// When using EnterRoom or JoinByFilter, record the last roomOutput joined, and try to avoid rejoining the same roomOutput just left
-	void RoomPrioritySort( RoomsParticipant* roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room*, Room*, RoomsSortByTimeThenTotalSlots> &roomsOutput );
-	
-	RoomsErrorCode SearchByFilter( RoomsParticipant* roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room*, Room*, AllGamesRoomsContainer::RoomsSortByName> &roomsOutput, bool onlyJoinable );
+	void RoomPrioritySort(RoomsParticipant *roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room *, Room *, RoomsSortByTimeThenTotalSlots> &roomsOutput);
+
+	RoomsErrorCode SearchByFilter(RoomsParticipant *roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room *, Room *, AllGamesRoomsContainer::RoomsSortByName> &roomsOutput, bool onlyJoinable);
 
 	friend class AllGamesRoomsContainer;
 	IntervalTimer nextQuickJoinProcess;
@@ -517,116 +554,116 @@ public:
 // Holds all the members of a particular roomOutput
 class Room
 {
-	public:
-		Room( RoomID _roomId, RoomCreationParameters *roomCreationParameters, DataStructures::Table::Row *_row, RoomsParticipant* roomsParticipant );
-		~Room();
-		RoomsErrorCode SendInvite(RoomsParticipant* roomsParticipant, RoomsParticipant* inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
-		RoomsErrorCode AcceptInvite(RoomsParticipant* roomsParticipant, MafiaNet::RakString inviteSender);
-		RoomsErrorCode StartSpectating(RoomsParticipant* roomsParticipant);
-		RoomsErrorCode StopSpectating(RoomsParticipant* roomsParticipant);
-		RoomsErrorCode GrantModerator(RoomsParticipant* roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
-		RoomsErrorCode ChangeSlotCounts(RoomsParticipant* roomsParticipant, Slots slots);
-		RoomsErrorCode SetCustomRoomProperties(RoomsParticipant* roomsParticipant, DataStructures::Table *table);
-		RoomsErrorCode ChangeRoomName(RoomsParticipant* roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
-		RoomsErrorCode SetHiddenFromSearches(RoomsParticipant* roomsParticipant, bool _hiddenFromSearches);
-		RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant* roomsParticipant, bool destroyOnModeratorLeave);
-		RoomsErrorCode SetReadyStatus(RoomsParticipant* roomsParticipant, bool isReady);
-		RoomsErrorCode GetReadyStatus(DataStructures::List<RoomsParticipant*> &readyUsers, DataStructures::List<RoomsParticipant*> &unreadyUsers);
-		RoomsErrorCode SetRoomLockState(RoomsParticipant* roomsParticipant, RoomLockState _roomLockState);
-		RoomsErrorCode GetRoomLockState(RoomLockState *_roomLockState);
-		RoomsErrorCode AreAllMembersReady(unsigned int exceptThisIndex, bool *allReady);
-		RoomsErrorCode KickMember(RoomsParticipant* roomsParticipant, RoomsParticipant *kickedParticipant, MafiaNet::RakString reason);
-		RoomsErrorCode UnbanMember(RoomsParticipant* roomsParticipant, MafiaNet::RakString name);
-		RoomsErrorCode GetBanReason(MafiaNet::RakString name, MafiaNet::RakString *reason);
-		RoomsErrorCode LeaveRoom(RoomsParticipant* roomsParticipant, RemoveUserResult *removeUserResult);
-		//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, MafiaNet::RakString *kickReason);
-		
-		RoomsErrorCode JoinByFilter(RoomsParticipant* roomsParticipant, RoomMemberMode roomMemberMode, JoinedRoomResult *joinRoomResult);
-		RoomsErrorCode JoinByQuickJoin(RoomsParticipant* roomsParticipant, RoomMemberMode roomMemberMode, JoinedRoomResult *joinRoomResult);
+public:
+	Room(RoomID _roomId, RoomCreationParameters *roomCreationParameters, DataStructures::Table::Row *_row, RoomsParticipant *roomsParticipant);
+	~Room();
+	RoomsErrorCode SendInvite(RoomsParticipant *roomsParticipant, RoomsParticipant *inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
+	RoomsErrorCode AcceptInvite(RoomsParticipant *roomsParticipant, MafiaNet::RakString inviteSender);
+	RoomsErrorCode StartSpectating(RoomsParticipant *roomsParticipant);
+	RoomsErrorCode StopSpectating(RoomsParticipant *roomsParticipant);
+	RoomsErrorCode GrantModerator(RoomsParticipant *roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
+	RoomsErrorCode ChangeSlotCounts(RoomsParticipant *roomsParticipant, Slots slots);
+	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant *roomsParticipant, DataStructures::Table *table);
+	RoomsErrorCode ChangeRoomName(RoomsParticipant *roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
+	RoomsErrorCode SetHiddenFromSearches(RoomsParticipant *roomsParticipant, bool _hiddenFromSearches);
+	RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant *roomsParticipant, bool destroyOnModeratorLeave);
+	RoomsErrorCode SetReadyStatus(RoomsParticipant *roomsParticipant, bool isReady);
+	RoomsErrorCode GetReadyStatus(DataStructures::List<RoomsParticipant *> &readyUsers, DataStructures::List<RoomsParticipant *> &unreadyUsers);
+	RoomsErrorCode SetRoomLockState(RoomsParticipant *roomsParticipant, RoomLockState _roomLockState);
+	RoomsErrorCode GetRoomLockState(RoomLockState *_roomLockState);
+	RoomsErrorCode AreAllMembersReady(unsigned int exceptThisIndex, bool *allReady);
+	RoomsErrorCode KickMember(RoomsParticipant *roomsParticipant, RoomsParticipant *kickedParticipant, MafiaNet::RakString reason);
+	RoomsErrorCode UnbanMember(RoomsParticipant *roomsParticipant, MafiaNet::RakString name);
+	RoomsErrorCode GetBanReason(MafiaNet::RakString name, MafiaNet::RakString *reason);
+	RoomsErrorCode LeaveRoom(RoomsParticipant *roomsParticipant, RemoveUserResult *removeUserResult);
+	//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, MafiaNet::RakString *kickReason);
 
-		bool IsHiddenToParticipant(RoomsParticipant* roomsParticipant) const;
+	RoomsErrorCode JoinByFilter(RoomsParticipant *roomsParticipant, RoomMemberMode roomMemberMode, JoinedRoomResult *joinRoomResult);
+	RoomsErrorCode JoinByQuickJoin(RoomsParticipant *roomsParticipant, RoomMemberMode roomMemberMode, JoinedRoomResult *joinRoomResult);
 
-		// Can this user join this roomOutput?
-		ParticipantCanJoinRoomResult ParticipantCanJoinAsPlayer( RoomsParticipant* roomsParticipant, bool asSpectator, bool checkHasInvite );
-		ParticipantCanJoinRoomResult ParticipantCanJoinRoom( RoomsParticipant* roomsParticipant, bool asSpectator, bool checkHasInvite );
+	bool IsHiddenToParticipant(RoomsParticipant *roomsParticipant) const;
 
-		// Returns true if there are only spectators, or nobody at all
-		bool IsRoomDead(void) const;		
+	// Can this user join this roomOutput?
+	ParticipantCanJoinRoomResult ParticipantCanJoinAsPlayer(RoomsParticipant *roomsParticipant, bool asSpectator, bool checkHasInvite);
+	ParticipantCanJoinRoomResult ParticipantCanJoinRoom(RoomsParticipant *roomsParticipant, bool asSpectator, bool checkHasInvite);
 
-		RoomsErrorCode GetInvitesToParticipant(RoomsParticipant* roomsParticipant, DataStructures::List<InvitedUser*> &invites);
+	// Returns true if there are only spectators, or nobody at all
+	bool IsRoomDead(void) const;
 
-		RoomsParticipant* GetModerator(void) const;
-		
-		//  Gets the roomOutput ID
-		RoomID GetID(void) const;
+	RoomsErrorCode GetInvitesToParticipant(RoomsParticipant *roomsParticipant, DataStructures::List<InvitedUser *> &invites);
 
-		double GetNumericProperty(RoomID lobbyRoomId, const char *propertyName) const;
-		const char *GetStringProperty(RoomID lobbyRoomId, const char *propertyName) const;
+	RoomsParticipant *GetModerator(void) const;
 
-		double GetNumericProperty(int index) const;
-		const char *GetStringProperty(int index) const;
-		void SetNumericProperty(int index, double value);
-		void SetStringProperty(int index, const char *value);
-				
-		// Public for easy access
-		DataStructures::List<RoomMember*> roomMemberList;
+	//  Gets the roomOutput ID
+	RoomID GetID(void) const;
 
-		DataStructures::List<InvitedUser> inviteList;
-		DataStructures::List<BannedUser> banList;
+	double GetNumericProperty(RoomID lobbyRoomId, const char *propertyName) const;
+	const char *GetStringProperty(RoomID lobbyRoomId, const char *propertyName) const;
 
-		// Don't store - slow because when removing users I have to iterate through every room
-		// DataStructures::List<KickedUser> kickedList;
-		
-		// Internal
-		DataStructures::List<QuickJoinUser*> quickJoinWorkingList;
-		
-		static void UpdateRowSlots( DataStructures::Table::Row* row, Slots *totalSlots, Slots *usedSlots);
+	double GetNumericProperty(int index) const;
+	const char *GetStringProperty(int index) const;
+	void SetNumericProperty(int index, double value);
+	void SetStringProperty(int index, const char *value);
 
-		void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
+	// Public for easy access
+	DataStructures::List<RoomMember *> roomMemberList;
+
+	DataStructures::List<InvitedUser> inviteList;
+	DataStructures::List<BannedUser> banList;
+
+	// Don't store - slow because when removing users I have to iterate through every room
+	// DataStructures::List<KickedUser> kickedList;
+
+	// Internal
+	DataStructures::List<QuickJoinUser *> quickJoinWorkingList;
+
+	static void UpdateRowSlots(DataStructures::Table::Row *row, Slots *totalSlots, Slots *usedSlots);
+
+	void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
+
 protected:
-		Room();
-		
-		// Updates the table row
-		RoomsErrorCode RemoveUser(RoomsParticipant* roomsParticipant,RemoveUserResult *removeUserResult);
+	Room();
 
-		bool IsRoomLockedToSpectators(void) const;
-		bool IsRoomLockedToPlayers(void) const;
+	// Updates the table row
+	RoomsErrorCode RemoveUser(RoomsParticipant *roomsParticipant, RemoveUserResult *removeUserResult);
 
-		bool IsInRoom(RoomsParticipant* roomsParticipant) const;
-		bool HasInvite(MafiaNet::RakString roomsParticipant);
-		unsigned int GetRoomIndex(RoomsParticipant* roomsParticipant) const;
-		unsigned int GetBannedIndex(MafiaNet::RakString username) const;
-		unsigned int GetInviteIndex(MafiaNet::RakString invitee, MafiaNet::RakString invitor) const;
-		unsigned int GetFirstInviteIndex(MafiaNet::RakString invitee) const;
-		bool AreAllPlayableSlotsFilled(void) const;
-		bool HasOpenPublicSlots(void) const;
-		bool HasOpenReservedSlots(void) const;
-		bool HasOpenSpectatorSlots(void) const;
-		void UpdateUsedSlots( void );
-		void UpdateUsedSlots( Slots *totalSlots, Slots *usedSlots );
-		static void UpdateUsedSlots( DataStructures::Table::Row* tableRow, Slots *totalSlots, Slots *usedSlots );
-		Slots GetTotalSlots(void) const;
-		void SetTotalSlots(Slots *totalSlots);
-		Slots GetUsedSlots(void) const;
-		
+	bool IsRoomLockedToSpectators(void) const;
+	bool IsRoomLockedToPlayers(void) const;
 
-		RoomLockState roomLockState;
-		
-		friend struct RoomDescriptor;
-		friend class PerGameRoomsContainer;
-		friend class AllGamesRoomsContainer;
+	bool IsInRoom(RoomsParticipant *roomsParticipant) const;
+	bool HasInvite(MafiaNet::RakString roomsParticipant);
+	unsigned int GetRoomIndex(RoomsParticipant *roomsParticipant) const;
+	unsigned int GetBannedIndex(MafiaNet::RakString username) const;
+	unsigned int GetInviteIndex(MafiaNet::RakString invitee, MafiaNet::RakString invitor) const;
+	unsigned int GetFirstInviteIndex(MafiaNet::RakString invitee) const;
+	bool AreAllPlayableSlotsFilled(void) const;
+	bool HasOpenPublicSlots(void) const;
+	bool HasOpenReservedSlots(void) const;
+	bool HasOpenSpectatorSlots(void) const;
+	void UpdateUsedSlots(void);
+	void UpdateUsedSlots(Slots *totalSlots, Slots *usedSlots);
+	static void UpdateUsedSlots(DataStructures::Table::Row *tableRow, Slots *totalSlots, Slots *usedSlots);
+	Slots GetTotalSlots(void) const;
+	void SetTotalSlots(Slots *totalSlots);
+	Slots GetUsedSlots(void) const;
 
-		RoomID lobbyRoomId;
-		DataStructures::Table::Row *tableRow;
 
-		bool autoLockReadyStatus;
-		bool hiddenFromSearches;
-//		bool destroyOnModeratorLeave;
-		bool clearInvitesOnNewModerator;
-		NetworkedRoomCreationParameters::SendInvitePermission inviteToRoomPermission, inviteToSpectatorSlotPermission;
+	RoomLockState roomLockState;
 
-		bool roomDestroyed;
+	friend struct RoomDescriptor;
+	friend class PerGameRoomsContainer;
+	friend class AllGamesRoomsContainer;
 
+	RoomID lobbyRoomId;
+	DataStructures::Table::Row *tableRow;
+
+	bool autoLockReadyStatus;
+	bool hiddenFromSearches;
+	//		bool destroyOnModeratorLeave;
+	bool clearInvitesOnNewModerator;
+	NetworkedRoomCreationParameters::SendInvitePermission inviteToRoomPermission, inviteToSpectatorSlotPermission;
+
+	bool roomDestroyed;
 };
 
 

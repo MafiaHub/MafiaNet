@@ -16,21 +16,21 @@ using namespace MafiaNet;
 
 namespace
 {
-	void DummyRpc(MafiaNet::BitStream *, Packet *, void *) {}
+void DummyRpc(MafiaNet::BitStream *, Packet *, void *) {}
 
-	// Attaches an RPC4 plugin (which synchronously replays every
-	// RPC4GlobalRegistration made so far via OnAttach) and answers whether a
-	// non-blocking function ended up registered under the given name.
-	bool GlobalRegistrationLandedAs(const char *name)
-	{
-		RakPeerInterface *peer = RakPeerInterface::GetInstance();
-		RPC4 rpc4;
-		peer->AttachPlugin(&rpc4);
-		const bool registered = rpc4.UnregisterFunction(name);
-		peer->DetachPlugin(&rpc4);
-		RakPeerInterface::DestroyInstance(peer);
-		return registered;
-	}
+// Attaches an RPC4 plugin (which synchronously replays every
+// RPC4GlobalRegistration made so far via OnAttach) and answers whether a
+// non-blocking function ended up registered under the given name.
+bool GlobalRegistrationLandedAs(const char *name)
+{
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	RPC4 rpc4;
+	peer->AttachPlugin(&rpc4);
+	const bool registered = rpc4.UnregisterFunction(name);
+	peer->DetachPlugin(&rpc4);
+	RakPeerInterface::DestroyInstance(peer);
+	return registered;
+}
 }
 
 // A name that exactly fills functionName minus the terminator must be stored

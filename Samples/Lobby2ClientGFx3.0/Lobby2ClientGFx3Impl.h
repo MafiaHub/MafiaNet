@@ -22,15 +22,16 @@
 #include "Lobby2Message.h"
 #include "mafianet/plugin_interface2.h"
 
-#define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs& pparams);
-#define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName) \
-void functionName(const FxDelegateArgs& pparams) \
-{ \
-	((className*)pparams.GetHandler())->functionName(pparams);  \
-} \
-void className::functionName(const FxDelegateArgs& pparams)
+#define ACTIONSCRIPT_CALLABLE_HEADER(functionName) virtual void functionName(const FxDelegateArgs &pparams);
+#define ACTIONSCRIPT_CALLABLE_FUNCTION(className, functionName)      \
+	void functionName(const FxDelegateArgs &pparams)                 \
+	{                                                                \
+		((className *) pparams.GetHandler())->functionName(pparams); \
+	}                                                                \
+	void className::functionName(const FxDelegateArgs &pparams)
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 // GFxPlayerTinyD3D9.cpp has an instance of this class, and callls the corresponding 3 function
 // This keeps the patching code out of the GFx sample as much as possible
@@ -44,7 +45,7 @@ public:
 	void Shutdown(void);
 
 	// Update all callbacks from flash
-	void                Accept(CallbackProcessor* cbreg);
+	void Accept(CallbackProcessor *cbreg);
 
 	// Calls from Flash
 	ACTIONSCRIPT_CALLABLE_HEADER(f2c_ResetDatabase);
@@ -172,16 +173,16 @@ public:
 	virtual void MessageResult(MafiaNet::Notification_Clans_Destroyed *message);
 
 
-	static void	OpenSite(const FxDelegateArgs& pparams);
+	static void OpenSite(const FxDelegateArgs &pparams);
 
 	// PluginInterface2
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 	virtual void OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAttemptReason failedConnectionAttemptReason);
 
 
 	GPtr<FxDelegate> delegate;
-	GPtr<GFxMovieView>      movie;
+	GPtr<GFxMovieView> movie;
 
 	MafiaNet::Lobby2Client *lobby2Client;
 	MafiaNet::Lobby2MessageFactory *messageFactory;

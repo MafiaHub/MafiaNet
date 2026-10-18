@@ -26,12 +26,12 @@ namespace MafiaNet
 /// PostgreSQL specific functionality to the lobby server
 class RAK_DLL_EXPORT Lobby2Server_PGSQL : public MafiaNet::Lobby2Server
 {
-public:	
+public:
 	Lobby2Server_PGSQL();
 	virtual ~Lobby2Server_PGSQL();
 
 	STATIC_FACTORY_DECLARATIONS(Lobby2Server_PGSQL)
-	
+
 	/// ConnectTo to the database \a numWorkerThreads times using the connection string
 	/// \param[in] conninfo See the postgre docs
 	/// \return True on success, false on failure.
@@ -43,14 +43,13 @@ public:
 	virtual void AddOutputFromThread(Lobby2Message *msg, unsigned int targetUserId, MafiaNet::RakString targetUserHandle);
 
 protected:
-
 	virtual void AddInputCommand(Lobby2ServerCommand command);
-	virtual void* PerThreadFactory(void *context);
-	virtual void PerThreadDestructor(void* factoryResult, void *context);
+	virtual void *PerThreadFactory(void *context);
+	virtual void PerThreadDestructor(void *factoryResult, void *context);
 	virtual void ClearConnections(void);
 	DataStructures::List<PostgreSQLInterface *> connectionPool;
 };
-	
+
 }
 
 #endif

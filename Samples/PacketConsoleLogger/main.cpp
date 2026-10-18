@@ -40,10 +40,10 @@ void main(void)
 	consoleServer.SetTransportProvider(&tt, 23);
 	rakPeer->AttachPlugin(&pcl);
 
-	MafiaNet::SocketDescriptor sd(0,0);
+	MafiaNet::SocketDescriptor sd(0, 0);
 	MafiaNet::StartupResult sr = rakPeer->Startup(32, &sd, 1);
 	(void) sr;
-	RakAssert(sr==RAKNET_STARTED);
+	RakAssert(sr == RAKNET_STARTED);
 
 	printf("Use telnet 127.0.0.1 23 to connect from the command window\n");
 	printf("Use 'Turn Windows features on and off' with 'Telnet Client' if needed.\n");
@@ -58,13 +58,13 @@ void main(void)
 
 	MafiaNet::ConnectionAttemptResult car = rakPeer->Connect("natpunch.slikesoft.com", 61111, 0, 0);
 	(void) car;
-	for(;;)
+	for (;;)
 	{
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 		}
 
 		consoleServer.Update();
 		RakSleep(30);
-	}	
+	}
 }

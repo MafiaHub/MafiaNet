@@ -16,7 +16,8 @@
 #include "mafianet/types.h"
 #include "FxGameDelegate.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 class AutopatcherClient;
 class FileListTransfer;
@@ -34,15 +35,15 @@ public:
 	void Shutdown(void);
 
 	// Callback from flash
-	static void PressedConnect(const FxDelegateArgs& pparams);
-	static void PressedOKBtn(const FxDelegateArgs& pparams);
-	static void	PressedPatch(const FxDelegateArgs& pparams);
-	static void	OpenSite(const FxDelegateArgs& pparams);
+	static void PressedConnect(const FxDelegateArgs &pparams);
+	static void PressedOKBtn(const FxDelegateArgs &pparams);
+	static void PressedPatch(const FxDelegateArgs &pparams);
+	static void OpenSite(const FxDelegateArgs &pparams);
 
 	// Update all callbacks from flash
-	void                Accept(CallbackProcessor* cbreg);
+	void Accept(CallbackProcessor *cbreg);
 
-	const char* Connect(const char *ip, unsigned short port);
+	const char *Connect(const char *ip, unsigned short port);
 	void UpdateConnectResult(bool isConnected);
 	void SaveLastUpdateDate(void);
 	void LoadLastUpdateDate(double *out, const char *appDir);
@@ -55,8 +56,7 @@ public:
 	char pathToThisExe[512];
 	char appDirectory[512];
 	GPtr<FxDelegate> delegate;
-	GPtr<GFxMovieView>      movie;
-
+	GPtr<GFxMovieView> movie;
 };
 
 } // namespace MafiaNet

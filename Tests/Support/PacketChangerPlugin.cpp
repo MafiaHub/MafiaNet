@@ -24,9 +24,11 @@ void PacketChangerPlugin::OnInternalPacket(InternalPacket *internalPacket, unsig
 	// protocol traffic (e.g. the connection handshake); rewriting those would corrupt
 	// the connection, which matters now that this plugin is attached before the peer
 	// connects (required for thread-safe attach of a reliability-layer plugin).
-	if (internalPacket->dataBitLength >= 8 && internalPacket->data[0] >= (unsigned char)ID_USER_PACKET_ENUM)
-		internalPacket->data[0]=ID_USER_PACKET_ENUM+2;
+	if (internalPacket->dataBitLength >= 8 && internalPacket->data[0] >= (unsigned char) ID_USER_PACKET_ENUM)
+		internalPacket->data[0] = ID_USER_PACKET_ENUM + 2;
 
-	(void) frameNumber; (void) remoteSystemAddress; (void) time; (void) isSend;
-
+	(void) frameNumber;
+	(void) remoteSystemAddress;
+	(void) time;
+	(void) isSend;
 }

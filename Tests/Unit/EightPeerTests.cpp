@@ -19,70 +19,70 @@ using namespace MafiaNet;
 
 namespace
 {
-	const int kPeerNum = 8;
-	const int kNumPackets = 100;
-	const MessageID ID_MESH_BROADCAST = ID_USER_PACKET_ENUM + 1;
+const int kPeerNum = 8;
+const int kNumPackets = 100;
+const MessageID ID_MESH_BROADCAST = ID_USER_PACKET_ENUM + 1;
 
-	int CountOf(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
+int CountOf(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
+{
+	int count = 0;
+	for (const auto &message : net.Inbox(peer))
+		if (message.id == id)
+			++count;
+	return count;
+}
+
+// Messages that must never show up in this scenario.
+const MessageID kFailureIds[] = {
+    ID_REMOTE_DISCONNECTION_NOTIFICATION,
+    ID_REMOTE_CONNECTION_LOST,
+    ID_CONNECTION_ATTEMPT_FAILED,
+    ID_NO_FREE_INCOMING_CONNECTIONS,
+    ID_ALREADY_CONNECTED,
+    ID_DISCONNECTION_NOTIFICATION,
+    ID_CONNECTION_LOST,
+};
+
+class EightPeerSim : public ::testing::Test
+{
+protected:
+	void SetUp() override
 	{
-		int count = 0;
-		for (const auto &message : net.Inbox(peer))
-			if (message.id == id)
-				++count;
-		return count;
+		for (int i = 0; i < kPeerNum; ++i)
+			peers[i] = net.AddPeer(kPeerNum * 2, kPeerNum);
 	}
 
-	// Messages that must never show up in this scenario.
-	const MessageID kFailureIds[] = {
-		ID_REMOTE_DISCONNECTION_NOTIFICATION,
-		ID_REMOTE_CONNECTION_LOST,
-		ID_CONNECTION_ATTEMPT_FAILED,
-		ID_NO_FREE_INCOMING_CONNECTIONS,
-		ID_ALREADY_CONNECTED,
-		ID_DISCONNECTION_NOTIFICATION,
-		ID_CONNECTION_LOST,
-	};
-
-	class EightPeerSim : public ::testing::Test
+	int ConnectionsSeen(int i)
 	{
-	protected:
-		void SetUp() override
-		{
-			for (int i = 0; i < kPeerNum; ++i)
-				peers[i] = net.AddPeer(kPeerNum * 2, kPeerNum);
-		}
+		return CountOf(net, peers[i], ID_CONNECTION_REQUEST_ACCEPTED) +
+		       CountOf(net, peers[i], ID_NEW_INCOMING_CONNECTION);
+	}
 
-		int ConnectionsSeen(int i)
-		{
-			return CountOf(net, peers[i], ID_CONNECTION_REQUEST_ACCEPTED) +
-				CountOf(net, peers[i], ID_NEW_INCOMING_CONNECTION);
-		}
+	void ExpectNoFailures()
+	{
+		for (int i = 0; i < kPeerNum; ++i)
+			for (MessageID id : kFailureIds)
+				EXPECT_FALSE(net.Received(peers[i], id)) << "peer " << i << " received message id " << (int) id;
+	}
 
-		void ExpectNoFailures()
-		{
-			for (int i = 0; i < kPeerNum; ++i)
-				for (MessageID id : kFailureIds)
-					EXPECT_FALSE(net.Received(peers[i], id)) << "peer " << i << " received message id " << (int) id;
-		}
+	void ConnectMesh()
+	{
+		for (int i = 0; i < kPeerNum; ++i)
+			for (int j = i + 1; j < kPeerNum; ++j)
+				ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(peers[i], peers[j])) << i << " -> " << j;
 
-		void ConnectMesh()
-		{
-			for (int i = 0; i < kPeerNum; ++i)
-				for (int j = i + 1; j < kPeerNum; ++j)
-					ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(peers[i], peers[j])) << i << " -> " << j;
-
-			const bool allConnected = net.RunUntil([&] {
+		const bool allConnected = net.RunUntil([&]
+		                                       {
 				for (int i = 0; i < kPeerNum; ++i)
 					if (ConnectionsSeen(i) < kPeerNum - 1)
 						return false;
-				return true;
-			}, 20000);
-			ASSERT_TRUE(allConnected) << "peers failed to connect to all peers within 20s";
-		}
+				return true; }, 20000);
+		ASSERT_TRUE(allConnected) << "peers failed to connect to all peers within 20s";
+	}
 
-		SimulatedNetwork net;
-		RakPeer *peers[kPeerNum] = {};
-	};
+	SimulatedNetwork net;
+	RakPeer *peers[kPeerNum] = {};
+};
 }
 
 TEST_F(EightPeerSim, FullMeshConnectsWithoutFailures)
@@ -116,12 +116,12 @@ TEST_F(EightPeerSim, ReliableOrderedBroadcastArrivesCompleteAndInOrder)
 		net.Step(10);
 	}
 
-	ASSERT_TRUE(net.RunUntil([&] {
+	ASSERT_TRUE(net.RunUntil([&]
+	                         {
 		for (int i = 0; i < kPeerNum; ++i)
 			if (CountOf(net, peers[i], ID_MESH_BROADCAST) < kNumPackets * (kPeerNum - 1))
 				return false;
-		return true;
-	}, 5000));
+		return true; }, 5000));
 
 	for (int i = 0; i < kPeerNum; ++i)
 	{

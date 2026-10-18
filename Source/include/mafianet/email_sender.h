@@ -18,7 +18,7 @@
 ///
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_EmailSender==1 && _RAKNET_SUPPORT_TCPInterface==1 && _RAKNET_SUPPORT_FileOperations==1
+#if _RAKNET_SUPPORT_EmailSender == 1 && _RAKNET_SUPPORT_TCPInterface == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 #ifndef __EMAIL_SENDER_H
 #define __EMAIL_SENDER_H

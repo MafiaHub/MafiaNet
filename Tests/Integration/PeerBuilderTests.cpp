@@ -45,26 +45,26 @@ TEST(PeerBuilder, ServerClientConnectAndPortClash)
 	// --- 1. Server builder replaces the manual 3-call sequence; client connects ---
 	{
 		auto serverResult = Peer::server()
-			.port(0)
-			.host("127.0.0.1")
-			.max_connections(4)
-			.incoming_password(PEERBUILDER_PASSWORD)
-			.start();
+		                        .port(0)
+		                        .host("127.0.0.1")
+		                        .max_connections(4)
+		                        .incoming_password(PEERBUILDER_PASSWORD)
+		                        .start();
 		ASSERT_TRUE(serverResult)
-			<< "server builder start() failed: StartupResult " << (int) serverResult.error().startup;
+		    << "server builder start() failed: StartupResult " << (int) serverResult.error().startup;
 		ASSERT_TRUE(serverResult->get()->IsActive()) << "server is not active after start()";
 		// The builder must have applied SetMaximumIncomingConnections, not just Startup.
 		ASSERT_EQ(serverResult->get()->GetMaximumIncomingConnections(), 4)
-			<< "server incoming-connection cap not set by builder";
+		    << "server incoming-connection cap not set by builder";
 		const unsigned short serverPort = serverResult->get()->GetInternalID().GetPort();
 		ASSERT_NE(serverPort, 0) << "server has no bound port";
 
 		auto clientResult = Peer::client()
-			.max_connections(1)
-			.connect("127.0.0.1", serverPort, PEERBUILDER_PASSWORD)
-			.start();
+		                        .max_connections(1)
+		                        .connect("127.0.0.1", serverPort, PEERBUILDER_PASSWORD)
+		                        .start();
 		ASSERT_TRUE(clientResult)
-			<< "client builder start() failed: stage " << (int) clientResult.error().stage;
+		    << "client builder start() failed: stage " << (int) clientResult.error().stage;
 
 		// Move the peers out of their Results to prove Result<Peer> is move-only
 		// and the handle survives the transfer.
@@ -89,7 +89,7 @@ TEST(PeerBuilder, ServerClientConnectAndPortClash)
 				{
 					ASSERT_FALSE(pkt.id() == ID_CONNECTION_ATTEMPT_FAILED ||
 					             pkt.id() == ID_INVALID_PASSWORD)
-						<< "client connection rejected (id " << (int) pkt.id() << ")";
+					    << "client connection rejected (id " << (int) pkt.id() << ")";
 				}
 			}
 			RakSleep(30);
@@ -103,23 +103,23 @@ TEST(PeerBuilder, ServerClientConnectAndPortClash)
 	{
 		// Hold an OS-assigned port so the second server cannot bind it.
 		auto holder = Peer::server()
-			.port(0)
-			.max_connections(1)
-			.start();
+		                  .port(0)
+		                  .max_connections(1)
+		                  .start();
 		ASSERT_TRUE(holder) << "port-holder server failed to start";
 		const unsigned short heldPort = holder->get()->GetInternalID().GetPort();
 		ASSERT_NE(heldPort, 0) << "port-holder server has no bound port";
 
 		auto clash = Peer::server()
-			.port(heldPort)
-			.max_connections(1)
-			.start();
+		                 .port(heldPort)
+		                 .max_connections(1)
+		                 .start();
 		ASSERT_FALSE(clash) << "second server unexpectedly bound an in-use port";
 		ASSERT_EQ(clash.error().stage, PeerStage::Startup)
-			<< "port-clash failure did not report PeerStage::Startup";
+		    << "port-clash failure did not report PeerStage::Startup";
 		// The engine enum is preserved, not collapsed to a bool.
 		ASSERT_NE(clash.error().startup, RAKNET_STARTED)
-			<< "port-clash failure carries RAKNET_STARTED (enum was lost)";
+		    << "port-clash failure carries RAKNET_STARTED (enum was lost)";
 	}
 }
 
@@ -130,15 +130,15 @@ TEST(PeerBuilder, ConnectFailureSurfacesConnectionAttemptResult)
 	// (getaddrinfo rejects it), so Connect returns CANNOT_RESOLVE_DOMAIN_NAME
 	// without any network round-trip, so the remote port is never used.
 	auto badClient = Peer::client()
-		.max_connections(1)
-		.connect("!!!not_a_valid_host!!!", 1)
-		.start();
+	                     .max_connections(1)
+	                     .connect("!!!not_a_valid_host!!!", 1)
+	                     .start();
 	ASSERT_FALSE(badClient) << "client unexpectedly connected to an invalid host";
 	ASSERT_EQ(badClient.error().stage, PeerStage::Connect)
-		<< "connect failure did not report PeerStage::Connect (stage "
-		<< (int) badClient.error().stage << ")";
+	    << "connect failure did not report PeerStage::Connect (stage "
+	    << (int) badClient.error().stage << ")";
 	ASSERT_NE(badClient.error().connect, CONNECTION_ATTEMPT_STARTED)
-		<< "connect failure carries CONNECTION_ATTEMPT_STARTED (enum was lost)";
+	    << "connect failure carries CONNECTION_ATTEMPT_STARTED (enum was lost)";
 }
 
 // --- Client builder without a target performs Startup only ---
@@ -146,6 +146,6 @@ TEST(PeerBuilder, ClientBuilderWithoutTargetStartsUpOnly)
 {
 	auto idle = Peer::client().max_connections(1).start();
 	ASSERT_TRUE(idle)
-		<< "startup-only client builder failed: StartupResult " << (int) idle.error().startup;
+	    << "startup-only client builder failed: StartupResult " << (int) idle.error().startup;
 	ASSERT_TRUE(idle->get()->IsActive()) << "startup-only client is not active";
 }

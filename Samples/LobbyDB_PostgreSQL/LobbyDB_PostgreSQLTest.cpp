@@ -35,7 +35,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("CreateUser call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("CreateUser call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -55,12 +55,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetUser call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetUser call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
-		else if (callResult->userFound==false)
+		else if (callResult->userFound == false)
 		{
 			printf("GetUser call did not find specified user.\n");
 		}
@@ -119,7 +119,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("UpdateUser call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("UpdateUser call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -134,7 +134,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("DeleteUser call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("DeleteUser call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -149,12 +149,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("ChangeUserHandle call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("ChangeUserHandle call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
-		else if (callResult->success==false)
+		else if (callResult->success == false)
 		{
 			printf("ChangeUserHandle failed: %s.", callResult->queryResult.C_String());
 		}
@@ -168,11 +168,11 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("AddAccountNote call canceled:\n");
-		else if (callResult->userFound==false)
+		else if (callResult->userFound == false)
 		{
 			printf("AddAccountNote call user not found:\n");
 		}
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("AddAccountNote call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -187,25 +187,25 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetAccountNotes call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetAccountNotes call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
 		else
 		{
-			if (callResult->accountNotes.Size()>0)
+			if (callResult->accountNotes.Size() > 0)
 			{
 				printf("GetAccountNotes Result:\n");
 				unsigned i;
-				for (i=0; i < callResult->accountNotes.Size(); i++)
+				for (i = 0; i < callResult->accountNotes.Size(); i++)
 				{
-					printf("%i. moderatorId=%i\n", i+1, callResult->accountNotes[i]->moderatorId);
-					printf("%i. moderatorUsername=%s\n", i+1, callResult->accountNotes[i]->moderatorUsername.C_String());
-					printf("%i. type=%s\n", i+1, callResult->accountNotes[i]->type.C_String());
-					printf("%i. subject=%s\n", i+1, callResult->accountNotes[i]->subject.C_String());
-					printf("%i. body=%s\n", i+1, callResult->accountNotes[i]->body.C_String());
-					printf("%i. creationTime=%s\n", i+1, EpochTimeToString(callResult->accountNotes[i]->time));
+					printf("%i. moderatorId=%i\n", i + 1, callResult->accountNotes[i]->moderatorId);
+					printf("%i. moderatorUsername=%s\n", i + 1, callResult->accountNotes[i]->moderatorUsername.C_String());
+					printf("%i. type=%s\n", i + 1, callResult->accountNotes[i]->type.C_String());
+					printf("%i. subject=%s\n", i + 1, callResult->accountNotes[i]->subject.C_String());
+					printf("%i. body=%s\n", i + 1, callResult->accountNotes[i]->body.C_String());
+					printf("%i. creationTime=%s\n", i + 1, EpochTimeToString(callResult->accountNotes[i]->time));
 				}
 			}
 			else
@@ -219,11 +219,11 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("AddFriend call canceled:\n");
-		else if (callResult->success==false)
+		else if (callResult->success == false)
 		{
 			printf("AddFriend failed: %s.\n", callResult->queryResult.C_String());
 		}
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("AddFriend call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -239,7 +239,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("RemoveFriend call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("RemoveFriend call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -255,24 +255,24 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetFriends call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetFriends call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
 		else
 		{
-			if (callResult->friends.Size()>0)
+			if (callResult->friends.Size() > 0)
 			{
 				printf("GetFriends Result:\n");
 				unsigned i;
-				for (i=0; i < callResult->friends.Size(); i++)
+				for (i = 0; i < callResult->friends.Size(); i++)
 				{
-					printf("%i. yourId=%i\n", i+1, callResult->friends[i]->id.databaseRowId);
-					printf("%i. yourUsername=%s\n", i+1, callResult->friends[i]->id.handle.C_String());
-					printf("%i. friendId=%i\n", i+1, callResult->friends[i]->friendId.databaseRowId);
-					printf("%i. friendUsername=%s\n", i+1, callResult->friends[i]->friendId.handle.C_String());
-					printf("%i. creationTime=%s\n", i+1, EpochTimeToString(callResult->friends[i]->creationTime));
+					printf("%i. yourId=%i\n", i + 1, callResult->friends[i]->id.databaseRowId);
+					printf("%i. yourUsername=%s\n", i + 1, callResult->friends[i]->id.handle.C_String());
+					printf("%i. friendId=%i\n", i + 1, callResult->friends[i]->friendId.databaseRowId);
+					printf("%i. friendUsername=%s\n", i + 1, callResult->friends[i]->friendId.handle.C_String());
+					printf("%i. creationTime=%s\n", i + 1, EpochTimeToString(callResult->friends[i]->creationTime));
 				}
 			}
 			else
@@ -288,11 +288,11 @@ class DBResultHandler : public LobbyDBCBInterface
 		{
 			printf("AddToIgnoreList call canceled.");
 		}
-		else if (callResult->success==false)
+		else if (callResult->success == false)
 		{
 			printf("AddToIgnoreList failed: %s.\n", callResult->queryResult.C_String());
 		}
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("AddToIgnoreList call DB failure.\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -308,7 +308,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("RemoveFromIgnoreList call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("RemoveFromIgnoreList call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -324,24 +324,24 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetIgnoreList call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetIgnoreList call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
 		else
 		{
-			if (callResult->ignoredUsers.Size()>0)
+			if (callResult->ignoredUsers.Size() > 0)
 			{
 				printf("GetIgnoreList Result:\n");
 				unsigned i;
-				for (i=0; i < callResult->ignoredUsers.Size(); i++)
+				for (i = 0; i < callResult->ignoredUsers.Size(); i++)
 				{
-					printf("%i. yourId=%i\n", i+1, callResult->ignoredUsers[i]->id.databaseRowId);
-					printf("%i. yourUsername=%s\n", i+1, callResult->ignoredUsers[i]->id.handle.C_String());
-					printf("%i. ignoredUser.id=%i\n", i+1, callResult->ignoredUsers[i]->ignoredUser.databaseRowId);
-					printf("%i. ignoredUser.userHandle=%s\n", i+1, callResult->ignoredUsers[i]->ignoredUser.handle.C_String());
-					printf("%i. creationTime=%s\n", i+1, EpochTimeToString(callResult->ignoredUsers[i]->creationTime));
+					printf("%i. yourId=%i\n", i + 1, callResult->ignoredUsers[i]->id.databaseRowId);
+					printf("%i. yourUsername=%s\n", i + 1, callResult->ignoredUsers[i]->id.handle.C_String());
+					printf("%i. ignoredUser.id=%i\n", i + 1, callResult->ignoredUsers[i]->ignoredUser.databaseRowId);
+					printf("%i. ignoredUser.userHandle=%s\n", i + 1, callResult->ignoredUsers[i]->ignoredUser.handle.C_String());
+					printf("%i. creationTime=%s\n", i + 1, EpochTimeToString(callResult->ignoredUsers[i]->creationTime));
 				}
 			}
 			else
@@ -355,12 +355,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("SendEmail call canceled:\n");
-		else if (callResult->validParameters==false)
+		else if (callResult->validParameters == false)
 		{
 			printf("SendEmail invalid parameters:\n");
 			printf("%s", callResult->failureMessage.C_String());
 		}
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("SendEmail call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -375,12 +375,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetEmails_CB call canceled:\n");
-		else if (callResult->validParameters==false)
+		else if (callResult->validParameters == false)
 		{
 			printf("GetEmails invalid parameters:\n");
 			printf("%s", callResult->failureMessage.C_String());
 		}
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetEmails_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -391,16 +391,16 @@ class DBResultHandler : public LobbyDBCBInterface
 			printf("inbox=%i\n", callResult->inbox);
 
 			unsigned i;
-			for (i=0; i < callResult->emails.Size(); i++)
+			for (i = 0; i < callResult->emails.Size(); i++)
 			{
-				printf("%i. id.userId=%i\n", i+1, callResult->emails[i]->id.databaseRowId);
-				printf("%i. id.userHandle=%s\n", i+1, callResult->emails[i]->id.handle.C_String());
-				printf("%i. emailMessageID=%i\n", i+1, callResult->emails[i]->emailMessageID);
-				printf("%i. subject=%s\n", i+1, callResult->emails[i]->subject.C_String());
-				printf("%i. body=%s\n", i+1, callResult->emails[i]->body.C_String());
-				printf("%i. creationTime=%s\n", i+1, EpochTimeToString(callResult->emails[i]->creationTime));
-				printf("%i. status=%i\n", i+1, callResult->emails[i]->status);
-				printf("%i. attachmentLength=%i\n", i+1, callResult->emails[i]->attachmentLength);
+				printf("%i. id.userId=%i\n", i + 1, callResult->emails[i]->id.databaseRowId);
+				printf("%i. id.userHandle=%s\n", i + 1, callResult->emails[i]->id.handle.C_String());
+				printf("%i. emailMessageID=%i\n", i + 1, callResult->emails[i]->emailMessageID);
+				printf("%i. subject=%s\n", i + 1, callResult->emails[i]->subject.C_String());
+				printf("%i. body=%s\n", i + 1, callResult->emails[i]->body.C_String());
+				printf("%i. creationTime=%s\n", i + 1, EpochTimeToString(callResult->emails[i]->creationTime));
+				printf("%i. status=%i\n", i + 1, callResult->emails[i]->status);
+				printf("%i. attachmentLength=%i\n", i + 1, callResult->emails[i]->attachmentLength);
 			}
 		}
 		printf("\n");
@@ -409,7 +409,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("DeleteEmail_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("DeleteEmail_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -424,7 +424,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("UpdateEmailStatus_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("UpdateEmailStatus_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -439,12 +439,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetHandleFromUserId_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetHandleFromUserId_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
-		else if (callResult->success==false)
+		else if (callResult->success == false)
 		{
 			printf("GetHandleFromUserId_CB lookup failure:\n");
 		}
@@ -460,12 +460,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetUserIdFromHandle_CB call canceled.");
-		else if (callResult->dbQuerySuccess==false)	
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetUserIdFromHandle_CB call DB failure.");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
-		else if (callResult->success==false)
+		else if (callResult->success == false)
 		{
 			printf("GetUserIdFromHandle_CB lookup failure.");
 		}
@@ -481,7 +481,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("AddDisallowedHandle_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("AddDisallowedHandle_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -496,7 +496,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("RemoveDisallowedHandle_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("RemoveDisallowedHandle_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -511,7 +511,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("IsDisallowedHandle_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("IsDisallowedHandle_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -527,7 +527,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("AddToActionHistory_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("AddToActionHistory_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -542,7 +542,7 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetActionHistory_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("GetActionHistory_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
@@ -554,15 +554,15 @@ class DBResultHandler : public LobbyDBCBInterface
 		printf("\n");
 
 		unsigned i;
-		for (i=0; i < callResult->history.Size(); i++)
+		for (i = 0; i < callResult->history.Size(); i++)
 		{
-			printf("%i. id.userId=%i\n", i+1, callResult->history[i]->id.databaseRowId);
-			printf("%i. id.userHandle=%s\n", i+1, callResult->history[i]->id.handle.C_String());
-			printf("%i. actionTime=%s\n", i+1, callResult->history[i]->actionTime);
-			printf("%i. actionTaken=%s\n", i+1, callResult->history[i]->actionTaken.C_String());
-			printf("%i. description=%s\n", i+1, callResult->history[i]->description.C_String());
-			printf("%i. sourceIpAddress=%s\n", i+1, callResult->history[i]->sourceIpAddress.C_String());
-			printf("%i. creationTime=%s\n", i+1, EpochTimeToString(callResult->history[i]->creationTime));
+			printf("%i. id.userId=%i\n", i + 1, callResult->history[i]->id.databaseRowId);
+			printf("%i. id.userHandle=%s\n", i + 1, callResult->history[i]->id.handle.C_String());
+			printf("%i. actionTime=%s\n", i + 1, callResult->history[i]->actionTime);
+			printf("%i. actionTaken=%s\n", i + 1, callResult->history[i]->actionTaken.C_String());
+			printf("%i. description=%s\n", i + 1, callResult->history[i]->description.C_String());
+			printf("%i. sourceIpAddress=%s\n", i + 1, callResult->history[i]->sourceIpAddress.C_String());
+			printf("%i. creationTime=%s\n", i + 1, EpochTimeToString(callResult->history[i]->creationTime));
 		}
 	}
 
@@ -572,12 +572,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("UpdateClanMember_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("UpdateClanMember_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
-		else if (callResult->failureMessage.IsEmpty()==false)
+		else if (callResult->failureMessage.IsEmpty() == false)
 		{
 			printf("UpdateClanMember_CB general failure:\n");
 			printf("%s", callResult->failureMessage.C_String());
@@ -592,12 +592,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("UpdateClan_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
+		else if (callResult->dbQuerySuccess == false)
 		{
 			printf("UpdateClan_CB call DB failure:\n");
 			printf("%s", callResult->lobbyServer->GetLastError());
 		}
-		else if (callResult->failureMessage.IsEmpty()==false)
+		else if (callResult->failureMessage.IsEmpty() == false)
 		{
 			printf("UpdateClan_CB general failure:\n");
 			printf("%s", callResult->failureMessage.C_String());
@@ -612,14 +612,14 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("CreateClan_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("CreateClan_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 			printf("%s\n", callResult->initialClanData.failureMessage.C_String());
 			printf("%s", callResult->leaderData.failureMessage.C_String());
-		}	
-		else if (callResult->initialClanData.failureMessage.IsEmpty()==false || callResult->leaderData.failureMessage.IsEmpty()==false	)
+		}
+		else if (callResult->initialClanData.failureMessage.IsEmpty() == false || callResult->leaderData.failureMessage.IsEmpty() == false)
 		{
 			printf("CreateClan_CB general failure:\n");
 			printf("%s\n", callResult->initialClanData.failureMessage.C_String());
@@ -635,12 +635,12 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("ChangeClanHandle_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("ChangeClanHandle_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
-		}	
-		else if (callResult->failureMessage.IsEmpty()==false)
+		}
+		else if (callResult->failureMessage.IsEmpty() == false)
 		{
 			printf("ChangeClanHandle_CB general failure:\n");
 			printf("%s\n", callResult->failureMessage.C_String());
@@ -655,8 +655,8 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("DeleteClan_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("DeleteClan_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 		}
@@ -670,8 +670,8 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetClans_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("GetClans_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 		}
@@ -681,15 +681,15 @@ class DBResultHandler : public LobbyDBCBInterface
 			LobbyDBSpec::UpdateClanMember_Data *member;
 			LobbyDBSpec::UpdateClan_Data *clan;
 
-			if (callResult->clans.Size()>0)
+			if (callResult->clans.Size() > 0)
 			{
 				printf("%i CLANS FOUND for user %i\n", callResult->clans.Size(), callResult->userId.databaseRowId);
-				for (clanIndex=0; clanIndex < callResult->clans.Size(); clanIndex++)
+				for (clanIndex = 0; clanIndex < callResult->clans.Size(); clanIndex++)
 				{
 					clan = callResult->clans[clanIndex];
-					printf("(%i.) CLAN %s (ID=%i):\n", clanIndex+1, clan->handle.C_String(), clan->clanId.databaseRowId);
-					printf("%i %i %i %i:\n", clan->integers[0], clan->integers[1],clan->integers[2],clan->integers[3]);
-					printf("%.1f %.1f %.1f %.1f:\n", clan->floats[0], clan->floats[1],clan->floats[2],clan->floats[3]);
+					printf("(%i.) CLAN %s (ID=%i):\n", clanIndex + 1, clan->handle.C_String(), clan->clanId.databaseRowId);
+					printf("%i %i %i %i:\n", clan->integers[0], clan->integers[1], clan->integers[2], clan->integers[3]);
+					printf("%.1f %.1f %.1f %.1f:\n", clan->floats[0], clan->floats[1], clan->floats[2], clan->floats[3]);
 					printf("DESC1: %s\n", clan->descriptions[0].C_String());
 					printf("DESC2: %s\n", clan->descriptions[1].C_String());
 					printf("Requires invitations to join = ");
@@ -699,37 +699,35 @@ class DBResultHandler : public LobbyDBCBInterface
 						printf("false\n");
 
 					printf("Member list for clan %s:\n", clan->handle.C_String());
-					for (memberIndex=0; memberIndex < callResult->clans[clanIndex]->members.Size(); memberIndex++)
+					for (memberIndex = 0; memberIndex < callResult->clans[clanIndex]->members.Size(); memberIndex++)
 					{
 						member = clan->members[memberIndex];
-						printf("(%i.) ", memberIndex+1);
-						if (member->mEStatus1==LobbyDBSpec::CLAN_MEMBER_STATUS_LEADER)
+						printf("(%i.) ", memberIndex + 1);
+						if (member->mEStatus1 == LobbyDBSpec::CLAN_MEMBER_STATUS_LEADER)
 							printf("<Leader>");
-						else if (member->mEStatus1==LobbyDBSpec::CLAN_MEMBER_STATUS_SUBLEADER)
+						else if (member->mEStatus1 == LobbyDBSpec::CLAN_MEMBER_STATUS_SUBLEADER)
 							printf("<Subleader>");
-						else if (member->mEStatus1==LobbyDBSpec::CLAN_MEMBER_STATUS_MEMBER)
+						else if (member->mEStatus1 == LobbyDBSpec::CLAN_MEMBER_STATUS_MEMBER)
 							printf("<Member>");
-						else if (member->mEStatus1==LobbyDBSpec::CLAN_MEMBER_STATUS_REQUESTED_TO_JOIN)
+						else if (member->mEStatus1 == LobbyDBSpec::CLAN_MEMBER_STATUS_REQUESTED_TO_JOIN)
 							printf("<Requested>");
-						else if (member->mEStatus1==LobbyDBSpec::CLAN_MEMBER_STATUS_INVITED_TO_JOIN)
+						else if (member->mEStatus1 == LobbyDBSpec::CLAN_MEMBER_STATUS_INVITED_TO_JOIN)
 							printf("<Invited>");
-						else if (member->mEStatus1==LobbyDBSpec::CLAN_MEMBER_STATUS_BLACKLISTED)
+						else if (member->mEStatus1 == LobbyDBSpec::CLAN_MEMBER_STATUS_BLACKLISTED)
 							printf("<Blacklisted>");
 						else
 							printf("<Unknown>");
 						printf(" %s (ID=%i)\n", member->userId.handle.C_String(), member->userId.databaseRowId);
 
-						printf("%i %i %i %i:\n", member->integers[0], member->integers[1],member->integers[2],member->integers[3]);
-						printf("%.1f %.1f %.1f %.1f:\n", member->floats[0], member->floats[1],member->floats[2],member->floats[3]);
+						printf("%i %i %i %i:\n", member->integers[0], member->integers[1], member->integers[2], member->integers[3]);
+						printf("%.1f %.1f %.1f %.1f:\n", member->floats[0], member->floats[1], member->floats[2], member->floats[3]);
 						printf("DESC1: %s\n", member->descriptions[0].C_String());
 						printf("DESC2: %s\n", member->descriptions[1].C_String());
 					}
 				}
-				
 			}
 			else
 				printf("No clans found");
-
 		}
 		printf("\n");
 	}
@@ -737,8 +735,8 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("RemoveFromClan_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("RemoveFromClan_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 		}
@@ -752,8 +750,8 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("AddToClanBoard_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("AddToClanBoard_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 		}
@@ -767,8 +765,8 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("RemoveFromClanBoard_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("RemoveFromClanBoard_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 		}
@@ -782,8 +780,8 @@ class DBResultHandler : public LobbyDBCBInterface
 	{
 		if (wasCancelled)
 			printf("GetClanBoard_CB call canceled:\n");
-		else if (callResult->dbQuerySuccess==false)
-		{	
+		else if (callResult->dbQuerySuccess == false)
+		{
 			printf("GetClanBoard_CB call DB failure:\n");
 			printf("%s\n", callResult->lobbyServer->GetLastError());
 		}
@@ -792,15 +790,15 @@ class DBResultHandler : public LobbyDBCBInterface
 			unsigned index;
 			LobbyDBSpec::AddToClanBoard_Data *post;
 
-			if (callResult->board.Size()>0)
+			if (callResult->board.Size() > 0)
 			{
 				printf("%i POSTS FOUND\n", callResult->board.Size());
-				for (index=0; index < callResult->board.Size(); index++)
+				for (index = 0; index < callResult->board.Size(); index++)
 				{
 					post = callResult->board[index];
-					printf("(%i.) Author=%s (ID=%i)\n", index+1, post->userId.handle.C_String(), post->userId.databaseRowId);
-					printf("%i %i %i %i:\n", post->integers[0], post->integers[1],post->integers[2],post->integers[3]);
-					printf("%.1f %.1f %.1f %.1f:\n", post->floats[0], post->floats[1],post->floats[2],post->floats[3]);
+					printf("(%i.) Author=%s (ID=%i)\n", index + 1, post->userId.handle.C_String(), post->userId.databaseRowId);
+					printf("%i %i %i %i:\n", post->integers[0], post->integers[1], post->integers[2], post->integers[3]);
+					printf("%.1f %.1f %.1f %.1f:\n", post->floats[0], post->floats[1], post->floats[2], post->floats[3]);
 					printf("Subject: %s\n", post->subject.C_String());
 					printf("Body: %s\n", post->body.C_String());
 				}
@@ -847,7 +845,7 @@ void main(int argc, char **argv)
 	lobbyServer.AssignCallback(&resultHandler);
 
 	printf("Enter database password:\n");
-	char connectionString[256],password[128];
+	char connectionString[256], password[128];
 	char username[256];
 	strcpy(username, "postgres");
 	gets(password);
@@ -856,49 +854,49 @@ void main(int argc, char **argv)
 	strcat(connectionString, " password=");
 	strcat(connectionString, password);
 	// database=blah
-	if (lobbyServer.Connect(connectionString)==false)
+	if (lobbyServer.Connect(connectionString) == false)
 	{
 		printf("Database connection failed.\n");
 		return;
 	}
 	printf("Database connection succeeded.\n");
 	printf("(A) Drop tables\n"
-		"(B) Create tables.\n"
-		"(C) Create user.\n"
-		"(D) Get user.\n"
-		"(E) Update user.\n"
-		"(F) Add account note for a user.\n"
-		"(G) Get account notes for a user.\n"
-		"(H) Add friend.\n"
-		"(I) Remove friend.\n"
-		"(J) Get friends.\n"
-		"(K) Add to ignore list.\n"
-		"(L) Remove from ignore list.\n"
-		"(M) Get ignore list.\n"
-		"(O) Send email to recipient(s).\n"
-		"(P) Get email(s).\n"
-		"(Q) Delete email.\n"
-		"(R) Update email status flags.\n"
-		"(S) Get handle from user Id.\n"
-		"(T) Get user Id from handle.\n"
-		"(U) Delete user.\n"
-		"(V) Change user handle.\n"
-		"(W) Add Disallowed Handle.\n"
-		"(X) Remove Disallowed Handle.\n"
-		"(Y) Is Disallowed Handle.\n"
-		"(Z) Add to user action history.\n"
-		"(0) Get action history.\n"
-		"(1) Add or update clan member.\n"
-		"(2) Update clan.\n"
-		"(3) Create clan.\n"
-		"(4) Change clan handle.\n"
-		"(5) Delete clan.\n"
-		"(6) Get all clans.\n"
-		"(7) Remove member from clan.\n"
-		"(8) Add to clan bulletin board.\n"
-		"(9) Remove from clan bulletin board.\n"
-		"(!) Get clan bulletin board.\n"
-		"(~) Quit\n");
+	       "(B) Create tables.\n"
+	       "(C) Create user.\n"
+	       "(D) Get user.\n"
+	       "(E) Update user.\n"
+	       "(F) Add account note for a user.\n"
+	       "(G) Get account notes for a user.\n"
+	       "(H) Add friend.\n"
+	       "(I) Remove friend.\n"
+	       "(J) Get friends.\n"
+	       "(K) Add to ignore list.\n"
+	       "(L) Remove from ignore list.\n"
+	       "(M) Get ignore list.\n"
+	       "(O) Send email to recipient(s).\n"
+	       "(P) Get email(s).\n"
+	       "(Q) Delete email.\n"
+	       "(R) Update email status flags.\n"
+	       "(S) Get handle from user Id.\n"
+	       "(T) Get user Id from handle.\n"
+	       "(U) Delete user.\n"
+	       "(V) Change user handle.\n"
+	       "(W) Add Disallowed Handle.\n"
+	       "(X) Remove Disallowed Handle.\n"
+	       "(Y) Is Disallowed Handle.\n"
+	       "(Z) Add to user action history.\n"
+	       "(0) Get action history.\n"
+	       "(1) Add or update clan member.\n"
+	       "(2) Update clan.\n"
+	       "(3) Create clan.\n"
+	       "(4) Change clan handle.\n"
+	       "(5) Delete clan.\n"
+	       "(6) Get all clans.\n"
+	       "(7) Remove member from clan.\n"
+	       "(8) Add to clan bulletin board.\n"
+	       "(9) Remove from clan bulletin board.\n"
+	       "(!) Get clan bulletin board.\n"
+	       "(~) Quit\n");
 
 
 	char inputStr[512];
@@ -907,24 +905,24 @@ void main(int argc, char **argv)
 	{
 		if (kbhit())
 		{
-			ch=getch();
-			if (ch=='~')
+			ch = getch();
+			if (ch == '~')
 				break;
-			else if (ch=='a')
+			else if (ch == 'a')
 			{
-				if (lobbyServer.DestroyLobbyServerTables()==false)
+				if (lobbyServer.DestroyLobbyServerTables() == false)
 					printf("%s", lobbyServer.GetLastError());
 				else
 					printf("Tables dropped.\n");
 			}
-			else if (ch=='b')
+			else if (ch == 'b')
 			{
-				if (lobbyServer.CreateLobbyServerTables()==false)
+				if (lobbyServer.CreateLobbyServerTables() == false)
 					printf("%s", lobbyServer.GetLastError());
 				else
 					printf("Tables created.\n");
 			}
-			else if (ch=='c')
+			else if (ch == 'c')
 			{
 				// We could do new and delete, but this ensures the class is allocated and deallocated in the same DLL, should we use one.
 				// By default deallocation takes place in HandleResult()
@@ -936,7 +934,8 @@ void main(int argc, char **argv)
 				functor->handle = inputStr; // Test possibly blank handle
 
 				// Put in test data for everything else, too many to ask the user
-				functor->firstName = "Kevin";;
+				functor->firstName = "Kevin";
+				;
 				functor->middleName = "M";
 				functor->lastName = "Jenkins";
 				functor->race = "Martian";
@@ -972,77 +971,78 @@ void main(int argc, char **argv)
 				functor->accountBalance;
 				functor->sourceIPAddress = "127.0.0.1";
 				functor->binaryData = CreateUser_PostgreSQLImpl::AllocBytes(3);
-				functor->binaryData[0]='B';
-				functor->binaryData[1]='D';
-				functor->binaryData[2]=0;
+				functor->binaryData[0] = 'B';
+				functor->binaryData[1] = 'D';
+				functor->binaryData[2] = 0;
 				functor->binaryDataLength = 3;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
 				GetUser_PostgreSQLImpl *functor = GetUser_PostgreSQLImpl::Alloc();
 				printf("Gets info on a user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
-				functor->getCCInfo=true;
-				functor->getBinaryData=true;
-				functor->getPersonalInfo=true;
-				functor->getEmailAddr=true;
-				functor->getPassword=true;
+				functor->getCCInfo = true;
+				functor->getBinaryData = true;
+				functor->getPersonalInfo = true;
+				functor->getEmailAddr = true;
+				functor->getPassword = true;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='e')
+			else if (ch == 'e')
 			{
 				UpdateUser_PostgreSQLImpl *functor = UpdateUser_PostgreSQLImpl::Alloc();
 				printf("Updates database info for part of all of a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
-				functor->updateCCInfo=true;
-				functor->updateBinaryData=true;
-				functor->updatePersonalInfo=true;
-				functor->updateEmailAddr=true;
-				functor->updatePassword=true;
-				functor->updateCaptions=true;
-				functor->updateOtherInfo=true;
+				functor->updateCCInfo = true;
+				functor->updateBinaryData = true;
+				functor->updatePersonalInfo = true;
+				functor->updateEmailAddr = true;
+				functor->updatePassword = true;
+				functor->updateCaptions = true;
+				functor->updateOtherInfo = true;
 
 				// Put in test data for everything else, too many to ask the user
-				functor->input.firstName = "Kevin (updated)";;
+				functor->input.firstName = "Kevin (updated)";
+				;
 				functor->input.middleName = "M (updated)";
 				functor->input.lastName = "Jenkins (updated)";
 				functor->input.race = "Martian (updated)";
@@ -1063,330 +1063,330 @@ void main(int argc, char **argv)
 				functor->input.permissions = "Omniscient | MORE (updated)";
 				functor->input.sourceIPAddress = "127.0.0.1 (updated)";
 				functor->input.binaryData = UpdateUser_PostgreSQLImpl::AllocBytes(3);
-				functor->input.binaryData[0]='U';
-				functor->input.binaryData[1]='P';
-				functor->input.binaryData[2]=0;
+				functor->input.binaryData[0] = 'U';
+				functor->input.binaryData[1] = 'P';
+				functor->input.binaryData[2] = 0;
 				functor->input.binaryDataLength = 3;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='f')
+			else if (ch == 'f')
 			{
 				AddAccountNote_PostgreSQLImpl *functor = AddAccountNote_PostgreSQLImpl::Alloc();
 				printf("Adds a note to a user's account.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
-				functor->writeModeratorId=true;
-				functor->moderatorId=1234;
-				functor->moderatorUsername="moderator username";
-				functor->type="account note type";
-				functor->subject="account subject";
-				functor->body="account body";
+				functor->writeModeratorId = true;
+				functor->moderatorId = 1234;
+				functor->moderatorUsername = "moderator username";
+				functor->type = "account note type";
+				functor->subject = "account subject";
+				functor->body = "account body";
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='g')
+			else if (ch == 'g')
 			{
 				GetAccountNotes_PostgreSQLImpl *functor = GetAccountNotes_PostgreSQLImpl::Alloc();
 				printf("Gets all notes for a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 				printf("Ascending sort? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
-					functor->ascendingSort=true;
+				if (inputStr[0] == 'y')
+					functor->ascendingSort = true;
 				else
-					functor->ascendingSort=false;
+					functor->ascendingSort = false;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='h')
+			else if (ch == 'h')
 			{
 				AddFriend_PostgreSQLImpl *functor = AddFriend_PostgreSQLImpl::Alloc();
 				printf("Adds a friend for a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
-				
+
 
 				printf("Enter friend ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter friend ID (integer): ");
 					gets(inputStr);
-					functor->friendId.hasDatabaseRowId=true;
-					functor->friendId.databaseRowId=atoi(inputStr);
+					functor->friendId.hasDatabaseRowId = true;
+					functor->friendId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter friend handle: ");
 					gets(inputStr);
-					functor->friendId.hasDatabaseRowId=false;
-					functor->friendId.handle=inputStr;
+					functor->friendId.hasDatabaseRowId = false;
+					functor->friendId.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='i')
+			else if (ch == 'i')
 			{
 				RemoveFriend_PostgreSQLImpl *functor = RemoveFriend_PostgreSQLImpl::Alloc();
 				printf("Removes a friend for a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->removeFriendInput.id.hasDatabaseRowId=true;
-					functor->removeFriendInput.id.databaseRowId=atoi(inputStr);
+					functor->removeFriendInput.id.hasDatabaseRowId = true;
+					functor->removeFriendInput.id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->removeFriendInput.id.hasDatabaseRowId=false;
-					functor->removeFriendInput.id.handle=inputStr;
+					functor->removeFriendInput.id.hasDatabaseRowId = false;
+					functor->removeFriendInput.id.handle = inputStr;
 				}
 
 
 				printf("Enter friend ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter friend ID (integer): ");
 					gets(inputStr);
-					functor->removeFriendInput.friendId.hasDatabaseRowId=true;
-					functor->removeFriendInput.friendId.databaseRowId=atoi(inputStr);
+					functor->removeFriendInput.friendId.hasDatabaseRowId = true;
+					functor->removeFriendInput.friendId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter friend handle: ");
 					gets(inputStr);
-					functor->removeFriendInput.friendId.hasDatabaseRowId=false;
-					functor->removeFriendInput.friendId.handle=inputStr;
+					functor->removeFriendInput.friendId.hasDatabaseRowId = false;
+					functor->removeFriendInput.friendId.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='j')
+			else if (ch == 'j')
 			{
 				GetFriends_PostgreSQLImpl *functor = GetFriends_PostgreSQLImpl::Alloc();
 				printf("Gets the list of friends for a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 				printf("Ascending sort? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
-					functor->ascendingSort=true;
+				if (inputStr[0] == 'y')
+					functor->ascendingSort = true;
 				else
-					functor->ascendingSort=false;
+					functor->ascendingSort = false;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='k')
+			else if (ch == 'k')
 			{
 				AddToIgnoreList_PostgreSQLImpl *functor = AddToIgnoreList_PostgreSQLImpl::Alloc();
 				printf("Adds a user to the ignore list of another user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				printf("Enter ignored user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter ignored user ID (integer): ");
 					gets(inputStr);
-					functor->ignoredUser.hasDatabaseRowId=true;
-					functor->ignoredUser.databaseRowId=atoi(inputStr);
+					functor->ignoredUser.hasDatabaseRowId = true;
+					functor->ignoredUser.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter ignored user handle: ");
 					gets(inputStr);
-					functor->ignoredUser.hasDatabaseRowId=false;
-					functor->ignoredUser.handle=inputStr;
+					functor->ignoredUser.hasDatabaseRowId = false;
+					functor->ignoredUser.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='l')
+			else if (ch == 'l')
 			{
 				RemoveFromIgnoreList_PostgreSQLImpl *functor = RemoveFromIgnoreList_PostgreSQLImpl::Alloc();
 				printf("Stops ignoring a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 
 				printf("Enter friend ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter ignored user ID (integer): ");
 					gets(inputStr);
-					functor->ignoredUser.hasDatabaseRowId=true;
-					functor->ignoredUser.databaseRowId=atoi(inputStr);
+					functor->ignoredUser.hasDatabaseRowId = true;
+					functor->ignoredUser.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter ignored user handle: ");
 					gets(inputStr);
-					functor->ignoredUser.hasDatabaseRowId=false;
-					functor->ignoredUser.handle=inputStr;
+					functor->ignoredUser.hasDatabaseRowId = false;
+					functor->ignoredUser.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='m')
+			else if (ch == 'm')
 			{
 				GetIgnoreList_PostgreSQLImpl *functor = GetIgnoreList_PostgreSQLImpl::Alloc();
 				printf("Gets the list of ignored users for a user.\nSpecify user by ID (faster) or handle (slower).\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 				printf("Ascending sort? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
-					functor->ascendingSort=true;
+				if (inputStr[0] == 'y')
+					functor->ascendingSort = true;
 				else
-					functor->ascendingSort=false;
+					functor->ascendingSort = false;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='o')
+			else if (ch == 'o')
 			{
 				SendEmail_PostgreSQLImpl *functor = SendEmail_PostgreSQLImpl::Alloc();
 				printf("Send email to recipient(s).\n");
 
 				printf("Enter FROM: user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter FROM: user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter FROM: user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				while (1)
@@ -1395,92 +1395,91 @@ void main(int argc, char **argv)
 
 					printf("Enter TO: recipient ID? (Enter to stop) (y/n): ");
 					gets(inputStr);
-					if (inputStr[0]=='y')
+					if (inputStr[0] == 'y')
 					{
 						printf("Enter TO: user ID (integer): ");
 						gets(inputStr);
-						uioh.hasDatabaseRowId=true;
-						uioh.databaseRowId=atoi(inputStr);
+						uioh.hasDatabaseRowId = true;
+						uioh.databaseRowId = atoi(inputStr);
 					}
-					else if (inputStr[0]==0)
+					else if (inputStr[0] == 0)
 						break;
 					else
 					{
 						printf("Enter TO: user handle: ");
 						gets(inputStr);
-						uioh.hasDatabaseRowId=false;
-						uioh.handle=inputStr;
+						uioh.hasDatabaseRowId = false;
+						uioh.handle = inputStr;
 					}
 					functor->to.Insert(uioh);
 				}
 
 				printf("Enter subject: ");
 				gets(inputStr);
-				functor->subject=inputStr;
+				functor->subject = inputStr;
 
 				printf("Enter body: ");
 				gets(inputStr);
-				functor->body=inputStr;
+				functor->body = inputStr;
 
 				// Test attachments
-				functor->attachment=SendEmail_PostgreSQLImpl::AllocBytes(2);
-				functor->attachmentLength=2;
-				functor->attachment[0]='Z';
-				functor->attachment[1]=0;
+				functor->attachment = SendEmail_PostgreSQLImpl::AllocBytes(2);
+				functor->attachmentLength = 2;
+				functor->attachment[0] = 'Z';
+				functor->attachment[1] = 0;
 
 				// Emails can be tagged with a status number. Can use for read, priority, etc.
-				functor->initialSenderStatus=63;
-				functor->initialRecipientStatus=64;
+				functor->initialSenderStatus = 63;
+				functor->initialRecipientStatus = 64;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='p')
+			else if (ch == 'p')
 			{
 				GetEmails_PostgreSQLImpl *functor = GetEmails_PostgreSQLImpl::Alloc();
 				printf("Get emails for a user.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				printf("Check inbox? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
-					functor->inbox=true;
+					functor->inbox = true;
 				}
 				else
 				{
 					// Check sent items
-					functor->inbox=false;
-
+					functor->inbox = false;
 				}
 
 				printf("Ascending sort? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
-					functor->ascendingSort=true;
+				if (inputStr[0] == 'y')
+					functor->ascendingSort = true;
 				else
-					functor->ascendingSort=false;
+					functor->ascendingSort = false;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='q')
+			else if (ch == 'q')
 			{
 				DeleteEmail_PostgreSQLImpl *functor = DeleteEmail_PostgreSQLImpl::Alloc();
 				printf("Delete email.\n");
@@ -1488,13 +1487,12 @@ void main(int argc, char **argv)
 				printf("Enter email message ID (integer)\n");
 				printf("This is found by calling GetEmails and checking emails.emailMessageID\n");
 				gets(inputStr);
-				functor->emailMessageID=atoi(inputStr);
+				functor->emailMessageID = atoi(inputStr);
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
-
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='r')
+			else if (ch == 'r')
 			{
 				UpdateEmailStatus_PostgreSQLImpl *functor = UpdateEmailStatus_PostgreSQLImpl::Alloc();
 				printf("Update user-defined status flags for an email.\n");
@@ -1502,297 +1500,297 @@ void main(int argc, char **argv)
 				printf("Enter email message ID (integer)\n");
 				printf("This is found by calling GetEmails and checking emails.emailMessageID\n");
 				gets(inputStr);
-				functor->emailMessageID=atoi(inputStr);
+				functor->emailMessageID = atoi(inputStr);
 
 				printf("Enter new status: ");
 				gets(inputStr);
-				functor->status=atoi(inputStr);
+				functor->status = atoi(inputStr);
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='s')
+			else if (ch == 's')
 			{
 				GetHandleFromUserId_PostgreSQLImpl *functor = GetHandleFromUserId_PostgreSQLImpl::Alloc();
 				printf("Gets the handle given a user Id.\n");
 				printf("Enter the user Id (integer): ");
 				gets(inputStr);
-				functor->userId=atoi(inputStr);
+				functor->userId = atoi(inputStr);
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='t')
+			else if (ch == 't')
 			{
 				GetUserIdFromHandle_PostgreSQLImpl *functor = GetUserIdFromHandle_PostgreSQLImpl::Alloc();
 				printf("Gets the user Id given a handle.\n");
 				printf("Enter the handle (string): ");
 				gets(inputStr);
-				functor->handle=inputStr;
+				functor->handle = inputStr;
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='u')
+			else if (ch == 'u')
 			{
 				DeleteUser_PostgreSQLImpl *functor = DeleteUser_PostgreSQLImpl::Alloc();
 				printf("Deletes a user.\n");
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='v')
+			else if (ch == 'v')
 			{
 				ChangeUserHandle_PostgreSQLImpl *functor = ChangeUserHandle_PostgreSQLImpl::Alloc();
 				printf("Changes a user's handle.\n");
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				printf("Enter new handle: ");
 				gets(inputStr);
-				functor->newHandle=inputStr;
+				functor->newHandle = inputStr;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='w')
+			else if (ch == 'w')
 			{
 				AddDisallowedHandle_PostgreSQLImpl *functor = AddDisallowedHandle_PostgreSQLImpl::Alloc();
 				printf("Add a disallowed handle.\n");
 				printf("Enter handle: ");
 				gets(inputStr);
-				functor->handle=inputStr;
+				functor->handle = inputStr;
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='x')
+			else if (ch == 'x')
 			{
 				RemoveDisallowedHandle_PostgreSQLImpl *functor = RemoveDisallowedHandle_PostgreSQLImpl::Alloc();
 				printf("Removes a disallowed handle.\n");
 				printf("Enter handle: ");
 				gets(inputStr);
-				functor->handle=inputStr;
+				functor->handle = inputStr;
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='y')
+			else if (ch == 'y')
 			{
 				IsDisallowedHandle_PostgreSQLImpl *functor = IsDisallowedHandle_PostgreSQLImpl::Alloc();
 				printf("Checks if a handle is disallowed.\n");
 				printf("Enter handle: ");
 				gets(inputStr);
-				functor->handle=inputStr;
+				functor->handle = inputStr;
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='z')
+			else if (ch == 'z')
 			{
 				AddToActionHistory_PostgreSQLImpl *functor = AddToActionHistory_PostgreSQLImpl::Alloc();
 				printf("Records an action this user has taken.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				printf("Enter actionTaken: ");
 				gets(inputStr);
-				functor->actionTaken=inputStr;
+				functor->actionTaken = inputStr;
 
 				printf("Enter description: ");
 				gets(inputStr);
-				functor->description=inputStr;
+				functor->description = inputStr;
 
 				functor->actionTime; // Leave blank
-				functor->sourceIpAddress="127.0.0.1";
+				functor->sourceIpAddress = "127.0.0.1";
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='0')
+			else if (ch == '0')
 			{
 				GetActionHistory_PostgreSQLImpl *functor = GetActionHistory_PostgreSQLImpl::Alloc();
 				printf("Gets the actions this user has taken.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=true;
-					functor->id.databaseRowId=atoi(inputStr);
+					functor->id.hasDatabaseRowId = true;
+					functor->id.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->id.hasDatabaseRowId=false;
-					functor->id.handle=inputStr;
+					functor->id.hasDatabaseRowId = false;
+					functor->id.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='1')
+			else if (ch == '1')
 			{
 				UpdateClanMember_PostgreSQLImpl *functor = UpdateClanMember_PostgreSQLImpl::Alloc();
 				printf("Update or add a clan member.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=true;
-					functor->userId.databaseRowId=atoi(inputStr);
+					functor->userId.hasDatabaseRowId = true;
+					functor->userId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=false;
-					functor->userId.handle=inputStr;
+					functor->userId.hasDatabaseRowId = false;
+					functor->userId.handle = inputStr;
 				}
 
 				printf("Enter clan ID (0 to add new): ");
 				gets(inputStr);
-				functor->clanId.databaseRowId=atoi(inputStr);
-				functor->clanId.hasDatabaseRowId=true;
+				functor->clanId.databaseRowId = atoi(inputStr);
+				functor->clanId.hasDatabaseRowId = true;
 
 				printf("Enter operation:\n(1) Member\n(2) Join request\n(3) Join invite\n(4) Blacklist\n");
 				gets(inputStr);
-				if (inputStr[0]=='1')
-					functor->mEStatus1=LobbyDBSpec::CLAN_MEMBER_STATUS_MEMBER;
-				else if (inputStr[0]=='2')
-					functor->mEStatus1=LobbyDBSpec::CLAN_MEMBER_STATUS_REQUESTED_TO_JOIN;
-				else if (inputStr[0]=='3')
-					functor->mEStatus1=LobbyDBSpec::CLAN_MEMBER_STATUS_INVITED_TO_JOIN;
+				if (inputStr[0] == '1')
+					functor->mEStatus1 = LobbyDBSpec::CLAN_MEMBER_STATUS_MEMBER;
+				else if (inputStr[0] == '2')
+					functor->mEStatus1 = LobbyDBSpec::CLAN_MEMBER_STATUS_REQUESTED_TO_JOIN;
+				else if (inputStr[0] == '3')
+					functor->mEStatus1 = LobbyDBSpec::CLAN_MEMBER_STATUS_INVITED_TO_JOIN;
 				else
-					functor->mEStatus1=LobbyDBSpec::CLAN_MEMBER_STATUS_BLACKLISTED;
+					functor->mEStatus1 = LobbyDBSpec::CLAN_MEMBER_STATUS_BLACKLISTED;
 
-				functor->integers[0]=1;
-				functor->integers[1]=2;
-				functor->integers[2]=3;
-				functor->integers[3]=4;
+				functor->integers[0] = 1;
+				functor->integers[1] = 2;
+				functor->integers[2] = 3;
+				functor->integers[3] = 4;
 
-				functor->floats[0]=1;
-				functor->floats[1]=2;	
-				functor->floats[2]=3;
-				functor->floats[3]=4;
+				functor->floats[0] = 1;
+				functor->floats[1] = 2;
+				functor->floats[2] = 3;
+				functor->floats[3] = 4;
 
 				printf("Enter member description 1: ");
 				gets(inputStr);
-				functor->descriptions[0]=inputStr;
+				functor->descriptions[0] = inputStr;
 
 				printf("Enter member description 2: ");
 				gets(inputStr);
-				functor->descriptions[1]=inputStr;
+				functor->descriptions[1] = inputStr;
 
-				functor->binaryData=0;
-				
+				functor->binaryData = 0;
+
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='2')
+			else if (ch == '2')
 			{
 				UpdateClan_PostgreSQLImpl *functor = UpdateClan_PostgreSQLImpl::Alloc();
 				printf("Update an existing clan, any values but the name.\n");
 
 				printf("Enter clan ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter clan ID (integer): ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=true;
-					functor->clanId.databaseRowId=atoi(inputStr);
+					functor->clanId.hasDatabaseRowId = true;
+					functor->clanId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter clan handle: ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=false;
-					functor->clanId.handle=inputStr;
+					functor->clanId.hasDatabaseRowId = false;
+					functor->clanId.handle = inputStr;
 				}
 
 				functor->SetUpdateInts(true);
-				functor->integers[0]=111;
-				functor->integers[1]=112;
-				functor->integers[2]=113;
-				functor->integers[3]=114;
+				functor->integers[0] = 111;
+				functor->integers[1] = 112;
+				functor->integers[2] = 113;
+				functor->integers[3] = 114;
 				functor->SetUpdateFloats(false);
-				functor->updateDescriptions[0]=true;
-				functor->descriptions[0]="Updated clan description 1";
-				functor->updateDescriptions[1]=false;
-				functor->updateBinaryData=true;
-				functor->binaryData=0;
-				functor->updateRequiresInvitationsToJoin=false;
+				functor->updateDescriptions[0] = true;
+				functor->descriptions[0] = "Updated clan description 1";
+				functor->updateDescriptions[1] = false;
+				functor->updateBinaryData = true;
+				functor->binaryData = 0;
+				functor->updateRequiresInvitationsToJoin = false;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='3')
+			else if (ch == '3')
 			{
 				CreateClan_PostgreSQLImpl *functor = CreateClan_PostgreSQLImpl::Alloc();
 				printf("Create a new clan.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->leaderData.userId.hasDatabaseRowId=true;
-					functor->leaderData.userId.databaseRowId=atoi(inputStr);
+					functor->leaderData.userId.hasDatabaseRowId = true;
+					functor->leaderData.userId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->leaderData.userId.hasDatabaseRowId=false;
-					functor->leaderData.userId.handle=inputStr;
+					functor->leaderData.userId.hasDatabaseRowId = false;
+					functor->leaderData.userId.handle = inputStr;
 				}
 
 				printf("Enter clan name: ");
@@ -1812,9 +1810,9 @@ void main(int argc, char **argv)
 				functor->initialClanData.descriptions[0] = "CreateClan_PostgreSQLImpl Description 1";
 				functor->initialClanData.descriptions[1] = "CreateClan_PostgreSQLImpl Description 2";
 
-				functor->initialClanData.binaryData=0;
+				functor->initialClanData.binaryData = 0;
 
-				functor->initialClanData.requiresInvitationsToJoin=true;
+				functor->initialClanData.requiresInvitationsToJoin = true;
 
 				functor->leaderData.integers[0] = 21;
 				functor->leaderData.integers[1] = 22;
@@ -1826,236 +1824,234 @@ void main(int argc, char **argv)
 				functor->leaderData.floats[2] = 33;
 				functor->leaderData.floats[3] = 34;
 
-				functor->leaderData.descriptions[0]="Big clan boss";
-				functor->leaderData.binaryData=0;
+				functor->leaderData.descriptions[0] = "Big clan boss";
+				functor->leaderData.binaryData = 0;
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='4')
+			else if (ch == '4')
 			{
 				ChangeClanHandle_PostgreSQLImpl *functor = ChangeClanHandle_PostgreSQLImpl::Alloc();
 				printf("Change your clan's handle.\n");
 
 				printf("Enter clan row ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter clan ID (integer): ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=true;
-					functor->clanId.databaseRowId=atoi(inputStr);
+					functor->clanId.hasDatabaseRowId = true;
+					functor->clanId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter clan handle: ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=false;
-					functor->clanId.handle=inputStr;
+					functor->clanId.hasDatabaseRowId = false;
+					functor->clanId.handle = inputStr;
 				}
 
 				printf("Enter new handle: ");
 				gets(inputStr);
-				functor->newHandle=inputStr;
+				functor->newHandle = inputStr;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='5')
+			else if (ch == '5')
 			{
 				DeleteClan_PostgreSQLImpl *functor = DeleteClan_PostgreSQLImpl::Alloc();
 				printf("Delete a clan.\n");
 
 				printf("Enter clan row ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter clan ID (integer): ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=true;
-					functor->clanId.databaseRowId=atoi(inputStr);
+					functor->clanId.hasDatabaseRowId = true;
+					functor->clanId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter clan handle: ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=false;
-					functor->clanId.handle=inputStr;
+					functor->clanId.hasDatabaseRowId = false;
+					functor->clanId.handle = inputStr;
 				}
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='6')
+			else if (ch == '6')
 			{
 				GetClans_PostgreSQLImpl *functor = GetClans_PostgreSQLImpl::Alloc();
 				printf("Get all clans and clan members for a user.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=true;
-					functor->userId.databaseRowId=atoi(inputStr);
+					functor->userId.hasDatabaseRowId = true;
+					functor->userId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=false;
-					functor->userId.handle=inputStr;
+					functor->userId.hasDatabaseRowId = false;
+					functor->userId.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='7')
+			else if (ch == '7')
 			{
 				RemoveFromClan_PostgreSQLImpl *functor = RemoveFromClan_PostgreSQLImpl::Alloc();
 				printf("Remove member from clan.\n");
 
 				printf("Enter user ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=true;
-					functor->userId.databaseRowId=atoi(inputStr);
+					functor->userId.hasDatabaseRowId = true;
+					functor->userId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=false;
-					functor->userId.handle=inputStr;
+					functor->userId.hasDatabaseRowId = false;
+					functor->userId.handle = inputStr;
 				}
 
 				printf("Enter clan row ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter clan ID (integer): ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=true;
-					functor->clanId.databaseRowId=atoi(inputStr);
+					functor->clanId.hasDatabaseRowId = true;
+					functor->clanId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter clan handle: ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=false;
-					functor->clanId.handle=inputStr;
+					functor->clanId.hasDatabaseRowId = false;
+					functor->clanId.handle = inputStr;
 				}
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='8')
+			else if (ch == '8')
 			{
 				AddToClanBoard_PostgreSQLImpl *functor = AddToClanBoard_PostgreSQLImpl::Alloc();
 				printf("Write to clan bulletin board.\n");
 
 				printf("Enter user row ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter user ID (integer): ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=true;
-					functor->userId.databaseRowId=atoi(inputStr);
+					functor->userId.hasDatabaseRowId = true;
+					functor->userId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter user handle: ");
 					gets(inputStr);
-					functor->userId.hasDatabaseRowId=false;
-					functor->userId.handle=inputStr;
+					functor->userId.hasDatabaseRowId = false;
+					functor->userId.handle = inputStr;
 				}
 
 				printf("Enter clan row ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter clan ID (integer): ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=true;
-					functor->clanId.databaseRowId=atoi(inputStr);
+					functor->clanId.hasDatabaseRowId = true;
+					functor->clanId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter clan handle: ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=false;
-					functor->clanId.handle=inputStr;
+					functor->clanId.hasDatabaseRowId = false;
+					functor->clanId.handle = inputStr;
 				}
 
 				printf("Enter subject: ");
 				gets(inputStr);
-				functor->subject=inputStr;
+				functor->subject = inputStr;
 
 				printf("Enter body: ");
 				gets(inputStr);
-				functor->body=inputStr;
+				functor->body = inputStr;
 
-				functor->integers[0]=0;
-				functor->integers[1]=0;
-				functor->integers[2]=0;
-				functor->integers[3]=0;
-				functor->floats[0]=0;
-				functor->floats[1]=0;
-				functor->floats[2]=0;
-				functor->floats[3]=0;
+				functor->integers[0] = 0;
+				functor->integers[1] = 0;
+				functor->integers[2] = 0;
+				functor->integers[3] = 0;
+				functor->floats[0] = 0;
+				functor->floats[1] = 0;
+				functor->floats[2] = 0;
+				functor->floats[3] = 0;
 
-				functor->binaryData=0;
+				functor->binaryData = 0;
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
-
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='9')
+			else if (ch == '9')
 			{
 				RemoveFromClanBoard_PostgreSQLImpl *functor = RemoveFromClanBoard_PostgreSQLImpl::Alloc();
 				printf("Remove from clan bulletin board.\n");
 
 				printf("Enter post ID: ");
 				gets(inputStr);
-				functor->postId=atoi(inputStr);
+				functor->postId = atoi(inputStr);
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
-
+				lobbyServer.PushFunctor(functor, 0);
 			}
-			else if (ch=='!')
+			else if (ch == '!')
 			{
 				GetClanBoard_PostgreSQLImpl *functor = GetClanBoard_PostgreSQLImpl::Alloc();
 				printf("Get clan bulletin board.\n");
 
 				printf("Enter clan row ID? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
+				if (inputStr[0] == 'y')
 				{
 					printf("Enter clan ID (integer): ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=true;
-					functor->clanId.databaseRowId=atoi(inputStr);
+					functor->clanId.hasDatabaseRowId = true;
+					functor->clanId.databaseRowId = atoi(inputStr);
 				}
 				else
 				{
 					printf("Enter clan handle: ");
 					gets(inputStr);
-					functor->clanId.hasDatabaseRowId=false;
-					functor->clanId.handle=inputStr;
+					functor->clanId.hasDatabaseRowId = false;
+					functor->clanId.handle = inputStr;
 				}
 
 				printf("Ascending sort? (y/n): ");
 				gets(inputStr);
-				if (inputStr[0]=='y')
-					functor->ascendingSort=true;
+				if (inputStr[0] == 'y')
+					functor->ascendingSort = true;
 				else
-					functor->ascendingSort=false;
+					functor->ascendingSort = false;
 
 				/// Puts this functor on the processing queue. It will process sometime later in a thread.
-				lobbyServer.PushFunctor(functor,0);
+				lobbyServer.PushFunctor(functor, 0);
 			}
 		}
 

@@ -10,7 +10,7 @@
 #include "mafianet/dispatcher.h"
 #include "mafianet/peer_handle.h" // Peer, PacketPtr (live round-trip)
 #include "mafianet/get_time.h"    // GetTime, GetTimeMS
-#include "mafianet/sleep.h"      // RakSleep
+#include "mafianet/sleep.h"       // RakSleep
 
 #include <string>
 
@@ -18,18 +18,18 @@ using namespace MafiaNet;
 
 namespace
 {
-	// One typed message, registered identically on both ends so encode()/dispatch()
-	// agree on its auto-assigned id (ID_USER_PACKET_ENUM).
-	struct ChatMessage
-	{
-		std::string text;
-		int channel = 0;
+// One typed message, registered identically on both ends so encode()/dispatch()
+// agree on its auto-assigned id (ID_USER_PACKET_ENUM).
+struct ChatMessage
+{
+	std::string text;
+	int channel = 0;
 
-		template <class Ar>
-		void serialize(Ar &ar) { ar & text & channel; }
+	template <class Ar>
+	void serialize(Ar &ar) { ar & text & channel; }
 
-		bool operator==(const ChatMessage &o) const { return text == o.text && channel == o.channel; }
-	};
+	bool operator==(const ChatMessage &o) const { return text == o.text && channel == o.channel; }
+};
 }
 
 class DispatcherLive : public ::testing::Test
@@ -66,23 +66,23 @@ TEST_F(DispatcherLive, RoutesTypedTimestampedAndSystemMessages)
 	RakNetGUID lastChatGuid;
 
 	Dispatcher serverD;
-	serverD.on(ID_NEW_INCOMING_CONNECTION, [&](const Sender &s) {
+	serverD.on(ID_NEW_INCOMING_CONNECTION, [&](const Sender &s)
+	           {
 		sawIncomingConnection = true;
-		incomingFrom = s.address();
-	});
-	MessageID serverChatId = serverD.on<ChatMessage>([&](const ChatMessage &m, const Sender &from) {
+		incomingFrom = s.address(); });
+	MessageID serverChatId = serverD.on<ChatMessage>([&](const ChatMessage &m, const Sender &from)
+	                                                 {
 		++chatReceived;
 		lastChat = m;
-		lastChatGuid = from.guid();
-	});
+		lastChatGuid = from.guid(); });
 
 	// Client dispatcher: registers ChatMessage identically, so encode() picks the
 	// same id the server dispatches on (the registration-order contract).
 	Dispatcher clientD;
 	MessageID clientChatId = clientD.on<ChatMessage>([](const ChatMessage &, const Sender &) {});
 	ASSERT_EQ(serverChatId, clientChatId)
-		<< "Client/server disagree on the auto-assigned ChatMessage id ("
-		<< (unsigned) serverChatId << " vs " << (unsigned) clientChatId << ")";
+	    << "Client/server disagree on the auto-assigned ChatMessage id ("
+	    << (unsigned) serverChatId << " vs " << (unsigned) clientChatId << ")";
 
 	ASSERT_EQ(client->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED) << "Connect did not start";
 
@@ -143,7 +143,7 @@ TEST_F(DispatcherLive, RoutesTypedTimestampedAndSystemMessages)
 	ASSERT_GE(chatReceived, 2) << "Server did not dispatch both ChatMessages (dispatched " << chatReceived << " of 2)";
 	// The last message received was the timestamp-prefixed one; its fields must match.
 	ASSERT_TRUE(lastChat == outgoingTs)
-		<< "Live timestamp ChatMessage fields mismatch: '" << lastChat.text << "'/" << lastChat.channel;
+	    << "Live timestamp ChatMessage fields mismatch: '" << lastChat.text << "'/" << lastChat.channel;
 	// Sender identity: the handler saw the client's GUID.
 	ASSERT_EQ(lastChatGuid, clientGuid) << "Sender.guid() did not match the client GUID";
 }

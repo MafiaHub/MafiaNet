@@ -97,7 +97,7 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 
 	printf("Test GetSystemList and NumberOfConnections\n");
 
-	client->GetSystemList(systemList, guidList);//Get connectionlist
+	client->GetSystemList(systemList, guidList); //Get connectionlist
 	int len = systemList.Size();
 	int len2 = guidList.Size();
 

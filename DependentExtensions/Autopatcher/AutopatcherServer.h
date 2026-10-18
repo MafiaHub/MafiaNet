@@ -18,7 +18,7 @@
 
 // TODO - bsdiff doesn't work for files above 100 megabytes.
 // See http://xdelta.org/
-// XDelta is GPL 2, however I could run that as a separate EXE and invoke to only transmit the delta file. 
+// XDelta is GPL 2, however I could run that as a separate EXE and invoke to only transmit the delta file.
 
 // See http://pocketsoft.com/rtpatch.html
 // See use rdiff instead of bsdiff, or perhaps librsync
@@ -101,39 +101,39 @@ public:
 	/// \param[out] queueOperation The operation was added to the queue, removed from the queue to be processed, or removed because it was aborted
 	/// \param[out] autopatcherState Current size of the request queue, and how many requests are working
 	virtual void OnQueueUpdate(SystemAddress remoteSystem,
-		AutopatcherServerLoadNotifier::RequestType requestType,
-		AutopatcherServerLoadNotifier::QueueOperation queueOperation,
-		AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
+	                           AutopatcherServerLoadNotifier::RequestType requestType,
+	                           AutopatcherServerLoadNotifier::QueueOperation queueOperation,
+	                           AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 	{
 		// unused parameters
-		(void)remoteSystem;
-		(void)requestType;
-		(void)queueOperation;
-		(void)autopatcherState;
+		(void) remoteSystem;
+		(void) requestType;
+		(void) queueOperation;
+		(void) autopatcherState;
 	}
 
 	virtual void OnGetChangelistCompleted(
-		SystemAddress remoteSystem,
-		AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
-		AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
+	    SystemAddress remoteSystem,
+	    AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
+	    AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 	{
 		// unused parameters
-		(void)remoteSystem;
-		(void)getChangelistResult;
-		(void)autopatcherState;
+		(void) remoteSystem;
+		(void) getChangelistResult;
+		(void) autopatcherState;
 	}
 
 	/// A file transfer has completed, or was not necessary
 	/// \param[out] remoteSystem Which system this refers to
 	/// \param[out] autopatcherState Current size of the request queue, and how many requests are working
 	virtual void OnGetPatchCompleted(SystemAddress remoteSystem,
-		AutopatcherServerLoadNotifier::PatchResult patchResult,
-		AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
+	                                 AutopatcherServerLoadNotifier::PatchResult patchResult,
+	                                 AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 	{
 		// unused parameters
-		(void)remoteSystem;
-		(void)patchResult;
-		(void)autopatcherState;
+		(void) remoteSystem;
+		(void) patchResult;
+		(void) autopatcherState;
 	}
 };
 
@@ -142,22 +142,22 @@ class RAK_DLL_EXPORT AutopatcherServerLoadNotifier_Printf : public AutopatcherSe
 {
 public:
 	virtual void OnQueueUpdate(SystemAddress remoteSystem,
-		AutopatcherServerLoadNotifier::RequestType requestType,
-		AutopatcherServerLoadNotifier::QueueOperation queueOperation,
-		AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState);
+	                           AutopatcherServerLoadNotifier::RequestType requestType,
+	                           AutopatcherServerLoadNotifier::QueueOperation queueOperation,
+	                           AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState);
 
 	virtual void OnGetChangelistCompleted(
-		SystemAddress remoteSystem,
-		AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
-		AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState);
+	    SystemAddress remoteSystem,
+	    AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
+	    AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState);
 
 	virtual void OnGetPatchCompleted(SystemAddress remoteSystem,
-		AutopatcherServerLoadNotifier::PatchResult patchResult,
-		AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState);
+	                                 AutopatcherServerLoadNotifier::PatchResult patchResult,
+	                                 AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState);
 };
 
 /// \brief The server plugin for the autopatcher.  Must be running for the client to get patches.
-class RAK_DLL_EXPORT AutopatcherServer : public PluginInterface2 , public ThreadDataInterface, FileListProgress, IncrementalReadInterface
+class RAK_DLL_EXPORT AutopatcherServer : public PluginInterface2, public ThreadDataInterface, FileListProgress, IncrementalReadInterface
 {
 public:
 	// Constructor
@@ -221,7 +221,8 @@ public:
 	/// \internal For plugin handling
 	virtual void OnAttach(void);
 	/// \internal For plugin handling
-	virtual void OnDetach(void);;
+	virtual void OnDetach(void);
+	;
 	/// \internal For plugin handling
 	virtual void Update(void);
 	/// \internal For plugin handling
@@ -231,7 +232,7 @@ public:
 	/// \internal For plugin handling
 	virtual void OnStartup(RakPeerInterface *peer);
 	/// \internal For plugin handling
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 
 	struct ThreadData
 	{
@@ -246,7 +247,12 @@ public:
 	/// \deprecated
 	struct ResultTypeAndBitstream
 	{
-		ResultTypeAndBitstream() {patchList=0; deletedFiles=0; addedOrModifiedFilesWithHashData=0;}
+		ResultTypeAndBitstream()
+		{
+			patchList = 0;
+			deletedFiles = 0;
+			addedOrModifiedFilesWithHashData = 0;
+		}
 		int resultType;
 		SystemAddress systemAddress;
 		MafiaNet::BitStream bitStream1;
@@ -265,16 +271,16 @@ public:
 	};
 
 protected:
-	friend AutopatcherServer::ResultTypeAndBitstream* GetChangelistSinceDateCB(AutopatcherServer::ThreadData pap, bool *returnOutput, void* perThreadData);
-	friend AutopatcherServer::ResultTypeAndBitstream* GetPatchCB(AutopatcherServer::ThreadData pap, bool *returnOutput, void* perThreadData);
+	friend AutopatcherServer::ResultTypeAndBitstream *GetChangelistSinceDateCB(AutopatcherServer::ThreadData pap, bool *returnOutput, void *perThreadData);
+	friend AutopatcherServer::ResultTypeAndBitstream *GetPatchCB(AutopatcherServer::ThreadData pap, bool *returnOutput, void *perThreadData);
 	PluginReceiveResult OnGetChangelistSinceDate(Packet *packet);
 	PluginReceiveResult OnGetPatch(Packet *packet);
 	void OnGetChangelistSinceDateInt(Packet *packet);
 	void OnGetPatchInt(Packet *packet);
-	void* PerThreadFactory(void *context);
-	void PerThreadDestructor(void* factoryResult, void *context);
+	void *PerThreadFactory(void *context);
+	void PerThreadDestructor(void *factoryResult, void *context);
 	void RemoveFromThreadPool(SystemAddress systemAddress);
-	virtual unsigned int GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
+	virtual unsigned int GetFilePart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
 
 	//AutopatcherRepositoryInterface *repository;
 	FileListTransfer *fileListTransfer;
@@ -283,7 +289,7 @@ protected:
 
 	// The point of the threadPool is so that SQL queries, which are blocking, happen in the thread and don't slow down the rest of the application
 	// The threadPool has a queue for incoming processing requests.  As systems disconnect their pending requests are removed from the list.
-	ThreadPool<ThreadData, ResultTypeAndBitstream*> threadPool;
+	ThreadPool<ThreadData, ResultTypeAndBitstream *> threadPool;
 
 	SimpleMutex connectionPoolMutex;
 	DataStructures::Queue<AutopatcherRepositoryInterface *> connectionPool;
@@ -296,8 +302,8 @@ protected:
 	bool IncrementPatchingUserCount(SystemAddress sa);
 	bool DecrementPatchingUserCount(SystemAddress sa);
 	bool PatchingUserLimitReached(void) const;
-    virtual void OnFilePushesComplete( SystemAddress systemAddress, unsigned short setID );
-	virtual void OnSendAborted( SystemAddress systemAddress );
+	virtual void OnFilePushesComplete(SystemAddress systemAddress, unsigned short setID);
+	virtual void OnSendAborted(SystemAddress systemAddress);
 
 	unsigned int maxConcurrentUsers;
 	// If maxConcurrentUsers is exceeded, then incoming requests are put into this queue

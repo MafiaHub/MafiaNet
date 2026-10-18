@@ -28,9 +28,9 @@ public:
 
 	// Call ReleaseBackbufferCopy after calling LockBackbufferCopy, when you are done with blob.
 	void ReleaseBackbufferCopy(void);
-	
+
 protected:
-	IDirect3DSurface9 * pDestSurface, *pRenderTargetSurface;
+	IDirect3DSurface9 *pDestSurface, *pRenderTargetSurface;
 	int width;
 	int height;
 	bool needsUnlock;

@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_LogCommandParser==1 && _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_LogCommandParser == 1 && _RAKNET_SUPPORT_PacketLogger == 1
 #include "mafianet/packet_console_logger.h"
 #include "mafianet/log_command_parser.h"
 #include <stdio.h>
@@ -23,12 +23,12 @@ using namespace MafiaNet;
 
 PacketConsoleLogger::PacketConsoleLogger()
 {
-	logCommandParser=0;
+	logCommandParser = 0;
 }
 
 void PacketConsoleLogger::SetLogCommandParser(LogCommandParser *lcp)
 {
-	logCommandParser=lcp;
+	logCommandParser = lcp;
 	if (logCommandParser)
 		logCommandParser->AddChannel("PacketConsoleLogger");
 }

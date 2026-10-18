@@ -84,7 +84,7 @@ TEST(PeerHandle, LoopbackIdBranchesAndIncomingRange)
 	serverAddress.SetPortHostOrder(serverPort);
 
 	ASSERT_EQ(client->Connect("127.0.0.1", serverPort, 0, 0), CONNECTION_ATTEMPT_STARTED)
-		<< "Connect did not start";
+	    << "Connect did not start";
 
 	// Wait for ID_CONNECTION_REQUEST_ACCEPTED on the client. This identifier is
 	// NOT timestamp-prefixed, so it exercises id()'s plain (first-byte) branch.
@@ -102,7 +102,7 @@ TEST(PeerHandle, LoopbackIdBranchesAndIncomingRange)
 			if (pkt.id() == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
 				ASSERT_FALSE(pkt->data[0] == ID_TIMESTAMP || pkt.id() != (unsigned char) pkt->data[0])
-					<< "plain-branch id() did not match data[0]";
+				    << "plain-branch id() did not match data[0]";
 				plainBranchOk = true;
 				connected = true;
 			}
@@ -129,7 +129,7 @@ TEST(PeerHandle, LoopbackIdBranchesAndIncomingRange)
 			if (pkt->data[0] == ID_TIMESTAMP)
 			{
 				ASSERT_EQ(pkt.id(), PEERHANDLE_TS_ID)
-					<< "timestamp-branch id() returned the wrong byte";
+				    << "timestamp-branch id() returned the wrong byte";
 				timestampBranchOk = true;
 			}
 		}
@@ -172,7 +172,7 @@ TEST(PeerHandle, LoopbackIdBranchesAndIncomingRange)
 		RakSleep(30);
 	}
 	ASSERT_EQ(rangeReceived, kBatch)
-		<< "incoming() drained " << rangeReceived << " of " << kBatch << " messages";
+	    << "incoming() drained " << rangeReceived << " of " << kBatch << " messages";
 
 	// The queue is now empty: a fresh range must iterate zero times.
 	int leftover = 0;

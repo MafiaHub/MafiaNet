@@ -19,43 +19,42 @@ using namespace MafiaNet;
 
 Lobby2Plugin::Lobby2Plugin()
 {
-	orderingChannel=0;
-	packetPriority=MafiaNet::Priority::High;
+	orderingChannel = 0;
+	packetPriority = MafiaNet::Priority::High;
 }
 Lobby2Plugin::~Lobby2Plugin()
 {
-
 }
 void Lobby2Plugin::SetOrderingChannel(char oc)
 {
-	orderingChannel=oc;
+	orderingChannel = oc;
 }
 void Lobby2Plugin::SetSendPriority(MafiaNet::Priority pp)
 {
-	packetPriority=pp;
+	packetPriority = pp;
 }
 void Lobby2Plugin::SetMessageFactory(Lobby2MessageFactory *f)
 {
-	msgFactory=f;
+	msgFactory = f;
 }
-Lobby2MessageFactory* Lobby2Plugin::GetMessageFactory(void) const
+Lobby2MessageFactory *Lobby2Plugin::GetMessageFactory(void) const
 {
 	return msgFactory;
 }
 void Lobby2Plugin::SetCallbackInterface(Lobby2Callbacks *cb)
 {
 	ClearCallbackInterfaces();
-	callbacks.Insert(cb, _FILE_AND_LINE_ );
+	callbacks.Insert(cb, _FILE_AND_LINE_);
 }
 void Lobby2Plugin::AddCallbackInterface(Lobby2Callbacks *cb)
 {
 	RemoveCallbackInterface(cb);
-	callbacks.Insert(cb, _FILE_AND_LINE_ );
+	callbacks.Insert(cb, _FILE_AND_LINE_);
 }
 void Lobby2Plugin::RemoveCallbackInterface(Lobby2Callbacks *cb)
 {
 	unsigned long index = callbacks.GetIndexOf(cb);
-	if (index!=MAX_UNSIGNED_LONG)
+	if (index != MAX_UNSIGNED_LONG)
 		callbacks.RemoveAtIndex(index);
 }
 void Lobby2Plugin::ClearCallbackInterfaces()

@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ConsoleServer==1
+#if _RAKNET_SUPPORT_ConsoleServer == 1
 
 #ifndef __CONSOLE_SERVER_H
 #define __CONSOLE_SERVER_H
@@ -78,7 +78,7 @@ protected:
 	void ShowPrompt(SystemAddress systemAddress);
 	TransportInterface *transport;
 	DataStructures::List<CommandParserInterface *> commandParserList;
-	char* password[256];
+	char *password[256];
 	char *prompt;
 };
 

@@ -52,15 +52,14 @@ TEST(LocklessUint32, ConcurrentIncrementsAndDecrementsBalance)
 	for (int t = 0; t < kThreads; ++t)
 	{
 		threads.emplace_back([&counter, t]
-		{
+		                     {
 			for (int i = 0; i < kIterations; ++i)
 			{
 				if (t % 2 == 0)
 					counter.Increment();
 				else
 					counter.Decrement();
-			}
-		});
+			} });
 	}
 	for (std::thread &thread : threads)
 		thread.join();

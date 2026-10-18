@@ -20,13 +20,13 @@ using namespace MafiaNet;
 
 namespace
 {
-	const char kPingData[] = "Offline Ping Data";
-	const char kAdvertiseData[] = "hello world";
+const char kPingData[] = "Offline Ping Data";
+const char kAdvertiseData[] = "hello world";
 
-	void HostOf(SimulatedNetwork &net, const RakPeer *peer, char (&host)[64])
-	{
-		net.AddressOf(peer).ToString(false, host, sizeof(host));
-	}
+void HostOf(SimulatedNetwork &net, const RakPeer *peer, char (&host)[64])
+{
+	net.AddressOf(peer).ToString(false, host, sizeof(host));
+}
 }
 
 TEST(OfflineMessagesConvert, GetOfflinePingResponseReturnsWhatWasSet)

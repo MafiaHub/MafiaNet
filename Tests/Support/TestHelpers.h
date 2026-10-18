@@ -39,15 +39,14 @@ public:
 	// Server on an OS-assigned port: read it with BoundPort(server).
 	static void StandardServerPrep(RakPeerInterface *&server);
 	static void StandardClientPrep(RakPeerInterface *&client);
-		static void StandardServerPrep(RakPeerInterface *&server,DataStructures::List <RakPeerInterface *> &destroyList);
-	static void StandardClientPrep(RakPeerInterface *&client,DataStructures::List <RakPeerInterface *> &destroyList);
+	static void StandardServerPrep(RakPeerInterface *&server, DataStructures::List<RakPeerInterface *> &destroyList);
+	static void StandardClientPrep(RakPeerInterface *&client, DataStructures::List<RakPeerInterface *> &destroyList);
 
-	static bool WaitAndConnectTwoPeersLocally(RakPeerInterface *connector,RakPeerInterface *connectee,int millisecondsToWait);
-	static bool ConnectTwoPeersLocally(RakPeerInterface *connector,RakPeerInterface *connectee);
+	static bool WaitAndConnectTwoPeersLocally(RakPeerInterface *connector, RakPeerInterface *connectee, int millisecondsToWait);
+	static bool ConnectTwoPeersLocally(RakPeerInterface *connector, RakPeerInterface *connectee);
 	///static bool BroadCastTestPacket(RakPeerInterface *sender);
-	static bool BroadCastTestPacket(RakPeerInterface *sender,MafiaNet::Reliability rel=MafiaNet::Reliability::ReliableOrdered,MafiaNet::Priority pr=MafiaNet::Priority::High,int typeNum=ID_USER_PACKET_ENUM+1);
-	static bool WaitForTestPacket(RakPeerInterface *reciever,int millisecondsToWait);
-	static void RecieveForXTime(RakPeerInterface *reciever,int millisecondsToWait);
-	static bool SendTestPacketDirected(RakPeerInterface *sender,char * ip,int port,MafiaNet::Reliability rel=MafiaNet::Reliability::ReliableOrdered,MafiaNet::Priority pr=MafiaNet::Priority::High,int typeNum=ID_USER_PACKET_ENUM+1);
-
+	static bool BroadCastTestPacket(RakPeerInterface *sender, MafiaNet::Reliability rel = MafiaNet::Reliability::ReliableOrdered, MafiaNet::Priority pr = MafiaNet::Priority::High, int typeNum = ID_USER_PACKET_ENUM + 1);
+	static bool WaitForTestPacket(RakPeerInterface *reciever, int millisecondsToWait);
+	static void RecieveForXTime(RakPeerInterface *reciever, int millisecondsToWait);
+	static bool SendTestPacketDirected(RakPeerInterface *sender, char *ip, int port, MafiaNet::Reliability rel = MafiaNet::Reliability::ReliableOrdered, MafiaNet::Priority pr = MafiaNet::Priority::High, int typeNum = ID_USER_PACKET_ENUM + 1);
 };

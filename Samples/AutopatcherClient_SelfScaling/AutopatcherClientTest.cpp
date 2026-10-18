@@ -57,31 +57,31 @@ class TestCB : public MafiaNet::AutopatcherClientCBInterface
 public:
 	virtual bool OnFile(OnFileStruct *onFileStruct)
 	{
-		if (onFileStruct->context.op==PC_HASH_1_WITH_PATCH || onFileStruct->context.op==PC_HASH_2_WITH_PATCH)
+		if (onFileStruct->context.op == PC_HASH_1_WITH_PATCH || onFileStruct->context.op == PC_HASH_2_WITH_PATCH)
 			printf("Patched: ");
-		else if (onFileStruct->context.op==PC_WRITE_FILE)
+		else if (onFileStruct->context.op == PC_WRITE_FILE)
 			printf("Written: ");
-		else if (onFileStruct->context.op==PC_ERROR_FILE_WRITE_FAILURE)
+		else if (onFileStruct->context.op == PC_ERROR_FILE_WRITE_FAILURE)
 			printf("Write Failure: ");
-		else if (onFileStruct->context.op==PC_ERROR_PATCH_TARGET_MISSING)
+		else if (onFileStruct->context.op == PC_ERROR_PATCH_TARGET_MISSING)
 			printf("Patch target missing: ");
-		else if (onFileStruct->context.op==PC_ERROR_PATCH_APPLICATION_FAILURE)
+		else if (onFileStruct->context.op == PC_ERROR_PATCH_APPLICATION_FAILURE)
 			printf("Patch process failure: ");
-		else if (onFileStruct->context.op==PC_ERROR_PATCH_RESULT_CHECKSUM_FAILURE)
+		else if (onFileStruct->context.op == PC_ERROR_PATCH_RESULT_CHECKSUM_FAILURE)
 			printf("Patch checksum failure: ");
-		else if (onFileStruct->context.op==PC_NOTICE_WILL_COPY_ON_RESTART)
+		else if (onFileStruct->context.op == PC_NOTICE_WILL_COPY_ON_RESTART)
 			printf("Copy pending restart: ");
-		else if (onFileStruct->context.op==PC_NOTICE_FILE_DOWNLOADED)
+		else if (onFileStruct->context.op == PC_NOTICE_FILE_DOWNLOADED)
 			printf("Downloaded: ");
-		else if (onFileStruct->context.op==PC_NOTICE_FILE_DOWNLOADED_PATCH)
+		else if (onFileStruct->context.op == PC_NOTICE_FILE_DOWNLOADED_PATCH)
 			printf("Downloaded Patch: ");
 		else
 			RakAssert(0);
 
 
-		printf("%i. (100%%) %i/%i %s %ib / %ib\n", onFileStruct->setID, onFileStruct->fileIndex+1, onFileStruct->numberOfFilesInThisSet,
-			onFileStruct->fileName, onFileStruct->byteLengthOfThisFile,
-			onFileStruct->byteLengthOfThisSet);
+		printf("%i. (100%%) %i/%i %s %ib / %ib\n", onFileStruct->setID, onFileStruct->fileIndex + 1, onFileStruct->numberOfFilesInThisSet,
+		       onFileStruct->fileName, onFileStruct->byteLengthOfThisFile,
+		       onFileStruct->byteLengthOfThisSet);
 
 		// Return false for the file data to be deallocated automatically
 		return false;
@@ -90,18 +90,17 @@ public:
 	virtual void OnFileProgress(FileProgressStruct *fps)
 	{
 		printf("Downloading: %i. (%i%%) %i/%i %s %ib/%ib %ib/%ib total\n", fps->onFileStruct->setID,
-			(int) (100.0*(double)fps->onFileStruct->bytesDownloadedForThisFile/(double)fps->onFileStruct->byteLengthOfThisFile),
-			fps->onFileStruct->fileIndex+1, fps->onFileStruct->numberOfFilesInThisSet, fps->onFileStruct->fileName,
-			fps->onFileStruct->bytesDownloadedForThisFile,
-			fps->onFileStruct->byteLengthOfThisFile,			
-			fps->onFileStruct->bytesDownloadedForThisSet,
-			fps->onFileStruct->byteLengthOfThisSet
-			);
+		       (int) (100.0 * (double) fps->onFileStruct->bytesDownloadedForThisFile / (double) fps->onFileStruct->byteLengthOfThisFile),
+		       fps->onFileStruct->fileIndex + 1, fps->onFileStruct->numberOfFilesInThisSet, fps->onFileStruct->fileName,
+		       fps->onFileStruct->bytesDownloadedForThisFile,
+		       fps->onFileStruct->byteLengthOfThisFile,
+		       fps->onFileStruct->bytesDownloadedForThisSet,
+		       fps->onFileStruct->byteLengthOfThisSet);
 	}
 
 	virtual PatchContext ApplyPatchBase(const char *oldFilePath, char **newFileContents, unsigned int *newFileSize, char *patchContents, unsigned int patchSize, uint32_t patchAlgorithm)
 	{
-		if (patchAlgorithm==0)
+		if (patchAlgorithm == 0)
 		{
 			return ApplyPatchBSDiff(oldFilePath, newFileContents, newFileSize, patchContents, patchSize);
 		}
@@ -109,8 +108,8 @@ public:
 		{
 			char WORKING_DIRECTORY[MAX_PATH];
 			GetTempPathA(MAX_PATH, WORKING_DIRECTORY);
-			if (WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='\\' || WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=='/')
-				WORKING_DIRECTORY[strlen(WORKING_DIRECTORY)-1]=0;
+			if (WORKING_DIRECTORY[strlen(WORKING_DIRECTORY) - 1] == '\\' || WORKING_DIRECTORY[strlen(WORKING_DIRECTORY) - 1] == '/')
+				WORKING_DIRECTORY[strlen(WORKING_DIRECTORY) - 1] = 0;
 
 			char buff[128];
 			MafiaNet::TimeUS time = MafiaNet::GetTimeUS();
@@ -123,7 +122,7 @@ public:
 			char pathToPatch1[MAX_PATH], pathToPatch2[MAX_PATH];
 			sprintf_s(pathToPatch1, "%s/patchClient_%s.tmp", WORKING_DIRECTORY, buff);
 			FILE *fpPatch;
-			if (fopen_s(&fpPatch, pathToPatch1, "wb")!=0)
+			if (fopen_s(&fpPatch, pathToPatch1, "wb") != 0)
 				return PC_ERROR_PATCH_TARGET_MISSING;
 			fwrite(patchContents, 1, patchSize, fpPatch);
 			fclose(fpPatch);
@@ -131,9 +130,9 @@ public:
 			// Invoke xdelta
 			// See https://code.google.com/p/xdelta/wiki/CommandLineSyntax
 			char commandLine[512];
-			_snprintf(commandLine, sizeof(commandLine)-1, "-d -f -s %s %s/patchClient_%s.tmp %s/newFile_%s.tmp", oldFilePath, WORKING_DIRECTORY, buff, WORKING_DIRECTORY, buff);
-			commandLine[511]=0;
-			
+			_snprintf(commandLine, sizeof(commandLine) - 1, "-d -f -s %s %s/patchClient_%s.tmp %s/newFile_%s.tmp", oldFilePath, WORKING_DIRECTORY, buff, WORKING_DIRECTORY, buff);
+			commandLine[511] = 0;
+
 			SHELLEXECUTEINFOA shellExecuteInfo;
 			shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFO);
 			shellExecuteInfo.fMask = SEE_MASK_NOASYNC | SEE_MASK_NO_CONSOLE;
@@ -152,12 +151,12 @@ public:
 			sprintf_s(pathToPatch2, "%s/newFile_%s.tmp", WORKING_DIRECTORY, buff);
 			errno_t error = fopen_s(&fpPatch, pathToPatch2, "r+b");
 			MafiaNet::TimeUS stopWaiting = time + 60000000;
-			while (error!=0 && MafiaNet::GetTimeUS() < stopWaiting)
+			while (error != 0 && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
 				error = fopen_s(&fpPatch, pathToPatch2, "r+b");
 			}
-			if (error!=0)
+			if (error != 0)
 			{
 				char buff2[1024];
 				strerror_s(buff2, errno);
@@ -168,27 +167,29 @@ public:
 			fseek(fpPatch, 0, SEEK_END);
 			*newFileSize = ftell(fpPatch);
 			fseek(fpPatch, 0, SEEK_SET);
-			*newFileContents = (char*) rakMalloc_Ex(*newFileSize, _FILE_AND_LINE_);
+			*newFileContents = (char *) rakMalloc_Ex(*newFileSize, _FILE_AND_LINE_);
 			fread(*newFileContents, 1, *newFileSize, fpPatch);
 			fclose(fpPatch);
 
 			int unlinkRes1 = _unlink(pathToPatch1);
 			int unlinkRes2 = _unlink(pathToPatch2);
-			while ((unlinkRes1!=0 || unlinkRes2!=0) && MafiaNet::GetTimeUS() < stopWaiting)
+			while ((unlinkRes1 != 0 || unlinkRes2 != 0) && MafiaNet::GetTimeUS() < stopWaiting)
 			{
 				RakSleep(1000);
-				if (unlinkRes1!=0)
+				if (unlinkRes1 != 0)
 					unlinkRes1 = _unlink(pathToPatch1);
-				if (unlinkRes2!=0)
+				if (unlinkRes2 != 0)
 					unlinkRes2 = _unlink(pathToPatch2);
 			}
 
-			if (unlinkRes1!=0) {
+			if (unlinkRes1 != 0)
+			{
 				char buff2[1024];
 				strerror_s(buff2, errno);
 				printf("\nWARNING: unlink %s failed.\nerr=%i (%s)\n", pathToPatch1, errno, buff2);
 			}
-			if (unlinkRes2!=0) {
+			if (unlinkRes2 != 0)
+			{
 				char buff2[1024];
 				strerror_s(buff2, errno);
 				printf("\nWARNING: unlink %s failed.\nerr=%i (%s)\n", pathToPatch2, errno, buff2);
@@ -202,37 +203,39 @@ public:
 
 int main(int argc, char **argv)
 {
-	if (argc<8)
+	if (argc < 8)
 	{
 		printf("Arguments: serverIP, pathToGame, gameName, patchImmediately, localPort, serverPort, fullScan");
 		return 0;
 	}
 
-	MafiaNet::SystemAddress TCPServerAddress= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress TCPServerAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	MafiaNet::AutopatcherClient autopatcherClient;
 	MafiaNet::FileListTransfer fileListTransfer;
 	MafiaNet::CloudClient cloudClient;
 	autopatcherClient.SetFileListTransferPlugin(&fileListTransfer);
-	bool didRebalance=false; // So we only reconnect to a lower load server once, for load balancing
+	bool didRebalance = false; // So we only reconnect to a lower load server once, for load balancing
 
-	bool fullScan = argv[7][0]=='1';
+	bool fullScan = argv[7][0] == '1';
 
 	const int intLocalPort = atoi(argv[5]);
-	if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 		return 2;
 	}
 	unsigned short localPort = static_cast<unsigned short>(intLocalPort);
 
 	const int intServerPort = atoi(argv[6]);
-	if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 		return 3;
 	}
 	unsigned short serverPort = static_cast<unsigned short>(intServerPort);
 
 	MafiaNet::PacketizedTCP packetizedTCP;
-	if (packetizedTCP.Start(localPort,1)==false)
+	if (packetizedTCP.Start(localPort, 1) == false)
 	{
 		printf("Failed to start TCP. Is the port already in use?");
 		return 1;
@@ -242,10 +245,10 @@ int main(int argc, char **argv)
 
 	MafiaNet::RakPeerInterface *rakPeer;
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
-	rakPeer->Startup(1,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
+	rakPeer->Startup(1, &socketDescriptor, 1);
 	rakPeer->AttachPlugin(&cloudClient);
-	DataStructures::List<MafiaNet::RakNetSocket2* > sockets;
+	DataStructures::List<MafiaNet::RakNetSocket2 *> sockets;
 	rakPeer->GetSockets(sockets);
 	printf("Started on port %i\n", sockets[0]->GetBoundAddress().GetPort());
 
@@ -261,37 +264,37 @@ int main(int argc, char **argv)
 	char appName[512];
 	strcpy_s(appName, argv[3]);
 
-	bool patchImmediately=argc>=5 && argv[4][0]=='1';
+	bool patchImmediately = argc >= 5 && argv[4][0] == '1';
 
 	MafiaNet::Packet *p;
 	bool running = true;
-	while(running)
+	while (running)
 	{
 		MafiaNet::SystemAddress notificationAddress;
-		notificationAddress=packetizedTCP.HasCompletedConnectionAttempt();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasCompletedConnectionAttempt();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
-			TCPServerAddress=notificationAddress;
+			TCPServerAddress = notificationAddress;
 		}
-		notificationAddress=packetizedTCP.HasNewIncomingConnection();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasNewIncomingConnection();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_NEW_INCOMING_CONNECTION\n");
-		notificationAddress=packetizedTCP.HasLostConnection();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasLostConnection();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 			printf("ID_CONNECTION_LOST\n");
-		notificationAddress=packetizedTCP.HasFailedConnectionAttempt();
-		if (notificationAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+		notificationAddress = packetizedTCP.HasFailedConnectionAttempt();
+		if (notificationAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 		{
 			printf("ID_CONNECTION_ATTEMPT_FAILED TCP\n");
 			break;
 		}
 
 
-		p=packetizedTCP.Receive();
+		p = packetizedTCP.Receive();
 		while (p)
 		{
-			if (p->data[0]==ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR)
+			if (p->data[0] == ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR)
 			{
 				char buff2[256];
 				MafiaNet::BitStream temp(p->data, p->length, false);
@@ -302,24 +305,24 @@ int main(int argc, char **argv)
 				running = false;
 				break;
 			}
-			else if (p->data[0]==ID_AUTOPATCHER_CANNOT_DOWNLOAD_ORIGINAL_UNMODIFIED_FILES)
+			else if (p->data[0] == ID_AUTOPATCHER_CANNOT_DOWNLOAD_ORIGINAL_UNMODIFIED_FILES)
 			{
 				printf("ID_AUTOPATCHER_CANNOT_DOWNLOAD_ORIGINAL_UNMODIFIED_FILES\n");
 				running = false;
 				break;
 			}
-			else if (p->data[0]==ID_AUTOPATCHER_FINISHED)
+			else if (p->data[0] == ID_AUTOPATCHER_FINISHED)
 			{
 				printf("ID_AUTOPATCHER_FINISHED with server time %f\n", autopatcherClient.GetServerDate());
-				double srvDate=autopatcherClient.GetServerDate();
+				double srvDate = autopatcherClient.GetServerDate();
 				FILE *fp;
 				fopen_s(&fp, "srvDate", "wb");
-				fwrite(&srvDate,sizeof(double),1,fp);
+				fwrite(&srvDate, sizeof(double), 1, fp);
 				fclose(fp);
 				running = false;
 				break;
 			}
-			else if (p->data[0]==ID_AUTOPATCHER_RESTART_APPLICATION)
+			else if (p->data[0] == ID_AUTOPATCHER_RESTART_APPLICATION)
 			{
 				printf("ID_AUTOPATCHER_RESTART_APPLICATION");
 				running = false;
@@ -328,43 +331,43 @@ int main(int argc, char **argv)
 			// Launch \"AutopatcherClientRestarter.exe autopatcherRestart.txt\"\nQuit this application immediately after to unlock files.\n");
 
 			packetizedTCP.DeallocatePacket(p);
-			p=packetizedTCP.Receive();
+			p = packetizedTCP.Receive();
 		}
 
 		if (!running)
 			break;
 
-		p=rakPeer->Receive();
+		p = rakPeer->Receive();
 		while (p)
 		{
-			if (p->data[0]==ID_CONNECTION_REQUEST_ACCEPTED)
+			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
 				// UploadInstanceToCloud(&cloudClient, p->guid);
 				// GetClientSubscription(&cloudClient, p->guid);
 				GetServers(&cloudClient, p->guid);
 				break;
 			}
-			else if (p->data[0]==ID_CONNECTION_ATTEMPT_FAILED)
+			else if (p->data[0] == ID_CONNECTION_ATTEMPT_FAILED)
 			{
 				printf("ID_CONNECTION_ATTEMPT_FAILED UDP\n");
 				running = false;
 				break;
 			}
-			else if (p->data[0]==ID_CLOUD_GET_RESPONSE)
+			else if (p->data[0] == ID_CLOUD_GET_RESPONSE)
 			{
 				MafiaNet::CloudQueryResult cloudQueryResult;
 				cloudClient.OnGetReponse(&cloudQueryResult, p);
 				unsigned int rowIndex;
-				const bool wasCallToGetServers=cloudQueryResult.cloudQuery.keys[0].primaryKey=="CloudConnCount";
+				const bool wasCallToGetServers = cloudQueryResult.cloudQuery.keys[0].primaryKey == "CloudConnCount";
 				printf("\n");
 				if (wasCallToGetServers)
 					printf("Downloaded server list. %i servers.\n", cloudQueryResult.rowsReturned.Size());
 
-				unsigned short connectionsOnOurServer=65535;
-				unsigned short lowestConnectionsServer=65535;
+				unsigned short connectionsOnOurServer = 65535;
+				unsigned short lowestConnectionsServer = 65535;
 				MafiaNet::SystemAddress lowestConnectionAddress;
 
-				for (rowIndex=0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
+				for (rowIndex = 0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
 				{
 					MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
 					if (wasCallToGetServers)
@@ -372,32 +375,32 @@ int main(int argc, char **argv)
 						unsigned short connCount;
 						MafiaNet::BitStream bsIn(row->data, row->length, false);
 						bsIn.Read(connCount);
-						printf("%i. Server found at %s with %i connections\n", rowIndex+1, row->serverSystemAddress.ToString(true), connCount);
+						printf("%i. Server found at %s with %i connections\n", rowIndex + 1, row->serverSystemAddress.ToString(true), connCount);
 
 						unsigned short connectionsExcludingOurselves;
-						if (row->serverGUID==p->guid)
-							connectionsExcludingOurselves=connCount-1;
+						if (row->serverGUID == p->guid)
+							connectionsExcludingOurselves = connCount - 1;
 						else
-							connectionsExcludingOurselves=connCount;
+							connectionsExcludingOurselves = connCount;
 
 						// Find the lowest load server (optional)
-						if (p->guid==row->serverGUID)
+						if (p->guid == row->serverGUID)
 						{
-							connectionsOnOurServer=connectionsExcludingOurselves;
+							connectionsOnOurServer = connectionsExcludingOurselves;
 						}
 						else if (connectionsExcludingOurselves < lowestConnectionsServer)
 						{
-							lowestConnectionsServer=connectionsExcludingOurselves;
-							lowestConnectionAddress=row->serverSystemAddress;
+							lowestConnectionsServer = connectionsExcludingOurselves;
+							lowestConnectionAddress = row->serverSystemAddress;
 						}
 					}
 				}
 
 
 				// Do load balancing by reconnecting to lowest load server (optional)
-				if (didRebalance==false && wasCallToGetServers)
+				if (didRebalance == false && wasCallToGetServers)
 				{
-					if (cloudQueryResult.rowsReturned.Size()>0 && connectionsOnOurServer>lowestConnectionsServer)
+					if (cloudQueryResult.rowsReturned.Size() > 0 && connectionsOnOurServer > lowestConnectionsServer)
 					{
 						printf("Reconnecting to lower load server %s\n", lowestConnectionAddress.ToString(false));
 
@@ -409,37 +412,37 @@ int main(int argc, char **argv)
 						rakPeer->Connect(lowestConnectionAddress.ToString(false), lowestConnectionAddress.GetPort(), 0, 0);
 
 						// TCP Connect to new IP address
-						packetizedTCP.Connect(lowestConnectionAddress.ToString(false),serverPort,false);
+						packetizedTCP.Connect(lowestConnectionAddress.ToString(false), serverPort, false);
 					}
 					else
 					{
 						// TCP Connect to original IP address
-						packetizedTCP.Connect(buff,serverPort,false);
+						packetizedTCP.Connect(buff, serverPort, false);
 					}
 
-					didRebalance=true;
+					didRebalance = true;
 				}
 
 				cloudClient.DeallocateWithDefaultAllocator(&cloudQueryResult);
 			}
 
 			rakPeer->DeallocatePacket(p);
-			p=rakPeer->Receive();
+			p = rakPeer->Receive();
 		}
 
 		if (!running)
 			break;
 
-		if (TCPServerAddress!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && patchImmediately==true)
+		if (TCPServerAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && patchImmediately == true)
 		{
-			patchImmediately=false;
+			patchImmediately = false;
 			char restartFile[512];
 			strcpy_s(restartFile, appDir);
 			strcat_s(restartFile, "/autopatcherRestart.txt");
 
 			double lastUpdateDate;
 
-			if (fullScan==false)
+			if (fullScan == false)
 			{
 				FILE *fp;
 				if (fopen_s(&fp, "srvDate", "rb") == 0)
@@ -448,10 +451,10 @@ int main(int argc, char **argv)
 					fclose(fp);
 				}
 				else
-					lastUpdateDate=0;
+					lastUpdateDate = 0;
 			}
 			else
-				lastUpdateDate=0;
+				lastUpdateDate = 0;
 
 			if (autopatcherClient.PatchApplication(appName, appDir, lastUpdateDate, TCPServerAddress, &transferCallback, restartFile, argv[0]))
 			{
@@ -471,13 +474,13 @@ int main(int argc, char **argv)
 
 	autopatcherClient.Clear();
 	packetizedTCP.Stop();
-	rakPeer->Shutdown(500,0);
+	rakPeer->Shutdown(500, 0);
 	MafiaNet::RakPeerInterface::DestroyInstance(rakPeer);
 	return 0;
 }
 void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	MafiaNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY,0);
+	MafiaNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY, 0);
 	MafiaNet::BitStream bs;
 	bs.Write("Hello World"); // This could be anything such as player list, game name, etc.
 	cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), serverGuid);
@@ -485,14 +488,14 @@ void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetG
 void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
 	MafiaNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY,0),_FILE_AND_LINE_);
-	cloudQuery.subscribeToResults=false;
+	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY, 0), _FILE_AND_LINE_);
+	cloudQuery.subscribeToResults = false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }
 void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
 	MafiaNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
-	cloudQuery.subscribeToResults=false;
+	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount", 0), _FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
+	cloudQuery.subscribeToResults = false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }

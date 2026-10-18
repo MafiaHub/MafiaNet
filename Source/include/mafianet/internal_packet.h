@@ -26,13 +26,14 @@
 #include "mafianet/defines.h"
 #include "mafianet/native_types.h"
 #include "mafianet/defines.h"
-#if USE_SLIDING_WINDOW_CONGESTION_CONTROL!=1
+#if USE_SLIDING_WINDOW_CONGESTION_CONTROL != 1
 #include "mafianet/cc_udt.h"
 #else
 #include "mafianet/cc_sliding_window.h"
 #endif
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 typedef uint16_t SplitPacketIdType;
 typedef uint32_t SplitPacketIndexType;
@@ -62,7 +63,8 @@ struct InternalPacketFixedSizeTransmissionHeader
 	///If this is a split packet, the index into the array of subsplit packets
 	SplitPacketIndexType splitPacketIndex;
 	///The size of the array of subsplit packets
-	SplitPacketIndexType splitPacketCount;;
+	SplitPacketIndexType splitPacketCount;
+	;
 	///How many bits long the data is
 	BitSize_t dataBitLength;
 	///What type of reliability algorithm to use with this packet
@@ -90,7 +92,7 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	/// This causes performance problems and causes those messages to timeout.
 	bool messageNumberAssigned;
 	/// Was this packet number used this update to track windowing drops or increases?  Each packet number is only used once per update.
-//	bool allowWindowUpdate;
+	//	bool allowWindowUpdate;
 	///When this packet was created
 	MafiaNet::TimeUS creationTime;
 	///The resendNext time to take action on this packet
@@ -109,7 +111,7 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 
 		/// data points to a larger block of data, where the larger block is reference counted. internalPacketRefCountedData is used in this case
 		REF_COUNTED,
-	
+
 		/// If allocation scheme is STACK, data points to stackData and should not be deallocated
 		/// This is only used when sending. Received packets are deallocated in RakPeer
 		STACK
@@ -135,7 +137,7 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 
 	// Used for the resend queue
 	// Linked list implementation so I can remove from the list via a pointer, without finding it in the list
-	InternalPacket *resendPrev, *resendNext,*unreliablePrev,*unreliableNext;
+	InternalPacket *resendPrev, *resendNext, *unreliablePrev, *unreliableNext;
 
 	unsigned char stackData[128];
 };
@@ -143,4 +145,3 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 } // namespace MafiaNet
 
 #endif
-

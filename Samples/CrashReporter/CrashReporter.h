@@ -25,11 +25,11 @@
 //
 // void main(void)
 //{
-//__try 
+//__try
 //{
 //	RunGame();
 //}
-//__except(DumpMiniDump(GetExceptionInformation()),EXCEPTION_EXECUTE_HANDLER) 
+//__except(DumpMiniDump(GetExceptionInformation()),EXCEPTION_EXECUTE_HANDLER)
 //{
 //}
 //}
@@ -66,22 +66,23 @@
 // Link with Dbghelp.lib ws2_32.lib
 
 #include "mafianet/defines.h" // provides the MNet short-hand alias for the MafiaNet namespace
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 // Possible actions to take on a crash.  If you want to restart the app as well, see the CrashRelauncher sample.
 enum CrashReportAction
 {
 	// Send an email (mutually exclusive with AOC_EMAIL_WITH_ATTACHMENT)
-	AOC_EMAIL_NO_ATTACHMENT=1,
+	AOC_EMAIL_NO_ATTACHMENT = 1,
 
 	// Send an email and attach the minidump (mutually exclusive with AOC_EMAIL_NO_ATTACHMENT)
-	AOC_EMAIL_WITH_ATTACHMENT=2,
+	AOC_EMAIL_WITH_ATTACHMENT = 2,
 
 	// Write the minidump to disk in a specified directory
-	AOC_WRITE_TO_DISK=4,
+	AOC_WRITE_TO_DISK = 4,
 
 	// In silent mode there are no prompts.  This is useful for an unmonitored application.
-	AOC_SILENT_MODE=8
+	AOC_SILENT_MODE = 8
 };
 
 /// Holds all the parameters to CrashReporter::Start

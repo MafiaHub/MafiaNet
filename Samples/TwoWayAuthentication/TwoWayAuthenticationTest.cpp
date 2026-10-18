@@ -24,36 +24,36 @@
 #include "mafianet/two_way_authentication.h"
 #include "mafianet/sleep.h"
 
-static const int NUM_PEERS=2;
+static const int NUM_PEERS = 2;
 MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
 MafiaNet::TwoWayAuthentication *twoWayAuthenticationPlugin[NUM_PEERS];
 int main(void)
 {
-	for (int i=0; i < NUM_PEERS; i++)
-		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
+	for (int i = 0; i < NUM_PEERS; i++)
+		rakPeer[i] = MafiaNet::RakPeerInterface::GetInstance();
 
 	printf("This project tests and demonstrates the two way authentication plugin.\n");
 	printf("Difficulty: Beginner\n\n");
 
 	// Initialize the message handlers
-	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		twoWayAuthenticationPlugin[peerIndex]= MafiaNet::OP_NEW<MafiaNet::TwoWayAuthentication>(_FILE_AND_LINE_);
+		twoWayAuthenticationPlugin[peerIndex] = MafiaNet::OP_NEW<MafiaNet::TwoWayAuthentication>(_FILE_AND_LINE_);
 		rakPeer[peerIndex]->AttachPlugin(twoWayAuthenticationPlugin[peerIndex]);
 		rakPeer[peerIndex]->SetMaximumIncomingConnections(NUM_PEERS);
 	}
 
 	// Initialize the peers
-	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		MafiaNet::SocketDescriptor socketDescriptor(60000+peerIndex,0);
+		MafiaNet::SocketDescriptor socketDescriptor(60000 + peerIndex, 0);
 		rakPeer[peerIndex]->Startup(NUM_PEERS, &socketDescriptor, 1);
 	}
-	
+
 	// Connect each peer to the prior peer
-	for (unsigned short peerIndex=1; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 1; peerIndex < NUM_PEERS; peerIndex++)
 	{
-        rakPeer[peerIndex]->Connect("127.0.0.1", 60000+peerIndex-1, 0, 0);
+		rakPeer[peerIndex]->Connect("127.0.0.1", 60000 + peerIndex - 1, 0, 0);
 	}
 
 	RakSleep(100);
@@ -65,113 +65,112 @@ int main(void)
 	twoWayAuthenticationPlugin[1]->AddPassword("PWD0", "Password0");
 	SLNET_VERIFY(twoWayAuthenticationPlugin[0]->Challenge("PWD0", rakPeer[0]->GetGUIDFromIndex(0)));
 	printf("Stage 0, instance 0 challenges instance 1 (should pass)\n");
-	int stage=0;
-	int stage4FailureCount=0;
-	int passCount=0;
-	bool quit=false;
+	int stage = 0;
+	int stage4FailureCount = 0;
+	int passCount = 0;
+	bool quit = false;
 
 	while (!quit)
 	{
 		MafiaNet::Packet *packet;
-		for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+		for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 		{
-			packet=rakPeer[peerIndex]->Receive();
+			packet = rakPeer[peerIndex]->Receive();
 			if (packet)
 			{
 				switch (packet->data[0])
 				{
-					case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS:
-					case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS:
+				case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS:
+				case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS:
+				{
+					MafiaNet::BitStream bs(packet->data, packet->length, false);
+					bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
+					MafiaNet::RakString password;
+					bs.Read(password);
+					if (packet->data[0] == ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS)
+						printf("ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
+					else
+						printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
+					if (++passCount == 2)
 					{
-						MafiaNet::BitStream bs(packet->data, packet->length, false);
-						bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
-						MafiaNet::RakString password;
-						bs.Read(password);
-						if (packet->data[0]==ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS)
-							printf("ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
-						else
-							printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
-						if (++passCount==2)
+						if (stage <= 2)
 						{
-							if (stage<=2)
+							if (stage == 0)
 							{
-								if (stage==0)
+								printf("Stage 1, instance 1 challenges instance 0 (should pass)\n");
+								twoWayAuthenticationPlugin[1]->Challenge("PWD0", rakPeer[1]->GetGUIDFromIndex(0));
+								passCount = 0;
+								// stage==1
+							}
+							else if (stage == 1)
+							{
+								printf("Stage 2, instance 1 re-challenges instance 0 (should pass)\n");
+								twoWayAuthenticationPlugin[1]->Challenge("PWD0", rakPeer[1]->GetGUIDFromIndex(0));
+								passCount = 0;
+								// stage==2
+							}
+							else
+							{
+								printf("Stage 3, instance 0 challenges with bad password (call should fail)\n");
+								if (twoWayAuthenticationPlugin[0]->Challenge("PWD3", rakPeer[0]->GetGUIDFromIndex(0)) == false)
 								{
-									printf("Stage 1, instance 1 challenges instance 0 (should pass)\n");
-									twoWayAuthenticationPlugin[1]->Challenge("PWD0", rakPeer[1]->GetGUIDFromIndex(0));
-									passCount=0;
-									// stage==1
-								}
-								else if (stage==1)
-								{
-									printf("Stage 2, instance 1 re-challenges instance 0 (should pass)\n");
-									twoWayAuthenticationPlugin[1]->Challenge("PWD0", rakPeer[1]->GetGUIDFromIndex(0));
-									passCount=0;
-									// stage==2
+									printf("Passed stage 3\n");
+									stage++;
+									printf("Stage 4, instance 0 challenges with unknown password (should fail twice)\n");
+									twoWayAuthenticationPlugin[0]->Challenge("PWD1", rakPeer[0]->GetGUIDFromIndex(0));
 								}
 								else
 								{
-									printf("Stage 3, instance 0 challenges with bad password (call should fail)\n");
-									if (twoWayAuthenticationPlugin[0]->Challenge("PWD3", rakPeer[0]->GetGUIDFromIndex(0))==false)
-									{
-										printf("Passed stage 3\n");
-										stage++;
-										printf("Stage 4, instance 0 challenges with unknown password (should fail twice)\n");
-										twoWayAuthenticationPlugin[0]->Challenge("PWD1", rakPeer[0]->GetGUIDFromIndex(0));
-									}
-									else
-									{
-										printf("Failed stage 3, Challenge() did not return false\n");
-									}
+									printf("Failed stage 3, Challenge() did not return false\n");
 								}
-								stage++;
 							}
-						}
-						
-					}
-					break;
-					case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE:
-					{
-						printf("ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILED from %s\n", packet->systemAddress.ToString(true));
-						if (stage!=4)
-						{
-							printf("Failed stage %i\n", stage);
-						}
-						else
-						{
-							if (++stage4FailureCount==2)
-								quit=true;
+							stage++;
 						}
 					}
-					break;
-					case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT:
+				}
+				break;
+				case ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE:
+				{
+					printf("ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILED from %s\n", packet->systemAddress.ToString(true));
+					if (stage != 4)
 					{
-						MafiaNet::BitStream bs(packet->data, packet->length, false);
-						bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
-						MafiaNet::RakString password;
-						bs.Read(password);
-						printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
 						printf("Failed stage %i\n", stage);
 					}
-					break;
-					case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE:
+					else
 					{
-						MafiaNet::BitStream bs(packet->data, packet->length, false);
-						bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
-						MafiaNet::RakString password;
-						bs.Read(password);
-						printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILED with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
-						if (stage!=4)
-						{
-							printf("Failed stage %i\n", stage);
-						}
-						else
-						{
-							if (++stage4FailureCount==2)
-								quit=true;
-						}
+						if (++stage4FailureCount == 2)
+							quit = true;
 					}
-					break;
+				}
+				break;
+				case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT:
+				{
+					MafiaNet::BitStream bs(packet->data, packet->length, false);
+					bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
+					MafiaNet::RakString password;
+					bs.Read(password);
+					printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
+					printf("Failed stage %i\n", stage);
+				}
+				break;
+				case ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE:
+				{
+					MafiaNet::BitStream bs(packet->data, packet->length, false);
+					bs.IgnoreBytes(sizeof(MafiaNet::MessageID));
+					MafiaNet::RakString password;
+					bs.Read(password);
+					printf("ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILED with %s from %s\n", password.C_String(), packet->systemAddress.ToString(true));
+					if (stage != 4)
+					{
+						printf("Failed stage %i\n", stage);
+					}
+					else
+					{
+						if (++stage4FailureCount == 2)
+							quit = true;
+					}
+				}
+				break;
 				}
 				rakPeer[peerIndex]->DeallocatePacket(packet);
 			}
@@ -181,10 +180,10 @@ int main(void)
 	}
 
 
-	for (int i=0; i < NUM_PEERS; i++)
+	for (int i = 0; i < NUM_PEERS; i++)
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 
-	for (unsigned short peerIndex=0; peerIndex < NUM_PEERS; peerIndex++)
+	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 		MafiaNet::OP_DELETE(twoWayAuthenticationPlugin[peerIndex], _FILE_AND_LINE_);
 
 	return 1;

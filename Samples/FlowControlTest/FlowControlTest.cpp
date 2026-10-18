@@ -42,49 +42,50 @@ int main(void)
 	MafiaNet::TimeMS time;
 	MafiaNet::Packet *p;
 	MafiaNet::TimeMS lastPacketReceipt, lastNotification, lastSend;
-	#ifndef _WIN32
+#ifndef _WIN32
 	char buff[256];
-	#endif
-	
+#endif
+
 	memset(randomData, 255, sizeof(randomData));
-	
+
 	printf("This project is used to test two systems sending to each other with\n");
 	printf("variable message sends rates and payload sizes\n");
 	printf("Difficulty: Beginner\n\n");
 
 	printf("Start relay (s)erver or start (c)lient?\n");
 #ifndef _WIN32
-	Gets(buff,sizeof(buff));
-	ch=buff[0];
+	Gets(buff, sizeof(buff));
+	ch = buff[0];
 #else
-	ch=_getch();
+	ch = _getch();
 #endif
-	if (ch=='s' || ch=='S')
+	if (ch == 's' || ch == 'S')
 	{
 		printf("Acting as server.\n");
-		rakServer= MafiaNet::RakPeerInterface::GetInstance();
-		rakClient=0;
+		rakServer = MafiaNet::RakPeerInterface::GetInstance();
+		rakClient = 0;
 	}
 	else
 	{
 		printf("Acting as client.\n");
-		rakClient= MafiaNet::RakPeerInterface::GetInstance();
-		rakServer=0;
+		rakClient = MafiaNet::RakPeerInterface::GetInstance();
+		rakServer = 0;
 	}
 
 	printf("Enter local port: ");
 	Gets(str, sizeof(str));
-	if (str[0]==0)
+	if (str[0] == 0)
 	{
 		if (rakServer)
-			localPort=60000;
+			localPort = 60000;
 		else
-			localPort=0;
+			localPort = 0;
 	}
 	else
 	{
 		const int intLocalPort = atoi(str);
-		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 			return 2;
 		}
@@ -93,84 +94,85 @@ int main(void)
 
 	if (rakServer)
 	{
-		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 		rakServer->Startup(100, &socketDescriptor, 1);
 		rakServer->SetMaximumIncomingConnections(100);
 	}
 	else
 	{
 		printf("Enter remote IP: ");
-		Gets(remoteIP,sizeof(remoteIP));
-		if (remoteIP[0]==0)
+		Gets(remoteIP, sizeof(remoteIP));
+		if (remoteIP[0] == 0)
 			strcpy_s(remoteIP, "127.0.0.1");
 		printf("Enter remote port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
-			remotePort=60000;
+		if (str[0] == 0)
+			remotePort = 60000;
 		else
 		{
 			const int intRemotePort = atoi(str);
-			if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max())) {
+			if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max()))
+			{
 				printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 				return 3;
 			}
 			remotePort = static_cast<unsigned short>(intRemotePort);
 		}
-		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+		MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 		rakClient->Startup(1, &socketDescriptor, 1);
 		rakClient->Connect(remoteIP, remotePort, 0, 0);
 	}
 
 	printf("Entering loop.\nHit 'h' for help.\nHit 'q' to quit\n'i' to increase send interval\n'd' to decrease send interval\n'+' to increase packet size\n'-' to decrease packet size.\nSpace to show current statistics\n");
 
-	sendinterval=128;
-	packetSize=64;
-	lastPacketReceipt=lastNotification= MafiaNet::GetTimeMS();
-	lastSend=0;
+	sendinterval = 128;
+	packetSize = 64;
+	lastPacketReceipt = lastNotification = MafiaNet::GetTimeMS();
+	lastSend = 0;
 
-	for(;;)
+	for (;;)
 	{
-		time= MafiaNet::GetTimeMS();
+		time = MafiaNet::GetTimeMS();
 
 		if (_kbhit())
 		{
 #ifndef _WIN32
-			Gets(buff,sizeof(buff));
-			ch=buff[0];
+			Gets(buff, sizeof(buff));
+			ch = buff[0];
 #else
-			ch=_getch();
+			ch = _getch();
 #endif
-			if (ch=='q')
+			if (ch == 'q')
 			{
 				printf("Quitting\n");
 				break;
 			}
-			else if (ch=='i')
+			else if (ch == 'i')
 			{
-				sendinterval*=2;				
+				sendinterval *= 2;
 				printf("Send interval is now %i\n", sendinterval);
 			}
-			else if (ch=='d')
+			else if (ch == 'd')
 			{
-				if (sendinterval>1)
-					sendinterval/=2;
+				if (sendinterval > 1)
+					sendinterval /= 2;
 				printf("Send interval is now %i\n", sendinterval);
 			}
-			if (ch=='h')
+			if (ch == 'h')
 				printf("Hit 'h' for help.\nHit 'q' to quit\n'i' to increase send interval\n'd' to decrease send interval\n'+' to increase packet size\n'-' to decrease packet size.\nSpace to show current statistics\n");
-			else if (ch=='+')
+			else if (ch == '+')
 			{
 				if (packetSize < 8192)
-					packetSize*=2;
+					packetSize *= 2;
 				printf("Packet size is now %i\n", packetSize);
 			}
-			else if (ch=='-')
+			else if (ch == '-')
 			{
-				if (packetSize>1)
-					packetSize/=2;
+				if (packetSize > 1)
+					packetSize /= 2;
 				printf("Packet size is now %i\n", packetSize);
 			}
-			else if (ch==' ')
+			else if (ch == ' ')
 			{
 				if (rakServer)
 				{
@@ -188,19 +190,19 @@ int main(void)
 				printf("\n");
 			}
 
-			
-			ch=0;
+
+			ch = 0;
 		}
 
 		// get packets
 		if (rakServer)
 			p = rakServer->Receive();
 		else
-			p=rakClient->Receive();
+			p = rakClient->Receive();
 
 		if (p)
 		{
-			lastPacketReceipt= MafiaNet::GetTimeMS();
+			lastPacketReceipt = MafiaNet::GetTimeMS();
 
 			switch (p->data[0])
 			{
@@ -225,7 +227,7 @@ int main(void)
 			default:
 				// Relay
 				if (rakServer)
-					rakServer->Send((char*)p->data, p->length, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, p->systemAddress, true);
+					rakServer->Send((char *) p->data, p->length, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, p->systemAddress, true);
 			}
 
 			if (rakServer)
@@ -234,27 +236,27 @@ int main(void)
 				rakClient->DeallocatePacket(p);
 		}
 
-		if ((rakServer && rakServer->NumberOfConnections()>0) ||
-			(rakClient && rakClient->NumberOfConnections()>0))
+		if ((rakServer && rakServer->NumberOfConnections() > 0) ||
+		    (rakClient && rakClient->NumberOfConnections() > 0))
 		{
 			// Do sends
-			if (lastSend + (MafiaNet::TimeMS)sendinterval < time)
+			if (lastSend + (MafiaNet::TimeMS) sendinterval < time)
 			{
 				if (rakServer)
 				{
-					rakServer->Send((char*)randomData, packetSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakServer->Send((char *) randomData, packetSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				else if (rakClient)
 				{
-					rakClient->Send((char*)randomData, packetSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+					rakClient->Send((char *) randomData, packetSize, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 
-				lastSend=time;
-			}		
+				lastSend = time;
+			}
 
-			if (lastPacketReceipt + 500 < (unsigned int)time && lastNotification + 500 < (unsigned int)time)
+			if (lastPacketReceipt + 500 < (unsigned int) time && lastNotification + 500 < (unsigned int) time)
 			{
-				lastNotification=time;
+				lastNotification = time;
 				printf("Warning: No packets for %i ms.  Possibly a spike.\n", time - lastPacketReceipt);
 			}
 		}

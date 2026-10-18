@@ -38,10 +38,10 @@ MasterClient::~MasterClient()
 	ClearServerList();
 }
 
-bool MasterClient::Connect(char* host, int masterServerPort)
+bool MasterClient::Connect(char *host, int masterServerPort)
 {
 	localServer.Clear();
-	listServer=serverListed=localServerModified=false;
+	listServer = serverListed = localServerModified = false;
 	localServer.connectionIdentifier.SetPortHostOrder(rakPeer->GetInternalID().GetPort());
 	ruleIdentifierList.Reset();
 
@@ -60,12 +60,12 @@ bool MasterClient::IsConnected(void)
 {
 	unsigned short numberOfSystems;
 	rakPeer->GetConnectionList(0, &numberOfSystems);
-	return numberOfSystems==1;
+	return numberOfSystems == 1;
 }
 
 void MasterClient::AddQueryRule(char *ruleIdentifier)
 {
-	if (ruleIdentifier && IsReservedRuleIdentifier(ruleIdentifier)==false)
+	if (ruleIdentifier && IsReservedRuleIdentifier(ruleIdentifier) == false)
 		StringCompressor::Instance()->EncodeString(ruleIdentifier, 256, &ruleIdentifierList);
 }
 void MasterClient::ClearQueryRules(void)
@@ -76,20 +76,20 @@ void MasterClient::QueryMasterServer(void)
 {
 	BitStream outgoingBitStream;
 	// Request to the master server for the list of servers that contain at least one of the specified keys
-	outgoingBitStream.Write((unsigned char)ID_QUERY_MASTER_SERVER);
-	if (ruleIdentifierList.GetNumberOfBitsUsed()>0)
+	outgoingBitStream.Write((unsigned char) ID_QUERY_MASTER_SERVER);
+	if (ruleIdentifierList.GetNumberOfBitsUsed() > 0)
 		outgoingBitStream.WriteBits(ruleIdentifierList.GetData(), ruleIdentifierList.GetNumberOfBitsUsed(), false);
-    rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+	rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 }
 
 void MasterClient::PingServers(void)
 {
 	unsigned serverIndex;
 
-	for (serverIndex=0; serverIndex < gameServerList.serverList.Size(); serverIndex++)
+	for (serverIndex = 0; serverIndex < gameServerList.serverList.Size(); serverIndex++)
 	{
-		rakPeer->Ping((char*)gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false),
-			gameServerList.serverList[serverIndex]->connectionIdentifier.GetPort(), false);
+		rakPeer->Ping((char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false),
+		              gameServerList.serverList[serverIndex]->connectionIdentifier.GetPort(), false);
 	}
 }
 
@@ -97,19 +97,19 @@ void MasterClient::Update(RakPeerInterface *peer)
 {
 	BitStream outgoingBitStream;
 
-	if (listServer && ((serverListed && localServerModified) || (serverListed==false)))
+	if (listServer && ((serverListed && localServerModified) || (serverListed == false)))
 	{
-		outgoingBitStream.Write((unsigned char)ID_MASTER_SERVER_SET_SERVER);
+		outgoingBitStream.Write((unsigned char) ID_MASTER_SERVER_SET_SERVER);
 		SerializeServer(&localServer, &outgoingBitStream);
 		rakPeer->Send(&outgoingBitStream, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
-		serverListed=true;
-		localServerModified=false;
+		serverListed = true;
+		localServerModified = false;
 	}
 }
 
 bool MasterClient::OnReceive(RakPeerInterface *peer, Packet *packet)
 {
-	switch(packet->data[0])
+	switch (packet->data[0])
 	{
 	case ID_NO_FREE_INCOMING_CONNECTIONS:
 		OnMasterServerFull();
@@ -142,30 +142,30 @@ bool MasterClient::OnReceive(RakPeerInterface *peer, Packet *packet)
 
 void MasterClient::ConnectionAttemptNotification(char *serverIP, unsigned short serverPort)
 {
-	if (serverIP==0)
+	if (serverIP == 0)
 		return;
 
 	BitStream bitStream(23);
-	bitStream.Write((unsigned char)ID_RELAYED_CONNECTION_NOTIFICATION);
-	bitStream.Write(localServer.connectionIdentifier.GetPort()); // Your own game client port
-	bitStream.Write(serverPort); // The game server you are connecting to port
+	bitStream.Write((unsigned char) ID_RELAYED_CONNECTION_NOTIFICATION);
+	bitStream.Write(localServer.connectionIdentifier.GetPort());          // Your own game client port
+	bitStream.Write(serverPort);                                          // The game server you are connecting to port
 	StringCompressor::Instance()->EncodeString(serverIP, 22, &bitStream); // The game server IP you are connecting to
 	rakPeer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 }
 void MasterClient::ListServer(void)
 {
-	listServer=true;
+	listServer = true;
 }
 void MasterClient::DelistServer(void)
 {
 	BitStream bitStream;
-	listServer=false;
+	listServer = false;
 	if (serverListed)
 	{
-		bitStream.Write((unsigned char)ID_MASTER_SERVER_DELIST_SERVER);
+		bitStream.Write((unsigned char) ID_MASTER_SERVER_DELIST_SERVER);
 		bitStream.Write(localServer.connectionIdentifier.GetPort());
-        rakPeer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
-		serverListed=false;
+		rakPeer->Send(&bitStream, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
+		serverListed = false;
 	}
 }
 void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisting)
@@ -176,14 +176,14 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 	GameServer *gameServer;
 	Time currentTime;
 	BitStream inputBitStream(packet->data, packet->length, false);
-	inputBitStream.IgnoreBits(8*sizeof(unsigned char));
+	inputBitStream.IgnoreBits(8 * sizeof(unsigned char));
 
-	if (inputBitStream.ReadCompressed(numberOfServers)==false)
+	if (inputBitStream.ReadCompressed(numberOfServers) == false)
 		return;
 
-	currentTime=MafiaNet::GetTime();
+	currentTime = MafiaNet::GetTime();
 
-	for (serverIndex=0; serverIndex < numberOfServers; serverIndex++)
+	for (serverIndex = 0; serverIndex < numberOfServers; serverIndex++)
 	{
 		gameServer = DeserializeServer(&inputBitStream);
 
@@ -195,12 +195,12 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 		// Add any fields that exist in the new and do not exist in the old
 		// Update any fields that exist in both
 		// Unset the deletion mark
-		gameServer=UpdateServerList(gameServer,overwriteExisting, &newServerAdded);
+		gameServer = UpdateServerList(gameServer, overwriteExisting, &newServerAdded);
 		if (newServerAdded)
 		{
 			// Ping the new server
-			rakPeer->Ping((char*)gameServer->connectionIdentifier.ToString(false),
-				gameServer->connectionIdentifier.GetPort(), false);
+			rakPeer->Ping((char *) gameServer->connectionIdentifier.ToString(false),
+			              gameServer->connectionIdentifier.GetPort(), false);
 
 			// Returns true if new server updated
 			OnGameServerListAddition(gameServer);
@@ -210,14 +210,12 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 			// returns false if an existing server is modified
 			OnGameServerListRuleUpdate(gameServer);
 		}
-
-
 	}
 
 	// Any servers that were not updated on the last call to UpdateServerList
 	// will have lastUpdateTime time as less than the current time
 	// Delete those
-	serverIndex=0;
+	serverIndex = 0;
 	while (serverIndex < (int) gameServerList.serverList.Size())
 	{
 		if (gameServerList.serverList[serverIndex]->lastUpdateTime < currentTime)
@@ -235,7 +233,7 @@ void MasterClient::HandleRelayedConnectionNotification(Packet *packet)
 {
 	SystemAddress clientSystem;
 	BitStream incomingBitStream(packet->data, packet->length, false);
-	incomingBitStream.IgnoreBits(8*sizeof(unsigned char));
+	incomingBitStream.IgnoreBits(8 * sizeof(unsigned char));
 
 	uint32_t binaryAddress;
 	unsigned short port;
@@ -313,5 +311,5 @@ void MasterClient::OnConnectionRequest(const char *clientIP, unsigned short clie
 #ifdef _SHOW_MASTER_SERVER_PRINTF
 	printf("Master client indicates a connection request from %s:%i.\n", clientIP, clientPort);
 #endif
-	rakPeer->AdvertiseSystem((char*)clientIP, clientPort,0,0);
+	rakPeer->AdvertiseSystem((char *) clientIP, clientPort, 0, 0);
 }

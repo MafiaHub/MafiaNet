@@ -45,38 +45,40 @@ int main(int, char **)
 
 	printf("This project tests sending a burst of messages to a remote system.\n");
 	printf("Difficulty: Beginner\n\n");
-	
+
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	
+
 	printf("Enter remote IP (enter to not connect): ");
 	Gets(ip, sizeof(ip));
 	if (ip[0])
 	{
 		printf("Enter remote port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
+		if (str[0] == 0)
 			strcpy_s(str, "60000");
 		const int intRemotePort = atoi(str);
-		if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max())) {
+		if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 			return 2;
 		}
 		remotePort = static_cast<unsigned short>(intRemotePort);
-		
+
 		printf("Enter local port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
+		if (str[0] == 0)
 			strcpy_s(str, "0");
 		const int intLocalPort = atoi(str);
-		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
-		
-		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+
+		MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 		rakPeer->Startup(32, &socketDescriptor, 1);
-		
+
 		printf("Connecting...\n");
 		rakPeer->Connect(ip, remotePort, 0, 0);
 	}
@@ -84,58 +86,59 @@ int main(int, char **)
 	{
 		printf("Enter local port: ");
 		Gets(str, sizeof(str));
-		if (str[0]==0)
+		if (str[0] == 0)
 			strcpy_s(str, "60000");
 		const int intLocalPort = atoi(str);
-		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intLocalPort < 0) || (intLocalPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified local port %d is outside valid bounds [0, %u]", intLocalPort, std::numeric_limits<unsigned short>::max());
 			return 3;
 		}
 		localPort = static_cast<unsigned short>(intLocalPort);
-		
-		MafiaNet::SocketDescriptor socketDescriptor(localPort,0);
+
+		MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 		rakPeer->Startup(32, &socketDescriptor, 1);
 	}
 	rakPeer->SetMaximumIncomingConnections(32);
-	
+
 	printf("'s' to send. ' ' for statistics. 'q' to quit.\n");
 
-	for(;;)
+	for (;;)
 	{
 		if (_kbhit())
 		{
-			int ch=_getch();
-			if (ch=='q')
+			int ch = _getch();
+			if (ch == 'q')
 				break;
-			else if (ch==' ')
+			else if (ch == ' ')
 			{
 				RakNetStatistics *rss;
 				char message[2048];
-					rss=rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
+				rss = rakPeer->GetStatistics(rakPeer->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 			}
-			else if (ch=='s')
+			else if (ch == 's')
 			{
 				char msgSizeStr[128], msgCountStr[128];
-				uint32_t msgSize, msgCount,index;
+				uint32_t msgSize, msgCount, index;
 				printf("Enter message size in bytes: ");
 				Gets(msgSizeStr, sizeof(msgSizeStr));
-				if (msgSizeStr[0]==0)
-					msgSize=4096;
+				if (msgSizeStr[0] == 0)
+					msgSize = 4096;
 				else
-					msgSize=atoi(msgSizeStr);
+					msgSize = atoi(msgSizeStr);
 				printf("Enter times to repeatedly send message: ");
 				Gets(msgCountStr, sizeof(msgCountStr));
-				if (msgCountStr[0]==0)
-					msgCount=128;
+				if (msgCountStr[0] == 0)
+					msgCount = 128;
 				else
-					msgCount=atoi(msgCountStr);
+					msgCount = atoi(msgCountStr);
 				MafiaNet::BitStream bitStream;
-				for (index=0; index < msgCount; index++)
+				for (index = 0; index < msgCount; index++)
 				{
 					bitStream.Reset();
-					bitStream.Write((MessageID)ID_USER_PACKET_ENUM);
+					bitStream.Write((MessageID) ID_USER_PACKET_ENUM);
 					bitStream.Write(msgSize);
 					bitStream.Write(index);
 					bitStream.Write(msgCount);
@@ -143,13 +146,12 @@ int main(int, char **)
 					rakPeer->Send(&bitStream, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, UNASSIGNED_SYSTEM_ADDRESS, true);
 				}
 				printf("Sent\n");
-					
 			}
 		}
-		
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
-			switch(packet->data[0])
+			switch (packet->data[0])
 			{
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
@@ -170,25 +172,25 @@ int main(int, char **)
 				printf("Connection attempt failed\n");
 				break;
 			case ID_USER_PACKET_ENUM:
-				{
-					uint32_t msgSize, msgCount, index;
-					MafiaNet::BitStream bitStream(packet->data, packet->length, false);
-					bitStream.IgnoreBytes(sizeof(MessageID));
-					bitStream.Read(msgSize);
-					bitStream.Read(index);
-					bitStream.Read(msgCount);
-					printf("%i/%i len=%i", index+1, msgCount, packet->length);
-					if (msgSize > BITS_TO_BYTES(bitStream.GetReadOffset()) && packet->length!=msgSize)
-						printf("UNDERLENGTH!\n");
-					else
-						printf("\n");
-					break;
-				}
+			{
+				uint32_t msgSize, msgCount, index;
+				MafiaNet::BitStream bitStream(packet->data, packet->length, false);
+				bitStream.IgnoreBytes(sizeof(MessageID));
+				bitStream.Read(msgSize);
+				bitStream.Read(index);
+				bitStream.Read(msgCount);
+				printf("%i/%i len=%i", index + 1, msgCount, packet->length);
+				if (msgSize > BITS_TO_BYTES(bitStream.GetReadOffset()) && packet->length != msgSize)
+					printf("UNDERLENGTH!\n");
+				else
+					printf("\n");
+				break;
+			}
 			default:
 				printf("Unknown message type %i\n", packet->data[0]);
 			}
 		}
-	
+
 		RakSleep(30);
 	}
 

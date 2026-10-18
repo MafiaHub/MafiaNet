@@ -25,34 +25,34 @@ using namespace MafiaNet;
 
 namespace
 {
-	const MessageID ID_TEST_PAYLOAD = ID_USER_PACKET_ENUM + 7;
+const MessageID ID_TEST_PAYLOAD = ID_USER_PACKET_ENUM + 7;
 
-	void SendNumbered(RakPeer *from, const SystemAddress &to, uint32_t number, size_t payloadBytes,
-		Reliability reliability = Reliability::ReliableOrdered)
-	{
-		BitStream bs;
-		bs.Write(ID_TEST_PAYLOAD);
-		bs.Write(number);
-		for (size_t i = 0; i < payloadBytes; ++i)
-			bs.Write((unsigned char) (number + i));
-		ASSERT_NE(0u, from->Send(&bs, Priority::High, reliability, 0, to, false));
-	}
+void SendNumbered(RakPeer *from, const SystemAddress &to, uint32_t number, size_t payloadBytes,
+                  Reliability reliability = Reliability::ReliableOrdered)
+{
+	BitStream bs;
+	bs.Write(ID_TEST_PAYLOAD);
+	bs.Write(number);
+	for (size_t i = 0; i < payloadBytes; ++i)
+		bs.Write((unsigned char) (number + i));
+	ASSERT_NE(0u, from->Send(&bs, Priority::High, reliability, 0, to, false));
+}
 
-	std::vector<uint32_t> NumbersReceived(SimulatedNetwork &net, const RakPeer *peer)
+std::vector<uint32_t> NumbersReceived(SimulatedNetwork &net, const RakPeer *peer)
+{
+	std::vector<uint32_t> numbers;
+	for (const auto &message : net.Inbox(peer))
 	{
-		std::vector<uint32_t> numbers;
-		for (const auto &message : net.Inbox(peer))
-		{
-			if (message.id != ID_TEST_PAYLOAD)
-				continue;
-			BitStream bs(const_cast<unsigned char *>(message.data.data()), (unsigned int) message.data.size(), false);
-			bs.IgnoreBytes(1);
-			uint32_t number = 0;
-			bs.Read(number);
-			numbers.push_back(number);
-		}
-		return numbers;
+		if (message.id != ID_TEST_PAYLOAD)
+			continue;
+		BitStream bs(const_cast<unsigned char *>(message.data.data()), (unsigned int) message.data.size(), false);
+		bs.IgnoreBytes(1);
+		uint32_t number = 0;
+		bs.Read(number);
+		numbers.push_back(number);
 	}
+	return numbers;
+}
 }
 
 TEST(SimulatedPeer, ConnectHandshakeCompletes)
@@ -86,7 +86,8 @@ TEST(SimulatedPeer, ReliableOrderedSurvivesLossAndReordering)
 	for (uint32_t i = 0; i < kMessages; ++i)
 		SendNumbered(client, net.AddressOf(server), i, 40);
 
-	ASSERT_TRUE(net.RunUntil([&] { return NumbersReceived(net, server).size() == kMessages; }, 60000));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return NumbersReceived(net, server).size() == kMessages; }, 60000));
 	const std::vector<uint32_t> numbers = NumbersReceived(net, server);
 	for (uint32_t i = 0; i < kMessages; ++i)
 		ASSERT_EQ(i, numbers[i]) << "out of order at " << i;

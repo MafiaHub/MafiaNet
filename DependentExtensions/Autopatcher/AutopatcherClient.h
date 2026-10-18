@@ -92,7 +92,7 @@ public:
 	virtual void Update(void);
 	/// \internal For plugin handling
 	virtual PluginReceiveResult OnReceive(Packet *packet);
-	void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	/// \internal For plugin handling
 	virtual void OnShutdown(void);
 	void OnThreadCompletion(void);
@@ -102,7 +102,7 @@ protected:
 	void OnDeletionList(Packet *packet);
 	PluginReceiveResult OnDownloadFinishedInternal(Packet *packet);
 	PluginReceiveResult OnDownloadFinished(Packet *packet);
-	
+
 	friend class AutopatcherClientCallback;
 	void CopyAndRestart(const char *filePath);
 	void Redownload(const char *filePath);

@@ -38,7 +38,7 @@
 #include "upnpcommands.h"
 #include "upnperrors.h"
 #include "mafianet/tcp_interface.h"
-#include "mafianet/ready_event.h"	
+#include "mafianet/ready_event.h"
 #include "mafianet/packet_logger.h"
 #include "mafianet/rpc4_plugin.h"
 #include "mafianet/http_connection2.h"
@@ -142,7 +142,7 @@ public:
 	};
 	Game()
 	{
-		myNatType=NAT_TYPE_UNKNOWN;
+		myNatType = NAT_TYPE_UNKNOWN;
 		masterServerRow = -1;
 		Reset();
 		whenToNextUpdateMasterServer = 0;
@@ -156,13 +156,13 @@ public:
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
-		(void)destinationConnection;
-		(void)allocationIdBitstream;
+		(void) destinationConnection;
+		(void) allocationIdBitstream;
 	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
-		(void)replicaManager3;
+		(void) replicaManager3;
 
 		if (fullyConnectedMesh2->IsConnectedHost())
 			return QueryConstruction_PeerToPeer(destinationConnection, R3P2PM_STATIC_OBJECT_CURRENTLY_AUTHORITATIVE);
@@ -172,28 +172,28 @@ public:
 	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		return true;
 	}
 	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)constructionBitstream;
-		(void)destinationConnection;
+		(void) constructionBitstream;
+		(void) destinationConnection;
 	}
 	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)constructionBitstream;
-		(void)sourceConnection;
+		(void) constructionBitstream;
+		(void) sourceConnection;
 
 		return true;
 	}
 	virtual void SerializeConstructionExisting(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		constructionBitstream->Write(gameName);
 		constructionBitstream->Write(lockGame);
@@ -203,7 +203,7 @@ public:
 	virtual void DeserializeConstructionExisting(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		constructionBitstream->Read(gameName);
 		constructionBitstream->Read(lockGame);
@@ -214,28 +214,28 @@ public:
 	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)destinationConnection;
+		(void) destructionBitstream;
+		(void) destinationConnection;
 	}
 	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)sourceConnection;
+		(void) destructionBitstream;
+		(void) sourceConnection;
 
 		return true;
 	}
 	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		// unused parameters
-		(void)droppedConnection;
+		(void) droppedConnection;
 
 		return RM3AOPC_DO_NOTHING;
 	}
 	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		delete this;
 	}
@@ -259,18 +259,18 @@ public:
 		{
 			bool b;
 			deserializeParameters->serializationBitstream[0].Read(b);
-			if (b!=lockGame)
+			if (b != lockGame)
 			{
-				lockGame=b;
+				lockGame = b;
 				if (lockGame)
 					printf("Game is no longer locked\n");
 				else
 					printf("Game is now locked\n");
 			}
 			deserializeParameters->serializationBitstream[0].Read(b);
-			if (b!=gameInLobby)
+			if (b != gameInLobby)
 			{
-				gameInLobby=b;
+				gameInLobby = b;
 				if (gameInLobby)
 				{
 					readyEvent->DeleteEvent(0);
@@ -292,58 +292,59 @@ public:
 		switch (newPhase)
 		{
 		case CONNECTING_TO_SERVER:
+		{
+			char port[256];
+			printf("Enter address of server running the NATCompleteServer project.\nEnter for default: ");
+			Gets(serverIPAddr, 256);
+			if (serverIPAddr[0] == 0)
+				strcpy_s(serverIPAddr, DEFAULT_SERVER_ADDRESS);
+			printf("Enter server port, or enter for default: ");
+			Gets(port, 256);
+			if (port[0] == 0)
+				strcpy_s(port, DEFAULT_SERVER_PORT);
+			const int intServerPort = atoi(port);
+			if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
 			{
-				char port[256];
-				printf("Enter address of server running the NATCompleteServer project.\nEnter for default: ");
-				Gets(serverIPAddr, 256);
-				if (serverIPAddr[0]==0)
-					strcpy_s(serverIPAddr, DEFAULT_SERVER_ADDRESS);
-				printf("Enter server port, or enter for default: ");
-				Gets(port, 256);
-				if (port[0]==0)
-					strcpy_s(port, DEFAULT_SERVER_PORT);
-				const int intServerPort = atoi(port);
-				if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
-					printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
-					phase = EXIT_SAMPLE;
-					break;
-				}
-				ConnectionAttemptResult car = rakPeer->Connect(serverIPAddr, static_cast<unsigned short>(intServerPort), 0, 0);
-				if (car!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
-				{
-					printf("Failed connect call to %s. Code=%i\n", serverIPAddr, car);
-					phase = EXIT_SAMPLE;
-				}
+				printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
+				phase = EXIT_SAMPLE;
+				break;
 			}
-			break;
-		#ifdef NAT_TYPE_DETECTION_SERVER
+			ConnectionAttemptResult car = rakPeer->Connect(serverIPAddr, static_cast<unsigned short>(intServerPort), 0, 0);
+			if (car != MafiaNet::CONNECTION_ATTEMPT_STARTED)
+			{
+				printf("Failed connect call to %s. Code=%i\n", serverIPAddr, car);
+				phase = EXIT_SAMPLE;
+			}
+		}
+		break;
+#ifdef NAT_TYPE_DETECTION_SERVER
 		case DETERMINE_NAT_TYPE:
-				printf("Determining NAT type...\n");
-				natTypeDetectionClient->DetectNATType(natPunchServerAddress);
+			printf("Determining NAT type...\n");
+			natTypeDetectionClient->DetectNATType(natPunchServerAddress);
 			break;
-		#endif
+#endif
 		case SEARCH_FOR_GAMES:
-				SearchForGames();
+			SearchForGames();
 			break;
 		case NAT_PUNCH_TO_GAME_HOST:
-				printf("Attempting NAT punch to host of game session...\n");
+			printf("Attempting NAT punch to host of game session...\n");
 			break;
 		case IN_LOBBY_WITH_HOST:
-				printf("(1) to join team 1.\n");
-				printf("(2) to join team 2.\n");
-				printf("(R)eady to start\n");
-				printf("(U)nready to start\n");
+			printf("(1) to join team 1.\n");
+			printf("(2) to join team 2.\n");
+			printf("(R)eady to start\n");
+			printf("(U)nready to start\n");
 			break;
 		case IN_GAME:
-				printf("Game started.\n(C)hat in-game\n");
+			printf("Game started.\n(C)hat in-game\n");
 			break;
 		}
 	}
 
 	void Reset(void)
 	{
-		lockGame=false;
-		gameInLobby=true;
+		lockGame = false;
+		gameInLobby = true;
 	}
 
 	void SearchForGames(void)
@@ -351,7 +352,7 @@ public:
 		printf("Downloading rooms...\n");
 
 		RakString rsRequest = RakString::FormatForGET(
-			MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame");
+		    MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame");
 		httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 	}
 
@@ -380,8 +381,8 @@ public:
 	SystemAddress natPunchServerAddress;
 	char serverIPAddr[256];
 	// Just tracks what other objects have been created
-	DataStructures::List<User*> users;
-	DataStructures::List<Team*> teams;
+	DataStructures::List<User *> users;
+	DataStructures::List<Team *> teams;
 
 	// Master server has to be refreshed periodically so it knows we didn't crash
 	MafiaNet::Time whenToNextUpdateMasterServer;
@@ -394,7 +395,7 @@ public:
 		masterServerQueryResult = root;
 	}
 
-	json_t* GetMasterServerQueryResult(void)
+	json_t *GetMasterServerQueryResult(void)
 	{
 		if (masterServerQueryResult == 0)
 			return 0;
@@ -402,7 +403,7 @@ public:
 		while (iter)
 		{
 			const char *firstKey = json_object_iter_key(iter);
-			if (_stricmp(firstKey, "GET")==0)
+			if (_stricmp(firstKey, "GET") == 0)
 			{
 				return json_object_iter_value(iter);
 			}
@@ -427,7 +428,8 @@ class Team : public Replica3
 public:
 	Team()
 	{
-		game->teams.Push(this, _FILE_AND_LINE_); tmTeam.SetOwner(this);
+		game->teams.Push(this, _FILE_AND_LINE_);
+		tmTeam.SetOwner(this);
 	}
 	virtual ~Team()
 	{
@@ -436,14 +438,14 @@ public:
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		allocationIdBitstream->Write("Team");
 	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
-		(void)replicaManager3;
+		(void) replicaManager3;
 
 		// This implementation has the host create the Team instances initially
 		// If the original host disconnects, the new host as determined by FullyConnectedMesh2 takes over replication duties
@@ -455,21 +457,21 @@ public:
 	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		return true;
 	}
 	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		constructionBitstream->Write(teamName);
 	}
 	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		constructionBitstream->Read(teamName);
 		printf("Downloaded team. name=%s\n", teamName.C_String());
@@ -481,14 +483,14 @@ public:
 	virtual void PostSerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		tmTeam.SerializeConstruction(constructionBitstream);
 	}
 	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		tmTeam.DeserializeConstruction(teamManager, constructionBitstream);
 	}
@@ -496,21 +498,21 @@ public:
 	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)destinationConnection;
+		(void) destructionBitstream;
+		(void) destinationConnection;
 	}
 	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)sourceConnection;
+		(void) destructionBitstream;
+		(void) sourceConnection;
 
 		return true;
 	}
 	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
 	{
 		// unused parameters
-		(void)droppedConnection;
+		(void) droppedConnection;
 
 		// Do not destroy the object when the connection that created it disconnects.
 		return RM3AOPC_DO_NOTHING;
@@ -518,7 +520,7 @@ public:
 	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		delete this;
 	}
@@ -533,16 +535,16 @@ public:
 	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		// unused parameters
-		(void)serializeParameters;
+		(void) serializeParameters;
 
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}
 	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		// unused parameters
-		(void)deserializeParameters;
+		(void) deserializeParameters;
 	}
-	
+
 	// Team data managed by the TeamManager plugin
 	TM_Team tmTeam;
 
@@ -560,7 +562,7 @@ public:
 	{
 		game->users.Push(this, _FILE_AND_LINE_);
 		tmTeamMember.SetOwner(this);
-		natType=NAT_TYPE_UNKNOWN;
+		natType = NAT_TYPE_UNKNOWN;
 	}
 	virtual ~User()
 	{
@@ -569,14 +571,14 @@ public:
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		allocationIdBitstream->Write("User");
 	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
-		(void)replicaManager3;
+		(void) replicaManager3;
 
 		// Whoever created the user replicates it.
 		return QueryConstruction_PeerToPeer(destinationConnection);
@@ -584,14 +586,14 @@ public:
 	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		return true;
 	}
 	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		constructionBitstream->Write(userName);
 		constructionBitstream->WriteCasted<unsigned char>(natType);
@@ -601,7 +603,7 @@ public:
 	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		// The TeamManager plugin has to be informed of TM_TeamMember instances created over the network
 		teamManager->GetWorldAtIndex(0)->ReferenceTeamMember(&tmTeamMember, GetNetworkID());
@@ -614,7 +616,7 @@ public:
 	virtual void PostSerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destinationConnection;
+		(void) destinationConnection;
 
 		// TeamManager requires that TM_Team was created before TM_TeamMember that uses it.
 		// PostSerializeConstruction and PostDeserializeConstruction ensure that all objects have been created before serialization
@@ -623,14 +625,14 @@ public:
 	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
-		tmTeamMember.DeserializeConstruction(teamManager, constructionBitstream);	
+		tmTeamMember.DeserializeConstruction(teamManager, constructionBitstream);
 		printf("Downloaded user. name=%s", userName.C_String());
-		if (tmTeamMember.GetCurrentTeam()==0)
+		if (tmTeamMember.GetCurrentTeam() == 0)
 			printf(" not on a team\n");
 		else
-			printf(" on team %s\n", ((Team*)(tmTeamMember.GetCurrentTeam()->GetOwner()))->teamName.C_String());
+			printf(" on team %s\n", ((Team *) (tmTeamMember.GetCurrentTeam()->GetOwner()))->teamName.C_String());
 
 		// Update the user count on the master server as new users join
 		if (fullyConnectedMesh2->IsConnectedHost())
@@ -640,14 +642,14 @@ public:
 	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)destinationConnection;
+		(void) destructionBitstream;
+		(void) destinationConnection;
 	}
 	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)destructionBitstream;
-		(void)sourceConnection;
+		(void) destructionBitstream;
+		(void) sourceConnection;
 
 		return true;
 	}
@@ -658,7 +660,7 @@ public:
 	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
-		(void)sourceConnection;
+		(void) sourceConnection;
 
 		delete this;
 	}
@@ -669,16 +671,16 @@ public:
 	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
 	{
 		// unused parameters
-		(void)serializeParameters;
+		(void) serializeParameters;
 
 		return RM3SR_BROADCAST_IDENTICALLY;
 	}
 	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
 	{
 		// unused parameters
-		(void)deserializeParameters;
+		(void) deserializeParameters;
 	}
-	
+
 	// Team data managed by the TeamManager plugin
 	TM_TeamMember tmTeamMember;
 	RakString userName;
@@ -692,7 +694,8 @@ public:
 class SampleConnectionRM3 : public Connection_RM3
 {
 public:
-	SampleConnectionRM3(const SystemAddress &_systemAddress, RakNetGUID _guid) : Connection_RM3(_systemAddress, _guid)
+	SampleConnectionRM3(const SystemAddress &_systemAddress, RakNetGUID _guid)
+	    : Connection_RM3(_systemAddress, _guid)
 	{
 	}
 	virtual ~SampleConnectionRM3()
@@ -701,13 +704,15 @@ public:
 	virtual Replica3 *AllocReplica(MafiaNet::BitStream *allocationIdBitstream, ReplicaManager3 *replicaManager3)
 	{
 		// unused parameters
-		(void)replicaManager3;
+		(void) replicaManager3;
 
 		RakString objectType;
 		// Types are written by WriteAllocationID()
 		allocationIdBitstream->Read(objectType);
-		if (objectType=="User") return new User;
-		if (objectType=="Team") return new Team;
+		if (objectType == "User")
+			return new User;
+		if (objectType == "Team")
+			return new Team;
 		RakAssert("Unknown type in AllocReplica" && 0);
 		return 0;
 	}
@@ -723,9 +728,9 @@ public:
 	virtual ~SampleRM3()
 	{
 	}
-	virtual Connection_RM3* AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
+	virtual Connection_RM3 *AllocConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID) const
 	{
-		return new SampleConnectionRM3(systemAddress,rakNetGUID);
+		return new SampleConnectionRM3(systemAddress, rakNetGUID);
 	}
 	virtual void DeallocConnection(Connection_RM3 *connection) const
 	{
@@ -741,8 +746,8 @@ public:
 void InGameChat(MafiaNet::BitStream *userData, Packet *packet, void *context)
 {
 	// unused parameters
-	(void)packet;
-	(void)context;
+	(void) packet;
+	(void) context;
 
 	RakString rs;
 	userData->Read(rs);
@@ -756,9 +761,9 @@ RPC4GlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
 void SerializeToJSON(RakString &outputString, RakString &roomName, DataStructures::List<NATTypeDetectionResult> &natTypes)
 {
 	outputString.Set("'roomName': '%s', 'guid': '%s', 'natTypes' : [ ", roomName.C_String(), MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
-	for (unsigned short i=0; i < natTypes.Size(); i++)
+	for (unsigned short i = 0; i < natTypes.Size(); i++)
 	{
-		if (i!=0)
+		if (i != 0)
 			outputString += ", ";
 		RakString appendStr("{'type': %i}", natTypes[i]);
 		outputString += appendStr;
@@ -772,7 +777,7 @@ void SerializeToJSON(RakString &outputString, RakString &roomName, DataStructure
 void RegisterGameParticipant(RakNetGUID guid)
 {
 	Connection_RM3 *connection = gameReplicaManager3->AllocConnection(rakPeer->GetSystemAddressFromGuid(guid), guid);
-	if (gameReplicaManager3->PushConnection(connection)==false)
+	if (gameReplicaManager3->PushConnection(connection) == false)
 		gameReplicaManager3->DeallocConnection(connection);
 	teamManager->GetWorldAtIndex(0)->AddParticipant(guid);
 	readyEvent->AddToWaitList(0, guid);
@@ -786,19 +791,19 @@ void PostRoomToMaster(void)
 	BitStream bsOut;
 	RakString jsonSerializedRoom;
 	DataStructures::List<NATTypeDetectionResult> natTypes;
-	for (unsigned int i=0; i < game->users.Size(); i++)
+	for (unsigned int i = 0; i < game->users.Size(); i++)
 		natTypes.Push(game->users[i]->natType, _FILE_AND_LINE_);
 	SerializeToJSON(jsonSerializedRoom, game->gameName, natTypes);
 
 	RakString rowStr;
-	if (game->masterServerRow!=-1)
+	if (game->masterServerRow != -1)
 		rowStr.Set("\"__rowId\": %i,", game->masterServerRow);
 
 	// See http://masterserver2.raknet.com/
 	RakString rsRequest = RakString::FormatForPOST(
-		(const char*) MASTER_SERVER_ADDRESS "/testServer",
-		"text/plain; charset=UTF-8",
-		RakString("{'__gameId': 'comprehensivePCGame', '__clientReqId': '0', %s '__timeoutSec': '30', %s }", rowStr.C_String(), jsonSerializedRoom.C_String()));
+	    (const char *) MASTER_SERVER_ADDRESS "/testServer",
+	    "text/plain; charset=UTF-8",
+	    RakString("{'__gameId': 'comprehensivePCGame', '__clientReqId': '0', %s '__timeoutSec': '30', %s }", rowStr.C_String(), jsonSerializedRoom.C_String()));
 
 	// Refresh the room again slightly less than every 30 seconds
 	game->whenToNextUpdateMasterServer = MafiaNet::GetTime() + 30000 - 1000;
@@ -810,9 +815,9 @@ void PostRoomToMaster(void)
 void ReleaseRoomFromCloud(void)
 {
 	RakString rsRequest = RakString::FormatForDELETE(
-		RakString(MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame&__rowId=%i", game->masterServerRow));
+	    RakString(MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame&__rowId=%i", game->masterServerRow));
 	httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
-	game->masterServerRow=-1;
+	game->masterServerRow = -1;
 }
 
 void CreateRoom(void)
@@ -822,13 +827,13 @@ void CreateRoom(void)
 		arraySize = json_array_size(game->GetMasterServerQueryResult());
 	else
 		arraySize = 0;
-	
+
 	if (arraySize > 0)
 	{
 		printf("Enter room name: ");
 		char rn[128];
 		Gets(rn, 128);
-		if (rn[0]==0)
+		if (rn[0] == 0)
 			strcpy_s(rn, "Unnamed");
 		game->gameName = rn;
 	}
@@ -836,7 +841,7 @@ void CreateRoom(void)
 	{
 		game->gameName = "Default room name";
 	}
-	
+
 	// Upload the room to the server
 	PostRoomToMaster();
 
@@ -858,7 +863,7 @@ void CreateRoom(void)
 	printf("(E)xit session\n");
 }
 
-#if USE_UPNP!=0
+#if USE_UPNP != 0
 struct UPNPOpenWorkerArgs
 {
 	char buff[256];
@@ -870,42 +875,42 @@ struct UPNPOpenWorkerArgs
 };
 RAK_THREAD_DECLARATION(UPNPOpenWorker)
 {
-	UPNPOpenWorkerArgs *args = ( UPNPOpenWorkerArgs * ) arguments;
-	bool success=false;
+	UPNPOpenWorkerArgs *args = (UPNPOpenWorkerArgs *) arguments;
+	bool success = false;
 
 	// Behind a NAT. Try to open with UPNP to avoid doing NAT punchthrough
-	struct UPNPDev * devlist = 0;
+	struct UPNPDev *devlist = 0;
 	devlist = upnpDiscover(args->timeout, 0, 0, 0, 0, 2, 0);
 	if (devlist)
 	{
 		if (args->progressCallback)
 			args->progressCallback("List of UPNP devices found on the network :\n", args->userData);
-		struct UPNPDev * device;
-		for(device = devlist; device; device = device->pNext)
+		struct UPNPDev *device;
+		for (device = devlist; device; device = device->pNext)
 		{
 			sprintf_s(args->buff, " desc: %s\n st: %s\n\n", device->descURL, device->st);
 			if (args->progressCallback)
 				args->progressCallback(args->buff, args->userData);
 		}
 
-		char lanaddr[64];	/* my ip address on the LAN */
-		char wanaddr[64];	/* my ip address on the WAN */
+		char lanaddr[64]; /* my ip address on the LAN */
+		char wanaddr[64]; /* my ip address on the WAN */
 		struct UPNPUrls urls;
 		struct IGDdatas data;
-		if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr))==1)
+		if (UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr)) == 1)
 		{
 			char iport[32];
-			Itoa(args->portToOpen, iport,10);
+			Itoa(args->portToOpen, iport, 10);
 			char eport[32];
 			strcpy_s(eport, iport);
 
 			// Version miniupnpc-2.2.8
 			int r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
-				eport, iport, lanaddr, 0, "UDP", 0, "0");
+			                            eport, iport, lanaddr, 0, "UDP", 0, "0");
 
-			if(r!=UPNPCOMMAND_SUCCESS)
+			if (r != UPNPCOMMAND_SUCCESS)
 				printf("AddPortMapping(%s, %s, %s) failed with code %d (%s)\n",
-				eport, iport, lanaddr, r, strupnperror(r));
+				       eport, iport, lanaddr, r, strupnperror(r));
 
 			char intPort[6];
 			char intClient[16];
@@ -915,15 +920,15 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 			char enabled[128];
 			char leaseDuration[128];
 			r = UPNP_GetSpecificPortMappingEntry(urls.controlURL,
-				data.first.servicetype,
-				eport, "UDP", NULL,
-				intClient, intPort,
-				desc, enabled, leaseDuration);
+			                                     data.first.servicetype,
+			                                     eport, "UDP", NULL,
+			                                     intClient, intPort,
+			                                     desc, enabled, leaseDuration);
 
-			if(r!=UPNPCOMMAND_SUCCESS)
+			if (r != UPNPCOMMAND_SUCCESS)
 			{
 				sprintf_s(args->buff, "GetSpecificPortMappingEntry() failed with code %d (%s)\n",
-					r, strupnperror(r));
+				          r, strupnperror(r));
 				if (args->progressCallback)
 					args->progressCallback(args->buff, args->userData);
 			}
@@ -933,7 +938,7 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 					args->progressCallback("UPNP success.\n", args->userData);
 				// game->myNatType=NAT_TYPE_SUPPORTS_UPNP;
 
-				success=true;
+				success = true;
 			}
 		}
 	}
@@ -945,11 +950,10 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 }
 
 void UPNPOpenAsynch(unsigned short portToOpen,
-					unsigned int timeout,
-					void (*progressCallback)(const char *progressMsg, void *userData),
-					void (*resultCallback)(bool success, unsigned short portToOpen, void *userData),
-					void *userData
-					)
+                    unsigned int timeout,
+                    void (*progressCallback)(const char *progressMsg, void *userData),
+                    void (*resultCallback)(bool success, unsigned short portToOpen, void *userData),
+                    void *userData)
 {
 	UPNPOpenWorkerArgs *args = MafiaNet::OP_NEW<UPNPOpenWorkerArgs>(_FILE_AND_LINE_);
 	args->portToOpen = portToOpen;
@@ -963,18 +967,18 @@ void UPNPOpenAsynch(unsigned short portToOpen,
 void UPNPProgressCallback(const char *progressMsg, void *userData)
 {
 	// unused parameters
-	(void)userData;
+	(void) userData;
 
 	printf(progressMsg);
 }
 void UPNPResultCallback(bool success, unsigned short portToOpen, void *userData)
 {
 	// unused parameters
-	(void)portToOpen;
-	(void)userData;
+	(void) portToOpen;
+	(void) userData;
 
 	if (success)
-		game->myNatType=NAT_TYPE_SUPPORTS_UPNP;
+		game->myNatType = NAT_TYPE_SUPPORTS_UPNP;
 	game->EnterPhase(Game::SEARCH_FOR_GAMES);
 }
 
@@ -982,7 +986,7 @@ void OpenUPNP(void)
 {
 	printf("Discovering UPNP...\n");
 
-	DataStructures::List<RakNetSocket2* > sockets;
+	DataStructures::List<RakNetSocket2 *> sockets;
 	rakPeer->GetSockets(sockets);
 	UPNPOpenAsynch(sockets[0]->GetBoundAddress().GetPort(), 2000, UPNPProgressCallback, UPNPResultCallback, 0);
 }
@@ -1007,9 +1011,9 @@ int main(void)
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Allocate plugins. See declaration in this file for description of each
 	// ---------------------------------------------------------------------------------------------------------------------
-	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
-	teamManager=TeamManager::GetInstance();
-	fullyConnectedMesh2=FullyConnectedMesh2::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	teamManager = TeamManager::GetInstance();
+	fullyConnectedMesh2 = FullyConnectedMesh2::GetInstance();
 	networkIDManager = NetworkIDManager::GetInstance();
 	tcp = TCPInterface::GetInstance();
 	natPunchthroughClient = NatPunchthroughClient::GetInstance();
@@ -1018,7 +1022,7 @@ int main(void)
 #endif
 	rpc4 = RPC4::GetInstance();
 	readyEvent = ReadyEvent::GetInstance();
-	gameReplicaManager3=new SampleRM3;
+	gameReplicaManager3 = new SampleRM3;
 	httpConnection2 = HTTPConnection2::GetInstance();
 
 	// ---------------------------------------------------------------------------------------------------------------------
@@ -1043,15 +1047,15 @@ int main(void)
 	teamManager->AddWorld(0);
 	// Do not automatically count new connections
 	teamManager->SetAutoManageConnections(false);
-	
+
 	// New connections do not count until after login.
-	fullyConnectedMesh2->SetAutoparticipateConnections(false);	
-		
+	fullyConnectedMesh2->SetAutoparticipateConnections(false);
+
 	// Tell ReplicaManager3 which networkIDManager to use for object lookup, used for automatic serialization
 	gameReplicaManager3->SetNetworkIDManager(networkIDManager);
 	// Do not automatically count new connections, but do drop lost connections automatically
-	gameReplicaManager3->SetAutoManageConnections(false,true);
-	
+	gameReplicaManager3->SetAutoManageConnections(false, true);
+
 	// Reference static game objects that always exist
 	game = new Game;
 	game->SetNetworkIDManager(networkIDManager);
@@ -1063,14 +1067,14 @@ int main(void)
 	user->SetNetworkIDManager(networkIDManager);
 	user->userName = MafiaNet::to_string(rakPeer->GetMyGUID()).c_str();
 	// Inform TeamManager of my user's team member info
-	teamManager->GetWorldAtIndex(0)->ReferenceTeamMember(&user->tmTeamMember,user->GetNetworkID());
+	teamManager->GetWorldAtIndex(0)->ReferenceTeamMember(&user->tmTeamMember, user->GetNetworkID());
 
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Startup RakNet on first available port
 	// ---------------------------------------------------------------------------------------------------------------------
 	MafiaNet::SocketDescriptor sd;
-	sd.socketFamily=AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
-	sd.port=0;
+	sd.socketFamily = AF_INET; // Only IPV4 supports broadcast on 255.255.255.255
+	sd.port = 0;
 	SLNET_VERIFY(rakPeer->Startup(8, &sd, 1) == RAKNET_STARTED);
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
@@ -1078,8 +1082,8 @@ int main(void)
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 
 	// Start TCPInterface and begin connecting to the NAT punchthrough server
-	tcp->Start(0,0,1);
-	
+	tcp->Start(0, 0, 1);
+
 	// Connect to hosting server
 	game->EnterPhase(Game::CONNECTING_TO_SERVER);
 
@@ -1088,68 +1092,68 @@ int main(void)
 	// ---------------------------------------------------------------------------------------------------------------------
 	int ch;
 	Packet *packet;
-	while (game->phase!=Game::EXIT_SAMPLE)
+	while (game->phase != Game::EXIT_SAMPLE)
 	{
 		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 			switch (packet->data[0])
 			{
 			case ID_NEW_INCOMING_CONNECTION:
-				{
-					printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
-				}
-				break;
+			{
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+			}
+			break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
+			{
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+
+				if (game->phase == Game::CONNECTING_TO_SERVER)
 				{
-					printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+					game->natPunchServerAddress = packet->systemAddress;
+					game->natPunchServerGuid = packet->guid;
 
-					if (game->phase==Game::CONNECTING_TO_SERVER)
+					// ---------------------------------------------------------------------------------------------------------------------
+					// PC self-hosted servers only: Use the NAT punch server to determine NAT type. Attempt to open router if needed.
+					// ---------------------------------------------------------------------------------------------------------------------
+					if (NAT_TYPE_DETECTION_SERVER)
 					{
-						game->natPunchServerAddress=packet->systemAddress;
-						game->natPunchServerGuid=packet->guid;
-
-						// ---------------------------------------------------------------------------------------------------------------------
-						// PC self-hosted servers only: Use the NAT punch server to determine NAT type. Attempt to open router if needed.
-						// ---------------------------------------------------------------------------------------------------------------------
-						if (NAT_TYPE_DETECTION_SERVER)
-						{
-							game->EnterPhase(Game::DETERMINE_NAT_TYPE);
-						}
-						else
-						{
-							OpenUPNP();
-						}
+						game->EnterPhase(Game::DETERMINE_NAT_TYPE);
 					}
-					else if (game->phase==Game::CONNECTING_TO_GAME_HOST)
+					else
 					{
-						printf("Asking host to join session...\n");
-
-						// So time in single player does not count towards which system has been running multiplayer the longest
-						fullyConnectedMesh2->ResetHostCalculation();
-
-						// Custom message to ask to join the game
-						// We first connect to the game host, and the game host is responsible for calling StartVerifiedJoin() for us to join the session
-						BitStream bsOut;
-						bsOut.Write((MessageID)ID_USER_PACKET_ENUM);
-						rakPeer->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->guid,false);
+						OpenUPNP();
 					}
 				}
-				break;
+				else if (game->phase == Game::CONNECTING_TO_GAME_HOST)
+				{
+					printf("Asking host to join session...\n");
+
+					// So time in single player does not count towards which system has been running multiplayer the longest
+					fullyConnectedMesh2->ResetHostCalculation();
+
+					// Custom message to ask to join the game
+					// We first connect to the game host, and the game host is responsible for calling StartVerifiedJoin() for us to join the session
+					BitStream bsOut;
+					bsOut.Write((MessageID) ID_USER_PACKET_ENUM);
+					rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
+				}
+			}
+			break;
 			case ID_CONNECTION_LOST:
 			case ID_DISCONNECTION_NOTIFICATION:
-				if (game->phase==Game::DETERMINE_NAT_TYPE)
+				if (game->phase == Game::DETERMINE_NAT_TYPE)
 				{
 					printf("Lost connection during NAT type detection. Reason %s. Retrying...\n", PacketLogger::BaseIDTOString(packet->data[0]));
 					game->EnterPhase(Game::CONNECTING_TO_SERVER);
 				}
-				else if (game->phase==Game::NAT_PUNCH_TO_GAME_HOST)
+				else if (game->phase == Game::NAT_PUNCH_TO_GAME_HOST)
 				{
 					printf("Lost connection during NAT punch to game host. Reason %s.\n", PacketLogger::BaseIDTOString(packet->data[0]));
 					game->EnterPhase(Game::SEARCH_FOR_GAMES);
 				}
 				else
 				{
-					if (packet->guid==game->natPunchServerGuid)
+					if (packet->guid == game->natPunchServerGuid)
 					{
 						printf("Server connection lost. Reason %s.\nGame session is no longer searchable.\n", PacketLogger::BaseIDTOString(packet->data[0]));
 					}
@@ -1174,158 +1178,157 @@ int main(void)
 				// FullyConnectedMesh2::StartVerifiedJoin() internally handles success or failure and notifies the client through ID_FCM2_VERIFIED_JOIN_FAILED if needed.
 				printf("Failed to connect to %s. Reason %s\n", packet->systemAddress.ToString(true), PacketLogger::BaseIDTOString(packet->data[0]));
 
-				if (game->phase==Game::CONNECTING_TO_SERVER)
+				if (game->phase == Game::CONNECTING_TO_SERVER)
 					game->EnterPhase(Game::EXIT_SAMPLE);
 				break;
-				
+
 			case ID_FCM2_NEW_HOST:
+			{
+				MafiaNet::BitStream bs(packet->data, packet->length, false);
+				bs.IgnoreBytes(1);
+				RakNetGUID oldHost;
+				bs.Read(oldHost);
+
+				if (packet->guid == rakPeer->GetMyGUID())
 				{
-					MafiaNet::BitStream bs(packet->data,packet->length,false);
-					bs.IgnoreBytes(1);
-					RakNetGUID oldHost;
-					bs.Read(oldHost);
-
-					if (packet->guid==rakPeer->GetMyGUID())
+					if (oldHost != UNASSIGNED_RAKNET_GUID)
 					{
-						if (oldHost!=UNASSIGNED_RAKNET_GUID)
-						{
-							if (game->phase==Game::IN_LOBBY_WAITING_FOR_HOST)
-								game->phase=Game::IN_LOBBY_WITH_HOST;
-							PostRoomToMaster();
-							printf("ID_FCM2_NEW_HOST: Taking over as host from the old host.\nNew options:\n");
-						}
-						else
-						{
-							// Room not hosted if we become host the first time since this was done in CreateRoom() already
-							printf("ID_FCM2_NEW_HOST: We have become host for the first time. New options:\n");
-						}
-
-						printf("(L)ock and unlock game\n");
+						if (game->phase == Game::IN_LOBBY_WAITING_FOR_HOST)
+							game->phase = Game::IN_LOBBY_WITH_HOST;
+						PostRoomToMaster();
+						printf("ID_FCM2_NEW_HOST: Taking over as host from the old host.\nNew options:\n");
 					}
 					else
 					{
-						if (oldHost!=UNASSIGNED_RAKNET_GUID)
-							printf("ID_FCM2_NEW_HOST: A new system %s has become host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
-						else
-							printf("ID_FCM2_NEW_HOST: System %s is host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+						// Room not hosted if we become host the first time since this was done in CreateRoom() already
+						printf("ID_FCM2_NEW_HOST: We have become host for the first time. New options:\n");
 					}
 
-					if (oldHost==UNASSIGNED_RAKNET_GUID)
-					{
-						// First time calculated host. Add existing connections to ReplicaManager3
-						DataStructures::List<RakNetGUID> participantList;
-						fullyConnectedMesh2->GetParticipantList(participantList);
-						for (unsigned int i=0; i < participantList.Size(); i++)
-							RegisterGameParticipant(participantList[i]);
-
-						// Reference previously created replicated objects, which cannot be serialized until host is known the first time
-						if (packet->guid==rakPeer->GetMyGUID())
-						{
-							// As host, reference the teams we created
-							for (unsigned int i=0; i < game->teams.Size(); i++)
-								gameReplicaManager3->Reference(game->teams[i]);
-						}
-
-						// Reference the user we created (host or not)
-						for (unsigned int i=0; i < game->users.Size(); i++)
-							gameReplicaManager3->Reference(game->users[i]);
-					}
+					printf("(L)ock and unlock game\n");
 				}
-				break;
+				else
+				{
+					if (oldHost != UNASSIGNED_RAKNET_GUID)
+						printf("ID_FCM2_NEW_HOST: A new system %s has become host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+					else
+						printf("ID_FCM2_NEW_HOST: System %s is host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				}
+
+				if (oldHost == UNASSIGNED_RAKNET_GUID)
+				{
+					// First time calculated host. Add existing connections to ReplicaManager3
+					DataStructures::List<RakNetGUID> participantList;
+					fullyConnectedMesh2->GetParticipantList(participantList);
+					for (unsigned int i = 0; i < participantList.Size(); i++)
+						RegisterGameParticipant(participantList[i]);
+
+					// Reference previously created replicated objects, which cannot be serialized until host is known the first time
+					if (packet->guid == rakPeer->GetMyGUID())
+					{
+						// As host, reference the teams we created
+						for (unsigned int i = 0; i < game->teams.Size(); i++)
+							gameReplicaManager3->Reference(game->teams[i]);
+					}
+
+					// Reference the user we created (host or not)
+					for (unsigned int i = 0; i < game->users.Size(); i++)
+						gameReplicaManager3->Reference(game->users[i]);
+				}
+			}
+			break;
 			case ID_TEAM_BALANCER_TEAM_ASSIGNED:
-				{
-					printf("ID_TEAM_BALANCER_TEAM_ASSIGNED for ");
-					TM_World *world;
-					TM_TeamMember *teamMember;
-					teamManager->DecodeTeamAssigned(packet, &world, &teamMember);
-					printf("worldId=%i teamMember=%s", world->GetWorldId(), ((User*)teamMember->GetOwner())->userName.C_String());
-					if (teamMember->GetCurrentTeam()==0)
-						printf(" not on team\n");
-					else
-						printf(" on team %s\n", ((Team*)(teamMember->GetCurrentTeam()->GetOwner()))->teamName.C_String());
-				}
-				break;
+			{
+				printf("ID_TEAM_BALANCER_TEAM_ASSIGNED for ");
+				TM_World *world;
+				TM_TeamMember *teamMember;
+				teamManager->DecodeTeamAssigned(packet, &world, &teamMember);
+				printf("worldId=%i teamMember=%s", world->GetWorldId(), ((User *) teamMember->GetOwner())->userName.C_String());
+				if (teamMember->GetCurrentTeam() == 0)
+					printf(" not on team\n");
+				else
+					printf(" on team %s\n", ((Team *) (teamMember->GetCurrentTeam()->GetOwner()))->teamName.C_String());
+			}
+			break;
 			case ID_TEAM_BALANCER_REQUESTED_TEAM_FULL:
-				{
-					printf("ID_TEAM_BALANCER_REQUESTED_TEAM_FULL\n");
-				}
-				break;
+			{
+				printf("ID_TEAM_BALANCER_REQUESTED_TEAM_FULL\n");
+			}
+			break;
 			case ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED:
-				{
-					printf("ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED\n");
-				}
-				break;
+			{
+				printf("ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED\n");
+			}
+			break;
 			case ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED:
-				{
-					printf("ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED\n");
-				}
-				break;
+			{
+				printf("ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED\n");
+			}
+			break;
 			case ID_NAT_TARGET_NOT_CONNECTED:
 			case ID_NAT_TARGET_UNRESPONSIVE:
 			case ID_NAT_CONNECTION_TO_TARGET_LOST:
 			case ID_NAT_PUNCHTHROUGH_FAILED:
-				{
-					// As with connection failed, this does not automatically mean we cannot join the session
-					// We only fail on ID_FCM2_VERIFIED_JOIN_FAILED
-					printf("NAT punch to %s failed. Reason %s\n", MafiaNet::to_string(packet->guid).c_str(), PacketLogger::BaseIDTOString(packet->data[0]));
+			{
+				// As with connection failed, this does not automatically mean we cannot join the session
+				// We only fail on ID_FCM2_VERIFIED_JOIN_FAILED
+				printf("NAT punch to %s failed. Reason %s\n", MafiaNet::to_string(packet->guid).c_str(), PacketLogger::BaseIDTOString(packet->data[0]));
 
-					if (game->phase==Game::NAT_PUNCH_TO_GAME_HOST)
-						game->EnterPhase(Game::SEARCH_FOR_GAMES);
-				}
+				if (game->phase == Game::NAT_PUNCH_TO_GAME_HOST)
+					game->EnterPhase(Game::SEARCH_FOR_GAMES);
+			}
 
 			case ID_NAT_ALREADY_IN_PROGRESS:
 				// Can ignore this
 				break;
 
 			case ID_NAT_PUNCHTHROUGH_SUCCEEDED:
+			{
+				if (game->phase == Game::NAT_PUNCH_TO_GAME_HOST || game->phase == Game::VERIFIED_JOIN)
 				{
-					if (game->phase==Game::NAT_PUNCH_TO_GAME_HOST || game->phase==Game::VERIFIED_JOIN)
+					// Connect to the session host
+					ConnectionAttemptResult car = rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
+					if (car != MafiaNet::CONNECTION_ATTEMPT_STARTED)
 					{
-						// Connect to the session host
-						ConnectionAttemptResult car = rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
-						if (car!= MafiaNet::CONNECTION_ATTEMPT_STARTED)
+						printf("Failed connect call to %s. Code=%i\n", packet->systemAddress.ToString(false), car);
+						game->EnterPhase(Game::SEARCH_FOR_GAMES);
+					}
+					else
+					{
+						if (game->phase == Game::NAT_PUNCH_TO_GAME_HOST)
 						{
-							printf("Failed connect call to %s. Code=%i\n", packet->systemAddress.ToString(false), car);
-							game->EnterPhase(Game::SEARCH_FOR_GAMES);
+							printf("NAT punch completed. Connecting to %s (game host)...\n", packet->systemAddress.ToString(true));
+							game->EnterPhase(Game::CONNECTING_TO_GAME_HOST);
 						}
 						else
 						{
-							if (game->phase==Game::NAT_PUNCH_TO_GAME_HOST)
-							{
-								printf("NAT punch completed. Connecting to %s (game host)...\n", packet->systemAddress.ToString(true));
-								game->EnterPhase(Game::CONNECTING_TO_GAME_HOST);
-							}
-							else
-							{
-								printf("NAT punch completed. Connecting to %s (game client)...\n", packet->systemAddress.ToString(true));
-							}
+							printf("NAT punch completed. Connecting to %s (game client)...\n", packet->systemAddress.ToString(true));
 						}
 					}
 				}
-				break;
+			}
+			break;
 
 
-			
 			case ID_NAT_TYPE_DETECTION_RESULT:
+			{
+				game->myNatType = (MafiaNet::NATTypeDetectionResult) packet->data[1];
+				printf("NAT Type is %s (%s)\n", NATTypeDetectionResultToString(game->myNatType), NATTypeDetectionResultToStringFriendly(game->myNatType));
+
+				if (game->myNatType != MafiaNet::NAT_TYPE_NONE)
 				{
-					game->myNatType = (MafiaNet::NATTypeDetectionResult) packet->data[1];
-					printf("NAT Type is %s (%s)\n", NATTypeDetectionResultToString(game->myNatType), NATTypeDetectionResultToStringFriendly(game->myNatType));
-
-					if (game->myNatType!= MafiaNet::NAT_TYPE_NONE)
-					{
-						OpenUPNP();
-					}
-
-					if (game->myNatType== MafiaNet::NAT_TYPE_PORT_RESTRICTED || game->myNatType== MafiaNet::NAT_TYPE_SYMMETRIC)
-					{
-						printf("Note: Your router must support UPNP or have the user manually forward ports.\n");
-						printf("Otherwise NATPunchthrough may not always succeed.\n");
-					}
-
-					game->EnterPhase(Game::SEARCH_FOR_GAMES);
+					OpenUPNP();
 				}
-				break;
-				
+
+				if (game->myNatType == MafiaNet::NAT_TYPE_PORT_RESTRICTED || game->myNatType == MafiaNet::NAT_TYPE_SYMMETRIC)
+				{
+					printf("Note: Your router must support UPNP or have the user manually forward ports.\n");
+					printf("Otherwise NATPunchthrough may not always succeed.\n");
+				}
+
+				game->EnterPhase(Game::SEARCH_FOR_GAMES);
+			}
+			break;
+
 			case ID_READY_EVENT_ALL_SET:
 				printf("Got ID_READY_EVENT_ALL_SET from %s\n", packet->systemAddress.ToString(true));
 				printf("All users ready.\n");
@@ -1351,31 +1354,31 @@ int main(void)
 				else
 				{
 					BitStream bsOut;
-					bsOut.Write((MessageID)(ID_USER_PACKET_ENUM+1));
-					rakPeer->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->guid,false);
+					bsOut.Write((MessageID) (ID_USER_PACKET_ENUM + 1));
+					rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
 				}
 				break;
 			// ID_USER_PACKET_ENUM+1 is used by this sample as a custom message to reject a join game request
 			// Requests may also be later rejected through FullyConnectedMesh2::RespondOnVerifiedJoinCapable() to send ID_FCM2_VERIFIED_JOIN_REJECTED
-			case (ID_USER_PACKET_ENUM+1):
+			case (ID_USER_PACKET_ENUM + 1):
 				printf("Join request denied\n");
 				game->EnterPhase(Game::SEARCH_FOR_GAMES);
 				break;
 			case ID_FCM2_VERIFIED_JOIN_START:
-				{
-					game->EnterPhase(Game::VERIFIED_JOIN);
+			{
+				game->EnterPhase(Game::VERIFIED_JOIN);
 
-					// This message means the session host sent us a list of systems in the session
-					// Once we connect to, or fail to connect to, each of these systems we will get ID_FCM2_VERIFIED_JOIN_FAILED, ID_FCM2_VERIFIED_JOIN_ACCEPTED, or ID_FCM2_VERIFIED_JOIN_REJECTED
-					printf("Host sent us system list. Doing NAT punch to each system...\n");
-					DataStructures::List<SystemAddress> addresses;
-					DataStructures::List<RakNetGUID> guids;
-					DataStructures::List<BitStream*> userData;
-					fullyConnectedMesh2->GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
-					for (unsigned int i=0; i < guids.Size(); i++)
-						natPunchthroughClient->OpenNAT(guids[i], game->natPunchServerAddress);
-				}
-				break;
+				// This message means the session host sent us a list of systems in the session
+				// Once we connect to, or fail to connect to, each of these systems we will get ID_FCM2_VERIFIED_JOIN_FAILED, ID_FCM2_VERIFIED_JOIN_ACCEPTED, or ID_FCM2_VERIFIED_JOIN_REJECTED
+				printf("Host sent us system list. Doing NAT punch to each system...\n");
+				DataStructures::List<SystemAddress> addresses;
+				DataStructures::List<RakNetGUID> guids;
+				DataStructures::List<BitStream *> userData;
+				fullyConnectedMesh2->GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
+				for (unsigned int i = 0; i < guids.Size(); i++)
+					natPunchthroughClient->OpenNAT(guids[i], game->natPunchServerAddress);
+			}
+			break;
 
 			case ID_FCM2_VERIFIED_JOIN_CAPABLE:
 				printf("Client is capable of joining FullyConnectedMesh2.\n");
@@ -1390,63 +1393,63 @@ int main(void)
 				break;
 
 			case ID_FCM2_VERIFIED_JOIN_ACCEPTED:
+			{
+				DataStructures::List<RakNetGUID> systemsAccepted;
+				bool thisSystemAccepted;
+				fullyConnectedMesh2->GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, 0);
+				if (thisSystemAccepted)
+					printf("Game join request accepted\n");
+				else
+					printf("System %s joined the mesh\n", MafiaNet::to_string(systemsAccepted[0]).c_str());
+
+				// Add the new participant to the game if we already know who the host is. Otherwise do this
+				// once ID_FCM2_NEW_HOST arrives
+				if (fullyConnectedMesh2->GetConnectedHost() != UNASSIGNED_RAKNET_GUID)
 				{
-					DataStructures::List<RakNetGUID> systemsAccepted;
-					bool thisSystemAccepted;
-					fullyConnectedMesh2->GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, 0);
+					// FullyConnectedMesh2 already called AddParticipant() for each accepted system
+					// Still need to add those systems to the other plugins though
+					for (unsigned int i = 0; i < systemsAccepted.Size(); i++)
+						RegisterGameParticipant(systemsAccepted[i]);
+
 					if (thisSystemAccepted)
-						printf("Game join request accepted\n");
-					else
-						printf("System %s joined the mesh\n", MafiaNet::to_string(systemsAccepted[0]).c_str());
-
-					// Add the new participant to the game if we already know who the host is. Otherwise do this
-					// once ID_FCM2_NEW_HOST arrives
-					if (fullyConnectedMesh2->GetConnectedHost()!=UNASSIGNED_RAKNET_GUID)
-					{
-						// FullyConnectedMesh2 already called AddParticipant() for each accepted system
-						// Still need to add those systems to the other plugins though
-						for (unsigned int i=0; i < systemsAccepted.Size(); i++)
-							RegisterGameParticipant(systemsAccepted[i]);
-
-						if (thisSystemAccepted)
-							game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
-					}
-					else
-					{
-						if (thisSystemAccepted)
-							game->EnterPhase(Game::IN_LOBBY_WAITING_FOR_HOST);
-					}
-
-					printf("(E)xit room\n");
+						game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
 				}
-				break;
+				else
+				{
+					if (thisSystemAccepted)
+						game->EnterPhase(Game::IN_LOBBY_WAITING_FOR_HOST);
+				}
+
+				printf("(E)xit room\n");
+			}
+			break;
 
 			case ID_FCM2_VERIFIED_JOIN_REJECTED:
-				{
-					BitStream additionalData;
-					fullyConnectedMesh2->GetVerifiedJoinRejectedAdditionalData(packet, &additionalData);
-					RakString reason;
-					additionalData.Read(reason);
-					printf("Join rejected. Reason=%s\n", reason.C_String());
-					rakPeer->CloseConnection(packet->guid, true);
-					game->EnterPhase(Game::SEARCH_FOR_GAMES);
-					break;
-				}
+			{
+				BitStream additionalData;
+				fullyConnectedMesh2->GetVerifiedJoinRejectedAdditionalData(packet, &additionalData);
+				RakString reason;
+				additionalData.Read(reason);
+				printf("Join rejected. Reason=%s\n", reason.C_String());
+				rakPeer->CloseConnection(packet->guid, true);
+				game->EnterPhase(Game::SEARCH_FOR_GAMES);
+				break;
+			}
 
 			case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
+			{
+				if (gameReplicaManager3->GetAllConnectionDownloadsCompleted() == true)
 				{
-					if (gameReplicaManager3->GetAllConnectionDownloadsCompleted()==true)
-					{
-						printf("Completed all remote downloads\n");
+					printf("Completed all remote downloads\n");
 
-						if (game->gameInLobby)
-							game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
-						else
-							game->EnterPhase(Game::IN_GAME);
-					}
-
-					break;
+					if (game->gameInLobby)
+						game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
+					else
+						game->EnterPhase(Game::IN_GAME);
 				}
+
+				break;
+			}
 			}
 		}
 
@@ -1466,9 +1469,9 @@ int main(void)
 		ptrdiff_t contentOffset;
 		if (httpConnection2->GetResponse(stringTransmitted, hostTransmitted, responseReceived, hostReceived, contentOffset))
 		{
-			if (responseReceived.IsEmpty()==false)
+			if (responseReceived.IsEmpty() == false)
 			{
-				if (contentOffset==-1)
+				if (contentOffset == -1)
 				{
 					// No content
 					printf(responseReceived.C_String());
@@ -1487,25 +1490,25 @@ int main(void)
 						while (iter)
 						{
 							const char *firstKey = json_object_iter_key(iter);
-							if (_stricmp(firstKey, "GET")==0)
+							if (_stricmp(firstKey, "GET") == 0)
 							{
 								game->SetMasterServerQueryResult(root);
-								root=0;
+								root = 0;
 
-								json_t* jsonArray = json_object_iter_value(iter);
+								json_t *jsonArray = json_object_iter_value(iter);
 								size_t arraySize = json_array_size(jsonArray);
-								for (unsigned int i=0; i < arraySize; i++)
+								for (unsigned int i = 0; i < arraySize; i++)
 								{
-									json_t* object = json_array_get(jsonArray, i);
-									json_t* roomNameVal = json_object_get(object, "roomName");
-									RakAssert(roomNameVal->type==JSON_STRING);
-									json_t* natTypesVal = json_object_get(object, "natTypes");
-									RakAssert(natTypesVal->type==JSON_ARRAY);
+									json_t *object = json_array_get(jsonArray, i);
+									json_t *roomNameVal = json_object_get(object, "roomName");
+									RakAssert(roomNameVal->type == JSON_STRING);
+									json_t *natTypesVal = json_object_get(object, "natTypes");
+									RakAssert(natTypesVal->type == JSON_ARRAY);
 									size_t natTypesSize = json_array_size(natTypesVal);
 									printf("Room name: %s. Players: %i\n", json_string_value(roomNameVal), natTypesSize);
 								}
 
-								if (arraySize==0)
+								if (arraySize == 0)
 									printf("No rooms.\n");
 
 
@@ -1514,13 +1517,13 @@ int main(void)
 								printf("(S)earch rooms\n");
 								break;
 							}
-							else if (_stricmp(firstKey, "POST")==0)
+							else if (_stricmp(firstKey, "POST") == 0)
 							{
-								RakAssert(_stricmp(firstKey, "POST")==0);
+								RakAssert(_stricmp(firstKey, "POST") == 0);
 
-								json_t* jsonObject = json_object_iter_value(iter);
-								json_t* val1 = json_object_get(jsonObject, "__rowId");
-								RakAssert(val1->type==JSON_INTEGER);
+								json_t *jsonObject = json_object_iter_value(iter);
+								json_t *val1 = json_object_get(jsonObject, "__rowId");
+								RakAssert(val1->type == JSON_INTEGER);
 								game->masterServerRow = (int) json_integer_value(val1);
 
 								printf("Session posted to row %i\n", game->masterServerRow);
@@ -1532,7 +1535,7 @@ int main(void)
 								RakAssert(iter != 0);
 							}
 						}
-						
+
 						json_decref(root);
 					}
 				}
@@ -1541,19 +1544,19 @@ int main(void)
 
 		if (_kbhit())
 		{
-			ch=_getch();
+			ch = _getch();
 
-			if (game->phase==Game::SEARCH_FOR_GAMES)
+			if (game->phase == Game::SEARCH_FOR_GAMES)
 			{
-				if (ch=='c' || ch=='C')
+				if (ch == 'c' || ch == 'C')
 				{
 					CreateRoom();
 				}
-				if (ch=='s' || ch=='S')
+				if (ch == 's' || ch == 'S')
 				{
 					game->SearchForGames();
 				}
-				else if (ch=='j' || ch=='J')
+				else if (ch == 'j' || ch == 'J')
 				{
 					size_t arraySize = 0;
 					json_t *jsonArray = game->GetMasterServerQueryResult();
@@ -1563,18 +1566,18 @@ int main(void)
 					}
 
 					// Join room
-					if (arraySize==0)
+					if (arraySize == 0)
 					{
 						printf("No rooms to join.\n");
 					}
 					else
 					{
 						int index;
-						if (arraySize>1)
+						if (arraySize > 1)
 						{
 							printf("Enter index of room to join.\n");
 							char indexstr[64];
-							Gets(indexstr,64);
+							Gets(indexstr, 64);
 							index = atoi(indexstr);
 						}
 						else
@@ -1588,12 +1591,12 @@ int main(void)
 						}
 						else
 						{
-							json_t* object = json_array_get(jsonArray, index);
-							json_t* guidVal = json_object_get(object, "guid");
-							RakAssert(guidVal->type==JSON_STRING);
+							json_t *object = json_array_get(jsonArray, index);
+							json_t *guidVal = json_object_get(object, "guid");
+							RakAssert(guidVal->type == JSON_STRING);
 							RakNetGUID clientGUID;
 							clientGUID.FromString(json_string_value(guidVal));
-							if (clientGUID!=rakPeer->GetMyGUID())
+							if (clientGUID != rakPeer->GetMyGUID())
 							{
 								natPunchthroughClient->OpenNAT(clientGUID, game->natPunchServerAddress);
 								game->EnterPhase(Game::NAT_PUNCH_TO_GAME_HOST);
@@ -1608,94 +1611,94 @@ int main(void)
 			}
 			else
 			{
-				if (game->phase==Game::IN_GAME)
+				if (game->phase == Game::IN_GAME)
 				{
-					if (ch=='c' || ch=='C')
+					if (ch == 'c' || ch == 'C')
 					{
 						DataStructures::List<RakNetGUID> participantList;
 						fullyConnectedMesh2->GetParticipantList(participantList);
 
-						if (participantList.Size()>0)
+						if (participantList.Size() > 0)
 						{
 							printf("Enter in-game chat message: ");
 							char str[256];
 							Gets(str, 256);
 							RakString rs;
 							// Don't use RakString constructor to assign str, or will process % escape characters
-							rs=str;
+							rs = str;
 							BitStream bsOut;
 							bsOut.Write(rs);
-							for (unsigned int i=0; i < participantList.Size(); i++)
+							for (unsigned int i = 0; i < participantList.Size(); i++)
 								rpc4->Signal("InGameChat", &bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, participantList[i], false, false);
 						}
 					}
 				}
 
-				if (ch=='1')
+				if (ch == '1')
 				{
 					user->tmTeamMember.RequestTeamSwitch(&game->teams[0]->tmTeam, 0);
 				}
-				else if (ch=='2')
+				else if (ch == '2')
 				{
 					user->tmTeamMember.RequestTeamSwitch(&game->teams[1]->tmTeam, 0);
 				}
-				else if (ch=='r' || ch=='R')
+				else if (ch == 'r' || ch == 'R')
 				{
 					if (readyEvent->SetEvent(0, true))
 						printf("We are ready to start.\n");
 				}
-				else if (ch=='u' || ch=='U')
+				else if (ch == 'u' || ch == 'U')
 				{
 					if (readyEvent->SetEvent(0, false))
 						printf("We are no longer ready to start.\n");
 				}
-				else if (ch=='l' || ch=='L')
+				else if (ch == 'l' || ch == 'L')
 				{
 					if (fullyConnectedMesh2->IsConnectedHost())
 					{
 						if (game->lockGame)
 						{
 							printf("Game is no longer locked\n");
-							game->lockGame=false;
+							game->lockGame = false;
 						}
 						else
 						{
 							printf("Game is now locked\n");
-							game->lockGame=true;
+							game->lockGame = true;
 						}
 					}
 				}
-				else if (ch=='b' || ch=='B')
+				else if (ch == 'b' || ch == 'B')
 				{
 					if (fullyConnectedMesh2->IsConnectedHost())
 					{
 						if (game->gameInLobby)
 						{
 							readyEvent->ForceCompletion(0);
-							game->gameInLobby=false;
+							game->gameInLobby = false;
 							game->EnterPhase(Game::IN_GAME);
 						}
 						else
 						{
 							readyEvent->DeleteEvent(0);
 							printf("Game ended, and now in lobby\n");
-							game->gameInLobby=true;
+							game->gameInLobby = true;
 							game->EnterPhase(Game::IN_LOBBY_WITH_HOST);
 						}
 					}
 				}
-				else if (ch=='e' || ch=='E')
+				else if (ch == 'e' || ch == 'E')
 				{
 					// Disconnect from FullyConnectedMesh2 participants
 					DataStructures::List<RakNetGUID> participantList;
 					fullyConnectedMesh2->GetParticipantList(participantList);
-					for (unsigned int i=0; i < participantList.Size(); i++)
+					for (unsigned int i = 0; i < participantList.Size(); i++)
 						rakPeer->CloseConnection(participantList[i], true);
 
 					// User instances are deleted automatically from ReplicaManager3.
 					// However, teams are not deleted since the Team class can migrate between systems. So delete Team instances manually
 					while (game->teams.Size())
-						delete game->teams[game->teams.Size()-1];
+						delete game->teams[game->teams.Size() - 1];
 
 					// If we were the host, no longer list this session
 					// The new host will call PostRoomToCloud to reupload under a new IP address on ID_FCM2_NEW_HOST
@@ -1710,12 +1713,12 @@ int main(void)
 					game->Reset();
 					game->EnterPhase(Game::SEARCH_FOR_GAMES);
 				}
-				else if (ch=='q' || ch=='Q')
+				else if (ch == 'q' || ch == 'Q')
 				{
 					printf("Quitting.\n");
 
 					RakString rspost = RakString::FormatForGET(
-						RakString(MASTER_SERVER_ADDRESS "/testServer?row=%i", game->masterServerRow));
+					    RakString(MASTER_SERVER_ADDRESS "/testServer?row=%i", game->masterServerRow));
 					httpConnection2->TransmitRequest(rspost, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 
 					game->EnterPhase(Game::EXIT_SAMPLE);
@@ -1725,12 +1728,11 @@ int main(void)
 
 		// The game host updates the master server
 		MafiaNet::Time t = MafiaNet::GetTime();
-		if ((fullyConnectedMesh2->IsConnectedHost() || game->users.Size()==1) &&
-			t > game->whenToNextUpdateMasterServer &&
-			(game->phase == Game::IN_LOBBY_WITH_HOST ||
-			game->phase == Game::IN_GAME ||
-			game->phase == Game::IN_LOBBY_WAITING_FOR_HOST)
-			)
+		if ((fullyConnectedMesh2->IsConnectedHost() || game->users.Size() == 1) &&
+		    t > game->whenToNextUpdateMasterServer &&
+		    (game->phase == Game::IN_LOBBY_WITH_HOST ||
+		     game->phase == Game::IN_GAME ||
+		     game->phase == Game::IN_LOBBY_WAITING_FOR_HOST))
 		{
 			PostRoomToMaster();
 		}
@@ -1741,9 +1743,9 @@ int main(void)
 	rakPeer->Shutdown(100);
 
 	while (game->teams.Size())
-		delete game->teams[game->teams.Size()-1];
+		delete game->teams[game->teams.Size() - 1];
 	while (game->users.Size())
-		delete game->users[game->users.Size()-1];
+		delete game->users[game->users.Size() - 1];
 	delete game;
 
 	RakPeerInterface::DestroyInstance(rakPeer);
@@ -1759,4 +1761,3 @@ int main(void)
 
 	return 1;
 }
-

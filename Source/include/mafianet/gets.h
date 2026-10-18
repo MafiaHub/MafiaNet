@@ -12,10 +12,11 @@
 #define __GETS__H_
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-char * Gets ( char * str, int num );
+	char *Gets(char *str, int num);
 
 #ifdef __cplusplus
 }

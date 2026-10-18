@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 
 	// ---- RAKPEER -----
 	MafiaNet::RakPeerInterface *rakPeer;
-	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
 
 	// ---- PLUGINS -----
 	// Used to load balance clients, allow for client to client discovery
@@ -59,23 +59,23 @@ int main(int argc, char **argv)
 		return 1;
 
 	MafiaNet::CloudServerHelperFilter sampleFilter; // Keeps clients from updating stuff to the server they are not supposed to
-	sampleFilter.serverGuid=rakPeer->GetMyGUID();
-	cloudServerHelper.SetupPlugins(&cloudServer, &sampleFilter, &cloudClient, &fullyConnectedMesh2, &twoWayAuthentication,&connectionGraph2, cloudServerHelper.serverToServerPassword);
+	sampleFilter.serverGuid = rakPeer->GetMyGUID();
+	cloudServerHelper.SetupPlugins(&cloudServer, &sampleFilter, &cloudClient, &fullyConnectedMesh2, &twoWayAuthentication, &connectionGraph2, cloudServerHelper.serverToServerPassword);
 
 	int ret;
-	do 
+	do
 	{
 		ret = cloudServerHelper.JoinCloud(rakPeer, &cloudServer, &cloudClient, &fullyConnectedMesh2, &twoWayAuthentication, &connectionGraph2, dynDNS.GetMyPublicIP());
-	} while (ret==2);
-	if (ret==1)
+	} while (ret == 2);
+	if (ret == 1)
 		return 1;
 
 	// Should now be connect to the cloud, using authentication and FullyConnectedMesh2
 	printf("Running.\n");
 	MafiaNet::Packet *packet;
-	for(;;)
+	for (;;)
 	{
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 			cloudServerHelper.OnPacket(packet, rakPeer, &cloudClient, &cloudServer, &fullyConnectedMesh2, &twoWayAuthentication, &connectionGraph2);
 		}

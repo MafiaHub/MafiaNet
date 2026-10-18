@@ -49,82 +49,88 @@
 
 namespace MafiaNet
 {
-	/// Detects whether \a T has a member `serialize(Ar&)` callable with archive
-	/// type \a Ar. When true the archive recurses into that type; otherwise it
-	/// defers to BitStream's operator<< / operator>>.
-	template <class T, class Ar, class = void>
-	struct HasSerialize : std::false_type {};
+/// Detects whether \a T has a member `serialize(Ar&)` callable with archive
+/// type \a Ar. When true the archive recurses into that type; otherwise it
+/// defers to BitStream's operator<< / operator>>.
+template <class T, class Ar, class = void>
+struct HasSerialize : std::false_type
+{
+};
 
-	template <class T, class Ar>
-	struct HasSerialize<T, Ar,
-		std::void_t<decltype(std::declval<T &>().serialize(std::declval<Ar &>()))> >
-		: std::true_type {};
+template <class T, class Ar>
+struct HasSerialize<T, Ar,
+                    std::void_t<decltype(std::declval<T &>().serialize(std::declval<Ar &>()))>>
+    : std::true_type
+{
+};
 
-	/// Writes user types to a BitStream. `ar & field` serializes \a field: if the
-	/// field's type has a serialize() it recurses, otherwise it is written via
-	/// `bs << field`.
-	class WriteArchive
+/// Writes user types to a BitStream. `ar & field` serializes \a field: if the
+/// field's type has a serialize() it recurses, otherwise it is written via
+/// `bs << field`.
+class WriteArchive
+{
+	BitStream &bs;
+
+public:
+	/// True on the writing archive; lets a serialize() branch on direction.
+	static constexpr bool IsWriting = true;
+	static constexpr bool IsReading = false;
+
+	explicit WriteArchive(BitStream &stream)
+	    : bs(stream) {}
+
+	template <class T>
+	WriteArchive &operator&(const T &value)
 	{
-		BitStream &bs;
-
-	public:
-		/// True on the writing archive; lets a serialize() branch on direction.
-		static constexpr bool IsWriting = true;
-		static constexpr bool IsReading = false;
-
-		explicit WriteArchive(BitStream &stream) : bs(stream) {}
-
-		template <class T>
-		WriteArchive &operator&(const T &value)
+		if constexpr (HasSerialize<T, WriteArchive>::value)
 		{
-			if constexpr (HasSerialize<T, WriteArchive>::value)
-			{
-				// One serialize() serves both directions; the write path only
-				// reads the members, so calling the non-const serialize() on a
-				// const value is safe.
-				const_cast<T &>(value).serialize(*this);
-			}
-			else
-			{
-				bs << value;
-			}
-			return *this;
+			// One serialize() serves both directions; the write path only
+			// reads the members, so calling the non-const serialize() on a
+			// const value is safe.
+			const_cast<T &>(value).serialize(*this);
 		}
+		else
+		{
+			bs << value;
+		}
+		return *this;
+	}
 
-		/// Access the underlying stream (e.g. to write a header before the body).
-		BitStream &stream() { return bs; }
-	};
+	/// Access the underlying stream (e.g. to write a header before the body).
+	BitStream &stream() { return bs; }
+};
 
-	/// Reads user types from a BitStream. `ar & field` deserializes \a field: if
-	/// the field's type has a serialize() it recurses, otherwise it is read via
-	/// `bs >> field`.
-	class ReadArchive
+/// Reads user types from a BitStream. `ar & field` deserializes \a field: if
+/// the field's type has a serialize() it recurses, otherwise it is read via
+/// `bs >> field`.
+class ReadArchive
+{
+	BitStream &bs;
+
+public:
+	static constexpr bool IsWriting = false;
+	static constexpr bool IsReading = true;
+
+	explicit ReadArchive(BitStream &stream)
+	    : bs(stream) {}
+
+	template <class T>
+	ReadArchive &operator&(T &value)
 	{
-		BitStream &bs;
-
-	public:
-		static constexpr bool IsWriting = false;
-		static constexpr bool IsReading = true;
-
-		explicit ReadArchive(BitStream &stream) : bs(stream) {}
-
-		template <class T>
-		ReadArchive &operator&(T &value)
+		if constexpr (HasSerialize<T, ReadArchive>::value)
 		{
-			if constexpr (HasSerialize<T, ReadArchive>::value)
-			{
-				value.serialize(*this);
-			}
-			else
-			{
-				bs >> value;
-			}
-			return *this;
+			value.serialize(*this);
 		}
+		else
+		{
+			bs >> value;
+		}
+		return *this;
+	}
 
-		/// Access the underlying stream (e.g. to read a header before the body).
-		BitStream &stream() { return bs; }
-	};
+	/// Access the underlying stream (e.g. to read a header before the body).
+	BitStream &stream() { return bs; }
+};
 }
 
 #endif // __MAFIANET_ARCHIVE_H

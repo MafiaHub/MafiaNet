@@ -14,10 +14,10 @@ namespace MafiaNet
 
 namespace
 {
-	// Relaxed is sufficient: the flag guards nothing but itself. A thread that
-	// reads a stale false simply attempts one more doomed syscall and latches it
-	// again; there is no data published alongside it that needs ordering.
-	std::atomic<bool> g_mmsgUnavailable(false);
+// Relaxed is sufficient: the flag guards nothing but itself. A thread that
+// reads a stale false simply attempts one more doomed syscall and latches it
+// again; there is no data published alongside it that needs ordering.
+std::atomic<bool> g_mmsgUnavailable(false);
 }
 
 bool MmsgUnavailable(void)
@@ -37,7 +37,8 @@ char *RNS2SendBatch::Slot(unsigned i)
 	struct Block
 	{
 		char *bytes;
-		Block() : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
+		Block()
+		    : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
 		~Block() { MafiaNet::OP_DELETE_ARRAY(bytes, _FILE_AND_LINE_); }
 	};
 	static thread_local Block block;

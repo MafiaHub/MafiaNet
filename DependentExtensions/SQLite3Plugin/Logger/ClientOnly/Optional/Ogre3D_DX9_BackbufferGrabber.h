@@ -12,7 +12,7 @@
 class Ogre3D_DX9_BackbufferGrabber : public DX9_BackbufferGrabber
 {
 public:
-	void InitBackbufferGrabber(Ogre::RenderWindow* renderWindow, int _width, int _height);
+	void InitBackbufferGrabber(Ogre::RenderWindow *renderWindow, int _width, int _height);
 };
 
 #endif

@@ -18,7 +18,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_UDPProxyClient==1
+#if _RAKNET_SUPPORT_UDPProxyClient == 1
 
 #ifndef __UDP_PROXY_CLIENT_H
 #define __UDP_PROXY_CLIENT_H
@@ -53,7 +53,7 @@ struct UDPProxyClientResultHandler
 	/// \param[out] targetGuid \a targetGuid parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] proxyClient The plugin that is calling this callback
 	virtual void OnForwardingSuccess(const char *proxyIPAddress, unsigned short proxyPort,
-		SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)=0;
+	                                 SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin) = 0;
 
 	/// Called when another system has setup forwarding, with our system as the target address.
 	/// Plugin automatically sends a datagram to proxyIPAddress before this callback, to open our router if necessary.
@@ -65,7 +65,7 @@ struct UDPProxyClientResultHandler
 	/// \param[out] targetGuid \a targetGuid parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] proxyClient The plugin that is calling this callback
 	virtual void OnForwardingNotification(const char *proxyIPAddress, unsigned short proxyPort,
-		SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)=0;
+	                                      SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin) = 0;
 
 	/// Called when our forwarding request failed, because no UDPProxyServers are connected to UDPProxyCoordinator
 	/// \param[out] proxyCoordinator \a proxyCoordinator parameter originally passed to UDPProxyClient::RequestForwarding
@@ -73,7 +73,7 @@ struct UDPProxyClientResultHandler
 	/// \param[out] targetAddress \a targetAddress parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] targetGuid \a targetGuid parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] proxyClient The plugin that is calling this callback
-	virtual void OnNoServersOnline(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)=0;
+	virtual void OnNoServersOnline(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin) = 0;
 
 	/// Called when our forwarding request failed, because no UDPProxyServers are connected to UDPProxyCoordinator
 	/// \param[out] proxyCoordinator \a proxyCoordinator parameter originally passed to UDPProxyClient::RequestForwarding
@@ -81,7 +81,7 @@ struct UDPProxyClientResultHandler
 	/// \param[out] targetAddress \a targetAddress parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] targetGuid \a targetGuid parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] proxyClient The plugin that is calling this callback
-	virtual void OnRecipientNotConnected(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)=0;
+	virtual void OnRecipientNotConnected(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin) = 0;
 
 	/// Called when our forwarding request failed, because all UDPProxyServers that are connected to UDPProxyCoordinator are at their capacity
 	/// Either add more servers, or increase capacity via UDPForwarder::SetMaxForwardEntries()
@@ -90,7 +90,7 @@ struct UDPProxyClientResultHandler
 	/// \param[out] targetAddress \a targetAddress parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] targetGuid \a targetGuid parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] proxyClient The plugin that is calling this callback
-	virtual void OnAllServersBusy(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)=0;
+	virtual void OnAllServersBusy(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin) = 0;
 
 	/// Called when our forwarding request is already in progress on the \a proxyCoordinator.
 	/// This can be ignored, but indicates an unneeded second request
@@ -101,7 +101,7 @@ struct UDPProxyClientResultHandler
 	/// \param[out] targetAddress \a targetAddress parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] targetGuid \a targetGuid parameter originally passed to UDPProxyClient::RequestForwarding
 	/// \param[out] proxyClient The plugin that is calling this callback
-	virtual void OnForwardingInProgress(const char *proxyIPAddress, unsigned short proxyPort, SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin)=0;
+	virtual void OnForwardingInProgress(const char *proxyIPAddress, unsigned short proxyPort, SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddress, RakNetGUID targetGuid, MafiaNet::UDPProxyClient *proxyClientPlugin) = 0;
 };
 
 
@@ -123,7 +123,7 @@ public:
 
 	/// Receives the results of calling RequestForwarding()
 	/// Set before calling RequestForwarding or you won't know what happened
-	/// \param[in] resultHandler 
+	/// \param[in] resultHandler
 	void SetResultHandler(UDPProxyClientResultHandler *rh);
 
 	/// Sends a request to proxyCoordinator to find a server and have that server setup UDPForwarder::StartForwarding() on our address to \a targetAddressAsSeenFromCoordinator
@@ -138,17 +138,17 @@ public:
 	/// \param[in] timeoutOnNoData If no data is sent by the forwarded systems, how long before removing the forward entry from UDPForwarder? UDP_FORWARDER_MAXIMUM_TIMEOUT is the maximum value. Recommended 10 seconds.
 	/// \param[in] serverSelectionBitstream If you want to send data to UDPProxyCoordinator::GetBestServer(), write it here
 	/// \return true if the request was sent, false if we are not connected to proxyCoordinator
-	bool RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddressAsSeenFromCoordinator, MafiaNet::TimeMS timeoutOnNoDataMS, MafiaNet::BitStream *serverSelectionBitstream=0);
+	bool RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, SystemAddress targetAddressAsSeenFromCoordinator, MafiaNet::TimeMS timeoutOnNoDataMS, MafiaNet::BitStream *serverSelectionBitstream = 0);
 
 	/// Same as above, but specify the target with a GUID, in case you don't know what its address is to the coordinator
 	/// If requesting forwarding to a RakNet enabled system, then it is easier to use targetGuid instead of targetAddressAsSeenFromCoordinator
-	bool RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, RakNetGUID targetGuid, MafiaNet::TimeMS timeoutOnNoDataMS, MafiaNet::BitStream *serverSelectionBitstream=0);
+	bool RequestForwarding(SystemAddress proxyCoordinator, SystemAddress sourceAddress, RakNetGUID targetGuid, MafiaNet::TimeMS timeoutOnNoDataMS, MafiaNet::BitStream *serverSelectionBitstream = 0);
 
 	/// \internal
 	virtual void Update(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void OnRakPeerShutdown(void);
-	
+
 	struct ServerWithPing
 	{
 		unsigned short ping;
@@ -170,13 +170,12 @@ public:
 		void SendPingedServersToCoordinator(RakPeerInterface *rakPeer);
 	};
 	//DataStructures::Multilist<ML_UNORDERED_LIST, PingServerGroup*> pingServerGroups;
-	DataStructures::List<PingServerGroup*> pingServerGroups;
-protected:
+	DataStructures::List<PingServerGroup *> pingServerGroups;
 
+protected:
 	void OnPingServers(Packet *packet);
 	void Clear(void);
 	UDPProxyClientResultHandler *resultHandler;
-
 };
 
 } // End namespace

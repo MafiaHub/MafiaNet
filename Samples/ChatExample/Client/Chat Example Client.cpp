@@ -44,7 +44,7 @@
 #include "mafianet/osx_adapter.h"
 #include "mafianet/guid_util.h"
 
-#if LIBCAT_SECURITY==1
+#if LIBCAT_SECURITY == 1
 #include "mafianet/secure_handshake.h" // Include header for secure handshake
 #endif
 
@@ -55,11 +55,11 @@ int main(void)
 	// Note we can easily have both in the same program
 	MafiaNet::Peer peer;
 	MafiaNet::RakPeerInterface *client = peer.get();
-//	client->InitializeSecurity(0,0,0,0);
+	//	client->InitializeSecurity(0,0,0,0);
 	//MafiaNet::PacketLogger packetLogger;
 	//client->AttachPlugin(&packetLogger);
 
-	
+
 	// Holds the packet identifier
 	unsigned char packetIdentifier;
 
@@ -67,7 +67,7 @@ int main(void)
 	bool isServer;
 
 	// Record the first client that connects to us so we can pass it to the ping function
-	MafiaNet::SystemAddress clientID= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
+	MafiaNet::SystemAddress clientID = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 
 	// Crude interface
 
@@ -75,7 +75,7 @@ int main(void)
 	char ip[64], serverPort[30], clientPort[30];
 
 	// A client
-	isServer=false;
+	isServer = false;
 
 	printf("This is a sample implementation of a text based chat client.\n");
 	printf("Connect to the project 'Chat Example Server'.\n");
@@ -83,11 +83,12 @@ int main(void)
 
 	// Get our input
 	puts("Enter the client port to listen on");
-	Gets(clientPort,sizeof(clientPort));
-	if (clientPort[0]==0)
+	Gets(clientPort, sizeof(clientPort));
+	if (clientPort[0] == 0)
 		strcpy_s(clientPort, "0");
 	const int intClientPort = atoi(clientPort);
-	if ((intClientPort < 0) || (intClientPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intClientPort < 0) || (intClientPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified client port %d is outside valid bounds [0, %u]", intClientPort, std::numeric_limits<unsigned short>::max());
 		return 1;
 	}
@@ -95,59 +96,60 @@ int main(void)
 	puts("Enter IP to connect to");
 	Gets(ip, sizeof(ip));
 	client->AllowConnectionResponseIPMigration(false);
-	if (ip[0]==0)
+	if (ip[0] == 0)
 		strcpy_s(ip, "127.0.0.1");
 	// strcpy_s(ip, "natpunch.slikesoft.com");
-	
-		
+
+
 	puts("Enter the port to connect to");
-	Gets(serverPort,sizeof(serverPort));
-	if (serverPort[0]==0)
+	Gets(serverPort, sizeof(serverPort));
+	if (serverPort[0] == 0)
 		strcpy_s(serverPort, "1234");
 	int intServerPort = atoi(serverPort);
-	if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+	if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+	{
 		printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 		return 2;
 	}
 
 	// Connecting the client is very simple.  0 means we don't care about
 	// a connectionValidationInteger, and false for low priority threads
-	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort),0);
-	socketDescriptor.socketFamily=AF_INET;
-	client->Startup(8,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(static_cast<unsigned short>(intClientPort), 0);
+	socketDescriptor.socketFamily = AF_INET;
+	client->Startup(8, &socketDescriptor, 1);
 	client->SetOccasionalPing(true);
 
 
-#if LIBCAT_SECURITY==1
+#if LIBCAT_SECURITY == 1
 	char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
 	FILE *fp;
-	fopen_s(&fp,"publicKey.dat","rb");
-	fread(public_key,sizeof(public_key),1,fp);
+	fopen_s(&fp, "publicKey.dat", "rb");
+	fread(public_key, sizeof(public_key), 1, fp);
 	fclose(fp);
 
 	MafiaNet::PublicKey pk;
-	pk.remoteServerPublicKey=public_key;
-	pk.publicKeyMode= MafiaNet::PKM_USE_KNOWN_PUBLIC_KEY;
+	pk.remoteServerPublicKey = public_key;
+	pk.publicKeyMode = MafiaNet::PKM_USE_KNOWN_PUBLIC_KEY;
 	client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk);
 #else
 	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
-	RakAssert(car== MafiaNet::CONNECTION_ATTEMPT_STARTED);
+	RakAssert(car == MafiaNet::CONNECTION_ATTEMPT_STARTED);
 #endif
 
 	printf("\nMy IP addresses:\n");
 	unsigned int i;
-	for (i=0; i < client->GetNumberOfAddresses(); i++)
+	for (i = 0; i < client->GetNumberOfAddresses(); i++)
 	{
-		printf("%i. %s\n", i+1, client->GetLocalIP(i));
+		printf("%i. %s\n", i + 1, client->GetLocalIP(i));
 	}
 
 	printf("My GUID is %s\n", MafiaNet::to_string(client->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	puts("'quit' to quit. 'stat' to show stats. 'ping' to ping.\n'disconnect' to disconnect. 'connect' to reconnnect. Type to talk.");
-	
+
 	char message[2048];
 
 	// Loop for input
-	for(;;)
+	for (;;)
 	{
 		// This sleep keeps RakNet responsive
 #ifdef _WIN32
@@ -162,48 +164,48 @@ int main(void)
 			// Notice what is not here: something to keep our network running.  It's
 			// fine to block on Gets or anything we want
 			// Because the network engine was painstakingly written using threads.
-			Gets(message,sizeof(message));
+			Gets(message, sizeof(message));
 
-			if (strcmp(message, "quit")==0)
+			if (strcmp(message, "quit") == 0)
 			{
 				puts("Quitting.");
 				break;
 			}
 
-			if (strcmp(message, "stat")==0)
+			if (strcmp(message, "stat") == 0)
 			{
-				
-				rss=client->GetStatistics(client->GetSystemAddressFromIndex(0));
+
+				rss = client->GetStatistics(client->GetSystemAddressFromIndex(0));
 				StatisticsToString(rss, message, 2048, 2);
 				printf("%s", message);
 				printf("Ping=%i\n", client->GetAveragePing(client->GetSystemAddressFromIndex(0)));
-			
+
 				continue;
 			}
 
-			if (strcmp(message, "disconnect")==0)
+			if (strcmp(message, "disconnect") == 0)
 			{
 				printf("Enter index to disconnect: ");
 				char str[32];
 				Gets(str, sizeof(str));
-				if (str[0]==0)
-					strcpy_s(str,"0");
+				if (str[0] == 0)
+					strcpy_s(str, "0");
 				int index = atoi(str);
-				client->CloseConnection(client->GetSystemAddressFromIndex(index),false);
+				client->CloseConnection(client->GetSystemAddressFromIndex(index), false);
 				printf("Disconnecting.\n");
 				continue;
 			}
 
-			if (strcmp(message, "shutdown")==0)
+			if (strcmp(message, "shutdown") == 0)
 			{
 				client->Shutdown(100);
 				printf("Shutdown.\n");
 				continue;
 			}
 
-			if (strcmp(message, "startup")==0)
+			if (strcmp(message, "startup") == 0)
 			{
-				bool b = client->Startup(8,&socketDescriptor, 1)== MafiaNet::RAKNET_STARTED;
+				bool b = client->Startup(8, &socketDescriptor, 1) == MafiaNet::RAKNET_STARTED;
 				if (b)
 					printf("Started.\n");
 				else
@@ -212,27 +214,28 @@ int main(void)
 			}
 
 
-			if (strcmp(message, "connect")==0)
+			if (strcmp(message, "connect") == 0)
 			{
 				printf("Enter server ip: ");
 				Gets(ip, sizeof(ip));
-				if (ip[0]==0)
+				if (ip[0] == 0)
 					strcpy_s(ip, "127.0.0.1");
 
-				printf("Enter server port: ");				
-				Gets(serverPort,sizeof(serverPort));
-				if (serverPort[0]==0)
+				printf("Enter server port: ");
+				Gets(serverPort, sizeof(serverPort));
+				if (serverPort[0] == 0)
 					strcpy_s(serverPort, "1234");
 				intServerPort = atoi(serverPort);
-				if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+				if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+				{
 					printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 					return 2;
 				}
 
-#if LIBCAT_SECURITY==1
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk)== MafiaNet::CONNECTION_ATTEMPT_STARTED;
+#if LIBCAT_SECURITY == 1
+				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk) == MafiaNet::CONNECTION_ATTEMPT_STARTED;
 #else
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"))== MafiaNet::CONNECTION_ATTEMPT_STARTED;
+				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin")) == MafiaNet::CONNECTION_ATTEMPT_STARTED;
 #endif
 
 				if (b)
@@ -245,17 +248,17 @@ int main(void)
 				continue;
 			}
 
-			if (strcmp(message, "ping")==0)
+			if (strcmp(message, "ping") == 0)
 			{
-				if (client->GetSystemAddressFromIndex(0)!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+				if (client->GetSystemAddressFromIndex(0) != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					client->Ping(client->GetSystemAddressFromIndex(0));
 
 				continue;
 			}
 
-			if (strcmp(message, "getlastping")==0)
+			if (strcmp(message, "getlastping") == 0)
 			{
-				if (client->GetSystemAddressFromIndex(0)!= MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+				if (client->GetSystemAddressFromIndex(0) != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 					printf("Last ping is %i\n", client->GetLastPing(client->GetSystemAddressFromIndex(0)));
 
 				continue;
@@ -265,7 +268,7 @@ int main(void)
 			// strlen(message)+1 is to send the null-terminator
 			// MafiaNet::Priority::High doesn't actually matter here because we don't use any other priority
 			// MafiaNet::Reliability::ReliableOrdered means make sure the message arrives in the right order
-			client->Send(message, (int) strlen(message)+1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+			client->Send(message, (int) strlen(message) + 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 		}
 
 		// Get a packet from either the server or the client
@@ -292,7 +295,7 @@ int main(void)
 				printf("ID_INCOMPATIBLE_PROTOCOL_VERSION\n");
 				break;
 			case ID_REMOTE_DISCONNECTION_NOTIFICATION: // Server telling the clients of another client disconnecting gracefully.  You can manually broadcast this in a peer to peer enviroment if you want.
-				printf("ID_REMOTE_DISCONNECTION_NOTIFICATION\n"); 
+				printf("ID_REMOTE_DISCONNECTION_NOTIFICATION\n");
 				break;
 			case ID_REMOTE_CONNECTION_LOST: // Server telling the clients of another client disconnecting forcefully.  You can manually broadcast this in a peer to peer enviroment if you want.
 				printf("ID_REMOTE_CONNECTION_LOST\n");
@@ -302,7 +305,7 @@ int main(void)
 				break;
 			case ID_CONNECTION_BANNED: // Banned from this server
 				printf("We are banned from this server.\n");
-				break;			
+				break;
 			case ID_CONNECTION_ATTEMPT_FAILED:
 				printf("Connection attempt failed\n");
 				break;

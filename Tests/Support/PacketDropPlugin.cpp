@@ -29,11 +29,9 @@ PluginReceiveResult PacketDropPlugin::OnReceive(Packet * /*packet*/)
 	{
 		return RR_STOP_PROCESSING;
 	}
-
 }
 
 void PacketDropPlugin::StartTest()
 {
 	timer.Start();
-
 }

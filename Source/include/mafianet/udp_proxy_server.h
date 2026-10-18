@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_UDPProxyServer==1 && _RAKNET_SUPPORT_UDPForwarder==1
+#if _RAKNET_SUPPORT_UDPProxyServer == 1 && _RAKNET_SUPPORT_UDPForwarder == 1
 
 #ifndef __UDP_PROXY_SERVER_H
 #define __UDP_PROXY_SERVER_H
@@ -44,23 +44,23 @@ struct UDPProxyServerResultHandler
 	/// Called when our login succeeds
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnLoginSuccess(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnLoginSuccess(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin) = 0;
 
 	/// We are already logged in.
 	/// This login failed, but the system is operational as if it succeeded
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnAlreadyLoggedIn(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnAlreadyLoggedIn(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin) = 0;
 
 	/// The coordinator operator forgot to call UDPProxyCoordinator::SetRemoteLoginPassword()
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnNoPasswordSet(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnNoPasswordSet(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin) = 0;
 
 	/// The coordinator operator set a different password in UDPProxyCoordinator::SetRemoteLoginPassword() than what we passed
 	/// \param[out] usedPassword The password we passed to UDPProxyServer::LoginToCoordinator()
 	/// \param[out] proxyServer The plugin calling this callback
-	virtual void OnWrongPassword(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)=0;
+	virtual void OnWrongPassword(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin) = 0;
 };
 
 /// \brief UDPProxyServer to control our instance of UDPForwarder
@@ -83,7 +83,7 @@ public:
 
 	/// Receives the results of calling LoginToCoordinator()
 	/// Set before calling LoginToCoordinator or you won't know what happened
-	/// \param[in] resultHandler 
+	/// \param[in] resultHandler
 	void SetResultHandler(UDPProxyServerResultHandler *rh);
 
 	/// Before the coordinator will register the UDPProxyServer, you must login
@@ -108,7 +108,7 @@ public:
 	/// \internal
 	virtual void Update(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnRakPeerStartup(void);
 	virtual void OnRakPeerShutdown(void);
 
@@ -121,7 +121,6 @@ protected:
 	UDPProxyServerResultHandler *resultHandler;
 	unsigned short socketFamily;
 	RakString serverPublicIp;
-
 };
 
 } // End namespace

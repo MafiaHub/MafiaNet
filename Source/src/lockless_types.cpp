@@ -17,10 +17,12 @@
 
 using namespace MafiaNet;
 
-LocklessUint32_t::LocklessUint32_t() : value(0)
+LocklessUint32_t::LocklessUint32_t()
+    : value(0)
 {
 }
-LocklessUint32_t::LocklessUint32_t(uint32_t initial) : value(initial)
+LocklessUint32_t::LocklessUint32_t(uint32_t initial)
+    : value(initial)
 {
 }
 // GetValue() used to read the counter without the lock or barrier the writers

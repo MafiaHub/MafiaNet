@@ -18,7 +18,6 @@
 ///
 
 
-
 #ifndef __MYSQL_REPOSITORY_H
 #define __MYSQL_REPOSITORY_H
 
@@ -96,7 +95,7 @@ public:
 	/// \param[in] numBytesToRead How many bytes to read. This is also how many bytes have been allocated to preallocatedDestination
 	/// \param[out] preallocatedDestination Write your data here
 	/// \return The number of bytes read, or 0 if none
-	virtual unsigned int GetFilePart( const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
+	virtual unsigned int GetFilePart(const char *filename, unsigned int startReadBytes, unsigned int numBytesToRead, void *preallocatedDestination, FileListNodeContext context);
 
 	/// \return Passed to FileListTransfer::Send() as the _chunkSize parameter.
 	virtual const int GetIncrementalReadChunkSize(void) const;

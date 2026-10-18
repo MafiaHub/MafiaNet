@@ -19,54 +19,54 @@ using namespace MafiaNet;
 
 namespace
 {
-	const int kPeerNum = 8;
-	const unsigned short kMaxConnections = kPeerNum * 3; // generous, to rule out the limit
-	const int kCycles = 25;
+const int kPeerNum = 8;
+const unsigned short kMaxConnections = kPeerNum * 3; // generous, to rule out the limit
+const int kCycles = 25;
 
-	class PeerConnectDisconnectWithCancelPendingSim : public ::testing::Test
+class PeerConnectDisconnectWithCancelPendingSim : public ::testing::Test
+{
+protected:
+	void SetUp() override
 	{
-	protected:
-		void SetUp() override
-		{
-			for (int i = 0; i < kPeerNum; ++i)
-				peers[i] = net.AddPeer(kMaxConnections, kMaxConnections);
-		}
+		for (int i = 0; i < kPeerNum; ++i)
+			peers[i] = net.AddPeer(kMaxConnections, kMaxConnections);
+	}
 
-		ConnectionState StateOf(int i, int j)
-		{
-			return peers[i]->GetConnectionState(net.AddressOf(peers[j]));
-		}
+	ConnectionState StateOf(int i, int j)
+	{
+		return peers[i]->GetConnectionState(net.AddressOf(peers[j]));
+	}
 
-		int ConnectionCount(int i)
+	int ConnectionCount(int i)
+	{
+		DataStructures::List<SystemAddress> systemList;
+		DataStructures::List<RakNetGUID> guidList;
+		peers[i]->GetSystemList(systemList, guidList);
+		return (int) guidList.Size();
+	}
+
+	void CloseAllConnections()
+	{
+		for (int i = 0; i < kPeerNum; ++i)
 		{
 			DataStructures::List<SystemAddress> systemList;
 			DataStructures::List<RakNetGUID> guidList;
 			peers[i]->GetSystemList(systemList, guidList);
-			return (int) guidList.Size();
+			for (unsigned j = 0; j < systemList.Size(); ++j)
+				peers[i]->CloseConnection(systemList[j], true, 0, Priority::Low);
 		}
+	}
 
-		void CloseAllConnections()
-		{
-			for (int i = 0; i < kPeerNum; ++i)
-			{
-				DataStructures::List<SystemAddress> systemList;
-				DataStructures::List<RakNetGUID> guidList;
-				peers[i]->GetSystemList(systemList, guidList);
-				for (unsigned j = 0; j < systemList.Size(); ++j)
-					peers[i]->CloseConnection(systemList[j], true, 0, Priority::Low);
-			}
-		}
+	void CancelAllAttempts()
+	{
+		for (int i = 0; i < kPeerNum; ++i)
+			for (int j = i + 1; j < kPeerNum; ++j)
+				peers[i]->CancelConnectionAttempt(net.AddressOf(peers[j]));
+	}
 
-		void CancelAllAttempts()
-		{
-			for (int i = 0; i < kPeerNum; ++i)
-				for (int j = i + 1; j < kPeerNum; ++j)
-					peers[i]->CancelConnectionAttempt(net.AddressOf(peers[j]));
-		}
-
-		SimulatedNetwork net;
-		RakPeer *peers[kPeerNum] = {};
-	};
+	SimulatedNetwork net;
+	RakPeer *peers[kPeerNum] = {};
+};
 }
 
 TEST_F(PeerConnectDisconnectWithCancelPendingSim, MeshReconnectsWithCancelledPendingAttempts)
@@ -91,9 +91,9 @@ TEST_F(PeerConnectDisconnectWithCancelPendingSim, MeshReconnectsWithCancelledPen
 				// the only acceptable reason is an existing connection.
 				const ConnectionState state = StateOf(i, j);
 				ASSERT_FALSE(state == IS_CONNECTING || state == IS_PENDING)
-					<< "cycle " << cycle << ": pending attempt " << i << " -> " << j << " was not cancelled";
+				    << "cycle " << cycle << ": pending attempt " << i << " -> " << j << " was not cancelled";
 				ASSERT_TRUE(state == IS_CONNECTED || state == IS_DISCONNECTING)
-					<< "cycle " << cycle << ": Connect " << i << " -> " << j << " refused in state " << state;
+				    << "cycle " << cycle << ": Connect " << i << " -> " << j << " refused in state " << state;
 			}
 	}
 
@@ -110,12 +110,12 @@ TEST_F(PeerConnectDisconnectWithCancelPendingSim, MeshReconnectsWithCancelledPen
 			}
 		}
 
-	net.RunUntil([&] {
+	net.RunUntil([&]
+	             {
 		for (int i = 0; i < kPeerNum; ++i)
 			if (ConnectionCount(i) != kPeerNum - 1)
 				return false;
-		return true;
-	}, 5000);
+		return true; }, 5000);
 	for (int i = 0; i < kPeerNum; ++i)
 		EXPECT_EQ(kPeerNum - 1, ConnectionCount(i)) << "peer " << i << " did not reconnect to all peers";
 

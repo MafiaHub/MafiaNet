@@ -18,24 +18,23 @@
 
 SQLite3Table::SQLite3Table()
 {
-
 }
 SQLite3Table::~SQLite3Table()
 {
-	for (unsigned int i=0; i < rows.Size(); i++)
-		MafiaNet::OP_DELETE(rows[i],_FILE_AND_LINE_);
+	for (unsigned int i = 0; i < rows.Size(); i++)
+		MafiaNet::OP_DELETE(rows[i], _FILE_AND_LINE_);
 }
 
 void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
 {
 	bitStream->Write(columnNames.Size());
 	unsigned int idx1, idx2;
-	for (idx1=0; idx1 < columnNames.Size(); idx1++)
+	for (idx1 = 0; idx1 < columnNames.Size(); idx1++)
 		bitStream->Write(columnNames[idx1]);
 	bitStream->Write(rows.Size());
-	for (idx1=0; idx1 < rows.Size(); idx1++)
+	for (idx1 = 0; idx1 < rows.Size(); idx1++)
 	{
-		for (idx2=0; idx2 < rows[idx1]->entries.Size(); idx2++)
+		for (idx2 = 0; idx2 < rows[idx1]->entries.Size(); idx2++)
 		{
 			bitStream->Write(rows[idx1]->entries[idx2]);
 		}
@@ -43,29 +42,29 @@ void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
 }
 void SQLite3Table::Deserialize(MafiaNet::BitStream *bitStream)
 {
-	for (unsigned int i=0; i < rows.Size(); i++)
-		MafiaNet::OP_DELETE(rows[i],_FILE_AND_LINE_);
-	rows.Clear(true,_FILE_AND_LINE_);
-	columnNames.Clear(true , _FILE_AND_LINE_ );
+	for (unsigned int i = 0; i < rows.Size(); i++)
+		MafiaNet::OP_DELETE(rows[i], _FILE_AND_LINE_);
+	rows.Clear(true, _FILE_AND_LINE_);
+	columnNames.Clear(true, _FILE_AND_LINE_);
 
 	unsigned int numColumns, numRows;
 	bitStream->Read(numColumns);
-	unsigned int idx1,idx2;
+	unsigned int idx1, idx2;
 	MafiaNet::RakString inputStr;
-	for (idx1=0; idx1 < numColumns; idx1++)
+	for (idx1 = 0; idx1 < numColumns; idx1++)
 	{
 		bitStream->Read(inputStr);
-		columnNames.Push(inputStr, _FILE_AND_LINE_ );
+		columnNames.Push(inputStr, _FILE_AND_LINE_);
 	}
 	bitStream->Read(numRows);
-	for (idx1=0; idx1 < numRows; idx1++)
+	for (idx1 = 0; idx1 < numRows; idx1++)
 	{
 		SQLite3Row *row = MafiaNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
-		rows.Push(row,_FILE_AND_LINE_);
-		for (idx2=0; idx2 < numColumns; idx2++)
+		rows.Push(row, _FILE_AND_LINE_);
+		for (idx2 = 0; idx2 < numColumns; idx2++)
 		{
 			bitStream->Read(inputStr);
-			row->entries.Push(inputStr, _FILE_AND_LINE_ );
+			row->entries.Push(inputStr, _FILE_AND_LINE_);
 		}
 	}
 }

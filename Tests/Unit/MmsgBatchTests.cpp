@@ -34,107 +34,107 @@ using namespace MafiaNet;
 
 namespace
 {
-	sockaddr_storage MakeV4(const char *ip, unsigned short port)
+sockaddr_storage MakeV4(const char *ip, unsigned short port)
+{
+	sockaddr_storage ss;
+	memset(&ss, 0, sizeof(ss));
+	sockaddr_in *in = reinterpret_cast<sockaddr_in *>(&ss);
+	in->sin_family = AF_INET;
+	in->sin_port = htons(port);
+	inet_pton(AF_INET, ip, &in->sin_addr);
+	return ss;
+}
+
+// Records everything DispatchRecvBatch does so tests can assert on it. No
+// allocation happens here -- the tests own the RNS2RecvStruct storage.
+struct RecordingHandler : RNS2EventHandler
+{
+	struct Received
 	{
-		sockaddr_storage ss;
-		memset(&ss, 0, sizeof(ss));
-		sockaddr_in *in = reinterpret_cast<sockaddr_in *>(&ss);
-		in->sin_family = AF_INET;
-		in->sin_port = htons(port);
-		inet_pton(AF_INET, ip, &in->sin_addr);
-		return ss;
-	}
-
-	// Records everything DispatchRecvBatch does so tests can assert on it. No
-	// allocation happens here -- the tests own the RNS2RecvStruct storage.
-	struct RecordingHandler : RNS2EventHandler
-	{
-		struct Received
-		{
-			int bytesRead;
-			unsigned short port;
-			RakNetSocket2 *socket;
-			MafiaNet::TimeUS timeRead;
-		};
-
-		std::vector<Received> received;
-		std::vector<RNS2RecvStruct *> deallocated;
-
-		void OnRNS2Recv(RNS2RecvStruct *s) override
-		{
-			received.push_back({s->bytesRead, s->systemAddress.GetPort(),
-			                    s->socket, s->timeRead});
-		}
-		void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *, unsigned int) override
-		{
-			deallocated.push_back(s);
-		}
-		RNS2RecvStruct *AllocRNS2RecvStruct(const char *, unsigned int) override
-		{
-			return nullptr; // unused by DispatchRecvBatch
-		}
+		int bytesRead;
+		unsigned short port;
+		RakNetSocket2 *socket;
+		MafiaNet::TimeUS timeRead;
 	};
 
-	// A sentinel non-null socket pointer; DispatchRecvBatch only stores it.
-	RakNetSocket2 *const kSentinelSocket = reinterpret_cast<RakNetSocket2 *>(0xF00D);
+	std::vector<Received> received;
+	std::vector<RNS2RecvStruct *> deallocated;
 
-	sockaddr_storage MakeFamily(unsigned short family)
+	void OnRNS2Recv(RNS2RecvStruct *s) override
 	{
-		sockaddr_storage ss;
-		memset(&ss, 0, sizeof(ss));
-		ss.ss_family = family;
-		return ss;
+		received.push_back({s->bytesRead, s->systemAddress.GetPort(),
+		                    s->socket, s->timeRead});
 	}
+	void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *, unsigned int) override
+	{
+		deallocated.push_back(s);
+	}
+	RNS2RecvStruct *AllocRNS2RecvStruct(const char *, unsigned int) override
+	{
+		return nullptr; // unused by DispatchRecvBatch
+	}
+};
+
+// A sentinel non-null socket pointer; DispatchRecvBatch only stores it.
+RakNetSocket2 *const kSentinelSocket = reinterpret_cast<RakNetSocket2 *>(0xF00D);
+
+sockaddr_storage MakeFamily(unsigned short family)
+{
+	sockaddr_storage ss;
+	memset(&ss, 0, sizeof(ss));
+	ss.ss_family = family;
+	return ss;
+}
 
 #if RAKNET_SUPPORT_IPV6 == 1
-	sockaddr_storage MakeV6(const char *ip, unsigned short port)
-	{
-		sockaddr_storage ss;
-		memset(&ss, 0, sizeof(ss));
-		sockaddr_in6 *in6 = reinterpret_cast<sockaddr_in6 *>(&ss);
-		in6->sin6_family = AF_INET6;
-		in6->sin6_port = htons(port);
-		inet_pton(AF_INET6, ip, &in6->sin6_addr);
-		return ss;
-	}
+sockaddr_storage MakeV6(const char *ip, unsigned short port)
+{
+	sockaddr_storage ss;
+	memset(&ss, 0, sizeof(ss));
+	sockaddr_in6 *in6 = reinterpret_cast<sockaddr_in6 *>(&ss);
+	in6->sin6_family = AF_INET6;
+	in6->sin6_port = htons(port);
+	inet_pton(AF_INET6, ip, &in6->sin6_addr);
+	return ss;
+}
 #endif
 
-	// Records every datagram handed to Send(), so tests can assert on what the
-	// batch flushed and when. SendBatch is deliberately NOT overridden: these
-	// tests exercise the portable base implementation.
-	struct RecordingSocket : RakNetSocket2
+// Records every datagram handed to Send(), so tests can assert on what the
+// batch flushed and when. SendBatch is deliberately NOT overridden: these
+// tests exercise the portable base implementation.
+struct RecordingSocket : RakNetSocket2
+{
+	struct Sent
 	{
-		struct Sent
-		{
-			std::string payload;
-			unsigned short port;
-			int ttl;
-		};
-
-		std::vector<Sent> sent;
-		unsigned sendCalls = 0;
-		int failFrom = -1; // fail every Send() from this index on
-		int failOnly = -1; // fail only the Send() at this index
-
-		RNS2SendResult Send(RNS2_SendParameters *p, const char *, unsigned int) override
-		{
-			const unsigned index = sendCalls++;
-			if (failFrom >= 0 && index >= (unsigned) failFrom)
-				return -1;
-			if (failOnly >= 0 && index == (unsigned) failOnly)
-				return -1;
-			sent.push_back({std::string(p->data, (size_t) p->length),
-			                p->systemAddress.GetPort(), p->ttl});
-			return p->length; // Send() reports bytes, not a datagram count
-		}
+		std::string payload;
+		unsigned short port;
+		int ttl;
 	};
 
-	SystemAddress MakeDest(unsigned short port)
+	std::vector<Sent> sent;
+	unsigned sendCalls = 0;
+	int failFrom = -1; // fail every Send() from this index on
+	int failOnly = -1; // fail only the Send() at this index
+
+	RNS2SendResult Send(RNS2_SendParameters *p, const char *, unsigned int) override
 	{
-		SystemAddress a;
-		a.FromStringExplicitPort("127.0.0.1", port);
-		return a;
+		const unsigned index = sendCalls++;
+		if (failFrom >= 0 && index >= (unsigned) failFrom)
+			return -1;
+		if (failOnly >= 0 && index == (unsigned) failOnly)
+			return -1;
+		sent.push_back({std::string(p->data, (size_t) p->length),
+		                p->systemAddress.GetPort(), p->ttl});
+		return p->length; // Send() reports bytes, not a datagram count
 	}
+};
+
+SystemAddress MakeDest(unsigned short port)
+{
+	SystemAddress a;
+	a.FromStringExplicitPort("127.0.0.1", port);
+	return a;
+}
 }
 
 // ---------------------------------------------------------------------------
@@ -144,12 +144,12 @@ namespace
 TEST(DriveBatchedSend, SendsWholeBatchInOneCall)
 {
 	int calls = 0;
-	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned count) {
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned count)
+	                            {
 		++calls;
 		EXPECT_EQ(offset, 0u);
 		EXPECT_EQ(count, 5u);
-		return (int) count;
-	});
+		return (int) count; });
 	EXPECT_EQ(sent, 5);
 	EXPECT_EQ(calls, 1);
 }
@@ -159,10 +159,11 @@ TEST(DriveBatchedSend, ResumesFromOffsetAcrossPartialSends)
 	// sendmmsg returns short counts; the loop must retry the remainder from the
 	// advancing offset until the whole batch is sent.
 	std::vector<unsigned> offsets;
-	int sent = DriveBatchedSend(7, [&](unsigned offset, unsigned count) {
-		offsets.push_back(offset);
-		return (int) std::min(count, 3u); // accept at most 3 per call
-	});
+	int sent = DriveBatchedSend(7, [&](unsigned offset, unsigned count)
+	                            {
+		                            offsets.push_back(offset);
+		                            return (int) std::min(count, 3u); // accept at most 3 per call
+	                            });
 	EXPECT_EQ(sent, 7);
 	EXPECT_EQ(offsets, (std::vector<unsigned>{0u, 3u, 6u}));
 }
@@ -171,16 +172,16 @@ TEST(DriveBatchedSend, ReturnsErrorWhenNothingCouldBeSent)
 {
 	// Every message fails permanently, so nothing goes out: report the first
 	// error, mirroring sendmmsg's -1-only-when-nothing-was-sent contract.
-	int sent = DriveBatchedSend(4, [&](unsigned, unsigned) { return -1; });
+	int sent = DriveBatchedSend(4, [&](unsigned, unsigned)
+	                            { return -1; });
 	EXPECT_EQ(sent, -1);
 }
 
 TEST(DriveBatchedSend, ReturnsTheFirstErrorNotTheLast)
 {
 	int call = 0;
-	int sent = DriveBatchedSend(3, [&](unsigned, unsigned) {
-		return (call++ == 0) ? -EMSGSIZE : -EINVAL;
-	});
+	int sent = DriveBatchedSend(3, [&](unsigned, unsigned)
+	                            { return (call++ == 0) ? -EMSGSIZE : -EINVAL; });
 	EXPECT_EQ(sent, -EMSGSIZE);
 }
 
@@ -190,12 +191,12 @@ TEST(DriveBatchedSend, SkipsAPermanentlyFailedMessageAndSendsTheRest)
 	// Stopping there would silently discard every datagram after it -- the
 	// scalar Send() loop would have delivered those.
 	std::vector<unsigned> offsets;
-	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned count) {
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned count)
+	                            {
 		offsets.push_back(offset);
 		if (offset == 2)
 			return -EMSGSIZE; // the third datagram is the bad one
-		return (int) std::min(count, 1u);
-	});
+		return (int) std::min(count, 1u); });
 	EXPECT_EQ(sent, 4) << "only the bad datagram should be lost";
 	EXPECT_EQ(offsets, (std::vector<unsigned>{0u, 1u, 2u, 3u, 4u}));
 }
@@ -205,9 +206,8 @@ TEST(DriveBatchedSend, ReturnsProgressWhenEveryRemainingMessageFails)
 	// First call sends 4, the rest are all undeliverable: we already made
 	// progress, so report the 4 that went out rather than the error.
 	int call = 0;
-	int sent = DriveBatchedSend(9, [&](unsigned, unsigned) {
-		return (call++ == 0) ? 4 : -1;
-	});
+	int sent = DriveBatchedSend(9, [&](unsigned, unsigned)
+	                            { return (call++ == 0) ? 4 : -1; });
 	EXPECT_EQ(sent, 4);
 }
 
@@ -216,10 +216,10 @@ TEST(DriveBatchedSend, StopsOnATransientFailureInsteadOfSkippingMessages)
 	// A transient socket-wide condition (EAGAIN) is reported as 0, not as a
 	// negative: the messages are fine, so they must not be dropped one by one.
 	int calls = 0;
-	int sent = DriveBatchedSend(5, [&](unsigned, unsigned) {
+	int sent = DriveBatchedSend(5, [&](unsigned, unsigned)
+	                            {
 		++calls;
-		return calls == 1 ? 2 : 0;
-	});
+		return calls == 1 ? 2 : 0; });
 	EXPECT_EQ(sent, 2);
 	EXPECT_EQ(calls, 2) << "must not burn a call per remaining datagram";
 }
@@ -229,10 +229,10 @@ TEST(DriveBatchedSend, StopsOnNoProgressWithoutLooping)
 	// A zero return means "no progress possible right now" -- stop instead of
 	// spinning forever.
 	int calls = 0;
-	int sent = DriveBatchedSend(6, [&](unsigned, unsigned) {
+	int sent = DriveBatchedSend(6, [&](unsigned, unsigned)
+	                            {
 		++calls;
-		return 0;
-	});
+		return 0; });
 	EXPECT_EQ(sent, 0);
 	EXPECT_EQ(calls, 1);
 }
@@ -240,10 +240,10 @@ TEST(DriveBatchedSend, StopsOnNoProgressWithoutLooping)
 TEST(DriveBatchedSend, EmptyBatchNeverCallsTransmit)
 {
 	int calls = 0;
-	int sent = DriveBatchedSend(0, [&](unsigned, unsigned) {
+	int sent = DriveBatchedSend(0, [&](unsigned, unsigned)
+	                            {
 		++calls;
-		return 0;
-	});
+		return 0; });
 	EXPECT_EQ(sent, 0);
 	EXPECT_EQ(calls, 0);
 }
@@ -295,12 +295,12 @@ TEST(ClassifySendmmsgErrno, DrivesTheBatchTailPastAPermanentFailure)
 	// The end-to-end reason the split exists: a permanent error on the first
 	// message must not cost the remaining four.
 	std::vector<unsigned> offsets;
-	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned remaining) {
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned remaining)
+	                            {
 		offsets.push_back(offset);
 		if (offset == 0)
 			return ClassifySendmmsgErrno(EMSGSIZE);
-		return (int) remaining;
-	});
+		return (int) remaining; });
 	EXPECT_EQ(sent, 4);
 	EXPECT_EQ(offsets, (std::vector<unsigned>{0, 1}));
 }
@@ -310,12 +310,12 @@ TEST(ClassifySendmmsgErrno, StopsTheBatchTailOnATransientFailure)
 	// The mirror image: a full send buffer must not be mistaken for a bad
 	// datagram, which would drop one healthy message per remaining slot.
 	std::vector<unsigned> offsets;
-	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned) {
+	int sent = DriveBatchedSend(5, [&](unsigned offset, unsigned)
+	                            {
 		offsets.push_back(offset);
 		if (offset == 0)
 			return 2; // two accepted, then the buffer fills up
-		return ClassifySendmmsgErrno(ENOBUFS);
-	});
+		return ClassifySendmmsgErrno(ENOBUFS); });
 	EXPECT_EQ(sent, 2);
 	EXPECT_EQ(offsets, (std::vector<unsigned>{0, 2}));
 }
@@ -565,19 +565,19 @@ TEST(DispatchRecvBatch, ClampsAReceivedCountLargerThanTheAllocation)
 
 namespace
 {
-	// Distinct dummy pointers; CompactRecvSlots only moves them, never derefs.
-	RNS2RecvStruct *SlotId(unsigned i)
-	{
-		return reinterpret_cast<RNS2RecvStruct *>(0x1000 + (uintptr_t) i);
-	}
+// Distinct dummy pointers; CompactRecvSlots only moves them, never derefs.
+RNS2RecvStruct *SlotId(unsigned i)
+{
+	return reinterpret_cast<RNS2RecvStruct *>(0x1000 + (uintptr_t) i);
+}
 
-	std::vector<RNS2RecvStruct *> MakeSlots(unsigned n)
-	{
-		std::vector<RNS2RecvStruct *> v(n);
-		for (unsigned i = 0; i < n; ++i)
-			v[i] = SlotId(i);
-		return v;
-	}
+std::vector<RNS2RecvStruct *> MakeSlots(unsigned n)
+{
+	std::vector<RNS2RecvStruct *> v(n);
+	for (unsigned i = 0; i < n; ++i)
+		v[i] = SlotId(i);
+	return v;
+}
 }
 
 TEST(CompactRecvSlots, ShiftsSurvivorsToTheFrontPreservingOrder)
@@ -653,7 +653,7 @@ TEST(CompactRecvSlots, RepeatedPartialPassesNeverLoseOrDuplicateASlot)
 		std::vector<RNS2RecvStruct *> sorted = prefix;
 		std::sort(sorted.begin(), sorted.end());
 		ASSERT_EQ(std::adjacent_find(sorted.begin(), sorted.end()), sorted.end())
-			<< "duplicate slot in the carry-over on pass " << pass;
+		    << "duplicate slot in the carry-over on pass " << pass;
 
 		// Refill exactly like the loop does, behind the survivors.
 		for (; allocated < capacity; ++allocated)
@@ -665,9 +665,9 @@ TEST(CompactRecvSlots, RepeatedPartialPassesNeverLoseOrDuplicateASlot)
 	accounted.insert(accounted.end(), slots.begin(), slots.begin() + capacity);
 	std::sort(accounted.begin(), accounted.end());
 	EXPECT_EQ(std::adjacent_find(accounted.begin(), accounted.end()), accounted.end())
-		<< "a slot was dispatched twice or carried over twice";
+	    << "a slot was dispatched twice or carried over twice";
 	EXPECT_EQ(accounted.size(), (size_t) nextId)
-		<< "slots went missing: created " << nextId << ", accounted for " << accounted.size();
+	    << "slots went missing: created " << nextId << ", accounted for " << accounted.size();
 }
 
 // ---------------------------------------------------------------------------

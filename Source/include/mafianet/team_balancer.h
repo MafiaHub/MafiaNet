@@ -21,7 +21,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_TeamBalancer==1
+#if _RAKNET_SUPPORT_TeamBalancer == 1
 
 #ifndef __TEAM_BALANCER_H
 #define __TEAM_BALANCER_H
@@ -152,11 +152,10 @@ public:
 	};
 
 protected:
-
 	/// \internal
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	/// \internal
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	/// \internal
 	void OnAttach(void);
 
@@ -188,7 +187,7 @@ protected:
 	PluginReceiveResult OnRequestedTeamChangePending(Packet *packet);
 	PluginReceiveResult OnTeamsLocked(Packet *packet);
 	void GetMinMaxTeamMembers(int &minMembersOnASingleTeam, int &maxMembersOnASingleTeam);
-	TeamId GetNextDefaultTeam(void); // Accounting for team balancing and team limits, get the team a player should be placed on
+	TeamId GetNextDefaultTeam(void);                                                     // Accounting for team balancing and team limits, get the team a player should be placed on
 	bool TeamWouldBeOverpopulatedOnAddition(TeamId teamId, unsigned int teamMemberSize); // Accounting for team balancing and team limits, would this team be overpopulated if a member was added to it?
 	bool TeamWouldBeUnderpopulatedOnLeave(TeamId teamId, unsigned int teamMemberSize);
 	TeamId GetSmallestNonFullTeam(void) const;
@@ -201,7 +200,6 @@ protected:
 	void SwapTeamMembersByRequest(unsigned int memberIndex1, unsigned int memberIndex2);
 	void RemoveByGuid(RakNetGUID rakNetGUID);
 	bool TeamsWouldBeEvenOnSwitch(TeamId t1, TeamId t2);
-
 };
 
 } // namespace MafiaNet

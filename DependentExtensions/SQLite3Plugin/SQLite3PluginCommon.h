@@ -42,7 +42,7 @@ struct SQLite3Table
 	void Deserialize(MafiaNet::BitStream *bitStream);
 
 	DataStructures::List<MafiaNet::RakString> columnNames;
-	DataStructures::List<SQLite3Row*> rows;
+	DataStructures::List<SQLite3Row *> rows;
 };
 
 #endif

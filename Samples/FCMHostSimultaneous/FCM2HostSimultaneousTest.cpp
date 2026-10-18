@@ -41,36 +41,36 @@ int main()
 	FullyConnectedMesh2 fcm2[NUM_PEERS];
 	ConnectionGraph2 cg2[NUM_PEERS];
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 	{
-		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
+		rakPeer[i] = MafiaNet::RakPeerInterface::GetInstance();
 		rakPeer[i]->AttachPlugin(&fcm2[i]);
 		rakPeer[i]->AttachPlugin(&cg2[i]);
 		fcm2[i].SetAutoparticipateConnections(true);
 		MafiaNet::SocketDescriptor sd;
-		sd.port=60000+i;
+		sd.port = 60000 + i;
 		SLNET_VERIFY(rakPeer[i]->Startup(NUM_PEERS, &sd, 1) == RAKNET_STARTED);
 		rakPeer[i]->SetMaximumIncomingConnections(NUM_PEERS);
 		rakPeer[i]->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		printf("Our guid is %s\n", MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	}
 
-	for (unsigned short i=0; i < NUM_PEERS; i++)
+	for (unsigned short i = 0; i < NUM_PEERS; i++)
 	{
-		for (unsigned short j=0; j < NUM_PEERS; j++)
+		for (unsigned short j = 0; j < NUM_PEERS; j++)
 		{
-			if (i==j)
+			if (i == j)
 				continue;
 			SLNET_VERIFY(rakPeer[i]->Connect("127.0.0.1", 60000 + j, 0, 0) == CONNECTION_ATTEMPT_STARTED);
 		}
 	}
 
-	bool quit=false;
+	bool quit = false;
 	MafiaNet::Packet *packet;
 	int ch;
 	while (!quit)
 	{
-		for (int i=0; i < NUM_PEERS; i++)
+		for (int i = 0; i < NUM_PEERS; i++)
 		{
 			for (packet = rakPeer[i]->Receive(); packet; rakPeer[i]->DeallocatePacket(packet), packet = rakPeer[i]->Receive())
 			{
@@ -103,7 +103,7 @@ int main()
 
 
 				case ID_FCM2_NEW_HOST:
-					if (packet->systemAddress== MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
+					if (packet->systemAddress == MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)
 						printf("%i. Got new host (ourselves)\n", i);
 					else
 						printf("%i. Got new host %s, %s\n", i, packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
@@ -114,28 +114,28 @@ int main()
 
 		if (_kbhit())
 		{
-			ch=_getch();
-			if (ch==' ')
+			ch = _getch();
+			if (ch == ' ')
 			{
 				unsigned int participantList;
 				RakNetGUID hostGuid;
 				bool weAreHost;
-				for (int i=0; i < NUM_PEERS; i++)
+				for (int i = 0; i < NUM_PEERS; i++)
 				{
-					if (rakPeer[i]->IsActive()==false)
+					if (rakPeer[i]->IsActive() == false)
 						continue;
 
 					fcm2[i].GetParticipantCount(&participantList);
-					weAreHost=fcm2[i].IsHostSystem();
-					hostGuid=fcm2[i].GetHostSystem();
-					
+					weAreHost = fcm2[i].IsHostSystem();
+					hostGuid = fcm2[i].GetHostSystem();
+
 					if (weAreHost)
-						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (Y)\n",i, participantList, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str(), MafiaNet::to_string(hostGuid).c_str(), fcm2[i].GetTotalConnectionCount());
+						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (Y)\n", i, participantList, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str(), MafiaNet::to_string(hostGuid).c_str(), fcm2[i].GetTotalConnectionCount());
 					else
-						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (N)\n",i, participantList, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str(), MafiaNet::to_string(hostGuid).c_str(), fcm2[i].GetTotalConnectionCount());
+						printf("%i. %iP myGuid=%s, hostGuid=%s tcc=%i (N)\n", i, participantList, MafiaNet::to_string(rakPeer[i]->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str(), MafiaNet::to_string(hostGuid).c_str(), fcm2[i].GetTotalConnectionCount());
 				}
 			}
-			if (ch=='d' || ch=='D')
+			if (ch == 'd' || ch == 'D')
 			{
 				char str[32];
 				printf("Enter system index to disconnect.\n");
@@ -143,10 +143,10 @@ int main()
 				rakPeer[atoi(str)]->Shutdown(100);
 				printf("Done.\n");
 			}
-			if (ch=='q' || ch=='Q')
+			if (ch == 'q' || ch == 'Q')
 			{
 				printf("Quitting.\n");
-				quit=true;
+				quit = true;
 			}
 		}
 
@@ -154,7 +154,7 @@ int main()
 		RakSleep(30);
 	}
 
-	for (int i=0; i < NUM_PEERS; i++)
+	for (int i = 0; i < NUM_PEERS; i++)
 	{
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 	}

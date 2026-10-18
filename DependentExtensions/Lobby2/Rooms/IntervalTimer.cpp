@@ -15,24 +15,28 @@
 
 #include "IntervalTimer.h"
 
-void IntervalTimer::SetPeriod(MafiaNet::TimeMS period) {basePeriod=period; remaining=0;}
+void IntervalTimer::SetPeriod(MafiaNet::TimeMS period)
+{
+	basePeriod = period;
+	remaining = 0;
+}
 bool IntervalTimer::UpdateInterval(MafiaNet::TimeMS elapsed)
 {
 	if (elapsed >= remaining)
 	{
-		MafiaNet::TimeMS difference = elapsed-remaining;
+		MafiaNet::TimeMS difference = elapsed - remaining;
 		if (difference >= basePeriod)
 		{
-			remaining=basePeriod;
+			remaining = basePeriod;
 		}
 		else
 		{
-			remaining=basePeriod-difference;
+			remaining = basePeriod - difference;
 		}
 
 		return true;
 	}
 
-	remaining-=elapsed;
+	remaining -= elapsed;
 	return false;
 }

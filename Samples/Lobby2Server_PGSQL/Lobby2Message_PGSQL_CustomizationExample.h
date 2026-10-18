@@ -24,7 +24,7 @@ namespace MafiaNet
 
 class Platform_Startup_Overridden : public Platform_Startup_PGSQL
 {
-	virtual bool ServerDBImpl( Lobby2ServerCommand *command, void *databaseInterface )
+	virtual bool ServerDBImpl(Lobby2ServerCommand *command, void *databaseInterface)
 	{
 		printf("Platform_Startup_Overridden");
 		return false;
@@ -42,7 +42,7 @@ class Platform_Startup_Overridden : public Platform_Startup_PGSQL
 // New enumeration list
 enum Lobby2MessageID_Custom
 {
-	L2MID_MyCustomMessage=L2MID_COUNT,
+	L2MID_MyCustomMessage = L2MID_COUNT,
 };
 
 // Forward declaration(s) of my new message types
@@ -52,30 +52,42 @@ struct MyCustomMessage;
 struct Lobby2CustomizedHandler : public Lobby2Callbacks
 {
 	virtual void MessageResult(MyCustomMessage *message);
-	virtual void ExecuteDefaultResult(Lobby2Message *message) {message->DebugPrintf();}
+	virtual void ExecuteDefaultResult(Lobby2Message *message) { message->DebugPrintf(); }
 };
 
 
 // Macro to make things easier, customized for our new callback handler
-#define __L2_MSG_MY_CUSTOM_IMPL(__NAME__) \
-	virtual void CallCallback(Lobby2Callbacks *cb) {((Lobby2CustomizedHandler*)cb)->MessageResult(this);}; \
-	virtual Lobby2MessageID GetID(void) const {return (Lobby2MessageID) L2MID_##__NAME__;} \
-	virtual const char* GetName(void) const {return #__NAME__;} \
-	virtual void DebugMsg(MafiaNet::RakString &out) const {out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode));};
+#define __L2_MSG_MY_CUSTOM_IMPL(__NAME__)                                                      \
+	virtual void CallCallback(Lobby2Callbacks *cb)                                             \
+	{                                                                                          \
+		((Lobby2CustomizedHandler *) cb)->MessageResult(this);                                 \
+	};                                                                                         \
+	virtual Lobby2MessageID GetID(void) const                                                  \
+	{                                                                                          \
+		return (Lobby2MessageID) L2MID_##__NAME__;                                             \
+	}                                                                                          \
+	virtual const char *GetName(void) const                                                    \
+	{                                                                                          \
+		return #__NAME__;                                                                      \
+	}                                                                                          \
+	virtual void DebugMsg(MafiaNet::RakString &out) const                                      \
+	{                                                                                          \
+		out.Set(#__NAME__ " result=%s\n", Lobby2ResultCodeDescription::ToEnglish(resultCode)); \
+	};
 
 
 // The new message
 struct MyCustomMessage : public Lobby2Message
 {
 	__L2_MSG_MY_CUSTOM_IMPL(MyCustomMessage)
-		
-	virtual bool RequiresAdmin(void) const {return false;}
-	virtual bool RequiresRankingPermission(void) const {return false;}
-	virtual bool CancelOnDisconnect(void) const {return true;}
-	virtual bool RequiresLogin(void) const {return false;}
-	virtual void Serialize( bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream );
-	virtual bool PrevalidateInput(void) {return true;}
-	virtual bool ServerDBImpl( Lobby2ServerCommand *command, void *databaseInterface )
+
+	virtual bool RequiresAdmin(void) const { return false; }
+	virtual bool RequiresRankingPermission(void) const { return false; }
+	virtual bool CancelOnDisconnect(void) const { return true; }
+	virtual bool RequiresLogin(void) const { return false; }
+	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
+	virtual bool PrevalidateInput(void) { return true; }
+	virtual bool ServerDBImpl(Lobby2ServerCommand *command, void *databaseInterface)
 	{
 		printf("MyCustomMessage");
 		return false;
@@ -90,9 +102,9 @@ struct Lobby2MessageFactory_Customized : public Lobby2MessageFactory_PGSQL
 		switch (id)
 		{
 		case L2MID_Platform_Startup:
-			return MafiaNet::OP_NEW<Platform_Startup_Overridden>(__FILE__, __LINE__); 
+			return MafiaNet::OP_NEW<Platform_Startup_Overridden>(__FILE__, __LINE__);
 		case L2MID_MyCustomMessage:
-			return MafiaNet::OP_NEW<MyCustomMessage>(__FILE__, __LINE__); 
+			return MafiaNet::OP_NEW<MyCustomMessage>(__FILE__, __LINE__);
 		}
 		return Lobby2MessageFactory_PGSQL::Alloc(id);
 	}

@@ -17,7 +17,6 @@
 ///
 
 
-
 #include "mafianet/statistics.h"
 #include <stdio.h> // sprintf
 #include "mafianet/get_time.h"
@@ -48,123 +47,116 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 	if (verbosityLevel == 0)
 	{
 		sprintf(buffer,
-			"Bytes per second sent     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Bytes per second received %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Current packetloss        %.1f%%\n",
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
-			s->packetlossLastSecond*100.0f
-		);
+		        "Bytes per second sent     %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Bytes per second received %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Current packetloss        %.1f%%\n",
+		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
+		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
+		        s->packetlossLastSecond * 100.0f);
 	}
 	else if (verbosityLevel == 1)
 	{
 		sprintf(buffer,
-			"Actual bytes per second sent       %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Actual bytes per second received   %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second pushed    %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total actual bytes sent            %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total actual bytes received        %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes pushed         %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Current packetloss                 %.1f%%\n"
-			"Average packetloss                 %.1f%%\n"
-			"Elapsed connection time in seconds %" PRINTF_64_BIT_MODIFIER "u\n",
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
-			s->packetlossLastSecond*100.0f,
-			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000)
-		);
+		        "Actual bytes per second sent       %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Actual bytes per second received   %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Message bytes per second pushed    %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total actual bytes sent            %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total actual bytes received        %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total message bytes pushed         %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Current packetloss                 %.1f%%\n"
+		        "Average packetloss                 %.1f%%\n"
+		        "Elapsed connection time in seconds %" PRINTF_64_BIT_MODIFIER "u\n",
+		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
+		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
+		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
+		        (long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
+		        (long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
+		        (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
+		        s->packetlossLastSecond * 100.0f,
+		        s->packetlossTotal * 100.0f,
+		        (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000));
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByCongestionControl,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl
-			);
+			          "Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByCongestionControl,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl);
 			strcat(buffer, buff2);
 		}
 		if (s->BPSLimitByOutgoingBandwidthLimit != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit
-			);
+			          "Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit);
 			strcat(buffer, buff2);
 		}
 	}
 	else
 	{
 		sprintf(buffer,
-			"Actual bytes per second sent         %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Actual bytes per second received     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second sent        %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second resent      %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second pushed      %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second returned	  %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second ignored     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total bytes sent                     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total bytes received                 %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes sent             %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes resent           %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes pushed           %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes returned		  %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes ignored          %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Messages in send buffer, by priority %i,%i,%i,%i\n"
-			"Bytes in send buffer, by priority    %i,%i,%i,%i\n"
-			"Messages in resend buffer            %i\n"
-			"Bytes in resend buffer               %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Current packetloss                   %.1f%%\n"
-			"Average packetloss                   %.1f%%\n"
-			"Elapsed connection time in seconds   %" PRINTF_64_BIT_MODIFIER "u\n",
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RESENT],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_SENT],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RESENT],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
-			s->messageInSendBuffer[(int)MafiaNet::Priority::Immediate], s->messageInSendBuffer[(int)MafiaNet::Priority::High], s->messageInSendBuffer[(int)MafiaNet::Priority::Medium], s->messageInSendBuffer[(int)MafiaNet::Priority::Low],
-			(unsigned int)s->bytesInSendBuffer[(int)MafiaNet::Priority::Immediate], (unsigned int)s->bytesInSendBuffer[(int)MafiaNet::Priority::High], (unsigned int)s->bytesInSendBuffer[(int)MafiaNet::Priority::Medium], (unsigned int)s->bytesInSendBuffer[(int)MafiaNet::Priority::Low],
-			s->messagesInResendBuffer,
-			(long long unsigned int) s->bytesInResendBuffer,
-			s->packetlossLastSecond*100.0f,
-			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000)
-		);
+		        "Actual bytes per second sent         %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Actual bytes per second received     %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Message bytes per second sent        %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Message bytes per second resent      %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Message bytes per second pushed      %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Message bytes per second returned	  %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Message bytes per second ignored     %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total bytes sent                     %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total bytes received                 %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total message bytes sent             %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total message bytes resent           %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total message bytes pushed           %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total message bytes returned		  %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Total message bytes ignored          %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Messages in send buffer, by priority %i,%i,%i,%i\n"
+		        "Bytes in send buffer, by priority    %i,%i,%i,%i\n"
+		        "Messages in resend buffer            %i\n"
+		        "Bytes in resend buffer               %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "Current packetloss                   %.1f%%\n"
+		        "Average packetloss                   %.1f%%\n"
+		        "Elapsed connection time in seconds   %" PRINTF_64_BIT_MODIFIER "u\n",
+		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
+		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
+		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_SENT],
+		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RESENT],
+		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
+		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
+		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
+		        (long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
+		        (long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
+		        (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_SENT],
+		        (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RESENT],
+		        (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
+		        (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
+		        (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
+		        s->messageInSendBuffer[(int) MafiaNet::Priority::Immediate], s->messageInSendBuffer[(int) MafiaNet::Priority::High], s->messageInSendBuffer[(int) MafiaNet::Priority::Medium], s->messageInSendBuffer[(int) MafiaNet::Priority::Low],
+		        (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::Immediate], (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::High], (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::Medium], (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::Low],
+		        s->messagesInResendBuffer,
+		        (long long unsigned int) s->bytesInResendBuffer,
+		        s->packetlossLastSecond * 100.0f,
+		        s->packetlossTotal * 100.0f,
+		        (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000));
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByCongestionControl,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl
-			);
+			          "Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByCongestionControl,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl);
 			strcat(buffer, buff2);
 		}
 		if (s->BPSLimitByOutgoingBandwidthLimit != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit
-			);
+			          "Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit);
 			strcat(buffer, buff2);
 		}
 	}
@@ -172,135 +164,128 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-void RAK_DLL_EXPORT MafiaNet::StatisticsToString( RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel )
+void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buffer, size_t bufferLength, int verbosityLevel)
 {
-	if ( s == 0 )
+	if (s == 0)
 	{
-		sprintf_s( buffer, bufferLength, "stats is a null pointer in statsToString\n" );
-		return ;
+		sprintf_s(buffer, bufferLength, "stats is a null pointer in statsToString\n");
+		return;
 	}
 
-	if (verbosityLevel==0)
+	if (verbosityLevel == 0)
 	{
 		sprintf_s(buffer, bufferLength,
-			"Bytes per second sent     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Bytes per second received %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Current packetloss        %.1f%%\n",
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
-			s->packetlossLastSecond*100.0f
-			);
+		          "Bytes per second sent     %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Bytes per second received %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Current packetloss        %.1f%%\n",
+		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
+		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
+		          s->packetlossLastSecond * 100.0f);
 	}
-	else if (verbosityLevel==1)
+	else if (verbosityLevel == 1)
 	{
 		sprintf_s(buffer, bufferLength,
-			"Actual bytes per second sent       %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Actual bytes per second received   %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second pushed    %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total actual bytes sent            %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total actual bytes received        %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes pushed         %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Current packetloss                 %.1f%%\n"
-			"Average packetloss                 %.1f%%\n"
-			"Elapsed connection time in seconds %" PRINTF_64_BIT_MODIFIER "u\n",
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
-			s->packetlossLastSecond*100.0f,
-			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS()-s->connectionStartTime)/1000000)
-			);
+		          "Actual bytes per second sent       %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Actual bytes per second received   %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Message bytes per second pushed    %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total actual bytes sent            %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total actual bytes received        %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total message bytes pushed         %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Current packetloss                 %.1f%%\n"
+		          "Average packetloss                 %.1f%%\n"
+		          "Elapsed connection time in seconds %" PRINTF_64_BIT_MODIFIER "u\n",
+		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
+		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
+		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
+		          (long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
+		          (long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
+		          (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
+		          s->packetlossLastSecond * 100.0f,
+		          s->packetlossTotal * 100.0f,
+		          (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000));
 
-		if (s->BPSLimitByCongestionControl!=0)
+		if (s->BPSLimitByCongestionControl != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByCongestionControl,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl
-				);
-			strcat_s(buffer,bufferLength,buff2);
+			          "Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByCongestionControl,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl);
+			strcat_s(buffer, bufferLength, buff2);
 		}
-		if (s->BPSLimitByOutgoingBandwidthLimit!=0)
+		if (s->BPSLimitByOutgoingBandwidthLimit != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit
-				);
-			strcat_s(buffer,bufferLength,buff2);
+			          "Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit);
+			strcat_s(buffer, bufferLength, buff2);
 		}
-	}	
+	}
 	else
 	{
 		sprintf_s(buffer, bufferLength,
-			"Actual bytes per second sent         %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Actual bytes per second received     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second sent        %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second resent      %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second pushed      %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second returned	  %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Message bytes per second ignored     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total bytes sent                     %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total bytes received                 %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes sent             %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes resent           %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes pushed           %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes returned		  %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Total message bytes ignored          %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Messages in send buffer, by priority %i,%i,%i,%i\n"
-			"Bytes in send buffer, by priority    %i,%i,%i,%i\n"
-			"Messages in resend buffer            %i\n"
-			"Bytes in resend buffer               %" PRINTF_64_BIT_MODIFIER "u\n"
-			"Current packetloss                   %.1f%%\n"
-			"Average packetloss                   %.1f%%\n"
-			"Elapsed connection time in seconds   %" PRINTF_64_BIT_MODIFIER "u\n",
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_SENT],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RESENT],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
-			(long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
-			(long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_SENT],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RESENT],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
-			(long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
-			s->messageInSendBuffer[(int)MafiaNet::Priority::Immediate],s->messageInSendBuffer[(int)MafiaNet::Priority::High],s->messageInSendBuffer[(int)MafiaNet::Priority::Medium],s->messageInSendBuffer[(int)MafiaNet::Priority::Low],
-			(unsigned int) s->bytesInSendBuffer[(int)MafiaNet::Priority::Immediate],(unsigned int) s->bytesInSendBuffer[(int)MafiaNet::Priority::High],(unsigned int) s->bytesInSendBuffer[(int)MafiaNet::Priority::Medium],(unsigned int) s->bytesInSendBuffer[(int)MafiaNet::Priority::Low],
-			s->messagesInResendBuffer,
-			(long long unsigned int) s->bytesInResendBuffer,
-			s->packetlossLastSecond*100.0f,
-			s->packetlossTotal*100.0f,
-			(long long unsigned int) (uint64_t)((MafiaNet::GetTimeUS()-s->connectionStartTime)/1000000)
-			);
+		          "Actual bytes per second sent         %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Actual bytes per second received     %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Message bytes per second sent        %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Message bytes per second resent      %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Message bytes per second pushed      %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Message bytes per second returned	  %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Message bytes per second ignored     %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total bytes sent                     %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total bytes received                 %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total message bytes sent             %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total message bytes resent           %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total message bytes pushed           %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total message bytes returned		  %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Total message bytes ignored          %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Messages in send buffer, by priority %i,%i,%i,%i\n"
+		          "Bytes in send buffer, by priority    %i,%i,%i,%i\n"
+		          "Messages in resend buffer            %i\n"
+		          "Bytes in resend buffer               %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "Current packetloss                   %.1f%%\n"
+		          "Average packetloss                   %.1f%%\n"
+		          "Elapsed connection time in seconds   %" PRINTF_64_BIT_MODIFIER "u\n",
+		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
+		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
+		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_SENT],
+		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RESENT],
+		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
+		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
+		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
+		          (long long unsigned int) s->runningTotal[ACTUAL_BYTES_SENT],
+		          (long long unsigned int) s->runningTotal[ACTUAL_BYTES_RECEIVED],
+		          (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_SENT],
+		          (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RESENT],
+		          (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_PUSHED],
+		          (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_PROCESSED],
+		          (long long unsigned int) s->runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED],
+		          s->messageInSendBuffer[(int) MafiaNet::Priority::Immediate], s->messageInSendBuffer[(int) MafiaNet::Priority::High], s->messageInSendBuffer[(int) MafiaNet::Priority::Medium], s->messageInSendBuffer[(int) MafiaNet::Priority::Low],
+		          (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::Immediate], (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::High], (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::Medium], (unsigned int) s->bytesInSendBuffer[(int) MafiaNet::Priority::Low],
+		          s->messagesInResendBuffer,
+		          (long long unsigned int) s->bytesInResendBuffer,
+		          s->packetlossLastSecond * 100.0f,
+		          s->packetlossTotal * 100.0f,
+		          (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000));
 
-		if (s->BPSLimitByCongestionControl!=0)
+		if (s->BPSLimitByCongestionControl != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByCongestionControl,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl
-				);
-			strcat_s(buffer,bufferLength,buff2);
+			          "Send capacity                    %" PRINTF_64_BIT_MODIFIER "u bytes per second (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByCongestionControl,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByCongestionControl);
+			strcat_s(buffer, bufferLength, buff2);
 		}
-		if (s->BPSLimitByOutgoingBandwidthLimit!=0)
+		if (s->BPSLimitByOutgoingBandwidthLimit != 0)
 		{
 			char buff2[128];
 			sprintf_s(buff2,
-				"Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
-				(long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
-				100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit
-				);
-			strcat_s(buffer,bufferLength,buff2);
+			          "Send limit                       %" PRINTF_64_BIT_MODIFIER "u (%.0f%%)\n",
+			          (long long unsigned int) s->BPSLimitByOutgoingBandwidthLimit,
+			          100.0f * s->valueOverLastSecond[ACTUAL_BYTES_SENT] / s->BPSLimitByOutgoingBandwidthLimit);
+			strcat_s(buffer, bufferLength, buff2);
 		}
 	}
 }

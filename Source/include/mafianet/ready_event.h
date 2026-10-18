@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_ReadyEvent==1
+#if _RAKNET_SUPPORT_ReadyEvent == 1
 
 #ifndef __READY_EVENT_H
 #define __READY_EVENT_H
@@ -27,7 +27,8 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/ds_ordered_list.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
 class RakPeerInterface;
 
@@ -52,7 +53,7 @@ enum ReadyEventSystemStatus
 	/// This remote system has completed the ReadyEvent
 	RES_ALL_READY,
 
-		/// Error code, we couldn't look up the system because the event was unknown
+	/// Error code, we couldn't look up the system because the event was unknown
 	RES_UNKNOWN_EVENT,
 };
 
@@ -145,7 +146,7 @@ public:
 	/// \param[in] guid An address to wait for event replies from.  Pass UNASSIGNED_SYSTEM_ADDRESS for all currently connected systems. Until all systems in this list have called SetEvent with this ID and true, and have this system in the list, we won't get ID_READY_EVENT_COMPLETE
 	/// \return True on success, false on unknown eventId (this should be considered an error)
 	bool AddToWaitList(int eventId, RakNetGUID guid);
-	
+
 	/// Removes systems from the wait list, which should have been previously added with AddToWaitList
 	/// \note Systems that directly or indirectly disconnect from us are automatically removed from the wait list
 	/// \param[in] guid The system to remove from the wait list. Pass UNASSIGNED_RAKNET_GUID for all currently connected systems.
@@ -157,7 +158,7 @@ public:
 	/// \param[in] guid The system we are checking up on
 	/// \return True if this system is waiting on this event, false otherwise.
 	bool IsInWaitList(int eventId, RakNetGUID guid);
-	
+
 	/// Returns the total number of systems we are waiting on for this event.
 	/// Does not include yourself
 	/// \param[in] eventId A user-defined identifier
@@ -169,7 +170,7 @@ public:
 	/// \param[in] index Index into the array, from 0 to GetWaitListSize()
 	/// \return The system address of a system at a particular index, for this event.
 	RakNetGUID GetFromWaitListAtIndex(int eventId, unsigned index) const;
-		
+
 	/// For a remote system, find out what their ready status is (waiting, signaled, complete).
 	/// \param[in] eventId A user-defined identifier
 	/// \param[in] guid Which system we are checking up on
@@ -188,16 +189,16 @@ public:
 		MessageID lastSentStatus, lastReceivedStatus;
 		RakNetGUID rakNetGuid;
 	};
-	static int RemoteSystemCompByGuid( const RakNetGUID &key, const RemoteSystem &data );
+	static int RemoteSystemCompByGuid(const RakNetGUID &key, const RemoteSystem &data);
 	/// \internal
 	/// An event, with a set of systems we are waiting for, a set of systems that are signaled, and a set of systems with completed events
 	struct ReadyEventNode
 	{
 		int eventId; // Sorted on this
 		MessageID eventStatus;
-		DataStructures::OrderedList<RakNetGUID,RemoteSystem,ReadyEvent::RemoteSystemCompByGuid> systemList;
+		DataStructures::OrderedList<RakNetGUID, RemoteSystem, ReadyEvent::RemoteSystemCompByGuid> systemList;
 	};
-	static int ReadyEventNodeComp( const int &key, ReadyEvent::ReadyEventNode * const &data );
+	static int ReadyEventNodeComp(const int &key, ReadyEvent::ReadyEventNode *const &data);
 
 
 protected:
@@ -205,9 +206,9 @@ protected:
 	// Packet handling functions
 	// --------------------------------------------------------------------------------------------
 	virtual PluginReceiveResult OnReceive(Packet *packet);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnRakPeerShutdown(void);
-	
+
 	void Clear(void);
 	/*
 	bool AnyWaitersCompleted(unsigned eventIndex) const;
@@ -236,7 +237,7 @@ protected:
 	unsigned CreateNewEvent(int eventId, bool isReady);
 	bool SetEventByIndex(int eventIndex, bool isReady);
 
-	DataStructures::OrderedList<int, ReadyEventNode*, ReadyEvent::ReadyEventNodeComp> readyEventNodeList;
+	DataStructures::OrderedList<int, ReadyEventNode *, ReadyEvent::ReadyEventNodeComp> readyEventNodeList;
 	unsigned char channel;
 };
 

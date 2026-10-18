@@ -18,7 +18,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_StatisticsHistory==1
+#if _RAKNET_SUPPORT_StatisticsHistory == 1
 
 #ifndef __STATISTICS_HISTORY_H
 #define __STATISTICS_HISTORY_H
@@ -117,7 +117,7 @@ public:
 	void RemoveObjectAtIndex(unsigned int index);
 	void Clear(void);
 	unsigned int GetObjectCount(void) const;
-	StatisticsHistory::TrackedObjectData * GetObjectAtIndex(unsigned int index) const;
+	StatisticsHistory::TrackedObjectData *GetObjectAtIndex(unsigned int index) const;
 	unsigned int GetObjectIndex(uint64_t objectId) const;
 	bool AddValueByObjectID(uint64_t objectId, RakString key, SHValueType val, Time curTime, bool combineEqualTimes);
 	void AddValueByIndex(unsigned int index, RakString key, SHValueType val, Time curTime, bool combineEqualTimes);
@@ -165,16 +165,16 @@ public:
 		Time GetTimeRange(void) const;
 
 		// Merge two sets to output
-		static void MergeSets( const TimeAndValueQueue *lhs, SHDataCategory lhsDataCategory, const TimeAndValueQueue *rhs, SHDataCategory rhsDataCategory, TimeAndValueQueue *output );
+		static void MergeSets(const TimeAndValueQueue *lhs, SHDataCategory lhsDataCategory, const TimeAndValueQueue *rhs, SHDataCategory rhsDataCategory, TimeAndValueQueue *output);
 
 		// Shrink or expand a sample set to the approximate number given
 		// DC_DISCRETE will produce a histogram (sum) while DC_CONTINUOUS will produce an average
-		void ResizeSampleSet( int approximateSamples, DataStructures::Queue<StatisticsHistory::TimeAndValue> &blendedSamples, SHDataCategory dataCategory, Time timeClipStart=0, Time timeClipEnd=0 );
+		void ResizeSampleSet(int approximateSamples, DataStructures::Queue<StatisticsHistory::TimeAndValue> &blendedSamples, SHDataCategory dataCategory, Time timeClipStart = 0, Time timeClipEnd = 0);
 
 		// Clear out all values
 		void Clear(void);
 
-		TimeAndValueQueue& operator = ( const TimeAndValueQueue& input );
+		TimeAndValueQueue &operator=(const TimeAndValueQueue &input);
 
 		/// \internal
 		void CullExpiredValues(Time curTime);
@@ -186,19 +186,20 @@ public:
 
 protected:
 	struct TrackedObject;
-public:
-	static int TrackedObjectComp( const uint64_t &key, TrackedObject* const &data );
-protected:
 
+public:
+	static int TrackedObjectComp(const uint64_t &key, TrackedObject *const &data);
+
+protected:
 	struct TrackedObject
 	{
 		TrackedObject();
 		~TrackedObject();
 		TrackedObjectData trackedObjectData;
-		DataStructures::Hash<MafiaNet::RakString, TimeAndValueQueue*, 32, MafiaNet::RakString::ToInteger> dataQueues;
+		DataStructures::Hash<MafiaNet::RakString, TimeAndValueQueue *, 32, MafiaNet::RakString::ToInteger> dataQueues;
 	};
 
-	DataStructures::OrderedList<uint64_t, TrackedObject*,TrackedObjectComp> objects;
+	DataStructures::OrderedList<uint64_t, TrackedObject *, TrackedObjectComp> objects;
 
 	Time timeToTrack;
 };
@@ -230,13 +231,13 @@ public:
 protected:
 	virtual void Update(void);
 	virtual void OnRakPeerShutdown(void);
-	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason );
+	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 
 	// Too slow
-// 	virtual bool UsesReliabilityLayer(void) const {return true;}
-// 	virtual void OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
-// 	virtual void OnDirectSocketReceive(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
+	// 	virtual bool UsesReliabilityLayer(void) const {return true;}
+	// 	virtual void OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
+	// 	virtual void OnDirectSocketReceive(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress);
 
 
 	bool addNewConnections;

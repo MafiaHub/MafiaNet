@@ -11,21 +11,21 @@
 
 namespace MafiaNet
 {
-	namespace Experimental
-	{
-		namespace Crypto
-		{
-			IFileEncrypter* Factory::ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength)
-			{
-				return new CFileEncrypter(publicKey, publicKeyLength);
-			}
+namespace Experimental
+{
+namespace Crypto
+{
+IFileEncrypter *Factory::ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength)
+{
+	return new CFileEncrypter(publicKey, publicKeyLength);
+}
 
-			// #high - change interface --- use RakString?
-			// #high - reconsider non-const CSecureString (for private key)
-			IFileEncrypter* Factory::ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength, const char *privateKey, size_t privateKeyLength, CSecureString& privateKeyPassword)
-			{
-				return new CFileEncrypter(publicKey, publicKeyLength, privateKey, privateKeyLength, privateKeyPassword);
-			}
-		}
-	}
+// #high - change interface --- use RakString?
+// #high - reconsider non-const CSecureString (for private key)
+IFileEncrypter *Factory::ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength, const char *privateKey, size_t privateKeyLength, CSecureString &privateKeyPassword)
+{
+	return new CFileEncrypter(publicKey, publicKeyLength, privateKey, privateKeyLength, privateKeyPassword);
+}
+}
+}
 }

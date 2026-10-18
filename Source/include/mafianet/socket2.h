@@ -106,7 +106,7 @@ enum RNS2Type
 
 struct RNS2_SendParameters
 {
-	RNS2_SendParameters() {ttl=0;}
+	RNS2_SendParameters() { ttl = 0; }
 	char *data;
 	int length;
 	SystemAddress systemAddress;
@@ -134,15 +134,15 @@ public:
 	/// \a index, or nullptr (Startup then fails with SOCKET_PORT_ALREADY_IN_USE).
 	/// RakPeer installs itself as the socket's event handler; deliver received
 	/// datagrams through it (AllocRNS2RecvStruct, then OnRNS2Recv).
-	virtual RakNetSocket2 *Create( const SocketDescriptor &descriptor, unsigned int index ) = 0;
+	virtual RakNetSocket2 *Create(const SocketDescriptor &descriptor, unsigned int index) = 0;
 	/// Called instead of deleting a socket Create returned.
-	virtual void Destroy( RakNetSocket2 *socket ) = 0;
+	virtual void Destroy(RakNetSocket2 *socket) = 0;
 };
 
 class RakNetSocket2Allocator
 {
 public:
-	static RakNetSocket2* AllocRNS2(void);
+	static RakNetSocket2 *AllocRNS2(void);
 	static void DeallocRNS2(RakNetSocket2 *s);
 };
 
@@ -154,9 +154,9 @@ public:
 
 	//		bufferedPackets.Push(recvFromStruct);
 	//		quitAndDataEvents.SetEvent();
-	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct)=0;
-	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)=0;
-	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line)=0;
+	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct) = 0;
+	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line) = 0;
+	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line) = 0;
 
 	// recvFromStruct=bufferedPackets.Allocate( _FILE_AND_LINE_ );
 	// 	DataStructures::ThreadsafeAllocatingQueue<RNS2RecvStruct> bufferedPackets;
@@ -170,7 +170,7 @@ public:
 
 	// In order for the handler to trigger, some platforms must call PollRecvFrom, some platforms this create an internal thread.
 	void SetRecvEventHandler(RNS2EventHandler *_eventHandler);
-	virtual RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line )=0;
+	virtual RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line) = 0;
 	// Batched send. The base implementation simply loops Send() so every socket
 	// type has a working default; RNS2_Linux overrides it with sendmmsg where the
 	// syscall exists (Linux).
@@ -193,18 +193,18 @@ public:
 	// did not go out"; only the diagnostics differ. See MmsgBatchTests.
 	// RNS2_SendParameters::ttl is honoured either way: sendmmsg has no per-message
 	// TTL, so the override defers a batch carrying one to this base loop.
-	virtual RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
+	virtual RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line);
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
 	SystemAddress GetBoundAddress(void) const;
 	unsigned int GetUserConnectionSocketIndex(void) const;
 	void SetUserConnectionSocketIndex(unsigned int i);
-	RNS2EventHandler * GetEventHandler(void) const;
+	RNS2EventHandler *GetEventHandler(void) const;
 
 	// ----------- STATICS ------------
-	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
-	static void DomainNameToIP( const char *domainName, char ip[65] );
+	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
+	static void DomainNameToIP(const char *domainName, char ip[65]);
 
 protected:
 	RNS2EventHandler *eventHandler;
@@ -219,8 +219,8 @@ struct RNS2_BerkleyBindParameters
 	unsigned short port;
 	char *hostAddress;
 	unsigned short addressFamily; // AF_INET or AF_INET6
-	int type; // SOCK_DGRAM
-	int protocol; // 0
+	int type;                     // SOCK_DGRAM
+	int protocol;                 // 0
 	bool nonBlockingSocket;
 	int setBroadcast;
 	int setIPHdrIncl;
@@ -236,10 +236,10 @@ public:
 	// ----------- STATICS ------------
 	// For addressFamily, use AF_INET
 	// For type, use SOCK_DGRAM
-	static bool IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type );
+	static bool IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type);
 
 	// ----------- MEMBERS ------------
-	virtual RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line )=0;
+	virtual RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line) = 0;
 };
 // Common Berkeley socket implementation for Windows and Linux
 class RNS2_Berkley : public IRNS2_Berkley
@@ -252,16 +252,16 @@ public:
 	void BlockOnStopRecvPollingThread(void);
 	const RNS2_BerkleyBindParameters *GetBindings(void) const;
 	RNS2Socket GetSocket(void) const;
-	void SetDoNotFragment( int opt );
+	void SetDoNotFragment(int opt);
 
 protected:
 	// Used by other classes
-	RNS2BindResult BindShared( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
-	RNS2BindResult BindSharedIPV4( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
-	RNS2BindResult BindSharedIPV4And6( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
-	
-	static void GetSystemAddressIPV4 ( RNS2Socket rns2Socket, SystemAddress *systemAddressOut );
-	static void GetSystemAddressIPV4And6 ( RNS2Socket rns2Socket, SystemAddress *systemAddressOut );
+	RNS2BindResult BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	RNS2BindResult BindSharedIPV4(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	RNS2BindResult BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+
+	static void GetSystemAddressIPV4(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
+	static void GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
 
 	// Internal
 	void SetNonBlockingSocket(unsigned long nonblocking);
@@ -287,22 +287,22 @@ protected:
 
 #if defined(__APPLE__)
 	// http://sourceforge.net/p/open-dis/discussion/683284/thread/0929d6a0
-	CFSocketRef             _cfSocket;
+	CFSocketRef _cfSocket;
 #endif
 
 	static RAK_THREAD_DECLARATION(RecvFromLoop);
 };
 
-#if defined(_WIN32) || defined(__GNUC__)  || defined(__GCCXML__) || defined(__S3E__)
+#if defined(_WIN32) || defined(__GNUC__) || defined(__GCCXML__) || defined(__S3E__)
 class RNS2_Windows_Linux
 {
 public:
 protected:
-	static RNS2SendResult Send_Windows_Linux( RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
+	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
 };
 #endif
 
-#if   defined(_WIN32)
+#if defined(_WIN32)
 
 class RAK_DLL_EXPORT SocketLayerOverride
 {
@@ -311,11 +311,11 @@ public:
 	virtual ~SocketLayerOverride() {}
 
 	/// Called when SendTo would otherwise occur.
-	virtual int RakNetSendTo( const char *data, int length, const SystemAddress &systemAddress )=0;
+	virtual int RakNetSendTo(const char *data, int length, const SystemAddress &systemAddress) = 0;
 
 	/// Called when RecvFrom would otherwise occur. Return number of bytes read. Write data into dataOut
 	// Return -1 to use RakNet's normal recvfrom, 0 to abort RakNet's normal recvfrom, and positive to return data
-	virtual int RakNetRecvFrom( char dataOut[ MAXIMUM_MTU_SIZE ], SystemAddress *senderOut, bool calledFromMainThread )=0;
+	virtual int RakNetRecvFrom(char dataOut[MAXIMUM_MTU_SIZE], SystemAddress *senderOut, bool calledFromMainThread) = 0;
 };
 
 class RNS2_Windows : public RNS2_Berkley, public RNS2_Windows_Linux
@@ -323,15 +323,16 @@ class RNS2_Windows : public RNS2_Berkley, public RNS2_Windows_Linux
 public:
 	RNS2_Windows();
 	virtual ~RNS2_Windows();
-	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
-	RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
+	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
 	void SetSocketLayerOverride(SocketLayerOverride *_slo);
-	SocketLayerOverride* GetSocketLayerOverride(void);
+	SocketLayerOverride *GetSocketLayerOverride(void);
 	// ----------- STATICS ------------
-	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
+	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
+
 protected:
-	static void GetMyIPIPV4( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
-	static void GetMyIPIPV4And6( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
+	static void GetMyIPIPV4(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
+	static void GetMyIPIPV4And6(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 	SocketLayerOverride *slo;
 };
 
@@ -339,20 +340,21 @@ protected:
 class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux
 {
 public:
-	RNS2BindResult Bind( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line );
-	RNS2SendResult Send( RNS2_SendParameters *sendParameters, const char *file, unsigned int line );
+	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
 	// Guarded because RNS2_Linux is the non-Windows socket class: macOS and the
 	// BSDs compile it too, and sendmmsg/mmsghdr do not exist there. Those
 	// platforms inherit the portable base SendBatch (a Send() loop).
 #if defined(__linux__)
-	RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line );
+	RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line);
 #endif
 
 	// ----------- STATICS ------------
-	static void GetMyIP( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
+	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
+
 protected:
-	static void GetMyIPIPV4( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
-	static void GetMyIPIPV4And6( SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS] );
+	static void GetMyIPIPV4(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
+	static void GetMyIPIPV4And6(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 };
 
 #endif // Linux

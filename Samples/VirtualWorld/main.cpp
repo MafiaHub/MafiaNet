@@ -49,7 +49,8 @@ static bool IsServerRM(ReplicaManager3 *rm);
 class Player : public VirtualWorldReplica3
 {
 public:
-	Player() : playerId(0) {}
+	Player()
+	    : playerId(0) {}
 
 	void WriteAllocationID(Connection_RM3 *, BitStream *allocationIdBitstream) const
 	{
@@ -113,7 +114,8 @@ protected:
 class PlayerConnection : public Connection_RM3
 {
 public:
-	PlayerConnection(const SystemAddress &sa, RakNetGUID g) : Connection_RM3(sa, g) {}
+	PlayerConnection(const SystemAddress &sa, RakNetGUID g)
+	    : Connection_RM3(sa, g) {}
 	bool QueryGroupDownloadMessages(void) const { return true; }
 	Replica3 *AllocReplica(BitStream *allocationId, ReplicaManager3 *)
 	{
@@ -128,7 +130,8 @@ public:
 class PlayerRM3 : public ReplicaManager3
 {
 public:
-	PlayerRM3() : isServer(false) {}
+	PlayerRM3()
+	    : isServer(false) {}
 	Connection_RM3 *AllocConnection(const SystemAddress &sa, RakNetGUID g) const { return new PlayerConnection(sa, g); }
 	void DeallocConnection(Connection_RM3 *c) const { delete c; }
 	bool isServer;
@@ -136,7 +139,7 @@ public:
 
 static bool IsServerRM(ReplicaManager3 *rm)
 {
-	PlayerRM3 *prm = (PlayerRM3 *)rm;
+	PlayerRM3 *prm = (PlayerRM3 *) rm;
 	return prm && prm->isServer;
 }
 
@@ -210,7 +213,8 @@ int main(void)
 	c2->Connect("127.0.0.1", serverPort, 0, 0);
 
 	// Wait until both clients are registered with the server's replica manager.
-	if (!WaitUntil(peers, 3, 600, [&] { return serverRm.GetConnectionCount() == 2; }))
+	if (!WaitUntil(peers, 3, 600, [&]
+	               { return serverRm.GetConnectionCount() == 2; }))
 	{
 		printf("FAIL: clients did not connect.\n");
 		for (int i = 0; i < 3; i++)
@@ -233,8 +237,9 @@ int main(void)
 	int rc = 0;
 
 	// Step 1: both players share the default world -> each client sees both avatars.
-	printf("[Step 1] Both players in virtual world %u (default):\n", (unsigned)VIRTUAL_WORLD_DEFAULT);
-	bool ok1 = WaitUntil(peers, 3, 600, [&] { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
+	printf("[Step 1] Both players in virtual world %u (default):\n", (unsigned) VIRTUAL_WORLD_DEFAULT);
+	bool ok1 = WaitUntil(peers, 3, 600, [&]
+	                     { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
 	printf("         client 1 sees %u avatar(s); client 2 sees %u avatar(s)\n", c1Rm.GetReplicaCount(), c2Rm.GetReplicaCount());
 	if (!ok1)
 	{
@@ -251,7 +256,8 @@ int main(void)
 	Connection_RM3 *serverConnToC2 = serverRm.GetConnectionByGUID(c2Guid);
 	serverRm.SetPlayerVirtualWorld(serverConnToC2, avatar2, 1);
 
-	bool ok2 = WaitUntil(peers, 3, 600, [&] { return c1Rm.GetReplicaCount() == 1 && c2Rm.GetReplicaCount() == 1; });
+	bool ok2 = WaitUntil(peers, 3, 600, [&]
+	                     { return c1Rm.GetReplicaCount() == 1 && c2Rm.GetReplicaCount() == 1; });
 	printf("         client 1 sees %u avatar(s); client 2 sees %u avatar(s)\n", c1Rm.GetReplicaCount(), c2Rm.GetReplicaCount());
 	if (!ok2)
 	{
@@ -262,10 +268,11 @@ int main(void)
 		printf("         OK: the two players no longer see each other (different worlds).\n");
 
 	// Step 3: move player 2 back to the overworld; the two players see each other again.
-	printf("\n[Step 3] Server moves player 2 back to virtual world %u (re-entry)...\n", (unsigned)VIRTUAL_WORLD_DEFAULT);
+	printf("\n[Step 3] Server moves player 2 back to virtual world %u (re-entry)...\n", (unsigned) VIRTUAL_WORLD_DEFAULT);
 	serverRm.SetPlayerVirtualWorld(serverConnToC2, avatar2, VIRTUAL_WORLD_DEFAULT);
 
-	bool ok3 = WaitUntil(peers, 3, 600, [&] { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
+	bool ok3 = WaitUntil(peers, 3, 600, [&]
+	                     { return c1Rm.GetReplicaCount() == 2 && c2Rm.GetReplicaCount() == 2; });
 	printf("         client 1 sees %u avatar(s); client 2 sees %u avatar(s)\n", c1Rm.GetReplicaCount(), c2Rm.GetReplicaCount());
 	if (ok3)
 		printf("         OK: the two players can see each other again.\n");

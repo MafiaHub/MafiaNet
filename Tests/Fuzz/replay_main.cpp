@@ -23,18 +23,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 namespace
 {
-	int RunFile(const std::filesystem::path &path)
+int RunFile(const std::filesystem::path &path)
+{
+	std::ifstream in(path, std::ios::binary);
+	if (!in)
 	{
-		std::ifstream in(path, std::ios::binary);
-		if (!in)
-		{
-			std::fprintf(stderr, "cannot read %s\n", path.string().c_str());
-			return 1;
-		}
-		std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-		LLVMFuzzerTestOneInput(bytes.empty() ? nullptr : bytes.data(), bytes.size());
-		return 0;
+		std::fprintf(stderr, "cannot read %s\n", path.string().c_str());
+		return 1;
 	}
+	std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	LLVMFuzzerTestOneInput(bytes.empty() ? nullptr : bytes.data(), bytes.size());
+	return 0;
+}
 }
 
 int main(int argc, char **argv)

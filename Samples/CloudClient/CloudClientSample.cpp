@@ -41,8 +41,8 @@ void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverG
 
 int main(int argc, char **argv)
 {
-	const char *DEFAULT_SERVER_ADDRESS="test.dnsalias.net";
-	const unsigned short DEFAULT_SERVER_PORT=60000;
+	const char *DEFAULT_SERVER_ADDRESS = "test.dnsalias.net";
+	const unsigned short DEFAULT_SERVER_PORT = 60000;
 
 	const char *serverAddress;
 	unsigned short serverPort;
@@ -50,20 +50,25 @@ int main(int argc, char **argv)
 
 #ifndef _DEBUG
 	// Only use DEFAULT_SERVER_ADDRESS for debugging
-	if (argc<2)
+	if (argc < 2)
 	{
 		PrintHelp();
 		return false;
 	}
 #endif
 
-	if (argc<2) serverAddress=DEFAULT_SERVER_ADDRESS;
-	else serverAddress=argv[1];
+	if (argc < 2)
+		serverAddress = DEFAULT_SERVER_ADDRESS;
+	else
+		serverAddress = argv[1];
 
-	if (argc<3) serverPort=DEFAULT_SERVER_PORT;
-	else {
+	if (argc < 3)
+		serverPort = DEFAULT_SERVER_PORT;
+	else
+	{
 		const int intServerPort = atoi(argv[2]);
-		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max())) {
+		if ((intServerPort < 0) || (intServerPort > std::numeric_limits<unsigned short>::max()))
+		{
 			printf("Specified server port %d is outside valid bounds [0, %u]", intServerPort, std::numeric_limits<unsigned short>::max());
 			return 1;
 		}
@@ -72,12 +77,12 @@ int main(int argc, char **argv)
 
 	// ---- RAKPEER -----
 	MafiaNet::RakPeerInterface *rakPeer;
-	rakPeer= MafiaNet::RakPeerInterface::GetInstance();
-	static const unsigned short clientLocalPort=0;
-	MafiaNet::SocketDescriptor sd(clientLocalPort,0); // Change this if you want
-	MafiaNet::StartupResult sr = rakPeer->Startup(1,&sd,1); // Change this if you want
-	rakPeer->SetMaximumIncomingConnections(0); // Change this if you want
-	if (sr!= MafiaNet::RAKNET_STARTED)
+	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
+	static const unsigned short clientLocalPort = 0;
+	MafiaNet::SocketDescriptor sd(clientLocalPort, 0);        // Change this if you want
+	MafiaNet::StartupResult sr = rakPeer->Startup(1, &sd, 1); // Change this if you want
+	rakPeer->SetMaximumIncomingConnections(0);                // Change this if you want
+	if (sr != MafiaNet::RAKNET_STARTED)
 	{
 		printf("Startup failed. Reason=%i\n", (int) sr);
 		return 1;
@@ -87,18 +92,18 @@ int main(int argc, char **argv)
 	rakPeer->AttachPlugin(&cloudClient);
 
 	MafiaNet::ConnectionAttemptResult car = rakPeer->Connect(serverAddress, serverPort, 0, 0);
-	if (car== MafiaNet::CANNOT_RESOLVE_DOMAIN_NAME)
+	if (car == MafiaNet::CANNOT_RESOLVE_DOMAIN_NAME)
 	{
 		printf("Cannot resolve domain name\n");
 		return 1;
 	}
 
 	printf("Connecting to %s...\n", serverAddress);
-	bool didRebalance=false; // So we only reconnect to a lower load server once, for load balancing
+	bool didRebalance = false; // So we only reconnect to a lower load server once, for load balancing
 	MafiaNet::Packet *packet;
-	for(;;)
+	for (;;)
 	{
-		for (packet=rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet=rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 		{
 			switch (packet->data[0])
 			{
@@ -133,94 +138,94 @@ int main(int argc, char **argv)
 				GetServers(&cloudClient, packet->guid);
 				break;
 			case ID_CLOUD_GET_RESPONSE:
+			{
+				MafiaNet::CloudQueryResult cloudQueryResult;
+				cloudClient.OnGetReponse(&cloudQueryResult, packet);
+				unsigned int rowIndex;
+				const bool wasCallToGetServers = cloudQueryResult.cloudQuery.keys[0].primaryKey == "CloudConnCount";
+				printf("\n");
+				if (wasCallToGetServers)
+					printf("Downloaded server list. %i servers.\n", cloudQueryResult.rowsReturned.Size());
+				else
+					printf("Downloaded client list. %i clients.\n", cloudQueryResult.rowsReturned.Size());
+
+				unsigned short connectionsOnOurServer = 65535;
+				unsigned short lowestConnectionsServer = 65535;
+				MafiaNet::SystemAddress lowestConnectionAddress;
+
+				for (rowIndex = 0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
 				{
-					MafiaNet::CloudQueryResult cloudQueryResult;
-					cloudClient.OnGetReponse(&cloudQueryResult, packet);
-					unsigned int rowIndex;
-					const bool wasCallToGetServers=cloudQueryResult.cloudQuery.keys[0].primaryKey=="CloudConnCount";
-					printf("\n");
+					MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
 					if (wasCallToGetServers)
-						printf("Downloaded server list. %i servers.\n", cloudQueryResult.rowsReturned.Size());
-					else
-						printf("Downloaded client list. %i clients.\n", cloudQueryResult.rowsReturned.Size());
-
-					unsigned short connectionsOnOurServer=65535;
-					unsigned short lowestConnectionsServer=65535;
-					MafiaNet::SystemAddress lowestConnectionAddress;
-
-					for (rowIndex=0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
 					{
-						MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
-						if (wasCallToGetServers)
-						{
-							unsigned short connCount;
-							MafiaNet::BitStream bsIn(row->data, row->length, false);
-							bsIn.Read(connCount);
-							printf("%i. Server found at %s with %i connections\n", rowIndex+1, row->serverSystemAddress.ToString(true), connCount);
+						unsigned short connCount;
+						MafiaNet::BitStream bsIn(row->data, row->length, false);
+						bsIn.Read(connCount);
+						printf("%i. Server found at %s with %i connections\n", rowIndex + 1, row->serverSystemAddress.ToString(true), connCount);
 
-							unsigned short connectionsExcludingOurselves;
-							if (row->serverGUID==packet->guid)
-								connectionsExcludingOurselves=connCount-1;
-							else
-								connectionsExcludingOurselves=connCount;
-
-
-							// Find the lowest load server (optional)
-							if (packet->guid==row->serverGUID)
-							{
-								connectionsOnOurServer=connectionsExcludingOurselves;
-							}
-							else if (connectionsExcludingOurselves < lowestConnectionsServer)
-							{
-								lowestConnectionsServer=connectionsExcludingOurselves;
-								lowestConnectionAddress=row->serverSystemAddress;
-							}
-						}
+						unsigned short connectionsExcludingOurselves;
+						if (row->serverGUID == packet->guid)
+							connectionsExcludingOurselves = connCount - 1;
 						else
+							connectionsExcludingOurselves = connCount;
+
+
+						// Find the lowest load server (optional)
+						if (packet->guid == row->serverGUID)
 						{
-							printf("%i. Client found at %s", rowIndex+1, row->clientSystemAddress.ToString(true));
-							if (row->clientGUID==rakPeer->GetMyGUID())
-								printf(" (Ourselves)");
-							MafiaNet::BitStream bsIn(row->data, row->length, false);
-							MafiaNet::RakString clientData;
-							bsIn.Read(clientData);
-							printf(" Data: %s", clientData.C_String());
-							printf("\n");
+							connectionsOnOurServer = connectionsExcludingOurselves;
+						}
+						else if (connectionsExcludingOurselves < lowestConnectionsServer)
+						{
+							lowestConnectionsServer = connectionsExcludingOurselves;
+							lowestConnectionAddress = row->serverSystemAddress;
 						}
 					}
-
-
-					// Do load balancing by reconnecting to lowest load server (optional)
-					if (didRebalance==false && wasCallToGetServers && cloudQueryResult.rowsReturned.Size()>0 && connectionsOnOurServer>lowestConnectionsServer)
-					{
-						printf("Reconnecting to lower load server %s\n", lowestConnectionAddress.ToString(false));
-
-						rakPeer->CloseConnection(packet->guid, true);
-						// Wait for the thread to close, otherwise will immediately get back ID_CONNECTION_ATTEMPT_FAILED because no free outgoing connection slots
-						// Alternatively, just call Startup() with 2 slots instead of 1
-						RakSleep(500);
-
-						rakPeer->Connect(lowestConnectionAddress.ToString(false), lowestConnectionAddress.GetPort(), 0, 0);
-						didRebalance=true;
-					}
-
-					cloudClient.DeallocateWithDefaultAllocator(&cloudQueryResult);
-				}
-
-				break;
-			case ID_CLOUD_SUBSCRIPTION_NOTIFICATION:
-				{
-					bool wasUpdated;
-					MafiaNet::CloudQueryRow cloudQueryRow;
-					cloudClient.OnSubscriptionNotification(&wasUpdated, &cloudQueryRow, packet, 0 );
-					if (wasUpdated)
-						printf("New client at %s\n", cloudQueryRow.clientSystemAddress.ToString(true));
 					else
-						printf("Lost client at %s\n", cloudQueryRow.clientSystemAddress.ToString(true));
-					cloudClient.DeallocateWithDefaultAllocator(&cloudQueryRow);
+					{
+						printf("%i. Client found at %s", rowIndex + 1, row->clientSystemAddress.ToString(true));
+						if (row->clientGUID == rakPeer->GetMyGUID())
+							printf(" (Ourselves)");
+						MafiaNet::BitStream bsIn(row->data, row->length, false);
+						MafiaNet::RakString clientData;
+						bsIn.Read(clientData);
+						printf(" Data: %s", clientData.C_String());
+						printf("\n");
+					}
 				}
 
-				break;
+
+				// Do load balancing by reconnecting to lowest load server (optional)
+				if (didRebalance == false && wasCallToGetServers && cloudQueryResult.rowsReturned.Size() > 0 && connectionsOnOurServer > lowestConnectionsServer)
+				{
+					printf("Reconnecting to lower load server %s\n", lowestConnectionAddress.ToString(false));
+
+					rakPeer->CloseConnection(packet->guid, true);
+					// Wait for the thread to close, otherwise will immediately get back ID_CONNECTION_ATTEMPT_FAILED because no free outgoing connection slots
+					// Alternatively, just call Startup() with 2 slots instead of 1
+					RakSleep(500);
+
+					rakPeer->Connect(lowestConnectionAddress.ToString(false), lowestConnectionAddress.GetPort(), 0, 0);
+					didRebalance = true;
+				}
+
+				cloudClient.DeallocateWithDefaultAllocator(&cloudQueryResult);
+			}
+
+			break;
+			case ID_CLOUD_SUBSCRIPTION_NOTIFICATION:
+			{
+				bool wasUpdated;
+				MafiaNet::CloudQueryRow cloudQueryRow;
+				cloudClient.OnSubscriptionNotification(&wasUpdated, &cloudQueryRow, packet, 0);
+				if (wasUpdated)
+					printf("New client at %s\n", cloudQueryRow.clientSystemAddress.ToString(true));
+				else
+					printf("Lost client at %s\n", cloudQueryRow.clientSystemAddress.ToString(true));
+				cloudClient.DeallocateWithDefaultAllocator(&cloudQueryRow);
+			}
+
+			break;
 			}
 		}
 
@@ -235,7 +240,7 @@ int main(int argc, char **argv)
 
 void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
-	MafiaNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY,0);
+	MafiaNet::CloudKey cloudKey(CLOUD_CLIENT_PRIMARY_KEY, 0);
 	MafiaNet::BitStream bs;
 	bs.Write("Hello World"); // This could be anything such as player list, game name, etc.
 	cloudClient->Post(&cloudKey, bs.GetData(), bs.GetNumberOfBytesUsed(), serverGuid);
@@ -243,14 +248,14 @@ void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetG
 void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
 	MafiaNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY,0),_FILE_AND_LINE_);
-	cloudQuery.subscribeToResults=true; // Causes ID_CLOUD_SUBSCRIPTION_NOTIFICATION
+	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY, 0), _FILE_AND_LINE_);
+	cloudQuery.subscribeToResults = true; // Causes ID_CLOUD_SUBSCRIPTION_NOTIFICATION
 	cloudClient->Get(&cloudQuery, serverGuid);
 }
 void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
 	MafiaNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount",0),_FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
-	cloudQuery.subscribeToResults=false;
+	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount", 0), _FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
+	cloudQuery.subscribeToResults = false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }

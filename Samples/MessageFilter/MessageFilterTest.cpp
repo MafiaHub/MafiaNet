@@ -28,8 +28,8 @@ int main()
 
 	char message;
 	MafiaNet::Packet *packet;
-	peer1= MafiaNet::RakPeerInterface::GetInstance();
-	peer2= MafiaNet::RakPeerInterface::GetInstance();
+	peer1 = MafiaNet::RakPeerInterface::GetInstance();
+	peer2 = MafiaNet::RakPeerInterface::GetInstance();
 
 	// Set up the filter rules.
 	// All new connections go to filter 0
@@ -37,23 +37,23 @@ int main()
 	// Filter 0 only allows ID_USER_PACKET_ENUM
 	messageFilter.SetAllowMessageID(true, ID_USER_PACKET_ENUM, ID_USER_PACKET_ENUM, 0);
 	// Filter 1 only allows ID_USER_PACKET_ENUM
-	messageFilter.SetAllowMessageID(true, ID_USER_PACKET_ENUM+1, ID_USER_PACKET_ENUM+1, 1);
+	messageFilter.SetAllowMessageID(true, ID_USER_PACKET_ENUM + 1, ID_USER_PACKET_ENUM + 1, 1);
 	// Use the filter on peer 1.
 	peer1->AttachPlugin(&messageFilter);
 
 	// Connect the systems to each other
-	MafiaNet::SocketDescriptor socketDescriptor(60000,0);
-	peer1->Startup(1,&socketDescriptor, 1);
+	MafiaNet::SocketDescriptor socketDescriptor(60000, 0);
+	peer1->Startup(1, &socketDescriptor, 1);
 	peer1->SetMaximumIncomingConnections(1);
-	socketDescriptor.port=60001;
-	peer2->Startup(1,&socketDescriptor, 1);
-	peer2->Connect("127.0.0.1", 60000,0,0);
+	socketDescriptor.port = 60001;
+	peer2->Startup(1, &socketDescriptor, 1);
+	peer2->Connect("127.0.0.1", 60000, 0, 0);
 
 	// Wait for the connection to complete
-	for(;;)
+	for (;;)
 	{
 		packet = peer1->Receive();
-		if (packet && packet->data[0]==ID_NEW_INCOMING_CONNECTION)
+		if (packet && packet->data[0] == ID_NEW_INCOMING_CONNECTION)
 		{
 			printf("Connected.\n");
 			peer1->DeallocatePacket(packet);
@@ -66,11 +66,11 @@ int main()
 	printf("Peer 2 sending ID_USER_PACKET_ENUM+1 and ID_USER_PACKET_ENUM\n");
 
 	// Have peer 2 send a disallowed message, then the allowed message.
-	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM+1);
+	message = static_cast<unsigned char>(ID_USER_PACKET_ENUM + 1);
 	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	// Allowed message
-	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
+	message = static_cast<unsigned char>(ID_USER_PACKET_ENUM);
 	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	RakSleep(1000);
@@ -80,7 +80,7 @@ int main()
 	packet = peer1->Receive();
 	while (packet)
 	{
-        switch (packet->data[0])
+		switch (packet->data[0])
 		{
 		case ID_USER_PACKET_ENUM:
 			printf("ID_USER_PACKET_ENUM\n");
@@ -88,7 +88,7 @@ int main()
 			// Switch the sender to group 1 now so that ID_USER_PACKET_ENUM+1 is allowed.
 			messageFilter.SetSystemFilterSet(packet, 1);
 			break;
-		case ID_USER_PACKET_ENUM+1:
+		case ID_USER_PACKET_ENUM + 1:
 			printf("ID_USER_PACKET_ENUM+1\n");
 			break;
 		}
@@ -98,9 +98,9 @@ int main()
 	}
 
 	// Have peer 2 send the messages again.
-	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM+1);
+	message = static_cast<unsigned char>(ID_USER_PACKET_ENUM + 1);
 	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
-	message=static_cast<unsigned char>(ID_USER_PACKET_ENUM);
+	message = static_cast<unsigned char>(ID_USER_PACKET_ENUM);
 	peer2->Send(&message, 1, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 
 	RakSleep(1000);
@@ -114,7 +114,7 @@ int main()
 		case ID_USER_PACKET_ENUM:
 			printf("ID_USER_PACKET_ENUM\n");
 			break;
-		case ID_USER_PACKET_ENUM+1:
+		case ID_USER_PACKET_ENUM + 1:
 			printf("ID_USER_PACKET_ENUM+1\n");
 			break;
 		}

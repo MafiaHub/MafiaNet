@@ -18,7 +18,6 @@
 ///
 
 
-
 #ifndef __SQL_LITE_CLIENT_LOGGER_RAKNET_STATISTICS_H_
 #define __SQL_LITE_CLIENT_LOGGER_RAKNET_STATISTICS_H_
 
@@ -26,17 +25,18 @@
 
 namespace MafiaNet
 {
-	/// \ingroup PACKETLOGGER_GROUP
-	/// \brief Packetlogger that outputs to a file
-	class RAK_DLL_EXPORT SQLiteClientLogger_RakNetStatistics : public PluginInterface2
-	{
-	public:
-		SQLiteClientLogger_RakNetStatistics();
-		virtual ~SQLiteClientLogger_RakNetStatistics();
-		virtual void Update(void);
-	protected:
-		MafiaNet::TimeUS lastUpdate;
-	};
+/// \ingroup PACKETLOGGER_GROUP
+/// \brief Packetlogger that outputs to a file
+class RAK_DLL_EXPORT SQLiteClientLogger_RakNetStatistics : public PluginInterface2
+{
+public:
+	SQLiteClientLogger_RakNetStatistics();
+	virtual ~SQLiteClientLogger_RakNetStatistics();
+	virtual void Update(void);
+
+protected:
+	MafiaNet::TimeUS lastUpdate;
+};
 }
 
 #endif

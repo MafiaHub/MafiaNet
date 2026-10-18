@@ -7,9 +7,10 @@
 
 #include "mafianet/guid_util.h"
 
-namespace MafiaNet {
+namespace MafiaNet
+{
 
-std::string to_string(const RakNetGUID& g)
+std::string to_string(const RakNetGUID &g)
 {
 	// The longest possible output is "UNASSIGNED_RAKNET_GUID" (22 chars) or a
 	// 64-bit decimal (20 chars); 64 bytes matches the legacy buffer size and
@@ -19,7 +20,7 @@ std::string to_string(const RakNetGUID& g)
 	return std::string(buffer);
 }
 
-std::optional<SystemAddress> connected_address(RakPeerInterface& peer, const RakNetGUID& g)
+std::optional<SystemAddress> connected_address(RakPeerInterface &peer, const RakNetGUID &g)
 {
 	const SystemAddress address = peer.GetSystemAddressFromGuid(g);
 	if (address == UNASSIGNED_SYSTEM_ADDRESS)

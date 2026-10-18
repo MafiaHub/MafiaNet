@@ -20,16 +20,16 @@ using namespace MafiaNet;
 
 namespace
 {
-	const int kPeerNum = 8;
-	const unsigned short kMaxConnections = 4;
+const int kPeerNum = 8;
+const unsigned short kMaxConnections = 4;
 
-	int ConnectionCount(RakPeer *peer)
-	{
-		DataStructures::List<SystemAddress> systemList;
-		DataStructures::List<RakNetGUID> guidList;
-		peer->GetSystemList(systemList, guidList);
-		return (int) guidList.Size();
-	}
+int ConnectionCount(RakPeer *peer)
+{
+	DataStructures::List<SystemAddress> systemList;
+	DataStructures::List<RakNetGUID> guidList;
+	peer->GetSystemList(systemList, guidList);
+	return (int) guidList.Size();
+}
 }
 
 TEST(MaximumConnectSim, GetMaximumIncomingConnectionsReturnsTheSetValue)
@@ -54,7 +54,8 @@ TEST(MaximumConnectSim, MeshNeverExceedsTheConnectionLimit)
 			ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(peers[i], peers[j])) << i << " -> " << j;
 
 	// The limit must hold at every instant, not only once things settle.
-	const auto allAttemptsResolved = [&] {
+	const auto allAttemptsResolved = [&]
+	{
 		for (int i = 0; i < kPeerNum; ++i)
 			for (int j = 0; j < kPeerNum; ++j)
 			{
@@ -62,17 +63,17 @@ TEST(MaximumConnectSim, MeshNeverExceedsTheConnectionLimit)
 					continue;
 				const ConnectionState state = peers[i]->GetConnectionState(net.AddressOf(peers[j]));
 				if (state == IS_PENDING || state == IS_CONNECTING || state == IS_DISCONNECTING ||
-					state == IS_SILENTLY_DISCONNECTING)
+				    state == IS_SILENTLY_DISCONNECTING)
 					return false;
 			}
 		return true;
 	};
 	int worst = 0;
-	const bool resolved = net.RunUntil([&] {
+	const bool resolved = net.RunUntil([&]
+	                                   {
 		for (int i = 0; i < kPeerNum; ++i)
 			worst = std::max(worst, ConnectionCount(peers[i]));
-		return allAttemptsResolved();
-	}, 20000);
+		return allAttemptsResolved(); }, 20000);
 	EXPECT_LE(worst, (int) kMaxConnections) << "an extra connection was allowed at some point";
 	ASSERT_TRUE(resolved) << "connection attempts still pending after 20s";
 
@@ -88,8 +89,8 @@ TEST(MaximumConnectSim, MeshNeverExceedsTheConnectionLimit)
 			if (i != j)
 			{
 				EXPECT_EQ(peers[i]->GetConnectionState(net.AddressOf(peers[j])) == IS_CONNECTED,
-					peers[j]->GetConnectionState(net.AddressOf(peers[i])) == IS_CONNECTED)
-					<< "asymmetric link " << i << " <-> " << j;
+				          peers[j]->GetConnectionState(net.AddressOf(peers[i])) == IS_CONNECTED)
+				    << "asymmetric link " << i << " <-> " << j;
 			}
 	}
 	// A full mesh would need 7 per peer: some attempts were refused, but the

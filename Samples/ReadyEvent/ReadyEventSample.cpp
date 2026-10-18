@@ -46,7 +46,7 @@ ConnectionGraph2 cg2;
 
 int main(void)
 {
-	rakPeer=RakPeerInterface::GetInstance();
+	rakPeer = RakPeerInterface::GetInstance();
 
 	printf("This project tests and demonstrates the ready event plugin.\n");
 	printf("It is used in a peer to peer environment to have a group of\nsystems signal an event.\n");
@@ -63,11 +63,11 @@ int main(void)
 	cg2.SetAutoProcessNewConnections(true);
 
 	// Initialize the peers
-	SocketDescriptor sd(60000,0);
-	while (IRNS2_Berkley::IsPortInUse(sd.port,sd.hostAddress,sd.socketFamily,SOCK_DGRAM)==true)
+	SocketDescriptor sd(60000, 0);
+	while (IRNS2_Berkley::IsPortInUse(sd.port, sd.hostAddress, sd.socketFamily, SOCK_DGRAM) == true)
 		sd.port++;
 	StartupResult sr = rakPeer->Startup(8, &sd, 1);
-	RakAssert(sr==RAKNET_STARTED);
+	RakAssert(sr == RAKNET_STARTED);
 	printf("Started on port %i\n", sd.port);
 
 	// Give the threads time to properly start
@@ -84,65 +84,66 @@ int main(void)
 	printf("' ' to print wait status\n");
 
 	char str[128];
-	int ch=0;
-	for(;;)
+	int ch = 0;
+	for (;;)
 	{
 		if (_kbhit())
-			ch=_getch();
+			ch = _getch();
 
-		if (ch=='s' || ch=='S')
+		if (ch == 's' || ch == 'S')
 		{
-			ch=0;
-			if (readyEventPlugin.SetEvent(0,true))
+			ch = 0;
+			if (readyEventPlugin.SetEvent(0, true))
 				printf("This system is signaled\n");
 			else
 				printf("This system is signaled FAILED\n");
 		}
-		if (ch=='u' || ch=='U')
+		if (ch == 'u' || ch == 'U')
 		{
-			ch=0;
-			if (readyEventPlugin.SetEvent(0,false))
+			ch = 0;
+			if (readyEventPlugin.SetEvent(0, false))
 				printf("This system is unsignaled\n");
 			else
 				printf("This system is unsignaled FAILED\n");
 		}
-		if (ch=='c' || ch=='C')
+		if (ch == 'c' || ch == 'C')
 		{
-			ch=0;
+			ch = 0;
 			printf("Which IP? (Press enter for 127.0.0.1)");
 			Gets(str, sizeof(str));
-			if (str[0]==0)
+			if (str[0] == 0)
 				strcpy_s(str, "127.0.0.1");
 			char port[64];
 			printf("Which port? (Press enter for 60000)");
 			Gets(port, sizeof(port));
-			if (port[0]==0)
+			if (port[0] == 0)
 				strcpy_s(port, "60000");
 			const int intRemotePort = atoi(port);
-			if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max())) {
+			if ((intRemotePort < 0) || (intRemotePort > std::numeric_limits<unsigned short>::max()))
+			{
 				printf("Specified remote port %d is outside valid bounds [0, %u]", intRemotePort, std::numeric_limits<unsigned short>::max());
 				return 2;
 			}
 			SLNET_VERIFY(rakPeer->Connect(str, static_cast<unsigned short>(intRemotePort), 0, 0, 0) == CONNECTION_ATTEMPT_STARTED);
 			printf("Connecting.\n");
 		}
-		if (ch=='d' || ch=='D')
+		if (ch == 'd' || ch == 'D')
 		{
-			ch=0;
-			rakPeer->Shutdown(100,0);
+			ch = 0;
+			rakPeer->Shutdown(100, 0);
 			sr = rakPeer->Startup(8, &sd, 1);
-			RakAssert(sr==RAKNET_STARTED);
+			RakAssert(sr == RAKNET_STARTED);
 			printf("Restarting RakPeerInterface.\n");
 		}
-		if (ch=='f' || ch=='F')
+		if (ch == 'f' || ch == 'F')
 		{
-			ch=0;
+			ch = 0;
 			readyEventPlugin.ForceCompletion(0);
 			printf("Called ForceCompletion()\nIsEventCompleted() will be fixed at true for all systems.\n");
 		}
-		if (ch==' ')
+		if (ch == ' ')
 		{
-			ch=0;
+			ch = 0;
 
 			printf("\n");
 			PrintConnections();
@@ -161,7 +162,7 @@ int main(void)
 			DataStructures::List<SystemAddress> addresses;
 			DataStructures::List<RakNetGUID> guids;
 			rakPeer->GetSystemList(addresses, guids);
-			for (unsigned short i=0; i < guids.Size(); i++)
+			for (unsigned short i = 0; i < guids.Size(); i++)
 			{
 				ReadyEventSystemStatus ress = readyEventPlugin.GetReadyStatus(0, guids[i]);
 				printf("  Remote system %i, status = ", i);
@@ -186,7 +187,7 @@ int main(void)
 				}
 			}
 		}
-		if (ch=='Q' || ch=='q')
+		if (ch == 'Q' || ch == 'q')
 		{
 			break;
 		}
@@ -228,7 +229,7 @@ int main(void)
 				printf("ID_INCOMPATIBLE_PROTOCOL_VERSION\n");
 				break;
 			case ID_REMOTE_DISCONNECTION_NOTIFICATION: // Server telling the clients of another client disconnecting gracefully.  You can manually broadcast this in a peer to peer enviroment if you want.
-				printf("ID_REMOTE_DISCONNECTION_NOTIFICATION\n"); 
+				printf("ID_REMOTE_DISCONNECTION_NOTIFICATION\n");
 				break;
 			case ID_REMOTE_CONNECTION_LOST: // Server telling the clients of another client disconnecting forcefully.  You can manually broadcast this in a peer to peer enviroment if you want.
 				printf("ID_REMOTE_CONNECTION_LOST\n");
@@ -238,7 +239,7 @@ int main(void)
 				break;
 			case ID_CONNECTION_BANNED: // Banned from this server
 				printf("We are banned from this server.\n");
-				break;			
+				break;
 			case ID_CONNECTION_ATTEMPT_FAILED:
 				printf("Connection attempt failed\n");
 				break;
@@ -262,12 +263,12 @@ int main(void)
 			}
 
 			rakPeer->DeallocatePacket(p);
-		}		
+		}
 
 		// Keep raknet threads responsive
 		RakSleep(30);
 	}
-	
+
 	RakPeerInterface::DestroyInstance(rakPeer);
 
 	return 1;
@@ -275,22 +276,22 @@ int main(void)
 
 void PrintConnections()
 {
-	int i,j;
+	int i, j;
 	SystemAddress systemAddress;
-	
+
 	printf("--------------------------------\n");
 
 	SystemAddress remoteSystems[8];
 	unsigned short numberOfSystems;
 	rakPeer->GetConnectionList(remoteSystems, &numberOfSystems);
 
-	for (i=0; i < numberOfSystems; i++)
+	for (i = 0; i < numberOfSystems; i++)
 	{
-		printf("%i (Conn): ", 60000+i);
-		for (j=0; j < numberOfSystems; j++)
+		printf("%i (Conn): ", 60000 + i);
+		for (j = 0; j < numberOfSystems; j++)
 		{
-			systemAddress=rakPeer->GetSystemAddressFromIndex(j);
-			if (systemAddress!=UNASSIGNED_SYSTEM_ADDRESS)
+			systemAddress = rakPeer->GetSystemAddressFromIndex(j);
+			if (systemAddress != UNASSIGNED_SYSTEM_ADDRESS)
 				printf("%i ", systemAddress.GetPort());
 		}
 
@@ -299,5 +300,4 @@ void PrintConnections()
 	printf("\n");
 
 	printf("--------------------------------\n");
-	
 }

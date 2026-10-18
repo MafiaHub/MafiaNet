@@ -41,12 +41,12 @@
 // After debugging, restore your previous work.
 
 #include "mafianet/socket_layer.h"
-#include "CrashReporter.h" // This is the only required file for the crash reporter.  You must link in Dbghelp.lib
-#include <stdio.h> // Printf, for the sample code
+#include "CrashReporter.h"  // This is the only required file for the crash reporter.  You must link in Dbghelp.lib
+#include <stdio.h>          // Printf, for the sample code
 #include "mafianet/kbhit.h" // getch, for the sample code
 #pragma warning(push)
 // disable warning 4091 (triggers for enum typedefs in DbgHelp.h in Windows SDK 7.1 and Windows SDK 8.1)
-#pragma warning(disable:4091)
+#pragma warning(disable : 4091)
 #include <DbgHelp.h>
 #pragma warning(pop)
 
@@ -54,18 +54,18 @@
 
 void function1(int a)
 {
-	int *crashPtr=0;
+	int *crashPtr = 0;
 	// Keep crashPtr from getting compiled out
 	printf("Now crashing!!!! %p\n", crashPtr);
 	// If it crashes here in your debugger that is because you didn't define _DEBUG_CRASH_REPORTER to catch it.
 	// The normal mode of the crash handler is to only catch when you are NOT debugging (started through ctrl-f5)
-	*crashPtr=a;
+	*crashPtr = a;
 }
 
 void RunGame(void)
 {
-	int a=10;
-	int b=20;
+	int a = 10;
+	int b = 20;
 	function1(a);
 	printf("%i", b);
 }
@@ -87,69 +87,69 @@ void main(void)
 	printf("to debug the crash.\n\n");
 
 	MafiaNet::CrashReportControls controls;
-	controls.actionToTake=0;
+	controls.actionToTake = 0;
 
 	printf("Send an email? (y/n)\n");
-	if (_getch()=='y')
+	if (_getch() == 'y')
 	{
 		printf("Attach the mini-dump to the email? (y/n)\n");
-		if (_getch()=='y')
-			controls.actionToTake|= MafiaNet::AOC_EMAIL_WITH_ATTACHMENT;
+		if (_getch() == 'y')
+			controls.actionToTake |= MafiaNet::AOC_EMAIL_WITH_ATTACHMENT;
 		else
-			controls.actionToTake|= MafiaNet::AOC_EMAIL_NO_ATTACHMENT;
+			controls.actionToTake |= MafiaNet::AOC_EMAIL_NO_ATTACHMENT;
 	}
 	printf("Write mini-dump to disk? (y/n)\n");
-	if (_getch()=='y')
-		controls.actionToTake|= MafiaNet::AOC_WRITE_TO_DISK;
+	if (_getch() == 'y')
+		controls.actionToTake |= MafiaNet::AOC_WRITE_TO_DISK;
 	printf("Handle crashes in silent mode (no prompts)? (y/n)\n");
-	if (_getch()=='y')
-		controls.actionToTake|= MafiaNet::AOC_SILENT_MODE;
+	if (_getch() == 'y')
+		controls.actionToTake |= MafiaNet::AOC_SILENT_MODE;
 
 	if ((controls.actionToTake & MafiaNet::AOC_EMAIL_WITH_ATTACHMENT) || (controls.actionToTake & MafiaNet::AOC_EMAIL_NO_ATTACHMENT))
 	{
 		if (controls.actionToTake & MafiaNet::AOC_SILENT_MODE)
 		{
 			printf("Enter SMTP Server: ");
-			Gets(controls.SMTPServer,sizeof(controls.SMTPServer));
-			if (controls.SMTPServer[0]==0)
+			Gets(controls.SMTPServer, sizeof(controls.SMTPServer));
+			if (controls.SMTPServer[0] == 0)
 				return;
 			printf("Enter SMTP account name: ");
-			Gets(controls.SMTPAccountName,sizeof(controls.SMTPAccountName));
-			if (controls.SMTPAccountName[0]==0)
+			Gets(controls.SMTPAccountName, sizeof(controls.SMTPAccountName));
+			if (controls.SMTPAccountName[0] == 0)
 				return;
 			printf("Enter sender email address: ");
-			Gets(controls.emailSender,sizeof(controls.emailSender));
+			Gets(controls.emailSender, sizeof(controls.emailSender));
 		}
 
 		printf("Enter email recipient email address: ");
-		Gets(controls.emailRecipient,sizeof(controls.emailRecipient));
-		if (controls.emailRecipient[0]==0)
+		Gets(controls.emailRecipient, sizeof(controls.emailRecipient));
+		if (controls.emailRecipient[0] == 0)
 			return;
 
 		printf("Enter subject prefix, if any: ");
-		Gets(controls.emailSubjectPrefix,sizeof(controls.emailSubjectPrefix));
+		Gets(controls.emailSubjectPrefix, sizeof(controls.emailSubjectPrefix));
 
-		if ((controls.actionToTake & MafiaNet::AOC_SILENT_MODE)==0)
+		if ((controls.actionToTake & MafiaNet::AOC_SILENT_MODE) == 0)
 		{
 			printf("Enter text to write in email body: ");
-			Gets(controls.emailBody,sizeof(controls.emailBody));
+			Gets(controls.emailBody, sizeof(controls.emailBody));
 		}
 	}
-	
+
 	if (controls.actionToTake & MafiaNet::AOC_WRITE_TO_DISK)
 	{
 		printf("Enter disk path to write to (ENTER for current directory): ");
-		Gets(controls.pathToMinidump,sizeof(controls.pathToMinidump));
+		Gets(controls.pathToMinidump, sizeof(controls.pathToMinidump));
 	}
 
 	printf("Enter application name: ");
-	Gets(controls.appName,sizeof(controls.appName));
+	Gets(controls.appName, sizeof(controls.appName));
 	printf("Enter application version: ");
-	Gets(controls.appVersion,sizeof(controls.appVersion));
+	Gets(controls.appVersion, sizeof(controls.appVersion));
 
 	// MiniDumpNormal will not give you SocketLayer::I correctly but is small (like 15K)
 	// MiniDumpWithDataSegs is much bigger (391K) but does give you SocketLayer::I correctly.
-	controls.minidumpType=MiniDumpWithDataSegs;
+	controls.minidumpType = MiniDumpWithDataSegs;
 
 	// You must call Start before any crashes will be reported.
 	MafiaNet::CrashReporter::Start(&controls);
@@ -157,7 +157,7 @@ void main(void)
 
 // If you don't plan to debug the crash reporter itself, you can remove the __try within _DEBUG_CRASH_REPORTER
 #ifdef _DEBUG_CRASH_REPORTER
-	__try 
+	__try
 #endif
 	{
 		RunGame();
@@ -165,7 +165,7 @@ void main(void)
 
 // If you don't plan to debug the crash reporter itself, you can remove the DumpMiniDump code within _DEBUG_CRASH_REPORTER
 #ifdef _DEBUG_CRASH_REPORTER
-	__except(DumpMiniDump(GetExceptionInformation()),EXCEPTION_EXECUTE_HANDLER) 
+	__except (DumpMiniDump(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER)
 	{
 	}
 #endif

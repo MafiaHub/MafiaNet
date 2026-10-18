@@ -30,21 +30,21 @@
 *   Adds the bytes of the unsigned int to the CheckSum
 ****************************************************************************/
 
-void CheckSum::Add ( unsigned int value )
+void CheckSum::Add(unsigned int value)
 {
 	union
 	{
 		unsigned int value;
-		unsigned char bytes[ 4 ];
+		unsigned char bytes[4];
 	}
 
 	data;
 	data.value = value;
 
-	for ( unsigned int i = 0; i < sizeof( data.bytes ); i++ )
-		Add ( data.bytes[ i ] )
+	for (unsigned int i = 0; i < sizeof(data.bytes); i++)
+		Add(data.bytes[i])
 
-		;
+		    ;
 } // CheckSum::add(unsigned int)
 
 /****************************************************************************
@@ -57,21 +57,21 @@ void CheckSum::Add ( unsigned int value )
 *   Adds the bytes of the unsigned short value to the CheckSum
 ****************************************************************************/
 
-void CheckSum::Add ( unsigned short value )
+void CheckSum::Add(unsigned short value)
 {
 	union
 	{
 		unsigned short value;
-		unsigned char bytes[ 2 ];
+		unsigned char bytes[2];
 	}
 
 	data;
 	data.value = value;
 
-	for ( unsigned int i = 0; i < sizeof( data.bytes ); i++ )
-		Add ( data.bytes[ i ] )
+	for (unsigned int i = 0; i < sizeof(data.bytes); i++)
+		Add(data.bytes[i])
 
-		;
+		    ;
 } // CheckSum::add(unsigned short)
 
 /****************************************************************************
@@ -84,10 +84,10 @@ void CheckSum::Add ( unsigned short value )
 *   Adds the byte to the CheckSum
 ****************************************************************************/
 
-void CheckSum::Add ( unsigned char value )
+void CheckSum::Add(unsigned char value)
 {
-	unsigned char cipher = (unsigned char)( value ^ ( r >> 8 ) );
-	r = ( cipher + r ) * c1 + c2;
+	unsigned char cipher = (unsigned char) (value ^ (r >> 8));
+	r = (cipher + r) * c1 + c2;
 	sum += cipher;
 } // CheckSum::add(unsigned char)
 
@@ -103,10 +103,10 @@ void CheckSum::Add ( unsigned char value )
 *   Adds the bytes to the CheckSum
 ****************************************************************************/
 
-void CheckSum::Add ( unsigned char *b, unsigned int length )
+void CheckSum::Add(unsigned char *b, unsigned int length)
 {
-	for ( unsigned int i = 0; i < length; i++ )
-		Add ( b[ i ] )
+	for (unsigned int i = 0; i < length; i++)
+		Add(b[i])
 
-		;
+		    ;
 } // CheckSum::add(LPunsigned char, unsigned int)

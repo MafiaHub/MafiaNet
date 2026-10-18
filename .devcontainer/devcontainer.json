@@ -8,7 +8,7 @@
 	// ptrace for gdb; the default seccomp profile also blocks the personality()
 	// call TSan uses to disable ASLR.
 	"runArgs": ["--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"],
-	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends libssl-dev clang clangd clang-tidy ccache",
+	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends libssl-dev clang clangd clang-tidy ccache pipx && pipx install clang-format==18.1.8",
 	"customizations": {
 		"vscode": {
 			"extensions": [

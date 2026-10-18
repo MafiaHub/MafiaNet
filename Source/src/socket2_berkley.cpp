@@ -23,45 +23,46 @@
 // Berkeley socket implementation for Windows and Linux
 
 #ifdef _WIN32
-#include <tchar.h>	// used for _tprintf() (via RAKNET_DEBUG_TPRINTF)
+#include <tchar.h> // used for _tprintf() (via RAKNET_DEBUG_TPRINTF)
 #else
 #include "mafianet/linux_strings.h" // used for _stricmp()
-#include <sys/types.h>             // used for getaddrinfo()
-#include <sys/socket.h>            // used for getaddrinfo()
-#include <netdb.h>                 // used for getaddrinfo()
+#include <sys/types.h>              // used for getaddrinfo()
+#include <sys/socket.h>             // used for getaddrinfo()
+#include <netdb.h>                  // used for getaddrinfo()
 #endif
 
 #include "mafianet/itoa.h"
 #include "mafianet/wsa_startup_singleton.h"
 
 // Domain name resolution functions
-void DomainNameToIP_Berkley_IPV4And6( const char *domainName, char ip[65] )
+void DomainNameToIP_Berkley_IPV4And6(const char *domainName, char ip[65])
 {
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 	struct addrinfo hints, *res, *p;
 	int status;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
 
-	if ((status = getaddrinfo(domainName, nullptr, &hints, &res)) != 0) {
+	if ((status = getaddrinfo(domainName, nullptr, &hints, &res)) != 0)
+	{
 		ip[0] = '\0';
 		return;
 	}
 
-	p=res;
+	p = res;
 	void *addr;
 	if (p->ai_family == AF_INET)
 	{
-		struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *) p->ai_addr;
 		addr = &(ipv4->sin_addr);
 		inet_ntop(AF_INET, &ipv4->sin_addr, ip, 65);
 	}
 	else
 	{
-		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) p->ai_addr;
 		addr = &(ipv6->sin6_addr);
-		getnameinfo((struct sockaddr *)ipv6, sizeof(struct sockaddr_in6), ip, 65, nullptr, 0, NI_NUMERICHOST);
+		getnameinfo((struct sockaddr *) ipv6, sizeof(struct sockaddr_in6), ip, 65, nullptr, 0, NI_NUMERICHOST);
 	}
 	freeaddrinfo(res);
 #else
@@ -70,7 +71,7 @@ void DomainNameToIP_Berkley_IPV4And6( const char *domainName, char ip[65] )
 #endif
 }
 
-void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
+void DomainNameToIP_Berkley_IPV4(const char *domainName, char ip[65])
 {
 	struct addrinfo *addressinfo = nullptr;
 	struct addrinfo *originalAddressInfo = nullptr;
@@ -78,7 +79,7 @@ void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
 	int error = getaddrinfo(domainName, nullptr, nullptr, &addressinfo);
 	WSAStartupSingleton::Deref();
 
-	if ( error != 0 || addressinfo == 0 )
+	if (error != 0 || addressinfo == 0)
 	{
 		ip[0] = '\0';
 		return;
@@ -86,14 +87,17 @@ void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
 
 	originalAddressInfo = addressinfo;
 
-	while (addressinfo != nullptr) {
-		if (addressinfo->ai_family == AF_INET) {
+	while (addressinfo != nullptr)
+	{
+		if (addressinfo->ai_family == AF_INET)
+		{
 			break;
 		}
 		addressinfo = addressinfo->ai_next;
 	}
 
-	if (addressinfo == nullptr) {
+	if (addressinfo == nullptr)
+	{
 		ip[0] = '\0';
 		freeaddrinfo(originalAddressInfo);
 		return;
@@ -104,9 +108,9 @@ void DomainNameToIP_Berkley_IPV4( const char *domainName, char ip[65] )
 	freeaddrinfo(originalAddressInfo);
 }
 
-void DomainNameToIP_Berkley( const char *domainName, char ip[65] )
+void DomainNameToIP_Berkley(const char *domainName, char ip[65])
 {
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 	return DomainNameToIP_Berkley_IPV4And6(domainName, ip);
 #else
 	return DomainNameToIP_Berkley_IPV4(domainName, ip);
@@ -117,25 +121,25 @@ void RNS2_Berkley::SetSocketOptions(void)
 {
 	[[maybe_unused]] int r; // only checked by RakAssert (debug builds)
 	// This doubles the max throughput rate
-	int sock_opt=1024*256;
-	r = setsockopt__( rns2Socket, SOL_SOCKET, SO_RCVBUF, ( char * ) & sock_opt, sizeof ( sock_opt ) );
-	RakAssert(r==0);
+	int sock_opt = 1024 * 256;
+	r = setsockopt__(rns2Socket, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
+	RakAssert(r == 0);
 
 	// Immediate hard close. Don't linger the socket, or recreating the socket quickly on Vista fails.
 	// Fails on some platforms when the socket protocol is not plain UDP
 
-	sock_opt=0;
-	r = setsockopt__( rns2Socket, SOL_SOCKET, SO_LINGER, ( char * ) & sock_opt, sizeof ( sock_opt ) );
+	sock_opt = 0;
+	r = setsockopt__(rns2Socket, SOL_SOCKET, SO_LINGER, (char *) &sock_opt, sizeof(sock_opt));
 	// Do not assert, ignore failure
 
 #ifdef _WIN32
-	// Disable SIO_UDP_CONNRESET behavior on Windows
-	// By default, if a UDP sendto() results in an ICMP "port unreachable" response,
-	// Windows will cause subsequent recvfrom() calls to fail with WSAECONNRESET (10054).
-	// This is undesirable for UDP applications that may send to unreachable hosts.
-	#ifndef SIO_UDP_CONNRESET
-	#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
-	#endif
+// Disable SIO_UDP_CONNRESET behavior on Windows
+// By default, if a UDP sendto() results in an ICMP "port unreachable" response,
+// Windows will cause subsequent recvfrom() calls to fail with WSAECONNRESET (10054).
+// This is undesirable for UDP applications that may send to unreachable hosts.
+#ifndef SIO_UDP_CONNRESET
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
 	BOOL bNewBehavior = FALSE;
 	DWORD dwBytesReturned = 0;
 	WSAIoctl(rns2Socket, SIO_UDP_CONNRESET, &bNewBehavior, sizeof(bNewBehavior), nullptr, 0, &dwBytesReturned, nullptr, nullptr);
@@ -144,106 +148,101 @@ void RNS2_Berkley::SetSocketOptions(void)
 
 	// This doesn't make much difference: 10% maybe
 	// Not supported on console 2
-	sock_opt=1024*16;
-	r = setsockopt__( rns2Socket, SOL_SOCKET, SO_SNDBUF, ( char * ) & sock_opt, sizeof ( sock_opt ) );
-	RakAssert(r==0);
-
+	sock_opt = 1024 * 16;
+	r = setsockopt__(rns2Socket, SOL_SOCKET, SO_SNDBUF, (char *) &sock_opt, sizeof(sock_opt));
+	RakAssert(r == 0);
 }
 
 void RNS2_Berkley::SetNonBlockingSocket(unsigned long nonblocking)
 {
 #ifdef _WIN32
-	SLNET_VERIFY( ioctlsocket__( rns2Socket, FIONBIO, &nonblocking ) == 0);
+	SLNET_VERIFY(ioctlsocket__(rns2Socket, FIONBIO, &nonblocking) == 0);
 #else
 	if (nonblocking)
-		fcntl( rns2Socket, F_SETFL, O_NONBLOCK );
+		fcntl(rns2Socket, F_SETFL, O_NONBLOCK);
 #endif
 }
 void RNS2_Berkley::SetBroadcastSocket(int broadcast)
 {
-	setsockopt__( rns2Socket, SOL_SOCKET, SO_BROADCAST, ( char * ) & broadcast, sizeof( broadcast ) );
+	setsockopt__(rns2Socket, SOL_SOCKET, SO_BROADCAST, (char *) &broadcast, sizeof(broadcast));
 }
 void RNS2_Berkley::SetIPHdrIncl(int ipHdrIncl)
 {
 
-		setsockopt__( rns2Socket, IPPROTO_IP, IP_HDRINCL, ( char * ) & ipHdrIncl, sizeof( ipHdrIncl ) );
-
+	setsockopt__(rns2Socket, IPPROTO_IP, IP_HDRINCL, (char *) &ipHdrIncl, sizeof(ipHdrIncl));
 }
-void RNS2_Berkley::SetDoNotFragment( [[maybe_unused]] int opt ) // unused where IP_DONTFRAGMENT does not exist
+void RNS2_Berkley::SetDoNotFragment([[maybe_unused]] int opt) // unused where IP_DONTFRAGMENT does not exist
 {
-	#if defined( IP_DONTFRAGMENT )
- #if defined(_WIN32) && !defined(_DEBUG)
-		// If this assert hit you improperly linked against WSock32.h
-		RakAssert(IP_DONTFRAGMENT==14);
-	#endif
-		setsockopt__( rns2Socket, boundAddress.GetIPPROTO(), IP_DONTFRAGMENT, ( char * ) & opt, sizeof ( opt ) );
-	#endif
+#if defined(IP_DONTFRAGMENT)
+#if defined(_WIN32) && !defined(_DEBUG)
+	// If this assert hit you improperly linked against WSock32.h
+	RakAssert(IP_DONTFRAGMENT == 14);
+#endif
+	setsockopt__(rns2Socket, boundAddress.GetIPPROTO(), IP_DONTFRAGMENT, (char *) &opt, sizeof(opt));
+#endif
 }
 
-void RNS2_Berkley::GetSystemAddressIPV4 ( RNS2Socket rns2Socket, SystemAddress *systemAddressOut )
+void RNS2_Berkley::GetSystemAddressIPV4(RNS2Socket rns2Socket, SystemAddress *systemAddressOut)
 {
 	sockaddr_in sa;
-	memset(&sa,0,sizeof(sockaddr_in));
+	memset(&sa, 0, sizeof(sockaddr_in));
 	socklen_t len = sizeof(sa);
-	//int r = 
-		getsockname__(rns2Socket, (sockaddr*)&sa, &len);
+	//int r =
+	getsockname__(rns2Socket, (sockaddr *) &sa, &len);
 	systemAddressOut->SetPortNetworkOrder(sa.sin_port);
-	systemAddressOut->address.addr4.sin_addr.s_addr=sa.sin_addr.s_addr;
+	systemAddressOut->address.addr4.sin_addr.s_addr = sa.sin_addr.s_addr;
 
 	if (systemAddressOut->address.addr4.sin_addr.s_addr == INADDR_ANY)
 	{
 
 
-
-
 		inet_pton(AF_INET, "127.0.0.1", &systemAddressOut->address.addr4.sin_addr.s_addr);
-
 	}
 }
-void RNS2_Berkley::GetSystemAddressIPV4And6 ( RNS2Socket rns2Socket, SystemAddress *systemAddressOut )
+void RNS2_Berkley::GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut)
 {
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 
 	socklen_t slen;
 	sockaddr_storage ss;
 	slen = sizeof(ss);
 
-	if ( getsockname__(rns2Socket, (struct sockaddr *)&ss, &slen)!=0)
+	if (getsockname__(rns2Socket, (struct sockaddr *) &ss, &slen) != 0)
 	{
 #if defined(_WIN32) && defined(_DEBUG)
 		DWORD dwIOError = GetLastError();
 		LPVOID messageBuffer;
-		FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			nullptr, dwIOError, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),  // Default language
-			( LPTSTR ) & messageBuffer, 0, nullptr);
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		              nullptr, dwIOError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+		              (LPTSTR) &messageBuffer, 0, nullptr);
 		// something has gone wrong here...
-		RAKNET_DEBUG_TPRINTF( _T("getsockname failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
+		RAKNET_DEBUG_TPRINTF(_T("getsockname failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
 
 		//Free the buffer.
-		LocalFree( messageBuffer );
+		LocalFree(messageBuffer);
 #endif
 		systemAddressOut->FromString(0);
 		return;
 	}
 
-	if (ss.ss_family==AF_INET)
+	if (ss.ss_family == AF_INET)
 	{
-		memcpy(&systemAddressOut->address.addr4,(sockaddr_in *)&ss,sizeof(sockaddr_in));
-		systemAddressOut->debugPort=ntohs(systemAddressOut->address.addr4.sin_port);
+		memcpy(&systemAddressOut->address.addr4, (sockaddr_in *) &ss, sizeof(sockaddr_in));
+		systemAddressOut->debugPort = ntohs(systemAddressOut->address.addr4.sin_port);
 
-		uint32_t zero = 0;		
-		if (memcmp(&systemAddressOut->address.addr4.sin_addr.s_addr, &zero, sizeof(zero))==0)
+		uint32_t zero = 0;
+		if (memcmp(&systemAddressOut->address.addr4.sin_addr.s_addr, &zero, sizeof(zero)) == 0)
 			systemAddressOut->SetToLoopback(4);
 		//	systemAddressOut->address.addr4.sin_port=ntohs(systemAddressOut->address.addr4.sin_port);
 	}
 	else
 	{
-		memcpy(&systemAddressOut->address.addr6,(sockaddr_in6 *)&ss,sizeof(sockaddr_in6));
-		systemAddressOut->debugPort=ntohs(systemAddressOut->address.addr6.sin6_port);
+		memcpy(&systemAddressOut->address.addr6, (sockaddr_in6 *) &ss, sizeof(sockaddr_in6));
+		systemAddressOut->debugPort = ntohs(systemAddressOut->address.addr6.sin6_port);
 
 		char zero[16];
-		memset(zero,0,sizeof(zero));
-		if (memcmp(&systemAddressOut->address.addr4.sin_addr.s_addr, &zero, sizeof(zero))==0)
+		memset(zero, 0, sizeof(zero));
+		if (memcmp(&systemAddressOut->address.addr4.sin_addr.s_addr, &zero, sizeof(zero)) == 0)
 			systemAddressOut->SetToLoopback(6);
 
 		//	systemAddressOut->address.addr6.sin6_port=ntohs(systemAddressOut->address.addr6.sin6_port);
@@ -256,15 +255,16 @@ void RNS2_Berkley::GetSystemAddressIPV4And6 ( RNS2Socket rns2Socket, SystemAddre
 #endif
 }
 
-RNS2BindResult RNS2_Berkley::BindSharedIPV4( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line ) {
+RNS2BindResult RNS2_Berkley::BindSharedIPV4(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
+{
 
 	(void) file;
 	(void) line;
 
 	int ret;
-	memset(&boundAddress.address.addr4,0,sizeof(sockaddr_in));
-	boundAddress.address.addr4.sin_port = htons( bindParameters->port );
-	rns2Socket = (int) socket__( bindParameters->addressFamily, bindParameters->type, bindParameters->protocol );
+	memset(&boundAddress.address.addr4, 0, sizeof(sockaddr_in));
+	boundAddress.address.addr4.sin_port = htons(bindParameters->port);
+	rns2Socket = (int) socket__(bindParameters->addressFamily, bindParameters->type, bindParameters->protocol);
 	if (rns2Socket == -1)
 		return BR_FAILED_TO_BIND_SOCKET;
 
@@ -287,79 +287,92 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4( RNS2_BerkleyBindParameters *bindPar
 	}
 
 	// bind our name to the socket
-	ret = bind__( rns2Socket, ( struct sockaddr * ) &boundAddress.address.addr4, sizeof( boundAddress.address.addr4 ) );
+	ret = bind__(rns2Socket, (struct sockaddr *) &boundAddress.address.addr4, sizeof(boundAddress.address.addr4));
 
-	if ( ret <= -1 )
+	if (ret <= -1)
 	{
 #if defined(_WIN32)
 		closesocket__(rns2Socket);
 		return BR_FAILED_TO_BIND_SOCKET;
-#elif (defined(__GNUC__) || defined(__GCCXML__) ) && !defined(_WIN32)
+#elif (defined(__GNUC__) || defined(__GCCXML__)) && !defined(_WIN32)
 		closesocket__(rns2Socket);
 		switch (errno)
 		{
 		case EBADF:
-			RAKNET_DEBUG_PRINTF("bind__(): sockfd is not a valid descriptor.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): sockfd is not a valid descriptor.\n");
+			break;
 		case ENOTSOCK:
-			RAKNET_DEBUG_PRINTF("bind__(): Argument is a descriptor for a file, not a socket.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): Argument is a descriptor for a file, not a socket.\n");
+			break;
 		case EINVAL:
-			RAKNET_DEBUG_PRINTF("bind__(): The addrlen is wrong, or the socket was not in the AF_UNIX family.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): The addrlen is wrong, or the socket was not in the AF_UNIX family.\n");
+			break;
 		case EROFS:
-			RAKNET_DEBUG_PRINTF("bind__(): The socket inode would reside on a read-only file system.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): The socket inode would reside on a read-only file system.\n");
+			break;
 		case EFAULT:
-			RAKNET_DEBUG_PRINTF("bind__(): my_addr points outside the user's accessible address space.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): my_addr points outside the user's accessible address space.\n");
+			break;
 		case ENAMETOOLONG:
-			RAKNET_DEBUG_PRINTF("bind__(): my_addr is too long.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): my_addr is too long.\n");
+			break;
 		case ENOENT:
-			RAKNET_DEBUG_PRINTF("bind__(): The file does not exist.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): The file does not exist.\n");
+			break;
 		case ENOMEM:
-			RAKNET_DEBUG_PRINTF("bind__(): Insufficient kernel memory was available.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): Insufficient kernel memory was available.\n");
+			break;
 		case ENOTDIR:
-			RAKNET_DEBUG_PRINTF("bind__(): A component of the path prefix is not a directory.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): A component of the path prefix is not a directory.\n");
+			break;
 		case EACCES:
 			// Port reserved on PS4
-			RAKNET_DEBUG_PRINTF("bind__(): Search permission is denied on a component of the path prefix.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): Search permission is denied on a component of the path prefix.\n");
+			break;
 		case ELOOP:
-			RAKNET_DEBUG_PRINTF("bind__(): Too many symbolic links were encountered in resolving my_addr.\n"); break;
+			RAKNET_DEBUG_PRINTF("bind__(): Too many symbolic links were encountered in resolving my_addr.\n");
+			break;
 		default:
-			RAKNET_DEBUG_PRINTF("Unknown bind__() error %i.\n", errno); break;
+			RAKNET_DEBUG_PRINTF("Unknown bind__() error %i.\n", errno);
+			break;
 		}
 
 		return BR_FAILED_TO_BIND_SOCKET;
 #endif
 	}
 
-	GetSystemAddressIPV4(rns2Socket, &boundAddress );
+	GetSystemAddressIPV4(rns2Socket, &boundAddress);
 	return BR_SUCCESS;
 }
 
 void PrepareAddrInfoHints2(addrinfo *hints)
 {
 	memset(hints, 0, sizeof(addrinfo)); // make sure the struct is empty
-	hints->ai_socktype = SOCK_DGRAM; // UDP sockets
-	hints->ai_flags = AI_PASSIVE; // fill in my IP for me
+	hints->ai_socktype = SOCK_DGRAM;    // UDP sockets
+	hints->ai_flags = AI_PASSIVE;       // fill in my IP for me
 }
 
-RNS2BindResult RNS2_Berkley::BindSharedIPV4And6( RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line ) {
-	
+RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
+{
+
 	(void) file;
 	(void) line;
 	(void) bindParameters;
 
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 
-	int ret=0;
+	int ret = 0;
 	struct addrinfo hints;
-	struct addrinfo *servinfo=0, *aip;  // will point to the results
+	struct addrinfo *servinfo = 0, *aip; // will point to the results
 	PrepareAddrInfoHints2(&hints);
-	hints.ai_family=bindParameters->addressFamily;
+	hints.ai_family = bindParameters->addressFamily;
 	char portStr[32];
-	Itoa(bindParameters->port,portStr,10);
+	Itoa(bindParameters->port, portStr, 10);
 
 
 	// On Ubuntu, "" returns "No address associated with hostname" while 0 works.
-	if (bindParameters->hostAddress && 
-		(_stricmp(bindParameters->hostAddress,"UNASSIGNED_SYSTEM_ADDRESS")==0 || bindParameters->hostAddress[0]==0))
+	if (bindParameters->hostAddress &&
+	    (_stricmp(bindParameters->hostAddress, "UNASSIGNED_SYSTEM_ADDRESS") == 0 || bindParameters->hostAddress[0] == 0))
 	{
 		getaddrinfo(0, portStr, &hints, &servinfo);
 	}
@@ -385,12 +398,12 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6( RNS2_BerkleyBindParameters *bin
 		if (aip->ai_family == AF_INET6)
 		{
 			int ipv6only = 1;
-			setsockopt__(rns2Socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only));
+			setsockopt__(rns2Socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &ipv6only, sizeof(ipv6only));
 			// Ignore errors - some platforms may not support this option
 		}
 
-		ret = bind__(rns2Socket, aip->ai_addr, (int) aip->ai_addrlen );
-		if (ret>=0)
+		ret = bind__(rns2Socket, aip->ai_addr, (int) aip->ai_addrlen);
+		if (ret >= 0)
 		{
 			if (aip->ai_family == AF_INET)
 			{
@@ -408,8 +421,8 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6( RNS2_BerkleyBindParameters *bin
 			SetBroadcastSocket(bindParameters->setBroadcast);
 			SetIPHdrIncl(bindParameters->setIPHdrIncl);
 
-			GetSystemAddressIPV4And6( rns2Socket, &boundAddress );
-			
+			GetSystemAddressIPV4And6(rns2Socket, &boundAddress);
+
 			return BR_SUCCESS;
 		}
 		else
@@ -417,37 +430,37 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6( RNS2_BerkleyBindParameters *bin
 			closesocket__(rns2Socket);
 		}
 	}
-	
+
 	return BR_FAILED_TO_BIND_SOCKET;
 
 #else
-return BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE;
+	return BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE;
 #endif
 }
 
 void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 {
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 
 	sockaddr_storage their_addr;
-	sockaddr* sockAddrPtr;
+	sockaddr *sockAddrPtr;
 	socklen_t sockLen;
-	socklen_t* socketlenPtr=(socklen_t*) &sockLen;
-	memset(&their_addr,0,sizeof(their_addr));
+	socklen_t *socketlenPtr = (socklen_t *) &sockLen;
+	memset(&their_addr, 0, sizeof(their_addr));
 	int dataOutSize;
-	const int flag=0;
+	const int flag = 0;
 
 	{
-		sockLen=sizeof(their_addr);
-		sockAddrPtr=(sockaddr*) &their_addr;
+		sockLen = sizeof(their_addr);
+		sockAddrPtr = (sockaddr *) &their_addr;
 	}
 
-	dataOutSize=MAXIMUM_MTU_SIZE;
+	dataOutSize = MAXIMUM_MTU_SIZE;
 
-	recvFromStruct->bytesRead = recvfrom__(rns2Socket, recvFromStruct->data, dataOutSize, flag, sockAddrPtr, socketlenPtr );
+	recvFromStruct->bytesRead = recvfrom__(rns2Socket, recvFromStruct->data, dataOutSize, flag, sockAddrPtr, socketlenPtr);
 
 #if defined(_WIN32) && defined(_DEBUG)
-	if (recvFromStruct->bytesRead==-1)
+	if (recvFromStruct->bytesRead == -1)
 	{
 		DWORD dwIOError = GetLastError();
 		// 10035 = WSAEWOULDBLOCK (expected for non-blocking sockets)
@@ -455,31 +468,31 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 		if (dwIOError != 10035 && dwIOError != 10054)
 		{
 			LPVOID messageBuffer;
-			FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-				nullptr, dwIOError, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),  // Default language
-				( LPTSTR ) & messageBuffer, 0, nullptr);
+			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			              nullptr, dwIOError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+			              (LPTSTR) &messageBuffer, 0, nullptr);
 			// I see this hit on XP with IPV6 for some reason
-			RAKNET_DEBUG_TPRINTF( _T("Warning: recvfrom failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer) );
-			LocalFree( messageBuffer );
+			RAKNET_DEBUG_TPRINTF(_T("Warning: recvfrom failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
+			LocalFree(messageBuffer);
 		}
-	}	
+	}
 #endif
 
-	if (recvFromStruct->bytesRead<=0)
+	if (recvFromStruct->bytesRead <= 0)
 		return;
-	recvFromStruct->timeRead= MafiaNet::GetTimeUS();
+	recvFromStruct->timeRead = MafiaNet::GetTimeUS();
 
 	{
-		if (their_addr.ss_family==AF_INET)
+		if (their_addr.ss_family == AF_INET)
 		{
-			memcpy(&recvFromStruct->systemAddress.address.addr4,(sockaddr_in *)&their_addr,sizeof(sockaddr_in));
-			recvFromStruct->systemAddress.debugPort=ntohs(recvFromStruct->systemAddress.address.addr4.sin_port);
+			memcpy(&recvFromStruct->systemAddress.address.addr4, (sockaddr_in *) &their_addr, sizeof(sockaddr_in));
+			recvFromStruct->systemAddress.debugPort = ntohs(recvFromStruct->systemAddress.address.addr4.sin_port);
 			//	systemAddressOut->address.addr4.sin_port=ntohs( systemAddressOut->address.addr4.sin_port );
 		}
 		else
 		{
-			memcpy(&recvFromStruct->systemAddress.address.addr6,(sockaddr_in6 *)&their_addr,sizeof(sockaddr_in6));
-			recvFromStruct->systemAddress.debugPort=ntohs(recvFromStruct->systemAddress.address.addr6.sin6_port);
+			memcpy(&recvFromStruct->systemAddress.address.addr6, (sockaddr_in6 *) &their_addr, sizeof(sockaddr_in6));
+			recvFromStruct->systemAddress.debugPort = ntohs(recvFromStruct->systemAddress.address.addr6.sin6_port);
 			//	systemAddressOut->address.addr6.sin6_port=ntohs( systemAddressOut->address.addr6.sin6_port );
 		}
 	}
@@ -491,37 +504,37 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 
 void RNS2_Berkley::RecvFromBlockingIPV4(RNS2RecvStruct *recvFromStruct)
 {
-	sockaddr* sockAddrPtr;
+	sockaddr *sockAddrPtr;
 	socklen_t sockLen;
-	socklen_t* socketlenPtr=(socklen_t*) &sockLen;
+	socklen_t *socketlenPtr = (socklen_t *) &sockLen;
 	sockaddr_in sa;
-	memset(&sa,0,sizeof(sockaddr_in));
-	const int flag=0;
-	
+	memset(&sa, 0, sizeof(sockaddr_in));
+	const int flag = 0;
+
 	{
-		sockLen=sizeof(sa);
+		sockLen = sizeof(sa);
 		sa.sin_family = AF_INET;
-		sa.sin_port=0;
-		sockAddrPtr=(sockaddr*) &sa;
+		sa.sin_port = 0;
+		sockAddrPtr = (sockaddr *) &sa;
 	}
 
-	recvFromStruct->bytesRead = recvfrom__( GetSocket(), recvFromStruct->data, sizeof(recvFromStruct->data), flag, sockAddrPtr, socketlenPtr );
+	recvFromStruct->bytesRead = recvfrom__(GetSocket(), recvFromStruct->data, sizeof(recvFromStruct->data), flag, sockAddrPtr, socketlenPtr);
 
-	if (recvFromStruct->bytesRead<=0)
+	if (recvFromStruct->bytesRead <= 0)
 	{
 		return;
 	}
-	recvFromStruct->timeRead= MafiaNet::GetTimeUS();
+	recvFromStruct->timeRead = MafiaNet::GetTimeUS();
 
 	{
-		recvFromStruct->systemAddress.SetPortNetworkOrder( sa.sin_port );
-		recvFromStruct->systemAddress.address.addr4.sin_addr.s_addr=sa.sin_addr.s_addr;
+		recvFromStruct->systemAddress.SetPortNetworkOrder(sa.sin_port);
+		recvFromStruct->systemAddress.address.addr4.sin_addr.s_addr = sa.sin_addr.s_addr;
 	}
 }
 
 void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
 {
-#if RAKNET_SUPPORT_IPV6==1
+#if RAKNET_SUPPORT_IPV6 == 1
 	return RecvFromBlockingIPV4And6(recvFromStruct);
 #else
 	return RecvFromBlockingIPV4(recvFromStruct);
@@ -553,23 +566,23 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 	if (MmsgUnavailable())
 		return;
 
-	unsigned allocated=0;
-	unsigned consecutiveErrors=0;
+	unsigned allocated = 0;
+	unsigned consecutiveErrors = 0;
 
-	while ( endThreads == false )
+	while (endThreads == false)
 	{
 		// Top the batch back up to full, then point each iovec at the struct's
 		// data buffer so recvmmsg writes straight into the structs we hand to
 		// the event handler -- no extra copy.
-		for (; allocated<MMSG_BATCH_MAX; ++allocated)
+		for (; allocated < MMSG_BATCH_MAX; ++allocated)
 		{
 			RNS2RecvStruct *s = binding.eventHandler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
-			if (s==nullptr)
+			if (s == nullptr)
 				break;
-			s->socket=this;
-			slots[allocated]=s;
+			s->socket = this;
+			slots[allocated] = s;
 		}
-		if (allocated==0)
+		if (allocated == 0)
 		{
 			// Out of recv structs entirely; back off rather than spin.
 			RakSleep(1);
@@ -578,15 +591,15 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 
 		// Rebuilt every pass, not just on allocation: recvmmsg writes back
 		// msg_namelen and msg_flags, so a reused header must be reset.
-		for (unsigned i=0; i<allocated; ++i)
+		for (unsigned i = 0; i < allocated; ++i)
 		{
-			iovecs[i].iov_base=slots[i]->data;
-			iovecs[i].iov_len=sizeof(slots[i]->data);
+			iovecs[i].iov_base = slots[i]->data;
+			iovecs[i].iov_len = sizeof(slots[i]->data);
 			memset(&msgs[i], 0, sizeof(msgs[i]));
-			msgs[i].msg_hdr.msg_iov=&iovecs[i];
-			msgs[i].msg_hdr.msg_iovlen=1;
-			msgs[i].msg_hdr.msg_name=&addrs[i];
-			msgs[i].msg_hdr.msg_namelen=sizeof(addrs[i]);
+			msgs[i].msg_hdr.msg_iov = &iovecs[i];
+			msgs[i].msg_hdr.msg_iovlen = 1;
+			msgs[i].msg_hdr.msg_name = &addrs[i];
+			msgs[i].msg_hdr.msg_namelen = sizeof(addrs[i]);
 		}
 
 		// MSG_WAITFORONE: block until at least one datagram is ready, then return
@@ -596,10 +609,10 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		// Read errno before anything else can clobber it -- GetTimeUS() below
 		// is a syscall too, and errno is only meaningful immediately after the
 		// call that failed.
-		const int recvErrno = (n<0) ? errno : 0;
+		const int recvErrno = (n < 0) ? errno : 0;
 		MafiaNet::TimeUS now = MafiaNet::GetTimeUS();
 
-		if (n<0 && MmsgSyscallMissing(recvErrno))
+		if (n < 0 && MmsgSyscallMissing(recvErrno))
 		{
 			// No recvmmsg on this kernel/sandbox. Backing off would spin this
 			// thread forever without ever surfacing a packet, so give the slots
@@ -608,7 +621,7 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 			break;
 		}
 
-		if (n<=0)
+		if (n <= 0)
 		{
 			// Interrupted, an asynchronous socket error, or -- not expected under
 			// MSG_WAITFORONE, but not worth a hot spin if a kernel ever does it --
@@ -619,15 +632,15 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 			// off progressively so a persistent error cannot spin this thread at
 			// 100%; the loop condition is still checked first, so shutdown stays
 			// prompt.
-			if (consecutiveErrors<MMSG_ERROR_BACKOFF_MAX_MS)
+			if (consecutiveErrors < MMSG_ERROR_BACKOFF_MAX_MS)
 				++consecutiveErrors;
 			RakSleep(consecutiveErrors);
 			continue;
 		}
-		consecutiveErrors=0;
+		consecutiveErrors = 0;
 
-		const unsigned received=(unsigned) n;
-		for (unsigned i=0; i<received; ++i)
+		const unsigned received = (unsigned) n;
+		for (unsigned i = 0; i < received; ++i)
 			lens[i] = (int) msgs[i].msg_len;
 
 		// Hand the handler exactly the slots that received a datagram -- it takes
@@ -640,11 +653,11 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		// are topped back up at the head of the loop. The arithmetic lives in
 		// CompactRecvSlots so it is unit tested (MmsgBatchTests) rather than only
 		// ever exercised here, on Linux, at runtime.
-		allocated=CompactRecvSlots(slots, allocated, received);
+		allocated = CompactRecvSlots(slots, allocated, received);
 	}
 
 	// Release whatever the last pass was still holding.
-	for (unsigned i=0; i<allocated; ++i)
+	for (unsigned i = 0; i < allocated; ++i)
 		binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
 }
 #endif // __linux__

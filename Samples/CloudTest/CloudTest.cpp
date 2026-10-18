@@ -46,22 +46,22 @@ enum
 	CLOUD_SERVER_COUNT
 };
 
-static const unsigned short STARTING_PORT=60000;
+static const unsigned short STARTING_PORT = 60000;
 
 class MyCallback : public MafiaNet::CloudClientCallback
 {
 	virtual void OnGet(MafiaNet::CloudQueryResult *result, bool *deallocateRowsAfterReturn)
 	{
 		// unused parameters
-		(void)deallocateRowsAfterReturn;
+		(void) deallocateRowsAfterReturn;
 
 		printf("On Download %i rows. IsSubscription=%i.\n", result->rowsReturned.Size(), result->subscribeToResults);
 	}
 	virtual void OnSubscriptionNotification(MafiaNet::CloudQueryRow *result, bool wasUpdated, bool *deallocateRowAfterReturn)
 	{
 		// unused parameters
-		(void)result;
-		(void)deallocateRowAfterReturn;
+		(void) result;
+		(void) deallocateRowAfterReturn;
 
 		if (wasUpdated)
 			printf("OnSubscriptionNotification Updated\n");
@@ -84,51 +84,51 @@ int main(void)
 	MafiaNet::CloudServer cloudServer[CLOUD_SERVER_COUNT];
 	MafiaNet::CloudClient cloudClient[CLOUD_CLIENT_COUNT];
 	MafiaNet::RakPeerInterface *rakPeer[RAKPEER_COUNT];
-	for (unsigned short i=0; i < RAKPEER_COUNT; i++)
+	for (unsigned short i = 0; i < RAKPEER_COUNT; i++)
 	{
-		rakPeer[i]= MafiaNet::RakPeerInterface::GetInstance();
-		MafiaNet::SocketDescriptor sd(STARTING_PORT+i,0);
-		rakPeer[i]->Startup(RAKPEER_COUNT,&sd,1);
+		rakPeer[i] = MafiaNet::RakPeerInterface::GetInstance();
+		MafiaNet::SocketDescriptor sd(STARTING_PORT + i, 0);
+		rakPeer[i]->Startup(RAKPEER_COUNT, &sd, 1);
 	}
 
-	for (unsigned short i=SERVER_1; i < RAKPEER_COUNT; i++)
+	for (unsigned short i = SERVER_1; i < RAKPEER_COUNT; i++)
 	{
 		rakPeer[i]->SetMaximumIncomingConnections(RAKPEER_COUNT);
 	}
-	for (unsigned short i=CLIENT_1, j=CLOUD_CLIENT_1; i < SERVER_1; i++, j++)
+	for (unsigned short i = CLIENT_1, j = CLOUD_CLIENT_1; i < SERVER_1; i++, j++)
 	{
 		rakPeer[i]->AttachPlugin(&cloudClient[j]);
 	}
-	for (unsigned short i=SERVER_1, j=CLOUD_SERVER_1; i < RAKPEER_COUNT; i++, j++)
+	for (unsigned short i = SERVER_1, j = CLOUD_SERVER_1; i < RAKPEER_COUNT; i++, j++)
 	{
 		rakPeer[i]->AttachPlugin(&cloudServer[j]);
 	}
 	// Connect servers to each other
-	for (unsigned short i=SERVER_1; i < RAKPEER_COUNT-1; i++)
+	for (unsigned short i = SERVER_1; i < RAKPEER_COUNT - 1; i++)
 	{
-		for (unsigned short j=i+1; j < RAKPEER_COUNT; j++)
+		for (unsigned short j = i + 1; j < RAKPEER_COUNT; j++)
 		{
-			rakPeer[j]->Connect("127.0.0.1", STARTING_PORT+i, 0, 0);
+			rakPeer[j]->Connect("127.0.0.1", STARTING_PORT + i, 0, 0);
 		}
 	}
 
 	RakSleep(100);
 
 	// Tell servers about each other
-	for (unsigned int i=SERVER_1; i < RAKPEER_COUNT; i++)
+	for (unsigned int i = SERVER_1; i < RAKPEER_COUNT; i++)
 	{
 		unsigned short numberOfSystems;
 		rakPeer[i]->GetConnectionList(0, &numberOfSystems);
-		for (unsigned int j=0; j < numberOfSystems; j++)
+		for (unsigned int j = 0; j < numberOfSystems; j++)
 		{
-			cloudServer[i-SERVER_1].AddServer(rakPeer[i]->GetGUIDFromIndex(j));			
+			cloudServer[i - SERVER_1].AddServer(rakPeer[i]->GetGUIDFromIndex(j));
 		}
 	}
 
 	// Connect clients to servers, assume equal counts
-	for (unsigned short i=CLIENT_1; i < SERVER_1; i++)
+	for (unsigned short i = CLIENT_1; i < SERVER_1; i++)
 	{
-		rakPeer[i]->Connect("127.0.0.1", STARTING_PORT+SERVER_1+i, 0, 0);
+		rakPeer[i]->Connect("127.0.0.1", STARTING_PORT + SERVER_1 + i, 0, 0);
 	}
 
 
@@ -142,53 +142,53 @@ int main(void)
 	printf("'H' To release data set 1 and 2 from client 2 to server 2.\n");
 	printf("'Y' to disconnect client 1.\n");
 	MafiaNet::Packet *packet;
-	for(;;)
+	for (;;)
 	{
 		int command;
 		if (_kbhit())
 		{
-			command=_getch();
-			if (command=='a' || command=='A')
+			command = _getch();
+			if (command == 'a' || command == 'A')
 			{
 				printf("Uploading data set 1 from client 1\n");
 				MafiaNet::CloudKey dataKey1;
-				dataKey1.primaryKey="ApplicationName";
-				dataKey1.secondaryKey=1;
-				cloudClient[CLOUD_CLIENT_1].Post(&dataKey1, (const unsigned char*) "DS1C1S1", (uint32_t) strlen("DS1C1S1")+1, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
+				dataKey1.primaryKey = "ApplicationName";
+				dataKey1.secondaryKey = 1;
+				cloudClient[CLOUD_CLIENT_1].Post(&dataKey1, (const unsigned char *) "DS1C1S1", (uint32_t) strlen("DS1C1S1") + 1, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
 			}
-			else if (command=='b' || command=='B')
+			else if (command == 'b' || command == 'B')
 			{
 				printf("Uploading data set 1 from client 2\n");
 				MafiaNet::CloudKey dataKey1;
-				dataKey1.primaryKey="ApplicationName";
-				dataKey1.secondaryKey=1;
-				cloudClient[CLOUD_CLIENT_2].Post(&dataKey1, (const unsigned char*) "DS1C2S2", (uint32_t) strlen("DS1C2S2")+1, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
+				dataKey1.primaryKey = "ApplicationName";
+				dataKey1.secondaryKey = 1;
+				cloudClient[CLOUD_CLIENT_2].Post(&dataKey1, (const unsigned char *) "DS1C2S2", (uint32_t) strlen("DS1C2S2") + 1, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
-			else if (command=='c' || command=='C')
+			else if (command == 'c' || command == 'C')
 			{
 				printf("Uploading data set 2 from client 2\n");
 				MafiaNet::CloudKey dataKey1;
-				dataKey1.primaryKey="ApplicationName";
-				dataKey1.secondaryKey=2;
-				cloudClient[CLOUD_CLIENT_1].Post(&dataKey1, (const unsigned char*) "DS2C2S1", (uint32_t) strlen("DS2C2S1")+1, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
+				dataKey1.primaryKey = "ApplicationName";
+				dataKey1.secondaryKey = 2;
+				cloudClient[CLOUD_CLIENT_1].Post(&dataKey1, (const unsigned char *) "DS2C2S1", (uint32_t) strlen("DS2C2S1") + 1, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
 			}
-			else if (command=='d' || command=='D')
+			else if (command == 'd' || command == 'D')
 			{
 				printf("Downloading data sets 1 and 2 from client 1\n");
 				MafiaNet::CloudKey dataKey1;
-				dataKey1.primaryKey="ApplicationName";
-				dataKey1.secondaryKey=1;
+				dataKey1.primaryKey = "ApplicationName";
+				dataKey1.secondaryKey = 1;
 
 				MafiaNet::CloudQuery keyQuery;
 				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
 				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
-				keyQuery.maxRowsToReturn=0;
-				keyQuery.startingRowIndex=0;
-				keyQuery.subscribeToResults=false;
+				keyQuery.maxRowsToReturn = 0;
+				keyQuery.startingRowIndex = 0;
+				keyQuery.subscribeToResults = false;
 
 				cloudClient[CLOUD_CLIENT_1].Get(&keyQuery, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
 			}
-			else if (command=='e' || command=='E')
+			else if (command == 'e' || command == 'E')
 			{
 				printf("Releasing data sets 1 and 2 from client 1\n");
 				DataStructures::List<MafiaNet::CloudKey> keys;
@@ -196,23 +196,23 @@ int main(void)
 				keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
 				cloudClient[CLOUD_CLIENT_1].Release(keys, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
 			}
-			else if (command=='f' || command=='F')
+			else if (command == 'f' || command == 'F')
 			{
 				printf("Subscribing to data sets 1 and 2 from client 2 to server 2.\n");
 
 				MafiaNet::CloudQuery keyQuery;
 				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
 				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
-				keyQuery.maxRowsToReturn=0;
-				keyQuery.startingRowIndex=0;
-				keyQuery.subscribeToResults=true;
+				keyQuery.maxRowsToReturn = 0;
+				keyQuery.startingRowIndex = 0;
+				keyQuery.subscribeToResults = true;
 
 				DataStructures::List<MafiaNet::RakNetGUID> specificSystems;
 				specificSystems.Push(rakPeer[CLIENT_1]->GetMyGUID(), _FILE_AND_LINE_);
 
 				cloudClient[CLOUD_CLIENT_2].Get(&keyQuery, specificSystems, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
-			else if (command=='g' || command=='G')
+			else if (command == 'g' || command == 'G')
 			{
 				printf("Unsubscribing to data sets 1 and 2 from client 2 to server 2.\n");
 
@@ -224,7 +224,7 @@ int main(void)
 
 				cloudClient[CLOUD_CLIENT_2].Unsubscribe(keys, specificSystems, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
-			else if (command=='h' || command=='H')
+			else if (command == 'h' || command == 'H')
 			{
 				printf("Releasing data sets 1 and 2 from client 2\n");
 				DataStructures::List<MafiaNet::CloudKey> keys;
@@ -232,13 +232,13 @@ int main(void)
 				keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
 				cloudClient[CLOUD_CLIENT_2].Unsubscribe(keys, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
-			else if (command=='y' || command=='Y')
+			else if (command == 'y' || command == 'Y')
 			{
 				printf("Disconnecting client 1\n");
 				rakPeer[CLIENT_1]->Shutdown(100);
 			}
 		}
-		for (unsigned int rakPeerInstanceIndex=0; rakPeerInstanceIndex < RAKPEER_COUNT; rakPeerInstanceIndex++)
+		for (unsigned int rakPeerInstanceIndex = 0; rakPeerInstanceIndex < RAKPEER_COUNT; rakPeerInstanceIndex++)
 		{
 			for (packet = rakPeer[rakPeerInstanceIndex]->Receive(); packet; rakPeer[rakPeerInstanceIndex]->DeallocatePacket(packet), packet = rakPeer[rakPeerInstanceIndex]->Receive())
 			{
@@ -258,7 +258,7 @@ int main(void)
 					printf("ID_INCOMPATIBLE_PROTOCOL_VERSION\n");
 					break;
 				case ID_REMOTE_DISCONNECTION_NOTIFICATION:
-					printf("ID_REMOTE_DISCONNECTION_NOTIFICATION\n"); 
+					printf("ID_REMOTE_DISCONNECTION_NOTIFICATION\n");
 					break;
 				case ID_REMOTE_CONNECTION_LOST:
 					printf("ID_REMOTE_CONNECTION_LOST\n");
@@ -268,7 +268,7 @@ int main(void)
 					break;
 				case ID_CONNECTION_BANNED:
 					printf("We are banned from this server.\n");
-					break;			
+					break;
 				case ID_CONNECTION_ATTEMPT_FAILED:
 					printf("Connection attempt failed\n");
 					break;

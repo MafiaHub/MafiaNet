@@ -43,10 +43,9 @@ void main_RakNet(void)
 	//const unsigned int serverPort=80;
 	//const unsigned int serverPort=8888;
 	//const bool useSSL=true;
-	const bool useSSL=false;
+	const bool useSSL = false;
 	//const unsigned int serverPort=443;
-	const unsigned int serverPort=8080;
-
+	const unsigned int serverPort = 8080;
 
 
 	json_t *jsonObject = json_object();
@@ -72,11 +71,11 @@ void main_RakNet(void)
 
 	// For testing, see http://hash.online-convert.com/sha1-generator
 
-	const char *__sharedKey="defaultSharedKey";
+	const char *__sharedKey = "defaultSharedKey";
 	unsigned char output[SHA1_LENGTH];
-	CSHA1::HMAC((unsigned char*) __sharedKey, strlen(__sharedKey), (unsigned char*) jsonStr, strlen(jsonStr), output);
-	char outputBase64[SHA1_LENGTH*2+6];
-	/*int bytesWritten =*/ Base64Encoding(output, sizeof(output), outputBase64);
+	CSHA1::HMAC((unsigned char *) __sharedKey, strlen(__sharedKey), (unsigned char *) jsonStr, strlen(jsonStr), output);
+	char outputBase64[SHA1_LENGTH * 2 + 6];
+	/*int bytesWritten =*/Base64Encoding(output, sizeof(output), outputBase64);
 	//outputBase64[bytesWritten]=0;
 	json_object_set(jsonObject, "__hash", json_string(outputBase64));
 	jsonStr = json_dumps(jsonObject, JSON_COMPACT | JSON_PRESERVE_ORDER);
@@ -84,30 +83,29 @@ void main_RakNet(void)
 	// GAE SSL https://developers.google.com/appengine/docs/ssl
 	char URI[128];
 	sprintf_s(URI, "%s/customTable/update", serverURL);
-	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__,__LINE__); // Requires build with OPEN_SSL_CLIENT_SUPPORT
+	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__); // Requires build with OPEN_SSL_CLIENT_SUPPORT
 	tcp->Start(0, 64);
 	tcp->Connect(serverURL, serverPort, true);
 	RakString rspost = RakString::FormatForPOST(
-		URI,
-		RakString("text/plain; charset=UTF-8"),
-		jsonStr
-		);
+	    URI,
+	    RakString("text/plain; charset=UTF-8"),
+	    jsonStr);
 
 	RakSleep(100);
 	SystemAddress serverAddr = tcp->HasCompletedConnectionAttempt();
-	RakAssert(serverAddr!=UNASSIGNED_SYSTEM_ADDRESS);
+	RakAssert(serverAddr != UNASSIGNED_SYSTEM_ADDRESS);
 	if (useSSL)
 		tcp->StartSSLClient(serverAddr);
 	tcp->Send(rspost.C_String(), rspost.GetLength(), serverAddr, false);
 	RakSleep(1000);
 	Packet *p;
-	
-	for(;;)
+
+	for (;;)
 	{
 		p = tcp->Receive();
 		if (p)
 		{
-			printf((const char*) p->data);
+			printf((const char *) p->data);
 			break;
 		}
 	}
@@ -115,6 +113,6 @@ void main_RakNet(void)
 
 void main(void)
 {
-//	main_sockets();
+	//	main_sockets();
 	main_RakNet();
 }

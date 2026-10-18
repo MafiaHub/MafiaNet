@@ -14,7 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_NatPunchthroughServer==1
+#if _RAKNET_SUPPORT_NatPunchthroughServer == 1
 
 #include "mafianet/nat_punchthrough_server.h"
 #include "mafianet/socket_layer.h"
@@ -33,7 +33,7 @@ void NatPunchthroughServerDebugInterface_Printf::OnServerMessage(const char *msg
 {
 	printf("%s\n", msg);
 }
-#if _RAKNET_SUPPORT_PacketLogger==1
+#if _RAKNET_SUPPORT_PacketLogger == 1
 void NatPunchthroughServerDebugInterface_PacketLogger::OnServerMessage(const char *msg)
 {
 	if (pl)
@@ -46,16 +46,16 @@ void NatPunchthroughServerDebugInterface_PacketLogger::OnServerMessage(const cha
 void NatPunchthroughServer::User::DeleteConnectionAttempt(NatPunchthroughServer::ConnectionAttempt *ca)
 {
 	unsigned int index = connectionAttempts.GetIndexOf(ca);
-	if ((unsigned int)index!=(unsigned int)-1)
+	if ((unsigned int) index != (unsigned int) -1)
 	{
-		MafiaNet::OP_DELETE(ca,_FILE_AND_LINE_);
+		MafiaNet::OP_DELETE(ca, _FILE_AND_LINE_);
 		connectionAttempts.RemoveAtIndex(index);
 	}
 }
 void NatPunchthroughServer::User::DerefConnectionAttempt(NatPunchthroughServer::ConnectionAttempt *ca)
 {
 	unsigned int index = connectionAttempts.GetIndexOf(ca);
-	if ((unsigned int)index!=(unsigned int)-1)
+	if ((unsigned int) index != (unsigned int) -1)
 	{
 		connectionAttempts.RemoveAtIndex(index);
 	}
@@ -63,10 +63,10 @@ void NatPunchthroughServer::User::DerefConnectionAttempt(NatPunchthroughServer::
 bool NatPunchthroughServer::User::HasConnectionAttemptToUser(User *user)
 {
 	unsigned int index;
-	for (index=0; index < connectionAttempts.Size(); index++)
+	for (index = 0; index < connectionAttempts.Size(); index++)
 	{
-		if (connectionAttempts[index]->recipient->guid==user->guid ||
-			connectionAttempts[index]->sender->guid==user->guid)
+		if (connectionAttempts[index]->recipient->guid == user->guid ||
+		    connectionAttempts[index]->sender->guid == user->guid)
 			return true;
 	}
 	return false;
@@ -77,40 +77,40 @@ void NatPunchthroughServer::User::LogConnectionAttempts(MafiaNet::RakString &rs)
 	unsigned int index;
 	char guidStr[128], ipStr[128];
 	guid.ToString(guidStr, 128);
-	systemAddress.ToString(true,ipStr,static_cast<size_t>(128));
-	rs= MafiaNet::RakString("User systemAddress=%s guid=%s\n", ipStr, guidStr);
-	rs+= MafiaNet::RakString("%i attempts in list:\n", connectionAttempts.Size());
-	for (index=0; index < connectionAttempts.Size(); index++)
+	systemAddress.ToString(true, ipStr, static_cast<size_t>(128));
+	rs = MafiaNet::RakString("User systemAddress=%s guid=%s\n", ipStr, guidStr);
+	rs += MafiaNet::RakString("%i attempts in list:\n", connectionAttempts.Size());
+	for (index = 0; index < connectionAttempts.Size(); index++)
 	{
-		rs+= MafiaNet::RakString("%i. SessionID=%i ", index+1, connectionAttempts[index]->sessionId);
-		if (connectionAttempts[index]->sender==this)
-			rs+="(We are sender) ";
+		rs += MafiaNet::RakString("%i. SessionID=%i ", index + 1, connectionAttempts[index]->sessionId);
+		if (connectionAttempts[index]->sender == this)
+			rs += "(We are sender) ";
 		else
-			rs+="(We are recipient) ";
+			rs += "(We are recipient) ";
 		if (isReady)
-			rs+="(READY TO START) ";
+			rs += "(READY TO START) ";
 		else
-			rs+="(NOT READY TO START) ";
-		if (connectionAttempts[index]->attemptPhase==NatPunchthroughServer::ConnectionAttempt::NAT_ATTEMPT_PHASE_NOT_STARTED)
-			rs+="(NOT_STARTED). ";
+			rs += "(NOT READY TO START) ";
+		if (connectionAttempts[index]->attemptPhase == NatPunchthroughServer::ConnectionAttempt::NAT_ATTEMPT_PHASE_NOT_STARTED)
+			rs += "(NOT_STARTED). ";
 		else
-			rs+="(GETTING_RECENT_PORTS). ";
-		if (connectionAttempts[index]->sender==this)
+			rs += "(GETTING_RECENT_PORTS). ";
+		if (connectionAttempts[index]->sender == this)
 		{
 			connectionAttempts[index]->recipient->guid.ToString(guidStr, 128);
-			connectionAttempts[index]->recipient->systemAddress.ToString(true,ipStr,static_cast<size_t>(128));
+			connectionAttempts[index]->recipient->systemAddress.ToString(true, ipStr, static_cast<size_t>(128));
 		}
 		else
 		{
 			connectionAttempts[index]->sender->guid.ToString(guidStr, 128);
-			connectionAttempts[index]->sender->systemAddress.ToString(true,ipStr,static_cast<size_t>(128));
+			connectionAttempts[index]->sender->systemAddress.ToString(true, ipStr, static_cast<size_t>(128));
 		}
 
-		rs+= MafiaNet::RakString("Target systemAddress=%s, guid=%s.\n", ipStr, guidStr);
+		rs += MafiaNet::RakString("Target systemAddress=%s, guid=%s.\n", ipStr, guidStr);
 	}
 }
 
-int MafiaNet::NatPunchthroughServer::NatPunchthroughUserComp( const RakNetGUID &key, User * const &data )
+int MafiaNet::NatPunchthroughServer::NatPunchthroughUserComp(const RakNetGUID &key, User *const &data)
 {
 	if (key < data->guid)
 		return -1;
@@ -119,85 +119,85 @@ int MafiaNet::NatPunchthroughServer::NatPunchthroughUserComp( const RakNetGUID &
 	return 0;
 }
 
-STATIC_FACTORY_DEFINITIONS(NatPunchthroughServer,NatPunchthroughServer);
+STATIC_FACTORY_DEFINITIONS(NatPunchthroughServer, NatPunchthroughServer);
 
 NatPunchthroughServer::NatPunchthroughServer()
 {
-	lastUpdate=0;
-	sessionId=0;
-	natPunchthroughServerDebugInterface=0;
-	for (int i=0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
-		boundAddresses[i]=UNASSIGNED_SYSTEM_ADDRESS;
-	boundAddressCount=0;
+	lastUpdate = 0;
+	sessionId = 0;
+	natPunchthroughServerDebugInterface = 0;
+	for (int i = 0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
+		boundAddresses[i] = UNASSIGNED_SYSTEM_ADDRESS;
+	boundAddressCount = 0;
 }
 NatPunchthroughServer::~NatPunchthroughServer()
 {
 	User *user, *otherUser;
 	ConnectionAttempt *connectionAttempt;
 	unsigned int j;
-	while(users.Size())
+	while (users.Size())
 	{
 		user = users[0];
-		for (j=0; j < user->connectionAttempts.Size(); j++)
+		for (j = 0; j < user->connectionAttempts.Size(); j++)
 		{
-			connectionAttempt=user->connectionAttempts[j];
-			if (connectionAttempt->sender==user)
-				otherUser=connectionAttempt->recipient;
+			connectionAttempt = user->connectionAttempts[j];
+			if (connectionAttempt->sender == user)
+				otherUser = connectionAttempt->recipient;
 			else
-				otherUser=connectionAttempt->sender;
+				otherUser = connectionAttempt->sender;
 			otherUser->DeleteConnectionAttempt(connectionAttempt);
 		}
-		MafiaNet::OP_DELETE(user,_FILE_AND_LINE_);
-		users[0]=users[users.Size()-1];
-		users.RemoveAtIndex(users.Size()-1);
+		MafiaNet::OP_DELETE(user, _FILE_AND_LINE_);
+		users[0] = users[users.Size() - 1];
+		users.RemoveAtIndex(users.Size() - 1);
 	}
 }
 void NatPunchthroughServer::SetDebugInterface(NatPunchthroughServerDebugInterface *i)
 {
-	natPunchthroughServerDebugInterface=i;
+	natPunchthroughServerDebugInterface = i;
 }
 void NatPunchthroughServer::Update(void)
 {
 	ConnectionAttempt *connectionAttempt;
 	User *user, *recipient;
-	unsigned int i,j;
+	unsigned int i, j;
 	MafiaNet::Time time = MafiaNet::GetTime();
-	if (time > lastUpdate+250)
+	if (time > lastUpdate + 250)
 	{
-		lastUpdate=time;
+		lastUpdate = time;
 
-		for (i=0; i < users.Size(); i++)
+		for (i = 0; i < users.Size(); i++)
 		{
-			user=users[i];
-			for (j=0; j < user->connectionAttempts.Size(); j++)
+			user = users[i];
+			for (j = 0; j < user->connectionAttempts.Size(); j++)
 			{
-				connectionAttempt=user->connectionAttempts[j];
-				if (connectionAttempt->sender==user)
+				connectionAttempt = user->connectionAttempts[j];
+				if (connectionAttempt->sender == user)
 				{
-					if (connectionAttempt->attemptPhase!=ConnectionAttempt::NAT_ATTEMPT_PHASE_NOT_STARTED &&
-						time > connectionAttempt->startTime &&
-						time > 10000 + connectionAttempt->startTime ) // Formerly 5000, but sometimes false positives
+					if (connectionAttempt->attemptPhase != ConnectionAttempt::NAT_ATTEMPT_PHASE_NOT_STARTED &&
+					    time > connectionAttempt->startTime &&
+					    time > 10000 + connectionAttempt->startTime) // Formerly 5000, but sometimes false positives
 					{
 						MafiaNet::BitStream outgoingBs;
-						
+
 						// that other system might not be running the plugin
-						outgoingBs.Write((MessageID)ID_NAT_TARGET_UNRESPONSIVE);
+						outgoingBs.Write((MessageID) ID_NAT_TARGET_UNRESPONSIVE);
 						outgoingBs.Write(connectionAttempt->recipient->guid);
 						outgoingBs.Write(connectionAttempt->sessionId);
-						rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,connectionAttempt->sender->systemAddress,false);
+						rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, connectionAttempt->sender->systemAddress, false);
 
 						// 05/28/09 Previously only told sender about ID_NAT_CONNECTION_TO_TARGET_LOST
 						// However, recipient may be expecting it due to external code
 						// In that case, recipient would never get any response if the sender dropped
 						outgoingBs.Reset();
-						outgoingBs.Write((MessageID)ID_NAT_TARGET_UNRESPONSIVE);
+						outgoingBs.Write((MessageID) ID_NAT_TARGET_UNRESPONSIVE);
 						outgoingBs.Write(connectionAttempt->sender->guid);
 						outgoingBs.Write(connectionAttempt->sessionId);
-						rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,connectionAttempt->recipient->systemAddress,false);
+						rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, connectionAttempt->recipient->systemAddress, false);
 
-						connectionAttempt->sender->isReady=true;
-						connectionAttempt->recipient->isReady=true;
-						recipient=connectionAttempt->recipient;
+						connectionAttempt->sender->isReady = true;
+						connectionAttempt->recipient->isReady = true;
+						recipient = connectionAttempt->recipient;
 
 
 						if (natPunchthroughServerDebugInterface)
@@ -205,8 +205,8 @@ void NatPunchthroughServer::Update(void)
 							char str[1024];
 							char addr1[128], addr2[128];
 							// 8/01/09 Fixed bug where this was after DeleteConnectionAttempt()
-							connectionAttempt->sender->systemAddress.ToString(true,addr1,static_cast<size_t>(128));
-							connectionAttempt->recipient->systemAddress.ToString(true,addr2,static_cast<size_t>(128));
+							connectionAttempt->sender->systemAddress.ToString(true, addr1, static_cast<size_t>(128));
+							connectionAttempt->recipient->systemAddress.ToString(true, addr2, static_cast<size_t>(128));
 							sprintf_s(str, "Sending ID_NAT_TARGET_UNRESPONSIVE to sender %s and recipient %s.", addr1, addr2);
 							natPunchthroughServerDebugInterface->OnServerMessage(str);
 							MafiaNet::RakString log;
@@ -242,60 +242,60 @@ PluginReceiveResult NatPunchthroughServer::OnReceive(Packet *packet)
 		OnClientReady(packet);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_NAT_REQUEST_BOUND_ADDRESSES:
-		{
+	{
 		MafiaNet::BitStream outgoingBs;
-			outgoingBs.Write((MessageID)ID_NAT_RESPOND_BOUND_ADDRESSES);
-			
-			if (boundAddresses[0]==UNASSIGNED_SYSTEM_ADDRESS)
-			{
-				DataStructures::List<RakNetSocket2* > sockets;
-				rakPeerInterface->GetSockets(sockets);
-				for (unsigned i=0; i < sockets.Size() && i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
-				{
-					boundAddresses[i]=sockets[i]->GetBoundAddress();
-					boundAddressCount++;
-				}
-			}
+		outgoingBs.Write((MessageID) ID_NAT_RESPOND_BOUND_ADDRESSES);
 
-			outgoingBs.Write(boundAddressCount);
-			for (int i=0; i < boundAddressCount; i++)
+		if (boundAddresses[0] == UNASSIGNED_SYSTEM_ADDRESS)
+		{
+			DataStructures::List<RakNetSocket2 *> sockets;
+			rakPeerInterface->GetSockets(sockets);
+			for (unsigned i = 0; i < sockets.Size() && i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 			{
-				outgoingBs.Write(boundAddresses[i]);
+				boundAddresses[i] = sockets[i]->GetBoundAddress();
+				boundAddressCount++;
 			}
-
-			rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->systemAddress,false);
 		}
+
+		outgoingBs.Write(boundAddressCount);
+		for (int i = 0; i < boundAddressCount; i++)
+		{
+			outgoingBs.Write(boundAddresses[i]);
+		}
+
+		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
+	}
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_NAT_PING:
-		{
-		}
+	{
+	}
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	case ID_OUT_OF_BAND_INTERNAL:
-		if (packet->length>=2 && packet->data[1]==ID_NAT_PING)
+		if (packet->length >= 2 && packet->data[1] == ID_NAT_PING)
 		{
-			MafiaNet::BitStream bs(packet->data,packet->length,false);
-			bs.IgnoreBytes(sizeof(MessageID)*2);
+			MafiaNet::BitStream bs(packet->data, packet->length, false);
+			bs.IgnoreBytes(sizeof(MessageID) * 2);
 			uint16_t externalPort;
 			bs.Read(externalPort);
 
 			MafiaNet::BitStream outgoingBs;
-			outgoingBs.Write((MessageID)ID_NAT_PONG);
+			outgoingBs.Write((MessageID) ID_NAT_PONG);
 			outgoingBs.Write(externalPort);
 			uint16_t externalPort2 = packet->systemAddress.GetPort();
 			outgoingBs.Write(externalPort2);
-			rakPeerInterface->SendOutOfBand((const char*) packet->systemAddress.ToString(false),packet->systemAddress.GetPort(),(const char*) outgoingBs.GetData(),outgoingBs.GetNumberOfBytesUsed());
+			rakPeerInterface->SendOutOfBand((const char *) packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), (const char *) outgoingBs.GetData(), outgoingBs.GetNumberOfBytesUsed());
 
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
 	}
 	return RR_CONTINUE_PROCESSING;
 }
-void NatPunchthroughServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason )
+void NatPunchthroughServer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
 	(void) lostConnectionReason;
 	(void) systemAddress;
 
-	unsigned int i=0;
+	unsigned int i = 0;
 	bool objectExists;
 	i = users.GetIndexFromKey(rakNetGUID, &objectExists);
 	if (objectExists)
@@ -306,32 +306,32 @@ void NatPunchthroughServer::OnClosedConnection(const SystemAddress &systemAddres
 		User *otherUser;
 		unsigned int connectionAttemptIndex;
 		ConnectionAttempt *connectionAttempt;
-		for (connectionAttemptIndex=0; connectionAttemptIndex < user->connectionAttempts.Size(); connectionAttemptIndex++)
+		for (connectionAttemptIndex = 0; connectionAttemptIndex < user->connectionAttempts.Size(); connectionAttemptIndex++)
 		{
-			connectionAttempt=user->connectionAttempts[connectionAttemptIndex];
+			connectionAttempt = user->connectionAttempts[connectionAttemptIndex];
 			outgoingBs.Reset();
-			if (connectionAttempt->recipient==user)
+			if (connectionAttempt->recipient == user)
 			{
-				otherUser=connectionAttempt->sender;
+				otherUser = connectionAttempt->sender;
 			}
 			else
 			{
-				otherUser=connectionAttempt->recipient;
+				otherUser = connectionAttempt->recipient;
 			}
 
 			// 05/28/09 Previously only told sender about ID_NAT_CONNECTION_TO_TARGET_LOST
 			// However, recipient may be expecting it due to external code
 			// In that case, recipient would never get any response if the sender dropped
-			outgoingBs.Write((MessageID)ID_NAT_CONNECTION_TO_TARGET_LOST);
+			outgoingBs.Write((MessageID) ID_NAT_CONNECTION_TO_TARGET_LOST);
 			outgoingBs.Write(rakNetGUID);
 			outgoingBs.Write(connectionAttempt->sessionId);
-			rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,otherUser->systemAddress,false);
+			rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, otherUser->systemAddress, false);
 
 			// 4/22/09 - Bug: was checking inProgress, legacy variable not used elsewhere
-			if (connectionAttempt->attemptPhase==ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS)
+			if (connectionAttempt->attemptPhase == ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS)
 			{
-				otherUser->isReady=true;
-				freedUpInProgressUsers.Insert(otherUser, _FILE_AND_LINE_ );
+				otherUser->isReady = true;
+				freedUpInProgressUsers.Insert(otherUser, _FILE_AND_LINE_);
 			}
 
 			otherUser->DeleteConnectionAttempt(connectionAttempt);
@@ -340,7 +340,7 @@ void NatPunchthroughServer::OnClosedConnection(const SystemAddress &systemAddres
 		MafiaNet::OP_DELETE(users[i], _FILE_AND_LINE_);
 		users.RemoveAtIndex(i);
 
-		for (i=0; i < freedUpInProgressUsers.Size(); i++)
+		for (i = 0; i < freedUpInProgressUsers.Size(); i++)
 		{
 			StartPunchthroughForUser(freedUpInProgressUsers[i]);
 		}
@@ -374,14 +374,14 @@ void NatPunchthroughServer::OnNewConnection(const SystemAddress &systemAddress, 
 	(void) isIncoming;
 
 	User *user = MafiaNet::OP_NEW<User>(_FILE_AND_LINE_);
-	user->guid=rakNetGUID;
-	user->mostRecentPort=0;
-	user->systemAddress=systemAddress;
-	user->isReady=true;
+	user->guid = rakNetGUID;
+	user->mostRecentPort = 0;
+	user->systemAddress = systemAddress;
+	user->isReady = true;
 	users.Insert(rakNetGUID, user, true, _FILE_AND_LINE_);
 
-//	printf("Adding to users %s\n", rakNetGUID.ToString());
-//	printf("DEBUG users[0] guid=%s\n", users[0]->guid.ToString());
+	//	printf("Adding to users %s\n", rakNetGUID.ToString());
+	//	printf("DEBUG users[0] guid=%s\n", users[0]->guid.ToString());
 }
 void NatPunchthroughServer::OnNATPunchthroughRequest(Packet *packet)
 {
@@ -390,40 +390,40 @@ void NatPunchthroughServer::OnNATPunchthroughRequest(Packet *packet)
 	incomingBs.IgnoreBytes(sizeof(MessageID));
 	RakNetGUID recipientGuid, senderGuid;
 	incomingBs.Read(recipientGuid);
-	senderGuid=packet->guid;
+	senderGuid = packet->guid;
 	unsigned int i;
 	bool objectExists;
 	i = users.GetIndexFromKey(senderGuid, &objectExists);
 	RakAssert(objectExists);
 
 	ConnectionAttempt *ca = MafiaNet::OP_NEW<ConnectionAttempt>(_FILE_AND_LINE_);
-	ca->sender=users[i];
-	ca->sessionId=sessionId++;
+	ca->sender = users[i];
+	ca->sessionId = sessionId++;
 	i = users.GetIndexFromKey(recipientGuid, &objectExists);
-	if (objectExists==false || ca->sender == ca->recipient)
+	if (objectExists == false || ca->sender == ca->recipient)
 	{
-// 		printf("DEBUG %i\n", __LINE__);
-// 		printf("DEBUG recipientGuid=%s\n", recipientGuid.ToString());
-// 		printf("DEBUG users[0] guid=%s\n", users[0]->guid.ToString());
+		// 		printf("DEBUG %i\n", __LINE__);
+		// 		printf("DEBUG recipientGuid=%s\n", recipientGuid.ToString());
+		// 		printf("DEBUG users[0] guid=%s\n", users[0]->guid.ToString());
 
-		outgoingBs.Write((MessageID)ID_NAT_TARGET_NOT_CONNECTED);
+		outgoingBs.Write((MessageID) ID_NAT_TARGET_NOT_CONNECTED);
 		outgoingBs.Write(recipientGuid);
-		rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->systemAddress,false);
-		MafiaNet::OP_DELETE(ca,_FILE_AND_LINE_);
+		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
+		MafiaNet::OP_DELETE(ca, _FILE_AND_LINE_);
 		return;
 	}
-	ca->recipient=users[i];
+	ca->recipient = users[i];
 	if (ca->recipient->HasConnectionAttemptToUser(ca->sender))
 	{
-		outgoingBs.Write((MessageID)ID_NAT_ALREADY_IN_PROGRESS);
+		outgoingBs.Write((MessageID) ID_NAT_ALREADY_IN_PROGRESS);
 		outgoingBs.Write(recipientGuid);
-		rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,packet->systemAddress,false);
-		MafiaNet::OP_DELETE(ca,_FILE_AND_LINE_);
+		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
+		MafiaNet::OP_DELETE(ca, _FILE_AND_LINE_);
 		return;
 	}
 
-	ca->sender->connectionAttempts.Insert(ca, _FILE_AND_LINE_ );
-	ca->recipient->connectionAttempts.Insert(ca, _FILE_AND_LINE_ );
+	ca->sender->connectionAttempts.Insert(ca, _FILE_AND_LINE_);
+	ca->recipient->connectionAttempts.Insert(ca, _FILE_AND_LINE_);
 
 	StartPunchthroughForUser(ca->sender);
 }
@@ -434,7 +434,7 @@ void NatPunchthroughServer::OnClientReady(Packet *packet)
 	i = users.GetIndexFromKey(packet->guid, &objectExists);
 	if (objectExists)
 	{
-		users[i]->isReady=true;
+		users[i]->isReady = true;
 		StartPunchthroughForUser(users[i]);
 	}
 }
@@ -447,7 +447,7 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 	bsIn.Read(curSessionId);
 	bsIn.Read(mostRecentPort);
 
-	unsigned int i,j;
+	unsigned int i, j;
 	User *user;
 	ConnectionAttempt *connectionAttempt;
 	bool objectExists;
@@ -457,26 +457,26 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 	{
 		MafiaNet::RakString log;
 		char addr1[128], addr2[128];
-		packet->systemAddress.ToString(true,addr1,static_cast<size_t>(128));
+		packet->systemAddress.ToString(true, addr1, static_cast<size_t>(128));
 		packet->guid.ToString(addr2, 128);
-		log= MafiaNet::RakString("Got ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s. port=%i. sessionId=%i. userFound=%i.", addr1, addr2, mostRecentPort, curSessionId, objectExists);
+		log = MafiaNet::RakString("Got ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s. port=%i. sessionId=%i. userFound=%i.", addr1, addr2, mostRecentPort, curSessionId, objectExists);
 		natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
 	}
 
 	if (objectExists)
 	{
-		user=users[i];
-		user->mostRecentPort=mostRecentPort;
+		user = users[i];
+		user->mostRecentPort = mostRecentPort;
 		MafiaNet::Time time = MafiaNet::GetTime();
 
-		for (j=0; j < user->connectionAttempts.Size(); j++)
+		for (j = 0; j < user->connectionAttempts.Size(); j++)
 		{
-			connectionAttempt=user->connectionAttempts[j];
-			if (connectionAttempt->attemptPhase==ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS &&
-				connectionAttempt->sender->mostRecentPort!=0 &&
-				connectionAttempt->recipient->mostRecentPort!=0 &&
-				// 04/29/08 add sessionId to prevent processing for other systems
-				connectionAttempt->sessionId== curSessionId)
+			connectionAttempt = user->connectionAttempts[j];
+			if (connectionAttempt->attemptPhase == ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS &&
+			    connectionAttempt->sender->mostRecentPort != 0 &&
+			    connectionAttempt->recipient->mostRecentPort != 0 &&
+			    // 04/29/08 add sessionId to prevent processing for other systems
+			    connectionAttempt->sessionId == curSessionId)
 			{
 				SystemAddress senderSystemAddress = connectionAttempt->sender->systemAddress;
 				SystemAddress recipientSystemAddress = connectionAttempt->recipient->systemAddress;
@@ -489,7 +489,7 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 				int targetPing = rakPeerInterface->GetAveragePing(recipientTargetAddress);
 				int senderPing = rakPeerInterface->GetAveragePing(senderSystemAddress);
 				MafiaNet::Time simultaneousAttemptTime;
-				if (targetPing==-1 || senderPing==-1)
+				if (targetPing == -1 || senderPing == -1)
 					simultaneousAttemptTime = time + 1500;
 				else
 				{
@@ -504,49 +504,49 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 				{
 					MafiaNet::RakString log;
 					char addr1[128], addr2[128];
-					recipientSystemAddress.ToString(true,addr1,static_cast<size_t>(128));
+					recipientSystemAddress.ToString(true, addr1, static_cast<size_t>(128));
 					connectionAttempt->recipient->guid.ToString(addr2, 128);
-					log= MafiaNet::RakString("Sending ID_NAT_CONNECT_AT_TIME to recipient systemAddress %s guid %s", addr1, addr2);
+					log = MafiaNet::RakString("Sending ID_NAT_CONNECT_AT_TIME to recipient systemAddress %s guid %s", addr1, addr2);
 					natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
 				}
 
 				// Send to recipient timestamped message to connect at time
 				MafiaNet::BitStream bsOut;
-				bsOut.Write((MessageID)ID_TIMESTAMP);
+				bsOut.Write((MessageID) ID_TIMESTAMP);
 				bsOut.Write(simultaneousAttemptTime);
-				bsOut.Write((MessageID)ID_NAT_CONNECT_AT_TIME);
+				bsOut.Write((MessageID) ID_NAT_CONNECT_AT_TIME);
 				bsOut.Write(connectionAttempt->sessionId);
-				bsOut.Write(senderTargetAddress); // Public IP, using most recent port
-				for (j=0; j < MAXIMUM_NUMBER_OF_INTERNAL_IDS; j++) // Internal IP
-					bsOut.Write(rakPeerInterface->GetInternalID(senderSystemAddress,j));
+				bsOut.Write(senderTargetAddress);                    // Public IP, using most recent port
+				for (j = 0; j < MAXIMUM_NUMBER_OF_INTERNAL_IDS; j++) // Internal IP
+					bsOut.Write(rakPeerInterface->GetInternalID(senderSystemAddress, j));
 				bsOut.Write(connectionAttempt->sender->guid);
 				bsOut.Write(false);
-				rakPeerInterface->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,recipientSystemAddress,false);
+				rakPeerInterface->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipientSystemAddress, false);
 
 
 				if (natPunchthroughServerDebugInterface)
 				{
 					MafiaNet::RakString log;
 					char addr1[128], addr2[128];
-					senderSystemAddress.ToString(true,addr1,static_cast<size_t>(128));
+					senderSystemAddress.ToString(true, addr1, static_cast<size_t>(128));
 					connectionAttempt->sender->guid.ToString(addr2, 128);
-					log= MafiaNet::RakString("Sending ID_NAT_CONNECT_AT_TIME to sender systemAddress %s guid %s", addr1, addr2);
+					log = MafiaNet::RakString("Sending ID_NAT_CONNECT_AT_TIME to sender systemAddress %s guid %s", addr1, addr2);
 					natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
 				}
 
 
 				// Same for sender
 				bsOut.Reset();
-				bsOut.Write((MessageID)ID_TIMESTAMP);
+				bsOut.Write((MessageID) ID_TIMESTAMP);
 				bsOut.Write(simultaneousAttemptTime);
-				bsOut.Write((MessageID)ID_NAT_CONNECT_AT_TIME);
+				bsOut.Write((MessageID) ID_NAT_CONNECT_AT_TIME);
 				bsOut.Write(connectionAttempt->sessionId);
-				bsOut.Write(recipientTargetAddress); // Public IP, using most recent port
-				for (j=0; j < MAXIMUM_NUMBER_OF_INTERNAL_IDS; j++) // Internal IP
-					bsOut.Write(rakPeerInterface->GetInternalID(recipientSystemAddress,j));						
+				bsOut.Write(recipientTargetAddress);                 // Public IP, using most recent port
+				for (j = 0; j < MAXIMUM_NUMBER_OF_INTERNAL_IDS; j++) // Internal IP
+					bsOut.Write(rakPeerInterface->GetInternalID(recipientSystemAddress, j));
 				bsOut.Write(connectionAttempt->recipient->guid);
 				bsOut.Write(true);
-				rakPeerInterface->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,senderSystemAddress,false);
+				rakPeerInterface->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, senderSystemAddress, false);
 
 				connectionAttempt->recipient->DerefConnectionAttempt(connectionAttempt);
 				connectionAttempt->sender->DeleteConnectionAttempt(connectionAttempt);
@@ -563,36 +563,35 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 		{
 			MafiaNet::RakString log;
 			char addr1[128], addr2[128];
-			packet->systemAddress.ToString(true,addr1,static_cast<size_t>(128));
+			packet->systemAddress.ToString(true, addr1, static_cast<size_t>(128));
 			packet->guid.ToString(addr2, 128);
-			log= MafiaNet::RakString("Ignoring ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s", addr1, addr2);
+			log = MafiaNet::RakString("Ignoring ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s", addr1, addr2);
 			natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
 		}
-
 	}
 }
 void NatPunchthroughServer::StartPunchthroughForUser(User *user)
 {
-	if (user->isReady==false)
+	if (user->isReady == false)
 		return;
 
 	ConnectionAttempt *connectionAttempt;
-	User *sender,*recipient,*otherUser;
+	User *sender, *recipient, *otherUser;
 	unsigned int i;
-	for (i=0; i < user->connectionAttempts.Size(); i++)
+	for (i = 0; i < user->connectionAttempts.Size(); i++)
 	{
-		connectionAttempt=user->connectionAttempts[i];
-		if (connectionAttempt->sender==user)
+		connectionAttempt = user->connectionAttempts[i];
+		if (connectionAttempt->sender == user)
 		{
-			otherUser=connectionAttempt->recipient;
-			sender=user;
-			recipient=otherUser;
+			otherUser = connectionAttempt->recipient;
+			sender = user;
+			recipient = otherUser;
 		}
 		else
 		{
-			otherUser=connectionAttempt->sender;
-			recipient=user;
-			sender=otherUser;
+			otherUser = connectionAttempt->sender;
+			recipient = user;
+			sender = otherUser;
 		}
 
 		if (otherUser->isReady)
@@ -601,26 +600,26 @@ void NatPunchthroughServer::StartPunchthroughForUser(User *user)
 			{
 				char str[1024];
 				char addr1[128], addr2[128];
-				sender->systemAddress.ToString(true,addr1,static_cast<size_t>(128));
-				recipient->systemAddress.ToString(true,addr2,static_cast<size_t>(128));
+				sender->systemAddress.ToString(true, addr1, static_cast<size_t>(128));
+				recipient->systemAddress.ToString(true, addr2, static_cast<size_t>(128));
 				sprintf_s(str, "Sending NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS to sender %s and recipient %s.", addr1, addr2);
 				natPunchthroughServerDebugInterface->OnServerMessage(str);
 			}
 
-			sender->isReady=false;
-			recipient->isReady=false;
-			connectionAttempt->attemptPhase=ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS;
-			connectionAttempt->startTime= MafiaNet::GetTime();
+			sender->isReady = false;
+			recipient->isReady = false;
+			connectionAttempt->attemptPhase = ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS;
+			connectionAttempt->startTime = MafiaNet::GetTime();
 
-			sender->mostRecentPort=0;
-			recipient->mostRecentPort=0;
+			sender->mostRecentPort = 0;
+			recipient->mostRecentPort = 0;
 
 			MafiaNet::BitStream outgoingBs;
-			outgoingBs.Write((MessageID)ID_NAT_GET_MOST_RECENT_PORT);
+			outgoingBs.Write((MessageID) ID_NAT_GET_MOST_RECENT_PORT);
 			// 4/29/09 Write sessionID so we don't use returned port for a system we don't want
 			outgoingBs.Write(connectionAttempt->sessionId);
-			rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,sender->systemAddress,false);
-			rakPeerInterface->Send(&outgoingBs,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,recipient->systemAddress,false);
+			rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, sender->systemAddress, false);
+			rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipient->systemAddress, false);
 
 			// 4/22/09 - BUG: missing break statement here
 			break;

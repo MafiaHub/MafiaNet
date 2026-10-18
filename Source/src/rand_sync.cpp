@@ -30,23 +30,23 @@ RakNetRandomSync::RakNetRandomSync()
 RakNetRandomSync::~RakNetRandomSync()
 {
 }
-void RakNetRandomSync::SeedMT( uint32_t _seed )
+void RakNetRandomSync::SeedMT(uint32_t _seed)
 {
 	seed = _seed;
-	rnr.SeedMT( seed );
+	rnr.SeedMT(seed);
 	callCount = 0;
 	usedValueBufferCount = 0;
 }
-void RakNetRandomSync::SeedMT( uint32_t _seed, uint32_t skipValues )
+void RakNetRandomSync::SeedMT(uint32_t _seed, uint32_t skipValues)
 {
 	SeedMT(_seed);
 	Skip(skipValues);
 }
-float RakNetRandomSync::FrandomMT( void )
+float RakNetRandomSync::FrandomMT(void)
 {
-	return ( float ) ( ( double ) RandomMT() / (double) UINT_MAX );
+	return (float) ((double) RandomMT() / (double) UINT_MAX);
 }
-unsigned int RakNetRandomSync::RandomMT( void )
+unsigned int RakNetRandomSync::RandomMT(void)
 {
 	if (usedValueBufferCount > 0)
 	{
@@ -54,7 +54,7 @@ unsigned int RakNetRandomSync::RandomMT( void )
 		if (usedValueBufferCount < usedValues.Size())
 		{
 			// The remote system had less calls than the current system, so return values from the past
-			return usedValues[usedValues.Size()-usedValueBufferCount-1];
+			return usedValues[usedValues.Size() - usedValueBufferCount - 1];
 		}
 		else
 		{
@@ -68,20 +68,20 @@ unsigned int RakNetRandomSync::RandomMT( void )
 		// Get random number and store what it is
 		usedValues.Push(rnr.RandomMT(), _FILE_AND_LINE_);
 		++callCount;
-		while (usedValues.Size()>64)
-			usedValues.Pop();		
-		return usedValues[usedValues.Size()-1];		
+		while (usedValues.Size() > 64)
+			usedValues.Pop();
+		return usedValues[usedValues.Size() - 1];
 	}
 }
-uint32_t RakNetRandomSync::GetSeed( void ) const
+uint32_t RakNetRandomSync::GetSeed(void) const
 {
 	return seed;
 }
-uint32_t RakNetRandomSync::GetCallCount( void ) const
+uint32_t RakNetRandomSync::GetCallCount(void) const
 {
 	return callCount;
 }
-void RakNetRandomSync::SetCallCount( uint32_t i )
+void RakNetRandomSync::SetCallCount(uint32_t i)
 {
 	callCount = i;
 }
@@ -108,13 +108,13 @@ void RakNetRandomSync::Deserialize(MafiaNet::BitStream *outputBitstream)
 {
 	uint32_t _callCount;
 	outputBitstream->Read(_callCount);
-	if (_callCount < callCount )
+	if (_callCount < callCount)
 	{
 		// We locally read more values than the remote system
 		// The next n calls should come from buffered values
 		usedValueBufferCount = callCount - _callCount;
 	}
-	else if (_callCount > callCount )
+	else if (_callCount > callCount)
 	{
 		// Remote system read more values than us
 		uint32_t diff = _callCount - callCount;
@@ -124,11 +124,11 @@ void RakNetRandomSync::Deserialize(MafiaNet::BitStream *outputBitstream)
 			Skip(diff);
 	}
 }
-void RakNetRandomSync::Skip( uint32_t count )
+void RakNetRandomSync::Skip(uint32_t count)
 {
 	for (uint32_t i = 0; i < count; i++)
 		rnr.RandomMT();
-	callCount+=count;
+	callCount += count;
 }
 
 } // namespace MafiaNet

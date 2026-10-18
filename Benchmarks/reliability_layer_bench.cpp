@@ -27,59 +27,59 @@ using namespace MafiaNet;
 
 namespace
 {
-	struct QueueSocket : public RakNetSocket2
+struct QueueSocket : public RakNetSocket2
+{
+	std::vector<std::vector<char>> sent;
+
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
 	{
-		std::vector<std::vector<char> > sent;
+		sent.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
+		return sendParameters->length;
+	}
+};
 
-		RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
-		{
-			sent.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
-			return sendParameters->length;
-		}
-	};
+struct LayerPair
+{
+	ReliabilityLayer a, b;
+	QueueSocket aSock, bSock;
+	SystemAddress aAddr{"127.0.0.1", 40001}, bAddr{"127.0.0.1", 40002};
+	DataStructures::List<PluginInterface2 *> handlers;
+	RakNetRandom rnr;
+	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
+	CCTimeType now = GetTimeUS();
 
-	struct LayerPair
+	LayerPair()
 	{
-		ReliabilityLayer a, b;
-		QueueSocket aSock, bSock;
-		SystemAddress aAddr{"127.0.0.1", 40001}, bAddr{"127.0.0.1", 40002};
-		DataStructures::List<PluginInterface2 *> handlers;
-		RakNetRandom rnr;
-		BitStream updateBitStream{MAXIMUM_MTU_SIZE};
-		CCTimeType now = GetTimeUS();
+		a.Reset(true, MAXIMUM_MTU_SIZE, false);
+		b.Reset(true, MAXIMUM_MTU_SIZE, false);
+	}
 
-		LayerPair()
+	// One 10ms tick in both directions; returns messages b completed.
+	int Tick()
+	{
+		now += 10000;
+		a.Update(&aSock, bAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		for (auto &d : aSock.sent)
+			b.HandleSocketReceiveFromConnectedPlayer(d.data(), (unsigned int) d.size(), aAddr, handlers,
+			                                         MAXIMUM_MTU_SIZE, &bSock, &rnr, now, updateBitStream);
+		aSock.sent.clear();
+
+		b.Update(&bSock, aAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		for (auto &d : bSock.sent)
+			a.HandleSocketReceiveFromConnectedPlayer(d.data(), (unsigned int) d.size(), bAddr, handlers,
+			                                         MAXIMUM_MTU_SIZE, &aSock, &rnr, now, updateBitStream);
+		bSock.sent.clear();
+
+		int received = 0;
+		unsigned char *data;
+		while (b.Receive(&data) > 0)
 		{
-			a.Reset(true, MAXIMUM_MTU_SIZE, false);
-			b.Reset(true, MAXIMUM_MTU_SIZE, false);
+			rakFree_Ex(data, _FILE_AND_LINE_);
+			++received;
 		}
-
-		// One 10ms tick in both directions; returns messages b completed.
-		int Tick()
-		{
-			now += 10000;
-			a.Update(&aSock, bAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
-			for (auto &d : aSock.sent)
-				b.HandleSocketReceiveFromConnectedPlayer(d.data(), (unsigned int) d.size(), aAddr, handlers,
-					MAXIMUM_MTU_SIZE, &bSock, &rnr, now, updateBitStream);
-			aSock.sent.clear();
-
-			b.Update(&bSock, aAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
-			for (auto &d : bSock.sent)
-				a.HandleSocketReceiveFromConnectedPlayer(d.data(), (unsigned int) d.size(), bAddr, handlers,
-					MAXIMUM_MTU_SIZE, &aSock, &rnr, now, updateBitStream);
-			bSock.sent.clear();
-
-			int received = 0;
-			unsigned char *data;
-			while (b.Receive(&data) > 0)
-			{
-				rakFree_Ex(data, _FILE_AND_LINE_);
-				++received;
-			}
-			return received;
-		}
-	};
+		return received;
+	}
+};
 }
 
 // Many small reliable-ordered messages per tick: packing and ack throughput.
@@ -94,7 +94,7 @@ static void ReliabilityLayer_SmallReliableOrdered(benchmark::State &state)
 	{
 		for (int i = 0; i < perTick; ++i)
 			pair.a.Send(message.data(), BYTES_TO_BITS((BitSize_t) message.size()), Priority::High,
-				Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, pair.now, 0);
+			            Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, pair.now, 0);
 		delivered += pair.Tick();
 	}
 	state.SetItemsProcessed(delivered);
@@ -111,7 +111,7 @@ static void ReliabilityLayer_SplitMessage(benchmark::State &state)
 	for (auto _ : state)
 	{
 		pair.a.Send(message.data(), BYTES_TO_BITS((BitSize_t) message.size()), Priority::Medium,
-			Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, pair.now, 0);
+		            Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, pair.now, 0);
 		int got = 0;
 		for (int tick = 0; got == 0 && tick < 10000; ++tick)
 			got = pair.Tick();

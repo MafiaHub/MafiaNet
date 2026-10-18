@@ -11,16 +11,16 @@
 
 namespace MafiaNet
 {
-	namespace Experimental
-	{
-		namespace Crypto
-		{
-			class Factory
-			{
-			public:
-				static IFileEncrypter* ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength);
-				static IFileEncrypter* ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength, const char *privateKey, size_t privateKeyLength, CSecureString& privateKeyPassword);
-			};
-		}
-	}
+namespace Experimental
+{
+namespace Crypto
+{
+class Factory
+{
+public:
+	static IFileEncrypter *ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength);
+	static IFileEncrypter *ConstructFileEncrypter(const char *publicKey, size_t publicKeyLength, const char *privateKey, size_t privateKeyLength, CSecureString &privateKeyPassword);
+};
+}
+}
 }

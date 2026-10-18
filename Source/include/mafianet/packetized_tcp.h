@@ -19,7 +19,7 @@
 
 
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_PacketizedTCP==1 && _RAKNET_SUPPORT_TCPInterface==1
+#if _RAKNET_SUPPORT_PacketizedTCP == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #ifndef __PACKETIZED_TCP
 #define __PACKETIZED_TCP
@@ -44,16 +44,16 @@ public:
 	void Stop(void);
 
 	/// Sends a byte stream
-	void Send( const char *data, unsigned length, const SystemAddress &systemAddress, bool broadcast );
+	void Send(const char *data, unsigned length, const SystemAddress &systemAddress, bool broadcast);
 
 	// Sends a concatenated list of byte streams
-	bool SendList( const char **data, const unsigned int *lengths, const int numParameters, const SystemAddress &systemAddress, bool broadcast );
+	bool SendList(const char **data, const unsigned int *lengths, const int numParameters, const SystemAddress &systemAddress, bool broadcast);
 
 	/// Returns data received
-	Packet* Receive( void );
+	Packet *Receive(void);
 
 	/// Disconnects a player/address
-	void CloseConnection( SystemAddress systemAddress );
+	void CloseConnection(SystemAddress systemAddress);
 
 	/// Has a previous call to connect succeeded?
 	/// \return UNASSIGNED_SYSTEM_ADDRESS = no. Anything else means yes.
@@ -77,7 +77,7 @@ protected:
 	Packet *ReturnOutgoingPacket(void);
 
 	// A single TCP recieve may generate multiple split packets. They are stored in the waitingPackets list until Receive is called
-	DataStructures::Queue<Packet*> waitingPackets;
+	DataStructures::Queue<Packet *> waitingPackets;
 	DataStructures::Map<SystemAddress, DataStructures::ByteQueue *> connections;
 
 	// Mirrors single producer / consumer, but processes them in Receive() before returning to user

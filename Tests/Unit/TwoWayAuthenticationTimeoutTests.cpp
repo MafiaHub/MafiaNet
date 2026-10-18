@@ -15,21 +15,21 @@ using namespace MafiaNet;
 
 namespace
 {
-	// The oldest and newest generation time: nonces generated back to back can straddle a
-	// millisecond, so assertions are phrased against both ends.
-	void NonceTimes(const TwoWayAuthentication::NonceGenerator &generator, Time &oldest, Time &newest)
-	{
-		oldest = generator.generatedNonces[0]->whenGenerated;
-		newest = generator.generatedNonces[generator.generatedNonces.Size() - 1]->whenGenerated;
-	}
+// The oldest and newest generation time: nonces generated back to back can straddle a
+// millisecond, so assertions are phrased against both ends.
+void NonceTimes(const TwoWayAuthentication::NonceGenerator &generator, Time &oldest, Time &newest)
+{
+	oldest = generator.generatedNonces[0]->whenGenerated;
+	newest = generator.generatedNonces[generator.generatedNonces.Size() - 1]->whenGenerated;
+}
 
-	void GenerateNonces(TwoWayAuthentication::NonceGenerator &generator, unsigned int count)
-	{
-		char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH];
-		unsigned short requestId;
-		for (unsigned int i = 0; i < count; i++)
-			generator.GetNonce(nonce, &requestId, AddressOrGUID(RakNetGUID(100 + i)));
-	}
+void GenerateNonces(TwoWayAuthentication::NonceGenerator &generator, unsigned int count)
+{
+	char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH];
+	unsigned short requestId;
+	for (unsigned int i = 0; i < count; i++)
+		generator.GetNonce(nonce, &requestId, AddressOrGUID(RakNetGUID(100 + i)));
+}
 }
 
 TEST(TwoWayAuthentication, TimeoutDefaultsAndRoundTrips)

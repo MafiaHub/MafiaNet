@@ -22,75 +22,75 @@ using namespace MafiaNet;
 
 namespace
 {
-	const int kClients = 9;
-	const TimeMS kServerTimeoutMs = 2000;
-	const TimeMS kClientTimeoutMs = 5000;
-	// A silent drop is noticed once a reliable message (at worst the keepalive
-	// ping, sent after timeout/2 without reliable traffic) goes unacknowledged
-	// for the timeout. Leave one more timeout/2 of slack for the update cadence.
-	const uint32_t kDetectionBudgetMs = kServerTimeoutMs + kServerTimeoutMs / 2;
+const int kClients = 9;
+const TimeMS kServerTimeoutMs = 2000;
+const TimeMS kClientTimeoutMs = 5000;
+// A silent drop is noticed once a reliable message (at worst the keepalive
+// ping, sent after timeout/2 without reliable traffic) goes unacknowledged
+// for the timeout. Leave one more timeout/2 of slack for the update cadence.
+const uint32_t kDetectionBudgetMs = kServerTimeoutMs + kServerTimeoutMs / 2;
 
-	class DroppedConnectionConvertSim : public ::testing::Test
+class DroppedConnectionConvertSim : public ::testing::Test
+{
+protected:
+	void SetUp() override
 	{
-	protected:
-		void SetUp() override
-		{
-			server = net.AddPeer(kClients, kClients);
-			server->SetTimeoutTime(kServerTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
-			serverAddress = net.AddressOf(server);
-			net.SetTap([this](const SystemAddress &from, const SystemAddress &to, const char *, int) {
+		server = net.AddPeer(kClients, kClients);
+		server->SetTimeoutTime(kServerTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+		serverAddress = net.AddressOf(server);
+		net.SetTap([this](const SystemAddress &from, const SystemAddress &to, const char *, int)
+		           {
 				if (to == serverAddress)
-					lastHeardFrom[from] = net.Now();
-			});
-			for (int i = 0; i < kClients; ++i)
-			{
-				clients[i] = net.AddPeer(1);
-				clients[i]->SetTimeoutTime(kClientTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
-				ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(clients[i], server)) << "client " << i;
-				net.Step(1000);
-			}
-		}
-
-		static unsigned short ConnectionCount(RakPeer *peer)
+					lastHeardFrom[from] = net.Now(); });
+		for (int i = 0; i < kClients; ++i)
 		{
-			unsigned short count = 0;
-			peer->GetConnectionList(nullptr, &count);
-			return count;
+			clients[i] = net.AddPeer(1);
+			clients[i]->SetTimeoutTime(kClientTimeoutMs, UNASSIGNED_SYSTEM_ADDRESS);
+			ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(clients[i], server)) << "client " << i;
+			net.Step(1000);
 		}
+	}
 
-		// ASSERTs no client has more than one connection; returns how many have one.
-		int ConnectedClients()
+	static unsigned short ConnectionCount(RakPeer *peer)
+	{
+		unsigned short count = 0;
+		peer->GetConnectionList(nullptr, &count);
+		return count;
+	}
+
+	// ASSERTs no client has more than one connection; returns how many have one.
+	int ConnectedClients()
+	{
+		int connected = 0;
+		for (int i = 0; i < kClients; ++i)
 		{
-			int connected = 0;
-			for (int i = 0; i < kClients; ++i)
-			{
-				const unsigned short count = ConnectionCount(clients[i]);
-				EXPECT_LE(count, 1) << "client " << i << " has " << count << " connections";
-				if (count == 1)
-					++connected;
-			}
-			return connected;
+			const unsigned short count = ConnectionCount(clients[i]);
+			EXPECT_LE(count, 1) << "client " << i << " has " << count << " connections";
+			if (count == 1)
+				++connected;
 		}
+		return connected;
+	}
 
-		bool BusyOrConnected(int i)
-		{
-			const ConnectionState state = clients[i]->GetConnectionState(serverAddress);
-			return state == IS_CONNECTED || state == IS_CONNECTING || state == IS_PENDING || state == IS_DISCONNECTING;
-		}
+	bool BusyOrConnected(int i)
+	{
+		const ConnectionState state = clients[i]->GetConnectionState(serverAddress);
+		return state == IS_CONNECTED || state == IS_CONNECTING || state == IS_PENDING || state == IS_DISCONNECTING;
+	}
 
-		uint32_t NextRandom()
-		{
-			lcg = lcg * 1664525u + 1013904223u;
-			return lcg >> 8;
-		}
+	uint32_t NextRandom()
+	{
+		lcg = lcg * 1664525u + 1013904223u;
+		return lcg >> 8;
+	}
 
-		SimulatedNetwork net;
-		RakPeer *server = nullptr;
-		RakPeer *clients[kClients] = {};
-		SystemAddress serverAddress;
-		std::map<SystemAddress, TimeUS> lastHeardFrom;
-		uint32_t lcg = 12345;
-	};
+	SimulatedNetwork net;
+	RakPeer *server = nullptr;
+	RakPeer *clients[kClients] = {};
+	SystemAddress serverAddress;
+	std::map<SystemAddress, TimeUS> lastHeardFrom;
+	uint32_t lcg = 12345;
+};
 }
 
 TEST_F(DroppedConnectionConvertSim, AllClientsConnect)
@@ -102,7 +102,8 @@ TEST_F(DroppedConnectionConvertSim, AllClientsConnect)
 TEST_F(DroppedConnectionConvertSim, SilentDropIsDetectedByTheServerTimeout)
 {
 	clients[0]->CloseConnection(serverAddress, false, 0);
-	ASSERT_TRUE(net.RunUntil([&] { return ConnectionCount(clients[0]) == 0; }, 100));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return ConnectionCount(clients[0]) == 0; }, 100));
 	EXPECT_EQ(kClients, ConnectionCount(server)) << "a silent close must not tell the server";
 
 	ASSERT_TRUE(net.RunUntilReceived(server, ID_CONNECTION_LOST, kDetectionBudgetMs));
@@ -149,9 +150,10 @@ TEST_F(DroppedConnectionConvertSim, RandomDropsAndReconnectsStayConsistent)
 		case 3: // quiet period: the server must catch up with every drop
 		{
 			++timeoutChecks;
-			const bool consistent = net.RunUntil([&] { return ConnectedClients() == ConnectionCount(server); }, kDetectionBudgetMs);
+			const bool consistent = net.RunUntil([&]
+			                                     { return ConnectedClients() == ConnectionCount(server); }, kDetectionBudgetMs);
 			ASSERT_TRUE(consistent) << "timeout on dropped clients not detected: server has " << ConnectionCount(server)
-				<< " connections, " << ConnectedClients() << " clients are connected";
+			                        << " connections, " << ConnectedClients() << " clients are connected";
 			break;
 		}
 		}
@@ -164,13 +166,13 @@ TEST_F(DroppedConnectionConvertSim, RandomDropsAndReconnectsStayConsistent)
 	// Every client can get back in once the dust settles. A reconnect that
 	// races the server still holding the silently dropped connection is
 	// refused (ID_ALREADY_CONNECTED) until the timeout clears it, so retry.
-	const bool allBack = net.RunUntil([&] {
+	const bool allBack = net.RunUntil([&]
+	                                  {
 		for (int index = 0; index < kClients; ++index)
 			if (!BusyOrConnected(index))
 			{
 				EXPECT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(clients[index], server)) << "client " << index;
 			}
-		return ConnectedClients() == kClients && ConnectionCount(server) == kClients;
-	}, 20000, 100);
+		return ConnectedClients() == kClients && ConnectionCount(server) == kClients; }, 20000, 100);
 	EXPECT_TRUE(allBack) << ConnectedClients() << " clients and " << ConnectionCount(server) << " server connections";
 }
