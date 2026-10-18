@@ -414,8 +414,6 @@ StartupResult RakPeer::Startup( unsigned int maxConnections, SocketDescriptor *s
 	if (IsActive())
 		return RAKNET_ALREADY_STARTED;
 
-	SetNetworkThreadReceiveStopped(false);
-
 	// If getting the guid failed in the constructor, try again
 	if (myGuid.g==0)
 	{
@@ -1099,6 +1097,11 @@ void RakPeer::Shutdown( unsigned int blockDuration, unsigned char orderingChanne
 	{
 		RakSleep(15);
 	}
+
+	// The update thread has exited, so nothing can be in or enter the hook: re-arm it for the next
+	// Startup(). Re-arming here rather than in Startup() means the constructor's value is the one
+	// the first Startup() runs with.
+	SetNetworkThreadReceiveStopped(false);
 
 	activeSystemListSize = 0;
 

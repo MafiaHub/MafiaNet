@@ -1003,7 +1003,8 @@ protected:
 	// on it are ignored: they would deadlock on the lock that thread holds, and they also change
 	// the plugin lists Receive() walks on the user thread.
 	std::atomic<std::thread::id> networkThreadDispatcher;
-	// Set once Shutdown() starts telling plugins, cleared by Startup(). Guarded by the mutex above.
+	// Set once Shutdown() starts telling plugins, cleared again once its update thread has exited.
+	// Starts false, so the first Startup() offers messages. Guarded by the mutex above.
 	bool networkThreadReceiveStopped;
 	bool IsInsideNetworkThreadReceive(void) const;
 	void SetNetworkThreadReceiveStopped(bool stopped);
