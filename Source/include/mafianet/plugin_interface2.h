@@ -146,7 +146,10 @@ public:
 	/// callbacks must be synchronized. RakPeer::Send() is safe to call from here; AttachPlugin() and
 	/// DetachPlugin() do nothing when called from here, and Shutdown() must not be called from here.
 	/// Not called once Shutdown() has begun calling OnRakPeerShutdown(). ID_TIMESTAMP payloads arrive
-	/// unshifted.
+	/// unshifted. A sender's messages can arrive here before the user thread has processed its
+	/// connection notification, so do not assume the application already knows the sender.
+	/// DetachPlugin() and Shutdown() wait for a call in progress, so this must never wait on a
+	/// thread that may be inside either of them.
 	/// \param[in] packet The message. RR_STOP_PROCESSING_AND_DEALLOCATE frees it, RR_STOP_PROCESSING
 	///            hands it to the plugin (free it with RakPeer::DeallocatePacket), and
 	///            RR_CONTINUE_PROCESSING queues it for Receive() as usual.

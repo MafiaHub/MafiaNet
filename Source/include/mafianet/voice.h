@@ -316,7 +316,10 @@ public:
 	/// \a relay on RakPeer's network update thread and freed afterwards, so frames are forwarded
 	/// even while the application's main thread is busy, and never reach Receive().
 	/// \a relay typically picks recipients and calls RelayFrame(), which is safe there; it must
-	/// not keep the packet, and whatever it reads must be safe to read from that thread.
+	/// not keep the packet, and whatever it reads must be safe to read from that thread. It can see
+	/// a sender before the application has processed that sender's connection, and must never
+	/// wait on a thread that may be inside SetRelayHost(), DetachPlugin() or Shutdown(), which
+	/// wait for it.
 	/// Pass nullptr to stop being a relay host. Once this returns, the previous \a relay is not
 	/// running and will not be called again. Called from inside \a relay, the change takes
 	/// effect as soon as that call returns.

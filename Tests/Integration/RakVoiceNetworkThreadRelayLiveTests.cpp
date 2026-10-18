@@ -188,3 +188,51 @@ TEST_F(RakVoiceNetworkThreadRelayLive, ClearingTheRelayWaitsForOneThatIsMidCall)
 	EXPECT_TRUE(cleared.load());
 	server->DetachPlugin(&voice);
 }
+
+TEST_F(RakVoiceNetworkThreadRelayLive, TogglingTheRelayWhileFramesArriveIsSafe)
+{
+	// One thread plays the network thread, another toggles the relay as fast as it
+	// can. The hook must never call an emptied relay (std::bad_function_call) or see a
+	// half-swapped one; under TSan this also checks the state is properly guarded.
+	RakVoice voice;
+	std::atomic<int> relayed {0};
+	std::atomic<bool> threw {false};
+	std::atomic<bool> done {false};
+
+	std::thread network([&] {
+		std::vector<unsigned char> frame = RelayFrameFrom(RakNetGUID(7), 1);
+		Packet p {};
+		p.data = frame.data();
+		p.length = (unsigned int) frame.size();
+		try
+		{
+			for (int i = 0; i < 200000; ++i)
+				voice.OnReceiveNetworkThread(&p);
+		}
+		catch (...)
+		{
+			threw = true;
+		}
+		done = true;
+	});
+
+	int toggles = 0;
+	while (!done.load())
+	{
+		voice.SetRelayHost([&](Packet *) { ++relayed; });
+		voice.SetRelayHost(nullptr);
+		++toggles;
+	}
+	network.join();
+	EXPECT_FALSE(threw.load());
+	EXPECT_GT(toggles, 0);
+
+	voice.SetRelayHost(nullptr);
+	const int after = relayed.load();
+	std::vector<unsigned char> frame = RelayFrameFrom(RakNetGUID(7), 1);
+	Packet p {};
+	p.data = frame.data();
+	p.length = (unsigned int) frame.size();
+	EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(&p));
+	EXPECT_EQ(after, relayed.load());
+}

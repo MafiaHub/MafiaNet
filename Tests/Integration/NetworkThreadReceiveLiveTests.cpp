@@ -192,3 +192,35 @@ TEST_F(NetworkThreadReceiveLive, HookRunsAgainAfterARestart)
 	EXPECT_GT(probe.calls.load(), before);
 	pair.server->DetachPlugin(&probe);
 }
+
+TEST_F(NetworkThreadReceiveLive, AttachAndDetachWhileMessagesFlowIsSafe)
+{
+	// The user thread attaches and detaches while the update thread dispatches.
+	// Nothing may crash or be called after its final detach; TSan checks the locking.
+	BlockingProbe probe;
+	LivePair pair;
+	ASSERT_TRUE(pair.Start());
+
+	std::atomic<bool> flooding {true};
+	std::thread flooder([&] {
+		while (flooding.load())
+		{
+			pair.Send();
+			RakSleep(1);
+		}
+	});
+	for (int i = 0; i < 300; ++i)
+	{
+		pair.server->AttachPlugin(&probe);
+		RakSleep(1);
+		pair.server->DetachPlugin(&probe);
+	}
+	const int callsAtLastDetach = probe.calls.load();
+	RakSleep(200);
+	flooding = false;
+	flooder.join();
+
+	EXPECT_GT(callsAtLastDetach, 0);
+	EXPECT_EQ(callsAtLastDetach, probe.calls.load());
+	EXPECT_EQ(nullptr, probe.GetRakPeerInterface());
+}

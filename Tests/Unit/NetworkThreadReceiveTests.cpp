@@ -391,3 +391,88 @@ TEST(NetworkThreadReceive, AttachFromInsideTheHookIsIgnored)
 	EXPECT_EQ(nullptr, attached.GetRakPeerInterface());
 	p.server->DetachPlugin(&attacher);
 }
+
+namespace
+{
+	// RakPeer::packetsOutstanding counts packets allocated and not yet freed. Read
+	// through a pointer-to-member formed in a derived class, which is how a protected
+	// member of another object may legally be reached.
+	struct PacketCount : RakPeer
+	{
+		static unsigned int Outstanding(const RakPeer *peer) { return peer->*(&PacketCount::packetsOutstanding); }
+	};
+}
+
+TEST(NetworkThreadReceive, ConsumedMessagesAreFreed)
+{
+	Pair p;
+	NetworkThreadProbe probe;
+	p.server->AttachPlugin(&probe);
+	ASSERT_TRUE(p.Start());
+	p.net.Step(100);
+	const unsigned int baseline = PacketCount::Outstanding(p.server);
+
+	for (int i = 0; i < 20; ++i)
+		SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
+	ASSERT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 20; }, 5000));
+	p.net.Step(50);
+	EXPECT_EQ(baseline, PacketCount::Outstanding(p.server));
+	p.server->DetachPlugin(&probe);
+}
+
+TEST(NetworkThreadReceive, KeptMessageStaysAllocatedUntilThePluginFreesIt)
+{
+	Pair p;
+	NetworkThreadProbe probe;
+	p.server->AttachPlugin(&probe);
+	ASSERT_TRUE(p.Start());
+	p.net.Step(100);
+	const unsigned int baseline = PacketCount::Outstanding(p.server);
+
+	SendId(p.client, p.net.AddressOf(p.server), ID_NT_KEPT);
+	ASSERT_TRUE(p.net.RunUntil([&] { return probe.kept.size() == 1; }, 2000));
+	p.net.Step(50);
+	EXPECT_EQ(baseline + 1, PacketCount::Outstanding(p.server));
+	p.server->DeallocatePacket(probe.kept.front());
+	EXPECT_EQ(baseline, PacketCount::Outstanding(p.server));
+	p.server->DetachPlugin(&probe);
+}
+
+TEST(NetworkThreadReceive, ContinuedMessagesAreFreedByReceiveAsUsual)
+{
+	Pair p;
+	NetworkThreadProbe probe;
+	p.server->AttachPlugin(&probe);
+	ASSERT_TRUE(p.Start());
+	p.net.Step(100);
+	const unsigned int baseline = PacketCount::Outstanding(p.server);
+
+	for (int i = 0; i < 20; ++i)
+		SendId(p.client, p.net.AddressOf(p.server), ID_NT_PASSED);
+	ASSERT_TRUE(p.net.RunUntil([&] { return InboxCount(p.net, p.server, ID_NT_PASSED) == 20; }, 5000));
+	EXPECT_EQ(baseline, PacketCount::Outstanding(p.server));
+	p.server->DetachPlugin(&probe);
+}
+
+TEST(NetworkThreadReceive, HookCanSeeASenderBeforeTheApplicationSeesItConnect)
+{
+	// The connection notification waits in the Receive() queue, but the sender's
+	// messages are offered on the network thread as they arrive, so a hook must not
+	// assume the application already knows the sender.
+	Pair p;
+	NetworkThreadProbe probe;
+	p.server->AttachPlugin(&probe);
+	p.net.SetReceiveEnabled(p.server, false);
+	char host[64];
+	p.net.AddressOf(p.server).ToString(false, host, sizeof(host));
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, p.client->Connect(host, p.net.AddressOf(p.server).GetPort(), nullptr, 0));
+	ASSERT_TRUE(p.net.RunUntilReceived(p.client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
+
+	SendId(p.client, p.net.AddressOf(p.server), ID_NT_CONSUMED);
+	ASSERT_TRUE(p.net.RunUntil([&] { return probe.NetworkThreadCount(ID_NT_CONSUMED) == 1; }, 2000));
+	EXPECT_FALSE(p.net.Received(p.server, ID_NEW_INCOMING_CONNECTION));
+
+	p.net.SetReceiveEnabled(p.server, true);
+	EXPECT_TRUE(p.net.RunUntilReceived(p.server, ID_NEW_INCOMING_CONNECTION, 2000));
+	p.server->DetachPlugin(&probe);
+}

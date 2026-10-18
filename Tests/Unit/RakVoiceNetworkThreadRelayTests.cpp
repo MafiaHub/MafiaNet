@@ -236,8 +236,9 @@ TEST(RakVoiceNetworkThreadRelay, RelayCanReplaceItselfFromInside)
 	Packet p = View(frame, Guid(7));
 	voice.OnReceiveNetworkThread(&p);
 	voice.OnReceiveNetworkThread(&p);
+	voice.OnReceiveNetworkThread(&p);
 	EXPECT_EQ(1, first);
-	EXPECT_EQ(1, second);
+	EXPECT_EQ(2, second); // the swap happened once, and the new relay stays in place
 }
 
 TEST(RakVoiceNetworkThreadRelay, RelayHostDropsAStragglerFrameThatReachedReceive)
@@ -320,4 +321,112 @@ TEST(RakVoiceNetworkThreadRelay, EveryFrameOfABurstIsRelayedInOrder)
 	ASSERT_EQ(kFrames, sequences.size());
 	for (unsigned short i = 0; i < kFrames; ++i)
 		EXPECT_EQ(i + 1, sequences[i]);
+}
+
+TEST(RakVoiceNetworkThreadRelay, SetRelayHostAfterARelayCallTakesEffectAtOnce)
+{
+	// The relay's thread marker must be cleared when it returns, or a later
+	// SetRelayHost from that same thread would be parked as if made from inside.
+	RakVoice voice;
+	int first = 0, second = 0;
+	voice.SetRelayHost([&](Packet *) { ++first; });
+
+	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
+	Packet p = View(frame, Guid(7));
+	voice.OnReceiveNetworkThread(&p);
+	voice.SetRelayHost([&](Packet *) { ++second; });
+	voice.OnReceiveNetworkThread(&p);
+	EXPECT_EQ(1, first);
+	EXPECT_EQ(1, second);
+
+	voice.SetRelayHost(nullptr);
+	EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(&p));
+}
+
+TEST(RakVoiceNetworkThreadRelay, LastSetRelayHostFromInsideWins)
+{
+	RakVoice voice;
+	int first = 0, second = 0, third = 0;
+	voice.SetRelayHost([&](Packet *) {
+		++first;
+		voice.SetRelayHost([&](Packet *) { ++second; });
+		voice.SetRelayHost([&](Packet *) { ++third; });
+	});
+
+	std::vector<unsigned char> frame = RelayFrameFrom(Guid(7));
+	Packet p = View(frame, Guid(7));
+	voice.OnReceiveNetworkThread(&p);
+	voice.OnReceiveNetworkThread(&p);
+	EXPECT_EQ(1, first);
+	EXPECT_EQ(0, second);
+	EXPECT_EQ(1, third);
+}
+
+// --- Relay host vs decoding client, observed through decoder channels ----------
+//
+// An initialized RakVoice that is not a relay host decodes relay frames, which opens
+// a decoder channel for the frame's origin. A relay host never does. That makes the
+// relay-host state visible from outside.
+
+namespace
+{
+	bool HasSpeaker(RakVoice &voice, RakNetGUID who)
+	{
+		DataStructures::List<RakNetGUID> speakers;
+		voice.GetActiveSpeakers(speakers);
+		for (unsigned i = 0; i < speakers.Size(); ++i)
+			if (speakers[i] == who)
+				return true;
+		return false;
+	}
+}
+
+TEST(RakVoiceNetworkThreadRelay, ClearedRelayHostDecodesRelayFramesAgain)
+{
+	RelayRig rig;
+	rig.voice.Init(48000, 960 * sizeof(short));
+	ASSERT_TRUE(rig.voice.IsInitialized());
+	ASSERT_TRUE(rig.Start());
+	rig.voice.SetRelayHost([](Packet *) {});
+	rig.voice.SetRelayHost(nullptr);
+
+	rig.Talk();
+	ASSERT_TRUE(rig.net.RunUntil([&] { return HasSpeaker(rig.voice, rig.talker->GetMyGUID()); }, 2000));
+}
+
+TEST(RakVoiceNetworkThreadRelay, RelayHostClearedFromInsideDecodesRelayFramesAgain)
+{
+	RelayRig rig;
+	rig.voice.Init(48000, 960 * sizeof(short));
+	ASSERT_TRUE(rig.voice.IsInitialized());
+	ASSERT_TRUE(rig.Start());
+	std::atomic<int> relayed {0};
+	rig.voice.SetRelayHost([&](Packet *) {
+		++relayed;
+		rig.voice.SetRelayHost(nullptr);
+	});
+
+	rig.Talk();
+	ASSERT_TRUE(rig.net.RunUntil([&] { return relayed.load() == 1; }, 2000));
+	EXPECT_FALSE(HasSpeaker(rig.voice, rig.talker->GetMyGUID()));
+	rig.Talk();
+	ASSERT_TRUE(rig.net.RunUntil([&] { return HasSpeaker(rig.voice, rig.talker->GetMyGUID()); }, 2000));
+	EXPECT_EQ(1, relayed.load());
+}
+
+TEST(RakVoiceNetworkThreadRelay, RelayHostNeverDecodesEvenAStraggler)
+{
+	RelayRig rig;
+	rig.voice.Init(48000, 960 * sizeof(short));
+	ASSERT_TRUE(rig.voice.IsInitialized());
+	ASSERT_TRUE(rig.Start());
+	rig.net.SetReceiveEnabled(rig.server, false);
+	rig.Talk();
+	rig.net.Step(200); // queued for Receive() before this peer became a relay host
+
+	rig.voice.SetRelayHost([](Packet *) {});
+	rig.net.SetReceiveEnabled(rig.server, true);
+	rig.Talk();
+	rig.net.Step(200);
+	EXPECT_FALSE(HasSpeaker(rig.voice, rig.talker->GetMyGUID()));
 }
