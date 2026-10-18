@@ -4793,6 +4793,22 @@ void RakPeer::SetNetworkThreadReceiveStopped(bool stopped)
 	pluginListNetworkThreadMutex.Unlock();
 }
 
+void RakPeer::DispatchNetworkThreadUpdate(void)
+{
+	pluginListNetworkThreadMutex.Lock();
+	if (networkThreadReceiveStopped)
+	{
+		pluginListNetworkThreadMutex.Unlock();
+		return;
+	}
+
+	networkThreadDispatcher = std::this_thread::get_id();
+	for (unsigned int i = 0; i < pluginListNetworkThread.Size(); i++)
+		pluginListNetworkThread[i]->UpdateNetworkThread();
+	networkThreadDispatcher = std::thread::id();
+	pluginListNetworkThreadMutex.Unlock();
+}
+
 bool RakPeer::DispatchNetworkThreadReceive(Packet *packet)
 {
 	pluginListNetworkThreadMutex.Lock();
@@ -5948,6 +5964,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		ProcessNetworkPacket(recvFromStruct->systemAddress, recvFromStruct->data, recvFromStruct->bytesRead, this, recvFromStruct->socket, recvFromStruct->timeRead, updateBitStream);
 		DeallocRNS2RecvStruct(recvFromStruct, _FILE_AND_LINE_);
 	}
+
+	// Before the send queue is drained, so whatever the plugins send here leaves this cycle.
+	DispatchNetworkThreadUpdate();
 
 	while ((bcs = bufferedCommands.PopInaccurate()) != 0)
 	{

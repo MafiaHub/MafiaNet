@@ -68,6 +68,7 @@ RakVoice::RakVoice()
 	relayHost = false;
 	hasPendingRelay = false;
 	perSpeakerOutput = false;
+	networkThreadCodec = false;
 	maxDecodedSpeakers = 0;
 	relayTarget = UNASSIGNED_RAKNET_GUID;
 	frameOrderingChannel = 0;
@@ -87,6 +88,7 @@ int RakVoice::GetFrameSizeSamples(int sampleRate)
 
 void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	RakAssert(newSampleRate == 8000 || newSampleRate == 16000 || newSampleRate == 24000 || newSampleRate == 48000);
 	sampleRate = newSampleRate;
 	bufferSizeBytes = newBufferSizeBytes;
@@ -105,6 +107,7 @@ void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
 
 void RakVoice::Deinit(void)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	if (bufferedOutput)
 	{
 		rakFree_Ex(bufferedOutput, _FILE_AND_LINE_);
@@ -115,6 +118,7 @@ void RakVoice::Deinit(void)
 
 void RakVoice::SetLoopbackMode(bool enabled)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	if (enabled)
 	{
 		Packet p;
@@ -141,6 +145,7 @@ bool RakVoice::IsLoopbackMode(void) const
 
 void RakVoice::SetRelayMode(bool enable)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	relayMode = enable;
 
 	// SendFrame() requires an open channel to hold the encoder and the outgoing ring, and
@@ -192,11 +197,13 @@ bool RakVoice::SetOrderingChannels(char frameChannel, char controlChannel)
 
 void RakVoice::SetPerSpeakerOutput(bool enable)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	perSpeakerOutput = enable;
 }
 
 void RakVoice::SetMaxDecodedSpeakers(unsigned maxSpeakers)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	// Clamped rather than honoured as-is: RAKVOICE_MAX_RELAY_SPEAKERS bounds the allocation
 	// this class is willing to hold at all, so a larger request cannot be granted and
 	// storing it would misreport the effective cap through GetMaxDecodedSpeakers.
@@ -323,6 +330,7 @@ void RakVoice::RequestVoiceChannel(RakNetGUID recipient)
 
 void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	// Tested before FreeChannelMemory, which removes the entry. Without this a peer that
 	// never opened a channel -- every peer on a server that attaches RakVoice purely as a
 	// relay host -- would still be sent ID_RAKVOICE_CLOSE_CHANNEL on a clean disconnect,
@@ -338,6 +346,7 @@ void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 
 void RakVoice::CloseAllChannels(void)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	MafiaNet::BitStream out;
 	out.Write((unsigned char) ID_RAKVOICE_CLOSE_CHANNEL);
 
@@ -352,6 +361,7 @@ void RakVoice::CloseAllChannels(void)
 
 bool RakVoice::SendFrame(RakNetGUID recipient, void *inputBuffer)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	unsigned index;
 	VoiceChannel *channel;
@@ -395,6 +405,7 @@ bool RakVoice::SendFrame(RakNetGUID recipient, void *inputBuffer)
 
 bool RakVoice::IsSendingVoiceDataTo(RakNetGUID recipient)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	unsigned index;
 	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
@@ -406,6 +417,7 @@ bool RakVoice::IsSendingVoiceDataTo(RakNetGUID recipient)
 
 void RakVoice::ReceiveFrame(void *outputBuffer)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	short *out = (short *) outputBuffer;
 	for (unsigned i = 0; i < bufferSizeBytes / SAMPLESIZE; i++)
 	{
@@ -442,6 +454,7 @@ RakPeerInterface *RakVoice::GetRakPeerInterface(void) const
 
 unsigned RakVoice::GetBufferedBytesToSend(RakNetGUID guid) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	VoiceChannel *channel;
 	unsigned totalBufferSize = bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
@@ -477,6 +490,7 @@ unsigned RakVoice::GetBufferedBytesToSend(RakNetGUID guid) const
 
 unsigned RakVoice::GetBufferedBytesToReturn(RakNetGUID guid) const
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	VoiceChannel *channel;
 	unsigned totalBufferSize = bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT;
@@ -511,11 +525,36 @@ unsigned RakVoice::GetBufferedBytesToReturn(RakNetGUID guid) const
 
 void RakVoice::OnShutdown(void)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	CloseAllChannels();
 }
 
 void RakVoice::Update(void)
 {
+	if (networkThreadCodec == false)
+		RunCodec();
+}
+
+void RakVoice::UpdateNetworkThread(void)
+{
+	if (networkThreadCodec)
+		RunCodec();
+}
+
+void RakVoice::SetNetworkThreadCodec(bool enable)
+{
+	networkThreadCodec = enable;
+}
+
+void RakVoice::SetSpeakerFrameHandler(std::function<void(RakNetGUID origin, const short *samples, unsigned sampleCount)> handler)
+{
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
+	speakerFrameHandler = std::move(handler);
+}
+
+void RakVoice::RunCodec(void)
+{
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	unsigned i, j, bytesAvailable, opusFramesAvailable, opusBlockSize;
 	unsigned bytesWaitingToReturn;
 	VoiceChannel *channel;
@@ -733,6 +772,7 @@ void RakVoice::Update(void)
 
 PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	RakAssert(packet);
 
 	// Every branch below dispatches on data[0]; an empty packet would read past the
@@ -768,7 +808,27 @@ PluginReceiveResult RakVoice::OnReceive(Packet *packet)
 
 PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
 {
-	if (!relayHost || packet == nullptr || packet->length == 0 || packet->data[0] != ID_RAKVOICE_RELAY_DATA)
+	if (packet == nullptr || packet->length == 0)
+		return RR_CONTINUE_PROCESSING;
+
+	// Decoded here rather than in OnReceive, so a listener keeps hearing while Receive() waits.
+	if (networkThreadCodec && !relayHost)
+	{
+		if (packet->data[0] == ID_RAKVOICE_DATA)
+		{
+			std::lock_guard<std::recursive_mutex> lock(codecMutex);
+			OnVoiceData(packet);
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
+		}
+		if (packet->data[0] == ID_RAKVOICE_RELAY_DATA)
+		{
+			std::lock_guard<std::recursive_mutex> lock(codecMutex);
+			OnRelayVoiceData(packet);
+			return RR_STOP_PROCESSING_AND_DEALLOCATE;
+		}
+	}
+
+	if (!relayHost || packet->data[0] != ID_RAKVOICE_RELAY_DATA)
 		return RR_CONTINUE_PROCESSING;
 
 	relayFrameHandlerMutex.Lock();
@@ -794,6 +854,7 @@ PluginReceiveResult RakVoice::OnReceiveNetworkThread(Packet *packet)
 
 void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	(void) systemAddress;
 
 	if (lostConnectionReason == LCR_CLOSED_BY_USER)
@@ -940,6 +1001,7 @@ void RakVoice::OpenChannel(Packet *packet)
 
 void RakVoice::SetVAD(bool enable)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultVADState = enable;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
@@ -952,11 +1014,13 @@ void RakVoice::SetVAD(bool enable)
 
 void RakVoice::SetNoiseFilter(bool enable)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultDENOISEState = enable;
 }
 
 void RakVoice::SetEncoderBitrate(int bitsPerSecond)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultBitrate = bitsPerSecond;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
@@ -970,6 +1034,7 @@ void RakVoice::SetEncoderBitrate(int bitsPerSecond)
 
 void RakVoice::SetVBR(bool enable)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultVBRState = enable;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
@@ -982,6 +1047,7 @@ void RakVoice::SetVBR(bool enable)
 
 void RakVoice::SetSignalType(int signalType)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultSignalType = signalType;
 	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
 	{
@@ -1009,6 +1075,7 @@ bool RakVoice::IsVBRActive()
 
 void RakVoice::FreeChannelMemory(RakNetGUID recipient)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	unsigned index;
 	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
@@ -1021,6 +1088,7 @@ void RakVoice::FreeChannelMemory(RakNetGUID recipient)
 
 void RakVoice::FreeChannelMemory(unsigned index, bool removeIndex)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	VoiceChannel *channel;
 	channel = voiceChannels[index];
 
@@ -1327,6 +1395,7 @@ void RakVoice::OnRelayVoiceData(Packet *packet)
 
 bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	unsigned index = voiceChannels.GetIndexFromKey(origin, &objectExists);
 	if (!objectExists)
@@ -1363,6 +1432,7 @@ bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
 
 void RakVoice::GetActiveSpeakers(DataStructures::List<RakNetGUID> &out)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	// The self-keyed channel holds outgoing encoder state in relay mode, not a remote
 	// talker, so it is never reported as a speaker.
 	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
@@ -1378,6 +1448,12 @@ void RakVoice::GetActiveSpeakers(DataStructures::List<RakNetGUID> &out)
 
 void RakVoice::WriteOutputToChannel(VoiceChannel *channel, char *dataToWrite, int bytesToWrite)
 {
+	if (speakerFrameHandler)
+	{
+		speakerFrameHandler(channel->guid, (const short *) dataToWrite, (unsigned) bytesToWrite / SAMPLESIZE);
+		return;
+	}
+
 	unsigned totalBufferSize;
 	unsigned remainingBufferSize;
 

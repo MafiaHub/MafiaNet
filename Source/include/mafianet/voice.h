@@ -28,6 +28,7 @@
 
 #include <atomic>
 #include <functional>
+#include <mutex>
 #include <thread>
 
 // Forward declarations for Opus and RNNoise
@@ -361,11 +362,26 @@ public:
 	/// \brief Lists speakers that currently have a decoder allocated.
 	void GetActiveSpeakers(DataStructures::List<RakNetGUID> &out);
 
+	/// \brief Runs the codec on RakPeer's network thread instead of inside Receive().
+	/// When enabled, encoding and sending the frames SendFrame() buffers, decoding incoming
+	/// frames, and the reorder timers all run on the network update thread, so voice keeps
+	/// flowing while the application's main thread is busy. Every public method is then safe to
+	/// call from any thread. Off by default: the codec runs inside Receive() as before.
+	void SetNetworkThreadCodec(bool enable);
+
+	/// \brief Hands each decoded frame straight to \a handler instead of buffering it for
+	/// ReceiveFrameFrom() or ReceiveFrame(). Called on whichever thread decodes -- the network
+	/// thread with SetNetworkThreadCodec(true) -- while RakVoice holds its codec lock, so it must
+	/// return quickly, must not keep \a samples, and must not call SetSpeakerFrameHandler().
+	/// Pass nullptr to buffer frames again.
+	void SetSpeakerFrameHandler(std::function<void(RakNetGUID origin, const short *samples, unsigned sampleCount)> handler);
+
 	// --------------------------------------------------------------------------------------------
 	// Message handling functions
 	// --------------------------------------------------------------------------------------------
 	virtual void OnShutdown(void);
 	virtual void Update(void);
+	virtual void UpdateNetworkThread(void);
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual PluginReceiveResult OnReceiveNetworkThread(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
@@ -394,6 +410,8 @@ protected:
 	int EncodeFrame(VoiceChannel *channel, short *samples, unsigned char *out, int capacity);
 	VoiceChannel *GetOrCreateChannel(RakNetGUID origin);
 	void OnRelayVoiceData(Packet *packet);
+	/// Encodes, sends, reaps and settles: the body of Update(), on whichever thread owns the codec.
+	void RunCodec(void);
 
 	/// Relay speakers currently holding a decoder. Excludes the self-keyed channel, which in
 	/// relay mode carries outgoing encoder state rather than a remote talker -- counting it
@@ -431,6 +449,12 @@ protected:
 	std::function<void(Packet *packet)> pendingRelay;
 	bool hasPendingRelay;
 	bool perSpeakerOutput;
+	// Read on the network thread by UpdateNetworkThread and OnReceiveNetworkThread.
+	std::atomic<bool> networkThreadCodec;
+	std::function<void(RakNetGUID origin, const short *samples, unsigned sampleCount)> speakerFrameHandler;
+	// Guards the channels, their codecs and buffers, and speakerFrameHandler. Recursive because
+	// the public entry points call one another (Deinit -> CloseAllChannels -> FreeChannelMemory).
+	mutable std::recursive_mutex codecMutex;
 	/// Concurrent relay decoders the application allows; 0 means only the memory backstop.
 	unsigned maxDecodedSpeakers;
 	RakNetGUID relayTarget;
