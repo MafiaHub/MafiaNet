@@ -4881,25 +4881,10 @@ uint64_t RakPeerInterface::Get64BitUniqueRandomNumber(void)
 
 
 #if   defined(_WIN32)
+	// No timer-jitter harvesting: it slept eight times, and a Windows Sleep(1) lasts a whole timer
+	// tick, so every peer took ~125 ms to construct. The OS entropy source and the counter below
+	// are what make the value unique, as on every other platform.
 	uint64_t g= MafiaNet::GetTimeUS();
-
-	MafiaNet::TimeUS lastTime, thisTime;
-	int j;
-	// Sleep a small random time, then use the last 4 bits as a source of randomness
-	for (j=0; j < 8; j++)
-	{
-		lastTime = MafiaNet::GetTimeUS();
-		RakSleep(1);
-		RakSleep(0);
-		thisTime = MafiaNet::GetTimeUS();
-		MafiaNet::TimeUS diff = thisTime-lastTime;
-		unsigned int diff4Bits = (unsigned int) (diff & 15);
-		diff4Bits <<= 32-4;
-		diff4Bits >>= j*4;
-		((char*)&g)[j] ^= diff4Bits;
-	}
-	// Timer jitter alone collides when peers are created back to back, and is
-	// constant under a test's virtual clock. Mix in the same entropy as below.
 	static std::atomic<uint64_t> sequence {0};
 	std::random_device entropy;
 	g ^= ((uint64_t)entropy() << 32) ^ (uint64_t)entropy();
