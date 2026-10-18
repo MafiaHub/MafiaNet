@@ -1,0 +1,49 @@
+# MafiaNet clang-format configuration (clang-format 18).
+#
+# Matches the dominant style of the RakNet-derived tree: tabs, Allman braces,
+# right-aligned pointers, no line reflow. The whole tree is formatted with it
+# (see .git-blame-ignore-revs) and CI checks every file.
+#
+# Known clang-format 18 bug: a comment line directly under a directive that has
+# a trailing comment (`#endif // X`) can get a `\` appended to the directive,
+# turning the next line into part of the comment (GCC -Wcomment). Put a blank
+# line between them.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++17
+
+UseTab: ForIndentation
+IndentWidth: 4
+TabWidth: 4
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+IndentCaseLabels: false
+NamespaceIndentation: None
+
+BreakBeforeBraces: Allman
+PointerAlignment: Right
+ReferenceAlignment: Right
+SpacesInParens: Never
+SpaceAfterCStyleCast: true
+
+# Never reflow: the code has many intentionally long lines.
+ColumnLimit: 0
+
+# Include order is load-bearing (platform/socket headers first on some toolchains).
+SortIncludes: Never
+SortUsingDeclarations: Never
+
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 2
+FixNamespaceComments: false
+ReflowComments: false
+
+# Keep CRLF files CRLF and LF files LF.
+LineEnding: DeriveLF

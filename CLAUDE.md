@@ -86,6 +86,12 @@ narrow, commented `[[maybe_unused]]` or pragma, never by loosening the flags. Wa
 per target by `mafianet_enable_warnings()` (`cmake/MafiaNetHelpers.cmake`), never globally, so
 fetched dependencies are not affected; call it for any new target.
 
+**Formatting:** `.clang-format` (tabs, Allman, no line wrapping) applies to every C++ file under
+`Source`, `Tests`, `Samples`, `DependentExtensions` and `Benchmarks`, except what
+`.clang-format-ignore` lists (vendored third-party code, Objective-C). CI runs `ci/format.sh --check`
+with clang-format **18.1.8** (`pipx install clang-format==18.1.8`); run `ci/format.sh` before
+committing. Use `// clang-format off` / `on` only around hand-aligned tables, never to dodge the style.
+
 **Fuzzing:** `Tests/Fuzz/<name>_fuzz.cpp` harnesses cover code that parses what remote peers send
 (`bit_stream`, `reliability_layer`, `peer_datagram` — a whole server on the simulated network).
 Each is also built as `<name>_replay`, which replays `Tests/Fuzz/corpus/<name>/` as the unit test

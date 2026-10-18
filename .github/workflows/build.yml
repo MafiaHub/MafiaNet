@@ -23,6 +23,23 @@ env:
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
+  # Every C++ file under Source, Tests, Samples, DependentExtensions and
+  # Benchmarks must match .clang-format. Pinned: clang-format versions differ
+  # on a few constructs. Fix locally with ci/format.sh.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install clang-format 18.1.8
+        run: pipx install clang-format==18.1.8
+
+      - name: Check formatting
+        run: ci/format.sh --check
+
   # Linux in Docker on Ubuntu 22.04 (GCC 11, CMake 3.22): the oldest toolchain
   # we support, kept on purpose next to linux-native (ubuntu-latest), so a
   # change that needs a newer compiler or CMake fails here first.
