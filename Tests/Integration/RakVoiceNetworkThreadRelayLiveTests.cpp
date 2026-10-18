@@ -236,3 +236,64 @@ TEST_F(RakVoiceNetworkThreadRelayLive, TogglingTheRelayWhileFramesArriveIsSafe)
 	EXPECT_EQ(RR_CONTINUE_PROCESSING, voice.OnReceiveNetworkThread(&p));
 	EXPECT_EQ(after, relayed.load());
 }
+
+namespace
+{
+	// Reaches the relay lock so a test can hold it from another thread, the way a
+	// relay call in progress on the network thread would.
+	class RelayLockProbe : public RakVoice
+	{
+	public:
+		void LockRelay() { relayFrameHandlerMutex.Lock(); }
+		void UnlockRelay() { relayFrameHandlerMutex.Unlock(); }
+	};
+
+	// Runs voice.OnReceiveNetworkThread(frame) while another thread holds the relay
+	// lock. Returns whether the call finished without waiting for that lock.
+	bool FinishesWhileTheRelayLockIsHeld(RelayLockProbe &voice, std::vector<unsigned char> frame)
+	{
+		std::promise<void> locked, release;
+		std::thread holder([&] {
+			voice.LockRelay();
+			locked.set_value();
+			release.get_future().wait();
+			voice.UnlockRelay();
+		});
+		locked.get_future().wait();
+
+		std::promise<void> finished;
+		std::future<void> done = finished.get_future();
+		std::thread caller([&] {
+			Packet p {};
+			p.data = frame.data();
+			p.length = (unsigned int) frame.size();
+			voice.OnReceiveNetworkThread(&p);
+			finished.set_value();
+		});
+		const bool unblocked = done.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+		release.set_value();
+		holder.join();
+		caller.join();
+		return unblocked;
+	}
+}
+
+TEST_F(RakVoiceNetworkThreadRelayLive, AClientNeverWaitsOnTheRelayLock)
+{
+	// A peer that is not a relay host must not serialize its traffic behind the relay
+	// lock: every message it receives goes through this hook.
+	RelayLockProbe voice;
+	EXPECT_TRUE(FinishesWhileTheRelayLockIsHeld(voice, RelayFrameFrom(RakNetGUID(7), 1)));
+}
+
+TEST_F(RakVoiceNetworkThreadRelayLive, ARelayHostOnlyWaitsOnTheRelayLockForRelayFrames)
+{
+	RelayLockProbe voice;
+	voice.SetRelayHost([](Packet *) {});
+	std::vector<unsigned char> other {ID_RAKVOICE_DATA, 1, 2, 3};
+	EXPECT_TRUE(FinishesWhileTheRelayLockIsHeld(voice, other));
+	// Control: a relay frame on a relay host does wait, which is what proves the two
+	// checks above are exercising the lock at all.
+	EXPECT_FALSE(FinishesWhileTheRelayLockIsHeld(voice, RelayFrameFrom(RakNetGUID(7), 1)));
+	voice.SetRelayHost(nullptr);
+}
