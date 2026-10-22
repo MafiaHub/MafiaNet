@@ -1265,7 +1265,7 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 	}
 }
 #if OPEN_SSL_CLIENT_SUPPORT == 1
-bool RemoteClient::InitSSL(SSL_CTX *ctx, SSL_METHOD *meth)
+bool RemoteClient::InitSSL(SSL_CTX *ctx, const SSL_METHOD *meth)
 {
 	(void) meth;
 
