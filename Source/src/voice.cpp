@@ -353,13 +353,16 @@ void RakVoice::CloseAllChannels(void)
 	MafiaNet::BitStream out;
 	out.Write((unsigned char) ID_RAKVOICE_CLOSE_CHANNEL);
 
-	for (unsigned index = 0; index < voiceChannels.Size(); index++)
+	// Without a peer, the close for the loopback channel is delivered to ourselves and frees
+	// that channel inside SendUnified, so the list can shrink under the loop.
+	while (voiceChannels.Size() > 0)
 	{
-		SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, voiceChannels[index]->guid, false);
-		FreeChannelMemory(index, false);
+		const unsigned index = voiceChannels.Size() - 1;
+		const RakNetGUID guid = voiceChannels[index]->guid;
+		SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, guid, false);
+		if (index < voiceChannels.Size() && voiceChannels[index]->guid == guid)
+			FreeChannelMemory(index, true);
 	}
-
-	voiceChannels.Clear(false, _FILE_AND_LINE_);
 }
 
 bool RakVoice::SendFrame(RakNetGUID recipient, void *inputBuffer)

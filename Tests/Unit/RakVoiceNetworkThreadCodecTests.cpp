@@ -193,13 +193,28 @@ TEST(RakVoiceNetworkThreadCodec, OffByDefaultTheListenerStillDecodesInReceive)
 	EXPECT_GE(rig.HeardFrom(rig.talker->GetMyGUID()), 15u);
 }
 
+TEST(RakVoiceNetworkThreadCodec, DeinitClosesALoopbackChannelWithoutAPeer)
+{
+	// Offline, the loopback channel's close is delivered back to us and frees it while
+	// CloseAllChannels is still walking the list.
+	RakVoice voice;
+	voice.Init(kRate, kFrameBytes);
+	voice.SetLoopbackMode(true);
+	voice.Deinit();
+	EXPECT_FALSE(voice.IsInitialized());
+	EXPECT_EQ(0u, voice.GetBufferedBytesToReturn(UNASSIGNED_RAKNET_GUID));
+}
+
 TEST(RakVoiceNetworkThreadCodec, SettersAndGettersMayRaceAcrossThreads)
 {
 	// The codec option makes every public method callable from any thread, the getters
-	// included. Under TSan an unlocked getter racing its setter fails this test.
+	// included. Under TSan an unlocked getter racing its setter fails this test, so both
+	// sides must provably overlap: the reader starts once the writer is running and keeps
+	// going until the writer has been through many Init/Deinit cycles.
 	RakVoice voice;
 	voice.SetNetworkThreadCodec(true);
 	std::atomic<bool> running{true};
+	std::atomic<unsigned> writes{0};
 	std::thread writer([&]
 	                   {
 		for (unsigned i = 0; running; ++i)
@@ -208,25 +223,39 @@ TEST(RakVoiceNetworkThreadCodec, SettersAndGettersMayRaceAcrossThreads)
 			voice.SetVAD((i % 3) == 0);
 			voice.SetNoiseFilter((i % 5) == 0);
 			voice.SetVBR((i % 7) == 0);
+			voice.SetRelayTarget(RakNetGUID(i));
+			// Loopback opens a channel, so it is only toggled between Init and Deinit.
 			if ((i % 16) == 0)
 				voice.Init(kRate, kFrameBytes);
+			else if ((i % 16) == 2)
+				voice.SetLoopbackMode(true);
+			else if ((i % 16) == 5)
+				voice.SetLoopbackMode(false);
 			else if ((i % 16) == 8)
 				voice.Deinit();
+			writes.fetch_add(1, std::memory_order_relaxed);
 		} });
 
+	while (writes.load(std::memory_order_relaxed) == 0)
+		std::this_thread::yield();
+
+	const unsigned writesAtStart = writes.load(std::memory_order_relaxed);
 	unsigned observed = 0;
-	for (int i = 0; i < 20000; ++i)
+	unsigned loopbackSeen = 0;
+	for (int i = 0; i < 20000 || writes.load(std::memory_order_relaxed) - writesAtStart < 1000; ++i)
 	{
 		observed += voice.GetMaxDecodedSpeakers();
-		observed += voice.IsLoopbackMode() ? 1u : 0u;
+		loopbackSeen += voice.IsLoopbackMode() ? 1u : 0u;
 		observed += voice.IsInitialized() ? 1u : 0u;
 		observed += voice.IsVADActive() ? 1u : 0u;
 		observed += voice.IsNoiseFilterActive() ? 1u : 0u;
 		observed += voice.IsVBRActive() ? 1u : 0u;
 		observed += (unsigned) voice.GetSampleRate() + (unsigned) voice.GetBufferSizeBytes();
 	}
+	const unsigned writesDuringReads = writes.load(std::memory_order_relaxed) - writesAtStart;
 	running = false;
 	writer.join();
 	voice.Deinit();
-	EXPECT_GT(observed, 0u);
+	EXPECT_GE(writesDuringReads, 1000u);
+	EXPECT_GT(observed + loopbackSeen, 0u);
 }
