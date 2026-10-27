@@ -318,7 +318,14 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.23.1 (Latest)
+### Version 0.24.0 (Latest)
+- **Voice off the main thread**: a relay host forwards frames on RakPeer's network thread through the function passed to `SetRelayHost()`, and `SetNetworkThreadCodec(true)` runs a client's encoding and decoding there too, so a stalled tick no longer breaks voice up. Every `RakVoice` method is then callable from any thread; `SetSpeakerFrameHandler()` hands decoded frames straight out
+- **`PluginInterface2::OnReceiveNetworkThread()` / `UpdateNetworkThread()`**: opt-in hooks on the update thread
+- **Fix: offline loopback `Deinit()` no longer double-frees its channel**, and constructing a peer on Windows no longer sleeps ~125 ms
+- **Breaking**: `SetRelayHost(bool)` now takes the relay function
+- **Wire-compatible**: no message changes
+
+### Version 0.23.1
 - **Fix: resizing a delta-tracked variable keeps the next one's dirty flag** — a resend requested through `FlagDirtyFromBitArray` or a lost-send receipt is no longer dropped, and resizing the last variable no longer writes past the list
 - **Wire-compatible**: no message changes
 

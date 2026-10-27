@@ -3,6 +3,29 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.24.0
+--------------
+
+**RakVoice**
+
+* **Relay hosts forward voice on the network thread.** ``SetRelayHost()`` now takes the function that relays each ``ID_RAKVOICE_RELAY_DATA`` packet, called on RakPeer's update thread before the packet is queued for ``Receive()``, so a stalled server tick no longer breaks voice up. Passing ``nullptr`` stops being a relay host.
+* **The codec can run on the network thread.** ``SetNetworkThreadCodec(true)`` moves encoding, sending, decoding and the reorder timers onto RakPeer's update thread behind one codec lock, so a stalled client keeps sending its own voice and decoding everyone else's, and every public ``RakVoice`` method can be called from any thread. ``SetSpeakerFrameHandler()`` hands each decoded frame straight out instead of buffering it for ``ReceiveFrameFrom()``. Both are off by default.
+* **Fix: ``Deinit()`` with offline loopback on no longer frees the loopback channel twice.** Its close was delivered back to the plugin inside ``CloseAllChannels()``, which then indexed past the shrunken channel list.
+* **Breaking**: ``SetRelayHost(bool)`` is replaced by ``SetRelayHost(std::function<void(Packet *)>)``.
+
+**PluginInterface2**
+
+* ``OnReceiveNetworkThread()`` sees each message from a connected system on the update thread before it is queued, and ``UpdateNetworkThread()`` is ticked once per update cycle before the send queue is drained. Both are opt-in.
+
+**RakPeer**
+
+* **Fix: constructing a peer on Windows no longer takes ~125 ms.** GUID generation slept eight timer ticks for jitter the OS entropy source already made redundant.
+
+**Tooling**
+
+* One ``.clang-format`` style for the whole tree, pinned to clang-format 18.1.8 and checked in CI.
+* **Wire-compatible**: no message changes.
+
 Version 0.23.1
 --------------
 
