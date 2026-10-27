@@ -162,6 +162,7 @@ void RakVoice::SetRelayMode(bool enable)
 
 void RakVoice::SetRelayTarget(RakNetGUID server)
 {
+	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	relayTarget = server;
 }
 
