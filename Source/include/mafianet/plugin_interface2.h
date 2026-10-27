@@ -178,6 +178,13 @@ public:
 		return RR_CONTINUE_PROCESSING;
 	}
 
+	/// Called once per RakPeer update cycle on the network update thread, whether or not the
+	/// application calls Receive(). The periodic counterpart of OnReceiveNetworkThread(), under
+	/// the same rules: synchronize shared state, RakPeer::Send() is safe, AttachPlugin() and
+	/// DetachPlugin() do nothing from here, and it is not called once Shutdown() has begun calling
+	/// OnRakPeerShutdown(). Whatever is sent from here goes out in the same cycle.
+	virtual void UpdateNetworkThread(void) {}
+
 	/// Called on a send to the socket, per datagram, that does not go through the reliability layer
 	/// \pre To be called, UsesReliabilityLayer() must return true
 	/// \param[in] data The data being sent

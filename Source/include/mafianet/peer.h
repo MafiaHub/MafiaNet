@@ -1199,6 +1199,8 @@ protected:
 	void CallPluginCallbacks(DataStructures::List<PluginInterface2 *> &pluginList, Packet *packet);
 	// Offers a message to the network-thread plugins; true if one of them took it.
 	bool DispatchNetworkThreadReceive(Packet *packet);
+	// Ticks every plugin's UpdateNetworkThread(), under the same rules as DispatchNetworkThreadReceive.
+	void DispatchNetworkThreadUpdate(void);
 
 #if LIBCAT_SECURITY == 1
 	// Encryption and security
