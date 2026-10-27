@@ -206,7 +206,7 @@ protected:
 
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 	SSL_CTX *ctx;
-	SSL_METHOD *meth;
+	const SSL_METHOD *meth;
 	DataStructures::ThreadsafeAllocatingQueue<SystemAddress> startSSL;
 	DataStructures::List<SystemAddress> activeSSLConnections;
 	SimpleMutex sharedSslMutex;
@@ -233,7 +233,7 @@ struct RemoteClient
 
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 	SSL *ssl;
-	bool InitSSL(SSL_CTX *ctx, SSL_METHOD *meth);
+	bool InitSSL(SSL_CTX *ctx, const SSL_METHOD *meth);
 	void DisconnectSSL(void);
 	void FreeSSL(void);
 	int Send(const char *data, unsigned int length);
