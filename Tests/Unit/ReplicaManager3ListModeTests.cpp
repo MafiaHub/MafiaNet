@@ -133,7 +133,19 @@ public:
 		}
 	}
 
+	// When set, the replicas this connection asks to be serialized, in place of everything it holds.
+	bool QuerySerializationList(DataStructures::List<Replica3 *> &replicasToSerialize)
+	{
+		if (!ownSerializationList)
+			return false;
+		for (Replica3 *replica : serializationList)
+			replicasToSerialize.Push(replica, _FILE_AND_LINE_);
+		return true;
+	}
+
 	std::vector<Replica3 *> wanted;
+	bool ownSerializationList = false;
+	std::vector<Replica3 *> serializationList;
 };
 
 class ListManager : public ReplicaManager3
@@ -205,6 +217,9 @@ TEST_F(ReplicaManager3ListMode, StreamingOutFreesTheConnectionRecord)
 #ifdef MAFIANET_TEST_SANITIZED
 	GTEST_SKIP() << "counted by LeakSanitizer instead";
 #endif
+#if _USE_RAK_MEMORY_OVERRIDE == 1
+	GTEST_SKIP() << "records are allocated through the memory override, which this counter does not see";
+#endif
 	ListConnection *connection = AddConnection(100);
 	ListReplica *replica = AddReplica();
 
@@ -230,4 +245,28 @@ TEST_F(ReplicaManager3ListMode, StreamingOutFreesTheConnectionRecord)
 	g_countAllocations = false;
 
 	EXPECT_LT(g_liveAllocations.load(), kCycles / 10) << "heap blocks still held after " << kCycles << " stream-in/out cycles";
+}
+
+// A connection that picks its own serialization list may name a replica it does not hold. The
+// replica's lsr field then belongs to another connection -- and once that one streams the replica out,
+// to nobody: the record is freed, and reading it is a use after free (RakAssert catches it in Debug,
+// ASan anywhere). The list must be read against this connection's own records.
+TEST_F(ReplicaManager3ListMode, OwnSerializationListNeverReachesAnotherConnectionsRecord)
+{
+	ListConnection *holder = AddConnection(100);
+	ListConnection *picker = AddConnection(101);
+	ListReplica *replica = AddReplica();
+	picker->ownSerializationList = true;
+	picker->serializationList = {replica};
+
+	holder->wanted = {replica};
+	Tick(); // the holder's record is now the replica's lsr
+	ASSERT_TRUE(holder->HasReplicaConstructed(replica));
+	ASSERT_FALSE(picker->HasReplicaConstructed(replica));
+
+	holder->wanted.clear();
+	replica->value = 2;
+	Tick(); // the holder streams it out, and the picker still names it
+	EXPECT_FALSE(holder->HasReplicaConstructed(replica));
+	EXPECT_FALSE(picker->HasReplicaConstructed(replica));
 }
