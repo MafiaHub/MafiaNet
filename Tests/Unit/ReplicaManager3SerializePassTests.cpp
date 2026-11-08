@@ -21,6 +21,7 @@
 #include <functional>
 #include <mutex>
 #include <set>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -465,3 +466,100 @@ TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThread
 	EXPECT_EQ(notHeld->serializeCalls.load(), 1);
 	manager.SetSerializeExecutor(0);
 }
+
+// What a game callback may do in the middle of a pass on the calling thread: dereference the replica it is
+// serializing, drop a connection, run Update() again. The pass must neither touch what that freed nor lose
+// the rest of the tick's updates.
+namespace
+{
+class SerializePassCallbacks : public ReplicaManager3SerializePass, public ::testing::WithParamInterface<bool>
+{
+};
+} // namespace
+
+// A replica that leaves the world from its own Serialize() takes its record with it on every connection.
+// The connection being served must not use that record afterwards, nor skip the replica that took its slot.
+TEST_P(SerializePassCallbacks, ReplicaDereferencedFromItsOwnSerializeLosesNoOtherUpdate)
+{
+	PassReplica *leaving = AddReplica(GetParam());
+	PassReplica *next = AddReplica(GetParam());
+	std::vector<PassConnection *> connections = AddConnections(3, {leaving, next});
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	leaving->value = 4;
+	next->value = 8;
+	leaving->onSerialize = [&]
+	{
+		manager.Dereference(leaving);
+	};
+	Tick();
+	for (PassConnection *connection : connections)
+	{
+		const std::vector<int> &got = connection->received;
+		EXPECT_EQ(std::count(got.begin(), got.end(), 8), 1) << "the replica after the one that left was skipped";
+	}
+}
+
+// A callback that drops the very connection being served (a kick) must end that connection's share of the
+// pass, not carry on through its freed lists.
+TEST_P(SerializePassCallbacks, ConnectionDroppedWhileBeingServedIsLeftAlone)
+{
+	PassReplica *first = AddReplica(GetParam());
+	PassReplica *second = AddReplica(GetParam());
+	std::vector<PassConnection *> connections = AddConnections(3, {first, second});
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	PassConnection *kicked = connections.front();
+	connections.erase(connections.begin());
+	first->value = 2;
+	second->value = 3;
+	first->onSerialize = [&]
+	{
+		manager.DeallocConnection(manager.PopConnection(kicked->GetRakNetGUID()));
+	};
+	Tick();
+	for (PassConnection *connection : connections)
+	{
+		std::vector<int> got = connection->received;
+		std::sort(got.begin(), got.end());
+		EXPECT_EQ(got, (std::vector<int>{2, 3}));
+	}
+}
+
+// Update() run again from inside a pass (directly, or through RakPeer::Receive) must not start a second pass
+// inside the first: on POSIX it locks a mutex the pass already holds, and anywhere it would overwrite the
+// pass's state. It returns at once instead.
+TEST_P(SerializePassCallbacks, UpdateRunFromInsideAPassReturnsAtOnce)
+{
+	PassReplica *reentering = AddReplica(GetParam());
+	PassReplica *other = AddReplica(GetParam());
+	std::vector<PassConnection *> connections = AddConnections(3, {reentering, other});
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	reentering->value = 5;
+	other->value = 6;
+	reentering->onSerialize = [&]
+	{
+		g_passNowUS += 10000;
+		manager.Update();
+	};
+	Tick();
+	for (PassConnection *connection : connections)
+	{
+		std::vector<int> got = connection->received;
+		std::sort(got.begin(), got.end());
+		EXPECT_EQ(got, (std::vector<int>{5, 6}));
+	}
+}
+
+INSTANTIATE_TEST_SUITE_P(BroadcastAndPerConnection, SerializePassCallbacks, ::testing::Values(true, false), [](const ::testing::TestParamInfo<bool> &info)
+                         { return info.param ? std::string("Broadcast") : std::string("PerConnection"); });
