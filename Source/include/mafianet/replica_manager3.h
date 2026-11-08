@@ -287,6 +287,14 @@ public:
 	/// \param[in] executor Not owned. 0, the default, serves every connection on the calling thread.
 	void SetSerializeExecutor(RM3SerializeExecutor *executor);
 
+	/// \internal Changes whenever a replica is dereferenced or a connection popped: whatever a serialize pass
+	/// holds across a game callback is checked again when it moved.
+	uint32_t GetMembershipGeneration(void) const { return membershipGeneration; }
+
+	/// \internal Whether \a connection is still in the world. Compares pointers only, so it is safe to ask about
+	/// a connection a game callback may have freed.
+	bool HoldsConnection(const Connection_RM3 *connection, WorldId worldId) const;
+
 	/// \brief Return the connections that we think have an instance of the specified Replica3 instance
 	/// \details This can be wrong, for example if that system locally deleted the outside the scope of ReplicaManager3, if QueryRemoteConstruction() returned false, or if DeserializeConstruction() returned false.
 	/// \param[in] replica The replica to check against.
@@ -413,6 +421,9 @@ private:
 	static void ServePreparedBroadcasts(void *context, unsigned int index);
 
 	RM3SerializeExecutor *serializeExecutor;
+	uint32_t membershipGeneration;
+	// Set for the length of Update(), which a game callback inside it must not start again.
+	bool inUpdate;
 	// Counts serialize passes, so a replica can tell whether it was prepared for this one. Never 0 inside a pass.
 	uint32_t serializePass;
 	bool inSerializePass;
@@ -446,6 +457,10 @@ struct LastSerializationResult
 
 	void AllocBS(void);
 	LastSerializationResultBS *lastSerializationResultBS;
+
+	/// \internal The serialize pass that last served this record, so a pass picking up again after a game
+	/// callback changed the lists does not serve it twice.
+	uint32_t servedPass;
 };
 
 /// Parameters passed to Replica3::Serialize()
@@ -683,6 +698,14 @@ public:
 	bool isValidated;
 	// Internal - the serialize pass in which this connection was served its own QuerySerializationList.
 	uint32_t ownSerializationListPass;
+	// Internal - the serialize pass in which this connection's QuerySerializationList was asked, and in which
+	// it was served, so a pass picking up again after a game callback changed the lists does neither twice.
+	uint32_t listQueriedPass;
+	uint32_t servedPass;
+
+	/// \internal Whether \a lsr is still one of this connection's records. Compares pointers only, so it is safe
+	/// to ask about a record a game callback may have freed.
+	bool HoldsRecord(const LastSerializationResult *lsr) const;
 	// Internal - Used to see if we should send download started
 	bool isFirstConstruction;
 
