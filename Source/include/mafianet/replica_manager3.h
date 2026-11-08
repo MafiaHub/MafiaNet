@@ -57,7 +57,7 @@ class RAK_DLL_EXPORT RM3SerializeExecutor
 public:
 	virtual ~RM3SerializeExecutor() {}
 
-	/// Call fn(context, index) once for every index in [0, count), on any threads, several at once, and return only when every call has returned.
+	/// Call fn(context, index) once for every index in [0, count), on any threads, several at once, and return only when every call has returned and its effects are visible to the calling thread (as joining or waiting on a condition variable makes them).
 	virtual void ParallelFor(unsigned int count, void (*fn)(void *context, unsigned int index), void *context) = 0;
 };
 
@@ -282,7 +282,8 @@ public:
 
 	/// \brief Serve connections on several threads during the serialize pass.
 	/// \details Each connection's share of the pass is independent once every replica that broadcasts identically (Replica3::BroadcastsIdentically()) has been serialized, which Update() does first, on the calling thread. The connections are then handed to \a executor, and only the replicas that broadcast identically are served there: everything else is served afterwards on the calling thread, as without an executor.
-	/// While the executor runs, Connection_RM3::SendSerialize(), and Replica3::QuerySerialization() and Replica3::OnSerializeTransmission() of those replicas, are called from its threads, several at once for different connections. RakPeerInterface::Send() is thread-safe.
+	/// While the executor runs, Connection_RM3::SendSerializeIfChanged() and Connection_RM3::SendSerialize() (overrides included), and Replica3::QuerySerialization() and Replica3::OnSerializeTransmission() of those replicas, are called from its threads, several at once for different connections. None of them may call into this ReplicaManager3 (Reference(), Dereference(), PushConnection(), PopConnection(), BroadcastDestruction(), Update() ...) or touch another connection. RakPeerInterface::Send() is thread-safe.
+	/// Within one connection, its broadcasts are then sent ahead of its other replicas, and SerializeParameters::bitsWrittenSoFar starts again from 0 for those others. Connections that choose their own list (Connection_RM3::QuerySerializationList()) are served whole on the calling thread.
 	/// \param[in] executor Not owned. 0, the default, serves every connection on the calling thread.
 	void SetSerializeExecutor(RM3SerializeExecutor *executor);
 
@@ -680,6 +681,8 @@ public:
 
 	// Internal - does the other system have this connection too? Validated means we can now use it
 	bool isValidated;
+	// Internal - the serialize pass in which this connection was served its own QuerySerializationList.
+	uint32_t ownSerializationListPass;
 	// Internal - Used to see if we should send download started
 	bool isFirstConstruction;
 
@@ -1227,6 +1230,8 @@ public:
 
 	LastSerializationResultBS lastSentSerialization;
 	bool forceSendUntilNextUpdate;
+	/// \deprecated Not maintained: shared by every connection, it could only ever name one of them, and
+	/// that connection's record is freed when the replica leaves it. Look records up per connection.
 	LastSerializationResult *lsr;
 	uint32_t referenceIndex;
 
@@ -1240,6 +1245,8 @@ public:
 	};
 	bool broadcastsIdentically;
 	uint32_t preparedPass;
+	// The pass in which an executor's workers serve this replica, set only before they start.
+	uint32_t parallelPass;
 	uint32_t neededPass;
 	PreparedBroadcast prepared;
 	MafiaNet::Time preparedTimestamp;

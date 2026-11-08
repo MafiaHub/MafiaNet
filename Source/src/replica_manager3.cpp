@@ -1019,16 +1019,22 @@ void ReplicaManager3::Update(void)
 
 namespace
 {
-// Serves one connection's list. `preparedOnly` skips (and leaves for a later call) every replica
-// that was not prepared as a broadcast this pass.
-void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, bool preparedOnly, bool skipPrepared)
+// Which of a connection's replicas a call serves: all of them, or either side of the split a parallel
+// pass makes between the broadcasts its workers serve and everything else.
+enum class ServeShare
+{
+	All,
+	Workers,
+	Rest
+};
+
+void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share)
 {
 	unsigned int index = 0;
 	while (index < list.Size())
 	{
 		LastSerializationResult *lsr = list[index];
-		const bool isPrepared = lsr->replica->broadcastsIdentically && lsr->replica->preparedPass == pass && lsr->replica->prepared != Replica3::PB_SERIALIZE_PER_CONNECTION;
-		if ((preparedOnly && !isPrepared) || (skipPrepared && isPrepared))
+		if (share != ServeShare::All && (lsr->replica->parallelPass == pass) != (share == ServeShare::Workers))
 		{
 			index++;
 			continue;
@@ -1043,6 +1049,27 @@ void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSer
 		}
 		else if (ssicr != SSICR_NEVER_SERIALIZE) // NEVER removed it from the middle of the list
 			index++;
+	}
+}
+
+// A connection's own serialization list (Connection_RM3::QuerySerializationList), each entry read from
+// the connection's records: replica->lsr is shared by every connection, so for a replica not held here
+// it is another connection's, possibly since freed.
+using ConstructedList = DataStructures::OrderedList<Replica3 *, LastSerializationResult *, Connection_RM3::Replica3LSRComp>;
+
+void ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &constructed, DataStructures::List<Replica3 *> &replicasToSerialize, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time)
+{
+	for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
+	{
+		bool held;
+		const unsigned int recordIndex = constructed.GetIndexFromKey(replicasToSerialize[i], &held);
+		if (!held)
+			continue;
+		LastSerializationResult *lsr = constructed[recordIndex];
+		sp.destinationConnection = connection;
+		sp.whenLastSerialized = lsr->whenLastSerialized;
+		if (connection->SendSerializeIfChanged(lsr, &sp, rakPeer, worldId, replicaManager, time) == SSICR_SENT_DATA)
+			lsr->whenLastSerialized = time;
 	}
 }
 
@@ -1065,94 +1092,84 @@ void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, Maf
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = defaultSendParameters;
 	DataStructures::List<Replica3 *> replicasToSerialize;
+	// By index into the live list, as a callback can drop a connection mid-pass.
 	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		sp.bitsWrittenSoFar = 0;
-		sp.destinationConnection = connection;
-
 		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
 		if (connection->QuerySerializationList(replicasToSerialize))
-		{
-			// Update replica->lsr so we can lookup in the next block
-			// lsr is per connection / per replica
-			for (unsigned int i = 0; i < connection->queryToSerializeReplicaList.Size(); i++)
-				connection->queryToSerializeReplicaList[i]->replica->lsr = connection->queryToSerializeReplicaList[i];
-
-			// User is manually specifying list of replicas to serialize
-			for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
-			{
-				// This connection's own record. replica->lsr is shared by every connection, so for a replica
-				// not held here it is another connection's, possibly since freed.
-				bool held;
-				const unsigned int recordIndex = connection->constructedReplicaList.GetIndexFromKey(replicasToSerialize[i], &held);
-				if (!held)
-					continue;
-				LastSerializationResult *lsr = connection->constructedReplicaList[recordIndex];
-
-				sp.whenLastSerialized = lsr->whenLastSerialized;
-				if (connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time) == SSICR_SENT_DATA)
-					lsr->whenLastSerialized = time;
-			}
-		}
+			ServeOwnSerializeList(connection, connection->constructedReplicaList, replicasToSerialize, sp, GetRakPeerInterface(), worldId, this, time);
 		else
-		{
-			ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, false, false);
-		}
+			ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, ServeShare::All);
 	}
 }
 
 void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worldId, MafiaNet::Time time)
 {
-	// Connections that choose their own list are served here and now, on this thread, as without an
-	// executor; the rest mark the broadcasts they will need.
 	SerializeParameters sp;
 	sp.curTime = time;
 	sp.messageTimestamp = 0;
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = defaultSendParameters;
+
+	// 1. Connections that choose their own list are served now, on this thread, as without an executor.
+	// Game callbacks run throughout steps 1 to 3 and may drop connections, so nothing here holds one
+	// across them: every loop reads the live list by index.
 	DataStructures::List<Replica3 *> replicasToSerialize;
-	parallelConnections.Clear(true, _FILE_AND_LINE_);
 	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
+		connection->ownSerializationListPass = 0;
 		if (connection->QuerySerializationList(replicasToSerialize))
 		{
+			connection->ownSerializationListPass = serializePass;
 			sp.bitsWrittenSoFar = 0;
-			for (unsigned int i = 0; i < connection->queryToSerializeReplicaList.Size(); i++)
-				connection->queryToSerializeReplicaList[i]->replica->lsr = connection->queryToSerializeReplicaList[i];
-			for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
-			{
-				bool held; // read from this connection's records, as in SerializeConnections
-				const unsigned int recordIndex = connection->constructedReplicaList.GetIndexFromKey(replicasToSerialize[i], &held);
-				if (!held)
-					continue;
-				LastSerializationResult *lsr = connection->constructedReplicaList[recordIndex];
-				sp.destinationConnection = connection;
-				sp.whenLastSerialized = lsr->whenLastSerialized;
-				if (connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time) == SSICR_SENT_DATA)
-					lsr->whenLastSerialized = time;
-			}
-			continue;
+			ServeOwnSerializeList(connection, connection->constructedReplicaList, replicasToSerialize, sp, GetRakPeerInterface(), worldId, this, time);
 		}
-		parallelConnections.Push(connection, _FILE_AND_LINE_);
+	}
+
+	// 2. A broadcast is serialized only once some connection holding it asks for it this pass, as on one
+	// thread: serialized for nobody, its new bytes would count as sent and never reach anyone.
+	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	{
+		Connection_RM3 *connection = world->connectionList[index];
+		if (connection->ownSerializationListPass == serializePass)
+			continue;
 		const DataStructures::List<LastSerializationResult *> &list = connection->queryToSerializeReplicaList;
 		for (unsigned int i = 0; i < list.Size(); i++)
 		{
-			if (list[i]->replica->broadcastsIdentically)
-				list[i]->replica->neededPass = serializePass;
+			Replica3 *replica = list[i]->replica;
+			if (replica->broadcastsIdentically && replica->neededPass != serializePass && replica->GetNetworkID() != UNASSIGNED_NETWORK_ID && replica->QuerySerialization(connection) == RM3QSR_CALL_SERIALIZE)
+				replica->neededPass = serializePass;
 		}
 	}
 
-	// Every broadcast a connection will be handed, serialized once, here, before any thread reads it.
+	// 3. Each of them serialized once, here, before any worker reads it. Only these are the workers'
+	// share: a broadcast prepared later, by the first connection to reach it in step 6, is served there
+	// to every connection.
 	for (unsigned int index = 0; index < world->userReplicaList.Size(); index++)
 	{
 		Replica3 *replica = world->userReplicaList[index];
-		if (replica->broadcastsIdentically && replica->neededPass == serializePass && replica->preparedPass != serializePass && replica->GetNetworkID() != UNASSIGNED_NETWORK_ID)
+		if (replica->neededPass != serializePass)
+			continue;
+		if (replica->preparedPass != serializePass)
 			PrepareBroadcast(replica, time);
+		if (replica->prepared != Replica3::PB_SERIALIZE_PER_CONNECTION)
+			replica->parallelPass = serializePass;
 	}
 
+	// 4. The connections the workers serve, taken after every callback of steps 1 to 3 has run. While they
+	// run, nothing may add or drop one (see SetSerializeExecutor).
+	parallelConnections.Clear(true, _FILE_AND_LINE_);
+	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	{
+		if (world->connectionList[index]->ownSerializationListPass != serializePass)
+			parallelConnections.Push(world->connectionList[index], _FILE_AND_LINE_);
+	}
+
+	// 5. Their share, in parallel.
 	ParallelSerializeContext context;
 	context.connections = &parallelConnections;
 	context.rakPeer = GetRakPeerInterface();
@@ -1161,12 +1178,16 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 	context.time = time;
 	context.pass = serializePass;
 	serializeExecutor->ParallelFor(parallelConnections.Size(), &ReplicaManager3::ServePreparedBroadcasts, &context);
+	parallelConnections.Clear(true, _FILE_AND_LINE_);
 
-	// What could not be prepared is served per connection, on this thread.
-	for (unsigned int index = 0; index < parallelConnections.Size(); index++)
+	// 6. The rest, per connection, on this thread, from the live list again.
+	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
 	{
+		Connection_RM3 *connection = world->connectionList[index];
+		if (connection->ownSerializationListPass == serializePass)
+			continue;
 		sp.bitsWrittenSoFar = 0;
-		ServeSerializeList(parallelConnections[index], parallelConnections[index]->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, false, true);
+		ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, ServeShare::Rest);
 	}
 }
 
@@ -1180,7 +1201,7 @@ void ReplicaManager3::ServePreparedBroadcasts(void *context, unsigned int index)
 	sp.bitsWrittenSoFar = 0;
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = pass.replicaManager->defaultSendParameters;
-	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, true, false);
+	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, ServeShare::Workers);
 }
 
 void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
@@ -1720,6 +1741,7 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
     : systemAddress(_systemAddress), guid(_guid)
 {
 	isValidated = false;
+	ownSerializationListPass = 0;
 	isFirstConstruction = true;
 	groupConstructionAndSerialize = false;
 	gotDownloadComplete = false;
@@ -2637,6 +2659,7 @@ Replica3::Replica3()
 	referenceIndex = (uint32_t) -1;
 	broadcastsIdentically = false;
 	preparedPass = 0;
+	parallelPass = 0;
 	neededPass = 0;
 	prepared = PB_SERIALIZE_PER_CONNECTION;
 	preparedTimestamp = 0;
