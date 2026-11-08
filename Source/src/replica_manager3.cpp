@@ -933,17 +933,20 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			idx1 = constructedReplicaList.GetIndexFromKey(destroyedReplicasCulled[idx2], &objectExists);
 			if (objectExists)
 			{
+				// The record is this connection's alone, and streaming the replica back in makes a new one.
+				lsr = constructedReplicaList[idx1];
 				constructedReplicaList.RemoveAtIndex(idx1);
 
 				unsigned int j;
 				for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
 				{
-					if (queryToSerializeReplicaList[j]->replica == destroyedReplicasCulled[idx2])
+					if (queryToSerializeReplicaList[j] == lsr)
 					{
 						queryToSerializeReplicaList.RemoveAtIndex(j);
 						break;
 					}
 				}
+				MafiaNet::OP_DELETE(lsr, _FILE_AND_LINE_);
 			}
 		}
 	}
@@ -1019,8 +1022,16 @@ void ReplicaManager3::Update(void)
 					index2 = 0;
 					while (index2 < replicasToSerialize.Size())
 					{
-						lsr = replicasToSerialize[index2]->lsr;
-						RakAssert(lsr->replica == replicasToSerialize[index2]);
+						// This connection's own record. replica->lsr is shared by every connection, so for a
+						// replica not held here it is another connection's, possibly since freed.
+						bool held;
+						const unsigned int recordIndex = connection->constructedReplicaList.GetIndexFromKey(replicasToSerialize[index2], &held);
+						if (!held)
+						{
+							index2++;
+							continue;
+						}
+						lsr = connection->constructedReplicaList[recordIndex];
 
 						sp.whenLastSerialized = lsr->whenLastSerialized;
 						ssicr = connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time);
