@@ -50,6 +50,17 @@ class VirtualWorldReplica3;
 /// Used for multiple worlds. World 0 is created automatically by default
 typedef uint8_t WorldId;
 
+/// \brief Runs the independent iterations of a loop on several threads, for ReplicaManager3::SetSerializeExecutor().
+/// \details Implement it over whatever thread pool the application already has.
+class RAK_DLL_EXPORT RM3SerializeExecutor
+{
+public:
+	virtual ~RM3SerializeExecutor() {}
+
+	/// Call fn(context, index) once for every index in [0, count), on any threads, several at once, and return only when every call has returned and its effects are visible to the calling thread (as joining or waiting on a condition variable makes them).
+	virtual void ParallelFor(unsigned int count, void (*fn)(void *context, unsigned int index), void *context) = 0;
+};
+
 
 /// \internal
 /// \ingroup REPLICA_MANAGER_GROUP3
@@ -269,6 +280,13 @@ public:
 	/// \param[in] intervalMS How frequently to autoserialize all objects. This controls the maximum number of game object updates per second.
 	void SetAutoSerializeInterval(MafiaNet::Time intervalMS);
 
+	/// \brief Serve connections on several threads during the serialize pass.
+	/// \details Each connection's share of the pass is independent once every replica that broadcasts identically (Replica3::BroadcastsIdentically()) has been serialized, which Update() does first, on the calling thread. The connections are then handed to \a executor, and only the replicas that broadcast identically are served there: everything else is served afterwards on the calling thread, as without an executor.
+	/// While the executor runs, Connection_RM3::SendSerializeIfChanged() and Connection_RM3::SendSerialize() (overrides included), and Replica3::QuerySerialization() and Replica3::OnSerializeTransmission() of those replicas, are called from its threads, several at once for different connections. None of them may call into this ReplicaManager3 (Reference(), Dereference(), PushConnection(), PopConnection(), BroadcastDestruction(), Update() ...) or touch another connection. The bitstreams, indicesToSend and sendParameters handed to SendSerialize() are shared by every connection receiving that replica: read them without changing them (take the bytes with GetData(); Read() from a stream or Write(&stream) moves its read offset). RakPeerInterface::Send() is thread-safe.
+	/// Within one connection, its broadcasts are then sent ahead of its other replicas, and SerializeParameters::bitsWrittenSoFar starts again from 0 for those others. Connections that choose their own list (Connection_RM3::QuerySerializationList()) are served whole on the calling thread.
+	/// \param[in] executor Not owned. 0, the default, serves every connection on the calling thread.
+	void SetSerializeExecutor(RM3SerializeExecutor *executor);
+
 	/// \brief Return the connections that we think have an instance of the specified Replica3 instance
 	/// \details This can be wrong, for example if that system locally deleted the outside the scope of ReplicaManager3, if QueryRemoteConstruction() returned false, or if DeserializeConstruction() returned false.
 	/// \param[in] replica The replica to check against.
@@ -384,6 +402,21 @@ private:
 	// #med - reconsider visibility here --- should be properly encapsulated so to not allow access to worldsList by derived classes (which could bypass the mutex)
 	// mutex to ensure thread safe access to worldsList member
 	SimpleMutex m_WorldListMutex;
+
+	// The serialize pass of one world, connection by connection on this thread.
+	void SerializeConnections(RM3World *world, WorldId worldId, MafiaNet::Time time);
+	// The same pass with the replicas that broadcast identically served across serializeExecutor.
+	void SerializeConnectionsParallel(RM3World *world, WorldId worldId, MafiaNet::Time time);
+	// Serializes a replica that broadcasts identically once for the current pass; see Replica3::BroadcastsIdentically().
+	void PrepareBroadcast(Replica3 *replica, MafiaNet::Time time);
+	// One connection's prepared broadcasts, from serializeExecutor's threads.
+	static void ServePreparedBroadcasts(void *context, unsigned int index);
+
+	RM3SerializeExecutor *serializeExecutor;
+	// Counts serialize passes, so a replica can tell whether it was prepared for this one. Never 0 inside a pass.
+	uint32_t serializePass;
+	bool inSerializePass;
+	DataStructures::List<Connection_RM3 *> parallelConnections;
 
 	friend class Connection_RM3;
 };
@@ -648,6 +681,8 @@ public:
 
 	// Internal - does the other system have this connection too? Validated means we can now use it
 	bool isValidated;
+	// Internal - the serialize pass in which this connection was served its own QuerySerializationList.
+	uint32_t ownSerializationListPass;
 	// Internal - Used to see if we should send download started
 	bool isFirstConstruction;
 
@@ -1048,6 +1083,13 @@ public:
 	/// \return Whether to serialize, and if so, how to optimize the results
 	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters) = 0;
 
+	/// \brief Whether this replica writes the same bytes for every connection, every time.
+	/// \details Return true, once and for all (it is read when the replica is referenced), when Serialize() only ever returns RM3SR_BROADCAST_IDENTICALLY, RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION or RM3SR_DO_NOT_SERIALIZE, and what it writes does not depend on the connection.
+	/// ReplicaManager3 then calls Serialize() once per serialize pass, before any connection is served, with no destinationConnection and with whenLastSerialized being the last time this replica sent anything. Connections that hold the replica are only handed it when it has something to send, and with ReplicaManager3::SetSerializeExecutor() they are served in parallel.
+	/// Construction is unchanged: a connection the replica is constructed on is still sent a first Serialize() of its own, with that destinationConnection and whenLastSerialized 0, on the thread running Update().
+	/// Defaults to false: Serialize() is called per connection, as the pass reaches each.
+	virtual bool BroadcastsIdentically(void) const { return false; }
+
 	/// \brief Called when the class is actually transmitted via Serialize()
 	/// \details Use to track how much bandwidth this class it taking
 	virtual void OnSerializeTransmission(MafiaNet::BitStream *bitStream, MafiaNet::Connection_RM3 *destinationConnection, BitSize_t bitsPerChannel[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time curTime)
@@ -1188,8 +1230,28 @@ public:
 
 	LastSerializationResultBS lastSentSerialization;
 	bool forceSendUntilNextUpdate;
+	/// \deprecated Not maintained: shared by every connection, it could only ever name one of them, and
+	/// that connection's record is freed when the replica leaves it. Look records up per connection.
 	LastSerializationResult *lsr;
 	uint32_t referenceIndex;
+
+	/// \internal
+	/// BroadcastsIdentically(), read when referenced, and what this pass prepared for every connection.
+	enum PreparedBroadcast
+	{
+		PB_SERIALIZE_PER_CONNECTION,
+		PB_NOTHING_TO_SEND,
+		PB_SEND
+	};
+	bool broadcastsIdentically;
+	uint32_t preparedPass;
+	// The pass in which an executor's workers serve this replica, set only before they start.
+	uint32_t parallelPass;
+	uint32_t neededPass;
+	PreparedBroadcast prepared;
+	MafiaNet::Time preparedTimestamp;
+	PRO preparedPro[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS];
+	MafiaNet::Time lastBroadcast;
 };
 
 /// \brief Use Replica3 through composition instead of inheritance by containing an instance of this templated class
