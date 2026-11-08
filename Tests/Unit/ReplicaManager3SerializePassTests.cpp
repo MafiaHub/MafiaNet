@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <set>
 #include <thread>
@@ -53,11 +54,17 @@ public:
 	bool DeserializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
 	RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const { return RM3AOPC_DO_NOTHING; }
 	void DeallocReplica(Connection_RM3 *) {}
-	RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) { return RM3QSR_CALL_SERIALIZE; }
+	RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) { return refuse ? RM3QSR_DO_NOT_CALL_SERIALIZE : RM3QSR_CALL_SERIALIZE; }
 	void Deserialize(DeserializeParameters *) {}
 
 	RM3SerializationResult Serialize(SerializeParameters *parameters)
 	{
+		if (onSerialize)
+		{
+			std::function<void()> once = std::move(onSerialize);
+			onSerialize = nullptr;
+			once();
+		}
 		++serializeCalls;
 		{
 			std::lock_guard<std::mutex> lock(threadsMutex);
@@ -68,6 +75,10 @@ public:
 	}
 
 	const bool broadcastsIdentically;
+	// Every connection is told not to serialize it, while set.
+	bool refuse = false;
+	// Run once, from inside the next Serialize(): what a game callback might do mid-pass.
+	std::function<void()> onSerialize;
 	int value = 1;
 	std::atomic<int> serializeCalls{0};
 	std::mutex threadsMutex;
@@ -317,5 +328,88 @@ TEST_F(ReplicaManager3SerializePass, ReplicaThatDoesNotOptInStaysOnTheCallingThr
 		std::sort(got.begin(), got.end());
 		EXPECT_EQ(got, (std::vector<int>{3, 4}));
 	}
+	manager.SetSerializeExecutor(0);
+}
+
+// A pass in which every connection holding a broadcast declines it must not consume its change: on the
+// pass they accept it again, each of them still gets it. Serialized ahead of an executor, the replica
+// used to be prepared anyway, its new bytes recorded as sent to nobody.
+TEST_F(ReplicaManager3SerializePass, ChangeDeclinedByEveryConnectionIsStillDeliveredLater)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	PassReplica *replica = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(4, {replica});
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	replica->value = 9;
+	replica->refuse = true;
+	Tick();
+	replica->refuse = false;
+	Tick();
+	for (PassConnection *connection : connections)
+		EXPECT_EQ(connection->received, std::vector<int>{9});
+	manager.SetSerializeExecutor(0);
+}
+
+// A broadcast the up-front loop misses (here because a Serialize() there dereferences a replica ahead
+// of it, shifting the list) is prepared later by whichever connection reaches it first. Every other
+// connection must still be served it, not take it for one the workers already handled.
+TEST_F(ReplicaManager3SerializePass, BroadcastPreparedLateReachesEveryConnection)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	PassReplica *dropped = AddReplica(true);
+	PassReplica *dropper = AddReplica(true);
+	PassReplica *late = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(4, {dropped, dropper, late});
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	dropper->value = 5;
+	late->value = 6;
+	dropper->onSerialize = [&]
+	{
+		manager.Dereference(dropped);
+	};
+	Tick();
+	for (PassConnection *connection : connections)
+	{
+		std::vector<int> got = connection->received;
+		std::sort(got.begin(), got.end());
+		EXPECT_EQ(got, (std::vector<int>{5, 6}));
+	}
+	manager.SetSerializeExecutor(0);
+}
+
+// A game callback may drop a connection in the middle of the pass, as a kick does. The pass must not
+// go on to serve the freed connection.
+TEST_F(ReplicaManager3SerializePass, ConnectionDroppedMidPassIsNotServed)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	PassReplica *replica = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(4, {replica});
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	PassConnection *kicked = connections.back();
+	connections.pop_back();
+	replica->value = 3;
+	replica->onSerialize = [&]
+	{
+		Connection_RM3 *popped = manager.PopConnection(kicked->GetRakNetGUID());
+		manager.DeallocConnection(popped);
+	};
+	Tick();
+	for (PassConnection *connection : connections)
+		EXPECT_EQ(connection->received, std::vector<int>{3});
 	manager.SetSerializeExecutor(0);
 }
