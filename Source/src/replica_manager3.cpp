@@ -92,6 +92,9 @@ ReplicaManager3::ReplicaManager3()
 	autoCreateConnections = true;
 	autoDestroyConnections = true;
 	currentlyDeallocatingReplica = 0;
+	serializeExecutor = 0;
+	serializePass = 0;
+	inSerializePass = false;
 
 	for (unsigned int i = 0; i < sizeof(worldsArray) / sizeof(worldsArray[0]); i++)
 		worldsArray[i] = 0;
@@ -332,6 +335,7 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 		if (replica3->creatingSystemGUID == UNASSIGNED_RAKNET_GUID)
 			replica3->creatingSystemGUID = rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 		replica3->replicaManager = this;
+		replica3->broadcastsIdentically = replica3->BroadcastsIdentically();
 		if (replica3->referenceIndex == (uint32_t) -1)
 		{
 			replica3->referenceIndex = nextReferenceIndex++;
@@ -566,6 +570,13 @@ void ReplicaManager3::SetDefaultPacketReliability(MafiaNet::Reliability def)
 void ReplicaManager3::SetAutoSerializeInterval(MafiaNet::Time intervalMS)
 {
 	autoSerializeInterval = intervalMS;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+void ReplicaManager3::SetSerializeExecutor(RM3SerializeExecutor *executor)
+{
+	serializeExecutor = executor;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -955,7 +966,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 }
 void ReplicaManager3::Update(void)
 {
-	unsigned int index, index2, index3;
+	unsigned int index, index3;
 
 	WorldId worldId;
 	RM3World *world;
@@ -988,86 +999,237 @@ void ReplicaManager3::Update(void)
 				world->userReplicaList[index]->OnUserReplicaPreSerializeTick();
 			}
 
-			SerializeParameters sp;
-			sp.curTime = time;
-			Connection_RM3 *connection;
-			SendSerializeIfChangedResult ssicr;
-			LastSerializationResult *lsr;
-
-			sp.messageTimestamp = 0;
-			for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
-				sp.pro[i] = defaultSendParameters;
-			index2 = 0;
-			for (index = 0; index < world->connectionList.Size(); index++)
-			{
-				connection = world->connectionList[index];
-				sp.bitsWrittenSoFar = 0;
-				index2 = 0;
-				sp.destinationConnection = connection;
-
-				DataStructures::List<Replica3 *> replicasToSerialize;
-				replicasToSerialize.Clear(true, _FILE_AND_LINE_);
-				if (connection->QuerySerializationList(replicasToSerialize))
-				{
-					// Update replica->lsr so we can lookup in the next block
-					// lsr is per connection / per replica
-					while (index2 < connection->queryToSerializeReplicaList.Size())
-					{
-						connection->queryToSerializeReplicaList[index2]->replica->lsr = connection->queryToSerializeReplicaList[index2];
-						index2++;
-					}
-
-
-					// User is manually specifying list of replicas to serialize
-					index2 = 0;
-					while (index2 < replicasToSerialize.Size())
-					{
-						// This connection's own record. replica->lsr is shared by every connection, so for a
-						// replica not held here it is another connection's, possibly since freed.
-						bool held;
-						const unsigned int recordIndex = connection->constructedReplicaList.GetIndexFromKey(replicasToSerialize[index2], &held);
-						if (!held)
-						{
-							index2++;
-							continue;
-						}
-						lsr = connection->constructedReplicaList[recordIndex];
-
-						sp.whenLastSerialized = lsr->whenLastSerialized;
-						ssicr = connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time);
-						if (ssicr == SSICR_SENT_DATA)
-							lsr->whenLastSerialized = time;
-						index2++;
-					}
-				}
-				else
-				{
-					while (index2 < connection->queryToSerializeReplicaList.Size())
-					{
-						lsr = connection->queryToSerializeReplicaList[index2];
-
-						sp.destinationConnection = connection;
-						sp.whenLastSerialized = lsr->whenLastSerialized;
-						ssicr = connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time);
-						if (ssicr == SSICR_SENT_DATA)
-						{
-							lsr->whenLastSerialized = time;
-							index2++;
-						}
-						else if (ssicr == SSICR_NEVER_SERIALIZE)
-						{
-							// Removed from the middle of the list
-						}
-						else
-							index2++;
-					}
-				}
-			}
+			// A new pass: whatever replicas prepared for the last one is stale. 0 is never a pass.
+			if (++serializePass == 0)
+				serializePass = 1;
+			inSerializePass = true;
+			if (serializeExecutor != 0 && world->connectionList.Size() > 1)
+				SerializeConnectionsParallel(world, worldId, time);
+			else
+				SerializeConnections(world, worldId, time);
+			inSerializePass = false;
 		}
 
 		lastAutoSerializeOccurance = time;
 	}
 	m_WorldListMutex.Unlock();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+namespace
+{
+// Serves one connection's list. `preparedOnly` skips (and leaves for a later call) every replica
+// that was not prepared as a broadcast this pass.
+void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, bool preparedOnly, bool skipPrepared)
+{
+	unsigned int index = 0;
+	while (index < list.Size())
+	{
+		LastSerializationResult *lsr = list[index];
+		const bool isPrepared = lsr->replica->broadcastsIdentically && lsr->replica->preparedPass == pass && lsr->replica->prepared != Replica3::PB_SERIALIZE_PER_CONNECTION;
+		if ((preparedOnly && !isPrepared) || (skipPrepared && isPrepared))
+		{
+			index++;
+			continue;
+		}
+		sp.destinationConnection = connection;
+		sp.whenLastSerialized = lsr->whenLastSerialized;
+		const SendSerializeIfChangedResult ssicr = connection->SendSerializeIfChanged(lsr, &sp, rakPeer, worldId, replicaManager, time);
+		if (ssicr == SSICR_SENT_DATA)
+		{
+			lsr->whenLastSerialized = time;
+			index++;
+		}
+		else if (ssicr != SSICR_NEVER_SERIALIZE) // NEVER removed it from the middle of the list
+			index++;
+	}
+}
+
+struct ParallelSerializeContext
+{
+	DataStructures::List<Connection_RM3 *> *connections;
+	RakPeerInterface *rakPeer;
+	WorldId worldId;
+	ReplicaManager3 *replicaManager;
+	MafiaNet::Time time;
+	uint32_t pass;
+};
+} // namespace
+
+void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, MafiaNet::Time time)
+{
+	SerializeParameters sp;
+	sp.curTime = time;
+	sp.messageTimestamp = 0;
+	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
+		sp.pro[i] = defaultSendParameters;
+	DataStructures::List<Replica3 *> replicasToSerialize;
+	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	{
+		Connection_RM3 *connection = world->connectionList[index];
+		sp.bitsWrittenSoFar = 0;
+		sp.destinationConnection = connection;
+
+		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
+		if (connection->QuerySerializationList(replicasToSerialize))
+		{
+			// Update replica->lsr so we can lookup in the next block
+			// lsr is per connection / per replica
+			for (unsigned int i = 0; i < connection->queryToSerializeReplicaList.Size(); i++)
+				connection->queryToSerializeReplicaList[i]->replica->lsr = connection->queryToSerializeReplicaList[i];
+
+			// User is manually specifying list of replicas to serialize
+			for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
+			{
+				LastSerializationResult *lsr = replicasToSerialize[i]->lsr;
+				RakAssert(lsr->replica == replicasToSerialize[i]);
+
+				sp.whenLastSerialized = lsr->whenLastSerialized;
+				if (connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time) == SSICR_SENT_DATA)
+					lsr->whenLastSerialized = time;
+			}
+		}
+		else
+		{
+			ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, false, false);
+		}
+	}
+}
+
+void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worldId, MafiaNet::Time time)
+{
+	// Connections that choose their own list are served here and now, on this thread, as without an
+	// executor; the rest mark the broadcasts they will need.
+	SerializeParameters sp;
+	sp.curTime = time;
+	sp.messageTimestamp = 0;
+	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
+		sp.pro[i] = defaultSendParameters;
+	DataStructures::List<Replica3 *> replicasToSerialize;
+	parallelConnections.Clear(true, _FILE_AND_LINE_);
+	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	{
+		Connection_RM3 *connection = world->connectionList[index];
+		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
+		if (connection->QuerySerializationList(replicasToSerialize))
+		{
+			sp.bitsWrittenSoFar = 0;
+			for (unsigned int i = 0; i < connection->queryToSerializeReplicaList.Size(); i++)
+				connection->queryToSerializeReplicaList[i]->replica->lsr = connection->queryToSerializeReplicaList[i];
+			for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
+			{
+				LastSerializationResult *lsr = replicasToSerialize[i]->lsr;
+				RakAssert(lsr->replica == replicasToSerialize[i]);
+				sp.destinationConnection = connection;
+				sp.whenLastSerialized = lsr->whenLastSerialized;
+				if (connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time) == SSICR_SENT_DATA)
+					lsr->whenLastSerialized = time;
+			}
+			continue;
+		}
+		parallelConnections.Push(connection, _FILE_AND_LINE_);
+		const DataStructures::List<LastSerializationResult *> &list = connection->queryToSerializeReplicaList;
+		for (unsigned int i = 0; i < list.Size(); i++)
+		{
+			if (list[i]->replica->broadcastsIdentically)
+				list[i]->replica->neededPass = serializePass;
+		}
+	}
+
+	// Every broadcast a connection will be handed, serialized once, here, before any thread reads it.
+	for (unsigned int index = 0; index < world->userReplicaList.Size(); index++)
+	{
+		Replica3 *replica = world->userReplicaList[index];
+		if (replica->broadcastsIdentically && replica->neededPass == serializePass && replica->preparedPass != serializePass && replica->GetNetworkID() != UNASSIGNED_NETWORK_ID)
+			PrepareBroadcast(replica, time);
+	}
+
+	ParallelSerializeContext context;
+	context.connections = &parallelConnections;
+	context.rakPeer = GetRakPeerInterface();
+	context.worldId = worldId;
+	context.replicaManager = this;
+	context.time = time;
+	context.pass = serializePass;
+	serializeExecutor->ParallelFor(parallelConnections.Size(), &ReplicaManager3::ServePreparedBroadcasts, &context);
+
+	// What could not be prepared is served per connection, on this thread.
+	for (unsigned int index = 0; index < parallelConnections.Size(); index++)
+	{
+		sp.bitsWrittenSoFar = 0;
+		ServeSerializeList(parallelConnections[index], parallelConnections[index]->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, false, true);
+	}
+}
+
+void ReplicaManager3::ServePreparedBroadcasts(void *context, unsigned int index)
+{
+	const ParallelSerializeContext &pass = *static_cast<ParallelSerializeContext *>(context);
+	Connection_RM3 *connection = (*pass.connections)[index];
+	SerializeParameters sp;
+	sp.curTime = pass.time;
+	sp.messageTimestamp = 0;
+	sp.bitsWrittenSoFar = 0;
+	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
+		sp.pro[i] = pass.replicaManager->defaultSendParameters;
+	ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, pass.rakPeer, pass.worldId, pass.replicaManager, pass.time, pass.pass, true, false);
+}
+
+void ReplicaManager3::PrepareBroadcast(Replica3 *replica, MafiaNet::Time time)
+{
+	replica->preparedPass = serializePass;
+	replica->prepared = Replica3::PB_SERIALIZE_PER_CONNECTION;
+
+	SerializeParameters sp;
+	sp.curTime = time;
+	sp.messageTimestamp = 0;
+	sp.bitsWrittenSoFar = 0;
+	sp.destinationConnection = 0;
+	sp.whenLastSerialized = replica->lastBroadcast;
+	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+	{
+		sp.pro[z] = defaultSendParameters;
+		sp.outputBitstream[z].Reset();
+		sp.lastSentBitstream[z] = &replica->lastSentSerialization.bitStream[z];
+	}
+
+	const RM3SerializationResult result = replica->Serialize(&sp);
+	if (result == RM3SR_DO_NOT_SERIALIZE)
+	{
+		replica->prepared = Replica3::PB_NOTHING_TO_SEND;
+		return;
+	}
+	if (result != RM3SR_BROADCAST_IDENTICALLY && result != RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION)
+	{
+		// Broke its promise: served per connection, Serialize() and all, as any other replica.
+		return;
+	}
+
+	bool any = false;
+	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+	{
+		MafiaNet::BitStream &out = sp.outputBitstream[z];
+		out.ResetReadPointer();
+		MafiaNet::BitStream &last = replica->lastSentSerialization.bitStream[z];
+		const bool changed = out.GetNumberOfBitsUsed() > 0 &&
+		                     (result == RM3SR_BROADCAST_IDENTICALLY_FORCE_SERIALIZATION || out.GetNumberOfBitsUsed() != last.GetNumberOfBitsUsed() || memcmp(out.GetData(), last.GetData(), out.GetNumberOfBytesUsed()) != 0);
+		replica->lastSentSerialization.indicesToSend[z] = changed;
+		if (changed)
+		{
+			last.Reset();
+			last.Write(&out);
+			out.ResetReadPointer();
+			any = true;
+		}
+	}
+	// Anything else reaching this replica this pass (a connection's own list) sends the same bytes.
+	replica->forceSendUntilNextUpdate = true;
+	replica->prepared = any ? Replica3::PB_SEND : Replica3::PB_NOTHING_TO_SEND;
+	replica->preparedTimestamp = sp.messageTimestamp;
+	for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+		replica->preparedPro[z] = sp.pro[z];
+	if (any)
+		replica->lastBroadcast = time;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1689,6 +1851,25 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 
 	if (rm3qsr == RM3QSR_DO_NOT_CALL_SERIALIZE)
 		return SSICR_DID_NOT_SEND_DATA;
+
+	// A replica that broadcasts identically is serialized once per pass, by whichever connection gets
+	// to it first, and every connection after is handed what that produced -- or nothing at all.
+	if (replica->broadcastsIdentically && replicaManager->inSerializePass)
+	{
+		if (replica->preparedPass != replicaManager->serializePass)
+			replicaManager->PrepareBroadcast(replica, curTime);
+		if (replica->prepared == Replica3::PB_NOTHING_TO_SEND)
+			return SSICR_DID_NOT_SEND_DATA;
+		if (replica->prepared == Replica3::PB_SEND)
+		{
+			for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
+			{
+				if (replica->lastSentSerialization.indicesToSend[z])
+					sp->bitsWrittenSoFar += replica->lastSentSerialization.bitStream[z].GetNumberOfBitsUsed();
+			}
+			return SendSerialize(replica, replica->lastSentSerialization.indicesToSend, replica->lastSentSerialization.bitStream, replica->preparedTimestamp, replica->preparedPro, rakPeer, worldId, curTime);
+		}
+	}
 
 	if (replica->forceSendUntilNextUpdate)
 	{
@@ -2446,6 +2627,12 @@ Replica3::Replica3()
 	forceSendUntilNextUpdate = false;
 	lsr = 0;
 	referenceIndex = (uint32_t) -1;
+	broadcastsIdentically = false;
+	preparedPass = 0;
+	neededPass = 0;
+	prepared = PB_SERIALIZE_PER_CONNECTION;
+	preparedTimestamp = 0;
+	lastBroadcast = 0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

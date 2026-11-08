@@ -16,6 +16,7 @@
 #include "mafianet/peer_interface.h"
 #include "mafianet/replica_manager3.h"
 
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <set>
@@ -197,4 +198,124 @@ TEST_F(ReplicaManager3SerializePass, IdleReplicaCostsItsConnectionsNothing)
 	for (PassConnection *connection : connections)
 		calls += connection->sendCalls;
 	EXPECT_EQ(calls, 0) << "an idle replica was handed to SendSerialize for every connection";
+}
+
+namespace
+{
+// Spreads the iterations over real threads, the way an application's pool would.
+class ThreadExecutor : public RM3SerializeExecutor
+{
+public:
+	void ParallelFor(unsigned int count, void (*fn)(void *context, unsigned int index), void *context) override
+	{
+		++runs;
+		std::atomic<unsigned int> next{0};
+		std::vector<std::thread> threads;
+		for (int t = 0; t < 4; t++)
+		{
+			threads.emplace_back([&]
+			                     {
+				for (unsigned int i = next++; i < count; i = next++)
+					fn(context, i); });
+		}
+		for (std::thread &thread : threads)
+			thread.join();
+	}
+	int runs = 0;
+};
+} // namespace
+
+// A change is serialized once and the same bytes reach every connection on the tick it happens.
+TEST_F(ReplicaManager3SerializePass, ChangedReplicaIsSerializedOnceForEveryConnection)
+{
+	PassReplica *replica = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(8, {replica});
+	Tick();
+	Tick();
+
+	replica->value = 7;
+	replica->serializeCalls = 0;
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+	Tick();
+	EXPECT_EQ(replica->serializeCalls.load(), 1);
+	for (PassConnection *connection : connections)
+		EXPECT_EQ(connection->received, std::vector<int>{7});
+}
+
+// Served across an executor, every connection gets what a pass on one thread gives it.
+TEST_F(ReplicaManager3SerializePass, ExecutorServesEveryConnectionWhatOneThreadWould)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	std::vector<Replica3 *> wanted;
+	std::vector<PassReplica *> broadcasts;
+	for (int i = 0; i < 16; i++)
+	{
+		broadcasts.push_back(AddReplica(true));
+		wanted.push_back(broadcasts.back());
+	}
+	std::vector<PassConnection *> connections = AddConnections(32, wanted);
+	Tick();
+	Tick();
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+
+	for (int tick = 0; tick < 5; tick++)
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			// Half of them change each tick.
+			if ((i + tick) % 2 == 0)
+				broadcasts[static_cast<size_t>(i)]->value = 100 * tick + i;
+		}
+		Tick();
+	}
+	EXPECT_GT(executor.runs, 0);
+
+	std::vector<int> expected;
+	for (int tick = 0; tick < 5; tick++)
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			if ((i + tick) % 2 == 0)
+				expected.push_back(100 * tick + i);
+		}
+	}
+	for (PassConnection *connection : connections)
+	{
+		std::vector<int> got = connection->received;
+		std::sort(got.begin(), got.end());
+		std::vector<int> want = expected;
+		std::sort(want.begin(), want.end());
+		EXPECT_EQ(got, want);
+	}
+	for (PassReplica *replica : broadcasts)
+		EXPECT_EQ(replica->serializeThreads.size(), 1u) << "a broadcast was serialized off the calling thread";
+	manager.SetSerializeExecutor(0);
+}
+
+// A replica that has not opted in is serialized per connection, on the thread running Update().
+TEST_F(ReplicaManager3SerializePass, ReplicaThatDoesNotOptInStaysOnTheCallingThread)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	PassReplica *plain = AddReplica(false);
+	PassReplica *broadcast = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(8, {plain, broadcast});
+	Tick(); // construction sends each its first state
+	for (PassConnection *connection : connections)
+		connection->received.clear();
+	plain->value = 3;
+	broadcast->value = 4;
+	Tick();
+	EXPECT_EQ(plain->serializeThreads.size(), 1u);
+	EXPECT_EQ(*plain->serializeThreads.begin(), std::this_thread::get_id());
+	for (PassConnection *connection : connections)
+	{
+		std::vector<int> got = connection->received;
+		std::sort(got.begin(), got.end());
+		EXPECT_EQ(got, (std::vector<int>{3, 4}));
+	}
+	manager.SetSerializeExecutor(0);
 }
