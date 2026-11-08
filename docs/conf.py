@@ -9,8 +9,8 @@ import os
 project = 'MafiaNet'
 copyright = '2024, MafiaHub'
 author = 'MafiaHub'
-version = '0.24.0'
-release = '0.24.0'
+version = '0.25.0'
+release = '0.25.0'
 
 # -- General configuration ---------------------------------------------------
 

@@ -318,7 +318,15 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.24.0 (Latest)
+### Version 0.25.0 (Latest)
+- **ReplicaManager3 at server scale**: a replica that returns true from `Replica3::BroadcastsIdentically()` is serialized once per pass and handed to a connection only when it changed, and `SetSerializeExecutor()` serves connections their share of the pass across the application's threads
+- **Fix: a list-mode connection no longer leaks a record each time a replica streams out of it**
+- **Fix: game callbacks can dereference replicas, drop connections or call `Update()` mid-pass** without the pass touching what they freed, skipping updates or nesting a second pass
+- **Fix: the TLS client builds with `OPEN_SSL_CLIENT_SUPPORT=1`** against OpenSSL 1.1+
+- **Breaking (ABI)**: `Replica3`, `Connection_RM3`, `LastSerializationResult` and `ReplicaManager3` gain members; `Replica3::lsr` is no longer maintained
+- **Wire-compatible**: no message changes
+
+### Version 0.24.0
 - **Voice off the main thread**: a relay host forwards frames on RakPeer's network thread through the function passed to `SetRelayHost()`, and `SetNetworkThreadCodec(true)` runs a client's encoding and decoding there too, so a stalled tick no longer breaks voice up. Every `RakVoice` method is then callable from any thread; `SetSpeakerFrameHandler()` hands decoded frames straight out
 - **`PluginInterface2::OnReceiveNetworkThread()` / `UpdateNetworkThread()`**: opt-in hooks on the update thread
 - **Fix: offline loopback `Deinit()` no longer double-frees its channel**, and constructing a peer on Windows no longer sleeps ~125 ms

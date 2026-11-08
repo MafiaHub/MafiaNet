@@ -3,6 +3,25 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.25.0
+--------------
+
+**ReplicaManager3**
+
+* **Broadcasts are serialized once per pass.** A replica whose ``Replica3::BroadcastsIdentically()`` returns true is serialized once per serialize pass, with no destination connection, and handed to a connection only when it has something to send, instead of being passed to every connection's ``SendSerialize()`` every pass. Construction is unchanged. Off by default.
+* **Connections can be served in parallel.** With an ``RM3SerializeExecutor`` set through ``SetSerializeExecutor()``, those replicas are serialized first on the calling thread and connections are then served their share of the pass across the executor; everything else is served on the calling thread as before. The executor contract lists what callbacks on its threads may not do.
+* ``Connection_RM3::SendSerialize()`` copies a channel from its bytes and leaves the source bitstream untouched.
+* **Fix: a list-mode connection no longer leaks a record each time a replica streams out of it.** ``QueryReplicaList``'s destroy list took the ``LastSerializationResult`` off the connection's lists without deleting it.
+* **Fix: a connection's own serialization list is read from its records.** Entries were resolved through ``replica->lsr``, which every connection overwrote and which could name another connection's freed record. ``Replica3::lsr`` is no longer maintained.
+* **Fix: game callbacks can change the world mid-pass.** Dereferencing a replica or popping a connection from ``QuerySerialization()``, ``Serialize()`` or ``QuerySerializationList()`` no longer leaves the pass using freed records or connections, or skipping the next replica or connection; ``GetMembershipGeneration()`` tracks those changes. ``Update()`` called from inside the pass returns at once instead of starting a second pass, which locked the world mutex twice on POSIX.
+* **Breaking (ABI)**: ``Replica3``, ``Connection_RM3``, ``LastSerializationResult`` and ``ReplicaManager3`` gain members.
+
+**TCPInterface**
+
+* **Fix: the TLS client builds with ``OPEN_SSL_CLIENT_SUPPORT=1``** against OpenSSL 1.1+: ``TLS_client_method()`` returns a ``const SSL_METHOD *``.
+
+**Wire-compatible**: no message changes.
+
 Version 0.24.0
 --------------
 
