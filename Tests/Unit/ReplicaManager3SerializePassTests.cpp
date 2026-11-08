@@ -23,6 +23,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 using namespace MafiaNet;
@@ -472,8 +473,24 @@ TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThread
 // the rest of the tick's updates.
 namespace
 {
-class SerializePassCallbacks : public ReplicaManager3SerializePass, public ::testing::WithParamInterface<bool>
+// Broadcast or per-connection replicas, with or without an executor.
+class SerializePassCallbacks : public ReplicaManager3SerializePass, public ::testing::WithParamInterface<std::tuple<bool, bool>>
 {
+protected:
+	void SetUp() override
+	{
+		ReplicaManager3SerializePass::SetUp();
+		if (std::get<1>(GetParam()))
+			manager.SetSerializeExecutor(&executor);
+	}
+	void TearDown() override
+	{
+		manager.SetSerializeExecutor(0);
+		ReplicaManager3SerializePass::TearDown();
+	}
+	bool Broadcasts() const { return std::get<0>(GetParam()); }
+
+	ThreadExecutor executor;
 };
 } // namespace
 
@@ -481,8 +498,8 @@ class SerializePassCallbacks : public ReplicaManager3SerializePass, public ::tes
 // The connection being served must not use that record afterwards, nor skip the replica that took its slot.
 TEST_P(SerializePassCallbacks, ReplicaDereferencedFromItsOwnSerializeLosesNoOtherUpdate)
 {
-	PassReplica *leaving = AddReplica(GetParam());
-	PassReplica *next = AddReplica(GetParam());
+	PassReplica *leaving = AddReplica(Broadcasts());
+	PassReplica *next = AddReplica(Broadcasts());
 	std::vector<PassConnection *> connections = AddConnections(3, {leaving, next});
 	Tick();
 	Tick();
@@ -507,8 +524,8 @@ TEST_P(SerializePassCallbacks, ReplicaDereferencedFromItsOwnSerializeLosesNoOthe
 // pass, not carry on through its freed lists.
 TEST_P(SerializePassCallbacks, ConnectionDroppedWhileBeingServedIsLeftAlone)
 {
-	PassReplica *first = AddReplica(GetParam());
-	PassReplica *second = AddReplica(GetParam());
+	PassReplica *first = AddReplica(Broadcasts());
+	PassReplica *second = AddReplica(Broadcasts());
 	std::vector<PassConnection *> connections = AddConnections(3, {first, second});
 	Tick();
 	Tick();
@@ -537,8 +554,8 @@ TEST_P(SerializePassCallbacks, ConnectionDroppedWhileBeingServedIsLeftAlone)
 // pass's state. It returns at once instead.
 TEST_P(SerializePassCallbacks, UpdateRunFromInsideAPassReturnsAtOnce)
 {
-	PassReplica *reentering = AddReplica(GetParam());
-	PassReplica *other = AddReplica(GetParam());
+	PassReplica *reentering = AddReplica(Broadcasts());
+	PassReplica *other = AddReplica(Broadcasts());
 	std::vector<PassConnection *> connections = AddConnections(3, {reentering, other});
 	Tick();
 	Tick();
@@ -561,5 +578,5 @@ TEST_P(SerializePassCallbacks, UpdateRunFromInsideAPassReturnsAtOnce)
 	}
 }
 
-INSTANTIATE_TEST_SUITE_P(BroadcastAndPerConnection, SerializePassCallbacks, ::testing::Values(true, false), [](const ::testing::TestParamInfo<bool> &info)
-                         { return info.param ? std::string("Broadcast") : std::string("PerConnection"); });
+INSTANTIATE_TEST_SUITE_P(Passes, SerializePassCallbacks, ::testing::Combine(::testing::Bool(), ::testing::Bool()), [](const ::testing::TestParamInfo<std::tuple<bool, bool>> &info)
+                         { return std::string(std::get<0>(info.param) ? "Broadcast" : "PerConnection") + (std::get<1>(info.param) ? "Parallel" : "Serial"); });

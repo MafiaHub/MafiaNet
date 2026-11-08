@@ -66,6 +66,7 @@ LastSerializationResult::LastSerializationResult()
 	replica = 0;
 	lastSerializationResultBS = 0;
 	whenLastSerialized = MafiaNet::GetTime();
+	servedPass = 0;
 }
 LastSerializationResult::~LastSerializationResult()
 {
@@ -95,6 +96,8 @@ ReplicaManager3::ReplicaManager3()
 	serializeExecutor = 0;
 	serializePass = 0;
 	inSerializePass = false;
+	membershipGeneration = 0;
+	inUpdate = false;
 
 	for (unsigned int i = 0; i < sizeof(worldsArray) / sizeof(worldsArray[0]); i++)
 		worldsArray[i] = 0;
@@ -207,6 +210,7 @@ void ReplicaManager3::DeallocReplicaNoBroadcastDestruction(MafiaNet::Connection_
 
 MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, WorldId worldId)
 {
+	++membershipGeneration;
 	DataStructures::List<Replica3 *> replicaList;
 	DataStructures::List<NetworkID> destructionList;
 	DataStructures::List<Replica3 *> broadcastList;
@@ -350,6 +354,7 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 
 void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 {
+	++membershipGeneration;
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
@@ -577,6 +582,29 @@ void ReplicaManager3::SetAutoSerializeInterval(MafiaNet::Time intervalMS)
 void ReplicaManager3::SetSerializeExecutor(RM3SerializeExecutor *executor)
 {
 	serializeExecutor = executor;
+}
+
+bool ReplicaManager3::HoldsConnection(const Connection_RM3 *connection, WorldId worldId) const
+{
+	const RM3World *world = worldsArray[worldId];
+	if (world == 0)
+		return false;
+	for (unsigned int i = 0; i < world->connectionList.Size(); i++)
+	{
+		if (world->connectionList[i] == connection)
+			return true;
+	}
+	return false;
+}
+
+bool Connection_RM3::HoldsRecord(const LastSerializationResult *lsr) const
+{
+	for (unsigned int i = 0; i < constructedReplicaList.Size(); i++)
+	{
+		if (constructedReplicaList[i] == lsr)
+			return true;
+	}
+	return false;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -972,6 +1000,13 @@ void ReplicaManager3::Update(void)
 	RM3World *world;
 	MafiaNet::Time time = MafiaNet::GetTime();
 
+	// A game callback inside the pass -- a Serialize(), or anything that reaches RakPeer::Receive() -- would
+	// start a second pass inside this one: on POSIX it locks a mutex this one holds, and anywhere it overwrites
+	// this pass's state. The pass already under way covers it.
+	if (inUpdate)
+		return;
+	inUpdate = true;
+
 	m_WorldListMutex.Lock();
 	for (index3 = 0; index3 < worldsList.Size(); index3++)
 	{
@@ -1013,6 +1048,7 @@ void ReplicaManager3::Update(void)
 		lastAutoSerializeOccurance = time;
 	}
 	m_WorldListMutex.Unlock();
+	inUpdate = false;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1028,20 +1064,35 @@ enum class ServeShare
 	Rest
 };
 
-void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share)
+// Returns false when a game callback dropped the connection, which must then not be touched again.
+bool ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share)
 {
+	uint32_t generation = replicaManager->GetMembershipGeneration();
 	unsigned int index = 0;
 	while (index < list.Size())
 	{
 		LastSerializationResult *lsr = list[index];
-		if (share != ServeShare::All && (lsr->replica->parallelPass == pass) != (share == ServeShare::Workers))
+		if (lsr->servedPass == pass || (share != ServeShare::All && (lsr->replica->parallelPass == pass) != (share == ServeShare::Workers)))
 		{
 			index++;
 			continue;
 		}
+		lsr->servedPass = pass;
 		sp.destinationConnection = connection;
 		sp.whenLastSerialized = lsr->whenLastSerialized;
 		const SendSerializeIfChangedResult ssicr = connection->SendSerializeIfChanged(lsr, &sp, rakPeer, worldId, replicaManager, time);
+		if (replicaManager->GetMembershipGeneration() != generation)
+		{
+			// A game callback dereferenced a replica or dropped a connection: this one may be gone, the record
+			// freed, the list shifted. Start over, past everything already served.
+			if (!replicaManager->HoldsConnection(connection, worldId))
+				return false;
+			generation = replicaManager->GetMembershipGeneration();
+			if (ssicr == SSICR_SENT_DATA && connection->HoldsRecord(lsr))
+				lsr->whenLastSerialized = time;
+			index = 0;
+			continue;
+		}
 		if (ssicr == SSICR_SENT_DATA)
 		{
 			lsr->whenLastSerialized = time;
@@ -1050,6 +1101,7 @@ void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSer
 		else if (ssicr != SSICR_NEVER_SERIALIZE) // NEVER removed it from the middle of the list
 			index++;
 	}
+	return true;
 }
 
 // A connection's own serialization list (Connection_RM3::QuerySerializationList), each entry read from
@@ -1057,7 +1109,9 @@ void ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSer
 // it is another connection's, possibly since freed.
 using ConstructedList = DataStructures::OrderedList<Replica3 *, LastSerializationResult *, Connection_RM3::Replica3LSRComp>;
 
-void ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &constructed, DataStructures::List<Replica3 *> &replicasToSerialize, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time)
+// Returns false when a game callback dropped the connection, which must then not be touched again. The
+// entries are the game's own list, held apart from ours, so a record is looked up for each one as it comes.
+bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &constructed, DataStructures::List<Replica3 *> &replicasToSerialize, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time)
 {
 	for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
 	{
@@ -1068,9 +1122,19 @@ void ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &co
 		LastSerializationResult *lsr = constructed[recordIndex];
 		sp.destinationConnection = connection;
 		sp.whenLastSerialized = lsr->whenLastSerialized;
-		if (connection->SendSerializeIfChanged(lsr, &sp, rakPeer, worldId, replicaManager, time) == SSICR_SENT_DATA)
+		const uint32_t generation = replicaManager->GetMembershipGeneration();
+		const SendSerializeIfChangedResult ssicr = connection->SendSerializeIfChanged(lsr, &sp, rakPeer, worldId, replicaManager, time);
+		if (replicaManager->GetMembershipGeneration() != generation)
+		{
+			if (!replicaManager->HoldsConnection(connection, worldId))
+				return false;
+			if (!connection->HoldsRecord(lsr))
+				continue;
+		}
+		if (ssicr == SSICR_SENT_DATA)
 			lsr->whenLastSerialized = time;
 	}
+	return true;
 }
 
 struct ParallelSerializeContext
@@ -1092,16 +1156,25 @@ void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, Maf
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = defaultSendParameters;
 	DataStructures::List<Replica3 *> replicasToSerialize;
-	// By index into the live list, as a callback can drop a connection mid-pass.
+	// By index into the live list, starting over (past what was served) when a game callback changed it.
+	uint32_t generation = membershipGeneration;
 	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
+		if (connection->servedPass == serializePass)
+			continue;
+		connection->servedPass = serializePass;
 		sp.bitsWrittenSoFar = 0;
 		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
 		if (connection->QuerySerializationList(replicasToSerialize))
 			ServeOwnSerializeList(connection, connection->constructedReplicaList, replicasToSerialize, sp, GetRakPeerInterface(), worldId, this, time);
 		else
 			ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, ServeShare::All);
+		if (membershipGeneration != generation)
+		{
+			generation = membershipGeneration;
+			index = (unsigned int) -1;
+		}
 	}
 }
 
@@ -1117,9 +1190,13 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 	// Game callbacks run throughout steps 1 to 3 and may drop connections, so nothing here holds one
 	// across them: every loop reads the live list by index.
 	DataStructures::List<Replica3 *> replicasToSerialize;
+	uint32_t generation = membershipGeneration;
 	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
+		if (connection->listQueriedPass == serializePass)
+			continue;
+		connection->listQueriedPass = serializePass;
 		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
 		connection->ownSerializationListPass = 0;
 		if (connection->QuerySerializationList(replicasToSerialize))
@@ -1127,6 +1204,11 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 			connection->ownSerializationListPass = serializePass;
 			sp.bitsWrittenSoFar = 0;
 			ServeOwnSerializeList(connection, connection->constructedReplicaList, replicasToSerialize, sp, GetRakPeerInterface(), worldId, this, time);
+		}
+		if (membershipGeneration != generation)
+		{
+			generation = membershipGeneration;
+			index = (unsigned int) -1;
 		}
 	}
 
@@ -1143,6 +1225,13 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 			Replica3 *replica = list[i]->replica;
 			if (replica->broadcastsIdentically && replica->neededPass != serializePass && replica->GetNetworkID() != UNASSIGNED_NETWORK_ID && replica->QuerySerialization(connection) == RM3QSR_CALL_SERIALIZE)
 				replica->neededPass = serializePass;
+			if (membershipGeneration != generation)
+			{
+				// The list or the connection may be gone: start over; marking twice is harmless.
+				generation = membershipGeneration;
+				index = (unsigned int) -1;
+				break;
+			}
 		}
 	}
 
@@ -1158,6 +1247,12 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 			PrepareBroadcast(replica, time);
 		if (replica->prepared != Replica3::PB_SERIALIZE_PER_CONNECTION)
 			replica->parallelPass = serializePass;
+		if (membershipGeneration != generation)
+		{
+			// A Serialize() changed the replica list: start over; what is prepared stays prepared.
+			generation = membershipGeneration;
+			index = (unsigned int) -1;
+		}
 	}
 
 	// 4. The connections the workers serve, taken after every callback of steps 1 to 3 has run. While they
@@ -1184,10 +1279,16 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
-		if (connection->ownSerializationListPass == serializePass)
+		if (connection->ownSerializationListPass == serializePass || connection->servedPass == serializePass)
 			continue;
+		connection->servedPass = serializePass;
 		sp.bitsWrittenSoFar = 0;
 		ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, ServeShare::Rest);
+		if (membershipGeneration != generation)
+		{
+			generation = membershipGeneration;
+			index = (unsigned int) -1;
+		}
 	}
 }
 
@@ -1742,6 +1843,8 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 {
 	isValidated = false;
 	ownSerializationListPass = 0;
+	listQueriedPass = 0;
+	servedPass = 0;
 	isFirstConstruction = true;
 	groupConstructionAndSerialize = false;
 	gotDownloadComplete = false;
@@ -1871,7 +1974,15 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	if (replica->GetNetworkID() == UNASSIGNED_NETWORK_ID)
 		return SSICR_DID_NOT_SEND_DATA;
 
+	// A game callback below may dereference this replica, which frees lsr, or drop this connection. Past each
+	// one, neither is touched again unless both are still here; the caller sees SSICR_NEVER_SERIALIZE.
+	const uint32_t generation = replicaManager->GetMembershipGeneration();
+	const auto gone = [&]()
+	{ return replicaManager->GetMembershipGeneration() != generation && (!replicaManager->HoldsConnection(this, worldId) || !HoldsRecord(lsr)); };
+
 	RM3QuerySerializationResult rm3qsr = replica->QuerySerialization(this);
+	if (gone())
+		return SSICR_NEVER_SERIALIZE;
 	if (rm3qsr == RM3QSR_NEVER_CALL_SERIALIZE)
 	{
 		// Never again for this connection and replica pair
@@ -1887,7 +1998,11 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	if (replica->broadcastsIdentically && replicaManager->inSerializePass)
 	{
 		if (replica->preparedPass != replicaManager->serializePass)
+		{
 			replicaManager->PrepareBroadcast(replica, curTime);
+			if (gone())
+				return SSICR_NEVER_SERIALIZE;
+		}
 		if (replica->prepared == Replica3::PB_NOTHING_TO_SEND)
 			return SSICR_DID_NOT_SEND_DATA;
 		if (replica->prepared == Replica3::PB_SEND)
@@ -1921,6 +2036,8 @@ SendSerializeIfChangedResult Connection_RM3::SendSerializeIfChanged(LastSerializ
 	}
 
 	RM3SerializationResult serializationResult = replica->Serialize(sp);
+	if (gone())
+		return SSICR_NEVER_SERIALIZE;
 
 	if (serializationResult == RM3SR_NEVER_SERIALIZE_FOR_THIS_CONNECTION)
 	{
