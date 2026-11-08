@@ -21,6 +21,16 @@
 #include <new>
 #include <vector>
 
+// Sanitizers bring their own operator new and delete, and the leak this file looks for is reported by
+// LeakSanitizer in the asan job anyway: the counting allocator is only built without one.
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#define MAFIANET_TEST_SANITIZED 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
+#define MAFIANET_TEST_SANITIZED 1
+#endif
+#endif
+
 using namespace MafiaNet;
 
 namespace
@@ -38,6 +48,7 @@ TimeUS FakeClock()
 }
 } // namespace
 
+#ifndef MAFIANET_TEST_SANITIZED
 void *operator new(std::size_t size)
 {
 	void *block = std::malloc(size == 0 ? 1 : size);
@@ -61,6 +72,7 @@ void operator delete(void *block, std::size_t) noexcept
 {
 	operator delete(block);
 }
+#endif
 
 namespace
 {
@@ -190,6 +202,9 @@ protected:
 // back in makes a new one, so a record kept on stream-out is a leak paid on every stream boundary.
 TEST_F(ReplicaManager3ListMode, StreamingOutFreesTheConnectionRecord)
 {
+#ifdef MAFIANET_TEST_SANITIZED
+	GTEST_SKIP() << "counted by LeakSanitizer instead";
+#endif
 	ListConnection *connection = AddConnection(100);
 	ListReplica *replica = AddReplica();
 
