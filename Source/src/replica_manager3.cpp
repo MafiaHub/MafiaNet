@@ -1082,8 +1082,13 @@ void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, Maf
 			// User is manually specifying list of replicas to serialize
 			for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
 			{
-				LastSerializationResult *lsr = replicasToSerialize[i]->lsr;
-				RakAssert(lsr->replica == replicasToSerialize[i]);
+				// This connection's own record. replica->lsr is shared by every connection, so for a replica
+				// not held here it is another connection's, possibly since freed.
+				bool held;
+				const unsigned int recordIndex = connection->constructedReplicaList.GetIndexFromKey(replicasToSerialize[i], &held);
+				if (!held)
+					continue;
+				LastSerializationResult *lsr = connection->constructedReplicaList[recordIndex];
 
 				sp.whenLastSerialized = lsr->whenLastSerialized;
 				if (connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time) == SSICR_SENT_DATA)
@@ -1119,8 +1124,11 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 				connection->queryToSerializeReplicaList[i]->replica->lsr = connection->queryToSerializeReplicaList[i];
 			for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
 			{
-				LastSerializationResult *lsr = replicasToSerialize[i]->lsr;
-				RakAssert(lsr->replica == replicasToSerialize[i]);
+				bool held; // read from this connection's records, as in SerializeConnections
+				const unsigned int recordIndex = connection->constructedReplicaList.GetIndexFromKey(replicasToSerialize[i], &held);
+				if (!held)
+					continue;
+				LastSerializationResult *lsr = connection->constructedReplicaList[recordIndex];
 				sp.destinationConnection = connection;
 				sp.whenLastSerialized = lsr->whenLastSerialized;
 				if (connection->SendSerializeIfChanged(lsr, &sp, GetRakPeerInterface(), worldId, this, time) == SSICR_SENT_DATA)
