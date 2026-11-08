@@ -1815,9 +1815,9 @@ SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *r
 				bitsPerChannel[z] = serializationData[z].GetNumberOfBitsUsed();
 				out.WriteCompressed(bitsPerChannel[z]);
 				out.AlignWriteToByteBoundary();
-				out.Write(serializationData[z]);
-				// The same bitstream is written again for the next connection.
-				serializationData[z].ResetReadPointer();
+				// Copied from its bytes, leaving the source untouched: a parallel serialize pass has several
+				// connections send the same replica's bitstream at once.
+				out.WriteBits(serializationData[z].GetData(), bitsPerChannel[z], false);
 				pending[z] = false;
 			}
 			else
