@@ -934,7 +934,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			if (objectExists)
 			{
 				// The record is this connection's alone, and streaming the replica back in makes a new one.
-				LastSerializationResult *lsr = constructedReplicaList[idx1];
+				lsr = constructedReplicaList[idx1];
 				constructedReplicaList.RemoveAtIndex(idx1);
 
 				unsigned int j;
