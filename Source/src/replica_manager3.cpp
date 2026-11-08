@@ -933,17 +933,20 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			idx1 = constructedReplicaList.GetIndexFromKey(destroyedReplicasCulled[idx2], &objectExists);
 			if (objectExists)
 			{
+				// The record is this connection's alone, and streaming the replica back in makes a new one.
+				LastSerializationResult *lsr = constructedReplicaList[idx1];
 				constructedReplicaList.RemoveAtIndex(idx1);
 
 				unsigned int j;
 				for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
 				{
-					if (queryToSerializeReplicaList[j]->replica == destroyedReplicasCulled[idx2])
+					if (queryToSerializeReplicaList[j] == lsr)
 					{
 						queryToSerializeReplicaList.RemoveAtIndex(j);
 						break;
 					}
 				}
+				MafiaNet::OP_DELETE(lsr, _FILE_AND_LINE_);
 			}
 		}
 	}
