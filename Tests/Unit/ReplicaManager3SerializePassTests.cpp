@@ -413,3 +413,55 @@ TEST_F(ReplicaManager3SerializePass, ConnectionDroppedMidPassIsNotServed)
 		EXPECT_EQ(connection->received, std::vector<int>{3});
 	manager.SetSerializeExecutor(0);
 }
+
+// A connection that picks its own list is served whole on the calling thread, before the executor runs,
+// and only what it holds: a replica it names but does not hold is skipped, not looked up through another
+// connection's record. Every other connection still gets each broadcast, once.
+TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThreadOnly)
+{
+	struct OwnListConnection : PassConnection
+	{
+		using PassConnection::PassConnection;
+		bool QuerySerializationList(DataStructures::List<Replica3 *> &replicasToSerialize)
+		{
+			for (Replica3 *replica : list)
+				replicasToSerialize.Push(replica, _FILE_AND_LINE_);
+			return true;
+		}
+		std::vector<Replica3 *> list;
+	};
+
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	PassReplica *held = AddReplica(true);
+	PassReplica *notHeld = AddReplica(true);
+	std::vector<PassConnection *> others = AddConnections(4, {held, notHeld});
+	auto *picker = new OwnListConnection(RakNetGUID(200));
+	picker->wanted = {held};
+	picker->list = {held, notHeld};
+	manager.PushConnection(picker);
+	Tick();
+	Tick();
+	ASSERT_FALSE(picker->HasReplicaConstructed(notHeld));
+	for (PassConnection *connection : others)
+		connection->received.clear();
+	picker->received.clear();
+	picker->threads.clear();
+
+	held->value = 11;
+	notHeld->value = 12;
+	held->serializeCalls = 0;
+	notHeld->serializeCalls = 0;
+	Tick();
+	EXPECT_EQ(picker->received, std::vector<int>{11});
+	EXPECT_EQ(picker->threads, std::set<std::thread::id>{std::this_thread::get_id()});
+	for (PassConnection *connection : others)
+	{
+		std::vector<int> got = connection->received;
+		std::sort(got.begin(), got.end());
+		EXPECT_EQ(got, (std::vector<int>{11, 12}));
+	}
+	EXPECT_EQ(held->serializeCalls.load(), 1);
+	EXPECT_EQ(notHeld->serializeCalls.load(), 1);
+	manager.SetSerializeExecutor(0);
+}
