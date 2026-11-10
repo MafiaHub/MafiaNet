@@ -146,6 +146,47 @@ using namespace MafiaNet;
 
 static RakNetRandom rnr;
 
+// Whether a message a connected remote sent, and that RakPeer did not consume itself, may be handed to
+// the plugins and the application.
+//
+// Everything below ID_TIMESTAMP is RakPeer's own, and so is ID_SESSION_CONFIG_ABANDONED, which is only
+// ever generated locally. The other library ids are told apart from a remote's by their first byte, by
+// RakPeer and by every plugin, and every reader then treats the id behind an ID_TIMESTAMP prefix as the
+// message. So a prefix may only carry what a conforming peer puts behind one: an application message, or
+// one of the library messages that are sent timestamped. Anything else is a control message in disguise.
+static bool MayReachApplicationFromRemote(const unsigned char *data, unsigned int byteSize)
+{
+	const MessageID id = data[0];
+	// Indistinguishable here from the ones the reliability layer generates locally.
+	if (id == ID_SND_RECEIPT_ACKED || id == ID_SND_RECEIPT_LOSS)
+		return true;
+	if (id < (MessageID) ID_TIMESTAMP || id == ID_SESSION_CONFIG_ABANDONED)
+		return false;
+	if (id != ID_TIMESTAMP)
+		return true;
+
+	const unsigned int innerIdOffset = sizeof(MessageID) + sizeof(MafiaNet::Time);
+	if (byteSize <= innerIdOffset)
+		return false; // Nothing behind the time, and readers index the id there.
+	const MessageID innerId = data[innerIdOffset];
+	if (innerId >= (MessageID) ID_USER_PACKET_ENUM)
+		return true;
+	switch (innerId)
+	{
+	// ReplicaManager3 accepts all of its messages behind a timestamp (Connection_RM3::SendSerializeHeader).
+	case ID_REPLICA_MANAGER_CONSTRUCTION:
+	case ID_REPLICA_MANAGER_SCOPE_CHANGE:
+	case ID_REPLICA_MANAGER_SERIALIZE:
+	case ID_REPLICA_MANAGER_DOWNLOAD_STARTED:
+	case ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE:
+	// NatPunchthroughServer
+	case ID_NAT_CONNECT_AT_TIME:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /*
 struct RakPeerAndIndex
 {
@@ -6876,7 +6917,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// for a guid it has never seen connect -- and from a peer it may still refuse. A peer that
 					// respects the protocol cannot send here anyway: its own public send path is gated on the
 					// same state, so anything arriving in this window is malformed or hostile.
-					if ((data[0] >= (MessageID) ID_TIMESTAMP || data[0] == ID_SND_RECEIPT_ACKED || data[0] == ID_SND_RECEIPT_LOSS) &&
+					if (MayReachApplicationFromRemote(data, byteSize) &&
 					    remoteSystem->isActive &&
 					    remoteSystem->connectMode != RemoteSystemStruct::EXCHANGING_SESSION_DATA)
 					{
