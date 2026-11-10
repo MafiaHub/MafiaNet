@@ -143,6 +143,9 @@ enum DefaultMessageIDTypes
 	ID_IP_RECENTLY_CONNECTED,
 	/// RakPeer - The sizeof(RakNetTime) bytes following this byte represent a value which is automatically modified by the difference
 	/// in system times between the sender and the recipient. Requires that you call SetOccasionalPing.
+	/// The message id follows the time. From a remote system it is only delivered when that id is an application id
+	/// (ID_USER_PACKET_ENUM and up), a ReplicaManager3 id or ID_NAT_CONNECT_AT_TIME: any other library id behind a
+	/// timestamp is dropped, as is a timestamp with nothing after it.
 	ID_TIMESTAMP,
 	/// RakPeer - Pong from an unconnected system.  First byte is ID_UNCONNECTED_PONG, second sizeof(MafiaNet::TimeMS) bytes is the ping,
 	/// following bytes is system specific enumeration data.
