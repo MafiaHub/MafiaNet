@@ -318,7 +318,11 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.25.0 (Latest)
+### Version 0.25.1 (Latest)
+- **Fix: a remote's library message ids are only delivered where a conforming peer sends them**: behind an `ID_TIMESTAMP` prefix, only application ids, ReplicaManager3 ids and `ID_NAT_CONNECT_AT_TIME` reach the plugins and the application; a timestamp with nothing behind it and a bare `ID_SESSION_CONFIG_ABANDONED` from a remote are dropped
+- **Wire-compatible**: no message changes
+
+### Version 0.25.0
 - **ReplicaManager3 at server scale**: a replica that returns true from `Replica3::BroadcastsIdentically()` is serialized once per pass and handed to a connection only when it changed, and `SetSerializeExecutor()` serves connections their share of the pass across the application's threads
 - **Fix: a list-mode connection no longer leaks a record each time a replica streams out of it**
 - **Fix: game callbacks can dereference replicas, drop connections or call `Update()` mid-pass** without the pass touching what they freed, skipping updates or nesting a second pass

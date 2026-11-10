@@ -3,6 +3,16 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.25.1
+--------------
+
+**RakPeer**
+
+* **Fix: a remote's library message ids are only delivered where a conforming peer sends them.** Messages the library generates locally are told apart from a remote's by their first byte, while readers take the id behind an ``ID_TIMESTAMP`` prefix as the message. Behind a timestamp, a connected peer's message now reaches the plugins and the application only if it carries an application id (``ID_USER_PACKET_ENUM`` and up), a ReplicaManager3 id or ``ID_NAT_CONNECT_AT_TIME``. A timestamp with nothing behind it and a bare ``ID_SESSION_CONFIG_ABANDONED`` from a remote are dropped.
+* **Behaviour change**: an application that sent any other library id behind a timestamp no longer receives it.
+
+**Wire-compatible**: no message changes.
+
 Version 0.25.0
 --------------
 
