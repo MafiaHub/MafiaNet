@@ -65,7 +65,12 @@ public:
 	}
 	void DeallocReplica(Connection_RM3 *) {}
 	RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) { return refuse ? RM3QSR_DO_NOT_CALL_SERIALIZE : RM3QSR_CALL_SERIALIZE; }
-	void Deserialize(DeserializeParameters *) { ++deserializeCalls; }
+	void Deserialize(DeserializeParameters *)
+	{
+		++deserializeCalls;
+		if (onDeserialize)
+			onDeserialize();
+	}
 
 	RM3SerializationResult Serialize(SerializeParameters *parameters)
 	{
@@ -89,6 +94,8 @@ public:
 	bool refuse = false;
 	// Run once, from inside the next Serialize(): what a game callback might do mid-pass.
 	std::function<void()> onSerialize;
+	// Run from inside every Deserialize().
+	std::function<void()> onDeserialize;
 	// Run when the connection that created this replica is popped.
 	std::function<void()> onPopQuery;
 	int value = 1;
@@ -429,6 +436,69 @@ TEST_F(ReplicaManager3SerializePass, ConnectionDroppedMidPassIsNotServed)
 	manager.SetSerializeExecutor(0);
 }
 
+namespace
+{
+// A state message for \a replica as \a sender would send it, with no channel written.
+void FillStatePacket(MafiaNet::BitStream &state, Packet &packet, Replica3 *replica, Connection_RM3 *sender)
+{
+	state.Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
+	state.Write((WorldId) 0);
+	state.Write(replica->GetNetworkID());
+	for (int channel = 0; channel < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channel++)
+		state.Write(false);
+	packet.data = state.GetData();
+	packet.length = state.GetNumberOfBytesUsed();
+	packet.bitSize = state.GetNumberOfBitsUsed();
+	packet.guid = sender->GetRakNetGUID();
+	packet.wasGeneratedLocally = false;
+}
+} // namespace
+
+// A replica can be taken away on one thread while another receives state for it: Dereference() waits for
+// the Deserialize() under way and no other starts, so the replica may be deleted once it returns.
+TEST_F(ReplicaManager3SerializePass, DereferenceWaitsForStateBeingDeliveredAndStopsTheRest)
+{
+	PassReplica *replica = AddReplica(false);
+	std::vector<PassConnection *> connections = AddConnections(1, {replica});
+	Tick();
+	Tick();
+	MafiaNet::BitStream state;
+	Packet packet;
+	FillStatePacket(state, packet, replica, connections[0]);
+
+	std::promise<void> inside, release;
+	std::atomic<bool> delivered{false};
+	replica->onDeserialize = [&]
+	{
+		inside.set_value();
+		release.get_future().wait();
+		delivered = true;
+	};
+	std::thread receive([&]
+	                    { manager.OnReceive(&packet); });
+	inside.get_future().wait();
+
+	std::atomic<bool> started{false};
+	bool deliveredFirst = false;
+	std::thread dereference([&]
+	                        {
+		started = true;
+		manager.Dereference(replica);
+		deliveredFirst = delivered; });
+	while (!started)
+		std::this_thread::yield();
+	// Long enough for a Dereference() that does not wait to have returned.
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	release.set_value();
+	receive.join();
+	dereference.join();
+	EXPECT_TRUE(deliveredFirst) << "Dereference() returned while Deserialize() was still running";
+
+	replica->onDeserialize = nullptr;
+	manager.OnReceive(&packet);
+	EXPECT_EQ(replica->deserializeCalls, 1) << "state was delivered to a dereferenced replica";
+}
+
 // State from a connection waits for the pass only while the pass serves that connection. Here the pass is
 // stopped inside a Serialize() to the first connection, and the second one's state still gets in.
 TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePassServesOne)
@@ -439,17 +509,8 @@ TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePa
 	Tick();
 
 	MafiaNet::BitStream state;
-	state.Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
-	state.Write((WorldId) 0);
-	state.Write(replica->GetNetworkID());
-	for (int channel = 0; channel < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channel++)
-		state.Write(false);
 	Packet packet;
-	packet.data = state.GetData();
-	packet.length = state.GetNumberOfBytesUsed();
-	packet.bitSize = state.GetNumberOfBitsUsed();
-	packet.guid = connections[1]->GetRakNetGUID();
-	packet.wasGeneratedLocally = false;
+	FillStatePacket(state, packet, replica, connections[1]);
 
 	std::promise<void> inside, release;
 	replica->value = 2;
@@ -478,21 +539,20 @@ TEST_F(ReplicaManager3SerializePass, PassRunsOnTheThreadThatHoldsTheWorld)
 {
 	PassReplica *replica = AddReplica(true);
 	std::vector<PassConnection *> connections = AddConnections(2, {replica});
-	manager.LockWorld();
-	manager.LockWorld();
-	Tick();
-	Tick();
-	manager.UnlockWorld();
-	manager.UnlockWorld();
+	{
+		ReplicaManager3::WorldGuard world(manager);
+		ReplicaManager3::WorldGuard again(manager);
+		Tick();
+		Tick();
+	}
 	EXPECT_FALSE(connections[0]->received.empty());
 	connections[0]->received.clear();
 
 	replica->value = 2;
 	std::thread other([&]
 	                  {
-		manager.LockWorld();
-		Tick();
-		manager.UnlockWorld(); });
+		ReplicaManager3::WorldGuard world(manager);
+		Tick(); });
 	other.join();
 	EXPECT_EQ(connections[0]->received, (std::vector<int>{2}));
 }
