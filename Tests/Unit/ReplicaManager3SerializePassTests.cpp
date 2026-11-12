@@ -154,6 +154,8 @@ public:
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
 	// What RakPeer::Receive() calls with a connection's message, on whichever thread receives.
 	using ReplicaManager3::OnReceive;
+	// How a subclass delivers state it received in a message of its own.
+	using ReplicaManager3::StateDelivery;
 };
 
 class ReplicaManager3SerializePass : public ::testing::Test
@@ -532,6 +534,79 @@ TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePa
 
 	EXPECT_TRUE(delivered) << "state from the second connection waited for the whole pass";
 	EXPECT_EQ(replica->deserializeCalls, 1);
+}
+
+// State a subclass received in a message of its own is delivered like a state message: it waits for the
+// pass only while the pass serves its sender. Here the pass is stopped serving the first connection.
+TEST_F(ReplicaManager3SerializePass, StateInASubclassFormatArrivesWhileThePassServesAnotherConnection)
+{
+	PassReplica *replica = AddReplica(false);
+	std::vector<PassConnection *> connections = AddConnections(2, {replica});
+	Tick();
+	Tick();
+
+	std::promise<void> inside, release;
+	replica->value = 2;
+	replica->onSerialize = [&]
+	{
+		inside.set_value();
+		release.get_future().wait();
+	};
+	std::thread pass([&]
+	                 { Tick(); });
+	inside.get_future().wait();
+	std::atomic<bool> hadSender{false}, reached{false};
+	std::future<void> delivery = std::async(std::launch::async, [&]
+	                                        {
+		PassManager::StateDelivery state(manager, connections[1]->GetRakNetGUID());
+		hadSender = state.GetConnection() == connections[1];
+		DeserializeParameters parameters;
+		reached = state.Deserialize(replica->GetNetworkID(), &parameters) && parameters.sourceConnection == connections[1]; });
+	// Only a regression waits this out: the delivery would be stuck behind the pass.
+	const bool delivered = delivery.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+	release.set_value();
+	pass.join();
+	delivery.wait();
+
+	EXPECT_TRUE(delivered) << "state from the second connection waited for the whole pass";
+	EXPECT_TRUE(hadSender);
+	EXPECT_TRUE(reached);
+	EXPECT_EQ(replica->deserializeCalls, 1);
+}
+
+// Nothing is delivered for a sender that is not a connection, a replica that is not known, or one that
+// was dereferenced; and the sender's lock is let go, so the pass that follows serves it.
+TEST_F(ReplicaManager3SerializePass, StateInASubclassFormatIsDroppedWithoutItsSenderOrItsReplica)
+{
+	PassReplica *replica = AddReplica(false);
+	PassReplica *gone = AddReplica(false);
+	std::vector<PassConnection *> connections = AddConnections(1, {replica, gone});
+	Tick();
+	Tick();
+	const NetworkID goneId = gone->GetNetworkID();
+	manager.Dereference(gone);
+
+	DeserializeParameters parameters;
+	{
+		PassManager::StateDelivery stranger(manager, RakNetGUID(9999));
+		EXPECT_EQ(stranger.GetConnection(), nullptr);
+		EXPECT_FALSE(stranger.Deserialize(replica->GetNetworkID(), &parameters));
+	}
+	{
+		PassManager::StateDelivery state(manager, connections[0]->GetRakNetGUID());
+		EXPECT_FALSE(state.Deserialize(goneId, &parameters));
+		EXPECT_FALSE(state.Deserialize(goneId + 1000, &parameters));
+		EXPECT_TRUE(state.Deserialize(replica->GetNetworkID(), &parameters));
+	}
+	EXPECT_EQ(replica->deserializeCalls, 1);
+	EXPECT_EQ(gone->deserializeCalls, 0);
+
+	const int sent = connections[0]->sendCalls;
+	replica->value = 3;
+	std::future<void> pass = std::async(std::launch::async, [&]
+	                                    { Tick(); });
+	ASSERT_EQ(pass.wait_for(std::chrono::seconds(5)), std::future_status::ready) << "the sender's lock was kept";
+	EXPECT_GT(connections[0]->sendCalls, sent);
 }
 
 // The thread that holds the world still runs its own pass, and gives the world back for other threads.

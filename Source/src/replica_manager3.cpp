@@ -1268,6 +1268,42 @@ ReplicaManager3::WorldGuard::~WorldGuard()
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+ReplicaManager3::StateDelivery::StateDelivery(ReplicaManager3 &replicaManager, RakNetGUID sender, WorldId worldId)
+    : replicaManager(replicaManager), connection(0), lock(0), networkIDManager(0)
+{
+	connection = replicaManager.LockConnectionByGUID(sender, worldId, lock);
+	if (connection)
+	{
+		ListLock listLock(replicaManager.m_WorldListMutex);
+		networkIDManager = replicaManager.worldsArray[worldId] ? replicaManager.worldsArray[worldId]->networkIDManager : 0;
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ReplicaManager3::StateDelivery::~StateDelivery()
+{
+	ConnectionLockHolder connectionLock(lock);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters)
+{
+	if (connection == 0 || networkIDManager == 0)
+		return false;
+	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
+	ReplicaSetDelivery delivery(&replicaManager);
+	Replica3 *replica = networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
+	if (replica == 0 || replica->replicaManager != &replicaManager || replica->referencingWorlds == 0)
+		return false;
+	parameters->sourceConnection = connection;
+	replica->Deserialize(parameters);
+	return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 RM3ConnectionLock *ReplicaManager3::LockConnection(Connection_RM3 *connection) const
 {
 	RM3ConnectionLock *lock = connection->lock;

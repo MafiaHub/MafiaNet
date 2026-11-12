@@ -49,6 +49,7 @@ class Connection_RM3;
 class Replica3;
 class VirtualWorldReplica3;
 struct RM3ConnectionLock;
+struct DeserializeParameters;
 
 /// \ingroup REPLICA_MANAGER_GROUP3
 /// Used for multiple worlds. World 0 is created automatically by default
@@ -413,6 +414,32 @@ public:
 	};
 
 protected:
+	/// \brief For a subclass that receives replica state in a message format of its own, from its OnReceive(): delivers it as ID_REPLICA_MANAGER_SERIALIZE is delivered.
+	/// \details Holds the sender's lock for its scope, and never the world: the state waits only while Update() serves that same connection (see Update()). Each Deserialize() holds the replica set from the lookup of the replica until its Replica3::Deserialize() returns, so a replica dereferenced on another thread is either delivered to in full or not at all.
+	/// What Replica3::Deserialize() must not do under a connection's lock applies here unchanged. Make one per message, on the stack, and let it go before the message is handed on.
+	class RAK_DLL_EXPORT StateDelivery
+	{
+	public:
+		/// \param[in] sender The connection the message came from (Packet::guid).
+		StateDelivery(ReplicaManager3 &replicaManager, RakNetGUID sender, WorldId worldId = 0);
+		~StateDelivery();
+		StateDelivery(const StateDelivery &) = delete;
+		StateDelivery &operator=(const StateDelivery &) = delete;
+
+		/// The sender's connection, or 0 when it is not in that world: nothing is delivered then.
+		Connection_RM3 *GetConnection() const { return connection; }
+
+		/// Calls Replica3::Deserialize() on the replica of that id, with DeserializeParameters::sourceConnection set to the sender.
+		/// \return false, having called nothing, if there is no sender, or no replica of that id referenced by this manager.
+		bool Deserialize(NetworkID networkId, DeserializeParameters *parameters);
+
+	private:
+		ReplicaManager3 &replicaManager;
+		Connection_RM3 *connection;
+		RM3ConnectionLock *lock;
+		NetworkIDManager *networkIDManager;
+	};
+
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
