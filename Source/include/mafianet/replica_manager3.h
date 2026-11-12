@@ -35,6 +35,9 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
+#include <mutex>
+#include <shared_mutex>
+
 /// \defgroup REPLICA_MANAGER_GROUP3 ReplicaManager3
 /// \brief Third implementation of object replication
 /// \details
@@ -45,6 +48,8 @@ namespace MafiaNet
 class Connection_RM3;
 class Replica3;
 class VirtualWorldReplica3;
+struct RM3ConnectionLock;
+struct DeserializeParameters;
 
 /// \ingroup REPLICA_MANAGER_GROUP3
 /// Used for multiple worlds. World 0 is created automatically by default
@@ -169,7 +174,8 @@ public:
 
 	/// \brief Removes a replicated object from the system.
 	/// \details The object is not deallocated, it is up to the caller to do so.<BR>
-	/// This is called automatically from the destructor of Replica3, so you don't need to call it manually unless you want to stop tracking an object before it is destroyed.
+	/// This is called automatically from the destructor of Replica3, so you don't need to call it manually unless you want to stop tracking an object before it is destroyed, or unless another thread receives (see Update()): the destructor of the derived class has run by then.<BR>
+	/// Dereferenced from its last world, the object also leaves the NetworkIDManager that Reference() gave it. It keeps its NetworkID, and gets back in when it is referenced again.
 	/// \param[in] replica3 The object to stop tracking
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
 	void Dereference(MafiaNet::Replica3 *replica3, WorldId worldId = 0);
@@ -361,7 +367,40 @@ public:
 	PRO GetDefaultSendParameters(void) const;
 
 	/// Call interfaces, send data
+	/// \details One thread may run Update() while another is inside RakPeerInterface::Receive(), which is where this plugin handles what connections send and where they open and close. Five locks make that safe, always taken in this order:
+	/// <OL>
+	/// <LI>The world (WorldGuard), held for the whole of Update() and by everything that changes which connections and replicas exist or what a connection holds, with every callback those make: PushConnection(), PopConnection(), AutoCreateConnectionList(), Reference(), Dereference(), DereferenceList(), BroadcastDestruction() and BroadcastDestructionList() (Replica3::BroadcastDestruction() included), Clear(), AddWorld(), RemoveWorld(), Replica3::SetNetworkID() and Replica3::SetNetworkIDManager() on a referenced replica, the destructor of a referenced replica, a WorldGuard, an incoming construction or destruction message, and the peer shutting down or this plugin being detached. Nothing else in this class takes it.
+	/// <LI>One lock per connection, held while Update() serves that connection (its construction queries and its serialize pass) and while a state, download or validation message from it is handled, Replica3::Deserialize() included. So Deserialize() from a connection never runs at the same time as a Serialize() made for that same connection, and waits for nothing else in the pass.
+	/// <LI>The replica set, held shared by the receive thread from the moment it looks up the replica a state message names until that replica's Deserialize() returns, and exclusively, for an instant and with the world, by whatever changes the NetworkIDManager's table or takes a replica out: Reference(), Dereference(), the destructor of a referenced Replica3 and its SetNetworkID() and SetNetworkIDManager(). So Dereference() returns only once no Deserialize() of that replica is running, with the replica out of the table: none starts afterwards and no lookup passes over it, and a replica can be dereferenced, then deleted, on one thread while another receives state. Nothing waits for the world or for a connection's lock while it holds it.
+	/// <LI>The list lock, around each edit and lookup of the connection and replica lists, never across a callback.
+	/// <LI>One more per connection, around each edit of the list of replicas it has constructed and each lookup in it made without the world: Connection_RM3::HasReplicaConstructed(), Connection_RM3::GetConstructedReplicas() and GetConnectionsThatHaveReplicaConstructed(). Never across a callback.
+	/// </OL>
+	/// A replica is still serialized to one connection while another connection's state is deserialized into it, and a replica that broadcasts identically is serialized once for every connection, under no connection's lock: with two threads, a replica guards its own state unless a single connection both sends and is sent it.
+	/// A replica that is deleted while still referenced is only dereferenced by ~Replica3(), after its derived class's destructor has run and with the receive thread still able to reach it: with two threads, call Dereference() before deleting it. An object given this manager's NetworkIDManager without being referenced here changes that table under no lock of this class: leave that to Reference().
+	/// Replica3::Deserialize(), Connection_RM3::DeserializeOnDownloadStarted() and Connection_RM3::DeserializeOnDownloadComplete() are called holding the sender's lock but not the world. While another thread may be running Update(), they must not call what takes the world (the list above, or deleting a replica): Update() would be waiting for the connection they hold. Update() does nothing when it is called, directly or through RakPeerInterface::Receive(), from a callback made under a connection's lock (while one of its messages is handled, or while it is pushed or popped): the next call covers it.
+	/// The queries do not take the world, so a Deserialize() may call them: the getters of connections and replicas, GetConnectionsThatHaveReplicaConstructed(), Connection_RM3::HasReplicaConstructed() and Connection_RM3::GetConstructedReplicas(). A pointer they return is good for as long as the caller keeps that connection from being popped or that replica from being dereferenced: inside a callback of Update(), under a WorldGuard, or, for the sender of the message being handled, until its callback returns.
 	virtual void Update(void);
+
+	/// \brief Holds the world of a ReplicaManager3 for a scope: its connections and replicas stay as they are, for any thread.
+	/// \details While one exists no other thread starts Update(), pushes or pops a connection, or references or dereferences a replica, so its owner can walk the connections and read their replica lists, as after a pass. The thread holding one may hold more, and may call Update() and everything else on the manager. State from a connection still arrives meanwhile (see Update()).
+	/// While holding one, do not:
+	/// <UL>
+	/// <LI>wait for the thread that calls RakPeerInterface::Receive() (joining it, or taking a lock it holds across Receive()): a connection opening or closing, or a construction message, has it waiting for the world;
+	/// <LI>have taken it under a lock that a Replica3::Deserialize() takes: the world comes first, then the connection, then the replica's own;
+	/// <LI>keep it across anything slow: no connection opens or closes until it is gone;
+	/// <LI>let it outlive the manager.
+	/// </UL>
+	class RAK_DLL_EXPORT WorldGuard
+	{
+	public:
+		explicit WorldGuard(ReplicaManager3 &replicaManager);
+		~WorldGuard();
+		WorldGuard(const WorldGuard &) = delete;
+		WorldGuard &operator=(const WorldGuard &) = delete;
+
+	private:
+		ReplicaManager3 &replicaManager;
+	};
 
 	/// \internal
 	struct RM3World
@@ -376,6 +415,32 @@ public:
 	};
 
 protected:
+	/// \brief For a subclass that receives replica state in a message format of its own, from its OnReceive(): delivers it as ID_REPLICA_MANAGER_SERIALIZE is delivered.
+	/// \details Holds the sender's lock for its scope, and never the world: the state waits only while Update() serves that same connection (see Update()). Each Deserialize() holds the replica set from the lookup of the replica until its Replica3::Deserialize() returns, so a replica dereferenced on another thread is either delivered to in full or not at all.
+	/// What Replica3::Deserialize() must not do under a connection's lock applies here unchanged. Make one per message, on the stack, and let it go before the message is handed on.
+	class RAK_DLL_EXPORT StateDelivery
+	{
+	public:
+		/// \param[in] sender The connection the message came from (Packet::guid).
+		StateDelivery(ReplicaManager3 &replicaManager, RakNetGUID sender, WorldId worldId = 0);
+		~StateDelivery();
+		StateDelivery(const StateDelivery &) = delete;
+		StateDelivery &operator=(const StateDelivery &) = delete;
+
+		/// The sender's connection, or 0 when it is not in that world: nothing is delivered then.
+		Connection_RM3 *GetConnection() const { return connection; }
+
+		/// Calls Replica3::Deserialize() on the replica of that id, with DeserializeParameters::sourceConnection set to the sender.
+		/// \return false, having called nothing, if there is no sender, or no replica of that id referenced by this manager.
+		bool Deserialize(NetworkID networkId, DeserializeParameters *parameters);
+
+	private:
+		ReplicaManager3 &replicaManager;
+		Connection_RM3 *connection;
+		RM3ConnectionLock *lock;
+		NetworkIDManager *networkIDManager;
+	};
+
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 	virtual void OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason);
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
@@ -408,8 +473,24 @@ protected:
 
 private:
 	// #med - reconsider visibility here --- should be properly encapsulated so to not allow access to worldsList by derived classes (which could bypass the mutex)
-	// mutex to ensure thread safe access to worldsList member
-	SimpleMutex m_WorldListMutex;
+	// The list lock: around every edit of worldsList, worldsArray and a world's connectionList and userReplicaList,
+	// which also needs worldMutex, and around every read of them made without worldMutex. Never held across a callback.
+	mutable SimpleMutex m_WorldListMutex;
+	// The world; see Update(). Taken before a connection's lock, which is taken before replicaSetMutex, which is
+	// taken before m_WorldListMutex.
+	std::recursive_mutex worldMutex;
+	// The replica set; see Update(). Shared while a state message is delivered. Exclusive, with worldMutex, around
+	// every change to a NetworkIDManager's table made through this manager and around a replica leaving the set:
+	// the table is read under either.
+	std::shared_mutex replicaSetMutex;
+	// Hold replicaSetMutex for a scope, unless the thread is already inside one for this manager.
+	class ReplicaSetDelivery;
+	class ReplicaSetChange;
+
+	// A connection's lock, taken. The caller holds worldMutex, or the pass does while it waits for its workers.
+	RM3ConnectionLock *LockConnection(Connection_RM3 *connection) const;
+	// The connection a packet came from, with its lock taken into \a lock, or 0 and no lock if it is not in the world.
+	Connection_RM3 *LockConnectionByGUID(RakNetGUID guid, WorldId worldId, RM3ConnectionLock *&lock) const;
 
 	// The serialize pass of one world, connection by connection on this thread.
 	void SerializeConnections(RM3World *world, WorldId worldId, MafiaNet::Time time);
@@ -422,7 +503,7 @@ private:
 
 	RM3SerializeExecutor *serializeExecutor;
 	uint32_t membershipGeneration;
-	// Set for the length of Update(), which a game callback inside it must not start again.
+	// Set for the length of Update(), which a game callback inside it must not start again. Under worldMutex.
 	bool inUpdate;
 	// Counts serialize passes, so a replica can tell whether it was prepared for this one. Never 0 inside a pass.
 	uint32_t serializePass;
@@ -430,6 +511,7 @@ private:
 	DataStructures::List<Connection_RM3 *> parallelConnections;
 
 	friend class Connection_RM3;
+	friend class Replica3;
 };
 
 static const int RM3_NUM_OUTPUT_BITSTREAM_CHANNELS = 16;
@@ -812,7 +894,13 @@ protected:
 	friend class ReplicaManager3;
 
 private:
-	Connection_RM3() {};
+	Connection_RM3()
+	    : lock(0) {};
+	Connection_RM3(const Connection_RM3 &) = delete;
+	Connection_RM3 &operator=(const Connection_RM3 &) = delete;
+
+	// See ReplicaManager3::Update(). Its own allocation: a holder may still have it when the connection is freed.
+	RM3ConnectionLock *lock;
 
 	// Never read: the mode is always obtained from QueryConstructionMode(). Kept so the
 	// layout of this user-subclassed class does not change.
@@ -1241,6 +1329,10 @@ public:
 	/// \return If ReplicaManager3::Reference() was called on this object.
 	bool WasReferenced(void) const { return replicaManager != 0; }
 
+	/// Changes the NetworkIDManager's table, which the thread receiving state for a referenced replica reads: see ReplicaManager3::Update().
+	virtual void SetNetworkIDManager(NetworkIDManager *manager);
+	virtual void SetNetworkID(NetworkID id);
+
 	/// GUID of the system that first called Reference() on this object.
 	/// Transmitted automatically when the object is constructed
 	RakNetGUID creatingSystemGUID;
@@ -1257,6 +1349,8 @@ public:
 	/// that connection's record is freed when the replica leaves it. Look records up per connection.
 	LastSerializationResult *lsr;
 	uint32_t referenceIndex;
+	/// \internal How many worlds reference it, under the manager's replica set lock: state is delivered to it only while one does.
+	uint32_t referencingWorlds;
 
 	/// \internal
 	/// BroadcastsIdentically(), read when referenced, and what this pass prepared for every connection.

@@ -42,6 +42,7 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/ds_queue.h"
 #include <atomic>
+#include <condition_variable>
 #include <thread>
 
 namespace MafiaNet
@@ -284,6 +285,14 @@ public:
 	/// \note COMMON MISTAKE: Be sure to call this in a loop, once per game tick, until it returns 0. If you only process one packet per game tick they will buffer up.
 	/// \sa types.h contains struct Packet.
 	Packet *Receive(void);
+
+	/// \brief Blocks the calling thread until Receive() has a message to return, instead of polling it.
+	/// \details Wakes early when the peer shuts down. Call it from one thread at a time.
+	/// It can still return true while the peer is shutting down, so a loop around it exits on IsActive().
+	/// Plugins only get their Update() inside Receive(): a thread that receives this way should wait with a short, bounded timeout and call Receive() after every wait.
+	/// \param[in] timeoutMs The longest to wait, in milliseconds.
+	/// \return true if at least one message is waiting, false on timeout or once the peer is no longer active.
+	bool WaitForPackets(MafiaNet::TimeMS timeoutMs);
 
 	/// \brief Call this to deallocate a message returned by Receive() when you are done handling it.
 	/// \param[in] packet Message to deallocate.
@@ -1186,6 +1195,8 @@ protected:
 
 	SimpleMutex packetReturnMutex;
 	DataStructures::Queue<Packet *> packetReturnQueue;
+	// Wakes WaitForPackets. Notified under packetReturnMutex at every push and by Shutdown().
+	std::condition_variable_any packetReturnCondition;
 	Packet *AllocPacket(unsigned dataSize, const char *file, unsigned int line);
 	Packet *AllocPacket(unsigned dataSize, unsigned char *data, const char *file, unsigned int line);
 

@@ -160,6 +160,7 @@ List<list_type>::List(const List &original_copy)
 
 	if (original_copy.list_size == 0)
 	{
+		listArray = 0;
 		list_size = 0;
 		allocation_size = 0;
 	}

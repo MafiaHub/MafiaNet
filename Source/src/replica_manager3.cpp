@@ -23,7 +23,81 @@
 #include "mafianet/peer_interface.h"
 #include "mafianet/network_id_manager.h"
 
+#include <atomic>
+
 using namespace MafiaNet;
+
+// Outlives its connection for as long as anyone holds or waits for it: a callback made with the lock held may
+// pop the connection and free it, and the receive thread may be waiting for a connection another thread pops.
+struct MafiaNet::RM3ConnectionLock
+{
+	std::recursive_mutex mutex;
+	// The connection's own, and one for each holder.
+	std::atomic<int> references{1};
+	// How many worlds the connection is in, under mutex. At 0 it may be freed as soon as the mutex is let go.
+	int worlds = 0;
+	// Around every edit of the connection's constructedReplicaList, which also needs the world or to be the
+	// thread serving the connection, and around every read of it made without either. The last lock of all.
+	std::mutex constructed;
+};
+
+namespace
+{
+// How many connection locks this thread holds, and whose they are: that manager's Update() does nothing
+// meanwhile. A pass must not start under a connection's lock, which its workers would wait for.
+thread_local unsigned int connectionLocksHeld = 0;
+thread_local const ReplicaManager3 *connectionLocksOwner = 0;
+
+void DropConnectionLock(RM3ConnectionLock *lock)
+{
+	if (--lock->references == 0)
+		MafiaNet::OP_DELETE(lock, _FILE_AND_LINE_);
+}
+
+// Lets go of a lock ReplicaManager3::LockConnection() or LockConnectionByGUID() took, if it took one.
+class ConnectionLockHolder
+{
+public:
+	explicit ConnectionLockHolder(RM3ConnectionLock *lock)
+	    : lock(lock)
+	{
+	}
+	~ConnectionLockHolder()
+	{
+		if (lock)
+		{
+			--connectionLocksHeld;
+			lock->mutex.unlock();
+			DropConnectionLock(lock);
+		}
+	}
+	ConnectionLockHolder(const ConnectionLockHolder &) = delete;
+	ConnectionLockHolder &operator=(const ConnectionLockHolder &) = delete;
+
+	RM3ConnectionLock *const lock;
+};
+
+// The manager whose replica set this thread holds, and how deep: a change made from inside a Deserialize(), or
+// from inside another change, does not take the lock again.
+thread_local unsigned int replicaSetDepth = 0;
+thread_local const ReplicaManager3 *replicaSetOwner = 0;
+
+class ListLock
+{
+public:
+	explicit ListLock(SimpleMutex &mutex)
+	    : mutex(mutex)
+	{
+		mutex.Lock();
+	}
+	~ListLock() { mutex.Unlock(); }
+	ListLock(const ListLock &) = delete;
+	ListLock &operator=(const ListLock &) = delete;
+
+private:
+	SimpleMutex &mutex;
+};
+} // namespace
 
 // DEFINE_MULTILIST_PTR_TO_MEMBER_COMPARISONS(LastSerializationResult,Replica3*,replica);
 
@@ -82,6 +156,60 @@ void LastSerializationResult::AllocBS(void)
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+class ReplicaManager3::ReplicaSetDelivery
+{
+public:
+	explicit ReplicaSetDelivery(ReplicaManager3 *manager)
+	    : manager(manager), locked(replicaSetDepth == 0 || replicaSetOwner != manager), counted(!locked || replicaSetDepth == 0)
+	{
+		if (locked)
+			manager->replicaSetMutex.lock_shared();
+		if (counted && replicaSetDepth++ == 0)
+			replicaSetOwner = manager;
+	}
+	~ReplicaSetDelivery()
+	{
+		if (counted)
+			--replicaSetDepth;
+		if (locked)
+			manager->replicaSetMutex.unlock_shared();
+	}
+	ReplicaSetDelivery(const ReplicaSetDelivery &) = delete;
+	ReplicaSetDelivery &operator=(const ReplicaSetDelivery &) = delete;
+
+private:
+	ReplicaManager3 *manager;
+	const bool locked, counted;
+};
+
+class ReplicaManager3::ReplicaSetChange
+{
+public:
+	explicit ReplicaSetChange(ReplicaManager3 *manager)
+	    : manager(manager), locked(replicaSetDepth == 0 || replicaSetOwner != manager), counted(!locked || replicaSetDepth == 0)
+	{
+		if (locked)
+			manager->replicaSetMutex.lock();
+		if (counted && replicaSetDepth++ == 0)
+			replicaSetOwner = manager;
+	}
+	~ReplicaSetChange()
+	{
+		if (counted)
+			--replicaSetDepth;
+		if (locked)
+			manager->replicaSetMutex.unlock();
+	}
+	ReplicaSetChange(const ReplicaSetChange &) = delete;
+	ReplicaSetChange &operator=(const ReplicaSetChange &) = delete;
+
+private:
+	ReplicaManager3 *manager;
+	const bool locked, counted;
+};
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 ReplicaManager3::ReplicaManager3()
 {
 	defaultSendParameters.orderingChannel = 0;
@@ -111,12 +239,10 @@ ReplicaManager3::~ReplicaManager3()
 {
 	if (autoDestroyConnections)
 	{
-		m_WorldListMutex.Lock();
 		for (unsigned int i = 0; i < worldsList.Size(); i++)
 		{
 			RakAssert(worldsList[i]->connectionList.Size() == 0);
 		}
-		m_WorldListMutex.Unlock();
 	}
 	Clear(true);
 }
@@ -170,6 +296,7 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 {
 	if (newConnection == 0)
 		return false;
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	if (GetConnectionByGUID(newConnection->GetRakNetGUID(), worldId))
 		return false;
 	// Was this intended?
@@ -181,7 +308,13 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 	unsigned int index = world->connectionList.GetIndexOf(newConnection);
 	if (index == (unsigned int) -1)
 	{
-		world->connectionList.Push(newConnection, _FILE_AND_LINE_);
+		// Before it is in the list, where the receive thread finds it.
+		ConnectionLockHolder connectionLock(LockConnection(newConnection));
+		++connectionLock.lock->worlds;
+		{
+			ListLock listLock(m_WorldListMutex);
+			world->connectionList.Push(newConnection, _FILE_AND_LINE_);
+		}
 
 		// Send message to validate the connection
 		newConnection->SendValidation(rakPeerInterface, worldId);
@@ -210,6 +343,7 @@ void ReplicaManager3::DeallocReplicaNoBroadcastDestruction(MafiaNet::Connection_
 
 MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, WorldId worldId)
 {
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	++membershipGeneration;
 	DataStructures::List<Replica3 *> replicaList;
 	DataStructures::List<NetworkID> destructionList;
@@ -222,6 +356,9 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 	RM3World *world = worldsArray[worldId];
 
 	connection = world->connectionList[index];
+	// Waits for the receive thread to be done with a message from it. Whoever waits for this lock from now on
+	// finds the connection gone, so the caller may free it on return.
+	ConnectionLockHolder connectionLock(LockConnection(connection));
 
 	// Clear out downloadGroup
 	connection->ClearDownloadGroup(rakPeerInterface);
@@ -276,7 +413,11 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 		}
 	}
 
-	world->connectionList.RemoveAtIndex(index);
+	{
+		ListLock listLock(m_WorldListMutex);
+		world->connectionList.RemoveAtIndex(index);
+	}
+	--connectionLock.lock->worlds;
 	return connection;
 }
 
@@ -286,6 +427,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(RakNetGUID guid, WorldI
 {
 	unsigned int index;
 
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
@@ -303,6 +445,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(RakNetGUID guid, WorldI
 
 void ReplicaManager3::Reference(MafiaNet::Replica3 *replica3, WorldId worldId)
 {
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
@@ -334,16 +477,21 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 	if (index == (unsigned int) -1)
 	{
 		RakAssert(world->networkIDManager);
-		replica3->SetNetworkIDManager(world->networkIDManager);
+		{
+			ReplicaSetChange change(this);
+			replica3->SetNetworkIDManager(world->networkIDManager);
+			replica3->replicaManager = this;
+			++replica3->referencingWorlds;
+		}
 		// If it crashes on rakPeerInterface==0 then you didn't call RakPeerInterface::AttachPlugin()
 		if (replica3->creatingSystemGUID == UNASSIGNED_RAKNET_GUID)
 			replica3->creatingSystemGUID = rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
-		replica3->replicaManager = this;
 		replica3->broadcastsIdentically = replica3->BroadcastsIdentically();
 		if (replica3->referenceIndex == (uint32_t) -1)
 		{
 			replica3->referenceIndex = nextReferenceIndex++;
 		}
+		ListLock listLock(m_WorldListMutex);
 		world->userReplicaList.Push(replica3, _FILE_AND_LINE_);
 		return world->userReplicaList.Size() - 1;
 	}
@@ -354,16 +502,20 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 
 void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 {
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	++membershipGeneration;
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index, index2;
+	bool wasReferenced = false;
 	for (index = 0; index < world->userReplicaList.Size(); index++)
 	{
 		if (world->userReplicaList[index] == replica3)
 		{
+			ListLock listLock(m_WorldListMutex);
 			world->userReplicaList.RemoveAtIndex(index);
+			wasReferenced = true;
 			break;
 		}
 	}
@@ -372,6 +524,20 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 	for (index2 = 0; index2 < world->connectionList.Size(); index2++)
 	{
 		world->connectionList[index2]->OnDereference(replica3, this);
+	}
+
+	if (wasReferenced)
+	{
+		// Waits for a Deserialize() of it under way on the receive thread. Out of its last world, it leaves the
+		// table too, with its id: no state message finds it again, and it can be destroyed with no thread
+		// walking over it.
+		ReplicaSetChange change(this);
+		if (--replica3->referencingWorlds == 0 && replica3->GetNetworkIDManager() != 0)
+		{
+			const NetworkID networkId = replica3->GetNetworkID();
+			replica3->SetNetworkIDManager(0);
+			replica3->SetNetworkID(networkId);
+		}
 	}
 }
 
@@ -398,6 +564,7 @@ void ReplicaManager3::GetReplicasCreatedByMe(DataStructures::List<Replica3 *> &r
 void ReplicaManager3::GetReferencedReplicaList(DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	replicaListOut = world->userReplicaList;
@@ -407,6 +574,7 @@ void ReplicaManager3::GetReferencedReplicaList(DataStructures::List<Replica3 *> 
 void ReplicaManager3::GetReplicasCreatedByGuid(RakNetGUID guid, DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	replicaListOut.Clear(false, _FILE_AND_LINE_);
@@ -424,6 +592,7 @@ void ReplicaManager3::GetReplicasCreatedByGuid(RakNetGUID guid, DataStructures::
 unsigned ReplicaManager3::GetReplicaCount(WorldId worldId) const
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	return world->userReplicaList.Size();
@@ -434,6 +603,7 @@ unsigned ReplicaManager3::GetReplicaCount(WorldId worldId) const
 Replica3 *ReplicaManager3::GetReplicaAtIndex(unsigned index, WorldId worldId) const
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	return world->userReplicaList[index];
@@ -444,6 +614,7 @@ Replica3 *ReplicaManager3::GetReplicaAtIndex(unsigned index, WorldId worldId) co
 unsigned int ReplicaManager3::GetConnectionCount(WorldId worldId) const
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	return world->connectionList.Size();
@@ -454,6 +625,7 @@ unsigned int ReplicaManager3::GetConnectionCount(WorldId worldId) const
 Connection_RM3 *ReplicaManager3::GetConnectionAtIndex(unsigned index, WorldId worldId) const
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	return world->connectionList[index];
@@ -464,6 +636,7 @@ Connection_RM3 *ReplicaManager3::GetConnectionAtIndex(unsigned index, WorldId wo
 Connection_RM3 *ReplicaManager3::GetConnectionBySystemAddress(const SystemAddress &sa, WorldId worldId) const
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
@@ -482,6 +655,7 @@ Connection_RM3 *ReplicaManager3::GetConnectionBySystemAddress(const SystemAddres
 Connection_RM3 *ReplicaManager3::GetConnectionByGUID(RakNetGUID guid, WorldId worldId) const
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
@@ -508,6 +682,7 @@ void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, 
 	// then keep the ones whose virtual world matches. (Most setups only ever use
 	// the auto-created RM3 world 0.) See virtual_world.h.
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
@@ -586,6 +761,7 @@ void ReplicaManager3::SetSerializeExecutor(RM3SerializeExecutor *executor)
 
 bool ReplicaManager3::HoldsConnection(const Connection_RM3 *connection, WorldId worldId) const
 {
+	ListLock listLock(m_WorldListMutex);
 	const RM3World *world = worldsArray[worldId];
 	if (world == 0)
 		return false;
@@ -611,10 +787,15 @@ bool Connection_RM3::HoldsRecord(const LastSerializationResult *lsr) const
 
 void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, DataStructures::List<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId)
 {
-	RakAssert(worldsArray[worldId] != 0 && "World not in use");
-	RM3World *world = worldsArray[worldId];
-
+	// Not the world: a Deserialize() asks this under its sender's lock while a pass holds the world. The list
+	// lock keeps every connection in the list, so alive, for as long as it is asked.
 	connectionsThatHaveConstructedThisReplica.Clear(false, _FILE_AND_LINE_);
+	ListLock listLock(m_WorldListMutex);
+	RM3World *world = worldsArray[worldId];
+	RakAssert(world != 0 && "World not in use");
+	if (world == 0)
+		return;
+
 	unsigned int index;
 	for (index = 0; index < world->connectionList.Size(); index++)
 	{
@@ -643,19 +824,22 @@ bool ReplicaManager3::GetAllConnectionDownloadsCompleted(WorldId worldId) const
 
 void ReplicaManager3::Clear(bool deleteWorlds)
 {
-	m_WorldListMutex.Lock();
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	for (unsigned int i = 0; i < worldsList.Size(); i++)
 	{
 		worldsList[i]->Clear(this);
 		if (deleteWorlds)
 		{
+			ListLock listLock(m_WorldListMutex);
 			worldsArray[worldsList[i]->worldId] = 0;
 			MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
 		}
 	}
 	if (deleteWorlds)
+	{
+		ListLock listLock(m_WorldListMutex);
 		worldsList.Clear(false, _FILE_AND_LINE_);
-	m_WorldListMutex.Unlock();
+	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -669,24 +853,36 @@ ReplicaManager3::RM3World::RM3World()
 
 void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 {
+	// Out of the list first, each one once the receive thread is done with it, as PopConnection() does.
+	DataStructures::List<Connection_RM3 *> connections = connectionList;
+	{
+		ListLock listLock(replicaManager3->m_WorldListMutex);
+		connectionList.Clear(true, _FILE_AND_LINE_);
+	}
+	for (unsigned int i = 0; i < connections.Size(); i++)
+	{
+		ConnectionLockHolder connectionLock(replicaManager3->LockConnection(connections[i]));
+		--connectionLock.lock->worlds;
+		// Clear out downloadGroup even if not auto destroying the connection, since the packets need to go back to RakPeer
+		if (replicaManager3->GetAutoDestroyConnections() == false)
+			connections[i]->ClearDownloadGroup(replicaManager3->GetRakPeerInterface());
+	}
 	if (replicaManager3->GetAutoDestroyConnections())
 	{
-		for (unsigned int i = 0; i < connectionList.Size(); i++)
-			replicaManager3->DeallocConnection(connectionList[i]);
-	}
-	else
-	{
-		// Clear out downloadGroup even if not auto destroying the connection, since the packets need to go back to RakPeer
-		for (unsigned int i = 0; i < connectionList.Size(); i++)
-			connectionList[i]->ClearDownloadGroup(replicaManager3->GetRakPeerInterface());
+		for (unsigned int i = 0; i < connections.Size(); i++)
+			replicaManager3->DeallocConnection(connections[i]);
 	}
 
-	for (unsigned int i = 0; i < userReplicaList.Size(); i++)
 	{
-		userReplicaList[i]->replicaManager = 0;
-		userReplicaList[i]->SetNetworkIDManager(0);
+		ReplicaSetChange change(replicaManager3);
+		for (unsigned int i = 0; i < userReplicaList.Size(); i++)
+		{
+			userReplicaList[i]->replicaManager = 0;
+			userReplicaList[i]->referencingWorlds = 0;
+			userReplicaList[i]->SetNetworkIDManager(0);
+		}
 	}
-	connectionList.Clear(true, _FILE_AND_LINE_);
+	ListLock listLock(replicaManager3->m_WorldListMutex);
 	userReplicaList.Clear(true, _FILE_AND_LINE_);
 }
 
@@ -705,10 +901,10 @@ void ReplicaManager3::AddWorld(WorldId worldId)
 
 	RM3World *newWorld = MafiaNet::OP_NEW<RM3World>(_FILE_AND_LINE_);
 	newWorld->worldId = worldId;
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
+	ListLock listLock(m_WorldListMutex);
 	worldsArray[worldId] = newWorld;
-	m_WorldListMutex.Lock();
 	worldsList.Push(newWorld, _FILE_AND_LINE_);
-	m_WorldListMutex.Unlock();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -716,6 +912,8 @@ void ReplicaManager3::AddWorld(WorldId worldId)
 void ReplicaManager3::RemoveWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
+	ListLock listLock(m_WorldListMutex);
 	for (unsigned int i = 0; i < worldsList.Size(); i++)
 	{
 		if (worldsList[i] == worldsArray[worldId])
@@ -799,8 +997,11 @@ PluginReceiveResult ReplicaManager3::OnReceive(Packet *packet)
 		packetDataOffset = sizeof(unsigned char) * 2;
 	}
 
-	if (worldsArray[incomingWorldId] == 0)
-		return RR_CONTINUE_PROCESSING;
+	{
+		ListLock listLock(m_WorldListMutex);
+		if (worldsArray[incomingWorldId] == 0)
+			return RR_CONTINUE_PROCESSING;
+	}
 
 	switch (packetIdentifier)
 	{
@@ -824,7 +1025,9 @@ PluginReceiveResult ReplicaManager3::OnReceive(Packet *packet)
 			break;
 	case ID_REPLICA_MANAGER_SCOPE_CHANGE:
 	{
-		Connection_RM3 *connection = GetConnectionByGUID(packet->guid, incomingWorldId);
+		RM3ConnectionLock *lock;
+		Connection_RM3 *connection = LockConnectionByGUID(packet->guid, incomingWorldId, lock);
+		ConnectionLockHolder connectionLock(lock);
 		if (connection && connection->isValidated == false)
 		{
 			// This connection is now confirmed bidirectional
@@ -974,7 +1177,10 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			{
 				// The record is this connection's alone, and streaming the replica back in makes a new one.
 				lsr = constructedReplicaList[idx1];
-				constructedReplicaList.RemoveAtIndex(idx1);
+				{
+					std::lock_guard<std::mutex> constructedLock(lock->constructed);
+					constructedReplicaList.RemoveAtIndex(idx1);
+				}
 
 				unsigned int j;
 				for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
@@ -1003,11 +1209,15 @@ void ReplicaManager3::Update(void)
 	// A game callback inside the pass -- a Serialize(), or anything that reaches RakPeer::Receive() -- would
 	// start a second pass inside this one: on POSIX it locks a mutex this one holds, and anywhere it overwrites
 	// this pass's state. The pass already under way covers it.
+	// So would one made while this thread handles a connection's message. Another thread's Update(), or the
+	// receive thread changing the world, is waited for instead.
+	if (connectionLocksHeld > 0 && connectionLocksOwner == this)
+		return;
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	if (inUpdate)
 		return;
 	inUpdate = true;
 
-	m_WorldListMutex.Lock();
 	for (index3 = 0; index3 < worldsList.Size(); index3++)
 	{
 		world = worldsList[index3];
@@ -1015,6 +1225,7 @@ void ReplicaManager3::Update(void)
 
 		for (index = 0; index < world->connectionList.Size(); index++)
 		{
+			ConnectionLockHolder connectionLock(LockConnection(world->connectionList[index]));
 			if (world->connectionList[index]->isValidated == false)
 				continue;
 			world->connectionList[index]->AutoConstructByQuery(this, worldId);
@@ -1047,8 +1258,109 @@ void ReplicaManager3::Update(void)
 
 		lastAutoSerializeOccurance = time;
 	}
-	m_WorldListMutex.Unlock();
 	inUpdate = false;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ReplicaManager3::WorldGuard::WorldGuard(ReplicaManager3 &replicaManager)
+    : replicaManager(replicaManager)
+{
+	replicaManager.worldMutex.lock();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ReplicaManager3::WorldGuard::~WorldGuard()
+{
+	replicaManager.worldMutex.unlock();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ReplicaManager3::StateDelivery::StateDelivery(ReplicaManager3 &replicaManager, RakNetGUID sender, WorldId worldId)
+    : replicaManager(replicaManager), connection(0), lock(0), networkIDManager(0)
+{
+	connection = replicaManager.LockConnectionByGUID(sender, worldId, lock);
+	if (connection)
+	{
+		ListLock listLock(replicaManager.m_WorldListMutex);
+		networkIDManager = replicaManager.worldsArray[worldId] ? replicaManager.worldsArray[worldId]->networkIDManager : 0;
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ReplicaManager3::StateDelivery::~StateDelivery()
+{
+	ConnectionLockHolder connectionLock(lock);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+bool ReplicaManager3::StateDelivery::Deserialize(NetworkID networkId, DeserializeParameters *parameters)
+{
+	if (connection == 0 || networkIDManager == 0)
+		return false;
+	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
+	ReplicaSetDelivery delivery(&replicaManager);
+	Replica3 *replica = networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
+	if (replica == 0 || replica->replicaManager != &replicaManager || replica->referencingWorlds == 0)
+		return false;
+	parameters->sourceConnection = connection;
+	replica->Deserialize(parameters);
+	return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+RM3ConnectionLock *ReplicaManager3::LockConnection(Connection_RM3 *connection) const
+{
+	RM3ConnectionLock *lock = connection->lock;
+	++lock->references;
+	lock->mutex.lock();
+	if (connectionLocksHeld++ == 0)
+		connectionLocksOwner = this;
+	return lock;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Connection_RM3 *ReplicaManager3::LockConnectionByGUID(RakNetGUID guid, WorldId worldId, RM3ConnectionLock *&lock) const
+{
+	Connection_RM3 *connection = 0;
+	lock = 0;
+	{
+		// Its lock is taken hold of under the list lock: the connection cannot be freed before it has left the list.
+		ListLock listLock(m_WorldListMutex);
+		const RM3World *world = worldsArray[worldId];
+		for (unsigned int index = 0; world != 0 && index < world->connectionList.Size(); index++)
+		{
+			if (world->connectionList[index]->GetRakNetGUID() == guid)
+			{
+				connection = world->connectionList[index];
+				lock = connection->lock;
+				++lock->references;
+				break;
+			}
+		}
+	}
+	if (connection == 0)
+		return 0;
+
+	lock->mutex.lock();
+	// The count says whether it may have been freed, and comes first: only pointers are compared after it.
+	if (lock->worlds == 0 || !HoldsConnection(connection, worldId))
+	{
+		// Popped from this world while this thread waited, and maybe freed since.
+		lock->mutex.unlock();
+		DropConnectionLock(lock);
+		lock = 0;
+		return 0;
+	}
+	if (connectionLocksHeld++ == 0)
+		connectionLocksOwner = this;
+	return connection;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1163,6 +1475,7 @@ void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, Maf
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->servedPass == serializePass)
 			continue;
+		ConnectionLockHolder connectionLock(LockConnection(connection));
 		connection->servedPass = serializePass;
 		sp.bitsWrittenSoFar = 0;
 		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
@@ -1196,6 +1509,7 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->listQueriedPass == serializePass)
 			continue;
+		ConnectionLockHolder connectionLock(LockConnection(connection));
 		connection->listQueriedPass = serializePass;
 		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
 		connection->ownSerializationListPass = 0;
@@ -1219,6 +1533,7 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->ownSerializationListPass == serializePass)
 			continue;
+		ConnectionLockHolder connectionLock(LockConnection(connection));
 		const DataStructures::List<LastSerializationResult *> &list = connection->queryToSerializeReplicaList;
 		for (unsigned int i = 0; i < list.Size(); i++)
 		{
@@ -1281,6 +1596,7 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->ownSerializationListPass == serializePass || connection->servedPass == serializePass)
 			continue;
+		ConnectionLockHolder connectionLock(LockConnection(connection));
 		connection->servedPass = serializePass;
 		sp.bitsWrittenSoFar = 0;
 		ServeSerializeList(connection, connection->queryToSerializeReplicaList, sp, GetRakPeerInterface(), worldId, this, time, serializePass, ServeShare::Rest);
@@ -1296,6 +1612,7 @@ void ReplicaManager3::ServePreparedBroadcasts(void *context, unsigned int index)
 {
 	const ParallelSerializeContext &pass = *static_cast<ParallelSerializeContext *>(context);
 	Connection_RM3 *connection = (*pass.connections)[index];
+	ConnectionLockHolder connectionLock(pass.replicaManager->LockConnection(connection));
 	SerializeParameters sp;
 	sp.curTime = pass.time;
 	sp.messageTimestamp = 0;
@@ -1397,7 +1714,7 @@ void ReplicaManager3::OnRakPeerShutdown(void)
 	{
 		RM3World *world;
 		unsigned int index3;
-		m_WorldListMutex.Lock();
+		std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 		for (index3 = 0; index3 < worldsList.Size(); index3++)
 		{
 			world = worldsList[index3];
@@ -1409,7 +1726,6 @@ void ReplicaManager3::OnRakPeerShutdown(void)
 					DeallocConnection(connection);
 			}
 		}
-		m_WorldListMutex.Unlock();
 	}
 
 
@@ -1427,9 +1743,20 @@ void ReplicaManager3::OnDetach(void)
 
 PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
 {
+	// From nobody we know: not worth waiting for the world.
+	if (GetConnectionByGUID(senderGuid, worldId) == 0)
+	{
+		RakAssert("Got OnConstruction but no connection yet" && 0);
+		return RR_CONTINUE_PROCESSING;
+	}
+
+	// What it constructs and destroys is the world's, for every connection.
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	RM3World *world = worldsArray[worldId];
 
-	Connection_RM3 *connection = GetConnectionByGUID(senderGuid, worldId);
+	RM3ConnectionLock *lock;
+	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
+	ConnectionLockHolder connectionLock(lock);
 	if (connection == 0)
 	{
 		// Almost certainly a bug
@@ -1634,7 +1961,9 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 
 PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, MafiaNet::Time timestamp, unsigned char packetDataOffset, WorldId worldId)
 {
-	Connection_RM3 *connection = GetConnectionByGUID(senderGuid, worldId);
+	RM3ConnectionLock *lock;
+	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
+	ConnectionLockHolder connectionLock(lock);
 	if (connection == 0)
 		return RR_CONTINUE_PROCESSING;
 	if (connection->groupConstructionAndSerialize)
@@ -1643,8 +1972,14 @@ PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *
 		return RR_STOP_PROCESSING;
 	}
 
-	RM3World *world = worldsArray[worldId];
-	RakAssert(world->networkIDManager);
+	NetworkIDManager *networkIDManager;
+	{
+		ListLock listLock(m_WorldListMutex);
+		networkIDManager = worldsArray[worldId] ? worldsArray[worldId]->networkIDManager : 0;
+	}
+	RakAssert(networkIDManager);
+	if (networkIDManager == 0)
+		return RR_CONTINUE_PROCESSING;
 	MafiaNet::BitStream bsIn(packetData, packetDataLength, false);
 	bsIn.IgnoreBytes(packetDataOffset);
 
@@ -1657,8 +1992,10 @@ PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *
 	BitSize_t bitsUsed;
 	bsIn.Read(networkId);
 	//printf("OnSerialize: %i\n",networkId.guid.g); // Removeme
-	replica = world->networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
-	if (replica)
+	// From the lookup to the end of Deserialize(): the replica stays in the table and alive, see Dereference().
+	ReplicaSetDelivery delivery(this);
+	replica = networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
+	if (replica && replica->replicaManager == this && replica->referencingWorlds > 0)
 	{
 		for (int z = 0; z < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; z++)
 		{
@@ -1678,7 +2015,9 @@ PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *
 
 PluginReceiveResult ReplicaManager3::OnDownloadStarted(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
 {
-	Connection_RM3 *connection = GetConnectionByGUID(senderGuid, worldId);
+	RM3ConnectionLock *lock;
+	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
+	ConnectionLockHolder connectionLock(lock);
 	if (connection == 0)
 		return RR_CONTINUE_PROCESSING;
 	if (connection->QueryGroupDownloadMessages() &&
@@ -1704,7 +2043,9 @@ PluginReceiveResult ReplicaManager3::OnDownloadStarted(Packet *packet, unsigned 
 
 PluginReceiveResult ReplicaManager3::OnDownloadComplete(Packet *packet, unsigned char *packetData, int packetDataLength, RakNetGUID senderGuid, unsigned char packetDataOffset, WorldId worldId)
 {
-	Connection_RM3 *connection = GetConnectionByGUID(senderGuid, worldId);
+	RM3ConnectionLock *lock;
+	Connection_RM3 *connection = LockConnectionByGUID(senderGuid, worldId, lock);
+	ConnectionLockHolder connectionLock(lock);
 	if (connection == 0)
 		return RR_CONTINUE_PROCESSING;
 
@@ -1754,6 +2095,7 @@ void ReplicaManager3::BroadcastDestructionList(DataStructures::List<Replica3 *> 
 	MafiaNet::BitStream bsOut;
 	unsigned int i, j;
 
+	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
@@ -1849,6 +2191,7 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 	groupConstructionAndSerialize = false;
 	gotDownloadComplete = false;
 	virtualWorld = VIRTUAL_WORLD_DEFAULT;
+	lock = MafiaNet::OP_NEW<RM3ConnectionLock>(_FILE_AND_LINE_);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1860,6 +2203,8 @@ Connection_RM3::~Connection_RM3()
 		MafiaNet::OP_DELETE(constructedReplicaList[i], _FILE_AND_LINE_);
 	for (i = 0; i < queryToConstructReplicaList.Size(); i++)
 		MafiaNet::OP_DELETE(queryToConstructReplicaList[i], _FILE_AND_LINE_);
+	if (lock)
+		DropConnectionLock(lock);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1867,6 +2212,7 @@ Connection_RM3::~Connection_RM3()
 void Connection_RM3::GetConstructedReplicas(DataStructures::List<Replica3 *> &objectsTheyDoHave)
 {
 	objectsTheyDoHave.Clear(true, _FILE_AND_LINE_);
+	std::lock_guard<std::mutex> constructedLock(lock->constructed);
 	for (unsigned int idx = 0; idx < constructedReplicaList.Size(); idx++)
 	{
 		objectsTheyDoHave.Push(constructedReplicaList[idx]->replica, _FILE_AND_LINE_);
@@ -1878,6 +2224,7 @@ void Connection_RM3::GetConstructedReplicas(DataStructures::List<Replica3 *> &ob
 bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 {
 	bool objectExists;
+	std::lock_guard<std::mutex> constructedLock(lock->constructed);
 	constructedReplicaList.GetIndexFromKey(replica, &objectExists);
 	return objectExists;
 }
@@ -2200,7 +2547,10 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 	if (objectExists)
 	{
 		lsr = constructedReplicaList[idx];
-		constructedReplicaList.RemoveAtIndex(idx);
+		{
+			std::lock_guard<std::mutex> constructedLock(lock->constructed);
+			constructedReplicaList.RemoveAtIndex(idx);
+		}
 	}
 
 	for (idx = 0; idx < queryToConstructReplicaList.Size(); idx++)
@@ -2267,7 +2617,12 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 		queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
 	}
 
-	if (constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_) != (unsigned) -1)
+	unsigned int insertedAt;
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		insertedAt = constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	}
+	if (insertedAt != (unsigned) -1)
 	{
 		//assert(queryToSerializeReplicaList.GetIndexOf(replica3)==(unsigned int)-1);
 		queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
@@ -2323,7 +2678,10 @@ void Connection_RM3::OnConstructToThisConnection(unsigned int queryToConstructId
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
 	//assert(constructedReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	}
 	//assert(queryToDestructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
@@ -2341,7 +2699,10 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 
 	LastSerializationResult *lsr = MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
 	lsr->replica = replica;
-	constructedReplicaList.Insert(replica, lsr, true, _FILE_AND_LINE_);
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		constructedReplicaList.Insert(replica, lsr, true, _FILE_AND_LINE_);
+	}
 	queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
 }
 
@@ -2376,7 +2737,10 @@ void Connection_RM3::OnReplicaAlreadyExists(unsigned int queryToConstructIdx, Re
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
 	//assert(constructedReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	}
 	//assert(queryToDestructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
@@ -2432,7 +2796,10 @@ void Connection_RM3::OnSendDestructionFromQuery(unsigned int queryToDestructIdx,
 	{
 		if (constructedReplicaList[j]->replica == lsr->replica)
 		{
-			constructedReplicaList.RemoveAtIndex(j);
+			{
+				std::lock_guard<std::mutex> constructedLock(lock->constructed);
+				constructedReplicaList.RemoveAtIndex(j);
+			}
 			break;
 		}
 	}
@@ -2774,6 +3141,7 @@ Replica3::Replica3()
 	forceSendUntilNextUpdate = false;
 	lsr = 0;
 	referenceIndex = (uint32_t) -1;
+	referencingWorlds = 0;
 	broadcastsIdentically = false;
 	preparedPass = 0;
 	parallelPass = 0;
@@ -2790,7 +3158,38 @@ Replica3::~Replica3()
 	if (replicaManager)
 	{
 		replicaManager->Dereference(this);
+		// Out of the table here, under the manager's locks: ~NetworkIDObject() would do it under none.
+		Replica3::SetNetworkIDManager(0);
 	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+void Replica3::SetNetworkIDManager(NetworkIDManager *manager)
+{
+	if (replicaManager == 0)
+	{
+		NetworkIDObject::SetNetworkIDManager(manager);
+		return;
+	}
+	// The table is read under the world, or under the replica set by the thread delivering state.
+	std::lock_guard<std::recursive_mutex> worldLock(replicaManager->worldMutex);
+	ReplicaManager3::ReplicaSetChange change(replicaManager);
+	NetworkIDObject::SetNetworkIDManager(manager);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+void Replica3::SetNetworkID(NetworkID id)
+{
+	if (replicaManager == 0)
+	{
+		NetworkIDObject::SetNetworkID(id);
+		return;
+	}
+	std::lock_guard<std::recursive_mutex> worldLock(replicaManager->worldMutex);
+	ReplicaManager3::ReplicaSetChange change(replicaManager);
+	NetworkIDObject::SetNetworkID(id);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
