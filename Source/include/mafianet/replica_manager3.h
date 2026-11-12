@@ -35,6 +35,8 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
+#include <mutex>
+
 /// \defgroup REPLICA_MANAGER_GROUP3 ReplicaManager3
 /// \brief Third implementation of object replication
 /// \details
@@ -45,6 +47,7 @@ namespace MafiaNet
 class Connection_RM3;
 class Replica3;
 class VirtualWorldReplica3;
+struct RM3ConnectionLock;
 
 /// \ingroup REPLICA_MANAGER_GROUP3
 /// Used for multiple worlds. World 0 is created automatically by default
@@ -361,7 +364,23 @@ public:
 	PRO GetDefaultSendParameters(void) const;
 
 	/// Call interfaces, send data
+	/// \details One thread may run Update() while another is inside RakPeerInterface::Receive(), which is where this plugin handles what connections send and where they open and close. Three locks make that safe, always taken in this order:
+	/// <OL>
+	/// <LI>The world (LockWorld()), held for the whole of Update() and by everything that changes which connections and replicas exist or what a connection holds: PushConnection(), PopConnection(), Reference(), Dereference(), BroadcastDestruction(), Clear(), and an incoming construction or destruction message, with every callback those make.
+	/// <LI>One lock per connection, held while Update() serves that connection (its construction queries and its serialize pass) and while a state, download or validation message from it is handled, Replica3::Deserialize() included. So Deserialize() from a connection never runs at the same time as a Serialize() to that same connection, and waits for nothing else in the pass.
+	/// <LI>The list lock, around each edit and lookup of the connection and replica lists, never across a callback.
+	/// </OL>
+	/// A replica is still serialized to one connection while another connection's state is deserialized into it, and a replica that broadcasts identically is serialized for all of them at once: with two threads, a replica that several connections share guards its own state.
+	/// Replica3::Deserialize(), Connection_RM3::DeserializeOnDownloadStarted() and Connection_RM3::DeserializeOnDownloadComplete() are called holding the sender's lock but not the world. While another thread may be running Update(), they must not call what takes the world (the list above, or deleting a replica): Update() would be waiting for the connection they hold. Update() does nothing when it is called, directly or through RakPeerInterface::Receive(), from a callback made under a connection's lock (while one of its messages is handled, or while it is pushed or popped): the next call covers it.
+	/// Connection_RM3::HasReplicaConstructed() and Connection_RM3::GetConstructedReplicas() read what only the world protects; a pointer returned by GetConnectionAtIndex() and the like is good for as long as the caller keeps that connection from being popped. Both are safe inside a callback of Update(), or under LockWorld().
 	virtual void Update(void);
+
+	/// \brief Keep the connections and replicas as they are until UnlockWorld(), from any thread.
+	/// \details Update() cannot start, no connection is pushed or popped and no replica referenced or dereferenced by another thread, so the connections can be walked and their replica lists read. A thread may take it again while it holds it, and may call Update() or anything else here meanwhile. State from a connection still arrives (see Update()).
+	void LockWorld(void);
+
+	/// Lets go of LockWorld(), once for each call.
+	void UnlockWorld(void);
 
 	/// \internal
 	struct RM3World
@@ -408,8 +427,16 @@ protected:
 
 private:
 	// #med - reconsider visibility here --- should be properly encapsulated so to not allow access to worldsList by derived classes (which could bypass the mutex)
-	// mutex to ensure thread safe access to worldsList member
-	SimpleMutex m_WorldListMutex;
+	// The list lock: around every edit of worldsList, worldsArray and a world's connectionList and userReplicaList,
+	// which also needs worldMutex, and around every read of them made without worldMutex. Never held across a callback.
+	mutable SimpleMutex m_WorldListMutex;
+	// The world; see Update(). Taken before a connection's lock, which is taken before m_WorldListMutex.
+	std::recursive_mutex worldMutex;
+
+	// A connection's lock, taken. The caller holds worldMutex, or the pass does while it waits for its workers.
+	RM3ConnectionLock *LockConnection(Connection_RM3 *connection) const;
+	// The connection a packet came from, with its lock taken into \a lock, or 0 and no lock if it is not in the world.
+	Connection_RM3 *LockConnectionByGUID(RakNetGUID guid, WorldId worldId, RM3ConnectionLock *&lock) const;
 
 	// The serialize pass of one world, connection by connection on this thread.
 	void SerializeConnections(RM3World *world, WorldId worldId, MafiaNet::Time time);
@@ -422,7 +449,7 @@ private:
 
 	RM3SerializeExecutor *serializeExecutor;
 	uint32_t membershipGeneration;
-	// Set for the length of Update(), which a game callback inside it must not start again.
+	// Set for the length of Update(), which a game callback inside it must not start again. Under worldMutex.
 	bool inUpdate;
 	// Counts serialize passes, so a replica can tell whether it was prepared for this one. Never 0 inside a pass.
 	uint32_t serializePass;
@@ -812,7 +839,13 @@ protected:
 	friend class ReplicaManager3;
 
 private:
-	Connection_RM3() {};
+	Connection_RM3()
+	    : lock(0) {};
+	Connection_RM3(const Connection_RM3 &) = delete;
+	Connection_RM3 &operator=(const Connection_RM3 &) = delete;
+
+	// See ReplicaManager3::Update(). Its own allocation: a holder may still have it when the connection is freed.
+	RM3ConnectionLock *lock;
 
 	// Never read: the mode is always obtained from QueryConstructionMode(). Kept so the
 	// layout of this user-subclassed class does not change.

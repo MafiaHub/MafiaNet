@@ -12,13 +12,16 @@
 
 #include "mafianet/bit_stream.h"
 #include "mafianet/get_time.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/replica_manager3.h"
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <functional>
+#include <future>
 #include <mutex>
 #include <set>
 #include <string>
@@ -54,10 +57,15 @@ public:
 	bool DeserializeConstruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
 	void SerializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) {}
 	bool DeserializeDestruction(MafiaNet::BitStream *, Connection_RM3 *) { return false; }
-	RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const { return RM3AOPC_DO_NOTHING; }
+	RM3ActionOnPopConnection QueryActionOnPopConnection(Connection_RM3 *) const
+	{
+		if (onPopQuery)
+			onPopQuery();
+		return RM3AOPC_DO_NOTHING;
+	}
 	void DeallocReplica(Connection_RM3 *) {}
 	RM3QuerySerializationResult QuerySerialization(Connection_RM3 *) { return refuse ? RM3QSR_DO_NOT_CALL_SERIALIZE : RM3QSR_CALL_SERIALIZE; }
-	void Deserialize(DeserializeParameters *) {}
+	void Deserialize(DeserializeParameters *) { ++deserializeCalls; }
 
 	RM3SerializationResult Serialize(SerializeParameters *parameters)
 	{
@@ -81,8 +89,11 @@ public:
 	bool refuse = false;
 	// Run once, from inside the next Serialize(): what a game callback might do mid-pass.
 	std::function<void()> onSerialize;
+	// Run when the connection that created this replica is popped.
+	std::function<void()> onPopQuery;
 	int value = 1;
 	std::atomic<int> serializeCalls{0};
+	std::atomic<int> deserializeCalls{0};
 	std::mutex threadsMutex;
 	std::set<std::thread::id> serializeThreads;
 };
@@ -134,6 +145,8 @@ class PassManager : public ReplicaManager3
 public:
 	Connection_RM3 *AllocConnection(const SystemAddress &, RakNetGUID guid) const { return new PassConnection(guid); }
 	void DeallocConnection(Connection_RM3 *connection) const { delete connection; }
+	// What RakPeer::Receive() calls with a connection's message, on whichever thread receives.
+	using ReplicaManager3::OnReceive;
 };
 
 class ReplicaManager3SerializePass : public ::testing::Test
@@ -414,6 +427,102 @@ TEST_F(ReplicaManager3SerializePass, ConnectionDroppedMidPassIsNotServed)
 	for (PassConnection *connection : connections)
 		EXPECT_EQ(connection->received, std::vector<int>{3});
 	manager.SetSerializeExecutor(0);
+}
+
+// State from a connection waits for the pass only while the pass serves that connection. Here the pass is
+// stopped inside a Serialize() to the first connection, and the second one's state still gets in.
+TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePassServesOne)
+{
+	PassReplica *replica = AddReplica(false);
+	std::vector<PassConnection *> connections = AddConnections(2, {replica});
+	Tick();
+	Tick();
+
+	MafiaNet::BitStream state;
+	state.Write((MessageID) ID_REPLICA_MANAGER_SERIALIZE);
+	state.Write((WorldId) 0);
+	state.Write(replica->GetNetworkID());
+	for (int channel = 0; channel < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; channel++)
+		state.Write(false);
+	Packet packet;
+	packet.data = state.GetData();
+	packet.length = state.GetNumberOfBytesUsed();
+	packet.bitSize = state.GetNumberOfBitsUsed();
+	packet.guid = connections[1]->GetRakNetGUID();
+	packet.wasGeneratedLocally = false;
+
+	std::promise<void> inside, release;
+	replica->value = 2;
+	replica->onSerialize = [&]
+	{
+		inside.set_value();
+		release.get_future().wait();
+	};
+	std::thread pass([&]
+	                 { Tick(); });
+	inside.get_future().wait();
+	std::future<void> delivery = std::async(std::launch::async, [&]
+	                                        { manager.OnReceive(&packet); });
+	// Only a regression waits this out: the delivery would be stuck behind the pass.
+	const bool delivered = delivery.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+	release.set_value();
+	pass.join();
+	delivery.wait();
+
+	EXPECT_TRUE(delivered) << "state from the second connection waited for the whole pass";
+	EXPECT_EQ(replica->deserializeCalls, 1);
+}
+
+// The thread that holds the world still runs its own pass, and gives the world back for other threads.
+TEST_F(ReplicaManager3SerializePass, PassRunsOnTheThreadThatHoldsTheWorld)
+{
+	PassReplica *replica = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(2, {replica});
+	manager.LockWorld();
+	manager.LockWorld();
+	Tick();
+	Tick();
+	manager.UnlockWorld();
+	manager.UnlockWorld();
+	EXPECT_FALSE(connections[0]->received.empty());
+	connections[0]->received.clear();
+
+	replica->value = 2;
+	std::thread other([&]
+	                  {
+		manager.LockWorld();
+		Tick();
+		manager.UnlockWorld(); });
+	other.join();
+	EXPECT_EQ(connections[0]->received, (std::vector<int>{2}));
+}
+
+// A callback made while a connection is popped runs under that connection's lock. A pass started from it
+// would hand the connection to the executor's threads, which would wait for that lock for ever: Update()
+// does nothing there, and the next one serves what changed.
+TEST_F(ReplicaManager3SerializePass, UpdateRunWhileAConnectionIsPoppedDoesNothing)
+{
+	ThreadExecutor executor;
+	manager.SetSerializeExecutor(&executor);
+	PassReplica *replica = AddReplica(true);
+	std::vector<PassConnection *> connections = AddConnections(3, {replica});
+	Tick();
+	Tick();
+
+	replica->creatingSystemGUID = connections[0]->GetRakNetGUID();
+	replica->value = 7;
+	const int runs = executor.runs;
+	replica->onPopQuery = [&]
+	{
+		g_passNowUS += 10000;
+		manager.Update();
+	};
+	manager.DeallocConnection(manager.PopConnection(connections[0]->GetRakNetGUID()));
+	EXPECT_EQ(executor.runs, runs);
+
+	Tick();
+	EXPECT_EQ(connections[1]->received.back(), 7);
+	EXPECT_EQ(connections[2]->received.back(), 7);
 }
 
 // A connection that picks its own list is served whole on the calling thread, before the executor runs,
