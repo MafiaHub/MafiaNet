@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <future>
 #include <mutex>
@@ -605,7 +607,14 @@ TEST_F(ReplicaManager3SerializePass, StateInASubclassFormatIsDroppedWithoutItsSe
 	replica->value = 3;
 	std::future<void> pass = std::async(std::launch::async, [&]
 	                                    { Tick(); });
-	ASSERT_EQ(pass.wait_for(std::chrono::seconds(5)), std::future_status::ready) << "the sender's lock was kept";
+	// A pass stuck behind a lock that was kept never returns, and neither would this future's destructor: the
+	// test ends the process rather than hang there.
+	if (pass.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+	{
+		ADD_FAILURE() << "the sender's lock was kept: the pass that follows never served it";
+		fflush(nullptr);
+		std::_Exit(1);
+	}
 	EXPECT_GT(connections[0]->sendCalls, sent);
 }
 
