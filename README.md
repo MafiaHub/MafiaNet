@@ -318,7 +318,11 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
-### Version 0.25.1 (Latest)
+### Version 0.26.0 (Latest)
+- **Receive on a thread of its own**: `RakPeerInterface::WaitForPackets()` blocks until a packet is waiting, and ReplicaManager3 can receive on one thread while `Update()` runs on another (per-connection locks, `WorldGuard`, `StateDelivery`)
+- **Breaking (ABI)**: `RakPeerInterface` gains a pure virtual; consumers must rebuild. Wire-compatible
+
+### Version 0.25.1
 - **Fix: a remote's library message ids are only delivered where a conforming peer sends them**: behind an `ID_TIMESTAMP` prefix, only application ids, ReplicaManager3 ids and `ID_NAT_CONNECT_AT_TIME` reach the plugins and the application; a timestamp with nothing behind it and a bare `ID_SESSION_CONFIG_ABANDONED` from a remote are dropped
 - **Wire-compatible**: no message changes
 

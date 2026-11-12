@@ -3,6 +3,28 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Version 0.26.0
+--------------
+
+**RakPeer**
+
+* **``WaitForPackets(timeoutMs)``** blocks until a packet is waiting for ``Receive()``, the timeout passes or the peer shuts down, so a receive thread can sleep instead of polling. It can return true during shutdown: a receive loop exits on ``IsActive()``. Plugin ``Update()`` still runs only inside ``Receive()``, so wait with a short timeout.
+
+**ReplicaManager3**
+
+* **Receive on one thread while the pass runs on another.** ``Update()`` may run on one thread while ``Receive()`` (so ``OnReceive``, ``OnNewConnection`` and ``OnClosedConnection``) runs on another. Each connection has a lock of its own: inbound state for a connection waits only while that connection is being served or its lists edited, never for the whole pass. A replica-set lock keeps replicas and the ``NetworkIDManager`` table safe from the receive thread. Construction and destruction messages, and connecting and disconnecting, still wait for a running pass. The lock order is documented on ``Update()``.
+* **``ReplicaManager3::WorldGuard``** holds the world for a scope, for an owner that walks connections after its pass.
+* **``StateDelivery``** lets a subclass deliver state from a message format of its own under the rules ``OnSerialize`` follows.
+* ``GetConnectionsThatHaveReplicaConstructed()``, ``HasReplicaConstructed()`` and ``GetConstructedReplicas()`` no longer take the world and may be called from ``Deserialize()`` during a pass.
+* **Behaviour change**: ``Dereference()`` also takes a replica that left its last world out of the ``NetworkIDManager``; ``Reference()`` tracks it again under the same id. State for a replica this manager does not reference is dropped.
+* **With two threads**, ``Deserialize()`` and the download callbacks run under the sender's connection lock and must not call what takes the world (listed in the header), and a replica must be dereferenced before it is deleted.
+
+**DataStructures**
+
+* ``List``'s copy constructor initialises its array pointer when copying an empty list.
+
+**Breaking (ABI)**: ``RakPeerInterface`` gains a pure virtual and ``ReplicaManager3`` and ``Connection_RM3`` gain members; consumers must rebuild. **Wire-compatible**: no message changes.
+
 Version 0.25.1
 --------------
 
