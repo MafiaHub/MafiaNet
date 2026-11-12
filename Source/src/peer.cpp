@@ -41,6 +41,7 @@
 #include <string.h>
 #include "mafianet/get_time.h"
 #include <atomic>
+#include <chrono>
 #include <random>
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_black_hole.h"
@@ -1044,6 +1045,11 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 	quitAndDataEvents.SetEvent();
 
 	endThreads = true;
+
+	// Under the mutex, so a WaitForPackets that has just seen the peer active is already waiting.
+	packetReturnMutex.Lock();
+	packetReturnCondition.notify_all();
+	packetReturnMutex.Unlock();
 
 //	MafiaNet::TimeMS timeout;
 #if RAKPEER_USER_THREADED != 1
@@ -2980,6 +2986,7 @@ void RakPeer::PushBackPacket(Packet *packet, bool pushAtHead)
 		packetReturnQueue.PushAtHead(packet, 0, _FILE_AND_LINE_);
 	else
 		packetReturnQueue.Push(packet, _FILE_AND_LINE_);
+	packetReturnCondition.notify_all();
 	packetReturnMutex.Unlock();
 }
 
@@ -3303,6 +3310,24 @@ bool RakPeer::GetStatistics(const unsigned int index, RakNetStatistics *rns)
 		return true;
 	}
 	return false;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::WaitForPackets(MafiaNet::TimeMS timeoutMs)
+{
+	// std::condition_variable_any needs lock()/unlock(); SimpleMutex spells them Lock()/Unlock().
+	struct PacketReturnLock
+	{
+		SimpleMutex &mutex;
+		void lock() { mutex.Lock(); }
+		void unlock() { mutex.Unlock(); }
+	} lock{packetReturnMutex};
+
+	lock.lock();
+	packetReturnCondition.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]
+	                               { return packetReturnQueue.IsEmpty() == false || IsActive() == false; });
+	const bool packetsWaiting = packetReturnQueue.IsEmpty() == false;
+	lock.unlock();
+	return packetsWaiting;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 unsigned int RakPeer::GetReceiveBufferSize(void)
@@ -4875,6 +4900,7 @@ inline void RakPeer::AddPacketToProducer(MafiaNet::Packet *p)
 {
 	packetReturnMutex.Lock();
 	packetReturnQueue.Push(p, _FILE_AND_LINE_);
+	packetReturnCondition.notify_all();
 	packetReturnMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

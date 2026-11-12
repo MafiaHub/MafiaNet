@@ -249,6 +249,12 @@ public:
 	/// sa types.h contains struct Packet
 	virtual Packet *Receive(void) = 0;
 
+	/// Blocks the calling thread until Receive() has a message to return, instead of polling it.
+	/// Wakes early when the peer shuts down. Call it from one thread at a time.
+	/// \param[in] timeoutMs The longest to wait, in milliseconds.
+	/// \return true if at least one message is waiting, false on timeout or once the peer is no longer active.
+	virtual bool WaitForPackets(MafiaNet::TimeMS timeoutMs) = 0;
+
 	/// Call this to deallocate a message returned by Receive() when you are done handling it.
 	/// \param[in] packet The message to deallocate.
 	virtual void DeallocatePacket(Packet *packet) = 0;
