@@ -789,11 +789,13 @@ void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica
 {
 	// Not the world: a Deserialize() asks this under its sender's lock while a pass holds the world. The list
 	// lock keeps every connection in the list, so alive, for as long as it is asked.
-	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	connectionsThatHaveConstructedThisReplica.Clear(false, _FILE_AND_LINE_);
 	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
+	RakAssert(world != 0 && "World not in use");
+	if (world == 0)
+		return;
 
-	connectionsThatHaveConstructedThisReplica.Clear(false, _FILE_AND_LINE_);
 	unsigned int index;
 	for (index = 0; index < world->connectionList.Size(); index++)
 	{
