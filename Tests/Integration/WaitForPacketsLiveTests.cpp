@@ -17,6 +17,7 @@
 #include "mafianet/sleep.h"
 
 #include <atomic>
+#include <chrono>
 #include <future>
 
 using namespace MafiaNet;
@@ -56,15 +57,20 @@ struct WaitPair
 		    client->Connect("127.0.0.1", serverAddress.GetPort(), 0, 0) != CONNECTION_ATTEMPT_STARTED)
 			return false;
 
+		// Until the server has handed over ID_NEW_INCOMING_CONNECTION: it counts the connection
+		// before that message is queued, and a test must not find it waiting later.
+		bool serverSawClient = false;
 		const TimeMS start = GetTimeMS();
 		while (GetTimeMS() - start < 10000 &&
-		       !(server->NumberOfConnections() == 1 && client->GetConnectionState(serverAddress) == IS_CONNECTED))
+		       !(serverSawClient && client->GetConnectionState(serverAddress) == IS_CONNECTED))
 		{
 			for (auto pkt : client.incoming())
 				(void) pkt;
+			for (auto pkt : server.incoming())
+				serverSawClient = serverSawClient || pkt->data[0] == ID_NEW_INCOMING_CONNECTION;
 			RakSleep(30);
 		}
-		return server->NumberOfConnections() == 1 && client->GetConnectionState(serverAddress) == IS_CONNECTED;
+		return serverSawClient && client->GetConnectionState(serverAddress) == IS_CONNECTED;
 	}
 
 	void DrainServer()
@@ -80,7 +86,8 @@ struct WaitPair
 		client->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, serverAddress, false);
 	}
 
-	// Blocks another thread in the server's WaitForPackets and returns once it is in there.
+	// Starts a thread that waits in the server's WaitForPackets. Returns once that thread runs, which
+	// may be just before it enters the wait.
 	std::future<WaitResult> BlockInWait(TimeMS timeoutMs)
 	{
 		std::promise<void> started;
