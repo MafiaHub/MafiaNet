@@ -36,6 +36,9 @@ struct MafiaNet::RM3ConnectionLock
 	std::atomic<int> references{1};
 	// How many worlds the connection is in, under mutex. At 0 it may be freed as soon as the mutex is let go.
 	int worlds = 0;
+	// Around every edit of the connection's constructedReplicaList, which also needs the world or to be the
+	// thread serving the connection, and around every read of it made without either. The last lock of all.
+	std::mutex constructed;
 };
 
 namespace
@@ -784,8 +787,10 @@ bool Connection_RM3::HoldsRecord(const LastSerializationResult *lsr) const
 
 void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, DataStructures::List<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId)
 {
-	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
+	// Not the world: a Deserialize() asks this under its sender's lock while a pass holds the world. The list
+	// lock keeps every connection in the list, so alive, for as long as it is asked.
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
+	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
 	connectionsThatHaveConstructedThisReplica.Clear(false, _FILE_AND_LINE_);
@@ -1170,7 +1175,10 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			{
 				// The record is this connection's alone, and streaming the replica back in makes a new one.
 				lsr = constructedReplicaList[idx1];
-				constructedReplicaList.RemoveAtIndex(idx1);
+				{
+					std::lock_guard<std::mutex> constructedLock(lock->constructed);
+					constructedReplicaList.RemoveAtIndex(idx1);
+				}
 
 				unsigned int j;
 				for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
@@ -1339,9 +1347,10 @@ Connection_RM3 *ReplicaManager3::LockConnectionByGUID(RakNetGUID guid, WorldId w
 		return 0;
 
 	lock->mutex.lock();
-	if (lock->worlds == 0)
+	// The count says whether it may have been freed, and comes first: only pointers are compared after it.
+	if (lock->worlds == 0 || !HoldsConnection(connection, worldId))
 	{
-		// Popped while this thread waited, and maybe freed since.
+		// Popped from this world while this thread waited, and maybe freed since.
 		lock->mutex.unlock();
 		DropConnectionLock(lock);
 		lock = 0;
@@ -2201,6 +2210,7 @@ Connection_RM3::~Connection_RM3()
 void Connection_RM3::GetConstructedReplicas(DataStructures::List<Replica3 *> &objectsTheyDoHave)
 {
 	objectsTheyDoHave.Clear(true, _FILE_AND_LINE_);
+	std::lock_guard<std::mutex> constructedLock(lock->constructed);
 	for (unsigned int idx = 0; idx < constructedReplicaList.Size(); idx++)
 	{
 		objectsTheyDoHave.Push(constructedReplicaList[idx]->replica, _FILE_AND_LINE_);
@@ -2212,6 +2222,7 @@ void Connection_RM3::GetConstructedReplicas(DataStructures::List<Replica3 *> &ob
 bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 {
 	bool objectExists;
+	std::lock_guard<std::mutex> constructedLock(lock->constructed);
 	constructedReplicaList.GetIndexFromKey(replica, &objectExists);
 	return objectExists;
 }
@@ -2534,7 +2545,10 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 	if (objectExists)
 	{
 		lsr = constructedReplicaList[idx];
-		constructedReplicaList.RemoveAtIndex(idx);
+		{
+			std::lock_guard<std::mutex> constructedLock(lock->constructed);
+			constructedReplicaList.RemoveAtIndex(idx);
+		}
 	}
 
 	for (idx = 0; idx < queryToConstructReplicaList.Size(); idx++)
@@ -2601,7 +2615,12 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 		queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
 	}
 
-	if (constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_) != (unsigned) -1)
+	unsigned int insertedAt;
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		insertedAt = constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	}
+	if (insertedAt != (unsigned) -1)
 	{
 		//assert(queryToSerializeReplicaList.GetIndexOf(replica3)==(unsigned int)-1);
 		queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
@@ -2657,7 +2676,10 @@ void Connection_RM3::OnConstructToThisConnection(unsigned int queryToConstructId
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
 	//assert(constructedReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	}
 	//assert(queryToDestructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
@@ -2675,7 +2697,10 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 
 	LastSerializationResult *lsr = MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
 	lsr->replica = replica;
-	constructedReplicaList.Insert(replica, lsr, true, _FILE_AND_LINE_);
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		constructedReplicaList.Insert(replica, lsr, true, _FILE_AND_LINE_);
+	}
 	queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
 }
 
@@ -2710,7 +2735,10 @@ void Connection_RM3::OnReplicaAlreadyExists(unsigned int queryToConstructIdx, Re
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
 	//assert(constructedReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	{
+		std::lock_guard<std::mutex> constructedLock(lock->constructed);
+		constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+	}
 	//assert(queryToDestructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
@@ -2766,7 +2794,10 @@ void Connection_RM3::OnSendDestructionFromQuery(unsigned int queryToDestructIdx,
 	{
 		if (constructedReplicaList[j]->replica == lsr->replica)
 		{
-			constructedReplicaList.RemoveAtIndex(j);
+			{
+				std::lock_guard<std::mutex> constructedLock(lock->constructed);
+				constructedReplicaList.RemoveAtIndex(j);
+			}
 			break;
 		}
 	}

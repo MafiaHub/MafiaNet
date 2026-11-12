@@ -491,7 +491,8 @@ TEST_F(ReplicaManager3SerializePass, DereferenceWaitsForStateBeingDeliveredAndSt
 		deliveredFirst = delivered; });
 	while (!started)
 		std::this_thread::yield();
-	// Long enough for a Dereference() that does not wait to have returned.
+	// Long enough for a Dereference() that does not wait to have returned. The pause can only make a broken
+	// Dereference() show: one that waits passes however the threads are scheduled.
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	release.set_value();
 	receive.join();
@@ -528,14 +529,99 @@ TEST_F(ReplicaManager3SerializePass, StateFromAnotherConnectionArrivesWhileThePa
 	inside.get_future().wait();
 	std::future<void> delivery = std::async(std::launch::async, [&]
 	                                        { manager.OnReceive(&packet); });
-	// Only a regression waits this out: the delivery would be stuck behind the pass.
-	const bool delivered = delivery.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+	// With the pass still stopped. A delivery that waits for the whole pass never returns from this, and the
+	// runner's per-test timeout reports the hang: no deadline here could tell slow from stuck.
+	delivery.get();
 	release.set_value();
 	pass.join();
-	delivery.wait();
 
-	EXPECT_TRUE(delivered) << "state from the second connection waited for the whole pass";
 	EXPECT_EQ(replica->deserializeCalls, 1);
+}
+
+// A Deserialize() that relays what it received asks who else holds the replica. It runs under its sender's
+// lock without the world, which the pass holds for as long as it runs: the question must not need it.
+TEST_F(ReplicaManager3SerializePass, DeserializeCanAskWhoHoldsAReplicaWhileThePassRuns)
+{
+	PassReplica *replica = AddReplica(false);
+	std::vector<PassConnection *> connections = AddConnections(2, {replica});
+	Tick();
+	Tick();
+	MafiaNet::BitStream state;
+	Packet packet;
+	FillStatePacket(state, packet, replica, connections[1]);
+
+	DataStructures::List<Connection_RM3 *> holders;
+	bool firstHoldsIt = false;
+	replica->onDeserialize = [&]
+	{
+		manager.GetConnectionsThatHaveReplicaConstructed(replica, holders);
+		firstHoldsIt = connections[0]->HasReplicaConstructed(replica);
+	};
+	std::promise<void> inside, release;
+	replica->value = 2;
+	replica->onSerialize = [&]
+	{
+		inside.set_value();
+		release.get_future().wait();
+	};
+	std::thread pass([&]
+	                 { Tick(); });
+	inside.get_future().wait();
+	// With the pass still stopped, as above: a query that waits for the world never returns.
+	std::thread([&]
+	            { manager.OnReceive(&packet); })
+	    .join();
+	release.set_value();
+	pass.join();
+
+	EXPECT_EQ(holders.Size(), 2u);
+	EXPECT_TRUE(firstHoldsIt);
+}
+
+// A connection can be in two worlds. Popped from one while its state for that world waits for its lock, it
+// is still in the other, and the state must not be delivered for the world it left.
+TEST_F(ReplicaManager3SerializePass, StateForAWorldItsConnectionLeftMeanwhileIsDropped)
+{
+	NetworkIDManager otherIds;
+	manager.AddWorld(1);
+	manager.SetNetworkIDManager(&otherIds, 1);
+	PassReplica *replica = AddReplica(false);
+	std::vector<PassConnection *> connections = AddConnections(1, {replica});
+	PassConnection *connection = connections[0];
+	manager.PushConnection(connection, 1);
+	Tick();
+	Tick();
+	MafiaNet::BitStream state;
+	Packet packet;
+	FillStatePacket(state, packet, replica, connection);
+
+	// The pass stops serving the connection, so holding its lock, and pops it from world 0 once the state is
+	// on its way to that lock.
+	std::promise<void> inside;
+	std::atomic<bool> sending{false};
+	replica->value = 2;
+	replica->onSerialize = [&]
+	{
+		inside.set_value();
+		while (!sending)
+			std::this_thread::yield();
+		// Long enough for the state to have found the connection and be waiting for it. The pause can only
+		// make a wrong delivery show: state that arrives after the pop finds no connection, and is dropped too.
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		manager.PopConnection(connection->GetRakNetGUID(), 0);
+	};
+	std::thread pass([&]
+	                 { Tick(); });
+	inside.get_future().wait();
+	std::thread receive([&]
+	                    {
+		sending = true;
+		manager.OnReceive(&packet); });
+	pass.join();
+	receive.join();
+	EXPECT_EQ(replica->deserializeCalls, 0) << "state was delivered for a world its connection had left";
+
+	manager.DeallocConnection(manager.PopConnection(connection->GetRakNetGUID(), 1));
 }
 
 // State a subclass received in a message of its own is delivered like a state message: it waits for the
@@ -564,13 +650,12 @@ TEST_F(ReplicaManager3SerializePass, StateInASubclassFormatArrivesWhileThePassSe
 		hadSender = state.GetConnection() == connections[1];
 		DeserializeParameters parameters;
 		reached = state.Deserialize(replica->GetNetworkID(), &parameters) && parameters.sourceConnection == connections[1]; });
-	// Only a regression waits this out: the delivery would be stuck behind the pass.
-	const bool delivered = delivery.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+	// With the pass still stopped. A delivery that waits for the whole pass never returns from this, and the
+	// runner's per-test timeout reports the hang: no deadline here could tell slow from stuck.
+	delivery.get();
 	release.set_value();
 	pass.join();
-	delivery.wait();
 
-	EXPECT_TRUE(delivered) << "state from the second connection waited for the whole pass";
 	EXPECT_TRUE(hadSender);
 	EXPECT_TRUE(reached);
 	EXPECT_EQ(replica->deserializeCalls, 1);
@@ -605,16 +690,11 @@ TEST_F(ReplicaManager3SerializePass, StateInASubclassFormatIsDroppedWithoutItsSe
 
 	const int sent = connections[0]->sendCalls;
 	replica->value = 3;
-	std::future<void> pass = std::async(std::launch::async, [&]
-	                                    { Tick(); });
-	// A pass stuck behind a lock that was kept never returns, and neither would this future's destructor: the
-	// test ends the process rather than hang there.
-	if (pass.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
-	{
-		ADD_FAILURE() << "the sender's lock was kept: the pass that follows never served it";
-		fflush(nullptr);
-		std::_Exit(1);
-	}
+	// On another thread, which a lock the deliveries above had kept would stop for good: the runner's per-test
+	// timeout reports that hang.
+	std::thread pass([&]
+	                 { Tick(); });
+	pass.join();
 	EXPECT_GT(connections[0]->sendCalls, sent);
 }
 
