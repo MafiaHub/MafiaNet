@@ -69,6 +69,21 @@ TEST(SimulatedPeer, ConnectHandshakeCompletes)
 	EXPECT_NE(client->GetMyGUID(), server->GetMyGUID());
 }
 
+TEST(SimulatedPeer, ConnectsOverIpv6)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeerV6(4, 4);
+	RakPeer *client = net.AddPeerV6(1);
+
+	ASSERT_TRUE(net.Connect(client, server, 2000));
+	EXPECT_EQ(6, client->GetSystemAddressFromGuid(server->GetMyGUID()).GetIPVersion());
+	EXPECT_EQ(6, server->GetSystemAddressFromGuid(client->GetMyGUID()).GetIPVersion());
+
+	SendNumbered(client, net.AddressOf(server), 42, 8);
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_TEST_PAYLOAD, 2000));
+	EXPECT_EQ(std::vector<uint32_t>{42}, NumbersReceived(net, server));
+}
+
 TEST(SimulatedPeer, ReliableOrderedSurvivesLossAndReordering)
 {
 	SimulatedNetwork net(42);

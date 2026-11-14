@@ -67,6 +67,9 @@ public:
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+	// A started peer bound to 2001:db8::<n> (RFC 3849 documentation prefix), port 0 picks one.
+	// The host counter is shared with AddPeer, so addresses never collide.
+	RakPeer *AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
 	// The same, but the peer is constructed in caller-owned storage (at least
 	// sizeof(RakPeer) bytes, suitably aligned) that must outlive this network.
 	// Lets a test pre-fill that memory to prove the constructor sets what it must.
@@ -135,7 +138,7 @@ private:
 
 	void Enqueue(const SystemAddress &from, const SystemAddress &to, const char *data, int length);
 	void DeliverDue();
-	RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port);
+	RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port, bool ipv6 = false);
 	const LinkRule &RuleFor(const SystemAddress &from, const SystemAddress &to) const;
 	uint32_t NextRandom();
 	static TimeUS VirtualClock();

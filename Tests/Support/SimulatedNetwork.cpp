@@ -86,6 +86,11 @@ RakPeer *SimulatedNetwork::AddPeer(unsigned int maxConnections, unsigned short m
 	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port);
 }
 
+RakPeer *SimulatedNetwork::AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming, unsigned short port)
+{
+	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port, true);
+}
+
 RakPeer *SimulatedNetwork::AddPeerInStorage(void *storage, unsigned int maxConnections, unsigned short maxIncoming,
                                             unsigned short port)
 {
@@ -95,13 +100,13 @@ RakPeer *SimulatedNetwork::AddPeerInStorage(void *storage, unsigned int maxConne
 }
 
 RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming,
-                                     unsigned short port)
+                                     unsigned short port, bool ipv6)
 {
 	peer->SetSocketFactory(this);
 	peer->SetManualUpdate(true);
 
 	char host[32];
-	std::snprintf(host, sizeof(host), "10.0.0.%u", (unsigned) nextHost++);
+	std::snprintf(host, sizeof(host), ipv6 ? "2001:db8::%x" : "10.0.0.%u", (unsigned) nextHost++);
 	// Skip the OS address enumeration: the peer reports this address as
 	// its own, so handshakes carry the same bytes on every machine.
 	peer->SetInternalID(SystemAddress(host, port ? port : 60000), 0);

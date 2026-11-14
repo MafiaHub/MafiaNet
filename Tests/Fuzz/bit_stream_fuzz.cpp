@@ -37,7 +37,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		if (!in.Read(op))
 			break;
 
-		switch (op % 20)
+		switch (op % 21)
 		{
 		case 0:
 		{
@@ -163,6 +163,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		{
 			unsigned char bytes[16];
 			in.ReadBits(bytes, op % 128, (op & 1) != 0);
+			break;
+		}
+		case 20:
+		{
+			SystemAddress address;
+			in.Read(address);
 			break;
 		}
 		}

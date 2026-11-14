@@ -91,3 +91,131 @@ TEST(BitStreamBounds, ReadDeltaAtTheEndOfTheStreamFailsAndLeavesTheValue)
 	EXPECT_FALSE(bs.ReadCompressedDelta(value));
 	EXPECT_EQ(1234u, value);
 }
+
+namespace
+{
+SystemAddress ParseAddress(const char *text)
+{
+	SystemAddress address;
+	EXPECT_TRUE(address.FromString(text));
+	return address;
+}
+
+// The documented wire form of an IPv6 address: bitwise-inverted bytes.
+void WriteV6(BitStream &bs, const unsigned char (&bytes)[16], unsigned char portHi, unsigned char portLo)
+{
+	bs.Write((unsigned char) 6);
+	for (unsigned char b : bytes)
+		bs.Write((unsigned char) ~b);
+	bs.Write(portHi);
+	bs.Write(portLo);
+}
+}
+
+TEST(BitStreamSystemAddress, Ipv6EncodesNineteenBytes)
+{
+	const SystemAddress address = ParseAddress("2001:db8::1|258");
+	BitStream bs;
+	bs.Write(address);
+	ASSERT_EQ(19u, bs.GetNumberOfBytesUsed());
+	EXPECT_EQ(19, SystemAddress::size());
+
+	const unsigned char *data = bs.GetData();
+	EXPECT_EQ(6, data[0]);
+	for (int i = 0; i < 16; ++i)
+		EXPECT_EQ((unsigned char) ~address.address.addr6.sin6_addr.s6_addr[i], data[1 + i]) << i;
+	EXPECT_EQ(0x01, data[17]);
+	EXPECT_EQ(0x02, data[18]);
+}
+
+TEST(BitStreamSystemAddress, Ipv6RoundTripDropsScope)
+{
+	const SystemAddress address = ParseAddress("fe80::1%1|5");
+	BitStream bs;
+	bs.Write(address);
+
+	SystemAddress out;
+	ASSERT_TRUE(bs.Read(out));
+	EXPECT_EQ(6, out.GetIPVersion());
+	EXPECT_EQ(0, memcmp(address.address.addr6.sin6_addr.s6_addr, out.address.addr6.sin6_addr.s6_addr, 16));
+	EXPECT_EQ(5, out.GetPort());
+	EXPECT_EQ(0u, out.address.addr6.sin6_scope_id);
+}
+
+TEST(BitStreamSystemAddress, TruncatedIpv6ReadFails)
+{
+	BitStream bs;
+	bs.Write((unsigned char) 6);
+	for (int i = 0; i < 10; ++i)
+		bs.Write((unsigned char) 0xAA);
+	const BitSize_t before = bs.GetNumberOfUnreadBits();
+
+	SystemAddress out;
+	EXPECT_FALSE(bs.Read(out));
+	// Only the version byte may have been consumed.
+	EXPECT_EQ(before - 8, bs.GetNumberOfUnreadBits());
+}
+
+TEST(BitStreamSystemAddress, TruncatedIpv4ReadFails)
+{
+	BitStream bs;
+	bs.Write((unsigned char) 4);
+	for (int i = 0; i < 3; ++i)
+		bs.Write((unsigned char) 0xAA);
+	SystemAddress out;
+	EXPECT_FALSE(bs.Read(out));
+}
+
+TEST(BitStreamSystemAddress, UnknownVersionReadFails)
+{
+	BitStream bs;
+	bs.Write((unsigned char) 5);
+	for (int i = 0; i < 18; ++i)
+		bs.Write((unsigned char) 0);
+	SystemAddress out;
+	EXPECT_FALSE(bs.Read(out));
+}
+
+TEST(BitStreamSystemAddress, MappedIpv6ReadBecomesIpv4)
+{
+	const unsigned char mapped[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 0, 2, 7};
+	BitStream bs;
+	WriteV6(bs, mapped, 0x01, 0x02);
+
+	SystemAddress out;
+	ASSERT_TRUE(bs.Read(out));
+	EXPECT_EQ(4, out.GetIPVersion());
+	char text[64];
+	out.ToString(false, text, sizeof(text));
+	EXPECT_STREQ("192.0.2.7", text);
+	EXPECT_EQ(258, out.GetPort());
+}
+
+TEST(BitStreamSystemAddress, MappedAddressIsWrittenInTheIpv4Form)
+{
+	SystemAddress mapped = ParseAddress("::ffff:192.0.2.7|258");
+	ASSERT_TRUE(mapped.IsIPv4Mapped());
+	BitStream bs;
+	bs.Write(mapped);
+	ASSERT_EQ(7u, bs.GetNumberOfBytesUsed());
+	EXPECT_EQ(4, bs.GetData()[0]);
+
+	SystemAddress out;
+	ASSERT_TRUE(bs.Read(out));
+	EXPECT_EQ(4, out.GetIPVersion());
+	EXPECT_EQ(258, out.GetPort());
+}
+
+TEST(BitStreamSystemAddress, Ipv4LayoutUnchanged)
+{
+	const SystemAddress address = ParseAddress("1.2.3.4|258");
+	BitStream bs;
+	bs.Write(address);
+	ASSERT_EQ(7u, bs.GetNumberOfBytesUsed());
+	const unsigned char expected[7] = {4, 0xFE, 0xFD, 0xFC, 0xFB, 0x01, 0x02};
+	EXPECT_EQ(0, memcmp(expected, bs.GetData(), 7));
+
+	SystemAddress out;
+	ASSERT_TRUE(bs.Read(out));
+	EXPECT_TRUE(out == address);
+}

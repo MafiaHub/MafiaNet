@@ -193,7 +193,7 @@ bool SystemAddress::operator<(const SystemAddress &right) const
 }
 int SystemAddress::size(void)
 {
-	return sizeof(sockaddr_in6) + sizeof(char);
+	return 1 + 16 + 2; // version byte + IPv6 address + port (IPv4 entries are shorter, see BitStream::Write)
 }
 unsigned long SystemAddress::ToInteger(const SystemAddress &sa)
 {
