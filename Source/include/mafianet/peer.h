@@ -1019,6 +1019,10 @@ protected:
 		uint32_t raceGroup = 0;
 		MafiaNet::TimeMS nextCandidateTime = 0;
 		SystemAddress raceFirstAddress;
+		// Set by CancelConnectionAttempt (any thread, under requestedConnectionQueueMutex). Only the
+		// network thread removes and frees requests: it drops a cancelled one, silently, the next time
+		// it looks at it. Every lookup treats a cancelled request as absent.
+		bool cancelled = false;
 		enum
 		{
 			CONNECT = 1,
@@ -1059,11 +1063,11 @@ protected:
 	SimpleMutex requestedConnectionQueueMutex;
 	// The next Happy Eyeballs raceGroup to hand out (never 0). Guarded by requestedConnectionQueueMutex.
 	uint32_t nextRaceGroup;
-	// Does \a rcs answer to \a address: its own, or its race's first candidate's?
+	// Does \a rcs answer to \a address: its own, or its race's first candidate's? Never when cancelled.
 	static bool RequestMatches(const RequestedConnectionStruct *rcs, const SystemAddress &address);
 	// Frees \a rcs and what it owns. It must already be out of requestedConnectionQueue.
 	static void DeleteRequestedConnection(RequestedConnectionStruct *rcs);
-	// Requires requestedConnectionQueueMutex. Removes and frees every other candidate of \a keep's race.
+	// Requires requestedConnectionQueueMutex, network thread only. Removes and frees every other candidate of \a keep's race.
 	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
 	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the
 	// next unstarted one now (later ones keep their spacing). Returns whether any candidate is left.

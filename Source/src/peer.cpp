@@ -1734,34 +1734,35 @@ void RakPeer::CancelConnectionAttempt(const SystemAddress target)
 
 	// Cancel pending connection attempt, if there is one. Any candidate of a
 	// Happy Eyeballs race, or the race's first address, cancels the whole race.
-	i = 0;
+	//
+	// This may run on any thread while the network thread is using a request
+	// with the queue unlocked, so nothing is freed here: the requests are only
+	// flagged, and the network thread drops them (see RunUpdateCycle).
 	requestedConnectionQueueMutex.Lock();
-	while (i < requestedConnectionQueue.Size())
+	for (i = 0; i < requestedConnectionQueue.Size(); i++)
 	{
 		RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
 		if (RequestMatches(rcs, target))
 		{
+			rcs->cancelled = true;
 			if (rcs->raceGroup != 0)
-				CancelRaceSiblings_NoLock(rcs);
-			for (unsigned int k = 0; k < requestedConnectionQueue.Size(); k++)
 			{
-				if (requestedConnectionQueue[k] == rcs)
+				for (unsigned int k = 0; k < requestedConnectionQueue.Size(); k++)
 				{
-					requestedConnectionQueue.RemoveAtIndex(k);
-					break;
+					if (requestedConnectionQueue[k]->raceGroup == rcs->raceGroup)
+						requestedConnectionQueue[k]->cancelled = true;
 				}
 			}
-			DeleteRequestedConnection(rcs);
 			break;
 		}
-		else
-			i++;
 	}
 	requestedConnectionQueueMutex.Unlock();
 }
 
 bool RakPeer::RequestMatches(const RequestedConnectionStruct *rcs, const SystemAddress &address)
 {
+	if (rcs->cancelled)
+		return false;
 	return rcs->systemAddress == address || (rcs->raceGroup != 0 && rcs->raceFirstAddress == address);
 }
 
@@ -1805,7 +1806,7 @@ bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::TimeMS now)
 	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
 	{
 		const RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
-		if (rcs->raceGroup != raceGroup)
+		if (rcs->raceGroup != raceGroup || rcs->cancelled)
 			continue;
 		anyLeft = true;
 		if (rcs->requestsMade == 0 && (!anyUnstarted || rcs->nextCandidateTime < earliest))
@@ -3716,7 +3717,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	requestedConnectionQueueMutex.Lock();
 	for (; i < requestedConnectionQueue.Size(); i++)
 	{
-		if (requestedConnectionQueue[i]->systemAddress == systemAddress)
+		if (RequestMatches(requestedConnectionQueue[i], systemAddress))
 		{
 			requestedConnectionQueueMutex.Unlock();
 			// Not necessary
@@ -5334,7 +5335,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			{
 				RakPeer::RequestedConnectionStruct *rcs;
 				rcs = rakPeer->requestedConnectionQueue[i];
-				if (rcs->systemAddress == systemAddress)
+				if (rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
 					// Happy Eyeballs: the first candidate to answer wins the race.
 					// Every path below returns, so the shifted indices do not matter.
@@ -5480,7 +5481,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				rcs = rakPeer->requestedConnectionQueue[i];
 
 
-				if (rcs->systemAddress == systemAddress)
+				if (rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
 #if LIBCAT_SECURITY == 1
 					CAT_AUDIT_PRINTF("AUDIT: System address matches an entry in the requestedConnectionQueue and doSecurity=%i\n", (int) doSecurity);
@@ -5615,7 +5616,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					rakPeer->requestedConnectionQueueMutex.Lock();
 					for (unsigned int k = 0; k < rakPeer->requestedConnectionQueue.Size(); k++)
 					{
-						if (rakPeer->requestedConnectionQueue[k]->systemAddress == systemAddress)
+						if (rakPeer->requestedConnectionQueue[k] == rcs)
 						{
 							rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
 							break;
@@ -5664,7 +5665,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			for (i = 0; i < rakPeer->requestedConnectionQueue.Size(); i++)
 			{
 				rcs = rakPeer->requestedConnectionQueue[i];
-				if (rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT && rcs->systemAddress == systemAddress)
+				if (rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT && rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
 					connectionAttemptCancelled = true;
 					// A rejection from the server ends a Happy Eyeballs race: report
@@ -6350,6 +6351,13 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		{
 			RequestedConnectionStruct *rcs;
 			rcs = requestedConnectionQueue[requestedConnectionQueueIndex];
+			if (rcs->cancelled)
+			{
+				// CancelConnectionAttempt flagged it; this thread is the one that frees requests.
+				requestedConnectionQueue.RemoveAtIndex(requestedConnectionQueueIndex);
+				DeleteRequestedConnection(rcs);
+				continue;
+			}
 			requestedConnectionQueueMutex.Unlock();
 			// A Happy Eyeballs candidate that has not started waits for its turn.
 			const bool waitingForTurn = rcs->raceGroup != 0 && rcs->requestsMade == 0 && timeMS < rcs->nextCandidateTime;
@@ -6372,7 +6380,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							break;
 						}
 					}
-					if (rcs->raceGroup != 0)
+					if (rcs->cancelled)
+						reportFailure = false; // cancelled meanwhile: no message
+					else if (rcs->raceGroup != 0)
 					{
 						// One candidate of a race gave up. The race only fails, once,
 						// when its last candidate does; until then the next one starts now.

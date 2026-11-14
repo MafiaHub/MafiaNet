@@ -243,6 +243,82 @@ TEST(HappyEyeballs, CancelStopsWholeRace)
 	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 0u);
 }
 
+TEST(HappyEyeballs, ReconnectRightAfterCancelStartsAFreshRace)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeerDualStack(4, 4);
+	RakPeer *client = net.AddPeerDualStack(1);
+	const SystemAddress server6 = net.AddressOf(server, 6);
+	const SystemAddress server4 = net.AddressOf(server, 4);
+	net.SetLinkBothWays(net.AddressOf(client, 6), server6, Dark());
+	net.AddHostName("srv.test", {server6, server4});
+
+	RequestLog log;
+	log.Attach(net);
+
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	net.Step(100);
+	client->CancelConnectionAttempt(server6);
+	// The cancelled race is gone as far as the caller can tell, before the
+	// network thread has even dropped it.
+	EXPECT_NE(client->GetConnectionState(server6), IS_PENDING);
+	const TimeUS reconnectAt = net.Now();
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	EXPECT_EQ(client->GetConnectionState(server6), IS_PENDING);
+
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
+	net.Step(15000);
+
+	// The new race's IPv4 candidate started on its own schedule, and only once.
+	const RequestLog::Entry *first4 = log.FirstTo(server4);
+	ASSERT_NE(first4, nullptr);
+	EXPECT_GE((first4->at - reconnectAt) / 1000, (TimeUS) RakPeer::HAPPY_EYEBALLS_ATTEMPT_DELAY_MS);
+	EXPECT_EQ(log.CountTo(server4), 1u);
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_REQUEST_ACCEPTED), 1u);
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 0u);
+	EXPECT_EQ(Count(net, server, ID_NEW_INCOMING_CONNECTION), 1u);
+	EXPECT_EQ(server->NumberOfConnections(), 1u);
+	EXPECT_EQ(client->NumberOfConnections(), 1u);
+}
+
+TEST(HappyEyeballs, ServerRejectionEndsTheRace)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeerDualStack(4, 4);
+	RakPeer *client = net.AddPeerDualStack(1);
+	const SystemAddress server6 = net.AddressOf(server, 6);
+	const SystemAddress server4 = net.AddressOf(server, 4);
+	const SystemAddress client6 = net.AddressOf(client, 6);
+	// IPv6 answers at ~400 ms, after the IPv4 candidate started (250 ms) but
+	// long before IPv4 could answer (~2250 ms).
+	net.SetLinkBothWays(client6, server6, Delay(200));
+	net.SetLinkBothWays(net.AddressOf(client, 4), server4, Delay(1000));
+	net.AddHostName("srv.test", {server6, server4});
+
+	char client6Ip[64];
+	client6.ToString(false, client6Ip, sizeof(client6Ip));
+	server->AddToBanList(client6Ip);
+
+	RequestLog log;
+	log.Attach(net);
+
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_BANNED, 5000));
+	const TimeUS bannedAt = net.Now();
+	ASSERT_GE(log.CountTo(server4), 1u) << "the IPv4 candidate should have started before the rejection";
+	net.Step(15000);
+
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_BANNED), 1u);
+	EXPECT_TRUE(net.Find(client, ID_CONNECTION_BANNED)->systemAddress == server6);
+	for (const RequestLog::Entry &e : log.entries)
+		EXPECT_LT(e.at, bannedAt) << "request to " << e.to.ToString(true) << " after the rejection";
+	EXPECT_TRUE(log.secondRequests.empty());
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_ATTEMPT_FAILED), 0u);
+	EXPECT_EQ(Count(net, client, ID_CONNECTION_REQUEST_ACCEPTED), 0u);
+	EXPECT_EQ(Count(net, server, ID_NEW_INCOMING_CONNECTION), 0u);
+	EXPECT_NE(client->GetConnectionState(server6), IS_PENDING);
+}
+
 TEST(HappyEyeballs, LiteralAddressNotRaced)
 {
 	SimulatedNetwork net;
