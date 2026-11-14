@@ -235,6 +235,7 @@ struct RAK_DLL_EXPORT SystemAddress
 	/// \param[in] portDelineator if \a str contains a port, delineate the port with this character. portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	/// \param[in] ipVersion Only used if str is a pre-defined address in the wrong format, such as 127.0.0.1 but you want ip version 6, so you can pass 6 here to do the conversion
 	/// \note The current port is unchanged if a port is not specified in \a str
+	/// \note An IPv4-mapped IPv6 address (::ffff:a.b.c.d) is stored as the plain IPv4 address, the form sockets report that peer in
 	/// \return True on success, false on ipVersion does not match type of passed string
 	bool FromString(const char *str, char portDelineator = '|', int ipVersion = 0);
 

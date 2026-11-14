@@ -16,8 +16,15 @@
 #include "mafianet/socket_layer.h"
 #include "mafianet/types.h"
 
+#include <cstring>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#include <ws2tcpip.h> // inet_pton, htons
+#else
+#include <arpa/inet.h> // inet_pton, htons
+#endif
 
 using namespace MafiaNet;
 
@@ -28,6 +35,22 @@ SystemAddress Addr(const char *ip, unsigned short port = 0)
 	SystemAddress sa;
 	EXPECT_TRUE(sa.FromString(ip)) << ip;
 	sa.SetPortHostOrder(port);
+	return sa;
+}
+
+// ::ffff:<ipv4>, built directly: FromString canonicalizes a mapped literal to AF_INET.
+SystemAddress MappedAddress(const char *ipv4, unsigned short port)
+{
+	SystemAddress sa;
+	sockaddr_in6 mapped;
+	memset(&mapped, 0, sizeof(mapped));
+	mapped.sin6_family = AF_INET6;
+	mapped.sin6_port = htons(port);
+	mapped.sin6_addr.s6_addr[10] = 0xff;
+	mapped.sin6_addr.s6_addr[11] = 0xff;
+	EXPECT_EQ(inet_pton(AF_INET, ipv4, &mapped.sin6_addr.s6_addr[12]), 1);
+	memcpy(&sa.address.addr6, &mapped, sizeof(mapped));
+	sa.debugPort = port;
 	return sa;
 }
 
@@ -68,7 +91,7 @@ TEST(LocalAddressOrder, LinkLocalDropped)
 
 TEST(LocalAddressOrder, MappedAndUnassignedDropped)
 {
-	std::vector<SystemAddress> list = {Addr("::ffff:192.0.2.7"), UNASSIGNED_SYSTEM_ADDRESS, Addr("2001:db8::9"), Addr("172.16.0.1")};
+	std::vector<SystemAddress> list = {MappedAddress("192.0.2.7", 0), UNASSIGNED_SYSTEM_ADDRESS, Addr("2001:db8::9"), Addr("172.16.0.1")};
 
 	const int n = SocketLayer::OrderInternalIds(list.data(), (int) list.size());
 

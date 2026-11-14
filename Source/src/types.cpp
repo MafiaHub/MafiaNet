@@ -647,6 +647,9 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 	{
 		address.addr4.sin_family = AF_INET6;
 		memcpy(&address.addr6, (struct sockaddr_in6 *) servinfo->ai_addr, sizeof(struct sockaddr_in6));
+		// A typed ::ffff:a.b.c.d is the IPv4 host. Keep it canonical: sockets
+		// report that peer as plain AF_INET, so this must compare equal to it.
+		UnmapIPv4();
 	}
 
 	freeaddrinfo(servinfo); // free the linked list

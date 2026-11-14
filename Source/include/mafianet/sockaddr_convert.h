@@ -49,10 +49,10 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 ///
 /// Otherwise \a socketFamily, the socket's own family, filters targets of the
 /// other family: an IPv6 target on an AF_INET socket, or an IPv4 target on an
-/// IPv6-only socket, returns 0. AF_UNSPEC (the default) means the family is
-/// unknown and nothing is filtered. A target that is neither AF_INET nor
-/// AF_INET6 always returns 0.
-socklen_t SystemAddressToSockaddr(const SystemAddress &to, bool socketIsDualStack, sockaddr_storage *out, int socketFamily = AF_UNSPEC);
+/// IPv6-only socket, returns 0. AF_UNSPEC means the family is unknown and
+/// nothing is filtered. A target that is neither AF_INET nor AF_INET6 always
+/// returns 0.
+socklen_t SystemAddressToSockaddr(const SystemAddress &to, bool socketIsDualStack, sockaddr_storage *out, int socketFamily);
 
 } // namespace MafiaNet
 

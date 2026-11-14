@@ -119,7 +119,7 @@ TEST(SockaddrConvert, UnknownSocketFamilyOnlyAppliesMapping)
 	// AF_UNSPEC: the caller does not know the socket's family, so nothing is
 	// rejected -- the address is passed through as-is.
 	sockaddr_storage out;
-	EXPECT_EQ(SystemAddressToSockaddr(V4Address("192.0.2.7", 4660), false, &out), (socklen_t) sizeof(sockaddr_in));
+	EXPECT_EQ(SystemAddressToSockaddr(V4Address("192.0.2.7", 4660), false, &out, AF_UNSPEC), (socklen_t) sizeof(sockaddr_in));
 }
 
 TEST(SockaddrConvert, UndecodableTargetFamilyRejected)

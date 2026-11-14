@@ -14,6 +14,12 @@
 
 #include "mafianet/bit_stream.h"
 
+#ifdef _WIN32
+#include <ws2tcpip.h> // inet_pton, htons
+#else
+#include <arpa/inet.h> // inet_pton, htons
+#endif
+
 using namespace MafiaNet;
 
 namespace
@@ -193,7 +199,14 @@ TEST(BitStreamSystemAddress, MappedIpv6ReadBecomesIpv4)
 
 TEST(BitStreamSystemAddress, MappedAddressIsWrittenInTheIpv4Form)
 {
-	SystemAddress mapped = ParseAddress("::ffff:192.0.2.7|258");
+	// Built directly: FromString canonicalizes a mapped literal to AF_INET.
+	SystemAddress mapped;
+	sockaddr_in6 raw;
+	memset(&raw, 0, sizeof(raw));
+	raw.sin6_family = AF_INET6;
+	raw.sin6_port = htons(258);
+	ASSERT_EQ(inet_pton(AF_INET6, "::ffff:192.0.2.7", &raw.sin6_addr), 1);
+	memcpy(&mapped.address.addr6, &raw, sizeof(raw));
 	ASSERT_TRUE(mapped.IsIPv4Mapped());
 	BitStream bs;
 	bs.Write(mapped);

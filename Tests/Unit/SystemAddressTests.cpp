@@ -13,6 +13,12 @@
 #include <map>
 #include <string>
 
+#ifdef _WIN32
+#include <ws2tcpip.h> // inet_pton, htons
+#else
+#include <arpa/inet.h> // inet_pton, htons
+#endif
+
 using namespace MafiaNet;
 
 TEST(SystemAddressOrdering, Ipv6LessIsIrreflexiveAndAsymmetric)
@@ -112,10 +118,32 @@ TEST(SystemAddressLoopback, Ipv6LoopbackDetected)
 	EXPECT_STREQ(sa.ToString(false), "::1");
 }
 
+TEST(SystemAddressParse, MappedLiteralIsCanonicalIpv4)
+{
+	// A typed ::ffff:a.b.c.d is the IPv4 host: replies from it arrive as plain
+	// AF_INET, so the parsed address must compare equal to that.
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromString("::ffff:203.0.113.5|60000"));
+	EXPECT_EQ(sa.GetIPVersion(), 4);
+	EXPECT_FALSE(sa.IsIPv4Mapped());
+	EXPECT_TRUE(sa == SystemAddress("203.0.113.5", 60000));
+
+	SystemAddress explicitPort;
+	ASSERT_TRUE(explicitPort.FromStringExplicitPort("::ffff:203.0.113.5", 60000, 6));
+	EXPECT_EQ(explicitPort.GetIPVersion(), 4);
+	EXPECT_TRUE(explicitPort == SystemAddress("203.0.113.5", 60000));
+}
+
 TEST(SystemAddressMapped, UnmapConvertsToIpv4)
 {
+	// FromString canonicalizes mapped literals, so build the mapped form directly.
 	SystemAddress sa;
-	ASSERT_TRUE(sa.FromString("::ffff:192.0.2.7|99"));
+	sockaddr_in6 mapped;
+	memset(&mapped, 0, sizeof(mapped));
+	mapped.sin6_family = AF_INET6;
+	mapped.sin6_port = htons(99);
+	ASSERT_EQ(inet_pton(AF_INET6, "::ffff:192.0.2.7", &mapped.sin6_addr), 1);
+	memcpy(&sa.address.addr6, &mapped, sizeof(mapped));
 	EXPECT_TRUE(sa.IsIPv4Mapped());
 	sa.UnmapIPv4();
 	EXPECT_EQ(sa.GetIPVersion(), 4);
