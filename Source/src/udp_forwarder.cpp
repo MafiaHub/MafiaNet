@@ -192,23 +192,13 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 {
 	char data[MAXIMUM_MTU_SIZE];
 
-#if RAKNET_SUPPORT_IPV6 == 1
 	sockaddr_storage their_addr;
 	memset(&their_addr, 0, sizeof(their_addr));
 	sockaddr *sockAddrPtr;
 	socklen_t sockLen;
 	socklen_t *socketlenPtr = (socklen_t *) &sockLen;
-	sockaddr_in *sockAddrIn;
-	sockaddr_in6 *sockAddrIn6;
 	sockLen = sizeof(their_addr);
 	sockAddrPtr = (sockaddr *) &their_addr;
-#else
-	sockaddr_in sockAddrIn;
-	memset(&sockAddrIn, 0, sizeof(sockaddr_in));
-	socklen_t len2;
-	len2 = sizeof(sockAddrIn);
-	sockAddrIn.sin_family = AF_INET;
-#endif
 
 #if defined(__GNUC__)
 #if defined(MSG_DONTWAIT)
@@ -223,11 +213,7 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 	int receivedDataLen, len = 0;
 	//unsigned short portnum=0;
 
-#if RAKNET_SUPPORT_IPV6 == 1
 	receivedDataLen = recvfrom__(forwardEntry->socket, data, MAXIMUM_MTU_SIZE, flag, sockAddrPtr, socketlenPtr);
-#else
-	receivedDataLen = recvfrom__(forwardEntry->socket, data, MAXIMUM_MTU_SIZE, flag, (sockaddr *) &sockAddrIn, (socklen_t *) &len2);
-#endif
 
 	if (receivedDataLen < 0)
 	{
@@ -262,22 +248,12 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 		return;
 
 	SystemAddress receivedAddr;
-#if RAKNET_SUPPORT_IPV6 == 1
 	if (their_addr.ss_family == AF_INET)
-	{
-		sockAddrIn = (sockaddr_in *) &their_addr;
-		sockAddrIn6 = 0;
-		memcpy(&receivedAddr.address.addr4, sockAddrIn, sizeof(sockaddr_in));
-	}
+		memcpy(&receivedAddr.address.addr4, (sockaddr_in *) &their_addr, sizeof(sockaddr_in));
 	else
-	{
-		sockAddrIn = 0;
-		sockAddrIn6 = (sockaddr_in6 *) &their_addr;
-		memcpy(&receivedAddr.address.addr6, sockAddrIn6, sizeof(sockaddr_in6));
-	}
-#else
-	memcpy(&receivedAddr.address.addr4, &sockAddrIn, sizeof(sockaddr_in));
-#endif
+		memcpy(&receivedAddr.address.addr6, (sockaddr_in6 *) &their_addr, sizeof(sockaddr_in6));
+	// An IPv4 peer seen through an IPv6 socket is a mapped address: compare it canonically
+	receivedAddr.UnmapIPv4();
 	//portnum=receivedAddr.GetPort();
 
 	SystemAddress forwardTarget;
@@ -332,7 +308,6 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 	{
 
 
-#if RAKNET_SUPPORT_IPV6 == 1
 		if (forwardTarget.address.addr4.sin_family == AF_INET)
 		{
 			do
@@ -347,12 +322,6 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 				len = sendto__(forwardEntry->socket, data, receivedDataLen, 0, (const sockaddr *) &forwardTarget.address.addr6, sizeof(sockaddr_in6));
 			} while (len == 0);
 		}
-#else
-		do
-		{
-			len = sendto__(forwardEntry->socket, data, receivedDataLen, 0, (const sockaddr *) &forwardTarget.address.addr4, sizeof(sockaddr_in));
-		} while (len == 0);
-#endif
 
 
 	} while (len == 0);
@@ -403,38 +372,11 @@ void UDPForwarder::UpdateUDPForwarder(void)
 			if (sfos.result == UDPFORWARDER_RESULT_COUNT)
 			{
 				int sock_opt;
-				sockaddr_in listenerSocketAddress;
-				listenerSocketAddress.sin_port = 0;
 				ForwardEntry *fe = MafiaNet::OP_NEW<UDPForwarder::ForwardEntry>(_FILE_AND_LINE_);
 				fe->addr1Unconfirmed = sfis->source;
 				fe->addr2Unconfirmed = sfis->destination;
 				fe->timeoutOnNoDataMS = sfis->timeoutOnNoDataMS;
 
-#if RAKNET_SUPPORT_IPV6 != 1
-				fe->socket = socket__(AF_INET, SOCK_DGRAM, 0);
-				listenerSocketAddress.sin_family = AF_INET;
-				if (sfis->forceHostAddress.IsEmpty() == false)
-				{
-
-
-					inet_pton(AF_INET, sfis->forceHostAddress.C_String(), &listenerSocketAddress.sin_addr.s_addr);
-				}
-				else
-				{
-					listenerSocketAddress.sin_addr.s_addr = INADDR_ANY;
-				}
-				int ret = bind__(fe->socket, (struct sockaddr *) &listenerSocketAddress, sizeof(listenerSocketAddress));
-				if (ret == -1)
-				{
-					MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
-					sfos.result = UDPFORWARDER_BIND_FAILED;
-				}
-				else
-				{
-					sfos.result = UDPFORWARDER_SUCCESS;
-				}
-
-#else  // RAKNET_SUPPORT_IPV6==1
 				struct addrinfo hints;
 				memset(&hints, 0, sizeof(addrinfo)); // make sure the struct is empty
 				hints.ai_family = sfis->socketFamily;
@@ -442,10 +384,13 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				hints.ai_flags = AI_PASSIVE;         // fill in my IP for me
 				struct addrinfo *servinfo = 0, *aip; // will point to the results
 
+				int gaiResult;
 				if (sfis->forceHostAddress.IsEmpty() || sfis->forceHostAddress == "UNASSIGNED_SYSTEM_ADDRESS")
-					getaddrinfo(0, "0", &hints, &servinfo);
+					gaiResult = getaddrinfo(0, "0", &hints, &servinfo);
 				else
-					getaddrinfo(sfis->forceHostAddress.C_String(), "0", &hints, &servinfo);
+					gaiResult = getaddrinfo(sfis->forceHostAddress.C_String(), "0", &hints, &servinfo);
+				if (gaiResult != 0)
+					servinfo = 0;
 
 				for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
 				{
@@ -454,6 +399,13 @@ void UDPForwarder::UpdateUDPForwarder(void)
 					fe->socket = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
 					if (fe->socket != INVALID_SOCKET)
 					{
+						if (aip->ai_family == AF_INET6)
+						{
+							// Always explicit, never the OS default: an explicit AF_INET6
+							// request is IPv6 only, AF_UNSPEC also serves mapped IPv4.
+							int v6only = (sfis->socketFamily == AF_INET6) ? 1 : 0;
+							setsockopt__(fe->socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
+						}
 						int ret = bind__(fe->socket, aip->ai_addr, (int) aip->ai_addrlen);
 						if (ret >= 0)
 						{
@@ -468,13 +420,13 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				}
 
 				// Release address info after we have used it
-				freeaddrinfo(servinfo);
+				if (servinfo)
+					freeaddrinfo(servinfo);
 
 				if (fe->socket == INVALID_SOCKET)
 					sfos.result = UDPFORWARDER_BIND_FAILED;
 				else
 					sfos.result = UDPFORWARDER_SUCCESS;
-#endif // RAKNET_SUPPORT_IPV6==1
 
 				if (sfos.result == UDPFORWARDER_SUCCESS)
 				{
@@ -495,6 +447,11 @@ void UDPForwarder::UpdateUDPForwarder(void)
 #endif
 
 					forwardListNotUpdated.Insert(fe, _FILE_AND_LINE_);
+				}
+				else
+				{
+					// Binding failed: the entry was never registered, do not leak it
+					MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
 				}
 			}
 		}

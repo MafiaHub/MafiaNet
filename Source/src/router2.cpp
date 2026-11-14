@@ -951,9 +951,7 @@ void Router2::SendOOBFromSpecifiedSocket(OutOfBandIdentifiers oob, SystemAddress
 	}
 	else
 	{
-#if RAKNET_SUPPORT_IPV6 == 1
 		sendto__(socket, (const char *) bs.GetData(), bs.GetNumberOfBytesUsed(), 0, (const sockaddr *) &sa.address.addr6, sizeof(sockaddr_in6));
-#endif
 	}
 }
 void Router2::SendOOBMessages(Router2::MiniPunchRequest *mpr)

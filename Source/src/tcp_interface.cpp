@@ -97,64 +97,44 @@ TCPInterface::~TCPInterface()
 
 bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
 {
-	(void) maxIncomingConnections;
-	(void) socketFamily;
-#if RAKNET_SUPPORT_IPV6 != 1
-	listenSocket = socket__(AF_INET, SOCK_STREAM, 0);
-	if ((int) listenSocket == -1)
-		return false;
-
-	struct sockaddr_in serverAddress;
-	memset(&serverAddress, 0, sizeof(sockaddr_in));
-	serverAddress.sin_family = AF_INET;
-	if (bindAddress && bindAddress[0])
-	{
-
-
-		inet_pton(AF_INET, bindAddress, &serverAddress.sin_addr.s_addr);
-	}
-	else
-		serverAddress.sin_addr.s_addr = INADDR_ANY;
-
-	serverAddress.sin_port = htons(port);
-
-	SocketLayer::SetSocketOptions(listenSocket, false, false);
-
-	if (bind__(listenSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
-		return false;
-
-	listen__(listenSocket, maxIncomingConnections);
-#else
-	(void) bindAddress;
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(addrinfo)); // make sure the struct is empty
-	hints.ai_family = socketFamily;      // don't care IPv4 or IPv6
+	hints.ai_family = socketFamily;      // AF_INET, AF_INET6 or AF_UNSPEC
 	hints.ai_socktype = SOCK_STREAM;     // TCP sockets
-	hints.ai_flags = AI_PASSIVE;         // fill in my IP for me
+	hints.ai_flags = AI_PASSIVE;         // wildcard address when bindAddress is empty
 	struct addrinfo *servinfo = 0, *aip; // will point to the results
 	char portStr[32];
 	Itoa(port, portStr, 10);
 
-	getaddrinfo(0, portStr, &hints, &servinfo);
+	const char *host = (bindAddress && bindAddress[0]) ? bindAddress : nullptr;
+	if (getaddrinfo(host, portStr, &hints, &servinfo) != 0)
+		return false;
+
+	listenSocket = 0;
 	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
 	{
 		// Open socket. The address type depends on what
 		// getaddrinfo() gave us.
-		listenSocket = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
-		if (listenSocket != 0)
+		__TCPSOCKET__ candidate = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
+		if (candidate == INVALID_SOCKET)
+			continue;
+
+		if (aip->ai_family == AF_INET6)
 		{
-			int ret = bind__(listenSocket, aip->ai_addr, (int) aip->ai_addrlen);
-			if (ret >= 0)
-			{
-				break;
-			}
-			else
-			{
-				closesocket__(listenSocket);
-				listenSocket = 0;
-			}
+			// Always explicit, never the OS default: an explicit AF_INET6 request
+			// is IPv6 only, AF_UNSPEC accepts IPv4 clients as mapped addresses too.
+			int v6only = (socketFamily == AF_INET6) ? 1 : 0;
+			setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
 		}
+
+		if (bind__(candidate, aip->ai_addr, (int) aip->ai_addrlen) >= 0)
+		{
+			listenSocket = candidate;
+			break;
+		}
+		closesocket__(candidate);
 	}
+	freeaddrinfo(servinfo);
 
 	if (listenSocket == 0)
 		return false;
@@ -162,15 +142,12 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 	SocketLayer::SetSocketOptions(listenSocket, false, false);
 
 	listen__(listenSocket, maxIncomingConnections);
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 
 	return true;
 }
 
 bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnections, unsigned short maxConnections, int _threadPriority, unsigned short socketFamily, const char *bindAddress)
 {
-	(void) socketFamily;
-
 	if (isStarted.GetValue() > 0)
 		return false;
 
@@ -201,7 +178,14 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	listenSocket = 0;
 	if (maxIncomingConnections > 0)
 	{
-		CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress);
+		if (CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress) == false)
+		{
+			isStarted.Decrement();
+			MafiaNet::OP_DELETE_ARRAY(remoteClients, _FILE_AND_LINE_);
+			remoteClients = 0;
+			remoteClientsLength = 0;
+			return false;
+		}
 	}
 
 
@@ -270,7 +254,11 @@ void TCPInterface::Stop(void)
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i = 0; i < remoteClientsLength; i++)
 	{
-		closesocket__(remoteClients[i].socket);
+		// 0 marks an unused slot; closing it would close the process's stdin
+		// and let the next socket() return descriptor 0, which this class
+		// treats as "no socket".
+		if (remoteClients[i].socket != 0)
+			closesocket__(remoteClients[i].socket);
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 		remoteClients[i].FreeSSL();
 #endif
@@ -753,85 +741,61 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 }
 __TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress)
 {
-	int connectResult;
-	(void) connectResult;
-	(void) socketFamily;
+	struct addrinfo hints, *res = nullptr;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = socketFamily;
+	hints.ai_socktype = SOCK_STREAM;
+	char portStr[32];
+	Itoa(remotePort, portStr, 10);
+	if (getaddrinfo(host, portStr, &hints, &res) != 0 || res == nullptr)
+		return 0;
 
-#if RAKNET_SUPPORT_IPV6 != 1
-	sockaddr_in serverAddress;
-
-	struct addrinfo *curAddress = nullptr;
-	int err = getaddrinfo(host, nullptr, nullptr, &curAddress);
-
-	// #med This should also work with IPv6 addresses in principle. However the old code in RakNet only worked with IPv4. Hence this behavior change won't be in MaxNet 0.1.
-	// get the (first) IPv4 address
-	while (curAddress != nullptr)
+	__TCPSOCKET__ sockfd = socket__(res->ai_family, res->ai_socktype, res->ai_protocol);
+	if (sockfd == INVALID_SOCKET)
 	{
-		if (curAddress->ai_family == AF_INET)
-		{
-			break; // found an IPv4 address
-		}
-		curAddress = curAddress->ai_next;
+		freeaddrinfo(res);
+		return 0;
 	}
 
-	if (curAddress == nullptr)
-		return 0;
+	if (res->ai_family == AF_INET6)
+	{
+		// Always explicit, never the OS default. The peer is a single remote
+		// address, so IPv6 only loses nothing.
+		int v6only = 1;
+		setsockopt__(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
+	}
 
-	if (err != 0)
-		return 0;
-
-
-	__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0)
-		return 0;
-
-	memset(&serverAddress, 0, sizeof(serverAddress));
-	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_port = htons(remotePort);
-
-
+	// Optional local address to connect from, in the family of the remote one
 	if (bindAddress && bindAddress[0])
 	{
-
-
-		inet_pton(AF_INET, bindAddress, &serverAddress.sin_addr.s_addr);
+		struct addrinfo bindHints, *bindRes = nullptr;
+		memset(&bindHints, 0, sizeof bindHints);
+		bindHints.ai_family = res->ai_family;
+		bindHints.ai_socktype = SOCK_STREAM;
+		bindHints.ai_flags = AI_PASSIVE;
+		if (getaddrinfo(bindAddress, "0", &bindHints, &bindRes) != 0 || bindRes == nullptr ||
+		    bind__(sockfd, bindRes->ai_addr, (int) bindRes->ai_addrlen) < 0)
+		{
+			if (bindRes)
+				freeaddrinfo(bindRes);
+			freeaddrinfo(res);
+			closesocket__(sockfd);
+			return 0;
+		}
+		freeaddrinfo(bindRes);
 	}
-	else
-		serverAddress.sin_addr.s_addr = INADDR_ANY;
 
 	int sock_opt = 1024 * 256;
 	setsockopt__(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
-
-	serverAddress.sin_addr = ((struct sockaddr_in *) curAddress->ai_addr)->sin_addr;
-
 
 	blockingSocketListMutex.Lock();
 	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
 	blockingSocketListMutex.Unlock();
 
 	// This is blocking
-	connectResult = connect__(sockfd, (struct sockaddr *) &serverAddress, sizeof(struct sockaddr));
-
-#else
-
-	(void) bindAddress;
-	struct addrinfo hints, *res;
-	__TCPSOCKET__ sockfd;
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = socketFamily;
-	hints.ai_socktype = SOCK_STREAM;
-	char portStr[32];
-	Itoa(remotePort, portStr, 10);
-	getaddrinfo(host, portStr, &hints, &res);
-	sockfd = socket__(res->ai_family, res->ai_socktype, res->ai_protocol);
-	blockingSocketListMutex.Lock();
-	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
-	blockingSocketListMutex.Unlock();
 	// #low - review usage of static cast here
-	connectResult = connect__(sockfd, res->ai_addr, static_cast<int>(res->ai_addrlen));
+	const int connectResult = connect__(sockfd, res->ai_addr, static_cast<int>(res->ai_addrlen));
 	freeaddrinfo(res); // free the linked-list
-
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 
 	if (connectResult == -1)
 	{
@@ -909,13 +873,8 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	fd_set readFD, exceptionFD, writeFD;
 	sts->threadRunning.Increment();
 
-#if RAKNET_SUPPORT_IPV6 != 1
-	sockaddr_in sockAddr;
-	int sockAddrSize = sizeof(sockAddr);
-#else
 	struct sockaddr_storage sockAddr;
 	socklen_t sockAddrSize = sizeof(sockAddr);
-#endif
 
 	int len;
 	__TCPSOCKET__ newSock;
@@ -1018,9 +977,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 
 			if (sts->listenSocket != 0 && FD_ISSET(sts->listenSocket, &readFD))
 			{
+				sockAddrSize = sizeof(sockAddr); // in/out parameter, reset for every accept
 				newSock = accept__(sts->listenSocket, (sockaddr *) &sockAddr, (socklen_t *) &sockAddrSize);
 
-				if (newSock != 0)
+				if (newSock != 0 && newSock != INVALID_SOCKET)
 				{
 					int newRemoteClientIndex = -1;
 					for (newRemoteClientIndex = 0; newRemoteClientIndex < sts->remoteClientsLength; newRemoteClientIndex++)
@@ -1030,23 +990,15 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						{
 							sts->remoteClients[newRemoteClientIndex].socket = newSock;
 
-#if RAKNET_SUPPORT_IPV6 != 1
-							sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
-							sts->remoteClients[newRemoteClientIndex].systemAddress.SetPortNetworkOrder(sockAddr.sin_port);
-							sts->remoteClients[newRemoteClientIndex].systemAddress.systemIndex = newRemoteClientIndex;
-#else
+							SystemAddress acceptedAddress;
 							if (sockAddr.ss_family == AF_INET)
-							{
-								memcpy(&sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4, (sockaddr_in *) &sockAddr, sizeof(sockaddr_in));
-								//	sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4.sin_port=ntohs( sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4.sin_port );
-							}
+								memcpy(&acceptedAddress.address.addr4, (sockaddr_in *) &sockAddr, sizeof(sockaddr_in));
 							else
-							{
-								memcpy(&sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr6, (sockaddr_in6 *) &sockAddr, sizeof(sockaddr_in6));
-								//	sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr6.sin6_port=ntohs( sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr6.sin6_port );
-							}
-
-#endif // #if RAKNET_SUPPORT_IPV6!=1
+								memcpy(&acceptedAddress.address.addr6, (sockaddr_in6 *) &sockAddr, sizeof(sockaddr_in6));
+							// A dual-stack listener reports IPv4 clients as mapped IPv6 addresses
+							acceptedAddress.UnmapIPv4();
+							acceptedAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
+							sts->remoteClients[newRemoteClientIndex].systemAddress = acceptedAddress;
 							sts->remoteClients[newRemoteClientIndex].SetActive(true);
 							sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
@@ -1059,9 +1011,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						}
 						sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 					}
-					if (newRemoteClientIndex == -1)
+					if (newRemoteClientIndex == sts->remoteClientsLength)
 					{
-						closesocket__(sts->listenSocket);
+						// No free slot: refuse this connection, keep listening
+						closesocket__(newSock);
 					}
 				}
 				else
