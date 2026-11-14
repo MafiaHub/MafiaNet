@@ -64,6 +64,41 @@ void DomainNameToIP_Berkley_IPV4And6(const char *domainName, char ip[65], int ad
 	freeaddrinfo(res);
 }
 
+// Every address getaddrinfo returns for \a host in \a addressFamily, in its
+// order, with port \a port; see RakNetSocket2::Resolve.
+static int Resolve_Berkley(const char *host, unsigned short port, int addressFamily, MafiaNet::SystemAddress *out, int maxOut)
+{
+	if (host == nullptr || host[0] == '\0' || out == nullptr || maxOut <= 0)
+		return 0;
+
+	struct addrinfo hints, *res = nullptr;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = addressFamily;
+	hints.ai_socktype = SOCK_DGRAM; // one entry per address, not one per socket type
+
+	WSAStartupSingleton::AddRef();
+	const int status = getaddrinfo(host, nullptr, &hints, &res);
+	WSAStartupSingleton::Deref();
+	if (status != 0 || res == nullptr)
+		return 0;
+
+	int count = 0;
+	for (const struct addrinfo *ai = res; ai != nullptr && count < maxOut; ai = ai->ai_next)
+	{
+		if (ai->ai_addr == nullptr || (ai->ai_family != AF_INET && ai->ai_family != AF_INET6))
+			continue;
+		sockaddr_storage ss;
+		memset(&ss, 0, sizeof(ss));
+		memcpy(&ss, ai->ai_addr, ai->ai_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
+		if (!MafiaNet::SockaddrToSystemAddress(ss, &out[count]))
+			continue;
+		out[count].SetPortHostOrder(port);
+		++count;
+	}
+	freeaddrinfo(res);
+	return count;
+}
+
 void RNS2_Berkley::SetSocketOptions(void)
 {
 	[[maybe_unused]] int r; // only checked by RakAssert (debug builds)

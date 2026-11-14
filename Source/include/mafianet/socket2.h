@@ -217,6 +217,17 @@ public:
 	/// ::ffff:a.b.c.d). False for every other socket, including an AF_UNSPEC
 	/// socket that fell back to IPv4 because the host has no IPv6.
 	bool IsDualStack(void) const;
+	/// Resolves \a host (a host name or a numeric literal) into the addresses
+	/// this socket could send to, each with port \a port, and writes at most
+	/// \a maxOut of them to \a out in the resolver's order (RFC 6724). Returns
+	/// how many were written; 0 when nothing resolved.
+	///
+	/// The default uses getaddrinfo: AF_UNSPEC on a dual-stack socket,
+	/// otherwise the bound family, and never AI_ADDRCONFIG. IPv4-mapped
+	/// answers come back as plain AF_INET addresses. A numeric literal
+	/// resolves to exactly itself. Connect() on a dual-stack socket races the
+	/// answers (RFC 8305); see RakPeer::HAPPY_EYEBALLS_ATTEMPT_DELAY_MS.
+	virtual int Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const;
 	unsigned int GetUserConnectionSocketIndex(void) const;
 	void SetUserConnectionSocketIndex(unsigned int i);
 	RNS2EventHandler *GetEventHandler(void) const;

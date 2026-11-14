@@ -210,6 +210,12 @@ void RakNetSocket2::DomainNameToIP(const char *domainName, char ip[65], int addr
 	return DomainNameToIP_Berkley_IPV4And6(domainName, ip, addressFamily);
 }
 
+int RakNetSocket2::Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const
+{
+	const int family = dualStack ? AF_UNSPEC : (boundAddress.GetIPVersion() == 6 ? AF_INET6 : AF_INET);
+	return Resolve_Berkley(host, port, family, out, maxOut);
+}
+
 bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type)
 {
 	RNS2_BerkleyBindParameters bbp;
