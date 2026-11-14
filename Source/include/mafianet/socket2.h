@@ -67,6 +67,9 @@ enum RNS2BindResult
 	BR_SUCCESS,
 	BR_FAILED_TO_BIND_SOCKET,
 	BR_FAILED_SEND_TEST,
+	/// The address family cannot be used on this host (for example AF_INET6
+	/// without IPv6 support) or is not one getaddrinfo knows.
+	BR_FAMILY_NOT_SUPPORTED,
 };
 
 typedef int RNS2SendResult;
@@ -93,6 +96,16 @@ int RNS2_GetLastSocketError(void);
 /// Split out as a free function taking a plain int so the classification is
 /// unit testable without provoking a real socket failure.
 bool RNS2_IsDatagramTooLargeError(int err);
+
+/// Does the getaddrinfo() result \a gaiError mean "this address family is not
+/// supported" (EAI_FAMILY, or EAI_ADDRFAMILY where it exists)?
+bool RNS2_IsFamilyNotSupportedResolveError(int gaiError);
+
+/// Does the socket error \a err (see RNS2_GetLastSocketError) mean "this
+/// address or protocol family is not supported" (EAFNOSUPPORT / EPFNOSUPPORT,
+/// WSAEAFNOSUPPORT / WSAEPFNOSUPPORT on Windows)? socket() reports it when the
+/// host has no stack for the family, e.g. AF_INET6 with IPv6 disabled.
+bool RNS2_IsFamilyNotSupportedSocketError(int err);
 
 enum RNS2Type
 {

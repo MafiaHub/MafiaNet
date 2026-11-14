@@ -443,6 +443,15 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 	if (maxConnections <= 0)
 		return INVALID_MAX_CONNECTIONS;
 
+	// Reject a family the socket layer cannot bind before touching any state,
+	// so the peer can still be started afterwards with a valid descriptor.
+	for (unsigned d = 0; d < socketDescriptorCount; d++)
+	{
+		const int family = socketDescriptors[d].socketFamily;
+		if (family != AF_INET && family != AF_INET6 && family != AF_UNSPEC)
+			return SOCKET_FAMILY_NOT_SUPPORTED;
+	}
+
 	DerefAllSockets();
 
 
@@ -481,7 +490,13 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			bbp.eventHandler = this;
 			RNS2BindResult br = ((RNS2_Berkley *) r2)->Bind(&bbp, _FILE_AND_LINE_);
 
-			if (br == BR_FAILED_TO_BIND_SOCKET)
+			if (br == BR_FAMILY_NOT_SUPPORTED)
+			{
+				RakNetSocket2Allocator::DeallocRNS2(r2);
+				DerefAllSockets();
+				return SOCKET_FAMILY_NOT_SUPPORTED;
+			}
+			else if (br == BR_FAILED_TO_BIND_SOCKET)
 			{
 				RakNetSocket2Allocator::DeallocRNS2(r2);
 				DerefAllSockets();

@@ -208,7 +208,12 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	const int gaiResult = getaddrinfo(node, portStr, &hints, &servinfo);
 	WSAStartupSingleton::Deref();
 	if (gaiResult != 0 || servinfo == nullptr)
-		return BR_FAILED_TO_BIND_SOCKET;
+		return RNS2_IsFamilyNotSupportedResolveError(gaiResult) ? BR_FAMILY_NOT_SUPPORTED : BR_FAILED_TO_BIND_SOCKET;
+
+	// Set once any candidate gets a socket, or fails for a reason other than
+	// the family. Only when every candidate was refused for its family is the
+	// result BR_FAMILY_NOT_SUPPORTED; a failed bind() stays BR_FAILED_TO_BIND_SOCKET.
+	bool onlyFamilyErrors = true;
 
 	// Try all returned addresses until one works
 	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
@@ -218,7 +223,12 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 		rns2Socket = socket__(aip->ai_family, bindParameters->type, bindParameters->protocol);
 
 		if (rns2Socket == -1)
+		{
+			if (!RNS2_IsFamilyNotSupportedSocketError(RNS2_GetLastSocketError()))
+				onlyFamilyErrors = false;
 			continue;
+		}
+		onlyFamilyErrors = false;
 
 		// An AF_INET6 socket is IPv6-only, set explicitly rather than left to the
 		// OS default (dual-stack on Linux/Windows, configurable per host), so an
@@ -253,7 +263,7 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	}
 
 	freeaddrinfo(servinfo);
-	return BR_FAILED_TO_BIND_SOCKET;
+	return onlyFamilyErrors ? BR_FAMILY_NOT_SUPPORTED : BR_FAILED_TO_BIND_SOCKET;
 }
 
 void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)

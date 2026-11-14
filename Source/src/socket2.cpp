@@ -31,6 +31,7 @@ using namespace MafiaNet;
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <netdb.h> // EAI_FAMILY, classified by RNS2_IsFamilyNotSupportedResolveError
 #include <errno.h> // error numbers
 #if !defined(ANDROID)
 #include <ifaddrs.h>
@@ -58,6 +59,34 @@ int MafiaNet::RNS2_GetLastSocketError(void)
 #else
 	return errno;
 #endif
+}
+
+bool MafiaNet::RNS2_IsFamilyNotSupportedResolveError(int gaiError)
+{
+	if (gaiError == EAI_FAMILY)
+		return true;
+#ifdef EAI_ADDRFAMILY
+	if (gaiError == EAI_ADDRFAMILY)
+		return true;
+#endif
+	return false;
+}
+
+bool MafiaNet::RNS2_IsFamilyNotSupportedSocketError(int err)
+{
+#ifdef _WIN32
+	if (err == WSAEAFNOSUPPORT || err == WSAEPFNOSUPPORT)
+		return true;
+#endif
+#ifdef EAFNOSUPPORT
+	if (err == EAFNOSUPPORT)
+		return true;
+#endif
+#ifdef EPFNOSUPPORT
+	if (err == EPFNOSUPPORT)
+		return true;
+#endif
+	return false;
 }
 
 bool MafiaNet::RNS2_IsDatagramTooLargeError(int err)
