@@ -38,6 +38,10 @@ public:
 	// when ::1 cannot be bound (host without IPv6 loopback); pair it with
 	// MAFIANET_SKIP_WITHOUT_IPV6 in the fixture's SetUp().
 	static unsigned short StartOnLoopbackV6(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
+	// Starts peer on a dual-stack socket (AF_UNSPEC, wildcard address) with a
+	// port the OS assigns. Returns 0 when Startup fails or the socket fell back
+	// to IPv4 only (host without IPv6); pair it with MAFIANET_SKIP_WITHOUT_IPV6.
+	static unsigned short StartDualStack(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
 	// The port a started peer is bound to.
 	static unsigned short BoundPort(RakPeerInterface *peer);
 

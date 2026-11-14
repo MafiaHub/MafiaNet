@@ -147,6 +147,22 @@ using namespace MafiaNet;
 
 static RakNetRandom rnr;
 
+// The IP version to resolve a host name or literal for, to send on \a socket:
+// either family on a dual-stack socket (the resolver's first answer; an IPv4
+// result is mapped on send), otherwise the socket's own family.
+static int ResolveIPVersion(const RakNetSocket2 *socket)
+{
+	return socket->IsDualStack() ? 0 : socket->GetBoundAddress().GetIPVersion();
+}
+
+// Swaps 127.0.0.1 and ::1 to match a single-family socket. A dual-stack socket
+// reaches both loopbacks, so the address is left as the caller gave it.
+static void FixForSocket(SystemAddress &address, const RakNetSocket2 *socket)
+{
+	if (!socket->IsDualStack())
+		address.FixForIPVersion(socket->GetBoundAddress());
+}
+
 // Whether a message a connected remote sent, and that RakPeer did not consume itself, may be handed to
 // the plugins and the application.
 //
@@ -2148,10 +2164,10 @@ bool RakPeer::Ping(const char *host, unsigned short remotePort, bool onlyReplyOn
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) bitStream.GetData();
 	bsp.length = bitStream.GetNumberOfBytesUsed();
-	bsp.systemAddress.FromStringExplicitPort(host, remotePort, socketList[realIndex]->GetBoundAddress().GetIPVersion());
+	bsp.systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[realIndex]));
 	if (bsp.systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
 		return false;
-	bsp.systemAddress.FixForIPVersion(socketList[realIndex]->GetBoundAddress());
+	FixForSocket(bsp.systemAddress, socketList[realIndex]);
 	unsigned i;
 	for (i = 0; i < pluginListNTS.Size(); i++)
 		pluginListNTS[i]->OnDirectSocketSend((const char *) bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), bsp.systemAddress);
@@ -2874,8 +2890,8 @@ void RakPeer::SendTTL(const char *host, unsigned short remotePort, int ttl, unsi
 		RNS2_SendParameters bsp;
 		bsp.data = (char *) fakeData;
 		bsp.length = 2;
-		bsp.systemAddress.FromStringExplicitPort(host, remotePort, socketList[realIndex]->GetBoundAddress().GetIPVersion());
-		bsp.systemAddress.FixForIPVersion(socketList[realIndex]->GetBoundAddress());
+		bsp.systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[realIndex]));
+		FixForSocket(bsp.systemAddress, socketList[realIndex]);
 		bsp.ttl = ttl;
 		unsigned i;
 		for (i = 0; i < pluginListNTS.Size(); i++)
@@ -3227,8 +3243,8 @@ bool RakPeer::SendOutOfBand(const char *host, unsigned short remotePort, const c
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) bitStream.GetData();
 	bsp.length = bitStream.GetNumberOfBytesUsed();
-	bsp.systemAddress.FromStringExplicitPort(host, remotePort, socketList[realIndex]->GetBoundAddress().GetIPVersion());
-	bsp.systemAddress.FixForIPVersion(socketList[realIndex]->GetBoundAddress());
+	bsp.systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[realIndex]));
+	FixForSocket(bsp.systemAddress, socketList[realIndex]);
 	unsigned i;
 	for (i = 0; i < pluginListNTS.Size(); i++)
 		pluginListNTS[i]->OnDirectSocketSend((const char *) bsp.data, BYTES_TO_BITS(bsp.length), bsp.systemAddress);
@@ -3477,7 +3493,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	RakAssert(passwordDataLength <= 256);
 	RakAssert(remotePort != 0);
 	SystemAddress systemAddress;
-	if (!systemAddress.FromStringExplicitPort(host, remotePort, socketList[connectionSocketIndex]->GetBoundAddress().GetIPVersion()))
+	if (!systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[connectionSocketIndex])))
 		return CANNOT_RESOLVE_DOMAIN_NAME;
 
 	// Already connected?
@@ -4525,7 +4541,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 
 	if (target != UNASSIGNED_SYSTEM_ADDRESS && performImmediate)
 	{
-		target.FixForIPVersion(socket.GetBoundAddress());
+		FixForSocket(target, &socket);
 	}
 
 	if (sendDisconnectionNotification)
@@ -6264,7 +6280,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					else
 						socketToUse = rcs->socket;
 
-					rcs->systemAddress.FixForIPVersion(socketToUse->GetBoundAddress());
+					FixForSocket(rcs->systemAddress, socketToUse);
 					if (socketToUse->IsBerkleySocket())
 						((RNS2_Berkley *) socketToUse)->SetDoNotFragment(1);
 

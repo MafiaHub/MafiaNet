@@ -23,6 +23,7 @@
 #define __MAFIANET_MMSG_BATCH_H
 
 #include "mafianet/socket2.h"
+#include "mafianet/sockaddr_convert.h" // SockaddrToSystemAddress, used by DispatchRecvBatch
 #include "mafianet/assert.h"
 #include "mafianet/memory_override.h"
 
@@ -53,17 +54,6 @@ static const unsigned MMSG_BATCH_MAX = 64;
 /// after consecutive recvmmsg failures, so a persistent asynchronous socket
 /// error cannot spin the polling thread.
 static const unsigned MMSG_ERROR_BACKOFF_MAX_MS = 10;
-
-/// Convert a raw sockaddr (IPv4 or IPv6) into a SystemAddress, reproducing the
-/// byte-order handling of the scalar recvfrom path in RNS2_Berkley. \a out
-/// receives the address; its port is stored in network order in the address
-/// union and mirrored (host order) into debugPort.
-///
-/// Returns false for an address family other than AF_INET or AF_INET6 (such as
-/// AF_UNSPEC), in which case \a out is set to UNASSIGNED_SYSTEM_ADDRESS rather
-/// than left holding whatever the recycled recv struct contained. Callers must not dispatch a
-/// datagram whose address failed to decode.
-bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 
 /// Drive a sendmmsg-style batched send to completion, handling partial sends.
 ///

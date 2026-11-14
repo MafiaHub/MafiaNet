@@ -147,7 +147,14 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	/// The local network card address to bind to, such as "127.0.0.1".  Pass an empty string to use INADDR_ANY.
 	char hostAddress[32];
 
-	/// IP version: For IPV4, use AF_INET (default). For IPV6, use AF_INET6. To autoselect, use AF_UNSPEC.
+	/// IP version: For IPV4, use AF_INET (default). For IPV6 only, use AF_INET6.
+	/// AF_UNSPEC opens one dual-stack socket (AF_INET6 with IPV6_V6ONLY=0) that
+	/// reaches both IPv4 and IPv6 peers; IPv4 peers are still reported as plain
+	/// IPv4 addresses, never as ::ffff:a.b.c.d. Where the host has no IPv6 (or
+	/// refuses dual-stack, as OpenBSD does) it falls back to an IPv4 socket;
+	/// RakNetSocket2::IsDualStack() tells which one you got. On Linux IPv4 and
+	/// IPv6 share one port space, so an AF_UNSPEC socket on a port excludes an
+	/// AF_INET socket on the same port.
 	/// IPV6 is the newer internet protocol. Instead of addresses such as natpunch.slikesoft.com, you may have an address such as fe80::7c:31f7:fec4:27de%14.
 	/// Encoding takes 16 bytes instead of 4, so IPV6 is less efficient for bandwidth.
 	/// On the positive side, NAT Punchthrough is not needed and should not be used with IPV6 because there are enough addresses that routers do not need to create address mappings.

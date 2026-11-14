@@ -210,6 +210,13 @@ public:
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
 	SystemAddress GetBoundAddress(void) const;
+	/// True for a dual-stack socket: AF_INET6 with IPV6_V6ONLY=0, bound to the
+	/// wildcard address, opened for SocketDescriptor::socketFamily == AF_UNSPEC.
+	/// It reaches both IPv4 and IPv6 peers; IPv4 peers are reported and
+	/// addressed as plain AF_INET addresses (the socket maps them to and from
+	/// ::ffff:a.b.c.d). False for every other socket, including an AF_UNSPEC
+	/// socket that fell back to IPv4 because the host has no IPv6.
+	bool IsDualStack(void) const;
 	unsigned int GetUserConnectionSocketIndex(void) const;
 	void SetUserConnectionSocketIndex(unsigned int i);
 	RNS2EventHandler *GetEventHandler(void) const;
@@ -226,6 +233,7 @@ protected:
 	RNS2Type socketType;
 	SystemAddress boundAddress;
 	unsigned int userConnectionSocketIndex;
+	bool dualStack;
 };
 
 struct RNS2_BerkleyBindParameters
@@ -233,7 +241,7 @@ struct RNS2_BerkleyBindParameters
 	// Input parameters
 	unsigned short port;
 	char *hostAddress;
-	unsigned short addressFamily; // AF_INET or AF_INET6
+	unsigned short addressFamily; // AF_INET, AF_INET6, or AF_UNSPEC for dual-stack
 	int type;                     // SOCK_DGRAM
 	int protocol;                 // 0
 	bool nonBlockingSocket;
@@ -273,6 +281,16 @@ protected:
 	// Used by other classes
 	RNS2BindResult BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
 	RNS2BindResult BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	// Binds the first usable address getaddrinfo returns for \a family. With
+	// \a wantDualStack, AF_INET6 sockets get IPV6_V6ONLY=0; \a *dualStackUnavailable
+	// is then set when the host cannot provide that (no IPv6 address for the
+	// host, socket() refused, or the option rejected), so the caller can fall
+	// back to AF_INET. A failed bind() is not such a failure.
+	RNS2BindResult BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable);
+	// Where the socket sends datagrams to itself (bind send test, waking the
+	// recv thread). The bound address, except on a dual-stack socket, which
+	// uses 127.0.0.1: IPv4 loopback always works there, ::1 may be disabled.
+	SystemAddress SelfSendAddress(void) const;
 
 	static void GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
 
@@ -309,7 +327,8 @@ class RNS2_Windows_Linux
 {
 public:
 protected:
-	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
+	// \a socketFamily and \a dualStack describe rns2Socket; see SystemAddressToSockaddr.
+	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
 };
 #endif
 

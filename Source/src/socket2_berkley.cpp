@@ -189,10 +189,28 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	(void) file;
 	(void) line;
 
+	dualStack = false;
+	if (bindParameters->addressFamily != AF_UNSPEC)
+		return BindAddressFamily(bindParameters, bindParameters->addressFamily, false, nullptr);
+
+	// AF_UNSPEC: one AF_INET6 socket with IPV6_V6ONLY=0 serves both families.
+	// Only when the host cannot provide that (no IPv6 stack, an IPv4-only bind
+	// address, or a system such as OpenBSD that refuses V6ONLY=0) fall back to
+	// a plain IPv4 socket. A bind() failure -- the port is taken -- is reported
+	// as is: an IPv4 socket on that port would hide the conflict.
+	bool dualStackUnavailable = false;
+	const RNS2BindResult result = BindAddressFamily(bindParameters, AF_INET6, true, &dualStackUnavailable);
+	if (!dualStackUnavailable)
+		return result;
+	return BindAddressFamily(bindParameters, AF_INET, false, nullptr);
+}
+
+RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable)
+{
 	struct addrinfo hints;
 	struct addrinfo *servinfo = nullptr, *aip; // will point to the results
 	PrepareAddrInfoHints2(&hints);
-	hints.ai_family = bindParameters->addressFamily;
+	hints.ai_family = family;
 	// hints keep SOCK_DGRAM: they only pick the address to bind (a numeric port
 	// is rejected for SOCK_RAW by some resolvers); the socket itself is created
 	// with the caller's type and protocol below.
@@ -208,12 +226,19 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	const int gaiResult = getaddrinfo(node, portStr, &hints, &servinfo);
 	WSAStartupSingleton::Deref();
 	if (gaiResult != 0 || servinfo == nullptr)
+	{
+		// No IPv6 address for this host (an IPv4 literal, an A-only name, or no
+		// IPv6 at all): dual-stack is not possible, IPv4 may still be.
+		if (dualStackUnavailable)
+			*dualStackUnavailable = true;
 		return RNS2_IsFamilyNotSupportedResolveError(gaiResult) ? BR_FAMILY_NOT_SUPPORTED : BR_FAILED_TO_BIND_SOCKET;
+	}
 
 	// Set once any candidate gets a socket, or fails for a reason other than
 	// the family. Only when every candidate was refused for its family is the
 	// result BR_FAMILY_NOT_SUPPORTED; a failed bind() stays BR_FAILED_TO_BIND_SOCKET.
 	bool onlyFamilyErrors = true;
+	bool anySocket = false;
 
 	// Try all returned addresses until one works
 	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
@@ -229,15 +254,32 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 			continue;
 		}
 		onlyFamilyErrors = false;
+		anySocket = true;
 
-		// An AF_INET6 socket is IPv6-only, set explicitly rather than left to the
-		// OS default (dual-stack on Linux/Windows, configurable per host), so an
-		// IPv4 socket can bind the same port alongside it.
+		// IPV6_V6ONLY is always set explicitly, never left to the OS default
+		// (dual-stack on Linux/Windows, configurable per host). An explicit
+		// AF_INET6 socket is IPv6-only, so an IPv4 socket can bind the same port
+		// alongside it; an AF_UNSPEC one is dual-stack.
+		bool v6onlyOff = false;
 		if (aip->ai_family == AF_INET6)
 		{
-			int ipv6only = 1;
-			setsockopt__(rns2Socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &ipv6only, sizeof(ipv6only));
-			// Ignore errors - some platforms may not support this option
+			int ipv6only = wantDualStack ? 0 : 1;
+			const int r = setsockopt__(rns2Socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &ipv6only, sizeof(ipv6only));
+			if (wantDualStack)
+			{
+				if (r != 0)
+				{
+					// This system cannot do dual-stack (OpenBSD); let the caller
+					// fall back to IPv4 rather than serve IPv6 only.
+					closesocket__(rns2Socket);
+					rns2Socket = (RNS2Socket) INVALID_SOCKET;
+					freeaddrinfo(servinfo);
+					*dualStackUnavailable = true;
+					return BR_FAMILY_NOT_SUPPORTED;
+				}
+				v6onlyOff = true;
+			}
+			// Otherwise ignore errors: V6ONLY=1 is only needed to share the port.
 		}
 
 		if (bind__(rns2Socket, aip->ai_addr, (int) aip->ai_addrlen) >= 0)
@@ -246,6 +288,14 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 				memcpy(&boundAddress.address.addr4, aip->ai_addr, sizeof(sockaddr_in));
 			else
 				memcpy(&boundAddress.address.addr6, aip->ai_addr, sizeof(sockaddr_in6));
+
+			// Dual-stack only on the wildcard address: a socket bound to one
+			// IPv6 address cannot exchange IPv4 traffic whatever V6ONLY says.
+			if (v6onlyOff)
+			{
+				static const unsigned char any6[16] = {0};
+				dualStack = memcmp(&((const sockaddr_in6 *) aip->ai_addr)->sin6_addr, any6, sizeof(any6)) == 0;
+			}
 
 			freeaddrinfo(servinfo); // free the linked-list
 
@@ -260,10 +310,24 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 		}
 
 		closesocket__(rns2Socket);
+		rns2Socket = (RNS2Socket) INVALID_SOCKET;
 	}
 
 	freeaddrinfo(servinfo);
+	// No IPv6 socket could be opened at all: the host has no usable IPv6 stack.
+	if (!anySocket && dualStackUnavailable)
+		*dualStackUnavailable = true;
 	return onlyFamilyErrors ? BR_FAMILY_NOT_SUPPORTED : BR_FAILED_TO_BIND_SOCKET;
+}
+
+SystemAddress RNS2_Berkley::SelfSendAddress(void) const
+{
+	if (!dualStack)
+		return boundAddress;
+	SystemAddress self;
+	self.SetToLoopback(4);
+	self.SetPortNetworkOrder(boundAddress.GetPortNetworkOrder());
+	return self;
 }
 
 void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
@@ -308,20 +372,11 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 		return;
 	recvFromStruct->timeRead = MafiaNet::GetTimeUS();
 
-	{
-		if (their_addr.ss_family == AF_INET)
-		{
-			memcpy(&recvFromStruct->systemAddress.address.addr4, (sockaddr_in *) &their_addr, sizeof(sockaddr_in));
-			recvFromStruct->systemAddress.debugPort = ntohs(recvFromStruct->systemAddress.address.addr4.sin_port);
-			//	systemAddressOut->address.addr4.sin_port=ntohs( systemAddressOut->address.addr4.sin_port );
-		}
-		else
-		{
-			memcpy(&recvFromStruct->systemAddress.address.addr6, (sockaddr_in6 *) &their_addr, sizeof(sockaddr_in6));
-			recvFromStruct->systemAddress.debugPort = ntohs(recvFromStruct->systemAddress.address.addr6.sin6_port);
-			//	systemAddressOut->address.addr6.sin6_port=ntohs( systemAddressOut->address.addr6.sin6_port );
-		}
-	}
+	// Same decoding as the batched recvmmsg path, including turning the
+	// ::ffff:a.b.c.d a dual-stack socket reports for IPv4 peers into AF_INET.
+	// A source that cannot be decoded is dropped, not attributed to anyone.
+	if (!SockaddrToSystemAddress(their_addr, &recvFromStruct->systemAddress))
+		recvFromStruct->bytesRead = -1;
 }
 
 #if defined(__linux__)

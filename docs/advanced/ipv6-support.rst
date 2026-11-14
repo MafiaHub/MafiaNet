@@ -19,7 +19,34 @@ Then rebuild the library.
 Basic Usage
 -----------
 
-**Dual-stack server (IPv4 + IPv6):**
+**Dual-stack server, one socket (IPv4 + IPv6):**
+
+.. code-block:: cpp
+
+   MafiaNet::SocketDescriptor sd;
+   sd.port = 60000;
+   sd.socketFamily = AF_UNSPEC; // one AF_INET6 socket with IPV6_V6ONLY=0
+
+   peer->Startup(100, &sd, 1);
+   peer->SetMaximumIncomingConnections(100);
+
+``AF_UNSPEC`` binds the wildcard address on a single dual-stack socket. IPv4
+clients are reported as plain IPv4 addresses (``127.0.0.1``, never
+``::ffff:127.0.0.1``), so ban lists, ``IsLoopback()`` and address lookups work
+the same as on an ``AF_INET`` socket. If the host has no IPv6, or refuses
+dual-stack sockets (OpenBSD), the socket falls back to IPv4 only;
+``RakNetSocket2::IsDualStack()`` reports which one you got. A host name passed
+to ``Connect()`` on a dual-stack socket resolves to the resolver's first answer
+of either family.
+
+.. note::
+
+   On Linux, IPv4 and IPv6 share one UDP port space: an ``AF_UNSPEC`` socket on
+   port P cannot coexist with an ``AF_INET`` socket on port P. Explicit
+   ``AF_INET6`` sockets are IPv6-only (``IPV6_V6ONLY=1``), so the two-socket
+   setup below keeps working.
+
+**Dual-stack server, two sockets (IPv4 + IPv6):**
 
 .. code-block:: cpp
 
@@ -101,7 +128,7 @@ Configuration Options
    SocketDescriptor sd;
    sd.socketFamily = AF_INET6;      // IPv6 only
    sd.socketFamily = AF_INET;       // IPv4 only
-   sd.socketFamily = AF_UNSPEC;     // System default
+   sd.socketFamily = AF_UNSPEC;     // Dual-stack (falls back to IPv4)
 
    // Bind to specific interface
    strcpy(sd.hostAddress, "2001:db8::1");

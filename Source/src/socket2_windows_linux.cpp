@@ -166,8 +166,14 @@ void GetMyIP_Windows_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_ID
 		addresses[index] = UNASSIGNED_SYSTEM_ADDRESS;
 }
 
-RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
+RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
 {
+	// IPv4 targets become ::ffff:a.b.c.d on a dual-stack socket; a target the
+	// socket cannot reach at all is refused here rather than by sendto.
+	sockaddr_storage to;
+	const socklen_t toLen = SystemAddressToSockaddr(sendParameters->systemAddress, dualStack, &to, socketFamily);
+	if (toLen == 0)
+		return -1;
 
 	int len = 0;
 	do
@@ -189,14 +195,7 @@ RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, RNS
 		}
 
 
-		if (sendParameters->systemAddress.address.addr4.sin_family == AF_INET)
-		{
-			len = sendto__(rns2Socket, sendParameters->data, sendParameters->length, 0, (const sockaddr *) &sendParameters->systemAddress.address.addr4, sizeof(sockaddr_in));
-		}
-		else
-		{
-			len = sendto__(rns2Socket, sendParameters->data, sendParameters->length, 0, (const sockaddr *) &sendParameters->systemAddress.address.addr6, sizeof(sockaddr_in6));
-		}
+		len = sendto__(rns2Socket, sendParameters->data, sendParameters->length, 0, (const sockaddr *) &to, toLen);
 
 		if (len < 0)
 		{
