@@ -17,7 +17,6 @@ override defaults from ``RakNetDefines.h``.
    #define RAKNET_DEFINES_OVERRIDES_H
 
    // Your custom defines here
-   #define RAKNET_SUPPORT_IPV6 1
    #define USE_SLIDING_WINDOW_CONGESTION_CONTROL 1
 
    #endif
@@ -28,9 +27,6 @@ Core Feature Toggles
 **Network Features:**
 
 .. code-block:: cpp
-
-   // IPv6 support (default: 0)
-   #define RAKNET_SUPPORT_IPV6 1
 
    // Secure connections with encryption
    #define _RAKNET_SECURE_CONNECTIONS 1

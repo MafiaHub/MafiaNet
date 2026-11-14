@@ -84,6 +84,9 @@ jobs:
   #             first) and the silent IPv4-only branch in the sendmmsg override.
   linux-native:
     runs-on: ubuntu-latest
+    # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
+    env:
+      MAFIANET_REQUIRE_IPV6: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +113,14 @@ jobs:
                   n=$(echo "$rest" | sed -E 's/.*"([^"]+)".*/\1/')
                   [ -e "Source/include/mafianet/$n" ] && echo "$f:$l: $rest"; done || true)
           if [ -n "$bad" ]; then echo "Bare includes of library headers (use \"mafianet/<name>.h\"):"; echo "$bad"; exit 1; fi
+
+      # IPv6 is always compiled in; the RAKNET_SUPPORT_IPV6 switch was removed
+      # and defines.h turns a leftover =0 into an #error. Keep it from creeping
+      # back in as a dead #if.
+      - name: Check RAKNET_SUPPORT_IPV6 is gone
+        run: |
+          bad=$(git grep -n RAKNET_SUPPORT_IPV6 -- Source Tests Samples DependentExtensions ':!Source/include/mafianet/defines.h' || true)
+          if [ -n "$bad" ]; then echo "RAKNET_SUPPORT_IPV6 was removed (IPv6 is always compiled in):"; echo "$bad"; exit 1; fi
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -200,6 +211,9 @@ jobs:
   # concurrency-model change, not a CI tweak.
   sanitizers:
     runs-on: ubuntu-latest
+    # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
+    env:
+      MAFIANET_REQUIRE_IPV6: "1"
     timeout-minutes: 60
     continue-on-error: ${{ matrix.preset == 'tsan' }}
     strategy:
@@ -366,6 +380,9 @@ jobs:
   # an HTML report as an artifact. Informational: nothing gates on it.
   coverage:
     runs-on: ubuntu-latest
+    # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
+    env:
+      MAFIANET_REQUIRE_IPV6: "1"
     timeout-minutes: 60
     steps:
       - name: Checkout repository
@@ -408,6 +425,9 @@ jobs:
   # macOS: Build and run both suites (unit + integration).
   macos:
     runs-on: macos-latest
+    # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
+    env:
+      MAFIANET_REQUIRE_IPV6: "1"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -454,6 +474,9 @@ jobs:
   # runnable here once every test moved to OS-assigned ports.
   windows:
     runs-on: windows-latest
+    # IPv6 loopback tests fail instead of skipping when ::1 is unavailable.
+    env:
+      MAFIANET_REQUIRE_IPV6: "1"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

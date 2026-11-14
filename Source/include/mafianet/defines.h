@@ -163,8 +163,8 @@
 #define PREALLOCATE_LARGE_MESSAGES 0
 #endif
 
-#ifndef RAKNET_SUPPORT_IPV6
-#define RAKNET_SUPPORT_IPV6 0
+#if defined(RAKNET_SUPPORT_IPV6) && RAKNET_SUPPORT_IPV6 == 0
+#error "RAKNET_SUPPORT_IPV6 was removed: IPv6 is always compiled in"
 #endif
 
 #ifndef RAKSTRING_TYPE
