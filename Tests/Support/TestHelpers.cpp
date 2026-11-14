@@ -37,11 +37,14 @@ unsigned short TestHelpers::StartOnLoopbackV6(RakPeerInterface *peer, unsigned i
 	return BoundPort(peer);
 }
 
-unsigned short TestHelpers::StartDualStack(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming)
+unsigned short TestHelpers::StartDualStack(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming, StartupResult *startup)
 {
 	SocketDescriptor sd(0, "");
 	sd.socketFamily = AF_UNSPEC;
-	if (peer->Startup(maxConnections, &sd, 1) != RAKNET_STARTED)
+	const StartupResult result = peer->Startup(maxConnections, &sd, 1);
+	if (startup != nullptr)
+		*startup = result;
+	if (result != RAKNET_STARTED)
 		return 0;
 	DataStructures::List<RakNetSocket2 *> sockets;
 	peer->GetSockets(sockets);

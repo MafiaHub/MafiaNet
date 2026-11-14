@@ -33,8 +33,8 @@ protected:
 
 		serverPort = TestHelpers::StartOnLoopback(server, 4, 4);
 		ASSERT_NE(serverPort, 0);
-		const unsigned short clientPort = TestHelpers::StartDualStack(client, 1);
-		MAFIANET_SKIP_WITHOUT_IPV6(clientPort);
+		unsigned short clientPort = 0;
+		MAFIANET_START_DUAL_STACK(clientPort, client, 1, 0);
 	}
 
 	void TearDown() override

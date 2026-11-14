@@ -46,14 +46,12 @@ protected:
 		RakSleep(2);
 		clientDual = RakPeerInterface::GetInstance();
 
-		serverPort = TestHelpers::StartDualStack(server, 3, 3);
-		MAFIANET_SKIP_WITHOUT_IPV6(serverPort);
+		MAFIANET_START_DUAL_STACK(serverPort, server, 3, 3);
 		clientV4Port = TestHelpers::StartOnLoopback(clientV4, 1);
 		ASSERT_NE(clientV4Port, 0);
 		clientV6Port = TestHelpers::StartOnLoopbackV6(clientV6, 1);
 		MAFIANET_SKIP_WITHOUT_IPV6(clientV6Port);
-		clientDualPort = TestHelpers::StartDualStack(clientDual, 1);
-		MAFIANET_SKIP_WITHOUT_IPV6(clientDualPort);
+		MAFIANET_START_DUAL_STACK(clientDualPort, clientDual, 1, 0);
 	}
 
 	void TearDown() override
