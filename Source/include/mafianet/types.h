@@ -152,7 +152,6 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	/// Encoding takes 16 bytes instead of 4, so IPV6 is less efficient for bandwidth.
 	/// On the positive side, NAT Punchthrough is not needed and should not be used with IPV6 because there are enough addresses that routers do not need to create address mappings.
 	/// RakPeer::Startup() will fail if this IP version is not supported.
-	/// \pre RAKNET_SUPPORT_IPV6 must be set to 1 in RakNetDefines.h for AF_INET6
 	short socketFamily;
 
 	// Set to true to use a blocking socket (default, do not change unless you have a reason to)
@@ -176,14 +175,10 @@ struct RAK_DLL_EXPORT SystemAddress
 	SystemAddress(const char *str);
 	SystemAddress(const char *str, unsigned short port);
 
-	/// SystemAddress, with RAKNET_SUPPORT_IPV6 defined, holds both an sockaddr_in6 and a sockaddr_in
+	/// SystemAddress holds either a sockaddr_in6 or a sockaddr_in, discriminated by sin_family
 	union // In6OrIn4
 	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		struct sockaddr_storage sa_stor;
 		sockaddr_in6 addr6;
-#endif
-
 		sockaddr_in addr4;
 	} address;
 
@@ -269,6 +264,12 @@ struct RAK_DLL_EXPORT SystemAddress
 
 	bool IsLANAddress(void);
 
+	/// \return True for an AF_INET6 address inside ::ffff:0:0/96 (an IPv4 address carried in IPv6 form)
+	bool IsIPv4Mapped(void) const;
+
+	/// Converts an IPv4-mapped IPv6 address to AF_INET, keeping the port. No-op for any other address
+	void UnmapIPv4(void);
+
 	// Member-wise copy. The assignment stays out-of-line (defaulted in types.cpp) so the
 	// exported symbol is kept; the copy constructor is declared so it is not the deprecated
 	// implicit one.
@@ -283,11 +284,11 @@ struct RAK_DLL_EXPORT SystemAddress
 	SystemIndex systemIndex;
 
 private:
-#if RAKNET_SUPPORT_IPV6 == 1
 	void ToString_New(bool writePort, char *dest, char portDelineator) const;
 	void ToString_New(bool writePort, char *dest, size_t destLength, char portDelineator) const;
-#endif
 };
+
+static_assert(sizeof(SystemAddress) <= 40, "SystemAddress is copied by value everywhere; keep it small");
 
 /// Uniquely identifies an instance of RakPeer. Use RakPeer::GetGuidFromSystemAddress() and RakPeer::GetSystemAddressFromGuid() to go between SystemAddress and RakNetGUID
 /// Use RakPeer::GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS) to get your own GUID
