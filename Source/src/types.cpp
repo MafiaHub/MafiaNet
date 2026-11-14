@@ -480,7 +480,8 @@ bool SystemAddress::SetBinaryAddress(const char *str, char portDelineator)
 		// #med - change OP_NEW_ARRAY to support size_t type
 		char *hostname = OP_NEW_ARRAY<char>(static_cast<int>(delimiterPos + 1), _FILE_AND_LINE_);
 		strncpy_s(hostname, delimiterPos + 1, str, delimiterPos);
-		RakNetSocket2::DomainNameToIP(hostname, ip);
+		// SetBinaryAddress only stores IPv4, so ask for an IPv4 answer.
+		RakNetSocket2::DomainNameToIP(hostname, ip, AF_INET);
 		OP_DELETE_ARRAY(hostname, _FILE_AND_LINE_);
 
 		if (ip[0] != '\0')

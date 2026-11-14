@@ -65,7 +65,6 @@ typedef int RNS2Socket;
 enum RNS2BindResult
 {
 	BR_SUCCESS,
-	BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE,
 	BR_FAILED_TO_BIND_SOCKET,
 	BR_FAILED_SEND_TEST,
 };
@@ -204,7 +203,10 @@ public:
 
 	// ----------- STATICS ------------
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-	static void DomainNameToIP(const char *domainName, char ip[65]);
+	/// Resolves \a domainName and writes the numeric form of the first address
+	/// found to \a ip ("" on failure). \a addressFamily restricts the lookup to
+	/// AF_INET or AF_INET6; AF_UNSPEC takes the resolver's first answer of either.
+	static void DomainNameToIP(const char *domainName, char ip[65], int addressFamily = AF_UNSPEC);
 
 protected:
 	RNS2EventHandler *eventHandler;
@@ -257,10 +259,8 @@ public:
 protected:
 	// Used by other classes
 	RNS2BindResult BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
-	RNS2BindResult BindSharedIPV4(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
 	RNS2BindResult BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
 
-	static void GetSystemAddressIPV4(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
 	static void GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
 
 	// Internal
@@ -268,8 +268,6 @@ protected:
 	void SetSocketOptions(void);
 	void SetBroadcastSocket(int broadcast);
 	void SetIPHdrIncl(int ipHdrIncl);
-	void RecvFromBlocking(RNS2RecvStruct *recvFromStruct);
-	void RecvFromBlockingIPV4(RNS2RecvStruct *recvFromStruct);
 	void RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct);
 
 	RNS2Socket rns2Socket;

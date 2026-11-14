@@ -27,6 +27,16 @@ unsigned short TestHelpers::StartOnLoopback(RakPeerInterface *peer, unsigned int
 	return BoundPort(peer);
 }
 
+unsigned short TestHelpers::StartOnLoopbackV6(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming)
+{
+	SocketDescriptor sd(0, "::1");
+	sd.socketFamily = AF_INET6;
+	if (peer->Startup(maxConnections, &sd, 1) != RAKNET_STARTED)
+		return 0;
+	peer->SetMaximumIncomingConnections(maxIncoming);
+	return BoundPort(peer);
+}
+
 unsigned short TestHelpers::BoundPort(RakPeerInterface *peer)
 {
 	return peer->GetInternalID().GetPort();

@@ -59,10 +59,9 @@ static const unsigned MMSG_ERROR_BACKOFF_MAX_MS = 10;
 /// receives the address; its port is stored in network order in the address
 /// union and mirrored (host order) into debugPort.
 ///
-/// Returns false for an address family this build cannot represent (anything
-/// other than AF_INET when RAKNET_SUPPORT_IPV6 is off, or AF_UNSPEC), in which
-/// case \a out is set to UNASSIGNED_SYSTEM_ADDRESS rather than left holding
-/// whatever the recycled recv struct contained. Callers must not dispatch a
+/// Returns false for an address family other than AF_INET or AF_INET6 (such as
+/// AF_UNSPEC), in which case \a out is set to UNASSIGNED_SYSTEM_ADDRESS rather
+/// than left holding whatever the recycled recv struct contained. Callers must not dispatch a
 /// datagram whose address failed to decode.
 bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 

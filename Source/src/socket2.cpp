@@ -170,9 +170,9 @@ RNS2EventHandler *RakNetSocket2::GetEventHandler(void) const
 	return eventHandler;
 }
 
-void RakNetSocket2::DomainNameToIP(const char *domainName, char ip[65])
+void RakNetSocket2::DomainNameToIP(const char *domainName, char ip[65], int addressFamily)
 {
-	return DomainNameToIP_Berkley(domainName, ip);
+	return DomainNameToIP_Berkley_IPV4And6(domainName, ip, addressFamily);
 }
 
 bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type)
@@ -205,12 +205,7 @@ void SocketReadCallback(CFSocketRef /*s*/, CFSocketCallBackType /*type*/, CFData
 
 RNS2BindResult RNS2_Berkley::BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
 {
-	RNS2BindResult br;
-#if RAKNET_SUPPORT_IPV6 == 1
-	br = BindSharedIPV4And6(bindParameters, file, line);
-#else
-	br = BindSharedIPV4(bindParameters, file, line);
-#endif
+	RNS2BindResult br = BindSharedIPV4And6(bindParameters, file, line);
 
 	if (br != BR_SUCCESS)
 		return br;
@@ -263,7 +258,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 		if (recvFromStruct != nullptr)
 		{
 			recvFromStruct->socket = this;
-			RecvFromBlocking(recvFromStruct);
+			RecvFromBlockingIPV4And6(recvFromStruct);
 
 			if (recvFromStruct->bytesRead > 0)
 			{
@@ -442,16 +437,8 @@ RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count,
 			                                             }
 			                                             else
 			                                             {
-#if RAKNET_SUPPORT_IPV6 == 1
 				                                             msgs[i].msg_hdr.msg_name = (void *) &p->systemAddress.address.addr6;
 				                                             msgs[i].msg_hdr.msg_namelen = sizeof(sockaddr_in6);
-#else
-					// Nothing to point msg_name at: this build has no sockaddr_in6.
-					// Leaving it null makes sendmmsg fail EDESTADDRREQ for this one
-					// datagram, which DriveBatchedSend drops while still delivering
-					// the rest of the batch.
-					RakAssert(false && "non-IPv4 destination on an IPv4-only build");
-#endif
 			                                             }
 		                                             }
 		                                             const int r = sendmmsg(rns2Socket, msgs, chunk, 0);

@@ -34,87 +34,34 @@
 #include "mafianet/itoa.h"
 #include "mafianet/wsa_startup_singleton.h"
 
-// Domain name resolution functions
-void DomainNameToIP_Berkley_IPV4And6(const char *domainName, char ip[65])
+// Domain name resolution. Writes the numeric form of the first address
+// getaddrinfo returns for \a addressFamily (AF_INET, AF_INET6, or AF_UNSPEC for
+// either, in the resolver's RFC 6724 order) to \a ip, or "" on failure.
+void DomainNameToIP_Berkley_IPV4And6(const char *domainName, char ip[65], int addressFamily)
 {
-#if RAKNET_SUPPORT_IPV6 == 1
-	struct addrinfo hints, *res, *p;
-	int status;
+	struct addrinfo hints, *res = nullptr;
 	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
+	hints.ai_family = addressFamily;
 	hints.ai_socktype = SOCK_DGRAM;
 
-	if ((status = getaddrinfo(domainName, nullptr, &hints, &res)) != 0)
-	{
-		ip[0] = '\0';
+	ip[0] = '\0';
+	WSAStartupSingleton::AddRef();
+	const int status = getaddrinfo(domainName, nullptr, &hints, &res);
+	WSAStartupSingleton::Deref();
+	if (status != 0 || res == nullptr)
 		return;
-	}
 
-	p = res;
-	void *addr;
-	if (p->ai_family == AF_INET)
+	if (res->ai_family == AF_INET)
 	{
-		struct sockaddr_in *ipv4 = (struct sockaddr_in *) p->ai_addr;
-		addr = &(ipv4->sin_addr);
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *) res->ai_addr;
 		inet_ntop(AF_INET, &ipv4->sin_addr, ip, 65);
 	}
-	else
+	else if (res->ai_family == AF_INET6)
 	{
-		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) p->ai_addr;
-		addr = &(ipv6->sin6_addr);
-		getnameinfo((struct sockaddr *) ipv6, sizeof(struct sockaddr_in6), ip, 65, nullptr, 0, NI_NUMERICHOST);
+		if (getnameinfo(res->ai_addr, sizeof(struct sockaddr_in6), ip, 65, nullptr, 0, NI_NUMERICHOST) != 0)
+			ip[0] = '\0';
 	}
 	freeaddrinfo(res);
-#else
-	(void) domainName;
-	(void) ip;
-#endif
-}
-
-void DomainNameToIP_Berkley_IPV4(const char *domainName, char ip[65])
-{
-	struct addrinfo *addressinfo = nullptr;
-	struct addrinfo *originalAddressInfo = nullptr;
-	WSAStartupSingleton::AddRef();
-	int error = getaddrinfo(domainName, nullptr, nullptr, &addressinfo);
-	WSAStartupSingleton::Deref();
-
-	if (error != 0 || addressinfo == 0)
-	{
-		ip[0] = '\0';
-		return;
-	}
-
-	originalAddressInfo = addressinfo;
-
-	while (addressinfo != nullptr)
-	{
-		if (addressinfo->ai_family == AF_INET)
-		{
-			break;
-		}
-		addressinfo = addressinfo->ai_next;
-	}
-
-	if (addressinfo == nullptr)
-	{
-		ip[0] = '\0';
-		freeaddrinfo(originalAddressInfo);
-		return;
-	}
-
-	struct sockaddr_in *sockaddr_ipv4 = (struct sockaddr_in *) addressinfo->ai_addr;
-	inet_ntop(AF_INET, &sockaddr_ipv4->sin_addr, ip, 65);
-	freeaddrinfo(originalAddressInfo);
-}
-
-void DomainNameToIP_Berkley(const char *domainName, char ip[65])
-{
-#if RAKNET_SUPPORT_IPV6 == 1
-	return DomainNameToIP_Berkley_IPV4And6(domainName, ip);
-#else
-	return DomainNameToIP_Berkley_IPV4(domainName, ip);
-#endif
 }
 
 void RNS2_Berkley::SetSocketOptions(void)
@@ -182,27 +129,8 @@ void RNS2_Berkley::SetDoNotFragment([[maybe_unused]] int opt) // unused where IP
 #endif
 }
 
-void RNS2_Berkley::GetSystemAddressIPV4(RNS2Socket rns2Socket, SystemAddress *systemAddressOut)
-{
-	sockaddr_in sa;
-	memset(&sa, 0, sizeof(sockaddr_in));
-	socklen_t len = sizeof(sa);
-	//int r =
-	getsockname__(rns2Socket, (sockaddr *) &sa, &len);
-	systemAddressOut->SetPortNetworkOrder(sa.sin_port);
-	systemAddressOut->address.addr4.sin_addr.s_addr = sa.sin_addr.s_addr;
-
-	if (systemAddressOut->address.addr4.sin_addr.s_addr == INADDR_ANY)
-	{
-
-
-		inet_pton(AF_INET, "127.0.0.1", &systemAddressOut->address.addr4.sin_addr.s_addr);
-	}
-}
 void RNS2_Berkley::GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut)
 {
-#if RAKNET_SUPPORT_IPV6 == 1
-
 	socklen_t slen;
 	sockaddr_storage ss;
 	slen = sizeof(ss);
@@ -242,107 +170,11 @@ void RNS2_Berkley::GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress
 
 		char zero[16];
 		memset(zero, 0, sizeof(zero));
-		if (memcmp(&systemAddressOut->address.addr4.sin_addr.s_addr, &zero, sizeof(zero)) == 0)
+		if (memcmp(&systemAddressOut->address.addr6.sin6_addr, &zero, sizeof(zero)) == 0)
 			systemAddressOut->SetToLoopback(6);
 
 		//	systemAddressOut->address.addr6.sin6_port=ntohs(systemAddressOut->address.addr6.sin6_port);
 	}
-
-#else
-	(void) rns2Socket;
-	(void) systemAddressOut;
-	return;
-#endif
-}
-
-RNS2BindResult RNS2_Berkley::BindSharedIPV4(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
-{
-
-	(void) file;
-	(void) line;
-
-	int ret;
-	memset(&boundAddress.address.addr4, 0, sizeof(sockaddr_in));
-	boundAddress.address.addr4.sin_port = htons(bindParameters->port);
-	rns2Socket = (int) socket__(bindParameters->addressFamily, bindParameters->type, bindParameters->protocol);
-	if (rns2Socket == -1)
-		return BR_FAILED_TO_BIND_SOCKET;
-
-	SetSocketOptions();
-	SetNonBlockingSocket(bindParameters->nonBlockingSocket);
-	SetBroadcastSocket(bindParameters->setBroadcast);
-	SetIPHdrIncl(bindParameters->setIPHdrIncl);
-
-	// Fill in the rest of the address structure
-	boundAddress.address.addr4.sin_family = AF_INET;
-
-	if (bindParameters->hostAddress && bindParameters->hostAddress[0])
-	{
-		inet_pton(AF_INET, bindParameters->hostAddress, &boundAddress.address.addr4.sin_addr.s_addr);
-	}
-	else
-	{
-		//		RAKNET_DEBUG_PRINTF("Binding any on port %i\n", port);
-		boundAddress.address.addr4.sin_addr.s_addr = INADDR_ANY;
-	}
-
-	// bind our name to the socket
-	ret = bind__(rns2Socket, (struct sockaddr *) &boundAddress.address.addr4, sizeof(boundAddress.address.addr4));
-
-	if (ret <= -1)
-	{
-#if defined(_WIN32)
-		closesocket__(rns2Socket);
-		return BR_FAILED_TO_BIND_SOCKET;
-#elif (defined(__GNUC__) || defined(__GCCXML__)) && !defined(_WIN32)
-		closesocket__(rns2Socket);
-		switch (errno)
-		{
-		case EBADF:
-			RAKNET_DEBUG_PRINTF("bind__(): sockfd is not a valid descriptor.\n");
-			break;
-		case ENOTSOCK:
-			RAKNET_DEBUG_PRINTF("bind__(): Argument is a descriptor for a file, not a socket.\n");
-			break;
-		case EINVAL:
-			RAKNET_DEBUG_PRINTF("bind__(): The addrlen is wrong, or the socket was not in the AF_UNIX family.\n");
-			break;
-		case EROFS:
-			RAKNET_DEBUG_PRINTF("bind__(): The socket inode would reside on a read-only file system.\n");
-			break;
-		case EFAULT:
-			RAKNET_DEBUG_PRINTF("bind__(): my_addr points outside the user's accessible address space.\n");
-			break;
-		case ENAMETOOLONG:
-			RAKNET_DEBUG_PRINTF("bind__(): my_addr is too long.\n");
-			break;
-		case ENOENT:
-			RAKNET_DEBUG_PRINTF("bind__(): The file does not exist.\n");
-			break;
-		case ENOMEM:
-			RAKNET_DEBUG_PRINTF("bind__(): Insufficient kernel memory was available.\n");
-			break;
-		case ENOTDIR:
-			RAKNET_DEBUG_PRINTF("bind__(): A component of the path prefix is not a directory.\n");
-			break;
-		case EACCES:
-			// Port reserved on PS4
-			RAKNET_DEBUG_PRINTF("bind__(): Search permission is denied on a component of the path prefix.\n");
-			break;
-		case ELOOP:
-			RAKNET_DEBUG_PRINTF("bind__(): Too many symbolic links were encountered in resolving my_addr.\n");
-			break;
-		default:
-			RAKNET_DEBUG_PRINTF("Unknown bind__() error %i.\n", errno);
-			break;
-		}
-
-		return BR_FAILED_TO_BIND_SOCKET;
-#endif
-	}
-
-	GetSystemAddressIPV4(rns2Socket, &boundAddress);
-	return BR_SUCCESS;
 }
 
 void PrepareAddrInfoHints2(addrinfo *hints)
@@ -354,47 +186,43 @@ void PrepareAddrInfoHints2(addrinfo *hints)
 
 RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
 {
-
 	(void) file;
 	(void) line;
-	(void) bindParameters;
 
-#if RAKNET_SUPPORT_IPV6 == 1
-
-	int ret = 0;
 	struct addrinfo hints;
-	struct addrinfo *servinfo = 0, *aip; // will point to the results
+	struct addrinfo *servinfo = nullptr, *aip; // will point to the results
 	PrepareAddrInfoHints2(&hints);
 	hints.ai_family = bindParameters->addressFamily;
+	// hints keep SOCK_DGRAM: they only pick the address to bind (a numeric port
+	// is rejected for SOCK_RAW by some resolvers); the socket itself is created
+	// with the caller's type and protocol below.
 	char portStr[32];
 	Itoa(bindParameters->port, portStr, 10);
 
-
 	// On Ubuntu, "" returns "No address associated with hostname" while 0 works.
-	if (bindParameters->hostAddress &&
-	    (_stricmp(bindParameters->hostAddress, "UNASSIGNED_SYSTEM_ADDRESS") == 0 || bindParameters->hostAddress[0] == 0))
-	{
-		getaddrinfo(0, portStr, &hints, &servinfo);
-	}
-	else
-	{
-		getaddrinfo(bindParameters->hostAddress, portStr, &hints, &servinfo);
-	}
+	const char *node = bindParameters->hostAddress;
+	if (node && (_stricmp(node, "UNASSIGNED_SYSTEM_ADDRESS") == 0 || node[0] == 0))
+		node = nullptr;
+
+	WSAStartupSingleton::AddRef();
+	const int gaiResult = getaddrinfo(node, portStr, &hints, &servinfo);
+	WSAStartupSingleton::Deref();
+	if (gaiResult != 0 || servinfo == nullptr)
+		return BR_FAILED_TO_BIND_SOCKET;
 
 	// Try all returned addresses until one works
 	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
 	{
-		// Open socket. The address type depends on what
-		// getaddrinfo() gave us.
-		rns2Socket = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
+		// Open socket. The address type depends on what getaddrinfo() gave us;
+		// type and protocol are the caller's (protocol may be a raw-socket one).
+		rns2Socket = socket__(aip->ai_family, bindParameters->type, bindParameters->protocol);
 
 		if (rns2Socket == -1)
-			return BR_FAILED_TO_BIND_SOCKET;
+			continue;
 
-		// For IPv6 sockets, set IPV6_V6ONLY to allow binding both IPv4 and IPv6
-		// sockets to the same port. Without this, an IPv6 socket on Linux/Windows
-		// defaults to dual-stack mode (listening on both IPv4 and IPv6), which
-		// prevents a separate IPv4 socket from binding to the same port.
+		// An AF_INET6 socket is IPv6-only, set explicitly rather than left to the
+		// OS default (dual-stack on Linux/Windows, configurable per host), so an
+		// IPv4 socket can bind the same port alongside it.
 		if (aip->ai_family == AF_INET6)
 		{
 			int ipv6only = 1;
@@ -402,17 +230,12 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 			// Ignore errors - some platforms may not support this option
 		}
 
-		ret = bind__(rns2Socket, aip->ai_addr, (int) aip->ai_addrlen);
-		if (ret >= 0)
+		if (bind__(rns2Socket, aip->ai_addr, (int) aip->ai_addrlen) >= 0)
 		{
 			if (aip->ai_family == AF_INET)
-			{
 				memcpy(&boundAddress.address.addr4, aip->ai_addr, sizeof(sockaddr_in));
-			}
 			else
-			{
 				memcpy(&boundAddress.address.addr6, aip->ai_addr, sizeof(sockaddr_in6));
-			}
 
 			freeaddrinfo(servinfo); // free the linked-list
 
@@ -425,23 +248,16 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 
 			return BR_SUCCESS;
 		}
-		else
-		{
-			closesocket__(rns2Socket);
-		}
+
+		closesocket__(rns2Socket);
 	}
 
+	freeaddrinfo(servinfo);
 	return BR_FAILED_TO_BIND_SOCKET;
-
-#else
-	return BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE;
-#endif
 }
 
 void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 {
-#if RAKNET_SUPPORT_IPV6 == 1
-
 	sockaddr_storage their_addr;
 	sockaddr *sockAddrPtr;
 	socklen_t sockLen;
@@ -496,49 +312,6 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 			//	systemAddressOut->address.addr6.sin6_port=ntohs( systemAddressOut->address.addr6.sin6_port );
 		}
 	}
-
-#else
-	(void) recvFromStruct;
-#endif
-}
-
-void RNS2_Berkley::RecvFromBlockingIPV4(RNS2RecvStruct *recvFromStruct)
-{
-	sockaddr *sockAddrPtr;
-	socklen_t sockLen;
-	socklen_t *socketlenPtr = (socklen_t *) &sockLen;
-	sockaddr_in sa;
-	memset(&sa, 0, sizeof(sockaddr_in));
-	const int flag = 0;
-
-	{
-		sockLen = sizeof(sa);
-		sa.sin_family = AF_INET;
-		sa.sin_port = 0;
-		sockAddrPtr = (sockaddr *) &sa;
-	}
-
-	recvFromStruct->bytesRead = recvfrom__(GetSocket(), recvFromStruct->data, sizeof(recvFromStruct->data), flag, sockAddrPtr, socketlenPtr);
-
-	if (recvFromStruct->bytesRead <= 0)
-	{
-		return;
-	}
-	recvFromStruct->timeRead = MafiaNet::GetTimeUS();
-
-	{
-		recvFromStruct->systemAddress.SetPortNetworkOrder(sa.sin_port);
-		recvFromStruct->systemAddress.address.addr4.sin_addr.s_addr = sa.sin_addr.s_addr;
-	}
-}
-
-void RNS2_Berkley::RecvFromBlocking(RNS2RecvStruct *recvFromStruct)
-{
-#if RAKNET_SUPPORT_IPV6 == 1
-	return RecvFromBlockingIPV4And6(recvFromStruct);
-#else
-	return RecvFromBlockingIPV4(recvFromStruct);
-#endif
 }
 
 #if defined(__linux__)

@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cstdlib> // getenv, used by MAFIANET_SKIP_WITHOUT_IPV6
 
 #include "mafianet/string.h"
 
@@ -33,6 +34,10 @@ public:
 	// parallel. Returns that port (0 if Startup failed). Never bind a fixed
 	// port in a test.
 	static unsigned short StartOnLoopback(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
+	// Same as StartOnLoopback, on an AF_INET6 socket bound to ::1. Returns 0
+	// when ::1 cannot be bound (host without IPv6 loopback); pair it with
+	// MAFIANET_SKIP_WITHOUT_IPV6 in the fixture's SetUp().
+	static unsigned short StartOnLoopbackV6(RakPeerInterface *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
 	// The port a started peer is bound to.
 	static unsigned short BoundPort(RakPeerInterface *peer);
 
@@ -50,3 +55,19 @@ public:
 	static void RecieveForXTime(RakPeerInterface *reciever, int millisecondsToWait);
 	static bool SendTestPacketDirected(RakPeerInterface *sender, char *ip, int port, MafiaNet::Reliability rel = MafiaNet::Reliability::ReliableOrdered, MafiaNet::Priority pr = MafiaNet::Priority::High, int typeNum = ID_USER_PACKET_ENUM + 1);
 };
+
+// Skips the current test when \a port is 0 (StartOnLoopbackV6 could not bind
+// ::1), or fails it instead when MAFIANET_REQUIRE_IPV6 is set, so CI cannot
+// silently lose IPv6 coverage. GTEST_SKIP()/FAIL() only work in a test body or
+// in a fixture's SetUp(), so use it there, never inside a helper function.
+#define MAFIANET_SKIP_WITHOUT_IPV6(port)                                      \
+	do                                                                        \
+	{                                                                         \
+		if ((port) == 0)                                                      \
+		{                                                                     \
+			if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)              \
+				FAIL() << "cannot bind ::1 but MAFIANET_REQUIRE_IPV6 is set"; \
+			else                                                              \
+				GTEST_SKIP() << "no IPv6 loopback (::1) on this host";        \
+		}                                                                     \
+	} while (0)

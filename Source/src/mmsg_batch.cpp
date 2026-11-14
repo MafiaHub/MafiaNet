@@ -63,7 +63,6 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
 		out->debugPort = ntohs(out->address.addr4.sin_port);
 		return true;
 	}
-#if RAKNET_SUPPORT_IPV6 == 1
 	if (from.ss_family == AF_INET6)
 	{
 		memcpy(&out->address.addr6,
@@ -71,10 +70,9 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
 		out->debugPort = ntohs(out->address.addr6.sin6_port);
 		return true;
 	}
-#endif
 
-	// A family this build cannot represent (an IPv6 source on an IPv4-only
-	// build, or AF_UNSPEC from a failed read). Overwrite rather than leave the
+	// A family SystemAddress cannot represent (AF_UNSPEC from a failed read,
+	// or anything else that is neither IPv4 nor IPv6). Overwrite rather than leave the
 	// recycled struct's previous sender in place -- that would attribute the
 	// datagram to the wrong peer.
 	*out = UNASSIGNED_SYSTEM_ADDRESS;

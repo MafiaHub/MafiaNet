@@ -481,17 +481,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			bbp.eventHandler = this;
 			RNS2BindResult br = ((RNS2_Berkley *) r2)->Bind(&bbp, _FILE_AND_LINE_);
 
-			if (
-#if RAKNET_SUPPORT_IPV6 == 0
-			    socketDescriptors[i].socketFamily != AF_INET ||
-#endif
-			    br == BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE)
-			{
-				RakNetSocket2Allocator::DeallocRNS2(r2);
-				DerefAllSockets();
-				return SOCKET_FAMILY_NOT_SUPPORTED;
-			}
-			else if (br == BR_FAILED_TO_BIND_SOCKET)
+			if (br == BR_FAILED_TO_BIND_SOCKET)
 			{
 				RakNetSocket2Allocator::DeallocRNS2(r2);
 				DerefAllSockets();
