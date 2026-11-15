@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include "TcpTestHelpers.h"
 #include "TestHelpers.h"
 #include "mafianet/get_time.h"
 #include "mafianet/sleep.h"
@@ -20,67 +21,16 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
 using namespace MafiaNet;
 
-namespace
-{
-// TCPInterface does not report the port it listens on; this reads it from the
-// listening socket, so the test can listen on a port the OS assigns.
-class ListeningTcp : public TCPInterface
-{
-public:
-	unsigned short ListenPort() const
-	{
-		sockaddr_storage local{};
-		if (!LocalAddress(&local))
-			return 0;
-		return local.ss_family == AF_INET ? ntohs(((const sockaddr_in *) &local)->sin_port) : ntohs(((const sockaddr_in6 *) &local)->sin6_port);
-	}
-	int ListenFamily() const
-	{
-		sockaddr_storage local{};
-		return LocalAddress(&local) ? local.ss_family : AF_UNSPEC;
-	}
-
-private:
-	bool LocalAddress(sockaddr_storage *local) const
-	{
-		memset(local, 0, sizeof(*local));
-		socklen_t length = sizeof(*local);
-		return listenSocket != 0 && getsockname(listenSocket, (sockaddr *) local, &length) == 0;
-	}
-};
-
-// Whether a TCP socket can bind ::1 on this host.
-bool HasIpv6Loopback()
-{
-	bool ok = false;
-	const int s = (int) socket(AF_INET6, SOCK_STREAM, 0);
-	if (s >= 0)
-	{
-		sockaddr_in6 addr;
-		memset(&addr, 0, sizeof(addr));
-		addr.sin6_family = AF_INET6;
-		addr.sin6_addr.s6_addr[15] = 1; // ::1
-		ok = bind(s, (sockaddr *) &addr, sizeof(addr)) == 0;
-#ifdef _WIN32
-		closesocket(s);
-#else
-		close(s);
-#endif
-	}
-	return ok;
-}
-} // namespace
+using TcpTestHelpers::HasIpv6Loopback;
+using TcpTestHelpers::ListeningTcp;
 
 class TcpInterfaceFamilyLive : public ::testing::Test
 {
@@ -260,12 +210,16 @@ TEST_F(TcpInterfaceFamilyLive, ConnectCloseLoopWhileSending)
 	const std::string marker = "marker-after-churn";
 	client->Send(marker.data(), (unsigned) marker.size(), serverSide, false);
 	bool serverGotMarker = false, clientGotBroadcast = false;
+	// TCP may split the marker over several packets: look for it in each connection's byte stream.
+	std::map<std::string, std::string> serverStreams;
 	const TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 5000 && !(serverGotMarker && clientGotBroadcast))
 	{
 		for (Packet *p = server->Receive(); p != nullptr; p = server->Receive())
 		{
-			if (std::string((const char *) p->data, p->length).find(marker) != std::string::npos)
+			std::string &stream = serverStreams[p->systemAddress.ToString(true)];
+			stream.append((const char *) p->data, p->length);
+			if (stream.find(marker) != std::string::npos)
 				serverGotMarker = true;
 			server->DeallocatePacket(p);
 		}

@@ -10,87 +10,55 @@
 
 #include <gtest/gtest.h>
 
+#include "TcpTestHelpers.h"
 #include "TestHelpers.h"
 #include "mafianet/get_time.h"
 #include "mafianet/sleep.h"
-#include "mafianet/socket_includes.h"
 #include "mafianet/tcp_interface.h"
 
-#include <cstring>
-
-#ifndef _WIN32
-#include <fcntl.h>
-#include <unistd.h>
-#endif
+#include <memory>
+#include <string>
 
 using namespace MafiaNet;
-
-namespace
-{
-// Asks the OS for a free TCP port on ::1. Returns 0 when ::1 cannot be bound
-// (host without IPv6 loopback). TCPInterface has no way to report the port it
-// bound, so the test binds a probe socket, reads the port and releases it.
-unsigned short ProbeFreeLoopbackPortV6()
-{
-#ifdef _WIN32
-	WSADATA wsa;
-	WSAStartup(MAKEWORD(2, 2), &wsa);
-#endif
-	unsigned short port = 0;
-	const int s = (int) socket(AF_INET6, SOCK_STREAM, 0);
-	if (s >= 0)
-	{
-		sockaddr_in6 addr;
-		memset(&addr, 0, sizeof(addr));
-		addr.sin6_family = AF_INET6;
-		addr.sin6_addr.s6_addr[15] = 1; // ::1
-		socklen_t len = sizeof(addr);
-		if (bind(s, (sockaddr *) &addr, sizeof(addr)) == 0 && getsockname(s, (sockaddr *) &addr, &len) == 0)
-			port = ntohs(addr.sin6_port);
-#ifdef _WIN32
-		closesocket(s);
-#else
-		close(s);
-#endif
-	}
-#ifdef _WIN32
-	WSACleanup();
-#endif
-	return port;
-}
-}
+using TcpTestHelpers::ListeningTcp;
 
 class TcpInterfaceIpv6Live : public ::testing::Test
 {
 protected:
 	void SetUp() override
 	{
-		port = ProbeFreeLoopbackPortV6();
-		MAFIANET_SKIP_WITHOUT_IPV6(port);
-		server = TCPInterface::GetInstance();
-		client = TCPInterface::GetInstance();
+#ifdef _WIN32
+		WSADATA wsa;
+		WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+		MAFIANET_SKIP_WITHOUT_IPV6(TcpTestHelpers::HasIpv6Loopback() ? 1 : 0);
+		server.reset(new ListeningTcp);
+		client.reset(new TCPInterface);
 	}
 
 	void TearDown() override
 	{
-		for (TCPInterface *tcp : {client, server})
-		{
-			if (tcp == nullptr)
-				continue;
-			tcp->Stop();
-			TCPInterface::DestroyInstance(tcp);
-		}
-		client = server = nullptr;
+		if (client)
+			client->Stop();
+		if (server)
+			server->Stop();
+		client.reset();
+		server.reset();
+#ifdef _WIN32
+		WSACleanup();
+#endif
 	}
 
-	TCPInterface *server = nullptr;
-	TCPInterface *client = nullptr;
-	unsigned short port = 0;
+	std::unique_ptr<ListeningTcp> server;
+	std::unique_ptr<TCPInterface> client;
 };
 
 TEST_F(TcpInterfaceIpv6Live, EchoOverLoopback)
 {
-	ASSERT_TRUE(server->Start(port, 4, 4, -99999, AF_INET6, "::1"));
+	// Port 0: the OS assigns a free one, so parallel tests never collide.
+	ASSERT_TRUE(server->Start(0, 4, 4, -99999, AF_INET6, "::1"));
+	const unsigned short port = server->ListenPort();
+	ASSERT_NE(port, 0);
 	ASSERT_TRUE(client->Start(0, 0));
 
 	const SystemAddress serverSide = client->Connect("::1", port, true, AF_INET6);
@@ -101,19 +69,18 @@ TEST_F(TcpInterfaceIpv6Live, EchoOverLoopback)
 		sent[i] = (char) (i * 3 + 1);
 	client->Send(sent, sizeof(sent), serverSide, false);
 
-	bool gotIncoming = false;
-	Packet *received = nullptr;
-	const TimeMS start = GetTimeMS();
-	while (GetTimeMS() - start < 5000 && received == nullptr)
-	{
-		if (server->HasNewIncomingConnection() != UNASSIGNED_SYSTEM_ADDRESS)
-			gotIncoming = true;
-		received = server->Receive();
-		if (received == nullptr)
-			RakSleep(30);
-	}
-	ASSERT_NE(received, nullptr) << "server did not receive the 64 bytes";
+	// TCP may deliver the 64 bytes in several packets.
+	std::string received;
+	SystemAddress sender = UNASSIGNED_SYSTEM_ADDRESS;
+	TcpTestHelpers::ReceiveBytes(server.get(), UNASSIGNED_SYSTEM_ADDRESS, sizeof(sent), &received, &sender);
+	ASSERT_EQ(received.size(), sizeof(sent)) << "server did not receive exactly the 64 bytes";
+	EXPECT_EQ(received, std::string(sent, sizeof(sent)));
+	// The peer address the server reports is the IPv6 loopback.
+	EXPECT_EQ(sender.GetIPVersion(), 6);
+
 	// The connection is queued before its data, but may be popped after it.
+	bool gotIncoming = false;
+	const TimeMS start = GetTimeMS();
 	while (!gotIncoming && GetTimeMS() - start < 5000)
 	{
 		gotIncoming = server->HasNewIncomingConnection() != UNASSIGNED_SYSTEM_ADDRESS;
@@ -121,9 +88,4 @@ TEST_F(TcpInterfaceIpv6Live, EchoOverLoopback)
 			RakSleep(30);
 	}
 	EXPECT_TRUE(gotIncoming) << "the server never reported the incoming connection";
-	EXPECT_EQ(received->length, 64u);
-	EXPECT_EQ(memcmp(received->data, sent, sizeof(sent)), 0);
-	// The peer address the server reports is the IPv6 loopback.
-	EXPECT_EQ(received->systemAddress.address.addr6.sin6_family, AF_INET6);
-	server->DeallocatePacket(received);
 }
