@@ -58,8 +58,23 @@ int SequenceBytes(uint64_t sequence)
 const char kInfoLabel[] = "MafiaNet datagram";
 constexpr size_t kInfoLabelBytes = sizeof(kInfoLabel) - 1; // no NUL
 static_assert(kInfoLabelBytes == 17, "info label is 17 bytes");
-// label | protocol version | guid I | guid R | crypt info I | crypt info R | direction
-constexpr size_t kInfoBytes = kInfoLabelBytes + 1 + 8 + 8 + 2 * CryptInfo::kSerializedBytes + 1;
+// HKDF info, 118 bytes without a server identity key and 214 with one:
+//   "MafiaNet datagram" (17) | protocol version (1) | initiator GUID (8, LE) | responder GUID (8, LE)
+//   | initiator crypt info (41) | responder crypt info (41)
+//   | responder identity block (1 or 97, exactly as in REPLY_2) | direction (1: 0x01 I->R, 0x02 R->I)
+constexpr size_t kInfoMaxBytes = kInfoLabelBytes + 1 + 8 + 8 + 2 * CryptInfo::kSerializedBytes + IdentityBlock::kMaxSerializedBytes + 1;
+static_assert(kInfoMaxBytes == 214, "HKDF info is at most 214 bytes");
+
+// Ed25519 identity signature input (see BuildIdentityTranscript), 107 bytes:
+//   "MafiaNet server identity" (24) | protocol version (1) | client crypt info (41) | server crypt info (41)
+const char kIdentityLabel[] = "MafiaNet server identity";
+constexpr size_t kIdentityLabelBytes = sizeof(kIdentityLabel) - 1; // no NUL
+static_assert(kIdentityLabelBytes == 24, "identity label is 24 bytes");
+static_assert(kIdentityTranscriptBytes == 107, "identity transcript is 107 bytes");
+static_assert(crypto_sign_ed25519_PUBLICKEYBYTES == kIdentityPublicKeyBytes, "Ed25519 public key size");
+static_assert(crypto_sign_ed25519_SECRETKEYBYTES == kIdentitySecretKeyBytes, "Ed25519 secret key size");
+static_assert(crypto_sign_ed25519_BYTES == kIdentitySignatureBytes, "Ed25519 signature size");
+static_assert(crypto_sign_ed25519_SEEDBYTES == 32, "Ed25519 seed size");
 
 } // namespace
 
@@ -166,9 +181,132 @@ void SessionKeys::Wipe()
 	sodium_memzero(recv, sizeof(recv));
 }
 
+// ------------------------------------------------------------ server identity
+
+void SecureZero(void *data, size_t length)
+{
+	if (data != nullptr && length > 0)
+		sodium_memzero(data, length);
+}
+
+void GenerateIdentityKeyPair(uint8_t publicKey[kIdentityPublicKeyBytes], uint8_t secretKey[kIdentitySecretKeyBytes])
+{
+	const int sodiumReady = sodium_init();
+	(void) sodiumReady;
+	crypto_sign_ed25519_keypair(publicKey, secretKey);
+}
+
+bool IdentityPublicKeyFromSecret(const uint8_t secretKey[kIdentitySecretKeyBytes], uint8_t publicKey[kIdentityPublicKeyBytes])
+{
+	const int sodiumReady = sodium_init();
+	(void) sodiumReady;
+	// libsodium's secret key is seed | public key. Rebuild it from the seed and require the
+	// same 64 bytes, so a truncated, corrupted or foreign key is refused instead of producing
+	// signatures no client can verify.
+	uint8_t rebuiltPublic[kIdentityPublicKeyBytes];
+	uint8_t rebuiltSecret[kIdentitySecretKeyBytes];
+	crypto_sign_ed25519_seed_keypair(rebuiltPublic, rebuiltSecret, secretKey);
+	const bool ok = sodium_memcmp(rebuiltSecret, secretKey, kIdentitySecretKeyBytes) == 0;
+	sodium_memzero(rebuiltSecret, sizeof(rebuiltSecret));
+	if (ok)
+		memcpy(publicKey, rebuiltPublic, kIdentityPublicKeyBytes);
+	else
+		memset(publicKey, 0, kIdentityPublicKeyBytes);
+	return ok;
+}
+
+int IdentityBlock::SerializedBytes() const
+{
+	return present ? kPresentBytes : kAbsentBytes;
+}
+
+int IdentityBlock::SerializeTo(uint8_t out[kMaxSerializedBytes]) const
+{
+	out[0] = present ? 1 : 0;
+	if (!present)
+		return kAbsentBytes;
+	memcpy(out + 1, publicKey, sizeof(publicKey));
+	memcpy(out + 1 + sizeof(publicKey), signature, sizeof(signature));
+	return kPresentBytes;
+}
+
+void IdentityBlock::Serialize(BitStream *out) const
+{
+	uint8_t raw[kMaxSerializedBytes];
+	const int n = SerializeTo(raw);
+	out->WriteAlignedBytes(raw, (unsigned int) n);
+}
+
+bool IdentityBlock::Deserialize(BitStream *in)
+{
+	uint8_t flag;
+	if (!in->ReadAlignedBytes(&flag, 1))
+		return false;
+	if (flag == 0)
+	{
+		*this = IdentityBlock();
+		return true;
+	}
+	if (flag != 1)
+		return false;
+	uint8_t raw[kIdentityPublicKeyBytes + kIdentitySignatureBytes];
+	if (!in->ReadAlignedBytes(raw, sizeof(raw)))
+		return false;
+	present = true;
+	memcpy(publicKey, raw, sizeof(publicKey));
+	memcpy(signature, raw + sizeof(publicKey), sizeof(signature));
+	return true;
+}
+
+void BuildIdentityTranscript(const CryptInfo &clientInfo, const CryptInfo &serverInfo, uint8_t out[kIdentityTranscriptBytes])
+{
+	size_t pos = 0;
+	memcpy(out + pos, kIdentityLabel, kIdentityLabelBytes);
+	pos += kIdentityLabelBytes;
+	out[pos++] = (uint8_t) RAKNET_PROTOCOL_VERSION;
+	clientInfo.SerializeTo(out + pos);
+	pos += CryptInfo::kSerializedBytes;
+	serverInfo.SerializeTo(out + pos);
+}
+
+bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const CryptInfo &clientInfo, const CryptInfo &serverInfo, IdentityBlock *out)
+{
+	if (out == nullptr)
+		return false;
+	*out = IdentityBlock();
+	uint8_t publicKey[kIdentityPublicKeyBytes];
+	if (secretKey == nullptr || !IdentityPublicKeyFromSecret(secretKey, publicKey))
+		return false;
+	uint8_t transcript[kIdentityTranscriptBytes];
+	BuildIdentityTranscript(clientInfo, serverInfo, transcript);
+	if (crypto_sign_ed25519_detached(out->signature, nullptr, transcript, sizeof(transcript), secretKey) != 0)
+	{
+		*out = IdentityBlock();
+		return false;
+	}
+	memcpy(out->publicKey, publicKey, sizeof(publicKey));
+	out->present = true;
+	return true;
+}
+
+bool VerifyServerIdentity(const IdentityBlock &identity, const CryptInfo &clientInfo, const CryptInfo &serverInfo)
+{
+	if (!identity.present)
+		return false;
+	uint8_t transcript[kIdentityTranscriptBytes];
+	BuildIdentityTranscript(clientInfo, serverInfo, transcript);
+	// libsodium rejects a non-canonical signature and a small-order public key or R.
+	return crypto_sign_ed25519_verify_detached(identity.signature, transcript, sizeof(transcript), identity.publicKey) == 0;
+}
+
 // ------------------------------------------------------------- key derivation
 
 bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const CryptInfo &initiatorInfo, const CryptInfo &responderInfo, RakNetGUID initiatorGuid, RakNetGUID responderGuid, SessionKeys *out)
+{
+	return DeriveSessionKeys(local, localIsInitiator, initiatorInfo, responderInfo, initiatorGuid, responderGuid, IdentityBlock(), out);
+}
+
+bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const CryptInfo &initiatorInfo, const CryptInfo &responderInfo, RakNetGUID initiatorGuid, RakNetGUID responderGuid, const IdentityBlock &responderIdentity, SessionKeys *out)
 {
 	if (out == nullptr)
 	{
@@ -201,7 +339,7 @@ bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const Cry
 	detail::HkdfExtract(salt, sizeof(salt), shared, sizeof(shared), prk);
 	sodium_memzero(shared, sizeof(shared));
 
-	uint8_t info[kInfoBytes];
+	uint8_t info[kInfoMaxBytes];
 	size_t pos = 0;
 	memcpy(info + pos, kInfoLabel, kInfoLabelBytes);
 	pos += kInfoLabelBytes;
@@ -214,14 +352,17 @@ bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const Cry
 	pos += CryptInfo::kSerializedBytes;
 	responderInfo.SerializeTo(info + pos);
 	pos += CryptInfo::kSerializedBytes;
+	// The identity block exactly as REPLY_2 carries it: the keys are bound to the identity the client checked.
+	pos += (size_t) responderIdentity.SerializeTo(info + pos);
 	const size_t directionPos = pos++;
+	const size_t infoBytes = pos;
 
 	uint8_t keyI2R[kKeyBytes];
 	uint8_t keyR2I[kKeyBytes];
 	info[directionPos] = 0x01;
-	const bool ok1 = detail::HkdfExpand(prk, info, kInfoBytes, keyI2R, sizeof(keyI2R));
+	const bool ok1 = detail::HkdfExpand(prk, info, infoBytes, keyI2R, sizeof(keyI2R));
 	info[directionPos] = 0x02;
-	const bool ok2 = detail::HkdfExpand(prk, info, kInfoBytes, keyR2I, sizeof(keyR2I));
+	const bool ok2 = detail::HkdfExpand(prk, info, infoBytes, keyR2I, sizeof(keyR2I));
 	sodium_memzero(prk, sizeof(prk));
 
 	const bool ok = ok1 && ok2;

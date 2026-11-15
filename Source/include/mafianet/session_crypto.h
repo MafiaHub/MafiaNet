@@ -102,10 +102,86 @@ struct RAK_DLL_EXPORT SessionKeys
 	void Wipe();
 };
 
+// ------------------------------------------------------------- server identity
+//
+// A server may hold a long-term Ed25519 identity key (libsodium crypto_sign_ed25519_*).
+// It signs the handshake transcript in ID_OPEN_CONNECTION_REPLY_2, and a client given
+// the server's public key (Connect's PublicKey*) refuses any reply not signed by it.
+// GameNetworkingSockets signs its crypt info the same way (CMsgSteamDatagramSessionCryptInfoSigned).
+
+constexpr int kIdentityPublicKeyBytes = 32;
+constexpr int kIdentitySecretKeyBytes = 64;
+constexpr int kIdentitySignatureBytes = 64;
+
+/// Creates a new server identity key pair (crypto_sign_ed25519_keypair). The secret
+/// key is libsodium's 64-byte form: 32-byte seed followed by the 32-byte public key.
+/// Publish \a publicKey; keep \a secretKey private and wipe it when done.
+RAK_DLL_EXPORT void GenerateIdentityKeyPair(uint8_t publicKey[kIdentityPublicKeyBytes], uint8_t secretKey[kIdentitySecretKeyBytes]);
+
+/// Reads the public half of an identity secret key.
+/// \return false, zeroing \a publicKey, when \a secretKey is not a well-formed
+/// libsodium Ed25519 secret key (its last 32 bytes must be the public key of its seed).
+RAK_DLL_EXPORT bool IdentityPublicKeyFromSecret(const uint8_t secretKey[kIdentitySecretKeyBytes], uint8_t publicKey[kIdentityPublicKeyBytes]);
+
+/// sodium_memzero, for code that holds key material but does not include sodium.h.
+RAK_DLL_EXPORT void SecureZero(void *data, size_t length);
+
+/// The identity block that follows the server crypt info in ID_OPEN_CONNECTION_REPLY_2:
+///
+///     flag (u8)                    0 = no identity key, 1 = present; any other value is malformed
+///     [identity public key] (32)   only when flag == 1
+///     [signature] (64)             only when flag == 1: Ed25519 over the identity transcript
+///
+/// 1 byte when absent, 97 when present.
+struct RAK_DLL_EXPORT IdentityBlock
+{
+	bool present = false;
+	uint8_t publicKey[kIdentityPublicKeyBytes] = {};
+	uint8_t signature[kIdentitySignatureBytes] = {};
+
+	static constexpr int kAbsentBytes = 1;
+	static constexpr int kPresentBytes = 1 + kIdentityPublicKeyBytes + kIdentitySignatureBytes; // 97
+	static constexpr int kMaxSerializedBytes = kPresentBytes;
+
+	/// 1 or 97.
+	int SerializedBytes() const;
+	void Serialize(BitStream *out) const;
+	/// \return false on a short read or a flag other than 0 or 1.
+	bool Deserialize(BitStream *in);
+	/// Writes the same bytes Serialize writes. \return the count, SerializedBytes().
+	int SerializeTo(uint8_t out[kMaxSerializedBytes]) const;
+};
+
+/// The bytes the server identity key signs, 107 in all:
+///
+///     "MafiaNet server identity"   24 bytes of ASCII, no terminator
+///     protocol version              1 byte (RAKNET_PROTOCOL_VERSION)
+///     client crypt info            41 bytes, CryptInfo::SerializeTo, as sent in REQUEST_2
+///     server crypt info            41 bytes, CryptInfo::SerializeTo, as sent in REPLY_2
+///
+/// The client crypt info carries the client's fresh nonce (and, in mode Required, its
+/// ephemeral public key), so a signature is good for one handshake only.
+constexpr int kIdentityTranscriptBytes = 24 + 1 + 2 * CryptInfo::kSerializedBytes;
+RAK_DLL_EXPORT void BuildIdentityTranscript(const CryptInfo &clientInfo, const CryptInfo &serverInfo, uint8_t out[kIdentityTranscriptBytes]);
+
+/// Fills \a out with the server's public key and its signature (crypto_sign_ed25519_detached)
+/// over BuildIdentityTranscript(clientInfo, serverInfo).
+/// \return false, leaving \a out absent, if \a secretKey is malformed.
+RAK_DLL_EXPORT bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const CryptInfo &clientInfo, const CryptInfo &serverInfo, IdentityBlock *out);
+
+/// \return true when \a identity is present and its signature verifies
+/// (crypto_sign_ed25519_verify_detached) under its own public key over
+/// BuildIdentityTranscript(clientInfo, serverInfo). Whether that public key is the one
+/// the client expects is the caller's check. Safe on arbitrary input.
+RAK_DLL_EXPORT bool VerifyServerIdentity(const IdentityBlock &identity, const CryptInfo &clientInfo, const CryptInfo &serverInfo);
+
 /// Derives the two directional session keys from an X25519 exchange, bound to the
-/// full handshake transcript (both crypt infos, both GUIDs, the protocol version).
+/// full handshake transcript (both crypt infos, both GUIDs, the protocol version, and
+/// the responder's identity block from ID_OPEN_CONNECTION_REPLY_2).
 /// \a local is always wiped. Returns false (and zeroes \a out) on a low-order
 /// remote public key, a remote that is not in mode Required, or a wiped \a local.
+RAK_DLL_EXPORT bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const CryptInfo &initiatorInfo, const CryptInfo &responderInfo, RakNetGUID initiatorGuid, RakNetGUID responderGuid, const IdentityBlock &responderIdentity, SessionKeys *out);
+/// The same, for a responder without an identity key (an absent identity block).
 RAK_DLL_EXPORT bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const CryptInfo &initiatorInfo, const CryptInfo &responderInfo, RakNetGUID initiatorGuid, RakNetGUID responderGuid, SessionKeys *out);
 
 /// netcode's replay protection: remembers the last kSize sequences received.
