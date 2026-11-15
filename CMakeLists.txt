@@ -35,6 +35,10 @@ option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
 # on every compiler regardless; see Tests/Fuzz/.
 option(MAFIANET_BUILD_FUZZERS "Build libFuzzer harnesses (Clang)" OFF)
 option(MAFIANET_BUILD_BENCHMARKS "Build the google/benchmark microbenchmarks" OFF)
+# Long-running soak tests (Tests/Soak, CTest label "soak"): hundreds of simulated
+# peers over many minutes of virtual time, and a threaded loopback run of a few
+# minutes. Needs MAFIANET_BUILD_TESTS; kept out of the default build and run.
+option(MAFIANET_BUILD_SOAK_TESTS "Build the soak tests (label soak)" OFF)
 # Line coverage (GCC/Clang --coverage), reported with gcovr; see the coverage preset.
 option(MAFIANET_COVERAGE "Instrument the build for line coverage" OFF)
 # Non-networking utilities (EmailSender, HTTPConnection/HTTPConnection2,

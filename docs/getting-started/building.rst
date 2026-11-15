@@ -77,6 +77,9 @@ Configure build options with CMake:
    * - ``MAFIANET_BUILD_BENCHMARKS``
      - OFF
      - Build the google/benchmark microbenchmarks. See `Benchmarks`_.
+   * - ``MAFIANET_BUILD_SOAK_TESTS``
+     - OFF
+     - Build the soak tests (CTest label ``soak``; needs ``MAFIANET_BUILD_TESTS``). See `Soak tests`_.
    * - ``MAFIANET_COVERAGE``
      - OFF
      - Instrument for line coverage (GCC/Clang). See `Coverage`_.
@@ -298,6 +301,39 @@ fuzzer finds a crash, fix it and add the minimized reproducer
 
 CI fuzzes each harness for one minute on every pull request, and for fifteen
 minutes nightly with a corpus that persists between runs.
+
+Soak tests
+----------
+
+``Tests/Soak/`` holds tests that run far longer and wider than the unit and
+integration suites, so they are opt-in and carry only the CTest label ``soak``:
+
+* ``SimulatedSoak`` runs one server and 200 encrypted clients on the simulated
+  network for more than ten minutes of virtual time (under a minute of
+  wall-clock time in Release): per-link loss of 5 to 20 %, latency, jitter
+  and reordering, some links capped below the MTU, waves of reconnects and
+  crashes from the same address, simultaneous cross-connects, plaintext peers
+  that must be refused, and reliable-ordered, split and unreliable traffic. It
+  checks in-order delivery, that every connection is keyed, that no settled
+  connection drops a datagram as unauthenticated, that every slot is released,
+  and that memory does not grow from wave to wave. The scenario is fixed by a
+  seed (``MAFIANET_SOAK_SEED``, ``MAFIANET_SOAK_ITERATIONS`` to run several);
+  GUIDs and keys still come from the OS, so cross-connect tie-breaks vary.
+  ``MAFIANET_SOAK_CLIENTS``, ``MAFIANET_SOAK_WAVES`` and
+  ``MAFIANET_SOAK_PHASE_SECONDS`` scale it.
+* ``LoopbackSoak`` runs one server and 64 threaded clients over real loopback
+  UDP for ``MAFIANET_SOAK_LOOPBACK_SECONDS`` (default 150) with traffic, churn
+  and cross-connects whose two ``Connect()`` calls are made from two threads at
+  once.
+
+.. code-block:: bash
+
+   cmake -B build/soak -DCMAKE_BUILD_TYPE=Release -DMAFIANET_BUILD_TESTS=ON -DMAFIANET_BUILD_SOAK_TESTS=ON
+   cmake --build build/soak --target SoakTests
+   ctest --test-dir build/soak -L soak --output-on-failure
+
+CI runs them nightly in Release and under the ``asan`` and ``tsan`` presets,
+never on pull requests.
 
 Benchmarks
 ----------

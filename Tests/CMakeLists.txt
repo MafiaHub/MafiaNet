@@ -8,6 +8,8 @@
 #     CI retries transient timing misses (ctest --repeat until-pass:3).
 #   FuzzCorpus.*     (Tests/Fuzz)        label "unit"        — replays the
 #     checked-in fuzz corpus through each harness.
+#   SoakTests        (Tests/Soak)        label "soak"        — opt-in
+#     (MAFIANET_BUILD_SOAK_TESTS): minutes-long simulated and loopback runs.
 #
 # Under ctest every TEST() runs in its own process, so no state (sockets,
 # peers, GUIDs) can bleed between tests — the historical source of CI flakes.
@@ -94,6 +96,31 @@ gtest_discover_tests(IntegrationTests
     PROPERTIES LABELS integration TIMEOUT 600
     DISCOVERY_TIMEOUT 60
 )
+
+# -----------------------------------------------------------------------------
+# Soak suite (opt-in: MAFIANET_BUILD_SOAK_TESTS)
+# -----------------------------------------------------------------------------
+# Far longer and wider than the two suites above: hundreds of peers on the
+# simulated network over many minutes of virtual time, and a threaded loopback
+# run lasting minutes of wall-clock time. Label "soak" only, so a plain ctest
+# or -L unit / -L integration never runs them. Run with: ctest -L soak
+if(MAFIANET_BUILD_SOAK_TESTS)
+    file(GLOB SOAK_TEST_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Soak/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Soak/*.h"
+    )
+    add_executable(SoakTests ${SOAK_TEST_SOURCES})
+    target_link_libraries(SoakTests PRIVATE TestSupport GTest::gtest_main)
+    # Must match the library's _DEBUG (see IntegrationTests above).
+    target_compile_definitions(SoakTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
+    set_target_properties(SoakTests PROPERTIES FOLDER "Tests")
+    mafianet_enable_warnings(SoakTests)
+
+    gtest_discover_tests(SoakTests
+        PROPERTIES LABELS soak TIMEOUT 7200
+        DISCOVERY_TIMEOUT 60
+    )
+endif()
 
 # -----------------------------------------------------------------------------
 # Fuzz harnesses: corpus replay (always) and libFuzzer targets (opt-in)
