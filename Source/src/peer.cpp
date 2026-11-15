@@ -4152,12 +4152,13 @@ void RakPeer::ReferenceRemoteSystem(const SystemAddress &sa, unsigned int remote
 	remoteSystemList[remoteSystemListIndex].systemAddress = sa;
 
 	unsigned int hashIndex = RemoteSystemLookupHashIndex(sa);
-	RemoteSystemIndex *rsi;
-	rsi = remoteSystemIndexPool.Allocate(_FILE_AND_LINE_);
+	// One entry per reference. (A second Allocate on a bucket collision used to overwrite the first, which
+	// was then never released: one pool entry lost per colliding connection for the life of the peer.)
+	RemoteSystemIndex *rsi = remoteSystemIndexPool.Allocate(_FILE_AND_LINE_);
+	rsi->next = 0;
+	rsi->index = remoteSystemListIndex;
 	if (remoteSystemLookup[hashIndex] == 0)
 	{
-		rsi->next = 0;
-		rsi->index = remoteSystemListIndex;
 		remoteSystemLookup[hashIndex] = rsi;
 	}
 	else
@@ -4167,10 +4168,6 @@ void RakPeer::ReferenceRemoteSystem(const SystemAddress &sa, unsigned int remote
 		{
 			cur = cur->next;
 		}
-
-		rsi = remoteSystemIndexPool.Allocate(_FILE_AND_LINE_);
-		rsi->next = 0;
-		rsi->index = remoteSystemListIndex;
 		cur->next = rsi;
 	}
 
