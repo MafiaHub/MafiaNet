@@ -378,8 +378,11 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 			peerAddress.systemIndex = systemAddress.systemIndex;
 			systemAddress = peerAddress;
 		}
+		// The update thread reads the slot under isActiveMutex as soon as it is active.
+		remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 		remoteClients[newRemoteClientIndex].socket = sockfd;
 		remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
+		remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 		completedConnectionAttemptMutex.Lock();
 		completedConnectionAttempts.Push(remoteClients[newRemoteClientIndex].systemAddress, _FILE_AND_LINE_);
@@ -900,8 +903,11 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 		peerAddress.systemIndex = systemAddress.systemIndex;
 		systemAddress = peerAddress;
 	}
+	// The update thread reads the slot under isActiveMutex as soon as it is active.
+	tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 	tcpInterface->remoteClients[newRemoteClientIndex].socket = sockfd;
 	tcpInterface->remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
+	tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 	// Notify user that the connection attempt has completed.
 	if (tcpInterface->threadRunning.GetValue() > 0)
