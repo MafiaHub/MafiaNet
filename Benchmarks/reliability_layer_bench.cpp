@@ -21,6 +21,7 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/rand.h"
 #include "mafianet/reliability_layer.h"
+#include "mafianet/session_crypto.h"
 #include "mafianet/socket2.h"
 
 using namespace MafiaNet;
@@ -48,10 +49,25 @@ struct LayerPair
 	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
 	CCTimeType now = GetTimeUS();
 
-	LayerPair()
+	// With \a encrypted, both layers get a matching session key set, so every
+	// datagram is sealed and opened; otherwise the layers run the plaintext path
+	// (still reserving the cipher overhead, as a peer in Required mode would).
+	explicit LayerPair(bool encrypted = false)
 	{
 		a.Reset(true, MAXIMUM_MTU_SIZE);
 		b.Reset(true, MAXIMUM_MTU_SIZE);
+		if (encrypted)
+		{
+			const RakNetGUID gi(1), gr(2);
+			EphemeralKeyPair ei, er;
+			const CryptInfo ci = ei.MakeCryptInfo();
+			const CryptInfo cr = er.MakeCryptInfo();
+			SessionKeys ki, kr;
+			DeriveSessionKeys(ei, true, ci, cr, gi, gr, &ki);
+			DeriveSessionKeys(er, false, ci, cr, gi, gr, &kr);
+			a.SetSessionKeys(ki);
+			b.SetSessionKeys(kr);
+		}
 	}
 
 	// One 10ms tick in both directions; returns messages b completed.
@@ -83,9 +99,9 @@ struct LayerPair
 }
 
 // Many small reliable-ordered messages per tick: packing and ack throughput.
-static void ReliabilityLayer_SmallReliableOrdered(benchmark::State &state)
+static void SmallReliableOrdered(benchmark::State &state, bool encrypted)
 {
-	LayerPair pair;
+	LayerPair pair(encrypted);
 	std::vector<char> message(32, 7);
 	message[0] = (char) 200;
 	const int perTick = (int) state.range(0);
@@ -100,12 +116,22 @@ static void ReliabilityLayer_SmallReliableOrdered(benchmark::State &state)
 	state.SetItemsProcessed(delivered);
 	state.SetBytesProcessed(delivered * (int64_t) message.size());
 }
+static void ReliabilityLayer_SmallReliableOrdered(benchmark::State &state)
+{
+	SmallReliableOrdered(state, false);
+}
 BENCHMARK(ReliabilityLayer_SmallReliableOrdered)->Arg(16)->Arg(256);
 
-// One large message per iteration: split and reassembly.
-static void ReliabilityLayer_SplitMessage(benchmark::State &state)
+static void ReliabilityLayer_SmallReliableOrderedEncrypted(benchmark::State &state)
 {
-	LayerPair pair;
+	SmallReliableOrdered(state, true);
+}
+BENCHMARK(ReliabilityLayer_SmallReliableOrderedEncrypted)->Arg(16)->Arg(256);
+
+// One large message per iteration: split and reassembly.
+static void SplitMessage(benchmark::State &state, bool encrypted)
+{
+	LayerPair pair(encrypted);
 	std::vector<char> message((size_t) state.range(0), 9);
 	message[0] = (char) 200;
 	for (auto _ : state)
@@ -120,4 +146,15 @@ static void ReliabilityLayer_SplitMessage(benchmark::State &state)
 	}
 	state.SetBytesProcessed(state.iterations() * state.range(0));
 }
+
+static void ReliabilityLayer_SplitMessage(benchmark::State &state)
+{
+	SplitMessage(state, false);
+}
 BENCHMARK(ReliabilityLayer_SplitMessage)->Arg(16 * 1024)->Arg(256 * 1024);
+
+static void ReliabilityLayer_SplitMessageEncrypted(benchmark::State &state)
+{
+	SplitMessage(state, true);
+}
+BENCHMARK(ReliabilityLayer_SplitMessageEncrypted)->Arg(16 * 1024)->Arg(256 * 1024);
