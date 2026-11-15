@@ -1798,7 +1798,7 @@ void RakPeer::CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep)
 	}
 }
 
-bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::TimeMS now)
+bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now)
 {
 	bool anyLeft = false;
 	bool anyUnstarted = false;
@@ -1818,7 +1818,7 @@ bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::TimeMS now)
 	// Pull the next candidate forward to now; the ones after it keep their spacing.
 	if (anyUnstarted && earliest > now)
 	{
-		const MafiaNet::TimeMS shift = earliest - now;
+		const MafiaNet::Time shift = earliest - now;
 		for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
 		{
 			RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
@@ -3626,7 +3626,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 		{
 			// raceGroup is assigned under the queue lock below.
 			rcs->raceFirstAddress = candidates[0];
-			rcs->nextCandidateTime = now + (MafiaNet::TimeMS) c * HAPPY_EYEBALLS_ATTEMPT_DELAY_MS;
+			rcs->nextCandidateTime = (MafiaNet::Time) now + (MafiaNet::Time) c * HAPPY_EYEBALLS_ATTEMPT_DELAY_MS;
 		}
 
 #if LIBCAT_SECURITY == 1
@@ -3678,7 +3678,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 {
 	RakAssert(passwordDataLength <= 256);
 	SystemAddress systemAddress;
-	systemAddress.FromStringExplicitPort(host, remotePort);
+	// Resolve in the family this socket can reach, as Connect() does.
+	systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socket));
 
 	// Already connected?
 	if (GetRemoteSystemFromSystemAddress(systemAddress, false, true))

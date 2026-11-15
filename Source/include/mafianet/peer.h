@@ -322,6 +322,8 @@ public:
 
 	/// \brief Cancel a pending connection attempt.
 	/// \details If we are already connected, the connection stays open
+	/// \note On a threaded peer the network thread may already be sending a request for this attempt; that one request
+	/// may still go out after the call.
 	/// \param[in] target Target system to cancel.
 	void CancelConnectionAttempt(const SystemAddress target);
 	/// Returns if a system is connected, disconnected, connecting in progress, or various other states
@@ -1017,7 +1019,7 @@ protected:
 		// raceGroup (0 = not racing) and the race's first candidate address. A
 		// candidate sends nothing before nextCandidateTime.
 		uint32_t raceGroup = 0;
-		MafiaNet::TimeMS nextCandidateTime = 0;
+		MafiaNet::Time nextCandidateTime = 0;
 		SystemAddress raceFirstAddress;
 		// Set by CancelConnectionAttempt (any thread, under requestedConnectionQueueMutex). Only the
 		// network thread removes and frees requests: it drops a cancelled one, silently, the next time
@@ -1071,7 +1073,7 @@ protected:
 	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
 	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the
 	// next unstarted one now (later ones keep their spacing). Returns whether any candidate is left.
-	bool AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::TimeMS now);
+	bool AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now);
 
 	// void RunMutexedUpdateCycle(void);
 

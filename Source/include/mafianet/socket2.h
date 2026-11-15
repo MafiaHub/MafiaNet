@@ -236,8 +236,9 @@ public:
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 	/// Resolves \a domainName and writes the numeric form of the first address
 	/// found to \a ip ("" on failure). \a addressFamily restricts the lookup to
-	/// AF_INET or AF_INET6; AF_UNSPEC takes the resolver's first answer of either.
-	static void DomainNameToIP(const char *domainName, char ip[65], int addressFamily = AF_UNSPEC);
+	/// AF_INET (the default, as before IPv6 was always compiled in) or AF_INET6;
+	/// AF_UNSPEC takes the resolver's first answer of either.
+	static void DomainNameToIP(const char *domainName, char ip[65], int addressFamily = AF_INET);
 
 protected:
 	RNS2EventHandler *eventHandler;
