@@ -33,7 +33,7 @@
 #include "mafianet/statistics.h"
 #include "mafianet/dr_sha1.h"
 #include "mafianet/ds_ordered_list.h"
-#include "mafianet/ds_range_list.h"
+#include "mafianet/range_list.h"
 #include "mafianet/ds_bplus_tree.h"
 #include "mafianet/ds_memory_pool.h"
 #include "mafianet/defines.h"
@@ -569,7 +569,7 @@ private:
 	void AddToUnreliableLinkedList(InternalPacket *internalPacket);
 	//	unsigned int numPacketsOnResendBuffer;
 	//unsigned int blockWindowIncreaseUntilTime;
-	//	DataStructures::RangeList<DatagramSequenceNumberType> acknowlegements;
+	//	RangeList<DatagramSequenceNumberType> acknowlegements;
 	// Resend list is a tree of packets we need to resend
 
 	// Set to the current time when the resend queue is no longer empty
@@ -752,15 +752,15 @@ private:
 	CCTimeType timeToNextUnreliableCull;
 
 	// This doesn't need to be a member, but I do it to avoid reallocations
-	DataStructures::RangeList<DatagramSequenceNumberType> incomingAcks;
+	RangeList<DatagramSequenceNumberType> incomingAcks;
 
 	// Every 16 datagrams, we make sure the 17th datagram goes out the same update tick, and is the same size as the 16th
 	int countdownToNextPacketPair;
 	InternalPacket *AllocateFromInternalPacketPool(void);
 	void ReleaseToInternalPacketPool(InternalPacket *ip);
 
-	DataStructures::RangeList<DatagramSequenceNumberType> acknowlegements;
-	DataStructures::RangeList<DatagramSequenceNumberType> NAKs;
+	RangeList<DatagramSequenceNumberType> acknowlegements;
+	RangeList<DatagramSequenceNumberType> NAKs;
 	bool remoteSystemNeedsBAndAS;
 
 	unsigned int GetMaxDatagramSizeExcludingMessageHeaderBytes(void);

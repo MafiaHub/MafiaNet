@@ -949,7 +949,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 			return true;
 		}
 
-		for (i = 0; i < incomingAcks.ranges.Size(); i++)
+		for (i = 0; i < incomingAcks.ranges.size(); i++)
 		{
 			// note: minIndex is ensured to be always <= maxIndex - otherwise Deserialize() would have failed
 			RakAssert(incomingAcks.ranges[i].minIndex <= incomingAcks.ranges[i].maxIndex);
@@ -1027,7 +1027,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 		}
 
 		DatagramSequenceNumberType messageNumber;
-		DataStructures::RangeList<DatagramSequenceNumberType> incomingNAKs;
+		RangeList<DatagramSequenceNumberType> incomingNAKs;
 		if (!incomingNAKs.Deserialize(&socketData))
 		{
 			for (unsigned int messageHandlerIndex = 0; messageHandlerIndex < messageHandlerList.Size(); messageHandlerIndex++)
@@ -1038,7 +1038,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 			// it's an invalid incoming package --- let's abort processing (there's no point in continuing processing other ranges if the package is invalid)
 			return false;
 		}
-		for (i = 0; i < incomingNAKs.ranges.Size(); i++)
+		for (i = 0; i < incomingNAKs.ranges.size(); i++)
 		{
 			// note: minIndex is ensured to be always <= maxIndex - otherwise Deserialize() would have failed
 			RakAssert(incomingNAKs.ranges[i].minIndex <= incomingNAKs.ranges[i].maxIndex);
