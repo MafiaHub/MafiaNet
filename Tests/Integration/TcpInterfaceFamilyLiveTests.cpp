@@ -281,6 +281,29 @@ TEST_F(TcpInterfaceFamilyLive, ConnectCloseLoopWhileSending)
 	EXPECT_TRUE(clientGotBroadcast) << "the client never received the server's broadcast";
 }
 
+// Stop() right after a non-blocking Connect: the connection thread writes the
+// client slots, so Stop() must wait for it before freeing them (ASan/TSan
+// caught the use after free), and must abort a connect that would block for
+// the whole TCP timeout. 192.0.2.1 (TEST-NET-1) is never answered: the connect
+// blocks where it is routed, and fails at once where it is not. The loopback
+// listener completes the handshake in its backlog without ever accepting.
+TEST_F(TcpInterfaceFamilyLive, StopRightAfterNonBlockingConnect)
+{
+	ASSERT_TRUE(server->Start(0, 1, 1, -99999, AF_INET, "127.0.0.1"));
+	const unsigned short port = server->ListenPort();
+	ASSERT_NE(port, 0);
+	for (int round = 0; round < 10; ++round)
+	{
+		ASSERT_TRUE(client->Start(0, 0, 2));
+		client->Connect("192.0.2.1", 9, false, AF_INET);
+		client->Connect("127.0.0.1", port, false, AF_INET);
+		const TimeMS start = GetTimeMS();
+		client->Stop();
+		EXPECT_LT(GetTimeMS() - start, 5000u) << "round " << round << ": Stop() waited for a blocked connect";
+		EXPECT_FALSE(client->WasStarted());
+	}
+}
+
 class TcpInterfaceDualStackLive : public TcpInterfaceFamilyLive
 {
 protected:

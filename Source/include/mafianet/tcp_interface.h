@@ -186,9 +186,6 @@ protected:
 
 	int threadPriority;
 
-	DataStructures::List<__TCPSOCKET__> blockingSocketList;
-	SimpleMutex blockingSocketListMutex;
-
 
 	friend RAK_THREAD_DECLARATION(UpdateTCPInterfaceLoop);
 	friend RAK_THREAD_DECLARATION(ConnectionAttemptLoop);

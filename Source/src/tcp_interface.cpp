@@ -28,6 +28,8 @@ typedef int socklen_t;
 #include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h> // EINPROGRESS, EINTR (ConnectAbortable)
+#include <fcntl.h> // O_NONBLOCK (ConnectAbortable)
 #endif
 #include <string.h>
 #include "mafianet/assert.h"
@@ -104,6 +106,96 @@ static int SocketFamilyToIpVersion(unsigned short socketFamily)
 	if (socketFamily == AF_INET6)
 		return 6;
 	return 0;
+}
+
+static bool SetSocketBlocking(__TCPSOCKET__ s, bool blocking)
+{
+#ifdef _WIN32
+	u_long nonBlocking = blocking ? 0 : 1;
+	return ioctlsocket__(s, FIONBIO, &nonBlocking) == 0;
+#else
+	const int flags = fcntl(s, F_GETFL, 0);
+	if (flags == -1)
+		return false;
+	return fcntl(s, F_SETFL, blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK)) == 0;
+#endif
+}
+
+// How often a connect in progress checks whether Stop() was called.
+static const long CONNECT_POLL_MS = 50;
+
+enum ConnectResult
+{
+	CONNECT_SUCCEEDED,
+	CONNECT_FAILED,
+	CONNECT_ABORTED // isStarted dropped: Stop() is waiting for this thread
+};
+
+// connect() that Stop() can interrupt: a blocking connect() cannot be woken
+// portably from another thread (close() does not wake it on Linux, shutdown()
+// races with it starting). The socket connects in non-blocking mode while this
+// polls isStarted, and is blocking again when it returns CONNECT_SUCCEEDED.
+static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, int addressLength, const MafiaNet::LocklessUint32_t &isStarted)
+{
+	if (isStarted.GetValue() == 0)
+		return CONNECT_ABORTED;
+	if (!SetSocketBlocking(s, false))
+		return CONNECT_FAILED;
+	if (connect__(s, address, addressLength) != 0)
+	{
+#ifdef _WIN32
+		if (WSAGetLastError() != WSAEWOULDBLOCK)
+			return CONNECT_FAILED;
+#else
+		if (errno != EINPROGRESS && errno != EINTR)
+			return CONNECT_FAILED;
+#endif
+		for (;;)
+		{
+			if (isStarted.GetValue() == 0)
+				return CONNECT_ABORTED;
+			fd_set writeSet, exceptSet; // Winsock reports a failed connect in exceptSet
+			FD_ZERO(&writeSet);
+			FD_ZERO(&exceptSet);
+			FD_SET(s, &writeSet);
+			FD_SET(s, &exceptSet);
+			timeval tv;
+			tv.tv_sec = 0;
+			tv.tv_usec = CONNECT_POLL_MS * 1000;
+			const int ready = select__(static_cast<int>(s + 1), nullptr, &writeSet, &exceptSet, &tv);
+			if (ready == 0)
+				continue;
+			if (ready < 0)
+			{
+#ifndef _WIN32
+				if (errno == EINTR)
+					continue;
+#endif
+				return CONNECT_FAILED;
+			}
+			int error = 0;
+			socklen_t errorLength = sizeof(error);
+			if (getsockopt__(s, SOL_SOCKET, SO_ERROR, (char *) &error, &errorLength) != 0 || error != 0)
+				return CONNECT_FAILED;
+			break;
+		}
+	}
+	return SetSocketBlocking(s, true) ? CONNECT_SUCCEEDED : CONNECT_FAILED;
+}
+
+// A connection socket must never raise SIGPIPE: a peer can reset it at any time, and another thread may shut it
+// down while the update thread still writes to it. send() also passes MSG_NOSIGNAL where it exists, but SO_NOSIGPIPE
+// (macOS, the BSDs) covers older SDKs and libcs without it, and the SSL path too: SSL_write() calls write(), which
+// MSG_NOSIGNAL cannot reach. Linux has no SO_NOSIGPIPE, so a Linux build with OPEN_SSL_CLIENT_SUPPORT stays exposed
+// (that needs a custom BIO or an application-wide SIGPIPE ignore, which a library must not impose).
+static void DisableSigpipe(__TCPSOCKET__ s)
+{
+#ifdef SO_NOSIGPIPE
+	int on = 1;
+	setsockopt__(s, SOL_SOCKET, SO_NOSIGPIPE, (char *) &on, sizeof(on));
+#else
+	(void) s;
+#endif
 }
 
 // Binds a listening TCP socket of exactly \a family (AF_INET or AF_INET6). An AF_INET6 socket is IPv6 only unless
@@ -266,15 +358,10 @@ void TCPInterface::Stop(void)
 		closesocket__(listenSocket);
 	}
 
-	// Abort waiting connect calls
-	blockingSocketListMutex.Lock();
-	for (i = 0; i < blockingSocketList.Size(); i++)
-	{
-		closesocket__(blockingSocketList[i]);
-	}
-	blockingSocketListMutex.Unlock();
+	// A connect in progress (SocketConnect) sees isStarted drop within
+	// CONNECT_POLL_MS and gives up on its own.
 
-	// Wait for the thread to stop
+	// Wait for the update thread and every ConnectionAttemptLoop to stop: both use remoteClients
 	while (threadRunning.GetValue() > 0)
 		RakSleep(15);
 
@@ -407,14 +494,16 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		s->tcpInterface = this;
 		s->socketFamily = socketFamily;
 
-		// Start the connection thread
+		// Start the connection thread. It is counted in threadRunning before it
+		// starts, so Stop() waits for it before freeing the slots it writes.
 		int errorCode;
 
-
+		threadRunning.Increment();
 		errorCode = MafiaNet::RakThread::Create(ConnectionAttemptLoop, s, threadPriority);
 
 		if (errorCode != 0)
 		{
+			threadRunning.Decrement();
 			const SystemAddress failed = s->systemAddress;
 			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -833,6 +922,7 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remot
 		__TCPSOCKET__ sockfd = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
 		if (sockfd == INVALID_SOCKET)
 			continue;
+		DisableSigpipe(sockfd);
 
 		if (aip->ai_family == AF_INET6)
 		{
@@ -864,23 +954,14 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remot
 		int sock_opt = 1024 * 256;
 		setsockopt__(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
 
-		blockingSocketListMutex.Lock();
-		blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
-		blockingSocketListMutex.Unlock();
-
-		// This is blocking
-		const int connectResult = connect__(sockfd, aip->ai_addr, static_cast<int>(aip->ai_addrlen));
-
-		if (connectResult == -1)
+		// Abortable: Stop() lowering isStarted ends the attempt within CONNECT_POLL_MS,
+		// rather than waiting out the OS connect timeout (minutes for a silent host).
+		const ConnectResult result = ConnectAbortable(sockfd, aip->ai_addr, static_cast<int>(aip->ai_addrlen), isStarted);
+		if (result != CONNECT_SUCCEEDED)
 		{
-			unsigned sockfdIndex;
-			blockingSocketListMutex.Lock();
-			sockfdIndex = blockingSocketList.GetIndexOf(sockfd);
-			if (sockfdIndex != (unsigned) -1)
-				blockingSocketList.RemoveAtIndexFast(sockfdIndex);
-			blockingSocketListMutex.Unlock();
-
 			closesocket__(sockfd);
+			if (result == CONNECT_ABORTED)
+				break;
 			continue;
 		}
 		connected = sockfd;
@@ -914,6 +995,13 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
 	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 
+	// Connect() counted this thread in threadRunning; uncount it on every return.
+	struct ThreadRunningGuard
+	{
+		TCPInterface *tcp;
+		~ThreadRunningGuard() { tcp->threadRunning.Decrement(); }
+	} threadRunningGuard{tcpInterface};
+
 	char str1[64];
 	systemAddress.ToString(false, str1, static_cast<size_t>(64));
 	SystemAddress peerAddress;
@@ -941,8 +1029,9 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	tcpInterface->remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
 	tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
-	// Notify user that the connection attempt has completed.
-	if (tcpInterface->threadRunning.GetValue() > 0)
+	// Notify user that the connection attempt has completed, unless Stop() is
+	// under way (it closes the slot's socket once this thread has returned).
+	if (tcpInterface->isStarted.GetValue() > 0)
 	{
 		tcpInterface->completedConnectionAttemptMutex.Lock();
 		tcpInterface->completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
@@ -1104,6 +1193,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 
 				if (newSock != 0 && newSock != INVALID_SOCKET)
 				{
+					DisableSigpipe(newSock);
 					int newRemoteClientIndex = -1;
 					for (newRemoteClientIndex = 0; newRemoteClientIndex < sts->remoteClientsLength; newRemoteClientIndex++)
 					{
