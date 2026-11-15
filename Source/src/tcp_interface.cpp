@@ -108,6 +108,31 @@ static int SocketFamilyToIpVersion(unsigned short socketFamily)
 	return 0;
 }
 
+// The host string SocketConnect resolves for Connect(host). A host name goes verbatim, so SocketConnect tries every
+// address it resolves to (in the socket family) rather than only the first. A numeric literal names a single address
+// and goes as FromString() parsed it into \a parsed (nullptr if it failed), which maps a loopback literal into the
+// requested family.
+static std::string ConnectHost(const char *hostPart, const SystemAddress *parsed)
+{
+	if (parsed != nullptr)
+	{
+		struct addrinfo hints, *res = nullptr;
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_flags = AI_NUMERICHOST;
+		const bool numeric = getaddrinfo(hostPart, nullptr, &hints, &res) == 0;
+		if (res)
+			freeaddrinfo(res);
+		if (numeric)
+		{
+			char buffer[SystemAddress::TO_STRING_BUFFER_SIZE];
+			parsed->ToString(false, buffer, sizeof(buffer));
+			return buffer;
+		}
+	}
+	return hostPart;
+}
+
 static bool SetSocketBlocking(__TCPSOCKET__ s, bool blocking)
 {
 #ifdef _WIN32
@@ -444,14 +469,20 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		SystemAddress systemAddress;
 		// #med - call should be changed to ...FromString(host, '\0') so to not try to extract an optional port (which is overwritten with the removePort directly afterwards)
 		// Resolve in the family the socket will use: the first answer of an unrestricted lookup may be one it cannot reach.
-		systemAddress.FromString(host, '|', SocketFamilyToIpVersion(socketFamily));
+		// This is only the address reported if the attempt fails; SocketConnect resolves the host itself.
+		const bool parsed = systemAddress.FromString(host, '|', SocketFamilyToIpVersion(socketFamily));
+		if (!parsed)
+			systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 		systemAddress.SetPortHostOrder(remotePort);
 		systemAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
-		char buffout[128];
-		systemAddress.ToString(false, buffout, static_cast<size_t>(128));
 
+		// The host without the optional "|port" suffix FromString accepted above.
+		char hostPart[256];
+		char portPart[32];
 		SystemAddress peerAddress;
-		__TCPSOCKET__ sockfd = SocketConnect(buffout, remotePort, socketFamily, bindAddress, &peerAddress);
+		__TCPSOCKET__ sockfd = 0;
+		if (SplitHostAndPort(host, '|', hostPart, sizeof(hostPart), portPart, sizeof(portPart)))
+			sockfd = SocketConnect(ConnectHost(hostPart, parsed ? &systemAddress : nullptr).c_str(), remotePort, socketFamily, bindAddress, &peerAddress);
 		if (sockfd == 0)
 		{
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -485,7 +516,9 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 	else
 	{
 		ThisPtrPlusSysAddr *s = MafiaNet::OP_NEW<ThisPtrPlusSysAddr>(_FILE_AND_LINE_);
-		s->systemAddress.FromStringExplicitPort(host, remotePort, SocketFamilyToIpVersion(socketFamily));
+		const bool parsed = s->systemAddress.FromStringExplicitPort(host, remotePort, SocketFamilyToIpVersion(socketFamily));
+		s->host = ConnectHost(host ? host : "", parsed ? &s->systemAddress : nullptr);
+		s->systemAddress.SetPortHostOrder(remotePort); // also when parsing failed: the thread connects to this port
 		s->systemAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
 		if (bindAddress)
 			strcpy_s(s->bindAddress, bindAddress);
@@ -991,6 +1024,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	TCPInterface *tcpInterface = s->tcpInterface;
 	int newRemoteClientIndex = systemAddress.systemIndex;
 	unsigned short socketFamily = s->socketFamily;
+	const std::string host = s->host;
 	char bindAddress[sizeof(s->bindAddress)];
 	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
 	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
@@ -1002,10 +1036,8 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 		~ThreadRunningGuard() { tcp->threadRunning.Decrement(); }
 	} threadRunningGuard{tcpInterface};
 
-	char str1[64];
-	systemAddress.ToString(false, str1, static_cast<size_t>(64));
 	SystemAddress peerAddress;
-	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress, &peerAddress);
+	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(host.c_str(), systemAddress.GetPort(), socketFamily, bindAddress, &peerAddress);
 	if (sockfd == 0)
 	{
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();

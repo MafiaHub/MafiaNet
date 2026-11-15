@@ -27,6 +27,12 @@
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#include <ws2tcpip.h> // getaddrinfo
+#else
+#include <netdb.h> // getaddrinfo
+#endif
+
 using namespace MafiaNet;
 
 using TcpTestHelpers::HasIpv6Loopback;
@@ -116,6 +122,70 @@ TEST_F(TcpInterfaceFamilyLive, NonBlockingConnectByHostNameUsesIpv4)
 	ASSERT_NE(completed, UNASSIGNED_SYSTEM_ADDRESS) << "the connection attempt never completed";
 	EXPECT_EQ(completed.GetIPVersion(), 4);
 	EXPECT_EQ(completed.GetPort(), port);
+}
+
+// Whether the resolver lists ::1 among the TCP answers for "localhost" (it usually lists it first).
+static bool LocalhostResolvesToIpv6Loopback()
+{
+	addrinfo hints, *res = nullptr;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	if (getaddrinfo("localhost", "1", &hints, &res) != 0)
+		return false;
+	bool found = false;
+	static const unsigned char loopback[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+	for (addrinfo *ai = res; ai != nullptr && !found; ai = ai->ai_next)
+		found = ai->ai_family == AF_INET6 && memcmp(((const sockaddr_in6 *) ai->ai_addr)->sin6_addr.s6_addr, loopback, sizeof(loopback)) == 0;
+	freeaddrinfo(res);
+	return found;
+}
+
+// A host name connect tries every address the name resolves to, not only the first: with AF_UNSPEC "localhost"
+// resolves to ::1 (nobody listens there) and 127.0.0.1 (the listener), and must reach the listener whatever the
+// resolver's order.
+TEST_F(TcpInterfaceFamilyLive, BlockingUnspecConnectByHostNameTriesEveryAddress)
+{
+	if (!LocalhostResolvesToIpv6Loopback())
+		GTEST_SKIP() << "\"localhost\" has no ::1 answer on this host";
+	ASSERT_TRUE(server->Start(0, 4, 4, -99999, AF_INET, "127.0.0.1"));
+	const unsigned short port = server->ListenPort();
+	ASSERT_NE(port, 0);
+	ASSERT_TRUE(client->Start(0, 0));
+
+	const SystemAddress serverSide = client->Connect("localhost", port, true, AF_UNSPEC);
+	ASSERT_NE(serverSide, UNASSIGNED_SYSTEM_ADDRESS) << "Connect(\"localhost\", AF_UNSPEC) did not fall back to 127.0.0.1";
+	EXPECT_EQ(serverSide.GetIPVersion(), 4);
+	EXPECT_STREQ(serverSide.ToString(false), "127.0.0.1");
+	EXPECT_EQ(serverSide.GetPort(), port);
+	EXPECT_EQ(WaitForIncoming(1).size(), 1u);
+}
+
+TEST_F(TcpInterfaceFamilyLive, NonBlockingUnspecConnectByHostNameTriesEveryAddress)
+{
+	if (!LocalhostResolvesToIpv6Loopback())
+		GTEST_SKIP() << "\"localhost\" has no ::1 answer on this host";
+	ASSERT_TRUE(server->Start(0, 4, 4, -99999, AF_INET, "127.0.0.1"));
+	const unsigned short port = server->ListenPort();
+	ASSERT_NE(port, 0);
+	ASSERT_TRUE(client->Start(0, 0));
+
+	client->Connect("localhost", port, false, AF_UNSPEC);
+	SystemAddress completed = UNASSIGNED_SYSTEM_ADDRESS, failed = UNASSIGNED_SYSTEM_ADDRESS;
+	const TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 5000 && completed == UNASSIGNED_SYSTEM_ADDRESS && failed == UNASSIGNED_SYSTEM_ADDRESS)
+	{
+		completed = client->HasCompletedConnectionAttempt();
+		failed = client->HasFailedConnectionAttempt();
+		if (completed == UNASSIGNED_SYSTEM_ADDRESS && failed == UNASSIGNED_SYSTEM_ADDRESS)
+			RakSleep(30);
+	}
+	ASSERT_EQ(failed, UNASSIGNED_SYSTEM_ADDRESS) << "Connect(\"localhost\", AF_UNSPEC) did not fall back to 127.0.0.1";
+	ASSERT_NE(completed, UNASSIGNED_SYSTEM_ADDRESS) << "the connection attempt never completed";
+	EXPECT_EQ(completed.GetIPVersion(), 4);
+	EXPECT_STREQ(completed.ToString(false), "127.0.0.1");
+	EXPECT_EQ(completed.GetPort(), port);
+	EXPECT_EQ(WaitForIncoming(1).size(), 1u);
 }
 
 // With every client slot taken, Connect must fail without touching memory past

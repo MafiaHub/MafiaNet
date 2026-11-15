@@ -38,6 +38,7 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 
+#include <string>
 #include <vector>
 
 #if OPEN_SSL_CLIENT_SUPPORT == 1
@@ -201,6 +202,8 @@ protected:
 	{
 		TCPInterface *tcpInterface;
 		SystemAddress systemAddress;
+		// What SocketConnect resolves (see ConnectHost in the .cpp); owned, as the caller's string may be gone.
+		std::string host;
 		bool useSSL;
 		char bindAddress[64];
 		unsigned short socketFamily;
