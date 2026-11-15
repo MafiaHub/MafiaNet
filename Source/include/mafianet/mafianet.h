@@ -16,9 +16,8 @@
 /// This is purely additive — the granular headers under "mafianet/" remain
 /// available for advanced users who want fine-grained control over includes.
 ///
-/// \note Encryption headers are intentionally omitted. Connection security is
-/// opt-in via RakPeerInterface::InitializeSecurity() (gated behind the
-/// LIBCAT_SECURITY build define) and is not part of the common path.
+/// \note Connections are encrypted by default; nothing needs to be included or
+/// configured for that. RakPeerInterface::SetEncryptionMode() is the opt-out.
 
 #pragma once
 

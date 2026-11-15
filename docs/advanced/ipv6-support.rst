@@ -178,9 +178,9 @@ An IPv6 ``SystemAddress`` is serialized as 19 bytes::
 
 IPv4 addresses keep their 7-byte form. IPv4-mapped addresses are sent as IPv4.
 The layout is the same on every platform, so Windows, Linux, macOS and BSD
-peers interoperate. This encoding is part of protocol version 8
-(``RAKNET_PROTOCOL_VERSION``); peers on an older version are answered with
-``ID_INCOMPATIBLE_PROTOCOL_VERSION``.
+peers interoperate. This encoding was introduced in protocol version 8 and is unchanged
+in the current version, 9 (``RAKNET_PROTOCOL_VERSION``); peers on a different
+version are answered with ``ID_INCOMPATIBLE_PROTOCOL_VERSION``.
 
 Platform Notes
 --------------

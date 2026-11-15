@@ -13,174 +13,33 @@
  *  the same size until the connection timed out.
  *
  *  These tests drive two real ReliabilityLayer instances joined by a fake
- *  socket, with fully simulated time -- no loopback traffic, no wall clock.
- *  The channel between them applies a per-test drop rule to model the tunnel.
+ *  socket, with fully simulated time -- no loopback traffic, no wall clock
+ *  (Tests/Support/ReliabilityLayerPair.h). The channel between them applies a
+ *  per-test drop rule to model the tunnel.
  */
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
-#include "mafianet/bit_stream.h"
-#include "mafianet/ds_list.h"
-#include "mafianet/get_time.h"
-#include "mafianet/mtu_size.h"
+#include "ReliabilityLayerPair.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_black_hole.h"
-#include "mafianet/packet_priority.h"
-#include "mafianet/plugin_interface2.h"
-#include "mafianet/rand.h"
-#include "mafianet/reliability_layer.h"
-#include "mafianet/socket2.h"
 
 using namespace MafiaNet;
+using namespace RelPairTest;
 
 namespace
 {
 
-const int TEST_MTU = MAXIMUM_MTU_SIZE;
-const MafiaNet::TimeMS TEST_TIMEOUT_MS = 1000000;
-
-// Captures every datagram the reliability layer hands to the OS, so the test
-// fixture can shuttle it to the other endpoint (or drop it, like a tunnel).
-struct CapturingSocket : public RakNetSocket2
+// The fixture lives in Tests/Support/ReliabilityLayerPair.h. These tests run
+// the layers in mode Plaintext (the fixture's default): MTU recovery does not
+// depend on the cipher, and ReliabilityLayerCryptoTests covers the sealed path
+// across a step-down.
+class RelLayerBlackHole : public ReliabilityLayerPair
 {
-	std::vector<std::vector<char>> sent;
-
-	virtual RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
-	{
-		(void) file;
-		(void) line;
-		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
-		return sendParameters->length;
-	}
-};
-
-class RelLayerBlackHole : public ::testing::Test
-{
-protected:
-	ReliabilityLayer a, b;
-	CapturingSocket aSock, bSock;
-	SystemAddress aAddr, bAddr;
-	DataStructures::List<PluginInterface2 *> handlers;
-	RakNetRandom rnr;
-	BitStream updateBitStream;
-	CCTimeType now;
-
-	// Datagrams from a to b strictly larger than this many socket-level bytes
-	// are dropped, like a tunnel whose ceiling the handshake never probed.
-	// Socket-level bytes exclude the UDP/IP headers the MTU figures include.
-	int aToBDropOverBytes;
-	// When non-zero, drop this fraction (in percent) of ALL a->b datagrams,
-	// deterministically, to model plain loss.
-	int aToBLossPercent;
-	uint32_t lcgState;
-
-	std::vector<std::vector<unsigned char>> received; // complete messages b got
-	std::vector<BitSize_t> receivedBits;              // their exact bit lengths
-
-	RelLayerBlackHole()
-	    : updateBitStream(MAXIMUM_MTU_SIZE), now(0), aToBDropOverBytes(MAXIMUM_MTU_SIZE), aToBLossPercent(0), lcgState(0x12345678)
-	{
-	}
-
-	virtual void SetUp()
-	{
-		// The simulated clock must start at the real clock: ReliabilityLayer
-		// stamps timeLastDatagramArrived with the real GetTimeMS() on every
-		// receive, and AckTimeout compares that against the time we pass in.
-		// A fixed fake epoch fails on any machine whose process uptime exceeds
-		// it (this killed every test on Windows CI). All progress is still
-		// driven by fixed fake increments from this anchor.
-		now = MafiaNet::GetTimeUS();
-
-		ASSERT_TRUE(aAddr.FromStringExplicitPort("127.0.0.1", 40001));
-		ASSERT_TRUE(bAddr.FromStringExplicitPort("127.0.0.1", 40002));
-		a.Reset(true, TEST_MTU, false);
-		b.Reset(true, TEST_MTU, false);
-		a.SetTimeoutTime(TEST_TIMEOUT_MS);
-		b.SetTimeoutTime(TEST_TIMEOUT_MS);
-	}
-
-	bool DropAToB(int datagramBytes)
-	{
-		if (datagramBytes > aToBDropOverBytes)
-			return true;
-		if (aToBLossPercent > 0)
-		{
-			lcgState = lcgState * 1664525u + 1013904223u;
-			if ((int) (lcgState % 100u) < aToBLossPercent)
-				return true;
-		}
-		return false;
-	}
-
-	void SendFromA(const std::vector<unsigned char> &payload)
-	{
-		ASSERT_TRUE(a.Send((char *) &payload[0], BYTES_TO_BITS((BitSize_t) payload.size()),
-		                   MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, true, TEST_MTU, now, 0));
-	}
-
-	// One 10ms tick: update both layers, then deliver the surviving datagrams.
-	void Tick()
-	{
-		now += 10000; // CCTimeType is microseconds
-		a.Update(&aSock, bAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
-		b.Update(&bSock, aAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
-
-		for (size_t i = 0; i < aSock.sent.size(); i++)
-		{
-			if (DropAToB((int) aSock.sent[i].size()))
-				continue;
-			b.HandleSocketReceiveFromConnectedPlayer(&aSock.sent[i][0], (unsigned int) aSock.sent[i].size(),
-			                                         aAddr, handlers, TEST_MTU, &bSock, &rnr, now, updateBitStream);
-		}
-		aSock.sent.clear();
-
-		for (size_t i = 0; i < bSock.sent.size(); i++)
-		{
-			// The return path is clean: the black hole under test is one-directional.
-			a.HandleSocketReceiveFromConnectedPlayer(&bSock.sent[i][0], (unsigned int) bSock.sent[i].size(),
-			                                         bAddr, handlers, TEST_MTU, &aSock, &rnr, now, updateBitStream);
-		}
-		bSock.sent.clear();
-
-		unsigned char *data;
-		BitSize_t bitSize;
-		while ((bitSize = b.Receive(&data)) > 0)
-		{
-			received.push_back(std::vector<unsigned char>(data, data + BITS_TO_BYTES(bitSize)));
-			receivedBits.push_back(bitSize);
-			rakFree_Ex(data, _FILE_AND_LINE_);
-		}
-	}
-
-	// Pump until b has assembled wantMessages complete messages or simulated
-	// time runs out. Returns whether the goal was reached.
-	bool PumpUntilReceived(size_t wantMessages, int maxSimulatedMs)
-	{
-		for (int elapsed = 0; elapsed < maxSimulatedMs; elapsed += 10)
-		{
-			Tick();
-			if (received.size() >= wantMessages)
-				return true;
-			EXPECT_FALSE(a.IsDeadConnection());
-			EXPECT_FALSE(b.IsDeadConnection());
-			if (a.IsDeadConnection() || b.IsDeadConnection())
-				return false;
-		}
-		return received.size() >= wantMessages;
-	}
-
-	static std::vector<unsigned char> PatternMessage(size_t bytes, unsigned char seed)
-	{
-		std::vector<unsigned char> msg(bytes);
-		msg[0] = 200; // stay clear of internal message ids
-		for (size_t i = 1; i < bytes; i++)
-			msg[i] = (unsigned char) (seed + i * 31);
-		return msg;
-	}
 };
 
 TEST_F(RelLayerBlackHole, DeliversALargeSplitMessageOverACleanChannel)
@@ -314,6 +173,108 @@ TEST_F(RelLayerBlackHole, OrdinaryPacketLossDoesNotShrinkTheMtu)
 	ASSERT_TRUE(PumpUntilReceived(1, 60000));
 	EXPECT_EQ(msg, received[0]);
 	EXPECT_EQ(TEST_MTU, a.GetCurrentMtuBytes());
+}
+
+// A step-down can be a false positive: the "stuck" packet did arrive and only its acks were lost. The
+// rebuilt copy then reaches the receiver a second time, under new message numbers the duplicate check
+// cannot recognise, with the same ordering index. If the receiver was still waiting for an earlier
+// ordering index, both copies sat in its ordering heap; the first was delivered and the second, now
+// older than the read index, stayed at the top of the heap forever and blocked the ordered channel: every
+// later message on it was acked and never delivered. Found by Tests/Soak at 5-20% loss.
+TEST_F(RelLayerBlackHole, AFalsePositiveStepDownDoesNotBlockTheOrderedChannel)
+{
+	std::vector<unsigned char> first(16, 0xEE); // a run no PatternMessage contains (its bytes step by 31)
+	first[0] = 200;
+	const std::vector<unsigned char> big = PatternMessage(1330, 41); // one datagram at 1400, over the 1280 rung
+	std::vector<unsigned char> third(16, 0xDD);
+	third[0] = 200;
+	const std::vector<unsigned char> fourth = PatternMessage(60, 43);
+
+	bool dropFirst = true; // a -> b: lose every datagram that carries `first`
+	bool dropAcks = true;  // b -> a: lose everything, so `big` looks black-holed
+	int dropOnce = 0;      // a -> b: lose this many datagrams that carry `third`
+	auto carries = [](const std::vector<char> &datagram, const std::vector<unsigned char> &message)
+	{
+		return std::search(datagram.begin(), datagram.end(), message.begin() + 1, message.end(),
+		                   [](char x, unsigned char y)
+		                   { return (unsigned char) x == y; }) != datagram.end();
+	};
+	auto carriesFirst = [&](const std::vector<char> &datagram)
+	{ return carries(datagram, first); };
+	auto step = [&]
+	{
+		now += 10000;
+		a.Update(&aSock, bAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
+		b.Update(&bSock, aAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
+		for (std::vector<char> &datagram : aSock.sent)
+		{
+			if (dropFirst && carriesFirst(datagram))
+				continue;
+			if (dropOnce > 0 && carries(datagram, third))
+			{
+				--dropOnce;
+				continue;
+			}
+			DeliverToB(datagram);
+		}
+		aSock.sent.clear();
+		if (!dropAcks)
+			for (std::vector<char> &datagram : bSock.sent)
+				a.HandleSocketReceiveFromConnectedPlayer(&datagram[0], (unsigned int) datagram.size(), bAddr, handlers, TEST_MTU, &aSock, &rnr, now,
+				                                         updateBitStream);
+		bSock.sent.clear();
+		unsigned char *data;
+		MafiaNet::BitSize_t bitSize;
+		while ((bitSize = b.Receive(&data)) > 0)
+		{
+			received.push_back(std::vector<unsigned char>(data, data + BITS_TO_BYTES(bitSize)));
+			rakFree_Ex(data, _FILE_AND_LINE_);
+		}
+	};
+
+	// `first` goes out alone (and is lost), then `big`, which arrives and waits behind it.
+	SendFromA(first);
+	step();
+	SendFromA(big);
+	// With no ack coming back, `big` is resent until a steps down and re-sends it re-split.
+	for (int i = 0; i < 6000 && a.GetCurrentMtuBytes() == TEST_MTU; ++i)
+		step();
+	ASSERT_LT(a.GetCurrentMtuBytes(), TEST_MTU) << "the scenario needs a step-down";
+	// Let the re-split copy arrive too, then heal both directions.
+	for (int i = 0; i < 300; ++i)
+		step();
+	ASSERT_TRUE(received.empty()) << "`first` was meant to be lost until now";
+	RakNetStatistics before;
+	b.GetStatistics(&before);
+	dropFirst = false;
+	dropAcks = false;
+
+	for (int i = 0; i < 3000 && received.size() < 2; ++i)
+		step();
+	ASSERT_EQ(2u, received.size());
+	EXPECT_EQ(first, received[0]);
+	EXPECT_EQ(big, received[1]);
+	// Delivering `first` released `big` and left its stale copy on the heap, which is dropped and counted
+	// as ignored, like any other message the receiver discards.
+	RakNetStatistics after;
+	b.GetStatistics(&after);
+	EXPECT_GE(after.runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED] - before.runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED], (uint64_t) big.size());
+
+	// Two more, the first of which is lost once: the second arrives ahead of it and waits in the
+	// ordering heap -- behind the stale copy of `big`, if that is still there.
+	dropOnce = 1;
+	SendFromA(third);
+	for (int i = 0; i < 100 && dropOnce > 0; ++i)
+		step();
+	ASSERT_EQ(0, dropOnce);
+	SendFromA(fourth);
+	for (int i = 0; i < 3000 && received.size() < 4; ++i)
+		step();
+	for (int i = 0; i < 100; ++i)
+		step();
+	ASSERT_EQ(4u, received.size()) << "the ordered channel stalled behind the duplicate";
+	EXPECT_EQ(third, received[2]);
+	EXPECT_EQ(fourth, received[3]);
 }
 
 } // namespace

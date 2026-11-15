@@ -73,24 +73,35 @@ enum DefaultMessageIDTypes
 	/// A reliable packet to detect lost connections (internal use only)
 	ID_DETECT_LOST_CONNECTIONS,
 	/// C2S: Initial query: Header(1), OfflineMesageID(16), Protocol number(1), Pad(toMTU), sent with no fragment set.
-	/// If protocol fails on server, returns ID_INCOMPATIBLE_PROTOCOL_VERSION to client
+	/// If protocol fails on server, returns ID_INCOMPATIBLE_PROTOCOL_VERSION to client. Ignored when shorter than
+	/// ID_OPEN_CONNECTION_REPLY_1 (35 bytes), so the server never answers with more than it received.
 	ID_OPEN_CONNECTION_REQUEST_1,
-	/// S2C: Header(1), OfflineMesageID(16), server GUID(8), HasSecurity(1), Cookie(4, if HasSecurity)
-	/// , public key (if do security is true), MTU(2). If public key fails on client, returns ID_PUBLIC_KEY_MISMATCH
+	/// S2C: Header(1), OfflineMesageID(16), server GUID(8), challenge(8), MTU(2).
+	/// The challenge is the server's stateless HandshakeChallenge for the sender's address; the server keeps no state.
 	ID_OPEN_CONNECTION_REPLY_1,
-	/// C2S: Header(1), OfflineMesageID(16), Cookie(4, if HasSecurity is true on the server), clientSupportsSecurity(1 bit),
-	/// handshakeChallenge (if has security on both server and client), remoteBindingAddress(6), MTU(2), client GUID(8)
-	/// Connection slot allocated if cookie is valid, server is not full, GUID and IP not already in use.
+	/// C2S: Header(1), OfflineMesageID(16), challenge(8, echoed from REPLY_1), CryptInfo(41: mode(1), X25519 public key(32),
+	/// nonce(8 LE)), remoteBindingAddress, MTU(2), client GUID(8).
+	/// The server allocates nothing unless the challenge verifies, the encryption modes agree, the server is not full,
+	/// and the GUID and IP are not already in use.
 	ID_OPEN_CONNECTION_REQUEST_2,
-	/// S2C: Header(1), OfflineMesageID(16), server GUID(8), mtu(2), doSecurity(1 bit), handshakeAnswer (if do security is true)
+	/// S2C: Header(1), OfflineMesageID(16), nonce echo(8), server GUID(8), client address, MTU(2), server CryptInfo(41),
+	/// identity block (IdentityBlock: flag(1) [, Ed25519 identity public key(32), signature(64)]).
+	/// The nonce echo repeats the client CryptInfo's nonce; the client drops a REPLY_2 whose echo does not match.
+	/// A client that pinned the server's identity checks the identity block before anything else changes.
+	/// Both sides then derive the session keys (DeriveSessionKeys); everything after this is sealed in mode Required.
 	ID_OPEN_CONNECTION_REPLY_2,
-	/// C2S: Header(1), GUID(8), Timestamp, HasSecurity(1), Proof(32)
+	/// C2S: Header(1), GUID(8), Timestamp, reserved(1, always 0), password
 	ID_CONNECTION_REQUEST,
-	/// RakPeer - Remote system requires secure connections, pass a public key to RakPeerInterface::Connect()
-	ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY,
-	/// RakPeer - We passed a public key to RakPeerInterface::Connect(), but the other system did not have security turned on
+	/// RakPeer - The remote system requires encryption and we are in EncryptionMode::Plaintext. The connection was refused.
+	ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION,
+	/// \deprecated Use ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION (same value).
+	ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY [[deprecated("use ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION")]] = ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION,
+	/// RakPeer - We require encryption (EncryptionMode::Required, the default) and the remote system is in
+	/// EncryptionMode::Plaintext. The connection was refused; there is no fallback to plaintext.
 	ID_OUR_SYSTEM_REQUIRES_SECURITY,
-	/// RakPeer - Wrong public key passed to RakPeerInterface::Connect()
+	/// RakPeer - Connect() pinned a server identity (a non-null PublicKey*) and the server did not prove it:
+	/// it presented no identity key, a different one, or a signature that does not verify. The attempt is
+	/// over and nothing was allocated. Delivered once per Connect(), under the address Connect() reported.
 	ID_PUBLIC_KEY_MISMATCH,
 	/// RakPeer - Same as ID_ADVERTISE_SYSTEM, but intended for internal use rather than being passed to the user.
 	/// Second byte indicates type. Used currently for NAT punchthrough for receiver port advertisement. See ID_NAT_ADVERTISE_RECIPIENT_PORT

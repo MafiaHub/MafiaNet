@@ -11,385 +11,140 @@
  *
  *  This source code was modified by SLikeSoft. Modifications are licensed under the MIT-style
  *  license found in the license.txt file in the root directory of this source tree.
+ *
+ *
+ *  Modified work: Copyright (c) 2026, MafiaHub
+ *
+ *  Rewritten for encryption by default: there are no keys to generate, load or pass to Connect().
  */
 
-#include <cstdio>
-#include <cstring>
-#include <stdlib.h>
-#include "mafianet/get_time.h"
-#include "mafianet/rand.h"
-#include "mafianet/rand.h"
-#include "mafianet/peer_interface.h"
-#include "mafianet/message_identifiers.h"
+// Every MafiaNet connection is encrypted by default: the connection handshake makes an ephemeral
+// X25519 key exchange and every connected datagram is sealed with ChaCha20-Poly1305. This sample
+// shows the three cases:
+//   1. Two default peers connect encrypted, with no configuration at all.
+//   2. Two peers that both opt out with EncryptionMode::Plaintext connect in clear (LAN debugging).
+//   3. A Plaintext client is refused by a default server: there is no fallback to plaintext.
 
-#include "mafianet/types.h"
-#include "mafianet/native_feature_includes.h"
-#include <assert.h>
-#include "mafianet/sleep.h"
+#include <cstdio>
 #include "mafianet/bit_stream.h"
-#include "mafianet/secure_handshake.h" // Include header for secure handshake
-#include "mafianet/gets.h"
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
+#include "mafianet/get_time.h"
+#include "mafianet/message_identifiers.h"
+#include "mafianet/peer_interface.h"
+#include "mafianet/sleep.h"
+#include "mafianet/types.h"
+
 using namespace MafiaNet;
 
-#if LIBCAT_SECURITY != 1
-#error "Define LIBCAT_SECURITY 1 in native_feature_includes_overrides.h to enable Encryption"
-#endif
-
-void PrintOptions(void)
+namespace
 {
-	printf("1. Generate keys and save to disk.\n");
-	printf("2. Load keys from disk.\n");
-	printf("3. Test peers with key.\n");
-	printf("4. Test peers with key and use two-way authentication.\n");
-	printf("(H)elp.\n");
-	printf("(Q)uit.\n");
+const char *ModeName(EncryptionMode mode)
+{
+	return mode == EncryptionMode::Required ? "Required" : "Plaintext";
 }
 
-#define TEST_SERVER_ADDRSTR "127.0.0.1"
-#define TEST_SERVER_PORT 6842
-
-RakPeerInterface *rakPeer1, *rakPeer2;
-
-void PrintPacketHeader(Packet *packet)
+const char *MessageName(MessageID id)
 {
-	switch (packet->data[0])
+	switch (id)
 	{
-	case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
-		printf("Connection request failed - Remote system requires secure connections, pass a public key to RakPeerInterface::Connect()\n");
-		break;
-	case ID_OUR_SYSTEM_REQUIRES_SECURITY:
-		printf("Connection request failed - We passed a public key to RakPeerInterface::Connect(), but the other system did not have security turned on\n");
-		break;
-	case ID_PUBLIC_KEY_MISMATCH:
-		printf("Connection request failed - Wrong public key passed to Connect().\n");
-		break;
 	case ID_CONNECTION_REQUEST_ACCEPTED:
-		printf("Connection request accepted.\n");
-		break;
-	case ID_CONNECTION_ATTEMPT_FAILED:
-		printf("Connection request FAILED.\n");
-		break;
+		return "ID_CONNECTION_REQUEST_ACCEPTED";
 	case ID_NEW_INCOMING_CONNECTION:
-	{
-		char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-
-		printf("New incoming connection.\n");
-
-		if (rakPeer1->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key))
-		{
-			printf("Client public key:\n");
-			for (int ii = 0; ii < (int) sizeof(client_public_key); ++ii)
-				printf("%02x ", (cat::u8) client_public_key[ii]);
-			printf("\n");
-		}
-		else
-		{
-			printf("Server: New connected client provided no public key. (This is an error if you are doing two-way authentication)\n");
-		}
-
-		// Transmit test message
-		MafiaNet::BitStream testBlockLargerThanMTU;
-		testBlockLargerThanMTU.Write((MessageID) ID_USER_PACKET_ENUM);
-		testBlockLargerThanMTU.PadWithZeroToByteLength(10000);
-		rakPeer1->Send(&testBlockLargerThanMTU, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
-	}
-	break;
+		return "ID_NEW_INCOMING_CONNECTION";
+	case ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION:
+		return "ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION (we are Plaintext, the server requires encryption)";
+	case ID_OUR_SYSTEM_REQUIRES_SECURITY:
+		return "ID_OUR_SYSTEM_REQUIRES_SECURITY (we require encryption, the server is Plaintext)";
+	case ID_CONNECTION_ATTEMPT_FAILED:
+		return "ID_CONNECTION_ATTEMPT_FAILED";
+	case ID_PUBLIC_KEY_MISMATCH:
+		return "ID_PUBLIC_KEY_MISMATCH (the server did not prove the pinned identity)";
 	case ID_USER_PACKET_ENUM:
-		printf("Got test message\n");
-		break;
-	case ID_DISCONNECTION_NOTIFICATION:
-		printf("RakPeer - The system specified in Packet::systemAddress has disconnected from us.  For the client, this would mean the server has shutdown.\n");
-		break;
+		return "ID_USER_PACKET_ENUM (our test message)";
 	default:
-		printf("Got type %i : ", (int) packet->data[0]);
-		for (int ii = 0; ii < (int) packet->length; ++ii)
-			printf("%02x ", (cat::u8) packet->data[ii]);
-		printf("\n");
-		break;
+		return "another message";
 	}
 }
+
+// Starts a peer on an OS-assigned loopback port in the given mode (which must be set before Startup).
+RakPeerInterface *StartPeer(EncryptionMode mode, unsigned short maxIncoming)
+{
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	peer->SetEncryptionMode(mode);
+	SocketDescriptor sd(0, "127.0.0.1");
+	if (peer->Startup(maxIncoming + 1, &sd, 1) != RAKNET_STARTED)
+	{
+		printf("Startup failed\n");
+		RakPeerInterface::DestroyInstance(peer);
+		return nullptr;
+	}
+	peer->SetMaximumIncomingConnections(maxIncoming);
+	return peer;
+}
+
+// Connects client to server, prints what each side receives for up to two seconds, and sends one
+// message once connected. Returns true if the client was accepted.
+bool Run(const char *title, EncryptionMode serverMode, EncryptionMode clientMode)
+{
+	printf("\n%s\n", title);
+	RakPeerInterface *server = StartPeer(serverMode, 4);
+	RakPeerInterface *client = StartPeer(clientMode, 0);
+	if (server == nullptr || client == nullptr)
+	{
+		if (server)
+			RakPeerInterface::DestroyInstance(server);
+		if (client)
+			RakPeerInterface::DestroyInstance(client);
+		return false;
+	}
+	printf("  server mode: %s, client mode: %s\n", ModeName(server->GetEncryptionMode()), ModeName(client->GetEncryptionMode()));
+
+	const unsigned short port = server->GetMyBoundAddress().GetPort();
+	client->Connect("127.0.0.1", port, nullptr, 0); // no PublicKey*: encrypted, server identity not pinned
+
+	bool accepted = false;
+	bool delivered = false;
+	const TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 2000 && !delivered)
+	{
+		for (Packet *p = client->Receive(); p; client->DeallocatePacket(p), p = client->Receive())
+		{
+			printf("  client got %s\n", MessageName(p->data[0]));
+			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
+			{
+				accepted = true;
+				BitStream bs;
+				bs.Write((MessageID) ID_USER_PACKET_ENUM);
+				bs.Write((uint32_t) 42);
+				client->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, p->systemAddress, false);
+			}
+		}
+		for (Packet *p = server->Receive(); p; server->DeallocatePacket(p), p = server->Receive())
+		{
+			printf("  server got %s\n", MessageName(p->data[0]));
+			delivered = delivered || p->data[0] == ID_USER_PACKET_ENUM;
+		}
+		RakSleep(30);
+	}
+
+	server->Shutdown(100);
+	client->Shutdown(100);
+	RakPeerInterface::DestroyInstance(server);
+	RakPeerInterface::DestroyInstance(client);
+	return accepted;
+}
+} // namespace
 
 int main(void)
 {
-	char str[256];
-	bool keyLoaded;
+	printf("MafiaNet connections are encrypted by default (EncryptionMode::Required).\n");
+	RakPeerInterface *fresh = RakPeerInterface::GetInstance();
+	printf("A new peer's GetEncryptionMode(): %s\n", ModeName(fresh->GetEncryptionMode()));
+	RakPeerInterface::DestroyInstance(fresh);
 
-	bool doTwoWayAuthentication;
-	FILE *fp;
-	rakPeer1 = RakPeerInterface::GetInstance();
-	rakPeer2 = RakPeerInterface::GetInstance();
-	Packet *packet;
-	bool peer1GotMessage, peer2GotMessage;
+	const bool encrypted = Run("1. Two default peers: encrypted, nothing to configure.", EncryptionMode::Required, EncryptionMode::Required);
+	const bool plaintext = Run("2. Both peers opt out with SetEncryptionMode(EncryptionMode::Plaintext) before Startup().", EncryptionMode::Plaintext, EncryptionMode::Plaintext);
+	const bool mismatch = Run("3. A Plaintext client and a default server: refused, no fallback.", EncryptionMode::Required, EncryptionMode::Plaintext);
 
-	keyLoaded = false;
-
-	printf("Demonstrates how to setup RakNet to use secure connections\n");
-	printf("Also shows how to read and write keys to and from disk\n");
-	printf("Difficulty: Intermediate\n\n");
-
-	printf("Select option:\n");
-	PrintOptions();
-
-	cat::EasyHandshake handshake;
-	char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	char private_key[cat::EasyHandshake::PRIVATE_KEY_BYTES];
-
-	// Optional: used only for two-way authentication mode (a slower mode not recommended for normal client-server or peer-peer connections)
-	char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	char client_private_key[cat::EasyHandshake::PRIVATE_KEY_BYTES];
-
-	for (;;)
-	{
-		Gets(str, sizeof(str));
-
-		if (str[0] == '1')
-		{
-			printf("Generating keys...");
-
-			// Generate a (public, private) server key pair
-			if (!handshake.GenerateServerKey(public_key, private_key))
-			{
-				printf("ERROR:Unable to generate server keys for some reason!\n");
-				keyLoaded = false;
-			}
-			else
-			{
-				keyLoaded = true;
-				printf("Keys generated.  Save to disk? (y/n)\n");
-
-				Gets(str, sizeof(str));
-				if (str[0] == 'y' || str[0] == 'Y')
-				{
-					printf("Enter filename to save public key to: ");
-					Gets(str, sizeof(str));
-					if (str[0])
-					{
-						printf("Writing public key... ");
-						fopen_s(&fp, str, "wb");
-						fwrite(public_key, sizeof(public_key), 1, fp);
-						fclose(fp);
-						printf("Done.\n");
-					}
-					else
-						printf("\nKey not written.\n");
-
-					printf("Enter filename to save private key to: ");
-					Gets(str, sizeof(str));
-					if (str[0])
-					{
-						printf("Writing private key... ");
-						fopen_s(&fp, str, "wb");
-						fwrite(private_key, sizeof(private_key), 1, fp);
-						fclose(fp);
-						printf("Done.\n");
-					}
-					else
-						printf("\nKey not written.\n");
-				}
-			}
-			PrintOptions();
-		}
-		else if (str[0] == '2')
-		{
-			printf("Enter filename to load public key from: ");
-			Gets(str, sizeof(str));
-			if (str[0])
-			{
-				if (fopen_s(&fp, str, "rb") == 0)
-				{
-					printf("Loading public key... ");
-					fread(public_key, sizeof(public_key), 1, fp);
-					fclose(fp);
-					printf("Done.\n");
-
-					printf("Enter filename to load private key from: ");
-					Gets(str, sizeof(str));
-					if (str[0])
-					{
-						if (fopen_s(&fp, str, "rb") == 0)
-						{
-							printf("Loading private key... ");
-							fread(private_key, sizeof(private_key), 1, fp);
-							fclose(fp);
-							printf("Done.\n");
-							keyLoaded = true;
-						}
-						else
-						{
-							printf("ERROR:Failed to open %s.\n", str);
-						}
-					}
-					else
-						printf("Not loading private key.\n");
-				}
-				else
-				{
-					printf("ERROR:Failed to open %s.\n", str);
-				}
-			}
-			else
-				printf("Not loading public keys.\n");
-
-			PrintOptions();
-		}
-		else if (str[0] == '3' || str[0] == '4')
-		{
-			bool run_test = true;
-
-			// NOTE: Reiterating, normally you should not use two-way authentication for client-server or peer-peer applications
-			// as it only makes sense for server-server connections that rarely occur or if you know what you are doing.
-			doTwoWayAuthentication = (str[0] == '4');
-
-			if (keyLoaded)
-			{
-				// Tell Peer1 to use the key pair
-				if (!rakPeer1->InitializeSecurity(public_key, private_key, doTwoWayAuthentication))
-				{
-					printf("ERROR:Public/private keys are invalid!\n");
-
-					run_test = false;
-				}
-			}
-			else
-			{
-				printf("Generating server keys...");
-
-				// Generate a (public, private) server key pair
-				if (!handshake.GenerateServerKey(public_key, private_key))
-				{
-					printf("ERROR:Unable to generate server keys for some reason!\n");
-
-					run_test = false;
-				}
-				else
-				{
-					printf("Key generation complete.\n");
-
-					// Tell Peer1 to use the key pair
-					if (!rakPeer1->InitializeSecurity(public_key, private_key, doTwoWayAuthentication))
-					{
-						printf("ERROR:Public/private keys are invalid!\n");
-
-						run_test = false;
-					}
-				}
-			}
-
-			if (str[0] == '4')
-			{
-				printf("Generating client keys...");
-
-				// Generate a (public, private) server key pair
-				if (!handshake.GenerateServerKey(client_public_key, client_private_key))
-				{
-					printf("ERROR:Unable to generate client keys for some reason!\n");
-
-					run_test = false;
-				}
-				else
-				{
-					printf("Key generation complete.\n");
-				}
-			}
-
-			if (!run_test)
-			{
-				printf("Unable to run test due to error\n");
-			}
-			else
-			{
-				printf("Initializing peers.\n");
-				SocketDescriptor socketDescriptor(TEST_SERVER_PORT, 0);
-				rakPeer1->Startup(8, &socketDescriptor, 1);
-				rakPeer1->SetMaximumIncomingConnections(8);
-				socketDescriptor.port = 0;
-				rakPeer2->Startup(1, &socketDescriptor, 1);
-				printf("Connecting to server with known public key...\n");
-
-				// Pass in the public key on Connect()
-				PublicKey pk;
-				pk.remoteServerPublicKey = public_key;
-
-				if (str[0] == '4')
-				{
-					pk.publicKeyMode = PKM_USE_TWO_WAY_AUTHENTICATION; // Optional not recommended mode
-					pk.myPublicKey = client_public_key;
-					pk.myPrivateKey = client_private_key;
-				}
-				else
-				{
-					pk.publicKeyMode = PKM_USE_KNOWN_PUBLIC_KEY; // Recommended mode
-				}
-
-				if (CONNECTION_ATTEMPT_STARTED != rakPeer2->Connect(TEST_SERVER_ADDRSTR, TEST_SERVER_PORT, 0, 0, &pk))
-				{
-					printf("ERROR: Connect() returned false - invalid public key most likely\n");
-				}
-				printf("Running connection for 12 seconds.\n");
-
-				peer1GotMessage = false;
-				peer2GotMessage = false;
-				TimeMS time = MafiaNet::GetTimeMS() + 12000;
-				while (MafiaNet::GetTimeMS() < time)
-				{
-					packet = rakPeer1->Receive();
-					if (packet)
-					{
-						peer1GotMessage = true;
-						printf("Host got: ");
-						PrintPacketHeader(packet);
-#if defined(_DEBUG)
-						if (doTwoWayAuthentication)
-						{
-							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-							RakAssert(rakPeer1->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key_copy) == true)
-						}
-#endif
-						rakPeer1->DeallocatePacket(packet);
-					}
-					packet = rakPeer2->Receive();
-					if (packet)
-					{
-						peer2GotMessage = true;
-						printf("Connecting system got: ");
-						PrintPacketHeader(packet);
-#if defined(_DEBUG)
-						if (doTwoWayAuthentication)
-						{
-							char client_public_key_copy[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-							RakAssert(rakPeer2->GetClientPublicKeyFromSystemAddress(packet->systemAddress, client_public_key_copy) == true)
-						}
-#endif
-						rakPeer2->DeallocatePacket(packet);
-					}
-
-					RakSleep(30);
-				}
-
-				if (peer1GotMessage == false)
-					printf("ERROR: Host got no packets\n");
-				if (peer2GotMessage == false)
-					printf("ERROR: Connecting system got no packets\n");
-
-				if (peer1GotMessage && peer2GotMessage)
-					printf("Test successful as long as you got no error messages\n");
-				rakPeer2->Shutdown(0);
-				rakPeer1->Shutdown(0);
-			}
-			PrintOptions();
-		}
-		else if (str[0] == 'h' || str[0] == 'H')
-		{
-			PrintOptions();
-		}
-		else if (str[0] == 'q' || str[0] == 'Q')
-			break;
-
-		str[0] = 0;
-	}
-
-	RakPeerInterface::DestroyInstance(rakPeer1);
-	RakPeerInterface::DestroyInstance(rakPeer2);
+	printf("\nencrypted connect: %s, plaintext connect: %s, mismatch refused: %s\n", encrypted ? "ok" : "FAILED", plaintext ? "ok" : "FAILED", !mismatch ? "ok" : "FAILED");
+	return encrypted && plaintext && !mismatch ? 0 : 1;
 }

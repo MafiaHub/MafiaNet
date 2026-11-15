@@ -98,8 +98,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - name: Install libsodium
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config
 
       # File names under Source/ are snake_case, and library headers include each
       # other only as "mafianet/<name>.h". A bare #include "string.h" inside
@@ -180,8 +180,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - name: Install libsodium
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -200,6 +200,101 @@ jobs:
 
       - name: Report library size
         run: ls -l build/Source/libMafiaNetStatic.a build/Source/libmafianet.so*
+
+  # The installed package, as a downstream project uses it: build MafiaNet
+  # (shared + static), `cmake --install` it to a prefix, then configure, build
+  # and run ci/consumer -- a CXX-only project (no C language enabled) that does
+  # find_package(MafiaNet) -- against that prefix, once per library. Catches
+  # what the in-tree build cannot: the installed MafiaNetConfig.cmake and
+  # Findsodium.cmake running in someone else's project.
+  install-consumer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    name: install-consumer (${{ matrix.os }})
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install libsodium (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config
+
+      - name: Install libsodium (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libsodium
+
+      - name: Install libsodium (Windows, vcpkg)
+        if: runner.os == 'Windows'
+        run: vcpkg install libsodium:x64-windows-static-md
+
+      - name: Set up sccache
+        if: runner.os != 'Windows'
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Build and install MafiaNet (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build build --parallel 4
+          cmake --install build --prefix "$PWD/install"
+
+      - name: Build and install MafiaNet (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -B build `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static-md `
+            -Dsodium_USE_STATIC_LIBS=ON
+          cmake --build build --config Release --parallel 4
+          cmake --install build --config Release --prefix "$PWD/install"
+
+      # The shared library needs no libsodium development files; the static
+      # one links libsodium itself. On Linux the static consumer also runs
+      # without pkg-config, which Findsodium.cmake must not require.
+      - name: Build and run the consumer (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -S ci/consumer -B consumer-shared -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/install"
+          cmake --build consumer-shared
+          ./consumer-shared/consumer
+          cmake -S ci/consumer -B consumer-static -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/install" \
+            -DMAFIANET_CONSUMER_STATIC=ON
+          cmake --build consumer-static
+          ./consumer-static/consumer
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            cmake -S ci/consumer -B consumer-static-nopc -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/install" \
+              -DMAFIANET_CONSUMER_STATIC=ON -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
+            cmake --build consumer-static-nopc
+            ./consumer-static-nopc/consumer
+          fi
+
+      # MafiaNet.dll carries libsodium (static-md triplet), so the shared
+      # consumer is configured without any libsodium on the search path; the
+      # static consumer gets the vcpkg prefix to find libsodium.lib.
+      - name: Build and run the consumer (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -S ci/consumer -B consumer-shared -DCMAKE_PREFIX_PATH="$PWD/install"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build consumer-shared --config Release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:PATH = "$PWD\install\bin;$env:PATH"
+          ./consumer-shared/Release/consumer.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake -S ci/consumer -B consumer-static -DMAFIANET_CONSUMER_STATIC=ON `
+            -DCMAKE_PREFIX_PATH="$PWD/install;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build consumer-static --config Release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./consumer-static/Release/consumer.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
   # Sanitizers, via the asan / tsan presets (RelWithDebInfo + tests; see
   # CMakePresets.json for why not Debug). Every target is instrumented,
@@ -228,7 +323,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config ninja-build clang
 
       # Ubuntu 24.04 runners use 32 bits of mmap randomisation, which older TSan
       # runtimes cannot map their shadow memory around.
@@ -303,7 +398,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config ninja-build clang
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -352,7 +447,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config ninja-build
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -392,7 +487,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+          sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config ninja-build
           pipx install gcovr==8.6
 
       - name: Build
@@ -434,8 +529,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: brew install openssl@3
+      - name: Install libsodium
+        run: brew install libsodium
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -443,7 +538,6 @@ jobs:
       - name: Configure CMake
         run: |
           cmake -B build \
-            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
@@ -483,8 +577,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install libsodium (vcpkg)
+        run: vcpkg install libsodium:x64-windows-static-md
+
       - name: Configure CMake
-        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON -DMAFIANET_WARNINGS_AS_ERRORS=ON
+        run: |
+          cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON -DMAFIANET_WARNINGS_AS_ERRORS=ON `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static-md `
+            -Dsodium_USE_STATIC_LIBS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4

@@ -33,18 +33,9 @@
 // Default for TwoWayAuthentication::SetTimeout().
 #define TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS 5000
 
-#if LIBCAT_SECURITY == 1
-// From CPP FILE:
-// static const int HASH_BITS = 256;
-// static const int HASH_BYTES = HASH_BITS / 8;
-// static const int STRENGTHENING_FACTOR = 1000;
-#define TWO_WAY_AUTHENTICATION_NONCE_LENGTH 32
-#define HASHED_NONCE_AND_PW_LENGTH 32
-#else
 #include "mafianet/dr_sha1.h"
 #define TWO_WAY_AUTHENTICATION_NONCE_LENGTH 20
 #define HASHED_NONCE_AND_PW_LENGTH SHA1_LENGTH
-#endif
 
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/memory_override.h"

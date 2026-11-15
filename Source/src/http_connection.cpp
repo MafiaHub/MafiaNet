@@ -150,10 +150,6 @@ void HTTPConnection::Update(void)
 			return;
 		}
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-		tcp->StartSSLClient(server);
-#endif
-
 		//printf("Sending request\n");
 		currentProcessingCommand = outgoingCommand.Pop();
 		RakString request;

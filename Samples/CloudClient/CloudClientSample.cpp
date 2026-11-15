@@ -113,9 +113,8 @@ int main(int argc, char **argv)
 			case ID_CONNECTION_ATTEMPT_FAILED:
 				printf("Failed to connect to server at %s.\n", packet->systemAddress.ToString(true));
 				return 1;
-			case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
+			case ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION:
 			case ID_OUR_SYSTEM_REQUIRES_SECURITY:
-			case ID_PUBLIC_KEY_MISMATCH:
 			case ID_INVALID_PASSWORD:
 			case ID_CONNECTION_BANNED:
 				// You won't see these unless you modified CloudServer

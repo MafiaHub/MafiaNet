@@ -70,6 +70,7 @@ Available generators (run `cmake --help` for full list):
 | `MAFIANET_WARNINGS_AS_ERRORS` | OFF | `-Werror` / `/WX` on MafiaNet's own targets (on in every CI job except the oldest-toolchain Docker one) |
 | `MAFIANET_BUILD_FUZZERS` | OFF | libFuzzer harnesses in `Tests/Fuzz` (Clang); use the `fuzz` preset |
 | `MAFIANET_BUILD_BENCHMARKS` | OFF | google/benchmark microbenchmarks in `Benchmarks/`; use the `bench` preset |
+| `MAFIANET_BUILD_SOAK_TESTS` | OFF | Soak tests in `Tests/Soak` (CTest label `soak`, needs `MAFIANET_BUILD_TESTS`); run nightly, never per PR |
 | `MAFIANET_COVERAGE` | OFF | `--coverage` instrumentation; use the `coverage` preset, report with gcovr |
 
 Presets (`CMakePresets.json`, CMake 3.25+): `debug`, `release`, `ci`, `minimal`, `asan`, `tsan`,
@@ -133,12 +134,12 @@ Verify on Linux, in **both** `Debug` and `Release` (`RakAssert` only fires in De
 Release is what ships and exercises the backstops the asserts hide):
 
 ```bash
-docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -c '
-  apt-get update -qq && apt-get install -y -qq build-essential cmake libssl-dev git ca-certificates
+docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -o pipefail -c '
+  apt-get update -qq && apt-get install -y -qq build-essential cmake libsodium-dev pkg-config git ca-certificates
   cp -r /src /work && cd /work
   for cfg in Debug Release; do
     cmake -B /b-$cfg -S . -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON
-    cmake --build /b-$cfg --parallel "$(nproc)"
+    cmake --build /b-$cfg --parallel "$(nproc)" || exit 1
     ctest --test-dir /b-$cfg --output-on-failure --timeout 600 || exit 1
   done'
 ```
@@ -150,7 +151,7 @@ Keep its message counts above `MMSG_BATCH_MAX` or that coverage silently disappe
 **Requirements:**
 - CMake 3.21+
 - C++17 compiler
-- OpenSSL 3.0+
+- libsodium 1.0.18+
 - Platform libs: ws2_32 (Windows), pthread (Unix)
 - Internet connection (first configure fetches dependencies via FetchContent)
 
@@ -161,6 +162,7 @@ All tests are GoogleTest, built with `MAFIANET_BUILD_TESTS=ON` (requires `MAFIAN
 - **`UnitTests`** (`Tests/Unit/`, label `unit`): hermetic and deterministic — no loopback networking, no wall-clock timing. A started-but-unconnected peer with synchronous assertions is acceptable. New tests for pure logic go here.
 - **`IntegrationTests`** (`Tests/Integration/`, label `integration`): real UDP over loopback, real threads. Every test binds OS-assigned ports, so the suite runs in parallel (`ctest -j`); 600s per-test timeout. Shared polling/connect helpers live in `Tests/Support/`.
 - **`FuzzCorpus.*`** (label `unit`): replays the fuzz corpus through each harness (see Fuzzing above).
+- **`SoakTests`** (`Tests/Soak/`, label `soak`, opt-in via `-DMAFIANET_BUILD_SOAK_TESTS=ON`): a 200-client simulated soak plus a 64-client threaded loopback soak. `ctest --test-dir build -L soak` takes about 3 min in Release (`MAFIANET_SOAK_*` environment variables scale it). Never part of the default run.
 
 Under ctest, every `TEST()` runs in its own process — never write tests that depend on state from a previous `TEST()`. Long sequential networking scenarios belong in a single `TEST_F`.
 

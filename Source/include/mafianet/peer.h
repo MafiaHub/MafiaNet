@@ -38,7 +38,8 @@
 #include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/signaled_event.h"
 #include "mafianet/native_feature_includes.h"
-#include "mafianet/secure_handshake.h"
+#include "mafianet/handshake_challenge.h"
+#include "mafianet/session_crypto.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/ds_queue.h"
 #include <atomic>
@@ -95,36 +96,44 @@ public:
 	/// \return RAKNET_STARTED on success, otherwise appropriate failure enumeration.
 	StartupResult Startup(unsigned int maxConnections, SocketDescriptor *socketDescriptors, unsigned socketDescriptorCount, int threadPriority = -99999);
 
-	/// If you accept connections, you must call this or else security will not be enabled for incoming connections.
-	/// This feature requires more round trips, bandwidth, and CPU time for the connection handshake
-	/// x64 builds require under 25% of the CPU time of other builds
-	/// See the Encryption sample for example usage
-	/// \pre Must be called while offline
-	/// \pre LIBCAT_SECURITY must be defined to 1 in native_feature_includes.h for this function to have any effect
-	/// \param[in] publicKey A pointer to the public key for accepting new connections
-	/// \param[in] privateKey A pointer to the private key for accepting new connections
-	/// \param[in] bRequireClientKey: Should be set to false for most servers.  Allows the server to accept a public key from connecting clients as a proof of identity but eats twice as much CPU time as a normal connection
-	bool InitializeSecurity(const char *publicKey, const char *privateKey, bool bRequireClientKey = false);
+	/// \brief Sets whether connections must be encrypted. Must be called before Startup().
+	/// \details See RakPeerInterface::SetEncryptionMode().
+	/// \return false, changing nothing, if the peer is already started.
+	bool SetEncryptionMode(EncryptionMode mode);
 
-	/// Disables security for incoming connections.
-	/// \note Must be called while offline
-	void DisableSecurity(void);
+	/// \return The mode set by SetEncryptionMode(), EncryptionMode::Required by default.
+	EncryptionMode GetEncryptionMode() const;
 
-	/// \brief This is useful if you have a fixed-address internal server behind a LAN.
-	///
-	///  Secure connections are determined by the recipient of an incoming connection. This has no effect if called on the system attempting to connect.
-	/// \note If secure connections are on, do not use secure connections for a specific IP address.
-	/// \param[in] ip IP address to add. * wildcards are supported.
-	void AddToSecurityExceptionList(const char *ip);
+	/// \brief Installs this peer's server identity key. Must be called before Startup().
+	/// \details See RakPeerInterface::SetIdentityKey().
+	bool SetIdentityKey(const uint8_t secretKey[64]);
 
-	/// \brief Remove a specific connection previously added via AddToSecurityExceptionList.
-	/// \param[in] ip IP address to remove. Pass 0 to remove all IP addresses. * wildcards are supported.
-	void RemoveFromSecurityExceptionList(const char *ip);
+	/// \details See RakPeerInterface::GetIdentityPublicKey().
+	bool GetIdentityPublicKey(uint8_t out[32]) const;
 
-	/// \brief Checks to see if a given IP is in the security exception list.
-	/// \param[in] IP address to check.
-	/// \return True if the IP address is found in security exception list, else returns false.
-	bool IsInSecurityExceptionList(const char *ip);
+	/// \details See RakPeerInterface::GetRemoteIdentityKey().
+	bool GetRemoteIdentityKey(const AddressOrGUID systemIdentifier, uint8_t out[32]) const;
+
+	/// \internal Test-only: the stateless challenge this peer issues in ID_OPEN_CONNECTION_REPLY_1, so a test
+	/// can forge a well-formed ID_OPEN_CONNECTION_REQUEST_2 (or fix the secret). Not thread safe.
+	HandshakeChallenge &GetHandshakeChallengeForTesting();
+
+	/// \internal Test-only: copies the session keys installed for \a remote into \a out.
+	/// \return false (and zeroes \a out) when \a remote has no active connection or no keys.
+	/// Call only from the thread that runs the update cycle (any thread with SetManualUpdate). Not thread safe.
+	bool GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys *out) const;
+
+	/// \internal Test-only: the kOfflineMessageDataIdBytes-byte marker every offline handshake message carries
+	/// after its MessageID, so a test can forge one without copying the constant.
+	static const unsigned char *GetOfflineMessageDataIdForTesting();
+	static constexpr unsigned int kOfflineMessageDataIdBytes = 16;
+
+	/// \internal Test-only: the client crypt info nonce of this peer's pending connection attempt to \a remote,
+	/// which ID_OPEN_CONNECTION_REPLY_2 must echo. \return false when no attempt to \a remote is pending.
+	bool GetPendingHandshakeNonceForTesting(const SystemAddress &remote, uint64_t *out);
+
+	/// \internal Test-only: how many X25519 key exchanges this peer has run answering ID_OPEN_CONNECTION_REQUEST_2.
+	uint64_t GetServerKeyExchangeCountForTesting() const;
 
 	/// \brief Sets the maximum number of incoming connections allowed.
 	/// \details If the number of incoming connections is less than the number of players currently connected,
@@ -169,7 +178,7 @@ public:
 	/// \param[in] remotePort Port to connect to on the remote machine.
 	/// \param[in] passwordData A data block that must match the data block on the server passed to SetIncomingPassword().  This can be a string or can be a stream of data.  Use 0 for no password.
 	/// \param[in] passwordDataLength The length in bytes of passwordData.
-	/// \param[in] publicKey The public key the server is using. If 0, the server is not using security. If non-zero, the publicKeyMode member determines how to connect
+	/// \param[in] publicKey Null (the default) pins nothing. Non-null pins the server identity in publicKey->serverIdentity: the attempt then accepts only a server that signs the handshake with that key, and ends with ID_PUBLIC_KEY_MISMATCH otherwise (see SetIdentityKey()). Connections are encrypted by default either way (see SetEncryptionMode()).
 	/// \param[in] connectionSocketIndex Index into the array of socket descriptors passed to socketDescriptors in RakPeer::Startup() to determine the one to send on.
 	/// \param[in] sendConnectionAttemptCount Number of datagrams to send to the other system to try to connect.
 	/// \param[in] timeBetweenSendConnectionAttemptsMS Time to elapse before a datagram is sent to the other system to try to connect. After sendConnectionAttemptCount number of attempts, ID_CONNECTION_ATTEMPT_FAILED is returned. Under low bandwidth conditions with multiple simultaneous outgoing connections, this value should be raised to 1000 or higher, or else the MTU detection can overrun the available bandwidth.
@@ -191,6 +200,7 @@ public:
 	/// \param[in] passwordData A data block that must match the data block on the server passed to SetIncomingPassword().  This can be a string or can be a stream of data.  Use 0 for no password.
 	/// \param[in] passwordDataLength The length in bytes of passwordData.
 	/// \param[in] socket A bound socket returned by another instance of RakPeerInterface.
+	/// \param[in] publicKey Null (the default) pins nothing; non-null pins the server identity, exactly as in Connect().
 	/// \param[in] sendConnectionAttemptCount Number of datagrams to send to the other system to try to connect.
 	/// \param[in] timeBetweenSendConnectionAttemptsMS Time to elapse before a datagram is sent to the other system to try to connect. After sendConnectionAttemptCount number of attempts, ID_CONNECTION_ATTEMPT_FAILED is returned.. Under low bandwidth conditions with multiple simultaneous outgoing connections, this value should be raised to 1000 or higher, or else the MTU detection can overrun the available bandwidth.
 	/// \param[in] timeoutTime Time to elapse before dropping the connection if a reliable message could not be sent. 0 to use the default from SetTimeoutTime(UNASSIGNED_SYSTEM_ADDRESS);
@@ -527,12 +537,6 @@ public:
 	/// \param[in] input The RakNetGUID of the target system.
 	SystemAddress GetSystemAddressFromGuid(const RakNetGUID input) const;
 
-	/// Given the SystemAddress of a connected system, get the public key they provided as an identity
-	/// Returns false if system address was not found or client public key is not known
-	/// \param[in] input The RakNetGUID of the system
-	/// \param[in] client_public_key The connected client's public key is copied to this address.  Buffer must be cat::EasyHandshake::PUBLIC_KEY_BYTES bytes in length.
-	bool GetClientPublicKeyFromSystemAddress(const SystemAddress input, char *client_public_key) const;
-
 	/// \brief Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable message.
 
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable message.
@@ -733,11 +737,7 @@ public:
 	/// \internal
 	// Call manually if RAKPEER_USER_THREADED==1 at least every 30 milliseconds.
 	// updateBitStream should be:
-	// 	BitStream updateBitStream( MAXIMUM_MTU_SIZE
-	// #if LIBCAT_SECURITY==1
-	//	+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
-	// #endif
-	// );
+	// 	BitStream updateBitStream( MAXIMUM_MTU_SIZE );
 	bool RunUpdateCycle(BitStream &updateBitStream);
 
 	/// \internal
@@ -797,14 +797,21 @@ public:
 		// the slot is reused or the connection closes.
 		SystemAddress raceFirstAddress;
 
-#if LIBCAT_SECURITY == 1
-		// Cached answer used internally by RakPeer to prevent DoS attacks based on the connexion handshake
-		char answer[cat::EasyHandshake::ANSWER_BYTES];
+		// The crypt infos (public halves only: mode, ephemeral public key, nonce) of the handshake that
+		// created this connection, on the accepting side. A retransmitted ID_OPEN_CONNECTION_REQUEST_2 carrying
+		// the same client crypt info is answered with the same server crypt info; the ephemeral secret that
+		// produced it is long wiped. Set by AssignSystemAddressToRemoteSystemList.
+		CryptInfo handshakeLocalCryptInfo;
+		CryptInfo handshakeRemoteCryptInfo;
 
-		// If the server has bRequireClientKey = true, then this is set to the validated public key of the connected client
-		// Valid after connectMode reaches HANDLING_CONNECTION_REQUEST
-		char client_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-#endif
+		// The identity public key the remote proved in ID_OPEN_CONNECTION_REPLY_2 (connections we initiated to a
+		// server with an identity key; see GetRemoteIdentityKey). Set when the slot is assigned, cleared on reuse.
+		bool hasRemoteIdentityKey;
+		uint8_t remoteIdentityKey[32];
+		// On the accepting side, the identity block our REPLY_2 carried (absent without an identity key). A
+		// retransmitted REQUEST_2 is answered with it, unchanged. Both identity fields are cleared by
+		// ClearHandshakeIdentity when the slot is assigned and on every teardown.
+		IdentityBlock handshakeLocalIdentity;
 
 		// Session-handshake payload received from the remote peer (see RakPeerInterface::SetSessionConfig).
 		// null/0 until the exchange completes. Owned by this struct; freed via ClearSessionConfig() on every
@@ -828,6 +835,11 @@ public:
 		// reaches this point on the accepting side -- and a close notification for a connection the
 		// application was never told about would be a lie.
 		bool connectionReportedToApplication;
+
+		// Our own Connect() to this peer lost the cross-connection tie-break and was dropped in favour of this
+		// incoming connection (DropConnectionAttemptSupersededBy). Until connectionReportedToApplication, that
+		// Connect() is still unanswered: if this connection dies first it reports ID_CONNECTION_ATTEMPT_FAILED.
+		bool absorbedOurConnectAttempt;
 
 		// GetTimeMS() at which this connection entered EXCHANGING_SESSION_DATA, so a handshake that never
 		// completes is timed out instead of pinning the slot forever.
@@ -875,8 +887,9 @@ protected:
 
 	//void RemoveFromRequestedConnectionsList( const SystemAddress systemAddress );
 	// Two versions needed because some buggy compilers strip the last parameter if unused, and crashes
-	ConnectionAttemptResult SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime, RakNetSocket2 *socket);
-	ConnectionAttemptResult SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime);
+	// pinnedServerIdentity: the 32-byte server identity Connect()'s PublicKey* pins, or null.
+	ConnectionAttemptResult SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime, RakNetSocket2 *socket, const uint8_t *pinnedServerIdentity);
+	ConnectionAttemptResult SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime, const uint8_t *pinnedServerIdentity = nullptr);
 	///Get the reliability layer associated with a systemAddress.
 	/// \param[in] systemAddress The player identifier
 	/// \return 0 if none
@@ -899,7 +912,9 @@ protected:
 	/// \param[in] thisIPConnectedRecently	Is this IP connected recently? set to False;
 	/// \param[in] bindingAddress	Address to be binded with the remote system
 	/// \param[in] incomingMTU	MTU for the remote system
-	RemoteSystemStruct *AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, bool useSecurity);
+	/// \param[in] sessionKeys	Freshly derived session keys to install (EncryptionMode::Required), or null in Plaintext mode
+	/// \param[in] localCryptInfo, remoteCryptInfo	The handshake's crypt infos, kept for retransmitted requests
+	RemoteSystemStruct *AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo, const IdentityBlock &localIdentity);
 	///	\brief Adjust the timestamp of the incoming packet to be relative to this system.
 	/// \param[in] data	Data in the incoming packet.
 	/// \param[in] systemAddress Sender of the incoming packet.
@@ -910,6 +925,9 @@ protected:
 	MafiaNet::Time GetBestClockDifferential(const SystemAddress systemAddress) const;
 
 	bool IsLoopbackAddress(const AddressOrGUID &systemIdentifier, bool matchPort) const;
+	// SetLimitIPConnectionFrequency: true when another active connection from this IP (any port) was created less
+	// than 100 ms ago. Loopback is exempt. Network thread only.
+	bool IPConnectedRecently(const SystemAddress &systemAddress, MafiaNet::TimeMS time) const;
 	SystemAddress GetLoopbackAddress(void) const;
 
 	/// Set this to true to terminate the Peer thread execution.
@@ -1023,7 +1041,6 @@ protected:
 		unsigned sendConnectionAttemptCount;
 		unsigned timeBetweenSendConnectionAttemptsMS;
 		MafiaNet::TimeMS timeoutTime;
-		PublicKeyMode publicKeyMode;
 		RakNetSocket2 *socket;
 		// Happy Eyeballs: every candidate of one raced Connect() shares a non-zero
 		// raceGroup (0 = not racing) and the race's first candidate address. A
@@ -1041,17 +1058,22 @@ protected:
 			/*PING=2, PING_OPEN_CONNECTIONS=4,*/ /*ADVERTISE_SYSTEM=2*/
 		} actionToTake;
 
-#if LIBCAT_SECURITY == 1
-		char handshakeChallenge[cat::EasyHandshake::CHALLENGE_BYTES];
-		cat::ClientEasyHandshake *client_handshake;
-		char remote_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-//		char remote_challenge[cat::EasyHandshake::CHALLENGE_BYTES];
-//	char random[16];
-#endif
+		// This request's ephemeral X25519 key pair and nonce (EncryptionMode::Required only; null in Plaintext).
+		// Created in Connect() under requestedConnectionQueueMutex, one per Happy Eyeballs candidate. Never
+		// copied: DeriveSessionKeys wipes it when the server's crypt info arrives, and DeleteRequestedConnection
+		// wipes and frees it on every other path (failure, cancel, race loser, shutdown).
+		EphemeralKeyPair *ephemeral = nullptr;
+		// The nonce of the client crypt info this request sends in ID_OPEN_CONNECTION_REQUEST_2, fixed at
+		// Connect(): the ephemeral key pair's nonce in mode Required, a random value in mode Plaintext. The server
+		// echoes it in ID_OPEN_CONNECTION_REPLY_2, and a REPLY_2 whose echo differs is dropped, so an off-path
+		// attacker has to guess 64 bits to forge one.
+		uint64_t handshakeNonce = 0;
+		// Connect()'s PublicKey*: the server identity this request accepts, copied at Connect(). Every Happy
+		// Eyeballs candidate carries the same pin. A REPLY_2 that does not prove it ends the request with
+		// ID_PUBLIC_KEY_MISMATCH before any key is derived.
+		bool pinnedIdentity = false;
+		uint8_t pinnedServerIdentity[32] = {};
 	};
-#if LIBCAT_SECURITY == 1
-	bool GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs, PublicKey *publicKey);
-#endif
 
 	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;
 	DataStructures::List<BanStruct *> banList;
@@ -1083,6 +1105,10 @@ protected:
 	void RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs);
 	// Requires requestedConnectionQueueMutex, network thread only. Removes and frees every other candidate of \a keep's race.
 	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
+	// Network thread only. Silently removes and frees our pending attempt to \a address (and its race), if any:
+	// the peer there connected to us with the handshake that won the cross-connection tie-break.
+	// Returns whether there was one.
+	bool DropConnectionAttemptSupersededBy(const SystemAddress &address);
 	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the
 	// next unstarted one now (later ones keep their spacing). Returns whether any candidate is left.
 	bool AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now);
@@ -1173,7 +1199,6 @@ protected:
 	void AddPacketToProducer(MafiaNet::Packet *p);
 	unsigned int GenerateSeedFromGuid(void);
 	MafiaNet::Time GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const;
-	SimpleMutex securityExceptionMutex;
 
 	//DataStructures::AVLBalancedBinarySearchTree<RPCNode> rpcTree;
 	int defaultMTUSize;
@@ -1214,9 +1239,6 @@ protected:
 
 	bool (*incomingDatagramEventHandler)(RNS2RecvStruct *);
 
-	// Systems in this list will not go through the secure connection process, even when secure connections are turned on. Wildcards are accepted.
-	DataStructures::List<MafiaNet::RakString> securityExceptionList;
-
 	SystemAddress ipList[MAXIMUM_NUMBER_OF_INTERNAL_IDS];
 
 	bool allowInternalRouting;
@@ -1227,6 +1249,8 @@ protected:
 
 	SignaledEvent quitAndDataEvents;
 	bool limitConnectionFrequencyFromTheSameIP;
+	// Key exchanges run in the ID_OPEN_CONNECTION_REQUEST_2 handler (network thread). See GetServerKeyExchangeCountForTesting.
+	uint64_t serverKeyExchangeCount = 0;
 
 	SimpleMutex packetAllocationPoolMutex;
 	DataStructures::MemoryPool<Packet> packetAllocationPool;
@@ -1257,14 +1281,17 @@ protected:
 	// Ticks every plugin's UpdateNetworkThread(), under the same rules as DispatchNetworkThreadReceive.
 	void DispatchNetworkThreadUpdate(void);
 
-#if LIBCAT_SECURITY == 1
-	// Encryption and security
-	bool _using_security, _require_client_public_key;
-	char my_public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	cat::ServerEasyHandshake *_server_handshake;
-	cat::CookieJar *_cookie_jar;
-	bool InitializeClientSecurity(RequestedConnectionStruct *rcs, const char *public_key);
-#endif
+	// Stateless anti-spoofing challenge sent in ID_OPEN_CONNECTION_REPLY_1 and verified, before anything is
+	// allocated, in ID_OPEN_CONNECTION_REQUEST_2. Required in both encryption modes.
+	HandshakeChallenge handshakeChallenge;
+	// Set before Startup(); see SetEncryptionMode().
+	EncryptionMode encryptionMode = EncryptionMode::Required;
+	// This peer's Ed25519 server identity key (SetIdentityKey), read by the network thread while started and
+	// written only while stopped. Kept across Shutdown(); wiped on replacement, removal and in the destructor.
+	bool hasIdentityKey = false;
+	uint8_t identitySecretKey[64] = {};
+	uint8_t identityPublicKey[32] = {}; // the public half, validated and cached by SetIdentityKey
+	void ClearIdentityKey();
 
 
 	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct);
@@ -1277,6 +1304,8 @@ private:
 	void ClearDisconnectReason(RemoteSystemStruct *remoteSystem);
 	/// Free any stashed session payload on this slot.
 	void ClearSessionConfig(RemoteSystemStruct *remoteSystem);
+	/// Reset the slot's handshake identity state (handshakeLocalIdentity, remoteIdentityKey).
+	void ClearHandshakeIdentity(RemoteSystemStruct *remoteSystem);
 	/// Store a received session payload on the slot, enforcing MAXIMUM_SESSION_CONFIG_SIZE.
 	/// Returns false if the payload is oversized (a protocol violation).
 	bool StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const unsigned char *data, unsigned int length);

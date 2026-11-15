@@ -35,6 +35,10 @@ option(MAFIANET_BUILD_TESTS "Build test suite" OFF)
 # on every compiler regardless; see Tests/Fuzz/.
 option(MAFIANET_BUILD_FUZZERS "Build libFuzzer harnesses (Clang)" OFF)
 option(MAFIANET_BUILD_BENCHMARKS "Build the google/benchmark microbenchmarks" OFF)
+# Long-running soak tests (Tests/Soak, CTest label "soak"): hundreds of simulated
+# peers over many minutes of virtual time, and a threaded loopback run of a few
+# minutes. Needs MAFIANET_BUILD_TESTS; kept out of the default build and run.
+option(MAFIANET_BUILD_SOAK_TESTS "Build the soak tests (label soak)" OFF)
 # Line coverage (GCC/Clang --coverage), reported with gcovr; see the coverage preset.
 option(MAFIANET_COVERAGE "Instrument the build for line coverage" OFF)
 # Non-networking utilities (EmailSender, HTTPConnection/HTTPConnection2,
@@ -110,11 +114,11 @@ if(MAFIANET_COVERAGE)
 endif()
 
 # Dependencies
-find_package(OpenSSL 3.0.0 REQUIRED)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(sodium 1.0.18 REQUIRED)
 find_package(Threads REQUIRED)
 
 # Include helpers
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(MafiaNetHelpers)
 
 # RakVoice is built into the core library, so its dependencies (Opus, RNNoise)
@@ -131,8 +135,10 @@ if(WIN32)
         # without this, windows.h drags in winsock.h first and winsock2.h then
         # redefines sockaddr/fd_set/etc. (C2011/C2375). winsock2.h itself
         # defines _WINSOCKAPI_ for the same reason, so predefining it globally
-        # is consistent and harmless for the core library.
-        _WINSOCKAPI_
+        # is consistent and harmless for the core library. Define it empty, exactly as
+        # winsock2.h does: a plain -D_WINSOCKAPI_ means "1", and newer Windows SDKs
+        # (10.0.26100) then warn C4005 on the redefinition, fatal under /WX.
+        "_WINSOCKAPI_="
     )
 endif()
 
@@ -160,6 +166,10 @@ if(MAFIANET_BUILD_TESTS)
         message(FATAL_ERROR "MAFIANET_BUILD_TESTS requires MAFIANET_BUILD_STATIC")
     endif()
     add_subdirectory(Tests)
+endif()
+
+if(MAFIANET_BUILD_SOAK_TESTS AND NOT MAFIANET_BUILD_TESTS)
+    message(FATAL_ERROR "MAFIANET_BUILD_SOAK_TESTS requires MAFIANET_BUILD_TESTS")
 endif()
 
 if(MAFIANET_BUILD_BENCHMARKS)

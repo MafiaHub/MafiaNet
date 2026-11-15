@@ -44,10 +44,6 @@
 #include "mafianet/osx_adapter.h"
 #include "mafianet/guid_util.h"
 
-#if LIBCAT_SECURITY == 1
-#include "mafianet/secure_handshake.h" // Include header for secure handshake
-#endif
-
 int main(void)
 {
 	MafiaNet::RakNetStatistics *rss;
@@ -55,7 +51,6 @@ int main(void)
 	// Note we can easily have both in the same program
 	MafiaNet::Peer peer;
 	MafiaNet::RakPeerInterface *client = peer.get();
-	//	client->InitializeSecurity(0,0,0,0);
 	//MafiaNet::PacketLogger packetLogger;
 	//client->AttachPlugin(&packetLogger);
 
@@ -120,21 +115,9 @@ int main(void)
 	client->SetOccasionalPing(true);
 
 
-#if LIBCAT_SECURITY == 1
-	char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	FILE *fp;
-	fopen_s(&fp, "publicKey.dat", "rb");
-	fread(public_key, sizeof(public_key), 1, fp);
-	fclose(fp);
-
-	MafiaNet::PublicKey pk;
-	pk.remoteServerPublicKey = public_key;
-	pk.publicKeyMode = MafiaNet::PKM_USE_KNOWN_PUBLIC_KEY;
-	client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk);
-#else
+	// The connection is encrypted by default: no key to load or pass to Connect().
 	MafiaNet::ConnectionAttemptResult car = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"));
 	RakAssert(car == MafiaNet::CONNECTION_ATTEMPT_STARTED);
-#endif
 
 	printf("\nMy IP addresses:\n");
 	unsigned int i;
@@ -232,11 +215,7 @@ int main(void)
 					return 2;
 				}
 
-#if LIBCAT_SECURITY == 1
-				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin"), &pk) == MafiaNet::CONNECTION_ATTEMPT_STARTED;
-#else
 				bool b = client->Connect(ip, static_cast<unsigned short>(intServerPort), "Rumpelstiltskin", (int) strlen("Rumpelstiltskin")) == MafiaNet::CONNECTION_ATTEMPT_STARTED;
-#endif
 
 				if (b)
 					puts("Attempting connection");

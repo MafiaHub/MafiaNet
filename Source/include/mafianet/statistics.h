@@ -103,6 +103,11 @@ struct RAK_DLL_EXPORT RakNetStatistics
 	/// What is the average total packetloss over the lifetime of the connection?
 	float packetlossTotal;
 
+	/// How many received datagrams were dropped because they failed to
+	/// authenticate under the session keys: forged, corrupted, replayed or too
+	/// old. Always 0 on a plaintext connection.
+	uint64_t droppedUnauthenticatedDatagrams;
+
 	RakNetStatistics &operator+=(const RakNetStatistics &other)
 	{
 		unsigned i;
@@ -117,6 +122,8 @@ struct RAK_DLL_EXPORT RakNetStatistics
 			valueOverLastSecond[i] += other.valueOverLastSecond[i];
 			runningTotal[i] += other.runningTotal[i];
 		}
+
+		droppedUnauthenticatedDatagrams += other.droppedUnauthenticatedDatagrams;
 
 		return *this;
 	}

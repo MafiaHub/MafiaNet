@@ -60,6 +60,17 @@ Optional password for authentication:
 
 The remote system must call ``SetIncomingPassword()`` with the same password.
 
+The password is sent inside the first encrypted datagram of the connection, so it is not visible on
+the wire (see :doc:`secure-connections`).
+
+publicKey
+~~~~~~~~~
+
+Pins the server identity. ``nullptr`` (the default) pins nothing: the connection is encrypted, but
+the server is not authenticated. A non-null ``PublicKey`` whose ``serverIdentity`` holds the server's
+32-byte identity public key makes the attempt accept only that server; anything else ends it with
+``ID_PUBLIC_KEY_MISMATCH``. See :ref:`server-identity`.
+
 sendConnectionAttemptCount / timeBetweenSendConnectionAttemptsMS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -224,6 +235,8 @@ Connection Events Summary
      - Connection timed out
    * - ``ID_CONNECTION_BANNED``
      - IP is banned
+   * - ``ID_PUBLIC_KEY_MISMATCH``
+     - The server did not prove the pinned identity (client)
 
 Checking Connection State
 -------------------------

@@ -153,12 +153,22 @@ RakPeer *SimulatedNetwork::AddPeerInStorage(void *storage, unsigned int maxConne
 }
 
 RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming,
-                                     unsigned short port, Family family)
+                                     unsigned short port, Family family, unsigned hostNumber)
 {
 	peer->SetSocketFactory(this);
 	peer->SetManualUpdate(true);
+	const bool modeSet = peer->SetEncryptionMode(newPeerEncryptionMode);
+	RakAssert(modeSet);
+	(void) modeSet;
+	if (hasNewPeerIdentityKey)
+	{
+		const bool keySet = peer->SetIdentityKey(newPeerIdentityKey);
+		RakAssert(keySet);
+		(void) keySet;
+	}
 
-	const unsigned hostNumber = nextHost++;
+	if (hostNumber == 0)
+		hostNumber = nextHost++;
 	char host[32];
 	std::snprintf(host, sizeof(host), family == Family::V4 ? "10.0.0.%u" : "2001:db8::%x", hostNumber);
 	// Skip the OS address enumeration: the peer reports this address as
@@ -183,6 +193,25 @@ RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections,
 	peers.push_back(peer);
 	inboxes[peer];
 	return peer;
+}
+
+RakPeer *SimulatedNetwork::RestartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming)
+{
+	// Only plain IPv4 peers made by AddPeer: the restarted one is rebuilt the same way.
+	RakAssert(peersInStorage.count(peer) == 0 && ipv4Aliases.count(peer) == 0);
+	const SystemAddress address = AddressOf(peer);
+	RakAssert(address.GetIPVersion() == 4);
+	const unsigned hostNumber = (unsigned) (ntohl(address.address.addr4.sin_addr.s_addr) & 0xFF);
+
+	// Shutdown(0) sends nothing: no disconnection notification, exactly as a crash.
+	peer->Shutdown(0);
+	RakPeerInterface::DestroyInstance(peer);
+	peers.erase(std::find(peers.begin(), peers.end(), peer));
+	inboxes.erase(peer);
+	receiveDisabled.erase(peer);
+
+	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming,
+	                 address.GetPort(), Family::V4, hostNumber);
 }
 
 SystemAddress SimulatedNetwork::AddressOf(const RakPeer *peer) const

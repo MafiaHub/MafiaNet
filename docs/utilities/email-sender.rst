@@ -18,7 +18,7 @@ Basic Usage
 
    const char* result = emailSender.Send(
        "smtp.example.com",           // SMTP server
-       25,                           // Port (25, 465, or 587)
+       25,                           // Port (25; plaintext only)
        "gameserver@example.com",     // Sender
        "Game Server",                // Sender name
        "player@example.com",         // Recipient
@@ -27,8 +27,8 @@ Basic Usage
        "Thank you for registering!", // Body
        nullptr,                      // Attachments (FileList*)
        false,                        // HTML body?
-       "username",                   // SMTP username (optional)
-       "password"                    // SMTP password (optional)
+       "username",                   // SMTP username (unused)
+       "password"                    // SMTP password (ignored)
    );
 
    if (result != nullptr) {
@@ -49,7 +49,7 @@ Basic Usage
        "</body></html>";
 
    emailSender.Send(
-       "smtp.example.com", 587,
+       "smtp.example.com", 25,
        "noreply@example.com", "Game Server",
        playerEmail, playerName,
        "Verify Your Account",
@@ -70,7 +70,7 @@ Basic Usage
                        FileListNodeContext(0, 0, 0, 0));
 
    emailSender.Send(
-       "smtp.example.com", 587,
+       "smtp.example.com", 25,
        "server@example.com", "Game Server",
        "admin@example.com", "Admin",
        "Daily Player Report",
@@ -84,18 +84,20 @@ Key Features
 ------------
 
 * SMTP protocol support
-* Authentication (PLAIN, LOGIN)
 * HTML and plain text bodies
 * File attachments
 * Multiple recipients via CC/BCC
-* TLS support (port 587)
+* Plaintext SMTP only (no TLS)
 
 Common SMTP Ports
 -----------------
 
 * **25** - Standard SMTP (often blocked by ISPs)
-* **465** - SMTPS (implicit SSL)
-* **587** - Submission (STARTTLS)
+
+.. note::
+
+   TLS is not supported: ports 465 (SMTPS) and 587 (STARTTLS) do not work, and SMTP
+   authentication is unavailable, so the ``password`` argument is ignored.
 
 Configuration Options
 ---------------------

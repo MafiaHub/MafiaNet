@@ -81,7 +81,6 @@
 		B23EA40A147F5A43002B8C06 /* replica_manager3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA384147F5A43002B8C06 /* replica_manager3.cpp */; };
 		B23EA40B147F5A43002B8C06 /* router2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA386147F5A43002B8C06 /* router2.cpp */; };
 		B23EA40C147F5A43002B8C06 /* rpc4_plugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA388147F5A43002B8C06 /* rpc4_plugin.cpp */; };
-		B23EA40D147F5A43002B8C06 /* secure_handshake.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA38A147F5A43002B8C06 /* secure_handshake.cpp */; };
 		B23EA40E147F5A43002B8C06 /* send_to_thread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA38C147F5A43002B8C06 /* send_to_thread.cpp */; };
 		B23EA40F147F5A43002B8C06 /* SHA1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA38E147F5A43002B8C06 /* SHA1.cpp */; };
 		B23EA410147F5A43002B8C06 /* signaled_event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA390147F5A43002B8C06 /* signaled_event.cpp */; };
@@ -304,8 +303,6 @@
 		B23EA387147F5A43002B8C06 /* router2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = router2.h; path = ../../../Source/router2.h; sourceTree = "<group>"; };
 		B23EA388147F5A43002B8C06 /* rpc4_plugin.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rpc4_plugin.cpp; path = ../../../Source/rpc4_plugin.cpp; sourceTree = "<group>"; };
 		B23EA389147F5A43002B8C06 /* rpc4_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rpc4_plugin.h; path = ../../../Source/rpc4_plugin.h; sourceTree = "<group>"; };
-		B23EA38A147F5A43002B8C06 /* secure_handshake.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = secure_handshake.cpp; path = ../../../Source/secure_handshake.cpp; sourceTree = "<group>"; };
-		B23EA38B147F5A43002B8C06 /* secure_handshake.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = secure_handshake.h; path = ../../../Source/secure_handshake.h; sourceTree = "<group>"; };
 		B23EA38C147F5A43002B8C06 /* send_to_thread.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = send_to_thread.cpp; path = ../../../Source/send_to_thread.cpp; sourceTree = "<group>"; };
 		B23EA38D147F5A43002B8C06 /* send_to_thread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = send_to_thread.h; path = ../../../Source/send_to_thread.h; sourceTree = "<group>"; };
 		B23EA38E147F5A43002B8C06 /* SHA1.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SHA1.cpp; path = ../../../Source/SHA1.cpp; sourceTree = "<group>"; };
@@ -637,8 +634,6 @@
 				B23EA387147F5A43002B8C06 /* router2.h */,
 				B23EA388147F5A43002B8C06 /* rpc4_plugin.cpp */,
 				B23EA389147F5A43002B8C06 /* rpc4_plugin.h */,
-				B23EA38A147F5A43002B8C06 /* secure_handshake.cpp */,
-				B23EA38B147F5A43002B8C06 /* secure_handshake.h */,
 				B23EA38C147F5A43002B8C06 /* send_to_thread.cpp */,
 				B23EA38D147F5A43002B8C06 /* send_to_thread.h */,
 				B23EA38E147F5A43002B8C06 /* SHA1.cpp */,
@@ -836,7 +831,6 @@
 				B23EA40A147F5A43002B8C06 /* replica_manager3.cpp in Sources */,
 				B23EA40B147F5A43002B8C06 /* router2.cpp in Sources */,
 				B23EA40C147F5A43002B8C06 /* rpc4_plugin.cpp in Sources */,
-				B23EA40D147F5A43002B8C06 /* secure_handshake.cpp in Sources */,
 				B23EA40E147F5A43002B8C06 /* send_to_thread.cpp in Sources */,
 				B23EA40F147F5A43002B8C06 /* SHA1.cpp in Sources */,
 				B23EA410147F5A43002B8C06 /* signaled_event.cpp in Sources */,

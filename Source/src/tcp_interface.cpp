@@ -76,11 +76,6 @@ TCPInterface::TCPInterface()
 	StringCompressor::AddReference();
 	MafiaNet::StringTable::AddReference();
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	ctx = 0;
-	meth = 0;
-#endif
-
 #ifdef _WIN32
 	WSAStartupSingleton::AddRef();
 #endif
@@ -210,9 +205,7 @@ static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, 
 
 // A connection socket must never raise SIGPIPE: a peer can reset it at any time, and another thread may shut it
 // down while the update thread still writes to it. send() also passes MSG_NOSIGNAL where it exists, but SO_NOSIGPIPE
-// (macOS, the BSDs) covers older SDKs and libcs without it, and the SSL path too: SSL_write() calls write(), which
-// MSG_NOSIGNAL cannot reach. Linux has no SO_NOSIGPIPE, so a Linux build with OPEN_SSL_CLIENT_SUPPORT stays exposed
-// (that needs a custom BIO or an application-wide SIGPIPE ignore, which a library must not impose).
+// (macOS, the BSDs) covers older SDKs and libcs without it.
 static void DisableSigpipe(__TCPSOCKET__ s)
 {
 #ifdef SO_NOSIGPIPE
@@ -365,11 +358,6 @@ void TCPInterface::Stop(void)
 	if (isStarted.GetValue() == 0)
 		return;
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	for (i = 0; i < remoteClientsLength; i++)
-		remoteClients[i].DisconnectSSL();
-#endif
-
 	isStarted.Decrement();
 
 	if (listenSocket != 0)
@@ -407,9 +395,6 @@ void TCPInterface::Stop(void)
 		// Connections retired since the update thread's last pass.
 		remoteClients[i].CloseRetiredSockets();
 		remoteClients[i].isActiveMutex.Unlock();
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-		remoteClients[i].FreeSSL();
-#endif
 	}
 	remoteClientsLength = 0;
 	MafiaNet::OP_DELETE_ARRAY(remoteClients, _FILE_AND_LINE_);
@@ -437,12 +422,6 @@ void TCPInterface::Stop(void)
 	for (i = 0; i < tailPush.Size(); i++)
 		DeallocatePacket(tailPush[i]);
 	tailPush.Clear(_FILE_AND_LINE_);
-
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	SSL_CTX_free(ctx);
-	startSSL.Clear(_FILE_AND_LINE_);
-	activeSSLConnections.Clear(false, _FILE_AND_LINE_);
-#endif
 }
 SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort, bool block, unsigned short socketFamily, const char *bindAddress)
 {
@@ -549,30 +528,6 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		return UNASSIGNED_SYSTEM_ADDRESS;
 	}
 }
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-void TCPInterface::StartSSLClient(SystemAddress systemAddress)
-{
-	if (ctx == 0)
-	{
-		sharedSslMutex.Lock();
-		meth = TLS_client_method();
-		ctx = SSL_CTX_new(meth);
-		RakAssert(ctx != 0);
-		sharedSslMutex.Unlock();
-	}
-
-	SystemAddress *id = startSSL.Allocate(_FILE_AND_LINE_);
-	*id = systemAddress;
-	startSSL.Push(id);
-	unsigned index = activeSSLConnections.GetIndexOf(systemAddress);
-	if (index == (unsigned) -1)
-		activeSSLConnections.Insert(systemAddress, _FILE_AND_LINE_);
-}
-bool TCPInterface::IsSSLActive(SystemAddress systemAddress)
-{
-	return activeSSLConnections.GetIndexOf(systemAddress) != -1;
-}
-#endif
 void TCPInterface::Send(const char *data, unsigned length, const SystemAddress &systemAddress, bool broadcast)
 {
 	SendList(&data, &length, 1, systemAddress, broadcast);
@@ -756,13 +711,6 @@ void TCPInterface::CloseConnection(SystemAddress systemAddress)
 			remoteClients[i].isActiveMutex.Unlock();
 		}
 	}
-
-
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	unsigned index = activeSSLConnections.GetIndexOf(systemAddress);
-	if (index != (unsigned) -1)
-		activeSSLConnections.RemoveAtIndex(index);
-#endif
 }
 void TCPInterface::DeallocatePacket(Packet *packet)
 {
@@ -1123,34 +1071,6 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 
 	while (sts->isStarted.GetValue() > 0)
 	{
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-		SystemAddress *sslSystemAddress;
-		sslSystemAddress = sts->startSSL.PopInaccurate();
-		if (sslSystemAddress)
-		{
-			if (sslSystemAddress->systemIndex >= 0 &&
-			    sslSystemAddress->systemIndex < sts->remoteClientsLength &&
-			    sts->remoteClients[sslSystemAddress->systemIndex].systemAddress == *sslSystemAddress)
-			{
-				sts->remoteClients[sslSystemAddress->systemIndex].InitSSL(sts->ctx, sts->meth);
-			}
-			else
-			{
-				for (int i = 0; i < sts->remoteClientsLength; i++)
-				{
-					sts->remoteClients[i].isActiveMutex.Lock();
-					if (sts->remoteClients[i].isActive && sts->remoteClients[i].systemAddress == *sslSystemAddress)
-					{
-						if (sts->remoteClients[i].ssl == 0)
-							sts->remoteClients[i].InitSSL(sts->ctx, sts->meth);
-					}
-					sts->remoteClients[i].isActiveMutex.Unlock();
-				}
-			}
-			sts->startSSL.Deallocate(sslSystemAddress, _FILE_AND_LINE_);
-		}
-#endif
-
 
 		__TCPSOCKET__ largestDescriptor = 0; // see select__()'s first parameter's documentation under linux
 
@@ -1476,114 +1396,6 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 		}
 	}
 }
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-bool RemoteClient::InitSSL(SSL_CTX *ctx, const SSL_METHOD *meth)
-{
-	(void) meth;
-
-	ssl = SSL_new(ctx);
-	RakAssert(ssl);
-	int res;
-	res = SSL_set_fd(ssl, socket);
-	if (res != 1)
-	{
-		printf("SSL_set_fd error: %s\n", ERR_reason_error_string(ERR_get_error()));
-		SSL_free(ssl);
-		ssl = 0;
-		return false;
-	}
-	RakAssert(res == 1);
-	res = SSL_connect(ssl);
-	if (res < 0)
-	{
-		unsigned long err = ERR_get_error();
-		printf("SSL_connect error: %s\n", ERR_reason_error_string(err));
-		SSL_free(ssl);
-		ssl = 0;
-		return false;
-	}
-	else if (res == 0)
-	{
-		// The TLS/SSL handshake was not successful but was shut down controlled and by the specifications of the TLS/SSL protocol. Call SSL_get_error() with the return value ret to find out the reason.
-		int err = SSL_get_error(ssl, res);
-		switch (err)
-		{
-		case SSL_ERROR_NONE:
-			printf("SSL_ERROR_NONE\n");
-			break;
-		case SSL_ERROR_ZERO_RETURN:
-			printf("SSL_ERROR_ZERO_RETURN\n");
-			break;
-		case SSL_ERROR_WANT_READ:
-			printf("SSL_ERROR_WANT_READ\n");
-			break;
-		case SSL_ERROR_WANT_WRITE:
-			printf("SSL_ERROR_WANT_WRITE\n");
-			break;
-		case SSL_ERROR_WANT_CONNECT:
-			printf("SSL_ERROR_WANT_CONNECT\n");
-			break;
-		case SSL_ERROR_WANT_ACCEPT:
-			printf("SSL_ERROR_WANT_ACCEPT\n");
-			break;
-		case SSL_ERROR_WANT_X509_LOOKUP:
-			printf("SSL_ERROR_WANT_X509_LOOKUP\n");
-			break;
-		case SSL_ERROR_SYSCALL:
-		{
-			// http://www.openssl.org/docs/ssl/SSL_get_error.html
-			char buff[1024];
-			unsigned long ege = ERR_get_error();
-			if (ege == 0 && res == 0)
-				printf("SSL_ERROR_SYSCALL EOF in violation of the protocol\n");
-			else if (ege == 0 && res == -1)
-			{
-				strerror_s(buff, errno);
-				printf("SSL_ERROR_SYSCALL %s\n", buff);
-			}
-			else
-				printf("SSL_ERROR_SYSCALL %s\n", ERR_error_string(ege, buff));
-		}
-		break;
-		case SSL_ERROR_SSL:
-			printf("SSL_ERROR_SSL\n");
-			break;
-		}
-	}
-
-	if (res != 1)
-	{
-		SSL_free(ssl);
-		ssl = 0;
-		return false;
-	}
-	return true;
-}
-void RemoteClient::DisconnectSSL(void)
-{
-	if (ssl)
-		SSL_shutdown(ssl); /* send SSL/TLS close_notify */
-}
-void RemoteClient::FreeSSL(void)
-{
-	if (ssl)
-		SSL_free(ssl);
-}
-int RemoteClient::Send(__TCPSOCKET__ s, const char *data, unsigned int length)
-{
-	if (ssl)
-		return SSL_write(ssl, data, length);
-	else
-		return send__(s, data, length, kSendFlags);
-}
-int RemoteClient::Recv(__TCPSOCKET__ s, char *data, const int dataSize)
-{
-	if (ssl)
-		return SSL_read(ssl, data, dataSize);
-	else
-		return recv__(s, data, dataSize, 0);
-}
-#else
 int RemoteClient::Send(__TCPSOCKET__ s, const char *data, unsigned int length)
 {
 	return send__(s, data, length, kSendFlags);
@@ -1592,7 +1404,6 @@ int RemoteClient::Recv(__TCPSOCKET__ s, char *data, const int dataSize)
 {
 	return recv__(s, data, dataSize, 0);
 }
-#endif
 
 #ifdef _MSC_VER
 #pragma warning(pop)

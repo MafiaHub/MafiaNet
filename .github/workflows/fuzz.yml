@@ -1,8 +1,12 @@
-name: Nightly fuzzing
+name: Nightly fuzzing and soak
 
 # Longer libFuzzer runs than the per-PR smoke job in build.yml. The corpus each
 # run grows is cached and restored by the next, so coverage keeps building up
 # across nights instead of restarting from Tests/Fuzz/corpus every time.
+#
+# The soak job runs the opt-in soak suite (MAFIANET_BUILD_SOAK_TESTS, CTest
+# label "soak"): hundreds of simulated peers over many minutes of virtual time,
+# and a threaded loopback run of minutes. Never part of the per-PR runs.
 on:
   schedule:
     - cron: "17 3 * * *"
@@ -33,7 +37,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config ninja-build clang
 
       - name: Build harnesses
         run: |
@@ -79,3 +83,67 @@ jobs:
         with:
           name: fuzz-crashes-${{ matrix.preset }}
           path: fuzz-artifacts/
+
+  # Tests/Soak, built with MAFIANET_BUILD_SOAK_TESTS=ON and run by label. Release
+  # is what ships; ASan + UBSan and TSan run the same soak instrumented. TSan is
+  # advisory, as in build.yml: the by-design getter races live in ci/tsan.supp.
+  soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: ${{ matrix.preset == 'tsan' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [release, asan, tsan]
+    name: soak (${{ matrix.preset }})
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev pkg-config ninja-build clang
+
+      - name: Reduce ASLR entropy for TSan
+        if: matrix.preset == 'tsan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Build the soak suite
+        run: |
+          cmake --preset ${{ matrix.preset }} -G Ninja \
+            -DMAFIANET_BUILD_TESTS=ON \
+            -DMAFIANET_BUILD_SOAK_TESTS=ON \
+            -DMAFIANET_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++
+          cmake --build build/${{ matrix.preset }} --target SoakTests
+
+      # More, shorter waves than the default run: the memory check compares
+      # wave 1 with the last, and a slow leak needs waves to show. The per-test
+      # timeout stays well inside the job's, so a hang gets a ctest report.
+      # release has no test preset. asan runs without its preset so that leak
+      # detection can be on (the preset sets detect_leaks=0 for the loopback
+      # suites); tsan uses its preset for TSAN_OPTIONS and ci/tsan.supp.
+      - name: Run the soak suite
+        env:
+          MAFIANET_SOAK_WAVES: "12"
+        run: |
+          case "${{ matrix.preset }}" in
+            release)
+              ctest --test-dir build/release -L soak --output-on-failure --timeout 3600 --output-log build/release/soak.log ;;
+            asan)
+              ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1 \
+              UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+                ctest --test-dir build/asan -L soak --output-on-failure --timeout 3600 --output-log build/asan/soak.log ;;
+            tsan)
+              ctest --preset tsan -L soak --timeout 3600 --output-log build/tsan/soak.log ;;
+          esac
+
+      - name: Upload the soak log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-${{ matrix.preset }}
+          path: build/${{ matrix.preset }}/soak.log
+          if-no-files-found: ignore

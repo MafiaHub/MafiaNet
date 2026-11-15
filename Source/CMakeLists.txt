@@ -39,6 +39,7 @@ set(MAFIANET_SOURCES
     src/get_time_of_day.cpp
     src/grid_sectorizer.cpp
     src/guid_util.cpp
+    src/handshake_challenge.cpp
     src/incremental_read_interface.cpp
     src/itoa.cpp
     src/linux_adapter.cpp
@@ -62,7 +63,6 @@ set(MAFIANET_SOURCES
     src/peer_handle.cpp
     src/plugin_interface2.cpp
     src/point_grid_sectorizer.cpp
-    src/rackspace.cpp
     src/memory_override.cpp
     src/connect_candidates.cpp
     src/sockaddr_convert.cpp
@@ -85,8 +85,8 @@ set(MAFIANET_SOURCES
     src/replica_manager3.cpp
     src/router2.cpp
     src/rpc4_plugin.cpp
-    src/secure_handshake.cpp
     src/send_to_thread.cpp
+    src/session_crypto.cpp
     src/signaled_event.cpp
     src/simple_mutex.cpp
     src/socket_layer.cpp
@@ -125,13 +125,6 @@ set(MAFIANET_EXTRAS_SOURCES
     src/command_parser.cpp
     src/transport2.cpp
     src/telnet_transport.cpp
-)
-
-set(MAFIANET_CRYPTO_SOURCES
-    src/crypto/cryptomanager.cpp
-    src/crypto/factory.cpp
-    src/crypto/fileencrypter.cpp
-    src/crypto/securestring.cpp
 )
 
 set(MAFIANET_HEADERS
@@ -198,6 +191,7 @@ set(MAFIANET_HEADERS
     include/mafianet/get_time_of_day.h
     include/mafianet/grid_sectorizer.h
     include/mafianet/guid_util.h
+    include/mafianet/handshake_challenge.h
     include/mafianet/http_connection.h
     include/mafianet/http_connection2.h
     include/mafianet/incremental_read_interface.h
@@ -237,7 +231,6 @@ set(MAFIANET_HEADERS
     include/mafianet/peer_interface.h
     include/mafianet/plugin_interface2.h
     include/mafianet/point_grid_sectorizer.h
-    include/mafianet/rackspace.h
     include/mafianet/connect_candidates.h
     include/mafianet/sockaddr_convert.h
     include/mafianet/voice.h
@@ -251,8 +244,8 @@ set(MAFIANET_HEADERS
     include/mafianet/replica_manager3.h
     include/mafianet/router2.h
     include/mafianet/rpc4_plugin.h
-    include/mafianet/secure_handshake.h
     include/mafianet/send_to_thread.h
+    include/mafianet/session_crypto.h
     include/mafianet/signaled_event.h
     include/mafianet/simple_mutex.h
     include/mafianet/simple_tcp_server.h
@@ -299,23 +292,13 @@ set(MAFIANET_HEADERS
     include/mafianet/wstring.h
 )
 
-set(MAFIANET_CRYPTO_HEADERS
-    include/mafianet/crypto/cryptomanager.h
-    include/mafianet/crypto/factory.h
-    include/mafianet/crypto/fileencrypter.h
-    include/mafianet/crypto/ifileencrypter.h
-    include/mafianet/crypto/securestring.h
-)
-
 # Combine all sources
 set(MAFIANET_ALL_SOURCES
     ${MAFIANET_SOURCES}
-    ${MAFIANET_CRYPTO_SOURCES}
 )
 
 set(MAFIANET_ALL_HEADERS
     ${MAFIANET_HEADERS}
-    ${MAFIANET_CRYPTO_HEADERS}
 )
 
 # Optional plugins, one per _RAKNET_SUPPORT_<Name> flag in native_feature_includes.h.
@@ -342,7 +325,6 @@ set(MAFIANET_OPTIONAL_FEATURES
     NatTypeDetectionServer
     PacketLogger
     PacketizedTCP
-    Rackspace
     RakNetCommandParser
     RakNetTransport
     ReadyEvent
@@ -397,10 +379,8 @@ function(mafianet_configure_target target_name)
     )
 
     target_link_libraries(${target_name}
-        PUBLIC
-            OpenSSL::SSL
-            OpenSSL::Crypto
         PRIVATE
+            sodium
             Threads::Threads
             $<$<PLATFORM_ID:Windows>:ws2_32>
             # RakVoice (built into the core library) requires the Opus codec and
@@ -429,9 +409,7 @@ function(mafianet_configure_target target_name)
 
     # Source groups for IDE organization
     source_group("Source Files" FILES ${MAFIANET_SOURCES})
-    source_group("Source Files\\crypto" FILES ${MAFIANET_CRYPTO_SOURCES})
     source_group("Header Files" FILES ${MAFIANET_HEADERS})
-    source_group("Header Files\\crypto" FILES ${MAFIANET_CRYPTO_HEADERS})
 
     mafianet_enable_warnings(${target_name})
 endfunction()
@@ -542,7 +520,15 @@ install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# Generate and install config
+# Generate and install config. The config records which libraries were built and which libsodium
+# flavour they were built against (see MafiaNetConfig.cmake.in).
+set(MAFIANET_CONFIG_HAS_SHARED ${MAFIANET_BUILD_SHARED})
+set(MAFIANET_CONFIG_HAS_STATIC ${MAFIANET_BUILD_STATIC})
+if(sodium_USE_STATIC_LIBS)
+    set(MAFIANET_CONFIG_SODIUM_STATIC ON)
+else()
+    set(MAFIANET_CONFIG_SODIUM_STATIC OFF)
+endif()
 configure_package_config_file(
     ${PROJECT_SOURCE_DIR}/cmake/MafiaNetConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/MafiaNetConfig.cmake
@@ -556,6 +542,7 @@ write_basic_package_version_file(
 )
 
 install(FILES
+    ${PROJECT_SOURCE_DIR}/cmake/Findsodium.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/MafiaNetConfig.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/MafiaNetConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MafiaNet

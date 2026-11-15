@@ -146,8 +146,8 @@ common client/server path needs only one ``#include``:
    #include "mafianet/mafianet.h"
 
 It is purely additive: the granular per-feature headers remain for advanced
-users. Encryption headers are intentionally omitted — connection security stays
-opt-in via ``RakPeerInterface::InitializeSecurity()`` (see
+users. Connections are encrypted by default; ``EncryptionMode`` and
+``RakPeerInterface::SetEncryptionMode()`` come in through ``peer_interface.h`` (see
 :doc:`../basics/secure-connections`).
 
 Canonical Type Aliases
@@ -253,13 +253,17 @@ collapsing it to a bool.
 
    MafiaNet::Peer peer = std::move(*client);   // Result<Peer> is move-only
 
-Security is opt-in and unchanged from the raw API: ``ServerBuilder::secure(publicKey,
-privateKey)`` calls ``InitializeSecurity`` before ``Startup`` (only when
-``LIBCAT_SECURITY==1``), and ``ClientBuilder::public_key()`` forwards a
-``PublicKey*`` to ``Connect``. Encryption is never implied. The builder stores
-these as raw pointers, so the key buffers passed to ``secure()`` and the
-``PublicKey`` passed to ``public_key()`` must remain valid until ``start()``
-returns.
+Connections are encrypted by default. Both builders accept
+``.encryption(MafiaNet::EncryptionMode)``, which calls ``SetEncryptionMode()``
+before ``Startup``; ``EncryptionMode::Plaintext`` is for LAN debugging and must
+be set on both sides, or the connection is refused (see
+:doc:`../basics/secure-connections`). A failed ``SetEncryptionMode()`` surfaces
+as ``PeerStage::Startup``. ``ServerBuilder::identity_key()`` installs a server
+identity key (``SetIdentityKey()``) and ``ClientBuilder::pin_server_identity()``
+pins it on the connecting side (see :ref:`server-identity`); a malformed key
+also surfaces as ``PeerStage::Startup``. ``ServerBuilder::secure()`` and
+``ClientBuilder::public_key()`` no longer exist: the RSA/``libcat`` security
+API they forwarded to was removed.
 
 Serialization Archives (WriteArchive / ReadArchive)
 ---------------------------------------------------

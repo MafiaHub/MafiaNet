@@ -84,6 +84,7 @@ MafiaNet Documentation
    advanced/congestion-control
    advanced/debugging-disconnects
    advanced/session-handshake-security
+   advanced/encryption-wire-format
 
 .. toctree::
    :maxdepth: 2
@@ -128,7 +129,7 @@ Features
 * **NAT Traversal** - Built-in NAT punchthrough for peer-to-peer connections
 * **Cross-Platform** - Windows, Linux, macOS support
 * **Plugin System** - Extensible architecture with modular plugins
-* **Security** - Secure handshake and encryption support
+* **Security** - Every connection encrypted and integrity-protected per datagram by default (libsodium)
 * **Replication** - Object replication system for game state synchronization
 * **Voice Chat** - RakVoice for in-game voice communication
 * **Autopatcher** - Delta patching system for game updates

@@ -13,7 +13,8 @@
  *  - both peers must end up on the same size, inside [MINIMUM, MAXIMUM];
  *  - splitting and reassembly must work at whatever that size is;
  *  - the accepting side must clamp an MTU a remote names on the wire, since
- *    ID_OPEN_CONNECTION_REQUEST_2 is unauthenticated.
+ *    ID_OPEN_CONNECTION_REQUEST_2 is unauthenticated (its challenge only proves
+ *    the sender receives at its address).
  *
  *  A link rule's maxDatagramBytes is a path ceiling: datagrams above it vanish,
  *  as they would behind a router with a smaller MTU. The datagram the ladder
@@ -30,6 +31,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_size.h"
+#include "mafianet/session_crypto.h"
 
 using namespace MafiaNet;
 
@@ -52,11 +54,17 @@ const unsigned char kOfflineMessageDataId[16] =
     {0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78};
 
 // The ID_OPEN_CONNECTION_REQUEST_2 an accepting peer parses, with a
-// caller-chosen MTU, written with the calls the real handshake uses.
-void WriteOpenConnectionRequest2(BitStream &out, const SystemAddress &bindingAddress, uint16_t mtu, const RakNetGUID &guid)
+// caller-chosen MTU, written with the calls the real handshake uses:
+// id | offline id | challenge | crypt info | binding address | mtu | guid.
+// The challenge is the one the server would have sent the forger in
+// ID_OPEN_CONNECTION_REPLY_1: the MTU is only read once it verifies.
+void WriteOpenConnectionRequest2(BitStream &out, uint64_t challenge, const SystemAddress &bindingAddress, uint16_t mtu, const RakNetGUID &guid)
 {
+	EphemeralKeyPair pair;
 	out.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
 	out.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+	out.Write(challenge);
+	pair.MakeCryptInfo().Serialize(&out);
 	out.Write(bindingAddress);
 	out.Write(mtu);
 	out.Write(guid);
@@ -71,7 +79,8 @@ int ForgeRequest2(SimulatedNetwork &net, RakPeer *server, uint16_t mtu, uint64_t
 {
 	SystemAddress forger("10.0.0.200", 4321);
 	BitStream forged;
-	WriteOpenConnectionRequest2(forged, net.AddressOf(server), mtu, RakNetGUID(guid));
+	WriteOpenConnectionRequest2(forged, server->GetHandshakeChallengeForTesting().Generate(net.Now(), forger),
+	                            net.AddressOf(server), mtu, RakNetGUID(guid));
 	net.InjectDatagram(forger, server, forged.GetData(), (int) forged.GetNumberOfBytesUsed());
 
 	const int unassigned = server->GetMTUSize(UNASSIGNED_SYSTEM_ADDRESS);

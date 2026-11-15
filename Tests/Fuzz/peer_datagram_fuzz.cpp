@@ -13,7 +13,9 @@
  *  each input is a deterministic, self-contained run. Input is a sequence of
  *  datagrams, each prefixed by a 16-bit little-endian length, all sent from
  *  10.0.0.2:60000 to the server at 10.0.0.1:60000 (the addresses the seeds
- *  were recorded with).
+ *  were recorded with). The server runs in plaintext mode with an all-zero
+ *  challenge secret (see below); the seeds are protocol 9 handshakes recorded
+ *  under that secret.
  */
 
 #include <cstddef>
@@ -21,6 +23,7 @@
 
 #include "SimulatedNetwork.h"
 
+#include "mafianet/handshake_challenge.h"
 #include "mafianet/mtu_size.h"
 
 using namespace MafiaNet;
@@ -28,7 +31,16 @@ using namespace MafiaNet;
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
 	SimulatedNetwork net(1);
+	// Plaintext, so the seeds' datagrams are not sealed (the fuzzer cannot forge
+	// an AEAD tag): the harness reaches the handshake and the connected parsers.
+	// session_crypto_fuzz covers the cipher itself.
+	net.SetNewPeerEncryptionMode(EncryptionMode::Plaintext);
 	RakPeer *server = net.AddPeer(4, 4);
+	// The open-connection challenge is keyed per process by default. A fixed
+	// (all-zero) secret makes it a pure function of the simulated clock and the
+	// remote's address, so a recorded REQUEST_2 stays valid when replayed.
+	const uint8_t zeroSecret[16] = {};
+	server->GetHandshakeChallengeForTesting().SetSecretForTesting(zeroSecret);
 	const SystemAddress remote("10.0.0.2", 60000);
 
 	size_t offset = 0;

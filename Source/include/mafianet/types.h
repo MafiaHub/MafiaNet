@@ -46,6 +46,7 @@ enum StartupResult
 	PORT_CANNOT_BE_ZERO,
 	FAILED_TO_CREATE_NETWORK_THREAD,
 	COULD_NOT_GENERATE_GUID,
+	CRYPTO_INITIALIZATION_FAILED,
 	STARTUP_OTHER_FAILURE
 };
 
@@ -56,8 +57,7 @@ enum ConnectionAttemptResult
 	INVALID_PARAMETER,
 	CANNOT_RESOLVE_DOMAIN_NAME,
 	ALREADY_CONNECTED_TO_ENDPOINT,
-	CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS,
-	SECURITY_INITIALIZATION_FAILED
+	CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS
 };
 
 /// Returned from RakPeerInterface::GetConnectionState()
@@ -97,42 +97,16 @@ typedef uint32_t BitSize_t;
 
 #define PRINTF_64_BIT_MODIFIER "ll"
 
-/// Used with the PublicKey structure
-enum PublicKeyMode
-{
-	/// The connection is insecure. You can also just pass 0 for the pointer to PublicKey in RakPeerInterface::Connect()
-	PKM_INSECURE_CONNECTION,
-
-	/// Accept whatever public key the server gives us. This is vulnerable to man in the middle, but does not require
-	/// distribution of the public key in advance of connecting.
-	PKM_ACCEPT_ANY_PUBLIC_KEY,
-
-	/// Use a known remote server public key. PublicKey::remoteServerPublicKey must be non-zero.
-	/// This is the recommended mode for secure connections.
-	PKM_USE_KNOWN_PUBLIC_KEY,
-
-	/// Use a known remote server public key AND provide a public key for the connecting client.
-	/// PublicKey::remoteServerPublicKey, myPublicKey and myPrivateKey must be all be non-zero.
-	/// The server must cooperate for this mode to work.
-	/// I recommend not using this mode except for server-to-server communication as it significantly increases the CPU requirements during connections for both sides.
-	/// Furthermore, when it is used, a connection password should be used as well to avoid DoS attacks.
-	PKM_USE_TWO_WAY_AUTHENTICATION
-};
-
-/// Passed to RakPeerInterface::Connect()
+/// A server identity to pin. Passing a non-null PublicKey* to RakPeerInterface::Connect() or
+/// ConnectWithSocket() makes the attempt accept only a server that proves it holds the secret half of
+/// \a serverIdentity (see RakPeerInterface::SetIdentityKey()); any other answer ends the attempt with
+/// ID_PUBLIC_KEY_MISMATCH. Passing null (the default) pins nothing: the connection is still encrypted,
+/// but the server is not authenticated.
 struct RAK_DLL_EXPORT PublicKey
 {
-	/// How to interpret the public key, see above
-	PublicKeyMode publicKeyMode;
-
-	/// Pointer to a public key of length cat::EasyHandshake::PUBLIC_KEY_BYTES. See the Encryption sample.
-	char *remoteServerPublicKey;
-
-	/// (Optional) Pointer to a public key of length cat::EasyHandshake::PUBLIC_KEY_BYTES
-	char *myPublicKey;
-
-	/// (Optional) Pointer to a private key of length cat::EasyHandshake::PRIVATE_KEY_BYTES
-	char *myPrivateKey;
+	/// The server's Ed25519 identity public key, as printed by GenerateIdentityKeyPair() or
+	/// RakPeerInterface::GetIdentityPublicKey().
+	uint8_t serverIdentity[32];
 };
 
 /// Describes the local socket to use for RakPeer::Startup
@@ -384,8 +358,8 @@ constexpr PeerGuid UNASSIGNED_PEER_GUID = static_cast<PeerGuid>((uint64_t) -1);
 //	0xFFFFFFFF, 0xFFFF
 //};
 #ifndef SWIG
-extern const SystemAddress UNASSIGNED_SYSTEM_ADDRESS;
-extern const RakNetGUID UNASSIGNED_RAKNET_GUID;
+extern MAFIANET_DATA_API const SystemAddress UNASSIGNED_SYSTEM_ADDRESS;
+extern MAFIANET_DATA_API const RakNetGUID UNASSIGNED_RAKNET_GUID;
 #endif
 //{
 //	{0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF}

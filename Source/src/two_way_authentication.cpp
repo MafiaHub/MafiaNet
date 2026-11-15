@@ -17,25 +17,12 @@
 #if _RAKNET_SUPPORT_TwoWayAuthentication == 1
 
 #include "mafianet/two_way_authentication.h"
-#include "mafianet/rand.h"
 #include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/peer_interface.h"
 
-#if LIBCAT_SECURITY == 1
-static const int HASH_BITS = 256;
-static const int HASH_BYTES = HASH_BITS / 8;
-static const int STRENGTHENING_FACTOR = 256;
-
-// If building a MafiaNet DLL, be sure to tweak the CAT_EXPORT macro meaning
-#if !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
-#define CAT_BUILD_DLL
-#else
-#define CAT_NEUTER_EXPORT
-#endif
-#include <cat/crypt/hash/Skein.hpp>
-#endif
+#include <sodium.h>
 
 using namespace MafiaNet;
 
@@ -73,7 +60,11 @@ void TwoWayAuthentication::NonceGenerator::GetNonce(char nonce[TWO_WAY_AUTHENTIC
 }
 void TwoWayAuthentication::NonceGenerator::GenerateNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH])
 {
-	fillBufferMT(nonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
+	// A nonce must be unpredictable, which the Mersenne Twister is not. libsodium is initialised by
+	// RakPeer::Startup; sodium_init is idempotent, so make sure for a plugin used before that.
+	const int sodiumReady = sodium_init();
+	(void) sodiumReady;
+	randombytes_buf(nonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
 }
 bool TwoWayAuthentication::NonceGenerator::GetNonceById(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short requestId, MafiaNet::AddressOrGUID remoteSystem, bool popIfFound)
 {
@@ -142,7 +133,6 @@ void TwoWayAuthentication::NonceGenerator::Update(MafiaNet::Time curTime, MafiaN
 TwoWayAuthentication::TwoWayAuthentication()
 {
 	timeoutMs = TWO_WAY_AUTHENTICATION_DEFAULT_TIMEOUT_MS;
-	seedMT(MafiaNet::GetTimeMS());
 }
 void TwoWayAuthentication::SetTimeout(MafiaNet::Time _timeoutMs)
 {
@@ -457,21 +447,11 @@ void TwoWayAuthentication::OnPasswordResult(Packet *packet)
 }
 void TwoWayAuthentication::Hash(char thierNonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], MafiaNet::RakString password, char out[HASHED_NONCE_AND_PW_LENGTH])
 {
-#if LIBCAT_SECURITY == 1
-	cat::Skein hash;
-	if (!hash.BeginKey(HASH_BITS))
-		return;
-	hash.Crunch(thierNonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
-	hash.Crunch(password.C_String(), (int) password.GetLength());
-	hash.End();
-	hash.Generate(out, HASH_BYTES, STRENGTHENING_FACTOR);
-#else
 	CSHA1 sha1;
 	sha1.Update((unsigned char *) thierNonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
 	sha1.Update((unsigned char *) password.C_String(), (unsigned int) password.GetLength());
 	sha1.Final();
 	sha1.GetHash((unsigned char *) out);
-#endif
 }
 
 #endif

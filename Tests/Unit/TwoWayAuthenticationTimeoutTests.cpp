@@ -7,9 +7,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cstring>
+
 #include "mafianet/two_way_authentication.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer_interface.h"
+#include "mafianet/rand.h"
 
 using namespace MafiaNet;
 
@@ -115,4 +118,18 @@ TEST(TwoWayAuthentication, ChallengeTimesOutExactlyAtTheConfiguredTimeout)
 	peer->DetachPlugin(&auth);
 	peer->Shutdown(0);
 	RakPeerInterface::DestroyInstance(peer);
+}
+
+// Nonces come from libsodium's CSPRNG, not the process-wide Mersenne Twister: re-seeding the
+// twister identically must not repeat a nonce.
+TEST(TwoWayAuthentication, NonceDoesNotFollowTheSeededMersenneTwister)
+{
+	TwoWayAuthentication::NonceGenerator generator;
+	char first[TWO_WAY_AUTHENTICATION_NONCE_LENGTH];
+	char second[TWO_WAY_AUTHENTICATION_NONCE_LENGTH];
+	seedMT(1234);
+	generator.GenerateNonce(first);
+	seedMT(1234);
+	generator.GenerateNonce(second);
+	EXPECT_NE(0, std::memcmp(first, second, sizeof(first)));
 }

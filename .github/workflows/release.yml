@@ -9,8 +9,8 @@ name: Release
 # libraries, the bundled opus/rnnoise static libs, all public headers, and the
 # MafiaNet CMake package (MafiaNetConfig.cmake / MafiaNetTargets.cmake) — so a
 # consumer can unpack it, point CMAKE_PREFIX_PATH at it, and
-# find_package(MafiaNet) without compiling the engine themselves. OpenSSL is a
-# public dependency resolved on the consumer's machine via find_dependency.
+# find_package(MafiaNet) without compiling the engine themselves. libsodium is a
+# dependency resolved on the consumer's machine via find_dependency.
 #
 # workflow_dispatch without a tag input runs the builds and uploads workflow
 # artifacts only (dry run). With a tag input, it builds that tag's sources and
@@ -68,7 +68,7 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update -qq
-          apt-get install -y -qq build-essential cmake git ca-certificates libssl-dev
+          apt-get install -y -qq build-essential cmake git ca-certificates libsodium-dev pkg-config
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -104,8 +104,8 @@ jobs:
           path: ${{ env.PACKAGE_NAME }}.tar.gz
           if-no-files-found: error
 
-  # Windows x86 and x64. OpenSSL comes from vcpkg with the static-md triplets:
-  # OpenSSL is linked statically into MafiaNet.dll (no OpenSSL DLLs to ship)
+  # Windows x86 and x64. libsodium comes from vcpkg with the static-md triplets:
+  # libsodium is linked statically into MafiaNet.dll (no libsodium DLLs to ship)
   # while keeping the default /MD runtime that the MafiaNet targets use.
   windows:
     runs-on: windows-latest
@@ -127,14 +127,15 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
-      - name: Install OpenSSL (vcpkg)
-        run: vcpkg install openssl:${{ matrix.triplet }}
+      - name: Install libsodium (vcpkg)
+        run: vcpkg install libsodium:${{ matrix.triplet }}
 
       - name: Configure
         run: |
           cmake -B build -A ${{ matrix.platform }} `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} `
+            -Dsodium_USE_STATIC_LIBS=ON `
             -DMAFIANET_BUILD_SHARED=ON `
             -DMAFIANET_BUILD_STATIC=ON
 
@@ -178,15 +179,14 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: brew install openssl@3
+      - name: Install libsodium
+        run: brew install libsodium
 
       - name: Configure
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.deployment_target }} \
-            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
             -DMAFIANET_BUILD_SHARED=ON \
             -DMAFIANET_BUILD_STATIC=ON
 

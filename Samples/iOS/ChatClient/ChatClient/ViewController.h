@@ -27,10 +27,7 @@
 #include <stdlib.h>
 #include "mafianet/types.h"
 
-// For simplicity, this sample doesn't support secure connections
-#if LIBCAT_SECURITY==1
-#error RakNet secure connections not supported for this sample. If you wish to add support, check the "Chat Example Client" sample
-#endif
+// Connections are encrypted by default; nothing to configure here.
 
 #import "ChatServerDetailsProtocol.h"
 
