@@ -1,0 +1,242 @@
+/*
+ *  Copyright (c) 2026, MafiaHub
+ *
+ *  This source code is licensed under the MIT-style license found in the
+ *  license.txt file in the root directory of this source tree.
+ *
+ *  Two real ReliabilityLayer instances joined by a fake socket, with fully
+ *  simulated time -- no loopback traffic, no wall clock. The channel between
+ *  them applies a per-test drop rule (to model a tunnel or plain loss), logs
+ *  every a->b datagram, and lets a test inject extra datagrams towards b.
+ *
+ *  Shared by ReliabilityLayerBlackHoleTests.cpp and
+ *  ReliabilityLayerCryptoTests.cpp.
+ */
+
+#ifndef MAFIANET_TESTS_RELIABILITY_LAYER_PAIR_H
+#define MAFIANET_TESTS_RELIABILITY_LAYER_PAIR_H
+
+#include <gtest/gtest.h>
+
+#include <cstring>
+#include <vector>
+
+#include "mafianet/bit_stream.h"
+#include "mafianet/ds_list.h"
+#include "mafianet/get_time.h"
+#include "mafianet/mtu_size.h"
+#include "mafianet/packet_priority.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/rand.h"
+#include "mafianet/reliability_layer.h"
+#include "mafianet/session_crypto.h"
+#include "mafianet/socket2.h"
+
+namespace RelPairTest
+{
+
+const int TEST_MTU = MAXIMUM_MTU_SIZE;
+const MafiaNet::TimeMS TEST_TIMEOUT_MS = 1000000;
+
+// Captures every datagram the reliability layer hands to the OS, so the test
+// fixture can shuttle it to the other endpoint (or drop it, like a tunnel).
+struct CapturingSocket : public MafiaNet::RakNetSocket2
+{
+	std::vector<std::vector<char>> sent;
+
+	virtual MafiaNet::RNS2SendResult Send(MafiaNet::RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
+	{
+		(void) file;
+		(void) line;
+		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
+		return sendParameters->length;
+	}
+};
+
+class ReliabilityLayerPair : public ::testing::Test
+{
+protected:
+	MafiaNet::ReliabilityLayer a, b;
+	CapturingSocket aSock, bSock;
+	MafiaNet::SystemAddress aAddr, bAddr;
+	DataStructures::List<MafiaNet::PluginInterface2 *> handlers;
+	MafiaNet::RakNetRandom rnr;
+	MafiaNet::BitStream updateBitStream;
+	CCTimeType now;
+
+	// Datagrams from a to b strictly larger than this many socket-level bytes
+	// are dropped, like a tunnel whose ceiling the handshake never probed.
+	// Socket-level bytes exclude the UDP/IP headers the MTU figures include.
+	int aToBDropOverBytes;
+	// When non-zero, drop this fraction (in percent) of ALL a->b datagrams,
+	// deterministically, to model plain loss.
+	int aToBLossPercent;
+	uint32_t lcgState;
+
+	// Every datagram a handed to its socket, delivered or dropped, with a's
+	// current MTU at the time it was built.
+	struct LoggedDatagram
+	{
+		std::vector<char> bytes;
+		int mtuAtSend;
+	};
+	std::vector<LoggedDatagram> aToBLog;
+
+	// Delivered to b on the next Tick, after that tick's real a->b traffic.
+	std::vector<std::vector<char>> injectToB;
+
+	std::vector<std::vector<unsigned char>> received; // complete messages b got
+	std::vector<MafiaNet::BitSize_t> receivedBits;    // their exact bit lengths
+
+	ReliabilityLayerPair()
+	    : updateBitStream(MAXIMUM_MTU_SIZE), now(0), aToBDropOverBytes(MAXIMUM_MTU_SIZE), aToBLossPercent(0), lcgState(0x12345678)
+	{
+	}
+
+	virtual void SetUp()
+	{
+		// The simulated clock must start at the real clock: ReliabilityLayer
+		// stamps timeLastDatagramArrived with the real GetTimeMS() on every
+		// receive, and AckTimeout compares that against the time we pass in.
+		// A fixed fake epoch fails on any machine whose process uptime exceeds
+		// it (this killed every test on Windows CI). All progress is still
+		// driven by fixed fake increments from this anchor.
+		now = MafiaNet::GetTimeUS();
+
+		ASSERT_TRUE(aAddr.FromStringExplicitPort("127.0.0.1", 40001));
+		ASSERT_TRUE(bAddr.FromStringExplicitPort("127.0.0.1", 40002));
+		ResetLayers(MafiaNet::EncryptionMode::Required);
+	}
+
+	// Resets both layers for a fresh connection in \a mode. Wipes any keys.
+	void ResetLayers(MafiaNet::EncryptionMode mode)
+	{
+		a.SetEncryptionMode(mode);
+		b.SetEncryptionMode(mode);
+		a.Reset(true, TEST_MTU);
+		b.Reset(true, TEST_MTU);
+		a.SetTimeoutTime(TEST_TIMEOUT_MS);
+		b.SetTimeoutTime(TEST_TIMEOUT_MS);
+	}
+
+	// Runs a real X25519 exchange (a initiates) and installs the resulting
+	// directional keys in both layers, as the connection handshake will.
+	void InstallSessionKeys()
+	{
+		const MafiaNet::RakNetGUID aGuid(0x1111111111111111ull);
+		const MafiaNet::RakNetGUID bGuid(0x2222222222222222ull);
+		MafiaNet::EphemeralKeyPair aPair;
+		MafiaNet::EphemeralKeyPair bPair;
+		const MafiaNet::CryptInfo aInfo = aPair.MakeCryptInfo();
+		const MafiaNet::CryptInfo bInfo = bPair.MakeCryptInfo();
+		MafiaNet::SessionKeys aKeys;
+		MafiaNet::SessionKeys bKeys;
+		ASSERT_TRUE(MafiaNet::DeriveSessionKeys(aPair, true, aInfo, bInfo, aGuid, bGuid, &aKeys));
+		ASSERT_TRUE(MafiaNet::DeriveSessionKeys(bPair, false, aInfo, bInfo, aGuid, bGuid, &bKeys));
+		a.SetSessionKeys(aKeys);
+		b.SetSessionKeys(bKeys);
+	}
+
+	bool DropAToB(int datagramBytes)
+	{
+		if (datagramBytes > aToBDropOverBytes)
+			return true;
+		if (aToBLossPercent > 0)
+		{
+			lcgState = lcgState * 1664525u + 1013904223u;
+			if ((int) (lcgState % 100u) < aToBLossPercent)
+				return true;
+		}
+		return false;
+	}
+
+	void SendFromA(const std::vector<unsigned char> &payload, MafiaNet::Reliability reliability = MafiaNet::Reliability::ReliableOrdered)
+	{
+		ASSERT_TRUE(a.Send((char *) &payload[0], BYTES_TO_BITS((MafiaNet::BitSize_t) payload.size()),
+		                   MafiaNet::Priority::Medium, reliability, 0, true, TEST_MTU, now, 0));
+	}
+
+	void DeliverToB(std::vector<char> &datagram)
+	{
+		b.HandleSocketReceiveFromConnectedPlayer(&datagram[0], (unsigned int) datagram.size(),
+		                                         aAddr, handlers, TEST_MTU, &bSock, &rnr, now, updateBitStream);
+	}
+
+	// One 10ms tick: update both layers, then deliver the surviving datagrams.
+	void Tick()
+	{
+		now += 10000; // CCTimeType is microseconds
+		a.Update(&aSock, bAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
+		b.Update(&bSock, aAddr, TEST_MTU, now, 0, handlers, &rnr, updateBitStream);
+
+		for (size_t i = 0; i < aSock.sent.size(); i++)
+		{
+			LoggedDatagram logged;
+			logged.bytes = aSock.sent[i];
+			logged.mtuAtSend = a.GetCurrentMtuBytes();
+			aToBLog.push_back(logged);
+			if (DropAToB((int) aSock.sent[i].size()))
+				continue;
+			DeliverToB(aSock.sent[i]);
+		}
+		aSock.sent.clear();
+
+		for (size_t i = 0; i < injectToB.size(); i++)
+			DeliverToB(injectToB[i]);
+		injectToB.clear();
+
+		for (size_t i = 0; i < bSock.sent.size(); i++)
+		{
+			// The return path is clean: the black hole under test is one-directional.
+			a.HandleSocketReceiveFromConnectedPlayer(&bSock.sent[i][0], (unsigned int) bSock.sent[i].size(),
+			                                         bAddr, handlers, TEST_MTU, &aSock, &rnr, now, updateBitStream);
+		}
+		bSock.sent.clear();
+
+		unsigned char *data;
+		MafiaNet::BitSize_t bitSize;
+		while ((bitSize = b.Receive(&data)) > 0)
+		{
+			received.push_back(std::vector<unsigned char>(data, data + BITS_TO_BYTES(bitSize)));
+			receivedBits.push_back(bitSize);
+			rakFree_Ex(data, _FILE_AND_LINE_);
+		}
+	}
+
+	// Pump until b has assembled wantMessages complete messages or simulated
+	// time runs out. Returns whether the goal was reached.
+	bool PumpUntilReceived(size_t wantMessages, int maxSimulatedMs)
+	{
+		for (int elapsed = 0; elapsed < maxSimulatedMs; elapsed += 10)
+		{
+			Tick();
+			if (received.size() >= wantMessages)
+				return true;
+			EXPECT_FALSE(a.IsDeadConnection());
+			EXPECT_FALSE(b.IsDeadConnection());
+			if (a.IsDeadConnection() || b.IsDeadConnection())
+				return false;
+		}
+		return received.size() >= wantMessages;
+	}
+
+	// Runs \a ms of simulated time regardless of what arrives.
+	void PumpFor(int ms)
+	{
+		for (int elapsed = 0; elapsed < ms; elapsed += 10)
+			Tick();
+	}
+
+	static std::vector<unsigned char> PatternMessage(size_t bytes, unsigned char seed)
+	{
+		std::vector<unsigned char> msg(bytes);
+		msg[0] = 200; // stay clear of internal message ids
+		for (size_t i = 1; i < bytes; i++)
+			msg[i] = (unsigned char) (seed + i * 31);
+		return msg;
+	}
+};
+
+} // namespace RelPairTest
+
+#endif // MAFIANET_TESTS_RELIABILITY_LAYER_PAIR_H

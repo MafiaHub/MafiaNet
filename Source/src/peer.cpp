@@ -1182,7 +1182,7 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 
 		// Remove any remaining packets
 		RakAssert(remoteSystemList[i].MTUSize <= MAXIMUM_MTU_SIZE);
-		remoteSystemList[i].reliabilityLayer.Reset(false, remoteSystemList[i].MTUSize, false);
+		remoteSystemList[i].reliabilityLayer.Reset(false, remoteSystemList[i].MTUSize);
 		remoteSystemList[i].rakNetSocket = 0;
 		ClearDisconnectReason(&remoteSystemList[i]);
 		ClearSessionConfig(&remoteSystemList[i]);
@@ -4243,7 +4243,12 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			if (incomingMTU > remoteSystem->MTUSize)
 				remoteSystem->MTUSize = incomingMTU;
 			RakAssert(remoteSystem->MTUSize <= MAXIMUM_MTU_SIZE);
-			remoteSystem->reliabilityLayer.Reset(true, remoteSystem->MTUSize, useSecurity);
+			// The peer's encryption mode decides whether the reliability layer reserves the cipher
+			// overhead. It is Required until RakPeer exposes a mode setting; until the handshake
+			// installs session keys, datagrams stay plaintext with that overhead reserved.
+			(void) useSecurity;
+			remoteSystem->reliabilityLayer.SetEncryptionMode(EncryptionMode::Required);
+			remoteSystem->reliabilityLayer.Reset(true, remoteSystem->MTUSize);
 			remoteSystem->reliabilityLayer.SetSplitMessageProgressInterval(splitMessageProgressInterval);
 			remoteSystem->reliabilityLayer.SetUnreliableTimeout(unreliableTimeout);
 			remoteSystem->reliabilityLayer.SetTimeoutTime(defaultTimeoutTime);
@@ -4764,7 +4769,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 
 					// Clear any remaining messages
 					RakAssert(remoteSystemList[index].MTUSize <= MAXIMUM_MTU_SIZE);
-					remoteSystemList[index].reliabilityLayer.Reset(false, remoteSystemList[index].MTUSize, false);
+					remoteSystemList[index].reliabilityLayer.Reset(false, remoteSystemList[index].MTUSize);
 
 					// Free any stashed disconnect-reason payload (e.g. delivered already, or never consumed)
 					ClearDisconnectReason(&remoteSystemList[index]);

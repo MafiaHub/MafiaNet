@@ -48,7 +48,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
 
 	ReliabilityLayer layer;
-	layer.Reset(true, MAXIMUM_MTU_SIZE, false);
+	layer.Reset(true, MAXIMUM_MTU_SIZE);
 	layer.SetTimeoutTime(1000000);
 	CCTimeType now = GetTimeUS();
 

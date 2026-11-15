@@ -40,7 +40,7 @@
 #include "mafianet/ds_heap.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/native_feature_includes.h"
-#include "mafianet/secure_handshake.h"
+#include "mafianet/session_crypto.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/rand.h"
 #include "mafianet/socket2.h"
@@ -175,8 +175,26 @@ public:
 	// Destructor
 	~ReliabilityLayer();
 
-	/// Resets the layer for reuse
-	void Reset(bool resetVariables, int mtuSize, bool _useSecurity);
+	/// Resets the layer for reuse. Wipes any session keys: a new connection
+	/// installs fresh ones with SetSessionKeys() once its handshake completes.
+	/// When the encryption mode is Required, DatagramCipher::kMaxOverhead bytes
+	/// of every datagram are reserved for the cipher, even before keys exist.
+	void Reset(bool resetVariables, int mtuSize);
+
+	/// The encryption mode of the owning peer. Call before Reset(); it decides
+	/// whether Reset() reserves the cipher overhead in the datagram budget.
+	/// Survives Reset(). Defaults to Required.
+	void SetEncryptionMode(EncryptionMode mode);
+
+	/// Installs freshly derived session keys: from now on every datagram is
+	/// sealed on send, and every received datagram must open or is dropped
+	/// (and counted in RakNetStatistics::droppedUnauthenticatedDatagrams).
+	/// Never re-install keys already used: the send sequence restarts at 0.
+	/// The caller wipes its own copy. Ignored unless the mode is Required.
+	void SetSessionKeys(const SessionKeys &keys);
+
+	/// True once session keys are installed (until the next Reset()).
+	bool IsEncrypted() const;
 
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 	/// Default time is 10,000 or 10 seconds in release and 30,000 or 30 seconds in debug.
@@ -672,14 +690,15 @@ private:
 	BPSTracker bpsMetrics[RNS_PER_SECOND_METRICS_COUNT];
 	CCTimeType lastBpsClear;
 
-#if LIBCAT_SECURITY == 1
-public:
-	cat::AuthenticatedEncryption *GetAuthenticatedEncryption(void) { return &auth_enc; }
-
-protected:
-	cat::AuthenticatedEncryption auth_enc;
-	bool useSecurity;
-#endif // LIBCAT_SECURITY
+	// Datagram protection. encryptionMode survives Reset(); the cipher's keys do not.
+	DatagramCipher datagramCipher;
+	EncryptionMode encryptionMode;
+	// Bytes of every datagram reserved for the cipher: kMaxOverhead in mode
+	// Required, 0 in Plaintext. Fixed by Reset(); counted once, in the MTU
+	// handed to the congestion manager (Reset() and StepDownMtuAfterBlackHole()).
+	int cipherOverheadBytes;
+	// Received datagrams that failed to open (forged, corrupted, replayed, too old).
+	uint64_t droppedUnauthenticatedDatagrams;
 };
 
 } // namespace MafiaNet

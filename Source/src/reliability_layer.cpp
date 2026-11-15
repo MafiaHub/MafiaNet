@@ -373,6 +373,7 @@ int SplitPacketIndexComp(SplitPacketIndexType const &key, InternalPacket *const 
 //-------------------------------------------------------------------------------------------------------
 // Add 21 to the default MTU so if we encrypt it can hold potentially 21 more bytes of extra data + padding.
 ReliabilityLayer::ReliabilityLayer()
+    : encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0)
 {
 
 #ifdef _DEBUG
@@ -412,26 +413,41 @@ ReliabilityLayer::~ReliabilityLayer()
 //-------------------------------------------------------------------------------------------------------
 // Resets the layer for reuse
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::Reset(bool resetVariables, int mtuSize, bool _useSecurity)
+void ReliabilityLayer::Reset(bool resetVariables, int mtuSize)
 {
 	FreeMemory(true); // true because making a memory reset pending in the update cycle causes resets after reconnects.  Instead, just call Reset from a single thread
 	if (resetVariables)
 	{
 		InitializeVariables();
-
-#if LIBCAT_SECURITY == 1
-		useSecurity = _useSecurity;
-
-		if (_useSecurity)
-		{
-			mtuSize -= cat::AuthenticatedEncryption::OVERHEAD_BYTES;
-		}
-#else
-		(void) _useSecurity;
-#endif // LIBCAT_SECURITY
-		congestionManager.Init(MafiaNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE);
+		// The cipher overhead is budgeted here, once: every datagram size the layer
+		// computes derives from the congestion manager's MTU. currentMtuBytes stays
+		// the wire MTU, which sealed datagrams then fill exactly.
+		cipherOverheadBytes = encryptionMode == EncryptionMode::Required ? DatagramCipher::kMaxOverhead : 0;
+		congestionManager.Init(MafiaNet::GetTimeUS(), mtuSize - UDP_HEADER_SIZE - cipherOverheadBytes);
 	}
 	currentMtuBytes = mtuSize;
+}
+
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::SetEncryptionMode(EncryptionMode mode)
+{
+	encryptionMode = mode;
+}
+
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::SetSessionKeys(const SessionKeys &keys)
+{
+	// Sealed datagrams only fit when Reset() reserved the overhead (mode Required).
+	RakAssert(cipherOverheadBytes == DatagramCipher::kMaxOverhead);
+	if (cipherOverheadBytes != DatagramCipher::kMaxOverhead)
+		return;
+	datagramCipher.SetKeys(keys);
+}
+
+//-------------------------------------------------------------------------------------------------------
+bool ReliabilityLayer::IsEncrypted() const
+{
+	return datagramCipher.HasKeys();
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -461,6 +477,7 @@ MafiaNet::TimeMS ReliabilityLayer::GetTimeoutTime()
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::InitializeVariables()
 {
+	droppedUnauthenticatedDatagrams = 0;
 	// OrderingIndexType (uint24_t) is a wrapper around one uint32_t; assigning 0 leaves the
 	// same all-zero state the memset used to, without memset-ing a non-trivial class.
 	for (unsigned int stream = 0; stream < NUMBER_OF_ORDERED_STREAMS; stream++)
@@ -547,6 +564,8 @@ void ReliabilityLayer::FreeMemory(bool freeAllImmediately)
 {
 	(void) freeAllImmediately;
 	FreeThreadSafeMemory();
+	// The session ends with the memory: wipe its keys, sequence and replay window.
+	datagramCipher.Clear();
 }
 
 void ReliabilityLayer::FreeThreadSafeMemory(void)
@@ -729,6 +748,30 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 
 	bpsMetrics[(int) ACTUAL_BYTES_RECEIVED].Push1(timeRead, length);
 
+	// Once the session is keyed, nothing is parsed (or even counted as a sign of
+	// life) before it authenticates. Open into a private copy: the caller's buffer
+	// stays untouched, and a failed Open has wiped the copy, which is discarded.
+	unsigned char opened[MAXIMUM_MTU_SIZE];
+	if (datagramCipher.HasKeys() && buffer != nullptr)
+	{
+		uint8_t *plaintext = nullptr;
+		int plaintextLength = -1;
+		if (length <= sizeof(opened))
+		{
+			memcpy(opened, buffer, length);
+			plaintextLength = datagramCipher.Open(opened, (int) length, &plaintext);
+		}
+		if (plaintextLength < 0)
+		{
+			// Forged, corrupted, replayed or too old: drop and count. No plugin
+			// notification, so a flood of junk cannot become a flood of callbacks.
+			droppedUnauthenticatedDatagrams++;
+			return true;
+		}
+		buffer = (const char *) plaintext;
+		length = (unsigned int) plaintextLength;
+	}
+
 	if (length <= 2 || buffer == nullptr)
 	{ // Length of 1 is a connection request resend that we just ignore
 		for (unsigned int messageHandlerIndex = 0; messageHandlerIndex < messageHandlerList.Size(); messageHandlerIndex++)
@@ -743,20 +786,6 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 	//	int count, size;
 	DatagramSequenceNumberType holeCount;
 	unsigned i;
-
-#if LIBCAT_SECURITY == 1
-	if (useSecurity)
-	{
-		unsigned int received = length;
-
-		if (!auth_enc.Decrypt((cat::u8 *) buffer, received))
-		{
-			return false;
-		}
-
-		length = received;
-	}
-#endif
 
 	MafiaNet::BitStream socketData((unsigned char *) buffer, length, false); // Convert the incoming data to a bitstream for easy parsing
 	//	time = MafiaNet::GetTimeUS();
@@ -2059,7 +2088,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 			if (time - stuck->nextActionTime < (((CCTimeType) -1) / 2))
 			{
 				const int requiredDatagramBytes = (int) BITS_TO_BYTES(stuck->headerLength + stuck->dataBitLength) +
-				                                  (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE;
+				                                  (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE + cipherOverheadBytes;
 				if (ShouldStepDownMtu(stuck->timesSent, requiredDatagramBytes, currentMtuBytes))
 					StepDownMtuAfterBlackHole();
 			}
@@ -2438,6 +2467,29 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 
 	length = (unsigned int) bitStream->GetNumberOfBytesUsed();
 
+	// The plaintext datagram fits the budget Reset() derived; sealing adds at most
+	// cipherOverheadBytes, which that budget reserved.
+	RakAssert(length <= congestionManager.GetMTU());
+
+	// Seal before anything below can queue, delay or transmit the datagram, so the
+	// simulator's delay list and the sendmmsg batch only ever see ciphertext.
+	if (datagramCipher.HasKeys())
+	{
+		unsigned char plaintext[MAXIMUM_MTU_SIZE];
+		RakAssert(length <= sizeof(plaintext));
+		if (length > sizeof(plaintext))
+			return;
+		memcpy(plaintext, bitStream->GetData(), length);
+		// Seal writes up to kMaxOverhead bytes past the datagram; make the buffer
+		// hold them (plus the partial byte GetNumberOfBytesUsed rounds up).
+		bitStream->AddBitsAndReallocate(BYTES_TO_BITS((BitSize_t) DatagramCipher::kMaxOverhead + 1));
+		const int capacity = (int) (bitStream->GetNumberOfBitsAllocated() / 8);
+		const int sealed = datagramCipher.Seal(plaintext, (int) length, (uint8_t *) bitStream->GetData(), capacity);
+		RakAssert(sealed >= 0);
+		if (sealed < 0)
+			return; // never fall back to sending plaintext
+		length = (unsigned int) sealed;
+	}
 
 #ifdef _DEBUG
 	if (packetloss > 0.0)
@@ -2485,22 +2537,7 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 	}
 #endif
 
-#if LIBCAT_SECURITY == 1
-	if (useSecurity)
-	{
-		unsigned char *buffer = reinterpret_cast<unsigned char *>(bitStream->GetData());
-
-		int buffer_size = bitStream->GetNumberOfBitsAllocated() / 8;
-
-		// Verify there is enough room for encrypted output and encrypt
-		// Encrypt() will increase length
-		SLNET_VERIFY(auth_enc.Encrypt(buffer, buffer_size, length));
-	}
-#endif
-
 	bpsMetrics[(int) ACTUAL_BYTES_SENT].Push1(currentTime, length);
-
-	RakAssert(length <= congestionManager.GetMTU());
 
 #ifdef USE_THREADED_SEND
 	SendToThread::SendToThreadBlock *block = SendToThread::AllocateBlock();
@@ -3236,7 +3273,8 @@ void ReliabilityLayer::StepDownMtuAfterBlackHole(void)
 	if (nextMtu == 0)
 		return;
 	currentMtuBytes = nextMtu;
-	congestionManager.SetMTU((uint32_t) (nextMtu - UDP_HEADER_SIZE));
+	// Same budget as Reset(): the wire MTU minus UDP/IP headers and the cipher overhead.
+	congestionManager.SetMTU((uint32_t) (nextMtu - UDP_HEADER_SIZE - cipherOverheadBytes));
 	ReSplitOversizedMessages();
 }
 //-------------------------------------------------------------------------------------------------------
@@ -3830,6 +3868,7 @@ RakNetStatistics *ReliabilityLayer::GetStatistics(RakNetStatistics *rns)
 		}
 	}
 
+	rns->droppedUnauthenticatedDatagrams = droppedUnauthenticatedDatagrams;
 	rns->isLimitedByCongestionControl = statistics.isLimitedByCongestionControl;
 	rns->BPSLimitByCongestionControl = statistics.BPSLimitByCongestionControl;
 	rns->isLimitedByOutgoingBandwidthLimit = statistics.isLimitedByOutgoingBandwidthLimit;
@@ -4331,14 +4370,8 @@ void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, co
 //-------------------------------------------------------------------------------------------------------
 unsigned int ReliabilityLayer::GetMaxDatagramSizeExcludingMessageHeaderBytes(void)
 {
-	unsigned int val = congestionManager.GetMTU() - DatagramHeaderFormat::GetDataHeaderByteLength();
-
-#if LIBCAT_SECURITY == 1
-	if (useSecurity)
-		val -= cat::AuthenticatedEncryption::OVERHEAD_BYTES;
-#endif
-
-	return val;
+	// The congestion manager's MTU already excludes the cipher overhead (Reset()).
+	return congestionManager.GetMTU() - DatagramHeaderFormat::GetDataHeaderByteLength();
 }
 //-------------------------------------------------------------------------------------------------------
 BitSize_t ReliabilityLayer::GetMaxDatagramSizeExcludingMessageHeaderBits(void)

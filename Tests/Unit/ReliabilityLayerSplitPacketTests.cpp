@@ -67,7 +67,7 @@ protected:
 		// ReliabilityLayer stamps arrivals with the real clock; anchor to it
 		// (see ReliabilityLayerBlackHoleTests).
 		now = GetTimeUS();
-		layer.Reset(true, MAXIMUM_MTU_SIZE, false);
+		layer.Reset(true, MAXIMUM_MTU_SIZE);
 		layer.SetTimeoutTime(1000000);
 	}
 

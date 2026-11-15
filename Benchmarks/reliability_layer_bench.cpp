@@ -50,8 +50,8 @@ struct LayerPair
 
 	LayerPair()
 	{
-		a.Reset(true, MAXIMUM_MTU_SIZE, false);
-		b.Reset(true, MAXIMUM_MTU_SIZE, false);
+		a.Reset(true, MAXIMUM_MTU_SIZE);
+		b.Reset(true, MAXIMUM_MTU_SIZE);
 	}
 
 	// One 10ms tick in both directions; returns messages b completed.
