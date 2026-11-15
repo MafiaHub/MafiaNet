@@ -168,6 +168,9 @@ RAK_DLL_EXPORT void BuildIdentityTranscript(const CryptInfo &clientInfo, const C
 /// over BuildIdentityTranscript(clientInfo, serverInfo).
 /// \return false, leaving \a out absent, if \a secretKey is malformed.
 RAK_DLL_EXPORT bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const CryptInfo &clientInfo, const CryptInfo &serverInfo, IdentityBlock *out);
+/// The same, with the public half the caller already validated with IdentityPublicKeyFromSecret(), which is
+/// not recomputed (RakPeer caches it in SetIdentityKey and signs every REPLY_2 with it).
+RAK_DLL_EXPORT bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const uint8_t publicKey[kIdentityPublicKeyBytes], const CryptInfo &clientInfo, const CryptInfo &serverInfo, IdentityBlock *out);
 
 /// \return true when \a identity is present and its signature verifies
 /// (crypto_sign_ed25519_verify_detached) under its own public key over

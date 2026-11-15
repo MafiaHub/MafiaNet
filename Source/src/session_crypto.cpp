@@ -277,6 +277,16 @@ bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const 
 	uint8_t publicKey[kIdentityPublicKeyBytes];
 	if (secretKey == nullptr || !IdentityPublicKeyFromSecret(secretKey, publicKey))
 		return false;
+	return SignServerIdentity(secretKey, publicKey, clientInfo, serverInfo, out);
+}
+
+bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const uint8_t publicKey[kIdentityPublicKeyBytes], const CryptInfo &clientInfo, const CryptInfo &serverInfo, IdentityBlock *out)
+{
+	if (out == nullptr)
+		return false;
+	*out = IdentityBlock();
+	if (secretKey == nullptr || publicKey == nullptr)
+		return false;
 	uint8_t transcript[kIdentityTranscriptBytes];
 	BuildIdentityTranscript(clientInfo, serverInfo, transcript);
 	if (crypto_sign_ed25519_detached(out->signature, nullptr, transcript, sizeof(transcript), secretKey) != 0)
@@ -284,7 +294,7 @@ bool SignServerIdentity(const uint8_t secretKey[kIdentitySecretKeyBytes], const 
 		*out = IdentityBlock();
 		return false;
 	}
-	memcpy(out->publicKey, publicKey, sizeof(publicKey));
+	memcpy(out->publicKey, publicKey, kIdentityPublicKeyBytes);
 	out->present = true;
 	return true;
 }

@@ -808,6 +808,10 @@ public:
 		// server with an identity key; see GetRemoteIdentityKey). Set when the slot is assigned, cleared on reuse.
 		bool hasRemoteIdentityKey;
 		uint8_t remoteIdentityKey[32];
+		// On the accepting side, the identity block our REPLY_2 carried (absent without an identity key). A
+		// retransmitted REQUEST_2 is answered with it, unchanged. Both identity fields are cleared by
+		// ClearHandshakeIdentity when the slot is assigned and on every teardown.
+		IdentityBlock handshakeLocalIdentity;
 
 		// Session-handshake payload received from the remote peer (see RakPeerInterface::SetSessionConfig).
 		// null/0 until the exchange completes. Owned by this struct; freed via ClearSessionConfig() on every
@@ -910,7 +914,7 @@ protected:
 	/// \param[in] incomingMTU	MTU for the remote system
 	/// \param[in] sessionKeys	Freshly derived session keys to install (EncryptionMode::Required), or null in Plaintext mode
 	/// \param[in] localCryptInfo, remoteCryptInfo	The handshake's crypt infos, kept for retransmitted requests
-	RemoteSystemStruct *AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo);
+	RemoteSystemStruct *AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo, const IdentityBlock &localIdentity);
 	///	\brief Adjust the timestamp of the incoming packet to be relative to this system.
 	/// \param[in] data	Data in the incoming packet.
 	/// \param[in] systemAddress Sender of the incoming packet.
@@ -1283,9 +1287,10 @@ protected:
 	// Set before Startup(); see SetEncryptionMode().
 	EncryptionMode encryptionMode = EncryptionMode::Required;
 	// This peer's Ed25519 server identity key (SetIdentityKey), read by the network thread while started and
-	// written only while stopped. Wiped on replacement, at the end of Shutdown() and in the destructor.
+	// written only while stopped. Kept across Shutdown(); wiped on replacement, removal and in the destructor.
 	bool hasIdentityKey = false;
 	uint8_t identitySecretKey[64] = {};
+	uint8_t identityPublicKey[32] = {}; // the public half, validated and cached by SetIdentityKey
 	void ClearIdentityKey();
 
 
@@ -1299,6 +1304,8 @@ private:
 	void ClearDisconnectReason(RemoteSystemStruct *remoteSystem);
 	/// Free any stashed session payload on this slot.
 	void ClearSessionConfig(RemoteSystemStruct *remoteSystem);
+	/// Reset the slot's handshake identity state (handshakeLocalIdentity, remoteIdentityKey).
+	void ClearHandshakeIdentity(RemoteSystemStruct *remoteSystem);
 	/// Store a received session payload on the slot, enforcing MAXIMUM_SESSION_CONFIG_SIZE.
 	/// Returns false if the payload is oversized (a protocol violation).
 	bool StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const unsigned char *data, unsigned int length);

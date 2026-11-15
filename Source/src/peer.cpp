@@ -398,7 +398,9 @@ RakPeer::RakPeer()
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RakPeer::~RakPeer()
 {
-	Shutdown(0, 0); // also wipes the identity key
+	Shutdown(0, 0);
+	// The identity key outlives Shutdown() (a restart keeps signing), but not the peer.
+	ClearIdentityKey();
 
 	// Free the ban list.
 	ClearBanList();
@@ -761,8 +763,14 @@ bool RakPeer::SetIdentityKey(const uint8_t secretKey[64])
 		return false;
 	ClearIdentityKey(); // wipe the key being replaced
 	memcpy(identitySecretKey, secretKey, sizeof(identitySecretKey));
+	memcpy(identityPublicKey, publicKey, sizeof(identityPublicKey)); // validated once, reused for every REPLY_2
 	hasIdentityKey = true;
 	return true;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeerInterface::GenerateIdentityKeyPair(uint8_t publicKey[32], uint8_t secretKey[64])
+{
+	MafiaNet::GenerateIdentityKeyPair(publicKey, secretKey);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::GetIdentityPublicKey(uint8_t out[32]) const
@@ -772,7 +780,8 @@ bool RakPeer::GetIdentityPublicKey(uint8_t out[32]) const
 		memset(out, 0, kIdentityPublicKeyBytes);
 		return false;
 	}
-	return IdentityPublicKeyFromSecret(identitySecretKey, out);
+	memcpy(out, identityPublicKey, kIdentityPublicKeyBytes);
+	return true;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::GetRemoteIdentityKey(const AddressOrGUID systemIdentifier, uint8_t out[32]) const
@@ -790,7 +799,17 @@ bool RakPeer::GetRemoteIdentityKey(const AddressOrGUID systemIdentifier, uint8_t
 void RakPeer::ClearIdentityKey()
 {
 	sodium_memzero(identitySecretKey, sizeof(identitySecretKey));
+	memset(identityPublicKey, 0, sizeof(identityPublicKey));
 	hasIdentityKey = false;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::ClearHandshakeIdentity(RemoteSystemStruct *remoteSystem)
+{
+	if (remoteSystem == 0)
+		return;
+	remoteSystem->handshakeLocalIdentity = IdentityBlock();
+	remoteSystem->hasRemoteIdentityKey = false;
+	memset(remoteSystem->remoteIdentityKey, 0, sizeof(remoteSystem->remoteIdentityKey));
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 HandshakeChallenge &RakPeer::GetHandshakeChallengeForTesting()
@@ -1131,6 +1150,7 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 		remoteSystemList[i].rakNetSocket = 0;
 		ClearDisconnectReason(&remoteSystemList[i]);
 		ClearSessionConfig(&remoteSystemList[i]);
+		ClearHandshakeIdentity(&remoteSystemList[i]);
 	}
 
 
@@ -1188,10 +1208,6 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 #endif
 
 	ResetSendReceipt();
-
-	// The network thread has stopped, so nothing reads the identity key any more. A later Startup() needs
-	// SetIdentityKey() again.
-	ClearIdentityKey();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4013,7 +4029,7 @@ bool RakPeer::IPConnectedRecently(const SystemAddress &systemAddress, MafiaNet::
 	return false;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo)
+RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo, const IdentityBlock &localIdentity)
 {
 	RemoteSystemStruct *remoteSystem;
 	unsigned j, assignedIndex;
@@ -4082,15 +4098,15 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			// paths do it today. Without this, any future path that deactivates a slot without going
 			// through CloseConnectionInternal2 would hand the previous occupant payload to the new one.
 			ClearSessionConfig(remoteSystem);
+			ClearHandshakeIdentity(remoteSystem);
 			remoteSystem->MTUSize = mtuSize;
 			remoteSystem->guid = guid;
 			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			remoteSystem->handshakeLocalCryptInfo = localCryptInfo;
 			remoteSystem->handshakeRemoteCryptInfo = remoteCryptInfo;
-			// The REPLY_2 handler records the remote's identity key after this, when it proved one.
-			remoteSystem->hasRemoteIdentityKey = false;
-			memset(remoteSystem->remoteIdentityKey, 0, sizeof(remoteSystem->remoteIdentityKey));
+			// Cleared above; the REPLY_2 handler records the remote's identity key after this, when it proved one.
+			remoteSystem->handshakeLocalIdentity = localIdentity;
 			remoteSystem->reliabilityLayer.SetSplitMessageProgressInterval(splitMessageProgressInterval);
 			remoteSystem->reliabilityLayer.SetUnreliableTimeout(unreliableTimeout);
 			remoteSystem->reliabilityLayer.SetTimeoutTime(defaultTimeoutTime);
@@ -4616,6 +4632,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 
 					// Free any session-handshake state left over from an exchange that never completed
 					ClearSessionConfig(&remoteSystemList[index]);
+					ClearHandshakeIdentity(&remoteSystemList[index]);
 
 					// Not using this socket
 					remoteSystemList[index].rakNetSocket = 0;
@@ -5449,11 +5466,11 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					{
 						if (rcs->socket == 0)
 						{
-							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo);
+							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo, IdentityBlock());
 						}
 						else
 						{
-							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rcs->socket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo);
+							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rcs->socket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo, IdentityBlock());
 						}
 					}
 					keys.Wipe();
@@ -5747,12 +5764,8 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				if (sodium_memcmp(received, expected, sizeof(received)) != 0)
 					return true;
 				rssFromSA->handshakeLocalCryptInfo.Serialize(&bsAnswer);
-				// Ed25519 signing is deterministic, so this is the identity block the first REPLY_2 carried, and the
-				// one the session keys were derived from.
-				IdentityBlock identity;
-				if (rakPeer->hasIdentityKey && !SignServerIdentity(rakPeer->identitySecretKey, rssFromSA->handshakeRemoteCryptInfo, rssFromSA->handshakeLocalCryptInfo, &identity))
-					return true;
-				identity.Serialize(&bsAnswer);
+				// The identity block the first REPLY_2 carried, and the one the session keys were derived from.
+				rssFromSA->handshakeLocalIdentity.Serialize(&bsAnswer);
 
 				for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
 					rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char *) bsAnswer.GetData(), bsAnswer.GetNumberOfBitsUsed(), systemAddress);
@@ -5829,8 +5842,9 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			// Server identity: a peer whose own attempt to this address pinned the remote's identity never lets that
 			// attempt be absorbed into a connection the remote initiated, because the initiator proves nothing about
 			// its identity. With the higher GUID it would answer and be absorbed, so it refuses instead, with
-			// ID_NO_FREE_INCOMING_CONNECTIONS (which ends the remote's attempt), and retries its own attempt at once:
-			// the remote, no longer connecting, answers it as responder and must prove the pinned identity.
+			// ID_ALREADY_CONNECTED (RakNet's "you lost the cross-connection"; it ends the remote's attempt), and
+			// retries its own attempt at once: the remote, no longer connecting, answers it as responder and must
+			// prove the pinned identity.
 			rakPeer->requestedConnectionQueueMutex.Lock();
 			if (rakPeer->encryptionMode == EncryptionMode::Required)
 			{
@@ -5855,7 +5869,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				if (refuseForPin)
 				{
 					rakPeer->requestedConnectionQueueMutex.Unlock();
-					bsOut.Write((MessageID) ID_NO_FREE_INCOMING_CONNECTIONS);
+					bsOut.Write((MessageID) ID_ALREADY_CONNECTED);
 					bsOut.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 					bsOut.Write(rakPeer->myGuid);
 					for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
@@ -5887,10 +5901,10 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			{
 				EphemeralKeyPair serverPair;
 				serverInfo = serverPair.MakeCryptInfo();
-				if (rakPeer->hasIdentityKey && !SignServerIdentity(rakPeer->identitySecretKey, clientInfo, serverInfo, &identity))
+				if (rakPeer->hasIdentityKey && !SignServerIdentity(rakPeer->identitySecretKey, rakPeer->identityPublicKey, clientInfo, serverInfo, &identity))
 				{
 					rakPeer->requestedConnectionQueueMutex.Unlock();
-					return true; // SetIdentityKey validated the key; never answer with an unsigned reply instead
+					return true; // never answer with an unsigned reply instead
 				}
 				rakPeer->serverKeyExchangeCount++;
 				if (!DeriveSessionKeys(serverPair, /*localIsInitiator=*/false, clientInfo, serverInfo, guid, rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS), identity, &keys))
@@ -5902,7 +5916,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			else
 			{
 				serverInfo.mode = EncryptionMode::Plaintext;
-				if (rakPeer->hasIdentityKey && !SignServerIdentity(rakPeer->identitySecretKey, clientInfo, serverInfo, &identity))
+				if (rakPeer->hasIdentityKey && !SignServerIdentity(rakPeer->identitySecretKey, rakPeer->identityPublicKey, clientInfo, serverInfo, &identity))
 				{
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 					return true;
@@ -5910,7 +5924,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			}
 
 			if (!thisIPConnectedRecently)
-				rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr, serverInfo, clientInfo);
+				rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr, serverInfo, clientInfo, identity);
 			rakPeer->requestedConnectionQueueMutex.Unlock();
 			keys.Wipe();
 

@@ -530,17 +530,76 @@ TEST(ServerIdentity, SetIdentityKeyRules)
 	EXPECT_FALSE(offline.GetIdentityPublicKey(out));
 }
 
-TEST(ServerIdentity, ShutdownWipesTheIdentityKey)
+// The key survives Shutdown(): a restarted server still signs, and a pinned client still connects.
+TEST(ServerIdentity, RestartStillSigns)
 {
 	SimulatedNetwork net;
 	const IdentityKey key = IdentityKey::Generate();
 	net.SetNewPeerIdentityKey(key.secretKey);
-	RakPeer *server = net.AddPeer(1, 1);
+	RakPeer *server = net.AddPeer(2, 2);
+	net.SetNewPeerIdentityKey(nullptr);
+	RakPeer *client = net.AddPeer(1);
+	const SystemAddress serverAddress = net.AddressOf(server);
+
+	server->Shutdown(0);
+	uint8_t out[32];
+	ASSERT_TRUE(server->GetIdentityPublicKey(out)) << "Shutdown() must not drop the identity key";
+	EXPECT_EQ(Bytes(key.publicKey, 32), Bytes(out, 32));
+	char host[64];
+	serverAddress.ToString(false, host, sizeof(host));
+	SocketDescriptor descriptor(serverAddress.GetPort(), host);
+	ASSERT_EQ(RAKNET_STARTED, server->Startup(2, &descriptor, 1));
+	server->SetMaximumIncomingConnections(2);
+
+	PublicKey pin = key.Pin();
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, ConnectTo(net, client, server, &pin));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return Connected(net, client, server); }, 5000));
+	EXPECT_EQ(0u, CountOf(net, client, ID_PUBLIC_KEY_MISMATCH));
+	uint8_t remote[32];
+	ASSERT_TRUE(client->GetRemoteIdentityKey(serverAddress, remote));
+	EXPECT_EQ(Bytes(key.publicKey, 32), Bytes(remote, 32));
+}
+
+// SetIdentityKey(nullptr) while offline removes the key: the next Startup() answers unsigned, and a pinned
+// client gets ID_PUBLIC_KEY_MISMATCH.
+TEST(ServerIdentity, SetIdentityKeyNullRemovesTheKey)
+{
+	SimulatedNetwork net;
+	const IdentityKey key = IdentityKey::Generate();
+	net.SetNewPeerIdentityKey(key.secretKey);
+	RakPeer *server = net.AddPeer(2, 2);
+	net.SetNewPeerIdentityKey(nullptr);
+	RakPeer *client = net.AddPeer(1);
+	const SystemAddress serverAddress = net.AddressOf(server);
+
+	EXPECT_FALSE(server->SetIdentityKey(nullptr)) << "refused while started";
 	uint8_t out[32];
 	ASSERT_TRUE(server->GetIdentityPublicKey(out));
-	EXPECT_EQ(Bytes(key.publicKey, 32), Bytes(out, 32));
+
 	server->Shutdown(0);
+	EXPECT_TRUE(server->SetIdentityKey(nullptr));
 	EXPECT_FALSE(server->GetIdentityPublicKey(out));
+	char host[64];
+	serverAddress.ToString(false, host, sizeof(host));
+	SocketDescriptor descriptor(serverAddress.GetPort(), host);
+	ASSERT_EQ(RAKNET_STARTED, server->Startup(2, &descriptor, 1));
+	server->SetMaximumIncomingConnections(2);
+
+	PublicKey pin = key.Pin();
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, ConnectTo(net, client, server, &pin));
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_PUBLIC_KEY_MISMATCH, 5000));
+	EXPECT_FALSE(net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED));
+}
+
+TEST(ServerIdentity, StaticGenerateIdentityKeyPairForwards)
+{
+	uint8_t publicKey[32], secretKey[64], derived[32];
+	RakPeerInterface::GenerateIdentityKeyPair(publicKey, secretKey);
+	ASSERT_TRUE(IdentityPublicKeyFromSecret(secretKey, derived));
+	EXPECT_EQ(Bytes(publicKey, 32), Bytes(derived, 32));
+	RakPeer offline;
+	EXPECT_TRUE(offline.SetIdentityKey(secretKey));
 }
 
 TEST(ServerIdentity, PinnedClientConnectsToTheRightServer)
@@ -1028,7 +1087,7 @@ TEST(ServerIdentityCrossConnect, LowerPinsHigher)
 }
 
 // The higher peer pinned the lower one. Its attempt must not be absorbed into the lower peer's handshake (in which
-// the lower peer proves nothing): it refuses that handshake with ID_NO_FREE_INCOMING_CONNECTIONS and connects as
+// the lower peer proves nothing): it refuses that handshake with ID_ALREADY_CONNECTED and connects as
 // initiator, so the lower peer has to prove the pinned identity.
 TEST(ServerIdentityCrossConnect, HigherPinsLower)
 {
@@ -1044,7 +1103,8 @@ TEST(ServerIdentityCrossConnect, HigherPinsLower)
 	                         { return BothConnected(p.lower, higherAddress, p.higher, lowerAddress); }, 5000));
 	ASSERT_TRUE(net.RunUntilReceived(p.higher, ID_CONNECTION_REQUEST_ACCEPTED, 2000));
 	EXPECT_EQ(0u, CountOf(net, p.higher, ID_NEW_INCOMING_CONNECTION));
-	EXPECT_EQ(1u, CountOf(net, p.lower, ID_NO_FREE_INCOMING_CONNECTIONS));
+	EXPECT_EQ(1u, CountOf(net, p.lower, ID_ALREADY_CONNECTED));
+	EXPECT_EQ(0u, CountOf(net, p.lower, ID_NO_FREE_INCOMING_CONNECTIONS)) << "the server is not full";
 	EXPECT_EQ(1u, CountOf(net, p.lower, ID_NEW_INCOMING_CONNECTION));
 	EXPECT_EQ(0u, CountOf(net, p.higher, ID_PUBLIC_KEY_MISMATCH));
 	uint8_t remote[32];
@@ -1089,12 +1149,16 @@ TEST(ServerIdentityCrossConnect, BothPin)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return BothConnected(p.lower, higherAddress, p.higher, lowerAddress); }, 5000));
 	ASSERT_TRUE(net.RunUntilReceived(p.higher, ID_CONNECTION_REQUEST_ACCEPTED, 2000));
-	EXPECT_EQ(1u, CountOf(net, p.lower, ID_NO_FREE_INCOMING_CONNECTIONS));
+	EXPECT_EQ(1u, CountOf(net, p.lower, ID_ALREADY_CONNECTED));
+	EXPECT_EQ(0u, CountOf(net, p.lower, ID_NO_FREE_INCOMING_CONNECTIONS));
 	EXPECT_EQ(0u, CountOf(net, p.lower, ID_CONNECTION_REQUEST_ACCEPTED));
 	EXPECT_EQ(0u, CountOf(net, p.lower, ID_PUBLIC_KEY_MISMATCH));
 	EXPECT_EQ(0u, CountOf(net, p.higher, ID_PUBLIC_KEY_MISMATCH));
 	uint8_t remote[32];
 	ASSERT_TRUE(p.higher->GetRemoteIdentityKey(lowerAddress, remote));
 	EXPECT_EQ(Bytes(p.lowerKey.publicKey, 32), Bytes(remote, 32));
+	// Only one pin is enforced: the lower peer's Connect ended, and it answered the higher peer's handshake as
+	// responder, so it proved nothing about the higher peer.
+	EXPECT_FALSE(p.lower->GetRemoteIdentityKey(higherAddress, remote));
 	ExpectDataFlows(net, p.lower, p.higher);
 }

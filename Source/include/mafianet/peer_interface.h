@@ -86,22 +86,32 @@ public:
 	/// \brief Installs this peer's long-term server identity key. Must be called before Startup().
 	/// \details With an identity key, every ID_OPEN_CONNECTION_REPLY_2 this peer sends carries its Ed25519 public
 	/// key and a signature over the handshake, in both encryption modes. A client that pins that public key (a
-	/// non-null PublicKey* in Connect()) then knows it reached this peer and not a man in the middle. Create a key
-	/// pair with GenerateIdentityKeyPair() (session_crypto.h) and publish the public half.
-	/// The peer keeps its own copy of the key, wiped (sodium_memzero) when it is replaced, by Shutdown() and by
-	/// the destructor: call this again before every Startup(). Passing null removes the key.
+	/// non-null PublicKey* in Connect()) then knows it answered the handshake and not a man in the middle. Create
+	/// a key pair with GenerateIdentityKeyPair() and publish the public half. There is no revocation: if the secret
+	/// key leaks, generate a new pair and update the clients' pin.
+	/// The peer keeps its own copy of the key across Shutdown() and Startup(), until it is replaced, removed
+	/// (pass null) or the peer is destroyed; each of those wipes it (sodium_memzero).
 	/// \param[in] secretKey The 64-byte libsodium Ed25519 secret key (seed followed by public key).
 	/// \return false, changing nothing, if the peer is already started or \a secretKey is not a well-formed key.
 	virtual bool SetIdentityKey(const uint8_t secretKey[64]) = 0;
+
+	/// \brief Creates a new server identity key pair. Forwards to MafiaNet::GenerateIdentityKeyPair()
+	/// (session_crypto.h): publish \a publicKey, keep \a secretKey private and wipe it when done.
+	static void GenerateIdentityKeyPair(uint8_t publicKey[32], uint8_t secretKey[64]);
 
 	/// \param[out] out The public half of the key set by SetIdentityKey().
 	/// \return false, zeroing \a out, when no identity key is set.
 	virtual bool GetIdentityPublicKey(uint8_t out[32]) const = 0;
 
 	/// \brief The identity public key a remote server presented and proved when this peer connected to it.
-	/// \details Filled for every connection this peer initiated to a server with an identity key, pinned or not.
+	/// \details Filled for every connection this peer initiated to a server with an identity key, pinned or not,
+	/// and valid once ID_CONNECTION_REQUEST_ACCEPTED has arrived for it (like the other getters it reads the
+	/// connection without a lock; it is written before that message is queued). An incoming connection never
+	/// has one: in peer-to-peer, trust a remote by this key, not by having called Connect() with a pin.
 	/// The signature was verified, so the key is the one the server holds; without a pin nothing says it is the
-	/// server you meant, which is for the application to decide (for example, trust on first use).
+	/// server you meant, which is for the application to decide (for example, trust on first use). In
+	/// EncryptionMode::Plaintext it only means that server answered the handshake: the datagrams after it are
+	/// not protected.
 	/// \param[out] out The remote's 32-byte Ed25519 public key.
 	/// \return false, zeroing \a out, when there is no such connection or the remote presented no identity key.
 	virtual bool GetRemoteIdentityKey(const AddressOrGUID systemIdentifier, uint8_t out[32]) const = 0;
