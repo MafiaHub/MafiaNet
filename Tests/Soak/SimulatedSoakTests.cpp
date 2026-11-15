@@ -15,7 +15,8 @@
  *  plaintext "rogue" peers keep trying to connect to encrypted ones. Each wave:
  *
  *    1. every client connects (a reconnect storm from the second wave on);
- *    2. sustained traffic: reliable-ordered (some split), unreliable;
+ *    2. sustained traffic: reliable-ordered (some split), reliable (some over the 1280 rung, some split;
+ *       each must arrive exactly once), unreliable;
  *    3. a churn storm under traffic: clients disconnect and reconnect at once,
  *       leave for a while, or crash (destroyed without a word) and come back
  *       from the same address with a new GUID;
@@ -28,12 +29,11 @@
  *  (traffic seconds per phase, default 30). Many short waves rather than a few
  *  long ones: a leak shows up per reconnect, so the memory check needs waves.
  *
- *  TODO: add an exactly-once Reliable (unordered) stream once the duplicate it
- *  would report is fixed: a false-positive MTU black-hole step-down re-sends a
- *  rebuilt copy of a Reliable message that may already have arrived, under new
- *  message numbers, so the receiver delivers it twice (pre-existing since #56;
- *  tracked as a separate issue). Ordered streams are protected by the ordering
- *  index; plain Reliable is not.
+ *  No link here black-holes large datagrams: the capped links are capped in both
+ *  directions, so the handshake already negotiates an MTU that fits. Every MTU
+ *  step-down is therefore a false positive of the black-hole detector (#94); the
+ *  run reports them, and the Reliable stream catches a step-down's re-sent copy
+ *  delivered twice (#93).
  */
 
 #include <gtest/gtest.h>
@@ -83,6 +83,12 @@ struct Link
 	// No earlier connection between these two addresses: no stale datagram can exist.
 	bool firstBetweenAddresses = false;
 	Soak::SendStream send;
+	// The Reliable (unordered) stream shares the session of `send`. It starts once the remote's own
+	// ordered stream has arrived on this connection (see SendTraffic).
+	uint32_t nextReliable = 0;
+	bool remoteSending = false;
+	// RakNetStatistics::mtuStepDowns already added to Totals for this connection.
+	uint32_t stepDownsCounted = 0;
 };
 
 struct Node
@@ -120,6 +126,7 @@ struct Totals
 {
 	uint64_t connectionsCompleted = 0;
 	uint64_t orderedSent = 0;
+	uint64_t reliableSent = 0;
 	uint64_t unreliableSent = 0;
 	uint64_t unreliableDelivered = 0;
 	uint64_t splitSent = 0;
@@ -132,6 +139,8 @@ struct Totals
 	uint64_t failuresWhileConnected = 0;
 	uint64_t staleDropsExcused = 0;
 	uint64_t linksWithStaleDrops = 0;
+	uint64_t mtuStepDowns = 0;
+	uint64_t mtuStepDownsOnCappedLinks = 0;
 };
 
 class SimulatedSoak
@@ -176,6 +185,7 @@ private:
 	bool StartConnect(int self, int remote);
 	void SendTraffic();
 	void SettleBaselines();
+	void CountStepDowns();
 	bool AllWantedConnected() const;
 
 	void Storm();
@@ -195,6 +205,7 @@ private:
 	std::map<std::pair<int, int>, uint64_t> crossNextAttempt;
 	std::set<std::pair<int, int>> connectedPairs; // per direction (self, remote)
 	Soak::OrderChecker checker;
+	Soak::ExactlyOnceChecker reliableChecker;
 	Violations violations;
 	Totals totals;
 	uint64_t tickCount = 0;
@@ -354,7 +365,16 @@ void SimulatedSoak::ProcessInboxes()
 				if (remote < 0)
 					violations.Add("data from an unknown address", Name(self));
 				else
+				{
 					checker.OnOrdered(self, remote, message.data.data(), message.data.size());
+					nodes[i].links[remote].remoteSending = true;
+				}
+				break;
+			case Soak::ID_SOAK_RELIABLE:
+				if (remote < 0)
+					violations.Add("data from an unknown address", Name(self));
+				else
+					reliableChecker.OnReliable(self, remote, message.data.data(), message.data.size());
 				break;
 			case Soak::ID_SOAK_UNRELIABLE:
 				++totals.unreliableDelivered;
@@ -400,6 +420,9 @@ void SimulatedSoak::OnConnected(int self, int remote)
 	link.send.live = true;
 	link.send.session = Random64() | 1;
 	link.send.next = 0;
+	link.nextReliable = 0;
+	link.remoteSending = false;
+	link.stepDownsCounted = 0;
 	++totals.connectionsCompleted;
 }
 
@@ -522,6 +545,26 @@ void SimulatedSoak::SendTraffic()
 				++totals.orderedSent;
 				totals.splitSent += extra > 1000;
 			}
+			// Only once the remote has sent on this connection: until the connecting side has finished the
+			// session-config exchange, RakPeer drops an unordered message from the accepting side, which
+			// already reports the connection (ordered messages queue behind the exchange on channel 0).
+			if (!cross && link.remoteSending)
+			{
+				// Every few seconds a message over the 1280 rung in one datagram, or split in two: the
+				// sizes a black-hole step-down re-sends.
+				uint16_t reliableExtra = 24;
+				if (phase % 25 == 3)
+					reliableExtra = 1300;
+				else if (phase % 25 == 15)
+					reliableExtra = 2600;
+				BitStream reliable;
+				Soak::WriteReliable(reliable, link.send.session, link.nextReliable, reliableExtra);
+				if (node.peer->Send(&reliable, Priority::Medium, Reliability::Reliable, 0, nodes[(size_t) remote].address, false) != 0)
+				{
+					++link.nextReliable;
+					++totals.reliableSent;
+				}
+			}
 			if (i != kServer && !cross)
 			{
 				BitStream unreliable;
@@ -534,6 +577,29 @@ void SimulatedSoak::SendTraffic()
 			}
 		}
 	}
+}
+
+// Adds each live connection's new MTU step-downs to the totals. Called before connections are torn down;
+// a crash between two calls loses that connection's step-downs since the first.
+void SimulatedSoak::CountStepDowns()
+{
+	for (size_t i = 0; i < nodes.size(); ++i)
+		for (auto &entry : nodes[i].links)
+		{
+			Link &link = entry.second;
+			RakNetStatistics stats;
+			if (link.state != Link::Connected || nodes[i].peer->GetStatistics(nodes[(size_t) entry.first].address, &stats) == nullptr)
+				continue;
+			if (stats.mtuStepDowns <= link.stepDownsCounted)
+				continue;
+			const uint32_t added = stats.mtuStepDowns - link.stepDownsCounted;
+			link.stepDownsCounted = stats.mtuStepDowns;
+			totals.mtuStepDowns += added;
+			const int client = i == kServer ? entry.first : (int) i;
+			const bool toServer = i == kServer || entry.first == kServer;
+			if (toServer && nodes[(size_t) client].serverLink.maxDatagramBytes < MAXIMUM_MTU_SIZE)
+				totals.mtuStepDownsOnCappedLinks += added;
+		}
 }
 
 bool SimulatedSoak::AllWantedConnected() const
@@ -623,6 +689,15 @@ void SimulatedSoak::CheckQuiescedDelivery(int wave)
 			if (link.state != Link::Connected || back == nodes[(size_t) remote].links.end() || back->second.state != Link::Connected)
 				continue;
 
+			// Every Reliable message sent on it has arrived, exactly once (duplicates are counted as they arrive).
+			if (link.nextReliable > 0)
+			{
+				const Soak::ExactlyOnceChecker::Stream *stream = reliableChecker.Find(remote, (int) i);
+				const uint32_t got = stream && stream->session == link.send.session ? stream->received : 0;
+				if (got != link.nextReliable)
+					violations.Add("reliable not delivered after quiescing", "wave " + std::to_string(wave) + " " + Name((int) i) + " -> " + Name(remote) +
+					                                                             " sent " + std::to_string(link.nextReliable) + " received " + std::to_string(got));
+			}
 			// Everything sent on a connection both ends still hold has arrived, in order.
 			if (link.send.next > 0)
 			{
@@ -739,6 +814,7 @@ void SimulatedSoak::Run()
 		// 2. Sustained traffic.
 		RunFor(phaseMs, true);
 		// 3. A churn storm, with traffic still flowing, and everyone back.
+		CountStepDowns();
 		Storm();
 		RunFor(phaseMs, true);
 		ASSERT_TRUE(RunUntil([&]
@@ -747,6 +823,7 @@ void SimulatedSoak::Run()
 
 		// 4. Quiesce: no new data; everything in flight on a surviving connection arrives.
 		RunFor(15000, false);
+		CountStepDowns();
 		CheckQuiescedDelivery(wave);
 
 		// 5. Everybody leaves; every slot is released.
@@ -763,9 +840,11 @@ void SimulatedSoak::Run()
 
 	const double wallSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();
 	std::printf("[soak] %d clients, %d waves, %" PRIu64 " s virtual in %.1f s wall\n", clientCount, waveCount, (NowMs() - startMs) / 1000, wallSeconds);
-	std::printf("[soak] connections %" PRIu64 ", ordered sent %" PRIu64 " delivered %" PRIu64 " (split %" PRIu64 "), unreliable sent %" PRIu64
-	            " delivered %" PRIu64 "\n",
-	            totals.connectionsCompleted, totals.orderedSent, checker.Delivered(), totals.splitSent, totals.unreliableSent, totals.unreliableDelivered);
+	std::printf("[soak] connections %" PRIu64 ", ordered sent %" PRIu64 " delivered %" PRIu64 " (split %" PRIu64 "), reliable sent %" PRIu64
+	            " delivered %" PRIu64 ", unreliable sent %" PRIu64 " delivered %" PRIu64 "\n",
+	            totals.connectionsCompleted, totals.orderedSent, checker.Delivered(), totals.splitSent, totals.reliableSent, reliableChecker.Delivered(),
+	            totals.unreliableSent, totals.unreliableDelivered);
+	std::printf("[soak] MTU step-downs %" PRIu64 " (%" PRIu64 " on capped links)\n", totals.mtuStepDowns, totals.mtuStepDownsOnCappedLinks);
 	std::printf("[soak] crashes %" PRIu64 ", reconnects %" PRIu64 ", absences %" PRIu64 ", cross-connect rounds %" PRIu64 ", failed attempts %" PRIu64
 	            " (%" PRIu64 " after the connection stood), rogue refusals %" PRIu64 ", datagrams sent %" PRIu64 " dropped %" PRIu64 "\n",
 	            totals.crashes, totals.gracefulReconnects, totals.absences, totals.crossConnectRounds, totals.failedAttempts, totals.failuresWhileConnected,
@@ -781,10 +860,17 @@ void SimulatedSoak::Run()
 	EXPECT_EQ(0u, checker.Violations()) << "ordering violations";
 	for (const std::string &e : checker.Examples())
 		std::printf("[soak] order %s\n", e.c_str());
+	EXPECT_EQ(0u, reliableChecker.Violations()) << "Reliable messages delivered twice or corrupted";
+	for (const std::string &e : reliableChecker.Examples())
+		std::printf("[soak] reliable %s\n", e.c_str());
 	EXPECT_GT(totals.rogueRefusals, 0u) << "the plaintext peers were never refused: they did not run";
 	EXPECT_GT(totals.crashes, 0u);
 	EXPECT_GT(totals.splitSent, 0u);
 	EXPECT_GT(totals.unreliableDelivered, 0u);
+	EXPECT_GT(reliableChecker.Delivered(), 0u);
+	// Nothing here black-holes large datagrams, so every step-down is a false positive of the detector. A
+	// rare one can happen by chance; before #94 there were about a third as many as connections.
+	EXPECT_LE(totals.mtuStepDowns, totals.connectionsCompleted / 100) << "MTU step-downs on links that do not black-hole";
 
 	// Memory: the first wave warms every pool and container up; after that a wave must not leave more behind.
 	if (afterWave.size() >= 3)

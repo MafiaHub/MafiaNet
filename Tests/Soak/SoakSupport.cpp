@@ -168,14 +168,45 @@ void operator delete[](void *p, const std::nothrow_t &) noexcept
 
 namespace Soak
 {
-void WriteOrdered(MafiaNet::BitStream &out, uint64_t session, uint32_t sequence, uint16_t extraBytes)
+namespace
 {
-	out.Write(ID_SOAK_ORDERED);
+void WriteNumbered(MafiaNet::BitStream &out, MafiaNet::MessageID id, uint64_t session, uint32_t sequence, uint16_t extraBytes)
+{
+	out.Write(id);
 	out.Write(session);
 	out.Write(sequence);
 	out.Write(extraBytes);
 	for (uint32_t i = 0; i < extraBytes; ++i)
 		out.Write(ExtraByte(session, sequence, i));
+}
+
+// Reads a message WriteNumbered wrote and checks its extra bytes. Returns an empty string, or what is wrong.
+std::string ReadNumbered(const unsigned char *data, size_t length, uint64_t *session, uint32_t *sequence)
+{
+	MafiaNet::BitStream in(const_cast<unsigned char *>(data), (unsigned int) length, false);
+	in.IgnoreBytes(1);
+	uint16_t extraBytes = 0;
+	if (!in.Read(*session) || !in.Read(*sequence) || !in.Read(extraBytes) || in.GetNumberOfUnreadBits() != extraBytes * 8u)
+		return "malformed message";
+	for (uint32_t i = 0; i < extraBytes; ++i)
+	{
+		unsigned char b = 0;
+		in.Read(b);
+		if (b != ExtraByte(*session, *sequence, i))
+			return "corrupt payload at byte " + std::to_string(i) + " of sequence " + std::to_string(*sequence);
+	}
+	return std::string();
+}
+} // namespace
+
+void WriteOrdered(MafiaNet::BitStream &out, uint64_t session, uint32_t sequence, uint16_t extraBytes)
+{
+	WriteNumbered(out, ID_SOAK_ORDERED, session, sequence, extraBytes);
+}
+
+void WriteReliable(MafiaNet::BitStream &out, uint64_t session, uint32_t sequence, uint16_t extraBytes)
+{
+	WriteNumbered(out, ID_SOAK_RELIABLE, session, sequence, extraBytes);
 }
 
 void OrderChecker::Violation(const std::string &what)
@@ -187,27 +218,15 @@ void OrderChecker::Violation(const std::string &what)
 
 void OrderChecker::OnOrdered(int receiver, int sender, const unsigned char *data, size_t length)
 {
-	MafiaNet::BitStream in(const_cast<unsigned char *>(data), (unsigned int) length, false);
-	in.IgnoreBytes(1);
 	uint64_t session = 0;
 	uint32_t sequence = 0;
-	uint16_t extraBytes = 0;
 	char where[96];
 	std::snprintf(where, sizeof(where), "%d<-%d ", receiver, sender);
-	if (!in.Read(session) || !in.Read(sequence) || !in.Read(extraBytes) || in.GetNumberOfUnreadBits() != extraBytes * 8u)
+	const std::string wrong = ReadNumbered(data, length, &session, &sequence);
+	if (!wrong.empty())
 	{
-		Violation(std::string(where) + "malformed ordered message");
+		Violation(std::string(where) + "ordered: " + wrong);
 		return;
-	}
-	for (uint32_t i = 0; i < extraBytes; ++i)
-	{
-		unsigned char b = 0;
-		in.Read(b);
-		if (b != ExtraByte(session, sequence, i))
-		{
-			Violation(std::string(where) + "corrupt payload at byte " + std::to_string(i) + " of sequence " + std::to_string(sequence));
-			return;
-		}
 	}
 	++delivered;
 	RecvStream &stream = streams[{receiver, sender}];
@@ -226,6 +245,51 @@ void OrderChecker::OnOrdered(int receiver, int sender, const unsigned char *data
 }
 
 const RecvStream *OrderChecker::Stream(int receiver, int sender) const
+{
+	auto it = streams.find({receiver, sender});
+	return it == streams.end() ? nullptr : &it->second;
+}
+
+void ExactlyOnceChecker::Violation(const std::string &what)
+{
+	++violations;
+	if (examples.size() < 20)
+		examples.push_back(what);
+}
+
+void ExactlyOnceChecker::OnReliable(int receiver, int sender, const unsigned char *data, size_t length)
+{
+	uint64_t session = 0;
+	uint32_t sequence = 0;
+	char where[96];
+	std::snprintf(where, sizeof(where), "%d<-%d ", receiver, sender);
+	const std::string wrong = ReadNumbered(data, length, &session, &sequence);
+	if (!wrong.empty())
+	{
+		Violation(std::string(where) + "reliable: " + wrong);
+		return;
+	}
+	++delivered;
+	Stream &stream = streams[{receiver, sender}];
+	if (session != stream.session)
+	{
+		// A new connection: the old one's messages can no longer arrive.
+		stream.session = session;
+		stream.received = 0;
+		stream.arrived.clear();
+	}
+	if (sequence >= stream.arrived.size())
+		stream.arrived.resize((size_t) sequence + 1, false);
+	if (stream.arrived[sequence])
+	{
+		Violation(std::string(where) + "reliable sequence " + std::to_string(sequence) + " delivered twice");
+		return;
+	}
+	stream.arrived[sequence] = true;
+	++stream.received;
+}
+
+const ExactlyOnceChecker::Stream *ExactlyOnceChecker::Find(int receiver, int sender) const
 {
 	auto it = streams.find({receiver, sender});
 	return it == streams.end() ? nullptr : &it->second;
