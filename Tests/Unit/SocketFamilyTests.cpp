@@ -12,6 +12,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib> // getenv
+#include <string>
+
 #include "mafianet/peer_interface.h"
 #include "mafianet/socket2.h"
 
@@ -91,4 +94,128 @@ TEST(SocketFamilyStartup, UnsupportedFamilyRejectedThenNormalStartupWorks)
 
 	peer->Shutdown(0);
 	RakPeerInterface::DestroyInstance(peer);
+}
+
+// Dual-stack is the default (0.27.0): like GameNetworkingSockets' wildcard
+// listen and zpl-c ENet, a plain SocketDescriptor reaches IPv4 and IPv6 peers.
+TEST(SocketDescriptorDefaults, BothConstructorsDefaultToDualStack)
+{
+	const SocketDescriptor byDefault;
+	EXPECT_EQ(byDefault.socketFamily, AF_UNSPEC);
+	EXPECT_FALSE(byDefault.requireDualStack);
+
+	const SocketDescriptor withPort(1234, "127.0.0.1");
+	EXPECT_EQ(withPort.socketFamily, AF_UNSPEC);
+	EXPECT_FALSE(withPort.requireDualStack);
+}
+
+namespace
+{
+// Startup() with \a descriptor, then shuts the peer down again.
+StartupResult StartOnce(SocketDescriptor descriptor, bool *dualStack = nullptr, SystemAddress *bound = nullptr)
+{
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	const StartupResult result = peer->Startup(1, &descriptor, 1);
+	if (result == RAKNET_STARTED)
+	{
+		DataStructures::List<RakNetSocket2 *> sockets;
+		peer->GetSockets(sockets);
+		if (dualStack != nullptr)
+			*dualStack = sockets.Size() == 1 && sockets[0]->IsDualStack();
+		if (bound != nullptr)
+			*bound = peer->GetMyBoundAddress();
+	}
+	else
+	{
+		EXPECT_FALSE(peer->IsActive());
+	}
+	peer->Shutdown(0);
+	RakPeerInterface::DestroyInstance(peer);
+	return result;
+}
+} // namespace
+
+// A specific IPv4 address can never be dual-stack: with requireDualStack,
+// Startup refuses instead of quietly opening an IPv4 socket.
+TEST(RequireDualStack, Ipv4HostAddressIsRefused)
+{
+	SocketDescriptor sd(0, "127.0.0.1");
+	sd.requireDualStack = true;
+	EXPECT_EQ(StartOnce(sd), SOCKET_FAMILY_NOT_SUPPORTED);
+}
+
+// Neither can a specific IPv6 address: only the wildcard exchanges IPv4
+// traffic. (Without IPv6 at all the result is the same.)
+TEST(RequireDualStack, Ipv6HostAddressIsRefused)
+{
+	SocketDescriptor sd(0, "::1");
+	sd.requireDualStack = true;
+	EXPECT_EQ(StartOnce(sd), SOCKET_FAMILY_NOT_SUPPORTED);
+}
+
+TEST(RequireDualStack, RefusalLeavesPeerStartable)
+{
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	SocketDescriptor strict(0, "127.0.0.1");
+	strict.requireDualStack = true;
+	EXPECT_EQ(peer->Startup(1, &strict, 1), SOCKET_FAMILY_NOT_SUPPORTED);
+	EXPECT_FALSE(peer->IsActive());
+
+	SocketDescriptor relaxed(0, "127.0.0.1");
+	EXPECT_EQ(peer->Startup(1, &relaxed, 1), RAKNET_STARTED);
+	EXPECT_TRUE(peer->IsActive());
+	peer->Shutdown(0);
+	RakPeerInterface::DestroyInstance(peer);
+}
+
+// The flag only means something for AF_UNSPEC.
+TEST(RequireDualStack, IgnoredForExplicitIpv4)
+{
+	SocketDescriptor sd(0, "127.0.0.1");
+	sd.socketFamily = AF_INET;
+	sd.requireDualStack = true;
+	bool dualStack = true;
+	EXPECT_EQ(StartOnce(sd, &dualStack), RAKNET_STARTED);
+	EXPECT_FALSE(dualStack);
+}
+
+// A default descriptor on the wildcard reports 127.0.0.1 and its real port,
+// exactly as an IPv4 wildcard socket always has, whether the socket came out
+// dual-stack or fell back to IPv4. Callers that connect to or compare with the
+// bound address keep working; IsDualStack() tells the two apart.
+TEST(BoundAddressReporting, DefaultWildcardReportsIpv4Loopback)
+{
+	SystemAddress bound;
+	EXPECT_EQ(StartOnce(SocketDescriptor(0, nullptr), nullptr, &bound), RAKNET_STARTED);
+	EXPECT_EQ(bound.GetIPVersion(), 4);
+	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	EXPECT_NE(bound.GetPort(), 0);
+}
+
+TEST(BoundAddressReporting, ExplicitIpv4WildcardReportsIpv4Loopback)
+{
+	SocketDescriptor sd(0, nullptr);
+	sd.socketFamily = AF_INET;
+	SystemAddress bound;
+	EXPECT_EQ(StartOnce(sd, nullptr, &bound), RAKNET_STARTED);
+	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+	EXPECT_NE(bound.GetPort(), 0);
+}
+
+TEST(BoundAddressReporting, ExplicitIpv6WildcardReportsIpv6Loopback)
+{
+	SocketDescriptor sd(0, nullptr);
+	sd.socketFamily = AF_INET6;
+	SystemAddress bound;
+	const StartupResult result = StartOnce(sd, nullptr, &bound);
+	if (result == SOCKET_FAMILY_NOT_SUPPORTED)
+	{
+		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
+			FAIL() << "no IPv6 socket but MAFIANET_REQUIRE_IPV6 is set";
+		GTEST_SKIP() << "no IPv6 on this host";
+	}
+	ASSERT_EQ(result, RAKNET_STARTED);
+	EXPECT_EQ(bound.GetIPVersion(), 6);
+	EXPECT_EQ(std::string(bound.ToString(false)), "::1");
+	EXPECT_NE(bound.GetPort(), 0);
 }

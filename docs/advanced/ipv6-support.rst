@@ -6,16 +6,19 @@ define: the old ``RAKNET_SUPPORT_IPV6`` switch was removed, and defining it as
 ``0`` is a compile error. This guide covers sockets, addresses, connecting and
 the wire format.
 
-Dual-Stack Sockets (AF_UNSPEC)
-------------------------------
+Dual-Stack Sockets (the Default)
+--------------------------------
+
+Since 0.27.0, ``SocketDescriptor::socketFamily`` defaults to ``AF_UNSPEC``: a
+plain ``SocketDescriptor`` opens one dual-stack socket (``AF_INET6`` with
+``IPV6_V6ONLY=0``) that serves IPv4 and IPv6 peers alike, as a wildcard listen
+does in GameNetworkingSockets or ENet.
 
 **Dual-stack server, one socket (IPv4 + IPv6):**
 
 .. code-block:: cpp
 
-   MafiaNet::SocketDescriptor sd;
-   sd.port = 60000;
-   sd.socketFamily = AF_UNSPEC; // one AF_INET6 socket with IPV6_V6ONLY=0
+   MafiaNet::SocketDescriptor sd(60000, nullptr); // socketFamily == AF_UNSPEC
 
    peer->Startup(100, &sd, 1);
    peer->SetMaximumIncomingConnections(100);
@@ -31,14 +34,39 @@ dual-stack sockets (OpenBSD), the socket falls back to IPv4 only;
   and is **not** dual-stack. Dual-stack needs the wildcard address (leave
   ``hostAddress`` empty). An IPv4-mapped bind address (``::ffff:a.b.c.d``) is
   not supported.
-* ``AF_INET`` is an IPv4-only socket. ``AF_INET6`` is an IPv6-only socket
+* ``AF_INET`` is an IPv4-only socket -- the default before 0.27.0; set it to
+  get the old behaviour back. ``AF_INET6`` is an IPv6-only socket
   (``IPV6_V6ONLY=1``).
+
+**Bound address.** ``GetMyBoundAddress()`` (and
+``RakNetSocket2::GetBoundAddress()``) on a dual-stack wildcard socket reports
+``127.0.0.1`` and the bound port, exactly like an IPv4 wildcard socket, so code
+that connects to or compares with the bound address keeps working. Use
+``IsDualStack()`` to tell the two apart. An explicit ``AF_INET6`` wildcard socket
+reports ``::1``.
+
+**Requiring dual-stack.** Set ``SocketDescriptor::requireDualStack`` to make
+``Startup()`` fail with ``SOCKET_FAMILY_NOT_SUPPORTED`` instead of falling back
+to IPv4 when no dual-stack socket can be opened: no IPv6 on the host,
+``IPV6_V6ONLY=0`` refused, or a specific ``hostAddress`` (which is never
+dual-stack). It is ignored for ``AF_INET`` and ``AF_INET6``. This is the
+equivalent of GameNetworkingSockets' ``k_nAddressFamily_DualStack``.
+
+.. code-block:: cpp
+
+   MafiaNet::SocketDescriptor sd(60000, nullptr);
+   sd.requireDualStack = true;
+   if (peer->Startup(100, &sd, 1) == MafiaNet::SOCKET_FAMILY_NOT_SUPPORTED) {
+       // this host cannot serve IPv4 and IPv6 on one socket
+   }
 
 .. note::
 
-   On Linux, IPv4 and IPv6 share one UDP port space: an ``AF_UNSPEC`` socket on
-   port P cannot coexist with an ``AF_INET`` socket on port P. Explicit
-   ``AF_INET6`` sockets are IPv6-only, so the two-socket setup below keeps
+   On Linux, IPv4 and IPv6 share one UDP port space: a default (``AF_UNSPEC``)
+   socket on port P cannot coexist with a separate ``AF_INET`` socket on port
+   P. Code that used to open a default socket and an ``AF_INET6`` socket on the
+   same port must now set ``AF_INET`` on the first one explicitly, as below;
+   explicit ``AF_INET6`` sockets are IPv6-only, so that two-socket setup keeps
    working.
 
 **Dual-stack server, two sockets (IPv4 + IPv6):**
@@ -141,10 +169,16 @@ peers interoperate. This encoding is part of protocol version 8
 Platform Notes
 --------------
 
-* **macOS and BSD dual-stack sockets:** ``SendTTL`` (the TTL probe used by NAT
-  punchthrough) to an IPv4 target cannot set ``IP_TTL`` on the IPv6 socket
-  (``EINVAL``), so the datagram goes out at full TTL. Linux and Windows apply
-  the TTL.
+* **SendTTL on dual-stack sockets:** ``SendTTL`` (the TTL probe used by NAT
+  punchthrough) sets ``IP_TTL`` for an IPv4 target where the IPv6 socket
+  accepts it, and otherwise ``IPV6_UNICAST_HOPS``; IPv6 targets always use
+  ``IPV6_UNICAST_HOPS``. The old value is restored after the send. Measured:
+  on Linux, ``IP_TTL`` governs the IPv4 datagrams of a dual-stack socket (the
+  hop limit does not); on macOS, ``IP_TTL`` is rejected (``EINVAL``) and
+  ``IPV6_UNICAST_HOPS`` governs IPv4-mapped datagrams. The integration tests
+  check the TTL that actually arrives on both. Windows dual-mode sockets are
+  documented to honour ``IP_TTL`` but were not measured; the BSDs share the
+  macOS code but were not measured either.
 * **Firewalls:** open the UDP port for IPv6 as well as IPv4.
 * **NAT:** IPv6 normally needs no NAT, but NAT64 may be in the path.
 
@@ -154,9 +188,10 @@ Configuration Options
 .. code-block:: cpp
 
    SocketDescriptor sd;
+   sd.socketFamily = AF_UNSPEC;     // Dual-stack on the wildcard address (default)
    sd.socketFamily = AF_INET6;      // IPv6 only
-   sd.socketFamily = AF_INET;       // IPv4 only
-   sd.socketFamily = AF_UNSPEC;     // Dual-stack on the wildcard address
+   sd.socketFamily = AF_INET;       // IPv4 only (the pre-0.27.0 default)
+   sd.requireDualStack = true;      // AF_UNSPEC: fail rather than fall back to IPv4
 
    // Bind to a specific interface (its family decides the socket family)
    strcpy(sd.hostAddress, "2001:db8::1");

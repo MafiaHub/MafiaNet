@@ -103,7 +103,10 @@ protected:
 
 TEST_F(DualStackLive, Ipv4ClientSeenAsPlainIpv4)
 {
-	ASSERT_EQ(server->GetMyBoundAddress().GetIPVersion(), 6);
+	// A dual-stack wildcard socket reports 127.0.0.1|port, like an IPv4 one;
+	// MAFIANET_START_DUAL_STACK already checked IsDualStack().
+	ASSERT_EQ(std::string(server->GetMyBoundAddress().ToString(false)), "127.0.0.1");
+	ASSERT_EQ(server->GetMyBoundAddress().GetPort(), serverPort);
 
 	ASSERT_EQ(clientV4->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 	ASSERT_EQ(clientV6->Connect("::1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);

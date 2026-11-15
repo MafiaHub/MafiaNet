@@ -505,7 +505,10 @@ public:
 	/// Return my own GUID
 	const RakNetGUID GetMyGUID(void) const;
 
-	/// Return the address bound to a socket at the specified index
+	/// Return the address bound to a socket at the specified index. A wildcard
+	/// socket reports loopback with its port: 127.0.0.1 for an IPv4 or a
+	/// dual-stack socket (see RakNetSocket2::IsDualStack()), ::1 for an
+	/// IPv6-only one.
 	SystemAddress GetMyBoundAddress(const int socketIndex = 0);
 
 	/// \brief  Given a connected system address, this method gives the unique GUID representing that instance of RakPeer.

@@ -205,7 +205,14 @@ For IPv6 addresses:
        // Handle IPv6
    }
 
-IPv6 is always compiled in; there is no build switch. An IPv4-mapped literal
+IPv6 is always compiled in; there is no build switch. Sockets are dual-stack
+by default (``SocketDescriptor::socketFamily == AF_UNSPEC``): one socket reaches
+IPv4 and IPv6 peers, IPv4 peers are still reported as plain IPv4 addresses, and
+``GetMyBoundAddress()`` on a wildcard socket reports ``127.0.0.1`` and its port
+as an IPv4 socket does. Set ``socketFamily = AF_INET`` for an IPv4-only socket
+(the pre-0.27.0 default), or ``requireDualStack = true`` to fail ``Startup()``
+rather than fall back to IPv4. On Linux, a default socket on a port excludes a
+separate ``AF_INET`` socket on the same port. An IPv4-mapped literal
 (``::ffff:192.0.2.1``) is stored as the plain IPv4 address, so a peer reached
 over a dual-stack socket compares equal to the same peer reached over IPv4.
 ``IsIPv4Mapped()`` and ``UnmapIPv4()`` expose that normalization for addresses

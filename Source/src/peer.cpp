@@ -498,6 +498,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			bbp.port = socketDescriptors[i].port;
 			bbp.hostAddress = (char *) socketDescriptors[i].hostAddress;
 			bbp.addressFamily = socketDescriptors[i].socketFamily;
+			bbp.requireDualStack = socketDescriptors[i].requireDualStack;
 			bbp.type = SOCK_DGRAM;
 			bbp.protocol = socketDescriptors[i].extraSocketOptions;
 			bbp.nonBlockingSocket = false;

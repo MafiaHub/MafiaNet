@@ -209,6 +209,10 @@ public:
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
+	/// The address the socket is bound to. A wildcard bind reports loopback:
+	/// 127.0.0.1 for an IPv4 socket and for a dual-stack one (which reaches
+	/// IPv4 loopback, so callers that connect to or compare with this address
+	/// work as with an IPv4 socket), ::1 for an IPv6-only socket.
 	SystemAddress GetBoundAddress(void) const;
 	/// True for a dual-stack socket: AF_INET6 with IPV6_V6ONLY=0, bound to the
 	/// wildcard address, opened for SocketDescriptor::socketFamily == AF_UNSPEC.
@@ -241,6 +245,10 @@ public:
 	static void DomainNameToIP(const char *domainName, char ip[65], int addressFamily = AF_INET);
 
 protected:
+	// The OS socket's own family: AF_INET6 for a dual-stack socket, whose
+	// boundAddress reports 127.0.0.1, otherwise boundAddress's family.
+	int SocketFamily(void) const;
+
 	RNS2EventHandler *eventHandler;
 	RNS2Type socketType;
 	SystemAddress boundAddress;
@@ -262,6 +270,10 @@ struct RNS2_BerkleyBindParameters
 	int doNotFragment;
 	int pollingThreadPriority;
 	RNS2EventHandler *eventHandler;
+	// With addressFamily == AF_UNSPEC: report BR_FAMILY_NOT_SUPPORTED rather than
+	// fall back to an IPv4 socket when no dual-stack socket can be had. See
+	// SocketDescriptor::requireDualStack.
+	bool requireDualStack = false;
 };
 
 // Berkeley sockets interface - base class for all platforms
@@ -300,8 +312,8 @@ protected:
 	// back to AF_INET. A failed bind() is not such a failure.
 	RNS2BindResult BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable);
 	// Where the socket sends datagrams to itself (bind send test, waking the
-	// recv thread). The bound address, except on a dual-stack socket, which
-	// uses 127.0.0.1: IPv4 loopback always works there, ::1 may be disabled.
+	// recv thread): the bound address, which is 127.0.0.1 on a dual-stack
+	// socket (IPv4 loopback always works there, ::1 may be disabled).
 	SystemAddress SelfSendAddress(void) const;
 
 	static void GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);

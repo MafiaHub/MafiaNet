@@ -160,7 +160,9 @@ void RNS2_Berkley::SetDoNotFragment([[maybe_unused]] int opt) // unused where IP
 	// If this assert hit you improperly linked against WSock32.h
 	RakAssert(IP_DONTFRAGMENT == 14);
 #endif
-	setsockopt__(rns2Socket, boundAddress.GetIPPROTO(), IP_DONTFRAGMENT, (char *) &opt, sizeof(opt));
+	// The socket's own family, not the reported bound address (127.0.0.1 on a
+	// dual-stack socket).
+	setsockopt__(rns2Socket, SocketFamily() == AF_INET6 ? IPPROTO_IPV6 : IPPROTO_IP, IP_DONTFRAGMENT, (char *) &opt, sizeof(opt));
 #endif
 }
 
@@ -231,10 +233,26 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	// AF_UNSPEC: one AF_INET6 socket with IPV6_V6ONLY=0 serves both families.
 	// Only when the host cannot provide that (no IPv6 stack, an IPv4-only bind
 	// address, or a system such as OpenBSD that refuses V6ONLY=0) fall back to
-	// a plain IPv4 socket. A bind() failure -- the port is taken -- is reported
-	// as is: an IPv4 socket on that port would hide the conflict.
+	// a plain IPv4 socket -- unless the caller requires dual-stack, which then
+	// fails instead. A bind() failure -- the port is taken -- is reported as
+	// is: an IPv4 socket on that port would hide the conflict.
 	bool dualStackUnavailable = false;
 	const RNS2BindResult result = BindAddressFamily(bindParameters, AF_INET6, true, &dualStackUnavailable);
+	if (bindParameters->requireDualStack)
+	{
+		if (dualStackUnavailable)
+			return BR_FAMILY_NOT_SUPPORTED;
+		if (result == BR_SUCCESS && !dualStack)
+		{
+			// Bound, but to one IPv6 address (hostAddress was set): it cannot
+			// exchange IPv4 traffic, so it is not the socket that was asked for.
+			closesocket__(rns2Socket);
+			rns2Socket = (RNS2Socket) INVALID_SOCKET;
+			boundAddress = UNASSIGNED_SYSTEM_ADDRESS;
+			return BR_FAMILY_NOT_SUPPORTED;
+		}
+		return result;
+	}
 	if (!dualStackUnavailable)
 		return result;
 	return BindAddressFamily(bindParameters, AF_INET, false, nullptr);
@@ -340,6 +358,16 @@ RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindP
 			SetIPHdrIncl(bindParameters->setIPHdrIncl);
 
 			GetSystemAddressIPV4And6(rns2Socket, &boundAddress);
+			// A dual-stack wildcard socket reports 127.0.0.1|port, like an IPv4
+			// wildcard socket: callers connect to and compare with the bound
+			// address, and IPv4 loopback always reaches this socket while ::1
+			// may be disabled. IsDualStack() tells the two sockets apart.
+			if (dualStack)
+			{
+				const unsigned short port = boundAddress.GetPortNetworkOrder();
+				boundAddress.SetToLoopback(4);
+				boundAddress.SetPortNetworkOrder(port);
+			}
 
 			return BR_SUCCESS;
 		}
@@ -357,12 +385,8 @@ RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindP
 
 SystemAddress RNS2_Berkley::SelfSendAddress(void) const
 {
-	if (!dualStack)
-		return boundAddress;
-	SystemAddress self;
-	self.SetToLoopback(4);
-	self.SetPortNetworkOrder(boundAddress.GetPortNetworkOrder());
-	return self;
+	// A dual-stack socket already reports 127.0.0.1 (see BindAddressFamily).
+	return boundAddress;
 }
 
 void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)

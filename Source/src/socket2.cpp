@@ -170,6 +170,10 @@ bool RakNetSocket2::IsDualStack(void) const
 {
 	return dualStack;
 }
+int RakNetSocket2::SocketFamily(void) const
+{
+	return dualStack ? AF_INET6 : boundAddress.address.addr4.sin_family;
+}
 
 RakNetSocket2 *RakNetSocket2Allocator::AllocRNS2(void)
 {
@@ -229,6 +233,8 @@ bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, un
 	bbp.doNotFragment = false;
 	bbp.protocol = 0;
 	bbp.setIPHdrIncl = false;
+	bbp.pollingThreadPriority = 0;
+	bbp.eventHandler = nullptr;
 	SystemAddress boundAddress;
 	RNS2_Berkley *rns2 = (RNS2_Berkley *) RakNetSocket2Allocator::AllocRNS2();
 	RNS2BindResult bindResult = rns2->Bind(&bbp, _FILE_AND_LINE_);
@@ -402,7 +408,7 @@ RNS2SendResult RNS2_Windows::Send(RNS2_SendParameters *sendParameters, const cha
 		if (len >= 0)
 			return len;
 	}
-	return Send_Windows_Linux(rns2Socket, boundAddress.address.addr4.sin_family, dualStack, sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters, file, line);
 }
 void RNS2_Windows::GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS])
 {
@@ -423,7 +429,7 @@ RNS2BindResult RNS2_Linux::Bind(RNS2_BerkleyBindParameters *bindParameters, cons
 }
 RNS2SendResult RNS2_Linux::Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
 {
-	return Send_Windows_Linux(rns2Socket, boundAddress.address.addr4.sin_family, dualStack, sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters, file, line);
 }
 // See the declaration in socket2.h for why __linux__ is required here and not
 // just the build flag.
@@ -476,8 +482,7 @@ RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count,
 			                                             // on a dual-stack socket). A target this socket cannot reach gets no
 			                                             // name at all: sendmmsg then fails that one message with
 			                                             // EDESTADDRREQ, a per-message error, so only it is dropped.
-			                                             const socklen_t nameLen = SystemAddressToSockaddr(p->systemAddress, dualStack, &names[i],
-			                                                                                               boundAddress.address.addr4.sin_family);
+			                                             const socklen_t nameLen = SystemAddressToSockaddr(p->systemAddress, dualStack, &names[i], SocketFamily());
 			                                             msgs[i].msg_hdr.msg_name = nameLen != 0 ? (void *) &names[i] : nullptr;
 			                                             msgs[i].msg_hdr.msg_namelen = nameLen;
 		                                             }
