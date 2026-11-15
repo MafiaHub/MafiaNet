@@ -113,12 +113,12 @@ re-splitting every queued message that no longer fits. ``GetMTUSize()`` reports 
 ``RakNetStatistics::mtuStepDowns`` counts the steps. A step is permanent for the connection.
 
 It steps down only on a size-specific signature: a packet that would shrink at the next rung has
-gone unacknowledged through 4 transmissions, and 12 transmissions of such large packets in a row
-have failed without a datagram of their size being acknowledged in between. Ordinary loss hits
-datagrams of every size, so on a lossy link some large datagrams still get through and the count
-starts over; a black hole drops them all. A lone large packet takes 12 resends to detect, a
-message with several large fragments in flight about as many resend rounds as it has large
-fragments.
+gone unacknowledged through 4 transmissions, and 12 resend rounds in a row have each seen such a
+large packet fail, without a datagram of their size being acknowledged in between. Ordinary loss
+hits datagrams of every size, so on a lossy link some large datagrams still get through and the
+count starts over; a black hole drops them all. Failures detected together, such as the many
+fragments of a bulk transfer whose timeouts expire at once, count as one round. Detection
+therefore takes about 12 retransmission timeouts.
 
 Messages re-split after a step-down are still delivered exactly once, and leave no gap in the
 receiver's reliable-message window. The original's unacknowledged packets are dropped with their

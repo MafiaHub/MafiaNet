@@ -143,6 +143,11 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	/// deliver the payload exactly once.
 	bool resplitCopy;
 
+	/// Sender-side bookkeeping, never transmitted: when this packet last went
+	/// out (set by ReliabilityLayer::PushPacket), so a resend knows when the
+	/// transmission that failed was made (MtuBlackHoleEvidence::OnResend).
+	MafiaNet::TimeUS lastTransmissionTime;
+
 	// Used for the resend queue
 	// Linked list implementation so I can remove from the list via a pointer, without finding it in the list
 	InternalPacket *resendPrev, *resendNext, *unreliablePrev, *unreliableNext;

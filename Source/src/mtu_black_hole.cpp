@@ -44,14 +44,19 @@ MtuBlackHoleEvidence::MtuBlackHoleEvidence()
 	Reset();
 }
 
-void MtuBlackHoleEvidence::OnResend(int requiredDatagramBytes, int currentMtuBytes)
+void MtuBlackHoleEvidence::OnResend(int requiredDatagramBytes, int currentMtuBytes, uint64_t previousTransmissionTime, uint64_t now)
 {
 	const int nextLower = NextLowerMtu(currentMtuBytes);
 	if (nextLower == 0 || requiredDatagramBytes <= nextLower)
 		return;
-	failures++;
 	if (requiredDatagramBytes < smallestFailedBytes)
 		smallestFailedBytes = requiredDatagramBytes;
+	// Sent before the last counted failure was detected: it failed in the
+	// same round, not in a later one.
+	if (failures > 0 && previousTransmissionTime < lastCountedAt)
+		return;
+	failures++;
+	lastCountedAt = now;
 }
 
 void MtuBlackHoleEvidence::OnDatagramAcked(int datagramBytes)
@@ -64,6 +69,7 @@ void MtuBlackHoleEvidence::Reset()
 {
 	failures = 0;
 	smallestFailedBytes = INT_MAX;
+	lastCountedAt = 0;
 }
 
 bool MtuBlackHoleEvidence::IsBlackHoleLikely() const

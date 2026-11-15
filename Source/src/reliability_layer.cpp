@@ -2232,7 +2232,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 						// Its previous transmission went unacked: a failure, and black-hole
 						// evidence if the packet would shrink at the next rung.
 						mtuBlackHoleEvidence.OnResend((int) BITS_TO_BYTES(nextPacketBitLength) + (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE + cipherOverheadBytes,
-						                              currentMtuBytes);
+						                              currentMtuBytes, (uint64_t) internalPacket->lastTransmissionTime, (uint64_t) time);
 
 						PushPacket(time, internalPacket, true); // Affects GetNewTransmissionBandwidth()
 						internalPacket->timesSent++;
@@ -4276,6 +4276,7 @@ void ReliabilityLayer::PushPacket(CCTimeType time, InternalPacket *internalPacke
 	allDatagramSizesSoFar += bitsForThisPacket;
 	packetsToSendThisUpdate.Push(internalPacket, _FILE_AND_LINE_);
 	packetsToDeallocThisUpdate.Push(isReliable == false, _FILE_AND_LINE_);
+	internalPacket->lastTransmissionTime = time;
 	RakAssert(internalPacket->headerLength == GetMessageHeaderLengthBits(internalPacket));
 
 	// This code tells me how much time elapses between when you send, and when the message actually goes out
@@ -4494,6 +4495,7 @@ InternalPacket *ReliabilityLayer::AllocateFromInternalPacketPool(void)
 	ip->timesSent = 0;
 	ip->splitOriginalBitLength = 0;
 	ip->resplitCopy = false;
+	ip->lastTransmissionTime = 0;
 	return ip;
 }
 //-------------------------------------------------------------------------------------------------------

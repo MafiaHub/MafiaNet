@@ -50,17 +50,23 @@ const uint32_t MTU_BLACKHOLE_RESEND_THRESHOLD = 4;
 /// below the bottom rung.
 int RAK_DLL_EXPORT NextLowerMtu(int currentMtuBytes);
 
-/// How many transmissions of too-large packets must fail in a row -- each one
-/// resent because its previous transmission went unacked, with no datagram of
-/// that size acknowledged in between -- before a step-down. Packet loss hits
-/// datagrams of every size, so on a lossy link some large datagrams still get
-/// through and each one restarts the count; a black hole drops every one of
-/// them. With loss p each way a transmission fails with probability
-/// 1-(1-p)^2, so twelve failures in a row by chance take about 5e-6 at 20%
-/// loss and 2e-8 at 10%, where the single-packet threshold above alone fired
-/// for about 1 large packet in 60 at 20% loss (issue #94). A message with
-/// several large fragments in flight reaches the count in as many resend
-/// rounds as before; a lone large packet needs this many resends.
+/// How many resend rounds in a row must each see a too-large transmission fail
+/// -- resent because it went unacked, with no datagram of that size
+/// acknowledged in between -- before a step-down. Packet loss hits datagrams
+/// of every size, so on a lossy link some large datagrams still get through
+/// and each one restarts the count; a black hole drops every one of them.
+///
+/// At most one failure counts per round (see MtuBlackHoleEvidence::OnResend):
+/// the transmissions a single round of retransmission timeouts resends all
+/// failed together, with no chance for an ack in between, so counting each
+/// would let one bad round of a bulk transfer stand in for many. Counting
+/// rounds, and taking a round as one trial that fails with the probability q
+/// that one transmission does (1-(1-p)^2 with loss p each way: 0.36 at 20%,
+/// 0.19 at 10%), twelve in a row by chance is about q^12: 5e-6 at 20% loss,
+/// 2e-9 at 10%. That is a model, not a bound: the transmissions of one round
+/// are not the only thing that can fail together. Before #94 the per-packet
+/// threshold above fired alone, for about 1 large packet in 60 at 20% loss.
+/// The cost is detection time: about this many retransmission timeouts.
 const uint32_t MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD = 12;
 
 /// The size-specific half of the black-hole signature: failed transmissions of
@@ -73,9 +79,13 @@ public:
 	MtuBlackHoleEvidence();
 
 	/// A reliable packet that needs \a requiredDatagramBytes on the wire is
-	/// being resent: its previous transmission was not acknowledged. Counted
-	/// only when it would shrink at the next rung below \a currentMtuBytes.
-	void OnResend(int requiredDatagramBytes, int currentMtuBytes);
+	/// being resent at \a now: its previous transmission, at
+	/// \a previousTransmissionTime, was not acknowledged. Considered only when
+	/// it would shrink at the next rung below \a currentMtuBytes, and counted
+	/// only when that transmission went out at or after the last counted
+	/// failure was detected: failures detected together are one round.
+	/// Times in any one unit, microseconds in the reliability layer.
+	void OnResend(int requiredDatagramBytes, int currentMtuBytes, uint64_t previousTransmissionTime, uint64_t now);
 
 	/// A datagram of \a datagramBytes on the wire was acknowledged. One at
 	/// least as large as a counted failure shows the path carries that size,
@@ -92,8 +102,10 @@ public:
 
 private:
 	uint32_t failures;
-	// The smallest required size among the counted failures.
+	// The smallest required size among the failures since the count started.
 	int smallestFailedBytes;
+	// When the last counted failure was detected.
+	uint64_t lastCountedAt;
 };
 
 /// The per-packet half of the black-hole signature, checked together with

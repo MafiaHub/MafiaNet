@@ -135,6 +135,58 @@ TEST(MtuBlackHoleSimulated, TenPercentLossEachWayNeverStepsDown)
 	}
 }
 
+namespace
+{
+// Bulk transfer: four 400 KB Reliable messages, each split into ~300 full-size fragments that go out
+// together and whose retransmission timeouts expire together -- after warm-up traffic has measured the
+// round trip. Returns the client's step-downs. Counting every failed resend (before the one-per-round
+// rule), this stepped down in 25 of 40 runs at 20% loss.
+unsigned int BulkTransferStepDowns(uint32_t seed, int lossPercent, unsigned int *delivered)
+{
+	SimulatedNetwork net(seed);
+	RakPeer *server = net.AddPeer(4, 4);
+	RakPeer *client = net.AddPeer(4, 0);
+	*delivered = 0;
+	if (!net.Connect(client, server, 10000))
+		return 1000;
+	const SystemAddress serverAddress = net.AddressOf(server);
+	SimulatedNetwork::LinkRule lossy;
+	lossy.lossPercent = lossPercent;
+	// A short round trip makes for short timeouts and many resend rounds per transfer.
+	lossy.delayMs = 1;
+	lossy.jitterMs = 0;
+	net.SetLinkBothWays(client, server, lossy);
+	for (uint32_t i = 0; i < 50; ++i)
+	{
+		SendPayload(client, serverAddress, i, 24, Reliability::Reliable);
+		net.Step(20);
+	}
+	net.Inbox(server).clear();
+	for (uint32_t burst = 0; burst < 4; ++burst)
+	{
+		SendPayload(client, serverAddress, 1000 + burst, 400 * 1024, Reliability::Reliable);
+		net.RunUntil([&]
+		             { return net.Received(server, ID_PAYLOAD); }, 120000, 10);
+		*delivered += net.Received(server, ID_PAYLOAD) ? 1 : 0;
+		net.Inbox(server).clear();
+	}
+	return StepDowns(client, serverAddress);
+}
+} // namespace
+
+TEST(MtuBlackHoleSimulated, BulkTransfersUnderLossNeverStepDown)
+{
+	// A round of timeouts resends hundreds of large fragments at once; counted one by one, a single bad
+	// round looked like many rounds of a black hole.
+	for (int loss : {20, 10})
+		for (uint32_t seed = 1; seed <= 12; ++seed)
+		{
+			unsigned int delivered = 0;
+			EXPECT_EQ(0u, BulkTransferStepDowns(seed, loss, &delivered)) << "loss " << loss << "% seed " << seed;
+			EXPECT_EQ(4u, delivered) << "loss " << loss << "% seed " << seed;
+		}
+}
+
 TEST(MtuBlackHoleSimulated, AOneWayCeilingTheHandshakeDidNotProbeStepsTheServerDown)
 {
 	// The handshake probes client -> server only. Server -> client then drops every datagram over 1100
