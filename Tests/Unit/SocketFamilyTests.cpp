@@ -371,3 +371,12 @@ TEST(SocketResolve, MappedLiteralOnDualStackSocketResolvesToIpv4)
 	EXPECT_EQ(std::string(out[0].ToString(false)), "127.0.0.1");
 	EXPECT_EQ(out[0].GetPort(), 9);
 }
+
+// Startup reports a family the host lacks as SOCKET_FAMILY_NOT_SUPPORTED; Connect() to an address the started
+// socket's family cannot reach does not resolve in that family, so it fails at once with CANNOT_RESOLVE_DOMAIN_NAME.
+TEST(SocketFamilyConnect, Ipv6LiteralOnIpv4OnlyPeerCannotResolve)
+{
+	PeerGuard guard;
+	ASSERT_NE(StartWildcard(guard.peer, AF_INET), nullptr);
+	EXPECT_EQ(guard.peer->Connect("2001:db8::1", 60000, nullptr, 0), CANNOT_RESOLVE_DOMAIN_NAME);
+}

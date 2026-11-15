@@ -109,9 +109,18 @@ Connecting
    // Hostname, resolved to IPv6 and/or IPv4 candidates
    peer->Connect("game.example.com", 60000, nullptr, 0);
 
-Connecting to a family the socket does not have fails with
-``SOCKET_FAMILY_NOT_SUPPORTED`` (the former
-``BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE`` result no longer exists).
+``Connect()`` resolves the host only in the families its socket reaches: on an
+IPv4-only socket an IPv6 literal such as ``2001:db8::1`` (or a name with only
+IPv6 addresses) does not resolve, and ``Connect()`` returns
+``CANNOT_RESOLVE_DOMAIN_NAME`` at once; the same goes for IPv4 on an IPv6-only
+socket. The loopback literals are the exception: ``::1`` on an IPv4-only socket
+means ``127.0.0.1``, and ``127.0.0.1`` on an IPv6-only socket means ``::1``.
+
+``SOCKET_FAMILY_NOT_SUPPORTED`` is a ``Startup()`` result, never a
+``Connect()`` one: it reports a socket family the host cannot open (for example
+``AF_INET6`` without IPv6), or ``requireDualStack`` that cannot be met. It
+replaces the former ``BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE`` result, which no
+longer exists.
 
 **Happy Eyeballs (RFC 8305).** A hostname ``Connect()`` on a dual-stack socket
 races the IPv6 and IPv4 candidates: attempts start 250 ms apart, interleaved by
