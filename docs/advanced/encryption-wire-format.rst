@@ -60,16 +60,21 @@ Anything in them can be read or replaced by anyone on the path.
 ID_OPEN_CONNECTION_REQUEST_1 (client to server)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Unchanged apart from the protocol version::
+::
 
     [message ID] (u8)
     [OFFLINE_ID] (16 bytes)
     [protocol version] (u8) // 9
     <zero pad up to the MTU being probed>
 
-A server whose version differs answers with ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` and does nothing
-else. The padding makes the datagram as large as the MTU being probed; the server's MTU in the
-reply follows from the datagram's size.
+**At least 35 bytes**, the size of ``REPLY_1``: a server silently ignores a shorter ``REQUEST_1``,
+so answering one never sends back more than it received. A real client always pads to the MTU it
+is probing, at least 548 bytes (the smallest rung of the MTU ladder, 576, minus 28 bytes of IP and
+UDP headers).
+
+A server whose version differs answers with ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` (26 bytes) and does
+nothing else. The padding makes the datagram as large as the MTU being probed; the server's MTU in
+the reply follows from the datagram's size.
 
 ID_OPEN_CONNECTION_REPLY_1 (server to client)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,12 +115,20 @@ ID_OPEN_CONNECTION_REPLY_2 (server to client)
 
     [message ID] (u8)
     [OFFLINE_ID] (16 bytes)
+    [nonce echo] (u64)      // the nonce of the client crypt info this answers, see below
     [server GUID] (u64)
     [client address] (SystemAddress) // the client's address, as the server sees it
     [MTU] (u16)
     [server crypt info] (41 bytes)
 
-75 bytes with an IPv4 client address, 87 with IPv6.
+83 bytes with an IPv4 client address, 95 with IPv6.
+
+The nonce echo is the ``nonce`` field of the client crypt info from the ``REQUEST_2`` being answered,
+written by ``BitStream`` (network byte order, like the challenge). It plays the part of the client's
+``connection_id`` that GameNetworkingSockets echoes in its ConnectOK. Before anything else, the
+client compares it with the nonce of its pending attempt to that address and silently drops a
+``REPLY_2`` that does not match, so an off-path attacker has to guess 64 random bits to get a forged
+``REPLY_2`` processed at all.
 
 Crypt info
 ~~~~~~~~~~
@@ -126,8 +139,10 @@ Both sides send the same 41-byte record::
     [X25519 public key] (32 bytes)
     [nonce] (u64, little-endian)
 
-In mode Plaintext the public key and the nonce are all zero. In mode Required the public key is a
-fresh ephemeral key per handshake attempt and the nonce is 64 random bits drawn at the same time.
+In mode Plaintext the public key is all zero. The client's nonce is 64 random bits in both modes,
+because ``REPLY_2`` echoes it; a Plaintext server's nonce is zero. In mode Required the public key
+is a fresh ephemeral key per handshake attempt and the nonce is drawn at the same time. A Plaintext
+crypt info never enters a key schedule: key derivation refuses a remote whose mode is not Required.
 The client uses one key pair and one crypt info for every ``REQUEST_2`` of one connection request
 (each Happy Eyeballs candidate address has its own), including retransmissions.
 
@@ -335,7 +350,8 @@ A sequence is accepted at most once, and datagrams may arrive out of order as lo
 Plaintext mode
 --------------
 
-With mode Plaintext on both sides, the crypt infos carry zero keys and nonces, no keys are derived,
+With mode Plaintext on both sides, the crypt infos carry zero keys (and only the client's nonce, for
+the ``REPLY_2`` echo), no keys are derived,
 no overhead is reserved, and connected datagrams are bare reliability-layer datagrams as they were
 before protocol version 9. ``ID_CONNECTION_REQUEST`` is then the first datagram of the connection,
 unsealed. ``droppedUnauthenticatedDatagrams`` stays 0.
@@ -373,12 +389,18 @@ Security notes
 
 * Nothing in the handshake is authenticated. An attacker on the path can substitute their own crypt
   info on each leg and relay the connection (see :doc:`../basics/secure-connections`).
-* An off-path attacker that knows a connecting client's address and port can send a forged
-  ``REPLY_2`` or a mismatch ID during the connect window and make that attempt fail. It cannot learn
-  or choose the session keys, because it does not hold the client's ephemeral secret.
+* An off-path attacker that knows a connecting client's address and port can send a refusal ID
+  (``ID_CONNECTION_BANNED``, a mode mismatch ID and the like) during the connect window and make that
+  attempt fail. A forged ``REPLY_2`` needs the 64-bit nonce echo as well, which an off-path attacker
+  does not see. Neither lets it learn or choose the session keys, because it does not hold the
+  client's ephemeral secret.
+* ``REQUEST_1`` is ignored unless it is at least as long as ``REPLY_1``, so the server cannot be used
+  to amplify traffic towards a spoofed address.
 * ``REPLY_1`` and ``REQUEST_2`` are unauthenticated and cheap. The challenge keeps the responder
   from allocating memory or doing a key exchange for a sender that cannot receive at its claimed
-  address; it does not stop a flood from an address the attacker really controls.
+  address; it does not stop a flood from an address the attacker really controls. The responder
+  runs its X25519 only after every cheap refusal, including ``SetLimitIPConnectionFrequency``'s
+  "connected from this IP in the last 100 ms".
 * A responder keys a connection when it processes ``REQUEST_2``, so from then on every datagram from
   that address must be sealed; a plaintext datagram is dropped and counted like any forgery.
 
@@ -421,3 +443,7 @@ Constants
      - 0 to 3 buckets after issue (about 3.1 to 4.2 s)
    * - Maximum datagram
      - 1400 bytes (``MAXIMUM_MTU_SIZE``)
+   * - Minimum ``REQUEST_1``
+     - 35 bytes (the size of ``REPLY_1``)
+   * - ``REPLY_2`` nonce echo
+     - 8 bytes, right after ``OFFLINE_ID``

@@ -47,7 +47,8 @@ struct RAK_DLL_EXPORT CryptInfo
 	EncryptionMode mode = EncryptionMode::Required;
 	/// X25519 public key; zero when mode == Plaintext.
 	uint8_t publicKey[32] = {};
-	/// Random per handshake; 0 when mode == Plaintext.
+	/// Random per handshake. A client's nonce is random in both modes (ID_OPEN_CONNECTION_REPLY_2 echoes it);
+	/// a Plaintext server's is 0.
 	uint64_t nonce = 0;
 
 	static constexpr int kSerializedBytes = 1 + 32 + 8;

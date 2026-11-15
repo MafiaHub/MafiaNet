@@ -248,6 +248,11 @@ static const unsigned int MAX_OFFLINE_DATA_LENGTH = 400; // I set this because I
 // Should be different than any message that could result from messages from the reliability layer
 // Make sure highest bit is 0, so isValid in DatagramHeaderFormat is false
 static const unsigned char OFFLINE_MESSAGE_DATA_ID[16] = {0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78};
+// The size of ID_OPEN_CONNECTION_REPLY_1: MessageID | OFFLINE_MESSAGE_DATA_ID | server RakNetGUID | challenge | MTU.
+// ID_OPEN_CONNECTION_REQUEST_1 must be at least this long, so answering it never amplifies traffic. Clients pad
+// REQUEST_1 to the MTU they probe (at least the smallest MTU_LADDER rung minus UDP_HEADER_SIZE), far above this.
+static const int OPEN_CONNECTION_REPLY_1_BYTES = (int) (sizeof(MessageID) + sizeof(OFFLINE_MESSAGE_DATA_ID) + sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint16_t));
+static_assert(sizeof(RakNetGUID::g) == sizeof(uint64_t), "REPLY_1 size assumes an 8-byte RakNetGUID");
 
 struct PacketFollowedByData
 {
@@ -750,6 +755,29 @@ const unsigned char *RakPeer::GetOfflineMessageDataIdForTesting()
 {
 	static_assert(sizeof(OFFLINE_MESSAGE_DATA_ID) == kOfflineMessageDataIdBytes, "kOfflineMessageDataIdBytes is stale");
 	return OFFLINE_MESSAGE_DATA_ID;
+}
+
+bool RakPeer::GetPendingHandshakeNonceForTesting(const SystemAddress &remote, uint64_t *out)
+{
+	bool found = false;
+	requestedConnectionQueueMutex.Lock();
+	for (unsigned i = 0; i < requestedConnectionQueue.Size(); i++)
+	{
+		const RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
+		if (rcs->systemAddress == remote && !rcs->cancelled)
+		{
+			*out = rcs->handshakeNonce;
+			found = true;
+			break;
+		}
+	}
+	requestedConnectionQueueMutex.Unlock();
+	return found;
+}
+
+uint64_t RakPeer::GetServerKeyExchangeCountForTesting() const
+{
+	return serverKeyExchangeCount;
 }
 
 bool RakPeer::GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys *out) const
@@ -3506,7 +3534,12 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	for (int c = 0; c < candidateCount; c++)
 	{
 		if (encryptionMode == EncryptionMode::Required)
+		{
 			requests[c]->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
+			requests[c]->handshakeNonce = requests[c]->ephemeral->MakeCryptInfo().nonce;
+		}
+		else
+			randombytes_buf(&requests[c]->handshakeNonce, sizeof(requests[c]->handshakeNonce)); // echoed by REPLY_2, so unpredictable here too
 		requestedConnectionQueue.Push(requests[c], _FILE_AND_LINE_);
 	}
 	requestedConnectionQueueMutex.Unlock();
@@ -3565,7 +3598,12 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 		return ALREADY_CONNECTED_TO_ENDPOINT;
 	}
 	if (encryptionMode == EncryptionMode::Required)
+	{
 		rcs->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
+		rcs->handshakeNonce = rcs->ephemeral->MakeCryptInfo().nonce;
+	}
+	else
+		randombytes_buf(&rcs->handshakeNonce, sizeof(rcs->handshakeNonce)); // echoed by REPLY_2, so unpredictable here too
 	requestedConnectionQueue.Push(rcs, _FILE_AND_LINE_);
 	requestedConnectionQueueMutex.Unlock();
 
@@ -3893,10 +3931,27 @@ unsigned int RakPeer::GetNumberOfRemoteInitiatedConnections(void) const
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::IPConnectedRecently(const SystemAddress &systemAddress, MafiaNet::TimeMS time) const
+{
+	if (!limitConnectionFrequencyFromTheSameIP || IsLoopbackAddress(systemAddress, false))
+		return false;
+	for (unsigned i = 0; i < maximumNumberOfPeers; i++)
+	{
+		// 4/13/09 Attackers can flood ID_OPEN_CONNECTION_REQUEST and use up all available connection slots
+		// Ignore connection attempts if this IP address connected within the last 100 milliseconds
+		if (remoteSystemList[i].isActive == true &&
+		    remoteSystemList[i].systemAddress.EqualsExcludingPort(systemAddress) &&
+		    time >= remoteSystemList[i].connectionTime &&
+		    time - remoteSystemList[i].connectionTime < 100)
+			return true;
+	}
+	return false;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo)
 {
 	RemoteSystemStruct *remoteSystem;
-	unsigned i, j, assignedIndex;
+	unsigned j, assignedIndex;
 	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 #ifdef _DEBUG
 	RakAssert(systemAddress != UNASSIGNED_SYSTEM_ADDRESS);
@@ -3907,25 +3962,13 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 	if ((encryptionMode == EncryptionMode::Required) != (sessionKeys != nullptr))
 		return 0;
 
-	if (limitConnectionFrequencyFromTheSameIP)
+	// The ID_OPEN_CONNECTION_REQUEST_2 handler runs the same check before its key exchange; this one also
+	// covers the connecting side.
+	if (IPConnectedRecently(systemAddress, time))
 	{
-		if (IsLoopbackAddress(systemAddress, false) == false)
-		{
-			for (i = 0; i < maximumNumberOfPeers; i++)
-			{
-				if (remoteSystemList[i].isActive == true &&
-				    remoteSystemList[i].systemAddress.EqualsExcludingPort(systemAddress) &&
-				    time >= remoteSystemList[i].connectionTime &&
-				    time - remoteSystemList[i].connectionTime < 100)
-				{
-					// 4/13/09 Attackers can flood ID_OPEN_CONNECTION_REQUEST and use up all available connection slots
-					// Ignore connection attempts if this IP address connected within the last 100 milliseconds
-					*thisIPConnectedRecently = true;
-					ValidateRemoteSystemLookup();
-					return 0;
-				}
-			}
-		}
+		*thisIPConnectedRecently = true;
+		ValidateRemoteSystemLookup();
+		return 0;
 	}
 
 	// Don't use a different port than what we received on
@@ -5125,7 +5168,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | challenge (uint64, 8) | client CryptInfo (41)
 			//   | binding address (SystemAddress, the server's address as we see it) | MTU (uint16, 2) | client RakNetGUID (8)
 			// CryptInfo (CryptInfo::Serialize) = mode (1: 0 Required, 1 Plaintext) | X25519 public key (32) | nonce (uint64 LE, 8).
-			// In mode Plaintext the public key and the nonce are zero.
+			// In mode Plaintext the public key is zero. The client's nonce is random in both modes: REPLY_2 echoes it.
 			MafiaNet::BitStream bsOut;
 			bsOut.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
 			bsOut.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
@@ -5148,7 +5191,10 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					if (rcs->ephemeral != nullptr && !rcs->ephemeral->IsWiped())
 						clientInfo = rcs->ephemeral->MakeCryptInfo();
 					else if (rakPeer->encryptionMode == EncryptionMode::Plaintext)
+					{
 						clientInfo.mode = EncryptionMode::Plaintext;
+						clientInfo.nonce = rcs->handshakeNonce;
+					}
 					else
 					{
 						// Required, but this request's key pair is gone: never fall back to plaintext.
@@ -5185,16 +5231,17 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length * 8, systemAddress);
 
 			// ID_OPEN_CONNECTION_REPLY_2 (S->C), byte-aligned:
-			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | server RakNetGUID (8)
+			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | echo of our CryptInfo nonce (uint64, 8) | server RakNetGUID (8)
 			//   | our address as the server sees it (SystemAddress) | MTU (uint16, 2) | server CryptInfo (41)
 			MafiaNet::BitStream bs((unsigned char *) data, length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
+			uint64_t nonceEcho;
 			RakNetGUID guid;
 			SystemAddress bindingAddress;
 			uint16_t mtu;
 			CryptInfo serverInfo;
-			if (!bs.Read(guid) || !bs.Read(bindingAddress) || !bs.Read(mtu) || !serverInfo.Deserialize(&bs))
+			if (!bs.Read(nonceEcho) || !bs.Read(guid) || !bs.Read(bindingAddress) || !bs.Read(mtu) || !serverInfo.Deserialize(&bs))
 				return true; // malformed: drop
 
 			RakPeer::RequestedConnectionStruct *rcs;
@@ -5207,6 +5254,11 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 				if (rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
+					// Before anything else: a REPLY_2 that does not echo this attempt's nonce was not sent in answer to
+					// it (an off-path forgery has to guess 64 bits). Ignore it; the attempt carries on.
+					if (nonceEcho != rcs->handshakeNonce)
+						break;
+
 					RakAssert(rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT);
 					// A failed attempt is reported once, under the race's first address, and its request dropped
 					// so it is not retried.
@@ -5273,7 +5325,10 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						}
 					}
 					else
+					{
 						clientInfo.mode = EncryptionMode::Plaintext;
+						clientInfo.nonce = rcs->handshakeNonce;
+					}
 					const SessionKeys *sessionKeys = rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr;
 
 					rakPeer->requestedConnectionQueueMutex.Unlock();
@@ -5411,7 +5466,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				rakPeer->AddPacketToProducer(packet);
 			}
 		}
-		else if ((unsigned char) (data)[0] == ID_OPEN_CONNECTION_REQUEST_1 && length > (int) (1 + sizeof(OFFLINE_MESSAGE_DATA_ID)))
+		else if ((unsigned char) (data)[0] == ID_OPEN_CONNECTION_REQUEST_1 && length >= OPEN_CONNECTION_REPLY_1_BYTES)
 		{ /*
 			static int x = 0;
 			++x;
@@ -5560,6 +5615,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			MafiaNet::BitStream bsAnswer;
 			bsAnswer.Write((MessageID) ID_OPEN_CONNECTION_REPLY_2);
 			bsAnswer.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
+			bsAnswer.Write(clientInfo.nonce); // the client drops a REPLY_2 that does not echo its nonce
 			bsAnswer.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 			bsAnswer.Write(systemAddress);
 			bsAnswer.Write(mtu);
@@ -5663,14 +5719,22 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				}
 			}
 
+			// The cheap refusals all come before the key exchange. The last one: SetLimitIPConnectionFrequency's
+			// "connected recently from this IP", which AssignSystemAddressToRemoteSystemList also applies. Checked
+			// here first, with the same rule and clock, so a flood from one IP costs no X25519.
+			bool thisIPConnectedRecently = rakPeer->IPConnectedRecently(systemAddress, MafiaNet::GetTimeMS());
+
 			// Our side of the handshake: a fresh ephemeral key pair, used once and wiped by DeriveSessionKeys
 			// (and by its destructor) before this block ends. The client initiated, so it holds the initiator slot.
 			SessionKeys keys;
 			CryptInfo serverInfo;
-			if (rakPeer->encryptionMode == EncryptionMode::Required)
+			if (thisIPConnectedRecently)
+				rssFromSA = 0;
+			else if (rakPeer->encryptionMode == EncryptionMode::Required)
 			{
 				EphemeralKeyPair serverPair;
 				serverInfo = serverPair.MakeCryptInfo();
+				rakPeer->serverKeyExchangeCount++;
 				if (!DeriveSessionKeys(serverPair, /*localIsInitiator=*/false, clientInfo, serverInfo, guid, rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS), &keys))
 				{
 					rakPeer->requestedConnectionQueueMutex.Unlock();
@@ -5680,8 +5744,8 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			else
 				serverInfo.mode = EncryptionMode::Plaintext;
 
-			bool thisIPConnectedRecently = false;
-			rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr, serverInfo, clientInfo);
+			if (!thisIPConnectedRecently)
+				rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr, serverInfo, clientInfo);
 			rakPeer->requestedConnectionQueueMutex.Unlock();
 			keys.Wipe();
 

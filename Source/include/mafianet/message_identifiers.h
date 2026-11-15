@@ -73,7 +73,8 @@ enum DefaultMessageIDTypes
 	/// A reliable packet to detect lost connections (internal use only)
 	ID_DETECT_LOST_CONNECTIONS,
 	/// C2S: Initial query: Header(1), OfflineMesageID(16), Protocol number(1), Pad(toMTU), sent with no fragment set.
-	/// If protocol fails on server, returns ID_INCOMPATIBLE_PROTOCOL_VERSION to client
+	/// If protocol fails on server, returns ID_INCOMPATIBLE_PROTOCOL_VERSION to client. Ignored when shorter than
+	/// ID_OPEN_CONNECTION_REPLY_1 (35 bytes), so the server never answers with more than it received.
 	ID_OPEN_CONNECTION_REQUEST_1,
 	/// S2C: Header(1), OfflineMesageID(16), server GUID(8), challenge(8), MTU(2).
 	/// The challenge is the server's stateless HandshakeChallenge for the sender's address; the server keeps no state.
@@ -83,7 +84,8 @@ enum DefaultMessageIDTypes
 	/// The server allocates nothing unless the challenge verifies, the encryption modes agree, the server is not full,
 	/// and the GUID and IP are not already in use.
 	ID_OPEN_CONNECTION_REQUEST_2,
-	/// S2C: Header(1), OfflineMesageID(16), server GUID(8), client address, MTU(2), server CryptInfo(41).
+	/// S2C: Header(1), OfflineMesageID(16), nonce echo(8), server GUID(8), client address, MTU(2), server CryptInfo(41).
+	/// The nonce echo repeats the client CryptInfo's nonce; the client drops a REPLY_2 whose echo does not match.
 	/// Both sides then derive the session keys (DeriveSessionKeys); everything after this is sealed in mode Required.
 	ID_OPEN_CONNECTION_REPLY_2,
 	/// C2S: Header(1), GUID(8), Timestamp, reserved(1, always 0), password

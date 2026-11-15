@@ -22,6 +22,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/handshake_challenge.h"
 #include "mafianet/message_identifiers.h"
+#include "mafianet/mtu_black_hole.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/statistics.h"
@@ -505,4 +506,220 @@ TEST(EncryptedHandshake, LostReply2IsAnsweredWithTheSameServerCryptInfo)
 	ASSERT_TRUE(KeysOf(client, serverAddress, &clientKeys));
 	ASSERT_TRUE(KeysOf(server, clientAddress, &serverKeys));
 	EXPECT_EQ(0, std::memcmp(clientKeys.send, serverKeys.recv, sizeof(clientKeys.send)));
+}
+
+namespace
+{
+// ID_OPEN_CONNECTION_REPLY_2, as a server writes it:
+// id | offline id (16) | nonce echo (8) | server guid (8) | client address | mtu (2) | server crypt info (41).
+void WriteReply2(BitStream &out, uint64_t nonceEcho, const RakNetGUID &serverGuid, const SystemAddress &clientAddress,
+                 uint16_t mtu, const CryptInfo &serverInfo)
+{
+	out.Write((MessageID) ID_OPEN_CONNECTION_REPLY_2);
+	out.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+	out.Write(nonceEcho);
+	out.Write(serverGuid);
+	out.Write(clientAddress);
+	out.Write(mtu);
+	serverInfo.Serialize(&out);
+}
+
+// A connection attempt from a fresh client to an address no peer owns, so the only REPLY_2 it can get is
+// one the test injects. Returns the client; *target is the address it is connecting to.
+RakPeer *StartAttemptToNowhere(SimulatedNetwork &net, SystemAddress *target)
+{
+	RakPeer *client = net.AddPeer(1);
+	*target = SystemAddress("10.0.0.250", 5000);
+	EXPECT_EQ(CONNECTION_ATTEMPT_STARTED, client->Connect("10.0.0.250", 5000, nullptr, 0));
+	net.Step(10);
+	return client;
+}
+} // namespace
+
+// REPLY_2 echoes the nonce of the client's crypt info, and the client drops a REPLY_2 whose echo does not
+// match its pending attempt before anything else: no key derivation, no connection, no failure reported.
+TEST(EncryptedHandshake, ForgedReply2WithTheWrongNonceEchoIsIgnored)
+{
+	SimulatedNetwork net;
+	SystemAddress target;
+	RakPeer *client = StartAttemptToNowhere(net, &target);
+	const SystemAddress clientAddress = net.AddressOf(client);
+	uint64_t nonce = 0;
+	ASSERT_TRUE(client->GetPendingHandshakeNonceForTesting(target, &nonce));
+
+	EphemeralKeyPair serverPair;
+	const CryptInfo serverInfo = serverPair.MakeCryptInfo();
+	CryptInfo plaintextInfo;
+	plaintextInfo.mode = EncryptionMode::Plaintext;
+	for (uint64_t wrong : {nonce ^ 1, nonce + 0x100000000ull, ~nonce, (uint64_t) 0})
+	{
+		if (wrong == nonce)
+			continue;
+		BitStream reply2;
+		WriteReply2(reply2, wrong, RakNetGUID(0x5E5E5E5Eull), clientAddress, 1200, serverInfo);
+		net.InjectDatagram(target, client, reply2.GetData(), (int) reply2.GetNumberOfBytesUsed());
+		// A mode mismatch would fail the attempt -- but only once the echo matches.
+		BitStream mismatch;
+		WriteReply2(mismatch, wrong, RakNetGUID(0x5E5E5E5Eull), clientAddress, 1200, plaintextInfo);
+		net.InjectDatagram(target, client, mismatch.GetData(), (int) mismatch.GetNumberOfBytesUsed());
+	}
+	net.Step(20);
+
+	SessionKeys keys;
+	EXPECT_FALSE(KeysOf(client, target, &keys)) << "keys were derived from a forged REPLY_2";
+	EXPECT_EQ(IS_PENDING, client->GetConnectionState(target));
+	EXPECT_TRUE(net.Inbox(client).empty()) << "a forged REPLY_2 produced a message";
+
+	// Control: the same REPLY_2 with the right echo is taken as the answer to the attempt.
+	BitStream reply2;
+	WriteReply2(reply2, nonce, RakNetGUID(0x5E5E5E5Eull), clientAddress, 1200, serverInfo);
+	net.InjectDatagram(target, client, reply2.GetData(), (int) reply2.GetNumberOfBytesUsed());
+	net.Step(10);
+	EXPECT_TRUE(KeysOf(client, target, &keys));
+}
+
+// In mode Plaintext there is no ephemeral key, but the client's crypt info still carries a random nonce,
+// so the echo protects a Plaintext attempt too. The public key stays zero.
+TEST(EncryptedHandshake, PlaintextClientCryptInfoCarriesARandomNonceThatReply2Echoes)
+{
+	SimulatedNetwork net;
+	net.SetNewPeerEncryptionMode(EncryptionMode::Plaintext);
+	RakPeer *server = net.AddPeer(4, 4);
+	RakPeer *client = net.AddPeer(1);
+	const SystemAddress serverAddress = net.AddressOf(server);
+	std::vector<std::vector<char>> requests, replies;
+	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *data, int length)
+	           {
+		           if (length <= 0)
+			           return;
+		           if ((unsigned char) data[0] == ID_OPEN_CONNECTION_REQUEST_2)
+			           requests.emplace_back(data, data + length);
+		           else if (from == serverAddress && (unsigned char) data[0] == ID_OPEN_CONNECTION_REPLY_2)
+			           replies.emplace_back(data, data + length); });
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(client, server));
+	uint64_t nonce = 0;
+	ASSERT_TRUE(client->GetPendingHandshakeNonceForTesting(serverAddress, &nonce));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED); }, 5000));
+	ASSERT_FALSE(requests.empty());
+	ASSERT_FALSE(replies.empty());
+
+	BitStream request(reinterpret_cast<unsigned char *>(requests[0].data()), (unsigned int) requests[0].size(), false);
+	request.IgnoreBytes(1 + sizeof(kOfflineMessageDataId) + sizeof(uint64_t));
+	CryptInfo clientInfo;
+	ASSERT_TRUE(clientInfo.Deserialize(&request));
+	EXPECT_EQ(EncryptionMode::Plaintext, clientInfo.mode);
+	const uint8_t zero[32] = {};
+	EXPECT_EQ(0, std::memcmp(zero, clientInfo.publicKey, sizeof(zero)));
+	EXPECT_EQ(nonce, clientInfo.nonce);
+	EXPECT_NE(0u, clientInfo.nonce);
+
+	BitStream reply(reinterpret_cast<unsigned char *>(replies[0].data()), (unsigned int) replies[0].size(), false);
+	reply.IgnoreBytes(1 + sizeof(kOfflineMessageDataId));
+	uint64_t echo = 0;
+	ASSERT_TRUE(reply.Read(echo));
+	EXPECT_EQ(nonce, echo);
+
+	// A second attempt draws a different nonce.
+	RakPeer *other = net.AddPeer(1);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(other, server));
+	uint64_t otherNonce = 0;
+	ASSERT_TRUE(other->GetPendingHandshakeNonceForTesting(serverAddress, &otherNonce));
+	EXPECT_NE(nonce, otherNonce);
+}
+
+// REQUEST_1 shorter than the REPLY_1 it would trigger (35 bytes) is ignored, so the server never answers
+// with more than it received.
+TEST(EncryptedHandshake, Request1ShorterThanReply1IsIgnored)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(4, 4);
+	const SystemAddress serverAddress = net.AddressOf(server);
+	std::vector<int> reply1Sizes;
+	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *data, int length)
+	           {
+		           if (from == serverAddress && length > 0 && (unsigned char) data[0] == ID_OPEN_CONNECTION_REPLY_1)
+			           reply1Sizes.push_back(length); });
+
+	auto request1 = [](int length)
+	{
+		std::vector<unsigned char> bytes((size_t) length, 0);
+		bytes[0] = ID_OPEN_CONNECTION_REQUEST_1;
+		std::memcpy(&bytes[1], kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+		bytes[1 + sizeof(kOfflineMessageDataId)] = RAKNET_PROTOCOL_VERSION;
+		return bytes;
+	};
+
+	const SystemAddress sender("10.0.0.77", 7000);
+	for (int length = 1 + (int) sizeof(kOfflineMessageDataId) + 1; length < 35; ++length)
+	{
+		const std::vector<unsigned char> bytes = request1(length);
+		net.InjectDatagram(sender, server, bytes.data(), length);
+	}
+	net.Step(20);
+	EXPECT_TRUE(reply1Sizes.empty()) << "a REQUEST_1 shorter than REPLY_1 was answered";
+
+	const std::vector<unsigned char> minimal = request1(35);
+	net.InjectDatagram(sender, server, minimal.data(), 35);
+	net.Step(20);
+	ASSERT_EQ(1u, reply1Sizes.size());
+	EXPECT_EQ(35, reply1Sizes[0]) << "REPLY_1 changed size: update the REQUEST_1 minimum with it";
+}
+
+// The smallest MTU probe a client sends (the bottom rung of the ladder) still clears the REQUEST_1 minimum.
+TEST(EncryptedHandshake, SmallestMtuProbeStillConnects)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(1, 1);
+	RakPeer *client = net.AddPeer(1);
+	SimulatedNetwork::LinkRule narrow;
+	narrow.maxDatagramBytes = MTU_LADDER[MTU_LADDER_SIZE - 1] - UDP_HEADER_SIZE;
+	net.SetLinkBothWays(client, server, narrow);
+	ASSERT_TRUE(net.Connect(client, server, 30000));
+	EXPECT_EQ(MTU_LADDER[MTU_LADDER_SIZE - 1], client->GetMTUSize(net.AddressOf(server)));
+}
+
+// With SetLimitIPConnectionFrequency, a second REQUEST_2 from an IP that connected less than 100 ms ago is
+// refused with ID_IP_RECENTLY_CONNECTED before the server runs its X25519.
+TEST(EncryptedHandshake, ConnectedRecentlyRefusalComesBeforeTheKeyExchange)
+{
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(8, 8);
+	server->SetLimitIPConnectionFrequency(true);
+	const SystemAddress serverAddress = net.AddressOf(server);
+	size_t recentlyConnected = 0;
+	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *data, int length)
+	           { recentlyConnected += from == serverAddress && length > 0 && (unsigned char) data[0] == ID_IP_RECENTLY_CONNECTED; });
+
+	auto inject = [&](const SystemAddress &from, uint64_t guid)
+	{
+		EphemeralKeyPair pair;
+		BitStream request;
+		WriteRequest2(request, server->GetHandshakeChallengeForTesting().Generate(net.Now(), from), pair.MakeCryptInfo(),
+		              serverAddress, 1200, RakNetGUID(guid));
+		net.InjectDatagram(from, server, request.GetData(), (int) request.GetNumberOfBytesUsed());
+	};
+
+	const SystemAddress first("10.0.0.90", 6000);
+	inject(first, 0xA1);
+	net.Step(5);
+	ASSERT_NE(IS_NOT_CONNECTED, server->GetConnectionState(first));
+	EXPECT_EQ(1u, server->GetServerKeyExchangeCountForTesting());
+
+	const SystemAddress samePc("10.0.0.90", 6001);
+	inject(samePc, 0xA2);
+	net.Step(5);
+	EXPECT_EQ(1u, recentlyConnected);
+	EXPECT_EQ(IS_NOT_CONNECTED, server->GetConnectionState(samePc));
+	EXPECT_EQ(1u, server->GetServerKeyExchangeCountForTesting()) << "X25519 ran for a refused REQUEST_2";
+
+	// Same semantics as before: after 100 ms the same IP is answered (and keyed) again.
+	net.Step(200);
+	const SystemAddress later("10.0.0.90", 6002);
+	inject(later, 0xA3);
+	net.Step(5);
+	EXPECT_NE(IS_NOT_CONNECTED, server->GetConnectionState(later));
+	EXPECT_EQ(2u, server->GetServerKeyExchangeCountForTesting());
+	EXPECT_EQ(1u, recentlyConnected);
 }

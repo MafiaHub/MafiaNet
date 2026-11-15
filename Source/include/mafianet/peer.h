@@ -118,6 +118,13 @@ public:
 	static const unsigned char *GetOfflineMessageDataIdForTesting();
 	static constexpr unsigned int kOfflineMessageDataIdBytes = 16;
 
+	/// \internal Test-only: the client crypt info nonce of this peer's pending connection attempt to \a remote,
+	/// which ID_OPEN_CONNECTION_REPLY_2 must echo. \return false when no attempt to \a remote is pending.
+	bool GetPendingHandshakeNonceForTesting(const SystemAddress &remote, uint64_t *out);
+
+	/// \internal Test-only: how many X25519 key exchanges this peer has run answering ID_OPEN_CONNECTION_REQUEST_2.
+	uint64_t GetServerKeyExchangeCountForTesting() const;
+
 	/// \brief Sets the maximum number of incoming connections allowed.
 	/// \details If the number of incoming connections is less than the number of players currently connected,
 	/// no more players will be allowed to connect.  If this is greater than the maximum number of peers allowed,
@@ -898,6 +905,9 @@ protected:
 	MafiaNet::Time GetBestClockDifferential(const SystemAddress systemAddress) const;
 
 	bool IsLoopbackAddress(const AddressOrGUID &systemIdentifier, bool matchPort) const;
+	// SetLimitIPConnectionFrequency: true when another active connection from this IP (any port) was created less
+	// than 100 ms ago. Loopback is exempt. Network thread only.
+	bool IPConnectedRecently(const SystemAddress &systemAddress, MafiaNet::TimeMS time) const;
 	SystemAddress GetLoopbackAddress(void) const;
 
 	/// Set this to true to terminate the Peer thread execution.
@@ -1033,6 +1043,11 @@ protected:
 		// copied: DeriveSessionKeys wipes it when the server's crypt info arrives, and DeleteRequestedConnection
 		// wipes and frees it on every other path (failure, cancel, race loser, shutdown).
 		EphemeralKeyPair *ephemeral = nullptr;
+		// The nonce of the client crypt info this request sends in ID_OPEN_CONNECTION_REQUEST_2, fixed at
+		// Connect(): the ephemeral key pair's nonce in mode Required, a random value in mode Plaintext. The server
+		// echoes it in ID_OPEN_CONNECTION_REPLY_2, and a REPLY_2 whose echo differs is dropped, so an off-path
+		// attacker has to guess 64 bits to forge one.
+		uint64_t handshakeNonce = 0;
 	};
 
 	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;
@@ -1209,6 +1224,8 @@ protected:
 
 	SignaledEvent quitAndDataEvents;
 	bool limitConnectionFrequencyFromTheSameIP;
+	// Key exchanges run in the ID_OPEN_CONNECTION_REQUEST_2 handler (network thread). See GetServerKeyExchangeCountForTesting.
+	uint64_t serverKeyExchangeCount = 0;
 
 	SimpleMutex packetAllocationPoolMutex;
 	DataStructures::MemoryPool<Packet> packetAllocationPool;

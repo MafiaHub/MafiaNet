@@ -347,12 +347,16 @@ TEST(CrossConnectionConvert, Reply2ToTheLosingHandshakeIsIgnored)
 	ASSERT_TRUE(p.higher->GetSessionKeysForTesting(lowerAddress, &before));
 	ASSERT_EQ(IS_PENDING, p.higher->GetConnectionState(lowerAddress));
 
-	// ID_OPEN_CONNECTION_REPLY_2 from the lower peer's address to the higher peer's attempt:
-	// id | offline id (16) | server guid (8) | client address as seen (SystemAddress) | mtu (2) | server crypt info (41).
+	// ID_OPEN_CONNECTION_REPLY_2 from the lower peer's address to the higher peer's attempt: id | offline id (16)
+	// | nonce echo (8) | server guid (8) | client address as seen (SystemAddress) | mtu (2) | server crypt info (41).
+	// It echoes the attempt's nonce, so it gets past the echo check to the guard under test.
+	uint64_t attemptNonce = 0;
+	ASSERT_TRUE(p.higher->GetPendingHandshakeNonceForTesting(lowerAddress, &attemptNonce));
 	EphemeralKeyPair forgedPair;
 	BitStream reply2;
 	reply2.Write((MessageID) ID_OPEN_CONNECTION_REPLY_2);
 	reply2.WriteAlignedBytes(RakPeer::GetOfflineMessageDataIdForTesting(), RakPeer::kOfflineMessageDataIdBytes);
+	reply2.Write(attemptNonce);
 	reply2.Write(p.lower->GetMyGUID());
 	reply2.Write(higherAddress);
 	reply2.Write((uint16_t) 1200);

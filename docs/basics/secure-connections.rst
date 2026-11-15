@@ -67,10 +67,11 @@ What is not protected
 * **Packet sizes and timing.** Datagram lengths (the payload length plus a fixed overhead), the
   moments datagrams are sent, and their count are visible to an observer. Nothing is padded.
 * **Denial of service during connect.** An attacker who knows a connecting client's address and
-  port, and who can send packets to it while the connection attempt is in progress, can forge the
-  server's final handshake reply or one of the refusal IDs below and make that attempt fail. It
-  cannot learn or choose the session keys. This is the same property the plaintext rejection IDs
-  (``ID_CONNECTION_BANNED`` and others) always had.
+  port, and who can send packets to it while the connection attempt is in progress, can forge one of
+  the refusal IDs below and make that attempt fail. It cannot learn or choose the session keys. This
+  is the same property the plaintext rejection IDs (``ID_CONNECTION_BANNED`` and others) always had.
+  Forging the server's final handshake reply also takes a 64-bit value the client chose, which only
+  an attacker on the path sees.
 * **Endpoints.** Encryption protects the wire, not a compromised client or server, and not a
   malicious but connected peer: validate all input as before.
 
