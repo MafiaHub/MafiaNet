@@ -124,21 +124,20 @@ TEST_F(TcpInterfaceFamilyLive, NonBlockingConnectByHostNameUsesIpv4)
 	EXPECT_EQ(completed.GetPort(), port);
 }
 
-// Whether the resolver lists ::1 among the TCP answers for "localhost" (it usually lists it first).
-static bool LocalhostResolvesToIpv6Loopback()
+// Whether the resolver's first TCP answer for "localhost" with AF_UNSPEC is ::1: only then does a connect that
+// tries the first answer alone fail against an IPv4-only listener.
+static bool LocalhostResolvesToIpv6LoopbackFirst()
 {
 	addrinfo hints, *res = nullptr;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo("localhost", "1", &hints, &res) != 0)
+	if (getaddrinfo("localhost", "1", &hints, &res) != 0 || res == nullptr)
 		return false;
-	bool found = false;
 	static const unsigned char loopback[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
-	for (addrinfo *ai = res; ai != nullptr && !found; ai = ai->ai_next)
-		found = ai->ai_family == AF_INET6 && memcmp(((const sockaddr_in6 *) ai->ai_addr)->sin6_addr.s6_addr, loopback, sizeof(loopback)) == 0;
+	const bool first = res->ai_family == AF_INET6 && memcmp(((const sockaddr_in6 *) res->ai_addr)->sin6_addr.s6_addr, loopback, sizeof(loopback)) == 0;
 	freeaddrinfo(res);
-	return found;
+	return first;
 }
 
 // A host name connect tries every address the name resolves to, not only the first: with AF_UNSPEC "localhost"
@@ -146,8 +145,9 @@ static bool LocalhostResolvesToIpv6Loopback()
 // resolver's order.
 TEST_F(TcpInterfaceFamilyLive, BlockingUnspecConnectByHostNameTriesEveryAddress)
 {
-	if (!LocalhostResolvesToIpv6Loopback())
-		GTEST_SKIP() << "\"localhost\" has no ::1 answer on this host";
+	MAFIANET_SKIP_WITHOUT_IPV6(HasIpv6Loopback() ? 1 : 0);
+	if (!LocalhostResolvesToIpv6LoopbackFirst())
+		GTEST_SKIP() << "the resolver does not list ::1 first for \"localhost\": the fallback would not be exercised";
 	ASSERT_TRUE(server->Start(0, 4, 4, -99999, AF_INET, "127.0.0.1"));
 	const unsigned short port = server->ListenPort();
 	ASSERT_NE(port, 0);
@@ -163,8 +163,9 @@ TEST_F(TcpInterfaceFamilyLive, BlockingUnspecConnectByHostNameTriesEveryAddress)
 
 TEST_F(TcpInterfaceFamilyLive, NonBlockingUnspecConnectByHostNameTriesEveryAddress)
 {
-	if (!LocalhostResolvesToIpv6Loopback())
-		GTEST_SKIP() << "\"localhost\" has no ::1 answer on this host";
+	MAFIANET_SKIP_WITHOUT_IPV6(HasIpv6Loopback() ? 1 : 0);
+	if (!LocalhostResolvesToIpv6LoopbackFirst())
+		GTEST_SKIP() << "the resolver does not list ::1 first for \"localhost\": the fallback would not be exercised";
 	ASSERT_TRUE(server->Start(0, 4, 4, -99999, AF_INET, "127.0.0.1"));
 	const unsigned short port = server->ListenPort();
 	ASSERT_NE(port, 0);

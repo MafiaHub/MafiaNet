@@ -380,3 +380,25 @@ TEST(SocketFamilyConnect, Ipv6LiteralOnIpv4OnlyPeerCannotResolve)
 	ASSERT_NE(StartWildcard(guard.peer, AF_INET), nullptr);
 	EXPECT_EQ(guard.peer->Connect("2001:db8::1", 60000, nullptr, 0), CANNOT_RESOLVE_DOMAIN_NAME);
 }
+
+// The documented loopback exception: a single-family peer takes the other family's loopback literal as its own.
+TEST(SocketFamilyConnect, Ipv6LoopbackOnIpv4OnlyPeerStarts)
+{
+	PeerGuard guard;
+	ASSERT_NE(StartWildcard(guard.peer, AF_INET), nullptr);
+	EXPECT_EQ(guard.peer->Connect("::1", 60000, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	guard.peer->CancelConnectionAttempt(SystemAddress("127.0.0.1", 60000));
+}
+
+TEST(SocketFamilyConnect, Ipv4LoopbackOnIpv6OnlyPeerStarts)
+{
+	PeerGuard guard;
+	if (StartWildcard(guard.peer, AF_INET6) == nullptr)
+	{
+		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
+			FAIL() << "no IPv6 socket but MAFIANET_REQUIRE_IPV6 is set";
+		GTEST_SKIP() << "no IPv6 on this host";
+	}
+	EXPECT_EQ(guard.peer->Connect("127.0.0.1", 60000, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	guard.peer->CancelConnectionAttempt(SystemAddress("::1", 60000));
+}
