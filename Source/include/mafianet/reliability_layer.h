@@ -30,7 +30,7 @@
 #include "mafianet/statistics.h"
 #include "mafianet/dr_sha1.h"
 #include "mafianet/range_list.h"
-#include "mafianet/ds_memory_pool.h"
+#include "mafianet/object_pool.h"
 #include "mafianet/defines.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/native_feature_includes.h"
@@ -556,7 +556,6 @@ private:
 	// This is essentially an O(1) lookup to get a DatagramHistoryNode given an index
 	// datagramHistory holds a linked list of MessageNumberNode. Each MessageNumberNode refers to one element in resendList which can be cleared on an ack.
 	std::deque<DatagramHistoryNode> datagramHistory;
-	DataStructures::MemoryPool<MessageNumberNode> datagramHistoryMessagePool;
 
 	struct UnreliableWithAckReceiptNode
 	{
@@ -578,7 +577,9 @@ private:
 	MessageNumberNode *AddSubsequentToDatagramHistory(MessageNumberNode *messageNumberNode, DatagramSequenceNumberType messageNumber);
 	DatagramSequenceNumberType datagramHistoryPopCount;
 
-	DataStructures::MemoryPool<InternalPacket> internalPacketPool;
+	// Every message sent, received or split takes one: plain new/delete cost up
+	// to 20% in the ReliabilityLayer_* benchmarks, so they are recycled.
+	ObjectPool<InternalPacket> internalPacketPool;
 	InternalPacket *resendBuffer[RESEND_BUFFER_ARRAY_LENGTH];
 	InternalPacket *resendLinkedListHead;
 	InternalPacket *unreliableLinkedListHead;
@@ -791,7 +792,6 @@ private:
 	// Allocate new
 	void AllocInternalPacketData(InternalPacket *internalPacket, unsigned int numBytes, bool allowStack, const char *file, unsigned int line);
 	void FreeInternalPacketData(InternalPacket *internalPacket, const char *file, unsigned int line);
-	DataStructures::MemoryPool<InternalPacketRefCountedData> refCountedDataPool;
 
 	BPSTracker bpsMetrics[RNS_PER_SECOND_METRICS_COUNT];
 	CCTimeType lastBpsClear;

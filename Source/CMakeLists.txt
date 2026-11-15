@@ -207,6 +207,7 @@ set(MAFIANET_HEADERS
     include/mafianet/nat_type_detection_server.h
     include/mafianet/network_id_manager.h
     include/mafianet/network_id_object.h
+    include/mafianet/object_pool.h
     include/mafianet/osx_adapter.h
     include/mafianet/packet_console_logger.h
     include/mafianet/packet_file_logger.h

@@ -356,10 +356,6 @@ ReliabilityLayer::ReliabilityLayer()
 #endif
 
 	InitializeVariables();
-	//int i = sizeof(InternalPacket);
-	datagramHistoryMessagePool.SetPageSize(sizeof(MessageNumberNode) * 128);
-	internalPacketPool.SetPageSize(sizeof(InternalPacket) * INTERNAL_PACKET_PAGE_SIZE);
-	refCountedDataPool.SetPageSize(sizeof(InternalPacketRefCountedData) * 32);
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -667,10 +663,8 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 	datagramSizesInBytes.clear();
 	datagramSizesInBytes.reserve(128);
 
-	internalPacketPool.Clear(_FILE_AND_LINE_);
-
-	refCountedDataPool.Clear(_FILE_AND_LINE_);
-
+	// Everything acquired was released above; drop the spares too.
+	internalPacketPool.Clear();
 
 	while (!datagramHistory.empty())
 	{
@@ -678,7 +672,6 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 		datagramHistory.pop_front();
 		datagramHistoryPopCount++;
 	}
-	datagramHistoryMessagePool.Clear(_FILE_AND_LINE_);
 	datagramHistoryPopCount = 0;
 
 	acknowlegements.Clear();
@@ -4204,7 +4197,7 @@ void ReliabilityLayer::SendACKs(RakNetSocket2 *s, SystemAddress &systemAddress, 
 //-------------------------------------------------------------------------------------------------------
 InternalPacket *ReliabilityLayer::AllocateFromInternalPacketPool(void)
 {
-	InternalPacket *ip = internalPacketPool.Allocate(_FILE_AND_LINE_);
+	InternalPacket *ip = internalPacketPool.Acquire();
 	ip->reliableMessageNumber = (MessageNumberType) (uint32_t) -1;
 	ip->messageNumberAssigned = false;
 	ip->nextActionTime = 0;
@@ -4222,7 +4215,7 @@ InternalPacket *ReliabilityLayer::AllocateFromInternalPacketPool(void)
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::ReleaseToInternalPacketPool(InternalPacket *ip)
 {
-	internalPacketPool.Release(ip, _FILE_AND_LINE_);
+	internalPacketPool.Release(ip);
 }
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::RemoveFromUnreliableLinkedList(InternalPacket *internalPacket)
@@ -4322,7 +4315,7 @@ void ReliabilityLayer::RemoveFromDatagramHistory(DatagramSequenceNumberType inde
 	while (mnm)
 	{
 		next = mnm->next;
-		datagramHistoryMessagePool.Release(mnm, _FILE_AND_LINE_);
+		delete mnm;
 		mnm = next;
 	}
 	datagramHistory[offsetIntoList].head = 0;
@@ -4353,7 +4346,7 @@ ReliabilityLayer::MessageNumberNode *ReliabilityLayer::AddFirstToDatagramHistory
 		datagramHistoryPopCount++;
 	}
 
-	MessageNumberNode *mnm = datagramHistoryMessagePool.Allocate(_FILE_AND_LINE_);
+	MessageNumberNode *mnm = new MessageNumberNode;
 	mnm->next = 0;
 	mnm->messageNumber = messageNumber;
 	datagramHistory.push_back(DatagramHistoryNode(mnm, timeSent));
@@ -4363,7 +4356,7 @@ ReliabilityLayer::MessageNumberNode *ReliabilityLayer::AddFirstToDatagramHistory
 //-------------------------------------------------------------------------------------------------------
 ReliabilityLayer::MessageNumberNode *ReliabilityLayer::AddSubsequentToDatagramHistory(MessageNumberNode *messageNumberNode, DatagramSequenceNumberType messageNumber)
 {
-	messageNumberNode->next = datagramHistoryMessagePool.Allocate(_FILE_AND_LINE_);
+	messageNumberNode->next = new MessageNumberNode;
 	messageNumberNode->next->messageNumber = messageNumber;
 	messageNumberNode->next->next = 0;
 	return messageNumberNode->next;
@@ -4375,8 +4368,7 @@ void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, I
 	internalPacket->data = ourOffset;
 	if (*refCounter == 0)
 	{
-		*refCounter = refCountedDataPool.Allocate(_FILE_AND_LINE_);
-		// *refCounter = new InternalPacketRefCountedData;
+		*refCounter = new InternalPacketRefCountedData;
 		(*refCounter)->refCount = 1;
 		(*refCounter)->sharedDataBlock = externallyAllocatedPtr;
 	}
@@ -4405,7 +4397,7 @@ void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, u
 	}
 }
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, const char *file, unsigned int line)
+void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (internalPacket == 0)
 		return;
@@ -4420,8 +4412,7 @@ void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, co
 		{
 			std::free(internalPacket->refCountedData->sharedDataBlock);
 			internalPacket->refCountedData->sharedDataBlock = 0;
-			// delete internalPacket->refCountedData;
-			refCountedDataPool.Release(internalPacket->refCountedData, file, line);
+			delete internalPacket->refCountedData;
 			internalPacket->refCountedData = 0;
 		}
 	}
