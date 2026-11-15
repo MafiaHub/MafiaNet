@@ -24,6 +24,9 @@
 #endif
 #include "mafianet/defines.h"
 #include <stdio.h>
+#if defined(_WIN32)
+#include <mutex>
+#endif
 
 #ifdef _WIN32
 #include <tchar.h>
@@ -35,11 +38,25 @@
 
 int WSAStartupSingleton::refCount = 0;
 
+#if defined(_WIN32)
+// AddRef and Deref run on user threads (one-shot resolves, Connect) and on the
+// network thread (Happy Eyeballs resolves). The lock covers the count and the
+// WSAStartup/WSACleanup transitions, so a concurrent AddRef never sees Winsock
+// torn down under it, nor uses it before WSAStartup returned. Function-local,
+// so it exists whatever order static initializers run in.
+static std::mutex &RefCountMutex()
+{
+	static std::mutex mutex;
+	return mutex;
+}
+#endif
+
 WSAStartupSingleton::WSAStartupSingleton() {}
 WSAStartupSingleton::~WSAStartupSingleton() {}
 void WSAStartupSingleton::AddRef(void)
 {
 #if defined(_WIN32)
+	std::lock_guard<std::mutex> lock(RefCountMutex());
 
 	refCount++;
 
@@ -68,6 +85,7 @@ void WSAStartupSingleton::AddRef(void)
 void WSAStartupSingleton::Deref(void)
 {
 #if defined(_WIN32)
+	std::lock_guard<std::mutex> lock(RefCountMutex());
 	if (refCount == 0)
 		return;
 
