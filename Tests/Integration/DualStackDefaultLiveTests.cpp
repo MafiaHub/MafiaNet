@@ -254,7 +254,6 @@ protected:
 TEST_F(DualStackDefaultLive, DefaultSocketServesIpv4ClientAtBoundAddress)
 {
 	server = RakPeerInterface::GetInstance();
-	RakSleep(2); // distinct GUID seeds; see the note in TypedSendLiveTests
 	client = RakPeerInterface::GetInstance();
 
 	StartExpectingDualStack(server, SocketDescriptor(0, nullptr), 1);

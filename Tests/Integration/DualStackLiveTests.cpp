@@ -39,11 +39,8 @@ protected:
 	void SetUp() override
 	{
 		server = RakPeerInterface::GetInstance();
-		RakSleep(2); // distinct GUID seeds; see the note in TypedSendLiveTests
 		clientV4 = RakPeerInterface::GetInstance();
-		RakSleep(2);
 		clientV6 = RakPeerInterface::GetInstance();
-		RakSleep(2);
 		clientDual = RakPeerInterface::GetInstance();
 
 		MAFIANET_START_DUAL_STACK(serverPort, server, 3, 3);
