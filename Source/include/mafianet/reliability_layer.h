@@ -37,7 +37,6 @@
 #include "mafianet/ds_bplus_tree.h"
 #include "mafianet/ds_memory_pool.h"
 #include "mafianet/defines.h"
-#include "mafianet/ds_heap.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/native_feature_includes.h"
 #include "mafianet/session_crypto.h"
@@ -45,6 +44,8 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/rand.h"
 #include "mafianet/socket2.h"
+#include <algorithm>
+#include <cstdint>
 #include <map>
 #include <vector>
 
@@ -330,6 +331,40 @@ public:
 	// Encoded as numMessages[unsigned int], message1BitLength[unsigned int], message1Data (aligned), ...
 	//void GetUndeliveredMessages(MafiaNet::BitStream *messages, int MTUSize);
 
+	/// \internal One entry of the layer's binary min-heaps (send scheduling and
+	/// out-of-order buffering), kept in a std::vector by HeapPush/HeapPop.
+	/// Entries pop by ascending weight; equal weights pop in push order, by seq,
+	/// which comes from a per-heap counter bumped on every push.
+	struct HeapEntry
+	{
+		reliabilityHeapWeightType weight;
+		std::uint64_t seq;
+		InternalPacket *packet;
+	};
+	/// \internal Heap comparator for std::push_heap/std::pop_heap: true when
+	/// \a a pops after \a b, which keeps the smallest (weight, seq) at front().
+	struct HeapEntryPopsLater
+	{
+		bool operator()(const HeapEntry &a, const HeapEntry &b) const
+		{
+			return a.weight > b.weight || (a.weight == b.weight && a.seq > b.seq);
+		}
+	};
+	/// \internal Adds \a packet to \a heap under \a weight, stamped with nextSeq++.
+	static void HeapPush(std::vector<HeapEntry> &heap, std::uint64_t &nextSeq, reliabilityHeapWeightType weight, InternalPacket *packet)
+	{
+		heap.push_back(HeapEntry{weight, nextSeq++, packet});
+		std::push_heap(heap.begin(), heap.end(), HeapEntryPopsLater());
+	}
+	/// \internal Removes and returns the packet at front(). \pre !heap.empty()
+	static InternalPacket *HeapPop(std::vector<HeapEntry> &heap)
+	{
+		std::pop_heap(heap.begin(), heap.end(), HeapEntryPopsLater());
+		InternalPacket *packet = heap.back().packet;
+		heap.pop_back();
+		return packet;
+	}
+
 private:
 	/// Send the contents of a bitstream to the socket
 	/// \param[in] s The socket used for sending data
@@ -587,7 +622,8 @@ private:
 	//	CCTimeType lastPacketlossTime;
 
 	//DataStructures::Queue<InternalPacket*> sendPacketSet[ MafiaNet::NUMBER_OF_PRIORITIES ];
-	DataStructures::Heap<reliabilityHeapWeightType, InternalPacket *, false> outgoingPacketBuffer;
+	std::vector<HeapEntry> outgoingPacketBuffer;   // min-heap, see HeapPush/HeapPop
+	std::uint64_t outgoingPacketBufferNextSeq = 0; // never reset: ties stay FIFO across Reset()
 	reliabilityHeapWeightType outgoingPacketBufferNextWeights[MafiaNet::NUMBER_OF_PRIORITIES];
 	void InitHeapWeights(void);
 	reliabilityHeapWeightType GetNextWeight(int priorityLevel);
@@ -624,6 +660,7 @@ private:
 	//    Messages in buffer are put in a minheap. The value of each node is calculated such that messages are returned:
 	//    A. (lowest ordering index, lowest sequence index)
 	//    B. (lowest ordering index, no sequence index)
+	//    C. equal weights (copies of one ordered message, repeated sequenced indices) in arrival order
 	//    Messages are pushed off until the heap is empty, or the next message to be returned does not preserve the ordered index
 	//    For an empty heap, the heap weight should start at the lowest value based on the next expected ordering index, to avoid variable overflow
 
@@ -635,7 +672,8 @@ private:
 	OrderingIndexType orderedReadIndex[NUMBER_OF_ORDERED_STREAMS];
 	// Highest value received for sequencedWriteIndex for the current value of orderedReadIndex on the same channel.
 	OrderingIndexType highestSequencedReadIndex[NUMBER_OF_ORDERED_STREAMS];
-	DataStructures::Heap<reliabilityHeapWeightType, InternalPacket *, false> orderingHeaps[NUMBER_OF_ORDERED_STREAMS];
+	std::vector<HeapEntry> orderingHeaps[NUMBER_OF_ORDERED_STREAMS];   // min-heaps, see HeapPush/HeapPop
+	std::uint64_t orderingHeapNextSeq[NUMBER_OF_ORDERED_STREAMS] = {}; // never reset: ties stay FIFO across Reset()
 	OrderingIndexType heapIndexOffsets[NUMBER_OF_ORDERED_STREAMS];
 
 

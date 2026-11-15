@@ -8,19 +8,29 @@
  *  channel ordering, split-message reassembly, sequencing and equal-priority
  *  send order. These pin current behaviour so a rewrite of the layer's
  *  containers can prove nothing observable changed. Seeds are fixed, so every
- *  run is identical.
+ *  run is identical. The one deliberate change is pinned at the end: entries
+ *  of equal heap weight now pop in push order.
  */
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "SimulatedNetwork.h"
 
 #include "mafianet/bit_stream.h"
+#include "mafianet/get_time.h"
 #include "mafianet/message_identifiers.h"
+#include "mafianet/mtu_size.h"
+#include "mafianet/plugin_interface2.h"
+#include "mafianet/rand.h"
+#include "mafianet/reliability_layer.h"
+#include "mafianet/socket2.h"
 
 using namespace MafiaNet;
 
@@ -221,5 +231,272 @@ TEST(ReliabilityCharacterization, EqualPriorityMessagesLeaveInSendOrder)
 	{
 		ASSERT_EQ(i, received[i].counter);
 		ASSERT_TRUE(received[i].intact);
+	}
+}
+
+namespace
+{
+// Two bare ReliabilityLayers joined by hand: the test decides which of the
+// sender's datagrams reach the receiver. Resetting the sender restarts its
+// ordering and sequencing indices, which is the only way to make the receiver
+// buffer several messages with the same ordering-heap weight.
+struct CapturingSocket : public RakNetSocket2
+{
+	std::vector<std::vector<char>> sent;
+
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	{
+		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
+		return sendParameters->length;
+	}
+};
+
+struct LayerPair
+{
+	ReliabilityLayer sender, receiver;
+	CapturingSocket senderSock, receiverSock;
+	SystemAddress senderAddr, receiverAddr;
+	DataStructures::List<PluginInterface2 *> handlers;
+	RakNetRandom rnr;
+	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
+	CCTimeType now = MafiaNet::GetTimeUS(); // see RelLayerBlackHole::SetUp for why it starts at the real clock
+
+	LayerPair()
+	{
+		EXPECT_TRUE(senderAddr.FromStringExplicitPort("127.0.0.1", 40001));
+		EXPECT_TRUE(receiverAddr.FromStringExplicitPort("127.0.0.1", 40002));
+		ResetSender();
+		receiver.SetEncryptionMode(EncryptionMode::Plaintext); // no keys are exchanged here
+		receiver.Reset(true, MAXIMUM_MTU_SIZE);
+		receiver.SetTimeoutTime(kNeverTimeOutMs);
+	}
+
+	// The default timeout (10 s, 30 s in Debug) is measured from the real clock
+	// at Reset() while `now` runs ahead in 10 ms steps: without this, a sender
+	// whose unacked messages outlive it goes dead and stops sending.
+	void ResetSender()
+	{
+		sender.SetEncryptionMode(EncryptionMode::Plaintext);
+		sender.Reset(true, MAXIMUM_MTU_SIZE);
+		sender.SetTimeoutTime(kNeverTimeOutMs);
+	}
+	static constexpr MafiaNet::TimeMS kNeverTimeOutMs = 1000000;
+
+	// Queues `count` copies of one tagged message and flushes them, apart from
+	// anything queued earlier: they leave in the next datagram(s) the sender
+	// writes. One update is enough at these sizes, so no retransmission timer
+	// gets a chance to fire and bundle an earlier "lost" message along.
+	std::vector<std::vector<char>> SendAlone(uint32_t counter, Reliability reliability, uint32_t count = 1)
+	{
+		BitStream bs;
+		bs.Write(ID_CHARACTERIZATION);
+		bs.Write(counter);
+		for (uint32_t i = 0; i < count; i++)
+			EXPECT_TRUE(sender.Send((char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::High, reliability, 0, true, MAXIMUM_MTU_SIZE, now, 0));
+		for (int i = 0; i < 100 && senderSock.sent.empty(); i++)
+		{
+			now += 10000;
+			sender.Update(&senderSock, receiverAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		}
+		EXPECT_FALSE(senderSock.sent.empty());
+		std::vector<std::vector<char>> out;
+		out.swap(senderSock.sent);
+		return out;
+	}
+
+	void Deliver(std::vector<std::vector<char>> &datagrams)
+	{
+		for (std::vector<char> &datagram : datagrams)
+			receiver.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), senderAddr, handlers,
+			                                                MAXIMUM_MTU_SIZE, &receiverSock, &rnr, now, updateBitStream);
+		receiverSock.sent.clear(); // acks; the sender never needs them here
+	}
+
+	std::vector<uint32_t> ReceivedCounters()
+	{
+		std::vector<uint32_t> out;
+		unsigned char *data;
+		BitSize_t bits;
+		while ((bits = receiver.Receive(&data)) > 0)
+		{
+			if (BITS_TO_BYTES(bits) == 5 && data[0] == ID_CHARACTERIZATION)
+			{
+				BitStream bs(data, 5, false);
+				bs.IgnoreBytes(1);
+				uint32_t counter = 0;
+				bs.Read(counter);
+				out.push_back(counter);
+			}
+			std::free(data);
+		}
+		return out;
+	}
+};
+
+const uint32_t kHoleCounter = 0xFFFFu;
+} // namespace
+
+TEST(ReliabilityCharacterization, EqualWeightOrderingHeapEntriesPopInPushOrder)
+{
+	// Each round, a freshly reset sender sends ordered message 0 (lost) and then
+	// an unreliable sequenced message, which carries ordering index 1 and
+	// sequencing index 0 every time. The receiver, still waiting on index 0,
+	// buffers all of them with one identical heap weight. When the ordered
+	// message finally arrives, every buffered entry is due (sequenced messages
+	// do not advance the read index): they must come out in arrival order.
+	LayerPair p;
+	const uint32_t kEntries = 64;
+	for (uint32_t i = 0; i < kEntries; i++)
+	{
+		p.ResetSender();
+		p.SendAlone(kHoleCounter, Reliability::ReliableOrdered); // lost
+		std::vector<std::vector<char>> sequenced = p.SendAlone(i, Reliability::UnreliableSequenced);
+		p.Deliver(sequenced);
+	}
+	ASSERT_TRUE(p.ReceivedCounters().empty()) << "sequenced messages must wait behind the hole";
+
+	p.ResetSender();
+	std::vector<std::vector<char>> hole = p.SendAlone(kHoleCounter, Reliability::ReliableOrdered);
+	p.Deliver(hole);
+
+	const std::vector<uint32_t> received = p.ReceivedCounters();
+	ASSERT_EQ(kEntries + 1, received.size());
+	EXPECT_EQ(kHoleCounter, received[0]);
+	for (uint32_t i = 0; i < kEntries; i++)
+		EXPECT_EQ(i, received[i + 1]) << "position " << i + 1;
+}
+
+TEST(ReliabilityCharacterization, EqualWeightOrderedDuplicatesDeliverTheFirstBufferedCopy)
+{
+	// Ordered messages that share an ordering index share a heap weight. Only
+	// one of them can be delivered: the first one buffered. The rest are stale
+	// once the read index moves past them and must be dropped, not delivered
+	// and not left blocking the channel.
+	LayerPair p;
+	const uint32_t kCopies = 64;
+	for (uint32_t i = 0; i < kCopies; i++)
+	{
+		p.ResetSender();
+		p.SendAlone(kHoleCounter, Reliability::ReliableOrdered); // lost; reliable message number 0
+		// Burn reliable message numbers so each copy carries a fresh one, as a
+		// re-split copy would; the receiver would drop a repeated number.
+		if (i > 0)
+			p.SendAlone(kHoleCounter, Reliability::Reliable, i); // lost
+		std::vector<std::vector<char>> copy = p.SendAlone(1000 + i, Reliability::ReliableOrdered);
+		p.Deliver(copy);
+	}
+	ASSERT_TRUE(p.ReceivedCounters().empty());
+
+	p.ResetSender();
+	std::vector<std::vector<char>> hole = p.SendAlone(kHoleCounter, Reliability::ReliableOrdered);
+	p.Deliver(hole);
+	const std::vector<uint32_t> received = p.ReceivedCounters();
+	ASSERT_EQ(2u, received.size());
+	EXPECT_EQ(kHoleCounter, received[0]);
+	EXPECT_EQ(1000u, received[1]);
+
+	// The channel is not blocked: the next ordered index is delivered at once.
+	p.ResetSender();
+	p.SendAlone(kHoleCounter, Reliability::ReliableOrdered);                               // index 0 again: already passed
+	p.SendAlone(kHoleCounter, Reliability::Reliable, kCopies);                             // fresh reliable numbers, lost
+	p.SendAlone(kHoleCounter, Reliability::ReliableOrdered);                               // index 1: already passed
+	std::vector<std::vector<char>> next = p.SendAlone(2000, Reliability::ReliableOrdered); // index 2
+	p.Deliver(next);
+	EXPECT_EQ(std::vector<uint32_t>{2000u}, p.ReceivedCounters());
+}
+
+// The heap helpers on their own: ReliabilityLayer::HeapPush/HeapPop keep a
+// std::vector as a min-heap on (weight, push order).
+namespace
+{
+using HeapEntry = ReliabilityLayer::HeapEntry;
+
+struct HeapUnderTest
+{
+	std::vector<InternalPacket> packets; // identities only; index = push order
+	std::vector<HeapEntry> heap;
+	std::uint64_t nextSeq = 0;
+
+	explicit HeapUnderTest(size_t capacity)
+	    : packets(capacity)
+	{
+	}
+	void Push(size_t id, reliabilityHeapWeightType weight) { ReliabilityLayer::HeapPush(heap, nextSeq, weight, &packets[id]); }
+	size_t Pop() { return (size_t) (ReliabilityLayer::HeapPop(heap) - packets.data()); }
+};
+} // namespace
+
+TEST(ReliabilityHeap, PopsDistinctWeightsInAscendingOrder)
+{
+	const reliabilityHeapWeightType weights[] = {50, 10, 40, 20, 30, 0, 60};
+	HeapUnderTest h(7);
+	for (size_t i = 0; i < 7; i++)
+		h.Push(i, weights[i]);
+	const size_t expected[] = {5, 1, 3, 4, 2, 0, 6};
+	for (size_t i = 0; i < 7; i++)
+	{
+		EXPECT_EQ(weights[expected[i]], h.heap.front().weight);
+		EXPECT_EQ(expected[i], h.Pop());
+	}
+	EXPECT_TRUE(h.heap.empty());
+}
+
+TEST(ReliabilityHeap, EqualWeightsPopInPushOrder)
+{
+	HeapUnderTest h(100);
+	for (size_t i = 0; i < 100; i++)
+		h.Push(i, 7);
+	for (size_t i = 0; i < 100; i++)
+		ASSERT_EQ(i, h.Pop());
+}
+
+TEST(ReliabilityHeap, SeqCountsEveryPushAndSurvivesPops)
+{
+	HeapUnderTest h(3);
+	h.Push(0, 1);
+	h.Push(1, 1);
+	EXPECT_EQ(0u, h.Pop());
+	h.Push(2, 1);
+	EXPECT_EQ(3u, h.nextSeq);
+	EXPECT_EQ(1u, h.Pop());
+	EXPECT_EQ(2u, h.Pop());
+}
+
+TEST(ReliabilityHeap, MatchesAStableSortUnderInterleavedPushAndPop)
+{
+	// Fixed-seed differential test against a reference model: a list kept
+	// sorted by weight with ties in insertion order. Few distinct weights, so
+	// ties are the common case.
+	const size_t kOps = 20000;
+	HeapUnderTest h(kOps);
+	std::vector<std::pair<reliabilityHeapWeightType, size_t>> model; // (weight, id), stable-sorted
+	uint32_t lcg = 0xC0FFEEu;
+	size_t pushed = 0;
+	for (size_t op = 0; op < kOps; op++)
+	{
+		lcg = lcg * 1664525u + 1013904223u;
+		const bool push = model.empty() || (lcg >> 16) % 3 != 0;
+		if (push && pushed < kOps)
+		{
+			const reliabilityHeapWeightType weight = (lcg >> 8) % 16;
+			h.Push(pushed, weight);
+			auto at = std::upper_bound(model.begin(), model.end(), weight,
+			                           [](reliabilityHeapWeightType w, const std::pair<reliabilityHeapWeightType, size_t> &e)
+			                           { return w < e.first; });
+			model.insert(at, {weight, pushed});
+			pushed++;
+		}
+		else
+		{
+			ASSERT_EQ(model.front().first, h.heap.front().weight) << "op " << op;
+			ASSERT_EQ(model.front().second, h.Pop()) << "op " << op;
+			model.erase(model.begin());
+		}
+		ASSERT_EQ(model.size(), h.heap.size());
+	}
+	while (!model.empty())
+	{
+		ASSERT_EQ(model.front().second, h.Pop());
+		model.erase(model.begin());
 	}
 }
