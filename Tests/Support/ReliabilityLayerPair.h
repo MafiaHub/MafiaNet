@@ -119,6 +119,18 @@ protected:
 		b.Reset(true, TEST_MTU);
 		a.SetTimeoutTime(TEST_TIMEOUT_MS);
 		b.SetTimeoutTime(TEST_TIMEOUT_MS);
+		ReanchorClock();
+	}
+
+	// Reset() stamps the layer's lastUpdateTime with the real clock, and Update()
+	// does nothing for a time at or before it. Call this after any Reset() so the
+	// fake clock is never behind a layer: otherwise, on a loaded machine, the next
+	// Update(now + small step) can silently return without sending.
+	void ReanchorClock()
+	{
+		const CCTimeType real = MafiaNet::GetTimeUS();
+		if (real > now)
+			now = real;
 	}
 
 	// Runs a real X25519 exchange (a initiates) and installs the resulting
