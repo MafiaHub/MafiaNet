@@ -117,10 +117,6 @@ namespace
 {
 const MessageID ID_TEST_PAYLOAD = ID_USER_PACKET_ENUM;
 
-// Mirrors the file-static OFFLINE_MESSAGE_DATA_ID in peer.cpp, to forge offline messages.
-const unsigned char kOfflineMessageDataId[16] =
-    {0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78};
-
 // Two started peers that accept one incoming connection each, named by GUID order.
 struct GuidOrderedPair
 {
@@ -315,6 +311,9 @@ TEST(CrossConnectionConvert, LowerGuidHandshakeWinsUnderEveryDeliveryOrder)
 		ASSERT_TRUE(net.RunUntil([&]
 		                         { return BothConnected(p.lower, higherAddress, p.higher, lowerAddress); }, 10000, 1));
 		ExpectLowerGuidHandshakeWon(net, p);
+		// Retries under loss and jitter must not fail either side's attempt along the way.
+		EXPECT_EQ(0u, CountOf(net, p.higher, ID_CONNECTION_ATTEMPT_FAILED));
+		EXPECT_EQ(0u, CountOf(net, p.lower, ID_CONNECTION_ATTEMPT_FAILED));
 		ExpectPairedKeys(p.lower, higherAddress, p.higher, lowerAddress);
 		ExpectBothDirectionsDeliver(net, p.lower, higherAddress, p.higher, lowerAddress, 20);
 	}
@@ -353,7 +352,7 @@ TEST(CrossConnectionConvert, Reply2ToTheLosingHandshakeIsIgnored)
 	EphemeralKeyPair forgedPair;
 	BitStream reply2;
 	reply2.Write((MessageID) ID_OPEN_CONNECTION_REPLY_2);
-	reply2.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+	reply2.WriteAlignedBytes(RakPeer::GetOfflineMessageDataIdForTesting(), RakPeer::kOfflineMessageDataIdBytes);
 	reply2.Write(p.lower->GetMyGUID());
 	reply2.Write(higherAddress);
 	reply2.Write((uint16_t) 1200);
@@ -425,4 +424,64 @@ TEST(CrossConnectionConvert, PlaintextPeersStillConnectToEachOther)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return BothConnected(p.lower, higherAddress, p.higher, lowerAddress); }, 2000));
 	ExpectBothDirectionsDeliver(net, p.lower, higherAddress, p.higher, lowerAddress, 20);
+}
+
+// The higher peer's own Connect() was absorbed into the lower peer's connection. If that connection dies before
+// it is reported (here: the lower peer vanishes right after its ID_CONNECTION_REQUEST was accepted), the higher
+// peer's Connect() still gets its answer: ID_CONNECTION_ATTEMPT_FAILED, exactly once.
+TEST(CrossConnectionConvert, AbsorbedAttemptFailsWhenTheWinningConnectionDiesBeforeCompleting)
+{
+	SimulatedNetwork net;
+	const GuidOrderedPair p = AddGuidOrderedPair(net);
+	const SystemAddress lowerAddress = net.AddressOf(p.lower);
+	// Slow the way back to the lower peer: the window between "higher peer accepted the ID_CONNECTION_REQUEST"
+	// and "lower peer's ID_NEW_INCOMING_CONNECTION arrived" is then wide enough to cut the link in.
+	SimulatedNetwork::LinkRule slow;
+	slow.delayMs = 30;
+	net.SetLink(p.higher, p.lower, slow);
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(p.lower, p.higher));
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(p.higher, p.lower));
+	// The higher peer's attempt is pending until the winner's ID_CONNECTION_REQUEST opens, then absorbed.
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return p.higher->GetConnectionState(lowerAddress) != IS_PENDING; }, 1000, 1));
+	ASSERT_NE(IS_CONNECTED, p.higher->GetConnectionState(lowerAddress)) << "precondition: the connection is not complete yet";
+	ASSERT_EQ(0u, CountOf(net, p.higher, ID_NEW_INCOMING_CONNECTION));
+
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLinkBothWays(p.lower, p.higher, dark);
+	net.Step(20000);
+
+	EXPECT_EQ(1u, CountOf(net, p.higher, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_EQ(0u, CountOf(net, p.higher, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_EQ(0u, CountOf(net, p.higher, ID_CONNECTION_LOST));
+	EXPECT_NE(IS_CONNECTED, p.higher->GetConnectionState(lowerAddress));
+}
+
+// Before the winner's ID_CONNECTION_REQUEST arrives the higher peer's attempt is still its own: if the lower peer
+// vanishes then, the attempt runs out of retries and fails, exactly once.
+TEST(CrossConnectionConvert, PendingAttemptFailsWhenTheLowerPeerVanishesAfterBeingAnswered)
+{
+	SimulatedNetwork net;
+	const GuidOrderedPair p = AddGuidOrderedPair(net);
+	const SystemAddress lowerAddress = net.AddressOf(p.lower);
+	const SystemAddress higherAddress = net.AddressOf(p.higher);
+	bool higherAnswered = false;
+	net.SetTap([&](const SystemAddress &from, const SystemAddress &, const char *data, int length)
+	           { higherAnswered = higherAnswered || (from == higherAddress && length > 0 && (unsigned char) data[0] == ID_OPEN_CONNECTION_REPLY_2); });
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(p.lower, p.higher));
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(p.higher, p.lower));
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return higherAnswered; }, 1000, 1));
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLinkBothWays(p.lower, p.higher, dark);
+	ASSERT_EQ(IS_PENDING, p.higher->GetConnectionState(lowerAddress));
+	net.Step(30000);
+
+	EXPECT_EQ(1u, CountOf(net, p.higher, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_EQ(0u, CountOf(net, p.higher, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_NE(IS_CONNECTED, p.higher->GetConnectionState(lowerAddress));
 }

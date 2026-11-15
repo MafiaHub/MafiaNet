@@ -623,6 +623,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			remoteSystemList[i].sessionConfigAwaitingLocalDecision = false;
 			remoteSystemList[i].sessionConfigIsConnectingSide = false;
 			remoteSystemList[i].connectionReportedToApplication = false;
+			remoteSystemList[i].absorbedOurConnectAttempt = false;
 			remoteSystemList[i].sessionConfigStartTime = 0;
 #ifdef _DEBUG
 			remoteSystemList[i].reliabilityLayer.ApplyNetworkSimulator(_packetloss, _minExtraPing, _extraPingVariance);
@@ -745,6 +746,12 @@ HandshakeChallenge &RakPeer::GetHandshakeChallengeForTesting()
 	return handshakeChallenge;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const unsigned char *RakPeer::GetOfflineMessageDataIdForTesting()
+{
+	static_assert(sizeof(OFFLINE_MESSAGE_DATA_ID) == kOfflineMessageDataIdBytes, "kOfflineMessageDataIdBytes is stale");
+	return OFFLINE_MESSAGE_DATA_ID;
+}
+
 bool RakPeer::GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys *out) const
 {
 	RemoteSystemStruct *remoteSystem = GetRemoteSystemFromSystemAddress(remote, true, true);
@@ -1713,7 +1720,7 @@ void RakPeer::CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep)
 	}
 }
 
-void RakPeer::DropConnectionAttemptSupersededBy(const SystemAddress &address)
+bool RakPeer::DropConnectionAttemptSupersededBy(const SystemAddress &address)
 {
 	RequestedConnectionStruct *superseded = nullptr;
 	requestedConnectionQueueMutex.Lock();
@@ -1732,8 +1739,10 @@ void RakPeer::DropConnectionAttemptSupersededBy(const SystemAddress &address)
 		RemoveRequestedConnection_NoLock(superseded);
 	}
 	requestedConnectionQueueMutex.Unlock();
-	if (superseded != nullptr)
-		DeleteRequestedConnection(superseded); // wipes its ephemeral key pair
+	if (superseded == nullptr)
+		return false;
+	DeleteRequestedConnection(superseded); // wipes its ephemeral key pair
+	return true;
 }
 
 bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now)
@@ -3996,6 +4005,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			remoteSystem->lowestPing = 65535;
 			remoteSystem->nextPingTime = 0; // Ping immediately
 			remoteSystem->weInitiatedTheConnection = false;
+			remoteSystem->absorbedOurConnectAttempt = false;
 			remoteSystem->connectionTime = time;
 			remoteSystem->myExternalSystemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystem->lastReliableSend = time;
@@ -6276,8 +6286,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			// in DISCONNECT_ON_NO_ACK so the refusal is delivered first) and one dropped mid-handshake.
 			// The connecting side is exempt: it has an outstanding Connect() to resolve either way.
 			const bool reportableConnection = remoteSystem->connectionReportedToApplication || remoteSystem->weInitiatedTheConnection;
-			if (reportableConnection &&
-			    (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION || remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK))
+			// Our Connect() was absorbed into this incoming connection (cross-connection tie-break) and the
+			// connection dies before the application heard of it: that Connect() is still owed an answer.
+			const bool absorbedAttemptUnanswered = remoteSystem->absorbedOurConnectAttempt && !remoteSystem->connectionReportedToApplication;
+			if (absorbedAttemptUnanswered ||
+			    (reportableConnection &&
+			     (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION || remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK)))
 			{
 
 				//					MafiaNet::BitStream undeliveredMessages;
@@ -6287,10 +6301,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				// A graceful remote disconnect (DISCONNECT_ON_NO_ACK) may carry a reason payload stashed when the
 				// notification arrived. Only ID_DISCONNECTION_NOTIFICATION carries it; ID_CONNECTION_LOST and
 				// ID_CONNECTION_ATTEMPT_FAILED are locally synthesized and stay payload-less.
-				const bool attachReason = remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK && remoteSystem->disconnectReasonData != 0;
+				const bool attachReason = !absorbedAttemptUnanswered && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ON_NO_ACK && remoteSystem->disconnectReasonData != 0;
 				const unsigned int reasonLength = attachReason ? remoteSystem->disconnectReasonLength : 0;
 				packet = AllocPacket(sizeof(char) + reasonLength, _FILE_AND_LINE_);
-				if (remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION)
+				if (absorbedAttemptUnanswered || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION)
 					packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
 				else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA)
 					// Dropped mid-session-handshake. The connecting side still has an attempt outstanding; the
@@ -6403,8 +6417,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// Cross-connection: if our own attempt to this peer is still pending, it lost the tie-break (see the
 					// REQUEST_2 handler). The winner's ID_CONNECTION_REQUEST just opened under these keys, so this is the
 					// connection: drop our attempt quietly, wiping its key pair.
-					if (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST && remoteSystem->reliabilityLayer.IsEncrypted())
-						DropConnectionAttemptSupersededBy(systemAddress);
+					// Until the connection is reported, that Connect() is answered by the failure path if it dies.
+					if (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST && remoteSystem->reliabilityLayer.IsEncrypted() &&
+					    DropConnectionAttemptSupersededBy(systemAddress))
+						remoteSystem->absorbedOurConnectAttempt = true;
 				}
 				else
 				{

@@ -113,6 +113,11 @@ public:
 	/// Call only from the thread that runs the update cycle (any thread with SetManualUpdate). Not thread safe.
 	bool GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys *out) const;
 
+	/// \internal Test-only: the kOfflineMessageDataIdBytes-byte marker every offline handshake message carries
+	/// after its MessageID, so a test can forge one without copying the constant.
+	static const unsigned char *GetOfflineMessageDataIdForTesting();
+	static constexpr unsigned int kOfflineMessageDataIdBytes = 16;
+
 	/// \brief Sets the maximum number of incoming connections allowed.
 	/// \details If the number of incoming connections is less than the number of players currently connected,
 	/// no more players will be allowed to connect.  If this is greater than the maximum number of peers allowed,
@@ -805,6 +810,11 @@ public:
 		// application was never told about would be a lie.
 		bool connectionReportedToApplication;
 
+		// Our own Connect() to this peer lost the cross-connection tie-break and was dropped in favour of this
+		// incoming connection (DropConnectionAttemptSupersededBy). Until connectionReportedToApplication, that
+		// Connect() is still unanswered: if this connection dies first it reports ID_CONNECTION_ATTEMPT_FAILED.
+		bool absorbedOurConnectAttempt;
+
 		// GetTimeMS() at which this connection entered EXCHANGING_SESSION_DATA, so a handshake that never
 		// completes is timed out instead of pinning the slot forever.
 		MafiaNet::TimeMS sessionConfigStartTime;
@@ -1057,7 +1067,8 @@ protected:
 	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
 	// Network thread only. Silently removes and frees our pending attempt to \a address (and its race), if any:
 	// the peer there connected to us with the handshake that won the cross-connection tie-break.
-	void DropConnectionAttemptSupersededBy(const SystemAddress &address);
+	// Returns whether there was one.
+	bool DropConnectionAttemptSupersededBy(const SystemAddress &address);
 	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the
 	// next unstarted one now (later ones keep their spacing). Returns whether any candidate is left.
 	bool AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now);
