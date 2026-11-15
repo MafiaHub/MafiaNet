@@ -551,7 +551,8 @@ TEST(EncryptedHandshake, ForgedReply2WithTheWrongNonceEchoIsIgnored)
 	const CryptInfo serverInfo = serverPair.MakeCryptInfo();
 	CryptInfo plaintextInfo;
 	plaintextInfo.mode = EncryptionMode::Plaintext;
-	for (uint64_t wrong : {nonce ^ 1, nonce + 0x100000000ull, ~nonce, (uint64_t) 0})
+	const uint64_t wrongEchoes[] = {nonce ^ 1, nonce + ((uint64_t) 1 << 32), ~nonce, 0};
+	for (uint64_t wrong : wrongEchoes)
 	{
 		if (wrong == nonce)
 			continue;
