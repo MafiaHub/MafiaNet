@@ -28,7 +28,7 @@
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/ds_list.h"
-#include "mafianet/ds_weighted_graph.h"
+#include "mafianet/ds_ordered_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/export.h"
 

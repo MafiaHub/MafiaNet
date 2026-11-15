@@ -22,7 +22,6 @@ set(MAFIANET_SOURCES
     src/data_compressor.cpp
     src/directory_delta_transfer.cpp
     src/dr_sha1.cpp
-    src/ds_byte_pool.cpp
     src/ds_byte_queue.cpp
     src/ds_huffman_encoding_tree.cpp
     src/ds_table.cpp
@@ -150,29 +149,22 @@ set(MAFIANET_HEADERS
     include/mafianet/defines.h
     include/mafianet/directory_delta_transfer.h
     include/mafianet/dr_sha1.h
-    include/mafianet/ds_binary_search_tree.h
     include/mafianet/ds_bplus_tree.h
-    include/mafianet/ds_byte_pool.h
     include/mafianet/ds_byte_queue.h
     include/mafianet/ds_hash.h
     include/mafianet/ds_heap.h
     include/mafianet/ds_huffman_encoding_tree.h
-    include/mafianet/ds_huffman_encoding_tree_factory.h
     include/mafianet/ds_huffman_encoding_tree_node.h
     include/mafianet/ds_linked_list.h
     include/mafianet/ds_list.h
     include/mafianet/ds_map.h
     include/mafianet/ds_memory_pool.h
     include/mafianet/ds_multilist.h
-    include/mafianet/ds_ordered_channel_heap.h
     include/mafianet/ds_ordered_list.h
     include/mafianet/ds_queue.h
-    include/mafianet/ds_queue_linked_list.h
     include/mafianet/ds_range_list.h
     include/mafianet/ds_table.h
     include/mafianet/ds_threadsafe_allocating_queue.h
-    include/mafianet/ds_tree.h
-    include/mafianet/ds_weighted_graph.h
     include/mafianet/dyn_dns.h
     include/mafianet/email_sender.h
     include/mafianet/empty_header.h
@@ -226,6 +218,7 @@ set(MAFIANET_HEADERS
     include/mafianet/packet_output_window_logger.h
     include/mafianet/packet_pool.h
     include/mafianet/packet_priority.h
+    include/mafianet/instance_ptr.h
     include/mafianet/peer_handle.h
     include/mafianet/peer.h
     include/mafianet/peer_interface.h
@@ -283,6 +276,7 @@ set(MAFIANET_HEADERS
     include/mafianet/udp_proxy_server.h
     include/mafianet/variable_delta_serializer.h
     include/mafianet/variable_list_delta_tracker.h
+    include/mafianet/vector_util.h
     include/mafianet/variadic_sql_parser.h
     include/mafianet/version.h
     include/mafianet/virtual_world.h
