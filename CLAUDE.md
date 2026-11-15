@@ -133,8 +133,8 @@ Verify on Linux, in **both** `Debug` and `Release` (`RakAssert` only fires in De
 Release is what ships and exercises the backstops the asserts hide):
 
 ```bash
-docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -c '
-  apt-get update -qq && apt-get install -y -qq build-essential cmake libsodium-dev git ca-certificates
+docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -o pipefail -c '
+  apt-get update -qq && apt-get install -y -qq build-essential cmake libsodium-dev pkg-config git ca-certificates
   cp -r /src /work && cd /work
   for cfg in Debug Release; do
     cmake -B /b-$cfg -S . -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON

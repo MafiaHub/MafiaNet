@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     libsodium-dev \
+    pkg-config \
     python3 \
     && rm -rf /var/lib/apt/lists/*
 

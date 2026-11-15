@@ -68,7 +68,7 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update -qq
-          apt-get install -y -qq build-essential cmake git ca-certificates libsodium-dev
+          apt-get install -y -qq build-essential cmake git ca-certificates libsodium-dev pkg-config
 
       - name: Checkout repository
         uses: actions/checkout@v4
