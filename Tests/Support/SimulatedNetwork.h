@@ -25,6 +25,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
@@ -91,6 +92,14 @@ public:
 	// The encryption mode every peer added from now on starts with (RakPeer's
 	// SetEncryptionMode must be called before Startup). Default: Required.
 	void SetNewPeerEncryptionMode(EncryptionMode mode) { newPeerEncryptionMode = mode; }
+	// The server identity key (RakPeer::SetIdentityKey, before Startup) every peer
+	// added from now on starts with; null (the default) for none.
+	void SetNewPeerIdentityKey(const uint8_t *secretKey)
+	{
+		hasNewPeerIdentityKey = secretKey != nullptr;
+		if (hasNewPeerIdentityKey)
+			std::memcpy(newPeerIdentityKey, secretKey, sizeof(newPeerIdentityKey));
+	}
 	// Destroys \a peer as if its process crashed -- no disconnection
 	// notification reaches anyone -- and starts a fresh peer (new GUID) bound to
 	// the same address. Returns the new peer; \a peer is gone.
@@ -194,5 +203,7 @@ private:
 	std::function<void(const SystemAddress &, const SystemAddress &, const char *, int)> tap;
 	unsigned short nextHost = 1;
 	EncryptionMode newPeerEncryptionMode = EncryptionMode::Required;
+	bool hasNewPeerIdentityKey = false;
+	uint8_t newPeerIdentityKey[64] = {};
 };
 }

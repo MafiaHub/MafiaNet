@@ -15,13 +15,14 @@
 
 #pragma once
 
+#include <cstring>  // std::memcpy (identity keys in the builders)
 #include <optional> // std::optional (Result storage for a move-only Peer)
 #include <string>   // std::string (owned password / bind-address in the builders)
 #include <utility>  // std::move
 
 #include "mafianet/peer_interface.h"  // RakPeerInterface, Send, Receive, DeallocatePacket, GetInstance, DestroyInstance
 #include "mafianet/types.h"           // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, AddressOrGUID
-#include "mafianet/session_crypto.h"  // EncryptionMode
+#include "mafianet/session_crypto.h"  // EncryptionMode, identity key sizes, SecureZero
 #include "mafianet/packet_priority.h" // Priority, Reliability (scoped enums with the send defaults)
 #include "mafianet/bit_stream.h"      // BitStream (the encode() scratch buffer for send/broadcast)
 #include "mafianet/export.h"          // RAK_DLL_EXPORT
@@ -350,6 +351,25 @@ public:
 		return *this;
 	}
 
+	/// \brief Server identity key, applied with SetIdentityKey() before Startup().
+	/// \details The 64-byte secret key from GenerateIdentityKeyPair(). Clients that
+	/// pin the public half (ClientBuilder::pin_server_identity()) accept only this
+	/// server. The builder keeps a copy, wiped when the builder is destroyed. A
+	/// malformed key makes start() fail with STARTUP_OTHER_FAILURE.
+	ServerBuilder &identity_key(const uint8_t secretKey[kIdentitySecretKeyBytes])
+	{
+		SecureZero(identityKey_, sizeof(identityKey_));
+		hasIdentityKey_ = secretKey != nullptr;
+		if (hasIdentityKey_)
+			std::memcpy(identityKey_, secretKey, sizeof(identityKey_));
+		return *this;
+	}
+
+	ServerBuilder() = default;
+	ServerBuilder(const ServerBuilder &) = default;
+	ServerBuilder &operator=(const ServerBuilder &) = default;
+	~ServerBuilder() { SecureZero(identityKey_, sizeof(identityKey_)); }
+
 	/// \brief Start up and begin accepting connections.
 	/// \return Result carrying the live Peer on success, or the failing
 	/// StartupResult (PeerStage::Startup) otherwise.
@@ -357,7 +377,7 @@ public:
 	{
 		Peer peer;
 		SocketDescriptor sd(port_, host_.empty() ? nullptr : host_.c_str());
-		if (!peer->SetEncryptionMode(encryption_))
+		if (!peer->SetEncryptionMode(encryption_) || (hasIdentityKey_ && !peer->SetIdentityKey(identityKey_)))
 		{
 			PeerError e;
 			e.stage = PeerStage::Startup;
@@ -384,6 +404,8 @@ private:
 	std::string host_;
 	std::string password_;
 	EncryptionMode encryption_ = EncryptionMode::Required;
+	bool hasIdentityKey_ = false;
+	uint8_t identityKey_[kIdentitySecretKeyBytes] = {};
 };
 
 /// \brief Fluent builder for a connecting Peer (see Peer::client()).
@@ -442,6 +464,18 @@ public:
 		return *this;
 	}
 
+	/// \brief Pin the server identity for the .connect() target.
+	/// \details The server's 32-byte identity public key, passed to Connect() as a
+	/// PublicKey. The connection then succeeds only if the server proves it holds
+	/// the matching secret key; otherwise Receive() returns ID_PUBLIC_KEY_MISMATCH.
+	ClientBuilder &pin_server_identity(const uint8_t publicKey[kIdentityPublicKeyBytes])
+	{
+		pinned_ = publicKey != nullptr;
+		if (pinned_)
+			std::memcpy(pin_.serverIdentity, publicKey, sizeof(pin_.serverIdentity));
+		return *this;
+	}
+
 	/// \brief Start up and, if a target was given, begin connecting.
 	/// \return Result carrying the live Peer on success. On failure the
 	/// PeerError names the stage: PeerStage::Startup carries the StartupResult,
@@ -470,7 +504,8 @@ public:
 			ConnectionAttemptResult car = peer->Connect(
 			    connectHost_.c_str(), connectPort_,
 			    connectPassword_.empty() ? nullptr : connectPassword_.c_str(),
-			    connectPassword_.empty() ? 0 : (int) connectPassword_.size());
+			    connectPassword_.empty() ? 0 : (int) connectPassword_.size(),
+			    pinned_ ? &pin_ : nullptr);
 			if (car != CONNECTION_ATTEMPT_STARTED)
 			{
 				PeerError e;
@@ -491,6 +526,8 @@ private:
 	std::string connectPassword_;
 	bool wantConnect_ = false;
 	EncryptionMode encryption_ = EncryptionMode::Required;
+	bool pinned_ = false;
+	PublicKey pin_ = {};
 };
 
 inline ServerBuilder Peer::server()

@@ -56,6 +56,8 @@ const char *MessageName(MessageID id)
 		return "ID_OUR_SYSTEM_REQUIRES_SECURITY (we require encryption, the server is Plaintext)";
 	case ID_CONNECTION_ATTEMPT_FAILED:
 		return "ID_CONNECTION_ATTEMPT_FAILED";
+	case ID_PUBLIC_KEY_MISMATCH:
+		return "ID_PUBLIC_KEY_MISMATCH (the server did not prove the pinned identity)";
 	case ID_USER_PACKET_ENUM:
 		return "ID_USER_PACKET_ENUM (our test message)";
 	default:
@@ -97,7 +99,7 @@ bool Run(const char *title, EncryptionMode serverMode, EncryptionMode clientMode
 	printf("  server mode: %s, client mode: %s\n", ModeName(server->GetEncryptionMode()), ModeName(client->GetEncryptionMode()));
 
 	const unsigned short port = server->GetMyBoundAddress().GetPort();
-	client->Connect("127.0.0.1", port, nullptr, 0); // the PublicKey* parameter is reserved: leave it null
+	client->Connect("127.0.0.1", port, nullptr, 0); // no PublicKey*: encrypted, server identity not pinned
 
 	bool accepted = false;
 	bool delivered = false;

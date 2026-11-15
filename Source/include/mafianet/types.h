@@ -97,11 +97,16 @@ typedef uint32_t BitSize_t;
 
 #define PRINTF_64_BIT_MODIFIER "ll"
 
-/// Reserved for server identity keys (a later protocol revision). Connections are always encrypted with
-/// ephemeral keys negotiated by the handshake, so there is nothing to configure here today: passing a
-/// non-null PublicKey* to RakPeerInterface::Connect() or ConnectWithSocket() returns INVALID_PARAMETER.
+/// A server identity to pin. Passing a non-null PublicKey* to RakPeerInterface::Connect() or
+/// ConnectWithSocket() makes the attempt accept only a server that proves it holds the secret half of
+/// \a serverIdentity (see RakPeerInterface::SetIdentityKey()); any other answer ends the attempt with
+/// ID_PUBLIC_KEY_MISMATCH. Passing null (the default) pins nothing: the connection is still encrypted,
+/// but the server is not authenticated.
 struct RAK_DLL_EXPORT PublicKey
 {
+	/// The server's Ed25519 identity public key, as printed by GenerateIdentityKeyPair() or
+	/// RakPeerInterface::GetIdentityPublicKey().
+	uint8_t serverIdentity[32];
 };
 
 /// Describes the local socket to use for RakPeer::Startup

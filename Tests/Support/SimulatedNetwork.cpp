@@ -160,6 +160,12 @@ RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections,
 	const bool modeSet = peer->SetEncryptionMode(newPeerEncryptionMode);
 	RakAssert(modeSet);
 	(void) modeSet;
+	if (hasNewPeerIdentityKey)
+	{
+		const bool keySet = peer->SetIdentityKey(newPeerIdentityKey);
+		RakAssert(keySet);
+		(void) keySet;
+	}
 
 	if (hostNumber == 0)
 		hostNumber = nextHost++;

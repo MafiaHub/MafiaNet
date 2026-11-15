@@ -84,8 +84,10 @@ enum DefaultMessageIDTypes
 	/// The server allocates nothing unless the challenge verifies, the encryption modes agree, the server is not full,
 	/// and the GUID and IP are not already in use.
 	ID_OPEN_CONNECTION_REQUEST_2,
-	/// S2C: Header(1), OfflineMesageID(16), nonce echo(8), server GUID(8), client address, MTU(2), server CryptInfo(41).
+	/// S2C: Header(1), OfflineMesageID(16), nonce echo(8), server GUID(8), client address, MTU(2), server CryptInfo(41),
+	/// identity block (IdentityBlock: flag(1) [, Ed25519 identity public key(32), signature(64)]).
 	/// The nonce echo repeats the client CryptInfo's nonce; the client drops a REPLY_2 whose echo does not match.
+	/// A client that pinned the server's identity checks the identity block before anything else changes.
 	/// Both sides then derive the session keys (DeriveSessionKeys); everything after this is sealed in mode Required.
 	ID_OPEN_CONNECTION_REPLY_2,
 	/// C2S: Header(1), GUID(8), Timestamp, reserved(1, always 0), password
@@ -97,7 +99,9 @@ enum DefaultMessageIDTypes
 	/// RakPeer - We require encryption (EncryptionMode::Required, the default) and the remote system is in
 	/// EncryptionMode::Plaintext. The connection was refused; there is no fallback to plaintext.
 	ID_OUR_SYSTEM_REQUIRES_SECURITY,
-	/// Reserved (was ID_PUBLIC_KEY_MISMATCH, for the removed libcat handshake). Never sent; kept so later IDs keep their values.
+	/// RakPeer - Connect() pinned a server identity (a non-null PublicKey*) and the server did not prove it:
+	/// it presented no identity key, a different one, or a signature that does not verify. The attempt is
+	/// over and nothing was allocated. Delivered once per Connect(), under the address Connect() reported.
 	ID_PUBLIC_KEY_MISMATCH,
 	/// RakPeer - Same as ID_ADVERTISE_SYSTEM, but intended for internal use rather than being passed to the user.
 	/// Second byte indicates type. Used currently for NAT punchthrough for receiver port advertisement. See ID_NAT_ADVERTISE_RECIPIENT_PORT

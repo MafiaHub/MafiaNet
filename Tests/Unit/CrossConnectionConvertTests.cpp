@@ -348,7 +348,8 @@ TEST(CrossConnectionConvert, Reply2ToTheLosingHandshakeIsIgnored)
 	ASSERT_EQ(IS_PENDING, p.higher->GetConnectionState(lowerAddress));
 
 	// ID_OPEN_CONNECTION_REPLY_2 from the lower peer's address to the higher peer's attempt: id | offline id (16)
-	// | nonce echo (8) | server guid (8) | client address as seen (SystemAddress) | mtu (2) | server crypt info (41).
+	// | nonce echo (8) | server guid (8) | client address as seen (SystemAddress) | mtu (2) | server crypt info (41)
+	// | identity block (1: none).
 	// It echoes the attempt's nonce, so it gets past the echo check to the guard under test.
 	uint64_t attemptNonce = 0;
 	ASSERT_TRUE(p.higher->GetPendingHandshakeNonceForTesting(lowerAddress, &attemptNonce));
@@ -361,6 +362,7 @@ TEST(CrossConnectionConvert, Reply2ToTheLosingHandshakeIsIgnored)
 	reply2.Write(higherAddress);
 	reply2.Write((uint16_t) 1200);
 	forgedPair.MakeCryptInfo().Serialize(&reply2);
+	IdentityBlock().Serialize(&reply2);
 	net.InjectDatagram(lowerAddress, p.higher, reply2.GetData(), (int) reply2.GetNumberOfBytesUsed());
 	net.Step(5);
 

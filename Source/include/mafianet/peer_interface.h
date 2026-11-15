@@ -70,8 +70,9 @@ public:
 
 	/// \brief Sets whether connections must be encrypted. Must be called before Startup().
 	/// \details EncryptionMode::Required (the default) encrypts and integrity-protects every connected datagram with
-	/// session keys from an ephemeral X25519 exchange made during the connection handshake. The peers themselves
-	/// are not authenticated: the exchange is not bound to an identity, so it does not stop an active man in the middle.
+	/// session keys from an ephemeral X25519 exchange made during the connection handshake. On its own the exchange
+	/// is not bound to an identity, so it does not stop an active man in the middle; a client that pins the server's
+	/// identity key (SetIdentityKey(), and a PublicKey* in Connect()) does.
 	/// EncryptionMode::Plaintext sends connected datagrams in clear; it is meant for LAN debugging and fuzzing.
 	/// Both peers must use the same mode: a mismatch refuses the connection, with no fallback. The connecting side
 	/// then receives ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION (it is Plaintext, the remote Required) or
@@ -81,6 +82,29 @@ public:
 
 	/// \return The mode set by SetEncryptionMode(), EncryptionMode::Required by default.
 	virtual EncryptionMode GetEncryptionMode() const = 0;
+
+	/// \brief Installs this peer's long-term server identity key. Must be called before Startup().
+	/// \details With an identity key, every ID_OPEN_CONNECTION_REPLY_2 this peer sends carries its Ed25519 public
+	/// key and a signature over the handshake, in both encryption modes. A client that pins that public key (a
+	/// non-null PublicKey* in Connect()) then knows it reached this peer and not a man in the middle. Create a key
+	/// pair with GenerateIdentityKeyPair() (session_crypto.h) and publish the public half.
+	/// The peer keeps its own copy of the key, wiped (sodium_memzero) when it is replaced, by Shutdown() and by
+	/// the destructor: call this again before every Startup(). Passing null removes the key.
+	/// \param[in] secretKey The 64-byte libsodium Ed25519 secret key (seed followed by public key).
+	/// \return false, changing nothing, if the peer is already started or \a secretKey is not a well-formed key.
+	virtual bool SetIdentityKey(const uint8_t secretKey[64]) = 0;
+
+	/// \param[out] out The public half of the key set by SetIdentityKey().
+	/// \return false, zeroing \a out, when no identity key is set.
+	virtual bool GetIdentityPublicKey(uint8_t out[32]) const = 0;
+
+	/// \brief The identity public key a remote server presented and proved when this peer connected to it.
+	/// \details Filled for every connection this peer initiated to a server with an identity key, pinned or not.
+	/// The signature was verified, so the key is the one the server holds; without a pin nothing says it is the
+	/// server you meant, which is for the application to decide (for example, trust on first use).
+	/// \param[out] out The remote's 32-byte Ed25519 public key.
+	/// \return false, zeroing \a out, when there is no such connection or the remote presented no identity key.
+	virtual bool GetRemoteIdentityKey(const AddressOrGUID systemIdentifier, uint8_t out[32]) const = 0;
 
 	/// Sets how many incoming connections are allowed. If this is less than the number of players currently connected,
 	/// no more players will be allowed to connect.  If this is greater than the maximum number of peers allowed,
@@ -118,7 +142,7 @@ public:
 	/// \param[in] remotePort Which port to connect to on the remote machine.
 	/// \param[in] passwordData A data block that must match the data block on the server passed to SetIncomingPassword.  This can be a string or can be a stream of data.  Use 0 for no password.
 	/// \param[in] passwordDataLength The length in bytes of passwordData
-	/// \param[in] publicKey Reserved for server identity keys. Must be 0: a non-null value returns INVALID_PARAMETER. Connections are encrypted by default (see SetEncryptionMode()).
+	/// \param[in] publicKey Null (the default) pins nothing. Non-null pins the server identity in publicKey->serverIdentity: the attempt then accepts only a server that signs the handshake with that key, and ends with ID_PUBLIC_KEY_MISMATCH otherwise (see SetIdentityKey()). Connections are encrypted by default either way (see SetEncryptionMode()).
 	/// \param[in] connectionSocketIndex Index into the array of socket descriptors passed to socketDescriptors in RakPeer::Startup() to send on.
 	/// \param[in] sendConnectionAttemptCount How many datagrams to send to the other system to try to connect.
 	/// \param[in] timeBetweenSendConnectionAttemptsMS Time to elapse before a datagram is sent to the other system to try to connect. After sendConnectionAttemptCount number of attempts, ID_CONNECTION_ATTEMPT_FAILED is returned. Under low bandwidth conditions with multiple simultaneous outgoing connections, this value should be raised to 1000 or higher, or else the MTU detection can overrun the available bandwidth.
@@ -134,7 +158,7 @@ public:
 	/// \param[in] passwordData A data block that must match the data block on the server passed to SetIncomingPassword.  This can be a string or can be a stream of data.  Use 0 for no password.
 	/// \param[in] passwordDataLength The length in bytes of passwordData
 	/// \param[in] socket A bound socket returned by another instance of RakPeerInterface
-	/// \param[in] publicKey Reserved for server identity keys. Must be 0: a non-null value returns INVALID_PARAMETER.
+	/// \param[in] publicKey Null (the default) pins nothing; non-null pins the server identity, exactly as in Connect().
 	/// \param[in] sendConnectionAttemptCount How many datagrams to send to the other system to try to connect.
 	/// \param[in] timeBetweenSendConnectionAttemptsMS Time to elapse before a datagram is sent to the other system to try to connect. After sendConnectionAttemptCount number of attempts, ID_CONNECTION_ATTEMPT_FAILED is returned. Under low bandwidth conditions with multiple simultaneous outgoing connections, this value should be raised to 1000 or higher, or else the MTU detection can overrun the available bandwidth.
 	/// \param[in] timeoutTime How long to keep the connection alive before dropping it on unable to send a reliable message. 0 to use the default from SetTimeoutTime(UNASSIGNED_SYSTEM_ADDRESS);

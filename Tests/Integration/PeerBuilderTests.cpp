@@ -17,6 +17,7 @@
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
 
+#include <cstring> // std::memcmp, std::memcpy
 #include <utility> // std::move
 
 using namespace MafiaNet;
@@ -190,4 +191,70 @@ TEST(PeerBuilder, EncryptionModeReachesThePeerAndMustMatch)
 	}
 	EXPECT_TRUE(plainAccepted) << "the Plaintext client was not accepted within 10s";
 	EXPECT_TRUE(strictRefused) << "the Required client did not hear ID_OUR_SYSTEM_REQUIRES_SECURITY within 10s";
+}
+
+// --- identity_key() and pin_server_identity() ---
+// A client pinning the server's identity connects and reads the key back; one pinning another key hears
+// ID_PUBLIC_KEY_MISMATCH and never connects. A malformed key fails start().
+TEST(PeerBuilder, IdentityKeyAndPinReachThePeers)
+{
+	uint8_t publicKey[kIdentityPublicKeyBytes], secretKey[kIdentitySecretKeyBytes];
+	GenerateIdentityKeyPair(publicKey, secretKey);
+	uint8_t otherPublic[kIdentityPublicKeyBytes], otherSecret[kIdentitySecretKeyBytes];
+	GenerateIdentityKeyPair(otherPublic, otherSecret);
+
+	uint8_t malformed[kIdentitySecretKeyBytes];
+	std::memcpy(malformed, secretKey, sizeof(malformed));
+	malformed[50] ^= 0x01;
+	auto badResult = Peer::server().port(0).host("127.0.0.1").identity_key(malformed).start();
+	ASSERT_FALSE(badResult);
+	EXPECT_EQ(STARTUP_OTHER_FAILURE, badResult.error().startup);
+
+	auto serverResult = Peer::server().port(0).host("127.0.0.1").max_connections(4).identity_key(secretKey).start();
+	ASSERT_TRUE(serverResult) << "StartupResult " << (int) serverResult.error().startup;
+	Peer server = std::move(*serverResult);
+	uint8_t readBack[kIdentityPublicKeyBytes];
+	ASSERT_TRUE(server->GetIdentityPublicKey(readBack));
+	EXPECT_EQ(0, std::memcmp(publicKey, readBack, sizeof(readBack)));
+	const unsigned short serverPort = server->GetInternalID().GetPort();
+	ASSERT_NE(serverPort, 0);
+
+	auto goodResult = Peer::client().max_connections(1).pin_server_identity(publicKey).connect("127.0.0.1", serverPort).start();
+	ASSERT_TRUE(goodResult);
+	Peer good = std::move(*goodResult);
+	auto wrongResult = Peer::client().max_connections(1).pin_server_identity(otherPublic).connect("127.0.0.1", serverPort).start();
+	ASSERT_TRUE(wrongResult);
+	Peer wrong = std::move(*wrongResult);
+
+	bool goodAccepted = false;
+	bool wrongRefused = false;
+	SystemAddress serverAddress;
+	const TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 10000 && !(goodAccepted && wrongRefused))
+	{
+		for (auto pkt : server.incoming())
+			(void) pkt;
+		for (auto pkt : good.incoming())
+		{
+			ASSERT_NE(ID_PUBLIC_KEY_MISMATCH, pkt.id()) << "the right pin was refused";
+			if (pkt.id() == ID_CONNECTION_REQUEST_ACCEPTED)
+			{
+				goodAccepted = true;
+				serverAddress = pkt->systemAddress;
+			}
+		}
+		for (auto pkt : wrong.incoming())
+		{
+			ASSERT_NE(ID_CONNECTION_REQUEST_ACCEPTED, pkt.id()) << "a client pinning another key connected";
+			wrongRefused = wrongRefused || pkt.id() == ID_PUBLIC_KEY_MISMATCH;
+		}
+		RakSleep(30);
+	}
+	ASSERT_TRUE(goodAccepted) << "the pinned client was not accepted within 10s";
+	EXPECT_TRUE(wrongRefused) << "the wrongly pinned client did not hear ID_PUBLIC_KEY_MISMATCH within 10s";
+	uint8_t remote[kIdentityPublicKeyBytes];
+	ASSERT_TRUE(good->GetRemoteIdentityKey(serverAddress, remote));
+	EXPECT_EQ(0, std::memcmp(publicKey, remote, sizeof(remote)));
+	SecureZero(secretKey, sizeof(secretKey));
+	SecureZero(otherSecret, sizeof(otherSecret));
 }

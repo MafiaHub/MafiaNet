@@ -406,7 +406,9 @@ TEST(EncryptedHandshake, ReconnectFromSameAddressUsesFreshKeys)
 	                         { return NumbersReceived(net, server) == std::vector<uint32_t>{9}; }, 2000));
 }
 
-TEST(EncryptedHandshake, ConnectWithPublicKeyReturnsInvalidParameter)
+// A non-null PublicKey* pins the server identity (ServerIdentityTests covers the checks); it is no
+// longer refused with INVALID_PARAMETER.
+TEST(EncryptedHandshake, ConnectWithPublicKeyStartsAPinnedAttempt)
 {
 	SimulatedNetwork net;
 	RakPeer *server = net.AddPeer(1, 1);
@@ -415,10 +417,11 @@ TEST(EncryptedHandshake, ConnectWithPublicKeyReturnsInvalidParameter)
 	char host[64];
 	target.ToString(false, host, sizeof(host));
 
-	PublicKey reserved;
-	EXPECT_EQ(INVALID_PARAMETER, client->Connect(host, target.GetPort(), nullptr, 0, &reserved));
-	EXPECT_EQ(INVALID_PARAMETER, client->ConnectWithSocket(host, target.GetPort(), nullptr, 0, nullptr, &reserved));
-	EXPECT_EQ(IS_NOT_CONNECTED, client->GetConnectionState(target));
+	PublicKey pin = {};
+	EXPECT_EQ(CONNECTION_ATTEMPT_STARTED, client->Connect(host, target.GetPort(), nullptr, 0, &pin));
+	// A null socket is still an invalid parameter, pin or not.
+	EXPECT_EQ(INVALID_PARAMETER, client->ConnectWithSocket(host, target.GetPort(), nullptr, 0, nullptr, &pin));
+	EXPECT_EQ(IS_PENDING, client->GetConnectionState(target));
 }
 
 TEST(EncryptedHandshake, SetEncryptionModeAfterStartupFails)
@@ -495,11 +498,13 @@ TEST(EncryptedHandshake, LostReply2IsAnsweredWithTheSameServerCryptInfo)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED) && net.Received(server, ID_NEW_INCOMING_CONNECTION); }, 10000));
 	ASSERT_GE(replies.size(), 2u);
-	// The server crypt info is the last CryptInfo::kSerializedBytes of REPLY_2 (the MTU before it may
-	// differ: the retry can probe a lower rung).
-	ASSERT_GT(replies[0].size(), (size_t) CryptInfo::kSerializedBytes);
+	// The server crypt info and the identity block (1 byte, absent: this server has no identity key) end
+	// REPLY_2 (the MTU before them may differ: the retry can probe a lower rung).
+	const size_t tail = (size_t) CryptInfo::kSerializedBytes + IdentityBlock::kAbsentBytes;
+	ASSERT_GT(replies[0].size(), tail);
 	ASSERT_EQ(replies[0].size(), replies[1].size());
-	EXPECT_TRUE(std::equal(replies[0].end() - CryptInfo::kSerializedBytes, replies[0].end(), replies[1].end() - CryptInfo::kSerializedBytes))
+	EXPECT_EQ(0, replies[0].back()) << "identity flag";
+	EXPECT_TRUE(std::equal(replies[0].end() - (long) tail, replies[0].end(), replies[1].end() - (long) tail))
 	    << "the retransmitted REPLY_2 carries a different server crypt info";
 
 	SessionKeys clientKeys, serverKeys;
@@ -510,7 +515,7 @@ TEST(EncryptedHandshake, LostReply2IsAnsweredWithTheSameServerCryptInfo)
 
 namespace
 {
-// ID_OPEN_CONNECTION_REPLY_2, as a server writes it:
+// ID_OPEN_CONNECTION_REPLY_2, as a server without an identity key writes it:
 // id | offline id (16) | nonce echo (8) | server guid (8) | client address | mtu (2) | server crypt info (41).
 void WriteReply2(BitStream &out, uint64_t nonceEcho, const RakNetGUID &serverGuid, const SystemAddress &clientAddress,
                  uint16_t mtu, const CryptInfo &serverInfo)
@@ -522,6 +527,7 @@ void WriteReply2(BitStream &out, uint64_t nonceEcho, const RakNetGUID &serverGui
 	out.Write(clientAddress);
 	out.Write(mtu);
 	serverInfo.Serialize(&out);
+	IdentityBlock().Serialize(&out); // no identity key
 }
 
 // A connection attempt from a fresh client to an address no peer owns, so the only REPLY_2 it can get is
