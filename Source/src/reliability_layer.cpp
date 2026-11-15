@@ -1566,10 +1566,23 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 							highestSequencedReadIndex[internalPacket->orderingChannel] = 0;
 
 							// Return off heap until order lost
-							while (orderingHeaps[internalPacket->orderingChannel].Size() > 0 &&
-							       orderingHeaps[internalPacket->orderingChannel].Peek()->orderingIndex == orderedReadIndex[internalPacket->orderingChannel])
+							const unsigned char channel = internalPacket->orderingChannel;
+							while (orderingHeaps[channel].Size() > 0)
 							{
-								internalPacket = orderingHeaps[internalPacket->orderingChannel].Pop(0);
+								// A buffered packet older than the read index is a second copy of a message already
+								// delivered: the black-hole step-down re-sends a rebuilt copy of a message that may in
+								// fact have arrived, under new message numbers. It sorts first, so leaving it would stop
+								// this loop for good and stall the channel. Drop it, as a late arrival is dropped.
+								if (IsOlderOrderedPacket(orderingHeaps[channel].Peek()->orderingIndex, orderedReadIndex[channel]))
+								{
+									InternalPacket *stale = orderingHeaps[channel].Pop(0);
+									FreeInternalPacketData(stale, _FILE_AND_LINE_);
+									ReleaseToInternalPacketPool(stale);
+									continue;
+								}
+								if (orderingHeaps[channel].Peek()->orderingIndex != orderedReadIndex[channel])
+									break;
+								internalPacket = orderingHeaps[channel].Pop(0);
 
 #ifdef PRINT_TO_FILE_RELIABLE_ORDERED_TEST
 								BitStream bitStream2(internalPacket->data, BITS_TO_BYTES(internalPacket->dataBitLength), false);
