@@ -1055,6 +1055,9 @@ protected:
 	void RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs);
 	// Requires requestedConnectionQueueMutex, network thread only. Removes and frees every other candidate of \a keep's race.
 	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
+	// Network thread only. Silently removes and frees our pending attempt to \a address (and its race), if any:
+	// the peer there connected to us with the handshake that won the cross-connection tie-break.
+	void DropConnectionAttemptSupersededBy(const SystemAddress &address);
 	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the
 	// next unstarted one now (later ones keep their spacing). Returns whether any candidate is left.
 	bool AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now);

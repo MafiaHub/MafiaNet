@@ -1713,6 +1713,29 @@ void RakPeer::CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep)
 	}
 }
 
+void RakPeer::DropConnectionAttemptSupersededBy(const SystemAddress &address)
+{
+	RequestedConnectionStruct *superseded = nullptr;
+	requestedConnectionQueueMutex.Lock();
+	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
+	{
+		RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
+		if (rcs->systemAddress == address && !rcs->cancelled && rcs->actionToTake == RequestedConnectionStruct::CONNECT)
+		{
+			superseded = rcs;
+			break;
+		}
+	}
+	if (superseded != nullptr)
+	{
+		CancelRaceSiblings_NoLock(superseded);
+		RemoveRequestedConnection_NoLock(superseded);
+	}
+	requestedConnectionQueueMutex.Unlock();
+	if (superseded != nullptr)
+		DeleteRequestedConnection(superseded); // wipes its ephemeral key pair
+}
+
 bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now)
 {
 	bool anyLeft = false;
@@ -3449,6 +3472,19 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 			}
 		}
 	}
+	// Checked again under the queue lock. The network thread answers a REQUEST_2 under this lock too, so a
+	// connection it allocates for one of these addresses is either seen here or finds this request queued; the
+	// cross-connection tie-break (the REQUEST_2 handler) relies on that.
+	for (int c = 0; c < candidateCount; c++)
+	{
+		if (GetRemoteSystemFromSystemAddress(candidates[c], false, true))
+		{
+			requestedConnectionQueueMutex.Unlock();
+			for (int k = 0; k < candidateCount; k++)
+				DeleteRequestedConnection(requests[k]);
+			return ALREADY_CONNECTED_TO_ENDPOINT;
+		}
+	}
 	if (candidateCount > 1)
 	{
 		const uint32_t raceGroup = nextRaceGroup++;
@@ -3511,6 +3547,13 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 			DeleteRequestedConnection(rcs);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
+	}
+	// Checked again under the queue lock, as in the other overload (cross-connection tie-break).
+	if (GetRemoteSystemFromSystemAddress(systemAddress, false, true))
+	{
+		requestedConnectionQueueMutex.Unlock();
+		DeleteRequestedConnection(rcs);
+		return ALREADY_CONNECTED_TO_ENDPOINT;
 	}
 	if (encryptionMode == EncryptionMode::Required)
 		rcs->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
@@ -5176,9 +5219,13 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					remoteSystem = rakPeer->GetRemoteSystemFromSystemAddress(systemAddress, true, true);
 					if (remoteSystem != 0 && remoteSystem->reliabilityLayer.IsEncrypted())
 					{
-						// Keys are already installed for this address: by a duplicate REPLY_2, or by the other handshake
-						// of a simultaneous cross-connection. Installing new ones would restart the live session's
-						// sequence under a different key on one side only. Ignore this reply.
+						// Session keys are already installed for this address while this attempt is still pending. The
+						// cross-connection tie-break (the REQUEST_2 handler) only lets that happen when we answered the
+						// other peer's attempt because its GUID is lower: those keys belong to the winning handshake.
+						// Any REPLY_2 to our own attempt -- stale, duplicated or forged -- is ignored: nothing is derived
+						// from it, the installed keys are never replaced (a second SetSessionKeys would restart the
+						// sequence on one side only), and we do not send ID_CONNECTION_REQUEST. The attempt stays queued
+						// and is dropped once the winner's ID_CONNECTION_REQUEST opens, or ends as an attempt normally does.
 						rakPeer->requestedConnectionQueueMutex.Unlock();
 						return true;
 					}
@@ -5547,6 +5594,20 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 			if (rakPeer->AllowIncomingConnection(systemAddress) == false)
 			{
+				// Cross-connection: a peer with a lower GUID does not answer our REQUEST_2 while its own attempt to us
+				// is pending (see the tie-break below). This refusal ends that attempt, so retry ours right away
+				// instead of after a whole retry interval.
+				if (rakPeer->encryptionMode == EncryptionMode::Required && guid.g < rakPeer->myGuid.g)
+				{
+					rakPeer->requestedConnectionQueueMutex.Lock();
+					for (i = 0; i < rakPeer->requestedConnectionQueue.Size(); i++)
+					{
+						RakPeer::RequestedConnectionStruct *rcs = rakPeer->requestedConnectionQueue[i];
+						if (rcs->systemAddress == systemAddress && !rcs->cancelled)
+							rcs->nextRequestTime = 0;
+					}
+					rakPeer->requestedConnectionQueueMutex.Unlock();
+				}
 				bsOut.Write((MessageID) ID_NO_FREE_INCOMING_CONNECTIONS);
 				bsOut.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 				bsOut.Write(rakPeer->myGuid);
@@ -5562,6 +5623,32 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				return true;
 			}
 
+			// Cross-connection tie-break. When two peers connect to each other at once, each would answer the other's
+			// REQUEST_2 and install keys from the other's handshake, and the two sides would end up holding keys
+			// from different handshakes. The handshake initiated by the peer with the lower RakNetGUID wins on both
+			// sides. So if our own attempt to this address is pending and our GUID is lower, do not answer: the
+			// losing handshake then never derives keys and nothing can be sealed under them. The other peer retries;
+			// once our handshake completes the retry gets ID_ALREADY_CONNECTED, and if ours fails it is answered
+			// normally. If our GUID is higher, answer as usual: the keys installed below are the winner's, a REPLY_2
+			// to our own attempt is ignored (the REPLY_2 handler), and the attempt is dropped once the winner's
+			// ID_CONNECTION_REQUEST opens under these keys (RunUpdateCycle, UNVERIFIED_SENDER).
+			// Plaintext has no keys to agree on and keeps converging as it always did.
+			// The queue lock is held until the connection is allocated: Connect() looks for a connection under the
+			// same lock, so an attempt it starts meanwhile is either refused there or seen here.
+			rakPeer->requestedConnectionQueueMutex.Lock();
+			if (rakPeer->encryptionMode == EncryptionMode::Required && rakPeer->myGuid.g < guid.g)
+			{
+				for (i = 0; i < rakPeer->requestedConnectionQueue.Size(); i++)
+				{
+					const RakPeer::RequestedConnectionStruct *rcs = rakPeer->requestedConnectionQueue[i];
+					if (rcs->systemAddress == systemAddress && !rcs->cancelled && rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT)
+					{
+						rakPeer->requestedConnectionQueueMutex.Unlock();
+						return true;
+					}
+				}
+			}
+
 			// Our side of the handshake: a fresh ephemeral key pair, used once and wiped by DeriveSessionKeys
 			// (and by its destructor) before this block ends. The client initiated, so it holds the initiator slot.
 			SessionKeys keys;
@@ -5571,13 +5658,17 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				EphemeralKeyPair serverPair;
 				serverInfo = serverPair.MakeCryptInfo();
 				if (!DeriveSessionKeys(serverPair, /*localIsInitiator=*/false, clientInfo, serverInfo, guid, rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS), &keys))
+				{
+					rakPeer->requestedConnectionQueueMutex.Unlock();
 					return true; // low-order client key: drop, allocating nothing
+				}
 			}
 			else
 				serverInfo.mode = EncryptionMode::Plaintext;
 
 			bool thisIPConnectedRecently = false;
 			rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr, serverInfo, clientInfo);
+			rakPeer->requestedConnectionQueueMutex.Unlock();
 			keys.Wipe();
 
 			if (thisIPConnectedRecently == true)
@@ -6309,6 +6400,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				{
 					ParseConnectionRequestPacket(remoteSystem, systemAddress, (const char *) data, byteSize);
 					rakFree_Ex(data, _FILE_AND_LINE_);
+					// Cross-connection: if our own attempt to this peer is still pending, it lost the tie-break (see the
+					// REQUEST_2 handler). The winner's ID_CONNECTION_REQUEST just opened under these keys, so this is the
+					// connection: drop our attempt quietly, wiping its key pair.
+					if (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST && remoteSystem->reliabilityLayer.IsEncrypted())
+						DropConnectionAttemptSupersededBy(systemAddress);
 				}
 				else
 				{
