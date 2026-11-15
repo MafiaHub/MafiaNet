@@ -227,8 +227,9 @@ struct RAK_DLL_EXPORT SystemAddress
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	const char *ToString(bool writePort = true, char portDelineator = '|') const;
 
-	/// Buffer size that holds any ToString() result: the longest IPv6 text (45), a '%' scope id (11),
-	/// the port delineator and port (6) and the terminator. At least INET6_ADDRSTRLEN + 1 + 5 + 1.
+	/// Buffer size that holds any ToString() result. The worst case is 63 bytes: the longest IPv6 text (45
+	/// characters), '%' and a scope id of up to 10 digits, the port delineator, a 5-digit port and the terminator.
+	/// (Not derived from INET6_ADDRSTRLEN, which differs between platforms: 46, or 65 on Windows.)
 	static constexpr size_t TO_STRING_BUFFER_SIZE = 64;
 
 	// Return the systemAddress as a string in the format <IP>|<Port>

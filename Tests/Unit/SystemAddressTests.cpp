@@ -183,7 +183,11 @@ namespace
 const char *const LONG_IPV6 = "2001:db8:1234:5678:9abc:def0:1234:5678";
 }
 
-static_assert(SystemAddress::TO_STRING_BUFFER_SIZE >= static_cast<size_t>(INET6_ADDRSTRLEN + 1 + 5 + 1), "ToString's documented minimum must hold an IPv6 address and port");
+// The longest ToString() result: a 45-character IPv6 text ("ffff:...:255.255.255.255"), '%' and a 10-digit
+// scope id, the port delineator, a 5-digit port and the terminator. INET6_ADDRSTRLEN is not used: it is 46 on
+// POSIX but 65 on Windows.
+constexpr size_t LONGEST_TO_STRING = 45 + 1 + 10 + 1 + 5 + 1;
+static_assert(SystemAddress::TO_STRING_BUFFER_SIZE >= LONGEST_TO_STRING, "ToString's documented minimum must hold any address, scope id and port");
 
 TEST(SystemAddressToString, SizedOverloadNeverOverflowsASmallBuffer)
 {

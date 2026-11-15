@@ -91,7 +91,6 @@ void AddressOrGUID::ToString(bool writePort, char *dest, size_t destLength) cons
 	return systemAddress.ToString(writePort, dest, destLength);
 }
 
-// Return false if IP address. Return true if domain
 bool MafiaNet::SplitHostAndPort(const char *str, char portDelineator, char *host, size_t hostSize, char *port, size_t portSize)
 {
 	if (str == nullptr || host == nullptr || port == nullptr || hostSize == 0 || portSize == 0)
@@ -116,6 +115,7 @@ bool MafiaNet::SplitHostAndPort(const char *str, char portDelineator, char *host
 	return true;
 }
 
+// Return false if IP address. Return true if domain
 bool MafiaNet::NonNumericHostString(const char *host)
 {
 	size_t i = 0;
