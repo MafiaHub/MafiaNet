@@ -195,11 +195,11 @@ TEST(SystemAddressToString, SizedOverloadNeverOverflowsASmallBuffer)
 	ASSERT_TRUE(sa.FromStringExplicitPort(LONG_IPV6, 65535));
 
 	// Exactly 32 bytes on the heap, so AddressSanitizer reports any write past it.
-	std::unique_ptr<char[]> small(new char[32]);
-	memset(small.get(), 'X', 32);
-	sa.ToString(true, small.get(), static_cast<size_t>(32));
-	EXPECT_LT(strnlen(small.get(), 32), 32u) << "result is not NUL-terminated within the buffer";
-	EXPECT_STREQ(small.get(), "") << "a result that does not fit is empty, never a truncated address";
+	std::unique_ptr<char[]> tinyBuffer(new char[32]);
+	memset(tinyBuffer.get(), 'X', 32);
+	sa.ToString(true, tinyBuffer.get(), static_cast<size_t>(32));
+	EXPECT_LT(strnlen(tinyBuffer.get(), 32), 32u) << "result is not NUL-terminated within the buffer";
+	EXPECT_STREQ(tinyBuffer.get(), "") << "a result that does not fit is empty, never a truncated address";
 }
 
 TEST(SystemAddressToString, SizedOverloadWritesTheWholeAddressWhenItFits)
@@ -229,9 +229,9 @@ TEST(SystemAddressToString, ExactFitIsWrittenOneByteLessIsEmpty)
 
 TEST(SystemAddressToString, UnassignedIntoASmallBufferDoesNotOverflow)
 {
-	std::unique_ptr<char[]> small(new char[8]);
-	UNASSIGNED_SYSTEM_ADDRESS.ToString(true, small.get(), static_cast<size_t>(8));
-	EXPECT_STREQ(small.get(), "");
+	std::unique_ptr<char[]> tinyBuffer(new char[8]);
+	UNASSIGNED_SYSTEM_ADDRESS.ToString(true, tinyBuffer.get(), static_cast<size_t>(8));
+	EXPECT_STREQ(tinyBuffer.get(), "");
 
 	char buf[SystemAddress::TO_STRING_BUFFER_SIZE];
 	UNASSIGNED_SYSTEM_ADDRESS.ToString(true, buf, sizeof(buf));

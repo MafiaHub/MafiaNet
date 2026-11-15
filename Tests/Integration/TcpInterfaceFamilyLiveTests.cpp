@@ -37,14 +37,14 @@ class ListeningTcp : public TCPInterface
 public:
 	unsigned short ListenPort() const
 	{
-		sockaddr_storage local;
+		sockaddr_storage local{};
 		if (!LocalAddress(&local))
 			return 0;
 		return local.ss_family == AF_INET ? ntohs(((const sockaddr_in *) &local)->sin_port) : ntohs(((const sockaddr_in6 *) &local)->sin6_port);
 	}
 	int ListenFamily() const
 	{
-		sockaddr_storage local;
+		sockaddr_storage local{};
 		return LocalAddress(&local) ? local.ss_family : AF_UNSPEC;
 	}
 

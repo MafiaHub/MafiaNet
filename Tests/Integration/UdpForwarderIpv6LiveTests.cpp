@@ -124,7 +124,7 @@ TEST_F(UdpForwarderIpv6Live, ForwardsBetweenV6Endpoints)
 
 	char buf[128];
 	int got = -1;
-	sockaddr_in6 from;
+	sockaddr_in6 from{};
 	const TimeMS start = GetTimeMS();
 	while (GetTimeMS() - start < 5000 && got <= 0)
 	{
