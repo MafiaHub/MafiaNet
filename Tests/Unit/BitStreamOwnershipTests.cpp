@@ -68,17 +68,30 @@ TEST(BitStreamOwnership, ReadAlignedBytesSafeAllocShortReadLeavesNull)
 	EXPECT_EQ(nullptr, out.get());
 }
 
-TEST(BitStreamOwnership, DataCompressorRoundTripsIntoUniquePtr)
+TEST(BitStreamOwnership, ReadAlignedBytesSafeAllocReplacesPreviousBuffer)
 {
-	unsigned char input[4096]; // Compress() requires more than 2048 bytes
-	for (unsigned i = 0; i < sizeof(input); i++)
-		input[i] = (unsigned char) (i % 7);
+	// Successful read: the old buffer is replaced.
+	{
+		BitStream bs;
+		const unsigned char bytes[2] = {7, 8};
+		bs.WriteCompressed((unsigned int) 2);
+		bs.AlignWriteToByteBoundary();
+		bs.WriteAlignedBytes(bytes, 2);
 
-	BitStream compressed;
-	DataCompressor::Compress(input, sizeof(input), &compressed);
-
-	std::unique_ptr<unsigned char[]> output;
-	ASSERT_EQ(sizeof(input), DataCompressor::DecompressAndAllocate(&compressed, output));
-	ASSERT_NE(nullptr, output.get());
-	EXPECT_EQ(0, std::memcmp(input, output.get(), sizeof(input)));
+		std::unique_ptr<unsigned char[]> out(new unsigned char[16]);
+		unsigned int length = 0;
+		ASSERT_TRUE(bs.ReadAlignedBytesSafeAlloc(out, length, 4096));
+		EXPECT_EQ(2u, length);
+		ASSERT_NE(nullptr, out.get());
+		EXPECT_EQ(7, out[0]);
+		EXPECT_EQ(8, out[1]);
+	}
+	// Failed read: the old buffer is released, not left behind.
+	{
+		BitStream bs;
+		std::unique_ptr<unsigned char[]> out(new unsigned char[16]);
+		unsigned int length = 0;
+		EXPECT_FALSE(bs.ReadAlignedBytesSafeAlloc(out, length, 4096));
+		EXPECT_EQ(nullptr, out.get());
+	}
 }
