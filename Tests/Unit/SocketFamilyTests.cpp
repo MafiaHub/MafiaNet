@@ -308,3 +308,66 @@ TEST(RequireDualStack, HostNameIsRefused)
 	sd.requireDualStack = true;
 	EXPECT_EQ(StartOnce(sd), SOCKET_FAMILY_NOT_SUPPORTED);
 }
+
+namespace
+{
+// Starts \a peer on one socket with \a family and the wildcard address; returns that socket, or nullptr.
+RakNetSocket2 *StartWildcard(RakPeerInterface *peer, unsigned short family)
+{
+	SocketDescriptor sd(0, nullptr);
+	sd.socketFamily = family;
+	if (peer->Startup(1, &sd, 1) != RAKNET_STARTED)
+		return nullptr;
+	DataStructures::List<RakNetSocket2 *> sockets;
+	peer->GetSockets(sockets);
+	return sockets.Size() == 1 ? sockets[0] : nullptr;
+}
+
+struct PeerGuard
+{
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	~PeerGuard()
+	{
+		peer->Shutdown(0);
+		RakPeerInterface::DestroyInstance(peer);
+	}
+};
+} // namespace
+
+// An IPv4-mapped literal names an IPv4 host, which an IPv6-only socket cannot send to: no candidate.
+TEST(SocketResolve, MappedLiteralOnIpv6OnlySocketResolvesToNothing)
+{
+	PeerGuard guard;
+	RakNetSocket2 *socket = StartWildcard(guard.peer, AF_INET6);
+	if (socket == nullptr)
+	{
+		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
+			FAIL() << "no IPv6 socket but MAFIANET_REQUIRE_IPV6 is set";
+		GTEST_SKIP() << "no IPv6 on this host";
+	}
+	ASSERT_FALSE(socket->IsDualStack());
+	SystemAddress out[4];
+	EXPECT_EQ(socket->Resolve("::ffff:127.0.0.1", 9, out, 4), 0);
+	// A real IPv6 literal still resolves.
+	ASSERT_EQ(socket->Resolve("::1", 9, out, 4), 1);
+	EXPECT_EQ(out[0].GetIPVersion(), 6);
+}
+
+// A dual-stack socket reaches IPv4 hosts: the mapped literal is the plain IPv4 address.
+TEST(SocketResolve, MappedLiteralOnDualStackSocketResolvesToIpv4)
+{
+	PeerGuard guard;
+	RakNetSocket2 *socket = StartWildcard(guard.peer, AF_UNSPEC);
+	ASSERT_NE(socket, nullptr);
+	if (!socket->IsDualStack())
+	{
+		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
+			FAIL() << "socket is not dual-stack but MAFIANET_REQUIRE_IPV6 is set";
+		GTEST_SKIP() << "no dual-stack socket on this host";
+	}
+	SystemAddress out[4];
+	ASSERT_EQ(socket->Resolve("::ffff:127.0.0.1", 9, out, 4), 1);
+	EXPECT_EQ(out[0].GetIPVersion(), 4);
+	EXPECT_EQ(std::string(out[0].ToString(false)), "127.0.0.1");
+	EXPECT_EQ(out[0].GetPort(), 9);
+}

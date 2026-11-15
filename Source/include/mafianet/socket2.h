@@ -228,7 +228,8 @@ public:
 	///
 	/// The default uses getaddrinfo: AF_UNSPEC on a dual-stack socket,
 	/// otherwise the bound family, and never AI_ADDRCONFIG. IPv4-mapped
-	/// answers come back as plain AF_INET addresses. A numeric literal
+	/// answers come back as plain AF_INET addresses, so an IPv6-only socket,
+	/// which cannot send to those, leaves them out. A numeric literal
 	/// resolves to exactly itself. Connect() on a dual-stack socket races the
 	/// answers (RFC 8305); see RakPeer::HAPPY_EYEBALLS_ATTEMPT_DELAY_MS.
 	virtual int Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const;

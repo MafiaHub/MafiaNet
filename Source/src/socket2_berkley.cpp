@@ -65,7 +65,8 @@ void DomainNameToIP_Berkley_IPV4And6(const char *domainName, char ip[65], int ad
 }
 
 // Every address getaddrinfo returns for \a host in \a addressFamily, in its
-// order, with port \a port; see RakNetSocket2::Resolve.
+// order, with port \a port; see RakNetSocket2::Resolve. \a addressFamily is
+// what the socket reaches: AF_UNSPEC (dual-stack) reaches both families.
 static int Resolve_Berkley(const char *host, unsigned short port, int addressFamily, MafiaNet::SystemAddress *out, int maxOut)
 {
 	if (host == nullptr || host[0] == '\0' || out == nullptr || maxOut <= 0)
@@ -91,6 +92,9 @@ static int Resolve_Berkley(const char *host, unsigned short port, int addressFam
 		memset(&ss, 0, sizeof(ss));
 		memcpy(&ss, ai->ai_addr, ai->ai_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
 		if (!MafiaNet::SockaddrToSystemAddress(ss, &out[count]))
+			continue;
+		// An IPv4-mapped answer (::ffff:a.b.c.d) comes back as plain IPv4, which an IPv6-only socket cannot send to.
+		if (addressFamily != AF_UNSPEC && out[count].GetIPVersion() != (addressFamily == AF_INET6 ? 6 : 4))
 			continue;
 		out[count].SetPortHostOrder(port);
 		++count;
