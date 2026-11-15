@@ -1072,6 +1072,8 @@ protected:
 	static bool RequestMatches(const RequestedConnectionStruct *rcs, const SystemAddress &address);
 	// Frees \a rcs and what it owns. It must already be out of requestedConnectionQueue.
 	static void DeleteRequestedConnection(RequestedConnectionStruct *rcs);
+	// Requires requestedConnectionQueueMutex. Takes \a rcs out of requestedConnectionQueue without freeing it.
+	void RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs);
 	// Requires requestedConnectionQueueMutex, network thread only. Removes and frees every other candidate of \a keep's race.
 	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
 	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the

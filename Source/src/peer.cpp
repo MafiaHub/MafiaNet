@@ -1814,6 +1814,18 @@ void RakPeer::DeleteRequestedConnection(RequestedConnectionStruct *rcs)
 	MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
 }
 
+void RakPeer::RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs)
+{
+	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
+	{
+		if (requestedConnectionQueue[i] == rcs)
+		{
+			requestedConnectionQueue.RemoveAtIndex(i);
+			return;
+		}
+	}
+}
+
 void RakPeer::CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep)
 {
 	if (keep->raceGroup == 0)
@@ -3754,9 +3766,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 		if (RequestMatches(requestedConnectionQueue[i], systemAddress))
 		{
 			requestedConnectionQueueMutex.Unlock();
-			// Not necessary
-			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+			// Frees the client_handshake GenerateConnectionRequestChallenge made, too.
+			DeleteRequestedConnection(rcs);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
@@ -5021,13 +5032,7 @@ void RakPeer::ClearRequestedConnectionList(void)
 	requestedConnectionQueueMutex.Unlock();
 	unsigned i;
 	for (i = 0; i < freeQueue.Size(); i++)
-	{
-#if LIBCAT_SECURITY == 1
-		CAT_AUDIT_PRINTF("AUDIT: In ClearRequestedConnectionList(), Deleting freeQueue index %i client_handshake %x\n", i, freeQueue[i]->client_handshake);
-		MafiaNet::OP_DELETE(freeQueue[i]->client_handshake, _FILE_AND_LINE_);
-#endif
-		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_);
-	}
+		DeleteRequestedConnection(freeQueue[i]);
 }
 bool RakPeer::IsInsideNetworkThreadReceive(void) const
 {
@@ -5397,13 +5402,18 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						                     rcs->remote_public_key,
 						                     cat::EasyHandshake::PUBLIC_KEY_BYTES) == false)
 						{
+							// The attempt is over: report it under the race's first address, as
+							// every race failure is, and drop the request so it is not retried.
+							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rakPeer->DeleteRequestedConnection(rcs);
 							CAT_AUDIT_PRINTF("AUDIT: Expected public key does not match what was sent by server -- Reporting back ID_PUBLIC_KEY_MISMATCH to user\n");
 
 							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 							packet->data[0] = ID_PUBLIC_KEY_MISMATCH; // Attempted a connection and couldn't
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = serverGuid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
@@ -5435,13 +5445,17 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 #if LIBCAT_SECURITY == 1
 						if (rcs->client_handshake != 0)
 						{
+							// As for ID_PUBLIC_KEY_MISMATCH above: report once, drop the request.
+							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rakPeer->DeleteRequestedConnection(rcs);
 							CAT_AUDIT_PRINTF("AUDIT: Security disabled by server but we expected security (indicated by client_handshake not null) so failing!\n");
 
 							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 							packet->data[0] = ID_OUR_SYSTEM_REQUIRES_SECURITY; // Attempted a connection and couldn't
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = serverGuid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
@@ -5648,22 +5662,14 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					}
 
 					rakPeer->requestedConnectionQueueMutex.Lock();
-					for (unsigned int k = 0; k < rakPeer->requestedConnectionQueue.Size(); k++)
-					{
-						if (rakPeer->requestedConnectionQueue[k] == rcs)
-						{
-							rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
-							break;
-						}
-					}
+					rakPeer->RemoveRequestedConnection_NoLock(rcs);
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 
 #if LIBCAT_SECURITY == 1
 					CAT_AUDIT_PRINTF("AUDIT: Deleting client_handshake object %x and rcs->client_handshake object %x\n", client_handshake, rcs->client_handshake);
 					MafiaNet::OP_DELETE(client_handshake, _FILE_AND_LINE_);
-					MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
 #endif // LIBCAT_SECURITY
-					MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+					rakPeer->DeleteRequestedConnection(rcs);
 
 					break;
 				}
@@ -5715,12 +5721,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						}
 					}
 					rakPeer->requestedConnectionQueue.RemoveAtIndex(i);
-
-#if LIBCAT_SECURITY == 1
-					CAT_AUDIT_PRINTF("AUDIT: Connection attempt canceled so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-#endif // LIBCAT_SECURITY
-					MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+					rakPeer->DeleteRequestedConnection(rcs);
 					break;
 				}
 			}
