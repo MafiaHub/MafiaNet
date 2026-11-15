@@ -58,7 +58,7 @@ void HuffmanEncodingTree::FreeMemory(void)
 
 	// Delete the encoding table
 	for (int i = 0; i < 256; i++)
-		std::free(encodingTable[i].encoding);
+		encodingTable[i].encoding.reset();
 
 	root = 0;
 }
@@ -158,8 +158,8 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable(unsigned int frequencyTable
 				bitStream.Write0();
 		}
 
-		// Read data from the bitstream, which is written to the encoding table in bits and bitlength. Note this function allocates the encodingTable[counter].encoding pointer
-		encodingTable[counter].bitLength = (unsigned char) bitStream.CopyData(&encodingTable[counter].encoding);
+		// Read data from the bitstream, which is written to the encoding table in bits and bitlength. Note this function allocates the encodingTable[counter].encoding buffer
+		encodingTable[counter].bitLength = (unsigned char) bitStream.CopyData(encodingTable[counter].encoding);
 
 		// Reset the bitstream for the next iteration
 		bitStream.Reset();
@@ -174,7 +174,7 @@ void HuffmanEncodingTree::EncodeArray(unsigned char *input, size_t sizeInBytes, 
 	// For each input byte, Write out the corresponding series of 1's and 0's that give the encoded representation
 	for (counter = 0; counter < sizeInBytes; counter++)
 	{
-		output->WriteBits(encodingTable[input[counter]].encoding, encodingTable[input[counter]].bitLength, false); // Data is left aligned
+		output->WriteBits(encodingTable[input[counter]].encoding.get(), encodingTable[input[counter]].bitLength, false); // Data is left aligned
 	}
 
 	// Byte align the output so the unassigned remaining bits don't equate to some actual value
@@ -186,7 +186,7 @@ void HuffmanEncodingTree::EncodeArray(unsigned char *input, size_t sizeInBytes, 
 		for (counter = 0; counter < 256; counter++)
 			if (encodingTable[counter].bitLength > remainingBits)
 			{
-				output->WriteBits(encodingTable[counter].encoding, remainingBits, false); // Data is left aligned
+				output->WriteBits(encodingTable[counter].encoding.get(), remainingBits, false); // Data is left aligned
 				break;
 			}
 

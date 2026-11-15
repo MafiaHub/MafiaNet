@@ -29,6 +29,7 @@
 #include "mafianet/assert.h"
 #include <cmath>
 #include <float.h>
+#include <memory>
 #include <string>
 #include <type_traits>
 
@@ -536,9 +537,9 @@ public:
 
 	/// \brief Makes a copy of the internal data for you \a _data will point to
 	/// the stream. Partial bytes are left aligned.
-	/// \param[out] _data The allocated copy of GetData()
+	/// \param[out] _data Receives an owned copy of GetData(); null if the stream is empty
 	/// \return The length in bits of the stream.
-	BitSize_t CopyData(unsigned char **_data) const;
+	BitSize_t CopyData(std::unique_ptr<unsigned char[]> &_data) const;
 
 	/// \internal
 	/// Set the stream to some initial data.
@@ -594,11 +595,11 @@ public:
 	bool ReadAlignedBytesSafe(char *inOutByteArray, int &inputLength, const int maxBytesToRead);
 	bool ReadAlignedBytesSafe(char *inOutByteArray, unsigned int &inputLength, const unsigned int maxBytesToRead);
 
-	/// \brief Same as ReadAlignedBytesSafe() but allocates the memory for you using new, rather than assuming it is safe to write to
-	/// \param[in] outByteArray outByteArray will be deleted if it is not a pointer to 0
+	/// \brief Same as ReadAlignedBytesSafe() but allocates the memory for you, rather than assuming it is safe to write to
+	/// \param[out] outByteArray Any previous contents are released first. Receives the owned buffer, or null on failure or when zero bytes were read
 	/// \return true on success, false on failure.
-	bool ReadAlignedBytesSafeAlloc(char **outByteArray, int &inputLength, const unsigned int maxBytesToRead);
-	bool ReadAlignedBytesSafeAlloc(char **outByteArray, unsigned int &inputLength, const unsigned int maxBytesToRead);
+	bool ReadAlignedBytesSafeAlloc(std::unique_ptr<unsigned char[]> &outByteArray, int &inputLength, const unsigned int maxBytesToRead);
+	bool ReadAlignedBytesSafeAlloc(std::unique_ptr<unsigned char[]> &outByteArray, unsigned int &inputLength, const unsigned int maxBytesToRead);
 
 	/// \brief Align the next write and/or read to a byte boundary.
 	/// \details This can be used to 'waste' bits to byte align for efficiency reasons It

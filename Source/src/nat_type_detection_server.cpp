@@ -18,7 +18,6 @@
 
 #include "mafianet/nat_type_detection_server.h"
 #include "mafianet/socket_layer.h"
-#include "mafianet/smart_ptr.h"
 #include "mafianet/socket_includes.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"

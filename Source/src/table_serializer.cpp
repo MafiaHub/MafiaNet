@@ -265,9 +265,13 @@ bool TableSerializer::DeserializeFilterQuery(MafiaNet::BitStream *out, DataStruc
 		// HACK - cellValue->i is used for integer, character, and binary data. However, for character and binary c will be 0. So use that to determine if the data was integer or not.
 		out->Read(query->cellValue->i);
 		unsigned int inputLength;
-		out->ReadAlignedBytesSafeAlloc(&query->cellValue->c, inputLength, 10000000); // Sanity check to max binary cell of 10 megabytes
-		if (query->cellValue->c)
-			query->cellValue->i = inputLength;
+		std::unique_ptr<unsigned char[]> binary;
+		out->ReadAlignedBytesSafeAlloc(binary, inputLength, 10000000); // Sanity check to max binary cell of 10 megabytes
+		if (binary)
+		{
+			// The cell owns (and std::free()s) its own copy of the bytes; it also sets i to the length.
+			query->cellValue->Set((const char *) binary.get(), (int) inputLength);
+		}
 		b = out->Read(query->cellValue->ptr);
 	}
 	return b;

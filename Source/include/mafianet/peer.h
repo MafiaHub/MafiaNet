@@ -34,7 +34,6 @@
 #include "mafianet/string.h"
 #include "mafianet/thread.h"
 //#include "socket.h"
-#include "mafianet/smart_ptr.h"
 #include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/signaled_event.h"
 #include "mafianet/native_feature_includes.h"

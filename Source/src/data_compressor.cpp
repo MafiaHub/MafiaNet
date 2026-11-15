@@ -51,7 +51,7 @@ void DataCompressor::Compress(unsigned char *userData, unsigned sizeInBytes, Maf
 	output->SetWriteOffset(writeOffset2);
 }
 
-unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, unsigned char **output)
+unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, std::unique_ptr<unsigned char[]> &output)
 {
 	HuffmanEncodingTree tree;
 	unsigned int bitsUsed, destinationSizeInBytes;
@@ -71,9 +71,9 @@ unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, unsig
 #endif
 		return 0;
 	}
-	*output = (unsigned char *) std::malloc(destinationSizeInBytes);
+	output.reset(new unsigned char[destinationSizeInBytes]);
 	tree.GenerateFromFrequencyTable(frequencyTable);
-	decompressedBytes = tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, *output);
+	decompressedBytes = tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, output.get());
 	RakAssert(decompressedBytes == destinationSizeInBytes);
 	return destinationSizeInBytes;
 }

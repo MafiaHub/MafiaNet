@@ -26,7 +26,6 @@
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"
 #include "mafianet/ds_list.h"
-#include "mafianet/smart_ptr.h"
 #include "mafianet/socket2.h"
 
 namespace MafiaNet

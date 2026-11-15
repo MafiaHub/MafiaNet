@@ -696,7 +696,7 @@ void Lobby2Message::Serialize(bool writeToBitstream, bool serializeOutput, BitSt
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 }
-bool Lobby2Message::ValidateBinary(RakNetSmartPtr<BinaryDataBlock> binaryDataBlock)
+bool Lobby2Message::ValidateBinary(std::shared_ptr<BinaryDataBlock> binaryDataBlock)
 {
 	if (binaryDataBlock->binaryDataLength > L2_MAX_BINARY_DATA_LENGTH)
 	{

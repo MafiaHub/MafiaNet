@@ -242,7 +242,6 @@ set(MAFIANET_HEADERS
     include/mafianet/single_producer_consumer.h
     include/mafianet/sleep.h
     include/mafianet/mafianet.h
-    include/mafianet/smart_ptr.h
     include/mafianet/socket2.h
     include/mafianet/socket_defines.h
     include/mafianet/socket_includes.h

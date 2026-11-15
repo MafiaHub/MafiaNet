@@ -63,7 +63,7 @@ private:
 
 	struct CharacterEncoding
 	{
-		unsigned char *encoding;
+		std::unique_ptr<unsigned char[]> encoding;
 		unsigned short bitLength;
 	};
 

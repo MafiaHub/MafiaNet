@@ -17,7 +17,6 @@
 #if _RAKNET_SUPPORT_NatTypeDetectionClient == 1
 
 #include "mafianet/nat_type_detection_client.h"
-#include "mafianet/smart_ptr.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/socket_includes.h"
 #include "mafianet/string.h"

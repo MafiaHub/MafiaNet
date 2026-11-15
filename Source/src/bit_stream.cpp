@@ -400,27 +400,24 @@ bool BitStream::ReadAlignedBytesSafe(char *inOutByteArray, unsigned int &inputLe
 		return true;
 	return ReadAlignedBytes((unsigned char *) inOutByteArray, inputLength);
 }
-bool BitStream::ReadAlignedBytesSafeAlloc(char **outByteArray, int &inputLength, const unsigned int maxBytesToRead)
+bool BitStream::ReadAlignedBytesSafeAlloc(std::unique_ptr<unsigned char[]> &outByteArray, int &inputLength, const unsigned int maxBytesToRead)
 {
 	return ReadAlignedBytesSafeAlloc(outByteArray, (unsigned int &) inputLength, maxBytesToRead);
 }
-bool BitStream::ReadAlignedBytesSafeAlloc(char **outByteArray, unsigned int &inputLength, const unsigned int maxBytesToRead)
+bool BitStream::ReadAlignedBytesSafeAlloc(std::unique_ptr<unsigned char[]> &outByteArray, unsigned int &inputLength, const unsigned int maxBytesToRead)
 {
-	std::free(*outByteArray);
-	*outByteArray = 0;
+	outByteArray.reset();
 	if (ReadCompressed(inputLength) == false)
 		return false;
 	if (inputLength > maxBytesToRead)
 		inputLength = maxBytesToRead;
 	if (inputLength == 0)
 		return true;
-	*outByteArray = (char *) std::malloc((size_t) inputLength);
-	if (ReadAlignedBytes((unsigned char *) *outByteArray, inputLength))
+	outByteArray.reset(new unsigned char[inputLength]);
+	if (ReadAlignedBytes(outByteArray.get(), inputLength))
 		return true;
-	// Callers commonly free only on success; do not hand back a buffer with
-	// nothing read into it.
-	std::free(*outByteArray);
-	*outByteArray = 0;
+	// Do not hand back a buffer with nothing read into it.
+	outByteArray.reset();
 	return false;
 }
 
@@ -1051,14 +1048,17 @@ void BitStream::SetReadOffset(const BitSize_t newReadOffset)
 
 // Exposes the data for you to look at, like PrintBits does.
 // Data will point to the stream.  Returns the length in bits of the stream.
-BitSize_t BitStream::CopyData(unsigned char **_data) const
+BitSize_t BitStream::CopyData(std::unique_ptr<unsigned char[]> &_data) const
 {
-#ifdef _DEBUG
-	RakAssert(numberOfBitsUsed > 0);
-#endif
+	if (numberOfBitsUsed == 0)
+	{
+		_data.reset();
+		return 0;
+	}
 
-	*_data = (unsigned char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsUsed));
-	memcpy(*_data, data, sizeof(unsigned char) * (size_t) (BITS_TO_BYTES(numberOfBitsUsed)));
+	const size_t numBytes = (size_t) BITS_TO_BYTES(numberOfBitsUsed);
+	_data.reset(new unsigned char[numBytes]);
+	memcpy(_data.get(), data, numBytes);
 	return numberOfBitsUsed;
 }
 
