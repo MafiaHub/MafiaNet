@@ -32,7 +32,7 @@ SystemAddress Addr(const char *ip, unsigned short port)
 
 class HandshakeChallengeTest : public ::testing::Test
 {
-  protected:
+protected:
 	void SetUp() override
 	{
 		ASSERT_GE(sodium_init(), 0);

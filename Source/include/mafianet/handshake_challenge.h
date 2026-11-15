@@ -31,7 +31,7 @@ namespace MafiaNet
 
 class RAK_DLL_EXPORT HandshakeChallenge
 {
-  public:
+public:
 	/// Draws a random secret with randombytes_buf.
 	HandshakeChallenge();
 	/// Wipes the secret.
@@ -56,7 +56,7 @@ class RAK_DLL_EXPORT HandshakeChallenge
 	/// seconds. Rejects anything else, in constant time for the hash comparison.
 	bool Verify(uint64_t challenge, TimeUS now, const SystemAddress &from) const;
 
-  private:
+private:
 	uint64_t Hash(uint16_t timeBucket, const SystemAddress &from) const;
 
 	uint8_t secret[16];
