@@ -74,6 +74,18 @@ void CountedFreeEx(void *p, const char *, unsigned int)
 		g_rakBlocks.fetch_sub(1, std::memory_order_relaxed);
 	std::free(p);
 }
+
+// The hooks are installed before main(), so before any network thread exists to read them: swapping
+// rakMalloc_Ex and friends while a peer's thread runs would be a data race.
+struct RakAllocatorHooks
+{
+	RakAllocatorHooks()
+	{
+		SetMalloc_Ex(CountedMallocEx);
+		SetRealloc_Ex(CountedReallocEx);
+		SetFree_Ex(CountedFreeEx);
+	}
+} g_rakAllocatorHooks;
 } // namespace
 
 // Replaces the global allocation functions for the whole SoakTests binary: every non-aligned form (the
@@ -228,12 +240,6 @@ bool CountsOperatorNew()
 #endif
 }
 
-void InstallRakAllocatorHooks()
-{
-	SetMalloc_Ex(CountedMallocEx);
-	SetRealloc_Ex(CountedReallocEx);
-	SetFree_Ex(CountedFreeEx);
-}
 
 AllocationSnapshot Allocations()
 {

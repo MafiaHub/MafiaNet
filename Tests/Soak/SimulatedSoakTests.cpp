@@ -708,7 +708,6 @@ bool SimulatedSoak::EverythingReleased(std::string *why) const
 void SimulatedSoak::Run()
 {
 	const auto wallStart = std::chrono::steady_clock::now();
-	Soak::InstallRakAllocatorHooks();
 	Build();
 	const uint64_t startMs = NowMs();
 	std::vector<Soak::AllocationSnapshot> afterWave;

@@ -74,15 +74,14 @@ private:
 };
 
 // Live allocations made through operator new and through MafiaNet's rakMalloc_Ex / rakRealloc_Ex /
-// rakFree_Ex hooks since InstallRakAllocatorHooks(). Counts blocks (and, for operator new, bytes where the
-// platform reports a block's size). Process wide and thread safe.
+// rakFree_Ex, whose hooks SoakSupport.cpp installs before main(). Counts blocks (and, for operator new,
+// bytes where the platform reports a block's size). Process wide and thread safe.
 struct AllocationSnapshot
 {
 	int64_t newBlocks = 0;
 	int64_t newBytes = 0;
 	int64_t rakBlocks = 0;
 };
-void InstallRakAllocatorHooks();
 // False in a sanitizer build, where operator new is the sanitizer's: newBlocks / newBytes then stay 0.
 bool CountsOperatorNew();
 AllocationSnapshot Allocations();
