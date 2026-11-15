@@ -164,6 +164,39 @@ static void FixForSocket(SystemAddress &address, const RakNetSocket2 *socket)
 		address.FixForIPVersion(socket->GetBoundAddress());
 }
 
+// Resolves \a host for a one-shot unconnected send (Ping, SendOutOfBand,
+// SendTTL), which has no Happy Eyeballs race to fall back on. On a dual-stack
+// socket a name with an IPv4 address goes to that address -- as it did when
+// sockets were IPv4 by default -- and only a name without one goes to its first
+// IPv6 address. Otherwise the socket's own family, as before. False when
+// \a host does not resolve.
+static bool ResolveOneShotTarget(const char *host, unsigned short port, const RakNetSocket2 *socket, SystemAddress *out)
+{
+	if (socket->IsDualStack())
+	{
+		static const int MAX_CANDIDATES = 16;
+		SystemAddress candidates[MAX_CANDIDATES];
+		const int count = socket->Resolve(host, port, candidates, MAX_CANDIDATES);
+		if (count <= 0)
+			return false;
+		int chosen = 0;
+		for (int i = 0; i < count; i++)
+		{
+			if (candidates[i].GetIPVersion() == 4)
+			{
+				chosen = i;
+				break;
+			}
+		}
+		*out = candidates[chosen];
+		return true;
+	}
+	if (!out->FromStringExplicitPort(host, port, ResolveIPVersion(socket)))
+		return false;
+	FixForSocket(*out, socket);
+	return true;
+}
+
 // Whether a message a connected remote sent, and that RakPeer did not consume itself, may be handed to
 // the plugins and the application.
 //
@@ -2243,10 +2276,9 @@ bool RakPeer::Ping(const char *host, unsigned short remotePort, bool onlyReplyOn
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) bitStream.GetData();
 	bsp.length = bitStream.GetNumberOfBytesUsed();
-	bsp.systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[realIndex]));
-	if (bsp.systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
+	if (!ResolveOneShotTarget(host, remotePort, socketList[realIndex], &bsp.systemAddress) ||
+	    bsp.systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
 		return false;
-	FixForSocket(bsp.systemAddress, socketList[realIndex]);
 	unsigned i;
 	for (i = 0; i < pluginListNTS.Size(); i++)
 		pluginListNTS[i]->OnDirectSocketSend((const char *) bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), bsp.systemAddress);
@@ -2969,8 +3001,8 @@ void RakPeer::SendTTL(const char *host, unsigned short remotePort, int ttl, unsi
 		RNS2_SendParameters bsp;
 		bsp.data = (char *) fakeData;
 		bsp.length = 2;
-		bsp.systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[realIndex]));
-		FixForSocket(bsp.systemAddress, socketList[realIndex]);
+		if (!ResolveOneShotTarget(host, remotePort, socketList[realIndex], &bsp.systemAddress))
+			return;
 		bsp.ttl = ttl;
 		unsigned i;
 		for (i = 0; i < pluginListNTS.Size(); i++)
@@ -3322,8 +3354,8 @@ bool RakPeer::SendOutOfBand(const char *host, unsigned short remotePort, const c
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) bitStream.GetData();
 	bsp.length = bitStream.GetNumberOfBytesUsed();
-	bsp.systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socketList[realIndex]));
-	FixForSocket(bsp.systemAddress, socketList[realIndex]);
+	if (!ResolveOneShotTarget(host, remotePort, socketList[realIndex], &bsp.systemAddress))
+		return false;
 	unsigned i;
 	for (i = 0; i < pluginListNTS.Size(); i++)
 		pluginListNTS[i]->OnDirectSocketSend((const char *) bsp.data, BYTES_TO_BITS(bsp.length), bsp.systemAddress);

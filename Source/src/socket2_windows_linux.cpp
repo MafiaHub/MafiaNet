@@ -235,6 +235,10 @@ RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int
 
 		if (restoreTTL)
 		{
+			// On macOS a dual-stack socket's -1 hop limit is restored as the IPv4
+			// default TTL (net.inet.ip.ttl) even for an IPv6 target, rather than
+			// net.inet6.ip6.hlim: one option governs both families there, so the
+			// IPv4 traffic is what must not change. Equal at the defaults (64).
 			int restoreTo = HopLimitToRestore(oldTTL, dualStack, oldTTL < 0 && dualStack ? SystemDefaultIPv4Ttl() : 0);
 			setsockopt__(rns2Socket, ttlOption.level, ttlOption.name, (char *) &restoreTo, sizeof(restoreTo));
 		}

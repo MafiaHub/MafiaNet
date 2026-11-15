@@ -219,3 +219,56 @@ TEST(BoundAddressReporting, ExplicitIpv6WildcardReportsIpv6Loopback)
 	EXPECT_EQ(std::string(bound.ToString(false)), "::1");
 	EXPECT_NE(bound.GetPort(), 0);
 }
+
+// A specific bind address can never be dual-stack, so AF_UNSPEC binds it IPv4
+// first: a name with both an A and an AAAA record ("localhost") stays
+// reachable by IPv4 clients, as with the pre-0.27.0 AF_INET default.
+TEST(UnspecSpecificHost, NameWithBothFamiliesBindsIpv4)
+{
+	bool dualStack = true;
+	SystemAddress bound;
+	ASSERT_EQ(StartOnce(SocketDescriptor(0, "localhost"), &dualStack, &bound), RAKNET_STARTED);
+	EXPECT_FALSE(dualStack);
+	EXPECT_EQ(bound.GetIPVersion(), 4) << bound.ToString(true);
+	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+}
+
+// An IPv6 literal has no IPv4 form and binds IPv6 on the second attempt.
+TEST(UnspecSpecificHost, Ipv6LiteralBindsIpv6)
+{
+	bool dualStack = true;
+	SystemAddress bound;
+	const StartupResult result = StartOnce(SocketDescriptor(0, "::1"), &dualStack, &bound);
+	if (result == SOCKET_FAMILY_NOT_SUPPORTED)
+	{
+		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
+			FAIL() << "cannot bind ::1 but MAFIANET_REQUIRE_IPV6 is set";
+		GTEST_SKIP() << "no IPv6 loopback on this host";
+	}
+	ASSERT_EQ(result, RAKNET_STARTED);
+	EXPECT_FALSE(dualStack);
+	EXPECT_EQ(bound.GetIPVersion(), 6) << bound.ToString(true);
+	EXPECT_EQ(std::string(bound.ToString(false)), "::1");
+}
+
+// "::" is the IPv6 wildcard, not a specific address: still dual-stack.
+TEST(UnspecSpecificHost, Ipv6WildcardLiteralIsDualStack)
+{
+	bool dualStack = false;
+	SystemAddress bound;
+	ASSERT_EQ(StartOnce(SocketDescriptor(0, "::"), &dualStack, &bound), RAKNET_STARTED);
+	if (!dualStack)
+	{
+		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
+			FAIL() << "socket is not dual-stack but MAFIANET_REQUIRE_IPV6 is set";
+		GTEST_SKIP() << "no dual-stack socket on this host";
+	}
+	EXPECT_EQ(std::string(bound.ToString(false)), "127.0.0.1");
+}
+
+TEST(RequireDualStack, HostNameIsRefused)
+{
+	SocketDescriptor sd(0, "localhost");
+	sd.requireDualStack = true;
+	EXPECT_EQ(StartOnce(sd), SOCKET_FAMILY_NOT_SUPPORTED);
+}

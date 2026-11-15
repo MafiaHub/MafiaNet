@@ -367,4 +367,21 @@ TEST_F(DualStackDefaultLive, SendTtlToIpv6TargetSetsAndRestoresHopLimit)
 	ASSERT_TRUE(server->Ping("127.0.0.1", receiver4.Port(), false));
 	EXPECT_EQ(receiver4.NextTtl(ID_UNCONNECTED_PING, 5000), defaultTtl);
 }
+
+// A one-shot send to a host name on a dual-stack socket goes to its IPv4
+// address when it has one ("localhost" lists ::1 first on macOS): an IPv4-only
+// receiver must get the probe.
+TEST_F(DualStackDefaultLive, SendTtlToHostNamePrefersIpv4)
+{
+	server = RakPeerInterface::GetInstance();
+	StartExpectingDualStack(server, SocketDescriptor(0, nullptr), 0);
+	if (IsSkipped() || HasFatalFailure())
+		return;
+
+	TtlReceiver receiver(AF_INET);
+	ASSERT_TRUE(receiver.Ok());
+
+	server->SendTTL("localhost", receiver.Port(), PROBE_TTL);
+	EXPECT_EQ(receiver.NextTtl(SEND_TTL_FIRST_BYTE, 5000), PROBE_TTL);
+}
 #endif // _WIN32

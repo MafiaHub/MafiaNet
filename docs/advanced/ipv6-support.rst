@@ -30,10 +30,13 @@ the same as on an ``AF_INET`` socket. If the host has no IPv6, or refuses
 dual-stack sockets (OpenBSD), the socket falls back to IPv4 only;
 ``RakNetSocket2::IsDualStack()`` reports which one you got.
 
-* ``AF_UNSPEC`` with a specific ``hostAddress`` binds that address's own family
-  and is **not** dual-stack. Dual-stack needs the wildcard address (leave
-  ``hostAddress`` empty). An IPv4-mapped bind address (``::ffff:a.b.c.d``) is
-  not supported.
+* ``AF_UNSPEC`` with a specific ``hostAddress`` is **not** dual-stack: it binds
+  IPv4 when the address or name has an IPv4 form, and IPv6 (IPv6-only)
+  otherwise. So ``"localhost"`` or a name with both A and AAAA records binds
+  its IPv4 address, reachable by IPv4 clients as before; ``"::1"`` or an
+  AAAA-only name binds IPv6. Dual-stack needs the wildcard address (leave
+  ``hostAddress`` empty, or ``"::"``). An IPv4-mapped bind address
+  (``::ffff:a.b.c.d``) is not supported.
 * ``AF_INET`` is an IPv4-only socket -- the default before 0.27.0; set it to
   get the old behaviour back. ``AF_INET6`` is an IPv6-only socket
   (``IPV6_V6ONLY=1``).
@@ -115,6 +118,9 @@ family starting with the family of ``getaddrinfo``'s first answer (RFC 6724
 ordering), and the first to complete the handshake wins. Details:
 
 * Literal addresses are not raced; they connect directly.
+* One-shot unconnected sends (``Ping``, ``AdvertiseSystem``, ``SendOutOfBand``,
+  ``SendTTL``) are not raced either: on a dual-stack socket a host name goes to
+  its first IPv4 address, and only a name without one goes to IPv6.
 * A rejection from the server (for example a full server or a banned address)
   ends the whole race. Only silence moves on to the next candidate.
 * ``CancelConnectionAttempt()`` on the first candidate's address cancels the

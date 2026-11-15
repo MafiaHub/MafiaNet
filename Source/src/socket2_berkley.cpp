@@ -221,6 +221,23 @@ void PrepareAddrInfoHints2(addrinfo *hints)
 	hints->ai_flags = AI_PASSIVE;       // fill in my IP for me
 }
 
+// Whether \a host, a SocketDescriptor::hostAddress, means "every address":
+// empty, the legacy "UNASSIGNED_SYSTEM_ADDRESS", or the IPv6 wildcard "::".
+static bool IsWildcardBindHost(const char *host)
+{
+	if (host == nullptr || host[0] == 0 || _stricmp(host, "UNASSIGNED_SYSTEM_ADDRESS") == 0)
+		return true;
+	unsigned char address[16];
+	if (inet_pton(AF_INET6, host, address) != 1)
+		return false;
+	for (unsigned char b : address)
+	{
+		if (b != 0)
+			return false;
+	}
+	return true;
+}
+
 RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
 {
 	(void) file;
@@ -236,6 +253,21 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 	// a plain IPv4 socket -- unless the caller requires dual-stack, which then
 	// fails instead. A bind() failure -- the port is taken -- is reported as
 	// is: an IPv4 socket on that port would hide the conflict.
+	//
+	// A specific bind address is never dual-stack, so unless dual-stack is
+	// required it binds IPv4 first: a name with both an A and an AAAA record
+	// ("localhost") then stays reachable by IPv4 clients, as with the
+	// pre-0.27.0 AF_INET default. Only a host with no IPv4 address (an IPv6
+	// literal, an AAAA-only name) binds IPv6, IPv6-only.
+	if (!bindParameters->requireDualStack && !IsWildcardBindHost(bindParameters->hostAddress))
+	{
+		bool ipv4Unavailable = false;
+		const RNS2BindResult ipv4Result = BindAddressFamily(bindParameters, AF_INET, false, &ipv4Unavailable);
+		if (!ipv4Unavailable)
+			return ipv4Result;
+		return BindAddressFamily(bindParameters, AF_INET6, false, nullptr);
+	}
+
 	bool dualStackUnavailable = false;
 	const RNS2BindResult result = BindAddressFamily(bindParameters, AF_INET6, true, &dualStackUnavailable);
 	if (bindParameters->requireDualStack)
