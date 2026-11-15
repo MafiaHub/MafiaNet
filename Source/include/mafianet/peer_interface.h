@@ -112,6 +112,9 @@ public:
 	/// server you meant, which is for the application to decide (for example, trust on first use). In
 	/// EncryptionMode::Plaintext it only means that server answered the handshake: the datagrams after it are
 	/// not protected.
+	/// The key is held with the connection and cleared when it closes, so this returns false after a disconnect,
+	/// a lost connection or a failed attempt: read it while the connection is up (for example when
+	/// ID_CONNECTION_REQUEST_ACCEPTED arrives) and keep a copy if you need it later.
 	/// \param[out] out The remote's 32-byte Ed25519 public key.
 	/// \return false, zeroing \a out, when there is no such connection or the remote presented no identity key.
 	virtual bool GetRemoteIdentityKey(const AddressOrGUID systemIdentifier, uint8_t out[32]) const = 0;
