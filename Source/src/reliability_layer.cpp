@@ -451,6 +451,12 @@ bool ReliabilityLayer::IsEncrypted() const
 }
 
 //-------------------------------------------------------------------------------------------------------
+bool ReliabilityLayer::GetSessionKeysForTesting(SessionKeys *out) const
+{
+	return datagramCipher.GetKeysForTesting(out);
+}
+
+//-------------------------------------------------------------------------------------------------------
 int ReliabilityLayer::GetCurrentMtuBytes(void) const
 {
 	return currentMtuBytes;

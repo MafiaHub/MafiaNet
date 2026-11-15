@@ -308,6 +308,18 @@ bool DatagramCipher::HasKeys() const
 	return hasKeys;
 }
 
+bool DatagramCipher::GetKeysForTesting(SessionKeys *out) const
+{
+	if (!hasKeys)
+	{
+		out->Wipe();
+		return false;
+	}
+	memcpy(out->send, sendKey, sizeof(out->send));
+	memcpy(out->recv, recvKey, sizeof(out->recv));
+	return true;
+}
+
 void DatagramCipher::Clear()
 {
 	sodium_memzero(sendKey, sizeof(sendKey));

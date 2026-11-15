@@ -23,6 +23,7 @@
 
 #include "mafianet/packet_priority.h"
 #include "mafianet/types.h"
+#include "mafianet/session_crypto.h"
 #include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 #include "mafianet/ds_list.h"
@@ -67,34 +68,18 @@ public:
 	/// \return RAKNET_STARTED on success, otherwise appropriate failure enumeration.
 	virtual StartupResult Startup(unsigned int maxConnections, SocketDescriptor *socketDescriptors, unsigned socketDescriptorCount, int threadPriority = -99999) = 0;
 
-	/// If you accept connections, you must call this or else security will not be enabled for incoming connections.
-	/// This feature requires more round trips, bandwidth, and CPU time for the connection handshake
-	/// x64 builds require under 25% of the CPU time of other builds
-	/// See the Encryption sample for example usage
-	/// \pre Must be called while offline
-	/// \pre LIBCAT_SECURITY must be defined to 1 in native_feature_includes.h for this function to have any effect
-	/// \param[in] publicKey A pointer to the public key for accepting new connections
-	/// \param[in] privateKey A pointer to the private key for accepting new connections
-	/// \param[in] bRequireClientKey: Should be set to false for most servers.  Allows the server to accept a public key from connecting clients as a proof of identity but eats twice as much CPU time as a normal connection
-	virtual bool InitializeSecurity(const char *publicKey, const char *privateKey, bool bRequireClientKey = false) = 0;
+	/// \brief Sets whether connections must be encrypted. Must be called before Startup().
+	/// \details EncryptionMode::Required (the default) encrypts and authenticates every connected datagram with
+	/// session keys from an ephemeral X25519 exchange made during the connection handshake.
+	/// EncryptionMode::Plaintext sends connected datagrams in clear; it is meant for LAN debugging and fuzzing.
+	/// Both peers must use the same mode: a mismatch refuses the connection, with no fallback. The connecting side
+	/// then receives ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION (it is Plaintext, the remote Required) or
+	/// ID_OUR_SYSTEM_REQUIRES_SECURITY (it is Required, the remote Plaintext); the accepting side is not told.
+	/// \return false, changing nothing, if the peer is already started.
+	virtual bool SetEncryptionMode(EncryptionMode mode) = 0;
 
-	/// Disables security for incoming connections.
-	/// \note Must be called while offline
-	virtual void DisableSecurity(void) = 0;
-
-	/// If secure connections are on, do not use secure connections for a specific IP address.
-	/// This is useful if you have a fixed-address internal server behind a LAN.
-	/// \note Secure connections are determined by the recipient of an incoming connection. This has no effect if called on the system attempting to connect.
-	/// \param[in] ip IP address to add. * wildcards are supported.
-	virtual void AddToSecurityExceptionList(const char *ip) = 0;
-
-	/// Remove a specific connection previously added via AddToSecurityExceptionList
-	/// \param[in] ip IP address to remove. Pass 0 to remove all IP addresses. * wildcards are supported.
-	virtual void RemoveFromSecurityExceptionList(const char *ip) = 0;
-
-	/// Checks to see if a given IP is in the security exception list
-	/// \param[in] IP address to check.
-	virtual bool IsInSecurityExceptionList(const char *ip) = 0;
+	/// \return The mode set by SetEncryptionMode(), EncryptionMode::Required by default.
+	virtual EncryptionMode GetEncryptionMode() const = 0;
 
 	/// Sets how many incoming connections are allowed. If this is less than the number of players currently connected,
 	/// no more players will be allowed to connect.  If this is greater than the maximum number of peers allowed,
@@ -132,7 +117,7 @@ public:
 	/// \param[in] remotePort Which port to connect to on the remote machine.
 	/// \param[in] passwordData A data block that must match the data block on the server passed to SetIncomingPassword.  This can be a string or can be a stream of data.  Use 0 for no password.
 	/// \param[in] passwordDataLength The length in bytes of passwordData
-	/// \param[in] publicKey The public key the server is using. If 0, the server is not using security. If non-zero, the publicKeyMode member determines how to connect
+	/// \param[in] publicKey Reserved for server identity keys. Must be 0: a non-null value returns INVALID_PARAMETER. Connections are encrypted by default (see SetEncryptionMode()).
 	/// \param[in] connectionSocketIndex Index into the array of socket descriptors passed to socketDescriptors in RakPeer::Startup() to send on.
 	/// \param[in] sendConnectionAttemptCount How many datagrams to send to the other system to try to connect.
 	/// \param[in] timeBetweenSendConnectionAttemptsMS Time to elapse before a datagram is sent to the other system to try to connect. After sendConnectionAttemptCount number of attempts, ID_CONNECTION_ATTEMPT_FAILED is returned. Under low bandwidth conditions with multiple simultaneous outgoing connections, this value should be raised to 1000 or higher, or else the MTU detection can overrun the available bandwidth.
@@ -148,6 +133,7 @@ public:
 	/// \param[in] passwordData A data block that must match the data block on the server passed to SetIncomingPassword.  This can be a string or can be a stream of data.  Use 0 for no password.
 	/// \param[in] passwordDataLength The length in bytes of passwordData
 	/// \param[in] socket A bound socket returned by another instance of RakPeerInterface
+	/// \param[in] publicKey Reserved for server identity keys. Must be 0: a non-null value returns INVALID_PARAMETER.
 	/// \param[in] sendConnectionAttemptCount How many datagrams to send to the other system to try to connect.
 	/// \param[in] timeBetweenSendConnectionAttemptsMS Time to elapse before a datagram is sent to the other system to try to connect. After sendConnectionAttemptCount number of attempts, ID_CONNECTION_ATTEMPT_FAILED is returned. Under low bandwidth conditions with multiple simultaneous outgoing connections, this value should be raised to 1000 or higher, or else the MTU detection can overrun the available bandwidth.
 	/// \param[in] timeoutTime How long to keep the connection alive before dropping it on unable to send a reliable message. 0 to use the default from SetTimeoutTime(UNASSIGNED_SYSTEM_ADDRESS);
@@ -512,12 +498,6 @@ public:
 	/// \param[in] input The RakNetGUID of the system we are checking to see if we are connected to
 	virtual SystemAddress GetSystemAddressFromGuid(const RakNetGUID input) const = 0;
 
-	/// Given the SystemAddress of a connected system, get the public key they provided as an identity
-	/// Returns false if system address was not found or client public key is not known
-	/// \param[in] input The RakNetGUID of the system
-	/// \param[in] client_public_key The connected client's public key is copied to this address.  Buffer must be cat::EasyHandshake::PUBLIC_KEY_BYTES bytes in length.
-	virtual bool GetClientPublicKeyFromSystemAddress(const SystemAddress input, char *client_public_key) const = 0;
-
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable message.
 	/// Default time is 10,000 or 10 seconds in release and 30,000 or 30 seconds in debug.
 	/// Do not set different values for different computers that are connected to each other, or you won't be able to reconnect after ID_CONNECTION_LOST
@@ -692,11 +672,7 @@ public:
 	/// \internal
 	// Call manually if RAKPEER_USER_THREADED==1 at least every 30 milliseconds.
 	// updateBitStream should be:
-	// 	BitStream updateBitStream( MAXIMUM_MTU_SIZE
-	// #if LIBCAT_SECURITY==1
-	//	+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
-	// #endif
-	// );
+	// 	BitStream updateBitStream( MAXIMUM_MTU_SIZE );
 	virtual bool RunUpdateCycle(BitStream &updateBitStream) = 0;
 
 	/// \internal

@@ -151,6 +151,9 @@ public:
 
 	uint64_t NextSendSequence() const;
 	void SetNextSendSequenceForTesting(uint64_t s);
+	/// Test-only: copies the current keys into \a out (zeroed when there are none).
+	/// \return HasKeys().
+	bool GetKeysForTesting(SessionKeys *out) const;
 
 private:
 	uint8_t sendKey[32];

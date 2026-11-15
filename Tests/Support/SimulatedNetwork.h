@@ -34,6 +34,7 @@
 
 #include "mafianet/get_time.h"
 #include "mafianet/peer.h"
+#include "mafianet/session_crypto.h"
 #include "mafianet/socket2.h"
 #include "mafianet/types.h"
 
@@ -87,6 +88,13 @@ public:
 	RakPeer *AddPeerInStorage(void *storage, unsigned int maxConnections, unsigned short maxIncoming = 0,
 	                          unsigned short port = 0);
 	SystemAddress AddressOf(const RakPeer *peer) const;
+	// The encryption mode every peer added from now on starts with (RakPeer's
+	// SetEncryptionMode must be called before Startup). Default: Required.
+	void SetNewPeerEncryptionMode(EncryptionMode mode) { newPeerEncryptionMode = mode; }
+	// Destroys \a peer as if its process crashed -- no disconnection
+	// notification reaches anyone -- and starts a fresh peer (new GUID) bound to
+	// the same address. Returns the new peer; \a peer is gone.
+	RakPeer *RestartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming = 0);
 	// The peer's address of that IP version (4 or 6), or UNASSIGNED_SYSTEM_ADDRESS
 	// when it has none: a dual-stack peer has both.
 	SystemAddress AddressOf(const RakPeer *peer, int ipVersion) const;
@@ -161,7 +169,8 @@ private:
 		V6,
 		DualStack
 	};
-	RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port, Family family = Family::V4);
+	// hostNumber 0 takes the next free one.
+	RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port, Family family = Family::V4, unsigned hostNumber = 0);
 	int Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const;
 	const LinkRule &RuleFor(const SystemAddress &from, const SystemAddress &to) const;
 	uint32_t NextRandom();
@@ -184,5 +193,6 @@ private:
 	uint32_t lcgState;
 	std::function<void(const SystemAddress &, const SystemAddress &, const char *, int)> tap;
 	unsigned short nextHost = 1;
+	EncryptionMode newPeerEncryptionMode = EncryptionMode::Required;
 };
 }

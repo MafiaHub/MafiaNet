@@ -36,6 +36,10 @@ constexpr uint64_t kHashMask = 0xFFFFFFFFFFFF0000ull;
 
 HandshakeChallenge::HandshakeChallenge()
 {
+	// RakPeer constructs this before Startup runs sodium_init. Idempotent and thread-safe;
+	// GCC's warn_unused_result ignores a (void) cast, hence the named result.
+	const int sodiumReady = sodium_init();
+	(void) sodiumReady;
 	randombytes_buf(secret, sizeof(secret));
 }
 

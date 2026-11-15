@@ -70,12 +70,6 @@
 #include "mafianet/send_to_thread.h"
 #endif
 
-#ifdef CAT_AUDIT
-#define CAT_AUDIT_PRINTF(...) printf(__VA_ARGS__)
-#else
-#define CAT_AUDIT_PRINTF(...)
-#endif
-
 namespace MafiaNet
 {
 RAK_THREAD_DECLARATION(UpdateNetworkLoop);
@@ -314,14 +308,6 @@ STATIC_FACTORY_DEFINITIONS(RakPeerInterface, RakPeer)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RakPeer::RakPeer()
 {
-#if LIBCAT_SECURITY == 1
-	// Encryption and security
-	CAT_AUDIT_PRINTF("AUDIT: Initializing RakPeer security flags: using_security = false, server_handshake = null, cookie_jar = null\n");
-	_using_security = false;
-	_server_handshake = 0;
-	_cookie_jar = 0;
-#endif
-
 	StringCompressor::AddReference();
 	MafiaNet::StringTable::AddReference();
 	WSAStartupSingleton::AddRef();
@@ -417,15 +403,6 @@ RakPeer::~RakPeer()
 	WSAStartupSingleton::Deref();
 
 	quitAndDataEvents.CloseEvent();
-
-#if LIBCAT_SECURITY == 1
-	// Encryption and security
-	CAT_AUDIT_PRINTF("AUDIT: Deleting RakPeer security objects, handshake = %x, cookie jar = %x\n", _server_handshake, _cookie_jar);
-	if (_server_handshake)
-		MafiaNet::OP_DELETE(_server_handshake, _FILE_AND_LINE_);
-	if (_cookie_jar)
-		MafiaNet::OP_DELETE(_cookie_jar, _FILE_AND_LINE_);
-#endif
 
 
 	// 	for (unsigned int i=0; i < pluginListTS.Size(); i++)
@@ -748,151 +725,35 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Description:
-// Must be called while offline
-//
-// If you accept connections, you must call this or else security will not be enabled for incoming connections.
-//
-// This feature requires more round trips, bandwidth, and CPU time for the connection handshake
-// x64 builds require under 25% of the CPU time of other builds
-//
-// See the Encryption sample for example usage
-//
-// Parameters:
-// publicKey = A pointer to the public key for accepting new connections
-// privateKey = A pointer to the private key for accepting new connections
-// If the private keys are 0, then a new key will be generated when this function is called
-// bRequireClientKey: Should be set to false for most servers.  Allows the server to accept a public key from connecting clients as a proof of identity but eats twice as much CPU time as a normal connection
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::InitializeSecurity(const char *public_key, const char *private_key, bool bRequireClientKey)
+bool RakPeer::SetEncryptionMode(EncryptionMode mode)
 {
-#if LIBCAT_SECURITY == 1
-	if (endThreads == false)
+	// Every connection of a started peer must agree on one mode, and the reliability layers read it when
+	// a connection is allocated: it can only change while offline.
+	if (IsActive())
 		return false;
-
-	// Copy client public key requirement flag
-	_require_client_public_key = bRequireClientKey;
-
-	if (_server_handshake)
-	{
-		CAT_AUDIT_PRINTF("AUDIT: Deleting old server_handshake %x\n", _server_handshake);
-		MafiaNet::OP_DELETE(_server_handshake, _FILE_AND_LINE_);
-	}
-	if (_cookie_jar)
-	{
-		CAT_AUDIT_PRINTF("AUDIT: Deleting old cookie jar %x\n", _cookie_jar);
-		MafiaNet::OP_DELETE(_cookie_jar, _FILE_AND_LINE_);
-	}
-
-	_server_handshake = MafiaNet::OP_NEW<cat::ServerEasyHandshake>(_FILE_AND_LINE_);
-	_cookie_jar = MafiaNet::OP_NEW<cat::CookieJar>(_FILE_AND_LINE_);
-
-	CAT_AUDIT_PRINTF("AUDIT: Created new server_handshake %x\n", _server_handshake);
-	CAT_AUDIT_PRINTF("AUDIT: Created new cookie jar %x\n", _cookie_jar);
-	CAT_AUDIT_PRINTF("AUDIT: Running _server_handshake->Initialize()\n");
-
-	if (_server_handshake->Initialize(public_key, private_key))
-	{
-		CAT_AUDIT_PRINTF("AUDIT: Successfully initialized, filling cookie jar with goodies, storing public key and setting using security flag to true\n");
-
-		_server_handshake->FillCookieJar(_cookie_jar);
-
-		memcpy(my_public_key, public_key, sizeof(my_public_key));
-
-		_using_security = true;
-		return true;
-	}
-
-	CAT_AUDIT_PRINTF("AUDIT: Failure to initialize so deleting server handshake and cookie jar; also setting using_security flag = false\n");
-
-	MafiaNet::OP_DELETE(_server_handshake, _FILE_AND_LINE_);
-	_server_handshake = 0;
-	MafiaNet::OP_DELETE(_cookie_jar, _FILE_AND_LINE_);
-	_cookie_jar = 0;
-	_using_security = false;
-	return false;
-#else
-	(void) public_key;
-	(void) private_key;
-	(void) bRequireClientKey;
-
-	return false;
-#endif
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Description
-// Must be called while offline
-// Disables security for incoming connections.
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::DisableSecurity(void)
-{
-#if LIBCAT_SECURITY == 1
-	CAT_AUDIT_PRINTF("AUDIT: DisableSecurity() called, so deleting _server_handshake %x and cookie_jar %x\n", _server_handshake, _cookie_jar);
-	MafiaNet::OP_DELETE(_server_handshake, _FILE_AND_LINE_);
-	_server_handshake = 0;
-	MafiaNet::OP_DELETE(_cookie_jar, _FILE_AND_LINE_);
-	_cookie_jar = 0;
-
-	_using_security = false;
-#endif
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::AddToSecurityExceptionList(const char *ip)
-{
-	securityExceptionMutex.Lock();
-	securityExceptionList.Insert(RakString(ip), _FILE_AND_LINE_);
-	securityExceptionMutex.Unlock();
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::RemoveFromSecurityExceptionList(const char *ip)
-{
-	if (securityExceptionList.Size() == 0)
-		return;
-
-	if (ip == 0)
-	{
-		securityExceptionMutex.Lock();
-		securityExceptionList.Clear(false, _FILE_AND_LINE_);
-		securityExceptionMutex.Unlock();
-	}
-	else
-	{
-		unsigned i = 0;
-		securityExceptionMutex.Lock();
-		while (i < securityExceptionList.Size())
-		{
-			if (securityExceptionList[i].IPAddressMatch(ip))
-			{
-				securityExceptionList[i] = securityExceptionList[securityExceptionList.Size() - 1];
-				securityExceptionList.RemoveAtIndex(securityExceptionList.Size() - 1);
-			}
-			else
-				i++;
-		}
-		securityExceptionMutex.Unlock();
-	}
+	encryptionMode = mode;
+	return true;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::IsInSecurityExceptionList(const char *ip)
+EncryptionMode RakPeer::GetEncryptionMode() const
 {
-	if (securityExceptionList.Size() == 0)
+	return encryptionMode;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+HandshakeChallenge &RakPeer::GetHandshakeChallengeForTesting()
+{
+	return handshakeChallenge;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys *out) const
+{
+	RemoteSystemStruct *remoteSystem = GetRemoteSystemFromSystemAddress(remote, true, true);
+	if (remoteSystem == 0)
+	{
+		out->Wipe();
 		return false;
-
-	unsigned i = 0;
-	securityExceptionMutex.Lock();
-	for (; i < securityExceptionList.Size(); i++)
-	{
-		if (securityExceptionList[i].IPAddressMatch(ip))
-		{
-			securityExceptionMutex.Unlock();
-			return true;
-		}
 	}
-	securityExceptionMutex.Unlock();
-	return false;
+	return remoteSystem->reliabilityLayer.GetSessionKeysForTesting(out);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -995,7 +856,8 @@ void RakPeer::GetIncomingPassword(char *passwordData, int *passwordDataLength)
 ConnectionAttemptResult RakPeer::Connect(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime)
 {
 	// If endThreads is true here you didn't call Startup() first.
-	if (host == 0 || endThreads || connectionSocketIndex >= socketList.Size())
+	// publicKey is reserved for server identity keys; there are none yet.
+	if (host == 0 || endThreads || connectionSocketIndex >= socketList.Size() || publicKey != 0)
 		return INVALID_PARAMETER;
 
 	RakAssert(remotePort != 0);
@@ -1019,14 +881,15 @@ ConnectionAttemptResult RakPeer::Connect(const char *host, unsigned short remote
 	//	if ( ( strcmp( host, "127.0.0.1" ) == 0 || strcmp( host, "0.0.0.0" ) == 0 ) && remotePort == mySystemAddress[0].port )
 	//		return false;
 
-	return SendConnectionRequest(host, remotePort, passwordData, passwordDataLength, publicKey, connectionSocketIndex, 0, sendConnectionAttemptCount, timeBetweenSendConnectionAttemptsMS, timeoutTime);
+	return SendConnectionRequest(host, remotePort, passwordData, passwordDataLength, connectionSocketIndex, 0, sendConnectionAttemptCount, timeBetweenSendConnectionAttemptsMS, timeoutTime);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ConnectionAttemptResult RakPeer::ConnectWithSocket(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, RakNetSocket2 *socket, PublicKey *publicKey, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime)
 {
-	if (host == 0 || endThreads || socket == 0)
+	// publicKey is reserved for server identity keys; there are none yet.
+	if (host == 0 || endThreads || socket == 0 || publicKey != 0)
 		return INVALID_PARAMETER;
 
 	if (passwordDataLength > 255)
@@ -1035,7 +898,7 @@ ConnectionAttemptResult RakPeer::ConnectWithSocket(const char *host, unsigned sh
 	if (passwordData == 0)
 		passwordDataLength = 0;
 
-	return SendConnectionRequest(host, remotePort, passwordData, passwordDataLength, publicKey, 0, 0, sendConnectionAttemptCount, timeBetweenSendConnectionAttemptsMS, timeoutTime, socket);
+	return SendConnectionRequest(host, remotePort, passwordData, passwordDataLength, 0, 0, sendConnectionAttemptCount, timeBetweenSendConnectionAttemptsMS, timeoutTime, socket);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1564,11 +1427,7 @@ Packet *RakPeer::Receive(void)
 		}
 	}
 
-	BitStream updateBitStream( MAXIMUM_MTU_SIZE
-#if LIBCAT_SECURITY==1
-		+ cat::AuthenticatedEncryption::OVERHEAD_BYTES
-#endif
-		);
+	BitStream updateBitStream( MAXIMUM_MTU_SIZE );
 	RunUpdateCycle(0, 0, updateBitStream);
 #endif
 	*/
@@ -1814,10 +1673,13 @@ void RakPeer::DeleteRequestedConnection(RequestedConnectionStruct *rcs)
 		rakFree_Ex(rcs->data, _FILE_AND_LINE_);
 		rcs->data = 0;
 	}
-#if LIBCAT_SECURITY == 1
-	CAT_AUDIT_PRINTF("AUDIT: Deleting RequestedConnectionStruct client_handshake %x\n", rcs->client_handshake);
-	MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-#endif
+	if (rcs->ephemeral)
+	{
+		// The destructor wipes too; wiping first keeps the secret's lifetime obvious.
+		rcs->ephemeral->Wipe();
+		MafiaNet::OP_DELETE(rcs->ephemeral, _FILE_AND_LINE_);
+		rcs->ephemeral = nullptr;
+	}
 	MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
 }
 
@@ -2777,52 +2639,6 @@ SystemAddress RakPeer::GetSystemAddressFromGuid(const RakNetGUID input) const
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-bool RakPeer::GetClientPublicKeyFromSystemAddress(const SystemAddress input, char *client_public_key) const
-{
-#if LIBCAT_SECURITY == 1
-	if (input == UNASSIGNED_SYSTEM_ADDRESS)
-		return false;
-
-	char *copy_source = 0;
-
-	if (input.systemIndex != (SystemIndex) -1 && input.systemIndex < maximumNumberOfPeers && remoteSystemList[input.systemIndex].systemAddress == input)
-	{
-		copy_source = remoteSystemList[input.systemIndex].client_public_key;
-	}
-	else
-	{
-		for (unsigned int i = 0; i < maximumNumberOfPeers; i++)
-		{
-			if (remoteSystemList[i].systemAddress == input)
-			{
-				copy_source = remoteSystemList[i].client_public_key;
-				break;
-			}
-		}
-	}
-
-	if (copy_source)
-	{
-		// Verify that at least one byte in the public key is non-zero to indicate that the key was received
-		for (int ii = 0; ii < cat::EasyHandshake::PUBLIC_KEY_BYTES; ++ii)
-		{
-			if (copy_source[ii] != 0)
-			{
-				memcpy(client_public_key, copy_source, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-				return true;
-			}
-		}
-	}
-
-#else
-	(void) input;
-	(void) client_public_key;
-#endif
-
-	return false;
-}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
@@ -3330,11 +3146,7 @@ void RakPeer::RunManualUpdate()
 	// The same steps as one pass of UpdateNetworkLoop.
 	if (userUpdateThreadPtr)
 		userUpdateThreadPtr(this, userUpdateThreadData);
-	BitStream updateBitStream(MAXIMUM_MTU_SIZE
-#if LIBCAT_SECURITY == 1
-	                          + cat::AuthenticatedEncryption::OVERHEAD_BYTES
-#endif
-	);
+	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
 	RunUpdateCycle(updateBitStream);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3556,82 +3368,8 @@ int RakPeer::GetIndexFromGuid(const RakNetGUID guid)
 	return -1;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#if LIBCAT_SECURITY == 1
-bool RakPeer::GenerateConnectionRequestChallenge(RequestedConnectionStruct *rcs, PublicKey *publicKey)
-{
-	CAT_AUDIT_PRINTF("AUDIT: In GenerateConnectionRequestChallenge()\n");
-
-	rcs->client_handshake = 0;
-	rcs->publicKeyMode = PKM_INSECURE_CONNECTION;
-
-	if (!publicKey)
-		return true;
-
-	switch (publicKey->publicKeyMode)
-	{
-	default:
-	case PKM_INSECURE_CONNECTION:
-		break;
-
-	case PKM_ACCEPT_ANY_PUBLIC_KEY:
-		CAT_OBJCLR(rcs->remote_public_key);
-		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
-
-		rcs->publicKeyMode = PKM_ACCEPT_ANY_PUBLIC_KEY;
-		break;
-
-	case PKM_USE_TWO_WAY_AUTHENTICATION:
-		if (publicKey->myPublicKey == 0 || publicKey->myPrivateKey == 0 ||
-		    publicKey->remoteServerPublicKey == 0)
-		{
-			return false;
-		}
-
-		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
-		memcpy(rcs->remote_public_key, publicKey->remoteServerPublicKey, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-
-		if (!rcs->client_handshake->Initialize(publicKey->remoteServerPublicKey) ||
-		    !rcs->client_handshake->SetIdentity(publicKey->myPublicKey, publicKey->myPrivateKey) ||
-		    !rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
-		{
-			CAT_AUDIT_PRINTF("AUDIT: Failure initializing new client_handshake object with identity for this RequestedConnectionStruct\n");
-			MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-			rcs->client_handshake = 0;
-			return false;
-		}
-
-		CAT_AUDIT_PRINTF("AUDIT: Success initializing new client handshake object with identity for this RequestedConnectionStruct -- pre-generated challenge\n");
-
-		rcs->publicKeyMode = PKM_USE_TWO_WAY_AUTHENTICATION;
-		break;
-
-	case PKM_USE_KNOWN_PUBLIC_KEY:
-		if (publicKey->remoteServerPublicKey == 0)
-			return false;
-
-		rcs->client_handshake = MafiaNet::OP_NEW<cat::ClientEasyHandshake>(_FILE_AND_LINE_);
-		memcpy(rcs->remote_public_key, publicKey->remoteServerPublicKey, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-
-		if (!rcs->client_handshake->Initialize(publicKey->remoteServerPublicKey) ||
-		    !rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
-		{
-			CAT_AUDIT_PRINTF("AUDIT: Failure initializing new client_handshake object for this RequestedConnectionStruct\n");
-			MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-			rcs->client_handshake = 0;
-			return false;
-		}
-
-		CAT_AUDIT_PRINTF("AUDIT: Success initializing new client handshake object for this RequestedConnectionStruct -- pre-generated challenge\n");
-
-		rcs->publicKeyMode = PKM_USE_KNOWN_PUBLIC_KEY;
-		break;
-	}
-
-	return true;
-}
-#endif
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime)
+ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime)
 {
 	RakAssert(passwordDataLength <= 256);
 	RakAssert(remotePort != 0);
@@ -3693,22 +3431,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 			rcs->raceFirstAddress = candidates[0];
 			rcs->nextCandidateTime = (MafiaNet::Time) now + (MafiaNet::Time) c * HAPPY_EYEBALLS_ATTEMPT_DELAY_MS;
 		}
-
-#if LIBCAT_SECURITY == 1
-		CAT_AUDIT_PRINTF("AUDIT: In SendConnectionRequest()\n");
-		if (!GenerateConnectionRequestChallenge(rcs, publicKey))
-		{
-			DeleteRequestedConnection(rcs);
-			for (int k = 0; k < c; k++)
-				DeleteRequestedConnection(requests[k]);
-			return SECURITY_INITIALIZATION_FAILED;
-		}
-#endif
 		requests[c] = rcs;
 	}
-#if LIBCAT_SECURITY != 1
-	(void) publicKey;
-#endif
 
 	// Return false if already pending, else push on queue
 	requestedConnectionQueueMutex.Lock();
@@ -3733,13 +3457,18 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 		for (int c = 0; c < candidateCount; c++)
 			requests[c]->raceGroup = raceGroup;
 	}
+	// One ephemeral key pair per candidate: each is a separate handshake with its own transcript.
 	for (int c = 0; c < candidateCount; c++)
+	{
+		if (encryptionMode == EncryptionMode::Required)
+			requests[c]->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
 		requestedConnectionQueue.Push(requests[c], _FILE_AND_LINE_);
+	}
 	requestedConnectionQueueMutex.Unlock();
 
 	return CONNECTION_ATTEMPT_STARTED;
 }
-ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime, RakNetSocket2 *socket)
+ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, unsigned connectionSocketIndex, unsigned int extraData, unsigned sendConnectionAttemptCount, unsigned timeBetweenSendConnectionAttemptsMS, MafiaNet::TimeMS timeoutTime, RakNetSocket2 *socket)
 {
 	RakAssert(passwordDataLength <= 256);
 	SystemAddress systemAddress;
@@ -3771,13 +3500,6 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	rcs->timeoutTime = timeoutTime;
 	rcs->socket = socket;
 
-#if LIBCAT_SECURITY == 1
-	if (!GenerateConnectionRequestChallenge(rcs, publicKey))
-		return SECURITY_INITIALIZATION_FAILED;
-#else
-	(void) publicKey;
-#endif
-
 	// Return false if already pending, else push on queue
 	unsigned int i = 0;
 	requestedConnectionQueueMutex.Lock();
@@ -3786,11 +3508,12 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 		if (RequestMatches(requestedConnectionQueue[i], systemAddress))
 		{
 			requestedConnectionQueueMutex.Unlock();
-			// Frees the client_handshake GenerateConnectionRequestChallenge made, too.
 			DeleteRequestedConnection(rcs);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
+	if (encryptionMode == EncryptionMode::Required)
+		rcs->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
 	requestedConnectionQueue.Push(rcs, _FILE_AND_LINE_);
 	requestedConnectionQueueMutex.Unlock();
 
@@ -3875,76 +3598,17 @@ void RakPeer::ParseConnectionRequestPacket(RakPeer::RemoteSystemStruct *remoteSy
 	bs.Read(guid);
 	MafiaNet::Time incomingTimestamp;
 	bs.Read(incomingTimestamp);
-	unsigned char doSecurity;
-	bs.Read(doSecurity);
-
-#if LIBCAT_SECURITY == 1
-	unsigned char doClientKey;
-	if (_using_security)
-	{
-		// Ignore message on bad state
-		if (doSecurity != 1 || !remoteSystem->reliabilityLayer.GetAuthenticatedEncryption())
-			return;
-
-		// Validate client proof of key
-		unsigned char proof[cat::EasyHandshake::PROOF_BYTES];
-		bs.ReadAlignedBytes(proof, sizeof(proof));
-		if (!remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->ValidateProof(proof, sizeof(proof)))
-		{
-			remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-			return;
-		}
-
-		CAT_OBJCLR(remoteSystem->client_public_key);
-
-		bs.Read(doClientKey);
-
-		// Check if client wants to prove identity
-		if (doClientKey == 1)
-		{
-			// Read identity proof
-			unsigned char ident[cat::EasyHandshake::IDENTITY_BYTES];
-			bs.ReadAlignedBytes(ident, sizeof(ident));
-
-			// If we are listening to these proofs,
-			if (_require_client_public_key)
-			{
-				// Validate client identity
-				if (!_server_handshake->VerifyInitiatorIdentity(remoteSystem->answer, ident, remoteSystem->client_public_key))
-				{
-					MafiaNet::BitStream bitStream;
-					bitStream.Write((MessageID) ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY); // Report an error since the client is not providing an identity when it is necessary to connect
-					bitStream.Write((unsigned char) 2);                                // Indicate client identity is invalid
-					SendImmediate((char *) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), MafiaNet::Priority::Immediate, MafiaNet::Reliability::Reliable, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
-					remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-					return;
-				}
-			}
-
-			// Otherwise ignore the client public key
-		}
-		else
-		{
-			// If no client key was provided but it is required,
-			if (_require_client_public_key)
-			{
-				MafiaNet::BitStream bitStream;
-				bitStream.Write((MessageID) ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY); // Report an error since the client is not providing an identity when it is necessary to connect
-				bitStream.Write((unsigned char) 1);                                // Indicate client identity is missing
-				SendImmediate((char *) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), MafiaNet::Priority::Immediate, MafiaNet::Reliability::Reliable, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
-				remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-				return;
-			}
-		}
-	}
-#endif // LIBCAT_SECURITY
+	// ID_CONNECTION_REQUEST: id | guid | timestamp | reserved byte (always 0; was libcat's HasSecurity) | password.
+	// It travels inside the session cipher already, so a peer that derived different keys never gets here.
+	unsigned char reserved;
+	bs.Read(reserved);
+	(void) reserved;
 
 	unsigned char *password = bs.GetData() + BITS_TO_BYTES(bs.GetReadOffset());
 	int passwordLength = byteSize - BITS_TO_BYTES(bs.GetReadOffset());
 	if (incomingPasswordLength != passwordLength ||
 	    memcmp(password, incomingPassword, incomingPasswordLength) != 0)
 	{
-		CAT_AUDIT_PRINTF("AUDIT: Invalid password\n");
 		// This one we only send once since we don't care if it arrives.
 		MafiaNet::BitStream bitStream;
 		bitStream.Write((MessageID) ID_INVALID_PASSWORD);
@@ -4177,7 +3841,7 @@ unsigned int RakPeer::GetNumberOfRemoteInitiatedConnections(void) const
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, bool useSecurity)
+RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(const SystemAddress systemAddress, RemoteSystemStruct::ConnectMode connectionMode, RakNetSocket2 *incomingRakNetSocket, bool *thisIPConnectedRecently, SystemAddress bindingAddress, int incomingMTU, RakNetGUID guid, const SessionKeys *sessionKeys, const CryptInfo &localCryptInfo, const CryptInfo &remoteCryptInfo)
 {
 	RemoteSystemStruct *remoteSystem;
 	unsigned i, j, assignedIndex;
@@ -4185,6 +3849,11 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 #ifdef _DEBUG
 	RakAssert(systemAddress != UNASSIGNED_SYSTEM_ADDRESS);
 #endif
+
+	// Mode Required needs the keys the handshake just derived; Plaintext must not get any. Both callers
+	// guarantee this; refuse rather than run a Required connection unencrypted.
+	if ((encryptionMode == EncryptionMode::Required) != (sessionKeys != nullptr))
+		return 0;
 
 	if (limitConnectionFrequencyFromTheSameIP)
 	{
@@ -4243,12 +3912,18 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			if (incomingMTU > remoteSystem->MTUSize)
 				remoteSystem->MTUSize = incomingMTU;
 			RakAssert(remoteSystem->MTUSize <= MAXIMUM_MTU_SIZE);
-			// The peer's encryption mode decides whether the reliability layer reserves the cipher
-			// overhead. It is Required until RakPeer exposes a mode setting; until the handshake
-			// installs session keys, datagrams stay plaintext with that overhead reserved.
-			(void) useSecurity;
-			remoteSystem->reliabilityLayer.SetEncryptionMode(EncryptionMode::Required);
+			// Order matters: the mode decides whether Reset() reserves the cipher overhead, and Reset()
+			// wipes keys, so the keys go in last. In mode Required the layer then seals every datagram it
+			// sends and drops every one that does not open; there is no plaintext fallback.
+			remoteSystem->reliabilityLayer.SetEncryptionMode(encryptionMode);
 			remoteSystem->reliabilityLayer.Reset(true, remoteSystem->MTUSize);
+			if (sessionKeys != nullptr)
+			{
+				remoteSystem->reliabilityLayer.SetSessionKeys(*sessionKeys);
+				RakAssert(remoteSystem->reliabilityLayer.IsEncrypted());
+			}
+			remoteSystem->handshakeLocalCryptInfo = localCryptInfo;
+			remoteSystem->handshakeRemoteCryptInfo = remoteCryptInfo;
 			remoteSystem->reliabilityLayer.SetSplitMessageProgressInterval(splitMessageProgressInterval);
 			remoteSystem->reliabilityLayer.SetUnreliableTimeout(unreliableTimeout);
 			remoteSystem->reliabilityLayer.SetTimeoutTime(defaultTimeoutTime);
@@ -5250,7 +4925,9 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 	        (unsigned char) data[0] == ID_NO_FREE_INCOMING_CONNECTIONS ||
 	        (unsigned char) data[0] == ID_CONNECTION_BANNED ||
 	        (unsigned char) data[0] == ID_ALREADY_CONNECTED ||
-	        (unsigned char) data[0] == ID_IP_RECENTLY_CONNECTED) &&
+	        (unsigned char) data[0] == ID_IP_RECENTLY_CONNECTED ||
+	        (unsigned char) data[0] == ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION ||
+	        (unsigned char) data[0] == ID_OUR_SYSTEM_REQUIRES_SECURITY) &&
 	    (size_t) length >= sizeof(MessageID) + RakNetGUID::size() + sizeof(OFFLINE_MESSAGE_DATA_ID))
 	{
 		*isOfflineMessage = memcmp(data + sizeof(MessageID), OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID)) == 0;
@@ -5375,26 +5052,27 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length * 8, systemAddress);
 
+			// ID_OPEN_CONNECTION_REPLY_1 (S->C), byte-aligned:
+			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | server RakNetGUID (8) | challenge (uint64, 8) | MTU (uint16, 2)
+			// The challenge is the server's stateless HandshakeChallenge for our address; we echo it unchanged.
 			MafiaNet::BitStream bsIn((unsigned char *) data, length, false);
 			bsIn.IgnoreBytes(sizeof(MessageID));
 			bsIn.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 			RakNetGUID serverGuid;
-			bsIn.Read(serverGuid);
-			unsigned char serverHasSecurity;
-			uint32_t cookie;
-			(void) cookie;
-			bsIn.Read(serverHasSecurity);
-			// Even if the server has security, it may not be required of us if we are in the security exception list
-			if (serverHasSecurity)
-			{
-				bsIn.Read(cookie);
-			}
+			uint64_t challenge;
+			uint16_t mtu;
+			if (!bsIn.Read(serverGuid) || !bsIn.Read(challenge) || !bsIn.Read(mtu))
+				return true; // malformed: drop
 
+			// ID_OPEN_CONNECTION_REQUEST_2 (C->S), byte-aligned:
+			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | challenge (uint64, 8) | client CryptInfo (41)
+			//   | binding address (SystemAddress, the server's address as we see it) | MTU (uint16, 2) | client RakNetGUID (8)
+			// CryptInfo (CryptInfo::Serialize) = mode (1: 0 Required, 1 Plaintext) | X25519 public key (32) | nonce (uint64 LE, 8).
+			// In mode Plaintext the public key and the nonce are zero.
 			MafiaNet::BitStream bsOut;
 			bsOut.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
 			bsOut.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
-			if (serverHasSecurity)
-				bsOut.Write(cookie);
+			bsOut.Write(challenge);
 
 			rakPeer->requestedConnectionQueueMutex.Lock();
 			for (i = 0; i < rakPeer->requestedConnectionQueue.Size(); i++)
@@ -5407,91 +5085,20 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					// Every path below returns, so the shifted indices do not matter.
 					rakPeer->CancelRaceSiblings_NoLock(rcs);
 
-					if (serverHasSecurity)
-					{
-#if LIBCAT_SECURITY == 1
-						unsigned char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-						bsIn.ReadAlignedBytes(public_key, sizeof(public_key));
-
-						if (rcs->publicKeyMode == PKM_ACCEPT_ANY_PUBLIC_KEY)
-						{
-							memcpy(rcs->remote_public_key, public_key, cat::EasyHandshake::PUBLIC_KEY_BYTES);
-							if (!rcs->client_handshake->Initialize(public_key) ||
-							    !rcs->client_handshake->GenerateChallenge(rcs->handshakeChallenge))
-							{
-								CAT_AUDIT_PRINTF("AUDIT: Server passed a bad public key with PKM_ACCEPT_ANY_PUBLIC_KEY");
-								rakPeer->requestedConnectionQueueMutex.Unlock();
-								return true;
-							}
-						}
-
-						if (cat::SecureEqual(public_key,
-						                     rcs->remote_public_key,
-						                     cat::EasyHandshake::PUBLIC_KEY_BYTES) == false)
-						{
-							// The attempt is over: report it under the race's first address, as
-							// every race failure is, and drop the request so it is not retried.
-							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
-							rakPeer->RemoveRequestedConnection_NoLock(rcs);
-							rakPeer->requestedConnectionQueueMutex.Unlock();
-							rakPeer->DeleteRequestedConnection(rcs);
-							CAT_AUDIT_PRINTF("AUDIT: Expected public key does not match what was sent by server -- Reporting back ID_PUBLIC_KEY_MISMATCH to user\n");
-
-							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
-							packet->data[0] = ID_PUBLIC_KEY_MISMATCH; // Attempted a connection and couldn't
-							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = reportedAddress;
-							packet->guid = serverGuid;
-							rakPeer->AddPacketToProducer(packet);
-							return true;
-						}
-
-						if (rcs->client_handshake == 0)
-						{
-							// Message does not contain a challenge
-							// We might still pass if we are in the security exception list
-							bsOut.Write((unsigned char) 0);
-						}
-						else
-						{
-							// Message contains a challenge
-							bsOut.Write((unsigned char) 1);
-							// challenge
-							CAT_AUDIT_PRINTF("AUDIT: Sending challenge\n");
-							bsOut.WriteAlignedBytes((const unsigned char *) rcs->handshakeChallenge, cat::EasyHandshake::CHALLENGE_BYTES);
-						}
-#else  // LIBCAT_SECURITY
-
-						// Message does not contain a challenge
-						bsOut.Write((unsigned char) 0);
-#endif // LIBCAT_SECURITY
-					}
+					// Every REQUEST_2 of one request carries the same crypt info: the server answers a
+					// retransmission with the crypt info it derived the session keys from.
+					CryptInfo clientInfo;
+					if (rcs->ephemeral != nullptr && !rcs->ephemeral->IsWiped())
+						clientInfo = rcs->ephemeral->MakeCryptInfo();
+					else if (rakPeer->encryptionMode == EncryptionMode::Plaintext)
+						clientInfo.mode = EncryptionMode::Plaintext;
 					else
 					{
-						// Server does not need security
-#if LIBCAT_SECURITY == 1
-						if (rcs->client_handshake != 0)
-						{
-							// As for ID_PUBLIC_KEY_MISMATCH above: report once, drop the request.
-							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
-							rakPeer->RemoveRequestedConnection_NoLock(rcs);
-							rakPeer->requestedConnectionQueueMutex.Unlock();
-							rakPeer->DeleteRequestedConnection(rcs);
-							CAT_AUDIT_PRINTF("AUDIT: Security disabled by server but we expected security (indicated by client_handshake not null) so failing!\n");
-
-							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
-							packet->data[0] = ID_OUR_SYSTEM_REQUIRES_SECURITY; // Attempted a connection and couldn't
-							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = reportedAddress;
-							packet->guid = serverGuid;
-							rakPeer->AddPacketToProducer(packet);
-							return true;
-						}
-#endif // LIBCAT_SECURITY
+						// Required, but this request's key pair is gone: never fall back to plaintext.
+						rakPeer->requestedConnectionQueueMutex.Unlock();
+						return true;
 					}
-
-					uint16_t mtu;
-					bsIn.Read(mtu);
+					clientInfo.Serialize(&bsOut);
 
 					// Binding address
 					bsOut.Write(rcs->systemAddress);
@@ -5502,9 +5109,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					bsOut.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 
 					for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
-						rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char *) bsOut.GetData(), bsOut.GetNumberOfBitsUsed(), rcs->systemAddress);
-
-					// SocketLayer::SendTo( rakPeer->socketList[rcs->socketIndex], (const char*) bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), rcs->systemAddress, _FILE_AND_LINE_ );
+						rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char *) bsOut.GetData(), bsOut.GetNumberOfBitsUsed(), systemAddress);
 
 					RNS2_SendParameters bsp;
 					bsp.data = (char *) bsOut.GetData();
@@ -5522,31 +5127,18 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length * 8, systemAddress);
 
+			// ID_OPEN_CONNECTION_REPLY_2 (S->C), byte-aligned:
+			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | server RakNetGUID (8)
+			//   | our address as the server sees it (SystemAddress) | MTU (uint16, 2) | server CryptInfo (41)
 			MafiaNet::BitStream bs((unsigned char *) data, length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 			RakNetGUID guid;
-			bs.Read(guid);
 			SystemAddress bindingAddress;
-			[[maybe_unused]] bool b = bs.Read(bindingAddress); // only checked by RakAssert (debug builds)
-			RakAssert(b);
 			uint16_t mtu;
-			b = bs.Read(mtu);
-			RakAssert(b);
-			bool doSecurity = false;
-			b = bs.Read(doSecurity);
-			RakAssert(b);
-
-#if LIBCAT_SECURITY == 1
-			char answer[cat::EasyHandshake::ANSWER_BYTES];
-			CAT_AUDIT_PRINTF("AUDIT: Got ID_OPEN_CONNECTION_REPLY_2 and given doSecurity=%i\n", (int) doSecurity);
-			if (doSecurity)
-			{
-				CAT_AUDIT_PRINTF("AUDIT: Reading cookie and public key\n");
-				bs.ReadAlignedBytes((unsigned char *) answer, sizeof(answer));
-			}
-			cat::ClientEasyHandshake *client_handshake = 0;
-#endif // LIBCAT_SECURITY
+			CryptInfo serverInfo;
+			if (!bs.Read(guid) || !bs.Read(bindingAddress) || !bs.Read(mtu) || !serverInfo.Deserialize(&bs))
+				return true; // malformed: drop
 
 			RakPeer::RequestedConnectionStruct *rcs;
 			bool unlock = true;
@@ -5558,52 +5150,87 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 				if (rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
-#if LIBCAT_SECURITY == 1
-					CAT_AUDIT_PRINTF("AUDIT: System address matches an entry in the requestedConnectionQueue and doSecurity=%i\n", (int) doSecurity);
-					if (doSecurity)
+					RakAssert(rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT);
+					// A failed attempt is reported once, under the race's first address, and its request dropped
+					// so it is not retried.
+					const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+
+					// Both sides must agree on the mode; there is no fallback (GNS refuses on BadCrypt). The server
+					// refuses a mismatch itself, so this only catches a server that answered anyway.
+					if (serverInfo.mode != rakPeer->encryptionMode)
 					{
-						if (rcs->client_handshake == 0)
+						rakPeer->RemoveRequestedConnection_NoLock(rcs);
+						rakPeer->requestedConnectionQueueMutex.Unlock();
+						rakPeer->DeleteRequestedConnection(rcs);
+
+						packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
+						packet->data[0] = rakPeer->encryptionMode == EncryptionMode::Plaintext ? (MessageID) ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION : (MessageID) ID_OUR_SYSTEM_REQUIRES_SECURITY;
+						packet->bitSize = (sizeof(char) * 8);
+						packet->systemAddress = reportedAddress;
+						packet->guid = guid;
+						rakPeer->AddPacketToProducer(packet);
+						return true;
+					}
+
+					// You might get this when already connected because of cross-connections
+					remoteSystem = rakPeer->GetRemoteSystemFromSystemAddress(systemAddress, true, true);
+					if (remoteSystem != 0 && remoteSystem->reliabilityLayer.IsEncrypted())
+					{
+						// Keys are already installed for this address: by a duplicate REPLY_2, or by the other handshake
+						// of a simultaneous cross-connection. Installing new ones would restart the live session's
+						// sequence under a different key on one side only. Ignore this reply.
+						rakPeer->requestedConnectionQueueMutex.Unlock();
+						return true;
+					}
+
+					// Derive under the lock: rcs->ephemeral belongs to the queue. DeriveSessionKeys wipes it.
+					SessionKeys keys;
+					CryptInfo clientInfo;
+					if (rakPeer->encryptionMode == EncryptionMode::Required)
+					{
+						const RakNetGUID myGuid = rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
+						bool derived = false;
+						if (rcs->ephemeral != nullptr && !rcs->ephemeral->IsWiped())
 						{
-							CAT_AUDIT_PRINTF("AUDIT: Server wants security but we didn't set a public key -- Reporting back ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY to user\n");
-							// As for ID_PUBLIC_KEY_MISMATCH: report once under the race's first address, drop the request.
-							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							clientInfo = rcs->ephemeral->MakeCryptInfo();
+							derived = DeriveSessionKeys(*rcs->ephemeral, /*localIsInitiator=*/true, clientInfo, serverInfo, myGuid, guid, &keys);
+						}
+						if (!derived)
+						{
+							// A low-order server key (or no key pair left): this attempt cannot be encrypted.
 							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
 							rakPeer->DeleteRequestedConnection(rcs);
 
-							packet = rakPeer->AllocPacket(2, _FILE_AND_LINE_);
-							packet->data[0] = ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY; // Attempted a connection and couldn't
-							packet->data[1] = 0;                                    // Indicate server public key is missing
+							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
+							packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED;
 							packet->bitSize = (sizeof(char) * 8);
 							packet->systemAddress = reportedAddress;
 							packet->guid = guid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
 						}
-
-						CAT_AUDIT_PRINTF("AUDIT: Looks good, preparing to send challenge to server! client_handshake = %x\n", client_handshake);
 					}
-
-#endif // LIBCAT_SECURITY
+					else
+						clientInfo.mode = EncryptionMode::Plaintext;
+					const SessionKeys *sessionKeys = rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr;
 
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 					unlock = false;
 
-					RakAssert(rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT);
-					// You might get this when already connected because of cross-connections
 					bool thisIPConnectedRecently = false;
-					remoteSystem = rakPeer->GetRemoteSystemFromSystemAddress(systemAddress, true, true);
 					if (remoteSystem == 0)
 					{
 						if (rcs->socket == 0)
 						{
-							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, doSecurity);
+							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo);
 						}
 						else
 						{
-							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rcs->socket, &thisIPConnectedRecently, bindingAddress, mtu, guid, doSecurity);
+							remoteSystem = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rcs->socket, &thisIPConnectedRecently, bindingAddress, mtu, guid, sessionKeys, clientInfo, serverInfo);
 						}
 					}
+					keys.Wipe();
 
 					// 4/13/09 Attackers can flood ID_OPEN_CONNECTION_REQUEST and use up all available connection slots
 					// Ignore connection attempts if this IP address connected within the last 100 milliseconds
@@ -5612,39 +5239,6 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						// Don't check GetRemoteSystemFromGUID, server will verify
 						if (remoteSystem)
 						{
-							// Move pointer from RequestedConnectionStruct to RemoteSystemStruct
-#if LIBCAT_SECURITY == 1
-							cat::u8 ident[cat::EasyHandshake::IDENTITY_BYTES];
-							bool doIdentity = false;
-
-							if (rcs->client_handshake)
-							{
-								CAT_AUDIT_PRINTF("AUDIT: Processing answer\n");
-								if (rcs->publicKeyMode == PKM_USE_TWO_WAY_AUTHENTICATION)
-								{
-									if (!rcs->client_handshake->ProcessAnswerWithIdentity(answer, ident, remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()))
-									{
-										CAT_AUDIT_PRINTF("AUDIT: Processing answer -- Invalid Answer\n");
-										return true;
-									}
-
-									doIdentity = true;
-								}
-								else
-								{
-									if (!rcs->client_handshake->ProcessAnswer(answer, remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()))
-									{
-										CAT_AUDIT_PRINTF("AUDIT: Processing answer -- Invalid Answer\n");
-										return true;
-									}
-								}
-								CAT_AUDIT_PRINTF("AUDIT: Success!\n");
-
-								MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-								rcs->client_handshake = 0;
-							}
-#endif // LIBCAT_SECURITY
-
 							remoteSystem->weInitiatedTheConnection = true;
 							remoteSystem->connectMode = RakPeer::RemoteSystemStruct::REQUESTED_CONNECTION;
 							// The request, and with it the race's first address, is freed below: keep that address with
@@ -5654,30 +5248,14 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 							if (rcs->timeoutTime != 0)
 								remoteSystem->reliabilityLayer.SetTimeoutTime(rcs->timeoutTime);
 
+							// ID_CONNECTION_REQUEST: id | our guid | timestamp | reserved (1, always 0) | password.
+							// The first datagram sealed with the new keys: a server that derived different keys
+							// cannot open it, so the connection never completes (implicit key confirmation, as in GNS).
 							MafiaNet::BitStream temp;
 							temp.Write((MessageID) ID_CONNECTION_REQUEST);
 							temp.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 							temp.Write(MafiaNet::GetTime());
-
-#if LIBCAT_SECURITY == 1
-							temp.Write((unsigned char) (doSecurity ? 1 : 0));
-
-							if (doSecurity)
-							{
-								unsigned char proof[32];
-								remoteSystem->reliabilityLayer.GetAuthenticatedEncryption()->GenerateProof(proof, sizeof(proof));
-								temp.WriteAlignedBytes(proof, sizeof(proof));
-
-								temp.Write((unsigned char) (doIdentity ? 1 : 0));
-
-								if (doIdentity)
-								{
-									temp.WriteAlignedBytes(ident, sizeof(ident));
-								}
-							}
-#else
 							temp.Write((unsigned char) 0);
-#endif // LIBCAT_SECURITY
 
 							if (rcs->outgoingPasswordLength > 0)
 								temp.Write((char *) rcs->outgoingPassword, rcs->outgoingPasswordLength);
@@ -5690,7 +5268,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 							packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = guid;
 							rakPeer->AddPacketToProducer(packet);
 						}
@@ -5700,10 +5278,6 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 					rakPeer->RemoveRequestedConnection_NoLock(rcs);
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 
-#if LIBCAT_SECURITY == 1
-					CAT_AUDIT_PRINTF("AUDIT: Deleting client_handshake object %x and rcs->client_handshake object %x\n", client_handshake, rcs->client_handshake);
-					MafiaNet::OP_DELETE(client_handshake, _FILE_AND_LINE_);
-#endif // LIBCAT_SECURITY
 					rakPeer->DeleteRequestedConnection(rcs);
 
 					break;
@@ -5721,7 +5295,9 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 		         (unsigned char) (data)[0] == (MessageID) ID_ALREADY_CONNECTED ||
 		         (unsigned char) (data)[0] == (MessageID) ID_INVALID_PASSWORD ||
 		         (unsigned char) (data)[0] == (MessageID) ID_IP_RECENTLY_CONNECTED ||
-		         (unsigned char) (data)[0] == (MessageID) ID_INCOMPATIBLE_PROTOCOL_VERSION)
+		         (unsigned char) (data)[0] == (MessageID) ID_INCOMPATIBLE_PROTOCOL_VERSION ||
+		         (unsigned char) (data)[0] == (MessageID) ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION ||
+		         (unsigned char) (data)[0] == (MessageID) ID_OUR_SYSTEM_REQUIRES_SECURITY)
 		{
 
 			MafiaNet::BitStream bs((unsigned char *) data, length, false);
@@ -5809,24 +5385,13 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketReceive(data, length * 8, systemAddress);
 
+			// ID_OPEN_CONNECTION_REPLY_1 (S->C): see the receiving side above for the layout. The challenge is
+			// stateless, so answering allocates nothing; REQUEST_2 must echo it within HandshakeChallenge's window.
 			MafiaNet::BitStream bsOut;
 			bsOut.Write((MessageID) ID_OPEN_CONNECTION_REPLY_1);
 			bsOut.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 			bsOut.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
-#if LIBCAT_SECURITY == 1
-			if (rakPeer->_using_security)
-			{
-				bsOut.Write((unsigned char) 1); // HasCookie Yes
-				// Write cookie
-				uint32_t cookie = rakPeer->_cookie_jar->Generate(&systemAddress.address, sizeof(systemAddress.address));
-				CAT_AUDIT_PRINTF("AUDIT: Writing cookie %i to %i:%i\n", cookie, systemAddress);
-				bsOut.Write(cookie);
-				// Write my public key
-				bsOut.WriteAlignedBytes((const unsigned char *) rakPeer->my_public_key, sizeof(rakPeer->my_public_key));
-			}
-			else
-#endif                                          // LIBCAT_SECURITY
-				bsOut.Write((unsigned char) 0); // HasCookie oN
+			bsOut.Write(rakPeer->handshakeChallenge.Generate(MafiaNet::GetTimeUS(), systemAddress));
 
 			// MTU. Lower MTU if it is exceeds our own limit
 			if (length + UDP_HEADER_SIZE > MAXIMUM_MTU_SIZE)
@@ -5846,59 +5411,44 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 		}
 		else if ((unsigned char) (data)[0] == ID_OPEN_CONNECTION_REQUEST_2)
 		{
-			SystemAddress bindingAddress;
-			RakNetGUID guid;
+			// ID_OPEN_CONNECTION_REQUEST_2 (C->S): see the sending side (the REPLY_1 handler) for the layout.
 			MafiaNet::BitStream bsOut;
 			MafiaNet::BitStream bs((unsigned char *) data, length, false);
 			bs.IgnoreBytes(sizeof(MessageID));
 			bs.IgnoreBytes(sizeof(OFFLINE_MESSAGE_DATA_ID));
 
-			bool requiresSecurityOfThisClient = false;
-#if LIBCAT_SECURITY == 1
-			char remoteHandshakeChallenge[cat::EasyHandshake::CHALLENGE_BYTES];
+			// The challenge comes first and is checked before anything else: until it verifies, the sender has not
+			// shown it can receive at the address it claims, and nothing may be allocated or derived for it.
+			uint64_t challenge;
+			if (!bs.Read(challenge) || !rakPeer->handshakeChallenge.Verify(challenge, MafiaNet::GetTimeUS(), systemAddress))
+				return true;
 
-			if (rakPeer->_using_security)
-			{
-				systemAddress.ToString(false, str1, static_cast<size_t>(64));
-				requiresSecurityOfThisClient = rakPeer->IsInSecurityExceptionList(str1) == false;
-
-				uint32_t cookie;
-				bs.Read(cookie);
-				CAT_AUDIT_PRINTF("AUDIT: Got cookie %i from %i:%i\n", cookie, systemAddress);
-				if (rakPeer->_cookie_jar->Verify(&systemAddress.address, sizeof(systemAddress.address), cookie) == false)
-				{
-					return true;
-				}
-				CAT_AUDIT_PRINTF("AUDIT: Cookie good!\n");
-
-				unsigned char clientWroteChallenge;
-				bs.Read(clientWroteChallenge);
-
-				if (requiresSecurityOfThisClient == true && clientWroteChallenge == 0)
-				{
-					// Fail, client doesn't support security, and it is required
-					return true;
-				}
-
-				if (clientWroteChallenge)
-				{
-					bs.ReadAlignedBytes((unsigned char *) remoteHandshakeChallenge, cat::EasyHandshake::CHALLENGE_BYTES);
-#ifdef CAT_AUDIT
-					printf("AUDIT: RECV CHALLENGE ");
-					for (int ii = 0; ii < sizeof(remoteHandshakeChallenge); ++ii)
-					{
-						printf("%02x", (cat::u8) remoteHandshakeChallenge[ii]);
-					}
-					printf("\n");
-#endif
-				}
-			}
-#endif // LIBCAT_SECURITY
-
-			bs.Read(bindingAddress);
+			CryptInfo clientInfo;
+			SystemAddress bindingAddress;
 			uint16_t mtu;
-			bs.Read(mtu);
-			bs.Read(guid);
+			RakNetGUID guid;
+			if (!clientInfo.Deserialize(&bs) || !bs.Read(bindingAddress) || !bs.Read(mtu) || !bs.Read(guid))
+				return true; // malformed: drop
+
+			// Both sides must use the same mode; there is no fallback. Refuse without allocating anything, and
+			// tell the client from its own point of view, the way ID_ALREADY_CONNECTED is sent:
+			//   MessageID (1) | OFFLINE_MESSAGE_DATA_ID (16) | server RakNetGUID (8)
+			// We require encryption and the client does not: ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION.
+			// We are plaintext and the client requires encryption: ID_OUR_SYSTEM_REQUIRES_SECURITY.
+			if (clientInfo.mode != rakPeer->encryptionMode)
+			{
+				bsOut.Write(rakPeer->encryptionMode == EncryptionMode::Required ? (MessageID) ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION : (MessageID) ID_OUR_SYSTEM_REQUIRES_SECURITY);
+				bsOut.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
+				bsOut.Write(rakPeer->myGuid);
+				for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
+					rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char *) bsOut.GetData(), bsOut.GetNumberOfBitsUsed(), systemAddress);
+				RNS2_SendParameters bsp;
+				bsp.data = (char *) bsOut.GetData();
+				bsp.length = bsOut.GetNumberOfBytesUsed();
+				bsp.systemAddress = systemAddress;
+				rakNetSocket->Send(&bsp, _FILE_AND_LINE_);
+				return true;
+			}
 
 			RakPeer::RemoteSystemStruct *rssFromSA = rakPeer->GetRemoteSystemFromSystemAddress(systemAddress, true, true);
 			bool IPAddrInUse = rssFromSA != 0 && rssFromSA->isActive;
@@ -5944,25 +5494,27 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				outcome = 0;
 			}
 
+			// ID_OPEN_CONNECTION_REPLY_2 (S->C): see the receiving side (the REPLY_2 handler) for the layout.
+			// The server's crypt info goes last, once it is known.
 			MafiaNet::BitStream bsAnswer;
 			bsAnswer.Write((MessageID) ID_OPEN_CONNECTION_REPLY_2);
 			bsAnswer.WriteAlignedBytes((const unsigned char *) OFFLINE_MESSAGE_DATA_ID, sizeof(OFFLINE_MESSAGE_DATA_ID));
 			bsAnswer.Write(rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 			bsAnswer.Write(systemAddress);
 			bsAnswer.Write(mtu);
-			bsAnswer.Write(requiresSecurityOfThisClient);
 
 			if (outcome == 1)
 			{
-				// Duplicate connection request packet from packetloss
-				// Send back the same answer
-#if LIBCAT_SECURITY == 1
-				if (requiresSecurityOfThisClient)
-				{
-					CAT_AUDIT_PRINTF("AUDIT: Resending public key and answer from packetloss.  Sending ID_OPEN_CONNECTION_REPLY_2\n");
-					bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer, sizeof(rssFromSA->answer));
-				}
-#endif // LIBCAT_SECURITY
+				// Duplicate connection request packet from packetloss: send back the same answer, with the crypt
+				// info the session keys were derived from. A different client crypt info under the same address
+				// and GUID is not a retransmission of this handshake: drop it.
+				uint8_t received[CryptInfo::kSerializedBytes];
+				uint8_t expected[CryptInfo::kSerializedBytes];
+				clientInfo.SerializeTo(received);
+				rssFromSA->handshakeRemoteCryptInfo.SerializeTo(expected);
+				if (sodium_memcmp(received, expected, sizeof(received)) != 0)
+					return true;
+				rssFromSA->handshakeLocalCryptInfo.Serialize(&bsAnswer);
 
 				for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
 					rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char *) bsAnswer.GetData(), bsAnswer.GetNumberOfBitsUsed(), systemAddress);
@@ -6010,8 +5562,23 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				return true;
 			}
 
+			// Our side of the handshake: a fresh ephemeral key pair, used once and wiped by DeriveSessionKeys
+			// (and by its destructor) before this block ends. The client initiated, so it holds the initiator slot.
+			SessionKeys keys;
+			CryptInfo serverInfo;
+			if (rakPeer->encryptionMode == EncryptionMode::Required)
+			{
+				EphemeralKeyPair serverPair;
+				serverInfo = serverPair.MakeCryptInfo();
+				if (!DeriveSessionKeys(serverPair, /*localIsInitiator=*/false, clientInfo, serverInfo, guid, rakPeer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS), &keys))
+					return true; // low-order client key: drop, allocating nothing
+			}
+			else
+				serverInfo.mode = EncryptionMode::Plaintext;
+
 			bool thisIPConnectedRecently = false;
-			rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, requiresSecurityOfThisClient);
+			rssFromSA = rakPeer->AssignSystemAddressToRemoteSystemList(systemAddress, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER, rakNetSocket, &thisIPConnectedRecently, bindingAddress, mtu, guid, rakPeer->encryptionMode == EncryptionMode::Required ? &keys : nullptr, serverInfo, clientInfo);
+			keys.Wipe();
 
 			if (thisIPConnectedRecently == true)
 			{
@@ -6031,27 +5598,10 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				return true;
 			}
 
-#if LIBCAT_SECURITY == 1
-			if (requiresSecurityOfThisClient)
-			{
-				CAT_AUDIT_PRINTF("AUDIT: Writing public key.  Sending ID_OPEN_CONNECTION_REPLY_2\n");
-				if (rakPeer->_server_handshake->ProcessChallenge(remoteHandshakeChallenge, rssFromSA->answer, rssFromSA->reliabilityLayer.GetAuthenticatedEncryption()))
-				{
-					CAT_AUDIT_PRINTF("AUDIT: Challenge good!\n");
-					// Keep going to OK block
-				}
-				else
-				{
-					CAT_AUDIT_PRINTF("AUDIT: Challenge BAD!\n");
+			if (rssFromSA == 0)
+				return true;
 
-					// Unassign this remote system
-					rakPeer->DereferenceRemoteSystem(systemAddress);
-					return true;
-				}
-
-				bsAnswer.WriteAlignedBytes((const unsigned char *) rssFromSA->answer, sizeof(rssFromSA->answer));
-			}
-#endif // LIBCAT_SECURITY
+			serverInfo.Serialize(&bsAnswer);
 
 			for (i = 0; i < rakPeer->pluginListNTS.Size(); i++)
 				rakPeer->pluginListNTS[i]->OnDirectSocketSend((const char *) bsAnswer.GetData(), bsAnswer.GetNumberOfBitsUsed(), systemAddress);
@@ -6075,17 +5625,6 @@ void ProcessNetworkPacket(SystemAddress systemAddress, const char *data, const i
 }
 void ProcessNetworkPacket(SystemAddress systemAddress, const char *data, const int length, RakPeer *rakPeer, RakNetSocket2 *rakNetSocket, MafiaNet::TimeUS timeRead, BitStream &updateBitStream)
 {
-#if LIBCAT_SECURITY == 1
-#ifdef CAT_AUDIT
-	printf("AUDIT: RECV ");
-	for (int ii = 0; ii < length; ++ii)
-	{
-		printf("%02x", (cat::u8) data[ii]);
-	}
-	printf("\n");
-#endif
-#endif // LIBCAT_SECURITY
-
 	RakAssert(systemAddress.GetPort());
 	bool isOfflineMessage;
 	if (ProcessOfflineNetworkPacket(systemAddress, data, length, rakPeer, rakNetSocket, &isOfflineMessage, timeRead))
@@ -7269,11 +6808,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 #endif
 */
 
-	BitStream updateBitStream(MAXIMUM_MTU_SIZE
-#if LIBCAT_SECURITY == 1
-	                          + cat::AuthenticatedEncryption::OVERHEAD_BYTES
-#endif
-	);
+	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
 	//
 	rakPeer->isMainLoopThreadActive = true;
 
@@ -7369,7 +6904,7 @@ void RakPeer::CallPluginCallbacks(DataStructures::List<PluginInterface2 *> &plug
 		case ID_CONNECTION_ATTEMPT_FAILED:
 			pluginList[i]->OnFailedConnectionAttempt(packet, FCAR_CONNECTION_ATTEMPT_FAILED);
 			break;
-		case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
+		case ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION:
 			pluginList[i]->OnFailedConnectionAttempt(packet, FCAR_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY);
 			break;
 		case ID_OUR_SYSTEM_REQUIRES_SECURITY:
