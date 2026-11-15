@@ -66,7 +66,8 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		        "Current packetloss                 %.1f%%\n"
 		        "Average packetloss                 %.1f%%\n"
 		        "Elapsed connection time in seconds %" PRINTF_64_BIT_MODIFIER "u\n"
-		        "Dropped unauthenticated datagrams  %" PRINTF_64_BIT_MODIFIER "u\n",
+		        "Dropped unauthenticated datagrams  %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "MTU step-downs                     %u\n",
 		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
 		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
 		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
@@ -76,7 +77,7 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		        s->packetlossLastSecond * 100.0f,
 		        s->packetlossTotal * 100.0f,
 		        (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000),
-		        (long long unsigned int) s->droppedUnauthenticatedDatagrams);
+		        (long long unsigned int) s->droppedUnauthenticatedDatagrams, s->mtuStepDowns);
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
@@ -121,7 +122,8 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		        "Current packetloss                   %.1f%%\n"
 		        "Average packetloss                   %.1f%%\n"
 		        "Elapsed connection time in seconds   %" PRINTF_64_BIT_MODIFIER "u\n"
-		        "Dropped unauthenticated datagrams    %" PRINTF_64_BIT_MODIFIER "u\n",
+		        "Dropped unauthenticated datagrams    %" PRINTF_64_BIT_MODIFIER "u\n"
+		        "MTU step-downs                       %u\n",
 		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
 		        (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
 		        (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_SENT],
@@ -143,7 +145,7 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		        s->packetlossLastSecond * 100.0f,
 		        s->packetlossTotal * 100.0f,
 		        (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000),
-		        (long long unsigned int) s->droppedUnauthenticatedDatagrams);
+		        (long long unsigned int) s->droppedUnauthenticatedDatagrams, s->mtuStepDowns);
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
@@ -198,7 +200,8 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		          "Current packetloss                 %.1f%%\n"
 		          "Average packetloss                 %.1f%%\n"
 		          "Elapsed connection time in seconds %" PRINTF_64_BIT_MODIFIER "u\n"
-		          "Dropped unauthenticated datagrams  %" PRINTF_64_BIT_MODIFIER "u\n",
+		          "Dropped unauthenticated datagrams  %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "MTU step-downs                     %u\n",
 		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
 		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
 		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_PUSHED],
@@ -208,7 +211,7 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		          s->packetlossLastSecond * 100.0f,
 		          s->packetlossTotal * 100.0f,
 		          (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000),
-		          (long long unsigned int) s->droppedUnauthenticatedDatagrams);
+		          (long long unsigned int) s->droppedUnauthenticatedDatagrams, s->mtuStepDowns);
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{
@@ -253,7 +256,8 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		          "Current packetloss                   %.1f%%\n"
 		          "Average packetloss                   %.1f%%\n"
 		          "Elapsed connection time in seconds   %" PRINTF_64_BIT_MODIFIER "u\n"
-		          "Dropped unauthenticated datagrams    %" PRINTF_64_BIT_MODIFIER "u\n",
+		          "Dropped unauthenticated datagrams    %" PRINTF_64_BIT_MODIFIER "u\n"
+		          "MTU step-downs                       %u\n",
 		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_SENT],
 		          (long long unsigned int) s->valueOverLastSecond[ACTUAL_BYTES_RECEIVED],
 		          (long long unsigned int) s->valueOverLastSecond[USER_MESSAGE_BYTES_SENT],
@@ -275,7 +279,7 @@ void RAK_DLL_EXPORT MafiaNet::StatisticsToString(RakNetStatistics *s, char *buff
 		          s->packetlossLastSecond * 100.0f,
 		          s->packetlossTotal * 100.0f,
 		          (long long unsigned int) (uint64_t) ((MafiaNet::GetTimeUS() - s->connectionStartTime) / 1000000),
-		          (long long unsigned int) s->droppedUnauthenticatedDatagrams);
+		          (long long unsigned int) s->droppedUnauthenticatedDatagrams, s->mtuStepDowns);
 
 		if (s->BPSLimitByCongestionControl != 0)
 		{

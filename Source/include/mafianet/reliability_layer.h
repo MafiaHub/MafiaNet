@@ -41,6 +41,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/native_feature_includes.h"
 #include "mafianet/session_crypto.h"
+#include "mafianet/mtu_black_hole.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/rand.h"
 #include "mafianet/socket2.h"
@@ -458,13 +459,18 @@ private:
 	};
 	struct DatagramHistoryNode
 	{
-		DatagramHistoryNode() {}
+		DatagramHistoryNode()
+		    : head(0), timeSent(0), wireBytes(0) {}
 		DatagramHistoryNode(MessageNumberNode *_head, CCTimeType ts)
-		    : head(_head), timeSent(ts)
+		    : head(_head), timeSent(ts), wireBytes(0)
 		{
 		}
 		MessageNumberNode *head;
 		CCTimeType timeSent;
+		// The datagram's size on the wire, UDP/IP headers included, estimated
+		// as Update() estimates a packet's for the black-hole check: an ack for
+		// it is evidence that the path carries datagrams of this size.
+		int wireBytes;
 	};
 	// Queue length is programmatically restricted to DATAGRAM_MESSAGE_ID_ARRAY_LENGTH
 	// This is essentially an O(1) lookup to get a DatagramHistoryNode given an index
@@ -486,7 +492,7 @@ private:
 	DataStructures::List<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
 
 	void RemoveFromDatagramHistory(DatagramSequenceNumberType index);
-	MessageNumberNode *GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent);
+	MessageNumberNode *GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent, int *wireBytes = nullptr);
 	void AddFirstToDatagramHistory(DatagramSequenceNumberType datagramNumber, CCTimeType timeSent);
 	MessageNumberNode *AddFirstToDatagramHistory(DatagramSequenceNumberType datagramNumber, DatagramSequenceNumberType messageNumber, CCTimeType timeSent);
 	MessageNumberNode *AddSubsequentToDatagramHistory(MessageNumberNode *messageNumberNode, DatagramSequenceNumberType messageNumber);
@@ -642,6 +648,11 @@ private:
 	// Current wire MTU in bytes including UDP/IP headers. Seeded from Reset()'s
 	// mtuSize, stepped down by black-hole detection. See GetCurrentMtuBytes().
 	int currentMtuBytes;
+	// Failed transmissions of too-large datagrams since one of their size was
+	// last acknowledged: the size-specific half of the black-hole signature.
+	MtuBlackHoleEvidence mtuBlackHoleEvidence;
+	// Step-downs since Reset(). RakNetStatistics::mtuStepDowns.
+	uint32_t mtuStepDowns;
 
 
 	uint32_t unacknowledgedBytes;

@@ -277,4 +277,50 @@ TEST_F(RelLayerBlackHole, AFalsePositiveStepDownDoesNotBlockTheOrderedChannel)
 	EXPECT_EQ(fourth, received[3]);
 }
 
+// --- Issue #94: ordinary loss must not look like a black hole -------------------------------------
+
+unsigned int StepDowns(MafiaNet::ReliabilityLayer &layer)
+{
+	MafiaNet::RakNetStatistics stats;
+	layer.GetStatistics(&stats);
+	return stats.mtuStepDowns;
+}
+
+TEST_F(RelLayerBlackHole, TwentyPercentLossEachWayNeverStepsDown)
+{
+	// Loss hits acks as well as data, so a large packet fails a transmission with probability
+	// 1-(0.8)^2 = 36%, and four failures in a row -- the old trigger on its own -- happen to about 1
+	// large packet in 60. Hundreds of large packets each way must cross without a single step-down:
+	// the large ones that do get through show the path carries their size.
+	aToBLossPercent = 20;
+	bToALossPercent = 20;
+
+	const size_t count = 300;
+	for (size_t i = 0; i < count; i++)
+	{
+		// Alternately one datagram over the 1280 rung, and a message split into two such fragments.
+		SendFromA(PatternMessage(i % 2 == 0 ? 1330 : 2600, (unsigned char) i), MafiaNet::Reliability::Reliable);
+		PumpFor(50);
+	}
+	ASSERT_TRUE(PumpUntilReceived(count, 600000)) << received.size() << " of " << count << " delivered";
+	EXPECT_EQ(0u, StepDowns(a));
+	EXPECT_EQ(TEST_MTU, a.GetCurrentMtuBytes());
+}
+
+TEST_F(RelLayerBlackHole, ALoneLargePacketInABlackHoleStillStepsDown)
+{
+	// The slowest case for the size-specific evidence: one datagram over the rung and nothing else in
+	// flight, so every failure counted is a resend of that one packet. It must still step down and arrive.
+	aToBDropOverBytes = 1100;
+
+	std::vector<unsigned char> msg = PatternMessage(1330, 53);
+	SendFromA(msg);
+
+	ASSERT_TRUE(PumpUntilReceived(1, 150000));
+	EXPECT_EQ(msg, received[0]);
+	// 1400 -> 1280, which is still over the 1100-byte ceiling, -> 1024.
+	EXPECT_EQ(2u, StepDowns(a));
+	EXPECT_EQ(1024, a.GetCurrentMtuBytes());
+}
+
 } // namespace

@@ -102,6 +102,24 @@ Tuning Parameters
    peer->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, addr, false);  // Channel 0
    peer->Send(&bs2, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 1, addr, false); // Channel 1
 
+MTU Black Holes
+---------------
+
+The handshake probes the path MTU in one direction only. A tunnel that drops, rather than
+fragments, datagrams over its ceiling on the other direction (OpenVPN and friends) lets the
+connection establish and then black-holes its large datagrams. The reliability layer detects this
+and steps the connection's MTU down one rung of the same ladder (1400, 1280, 1024, 576),
+re-splitting every queued message that no longer fits. ``GetMTUSize()`` reports the new size and
+``RakNetStatistics::mtuStepDowns`` counts the steps. A step is permanent for the connection.
+
+It steps down only on a size-specific signature: a packet that would shrink at the next rung has
+gone unacknowledged through 4 transmissions, and 12 transmissions of such large packets in a row
+have failed without a datagram of their size being acknowledged in between. Ordinary loss hits
+datagrams of every size, so on a lossy link some large datagrams still get through and the count
+starts over; a black hole drops them all. A lone large packet takes 12 resends to detect, a
+message with several large fragments in flight about as many resend rounds as it has large
+fragments.
+
 Statistics Monitoring
 ---------------------
 
@@ -115,6 +133,7 @@ Statistics Monitoring
    stats.bytesInSendBuffer;          // Pending bytes
    stats.packetlossLastSecond;       // Recent packet loss
    stats.BPSLimitByCongestionControl; // Current bandwidth limit
+   stats.mtuStepDowns;               // MTU black-hole step-downs
 
 See Also
 --------

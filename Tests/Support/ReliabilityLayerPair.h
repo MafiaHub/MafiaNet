@@ -72,6 +72,9 @@ protected:
 	// deterministically, to model plain loss.
 	int aToBLossPercent;
 	uint32_t lcgState;
+	// The same for b->a datagrams (acks, mostly), from a stream of its own.
+	int bToALossPercent;
+	uint32_t bToALcgState;
 
 	// Every datagram a handed to its socket, delivered or dropped, with a's
 	// current MTU at the time it was built.
@@ -89,7 +92,7 @@ protected:
 	std::vector<MafiaNet::BitSize_t> receivedBits;    // their exact bit lengths
 
 	ReliabilityLayerPair()
-	    : updateBitStream(MAXIMUM_MTU_SIZE), now(0), aToBDropOverBytes(MAXIMUM_MTU_SIZE), aToBLossPercent(0), lcgState(0x12345678)
+	    : updateBitStream(MAXIMUM_MTU_SIZE), now(0), aToBDropOverBytes(MAXIMUM_MTU_SIZE), aToBLossPercent(0), lcgState(0x12345678), bToALossPercent(0), bToALcgState(0x9E3779B9)
 	{
 	}
 
@@ -165,6 +168,14 @@ protected:
 		return false;
 	}
 
+	bool DropBToA()
+	{
+		if (bToALossPercent == 0)
+			return false;
+		bToALcgState = bToALcgState * 1664525u + 1013904223u;
+		return (int) ((bToALcgState >> 8) % 100u) < bToALossPercent;
+	}
+
 	void SendFromA(const std::vector<unsigned char> &payload, MafiaNet::Reliability reliability = MafiaNet::Reliability::ReliableOrdered)
 	{
 		ASSERT_TRUE(a.Send((char *) &payload[0], BYTES_TO_BITS((MafiaNet::BitSize_t) payload.size()),
@@ -202,7 +213,10 @@ protected:
 
 		for (size_t i = 0; i < bSock.sent.size(); i++)
 		{
-			// The return path is clean: the black hole under test is one-directional.
+			// The black hole under test is one-directional: the return path only
+			// ever sees plain loss.
+			if (DropBToA())
+				continue;
 			a.HandleSocketReceiveFromConnectedPlayer(&bSock.sent[i][0], (unsigned int) bSock.sent[i].size(),
 			                                         bAddr, handlers, TEST_MTU, &aSock, &rnr, now, updateBitStream);
 		}

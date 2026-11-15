@@ -504,6 +504,8 @@ void ReliabilityLayer::InitializeVariables()
 
 	statistics.connectionStartTime = MafiaNet::GetTimeUS();
 	currentMtuBytes = MAXIMUM_MTU_SIZE;
+	mtuBlackHoleEvidence.Reset();
+	mtuStepDowns = 0;
 	splitPacketId = 0;
 	elapsedTimeSinceLastUpdate = 0;
 	throughputCapCountdown = 0;
@@ -922,7 +924,10 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 				}
 
 				CCTimeType whenSent;
-				MessageNumberNode *messageNumberNode = GetMessageNumberNodeByDatagramIndex(datagramNumber, &whenSent);
+				int datagramWireBytes = 0;
+				MessageNumberNode *messageNumberNode = GetMessageNumberNodeByDatagramIndex(datagramNumber, &whenSent, &datagramWireBytes);
+				// This size got through: failures of datagrams no larger were loss, not a black hole.
+				mtuBlackHoleEvidence.OnDatagramAcked(datagramWireBytes);
 				if (messageNumberNode)
 				{
 					//	printf("%p Got ack for %i\n", this, datagramNumber.val);
@@ -2123,7 +2128,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 			{
 				const int requiredDatagramBytes = (int) BITS_TO_BYTES(stuck->headerLength + stuck->dataBitLength) +
 				                                  (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE + cipherOverheadBytes;
-				if (ShouldStepDownMtu(stuck->timesSent, requiredDatagramBytes, currentMtuBytes))
+				if (ShouldStepDownMtu(stuck->timesSent, requiredDatagramBytes, currentMtuBytes) && mtuBlackHoleEvidence.IsBlackHoleLikely())
 					StepDownMtuAfterBlackHole();
 			}
 		}
@@ -2167,6 +2172,11 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 						// Testing1
 						// 						if (internalPacket->reliability==MafiaNet::Reliability::ReliableOrdered || internalPacket->reliability==MafiaNet::Reliability::ReliableOrderedWithAckReceipt)
 						// 							printf("RESEND reliableMessageNumber %i with datagram %i\n", internalPacket->reliableMessageNumber.val, congestionManager.GetNextDatagramSequenceNumber().val);
+
+						// Its previous transmission went unacked: a failure, and black-hole
+						// evidence if the packet would shrink at the next rung.
+						mtuBlackHoleEvidence.OnResend((int) BITS_TO_BYTES(nextPacketBitLength) + (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE + cipherOverheadBytes,
+						                              currentMtuBytes);
 
 						PushPacket(time, internalPacket, true); // Affects GetNewTransmissionBandwidth()
 						internalPacket->timesSent++;
@@ -2406,6 +2416,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 #endif
 			updateBitStream.Reset();
 			dhf.Serialize(&updateBitStream);
+			const BitSize_t datagramHeaderBits = updateBitStream.GetNumberOfBitsUsed();
 			CC_DEBUG_PRINTF_2("S%i ", dhf.datagramNumber.val);
 
 			while (msgIndex < msgTerm)
@@ -2443,6 +2454,11 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 				// Unreliable, add dummy node
 				AddFirstToDatagramHistory(dhf.datagramNumber, time);
 			}
+			// The node just pushed is this datagram's: record its size, estimated the way the black-hole
+			// check estimates a packet's (DatagramHeaderFormat::GetDataHeaderByteLength() for the header),
+			// so that an ack for it compares like with like against failed packets.
+			datagramHistory[datagramHistory.Size() - 1].wireBytes = (int) BITS_TO_BYTES(updateBitStream.GetNumberOfBitsUsed() - datagramHeaderBits) +
+			                                                        (int) DatagramHeaderFormat::GetDataHeaderByteLength() + UDP_HEADER_SIZE + cipherOverheadBytes;
 
 			// Store what message ids were sent with this datagram
 			//	datagramMessageIDTree.Insert(dhf.datagramNumber,idList);
@@ -3315,6 +3331,9 @@ void ReliabilityLayer::StepDownMtuAfterBlackHole(void)
 	if (nextMtu == 0)
 		return;
 	currentMtuBytes = nextMtu;
+	mtuStepDowns++;
+	// The failures counted so far were about the old size.
+	mtuBlackHoleEvidence.Reset();
 	// Same budget as Reset(): the wire MTU minus UDP/IP headers and the cipher overhead.
 	congestionManager.SetMTU((uint32_t) (nextMtu - UDP_HEADER_SIZE - cipherOverheadBytes));
 	ReSplitOversizedMessages();
@@ -3911,6 +3930,7 @@ RakNetStatistics *ReliabilityLayer::GetStatistics(RakNetStatistics *rns)
 	}
 
 	rns->droppedUnauthenticatedDatagrams = droppedUnauthenticatedDatagrams;
+	rns->mtuStepDowns = mtuStepDowns;
 	rns->isLimitedByCongestionControl = statistics.isLimitedByCongestionControl;
 	rns->BPSLimitByCongestionControl = statistics.BPSLimitByCongestionControl;
 	rns->isLimitedByOutgoingBandwidthLimit = statistics.isLimitedByOutgoingBandwidthLimit;
@@ -4268,7 +4288,7 @@ bool ReliabilityLayer::ResendBufferOverflow(void) const
 	return resendBuffer[index1] != 0; // || resendBuffer[index2]!=0;
 }
 //-------------------------------------------------------------------------------------------------------
-ReliabilityLayer::MessageNumberNode *ReliabilityLayer::GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent)
+ReliabilityLayer::MessageNumberNode *ReliabilityLayer::GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent, int *wireBytes)
 {
 	if (datagramHistory.IsEmpty())
 		return nullptr;
@@ -4281,6 +4301,8 @@ ReliabilityLayer::MessageNumberNode *ReliabilityLayer::GetMessageNumberNodeByDat
 		return nullptr;
 
 	*timeSent = datagramHistory[offsetIntoList].timeSent;
+	if (wireBytes)
+		*wireBytes = datagramHistory[offsetIntoList].wireBytes;
 	return datagramHistory[offsetIntoList].head;
 }
 //-------------------------------------------------------------------------------------------------------

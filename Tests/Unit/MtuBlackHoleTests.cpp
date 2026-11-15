@@ -95,3 +95,88 @@ TEST(MtuBlackHole, StepsDownFromIntermediateRungs)
 	EXPECT_TRUE(ShouldStepDownMtu(MTU_BLACKHOLE_RESEND_THRESHOLD, 1280, 1280));
 	EXPECT_TRUE(ShouldStepDownMtu(MTU_BLACKHOLE_RESEND_THRESHOLD, 1024, 1024));
 }
+
+// MtuBlackHoleEvidence: the size-specific half of the signature (issue #94). Packet loss hits datagrams
+// of every size, so on a lossy link some large datagrams still get through; a black hole drops them all.
+
+TEST(MtuBlackHoleEvidence, StartsWithNoEvidence)
+{
+	MtuBlackHoleEvidence evidence;
+	EXPECT_FALSE(evidence.IsBlackHoleLikely());
+	EXPECT_EQ(0u, evidence.GetFailures());
+}
+
+TEST(MtuBlackHoleEvidence, ConsecutiveLargeFailuresMakeABlackHoleLikely)
+{
+	MtuBlackHoleEvidence evidence;
+	for (uint32_t i = 0; i + 1 < MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD; i++)
+		evidence.OnResend(1400, 1400);
+	EXPECT_FALSE(evidence.IsBlackHoleLikely());
+	evidence.OnResend(1400, 1400);
+	EXPECT_TRUE(evidence.IsBlackHoleLikely());
+}
+
+TEST(MtuBlackHoleEvidence, FailuresOfPacketsThatFitTheNextRungAreNotCounted)
+{
+	MtuBlackHoleEvidence evidence;
+	for (uint32_t i = 0; i < MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD * 10; i++)
+	{
+		evidence.OnResend(1280, 1400);
+		evidence.OnResend(100, 1400);
+	}
+	EXPECT_EQ(0u, evidence.GetFailures());
+}
+
+TEST(MtuBlackHoleEvidence, AtTheBottomRungNothingIsCounted)
+{
+	MtuBlackHoleEvidence evidence;
+	for (uint32_t i = 0; i < MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD; i++)
+		evidence.OnResend(576, 576);
+	EXPECT_FALSE(evidence.IsBlackHoleLikely());
+}
+
+TEST(MtuBlackHoleEvidence, AnAckOfALargeEnoughDatagramStartsTheCountOver)
+{
+	MtuBlackHoleEvidence evidence;
+	for (uint32_t i = 0; i + 1 < MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD; i++)
+		evidence.OnResend(1400, 1400);
+	evidence.OnDatagramAcked(1400);
+	EXPECT_EQ(0u, evidence.GetFailures());
+	evidence.OnResend(1400, 1400);
+	EXPECT_FALSE(evidence.IsBlackHoleLikely());
+}
+
+TEST(MtuBlackHoleEvidence, AnAckAsLargeAsTheSmallestFailureIsEnough)
+{
+	MtuBlackHoleEvidence evidence;
+	evidence.OnResend(1400, 1400);
+	evidence.OnResend(1300, 1400);
+	evidence.OnDatagramAcked(1300);
+	EXPECT_EQ(0u, evidence.GetFailures());
+}
+
+TEST(MtuBlackHoleEvidence, AnAckOfASmallerDatagramIsNoEvidenceAgainstABlackHole)
+{
+	// What a black hole looks like: small datagrams (acks, small messages) keep getting through.
+	MtuBlackHoleEvidence evidence;
+	for (uint32_t i = 0; i < MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD; i++)
+	{
+		evidence.OnResend(1400, 1400);
+		evidence.OnDatagramAcked(1299);
+		evidence.OnDatagramAcked(60);
+	}
+	EXPECT_TRUE(evidence.IsBlackHoleLikely());
+}
+
+TEST(MtuBlackHoleEvidence, ResetDiscardsTheEvidence)
+{
+	MtuBlackHoleEvidence evidence;
+	for (uint32_t i = 0; i < MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD; i++)
+		evidence.OnResend(1400, 1400);
+	evidence.Reset();
+	EXPECT_FALSE(evidence.IsBlackHoleLikely());
+	// And the size floor with it: a small ack after a reset does not matter, a large failure counts.
+	evidence.OnDatagramAcked(100);
+	evidence.OnResend(1400, 1400);
+	EXPECT_EQ(1u, evidence.GetFailures());
+}

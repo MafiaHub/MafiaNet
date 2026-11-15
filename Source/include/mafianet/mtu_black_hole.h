@@ -50,6 +50,54 @@ const uint32_t MTU_BLACKHOLE_RESEND_THRESHOLD = 4;
 /// below the bottom rung.
 int RAK_DLL_EXPORT NextLowerMtu(int currentMtuBytes);
 
+/// How many transmissions of too-large packets must fail in a row -- each one
+/// resent because its previous transmission went unacked, with no datagram of
+/// that size acknowledged in between -- before a step-down. Packet loss hits
+/// datagrams of every size, so on a lossy link some large datagrams still get
+/// through and each one restarts the count; a black hole drops every one of
+/// them. With loss p each way a transmission fails with probability
+/// 1-(1-p)^2, so twelve failures in a row by chance take about 5e-6 at 20%
+/// loss and 2e-8 at 10%, where the single-packet threshold above alone fired
+/// for about 1 large packet in 60 at 20% loss (issue #94). A message with
+/// several large fragments in flight reaches the count in as many resend
+/// rounds as before; a lone large packet needs this many resends.
+const uint32_t MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD = 12;
+
+/// The size-specific half of the black-hole signature: failed transmissions of
+/// datagrams larger than the next rung, counted until a datagram at least as
+/// large as the smallest of them is acknowledged. Portable state, no I/O; the
+/// reliability layer feeds it every resend and every acknowledged datagram.
+class RAK_DLL_EXPORT MtuBlackHoleEvidence
+{
+public:
+	MtuBlackHoleEvidence();
+
+	/// A reliable packet that needs \a requiredDatagramBytes on the wire is
+	/// being resent: its previous transmission was not acknowledged. Counted
+	/// only when it would shrink at the next rung below \a currentMtuBytes.
+	void OnResend(int requiredDatagramBytes, int currentMtuBytes);
+
+	/// A datagram of \a datagramBytes on the wire was acknowledged. One at
+	/// least as large as a counted failure shows the path carries that size,
+	/// so the failures were loss, not size, and the count starts over.
+	void OnDatagramAcked(int datagramBytes);
+
+	/// Start over, e.g. after a step-down: the evidence was about the old size.
+	void Reset();
+
+	/// Whether enough large transmissions have failed in a row.
+	bool IsBlackHoleLikely() const;
+
+	uint32_t GetFailures() const { return failures; }
+
+private:
+	uint32_t failures;
+	// The smallest required size among the counted failures.
+	int smallestFailedBytes;
+};
+
+/// The per-packet half of the black-hole signature, checked together with
+/// MtuBlackHoleEvidence::IsBlackHoleLikely().
 /// Whether a reliable packet occupying \a requiredDatagramBytes on the wire
 /// (datagram payload plus UDP/IP headers) that has gone unacked through
 /// \a timesSent transmissions is evidence of an MTU black hole worth stepping

@@ -9,6 +9,8 @@
 
 #include "mafianet/mtu_size.h"
 
+#include <limits.h>
+
 namespace MafiaNet
 {
 
@@ -35,6 +37,38 @@ bool ShouldStepDownMtu(uint32_t timesSent, int requiredDatagramBytes, int curren
 	// one that already fits the next rung would go out unchanged after a
 	// step-down, so its failures indicate loss, not size.
 	return requiredDatagramBytes > nextLower;
+}
+
+MtuBlackHoleEvidence::MtuBlackHoleEvidence()
+{
+	Reset();
+}
+
+void MtuBlackHoleEvidence::OnResend(int requiredDatagramBytes, int currentMtuBytes)
+{
+	const int nextLower = NextLowerMtu(currentMtuBytes);
+	if (nextLower == 0 || requiredDatagramBytes <= nextLower)
+		return;
+	failures++;
+	if (requiredDatagramBytes < smallestFailedBytes)
+		smallestFailedBytes = requiredDatagramBytes;
+}
+
+void MtuBlackHoleEvidence::OnDatagramAcked(int datagramBytes)
+{
+	if (failures > 0 && datagramBytes >= smallestFailedBytes)
+		Reset();
+}
+
+void MtuBlackHoleEvidence::Reset()
+{
+	failures = 0;
+	smallestFailedBytes = INT_MAX;
+}
+
+bool MtuBlackHoleEvidence::IsBlackHoleLikely() const
+{
+	return failures >= MTU_BLACKHOLE_LARGE_FAILURE_THRESHOLD;
 }
 
 } // namespace MafiaNet
