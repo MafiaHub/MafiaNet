@@ -68,7 +68,7 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update -qq
-          apt-get install -y -qq build-essential cmake git ca-certificates libssl-dev
+          apt-get install -y -qq build-essential cmake git ca-certificates libssl-dev libsodium-dev
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -128,13 +128,14 @@ jobs:
           persist-credentials: false
 
       - name: Install OpenSSL (vcpkg)
-        run: vcpkg install openssl:${{ matrix.triplet }}
+        run: vcpkg install openssl:${{ matrix.triplet }} libsodium:${{ matrix.triplet }}
 
       - name: Configure
         run: |
           cmake -B build -A ${{ matrix.platform }} `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} `
+            -Dsodium_USE_STATIC_LIBS=ON `
             -DMAFIANET_BUILD_SHARED=ON `
             -DMAFIANET_BUILD_STATIC=ON
 
@@ -179,7 +180,7 @@ jobs:
           persist-credentials: false
 
       - name: Install OpenSSL
-        run: brew install openssl@3
+        run: brew install openssl@3 libsodium
 
       - name: Configure
         run: |

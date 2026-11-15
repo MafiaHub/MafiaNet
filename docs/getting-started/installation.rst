@@ -6,7 +6,8 @@ Requirements
 
 * CMake 3.21 or higher
 * C++17 compatible compiler
-* OpenSSL 1.0.0 or higher
+* libsodium 1.0.19 or higher (``libsodium-dev`` on Debian/Ubuntu, ``brew install libsodium`` on macOS, ``vcpkg install libsodium`` on Windows)
+* OpenSSL 3.0 or higher (until the legacy crypto code is removed)
 
 Platform-specific requirements:
 

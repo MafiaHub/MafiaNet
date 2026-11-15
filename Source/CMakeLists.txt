@@ -401,6 +401,7 @@ function(mafianet_configure_target target_name)
             OpenSSL::SSL
             OpenSSL::Crypto
         PRIVATE
+            sodium
             Threads::Threads
             $<$<PLATFORM_ID:Windows>:ws2_32>
             # RakVoice (built into the core library) requires the Opus codec and
@@ -556,6 +557,7 @@ write_basic_package_version_file(
 )
 
 install(FILES
+    ${PROJECT_SOURCE_DIR}/cmake/Findsodium.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/MafiaNetConfig.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/MafiaNetConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MafiaNet

@@ -88,6 +88,8 @@ RAK_THREAD_DECLARATION(UDTConnect);
 #include <stdlib.h> // malloc
 #endif
 
+#include <sodium.h>
+
 
 #if defined(_WIN32)
 //
@@ -448,6 +450,10 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 {
 	if (IsActive())
 		return RAKNET_ALREADY_STARTED;
+
+	// Safe to call repeatedly and from several threads; returns 1 when already initialised.
+	if (sodium_init() < 0)
+		return CRYPTO_INITIALIZATION_FAILED;
 
 	// If getting the guid failed in the constructor, try again
 	if (myGuid.g == 0)

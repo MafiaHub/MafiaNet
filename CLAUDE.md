@@ -134,7 +134,7 @@ Release is what ships and exercises the backstops the asserts hide):
 
 ```bash
 docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -c '
-  apt-get update -qq && apt-get install -y -qq build-essential cmake libssl-dev git ca-certificates
+  apt-get update -qq && apt-get install -y -qq build-essential cmake libssl-dev libsodium-dev git ca-certificates
   cp -r /src /work && cd /work
   for cfg in Debug Release; do
     cmake -B /b-$cfg -S . -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON
@@ -150,7 +150,7 @@ Keep its message counts above `MMSG_BATCH_MAX` or that coverage silently disappe
 **Requirements:**
 - CMake 3.21+
 - C++17 compiler
-- OpenSSL 3.0+
+- libsodium 1.0.19+ (OpenSSL 3.0+ until the legacy crypto/ code is removed)
 - Platform libs: ws2_32 (Windows), pthread (Unix)
 - Internet connection (first configure fetches dependencies via FetchContent)
 

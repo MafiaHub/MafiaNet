@@ -99,7 +99,7 @@ jobs:
           persist-credentials: false
 
       - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev
 
       # File names under Source/ are snake_case, and library headers include each
       # other only as "mafianet/<name>.h". A bare #include "string.h" inside
@@ -181,7 +181,7 @@ jobs:
           persist-credentials: false
 
       - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -228,7 +228,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build clang
 
       # Ubuntu 24.04 runners use 32 bits of mmap randomisation, which older TSan
       # runtimes cannot map their shadow memory around.
@@ -303,7 +303,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build clang
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -352,7 +352,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -392,7 +392,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+          sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build
           pipx install gcovr==8.6
 
       - name: Build
@@ -435,7 +435,7 @@ jobs:
           persist-credentials: false
 
       - name: Install OpenSSL
-        run: brew install openssl@3
+        run: brew install openssl@3 libsodium
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -483,8 +483,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install libsodium (vcpkg)
+        run: vcpkg install libsodium:x64-windows-static-md
+
       - name: Configure CMake
-        run: cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON -DMAFIANET_WARNINGS_AS_ERRORS=ON
+        run: |
+          cmake -B build -DMAFIANET_BUILD_SAMPLES=ON -DMAFIANET_BUILD_TESTS=ON -DMAFIANET_WARNINGS_AS_ERRORS=ON `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static-md `
+            -Dsodium_USE_STATIC_LIBS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4

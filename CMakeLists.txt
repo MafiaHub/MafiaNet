@@ -110,11 +110,14 @@ if(MAFIANET_COVERAGE)
 endif()
 
 # Dependencies
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+# OpenSSL is only still required by the legacy crypto/ and tcp_interface code;
+# it is removed together with those users.
 find_package(OpenSSL 3.0.0 REQUIRED)
+find_package(sodium 1.0.19 REQUIRED)
 find_package(Threads REQUIRED)
 
 # Include helpers
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(MafiaNetHelpers)
 
 # RakVoice is built into the core library, so its dependencies (Opus, RNNoise)
