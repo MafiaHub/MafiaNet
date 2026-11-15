@@ -224,7 +224,7 @@ public:
 	/// URL decode the string
 	MafiaNet::RakString &URLDecode(void);
 
-	/// https://servers.api.rackspacecloud.com/v1.0 to https://,  servers.api.rackspacecloud.com, /v1.0
+	/// https://api.example.com/v1.0 to https://,  api.example.com, /v1.0
 	void SplitURI(MafiaNet::RakString &header, MafiaNet::RakString &domain, MafiaNet::RakString &path);
 
 	/// Scan for quote, double quote, and backslash and prepend with backslash

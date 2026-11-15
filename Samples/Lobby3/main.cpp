@@ -42,8 +42,6 @@ void main_RakNet(void)
 	//const char *serverURL = "lobby3.raknet.com";
 	//const unsigned int serverPort=80;
 	//const unsigned int serverPort=8888;
-	//const bool useSSL=true;
-	const bool useSSL = false;
 	//const unsigned int serverPort=443;
 	const unsigned int serverPort = 8080;
 
@@ -80,10 +78,9 @@ void main_RakNet(void)
 	json_object_set(jsonObject, "__hash", json_string(outputBase64));
 	jsonStr = json_dumps(jsonObject, JSON_COMPACT | JSON_PRESERVE_ORDER);
 
-	// GAE SSL https://developers.google.com/appengine/docs/ssl
 	char URI[128];
 	sprintf_s(URI, "%s/customTable/update", serverURL);
-	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__); // Requires build with OPEN_SSL_CLIENT_SUPPORT
+	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__);
 	tcp->Start(0, 64);
 	tcp->Connect(serverURL, serverPort, true);
 	RakString rspost = RakString::FormatForPOST(
@@ -94,8 +91,6 @@ void main_RakNet(void)
 	RakSleep(100);
 	SystemAddress serverAddr = tcp->HasCompletedConnectionAttempt();
 	RakAssert(serverAddr != UNASSIGNED_SYSTEM_ADDRESS);
-	if (useSSL)
-		tcp->StartSSLClient(serverAddr);
 	tcp->Send(rspost.C_String(), rspost.GetLength(), serverAddr, false);
 	RakSleep(1000);
 	Packet *p;

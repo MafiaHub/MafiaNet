@@ -41,7 +41,7 @@ HTTPConnection2::~HTTPConnection2()
 		MafiaNet::OP_DELETE(completedRequests[i], _FILE_AND_LINE_);
 	}
 }
-bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, bool useSSL, int ipVersion, SystemAddress useAddress, void *userData)
+bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, int ipVersion, SystemAddress useAddress, void *userData)
 {
 	Request *request = MafiaNet::OP_NEW<Request>(_FILE_AND_LINE_);
 	request->host = host;
@@ -69,7 +69,6 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 	request->stringToTransmit = stringToTransmit;
 	request->contentLength = -1;
 	request->contentOffset = 0;
-	request->useSSL = useSSL;
 	request->ipVersion = ipVersion;
 	request->userData = userData;
 
@@ -450,10 +449,6 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 
 			pendingRequestsMutex.Unlock();
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-			if (request->useSSL)
-				tcpInterface->StartSSLClient(sa);
-#endif
 
 			SendRequest(request);
 			requestsSent++;
@@ -484,10 +479,6 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 			pendingRequestsMutex.Unlock();
 
 			// Send
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-			if (request->useSSL)
-				tcpInterface->StartSSLClient(sa);
-#endif
 
 
 			SendRequest(request);

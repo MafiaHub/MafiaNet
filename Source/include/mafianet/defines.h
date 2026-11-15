@@ -76,14 +76,6 @@
 #define _USE_RAK_MEMORY_OVERRIDE 0
 #endif
 
-/// If defined, OpenSSL is enabled for the class TCPInterface
-/// This is necessary to use the SendEmail class with Google POP servers
-/// Note that OpenSSL carries its own license restrictions that you should be aware of. If you don't agree, don't enable this define
-/// This also requires that you enable header search paths to DependentExtensions/openssl/include/[platform]
-#ifndef OPEN_SSL_CLIENT_SUPPORT
-#define OPEN_SSL_CLIENT_SUPPORT 0
-#endif
-
 /// Threshold at which to do a malloc / free rather than pushing data onto a fixed stack for the bitstream class
 /// Arbitrary size, just picking something likely to be larger than most packets
 #ifndef BITSTREAM_STACK_ALLOCATION_SIZE

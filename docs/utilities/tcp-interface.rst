@@ -81,7 +81,7 @@ Key Features
 * Multiple simultaneous connections
 * Automatic connection management
 * Thread-safe send/receive
-* SSL/TLS support (when enabled)
+* Plaintext only (no TLS)
 
 Configuration Options
 ---------------------

@@ -57,12 +57,11 @@ public:
 	/// \param[in] stringToTransmit What string to transmit. See RakString::FormatForPOST(), RakString::FormatForGET(), RakString::FormatForDELETE()
 	/// \param[in] host The IP address to connect to
 	/// \param[in] port The port to connect to
-	/// \param[in] useSSL If to use SSL to connect. OPEN_SSL_CLIENT_SUPPORT must be defined to 1 in defines.h or defineoverrides.h
 	/// \param[in] ipVersion 4 for IPV4, 6 for IPV6
 	/// \param[in] useAddress Assume we are connected to this address and send to it, rather than do a lookup
 	/// \param[in] userData
 	/// \return false if host is not a valid IP address or domain name
-	bool TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port = 80, bool useSSL = false, int ipVersion = 4, SystemAddress useAddress = UNASSIGNED_SYSTEM_ADDRESS, void *userData = 0);
+	bool TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port = 80, int ipVersion = 4, SystemAddress useAddress = UNASSIGNED_SYSTEM_ADDRESS, void *userData = 0);
 
 	/// \brief Check for and return a response from a prior call to TransmitRequest()
 	/// As TCP is stream based, you may get a webserver reply over several calls to TCPInterface::Receive()
@@ -92,7 +91,6 @@ public:
 		SystemAddress hostEstimatedAddress;
 		SystemAddress hostCompletedAddress;
 		unsigned short port;
-		bool useSSL;
 		ptrdiff_t contentOffset;
 		int contentLength;
 		int ipVersion;

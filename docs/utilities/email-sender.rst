@@ -88,14 +88,12 @@ Key Features
 * HTML and plain text bodies
 * File attachments
 * Multiple recipients via CC/BCC
-* TLS support (port 587)
+* Plaintext SMTP only (no TLS)
 
 Common SMTP Ports
 -----------------
 
 * **25** - Standard SMTP (often blocked by ISPs)
-* **465** - SMTPS (implicit SSL)
-* **587** - Submission (STARTTLS)
 
 Configuration Options
 ---------------------

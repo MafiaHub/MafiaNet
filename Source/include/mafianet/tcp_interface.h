@@ -41,13 +41,6 @@
 #include <string>
 #include <vector>
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-#include <openssl/crypto.h>
-#include <openssl/x509.h>
-#include <openssl/pem.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#endif
 
 namespace MafiaNet
 {
@@ -80,13 +73,6 @@ public:
 	/// Connect to the specified host on the specified port
 	SystemAddress Connect(const char *host, unsigned short remotePort, bool block = true, unsigned short socketFamily = AF_INET, const char *bindAddress = 0);
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	/// Start SSL on an existing connection, notified with HasCompletedConnectionAttempt
-	void StartSSLClient(SystemAddress systemAddress);
-
-	/// Was SSL started on this socket?
-	bool IsSSLActive(SystemAddress systemAddress);
-#endif
 
 	/// Sends a byte stream
 	virtual void Send(const char *data, unsigned int length, const SystemAddress &systemAddress, bool broadcast);
@@ -204,18 +190,9 @@ protected:
 		SystemAddress systemAddress;
 		// What SocketConnect resolves (see ConnectHost in the .cpp); owned, as the caller's string may be gone.
 		std::string host;
-		bool useSSL;
 		char bindAddress[64];
 		unsigned short socketFamily;
 	};
-
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	SSL_CTX *ctx;
-	const SSL_METHOD *meth;
-	DataStructures::ThreadsafeAllocatingQueue<SystemAddress> startSSL;
-	DataStructures::List<SystemAddress> activeSSLConnections;
-	SimpleMutex sharedSslMutex;
-#endif
 };
 
 /// Stores information about a remote client.
@@ -229,9 +206,6 @@ struct RemoteClient
 {
 	RemoteClient()
 	{
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-		ssl = 0;
-#endif
 		isActive = false;
 		socket = 0;
 	}
@@ -244,12 +218,6 @@ struct RemoteClient
 	// Sockets of retired connections, waiting for the update thread to close them.
 	std::vector<__TCPSOCKET__> socketsToClose;
 
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	SSL *ssl;
-	bool InitSSL(SSL_CTX *ctx, const SSL_METHOD *meth);
-	void DisconnectSSL(void);
-	void FreeSSL(void);
-#endif
 	// \a s is the update thread's snapshot of socket, never the member itself.
 	int Send(__TCPSOCKET__ s, const char *data, unsigned int length);
 	int Recv(__TCPSOCKET__ s, char *data, const int dataSize);

@@ -53,7 +53,7 @@ public:
 	/// \param[in] body Email body
 	/// \param[in] attachedFiles List of files to attach to the email. (Can be 0 to send none).
 	/// \param[in] doPrintf true to output SMTP info to console(for debugging?)
-	/// \param[in] password Used if the server uses AUTHENTICATE PLAIN over TLS (such as gmail)
+	/// \param[in] password Used if the server requires AUTH PLAIN. The connection is plaintext (no TLS), so the password is sent unencrypted
 	/// \return 0 on success, otherwise a string indicating the error message
 	const char *Send(const char *hostAddress, unsigned short hostPort, const char *sender, const char *recipient, const char *senderName, const char *recipientName, const char *subject, const char *body, FileList *attachedFiles, bool doPrintf, const char *password);
 

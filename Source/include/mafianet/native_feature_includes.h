@@ -155,9 +155,6 @@
 #ifndef _RAKNET_SUPPORT_DynDNS
 #define _RAKNET_SUPPORT_DynDNS 1
 #endif
-#ifndef _RAKNET_SUPPORT_Rackspace
-#define _RAKNET_SUPPORT_Rackspace 1
-#endif
 #ifndef _RAKNET_SUPPORT_FileOperations
 #define _RAKNET_SUPPORT_FileOperations 1
 #endif

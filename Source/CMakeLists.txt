@@ -62,7 +62,6 @@ set(MAFIANET_SOURCES
     src/peer_handle.cpp
     src/plugin_interface2.cpp
     src/point_grid_sectorizer.cpp
-    src/rackspace.cpp
     src/memory_override.cpp
     src/connect_candidates.cpp
     src/sockaddr_convert.cpp
@@ -125,13 +124,6 @@ set(MAFIANET_EXTRAS_SOURCES
     src/command_parser.cpp
     src/transport2.cpp
     src/telnet_transport.cpp
-)
-
-set(MAFIANET_CRYPTO_SOURCES
-    src/crypto/cryptomanager.cpp
-    src/crypto/factory.cpp
-    src/crypto/fileencrypter.cpp
-    src/crypto/securestring.cpp
 )
 
 set(MAFIANET_HEADERS
@@ -237,7 +229,6 @@ set(MAFIANET_HEADERS
     include/mafianet/peer_interface.h
     include/mafianet/plugin_interface2.h
     include/mafianet/point_grid_sectorizer.h
-    include/mafianet/rackspace.h
     include/mafianet/connect_candidates.h
     include/mafianet/sockaddr_convert.h
     include/mafianet/voice.h
@@ -299,23 +290,13 @@ set(MAFIANET_HEADERS
     include/mafianet/wstring.h
 )
 
-set(MAFIANET_CRYPTO_HEADERS
-    include/mafianet/crypto/cryptomanager.h
-    include/mafianet/crypto/factory.h
-    include/mafianet/crypto/fileencrypter.h
-    include/mafianet/crypto/ifileencrypter.h
-    include/mafianet/crypto/securestring.h
-)
-
 # Combine all sources
 set(MAFIANET_ALL_SOURCES
     ${MAFIANET_SOURCES}
-    ${MAFIANET_CRYPTO_SOURCES}
 )
 
 set(MAFIANET_ALL_HEADERS
     ${MAFIANET_HEADERS}
-    ${MAFIANET_CRYPTO_HEADERS}
 )
 
 # Optional plugins, one per _RAKNET_SUPPORT_<Name> flag in native_feature_includes.h.
@@ -342,7 +323,6 @@ set(MAFIANET_OPTIONAL_FEATURES
     NatTypeDetectionServer
     PacketLogger
     PacketizedTCP
-    Rackspace
     RakNetCommandParser
     RakNetTransport
     ReadyEvent
@@ -397,9 +377,6 @@ function(mafianet_configure_target target_name)
     )
 
     target_link_libraries(${target_name}
-        PUBLIC
-            OpenSSL::SSL
-            OpenSSL::Crypto
         PRIVATE
             sodium
             Threads::Threads
@@ -430,9 +407,7 @@ function(mafianet_configure_target target_name)
 
     # Source groups for IDE organization
     source_group("Source Files" FILES ${MAFIANET_SOURCES})
-    source_group("Source Files\\crypto" FILES ${MAFIANET_CRYPTO_SOURCES})
     source_group("Header Files" FILES ${MAFIANET_HEADERS})
-    source_group("Header Files\\crypto" FILES ${MAFIANET_CRYPTO_HEADERS})
 
     mafianet_enable_warnings(${target_name})
 endfunction()

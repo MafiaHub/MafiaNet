@@ -23,7 +23,7 @@
 int main()
 {
 	printf("A C++ class used to send email, such as for servers.\n");
-	printf("TLS support (such as for Gmail) requires OPEN_SSL_CLIENT_SUPPORT to be defined\nin defines.h.\n");
+	printf("Connections are plaintext (no TLS), so the mail server must accept unencrypted SMTP.\n");
 	printf("Difficulty: Beginner\n\n");
 
 	MafiaNet::FileList fileList;
@@ -39,7 +39,7 @@ int main()
 	printf("Enter mail server: ");
 	Gets(mailServer, sizeof(mailServer));
 	if (mailServer[0] == 0)
-		strcpy_s(mailServer, "smtp.gmail.com");
+		strcpy_s(mailServer, "localhost");
 	printf("Enter email account username: ");
 	Gets(senderUsername, sizeof(senderUsername));
 	if (senderUsername[0] == 0)
@@ -52,12 +52,7 @@ int main()
 	Gets(password, sizeof(password));
 
 
-	// http://mail.google.com/support/bin/answer.py?hl=en&answer=13287
-	unsigned short hostPort;
-	if (strcmp(mailServer, "smtp.gmail.com") == 0)
-		hostPort = 465;
-	else
-		hostPort = 25;
+	const unsigned short hostPort = 25;
 
 	fileList.AddFile("quote.txt", "quote.txt", quote, (const unsigned int) strlen(quote), (const unsigned int) strlen(quote), FileListNodeContext(0, 0, 0, 0), false);
 	const char *sendResult = emailSender.Send(mailServer,

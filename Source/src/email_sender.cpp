@@ -50,9 +50,6 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	emailServer = tcpInterface.Connect(hostAddress, hostPort, true);
 	if (emailServer == UNASSIGNED_SYSTEM_ADDRESS)
 		return "Failed to connect to host";
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-	tcpInterface.StartSSLClient(emailServer);
-#endif
 	MafiaNet::TimeMS timeoutTime = MafiaNet::GetTimeMS() + 3000;
 	packet = 0;
 	while (MafiaNet::GetTimeMS() < timeoutTime)
@@ -334,29 +331,10 @@ const char *EmailSender::GetResponse(TCPInterface *tcpInterface, const SystemAdd
 			{
 				RAKNET_DEBUG_PRINTF("%s", packet->data);
 			}
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-			if (strstr((const char *) packet->data, "220"))
-			{
-				tcpInterface->StartSSLClient(packet->systemAddress);
-				return "AUTHENTICATE"; // OK
-			}
-// 			if (strstr((const char*)packet->data, "250-AUTH LOGIN PLAIN"))
-// 			{
-// 				tcpInterface->StartSSLClient(packet->systemAddress);
-// 				return "AUTHENTICATE"; // OK
-// 			}
-#endif
 			if (strstr((const char *) packet->data, "235"))
 				return 0; // Authentication accepted
 			if (strstr((const char *) packet->data, "354"))
 				return 0; // Go ahead
-#if OPEN_SSL_CLIENT_SUPPORT == 1
-			if (strstr((const char *) packet->data, "250-STARTTLS"))
-			{
-				tcpInterface->Send("STARTTLS\r\n", (unsigned int) strlen("STARTTLS\r\n"), packet->systemAddress, false);
-				return "CONTINUE";
-			}
-#endif
 			if (strstr((const char *) packet->data, "250"))
 				return 0; // OK
 			if (strstr((const char *) packet->data, "550"))

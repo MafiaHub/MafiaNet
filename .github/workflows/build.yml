@@ -98,8 +98,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev
+      - name: Install libsodium
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev
 
       # File names under Source/ are snake_case, and library headers include each
       # other only as "mafianet/<name>.h". A bare #include "string.h" inside
@@ -180,8 +180,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev
+      - name: Install libsodium
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -228,7 +228,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev ninja-build clang
 
       # Ubuntu 24.04 runners use 32 bits of mmap randomisation, which older TSan
       # runtimes cannot map their shadow memory around.
@@ -303,7 +303,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev ninja-build clang
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -352,7 +352,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev ninja-build
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -392,7 +392,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y libssl-dev libsodium-dev ninja-build
+          sudo apt-get update && sudo apt-get install -y libsodium-dev ninja-build
           pipx install gcovr==8.6
 
       - name: Build
@@ -434,8 +434,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install OpenSSL
-        run: brew install openssl@3 libsodium
+      - name: Install libsodium
+        run: brew install libsodium
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -443,7 +443,6 @@ jobs:
       - name: Configure CMake
         run: |
           cmake -B build \
-            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
             -DMAFIANET_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
