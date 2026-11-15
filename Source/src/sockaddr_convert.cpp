@@ -76,4 +76,41 @@ socklen_t SystemAddressToSockaddr(const SystemAddress &to, bool socketIsDualStac
 	return 0;
 }
 
+int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, int targetFamily, HopLimitOption out[MAX_HOP_LIMIT_OPTIONS])
+{
+	const HopLimitOption ipTtl = {IPPROTO_IP, IP_TTL};
+	const HopLimitOption unicastHops = {IPPROTO_IPV6, IPV6_UNICAST_HOPS};
+	if (socketIsDualStack)
+		socketFamily = AF_INET6;
+
+	if (targetFamily == AF_INET)
+	{
+		if (socketFamily == AF_INET || socketFamily == AF_UNSPEC)
+		{
+			out[0] = ipTtl;
+			return 1;
+		}
+		if (!socketIsDualStack)
+			return 0; // IPv6-only socket
+		out[0] = ipTtl;
+		out[1] = unicastHops;
+		return 2;
+	}
+	if (targetFamily == AF_INET6)
+	{
+		if (socketFamily == AF_INET)
+			return 0;
+		out[0] = unicastHops;
+		return 1;
+	}
+	return 0;
+}
+
+int HopLimitToRestore(int saved, bool socketIsDualStack, int ipv4DefaultTtl)
+{
+	if (saved >= 0 || !socketIsDualStack)
+		return saved;
+	return ipv4DefaultTtl > 0 ? ipv4DefaultTtl : 64;
+}
+
 } // namespace MafiaNet

@@ -54,6 +54,45 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 /// returns 0.
 socklen_t SystemAddressToSockaddr(const SystemAddress &to, bool socketIsDualStack, sockaddr_storage *out, int socketFamily);
 
+/// A setsockopt level and option name that sets the TTL (IPv4) or hop limit
+/// (IPv6) of the unicast datagrams a socket sends.
+struct HopLimitOption
+{
+	int level;
+	int name;
+};
+
+/// The most options HopLimitOptionsFor ever returns.
+static const int MAX_HOP_LIMIT_OPTIONS = 2;
+
+/// The options to try, in order, to set the TTL of a datagram to a target of
+/// \a targetFamily (AF_INET or AF_INET6) on a socket of \a socketFamily, or
+/// on a dual-stack socket when \a socketIsDualStack (its family argument is
+/// then ignored). Use the first one whose getsockopt and setsockopt both
+/// succeed. Writes them to \a out and returns how many, 0 when the socket
+/// cannot reach the target at all. AF_UNSPEC as \a socketFamily means the
+/// socket's family is unknown: the target's decides.
+///
+/// - IPv4 socket: IPPROTO_IP / IP_TTL.
+/// - IPv6 target (IPv6-only or dual-stack socket): IPPROTO_IPV6 / IPV6_UNICAST_HOPS.
+/// - IPv4 target on a dual-stack socket: IPPROTO_IP / IP_TTL first (Linux,
+///   and Windows dual-mode sockets, apply it to the socket's IPv4 traffic and
+///   ignore the hop limit for it -- measured on Linux), then IPPROTO_IPV6 /
+///   IPV6_UNICAST_HOPS (macOS rejects IP_TTL on an AF_INET6 socket with
+///   EINVAL and applies the hop limit to IPv4-mapped datagrams -- measured;
+///   the BSDs share that code but were not measured).
+int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, int targetFamily, HopLimitOption out[MAX_HOP_LIMIT_OPTIONS]);
+
+/// The value to put back after a datagram was sent with a temporary TTL, given
+/// the value \a saved that getsockopt returned before. Normally \a saved
+/// itself. A negative \a saved (IPV6_UNICAST_HOPS left at -1, "the kernel
+/// default", as macOS reports it) is put back as is on an IPv6-only socket,
+/// but not on a dual-stack one: on macOS, explicitly setting -1 makes the
+/// socket send its IPv4-mapped datagrams with TTL 255 from then on. There the
+/// IPv4 default \a ipv4DefaultTtl is restored instead (64 when it is not
+/// positive, the Linux, macOS and BSD default).
+int HopLimitToRestore(int saved, bool socketIsDualStack, int ipv4DefaultTtl);
+
 } // namespace MafiaNet
 
 #endif // __MAFIANET_SOCKADDR_CONVERT_H

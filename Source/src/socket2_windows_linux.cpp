@@ -27,7 +27,8 @@
 
 #include <vector> // used for std::vector
 
-#include "mafianet/socket_layer.h" // SocketLayer::OrderInternalIds
+#include "mafianet/socket_layer.h"     // SocketLayer::OrderInternalIds
+#include "mafianet/sockaddr_convert.h" // HopLimitOptionsFor, HopLimitToRestore
 
 // Teredo (2001:0::/32) addresses are tunnel endpoints, not addresses a LAN peer
 // can reach; they are never advertised as internal IDs.
@@ -166,6 +167,22 @@ void GetMyIP_Windows_Linux(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_ID
 		addresses[index] = UNASSIGNED_SYSTEM_ADDRESS;
 }
 
+// The TTL a fresh IPv4 socket sends with: the system default. Only needed to
+// undo a temporary hop limit on a dual-stack socket that had none set; see
+// HopLimitToRestore. 0 when it cannot be read.
+static int SystemDefaultIPv4Ttl()
+{
+	const RNS2Socket probe = socket__(AF_INET, SOCK_DGRAM, 0);
+	if (probe == (RNS2Socket) INVALID_SOCKET)
+		return 0;
+	int ttl = 0;
+	socklen_t len = sizeof(ttl);
+	if (getsockopt__(probe, IPPROTO_IP, IP_TTL, (char *) &ttl, &len) != 0)
+		ttl = 0;
+	closesocket__(probe);
+	return ttl;
+}
+
 RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
 {
 	// IPv4 targets become ::ffff:a.b.c.d on a dual-stack socket; a target the
@@ -182,15 +199,28 @@ RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int
 		(void) line;
 
 
-		int oldTTL = -1;
+		// A temporary TTL (NAT punchthrough): set it with the first option the
+		// socket accepts for this target (see HopLimitOptionsFor), and put the
+		// old value back after the send.
+		HopLimitOption ttlOption = {0, 0};
+		int oldTTL = 0;
+		bool restoreTTL = false;
 		if (sendParameters->ttl > 0)
 		{
-			socklen_t opLen = sizeof(oldTTL);
-			// Get the current TTL
-			if (getsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, (char *) &oldTTL, &opLen) != -1)
+			HopLimitOption candidates[MAX_HOP_LIMIT_OPTIONS];
+			const int candidateCount = HopLimitOptionsFor(socketFamily, dualStack, sendParameters->systemAddress.address.addr4.sin_family, candidates);
+			for (int i = 0; i < candidateCount && !restoreTTL; ++i)
 			{
+				int saved = 0;
+				socklen_t opLen = sizeof(saved);
+				if (getsockopt__(rns2Socket, candidates[i].level, candidates[i].name, (char *) &saved, &opLen) != 0)
+					continue;
 				int newTTL = sendParameters->ttl;
-				setsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, (char *) &newTTL, sizeof(newTTL));
+				if (setsockopt__(rns2Socket, candidates[i].level, candidates[i].name, (char *) &newTTL, sizeof(newTTL)) != 0)
+					continue;
+				ttlOption = candidates[i];
+				oldTTL = saved;
+				restoreTTL = true;
 			}
 		}
 
@@ -203,9 +233,10 @@ RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int
 		}
 
 
-		if (oldTTL != -1)
+		if (restoreTTL)
 		{
-			setsockopt__(rns2Socket, sendParameters->systemAddress.GetIPPROTO(), IP_TTL, (char *) &oldTTL, sizeof(oldTTL));
+			int restoreTo = HopLimitToRestore(oldTTL, dualStack, oldTTL < 0 && dualStack ? SystemDefaultIPv4Ttl() : 0);
+			setsockopt__(rns2Socket, ttlOption.level, ttlOption.name, (char *) &restoreTo, sizeof(restoreTo));
 		}
 
 	} while (len == 0);

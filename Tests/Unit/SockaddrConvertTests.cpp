@@ -142,3 +142,111 @@ TEST(SockaddrConvert, RoundTripThroughDualStackIsCanonical)
 	EXPECT_EQ(back, target);
 	EXPECT_EQ(back.GetIPVersion(), 4);
 }
+
+// Which socket option sets the TTL / hop limit of a datagram (RakPeer::SendTTL,
+// NAT punchthrough) depends on the socket and the target, not on the platform:
+// the platform code only tries the candidates in order.
+
+namespace
+{
+bool IsIpTtl(const HopLimitOption &option)
+{
+	return option.level == IPPROTO_IP && option.name == IP_TTL;
+}
+bool IsUnicastHops(const HopLimitOption &option)
+{
+	return option.level == IPPROTO_IPV6 && option.name == IPV6_UNICAST_HOPS;
+}
+}
+
+TEST(HopLimitOptions, Ipv4SocketUsesIpTtl)
+{
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	ASSERT_EQ(HopLimitOptionsFor(AF_INET, false, AF_INET, options), 1);
+	EXPECT_TRUE(IsIpTtl(options[0]));
+}
+
+TEST(HopLimitOptions, Ipv6OnlySocketUsesUnicastHops)
+{
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	ASSERT_EQ(HopLimitOptionsFor(AF_INET6, false, AF_INET6, options), 1);
+	EXPECT_TRUE(IsUnicastHops(options[0]));
+}
+
+TEST(HopLimitOptions, DualStackIpv6TargetUsesUnicastHops)
+{
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	ASSERT_EQ(HopLimitOptionsFor(AF_INET6, true, AF_INET6, options), 1);
+	EXPECT_TRUE(IsUnicastHops(options[0]));
+}
+
+TEST(HopLimitOptions, DualStackIpv4TargetTriesIpTtlThenUnicastHops)
+{
+	// Linux and Windows apply IP_TTL to the IPv4 traffic of an AF_INET6 socket;
+	// macOS and the BSDs reject IP_TTL there (EINVAL) and apply the IPv6 hop
+	// limit to IPv4-mapped datagrams instead.
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	ASSERT_EQ(HopLimitOptionsFor(AF_INET6, true, AF_INET, options), 2);
+	EXPECT_TRUE(IsIpTtl(options[0]));
+	EXPECT_TRUE(IsUnicastHops(options[1]));
+}
+
+TEST(HopLimitOptions, DualStackFamilyArgumentDoesNotMatter)
+{
+	// The socket's family argument is irrelevant once it is known to be
+	// dual-stack (callers may pass the reported IPv4 bound address family).
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	ASSERT_EQ(HopLimitOptionsFor(AF_INET, true, AF_INET, options), 2);
+	EXPECT_TRUE(IsIpTtl(options[0]));
+	EXPECT_TRUE(IsUnicastHops(options[1]));
+}
+
+TEST(HopLimitOptions, UnreachableCombinationsHaveNoOption)
+{
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	EXPECT_EQ(HopLimitOptionsFor(AF_INET, false, AF_INET6, options), 0);
+	EXPECT_EQ(HopLimitOptionsFor(AF_INET6, false, AF_INET, options), 0);
+	EXPECT_EQ(HopLimitOptionsFor(AF_INET6, true, AF_UNSPEC, options), 0);
+	EXPECT_EQ(HopLimitOptionsFor(AF_INET, false, AF_UNSPEC, options), 0);
+}
+
+TEST(HopLimitOptions, UnknownSocketFamilyFollowsTarget)
+{
+	// AF_UNSPEC: the socket's family is not known, so the target's decides.
+	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
+	ASSERT_EQ(HopLimitOptionsFor(AF_UNSPEC, false, AF_INET, options), 1);
+	EXPECT_TRUE(IsIpTtl(options[0]));
+	ASSERT_EQ(HopLimitOptionsFor(AF_UNSPEC, false, AF_INET6, options), 1);
+	EXPECT_TRUE(IsUnicastHops(options[0]));
+}
+
+TEST(HopLimitRestore, SavedValueIsRestoredAsIs)
+{
+	EXPECT_EQ(HopLimitToRestore(64, false, 0), 64);
+	EXPECT_EQ(HopLimitToRestore(64, true, 0), 64);
+	EXPECT_EQ(HopLimitToRestore(128, true, 64), 128);
+}
+
+TEST(HopLimitRestore, KernelDefaultOnIpv6OnlySocketIsRestoredAsIs)
+{
+	// -1 ("use the kernel default") is what macOS reports for an
+	// IPV6_UNICAST_HOPS that was never set; on an IPv6-only socket putting it
+	// back is exact.
+	EXPECT_EQ(HopLimitToRestore(-1, false, 64), -1);
+}
+
+TEST(HopLimitRestore, KernelDefaultOnDualStackSocketBecomesIpv4Default)
+{
+	// On macOS, explicitly setting IPV6_UNICAST_HOPS to -1 on a dual-stack
+	// socket sends IPv4-mapped datagrams with TTL 255 afterwards, not with
+	// the system default it had before (measured on macOS 26). Restore the
+	// IPv4 default instead.
+	EXPECT_EQ(HopLimitToRestore(-1, true, 64), 64);
+	EXPECT_EQ(HopLimitToRestore(-1, true, 128), 128);
+}
+
+TEST(HopLimitRestore, UnknownIpv4DefaultFallsBackTo64)
+{
+	EXPECT_EQ(HopLimitToRestore(-1, true, 0), 64);
+	EXPECT_EQ(HopLimitToRestore(-1, true, -1), 64);
+}
