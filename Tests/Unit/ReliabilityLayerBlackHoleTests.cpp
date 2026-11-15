@@ -244,6 +244,8 @@ TEST_F(RelLayerBlackHole, AFalsePositiveStepDownDoesNotBlockTheOrderedChannel)
 	for (int i = 0; i < 300; ++i)
 		step();
 	ASSERT_TRUE(received.empty()) << "`first` was meant to be lost until now";
+	RakNetStatistics before;
+	b.GetStatistics(&before);
 	dropFirst = false;
 	dropAcks = false;
 
@@ -252,6 +254,11 @@ TEST_F(RelLayerBlackHole, AFalsePositiveStepDownDoesNotBlockTheOrderedChannel)
 	ASSERT_EQ(2u, received.size());
 	EXPECT_EQ(first, received[0]);
 	EXPECT_EQ(big, received[1]);
+	// Delivering `first` released `big` and left its stale copy on the heap, which is dropped and counted
+	// as ignored, like any other message the receiver discards.
+	RakNetStatistics after;
+	b.GetStatistics(&after);
+	EXPECT_GE(after.runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED] - before.runningTotal[USER_MESSAGE_BYTES_RECEIVED_IGNORED], (uint64_t) big.size());
 
 	// Two more, the first of which is lost once: the second arrives ahead of it and waits in the
 	// ordering heap -- behind the stale copy of `big`, if that is still there.

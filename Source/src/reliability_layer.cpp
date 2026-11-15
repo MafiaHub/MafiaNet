@@ -1576,6 +1576,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 								if (IsOlderOrderedPacket(orderingHeaps[channel].Peek()->orderingIndex, orderedReadIndex[channel]))
 								{
 									InternalPacket *stale = orderingHeaps[channel].Pop(0);
+									bpsMetrics[(int) USER_MESSAGE_BYTES_RECEIVED_IGNORED].Push1(timeRead, BITS_TO_BYTES(stale->dataBitLength));
 									FreeInternalPacketData(stale, _FILE_AND_LINE_);
 									ReleaseToInternalPacketPool(stale);
 									continue;
