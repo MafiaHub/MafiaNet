@@ -97,7 +97,9 @@ bool CryptInfo::Deserialize(BitStream *in)
 EphemeralKeyPair::EphemeralKeyPair()
 {
 	// Idempotent and thread-safe; RakPeer::Startup has normally done it already.
-	(void) sodium_init();
+	// GCC's warn_unused_result ignores a (void) cast, hence the named result.
+	const int sodiumReady = sodium_init();
+	(void) sodiumReady;
 	randombytes_buf(secretKey, sizeof(secretKey));
 	crypto_scalarmult_curve25519_base(publicKey, secretKey);
 	randombytes_buf(&nonce, sizeof(nonce));
