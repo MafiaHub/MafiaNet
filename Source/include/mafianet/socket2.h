@@ -283,6 +283,12 @@ public:
 	// ----------- STATICS ------------
 	// For addressFamily, use AF_INET
 	// For type, use SOCK_DGRAM
+	// Returns true when binding the port failed (normally: it is taken).
+	// Returns false when the host does not support addressFamily at all (no
+	// IPv6 stack for AF_INET6, an unknown family): whether the port is free
+	// cannot be told then. Callers loop "while (IsPortInUse(...)) ++port",
+	// which would never end on such a host if it returned true; the Startup()
+	// that follows reports SOCKET_FAMILY_NOT_SUPPORTED instead.
 	static bool IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type);
 
 	// ----------- MEMBERS ------------
@@ -385,8 +391,6 @@ public:
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 
 protected:
-	static void GetMyIPIPV4(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-	static void GetMyIPIPV4And6(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 	SocketLayerOverride *slo;
 };
 
@@ -405,10 +409,6 @@ public:
 
 	// ----------- STATICS ------------
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-
-protected:
-	static void GetMyIPIPV4(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-	static void GetMyIPIPV4And6(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 };
 
 #endif // Linux

@@ -262,6 +262,8 @@ struct RAK_DLL_EXPORT SystemAddress
 	bool FromString(const char *str, char portDelineator = '|', int ipVersion = 0);
 
 	/// Same as FromString(), but you explicitly set a port at the same time
+	/// \note \a ipVersion does not override the canonical form: with \a ipVersion = 6, an IPv4-mapped literal
+	/// (::ffff:a.b.c.d) returns true with the plain IPv4 address (GetIPVersion() == 4), as FromString() stores it
 	bool FromStringExplicitPort(const char *str, unsigned short port, int ipVersion = 0);
 
 	/// Copy the port from another SystemAddress structure

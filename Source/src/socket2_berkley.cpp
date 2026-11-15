@@ -404,6 +404,16 @@ RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindP
 			return BR_SUCCESS;
 		}
 
+		// Say why, as the IPv4 bind path always did: usually the port is taken.
+#if defined(_WIN32)
+#if defined(_DEBUG)
+		const DWORD bindError = static_cast<DWORD>(WSAGetLastError());
+		RAKNET_DEBUG_PRINTF("bind__() failed for an %s socket on port %u: error %lu\n", aip->ai_family == AF_INET6 ? "IPv6" : "IPv4", (unsigned) bindParameters->port, bindError);
+#endif
+#else
+		const int bindError = errno;
+		RAKNET_DEBUG_PRINTF("bind__() failed for an %s socket on port %u: %s (errno %d)\n", aip->ai_family == AF_INET6 ? "IPv6" : "IPv4", (unsigned) bindParameters->port, strerror(bindError), bindError);
+#endif
 		closesocket__(rns2Socket);
 		rns2Socket = (RNS2Socket) INVALID_SOCKET;
 	}

@@ -1078,7 +1078,8 @@ void FullyConnectedMesh2::SkipToVJCUserData(MafiaNet::BitStream *bsIn)
 {
 	bsIn->IgnoreBytes(sizeof(MessageID));
 	unsigned short listSize;
-	bsIn->Read(listSize);
+	if (!bsIn->Read(listSize))
+		return;
 	for (unsigned short i = 0; i < listSize; i++)
 	{
 		// A SystemAddress is variable length on the wire (IPv4 or IPv6), so it

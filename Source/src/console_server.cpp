@@ -19,6 +19,7 @@
 #include "mafianet/console_server.h"
 #include "mafianet/transport_interface.h"
 #include "mafianet/command_parser_interface.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -55,7 +56,10 @@ void ConsoleServer::SetTransportProvider(TransportInterface *transportInterface,
 			transport->Stop();
 		}
 		transport = transportInterface;
-		transport->Start(port, true);
+		// The transport stays installed so Start can be retried, but the
+		// console is unreachable until it is: say so.
+		if (!transport->Start(port, true))
+			RAKNET_DEBUG_PRINTF("ConsoleServer: the transport failed to start on port %u\n", (unsigned) port);
 
 		unsigned i;
 		for (i = 0; i < commandParserList.Size(); i++)

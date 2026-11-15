@@ -22,6 +22,7 @@
 #ifndef __MAFIANET_SOCKADDR_CONVERT_H
 #define __MAFIANET_SOCKADDR_CONVERT_H
 
+#include "mafianet/export.h"
 #include "mafianet/types.h"
 
 namespace MafiaNet
@@ -38,7 +39,7 @@ namespace MafiaNet
 /// AF_UNSPEC), in which case \a out is set to UNASSIGNED_SYSTEM_ADDRESS rather
 /// than left holding whatever the recycled recv struct contained. Callers must
 /// not dispatch a datagram whose address failed to decode.
-bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
+RAK_DLL_EXPORT bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 
 /// Convert \a to into the sockaddr to pass to sendto/sendmmsg on a socket.
 /// Returns the sockaddr length to pass along with \a out, or 0 when the socket
@@ -52,7 +53,7 @@ bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out);
 /// IPv6-only socket, returns 0. AF_UNSPEC means the family is unknown and
 /// nothing is filtered. A target that is neither AF_INET nor AF_INET6 always
 /// returns 0.
-socklen_t SystemAddressToSockaddr(const SystemAddress &to, bool socketIsDualStack, sockaddr_storage *out, int socketFamily);
+RAK_DLL_EXPORT socklen_t SystemAddressToSockaddr(const SystemAddress &to, bool socketIsDualStack, sockaddr_storage *out, int socketFamily);
 
 /// A setsockopt level and option name that sets the TTL (IPv4) or hop limit
 /// (IPv6) of the unicast datagrams a socket sends.
@@ -81,7 +82,7 @@ static const int MAX_HOP_LIMIT_OPTIONS = 2;
 ///   IPV6_UNICAST_HOPS (macOS rejects IP_TTL on an AF_INET6 socket with
 ///   EINVAL and applies the hop limit to IPv4-mapped datagrams -- measured;
 ///   the BSDs share that code but were not measured).
-int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, int targetFamily, HopLimitOption out[MAX_HOP_LIMIT_OPTIONS]);
+RAK_DLL_EXPORT int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, int targetFamily, HopLimitOption out[MAX_HOP_LIMIT_OPTIONS]);
 
 /// The value to put back after a datagram was sent with a temporary TTL, given
 /// the value \a saved that getsockopt returned before. Normally \a saved
@@ -91,7 +92,7 @@ int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, int targetFamil
 /// socket send its IPv4-mapped datagrams with TTL 255 from then on. There the
 /// IPv4 default \a ipv4DefaultTtl is restored instead (64 when it is not
 /// positive, the Linux, macOS and BSD default).
-int HopLimitToRestore(int saved, bool socketIsDualStack, int ipv4DefaultTtl);
+RAK_DLL_EXPORT int HopLimitToRestore(int saved, bool socketIsDualStack, int ipv4DefaultTtl);
 
 } // namespace MafiaNet
 

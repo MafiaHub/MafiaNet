@@ -113,10 +113,17 @@ TEST_F(TcpInterfaceIpv6Live, EchoOverLoopback)
 			RakSleep(30);
 	}
 	ASSERT_NE(received, nullptr) << "server did not receive the 64 bytes";
+	// The connection is queued before its data, but may be popped after it.
+	while (!gotIncoming && GetTimeMS() - start < 5000)
+	{
+		gotIncoming = server->HasNewIncomingConnection() != UNASSIGNED_SYSTEM_ADDRESS;
+		if (!gotIncoming)
+			RakSleep(30);
+	}
+	EXPECT_TRUE(gotIncoming) << "the server never reported the incoming connection";
 	EXPECT_EQ(received->length, 64u);
 	EXPECT_EQ(memcmp(received->data, sent, sizeof(sent)), 0);
 	// The peer address the server reports is the IPv6 loopback.
 	EXPECT_EQ(received->systemAddress.address.addr6.sin6_family, AF_INET6);
 	server->DeallocatePacket(received);
-	(void) gotIncoming;
 }

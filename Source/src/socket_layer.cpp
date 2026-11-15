@@ -101,6 +101,16 @@ static bool IsLinkLocalIPv6(const SystemAddress &systemAddress)
 	return b[0] == 0xfe && (b[1] & 0xc0) == 0x80;
 }
 
+// 127.0.0.0/8 or ::1. SystemAddress::IsLoopback only knows 127.0.0.1 (and
+// counts 0.0.0.0), so the range is checked here on the bytes.
+static bool IsLoopbackAddress(const SystemAddress &systemAddress)
+{
+	if (systemAddress.address.addr4.sin_family == AF_INET)
+		return reinterpret_cast<const unsigned char *>(&systemAddress.address.addr4.sin_addr)[0] == 127;
+	static const unsigned char ipv6Loopback[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+	return memcmp(&systemAddress.address.addr6.sin6_addr, ipv6Loopback, sizeof(ipv6Loopback)) == 0;
+}
+
 int SocketLayer::OrderInternalIds(SystemAddress *addresses, int count)
 {
 	if (addresses == nullptr || count <= 0)
@@ -110,13 +120,14 @@ int SocketLayer::OrderInternalIds(SystemAddress *addresses, int count)
 	for (int i = 0; i < count; ++i)
 	{
 		const SystemAddress &candidate = addresses[i];
-		if (candidate == UNASSIGNED_SYSTEM_ADDRESS)
+		if (candidate == UNASSIGNED_SYSTEM_ADDRESS || IsLoopbackAddress(candidate))
 			continue;
 		if (candidate.address.addr4.sin_family == AF_INET)
 			ipv4.push_back(candidate);
 		else if (candidate.address.addr4.sin_family == AF_INET6 && !candidate.IsIPv4Mapped() && !IsLinkLocalIPv6(candidate))
 			ipv6.push_back(candidate);
-		// else: link-local IPv6 (useless without a scope id), IPv4-mapped, or not an IP address
+		// else: link-local IPv6 (useless without a scope id), IPv4-mapped, or not an IP address.
+		// Loopback was dropped above: the hostname lookup path can return it, and it is never worth advertising.
 	}
 
 	int kept = 0;

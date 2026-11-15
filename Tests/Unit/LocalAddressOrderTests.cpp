@@ -8,8 +8,8 @@
 // SocketLayer::OrderInternalIds decides which local addresses a peer advertises
 // as its internal IDs (MAXIMUM_NUMBER_OF_INTERNAL_IDS of them). NAT punchthrough
 // relies on the LAN IPv4 addresses being among them, so IPv4 goes first, then
-// global IPv6; link-local IPv6 (useless without a scope id) and IPv4-mapped
-// entries are dropped. Pure logic on caller-built addresses: hermetic.
+// global IPv6; link-local IPv6 (useless without a scope id), loopback and
+// IPv4-mapped entries are dropped. Pure logic on caller-built addresses: hermetic.
 
 #include <gtest/gtest.h>
 
@@ -98,6 +98,32 @@ TEST(LocalAddressOrder, MappedAndUnassignedDropped)
 	ASSERT_EQ(n, 2);
 	EXPECT_EQ(Ip(list[0]), "172.16.0.1");
 	EXPECT_EQ(Ip(list[1]), "2001:db8::9");
+}
+
+TEST(LocalAddressOrder, LoopbackDropped)
+{
+	// The hostname lookup path (GetMyIP on Windows) can return loopback; it must
+	// never be advertised, nor picked by GetFirstBindableIP. All of 127.0.0.0/8
+	// is loopback; ::1 is the only IPv6 one (::2 is not).
+	std::vector<SystemAddress> list = {Addr("::1"), Addr("127.0.0.1"), Addr("192.168.0.4"), Addr("127.1.2.3"), Addr("::2"), Addr("2001:db8::4")};
+
+	const int n = SocketLayer::OrderInternalIds(list.data(), (int) list.size());
+
+	ASSERT_EQ(n, 3);
+	EXPECT_EQ(Ip(list[0]), "192.168.0.4");
+	EXPECT_EQ(Ip(list[1]), "::2");
+	EXPECT_EQ(Ip(list[2]), "2001:db8::4");
+	for (int i = n; i < (int) list.size(); ++i)
+		EXPECT_EQ(list[i], UNASSIGNED_SYSTEM_ADDRESS) << "index " << i;
+}
+
+TEST(LocalAddressOrder, OnlyLoopbackLeavesNothing)
+{
+	std::vector<SystemAddress> list = {Addr("127.0.0.1"), Addr("::1")};
+
+	EXPECT_EQ(SocketLayer::OrderInternalIds(list.data(), (int) list.size()), 0);
+	EXPECT_EQ(list[0], UNASSIGNED_SYSTEM_ADDRESS);
+	EXPECT_EQ(list[1], UNASSIGNED_SYSTEM_ADDRESS);
 }
 
 TEST(LocalAddressOrder, KeepsAtMostMaxInternalIds)

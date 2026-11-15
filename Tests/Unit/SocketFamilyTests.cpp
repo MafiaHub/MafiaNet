@@ -78,6 +78,31 @@ TEST(SocketFamilyBind, ResolverFamilyErrorReportsFamilyNotSupported)
 	EXPECT_EQ(result, BR_FAMILY_NOT_SUPPORTED);
 }
 
+// IsPortInUse answers false for a family the host cannot use: callers loop
+// "while (IsPortInUse(...)) ++port", which must not spin forever there.
+TEST(IsPortInUse, UnsupportedFamilyIsNotInUse)
+{
+	EXPECT_FALSE(IRNS2_Berkley::IsPortInUse(60000, "127.0.0.1", AF_UNIX, SOCK_DGRAM));
+}
+
+// ...while a port a socket holds is reported in use.
+TEST(IsPortInUse, BoundPortIsInUse)
+{
+	RakPeerInterface *peer = RakPeerInterface::GetInstance();
+	SocketDescriptor sd(0, "127.0.0.1");
+	sd.socketFamily = AF_INET;
+	const StartupResult started = peer->Startup(1, &sd, 1);
+	EXPECT_EQ(started, RAKNET_STARTED);
+	if (started == RAKNET_STARTED)
+	{
+		const unsigned short port = peer->GetMyBoundAddress().GetPort();
+		EXPECT_NE(port, 0);
+		EXPECT_TRUE(IRNS2_Berkley::IsPortInUse(port, "127.0.0.1", AF_INET, SOCK_DGRAM));
+	}
+	peer->Shutdown(0);
+	RakPeerInterface::DestroyInstance(peer);
+}
+
 TEST(SocketFamilyStartup, UnsupportedFamilyRejectedThenNormalStartupWorks)
 {
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();

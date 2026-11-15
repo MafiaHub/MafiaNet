@@ -239,6 +239,7 @@ bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, un
 	RNS2_Berkley *rns2 = (RNS2_Berkley *) RakNetSocket2Allocator::AllocRNS2();
 	RNS2BindResult bindResult = rns2->Bind(&bbp, _FILE_AND_LINE_);
 	RakNetSocket2Allocator::DeallocRNS2(rns2);
+	// BR_FAMILY_NOT_SUPPORTED means "cannot tell", not "in use": see the declaration.
 	return bindResult == BR_FAILED_TO_BIND_SOCKET;
 }
 

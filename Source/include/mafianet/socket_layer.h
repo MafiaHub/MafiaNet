@@ -110,7 +110,8 @@ public:
 
 	/// Orders local addresses for use as internal IDs: IPv4 first, then global
 	/// IPv6, each group in its original order. Drops link-local IPv6 (fe80::/10,
-	/// useless without a scope id), IPv4-mapped IPv6 and unassigned entries.
+	/// useless without a scope id), loopback (127.0.0.0/8, ::1), IPv4-mapped IPv6
+	/// and unassigned entries.
 	/// Keeps at most MAXIMUM_NUMBER_OF_INTERNAL_IDS; the rest of \a addresses
 	/// is set to UNASSIGNED_SYSTEM_ADDRESS.
 	/// \param[in,out] addresses The candidates, rewritten in place.
