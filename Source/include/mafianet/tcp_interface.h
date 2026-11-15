@@ -38,6 +38,8 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 
+#include <vector>
+
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
@@ -217,6 +219,12 @@ protected:
 };
 
 /// Stores information about a remote client.
+// Thread ownership: socket, systemAddress, isActive and socketsToClose are
+// written under isActiveMutex. Only the update thread uses a socket (select,
+// recv, send) and only the update thread closes one: SetActive(false) shuts the
+// connection down and hands the socket to socketsToClose, which the update
+// thread drains under the lock before each select. A descriptor the update thread snapshotted therefore
+// stays open, and cannot be reused for another connection, while it uses it.
 struct RemoteClient
 {
 	RemoteClient()
@@ -233,25 +241,29 @@ struct RemoteClient
 	bool isActive;
 	SimpleMutex outgoingDataMutex;
 	SimpleMutex isActiveMutex;
+	// Sockets of retired connections, waiting for the update thread to close them.
+	std::vector<__TCPSOCKET__> socketsToClose;
 
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 	SSL *ssl;
 	bool InitSSL(SSL_CTX *ctx, const SSL_METHOD *meth);
 	void DisconnectSSL(void);
 	void FreeSSL(void);
-	int Send(const char *data, unsigned int length);
-	int Recv(char *data, const int dataSize);
-#else
-	int Send(const char *data, unsigned int length);
-	int Recv(char *data, const int dataSize);
 #endif
+	// \a s is the update thread's snapshot of socket, never the member itself.
+	int Send(__TCPSOCKET__ s, const char *data, unsigned int length);
+	int Recv(__TCPSOCKET__ s, char *data, const int dataSize);
 	void Reset(void)
 	{
 		outgoingDataMutex.Lock();
 		outgoingData.Clear(_FILE_AND_LINE_);
 		outgoingDataMutex.Unlock();
 	}
+	// Requires isActiveMutex. Deactivating shuts the socket down but does not close it: see socketsToClose.
 	void SetActive(bool a);
+	// Requires isActiveMutex. Closes every socket in socketsToClose (update thread, or after it stopped).
+	void CloseRetiredSockets(void);
+	// Requires isActiveMutex.
 	void SendOrBuffer(const char **data, const unsigned int *lengths, const int numParameters);
 };
 

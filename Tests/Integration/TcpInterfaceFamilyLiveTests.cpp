@@ -17,9 +17,12 @@
 #include "mafianet/socket_includes.h"
 #include "mafianet/tcp_interface.h"
 
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
+#include <thread>
 #include <vector>
 
 #ifndef _WIN32
@@ -179,6 +182,103 @@ TEST_F(TcpInterfaceFamilyLive, ConnectFailsCleanlyWhenEverySlotIsInUse)
 	EXPECT_EQ(client->Connect("127.0.0.1", port, false, AF_INET), UNASSIGNED_SYSTEM_ADDRESS);
 	EXPECT_EQ(client->GetConnectionCount(), 1u);
 	EXPECT_EQ(WaitForIncoming(1).size(), 1u);
+}
+
+// Connections opened and closed from the user thread while another thread
+// broadcasts and the update threads read and write: a closed connection's slot
+// is reused at once, while the update thread may still hold the old socket.
+// Only the update thread closes sockets, so it never reads, writes or selects
+// on a descriptor that was closed or handed to another connection (TSan
+// reported exactly that before). The connections must keep working throughout.
+TEST_F(TcpInterfaceFamilyLive, ConnectCloseLoopWhileSending)
+{
+	ASSERT_TRUE(server->Start(0, 8, 8, -99999, AF_INET, "127.0.0.1"));
+	const unsigned short port = server->ListenPort();
+	ASSERT_NE(port, 0);
+	ASSERT_TRUE(client->Start(0, 0, 2)); // two slots: every Connect reuses a just-closed one
+
+	// Joined at scope exit, before TearDown stops the server, even if an assertion fails.
+	struct Sender
+	{
+		explicit Sender(TCPInterface *tcp)
+		    : thread([this, tcp]
+		             {
+			const std::string payload(32, 'b');
+			while (!stop.load())
+			{
+				tcp->Send(payload.data(), (unsigned) payload.size(), UNASSIGNED_SYSTEM_ADDRESS, true);
+				RakSleep(1);
+			} })
+		{
+		}
+		~Sender()
+		{
+			stop.store(true);
+			thread.join();
+		}
+		std::atomic<bool> stop{false};
+		std::thread thread;
+	} sender(server.get());
+
+	auto drain = [](TCPInterface *tcp)
+	{
+		for (Packet *p = tcp->Receive(); p != nullptr; p = tcp->Receive())
+			tcp->DeallocatePacket(p);
+		while (tcp->HasLostConnection() != UNASSIGNED_SYSTEM_ADDRESS)
+		{
+		}
+	};
+
+	const char hello[] = "hello";
+	for (int round = 0; round < 60; ++round)
+	{
+		const SystemAddress serverSide = client->Connect("127.0.0.1", port, true, AF_INET);
+		ASSERT_NE(serverSide, UNASSIGNED_SYSTEM_ADDRESS) << "round " << round;
+		client->Send(hello, sizeof(hello), serverSide, false);
+		// Wait for the server to accept it, so the churn never fills its slots
+		// (a full server refuses connections by design).
+		SystemAddress accepted = UNASSIGNED_SYSTEM_ADDRESS;
+		const TimeMS acceptStart = GetTimeMS();
+		while (accepted == UNASSIGNED_SYSTEM_ADDRESS && GetTimeMS() - acceptStart < 5000)
+		{
+			accepted = server->HasNewIncomingConnection();
+			if (accepted == UNASSIGNED_SYSTEM_ADDRESS)
+				RakSleep(1);
+		}
+		ASSERT_NE(accepted, UNASSIGNED_SYSTEM_ADDRESS) << "round " << round << ": the server never accepted";
+		// The server closes half of the connections itself, racing its own update thread.
+		if (round % 2 == 1)
+			server->CloseConnection(accepted);
+		drain(server.get());
+		drain(client.get());
+		client->CloseConnection(serverSide);
+	}
+
+	// After the churn, a new connection carries data both ways.
+	const SystemAddress serverSide = client->Connect("127.0.0.1", port, true, AF_INET);
+	ASSERT_NE(serverSide, UNASSIGNED_SYSTEM_ADDRESS);
+	const std::string marker = "marker-after-churn";
+	client->Send(marker.data(), (unsigned) marker.size(), serverSide, false);
+	bool serverGotMarker = false, clientGotBroadcast = false;
+	const TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 5000 && !(serverGotMarker && clientGotBroadcast))
+	{
+		for (Packet *p = server->Receive(); p != nullptr; p = server->Receive())
+		{
+			if (std::string((const char *) p->data, p->length).find(marker) != std::string::npos)
+				serverGotMarker = true;
+			server->DeallocatePacket(p);
+		}
+		for (Packet *p = client->Receive(); p != nullptr; p = client->Receive())
+		{
+			if (p->systemAddress == serverSide && p->length > 0)
+				clientGotBroadcast = true;
+			client->DeallocatePacket(p);
+		}
+		RakSleep(30);
+	}
+	EXPECT_TRUE(serverGotMarker) << "the server never received the marker";
+	EXPECT_TRUE(clientGotBroadcast) << "the client never received the server's broadcast";
 }
 
 class TcpInterfaceDualStackLive : public TcpInterfaceFamilyLive

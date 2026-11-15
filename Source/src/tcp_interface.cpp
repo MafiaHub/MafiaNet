@@ -285,11 +285,16 @@ void TCPInterface::Stop(void)
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i = 0; i < remoteClientsLength; i++)
 	{
+		remoteClients[i].isActiveMutex.Lock();
 		// 0 marks an unused slot; closing it would close the process's stdin
 		// and let the next socket() return descriptor 0, which this class
 		// treats as "no socket".
 		if (remoteClients[i].socket != 0)
 			closesocket__(remoteClients[i].socket);
+		remoteClients[i].socket = 0;
+		// Connections retired since the update thread's last pass.
+		remoteClients[i].CloseRetiredSockets();
+		remoteClients[i].isActiveMutex.Unlock();
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 		remoteClients[i].FreeSSL();
 #endif
@@ -468,33 +473,46 @@ bool TCPInterface::SendList(const char **data, const unsigned int *lengths, cons
 	if (totalLength == 0)
 		return false;
 
+	// Slots are matched and filled under their lock: the update thread and
+	// Connect retire and reuse them concurrently.
 	if (broadcast)
 	{
 		// Send to all, possible exception system
 		for (i = 0; i < remoteClientsLength; i++)
 		{
+			remoteClients[i].isActiveMutex.Lock();
 			if (remoteClients[i].systemAddress != systemAddress)
 			{
 				remoteClients[i].SendOrBuffer(data, lengths, numParameters);
 			}
+			remoteClients[i].isActiveMutex.Unlock();
 		}
 	}
 	else
 	{
 		// Send to this player
-		if (systemAddress.systemIndex < remoteClientsLength &&
-		    remoteClients[systemAddress.systemIndex].systemAddress == systemAddress)
+		bool sent = false;
+		if (systemAddress.systemIndex < remoteClientsLength)
 		{
-			remoteClients[systemAddress.systemIndex].SendOrBuffer(data, lengths, numParameters);
+			RemoteClient &indexed = remoteClients[systemAddress.systemIndex];
+			indexed.isActiveMutex.Lock();
+			if (indexed.isActive && indexed.systemAddress == systemAddress)
+			{
+				indexed.SendOrBuffer(data, lengths, numParameters);
+				sent = true;
+			}
+			indexed.isActiveMutex.Unlock();
 		}
-		else
+		if (!sent)
 		{
 			for (i = 0; i < remoteClientsLength; i++)
 			{
+				remoteClients[i].isActiveMutex.Lock();
 				if (remoteClients[i].systemAddress == systemAddress)
 				{
 					remoteClients[i].SendOrBuffer(data, lengths, numParameters);
 				}
+				remoteClients[i].isActiveMutex.Unlock();
 			}
 		}
 	}
@@ -588,20 +606,28 @@ void TCPInterface::CloseConnection(SystemAddress systemAddress)
 	for (i = 0; i < messageHandlerList.Size(); i++)
 		messageHandlerList[i]->OnClosedConnection(systemAddress, UNASSIGNED_RAKNET_GUID, LCR_CLOSED_BY_USER);
 
-	if (systemAddress.systemIndex < remoteClientsLength && remoteClients[systemAddress.systemIndex].systemAddress == systemAddress)
+	// Match the slot under its lock: it may have been retired and reused for
+	// another connection since the caller got the address.
+	bool closed = false;
+	if (systemAddress.systemIndex < remoteClientsLength)
 	{
-		remoteClients[systemAddress.systemIndex].isActiveMutex.Lock();
-		remoteClients[systemAddress.systemIndex].SetActive(false);
-		remoteClients[systemAddress.systemIndex].isActiveMutex.Unlock();
+		RemoteClient &indexed = remoteClients[systemAddress.systemIndex];
+		indexed.isActiveMutex.Lock();
+		if (indexed.isActive && indexed.systemAddress == systemAddress)
+		{
+			indexed.SetActive(false);
+			closed = true;
+		}
+		indexed.isActiveMutex.Unlock();
 	}
-	else
+	if (!closed)
 	{
 		for (i = 0; i < remoteClientsLength; i++)
 		{
 			remoteClients[i].isActiveMutex.Lock();
 			if (remoteClients[i].isActive && remoteClients[i].systemAddress == systemAddress)
 			{
-				remoteClients[systemAddress.systemIndex].SetActive(false);
+				remoteClients[i].SetActive(false);
 				remoteClients[i].isActiveMutex.Unlock();
 				break;
 			}
@@ -954,6 +980,25 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	tv.tv_sec = 0;
 	tv.tv_usec = 30000;
 
+	// Retires slot \a index once its connection \a lostSocket is gone, and reports it -- unless another thread
+	// retired that connection after this thread's snapshot (recv on a shut-down socket returns 0 too): then the
+	// slot is inactive, or Connect already reused it for a new connection, which must be left alone.
+	auto retireLostConnection = [sts](unsigned index, __TCPSOCKET__ lostSocket, const SystemAddress &lostAddress)
+	{
+		RemoteClient &rc = sts->remoteClients[index];
+		rc.isActiveMutex.Lock();
+		const bool current = rc.isActive && rc.socket == lostSocket;
+		if (current)
+			rc.SetActive(false);
+		rc.isActiveMutex.Unlock();
+		if (current)
+		{
+			SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
+			*lostConnectionSystemAddress = lostAddress;
+			sts->lostConnections.Push(lostConnectionSystemAddress);
+		}
+	};
+
 
 	while (sts->isStarted.GetValue() > 0)
 	{
@@ -1016,6 +1061,11 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 			for (i = 0; i < sts->remoteClientsLength; i++)
 			{
 				sts->remoteClients[i].isActiveMutex.Lock();
+				// Close what was retired since the last pass. Nothing else closes a
+				// socket, so every descriptor put in the sets below stays open --
+				// its number cannot be handed to a new connection -- until this
+				// thread comes back here.
+				sts->remoteClients[i].CloseRetiredSockets();
 				if (sts->remoteClients[i].isActive)
 				{
 					// calling FD_ISSET with -1 as socket (that’s what 0 is set to) produces a bus error under Linux 64-Bit
@@ -1024,7 +1074,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 					{
 						FD_SET(socketCopy, &readFD);
 						FD_SET(socketCopy, &exceptionFD);
-						if (sts->remoteClients[i].outgoingData.GetBytesWritten() > 0)
+						sts->remoteClients[i].outgoingDataMutex.Lock();
+						const bool hasOutgoingData = sts->remoteClients[i].outgoingData.GetBytesWritten() > 0;
+						sts->remoteClients[i].outgoingDataMutex.Unlock();
+						if (hasOutgoingData)
 							FD_SET(socketCopy, &writeFD);
 						if (socketCopy > largestDescriptor) // @see largestDescriptorDef
 							largestDescriptor = socketCopy;
@@ -1104,7 +1157,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 				while (i < sts->remoteClientsLength)
 				{
 					// Snapshot the slot under its lock, as the first loop does: Connect and CloseConnection publish
-					// and retire slots from other threads.
+					// and retire slots from other threads. The snapshot socket stays open for this whole pass (only
+					// this thread closes sockets, before the next select), so recv/send below never reach a closed or
+					// reused descriptor; a slot that was retired and reused meanwhile holds a socket that is not in
+					// the sets.
 					sts->remoteClients[i].isActiveMutex.Lock();
 					const bool slotActive = sts->remoteClients[i].isActive;
 					// calling FD_ISSET with -1 as socket (that’s what 0 is set to) produces a bus error under Linux 64-Bit
@@ -1134,19 +1190,14 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						//
 						// #endif
 						// Connection lost abruptly
-						SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-						*lostConnectionSystemAddress = slotAddress;
-						sts->lostConnections.Push(lostConnectionSystemAddress);
-						sts->remoteClients[i].isActiveMutex.Lock();
-						sts->remoteClients[i].SetActive(false);
-						sts->remoteClients[i].isActiveMutex.Unlock();
+						retireLostConnection(i, socketCopy, slotAddress);
 					}
 					else
 					{
 						if (FD_ISSET(socketCopy, &readFD))
 						{
 							// if recv returns 0 this was a graceful close
-							len = sts->remoteClients[i].Recv(data, BUFF_SIZE);
+							len = sts->remoteClients[i].Recv(socketCopy, data, BUFF_SIZE);
 
 
 							// removeme
@@ -1179,12 +1230,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 							else
 							{
 								// Connection lost gracefully
-								SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-								*lostConnectionSystemAddress = slotAddress;
-								sts->lostConnections.Push(lostConnectionSystemAddress);
-								sts->remoteClients[i].isActiveMutex.Lock();
-								sts->remoteClients[i].SetActive(false);
-								sts->remoteClients[i].isActiveMutex.Unlock();
+								retireLostConnection(i, socketCopy, slotAddress);
 								continue;
 							}
 						}
@@ -1207,11 +1253,11 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 									else
 										bytesAvailable = bytesInBuffer;
 									rc->outgoingData.ReadBytes(data, bytesAvailable, true);
-									bytesSent = rc->Send(data, bytesAvailable);
+									bytesSent = rc->Send(socketCopy, data, bytesAvailable);
 								}
 								else
 								{
-									bytesSent = rc->Send(contiguousBytesPointer, contiguousLength);
+									bytesSent = rc->Send(socketCopy, contiguousBytesPointer, contiguousLength);
 								}
 
 								if (bytesSent > 0)
@@ -1238,6 +1284,15 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	return 0;
 }
 
+// A connection retired by another thread is shut down while this thread may
+// still be sending on it, and a peer can reset one at any time: either must be
+// an error from send, not a SIGPIPE that kills the process.
+#ifdef MSG_NOSIGNAL
+static const int kSendFlags = MSG_NOSIGNAL;
+#else
+static const int kSendFlags = 0;
+#endif
+
 void RemoteClient::SetActive(bool a)
 {
 	if (isActive != a)
@@ -1246,10 +1301,26 @@ void RemoteClient::SetActive(bool a)
 		Reset();
 		if (isActive == false && socket != 0)
 		{
-			closesocket__(socket);
+			// Not closed here: the update thread may be using it right now, and a
+			// closed descriptor's number can be handed straight to a new socket.
+			// shutdown ends the connection at once (the peer sees it now, the
+			// update thread's recv/send fail) but keeps the descriptor reserved
+			// until the update thread closes it.
+#ifdef _WIN32
+			shutdown__(socket, SD_BOTH);
+#else
+			shutdown__(socket, SHUT_RDWR);
+#endif
+			socketsToClose.push_back(socket);
 			socket = 0;
 		}
 	}
+}
+void RemoteClient::CloseRetiredSockets(void)
+{
+	for (__TCPSOCKET__ retired : socketsToClose)
+		closesocket__(retired);
+	socketsToClose.clear();
 }
 void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, const int numParameters)
 {
@@ -1267,7 +1338,7 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 		if (ALLOW_SEND_FROM_USER_THREAD && outgoingData.GetBytesWritten() == 0)
 		{
 			outgoingDataMutex.Unlock();
-			int bytesSent = Send(data[parameterIndex], lengths[parameterIndex]);
+			int bytesSent = Send(socket, data[parameterIndex], lengths[parameterIndex]);
 			if (bytesSent < (int) lengths[parameterIndex])
 			{
 				// Push remainder
@@ -1376,28 +1447,28 @@ void RemoteClient::FreeSSL(void)
 	if (ssl)
 		SSL_free(ssl);
 }
-int RemoteClient::Send(const char *data, unsigned int length)
+int RemoteClient::Send(__TCPSOCKET__ s, const char *data, unsigned int length)
 {
 	if (ssl)
 		return SSL_write(ssl, data, length);
 	else
-		return send__(socket, data, length, 0);
+		return send__(s, data, length, kSendFlags);
 }
-int RemoteClient::Recv(char *data, const int dataSize)
+int RemoteClient::Recv(__TCPSOCKET__ s, char *data, const int dataSize)
 {
 	if (ssl)
 		return SSL_read(ssl, data, dataSize);
 	else
-		return recv__(socket, data, dataSize, 0);
+		return recv__(s, data, dataSize, 0);
 }
 #else
-int RemoteClient::Send(const char *data, unsigned int length)
+int RemoteClient::Send(__TCPSOCKET__ s, const char *data, unsigned int length)
 {
-	return send__(socket, data, length, 0);
+	return send__(s, data, length, kSendFlags);
 }
-int RemoteClient::Recv(char *data, const int dataSize)
+int RemoteClient::Recv(__TCPSOCKET__ s, char *data, const int dataSize)
 {
-	return recv__(socket, data, dataSize, 0);
+	return recv__(s, data, dataSize, 0);
 }
 #endif
 
