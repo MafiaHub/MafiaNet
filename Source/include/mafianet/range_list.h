@@ -34,7 +34,8 @@ template <class range_type>
 struct RangeNode
 {
 	RangeNode() {}
-	RangeNode(range_type min, range_type max) : minIndex(min), maxIndex(max) {}
+	RangeNode(range_type min, range_type max)
+	    : minIndex(min), maxIndex(max) {}
 	range_type minIndex;
 	range_type maxIndex;
 };
@@ -177,7 +178,8 @@ public:
 private:
 	size_t FirstNotBelow(const range_type &value) const
 	{
-		auto it = std::lower_bound(ranges.begin(), ranges.end(), value, [](const RangeNode<range_type> &n, const range_type &v) { return n.maxIndex < v; });
+		auto it = std::lower_bound(ranges.begin(), ranges.end(), value, [](const RangeNode<range_type> &n, const range_type &v)
+		                           { return n.maxIndex < v; });
 		return (size_t) (it - ranges.begin());
 	}
 
