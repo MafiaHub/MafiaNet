@@ -65,7 +65,9 @@ target_link_libraries(UnitTests PRIVATE TestSupport GTest::gtest_main)
 # Mirror the library's Debug definition (Source/CMakeLists.txt) so tests can
 # tell whether the library was built with RakAssert live — some tests exercise
 # release-only backstops that would trip the assert in Debug.
-target_compile_definitions(UnitTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
+target_compile_definitions(UnitTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>
+    # ServerReplySeedTests replays checked-in fuzz seeds.
+    MAFIANET_FUZZ_CORPUS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Fuzz/corpus")
 set_target_properties(UnitTests PROPERTIES FOLDER "Tests")
 mafianet_enable_warnings(UnitTests)
 

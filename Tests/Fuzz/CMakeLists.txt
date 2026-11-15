@@ -17,6 +17,7 @@ file(GLOB MAFIANET_FUZZ_HARNESSES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}
 # Harnesses that drive whole peers use the simulated network from Tests/Support.
 set(MAFIANET_FUZZ_SUPPORT
     "${CMAKE_CURRENT_SOURCE_DIR}/../Support/SimulatedNetwork.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../Support/ServerReplyHarness.cpp"
 )
 
 if(MAFIANET_BUILD_FUZZERS AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -31,7 +32,7 @@ foreach(harness_source IN LISTS MAFIANET_FUZZ_HARNESSES)
     if(MAFIANET_BUILD_TESTS)
         add_executable(${corpus_name}_replay "${harness_source}" replay_main.cpp ${MAFIANET_FUZZ_SUPPORT})
         target_include_directories(${corpus_name}_replay PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../Support")
-        # sodium: a harness may swap libsodium's random source for a fixed one.
+        # sodium: ServerReplyHarness swaps libsodium's random source for a fixed one.
         target_link_libraries(${corpus_name}_replay PRIVATE MafiaNet::MafiaNetStatic sodium)
         target_compile_definitions(${corpus_name}_replay PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
         set_target_properties(${corpus_name}_replay PROPERTIES FOLDER "Tests/Fuzz")
