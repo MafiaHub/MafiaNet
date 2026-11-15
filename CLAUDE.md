@@ -150,7 +150,7 @@ Keep its message counts above `MMSG_BATCH_MAX` or that coverage silently disappe
 **Requirements:**
 - CMake 3.21+
 - C++17 compiler
-- libsodium 1.0.19+ (OpenSSL 3.0+ until the legacy crypto/ code is removed)
+- libsodium 1.0.18+ (OpenSSL 3.0+ until the legacy crypto/ code is removed)
 - Platform libs: ws2_32 (Windows), pthread (Unix)
 - Internet connection (first configure fetches dependencies via FetchContent)
 

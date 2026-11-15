@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     libssl-dev \
+    libsodium-dev \
     python3 \
     && rm -rf /var/lib/apt/lists/*
 
