@@ -318,3 +318,58 @@ TEST(SystemAddressParse, HostNameLongerThan255IsRejected)
 	EXPECT_FALSE(sa.FromString(name.c_str()));
 	EXPECT_FALSE(sa.FromStringExplicitPort(name.c_str(), 1));
 }
+
+// A loopback literal in the other family stands for the loopback of the requested one, with or without a port.
+TEST(SystemAddressParse, Ipv4LoopbackAsIpv6IsIpv6Loopback)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromString("127.0.0.1", '|', 6));
+	EXPECT_EQ(sa.GetIPVersion(), 6);
+	char buf[SystemAddress::TO_STRING_BUFFER_SIZE];
+	sa.ToString(false, buf, sizeof(buf));
+	EXPECT_STREQ(buf, "::1");
+}
+
+TEST(SystemAddressParse, Ipv4LoopbackWithPortAsIpv6IsIpv6LoopbackWithPort)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromString("127.0.0.1|5", '|', 6));
+	EXPECT_EQ(sa.GetIPVersion(), 6);
+	EXPECT_EQ(sa.GetPort(), 5);
+	char buf[SystemAddress::TO_STRING_BUFFER_SIZE];
+	sa.ToString(false, buf, sizeof(buf));
+	EXPECT_STREQ(buf, "::1");
+}
+
+TEST(SystemAddressParse, Ipv6LoopbackAsIpv4IsIpv4Loopback)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromString("::1", '|', 4));
+	EXPECT_EQ(sa.GetIPVersion(), 4);
+	char buf[SystemAddress::TO_STRING_BUFFER_SIZE];
+	sa.ToString(false, buf, sizeof(buf));
+	EXPECT_STREQ(buf, "127.0.0.1");
+}
+
+TEST(SystemAddressParse, Ipv6LoopbackWithPortAsIpv4IsIpv4LoopbackWithPort)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromString("::1|7", '|', 4));
+	EXPECT_EQ(sa.GetIPVersion(), 4);
+	EXPECT_EQ(sa.GetPort(), 7);
+	char buf[SystemAddress::TO_STRING_BUFFER_SIZE];
+	sa.ToString(false, buf, sizeof(buf));
+	EXPECT_STREQ(buf, "127.0.0.1");
+}
+
+TEST(SystemAddressParse, LoopbackExplicitPortIsConvertedToRequestedFamily)
+{
+	SystemAddress v6;
+	ASSERT_TRUE(v6.FromStringExplicitPort("127.0.0.1", 9, 6));
+	EXPECT_EQ(v6.GetIPVersion(), 6);
+	EXPECT_EQ(v6.GetPort(), 9);
+	SystemAddress v4;
+	ASSERT_TRUE(v4.FromStringExplicitPort("::1", 9, 4));
+	EXPECT_EQ(v4.GetIPVersion(), 4);
+	EXPECT_EQ(v4.GetPort(), 9);
+}

@@ -564,20 +564,17 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 	char portPart[32];
 	portPart[0] = 0;
 
-	// TODO - what about 255.255.255.255?
-	if (ipVersion == 4 && strcmp(str, IPV6_LOOPBACK) == 0)
-	{
-		strcpy_s(ipPart, IPV4_LOOPBACK);
-	}
-	else if (ipVersion == 6 && strcmp(str, IPV4_LOOPBACK) == 0)
-	{
-		address.addr4.sin_family = AF_INET6;
-		strcpy_s(ipPart, IPV6_LOOPBACK);
-	}
-
 	// #med - missing error checking, if portPart is non-numeric and/or exceeds max allowed port value
 	if (!SplitHostAndPort(str, portDelineator, ipPart, sizeof(ipPart), portPart, sizeof(portPart)))
 		return false;
+
+	// A loopback literal in the other family means the loopback of the requested one. Applied to the host part
+	// once it is split from the port, so "127.0.0.1|5" with ipVersion 6 is "::1" port 5.
+	// TODO - what about 255.255.255.255?
+	if (ipVersion == 4 && strcmp(ipPart, IPV6_LOOPBACK) == 0)
+		strcpy_s(ipPart, IPV4_LOOPBACK);
+	else if (ipVersion == 6 && strcmp(ipPart, IPV4_LOOPBACK) == 0)
+		strcpy_s(ipPart, IPV6_LOOPBACK);
 
 	// needed for getaddrinfo
 	WSAStartupSingleton::AddRef();
