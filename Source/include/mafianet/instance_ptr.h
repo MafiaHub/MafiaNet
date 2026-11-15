@@ -20,7 +20,8 @@ namespace MafiaNet
 {
 
 /// \brief Deleter that calls T::DestroyInstance(p) for a non-null pointer.
-template <class T> struct InstanceDeleter
+template <class T>
+struct InstanceDeleter
 {
 	void operator()(T *p) const noexcept
 	{
@@ -30,10 +31,12 @@ template <class T> struct InstanceDeleter
 };
 
 /// \brief std::unique_ptr that frees through T::DestroyInstance.
-template <class T> using InstancePtr = std::unique_ptr<T, InstanceDeleter<T>>;
+template <class T>
+using InstancePtr = std::unique_ptr<T, InstanceDeleter<T>>;
 
 /// \brief Create a T through T::GetInstance() and wrap it in an \ref InstancePtr.
-template <class T> InstancePtr<T> MakeInstance()
+template <class T>
+InstancePtr<T> MakeInstance()
 {
 	return InstancePtr<T>(T::GetInstance());
 }

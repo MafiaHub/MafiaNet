@@ -25,7 +25,8 @@ namespace MafiaNet
 /// The last element is moved into the hole, then the vector shrinks by one.
 /// \pre index < v.size(). Internal use only: never call it with an index derived from network
 /// data without checking it first.
-template <class T, class A> void SwapRemove(std::vector<T, A> &v, std::size_t index)
+template <class T, class A>
+void SwapRemove(std::vector<T, A> &v, std::size_t index)
 {
 	if (index + 1 != v.size())
 		v[index] = std::move(v.back());

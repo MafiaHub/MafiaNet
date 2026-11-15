@@ -33,7 +33,7 @@ int CountedThing::destroyed = 0;
 
 class InstancePtrCounts : public ::testing::Test
 {
-  protected:
+protected:
 	void SetUp() override
 	{
 		CountedThing::created = 0;
