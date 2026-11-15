@@ -43,19 +43,7 @@ race:MafiaNet::RakPeer::AssignSystemAddressToRemoteSystemList
 race:MafiaNet::RakPeer::ParseConnectionRequestPacket
 race:MafiaNet::RakPeer::SetOccasionalPing
 
-# --- Thread-handoff command queues: producers on the user thread, consumer on
-#     the network thread. The queue access pattern predates this work; baselined
-#     pending a review of the intended locking discipline ---
-race:DataStructures::Queue<MafiaNet::RakPeer::BufferedCommandStruct*>::Push
+# --- Thread-handoff connection-request queue: producers on the user thread,
+#     consumer on the network thread. The queue access pattern predates this
+#     work; baselined pending a review of the intended locking discipline ---
 race:DataStructures::Queue<MafiaNet::RakPeer::RequestedConnectionStruct*>::Push
-
-# --- TCPInterface's ThreadsafeAllocatingQueue::PopInaccurate peeks
-#     queue.IsEmpty() without the lock (hence "Inaccurate") before locking to
-#     pop; the TCP thread pushes under the lock. A stale peek only delays the pop
-#     to the next poll: the same lock-free getter model as above. Scoped to the
-#     two instantiations only TCPInterface uses -- <SystemAddress>
-#     (HasNewIncomingConnection, HasLostConnection, the SSL start queue) and
-#     <Packet> (Receive) -- so RakPeer's bufferedCommands and the other queues
-#     stay checked ---
-race:DataStructures::ThreadsafeAllocatingQueue<MafiaNet::SystemAddress>::PopInaccurate
-race:DataStructures::ThreadsafeAllocatingQueue<MafiaNet::Packet>::PopInaccurate

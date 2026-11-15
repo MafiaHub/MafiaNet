@@ -376,9 +376,6 @@ RakPeer::RakPeer()
 	_extraPingVariance = 0;
 #endif
 
-	bufferedCommands.SetPageSize(sizeof(BufferedCommandStruct) * 16);
-	socketQueryOutput.SetPageSize(sizeof(SocketQueryOutput) * 8);
-
 	packetAllocationPoolMutex.Lock();
 	packetAllocationPool.SetPageSize(sizeof(DataStructures::MemoryPool<Packet>::MemoryWithPage) * 32);
 	packetsOutstanding = 0;
@@ -2582,8 +2579,7 @@ void RakPeer::QueueSessionDecision(const AddressOrGUID systemIdentifier, bool ac
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int command, const char *data, unsigned int length)
 {
-	BufferedCommandStruct *bcs;
-	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
+	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->command = (decltype(bcs->command)) command;
 	bcs->systemIdentifier = systemIdentifier;
 	bcs->numberOfBitsToSend = BYTES_TO_BITS(length);
@@ -2601,7 +2597,7 @@ void RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int comm
 		else
 			bcs->numberOfBitsToSend = 0;
 	}
-	bufferedCommands.Push(bcs);
+	bufferedCommands.Push(std::move(bcs));
 	quitAndDataEvents.SetEvent();
 }
 
@@ -3111,14 +3107,11 @@ void RakPeer::PushBackPacket(Packet *packet, bool pushAtHead)
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ChangeSystemAddress(RakNetGUID guid, const SystemAddress &systemAddress)
 {
-	BufferedCommandStruct *bcs;
-
-	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
-	bcs->data = 0;
+	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->systemIdentifier.systemAddress = systemAddress;
 	bcs->systemIdentifier.rakNetGuid = guid;
 	bcs->command = BufferedCommandStruct::BCS_CHANGE_SYSTEM_ADDRESS;
-	bufferedCommands.Push(bcs);
+	bufferedCommands.Push(std::move(bcs));
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Packet *RakPeer::AllocatePacket(unsigned dataSize)
@@ -3129,15 +3122,12 @@ Packet *RakPeer::AllocatePacket(unsigned dataSize)
 RakNetSocket2 *RakPeer::GetSocket(const SystemAddress target)
 {
 	// Send a query to the thread to get the socket, and return when we got it
-	BufferedCommandStruct *bcs;
-	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
+	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->command = BufferedCommandStruct::BCS_GET_SOCKET;
 	bcs->systemIdentifier = target;
-	bcs->data = 0;
-	bufferedCommands.Push(bcs);
+	bufferedCommands.Push(std::move(bcs));
 
 	// Block up to one second to get the socket, although it should actually take virtually no time
-	SocketQueryOutput *sqo;
 	MafiaNet::TimeMS stopWaiting = MafiaNet::GetTimeMS() + 1000;
 	DataStructures::List<RakNetSocket2 *> output;
 	while (manualUpdate || MafiaNet::GetTimeMS() < stopWaiting)
@@ -3149,12 +3139,9 @@ RakNetSocket2 *RakPeer::GetSocket(const SystemAddress target)
 		else
 			RakSleep(0);
 
-		sqo = socketQueryOutput.Pop();
-		if (sqo)
+		if (auto sqo = socketQueryOutput.TryPop())
 		{
-			output = sqo->sockets;
-			sqo->sockets.Clear(false, _FILE_AND_LINE_);
-			socketQueryOutput.Deallocate(sqo, _FILE_AND_LINE_);
+			output = (*sqo)->sockets;
 			if (output.Size())
 				return output[0];
 			break;
@@ -3168,17 +3155,12 @@ void RakPeer::GetSockets(DataStructures::List<RakNetSocket2 *> &sockets)
 	sockets.Clear(false, _FILE_AND_LINE_);
 
 	// Send a query to the thread to get the socket, and return when we got it
-	BufferedCommandStruct *bcs;
-
-	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
+	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->command = BufferedCommandStruct::BCS_GET_SOCKET;
 	bcs->systemIdentifier = UNASSIGNED_SYSTEM_ADDRESS;
-	bcs->data = 0;
-	bufferedCommands.Push(bcs);
+	bufferedCommands.Push(std::move(bcs));
 
 	// Block up to one second to get the socket, although it should actually take virtually no time
-	SocketQueryOutput *sqo;
-	//	RakNetSocket2* output;
 	for (;;)
 	{
 		if (manualUpdate)
@@ -3188,12 +3170,9 @@ void RakPeer::GetSockets(DataStructures::List<RakNetSocket2 *> &sockets)
 		else
 			RakSleep(0);
 
-		sqo = socketQueryOutput.Pop();
-		if (sqo)
+		if (auto sqo = socketQueryOutput.TryPop())
 		{
-			sockets = sqo->sockets;
-			sqo->sockets.Clear(false, _FILE_AND_LINE_);
-			socketQueryOutput.Deallocate(sqo, _FILE_AND_LINE_);
+			sockets = (*sqo)->sockets;
 			return;
 		}
 	}
@@ -4727,31 +4706,24 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 		}
 		else
 		{
-			BufferedCommandStruct *bcs;
-			bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
+			auto bcs = std::make_unique<BufferedCommandStruct>();
 			bcs->command = BufferedCommandStruct::BCS_CLOSE_CONNECTION;
 			bcs->systemIdentifier = target;
 			// #med - review whether this is safe here - can't the socket be closed/released before its used?
 			bcs->socket = &socket;
-			bcs->data = 0;
 			bcs->orderingChannel = orderingChannel;
 			bcs->priority = disconnectionNotificationPriority;
-			bufferedCommands.Push(bcs);
+			bufferedCommands.Push(std::move(bcs));
 		}
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt)
 {
-	BufferedCommandStruct *bcs;
-
-	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
+	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->data = (char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsToSend)); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
 	if (bcs->data == 0)
-	{
-		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 		return;
-	}
 
 	RakAssert(!((unsigned int) reliability >= MafiaNet::NUMBER_OF_RELIABILITIES || (int) reliability < 0));
 	RakAssert(!((int) priority > (int) MafiaNet::NUMBER_OF_PRIORITIES || (int) priority < 0));
@@ -4767,7 +4739,7 @@ void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, Mafia
 	bcs->connectionMode = connectionMode;
 	bcs->receipt = receipt;
 	bcs->command = BufferedCommandStruct::BCS_SEND;
-	bufferedCommands.Push(bcs);
+	bufferedCommands.Push(std::move(bcs));
 
 	if (priority == MafiaNet::Priority::Immediate)
 	{
@@ -4778,7 +4750,6 @@ void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, Mafia
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SendBufferedList(const char **data, const int *lengths, const int numParameters, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode, uint32_t receipt)
 {
-	BufferedCommandStruct *bcs;
 	unsigned int totalLength = 0;
 	unsigned int lengthOffset;
 	int i;
@@ -4816,7 +4787,7 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 	RakAssert(!((int) priority > (int) MafiaNet::NUMBER_OF_PRIORITIES || (int) priority < 0));
 	RakAssert(!(orderingChannel >= NUMBER_OF_ORDERED_STREAMS));
 
-	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
+	auto bcs = std::make_unique<BufferedCommandStruct>();
 	bcs->data = dataAggregate;
 	bcs->numberOfBitsToSend = BYTES_TO_BITS(totalLength);
 	bcs->priority = priority;
@@ -4827,7 +4798,7 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 	bcs->connectionMode = connectionMode;
 	bcs->receipt = receipt;
 	bcs->command = BufferedCommandStruct::BCS_SEND;
-	bufferedCommands.Push(bcs);
+	bufferedCommands.Push(std::move(bcs));
 
 	if (priority == MafiaNet::Priority::Immediate)
 	{
@@ -4960,21 +4931,13 @@ void RakPeer::OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPo
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ClearBufferedCommands(void)
 {
-	BufferedCommandStruct *bcs;
-
-	while ((bcs = bufferedCommands.Pop()) != 0)
-	{
-		if (bcs->data)
-			std::free(bcs->data);
-
-		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
-	}
-	bufferedCommands.Clear(_FILE_AND_LINE_);
+	// Each dropped command frees its own data (~BufferedCommandStruct).
+	bufferedCommands.Clear();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ClearSocketQueryOutput(void)
 {
-	socketQueryOutput.Clear(_FILE_AND_LINE_);
+	socketQueryOutput.Clear();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ClearRequestedConnectionList(void)
@@ -6185,7 +6148,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 	unsigned int byteSize;
 	unsigned char *data;
 	SystemAddress systemAddress;
-	BufferedCommandStruct *bcs;
 	bool callerDataAllocationUsed;
 	RakNetStatistics *rnss;
 	MafiaNet::TimeUS timeNS = 0;
@@ -6228,8 +6190,16 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 	// Before the send queue is drained, so whatever the plugins send here leaves this cycle.
 	DispatchNetworkThreadUpdate();
 
-	while ((bcs = bufferedCommands.PopInaccurate()) != 0)
+	// Only the commands queued when this cycle reached here. A user thread that keeps pushing (e.g. CloseConnection
+	// in a polling loop until the peer is gone) must not hold the network thread in this loop: the rest of the
+	// cycle, which completes that very disconnect, would never run. Later commands are handled next cycle.
+	for (std::size_t pendingCommands = bufferedCommands.Size(); pendingCommands > 0; pendingCommands--)
 	{
+		auto popped = bufferedCommands.TryPop();
+		if (!popped)
+			break;
+		// Destroying the command at the end of the iteration frees its data, unless a branch handed it on.
+		BufferedCommandStruct *bcs = popped->get();
 		if (bcs->command == BufferedCommandStruct::BCS_SEND)
 		{
 			// GetTime is a very slow call so do it once and as late as possible
@@ -6240,8 +6210,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			}
 
 			callerDataAllocationUsed = SendImmediate((char *) bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->systemIdentifier, bcs->broadcast, true, timeNS, bcs->receipt);
-			if (callerDataAllocationUsed == false)
-				std::free(bcs->data);
+			if (callerDataAllocationUsed)
+				bcs->data = nullptr; // The reliability layer took the allocation over and frees it
 
 			// Set the new connection state AFTER we call sendImmediate in case we are setting it to a disconnection state, which does not allow further sends
 			if (bcs->connectionMode != RemoteSystemStruct::NO_ACTION)
@@ -6284,8 +6254,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				else
 					SendSessionConfigRejection(sessionSystem, bcs->data, sessionPayloadLength);
 			}
-			if (bcs->data)
-				std::free(bcs->data);
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_SESSION_STATUS)
 		{
@@ -6305,8 +6273,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				SendImmediate((char *) statusStream.GetData(), statusStream.GetNumberOfBitsUsed(), MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, sessionSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 				sessionSystem->sessionConfigStartTime = MafiaNet::GetTimeMS();
 			}
-			if (bcs->data)
-				std::free(bcs->data);
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_CLOSE_CONNECTION)
 		{
@@ -6332,36 +6298,18 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_GET_SOCKET)
 		{
-			SocketQueryOutput *sqo;
+			auto sqo = std::make_unique<SocketQueryOutput>();
 			if (bcs->systemIdentifier.IsUndefined())
-			{
-				sqo = socketQueryOutput.Allocate(_FILE_AND_LINE_);
 				sqo->sockets = socketList;
-				socketQueryOutput.Push(sqo);
-			}
 			else
 			{
 				remoteSystem = GetRemoteSystem(bcs->systemIdentifier, true, true);
-				sqo = socketQueryOutput.Allocate(_FILE_AND_LINE_);
-
-				sqo->sockets.Clear(false, _FILE_AND_LINE_);
 				if (remoteSystem)
-				{
 					sqo->sockets.Push(remoteSystem->rakNetSocket, _FILE_AND_LINE_);
-				}
-				else
-				{
-					// Leave empty smart pointer
-				}
-				socketQueryOutput.Push(sqo);
+				// else leave the list empty: no such system
 			}
+			socketQueryOutput.Push(std::move(sqo));
 		}
-
-#ifdef _DEBUG
-		bcs->data = 0;
-#endif
-
-		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 	}
 
 	if (requestedConnectionQueue.IsEmpty() == false)

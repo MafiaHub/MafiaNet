@@ -20,7 +20,6 @@
 #include "mafianet/mtu_size.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/thread.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/export.h"
 #include <atomic>
 
@@ -169,9 +168,6 @@ public:
 	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct) = 0;
 	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line) = 0;
 	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line) = 0;
-
-	// recvFromStruct=bufferedPackets.Allocate( _FILE_AND_LINE_ );
-	// 	DataStructures::ThreadsafeAllocatingQueue<RNS2RecvStruct> bufferedPackets;
 };
 
 class RakNetSocket2

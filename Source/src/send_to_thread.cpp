@@ -28,7 +28,7 @@
 using namespace MafiaNet;
 
 int SendToThread::refCount = 0;
-DataStructures::ThreadsafeAllocatingQueue<SendToThread::SendToThreadBlock> SendToThread::objectQueue;
+LockedQueue<std::unique_ptr<SendToThread::SendToThreadBlock>> SendToThread::objectQueue;
 ThreadPool<SendToThread::SendToThreadBlock *, SendToThread::SendToThreadBlock *> SendToThread::threadPool;
 
 SendToThread::SendToThreadBlock *SendToWorkerThread(SendToThread::SendToThreadBlock *input, bool *returnOutput, void *perThreadData)
@@ -38,7 +38,7 @@ SendToThread::SendToThreadBlock *SendToWorkerThread(SendToThread::SendToThreadBl
 	//	MafiaNet::TimeUS *mostRecentTime=(MafiaNet::TimeUS *)input->data;
 	//	*mostRecentTime=MafiaNet::GetTimeUS();
 	SocketLayer::SendTo(input->s, input->data, input->dataWriteOffset, input->systemAddress, _FILE_AND_LINE_);
-	SendToThread::objectQueue.Push(input);
+	SendToThread::objectQueue.Push(std::unique_ptr<SendToThread::SendToThreadBlock>(input));
 	return 0;
 }
 SendToThread::SendToThread()
@@ -63,25 +63,20 @@ void SendToThread::Deref(void)
 			threadPool.StopThreads();
 			RakAssert(threadPool.NumThreadsWorking() == 0);
 
-			unsigned i;
-			SendToThreadBlock *info;
-			for (i = 0; i < threadPool.InputSize(); i++)
-			{
-				info = threadPool.GetInputAtIndex(i);
-				objectQueue.Push(info);
-			}
+			// Blocks still waiting to be sent are dropped; free them together with the reusable ones.
+			for (unsigned i = 0; i < threadPool.InputSize(); i++)
+				objectQueue.Push(std::unique_ptr<SendToThreadBlock>(threadPool.GetInputAtIndex(i)));
 			threadPool.ClearInput();
-			objectQueue.Clear(_FILE_AND_LINE_);
+			objectQueue.Clear();
 		}
 	}
 }
 SendToThread::SendToThreadBlock *SendToThread::AllocateBlock(void)
 {
-	SendToThread::SendToThreadBlock *b;
-	b = objectQueue.Pop();
-	if (b == 0)
-		b = objectQueue.Allocate(_FILE_AND_LINE_);
-	return b;
+	// The caller hands the block to ProcessBlock; the worker thread returns it to objectQueue once sent.
+	if (auto recycled = objectQueue.TryPop())
+		return recycled->release();
+	return new SendToThreadBlock;
 }
 void SendToThread::ProcessBlock(SendToThread::SendToThreadBlock *threadedSend)
 {

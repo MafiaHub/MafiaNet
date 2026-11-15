@@ -27,14 +27,14 @@
 #include "mafianet/reliability_layer.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/single_producer_consumer.h"
+#include "mafianet/locked_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
 #include "mafianet/string.h"
 #include "mafianet/thread.h"
 //#include "socket.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
+#include "mafianet/ds_memory_pool.h"
 #include "mafianet/signaled_event.h"
 #include "mafianet/native_feature_includes.h"
 #include "mafianet/handshake_challenge.h"
@@ -43,6 +43,8 @@
 #include "mafianet/ds_queue.h"
 #include <atomic>
 #include <condition_variable>
+#include <cstdlib>
+#include <memory>
 #include <thread>
 
 namespace MafiaNet
@@ -1136,8 +1138,16 @@ protected:
 
 	// void RunMutexedUpdateCycle(void);
 
+	// A command from a user thread to the network thread. It owns \a data (std::malloc'd) and frees it
+	// when destroyed, so a command that is never processed (dropped at shutdown) does not leak it. A
+	// consumer that hands \a data to someone else must set it to nullptr first.
 	struct BufferedCommandStruct
 	{
+		BufferedCommandStruct() = default;
+		~BufferedCommandStruct() { std::free(data); }
+		BufferedCommandStruct(const BufferedCommandStruct &) = delete;
+		BufferedCommandStruct &operator=(const BufferedCommandStruct &) = delete;
+
 		BitSize_t numberOfBitsToSend;
 		MafiaNet::Priority priority;
 		MafiaNet::Reliability reliability;
@@ -1147,7 +1157,7 @@ protected:
 		RemoteSystemStruct::ConnectMode connectionMode;
 		NetworkID networkID;
 		bool blockingCommand; // Only used for RPC
-		char *data;
+		char *data = nullptr;
 		bool haveRakNetCloseSocket;
 		unsigned connectionSocketIndex;
 		unsigned int extraSocketOptions;
@@ -1171,13 +1181,9 @@ protected:
 		} command;
 	};
 
-	// Single producer single consumer queue using a linked list
-	//BufferedCommandStruct* bufferedCommandReadIndex, bufferedCommandWriteIndex;
+	// User threads push, the network thread pops (UpdateInternal).
+	LockedQueue<std::unique_ptr<BufferedCommandStruct>> bufferedCommands;
 
-	DataStructures::ThreadsafeAllocatingQueue<BufferedCommandStruct> bufferedCommands;
-
-
-	// DataStructures::ThreadsafeAllocatingQueue<RNS2RecvStruct> bufferedPackets;
 
 	DataStructures::Queue<RNS2RecvStruct *> bufferedPacketsFreePool;
 	MafiaNet::SimpleMutex bufferedPacketsFreePoolMutex;
@@ -1192,12 +1198,11 @@ protected:
 
 	struct SocketQueryOutput
 	{
-		SocketQueryOutput() {}
-		~SocketQueryOutput() {}
 		DataStructures::List<RakNetSocket2 *> sockets;
 	};
 
-	DataStructures::ThreadsafeAllocatingQueue<SocketQueryOutput> socketQueryOutput;
+	// The network thread pushes the answer to a BCS_GET_SOCKET command; GetSocket(s) pops it.
+	LockedQueue<std::unique_ptr<SocketQueryOutput>> socketQueryOutput;
 
 
 	bool AllowIncomingConnections(void) const;
