@@ -7,6 +7,7 @@
 
 #include "ServerReplyHarness.h"
 
+#include <atomic>
 #include <cstring>
 
 #include <sodium.h>
@@ -40,15 +41,15 @@ uint64_t NextRandom()
 // seeded from the OS) implementation; restoring randombytes_sysrandom_implementation instead would
 // silently change it on Linux.
 const randombytes_implementation *const g_realRandom = &randombytes_internal_implementation;
-bool g_fixedActive = false;
+std::atomic<bool> g_fixedActive{false};
 
 const char *FixedName()
 {
-	return g_fixedActive ? "mafianet-fuzz-fixed" : g_realRandom->implementation_name();
+	return g_fixedActive.load(std::memory_order_relaxed) ? "mafianet-fuzz-fixed" : g_realRandom->implementation_name();
 }
 uint32_t FixedRandom()
 {
-	return g_fixedActive ? (uint32_t) NextRandom() : g_realRandom->random();
+	return g_fixedActive.load(std::memory_order_relaxed) ? (uint32_t) NextRandom() : g_realRandom->random();
 }
 void FixedStir()
 {
@@ -57,7 +58,7 @@ void FixedStir()
 }
 void FixedBuf(void *const buf, const size_t size)
 {
-	if (!g_fixedActive)
+	if (!g_fixedActive.load(std::memory_order_relaxed))
 	{
 		g_realRandom->buf(buf, size);
 		return;
@@ -85,10 +86,10 @@ struct FixedRandomScope
 {
 	FixedRandomScope()
 	{
-		g_fixedActive = true;
+		g_fixedActive.store(true, std::memory_order_relaxed);
 		g_rngState = 0;
 	}
-	~FixedRandomScope() { g_fixedActive = false; }
+	~FixedRandomScope() { g_fixedActive.store(false, std::memory_order_relaxed); }
 	FixedRandomScope(const FixedRandomScope &) = delete;
 	FixedRandomScope &operator=(const FixedRandomScope &) = delete;
 };

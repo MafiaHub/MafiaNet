@@ -32,7 +32,7 @@ foreach(harness_source IN LISTS MAFIANET_FUZZ_HARNESSES)
     if(MAFIANET_BUILD_TESTS)
         add_executable(${corpus_name}_replay "${harness_source}" replay_main.cpp ${MAFIANET_FUZZ_SUPPORT})
         target_include_directories(${corpus_name}_replay PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../Support")
-        # sodium: ServerReplyHarness swaps libsodium's random source for a fixed one.
+        # sodium: ServerReplyHarness installs one switchable random source before sodium_init.
         target_link_libraries(${corpus_name}_replay PRIVATE MafiaNet::MafiaNetStatic sodium)
         target_compile_definitions(${corpus_name}_replay PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
         set_target_properties(${corpus_name}_replay PROPERTIES FOLDER "Tests/Fuzz")
