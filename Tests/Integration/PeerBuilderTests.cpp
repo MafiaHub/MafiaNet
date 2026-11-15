@@ -149,3 +149,45 @@ TEST(PeerBuilder, ClientBuilderWithoutTargetStartsUpOnly)
 	    << "startup-only client builder failed: StartupResult " << (int) idle.error().startup;
 	ASSERT_TRUE(idle->get()->IsActive()) << "startup-only client is not active";
 }
+
+// --- encryption() is applied before Startup, and both builders honour it ---
+// A Plaintext server accepts a Plaintext client and refuses a default (Required) one,
+// which then hears ID_OUR_SYSTEM_REQUIRES_SECURITY.
+TEST(PeerBuilder, EncryptionModeReachesThePeerAndMustMatch)
+{
+	auto serverResult = Peer::server().port(0).host("127.0.0.1").max_connections(4).encryption(EncryptionMode::Plaintext).start();
+	ASSERT_TRUE(serverResult) << "StartupResult " << (int) serverResult.error().startup;
+	Peer server = std::move(*serverResult);
+	EXPECT_EQ(EncryptionMode::Plaintext, server->GetEncryptionMode());
+	const unsigned short serverPort = server->GetInternalID().GetPort();
+	ASSERT_NE(serverPort, 0);
+
+	auto plainResult = Peer::client().max_connections(1).encryption(EncryptionMode::Plaintext).connect("127.0.0.1", serverPort).start();
+	ASSERT_TRUE(plainResult);
+	Peer plain = std::move(*plainResult);
+	EXPECT_EQ(EncryptionMode::Plaintext, plain->GetEncryptionMode());
+
+	auto strictResult = Peer::client().max_connections(1).connect("127.0.0.1", serverPort).start();
+	ASSERT_TRUE(strictResult);
+	Peer strict = std::move(*strictResult);
+	EXPECT_EQ(EncryptionMode::Required, strict->GetEncryptionMode());
+
+	bool plainAccepted = false;
+	bool strictRefused = false;
+	const TimeMS start = GetTimeMS();
+	while (GetTimeMS() - start < 10000 && !(plainAccepted && strictRefused))
+	{
+		for (auto pkt : server.incoming())
+			(void) pkt;
+		for (auto pkt : plain.incoming())
+			plainAccepted = plainAccepted || pkt.id() == ID_CONNECTION_REQUEST_ACCEPTED;
+		for (auto pkt : strict.incoming())
+		{
+			ASSERT_NE(ID_CONNECTION_REQUEST_ACCEPTED, pkt.id()) << "a Required client connected to a Plaintext server";
+			strictRefused = strictRefused || pkt.id() == ID_OUR_SYSTEM_REQUIRES_SECURITY;
+		}
+		RakSleep(30);
+	}
+	EXPECT_TRUE(plainAccepted) << "the Plaintext client was not accepted within 10s";
+	EXPECT_TRUE(strictRefused) << "the Required client did not hear ID_OUR_SYSTEM_REQUIRES_SECURITY within 10s";
+}

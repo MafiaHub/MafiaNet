@@ -26,13 +26,9 @@ using namespace MafiaNet;
 Description:
 
 Tests:
-virtual void RakPeerInterface::AddToSecurityExceptionList  	(  	const char *   	 ip  	 )
 virtual void RakPeerInterface::AddToBanList  	(  	const char *   	 IP, 		TimeMS  	milliseconds = 0	  	)
 virtual void RakPeerInterface::GetIncomingPassword  	(  	char *   	 passwordData, 		int *  	passwordDataLength	  	)
-virtual void RakPeerInterface::InitializeSecurity  	(  	const char *   	 pubKeyE, 		const char *  	pubKeyN, 		const char *  	privKeyP, 		const char *  	privKeyQ	  	)
 virtual bool RakPeerInterface::IsBanned  	(  	const char *   	 IP  	 )
-virtual bool RakPeerInterface::IsInSecurityExceptionList  	(  	const char *   	 ip  	 )
-virtual void RakPeerInterface::RemoveFromSecurityExceptionList  	(  	const char *   	 ip  	 )
 virtual void RakPeerInterface::RemoveFromBanList  	(  	const char *   	 IP  	 )
 virtual void RakPeerInterface::SetIncomingPassword  	(  	const char *   	 passwordData, 		int  	passwordDataLength	  	)
 virtual void 	ClearBanList (void)=0
@@ -59,10 +55,6 @@ AddToBanList
 IsBanned
 RemoveFromBanList
 ClearBanList
-InitializeSecurity  //Disabled because of RakNetStatistics changes
-AddToSecurityExceptionList  //Disabled because of RakNetStatistics changes
-IsInSecurityExceptionList //Disabled because of RakNetStatistics changes
-RemoveFromSecurityExceptionList //Disabled because of RakNetStatistics changes
 
 */
 class SecurityFunctions : public ::testing::Test

@@ -20,7 +20,8 @@
 #include <utility>  // std::move
 
 #include "mafianet/peer_interface.h"  // RakPeerInterface, Send, Receive, DeallocatePacket, GetInstance, DestroyInstance
-#include "mafianet/types.h"           // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, PublicKey, AddressOrGUID
+#include "mafianet/types.h"           // Packet, StartupResult, ConnectionAttemptResult, SocketDescriptor, AddressOrGUID
+#include "mafianet/session_crypto.h"  // EncryptionMode
 #include "mafianet/packet_priority.h" // Priority, Reliability (scoped enums with the send defaults)
 #include "mafianet/bit_stream.h"      // BitStream (the encode() scratch buffer for send/broadcast)
 #include "mafianet/export.h"          // RAK_DLL_EXPORT
@@ -35,7 +36,7 @@ class ClientBuilder; // Fluent Startup(+Connect) builder for a connecting Peer; 
 /// \brief Which stage of the builder pipeline reported a failure (see \ref PeerError).
 enum class PeerStage
 {
-	Startup, ///< RakPeerInterface::Startup() (or InitializeSecurity) failed.
+	Startup, ///< RakPeerInterface::Startup() (or SetEncryptionMode) failed.
 	Connect  ///< RakPeerInterface::Connect() failed (client builder only).
 };
 
@@ -298,7 +299,7 @@ inline IncomingRange Peer::incoming()
 /// \brief Fluent builder for a listening Peer (see Peer::server()).
 ///
 /// Replaces the manual Startup + SetMaximumIncomingConnections (+ optional
-/// SetIncomingPassword / InitializeSecurity) dance with a single chain:
+/// SetIncomingPassword / SetEncryptionMode) dance with a single chain:
 /// \code
 ///     auto r = Peer::server()
 ///         .port(60000)
@@ -340,16 +341,12 @@ public:
 		return *this;
 	}
 
-	/// \brief Opt-in encryption for incoming connections (InitializeSecurity).
-	/// \details Mirrors master: security is off unless you call this. Has effect
-	/// only when LIBCAT_SECURITY==1; the pointers must outlive start(). Does not
-	/// make encryption mandatory for anything else.
-	ServerBuilder &secure(const char *publicKey, const char *privateKey, bool requireClientKey = false)
+	/// \brief Encryption mode, applied with SetEncryptionMode() before Startup().
+	/// \details Connections are encrypted by default (EncryptionMode::Required);
+	/// EncryptionMode::Plaintext is for LAN debugging. Clients must use the same mode.
+	ServerBuilder &encryption(EncryptionMode mode)
 	{
-		publicKey_ = publicKey;
-		privateKey_ = privateKey;
-		requireClientKey_ = requireClientKey;
-		secure_ = true;
+		encryption_ = mode;
 		return *this;
 	}
 
@@ -360,18 +357,13 @@ public:
 	{
 		Peer peer;
 		SocketDescriptor sd(port_, host_.empty() ? nullptr : host_.c_str());
-#if LIBCAT_SECURITY == 1
-		if (secure_)
+		if (!peer->SetEncryptionMode(encryption_))
 		{
-			if (!peer->InitializeSecurity(publicKey_, privateKey_, requireClientKey_))
-			{
-				PeerError e;
-				e.stage = PeerStage::Startup;
-				e.startup = STARTUP_OTHER_FAILURE;
-				return Result<Peer>::err(e);
-			}
+			PeerError e;
+			e.stage = PeerStage::Startup;
+			e.startup = STARTUP_OTHER_FAILURE;
+			return Result<Peer>::err(e);
 		}
-#endif
 		StartupResult sr = peer->Startup(maxConnections_, &sd, 1);
 		if (sr != RAKNET_STARTED)
 		{
@@ -391,10 +383,7 @@ private:
 	unsigned int maxConnections_ = 1;
 	std::string host_;
 	std::string password_;
-	bool secure_ = false;
-	const char *publicKey_ = nullptr;
-	const char *privateKey_ = nullptr;
-	bool requireClientKey_ = false;
+	EncryptionMode encryption_ = EncryptionMode::Required;
 };
 
 /// \brief Fluent builder for a connecting Peer (see Peer::client()).
@@ -444,12 +433,12 @@ public:
 		return *this;
 	}
 
-	/// \brief Opt-in: public key of the secure server to connect to.
-	/// \details Passed straight to Connect(); leave unset for an insecure
-	/// connection (the default). The pointer must outlive start().
-	ClientBuilder &public_key(PublicKey *key)
+	/// \brief Encryption mode, applied with SetEncryptionMode() before Startup().
+	/// \details Connections are encrypted by default (EncryptionMode::Required);
+	/// EncryptionMode::Plaintext is for LAN debugging. The server must use the same mode.
+	ClientBuilder &encryption(EncryptionMode mode)
 	{
-		publicKey_ = key;
+		encryption_ = mode;
 		return *this;
 	}
 
@@ -461,6 +450,13 @@ public:
 	{
 		Peer peer;
 		SocketDescriptor sd(port_, host_.empty() ? nullptr : host_.c_str());
+		if (!peer->SetEncryptionMode(encryption_))
+		{
+			PeerError e;
+			e.stage = PeerStage::Startup;
+			e.startup = STARTUP_OTHER_FAILURE;
+			return Result<Peer>::err(e);
+		}
 		StartupResult sr = peer->Startup(maxConnections_, &sd, 1);
 		if (sr != RAKNET_STARTED)
 		{
@@ -474,8 +470,7 @@ public:
 			ConnectionAttemptResult car = peer->Connect(
 			    connectHost_.c_str(), connectPort_,
 			    connectPassword_.empty() ? nullptr : connectPassword_.c_str(),
-			    connectPassword_.empty() ? 0 : (int) connectPassword_.size(),
-			    publicKey_);
+			    connectPassword_.empty() ? 0 : (int) connectPassword_.size());
 			if (car != CONNECTION_ATTEMPT_STARTED)
 			{
 				PeerError e;
@@ -495,7 +490,7 @@ private:
 	unsigned short connectPort_ = 0;
 	std::string connectPassword_;
 	bool wantConnect_ = false;
-	PublicKey *publicKey_ = nullptr;
+	EncryptionMode encryption_ = EncryptionMode::Required;
 };
 
 inline ServerBuilder Peer::server()

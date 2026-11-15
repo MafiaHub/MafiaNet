@@ -266,9 +266,8 @@ Packet *CloudServerHelper::ConnectToRakPeer(const char *host, unsigned short por
 			{
 			case ID_CONNECTION_ATTEMPT_FAILED:
 				return packet;
-			case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
+			case ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION:
 			case ID_OUR_SYSTEM_REQUIRES_SECURITY:
-			case ID_PUBLIC_KEY_MISMATCH:
 			case ID_CONNECTION_BANNED:
 			case ID_INVALID_PASSWORD:
 			case ID_INCOMPATIBLE_PROTOCOL_VERSION:
@@ -586,10 +585,9 @@ int CloudServerHelper::OnJoinCloudResult(
 		printf("Reason: ");
 		switch (result)
 		{
-		case ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY:
+		case ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION:
 		case ID_OUR_SYSTEM_REQUIRES_SECURITY:
-		case ID_PUBLIC_KEY_MISMATCH:
-			printf("Other system is running security code.\n");
+			printf("The other system uses a different encryption mode.\n");
 			break;
 		case ID_CONNECTION_BANNED:
 			printf("Banned from the other system.\n");

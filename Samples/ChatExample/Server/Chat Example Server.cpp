@@ -40,10 +40,6 @@
 #include "mafianet/osx_adapter.h"
 #include "mafianet/guid_util.h"
 
-#if LIBCAT_SECURITY == 1
-#include "mafianet/secure_handshake.h" // Include header for secure handshake
-#endif
-
 #if defined(_CONSOLE_2)
 #include "Console2SampleIncludes.h"
 #endif
@@ -67,17 +63,8 @@ _CONSOLE_2_SetSystemProcessParams
 	//	MafiaNet::PacketLogger packetLogger;
 	//	server->AttachPlugin(&packetLogger);
 
-#if LIBCAT_SECURITY == 1
-	cat::EasyHandshake handshake;
-	char public_key[cat::EasyHandshake::PUBLIC_KEY_BYTES];
-	char private_key[cat::EasyHandshake::PRIVATE_KEY_BYTES];
-	handshake.GenerateServerKey(public_key, private_key);
-	server->InitializeSecurity(public_key, private_key, false);
-	FILE *fp;
-	fopen_s(&fp, "publicKey.dat", "wb");
-	fwrite(public_key, sizeof(public_key), 1, fp);
-	fclose(fp);
-#endif
+	// Connections are encrypted by default; there are no keys to generate or distribute.
+	// server->SetEncryptionMode(MafiaNet::EncryptionMode::Plaintext) before Startup() would opt out.
 
 	// Holds packets
 	MafiaNet::Packet *p;

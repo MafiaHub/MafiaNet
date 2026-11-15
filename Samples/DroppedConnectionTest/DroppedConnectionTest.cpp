@@ -65,7 +65,6 @@ int main(void)
 
 	unsigned short serverPort = 20000;
 	server = MafiaNet::RakPeerInterface::GetInstance();
-	//	server->InitializeSecurity(0,0,0,0);
 	MafiaNet::SocketDescriptor socketDescriptor(serverPort, 0);
 	server->Startup(NUMBER_OF_CLIENTS, &socketDescriptor, 1);
 	server->SetMaximumIncomingConnections(NUMBER_OF_CLIENTS);
