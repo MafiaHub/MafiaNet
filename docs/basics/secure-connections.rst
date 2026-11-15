@@ -179,7 +179,8 @@ these calls; encryption now needs none of them:
 * the ``LIBCAT_SECURITY`` build flag
 
 Removed along with OpenSSL: TLS in ``TCPInterface`` (``StartSSLClient``, ``IsSSLActive``), HTTPS in
-``HTTPConnection`` and ``HTTPConnection2`` (``TransmitRequest`` lost its ``useSSL`` parameter),
+``HTTPConnection`` and ``HTTPConnection2`` (``TransmitRequest`` lost its ``useSSL`` parameter, and
+a call that still passes a ``bool`` there no longer compiles),
 SMTPS and authentication in ``EmailSender`` (plaintext SMTP only; the password argument is
 ignored), the experimental ``crypto/`` file encrypter, and the Rackspace plugin.
 
