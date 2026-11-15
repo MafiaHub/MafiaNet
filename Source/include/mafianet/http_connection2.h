@@ -18,6 +18,7 @@
 ///
 
 #include <cstddef>
+#include <type_traits>
 
 #include "mafianet/native_feature_includes.h"
 #if _RAKNET_SUPPORT_HTTPConnection2 == 1 && _RAKNET_SUPPORT_TCPInterface == 1
@@ -66,7 +67,10 @@ public:
 	/// The former `bool useSSL` parameter (HTTPS was removed). Deleted so that a call written for the old
 	/// signature, such as TransmitRequest(request, host, 443, true), fails to compile instead of silently
 	/// passing the bool as \a ipVersion.
-	bool TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, bool useSSL, SystemAddress useAddress = UNASSIGNED_SYSTEM_ADDRESS, void *userData = 0) = delete;
+	/// A template constrained to exactly `bool`, so that an unsigned, long or size_t fourth argument still selects
+	/// the \a ipVersion overload (those convert to int and to bool with the same rank and would be ambiguous).
+	template <class B, std::enable_if_t<std::is_same_v<B, bool>, int> = 0>
+	bool TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, B useSSL, SystemAddress useAddress = UNASSIGNED_SYSTEM_ADDRESS, void *userData = 0) = delete;
 
 	/// \brief Check for and return a response from a prior call to TransmitRequest()
 	/// As TCP is stream based, you may get a webserver reply over several calls to TCPInterface::Receive()

@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
@@ -44,6 +45,12 @@ static_assert(CanTransmit<int>, "TransmitRequest(request, host, 80) must compile
 static_assert(CanTransmit<unsigned short, int>, "TransmitRequest(request, host, port, ipVersion) must compile");
 static_assert(CanTransmit<unsigned short, int, MafiaNet::SystemAddress, void *>,
               "TransmitRequest with every argument must compile");
+
+// Integer types other than int convert to int and to bool with the same rank; they must stay unambiguous.
+static_assert(CanTransmit<unsigned short, unsigned>, "unsigned ipVersion must compile");
+static_assert(CanTransmit<unsigned short, long>, "long ipVersion must compile");
+static_assert(CanTransmit<unsigned short, std::size_t>, "size_t ipVersion must compile");
+static_assert(CanTransmit<unsigned short, int, MafiaNet::SystemAddress>, "ipVersion plus address must compile");
 
 // The old useSSL form must not.
 static_assert(!CanTransmit<unsigned short, bool>, "TransmitRequest(request, host, port, true) must not compile");
