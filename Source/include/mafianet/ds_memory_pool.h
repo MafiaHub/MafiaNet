@@ -24,10 +24,11 @@
 // Use stdlib and not malloc for compatibility
 #include <stdlib.h>
 #endif
+#include <cstdlib>
+#include <new>
 #include "mafianet/assert.h"
 #include "mafianet/export.h"
 
-#include "mafianet/memory_override.h"
 
 // DS_MEMORY_POOL_MAX_FREE_PAGES must be > 1
 #define DS_MEMORY_POOL_MAX_FREE_PAGES 4

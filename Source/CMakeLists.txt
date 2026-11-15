@@ -62,7 +62,6 @@ set(MAFIANET_SOURCES
     src/peer_handle.cpp
     src/plugin_interface2.cpp
     src/point_grid_sectorizer.cpp
-    src/memory_override.cpp
     src/connect_candidates.cpp
     src/sockaddr_convert.cpp
     src/socket2.cpp
@@ -128,7 +127,6 @@ set(MAFIANET_EXTRAS_SOURCES
 
 set(MAFIANET_HEADERS
     include/mafianet/find_first.h
-    include/mafianet/alloca.h
     include/mafianet/assert.h
     include/mafianet/autopatcher_patch_context.h
     include/mafianet/autopatcher_repository_interface.h
@@ -194,7 +192,6 @@ set(MAFIANET_HEADERS
     include/mafianet/linux_strings.h
     include/mafianet/lockless_types.h
     include/mafianet/log_command_parser.h
-    include/mafianet/memory_override.h
     include/mafianet/message_filter.h
     include/mafianet/message_identifiers.h
     include/mafianet/mmsg_batch.h

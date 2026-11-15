@@ -21,7 +21,7 @@
 #ifndef __RELIABILITY_LAYER_H
 #define __RELIABILITY_LAYER_H
 
-#include "mafianet/memory_override.h"
+#include "mafianet/export.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/ds_linked_list.h"
 #include "mafianet/ds_list.h"

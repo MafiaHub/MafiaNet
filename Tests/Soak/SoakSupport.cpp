@@ -29,13 +29,10 @@
 #endif
 #endif
 
-#include "mafianet/memory_override.h"
-
 namespace
 {
 std::atomic<int64_t> g_newBlocks{0};
 std::atomic<int64_t> g_newBytes{0};
-std::atomic<int64_t> g_rakBlocks{0};
 
 #ifndef SOAK_SANITIZER
 size_t BlockSize(void *p)
@@ -49,49 +46,12 @@ size_t BlockSize(void *p)
 #endif
 }
 #endif
-
-void *CountedMallocEx(size_t size, const char *, unsigned int)
-{
-	void *p = std::malloc(size);
-	if (p != nullptr)
-		g_rakBlocks.fetch_add(1, std::memory_order_relaxed);
-	return p;
-}
-
-void *CountedReallocEx(void *p, size_t size, const char *, unsigned int)
-{
-	void *q = std::realloc(p, size);
-	if (p == nullptr && q != nullptr)
-		g_rakBlocks.fetch_add(1, std::memory_order_relaxed);
-	else if (p != nullptr && size == 0 && q == nullptr)
-		g_rakBlocks.fetch_sub(1, std::memory_order_relaxed);
-	return q;
-}
-
-void CountedFreeEx(void *p, const char *, unsigned int)
-{
-	if (p != nullptr)
-		g_rakBlocks.fetch_sub(1, std::memory_order_relaxed);
-	std::free(p);
-}
-
-// The hooks are installed before main(), so before any network thread exists to read them: swapping
-// rakMalloc_Ex and friends while a peer's thread runs would be a data race.
-struct RakAllocatorHooks
-{
-	RakAllocatorHooks()
-	{
-		SetMalloc_Ex(CountedMallocEx);
-		SetRealloc_Ex(CountedReallocEx);
-		SetFree_Ex(CountedFreeEx);
-	}
-} g_rakAllocatorHooks;
 } // namespace
 
 // Replaces the global allocation functions for the whole SoakTests binary: every non-aligned form (the
 // aligned forms keep the library's, and pair among themselves). Not under a sanitizer: its runtime defines
-// operator new itself (TSan's cannot be replaced at all), and it tracks every allocation anyway; only the
-// rakMalloc hooks count there.
+// operator new itself (TSan's cannot be replaced at all), and it tracks every allocation anyway (LSan
+// reports what leaks).
 #ifndef SOAK_SANITIZER
 namespace
 {
@@ -310,7 +270,6 @@ AllocationSnapshot Allocations()
 	AllocationSnapshot s;
 	s.newBlocks = g_newBlocks.load(std::memory_order_relaxed);
 	s.newBytes = g_newBytes.load(std::memory_order_relaxed);
-	s.rakBlocks = g_rakBlocks.load(std::memory_order_relaxed);
 	return s;
 }
 

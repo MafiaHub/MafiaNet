@@ -21,7 +21,6 @@
 #ifndef __CHECKSUM_H
 #define __CHECKSUM_H
 
-#include "mafianet/memory_override.h"
 
 /// Generates and validates checksums
 class CheckSum

@@ -24,7 +24,6 @@
 #include <stdlib.h>
 //#include <memory.h>
 #include "mafianet/assert.h"
-#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

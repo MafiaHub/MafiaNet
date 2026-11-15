@@ -135,6 +135,10 @@ public:
 	/// \internal Test-only: how many X25519 key exchanges this peer has run answering ID_OPEN_CONNECTION_REQUEST_2.
 	uint64_t GetServerKeyExchangeCountForTesting() const;
 
+	/// \internal Test-only: entries of the address -> remote system hash index allocated and not yet released.
+	/// One per referenced remote system; an entry lost on the way (never linked, never freed) keeps it growing.
+	unsigned int GetLiveRemoteSystemIndexEntriesForTesting() const;
+
 	/// \brief Sets the maximum number of incoming connections allowed.
 	/// \details If the number of incoming connections is less than the number of players currently connected,
 	/// no more players will be allowed to connect.  If this is greater than the maximum number of peers allowed,
@@ -1004,6 +1008,8 @@ protected:
 	unsigned int GetRemoteSystemIndex(const SystemAddress &sa) const;
 	void ClearRemoteSystemLookup(void);
 	DataStructures::MemoryPool<RemoteSystemIndex> remoteSystemIndexPool;
+	// Entries taken from remoteSystemIndexPool and not yet released. GetLiveRemoteSystemIndexEntriesForTesting().
+	unsigned int liveRemoteSystemIndexEntries;
 
 	void AddToActiveSystemList(unsigned int remoteSystemListIndex);
 	void RemoveFromActiveSystemList(const SystemAddress &sa);

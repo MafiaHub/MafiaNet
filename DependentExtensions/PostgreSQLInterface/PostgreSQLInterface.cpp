@@ -14,6 +14,7 @@
  */
 
 #include "PostgreSQLInterface.h"
+#include <cstdlib>
 #include "mafianet/variadic_sql_parser.h"
 
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
@@ -27,14 +28,6 @@
 #include "Console2Includes.h"
 #else
 #include <arpa/inet.h>
-#endif
-
-// alloca
-#ifdef _COMPATIBILITY_1
-#elif defined(_WIN32)
-#include <malloc.h>
-#else
-//#include <stdlib.h>
 #endif
 
 #include "mafianet/string.h"

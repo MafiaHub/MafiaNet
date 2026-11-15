@@ -20,12 +20,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-#if defined(_WIN32)
-#include <malloc.h> // alloca
-#elif (defined(__GNUC__) || defined(__GCCXML__))
-#include <alloca.h>
-#else
-#endif
+#include <string>
 
 using namespace MafiaNet;
 
@@ -57,8 +52,8 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, bool filte
 		return 0;
 
 	int count = 0;
-	char *b = (char *) alloca(strlen(input) + 1);
-	strcpy_s(b, strlen(input) + 1, input);
+	std::string lowered(input);
+	char *b = &lowered[0];
 	_strlwr(b);
 	char *start = b;
 	if (output)
@@ -108,8 +103,8 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, size_t out
 		return 0;
 
 	int count = 0;
-	char *b = (char *) alloca(strlen(input) + 1);
-	strcpy_s(b, strlen(input) + 1, input);
+	std::string lowered(input);
+	char *b = &lowered[0];
 	_strlwr(b);
 	char *start = b;
 	if (output)

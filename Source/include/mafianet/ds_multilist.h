@@ -24,7 +24,6 @@
 #include "mafianet/assert.h"
 #include <string.h> // memmove
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/native_types.h"
 
 

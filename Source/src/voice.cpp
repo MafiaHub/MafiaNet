@@ -15,6 +15,7 @@
  */
 
 #include "mafianet/voice.h"
+#include <cstdlib>
 #include <opus.h>
 #include <rnnoise.h>
 #include "mafianet/bit_stream.h"

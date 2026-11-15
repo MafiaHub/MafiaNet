@@ -23,6 +23,7 @@
 
 // Common includes
 #include <stdio.h>
+#include <cstdlib>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/kbhit.h"

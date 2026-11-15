@@ -23,7 +23,6 @@
 
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 
 /// Forward declaration
 namespace MafiaNet

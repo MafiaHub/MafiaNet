@@ -116,7 +116,6 @@
 #define SHA1_H_A545E61D43E9404E8D736869AB3CBFE7
 
 // KevinJ:
-#include "mafianet/memory_override.h"
 #include <stdio.h> // Needed for file access
 
 #include <memory.h> // Needed for memset and memcpy

@@ -14,6 +14,7 @@
  */
 
 #include "Lobby2Message.h"
+#include <cstdlib>
 #include "mafianet/peer_interface.h"
 
 #include "mafianet/message_identifiers.h"

@@ -23,7 +23,6 @@
 #define __LINKED_LIST_H
 
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures
 /// As these data structures are stand-alone, you can use them outside of RakNet for your own projects if you wish.

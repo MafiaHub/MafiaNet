@@ -14,7 +14,6 @@
  */
 
 #include "RPC3.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/bit_stream.h"

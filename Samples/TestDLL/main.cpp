@@ -15,7 +15,6 @@
 
 #include "mafianet/peer_interface.h"
 #include "mafianet/file_operations.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/console_server.h"
 #include "mafianet/log_command_parser.h"
 #include "mafianet/command_parser.h"
@@ -26,21 +25,6 @@
 #include "mafianet/tcp_interface.h"
 
 using namespace MafiaNet;
-
-void *MyMalloc(size_t size)
-{
-	return malloc(size);
-}
-
-void *MyRealloc(void *p, size_t size)
-{
-	return realloc(p, size);
-}
-
-void MyFree(void *p)
-{
-	free(p);
-}
 
 // This project is used to test the DLL system to make sure necessary classes are exported
 int main()
@@ -65,11 +49,6 @@ int main()
 	DataStructures::List<RakNetSocket2 *> sockets;
 	f->GetSockets(sockets);
 	f->ReleaseSockets(sockets);
-
-	// See memoryoverride.h
-	SetMalloc(MyMalloc);
-	SetRealloc(MyRealloc);
-	SetFree(MyFree);
 
 	char *cArray = new char[10];
 	delete[] cArray;

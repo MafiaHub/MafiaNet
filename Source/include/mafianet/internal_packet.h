@@ -22,7 +22,6 @@
 
 #include "mafianet/packet_priority.h"
 #include "mafianet/types.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/defines.h"
 #include "mafianet/native_types.h"
 #include "mafianet/defines.h"

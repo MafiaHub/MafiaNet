@@ -22,7 +22,6 @@
 #include "mafianet/native_types.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
-#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

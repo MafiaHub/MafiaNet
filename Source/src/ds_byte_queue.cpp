@@ -15,7 +15,7 @@
 
 #include "mafianet/ds_byte_queue.h"
 #include <string.h> // Memmove
-#include <stdlib.h> // realloc
+#include <cstdlib>  // realloc
 #include <stdio.h>
 
 

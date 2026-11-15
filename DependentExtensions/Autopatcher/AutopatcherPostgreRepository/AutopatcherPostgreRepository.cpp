@@ -18,6 +18,7 @@
 
 
 #include "AutopatcherPostgreRepository.h"
+#include <cstdlib>
 #include "mafianet/autopatcher_patch_context.h"
 #include "mafianet/file_list.h"
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
@@ -43,14 +44,6 @@ static const unsigned HASH_LENGTH = sizeof(unsigned int);
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
 #endif
-#endif
-
-// alloca
-#ifdef _COMPATIBILITY_1
-#elif defined(_WIN32)
-#include <malloc.h>
-#else
-//#include <stdlib.h>
 #endif
 
 #define PQEXECPARAM_FORMAT_TEXT 0

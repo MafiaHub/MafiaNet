@@ -24,7 +24,7 @@
 
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/memory_override.h"
+#include "mafianet/export.h"
 #include "mafianet/assert.h"
 
 namespace DataStructures

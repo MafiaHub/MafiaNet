@@ -26,7 +26,6 @@
 #include "mafianet/assert.h"
 #include <string.h> // memmove
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 
 /// Maximum unsigned long
 static const unsigned int MAX_UNSIGNED_LONG = 4294967295U;

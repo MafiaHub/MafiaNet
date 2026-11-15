@@ -25,7 +25,6 @@
 // Template classes have to have all the code in the header file
 #include "mafianet/assert.h"
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures
 /// As these data structures are stand-alone, you can use them outside of RakNet for your own projects if you wish.

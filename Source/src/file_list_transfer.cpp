@@ -29,7 +29,6 @@
 #include "mafianet/statistics.h"
 #include "mafianet/incremental_read_interface.h"
 #include "mafianet/assert.h"
-#include "mafianet/alloca.h"
 
 namespace MafiaNet
 {

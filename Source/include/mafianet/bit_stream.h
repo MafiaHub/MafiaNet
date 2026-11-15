@@ -21,7 +21,6 @@
 #ifndef __BITSTREAM_H
 #define __BITSTREAM_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/defines.h"
 #include "mafianet/export.h"
 #include "mafianet/types.h"

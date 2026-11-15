@@ -24,7 +24,6 @@
 #ifndef __CONNECTION_GRAPH_2_H
 #define __CONNECTION_GRAPH_2_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/ds_list.h"

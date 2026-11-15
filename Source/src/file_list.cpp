@@ -14,10 +14,12 @@
  */
 
 #include "mafianet/file_list.h"
+#include <cstdlib>
 
 #if _RAKNET_SUPPORT_FileOperations == 1
 
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
+#include <vector>
 #include "mafianet/assert.h"
 #if defined(ANDROID)
 #include <asm/io.h>
@@ -57,16 +59,7 @@ static const unsigned HASH_LENGTH = 4;
 
 using namespace MafiaNet;
 
-// alloca
-
-#if defined(_WIN32)
-#include <malloc.h>
-
-
-#else
-#if !defined(__FreeBSD__)
-#include <alloca.h>
-#endif
+#if !defined(_WIN32)
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -74,7 +67,6 @@ using namespace MafiaNet;
 #include <stdint.h> //defines intptr_t
 #endif
 
-#include "mafianet/alloca.h"
 
 //int RAK_DLL_EXPORT FileListNodeComp( char * const &key, const FileListNode &data )
 //{
@@ -145,30 +137,14 @@ void FileList::AddFile(const char *filepath, const char *filename, FileListNodeC
 	}
 
 
-#if USE_ALLOCA == 1
-	bool usedAlloca = false;
-	if (length < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		data = (char *) alloca(length);
-		usedAlloca = true;
-	}
-	else
-#endif
-	{
-		data = (char *) std::malloc(length);
-		RakAssert(data);
-	}
+	std::vector<char> fileData(length);
+	data = fileData.data();
 
 	// A short read means the file shrank or failed under us; skip it like an unopenable one.
 	const bool readOk = fread(data, 1, length, fp) == (size_t) length;
 	if (readOk)
 		AddFile(filename, filepath, data, length, length, context);
 	fclose(fp);
-
-#if USE_ALLOCA == 1
-	if (usedAlloca == false)
-#endif
-		std::free(data);
 }
 void FileList::AddFile(const char *filename, const char *fullPathToFile, const char *data, const unsigned dataLength, const unsigned fileLength, FileListNodeContext context, bool isAReference, bool takeDataPointer)
 {

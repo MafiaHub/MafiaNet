@@ -18,6 +18,7 @@
 
 
 #include "mafianet/reliability_layer.h"
+#include <vector>
 #include <cstdlib>
 #include "mafianet/mmsg_batch.h"
 #include "mafianet/mtu_black_hole.h"
@@ -3296,31 +3297,17 @@ void ReliabilityLayer::SplitPacket(InternalPacket *internalPacket)
 	int maximumSendBlockBytes, byteOffset, bytesToSend;
 	SplitPacketIndexType splitPacketIndex;
 	int i;
-	InternalPacket **internalPacketArray;
-
 	maximumSendBlockBytes = GetMaxDatagramSizeExcludingMessageHeaderBytes() - BITS_TO_BYTES(GetMaxMessageHeaderLengthBits());
 
 	// Calculate how many packets we need to create
 	internalPacket->splitPacketCount = ((dataByteLength - 1) / (maximumSendBlockBytes) + 1);
 
-	// Optimization
-	// internalPacketArray = new InternalPacket *[internalPacket->splitPacketCount];
-	bool usedAlloca = false;
-#if USE_ALLOCA == 1
-	if (sizeof(InternalPacket *) * internalPacket->splitPacketCount < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		internalPacketArray = (InternalPacket **) alloca(sizeof(InternalPacket *) * internalPacket->splitPacketCount);
-		usedAlloca = true;
-	}
-	else
-#endif
-		internalPacketArray = (InternalPacket **) std::malloc(sizeof(InternalPacket *) * internalPacket->splitPacketCount);
+	std::vector<InternalPacket *> internalPacketArray(internalPacket->splitPacketCount);
 
 	for (i = 0; i < (int) internalPacket->splitPacketCount; i++)
 	{
 		internalPacketArray[i] = AllocateFromInternalPacketPool();
 
-		//internalPacketArray[ i ] = (InternalPacket*) alloca( sizeof( InternalPacket ) );
 		//		internalPacketArray[ i ] = sendPacketSet[internalPacket->priority].WriteLock();
 		*internalPacketArray[i] = *internalPacket;
 		internalPacketArray[i]->messageNumberAssigned = false;
@@ -3390,9 +3377,6 @@ void ReliabilityLayer::SplitPacket(InternalPacket *internalPacket)
 	// Do not delete, original is referenced by all split packets to avoid numerous allocations. See AllocInternalPacketData above
 	//	FreeInternalPacketData(internalPacket, _FILE_AND_LINE_ );
 	ReleaseToInternalPacketPool(internalPacket);
-
-	if (usedAlloca == false)
-		std::free(internalPacketArray);
 }
 
 //-------------------------------------------------------------------------------------------------------

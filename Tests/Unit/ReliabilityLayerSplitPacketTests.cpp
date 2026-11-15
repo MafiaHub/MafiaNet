@@ -222,3 +222,70 @@ TEST_F(SplitPacketFixture, DuplicateFragmentIsIgnored)
 	ASSERT_EQ(1u, messages.size());
 	EXPECT_EQ(Concat(first, second), messages[0]);
 }
+
+namespace
+{
+struct CapturingSocket : public RakNetSocket2
+{
+	std::vector<std::vector<char>> datagrams;
+
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	{
+		datagrams.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
+		return sendParameters->length;
+	}
+};
+} // namespace
+
+// The sender splits into one fragment per datagram-sized slice and holds one pointer per fragment while it
+// does. The layer has no fixed cap on the fragment count, so this uses a message of tens of thousands of
+// fragments (about 24,000), far more than a small stack buffer would have been sized for.
+TEST(ReliabilityLayerSplitPacket, ReassemblesLargestAllowedSplitCount)
+{
+	ReliabilityLayer sender, receiver;
+	CapturingSocket senderSocket, receiverSocket;
+	SystemAddress senderAddress{"127.0.0.1", 40001}, receiverAddress{"127.0.0.1", 40002};
+	DataStructures::List<PluginInterface2 *> handlers;
+	RakNetRandom rnr;
+	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
+	CCTimeType now = GetTimeUS(); // see SplitPacketFixture::SetUp
+	// Mode Plaintext, as in SplitPacketFixture: no keys are exchanged here.
+	sender.SetEncryptionMode(EncryptionMode::Plaintext);
+	receiver.SetEncryptionMode(EncryptionMode::Plaintext);
+	sender.Reset(true, MAXIMUM_MTU_SIZE);
+	receiver.Reset(true, MAXIMUM_MTU_SIZE);
+	sender.SetTimeoutTime(1000000);
+	receiver.SetTimeoutTime(1000000);
+
+	const size_t kMessageBytes = 32 * 1024 * 1024;
+	std::vector<unsigned char> message(kMessageBytes);
+	message[0] = 200; // clear of internal message ids
+	for (size_t i = 1; i < message.size(); ++i)
+		message[i] = (unsigned char) (i * 31 + 7);
+	ASSERT_TRUE(sender.Send((char *) message.data(), BYTES_TO_BITS((BitSize_t) message.size()), MafiaNet::Priority::Medium,
+	                        MafiaNet::Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, now, 0));
+
+	std::vector<unsigned char> received;
+	for (int tick = 0; tick < 200000 && received.empty(); ++tick)
+	{
+		now += 10000;
+		sender.Update(&senderSocket, receiverAddress, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		receiver.Update(&receiverSocket, senderAddress, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		for (std::vector<char> &datagram : senderSocket.datagrams)
+			receiver.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), senderAddress, handlers, MAXIMUM_MTU_SIZE, &receiverSocket, &rnr, now, updateBitStream);
+		senderSocket.datagrams.clear();
+		for (std::vector<char> &datagram : receiverSocket.datagrams)
+			sender.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), receiverAddress, handlers, MAXIMUM_MTU_SIZE, &senderSocket, &rnr, now, updateBitStream);
+		receiverSocket.datagrams.clear();
+
+		unsigned char *data;
+		BitSize_t bits;
+		while ((bits = receiver.Receive(&data)) > 0)
+		{
+			received.assign(data, data + BITS_TO_BYTES(bits));
+			std::free(data);
+		}
+	}
+	ASSERT_EQ(message.size(), received.size());
+	EXPECT_TRUE(message == received);
+}

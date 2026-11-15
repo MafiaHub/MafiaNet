@@ -16,7 +16,6 @@
 #include "mafianet/native_types.h"
 #include <cstdlib>
 #include "mafianet/ds_list.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/bit_stream.h"
 
 #ifndef __VARIABLE_LIST_DELTA_TRACKER

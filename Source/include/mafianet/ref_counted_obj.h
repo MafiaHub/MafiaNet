@@ -21,7 +21,6 @@
 #ifndef __REF_COUNTED_OBJ_H
 #define __REF_COUNTED_OBJ_H
 
-#include "mafianet/memory_override.h"
 
 /// World's simplest class :)
 class RefCountedObj

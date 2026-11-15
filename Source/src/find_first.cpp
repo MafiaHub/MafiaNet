@@ -25,7 +25,6 @@
 
 static DataStructures::List<_findinfo_t *> fileInfo;
 
-#include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 
 /**

@@ -217,9 +217,6 @@ TEST_F(ReplicaManager3ListMode, StreamingOutFreesTheConnectionRecord)
 #ifdef MAFIANET_TEST_SANITIZED
 	GTEST_SKIP() << "counted by LeakSanitizer instead";
 #endif
-#if _USE_RAK_MEMORY_OVERRIDE == 1
-	GTEST_SKIP() << "records are allocated through the memory override, which this counter does not see";
-#endif
 	ListConnection *connection = AddConnection(100);
 	ListReplica *replica = AddReplica();
 

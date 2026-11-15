@@ -16,6 +16,7 @@
 /// \file
 ///
 #include "mafianet/bit_stream.h"
+#include <cstdlib>
 
 #include <float.h>
 #include <memory.h>

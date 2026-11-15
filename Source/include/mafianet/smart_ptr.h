@@ -19,7 +19,6 @@
 // From http://www.codeproject.com/KB/cpp/SmartPointers.aspx
 // with bugs fixed
 
-#include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 
 //static int allocCount=0;

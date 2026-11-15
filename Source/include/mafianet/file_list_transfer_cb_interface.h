@@ -20,7 +20,6 @@
 #ifndef __FILE_LIST_TRANSFER_CALLBACK_INTERFACE_H
 #define __FILE_LIST_TRANSFER_CALLBACK_INTERFACE_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/file_list_node_context.h"
 
 namespace MafiaNet

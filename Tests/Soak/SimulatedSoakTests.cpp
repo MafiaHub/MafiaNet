@@ -150,9 +150,6 @@ public:
 	static const DataStructures::MemoryPool<Packet> &Pool(const RakPeer *peer) { return peer->*&PacketPoolInspector::packetAllocationPool; }
 	static int64_t Pages(const RakPeer *peer) { return (int64_t) Pool(peer).GetAvailablePagesSize() + Pool(peer).GetUnavailablePagesSize(); }
 };
-// MemoryPool::Allocate and InitPage take three rakMalloc blocks per page: the page header, its block array
-// and its free-block stack.
-const int64_t kRakBlocksPerPoolPage = 3;
 
 class SimulatedSoak
 {
@@ -800,7 +797,6 @@ void SimulatedSoak::Run()
 	Build();
 	const uint64_t startMs = NowMs();
 	std::vector<Soak::AllocationSnapshot> afterWave;
-	std::vector<int64_t> packetPoolPagesAfterWave;
 
 	for (int wave = 0; wave < waveCount; ++wave)
 	{
@@ -845,16 +841,14 @@ void SimulatedSoak::Run()
 		for (size_t i = 0; i < nodes.size(); ++i)
 		{
 			// Every inbox is drained each tick, so no packet is out: no page is full, and an idle pool keeps
-			// at most DS_MEMORY_POOL_MAX_FREE_PAGES empty ones. This is what bounds the pages left out of the
-			// rakMalloc comparison below.
+			// at most DS_MEMORY_POOL_MAX_FREE_PAGES empty ones.
 			const DataStructures::MemoryPool<Packet> &pool = PacketPoolInspector::Pool(nodes[i].peer);
 			EXPECT_EQ(0, pool.GetUnavailablePagesSize()) << Name((int) i) << ": packet-pool pages still full with nothing queued";
 			EXPECT_LE(pool.GetAvailablePagesSize(), DS_MEMORY_POOL_MAX_FREE_PAGES) << Name((int) i) << ": packet pool grew past its free-page bound";
 			packetPoolPages += PacketPoolInspector::Pages(nodes[i].peer);
 		}
-		packetPoolPagesAfterWave.push_back(packetPoolPages);
-		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes), rak blocks %" PRId64 " (%" PRId64 " packet-pool pages)\n",
-		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, afterWave.back().rakBlocks, packetPoolPages);
+		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes, %" PRId64 " packet-pool pages)\n",
+		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, packetPoolPages);
 	}
 
 	const double wallSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();
@@ -904,23 +898,7 @@ void SimulatedSoak::Run()
 			EXPECT_LE(last.newBytes - first.newBytes, byteSlack) << "operator new bytes grew across waves";
 		}
 		else
-			std::printf("[soak] sanitizer build: operator new is not counted, only rakMalloc\n");
-		// Measured noise between waves is one memory-pool page, 3 blocks. The remote-system index leak
-		// fixed in ac018381 added about 3 blocks per wave at 200 clients: with it reverted, wave 1 -> last
-		// grew by 15 blocks over the default 8 waves and by 24 over the nightly's 12. Three pages of slack
-		// keeps both of those failing.
-		//
-		// Packet-pool pages are left out. A peer's packet pool keeps up to DS_MEMORY_POOL_MAX_FREE_PAGES
-		// empty pages of 32 packets for its next burst, so between that bound (checked per peer above) and
-		// one page it follows the most packets the peer ever had queued at once, and that moves from wave to
-		// wave: a connection whose session reply was lost delivers what was held behind it in one go (#96).
-		// A leaked packet still shows: its data is a block of its own.
-		const int64_t rakSlack = 9;
-		const size_t lastIndex = afterWave.size() - 1;
-		const int64_t firstRak = first.rakBlocks - kRakBlocksPerPoolPage * packetPoolPagesAfterWave[1];
-		const int64_t lastRak = last.rakBlocks - kRakBlocksPerPoolPage * packetPoolPagesAfterWave[lastIndex];
-		EXPECT_LE(lastRak - firstRak, rakSlack) << "rakMalloc blocks (packet-pool pages excluded) grew across waves: " << firstRak << " after wave 1, "
-		                                        << lastRak << " after the last";
+			std::printf("[soak] sanitizer build: operator new is not counted (LSan reports leaks)\n");
 	}
 }
 } // namespace

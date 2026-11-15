@@ -14,8 +14,8 @@
  */
 
 #include "mafianet/string.h"
+#include <cstdlib>
 #include "mafianet/assert.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/bit_stream.h"
 #include <stdarg.h>
 #include <string.h>

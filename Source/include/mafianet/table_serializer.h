@@ -16,7 +16,6 @@
 #ifndef __TABLE_SERIALIZER_H
 #define __TABLE_SERIALIZER_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/ds_table.h"
 #include "mafianet/export.h"
 

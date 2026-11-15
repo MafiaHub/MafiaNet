@@ -19,6 +19,7 @@
 
 #include "mafianet/string_compressor.h"
 #include <cstdlib>
+#include <vector>
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
@@ -450,24 +451,9 @@ bool StringCompressor::DecodeString(std::string *output, int maxCharsToWrite, Ma
 		return true;
 	}
 
-	char *destinationBlock;
-	bool out;
-
-#if USE_ALLOCA == 1
-	if (maxCharsToWrite < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		destinationBlock = (char *) alloca(maxCharsToWrite);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-	}
-	else
-#endif
-	{
-		destinationBlock = (char *) std::malloc(maxCharsToWrite);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-		std::free(destinationBlock);
-	}
+	std::vector<char> destinationBlock((size_t) maxCharsToWrite);
+	const bool out = DecodeString(destinationBlock.data(), maxCharsToWrite, input, languageId);
+	*output = destinationBlock.data();
 
 	return out;
 }
@@ -484,24 +470,9 @@ bool StringCompressor::DecodeString(RakString *output, int maxCharsToWrite, Mafi
 		return true;
 	}
 
-	char *destinationBlock;
-	bool out;
-
-#if USE_ALLOCA == 1
-	if (maxCharsToWrite < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		destinationBlock = (char *) alloca(maxCharsToWrite);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-	}
-	else
-#endif
-	{
-		destinationBlock = (char *) std::malloc(maxCharsToWrite);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-		std::free(destinationBlock);
-	}
+	std::vector<char> destinationBlock((size_t) maxCharsToWrite);
+	const bool out = DecodeString(destinationBlock.data(), maxCharsToWrite, input, languageId);
+	*output = destinationBlock.data();
 
 	return out;
 }

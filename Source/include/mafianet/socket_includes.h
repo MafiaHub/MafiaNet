@@ -32,7 +32,6 @@ typedef int socklen_t;
 #include <unistd.h>
 #include <fcntl.h>
 
-//#include "mafianet/memory_override.h"
 /// Unix/Linux uses ints for sockets
 typedef int __UDPSOCKET__;
 typedef int __TCPSOCKET__;

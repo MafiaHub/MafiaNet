@@ -16,7 +16,6 @@
 #include "mafianet/socket2.h"
 #include "mafianet/mmsg_batch.h"
 #include "mafianet/sockaddr_convert.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 #include "mafianet/sleep.h"
 #include "mafianet/socket_defines.h"

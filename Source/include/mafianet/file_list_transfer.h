@@ -30,7 +30,6 @@
 #include "mafianet/ds_map.h"
 #include "mafianet/types.h"
 #include "mafianet/packet_priority.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/file_list.h"
 #include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"

@@ -24,7 +24,6 @@
 #include "mafianet/assert.h"
 #include <string.h> // memmove
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/string.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures

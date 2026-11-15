@@ -24,7 +24,6 @@
 #define __EMAIL_SENDER_H
 
 #include "mafianet/types.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 #include "mafianet/rand.h"
 #include "mafianet/tcp_interface.h"

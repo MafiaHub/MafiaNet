@@ -15,7 +15,6 @@
 
 #include "mafianet/base64_encoder.h"
 #include <cstdlib>
-#include "mafianet/memory_override.h"
 
 const char *Base64Map(void)
 {

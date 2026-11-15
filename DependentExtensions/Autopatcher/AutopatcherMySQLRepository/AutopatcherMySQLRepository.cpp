@@ -47,14 +47,6 @@ struct FileInfo
 	bool createFile;
 };
 
-// alloca
-#ifdef _COMPATIBILITY_1
-#elif defined(_WIN32)
-#include <malloc.h>
-#else
-//#include <stdlib.h>
-#endif
-
 
 #define PQEXECPARAM_FORMAT_TEXT 0
 #define PQEXECPARAM_FORMAT_BINARY 1

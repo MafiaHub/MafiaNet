@@ -18,7 +18,6 @@
 
 //#define _USE_ORDERED_LIST
 
-#include "mafianet/memory_override.h"
 
 #ifdef _USE_ORDERED_LIST
 #include "mafianet/ds_ordered_list.h"

@@ -25,7 +25,6 @@
 #ifndef __DIRECTORY_DELTA_TRANSFER_H
 #define __DIRECTORY_DELTA_TRANSFER_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/types.h"
 #include "mafianet/export.h"
 #include "mafianet/plugin_interface2.h"

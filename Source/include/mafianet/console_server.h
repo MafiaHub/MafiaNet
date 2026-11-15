@@ -24,7 +24,6 @@
 #ifndef __CONSOLE_SERVER_H
 #define __CONSOLE_SERVER_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/ds_list.h"
 #include "mafianet/types.h"
 #include "mafianet/export.h"

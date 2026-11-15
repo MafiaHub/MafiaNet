@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/wstring.h"
+#include <cstdlib>
 #include "mafianet/bit_stream.h"
 #include <string.h>
 #include <wchar.h>

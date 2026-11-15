@@ -24,7 +24,6 @@
 #include "mafianet/rand.h"
 #include "mafianet/statistics.h"
 #include "mafianet/sleep.h"
-#include "mafianet/memory_override.h"
 #include <stdio.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/gets.h"
@@ -40,42 +39,7 @@ using namespace MafiaNet;
 #include <unistd.h> // usleep
 #endif
 
-FILE *fp;
-int memoryUsage = 0;
-void *LoggedMalloc(size_t size, const char *file, unsigned int line)
-{
-	memoryUsage += size;
-	if (fp)
-		fprintf(fp, "Alloc %s:%i %zu bytes %i total\n", file, line, size, memoryUsage);
-	char *p = (char *) malloc(size + sizeof(size));
-	memcpy(p, &size, sizeof(size));
-	return p + sizeof(size);
-}
-void LoggedFree(void *p, const char *file, unsigned int line)
-{
-	char *realP = (char *) p - sizeof(size_t);
-	size_t allocatedSize;
-	memcpy(&allocatedSize, realP, sizeof(size_t));
-	memoryUsage -= allocatedSize;
-	if (fp)
-		fprintf(fp, "Free %s:%i %zu bytes %i total\n", file, line, allocatedSize, memoryUsage);
-	free(realP);
-}
-void *LoggedRealloc(void *p, size_t size, const char *file, unsigned int line)
-{
-	char *realP = (char *) p - sizeof(size_t);
-	size_t allocatedSize;
-	memcpy(&allocatedSize, realP, sizeof(size_t));
-	memoryUsage -= allocatedSize;
-	memoryUsage += size;
-	p = realloc(realP, size + sizeof(size));
-	memcpy(p, &size, sizeof(size));
-	if (fp)
-		fprintf(fp, "Realloc %s:%i %zu to %zu bytes %i total\n", file, line, allocatedSize, size, memoryUsage);
-	return (char *) p + sizeof(size);
-}
-
-int main(int argc, char **argv)
+int main()
 {
 	RakPeerInterface *sender, *receiver;
 	unsigned int packetNumber[32], receivedPacketNumber;
@@ -101,16 +65,6 @@ int main(int argc, char **argv)
 	Gets(str, sizeof(str));
 	if (str[0] == 0)
 		return 1;
-
-	if (argc == 2)
-	{
-		fopen_s(&fp, argv[1], "wt");
-		SetMalloc_Ex(LoggedMalloc);
-		SetRealloc_Ex(LoggedRealloc);
-		SetFree_Ex(LoggedFree);
-	}
-	else
-		fp = 0;
 
 	if (str[0] == 's' || str[0] == 'S')
 	{
@@ -380,9 +334,6 @@ int main(int argc, char **argv)
 		MafiaNet::RakPeerInterface::DestroyInstance(sender);
 	if (receiver)
 		MafiaNet::RakPeerInterface::DestroyInstance(receiver);
-
-	if (fp)
-		fclose(fp);
 
 	return 1;
 }
