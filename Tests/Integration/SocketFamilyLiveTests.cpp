@@ -44,10 +44,10 @@ StartupResult StartOnce(SocketDescriptor descriptor, bool *dualStack = nullptr, 
 	const StartupResult result = guard.peer->Startup(1, &descriptor, 1);
 	if (result == RAKNET_STARTED)
 	{
-		DataStructures::List<RakNetSocket2 *> sockets;
+		std::vector<RakNetSocket2 *> sockets;
 		guard.peer->GetSockets(sockets);
 		if (dualStack != nullptr)
-			*dualStack = sockets.Size() == 1 && sockets[0]->IsDualStack();
+			*dualStack = sockets.size() == 1 && sockets[0]->IsDualStack();
 		if (bound != nullptr)
 			*bound = guard.peer->GetMyBoundAddress();
 	}
@@ -65,9 +65,9 @@ RakNetSocket2 *StartWildcard(RakPeerInterface *peer, unsigned short family)
 	sd.socketFamily = family;
 	if (peer->Startup(1, &sd, 1) != RAKNET_STARTED)
 		return nullptr;
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	peer->GetSockets(sockets);
-	return sockets.Size() == 1 ? sockets[0] : nullptr;
+	return sockets.size() == 1 ? sockets[0] : nullptr;
 }
 } // namespace
 

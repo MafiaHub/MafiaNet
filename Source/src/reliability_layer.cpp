@@ -1828,7 +1828,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 			bsp.data = (char *) dat->data;
 			bsp.length = dat->length;
 			bsp.systemAddress = systemAddress;
-			dat->s->Send(&bsp, _FILE_AND_LINE_);
+			dat->s->Send(&bsp);
 
 			delete dat;
 		}
@@ -2511,7 +2511,7 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 		bsp.data = (char *) bitStream->GetData();
 		bsp.length = length;
 		bsp.systemAddress = systemAddress;
-		s->Send(&bsp, _FILE_AND_LINE_);
+		s->Send(&bsp);
 	}
 #endif
 }

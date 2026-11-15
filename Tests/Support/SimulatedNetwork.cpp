@@ -47,7 +47,7 @@ public:
 		dualStack = ipv4Alias != UNASSIGNED_SYSTEM_ADDRESS;
 	}
 
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters) override
 	{
 		const SystemAddress &from =
 		    dualStack && sendParameters->systemAddress.GetIPVersion() == 4 ? ipv4Alias : boundAddress;
@@ -348,7 +348,7 @@ void SimulatedNetwork::DeliverDue()
 			continue;
 		if (datagram.bytes.empty() || datagram.bytes.size() > MAXIMUM_MTU_SIZE)
 			continue;
-		RNS2RecvStruct *recv = handler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
+		RNS2RecvStruct *recv = handler->AllocRNS2RecvStruct();
 		std::memcpy(recv->data, datagram.bytes.data(), datagram.bytes.size());
 		recv->bytesRead = (int) datagram.bytes.size();
 		recv->systemAddress = datagram.from;

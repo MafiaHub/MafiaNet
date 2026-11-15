@@ -249,7 +249,7 @@ int main(int argc, char **argv)
 	MafiaNet::SocketDescriptor socketDescriptor(localPort, 0);
 	rakPeer->Startup(1, &socketDescriptor, 1);
 	rakPeer->AttachPlugin(&cloudClient);
-	DataStructures::List<MafiaNet::RakNetSocket2 *> sockets;
+	std::vector<MafiaNet::RakNetSocket2 *> sockets;
 	rakPeer->GetSockets(sockets);
 	printf("Started on port %i\n", sockets[0]->GetBoundAddress().GetPort());
 

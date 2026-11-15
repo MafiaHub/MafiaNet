@@ -78,8 +78,8 @@ public:
 	virtual void OnDetach(void);
 
 	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct);
-	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line);
-	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line);
+	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s);
+	virtual RNS2RecvStruct *AllocRNS2RecvStruct();
 
 protected:
 	DataStructures::Queue<RNS2RecvStruct *> bufferedPackets;

@@ -159,10 +159,10 @@ int main(void)
 			else
 				printf("Completed=False\n");
 
-			DataStructures::List<SystemAddress> addresses;
-			DataStructures::List<RakNetGUID> guids;
+			std::vector<SystemAddress> addresses;
+			std::vector<RakNetGUID> guids;
 			rakPeer->GetSystemList(addresses, guids);
-			for (unsigned short i = 0; i < guids.Size(); i++)
+			for (unsigned short i = 0; i < guids.size(); i++)
 			{
 				ReadyEventSystemStatus ress = readyEventPlugin.GetReadyStatus(0, guids[i]);
 				printf("  Remote system %i, status = ", i);

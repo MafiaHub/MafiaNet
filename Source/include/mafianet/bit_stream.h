@@ -28,6 +28,7 @@
 #include "mafianet/wstring.h"
 #include "mafianet/assert.h"
 #include <cmath>
+#include <cstring>
 #include <float.h>
 #include <memory>
 #include <string>

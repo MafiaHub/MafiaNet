@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include "Lobby2ResultCode.h"
 #include "mafianet/string.h"
+#include "mafianet/ds_list.h"
 #include "mafianet/assert.h"
 #include <memory>
 #include "mafianet/simple_mutex.h"

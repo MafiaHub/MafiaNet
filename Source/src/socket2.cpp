@@ -128,7 +128,7 @@ void RakNetSocket2::SetRecvEventHandler(RNS2EventHandler *_eventHandler)
 {
 	eventHandler = _eventHandler;
 }
-RNS2SendResult RakNetSocket2::SendBatch(RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line)
+RNS2SendResult RakNetSocket2::SendBatch(RNS2_SendParameters *sends, unsigned count)
 {
 	// Portable default: send each datagram individually. Platforms with a real
 	// batched syscall (Linux/sendmmsg) override this. Driving it through
@@ -144,7 +144,7 @@ RNS2SendResult RakNetSocket2::SendBatch(RNS2_SendParameters *sends, unsigned cou
 	                        [&](unsigned offset, unsigned remaining) -> int
 	                        {
 		                        (void) remaining;
-		                        RNS2SendResult r = Send(&sends[offset], file, line);
+		                        RNS2SendResult r = Send(&sends[offset]);
 		                        return r >= 0 ? 1 : (int) r;
 	                        });
 }
@@ -236,7 +236,7 @@ bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, un
 	bbp.eventHandler = nullptr;
 	SystemAddress boundAddress;
 	RNS2_Berkley *rns2 = (RNS2_Berkley *) RakNetSocket2Allocator::AllocRNS2();
-	RNS2BindResult bindResult = rns2->Bind(&bbp, _FILE_AND_LINE_);
+	RNS2BindResult bindResult = rns2->Bind(&bbp);
 	RakNetSocket2Allocator::DeallocRNS2(rns2);
 	// BR_FAMILY_NOT_SUPPORTED means "cannot tell", not "in use": see the declaration.
 	return bindResult == BR_FAILED_TO_BIND_SOCKET;
@@ -250,9 +250,9 @@ void SocketReadCallback(CFSocketRef /*s*/, CFSocketCallBackType /*type*/, CFData
 }
 #endif
 
-RNS2BindResult RNS2_Berkley::BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
+RNS2BindResult RNS2_Berkley::BindShared(RNS2_BerkleyBindParameters *bindParameters)
 {
-	RNS2BindResult br = BindSharedIPV4And6(bindParameters, file, line);
+	RNS2BindResult br = BindSharedIPV4And6(bindParameters);
 
 	if (br != BR_SUCCESS)
 		return br;
@@ -263,7 +263,7 @@ RNS2BindResult RNS2_Berkley::BindShared(RNS2_BerkleyBindParameters *bindParamete
 	bsp.length = 4;
 	bsp.systemAddress = SelfSendAddress();
 	bsp.ttl = 0;
-	RNS2SendResult sr = Send(&bsp, _FILE_AND_LINE_);
+	RNS2SendResult sr = Send(&bsp);
 	if (sr < 0)
 		return BR_FAILED_SEND_TEST;
 
@@ -301,7 +301,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 	while (endThreads == false)
 	{
 		RNS2RecvStruct *recvFromStruct;
-		recvFromStruct = binding.eventHandler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
+		recvFromStruct = binding.eventHandler->AllocRNS2RecvStruct();
 		if (recvFromStruct != nullptr)
 		{
 			recvFromStruct->socket = this;
@@ -315,7 +315,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 			else
 			{
 				RakSleep(0);
-				binding.eventHandler->DeallocRNS2RecvStruct(recvFromStruct, _FILE_AND_LINE_);
+				binding.eventHandler->DeallocRNS2RecvStruct(recvFromStruct);
 			}
 		}
 	}
@@ -362,13 +362,13 @@ void RNS2_Berkley::BlockOnStopRecvPollingThread(void)
 	bsp.length = 4;
 	bsp.systemAddress = SelfSendAddress();
 	bsp.ttl = 0;
-	Send(&bsp, _FILE_AND_LINE_);
+	Send(&bsp);
 
 	MafiaNet::TimeMS timeout = MafiaNet::GetTimeMS() + 1000;
 	while (isRecvFromLoopThreadActive.GetValue() > 0 && MafiaNet::GetTimeMS() < timeout)
 	{
 		// Get recvfrom to unblock
-		Send(&bsp, _FILE_AND_LINE_);
+		Send(&bsp);
 		RakSleep(30);
 	}
 }
@@ -388,18 +388,18 @@ RNS2_Windows::RNS2_Windows()
 	slo = 0;
 }
 RNS2_Windows::~RNS2_Windows() {}
-RNS2BindResult RNS2_Windows::Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
+RNS2BindResult RNS2_Windows::Bind(RNS2_BerkleyBindParameters *bindParameters)
 {
-	RNS2BindResult bindResult = BindShared(bindParameters, file, line);
+	RNS2BindResult bindResult = BindShared(bindParameters);
 	if (bindResult == BR_FAILED_TO_BIND_SOCKET)
 	{
 		// Sometimes windows will fail if the socket is recreated too quickly
 		RakSleep(100);
-		bindResult = BindShared(bindParameters, file, line);
+		bindResult = BindShared(bindParameters);
 	}
 	return bindResult;
 }
-RNS2SendResult RNS2_Windows::Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
+RNS2SendResult RNS2_Windows::Send(RNS2_SendParameters *sendParameters)
 {
 	if (slo)
 	{
@@ -408,7 +408,7 @@ RNS2SendResult RNS2_Windows::Send(RNS2_SendParameters *sendParameters, const cha
 		if (len >= 0)
 			return len;
 	}
-	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters);
 }
 void RNS2_Windows::GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS])
 {
@@ -423,18 +423,18 @@ SocketLayerOverride *RNS2_Windows::GetSocketLayerOverride(void)
 	return slo;
 }
 #else
-RNS2BindResult RNS2_Linux::Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
+RNS2BindResult RNS2_Linux::Bind(RNS2_BerkleyBindParameters *bindParameters)
 {
-	return BindShared(bindParameters, file, line);
+	return BindShared(bindParameters);
 }
-RNS2SendResult RNS2_Linux::Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
+RNS2SendResult RNS2_Linux::Send(RNS2_SendParameters *sendParameters)
 {
-	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters);
 }
 // See the declaration in socket2.h for why __linux__ is required here and not
 // just the build flag.
 #if defined(__linux__)
-RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line)
+RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count)
 {
 	// sendmmsg has no per-message TTL, whereas the scalar Send() honours
 	// RNS2_SendParameters::ttl by bracketing the sendto with setsockopt(IP_TTL).
@@ -445,16 +445,13 @@ RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count,
 	for (unsigned i = 0; i < count; ++i)
 	{
 		if (sends[i].ttl > 0)
-			return RakNetSocket2::SendBatch(sends, count, file, line);
+			return RakNetSocket2::SendBatch(sends, count);
 	}
 
 	// This kernel/sandbox does not implement sendmmsg (see MmsgUnavailable).
 	// Every call would fail identically, so go straight to the portable loop.
 	if (MmsgUnavailable())
-		return RakNetSocket2::SendBatch(sends, count, file, line);
-
-	(void) file;
-	(void) line;
+		return RakNetSocket2::SendBatch(sends, count);
 
 	// DriveBatchedSend handles the partial-send resume; each transmit() call
 	// coalesces up to MMSG_BATCH_MAX datagrams into one sendmmsg. sendmmsg
@@ -505,7 +502,7 @@ RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count,
 	// sendmmsg turned out to be missing. It fails on the first call, so
 	// `sent` is 0 and no datagram was duplicated by resending the batch.
 	if (sent == 0 && MmsgUnavailable())
-		return RakNetSocket2::SendBatch(sends, count, file, line);
+		return RakNetSocket2::SendBatch(sends, count);
 	return sent;
 }
 #endif

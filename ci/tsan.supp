@@ -42,8 +42,3 @@ race:MafiaNet::RakPeer::RemoveFromActiveSystemList
 race:MafiaNet::RakPeer::AssignSystemAddressToRemoteSystemList
 race:MafiaNet::RakPeer::ParseConnectionRequestPacket
 race:MafiaNet::RakPeer::SetOccasionalPing
-
-# --- Thread-handoff connection-request queue: producers on the user thread,
-#     consumer on the network thread. The queue access pattern predates this
-#     work; baselined pending a review of the intended locking discipline ---
-race:DataStructures::Queue<MafiaNet::RakPeer::RequestedConnectionStruct*>::Push

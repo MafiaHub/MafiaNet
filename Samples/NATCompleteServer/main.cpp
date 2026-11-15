@@ -251,18 +251,18 @@ struct UDPProxyCoordinatorFramework : public SampleFramework
 };
 SystemAddress SelectAmongConnectedSystems(MafiaNet::RakPeerInterface *rakPeer, const char *hostName)
 {
-	DataStructures::List<SystemAddress> addresses;
-	DataStructures::List<RakNetGUID> guids;
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
 	rakPeer->GetSystemList(addresses, guids);
-	if (addresses.Size() == 0)
+	if (addresses.size() == 0)
 	{
 		return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	}
-	if (addresses.Size() > 1)
+	if (addresses.size() > 1)
 	{
 		printf("Select IP address for %s.\n", hostName);
 		char buff[64];
-		for (unsigned int i = 0; i < addresses.Size(); i++)
+		for (unsigned int i = 0; i < addresses.size(); i++)
 		{
 			addresses[i].ToString(true, buff, static_cast<size_t>(64));
 			printf("%i. %s\n", i + 1, buff);
@@ -273,7 +273,7 @@ SystemAddress SelectAmongConnectedSystems(MafiaNet::RakPeerInterface *rakPeer, c
 			return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		}
 		unsigned int idx = atoi(buff);
-		if (idx <= 0 || idx > addresses.Size())
+		if (idx <= 0 || idx > addresses.size())
 		{
 			return MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 		}
@@ -718,10 +718,10 @@ int main(int argc, char **argv)
 					printf("No system 0\n");
 				}
 
-				DataStructures::List<SystemAddress> addresses;
-				DataStructures::List<RakNetGUID> guids;
+				std::vector<SystemAddress> addresses;
+				std::vector<RakNetGUID> guids;
 				rakPeer->GetSystemList(addresses, guids);
-				printf("%i systems connected\n", addresses.Size());
+				printf("%i systems connected\n", addresses.size());
 			}
 		}
 		RakSleep(30);

@@ -150,8 +150,8 @@ TEST_F(ManyClientsOneServerBlocking, ClientsSurviveRepeatedDisconnectReconnectCy
 
 	TimeMS entryTime = GetTimeMS(); //Loop entry time
 
-	DataStructures::List<SystemAddress> systemList;
-	DataStructures::List<RakNetGUID> guidList;
+	std::vector<SystemAddress> systemList;
+	std::vector<RakNetGUID> guidList;
 
 	printf("Entering disconnect loop \n");
 
@@ -163,7 +163,7 @@ TEST_F(ManyClientsOneServerBlocking, ClientsSurviveRepeatedDisconnectReconnectCy
 		{
 
 			clientList[i]->GetSystemList(systemList, guidList); //Get connectionlist
-			int len = systemList.Size();
+			int len = systemList.size();
 
 			for (int j = 0; j < len; j++) //Disconnect them all
 			{
@@ -233,7 +233,7 @@ TEST_F(ManyClientsOneServerBlocking, ClientsSurviveRepeatedDisconnectReconnectCy
 	{
 
 		clientList[i]->GetSystemList(systemList, guidList);
-		int connNum = guidList.Size(); //Get the number of connections for the current peer
+		int connNum = guidList.size(); //Get the number of connections for the current peer
 		//Did we connect all?
 		ASSERT_EQ(connNum, 1) << "Peers did not connect normally. Not all clients reconnected normally. Failed on client number " << i;
 	}

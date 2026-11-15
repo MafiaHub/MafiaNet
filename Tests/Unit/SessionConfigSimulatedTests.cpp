@@ -108,7 +108,7 @@ public:
 		out.reported = slot.connectionReportedToApplication;
 		out.payloadLength = slot.remoteSessionConfigLength;
 		out.exchanging = slot.connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA;
-		out.heldMessages = slot.heldApplicationMessages.Size();
+		out.heldMessages = (unsigned int) slot.heldApplicationMessages.size();
 		out.heldBytes = slot.heldApplicationBytes;
 		out.connectingSide = slot.sessionConfigIsConnectingSide;
 		out.handlingRequest = slot.connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST;

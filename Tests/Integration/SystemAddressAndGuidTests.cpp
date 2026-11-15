@@ -92,14 +92,14 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 
 	ASSERT_TRUE(TestHelpers::WaitAndConnectTwoPeersLocally(client, server, 5000)) << "Could not connect the client";
 
-	DataStructures::List<SystemAddress> systemList;
-	DataStructures::List<RakNetGUID> guidList;
+	std::vector<SystemAddress> systemList;
+	std::vector<RakNetGUID> guidList;
 
 	printf("Test GetSystemList and NumberOfConnections\n");
 
 	client->GetSystemList(systemList, guidList); //Get connectionlist
-	int len = systemList.Size();
-	int len2 = guidList.Size();
+	int len = systemList.size();
+	int len2 = guidList.size();
 
 	int conNum = client->NumberOfConnections();
 

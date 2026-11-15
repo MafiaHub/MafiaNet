@@ -21,6 +21,7 @@
 
 #include "mafianet/types.h"
 #include "mafianet/string.h"
+#include "mafianet/ds_list.h"
 
 namespace MafiaNet
 {

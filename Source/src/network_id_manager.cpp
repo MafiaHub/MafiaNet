@@ -24,6 +24,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/super_fast_hash.h"
 #include "mafianet/peer_interface.h"
+#include <cstring>
 
 using namespace MafiaNet;
 

@@ -65,11 +65,11 @@ struct RecordingHandler : RNS2EventHandler
 		received.push_back({s->bytesRead, s->systemAddress.GetPort(),
 		                    s->socket, s->timeRead});
 	}
-	void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *, unsigned int) override
+	void DeallocRNS2RecvStruct(RNS2RecvStruct *s) override
 	{
 		deallocated.push_back(s);
 	}
-	RNS2RecvStruct *AllocRNS2RecvStruct(const char *, unsigned int) override
+	RNS2RecvStruct *AllocRNS2RecvStruct() override
 	{
 		return nullptr; // unused by DispatchRecvBatch
 	}
@@ -114,7 +114,7 @@ struct RecordingSocket : RakNetSocket2
 	int failFrom = -1; // fail every Send() from this index on
 	int failOnly = -1; // fail only the Send() at this index
 
-	RNS2SendResult Send(RNS2_SendParameters *p, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *p) override
 	{
 		const unsigned index = sendCalls++;
 		if (failFrom >= 0 && index >= (unsigned) failFrom)
@@ -674,7 +674,7 @@ TEST(SocketSendBatch, ReturnsDatagramCountNotByteTotal)
 		sends[i].systemAddress = MakeDest(1000);
 	}
 
-	EXPECT_EQ(socket.SendBatch(sends, 3, _FILE_AND_LINE_), 3);
+	EXPECT_EQ(socket.SendBatch(sends, 3), 3);
 	EXPECT_EQ(socket.sent.size(), 3u);
 }
 
@@ -691,12 +691,12 @@ TEST(SocketSendBatch, PropagatesErrorOnlyWhenNothingWasSent)
 
 	RecordingSocket allFail;
 	allFail.failFrom = 0;
-	EXPECT_EQ(allFail.SendBatch(sends, 4, _FILE_AND_LINE_), -1);
+	EXPECT_EQ(allFail.SendBatch(sends, 4), -1);
 
 	// Two out, then a failure: report the progress made, like sendmmsg does.
 	RecordingSocket partial;
 	partial.failFrom = 2;
-	EXPECT_EQ(partial.SendBatch(sends, 4, _FILE_AND_LINE_), 2);
+	EXPECT_EQ(partial.SendBatch(sends, 4), 2);
 	EXPECT_EQ(partial.sent.size(), 2u);
 }
 
@@ -715,7 +715,7 @@ TEST(SocketSendBatch, DropsOnlyTheDatagramThatFailed)
 		sends[i].systemAddress = MakeDest((unsigned short) (1000 + i));
 	}
 
-	EXPECT_EQ(socket.SendBatch(sends, 4, _FILE_AND_LINE_), 3);
+	EXPECT_EQ(socket.SendBatch(sends, 4), 3);
 	ASSERT_EQ(socket.sent.size(), 3u);
 	EXPECT_EQ(socket.sent[0].port, 1000);
 	EXPECT_EQ(socket.sent[1].port, 1002) << "the datagram after the bad one must still go out";
@@ -738,7 +738,7 @@ TEST(SocketSendBatch, ForwardsPerDatagramTtl)
 		sends[i].ttl = (int) (i + 1);
 	}
 
-	EXPECT_EQ(socket.SendBatch(sends, 2, _FILE_AND_LINE_), 2);
+	EXPECT_EQ(socket.SendBatch(sends, 2), 2);
 	ASSERT_EQ(socket.sent.size(), 2u);
 	EXPECT_EQ(socket.sent[0].ttl, 1);
 	EXPECT_EQ(socket.sent[1].ttl, 2);

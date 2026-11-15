@@ -46,9 +46,9 @@ unsigned short TestHelpers::StartDualStack(RakPeerInterface *peer, unsigned int 
 		*startup = result;
 	if (result != RAKNET_STARTED)
 		return 0;
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	peer->GetSockets(sockets);
-	if (sockets.Size() != 1 || !sockets[0]->IsDualStack())
+	if (sockets.size() != 1 || !sockets[0]->IsDualStack())
 		return 0;
 	peer->SetMaximumIncomingConnections(maxIncoming);
 	return peer->GetMyBoundAddress().GetPort();

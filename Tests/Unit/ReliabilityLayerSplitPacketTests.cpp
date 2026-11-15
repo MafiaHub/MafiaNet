@@ -39,7 +39,7 @@ namespace
 {
 struct NullSocket : public RakNetSocket2
 {
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters) override
 	{
 		return sendParameters->length;
 	}

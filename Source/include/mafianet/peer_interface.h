@@ -25,7 +25,7 @@
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"
-#include "mafianet/ds_list.h"
+#include <vector>
 #include "mafianet/socket2.h"
 
 namespace MafiaNet
@@ -334,7 +334,7 @@ public:
 	/// Indices match each other, so \a addresses[0] and \a guids[0] refer to the same system
 	/// \param[out] addresses All system addresses. Size of the list is the number of connections. Size of the list will match the size of the \a guids list.
 	/// \param[out] guids All guids. Size of the list is the number of connections. Size of the list will match the size of the \a addresses list.
-	virtual void GetSystemList(DataStructures::List<SystemAddress> &addresses, DataStructures::List<RakNetGUID> &guids) const = 0;
+	virtual void GetSystemList(std::vector<SystemAddress> &addresses, std::vector<RakNetGUID> &guids) const = 0;
 
 	/// Bans an IP from connecting.  Banned IPs persist between connections but are not saved on shutdown nor loaded on startup.
 	/// param[in] IP Dotted IP address. Can use * as a wildcard, such as 128.0.0.* will ban all IP addresses starting with 128.0.0
@@ -641,8 +641,8 @@ public:
 	/// Get all sockets in use
 	/// \note This sends a query to the thread and blocks on the return value for up to one second. In practice it should only take a millisecond or so.
 	/// \param[out] sockets List of RakNetSocket2 structures in use. Sockets will not be closed until \a sockets goes out of scope
-	virtual void GetSockets(DataStructures::List<RakNetSocket2 *> &sockets) = 0;
-	virtual void ReleaseSockets(DataStructures::List<RakNetSocket2 *> &sockets) = 0;
+	virtual void GetSockets(std::vector<RakNetSocket2 *> &sockets) = 0;
+	virtual void ReleaseSockets(std::vector<RakNetSocket2 *> &sockets) = 0;
 
 	virtual void WriteOutOfBandHeader(MafiaNet::BitStream *bitStream) = 0;
 
@@ -698,7 +698,7 @@ public:
 	/// \param[out] addresses SystemAddress for each connected system
 	/// \param[out] guids RakNetGUID for each connected system
 	/// \param[out] statistics Calculated RakNetStatistics for each connected system
-	virtual void GetStatisticsList(DataStructures::List<SystemAddress> &addresses, DataStructures::List<RakNetGUID> &guids, DataStructures::List<RakNetStatistics> &statistics) = 0;
+	virtual void GetStatisticsList(std::vector<SystemAddress> &addresses, std::vector<RakNetGUID> &guids, std::vector<RakNetStatistics> &statistics) = 0;
 
 	/// \Returns how many messages are waiting when you call Receive()
 	virtual unsigned int GetReceiveBufferSize(void) = 0;

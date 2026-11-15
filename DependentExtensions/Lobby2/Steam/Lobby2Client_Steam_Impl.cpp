@@ -605,15 +605,15 @@ void Lobby2Client_Steam_Impl::OnAttach(void)
 	nextFreeSystemAddress = (uint32_t) rakPeerInterface->GetMyGUID().g;
 
 	// If this asserts, call RakPeer::Startup() before attaching Lobby2Client_Steam
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	rakPeerInterface->GetSockets(sockets);
-	RakAssert(sockets.Size());
+	RakAssert(sockets.size());
 	((RNS2_Windows *) sockets[0])->SetSocketLayerOverride(this);
 }
 void Lobby2Client_Steam_Impl::OnDetach(void)
 {
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	rakPeerInterface->GetSockets(sockets);
-	RakAssert(sockets.Size());
+	RakAssert(sockets.size());
 	((RNS2_Windows *) sockets[0])->SetSocketLayerOverride(nullptr);
 }

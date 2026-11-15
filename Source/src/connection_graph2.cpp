@@ -213,17 +213,17 @@ void ConnectionGraph2::AddParticipant(const SystemAddress &systemAddress, RakNet
 	SendUnified(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemAddress, true);
 
 	// Send everyone to the new guy
-	DataStructures::List<SystemAddress> addresses;
-	DataStructures::List<RakNetGUID> guids;
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
 	rakPeerInterface->GetSystemList(addresses, guids);
 	bs.Reset();
 	bs.Write((MessageID) ID_REMOTE_NEW_INCOMING_CONNECTION);
 	BitSize_t writeOffset = bs.GetWriteOffset();
-	bs.Write((uint32_t) addresses.Size());
+	bs.Write((uint32_t) addresses.size());
 
 	unsigned int i;
 	uint32_t count = 0;
-	for (i = 0; i < addresses.Size(); i++)
+	for (i = 0; i < addresses.size(); i++)
 	{
 		if (addresses[i] == systemAddress)
 			continue;

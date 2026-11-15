@@ -285,7 +285,7 @@ public:
 		// SendBatch returns a datagram count, or a negative error when nothing at
 		// all went out. Either shortfall means datagrams were dropped; the scalar
 		// path reports its sendto failures the same way, so don't lose the signal.
-		const RNS2SendResult sent = socket->SendBatch(sends, count, _FILE_AND_LINE_);
+		const RNS2SendResult sent = socket->SendBatch(sends, count);
 		// A return above `count` means an override handed back a byte total
 		// instead of a datagram count -- the one contract the RNS2_Linux sendmmsg
 		// override cannot be unit-tested against, so check it at runtime here.

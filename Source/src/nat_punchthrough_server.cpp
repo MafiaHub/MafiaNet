@@ -248,9 +248,9 @@ PluginReceiveResult NatPunchthroughServer::OnReceive(Packet *packet)
 
 		if (boundAddresses[0] == UNASSIGNED_SYSTEM_ADDRESS)
 		{
-			DataStructures::List<RakNetSocket2 *> sockets;
+			std::vector<RakNetSocket2 *> sockets;
 			rakPeerInterface->GetSockets(sockets);
-			for (unsigned i = 0; i < sockets.Size() && i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
+			for (unsigned i = 0; i < sockets.size() && i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
 			{
 				boundAddresses[i] = sockets[i]->GetBoundAddress();
 				boundAddressCount++;

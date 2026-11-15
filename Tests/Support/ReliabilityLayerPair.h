@@ -56,7 +56,7 @@ struct CapturingSocket : public MafiaNet::RakNetSocket2
 {
 	std::vector<std::vector<char>> sent;
 
-	MafiaNet::RNS2SendResult Send(MafiaNet::RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	MafiaNet::RNS2SendResult Send(MafiaNet::RNS2_SendParameters *sendParameters) override
 	{
 		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
 		return sendParameters->length;

@@ -32,7 +32,7 @@ struct QueueSocket : public RakNetSocket2
 {
 	std::vector<std::vector<char>> sent;
 
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters) override
 	{
 		sent.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
 		return sendParameters->length;

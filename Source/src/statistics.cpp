@@ -19,6 +19,7 @@
 
 #include "mafianet/statistics.h"
 #include <stdio.h> // sprintf
+#include <cstring>
 #include "mafianet/get_time.h"
 #include "mafianet/string.h"
 #include "mafianet/linux_adapter.h"

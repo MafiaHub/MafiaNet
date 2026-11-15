@@ -46,7 +46,7 @@ int main()
 	}
 	f->SetMaximumIncomingConnections(32);
 
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	f->GetSockets(sockets);
 	f->ReleaseSockets(sockets);
 

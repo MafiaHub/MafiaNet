@@ -121,10 +121,10 @@ _CONSOLE_2_SetSystemProcessParams
 	server->SetOccasionalPing(true);
 	server->SetUnreliableTimeout(1000);
 
-	DataStructures::List<MafiaNet::RakNetSocket2 *> sockets;
+	std::vector<MafiaNet::RakNetSocket2 *> sockets;
 	server->GetSockets(sockets);
 	printf("Socket addresses used by RakNet:\n");
-	for (unsigned int i = 0; i < sockets.Size(); i++)
+	for (unsigned int i = 0; i < sockets.size(); i++)
 	{
 		printf("%i. %s\n", i + 1, sockets[i]->GetBoundAddress().ToString(true));
 	}
