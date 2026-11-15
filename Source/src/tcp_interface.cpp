@@ -39,6 +39,7 @@ typedef int socklen_t;
 #include "mafianet/itoa.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/socket_defines.h"
+#include "mafianet/sockaddr_convert.h"
 #if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(__WIN32__)
 #include <netdb.h>
 #endif
@@ -95,46 +96,76 @@ TCPInterface::~TCPInterface()
 	MafiaNet::StringTable::RemoveReference();
 }
 
-bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
+// The FromString() ipVersion matching a socket family: AF_INET resolves IPv4 only, AF_INET6 IPv6 only, anything else both.
+static int SocketFamilyToIpVersion(unsigned short socketFamily)
+{
+	if (socketFamily == AF_INET)
+		return 4;
+	if (socketFamily == AF_INET6)
+		return 6;
+	return 0;
+}
+
+// Binds a listening TCP socket of exactly \a family (AF_INET or AF_INET6). An AF_INET6 socket is IPv6 only unless
+// \a dualStack, in which case a system that refuses IPV6_V6ONLY=0 yields no socket. Returns 0 on failure.
+static __TCPSOCKET__ BindTcpListenSocket(const char *portStr, int family, bool dualStack, const char *bindAddress)
 {
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(addrinfo)); // make sure the struct is empty
-	hints.ai_family = socketFamily;      // AF_INET, AF_INET6 or AF_UNSPEC
+	hints.ai_family = family;
 	hints.ai_socktype = SOCK_STREAM;     // TCP sockets
 	hints.ai_flags = AI_PASSIVE;         // wildcard address when bindAddress is empty
 	struct addrinfo *servinfo = 0, *aip; // will point to the results
-	char portStr[32];
-	Itoa(port, portStr, 10);
 
 	const char *host = (bindAddress && bindAddress[0]) ? bindAddress : nullptr;
-	if (getaddrinfo(host, portStr, &hints, &servinfo) != 0)
-		return false;
+	if (getaddrinfo(host, portStr, &hints, &servinfo) != 0 || servinfo == nullptr)
+		return 0;
 
-	listenSocket = 0;
+	__TCPSOCKET__ bound = 0;
 	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
 	{
-		// Open socket. The address type depends on what
-		// getaddrinfo() gave us.
 		__TCPSOCKET__ candidate = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
 		if (candidate == INVALID_SOCKET)
 			continue;
 
 		if (aip->ai_family == AF_INET6)
 		{
-			// Always explicit, never the OS default: an explicit AF_INET6 request
-			// is IPv6 only, AF_UNSPEC accepts IPv4 clients as mapped addresses too.
-			int v6only = (socketFamily == AF_INET6) ? 1 : 0;
-			setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
+			// Always explicit, never the OS default.
+			int v6only = dualStack ? 0 : 1;
+			if (setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only)) != 0 && dualStack)
+			{
+				closesocket__(candidate); // this system cannot do dual-stack (OpenBSD)
+				continue;
+			}
 		}
 
 		if (bind__(candidate, aip->ai_addr, (int) aip->ai_addrlen) >= 0)
 		{
-			listenSocket = candidate;
+			bound = candidate;
 			break;
 		}
 		closesocket__(candidate);
 	}
 	freeaddrinfo(servinfo);
+	return bound;
+}
+
+bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
+{
+	char portStr[32];
+	Itoa(port, portStr, 10);
+
+	if (socketFamily == AF_UNSPEC)
+	{
+		// One AF_INET6 socket with IPV6_V6ONLY=0 serves both families, whatever order the resolver returns the
+		// wildcard addresses in. Only when the host cannot do that (no IPv6, an IPv4 bind address, or a system that
+		// refuses V6ONLY=0) fall back to a plain IPv4 socket.
+		listenSocket = BindTcpListenSocket(portStr, AF_INET6, true, bindAddress);
+		if (listenSocket == 0)
+			listenSocket = BindTcpListenSocket(portStr, AF_INET, false, bindAddress);
+	}
+	else
+		listenSocket = BindTcpListenSocket(portStr, socketFamily, false, bindAddress);
 
 	if (listenSocket == 0)
 		return false;
@@ -320,13 +351,15 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 	{
 		SystemAddress systemAddress;
 		// #med - call should be changed to ...FromString(host, '\0') so to not try to extract an optional port (which is overwritten with the removePort directly afterwards)
-		systemAddress.FromString(host);
+		// Resolve in the family the socket will use: the first answer of an unrestricted lookup may be one it cannot reach.
+		systemAddress.FromString(host, '|', SocketFamilyToIpVersion(socketFamily));
 		systemAddress.SetPortHostOrder(remotePort);
 		systemAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
 		char buffout[128];
 		systemAddress.ToString(false, buffout, static_cast<size_t>(128));
 
-		__TCPSOCKET__ sockfd = SocketConnect(buffout, remotePort, socketFamily, bindAddress);
+		SystemAddress peerAddress;
+		__TCPSOCKET__ sockfd = SocketConnect(buffout, remotePort, socketFamily, bindAddress, &peerAddress);
 		if (sockfd == 0)
 		{
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -340,6 +373,11 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 			return UNASSIGNED_SYSTEM_ADDRESS;
 		}
 
+		if (peerAddress != UNASSIGNED_SYSTEM_ADDRESS)
+		{
+			peerAddress.systemIndex = systemAddress.systemIndex;
+			systemAddress = peerAddress;
+		}
 		remoteClients[newRemoteClientIndex].socket = sockfd;
 		remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
 
@@ -352,7 +390,7 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 	else
 	{
 		ThisPtrPlusSysAddr *s = MafiaNet::OP_NEW<ThisPtrPlusSysAddr>(_FILE_AND_LINE_);
-		s->systemAddress.FromStringExplicitPort(host, remotePort);
+		s->systemAddress.FromStringExplicitPort(host, remotePort, SocketFamilyToIpVersion(socketFamily));
 		s->systemAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
 		if (bindAddress)
 			strcpy_s(s->bindAddress, bindAddress);
@@ -739,8 +777,11 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 	}
 	return bytesWritten;
 }
-__TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress)
+__TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress, SystemAddress *peerAddress)
 {
+	if (peerAddress)
+		*peerAddress = UNASSIGNED_SYSTEM_ADDRESS;
+
 	struct addrinfo hints, *res = nullptr;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = socketFamily;
@@ -750,67 +791,77 @@ __TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remot
 	if (getaddrinfo(host, portStr, &hints, &res) != 0 || res == nullptr)
 		return 0;
 
-	__TCPSOCKET__ sockfd = socket__(res->ai_family, res->ai_socktype, res->ai_protocol);
-	if (sockfd == INVALID_SOCKET)
+	// Try every answer in order until one connects: a name may resolve to an address this host cannot reach.
+	__TCPSOCKET__ connected = 0;
+	for (struct addrinfo *aip = res; aip != nullptr && connected == 0; aip = aip->ai_next)
 	{
-		freeaddrinfo(res);
-		return 0;
-	}
+		__TCPSOCKET__ sockfd = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
+		if (sockfd == INVALID_SOCKET)
+			continue;
 
-	if (res->ai_family == AF_INET6)
-	{
-		// Always explicit, never the OS default. The peer is a single remote
-		// address, so IPv6 only loses nothing.
-		int v6only = 1;
-		setsockopt__(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
-	}
-
-	// Optional local address to connect from, in the family of the remote one
-	if (bindAddress && bindAddress[0])
-	{
-		struct addrinfo bindHints, *bindRes = nullptr;
-		memset(&bindHints, 0, sizeof bindHints);
-		bindHints.ai_family = res->ai_family;
-		bindHints.ai_socktype = SOCK_STREAM;
-		bindHints.ai_flags = AI_PASSIVE;
-		if (getaddrinfo(bindAddress, "0", &bindHints, &bindRes) != 0 || bindRes == nullptr ||
-		    bind__(sockfd, bindRes->ai_addr, (int) bindRes->ai_addrlen) < 0)
+		if (aip->ai_family == AF_INET6)
 		{
+			// Always explicit, never the OS default. The peer is a single remote
+			// address, so IPv6 only loses nothing.
+			int v6only = 1;
+			setsockopt__(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
+		}
+
+		// Optional local address to connect from, in the family of the remote one
+		if (bindAddress && bindAddress[0])
+		{
+			struct addrinfo bindHints, *bindRes = nullptr;
+			memset(&bindHints, 0, sizeof bindHints);
+			bindHints.ai_family = aip->ai_family;
+			bindHints.ai_socktype = SOCK_STREAM;
+			bindHints.ai_flags = AI_PASSIVE;
+			const bool bound = getaddrinfo(bindAddress, "0", &bindHints, &bindRes) == 0 && bindRes != nullptr &&
+			                   bind__(sockfd, bindRes->ai_addr, (int) bindRes->ai_addrlen) >= 0;
 			if (bindRes)
 				freeaddrinfo(bindRes);
-			freeaddrinfo(res);
-			closesocket__(sockfd);
-			return 0;
+			if (!bound)
+			{
+				closesocket__(sockfd);
+				continue;
+			}
 		}
-		freeaddrinfo(bindRes);
-	}
 
-	int sock_opt = 1024 * 256;
-	setsockopt__(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
+		int sock_opt = 1024 * 256;
+		setsockopt__(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
 
-	blockingSocketListMutex.Lock();
-	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
-	blockingSocketListMutex.Unlock();
-
-	// This is blocking
-	// #low - review usage of static cast here
-	const int connectResult = connect__(sockfd, res->ai_addr, static_cast<int>(res->ai_addrlen));
-	freeaddrinfo(res); // free the linked-list
-
-	if (connectResult == -1)
-	{
-		unsigned sockfdIndex;
 		blockingSocketListMutex.Lock();
-		sockfdIndex = blockingSocketList.GetIndexOf(sockfd);
-		if (sockfdIndex != (unsigned) -1)
-			blockingSocketList.RemoveAtIndexFast(sockfdIndex);
+		blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
 		blockingSocketListMutex.Unlock();
 
-		closesocket__(sockfd);
-		return 0;
+		// This is blocking
+		const int connectResult = connect__(sockfd, aip->ai_addr, static_cast<int>(aip->ai_addrlen));
+
+		if (connectResult == -1)
+		{
+			unsigned sockfdIndex;
+			blockingSocketListMutex.Lock();
+			sockfdIndex = blockingSocketList.GetIndexOf(sockfd);
+			if (sockfdIndex != (unsigned) -1)
+				blockingSocketList.RemoveAtIndexFast(sockfdIndex);
+			blockingSocketListMutex.Unlock();
+
+			closesocket__(sockfd);
+			continue;
+		}
+		connected = sockfd;
+	}
+	freeaddrinfo(res); // free the linked-list
+
+	if (connected != 0 && peerAddress)
+	{
+		sockaddr_storage peer;
+		memset(&peer, 0, sizeof(peer));
+		socklen_t peerLength = sizeof(peer);
+		if (getpeername(connected, (sockaddr *) &peer, &peerLength) != 0 || !SockaddrToSystemAddress(peer, peerAddress))
+			*peerAddress = UNASSIGNED_SYSTEM_ADDRESS;
 	}
 
-	return sockfd;
+	return connected;
 }
 
 RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
@@ -830,7 +881,8 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 
 	char str1[64];
 	systemAddress.ToString(false, str1, static_cast<size_t>(64));
-	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress);
+	SystemAddress peerAddress;
+	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress, &peerAddress);
 	if (sockfd == 0)
 	{
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -843,6 +895,11 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 		return 0;
 	}
 
+	if (peerAddress != UNASSIGNED_SYSTEM_ADDRESS)
+	{
+		peerAddress.systemIndex = systemAddress.systemIndex;
+		systemAddress = peerAddress;
+	}
 	tcpInterface->remoteClients[newRemoteClientIndex].socket = sockfd;
 	tcpInterface->remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
 
@@ -990,13 +1047,9 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						{
 							sts->remoteClients[newRemoteClientIndex].socket = newSock;
 
+							// A dual-stack listener reports IPv4 clients as mapped IPv6 addresses: store them canonically
 							SystemAddress acceptedAddress;
-							if (sockAddr.ss_family == AF_INET)
-								memcpy(&acceptedAddress.address.addr4, (sockaddr_in *) &sockAddr, sizeof(sockaddr_in));
-							else
-								memcpy(&acceptedAddress.address.addr6, (sockaddr_in6 *) &sockAddr, sizeof(sockaddr_in6));
-							// A dual-stack listener reports IPv4 clients as mapped IPv6 addresses
-							acceptedAddress.UnmapIPv4();
+							SockaddrToSystemAddress(sockAddr, &acceptedAddress);
 							acceptedAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
 							sts->remoteClients[newRemoteClientIndex].systemAddress = acceptedAddress;
 							sts->remoteClients[newRemoteClientIndex].SetActive(true);

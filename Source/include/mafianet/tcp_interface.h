@@ -193,7 +193,10 @@ protected:
 
 	//	void DeleteRemoteClient(RemoteClient *remoteClient, fd_set *exceptionFD);
 	//	void InsertRemoteClient(RemoteClient* remoteClient);
-	__TCPSOCKET__ SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress);
+	// Tries every address \a host resolves to (in \a socketFamily) in order until one connects. On success, if
+	// \a peerAddress is given, it receives the connected peer's address (an IPv4-mapped one in its plain IPv4 form).
+	// Returns 0 on failure.
+	__TCPSOCKET__ SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress, SystemAddress *peerAddress = nullptr);
 
 	struct ThisPtrPlusSysAddr
 	{
