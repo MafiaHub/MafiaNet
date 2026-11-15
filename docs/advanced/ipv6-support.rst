@@ -82,9 +82,9 @@ Connecting to a family the socket does not have fails with
 ``BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE`` result no longer exists).
 
 **Happy Eyeballs (RFC 8305).** A hostname ``Connect()`` on a dual-stack socket
-races the IPv6 and IPv4 candidates: attempts start 250 ms apart, in the order
-``getaddrinfo`` returns them (RFC 6724 ordering), and the first to complete the
-handshake wins. Details:
+races the IPv6 and IPv4 candidates: attempts start 250 ms apart, interleaved by
+family starting with the family of ``getaddrinfo``'s first answer (RFC 6724
+ordering), and the first to complete the handshake wins. Details:
 
 * Literal addresses are not raced; they connect directly.
 * A rejection from the server (for example a full server or a banned address)
@@ -101,7 +101,7 @@ Addresses
 
    MafiaNet::SystemAddress addr = packet->systemAddress;
 
-   if (addr.address.addr4.sin_family == AF_INET6) {
+   if (addr.GetIPVersion() == 6) {
        char ip[INET6_ADDRSTRLEN];
        addr.ToString(false, ip);
        printf("IPv6 client: %s\n", ip);

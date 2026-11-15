@@ -287,6 +287,8 @@ public:
 
 	/// Cancel a pending connection attempt
 	/// If we are already connected, the connection stays open
+	/// \note On a threaded peer the network thread may already be sending a request for this attempt; that one request
+	/// may still go out after the call.
 	/// \param[in] target Which system to cancel
 	virtual void CancelConnectionAttempt(const SystemAddress target) = 0;
 

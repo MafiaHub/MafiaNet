@@ -201,7 +201,7 @@ For IPv6 addresses:
    addr6.SetPortHostOrder(60000);
 
    // Check if IPv6
-   if (addr6.address.addr4.sin_family == AF_INET6) {
+   if (addr6.GetIPVersion() == 6) {
        // Handle IPv6
    }
 
