@@ -1802,7 +1802,7 @@ bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now)
 {
 	bool anyLeft = false;
 	bool anyUnstarted = false;
-	MafiaNet::TimeMS earliest = 0;
+	MafiaNet::Time earliest = 0;
 	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
 	{
 		const RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
