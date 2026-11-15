@@ -19,7 +19,7 @@
 
 #include "mafianet/string_compressor.h"
 #include <cstdlib>
-#include <vector>
+#include <memory>
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
@@ -438,6 +438,9 @@ bool StringCompressor::DecodeString(CString &output, int maxCharsToWrite, MafiaN
 	output.ReleaseBuffer(0)
 }
 #endif
+// Stack scratch size for DecodeString into std::string / RakString; covers the 0xFFFF cap they use.
+static const size_t DECODE_STACK_BLOCK_SIZE = 0x10000;
+
 #ifdef _STD_STRING_COMPRESSOR
 void StringCompressor::EncodeString(const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
 {
@@ -451,9 +454,18 @@ bool StringCompressor::DecodeString(std::string *output, int maxCharsToWrite, Ma
 		return true;
 	}
 
-	std::vector<char> destinationBlock((size_t) maxCharsToWrite);
-	const bool out = DecodeString(destinationBlock.data(), maxCharsToWrite, input, languageId);
-	*output = destinationBlock.data();
+	// Uninitialised stack scratch for the common case (RakString and std::string decodes pass 0xFFFF);
+	// DecodeString(char *) null-terminates what it writes. Larger caps fall back to the heap.
+	char stackBlock[DECODE_STACK_BLOCK_SIZE];
+	std::unique_ptr<char[]> heapBlock;
+	char *destinationBlock = stackBlock;
+	if ((size_t) maxCharsToWrite > DECODE_STACK_BLOCK_SIZE)
+	{
+		heapBlock.reset(new char[(size_t) maxCharsToWrite]);
+		destinationBlock = heapBlock.get();
+	}
+	const bool out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
+	*output = destinationBlock;
 
 	return out;
 }
@@ -470,9 +482,18 @@ bool StringCompressor::DecodeString(RakString *output, int maxCharsToWrite, Mafi
 		return true;
 	}
 
-	std::vector<char> destinationBlock((size_t) maxCharsToWrite);
-	const bool out = DecodeString(destinationBlock.data(), maxCharsToWrite, input, languageId);
-	*output = destinationBlock.data();
+	// Uninitialised stack scratch for the common case (RakString and std::string decodes pass 0xFFFF);
+	// DecodeString(char *) null-terminates what it writes. Larger caps fall back to the heap.
+	char stackBlock[DECODE_STACK_BLOCK_SIZE];
+	std::unique_ptr<char[]> heapBlock;
+	char *destinationBlock = stackBlock;
+	if ((size_t) maxCharsToWrite > DECODE_STACK_BLOCK_SIZE)
+	{
+		heapBlock.reset(new char[(size_t) maxCharsToWrite]);
+		destinationBlock = heapBlock.get();
+	}
+	const bool out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
+	*output = destinationBlock;
 
 	return out;
 }
