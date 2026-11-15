@@ -5538,13 +5538,17 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						if (rcs->client_handshake == 0)
 						{
 							CAT_AUDIT_PRINTF("AUDIT: Server wants security but we didn't set a public key -- Reporting back ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY to user\n");
+							// As for ID_PUBLIC_KEY_MISMATCH: report once under the race's first address, drop the request.
+							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rakPeer->DeleteRequestedConnection(rcs);
 
 							packet = rakPeer->AllocPacket(2, _FILE_AND_LINE_);
 							packet->data[0] = ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY; // Attempted a connection and couldn't
 							packet->data[1] = 0;                                    // Indicate server public key is missing
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = guid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
