@@ -69,8 +69,9 @@ public:
 	virtual StartupResult Startup(unsigned int maxConnections, SocketDescriptor *socketDescriptors, unsigned socketDescriptorCount, int threadPriority = -99999) = 0;
 
 	/// \brief Sets whether connections must be encrypted. Must be called before Startup().
-	/// \details EncryptionMode::Required (the default) encrypts and authenticates every connected datagram with
-	/// session keys from an ephemeral X25519 exchange made during the connection handshake.
+	/// \details EncryptionMode::Required (the default) encrypts and integrity-protects every connected datagram with
+	/// session keys from an ephemeral X25519 exchange made during the connection handshake. The peers themselves
+	/// are not authenticated: the exchange is not bound to an identity, so it does not stop an active man in the middle.
 	/// EncryptionMode::Plaintext sends connected datagrams in clear; it is meant for LAN debugging and fuzzing.
 	/// Both peers must use the same mode: a mismatch refuses the connection, with no fallback. The connecting side
 	/// then receives ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION (it is Plaintext, the remote Required) or

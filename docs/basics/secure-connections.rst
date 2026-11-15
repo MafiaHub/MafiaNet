@@ -1,7 +1,7 @@
 Secure Connections
 ==================
 
-Every MafiaNet connection is encrypted and authenticated per datagram by default. There is nothing
+Every MafiaNet connection is encrypted and integrity-protected per datagram by default. There is nothing
 to enable, no key to generate and no build flag to set: two default peers connect encrypted.
 
 .. code-block:: cpp

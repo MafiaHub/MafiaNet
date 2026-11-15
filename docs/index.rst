@@ -129,7 +129,7 @@ Features
 * **NAT Traversal** - Built-in NAT punchthrough for peer-to-peer connections
 * **Cross-Platform** - Windows, Linux, macOS support
 * **Plugin System** - Extensible architecture with modular plugins
-* **Security** - Every connection encrypted and authenticated per datagram by default (libsodium)
+* **Security** - Every connection encrypted and integrity-protected per datagram by default (libsodium)
 * **Replication** - Object replication system for game state synchronization
 * **Voice Chat** - RakVoice for in-game voice communication
 * **Autopatcher** - Delta patching system for game updates
