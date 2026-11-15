@@ -37,7 +37,7 @@ namespace MafiaNet
 /// MTU_LADDER[0] must equal MAXIMUM_MTU_SIZE so a step-down never lands on a
 /// rung the handshake could not have negotiated.
 const int MTU_LADDER_SIZE = 4;
-extern RAK_DLL_EXPORT const int MTU_LADDER[MTU_LADDER_SIZE];
+extern MAFIANET_DATA_API const int MTU_LADDER[MTU_LADDER_SIZE];
 
 /// How many unacked transmissions of a too-large packet it takes before the
 /// connection's MTU steps down one rung. Resends are RTO-spaced with backoff,

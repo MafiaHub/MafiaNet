@@ -21,6 +21,21 @@
 #define RAK_DLL_EXPORT
 #endif
 
+// Exported *variables* of the shared library. Unlike functions, data cannot be reached
+// through an import library without __declspec(dllimport) on the consumer side, so this
+// is dllexport while building MafiaNet.dll (MAFIANET_DLL_EXPORT) and dllimport for code
+// that links it. RAK_DLL_EXPORT stays as it was: it also decorates class templates, and
+// dllimport there would break implicit instantiation in consumers.
+#if defined(_WIN32) && !(defined(__GNUC__) || defined(__GCCXML__)) && !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
+#if defined(MAFIANET_DLL_EXPORT)
+#define MAFIANET_DATA_API __declspec(dllexport)
+#else
+#define MAFIANET_DATA_API __declspec(dllimport)
+#endif
+#else
+#define MAFIANET_DATA_API
+#endif
+
 #define STATIC_FACTORY_DECLARATIONS(x) \
 	static x *GetInstance(void);       \
 	static void DestroyInstance(x *i);
