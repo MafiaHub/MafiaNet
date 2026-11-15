@@ -292,9 +292,12 @@ TEST(ReliabilityLayerSplitPacket, ReassemblesMessageOfTensOfThousandsOfFragments
 	EXPECT_TRUE(message == received);
 }
 
-// Three split messages are open in the receiver at once, their fragments arrive interleaved and in
-// reverse, and every datagram arrives twice. Each message must still come out exactly once and intact.
-TEST(ReliabilityLayerSplitPacket, ReassemblesWithDuplicateAndReorderedFragments)
+// Three split messages are open in the receiver at once: their datagrams arrive interleaved, in
+// reverse, and each one twice. Each message must still come out exactly once and intact. The second
+// copy of a datagram is dropped by the reliable-message-number check (hasReceivedPacketQueue) before
+// it reaches the split-channel map; SplitPacketSort::Add's own duplicate rejection is covered by
+// SplitPacketFixture.DuplicateFragmentIsIgnored.
+TEST(ReliabilityLayerSplitPacket, ReassemblesInterleavedSplitsWithReorderedAndDuplicatedDatagrams)
 {
 	MafiaNetTest::ReliabilityLayerPair p; // a sends, b receives
 

@@ -1971,24 +1971,24 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 
 	if (!unreliableWithAckReceiptHistory.empty())
 	{
-		std::size_t i = 0;
-		while (i < unreliableWithAckReceiptHistory.size())
+		std::size_t receiptIndex = 0;
+		while (receiptIndex < unreliableWithAckReceiptHistory.size())
 		{
-			//if (unreliableWithAckReceiptHistory[i].nextActionTime < time)
-			if (time - unreliableWithAckReceiptHistory[i].nextActionTime < (((CCTimeType) -1) / 2))
+			//if (unreliableWithAckReceiptHistory[receiptIndex].nextActionTime < time)
+			if (time - unreliableWithAckReceiptHistory[receiptIndex].nextActionTime < (((CCTimeType) -1) / 2))
 			{
 				InternalPacket *ackReceipt = AllocateFromInternalPacketPool();
 				AllocInternalPacketData(ackReceipt, 5, false, _FILE_AND_LINE_);
 				ackReceipt->dataBitLength = BYTES_TO_BITS(5);
 				ackReceipt->data[0] = (MessageID) ID_SND_RECEIPT_LOSS;
-				memcpy(ackReceipt->data + sizeof(MessageID), &unreliableWithAckReceiptHistory[i].sendReceiptSerial, sizeof(uint32_t));
+				memcpy(ackReceipt->data + sizeof(MessageID), &unreliableWithAckReceiptHistory[receiptIndex].sendReceiptSerial, sizeof(uint32_t));
 				outputQueue.push_back(ackReceipt);
 
 				// Remove, keeping the order of the rest
-				unreliableWithAckReceiptHistory.erase(unreliableWithAckReceiptHistory.begin() + i);
+				unreliableWithAckReceiptHistory.erase(unreliableWithAckReceiptHistory.begin() + receiptIndex);
 			}
 			else
-				i++;
+				receiptIndex++;
 		}
 	}
 
