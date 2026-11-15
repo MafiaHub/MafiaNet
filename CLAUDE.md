@@ -138,7 +138,7 @@ docker run --rm -v "$PWD":/src:ro ubuntu:24.04 bash -o pipefail -c '
   cp -r /src /work && cd /work
   for cfg in Debug Release; do
     cmake -B /b-$cfg -S . -DCMAKE_BUILD_TYPE=$cfg -DMAFIANET_BUILD_TESTS=ON
-    cmake --build /b-$cfg --parallel "$(nproc)"
+    cmake --build /b-$cfg --parallel "$(nproc)" || exit 1
     ctest --test-dir /b-$cfg --output-on-failure --timeout 600 || exit 1
   done'
 ```
