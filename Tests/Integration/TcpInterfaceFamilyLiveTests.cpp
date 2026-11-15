@@ -165,6 +165,22 @@ TEST_F(TcpInterfaceFamilyLive, NonBlockingConnectByHostNameUsesIpv4)
 	EXPECT_EQ(completed.GetPort(), port);
 }
 
+// With every client slot taken, Connect must fail without touching memory past
+// the slot array (it used to write remoteClients[maxConnections]).
+TEST_F(TcpInterfaceFamilyLive, ConnectFailsCleanlyWhenEverySlotIsInUse)
+{
+	ASSERT_TRUE(server->Start(0, 4, 4, -99999, AF_INET, "127.0.0.1"));
+	const unsigned short port = server->ListenPort();
+	ASSERT_NE(port, 0);
+	ASSERT_TRUE(client->Start(0, 0, 1)); // one slot
+	ASSERT_NE(client->Connect("127.0.0.1", port, true, AF_INET), UNASSIGNED_SYSTEM_ADDRESS);
+
+	EXPECT_EQ(client->Connect("127.0.0.1", port, true, AF_INET), UNASSIGNED_SYSTEM_ADDRESS);
+	EXPECT_EQ(client->Connect("127.0.0.1", port, false, AF_INET), UNASSIGNED_SYSTEM_ADDRESS);
+	EXPECT_EQ(client->GetConnectionCount(), 1u);
+	EXPECT_EQ(WaitForIncoming(1).size(), 1u);
+}
+
 class TcpInterfaceDualStackLive : public TcpInterfaceFamilyLive
 {
 protected:

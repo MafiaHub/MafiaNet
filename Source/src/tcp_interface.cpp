@@ -344,8 +344,8 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		}
 		remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 	}
-	if (newRemoteClientIndex == -1)
-		return UNASSIGNED_SYSTEM_ADDRESS;
+	if (newRemoteClientIndex == remoteClientsLength)
+		return UNASSIGNED_SYSTEM_ADDRESS; // every slot is in use
 
 	if (block)
 	{
@@ -385,10 +385,10 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 		completedConnectionAttemptMutex.Lock();
-		completedConnectionAttempts.Push(remoteClients[newRemoteClientIndex].systemAddress, _FILE_AND_LINE_);
+		completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
 		completedConnectionAttemptMutex.Unlock();
 
-		return remoteClients[newRemoteClientIndex].systemAddress;
+		return systemAddress;
 	}
 	else
 	{
@@ -410,8 +410,14 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 
 		if (errorCode != 0)
 		{
+			const SystemAddress failed = s->systemAddress;
 			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
-			failedConnectionAttempts.Push(s->systemAddress, _FILE_AND_LINE_);
+			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
+			remoteClients[newRemoteClientIndex].SetActive(false);
+			remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
+			failedConnectionAttemptMutex.Lock();
+			failedConnectionAttempts.Push(failed, _FILE_AND_LINE_);
+			failedConnectionAttemptMutex.Unlock();
 		}
 		return UNASSIGNED_SYSTEM_ADDRESS;
 	}
@@ -1097,14 +1103,15 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 				i = 0;
 				while (i < sts->remoteClientsLength)
 				{
-					if (sts->remoteClients[i].isActive == false)
-					{
-						i++;
-						continue;
-					}
+					// Snapshot the slot under its lock, as the first loop does: Connect and CloseConnection publish
+					// and retire slots from other threads.
+					sts->remoteClients[i].isActiveMutex.Lock();
+					const bool slotActive = sts->remoteClients[i].isActive;
 					// calling FD_ISSET with -1 as socket (that’s what 0 is set to) produces a bus error under Linux 64-Bit
 					__TCPSOCKET__ socketCopy = sts->remoteClients[i].socket;
-					if (socketCopy == 0)
+					const SystemAddress slotAddress = sts->remoteClients[i].systemAddress;
+					sts->remoteClients[i].isActiveMutex.Unlock();
+					if (slotActive == false || socketCopy == 0)
 					{
 						i++;
 						continue;
@@ -1128,7 +1135,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						// #endif
 						// Connection lost abruptly
 						SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-						*lostConnectionSystemAddress = sts->remoteClients[i].systemAddress;
+						*lostConnectionSystemAddress = slotAddress;
 						sts->lostConnections.Push(lostConnectionSystemAddress);
 						sts->remoteClients[i].isActiveMutex.Lock();
 						sts->remoteClients[i].SetActive(false);
@@ -1166,14 +1173,14 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 								*/
 								incomingMessage->length = len;
 								incomingMessage->deleteData = true; // actually means came from SPSC, rather than AllocatePacket
-								incomingMessage->systemAddress = sts->remoteClients[i].systemAddress;
+								incomingMessage->systemAddress = slotAddress;
 								sts->incomingMessages.Push(incomingMessage);
 							}
 							else
 							{
 								// Connection lost gracefully
 								SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-								*lostConnectionSystemAddress = sts->remoteClients[i].systemAddress;
+								*lostConnectionSystemAddress = slotAddress;
 								sts->lostConnections.Push(lostConnectionSystemAddress);
 								sts->remoteClients[i].isActiveMutex.Lock();
 								sts->remoteClients[i].SetActive(false);
