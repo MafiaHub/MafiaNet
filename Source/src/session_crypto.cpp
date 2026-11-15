@@ -111,24 +111,19 @@ EphemeralKeyPair::~EphemeralKeyPair()
 	Wipe();
 }
 
-EphemeralKeyPair::EphemeralKeyPair(const EphemeralKeyPair &other)
+EphemeralKeyPair::EphemeralKeyPair(const uint8_t secret[32], uint64_t fixedNonce)
 {
-	memcpy(secretKey, other.secretKey, sizeof(secretKey));
-	memcpy(publicKey, other.publicKey, sizeof(publicKey));
-	nonce = other.nonce;
-	wiped = other.wiped;
+	const int sodiumReady = sodium_init();
+	(void) sodiumReady;
+	memcpy(secretKey, secret, sizeof(secretKey));
+	crypto_scalarmult_curve25519_base(publicKey, secretKey);
+	nonce = fixedNonce;
+	wiped = false;
 }
 
-EphemeralKeyPair &EphemeralKeyPair::operator=(const EphemeralKeyPair &other)
+EphemeralKeyPair EphemeralKeyPair::FromSecretKeyForTesting(const uint8_t secret[32], uint64_t fixedNonce)
 {
-	if (this != &other)
-	{
-		memcpy(secretKey, other.secretKey, sizeof(secretKey));
-		memcpy(publicKey, other.publicKey, sizeof(publicKey));
-		nonce = other.nonce;
-		wiped = other.wiped;
-	}
-	return *this;
+	return EphemeralKeyPair(secret, fixedNonce);
 }
 
 CryptInfo EphemeralKeyPair::MakeCryptInfo() const

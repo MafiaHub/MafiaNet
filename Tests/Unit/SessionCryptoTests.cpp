@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "SimulatedNetwork.h"
@@ -148,11 +149,13 @@ TEST(SessionCrypto, AnyTranscriptChangeChangesKeys)
 	EphemeralKeyPair r;
 	const CryptInfo infoI = i.MakeCryptInfo();
 	const CryptInfo infoR = r.MakeCryptInfo();
+	uint8_t secretI[32];
+	memcpy(secretI, i.SecretKey(), sizeof(secretI));
 
-	// DeriveSessionKeys wipes the key pair it is given, so derive from copies.
+	// DeriveSessionKeys wipes the key pair it is given, so rebuild the same pair each time.
 	auto derive = [&](const CryptInfo &a, const CryptInfo &b, RakNetGUID ga, RakNetGUID gb, SessionKeys *out)
 	{
-		EphemeralKeyPair local = i;
+		EphemeralKeyPair local = EphemeralKeyPair::FromSecretKeyForTesting(secretI, infoI.nonce);
 		return DeriveSessionKeys(local, true, a, b, ga, gb, out);
 	};
 
@@ -210,6 +213,21 @@ TEST(SessionCrypto, AnyTranscriptChangeChangesKeys)
 		ASSERT_TRUE(derive(infoI, other, kInitiatorGuid, kResponderGuid, &k));
 		expectDifferent(k, "remote public key");
 	}
+}
+
+// A copy would outlive the wipe DeriveSessionKeys performs on the original.
+static_assert(!std::is_copy_constructible<EphemeralKeyPair>::value, "EphemeralKeyPair must not be copyable");
+static_assert(!std::is_copy_assignable<EphemeralKeyPair>::value, "EphemeralKeyPair must not be copy-assignable");
+
+TEST(SessionCrypto, KeyPairFromSecretKeyForTestingRebuildsTheSamePair)
+{
+	EphemeralKeyPair original;
+	const CryptInfo info = original.MakeCryptInfo();
+	EphemeralKeyPair rebuilt = EphemeralKeyPair::FromSecretKeyForTesting(original.SecretKey(), info.nonce);
+	const CryptInfo again = rebuilt.MakeCryptInfo();
+	EXPECT_EQ(0, memcmp(info.publicKey, again.publicKey, sizeof(info.publicKey)));
+	EXPECT_EQ(info.nonce, again.nonce);
+	EXPECT_FALSE(rebuilt.IsWiped());
 }
 
 TEST(SessionCrypto, LowOrderPublicKeyIsRejected)

@@ -67,8 +67,15 @@ class RAK_DLL_EXPORT EphemeralKeyPair
 public:
 	EphemeralKeyPair();
 	~EphemeralKeyPair();
-	EphemeralKeyPair(const EphemeralKeyPair &other);
-	EphemeralKeyPair &operator=(const EphemeralKeyPair &other);
+	// Not copyable: a copy would survive the wipe DeriveSessionKeys performs on the
+	// original, and the same secret could then key a second handshake.
+	EphemeralKeyPair(const EphemeralKeyPair &) = delete;
+	EphemeralKeyPair &operator=(const EphemeralKeyPair &) = delete;
+
+	/// Test-only: a key pair with a caller-chosen secret key and nonce, so a test can
+	/// rebuild the same pair after DeriveSessionKeys has wiped one. Never use it for a
+	/// real handshake.
+	static EphemeralKeyPair FromSecretKeyForTesting(const uint8_t secretKey[32], uint64_t nonce);
 
 	/// Mode Required, this key pair's public key, and the nonce fixed at construction.
 	CryptInfo MakeCryptInfo() const;
@@ -77,6 +84,8 @@ public:
 	bool IsWiped() const;
 
 private:
+	EphemeralKeyPair(const uint8_t secretKey[32], uint64_t nonce);
+
 	uint8_t secretKey[32];
 	uint8_t publicKey[32];
 	uint64_t nonce;
