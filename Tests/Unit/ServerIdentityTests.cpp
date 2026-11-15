@@ -314,12 +314,12 @@ TEST(ServerIdentityCrypto, TranscriptLayout)
 	expected.push_back(0); // client mode
 	for (int i = 0; i < 32; ++i)
 		expected.push_back((uint8_t) (0x40 + i));
-	for (uint8_t b : {8, 7, 6, 5, 4, 3, 2, 1})
+	for (uint8_t b : {(uint8_t) 8, (uint8_t) 7, (uint8_t) 6, (uint8_t) 5, (uint8_t) 4, (uint8_t) 3, (uint8_t) 2, (uint8_t) 1})
 		expected.push_back(b);
 	expected.push_back(1); // server mode Plaintext
 	for (int i = 0; i < 32; ++i)
 		expected.push_back((uint8_t) (0x60 + i));
-	for (uint8_t b : {0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11})
+	for (uint8_t b : {(uint8_t) 0x18, (uint8_t) 0x17, (uint8_t) 0x16, (uint8_t) 0x15, (uint8_t) 0x14, (uint8_t) 0x13, (uint8_t) 0x12, (uint8_t) 0x11})
 		expected.push_back(b);
 	EXPECT_EQ(expected, Bytes(transcript, sizeof(transcript)));
 }

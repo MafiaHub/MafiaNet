@@ -398,7 +398,7 @@ TEST(EncryptedHandshakeRejection, Reply2WithUnknownCryptInfoModeIsDropped)
 	std::vector<unsigned char> reply2 = Reply2(attempt.nonce, attempt.clientAddress, 1200, serverPair.MakeCryptInfo());
 	const size_t modeOffset = reply2.size() - IdentityBlock::kAbsentBytes - CryptInfo::kSerializedBytes;
 	ASSERT_EQ(0u, reply2[modeOffset]);
-	for (unsigned char mode : {2, 0x7F, 0x80, 0xFF})
+	for (unsigned char mode : {(unsigned char) 2, (unsigned char) 0x7F, (unsigned char) 0x80, (unsigned char) 0xFF})
 	{
 		reply2[modeOffset] = mode;
 		Inject(net, attempt.target, attempt.client, reply2, reply2.size());
@@ -462,7 +462,7 @@ TEST(EncryptedHandshakeRejection, Request2WithUnknownCryptInfoModeIsDropped)
 	                                              pair.MakeCryptInfo(), serverAddress, 1200, RakNetGUID(0xB3));
 	const size_t modeOffset = kHeaderBytes + 8;
 	ASSERT_EQ(0u, request[modeOffset]);
-	for (unsigned char mode : {2, 0x7F, 0x80, 0xFF})
+	for (unsigned char mode : {(unsigned char) 2, (unsigned char) 0x7F, (unsigned char) 0x80, (unsigned char) 0xFF})
 	{
 		request[modeOffset] = mode;
 		Inject(net, sender, server, request, request.size());
@@ -489,7 +489,7 @@ TEST(EncryptedHandshakeRejection, Request2WithUnknownAddressVersionIsDropped)
 	                                              pair.MakeCryptInfo(), serverAddress, 1200, RakNetGUID(0xB4));
 	const size_t versionOffset = kHeaderBytes + 8 + CryptInfo::kSerializedBytes;
 	ASSERT_EQ(4u, request[versionOffset]);
-	for (unsigned char version : {0, 5, 0xFF})
+	for (unsigned char version : {(unsigned char) 0, (unsigned char) 5, (unsigned char) 0xFF})
 	{
 		request[versionOffset] = version;
 		Inject(net, sender, server, request, request.size());
