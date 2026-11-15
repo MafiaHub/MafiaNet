@@ -197,7 +197,9 @@ TEST(ReliabilityCharacterization, SequencedDropsOnlyOlderMessages)
 	{
 		ASSERT_TRUE(received[i].intact);
 		if (i > 0)
+		{
 			ASSERT_GT(received[i].counter, received[i - 1].counter) << "sequenced message delivered out of order at " << i;
+		}
 	}
 }
 
