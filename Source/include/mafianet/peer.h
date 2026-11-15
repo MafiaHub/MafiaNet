@@ -887,7 +887,10 @@ public:
 			UNVERIFIED_SENDER,
 			EXCHANGING_SESSION_DATA,
 			CONNECTED
-		} connectMode;
+		};
+		// Written only by the network thread, but read lock-free from user threads (Send()'s
+		// session-handshake gate, GetConnectionState, GetSystemList...), hence atomic.
+		std::atomic<ConnectMode> connectMode;
 	};
 
 	// DS_APR

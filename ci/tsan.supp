@@ -24,8 +24,6 @@ race:MafiaNet::RakPeer::GetSystemAddressFromIndex
 race:MafiaNet::RakPeer::GetAveragePing
 race:MafiaNet::RakPeer::GetLastPing
 race:MafiaNet::ReliabilityLayer::GetStatistics
-# Send()'s session-handshake gate reads connectMode the same way
-race:MafiaNet::RakPeer::IsExchangingSessionData
 
 # --- Config get/set on the user thread, read lock-free by the network thread ---
 race:MafiaNet::RakPeer::SetMaximumIncomingConnections
