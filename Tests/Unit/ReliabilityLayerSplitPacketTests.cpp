@@ -240,7 +240,7 @@ struct CapturingSocket : public RakNetSocket2
 // The sender splits into one fragment per datagram-sized slice and holds one pointer per fragment while it
 // does. The layer has no fixed cap on the fragment count, so this uses a message of tens of thousands of
 // fragments (about 24,000), far more than a small stack buffer would have been sized for.
-TEST(ReliabilityLayerSplitPacket, ReassemblesLargestAllowedSplitCount)
+TEST(ReliabilityLayerSplitPacket, ReassemblesMessageOfTensOfThousandsOfFragments)
 {
 	ReliabilityLayer sender, receiver;
 	CapturingSocket senderSocket, receiverSocket;

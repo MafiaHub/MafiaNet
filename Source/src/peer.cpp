@@ -4838,7 +4838,9 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt)
 {
-	std::vector<unsigned> sendList;
+	unsigned unicastTarget = 0;          // unicast sends must not allocate
+	std::vector<unsigned> broadcastList; // only filled for broadcasts
+	unsigned *sendList = &unicastTarget;
 	unsigned sendListSize;
 	bool callerDataAllocationUsed;
 	unsigned int remoteSystemIndex, sendListIndex; // Iterates into the list of remote systems
@@ -4865,20 +4867,20 @@ bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 			return false;
 		}
 
-		sendList.resize(1);
 
 		if (remoteSystemList[remoteSystemIndex].isActive &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
 		{
-			sendList[0] = remoteSystemIndex;
+			unicastTarget = remoteSystemIndex;
 			sendListSize = 1;
 		}
 	}
 	else
 	{
-		sendList.resize(maximumNumberOfPeers);
+		broadcastList.resize(maximumNumberOfPeers);
+		sendList = broadcastList.data();
 
 		// remoteSystemList in network thread
 		unsigned int idx;

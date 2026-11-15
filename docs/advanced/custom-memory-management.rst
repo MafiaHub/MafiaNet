@@ -27,7 +27,7 @@ allocator for the whole process rather than for the library alone:
 
    void* operator new(std::size_t size)
    {
-       void* ptr = MyGameEngine::Allocate(size, "MafiaNet");
+       void* ptr = std::malloc(size);
        if (!ptr)
            throw std::bad_alloc();
        return ptr;
@@ -35,7 +35,7 @@ allocator for the whole process rather than for the library alone:
 
    void operator delete(void* ptr) noexcept
    {
-       MyGameEngine::Free(ptr);
+       std::free(ptr);
    }
 
 Replace the sized and array forms (``operator new[]``, ``operator delete[]``,

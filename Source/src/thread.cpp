@@ -13,7 +13,6 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include <cstddef>
 #include "mafianet/thread.h"
 #include "mafianet/assert.h"
 #include "mafianet/defines.h"
@@ -22,7 +21,7 @@
 using namespace MafiaNet;
 
 // Stack size for threads created by RakThread::Create (2 MiB).
-static const std::size_t THREAD_STACK_SIZE = 2097152;
+static const unsigned THREAD_STACK_SIZE = 2097152;
 
 #if defined(_WIN32)
 #include "mafianet/windows_includes.h"
