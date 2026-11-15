@@ -108,7 +108,9 @@ StartupResult StartOnce(SocketDescriptor descriptor)
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();
 	const StartupResult result = peer->Startup(1, &descriptor, 1);
 	if (result != RAKNET_STARTED)
+	{
 		EXPECT_FALSE(peer->IsActive());
+	}
 	peer->Shutdown(0);
 	RakPeerInterface::DestroyInstance(peer);
 	return result;
