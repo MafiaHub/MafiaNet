@@ -76,7 +76,6 @@ TCPInterface::TCPInterface()
 	StringCompressor::AddReference();
 	MafiaNet::StringTable::AddReference();
 
-
 #ifdef _WIN32
 	WSAStartupSingleton::AddRef();
 #endif
@@ -358,7 +357,6 @@ void TCPInterface::Stop(void)
 
 	if (isStarted.GetValue() == 0)
 		return;
-
 
 	isStarted.Decrement();
 
@@ -1073,7 +1071,6 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 
 	while (sts->isStarted.GetValue() > 0)
 	{
-
 
 		__TCPSOCKET__ largestDescriptor = 0; // see select__()'s first parameter's documentation under linux
 

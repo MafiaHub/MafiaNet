@@ -41,6 +41,7 @@ STATIC_FACTORY_DEFINITIONS(EmailSender, EmailSender);
 
 const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, const char *sender, const char *recipient, const char *senderName, const char *recipientName, const char *subject, const char *body, FileList *attachedFiles, bool doPrintf, const char *password)
 {
+	(void) password; // SMTP authentication needs TLS, which is not supported, so the password is ignored.
 	MafiaNet::Packet *packet;
 	char query[1024];
 	TCPInterface tcpInterface;
@@ -72,53 +73,9 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 
 	tcpInterface.Send("EHLO\r\n", 6, emailServer, false);
 	const char *response;
-	bool authenticate = false;
-	for (;;)
-	{
-		response = GetResponse(&tcpInterface, emailServer, doPrintf);
-
-		if (response != 0 && strcmp(response, "AUTHENTICATE") == 0)
-		{
-			authenticate = true;
-			break;
-		}
-
-		// Something other than continue?
-		if (response != 0 && strcmp(response, "CONTINUE") != 0)
-			return response;
-
-		// Success?
-		if (response == 0)
-			break;
-	}
-
-	if (authenticate)
-	{
-		sprintf_s(query, "EHLO %s\r\n", sender);
-		tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
-		response = GetResponse(&tcpInterface, emailServer, doPrintf);
-		if (response != 0)
-			return response;
-		if (password == 0)
-			return "Password needed";
-		char *outputData = MafiaNet::OP_NEW_ARRAY<char>((int) (strlen(sender) + strlen(password) + 2) * 3, _FILE_AND_LINE_);
-		MafiaNet::BitStream bs;
-		char zero = 0;
-		bs.Write(&zero, 1);
-		bs.Write(sender, (unsigned int) strlen(sender));
-		//bs.Write("jms1@jms1.net",(unsigned int)strlen("jms1@jms1.net"));
-		bs.Write(&zero, 1);
-		bs.Write(password, (unsigned int) strlen(password));
-		bs.Write(&zero, 1);
-		//bs.Write("not.my.real.password",(unsigned int)strlen("not.my.real.password"));
-		Base64Encoding((const unsigned char *) bs.GetData(), bs.GetNumberOfBytesUsed(), outputData);
-		sprintf_s(query, "AUTH PLAIN %s", outputData);
-		tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
-		response = GetResponse(&tcpInterface, emailServer, doPrintf);
-		if (response != 0)
-			return response;
-	}
-
+	response = GetResponse(&tcpInterface, emailServer, doPrintf);
+	if (response != 0)
+		return response;
 
 	if (sender)
 		sprintf_s(query, "MAIL From: <%s>\r\n", sender);

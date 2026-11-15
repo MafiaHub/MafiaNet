@@ -41,7 +41,6 @@
 #include <string>
 #include <vector>
 
-
 namespace MafiaNet
 {
 /// Forward declarations
@@ -72,7 +71,6 @@ public:
 
 	/// Connect to the specified host on the specified port
 	SystemAddress Connect(const char *host, unsigned short remotePort, bool block = true, unsigned short socketFamily = AF_INET, const char *bindAddress = 0);
-
 
 	/// Sends a byte stream
 	virtual void Send(const char *data, unsigned int length, const SystemAddress &systemAddress, bool broadcast);

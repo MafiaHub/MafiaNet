@@ -34,7 +34,7 @@ int main()
 	//	emailSender.Base64Encoding(quote, strlen(quote), output, base64Map);
 	//	printf("%s", output);
 
-	char mailServer[128], senderUsername[128], receiver[128], password[128];
+	char mailServer[128], senderUsername[128], receiver[128];
 	printf("Tests sending email.\n");
 	printf("Enter mail server: ");
 	Gets(mailServer, sizeof(mailServer));
@@ -48,8 +48,6 @@ int main()
 	Gets(receiver, sizeof(receiver));
 	if (receiver[0] == 0)
 		strcpy_s(receiver, "rakkar@rakkar.org");
-	printf("Enter password needed to send: ");
-	Gets(password, sizeof(password));
 
 
 	const unsigned short hostPort = 25;
@@ -65,7 +63,7 @@ int main()
 	                                          "Test attachment body :).\n.\n..\n.\n(Should be .,.,..,.)\r\n.\r\n.\r\n..\r\n.\r\n(Should be .,.,..,.)12345\r\n.\r\n",
 	                                          &fileList,
 	                                          true,
-	                                          password);
+	                                          0);
 	if (sendResult != 0)
 		printf("Send Failed! %s", sendResult);
 	else

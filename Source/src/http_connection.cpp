@@ -150,7 +150,6 @@ void HTTPConnection::Update(void)
 			return;
 		}
 
-
 		//printf("Sending request\n");
 		currentProcessingCommand = outgoingCommand.Pop();
 		RakString request;

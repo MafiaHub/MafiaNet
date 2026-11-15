@@ -449,7 +449,6 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 
 			pendingRequestsMutex.Unlock();
 
-
 			SendRequest(request);
 			requestsSent++;
 			pendingRequestsMutex.Lock();
@@ -477,9 +476,6 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 			sentRequests.Push(request, _FILE_AND_LINE_);
 			sentRequestsMutex.Unlock();
 			pendingRequestsMutex.Unlock();
-
-			// Send
-
 
 			SendRequest(request);
 		}
