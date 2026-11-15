@@ -74,6 +74,10 @@ public:
 	///Constructor
 	RakPeer();
 
+	/// Delay between starting successive candidates of a raced Connect() on a
+	/// dual-stack socket (RFC 8305 section 5, "Connection Attempt Delay").
+	static constexpr MafiaNet::TimeMS HAPPY_EYEBALLS_ATTEMPT_DELAY_MS = 250;
+
 	///Destructor
 	virtual ~RakPeer();
 
@@ -173,6 +177,12 @@ public:
 	/// \return CONNECTION_ATTEMPT_STARTED on successful initiation. Otherwise, an appropriate enumeration indicating failure.
 	/// \note CONNECTION_ATTEMPT_STARTED does not mean you are already connected!
 	/// \note It is possible to immediately get back ID_CONNECTION_ATTEMPT_FAILED if you exceed the maxConnections parameter passed to Startup(). This could happen if you call CloseConnection() with sendDisconnectionNotificaiton true, then immediately call Connect() before the connection has closed.
+	/// \note On a dual-stack socket (SocketDescriptor::socketFamily == AF_UNSPEC), a \a host that resolves to more than one address is raced (RFC 8305, "Happy Eyeballs"):
+	/// the candidates, interleaved by family starting with the resolver's first answer (see OrderConnectCandidates), start HAPPY_EYEBALLS_ATTEMPT_DELAY_MS apart, or as soon as
+	/// the previous one gives up. Each keeps the usual sendConnectionAttemptCount / timeBetweenSendConnectionAttemptsMS schedule. The first to answer wins and the others are
+	/// dropped silently. If every candidate fails, ID_CONNECTION_ATTEMPT_FAILED arrives once, with the first candidate's address; a rejection the server sends ends the whole race.
+	/// GetConnectionState() and CancelConnectionAttempt() given any candidate's address, the first one included, apply to the whole race. Once a candidate wins, GetConnectionState()
+	/// answers for the connection under the winner's address and under the first candidate's address. A numeric literal is never raced.
 	ConnectionAttemptResult Connect(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey = 0, unsigned connectionSocketIndex = 0, unsigned sendConnectionAttemptCount = 6, unsigned timeBetweenSendConnectionAttemptsMS = 1000, MafiaNet::TimeMS timeoutTime = 0);
 
 	/// \brief Connect to the specified host (ip or domain name) and server port.
@@ -313,6 +323,8 @@ public:
 
 	/// \brief Cancel a pending connection attempt.
 	/// \details If we are already connected, the connection stays open
+	/// \note On a threaded peer the network thread may already be sending a request for this attempt; that one request
+	/// may still go out after the call.
 	/// \param[in] target Target system to cancel.
 	void CancelConnectionAttempt(const SystemAddress target);
 	/// Returns if a system is connected, disconnected, connecting in progress, or various other states
@@ -494,7 +506,10 @@ public:
 	/// Return my own GUID
 	const RakNetGUID GetMyGUID(void) const;
 
-	/// Return the address bound to a socket at the specified index
+	/// Return the address bound to a socket at the specified index. A wildcard
+	/// socket reports loopback with its port: 127.0.0.1 for an IPv4 or a
+	/// dual-stack socket (see RakNetSocket2::IsDualStack()), ::1 for an
+	/// IPv6-only one.
 	SystemAddress GetMyBoundAddress(const int socketIndex = 0);
 
 	/// \brief  Given a connected system address, this method gives the unique GUID representing that instance of RakPeer.
@@ -776,6 +791,12 @@ public:
 		unsigned char *disconnectReasonData;
 		unsigned int disconnectReasonLength;
 
+		// The first candidate's address of the Happy Eyeballs race this connection won, when a later candidate won
+		// it (UNASSIGNED_SYSTEM_ADDRESS otherwise): GetConnectionState() keeps answering for the address the
+		// application's Connect() reported. Set when the winning request becomes this remote system, cleared when
+		// the slot is reused or the connection closes.
+		SystemAddress raceFirstAddress;
+
 #if LIBCAT_SECURITY == 1
 		// Cached answer used internally by RakPeer to prevent DoS attacks based on the connexion handshake
 		char answer[cat::EasyHandshake::ANSWER_BYTES];
@@ -1004,6 +1025,16 @@ protected:
 		MafiaNet::TimeMS timeoutTime;
 		PublicKeyMode publicKeyMode;
 		RakNetSocket2 *socket;
+		// Happy Eyeballs: every candidate of one raced Connect() shares a non-zero
+		// raceGroup (0 = not racing) and the race's first candidate address. A
+		// candidate sends nothing before nextCandidateTime.
+		uint32_t raceGroup = 0;
+		MafiaNet::Time nextCandidateTime = 0;
+		SystemAddress raceFirstAddress;
+		// Set by CancelConnectionAttempt (any thread, under requestedConnectionQueueMutex). Only the
+		// network thread removes and frees requests: it drops a cancelled one, silently, the next time
+		// it looks at it. Every lookup treats a cancelled request as absent.
+		bool cancelled = false;
 		enum
 		{
 			CONNECT = 1,
@@ -1042,6 +1073,19 @@ protected:
 
 	DataStructures::Queue<RequestedConnectionStruct *> requestedConnectionQueue;
 	SimpleMutex requestedConnectionQueueMutex;
+	// The next Happy Eyeballs raceGroup to hand out (never 0). Guarded by requestedConnectionQueueMutex.
+	uint32_t nextRaceGroup;
+	// Does \a rcs answer to \a address: its own, or its race's first candidate's? Never when cancelled.
+	static bool RequestMatches(const RequestedConnectionStruct *rcs, const SystemAddress &address);
+	// Frees \a rcs and what it owns. It must already be out of requestedConnectionQueue.
+	static void DeleteRequestedConnection(RequestedConnectionStruct *rcs);
+	// Requires requestedConnectionQueueMutex. Takes \a rcs out of requestedConnectionQueue without freeing it.
+	void RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs);
+	// Requires requestedConnectionQueueMutex, network thread only. Removes and frees every other candidate of \a keep's race.
+	void CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep);
+	// Requires requestedConnectionQueueMutex. A candidate of race \a raceGroup just failed: start the
+	// next unstarted one now (later ones keep their spacing). Returns whether any candidate is left.
+	bool AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now);
 
 	// void RunMutexedUpdateCycle(void);
 

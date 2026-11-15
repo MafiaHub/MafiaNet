@@ -21,6 +21,7 @@
 
 #include "mafianet/defines.h"
 #include "mafianet/peer.h"
+#include "mafianet/connect_candidates.h"
 #include "mafianet/session_admission.h"
 #include "mafianet/types.h"
 
@@ -146,6 +147,55 @@ static unsigned GetConnectionAttemptsPerMTU(unsigned sendConnectionAttemptCount)
 using namespace MafiaNet;
 
 static RakNetRandom rnr;
+
+// The IP version to resolve a host name or literal for, to send on \a socket:
+// either family on a dual-stack socket (the resolver's first answer; an IPv4
+// result is mapped on send), otherwise the socket's own family.
+static int ResolveIPVersion(const RakNetSocket2 *socket)
+{
+	return socket->IsDualStack() ? 0 : socket->GetBoundAddress().GetIPVersion();
+}
+
+// Swaps 127.0.0.1 and ::1 to match a single-family socket. A dual-stack socket
+// reaches both loopbacks, so the address is left as the caller gave it.
+static void FixForSocket(SystemAddress &address, const RakNetSocket2 *socket)
+{
+	if (!socket->IsDualStack())
+		address.FixForIPVersion(socket->GetBoundAddress());
+}
+
+// Resolves \a host for a one-shot unconnected send (Ping, SendOutOfBand,
+// SendTTL), which has no Happy Eyeballs race to fall back on. On a dual-stack
+// socket a name with an IPv4 address goes to that address -- as it did when
+// sockets were IPv4 by default -- and only a name without one goes to its first
+// IPv6 address. Otherwise the socket's own family, as before. False when
+// \a host does not resolve.
+static bool ResolveOneShotTarget(const char *host, unsigned short port, const RakNetSocket2 *socket, SystemAddress *out)
+{
+	if (socket->IsDualStack())
+	{
+		static const int MAX_CANDIDATES = 16;
+		SystemAddress candidates[MAX_CANDIDATES];
+		const int count = socket->Resolve(host, port, candidates, MAX_CANDIDATES);
+		if (count <= 0)
+			return false;
+		int chosen = 0;
+		for (int i = 0; i < count; i++)
+		{
+			if (candidates[i].GetIPVersion() == 4)
+			{
+				chosen = i;
+				break;
+			}
+		}
+		*out = candidates[chosen];
+		return true;
+	}
+	if (!out->FromStringExplicitPort(host, port, ResolveIPVersion(socket)))
+		return false;
+	FixForSocket(*out, socket);
+	return true;
+}
 
 // Whether a message a connected remote sent, and that RakPeer did not consume itself, may be handed to
 // the plugins and the application.
@@ -288,6 +338,7 @@ RakPeer::RakPeer()
 	networkThreadReceiveStopped = false;
 	isMainLoopThreadActive = false;
 	socketFactory = nullptr;
+	nextRaceGroup = 1;
 	manualUpdate = false;
 	incomingDatagramEventHandler = 0;
 	sessionConfigInteractive = false;
@@ -443,6 +494,15 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 	if (maxConnections <= 0)
 		return INVALID_MAX_CONNECTIONS;
 
+	// Reject a family the socket layer cannot bind before touching any state,
+	// so the peer can still be started afterwards with a valid descriptor.
+	for (unsigned d = 0; d < socketDescriptorCount; d++)
+	{
+		const int family = socketDescriptors[d].socketFamily;
+		if (family != AF_INET && family != AF_INET6 && family != AF_UNSPEC)
+			return SOCKET_FAMILY_NOT_SUPPORTED;
+	}
+
 	DerefAllSockets();
 
 
@@ -471,6 +531,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			bbp.port = socketDescriptors[i].port;
 			bbp.hostAddress = (char *) socketDescriptors[i].hostAddress;
 			bbp.addressFamily = socketDescriptors[i].socketFamily;
+			bbp.requireDualStack = socketDescriptors[i].requireDualStack;
 			bbp.type = SOCK_DGRAM;
 			bbp.protocol = socketDescriptors[i].extraSocketOptions;
 			bbp.nonBlockingSocket = false;
@@ -481,11 +542,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			bbp.eventHandler = this;
 			RNS2BindResult br = ((RNS2_Berkley *) r2)->Bind(&bbp, _FILE_AND_LINE_);
 
-			if (
-#if RAKNET_SUPPORT_IPV6 == 0
-			    socketDescriptors[i].socketFamily != AF_INET ||
-#endif
-			    br == BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE)
+			if (br == BR_FAMILY_NOT_SUPPORTED)
 			{
 				RakNetSocket2Allocator::DeallocRNS2(r2);
 				DerefAllSockets();
@@ -566,6 +623,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			// remoteSystemList in Single thread
 			remoteSystemList[i].isActive = false;
 			remoteSystemList[i].systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+			remoteSystemList[i].raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystemList[i].guid = UNASSIGNED_RAKNET_GUID;
 			remoteSystemList[i].myExternalSystemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystemList[i].connectMode = RemoteSystemStruct::NO_ACTION;
@@ -1709,25 +1767,113 @@ void RakPeer::CancelConnectionAttempt(const SystemAddress target)
 {
 	unsigned int i;
 
-	// Cancel pending connection attempt, if there is one
-	i = 0;
+	// Cancel pending connection attempt, if there is one. Any candidate of a
+	// Happy Eyeballs race, or the race's first address, cancels the whole race.
+	//
+	// This may run on any thread while the network thread is using a request
+	// with the queue unlocked, so nothing is freed here: the requests are only
+	// flagged, and the network thread drops them (see RunUpdateCycle).
 	requestedConnectionQueueMutex.Lock();
+	for (i = 0; i < requestedConnectionQueue.Size(); i++)
+	{
+		RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
+		if (RequestMatches(rcs, target))
+		{
+			rcs->cancelled = true;
+			if (rcs->raceGroup != 0)
+			{
+				for (unsigned int k = 0; k < requestedConnectionQueue.Size(); k++)
+				{
+					if (requestedConnectionQueue[k]->raceGroup == rcs->raceGroup)
+						requestedConnectionQueue[k]->cancelled = true;
+				}
+			}
+			break;
+		}
+	}
+	requestedConnectionQueueMutex.Unlock();
+}
+
+bool RakPeer::RequestMatches(const RequestedConnectionStruct *rcs, const SystemAddress &address)
+{
+	if (rcs->cancelled)
+		return false;
+	return rcs->systemAddress == address || (rcs->raceGroup != 0 && rcs->raceFirstAddress == address);
+}
+
+void RakPeer::DeleteRequestedConnection(RequestedConnectionStruct *rcs)
+{
+	if (rcs->data)
+	{
+		rakFree_Ex(rcs->data, _FILE_AND_LINE_);
+		rcs->data = 0;
+	}
+#if LIBCAT_SECURITY == 1
+	CAT_AUDIT_PRINTF("AUDIT: Deleting RequestedConnectionStruct client_handshake %x\n", rcs->client_handshake);
+	MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
+#endif
+	MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+}
+
+void RakPeer::RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs)
+{
+	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
+	{
+		if (requestedConnectionQueue[i] == rcs)
+		{
+			requestedConnectionQueue.RemoveAtIndex(i);
+			return;
+		}
+	}
+}
+
+void RakPeer::CancelRaceSiblings_NoLock(const RequestedConnectionStruct *keep)
+{
+	if (keep->raceGroup == 0)
+		return;
+	unsigned int i = 0;
 	while (i < requestedConnectionQueue.Size())
 	{
-		if (requestedConnectionQueue[i]->systemAddress == target)
+		RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
+		if (rcs != keep && rcs->raceGroup == keep->raceGroup)
 		{
-#if LIBCAT_SECURITY == 1
-			CAT_AUDIT_PRINTF("AUDIT: Deleting requestedConnectionQueue %i client_handshake %x\n", i, requestedConnectionQueue[i]->client_handshake);
-			MafiaNet::OP_DELETE(requestedConnectionQueue[i]->client_handshake, _FILE_AND_LINE_);
-#endif
-			MafiaNet::OP_DELETE(requestedConnectionQueue[i], _FILE_AND_LINE_);
 			requestedConnectionQueue.RemoveAtIndex(i);
-			break;
+			DeleteRequestedConnection(rcs);
 		}
 		else
 			i++;
 	}
-	requestedConnectionQueueMutex.Unlock();
+}
+
+bool RakPeer::AdvanceRace_NoLock(uint32_t raceGroup, MafiaNet::Time now)
+{
+	bool anyLeft = false;
+	bool anyUnstarted = false;
+	MafiaNet::Time earliest = 0;
+	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
+	{
+		const RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
+		if (rcs->raceGroup != raceGroup || rcs->cancelled)
+			continue;
+		anyLeft = true;
+		if (rcs->requestsMade == 0 && (!anyUnstarted || rcs->nextCandidateTime < earliest))
+		{
+			earliest = rcs->nextCandidateTime;
+			anyUnstarted = true;
+		}
+	}
+	// Pull the next candidate forward to now; the ones after it keep their spacing.
+	if (anyUnstarted && earliest > now)
+	{
+		const MafiaNet::Time shift = earliest - now;
+		for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
+		{
+			RequestedConnectionStruct *rcs = requestedConnectionQueue[i];
+			if (rcs->raceGroup == raceGroup && rcs->requestsMade == 0)
+				rcs->nextCandidateTime -= shift;
+		}
+	}
+	return anyLeft;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1740,7 +1886,7 @@ ConnectionState RakPeer::GetConnectionState(const AddressOrGUID systemIdentifier
 		requestedConnectionQueueMutex.Lock();
 		for (; i < requestedConnectionQueue.Size(); i++)
 		{
-			if (requestedConnectionQueue[i]->systemAddress == systemIdentifier.systemAddress)
+			if (RequestMatches(requestedConnectionQueue[i], systemIdentifier.systemAddress))
 			{
 				requestedConnectionQueueMutex.Unlock();
 				return IS_PENDING;
@@ -1753,6 +1899,19 @@ ConnectionState RakPeer::GetConnectionState(const AddressOrGUID systemIdentifier
 	if (systemIdentifier.systemAddress != UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		index = GetIndexFromSystemAddress(systemIdentifier.systemAddress, false);
+		// Nothing, or only a closed slot that once held the address: the address may also be the first candidate's
+		// of a Happy Eyeballs race a later candidate won (see Connect()), and that live connection comes first.
+		if (index == -1 || !remoteSystemList[index].isActive)
+		{
+			for (unsigned int i = 0; i < maximumNumberOfPeers; i++)
+			{
+				if (remoteSystemList[i].isActive && remoteSystemList[i].raceFirstAddress == systemIdentifier.systemAddress)
+				{
+					index = (int) i;
+					break;
+				}
+			}
+		}
 	}
 	else
 	{
@@ -2143,10 +2302,9 @@ bool RakPeer::Ping(const char *host, unsigned short remotePort, bool onlyReplyOn
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) bitStream.GetData();
 	bsp.length = bitStream.GetNumberOfBytesUsed();
-	bsp.systemAddress.FromStringExplicitPort(host, remotePort, socketList[realIndex]->GetBoundAddress().GetIPVersion());
-	if (bsp.systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
+	if (!ResolveOneShotTarget(host, remotePort, socketList[realIndex], &bsp.systemAddress) ||
+	    bsp.systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
 		return false;
-	bsp.systemAddress.FixForIPVersion(socketList[realIndex]->GetBoundAddress());
 	unsigned i;
 	for (i = 0; i < pluginListNTS.Size(); i++)
 		pluginListNTS[i]->OnDirectSocketSend((const char *) bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), bsp.systemAddress);
@@ -2869,8 +3027,8 @@ void RakPeer::SendTTL(const char *host, unsigned short remotePort, int ttl, unsi
 		RNS2_SendParameters bsp;
 		bsp.data = (char *) fakeData;
 		bsp.length = 2;
-		bsp.systemAddress.FromStringExplicitPort(host, remotePort, socketList[realIndex]->GetBoundAddress().GetIPVersion());
-		bsp.systemAddress.FixForIPVersion(socketList[realIndex]->GetBoundAddress());
+		if (!ResolveOneShotTarget(host, remotePort, socketList[realIndex], &bsp.systemAddress))
+			return;
 		bsp.ttl = ttl;
 		unsigned i;
 		for (i = 0; i < pluginListNTS.Size(); i++)
@@ -3222,8 +3380,8 @@ bool RakPeer::SendOutOfBand(const char *host, unsigned short remotePort, const c
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) bitStream.GetData();
 	bsp.length = bitStream.GetNumberOfBytesUsed();
-	bsp.systemAddress.FromStringExplicitPort(host, remotePort, socketList[realIndex]->GetBoundAddress().GetIPVersion());
-	bsp.systemAddress.FixForIPVersion(socketList[realIndex]->GetBoundAddress());
+	if (!ResolveOneShotTarget(host, remotePort, socketList[realIndex], &bsp.systemAddress))
+		return false;
 	unsigned i;
 	for (i = 0; i < pluginListNTS.Size(); i++)
 		pluginListNTS[i]->OnDirectSocketSend((const char *) bsp.data, BYTES_TO_BITS(bsp.length), bsp.systemAddress);
@@ -3471,57 +3629,106 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 {
 	RakAssert(passwordDataLength <= 256);
 	RakAssert(remotePort != 0);
-	SystemAddress systemAddress;
-	if (!systemAddress.FromStringExplicitPort(host, remotePort, socketList[connectionSocketIndex]->GetBoundAddress().GetIPVersion()))
-		return CANNOT_RESOLVE_DOMAIN_NAME;
+
+	// A dual-stack socket resolves the host itself, in both families. More than
+	// one answer starts a Happy Eyeballs race (RFC 8305): one request per
+	// candidate, all sharing a raceGroup. Otherwise this is a single request,
+	// exactly as on a single-family socket.
+	static const int MAX_CONNECT_CANDIDATES = 16;
+	SystemAddress candidates[MAX_CONNECT_CANDIDATES];
+	int candidateCount;
+	RakNetSocket2 *socket = socketList[connectionSocketIndex];
+	if (socket->IsDualStack())
+	{
+		candidateCount = OrderConnectCandidates(candidates, socket->Resolve(host, remotePort, candidates, MAX_CONNECT_CANDIDATES));
+		if (candidateCount <= 0)
+			return CANNOT_RESOLVE_DOMAIN_NAME;
+	}
+	else
+	{
+		if (!candidates[0].FromStringExplicitPort(host, remotePort, ResolveIPVersion(socket)))
+			return CANNOT_RESOLVE_DOMAIN_NAME;
+		candidateCount = 1;
+	}
 
 	// Already connected?
-	if (GetRemoteSystemFromSystemAddress(systemAddress, false, true))
-		return ALREADY_CONNECTED_TO_ENDPOINT;
+	for (int c = 0; c < candidateCount; c++)
+	{
+		if (GetRemoteSystemFromSystemAddress(candidates[c], false, true))
+			return ALREADY_CONNECTED_TO_ENDPOINT;
+	}
 
-	//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) rakMalloc_Ex(sizeof(RequestedConnectionStruct), _FILE_AND_LINE_);
-	RequestedConnectionStruct *rcs = MafiaNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
+	const MafiaNet::TimeMS now = MafiaNet::GetTimeMS();
+	RequestedConnectionStruct *requests[MAX_CONNECT_CANDIDATES];
+	for (int c = 0; c < candidateCount; c++)
+	{
+		//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) rakMalloc_Ex(sizeof(RequestedConnectionStruct), _FILE_AND_LINE_);
+		RequestedConnectionStruct *rcs = MafiaNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
 
-	rcs->systemAddress = systemAddress;
-	rcs->nextRequestTime = MafiaNet::GetTimeMS();
-	rcs->requestsMade = 0;
-	rcs->data = 0;
-	rcs->socket = 0;
-	rcs->extraData = extraData;
-	rcs->socketIndex = connectionSocketIndex;
-	rcs->actionToTake = RequestedConnectionStruct::CONNECT;
-	rcs->sendConnectionAttemptCount = sendConnectionAttemptCount;
-	rcs->timeBetweenSendConnectionAttemptsMS = timeBetweenSendConnectionAttemptsMS;
-	// No password means passwordData is null. memcpy's source is declared nonnull,
-	// so a null source is undefined behaviour even with a length of 0.
-	if (passwordDataLength > 0)
-		memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
-	rcs->outgoingPasswordLength = (unsigned char) passwordDataLength;
-	rcs->timeoutTime = timeoutTime;
+		rcs->systemAddress = candidates[c];
+		rcs->nextRequestTime = now;
+		rcs->requestsMade = 0;
+		rcs->data = 0;
+		rcs->socket = 0;
+		rcs->extraData = extraData;
+		rcs->socketIndex = connectionSocketIndex;
+		rcs->actionToTake = RequestedConnectionStruct::CONNECT;
+		rcs->sendConnectionAttemptCount = sendConnectionAttemptCount;
+		rcs->timeBetweenSendConnectionAttemptsMS = timeBetweenSendConnectionAttemptsMS;
+		// No password means passwordData is null. memcpy's source is declared nonnull,
+		// so a null source is undefined behaviour even with a length of 0.
+		if (passwordDataLength > 0)
+			memcpy(rcs->outgoingPassword, passwordData, passwordDataLength);
+		rcs->outgoingPasswordLength = (unsigned char) passwordDataLength;
+		rcs->timeoutTime = timeoutTime;
+		if (candidateCount > 1)
+		{
+			// raceGroup is assigned under the queue lock below.
+			rcs->raceFirstAddress = candidates[0];
+			rcs->nextCandidateTime = (MafiaNet::Time) now + (MafiaNet::Time) c * HAPPY_EYEBALLS_ATTEMPT_DELAY_MS;
+		}
 
 #if LIBCAT_SECURITY == 1
-	CAT_AUDIT_PRINTF("AUDIT: In SendConnectionRequest()\n");
-	if (!GenerateConnectionRequestChallenge(rcs, publicKey))
-		return SECURITY_INITIALIZATION_FAILED;
-#else
+		CAT_AUDIT_PRINTF("AUDIT: In SendConnectionRequest()\n");
+		if (!GenerateConnectionRequestChallenge(rcs, publicKey))
+		{
+			DeleteRequestedConnection(rcs);
+			for (int k = 0; k < c; k++)
+				DeleteRequestedConnection(requests[k]);
+			return SECURITY_INITIALIZATION_FAILED;
+		}
+#endif
+		requests[c] = rcs;
+	}
+#if LIBCAT_SECURITY != 1
 	(void) publicKey;
 #endif
 
 	// Return false if already pending, else push on queue
-	unsigned int i = 0;
 	requestedConnectionQueueMutex.Lock();
-	for (; i < requestedConnectionQueue.Size(); i++)
+	for (unsigned int i = 0; i < requestedConnectionQueue.Size(); i++)
 	{
-		if (requestedConnectionQueue[i]->systemAddress == systemAddress)
+		for (int c = 0; c < candidateCount; c++)
 		{
-			requestedConnectionQueueMutex.Unlock();
-			// Not necessary
-			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
-			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
+			if (RequestMatches(requestedConnectionQueue[i], candidates[c]))
+			{
+				requestedConnectionQueueMutex.Unlock();
+				for (int k = 0; k < candidateCount; k++)
+					DeleteRequestedConnection(requests[k]);
+				return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
+			}
 		}
 	}
-	requestedConnectionQueue.Push(rcs, _FILE_AND_LINE_);
+	if (candidateCount > 1)
+	{
+		const uint32_t raceGroup = nextRaceGroup++;
+		if (nextRaceGroup == 0)
+			nextRaceGroup = 1;
+		for (int c = 0; c < candidateCount; c++)
+			requests[c]->raceGroup = raceGroup;
+	}
+	for (int c = 0; c < candidateCount; c++)
+		requestedConnectionQueue.Push(requests[c], _FILE_AND_LINE_);
 	requestedConnectionQueueMutex.Unlock();
 
 	return CONNECTION_ATTEMPT_STARTED;
@@ -3530,7 +3737,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 {
 	RakAssert(passwordDataLength <= 256);
 	SystemAddress systemAddress;
-	systemAddress.FromStringExplicitPort(host, remotePort);
+	// Resolve in the family this socket can reach, as Connect() does.
+	systemAddress.FromStringExplicitPort(host, remotePort, ResolveIPVersion(socket));
 
 	// Already connected?
 	if (GetRemoteSystemFromSystemAddress(systemAddress, false, true))
@@ -3569,12 +3777,11 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	requestedConnectionQueueMutex.Lock();
 	for (; i < requestedConnectionQueue.Size(); i++)
 	{
-		if (requestedConnectionQueue[i]->systemAddress == systemAddress)
+		if (RequestMatches(requestedConnectionQueue[i], systemAddress))
 		{
 			requestedConnectionQueueMutex.Unlock();
-			// Not necessary
-			//MafiaNet::OP_DELETE(rcs->client_handshake,_FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+			// Frees the client_handshake GenerateConnectionRequestChallenge made, too.
+			DeleteRequestedConnection(rcs);
 			return CONNECTION_ATTEMPT_ALREADY_IN_PROGRESS;
 		}
 	}
@@ -4014,6 +4221,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			ClearSessionConfig(remoteSystem);
 			remoteSystem->MTUSize = defaultMTUSize;
 			remoteSystem->guid = guid;
+			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			// Reserve this reliability layer for ourselves.
 			//
@@ -4520,7 +4728,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 
 	if (target != UNASSIGNED_SYSTEM_ADDRESS && performImmediate)
 	{
-		target.FixForIPVersion(socket.GetBoundAddress());
+		FixForSocket(target, &socket);
 	}
 
 	if (sendDisconnectionNotification)
@@ -4543,6 +4751,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 					remoteSystemList[index].isActive = false;
 
 					remoteSystemList[index].guid = UNASSIGNED_RAKNET_GUID;
+					remoteSystemList[index].raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 
 					// Reserve this reliability layer for ourselves
 					//remoteSystemList[ remoteSystemLookup[index].index ].systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
@@ -4839,13 +5048,7 @@ void RakPeer::ClearRequestedConnectionList(void)
 	requestedConnectionQueueMutex.Unlock();
 	unsigned i;
 	for (i = 0; i < freeQueue.Size(); i++)
-	{
-#if LIBCAT_SECURITY == 1
-		CAT_AUDIT_PRINTF("AUDIT: In ClearRequestedConnectionList(), Deleting freeQueue index %i client_handshake %x\n", i, freeQueue[i]->client_handshake);
-		MafiaNet::OP_DELETE(freeQueue[i]->client_handshake, _FILE_AND_LINE_);
-#endif
-		MafiaNet::OP_DELETE(freeQueue[i], _FILE_AND_LINE_);
-	}
+		DeleteRequestedConnection(freeQueue[i]);
 }
 bool RakPeer::IsInsideNetworkThreadReceive(void) const
 {
@@ -5187,8 +5390,12 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 			{
 				RakPeer::RequestedConnectionStruct *rcs;
 				rcs = rakPeer->requestedConnectionQueue[i];
-				if (rcs->systemAddress == systemAddress)
+				if (rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
+					// Happy Eyeballs: the first candidate to answer wins the race.
+					// Every path below returns, so the shifted indices do not matter.
+					rakPeer->CancelRaceSiblings_NoLock(rcs);
+
 					if (serverHasSecurity)
 					{
 #if LIBCAT_SECURITY == 1
@@ -5211,13 +5418,18 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						                     rcs->remote_public_key,
 						                     cat::EasyHandshake::PUBLIC_KEY_BYTES) == false)
 						{
+							// The attempt is over: report it under the race's first address, as
+							// every race failure is, and drop the request so it is not retried.
+							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rakPeer->DeleteRequestedConnection(rcs);
 							CAT_AUDIT_PRINTF("AUDIT: Expected public key does not match what was sent by server -- Reporting back ID_PUBLIC_KEY_MISMATCH to user\n");
 
 							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 							packet->data[0] = ID_PUBLIC_KEY_MISMATCH; // Attempted a connection and couldn't
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = serverGuid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
@@ -5249,13 +5461,17 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 #if LIBCAT_SECURITY == 1
 						if (rcs->client_handshake != 0)
 						{
+							// As for ID_PUBLIC_KEY_MISMATCH above: report once, drop the request.
+							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rakPeer->DeleteRequestedConnection(rcs);
 							CAT_AUDIT_PRINTF("AUDIT: Security disabled by server but we expected security (indicated by client_handshake not null) so failing!\n");
 
 							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 							packet->data[0] = ID_OUR_SYSTEM_REQUIRES_SECURITY; // Attempted a connection and couldn't
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = serverGuid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
@@ -5329,7 +5545,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				rcs = rakPeer->requestedConnectionQueue[i];
 
 
-				if (rcs->systemAddress == systemAddress)
+				if (rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
 #if LIBCAT_SECURITY == 1
 					CAT_AUDIT_PRINTF("AUDIT: System address matches an entry in the requestedConnectionQueue and doSecurity=%i\n", (int) doSecurity);
@@ -5338,13 +5554,17 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						if (rcs->client_handshake == 0)
 						{
 							CAT_AUDIT_PRINTF("AUDIT: Server wants security but we didn't set a public key -- Reporting back ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY to user\n");
+							// As for ID_PUBLIC_KEY_MISMATCH: report once under the race's first address, drop the request.
+							const SystemAddress reportedAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
+							rakPeer->RemoveRequestedConnection_NoLock(rcs);
 							rakPeer->requestedConnectionQueueMutex.Unlock();
+							rakPeer->DeleteRequestedConnection(rcs);
 
 							packet = rakPeer->AllocPacket(2, _FILE_AND_LINE_);
 							packet->data[0] = ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY; // Attempted a connection and couldn't
 							packet->data[1] = 0;                                    // Indicate server public key is missing
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = reportedAddress;
 							packet->guid = guid;
 							rakPeer->AddPacketToProducer(packet);
 							return true;
@@ -5416,6 +5636,10 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 							remoteSystem->weInitiatedTheConnection = true;
 							remoteSystem->connectMode = RakPeer::RemoteSystemStruct::REQUESTED_CONNECTION;
+							// The request, and with it the race's first address, is freed below: keep that address with
+							// the connection, so GetConnectionState() still answers for it.
+							if (rcs->raceGroup != 0 && rcs->raceFirstAddress != systemAddress)
+								remoteSystem->raceFirstAddress = rcs->raceFirstAddress;
 							if (rcs->timeoutTime != 0)
 								remoteSystem->reliabilityLayer.SetTimeoutTime(rcs->timeoutTime);
 
@@ -5455,29 +5679,21 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 							packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 							packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
 							packet->bitSize = (sizeof(char) * 8);
-							packet->systemAddress = rcs->systemAddress;
+							packet->systemAddress = rcs->raceGroup != 0 ? rcs->raceFirstAddress : rcs->systemAddress;
 							packet->guid = guid;
 							rakPeer->AddPacketToProducer(packet);
 						}
 					}
 
 					rakPeer->requestedConnectionQueueMutex.Lock();
-					for (unsigned int k = 0; k < rakPeer->requestedConnectionQueue.Size(); k++)
-					{
-						if (rakPeer->requestedConnectionQueue[k]->systemAddress == systemAddress)
-						{
-							rakPeer->requestedConnectionQueue.RemoveAtIndex(k);
-							break;
-						}
-					}
+					rakPeer->RemoveRequestedConnection_NoLock(rcs);
 					rakPeer->requestedConnectionQueueMutex.Unlock();
 
 #if LIBCAT_SECURITY == 1
 					CAT_AUDIT_PRINTF("AUDIT: Deleting client_handshake object %x and rcs->client_handshake object %x\n", client_handshake, rcs->client_handshake);
 					MafiaNet::OP_DELETE(client_handshake, _FILE_AND_LINE_);
-					MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
 #endif // LIBCAT_SECURITY
-					MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+					rakPeer->DeleteRequestedConnection(rcs);
 
 					break;
 				}
@@ -5508,20 +5724,28 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 			RakPeer::RequestedConnectionStruct *rcs;
 			bool connectionAttemptCancelled = false;
+			SystemAddress reportedAddress = systemAddress;
 			rakPeer->requestedConnectionQueueMutex.Lock();
 			for (i = 0; i < rakPeer->requestedConnectionQueue.Size(); i++)
 			{
 				rcs = rakPeer->requestedConnectionQueue[i];
-				if (rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT && rcs->systemAddress == systemAddress)
+				if (rcs->actionToTake == RakPeer::RequestedConnectionStruct::CONNECT && rcs->systemAddress == systemAddress && !rcs->cancelled)
 				{
 					connectionAttemptCancelled = true;
+					// A rejection from the server ends a Happy Eyeballs race: report
+					// it once, under the race's first address, and drop the rest.
+					if (rcs->raceGroup != 0)
+					{
+						reportedAddress = rcs->raceFirstAddress;
+						rakPeer->CancelRaceSiblings_NoLock(rcs);
+						for (i = 0; i < rakPeer->requestedConnectionQueue.Size(); i++)
+						{
+							if (rakPeer->requestedConnectionQueue[i] == rcs)
+								break;
+						}
+					}
 					rakPeer->requestedConnectionQueue.RemoveAtIndex(i);
-
-#if LIBCAT_SECURITY == 1
-					CAT_AUDIT_PRINTF("AUDIT: Connection attempt canceled so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-#endif // LIBCAT_SECURITY
-					MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+					rakPeer->DeleteRequestedConnection(rcs);
 					break;
 				}
 			}
@@ -5534,7 +5758,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 				packet = rakPeer->AllocPacket(sizeof(char), _FILE_AND_LINE_);
 				packet->data[0] = data[0]; // Attempted a connection and couldn't
 				packet->bitSize = (sizeof(char) * 8);
-				packet->systemAddress = systemAddress;
+				packet->systemAddress = reportedAddress;
 				packet->guid = guid;
 				rakPeer->AddPacketToProducer(packet);
 			}
@@ -6186,35 +6410,25 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 		{
 			RequestedConnectionStruct *rcs;
 			rcs = requestedConnectionQueue[requestedConnectionQueueIndex];
+			if (rcs->cancelled)
+			{
+				// CancelConnectionAttempt flagged it; this thread is the one that frees requests.
+				requestedConnectionQueue.RemoveAtIndex(requestedConnectionQueueIndex);
+				DeleteRequestedConnection(rcs);
+				continue;
+			}
 			requestedConnectionQueueMutex.Unlock();
-			if (rcs->nextRequestTime < timeMS)
+			// A Happy Eyeballs candidate that has not started waits for its turn.
+			const bool waitingForTurn = rcs->raceGroup != 0 && rcs->requestsMade == 0 && timeMS < rcs->nextCandidateTime;
+			if (rcs->nextRequestTime < timeMS && !waitingForTurn)
 			{
 				condition1 = rcs->requestsMade == rcs->sendConnectionAttemptCount + 1;
 				condition2 = (bool) ((rcs->systemAddress == UNASSIGNED_SYSTEM_ADDRESS) == 1);
 				// If too many requests made or a hole then remove this if possible, otherwise invalidate it
 				if (condition1 || condition2)
 				{
-					if (rcs->data)
-					{
-						rakFree_Ex(rcs->data, _FILE_AND_LINE_);
-						rcs->data = 0;
-					}
-
-					if (condition1 && !condition2 && rcs->actionToTake == RequestedConnectionStruct::CONNECT)
-					{
-						// Tell user of connection attempt failed
-						packet = AllocPacket(sizeof(char), _FILE_AND_LINE_);
-						packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
-						packet->bitSize = (sizeof(char) * 8);
-						packet->systemAddress = rcs->systemAddress;
-						AddPacketToProducer(packet);
-					}
-
-#if LIBCAT_SECURITY == 1
-					CAT_AUDIT_PRINTF("AUDIT: Connection attempt FAILED so deleting rcs->client_handshake object %x\n", rcs->client_handshake);
-					MafiaNet::OP_DELETE(rcs->client_handshake, _FILE_AND_LINE_);
-#endif
-					MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+					bool reportFailure = condition1 && !condition2 && rcs->actionToTake == RequestedConnectionStruct::CONNECT;
+					SystemAddress failedAddress = rcs->systemAddress;
 
 					requestedConnectionQueueMutex.Lock();
 					for (unsigned int k = 0; k < requestedConnectionQueue.Size(); k++)
@@ -6225,7 +6439,30 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							break;
 						}
 					}
+					if (rcs->cancelled)
+						reportFailure = false; // cancelled meanwhile: no message
+					else if (rcs->raceGroup != 0)
+					{
+						// One candidate of a race gave up. The race only fails, once,
+						// when its last candidate does; until then the next one starts now.
+						if (AdvanceRace_NoLock(rcs->raceGroup, timeMS))
+							reportFailure = false;
+						else
+							failedAddress = rcs->raceFirstAddress;
+					}
 					requestedConnectionQueueMutex.Unlock();
+
+					if (reportFailure)
+					{
+						// Tell user of connection attempt failed
+						packet = AllocPacket(sizeof(char), _FILE_AND_LINE_);
+						packet->data[0] = ID_CONNECTION_ATTEMPT_FAILED; // Attempted a connection and couldn't
+						packet->bitSize = (sizeof(char) * 8);
+						packet->systemAddress = failedAddress;
+						AddPacketToProducer(packet);
+					}
+
+					DeleteRequestedConnection(rcs);
 				}
 				else
 				{
@@ -6259,7 +6496,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					else
 						socketToUse = rcs->socket;
 
-					rcs->systemAddress.FixForIPVersion(socketToUse->GetBoundAddress());
+					FixForSocket(rcs->systemAddress, socketToUse);
 					if (socketToUse->IsBerkleySocket())
 						((RNS2_Berkley *) socketToUse)->SetDoNotFragment(1);
 

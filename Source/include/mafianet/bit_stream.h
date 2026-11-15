@@ -1005,12 +1005,16 @@ inline void BitStream::Write(const bool &inTemplateVar)
 template <>
 inline void BitStream::Write(const SystemAddress &inTemplateVar)
 {
-	Write(inTemplateVar.GetIPVersion());
-	if (inTemplateVar.GetIPVersion() == 4)
+	// Wire layout (portable, independent of sockaddr layout): a version byte,
+	// then the address bytes bitwise-inverted so routers don't rewrite them,
+	// then the port in network order. IPv4 is 1 + 4 + 2 bytes, IPv6 is 1 + 16 + 2.
+	// An IPv4-mapped IPv6 address always goes out in the IPv4 form (RFC 6890).
+	SystemAddress var2 = inTemplateVar;
+	var2.UnmapIPv4();
+	if (var2.GetIPVersion() == 4)
 	{
-		// Hide the address so routers don't modify it
-		SystemAddress var2 = inTemplateVar;
-		uint32_t binaryAddress = ~inTemplateVar.address.addr4.sin_addr.s_addr;
+		Write((unsigned char) 4);
+		uint32_t binaryAddress = ~var2.address.addr4.sin_addr.s_addr;
 		// Don't endian swap the address or port
 		WriteBits((unsigned char *) &binaryAddress, sizeof(binaryAddress) * 8, true);
 		unsigned short p = var2.GetPortNetworkOrder();
@@ -1018,10 +1022,13 @@ inline void BitStream::Write(const SystemAddress &inTemplateVar)
 	}
 	else
 	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		// Don't endian swap
-		WriteBits((const unsigned char *) &inTemplateVar.address.addr6, sizeof(inTemplateVar.address.addr6) * 8, true);
-#endif
+		Write((unsigned char) 6);
+		unsigned char hidden[16];
+		for (int i = 0; i < 16; i++)
+			hidden[i] = (unsigned char) ~var2.address.addr6.sin6_addr.s6_addr[i];
+		WriteBits(hidden, sizeof(hidden) * 8, true);
+		unsigned short p = var2.GetPortNetworkOrder();
+		WriteBits((unsigned char *) &p, sizeof(unsigned short) * 8, true);
 	}
 }
 
@@ -1375,31 +1382,43 @@ inline bool BitStream::Read(bool &outTemplateVar)
 template <>
 inline bool BitStream::Read(SystemAddress &outTemplateVar)
 {
+	// See Write(const SystemAddress &) for the layout. Network input: reject
+	// short or unknown-version data without asserting.
 	unsigned char ipVersion;
-	Read(ipVersion);
+	if (!Read(ipVersion))
+		return false;
 	if (ipVersion == 4)
 	{
+		if (GetNumberOfUnreadBits() < 6 * 8)
+			return false;
+		outTemplateVar = UNASSIGNED_SYSTEM_ADDRESS;
 		outTemplateVar.address.addr4.sin_family = AF_INET;
-		// Read(var.binaryAddress);
 		// Don't endian swap the address or port
 		uint32_t binaryAddress;
 		ReadBits((unsigned char *) &binaryAddress, sizeof(binaryAddress) * 8, true);
 		// Unhide the IP address, done to prevent routers from changing it
 		outTemplateVar.address.addr4.sin_addr.s_addr = ~binaryAddress;
-		bool b = ReadBits((unsigned char *) &outTemplateVar.address.addr4.sin_port, sizeof(outTemplateVar.address.addr4.sin_port) * 8, true);
+		ReadBits((unsigned char *) &outTemplateVar.address.addr4.sin_port, sizeof(outTemplateVar.address.addr4.sin_port) * 8, true);
 		outTemplateVar.debugPort = ntohs(outTemplateVar.address.addr4.sin_port);
-		return b;
+		return true;
 	}
-	else
+	if (ipVersion == 6)
 	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		bool b = ReadBits((unsigned char *) &outTemplateVar.address.addr6, sizeof(outTemplateVar.address.addr6) * 8, true);
-		outTemplateVar.debugPort = ntohs(outTemplateVar.address.addr6.sin6_port);
-		return b;
-#else
-		return false;
-#endif
+		if (GetNumberOfUnreadBits() < 18 * 8)
+			return false;
+		memset(&outTemplateVar.address.addr6, 0, sizeof(outTemplateVar.address.addr6));
+		outTemplateVar.address.addr6.sin6_family = AF_INET6;
+		unsigned char hidden[16];
+		ReadBits(hidden, sizeof(hidden) * 8, true);
+		for (int i = 0; i < 16; i++)
+			outTemplateVar.address.addr6.sin6_addr.s6_addr[i] = (unsigned char) ~hidden[i];
+		ReadBits((unsigned char *) &outTemplateVar.address.addr6.sin6_port, sizeof(outTemplateVar.address.addr6.sin6_port) * 8, true);
+		// A mapped address never travels as IPv6; normalise to IPv4
+		outTemplateVar.UnmapIPv4();
+		outTemplateVar.debugPort = ntohs(outTemplateVar.GetIPVersion() == 4 ? outTemplateVar.address.addr4.sin_port : outTemplateVar.address.addr6.sin6_port);
+		return true;
 	}
+	return false;
 }
 
 template <>

@@ -185,7 +185,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 		// outputNode->whenMessageArrived = cpuThreadInput->cpuInputArray[i].whenMessageArrived;
 		outputNode->packet = packet;
 
-		packet->systemAddress.ToString(true, outputNode->ipAddressString, static_cast<size_t>(32));
+		packet->systemAddress.ToString(true, outputNode->ipAddressString, static_cast<size_t>(64));
 		MafiaNet::BitStream bitStream(packet->data, packet->length, false);
 		bitStream.IgnoreBytes(1);
 		bitStream.Read(outputNode->dbIdentifier);

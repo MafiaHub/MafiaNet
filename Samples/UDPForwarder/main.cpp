@@ -33,14 +33,10 @@ int main()
 	rakPeer[1] = MafiaNet::RakPeerInterface::GetInstance();
 	MafiaNet::SocketDescriptor sd1(50000, 0), sd2(50002, 0);
 	MafiaNet::StartupResult sr;
-#if RAKNET_SUPPORT_IPV6 == 1
 	sd1.socketFamily = AF_INET6; // Test out IPV6
-#endif
 	sr = rakPeer[0]->Startup(1, &sd1, 1);
 	RakAssert(sr == MafiaNet::RAKNET_STARTED);
-#if RAKNET_SUPPORT_IPV6 == 1
 	sd2.socketFamily = AF_INET6; // Test out IPV6
-#endif
 	sr = rakPeer[1]->Startup(1, &sd2, 1);
 	RakAssert(sr == MafiaNet::RAKNET_STARTED);
 	rakPeer[1]->SetMaximumIncomingConnections(1);

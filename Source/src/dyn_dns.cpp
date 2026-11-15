@@ -170,7 +170,7 @@ void DynDNS::Update(void)
 							{
 								SystemAddress parser;
 								parser.FromString(curResult);
-								parser.ToString(false, myIPStr, static_cast<size_t>(32));
+								parser.ToString(false, myIPStr, static_cast<size_t>(64));
 							}
 						}
 						tcp->DeallocatePacket(packet);
@@ -217,12 +217,12 @@ void DynDNS::Update(void)
 				curResult += strlen("Current IP Address: ");
 				SystemAddress myIp;
 				myIp.FromString(curResult);
-				myIp.ToString(false, myIPStr, static_cast<size_t>(32));
+				myIp.ToString(false, myIPStr, static_cast<size_t>(64));
 
 				char existingHost[65];
 				existingHost[0] = 0;
 				// Resolve DNS we are setting. If equal to current then abort
-				RakNetSocket2::DomainNameToIP(host.C_String(), existingHost);
+				RakNetSocket2::DomainNameToIP(host.C_String(), existingHost, AF_INET); // DynDNS records are IPv4
 				if (strcmp(existingHost, myIPStr) == 0)
 				{
 					// DynDNS considers setting the IP to what it is already set abuse

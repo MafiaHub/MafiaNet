@@ -9,12 +9,11 @@ Structure
 .. code-block:: cpp
 
    struct SystemAddress {
-       // Binary IP address (network byte order)
+       // Either a sockaddr_in6 or a sockaddr_in, discriminated by sin_family
        union {
-           unsigned char addr4[4];    // IPv4
-           unsigned char addr6[16];   // IPv6
-       };
-       unsigned short port;           // Port (host byte order)
+           sockaddr_in6 addr6;        // IPv6
+           sockaddr_in addr4;         // IPv4
+       } address;
        // ...
    };
 
@@ -198,13 +197,26 @@ For IPv6 addresses:
 .. code-block:: cpp
 
    MafiaNet::SystemAddress addr6;
-   addr6.FromString("fe80::7c:31f7:fec4:27de%14");
+   addr6.FromString("2001:db8::1");
    addr6.SetPortHostOrder(60000);
 
    // Check if IPv6
-   if (addr6.IsIPV6()) {
+   if (addr6.GetIPVersion() == 6) {
        // Handle IPv6
    }
+
+IPv6 is always compiled in; there is no build switch. Sockets are dual-stack
+by default (``SocketDescriptor::socketFamily == AF_UNSPEC``): one socket reaches
+IPv4 and IPv6 peers, IPv4 peers are still reported as plain IPv4 addresses, and
+``GetMyBoundAddress()`` on a wildcard socket reports ``127.0.0.1`` and its port
+as an IPv4 socket does. Set ``socketFamily = AF_INET`` for an IPv4-only socket
+(the pre-0.27.0 default), or ``requireDualStack = true`` to fail ``Startup()``
+rather than fall back to IPv4. On Linux, a default socket on a port excludes a
+separate ``AF_INET`` socket on the same port. An IPv4-mapped literal
+(``::ffff:192.0.2.1``) is stored as the plain IPv4 address, so a peer reached
+over a dual-stack socket compares equal to the same peer reached over IPv4.
+``IsIPv4Mapped()`` and ``UnmapIPv4()`` expose that normalization for addresses
+that come from elsewhere. See :doc:`../advanced/ipv6-support`.
 
 See Also
 --------

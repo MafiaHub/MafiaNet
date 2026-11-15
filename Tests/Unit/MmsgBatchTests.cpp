@@ -86,7 +86,6 @@ sockaddr_storage MakeFamily(unsigned short family)
 	return ss;
 }
 
-#if RAKNET_SUPPORT_IPV6 == 1
 sockaddr_storage MakeV6(const char *ip, unsigned short port)
 {
 	sockaddr_storage ss;
@@ -97,7 +96,6 @@ sockaddr_storage MakeV6(const char *ip, unsigned short port)
 	inet_pton(AF_INET6, ip, &in6->sin6_addr);
 	return ss;
 }
-#endif
 
 // Records every datagram handed to Send(), so tests can assert on what the
 // batch flushed and when. SendBatch is deliberately NOT overridden: these
@@ -389,7 +387,6 @@ TEST(SockaddrToSystemAddress, PreservesIPv4Address)
 	EXPECT_EQ(out.address.addr4.sin_addr.s_addr, in->sin_addr.s_addr);
 }
 
-#if RAKNET_SUPPORT_IPV6 == 1
 TEST(SockaddrToSystemAddress, DecodesIPv6PortToHostOrder)
 {
 	sockaddr_storage ss = MakeV6("2001:db8::1", 4660);
@@ -403,16 +400,6 @@ TEST(SockaddrToSystemAddress, DecodesIPv6PortToHostOrder)
 	                 sizeof(in6->sin6_addr)),
 	          0);
 }
-#else
-TEST(SockaddrToSystemAddress, RejectsIPv6SourceOnIPv4OnlyBuild)
-{
-	// An IPv6 sender reaching an IPv4-only build has no representable address;
-	// the caller must be told so rather than handed a half-decoded one.
-	SystemAddress out;
-	EXPECT_FALSE(SockaddrToSystemAddress(MakeFamily(AF_INET6), &out));
-	EXPECT_EQ(out, UNASSIGNED_SYSTEM_ADDRESS);
-}
-#endif
 
 TEST(SockaddrToSystemAddress, RejectsUndecodableFamilyWithoutKeepingStaleAddress)
 {

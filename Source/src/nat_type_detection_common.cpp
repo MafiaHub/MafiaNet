@@ -118,7 +118,7 @@ RakNetSocket2 *MafiaNet::CreateNonblockingBoundSocket(const char *bindAddr, RNS2
 		bbp.eventHandler = eventHandler;
 		RNS2BindResult br = ((RNS2_Berkley *) r2)->Bind(&bbp, _FILE_AND_LINE_);
 
-		if (br == BR_FAILED_TO_BIND_SOCKET)
+		if (br == BR_FAILED_TO_BIND_SOCKET || br == BR_FAMILY_NOT_SUPPORTED)
 		{
 			RakNetSocket2Allocator::DeallocRNS2(r2);
 			return 0;

@@ -75,6 +75,7 @@ using namespace MafiaNet;
 #include "mafianet/sleep.h"
 #include <stdio.h>
 #include "mafianet/itoa.h"
+#include <vector>
 
 namespace MafiaNet
 {
@@ -85,14 +86,64 @@ extern void ProcessNetworkPacket(const SystemAddress systemAddress, const char *
 // http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html#ip4to6
 // http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html#getaddrinfo
 
-#if RAKNET_SUPPORT_IPV6 == 1
 void PrepareAddrInfoHints(addrinfo *hints)
 {
-	memset(hints, 0, sizeof(addrinfo)); // make sure the struct is empty
+	memset(hints, 0, sizeof(addrinfo)); // make sure the struct is empty; ai_family AF_UNSPEC
 	hints->ai_socktype = SOCK_DGRAM;    // UDP sockets
 	hints->ai_flags = AI_PASSIVE;       // fill in my IP for me
 }
-#endif
+
+// fe80::/10, checked on the bytes rather than with IN6_IS_ADDR_LINKLOCAL, whose
+// availability and constness differ across Winsock and the BSD libcs.
+static bool IsLinkLocalIPv6(const SystemAddress &systemAddress)
+{
+	const unsigned char *b = reinterpret_cast<const unsigned char *>(&systemAddress.address.addr6.sin6_addr);
+	return b[0] == 0xfe && (b[1] & 0xc0) == 0x80;
+}
+
+// 127.0.0.0/8 or ::1. SystemAddress::IsLoopback only knows 127.0.0.1 (and
+// counts 0.0.0.0), so the range is checked here on the bytes.
+static bool IsLoopbackAddress(const SystemAddress &systemAddress)
+{
+	if (systemAddress.address.addr4.sin_family == AF_INET)
+		return reinterpret_cast<const unsigned char *>(&systemAddress.address.addr4.sin_addr)[0] == 127;
+	static const unsigned char ipv6Loopback[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+	return memcmp(&systemAddress.address.addr6.sin6_addr, ipv6Loopback, sizeof(ipv6Loopback)) == 0;
+}
+
+int SocketLayer::OrderInternalIds(SystemAddress *addresses, int count)
+{
+	if (addresses == nullptr || count <= 0)
+		return 0;
+
+	std::vector<SystemAddress> ipv4, ipv6;
+	for (int i = 0; i < count; ++i)
+	{
+		const SystemAddress &candidate = addresses[i];
+		if (candidate == UNASSIGNED_SYSTEM_ADDRESS || IsLoopbackAddress(candidate))
+			continue;
+		if (candidate.address.addr4.sin_family == AF_INET)
+			ipv4.push_back(candidate);
+		else if (candidate.address.addr4.sin_family == AF_INET6 && !candidate.IsIPv4Mapped() && !IsLinkLocalIPv6(candidate))
+			ipv6.push_back(candidate);
+		// else: link-local IPv6 (useless without a scope id), IPv4-mapped, or not an IP address.
+		// Loopback was dropped above: the hostname lookup path can return it, and it is never worth advertising.
+	}
+
+	int kept = 0;
+	for (const std::vector<SystemAddress> *group : {&ipv4, &ipv6})
+	{
+		for (const SystemAddress &address : *group)
+		{
+			if (kept == MAXIMUM_NUMBER_OF_INTERNAL_IDS)
+				break;
+			addresses[kept++] = address;
+		}
+	}
+	for (int i = kept; i < count; ++i)
+		addresses[i] = UNASSIGNED_SYSTEM_ADDRESS;
+	return kept;
+}
 
 void SocketLayer::SetSocketOptions(__UDPSOCKET__ listenSocket, bool blockingSocket, bool setBroadcast)
 {
@@ -239,10 +290,9 @@ MafiaNet::RakString SocketLayer::GetSubNetForSocketAndIp([[maybe_unused]] __UDPS
 #endif
 }
 
-void GetMyIP_Win32(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS])
+// Every address the host name resolves to, IPv4 and IPv6, unfiltered.
+static void GetMyIP_Win32(std::vector<SystemAddress> &found)
 {
-	int idx = 0;
-	idx = 0;
 	char ac[80];
 	if (gethostname(ac, sizeof(ac)) == -1)
 	{
@@ -260,74 +310,38 @@ void GetMyIP_Win32(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS])
 		return;
 	}
 
-#if RAKNET_SUPPORT_IPV6 == 1
 	struct addrinfo hints;
-	struct addrinfo *servinfo = 0, *aip; // will point to the results
+	struct addrinfo *servinfo = nullptr;
 	PrepareAddrInfoHints(&hints);
-	getaddrinfo(ac, "", &hints, &servinfo);
+	if (getaddrinfo(ac, nullptr, &hints, &servinfo) != 0 || servinfo == nullptr)
+		return;
 
-	for (idx = 0, aip = servinfo; aip != nullptr && idx < MAXIMUM_NUMBER_OF_INTERNAL_IDS; aip = aip->ai_next, idx++)
+	for (struct addrinfo *aip = servinfo; aip != nullptr; aip = aip->ai_next)
 	{
+		SystemAddress systemAddress;
 		if (aip->ai_family == AF_INET)
-		{
-			struct sockaddr_in *ipv4 = (struct sockaddr_in *) aip->ai_addr;
-			memcpy(&addresses[idx].address.addr4, ipv4, sizeof(sockaddr_in));
-		}
+			memcpy(&systemAddress.address.addr4, aip->ai_addr, sizeof(sockaddr_in));
+		else if (aip->ai_family == AF_INET6)
+			memcpy(&systemAddress.address.addr6, aip->ai_addr, sizeof(sockaddr_in6));
 		else
-		{
-			struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) aip->ai_addr;
-			memcpy(&addresses[idx].address.addr4, ipv6, sizeof(sockaddr_in6));
-		}
+			continue;
+		found.push_back(systemAddress);
 	}
 
 	freeaddrinfo(servinfo); // free the linked-list
-#else
-	struct addrinfo *curAddress = nullptr;
-	int err = getaddrinfo(ac, nullptr, nullptr, &curAddress);
-
-	if (err != 0)
-	{
-#if defined(_WIN32)
-		int wsaError = WSAGetLastError();
-		LPTSTR messageBuffer;
-		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		              nullptr, wsaError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-		              (LPTSTR) &messageBuffer, 0, nullptr);
-		// something has gone wrong here...
-		RAKNET_DEBUG_TPRINTF(_T("getaddrinfo failed:Error code - %d\n%s"), wsaError, messageBuffer);
-
-		//Free the buffer.
-		LocalFree(messageBuffer);
-#endif
-		return;
-	}
-	while (curAddress != nullptr && idx < MAXIMUM_NUMBER_OF_INTERNAL_IDS)
-	{
-		if (curAddress->ai_family == AF_INET)
-		{
-			addresses[idx].address.addr4 = *((struct sockaddr_in *) curAddress->ai_addr);
-			++idx;
-		}
-		curAddress = curAddress->ai_next;
-	}
-
-#endif // else RAKNET_SUPPORT_IPV6==1
-
-	while (idx < MAXIMUM_NUMBER_OF_INTERNAL_IDS)
-	{
-		addresses[idx] = UNASSIGNED_SYSTEM_ADDRESS;
-		idx++;
-	}
 }
 
 void SocketLayer::GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS])
 {
-#if defined(_WIN32)
-	GetMyIP_Win32(addresses);
-#else
-	//	GetMyIP_Linux(addresses);
-	GetMyIP_Win32(addresses);
-#endif
+	std::vector<SystemAddress> found;
+	GetMyIP_Win32(found);
+	const int count = OrderInternalIds(found.data(), (int) found.size());
+
+	int index = 0;
+	for (; index < count; ++index)
+		addresses[index] = found[(size_t) index];
+	for (; index < MAXIMUM_NUMBER_OF_INTERNAL_IDS; ++index)
+		addresses[index] = UNASSIGNED_SYSTEM_ADDRESS;
 }
 
 /*
@@ -381,9 +395,6 @@ void SocketLayer::GetSystemAddress_Old ( RakNetSocket *s, SystemAddress *systemA
 
 void SocketLayer::GetSystemAddress(__UDPSOCKET__ s, SystemAddress *systemAddressOut)
 {
-#if RAKNET_SUPPORT_IPV6 != 1
-	GetSystemAddress_Old(s, systemAddressOut);
-#else
 	socklen_t slen;
 	sockaddr_storage ss;
 	slen = sizeof(ss);
@@ -397,7 +408,7 @@ void SocketLayer::GetSystemAddress(__UDPSOCKET__ s, SystemAddress *systemAddress
 		              nullptr, dwIOError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
 		              (LPTSTR) &messageBuffer, 0, nullptr);
 		// something has gone wrong here...
-		RAKNET_DEBUG_TPRINTF(_T("getsockname failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
+		RAKNET_DEBUG_TPRINTF(_T("getsockname failed:Error code - %lu\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
 
 		//Free the buffer.
 		LocalFree(messageBuffer);
@@ -423,12 +434,11 @@ void SocketLayer::GetSystemAddress(__UDPSOCKET__ s, SystemAddress *systemAddress
 
 		char zero[16];
 		memset(zero, 0, sizeof(zero));
-		if (memcmp(&systemAddressOut->address.addr4.sin_addr.s_addr, &zero, sizeof(zero)) == 0)
+		if (memcmp(&systemAddressOut->address.addr6.sin6_addr, &zero, sizeof(zero)) == 0)
 			systemAddressOut->SetToLoopback(6);
 
 		//	systemAddressOut->address.addr6.sin6_port=ntohs(systemAddressOut->address.addr6.sin6_port);
 	}
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 }
 
 /*

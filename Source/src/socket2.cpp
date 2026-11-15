@@ -15,6 +15,7 @@
 
 #include "mafianet/socket2.h"
 #include "mafianet/mmsg_batch.h"
+#include "mafianet/sockaddr_convert.h"
 #include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 #include "mafianet/sleep.h"
@@ -31,6 +32,7 @@ using namespace MafiaNet;
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <netdb.h> // EAI_FAMILY, classified by RNS2_IsFamilyNotSupportedResolveError
 #include <errno.h> // error numbers
 #if !defined(ANDROID)
 #include <ifaddrs.h>
@@ -58,6 +60,34 @@ int MafiaNet::RNS2_GetLastSocketError(void)
 #else
 	return errno;
 #endif
+}
+
+bool MafiaNet::RNS2_IsFamilyNotSupportedResolveError(int gaiError)
+{
+	if (gaiError == EAI_FAMILY)
+		return true;
+#ifdef EAI_ADDRFAMILY
+	if (gaiError == EAI_ADDRFAMILY)
+		return true;
+#endif
+	return false;
+}
+
+bool MafiaNet::RNS2_IsFamilyNotSupportedSocketError(int err)
+{
+#ifdef _WIN32
+	if (err == WSAEAFNOSUPPORT || err == WSAEPFNOSUPPORT)
+		return true;
+#endif
+#ifdef EAFNOSUPPORT
+	if (err == EAFNOSUPPORT)
+		return true;
+#endif
+#ifdef EPFNOSUPPORT
+	if (err == EPFNOSUPPORT)
+		return true;
+#endif
+	return false;
 }
 
 bool MafiaNet::RNS2_IsDatagramTooLargeError(int err)
@@ -90,7 +120,8 @@ RakNetSocket2::RakNetSocket2()
       socketType(RNS2T_LINUX)
 #endif
       ,
-      userConnectionSocketIndex(0)
+      userConnectionSocketIndex(0),
+      dualStack(false)
 {
 }
 RakNetSocket2::~RakNetSocket2() {}
@@ -135,6 +166,14 @@ SystemAddress RakNetSocket2::GetBoundAddress(void) const
 {
 	return boundAddress;
 }
+bool RakNetSocket2::IsDualStack(void) const
+{
+	return dualStack;
+}
+int RakNetSocket2::SocketFamily(void) const
+{
+	return dualStack ? AF_INET6 : boundAddress.address.addr4.sin_family;
+}
 
 RakNetSocket2 *RakNetSocket2Allocator::AllocRNS2(void)
 {
@@ -170,9 +209,15 @@ RNS2EventHandler *RakNetSocket2::GetEventHandler(void) const
 	return eventHandler;
 }
 
-void RakNetSocket2::DomainNameToIP(const char *domainName, char ip[65])
+void RakNetSocket2::DomainNameToIP(const char *domainName, char ip[65], int addressFamily)
 {
-	return DomainNameToIP_Berkley(domainName, ip);
+	return DomainNameToIP_Berkley_IPV4And6(domainName, ip, addressFamily);
+}
+
+int RakNetSocket2::Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const
+{
+	const int family = dualStack ? AF_UNSPEC : (boundAddress.GetIPVersion() == 6 ? AF_INET6 : AF_INET);
+	return Resolve_Berkley(host, port, family, out, maxOut);
 }
 
 bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type)
@@ -188,10 +233,13 @@ bool IRNS2_Berkley::IsPortInUse(unsigned short port, const char *hostAddress, un
 	bbp.doNotFragment = false;
 	bbp.protocol = 0;
 	bbp.setIPHdrIncl = false;
+	bbp.pollingThreadPriority = 0;
+	bbp.eventHandler = nullptr;
 	SystemAddress boundAddress;
 	RNS2_Berkley *rns2 = (RNS2_Berkley *) RakNetSocket2Allocator::AllocRNS2();
 	RNS2BindResult bindResult = rns2->Bind(&bbp, _FILE_AND_LINE_);
 	RakNetSocket2Allocator::DeallocRNS2(rns2);
+	// BR_FAMILY_NOT_SUPPORTED means "cannot tell", not "in use": see the declaration.
 	return bindResult == BR_FAILED_TO_BIND_SOCKET;
 }
 
@@ -205,12 +253,7 @@ void SocketReadCallback(CFSocketRef /*s*/, CFSocketCallBackType /*type*/, CFData
 
 RNS2BindResult RNS2_Berkley::BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
 {
-	RNS2BindResult br;
-#if RAKNET_SUPPORT_IPV6 == 1
-	br = BindSharedIPV4And6(bindParameters, file, line);
-#else
-	br = BindSharedIPV4(bindParameters, file, line);
-#endif
+	RNS2BindResult br = BindSharedIPV4And6(bindParameters, file, line);
 
 	if (br != BR_SUCCESS)
 		return br;
@@ -219,7 +262,7 @@ RNS2BindResult RNS2_Berkley::BindShared(RNS2_BerkleyBindParameters *bindParamete
 	RNS2_SendParameters bsp;
 	bsp.data = (char *) &zero;
 	bsp.length = 4;
-	bsp.systemAddress = boundAddress;
+	bsp.systemAddress = SelfSendAddress();
 	bsp.ttl = 0;
 	RNS2SendResult sr = Send(&bsp, _FILE_AND_LINE_);
 	if (sr < 0)
@@ -263,7 +306,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 		if (recvFromStruct != nullptr)
 		{
 			recvFromStruct->socket = this;
-			RecvFromBlocking(recvFromStruct);
+			RecvFromBlockingIPV4And6(recvFromStruct);
 
 			if (recvFromStruct->bytesRead > 0)
 			{
@@ -318,7 +361,7 @@ void RNS2_Berkley::BlockOnStopRecvPollingThread(void)
 	unsigned long zero = 0;
 	bsp.data = (char *) &zero;
 	bsp.length = 4;
-	bsp.systemAddress = boundAddress;
+	bsp.systemAddress = SelfSendAddress();
 	bsp.ttl = 0;
 	Send(&bsp, _FILE_AND_LINE_);
 
@@ -366,7 +409,7 @@ RNS2SendResult RNS2_Windows::Send(RNS2_SendParameters *sendParameters, const cha
 		if (len >= 0)
 			return len;
 	}
-	return Send_Windows_Linux(rns2Socket, sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters, file, line);
 }
 void RNS2_Windows::GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS])
 {
@@ -387,7 +430,7 @@ RNS2BindResult RNS2_Linux::Bind(RNS2_BerkleyBindParameters *bindParameters, cons
 }
 RNS2SendResult RNS2_Linux::Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
 {
-	return Send_Windows_Linux(rns2Socket, sendParameters, file, line);
+	return Send_Windows_Linux(rns2Socket, SocketFamily(), dualStack, sendParameters, file, line);
 }
 // See the declaration in socket2.h for why __linux__ is required here and not
 // just the build flag.
@@ -427,6 +470,7 @@ RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count,
 		                                             unsigned chunk = remaining < MMSG_BATCH_MAX ? remaining : MMSG_BATCH_MAX;
 		                                             struct mmsghdr msgs[MMSG_BATCH_MAX];
 		                                             struct iovec iovecs[MMSG_BATCH_MAX];
+		                                             sockaddr_storage names[MMSG_BATCH_MAX];
 		                                             for (unsigned i = 0; i < chunk; ++i)
 		                                             {
 			                                             RNS2_SendParameters *p = &sends[offset + i];
@@ -435,24 +479,13 @@ RNS2SendResult RNS2_Linux::SendBatch(RNS2_SendParameters *sends, unsigned count,
 			                                             memset(&msgs[i], 0, sizeof(msgs[i]));
 			                                             msgs[i].msg_hdr.msg_iov = &iovecs[i];
 			                                             msgs[i].msg_hdr.msg_iovlen = 1;
-			                                             if (p->systemAddress.address.addr4.sin_family == AF_INET)
-			                                             {
-				                                             msgs[i].msg_hdr.msg_name = (void *) &p->systemAddress.address.addr4;
-				                                             msgs[i].msg_hdr.msg_namelen = sizeof(sockaddr_in);
-			                                             }
-			                                             else
-			                                             {
-#if RAKNET_SUPPORT_IPV6 == 1
-				                                             msgs[i].msg_hdr.msg_name = (void *) &p->systemAddress.address.addr6;
-				                                             msgs[i].msg_hdr.msg_namelen = sizeof(sockaddr_in6);
-#else
-					// Nothing to point msg_name at: this build has no sockaddr_in6.
-					// Leaving it null makes sendmmsg fail EDESTADDRREQ for this one
-					// datagram, which DriveBatchedSend drops while still delivering
-					// the rest of the batch.
-					RakAssert(false && "non-IPv4 destination on an IPv4-only build");
-#endif
-			                                             }
+			                                             // Same conversion as the scalar sendto path (IPv4 -> ::ffff:a.b.c.d
+			                                             // on a dual-stack socket). A target this socket cannot reach gets no
+			                                             // name at all: sendmmsg then fails that one message with
+			                                             // EDESTADDRREQ, a per-message error, so only it is dropped.
+			                                             const socklen_t nameLen = SystemAddressToSockaddr(p->systemAddress, dualStack, &names[i], SocketFamily());
+			                                             msgs[i].msg_hdr.msg_name = nameLen != 0 ? (void *) &names[i] : nullptr;
+			                                             msgs[i].msg_hdr.msg_namelen = nameLen;
 		                                             }
 		                                             const int r = sendmmsg(rns2Socket, msgs, chunk, 0);
 		                                             if (r >= 0)

@@ -25,6 +25,7 @@
 #include "mafianet/socket_layer.h"
 #include "mafianet/format_string.h"
 #include "mafianet/socket_defines.h"
+#include "mafianet/sockaddr_convert.h"
 
 using namespace MafiaNet;
 
@@ -267,8 +268,8 @@ PluginReceiveResult Router2::OnReceive(Packet *packet)
 			if (debugInterface)
 			{
 				char buff[512];
-				char buff2[32];
-				packet->systemAddress.ToString(true, buff2, static_cast<size_t>(32));
+				char buff2[64];
+				packet->systemAddress.ToString(true, buff2, static_cast<size_t>(64));
 				debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REQUEST_FORWARDING on ip %s from %I64d, ",
 				                                              buff2, packet->guid.g));
 			}
@@ -297,8 +298,8 @@ PluginReceiveResult Router2::OnReceive(Packet *packet)
 			if (debugInterface)
 			{
 				char buff[512];
-				char buff2[32];
-				sa.ToString(false, buff2, static_cast<size_t>(32));
+				char buff2[64];
+				sa.ToString(false, buff2, static_cast<size_t>(64));
 				debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REPLY_TO_SENDER_PORT %i on address %s, replying with ID_ROUTER_2_MINI_PUNCH_REPLY at %s:%i\n", sa.GetPort(), buff2, _FILE_AND_LINE_));
 
 				//						packet->systemAddress.ToString(true,buff2);
@@ -323,8 +324,8 @@ PluginReceiveResult Router2::OnReceive(Packet *packet)
 			if (debugInterface)
 			{
 				char buff[512];
-				char buff2[32];
-				sa.ToString(false, buff2, static_cast<size_t>(32));
+				char buff2[64];
+				sa.ToString(false, buff2, static_cast<size_t>(64));
 				debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REPLY_TO_SPECIFIED_PORT %i on address %s, "
 				                                                    "replying with ID_ROUTER_2_MINI_PUNCH_REPLY at %s:%i\n",
 				                                              sa.GetPort(), buff2, __FILE__, __LINE__));
@@ -933,8 +934,8 @@ void Router2::SendOOBFromRakNetPort(OutOfBandIdentifiers oob, BitStream *extraDa
 		extraData->ResetReadPointer();
 		oobBs.Write(*extraData);
 	}
-	char ipAddressString[32];
-	sa.ToString(false, ipAddressString, static_cast<size_t>(32));
+	char ipAddressString[64];
+	sa.ToString(false, ipAddressString, static_cast<size_t>(64));
 	rakPeerInterface->SendOutOfBand((const char *) ipAddressString, sa.GetPort(), (const char *) oobBs.GetData(), oobBs.GetNumberOfBytesUsed());
 }
 void Router2::SendOOBFromSpecifiedSocket(OutOfBandIdentifiers oob, SystemAddress sa, __UDPSOCKET__ socket)
@@ -942,19 +943,30 @@ void Router2::SendOOBFromSpecifiedSocket(OutOfBandIdentifiers oob, SystemAddress
 	MafiaNet::BitStream bs;
 	rakPeerInterface->WriteOutOfBandHeader(&bs);
 	bs.Write((unsigned char) oob);
-	// SocketLayer::SendTo_PC( socket, (const char*) bs.GetData(), bs.GetNumberOfBytesUsed(), sa, __FILE__, __LINE__  );
 
-
-	if (sa.address.addr4.sin_family == AF_INET)
+	// The forwarding socket comes from UDPForwarder and may be IPv4, IPv6-only or dual-stack: ask it which, and
+	// address the target in the form it can send to (an IPv4 target is mapped on a dual-stack socket).
+	int forwardingFamily = AF_UNSPEC;
+	bool forwardingDualStack = false;
+	sockaddr_storage local;
+	memset(&local, 0, sizeof(local));
+	socklen_t localLength = sizeof(local);
+	if (getsockname__(socket, (sockaddr *) &local, &localLength) == 0)
 	{
-		sendto__(socket, (const char *) bs.GetData(), bs.GetNumberOfBytesUsed(), 0, (const sockaddr *) &sa.address.addr4, sizeof(sockaddr_in));
+		forwardingFamily = local.ss_family;
+		if (forwardingFamily == AF_INET6)
+		{
+			int v6only = 1;
+			socklen_t optionLength = sizeof(v6only);
+			if (getsockopt__(socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, &optionLength) == 0)
+				forwardingDualStack = v6only == 0;
+		}
 	}
-	else
-	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		sendto__(socket, (const char *) bs.GetData(), bs.GetNumberOfBytesUsed(), 0, (const sockaddr *) &sa.address.addr6, sizeof(sockaddr_in6));
-#endif
-	}
+	sockaddr_storage target;
+	const socklen_t targetLength = SystemAddressToSockaddr(sa, forwardingDualStack, &target, forwardingFamily);
+	if (targetLength == 0)
+		return; // this socket cannot reach that family
+	sendto__(socket, (const char *) bs.GetData(), bs.GetNumberOfBytesUsed(), 0, (const sockaddr *) &target, targetLength);
 }
 void Router2::SendOOBMessages(Router2::MiniPunchRequest *mpr)
 {
@@ -1069,10 +1081,10 @@ void Router2::OnRequestForwarding(Packet *packet)
 	{
 		if (debugInterface)
 		{
-			char buff2[32];
-			char buff3[32];
-			endpointSystemAddress.ToString(true, buff2, static_cast<size_t>(32));
-			packet->systemAddress.ToString(true, buff3, static_cast<size_t>(32));
+			char buff2[64];
+			char buff3[64];
+			endpointSystemAddress.ToString(true, buff2, static_cast<size_t>(64));
+			packet->systemAddress.ToString(true, buff3, static_cast<size_t>(64));
 			char buff[512];
 			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REQUEST_FORWARDING.\n"
 			                                                    "endpointAddress=%s\nsourceAddress=%s\nforwardingPort=%i\n "

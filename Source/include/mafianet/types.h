@@ -147,13 +147,30 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	/// The local network card address to bind to, such as "127.0.0.1".  Pass an empty string to use INADDR_ANY.
 	char hostAddress[32];
 
-	/// IP version: For IPV4, use AF_INET (default). For IPV6, use AF_INET6. To autoselect, use AF_UNSPEC.
+	/// IP version. AF_UNSPEC (the default) opens one dual-stack socket (AF_INET6
+	/// with IPV6_V6ONLY=0) that reaches both IPv4 and IPv6 peers; IPv4 peers are
+	/// still reported as plain IPv4 addresses, never as ::ffff:a.b.c.d. Where the
+	/// host has no IPv6, refuses dual-stack (as OpenBSD does), or \a hostAddress
+	/// names a specific address, it falls back to a single-family socket unless
+	/// \a requireDualStack is set; RakNetSocket2::IsDualStack() tells which one
+	/// you got. A dual-stack socket on the wildcard address reports 127.0.0.1 and
+	/// its port from RakPeer::GetMyBoundAddress(), exactly as an IPv4 wildcard
+	/// socket does. On Linux IPv4 and IPv6 share one port space, so a default
+	/// socket on a port excludes a separate AF_INET socket on the same port.
+	/// For an IPv4-only socket (the default before 0.27.0), use AF_INET. For an
+	/// IPv6-only socket, use AF_INET6.
 	/// IPV6 is the newer internet protocol. Instead of addresses such as natpunch.slikesoft.com, you may have an address such as fe80::7c:31f7:fec4:27de%14.
 	/// Encoding takes 16 bytes instead of 4, so IPV6 is less efficient for bandwidth.
 	/// On the positive side, NAT Punchthrough is not needed and should not be used with IPV6 because there are enough addresses that routers do not need to create address mappings.
 	/// RakPeer::Startup() will fail if this IP version is not supported.
-	/// \pre RAKNET_SUPPORT_IPV6 must be set to 1 in RakNetDefines.h for AF_INET6
 	short socketFamily;
+
+	/// With socketFamily == AF_UNSPEC, fail Startup() with
+	/// SOCKET_FAMILY_NOT_SUPPORTED instead of falling back to an IPv4 socket
+	/// when no dual-stack socket can be opened (no IPv6 on the host, IPV6_V6ONLY=0
+	/// refused, or a specific \a hostAddress, which can never be dual-stack).
+	/// Ignored for every other family. Defaults to false.
+	bool requireDualStack;
 
 	// Set to true to use a blocking socket (default, do not change unless you have a reason to)
 	bool blockingSocket;
@@ -163,6 +180,11 @@ struct RAK_DLL_EXPORT SocketDescriptor
 };
 
 extern bool NonNumericHostString(const char *host);
+
+/// \internal Split "<host>[<portDelineator><port>]" into its host and port parts, as SystemAddress::FromString() does.
+/// Never truncates: returns false if the host part does not fit in \a host (hostSize bytes, NUL included) or the
+/// port part does not fit in \a port. A portDelineator of 0 means \a str holds no port.
+extern bool SplitHostAndPort(const char *str, char portDelineator, char *host, size_t hostSize, char *port, size_t portSize);
 
 /// \brief Network address for a system
 /// \details Corresponds to a network address<BR>
@@ -176,14 +198,10 @@ struct RAK_DLL_EXPORT SystemAddress
 	SystemAddress(const char *str);
 	SystemAddress(const char *str, unsigned short port);
 
-	/// SystemAddress, with RAKNET_SUPPORT_IPV6 defined, holds both an sockaddr_in6 and a sockaddr_in
+	/// SystemAddress holds either a sockaddr_in6 or a sockaddr_in, discriminated by sin_family
 	union // In6OrIn4
 	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		struct sockaddr_storage sa_stor;
 		sockaddr_in6 addr6;
-#endif
-
 		sockaddr_in addr4;
 	} address;
 
@@ -220,8 +238,14 @@ struct RAK_DLL_EXPORT SystemAddress
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	const char *ToString(bool writePort = true, char portDelineator = '|') const;
 
+	/// Buffer size that holds any ToString() result. The worst case is 63 bytes: the longest IPv6 text (45
+	/// characters), '%' and a scope id of up to 10 digits, the port delineator, a 5-digit port and the terminator.
+	/// (Not derived from INET6_ADDRSTRLEN, which differs between platforms: 46, or 65 on Windows.)
+	static constexpr size_t TO_STRING_BUFFER_SIZE = 64;
+
 	// Return the systemAddress as a string in the format <IP>|<Port>
-	// dest must be large enough to hold the output
+	// The overload without destLength assumes dest holds TO_STRING_BUFFER_SIZE bytes: pass a buffer at least that large.
+	// The sized overload never writes more than destLength bytes; if the result does not fit, dest is set to "".
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	// THREADSAFE
 	void ToString(bool writePort, char *dest, char portDelineator = '|') const;
@@ -233,10 +257,13 @@ struct RAK_DLL_EXPORT SystemAddress
 	/// \param[in] portDelineator if \a str contains a port, delineate the port with this character. portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	/// \param[in] ipVersion Only used if str is a pre-defined address in the wrong format, such as 127.0.0.1 but you want ip version 6, so you can pass 6 here to do the conversion
 	/// \note The current port is unchanged if a port is not specified in \a str
+	/// \note An IPv4-mapped IPv6 address (::ffff:a.b.c.d) is stored as the plain IPv4 address, the form sockets report that peer in
 	/// \return True on success, false on ipVersion does not match type of passed string
 	bool FromString(const char *str, char portDelineator = '|', int ipVersion = 0);
 
 	/// Same as FromString(), but you explicitly set a port at the same time
+	/// \note \a ipVersion does not override the canonical form: with \a ipVersion = 6, an IPv4-mapped literal
+	/// (::ffff:a.b.c.d) returns true with the plain IPv4 address (GetIPVersion() == 4), as FromString() stores it
 	bool FromStringExplicitPort(const char *str, unsigned short port, int ipVersion = 0);
 
 	/// Copy the port from another SystemAddress structure
@@ -269,6 +296,12 @@ struct RAK_DLL_EXPORT SystemAddress
 
 	bool IsLANAddress(void);
 
+	/// \return True for an AF_INET6 address inside ::ffff:0:0/96 (an IPv4 address carried in IPv6 form)
+	bool IsIPv4Mapped(void) const;
+
+	/// Converts an IPv4-mapped IPv6 address to AF_INET, keeping the port. No-op for any other address
+	void UnmapIPv4(void);
+
 	// Member-wise copy. The assignment stays out-of-line (defaulted in types.cpp) so the
 	// exported symbol is kept; the copy constructor is declared so it is not the deprecated
 	// implicit one.
@@ -283,11 +316,11 @@ struct RAK_DLL_EXPORT SystemAddress
 	SystemIndex systemIndex;
 
 private:
-#if RAKNET_SUPPORT_IPV6 == 1
 	void ToString_New(bool writePort, char *dest, char portDelineator) const;
 	void ToString_New(bool writePort, char *dest, size_t destLength, char portDelineator) const;
-#endif
 };
+
+static_assert(sizeof(SystemAddress) <= 40, "SystemAddress is copied by value everywhere; keep it small");
 
 /// Uniquely identifies an instance of RakPeer. Use RakPeer::GetGuidFromSystemAddress() and RakPeer::GetSystemAddressFromGuid() to go between SystemAddress and RakNetGUID
 /// Use RakPeer::GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS) to get your own GUID

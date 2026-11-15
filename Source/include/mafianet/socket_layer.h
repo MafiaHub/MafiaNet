@@ -88,9 +88,7 @@ public:
 	/// \param[in] connectionSocketIndex Which of the sockets in RakPeer we are using
 	/// \return Returns true if you successfully read data, false on error.
 	//	static void RecvFromBlocking_IPV4( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
-	// 	#if RAKNET_SUPPORT_IPV6==1
-	// 		static void RecvFromBlockingIPV4And6( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
-	// 	#endif
+	//	static void RecvFromBlockingIPV4And6( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
 	//	static void RecvFromBlocking( RakNetSocket *s, RakPeer *rakPeer, char *dataOut, int *bytesReadOut, SystemAddress *systemAddressOut, MafiaNet::TimeUS *timeRead );
 
 	/// Given a socket and IP, retrieves the subnet mask, on linux the socket is unused
@@ -109,6 +107,17 @@ public:
 	/// \param[in] s The socket whose port we are referring to
 	/// \param[in] ipList An array of ip address in dotted notation.
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
+
+	/// Orders local addresses for use as internal IDs: IPv4 first, then global
+	/// IPv6, each group in its original order. Drops link-local IPv6 (fe80::/10,
+	/// useless without a scope id), loopback (127.0.0.0/8, ::1), IPv4-mapped IPv6
+	/// and unassigned entries.
+	/// Keeps at most MAXIMUM_NUMBER_OF_INTERNAL_IDS; the rest of \a addresses
+	/// is set to UNASSIGNED_SYSTEM_ADDRESS.
+	/// \param[in,out] addresses The candidates, rewritten in place.
+	/// \param[in] count Number of entries in \a addresses.
+	/// \return The number of addresses kept at the front of \a addresses.
+	static int OrderInternalIds(SystemAddress *addresses, int count);
 
 
 	/// Call sendto' (UDP obviously)

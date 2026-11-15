@@ -26,7 +26,7 @@ SQLiteClientLogger_PacketLogger::~SQLiteClientLogger_PacketLogger()
 }
 void SQLiteClientLogger_PacketLogger::OnDirectSocketSend(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
-	char str1[64], str2[62], str3[64], str4[64];
+	char str1[64], str2[64], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
@@ -39,7 +39,7 @@ void SQLiteClientLogger_PacketLogger::OnDirectSocketSend(const char *data, const
 }
 void SQLiteClientLogger_PacketLogger::OnDirectSocketReceive(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
-	char str1[64], str2[62], str3[64], str4[64];
+	char str1[64], str2[64], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
@@ -54,7 +54,7 @@ void SQLiteClientLogger_PacketLogger::OnInternalPacket(InternalPacket *internalP
 	// unused parameters
 	(void) time;
 
-	char str1[64], str2[62], str3[64], str4[64];
+	char str1[64], str2[64], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
@@ -84,7 +84,7 @@ void SQLiteClientLogger_PacketLogger::OnAck(unsigned int messageNumber, SystemAd
 	// unused parameters
 	(void) time;
 
-	char str1[64], str2[62], str3[64], str4[64];
+	char str1[64], str2[64], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);
@@ -96,7 +96,7 @@ void SQLiteClientLogger_PacketLogger::OnAck(unsigned int messageNumber, SystemAd
 }
 void SQLiteClientLogger_PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
-	char str1[64], str2[62], str3[64], str4[64];
+	char str1[64], str2[64], str3[64], str4[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
 	rakPeerInterface->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString(str2, 62);

@@ -287,6 +287,8 @@ public:
 
 	/// Cancel a pending connection attempt
 	/// If we are already connected, the connection stays open
+	/// \note On a threaded peer the network thread may already be sending a request for this attempt; that one request
+	/// may still go out after the call.
 	/// \param[in] target Which system to cancel
 	virtual void CancelConnectionAttempt(const SystemAddress target) = 0;
 
@@ -485,7 +487,10 @@ public:
 	/// Return my own GUID
 	virtual const RakNetGUID GetMyGUID(void) const = 0;
 
-	/// Return the address bound to a socket at the specified index
+	/// Return the address bound to a socket at the specified index. A wildcard
+	/// socket reports loopback with its port: 127.0.0.1 for an IPv4 or a
+	/// dual-stack socket (see RakNetSocket2::IsDualStack()), ::1 for an
+	/// IPv6-only one.
 	virtual SystemAddress GetMyBoundAddress(const int socketIndex = 0) = 0;
 
 	/// Get a random number (to generate a GUID)

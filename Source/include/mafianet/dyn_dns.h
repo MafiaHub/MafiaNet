@@ -110,7 +110,7 @@ protected:
 	SystemAddress checkIpAddress;
 	const char *resultDescription;
 	MafiaNet::DynDnsResultCode result;
-	char myIPStr[32];
+	char myIPStr[64];
 };
 
 } // namespace MafiaNet

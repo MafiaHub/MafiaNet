@@ -307,7 +307,7 @@ void MessageFilter::Update(void)
 				if (itemList[index].filter->banOnFilterTimeExceed && rakPeerInterface)
 				{
 					char str1[64];
-					keyList[index].ToString(false, str1, 64);
+					keyList[index].ToString(false, str1, sizeof(str1));
 					rakPeerInterface->AddToBanList(str1, itemList[index].filter->timeExceedBanTimeMS);
 				}
 				if (rakPeerInterface)

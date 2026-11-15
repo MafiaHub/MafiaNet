@@ -574,7 +574,7 @@ int CloudServerHelper::OnJoinCloudResult(
 		*/
 
 		// dnsHost is always public, so if I can connect through it that's my public IP
-		RakNetSocket2::DomainNameToIP(rakPeerIpOrDomain, myPublicIP);
+		RakNetSocket2::DomainNameToIP(rakPeerIpOrDomain, myPublicIP, AF_INET);
 	}
 	else if (result == ID_CONNECTION_ATTEMPT_FAILED)
 	{

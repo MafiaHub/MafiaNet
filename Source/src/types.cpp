@@ -91,6 +91,30 @@ void AddressOrGUID::ToString(bool writePort, char *dest, size_t destLength) cons
 	return systemAddress.ToString(writePort, dest, destLength);
 }
 
+bool MafiaNet::SplitHostAndPort(const char *str, char portDelineator, char *host, size_t hostSize, char *port, size_t portSize)
+{
+	if (str == nullptr || host == nullptr || port == nullptr || hostSize == 0 || portSize == 0)
+		return false;
+	size_t hostLength = 0;
+	while (str[hostLength] != '\0' && (portDelineator == '\0' || str[hostLength] != portDelineator))
+		++hostLength;
+	if (hostLength >= hostSize)
+		return false;
+	memcpy(host, str, hostLength);
+	host[hostLength] = '\0';
+
+	port[0] = '\0';
+	if (str[hostLength] != '\0')
+	{
+		const char *portStart = str + hostLength + 1; // skip the delimiter
+		const size_t portLength = strlen(portStart);
+		if (portLength >= portSize)
+			return false;
+		memcpy(port, portStart, portLength + 1);
+	}
+	return true;
+}
+
 // Return false if IP address. Return true if domain
 bool MafiaNet::NonNumericHostString(const char *host)
 {
@@ -113,7 +137,8 @@ SocketDescriptor::SocketDescriptor()
 	port = 0;
 	hostAddress[0] = 0;
 	extraSocketOptions = 0;
-	socketFamily = AF_INET;
+	socketFamily = AF_UNSPEC;
+	requireDualStack = false;
 }
 SocketDescriptor::SocketDescriptor(unsigned short _port, const char *_hostAddress)
 {
@@ -124,7 +149,8 @@ SocketDescriptor::SocketDescriptor(unsigned short _port, const char *_hostAddres
 	else
 		hostAddress[0] = 0;
 	extraSocketOptions = 0;
-	socketFamily = AF_INET;
+	socketFamily = AF_UNSPEC;
+	requireDualStack = false;
 }
 
 // Defaults to not in peer to peer mode for NetworkIDs.  This only sends the localSystemAddress portion in the BitStream class
@@ -137,11 +163,13 @@ SocketDescriptor::SocketDescriptor(unsigned short _port, const char *_hostAddres
 SystemAddress &SystemAddress::operator=(const SystemAddress &input) = default;
 bool SystemAddress::EqualsExcludingPort(const SystemAddress &right) const
 {
-	return (address.addr4.sin_family == AF_INET && address.addr4.sin_addr.s_addr == right.address.addr4.sin_addr.s_addr)
-#if RAKNET_SUPPORT_IPV6 == 1
-	       || (address.addr4.sin_family == AF_INET6 && memcmp(address.addr6.sin6_addr.s6_addr, right.address.addr6.sin6_addr.s6_addr, sizeof(address.addr6.sin6_addr.s6_addr)) == 0)
-#endif
-	    ;
+	if (address.addr4.sin_family != right.address.addr4.sin_family)
+		return false;
+	if (address.addr4.sin_family == AF_INET)
+		return address.addr4.sin_addr.s_addr == right.address.addr4.sin_addr.s_addr;
+	if (address.addr4.sin_family == AF_INET6)
+		return memcmp(address.addr6.sin6_addr.s6_addr, right.address.addr6.sin6_addr.s6_addr, sizeof(address.addr6.sin6_addr.s6_addr)) == 0;
+	return false;
 }
 unsigned short SystemAddress::GetPort(void) const
 {
@@ -173,52 +201,32 @@ bool SystemAddress::operator!=(const SystemAddress &right) const
 
 bool SystemAddress::operator>(const SystemAddress &right) const
 {
-	if (address.addr4.sin_port == right.address.addr4.sin_port)
-	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		if (address.addr4.sin_family == AF_INET)
-			return address.addr4.sin_addr.s_addr > right.address.addr4.sin_addr.s_addr;
-		return memcmp(address.addr6.sin6_addr.s6_addr, right.address.addr6.sin6_addr.s6_addr, sizeof(address.addr6.sin6_addr.s6_addr)) > 0;
-#else
-		return address.addr4.sin_addr.s_addr > right.address.addr4.sin_addr.s_addr;
-#endif
-	}
-	return address.addr4.sin_port > right.address.addr4.sin_port;
+	return right < *this;
 }
 
+// Strict weak ordering: family (AF_INET before AF_INET6), then port, then address bytes.
 bool SystemAddress::operator<(const SystemAddress &right) const
 {
-	if (address.addr4.sin_port == right.address.addr4.sin_port)
-	{
-#if RAKNET_SUPPORT_IPV6 == 1
-		if (address.addr4.sin_family == AF_INET)
-			return address.addr4.sin_addr.s_addr < right.address.addr4.sin_addr.s_addr;
-		return memcmp(address.addr6.sin6_addr.s6_addr, right.address.addr6.sin6_addr.s6_addr, sizeof(address.addr6.sin6_addr.s6_addr)) > 0;
-#else
+	const bool leftIsV4 = address.addr4.sin_family == AF_INET;
+	const bool rightIsV4 = right.address.addr4.sin_family == AF_INET;
+	if (leftIsV4 != rightIsV4)
+		return leftIsV4;
+	if (address.addr4.sin_port != right.address.addr4.sin_port)
+		return address.addr4.sin_port < right.address.addr4.sin_port;
+	if (leftIsV4)
 		return address.addr4.sin_addr.s_addr < right.address.addr4.sin_addr.s_addr;
-#endif
-	}
-	return address.addr4.sin_port < right.address.addr4.sin_port;
+	return memcmp(address.addr6.sin6_addr.s6_addr, right.address.addr6.sin6_addr.s6_addr, sizeof(address.addr6.sin6_addr.s6_addr)) < 0;
 }
 int SystemAddress::size(void)
 {
-#if RAKNET_SUPPORT_IPV6 == 1
-	return sizeof(sockaddr_in6) + sizeof(char);
-#else
-	return sizeof(uint32_t) + sizeof(unsigned short) + sizeof(char);
-#endif
+	return 1 + 16 + 2; // version byte + IPv6 address + port (IPv4 entries are shorter, see BitStream::Write)
 }
 unsigned long SystemAddress::ToInteger(const SystemAddress &sa)
 {
 	unsigned int lastHash = SuperFastHashIncremental((const char *) &sa.address.addr4.sin_port, sizeof(sa.address.addr4.sin_port), sizeof(sa.address.addr4.sin_port));
-#if RAKNET_SUPPORT_IPV6 == 1
 	if (sa.address.addr4.sin_family == AF_INET)
 		return SuperFastHashIncremental((const char *) &sa.address.addr4.sin_addr.s_addr, sizeof(sa.address.addr4.sin_addr.s_addr), lastHash);
-	else
-		return SuperFastHashIncremental((const char *) &sa.address.addr6.sin6_addr.s6_addr, sizeof(sa.address.addr6.sin6_addr.s6_addr), lastHash);
-#else
-	return SuperFastHashIncremental((const char *) &sa.address.addr4.sin_addr.s_addr, sizeof(sa.address.addr4.sin_addr.s_addr), lastHash);
-#endif
+	return SuperFastHashIncremental((const char *) &sa.address.addr6.sin6_addr.s6_addr, sizeof(sa.address.addr6.sin6_addr.s6_addr), lastHash);
 }
 unsigned char SystemAddress::GetIPVersion(void) const
 {
@@ -228,13 +236,9 @@ unsigned char SystemAddress::GetIPVersion(void) const
 }
 unsigned int SystemAddress::GetIPPROTO(void) const
 {
-#if RAKNET_SUPPORT_IPV6 == 1
 	if (address.addr4.sin_family == AF_INET)
 		return IPPROTO_IP;
 	return IPPROTO_IPV6;
-#else
-	return IPPROTO_IP;
-#endif
 }
 void SystemAddress::SetToLoopback(void)
 {
@@ -261,14 +265,12 @@ bool SystemAddress::IsLoopback(void) const
 		if (address.addr4.sin_addr.s_addr == 0)
 			return true;
 	}
-#if RAKNET_SUPPORT_IPV6 == 1
 	else
 	{
 		const static char localhost[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 		if (memcmp(&address.addr6.sin6_addr, localhost, 16) == 0)
 			return true;
 	}
-#endif
 	return false;
 }
 void SystemAddress::ToString_Old(bool writePort, char *dest, char portDelineator) const
@@ -319,11 +321,7 @@ void SystemAddress::ToString_Old(bool writePort, char *dest, size_t destLength, 
 const char *SystemAddress::ToString(bool writePort, char portDelineator) const
 {
 	static unsigned char strIndex = 0;
-#if RAKNET_SUPPORT_IPV6 == 1
-	static const size_t strLength = INET6_ADDRSTRLEN + 5 + 1;
-#else
-	static const size_t strLength = 22 + 5 + 1;
-#endif
+	static const size_t strLength = TO_STRING_BUFFER_SIZE;
 	static char str[8][strLength];
 
 	unsigned char lastStrIndex = strIndex;
@@ -331,90 +329,59 @@ const char *SystemAddress::ToString(bool writePort, char portDelineator) const
 	ToString(writePort, str[lastStrIndex & 7], strLength, portDelineator);
 	return (char *) str[lastStrIndex & 7];
 }
-#if RAKNET_SUPPORT_IPV6 == 1
 void SystemAddress::ToString_New(bool writePort, char *dest, char portDelineator) const
 {
-	int ret;
-	(void) ret;
-
-	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
-	{
-		strcpy(dest, "UNASSIGNED_SYSTEM_ADDRESS");
-		return;
-	}
-
-	if (address.addr4.sin_family == AF_INET)
-	{
-		ret = getnameinfo((struct sockaddr *) &address.addr4, sizeof(struct sockaddr_in), dest, 22, nullptr, 0, NI_NUMERICHOST);
-	}
-	else
-	{
-		ret = getnameinfo((struct sockaddr *) &address.addr6, sizeof(struct sockaddr_in6), dest, INET6_ADDRSTRLEN, nullptr, 0, NI_NUMERICHOST);
-	}
-	if (ret != 0)
-	{
-		dest[0] = 0;
-	}
-
-	if (writePort)
-	{
-		unsigned char ch[2];
-		ch[0] = portDelineator;
-		ch[1] = 0;
-		strcat(dest, (const char *) ch);
-		Itoa(ntohs(address.addr4.sin_port), dest + strlen(dest), 10);
-	}
+	// The unsized overload trusts the documented minimum buffer size.
+	ToString_New(writePort, dest, TO_STRING_BUFFER_SIZE, portDelineator);
 }
 void SystemAddress::ToString_New(bool writePort, char *dest, size_t destLength, char portDelineator) const
 {
-	int ret;
-	(void) ret;
+	if (dest == nullptr || destLength == 0)
+		return;
 
+	// Format into a local buffer that always fits, then copy only if the whole result fits in dest.
+	// inet_ntop (unlike getnameinfo) needs no WSAStartup on Windows, so this works before any Startup().
+	char text[TO_STRING_BUFFER_SIZE + 16];
+	text[0] = '\0';
 	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		strcpy_s(dest, destLength, "UNASSIGNED_SYSTEM_ADDRESS");
-		return;
-	}
-
-	if (address.addr4.sin_family == AF_INET)
-	{
-		ret = getnameinfo((struct sockaddr *) &address.addr4, sizeof(struct sockaddr_in), dest, 22, nullptr, 0, NI_NUMERICHOST);
+		strcpy(text, "UNASSIGNED_SYSTEM_ADDRESS");
 	}
 	else
 	{
-		ret = getnameinfo((struct sockaddr *) &address.addr6, sizeof(struct sockaddr_in6), dest, INET6_ADDRSTRLEN, nullptr, 0, NI_NUMERICHOST);
-	}
-	if (ret != 0)
-	{
-		dest[0] = 0;
+		if (address.addr4.sin_family == AF_INET)
+		{
+			if (inet_ntop(AF_INET, &address.addr4.sin_addr, text, INET6_ADDRSTRLEN) == nullptr)
+				text[0] = '\0';
+		}
+		else
+		{
+			if (inet_ntop(AF_INET6, &address.addr6.sin6_addr, text, INET6_ADDRSTRLEN) == nullptr)
+				text[0] = '\0';
+			else if (address.addr6.sin6_scope_id != 0)
+				snprintf(text + strlen(text), sizeof(text) - strlen(text), "%%%lu", static_cast<unsigned long>(address.addr6.sin6_scope_id));
+		}
+
+		if (writePort)
+		{
+			const size_t used = strlen(text);
+			snprintf(text + used, sizeof(text) - used, "%c%u", portDelineator, static_cast<unsigned int>(ntohs(address.addr4.sin_port)));
+		}
 	}
 
-	if (writePort)
-	{
-		unsigned char ch[2];
-		ch[0] = portDelineator;
-		ch[1] = 0;
-		strcat_s(dest, destLength, (const char *) ch);
-		Itoa(ntohs(address.addr4.sin_port), dest + strlen(dest), 10);
-	}
+	const size_t length = strlen(text);
+	if (length < destLength)
+		memcpy(dest, text, length + 1);
+	else
+		dest[0] = '\0'; // too small: an empty string rather than a truncated address
 }
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 void SystemAddress::ToString(bool writePort, char *dest, char portDelineator) const
 {
-#if RAKNET_SUPPORT_IPV6 != 1
-	ToString_Old(writePort, dest, portDelineator);
-#else
 	ToString_New(writePort, dest, portDelineator);
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 }
 void SystemAddress::ToString(bool writePort, char *dest, size_t destLength, char portDelineator) const
 {
-
-#if RAKNET_SUPPORT_IPV6 != 1
-	ToString_Old(writePort, dest, destLength, portDelineator);
-#else
 	ToString_New(writePort, dest, destLength, portDelineator);
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 }
 SystemAddress::SystemAddress()
 {
@@ -454,12 +421,10 @@ void SystemAddress::FixForIPVersion(const SystemAddress &boundAddressToSocket)
 	}
 	else if (strcmp(str, IPV4_LOOPBACK) == 0)
 	{
-#if RAKNET_SUPPORT_IPV6 == 1
 		if (boundAddressToSocket.GetIPVersion() == 6)
 		{
 			FromString(IPV6_LOOPBACK, 0, 6);
 		}
-#endif
 
 		// 		if (boundAddressToSocket.GetIPVersion()==4)
 		// 		{
@@ -476,6 +441,28 @@ bool SystemAddress::IsLANAddress(void)
 #else
 	return (address.addr4.sin_addr.s_addr >> 24) == 10 || (address.addr4.sin_addr.s_addr >> 24) == 192;
 #endif
+}
+bool SystemAddress::IsIPv4Mapped(void) const
+{
+	if (address.addr4.sin_family != AF_INET6)
+		return false;
+	const unsigned char *b = address.addr6.sin6_addr.s6_addr;
+	for (int i = 0; i < 10; ++i)
+		if (b[i] != 0)
+			return false;
+	return b[10] == 0xff && b[11] == 0xff;
+}
+void SystemAddress::UnmapIPv4(void)
+{
+	if (!IsIPv4Mapped())
+		return;
+	const unsigned short port = address.addr4.sin_port;
+	unsigned char v4[4];
+	memcpy(v4, address.addr6.sin6_addr.s6_addr + 12, 4);
+	memset(&address, 0, sizeof(address));
+	address.addr4.sin_family = AF_INET;
+	address.addr4.sin_port = port;
+	memcpy(&address.addr4.sin_addr.s_addr, v4, 4);
 }
 bool SystemAddress::SetBinaryAddress(const char *str, char portDelineator)
 {
@@ -499,7 +486,8 @@ bool SystemAddress::SetBinaryAddress(const char *str, char portDelineator)
 		// #med - change OP_NEW_ARRAY to support size_t type
 		char *hostname = OP_NEW_ARRAY<char>(static_cast<int>(delimiterPos + 1), _FILE_AND_LINE_);
 		strncpy_s(hostname, delimiterPos + 1, str, delimiterPos);
-		RakNetSocket2::DomainNameToIP(hostname, ip);
+		// SetBinaryAddress only stores IPv4, so ask for an IPv4 answer.
+		RakNetSocket2::DomainNameToIP(hostname, ip, AF_INET);
 		OP_DELETE_ARRAY(hostname, _FILE_AND_LINE_);
 
 		if (ip[0] != '\0')
@@ -565,53 +553,28 @@ bool SystemAddress::SetBinaryAddress(const char *str, char portDelineator)
 
 bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersion)
 {
-#if RAKNET_SUPPORT_IPV6 != 1
-	(void) ipVersion;
-	return SetBinaryAddress(str, portDelineator);
-#else
 	if (str == 0)
 	{
 		memset(&address, 0, sizeof(address));
 		address.addr4.sin_family = AF_INET;
 		return true;
 	}
-#if RAKNET_SUPPORT_IPV6 == 1
-	char ipPart[INET6_ADDRSTRLEN];
-#else
-	char ipPart[INET_ADDRSTRLEN];
-#endif
+	// Host names are up to 253 characters; never truncate one (a truncated name resolves to some other host).
+	char ipPart[256];
 	char portPart[32];
+	portPart[0] = 0;
 
+	// #med - missing error checking, if portPart is non-numeric and/or exceeds max allowed port value
+	if (!SplitHostAndPort(str, portDelineator, ipPart, sizeof(ipPart), portPart, sizeof(portPart)))
+		return false;
+
+	// A loopback literal in the other family means the loopback of the requested one. Applied to the host part
+	// once it is split from the port, so "127.0.0.1|5" with ipVersion 6 is "::1" port 5.
 	// TODO - what about 255.255.255.255?
-	if (ipVersion == 4 && strcmp(str, IPV6_LOOPBACK) == 0)
-	{
+	if (ipVersion == 4 && strcmp(ipPart, IPV6_LOOPBACK) == 0)
 		strcpy_s(ipPart, IPV4_LOOPBACK);
-	}
-	else if (ipVersion == 6 && strcmp(str, IPV4_LOOPBACK) == 0)
-	{
-		address.addr4.sin_family = AF_INET6;
+	else if (ipVersion == 6 && strcmp(ipPart, IPV4_LOOPBACK) == 0)
 		strcpy_s(ipPart, IPV6_LOOPBACK);
-	}
-
-	int i = 0;
-	for (; i < sizeof(ipPart) && str[i] != '\0'; ++i)
-	{
-		if (str[i] == portDelineator)
-		{
-			// #med - missing error checking, if portPart is non-numeric and/or exceeds max allowed port value
-			int j = 0;
-			++i; // skip the delimiter
-			for (; j < sizeof(portPart) && str[i] != '\0'; ++i, ++j)
-			{
-				portPart[j] = str[i];
-			}
-			portPart[j] = '\0';
-			i = i - j - 1; // reset the position to the last position, so the trailing '\0'-terminator is set correctly below
-			break;
-		}
-		ipPart[i] = str[i];
-	}
-	ipPart[i] = '\0';
 
 	// needed for getaddrinfo
 	WSAStartupSingleton::AddRef();
@@ -627,7 +590,7 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 		hints.ai_family = AF_INET;
 	else
 		hints.ai_family = AF_UNSPEC;
-	INT error = getaddrinfo(ipPart, "", &hints, &servinfo);
+	int error = getaddrinfo(ipPart, "", &hints, &servinfo);
 	if (servinfo == 0 && error != 0)
 	{
 		if (ipVersion == 6)
@@ -636,15 +599,24 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 			hints.ai_family = AF_UNSPEC;
 			getaddrinfo(ipPart, "", &hints, &servinfo);
 			if (servinfo == 0)
+			{
+				WSAStartupSingleton::Deref();
 				return false;
+			}
 		}
 		else
+		{
+			WSAStartupSingleton::Deref();
 			return false;
+		}
 	}
-	RakAssert(servinfo);
+	if (servinfo == 0)
+	{
+		WSAStartupSingleton::Deref();
+		return false;
+	}
 
 	unsigned short oldPort = address.addr4.sin_port;
-#if RAKNET_SUPPORT_IPV6 == 1
 	if (servinfo->ai_family == AF_INET)
 	{
 		// 		if (ipVersion==6)
@@ -663,11 +635,10 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 	{
 		address.addr4.sin_family = AF_INET6;
 		memcpy(&address.addr6, (struct sockaddr_in6 *) servinfo->ai_addr, sizeof(struct sockaddr_in6));
+		// A typed ::ffff:a.b.c.d is the IPv4 host. Keep it canonical: sockets
+		// report that peer as plain AF_INET, so this must compare equal to it.
+		UnmapIPv4();
 	}
-#else
-	address.addr4.sin_family = AF_INET4;
-	memcpy(&address.addr4, (struct sockaddr_in *) servinfo->ai_addr, sizeof(struct sockaddr_in));
-#endif
 
 	freeaddrinfo(servinfo); // free the linked list
 
@@ -686,7 +657,6 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 	}
 
 	return true;
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 }
 bool SystemAddress::FromStringExplicitPort(const char *str, unsigned short port, int ipVersion)
 {

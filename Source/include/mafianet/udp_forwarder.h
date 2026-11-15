@@ -107,7 +107,9 @@ public:
 		MafiaNet::TimeMS timeLastDatagramForwarded;
 		__UDPSOCKET__ socket;
 		MafiaNet::TimeMS timeoutOnNoDataMS;
+		// The family of \a socket (AF_INET or AF_INET6) and whether it is dual-stack (AF_INET6, IPV6_V6ONLY=0).
 		short socketFamily;
+		bool dualStack;
 	};
 
 

@@ -20,6 +20,7 @@
 #include "mafianet/get_time.h"
 #include "mafianet/sleep.h"
 
+#include <mutex>
 #include <vector>
 
 using namespace MafiaNet;
@@ -36,7 +37,12 @@ public:
 		unsigned char orderingChannel;
 		unsigned char tag;
 	};
-	std::vector<Seen> seen;
+	// OnInternalPacket runs on the network thread; the test thread reads through Snapshot().
+	std::vector<Seen> Snapshot() const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return seen;
+	}
 
 	bool UsesReliabilityLayer(void) const override { return true; }
 	void OnInternalPacket(InternalPacket *internalPacket, unsigned /*frameNumber*/, SystemAddress /*remoteSystemAddress*/, TimeMS /*time*/, int isSend) override
@@ -47,8 +53,13 @@ public:
 		if (internalPacket->data[0] != ID_RELAY_PLUGIN || internalPacket->data[1] != RPE_GROUP_MSG_FROM_SERVER)
 			return;
 		const unsigned int bytes = BITS_TO_BYTES(internalPacket->dataBitLength);
+		std::lock_guard<std::mutex> lock(mutex);
 		seen.push_back({internalPacket->reliability, internalPacket->orderingChannel, internalPacket->data[bytes - 1]});
 	}
+
+private:
+	mutable std::mutex mutex;
+	std::vector<Seen> seen;
 };
 
 // Pump every peer; return true once pred() holds, false at the deadline.
@@ -148,11 +159,11 @@ TEST_F(RelayPluginGroupMessageLive, GroupMessageKeepsRequestedReliabilityAndChan
 	relayA.SendGroupMessage(serverGuid, &reliable, Priority::Medium, Reliability::Reliable, 0);
 
 	ASSERT_TRUE(PumpUntil(peers, [&]
-	                      { return observerB.seen.size() >= 2; }, &relayEvents))
+	                      { return observerB.Snapshot().size() >= 2; }, &relayEvents))
 	    << "client B did not receive both group messages";
 
 	bool sawOrdered = false, sawReliable = false;
-	for (const auto &s : observerB.seen)
+	for (const auto &s : observerB.Snapshot())
 	{
 		if (s.tag == 1)
 		{

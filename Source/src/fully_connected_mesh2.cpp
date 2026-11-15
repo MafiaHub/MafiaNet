@@ -1078,12 +1078,17 @@ void FullyConnectedMesh2::SkipToVJCUserData(MafiaNet::BitStream *bsIn)
 {
 	bsIn->IgnoreBytes(sizeof(MessageID));
 	unsigned short listSize;
-	bsIn->Read(listSize);
+	if (!bsIn->Read(listSize))
+		return;
 	for (unsigned short i = 0; i < listSize; i++)
 	{
-		bsIn->IgnoreBytes(RakNetGUID::size());
-		bsIn->IgnoreBytes(SystemAddress::size());
-		bsIn->IgnoreBytes(sizeof(unsigned char));
+		// A SystemAddress is variable length on the wire (IPv4 or IPv6), so it
+		// must be read, not skipped by a fixed size. Stop on malformed input.
+		RakNetGUID guid;
+		SystemAddress address;
+		unsigned char state;
+		if (!bsIn->Read(guid) || !bsIn->Read(address) || !bsIn->Read(state))
+			return;
 	}
 }
 void FullyConnectedMesh2::DecomposeJoinCapable(Packet *packet, VerifiedJoinInProgress *vjip)

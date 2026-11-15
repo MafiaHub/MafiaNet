@@ -20,7 +20,7 @@ public:
 	static void Deref(void);
 
 protected:
-	static int refCount;
+	static int refCount; // guarded by a mutex in wsa_startup_singleton.cpp
 };
 
 #endif

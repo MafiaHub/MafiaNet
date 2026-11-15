@@ -65,9 +65,11 @@ typedef int RNS2Socket;
 enum RNS2BindResult
 {
 	BR_SUCCESS,
-	BR_REQUIRES_RAKNET_SUPPORT_IPV6_DEFINE,
 	BR_FAILED_TO_BIND_SOCKET,
 	BR_FAILED_SEND_TEST,
+	/// The address family cannot be used on this host (for example AF_INET6
+	/// without IPv6 support) or is not one getaddrinfo knows.
+	BR_FAMILY_NOT_SUPPORTED,
 };
 
 typedef int RNS2SendResult;
@@ -94,6 +96,16 @@ int RNS2_GetLastSocketError(void);
 /// Split out as a free function taking a plain int so the classification is
 /// unit testable without provoking a real socket failure.
 bool RNS2_IsDatagramTooLargeError(int err);
+
+/// Does the getaddrinfo() result \a gaiError mean "this address family is not
+/// supported" (EAI_FAMILY, or EAI_ADDRFAMILY where it exists)?
+bool RNS2_IsFamilyNotSupportedResolveError(int gaiError);
+
+/// Does the socket error \a err (see RNS2_GetLastSocketError) mean "this
+/// address or protocol family is not supported" (EAFNOSUPPORT / EPFNOSUPPORT,
+/// WSAEAFNOSUPPORT / WSAEPFNOSUPPORT on Windows)? socket() reports it when the
+/// host has no stack for the family, e.g. AF_INET6 with IPv6 disabled.
+bool RNS2_IsFamilyNotSupportedSocketError(int err);
 
 enum RNS2Type
 {
@@ -197,20 +209,52 @@ public:
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
+	/// The address the socket is bound to. A wildcard bind reports loopback:
+	/// 127.0.0.1 for an IPv4 socket and for a dual-stack one (which reaches
+	/// IPv4 loopback, so callers that connect to or compare with this address
+	/// work as with an IPv4 socket), ::1 for an IPv6-only socket.
 	SystemAddress GetBoundAddress(void) const;
+	/// True for a dual-stack socket: AF_INET6 with IPV6_V6ONLY=0, bound to the
+	/// wildcard address, opened for SocketDescriptor::socketFamily == AF_UNSPEC.
+	/// It reaches both IPv4 and IPv6 peers; IPv4 peers are reported and
+	/// addressed as plain AF_INET addresses (the socket maps them to and from
+	/// ::ffff:a.b.c.d). False for every other socket, including an AF_UNSPEC
+	/// socket that fell back to IPv4 because the host has no IPv6.
+	bool IsDualStack(void) const;
+	/// Resolves \a host (a host name or a numeric literal) into the addresses
+	/// this socket could send to, each with port \a port, and writes at most
+	/// \a maxOut of them to \a out in the resolver's order (RFC 6724). Returns
+	/// how many were written; 0 when nothing resolved.
+	///
+	/// The default uses getaddrinfo: AF_UNSPEC on a dual-stack socket,
+	/// otherwise the bound family, and never AI_ADDRCONFIG. IPv4-mapped
+	/// answers come back as plain AF_INET addresses, so an IPv6-only socket,
+	/// which cannot send to those, leaves them out. A numeric literal
+	/// resolves to exactly itself. Connect() on a dual-stack socket races the
+	/// answers (RFC 8305); see RakPeer::HAPPY_EYEBALLS_ATTEMPT_DELAY_MS.
+	virtual int Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const;
 	unsigned int GetUserConnectionSocketIndex(void) const;
 	void SetUserConnectionSocketIndex(unsigned int i);
 	RNS2EventHandler *GetEventHandler(void) const;
 
 	// ----------- STATICS ------------
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-	static void DomainNameToIP(const char *domainName, char ip[65]);
+	/// Resolves \a domainName and writes the numeric form of the first address
+	/// found to \a ip ("" on failure). \a addressFamily restricts the lookup to
+	/// AF_INET (the default, as before IPv6 was always compiled in) or AF_INET6;
+	/// AF_UNSPEC takes the resolver's first answer of either.
+	static void DomainNameToIP(const char *domainName, char ip[65], int addressFamily = AF_INET);
 
 protected:
+	// The OS socket's own family: AF_INET6 for a dual-stack socket, whose
+	// boundAddress reports 127.0.0.1, otherwise boundAddress's family.
+	int SocketFamily(void) const;
+
 	RNS2EventHandler *eventHandler;
 	RNS2Type socketType;
 	SystemAddress boundAddress;
 	unsigned int userConnectionSocketIndex;
+	bool dualStack;
 };
 
 struct RNS2_BerkleyBindParameters
@@ -218,7 +262,7 @@ struct RNS2_BerkleyBindParameters
 	// Input parameters
 	unsigned short port;
 	char *hostAddress;
-	unsigned short addressFamily; // AF_INET or AF_INET6
+	unsigned short addressFamily; // AF_INET, AF_INET6, or AF_UNSPEC for dual-stack
 	int type;                     // SOCK_DGRAM
 	int protocol;                 // 0
 	bool nonBlockingSocket;
@@ -227,6 +271,10 @@ struct RNS2_BerkleyBindParameters
 	int doNotFragment;
 	int pollingThreadPriority;
 	RNS2EventHandler *eventHandler;
+	// With addressFamily == AF_UNSPEC: report BR_FAMILY_NOT_SUPPORTED rather than
+	// fall back to an IPv4 socket when no dual-stack socket can be had. See
+	// SocketDescriptor::requireDualStack.
+	bool requireDualStack = false;
 };
 
 // Berkeley sockets interface - base class for all platforms
@@ -236,6 +284,12 @@ public:
 	// ----------- STATICS ------------
 	// For addressFamily, use AF_INET
 	// For type, use SOCK_DGRAM
+	// Returns true when binding the port failed (normally: it is taken).
+	// Returns false when the host does not support addressFamily at all (no
+	// IPv6 stack for AF_INET6, an unknown family): whether the port is free
+	// cannot be told then. Callers loop "while (IsPortInUse(...)) ++port",
+	// which would never end on such a host if it returned true; the Startup()
+	// that follows reports SOCKET_FAMILY_NOT_SUPPORTED instead.
 	static bool IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type);
 
 	// ----------- MEMBERS ------------
@@ -257,10 +311,18 @@ public:
 protected:
 	// Used by other classes
 	RNS2BindResult BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
-	RNS2BindResult BindSharedIPV4(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
 	RNS2BindResult BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	// Binds the first usable address getaddrinfo returns for \a family. With
+	// \a wantDualStack, AF_INET6 sockets get IPV6_V6ONLY=0; \a *dualStackUnavailable
+	// is then set when the host cannot provide that (no IPv6 address for the
+	// host, socket() refused, or the option rejected), so the caller can fall
+	// back to AF_INET. A failed bind() is not such a failure.
+	RNS2BindResult BindAddressFamily(RNS2_BerkleyBindParameters *bindParameters, int family, bool wantDualStack, bool *dualStackUnavailable);
+	// Where the socket sends datagrams to itself (bind send test, waking the
+	// recv thread): the bound address, which is 127.0.0.1 on a dual-stack
+	// socket (IPv4 loopback always works there, ::1 may be disabled).
+	SystemAddress SelfSendAddress(void) const;
 
-	static void GetSystemAddressIPV4(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
 	static void GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress *systemAddressOut);
 
 	// Internal
@@ -268,8 +330,6 @@ protected:
 	void SetSocketOptions(void);
 	void SetBroadcastSocket(int broadcast);
 	void SetIPHdrIncl(int ipHdrIncl);
-	void RecvFromBlocking(RNS2RecvStruct *recvFromStruct);
-	void RecvFromBlockingIPV4(RNS2RecvStruct *recvFromStruct);
 	void RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct);
 
 	RNS2Socket rns2Socket;
@@ -298,7 +358,8 @@ class RNS2_Windows_Linux
 {
 public:
 protected:
-	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
+	// \a socketFamily and \a dualStack describe rns2Socket; see SystemAddressToSockaddr.
+	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
 };
 #endif
 
@@ -331,8 +392,6 @@ public:
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 
 protected:
-	static void GetMyIPIPV4(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-	static void GetMyIPIPV4And6(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 	SocketLayerOverride *slo;
 };
 
@@ -351,10 +410,6 @@ public:
 
 	// ----------- STATICS ------------
 	static void GetMyIP(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-
-protected:
-	static void GetMyIPIPV4(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
-	static void GetMyIPIPV4And6(SystemAddress addresses[MAXIMUM_NUMBER_OF_INTERNAL_IDS]);
 };
 
 #endif // Linux

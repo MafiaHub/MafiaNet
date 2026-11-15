@@ -13,6 +13,12 @@
 #include <iterator>
 #include <new>
 
+#ifdef _WIN32
+#include <ws2tcpip.h> // inet_pton
+#else
+#include <arpa/inet.h> // inet_pton
+#endif
+
 #include "mafianet/assert.h"
 #include "mafianet/message_identifiers.h"
 
@@ -31,21 +37,32 @@ bool g_networkAlive = false;
 class SimulatedNetwork::SimSocket : public RakNetSocket2
 {
 public:
-	SimSocket(SimulatedNetwork *network, const SystemAddress &address)
-	    : network(network)
+	// \a ipv4Alias, when assigned, makes this a dual-stack socket bound to
+	// both \a address (IPv6) and \a ipv4Alias.
+	SimSocket(SimulatedNetwork *network, const SystemAddress &address, const SystemAddress &ipv4Alias)
+	    : network(network), ipv4Alias(ipv4Alias)
 	{
 		SetSocketType(RNS2T_USER);
 		boundAddress = address;
+		dualStack = ipv4Alias != UNASSIGNED_SYSTEM_ADDRESS;
 	}
 
 	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
 	{
-		network->Enqueue(boundAddress, sendParameters->systemAddress, sendParameters->data, sendParameters->length);
+		const SystemAddress &from =
+		    dualStack && sendParameters->systemAddress.GetIPVersion() == 4 ? ipv4Alias : boundAddress;
+		network->Enqueue(from, sendParameters->systemAddress, sendParameters->data, sendParameters->length);
 		return sendParameters->length;
+	}
+
+	int Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const override
+	{
+		return network->Resolve(host, port, out, maxOut);
 	}
 
 private:
 	SimulatedNetwork *network;
+	SystemAddress ipv4Alias;
 };
 
 SimulatedNetwork::SimulatedNetwork(uint32_t seed)
@@ -86,6 +103,47 @@ RakPeer *SimulatedNetwork::AddPeer(unsigned int maxConnections, unsigned short m
 	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port);
 }
 
+RakPeer *SimulatedNetwork::AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming, unsigned short port)
+{
+	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port, Family::V6);
+}
+
+RakPeer *SimulatedNetwork::AddPeerDualStack(unsigned int maxConnections, unsigned short maxIncoming, unsigned short port)
+{
+	return StartPeer(static_cast<RakPeer *>(RakPeerInterface::GetInstance()), maxConnections, maxIncoming, port,
+	                 Family::DualStack);
+}
+
+void SimulatedNetwork::AddHostName(const char *name, std::vector<SystemAddress> addresses)
+{
+	hostNames[name] = std::move(addresses);
+}
+
+int SimulatedNetwork::Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const
+{
+	if (host == nullptr || out == nullptr || maxOut <= 0)
+		return 0;
+	unsigned char literal[16];
+	if (inet_pton(AF_INET, host, literal) == 1 || inet_pton(AF_INET6, host, literal) == 1)
+	{
+		// Numeric, so FromString never reaches a real resolver.
+		return out[0].FromStringExplicitPort(host, port) ? 1 : 0;
+	}
+	auto it = hostNames.find(host);
+	if (it == hostNames.end())
+		return 0;
+	int count = 0;
+	for (const SystemAddress &address : it->second)
+	{
+		if (count == maxOut)
+			break;
+		out[count] = address;
+		out[count].SetPortHostOrder(port);
+		++count;
+	}
+	return count;
+}
+
 RakPeer *SimulatedNetwork::AddPeerInStorage(void *storage, unsigned int maxConnections, unsigned short maxIncoming,
                                             unsigned short port)
 {
@@ -95,19 +153,29 @@ RakPeer *SimulatedNetwork::AddPeerInStorage(void *storage, unsigned int maxConne
 }
 
 RakPeer *SimulatedNetwork::StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming,
-                                     unsigned short port)
+                                     unsigned short port, Family family)
 {
 	peer->SetSocketFactory(this);
 	peer->SetManualUpdate(true);
 
+	const unsigned hostNumber = nextHost++;
 	char host[32];
-	std::snprintf(host, sizeof(host), "10.0.0.%u", (unsigned) nextHost++);
+	std::snprintf(host, sizeof(host), family == Family::V4 ? "10.0.0.%u" : "2001:db8::%x", hostNumber);
 	// Skip the OS address enumeration: the peer reports this address as
 	// its own, so handshakes carry the same bytes on every machine.
 	peer->SetInternalID(SystemAddress(host, port ? port : 60000), 0);
+	if (family == Family::DualStack)
+	{
+		char host4[32];
+		std::snprintf(host4, sizeof(host4), "10.0.0.%u", hostNumber);
+		pendingIpv4Alias = SystemAddress(host4, port ? port : 60000);
+		peer->SetInternalID(pendingIpv4Alias, 1);
+		ipv4Aliases[peer] = pendingIpv4Alias;
+	}
 
 	SocketDescriptor descriptor(port ? port : 60000, host);
 	const StartupResult result = peer->Startup(maxConnections, &descriptor, 1);
+	pendingIpv4Alias = UNASSIGNED_SYSTEM_ADDRESS;
 	RakAssert(result == RAKNET_STARTED);
 	(void) result;
 	peer->SetMaximumIncomingConnections(maxIncoming);
@@ -122,25 +190,35 @@ SystemAddress SimulatedNetwork::AddressOf(const RakPeer *peer) const
 	return const_cast<RakPeer *>(peer)->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS, 0);
 }
 
+SystemAddress SimulatedNetwork::AddressOf(const RakPeer *peer, int ipVersion) const
+{
+	auto alias = ipv4Aliases.find(peer);
+	if (ipVersion == 4 && alias != ipv4Aliases.end())
+		return alias->second;
+	const SystemAddress primary = AddressOf(peer);
+	return primary.GetIPVersion() == ipVersion ? primary : UNASSIGNED_SYSTEM_ADDRESS;
+}
+
 RakNetSocket2 *SimulatedNetwork::Create(const SocketDescriptor &descriptor, unsigned int)
 {
 	SystemAddress address(descriptor.hostAddress, descriptor.port);
-	if (sockets.count(address))
+	if (sockets.count(address) || (pendingIpv4Alias != UNASSIGNED_SYSTEM_ADDRESS && sockets.count(pendingIpv4Alias)))
 		return nullptr; // port in use
-	SimSocket *socket = new SimSocket(this, address);
+	SimSocket *socket = new SimSocket(this, address, pendingIpv4Alias);
 	sockets[address] = socket;
+	if (pendingIpv4Alias != UNASSIGNED_SYSTEM_ADDRESS)
+		sockets[pendingIpv4Alias] = socket;
 	return socket;
 }
 
 void SimulatedNetwork::Destroy(RakNetSocket2 *socket)
 {
-	for (auto it = sockets.begin(); it != sockets.end(); ++it)
+	for (auto it = sockets.begin(); it != sockets.end();)
 	{
 		if (it->second == socket)
-		{
-			sockets.erase(it);
-			break;
-		}
+			it = sockets.erase(it);
+		else
+			++it;
 	}
 	delete static_cast<SimSocket *>(socket);
 }
@@ -151,6 +229,17 @@ void SimulatedNetwork::SetLink(const RakPeer *from, const RakPeer *to, const Lin
 }
 
 void SimulatedNetwork::SetLinkBothWays(const RakPeer *a, const RakPeer *b, const LinkRule &rule)
+{
+	SetLink(a, b, rule);
+	SetLink(b, a, rule);
+}
+
+void SimulatedNetwork::SetLink(const SystemAddress &from, const SystemAddress &to, const LinkRule &rule)
+{
+	links[std::make_pair(from, to)] = rule;
+}
+
+void SimulatedNetwork::SetLinkBothWays(const SystemAddress &a, const SystemAddress &b, const LinkRule &rule)
 {
 	SetLink(a, b, rule);
 	SetLink(b, a, rule);

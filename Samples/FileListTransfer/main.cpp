@@ -144,11 +144,7 @@ int main()
 	MafiaNet::FileListTransfer flt1, flt2;
 #ifdef USE_TCP
 	MafiaNet::PacketizedTCP tcp1, tcp2;
-#if RAKNET_SUPPORT_IPV6 == 1
 	const bool testInet6 = true;
-#else
-	const bool testInet6 = false;
-#endif
 	if (testInet6)
 	{
 		tcp1.Start(60000, 1, 1, -99999, AF_INET6);

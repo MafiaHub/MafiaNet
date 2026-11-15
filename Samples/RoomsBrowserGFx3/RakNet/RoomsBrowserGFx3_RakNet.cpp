@@ -168,7 +168,7 @@ void RoomsBrowserGFx3_RakNet::OnNewConnection(const SystemAddress &systemAddress
 	{
 		FxResponseArgs<3> rargs;
 		char saString[64];
-		systemAddress.ToString(true, saString, 64);
+		systemAddress.ToString(true, saString, sizeof(saString));
 		char guidString[64];
 		rakNetGUID.ToString(guidString);
 		rargs.Add(saString);
@@ -219,7 +219,7 @@ void RoomsBrowserGFx3_RakNet::OnFailedConnectionAttempt(Packet *packet, PI2_Fail
 	}
 
 	char saString[64];
-	packet->systemAddress.ToString(true, saString, 64);
+	packet->systemAddress.ToString(true, saString, sizeof(saString));
 	rargs.Add(saString);
 
 	if (packet->systemAddress == lobby2Client->GetServerAddress())
@@ -255,7 +255,7 @@ PluginReceiveResult RoomsBrowserGFx3_RakNet::OnReceive(Packet *packet)
 			rargs.Add(false);
 			rargs.Add((Double) browserData.roomId.g);
 			char ipAddr[64];
-			packet->systemAddress.ToString(true, ipAddr, 64);
+			packet->systemAddress.ToString(true, ipAddr, sizeof(ipAddr));
 			rargs.Add(ipAddr);
 			rargs.Add(browserData.roomName.C_String());
 			rargs.Add((Double) browserData.numPlayers);
@@ -353,8 +353,8 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(RoomsBrowserGFx3_RakNet, f2c_JoinByFilter)
 	{
 		SystemAddress sa;
 		sa.FromString(pparams[2].GetString());
-		char ipPart[32];
-		sa.ToString(false, ipPart, 32);
+		char ipPart[64];
+		sa.ToString(false, ipPart, sizeof(ipPart));
 		rakPeer->Connect(ipPart, sa.GetPort(), 0, 0);
 	}
 }
@@ -632,7 +632,7 @@ void RoomsBrowserGFx3_RakNet::SearchByFilter_Callback(const SystemAddress &sende
 			rargs.Add(true);
 			rargs.Add((Double) callResult->roomsOutput[i]->GetProperty(DefaultRoomColumns::GetColumnName(DefaultRoomColumns::TC_ROOM_ID))->i);
 			char ipAddr[64];
-			callResult->roomsOutput[i]->roomMemberList[0].systemAddress.ToString(true, ipAddr, 64);
+			callResult->roomsOutput[i]->roomMemberList[0].systemAddress.ToString(true, ipAddr, sizeof(ipAddr));
 			rargs.Add(ipAddr);
 			rargs.Add(callResult->roomsOutput[i]->roomMemberList[0].name.C_String());
 			rargs.Add((Double) callResult->roomsOutput[i]->roomMemberList.Size());
@@ -880,7 +880,7 @@ void RoomsBrowserGFx3_RakNet::KickMember_Callback(const SystemAddress &senderAdd
 }
 void RoomsBrowserGFx3_RakNet::GetRoomProperties_Callback(const SystemAddress &senderAddress, MafiaNet::GetRoomProperties_Func *callResult)
 {
-	char saString[32];
+	char saString[64];
 	char guidString[64];
 	FxResponseArgsList rargs;
 	rargs.Add(RoomsErrorCodeDescription::ToEnum(callResult->resultCode));
@@ -892,7 +892,7 @@ void RoomsBrowserGFx3_RakNet::GetRoomProperties_Callback(const SystemAddress &se
 		const char *c = RoomMemberModeToEnum(callResult->roomDescriptor.roomMemberList[i].roomMemberMode);
 		rargs.Add(c);
 		rargs.Add(callResult->roomDescriptor.roomMemberList[i].isReady);
-		callResult->roomDescriptor.roomMemberList[i].systemAddress.ToString(true, saString, 32);
+		callResult->roomDescriptor.roomMemberList[i].systemAddress.ToString(true, saString, sizeof(saString));
 		rargs.Add(saString);
 		callResult->roomDescriptor.roomMemberList[i].guid.ToString(guidString, 64);
 		rargs.Add(guidString);
@@ -982,13 +982,13 @@ void RoomsBrowserGFx3_RakNet::RoomMemberLeftRoom_Callback(const SystemAddress &s
 }
 void RoomsBrowserGFx3_RakNet::RoomMemberJoinedRoom_Callback(const SystemAddress &senderAddress, MafiaNet::RoomMemberJoinedRoom_Notification *notification)
 {
-	char saString[32];
+	char saString[64];
 	FxResponseArgs<4> rargs;
 	rargs.Add(notification->joinedRoomResult->acceptedInvitorName.C_String());
-	notification->joinedRoomResult->acceptedInvitorAddress.ToString(true, saString, 32);
+	notification->joinedRoomResult->acceptedInvitorAddress.ToString(true, saString, sizeof(saString));
 	rargs.Add(saString);
 	rargs.Add(notification->joinedRoomResult->joiningMemberName.C_String());
-	notification->joinedRoomResult->joiningMemberAddress.ToString(true, saString, 32);
+	notification->joinedRoomResult->joiningMemberAddress.ToString(true, saString, sizeof(saString));
 	rargs.Add(saString);
 	FxDelegate::Invoke2(movie, "c2f_RoomMemberJoinedRoom_Callback", rargs);
 }
@@ -1003,8 +1003,8 @@ void RoomsBrowserGFx3_RakNet::RoomInvitationWithdrawn_Callback(const SystemAddre
 {
 	FxResponseArgs<2> rargs;
 	rargs.Add(notification->invitedUser.invitorName.C_String());
-	char saString[32];
-	notification->invitedUser.invitorSystemAddress.ToString(true, saString, 32);
+	char saString[64];
+	notification->invitedUser.invitorSystemAddress.ToString(true, saString, sizeof(saString));
 	rargs.Add(saString);
 	FxDelegate::Invoke2(movie, "c2f_RoomInvitationWithdrawn_Callback", rargs);
 }

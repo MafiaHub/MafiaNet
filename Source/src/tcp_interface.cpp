@@ -28,6 +28,8 @@ typedef int socklen_t;
 #include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h> // EINPROGRESS, EINTR (ConnectAbortable)
+#include <fcntl.h> // O_NONBLOCK (ConnectAbortable)
 #endif
 #include <string.h>
 #include "mafianet/assert.h"
@@ -39,6 +41,7 @@ typedef int socklen_t;
 #include "mafianet/itoa.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/socket_defines.h"
+#include "mafianet/sockaddr_convert.h"
 #if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(__WIN32__)
 #include <netdb.h>
 #endif
@@ -95,66 +98,191 @@ TCPInterface::~TCPInterface()
 	MafiaNet::StringTable::RemoveReference();
 }
 
-bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
+// The FromString() ipVersion matching a socket family: AF_INET resolves IPv4 only, AF_INET6 IPv6 only, anything else both.
+static int SocketFamilyToIpVersion(unsigned short socketFamily)
 {
-	(void) maxIncomingConnections;
-	(void) socketFamily;
-#if RAKNET_SUPPORT_IPV6 != 1
-	listenSocket = socket__(AF_INET, SOCK_STREAM, 0);
-	if ((int) listenSocket == -1)
-		return false;
+	if (socketFamily == AF_INET)
+		return 4;
+	if (socketFamily == AF_INET6)
+		return 6;
+	return 0;
+}
 
-	struct sockaddr_in serverAddress;
-	memset(&serverAddress, 0, sizeof(sockaddr_in));
-	serverAddress.sin_family = AF_INET;
-	if (bindAddress && bindAddress[0])
+// The host string SocketConnect resolves for Connect(host). A host name goes verbatim, so SocketConnect tries every
+// address it resolves to (in the socket family) rather than only the first. A numeric literal names a single address
+// and goes as FromString() parsed it into \a parsed (nullptr if it failed), which maps a loopback literal into the
+// requested family.
+static std::string ConnectHost(const char *hostPart, const SystemAddress *parsed)
+{
+	if (parsed != nullptr)
 	{
-
-
-		inet_pton(AF_INET, bindAddress, &serverAddress.sin_addr.s_addr);
+		struct addrinfo hints, *res = nullptr;
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_flags = AI_NUMERICHOST;
+		const bool numeric = getaddrinfo(hostPart, nullptr, &hints, &res) == 0;
+		if (res)
+			freeaddrinfo(res);
+		if (numeric)
+		{
+			char buffer[SystemAddress::TO_STRING_BUFFER_SIZE];
+			parsed->ToString(false, buffer, sizeof(buffer));
+			return buffer;
+		}
 	}
-	else
-		serverAddress.sin_addr.s_addr = INADDR_ANY;
+	return hostPart;
+}
 
-	serverAddress.sin_port = htons(port);
-
-	SocketLayer::SetSocketOptions(listenSocket, false, false);
-
-	if (bind__(listenSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
-		return false;
-
-	listen__(listenSocket, maxIncomingConnections);
+static bool SetSocketBlocking(__TCPSOCKET__ s, bool blocking)
+{
+#ifdef _WIN32
+	u_long nonBlocking = blocking ? 0 : 1;
+	return ioctlsocket__(s, FIONBIO, &nonBlocking) == 0;
 #else
-	(void) bindAddress;
+	const int flags = fcntl(s, F_GETFL, 0);
+	if (flags == -1)
+		return false;
+	return fcntl(s, F_SETFL, blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK)) == 0;
+#endif
+}
+
+// How often a connect in progress checks whether Stop() was called.
+static const long CONNECT_POLL_MS = 50;
+
+enum ConnectResult
+{
+	CONNECT_SUCCEEDED,
+	CONNECT_FAILED,
+	CONNECT_ABORTED // isStarted dropped: Stop() is waiting for this thread
+};
+
+// connect() that Stop() can interrupt: a blocking connect() cannot be woken
+// portably from another thread (close() does not wake it on Linux, shutdown()
+// races with it starting). The socket connects in non-blocking mode while this
+// polls isStarted, and is blocking again when it returns CONNECT_SUCCEEDED.
+static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, int addressLength, const MafiaNet::LocklessUint32_t &isStarted)
+{
+	if (isStarted.GetValue() == 0)
+		return CONNECT_ABORTED;
+	if (!SetSocketBlocking(s, false))
+		return CONNECT_FAILED;
+	if (connect__(s, address, addressLength) != 0)
+	{
+#ifdef _WIN32
+		if (WSAGetLastError() != WSAEWOULDBLOCK)
+			return CONNECT_FAILED;
+#else
+		if (errno != EINPROGRESS && errno != EINTR)
+			return CONNECT_FAILED;
+#endif
+		for (;;)
+		{
+			if (isStarted.GetValue() == 0)
+				return CONNECT_ABORTED;
+			fd_set writeSet, exceptSet; // Winsock reports a failed connect in exceptSet
+			FD_ZERO(&writeSet);
+			FD_ZERO(&exceptSet);
+			FD_SET(s, &writeSet);
+			FD_SET(s, &exceptSet);
+			timeval tv;
+			tv.tv_sec = 0;
+			tv.tv_usec = CONNECT_POLL_MS * 1000;
+			const int ready = select__(static_cast<int>(s + 1), nullptr, &writeSet, &exceptSet, &tv);
+			if (ready == 0)
+				continue;
+			if (ready < 0)
+			{
+#ifndef _WIN32
+				if (errno == EINTR)
+					continue;
+#endif
+				return CONNECT_FAILED;
+			}
+			int error = 0;
+			socklen_t errorLength = sizeof(error);
+			if (getsockopt__(s, SOL_SOCKET, SO_ERROR, (char *) &error, &errorLength) != 0 || error != 0)
+				return CONNECT_FAILED;
+			break;
+		}
+	}
+	return SetSocketBlocking(s, true) ? CONNECT_SUCCEEDED : CONNECT_FAILED;
+}
+
+// A connection socket must never raise SIGPIPE: a peer can reset it at any time, and another thread may shut it
+// down while the update thread still writes to it. send() also passes MSG_NOSIGNAL where it exists, but SO_NOSIGPIPE
+// (macOS, the BSDs) covers older SDKs and libcs without it, and the SSL path too: SSL_write() calls write(), which
+// MSG_NOSIGNAL cannot reach. Linux has no SO_NOSIGPIPE, so a Linux build with OPEN_SSL_CLIENT_SUPPORT stays exposed
+// (that needs a custom BIO or an application-wide SIGPIPE ignore, which a library must not impose).
+static void DisableSigpipe(__TCPSOCKET__ s)
+{
+#ifdef SO_NOSIGPIPE
+	int on = 1;
+	setsockopt__(s, SOL_SOCKET, SO_NOSIGPIPE, (char *) &on, sizeof(on));
+#else
+	(void) s;
+#endif
+}
+
+// Binds a listening TCP socket of exactly \a family (AF_INET or AF_INET6). An AF_INET6 socket is IPv6 only unless
+// \a dualStack, in which case a system that refuses IPV6_V6ONLY=0 yields no socket. Returns 0 on failure.
+static __TCPSOCKET__ BindTcpListenSocket(const char *portStr, int family, bool dualStack, const char *bindAddress)
+{
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(addrinfo)); // make sure the struct is empty
-	hints.ai_family = socketFamily;      // don't care IPv4 or IPv6
+	hints.ai_family = family;
 	hints.ai_socktype = SOCK_STREAM;     // TCP sockets
-	hints.ai_flags = AI_PASSIVE;         // fill in my IP for me
+	hints.ai_flags = AI_PASSIVE;         // wildcard address when bindAddress is empty
 	struct addrinfo *servinfo = 0, *aip; // will point to the results
+
+	const char *host = (bindAddress && bindAddress[0]) ? bindAddress : nullptr;
+	if (getaddrinfo(host, portStr, &hints, &servinfo) != 0 || servinfo == nullptr)
+		return 0;
+
+	__TCPSOCKET__ bound = 0;
+	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
+	{
+		__TCPSOCKET__ candidate = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
+		if (candidate == INVALID_SOCKET)
+			continue;
+
+		if (aip->ai_family == AF_INET6)
+		{
+			// Always explicit, never the OS default.
+			int v6only = dualStack ? 0 : 1;
+			if (setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only)) != 0 && dualStack)
+			{
+				closesocket__(candidate); // this system cannot do dual-stack (OpenBSD)
+				continue;
+			}
+		}
+
+		if (bind__(candidate, aip->ai_addr, (int) aip->ai_addrlen) >= 0)
+		{
+			bound = candidate;
+			break;
+		}
+		closesocket__(candidate);
+	}
+	freeaddrinfo(servinfo);
+	return bound;
+}
+
+bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *bindAddress)
+{
 	char portStr[32];
 	Itoa(port, portStr, 10);
 
-	getaddrinfo(0, portStr, &hints, &servinfo);
-	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
+	if (socketFamily == AF_UNSPEC)
 	{
-		// Open socket. The address type depends on what
-		// getaddrinfo() gave us.
-		listenSocket = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
-		if (listenSocket != 0)
-		{
-			int ret = bind__(listenSocket, aip->ai_addr, (int) aip->ai_addrlen);
-			if (ret >= 0)
-			{
-				break;
-			}
-			else
-			{
-				closesocket__(listenSocket);
-				listenSocket = 0;
-			}
-		}
+		// One AF_INET6 socket with IPV6_V6ONLY=0 serves both families, whatever order the resolver returns the
+		// wildcard addresses in. Only when the host cannot do that (no IPv6, an IPv4 bind address, or a system that
+		// refuses V6ONLY=0) fall back to a plain IPv4 socket.
+		listenSocket = BindTcpListenSocket(portStr, AF_INET6, true, bindAddress);
+		if (listenSocket == 0)
+			listenSocket = BindTcpListenSocket(portStr, AF_INET, false, bindAddress);
 	}
+	else
+		listenSocket = BindTcpListenSocket(portStr, socketFamily, false, bindAddress);
 
 	if (listenSocket == 0)
 		return false;
@@ -162,15 +290,12 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 	SocketLayer::SetSocketOptions(listenSocket, false, false);
 
 	listen__(listenSocket, maxIncomingConnections);
-#endif // #if RAKNET_SUPPORT_IPV6!=1
 
 	return true;
 }
 
 bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnections, unsigned short maxConnections, int _threadPriority, unsigned short socketFamily, const char *bindAddress)
 {
-	(void) socketFamily;
-
 	if (isStarted.GetValue() > 0)
 		return false;
 
@@ -201,7 +326,14 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	listenSocket = 0;
 	if (maxIncomingConnections > 0)
 	{
-		CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress);
+		if (CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress) == false)
+		{
+			isStarted.Decrement();
+			MafiaNet::OP_DELETE_ARRAY(remoteClients, _FILE_AND_LINE_);
+			remoteClients = 0;
+			remoteClientsLength = 0;
+			return false;
+		}
 	}
 
 
@@ -251,15 +383,10 @@ void TCPInterface::Stop(void)
 		closesocket__(listenSocket);
 	}
 
-	// Abort waiting connect calls
-	blockingSocketListMutex.Lock();
-	for (i = 0; i < blockingSocketList.Size(); i++)
-	{
-		closesocket__(blockingSocketList[i]);
-	}
-	blockingSocketListMutex.Unlock();
+	// A connect in progress (SocketConnect) sees isStarted drop within
+	// CONNECT_POLL_MS and gives up on its own.
 
-	// Wait for the thread to stop
+	// Wait for the update thread and every ConnectionAttemptLoop to stop: both use remoteClients
 	while (threadRunning.GetValue() > 0)
 		RakSleep(15);
 
@@ -270,7 +397,16 @@ void TCPInterface::Stop(void)
 	// Stuff from here on to the end of the function is not threadsafe
 	for (i = 0; i < remoteClientsLength; i++)
 	{
-		closesocket__(remoteClients[i].socket);
+		remoteClients[i].isActiveMutex.Lock();
+		// 0 marks an unused slot; closing it would close the process's stdin
+		// and let the next socket() return descriptor 0, which this class
+		// treats as "no socket".
+		if (remoteClients[i].socket != 0)
+			closesocket__(remoteClients[i].socket);
+		remoteClients[i].socket = 0;
+		// Connections retired since the update thread's last pass.
+		remoteClients[i].CloseRetiredSockets();
+		remoteClients[i].isActiveMutex.Unlock();
 #if OPEN_SSL_CLIENT_SUPPORT == 1
 		remoteClients[i].FreeSSL();
 #endif
@@ -325,20 +461,28 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		}
 		remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 	}
-	if (newRemoteClientIndex == -1)
-		return UNASSIGNED_SYSTEM_ADDRESS;
+	if (newRemoteClientIndex == remoteClientsLength)
+		return UNASSIGNED_SYSTEM_ADDRESS; // every slot is in use
 
 	if (block)
 	{
 		SystemAddress systemAddress;
 		// #med - call should be changed to ...FromString(host, '\0') so to not try to extract an optional port (which is overwritten with the removePort directly afterwards)
-		systemAddress.FromString(host);
+		// Resolve in the family the socket will use: the first answer of an unrestricted lookup may be one it cannot reach.
+		// This is only the address reported if the attempt fails; SocketConnect resolves the host itself.
+		const bool parsed = systemAddress.FromString(host, '|', SocketFamilyToIpVersion(socketFamily));
+		if (!parsed)
+			systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 		systemAddress.SetPortHostOrder(remotePort);
 		systemAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
-		char buffout[128];
-		systemAddress.ToString(false, buffout, static_cast<size_t>(128));
 
-		__TCPSOCKET__ sockfd = SocketConnect(buffout, remotePort, socketFamily, bindAddress);
+		// The host without the optional "|port" suffix FromString accepted above.
+		char hostPart[256];
+		char portPart[32];
+		SystemAddress peerAddress;
+		__TCPSOCKET__ sockfd = 0;
+		if (SplitHostAndPort(host, '|', hostPart, sizeof(hostPart), portPart, sizeof(portPart)))
+			sockfd = SocketConnect(ConnectHost(hostPart, parsed ? &systemAddress : nullptr).c_str(), remotePort, socketFamily, bindAddress, &peerAddress);
 		if (sockfd == 0)
 		{
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -352,19 +496,29 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 			return UNASSIGNED_SYSTEM_ADDRESS;
 		}
 
+		if (peerAddress != UNASSIGNED_SYSTEM_ADDRESS)
+		{
+			peerAddress.systemIndex = systemAddress.systemIndex;
+			systemAddress = peerAddress;
+		}
+		// The update thread reads the slot under isActiveMutex as soon as it is active.
+		remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 		remoteClients[newRemoteClientIndex].socket = sockfd;
 		remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
+		remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 		completedConnectionAttemptMutex.Lock();
-		completedConnectionAttempts.Push(remoteClients[newRemoteClientIndex].systemAddress, _FILE_AND_LINE_);
+		completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
 		completedConnectionAttemptMutex.Unlock();
 
-		return remoteClients[newRemoteClientIndex].systemAddress;
+		return systemAddress;
 	}
 	else
 	{
 		ThisPtrPlusSysAddr *s = MafiaNet::OP_NEW<ThisPtrPlusSysAddr>(_FILE_AND_LINE_);
-		s->systemAddress.FromStringExplicitPort(host, remotePort);
+		const bool parsed = s->systemAddress.FromStringExplicitPort(host, remotePort, SocketFamilyToIpVersion(socketFamily));
+		s->host = ConnectHost(host ? host : "", parsed ? &s->systemAddress : nullptr);
+		s->systemAddress.SetPortHostOrder(remotePort); // also when parsing failed: the thread connects to this port
 		s->systemAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
 		if (bindAddress)
 			strcpy_s(s->bindAddress, bindAddress);
@@ -373,16 +527,24 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		s->tcpInterface = this;
 		s->socketFamily = socketFamily;
 
-		// Start the connection thread
+		// Start the connection thread. It is counted in threadRunning before it
+		// starts, so Stop() waits for it before freeing the slots it writes.
 		int errorCode;
 
-
+		threadRunning.Increment();
 		errorCode = MafiaNet::RakThread::Create(ConnectionAttemptLoop, s, threadPriority);
 
 		if (errorCode != 0)
 		{
+			threadRunning.Decrement();
+			const SystemAddress failed = s->systemAddress;
 			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
-			failedConnectionAttempts.Push(s->systemAddress, _FILE_AND_LINE_);
+			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
+			remoteClients[newRemoteClientIndex].SetActive(false);
+			remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
+			failedConnectionAttemptMutex.Lock();
+			failedConnectionAttempts.Push(failed, _FILE_AND_LINE_);
+			failedConnectionAttemptMutex.Unlock();
 		}
 		return UNASSIGNED_SYSTEM_ADDRESS;
 	}
@@ -433,33 +595,46 @@ bool TCPInterface::SendList(const char **data, const unsigned int *lengths, cons
 	if (totalLength == 0)
 		return false;
 
+	// Slots are matched and filled under their lock: the update thread and
+	// Connect retire and reuse them concurrently.
 	if (broadcast)
 	{
 		// Send to all, possible exception system
 		for (i = 0; i < remoteClientsLength; i++)
 		{
+			remoteClients[i].isActiveMutex.Lock();
 			if (remoteClients[i].systemAddress != systemAddress)
 			{
 				remoteClients[i].SendOrBuffer(data, lengths, numParameters);
 			}
+			remoteClients[i].isActiveMutex.Unlock();
 		}
 	}
 	else
 	{
 		// Send to this player
-		if (systemAddress.systemIndex < remoteClientsLength &&
-		    remoteClients[systemAddress.systemIndex].systemAddress == systemAddress)
+		bool sent = false;
+		if (systemAddress.systemIndex < remoteClientsLength)
 		{
-			remoteClients[systemAddress.systemIndex].SendOrBuffer(data, lengths, numParameters);
+			RemoteClient &indexed = remoteClients[systemAddress.systemIndex];
+			indexed.isActiveMutex.Lock();
+			if (indexed.isActive && indexed.systemAddress == systemAddress)
+			{
+				indexed.SendOrBuffer(data, lengths, numParameters);
+				sent = true;
+			}
+			indexed.isActiveMutex.Unlock();
 		}
-		else
+		if (!sent)
 		{
 			for (i = 0; i < remoteClientsLength; i++)
 			{
+				remoteClients[i].isActiveMutex.Lock();
 				if (remoteClients[i].systemAddress == systemAddress)
 				{
 					remoteClients[i].SendOrBuffer(data, lengths, numParameters);
 				}
+				remoteClients[i].isActiveMutex.Unlock();
 			}
 		}
 	}
@@ -553,20 +728,28 @@ void TCPInterface::CloseConnection(SystemAddress systemAddress)
 	for (i = 0; i < messageHandlerList.Size(); i++)
 		messageHandlerList[i]->OnClosedConnection(systemAddress, UNASSIGNED_RAKNET_GUID, LCR_CLOSED_BY_USER);
 
-	if (systemAddress.systemIndex < remoteClientsLength && remoteClients[systemAddress.systemIndex].systemAddress == systemAddress)
+	// Match the slot under its lock: it may have been retired and reused for
+	// another connection since the caller got the address.
+	bool closed = false;
+	if (systemAddress.systemIndex < remoteClientsLength)
 	{
-		remoteClients[systemAddress.systemIndex].isActiveMutex.Lock();
-		remoteClients[systemAddress.systemIndex].SetActive(false);
-		remoteClients[systemAddress.systemIndex].isActiveMutex.Unlock();
+		RemoteClient &indexed = remoteClients[systemAddress.systemIndex];
+		indexed.isActiveMutex.Lock();
+		if (indexed.isActive && indexed.systemAddress == systemAddress)
+		{
+			indexed.SetActive(false);
+			closed = true;
+		}
+		indexed.isActiveMutex.Unlock();
 	}
-	else
+	if (!closed)
 	{
 		for (i = 0; i < remoteClientsLength; i++)
 		{
 			remoteClients[i].isActiveMutex.Lock();
 			if (remoteClients[i].isActive && remoteClients[i].systemAddress == systemAddress)
 			{
-				remoteClients[systemAddress.systemIndex].SetActive(false);
+				remoteClients[i].SetActive(false);
 				remoteClients[i].isActiveMutex.Unlock();
 				break;
 			}
@@ -674,7 +857,7 @@ SystemAddress TCPInterface::HasNewIncomingConnection(void)
 		for (i = 0; i < messageHandlerList.Size(); i++)
 			messageHandlerList[i]->OnNewConnection(out2, UNASSIGNED_RAKNET_GUID, true);
 
-		return *out;
+		return out2; // out was just returned to the pool
 	}
 	else
 	{
@@ -694,7 +877,7 @@ SystemAddress TCPInterface::HasLostConnection(void)
 		for (i = 0; i < messageHandlerList.Size(); i++)
 			messageHandlerList[i]->OnClosedConnection(out2, UNASSIGNED_RAKNET_GUID, LCR_DISCONNECTION_NOTIFICATION);
 
-		return *out;
+		return out2; // out was just returned to the pool
 	}
 	else
 	{
@@ -751,102 +934,83 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 	}
 	return bytesWritten;
 }
-__TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress)
+__TCPSOCKET__ TCPInterface::SocketConnect(const char *host, unsigned short remotePort, unsigned short socketFamily, const char *bindAddress, SystemAddress *peerAddress)
 {
-	int connectResult;
-	(void) connectResult;
-	(void) socketFamily;
+	if (peerAddress)
+		*peerAddress = UNASSIGNED_SYSTEM_ADDRESS;
 
-#if RAKNET_SUPPORT_IPV6 != 1
-	sockaddr_in serverAddress;
-
-	struct addrinfo *curAddress = nullptr;
-	int err = getaddrinfo(host, nullptr, nullptr, &curAddress);
-
-	// #med This should also work with IPv6 addresses in principle. However the old code in RakNet only worked with IPv4. Hence this behavior change won't be in MaxNet 0.1.
-	// get the (first) IPv4 address
-	while (curAddress != nullptr)
-	{
-		if (curAddress->ai_family == AF_INET)
-		{
-			break; // found an IPv4 address
-		}
-		curAddress = curAddress->ai_next;
-	}
-
-	if (curAddress == nullptr)
-		return 0;
-
-	if (err != 0)
-		return 0;
-
-
-	__TCPSOCKET__ sockfd = socket__(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0)
-		return 0;
-
-	memset(&serverAddress, 0, sizeof(serverAddress));
-	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_port = htons(remotePort);
-
-
-	if (bindAddress && bindAddress[0])
-	{
-
-
-		inet_pton(AF_INET, bindAddress, &serverAddress.sin_addr.s_addr);
-	}
-	else
-		serverAddress.sin_addr.s_addr = INADDR_ANY;
-
-	int sock_opt = 1024 * 256;
-	setsockopt__(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
-
-	serverAddress.sin_addr = ((struct sockaddr_in *) curAddress->ai_addr)->sin_addr;
-
-
-	blockingSocketListMutex.Lock();
-	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
-	blockingSocketListMutex.Unlock();
-
-	// This is blocking
-	connectResult = connect__(sockfd, (struct sockaddr *) &serverAddress, sizeof(struct sockaddr));
-
-#else
-
-	(void) bindAddress;
-	struct addrinfo hints, *res;
-	__TCPSOCKET__ sockfd;
+	struct addrinfo hints, *res = nullptr;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = socketFamily;
 	hints.ai_socktype = SOCK_STREAM;
 	char portStr[32];
 	Itoa(remotePort, portStr, 10);
-	getaddrinfo(host, portStr, &hints, &res);
-	sockfd = socket__(res->ai_family, res->ai_socktype, res->ai_protocol);
-	blockingSocketListMutex.Lock();
-	blockingSocketList.Insert(sockfd, _FILE_AND_LINE_);
-	blockingSocketListMutex.Unlock();
-	// #low - review usage of static cast here
-	connectResult = connect__(sockfd, res->ai_addr, static_cast<int>(res->ai_addrlen));
+	if (getaddrinfo(host, portStr, &hints, &res) != 0 || res == nullptr)
+		return 0;
+
+	// Try every answer in order until one connects: a name may resolve to an address this host cannot reach.
+	__TCPSOCKET__ connected = 0;
+	for (struct addrinfo *aip = res; aip != nullptr && connected == 0; aip = aip->ai_next)
+	{
+		__TCPSOCKET__ sockfd = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
+		if (sockfd == INVALID_SOCKET)
+			continue;
+		DisableSigpipe(sockfd);
+
+		if (aip->ai_family == AF_INET6)
+		{
+			// Always explicit, never the OS default. The peer is a single remote
+			// address, so IPv6 only loses nothing.
+			int v6only = 1;
+			setsockopt__(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only));
+		}
+
+		// Optional local address to connect from, in the family of the remote one
+		if (bindAddress && bindAddress[0])
+		{
+			struct addrinfo bindHints, *bindRes = nullptr;
+			memset(&bindHints, 0, sizeof bindHints);
+			bindHints.ai_family = aip->ai_family;
+			bindHints.ai_socktype = SOCK_STREAM;
+			bindHints.ai_flags = AI_PASSIVE;
+			const bool bound = getaddrinfo(bindAddress, "0", &bindHints, &bindRes) == 0 && bindRes != nullptr &&
+			                   bind__(sockfd, bindRes->ai_addr, (int) bindRes->ai_addrlen) >= 0;
+			if (bindRes)
+				freeaddrinfo(bindRes);
+			if (!bound)
+			{
+				closesocket__(sockfd);
+				continue;
+			}
+		}
+
+		int sock_opt = 1024 * 256;
+		setsockopt__(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &sock_opt, sizeof(sock_opt));
+
+		// Abortable: Stop() lowering isStarted ends the attempt within CONNECT_POLL_MS,
+		// rather than waiting out the OS connect timeout (minutes for a silent host).
+		const ConnectResult result = ConnectAbortable(sockfd, aip->ai_addr, static_cast<int>(aip->ai_addrlen), isStarted);
+		if (result != CONNECT_SUCCEEDED)
+		{
+			closesocket__(sockfd);
+			if (result == CONNECT_ABORTED)
+				break;
+			continue;
+		}
+		connected = sockfd;
+	}
 	freeaddrinfo(res); // free the linked-list
 
-#endif // #if RAKNET_SUPPORT_IPV6!=1
-
-	if (connectResult == -1)
+	if (connected != 0 && peerAddress)
 	{
-		unsigned sockfdIndex;
-		blockingSocketListMutex.Lock();
-		sockfdIndex = blockingSocketList.GetIndexOf(sockfd);
-		if (sockfdIndex != (unsigned) -1)
-			blockingSocketList.RemoveAtIndexFast(sockfdIndex);
-		blockingSocketListMutex.Unlock();
-
-		closesocket__(sockfd);
-		return 0;
+		sockaddr_storage peer;
+		memset(&peer, 0, sizeof(peer));
+		socklen_t peerLength = sizeof(peer);
+		if (getpeername(connected, (sockaddr *) &peer, &peerLength) != 0 || !SockaddrToSystemAddress(peer, peerAddress))
+			*peerAddress = UNASSIGNED_SYSTEM_ADDRESS;
 	}
 
-	return sockfd;
+	return connected;
 }
 
 RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
@@ -860,13 +1024,20 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	TCPInterface *tcpInterface = s->tcpInterface;
 	int newRemoteClientIndex = systemAddress.systemIndex;
 	unsigned short socketFamily = s->socketFamily;
+	const std::string host = s->host;
 	char bindAddress[sizeof(s->bindAddress)];
 	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
 	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
 
-	char str1[64];
-	systemAddress.ToString(false, str1, static_cast<size_t>(64));
-	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(str1, systemAddress.GetPort(), socketFamily, bindAddress);
+	// Connect() counted this thread in threadRunning; uncount it on every return.
+	struct ThreadRunningGuard
+	{
+		TCPInterface *tcp;
+		~ThreadRunningGuard() { tcp->threadRunning.Decrement(); }
+	} threadRunningGuard{tcpInterface};
+
+	SystemAddress peerAddress;
+	__TCPSOCKET__ sockfd = tcpInterface->SocketConnect(host.c_str(), systemAddress.GetPort(), socketFamily, bindAddress, &peerAddress);
 	if (sockfd == 0)
 	{
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -879,11 +1050,20 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 		return 0;
 	}
 
+	if (peerAddress != UNASSIGNED_SYSTEM_ADDRESS)
+	{
+		peerAddress.systemIndex = systemAddress.systemIndex;
+		systemAddress = peerAddress;
+	}
+	// The update thread reads the slot under isActiveMutex as soon as it is active.
+	tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 	tcpInterface->remoteClients[newRemoteClientIndex].socket = sockfd;
 	tcpInterface->remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
+	tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
-	// Notify user that the connection attempt has completed.
-	if (tcpInterface->threadRunning.GetValue() > 0)
+	// Notify user that the connection attempt has completed, unless Stop() is
+	// under way (it closes the slot's socket once this thread has returned).
+	if (tcpInterface->isStarted.GetValue() > 0)
 	{
 		tcpInterface->completedConnectionAttemptMutex.Lock();
 		tcpInterface->completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
@@ -909,13 +1089,8 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	fd_set readFD, exceptionFD, writeFD;
 	sts->threadRunning.Increment();
 
-#if RAKNET_SUPPORT_IPV6 != 1
-	sockaddr_in sockAddr;
-	int sockAddrSize = sizeof(sockAddr);
-#else
 	struct sockaddr_storage sockAddr;
 	socklen_t sockAddrSize = sizeof(sockAddr);
-#endif
 
 	int len;
 	__TCPSOCKET__ newSock;
@@ -925,6 +1100,25 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 30000;
+
+	// Retires slot \a index once its connection \a lostSocket is gone, and reports it -- unless another thread
+	// retired that connection after this thread's snapshot (recv on a shut-down socket returns 0 too): then the
+	// slot is inactive, or Connect already reused it for a new connection, which must be left alone.
+	auto retireLostConnection = [sts](unsigned index, __TCPSOCKET__ lostSocket, const SystemAddress &lostAddress)
+	{
+		RemoteClient &rc = sts->remoteClients[index];
+		rc.isActiveMutex.Lock();
+		const bool current = rc.isActive && rc.socket == lostSocket;
+		if (current)
+			rc.SetActive(false);
+		rc.isActiveMutex.Unlock();
+		if (current)
+		{
+			SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
+			*lostConnectionSystemAddress = lostAddress;
+			sts->lostConnections.Push(lostConnectionSystemAddress);
+		}
+	};
 
 
 	while (sts->isStarted.GetValue() > 0)
@@ -988,6 +1182,11 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 			for (i = 0; i < sts->remoteClientsLength; i++)
 			{
 				sts->remoteClients[i].isActiveMutex.Lock();
+				// Close what was retired since the last pass. Nothing else closes a
+				// socket, so every descriptor put in the sets below stays open --
+				// its number cannot be handed to a new connection -- until this
+				// thread comes back here.
+				sts->remoteClients[i].CloseRetiredSockets();
 				if (sts->remoteClients[i].isActive)
 				{
 					// calling FD_ISSET with -1 as socket (that’s what 0 is set to) produces a bus error under Linux 64-Bit
@@ -996,7 +1195,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 					{
 						FD_SET(socketCopy, &readFD);
 						FD_SET(socketCopy, &exceptionFD);
-						if (sts->remoteClients[i].outgoingData.GetBytesWritten() > 0)
+						sts->remoteClients[i].outgoingDataMutex.Lock();
+						const bool hasOutgoingData = sts->remoteClients[i].outgoingData.GetBytesWritten() > 0;
+						sts->remoteClients[i].outgoingDataMutex.Unlock();
+						if (hasOutgoingData)
 							FD_SET(socketCopy, &writeFD);
 						if (socketCopy > largestDescriptor) // @see largestDescriptorDef
 							largestDescriptor = socketCopy;
@@ -1018,10 +1220,12 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 
 			if (sts->listenSocket != 0 && FD_ISSET(sts->listenSocket, &readFD))
 			{
+				sockAddrSize = sizeof(sockAddr); // in/out parameter, reset for every accept
 				newSock = accept__(sts->listenSocket, (sockaddr *) &sockAddr, (socklen_t *) &sockAddrSize);
 
-				if (newSock != 0)
+				if (newSock != 0 && newSock != INVALID_SOCKET)
 				{
+					DisableSigpipe(newSock);
 					int newRemoteClientIndex = -1;
 					for (newRemoteClientIndex = 0; newRemoteClientIndex < sts->remoteClientsLength; newRemoteClientIndex++)
 					{
@@ -1030,23 +1234,11 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						{
 							sts->remoteClients[newRemoteClientIndex].socket = newSock;
 
-#if RAKNET_SUPPORT_IPV6 != 1
-							sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
-							sts->remoteClients[newRemoteClientIndex].systemAddress.SetPortNetworkOrder(sockAddr.sin_port);
-							sts->remoteClients[newRemoteClientIndex].systemAddress.systemIndex = newRemoteClientIndex;
-#else
-							if (sockAddr.ss_family == AF_INET)
-							{
-								memcpy(&sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4, (sockaddr_in *) &sockAddr, sizeof(sockaddr_in));
-								//	sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4.sin_port=ntohs( sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr4.sin_port );
-							}
-							else
-							{
-								memcpy(&sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr6, (sockaddr_in6 *) &sockAddr, sizeof(sockaddr_in6));
-								//	sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr6.sin6_port=ntohs( sts->remoteClients[newRemoteClientIndex].systemAddress.address.addr6.sin6_port );
-							}
-
-#endif // #if RAKNET_SUPPORT_IPV6!=1
+							// A dual-stack listener reports IPv4 clients as mapped IPv6 addresses: store them canonically
+							SystemAddress acceptedAddress;
+							SockaddrToSystemAddress(sockAddr, &acceptedAddress);
+							acceptedAddress.systemIndex = (SystemIndex) newRemoteClientIndex;
+							sts->remoteClients[newRemoteClientIndex].systemAddress = acceptedAddress;
 							sts->remoteClients[newRemoteClientIndex].SetActive(true);
 							sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
@@ -1059,9 +1251,10 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						}
 						sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 					}
-					if (newRemoteClientIndex == -1)
+					if (newRemoteClientIndex == sts->remoteClientsLength)
 					{
-						closesocket__(sts->listenSocket);
+						// No free slot: refuse this connection, keep listening
+						closesocket__(newSock);
 					}
 				}
 				else
@@ -1085,14 +1278,18 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 				i = 0;
 				while (i < sts->remoteClientsLength)
 				{
-					if (sts->remoteClients[i].isActive == false)
-					{
-						i++;
-						continue;
-					}
+					// Snapshot the slot under its lock, as the first loop does: Connect and CloseConnection publish
+					// and retire slots from other threads. The snapshot socket stays open for this whole pass (only
+					// this thread closes sockets, before the next select), so recv/send below never reach a closed or
+					// reused descriptor; a slot that was retired and reused meanwhile holds a socket that is not in
+					// the sets.
+					sts->remoteClients[i].isActiveMutex.Lock();
+					const bool slotActive = sts->remoteClients[i].isActive;
 					// calling FD_ISSET with -1 as socket (that’s what 0 is set to) produces a bus error under Linux 64-Bit
 					__TCPSOCKET__ socketCopy = sts->remoteClients[i].socket;
-					if (socketCopy == 0)
+					const SystemAddress slotAddress = sts->remoteClients[i].systemAddress;
+					sts->remoteClients[i].isActiveMutex.Unlock();
+					if (slotActive == false || socketCopy == 0)
 					{
 						i++;
 						continue;
@@ -1115,19 +1312,14 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						//
 						// #endif
 						// Connection lost abruptly
-						SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-						*lostConnectionSystemAddress = sts->remoteClients[i].systemAddress;
-						sts->lostConnections.Push(lostConnectionSystemAddress);
-						sts->remoteClients[i].isActiveMutex.Lock();
-						sts->remoteClients[i].SetActive(false);
-						sts->remoteClients[i].isActiveMutex.Unlock();
+						retireLostConnection(i, socketCopy, slotAddress);
 					}
 					else
 					{
 						if (FD_ISSET(socketCopy, &readFD))
 						{
 							// if recv returns 0 this was a graceful close
-							len = sts->remoteClients[i].Recv(data, BUFF_SIZE);
+							len = sts->remoteClients[i].Recv(socketCopy, data, BUFF_SIZE);
 
 
 							// removeme
@@ -1154,18 +1346,13 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 								*/
 								incomingMessage->length = len;
 								incomingMessage->deleteData = true; // actually means came from SPSC, rather than AllocatePacket
-								incomingMessage->systemAddress = sts->remoteClients[i].systemAddress;
+								incomingMessage->systemAddress = slotAddress;
 								sts->incomingMessages.Push(incomingMessage);
 							}
 							else
 							{
 								// Connection lost gracefully
-								SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-								*lostConnectionSystemAddress = sts->remoteClients[i].systemAddress;
-								sts->lostConnections.Push(lostConnectionSystemAddress);
-								sts->remoteClients[i].isActiveMutex.Lock();
-								sts->remoteClients[i].SetActive(false);
-								sts->remoteClients[i].isActiveMutex.Unlock();
+								retireLostConnection(i, socketCopy, slotAddress);
 								continue;
 							}
 						}
@@ -1188,11 +1375,11 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 									else
 										bytesAvailable = bytesInBuffer;
 									rc->outgoingData.ReadBytes(data, bytesAvailable, true);
-									bytesSent = rc->Send(data, bytesAvailable);
+									bytesSent = rc->Send(socketCopy, data, bytesAvailable);
 								}
 								else
 								{
-									bytesSent = rc->Send(contiguousBytesPointer, contiguousLength);
+									bytesSent = rc->Send(socketCopy, contiguousBytesPointer, contiguousLength);
 								}
 
 								if (bytesSent > 0)
@@ -1219,6 +1406,15 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	return 0;
 }
 
+// A connection retired by another thread is shut down while this thread may
+// still be sending on it, and a peer can reset one at any time: either must be
+// an error from send, not a SIGPIPE that kills the process.
+#ifdef MSG_NOSIGNAL
+static const int kSendFlags = MSG_NOSIGNAL;
+#else
+static const int kSendFlags = 0;
+#endif
+
 void RemoteClient::SetActive(bool a)
 {
 	if (isActive != a)
@@ -1227,10 +1423,26 @@ void RemoteClient::SetActive(bool a)
 		Reset();
 		if (isActive == false && socket != 0)
 		{
-			closesocket__(socket);
+			// Not closed here: the update thread may be using it right now, and a
+			// closed descriptor's number can be handed straight to a new socket.
+			// shutdown ends the connection at once (the peer sees it now, the
+			// update thread's recv/send fail) but keeps the descriptor reserved
+			// until the update thread closes it.
+#ifdef _WIN32
+			shutdown__(socket, SD_BOTH);
+#else
+			shutdown__(socket, SHUT_RDWR);
+#endif
+			socketsToClose.push_back(socket);
 			socket = 0;
 		}
 	}
+}
+void RemoteClient::CloseRetiredSockets(void)
+{
+	for (__TCPSOCKET__ retired : socketsToClose)
+		closesocket__(retired);
+	socketsToClose.clear();
 }
 void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, const int numParameters)
 {
@@ -1248,7 +1460,7 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 		if (ALLOW_SEND_FROM_USER_THREAD && outgoingData.GetBytesWritten() == 0)
 		{
 			outgoingDataMutex.Unlock();
-			int bytesSent = Send(data[parameterIndex], lengths[parameterIndex]);
+			int bytesSent = Send(socket, data[parameterIndex], lengths[parameterIndex]);
 			if (bytesSent < (int) lengths[parameterIndex])
 			{
 				// Push remainder
@@ -1357,28 +1569,28 @@ void RemoteClient::FreeSSL(void)
 	if (ssl)
 		SSL_free(ssl);
 }
-int RemoteClient::Send(const char *data, unsigned int length)
+int RemoteClient::Send(__TCPSOCKET__ s, const char *data, unsigned int length)
 {
 	if (ssl)
 		return SSL_write(ssl, data, length);
 	else
-		return send__(socket, data, length, 0);
+		return send__(s, data, length, kSendFlags);
 }
-int RemoteClient::Recv(char *data, const int dataSize)
+int RemoteClient::Recv(__TCPSOCKET__ s, char *data, const int dataSize)
 {
 	if (ssl)
 		return SSL_read(ssl, data, dataSize);
 	else
-		return recv__(socket, data, dataSize, 0);
+		return recv__(s, data, dataSize, 0);
 }
 #else
-int RemoteClient::Send(const char *data, unsigned int length)
+int RemoteClient::Send(__TCPSOCKET__ s, const char *data, unsigned int length)
 {
-	return send__(socket, data, length, 0);
+	return send__(s, data, length, kSendFlags);
 }
-int RemoteClient::Recv(char *data, const int dataSize)
+int RemoteClient::Recv(__TCPSOCKET__ s, char *data, const int dataSize)
 {
-	return recv__(socket, data, dataSize, 0);
+	return recv__(s, data, dataSize, 0);
 }
 #endif
 

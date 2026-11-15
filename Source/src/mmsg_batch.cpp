@@ -51,36 +51,6 @@ bool &RNS2SendBatch::ThreadBatchLive()
 	return live;
 }
 
-bool SockaddrToSystemAddress(const sockaddr_storage &from, SystemAddress *out)
-{
-	// Mirrors the byte-order handling of RNS2_Berkley::RecvFromBlockingIPV4And6:
-	// the sockaddr keeps the port in network order (copied verbatim into the
-	// address union), and debugPort caches the host-order value.
-	if (from.ss_family == AF_INET)
-	{
-		memcpy(&out->address.addr4,
-		       reinterpret_cast<const sockaddr_in *>(&from), sizeof(sockaddr_in));
-		out->debugPort = ntohs(out->address.addr4.sin_port);
-		return true;
-	}
-#if RAKNET_SUPPORT_IPV6 == 1
-	if (from.ss_family == AF_INET6)
-	{
-		memcpy(&out->address.addr6,
-		       reinterpret_cast<const sockaddr_in6 *>(&from), sizeof(sockaddr_in6));
-		out->debugPort = ntohs(out->address.addr6.sin6_port);
-		return true;
-	}
-#endif
-
-	// A family this build cannot represent (an IPv6 source on an IPv4-only
-	// build, or AF_UNSPEC from a failed read). Overwrite rather than leave the
-	// recycled struct's previous sender in place -- that would attribute the
-	// datagram to the wrong peer.
-	*out = UNASSIGNED_SYSTEM_ADDRESS;
-	return false;
-}
-
 unsigned CompactRecvSlots(RNS2RecvStruct **slots, unsigned allocated, unsigned consumed)
 {
 	if (consumed > allocated)

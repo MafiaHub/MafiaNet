@@ -64,6 +64,8 @@ set(MAFIANET_SOURCES
     src/point_grid_sectorizer.cpp
     src/rackspace.cpp
     src/memory_override.cpp
+    src/connect_candidates.cpp
+    src/sockaddr_convert.cpp
     src/socket2.cpp
     src/socket2_berkley.cpp
     src/socket2_windows_linux.cpp
@@ -236,6 +238,8 @@ set(MAFIANET_HEADERS
     include/mafianet/plugin_interface2.h
     include/mafianet/point_grid_sectorizer.h
     include/mafianet/rackspace.h
+    include/mafianet/connect_candidates.h
+    include/mafianet/sockaddr_convert.h
     include/mafianet/voice.h
     include/mafianet/rand.h
     include/mafianet/rand_sync.h

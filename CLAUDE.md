@@ -206,6 +206,8 @@ For debugging, run a binary directly with a filter: `./build/Tests/IntegrationTe
 - Primary namespace: `MafiaNet` (e.g., `MafiaNet::RakPeerInterface`, `MafiaNet::BitStream`) — used exclusively throughout the library
 - Short-hand alias: the `MNet` preprocessor macro (defined in `mafianet/defines.h`) expands to `MafiaNet` as a convenience shorthand
 
+IPv6 is always compiled in (there is no `RAKNET_SUPPORT_IPV6` macro; `defines.h` `#error`s on `=0` and CI greps for it). `SocketDescriptor::socketFamily` defaults to `AF_UNSPEC`, which opens one dual-stack `AF_INET6` socket (`IPV6_V6ONLY=0`) whose IPv4 peers are canonicalized to plain `AF_INET` `SystemAddress`es and whose wildcard bound address reports `127.0.0.1|port`; set `AF_INET` in a test only when it genuinely needs an IPv4-only socket. `requireDualStack` fails `Startup` instead of falling back to IPv4. See `docs/advanced/ipv6-support.rst`.
+
 ### Key Components
 
 **Networking Core** (`Source/include/mafianet/`):

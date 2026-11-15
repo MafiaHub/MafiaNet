@@ -25,6 +25,7 @@
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/linux_strings.h"
 #include "mafianet/socket_defines.h"
+#include "mafianet/sockaddr_convert.h"
 #include "errno.h"
 
 #ifdef _WIN32
@@ -53,6 +54,8 @@ RAK_THREAD_DECLARATION(UpdateUDPForwarderGlobal);
 UDPForwarder::ForwardEntry::ForwardEntry()
 {
 	socket = INVALID_SOCKET;
+	socketFamily = AF_INET;
+	dualStack = false;
 	timeLastDatagramForwarded = MafiaNet::GetTimeMS();
 	addr1Confirmed = UNASSIGNED_SYSTEM_ADDRESS;
 	addr2Confirmed = UNASSIGNED_SYSTEM_ADDRESS;
@@ -140,8 +143,6 @@ UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAdd
 	if (isRunning.GetValue() == 0)
 		return UDPFORWARDER_NOT_RUNNING;
 
-	(void) socketFamily;
-
 	unsigned int inputId = nextInputId++;
 
 	StartForwardingInputStruct *sfis;
@@ -192,23 +193,13 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 {
 	char data[MAXIMUM_MTU_SIZE];
 
-#if RAKNET_SUPPORT_IPV6 == 1
 	sockaddr_storage their_addr;
 	memset(&their_addr, 0, sizeof(their_addr));
 	sockaddr *sockAddrPtr;
 	socklen_t sockLen;
 	socklen_t *socketlenPtr = (socklen_t *) &sockLen;
-	sockaddr_in *sockAddrIn;
-	sockaddr_in6 *sockAddrIn6;
 	sockLen = sizeof(their_addr);
 	sockAddrPtr = (sockaddr *) &their_addr;
-#else
-	sockaddr_in sockAddrIn;
-	memset(&sockAddrIn, 0, sizeof(sockaddr_in));
-	socklen_t len2;
-	len2 = sizeof(sockAddrIn);
-	sockAddrIn.sin_family = AF_INET;
-#endif
 
 #if defined(__GNUC__)
 #if defined(MSG_DONTWAIT)
@@ -220,14 +211,10 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 	const int flag = 0;
 #endif
 
-	int receivedDataLen, len = 0;
+	int receivedDataLen;
 	//unsigned short portnum=0;
 
-#if RAKNET_SUPPORT_IPV6 == 1
 	receivedDataLen = recvfrom__(forwardEntry->socket, data, MAXIMUM_MTU_SIZE, flag, sockAddrPtr, socketlenPtr);
-#else
-	receivedDataLen = recvfrom__(forwardEntry->socket, data, MAXIMUM_MTU_SIZE, flag, (sockaddr *) &sockAddrIn, (socklen_t *) &len2);
-#endif
 
 	if (receivedDataLen < 0)
 	{
@@ -261,24 +248,10 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 	if (receivedDataLen <= 0)
 		return;
 
+	// An IPv4 peer seen through a dual-stack socket is a mapped address: compare it canonically
 	SystemAddress receivedAddr;
-#if RAKNET_SUPPORT_IPV6 == 1
-	if (their_addr.ss_family == AF_INET)
-	{
-		sockAddrIn = (sockaddr_in *) &their_addr;
-		sockAddrIn6 = 0;
-		memcpy(&receivedAddr.address.addr4, sockAddrIn, sizeof(sockaddr_in));
-	}
-	else
-	{
-		sockAddrIn = 0;
-		sockAddrIn6 = (sockaddr_in6 *) &their_addr;
-		memcpy(&receivedAddr.address.addr6, sockAddrIn6, sizeof(sockaddr_in6));
-	}
-#else
-	memcpy(&receivedAddr.address.addr4, &sockAddrIn, sizeof(sockaddr_in));
-#endif
-	//portnum=receivedAddr.GetPort();
+	if (!SockaddrToSystemAddress(their_addr, &receivedAddr))
+		return;
 
 	SystemAddress forwardTarget;
 
@@ -322,42 +295,55 @@ void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry
 		return;
 	}
 
-	// Forward to dest
-	len = 0;
-	// 	sockaddr_in saOut;
-	// 	saOut.sin_port = forwardTarget.GetPortNetworkOrder(); // User port
-	// 	saOut.sin_addr.s_addr = forwardTarget.address.addr4.sin_addr.s_addr;
-	// 	saOut.sin_family = AF_INET;
-	do
-	{
-
-
-#if RAKNET_SUPPORT_IPV6 == 1
-		if (forwardTarget.address.addr4.sin_family == AF_INET)
-		{
-			do
-			{
-				len = sendto__(forwardEntry->socket, data, receivedDataLen, 0, (const sockaddr *) &forwardTarget.address.addr4, sizeof(sockaddr_in));
-			} while (len == 0);
-		}
-		else
-		{
-			do
-			{
-				len = sendto__(forwardEntry->socket, data, receivedDataLen, 0, (const sockaddr *) &forwardTarget.address.addr6, sizeof(sockaddr_in6));
-			} while (len == 0);
-		}
-#else
-		do
-		{
-			len = sendto__(forwardEntry->socket, data, receivedDataLen, 0, (const sockaddr *) &forwardTarget.address.addr4, sizeof(sockaddr_in));
-		} while (len == 0);
-#endif
-
-
-	} while (len == 0);
+	// Forward to dest, in the form this socket can send to (an IPv4 target is mapped on a dual-stack socket)
+	sockaddr_storage target;
+	const socklen_t targetLength = SystemAddressToSockaddr(forwardTarget, forwardEntry->dualStack, &target, forwardEntry->socketFamily);
+	if (targetLength == 0)
+		return; // this socket cannot reach that family
+	sendto__(forwardEntry->socket, data, receivedDataLen, 0, (const sockaddr *) &target, targetLength);
 
 	forwardEntry->timeLastDatagramForwarded = curTime;
+}
+
+// Opens a UDP socket of exactly \a family (AF_INET or AF_INET6) bound to an OS-chosen port on \a host (nullptr: the
+// wildcard). An AF_INET6 socket is IPv6 only unless \a dualStack; a system that refuses IPV6_V6ONLY=0 then yields no
+// socket. Returns INVALID_SOCKET on failure.
+static __UDPSOCKET__ BindForwardingSocket(const char *host, int family, bool dualStack)
+{
+	struct addrinfo hints;
+	memset(&hints, 0, sizeof(addrinfo)); // make sure the struct is empty
+	hints.ai_family = family;
+	hints.ai_socktype = SOCK_DGRAM;      // UDP sockets
+	hints.ai_flags = AI_PASSIVE;         // fill in my IP for me
+	struct addrinfo *servinfo = 0, *aip; // will point to the results
+	if (getaddrinfo(host, "0", &hints, &servinfo) != 0 || servinfo == nullptr)
+		return INVALID_SOCKET;
+
+	__UDPSOCKET__ bound = INVALID_SOCKET;
+	for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
+	{
+		__UDPSOCKET__ candidate = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
+		if (candidate == INVALID_SOCKET)
+			continue;
+		if (aip->ai_family == AF_INET6)
+		{
+			// Always explicit, never the OS default.
+			int v6only = dualStack ? 0 : 1;
+			if (setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only)) != 0 && dualStack)
+			{
+				closesocket__(candidate); // this system cannot do dual-stack (OpenBSD)
+				continue;
+			}
+		}
+		if (bind__(candidate, aip->ai_addr, (int) aip->ai_addrlen) >= 0)
+		{
+			bound = candidate;
+			break;
+		}
+		closesocket__(candidate);
+	}
+	freeaddrinfo(servinfo);
+	return bound;
 }
 void UDPForwarder::UpdateUDPForwarder(void)
 {
@@ -403,78 +389,40 @@ void UDPForwarder::UpdateUDPForwarder(void)
 			if (sfos.result == UDPFORWARDER_RESULT_COUNT)
 			{
 				int sock_opt;
-				sockaddr_in listenerSocketAddress;
-				listenerSocketAddress.sin_port = 0;
 				ForwardEntry *fe = MafiaNet::OP_NEW<UDPForwarder::ForwardEntry>(_FILE_AND_LINE_);
 				fe->addr1Unconfirmed = sfis->source;
 				fe->addr2Unconfirmed = sfis->destination;
 				fe->timeoutOnNoDataMS = sfis->timeoutOnNoDataMS;
 
-#if RAKNET_SUPPORT_IPV6 != 1
-				fe->socket = socket__(AF_INET, SOCK_DGRAM, 0);
-				listenerSocketAddress.sin_family = AF_INET;
-				if (sfis->forceHostAddress.IsEmpty() == false)
-				{
+				const char *host = nullptr;
+				if (!sfis->forceHostAddress.IsEmpty() && sfis->forceHostAddress != "UNASSIGNED_SYSTEM_ADDRESS")
+					host = sfis->forceHostAddress.C_String();
 
-
-					inet_pton(AF_INET, sfis->forceHostAddress.C_String(), &listenerSocketAddress.sin_addr.s_addr);
-				}
-				else
+				if (sfis->socketFamily == AF_UNSPEC)
 				{
-					listenerSocketAddress.sin_addr.s_addr = INADDR_ANY;
-				}
-				int ret = bind__(fe->socket, (struct sockaddr *) &listenerSocketAddress, sizeof(listenerSocketAddress));
-				if (ret == -1)
-				{
-					MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
-					sfos.result = UDPFORWARDER_BIND_FAILED;
-				}
-				else
-				{
-					sfos.result = UDPFORWARDER_SUCCESS;
-				}
-
-#else  // RAKNET_SUPPORT_IPV6==1
-				struct addrinfo hints;
-				memset(&hints, 0, sizeof(addrinfo)); // make sure the struct is empty
-				hints.ai_family = sfis->socketFamily;
-				hints.ai_socktype = SOCK_DGRAM;      // UDP sockets
-				hints.ai_flags = AI_PASSIVE;         // fill in my IP for me
-				struct addrinfo *servinfo = 0, *aip; // will point to the results
-
-				if (sfis->forceHostAddress.IsEmpty() || sfis->forceHostAddress == "UNASSIGNED_SYSTEM_ADDRESS")
-					getaddrinfo(0, "0", &hints, &servinfo);
-				else
-					getaddrinfo(sfis->forceHostAddress.C_String(), "0", &hints, &servinfo);
-
-				for (aip = servinfo; aip != nullptr; aip = aip->ai_next)
-				{
-					// Open socket. The address type depends on what
-					// getaddrinfo() gave us.
-					fe->socket = socket__(aip->ai_family, aip->ai_socktype, aip->ai_protocol);
-					if (fe->socket != INVALID_SOCKET)
+					// One AF_INET6 socket with IPV6_V6ONLY=0 serves both families, whatever order the resolver
+					// returns the wildcard addresses in. Fall back to IPv4 only when the host cannot do that.
+					fe->socket = BindForwardingSocket(host, AF_INET6, true);
+					fe->socketFamily = AF_INET6;
+					fe->dualStack = true;
+					if (fe->socket == INVALID_SOCKET)
 					{
-						int ret = bind__(fe->socket, aip->ai_addr, (int) aip->ai_addrlen);
-						if (ret >= 0)
-						{
-							break;
-						}
-						else
-						{
-							closesocket__(fe->socket);
-							fe->socket = INVALID_SOCKET;
-						}
+						fe->socket = BindForwardingSocket(host, AF_INET, false);
+						fe->socketFamily = AF_INET;
+						fe->dualStack = false;
 					}
 				}
-
-				// Release address info after we have used it
-				freeaddrinfo(servinfo);
+				else
+				{
+					fe->socket = BindForwardingSocket(host, sfis->socketFamily, false);
+					fe->socketFamily = (short) sfis->socketFamily;
+					fe->dualStack = false;
+				}
 
 				if (fe->socket == INVALID_SOCKET)
 					sfos.result = UDPFORWARDER_BIND_FAILED;
 				else
 					sfos.result = UDPFORWARDER_SUCCESS;
-#endif // RAKNET_SUPPORT_IPV6==1
 
 				if (sfos.result == UDPFORWARDER_SUCCESS)
 				{
@@ -495,6 +443,11 @@ void UDPForwarder::UpdateUDPForwarder(void)
 #endif
 
 					forwardListNotUpdated.Insert(fe, _FILE_AND_LINE_);
+				}
+				else
+				{
+					// Binding failed: the entry was never registered, do not leak it
+					MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
 				}
 			}
 		}

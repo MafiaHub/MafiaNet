@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "mafianet/get_time.h"
@@ -67,17 +68,36 @@ public:
 
 	// A started peer bound to 10.0.0.<n>:<port> (port 0 picks one).
 	RakPeer *AddPeer(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+	// A started peer bound to 2001:db8::<n> (RFC 3849 documentation prefix), port 0 picks one.
+	// The host counter is shared with AddPeer, so addresses never collide.
+	RakPeer *AddPeerV6(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+	// A started peer on one dual-stack socket (RakNetSocket2::IsDualStack() is
+	// true) bound to both 10.0.0.<n> and 2001:db8::<n>, same <n> and port. It
+	// sends to an IPv4 target from the IPv4 address and to an IPv6 target from
+	// the IPv6 one. AddressOf(peer) is the IPv6 address.
+	RakPeer *AddPeerDualStack(unsigned int maxConnections, unsigned short maxIncoming = 0, unsigned short port = 0);
+	// Host name table every simulated socket's Resolve() uses instead of DNS:
+	// `name` resolves to `addresses`, in that order (their ports are ignored;
+	// Resolve applies the port it is asked for). A numeric literal always
+	// resolves to itself; any other unknown name does not resolve.
+	void AddHostName(const char *name, std::vector<SystemAddress> addresses);
 	// The same, but the peer is constructed in caller-owned storage (at least
 	// sizeof(RakPeer) bytes, suitably aligned) that must outlive this network.
 	// Lets a test pre-fill that memory to prove the constructor sets what it must.
 	RakPeer *AddPeerInStorage(void *storage, unsigned int maxConnections, unsigned short maxIncoming = 0,
 	                          unsigned short port = 0);
 	SystemAddress AddressOf(const RakPeer *peer) const;
+	// The peer's address of that IP version (4 or 6), or UNASSIGNED_SYSTEM_ADDRESS
+	// when it has none: a dual-stack peer has both.
+	SystemAddress AddressOf(const RakPeer *peer, int ipVersion) const;
 
 	// Rules apply per direction; unset links use the default rule.
 	void SetDefaultLink(const LinkRule &rule) { defaultRule = rule; }
 	void SetLink(const RakPeer *from, const RakPeer *to, const LinkRule &rule);
 	void SetLinkBothWays(const RakPeer *a, const RakPeer *b, const LinkRule &rule);
+	// The same, by address: for one family of a dual-stack peer.
+	void SetLink(const SystemAddress &from, const SystemAddress &to, const LinkRule &rule);
+	void SetLinkBothWays(const SystemAddress &a, const SystemAddress &b, const LinkRule &rule);
 
 	// Advance the clock by ms in 1ms ticks: deliver due datagrams, run every
 	// peer's update, collect received messages.
@@ -135,7 +155,14 @@ private:
 
 	void Enqueue(const SystemAddress &from, const SystemAddress &to, const char *data, int length);
 	void DeliverDue();
-	RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port);
+	enum class Family
+	{
+		V4,
+		V6,
+		DualStack
+	};
+	RakPeer *StartPeer(RakPeer *peer, unsigned int maxConnections, unsigned short maxIncoming, unsigned short port, Family family = Family::V4);
+	int Resolve(const char *host, unsigned short port, SystemAddress *out, int maxOut) const;
 	const LinkRule &RuleFor(const SystemAddress &from, const SystemAddress &to) const;
 	uint32_t NextRandom();
 	static TimeUS VirtualClock();
@@ -144,7 +171,10 @@ private:
 	std::set<const RakPeer *> peersInStorage;
 	std::map<const RakPeer *, std::vector<Message>> inboxes;
 	std::set<const RakPeer *> receiveDisabled;
-	std::map<SystemAddress, SimSocket *> sockets;
+	std::map<SystemAddress, SimSocket *> sockets; // a dual-stack socket appears under both its addresses
+	std::map<const RakPeer *, SystemAddress> ipv4Aliases;
+	std::map<std::string, std::vector<SystemAddress>> hostNames;
+	SystemAddress pendingIpv4Alias; // for the Create() call StartPeer is about to cause
 	std::map<std::pair<SystemAddress, SystemAddress>, LinkRule> links;
 	LinkRule defaultRule;
 	std::vector<InFlight> inFlight;

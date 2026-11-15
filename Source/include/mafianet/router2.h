@@ -81,8 +81,8 @@ public:
 	/// bs.Read(endpointGuid);
 	/// unsigned short sourceToDestPort;
 	/// bs.Read(sourceToDestPort);
-	/// char ipAddressString[32];
-	/// packet->systemAddress.ToString(false, ipAddressString);
+	/// char ipAddressString[SystemAddress::TO_STRING_BUFFER_SIZE];
+	/// packet->systemAddress.ToString(false, ipAddressString, sizeof(ipAddressString));
 	/// rakPeerInterface->EstablishRouting(ipAddressString, sourceToDestPort, 0,0);
 	///
 	/// \note The SystemAddress for a connection should not be used - always use RakNetGuid as the address can change at any time.
