@@ -136,10 +136,21 @@ EphemeralKeyPair::EphemeralKeyPair(const uint8_t secret[32], uint64_t fixedNonce
 	wiped = false;
 }
 
-EphemeralKeyPair EphemeralKeyPair::FromSecretKeyForTesting(const uint8_t secret[32], uint64_t fixedNonce)
+EphemeralKeyPair EphemeralKeyPairTestAccess::FromSecretKey(const uint8_t secret[32], uint64_t fixedNonce)
 {
 	return EphemeralKeyPair(secret, fixedNonce);
 }
+
+const uint8_t *EphemeralKeyPairTestAccess::SecretKey(const EphemeralKeyPair &pair)
+{
+	return pair.SecretKey();
+}
+
+// Library-internal access for the key derivation; defined here only, so it is not part of the API.
+struct EphemeralKeyPairInternal
+{
+	static const uint8_t *SecretKey(const EphemeralKeyPair &pair) { return pair.SecretKey(); }
+};
 
 CryptInfo EphemeralKeyPair::MakeCryptInfo() const
 {
@@ -334,7 +345,7 @@ bool DeriveSessionKeys(EphemeralKeyPair &local, bool localIsInitiator, const Cry
 
 	// crypto_scalarmult fails when the result is all zero (a low-order remote point).
 	uint8_t shared[kKeyBytes];
-	const int dh = crypto_scalarmult_curve25519(shared, local.SecretKey(), remote.publicKey);
+	const int dh = crypto_scalarmult_curve25519(shared, EphemeralKeyPairInternal::SecretKey(local), remote.publicKey);
 	local.Wipe();
 	if (dh != 0)
 	{
