@@ -156,6 +156,33 @@ TEST(HappyEyeballs, FallsBackToIpv4WhenIpv6Dark)
 	EXPECT_EQ(Count(net, server, ID_NEW_INCOMING_CONNECTION), 1u);
 }
 
+// The application only knows the race by the first candidate's address (Connect() reports failures under it): once a
+// later candidate wins, GetConnectionState() of that address follows the connection, until it closes.
+TEST(HappyEyeballs, ConnectionStateOfFirstAddressFollowsTheWinner)
+{
+	SimulatedNetwork net;
+	net.SetDefaultLink(Delay(10));
+	RakPeer *server = net.AddPeerDualStack(4, 4);
+	RakPeer *client = net.AddPeerDualStack(1);
+	const SystemAddress server6 = net.AddressOf(server, 6);
+	const SystemAddress server4 = net.AddressOf(server, 4);
+	net.SetLinkBothWays(net.AddressOf(client, 6), server6, Dark());
+	net.AddHostName("srv.test", {server6, server4});
+
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	EXPECT_EQ(client->GetConnectionState(server6), IS_PENDING);
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_CONNECTION_REQUEST_ACCEPTED, 5000));
+	ASSERT_TRUE(net.Find(client, ID_CONNECTION_REQUEST_ACCEPTED)->systemAddress == server4);
+
+	EXPECT_EQ(client->GetConnectionState(server4), IS_CONNECTED);
+	EXPECT_EQ(client->GetConnectionState(server6), IS_CONNECTED);
+
+	client->CloseConnection(server4, true);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(server4) != IS_CONNECTED && client->GetConnectionState(server4) != IS_DISCONNECTING && client->NumberOfConnections() == 0; }, 5000));
+	EXPECT_EQ(client->GetConnectionState(server6), IS_NOT_CONNECTED);
+}
+
 TEST(HappyEyeballs, NextCandidateStartsWhenPreviousFails)
 {
 	SimulatedNetwork net;

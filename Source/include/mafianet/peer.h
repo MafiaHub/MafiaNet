@@ -181,7 +181,8 @@ public:
 	/// the candidates, interleaved by family starting with the resolver's first answer (see OrderConnectCandidates), start HAPPY_EYEBALLS_ATTEMPT_DELAY_MS apart, or as soon as
 	/// the previous one gives up. Each keeps the usual sendConnectionAttemptCount / timeBetweenSendConnectionAttemptsMS schedule. The first to answer wins and the others are
 	/// dropped silently. If every candidate fails, ID_CONNECTION_ATTEMPT_FAILED arrives once, with the first candidate's address; a rejection the server sends ends the whole race.
-	/// GetConnectionState() and CancelConnectionAttempt() given any candidate's address, the first one included, apply to the whole race. A numeric literal is never raced.
+	/// GetConnectionState() and CancelConnectionAttempt() given any candidate's address, the first one included, apply to the whole race. Once a candidate wins, GetConnectionState()
+	/// answers for the connection under the winner's address and under the first candidate's address. A numeric literal is never raced.
 	ConnectionAttemptResult Connect(const char *host, unsigned short remotePort, const char *passwordData, int passwordDataLength, PublicKey *publicKey = 0, unsigned connectionSocketIndex = 0, unsigned sendConnectionAttemptCount = 6, unsigned timeBetweenSendConnectionAttemptsMS = 1000, MafiaNet::TimeMS timeoutTime = 0);
 
 	/// \brief Connect to the specified host (ip or domain name) and server port.
@@ -789,6 +790,12 @@ public:
 		// directly follows delivery) and on slot reuse.
 		unsigned char *disconnectReasonData;
 		unsigned int disconnectReasonLength;
+
+		// The first candidate's address of the Happy Eyeballs race this connection won, when a later candidate won
+		// it (UNASSIGNED_SYSTEM_ADDRESS otherwise): GetConnectionState() keeps answering for the address the
+		// application's Connect() reported. Set when the winning request becomes this remote system, cleared when
+		// the slot is reused or the connection closes.
+		SystemAddress raceFirstAddress;
 
 #if LIBCAT_SECURITY == 1
 		// Cached answer used internally by RakPeer to prevent DoS attacks based on the connexion handshake

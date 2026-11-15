@@ -623,6 +623,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			// remoteSystemList in Single thread
 			remoteSystemList[i].isActive = false;
 			remoteSystemList[i].systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+			remoteSystemList[i].raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystemList[i].guid = UNASSIGNED_RAKNET_GUID;
 			remoteSystemList[i].myExternalSystemAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystemList[i].connectMode = RemoteSystemStruct::NO_ACTION;
@@ -1898,6 +1899,18 @@ ConnectionState RakPeer::GetConnectionState(const AddressOrGUID systemIdentifier
 	if (systemIdentifier.systemAddress != UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		index = GetIndexFromSystemAddress(systemIdentifier.systemAddress, false);
+		if (index == -1)
+		{
+			// The first candidate's address of a Happy Eyeballs race a later candidate won (see Connect()).
+			for (unsigned int i = 0; i < maximumNumberOfPeers; i++)
+			{
+				if (remoteSystemList[i].isActive && remoteSystemList[i].raceFirstAddress == systemIdentifier.systemAddress)
+				{
+					index = (int) i;
+					break;
+				}
+			}
+		}
 	}
 	else
 	{
@@ -4207,6 +4220,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			ClearSessionConfig(remoteSystem);
 			remoteSystem->MTUSize = defaultMTUSize;
 			remoteSystem->guid = guid;
+			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			// Reserve this reliability layer for ourselves.
 			//
@@ -4736,6 +4750,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 					remoteSystemList[index].isActive = false;
 
 					remoteSystemList[index].guid = UNASSIGNED_RAKNET_GUID;
+					remoteSystemList[index].raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
 
 					// Reserve this reliability layer for ourselves
 					//remoteSystemList[ remoteSystemLookup[index].index ].systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
@@ -5620,6 +5635,10 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 
 							remoteSystem->weInitiatedTheConnection = true;
 							remoteSystem->connectMode = RakPeer::RemoteSystemStruct::REQUESTED_CONNECTION;
+							// The request, and with it the race's first address, is freed below: keep that address with
+							// the connection, so GetConnectionState() still answers for it.
+							if (rcs->raceGroup != 0 && rcs->raceFirstAddress != systemAddress)
+								remoteSystem->raceFirstAddress = rcs->raceFirstAddress;
 							if (rcs->timeoutTime != 0)
 								remoteSystem->reliabilityLayer.SetTimeoutTime(rcs->timeoutTime);
 
