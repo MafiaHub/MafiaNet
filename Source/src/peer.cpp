@@ -1899,9 +1899,10 @@ ConnectionState RakPeer::GetConnectionState(const AddressOrGUID systemIdentifier
 	if (systemIdentifier.systemAddress != UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		index = GetIndexFromSystemAddress(systemIdentifier.systemAddress, false);
-		if (index == -1)
+		// Nothing, or only a closed slot that once held the address: the address may also be the first candidate's
+		// of a Happy Eyeballs race a later candidate won (see Connect()), and that live connection comes first.
+		if (index == -1 || !remoteSystemList[index].isActive)
 		{
-			// The first candidate's address of a Happy Eyeballs race a later candidate won (see Connect()).
 			for (unsigned int i = 0; i < maximumNumberOfPeers; i++)
 			{
 				if (remoteSystemList[i].isActive && remoteSystemList[i].raceFirstAddress == systemIdentifier.systemAddress)

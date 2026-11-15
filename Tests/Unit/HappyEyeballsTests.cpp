@@ -183,6 +183,44 @@ TEST(HappyEyeballs, ConnectionStateOfFirstAddressFollowsTheWinner)
 	EXPECT_EQ(client->GetConnectionState(server6), IS_NOT_CONNECTED);
 }
 
+// A closed connection leaves its address in its (inactive) slot. When the race that follows is won by a later
+// candidate, GetConnectionState() of the first address must report the live connection, not that closed slot.
+TEST(HappyEyeballs, ConnectionStateOfFirstAddressIgnoresAnEarlierClosedConnection)
+{
+	SimulatedNetwork net;
+	net.SetDefaultLink(Delay(10));
+	RakPeer *server = net.AddPeerDualStack(4, 4);
+	RakPeer *other = net.AddPeerDualStack(4, 4);
+	RakPeer *client = net.AddPeerDualStack(2);
+	const SystemAddress server6 = net.AddressOf(server, 6);
+	const SystemAddress server4 = net.AddressOf(server, 4);
+	const SystemAddress other4 = net.AddressOf(other, 4);
+	net.AddHostName("srv.test", {server6, server4});
+
+	// Slot 0: other, slot 1: server6 by literal (not raced). Close both, server6 first, so the race below reuses
+	// slot 0 and slot 1 keeps server6 as a closed slot.
+	ASSERT_EQ(client->Connect(other4.ToString(false), other4.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(other4) == IS_CONNECTED; }, 5000));
+	ASSERT_EQ(client->Connect(server6.ToString(false), server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(server6) == IS_CONNECTED; }, 5000));
+	client->CloseConnection(server6, true);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(server6) == IS_DISCONNECTED; }, 5000));
+	client->CloseConnection(other4, true);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(other4) == IS_DISCONNECTED; }, 5000));
+	net.Step(1000);
+
+	// Now IPv6 is dark: the race's IPv4 candidate wins.
+	net.SetLinkBothWays(net.AddressOf(client, 6), server6, Dark());
+	ASSERT_EQ(client->Connect("srv.test", server6.GetPort(), nullptr, 0), CONNECTION_ATTEMPT_STARTED);
+	ASSERT_TRUE(net.RunUntil([&]
+	                         { return client->GetConnectionState(server4) == IS_CONNECTED; }, 5000));
+	EXPECT_EQ(client->GetConnectionState(server6), IS_CONNECTED);
+}
+
 TEST(HappyEyeballs, NextCandidateStartsWhenPreviousFails)
 {
 	SimulatedNetwork net;
