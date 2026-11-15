@@ -16,9 +16,9 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <vector>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/plugin_interface2.h"
@@ -45,7 +45,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	static NullSocket socket;
 	static SystemAddress remote("127.0.0.1", 40001);
 	static RakNetRandom rnr;
-	DataStructures::List<PluginInterface2 *> handlers;
+	std::vector<PluginInterface2 *> handlers;
 	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
 
 	ReliabilityLayer layer;

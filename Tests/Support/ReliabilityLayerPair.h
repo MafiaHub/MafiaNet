@@ -38,7 +38,6 @@
 #include <vector>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/packet_priority.h"
@@ -77,7 +76,7 @@ struct ReliabilityLayerPair
 	MafiaNet::ReliabilityLayer a, b;
 	CapturingSocket aSock, bSock;
 	MafiaNet::SystemAddress aAddr, bAddr;
-	DataStructures::List<MafiaNet::PluginInterface2 *> handlers;
+	std::vector<MafiaNet::PluginInterface2 *> handlers;
 	MafiaNet::RakNetRandom rnr;
 	MafiaNet::BitStream updateBitStream{MAXIMUM_MTU_SIZE};
 	CCTimeType now = MafiaNet::GetTimeUS();
@@ -160,7 +159,7 @@ protected:
 	MafiaNet::ReliabilityLayer a, b;
 	CapturingSocket aSock, bSock;
 	MafiaNet::SystemAddress aAddr, bAddr;
-	DataStructures::List<MafiaNet::PluginInterface2 *> handlers;
+	std::vector<MafiaNet::PluginInterface2 *> handlers;
 	MafiaNet::RakNetRandom rnr;
 	MafiaNet::BitStream updateBitStream;
 	CCTimeType now;

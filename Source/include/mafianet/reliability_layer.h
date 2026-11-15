@@ -23,18 +23,13 @@
 
 #include "mafianet/export.h"
 #include "mafianet/mtu_size.h"
-#include "mafianet/ds_linked_list.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/packet_priority.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/internal_packet.h"
 #include "mafianet/statistics.h"
 #include "mafianet/dr_sha1.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/range_list.h"
-#include "mafianet/ds_bplus_tree.h"
 #include "mafianet/ds_memory_pool.h"
 #include "mafianet/defines.h"
 #include "mafianet/bit_stream.h"
@@ -46,6 +41,7 @@
 #include "mafianet/socket2.h"
 #include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <vector>
 
@@ -59,8 +55,6 @@
 
 /// Number of ordered streams available. You can use up to 32 ordered streams
 #define NUMBER_OF_ORDERED_STREAMS 32 // 2^5
-
-#define RESEND_TREE_ORDER 32
 
 namespace MafiaNet
 {
@@ -120,17 +114,16 @@ struct SplitPacketChannel //<SplitPacketChannel>
 	InternalPacket *firstPacket;
 #endif
 };
-int RAK_DLL_EXPORT SplitPacketChannelComp(SplitPacketIdType const &key, SplitPacketChannel *const &data);
 
 // Helper class
 struct BPSTracker
 {
 	BPSTracker();
 	~BPSTracker();
-	void Reset(const char *file, unsigned int line);
+	void Reset();
 	inline void Push1(CCTimeType time, uint64_t value1)
 	{
-		dataQueue.Push(TimeAndValue2(time, value1), _FILE_AND_LINE_);
+		dataQueue.push_back(TimeAndValue2(time, value1));
 		total1 += value1;
 		lastSec1 += value1;
 	}
@@ -163,7 +156,7 @@ struct BPSTracker
 
 	uint64_t total1, lastSec1;
 	//	uint64_t total2, lastSec2;
-	DataStructures::Queue<TimeAndValue2> dataQueue;
+	std::deque<TimeAndValue2> dataQueue;
 	void ClearExpired1(CCTimeType time);
 	//	void ClearExpired2(MafiaNet::TimeUS time);
 };
@@ -251,7 +244,7 @@ public:
 	/// \retval true Success
 	/// \retval false Modified packet
 	bool HandleSocketReceiveFromConnectedPlayer(
-	    const char *buffer, unsigned int length, SystemAddress &systemAddress, DataStructures::List<PluginInterface2 *> &messageHandlerList, int mtuSize,
+	    const char *buffer, unsigned int length, SystemAddress &systemAddress, std::vector<PluginInterface2 *> &messageHandlerList, int mtuSize,
 	    RakNetSocket2 *s, RakNetRandom *rnr, CCTimeType timeRead, BitStream &updateBitStream);
 
 	/// This allocates bytes and writes a user-level message to those bytes.
@@ -281,7 +274,7 @@ public:
 	/// \param[in] messageHandlerList A list of registered plugins
 	void Update(RakNetSocket2 *s, SystemAddress &systemAddress, int MTUSize, CCTimeType time,
 	            unsigned bitsPerSecondLimit,
-	            DataStructures::List<PluginInterface2 *> &messageHandlerList,
+	            std::vector<PluginInterface2 *> &messageHandlerList,
 	            RakNetRandom *rnr, BitStream &updateBitStream);
 
 	// #med 0.2.0 - review whether we'd rather have this defined as a private method and declare RakPeer a friend of ReliabilityLayer
@@ -289,7 +282,7 @@ public:
 	/// Same as \see Update() except that outstanding ACKs are ensured to be sent.
 	void UpdateAndForceACKs(RakNetSocket2 *s, SystemAddress &systemAddress, int MTUSize, CCTimeType time,
 	                        unsigned bitsPerSecondLimit,
-	                        DataStructures::List<PluginInterface2 *> &messageHandlerList,
+	                        std::vector<PluginInterface2 *> &messageHandlerList,
 	                        RakNetRandom *rnr, BitStream &updateBitStream);
 
 	/// Were you ever unable to deliver a packet despite retries?
@@ -386,7 +379,7 @@ private:
 	InternalPacket *CreateInternalPacketFromBitStream(MafiaNet::BitStream *bitStream, CCTimeType time);
 
 	/// Does what the function name says
-	unsigned RemovePacketFromResendListAndDeleteOlderReliableSequenced(const MessageNumberType messageNumber, CCTimeType time, DataStructures::List<PluginInterface2 *> &messageHandlerList, const SystemAddress &systemAddress);
+	unsigned RemovePacketFromResendListAndDeleteOlderReliableSequenced(const MessageNumberType messageNumber, CCTimeType time, std::vector<PluginInterface2 *> &messageHandlerList, const SystemAddress &systemAddress);
 
 	/// Acknowledge receipt of the packet with the specified messageNumber
 	void SendAcknowledgementPacket(const DatagramSequenceNumberType messageNumber, CCTimeType time);
@@ -409,12 +402,6 @@ private:
 
 	/// Check the SHA1 code
 	bool CheckSHA1(char code[SHA1_LENGTH], unsigned char *const buffer, unsigned int nbytes);
-
-	/// Search the specified list for sequenced packets on the specified ordering channel, optionally skipping those with splitPacketId, and delete them
-	//	void DeleteSequencedPacketsInList( unsigned char orderingChannel, DataStructures::List<InternalPacket*>&theList, int splitPacketId = -1 );
-
-	/// Search the specified list for sequenced packets with a value less than orderingIndex and delete them
-	//	void DeleteSequencedPacketsInList( unsigned char orderingChannel, DataStructures::Queue<InternalPacket*>&theList );
 
 	/// Returns true if newPacketOrderingIndex is older than the waitingForPacketOrderingIndex
 	bool IsOlderOrderedPacket(OrderingIndexType newPacketOrderingIndex, OrderingIndexType waitingForPacketOrderingIndex);
@@ -498,9 +485,6 @@ private:
 	/// Does not copy any split data parameters as that information is always generated does not have any reason to be copied
 	InternalPacket *CreateInternalPacketCopy(InternalPacket *original, int dataByteOffset, int dataByteLength, CCTimeType time);
 
-	/// Get the specified ordering list
-	// DataStructures::LinkedList<InternalPacket*> *GetOrderingListAtOrderingStream( unsigned char orderingChannel );
-
 	/// Add the internal packet to the ordering list in order based on order index
 	// void AddToOrderingList( InternalPacket * internalPacket );
 
@@ -524,7 +508,7 @@ private:
 
 	void UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAddress, int MTUSize, CCTimeType time,
 	                    unsigned bitsPerSecondLimit,
-	                    DataStructures::List<PluginInterface2 *> &messageHandlerList,
+	                    std::vector<PluginInterface2 *> &messageHandlerList,
 	                    RakNetRandom *rnr, BitStream &updateBitStream, bool forceSendACKs);
 
 	/// Does this packet number represent a packet that was skipped (out of order?)
@@ -543,8 +527,7 @@ private:
 
 	// Used ONLY for MafiaNet::Reliability::ReliableOrdered
 	// MafiaNet::Reliability::ReliableSequenced just returns the newest one
-	// DataStructures::List<DataStructures::LinkedList<InternalPacket*>*> orderingList;
-	DataStructures::Queue<InternalPacket *> outputQueue;
+	std::deque<InternalPacket *> outputQueue;
 	// Every this many fragments of a split message, ID_DOWNLOAD_PROGRESS; 0 (until SetSplitMessageProgressInterval) for none.
 	int splitMessageProgressInterval = 0;
 	CCTimeType unreliableTimeout;
@@ -572,7 +555,7 @@ private:
 	// Queue length is programmatically restricted to DATAGRAM_MESSAGE_ID_ARRAY_LENGTH
 	// This is essentially an O(1) lookup to get a DatagramHistoryNode given an index
 	// datagramHistory holds a linked list of MessageNumberNode. Each MessageNumberNode refers to one element in resendList which can be cleared on an ack.
-	DataStructures::Queue<DatagramHistoryNode> datagramHistory;
+	std::deque<DatagramHistoryNode> datagramHistory;
 	DataStructures::MemoryPool<MessageNumberNode> datagramHistoryMessagePool;
 
 	struct UnreliableWithAckReceiptNode
@@ -586,7 +569,7 @@ private:
 		uint32_t sendReceiptSerial;
 		MafiaNet::TimeUS nextActionTime;
 	};
-	DataStructures::List<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
+	std::vector<UnreliableWithAckReceiptNode> unreliableWithAckReceiptHistory;
 
 	void RemoveFromDatagramHistory(DatagramSequenceNumberType index);
 	MessageNumberNode *GetMessageNumberNodeByDatagramIndex(DatagramSequenceNumberType index, CCTimeType *timeSent, int *wireBytes = nullptr);
@@ -596,7 +579,6 @@ private:
 	DatagramSequenceNumberType datagramHistoryPopCount;
 
 	DataStructures::MemoryPool<InternalPacket> internalPacketPool;
-	// DataStructures::BPlusTree<DatagramSequenceNumberType, InternalPacket*, RESEND_TREE_ORDER> resendTree;
 	InternalPacket *resendBuffer[RESEND_BUFFER_ARRAY_LENGTH];
 	InternalPacket *resendLinkedListHead;
 	InternalPacket *unreliableLinkedListHead;
@@ -621,7 +603,6 @@ private:
 	//	unsigned packetlossThisSampleResendCount;
 	//	CCTimeType lastPacketlossTime;
 
-	//DataStructures::Queue<InternalPacket*> sendPacketSet[ MafiaNet::NUMBER_OF_PRIORITIES ];
 	std::vector<HeapEntry> outgoingPacketBuffer;   // min-heap, see HeapPush/HeapPop
 	std::uint64_t outgoingPacketBufferNextSeq = 0; // never reset: ties stay FIFO across Reset()
 	reliabilityHeapWeightType outgoingPacketBufferNextWeights[MafiaNet::NUMBER_OF_PRIORITIES];
@@ -631,7 +612,8 @@ private:
 	//	double bytesInSendBuffer[MafiaNet::NUMBER_OF_PRIORITIES];
 
 
-	DataStructures::OrderedList<SplitPacketIdType, SplitPacketChannel *, SplitPacketChannelComp> splitPacketChannelList;
+	// Partially reassembled split messages, keyed by splitPacketId. Owns the channels.
+	std::map<SplitPacketIdType, SplitPacketChannel *> splitPacketChannelList;
 
 	MessageNumberType sendReliableMessageNumberIndex;
 	MessageNumberType internalOrderIndex;
@@ -689,8 +671,7 @@ private:
 	/// If 0, we got got that packet.  Otherwise, the time to give up waiting for that packet.
 	/// If we get a packet number where (receivedPacketsBaseIndex-packetNumber) is less than half the range of receivedPacketsBaseIndex then it is a duplicate
 	/// Otherwise, it is a duplicate packet (and ignore it).
-	// DataStructures::Queue<CCTimeType> hasReceivedPacketQueue;
-	DataStructures::Queue<bool> hasReceivedPacketQueue;
+	std::deque<bool> hasReceivedPacketQueue;
 	DatagramSequenceNumberType receivedPacketsBaseIndex;
 	bool resetReceivedPackets;
 
@@ -727,7 +708,7 @@ private:
 		//	SystemAddress systemAddress;
 		unsigned int extraSocketOptions;
 	};
-	DataStructures::Queue<DataAndTime *> delayList;
+	std::deque<DataAndTime *> delayList;
 
 	// Internet simulator
 	double packetloss;
@@ -774,15 +755,14 @@ private:
 	void AddToListTail(InternalPacket *internalPacket, bool modifyUnacknowledgedBytes);
 	void PopListHead(bool modifyUnacknowledgedBytes);
 	bool IsResendQueueEmpty(void) const;
-	void SortSplitPacketList(DataStructures::List<InternalPacket *> &data, unsigned int leftEdge, unsigned int rightEdge) const;
 	void SendACKs(RakNetSocket2 *s, SystemAddress &systemAddress, CCTimeType time, RakNetRandom *rnr, BitStream &updateBitStream);
 
-	DataStructures::List<InternalPacket *> packetsToSendThisUpdate;
-	DataStructures::List<bool> packetsToDeallocThisUpdate;
+	std::vector<InternalPacket *> packetsToSendThisUpdate;
+	std::vector<bool> packetsToDeallocThisUpdate;
 	// boundary is in packetsToSendThisUpdate, inclusive
-	DataStructures::List<unsigned int> packetsToSendThisUpdateDatagramBoundaries;
-	DataStructures::List<bool> datagramsToSendThisUpdateIsPair;
-	DataStructures::List<unsigned int> datagramSizesInBytes;
+	std::vector<unsigned int> packetsToSendThisUpdateDatagramBoundaries;
+	std::vector<bool> datagramsToSendThisUpdateIsPair;
+	std::vector<unsigned int> datagramSizesInBytes;
 	BitSize_t datagramSizeSoFar;
 	BitSize_t allDatagramSizesSoFar;
 	double totalUserDataBytesAcked;

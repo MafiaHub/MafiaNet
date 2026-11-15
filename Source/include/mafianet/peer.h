@@ -1099,7 +1099,7 @@ protected:
 	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;
 	DataStructures::List<BanStruct *> banList;
 	// Threadsafe, and not thread safe
-	DataStructures::List<PluginInterface2 *> pluginListTS, pluginListNTS;
+	std::vector<PluginInterface2 *> pluginListTS, pluginListNTS;
 	// Every attached plugin again, for OnReceiveNetworkThread. The mutex lets AttachPlugin and
 	// DetachPlugin run while the update thread is dispatching.
 	DataStructures::List<PluginInterface2 *> pluginListNetworkThread;
@@ -1295,7 +1295,7 @@ protected:
 	uint32_t sendReceiptSerial;
 	void ResetSendReceipt(void);
 	void OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPongTime, RemoteSystemStruct *remoteSystem);
-	void CallPluginCallbacks(DataStructures::List<PluginInterface2 *> &pluginList, Packet *packet);
+	void CallPluginCallbacks(std::vector<PluginInterface2 *> &pluginList, Packet *packet);
 	// Offers a message to the network-thread plugins; true if one of them took it.
 	bool DispatchNetworkThreadReceive(Packet *packet);
 	// Ticks every plugin's UpdateNetworkThread(), under the same rules as DispatchNetworkThreadReceive.
