@@ -35,7 +35,8 @@ dual-stack sockets (OpenBSD), the socket falls back to IPv4 only;
   otherwise. So ``"localhost"`` or a name with both A and AAAA records binds
   its IPv4 address, reachable by IPv4 clients as before; ``"::1"`` or an
   AAAA-only name binds IPv6. Dual-stack needs the wildcard address (leave
-  ``hostAddress`` empty, or ``"::"``). An IPv4-mapped bind address
+  ``hostAddress`` empty, or ``"::"``); ``"0.0.0.0"`` means "any IPv4
+  address" and binds an IPv4-only socket. An IPv4-mapped bind address
   (``::ffff:a.b.c.d``) is not supported.
 * ``AF_INET`` is an IPv4-only socket -- the default before 0.27.0; set it to
   get the old behaviour back. ``AF_INET6`` is an IPv6-only socket

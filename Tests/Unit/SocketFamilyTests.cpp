@@ -276,6 +276,17 @@ TEST(UnspecSpecificHost, Ipv6LiteralBindsIpv6)
 	EXPECT_EQ(std::string(bound.ToString(false)), "::1");
 }
 
+// "0.0.0.0" is the IPv4 wildcard: with AF_UNSPEC it is an IPv4-only socket,
+// not dual-stack (that takes an empty hostAddress or "::").
+TEST(UnspecSpecificHost, Ipv4WildcardLiteralIsIpv4Only)
+{
+	bool dualStack = true;
+	SystemAddress bound;
+	ASSERT_EQ(StartOnce(SocketDescriptor(0, "0.0.0.0"), &dualStack, &bound), RAKNET_STARTED);
+	EXPECT_FALSE(dualStack);
+	EXPECT_EQ(bound.GetIPVersion(), 4) << bound.ToString(true);
+}
+
 // "::" is the IPv6 wildcard, not a specific address: still dual-stack.
 TEST(UnspecSpecificHost, Ipv6WildcardLiteralIsDualStack)
 {
