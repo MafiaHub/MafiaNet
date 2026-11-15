@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <functional>
 #include <vector>
 
 #include "mafianet/bit_stream.h"
@@ -84,6 +85,9 @@ protected:
 		int mtuAtSend;
 	};
 	std::vector<LoggedDatagram> aToBLog;
+
+	// When set, also drop every a->b datagram for which this returns true.
+	std::function<bool(const std::vector<char> &)> dropAToBIf;
 
 	// Delivered to b on the next Tick, after that tick's real a->b traffic.
 	std::vector<std::vector<char>> injectToB;
@@ -202,6 +206,8 @@ protected:
 			logged.mtuAtSend = a.GetCurrentMtuBytes();
 			aToBLog.push_back(logged);
 			if (DropAToB((int) aSock.sent[i].size()))
+				continue;
+			if (dropAToBIf && dropAToBIf(aSock.sent[i]))
 				continue;
 			DeliverToB(aSock.sent[i]);
 		}

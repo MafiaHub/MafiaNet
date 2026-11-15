@@ -135,6 +135,14 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	/// not a split fragment.
 	BitSize_t splitOriginalBitLength;
 
+	/// Transmitted as a flag bit in the message header. Set on a message that
+	/// ReliabilityLayer::ReSplitOversizedMessages rebuilt after an MTU step-down
+	/// to replace one sent under reliable message numbers the receiver may or may
+	/// not have: its data starts with a re-split header naming those numbers (see
+	/// ReliabilityLayer::ResolveReSplitCopy), so the receiver can close them and
+	/// deliver the payload exactly once.
+	bool resplitCopy;
+
 	// Used for the resend queue
 	// Linked list implementation so I can remove from the list via a pointer, without finding it in the list
 	InternalPacket *resendPrev, *resendNext, *unreliablePrev, *unreliableNext;

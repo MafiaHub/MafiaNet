@@ -30,10 +30,27 @@
 #include "mafianet/send_to_thread.h"
 #endif
 #include <math.h>
+#include <algorithm>
+#include <utility>
+#include <vector>
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
+
+namespace
+{
+// Re-split header flags (see ReliabilityLayer::AddReSplitHeader).
+// A packet of the old copy was never sent: it cannot have been delivered.
+const uint8_t RESPLIT_OLD_COPY_INCOMPLETE = 0x01;
+// The old copy was a split message; its splitPacketId follows.
+const uint8_t RESPLIT_HAS_OLD_SPLIT_ID = 0x02;
+// The message after the header is itself a re-split copy, with a header of its own.
+const uint8_t RESPLIT_INNER_IS_COPY = 0x04;
+const uint8_t RESPLIT_KNOWN_FLAGS = RESPLIT_OLD_COPY_INCOMPLETE | RESPLIT_HAS_OLD_SPLIT_ID | RESPLIT_INNER_IS_COPY;
+// Bounds a remote's header: far more numbers than one message can have been sent under.
+const uint32_t RESPLIT_MAX_RETIRED_NUMBERS = 1u << 22;
+} // namespace
 
 // Can't figure out which library has this function on the PS3
 double Ceil(double d)
@@ -372,7 +389,7 @@ int SplitPacketIndexComp(SplitPacketIndexType const &key, InternalPacket *const 
 // Constructor
 //-------------------------------------------------------------------------------------------------------
 ReliabilityLayer::ReliabilityLayer()
-    : encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0), droppedKeylessSends(0)
+    : maxReceiveWindow(1000000), encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0), droppedKeylessSends(0)
 {
 
 #ifdef _DEBUG
@@ -447,6 +464,24 @@ bool ReliabilityLayer::SetSessionKeys(const SessionKeys &keys)
 uint64_t ReliabilityLayer::GetDroppedKeylessSendsForTesting() const
 {
 	return droppedKeylessSends;
+}
+
+//-------------------------------------------------------------------------------------------------------
+unsigned int ReliabilityLayer::GetReceiveWindowSizeForTesting() const
+{
+	return hasReceivedPacketQueue.Size();
+}
+
+//-------------------------------------------------------------------------------------------------------
+unsigned int ReliabilityLayer::GetPartialSplitMessagesForTesting() const
+{
+	return splitPacketChannelList.Size();
+}
+
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::SetMaxReceiveWindowForTesting(uint32_t messages)
+{
+	maxReceiveWindow = messages;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -1196,7 +1231,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 					}
 					else
 					{ // holeCount>=receivedPackets.Size()
-						if (holeCount > (DatagramSequenceNumberType) 1000000)
+						if (holeCount > (DatagramSequenceNumberType) maxReceiveWindow)
 						{
 							// A peer jumped its message numbering far ahead: drop the
 							// packet. No RakAssert -- the remote chooses this value.
@@ -1439,6 +1474,26 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 					}
 				}
 
+				// A copy the sender re-split after an MTU step-down: close the message numbers it
+				// retired, and deliver it only if the copy it replaces was not delivered.
+				if (internalPacket->resplitCopy)
+				{
+					const BitSize_t copyBitLength = internalPacket->dataBitLength;
+					const ReSplitVerdict verdict = ResolveReSplitCopy(internalPacket);
+					if (verdict != RESPLIT_DELIVER)
+					{
+						if (verdict == RESPLIT_MALFORMED)
+						{
+							for (unsigned int messageHandlerIndex = 0; messageHandlerIndex < messageHandlerList.Size(); messageHandlerIndex++)
+								messageHandlerList[messageHandlerIndex]->OnReliabilityLayerNotification("Malformed re-split header", BYTES_TO_BITS(length), systemAddress, true);
+						}
+						bpsMetrics[(int) USER_MESSAGE_BYTES_RECEIVED_IGNORED].Push1(timeRead, BITS_TO_BYTES(copyBitLength));
+						FreeInternalPacketData(internalPacket, _FILE_AND_LINE_);
+						ReleaseToInternalPacketPool(internalPacket);
+						goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
+					}
+				}
+
 #ifdef PRINT_TO_FILE_RELIABLE_ORDERED_TEST
 				unsigned char packetId;
 				char *type = "UNDEFINED";
@@ -1575,9 +1630,10 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 							while (orderingHeaps[channel].Size() > 0)
 							{
 								// A buffered packet older than the read index is a second copy of a message already
-								// delivered: the black-hole step-down re-sends a rebuilt copy of a message that may in
-								// fact have arrived, under new message numbers. It sorts first, so leaving it would stop
-								// this loop for good and stall the channel. Drop it, as a late arrival is dropped.
+								// delivered. It sorts first, so leaving it would stop this loop for good and stall the
+								// channel: drop it, as a late arrival is dropped. A re-split copy sent after an MTU
+								// step-down used to be one (#93); ResolveReSplitCopy now discards those before they get
+								// here, so this is a backstop.
 								if (IsOlderOrderedPacket(orderingHeaps[channel].Peek()->orderingIndex, orderedReadIndex[channel]))
 								{
 									InternalPacket *stale = orderingHeaps[channel].Pop(0);
@@ -2918,6 +2974,8 @@ BitSize_t ReliabilityLayer::WriteToBitStreamFromInternalPacket(MafiaNet::BitStre
 
 	bool hasSplitPacket = internalPacket->splitPacketCount > 0;
 	bitStream->Write(hasSplitPacket); // Write 1 bit to indicate if splitPacketCount>0
+	// 1 bit: the data starts with a re-split header (see ReSplitOversizedMessages)
+	bitStream->Write(internalPacket->resplitCopy);
 	bitStream->AlignWriteToByteBoundary();
 	RakAssert(internalPacket->dataBitLength < 65535);
 	unsigned short s;
@@ -2996,6 +3054,7 @@ InternalPacket *ReliabilityLayer::CreateInternalPacketFromBitStream(MafiaNet::Bi
 	bitStream->ReadBits((unsigned char *) (&(tempChar)), 3);
 	internalPacket->reliability = (MafiaNet::Reliability) tempChar;
 	readSuccess = bitStream->Read(hasSplitPacket); // Read 1 bit to indicate if splitPacketCount>0
+	readSuccess = bitStream->Read(internalPacket->resplitCopy) && readSuccess;
 	bitStream->AlignReadToByteBoundary();
 	unsigned short s;
 	bitStream->ReadAlignedVar16((char *) &s);
@@ -3345,8 +3404,21 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 	unsigned int i;
 	InternalPacket *p;
 
-	DataStructures::List<SplitPacketIdType> staleSplitIds;
-	DataStructures::List<InternalPacket *> rebuiltMessages;
+	// One message to send again: its rebuilt payload, and what the receiver
+	// must learn about the copy it replaces (see AddReSplitHeader).
+	struct ReSplit
+	{
+		InternalPacket *rebuilt;
+		bool wasSplit;
+		SplitPacketIdType oldSplitId;
+		// A fragment never left the outgoing buffer: the old copy cannot have
+		// been delivered.
+		bool unsentFragments;
+		// Reliable message numbers of the old copy's unacknowledged packets.
+		// They are never sent again, so the receiver is told about them.
+		std::vector<MessageNumberType> retiredNumbers;
+	};
+	std::vector<ReSplit> reSplits;
 	DataStructures::List<InternalPacket *> resendVictims;
 
 	// Rebuild a full-length copy of the message pkt belongs to, before any of
@@ -3391,7 +3463,8 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 		// Keep reliability, priority, ordering/sequencing indices and receipt
 		// serial: the receiver's ordered channel is waiting on exactly this
 		// ordering index, so the re-split message slots into the stream where
-		// the original stalled.
+		// the original stalled. resplitCopy is kept too: a copy's data already
+		// starts with a re-split header, which AddReSplitHeader nests.
 		*rebuilt = *pkt;
 		AllocInternalPacketData(rebuilt, copy);
 		rebuilt->refCountedData = 0;
@@ -3407,27 +3480,25 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 		return rebuilt;
 	};
 
-	auto isStaleId = [&staleSplitIds](SplitPacketIdType id) -> bool
+	auto findStaleSplit = [&reSplits](SplitPacketIdType id) -> ReSplit *
 	{
-		for (unsigned int k = 0; k < staleSplitIds.Size(); k++)
-			if (staleSplitIds[k] == id)
-				return true;
-		return false;
+		for (ReSplit &r : reSplits)
+			if (r.wasSplit && r.oldSplitId == id)
+				return &r;
+		return nullptr;
 	};
 
 	// An oversized fragment marks its whole message stale: every sibling is
 	// pulled from the queues below and the message re-sent re-split under a
-	// fresh splitPacketId. The receiver's partial channel for the old id never
-	// completes and is simply superseded.
+	// fresh splitPacketId.
 	auto noteStaleSplit = [&](InternalPacket *pkt)
 	{
-		if (isStaleId(pkt->splitPacketId))
+		if (findStaleSplit(pkt->splitPacketId))
 			return;
 		InternalPacket *rebuilt = rebuildMessage(pkt);
 		if (rebuilt == 0)
 			return;
-		staleSplitIds.Push(pkt->splitPacketId, _FILE_AND_LINE_);
-		rebuiltMessages.Push(rebuilt, _FILE_AND_LINE_);
+		reSplits.push_back(ReSplit{rebuilt, true, pkt->splitPacketId, false, {}});
 	};
 
 	// Drop a not-yet-sent packet in place. The outgoing buffer is a heap, so
@@ -3457,7 +3528,7 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 					InternalPacket *rebuilt = rebuildMessage(p);
 					if (rebuilt)
 					{
-						rebuiltMessages.Push(rebuilt, _FILE_AND_LINE_);
+						reSplits.push_back(ReSplit{rebuilt, false, 0, false, {p->reliableMessageNumber}});
 						resendVictims.Push(p, _FILE_AND_LINE_);
 					}
 				}
@@ -3476,16 +3547,13 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 			noteStaleSplit(p);
 		else
 		{
-			bool isReliable =
-			    p->reliability != MafiaNet::Reliability::Unreliable &&
-			    p->reliability != MafiaNet::Reliability::UnreliableSequenced &&
-			    p->reliability != MafiaNet::Reliability::UnreliableWithAckReceipt;
-			if (isReliable)
+			if (IsReliableForReSplit(p->reliability))
 			{
 				InternalPacket *rebuilt = rebuildMessage(p);
 				if (rebuilt == 0)
 					continue;
-				rebuiltMessages.Push(rebuilt, _FILE_AND_LINE_);
+				// Never sent: no number to retire, nothing the receiver can hold.
+				reSplits.push_back(ReSplit{rebuilt, false, 0, true, {}});
 			}
 			// An unreliable message the path already black-holed is not owed
 			// delivery; dropping it here is what the network was doing anyway.
@@ -3495,28 +3563,34 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 
 	// Pass 2: sweep every packet of the stale messages out of both queues --
 	// including small tail fragments that still fit, since the whole message
-	// is re-sent under its new id.
-	if (staleSplitIds.Size() > 0)
+	// is re-sent under its new id -- noting the numbers retired with them.
+	if (resendLinkedListHead)
 	{
-		if (resendLinkedListHead)
+		p = resendLinkedListHead;
+		do
 		{
-			p = resendLinkedListHead;
-			do
+			ReSplit *r = p->splitPacketCount > 0 ? findStaleSplit(p->splitPacketId) : nullptr;
+			if (r)
 			{
-				if (p->splitPacketCount > 0 && isStaleId(p->splitPacketId))
-					resendVictims.Push(p, _FILE_AND_LINE_);
-				p = p->resendNext;
-			} while (p != resendLinkedListHead);
-		}
-		for (i = 0; i < outgoingPacketBuffer.Size(); i++)
+				r->retiredNumbers.push_back(p->reliableMessageNumber);
+				resendVictims.Push(p, _FILE_AND_LINE_);
+			}
+			p = p->resendNext;
+		} while (p != resendLinkedListHead);
+	}
+	for (i = 0; i < outgoingPacketBuffer.Size(); i++)
+	{
+		p = outgoingPacketBuffer[i];
+		ReSplit *r = (p->data != 0 && p->splitPacketCount > 0) ? findStaleSplit(p->splitPacketId) : nullptr;
+		if (r)
 		{
-			p = outgoingPacketBuffer[i];
-			if (p->data != 0 && p->splitPacketCount > 0 && isStaleId(p->splitPacketId))
-				tombstoneOutgoing(p);
+			r->unsentFragments = true;
+			tombstoneOutgoing(p);
 		}
 	}
 
 	// Unlink the resend-list victims the way an ack would, minus the receipt.
+	// Their numbers are never sent again: the re-split header retires them.
 	for (i = 0; i < resendVictims.Size(); i++)
 	{
 		p = resendVictims[i];
@@ -3529,9 +3603,218 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 		ReleaseToInternalPacketPool(p);
 	}
 
-	// Queue the rebuilt messages, split at the new, smaller size.
-	for (i = 0; i < rebuiltMessages.Size(); i++)
-		SplitPacket(rebuiltMessages[i]);
+	// Queue the rebuilt messages, split at the new, smaller size. A reliable
+	// message the receiver may hold part or all of carries a re-split header.
+	for (ReSplit &r : reSplits)
+	{
+		if (IsReliableForReSplit(r.rebuilt->reliability) && (r.wasSplit || !r.retiredNumbers.empty()))
+			AddReSplitHeader(r.rebuilt, r.unsentFragments, r.wasSplit, r.oldSplitId, r.retiredNumbers);
+		SplitPacket(r.rebuilt);
+	}
+}
+
+//-------------------------------------------------------------------------------------------------------
+bool ReliabilityLayer::IsReliableForReSplit(MafiaNet::Reliability reliability)
+{
+	return reliability == MafiaNet::Reliability::Reliable ||
+	       reliability == MafiaNet::Reliability::ReliableOrdered ||
+	       reliability == MafiaNet::Reliability::ReliableSequenced ||
+	       reliability == MafiaNet::Reliability::ReliableWithAckReceipt ||
+	       reliability == MafiaNet::Reliability::ReliableOrderedWithAckReceipt;
+}
+
+//-------------------------------------------------------------------------------------------------------
+// The re-split header, at the start of a resplitCopy message's data (byte aligned):
+//   u8  flags: RESPLIT_OLD_COPY_INCOMPLETE, RESPLIT_HAS_OLD_SPLIT_ID, RESPLIT_INNER_IS_COPY
+//   u16 the old copy's splitPacketId, if RESPLIT_HAS_OLD_SPLIT_ID
+//   u32 range count, then per range: u24 lowest, u24 highest reliable message number retired
+// followed by the message (itself a re-split copy when RESPLIT_INNER_IS_COPY).
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::AddReSplitHeader(InternalPacket *rebuilt, bool oldCopyIncomplete, bool wasSplit, SplitPacketIdType oldSplitId,
+                                        std::vector<MessageNumberType> &retiredNumbers)
+{
+	std::sort(retiredNumbers.begin(), retiredNumbers.end(), [](const MessageNumberType &x, const MessageNumberType &y)
+	          { return x.val < y.val; });
+	std::vector<std::pair<MessageNumberType, MessageNumberType>> ranges;
+	for (const MessageNumberType &number : retiredNumbers)
+	{
+		if (!ranges.empty() && ranges.back().second.val + 1 == number.val)
+			ranges.back().second = number;
+		else if (ranges.empty() || ranges.back().second.val != number.val)
+			ranges.push_back(std::make_pair(number, number));
+	}
+
+	BitStream header;
+	uint8_t flags = 0;
+	if (oldCopyIncomplete)
+		flags |= RESPLIT_OLD_COPY_INCOMPLETE;
+	if (wasSplit)
+		flags |= RESPLIT_HAS_OLD_SPLIT_ID;
+	if (rebuilt->resplitCopy)
+		flags |= RESPLIT_INNER_IS_COPY;
+	header.Write(flags);
+	if (wasSplit)
+		header.Write(oldSplitId);
+	header.Write((uint32_t) ranges.size());
+	for (const auto &range : ranges)
+	{
+		header.Write(range.first);
+		header.Write(range.second);
+	}
+
+	const unsigned int headerBytes = (unsigned int) header.GetNumberOfBytesUsed();
+	const unsigned int payloadBytes = (unsigned int) BITS_TO_BYTES(rebuilt->dataBitLength);
+	unsigned char *data = (unsigned char *) rakMalloc_Ex(headerBytes + payloadBytes, _FILE_AND_LINE_);
+	if (data == 0)
+	{
+		// Sent without the header, the copy can be delivered twice or leave a
+		// hole; out of memory, nothing better is on offer.
+		notifyOutOfMemory(_FILE_AND_LINE_);
+		return;
+	}
+	memcpy(data, header.GetData(), headerBytes);
+	memcpy(data + headerBytes, rebuilt->data, payloadBytes);
+	FreeInternalPacketData(rebuilt, _FILE_AND_LINE_);
+	AllocInternalPacketData(rebuilt, data);
+	rebuilt->dataBitLength += BYTES_TO_BITS((BitSize_t) headerBytes);
+	rebuilt->resplitCopy = true;
+}
+
+//-------------------------------------------------------------------------------------------------------
+// Receiver side of a re-split copy. Documented in reliability_layer.h.
+//-------------------------------------------------------------------------------------------------------
+ReliabilityLayer::ReSplitVerdict ReliabilityLayer::ResolveReSplitCopy(InternalPacket *internalPacket)
+{
+	if (!IsReliableForReSplit(internalPacket->reliability))
+		return RESPLIT_MALFORMED;
+
+	for (;;)
+	{
+		// Parse and check the whole header before changing anything: every field comes from the remote.
+		BitStream header(internalPacket->data, (unsigned int) BITS_TO_BYTES(internalPacket->dataBitLength), false);
+		uint8_t flags = 0;
+		SplitPacketIdType oldSplitId = 0;
+		uint32_t rangeCount = 0;
+		if (!header.Read(flags) || (flags & ~RESPLIT_KNOWN_FLAGS) != 0)
+			return RESPLIT_MALFORMED;
+		if ((flags & RESPLIT_HAS_OLD_SPLIT_ID) != 0 && !header.Read(oldSplitId))
+			return RESPLIT_MALFORMED;
+		if (!header.Read(rangeCount) || rangeCount > RESPLIT_MAX_RETIRED_NUMBERS)
+			return RESPLIT_MALFORMED;
+		const BitSize_t rangesOffset = header.GetReadOffset();
+		uint64_t numbers = 0;
+		for (uint32_t r = 0; r < rangeCount; r++)
+		{
+			MessageNumberType lowest((uint32_t) 0), highest((uint32_t) 0);
+			if (!header.Read(lowest) || !header.Read(highest) || highest.val < lowest.val)
+				return RESPLIT_MALFORMED;
+			numbers += (uint64_t) (highest.val - lowest.val) + 1;
+			if (numbers > RESPLIT_MAX_RETIRED_NUMBERS || !IsInReceiveWindow(lowest) || !IsInReceiveWindow(highest))
+				return RESPLIT_MALFORMED;
+		}
+		const BitSize_t headerBits = header.GetReadOffset();
+		if (headerBits >= internalPacket->dataBitLength)
+			return RESPLIT_MALFORMED;
+
+		// Close every retired number. One the receiver never had proves the old
+		// copy can no longer complete -- that packet will now be dropped as a
+		// duplicate -- so this copy is the one to deliver. If it had them all,
+		// the old copy arrived whole and was handled then: this one is a duplicate.
+		bool deliver = (flags & RESPLIT_OLD_COPY_INCOMPLETE) != 0;
+		header.SetReadOffset(rangesOffset);
+		for (uint32_t r = 0; r < rangeCount; r++)
+		{
+			MessageNumberType lowest((uint32_t) 0), highest((uint32_t) 0);
+			header.Read(lowest);
+			header.Read(highest);
+			for (MessageNumberType number = lowest;; ++number)
+			{
+				if (MarkReliableMessageNumberReceived(number))
+					deliver = true;
+				if (number == highest)
+					break;
+			}
+		}
+		if (!deliver)
+			return RESPLIT_DISCARD;
+
+		// Whatever arrived of the old copy will never be completed.
+		if ((flags & RESPLIT_HAS_OLD_SPLIT_ID) != 0)
+			DiscardSplitPacketChannel(oldSplitId);
+
+		const unsigned int headerBytes = (unsigned int) BITS_TO_BYTES(headerBits);
+		memmove(internalPacket->data, internalPacket->data + headerBytes, (size_t) BITS_TO_BYTES(internalPacket->dataBitLength - headerBits));
+		internalPacket->dataBitLength -= headerBits;
+		if ((flags & RESPLIT_INNER_IS_COPY) == 0)
+		{
+			internalPacket->resplitCopy = false;
+			return RESPLIT_DELIVER;
+		}
+		// A copy of a copy: the inner header decides about the generation before.
+	}
+}
+
+//-------------------------------------------------------------------------------------------------------
+bool ReliabilityLayer::IsInReceiveWindow(MessageNumberType number) const
+{
+	// The same bounds HandleSocketReceiveFromConnectedPlayer applies to a reliable message.
+	const DatagramSequenceNumberType holeCount = (DatagramSequenceNumberType) (number - receivedPacketsBaseIndex);
+	const DatagramSequenceNumberType typeRange = (DatagramSequenceNumberType) (uint32_t) -1;
+	if (holeCount > typeRange / (DatagramSequenceNumberType) 2)
+		return true; // Older than the window: already received.
+	return (unsigned int) holeCount < hasReceivedPacketQueue.Size() || holeCount <= (DatagramSequenceNumberType) maxReceiveWindow;
+}
+
+//-------------------------------------------------------------------------------------------------------
+bool ReliabilityLayer::MarkReliableMessageNumberReceived(MessageNumberType number)
+{
+	// The bookkeeping HandleSocketReceiveFromConnectedPlayer does for an arriving reliable message.
+	const DatagramSequenceNumberType holeCount = (DatagramSequenceNumberType) (number - receivedPacketsBaseIndex);
+	const DatagramSequenceNumberType typeRange = (DatagramSequenceNumberType) (uint32_t) -1;
+	if (holeCount > typeRange / (DatagramSequenceNumberType) 2)
+		return false; // Older than the window: already received.
+	if ((unsigned int) holeCount < hasReceivedPacketQueue.Size())
+	{
+		if (hasReceivedPacketQueue[holeCount] == false)
+			return false; // Already received.
+		hasReceivedPacketQueue[holeCount] = false;
+	}
+	else
+	{
+		while ((unsigned int) holeCount > hasReceivedPacketQueue.Size())
+			hasReceivedPacketQueue.Push(true, _FILE_AND_LINE_);
+		hasReceivedPacketQueue.Push(false, _FILE_AND_LINE_);
+	}
+	while (hasReceivedPacketQueue.Size() > 0 && !hasReceivedPacketQueue.Peek())
+	{
+		hasReceivedPacketQueue.Pop();
+		++receivedPacketsBaseIndex;
+	}
+	return true;
+}
+
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::DiscardSplitPacketChannel(SplitPacketIdType id)
+{
+	bool objectExists;
+	const unsigned int index = splitPacketChannelList.GetIndexFromKey(id, &objectExists);
+	if (!objectExists)
+		return;
+	SplitPacketChannel *channel = splitPacketChannelList[index];
+	for (const auto &fragment : channel->splitPacketList.Fragments())
+	{
+		FreeInternalPacketData(fragment.second, _FILE_AND_LINE_);
+		ReleaseToInternalPacketPool(fragment.second);
+	}
+#if PREALLOCATE_LARGE_MESSAGES == 1
+	if (channel->returnedPacket)
+	{
+		FreeInternalPacketData(channel->returnedPacket, _FILE_AND_LINE_);
+		ReleaseToInternalPacketPool(channel->returnedPacket);
+	}
+#endif
+	MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+	splitPacketChannelList.RemoveAtIndex(index);
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -3836,6 +4119,7 @@ InternalPacket *ReliabilityLayer::CreateInternalPacketCopy(InternalPacket *origi
 	copy->reliableMessageNumber = original->reliableMessageNumber;
 	copy->priority = original->priority;
 	copy->reliability = original->reliability;
+	copy->resplitCopy = original->resplitCopy;
 #if PREALLOCATE_LARGE_MESSAGES == 1
 	copy->splitPacketCount = original->splitPacketCount;
 	copy->splitPacketId = original->splitPacketId;
@@ -4209,6 +4493,7 @@ InternalPacket *ReliabilityLayer::AllocateFromInternalPacketPool(void)
 	ip->data = 0;
 	ip->timesSent = 0;
 	ip->splitOriginalBitLength = 0;
+	ip->resplitCopy = false;
 	return ip;
 }
 //-------------------------------------------------------------------------------------------------------

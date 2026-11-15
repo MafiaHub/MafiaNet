@@ -120,6 +120,14 @@ starts over; a black hole drops them all. A lone large packet takes 12 resends t
 message with several large fragments in flight about as many resend rounds as it has large
 fragments.
 
+Messages re-split after a step-down are still delivered exactly once, and leave no gap in the
+receiver's reliable-message window. The original's unacknowledged packets are dropped with their
+reliable message numbers, and the receiver may have none, some or all of them: a step-down can be
+a false positive, where the original arrived and only its acks were lost. So the re-split copy
+starts with a header naming those numbers. The receiver marks them received, and delivers the copy
+only if one of them had not arrived, which means the original can no longer complete. If all of
+them had arrived, the original was delivered and the copy is dropped.
+
 Statistics Monitoring
 ---------------------
 

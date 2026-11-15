@@ -46,6 +46,7 @@
 #include "mafianet/rand.h"
 #include "mafianet/socket2.h"
 #include <map>
+#include <vector>
 
 #if USE_SLIDING_WINDOW_CONGESTION_CONTROL != 1
 #include "mafianet/cc_udt.h"
@@ -206,6 +207,19 @@ public:
 
 	/// Test-only: datagrams discarded on send because the mode is Required and no keys are installed.
 	uint64_t GetDroppedKeylessSendsForTesting() const;
+
+	/// Test-only: how many reliable message numbers past the lowest one not yet
+	/// received this layer is tracking (0 when every number up to the newest
+	/// has arrived). A number that never arrives keeps this from returning to 0.
+	unsigned int GetReceiveWindowSizeForTesting() const;
+
+	/// Test-only: split messages this layer has fragments of but has not yet
+	/// reassembled.
+	unsigned int GetPartialSplitMessagesForTesting() const;
+
+	/// Test-only: lower the receive-window bound past which a reliable message
+	/// is dropped as hostile (default 1,000,000), so a test can reach it.
+	void SetMaxReceiveWindowForTesting(uint32_t messages);
 
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 	/// Default time is 10,000 or 10 seconds in release and 30,000 or 30 seconds in debug.
@@ -379,13 +393,52 @@ private:
 	/// Rebuild and re-split, at the current (lowered) MTU, every queued message
 	/// with a packet too large for one datagram: split messages are
 	/// reconstructed from the shared data block their fragments reference and
-	/// re-split under a fresh splitPacketId (the receiver's partial channel for
-	/// the old id never completes and is superseded because the ordering
-	/// indices are preserved); oversized unsplit reliable messages are simply
-	/// split; oversized unsplit unreliable messages are dropped, as the network
-	/// was already free to drop them. Must only run when
-	/// packetsToSendThisUpdate is empty, since it frees queued packets.
+	/// re-split under a fresh splitPacketId, with their ordering indices
+	/// preserved; oversized unsplit reliable messages are simply split;
+	/// oversized unsplit unreliable messages are dropped, as the network was
+	/// already free to drop them. Must only run when packetsToSendThisUpdate is
+	/// empty, since it frees queued packets.
+	///
+	/// The old copy's unacknowledged packets are dropped with their reliable
+	/// message numbers, which are never sent again. The receiver may have none,
+	/// some or all of them (a false positive: only the acks were lost). So a
+	/// reliable copy carries a re-split header (AddReSplitHeader) naming those
+	/// numbers, and the receiver (ResolveReSplitCopy) closes them -- no number
+	/// stays a hole in its receive window (#92) -- and delivers the copy only if
+	/// the old one cannot have been delivered (#93).
 	void ReSplitOversizedMessages(void);
+
+	/// Prefix \a rebuilt's data with the re-split header and mark it resplitCopy.
+	/// \a oldCopyIncomplete: a packet of the old copy was never sent.
+	/// \a retiredNumbers: the reliable message numbers of its unacknowledged packets.
+	void AddReSplitHeader(InternalPacket *rebuilt, bool oldCopyIncomplete, bool wasSplit, SplitPacketIdType oldSplitId,
+	                      std::vector<MessageNumberType> &retiredNumbers);
+
+	enum ReSplitVerdict
+	{
+		RESPLIT_DELIVER,
+		RESPLIT_DISCARD,  // The copy it replaces was delivered: a duplicate.
+		RESPLIT_MALFORMED // The header does not parse or is out of bounds: dropped.
+	};
+	/// Receiver side of a reassembled resplitCopy message: mark every reliable
+	/// message number its header retires as received, discard the remains of the
+	/// old copy, and strip the header (each nested one in turn). Deliver when one
+	/// of those numbers had not arrived -- the old copy's packet under it will
+	/// now be dropped as a duplicate, so the old copy can never complete -- or
+	/// when the old copy was never fully sent; discard when all had arrived: the
+	/// old copy was then complete and was handled when it was.
+	ReSplitVerdict ResolveReSplitCopy(InternalPacket *internalPacket);
+
+	/// Whether \a number is a reliable message number the receive window would accept.
+	bool IsInReceiveWindow(MessageNumberType number) const;
+
+	/// Record \a number as received in the receive window. True if it had not been.
+	bool MarkReliableMessageNumberReceived(MessageNumberType number);
+
+	/// Free the fragments received so far of split message \a id, if any.
+	void DiscardSplitPacketChannel(SplitPacketIdType id);
+
+	static bool IsReliableForReSplit(MafiaNet::Reliability reliability);
 
 	/// Insert a packet into the split packet list
 	void InsertIntoSplitPacketList(InternalPacket *internalPacket, CCTimeType time);
@@ -653,6 +706,9 @@ private:
 	MtuBlackHoleEvidence mtuBlackHoleEvidence;
 	// Step-downs since Reset(). RakNetStatistics::mtuStepDowns.
 	uint32_t mtuStepDowns;
+	// The reliable-message receive window: a message further than this past the
+	// lowest number not yet received is dropped as hostile. 1,000,000 outside tests.
+	uint32_t maxReceiveWindow;
 
 
 	uint32_t unacknowledgedBytes;
