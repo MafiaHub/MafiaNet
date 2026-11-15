@@ -6523,9 +6523,9 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 					else
 					{
-						// Send to game even if already connected. This could happen when connecting to 127.0.0.1
-						// Ignore, already connected
-						//	rakFree_Ex(data, _FILE_AND_LINE_ );
+						// Already connected (or not expecting it): ignore it. The buffer is ours to free; a remote that
+						// repeats this message must not make us leak one per datagram.
+						rakFree_Ex(data, _FILE_AND_LINE_);
 					}
 				}
 				else if ((unsigned char) data[0] == ID_CONNECTED_PONG && byteSize == sizeof(unsigned char) + sizeof(MafiaNet::Time) * 2)
