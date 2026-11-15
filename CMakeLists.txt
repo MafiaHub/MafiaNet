@@ -131,8 +131,10 @@ if(WIN32)
         # without this, windows.h drags in winsock.h first and winsock2.h then
         # redefines sockaddr/fd_set/etc. (C2011/C2375). winsock2.h itself
         # defines _WINSOCKAPI_ for the same reason, so predefining it globally
-        # is consistent and harmless for the core library.
-        _WINSOCKAPI_
+        # is consistent and harmless for the core library. Define it empty, exactly as
+        # winsock2.h does: a plain -D_WINSOCKAPI_ means "1", and newer Windows SDKs
+        # (10.0.26100) then warn C4005 on the redefinition, fatal under /WX.
+        "_WINSOCKAPI_="
     )
 endif()
 
