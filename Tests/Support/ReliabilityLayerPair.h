@@ -5,12 +5,26 @@
  *  license.txt file in the root directory of this source tree.
  *
  *  Two real ReliabilityLayer instances joined by a fake socket, with fully
- *  simulated time -- no loopback traffic, no wall clock. The channel between
- *  them applies a per-test drop rule (to model a tunnel or plain loss), logs
- *  every a->b datagram, and lets a test inject extra datagrams towards b.
+ *  simulated time -- no RakPeer, no loopback traffic, no threads, no wall
+ *  clock. Each layer writes its datagrams into a CapturingSocket, and the test
+ *  decides which of them reach the other layer, in which order, and how often.
  *
- *  Shared by ReliabilityLayerBlackHoleTests.cpp and
- *  ReliabilityLayerCryptoTests.cpp.
+ *  Two flavours share the socket:
+ *  - MafiaNetTest::ReliabilityLayerPair, a plain struct a test (or a helper
+ *    struct) holds or derives from and drives step by step. Used by the
+ *    characterization and split-packet tests.
+ *  - RelPairTest::ReliabilityLayerPair, a gtest fixture whose channel applies
+ *    a per-test drop rule (to model a tunnel or plain loss), logs every a->b
+ *    datagram, and lets a test inject extra datagrams towards b. Shared by
+ *    ReliabilityLayerBlackHoleTests.cpp, ReliabilityLayerCryptoTests.cpp and
+ *    ReliabilityLayerReSplitHeaderTests.cpp.
+ *
+ *  `now` starts at the real clock: ReliabilityLayer stamps
+ *  timeLastDatagramArrived with the real GetTimeMS() on every receive, and
+ *  AckTimeout compares that against the time passed in. A fixed fake epoch
+ *  fails on any machine whose process uptime exceeds it (this killed every
+ *  test on Windows CI). All progress is still driven by fixed fake increments
+ *  from this anchor.
  */
 
 #ifndef MAFIANET_TESTS_RELIABILITY_LAYER_PAIR_H
@@ -34,26 +48,111 @@
 #include "mafianet/session_crypto.h"
 #include "mafianet/socket2.h"
 
+namespace MafiaNetTest
+{
+
+// Captures every datagram a ReliabilityLayer hands to the OS, so the test can
+// shuttle it to the other endpoint (or drop, reorder or duplicate it).
+struct CapturingSocket : public MafiaNet::RakNetSocket2
+{
+	std::vector<std::vector<char>> sent;
+
+	MafiaNet::RNS2SendResult Send(MafiaNet::RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	{
+		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
+		return sendParameters->length;
+	}
+};
+
+// Both layers run in mode Plaintext: the keyless cleartext path. A layer in
+// mode Required sends and accepts nothing until it has session keys.
+struct ReliabilityLayerPair
+{
+	// Large enough that no layer ever times out within a test. The default
+	// (10 s, 30 s in Debug) is measured from the real clock at Reset() while
+	// `now` runs ahead in 10 ms steps: a sender whose unacked messages outlive
+	// it would go dead and stop sending.
+	static constexpr MafiaNet::TimeMS kNeverTimeOutMs = 1000000;
+
+	MafiaNet::ReliabilityLayer a, b;
+	CapturingSocket aSock, bSock;
+	MafiaNet::SystemAddress aAddr, bAddr;
+	DataStructures::List<MafiaNet::PluginInterface2 *> handlers;
+	MafiaNet::RakNetRandom rnr;
+	MafiaNet::BitStream updateBitStream{MAXIMUM_MTU_SIZE};
+	CCTimeType now = MafiaNet::GetTimeUS();
+
+	ReliabilityLayerPair()
+	{
+		EXPECT_TRUE(aAddr.FromStringExplicitPort("127.0.0.1", 40001));
+		EXPECT_TRUE(bAddr.FromStringExplicitPort("127.0.0.1", 40002));
+		ResetA();
+		ResetB();
+	}
+
+	void ResetA()
+	{
+		a.SetEncryptionMode(MafiaNet::EncryptionMode::Plaintext);
+		a.Reset(true, MAXIMUM_MTU_SIZE);
+		a.SetTimeoutTime(kNeverTimeOutMs);
+		ReanchorClock();
+	}
+	void ResetB()
+	{
+		b.SetEncryptionMode(MafiaNet::EncryptionMode::Plaintext);
+		b.Reset(true, MAXIMUM_MTU_SIZE);
+		b.SetTimeoutTime(kNeverTimeOutMs);
+		ReanchorClock();
+	}
+
+	// Reset() stamps the layer's lastUpdateTime with the real clock, and Update()
+	// does nothing for a time at or before it: keep `now` from falling behind.
+	void ReanchorClock()
+	{
+		const CCTimeType real = MafiaNet::GetTimeUS();
+		if (real > now)
+			now = real;
+	}
+
+	void UpdateA() { a.Update(&aSock, bAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream); }
+	void UpdateB() { b.Update(&bSock, aAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream); }
+
+	// Hands one datagram a sent to b, and one b sent to a.
+	void DeliverToB(std::vector<char> &datagram)
+	{
+		b.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), aAddr, handlers,
+		                                         MAXIMUM_MTU_SIZE, &bSock, &rnr, now, updateBitStream);
+	}
+	void DeliverToA(std::vector<char> &datagram)
+	{
+		a.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), bAddr, handlers,
+		                                         MAXIMUM_MTU_SIZE, &aSock, &rnr, now, updateBitStream);
+	}
+
+	// Every complete message `layer` has ready, in delivery order.
+	static std::vector<std::vector<unsigned char>> Drain(MafiaNet::ReliabilityLayer &layer)
+	{
+		std::vector<std::vector<unsigned char>> messages;
+		unsigned char *data;
+		MafiaNet::BitSize_t bits;
+		while ((bits = layer.Receive(&data)) > 0)
+		{
+			messages.emplace_back(data, data + BITS_TO_BYTES(bits));
+			std::free(data);
+		}
+		return messages;
+	}
+};
+
+} // namespace MafiaNetTest
+
 namespace RelPairTest
 {
 
 const int TEST_MTU = MAXIMUM_MTU_SIZE;
 const MafiaNet::TimeMS TEST_TIMEOUT_MS = 1000000;
 
-// Captures every datagram the reliability layer hands to the OS, so the test
-// fixture can shuttle it to the other endpoint (or drop it, like a tunnel).
-struct CapturingSocket : public MafiaNet::RakNetSocket2
-{
-	std::vector<std::vector<char>> sent;
-
-	virtual MafiaNet::RNS2SendResult Send(MafiaNet::RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
-	{
-		(void) file;
-		(void) line;
-		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
-		return sendParameters->length;
-	}
-};
+using MafiaNetTest::CapturingSocket;
 
 class ReliabilityLayerPair : public ::testing::Test
 {

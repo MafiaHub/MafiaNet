@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "ReliabilityLayerPair.h"
 #include "SimulatedNetwork.h"
 
 #include "mafianet/bit_stream.h"
@@ -236,51 +237,13 @@ TEST(ReliabilityCharacterization, EqualPriorityMessagesLeaveInSendOrder)
 
 namespace
 {
-// Two bare ReliabilityLayers joined by hand: the test decides which of the
-// sender's datagrams reach the receiver. Resetting the sender restarts its
-// ordering and sequencing indices, which is the only way to make the receiver
-// buffer several messages with the same ordering-heap weight.
-struct CapturingSocket : public RakNetSocket2
+// Two bare ReliabilityLayers joined by hand (a sends, b receives): the test
+// decides which of the sender's datagrams reach the receiver. Resetting the
+// sender restarts its ordering and sequencing indices, which is the only way to
+// make the receiver buffer several messages with the same ordering-heap weight.
+struct LayerPair : MafiaNetTest::ReliabilityLayerPair
 {
-	std::vector<std::vector<char>> sent;
-
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
-	{
-		sent.push_back(std::vector<char>(sendParameters->data, sendParameters->data + sendParameters->length));
-		return sendParameters->length;
-	}
-};
-
-struct LayerPair
-{
-	ReliabilityLayer sender, receiver;
-	CapturingSocket senderSock, receiverSock;
-	SystemAddress senderAddr, receiverAddr;
-	DataStructures::List<PluginInterface2 *> handlers;
-	RakNetRandom rnr;
-	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
-	CCTimeType now = MafiaNet::GetTimeUS(); // see RelLayerBlackHole::SetUp for why it starts at the real clock
-
-	LayerPair()
-	{
-		EXPECT_TRUE(senderAddr.FromStringExplicitPort("127.0.0.1", 40001));
-		EXPECT_TRUE(receiverAddr.FromStringExplicitPort("127.0.0.1", 40002));
-		ResetSender();
-		receiver.SetEncryptionMode(EncryptionMode::Plaintext); // no keys are exchanged here
-		receiver.Reset(true, MAXIMUM_MTU_SIZE);
-		receiver.SetTimeoutTime(kNeverTimeOutMs);
-	}
-
-	// The default timeout (10 s, 30 s in Debug) is measured from the real clock
-	// at Reset() while `now` runs ahead in 10 ms steps: without this, a sender
-	// whose unacked messages outlive it goes dead and stops sending.
-	void ResetSender()
-	{
-		sender.SetEncryptionMode(EncryptionMode::Plaintext);
-		sender.Reset(true, MAXIMUM_MTU_SIZE);
-		sender.SetTimeoutTime(kNeverTimeOutMs);
-	}
-	static constexpr MafiaNet::TimeMS kNeverTimeOutMs = 1000000;
+	void ResetSender() { ResetA(); }
 
 	// Queues `count` copies of one tagged message and flushes them, apart from
 	// anything queued earlier: they leave in the next datagram(s) the sender
@@ -292,24 +255,23 @@ struct LayerPair
 		bs.Write(ID_CHARACTERIZATION);
 		bs.Write(counter);
 		for (uint32_t i = 0; i < count; i++)
-			EXPECT_TRUE(sender.Send((char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::High, reliability, 0, true, MAXIMUM_MTU_SIZE, now, 0));
-		for (int i = 0; i < 100 && senderSock.sent.empty(); i++)
+			EXPECT_TRUE(a.Send((char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::High, reliability, 0, true, MAXIMUM_MTU_SIZE, now, 0));
+		for (int i = 0; i < 100 && aSock.sent.empty(); i++)
 		{
 			now += 10000;
-			sender.Update(&senderSock, receiverAddr, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+			UpdateA();
 		}
-		EXPECT_FALSE(senderSock.sent.empty());
+		EXPECT_FALSE(aSock.sent.empty());
 		std::vector<std::vector<char>> out;
-		out.swap(senderSock.sent);
+		out.swap(aSock.sent);
 		return out;
 	}
 
 	void Deliver(std::vector<std::vector<char>> &datagrams)
 	{
 		for (std::vector<char> &datagram : datagrams)
-			receiver.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), senderAddr, handlers,
-			                                                MAXIMUM_MTU_SIZE, &receiverSock, &rnr, now, updateBitStream);
-		receiverSock.sent.clear(); // acks; the sender never needs them here
+			DeliverToB(datagram);
+		bSock.sent.clear(); // acks; the sender never needs them here
 	}
 
 	std::vector<uint32_t> ReceivedCounters()
@@ -317,7 +279,7 @@ struct LayerPair
 		std::vector<uint32_t> out;
 		unsigned char *data;
 		BitSize_t bits;
-		while ((bits = receiver.Receive(&data)) > 0)
+		while ((bits = b.Receive(&data)) > 0)
 		{
 			if (BITS_TO_BYTES(bits) == 5 && data[0] == ID_CHARACTERIZATION)
 			{
