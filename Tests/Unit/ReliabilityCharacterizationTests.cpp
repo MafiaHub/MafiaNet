@@ -83,7 +83,8 @@ struct Pair
 	RakPeer *server;
 	RakPeer *client;
 
-	explicit Pair(uint32_t seed) : net(seed)
+	explicit Pair(uint32_t seed)
+	    : net(seed)
 	{
 		server = net.AddPeer(1, 1);
 		client = net.AddPeer(1);
@@ -113,7 +114,8 @@ TEST(ReliabilityCharacterization, OrderedChannelsKeepSendOrderUnderLossAndJitter
 		for (uint32_t channel = 0; channel < kChannels; ++channel)
 			SendTagged(p.client, p.ServerAddress(), channel, counter, 16, Reliability::ReliableOrdered, (char) channel);
 
-	p.net.RunUntil([&] { return TaggedReceived(p.net, p.server).size() >= kChannels * kPerChannel; }, kDeadlineSimMs);
+	p.net.RunUntil([&]
+	               { return TaggedReceived(p.net, p.server).size() >= kChannels * kPerChannel; }, kDeadlineSimMs);
 
 	const std::vector<Tagged> received = TaggedReceived(p.net, p.server);
 	ASSERT_EQ(kChannels * kPerChannel, received.size());
@@ -132,37 +134,44 @@ TEST(ReliabilityCharacterization, OrderedChannelsKeepSendOrderUnderLossAndJitter
 
 TEST(ReliabilityCharacterization, SplitMessagesReassembleUnderLossAndJitter)
 {
-	Pair p(1002);
-	ASSERT_TRUE(p.net.Connect(p.client, p.server));
-	p.net.SetLinkBothWays(p.client, p.server, Link(15, 20, 20));
-
-	const uint32_t kLarge = 50;
-	const uint32_t kSmallPerLarge = 4;
-	uint32_t counter = 0;
-	uint32_t total = 0;
-	for (uint32_t i = 0; i < kLarge; ++i)
+	// Several seeds: one loss pattern proves little about a liveness property.
+	// Every seed here but 1002 stalled the channel before the ordering-heap fix.
+	for (uint32_t seed : {2u, 9u, 15u, 17u, 18u, 22u, 26u, 1002u})
 	{
-		const uint32_t length = 5000 + (i * 4000) / (kLarge - 1); // 5000..9000
-		SendTagged(p.client, p.ServerAddress(), 0, counter++, length, Reliability::ReliableOrdered, 0);
-		++total;
-		for (uint32_t s = 0; s < kSmallPerLarge; ++s)
+		SCOPED_TRACE(seed);
+		Pair p(seed);
+		ASSERT_TRUE(p.net.Connect(p.client, p.server));
+		p.net.SetLinkBothWays(p.client, p.server, Link(15, 20, 20));
+
+		const uint32_t kLarge = 50;
+		const uint32_t kSmallPerLarge = 4;
+		uint32_t counter = 0;
+		uint32_t total = 0;
+		for (uint32_t i = 0; i < kLarge; ++i)
 		{
-			SendTagged(p.client, p.ServerAddress(), 0, counter++, 10 + s, Reliability::ReliableOrdered, 0);
+			const uint32_t length = 5000 + (i * 4000) / (kLarge - 1); // 5000..9000
+			SendTagged(p.client, p.ServerAddress(), 0, counter++, length, Reliability::ReliableOrdered, 0);
 			++total;
+			for (uint32_t s = 0; s < kSmallPerLarge; ++s)
+			{
+				SendTagged(p.client, p.ServerAddress(), 0, counter++, 10 + s, Reliability::ReliableOrdered, 0);
+				++total;
+			}
 		}
-	}
-	ASSERT_EQ(250u, total);
+		ASSERT_EQ(250u, total);
 
-	p.net.RunUntil([&] { return TaggedReceived(p.net, p.server).size() >= total; }, kDeadlineSimMs);
+		p.net.RunUntil([&]
+		               { return TaggedReceived(p.net, p.server).size() >= total; }, kDeadlineSimMs);
 
-	const std::vector<Tagged> received = TaggedReceived(p.net, p.server);
-	ASSERT_EQ(total, received.size());
-	for (uint32_t i = 0; i < total; ++i)
-	{
-		ASSERT_EQ(i, received[i].counter);
-		ASSERT_TRUE(received[i].intact) << "payload differs at " << i;
+		const std::vector<Tagged> received = TaggedReceived(p.net, p.server);
+		ASSERT_EQ(total, received.size());
+		for (uint32_t i = 0; i < total; ++i)
+		{
+			ASSERT_EQ(i, received[i].counter);
+			ASSERT_TRUE(received[i].intact) << "payload differs at " << i;
+		}
+		EXPECT_GT(p.net.DatagramsDropped(), 0u);
 	}
-	EXPECT_GT(p.net.DatagramsDropped(), 0u);
 }
 
 TEST(ReliabilityCharacterization, SequencedDropsOnlyOlderMessages)
@@ -201,7 +210,8 @@ TEST(ReliabilityCharacterization, EqualPriorityMessagesLeaveInSendOrder)
 	for (uint32_t i = 0; i < kMessages; ++i)
 		SendTagged(p.client, p.ServerAddress(), 0, i, 24, Reliability::ReliableOrdered, 0);
 
-	p.net.RunUntil([&] { return TaggedReceived(p.net, p.server).size() >= kMessages; }, kDeadlineSimMs);
+	p.net.RunUntil([&]
+	               { return TaggedReceived(p.net, p.server).size() >= kMessages; }, kDeadlineSimMs);
 
 	const std::vector<Tagged> received = TaggedReceived(p.net, p.server);
 	ASSERT_EQ(kMessages, received.size());
