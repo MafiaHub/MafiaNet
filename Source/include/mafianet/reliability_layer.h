@@ -221,6 +221,10 @@ public:
 	/// is dropped as hostile (default 1,000,000), so a test can reach it.
 	void SetMaxReceiveWindowForTesting(uint32_t messages);
 
+	/// Test-only: reliable message numbers re-split headers have marked received so far: the work
+	/// ResolveReSplitCopy has done, which a header's size bounds.
+	uint64_t GetReSplitNumbersMarkedForTesting() const;
+
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 	/// Default time is 10,000 or 10 seconds in release and 30,000 or 30 seconds in debug.
 	/// \param[in] time Time, in MS
@@ -427,6 +431,10 @@ private:
 	/// now be dropped as a duplicate, so the old copy can never complete -- or
 	/// when the old copy was never fully sent; discard when all had arrived: the
 	/// old copy was then complete and was handled when it was.
+	/// Every level is checked before anything is marked: at most one level per
+	/// step-down, no more numbers than the old copy can have been sent under
+	/// (bounded by the message's size), and every number older than the copy's
+	/// own. A header's work is thus bounded by its message's size.
 	ReSplitVerdict ResolveReSplitCopy(InternalPacket *internalPacket);
 
 	/// Whether \a number is a reliable message number the receive window would accept.
@@ -709,6 +717,8 @@ private:
 	// The reliable-message receive window: a message further than this past the
 	// lowest number not yet received is dropped as hostile. 1,000,000 outside tests.
 	uint32_t maxReceiveWindow;
+	// GetReSplitNumbersMarkedForTesting().
+	uint64_t reSplitNumbersMarked;
 
 
 	uint32_t unacknowledgedBytes;

@@ -89,9 +89,9 @@ protected:
 		return std::vector<unsigned char>(b.GetData(), b.GetData() + b.GetNumberOfBytesUsed());
 	}
 
-	static std::vector<unsigned char> Payload(unsigned char seed)
+	static std::vector<unsigned char> Payload(unsigned char seed, size_t bytes = 12)
 	{
-		std::vector<unsigned char> v(12);
+		std::vector<unsigned char> v(bytes);
 		v[0] = 200; // clear of internal message ids
 		for (size_t i = 1; i < v.size(); ++i)
 			v[i] = (unsigned char) (seed + i);
@@ -174,13 +174,17 @@ protected:
 
 TEST_F(ReSplitHeaderFixture, ACopyReplacingNumbersNeverReceivedIsDeliveredWithoutItsHeader)
 {
-	// Numbers 1-3 were retired unseen: the copy, under number 0, is the one to deliver, and they are closed.
-	DeliverCopy(0, Concat(Header(0, {{1, 3}}), Payload(1)));
+	// Numbers 1-3 were retired unseen: the copy, numbered after them, is the one to deliver, and they
+	// are closed. Its 1200-byte message stands for an old copy of up to three packets.
+	Deliver(Reliability::Reliable, 0, false, Payload(9));
+	Drain();
+	DeliverCopy(4, Concat(Header(0, {{1, 3}}), Payload(1, 1200)));
 	const auto messages = Drain();
 	ASSERT_EQ(1u, messages.size());
-	EXPECT_EQ(Payload(1), messages[0]);
+	EXPECT_EQ(Payload(1, 1200), messages[0]);
 	EXPECT_EQ(0u, layer.GetReceiveWindowSizeForTesting());
-	ExpectLayerStillWorks(4);
+	EXPECT_EQ(3u, layer.GetReSplitNumbersMarkedForTesting());
+	ExpectLayerStillWorks(5);
 }
 
 TEST_F(ReSplitHeaderFixture, ACopyOfAMessageAlreadyReceivedIsDiscarded)
@@ -197,10 +201,10 @@ TEST_F(ReSplitHeaderFixture, OneRetiredNumberMissingIsEnoughToDeliver)
 {
 	Deliver(Reliability::Reliable, 0, false, Payload(1));
 	Drain();
-	DeliverCopy(2, Concat(Header(0, {{0, 1}}), Payload(2)));
+	DeliverCopy(2, Concat(Header(0, {{0, 1}}), Payload(2, 600)));
 	const auto messages = Drain();
 	ASSERT_EQ(1u, messages.size());
-	EXPECT_EQ(Payload(2), messages[0]);
+	EXPECT_EQ(Payload(2, 600), messages[0]);
 	// The real number 1, arriving late, is now a duplicate.
 	Deliver(Reliability::Reliable, 1, false, Payload(3));
 	EXPECT_TRUE(Drain().empty());
@@ -218,8 +222,10 @@ TEST_F(ReSplitHeaderFixture, AnIncompleteOldCopyIsDeliveredEvenWithNothingToClos
 TEST_F(ReSplitHeaderFixture, NestedHeadersAreResolvedInTurn)
 {
 	// Outer: number 1 never arrived, so the inner copy stands; inner: number 2 never arrived either.
+	Deliver(Reliability::Reliable, 0, false, Payload(9));
+	Drain();
 	const std::vector<unsigned char> inner = Concat(Header(0, {{2, 2}}), Payload(5));
-	DeliverCopy(0, Concat(Header(INNER_IS_COPY, {{1, 1}}), inner));
+	DeliverCopy(3, Concat(Header(INNER_IS_COPY, {{1, 1}}), inner));
 	const auto messages = Drain();
 	ASSERT_EQ(1u, messages.size());
 	EXPECT_EQ(Payload(5), messages[0]);
@@ -245,13 +251,13 @@ TEST_F(ReSplitHeaderFixture, UnknownFlagsAreRejected)
 
 TEST_F(ReSplitHeaderFixture, ATruncatedHeaderIsRejected)
 {
-	// Claims two ranges, carries one, and no payload.
+	// Claims two ranges, carries one, and no message.
 	std::vector<unsigned char> header = Header(0, {{5, 6}});
 	header[4] = 2; // the range count's low byte (network order)
-	DeliverCopy(0, header);
+	DeliverCopy(9, header);
 	EXPECT_TRUE(Drain().empty());
-	EXPECT_EQ(0u, layer.GetReceiveWindowSizeForTesting()) << "nothing may be applied from a header that does not parse";
-	ExpectLayerStillWorks(1);
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting()) << "nothing may be applied from a header that does not parse";
+	ExpectLayerStillWorks(0);
 }
 
 TEST_F(ReSplitHeaderFixture, AHeaderWithNoMessageIsRejected)
@@ -263,26 +269,91 @@ TEST_F(ReSplitHeaderFixture, AHeaderWithNoMessageIsRejected)
 
 TEST_F(ReSplitHeaderFixture, AnInvertedRangeIsRejected)
 {
-	DeliverCopy(0, Concat(Header(0, {{9, 3}}), Payload(1)));
+	DeliverCopy(10, Concat(Header(0, {{9, 3}}), Payload(1, 1200)));
 	EXPECT_TRUE(Drain().empty());
-	ExpectLayerStillWorks(1);
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting());
+	ExpectLayerStillWorks(0);
 }
 
-TEST_F(ReSplitHeaderFixture, NumbersPastTheReceiveWindowAreRejectedWithoutGrowingIt)
+TEST_F(ReSplitHeaderFixture, NumbersNotOlderThanTheCopyAreRejected)
 {
-	// The window bound a plain message is held to applies: no closing a hole a million numbers ahead.
-	layer.SetMaxReceiveWindowForTesting(1000);
-	DeliverCopy(0, Concat(Header(0, {{5000, 5000}}), Payload(1)));
+	// The old copy was numbered before its replacement. Closing the copy's own number, or one after it,
+	// would drop a message not sent yet as a duplicate.
+	DeliverCopy(1, Concat(Header(0, {{1, 1}}), Payload(1)));
+	DeliverCopy(2, Concat(Header(0, {{5, 5}}), Payload(2)));
 	EXPECT_TRUE(Drain().empty());
-	EXPECT_EQ(0u, layer.GetReceiveWindowSizeForTesting());
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting());
+	// 0 and 5 are still open: real messages under them are delivered.
+	ExpectLayerStillWorks(0);
+	ExpectLayerStillWorks(5);
+}
+
+TEST_F(ReSplitHeaderFixture, MoreNumbersThanTheMessageCouldHaveBeenSentUnderAreRejected)
+{
+	// A 12-byte message was one packet before the step-down: it cannot have retired two numbers. This
+	// is what keeps a small message from closing a whole receive window.
+	DeliverCopy(9, Concat(Header(0, {{1, 2}}), Payload(1)));
+	DeliverCopy(10, Concat(Header(0, {{1, 1}, {3, 3}}), Payload(2)));
+	EXPECT_TRUE(Drain().empty());
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting());
 	ExpectLayerStillWorks(1);
 }
 
 TEST_F(ReSplitHeaderFixture, AHugeRangeIsRejected)
 {
-	DeliverCopy(0, Concat(Header(0, {{0, 0xFFFFFF}}), Payload(1)));
+	DeliverCopy(2000, Concat(Header(0, {{0, 1999}}), Payload(1, 1200)));
+	EXPECT_TRUE(Drain().empty());
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting());
+	ExpectLayerStillWorks(0);
+}
+
+TEST_F(ReSplitHeaderFixture, NestingDeeperThanTheLadderAllowsIsRejected)
+{
+	// One level per step-down: three below the top rung at most.
+	std::vector<unsigned char> message = Payload(1);
+	message = Concat(Header(OLD_COPY_INCOMPLETE, {}), message);
+	for (int level = 0; level < 3; level++)
+		message = Concat(Header(OLD_COPY_INCOMPLETE | INNER_IS_COPY, {}), message);
+	DeliverCopy(0, message);
 	EXPECT_TRUE(Drain().empty());
 	ExpectLayerStillWorks(1);
+}
+
+TEST_F(ReSplitHeaderFixture, AMalformedInnerLevelRejectsTheWholeCopyWithNothingMarked)
+{
+	// The outer level is sound; the inner one is not. The outer level's numbers must not have been closed.
+	const std::vector<unsigned char> inner = Concat(Header(0x80, {}), Payload(1));
+	DeliverCopy(2, Concat(Header(INNER_IS_COPY, {{1, 1}}), inner));
+	EXPECT_TRUE(Drain().empty());
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting());
+	ExpectLayerStillWorks(1); // not taken for a duplicate
+}
+
+TEST_F(ReSplitHeaderFixture, TheWorstCaseAcceptedHeaderDoesBoundedWork)
+{
+	// As many levels as can nest, each retiring as many numbers as its size allows: the work is bounded
+	// by the message's size, not by the receive window.
+	Deliver(Reliability::Reliable, 0, false, Payload(9));
+	Drain();
+	std::vector<unsigned char> message = Payload(1, 1200);
+	message = Concat(Header(0, {{1, 3}}), message);
+	message = Concat(Header(INNER_IS_COPY, {{4, 6}}), message);
+	message = Concat(Header(INNER_IS_COPY, {{7, 9}}), message);
+	DeliverCopy(10, message);
+	const auto messages = Drain();
+	ASSERT_EQ(1u, messages.size());
+	EXPECT_EQ(Payload(1, 1200), messages[0]);
+	EXPECT_EQ(9u, layer.GetReSplitNumbersMarkedForTesting());
+}
+
+TEST_F(ReSplitHeaderFixture, OneNumberPastTheBoundIsRejected)
+{
+	// The level that retired three numbers above, with a fourth.
+	std::vector<unsigned char> message = Payload(1, 1200);
+	message = Concat(Header(0, {{1, 4}}), message);
+	DeliverCopy(10, message);
+	EXPECT_TRUE(Drain().empty());
+	EXPECT_EQ(0u, layer.GetReSplitNumbersMarkedForTesting());
 }
 
 TEST_F(ReSplitHeaderFixture, AFlaggedUnreliableMessageIsRejected)

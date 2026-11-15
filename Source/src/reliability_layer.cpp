@@ -48,8 +48,17 @@ const uint8_t RESPLIT_HAS_OLD_SPLIT_ID = 0x02;
 // The message after the header is itself a re-split copy, with a header of its own.
 const uint8_t RESPLIT_INNER_IS_COPY = 0x04;
 const uint8_t RESPLIT_KNOWN_FLAGS = RESPLIT_OLD_COPY_INCOMPLETE | RESPLIT_HAS_OLD_SPLIT_ID | RESPLIT_INNER_IS_COPY;
-// Bounds a remote's header: far more numbers than one message can have been sent under.
-const uint32_t RESPLIT_MAX_RETIRED_NUMBERS = 1u << 22;
+// Nesting: one level per step-down, and a connection steps down at most once per rung below the top.
+const unsigned int RESPLIT_MAX_DEPTH = MTU_LADDER_SIZE - 1;
+// One retired range on the wire: two u24 message numbers.
+const unsigned int RESPLIT_RANGE_BYTES = 6;
+
+// Whether reliable message number a was assigned before b (wrap-aware, as the receive window sees it).
+bool IsOlderMessageNumber(MessageNumberType a, MessageNumberType b)
+{
+	const uint32_t distance = (b.val - a.val) & 0x00FFFFFFu;
+	return distance != 0 && distance < 0x00800000u;
+}
 } // namespace
 
 // Can't figure out which library has this function on the PS3
@@ -389,7 +398,7 @@ int SplitPacketIndexComp(SplitPacketIndexType const &key, InternalPacket *const 
 // Constructor
 //-------------------------------------------------------------------------------------------------------
 ReliabilityLayer::ReliabilityLayer()
-    : maxReceiveWindow(1000000), encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0), droppedKeylessSends(0)
+    : maxReceiveWindow(1000000), reSplitNumbersMarked(0), encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0), droppedKeylessSends(0)
 {
 
 #ifdef _DEBUG
@@ -482,6 +491,12 @@ unsigned int ReliabilityLayer::GetPartialSplitMessagesForTesting() const
 void ReliabilityLayer::SetMaxReceiveWindowForTesting(uint32_t messages)
 {
 	maxReceiveWindow = messages;
+}
+
+//-------------------------------------------------------------------------------------------------------
+uint64_t ReliabilityLayer::GetReSplitNumbersMarkedForTesting() const
+{
+	return reSplitNumbersMarked;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -3688,47 +3703,95 @@ ReliabilityLayer::ReSplitVerdict ReliabilityLayer::ResolveReSplitCopy(InternalPa
 	if (!IsReliableForReSplit(internalPacket->reliability))
 		return RESPLIT_MALFORMED;
 
+	// Every field comes from the remote, and an authenticated session is no proof of an honest one: the
+	// work a header can cause is bounded by its message's size before anything is changed.
+	//
+	// How many numbers can a level honestly retire? The old copy it replaces is the data after the
+	// level's header, and was sent split at the MTU in force before the step-down. A connection only
+	// steps down from an MTU above the bottom rung, so every fragment but the last carried at least
+	// minOldFragmentBytes: SplitPacket's block at that MTU with the largest overheads (cipher, datagram
+	// header, message header). An old copy of n bytes therefore had at most n / minOldFragmentBytes + 1
+	// packets, so at most that many unacked numbers to retire. At most RESPLIT_MAX_DEPTH levels nest,
+	// one per step-down.
+	const unsigned int minOldFragmentBytes = (unsigned int) (MTU_LADDER[MTU_LADDER_SIZE - 1] + 1 - UDP_HEADER_SIZE - DatagramCipher::kMaxOverhead) -
+	                                         DatagramHeaderFormat::GetDataHeaderByteLength() - (unsigned int) BITS_TO_BYTES(GetMaxMessageHeaderLengthBits());
+
+	struct Level
+	{
+		uint8_t flags;
+		SplitPacketIdType oldSplitId;
+		uint32_t rangeCount;
+		BitSize_t rangesOffset;
+		BitSize_t endOffset;
+	};
+	Level levels[RESPLIT_MAX_DEPTH];
+	unsigned int depth = 0;
+	const unsigned int byteLength = (unsigned int) BITS_TO_BYTES(internalPacket->dataBitLength);
+	BitStream header(internalPacket->data, byteLength, false);
+
+	// Pass 1: parse and check every level. Nothing is changed unless all of them are sound.
 	for (;;)
 	{
-		// Parse and check the whole header before changing anything: every field comes from the remote.
-		BitStream header(internalPacket->data, (unsigned int) BITS_TO_BYTES(internalPacket->dataBitLength), false);
-		uint8_t flags = 0;
-		SplitPacketIdType oldSplitId = 0;
-		uint32_t rangeCount = 0;
-		if (!header.Read(flags) || (flags & ~RESPLIT_KNOWN_FLAGS) != 0)
+		if (depth == RESPLIT_MAX_DEPTH)
 			return RESPLIT_MALFORMED;
-		if ((flags & RESPLIT_HAS_OLD_SPLIT_ID) != 0 && !header.Read(oldSplitId))
+		Level &level = levels[depth++];
+		level.flags = 0;
+		level.oldSplitId = 0;
+		level.rangeCount = 0;
+		if (!header.Read(level.flags) || (level.flags & ~RESPLIT_KNOWN_FLAGS) != 0)
 			return RESPLIT_MALFORMED;
-		if (!header.Read(rangeCount) || rangeCount > RESPLIT_MAX_RETIRED_NUMBERS)
+		if ((level.flags & RESPLIT_HAS_OLD_SPLIT_ID) != 0 && !header.Read(level.oldSplitId))
 			return RESPLIT_MALFORMED;
-		const BitSize_t rangesOffset = header.GetReadOffset();
-		uint64_t numbers = 0;
-		for (uint32_t r = 0; r < rangeCount; r++)
+		if (!header.Read(level.rangeCount))
+			return RESPLIT_MALFORMED;
+		level.rangesOffset = header.GetReadOffset();
+		const unsigned int rangesStartByte = (unsigned int) BITS_TO_BYTES(level.rangesOffset);
+		// The ranges and at least one byte of message must follow.
+		if (rangesStartByte >= byteLength || level.rangeCount >= (byteLength - rangesStartByte) / RESPLIT_RANGE_BYTES + 1)
+			return RESPLIT_MALFORMED;
+		const unsigned int headerEndByte = rangesStartByte + level.rangeCount * RESPLIT_RANGE_BYTES;
+		if (headerEndByte >= byteLength)
+			return RESPLIT_MALFORMED;
+		const uint32_t maxRetired = (byteLength - headerEndByte) / minOldFragmentBytes + 1;
+		if (level.rangeCount > maxRetired)
+			return RESPLIT_MALFORMED;
+		uint32_t numbers = 0;
+		for (uint32_t r = 0; r < level.rangeCount; r++)
 		{
 			MessageNumberType lowest((uint32_t) 0), highest((uint32_t) 0);
 			if (!header.Read(lowest) || !header.Read(highest) || highest.val < lowest.val)
 				return RESPLIT_MALFORMED;
-			numbers += (uint64_t) (highest.val - lowest.val) + 1;
-			if (numbers > RESPLIT_MAX_RETIRED_NUMBERS || !IsInReceiveWindow(lowest) || !IsInReceiveWindow(highest))
+			if (highest.val - lowest.val >= maxRetired - numbers)
+				return RESPLIT_MALFORMED;
+			numbers += highest.val - lowest.val + 1;
+			// The old copy was numbered before this one: a number not older than the copy's own could
+			// not have been retired, and closing it would pre-empt a message not sent yet.
+			if (!IsOlderMessageNumber(lowest, internalPacket->reliableMessageNumber) || !IsOlderMessageNumber(highest, internalPacket->reliableMessageNumber) ||
+			    !IsInReceiveWindow(lowest) || !IsInReceiveWindow(highest))
 				return RESPLIT_MALFORMED;
 		}
-		const BitSize_t headerBits = header.GetReadOffset();
-		if (headerBits >= internalPacket->dataBitLength)
-			return RESPLIT_MALFORMED;
+		level.endOffset = header.GetReadOffset();
+		if ((level.flags & RESPLIT_INNER_IS_COPY) == 0)
+			break;
+		// A copy of a copy: the inner header, about the generation before, follows.
+	}
 
-		// Close every retired number. One the receiver never had proves the old
-		// copy can no longer complete -- that packet will now be dropped as a
-		// duplicate -- so this copy is the one to deliver. If it had them all,
-		// the old copy arrived whole and was handled then: this one is a duplicate.
-		bool deliver = (flags & RESPLIT_OLD_COPY_INCOMPLETE) != 0;
-		header.SetReadOffset(rangesOffset);
-		for (uint32_t r = 0; r < rangeCount; r++)
+	// Pass 2: resolve the levels outermost first. Close every retired number. One the receiver never
+	// had proves the old copy can no longer complete -- that packet will now be dropped as a duplicate
+	// -- so this copy stands, and the next level decides about the generation before. If it had them
+	// all, the old copy arrived whole and was handled then: this one is a duplicate.
+	for (unsigned int l = 0; l < depth; l++)
+	{
+		bool deliver = (levels[l].flags & RESPLIT_OLD_COPY_INCOMPLETE) != 0;
+		header.SetReadOffset(levels[l].rangesOffset);
+		for (uint32_t r = 0; r < levels[l].rangeCount; r++)
 		{
 			MessageNumberType lowest((uint32_t) 0), highest((uint32_t) 0);
 			header.Read(lowest);
 			header.Read(highest);
 			for (MessageNumberType number = lowest;; ++number)
 			{
+				reSplitNumbersMarked++;
 				if (MarkReliableMessageNumberReceived(number))
 					deliver = true;
 				if (number == highest)
@@ -3737,21 +3800,16 @@ ReliabilityLayer::ReSplitVerdict ReliabilityLayer::ResolveReSplitCopy(InternalPa
 		}
 		if (!deliver)
 			return RESPLIT_DISCARD;
-
 		// Whatever arrived of the old copy will never be completed.
-		if ((flags & RESPLIT_HAS_OLD_SPLIT_ID) != 0)
-			DiscardSplitPacketChannel(oldSplitId);
-
-		const unsigned int headerBytes = (unsigned int) BITS_TO_BYTES(headerBits);
-		memmove(internalPacket->data, internalPacket->data + headerBytes, (size_t) BITS_TO_BYTES(internalPacket->dataBitLength - headerBits));
-		internalPacket->dataBitLength -= headerBits;
-		if ((flags & RESPLIT_INNER_IS_COPY) == 0)
-		{
-			internalPacket->resplitCopy = false;
-			return RESPLIT_DELIVER;
-		}
-		// A copy of a copy: the inner header decides about the generation before.
+		if ((levels[l].flags & RESPLIT_HAS_OLD_SPLIT_ID) != 0)
+			DiscardSplitPacketChannel(levels[l].oldSplitId);
 	}
+
+	const BitSize_t headerBits = levels[depth - 1].endOffset;
+	memmove(internalPacket->data, internalPacket->data + BITS_TO_BYTES(headerBits), (size_t) BITS_TO_BYTES(internalPacket->dataBitLength - headerBits));
+	internalPacket->dataBitLength -= headerBits;
+	internalPacket->resplitCopy = false;
+	return RESPLIT_DELIVER;
 }
 
 //-------------------------------------------------------------------------------------------------------
