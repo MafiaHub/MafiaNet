@@ -3939,19 +3939,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			// printf("--- Address %s has become active\n", systemAddress.ToString());
 
 			remoteSystem = remoteSystemList + assignedIndex;
-			ReferenceRemoteSystem(systemAddress, assignedIndex);
-			// Stale reason payload from a prior occupant of this slot must never leak into a new connection.
-			ClearDisconnectReason(remoteSystem);
-			// Same for session state: peer.h documents it as cleared on slot reuse, and only the teardown
-			// paths do it today. Without this, any future path that deactivates a slot without going
-			// through CloseConnectionInternal2 would hand the previous occupant payload to the new one.
-			ClearSessionConfig(remoteSystem);
-			remoteSystem->MTUSize = defaultMTUSize;
-			remoteSystem->guid = guid;
-			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
-			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
-			// Reserve this reliability layer for ourselves.
-			//
+
 			// incomingMTU comes off the wire -- ID_OPEN_CONNECTION_REQUEST_2 on the accepting side,
 			// ID_OPEN_CONNECTION_REPLY_2 on the connecting one -- so it is whatever the remote peer
 			// said, and must be clamped rather than trusted. MTUSize sizes every datagram the
@@ -3961,19 +3949,35 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 			// which is compiled out of exactly the builds that ship.
 			if (incomingMTU > MAXIMUM_MTU_SIZE)
 				incomingMTU = MAXIMUM_MTU_SIZE;
-			if (incomingMTU > remoteSystem->MTUSize)
-				remoteSystem->MTUSize = incomingMTU;
-			RakAssert(remoteSystem->MTUSize <= MAXIMUM_MTU_SIZE);
+			const int mtuSize = incomingMTU > defaultMTUSize ? incomingMTU : defaultMTUSize;
+			RakAssert(mtuSize <= MAXIMUM_MTU_SIZE);
+
+			// Set up the reliability layer before the slot goes active, so a failure leaves it inactive.
 			// Order matters: the mode decides whether Reset() reserves the cipher overhead, and Reset()
 			// wipes keys, so the keys go in last. In mode Required the layer then seals every datagram it
-			// sends and drops every one that does not open; there is no plaintext fallback.
+			// sends and drops every one that does not open; a layer left without keys sends and accepts
+			// nothing. There is no plaintext fallback.
 			remoteSystem->reliabilityLayer.SetEncryptionMode(encryptionMode);
-			remoteSystem->reliabilityLayer.Reset(true, remoteSystem->MTUSize);
-			if (sessionKeys != nullptr)
+			remoteSystem->reliabilityLayer.Reset(true, mtuSize);
+			if (sessionKeys != nullptr && !remoteSystem->reliabilityLayer.SetSessionKeys(*sessionKeys))
 			{
-				remoteSystem->reliabilityLayer.SetSessionKeys(*sessionKeys);
-				RakAssert(remoteSystem->reliabilityLayer.IsEncrypted());
+				// Key installation failed: the slot stays inactive and nothing is allocated.
+				remoteSystem->reliabilityLayer.Reset(false, mtuSize);
+				ValidateRemoteSystemLookup();
+				return 0;
 			}
+
+			ReferenceRemoteSystem(systemAddress, assignedIndex);
+			// Stale reason payload from a prior occupant of this slot must never leak into a new connection.
+			ClearDisconnectReason(remoteSystem);
+			// Same for session state: peer.h documents it as cleared on slot reuse, and only the teardown
+			// paths do it today. Without this, any future path that deactivates a slot without going
+			// through CloseConnectionInternal2 would hand the previous occupant payload to the new one.
+			ClearSessionConfig(remoteSystem);
+			remoteSystem->MTUSize = mtuSize;
+			remoteSystem->guid = guid;
+			remoteSystem->raceFirstAddress = UNASSIGNED_SYSTEM_ADDRESS;
+			remoteSystem->isActive = true; // This one line causes future incoming packets to go through the reliability layer
 			remoteSystem->handshakeLocalCryptInfo = localCryptInfo;
 			remoteSystem->handshakeRemoteCryptInfo = remoteCryptInfo;
 			remoteSystem->reliabilityLayer.SetSplitMessageProgressInterval(splitMessageProgressInterval);

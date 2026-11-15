@@ -34,9 +34,9 @@ namespace
 {
 
 // The fixture lives in Tests/Support/ReliabilityLayerPair.h. These tests run
-// in the default mode (Required) without session keys: datagrams stay
-// plaintext with the cipher overhead reserved, as before the handshake
-// installs keys.
+// the layers in mode Plaintext (the fixture's default): MTU recovery does not
+// depend on the cipher, and ReliabilityLayerCryptoTests covers the sealed path
+// across a step-down.
 class RelLayerBlackHole : public ReliabilityLayerPair
 {
 };

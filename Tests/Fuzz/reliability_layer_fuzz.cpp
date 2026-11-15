@@ -48,6 +48,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
 
 	ReliabilityLayer layer;
+	// The parser under test sits behind the cipher; mode Plaintext reaches it
+	// directly (mode Required without keys drops every datagram).
+	layer.SetEncryptionMode(EncryptionMode::Plaintext);
 	layer.Reset(true, MAXIMUM_MTU_SIZE);
 	layer.SetTimeoutTime(1000000);
 	CCTimeType now = GetTimeUS();

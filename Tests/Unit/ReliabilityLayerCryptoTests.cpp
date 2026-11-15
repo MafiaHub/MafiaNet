@@ -32,6 +32,7 @@ protected:
 	virtual void SetUp()
 	{
 		ReliabilityLayerPair::SetUp();
+		ResetLayers(EncryptionMode::Required);
 		InstallSessionKeys();
 	}
 
@@ -226,16 +227,65 @@ TEST_F(ReliabilityLayerPlaintext, PlaintextModeKeepsTodaysWireFormat)
 	EXPECT_EQ(0u, DroppedUnauthenticatedAtB());
 }
 
-TEST_F(ReliabilityLayerPlaintext, RequiredModeWithoutKeysReservesTheOverhead)
+// Mode Required without keys fails closed: the layer neither emits nor accepts
+// a cleartext datagram, so a connection installed without its session keys can
+// never run unencrypted.
+TEST_F(ReliabilityLayerPlaintext, RequiredModeWithoutKeysNeverEmitsCleartext)
 {
-	// The state between Reset and the handshake installing keys: plaintext on
-	// the wire, but already sized for the sealed format.
 	ResetLayers(EncryptionMode::Required);
 	ASSERT_FALSE(a.IsEncrypted());
 
 	SendFromA(PatternMessage(20000, 12));
-	ASSERT_TRUE(PumpUntilReceived(1, 30000));
-	EXPECT_EQ(kPlaintextLargestDatagram - DatagramCipher::kMaxOverhead, (int) LargestLoggedDatagram());
+	SendFromA(PatternMessage(100, 13), Reliability::Unreliable);
+	for (int i = 0; i < 200; i++)
+		Tick();
+
+	EXPECT_TRUE(aToBLog.empty()) << aToBLog.size() << " datagrams left in clear";
+	EXPECT_GT(a.GetDroppedKeylessSendsForTesting(), 0u);
+	EXPECT_TRUE(received.empty());
+}
+
+TEST_F(ReliabilityLayerPlaintext, RequiredModeWithoutKeysNeverAcceptsCleartext)
+{
+	// Valid cleartext datagrams, captured from a Plaintext sender...
+	SendFromA(PatternMessage(3000, 14));
+	a.Update(&aSock, bAddr, TEST_MTU, now + 10000, 0, handlers, &rnr, updateBitStream);
+	std::vector<std::vector<char>> cleartext = aSock.sent;
+	aSock.sent.clear();
+	ASSERT_FALSE(cleartext.empty());
+
+	// ...are all dropped and counted by a receiver in mode Required without keys.
+	b.SetEncryptionMode(EncryptionMode::Required);
+	b.Reset(true, TEST_MTU);
+	b.SetTimeoutTime(TEST_TIMEOUT_MS);
+	for (size_t i = 0; i < cleartext.size(); i++)
+		DeliverToB(cleartext[i]);
+	unsigned char *data = nullptr;
+	EXPECT_EQ(0u, b.Receive(&data));
+	EXPECT_EQ((uint64_t) cleartext.size(), DroppedUnauthenticatedAtB());
+	// Not even an acknowledgement goes back.
+	b.Update(&bSock, aAddr, TEST_MTU, now + 20000, 0, handlers, &rnr, updateBitStream);
+	EXPECT_TRUE(bSock.sent.empty());
+}
+
+TEST(ReliabilityLayerCryptoKeys, SetSessionKeysFailsOutsideModeRequired)
+{
+	ReliabilityLayer layer;
+	layer.SetEncryptionMode(EncryptionMode::Plaintext);
+	layer.Reset(true, MAXIMUM_MTU_SIZE);
+	SessionKeys keys;
+	memset(keys.send, 1, sizeof(keys.send));
+	memset(keys.recv, 2, sizeof(keys.recv));
+	EXPECT_FALSE(layer.SetSessionKeys(keys));
+	EXPECT_FALSE(layer.IsEncrypted());
+
+	// The mode decides at Reset() whether the overhead is reserved: switching to
+	// Required without a Reset() is not enough either.
+	layer.SetEncryptionMode(EncryptionMode::Required);
+	EXPECT_FALSE(layer.SetSessionKeys(keys));
+	layer.Reset(true, MAXIMUM_MTU_SIZE);
+	EXPECT_TRUE(layer.SetSessionKeys(keys));
+	EXPECT_TRUE(layer.IsEncrypted());
 }
 
 TEST(ReliabilityLayerCryptoStats, SumsDroppedUnauthenticatedDatagrams)
@@ -271,7 +321,7 @@ TEST(ReliabilityLayerCryptoKeys, ResetWipesTheSessionKeys)
 	SessionKeys keys;
 	memset(keys.send, 1, sizeof(keys.send));
 	memset(keys.recv, 2, sizeof(keys.recv));
-	layer.SetSessionKeys(keys);
+	ASSERT_TRUE(layer.SetSessionKeys(keys));
 	EXPECT_TRUE(layer.IsEncrypted());
 	layer.Reset(false, MAXIMUM_MTU_SIZE);
 	EXPECT_FALSE(layer.IsEncrypted());

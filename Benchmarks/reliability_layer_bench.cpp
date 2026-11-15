@@ -48,12 +48,17 @@ struct LayerPair
 	RakNetRandom rnr;
 	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
 	CCTimeType now = GetTimeUS();
+	// False when \a encrypted was asked for but the keys could not be installed.
+	bool ready = true;
 
 	// With \a encrypted, both layers get a matching session key set, so every
-	// datagram is sealed and opened; otherwise the layers run the plaintext path
-	// (still reserving the cipher overhead, as a peer in Required mode would).
+	// datagram is sealed and opened; otherwise the layers run in mode Plaintext
+	// (mode Required without keys sends nothing).
 	explicit LayerPair(bool encrypted = false)
 	{
+		const EncryptionMode mode = encrypted ? EncryptionMode::Required : EncryptionMode::Plaintext;
+		a.SetEncryptionMode(mode);
+		b.SetEncryptionMode(mode);
 		a.Reset(true, MAXIMUM_MTU_SIZE);
 		b.Reset(true, MAXIMUM_MTU_SIZE);
 		if (encrypted)
@@ -63,10 +68,8 @@ struct LayerPair
 			const CryptInfo ci = ei.MakeCryptInfo();
 			const CryptInfo cr = er.MakeCryptInfo();
 			SessionKeys ki, kr;
-			DeriveSessionKeys(ei, true, ci, cr, gi, gr, &ki);
-			DeriveSessionKeys(er, false, ci, cr, gi, gr, &kr);
-			a.SetSessionKeys(ki);
-			b.SetSessionKeys(kr);
+			ready = DeriveSessionKeys(ei, true, ci, cr, gi, gr, &ki) && DeriveSessionKeys(er, false, ci, cr, gi, gr, &kr) &&
+			        a.SetSessionKeys(ki) && b.SetSessionKeys(kr) && a.IsEncrypted() && b.IsEncrypted();
 		}
 	}
 
@@ -102,6 +105,11 @@ struct LayerPair
 static void SmallReliableOrdered(benchmark::State &state, bool encrypted)
 {
 	LayerPair pair(encrypted);
+	if (!pair.ready)
+	{
+		state.SkipWithError("session keys not installed");
+		return;
+	}
 	std::vector<char> message(32, 7);
 	message[0] = (char) 200;
 	const int perTick = (int) state.range(0);
@@ -132,6 +140,11 @@ BENCHMARK(ReliabilityLayer_SmallReliableOrderedEncrypted)->Arg(16)->Arg(256);
 static void SplitMessage(benchmark::State &state, bool encrypted)
 {
 	LayerPair pair(encrypted);
+	if (!pair.ready)
+	{
+		state.SkipWithError("session keys not installed");
+		return;
+	}
 	std::vector<char> message((size_t) state.range(0), 9);
 	message[0] = (char) 200;
 	for (auto _ : state)

@@ -371,9 +371,8 @@ int SplitPacketIndexComp(SplitPacketIndexType const &key, InternalPacket *const 
 //-------------------------------------------------------------------------------------------------------
 // Constructor
 //-------------------------------------------------------------------------------------------------------
-// Add 21 to the default MTU so if we encrypt it can hold potentially 21 more bytes of extra data + padding.
 ReliabilityLayer::ReliabilityLayer()
-    : encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0)
+    : encryptionMode(EncryptionMode::Required), cipherOverheadBytes(0), droppedUnauthenticatedDatagrams(0), droppedKeylessSends(0)
 {
 
 #ifdef _DEBUG
@@ -435,13 +434,19 @@ void ReliabilityLayer::SetEncryptionMode(EncryptionMode mode)
 }
 
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::SetSessionKeys(const SessionKeys &keys)
+bool ReliabilityLayer::SetSessionKeys(const SessionKeys &keys)
 {
 	// Sealed datagrams only fit when Reset() reserved the overhead (mode Required).
-	RakAssert(cipherOverheadBytes == DatagramCipher::kMaxOverhead);
-	if (cipherOverheadBytes != DatagramCipher::kMaxOverhead)
-		return;
+	if (encryptionMode != EncryptionMode::Required || cipherOverheadBytes != DatagramCipher::kMaxOverhead)
+		return false;
 	datagramCipher.SetKeys(keys);
+	return datagramCipher.HasKeys();
+}
+
+//-------------------------------------------------------------------------------------------------------
+uint64_t ReliabilityLayer::GetDroppedKeylessSendsForTesting() const
+{
+	return droppedKeylessSends;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -484,6 +489,7 @@ MafiaNet::TimeMS ReliabilityLayer::GetTimeoutTime()
 void ReliabilityLayer::InitializeVariables()
 {
 	droppedUnauthenticatedDatagrams = 0;
+	droppedKeylessSends = 0;
 	// OrderingIndexType (uint24_t) is a wrapper around one uint32_t; assigning 0 leaves the
 	// same all-zero state the memset used to, without memset-ing a non-trivial class.
 	for (unsigned int stream = 0; stream < NUMBER_OF_ORDERED_STREAMS; stream++)
@@ -753,6 +759,14 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer(
 #endif
 
 	bpsMetrics[(int) ACTUAL_BYTES_RECEIVED].Push1(timeRead, length);
+
+	// Mode Required without keys: nothing is accepted. There is no plaintext
+	// fallback, even if a caller installed the layer without its session keys.
+	if (encryptionMode == EncryptionMode::Required && !datagramCipher.HasKeys())
+	{
+		droppedUnauthenticatedDatagrams++;
+		return true;
+	}
 
 	// Once the session is keyed, nothing is parsed (or even counted as a sign of
 	// life) before it authenticates. Open into a private copy: the caller's buffer
@@ -2476,6 +2490,14 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 	// The plaintext datagram fits the budget Reset() derived; sealing adds at most
 	// cipherOverheadBytes, which that budget reserved.
 	RakAssert(length <= congestionManager.GetMTU());
+
+	// Mode Required without keys: nothing leaves in clear. The datagram is dropped
+	// as if lost; reliable messages in it are resent once keys exist, or time out.
+	if (encryptionMode == EncryptionMode::Required && !datagramCipher.HasKeys())
+	{
+		droppedKeylessSends++;
+		return;
+	}
 
 	// Seal before anything below can queue, delay or transmit the datagram, so the
 	// simulator's delay list and the sendmmsg batch only ever see ciphertext.

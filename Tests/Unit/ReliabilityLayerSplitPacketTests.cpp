@@ -67,6 +67,9 @@ protected:
 		// ReliabilityLayer stamps arrivals with the real clock; anchor to it
 		// (see ReliabilityLayerBlackHoleTests).
 		now = GetTimeUS();
+		// The datagrams below are written in clear: mode Plaintext, or the layer
+		// (mode Required, no keys) would drop them all.
+		layer.SetEncryptionMode(EncryptionMode::Plaintext);
 		layer.Reset(true, MAXIMUM_MTU_SIZE);
 		layer.SetTimeoutTime(1000000);
 	}

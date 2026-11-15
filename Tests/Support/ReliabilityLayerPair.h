@@ -105,7 +105,9 @@ protected:
 
 		ASSERT_TRUE(aAddr.FromStringExplicitPort("127.0.0.1", 40001));
 		ASSERT_TRUE(bAddr.FromStringExplicitPort("127.0.0.1", 40002));
-		ResetLayers(MafiaNet::EncryptionMode::Required);
+		// Mode Plaintext: the keyless cleartext path. A layer in mode Required
+		// sends and accepts nothing until InstallSessionKeys().
+		ResetLayers(MafiaNet::EncryptionMode::Plaintext);
 	}
 
 	// Resets both layers for a fresh connection in \a mode. Wipes any keys.
@@ -121,6 +123,7 @@ protected:
 
 	// Runs a real X25519 exchange (a initiates) and installs the resulting
 	// directional keys in both layers, as the connection handshake will.
+	// The layers must be in mode Required (ResetLayers).
 	void InstallSessionKeys()
 	{
 		const MafiaNet::RakNetGUID aGuid(0x1111111111111111ull);
@@ -133,8 +136,8 @@ protected:
 		MafiaNet::SessionKeys bKeys;
 		ASSERT_TRUE(MafiaNet::DeriveSessionKeys(aPair, true, aInfo, bInfo, aGuid, bGuid, &aKeys));
 		ASSERT_TRUE(MafiaNet::DeriveSessionKeys(bPair, false, aInfo, bInfo, aGuid, bGuid, &bKeys));
-		a.SetSessionKeys(aKeys);
-		b.SetSessionKeys(bKeys);
+		ASSERT_TRUE(a.SetSessionKeys(aKeys));
+		ASSERT_TRUE(b.SetSessionKeys(bKeys));
 	}
 
 	bool DropAToB(int datagramBytes)

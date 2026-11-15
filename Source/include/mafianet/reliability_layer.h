@@ -190,8 +190,11 @@ public:
 	/// sealed on send, and every received datagram must open or is dropped
 	/// (and counted in RakNetStatistics::droppedUnauthenticatedDatagrams).
 	/// Never re-install keys already used: the send sequence restarts at 0.
-	/// The caller wipes its own copy. Ignored unless the mode is Required.
-	void SetSessionKeys(const SessionKeys &keys);
+	/// The caller wipes its own copy.
+	/// \return false, installing nothing, unless the mode is Required and Reset()
+	/// reserved the cipher overhead. Until keys are installed, a layer in mode
+	/// Required sends nothing and accepts nothing (it never falls back to plaintext).
+	bool SetSessionKeys(const SessionKeys &keys);
 
 	/// True once session keys are installed (until the next Reset()).
 	bool IsEncrypted() const;
@@ -199,6 +202,9 @@ public:
 	/// Test-only: copies the installed session keys into \a out (zeroed when there are none).
 	/// \return IsEncrypted().
 	bool GetSessionKeysForTesting(SessionKeys *out) const;
+
+	/// Test-only: datagrams discarded on send because the mode is Required and no keys are installed.
+	uint64_t GetDroppedKeylessSendsForTesting() const;
 
 	/// Set the time, in MS, to use before considering ourselves disconnected after not being able to deliver a reliable packet
 	/// Default time is 10,000 or 10 seconds in release and 30,000 or 30 seconds in debug.
@@ -703,6 +709,8 @@ private:
 	int cipherOverheadBytes;
 	// Received datagrams that failed to open (forged, corrupted, replayed, too old).
 	uint64_t droppedUnauthenticatedDatagrams;
+	// Datagrams SendBitStream discarded because the mode is Required and no keys are installed.
+	uint64_t droppedKeylessSends;
 };
 
 } // namespace MafiaNet
