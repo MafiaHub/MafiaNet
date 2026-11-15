@@ -28,9 +28,6 @@ Core Feature Toggles
 
 .. code-block:: cpp
 
-   // Secure connections with encryption
-   #define _RAKNET_SECURE_CONNECTIONS 1
-
    // Enable statistics tracking
    #define _RAKNET_STAT_COLLECTION 1
 

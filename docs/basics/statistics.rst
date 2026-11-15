@@ -109,6 +109,8 @@ Statistics Fields Reference
      - Packet loss percentage (0.0-1.0)
    * - ``bandwidthExceededStatistic``
      - True if sending faster than bandwidth
+   * - ``droppedUnauthenticatedDatagrams``
+     - Datagrams dropped because they failed to authenticate (forged, corrupted, replayed or too old); always 0 on a plaintext connection. See :doc:`secure-connections`
 
 Displaying Statistics
 ---------------------

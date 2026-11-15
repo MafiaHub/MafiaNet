@@ -60,6 +60,15 @@ Optional password for authentication:
 
 The remote system must call ``SetIncomingPassword()`` with the same password.
 
+The password is sent inside the first encrypted datagram of the connection, so it is not visible on
+the wire (see :doc:`secure-connections`).
+
+publicKey
+~~~~~~~~~
+
+Reserved for server identity keys. Pass ``nullptr`` (the default); a non-null value makes
+``Connect()`` return ``INVALID_PARAMETER``. Encryption needs no key: see :doc:`secure-connections`.
+
 sendConnectionAttemptCount / timeBetweenSendConnectionAttemptsMS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

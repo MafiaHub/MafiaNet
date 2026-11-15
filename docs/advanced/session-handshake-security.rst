@@ -14,9 +14,12 @@ Trust model
 offline connection handshake, matched ``RAKNET_PROTOCOL_VERSION``, and passed
 ``SetIncomingPassword()`` if one is set. That is the entire bar. In particular the payload is:
 
-* **Unauthenticated** unless the build enables ``LIBCAT_SECURITY`` and the connection uses a public
-  key. Without that, MafiaNet traffic is neither encrypted nor authenticated, so a peer that can
-  spoof the source address of an in-progress connection can supply the payload instead.
+* **Encrypted but unauthenticated.** On the default ``EncryptionMode::Required`` connection the
+  payload travels sealed under session keys, so an attacker who cannot read the connection cannot
+  read it, change it, or spoof the source address to supply a payload of their own. But MafiaNet does
+  not yet verify *who* is on the other end of the key exchange: an attacker positioned on the path
+  can run the handshake with each side and supply the payload. Treat it as coming from an unknown
+  peer. On an ``EncryptionMode::Plaintext`` connection it is neither encrypted nor authenticated.
 * **Arbitrary bytes.** MafiaNet never inspects, parses, validates, or transforms it. Do not assume
   text, encoding, structure, or a trailing terminator.
 * **Attacker-chosen in length**, up to ``MAXIMUM_SESSION_CONFIG_SIZE``.
@@ -118,7 +121,8 @@ drop the work it was doing for one that left. See :doc:`../guide/admission-queue
 Not addressed here
 ------------------
 
-The session handshake does not change MafiaNet's existing transport security posture. Off-path
-packet injection, address spoofing, amplification via the offline ping path, and the absence of
-encryption when ``LIBCAT_SECURITY`` is disabled are unchanged and out of scope for this page. See
-:doc:`../basics/secure-connections`.
+The session handshake does not change MafiaNet's transport security posture. Offline messages
+(including the open-connection handshake that precedes this exchange) are not encrypted, address
+spoofing and amplification via the offline ping path are unchanged, and peers are not authenticated
+to each other, as described above. These are out of scope for this page. See
+:doc:`../basics/secure-connections` and :doc:`encryption-wire-format`.

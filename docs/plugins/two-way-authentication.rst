@@ -82,7 +82,7 @@ Security Notes
 * Passwords are hashed before storage
 * Challenge-response prevents eavesdropping
 * Each authentication uses unique nonce
-* Does not encrypt subsequent traffic (use encryption plugin if needed)
+* Does not itself encrypt traffic; connections are already encrypted by default (see :doc:`../basics/secure-connections`)
 
 Configuration Options
 ---------------------

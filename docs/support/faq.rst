@@ -117,8 +117,10 @@ Security
 
 **Is traffic encrypted?**
 
-Not by default. Enable with ``_RAKNET_SECURE_CONNECTIONS`` define or use
-application-layer encryption.
+Yes. Every connection is encrypted and authenticated per datagram by default
+(libsodium: X25519 key exchange, ChaCha20-Poly1305). Offline messages such as
+pings are not, and peers are not yet authenticated to each other, so an active
+man in the middle is not prevented. See :doc:`../basics/secure-connections`.
 
 Troubleshooting
 ---------------
