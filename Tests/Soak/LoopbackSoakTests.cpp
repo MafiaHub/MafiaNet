@@ -114,7 +114,10 @@ struct Counters
 	uint64_t crashes = 0;
 	uint64_t reconnects = 0;
 	uint64_t absences = 0;
-	uint64_t crossRounds = 0;
+	uint64_t crossRounds = 0;      // simultaneous Connect pairs issued
+	uint64_t crossEstablished = 0; // a pair went from not connected to connected on both ends
+	uint64_t crossBreaks = 0;      // a connected pair stopped being connected on both ends
+	uint64_t crossAborted = 0;     // churn hit a pair while its round was still in flight
 	uint64_t failedAttempts = 0;
 	uint64_t failuresWhileConnected = 0;
 	uint64_t staleDrops = 0;
@@ -402,6 +405,23 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 		return true;
 	};
 
+	// Each cross pair is either up (both ends Connected) or not. Every round should bring its pair up: a
+	// round is issued only when a pair is down and both ends idle, so rounds = pairs + breaks + aborts.
+	std::vector<char> pairUp(kCrossPairs, 0);
+	auto trackPairs = [&]
+	{
+		for (int p = 0; p < kCrossPairs; ++p)
+		{
+			const int a = 1 + 2 * p, b = 2 + 2 * p;
+			const bool up = nodes[(size_t) a].links[b].state == Link::Connected && nodes[(size_t) b].links[a].state == Link::Connected;
+			if (up && !pairUp[(size_t) p])
+				++counters.crossEstablished;
+			else if (!up && pairUp[(size_t) p])
+				++counters.crossBreaks;
+			pairUp[(size_t) p] = up;
+		}
+	};
+
 	auto churn = [&](TimeMS now)
 	{
 		for (int n = 0; n < 3; ++n)
@@ -409,6 +429,15 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 			const int i = 1 + (int) (random() % kClients);
 			Node &node = nodes[(size_t) i];
 			const uint32_t roll = random() % 3;
+			trackPairs();
+			if (roll != 2 && node.partner > 0)
+			{
+				// A crash or a reconnect also ends a cross-connect round in flight, which then never completes.
+				const int p = (i - 1) / 2;
+				const bool inFlight = node.links[node.partner].state == Link::Connecting || nodes[(size_t) node.partner].links[i].state == Link::Connecting;
+				if (!pairUp[(size_t) p] && inFlight)
+					++counters.crossAborted;
+			}
 			if (roll == 0)
 			{
 				// Crash: gone without a word; a new process (new port, new GUID) takes its place.
@@ -482,6 +511,7 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 	{
 		const TimeMS now = GetTimeMS();
 		pump(now);
+		trackPairs();
 		settle(now);
 		drive(now);
 		if (now >= nextTraffic)
@@ -494,6 +524,7 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 			churn(now);
 			if (HasFatalFailure())
 				return;
+			trackPairs();
 			nextChurn = now + 3000;
 		}
 		if (now - lastProgress >= 30000)
@@ -512,6 +543,7 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 	{
 		const TimeMS now = GetTimeMS();
 		pump(now);
+		trackPairs();
 		settle(now);
 		drive(now);
 		RakSleep(10);
@@ -601,7 +633,16 @@ TEST_F(LoopbackSoak, ThreadedPeersUnderTrafficChurnAndRealCrossConnects)
 	for (const auto &v : violations)
 		ADD_FAILURE() << v.first << ": " << v.second;
 	EXPECT_EQ(0u, checker.Violations()) << "ordering violations";
-	EXPECT_GT(counters.crossRounds, (uint64_t) kCrossPairs);
+	// The pair counters stopped when everyone was back (the last trackPairs), with every pair up.
+	std::printf("[soak-loopback] cross pairs: %" PRIu64 " rounds, %" PRIu64 " established, %" PRIu64 " breaks, %" PRIu64 " aborted by churn\n",
+	            counters.crossRounds, counters.crossEstablished, counters.crossBreaks, counters.crossAborted);
+	// Every pair is up now, so it came up once plus once per break, and each round either brought its pair
+	// up or was cut short by churn: a cross-connect that fails on its own shows up as an extra round.
+	EXPECT_EQ((uint64_t) kCrossPairs + counters.crossBreaks, counters.crossEstablished);
+	EXPECT_EQ(counters.crossEstablished + counters.crossAborted, counters.crossRounds) << "a cross-connect round failed without churn";
+	EXPECT_GT(counters.crossBreaks, 0u) << "churn never broke a cross pair: the re-cross path did not run";
+	// Loopback loses nothing; only datagrams in flight to a peer that crashed or left may go missing.
+	EXPECT_GE(counters.unreliableDelivered * 100, counters.unreliableSent * 95) << counters.unreliableDelivered << " of " << counters.unreliableSent << " unreliable messages delivered";
 	EXPECT_GT(counters.crashes, 0u);
 	EXPECT_GT(counters.splitSent, 0u);
 }

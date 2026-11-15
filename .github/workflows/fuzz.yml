@@ -119,15 +119,26 @@ jobs:
             -DCMAKE_CXX_COMPILER=clang++
           cmake --build build/${{ matrix.preset }} --target SoakTests
 
-      # The release preset has no test preset; the sanitizer presets carry their
-      # ASAN_OPTIONS / TSAN_OPTIONS (and ci/tsan.supp) in theirs.
+      # More, shorter waves than the default run: the memory check compares
+      # wave 1 with the last, and a slow leak needs waves to show. The per-test
+      # timeout stays well inside the job's, so a hang gets a ctest report.
+      # release has no test preset. asan runs without its preset so that leak
+      # detection can be on (the preset sets detect_leaks=0 for the loopback
+      # suites); tsan uses its preset for TSAN_OPTIONS and ci/tsan.supp.
       - name: Run the soak suite
+        env:
+          MAFIANET_SOAK_WAVES: "12"
         run: |
-          if [ "${{ matrix.preset }}" = release ]; then
-            ctest --test-dir build/release -L soak --output-on-failure --timeout 7200 --output-log build/release/soak.log
-          else
-            ctest --preset ${{ matrix.preset }} -L soak --timeout 7200 --output-log build/${{ matrix.preset }}/soak.log
-          fi
+          case "${{ matrix.preset }}" in
+            release)
+              ctest --test-dir build/release -L soak --output-on-failure --timeout 3600 --output-log build/release/soak.log ;;
+            asan)
+              ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1 \
+              UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+                ctest --test-dir build/asan -L soak --output-on-failure --timeout 3600 --output-log build/asan/soak.log ;;
+            tsan)
+              ctest --preset tsan -L soak --timeout 3600 --output-log build/tsan/soak.log ;;
+          esac
 
       - name: Upload the soak log
         if: always()

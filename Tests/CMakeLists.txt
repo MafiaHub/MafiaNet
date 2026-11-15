@@ -117,7 +117,7 @@ if(MAFIANET_BUILD_SOAK_TESTS)
     mafianet_enable_warnings(SoakTests)
 
     gtest_discover_tests(SoakTests
-        PROPERTIES LABELS soak TIMEOUT 7200
+        PROPERTIES LABELS soak TIMEOUT 3600
         DISCOVERY_TIMEOUT 60
     )
 endif()

@@ -319,8 +319,8 @@ integration suites, so they are opt-in and carry only the CTest label ``soak``:
   and that memory does not grow from wave to wave. The scenario is fixed by a
   seed (``MAFIANET_SOAK_SEED``, ``MAFIANET_SOAK_ITERATIONS`` to run several);
   GUIDs and keys still come from the OS, so cross-connect tie-breaks vary.
-  ``MAFIANET_SOAK_CLIENTS``, ``MAFIANET_SOAK_WAVES`` and
-  ``MAFIANET_SOAK_PHASE_SECONDS`` scale it.
+  ``MAFIANET_SOAK_CLIENTS``, ``MAFIANET_SOAK_WAVES`` (default 8) and
+  ``MAFIANET_SOAK_PHASE_SECONDS`` (default 30) scale it.
 * ``LoopbackSoak`` runs one server and 64 threaded clients over real loopback
   UDP for ``MAFIANET_SOAK_LOOPBACK_SECONDS`` (default 150) with traffic, churn
   and cross-connects whose two ``Connect()`` calls are made from two threads at
@@ -332,8 +332,10 @@ integration suites, so they are opt-in and carry only the CTest label ``soak``:
    cmake --build build/soak --target SoakTests
    ctest --test-dir build/soak -L soak --output-on-failure
 
-CI runs them nightly in Release and under the ``asan`` and ``tsan`` presets,
-never on pull requests.
+Together they take about three minutes in Release, most of it the loopback
+run. CI runs them nightly in Release and under the ``asan`` (with leak
+detection) and ``tsan`` presets, with ``MAFIANET_SOAK_WAVES=12``, never on pull
+requests.
 
 Benchmarks
 ----------

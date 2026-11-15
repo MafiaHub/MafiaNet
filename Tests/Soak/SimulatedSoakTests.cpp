@@ -24,8 +24,16 @@
  *
  *  Knobs (environment): MAFIANET_SOAK_SEED (first seed, default 1),
  *  MAFIANET_SOAK_ITERATIONS (seeds to run, default 1), MAFIANET_SOAK_CLIENTS
- *  (default 200), MAFIANET_SOAK_WAVES (default 4), MAFIANET_SOAK_PHASE_SECONDS
- *  (traffic seconds per phase, default 75).
+ *  (default 200), MAFIANET_SOAK_WAVES (default 8), MAFIANET_SOAK_PHASE_SECONDS
+ *  (traffic seconds per phase, default 30). Many short waves rather than a few
+ *  long ones: a leak shows up per reconnect, so the memory check needs waves.
+ *
+ *  TODO: add an exactly-once Reliable (unordered) stream once the duplicate it
+ *  would report is fixed: a false-positive MTU black-hole step-down re-sends a
+ *  rebuilt copy of a Reliable message that may already have arrived, under new
+ *  message numbers, so the receiver delivers it twice (pre-existing since #56;
+ *  tracked as a separate issue). Ordered streams are protected by the ordering
+ *  index; plain Reliable is not.
  */
 
 #include <gtest/gtest.h>
@@ -792,7 +800,13 @@ void SimulatedSoak::Run()
 		}
 		else
 			std::printf("[soak] sanitizer build: operator new is not counted, only rakMalloc\n");
-		EXPECT_LE(last.rakBlocks - first.rakBlocks, std::max<int64_t>(200, first.rakBlocks / 50)) << "rakMalloc blocks grew across waves";
+		// Measured noise between waves is one memory-pool page, 3 blocks. The remote-system index leak
+		// fixed in ac018381 added about 3 blocks per wave at 200 clients: with it reverted, wave 1 -> last
+		// grew by 15 blocks over the default 8 waves and by 24 over the nightly's 12. Three pages of slack
+		// keeps both of those failing.
+		const int64_t rakSlack = 9;
+		EXPECT_LE(last.rakBlocks - first.rakBlocks, rakSlack) << "rakMalloc blocks grew across waves: " << first.rakBlocks << " after wave 1, "
+		                                                      << last.rakBlocks << " after the last";
 	}
 }
 } // namespace
@@ -802,8 +816,8 @@ TEST(SimulatedSoak, ManyClientsUnderLossChurnAndCrossConnects)
 	const uint32_t firstSeed = Soak::EnvUInt("MAFIANET_SOAK_SEED", 1);
 	const uint32_t iterations = Soak::EnvUInt("MAFIANET_SOAK_ITERATIONS", 1);
 	const int clients = (int) Soak::EnvUInt("MAFIANET_SOAK_CLIENTS", 200);
-	const int waves = (int) Soak::EnvUInt("MAFIANET_SOAK_WAVES", 4);
-	const uint32_t phaseSeconds = Soak::EnvUInt("MAFIANET_SOAK_PHASE_SECONDS", 75);
+	const int waves = (int) Soak::EnvUInt("MAFIANET_SOAK_WAVES", 8);
+	const uint32_t phaseSeconds = Soak::EnvUInt("MAFIANET_SOAK_PHASE_SECONDS", 30);
 	for (uint32_t seed = firstSeed; seed < firstSeed + iterations; ++seed)
 	{
 		SCOPED_TRACE(testing::Message() << "seed " << seed << " (rerun with MAFIANET_SOAK_SEED=" << seed << ")");

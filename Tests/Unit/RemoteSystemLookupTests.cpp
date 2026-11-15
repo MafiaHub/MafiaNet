@@ -49,8 +49,13 @@ void CountingFree(void *p, const char *, unsigned int)
 	std::free(p);
 }
 
-// Installs the counting hooks for the lifetime of the object; every block they count is released through
-// them too, so the count stays meaningful whatever the test allocated before.
+// Installs the counting hooks for the lifetime of the object and restores the previous ones in its
+// destructor, so a failed ASSERT_ that leaves the test early restores them too. Every block they count is
+// released through them, so the count stays meaningful whatever the test allocated before.
+//
+// Swapping rakMalloc_Ex and friends is only safe while no other thread can call them: this relies on the
+// SimulatedNetwork, whose peers run without network threads (SetManualUpdate). Do not use it next to a
+// threaded peer.
 class RakAllocationCounter
 {
 public:
