@@ -34,9 +34,9 @@ namespace
 {
 const MessageID ID_TEST_PAYLOAD = ID_USER_PACKET_ENUM;
 
-// Mirrors the file-static OFFLINE_MESSAGE_DATA_ID in peer.cpp, to pin the wire format.
-const unsigned char kOfflineMessageDataId[16] =
-    {0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78};
+// The marker every offline handshake message carries, as the peer itself defines it.
+const unsigned char *const kOfflineMessageDataId = RakPeer::GetOfflineMessageDataIdForTesting();
+constexpr size_t kOfflineMessageDataIdSize = RakPeer::kOfflineMessageDataIdBytes;
 
 // A 64-byte payload no ciphertext will reproduce by chance.
 std::vector<unsigned char> Marker()
@@ -128,7 +128,7 @@ void WriteRequest2(BitStream &out, uint64_t challenge, const CryptInfo &info, co
                    uint16_t mtu, const RakNetGUID &guid)
 {
 	out.Write((MessageID) ID_OPEN_CONNECTION_REQUEST_2);
-	out.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+	out.WriteAlignedBytes(kOfflineMessageDataId, kOfflineMessageDataIdSize);
 	out.Write(challenge);
 	info.Serialize(&out);
 	out.Write(bindingAddress);
@@ -521,7 +521,7 @@ void WriteReply2(BitStream &out, uint64_t nonceEcho, const RakNetGUID &serverGui
                  uint16_t mtu, const CryptInfo &serverInfo)
 {
 	out.Write((MessageID) ID_OPEN_CONNECTION_REPLY_2);
-	out.WriteAlignedBytes(kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
+	out.WriteAlignedBytes(kOfflineMessageDataId, kOfflineMessageDataIdSize);
 	out.Write(nonceEcho);
 	out.Write(serverGuid);
 	out.Write(clientAddress);
@@ -613,7 +613,7 @@ TEST(EncryptedHandshake, PlaintextClientCryptInfoCarriesARandomNonceThatReply2Ec
 	ASSERT_FALSE(replies.empty());
 
 	BitStream request(reinterpret_cast<unsigned char *>(requests[0].data()), (unsigned int) requests[0].size(), false);
-	request.IgnoreBytes(1 + sizeof(kOfflineMessageDataId) + sizeof(uint64_t));
+	request.IgnoreBytes(1 + kOfflineMessageDataIdSize + sizeof(uint64_t));
 	CryptInfo clientInfo;
 	ASSERT_TRUE(clientInfo.Deserialize(&request));
 	EXPECT_EQ(EncryptionMode::Plaintext, clientInfo.mode);
@@ -623,7 +623,7 @@ TEST(EncryptedHandshake, PlaintextClientCryptInfoCarriesARandomNonceThatReply2Ec
 	EXPECT_NE(0u, clientInfo.nonce);
 
 	BitStream reply(reinterpret_cast<unsigned char *>(replies[0].data()), (unsigned int) replies[0].size(), false);
-	reply.IgnoreBytes(1 + sizeof(kOfflineMessageDataId));
+	reply.IgnoreBytes(1 + kOfflineMessageDataIdSize);
 	uint64_t echo = 0;
 	ASSERT_TRUE(reply.Read(echo));
 	EXPECT_EQ(nonce, echo);
@@ -653,13 +653,13 @@ TEST(EncryptedHandshake, Request1ShorterThanReply1IsIgnored)
 	{
 		std::vector<unsigned char> bytes((size_t) length, 0);
 		bytes[0] = ID_OPEN_CONNECTION_REQUEST_1;
-		std::memcpy(&bytes[1], kOfflineMessageDataId, sizeof(kOfflineMessageDataId));
-		bytes[1 + sizeof(kOfflineMessageDataId)] = RAKNET_PROTOCOL_VERSION;
+		std::memcpy(&bytes[1], kOfflineMessageDataId, kOfflineMessageDataIdSize);
+		bytes[1 + kOfflineMessageDataIdSize] = RAKNET_PROTOCOL_VERSION;
 		return bytes;
 	};
 
 	const SystemAddress sender("10.0.0.77", 7000);
-	for (int length = 1 + (int) sizeof(kOfflineMessageDataId) + 1; length < 35; ++length)
+	for (int length = 1 + (int) kOfflineMessageDataIdSize + 1; length < 35; ++length)
 	{
 		const std::vector<unsigned char> bytes = request1(length);
 		net.InjectDatagram(sender, server, bytes.data(), length);
