@@ -119,8 +119,9 @@ Security
 
 Yes. Every connection is encrypted and integrity-protected per datagram by default
 (libsodium: X25519 key exchange, ChaCha20-Poly1305). Offline messages such as
-pings are not, and peers are not yet authenticated to each other, so an active
-man in the middle is not prevented. See :doc:`../basics/secure-connections`.
+pings are not. A client authenticates the server only if it pins the server's
+identity key; without a pin, an active man in the middle is not prevented. See
+:doc:`../basics/secure-connections`.
 
 Troubleshooting
 ---------------

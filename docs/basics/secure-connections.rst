@@ -43,8 +43,11 @@ What is protected
   keeps a 256-entry window and drops any sequence it has already seen, and any sequence older than
   the window.
 * **Forward secrecy.** The session keys come from ephemeral keys that exist only for the handshake
-  and are wiped as soon as the keys are derived. There is no long-term key, so recording a
-  connection and later compromising a machine does not reveal it.
+  and are wiped as soon as the keys are derived. A server identity key (see `Server identity`_) only
+  signs the handshake and never encrypts anything, so recording a connection and later compromising a
+  machine does not reveal it.
+* **The server's identity, when the client pins it.** A client given the server's identity public
+  key accepts only a server that proves it holds the matching secret key. See `Server identity`_.
 * **No effect on the connection from junk.** A datagram that fails to authenticate is dropped and
   counted. It never disconnects the peer, never asserts, and never reaches plugins. See
   `Monitoring dropped datagrams`_.
@@ -52,15 +55,14 @@ What is protected
 What is not protected
 ---------------------
 
-* **Nobody is authenticated.** MafiaNet encrypts the connection but does not yet verify who is on
-  the other end. A client cannot tell the real server from an attacker who sits on the path
-  between them and relays the handshake, and a server cannot tell clients apart this way. An
-  on-path attacker can therefore read and change the traffic of a connection it intercepts from the
-  first handshake packet. The encryption defeats passive eavesdropping and off-path injection; it
-  does not defeat an active man in the middle. Server identity keys are planned (the reserved
-  ``PublicKey*`` parameter of ``Connect`` is where a pin will go) and will bump the protocol
-  version again. Until then, authenticate users with an application-level mechanism such as
-  :doc:`../plugins/two-way-authentication`, and do not treat "connected" as "trusted".
+* **The server, unless the client pins it.** Without a pinned server identity, a client cannot tell
+  the real server from an attacker who sits on the path between them and relays the handshake. The
+  encryption then defeats passive eavesdropping and off-path injection, but not an active man in
+  the middle. Pin the server identity (see `Server identity`_) wherever the client can be given the
+  server's public key.
+* **Clients.** Nothing authenticates a client to a server. Authenticate users with an
+  application-level mechanism such as :doc:`../plugins/two-way-authentication`, and do not treat
+  "connected" as "trusted".
 * **Offline messages.** Anything sent outside a connection is plaintext: pings and pongs,
   ``ID_ADVERTISE_SYSTEM``, unconnected sends, NAT punchthrough traffic, and the open-connection
   handshake packets themselves.
@@ -71,7 +73,8 @@ What is not protected
   the refusal IDs below and make that attempt fail. It cannot learn or choose the session keys. This
   is the same property the plaintext rejection IDs (``ID_CONNECTION_BANNED`` and others) always had.
   Forging the server's final handshake reply also takes a 64-bit value the client chose, which only
-  an attacker on the path sees.
+  an attacker on the path sees. An attacker on the path can likewise make a pinned attempt end with
+  ``ID_PUBLIC_KEY_MISMATCH``, but cannot make it succeed.
 * **Endpoints.** Encryption protects the wire, not a compromised client or server, and not a
   malicious but connected peer: validate all input as before.
 
@@ -154,15 +157,116 @@ nothing, and the server allocates no connection state.
 ``ID_REMOTE_SYSTEM_REQUIRES_ENCRYPTION`` is the new name of ``ID_REMOTE_SYSTEM_REQUIRES_PUBLIC_KEY``.
 The old name still compiles as a ``[[deprecated]]`` alias with the same numeric value, so existing
 switches keep working; rename it when you can (the deprecation warning is an error under
-``-Werror``). ``ID_PUBLIC_KEY_MISMATCH`` is reserved for the future identity keys and is never
-sent today.
+``-Werror``). ``ID_PUBLIC_KEY_MISMATCH`` keeps its value and now reports a pinned server identity
+that was not proven (see `Server identity`_).
 
-The reserved public key parameter
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _server-identity:
 
-``Connect`` and ``ConnectWithSocket`` keep their ``PublicKey *publicKey`` parameter so that call
-sites with later arguments keep their meaning. It is reserved for server identity keys: pass
-``nullptr`` (the default). A non-null value returns ``INVALID_PARAMETER``.
+Server identity
+---------------
+
+A server can hold a long-term **identity key**, an Ed25519 key pair. With one, the server signs every
+connection handshake it answers. A client that was given the server's public key ("pins" it) checks
+that signature and refuses any server that cannot produce it, so an attacker on the path can no
+longer stand in for the server.
+
+Generate a key pair
+~~~~~~~~~~~~~~~~~~~
+
+Once per server, with ``GenerateIdentityKeyPair`` from ``mafianet/session_crypto.h``, or with the
+``IdentityKeyGen`` sample, which prints a new pair in hex:
+
+.. code-block:: cpp
+
+   #include "mafianet/session_crypto.h"
+
+   uint8_t publicKey[MafiaNet::kIdentityPublicKeyBytes];   // 32 bytes: publish
+   uint8_t secretKey[MafiaNet::kIdentitySecretKeyBytes];   // 64 bytes: keep private
+   MafiaNet::GenerateIdentityKeyPair(publicKey, secretKey);
+
+Store the secret key the way you store other server secrets. Ship the public key with the client, or
+publish it through any channel the client already trusts.
+
+Install it on the server
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``SetIdentityKey`` must be called before ``Startup``. It returns ``false`` once the peer has started,
+and for a malformed key.
+
+.. code-block:: cpp
+
+   MafiaNet::RakPeerInterface* server = MafiaNet::RakPeerInterface::GetInstance();
+   if (!server->SetIdentityKey(secretKey)) {
+       // Already started, or not a valid 64-byte Ed25519 secret key.
+   }
+   server->Startup(100, &sd, 1);
+   MafiaNet::SecureZero(secretKey, sizeof(secretKey));   // the peer keeps its own copy
+
+   uint8_t check[32];
+   server->GetIdentityPublicKey(check);   // the public half, false if no key is set
+
+The peer keeps its own copy of the key and wipes it when it is replaced, on ``Shutdown`` and in the
+destructor. Call ``SetIdentityKey`` again before every ``Startup``. ``SetIdentityKey(nullptr)``
+removes the key. A server without an identity key behaves as before.
+
+Pin it on the client
+~~~~~~~~~~~~~~~~~~~~
+
+Pass the server's public key to ``Connect`` (or ``ConnectWithSocket``) in a ``PublicKey``:
+
+.. code-block:: cpp
+
+   MafiaNet::PublicKey pin;
+   memcpy(pin.serverIdentity, serverPublicKey, sizeof(pin.serverIdentity));
+   client->Connect("game.example.com", 60000, nullptr, 0, &pin);
+
+   switch (packet->data[0]) {
+       case ID_CONNECTION_REQUEST_ACCEPTED:
+           // The server proved it holds the pinned key.
+           break;
+       case ID_PUBLIC_KEY_MISMATCH:
+           // It did not: no key, another key, or a bad signature. The attempt is over.
+           break;
+   }
+
+``ID_PUBLIC_KEY_MISMATCH`` arrives once per ``Connect``, under the address ``Connect`` reported, even
+when several addresses of the host were tried (IPv6 and IPv4). Nothing was allocated for the attempt.
+
+The startup builders take the same settings:
+
+.. code-block:: cpp
+
+   auto server = MafiaNet::Peer::server()
+       .port(60000)
+       .max_connections(32)
+       .identity_key(secretKey)            // SetIdentityKey before Startup
+       .start();
+
+   auto client = MafiaNet::Peer::client()
+       .pin_server_identity(serverPublicKey)
+       .connect("game.example.com", 60000)
+       .start();
+
+Without a pin
+~~~~~~~~~~~~~
+
+A client that pinned nothing still checks the signature of a server that sends one. If it verifies,
+the client records the server's public key, readable once connected:
+
+.. code-block:: cpp
+
+   uint8_t key[32];
+   if (client->GetRemoteIdentityKey(serverAddress, key)) {
+       // The server proved it holds this key. Whether it is the server you meant is for
+       // the application to decide, for example by remembering it on first use.
+   }
+
+``GetRemoteIdentityKey`` returns ``false`` when the server has no identity key. If the signature does
+not verify, the client ignores that handshake reply and keeps waiting for a valid one; it does not
+report ``ID_PUBLIC_KEY_MISMATCH``, which only a pinned attempt does.
+
+Identity works in both encryption modes. In ``Plaintext`` mode it authenticates the handshake only,
+since the datagrams after it are not protected.
 
 Migrating from the old security API
 -----------------------------------
@@ -206,6 +310,16 @@ What your code sees: the lower peer gets ``ID_CONNECTION_REQUEST_ACCEPTED``. The
 ``ID_CONNECTION_REQUEST_ACCEPTED`` after calling ``Connect`` in a peer-to-peer setup must also
 handle ``ID_NEW_INCOMING_CONNECTION``. Plaintext peers behave as they always did.
 
+With pinned identities, only the side that answers a handshake proves its identity:
+
+* The lower peer pins the higher one: the higher peer answers as above and proves its key, so it
+  needs an identity key.
+* The higher peer pins the lower one: its ``Connect`` is never absorbed into the lower peer's
+  handshake. It refuses that handshake with ``ID_NO_FREE_INCOMING_CONNECTIONS``, which the lower
+  peer receives for its own ``Connect``, and connects as the initiator; the lower peer then answers
+  and must prove the pinned key. The higher peer gets ``ID_CONNECTION_REQUEST_ACCEPTED`` and the
+  lower one ``ID_NEW_INCOMING_CONNECTION``. This also applies when both pin each other.
+
 Monitoring dropped datagrams
 ----------------------------
 
@@ -244,8 +358,9 @@ Best practices
 --------------
 
 1. **Leave encryption on.** Use ``Plaintext`` only on a trusted LAN, in tests, or under a fuzzer.
-2. **Do not rely on encryption for identity.** Until server identity keys exist, authenticate users
-   at the application level and assume an active attacker can sit between a client and the server.
+2. **Pin the server identity.** Give servers an identity key and have clients pin it. Without a
+   pin, assume an active attacker can sit between a client and the server. Authenticate users at the
+   application level either way.
 3. **Validate all data.** Encryption does not make a peer's messages correct or benign.
 4. **Keep libsodium current.** It is the one crypto dependency; update it with your OS or package
    manager.

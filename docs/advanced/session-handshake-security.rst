@@ -14,12 +14,14 @@ Trust model
 offline connection handshake, matched ``RAKNET_PROTOCOL_VERSION``, and passed
 ``SetIncomingPassword()`` if one is set. That is the entire bar. In particular the payload is:
 
-* **Encrypted but unauthenticated.** On the default ``EncryptionMode::Required`` connection the
-  payload travels sealed under session keys, so an attacker who cannot read the connection cannot
-  read it, change it, or spoof the source address to supply a payload of their own. But MafiaNet does
-  not yet verify *who* is on the other end of the key exchange: an attacker positioned on the path
-  can run the handshake with each side and supply the payload. Treat it as coming from an unknown
-  peer. On an ``EncryptionMode::Plaintext`` connection it is neither encrypted nor authenticated.
+* **Encrypted, and authenticated only by a pin.** On the default ``EncryptionMode::Required``
+  connection the payload travels sealed under session keys, so an attacker who cannot read the
+  connection cannot read it, change it, or spoof the source address to supply a payload of their
+  own. A client that pinned the server's identity key (see :ref:`server-identity`) knows the
+  server's payload comes from that server. Nothing authenticates a client to a server, and without a
+  pin nothing authenticates the server: an attacker positioned on the path can run the handshake with
+  each side and supply the payload. Treat it as coming from an unknown peer. On an
+  ``EncryptionMode::Plaintext`` connection it is not encrypted.
 * **Arbitrary bytes.** MafiaNet never inspects, parses, validates, or transforms it. Do not assume
   text, encoding, structure, or a trailing terminator.
 * **Attacker-chosen in length**, up to ``MAXIMUM_SESSION_CONFIG_SIZE``.
@@ -123,6 +125,6 @@ Not addressed here
 
 The session handshake does not change MafiaNet's transport security posture. Offline messages
 (including the open-connection handshake that precedes this exchange) are not encrypted, address
-spoofing and amplification via the offline ping path are unchanged, and peers are not authenticated
-to each other, as described above. These are out of scope for this page. See
+spoofing and amplification via the offline ping path are unchanged, and clients are not
+authenticated to servers, as described above. These are out of scope for this page. See
 :doc:`../basics/secure-connections` and :doc:`encryption-wire-format`.

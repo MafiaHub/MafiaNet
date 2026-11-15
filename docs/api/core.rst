@@ -258,7 +258,10 @@ Connections are encrypted by default. Both builders accept
 before ``Startup``; ``EncryptionMode::Plaintext`` is for LAN debugging and must
 be set on both sides, or the connection is refused (see
 :doc:`../basics/secure-connections`). A failed ``SetEncryptionMode()`` surfaces
-as ``PeerStage::Startup``. ``ServerBuilder::secure()`` and
+as ``PeerStage::Startup``. ``ServerBuilder::identity_key()`` installs a server
+identity key (``SetIdentityKey()``) and ``ClientBuilder::pin_server_identity()``
+pins it on the connecting side (see :ref:`server-identity`); a malformed key
+also surfaces as ``PeerStage::Startup``. ``ServerBuilder::secure()`` and
 ``ClientBuilder::public_key()`` no longer exist: the RSA/``libcat`` security
 API they forwarded to was removed.
 

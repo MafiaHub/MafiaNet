@@ -13,7 +13,9 @@ Conventions
 
 * All primitives come from libsodium: ``crypto_scalarmult_curve25519`` (X25519),
   ``crypto_auth_hmacsha256``, ``crypto_aead_chacha20poly1305_ietf`` (ChaCha20-Poly1305, 12-byte
-  nonce, 16-byte tag) and ``crypto_shorthash`` (SipHash-2-4).
+  nonce, 16-byte tag), ``crypto_shorthash`` (SipHash-2-4), and ``crypto_sign_ed25519_detached`` /
+  ``crypto_sign_ed25519_verify_detached`` (Ed25519, 32-byte public key, 64-byte signature) for the
+  server identity.
 * Fields written by ``BitStream`` (the message ID, GUIDs, the challenge, the MTU) are byte-aligned
   here, and multi-byte integers are in **network byte order (big-endian)**.
 * The fields described as "little-endian" below (the crypt info nonce, the sequence number, the
@@ -41,7 +43,7 @@ packets), and a *crypt info* record from each side.
       |  OPEN_CONNECTION_REQUEST_1  ---------->|   protocol version, MTU probe
       |<---------- OPEN_CONNECTION_REPLY_1     |   server GUID, challenge, MTU
       |  OPEN_CONNECTION_REQUEST_2  ---------->|   challenge, client crypt info, ...
-      |<---------- OPEN_CONNECTION_REPLY_2     |   server crypt info, ...
+      |<---------- OPEN_CONNECTION_REPLY_2     |   server crypt info, identity block, ...
       |                                        |
       |  both sides now derive the same two session keys
       |  ID_CONNECTION_REQUEST (sealed)  ----->|   first sealed datagram
@@ -120,8 +122,11 @@ ID_OPEN_CONNECTION_REPLY_2 (server to client)
     [client address] (SystemAddress) // the client's address, as the server sees it
     [MTU] (u16)
     [server crypt info] (41 bytes)
+    [identity block] (1 or 97 bytes) // see "Server identity"
 
-83 bytes with an IPv4 client address, 95 with IPv6.
+84 bytes with an IPv4 client address and no server identity key, 96 with IPv6; 96 bytes more
+(180 and 192) when the server has an identity key. The server only sends ``REPLY_2`` in answer to a
+``REQUEST_2`` that carried a valid challenge, so its size cannot be used for amplification.
 
 The nonce echo is the ``nonce`` field of the client crypt info from the ``REQUEST_2`` being answered,
 written by ``BitStream`` (network byte order, like the challenge). It plays the part of the client's
@@ -168,7 +173,67 @@ Retransmission
 If ``REQUEST_2`` arrives again from an address and GUID that already has an unverified connection
 from this handshake, the server compares the client crypt info byte for byte (constant time) with
 the one it stored. If they are equal it resends ``REPLY_2`` with the **stored** server crypt info,
-so a lost ``REPLY_2`` does not change the keys. If they differ, the datagram is dropped.
+so a lost ``REPLY_2`` does not change the keys. The identity block is signed again over the same
+transcript; Ed25519 signatures are deterministic, so it is byte for byte the block of the first
+``REPLY_2``. If they differ, the datagram is dropped.
+
+Server identity
+---------------
+
+A server may hold a long-term Ed25519 identity key pair (libsodium's 64-byte secret key: 32-byte
+seed followed by the 32-byte public key). A client may pin the server's public key. This follows
+GameNetworkingSockets, which signs its crypt info with a long-term key; here the signature also covers
+the client's crypt info, so it is valid for one handshake only.
+
+Identity block
+~~~~~~~~~~~~~~
+
+The last field of ``REPLY_2``::
+
+    [flag] (u8)                       // 0 = no identity key, 1 = present; any other value is malformed
+    [identity public key] (32 bytes)  // only if flag == 1
+    [signature] (64 bytes)            // only if flag == 1
+
+1 byte without an identity key, 97 with one. The server sends the block in both encryption modes. A
+``REPLY_2`` whose block is malformed (an unknown flag, or fewer than 96 bytes after a flag of 1) is
+dropped like any other malformed ``REPLY_2``: silently, with the attempt carrying on. Bytes after the
+block are ignored.
+
+Signed input
+~~~~~~~~~~~~
+
+The signature is ``crypto_sign_ed25519_detached`` with the identity secret key over these 107 bytes::
+
+    "MafiaNet server identity"   24 bytes of ASCII, no terminator
+    protocol version              1 byte (9)
+    client crypt info            41 bytes, exactly as in REQUEST_2
+    server crypt info            41 bytes, exactly as in REPLY_2
+
+The client crypt info carries the client's fresh nonce and, in mode ``Required``, its ephemeral public
+key, so a signature cannot be replayed into another handshake. The identity block also enters the key
+schedule (see `Key schedule`_), so the session keys are bound to the identity the client checked.
+
+Client checks
+~~~~~~~~~~~~~
+
+The client processes ``REPLY_2`` in this order, and the identity checks come before any key is
+derived and before anything is allocated:
+
+1. The datagram parses, including the identity block; otherwise it is dropped.
+2. The nonce echo matches a pending attempt to that address; otherwise it is dropped.
+3. The server's mode equals the client's; otherwise the attempt ends with a mode refusal (see
+   `Mode agreement`_).
+4. If the attempt **pinned** a server identity, the block must be present, its public key must equal
+   the pinned key (constant-time compare), and the signature must verify. Otherwise the attempt
+   ends: the client delivers ``ID_PUBLIC_KEY_MISMATCH`` once, under the address the application's
+   ``Connect`` reported (the first Happy Eyeballs candidate), drops the attempt and its ephemeral key
+   pair, and sends nothing.
+5. If the attempt did **not** pin and a block is present, the signature is still verified. If it does
+   not verify, this ``REPLY_2`` is dropped silently and the attempt carries on; no mismatch is
+   reported. If it does, the client records the public key, which
+   ``RakPeerInterface::GetRemoteIdentityKey`` returns once the connection exists.
+6. Key derivation and the rest of the handshake, as below.
+
 
 The challenge
 -------------
@@ -222,7 +287,7 @@ public key. Let ``I`` be the initiator's crypt info and ``R`` the responder's, a
    mode Required.
 2. **Extract.** ``salt = I.nonce (8 bytes LE) | R.nonce (8 bytes LE)``, 16 bytes.
    ``PRK = HMAC-SHA256(key = salt, message = shared)``. This is HKDF-Extract (RFC 5869).
-3. **Expand.** The ``info`` string is 117 bytes::
+3. **Expand.** The ``info`` string is 118 bytes, or 214 when the responder has an identity key::
 
        "MafiaNet datagram"         17 bytes of ASCII, no terminator
        protocol version             1 byte (9)
@@ -230,6 +295,7 @@ public key. Let ``I`` be the initiator's crypt info and ``R`` the responder's, a
        responder GUID               8 bytes, little-endian
        initiator crypt info I      41 bytes
        responder crypt info R      41 bytes
+       responder identity block     1 or 97 bytes, exactly as in REPLY_2
        direction                    1 byte
 
    Two keys are derived with HKDF-Expand (RFC 5869) at 32 bytes each, which is a single block
@@ -243,8 +309,8 @@ public key. Let ``I`` be the initiator's crypt info and ``R`` the responder's, a
 4. **Wipe.** The ephemeral secret key, ``shared`` and ``PRK`` are wiped as soon as the keys are
    derived. The ephemeral secret never exists after the handshake.
 
-The ``info`` binds the keys to everything the handshake exchanged: the protocol version, both GUIDs
-and both crypt infos including both nonces. A different transcript gives different keys, and the
+The ``info`` binds the keys to everything the handshake exchanged: the protocol version, both GUIDs,
+both crypt infos including both nonces, and the responder's identity block. A different transcript gives different keys, and the
 two directions have different keys, so a datagram cannot be reflected back at its sender.
 
 The responder derives its keys when it processes ``REQUEST_2``; the initiator when it processes
@@ -384,11 +450,24 @@ installed once per remote system and are never replaced.
 In ``Plaintext`` mode there are no keys to disagree about, and the handshakes converge as they
 always did.
 
+Only the responder of the winning handshake proves an identity. So that a pin is never satisfied by
+a handshake in which the pinned peer proved nothing, in ``Required`` mode:
+
+* A peer whose own pending attempt to that address **pinned** the remote's identity, and whose GUID is
+  higher than the sender's, does not answer the sender's ``REQUEST_2`` either. It refuses it with
+  ``ID_NO_FREE_INCOMING_CONNECTIONS`` (allocating and deriving nothing), which ends the sender's
+  attempt, and retries its own attempt at once. The sender, no longer connecting, answers that retry
+  as responder and must prove the pinned identity.
+* A pinned attempt is never absorbed into an incoming connection.
+
 Security notes
 --------------
 
-* Nothing in the handshake is authenticated. An attacker on the path can substitute their own crypt
-  info on each leg and relay the connection (see :doc:`../basics/secure-connections`).
+* Without a pinned server identity nothing in the handshake is authenticated, and an attacker on the
+  path can substitute their own crypt info on each leg and relay the connection (see
+  :doc:`../basics/secure-connections`). A pinned client accepts only a ``REPLY_2`` whose server crypt
+  info, together with its own, is signed by the pinned key. Clients are never authenticated to the
+  server.
 * An off-path attacker that knows a connecting client's address and port can send a refusal ID
   (``ID_CONNECTION_BANNED``, a mode mismatch ID and the like) during the connect window and make that
   attempt fail. A forged ``REPLY_2`` needs the 64-bit nonce echo as well, which an off-path attacker
@@ -426,7 +505,15 @@ Constants
    * - HKDF info label
      - ``MafiaNet datagram`` (17 bytes)
    * - HKDF info size
-     - 117 bytes
+     - 118 bytes, 214 with a server identity key
+   * - Identity block
+     - 1 byte (flag 0), or 97 bytes (flag 1, 32-byte public key, 64-byte signature)
+   * - Identity signature label
+     - ``MafiaNet server identity`` (24 bytes)
+   * - Identity signed input
+     - 107 bytes
+   * - ``REPLY_2`` size
+     - 84 bytes (IPv4) or 96 (IPv6), plus 96 with a server identity key
    * - Direction bytes
      - ``0x01`` initiator to responder, ``0x02`` responder to initiator
    * - Prefix byte
