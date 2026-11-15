@@ -86,6 +86,7 @@ set(MAFIANET_SOURCES
     src/rpc4_plugin.cpp
     src/secure_handshake.cpp
     src/send_to_thread.cpp
+    src/session_crypto.cpp
     src/signaled_event.cpp
     src/simple_mutex.cpp
     src/socket_layer.cpp
@@ -244,6 +245,7 @@ set(MAFIANET_HEADERS
     include/mafianet/rpc4_plugin.h
     include/mafianet/secure_handshake.h
     include/mafianet/send_to_thread.h
+    include/mafianet/session_crypto.h
     include/mafianet/signaled_event.h
     include/mafianet/simple_mutex.h
     include/mafianet/simple_tcp_server.h
