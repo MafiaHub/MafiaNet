@@ -149,7 +149,7 @@ public:
 		                                  //			MafiaNet::TimeMS whenMessageArrived; // Passthrough
 		MafiaNet::RakString dbIdentifier; // Passthrough
 		// SystemAddress systemAddress;
-		char ipAddressString[32];
+		char ipAddressString[64];
 		MafiaNet::RakString tableName;
 		MafiaNet::RakString file;
 		MafiaNet::TimeMS clientSendingTime;

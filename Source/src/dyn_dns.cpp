@@ -170,7 +170,7 @@ void DynDNS::Update(void)
 							{
 								SystemAddress parser;
 								parser.FromString(curResult);
-								parser.ToString(false, myIPStr, static_cast<size_t>(32));
+								parser.ToString(false, myIPStr, static_cast<size_t>(64));
 							}
 						}
 						tcp->DeallocatePacket(packet);
@@ -217,7 +217,7 @@ void DynDNS::Update(void)
 				curResult += strlen("Current IP Address: ");
 				SystemAddress myIp;
 				myIp.FromString(curResult);
-				myIp.ToString(false, myIPStr, static_cast<size_t>(32));
+				myIp.ToString(false, myIPStr, static_cast<size_t>(64));
 
 				char existingHost[65];
 				existingHost[0] = 0;

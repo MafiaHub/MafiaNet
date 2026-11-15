@@ -170,6 +170,11 @@ struct RAK_DLL_EXPORT SocketDescriptor
 
 extern bool NonNumericHostString(const char *host);
 
+/// \internal Split "<host>[<portDelineator><port>]" into its host and port parts, as SystemAddress::FromString() does.
+/// Never truncates: returns false if the host part does not fit in \a host (hostSize bytes, NUL included) or the
+/// port part does not fit in \a port. A portDelineator of 0 means \a str holds no port.
+extern bool SplitHostAndPort(const char *str, char portDelineator, char *host, size_t hostSize, char *port, size_t portSize);
+
 /// \brief Network address for a system
 /// \details Corresponds to a network address<BR>
 /// This is not necessarily a unique identifier. For example, if a system has both LAN and internet connections, the system may be identified by either one, depending on who is communicating<BR>
@@ -222,8 +227,13 @@ struct RAK_DLL_EXPORT SystemAddress
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	const char *ToString(bool writePort = true, char portDelineator = '|') const;
 
+	/// Buffer size that holds any ToString() result: the longest IPv6 text (45), a '%' scope id (11),
+	/// the port delineator and port (6) and the terminator. At least INET6_ADDRSTRLEN + 1 + 5 + 1.
+	static constexpr size_t TO_STRING_BUFFER_SIZE = 64;
+
 	// Return the systemAddress as a string in the format <IP>|<Port>
-	// dest must be large enough to hold the output
+	// The overload without destLength assumes dest holds TO_STRING_BUFFER_SIZE bytes: pass a buffer at least that large.
+	// The sized overload never writes more than destLength bytes; if the result does not fit, dest is set to "".
 	// portDelineator should not be '.', ':', '%', '-', '/', a number, or a-f
 	// THREADSAFE
 	void ToString(bool writePort, char *dest, char portDelineator = '|') const;

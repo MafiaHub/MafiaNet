@@ -11,6 +11,7 @@
 
 #include <cstring>
 #include <map>
+#include <memory>
 #include <string>
 
 #ifdef _WIN32
@@ -95,7 +96,8 @@ TEST(SystemAddressParse, SetBinaryAddressHostnameResolvesToIpv4)
 TEST(SystemAddressParse, OverlongStringDoesNotOverflow)
 {
 	SystemAddress sa;
-	const std::string longHost(200, 'a');
+	// Longer than any host name: rejected before it reaches the resolver.
+	const std::string longHost(300, 'a');
 	EXPECT_FALSE(sa.FromString(longHost.c_str()));
 	const std::string longPort = "2001:db8::5|" + std::string(100, '7');
 	(void) sa.FromString(longPort.c_str());
@@ -171,4 +173,144 @@ TEST(SystemAddressHash, SameAddressSameHash)
 	const SystemAddress a6("2001:db8::1", 10), b6("2001:db8::1", 10);
 	EXPECT_EQ(SystemAddress::ToInteger(a4), SystemAddress::ToInteger(b4));
 	EXPECT_EQ(SystemAddress::ToInteger(a6), SystemAddress::ToInteger(b6));
+}
+
+// --- ToString buffer bounds ---
+
+namespace
+{
+// The longest IPv6 text without a scope id (39 characters) and the longest port.
+const char *const LONG_IPV6 = "2001:db8:1234:5678:9abc:def0:1234:5678";
+}
+
+static_assert(SystemAddress::TO_STRING_BUFFER_SIZE >= static_cast<size_t>(INET6_ADDRSTRLEN + 1 + 5 + 1), "ToString's documented minimum must hold an IPv6 address and port");
+
+TEST(SystemAddressToString, SizedOverloadNeverOverflowsASmallBuffer)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromStringExplicitPort(LONG_IPV6, 65535));
+
+	// Exactly 32 bytes on the heap, so AddressSanitizer reports any write past it.
+	std::unique_ptr<char[]> small(new char[32]);
+	memset(small.get(), 'X', 32);
+	sa.ToString(true, small.get(), static_cast<size_t>(32));
+	EXPECT_LT(strnlen(small.get(), 32), 32u) << "result is not NUL-terminated within the buffer";
+	EXPECT_STREQ(small.get(), "") << "a result that does not fit is empty, never a truncated address";
+}
+
+TEST(SystemAddressToString, SizedOverloadWritesTheWholeAddressWhenItFits)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromStringExplicitPort(LONG_IPV6, 65535));
+
+	char buf[64];
+	sa.ToString(true, buf, sizeof(buf));
+	EXPECT_STREQ(buf, "2001:db8:1234:5678:9abc:def0:1234:5678|65535");
+	sa.ToString(false, buf, sizeof(buf));
+	EXPECT_STREQ(buf, LONG_IPV6);
+}
+
+TEST(SystemAddressToString, ExactFitIsWrittenOneByteLessIsEmpty)
+{
+	const SystemAddress sa("192.0.2.1", 7);
+	const std::string expected = "192.0.2.1|7";
+	std::unique_ptr<char[]> exact(new char[expected.size() + 1]);
+	sa.ToString(true, exact.get(), expected.size() + 1);
+	EXPECT_EQ(std::string(exact.get()), expected);
+
+	std::unique_ptr<char[]> shortBuf(new char[expected.size()]);
+	sa.ToString(true, shortBuf.get(), expected.size());
+	EXPECT_STREQ(shortBuf.get(), "");
+}
+
+TEST(SystemAddressToString, UnassignedIntoASmallBufferDoesNotOverflow)
+{
+	std::unique_ptr<char[]> small(new char[8]);
+	UNASSIGNED_SYSTEM_ADDRESS.ToString(true, small.get(), static_cast<size_t>(8));
+	EXPECT_STREQ(small.get(), "");
+
+	char buf[SystemAddress::TO_STRING_BUFFER_SIZE];
+	UNASSIGNED_SYSTEM_ADDRESS.ToString(true, buf, sizeof(buf));
+	EXPECT_STREQ(buf, "UNASSIGNED_SYSTEM_ADDRESS");
+}
+
+TEST(SystemAddressToString, UnsizedOverloadFitsTheDocumentedMinimum)
+{
+	// The longest possible result: 39-character address, a 10-digit scope id and a 5-digit port.
+	SystemAddress sa;
+	// A global address with a scope id set by hand: link-local ones carry the scope in the address bytes on BSD.
+	ASSERT_TRUE(sa.FromStringExplicitPort(LONG_IPV6, 65535));
+	sa.address.addr6.sin6_scope_id = 4294967295u;
+
+	std::unique_ptr<char[]> exact(new char[SystemAddress::TO_STRING_BUFFER_SIZE]);
+	sa.ToString(true, exact.get());
+	EXPECT_STREQ(exact.get(), "2001:db8:1234:5678:9abc:def0:1234:5678%4294967295|65535");
+}
+
+TEST(SystemAddressToString, ScopeIdIsPrintedNumerically)
+{
+	SystemAddress sa;
+	ASSERT_TRUE(sa.FromStringExplicitPort("fe80::1", 5));
+	sa.address.addr6.sin6_scope_id = 7;
+	EXPECT_STREQ(sa.ToString(true), "fe80::1%7|5");
+
+	sa.address.addr6.sin6_scope_id = 0;
+	EXPECT_STREQ(sa.ToString(true), "fe80::1|5");
+}
+
+// --- Host/port splitting (FromString) ---
+
+TEST(SplitHostAndPort, LongHostNameIsNotTruncated)
+{
+	// Longer than INET6_ADDRSTRLEN, like a cloud provider's public DNS name.
+	const std::string name = "ec2-203-0-113-25.eu-west-3.compute.example-cloud-provider.com";
+	ASSERT_GT(name.size(), 55u);
+	char host[256];
+	char port[32];
+	ASSERT_TRUE(SplitHostAndPort((name + "|60000").c_str(), '|', host, sizeof(host), port, sizeof(port)));
+	EXPECT_EQ(std::string(host), name);
+	EXPECT_STREQ(port, "60000");
+
+	ASSERT_TRUE(SplitHostAndPort(name.c_str(), '|', host, sizeof(host), port, sizeof(port)));
+	EXPECT_EQ(std::string(host), name);
+	EXPECT_STREQ(port, "");
+}
+
+TEST(SplitHostAndPort, HostOfMaximumLengthFitsLongerIsRejected)
+{
+	char host[256];
+	char port[32];
+	const std::string longest(255, 'h');
+	ASSERT_TRUE(SplitHostAndPort(longest.c_str(), '|', host, sizeof(host), port, sizeof(port)));
+	EXPECT_EQ(std::string(host), longest);
+
+	const std::string tooLong(256, 'h');
+	EXPECT_FALSE(SplitHostAndPort(tooLong.c_str(), '|', host, sizeof(host), port, sizeof(port)));
+	EXPECT_FALSE(SplitHostAndPort((tooLong + "|1").c_str(), '|', host, sizeof(host), port, sizeof(port)));
+}
+
+TEST(SplitHostAndPort, OverlongPortIsRejected)
+{
+	char host[256];
+	char port[8];
+	EXPECT_FALSE(SplitHostAndPort("example.com|123456789", '|', host, sizeof(host), port, sizeof(port)));
+	ASSERT_TRUE(SplitHostAndPort("example.com|1234567", '|', host, sizeof(host), port, sizeof(port)));
+	EXPECT_STREQ(port, "1234567");
+}
+
+TEST(SplitHostAndPort, NulDelimiterMeansNoPort)
+{
+	char host[256];
+	char port[32];
+	ASSERT_TRUE(SplitHostAndPort("2001:db8::1", '\0', host, sizeof(host), port, sizeof(port)));
+	EXPECT_STREQ(host, "2001:db8::1");
+	EXPECT_STREQ(port, "");
+}
+
+TEST(SystemAddressParse, HostNameLongerThan255IsRejected)
+{
+	SystemAddress sa;
+	const std::string name = std::string(250, 'a') + ".example";
+	EXPECT_FALSE(sa.FromString(name.c_str()));
+	EXPECT_FALSE(sa.FromStringExplicitPort(name.c_str(), 1));
 }

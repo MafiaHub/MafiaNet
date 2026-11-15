@@ -92,6 +92,30 @@ void AddressOrGUID::ToString(bool writePort, char *dest, size_t destLength) cons
 }
 
 // Return false if IP address. Return true if domain
+bool MafiaNet::SplitHostAndPort(const char *str, char portDelineator, char *host, size_t hostSize, char *port, size_t portSize)
+{
+	if (str == nullptr || host == nullptr || port == nullptr || hostSize == 0 || portSize == 0)
+		return false;
+	size_t hostLength = 0;
+	while (str[hostLength] != '\0' && (portDelineator == '\0' || str[hostLength] != portDelineator))
+		++hostLength;
+	if (hostLength >= hostSize)
+		return false;
+	memcpy(host, str, hostLength);
+	host[hostLength] = '\0';
+
+	port[0] = '\0';
+	if (str[hostLength] != '\0')
+	{
+		const char *portStart = str + hostLength + 1; // skip the delimiter
+		const size_t portLength = strlen(portStart);
+		if (portLength >= portSize)
+			return false;
+		memcpy(port, portStart, portLength + 1);
+	}
+	return true;
+}
+
 bool MafiaNet::NonNumericHostString(const char *host)
 {
 	size_t i = 0;
@@ -295,7 +319,7 @@ void SystemAddress::ToString_Old(bool writePort, char *dest, size_t destLength, 
 const char *SystemAddress::ToString(bool writePort, char portDelineator) const
 {
 	static unsigned char strIndex = 0;
-	static const size_t strLength = INET6_ADDRSTRLEN + 1 + 5 + 1;
+	static const size_t strLength = TO_STRING_BUFFER_SIZE;
 	static char str[8][strLength];
 
 	unsigned char lastStrIndex = strIndex;
@@ -305,69 +329,49 @@ const char *SystemAddress::ToString(bool writePort, char portDelineator) const
 }
 void SystemAddress::ToString_New(bool writePort, char *dest, char portDelineator) const
 {
-	int ret;
-	(void) ret;
-
-	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
-	{
-		strcpy(dest, "UNASSIGNED_SYSTEM_ADDRESS");
-		return;
-	}
-
-	if (address.addr4.sin_family == AF_INET)
-	{
-		ret = getnameinfo((struct sockaddr *) &address.addr4, sizeof(struct sockaddr_in), dest, 22, nullptr, 0, NI_NUMERICHOST);
-	}
-	else
-	{
-		ret = getnameinfo((struct sockaddr *) &address.addr6, sizeof(struct sockaddr_in6), dest, INET6_ADDRSTRLEN, nullptr, 0, NI_NUMERICHOST);
-	}
-	if (ret != 0)
-	{
-		dest[0] = 0;
-	}
-
-	if (writePort)
-	{
-		unsigned char ch[2];
-		ch[0] = portDelineator;
-		ch[1] = 0;
-		strcat(dest, (const char *) ch);
-		Itoa(ntohs(address.addr4.sin_port), dest + strlen(dest), 10);
-	}
+	// The unsized overload trusts the documented minimum buffer size.
+	ToString_New(writePort, dest, TO_STRING_BUFFER_SIZE, portDelineator);
 }
 void SystemAddress::ToString_New(bool writePort, char *dest, size_t destLength, char portDelineator) const
 {
-	int ret;
-	(void) ret;
+	if (dest == nullptr || destLength == 0)
+		return;
 
+	// Format into a local buffer that always fits, then copy only if the whole result fits in dest.
+	// inet_ntop (unlike getnameinfo) needs no WSAStartup on Windows, so this works before any Startup().
+	char text[TO_STRING_BUFFER_SIZE + 16];
+	text[0] = '\0';
 	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		strcpy_s(dest, destLength, "UNASSIGNED_SYSTEM_ADDRESS");
-		return;
-	}
-
-	if (address.addr4.sin_family == AF_INET)
-	{
-		ret = getnameinfo((struct sockaddr *) &address.addr4, sizeof(struct sockaddr_in), dest, 22, nullptr, 0, NI_NUMERICHOST);
+		strcpy(text, "UNASSIGNED_SYSTEM_ADDRESS");
 	}
 	else
 	{
-		ret = getnameinfo((struct sockaddr *) &address.addr6, sizeof(struct sockaddr_in6), dest, INET6_ADDRSTRLEN, nullptr, 0, NI_NUMERICHOST);
-	}
-	if (ret != 0)
-	{
-		dest[0] = 0;
+		if (address.addr4.sin_family == AF_INET)
+		{
+			if (inet_ntop(AF_INET, &address.addr4.sin_addr, text, INET6_ADDRSTRLEN) == nullptr)
+				text[0] = '\0';
+		}
+		else
+		{
+			if (inet_ntop(AF_INET6, &address.addr6.sin6_addr, text, INET6_ADDRSTRLEN) == nullptr)
+				text[0] = '\0';
+			else if (address.addr6.sin6_scope_id != 0)
+				snprintf(text + strlen(text), sizeof(text) - strlen(text), "%%%lu", static_cast<unsigned long>(address.addr6.sin6_scope_id));
+		}
+
+		if (writePort)
+		{
+			const size_t used = strlen(text);
+			snprintf(text + used, sizeof(text) - used, "%c%u", portDelineator, static_cast<unsigned int>(ntohs(address.addr4.sin_port)));
+		}
 	}
 
-	if (writePort)
-	{
-		unsigned char ch[2];
-		ch[0] = portDelineator;
-		ch[1] = 0;
-		strcat_s(dest, destLength, (const char *) ch);
-		Itoa(ntohs(address.addr4.sin_port), dest + strlen(dest), 10);
-	}
+	const size_t length = strlen(text);
+	if (length < destLength)
+		memcpy(dest, text, length + 1);
+	else
+		dest[0] = '\0'; // too small: an empty string rather than a truncated address
 }
 void SystemAddress::ToString(bool writePort, char *dest, char portDelineator) const
 {
@@ -553,7 +557,8 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 		address.addr4.sin_family = AF_INET;
 		return true;
 	}
-	char ipPart[INET6_ADDRSTRLEN];
+	// Host names are up to 253 characters; never truncate one (a truncated name resolves to some other host).
+	char ipPart[256];
 	char portPart[32];
 	portPart[0] = 0;
 
@@ -568,25 +573,9 @@ bool SystemAddress::FromString(const char *str, char portDelineator, int ipVersi
 		strcpy_s(ipPart, IPV6_LOOPBACK);
 	}
 
-	size_t i = 0;
-	for (; i < sizeof(ipPart) - 1 && str[i] != '\0'; ++i)
-	{
-		if (str[i] == portDelineator)
-		{
-			// #med - missing error checking, if portPart is non-numeric and/or exceeds max allowed port value
-			size_t j = 0;
-			++i; // skip the delimiter
-			for (; j < sizeof(portPart) - 1 && str[i] != '\0'; ++i, ++j)
-			{
-				portPart[j] = str[i];
-			}
-			portPart[j] = '\0';
-			i = i - j - 1; // reset the position to the last position, so the trailing '\0'-terminator is set correctly below
-			break;
-		}
-		ipPart[i] = str[i];
-	}
-	ipPart[i] = '\0';
+	// #med - missing error checking, if portPart is non-numeric and/or exceeds max allowed port value
+	if (!SplitHostAndPort(str, portDelineator, ipPart, sizeof(ipPart), portPart, sizeof(portPart)))
+		return false;
 
 	// needed for getaddrinfo
 	WSAStartupSingleton::AddRef();

@@ -77,8 +77,8 @@ void ReadAllPackets(void)
 			printf("Routing through %s to %s successful. Connecting.\n", str, MafiaNet::to_string(endpointGuid).c_str());
 			unsigned short sourceToDestPort;
 			bs.Read(sourceToDestPort);
-			char ipAddressString[32];
-			packet->systemAddress.ToString(false, ipAddressString, static_cast<size_t>(32));
+			char ipAddressString[64];
+			packet->systemAddress.ToString(false, ipAddressString, static_cast<size_t>(64));
 			rakPeer->Connect(ipAddressString, sourceToDestPort, 0, 0);
 		}
 		else if (packet->data[0] == ID_ROUTER_2_REROUTED)
@@ -94,8 +94,8 @@ void ReadAllPackets(void)
 			bs.Read(port);
 			intermediateAddress.SetPortHostOrder(port);
 
-			char str3[32];
-			intermediateAddress.ToString(true, str3, static_cast<size_t>(32));
+			char str3[64];
+			intermediateAddress.ToString(true, str3, static_cast<size_t>(64));
 			printf("Connection to %s rerouted through %s\n", str, str3);
 
 			// Test sending a message to the endpoint

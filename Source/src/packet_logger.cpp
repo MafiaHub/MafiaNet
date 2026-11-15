@@ -101,9 +101,9 @@ void PacketLogger::FormatLine(
     char *into, size_t intoLength, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, const char *idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
     unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
-	char str1[64], str2[62];
+	char str1[64], str2[64];
 	local.ToString(true, str1, static_cast<size_t>(64));
-	remote.ToString(true, str2, static_cast<size_t>(62));
+	remote.ToString(true, str2, static_cast<size_t>(64));
 	char localtime[128];
 	GetLocalTime(localtime);
 	char str3[64];
@@ -124,9 +124,9 @@ void PacketLogger::FormatLine(
 void PacketLogger::FormatLine(char *into, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, const char *idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
                               unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
-	char str1[64], str2[62];
+	char str1[64], str2[64];
 	local.ToString(true, str1, static_cast<size_t>(64));
-	remote.ToString(true, str2, static_cast<size_t>(62));
+	remote.ToString(true, str2, static_cast<size_t>(64));
 	char localtime[128];
 	GetLocalTime(localtime);
 	char str3[64];
@@ -193,10 +193,10 @@ void PacketLogger::OnReliabilityLayerNotification(const char *errorMessage, cons
 void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time)
 {
 	char str[256];
-	char str1[64], str2[62];
+	char str1[64], str2[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
-	remoteSystemAddress.ToString(true, str2, static_cast<size_t>(62));
+	remoteSystemAddress.ToString(true, str2, static_cast<size_t>(64));
 	char localtime[128];
 	GetLocalTime(localtime);
 
@@ -206,10 +206,10 @@ void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemA
 void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
 	char str[256];
-	char str1[64], str2[62];
+	char str1[64], str2[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
-	remoteSystemAddress.ToString(true, str2, static_cast<size_t>(62));
+	remoteSystemAddress.ToString(true, str2, static_cast<size_t>(64));
 	MafiaNet::TimeMS time = MafiaNet::GetTimeMS();
 	char localtime[128];
 	GetLocalTime(localtime);

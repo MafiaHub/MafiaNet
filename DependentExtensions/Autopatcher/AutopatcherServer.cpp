@@ -40,8 +40,8 @@ void AutopatcherServerLoadNotifier_Printf::OnQueueUpdate(SystemAddress remoteSys
 {
 	char *operationString;
 	char *requestTypeString;
-	char systemAddressString[32];
-	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(32));
+	char systemAddressString[64];
+	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(64));
 	if (requestType == ASUMC_GET_CHANGELIST)
 		requestTypeString = "GetChangelist";
 	else
@@ -60,8 +60,8 @@ void AutopatcherServerLoadNotifier_Printf::OnGetChangelistCompleted(
     AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult,
     AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 {
-	char systemAddressString[32];
-	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(32));
+	char systemAddressString[64];
+	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(64));
 
 	char *changelistString;
 	if (getChangelistResult == GCR_DELETE_FILES)
@@ -79,8 +79,8 @@ void AutopatcherServerLoadNotifier_Printf::OnGetChangelistCompleted(
 }
 void AutopatcherServerLoadNotifier_Printf::OnGetPatchCompleted(SystemAddress remoteSystem, AutopatcherServerLoadNotifier::PatchResult patchResult, AutopatcherServerLoadNotifier::AutopatcherState *autopatcherState)
 {
-	char systemAddressString[32];
-	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(32));
+	char systemAddressString[64];
+	remoteSystem.ToString(true, systemAddressString, static_cast<size_t>(64));
 
 	char *patchResultString;
 	if (patchResult == PR_NO_FILES_NEEDED_PATCHING)
