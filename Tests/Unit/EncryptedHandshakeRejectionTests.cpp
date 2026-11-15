@@ -38,7 +38,8 @@ void WriteOfflineHeader(BitStream &out, MessageID id)
 	out.WriteAlignedBytes(RakPeer::GetOfflineMessageDataIdForTesting(), RakPeer::kOfflineMessageDataIdBytes);
 }
 
-// id | offline id (16) | server guid (8) | challenge (8) | mtu (2): 35 bytes.
+// id | offline id (16) | nonce echo (8) | server guid (8) | client address | mtu (2) | server crypt info (41)
+// | identity block (1: absent, the server has no identity key).| offline id (16) | server guid (8) | challenge (8) | mtu (2): 35 bytes.
 std::vector<unsigned char> Reply1(uint64_t challenge, uint16_t mtu)
 {
 	BitStream out;
@@ -59,6 +60,7 @@ std::vector<unsigned char> Reply2(uint64_t nonceEcho, const SystemAddress &clien
 	out.Write(clientAddress);
 	out.Write(mtu);
 	serverInfo.Serialize(&out);
+	IdentityBlock().Serialize(&out);
 	return std::vector<unsigned char>(out.GetData(), out.GetData() + out.GetNumberOfBytesUsed());
 }
 
@@ -80,8 +82,8 @@ std::vector<unsigned char> Request2(uint64_t challenge, const CryptInfo &clientI
 const size_t kHeaderBytes = 1 + RakPeer::kOfflineMessageDataIdBytes; // 17
 const size_t kReply1Bytes = kHeaderBytes + 8 + 8 + 2;                // 35
 const size_t kIpv4AddressBytes = 7;
-const size_t kReply2Bytes = kHeaderBytes + 8 + 8 + kIpv4AddressBytes + 2 + CryptInfo::kSerializedBytes;   // 83
-const size_t kRequest2Bytes = kHeaderBytes + 8 + CryptInfo::kSerializedBytes + kIpv4AddressBytes + 2 + 8; // 83
+const size_t kReply2Bytes = kHeaderBytes + 8 + 8 + kIpv4AddressBytes + 2 + CryptInfo::kSerializedBytes + IdentityBlock::kAbsentBytes; // 84
+const size_t kRequest2Bytes = kHeaderBytes + 8 + CryptInfo::kSerializedBytes + kIpv4AddressBytes + 2 + 8;                             // 83
 
 size_t CountOf(SimulatedNetwork &net, const RakPeer *peer, MessageID id)
 {
@@ -394,7 +396,7 @@ TEST(EncryptedHandshakeRejection, Reply2WithUnknownCryptInfoModeIsDropped)
 	PendingAttempt attempt = StartAttemptToNowhere(net);
 	EphemeralKeyPair serverPair;
 	std::vector<unsigned char> reply2 = Reply2(attempt.nonce, attempt.clientAddress, 1200, serverPair.MakeCryptInfo());
-	const size_t modeOffset = reply2.size() - CryptInfo::kSerializedBytes;
+	const size_t modeOffset = reply2.size() - IdentityBlock::kAbsentBytes - CryptInfo::kSerializedBytes;
 	ASSERT_EQ(0u, reply2[modeOffset]);
 	for (unsigned char mode : {2, 0x7F, 0x80, 0xFF})
 	{
