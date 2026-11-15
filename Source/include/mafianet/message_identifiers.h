@@ -368,8 +368,8 @@ enum DefaultMessageIDTypes
 	/// bs.Read(endpointGuid);
 	/// unsigned short sourceToDestPort;
 	/// bs.Read(sourceToDestPort);
-	/// char ipAddressString[32];
-	/// packet->systemAddress.ToString(false, ipAddressString);
+	/// char ipAddressString[SystemAddress::TO_STRING_BUFFER_SIZE];
+	/// packet->systemAddress.ToString(false, ipAddressString, sizeof(ipAddressString));
 	/// rakPeerInterface->Connect(ipAddressString, sourceToDestPort, 0,0);
 	ID_ROUTER_2_FORWARDING_ESTABLISHED,
 	/// The IP address for a forwarded connection has changed

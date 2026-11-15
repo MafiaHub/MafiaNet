@@ -102,8 +102,8 @@ Addresses
    MafiaNet::SystemAddress addr = packet->systemAddress;
 
    if (addr.GetIPVersion() == 6) {
-       char ip[INET6_ADDRSTRLEN];
-       addr.ToString(false, ip);
+       char ip[MafiaNet::SystemAddress::TO_STRING_BUFFER_SIZE];
+       addr.ToString(false, ip, sizeof(ip));
        printf("IPv6 client: %s\n", ip);
    } else {
        printf("IPv4 client: %s\n", addr.ToString(false));
