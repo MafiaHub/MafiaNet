@@ -21,7 +21,8 @@ offline connection handshake, matched ``RAKNET_PROTOCOL_VERSION``, and passed
   server's payload comes from that server. Nothing authenticates a client to a server, and without a
   pin nothing authenticates the server: an attacker positioned on the path can run the handshake with
   each side and supply the payload. Treat it as coming from an unknown peer. On an
-  ``EncryptionMode::Plaintext`` connection it is not encrypted.
+  ``EncryptionMode::Plaintext`` connection it is neither encrypted nor authenticated, pin or not: the
+  identity signature covers only the handshake that precedes it.
 * **Arbitrary bytes.** MafiaNet never inspects, parses, validates, or transforms it. Do not assume
   text, encoding, structure, or a trailing terminator.
 * **Attacker-chosen in length**, up to ``MAXIMUM_SESSION_CONFIG_SIZE``.

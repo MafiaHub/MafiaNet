@@ -173,8 +173,9 @@ longer stand in for the server.
 Generate a key pair
 ~~~~~~~~~~~~~~~~~~~
 
-Once per server, with ``GenerateIdentityKeyPair`` from ``mafianet/session_crypto.h``, or with the
-``IdentityKeyGen`` sample, which prints a new pair in hex:
+Once per server, with ``GenerateIdentityKeyPair`` from ``mafianet/session_crypto.h`` (also reachable
+as ``RakPeerInterface::GenerateIdentityKeyPair``), or with the ``IdentityKeyGen`` sample, which prints
+a new pair in hex:
 
 .. code-block:: cpp
 
@@ -186,6 +187,10 @@ Once per server, with ``GenerateIdentityKeyPair`` from ``mafianet/session_crypto
 
 Store the secret key the way you store other server secrets. Ship the public key with the client, or
 publish it through any channel the client already trusts.
+
+There is no revocation. If the secret key is compromised, generate a new pair, install it on the
+server and ship the new public key to the clients; clients that still pin the old key keep trusting
+whoever holds it until they are updated.
 
 Install it on the server
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -205,9 +210,10 @@ and for a malformed key.
    uint8_t check[32];
    server->GetIdentityPublicKey(check);   // the public half, false if no key is set
 
-The peer keeps its own copy of the key and wipes it when it is replaced, on ``Shutdown`` and in the
-destructor. Call ``SetIdentityKey`` again before every ``Startup``. ``SetIdentityKey(nullptr)``
-removes the key. A server without an identity key behaves as before.
+The peer keeps its own copy of the key across ``Shutdown`` and ``Startup``, like the encryption mode
+and the incoming password, so a restarted server keeps signing. The copy is wiped when it is replaced,
+when ``SetIdentityKey(nullptr)`` removes it (both only while the peer is stopped), and when the peer
+is destroyed. A server without an identity key behaves as before.
 
 Pin it on the client
 ~~~~~~~~~~~~~~~~~~~~
@@ -261,12 +267,23 @@ the client records the server's public key, readable once connected:
        // the application to decide, for example by remembering it on first use.
    }
 
-``GetRemoteIdentityKey`` returns ``false`` when the server has no identity key. If the signature does
-not verify, the client ignores that handshake reply and keeps waiting for a valid one; it does not
-report ``ID_PUBLIC_KEY_MISMATCH``, which only a pinned attempt does.
+``GetRemoteIdentityKey`` is valid once ``ID_CONNECTION_REQUEST_ACCEPTED`` has arrived, and returns
+``false`` when the server has no identity key. If the signature does not verify, the client ignores
+that handshake reply and keeps waiting for a valid one; it does not report
+``ID_PUBLIC_KEY_MISMATCH``, which only a pinned attempt does.
 
-Identity works in both encryption modes. In ``Plaintext`` mode it authenticates the handshake only,
-since the datagrams after it are not protected.
+What the signature covers
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The server signs the two crypt infos of the handshake (see
+:doc:`../advanced/encryption-wire-format`). It does not sign the server's ``RakNetGUID`` or the MTU
+in that reply. In ``Required`` mode the GUIDs still enter the session keys, so the identity extends to
+the whole encrypted connection.
+
+Identity works in both encryption modes, but in ``Plaintext`` mode it only proves that the real server
+answered the handshake. After the handshake nothing is protected: an attacker on the path can still
+read and change everything, including the session configuration payload, and the GUID and MTU of the
+reply can be changed. A pin does not make a ``Plaintext`` connection trustworthy.
 
 Migrating from the old security API
 -----------------------------------
@@ -315,10 +332,21 @@ With pinned identities, only the side that answers a handshake proves its identi
 * The lower peer pins the higher one: the higher peer answers as above and proves its key, so it
   needs an identity key.
 * The higher peer pins the lower one: its ``Connect`` is never absorbed into the lower peer's
-  handshake. It refuses that handshake with ``ID_NO_FREE_INCOMING_CONNECTIONS``, which the lower
-  peer receives for its own ``Connect``, and connects as the initiator; the lower peer then answers
-  and must prove the pinned key. The higher peer gets ``ID_CONNECTION_REQUEST_ACCEPTED`` and the
-  lower one ``ID_NEW_INCOMING_CONNECTION``. This also applies when both pin each other.
+  handshake. It refuses that handshake with ``ID_ALREADY_CONNECTED``, which the lower peer receives
+  for its own ``Connect``, and connects as the initiator; the lower peer then answers and must prove
+  the pinned key. The higher peer gets ``ID_CONNECTION_REQUEST_ACCEPTED`` and the lower one
+  ``ID_NEW_INCOMING_CONNECTION``.
+* Both pin each other: as in the previous case. Only the higher peer's pin is enforced; the lower
+  peer's ``Connect`` ended with ``ID_ALREADY_CONNECTED`` and the higher peer proved nothing to it.
+
+**Trust in peer-to-peer.** An incoming connection is never authenticated: the remote that initiated
+it proved no identity. So in a peer-to-peer setup, decide whether to trust a remote by
+``GetRemoteIdentityKey(address)`` returning the key you expect, not by having called ``Connect`` with
+a pin. When both sides pin each other, only one side's pin is enforced, as above. A pinned
+``Connect`` that returns ``ALREADY_CONNECTED_TO_ENDPOINT`` (the remote's handshake already won the
+race) checked nothing, and a pinned attempt that ended in ``ID_PUBLIC_KEY_MISMATCH`` or
+``ID_ALREADY_CONNECTED`` can be followed by an incoming connection from the same address, which is
+just as unauthenticated.
 
 Monitoring dropped datagrams
 ----------------------------

@@ -173,9 +173,8 @@ Retransmission
 If ``REQUEST_2`` arrives again from an address and GUID that already has an unverified connection
 from this handshake, the server compares the client crypt info byte for byte (constant time) with
 the one it stored. If they are equal it resends ``REPLY_2`` with the **stored** server crypt info,
-so a lost ``REPLY_2`` does not change the keys. The identity block is signed again over the same
-transcript; Ed25519 signatures are deterministic, so it is byte for byte the block of the first
-``REPLY_2``. If they differ, the datagram is dropped.
+so a lost ``REPLY_2`` does not change the keys, and with the identity block it stored with the
+connection, byte for byte the block of the first ``REPLY_2``. If they differ, the datagram is dropped.
 
 Server identity
 ---------------
@@ -212,6 +211,10 @@ The signature is ``crypto_sign_ed25519_detached`` with the identity secret key o
 The client crypt info carries the client's fresh nonce and, in mode ``Required``, its ephemeral public
 key, so a signature cannot be replayed into another handshake. The identity block also enters the key
 schedule (see `Key schedule`_), so the session keys are bound to the identity the client checked.
+
+The server GUID, the client address and the MTU of ``REPLY_2`` are not signed. In mode ``Required``
+both GUIDs enter the key schedule; in mode ``Plaintext`` nothing after the handshake is protected, so
+an identity there only shows that the real server answered the handshake.
 
 Client checks
 ~~~~~~~~~~~~~
@@ -455,8 +458,8 @@ a handshake in which the pinned peer proved nothing, in ``Required`` mode:
 
 * A peer whose own pending attempt to that address **pinned** the remote's identity, and whose GUID is
   higher than the sender's, does not answer the sender's ``REQUEST_2`` either. It refuses it with
-  ``ID_NO_FREE_INCOMING_CONNECTIONS`` (allocating and deriving nothing), which ends the sender's
-  attempt, and retries its own attempt at once. The sender, no longer connecting, answers that retry
+  ``ID_ALREADY_CONNECTED`` (25 bytes, as in `Mode agreement`_; allocating and deriving nothing), which
+  ends the sender's attempt, and retries its own attempt at once. The sender, no longer connecting, answers that retry
   as responder and must prove the pinned identity.
 * A pinned attempt is never absorbed into an incoming connection.
 
