@@ -10,6 +10,18 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 #
 # ##############################################################################
+# MODIFIED for MafiaNet from the copy shipped with GameNetworkingSockets
+# (cmake/Findsodium.cmake). Changes, also CC0:
+#  - pkg-config is optional on Unix: without it the library is looked up by
+#    name (an unset sodium_PKG_LIBRARIES used to compare as its own name, and
+#    find_library then got no names);
+#  - MSVC: the target architecture comes from CMake variables instead of a
+#    try_compile of a C file, which fails in a CXX-only consumer project;
+#    x64, Win32 and ARM64 are supported;
+#  - the compiler check also accepts a CXX-only project;
+#  - the imported "sodium" target is only created when libsodium was found and
+#    no target of that name exists yet.
+# ##############################################################################
 # Tries to find the local libsodium installation.
 #
 # On Windows the sodium_DIR environment variable is used as a default hint which
@@ -23,7 +35,8 @@
 # Furthermore an imported "sodium" target is created.
 #
 
-if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang"
+   OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(_GCC_COMPATIBLE 1)
 endif()
 
@@ -68,7 +81,9 @@ if(UNIX)
 
     set(XPREFIX sodium_PKG_STATIC)
   else()
-    if(sodium_PKG_LIBRARIES STREQUAL "")
+    # Also covers pkg-config being absent: the variable is then unset, and an
+    # unset variable does not compare equal to "" (it compares as its name).
+    if(NOT sodium_PKG_LIBRARIES)
       set(sodium_PKG_LIBRARIES sodium)
     endif()
 
@@ -94,33 +109,37 @@ elseif(WIN32)
             PATH_SUFFIXES include)
 
   if(MSVC)
-    # detect target architecture
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/arch.c" [=[
-            #if defined _M_IX86
-            #error ARCH_VALUE x86_32
-            #elif defined _M_X64
-            #error ARCH_VALUE x86_64
-            #endif
-            #error ARCH_VALUE unknown
-        ]=])
-    try_compile(_UNUSED_VAR "${CMAKE_CURRENT_BINARY_DIR}"
-                "${CMAKE_CURRENT_BINARY_DIR}/arch.c"
-                OUTPUT_VARIABLE _COMPILATION_LOG)
-    string(REGEX
-           REPLACE ".*ARCH_VALUE ([a-zA-Z0-9_]+).*"
-                   "\\1"
-                   _TARGET_ARCH
-                   "${_COMPILATION_LOG}")
+    # Target architecture, from what CMake already knows (no try_compile: it
+    # needs the C language enabled, which a CXX-only consumer does not have).
+    # Visual Studio generators: the -A platform. Ninja/NMake: the compiler's
+    # architecture id (x64, X86, ARM64), then the pointer size.
+    set(_TARGET_ARCH "")
+    if(CMAKE_VS_PLATFORM_NAME)
+      set(_TARGET_ARCH "${CMAKE_VS_PLATFORM_NAME}")
+    elseif(CMAKE_GENERATOR_PLATFORM)
+      set(_TARGET_ARCH "${CMAKE_GENERATOR_PLATFORM}")
+    elseif(CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+      set(_TARGET_ARCH "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+    elseif(CMAKE_C_COMPILER_ARCHITECTURE_ID)
+      set(_TARGET_ARCH "${CMAKE_C_COMPILER_ARCHITECTURE_ID}")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(_TARGET_ARCH "x64")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+      set(_TARGET_ARCH "Win32")
+    endif()
+    string(TOUPPER "${_TARGET_ARCH}" _TARGET_ARCH)
 
-    # construct library path
-    if(_TARGET_ARCH STREQUAL "x86_32")
-      string(APPEND _PLATFORM_PATH "Win32")
-    elseif(_TARGET_ARCH STREQUAL "x86_64")
+    # construct library path (libsodium's MSVC layout: <platform>/<config>/v<toolset>/<linkage>)
+    if(_TARGET_ARCH STREQUAL "X64" OR _TARGET_ARCH STREQUAL "AMD64" OR _TARGET_ARCH STREQUAL "X86_64")
       string(APPEND _PLATFORM_PATH "x64")
+    elseif(_TARGET_ARCH STREQUAL "WIN32" OR _TARGET_ARCH STREQUAL "X86" OR _TARGET_ARCH STREQUAL "I386")
+      string(APPEND _PLATFORM_PATH "Win32")
+    elseif(_TARGET_ARCH STREQUAL "ARM64")
+      string(APPEND _PLATFORM_PATH "ARM64")
     else()
       message(
         FATAL_ERROR
-          "the ${_TARGET_ARCH} architecture is not supported by Findsodium.cmake."
+          "the '${_TARGET_ARCH}' architecture is not supported by Findsodium.cmake."
         )
     endif()
     string(APPEND _PLATFORM_PATH "/$$CONFIG$$")
@@ -243,6 +262,11 @@ if(sodium_USE_STATIC_LIBS)
   set(_LIB_TYPE STATIC)
 else()
   set(_LIB_TYPE SHARED)
+endif()
+if(NOT sodium_FOUND OR TARGET sodium)
+  # Not found (a QUIET find must not leave a target pointing at NOTFOUND
+  # paths), or another find module or a parent project already provides one.
+  return()
 endif()
 add_library(sodium ${_LIB_TYPE} IMPORTED)
 
