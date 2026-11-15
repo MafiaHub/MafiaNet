@@ -149,7 +149,7 @@ RPC4::~RPC4()
 	unsigned int i;
 	for (i = 0; i < localCallbacks.Size(); i++)
 	{
-		MafiaNet::OP_DELETE(localCallbacks[i], _FILE_AND_LINE_);
+		delete localCallbacks[i];
 	}
 
 	DataStructures::List<MafiaNet::RakString> keyList;
@@ -158,7 +158,7 @@ RPC4::~RPC4()
 	unsigned int j;
 	for (j = 0; j < outputList.Size(); j++)
 	{
-		MafiaNet::OP_DELETE(outputList[j], _FILE_AND_LINE_);
+		delete outputList[j];
 	}
 	localSlots.Clear(_FILE_AND_LINE_);
 }
@@ -181,7 +181,7 @@ void RPC4::RegisterSlot(const char *sharedIdentifier, void (*functionPointer)(Ma
 	LocalSlot *localSlot;
 	if (idx.IsInvalid())
 	{
-		localSlot = MafiaNet::OP_NEW<LocalSlot>(_FILE_AND_LINE_);
+		localSlot = new LocalSlot;
 		localSlots.Push(sharedIdentifier, localSlot, _FILE_AND_LINE_);
 	}
 	else
@@ -219,7 +219,7 @@ void RPC4::RegisterLocalCallback(const char *uniqueID, MessageID messageId)
 	}
 	else
 	{
-		lc = MafiaNet::OP_NEW<LocalCallback>(_FILE_AND_LINE_);
+		lc = new LocalCallback;
 		lc->messageId = messageId;
 		lc->functions.Insert(str, str, false, _FILE_AND_LINE_);
 		localCallbacks.InsertAtIndex(lc, index, _FILE_AND_LINE_);
@@ -252,7 +252,7 @@ bool RPC4::UnregisterLocalCallback(const char *uniqueID, MessageID messageId)
 			lc->functions.RemoveAtIndex(index2);
 			if (lc->functions.Size() == 0)
 			{
-				MafiaNet::OP_DELETE(lc, _FILE_AND_LINE_);
+				delete lc;
 				localCallbacks.RemoveAtIndex(index);
 				return true;
 			}
@@ -266,7 +266,7 @@ bool RPC4::UnregisterSlot(const char *sharedIdentifier)
 	if (hi.IsInvalid() == false)
 	{
 		LocalSlot *ls = localSlots.ItemAtIndex(hi);
-		MafiaNet::OP_DELETE(ls, _FILE_AND_LINE_);
+		delete ls;
 		localSlots.RemoveAtIndex(hi, _FILE_AND_LINE_);
 		return true;
 	}

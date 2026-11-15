@@ -26,7 +26,7 @@ Lobby2ServerCommand Lobby2ServerWorkerThread(Lobby2ServerCommand input, bool *re
 	input.returnToSender = input.lobby2Message->ServerDBImpl(&input, postgreSQLInterface);
 	*returnOutput = input.returnToSender;
 	if (input.deallocMsgWhenDone && input.returnToSender == false)
-		MafiaNet::OP_DELETE(input.lobby2Message, _FILE_AND_LINE_);
+		delete input.lobby2Message;
 	return input;
 }
 
@@ -75,10 +75,10 @@ bool Lobby2Server_PGSQL::ConnectToDB(const char *conninfo, int numWorkerThreads)
 	PostgreSQLInterface *connection;
 	for (i = 0; i < numWorkerThreads; i++)
 	{
-		connection = MafiaNet::OP_NEW<PostgreSQLInterface>(_FILE_AND_LINE_);
+		connection = new PostgreSQLInterface;
 		if (connection->Connect(conninfo) == false)
 		{
-			MafiaNet::OP_DELETE(connection, _FILE_AND_LINE_);
+			delete connection;
 			ClearConnections();
 			return false;
 		}
@@ -106,14 +106,14 @@ void Lobby2Server_PGSQL::PerThreadDestructor(void *factoryResult, void *context)
 	(void) context;
 
 	PostgreSQLInterface *p = (PostgreSQLInterface *) factoryResult;
-	MafiaNet::OP_DELETE(p, _FILE_AND_LINE_);
+	delete p;
 }
 void Lobby2Server_PGSQL::ClearConnections(void)
 {
 	unsigned int i;
 	connectionPoolMutex.Lock();
 	for (i = 0; i < connectionPool.Size(); i++)
-		MafiaNet::OP_DELETE(connectionPool[i], _FILE_AND_LINE_);
+		delete connectionPool[i];
 	connectionPool.Clear(false, _FILE_AND_LINE_);
 	connectionPoolMutex.Unlock();
 }

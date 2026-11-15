@@ -38,7 +38,7 @@ NatTypeDetectionClient::~NatTypeDetectionClient()
 {
 	if (c2 != 0)
 	{
-		MafiaNet::OP_DELETE(c2, _FILE_AND_LINE_);
+		delete c2;
 	}
 }
 void NatTypeDetectionClient::DetectNATType(SystemAddress _serverAddress)
@@ -209,25 +209,25 @@ void NatTypeDetectionClient::Shutdown(void)
 		if (c2->IsBerkleySocket())
 			((RNS2_Berkley *) c2)->BlockOnStopRecvPollingThread();
 
-		MafiaNet::OP_DELETE(c2, _FILE_AND_LINE_);
+		delete c2;
 		c2 = 0;
 	}
 
 	bufferedPacketsMutex.Lock();
 	while (bufferedPackets.Size())
-		MafiaNet::OP_DELETE(bufferedPackets.Pop(), _FILE_AND_LINE_);
+		delete bufferedPackets.Pop();
 	bufferedPacketsMutex.Unlock();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void NatTypeDetectionClient::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
+void NatTypeDetectionClient::DeallocRNS2RecvStruct(RNS2RecvStruct *s, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
-	MafiaNet::OP_DELETE(s, file, line);
+	delete s;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RNS2RecvStruct *NatTypeDetectionClient::AllocRNS2RecvStruct(const char *file, unsigned int line)
+RNS2RecvStruct *NatTypeDetectionClient::AllocRNS2RecvStruct([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
-	return MafiaNet::OP_NEW<RNS2RecvStruct>(file, line);
+	return new RNS2RecvStruct;
 }
 void NatTypeDetectionClient::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 {

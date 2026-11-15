@@ -93,7 +93,7 @@ void RakVoice::Init(unsigned short newSampleRate, unsigned newBufferSizeBytes)
 	sampleRate = newSampleRate;
 	bufferSizeBytes = newBufferSizeBytes;
 	bufferedOutputCount = newBufferSizeBytes / SAMPLESIZE;
-	bufferedOutput = (float *) rakMalloc_Ex(sizeof(float) * bufferedOutputCount, _FILE_AND_LINE_);
+	bufferedOutput = (float *) std::malloc(sizeof(float) * bufferedOutputCount);
 	for (unsigned i = 0; i < bufferedOutputCount; i++)
 		bufferedOutput[i] = 0.0f;
 	zeroBufferedOutput = false;
@@ -110,7 +110,7 @@ void RakVoice::Deinit(void)
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	if (bufferedOutput)
 	{
-		rakFree_Ex(bufferedOutput, _FILE_AND_LINE_);
+		std::free(bufferedOutput);
 		bufferedOutput = nullptr;
 		CloseAllChannels();
 	}
@@ -910,7 +910,7 @@ void RakVoice::OpenChannel(Packet *packet)
 
 	FreeChannelMemory(packet->guid);
 
-	VoiceChannel *channel = MafiaNet::OP_NEW<VoiceChannel>(_FILE_AND_LINE_);
+	VoiceChannel *channel = new VoiceChannel;
 	channel->guid = packet->guid;
 	channel->isSendingVoiceData = false;
 
@@ -921,14 +921,14 @@ void RakVoice::OpenChannel(Packet *packet)
 	int newSampleRate = 0;
 	if (in.Read(newSampleRate) == false)
 	{
-		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		delete channel;
 		return;
 	}
 	channel->remoteSampleRate = newSampleRate;
 
 	if (newSampleRate != 8000 && newSampleRate != 16000 && newSampleRate != 24000 && newSampleRate != 48000)
 	{
-		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		delete channel;
 		return;
 	}
 
@@ -946,7 +946,7 @@ void RakVoice::OpenChannel(Packet *packet)
 		if (error != OPUS_OK || channel->encoder == nullptr)
 		{
 			RakAssert(0);
-			MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+			delete channel;
 			return;
 		}
 	}
@@ -958,7 +958,7 @@ void RakVoice::OpenChannel(Packet *packet)
 		if (channel->encoder)
 			opus_encoder_destroy(channel->encoder);
 		RakAssert(0);
-		MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+		delete channel;
 		return;
 	}
 
@@ -985,14 +985,14 @@ void RakVoice::OpenChannel(Packet *packet)
 	channel->maxPacketBytes = MAX_OPUS_PACKET_SIZE;
 
 	// Allocate buffers
-	channel->outgoingBuffer = (char *) rakMalloc_Ex(bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT, _FILE_AND_LINE_);
+	channel->outgoingBuffer = (char *) std::malloc(bufferSizeBytes * FRAME_OUTGOING_BUFFER_COUNT);
 	channel->outgoingReadIndex = 0;
 	channel->outgoingWriteIndex = 0;
 	channel->bufferOutput = true;
 	channel->outgoingMessageNumber = 0;
 	channel->copiedOutgoingBufferToBufferedOutput = false;
 
-	channel->incomingBuffer = (char *) rakMalloc_Ex(bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT, _FILE_AND_LINE_);
+	channel->incomingBuffer = (char *) std::malloc(bufferSizeBytes * FRAME_INCOMING_BUFFER_COUNT);
 	channel->incomingReadIndex = 0;
 	channel->incomingWriteIndex = 0;
 	channel->lastSend = 0;
@@ -1111,9 +1111,9 @@ void RakVoice::FreeChannelMemory(unsigned index, bool removeIndex)
 	if (channel->denoiser)
 		rnnoise_destroy(channel->denoiser);
 
-	rakFree_Ex(channel->incomingBuffer, _FILE_AND_LINE_);
-	rakFree_Ex(channel->outgoingBuffer, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+	std::free(channel->incomingBuffer);
+	std::free(channel->outgoingBuffer);
+	delete channel;
 
 	if (removeIndex)
 		voiceChannels.RemoveAtIndex(index);

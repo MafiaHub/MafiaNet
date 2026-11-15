@@ -108,7 +108,7 @@ template <class MemoryBlockType>
 MemoryBlockType *MemoryPool<MemoryBlockType>::Allocate(const char *file, unsigned int line)
 {
 #ifdef _DISABLE_MEMORY_POOL
-	return (MemoryBlockType *) rakMalloc_Ex(sizeof(MemoryBlockType), file, line);
+	return (MemoryBlockType *) std::malloc(sizeof(MemoryBlockType));
 #else
 
 	if (availablePagesSize > 0)
@@ -144,7 +144,7 @@ MemoryBlockType *MemoryPool<MemoryBlockType>::Allocate(const char *file, unsigne
 		return retVal;
 	}
 
-	availablePages = (Page *) rakMalloc_Ex(sizeof(Page), file, line);
+	availablePages = (Page *) std::malloc(sizeof(Page));
 	if (availablePages == 0)
 		return 0;
 	availablePagesSize = 1;
@@ -157,10 +157,10 @@ MemoryBlockType *MemoryPool<MemoryBlockType>::Allocate(const char *file, unsigne
 #endif
 }
 template <class MemoryBlockType>
-void MemoryPool<MemoryBlockType>::Release(MemoryBlockType *m, const char *file, unsigned int line)
+void MemoryPool<MemoryBlockType>::Release(MemoryBlockType *m, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 #ifdef _DISABLE_MEMORY_POOL
-	rakFree_Ex(m, file, line);
+	std::free(m);
 	return;
 #else
 	// Find the page this block is in and return it.
@@ -211,15 +211,15 @@ void MemoryPool<MemoryBlockType>::Release(MemoryBlockType *m, const char *file, 
 			curPage->prev->next = curPage->next;
 			curPage->next->prev = curPage->prev;
 			availablePagesSize--;
-			rakFree_Ex(curPage->availableStack, file, line);
-			rakFree_Ex(curPage->block, file, line);
-			rakFree_Ex(curPage, file, line);
+			std::free(curPage->availableStack);
+			std::free(curPage->block);
+			std::free(curPage);
 		}
 	}
 #endif
 }
 template <class MemoryBlockType>
-void MemoryPool<MemoryBlockType>::Clear(const char *file, unsigned int line)
+void MemoryPool<MemoryBlockType>::Clear([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 #ifdef _DISABLE_MEMORY_POOL
 	return;
@@ -232,16 +232,16 @@ void MemoryPool<MemoryBlockType>::Clear(const char *file, unsigned int line)
 		for (;;)
 		// do
 		{
-			rakFree_Ex(cur->availableStack, file, line);
-			rakFree_Ex(cur->block, file, line);
+			std::free(cur->availableStack);
+			std::free(cur->block);
 			freed = cur;
 			cur = cur->next;
 			if (cur == availablePages)
 			{
-				rakFree_Ex(freed, file, line);
+				std::free(freed);
 				break;
 			}
-			rakFree_Ex(freed, file, line);
+			std::free(freed);
 		} // while(cur!=availablePages);
 	}
 
@@ -251,16 +251,16 @@ void MemoryPool<MemoryBlockType>::Clear(const char *file, unsigned int line)
 		for (;;)
 		//do
 		{
-			rakFree_Ex(cur->availableStack, file, line);
-			rakFree_Ex(cur->block, file, line);
+			std::free(cur->availableStack);
+			std::free(cur->block);
 			freed = cur;
 			cur = cur->next;
 			if (cur == unavailablePages)
 			{
-				rakFree_Ex(freed, file, line);
+				std::free(freed);
 				break;
 			}
-			rakFree_Ex(freed, file, line);
+			std::free(freed);
 		} // while(cur!=unavailablePages);
 	}
 
@@ -274,17 +274,17 @@ int MemoryPool<MemoryBlockType>::BlocksPerPage(void) const
 	return memoryPoolPageSize / sizeof(MemoryWithPage);
 }
 template <class MemoryBlockType>
-bool MemoryPool<MemoryBlockType>::InitPage(Page *page, Page *prev, const char *file, unsigned int line)
+bool MemoryPool<MemoryBlockType>::InitPage(Page *page, Page *prev, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	int i = 0;
 	const int bpp = BlocksPerPage();
-	page->block = (MemoryWithPage *) rakMalloc_Ex(memoryPoolPageSize, file, line);
+	page->block = (MemoryWithPage *) std::malloc(memoryPoolPageSize);
 	if (page->block == 0)
 		return false;
-	page->availableStack = (MemoryWithPage **) rakMalloc_Ex(sizeof(MemoryWithPage *) * bpp, file, line);
+	page->availableStack = (MemoryWithPage **) std::malloc(sizeof(MemoryWithPage *) * bpp);
 	if (page->availableStack == 0)
 	{
-		rakFree_Ex(page->block, file, line);
+		std::free(page->block);
 		return false;
 	}
 	MemoryWithPage *curBlock = page->block;

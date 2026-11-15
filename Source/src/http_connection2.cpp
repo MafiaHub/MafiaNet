@@ -30,20 +30,20 @@ HTTPConnection2::~HTTPConnection2()
 {
 	for (unsigned int i = 0; i < pendingRequests.Size(); ++i)
 	{
-		MafiaNet::OP_DELETE(pendingRequests[i], _FILE_AND_LINE_);
+		delete pendingRequests[i];
 	}
 	for (unsigned int i = 0; i < sentRequests.Size(); ++i)
 	{
-		MafiaNet::OP_DELETE(sentRequests[i], _FILE_AND_LINE_);
+		delete sentRequests[i];
 	}
 	for (unsigned int i = 0; i < completedRequests.Size(); ++i)
 	{
-		MafiaNet::OP_DELETE(completedRequests[i], _FILE_AND_LINE_);
+		delete completedRequests[i];
 	}
 }
 bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, int ipVersion, SystemAddress useAddress, void *userData)
 {
-	Request *request = MafiaNet::OP_NEW<Request>(_FILE_AND_LINE_);
+	Request *request = new Request;
 	request->host = host;
 	request->chunked = false;
 	if (useAddress != UNASSIGNED_SYSTEM_ADDRESS)
@@ -51,7 +51,7 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 		request->hostEstimatedAddress = useAddress;
 		if (IsConnected(useAddress) == false)
 		{
-			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
+			delete request;
 			return false;
 		}
 	}
@@ -60,7 +60,7 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 		// #med - this should be changed to not extract the port from the passed in host-address (which is overwritten directly below with the provided port anyway)
 		if (request->hostEstimatedAddress.FromString(host, '|', ipVersion) == false)
 		{
-			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
+			delete request;
 			return false;
 		}
 	}
@@ -131,7 +131,7 @@ bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostT
 		contentOffset = completedRequest->contentOffset;
 		*userData = completedRequest->userData;
 
-		MafiaNet::OP_DELETE(completedRequest, _FILE_AND_LINE_);
+		delete completedRequest;
 		return true;
 	}
 	else
@@ -496,7 +496,7 @@ void HTTPConnection2::RemovePendingRequest(SystemAddress sa)
 		if (request->hostEstimatedAddress == sa)
 		{
 			pendingRequests.RemoveAtIndex(i);
-			MafiaNet::OP_DELETE(request, _FILE_AND_LINE_);
+			delete request;
 		}
 		else
 			i++;

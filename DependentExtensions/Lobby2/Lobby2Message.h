@@ -17,6 +17,7 @@
 #define __LOBBY_2_MESSAGE_H
 
 #include "mafianet/bit_stream.h"
+#include <cstdlib>
 #include "Lobby2ResultCode.h"
 #include "mafianet/string.h"
 #include "mafianet/assert.h"
@@ -746,7 +747,7 @@ struct BinaryDataBlock
 	~BinaryDataBlock()
 	{
 		if (binaryData)
-			rakFree_Ex(binaryData, _FILE_AND_LINE_);
+			std::free(binaryData);
 	}
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
@@ -788,12 +789,12 @@ struct IndexedBinaryValue
 	~IndexedBinaryValue()
 	{
 		if (value)
-			rakFree_Ex(value, _FILE_AND_LINE_);
+			std::free(value);
 	};
 
 	/// Index of the value to set, required.
 	unsigned int index;
-	/// Value is deallocated in the destructor, use rakMalloc_Ex to allocate!
+	/// Value is deallocated in the destructor, use std::malloc to allocate!
 	char *value;
 	/// Length of value
 	unsigned short valueByteLength;
@@ -807,9 +808,9 @@ struct CreateAccountParameters
 	CreateAccountParameters()
 	{
 		ageInDays = 0;
-		binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);
+		binaryData = new BinaryDataBlock;
 	}
-	~CreateAccountParameters() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	~CreateAccountParameters() { /*delete binaryData;*/ }
 	/// [in] Self-apparent
 	MafiaNet::RakString firstName;
 	/// [in] Self-apparent
@@ -866,8 +867,8 @@ struct CreateAccountParameters
 };
 struct PendingInvite
 {
-	PendingInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~PendingInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	PendingInvite() { binaryData = new BinaryDataBlock; }
+	~PendingInvite() { /*delete binaryData;*/ }
 	MafiaNet::RakString sender;
 	MafiaNet::RakString subject;
 	MafiaNet::RakString body;
@@ -900,8 +901,8 @@ struct FriendInfo
 };
 struct EmailResult
 {
-	EmailResult() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~EmailResult() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	EmailResult() { binaryData = new BinaryDataBlock; }
+	~EmailResult() { /*delete binaryData;*/ }
 	MafiaNet::RakString sender;
 	MafiaNet::RakString recipient;
 	MafiaNet::RakString subject;
@@ -927,8 +928,8 @@ struct MatchParticipant
 };
 struct SubmittedMatch
 {
-	SubmittedMatch() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~SubmittedMatch() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	SubmittedMatch() { binaryData = new BinaryDataBlock; }
+	~SubmittedMatch() { /*delete binaryData;*/ }
 	DataStructures::List<MatchParticipant> matchParticipants;
 	MafiaNet::RakString matchNote;
 	RakNetSmartPtr<BinaryDataBlock> binaryData;
@@ -940,8 +941,8 @@ struct SubmittedMatch
 };
 struct ClanInfo
 {
-	ClanInfo() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~ClanInfo() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	ClanInfo() { binaryData = new BinaryDataBlock; }
+	~ClanInfo() { /*delete binaryData;*/ }
 	MafiaNet::RakString clanName;
 	MafiaNet::RakString description;
 	MafiaNet::RakString clanLeader;
@@ -1060,8 +1061,8 @@ struct System_DestroyDatabase : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct System_CreateTitle : public Lobby2Message
 {
-	System_CreateTitle() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~System_CreateTitle() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	System_CreateTitle() { binaryData = new BinaryDataBlock; }
+	~System_CreateTitle() { /*delete binaryData;*/ }
 	__L2_MSG_BASE_IMPL(System_CreateTitle)
 	virtual bool RequiresAdmin(void) const { return true; }
 	virtual bool RequiresRankingPermission(void) const { return false; }
@@ -1113,8 +1114,8 @@ struct System_GetTitleRequiredAge : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct System_GetTitleBinaryData : public Lobby2Message
 {
-	System_GetTitleBinaryData() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~System_GetTitleBinaryData() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	System_GetTitleBinaryData() { binaryData = new BinaryDataBlock; }
+	~System_GetTitleBinaryData() { /*delete binaryData;*/ }
 	__L2_MSG_BASE_IMPL(System_GetTitleBinaryData)
 	virtual bool RequiresAdmin(void) const { return false; }
 	virtual bool RequiresRankingPermission(void) const { return false; }
@@ -1646,8 +1647,8 @@ struct Client_PerTitleIntegerStorage : public Lobby2Message
 struct Client_PerTitleBinaryStorage : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Client_PerTitleBinaryStorage)
-	Client_PerTitleBinaryStorage() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Client_PerTitleBinaryStorage() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Client_PerTitleBinaryStorage() { binaryData = new BinaryDataBlock; }
+	~Client_PerTitleBinaryStorage() { /*delete binaryData;*/ }
 	virtual bool RequiresAdmin(void) const { return false; }
 	virtual bool RequiresRankingPermission(void) const { return false; }
 	virtual bool CancelOnDisconnect(void) const { return false; }
@@ -1712,8 +1713,8 @@ struct Client_GetPresence : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Friends_SendInvite : public Lobby2Message
 {
-	Friends_SendInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Friends_SendInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Friends_SendInvite() { binaryData = new BinaryDataBlock; }
+	~Friends_SendInvite() { /*delete binaryData;*/ }
 	__L2_MSG_BASE_IMPL(Friends_SendInvite)
 	virtual bool RequiresAdmin(void) const { return false; }
 	virtual bool RequiresRankingPermission(void) const { return false; }
@@ -1738,8 +1739,8 @@ struct Friends_SendInvite : public Lobby2Message
 struct Friends_AcceptInvite : public Lobby2Message
 {
 
-	Friends_AcceptInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Friends_AcceptInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Friends_AcceptInvite() { binaryData = new BinaryDataBlock; }
+	~Friends_AcceptInvite() { /*delete binaryData;*/ }
 	__L2_MSG_BASE_IMPL(Friends_AcceptInvite)
 	virtual bool RequiresAdmin(void) const { return false; }
 	virtual bool RequiresRankingPermission(void) const { return false; }
@@ -1766,8 +1767,8 @@ struct Friends_RejectInvite : public Lobby2Message
 {
 	__L2_MSG_BASE_IMPL(Friends_RejectInvite)
 
-	Friends_RejectInvite() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Friends_RejectInvite() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Friends_RejectInvite() { binaryData = new BinaryDataBlock; }
+	~Friends_RejectInvite() { /*delete binaryData;*/ }
 	virtual bool RequiresAdmin(void) const { return false; }
 	virtual bool RequiresRankingPermission(void) const { return false; }
 	virtual bool CancelOnDisconnect(void) const { return false; }
@@ -1822,8 +1823,8 @@ struct Friends_GetFriends : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Friends_Remove : public Lobby2Message
 {
-	Friends_Remove() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Friends_Remove() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Friends_Remove() { binaryData = new BinaryDataBlock; }
+	~Friends_Remove() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Friends_Remove)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -1903,8 +1904,8 @@ struct BookmarkedUsers_Get : public Lobby2Message
 struct Emails_Send : public Lobby2Message
 {
 
-	Emails_Send() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	virtual ~Emails_Send() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Emails_Send() { binaryData = new BinaryDataBlock; }
+	virtual ~Emails_Send() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Emails_Send)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2034,8 +2035,8 @@ struct Ranking_GetMatches : public Lobby2Message
 struct Ranking_GetMatchBinaryData : public Lobby2Message
 {
 
-	Ranking_GetMatchBinaryData() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Ranking_GetMatchBinaryData() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Ranking_GetMatchBinaryData() { binaryData = new BinaryDataBlock; }
+	~Ranking_GetMatchBinaryData() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Ranking_GetMatchBinaryData)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2196,8 +2197,8 @@ struct Ranking_GetRating : public Lobby2Message
 struct Clans_Create : public Lobby2Message
 {
 
-	Clans_Create() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_Create() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_Create() { binaryData = new BinaryDataBlock; }
+	~Clans_Create() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_Create)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2223,8 +2224,8 @@ struct Clans_Create : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SetProperties : public Lobby2Message
 {
-	Clans_SetProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_SetProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_SetProperties() { binaryData = new BinaryDataBlock; }
+	~Clans_SetProperties() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SetProperties)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2244,8 +2245,8 @@ struct Clans_SetProperties : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetProperties : public Lobby2Message
 {
-	Clans_GetProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_GetProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_GetProperties() { binaryData = new BinaryDataBlock; }
+	~Clans_GetProperties() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_GetProperties)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2269,8 +2270,8 @@ struct Clans_GetProperties : public Lobby2Message
 struct Clans_SetMyMemberProperties : public Lobby2Message
 {
 
-	Clans_SetMyMemberProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_SetMyMemberProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_SetMyMemberProperties() { binaryData = new BinaryDataBlock; }
+	~Clans_SetMyMemberProperties() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SetMyMemberProperties)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2346,8 +2347,8 @@ struct Clans_SetMemberRank : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_GetMemberProperties : public Lobby2Message
 {
-	Clans_GetMemberProperties() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_GetMemberProperties() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_GetMemberProperties() { binaryData = new BinaryDataBlock; }
+	~Clans_GetMemberProperties() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_GetMemberProperties)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2394,8 +2395,8 @@ struct Clans_ChangeHandle : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_Leave : public Lobby2Message
 {
-	Clans_Leave() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_Leave() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_Leave() { binaryData = new BinaryDataBlock; }
+	~Clans_Leave() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_Leave)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2440,8 +2441,8 @@ struct Clans_Get : public Lobby2Message
 struct Clans_SendJoinInvitation : public Lobby2Message
 {
 
-	Clans_SendJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_SendJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_SendJoinInvitation() { binaryData = new BinaryDataBlock; }
+	~Clans_SendJoinInvitation() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SendJoinInvitation)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2466,8 +2467,8 @@ struct Clans_SendJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_WithdrawJoinInvitation : public Lobby2Message
 {
-	Clans_WithdrawJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_WithdrawJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_WithdrawJoinInvitation() { binaryData = new BinaryDataBlock; }
+	~Clans_WithdrawJoinInvitation() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_WithdrawJoinInvitation)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2490,8 +2491,8 @@ struct Clans_WithdrawJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_AcceptJoinInvitation : public Lobby2Message
 {
-	Clans_AcceptJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_AcceptJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_AcceptJoinInvitation() { binaryData = new BinaryDataBlock; }
+	~Clans_AcceptJoinInvitation() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_AcceptJoinInvitation)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2516,8 +2517,8 @@ struct Clans_AcceptJoinInvitation : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_RejectJoinInvitation : public Lobby2Message
 {
-	Clans_RejectJoinInvitation() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_RejectJoinInvitation() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_RejectJoinInvitation() { binaryData = new BinaryDataBlock; }
+	~Clans_RejectJoinInvitation() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_RejectJoinInvitation)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2559,8 +2560,8 @@ struct Clans_DownloadInvitationList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_SendJoinRequest : public Lobby2Message
 {
-	Clans_SendJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_SendJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_SendJoinRequest() { binaryData = new BinaryDataBlock; }
+	~Clans_SendJoinRequest() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_SendJoinRequest)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2585,8 +2586,8 @@ struct Clans_SendJoinRequest : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_WithdrawJoinRequest : public Lobby2Message
 {
-	Clans_WithdrawJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_WithdrawJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_WithdrawJoinRequest() { binaryData = new BinaryDataBlock; }
+	~Clans_WithdrawJoinRequest() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_WithdrawJoinRequest)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2610,8 +2611,8 @@ struct Clans_WithdrawJoinRequest : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_AcceptJoinRequest : public Lobby2Message
 {
-	Clans_AcceptJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_AcceptJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_AcceptJoinRequest() { binaryData = new BinaryDataBlock; }
+	~Clans_AcceptJoinRequest() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_AcceptJoinRequest)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2637,8 +2638,8 @@ struct Clans_AcceptJoinRequest : public Lobby2Message
 /// \details
 struct Clans_RejectJoinRequest : public Lobby2Message
 {
-	Clans_RejectJoinRequest() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_RejectJoinRequest() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_RejectJoinRequest() { binaryData = new BinaryDataBlock; }
+	~Clans_RejectJoinRequest() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_RejectJoinRequest)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2681,8 +2682,8 @@ struct Clans_DownloadRequestList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_KickAndBlacklistUser : public Lobby2Message
 {
-	Clans_KickAndBlacklistUser() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_KickAndBlacklistUser() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_KickAndBlacklistUser() { binaryData = new BinaryDataBlock; }
+	~Clans_KickAndBlacklistUser() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_KickAndBlacklistUser)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2708,8 +2709,8 @@ struct Clans_KickAndBlacklistUser : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_UnblacklistUser : public Lobby2Message
 {
-	Clans_UnblacklistUser() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_UnblacklistUser() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_UnblacklistUser() { binaryData = new BinaryDataBlock; }
+	~Clans_UnblacklistUser() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_UnblacklistUser)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2787,8 +2788,8 @@ struct Clans_GetList : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_CreateBoard : public Lobby2Message
 {
-	Clans_CreateBoard() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_CreateBoard() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_CreateBoard() { binaryData = new BinaryDataBlock; }
+	~Clans_CreateBoard() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_CreateBoard)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2832,8 +2833,8 @@ struct Clans_DestroyBoard : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_CreateNewTopic : public Lobby2Message
 {
-	Clans_CreateNewTopic() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_CreateNewTopic() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_CreateNewTopic() { binaryData = new BinaryDataBlock; }
+	~Clans_CreateNewTopic() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_CreateNewTopic)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -2858,8 +2859,8 @@ struct Clans_CreateNewTopic : public Lobby2Message
 /// \ingroup LOBBY_2_COMMANDS
 struct Clans_ReplyToTopic : public Lobby2Message
 {
-	Clans_ReplyToTopic() { binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_); }
-	~Clans_ReplyToTopic() { /*MafiaNet::OP_DELETE(binaryData,_FILE_AND_LINE_);*/ }
+	Clans_ReplyToTopic() { binaryData = new BinaryDataBlock; }
+	~Clans_ReplyToTopic() { /*delete binaryData;*/ }
 
 	__L2_MSG_BASE_IMPL(Clans_ReplyToTopic)
 	virtual bool RequiresAdmin(void) const { return false; }
@@ -3831,13 +3832,13 @@ struct Notification_Console_Accepted_Room_Invite : public Lobby2Message
 #define __L2_ALLOCATE_AND_DEFINE(FACTORY, __TYPE__, VAR_NAME)                               \
 	MafiaNet::__TYPE__ *VAR_NAME = (MafiaNet::__TYPE__ *) FACTORY->Alloc(L2MID_##__TYPE__); \
 	RakAssert(VAR_NAME);
-#define __L2_MSG_FACTORY_BASE(__NAME__)                                 \
-	{                                                                   \
-	case L2MID_##__NAME__:                                              \
-		Lobby2Message *m = MafiaNet::OP_NEW<__NAME__>(_FILE_AND_LINE_); \
-		RakAssert(m->GetID() == L2MID_##__NAME__);                      \
-		m->requestId = nextRequestId++;                                 \
-		return m;                                                       \
+#define __L2_MSG_FACTORY_BASE(__NAME__)            \
+	{                                              \
+	case L2MID_##__NAME__:                         \
+		Lobby2Message *m = new __NAME__;           \
+		RakAssert(m->GetID() == L2MID_##__NAME__); \
+		m->requestId = nextRequestId++;            \
+		return m;                                  \
 	}
 /// \ingroup LOBBY_2_GROUP
 struct Lobby2MessageFactory
@@ -4024,7 +4025,7 @@ struct Lobby2MessageFactory
 			// Only delete one message at a time or else GetRefCount may be called on the same message in two threads at the same time and not be accurate
 			deallocateLockMutex.Lock();
 			if (msg->GetRefCount() <= 0)
-				MafiaNet::OP_DELETE<Lobby2Message>(msg, _FILE_AND_LINE_);
+				delete msg;
 			deallocateLockMutex.Unlock();
 		}
 	}

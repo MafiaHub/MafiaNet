@@ -236,7 +236,7 @@ void MessageFilter::Clear(void)
 }
 void MessageFilter::DeallocateFilterSet(FilterSet *filterSet)
 {
-	MafiaNet::OP_DELETE(filterSet, _FILE_AND_LINE_);
+	delete filterSet;
 }
 FilterSet *MessageFilter::GetFilterSetByID(int filterSetID)
 {
@@ -248,7 +248,7 @@ FilterSet *MessageFilter::GetFilterSetByID(int filterSetID)
 		return filterList[index];
 	else
 	{
-		FilterSet *newFilterSet = MafiaNet::OP_NEW<FilterSet>(_FILE_AND_LINE_);
+		FilterSet *newFilterSet = new FilterSet;
 		memset(newFilterSet->allowedIDs, 0, MESSAGE_FILTER_MAX_MESSAGE_ID * sizeof(bool));
 		newFilterSet->banOnFilterTimeExceed = false;
 		newFilterSet->kickOnDisallowedMessage = false;

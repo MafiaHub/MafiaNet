@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/string_table.h"
+#include <cstdlib>
 #include <string.h>
 #include "mafianet/assert.h"
 #include <stdio.h>
@@ -42,7 +43,7 @@ StringTable::~StringTable()
 	for (i = 0; i < orderedStringList.Size(); i++)
 	{
 		if (orderedStringList[i].b)
-			rakFree_Ex(orderedStringList[i].str, _FILE_AND_LINE_);
+			std::free(orderedStringList[i].str);
 	}
 }
 
@@ -50,7 +51,7 @@ void StringTable::AddReference(void)
 {
 	if (++referenceCount == 1)
 	{
-		instance = MafiaNet::OP_NEW<StringTable>(_FILE_AND_LINE_);
+		instance = new StringTable;
 	}
 }
 void StringTable::RemoveReference(void)
@@ -61,7 +62,7 @@ void StringTable::RemoveReference(void)
 	{
 		if (--referenceCount == 0)
 		{
-			MafiaNet::OP_DELETE(instance, _FILE_AND_LINE_);
+			delete instance;
 			instance = 0;
 		}
 	}
@@ -78,7 +79,7 @@ void StringTable::AddString(const char *str, bool copyString)
 	sab.b = copyString;
 	if (copyString)
 	{
-		sab.str = (char *) rakMalloc_Ex(strlen(str) + 1, _FILE_AND_LINE_);
+		sab.str = (char *) std::malloc(strlen(str) + 1);
 		strcpy_s(sab.str, strlen(str) + 1, str);
 	}
 	else

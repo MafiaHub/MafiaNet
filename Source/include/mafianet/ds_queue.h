@@ -91,7 +91,7 @@ template <class queue_type>
 Queue<queue_type>::Queue()
 {
 	//allocation_size = 16;
-	//array = MafiaNet::OP_NEW_ARRAY<queue_type>(allocation_size, _FILE_AND_LINE_ );
+	//array = new queue_type[allocation_size];
 	allocation_size = 0;
 	array = 0;
 	head = 0;
@@ -102,7 +102,7 @@ template <class queue_type>
 Queue<queue_type>::~Queue()
 {
 	if (allocation_size > 0)
-		MafiaNet::OP_DELETE_ARRAY(array, _FILE_AND_LINE_);
+		delete[] array;
 }
 
 template <class queue_type>
@@ -225,11 +225,11 @@ inline queue_type Queue<queue_type>::PeekTail(void) const
 }
 
 template <class queue_type>
-void Queue<queue_type>::Push(const queue_type &input, const char *file, unsigned int line)
+void Queue<queue_type>::Push(const queue_type &input, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (allocation_size == 0)
 	{
-		array = MafiaNet::OP_NEW_ARRAY<queue_type>(16, file, line);
+		array = new queue_type[16];
 		head = 0;
 		tail = 1;
 		array[0] = input;
@@ -248,7 +248,7 @@ void Queue<queue_type>::Push(const queue_type &input, const char *file, unsigned
 
 		// Need to allocate more memory.
 		queue_type *new_array;
-		new_array = MafiaNet::OP_NEW_ARRAY<queue_type>((int) allocation_size * 2, file, line);
+		new_array = new queue_type[(int) allocation_size * 2];
 #ifdef _DEBUG
 		RakAssert(new_array);
 #endif
@@ -265,7 +265,7 @@ void Queue<queue_type>::Push(const queue_type &input, const char *file, unsigned
 		allocation_size *= 2;
 
 		// Delete the old array and move the pointer to the new array
-		MafiaNet::OP_DELETE_ARRAY(array, file, line);
+		delete[] array;
 
 		array = new_array;
 	}
@@ -283,7 +283,7 @@ Queue<queue_type>::Queue(const Queue &original_copy)
 
 	else
 	{
-		array = MafiaNet::OP_NEW_ARRAY<queue_type>(original_copy.Size() + 1, _FILE_AND_LINE_);
+		array = new queue_type[original_copy.Size() + 1];
 
 		for (unsigned int counter = 0; counter < original_copy.Size(); ++counter)
 			array[counter] = original_copy.array[(original_copy.head + counter) % (original_copy.allocation_size)];
@@ -312,7 +312,7 @@ bool Queue<queue_type>::operator=(const Queue &original_copy)
 
 	else
 	{
-		array = MafiaNet::OP_NEW_ARRAY<queue_type>(original_copy.Size() + 1, _FILE_AND_LINE_);
+		array = new queue_type[original_copy.Size() + 1];
 
 		for (unsigned int counter = 0; counter < original_copy.Size(); ++counter)
 			array[counter] = original_copy.array[(original_copy.head + counter) % (original_copy.allocation_size)];
@@ -328,14 +328,14 @@ bool Queue<queue_type>::operator=(const Queue &original_copy)
 }
 
 template <class queue_type>
-inline void Queue<queue_type>::Clear(const char *file, unsigned int line)
+inline void Queue<queue_type>::Clear([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (allocation_size == 0)
 		return;
 
 	if (allocation_size > 32)
 	{
-		MafiaNet::OP_DELETE_ARRAY(array, file, line);
+		delete[] array;
 		allocation_size = 0;
 	}
 
@@ -344,7 +344,7 @@ inline void Queue<queue_type>::Clear(const char *file, unsigned int line)
 }
 
 template <class queue_type>
-void Queue<queue_type>::Compress(const char *file, unsigned int line)
+void Queue<queue_type>::Compress([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	queue_type *new_array;
 	unsigned int newAllocationSize;
@@ -355,7 +355,7 @@ void Queue<queue_type>::Compress(const char *file, unsigned int line)
 	while (newAllocationSize <= Size())
 		newAllocationSize <<= 1; // Must be a better way to do this but I'm too dumb to figure it out quickly :)
 
-	new_array = MafiaNet::OP_NEW_ARRAY<queue_type>(newAllocationSize, file, line);
+	new_array = new queue_type[newAllocationSize];
 
 	for (unsigned int counter = 0; counter < Size(); ++counter)
 		new_array[counter] = array[(head + counter) % (allocation_size)];
@@ -365,7 +365,7 @@ void Queue<queue_type>::Compress(const char *file, unsigned int line)
 	head = 0;
 
 	// Delete the old array and move the pointer to the new array
-	MafiaNet::OP_DELETE_ARRAY(array, file, line);
+	delete[] array;
 	array = new_array;
 }
 
@@ -389,11 +389,11 @@ bool Queue<queue_type>::Find(const queue_type &q)
 }
 
 template <class queue_type>
-void Queue<queue_type>::ClearAndForceAllocation(int size, const char *file, unsigned int line)
+void Queue<queue_type>::ClearAndForceAllocation(int size, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
-	MafiaNet::OP_DELETE_ARRAY(array, file, line);
+	delete[] array;
 	if (size > 0)
-		array = MafiaNet::OP_NEW_ARRAY<queue_type>(size, file, line);
+		array = new queue_type[size];
 	else
 		array = 0;
 	allocation_size = size;

@@ -143,7 +143,7 @@ bool FullyConnectedMesh2::AddParticipantInternal(RakNetGUID rakNetGuid, FCM2Guid
 		}
 	}
 
-	FCM2Participant *participant = MafiaNet::OP_NEW<FCM2Participant>(_FILE_AND_LINE_);
+	FCM2Participant *participant = new FCM2Participant;
 	participant->rakNetGuid = rakNetGuid;
 	participant->fcm2Guid = theirFCMGuid;
 	/*
@@ -339,11 +339,11 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 			{
 				if (joinsInProgress[idx]->vjipMembers[j].userData != 0)
 				{
-					MafiaNet::OP_DELETE(joinsInProgress[idx]->vjipMembers[j].userData, _FILE_AND_LINE_);
+					delete joinsInProgress[idx]->vjipMembers[j].userData;
 				}
 			}
 
-			MafiaNet::OP_DELETE(joinsInProgress[idx], _FILE_AND_LINE_);
+			delete joinsInProgress[idx];
 			joinsInProgress.RemoveAtIndex(idx);
 		}
 		else
@@ -415,7 +415,7 @@ void FullyConnectedMesh2::Clear(void)
 {
 	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
 	{
-		MafiaNet::OP_DELETE(fcm2ParticipantList[i], _FILE_AND_LINE_);
+		delete fcm2ParticipantList[i];
 	}
 	fcm2ParticipantList.Clear(false, _FILE_AND_LINE_);
 
@@ -425,11 +425,11 @@ void FullyConnectedMesh2::Clear(void)
 		{
 			if (joinsInProgress[i]->vjipMembers[j].userData != 0)
 			{
-				MafiaNet::OP_DELETE(joinsInProgress[i]->vjipMembers[j].userData, _FILE_AND_LINE_);
+				delete joinsInProgress[i]->vjipMembers[j].userData;
 			}
 		}
 
-		MafiaNet::OP_DELETE(joinsInProgress[i], _FILE_AND_LINE_);
+		delete joinsInProgress[i];
 	}
 	joinsInProgress.Clear(true, _FILE_AND_LINE_);
 
@@ -1036,7 +1036,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 		return RR_CONTINUE_PROCESSING;
 	}
 
-	VerifiedJoinInProgress *vjip = MafiaNet::OP_NEW<VerifiedJoinInProgress>(_FILE_AND_LINE_);
+	VerifiedJoinInProgress *vjip = new VerifiedJoinInProgress;
 	vjip->requester = packet->guid;
 	if (listSize == 0)
 	{
@@ -1192,7 +1192,7 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 			}
 
 			if (vjip->vjipMembers[j].userData != 0)
-				MafiaNet::OP_DELETE(vjip->vjipMembers[j].userData, _FILE_AND_LINE_);
+				delete vjip->vjipMembers[j].userData;
 		}
 	}
 
@@ -1200,13 +1200,13 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 	{
 		if (joinsInProgress[curIndex]->vjipMembers[j].userData != 0)
 		{
-			MafiaNet::OP_DELETE(joinsInProgress[curIndex]->vjipMembers[j].userData, _FILE_AND_LINE_);
+			delete joinsInProgress[curIndex]->vjipMembers[j].userData;
 		}
 	}
 
 
 	// Clear joinsInProgress for packet->guid
-	MafiaNet::OP_DELETE(joinsInProgress[curIndex], _FILE_AND_LINE_);
+	delete joinsInProgress[curIndex];
 	joinsInProgress.RemoveAtIndex(curIndex);
 }
 void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
@@ -1248,12 +1248,12 @@ void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
 		{
 			if (joinsInProgress[curIndex]->vjipMembers[j].userData != 0)
 			{
-				MafiaNet::OP_DELETE(joinsInProgress[curIndex]->vjipMembers[j].userData, _FILE_AND_LINE_);
+				delete joinsInProgress[curIndex]->vjipMembers[j].userData;
 			}
 		}
 
 		// Clear joinsInProgress for packet->guid
-		MafiaNet::OP_DELETE(joinsInProgress[curIndex], _FILE_AND_LINE_);
+		delete joinsInProgress[curIndex];
 		joinsInProgress.RemoveAtIndex(curIndex);
 	}
 	else
@@ -1367,7 +1367,7 @@ void FullyConnectedMesh2::ReadVerifiedJoinInProgressMember(MafiaNet::BitStream *
 	bsIn->Read(vjsUserDataSize);
 	if (vjsUserDataSize > 0)
 	{
-		vjipm->userData = MafiaNet::OP_NEW<BitStream>(_FILE_AND_LINE_);
+		vjipm->userData = new BitStream;
 		bsIn->Read(vjipm->userData, vjsUserDataSize);
 	}
 	else

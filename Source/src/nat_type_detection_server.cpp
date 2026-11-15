@@ -78,12 +78,12 @@ void NatTypeDetectionServer::Shutdown()
 {
 	if (s1p2 != 0)
 	{
-		MafiaNet::OP_DELETE(s1p2, _FILE_AND_LINE_);
+		delete s1p2;
 		s1p2 = 0;
 	}
 	if (s2p3 != 0)
 	{
-		MafiaNet::OP_DELETE(s2p3, _FILE_AND_LINE_);
+		delete s2p3;
 		s2p3 = 0;
 	}
 	if (s3p4 != 0)
@@ -91,17 +91,17 @@ void NatTypeDetectionServer::Shutdown()
 		if (s3p4->IsBerkleySocket())
 			((RNS2_Berkley *) s3p4)->BlockOnStopRecvPollingThread();
 
-		MafiaNet::OP_DELETE(s3p4, _FILE_AND_LINE_);
+		delete s3p4;
 		s3p4 = 0;
 	}
 	if (s4p5 != 0)
 	{
-		MafiaNet::OP_DELETE(s4p5, _FILE_AND_LINE_);
+		delete s4p5;
 		s4p5 = 0;
 	}
 	bufferedPacketsMutex.Lock();
 	while (bufferedPackets.Size())
-		MafiaNet::OP_DELETE(bufferedPackets.Pop(), _FILE_AND_LINE_);
+		delete bufferedPackets.Pop();
 	bufferedPacketsMutex.Unlock();
 }
 void NatTypeDetectionServer::Update(void)
@@ -403,14 +403,14 @@ unsigned int NatTypeDetectionServer::GetDetectionAttemptIndex(RakNetGUID guid)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void NatTypeDetectionServer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line)
+void NatTypeDetectionServer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
-	MafiaNet::OP_DELETE(s, file, line);
+	delete s;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RNS2RecvStruct *NatTypeDetectionServer::AllocRNS2RecvStruct(const char *file, unsigned int line)
+RNS2RecvStruct *NatTypeDetectionServer::AllocRNS2RecvStruct([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
-	return MafiaNet::OP_NEW<RNS2RecvStruct>(file, line);
+	return new RNS2RecvStruct;
 }
 
 void NatTypeDetectionServer::OnRNS2Recv(RNS2RecvStruct *recvStruct)

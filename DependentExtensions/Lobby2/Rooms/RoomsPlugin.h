@@ -727,7 +727,7 @@ struct RoomMemberJoinedRoom_Notification : public RoomsPluginNotification
 	~RoomMemberJoinedRoom_Notification()
 	{
 		if (joinedRoomResult != 0)
-			MafiaNet::OP_DELETE(joinedRoomResult, _FILE_AND_LINE_);
+			delete joinedRoomResult;
 	}
 	RoomID roomId;
 	JoinedRoomResult *joinedRoomResult;

@@ -30,7 +30,7 @@ ByteQueue::~ByteQueue()
 {
 	Clear(_FILE_AND_LINE_);
 }
-void ByteQueue::WriteBytes(const char *in, unsigned length, const char *file, unsigned int line)
+void ByteQueue::WriteBytes(const char *in, unsigned length, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	unsigned bytesWritten;
 	bytesWritten = GetBytesWritten();
@@ -42,7 +42,7 @@ void ByteQueue::WriteBytes(const char *in, unsigned length, const char *file, un
 		if (newAmountToAllocate < 256)
 			newAmountToAllocate = 256;
 		lengthAllocated = lengthAllocated + newAmountToAllocate;
-		data = (char *) rakRealloc_Ex(data, lengthAllocated, file, line);
+		data = (char *) std::realloc(data, lengthAllocated);
 		if (writeOffset < readOffset)
 		{
 			if (writeOffset <= newAmountToAllocate)
@@ -106,10 +106,10 @@ char *ByteQueue::PeekContiguousBytes(unsigned int *outLength) const
 		*outLength = lengthAllocated - readOffset;
 	return data + readOffset;
 }
-void ByteQueue::Clear(const char *file, unsigned int line)
+void ByteQueue::Clear([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (lengthAllocated)
-		rakFree_Ex(data, file, line);
+		std::free(data);
 	readOffset = writeOffset = lengthAllocated = 0;
 	data = 0;
 }

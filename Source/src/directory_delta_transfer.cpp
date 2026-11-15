@@ -126,14 +126,14 @@ DirectoryDeltaTransfer::DirectoryDeltaTransfer()
 {
 	applicationDirectory[0] = 0;
 	fileListTransfer = 0;
-	availableUploads = MafiaNet::OP_NEW<FileList>(_FILE_AND_LINE_);
+	availableUploads = new FileList;
 	priority = MafiaNet::Priority::High;
 	orderingChannel = 0;
 	incrementalReadInterface = 0;
 }
 DirectoryDeltaTransfer::~DirectoryDeltaTransfer()
 {
-	MafiaNet::OP_DELETE(availableUploads, _FILE_AND_LINE_);
+	delete availableUploads;
 }
 void DirectoryDeltaTransfer::SetFileListTransferPlugin(FileListTransfer *flt)
 {
@@ -211,7 +211,7 @@ unsigned short DirectoryDeltaTransfer::DownloadFromSubdirectory(FileList &localF
 	localFiles.AddCallback(cb);
 
 	// Prepare the callback data
-	transferCallback = MafiaNet::OP_NEW<DDTCallback>(_FILE_AND_LINE_);
+	transferCallback = new DDTCallback;
 	if (subdir && subdir[0])
 	{
 		transferCallback->subdirLen = (unsigned int) strlen(subdir);

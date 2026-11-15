@@ -14,6 +14,7 @@
  */
 
 #include "Lobby2Message_PGSQL.h"
+#include <cstdlib>
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
@@ -544,7 +545,7 @@ bool MafiaNet::System_CreateDatabase_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 	fseek(fp, 0, SEEK_END);
 	unsigned int fileSize = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	char *cmd = (char *) rakMalloc_Ex(fileSize + 1, _FILE_AND_LINE_);
+	char *cmd = (char *) std::malloc(fileSize + 1);
 	fread(cmd, 1, fileSize, fp);
 	fclose(fp);
 	cmd[fileSize] = 0;
@@ -560,7 +561,7 @@ bool MafiaNet::System_CreateDatabase_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 		printf(cmd);
 		printf(pgsql->GetLastError());
 	}
-	rakFree_Ex(cmd, _FILE_AND_LINE_);
+	std::free(cmd);
 	return true;
 }
 

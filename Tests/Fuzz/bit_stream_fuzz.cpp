@@ -110,7 +110,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 			char *buf = nullptr;
 			unsigned int len = 0;
 			in.ReadAlignedBytesSafeAlloc(&buf, len, 4096);
-			rakFree_Ex(buf, _FILE_AND_LINE_);
+			std::free(buf);
 			break;
 		}
 		case 12:

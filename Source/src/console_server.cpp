@@ -43,7 +43,7 @@ ConsoleServer::ConsoleServer()
 ConsoleServer::~ConsoleServer()
 {
 	if (prompt)
-		rakFree_Ex(prompt, _FILE_AND_LINE_);
+		std::free(prompt);
 }
 void ConsoleServer::SetTransportProvider(TransportInterface *transportInterface, unsigned short port)
 {
@@ -317,11 +317,11 @@ void ConsoleServer::ShowPrompt(SystemAddress systemAddress)
 void ConsoleServer::SetPrompt(const char *_prompt)
 {
 	if (prompt)
-		rakFree_Ex(prompt, _FILE_AND_LINE_);
+		std::free(prompt);
 	if (_prompt && _prompt[0])
 	{
 		size_t len = strlen(_prompt);
-		prompt = (char *) rakMalloc_Ex(len + 1, _FILE_AND_LINE_);
+		prompt = (char *) std::malloc(len + 1);
 		strcpy_s(prompt, len + 1, _prompt);
 	}
 	else

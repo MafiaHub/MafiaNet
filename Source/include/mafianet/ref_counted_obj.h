@@ -33,7 +33,7 @@ public:
 	void Deref(void)
 	{
 		if (--refCount == 0)
-			MafiaNet::OP_DELETE(this, _FILE_AND_LINE_);
+			delete this;
 	}
 	int refCount;
 };

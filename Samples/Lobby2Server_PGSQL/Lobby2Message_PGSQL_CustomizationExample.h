@@ -102,9 +102,9 @@ struct Lobby2MessageFactory_Customized : public Lobby2MessageFactory_PGSQL
 		switch (id)
 		{
 		case L2MID_Platform_Startup:
-			return MafiaNet::OP_NEW<Platform_Startup_Overridden>(__FILE__, __LINE__);
+			return new Platform_Startup_Overridden;
 		case L2MID_MyCustomMessage:
-			return MafiaNet::OP_NEW<MyCustomMessage>(__FILE__, __LINE__);
+			return new MyCustomMessage;
 		}
 		return Lobby2MessageFactory_PGSQL::Alloc(id);
 	}

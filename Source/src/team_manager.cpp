@@ -1846,7 +1846,7 @@ TM_World *TeamManager::AddWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] == 0 && "World already in use");
 
-	TM_World *newWorld = MafiaNet::OP_NEW<TM_World>(_FILE_AND_LINE_);
+	TM_World *newWorld = new TM_World;
 	newWorld->worldId = worldId;
 	newWorld->teamManager = this;
 	newWorld->hostGuid = GetMyGUIDUnified();
@@ -1864,7 +1864,7 @@ void TeamManager::RemoveWorld(WorldId worldId)
 	{
 		if (worldsList[i] == worldsArray[worldId])
 		{
-			MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
+			delete worldsList[i];
 			worldsList.RemoveAtIndexFast(i);
 			break;
 		}
@@ -2163,7 +2163,7 @@ void TeamManager::Clear(void)
 	{
 		worldsArray[worldsList[i]->worldId] = 0;
 		worldsList[i]->Clear();
-		MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
+		delete worldsList[i];
 	}
 	worldsList.Clear(false, _FILE_AND_LINE_);
 }

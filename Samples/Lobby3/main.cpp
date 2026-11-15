@@ -80,7 +80,7 @@ void main_RakNet(void)
 
 	char URI[128];
 	sprintf_s(URI, "%s/customTable/update", serverURL);
-	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__);
+	TCPInterface *tcp = new TCPInterface; // Requires build with OPEN_SSL_CLIENT_SUPPORT
 	tcp->Start(0, 64);
 	tcp->Connect(serverURL, serverPort, true);
 	RakString rspost = RakString::FormatForPOST(

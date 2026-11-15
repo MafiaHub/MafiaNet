@@ -289,7 +289,7 @@ bool PostgreSQLInterface::PQGetValueFromBinary(char **output, int *outputLength,
 		}
 		else
 		{
-			*output = (char *) rakMalloc_Ex(*outputLength, _FILE_AND_LINE_);
+			*output = (char *) std::malloc(*outputLength);
 			memcpy(*output, PQgetvalue(result, rowIndex, columnIndex), *outputLength);
 			return true;
 		}
@@ -566,13 +566,13 @@ void PostgreSQLInterface::EncodeQueryUpdate(const char *colName, const MafiaNet:
 MafiaNet::RakString PostgreSQLInterface::GetEscapedString(const char *input) const
 {
 	unsigned long len = (unsigned long) strlen(input);
-	char *fn = (char *) rakMalloc_Ex(len * 2 + 1, _FILE_AND_LINE_);
+	char *fn = (char *) std::malloc(len * 2 + 1);
 	int error;
 	PQescapeStringConn(pgConn, fn, input, len, &error);
 	MafiaNet::RakString output;
 	// Use assignment so it doesn't parse printf escape strings
 	output = fn;
-	rakFree_Ex(fn, _FILE_AND_LINE_);
+	std::free(fn);
 	return output;
 }
 
@@ -654,12 +654,12 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 	int *paramLength;
 	int *paramFormat;
 	ExtractArguments(argptr, indices, &paramData, &paramLength);
-	paramFormat = MafiaNet::OP_NEW_ARRAY<int>(indices.Size(), _FILE_AND_LINE_);
+	paramFormat = new int[indices.Size()];
 	for (unsigned int i = 0; i < indices.Size(); i++)
 		paramFormat[i] = PQEXECPARAM_FORMAT_BINARY;
 	result = PQexecPrepared(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueryIndex), indices.Size(), paramData, paramLength, paramFormat, PQEXECPARAM_FORMAT_BINARY);
 	VariadicSQLParser::FreeArguments(indices, paramData, paramLength);
-	MafiaNet::OP_DELETE_ARRAY(paramFormat, _FILE_AND_LINE_);
+	delete[] paramFormat;
 	va_end(argptr);
 
 	if (IsResultSuccessful(result, false) == false)

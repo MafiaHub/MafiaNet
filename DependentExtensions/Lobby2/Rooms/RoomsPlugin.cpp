@@ -491,7 +491,7 @@ void IsInQuickJoin_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream
 SearchByFilter_Func::~SearchByFilter_Func()
 {
 	for (unsigned int i = 0; i < roomsOutput.Size(); i++)
-		MafiaNet::OP_DELETE(roomsOutput[i], _FILE_AND_LINE_);
+		delete roomsOutput[i];
 }
 void SearchByFilter_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
 {
@@ -516,7 +516,7 @@ void SearchByFilter_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStrea
 			roomsOutput[i]->Serialize(true, bitStream);
 		else
 		{
-			RoomDescriptor *desc = MafiaNet::OP_NEW<RoomDescriptor>(_FILE_AND_LINE_);
+			RoomDescriptor *desc = new RoomDescriptor;
 			desc->Serialize(false, bitStream);
 			roomsOutput.Insert(desc, _FILE_AND_LINE_);
 		}
@@ -736,7 +736,7 @@ void RoomMemberJoinedRoom_Notification::Serialize(bool writeToBitstream, MafiaNe
 	bitStream->Serialize(writeToBitstream, recipient);
 	bitStream->Serialize(writeToBitstream, roomId);
 	if (joinedRoomResult == 0 && writeToBitstream == false)
-		joinedRoomResult = MafiaNet::OP_NEW<JoinedRoomResult>(_FILE_AND_LINE_);
+		joinedRoomResult = new JoinedRoomResult;
 	joinedRoomResult->Serialize(writeToBitstream, bitStream);
 }
 void RoomInvitationSent_Notification::Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream)
@@ -869,7 +869,7 @@ bool RoomsPlugin::LoginRoomsParticipant(MafiaNet::RakString userName, SystemAddr
 	index = roomsParticipants.GetIndexFromKey(userName, &objectExists);
 	if (objectExists == false)
 	{
-		RoomsPluginParticipant *rpp = MafiaNet::OP_NEW<RoomsPluginParticipant>(_FILE_AND_LINE_);
+		RoomsPluginParticipant *rpp = new RoomsPluginParticipant;
 		rpp->SetSystemAddress(roomsParticipantAddress);
 		rpp->SetGUID(guid);
 		rpp->SetName(userName);
@@ -890,7 +890,7 @@ bool RoomsPlugin::LogoffRoomsParticipant(MafiaNet::RakString userName, SystemAdd
 		RemoveUserResult removeUserResult;
 		roomsContainer.RemoveUser(roomsParticipants[index], &removeUserResult);
 		ProcessRemoveUserResult(&removeUserResult);
-		MafiaNet::OP_DELETE(roomsParticipants[index], _FILE_AND_LINE_);
+		delete roomsParticipants[index];
 		roomsParticipants.RemoveAtIndex(index);
 		return true;
 	}
@@ -900,7 +900,7 @@ void RoomsPlugin::ClearRoomMembers(void)
 {
 	unsigned int i;
 	for (i = 0; i < roomsParticipants.Size(); i++)
-		MafiaNet::OP_DELETE(roomsParticipants[i], _FILE_AND_LINE_);
+		delete roomsParticipants[i];
 	roomsParticipants.Clear(false, _FILE_AND_LINE_);
 }
 void RoomsPlugin::SerializeLogin(MafiaNet::RakString userName, SystemAddress userAddress, RakNetGUID guid, MafiaNet::BitStream *bs)
@@ -1006,7 +1006,7 @@ void RoomsPlugin::Update(void)
 		}
 
 		for (i = 0; i < dereferencedPointers.Size(); i++)
-			MafiaNet::OP_DELETE(dereferencedPointers[i], _FILE_AND_LINE_);
+			delete dereferencedPointers[i];
 	}
 
 	lastUpdateTime = curTime;
@@ -1633,7 +1633,7 @@ void RoomsPlugin::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 		{
 			roomsContainer.RemoveUser(roomsParticipants[i], &removeUserResult);
 			ProcessRemoveUserResult(&removeUserResult);
-			MafiaNet::OP_DELETE(roomsParticipants[i], _FILE_AND_LINE_);
+			delete roomsParticipants[i];
 			roomsParticipants.RemoveAtIndex(i);
 		}
 		else
@@ -1812,7 +1812,7 @@ void RoomsPlugin::AcceptInvite_Callback(const SystemAddress &senderAddress, Acce
 	if (callResult->resultCode == REC_SUCCESS)
 	{
 		RoomMemberJoinedRoom_Notification notificationToRoom;
-		notificationToRoom.joinedRoomResult = MafiaNet::OP_NEW<JoinedRoomResult>(_FILE_AND_LINE_);
+		notificationToRoom.joinedRoomResult = new JoinedRoomResult;
 		notificationToRoom.joinedRoomResult->acceptedInvitor = 0;
 		notificationToRoom.joinedRoomResult->acceptedInvitorName = callResult->inviteSender;
 		notificationToRoom.joinedRoomResult->joiningMember = roomsPluginParticipant;
@@ -2147,7 +2147,7 @@ void RoomsPlugin::AddUserToQuickJoin_Callback(const SystemAddress &senderAddress
 	RoomsPluginParticipant *roomsPluginParticipant = ValidateUserHandle(callResult, senderAddress);
 	if (roomsPluginParticipant == 0)
 		return;
-	QuickJoinUser *qju = MafiaNet::OP_NEW<QuickJoinUser>(_FILE_AND_LINE_);
+	QuickJoinUser *qju = new QuickJoinUser;
 	qju->networkedQuickJoinUser = callResult->networkedQuickJoinUser;
 	qju->roomsParticipant = roomsPluginParticipant;
 	callResult->resultCode = roomsContainer.AddUserToQuickJoin(callResult->gameIdentifier, qju);
@@ -2161,7 +2161,7 @@ void RoomsPlugin::RemoveUserFromQuickJoin_Callback(const SystemAddress &senderAd
 	QuickJoinUser *qju;
 	callResult->resultCode = roomsContainer.RemoveUserFromQuickJoin(roomsPluginParticipant, &qju);
 	if (qju)
-		MafiaNet::OP_DELETE(qju, _FILE_AND_LINE_);
+		delete qju;
 	ExecuteFunc(callResult, senderAddress);
 }
 void RoomsPlugin::IsInQuickJoin_Callback(const SystemAddress &senderAddress, IsInQuickJoin_Func *callResult)
@@ -2185,7 +2185,7 @@ void RoomsPlugin::SearchByFilter_Callback(const SystemAddress &senderAddress, Se
 	RoomDescriptor *desc;
 	for (i = 0; i < roomsOutput.Size(); i++)
 	{
-		desc = MafiaNet::OP_NEW<RoomDescriptor>(_FILE_AND_LINE_);
+		desc = new RoomDescriptor;
 		desc->FromRoom(roomsOutput[i], &roomsContainer);
 		callResult->roomsOutput.Insert(desc, _FILE_AND_LINE_);
 	}
@@ -2400,7 +2400,7 @@ void RoomsPlugin::ProcessRemoveUserResult(RemoveUserResult *removeUserResult)
 	if (removeUserResult->removedFromQuickJoin)
 	{
 		if (removeUserResult->qju)
-			MafiaNet::OP_DELETE(removeUserResult->qju, _FILE_AND_LINE_);
+			delete removeUserResult->qju;
 	}
 	roomsContainer.DestroyRoomIfDead(removeUserResult->room);
 }

@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_FileListTransfer == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 #include "mafianet/file_list_transfer.h"
@@ -74,7 +75,7 @@ FileListReceiver::~FileListReceiver()
 {
 	unsigned int i = 0;
 	for (i = 0; i < pushedFiles.Size(); i++)
-		rakFree_Ex(pushedFiles[i].flrMemoryBlock, _FILE_AND_LINE_);
+		std::free(pushedFiles[i].flrMemoryBlock);
 }
 
 STATIC_FACTORY_DEFINITIONS(FileListTransfer, FileListTransfer)
@@ -83,9 +84,9 @@ void FileListTransfer::FileToPushRecipient::DeleteThis(void)
 {
 	////	filesToPushMutex.Lock();
 	for (unsigned int j = 0; j < filesToPush.Size(); j++)
-		MafiaNet::OP_DELETE(filesToPush[j], _FILE_AND_LINE_);
+		delete filesToPush[j];
 	////	filesToPushMutex.Unlock();
-	MafiaNet::OP_DELETE(this, _FILE_AND_LINE_);
+	delete this;
 }
 void FileListTransfer::FileToPushRecipient::AddRef(void)
 {
@@ -141,13 +142,13 @@ unsigned short FileListTransfer::SetupReceive(FileListTransferCBInterface *handl
 		receiver = fileListReceivers.Get(setId);
 		receiver->downloadHandler->OnDereference();
 		if (receiver->deleteDownloadHandler)
-			MafiaNet::OP_DELETE(receiver->downloadHandler, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(receiver, _FILE_AND_LINE_);
+			delete receiver->downloadHandler;
+		delete receiver;
 		fileListReceivers.Delete(setId);
 	}
 
 	unsigned short oldId;
-	receiver = MafiaNet::OP_NEW<FileListReceiver>(_FILE_AND_LINE_);
+	receiver = new FileListReceiver;
 	RakAssert(handler);
 	receiver->downloadHandler = handler;
 	receiver->allowedSender = allowedSender;
@@ -201,7 +202,7 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 			sendReference = fileList->fileList[i].isAReference && _incrementalReadInterface != 0;
 			if (sendReference)
 			{
-				FileToPush *fileToPush = MafiaNet::OP_NEW<FileToPush>(_FILE_AND_LINE_);
+				FileToPush *fileToPush = new FileToPush;
 				fileToPush->fileListNode.context = fileList->fileList[i].context;
 				fileToPush->setIndex = i;
 				fileToPush->fileListNode.filename = fileList->fileList[i].filename;
@@ -258,7 +259,7 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 
 			//if (ftpr==0)
 			//{
-			ftpr = MafiaNet::OP_NEW<FileToPushRecipient>(_FILE_AND_LINE_);
+			ftpr = new FileToPushRecipient;
 			ftpr->systemAddress = recipient;
 			ftpr->setId = setID;
 			ftpr->refCount = 2; // Allocated and in the list
@@ -352,8 +353,8 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 			fileListReceiver->downloadHandler->OnDereference();
 			fileListReceivers.Delete(setID);
 			if (fileListReceiver->deleteDownloadHandler)
-				MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+				delete fileListReceiver->downloadHandler;
+			delete fileListReceiver;
 		}
 
 		return true;
@@ -435,7 +436,7 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 	if (isTheFullFile)
 	{
 		inBitStream.AlignReadToByteBoundary();
-		onFileStruct.fileData = (char *) rakMalloc_Ex((size_t) onFileStruct.byteLengthOfThisFile, _FILE_AND_LINE_);
+		onFileStruct.fileData = (char *) std::malloc((size_t) onFileStruct.byteLengthOfThisFile);
 		inBitStream.Read((char *) onFileStruct.fileData, onFileStruct.byteLengthOfThisFile);
 
 		FileListTransferCBInterface::FileProgressStruct fps;
@@ -452,7 +453,7 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 		fileListReceiver->downloadHandler->OnFileProgress(&fps);
 		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
 		{
-			rakFree_Ex(onFileStruct.fileData, _FILE_AND_LINE_);
+			std::free(onFileStruct.fileData);
 			return true;
 		}
 
@@ -460,7 +461,7 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 		// Either we are using IncrementalReadInterface and it was a small file or
 		// We are not using IncrementalReadInterface
 		if (fileListReceiver->downloadHandler->OnFile(&onFileStruct))
-			rakFree_Ex(onFileStruct.fileData, _FILE_AND_LINE_);
+			std::free(onFileStruct.fileData);
 		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
 			return true;
 
@@ -480,9 +481,9 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 			{
 				fileListReceiver->downloadHandler->OnDereference();
 				if (fileListReceiver->deleteDownloadHandler)
-					MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
+					delete fileListReceiver->downloadHandler;
 				fileListReceivers.Delete(onFileStruct.setID);
-				MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+				delete fileListReceiver;
 			}
 		}
 	}
@@ -561,8 +562,8 @@ void FileListTransfer::Clear(void)
 	{
 		fileListReceivers[i]->downloadHandler->OnDereference();
 		if (fileListReceivers[i]->deleteDownloadHandler)
-			MafiaNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
+			delete fileListReceivers[i]->downloadHandler;
+		delete fileListReceivers[i];
 	}
 	fileListReceivers.Clear();
 
@@ -597,8 +598,8 @@ void FileListTransfer::CancelReceive(unsigned short inSetId)
 	FileListReceiver *fileListReceiver = fileListReceivers.Get(inSetId);
 	fileListReceiver->downloadHandler->OnDereference();
 	if (fileListReceiver->deleteDownloadHandler)
-		MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+		delete fileListReceiver->downloadHandler;
+	delete fileListReceiver;
 	fileListReceivers.Delete(inSetId);
 }
 void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
@@ -624,8 +625,8 @@ void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
 		{
 			fileListReceivers[i]->downloadHandler->OnDereference();
 			if (fileListReceivers[i]->deleteDownloadHandler)
-				MafiaNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
+				delete fileListReceivers[i]->downloadHandler;
+			delete fileListReceivers[i];
 			fileListReceivers.RemoveAtIndex(i);
 		}
 		else
@@ -703,8 +704,8 @@ void FileListTransfer::Update(void)
 		{
 			fileListReceivers[i]->downloadHandler->OnDereference();
 			if (fileListReceivers[i]->deleteDownloadHandler)
-				MafiaNet::OP_DELETE(fileListReceivers[i]->downloadHandler, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(fileListReceivers[i], _FILE_AND_LINE_);
+				delete fileListReceivers[i]->downloadHandler;
+			delete fileListReceivers[i];
 			fileListReceivers.RemoveAtIndex(i);
 		}
 		else
@@ -795,7 +796,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 	if (fileListReceiver->pushedFiles.Has(onFileStruct.fileIndex) == false)
 	{
 		if (onFileStruct.byteLengthOfThisFile <= SLNET_MAX_RETRIEVABLE_FILESIZE)
-			mb.flrMemoryBlock = (char *) rakMalloc_Ex(onFileStruct.byteLengthOfThisFile, _FILE_AND_LINE_);
+			mb.flrMemoryBlock = (char *) std::malloc(onFileStruct.byteLengthOfThisFile);
 		else
 			mb.flrMemoryBlock = nullptr;
 		fileListReceiver->pushedFiles.SetNew(onFileStruct.fileIndex, mb);
@@ -888,7 +889,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 		// Incremental read interface sent us a file chunk
 		// This is the last file chunk we were waiting for to consider the file done
 		if (fileListReceiver->downloadHandler->OnFile(&onFileStruct))
-			rakFree_Ex(oldFileData, _FILE_AND_LINE_);
+			std::free(oldFileData);
 		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
 			return;
 		fileListReceiver->pushedFiles.Delete(onFileStruct.fileIndex);
@@ -910,8 +911,8 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 				fileListReceiver->downloadHandler->OnDereference();
 				fileListReceivers.Delete(onFileStruct.setID);
 				if (fileListReceiver->deleteDownloadHandler)
-					MafiaNet::OP_DELETE(fileListReceiver->downloadHandler, _FILE_AND_LINE_);
-				MafiaNet::OP_DELETE(fileListReceiver, _FILE_AND_LINE_);
+					delete fileListReceiver->downloadHandler;
+				delete fileListReceiver;
 			}
 		}
 	}
@@ -926,7 +927,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 
 			if (fps.allocateIrIDataChunkAutomatically == false)
 			{
-				rakFree_Ex(fileListReceiver->pushedFiles.Get(onFileStruct.fileIndex).flrMemoryBlock, _FILE_AND_LINE_);
+				std::free(fileListReceiver->pushedFiles.Get(onFileStruct.fileIndex).flrMemoryBlock);
 				fileListReceiver->pushedFiles.Get(onFileStruct.fileIndex).flrMemoryBlock = 0;
 			}
 		}
@@ -1009,7 +1010,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			////ftpr->filesToPushMutex.Unlock();
 
 			// Read and send chunk. If done, delete at this index
-			void *buff = rakMalloc_Ex(ftp->chunkSize, _FILE_AND_LINE_);
+			void *buff = std::malloc(ftp->chunkSize);
 			if (buff == 0)
 			{
 				////ftpr->filesToPushMutex.Lock();
@@ -1017,7 +1018,6 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 				////ftpr->filesToPushMutex.Unlock();
 
 				ftpr->Deref();
-				notifyOutOfMemory(_FILE_AND_LINE_);
 				return 0;
 			}
 
@@ -1055,7 +1055,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 
 				// LWS : fixed freed pointer reference
 				//				unsigned int chunkSize = ftp->chunkSize;
-				MafiaNet::OP_DELETE(ftp, _FILE_AND_LINE_);
+				delete ftp;
 				smallFileTotalSize += bytesRead;
 				//done = bytesRead!=ftp->chunkSize;
 				////ftpr->filesToPushMutex.Lock();
@@ -1096,7 +1096,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			{
 				// Done
 				//unsigned short setId = ftp->setID;
-				MafiaNet::OP_DELETE(ftp, _FILE_AND_LINE_);
+				delete ftp;
 
 				////ftpr->filesToPushMutex.Lock();
 				if (ftpr->filesToPush.Size() == 0)
@@ -1127,7 +1127,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			// See http://www.jenkinssoftware.com/forum/index.php?topic=4768.msg19738#msg19738
 			fileListTransfer->SendListUnified(dataBlocks, lengths, 2, packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, systemAddress, false);
 
-			rakFree_Ex(buff, _FILE_AND_LINE_);
+			std::free(buff);
 			return 0;
 		}
 		else

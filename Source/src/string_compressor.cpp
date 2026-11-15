@@ -18,6 +18,7 @@
 
 
 #include "mafianet/string_compressor.h"
+#include <cstdlib>
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
@@ -36,7 +37,7 @@ void StringCompressor::AddReference(void)
 {
 	if (++referenceCount == 1)
 	{
-		instance = MafiaNet::OP_NEW<StringCompressor>(_FILE_AND_LINE_);
+		instance = new StringCompressor;
 	}
 }
 void StringCompressor::RemoveReference(void)
@@ -47,7 +48,7 @@ void StringCompressor::RemoveReference(void)
 	{
 		if (--referenceCount == 0)
 		{
-			MafiaNet::OP_DELETE(instance, _FILE_AND_LINE_);
+			delete instance;
 			instance = 0;
 		}
 	}
@@ -322,7 +323,7 @@ StringCompressor::StringCompressor()
 	DataStructures::Map<int, HuffmanEncodingTree *>::IMPLEMENT_DEFAULT_COMPARISON();
 
 	// Make a default tree immediately, since this is used for RPC possibly from multiple threads at the same time
-	HuffmanEncodingTree *huffmanEncodingTree = MafiaNet::OP_NEW<HuffmanEncodingTree>(_FILE_AND_LINE_);
+	HuffmanEncodingTree *huffmanEncodingTree = new HuffmanEncodingTree;
 	huffmanEncodingTree->GenerateFromFrequencyTable(englishCharacterFrequencies);
 
 	huffmanEncodingTrees.Set(0, huffmanEncodingTree);
@@ -333,7 +334,7 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 	if (huffmanEncodingTrees.Has(languageId))
 	{
 		huffmanEncodingTree = huffmanEncodingTrees.Get(languageId);
-		MafiaNet::OP_DELETE(huffmanEncodingTree, _FILE_AND_LINE_);
+		delete huffmanEncodingTree;
 	}
 
 	unsigned index;
@@ -350,7 +351,7 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 		frequencyTable[input[index]]++;
 
 	// Build the tree
-	huffmanEncodingTree = MafiaNet::OP_NEW<HuffmanEncodingTree>(_FILE_AND_LINE_);
+	huffmanEncodingTree = new HuffmanEncodingTree;
 	huffmanEncodingTree->GenerateFromFrequencyTable(frequencyTable);
 	huffmanEncodingTrees.Set(languageId, huffmanEncodingTree);
 }
@@ -358,7 +359,7 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 StringCompressor::~StringCompressor()
 {
 	for (unsigned i = 0; i < huffmanEncodingTrees.Size(); i++)
-		MafiaNet::OP_DELETE(huffmanEncodingTrees[i], _FILE_AND_LINE_);
+		delete huffmanEncodingTrees[i];
 }
 
 void StringCompressor::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
@@ -462,10 +463,10 @@ bool StringCompressor::DecodeString(std::string *output, int maxCharsToWrite, Ma
 	else
 #endif
 	{
-		destinationBlock = (char *) rakMalloc_Ex(maxCharsToWrite, _FILE_AND_LINE_);
+		destinationBlock = (char *) std::malloc(maxCharsToWrite);
 		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
 		*output = destinationBlock;
-		rakFree_Ex(destinationBlock, _FILE_AND_LINE_);
+		std::free(destinationBlock);
 	}
 
 	return out;
@@ -496,10 +497,10 @@ bool StringCompressor::DecodeString(RakString *output, int maxCharsToWrite, Mafi
 	else
 #endif
 	{
-		destinationBlock = (char *) rakMalloc_Ex(maxCharsToWrite, _FILE_AND_LINE_);
+		destinationBlock = (char *) std::malloc(maxCharsToWrite);
 		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
 		*output = destinationBlock;
-		rakFree_Ex(destinationBlock, _FILE_AND_LINE_);
+		std::free(destinationBlock);
 	}
 
 	return out;

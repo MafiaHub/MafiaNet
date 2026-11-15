@@ -329,6 +329,6 @@ void TableSerializer::DeallocateQueryList(DataStructures::Table::FilterQuery *qu
 
 	unsigned i;
 	for (i = 0; i < numQueries; i++)
-		MafiaNet::OP_DELETE(query[i].cellValue, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(query, _FILE_AND_LINE_);
+		delete query[i].cellValue;
+	delete[] query;
 }

@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/empty_header.h"
+#include <cstdlib>
 
 #ifdef RAKNET_SOCKET_2_INLINE_FUNCTIONS
 
@@ -46,7 +47,7 @@ static bool IsTeredoIPv6(const sockaddr_in6 &address)
 static void GetMyIP_Windows(std::vector<SystemAddress> &found)
 {
 	ULONG outBufLen = 45 * 1024; // reserve 45 KB of memory which is the upper limit taken from the sample in MSDN (ie. 15 KB * 3 iterations)
-	PIP_ADAPTER_ADDRESSES pAddresses = static_cast<IP_ADAPTER_ADDRESSES *>(rakMalloc_Ex(outBufLen, _FILE_AND_LINE_));
+	PIP_ADAPTER_ADDRESSES pAddresses = static_cast<IP_ADAPTER_ADDRESSES *>(std::malloc(outBufLen));
 	if (pAddresses == nullptr)
 	{
 		// #med - error logging and/or throw exception?
@@ -57,7 +58,7 @@ static void GetMyIP_Windows(std::vector<SystemAddress> &found)
 	if (error != ERROR_SUCCESS)
 	{
 		// #med - error logging and/or throw exception?
-		rakFree_Ex(pAddresses, _FILE_AND_LINE_);
+		std::free(pAddresses);
 		return;
 	}
 
@@ -96,7 +97,7 @@ static void GetMyIP_Windows(std::vector<SystemAddress> &found)
 			found.push_back(systemAddress);
 		}
 	}
-	rakFree_Ex(pAddresses, _FILE_AND_LINE_);
+	std::free(pAddresses);
 }
 
 #else // _WIN32

@@ -155,7 +155,7 @@ void FileList::AddFile(const char *filepath, const char *filename, FileListNodeC
 	else
 #endif
 	{
-		data = (char *) rakMalloc_Ex(length, _FILE_AND_LINE_);
+		data = (char *) std::malloc(length);
 		RakAssert(data);
 	}
 
@@ -168,7 +168,7 @@ void FileList::AddFile(const char *filepath, const char *filename, FileListNodeC
 #if USE_ALLOCA == 1
 	if (usedAlloca == false)
 #endif
-		rakFree_Ex(data, _FILE_AND_LINE_);
+		std::free(data);
 }
 void FileList::AddFile(const char *filename, const char *fullPathToFile, const char *data, const unsigned dataLength, const unsigned fileLength, FileListNodeContext context, bool isAReference, bool takeDataPointer)
 {
@@ -195,7 +195,7 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 				return;
 
 			// File of the same name, but different contents, so overwrite
-			rakFree_Ex(fileList[i].data, _FILE_AND_LINE_);
+			std::free(fileList[i].data);
 			fileList.RemoveAtIndex(i);
 			break;
 		}
@@ -211,7 +211,7 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 		}
 		else
 		{
-			n.data = (char *) rakMalloc_Ex(dataLength, _FILE_AND_LINE_);
+			n.data = (char *) std::malloc(dataLength);
 			RakAssert(n.data);
 			memcpy(n.data, data, dataLength);
 		}
@@ -242,7 +242,7 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 	intptr_t dir;
 	FILE *fp;
 	char *dirSoFar, *fileData;
-	dirSoFar = (char *) rakMalloc_Ex(520, _FILE_AND_LINE_);
+	dirSoFar = (char *) std::malloc(520);
 	RakAssert(dirSoFar);
 
 	if (applicationDirectory)
@@ -281,10 +281,10 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 		if (dir == -1)
 		{
 			_findclose(dir);
-			rakFree_Ex(dirSoFar, _FILE_AND_LINE_);
+			std::free(dirSoFar);
 			unsigned i;
 			for (i = 0; i < dirList.Size(); i++)
-				rakFree_Ex(dirList[i], _FILE_AND_LINE_);
+				std::free(dirList[i]);
 			return;
 		}
 
@@ -314,7 +314,7 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 				{
 					if (fopen_s(&fp, fullPath, "rb") == 0)
 					{
-						fileData = (char *) rakMalloc_Ex(fileInfo.size + HASH_LENGTH, _FILE_AND_LINE_);
+						fileData = (char *) std::malloc(fileInfo.size + HASH_LENGTH);
 						RakAssert(fileData);
 						const bool readOk = fileInfo.size == 0 || fread(fileData + HASH_LENGTH, fileInfo.size, 1, fp) == 1;
 						fclose(fp);
@@ -351,7 +351,7 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 				}
 				else if (writeData)
 				{
-					fileData = (char *) rakMalloc_Ex(fileInfo.size, _FILE_AND_LINE_);
+					fileData = (char *) std::malloc(fileInfo.size);
 					RakAssert(fileData);
 					// Skip a file that cannot be opened or read in full, as the hash+data branch
 					// above does; fileData is freed below either way.
@@ -372,11 +372,11 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 				}
 
 				if (fileData)
-					rakFree_Ex(fileData, _FILE_AND_LINE_);
+					std::free(fileData);
 			}
 			else if ((fileInfo.attrib & _A_SUBDIR) && (fileInfo.attrib & (_A_HIDDEN | _A_SYSTEM)) == 0 && recursive)
 			{
-				char *newDir = (char *) rakMalloc_Ex(520, _FILE_AND_LINE_);
+				char *newDir = (char *) std::malloc(520);
 				RakAssert(newDir);
 				strcpy_s(newDir, 520, dirSoFar);
 				strcat_s(newDir, 520, fileInfo.name);
@@ -387,7 +387,7 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 		} while (_findnext(dir, &fileInfo) != -1);
 
 		_findclose(dir);
-		rakFree_Ex(dirSoFar, _FILE_AND_LINE_);
+		std::free(dirSoFar);
 	}
 }
 void FileList::Clear(void)
@@ -395,7 +395,7 @@ void FileList::Clear(void)
 	unsigned i;
 	for (i = 0; i < fileList.Size(); i++)
 	{
-		rakFree_Ex(fileList[i].data, _FILE_AND_LINE_);
+		std::free(fileList[i].data);
 	}
 	fileList.Clear(false, _FILE_AND_LINE_);
 }
@@ -456,7 +456,7 @@ bool FileList::Deserialize(MafiaNet::BitStream *inBitStream)
 #endif
 				return false;
 			}
-			n.data = (char *) rakMalloc_Ex((size_t) n.dataLengthBytes, _FILE_AND_LINE_);
+			n.data = (char *) std::malloc((size_t) n.dataLengthBytes);
 			RakAssert(n.data);
 			inBitStream->Read(n.data, n.dataLengthBytes);
 		}
@@ -586,14 +586,14 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 			else
 			{
 
-				//				fileData= (char*) rakMalloc_Ex( fileLength, _FILE_AND_LINE_ );
+				//				fileData= (char*) std::malloc(fileLength);
 				//				fread(fileData, fileLength, 1, fp);
 
 				//				sha1.Reset();
 				//				sha1.Update( ( unsigned char* ) fileData, fileLength );
 				//				sha1.Final();
 
-				//				rakFree_Ex(fileData, _FILE_AND_LINE_ );
+				//				std::free(fileData);
 
 				unsigned int hash = SuperFastHashFilePtr(fp);
 				if (MafiaNet::BitStream::DoEndianSwap())
@@ -623,7 +623,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 	i = 0;
 	while (i < fileList.Size())
 	{
-		rakFree_Ex(fileList[i].data, _FILE_AND_LINE_);
+		std::free(fileList[i].data);
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
 		strcat_s(fullPath, fileList[i].filename.C_String());
@@ -640,7 +640,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 					if (writeFileData)
 					{
 						// Hash + data so offset the data by HASH_LENGTH
-						fileList[i].data = (char *) rakMalloc_Ex(fileList[i].fileLengthBytes + HASH_LENGTH, _FILE_AND_LINE_);
+						fileList[i].data = (char *) std::malloc(fileList[i].fileLengthBytes + HASH_LENGTH);
 						RakAssert(fileList[i].data);
 						readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data + HASH_LENGTH, fileList[i].fileLengthBytes, 1, fp) == 1;
 						//						sha1.Reset();
@@ -657,9 +657,9 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 						// Hash only
 						fileList[i].dataLengthBytes = HASH_LENGTH;
 						if (fileList[i].fileLengthBytes < HASH_LENGTH)
-							fileList[i].data = (char *) rakMalloc_Ex(HASH_LENGTH, _FILE_AND_LINE_);
+							fileList[i].data = (char *) std::malloc(HASH_LENGTH);
 						else
-							fileList[i].data = (char *) rakMalloc_Ex(fileList[i].fileLengthBytes, _FILE_AND_LINE_);
+							fileList[i].data = (char *) std::malloc(fileList[i].fileLengthBytes);
 						RakAssert(fileList[i].data);
 						readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp) == 1;
 						//		sha1.Reset();
@@ -676,7 +676,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 				{
 					// Data only
 					fileList[i].dataLengthBytes = fileList[i].fileLengthBytes;
-					fileList[i].data = (char *) rakMalloc_Ex(fileList[i].fileLengthBytes, _FILE_AND_LINE_);
+					fileList[i].data = (char *) std::malloc(fileList[i].fileLengthBytes);
 					RakAssert(fileList[i].data);
 					readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp) == 1;
 				}
@@ -685,7 +685,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 				{
 					// Short read: drop the partial contents rather than keep uninitialized bytes
 					// (and a hash computed over them).
-					rakFree_Ex(fileList[i].data, _FILE_AND_LINE_);
+					std::free(fileList[i].data);
 					fileList[i].data = 0;
 					fileList[i].dataLengthBytes = 0;
 				}

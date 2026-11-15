@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/ds_huffman_encoding_tree.h"
+#include <cstdlib>
 #include "mafianet/ds_queue.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/assert.h"
@@ -52,12 +53,12 @@ void HuffmanEncodingTree::FreeMemory(void)
 		if (node->right)
 			nodeQueue.Push(node->right, _FILE_AND_LINE_);
 
-		MafiaNet::OP_DELETE(node, _FILE_AND_LINE_);
+		delete node;
 	}
 
 	// Delete the encoding table
 	for (int i = 0; i < 256; i++)
-		rakFree_Ex(encodingTable[i].encoding, _FILE_AND_LINE_);
+		std::free(encodingTable[i].encoding);
 
 	root = 0;
 }
@@ -78,7 +79,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable(unsigned int frequencyTable
 
 	for (counter = 0; counter < 256; counter++)
 	{
-		node = MafiaNet::OP_NEW<HuffmanEncodingTreeNode>(_FILE_AND_LINE_);
+		node = new HuffmanEncodingTreeNode;
 		node->left = 0;
 		node->right = 0;
 		node->value = (unsigned char) counter;
@@ -101,7 +102,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable(unsigned int frequencyTable
 		HuffmanEncodingTreeNode *lesser, *greater;
 		lesser = huffmanEncodingTreeNodeList.Pop();
 		greater = huffmanEncodingTreeNodeList.Pop();
-		node = MafiaNet::OP_NEW<HuffmanEncodingTreeNode>(_FILE_AND_LINE_);
+		node = new HuffmanEncodingTreeNode;
 		node->left = lesser;
 		node->right = greater;
 		node->weight = lesser->weight + greater->weight;

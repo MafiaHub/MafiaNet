@@ -630,7 +630,7 @@ int main(void)
 				replicaManager.GetReplicasCreatedByMe(replicaListOut);
 				replicaManager.BroadcastDestructionList(replicaListOut, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 				for (unsigned int i = 0; i < replicaListOut.Size(); i++)
-					MafiaNet::OP_DELETE(replicaListOut[i], _FILE_AND_LINE_);
+					delete replicaListOut[i];
 			}
 		}
 

@@ -9,6 +9,7 @@
  */
 
 #include "SQLiteLoggerCommon.h"
+#include <cstdlib>
 #include "mafianet/bit_stream.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
@@ -77,11 +78,11 @@ bool LogParameter::Deserialize(MafiaNet::BitStream *bs)
 	case SQLLPDT_POINTER:
 	case SQLLPDT_BLOB:
 	case SQLLPDT_TEXT:
-		data.vptr = rakMalloc_Ex(size, _FILE_AND_LINE_);
+		data.vptr = std::malloc(size);
 		b = bs->ReadAlignedBytes(data.ucptr, size);
 		break;
 	case SQLLPDT_IMAGE:
-		data.vptr = rakMalloc_Ex(size, _FILE_AND_LINE_);
+		data.vptr = std::malloc(size);
 		bs->ReadAlignedBytes(data.ucptr, size);
 		bs->Read(imageWidth);
 		bs->Read(imageHeight);
@@ -112,7 +113,7 @@ void LogParameter::Free(void)
 }
 void LogParameter::Free(void *v)
 {
-	rakFree_Ex(v, _FILE_AND_LINE_);
+	std::free(v);
 }
 #pragma pack(push)
 #pragma pack(1)

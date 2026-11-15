@@ -271,8 +271,8 @@ bool LinkedList<LinkedListType>::operator=(const LinkedList<LinkedListType> &ori
 
 		else if (original_copy.list_size == 1)
 		{
-			this->root = MafiaNet::OP_NEW<typename LinkedList::node>(_FILE_AND_LINE_);
-			// root->item = MafiaNet::OP_NEW<LinkedListType>( _FILE_AND_LINE_ );
+			this->root = new typename LinkedList::node;
+			// root->item = new LinkedListType;
 			this->root->next = this->root;
 			this->root->previous = this->root;
 			this->list_size = 1;
@@ -285,8 +285,8 @@ bool LinkedList<LinkedListType>::operator=(const LinkedList<LinkedListType> &ori
 		{
 			// Setup the first part of the root node
 			original_copy_pointer = original_copy.root;
-			this->root = MafiaNet::OP_NEW<typename LinkedList::node>(_FILE_AND_LINE_);
-			// root->item = MafiaNet::OP_NEW<LinkedListType>( _FILE_AND_LINE_ );
+			this->root = new typename LinkedList::node;
+			// root->item = new LinkedListType;
 			this->position = this->root;
 			// *(root->item)=*((original_copy.root)->item);
 			this->root->item = original_copy.root->item;
@@ -305,8 +305,8 @@ bool LinkedList<LinkedListType>::operator=(const LinkedList<LinkedListType> &ori
 				original_copy_pointer = original_copy_pointer->next;
 
 				// Create a new node and point position to it
-				this->position = MafiaNet::OP_NEW<typename LinkedList::node>(_FILE_AND_LINE_);
-				// position->item = MafiaNet::OP_NEW<LinkedListType>( _FILE_AND_LINE_ );
+				this->position = new typename LinkedList::node;
+				// position->item = new LinkedListType;
 
 				// Copy the item to the new node
 				// *(position->item)=*(original_copy_pointer->item);
@@ -376,8 +376,8 @@ LinkedList<LinkedListType>::LinkedList(const LinkedList &original_copy)
 
 	else if (original_copy.list_size == 1)
 	{
-		this->root = MafiaNet::OP_NEW<typename LinkedList::node>(_FILE_AND_LINE_);
-		// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->root = new typename LinkedList::node;
+		// root->item = new CircularLinkedListType;
 		this->root->next = this->root;
 		this->root->previous = this->root;
 		this->list_size = 1;
@@ -390,8 +390,8 @@ LinkedList<LinkedListType>::LinkedList(const LinkedList &original_copy)
 	{
 		// Setup the first part of the root node
 		original_copy_pointer = original_copy.root;
-		this->root = MafiaNet::OP_NEW<typename LinkedList::node>(_FILE_AND_LINE_);
-		// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->root = new typename LinkedList::node;
+		// root->item = new CircularLinkedListType;
 		this->position = this->root;
 		// *(root->item)=*((original_copy.root)->item);
 		this->root->item = original_copy.root->item;
@@ -408,8 +408,8 @@ LinkedList<LinkedListType>::LinkedList(const LinkedList &original_copy)
 			original_copy_pointer = original_copy_pointer->next;
 
 			// Create a new node and point position to it
-			this->position = MafiaNet::OP_NEW<typename LinkedList::node>(_FILE_AND_LINE_);
-			// position->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+			this->position = new typename LinkedList::node;
+			// position->item = new CircularLinkedListType;
 
 			// Copy the item to the new node
 			// *(position->item)=*(original_copy_pointer->item);
@@ -456,8 +456,8 @@ CircularLinkedList<CircularLinkedListType>::CircularLinkedList(const CircularLin
 
 	else if (original_copy.list_size == 1)
 	{
-		this->root = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->root = new typename CircularLinkedList::node;
+		// root->item = new CircularLinkedListType;
 		this->root->next = this->root;
 		this->root->previous = this->root;
 		this->list_size = 1;
@@ -470,8 +470,8 @@ CircularLinkedList<CircularLinkedListType>::CircularLinkedList(const CircularLin
 	{
 		// Setup the first part of the root node
 		original_copy_pointer = original_copy.root;
-		this->root = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->root = new typename CircularLinkedList::node;
+		// root->item = new CircularLinkedListType;
 		this->position = this->root;
 		// *(root->item)=*((original_copy.root)->item);
 		this->root->item = original_copy.root->item;
@@ -490,8 +490,8 @@ CircularLinkedList<CircularLinkedListType>::CircularLinkedList(const CircularLin
 			original_copy_pointer = original_copy_pointer->next;
 
 			// Create a new node and point position to it
-			this->position = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-			// position->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+			this->position = new typename CircularLinkedList::node;
+			// position->item = new CircularLinkedListType;
 
 			// Copy the item to the new node
 			// *(position->item)=*(original_copy_pointer->item);
@@ -543,8 +543,8 @@ bool CircularLinkedList<CircularLinkedListType>::operator=(const CircularLinkedL
 
 		else if (original_copy.list_size == 1)
 		{
-			this->root = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-			// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+			this->root = new typename CircularLinkedList::node;
+			// root->item = new CircularLinkedListType;
 			this->root->next = this->root;
 			this->root->previous = this->root;
 			this->list_size = 1;
@@ -557,8 +557,8 @@ bool CircularLinkedList<CircularLinkedListType>::operator=(const CircularLinkedL
 		{
 			// Setup the first part of the root node
 			original_copy_pointer = original_copy.root;
-			this->root = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-			// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+			this->root = new typename CircularLinkedList::node;
+			// root->item = new CircularLinkedListType;
 			this->position = this->root;
 			// *(root->item)=*((original_copy.root)->item);
 			this->root->item = original_copy.root->item;
@@ -575,8 +575,8 @@ bool CircularLinkedList<CircularLinkedListType>::operator=(const CircularLinkedL
 				original_copy_pointer = original_copy_pointer->next;
 
 				// Create a new node and point position to it
-				this->position = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-				// position->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+				this->position = new typename CircularLinkedList::node;
+				// position->item = new CircularLinkedListType;
 
 				// Copy the item to the new node
 				// *(position->item)=*(original_copy_pointer->item);
@@ -616,8 +616,8 @@ void CircularLinkedList<CircularLinkedListType>::Insert(const CircularLinkedList
 
 	if (list_size == 0)
 	{
-		this->root = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->root = new typename CircularLinkedList::node;
+		// root->item = new CircularLinkedListType;
 		//*(root->item)=input;
 		this->root->item = input;
 		this->root->next = this->root;
@@ -628,8 +628,8 @@ void CircularLinkedList<CircularLinkedListType>::Insert(const CircularLinkedList
 
 	else if (list_size == 1)
 	{
-		this->position = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// position->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->position = new typename CircularLinkedList::node;
+		// position->item = new CircularLinkedListType;
 		this->root->next = this->position;
 		this->root->previous = this->position;
 		this->position->previous = this->root;
@@ -654,8 +654,8 @@ void CircularLinkedList<CircularLinkedListType>::Insert(const CircularLinkedList
 
 				Note that the order of the following statements is important  */
 
-		new_node = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// new_node->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		new_node = new typename CircularLinkedList::node;
+		// new_node->item = new CircularLinkedListType;
 
 		// *(new_node->item)=input;
 		new_node->item = input;
@@ -692,8 +692,8 @@ CircularLinkedListType &CircularLinkedList<CircularLinkedListType>::Add(const Ci
 
 	if (this->list_size == 0)
 	{
-		this->root = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// root->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->root = new typename CircularLinkedList::node;
+		// root->item = new CircularLinkedListType;
 		// *(root->item)=input;
 		this->root->item = input;
 		this->root->next = this->root;
@@ -706,8 +706,8 @@ CircularLinkedListType &CircularLinkedList<CircularLinkedListType>::Add(const Ci
 
 	else if (list_size == 1)
 	{
-		this->position = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// position->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		this->position = new typename CircularLinkedList::node;
+		// position->item = new CircularLinkedListType;
 		this->root->next = this->position;
 		this->root->previous = this->position;
 		this->position->previous = this->root;
@@ -734,8 +734,8 @@ CircularLinkedListType &CircularLinkedList<CircularLinkedListType>::Add(const Ci
 
 				Note that the order of the following statements is important  */
 
-		new_node = MafiaNet::OP_NEW<typename CircularLinkedList::node>(_FILE_AND_LINE_);
-		// new_node->item = MafiaNet::OP_NEW<CircularLinkedListType>( _FILE_AND_LINE_ );
+		new_node = new typename CircularLinkedList::node;
+		// new_node->item = new CircularLinkedListType;
 
 		// *(new_node->item)=input;
 		new_node->item = input;
@@ -778,8 +778,8 @@ void CircularLinkedList<CircularLinkedListType>::Del()
 
 	else if (this->list_size == 1)
 	{
-		// MafiaNet::OP_DELETE(root->item, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(this->root, _FILE_AND_LINE_);
+		// delete root->item;
+		delete this->root;
 		this->root = this->position = 0;
 		this->list_size = 0;
 	}
@@ -793,8 +793,8 @@ void CircularLinkedList<CircularLinkedListType>::Del()
 		if (this->position == this->root)
 			this->root = new_position;
 
-		// MafiaNet::OP_DELETE(position->item, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(this->position, _FILE_AND_LINE_);
+		// delete position->item;
+		delete this->position;
 
 		this->position = new_position;
 
@@ -946,9 +946,9 @@ void CircularLinkedList<CircularLinkedListType>::Clear(void)
 	if (this->list_size == 0)
 		return;
 
-	if (this->list_size == 1) // {MafiaNet::OP_DELETE(root->item); MafiaNet::OP_DELETE(root, _FILE_AND_LINE_);}
+	if (this->list_size == 1) // {delete root->item; delete root;}
 	{
-		MafiaNet::OP_DELETE(this->root, _FILE_AND_LINE_);
+		delete this->root;
 	}
 
 	else
@@ -962,8 +962,8 @@ void CircularLinkedList<CircularLinkedListType>::Clear(void)
 		{
 			temp = current;
 			current = current->next;
-			// MafiaNet::OP_DELETE(temp->item, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
+			// delete temp->item;
+			delete temp;
 		}
 
 		while (current != this->root);

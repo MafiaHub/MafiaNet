@@ -55,7 +55,7 @@ BitStream::BitStream()
 	//numberOfBitsAllocated = 32 * 8;
 	numberOfBitsAllocated = BITSTREAM_STACK_ALLOCATION_SIZE * 8;
 	readOffset = 0;
-	//data = ( unsigned char* ) rakMalloc_Ex( 32, _FILE_AND_LINE_ );
+	//data = ( unsigned char* ) std::malloc(32);
 	data = (unsigned char *) stackData;
 
 #ifdef _DEBUG
@@ -76,7 +76,7 @@ BitStream::BitStream(const unsigned int initialBytesToAllocate)
 	}
 	else
 	{
-		data = (unsigned char *) rakMalloc_Ex((size_t) initialBytesToAllocate, _FILE_AND_LINE_);
+		data = (unsigned char *) std::malloc((size_t) initialBytesToAllocate);
 		numberOfBitsAllocated = initialBytesToAllocate << 3;
 	}
 #ifdef _DEBUG
@@ -104,7 +104,7 @@ BitStream::BitStream(unsigned char *_data, const unsigned int lengthInBytes, boo
 			}
 			else
 			{
-				data = (unsigned char *) rakMalloc_Ex((size_t) lengthInBytes, _FILE_AND_LINE_);
+				data = (unsigned char *) std::malloc((size_t) lengthInBytes);
 			}
 #ifdef _DEBUG
 			RakAssert(data);
@@ -130,7 +130,7 @@ void BitStream::SetNumberOfBitsAllocated(const BitSize_t lengthInBits)
 BitStream::~BitStream()
 {
 	if (copyData && numberOfBitsAllocated > (BITSTREAM_STACK_ALLOCATION_SIZE << 3))
-		rakFree_Ex(data, _FILE_AND_LINE_); // Use realloc and free so we are more efficient than delete and new for resizing
+		std::free(data); // Use realloc and free so we are more efficient than delete and new for resizing
 }
 
 void BitStream::Reset(void)
@@ -151,7 +151,7 @@ void BitStream::Reset(void)
 	//numberOfBitsAllocated=8;
 	readOffset = 0;
 
-	//data=(unsigned char*)rakMalloc_Ex(1, _FILE_AND_LINE_);
+	//data=(unsigned char*)std::malloc(1);
 	// if (numberOfBitsAllocated>0)
 	//  memset(data, 0, BITS_TO_BYTES(numberOfBitsAllocated));
 }
@@ -405,7 +405,7 @@ bool BitStream::ReadAlignedBytesSafeAlloc(char **outByteArray, int &inputLength,
 }
 bool BitStream::ReadAlignedBytesSafeAlloc(char **outByteArray, unsigned int &inputLength, const unsigned int maxBytesToRead)
 {
-	rakFree_Ex(*outByteArray, _FILE_AND_LINE_);
+	std::free(*outByteArray);
 	*outByteArray = 0;
 	if (ReadCompressed(inputLength) == false)
 		return false;
@@ -413,12 +413,12 @@ bool BitStream::ReadAlignedBytesSafeAlloc(char **outByteArray, unsigned int &inp
 		inputLength = maxBytesToRead;
 	if (inputLength == 0)
 		return true;
-	*outByteArray = (char *) rakMalloc_Ex((size_t) inputLength, _FILE_AND_LINE_);
+	*outByteArray = (char *) std::malloc((size_t) inputLength);
 	if (ReadAlignedBytes((unsigned char *) *outByteArray, inputLength))
 		return true;
 	// Callers commonly free only on success; do not hand back a buffer with
 	// nothing read into it.
-	rakFree_Ex(*outByteArray, _FILE_AND_LINE_);
+	std::free(*outByteArray);
 	*outByteArray = 0;
 	return false;
 }
@@ -723,7 +723,7 @@ void BitStream::AddBitsAndReallocate(const BitSize_t numberOfBitsToWrite)
 		{
 			if (amountToAllocate > BITSTREAM_STACK_ALLOCATION_SIZE)
 			{
-				data = (unsigned char *) rakMalloc_Ex((size_t) amountToAllocate, _FILE_AND_LINE_);
+				data = (unsigned char *) std::malloc((size_t) amountToAllocate);
 				RakAssert(data);
 
 				// need to copy the stack data over to our new memory area too
@@ -732,7 +732,7 @@ void BitStream::AddBitsAndReallocate(const BitSize_t numberOfBitsToWrite)
 		}
 		else
 		{
-			data = (unsigned char *) rakRealloc_Ex(data, (size_t) amountToAllocate, _FILE_AND_LINE_);
+			data = (unsigned char *) std::realloc(data, (size_t) amountToAllocate);
 		}
 
 #ifdef _DEBUG
@@ -1056,7 +1056,7 @@ BitSize_t BitStream::CopyData(unsigned char **_data) const
 	RakAssert(numberOfBitsUsed > 0);
 #endif
 
-	*_data = (unsigned char *) rakMalloc_Ex((size_t) BITS_TO_BYTES(numberOfBitsUsed), _FILE_AND_LINE_);
+	*_data = (unsigned char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsUsed));
 	memcpy(*_data, data, sizeof(unsigned char) * (size_t) (BITS_TO_BYTES(numberOfBitsUsed)));
 	return numberOfBitsUsed;
 }
@@ -1131,7 +1131,7 @@ void BitStream::AssertCopyData(void)
 
 		if (numberOfBitsAllocated > 0)
 		{
-			unsigned char *newdata = (unsigned char *) rakMalloc_Ex((size_t) BITS_TO_BYTES(numberOfBitsAllocated), _FILE_AND_LINE_);
+			unsigned char *newdata = (unsigned char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsAllocated));
 #ifdef _DEBUG
 
 			RakAssert(data);

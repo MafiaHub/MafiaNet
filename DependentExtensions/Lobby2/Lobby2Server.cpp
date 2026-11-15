@@ -122,7 +122,7 @@ void Lobby2Server::Update(void)
 								if (objectExists==false)
 								{
 									if (c.deallocMsgWhenDone)
-										MafiaNet::OP_DELETE(c.lobby2Message, __FILE__, __LINE__);
+										delete c.lobby2Message;
 									return;
 								}
 							}
@@ -155,14 +155,14 @@ void Lobby2Server::Update(void)
 				{
 					// Different user, same IP address. Abort the send.
 					if (c.deallocMsgWhenDone)
-						MafiaNet::OP_DELETE(c.lobby2Message, __FILE__, __LINE__);
+						delete c.lobby2Message;
 					return;
 				}
 			}
 			SendUnifiedToMultiple(&bs, packetPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, c.callerSystemAddresses);
 		}
 		if (c.deallocMsgWhenDone)
-			MafiaNet::OP_DELETE(c.lobby2Message, __FILE__, __LINE__);
+			delete c.lobby2Message;
 	}
 }
 PluginReceiveResult Lobby2Server::OnReceive(Packet *packet)
@@ -286,14 +286,14 @@ void Lobby2Server::Clear(void)
 	{
 		c = threadPool.GetInputAtIndex(i);
 		if (c.deallocMsgWhenDone && c.lobby2Message)
-			MafiaNet::OP_DELETE(c.lobby2Message, __FILE__, __LINE__);
+			delete c.lobby2Message;
 	}
 	threadPool.ClearInput();
 	for (i = 0; i < threadPool.OutputSize(); i++)
 	{
 		c = threadPool.GetOutputAtIndex(i);
 		if (c.deallocMsgWhenDone && c.lobby2Message)
-			MafiaNet::OP_DELETE(c.lobby2Message, __FILE__, __LINE__);
+			delete c.lobby2Message;
 	}
 	threadPool.ClearOutput();
 
@@ -407,7 +407,7 @@ void Lobby2Server::ClearUsers(void)
 {
 	unsigned int i;
 	for (i = 0; i < users.Size(); i++)
-		MafiaNet::OP_DELETE(users[i], __FILE__, __LINE__);
+		delete users[i];
 	users.Clear(false, __FILE__, __LINE__);
 }
 void Lobby2Server::LogoffFromRooms(User *user)
@@ -459,7 +459,7 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 
 			// Already logged in from this system address.
 			// Delete the existing entry, which will be reinserted.
-			MafiaNet::OP_DELETE(user, _FILE_AND_LINE_);
+			delete user;
 			users.RemoveAtIndex(insertionIndex);
 		}
 		else
@@ -486,7 +486,7 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 			SendRemoteLoginNotification(user->userName, user->systemAddresses);
 			LogoffFromRooms(user);
 
-			MafiaNet::OP_DELETE(user, __FILE__, __LINE__);
+			delete user;
 			users.RemoveAtIndex(idx2);
 
 			insertionIndex = users.GetIndexFromKey(command->callingUserName, &objectExists);
@@ -499,7 +499,7 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 			SendRemoteLoginNotification(user->userName, user->systemAddresses);
 			LogoffFromRooms(user);
 
-			MafiaNet::OP_DELETE(user, __FILE__, __LINE__);
+			delete user;
 			users.RemoveAtIndex(idx3);
 
 			insertionIndex = users.GetIndexFromKey(command->callingUserName, &objectExists);
@@ -507,7 +507,7 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 	}
 
 
-	User *user = MafiaNet::OP_NEW<User>(__FILE__, __LINE__);
+	User *user = new User;
 	user->userName = command->callingUserName;
 	user->systemAddresses = command->callerSystemAddresses;
 	user->guids = command->callerGuids;
@@ -617,7 +617,7 @@ void Lobby2Server::RemoveUser(unsigned int index)
 		if (command.lobby2Message->CancelOnDisconnect() && command.callerSystemAddresses.Size() > 0 && user->systemAddresses.GetIndexOf(command.callerSystemAddresses[0]) != (unsigned int) -1)
 		{
 			if (command.deallocMsgWhenDone)
-				MafiaNet::OP_DELETE(command.lobby2Message, __FILE__, __LINE__);
+				delete command.lobby2Message;
 			threadPool.RemoveInputAtIndex(i);
 		}
 		else
@@ -626,7 +626,7 @@ void Lobby2Server::RemoveUser(unsigned int index)
 	threadPool.UnlockInput();
 	LogoffFromRooms(user);
 
-	MafiaNet::OP_DELETE(user, __FILE__, __LINE__);
+	delete user;
 	users.RemoveAtIndex(index);
 }
 unsigned int Lobby2Server::GetUserIndexBySystemAddress(SystemAddress systemAddress) const

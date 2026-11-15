@@ -14,6 +14,7 @@
  */
 
 #include "Lobby2Message.h"
+#include <cstdlib>
 #include "Lobby2Client.h"
 
 using namespace MafiaNet;
@@ -862,10 +863,10 @@ void BinaryDataBlock::Serialize(bool writeToBitstream, BitStream *bitStream)
 	if (writeToBitstream == false)
 	{
 		if (binaryData)
-			rakFree_Ex(binaryData, _FILE_AND_LINE_);
+			std::free(binaryData);
 
 		if (binaryDataLength <= L2_MAX_BINARY_DATA_LENGTH)
-			binaryData = (char *) rakMalloc_Ex(binaryDataLength, _FILE_AND_LINE_);
+			binaryData = (char *) std::malloc(binaryDataLength);
 		else
 			binaryData = 0;
 	}

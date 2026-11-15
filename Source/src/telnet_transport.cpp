@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_TelnetTransport == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #include "mafianet/telnet_transport.h"
@@ -43,9 +44,9 @@ TelnetTransport::~TelnetTransport()
 {
 	Stop();
 	if (sendSuffix)
-		rakFree_Ex(sendSuffix, _FILE_AND_LINE_);
+		std::free(sendSuffix);
 	if (sendPrefix)
-		rakFree_Ex(sendPrefix, _FILE_AND_LINE_);
+		std::free(sendPrefix);
 }
 bool TelnetTransport::Start(unsigned short port, bool serverMode)
 {
@@ -61,9 +62,9 @@ void TelnetTransport::Stop(void)
 	tcpInterface->Stop();
 	unsigned i;
 	for (i = 0; i < remoteClients.Size(); i++)
-		MafiaNet::OP_DELETE(remoteClients[i], _FILE_AND_LINE_);
+		delete remoteClients[i];
 	remoteClients.Clear(false, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(tcpInterface, _FILE_AND_LINE_);
+	delete tcpInterface;
 	tcpInterface = 0;
 }
 void TelnetTransport::Send(SystemAddress systemAddress, const char *data, ...)
@@ -204,11 +205,11 @@ Packet *TelnetTransport::Receive(void)
 		if (gotLine && remoteClient->textInput[0])
 		{
 
-			Packet *reassembledLine = (Packet *) rakMalloc_Ex(sizeof(Packet), _FILE_AND_LINE_);
+			Packet *reassembledLine = (Packet *) std::malloc(sizeof(Packet));
 			reassembledLine->length = (unsigned int) strlen(remoteClient->textInput);
 			memcpy(remoteClient->lastSentTextInput, remoteClient->textInput, reassembledLine->length + 1);
 			RakAssert(reassembledLine->length < REMOTE_MAX_TEXT_INPUT);
-			reassembledLine->data = (unsigned char *) rakMalloc_Ex(reassembledLine->length + 1, _FILE_AND_LINE_);
+			reassembledLine->data = (unsigned char *) std::malloc(reassembledLine->length + 1);
 			memcpy(reassembledLine->data, remoteClient->textInput, reassembledLine->length);
 #ifdef _PRINTF_DEBUG
 			memset(remoteClient->textInput, 0, REMOTE_MAX_TEXT_INPUT);
@@ -227,8 +228,8 @@ void TelnetTransport::DeallocatePacket(Packet *packet)
 {
 	if (tcpInterface == 0)
 		return;
-	rakFree_Ex(packet->data, _FILE_AND_LINE_);
-	rakFree_Ex(packet, _FILE_AND_LINE_);
+	std::free(packet->data);
+	std::free(packet);
 }
 SystemAddress TelnetTransport::HasNewIncomingConnection(void)
 {
@@ -295,7 +296,7 @@ SystemAddress TelnetTransport::HasLostConnection(void)
 		{
 			if (remoteClients[i]->systemAddress == systemAddress)
 			{
-				MafiaNet::OP_DELETE(remoteClients[i], _FILE_AND_LINE_);
+				delete remoteClients[i];
 				remoteClients[i] = remoteClients[remoteClients.Size() - 1];
 				remoteClients.RemoveFromEnd();
 			}
@@ -311,12 +312,12 @@ void TelnetTransport::SetSendSuffix(const char *suffix)
 {
 	if (sendSuffix)
 	{
-		rakFree_Ex(sendSuffix, _FILE_AND_LINE_);
+		std::free(sendSuffix);
 		sendSuffix = 0;
 	}
 	if (suffix)
 	{
-		sendSuffix = (char *) rakMalloc_Ex(strlen(suffix) + 1, _FILE_AND_LINE_);
+		sendSuffix = (char *) std::malloc(strlen(suffix) + 1);
 		strcpy_s(sendSuffix, strlen(suffix) + 1, suffix);
 	}
 }
@@ -324,12 +325,12 @@ void TelnetTransport::SetSendPrefix(const char *prefix)
 {
 	if (sendPrefix)
 	{
-		rakFree_Ex(sendPrefix, _FILE_AND_LINE_);
+		std::free(sendPrefix);
 		sendPrefix = 0;
 	}
 	if (prefix)
 	{
-		sendPrefix = (char *) rakMalloc_Ex(strlen(prefix) + 1, _FILE_AND_LINE_);
+		sendPrefix = (char *) std::malloc(strlen(prefix) + 1);
 		strcpy_s(sendPrefix, strlen(prefix) + 1, prefix);
 	}
 }

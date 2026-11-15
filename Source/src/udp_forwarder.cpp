@@ -117,7 +117,7 @@ void UDPForwarder::Shutdown(void)
 
 	unsigned int j;
 	for (j = 0; j < forwardListNotUpdated.Size(); j++)
-		MafiaNet::OP_DELETE(forwardListNotUpdated[j], _FILE_AND_LINE_);
+		delete forwardListNotUpdated[j];
 	forwardListNotUpdated.Clear(false, _FILE_AND_LINE_);
 }
 void UDPForwarder::SetMaxForwardEntries(unsigned short maxEntries)
@@ -389,7 +389,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 			if (sfos.result == UDPFORWARDER_RESULT_COUNT)
 			{
 				int sock_opt;
-				ForwardEntry *fe = MafiaNet::OP_NEW<UDPForwarder::ForwardEntry>(_FILE_AND_LINE_);
+				ForwardEntry *fe = new UDPForwarder::ForwardEntry;
 				fe->addr1Unconfirmed = sfis->source;
 				fe->addr2Unconfirmed = sfis->destination;
 				fe->timeoutOnNoDataMS = sfis->timeoutOnNoDataMS;
@@ -447,7 +447,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				else
 				{
 					// Binding failed: the entry was never registered, do not leak it
-					MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
+					delete fe;
 				}
 			}
 		}
@@ -480,7 +480,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 			{
 				fe = forwardListNotUpdated[i];
 				forwardListNotUpdated.RemoveAtIndexFast(i);
-				MafiaNet::OP_DELETE(fe, _FILE_AND_LINE_);
+				delete fe;
 				break;
 			}
 		}
@@ -496,7 +496,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 		if (curTime > forwardListNotUpdated[i]->timeLastDatagramForwarded && // Account for timestamp wrap
 		    curTime > forwardListNotUpdated[i]->timeLastDatagramForwarded + forwardListNotUpdated[i]->timeoutOnNoDataMS)
 		{
-			MafiaNet::OP_DELETE(forwardListNotUpdated[i], _FILE_AND_LINE_);
+			delete forwardListNotUpdated[i];
 			forwardListNotUpdated.RemoveAtIndex(i);
 		}
 		else

@@ -58,7 +58,7 @@ public:
 	RakNetSmartPtr(T *pValue)
 	    : ptr(pValue)
 	{
-		reference = MafiaNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
+		reference = new ReferenceCounter;
 		reference->AddRef();
 
 		//		allocCount+=2;
@@ -76,8 +76,8 @@ public:
 	{
 		if (reference && reference->Release() == 0)
 		{
-			MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
+			delete ptr;
+			delete reference;
 
 			//			deallocCount+=2;
 			//			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
@@ -93,8 +93,8 @@ public:
 	{
 		if (reference && reference->Release() == 0)
 		{
-			MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
+			delete ptr;
+			delete reference;
 
 			//			deallocCount+=2;
 			//			printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);
@@ -115,10 +115,10 @@ public:
 		{
 			reference->Release();
 
-			reference = MafiaNet::OP_NEW<ReferenceCounter>(_FILE_AND_LINE_);
+			reference = new ReferenceCounter;
 			reference->AddRef();
 			T *oldPtr = ptr;
-			ptr = MafiaNet::OP_NEW<T>(_FILE_AND_LINE_);
+			ptr = new T;
 			if (copyContents)
 				*ptr = *oldPtr;
 		}
@@ -169,8 +169,8 @@ public:
 		{
 			if (reference && reference->Release() == 0)
 			{
-				MafiaNet::OP_DELETE(ptr, _FILE_AND_LINE_);
-				MafiaNet::OP_DELETE(reference, _FILE_AND_LINE_);
+				delete ptr;
+				delete reference;
 
 				//				deallocCount+=2;
 				//				printf("allocCount=%i deallocCount=%i Line=%i\n",allocCount, deallocCount, __LINE__);

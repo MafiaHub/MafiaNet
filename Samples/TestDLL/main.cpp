@@ -71,8 +71,8 @@ int main()
 	SetRealloc(MyRealloc);
 	SetFree(MyFree);
 
-	char *cArray = MafiaNet::OP_NEW_ARRAY<char>(10, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(cArray, _FILE_AND_LINE_);
+	char *cArray = new char[10];
+	delete[] cArray;
 
 	DataStructures::List<int> intList;
 	intList.Push(5, _FILE_AND_LINE_);

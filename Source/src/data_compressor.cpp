@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/data_compressor.h"
+#include <cstdlib>
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/assert.h"
 #include <string.h> // Use string.h rather than memory.h for a console
@@ -70,7 +71,7 @@ unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, unsig
 #endif
 		return 0;
 	}
-	*output = (unsigned char *) rakMalloc_Ex(destinationSizeInBytes, _FILE_AND_LINE_);
+	*output = (unsigned char *) std::malloc(destinationSizeInBytes);
 	tree.GenerateFromFrequencyTable(frequencyTable);
 	decompressedBytes = tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, *output);
 	RakAssert(decompressedBytes == destinationSizeInBytes);

@@ -14,6 +14,7 @@
  */
 
 #include "SQLite3ServerPlugin.h"
+#include <cstdlib>
 #include "mafianet/message_identifiers.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/get_time.h"
@@ -43,7 +44,7 @@ int PerRowCallback(void *userArgument, int argc, char **argv, char **azColName)
 		for (idx = 0; idx < (unsigned int) argc; idx++)
 			outputTable->columnNames.Push(azColName[idx], _FILE_AND_LINE_);
 	}
-	SQLite3Row *row = MafiaNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
+	SQLite3Row *row = new SQLite3Row;
 	outputTable->rows.Push(row, _FILE_AND_LINE_);
 	for (idx = 0; idx < (unsigned int) argc; idx++)
 	{
@@ -129,7 +130,7 @@ void SQLite3ServerPlugin::Update(void)
 		output = sqlThreadPool.GetOutput();
 		MafiaNet::BitStream bsOut((unsigned char *) output.data, output.length, false);
 		SendUnified(&bsOut, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, output.sender, false);
-		rakFree_Ex(output.data, _FILE_AND_LINE_);
+		std::free(output.data);
 	}
 }
 SQLite3ServerPlugin::SQLExecThreadOutput ExecStatementThread(SQLite3ServerPlugin::SQLExecThreadInput threadInput, bool *returnOutput, void *perThreadData)
@@ -169,11 +170,11 @@ SQLite3ServerPlugin::SQLExecThreadOutput ExecStatementThread(SQLite3ServerPlugin
 	outputTable.Serialize(&bsOut);
 
 	// Free input data
-	rakFree_Ex(threadInput.data, _FILE_AND_LINE_);
+	std::free(threadInput.data);
 
 	// Copy to output data
 	SQLite3ServerPlugin::SQLExecThreadOutput threadOutput;
-	threadOutput.data = (char *) rakMalloc_Ex(bsOut.GetNumberOfBytesUsed(), _FILE_AND_LINE_);
+	threadOutput.data = (char *) std::malloc(bsOut.GetNumberOfBytesUsed());
 	memcpy(threadOutput.data, bsOut.GetData(), bsOut.GetNumberOfBytesUsed());
 	threadOutput.length = bsOut.GetNumberOfBytesUsed();
 	threadOutput.sender = threadInput.sender;
@@ -219,7 +220,7 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
 				// Push to the thread
 				SQLExecThreadInput input;
-				input.data = (char *) rakMalloc_Ex(packet->length, _FILE_AND_LINE_);
+				input.data = (char *) std::malloc(packet->length);
 				memcpy(input.data, packet->data, packet->length);
 				input.dbHandle = dbHandles[idx].dbHandle;
 				input.length = packet->length;
@@ -269,12 +270,12 @@ void SQLite3ServerPlugin::StopThreads(void)
 	unsigned int i;
 	for (i = 0; i < sqlThreadPool.InputSize(); i++)
 	{
-		MafiaNet::OP_DELETE(sqlThreadPool.GetInputAtIndex(i).data, _FILE_AND_LINE_);
+		std::free(sqlThreadPool.GetInputAtIndex(i).data);
 	}
 	sqlThreadPool.ClearInput();
 	for (i = 0; i < sqlThreadPool.OutputSize(); i++)
 	{
-		MafiaNet::OP_DELETE(sqlThreadPool.GetOutputAtIndex(i).data, _FILE_AND_LINE_);
+		std::free(sqlThreadPool.GetOutputAtIndex(i).data);
 	}
 	sqlThreadPool.ClearOutput();
 #endif

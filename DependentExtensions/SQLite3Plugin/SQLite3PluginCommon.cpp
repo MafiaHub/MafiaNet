@@ -22,7 +22,7 @@ SQLite3Table::SQLite3Table()
 SQLite3Table::~SQLite3Table()
 {
 	for (unsigned int i = 0; i < rows.Size(); i++)
-		MafiaNet::OP_DELETE(rows[i], _FILE_AND_LINE_);
+		delete rows[i];
 }
 
 void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
@@ -43,7 +43,7 @@ void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
 void SQLite3Table::Deserialize(MafiaNet::BitStream *bitStream)
 {
 	for (unsigned int i = 0; i < rows.Size(); i++)
-		MafiaNet::OP_DELETE(rows[i], _FILE_AND_LINE_);
+		delete rows[i];
 	rows.Clear(true, _FILE_AND_LINE_);
 	columnNames.Clear(true, _FILE_AND_LINE_);
 
@@ -59,7 +59,7 @@ void SQLite3Table::Deserialize(MafiaNet::BitStream *bitStream)
 	bitStream->Read(numRows);
 	for (idx1 = 0; idx1 < numRows; idx1++)
 	{
-		SQLite3Row *row = MafiaNet::OP_NEW<SQLite3Row>(_FILE_AND_LINE_);
+		SQLite3Row *row = new SQLite3Row;
 		rows.Push(row, _FILE_AND_LINE_);
 		for (idx2 = 0; idx2 < numColumns; idx2++)
 		{

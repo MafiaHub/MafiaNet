@@ -52,7 +52,7 @@ namespace DataStructures
 template <class templateType>
 void DeletePtr_RakNet(templateType &ptr, const char *file, unsigned int line)
 {
-	MafiaNet::OP_DELETE(ptr, file, line);
+	delete ptr;
 }
 
 /// Can be used with Multilist::ForEach
@@ -305,7 +305,7 @@ template <const MultilistType _MultilistType, class _DataType, class _KeyType, c
 Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::~Multilist()
 {
 	if (data != 0)
-		MafiaNet::OP_DELETE_ARRAY(data, _FILE_AND_LINE_);
+		delete[] data;
 }
 
 template <const MultilistType _MultilistType, class _DataType, class _KeyType, class _IndexType>
@@ -340,7 +340,7 @@ void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::CopySource(cons
 	else
 	{
 		allocationSize = dataSize;
-		data = MafiaNet::OP_NEW_ARRAY<_DataType>(dataSize, _FILE_AND_LINE_);
+		data = new _DataType[dataSize];
 		_IndexType i;
 		for (i = 0; i < dataSize; i++)
 			data[i] = source[i];
@@ -822,7 +822,7 @@ void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::Clear(bool deal
 
 	if (deallocateSmallBlocks && allocationSize < 128 && data)
 	{
-		MafiaNet::OP_DELETE_ARRAY(data, file, line);
+		delete[] data;
 		data = 0;
 		allocationSize = 0;
 	}
@@ -833,7 +833,7 @@ void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::ClearPointers(b
 {
 	_IndexType i;
 	for (i = 0; i < dataSize; i++)
-		MafiaNet::OP_DELETE(operator[](i), file, line);
+		delete operator[](i);
 	Clear(deallocateSmallBlocks, file, line);
 }
 
@@ -844,7 +844,7 @@ void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::ClearPointer(_K
 	i = GetIndexOf(key);
 	if (i != -1)
 	{
-		MafiaNet::OP_DELETE(operator[](i), file, line);
+		delete operator[](i);
 		RemoveAtIndex(i);
 	}
 }
@@ -1212,13 +1212,13 @@ void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::DeallocateIfNee
 template <const MultilistType _MultilistType, class _DataType, class _KeyType, class _IndexType>
 void Multilist<_MultilistType, _DataType, _KeyType, _IndexType>::ReallocToSize(_IndexType newAllocationSize, const char *file, unsigned int line)
 {
-	_DataType *newData = MafiaNet::OP_NEW_ARRAY<_DataType>(newAllocationSize, file, line);
+	_DataType *newData = new _DataType[newAllocationSize];
 	_IndexType i;
 	for (i = 0; i < dataSize; i++)
 		newData[i] = operator[](i);
 	if (dataSize > 0)
 	{
-		MafiaNet::OP_DELETE_ARRAY(data, file, line);
+		delete[] data;
 		if (GetMultilistType() == ML_QUEUE)
 		{
 			queueHead = 0;

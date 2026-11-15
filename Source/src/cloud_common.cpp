@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_CloudClient == 1 || _RAKNET_SUPPORT_CloudServer == 1
 
 #include "mafianet/cloud_common.h"
@@ -36,19 +37,19 @@ int MafiaNet::CloudKeyComp(const CloudKey &key, const CloudKey &data)
 
 CloudQueryRow *CloudAllocator::AllocateCloudQueryRow(void)
 {
-	return MafiaNet::OP_NEW<CloudQueryRow>(_FILE_AND_LINE_);
+	return new CloudQueryRow;
 }
 void CloudAllocator::DeallocateCloudQueryRow(CloudQueryRow *row)
 {
-	MafiaNet::OP_DELETE(row, _FILE_AND_LINE_);
+	delete row;
 }
 unsigned char *CloudAllocator::AllocateRowData(uint32_t bytesNeededForData)
 {
-	return (unsigned char *) rakMalloc_Ex(bytesNeededForData, _FILE_AND_LINE_);
+	return (unsigned char *) std::malloc(bytesNeededForData);
 }
 void CloudAllocator::DeallocateRowData(void *data)
 {
-	rakFree_Ex(data, _FILE_AND_LINE_);
+	std::free(data);
 }
 void CloudKey::Serialize(bool writeToBitstream, BitStream *bitStream)
 {
@@ -109,10 +110,6 @@ void CloudQueryRow::Serialize(bool writeToBitstream, BitStream *bitStream, Cloud
 			{
 				bitStream->ReadAlignedBytes((unsigned char *) data, length);
 			}
-			else
-			{
-				notifyOutOfMemory(_FILE_AND_LINE_);
-			}
 		}
 		else
 			data = 0;
@@ -148,7 +145,6 @@ void CloudQueryResult::SerializeCloudQueryRows(bool writeToBitstream, uint32_t &
 				if (cmdr->data == 0 && cmdr->length > 0)
 				{
 					allocator->DeallocateCloudQueryRow(cmdr);
-					notifyOutOfMemory(_FILE_AND_LINE_);
 					numRows = i;
 					return;
 				}
@@ -156,7 +152,6 @@ void CloudQueryResult::SerializeCloudQueryRows(bool writeToBitstream, uint32_t &
 			}
 			else
 			{
-				notifyOutOfMemory(_FILE_AND_LINE_);
 				numRows = i;
 				return;
 			}

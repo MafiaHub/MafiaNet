@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_TelnetTransport == 1
 
 #include "mafianet/transport2.h"
@@ -51,8 +52,8 @@ void RakNetTransport2::Stop(void)
 	lostConnections.Clear(_FILE_AND_LINE_);
 	for (unsigned int i = 0; i < packetQueue.Size(); i++)
 	{
-		rakFree_Ex(packetQueue[i]->data, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(packetQueue[i], _FILE_AND_LINE_);
+		std::free(packetQueue[i]->data);
+		delete packetQueue[i];
 	}
 	packetQueue.Clear(_FILE_AND_LINE_);
 }
@@ -97,8 +98,8 @@ SystemAddress RakNetTransport2::HasLostConnection(void)
 }
 void RakNetTransport2::DeallocatePacket(Packet *packet)
 {
-	rakFree_Ex(packet->data, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(packet, _FILE_AND_LINE_);
+	std::free(packet->data);
+	delete packet;
 }
 PluginReceiveResult RakNetTransport2::OnReceive(Packet *packet)
 {
@@ -109,11 +110,11 @@ PluginReceiveResult RakNetTransport2::OnReceive(Packet *packet)
 		if (packet->length == sizeof(MessageID))
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 
-		Packet *p = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
+		Packet *p = new Packet;
 		*p = *packet;
 		p->bitSize -= 8;
 		p->length--;
-		p->data = (unsigned char *) rakMalloc_Ex(p->length, _FILE_AND_LINE_);
+		p->data = (unsigned char *) std::malloc(p->length);
 		memcpy(p->data, packet->data + 1, p->length);
 		packetQueue.Push(p, _FILE_AND_LINE_);
 	}

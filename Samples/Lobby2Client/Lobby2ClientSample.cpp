@@ -804,7 +804,7 @@ void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userN
 		arg->failIfAlreadyInClan = false;
 		arg->requiresInvitationsToJoin = true;
 		arg->description = "Clan Description";
-		arg->binaryData->binaryData = new char[10];
+		arg->binaryData->binaryData = (char *) std::malloc(10);
 		strcpy_s(arg->binaryData->binaryData, arg->binaryData->binaryDataLength, "Hello");
 		arg->binaryData->binaryDataLength = 10;
 	}

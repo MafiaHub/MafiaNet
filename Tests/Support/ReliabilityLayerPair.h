@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <vector>
@@ -234,7 +235,7 @@ protected:
 		{
 			received.push_back(std::vector<unsigned char>(data, data + BITS_TO_BYTES(bitSize)));
 			receivedBits.push_back(bitSize);
-			rakFree_Ex(data, _FILE_AND_LINE_);
+			std::free(data);
 		}
 	}
 

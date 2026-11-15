@@ -58,18 +58,17 @@ RakWString::RakWString(const RakWString &right)
 }
 RakWString::~RakWString()
 {
-	rakFree_Ex(c_str, _FILE_AND_LINE_);
+	std::free(c_str);
 }
 RakWString &RakWString::operator=(const RakWString &right)
 {
 	Clear();
 	if (right.IsEmpty())
 		return *this;
-	c_str = (wchar_t *) rakMalloc_Ex((right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+	c_str = (wchar_t *) std::malloc((right.GetLength() + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	if (!c_str)
 	{
 		c_strCharLength = 0;
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
 	c_strCharLength = right.GetLength();
@@ -89,11 +88,10 @@ RakWString &RakWString::operator=(const wchar_t *const str)
 	c_strCharLength = wcslen(str);
 	if (c_strCharLength == 0)
 		return *this;
-	c_str = (wchar_t *) rakMalloc_Ex((c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+	c_str = (wchar_t *) std::malloc((c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	if (!c_str)
 	{
 		c_strCharLength = 0;
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
 	wcscpy_s(c_str, c_strCharLength + 1, str);
@@ -117,11 +115,10 @@ RakWString &RakWString::operator=(const char *const str)
 		return *this;
 
 	mbstowcs_s(&c_strCharLength, nullptr, 0, str, 0);
-	c_str = (wchar_t *) rakMalloc_Ex((c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+	c_str = (wchar_t *) std::malloc((c_strCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	if (!c_str)
 	{
 		c_strCharLength = 0;
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
 
@@ -152,12 +149,11 @@ RakWString &RakWString::operator+=(const RakWString &right)
 	wchar_t *newCStr;
 	bool isEmpty = IsEmpty();
 	if (isEmpty)
-		newCStr = (wchar_t *) rakMalloc_Ex((newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) std::malloc((newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	else
-		newCStr = (wchar_t *) rakRealloc_Ex(c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) std::realloc(c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	if (!newCStr)
 	{
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
 	c_str = newCStr;
@@ -182,12 +178,11 @@ RakWString &RakWString::operator+=(const wchar_t *const right)
 	wchar_t *newCStr;
 	bool isEmpty = IsEmpty();
 	if (isEmpty)
-		newCStr = (wchar_t *) rakMalloc_Ex((newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) std::malloc((newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	else
-		newCStr = (wchar_t *) rakRealloc_Ex(c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		newCStr = (wchar_t *) std::realloc(c_str, (newCharLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 	if (!newCStr)
 	{
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return *this;
 	}
 	c_str = newCStr;
@@ -277,7 +272,7 @@ int RakWString::StrICmp(const RakWString &right) const
 }
 void RakWString::Clear(void)
 {
-	rakFree_Ex(c_str, _FILE_AND_LINE_);
+	std::free(c_str);
 	c_str = 0;
 	c_strCharLength = 0;
 }
@@ -298,11 +293,11 @@ void RakWString::Serialize(const wchar_t *const str, BitStream *bs)
 #if 0
 	char *multiByteBuffer;
 	size_t allocated = wcslen(str)*MAX_BYTES_PER_UNICODE_CHAR;
-	multiByteBuffer = (char*) rakMalloc_Ex(allocated, _FILE_AND_LINE_);
+	multiByteBuffer = (char*) std::malloc(allocated);
 	size_t used = wcstombs(multiByteBuffer, str, allocated);
 	bs->WriteCasted<unsigned short>(used);
 	bs->WriteAlignedBytes((const unsigned char*) multiByteBuffer,(unsigned int) used);
-	rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+	std::free(multiByteBuffer);
 #else
 	size_t mbByteLength = wcslen(str);
 	bs->WriteCasted<unsigned short>(mbByteLength);
@@ -325,20 +320,20 @@ bool RakWString::Deserialize(BitStream *bs)
 	{
 #if 0
 		char *multiByteBuffer;
-		multiByteBuffer = (char*) rakMalloc_Ex(mbByteLength+1, _FILE_AND_LINE_);
+		multiByteBuffer = (char*) std::malloc(mbByteLength+1);
 		bool result = bs->ReadAlignedBytes((unsigned char*) multiByteBuffer,(unsigned int) mbByteLength);
 		if (result==false)
 		{
-			rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+			std::free(multiByteBuffer);
 			return false;
 		}
 		multiByteBuffer[mbByteLength]=0;
-		c_str = (wchar_t *) rakMalloc_Ex( (mbByteLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		c_str = (wchar_t *) std::malloc((mbByteLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 		mbstowcs_s(&c_strCharLength, c_str, mbByteLength + 1, multiByteBuffer, mbByteLength);
-		rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+		std::free(multiByteBuffer);
 		c_str[c_strCharLength]=0;
 #else
-		c_str = (wchar_t *) rakMalloc_Ex((mbByteLength + 1) * MAX_BYTES_PER_UNICODE_CHAR, _FILE_AND_LINE_);
+		c_str = (wchar_t *) std::malloc((mbByteLength + 1) * MAX_BYTES_PER_UNICODE_CHAR);
 		c_strCharLength = mbByteLength;
 		for (unsigned int i = 0; i < mbByteLength; i++)
 		{
@@ -364,17 +359,17 @@ bool RakWString::Deserialize(wchar_t *str, BitStream *bs)
 	{
 #if 0
 		char *multiByteBuffer;
-		multiByteBuffer = (char*)rakMalloc_Ex(mbByteLength + 1, _FILE_AND_LINE_);
+		multiByteBuffer = (char*)std::malloc(mbByteLength + 1);
 		bool result = bs->ReadAlignedBytes((unsigned char*)multiByteBuffer, (unsigned int)mbByteLength);
 		if (result == false)
 		{
-			rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+			std::free(multiByteBuffer);
 			return false;
 		}
 		multiByteBuffer[mbByteLength] = 0;
 		size_t c_strCharLength;
 		mbstowcs(&c_strCharLength, str, multiByteBuffer, mbByteLength);
-		rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+		std::free(multiByteBuffer);
 		str[c_strCharLength] = 0;
 #else
 		for (unsigned int i = 0; i < mbByteLength; i++)
@@ -402,17 +397,17 @@ bool RakWString::Deserialize(wchar_t *str, size_t strLength, BitStream *bs)
 	{
 #if 0
 		char *multiByteBuffer;
-		multiByteBuffer = (char*) rakMalloc_Ex(mbByteLength+1, _FILE_AND_LINE_);
+		multiByteBuffer = (char*) std::malloc(mbByteLength+1);
 		bool result = bs->ReadAlignedBytes((unsigned char*) multiByteBuffer,(unsigned int) mbByteLength);
 		if (result==false)
 		{
-			rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+			std::free(multiByteBuffer);
 			return false;
 		}
 		multiByteBuffer[mbByteLength]=0;
 		size_t c_strCharLength;
 		mbstowcs_s(&c_strCharLength, str, strLength, multiByteBuffer, mbByteLength);
-		rakFree_Ex(multiByteBuffer, _FILE_AND_LINE_);
+		std::free(multiByteBuffer);
 		str[c_strCharLength]=0;
 #else
 		for (unsigned int i = 0; i < mbByteLength; i++)

@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/base64_encoder.h"
+#include <cstdlib>
 #include "mafianet/memory_override.h"
 
 const char *Base64Map(void)
@@ -143,6 +144,6 @@ int Base64Encoding(const unsigned char *inputData, int dataLength, char *outputD
 
 int Base64Encoding(const unsigned char *inputData, int dataLength, char **outputData)
 {
-	*outputData = (char *) rakMalloc_Ex(dataLength * 2 + 6, _FILE_AND_LINE_);
+	*outputData = (char *) std::malloc(dataLength * 2 + 6);
 	return Base64Encoding(inputData, dataLength, *outputData);
 }

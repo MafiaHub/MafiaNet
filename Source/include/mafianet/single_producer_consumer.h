@@ -104,9 +104,9 @@ template <class SingleProducerConsumerType>
 SingleProducerConsumer<SingleProducerConsumerType>::SingleProducerConsumer()
 {
 	// Preallocate
-	readPointer = MafiaNet::OP_NEW<DataPlusPtr>(_FILE_AND_LINE_);
+	readPointer = new DataPlusPtr;
 	writePointer = readPointer;
-	readPointer->next = MafiaNet::OP_NEW<DataPlusPtr>(_FILE_AND_LINE_);
+	readPointer->next = new DataPlusPtr;
 	int listSize;
 #ifdef _DEBUG
 	RakAssert(MINIMUM_LIST_SIZE >= 3);
@@ -114,7 +114,7 @@ SingleProducerConsumer<SingleProducerConsumerType>::SingleProducerConsumer()
 	for (listSize = 2; listSize < MINIMUM_LIST_SIZE; listSize++)
 	{
 		readPointer = readPointer->next;
-		readPointer->next = MafiaNet::OP_NEW<DataPlusPtr>(_FILE_AND_LINE_);
+		readPointer->next = new DataPlusPtr;
 	}
 	readPointer->next->next = writePointer; // last to next = start
 	readPointer = writePointer;
@@ -131,10 +131,10 @@ SingleProducerConsumer<SingleProducerConsumerType>::~SingleProducerConsumer()
 	while (readPointer != writeAheadPointer)
 	{
 		next = readPointer->next;
-		MafiaNet::OP_DELETE((char *) readPointer, _FILE_AND_LINE_);
+		delete (char *) readPointer;
 		readPointer = next;
 	}
-	MafiaNet::OP_DELETE((char *) readPointer, _FILE_AND_LINE_);
+	delete (char *) readPointer;
 }
 
 template <class SingleProducerConsumerType>
@@ -144,7 +144,7 @@ SingleProducerConsumerType *SingleProducerConsumer<SingleProducerConsumerType>::
 	    writeAheadPointer->next->readyToRead == true)
 	{
 		volatile DataPlusPtr *originalNext = writeAheadPointer->next;
-		writeAheadPointer->next = MafiaNet::OP_NEW<DataPlusPtr>(_FILE_AND_LINE_);
+		writeAheadPointer->next = new DataPlusPtr;
 		RakAssert(writeAheadPointer->next);
 		writeAheadPointer->next->next = originalNext;
 	}
@@ -237,7 +237,7 @@ void SingleProducerConsumer<SingleProducerConsumerType>::Clear(void)
 #ifdef _DEBUG
 		RakAssert(writePointer != readPointer);
 #endif
-		MafiaNet::OP_DELETE((char *) writePointer, _FILE_AND_LINE_);
+		delete (char *) writePointer;
 		writePointer = next;
 	}
 

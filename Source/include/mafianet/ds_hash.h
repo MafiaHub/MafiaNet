@@ -102,16 +102,16 @@ Hash<key_type, data_type, HASH_SIZE, hashFunction>::~Hash()
 }
 
 template <class key_type, class data_type, unsigned int HASH_SIZE, unsigned long (*hashFunction)(const key_type &)>
-void Hash<key_type, data_type, HASH_SIZE, hashFunction>::Push(key_type key, const data_type &input, const char *file, unsigned int line)
+void Hash<key_type, data_type, HASH_SIZE, hashFunction>::Push(key_type key, const data_type &input, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	unsigned long hashIndex = (*hashFunction)(key) % HASH_SIZE;
 	if (nodeList == 0)
 	{
-		nodeList = MafiaNet::OP_NEW_ARRAY<Node *>(HASH_SIZE, file, line);
+		nodeList = new Node *[HASH_SIZE];
 		memset(nodeList, 0, sizeof(Node *) * HASH_SIZE);
 	}
 
-	Node *newNode = MafiaNet::OP_NEW_2<Node>(file, line, key, input);
+	Node *newNode = new Node(key, input);
 	newNode->next = nodeList[hashIndex];
 	nodeList[hashIndex] = newNode;
 
@@ -136,7 +136,7 @@ data_type *Hash<key_type, data_type, HASH_SIZE, hashFunction>::Peek(key_type key
 }
 
 template <class key_type, class data_type, unsigned int HASH_SIZE, unsigned long (*hashFunction)(const key_type &)>
-bool Hash<key_type, data_type, HASH_SIZE, hashFunction>::Pop(data_type &out, key_type key, const char *file, unsigned int line)
+bool Hash<key_type, data_type, HASH_SIZE, hashFunction>::Pop(data_type &out, key_type key, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (nodeList == 0)
 		return false;
@@ -166,7 +166,7 @@ bool Hash<key_type, data_type, HASH_SIZE, hashFunction>::Pop(data_type &out, key
 		// First item does match, but more than one item
 		out = node->data;
 		nodeList[hashIndex] = node->next;
-		MafiaNet::OP_DELETE(node, file, line);
+		delete node;
 		size--;
 		return true;
 	}
@@ -183,7 +183,7 @@ bool Hash<key_type, data_type, HASH_SIZE, hashFunction>::Pop(data_type &out, key
 			// Skip over subsequent item
 			last->next = node->next;
 			// Delete existing item
-			MafiaNet::OP_DELETE(node, file, line);
+			delete node;
 			size--;
 			return true;
 		}
@@ -212,7 +212,7 @@ bool Hash<key_type, data_type, HASH_SIZE, hashFunction>::RemoveAtIndex(HashIndex
 	{
 		// First item does match, but more than one item
 		nodeList[index.primaryIndex] = node->next;
-		MafiaNet::OP_DELETE(node, file, line);
+		delete node;
 		size--;
 		return true;
 	}
@@ -231,7 +231,7 @@ bool Hash<key_type, data_type, HASH_SIZE, hashFunction>::RemoveAtIndex(HashIndex
 	// Skip over subsequent item
 	last->next = node->next;
 	// Delete existing item
-	MafiaNet::OP_DELETE(node, file, line);
+	delete node;
 	size--;
 	return true;
 }
@@ -316,21 +316,21 @@ void Hash<key_type, data_type, HASH_SIZE, hashFunction>::Clear(const char *file,
 		unsigned int i;
 		for (i = 0; i < HASH_SIZE; i++)
 			ClearIndex(i, file, line);
-		MafiaNet::OP_DELETE_ARRAY(nodeList, file, line);
+		delete[] nodeList;
 		nodeList = 0;
 		size = 0;
 	}
 }
 
 template <class key_type, class data_type, unsigned int HASH_SIZE, unsigned long (*hashFunction)(const key_type &)>
-void Hash<key_type, data_type, HASH_SIZE, hashFunction>::ClearIndex(unsigned int index, const char *file, unsigned int line)
+void Hash<key_type, data_type, HASH_SIZE, hashFunction>::ClearIndex(unsigned int index, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	Node *node = nodeList[index];
 	Node *next;
 	while (node)
 	{
 		next = node->next;
-		MafiaNet::OP_DELETE(node, file, line);
+		delete node;
 		node = next;
 		size--;
 	}
