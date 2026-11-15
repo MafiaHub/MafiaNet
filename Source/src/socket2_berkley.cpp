@@ -179,7 +179,7 @@ void RNS2_Berkley::GetSystemAddressIPV4And6(RNS2Socket rns2Socket, SystemAddress
 		              nullptr, dwIOError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
 		              (LPTSTR) &messageBuffer, 0, nullptr);
 		// something has gone wrong here...
-		RAKNET_DEBUG_TPRINTF(_T("getsockname failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
+		RAKNET_DEBUG_TPRINTF(_T("getsockname failed:Error code - %lu\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
 
 		//Free the buffer.
 		LocalFree(messageBuffer);
@@ -282,7 +282,7 @@ RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindP
 		// type and protocol are the caller's (protocol may be a raw-socket one).
 		rns2Socket = socket__(aip->ai_family, bindParameters->type, bindParameters->protocol);
 
-		if (rns2Socket == -1)
+		if (rns2Socket == (RNS2Socket) INVALID_SOCKET)
 		{
 			if (!RNS2_IsFamilyNotSupportedSocketError(RNS2_GetLastSocketError()))
 				onlyFamilyErrors = false;
@@ -397,7 +397,7 @@ void RNS2_Berkley::RecvFromBlockingIPV4And6(RNS2RecvStruct *recvFromStruct)
 			              nullptr, dwIOError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
 			              (LPTSTR) &messageBuffer, 0, nullptr);
 			// I see this hit on XP with IPV6 for some reason
-			RAKNET_DEBUG_TPRINTF(_T("Warning: recvfrom failed:Error code - %d\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
+			RAKNET_DEBUG_TPRINTF(_T("Warning: recvfrom failed:Error code - %lu\n%s"), dwIOError, static_cast<LPTSTR>(messageBuffer));
 			LocalFree(messageBuffer);
 		}
 	}
