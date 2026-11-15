@@ -61,7 +61,7 @@ TEST(DataCompressor, DecompressRejectsOversizedDeclaredLength)
 	for (int i = 0; i < 256; i++)
 		bs.WriteCompressed((unsigned int) 1);
 	bs.AlignWriteToByteBoundary();
-	bs.Write((unsigned int) 8); // eight payload bits ...
+	bs.Write((unsigned int) 8);     // eight payload bits ...
 	bs.Write((unsigned char) 0xA5); // ... cannot expand to four billion bytes
 
 	std::unique_ptr<unsigned char[]> output;
