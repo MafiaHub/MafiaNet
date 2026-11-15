@@ -700,7 +700,7 @@ SystemAddress TCPInterface::HasNewIncomingConnection(void)
 		for (i = 0; i < messageHandlerList.Size(); i++)
 			messageHandlerList[i]->OnNewConnection(out2, UNASSIGNED_RAKNET_GUID, true);
 
-		return *out;
+		return out2; // out was just returned to the pool
 	}
 	else
 	{
@@ -720,7 +720,7 @@ SystemAddress TCPInterface::HasLostConnection(void)
 		for (i = 0; i < messageHandlerList.Size(); i++)
 			messageHandlerList[i]->OnClosedConnection(out2, UNASSIGNED_RAKNET_GUID, LCR_DISCONNECTION_NOTIFICATION);
 
-		return *out;
+		return out2; // out was just returned to the pool
 	}
 	else
 	{
