@@ -304,16 +304,16 @@ void* WorkerThread( void* arguments )
 		threadPool->workingThreadCountMutex.Unlock();
 	}
 
-	// Decrease numThreadsRunning
-	threadPool->numThreadsRunningMutex.Lock();
-	--threadPool->numThreadsRunning;
-	threadPool->numThreadsRunningMutex.Unlock();
-
 	if (threadPool->perThreadDataDestructor)
 		threadPool->perThreadDataDestructor(perThreadData);
 	else if (threadPool->threadDataInterface)
 		threadPool->threadDataInterface->PerThreadDestructor(perThreadData, threadPool->tdiContext);
 
+	// Decrease numThreadsRunning. Last touch of the pool: StopThreads() returns once the count reaches
+	// 0, and the owner may then destroy the pool while this thread is still exiting.
+	threadPool->numThreadsRunningMutex.Lock();
+	--threadPool->numThreadsRunning;
+	threadPool->numThreadsRunningMutex.Unlock();
 
 	return 0;
 }

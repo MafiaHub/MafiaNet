@@ -10,6 +10,8 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/thread_pool.h"
 
+#include <atomic>
+#include <chrono>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -175,4 +177,36 @@ TEST(ThreadPool, WorkersProcessEveryInputExactlyOnce)
 		EXPECT_EQ(seen[i], 1) << i;
 	EXPECT_FALSE(pool.HasInputFast());
 	EXPECT_FALSE(pool.HasOutputFast());
+}
+
+namespace
+{
+std::atomic<int> perThreadDataDestroyed{0};
+
+void *NoPerThreadData()
+{
+	return nullptr;
+}
+
+// Slow on purpose: it holds each worker in its exit path long enough for StopThreads() to return early
+// if it does not wait for it. The assertion does not depend on the delay.
+void SlowPerThreadDataDestructor(void *)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	perThreadDataDestroyed.fetch_add(1);
+}
+}
+
+// Once StopThreads() returns, no worker touches the pool again, so it can be destroyed. A worker used
+// to report itself stopped and only then read the pool to find and run the per-thread data destructor:
+// StopThreads() returned while workers still read a pool its owner was free to destroy (TSan saw them
+// read the stack slot of a ThreadPool that had gone out of scope).
+TEST(ThreadPool, StopThreadsWaitsForEveryPerThreadDataDestructor)
+{
+	const int threads = 3;
+	perThreadDataDestroyed = 0;
+	ThreadPool<int, int> pool;
+	ASSERT_TRUE(pool.StartThreads(threads, 0, NoPerThreadData, SlowPerThreadDataDestructor));
+	pool.StopThreads();
+	EXPECT_EQ(perThreadDataDestroyed.load(), threads);
 }
