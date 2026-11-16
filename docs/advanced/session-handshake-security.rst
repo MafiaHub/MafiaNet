@@ -36,8 +36,13 @@ What MafiaNet guarantees
 ------------------------
 
 * **Length is bounded.** ``MAXIMUM_SESSION_CONFIG_SIZE`` (64 KB) is enforced on send *and* receive.
-  An oversized inbound payload is treated as a protocol violation and the connection is dropped
-  without a reply.
+  An oversized inbound payload is treated as a protocol violation. The accepting side drops the
+  connection without a reply. The connecting side fails its attempt: it reports
+  ``ID_CONNECTION_ATTEMPT_FAILED`` once and closes the connection with
+  ``ID_DISCONNECTION_NOTIFICATION``, so the accepting side, which has already reported the
+  connection, sees it end at once instead of timing out. Build both ends with the same limit: ``AcceptSession()`` and
+  ``SetSessionConfig()`` clamp to the *sender's* limit, so a server built with a larger one than its
+  clients can send a payload they refuse.
 * **No length underflow.** The receive loop only dispatches frames of at least one byte, so the
   payload length (frame size minus the one-byte id) cannot wrap.
 * **The buffer is NUL-terminated past its reported length.** One extra zero byte is always

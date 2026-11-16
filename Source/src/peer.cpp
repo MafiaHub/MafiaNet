@@ -6966,7 +6966,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					{
 						if (StoreRemoteSessionConfig(remoteSystem, (const unsigned char *) data + sizeof(MessageID), byteSize - (unsigned int) sizeof(MessageID)) == false)
 						{
-							remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+							// An oversized payload is a protocol violation (a server built with a larger
+							// MAXIMUM_SESSION_CONFIG_SIZE than ours sends one: AcceptSession clamps to the sender's limit).
+							// Our Connect() is still owed an answer, and the server has already reported the connection,
+							// so fail the attempt once and tell the server, as on any other broken-off handshake.
+							FailSessionHandshakeAsConnectingSide(remoteSystem);
 						}
 						else
 						{

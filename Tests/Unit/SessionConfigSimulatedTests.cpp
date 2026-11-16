@@ -1326,6 +1326,19 @@ protected:
 		}
 	}
 
+	// An ID_SESSION_CONFIG carrying `payloadBytes` bytes, as AcceptSession() or a static server sends it, but of
+	// any size: a server built with a larger MAXIMUM_SESSION_CONFIG_SIZE than this binary sends one this binary
+	// must refuse (AcceptSession clamps to the sender's own limit, not the receiver's).
+	void InjectSessionConfig(RakPeer *from, const RakPeer *to, unsigned int payloadBytes, Reliability reliability = Reliability::ReliableOrdered)
+	{
+		std::vector<unsigned char> payload(payloadBytes, 0x5A);
+		BitStream bs;
+		bs.Write((MessageID) ID_SESSION_CONFIG);
+		if (payloadBytes > 0)
+			bs.WriteAlignedBytes(payload.data(), payloadBytes);
+		SendGateBypass::Inject(from, bs, net.AddressOf(to), reliability);
+	}
+
 	bool WaitForHeld(const RakPeer *client, const RakNetGUID &server, unsigned int count, uint32_t maxMs = 30000)
 	{
 		return Until([&]
@@ -1668,4 +1681,73 @@ TEST_F(SessionHeldMessagesSim, IncomingPeerCannotMakeTheAcceptingSideHold)
 	ASSERT_TRUE(flipped) << "precondition: the forged accept did not flip the accepting slot's role";
 	EXPECT_EQ(0u, peakHeld) << "a peer that connected to us made us hold its data";
 	EXPECT_EQ(0u, CountUserMessages(Inbox(server)));
+}
+
+// #98: the accepting side's ID_SESSION_CONFIG is larger than this binary's MAXIMUM_SESSION_CONFIG_SIZE (a
+// server built with a larger limit, or a misbehaving one). That is a protocol violation, and the attempt
+// fails like a refused one: ID_CONNECTION_ATTEMPT_FAILED exactly once, nothing held is delivered, the slot is
+// freed. The server, still deciding here, is told the client broke off (ID_SESSION_CONFIG_ABANDONED) rather
+// than waiting out the handshake timeout.
+TEST_F(SessionHeldMessagesSim, OversizedSessionConfigFailsTheAttempt)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	InjectNumbered(server, client, kReliableStreamId, 0, 3, Reliability::Reliable);
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), 3));
+
+	// In place of AcceptSession(): the same message, one byte over this binary's limit.
+	InjectSessionConfig(server, client, MAXIMUM_SESSION_CONFIG_SIZE + 1u);
+
+	// Well inside the 60s handshake timeout: this failure can only be the oversized payload.
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, 30000)) << "an oversized session config left Connect() unanswered";
+	ASSERT_TRUE(WaitFor(server, ID_SESSION_CONFIG_ABANDONED, 2000)) << "the server was not told the client broke off";
+	EXPECT_EQ(server->GetMyGUID(), Find(client, ID_CONNECTION_ATTEMPT_FAILED)->guid);
+	ExpectAttemptFailedWithNothingDelivered(server, client);
+}
+
+// #98 as the issue describes it: the server has already reported the connection (AcceptSession() answered)
+// when the oversized payload reaches the client. The client fails its attempt once and tells the server,
+// which sees the connection end with ID_DISCONNECTION_NOTIFICATION instead of a timeout. The oversized
+// message is ordered on channel 0 just ahead of the real reply, so the real one is processed after it, on a
+// slot that is already closing, where it is ignored.
+TEST_F(SessionHeldMessagesSim, OversizedSessionConfigAfterTheServerReportedTheConnection)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	InjectSessionConfig(server, client, MAXIMUM_SESSION_CONFIG_SIZE + 1u);
+	Pump(1); // the injected message takes its place on channel 0 before the real reply
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ASSERT_TRUE(WaitFor(server, ID_NEW_INCOMING_CONNECTION, 2000)) << "precondition: the server must report the connection";
+
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, 30000)) << "an oversized session config left Connect() unanswered";
+	ASSERT_TRUE(WaitFor(server, ID_DISCONNECTION_NOTIFICATION, 5000)) << "the server was left to time the connection out";
+	Pump(5000);
+	SCOPED_TRACE("client " + IdList(Inbox(client)) + " server " + IdList(Inbox(server)));
+	EXPECT_EQ(1u, Count(client, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED)) << "the late real reply revived a failed attempt";
+	EXPECT_FALSE(SlotInspector::FirstActiveSlot(client).sawSlot) << "the client's slot was never released";
+	EXPECT_EQ(1u, Count(server, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_EQ(1u, Count(server, ID_DISCONNECTION_NOTIFICATION));
+	EXPECT_EQ(0u, Count(server, ID_CONNECTION_LOST));
+	EXPECT_FALSE(SlotInspector::SlotFor(server, client->GetMyGUID()).sawSlot) << "the server's slot was never released";
+}
+
+// The boundary of #98: a payload of exactly MAXIMUM_SESSION_CONFIG_SIZE is accepted.
+TEST_F(SessionHeldMessagesSim, SessionConfigAtTheLimitCompletesTheConnection)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	InjectSessionConfig(server, client, MAXIMUM_SESSION_CONFIG_SIZE);
+
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_REQUEST_ACCEPTED, 30000)) << "inbox " << IdList(Inbox(client));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_ATTEMPT_FAILED));
+	unsigned int length = 0;
+	ASSERT_NE(nullptr, client->GetRemoteSessionConfig(server->GetMyGUID(), &length));
+	EXPECT_EQ((unsigned int) MAXIMUM_SESSION_CONFIG_SIZE, length);
 }
