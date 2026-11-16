@@ -408,6 +408,131 @@ TEST(CloudApiServers, GetIsAnsweredAcrossServers)
 	serverA->DetachPlugin(&cloudA);
 }
 
+TEST_F(CloudApi, UploadIntoASpecificPlaceholderCanStillBeReleased)
+{
+	// Client 1 subscribes to Scores() uploaded by client 0 only: the server keeps an empty
+	// placeholder for client 0 under that key. Client 0's upload then goes into the placeholder.
+	cloudServer.SetMaxUploadBytesPerClient(10);
+	CloudQuery subscribe;
+	subscribe.keys.push_back(Scores());
+	subscribe.subscribeToResults = true;
+	std::vector<RakNetGUID> uploader{clients[0]->GetMyGUID()};
+	ASSERT_TRUE(cloudClients[1].Get(&subscribe, uploader, server->GetMyGUID()));
+	CloudQueryResult initial;
+	ASSERT_TRUE(NextGetResponse(1, initial));
+	cloudClients[1].DeallocateWithDefaultAllocator(&initial);
+
+	Post(0, Scores(), "fives");
+	Post(0, Names(), "four");
+	Settle();
+	// 9 - 5 + 7 > 10: rejected. The placeholder holds a real upload, which must stay client 0's.
+	Post(0, Scores(), "sevenxx");
+	Settle();
+
+	CloudQuery query;
+	query.keys.push_back(Scores());
+	ASSERT_TRUE(cloudClients[1].Get(&query, server->GetMyGUID()));
+	CloudQueryResult kept;
+	ASSERT_TRUE(NextGetResponse(1, kept));
+	ASSERT_EQ(kept.rowsReturned.size(), 1u);
+	EXPECT_EQ(RowData(kept.rowsReturned[0]), "fives"); // the limit was enforced
+	cloudClients[1].DeallocateWithDefaultAllocator(&kept);
+
+	// Releasing the key removes the upload.
+	std::vector<CloudKey> release{Scores()};
+	cloudClients[0].Release(release, server->GetMyGUID());
+	Settle();
+	ASSERT_TRUE(cloudClients[1].Get(&query, server->GetMyGUID()));
+	CloudQueryResult released;
+	ASSERT_TRUE(NextGetResponse(1, released));
+	EXPECT_TRUE(released.rowsReturned.empty());
+	cloudClients[1].DeallocateWithDefaultAllocator(&released);
+}
+
+TEST_F(CloudApi, UnsubscribingDoesNotDropAnUploadInThePlaceholder)
+{
+	// Same placeholder as above; this time the subscriber leaves after the upload went into it.
+	CloudQuery subscribe;
+	subscribe.keys.push_back(Scores());
+	subscribe.subscribeToResults = true;
+	std::vector<RakNetGUID> uploader{clients[0]->GetMyGUID()};
+	ASSERT_TRUE(cloudClients[1].Get(&subscribe, uploader, server->GetMyGUID()));
+	CloudQueryResult initial;
+	ASSERT_TRUE(NextGetResponse(1, initial));
+	cloudClients[1].DeallocateWithDefaultAllocator(&initial);
+
+	Post(0, Scores(), "alpha");
+	Settle();
+	std::vector<CloudKey> keys{Scores()};
+	cloudClients[1].Unsubscribe(keys, uploader, server->GetMyGUID());
+	Settle();
+
+	CloudQuery query;
+	query.keys.push_back(Scores());
+	ASSERT_TRUE(cloudClients[1].Get(&query, server->GetMyGUID()));
+	CloudQueryResult result;
+	ASSERT_TRUE(NextGetResponse(1, result));
+	ASSERT_EQ(result.rowsReturned.size(), 1u);
+	EXPECT_EQ(RowData(result.rowsReturned[0]), "alpha");
+	cloudClients[1].DeallocateWithDefaultAllocator(&result);
+}
+
+TEST(CloudApiServers, RejectedOverwriteLeavesTheKeyReleasable)
+{
+	// An over-limit re-post of a key the client already uploaded (the overwrite branch) must not
+	// leave the key counted as uploaded: after the client releases it, server A tells server B,
+	// and B answers a Get for it without asking A.
+	CloudServer cloudA, cloudB;
+	CloudClient uploader, getter;
+	SimulatedNetwork net; // after the plugins: destroyed (with its peers) first
+	RakPeer *serverA = net.AddPeer(8, 8);
+	RakPeer *serverB = net.AddPeer(8, 8);
+	RakPeer *uploaderPeer = net.AddPeer(1);
+	RakPeer *getterPeer = net.AddPeer(1);
+	serverA->AttachPlugin(&cloudA);
+	serverB->AttachPlugin(&cloudB);
+	uploaderPeer->AttachPlugin(&uploader);
+	getterPeer->AttachPlugin(&getter);
+	ASSERT_TRUE(net.Connect(serverB, serverA));
+	ASSERT_TRUE(net.Connect(uploaderPeer, serverA));
+	ASSERT_TRUE(net.Connect(getterPeer, serverB));
+	cloudA.SetMaxUploadBytesPerClient(10);
+	const auto settle = [&net]
+	{ net.RunUntil([]
+		           { return false; }, 300); };
+	const auto post = [&](const CloudKey &key, const std::string &value)
+	{
+		CloudKey copy = key;
+		uploader.Post(&copy, reinterpret_cast<const unsigned char *>(value.data()), static_cast<uint32_t>(value.size()), serverA->GetMyGUID());
+		settle();
+	};
+
+	post(Scores(), "12345678");
+	cloudA.AddServer(serverB->GetMyGUID());
+	cloudB.AddServer(serverA->GetMyGUID());
+	settle();
+	post(Names(), "ab");
+	post(Scores(), "123456789"); // 10 - 8 + 9 > 10: rejected
+	std::vector<CloudKey> release{Scores()};
+	uploader.Release(release, serverA->GetMyGUID());
+	settle();
+
+	// Cut A off from B. If B still believed A held Scores(), it would forward the Get to A and only
+	// answer after its 3 s timeout.
+	SimulatedNetwork::LinkRule dark;
+	dark.dark = true;
+	net.SetLinkBothWays(serverA, serverB, dark);
+	CloudQuery query;
+	query.keys.push_back(Scores());
+	ASSERT_TRUE(getter.Get(&query, serverB->GetMyGUID()));
+	EXPECT_TRUE(net.RunUntilReceived(getterPeer, ID_CLOUD_GET_RESPONSE, 1000));
+
+	getterPeer->DetachPlugin(&getter);
+	uploaderPeer->DetachPlugin(&uploader);
+	serverB->DetachPlugin(&cloudB);
+	serverA->DetachPlugin(&cloudA);
+}
+
 TEST(CloudApiServers, OverLimitPostDoesNotCountAsAnUploader)
 {
 	CloudServer cloudA, cloudB;

@@ -428,6 +428,10 @@ void CloudServer::OnPostRequest(Packet *packet)
 			// Subtract already used bytes we are overwriting
 			remoteCloudClient->uploadedBytes -= cloudData->dataLengthBytes;
 		}
+		// The entry may have been a specific-subscription placeholder: it now holds an upload. (Left
+		// false, IsUnused() let an unsubscribe delete the live data, and an over-limit re-post treated
+		// it as never uploaded.)
+		cloudData->isUploaded = true;
 
 		if (cloudData->allocatedData != 0)
 			std::free(cloudData->allocatedData);
