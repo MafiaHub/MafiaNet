@@ -65,6 +65,17 @@ struct FilterSet
 /// \internal Has to be public so some of the shittier compilers can use it.
 int RAK_DLL_EXPORT FilterSetComp(const int &key, FilterSet *const &data);
 
+/// \internal Hashes an AddressOrGUID key of MessageFilter's system table with AddressOrGUID::ToInteger:
+/// the GUID when one is set, otherwise the address. This is not a valid std::hash for AddressOrGUID in
+/// general, which is why it is not one: operator== is true when the GUIDs OR the addresses match, so
+/// {guid, address} equals {UNASSIGNED_RAKNET_GUID, address} but the two hash differently and may not be
+/// found under each other. Inherited unchanged from the DataStructures::Hash this table used to be.
+/// Keys are consistent in practice when every system is registered and looked up with its GUID set.
+struct MessageFilterSystemHash
+{
+	size_t operator()(const AddressOrGUID &key) const { return (size_t) AddressOrGUID::ToInteger(key); }
+};
+
 /// \internal Has to be public so some of the shittier compilers can use it.
 struct FilteredSystem
 {
@@ -197,7 +208,7 @@ protected:
 	/// Filter sets sorted by filterSetID (FilterSetComp), so GetFilterSetIDByIndex() walks them in id order.
 	std::vector<std::unique_ptr<FilterSet>> filterList;
 	// Change to guid
-	std::unordered_map<AddressOrGUID, FilteredSystem> systemList;
+	std::unordered_map<AddressOrGUID, FilteredSystem, MessageFilterSystemHash> systemList;
 
 	int autoAddNewConnectionsToFilter;
 	MafiaNet::Time whenLastTimeoutCheck;

@@ -581,14 +581,4 @@ struct hash<MafiaNet::RakNetGUID>
 };
 } // namespace std
 
-namespace std
-{
-/// Hashes with AddressOrGUID::ToInteger (the GUID when set, otherwise the address).
-template <>
-struct hash<MafiaNet::AddressOrGUID>
-{
-	size_t operator()(const MafiaNet::AddressOrGUID &a) const { return (size_t) MafiaNet::AddressOrGUID::ToInteger(a); }
-};
-} // namespace std
-
 #endif

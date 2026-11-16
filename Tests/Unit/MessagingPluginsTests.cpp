@@ -29,6 +29,10 @@
 
 using namespace MafiaNet;
 
+// AddressOrGUID::operator== matches on GUID or address, which no hash can honour, so there is no
+// std::hash for it (a disabled std::hash is not default constructible). MessageFilter hashes privately.
+static_assert(!std::is_default_constructible_v<std::hash<AddressOrGUID>>, "AddressOrGUID must not have a public std::hash");
+static_assert(std::is_default_constructible_v<std::hash<RakNetGUID>>, "RakNetGUID keeps its std::hash");
 static_assert(!std::is_copy_constructible_v<MessageFilter>, "MessageFilter owns its filter sets");
 static_assert(!std::is_copy_assignable_v<MessageFilter>, "MessageFilter owns its filter sets");
 static_assert(!std::is_copy_constructible_v<RelayPlugin>, "RelayPlugin owns its participants");
@@ -93,6 +97,25 @@ TEST(MessageFilter, SystemMembershipFollowsTheFilterSets)
 	filter.SetSystemFilterSet(a, -1); // remove
 	EXPECT_EQ(0u, filter.GetSystemCount(-1));
 	EXPECT_EQ(-1, filter.GetSystemFilterSet(a));
+}
+
+// A system registered by GUID is found by any key carrying that GUID, with or without an address:
+// the private hasher uses the GUID whenever one is set.
+TEST(MessageFilter, SystemRegisteredByGuidIsFoundByGuidAndAddressKeys)
+{
+	MessageFilter filter;
+	const RakNetGUID guid(77);
+	filter.SetSystemFilterSet(guid, 4);
+
+	AddressOrGUID withAddress;
+	withAddress.rakNetGuid = guid;
+	withAddress.systemAddress = SystemAddress("10.0.0.9", 1234);
+	EXPECT_EQ(4, filter.GetSystemFilterSet(withAddress));
+	EXPECT_EQ(4, filter.GetSystemFilterSet(guid));
+
+	filter.SetSystemFilterSet(withAddress, -1); // removal through the fuller key
+	EXPECT_EQ(-1, filter.GetSystemFilterSet(guid));
+	EXPECT_EQ(0u, filter.GetSystemCount(-1));
 }
 
 class MessagingPluginsNetwork : public ::testing::Test
