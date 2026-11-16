@@ -20,12 +20,17 @@
 #include "mafianet/assert.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 
 using namespace MafiaNet;
 
 namespace
 {
+// Upper bound on rows x columns DeserializeTable builds. A row with no entries is 8 bytes on the
+// wire whatever the column count, so without it under 1 MB of input could demand ~1e9 Cells.
+constexpr std::uint64_t kMaxDeserializedCells = 1000000;
+
 bool IsSkipped(const std::vector<int> &skipColumnIndices, std::size_t columnIndex)
 {
 	return std::find(skipColumnIndices.begin(), skipColumnIndices.end(), (int) columnIndex) != skipColumnIndices.end();
@@ -76,6 +81,11 @@ bool TableSerializer::DeserializeTable(MafiaNet::BitStream *in, MafiaNet::Table 
 	unsigned rowSize;
 	if (in->Read(rowSize) == false || rowSize > 100000)
 		return false; // Truncated, or hacker crash prevention
+	// Every row costs a key and an entry count on the wire (64 bits) but one Cell per column in
+	// memory: refuse a row count the input cannot hold, and a table too large to build.
+	if (static_cast<std::uint64_t>(rowSize) * 64 > in->GetNumberOfUnreadBits() ||
+	    static_cast<std::uint64_t>(rowSize) * out->GetColumns().size() > kMaxDeserializedCells)
+		return false;
 
 	for (unsigned rowIndex = 0; rowIndex < rowSize; rowIndex++)
 	{
