@@ -1309,6 +1309,9 @@ protected:
 		}
 	}
 
+	// Size of one InjectNumbered message: the id byte and a uint32_t counter.
+	static constexpr unsigned int kNumberedMessageBytes = 1 + sizeof(uint32_t);
+
 	// `count` messages of exactly `bytes` bytes each (id included).
 	void InjectLarge(RakPeer *from, const RakPeer *to, uint32_t count, unsigned int bytes)
 	{
@@ -1395,6 +1398,10 @@ TEST_F(SessionHeldMessagesSim, CrossConnectBurstOvertakingALostSessionReplyIsDel
 // The count bound is inclusive: exactly MAXIMUM_HELD_SESSION_MESSAGES are held, then all delivered in order.
 TEST_F(SessionHeldMessagesSim, MessageLimitIsInclusive)
 {
+	// Both limits are build-time overridable: test the count boundary only when the byte budget lets it be
+	// reached first, or the test would hit (or pass on) the byte limit instead.
+	if ((uint64_t) MAXIMUM_HELD_SESSION_MESSAGES * kNumberedMessageBytes > MAXIMUM_HELD_SESSION_BYTES)
+		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_BYTES is below the message-count boundary in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
 	RakNetGUID clientGuid;
@@ -1416,6 +1423,8 @@ TEST_F(SessionHeldMessagesSim, MessageLimitIsInclusive)
 // One message over the count bound fails the attempt instead of silently losing that message.
 TEST_F(SessionHeldMessagesSim, ExceedingTheMessageLimitFailsTheAttempt)
 {
+	if ((uint64_t) (MAXIMUM_HELD_SESSION_MESSAGES + 1u) * kNumberedMessageBytes > MAXIMUM_HELD_SESSION_BYTES)
+		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_BYTES would overflow before the message count in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
 	RakNetGUID clientGuid;
@@ -1435,6 +1444,9 @@ TEST_F(SessionHeldMessagesSim, ExceedingTheMessageLimitFailsTheAttempt)
 // The byte bound is inclusive too.
 TEST_F(SessionHeldMessagesSim, ByteLimitIsInclusive)
 {
+	// The byte boundary uses 4 messages (5 to overflow): the count budget must allow that.
+	if (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
+		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_MESSAGES is below the byte-boundary scenario in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
 	RakNetGUID clientGuid;
@@ -1462,6 +1474,8 @@ TEST_F(SessionHeldMessagesSim, ByteLimitIsInclusive)
 
 TEST_F(SessionHeldMessagesSim, ExceedingTheByteLimitFailsTheAttempt)
 {
+	if (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
+		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_MESSAGES would overflow before the bytes in this build";
 	RakPeer *server = nullptr;
 	RakPeer *client = nullptr;
 	RakNetGUID clientGuid;
