@@ -44,7 +44,6 @@
 #endif
 
 //#include "mafianet/dr_sha1.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/file_operations.h"
@@ -53,6 +52,9 @@
 #include "mafianet/linux_strings.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+
+#include <algorithm>
+#include <deque>
 
 #define MAX_FILENAME_LENGTH 512
 static const unsigned HASH_LENGTH = 4;
@@ -160,7 +162,7 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 	RakAssert(isAReference == false || data == 0);
 	// Avoid duplicate insertions unless the data is different, in which case overwrite the old data
 	unsigned i;
-	for (i = 0; i < fileList.Size(); i++)
+	for (i = 0; i < fileList.size(); i++)
 	{
 		if (strcmp(fileList[i].filename, filename) == 0)
 		{
@@ -172,7 +174,7 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 
 			// File of the same name, but different contents, so overwrite
 			std::free(fileList[i].data);
-			fileList.RemoveAtIndex(i);
+			fileList.erase(fileList.begin() + i);
 			break;
 		}
 	}
@@ -205,13 +207,13 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 	n.filename = filename;
 	n.fullPathToFile = fullPathToFile;
 
-	fileList.Insert(n, _FILE_AND_LINE_);
+	fileList.push_back(n);
 }
 void FileList::AddFilesFromDirectory(const char *applicationDirectory, const char *subDirectory, bool writeHash, bool writeData, bool recursive, FileListNodeContext context)
 {
 
 
-	DataStructures::Queue<char *> dirList;
+	std::deque<char *> dirList;
 	char root[260];
 	char fullPath[520];
 	_finddata_t fileInfo;
@@ -241,13 +243,14 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 		strcat_s(dirSoFar, 520, subDirectory);
 		FixEndingSlash(dirSoFar, 520);
 	}
-	for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
+	for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
 		fileListProgressCallbacks[flpcIndex]->OnAddFilesFromDirectoryStarted(this, dirSoFar);
 	// RAKNET_DEBUG_PRINTF("Adding files from directory %s\n",dirSoFar);
-	dirList.Push(dirSoFar, _FILE_AND_LINE_);
-	while (dirList.Size())
+	dirList.push_back(dirSoFar);
+	while (!dirList.empty())
 	{
-		dirSoFar = dirList.Pop();
+		dirSoFar = dirList.front();
+		dirList.pop_front();
 		strcpy_s(fullPath, dirSoFar);
 		// Changed from *.* to * for Linux compatibility
 		strcat_s(fullPath, "*");
@@ -258,15 +261,14 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 		{
 			_findclose(dir);
 			std::free(dirSoFar);
-			unsigned i;
-			for (i = 0; i < dirList.Size(); i++)
-				std::free(dirList[i]);
+			for (char *pending : dirList)
+				std::free(pending);
 			return;
 		}
 
 		//		RAKNET_DEBUG_PRINTF("Adding %s. %i remaining.\n", fullPath, dirList.Size());
-		for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
-			fileListProgressCallbacks[flpcIndex]->OnDirectory(this, fullPath, dirList.Size());
+		for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
+			fileListProgressCallbacks[flpcIndex]->OnDirectory(this, fullPath, static_cast<unsigned int>(dirList.size()));
 
 		do
 		{
@@ -283,7 +285,7 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 				strcat_s(fullPath, fileInfo.name);
 				fileData = 0;
 
-				for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
+				for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
 					fileListProgressCallbacks[flpcIndex]->OnFile(this, dirSoFar, fileInfo.name, fileInfo.size);
 
 				if (writeData && writeHash)
@@ -357,7 +359,7 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 				strcpy_s(newDir, 520, dirSoFar);
 				strcat_s(newDir, 520, fileInfo.name);
 				strcat_s(newDir, 520, "/");
-				dirList.Push(newDir, _FILE_AND_LINE_);
+				dirList.push_back(newDir);
 			}
 
 		} while (_findnext(dir, &fileInfo) != -1);
@@ -369,17 +371,17 @@ void FileList::AddFilesFromDirectory(const char *applicationDirectory, const cha
 void FileList::Clear(void)
 {
 	unsigned i;
-	for (i = 0; i < fileList.Size(); i++)
+	for (i = 0; i < fileList.size(); i++)
 	{
 		std::free(fileList[i].data);
 	}
-	fileList.Clear(false, _FILE_AND_LINE_);
+	fileList.clear();
 }
 void FileList::Serialize(MafiaNet::BitStream *outBitStream)
 {
-	outBitStream->WriteCompressed(fileList.Size());
+	outBitStream->WriteCompressed(static_cast<unsigned int>(fileList.size()));
 	unsigned i;
-	for (i = 0; i < fileList.Size(); i++)
+	for (i = 0; i < fileList.size(); i++)
 	{
 		outBitStream->WriteCompressed(fileList[i].context.op);
 		outBitStream->WriteCompressed(fileList[i].context.flnc_extraData1);
@@ -457,7 +459,7 @@ bool FileList::Deserialize(MafiaNet::BitStream *inBitStream)
 		}
 		n.filename = filename;
 		n.fullPathToFile = filename;
-		fileList.Insert(n, _FILE_AND_LINE_);
+		fileList.push_back(n);
 	}
 
 	return true;
@@ -482,7 +484,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 	else
 		remoteSubdirLen = 0;
 
-	for (thisIndex = 0; thisIndex < fileList.Size(); thisIndex++)
+	for (thisIndex = 0; thisIndex < fileList.size(); thisIndex++)
 	{
 		localPathLen = (unsigned int) fileList[thisIndex].filename.GetLength();
 		while (localPathLen > 0)
@@ -503,7 +505,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 			continue;
 
 		match = false;
-		for (inputIndex = 0; inputIndex < input->fileList.Size(); inputIndex++)
+		for (inputIndex = 0; inputIndex < input->fileList.size(); inputIndex++)
 		{
 			// If the filenames, hashes, and lengths match then skip this element in fileList.  Otherwise write it to output
 			if (_stricmp(input->fileList[inputIndex].filename.C_String() + remoteSubdirLen, fileList[thisIndex].filename.C_String() + dirSubsetLen) == 0)
@@ -540,7 +542,7 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 	unsigned i;
 	//	char *fileData;
 
-	for (i = 0; i < fileList.Size(); i++)
+	for (i = 0; i < fileList.size(); i++)
 	{
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
@@ -597,7 +599,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 	//	CSHA1 sha1;
 
 	i = 0;
-	while (i < fileList.Size())
+	while (i < fileList.size())
 	{
 		std::free(fileList[i].data);
 		strcpy_s(fullPath, applicationDirectory);
@@ -681,7 +683,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 		{
 			if (removeUnknownFiles)
 			{
-				fileList.RemoveAtIndex(i);
+				fileList.erase(fileList.begin() + i);
 			}
 			else
 				i++;
@@ -690,7 +692,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 }
 void FileList::FlagFilesAsReferences(void)
 {
-	for (unsigned int i = 0; i < fileList.Size(); i++)
+	for (unsigned int i = 0; i < fileList.size(); i++)
 	{
 		fileList[i].isAReference = true;
 		fileList[i].dataLengthBytes = fileList[i].fileLengthBytes;
@@ -701,7 +703,7 @@ void FileList::WriteDataToDisk(const char *applicationDirectory)
 	char fullPath[512];
 	unsigned i, j;
 
-	for (i = 0; i < fileList.Size(); i++)
+	for (i = 0; i < fileList.size(); i++)
 	{
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
@@ -731,7 +733,7 @@ void FileList::DeleteFiles(const char *applicationDirectory)
 	char fullPath[512];
 	unsigned i, j;
 
-	for (i = 0; i < fileList.Size(); i++)
+	for (i = 0; i < fileList.size(); i++)
 	{
 		// The filename should not have .. in the path - if it does ignore it
 		for (j = 1; j < fileList[i].filename.GetLength(); j++)
@@ -768,20 +770,20 @@ void FileList::AddCallback(FileListProgress *cb)
 	if (cb == 0)
 		return;
 
-	if ((unsigned int) fileListProgressCallbacks.GetIndexOf(cb) == (unsigned int) -1)
-		fileListProgressCallbacks.Push(cb, _FILE_AND_LINE_);
+	if (std::find(fileListProgressCallbacks.begin(), fileListProgressCallbacks.end(), cb) == fileListProgressCallbacks.end())
+		fileListProgressCallbacks.push_back(cb);
 }
 void FileList::RemoveCallback(FileListProgress *cb)
 {
-	unsigned int idx = fileListProgressCallbacks.GetIndexOf(cb);
-	if (idx != (unsigned int) -1)
-		fileListProgressCallbacks.RemoveAtIndex(idx);
+	const auto it = std::find(fileListProgressCallbacks.begin(), fileListProgressCallbacks.end(), cb);
+	if (it != fileListProgressCallbacks.end())
+		fileListProgressCallbacks.erase(it);
 }
 void FileList::ClearCallbacks(void)
 {
-	fileListProgressCallbacks.Clear(true, _FILE_AND_LINE_);
+	fileListProgressCallbacks.clear();
 }
-void FileList::GetCallbacks(DataStructures::List<FileListProgress *> &callbacks)
+void FileList::GetCallbacks(std::vector<FileListProgress *> &callbacks)
 {
 	callbacks = fileListProgressCallbacks;
 }

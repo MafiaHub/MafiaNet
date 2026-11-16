@@ -255,7 +255,7 @@ int AutopatcherMySQLRepository::GetPatches(const char *applicationName, FileList
 	//sqlCommandMutex.Unlock();
 
 	// Go through the input list.
-	for (unsigned inputIndex = 0; inputIndex < input->fileList.Size(); inputIndex++)
+	for (unsigned inputIndex = 0; inputIndex < input->fileList.size(); inputIndex++)
 	{
 		const char *userHash = input->fileList[inputIndex].data;
 		const char *userFilename = input->fileList[inputIndex].filename;
@@ -442,7 +442,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	my_bool falseVar = false;
 	MafiaNet::RakString escapedApplicationName = GetEscapedString(applicationName);
 	filesOnHarddrive.AddFilesFromDirectory(applicationDirectory, "", true, true, true, FileListNodeContext());
-	if (filesOnHarddrive.fileList.Size() == 0)
+	if (filesOnHarddrive.fileList.size() == 0)
 	{
 		sprintf_s(lastError, "ERROR: Can't find files at %s in UpdateApplicationFiles\n", applicationDirectory);
 		return false;
@@ -525,11 +525,11 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	FileList newFiles;
 	// Loop through files on filesOnHarddrive
 	// If the file in filesOnHarddrive does not exist in the query result, or if it does but the hash is different or non-existent, add this file to the create list
-	for (unsigned fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+	for (unsigned fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.size(); fileListIndex++)
 	{
 		bool addFile = true;
 		if (fileListIndex % 10 == 0)
-			printf("Hashing files %i/%i\n", fileListIndex + 1, filesOnHarddrive.fileList.Size());
+			printf("Hashing files %i/%i\n", fileListIndex + 1, (int) filesOnHarddrive.fileList.size());
 
 		const char *hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
 		const char *hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
@@ -568,7 +568,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 			continue; // If already false don't mark false again.
 
 		bool fileOnHarddrive = false;
-		for (unsigned fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+		for (unsigned fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.size(); fileListIndex++)
 		{
 			const char *hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
 			//hardDriveHash=filesOnHarddrive.fileList[fileListIndex].data;
@@ -588,10 +588,10 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	filesOnHarddrive.Clear();
 
 	// For each file in the delete list add a row indicating file deletion
-	for (unsigned fileListIndex = 0; fileListIndex < deletedFiles.fileList.Size(); fileListIndex++)
+	for (unsigned fileListIndex = 0; fileListIndex < deletedFiles.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, deletedFiles.fileList.Size());
+			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, (int) deletedFiles.fileList.size());
 
 		sprintf_s(query, "INSERT INTO FileVersionHistory(applicationID, filename, createFile, changeSetID, userName) VALUES (%i, '%s', FALSE,%i,'%s');",
 		          applicationID, GetEscapedString(deletedFiles.fileList[fileListIndex].filename).C_String(), changeSetId, GetEscapedString(userName).C_String());
@@ -612,10 +612,10 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	deletedFiles.Clear();
 
 	// For each file in the create list
-	for (unsigned fileListIndex = 0; fileListIndex < newFiles.fileList.Size(); fileListIndex++)
+	for (unsigned fileListIndex = 0; fileListIndex < newFiles.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Adding file %i/%i\n", fileListIndex + 1, newFiles.fileList.Size());
+			printf("Adding file %i/%i\n", fileListIndex + 1, (int) newFiles.fileList.size());
 		const char *hardDriveFilename = newFiles.fileList[fileListIndex].filename;
 		const char *hardDriveData = newFiles.fileList[fileListIndex].data + HASH_LENGTH;
 		const char *hardDriveHash = newFiles.fileList[fileListIndex].data;

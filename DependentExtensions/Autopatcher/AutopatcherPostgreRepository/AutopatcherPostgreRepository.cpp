@@ -335,7 +335,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 	int outLengths[2];
 	int formats[2];
 	PGresult *patchResult;
-	for (inputIndex = 0; inputIndex < input->fileList.Size(); inputIndex++)
+	for (inputIndex = 0; inputIndex < input->fileList.size(); inputIndex++)
 	{
 		userHash = input->fileList[inputIndex].data;
 		userFilename = input->fileList[inputIndex].filename;
@@ -1071,7 +1071,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 	FileList filesOnHarddrive;
 	filesOnHarddrive.AddCallback(cb);
 	filesOnHarddrive.AddFilesFromDirectory(applicationDirectory, "", true, false, true, FileListNodeContext(0, 0, 0, 0));
-	if (filesOnHarddrive.fileList.Size() == 0)
+	if (filesOnHarddrive.fileList.size() == 0)
 	{
 		sprintf_s(lastError, "ERROR: Can't find files at %s in UpdateApplicationFiles\n", applicationDirectory);
 		return false;
@@ -1174,10 +1174,10 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 
 	// Loop through files om filesOnHarddrive
 	// If the file in filesOnHarddrive does not exist in the query result, or if it does but the hash is different or non-existent, add this file to the create list
-	for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+	for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Hashing files %i/%i\n", fileListIndex + 1, filesOnHarddrive.fileList.Size());
+			printf("Hashing files %i/%i\n", fileListIndex + 1, (int) filesOnHarddrive.fileList.size());
 		addFile = true;
 		hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
 		hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
@@ -1218,7 +1218,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 			continue; // If already false don't mark false again.
 
 		fileOnHarddrive = false;
-		for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+		for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.size(); fileListIndex++)
 		{
 			hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename.C_String();
 			hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
@@ -1246,10 +1246,10 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 	formats[2] = PQEXECPARAM_FORMAT_BINARY; // Always happens to be binary
 
 	// For each file in the delete list add a row indicating file deletion
-	for (fileListIndex = 0; fileListIndex < deletedFiles.fileList.Size(); fileListIndex++)
+	for (fileListIndex = 0; fileListIndex < deletedFiles.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, deletedFiles.fileList.Size());
+			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, (int) deletedFiles.fileList.size());
 
 		// BUGGED
 		sprintf_s(query, "INSERT INTO FileVersionHistory(applicationID, filename, createFile, changeSetID, userName) VALUES (%i, $1::text,FALSE,%i,'%s');", applicationID, changeSetId, GetEscapedString(userName).C_String());
@@ -1287,10 +1287,10 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 	unsigned patchLength;
 
 	// For each file in the create list
-	for (fileListIndex = 0; fileListIndex < newFiles.fileList.Size(); fileListIndex++)
+	for (fileListIndex = 0; fileListIndex < newFiles.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Adding file %i/%i\n", fileListIndex + 1, newFiles.fileList.Size());
+			printf("Adding file %i/%i\n", fileListIndex + 1, (int) newFiles.fileList.size());
 		hardDriveFilename = newFiles.fileList[fileListIndex].filename;
 		//		hardDriveData=newFiles.fileList[fileListIndex].data+HASH_LENGTH;
 		hardDriveHash = newFiles.fileList[fileListIndex].data;
@@ -1497,7 +1497,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 	FileList filesOnHarddrive;
 	filesOnHarddrive.AddCallback(cb);
 	filesOnHarddrive.AddFilesFromDirectory(applicationDirectory, "", true, false, true, FileListNodeContext(0, 0, 0, 0));
-	if (filesOnHarddrive.fileList.Size() == 0)
+	if (filesOnHarddrive.fileList.size() == 0)
 	{
 		sprintf_s(lastError, "ERROR: Can't find files at %s in UpdateApplicationFiles\n", applicationDirectory);
 		return false;
@@ -1600,10 +1600,10 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 
 	// Loop through files om filesOnHarddrive
 	// If the file in filesOnHarddrive does not exist in the query result, or if it does but the hash is different or non-existent, add this file to the create list
-	for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+	for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Hashing files %i/%i\n", fileListIndex + 1, filesOnHarddrive.fileList.Size());
+			printf("Hashing files %i/%i\n", fileListIndex + 1, (int) filesOnHarddrive.fileList.size());
 		addFile = true;
 		hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
 		hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
@@ -1644,7 +1644,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 			continue; // If already false don't mark false again.
 
 		fileOnHarddrive = false;
-		for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.Size(); fileListIndex++)
+		for (fileListIndex = 0; fileListIndex < filesOnHarddrive.fileList.size(); fileListIndex++)
 		{
 			hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename.C_String();
 			hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
@@ -1672,10 +1672,10 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 	formats[2] = PQEXECPARAM_FORMAT_BINARY; // Always happens to be binary
 
 	// For each file in the delete list add a row indicating file deletion
-	for (fileListIndex = 0; fileListIndex < deletedFiles.fileList.Size(); fileListIndex++)
+	for (fileListIndex = 0; fileListIndex < deletedFiles.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, deletedFiles.fileList.Size());
+			printf("Tagging deleted files %i/%i\n", fileListIndex + 1, (int) deletedFiles.fileList.size());
 
 		// BUGGED
 		sprintf_s(query, "INSERT INTO FileVersionHistory(applicationID, filename, createFile, changeSetID, userName) VALUES (%i, $1::text,FALSE,%i,'%s');", applicationID, changeSetId, GetEscapedString(userName).C_String());
@@ -1712,10 +1712,10 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 	unsigned patchLength;
 
 	// For each file in the create list
-	for (fileListIndex = 0; fileListIndex < newFiles.fileList.Size(); fileListIndex++)
+	for (fileListIndex = 0; fileListIndex < newFiles.fileList.size(); fileListIndex++)
 	{
 		if (fileListIndex % 10 == 0)
-			printf("Adding file %i/%i\n", fileListIndex + 1, newFiles.fileList.Size());
+			printf("Adding file %i/%i\n", fileListIndex + 1, (int) newFiles.fileList.size());
 		hardDriveFilename = newFiles.fileList[fileListIndex].filename;
 		//		hardDriveData=newFiles.fileList[fileListIndex].data+HASH_LENGTH;
 		hardDriveHash = newFiles.fileList[fileListIndex].data;
@@ -1816,7 +1816,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 				return false;
 			}
 
-			printf("%i/%i.%i/%i DIFF from %s to %s ...", fileListIndex + 1, newFiles.fileList.Size(), rowIndex + 1, numRows, pathToOldContent, pathToNewContent);
+			printf("%i/%i.%i/%i DIFF from %s to %s ...", fileListIndex + 1, (int) newFiles.fileList.size(), rowIndex + 1, numRows, pathToOldContent, pathToNewContent);
 			int patchAlgorithm;
 			int makePatchResult = MakePatch(pathToOldContent, pathToNewContent, &patch, &patchLength, &patchAlgorithm);
 			if (makePatchResult < 0 || makePatchResult == 2)

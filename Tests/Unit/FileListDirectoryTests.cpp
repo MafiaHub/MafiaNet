@@ -12,9 +12,12 @@
 
 #include <gtest/gtest.h>
 
+#include "mafianet/bit_stream.h"
 #include "mafianet/file_list.h"
+#include "mafianet/file_list_transfer.h"
 #include "mafianet/file_list_node_context.h"
 #include "mafianet/linux_adapter.h"
+#include "mafianet/string_compressor.h"
 #include "mafianet/osx_adapter.h"
 
 #include <cstring>
@@ -22,6 +25,7 @@
 #include <fstream>
 #include <set>
 #include <string>
+#include <vector>
 
 using namespace MafiaNet;
 
@@ -55,7 +59,7 @@ struct TempTree
 std::set<std::string> Names(const FileList &list)
 {
 	std::set<std::string> names;
-	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	for (unsigned i = 0; i < list.fileList.size(); ++i)
 		names.insert(list.fileList[i].filename.C_String());
 	return names;
 }
@@ -81,7 +85,7 @@ TEST(FileListDirectory, NonRecursiveWalkStaysInTheTopDirectory)
 	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, false, false, FileListNodeContext(0, 0, 0, 0));
 
 	EXPECT_EQ(Names(list), (std::set<std::string>{"a.bin"}));
-	ASSERT_EQ(list.fileList.Size(), 1u);
+	ASSERT_EQ(list.fileList.size(), 1u);
 	EXPECT_EQ(list.fileList[0].fileLengthBytes, 10u);
 }
 
@@ -96,7 +100,7 @@ TEST(FileListDirectory, WriteDataReadsContentsIncludingAnEmptyFile)
 
 	// The read checks must not mistake a zero-length file for a failed read.
 	ASSERT_EQ(Names(list), (std::set<std::string>{"a.bin", "empty.bin"}));
-	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	for (unsigned i = 0; i < list.fileList.size(); ++i)
 	{
 		const FileListNode &node = list.fileList[i];
 		if (node.filename == "a.bin")
@@ -118,11 +122,11 @@ TEST(FileListDirectory, PopulateDataFromDiskReadsEveryFile)
 
 	FileList list;
 	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, false, true, FileListNodeContext(0, 0, 0, 0));
-	ASSERT_EQ(list.fileList.Size(), 3u);
+	ASSERT_EQ(list.fileList.size(), 3u);
 
 	list.PopulateDataFromDisk(dir.c_str(), true, false, false);
 
-	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	for (unsigned i = 0; i < list.fileList.size(); ++i)
 	{
 		const FileListNode &node = list.fileList[i];
 		ASSERT_NE(node.data, nullptr) << node.filename.C_String();
@@ -140,15 +144,140 @@ TEST(FileListDirectory, PopulateDataFromDiskWithoutDataOrHashTerminates)
 
 	FileList list;
 	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, true, true, FileListNodeContext(0, 0, 0, 0));
-	ASSERT_EQ(list.fileList.Size(), 3u);
+	ASSERT_EQ(list.fileList.size(), 3u);
 
 	list.PopulateDataFromDisk(dir.c_str(), false, false, false);
 
-	ASSERT_EQ(list.fileList.Size(), 3u);
-	for (unsigned i = 0; i < list.fileList.Size(); ++i)
+	ASSERT_EQ(list.fileList.size(), 3u);
+	for (unsigned i = 0; i < list.fileList.size(); ++i)
 	{
 		EXPECT_EQ(list.fileList[i].data, nullptr);
 		EXPECT_EQ(list.fileList[i].dataLengthBytes, 0u);
+	}
+}
+
+namespace
+{
+struct RecordingProgress : FileListProgress
+{
+	std::vector<std::string> directories;
+	std::vector<unsigned int> remaining;
+	void OnDirectory(FileList *, char *dir, unsigned int directoriesRemaining) override
+	{
+		directories.push_back(dir);
+		remaining.push_back(directoriesRemaining);
+	}
+};
+} // namespace
+
+TEST(FileListDirectory, GetCallbacksFillsAStdVectorWithoutDuplicates)
+{
+	FileList list;
+	FileListProgress first, second;
+	list.AddCallback(&first);
+	list.AddCallback(&second);
+	list.AddCallback(&first); // already registered
+	list.AddCallback(nullptr);
+
+	std::vector<FileListProgress *> callbacks{&second}; // replaced, not appended to
+	list.GetCallbacks(callbacks);
+	EXPECT_EQ(callbacks, (std::vector<FileListProgress *>{&first, &second}));
+
+	list.RemoveCallback(&first);
+	list.RemoveCallback(&first); // no longer there: no-op
+	list.GetCallbacks(callbacks);
+	EXPECT_EQ(callbacks, (std::vector<FileListProgress *>{&second}));
+
+	list.ClearCallbacks();
+	list.GetCallbacks(callbacks);
+	EXPECT_TRUE(callbacks.empty());
+}
+
+TEST(FileListDirectory, FileListTransferGetCallbacksFillsAStdVector)
+{
+	FileListTransfer transfer;
+	FileListProgress first, second;
+	transfer.AddCallback(&first);
+	transfer.AddCallback(&second);
+	transfer.AddCallback(&first);
+
+	std::vector<FileListProgress *> callbacks;
+	transfer.GetCallbacks(callbacks);
+	EXPECT_EQ(callbacks, (std::vector<FileListProgress *>{&first, &second}));
+
+	transfer.RemoveCallback(&first);
+	transfer.GetCallbacks(callbacks);
+	EXPECT_EQ(callbacks, (std::vector<FileListProgress *>{&second}));
+}
+
+TEST(FileListDirectory, WalkReportsEachDirectoryWithTheQueueLength)
+{
+	TempTree tree;
+	const std::string dir = tree.root.string() + "/";
+
+	FileList list;
+	RecordingProgress progress;
+	list.AddCallback(&progress);
+	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, false, true, FileListNodeContext(0, 0, 0, 0));
+
+	// Breadth first: the root, then sub (queued by the root), then deeper (queued by sub). The
+	// queue is empty each time a directory is taken from it.
+	ASSERT_EQ(progress.directories.size(), 3u);
+	EXPECT_EQ(progress.directories[0], dir + "*");
+	EXPECT_EQ(progress.directories[1], dir + "sub/*");
+	EXPECT_EQ(progress.directories[2], dir + "sub/deeper/*");
+	EXPECT_EQ(progress.remaining, (std::vector<unsigned int>{0, 0, 0}));
+}
+
+TEST(FileListDirectory, AddFileKeepsInsertionOrderAndMovesAReplacedFileToTheEnd)
+{
+	FileList list;
+	list.AddFile("one", "one", "1", 1, 1, FileListNodeContext(0, 0, 0, 0));
+	list.AddFile("two", "two", "2", 1, 1, FileListNodeContext(0, 0, 0, 0));
+	list.AddFile("three", "three", "3", 1, 1, FileListNodeContext(0, 0, 0, 0));
+	list.AddFile("two", "two", "2", 1, 1, FileListNodeContext(0, 0, 0, 0)); // identical: kept in place
+	ASSERT_EQ(list.fileList.size(), 3u);
+	EXPECT_EQ(list.fileList[1].filename, "two");
+
+	list.AddFile("one", "one", "X", 1, 1, FileListNodeContext(0, 0, 0, 0)); // different data: replaced
+	ASSERT_EQ(list.fileList.size(), 3u);
+	EXPECT_EQ(list.fileList[0].filename, "two");
+	EXPECT_EQ(list.fileList[1].filename, "three");
+	EXPECT_EQ(list.fileList[2].filename, "one");
+	EXPECT_EQ(list.fileList[2].data[0], 'X');
+}
+
+TEST(FileListDirectory, SerializeRoundTripPreservesOrderAndContents)
+{
+	// Serialize encodes names through the shared StringCompressor, which RakPeer normally owns.
+	StringCompressor::AddReference();
+	struct Release
+	{
+		~Release() { StringCompressor::RemoveReference(); }
+	} release;
+
+	FileList source;
+	source.AddFile("b.bin", "b.bin", "bb", 2, 2, FileListNodeContext(1, 2, 3, 0));
+	source.AddFile("a.bin", "a.bin", nullptr, 0, 7, FileListNodeContext(4, 5, 6, 0));
+	source.AddFile("c.bin", "c.bin", "ccc", 3, 9, FileListNodeContext(7, 8, 9, 0));
+
+	BitStream bs;
+	source.Serialize(&bs);
+
+	// Deserialize reads the count as a 32-bit compressed integer, so this also pins that
+	// Serialize still writes 32 bits rather than a size_t.
+	FileList copy;
+	ASSERT_TRUE(copy.Deserialize(&bs));
+	ASSERT_EQ(copy.fileList.size(), 3u);
+	const char *names[] = {"b.bin", "a.bin", "c.bin"};
+	for (size_t i = 0; i < 3; ++i)
+	{
+		EXPECT_EQ(copy.fileList[i].filename, names[i]);
+		EXPECT_EQ(copy.fileList[i].context.op, source.fileList[i].context.op);
+		EXPECT_EQ(copy.fileList[i].fileLengthBytes, source.fileList[i].fileLengthBytes);
+		ASSERT_EQ(copy.fileList[i].dataLengthBytes, source.fileList[i].dataLengthBytes);
+		if (copy.fileList[i].dataLengthBytes)
+			EXPECT_EQ(0, std::memcmp(copy.fileList[i].data, source.fileList[i].data, copy.fileList[i].dataLengthBytes));
 	}
 }
 

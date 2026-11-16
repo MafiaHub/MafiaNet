@@ -27,13 +27,15 @@
 #include "mafianet/types.h"
 #include "mafianet/export.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_map.h"
 #include "mafianet/types.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/file_list.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/thread_pool.h"
+
+#include <deque>
+#include <map>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -128,7 +130,7 @@ public:
 
 	/// Returns all callbacks added with AddCallback()
 	/// \param[out] callbacks The list is set to the list of callbacks
-	void GetCallbacks(DataStructures::List<FileListProgress *> &callbacks);
+	void GetCallbacks(std::vector<FileListProgress *> &callbacks);
 
 	/// \internal For plugin handling
 	virtual PluginReceiveResult OnReceive(Packet *packet);
@@ -150,10 +152,10 @@ protected:
 	void OnReferencePushAck(Packet *packet);
 	void SendIRIToAddress(SystemAddress systemAddress, unsigned short inSetId);
 
-	DataStructures::Map<unsigned short, FileListReceiver *> fileListReceivers;
+	std::map<unsigned short, FileListReceiver *> fileListReceivers;
 	unsigned short setId;
 	unsigned int referencePushWindow;
-	DataStructures::List<FileListProgress *> fileListProgressCallbacks;
+	std::vector<FileListProgress *> fileListProgressCallbacks;
 
 	struct FileToPush
 	{
@@ -178,9 +180,9 @@ protected:
 		unsigned short setId;
 
 		//// SimpleMutex filesToPushMutex;
-		DataStructures::Queue<FileToPush *> filesToPush;
+		std::deque<FileToPush *> filesToPush;
 	};
-	DataStructures::List<FileToPushRecipient *> fileToPushRecipientList;
+	std::vector<FileToPushRecipient *> fileToPushRecipientList;
 	SimpleMutex fileToPushRecipientListMutex;
 	void RemoveFromList(FileToPushRecipient *ftpr);
 

@@ -25,11 +25,13 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/file_operations.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/super_fast_hash.h"
 #include "mafianet/incremental_read_interface.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+
+#include <set>
+#include <vector>
 
 using namespace MafiaNet;
 
@@ -52,10 +54,8 @@ public:
 		char fullPathToDir[1024];
 
 		// A streamed file is already on disk, written by OnFileProgress.
-		const bool streamed = streamedFiles.GetIndexOf(onFileStruct->fileIndex) != MAX_UNSIGNED_LONG;
-		if (streamed)
-			streamedFiles.RemoveAtIndexFast(streamedFiles.GetIndexOf(onFileStruct->fileIndex));
-		else if (onFileStruct->fileData && TargetPath(onFileStruct->fileName, fullPathToDir))
+		const bool streamed = streamedFiles.erase(onFileStruct->fileIndex) != 0;
+		if (!streamed && onFileStruct->fileData && TargetPath(onFileStruct->fileName, fullPathToDir))
 			WriteFileWithDirectories(fullPathToDir, (char *) onFileStruct->fileData, (unsigned int) onFileStruct->byteLengthOfThisFile);
 
 		return onFileCallback->OnFile(onFileStruct);
@@ -70,8 +70,7 @@ public:
 		{
 			if (WriteChunk(fullPathToDir, fps->iriWriteOffset, fps->iriDataChunk, fps->dataChunkLength))
 			{
-				if (streamedFiles.GetIndexOf(fps->onFileStruct->fileIndex) == MAX_UNSIGNED_LONG)
-					streamedFiles.Insert(fps->onFileStruct->fileIndex, _FILE_AND_LINE_);
+				streamedFiles.insert(fps->onFileStruct->fileIndex);
 				// Nothing for FileListTransfer to keep: the chunk is on disk.
 				fps->allocateIrIDataChunkAutomatically = false;
 			}
@@ -117,7 +116,7 @@ private:
 	}
 
 	// File indices of this set being written chunk by chunk.
-	DataStructures::List<unsigned int> streamedFiles;
+	std::set<unsigned int> streamedFiles;
 };
 
 STATIC_FACTORY_DEFINITIONS(DirectoryDeltaTransfer, DirectoryDeltaTransfer);
@@ -139,22 +138,20 @@ void DirectoryDeltaTransfer::SetFileListTransferPlugin(FileListTransfer *flt)
 {
 	if (fileListTransfer)
 	{
-		DataStructures::List<FileListProgress *> fileListProgressList;
+		std::vector<FileListProgress *> fileListProgressList;
 		fileListTransfer->GetCallbacks(fileListProgressList);
-		unsigned int i;
-		for (i = 0; i < fileListProgressList.Size(); i++)
-			availableUploads->RemoveCallback(fileListProgressList[i]);
+		for (FileListProgress *flp : fileListProgressList)
+			availableUploads->RemoveCallback(flp);
 	}
 
 	fileListTransfer = flt;
 
 	if (flt)
 	{
-		DataStructures::List<FileListProgress *> fileListProgressList;
+		std::vector<FileListProgress *> fileListProgressList;
 		flt->GetCallbacks(fileListProgressList);
-		unsigned int i;
-		for (i = 0; i < fileListProgressList.Size(); i++)
-			availableUploads->AddCallback(fileListProgressList[i]);
+		for (FileListProgress *flp : fileListProgressList)
+			availableUploads->AddCallback(flp);
 	}
 	else
 	{
@@ -302,7 +299,7 @@ PluginReceiveResult DirectoryDeltaTransfer::OnReceive(Packet *packet)
 
 unsigned DirectoryDeltaTransfer::GetNumberOfFilesForUpload(void) const
 {
-	return availableUploads->fileList.Size();
+	return static_cast<unsigned>(availableUploads->fileList.size());
 }
 
 void DirectoryDeltaTransfer::SetDownloadRequestIncrementalReadInterface(IncrementalReadInterface *_incrementalReadInterface, unsigned int _chunkSize)

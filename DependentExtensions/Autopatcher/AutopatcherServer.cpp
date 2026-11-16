@@ -335,13 +335,13 @@ AutopatcherServer::ResultTypeAndBitstream *GetChangelistSinceDateCB(AutopatcherS
 
 	if (rtab.resultCode == 1)
 	{
-		if (rtab.deletedFiles->fileList.Size())
+		if (rtab.deletedFiles->fileList.size())
 		{
 			rtab.bitStream1.Write((unsigned char) ID_AUTOPATCHER_DELETION_LIST);
 			rtab.deletedFiles->Serialize(&rtab.bitStream1);
 		}
 
-		if (rtab.addedOrModifiedFilesWithHashData->fileList.Size())
+		if (rtab.addedOrModifiedFilesWithHashData->fileList.size())
 		{
 			rtab.bitStream2.Write((unsigned char) ID_AUTOPATCHER_CREATION_LIST);
 			rtab.addedOrModifiedFilesWithHashData->Serialize(&rtab.bitStream2);
@@ -382,11 +382,11 @@ AutopatcherServer::ResultTypeAndBitstream *GetChangelistSinceDateCB(AutopatcherS
 			AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult;
 			if (rtab.resultCode != 1)
 				getChangelistResult = AutopatcherServerLoadNotifier::GCR_REPOSITORY_ERROR;
-			else if (rtab.deletedFiles->fileList.Size() == 0 && rtab.addedOrModifiedFilesWithHashData->fileList.Size() == 0)
+			else if (rtab.deletedFiles->fileList.size() == 0 && rtab.addedOrModifiedFilesWithHashData->fileList.size() == 0)
 				getChangelistResult = AutopatcherServerLoadNotifier::GCR_NOTHING_TO_DO;
-			else if (rtab.deletedFiles->fileList.Size() == 0)
+			else if (rtab.deletedFiles->fileList.size() == 0)
 				getChangelistResult = AutopatcherServerLoadNotifier::GCR_ADD_FILES;
-			else if (rtab.addedOrModifiedFilesWithHashData->fileList.Size() == 0)
+			else if (rtab.addedOrModifiedFilesWithHashData->fileList.size() == 0)
 				getChangelistResult = AutopatcherServerLoadNotifier::GCR_DELETE_FILES;
 			else
 				getChangelistResult = AutopatcherServerLoadNotifier::GCR_ADD_AND_DELETE_FILES;
@@ -424,13 +424,13 @@ PluginReceiveResult AutopatcherServer::OnGetChangelistSinceDate(Packet *packet)
 		// Check in-memory cache, use if possible rather than accessing database
 		if (cache_minTime != 0 && threadData.lastUpdateDate > cache_minTime)
 		{
-			if (cache_deletedFiles.fileList.Size())
+			if (cache_deletedFiles.fileList.size())
 			{
 				bitStream1.Write((unsigned char) ID_AUTOPATCHER_DELETION_LIST);
 				cache_deletedFiles.Serialize(&bitStream1);
 				SendUnified(&bitStream1, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, packet->systemAddress, false);
 			}
-			if (cache_addedOrModifiedFileHashes.fileList.Size())
+			if (cache_addedOrModifiedFileHashes.fileList.size())
 			{
 				bitStream2.Write((unsigned char) ID_AUTOPATCHER_CREATION_LIST);
 				cache_addedOrModifiedFileHashes.Serialize(&bitStream2);
@@ -500,7 +500,7 @@ AutopatcherServer::ResultTypeAndBitstream *GetPatchCB(AutopatcherServer::ThreadD
 
 	if (rtab.resultCode == 1)
 	{
-		if (rtab.patchList->fileList.Size())
+		if (rtab.patchList->fileList.size())
 		{
 			//server->fileListTransfer->Send(rtab.patchList, 0, rtab.systemAddress, rtab.setId, server->priority, server->orderingChannel, false, server->repository);
 			server->fileListTransfer->Send(rtab.patchList, 0, rtab.systemAddress, rtab.setId, server->priority, server->orderingChannel, repository, repository->GetIncrementalReadChunkSize());
@@ -591,7 +591,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 			delete threadData.clientList;
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
-		if (threadData.clientList->fileList.Size() == 0)
+		if (threadData.clientList->fileList.size() == 0)
 		{
 			RakAssert(0);
 			delete threadData.clientList;
@@ -605,7 +605,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 
 		unsigned int i, j;
 		// FileList is the list of all files missing or changed as determined by the client
-		for (i = 0; i < threadData.clientList->fileList.Size(); i++)
+		for (i = 0; i < threadData.clientList->fileList.size(); i++)
 		{
 			userHash = threadData.clientList->fileList[i].data;
 			userFilename = threadData.clientList->fileList[i].filename;
@@ -619,7 +619,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
-				for (j = 0; j < cache_patchedFiles.fileList.Size(); j++)
+				for (j = 0; j < cache_patchedFiles.fileList.size(); j++)
 				{
 					if (userFilename == cache_patchedFiles.fileList[j].filename)
 					{
@@ -639,7 +639,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 					}
 				}
 
-				if (j == cache_patchedFiles.fileList.Size())
+				if (j == cache_patchedFiles.fileList.size())
 				{
 					// Didn't find the patch even though the client has an older version of the file
 					cacheUpdateFailed = true;
@@ -648,7 +648,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 			else
 			{
 				// If the user does not have a hash, check for this file in cache_addedFiles. If not found, use DB
-				for (j = 0; j < cache_addedFiles.fileList.Size(); j++)
+				for (j = 0; j < cache_addedFiles.fileList.size(); j++)
 				{
 					if (userFilename == cache_addedFiles.fileList[j].filename)
 					{
@@ -658,7 +658,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 					}
 				}
 
-				if (j == cache_addedFiles.fileList.Size())
+				if (j == cache_addedFiles.fileList.size())
 				{
 					// Didn't find the file in the cache even though the client asked for it
 					cacheUpdateFailed = true;
@@ -674,7 +674,7 @@ PluginReceiveResult AutopatcherServer::OnGetPatch(Packet *packet)
 			}
 		}
 
-		if (patchList.fileList.Size() > 0)
+		if (patchList.fileList.size() > 0)
 		{
 			if (IncrementPatchingUserCount(packet->systemAddress))
 			{
@@ -721,7 +721,7 @@ void AutopatcherServer::OnGetPatchInt(Packet *packet)
 		delete threadData.clientList;
 		return;
 	}
-	if (threadData.clientList->fileList.Size() == 0)
+	if (threadData.clientList->fileList.size() == 0)
 	{
 		RakAssert(0);
 		delete threadData.clientList;

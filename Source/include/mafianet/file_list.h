@@ -24,10 +24,11 @@
 #define __FILE_LIST
 
 #include "mafianet/export.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
 #include "mafianet/file_list_node_context.h"
 #include "mafianet/string.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -248,16 +249,16 @@ public:
 
 	/// Returns all callbacks added with AddCallback()
 	/// \param[out] callbacks The list is set to the list of callbacks
-	void GetCallbacks(DataStructures::List<FileListProgress *> &callbacks);
+	void GetCallbacks(std::vector<FileListProgress *> &callbacks);
 
 	// Here so you can read it, but don't modify it
-	DataStructures::List<FileListNode> fileList;
+	std::vector<FileListNode> fileList;
 
 	static bool FixEndingSlash(char *str);
 	static bool FixEndingSlash(char *str, size_t strLength);
 
 protected:
-	DataStructures::List<FileListProgress *> fileListProgressCallbacks;
+	std::vector<FileListProgress *> fileListProgressCallbacks;
 };
 
 } // namespace MafiaNet
