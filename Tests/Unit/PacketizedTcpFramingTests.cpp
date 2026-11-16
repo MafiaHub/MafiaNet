@@ -44,8 +44,10 @@ public:
 	}
 	~FramingHarness() override
 	{
-		// Back to "never started", so ~TCPInterface's Stop() has no thread or socket to tear down.
-		isStarted.Decrement();
+		// Back to "never started" (unless a test called Stop()), so ~TCPInterface's Stop() has no
+		// thread or socket to tear down.
+		if (isStarted.GetValue() > 0)
+			isStarted.Decrement();
 	}
 
 	// Bytes as the TCP thread would hand them over from one recv().
@@ -360,4 +362,23 @@ TEST(PacketizedTcpFraming, RandomAndTruncatedPrefixesMatchTheReferenceParser)
 		EXPECT_EQ(tcp.IsTracked(), !expected.dropped) << "iteration " << iteration;
 		EXPECT_EQ(tcp.HasLostConnection(), expected.dropped ? tcp.peer : UNASSIGNED_SYSTEM_ADDRESS) << "iteration " << iteration;
 	}
+}
+
+TEST(PacketizedTcpFraming, StopDiscardsMessagesNotYetReceived)
+{
+	// One read completes two messages; the first is taken, the second still waits in
+	// waitingPackets when Stop() runs. Stop() used to free it and leave the freed pointer queued.
+	FramingHarness tcp(Peer());
+	Bytes stream = Frame(Payload(4, 1));
+	const Bytes second = Frame(Payload(4, 2));
+	stream.insert(stream.end(), second.begin(), second.end());
+	tcp.Deliver(stream);
+	Packet *first = tcp.Receive();
+	ASSERT_NE(first, nullptr);
+	EXPECT_EQ(Bytes(first->data, first->data + first->length), Payload(4, 1));
+	tcp.DeallocatePacket(first);
+
+	tcp.Stop();
+	Packet *after = tcp.Receive();
+	EXPECT_EQ(after, nullptr); // (not deallocated if non-null: it would be the freed packet)
 }

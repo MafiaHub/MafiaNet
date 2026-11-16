@@ -70,4 +70,22 @@ TEST(HttpConnection2, RequestToAnUnconnectedHostWaitsInThePendingQueue)
 	tcp.DetachPlugin(&http);
 }
 
+TEST(HttpConnection2, FailedConnectionDropsEveryRequestForThatHost)
+{
+	// Two requests wait for the same host; the connection attempt fails. RemovePendingRequest
+	// used to advance its index after each removal too, so it skipped the second request.
+	TCPInterface tcp; // never started: Connect() is refused, both requests stay pending
+	HTTPConnection2 http;
+	tcp.AttachPlugin(&http);
+	ASSERT_TRUE(http.TransmitRequest("GET /a HTTP/1.0\r\n\r\n", "127.0.0.1", 80));
+	ASSERT_TRUE(http.TransmitRequest("GET /b HTTP/1.0\r\n\r\n", "127.0.0.1", 80));
+	ASSERT_TRUE(http.IsBusy());
+
+	Packet failed{};
+	failed.systemAddress = SystemAddress("127.0.0.1", 80);
+	http.OnFailedConnectionAttempt(&failed, FCAR_CONNECTION_ATTEMPT_FAILED);
+	EXPECT_FALSE(http.IsBusy());
+	tcp.DetachPlugin(&http);
+}
+
 #endif

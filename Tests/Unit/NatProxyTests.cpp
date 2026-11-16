@@ -119,6 +119,17 @@ TEST_F(NatPunchthrough, TargetThatLeavesFreesTheAttempt)
 	EXPECT_TRUE(net.RunUntilReceived(clients[0], ID_NAT_TARGET_NOT_CONNECTED, 3000));
 }
 
+TEST_F(NatPunchthrough, RepeatedConnectionNotificationKeepsTheKnownUser)
+{
+	// A second OnNewConnection for a GUID the server already tracks keeps the existing User (its
+	// real address) and frees the new one; it used to leak it. The leak itself is only visible to
+	// LeakSanitizer; what is checked here is that the known user is neither replaced nor lost.
+	natServer.OnNewConnection(SystemAddress("10.9.9.9", 1), clients[1]->GetMyGUID(), true);
+	ASSERT_TRUE(natClients[0].OpenNAT(clients[1]->GetMyGUID(), net.AddressOf(server)));
+	EXPECT_TRUE(net.RunUntilReceived(clients[0], ID_NAT_PUNCHTHROUGH_SUCCEEDED, 20000));
+	EXPECT_FALSE(net.Received(clients[0], ID_NAT_TARGET_NOT_CONNECTED));
+}
+
 namespace
 {
 struct ServerResults : UDPProxyServerResultHandler
