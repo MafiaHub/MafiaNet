@@ -30,13 +30,13 @@
 #include "mafianet/packet_priority.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/network_id_object.h"
-#include "mafianet/ds_ordered_list.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/virtual_world.h"
 
+#include <deque>
 #include <mutex>
 #include <shared_mutex>
+#include <vector>
 
 /// \defgroup REPLICA_MANAGER_GROUP3 ReplicaManager3
 /// \brief Third implementation of object replication
@@ -146,8 +146,8 @@ public:
 	/// \param[in] participantListOut The connections allocated, if any
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
 	void AutoCreateConnectionList(
-	    DataStructures::List<RakNetGUID> &participantListIn,
-	    DataStructures::List<Connection_RM3 *> &participantListOut,
+	    std::vector<RakNetGUID> &participantListIn,
+	    std::vector<Connection_RM3 *> &participantListOut,
 	    WorldId worldId = 0);
 
 	/// \brief Track a new Connection_RM3 instance
@@ -185,7 +185,7 @@ public:
 	/// Useful with the lists returned by GetReplicasCreatedByGuid(), GetReplicasCreatedByMe(), or GetReferencedReplicaList().<BR>
 	/// \param[in] replicaListIn List of objects
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
-	void DereferenceList(DataStructures::List<Replica3 *> &replicaListIn, WorldId worldId = 0);
+	void DereferenceList(std::vector<Replica3 *> &replicaListIn, WorldId worldId = 0);
 
 	/// \brief Returns all objects originally created by a particular system
 	/// \details Originally created is defined as the value of Replica3::creatingSystemGUID, which is automatically assigned in ReplicaManager3::Reference().<BR>
@@ -193,19 +193,19 @@ public:
 	/// \param[in] guid GUID of the system we are referring to. Originally passed as the \a guid parameter to ReplicaManager3::AllocConnection()
 	/// \param[out] List of Replica3 instances to be returned
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
-	void GetReplicasCreatedByGuid(RakNetGUID guid, DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId = 0);
+	void GetReplicasCreatedByGuid(RakNetGUID guid, std::vector<Replica3 *> &replicaListOut, WorldId worldId = 0);
 
 	/// \brief Returns all objects originally created by your system
 	/// \details Calls GetReplicasCreatedByGuid() for your own system guid.
 	/// \param[out] List of Replica3 instances to be returned
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
-	void GetReplicasCreatedByMe(DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId = 0);
+	void GetReplicasCreatedByMe(std::vector<Replica3 *> &replicaListOut, WorldId worldId = 0);
 
 	/// \brief Returns the entire list of Replicas that we know about.
 	/// \details This is all Replica3 instances passed to Reference, as well as instances we downloaded and created via Connection_RM3::AllocReference()
 	/// \param[out] List of Replica3 instances to be returned
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
-	void GetReferencedReplicaList(DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId = 0);
+	void GetReferencedReplicaList(std::vector<Replica3 *> &replicaListOut, WorldId worldId = 0);
 
 	/// \brief Returns the number of replicas known about
 	/// \details Returns the size of the list that would be returned by GetReferencedReplicaList()
@@ -251,7 +251,7 @@ public:
 	/// \param[out] connectionsOut Populated with the matching connections (cleared first)
 	/// \param[in] includeGlobal If true, also include observers in VIRTUAL_WORLD_GLOBAL
 	/// \param[in] worldId Which RM3 world to look in. World 0 by default. See AddWorld()
-	void GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<Connection_RM3 *> &connectionsOut, bool includeGlobal = true, WorldId worldId = 0) const;
+	void GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, std::vector<Connection_RM3 *> &connectionsOut, bool includeGlobal = true, WorldId worldId = 0) const;
 
 	/// \brief Return the guids of the connections (observers) currently in a given virtual world.
 	/// \details Same as GetConnectionsInVirtualWorld() but returns guids, convenient for addressing RakPeerInterface::Send().
@@ -259,7 +259,7 @@ public:
 	/// \param[out] guidsOut Populated with the matching guids (cleared first)
 	/// \param[in] includeGlobal If true, also include observers in VIRTUAL_WORLD_GLOBAL
 	/// \param[in] worldId Which RM3 world to look in. World 0 by default. See AddWorld()
-	void GetGuidsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<RakNetGUID> &guidsOut, bool includeGlobal = true, WorldId worldId = 0) const;
+	void GetGuidsInVirtualWorld(VirtualWorldId virtualWorld, std::vector<RakNetGUID> &guidsOut, bool includeGlobal = true, WorldId worldId = 0) const;
 
 	/// \brief Convenience to move a player to a virtual world: sets both the observer's
 	/// virtual world (what they see) and their avatar entity's virtual world (how others see them).
@@ -306,7 +306,7 @@ public:
 	/// \param[in] replica The replica to check against.
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
 	/// \param[out] connectionsThatHaveConstructedThisReplica Populated with connection instances that we believe have \a replica allocated
-	void GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, DataStructures::List<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId = 0);
+	void GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, std::vector<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId = 0);
 
 	/// \brief Returns if GetDownloadWasCompleted() returns true for all connections
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
@@ -350,7 +350,7 @@ public:
 	/// \param[in] replicaList List of Replica3 objects to tell other systems to destroy.
 	/// \param[in] exclusionAddress Which system to not send to. UNASSIGNED_SYSTEM_ADDRESS to send to all.
 	/// \param[in] worldId Used for multiple worlds. World 0 is created automatically by default. See AddWorld()
-	void BroadcastDestructionList(DataStructures::List<Replica3 *> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId = 0);
+	void BroadcastDestructionList(std::vector<Replica3 *> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId = 0);
 
 	/// \internal
 	/// \details Tell other systems that have this replica to destroy this replica.<BR>
@@ -408,8 +408,8 @@ public:
 		RM3World();
 		void Clear(ReplicaManager3 *replicaManager3);
 
-		DataStructures::List<Connection_RM3 *> connectionList;
-		DataStructures::List<Replica3 *> userReplicaList;
+		std::vector<Connection_RM3 *> connectionList;
+		std::vector<Replica3 *> userReplicaList;
 		WorldId worldId;
 		NetworkIDManager *networkIDManager;
 	};
@@ -469,7 +469,7 @@ protected:
 	// For O(1) lookup. One slot per WorldId value: an id read off the wire indexes it before it is checked.
 	RM3World *worldsArray[256];
 	// For fast traversal
-	DataStructures::List<RM3World *> worldsList;
+	std::vector<RM3World *> worldsList;
 
 private:
 	// #med - reconsider visibility here --- should be properly encapsulated so to not allow access to worldsList by derived classes (which could bypass the mutex)
@@ -508,7 +508,7 @@ private:
 	// Counts serialize passes, so a replica can tell whether it was prepared for this one. Never 0 inside a pass.
 	uint32_t serializePass;
 	bool inSerializePass;
-	DataStructures::List<Connection_RM3 *> parallelConnections;
+	std::vector<Connection_RM3 *> parallelConnections;
 
 	friend class Connection_RM3;
 	friend class Replica3;
@@ -625,7 +625,7 @@ public:
 
 	/// \brief Get list of all replicas that are constructed for this connection
 	/// \param[out] objectsTheyDoHave Destination list. Returned in sorted ascending order, sorted on the value of the Replica3 pointer.
-	virtual void GetConstructedReplicas(DataStructures::List<Replica3 *> &objectsTheyDoHave);
+	virtual void GetConstructedReplicas(std::vector<Replica3 *> &objectsTheyDoHave);
 
 	/// Returns true if we think this remote connection has this replica constructed
 	/// \param[in] replica3 Which replica we are querying
@@ -712,8 +712,8 @@ public:
 	/// \param[out] newReplicasToCreate Anything in this list will be created on the remote system
 	/// \param[out] existingReplicasToDestroy Anything in this list will be destroyed on the remote system
 	virtual void QueryReplicaList(
-	    DataStructures::List<Replica3 *> &newReplicasToCreate,
-	    DataStructures::List<Replica3 *> &existingReplicasToDestroy)
+	    std::vector<Replica3 *> &newReplicasToCreate,
+	    std::vector<Replica3 *> &existingReplicasToDestroy)
 	{
 		(void) newReplicasToCreate;
 		(void) existingReplicasToDestroy;
@@ -731,7 +731,7 @@ public:
 	/// \note If you do not know what objects are candidates for serialization, you can use queryToSerializeReplicaList as a source for your filtering or sorting operations
 	/// \param[in] replicasToSerialize List of replicas to call QuerySerialization() on
 	/// \return Return true to use replicasToSerialize (replicasToSerialize may be empty if desired). Otherwise return false.
-	virtual bool QuerySerializationList(DataStructures::List<Replica3 *> &replicasToSerialize)
+	virtual bool QuerySerializationList(std::vector<Replica3 *> &replicasToSerialize)
 	{
 		(void) replicasToSerialize;
 		return false;
@@ -767,7 +767,7 @@ public:
 	/// \param[in] rakPeer Instance of RakPeerInterface to send on
 	/// \param[in] worldId Which world, see ReplicaManager3::AddWorld()
 	/// \param[in] replicaManager3 ReplicaManager3 instance
-	virtual void SendConstruction(DataStructures::List<Replica3 *> &newObjects, DataStructures::List<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3);
+	virtual void SendConstruction(std::vector<Replica3 *> &newObjects, std::vector<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3);
 
 	/// \internal
 	void SendValidation(MafiaNet::RakPeerInterface *rakPeer, WorldId worldId);
@@ -866,27 +866,28 @@ protected:
 	// The list of objects that our local system and this remote system both have
 	// Either we sent this object to them, or they sent this object to us
 	// A given Replica can be either in queryToConstructReplicaList or constructedReplicaList but not both at the same time
-	DataStructures::OrderedList<Replica3 *, LastSerializationResult *, Connection_RM3::Replica3LSRComp> constructedReplicaList;
+	// Sorted by Replica3LSRComp (the replica's referenceIndex): the order replicas were first referenced
+	std::vector<LastSerializationResult *> constructedReplicaList;
 
 	// Objects that we have, but this system does not, and we will query each tick to see if it should be sent to them
 	// If we do send it to them, the replica is moved to constructedReplicaList
 	// A given Replica can be either in queryToConstructReplicaList or constructedReplicaList but not both at the same time
-	DataStructures::List<LastSerializationResult *> queryToConstructReplicaList;
+	std::vector<LastSerializationResult *> queryToConstructReplicaList;
 
 	// Objects that this system has constructed are added at the same time to queryToSerializeReplicaList
 	// This list is used to serialize all objects that this system has to this connection
-	DataStructures::List<LastSerializationResult *> queryToSerializeReplicaList;
+	std::vector<LastSerializationResult *> queryToSerializeReplicaList;
 
 	// Objects that are constructed on this system are also queried if they should be destroyed to this system
-	DataStructures::List<LastSerializationResult *> queryToDestructReplicaList;
+	std::vector<LastSerializationResult *> queryToDestructReplicaList;
 
 	// Working lists
-	DataStructures::List<Replica3 *> constructedReplicasCulled, destroyedReplicasCulled;
+	std::vector<Replica3 *> constructedReplicasCulled, destroyedReplicasCulled;
 
 	// This is used if QueryGroupDownloadMessages() returns true when ID_REPLICA_MANAGER_DOWNLOAD_STARTED arrives
 	// Packets will be gathered and not returned until ID_REPLICA_MANAGER_DOWNLOAD_COMPLETE arrives
 	bool groupConstructionAndSerialize;
-	DataStructures::Queue<Packet *> downloadGroup;
+	std::deque<Packet *> downloadGroup;
 
 	// Stores if we got download complete for this connection
 	bool gotDownloadComplete;

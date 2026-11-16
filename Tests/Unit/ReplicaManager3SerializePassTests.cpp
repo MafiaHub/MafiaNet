@@ -120,12 +120,12 @@ public:
 	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 	ConstructionMode QueryConstructionMode() const { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
-	void QueryReplicaList(DataStructures::List<Replica3 *> &create, DataStructures::List<Replica3 *> &)
+	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &)
 	{
 		for (Replica3 *replica : wanted)
 		{
 			if (!HasReplicaConstructed(replica))
-				create.Push(replica, _FILE_AND_LINE_);
+				create.push_back(replica);
 		}
 	}
 
@@ -550,7 +550,7 @@ TEST_F(ReplicaManager3SerializePass, DeserializeCanAskWhoHoldsAReplicaWhileThePa
 	Packet packet;
 	FillStatePacket(state, packet, replica, connections[1]);
 
-	DataStructures::List<Connection_RM3 *> holders;
+	std::vector<Connection_RM3 *> holders;
 	bool firstHoldsIt = false;
 	replica->onDeserialize = [&]
 	{
@@ -574,7 +574,7 @@ TEST_F(ReplicaManager3SerializePass, DeserializeCanAskWhoHoldsAReplicaWhileThePa
 	release.set_value();
 	pass.join();
 
-	EXPECT_EQ(holders.Size(), 2u);
+	EXPECT_EQ(holders.size(), 2u);
 	EXPECT_TRUE(firstHoldsIt);
 }
 
@@ -757,10 +757,10 @@ TEST_F(ReplicaManager3SerializePass, OwnListConnectionIsServedOnTheCallingThread
 	struct OwnListConnection : PassConnection
 	{
 		using PassConnection::PassConnection;
-		bool QuerySerializationList(DataStructures::List<Replica3 *> &replicasToSerialize)
+		bool QuerySerializationList(std::vector<Replica3 *> &replicasToSerialize)
 		{
 			for (Replica3 *replica : list)
-				replicasToSerialize.Push(replica, _FILE_AND_LINE_);
+				replicasToSerialize.push_back(replica);
 			return true;
 		}
 		std::vector<Replica3 *> list;

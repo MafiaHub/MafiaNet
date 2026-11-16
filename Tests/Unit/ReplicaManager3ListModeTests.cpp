@@ -114,38 +114,48 @@ public:
 	Replica3 *AllocReplica(MafiaNet::BitStream *, ReplicaManager3 *) { return 0; }
 	ConstructionMode QueryConstructionMode() const { return QUERY_CONNECTION_FOR_REPLICA_LIST; }
 
-	void QueryReplicaList(DataStructures::List<Replica3 *> &create, DataStructures::List<Replica3 *> &destroy)
+	void QueryReplicaList(std::vector<Replica3 *> &create, std::vector<Replica3 *> &destroy)
 	{
 		for (Replica3 *replica : wanted)
 		{
 			if (!HasReplicaConstructed(replica))
-				create.Push(replica, _FILE_AND_LINE_);
+				create.push_back(replica);
 		}
-		DataStructures::List<Replica3 *> constructed;
+		std::vector<Replica3 *> constructed;
 		GetConstructedReplicas(constructed);
-		for (unsigned i = 0; i < constructed.Size(); i++)
+		for (unsigned i = 0; i < constructed.size(); i++)
 		{
 			bool stillWanted = false;
 			for (Replica3 *replica : wanted)
 				stillWanted = stillWanted || replica == constructed[i];
 			if (!stillWanted)
-				destroy.Push(constructed[i], _FILE_AND_LINE_);
+				destroy.push_back(constructed[i]);
 		}
 	}
 
 	// When set, the replicas this connection asks to be serialized, in place of everything it holds.
-	bool QuerySerializationList(DataStructures::List<Replica3 *> &replicasToSerialize)
+	bool QuerySerializationList(std::vector<Replica3 *> &replicasToSerialize)
 	{
 		if (!ownSerializationList)
 			return false;
 		for (Replica3 *replica : serializationList)
-			replicasToSerialize.Push(replica, _FILE_AND_LINE_);
+			replicasToSerialize.push_back(replica);
 		return true;
+	}
+
+	// Records what each construction message carried, then sends it.
+	void SendConstruction(std::vector<Replica3 *> &newObjects, std::vector<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3)
+	{
+		sentNew.insert(sentNew.end(), newObjects.begin(), newObjects.end());
+		sentDeleted.insert(sentDeleted.end(), deletedObjects.begin(), deletedObjects.end());
+		Connection_RM3::SendConstruction(newObjects, deletedObjects, sendParameters, rakPeer, worldId, replicaManager3);
 	}
 
 	std::vector<Replica3 *> wanted;
 	bool ownSerializationList = false;
 	std::vector<Replica3 *> serializationList;
+	std::vector<Replica3 *> sentNew;
+	std::vector<Replica3 *> sentDeleted;
 };
 
 class ListManager : public ReplicaManager3
@@ -266,4 +276,116 @@ TEST_F(ReplicaManager3ListMode, OwnSerializationListNeverReachesAnotherConnectio
 	Tick(); // the holder streams it out, and the picker still names it
 	EXPECT_FALSE(holder->HasReplicaConstructed(replica));
 	EXPECT_FALSE(picker->HasReplicaConstructed(replica));
+}
+
+// A connection keeps what it has constructed sorted by when each replica was first referenced, not by
+// when it streamed in: GetConstructedReplicas() (and every serialize pass over that list) walks it in
+// that order.
+TEST_F(ReplicaManager3ListMode, ConstructedReplicasComeBackInReferenceOrder)
+{
+	ListConnection *connection = AddConnection(100);
+	ListReplica *first = AddReplica();
+	ListReplica *second = AddReplica();
+	ListReplica *third = AddReplica();
+
+	connection->wanted = {third};
+	Tick();
+	connection->wanted = {third, first};
+	Tick();
+	connection->wanted = {third, first, second};
+	Tick();
+
+	std::vector<Replica3 *> constructed = {nullptr};
+	connection->GetConstructedReplicas(constructed);
+	EXPECT_EQ(constructed, (std::vector<Replica3 *>{first, second, third}));
+
+	connection->wanted = {third, second};
+	Tick();
+	connection->GetConstructedReplicas(constructed);
+	EXPECT_EQ(constructed, (std::vector<Replica3 *>{second, third}));
+}
+
+// The replica queries fill a std::vector, replacing what the caller had in it.
+TEST_F(ReplicaManager3ListMode, ReplicaQueriesFillVectors)
+{
+	ListConnection *holder = AddConnection(100);
+	ListConnection *other = AddConnection(101);
+	ListReplica *first = AddReplica();
+	ListReplica *second = AddReplica();
+	holder->wanted = {second};
+	Tick();
+
+	std::vector<Replica3 *> replicas = {nullptr, nullptr, nullptr};
+	manager.GetReferencedReplicaList(replicas);
+	EXPECT_EQ(replicas, (std::vector<Replica3 *>{first, second}));
+
+	replicas.assign(3, nullptr);
+	manager.GetReplicasCreatedByMe(replicas);
+	EXPECT_EQ(replicas, (std::vector<Replica3 *>{first, second}));
+
+	replicas.assign(3, nullptr);
+	manager.GetReplicasCreatedByGuid(RakNetGUID(12345), replicas);
+	EXPECT_TRUE(replicas.empty());
+
+	std::vector<Connection_RM3 *> connections = {nullptr};
+	manager.GetConnectionsThatHaveReplicaConstructed(second, connections);
+	EXPECT_EQ(connections, (std::vector<Connection_RM3 *>{holder}));
+	manager.GetConnectionsThatHaveReplicaConstructed(first, connections);
+	EXPECT_TRUE(connections.empty());
+	(void) other;
+}
+
+// AutoCreateConnectionList() appends a connection for each guid it does not track yet.
+TEST_F(ReplicaManager3ListMode, AutoCreateConnectionListTakesVectors)
+{
+	AddConnection(100);
+	std::vector<RakNetGUID> participants = {RakNetGUID(100), RakNetGUID(200), RakNetGUID(300)};
+	std::vector<Connection_RM3 *> created;
+	manager.AutoCreateConnectionList(participants, created);
+	ASSERT_EQ(created.size(), 2u);
+	EXPECT_EQ(created[0]->GetRakNetGUID(), RakNetGUID(200));
+	EXPECT_EQ(created[1]->GetRakNetGUID(), RakNetGUID(300));
+	EXPECT_EQ(manager.GetConnectionCount(), 3u);
+}
+
+// BroadcastDestructionList() and DereferenceList() take the replicas as a std::vector.
+TEST_F(ReplicaManager3ListMode, DestructionAndDereferenceListsTakeVectors)
+{
+	ListConnection *connection = AddConnection(100);
+	ListReplica *first = AddReplica();
+	ListReplica *second = AddReplica();
+	connection->wanted = {first, second};
+	Tick();
+	ASSERT_TRUE(connection->HasReplicaConstructed(first));
+
+	std::vector<Replica3 *> doomed = {first, second};
+	ASSERT_EQ(first->deletingSystemGUID, UNASSIGNED_RAKNET_GUID);
+	manager.BroadcastDestructionList(doomed, UNASSIGNED_SYSTEM_ADDRESS);
+	// The broadcast stamps who destroyed them before it serializes the destruction.
+	EXPECT_EQ(first->deletingSystemGUID, peer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
+	EXPECT_EQ(second->deletingSystemGUID, peer->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
+
+	manager.DereferenceList(doomed);
+	EXPECT_EQ(manager.GetReplicaCount(), 0u);
+	EXPECT_FALSE(connection->HasReplicaConstructed(first));
+	EXPECT_FALSE(connection->HasReplicaConstructed(second));
+}
+
+// Streaming in and out reaches SendConstruction() as std::vector lists of what was created and destroyed.
+TEST_F(ReplicaManager3ListMode, SendConstructionGetsStreamedReplicasAsVectors)
+{
+	ListConnection *connection = AddConnection(100);
+	ListReplica *first = AddReplica();
+	ListReplica *second = AddReplica();
+
+	connection->wanted = {second, first};
+	Tick();
+	EXPECT_EQ(connection->sentNew.size(), 2u);
+	EXPECT_TRUE(connection->sentDeleted.empty());
+
+	connection->sentNew.clear();
+	connection->wanted = {second};
+	Tick();
+	EXPECT_TRUE(connection->sentNew.empty());
+	EXPECT_EQ(connection->sentDeleted, (std::vector<Replica3 *>{first}));
 }
