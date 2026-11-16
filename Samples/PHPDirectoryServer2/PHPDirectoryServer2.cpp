@@ -88,12 +88,12 @@ void PHPDirectoryServer2::GetField(unsigned int index, MafiaNet::RakString &colu
 	columnName = fields.GetKeyAtIndex(index);
 	value = fields[index];
 }
-void PHPDirectoryServer2::SetFields(DataStructures::Table *table)
+void PHPDirectoryServer2::SetFields(MafiaNet::Table *table)
 {
 	ClearFields();
 
 	unsigned columnIndex, rowIndex;
-	DataStructures::Table::Row *row;
+	MafiaNet::Table::Row *row;
 
 	for (rowIndex = 0; rowIndex < table->GetRowCount(); rowIndex++)
 	{
@@ -230,7 +230,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 }
 void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values)
 {
-	DataStructures::Table::Row *row = 0;
+	MafiaNet::Table::Row *row = 0;
 
 	unsigned int i;
 	for (i = 0; i < columns.Size() && i < values.Size(); i++)
@@ -240,7 +240,7 @@ void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::Ra
 			unsigned col = lastDownloadedTable.ColumnIndex(columns[i]);
 			if (col == (unsigned) -1)
 			{
-				col = lastDownloadedTable.AddColumn(columns[i], DataStructures::Table::STRING);
+				col = lastDownloadedTable.AddColumn(columns[i], MafiaNet::Table::STRING);
 			}
 
 			if (row == 0)
@@ -251,7 +251,7 @@ void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::Ra
 		}
 	}
 }
-const DataStructures::Table *PHPDirectoryServer2::GetLastDownloadedTable(void) const
+const MafiaNet::Table *PHPDirectoryServer2::GetLastDownloadedTable(void) const
 {
 	return &lastDownloadedTable;
 }

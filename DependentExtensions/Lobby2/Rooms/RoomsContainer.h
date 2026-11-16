@@ -17,7 +17,7 @@
 #define __LOBBY_ROOM_H
 
 #include "mafianet/ds_map.h"
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 #include "RoomsErrorCodes.h"
 #include "mafianet/ds_list.h"
 #include "mafianet/types.h"
@@ -221,15 +221,15 @@ struct RoomDescriptor
 	bool hiddenFromSearches;
 	NetworkedRoomCreationParameters::SendInvitePermission inviteToRoomPermission;
 	NetworkedRoomCreationParameters::SendInvitePermission inviteToSpectatorSlotPermission;
-	DataStructures::Table roomProperties;
+	MafiaNet::Table roomProperties;
 
-	DataStructures::Table::Cell *GetProperty(const char *columnName)
+	MafiaNet::Table::Cell *GetProperty(const char *columnName)
 	{
-		return roomProperties.GetRowByIndex(0, 0)->cells[roomProperties.ColumnIndex(columnName)];
+		return roomProperties.GetRowByIndex(0, 0)->cells[roomProperties.ColumnIndex(columnName)].get();
 	}
-	DataStructures::Table::Cell *GetProperty(int index)
+	MafiaNet::Table::Cell *GetProperty(int index)
 	{
-		return roomProperties.GetRowByIndex(0, 0)->cells[index];
+		return roomProperties.GetRowByIndex(0, 0)->cells[index].get();
 	}
 
 	void Clear(void)
@@ -314,7 +314,7 @@ struct RoomQuery
 	~RoomQuery();
 
 	// Point to an externally allocated array of FilterQuery, or use the helper functions below to use a static array (not threadsafe to use the static array)
-	DataStructures::Table::FilterQuery *queries;
+	MafiaNet::Table::FilterQuery *queries;
 	// Size of the queries array
 	unsigned int numQueries;
 	// Not used
@@ -322,10 +322,10 @@ struct RoomQuery
 
 	// Helper functions
 	// Easier to use, but not threadsafe
-	void AddQuery_NUMERIC(const char *columnName, double numericValue, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
-	void AddQuery_STRING(const char *columnName, const char *charValue, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
-	void AddQuery_BINARY(const char *columnName, const char *input, int inputLength, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
-	void AddQuery_POINTER(const char *columnName, void *ptr, DataStructures::Table::FilterQueryType op = DataStructures::Table::QF_EQUAL);
+	void AddQuery_NUMERIC(const char *columnName, double numericValue, MafiaNet::Table::FilterQueryType op = MafiaNet::Table::QF_EQUAL);
+	void AddQuery_STRING(const char *columnName, const char *charValue, MafiaNet::Table::FilterQueryType op = MafiaNet::Table::QF_EQUAL);
+	void AddQuery_BINARY(const char *columnName, const char *input, int inputLength, MafiaNet::Table::FilterQueryType op = MafiaNet::Table::QF_EQUAL);
+	void AddQuery_POINTER(const char *columnName, void *ptr, MafiaNet::Table::FilterQueryType op = MafiaNet::Table::QF_EQUAL);
 	RoomsErrorCode Validate(void);
 
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -334,9 +334,9 @@ struct RoomQuery
 	void SetQueriesToStatic(void);
 
 private:
-	static DataStructures::Table::FilterQuery fq[32];
-	static DataStructures::Table::Cell cells[32];
-	void SetupNextQuery(const char *columnName, DataStructures::Table::FilterQueryType op);
+	static MafiaNet::Table::FilterQuery fq[32];
+	static MafiaNet::Table::Cell cells[32];
+	void SetupNextQuery(const char *columnName, MafiaNet::Table::FilterQueryType op);
 };
 
 
@@ -413,7 +413,7 @@ public:
 	RoomsErrorCode StopSpectating(RoomsParticipant *roomsParticipant);
 	RoomsErrorCode GrantModerator(RoomsParticipant *roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
 	RoomsErrorCode ChangeSlotCounts(RoomsParticipant *roomsParticipant, Slots slots);
-	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant *roomsParticipant, DataStructures::Table *table);
+	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant *roomsParticipant, MafiaNet::Table *table);
 	RoomsErrorCode ChangeRoomName(RoomsParticipant *roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
 	RoomsErrorCode SetHiddenFromSearches(RoomsParticipant *roomsParticipant, bool _hiddenFromSearches);
 	RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant *roomsParticipant, bool destroyOnModeratorLeave);
@@ -429,7 +429,7 @@ public:
 	//RoomsErrorCode GetKickReason(RoomsParticipant* roomsParticipant, MafiaNet::RakString *kickReason);
 
 
-	void GetRoomProperties(RoomID roomId, Room **room, DataStructures::Table *table);
+	void GetRoomProperties(RoomID roomId, Room **room, MafiaNet::Table *table);
 
 	// Quick join algorithm:
 	//
@@ -507,7 +507,7 @@ public:
 	~PerGameRoomsContainer();
 
 	// Has pointer column to class Room
-	DataStructures::Table roomsTable;
+	MafiaNet::Table roomsTable;
 
 	// Members that are waiting to quick join
 	DataStructures::List<QuickJoinUser *> quickJoinList;
@@ -555,7 +555,7 @@ protected:
 class Room
 {
 public:
-	Room(RoomID _roomId, RoomCreationParameters *roomCreationParameters, DataStructures::Table::Row *_row, RoomsParticipant *roomsParticipant);
+	Room(RoomID _roomId, RoomCreationParameters *roomCreationParameters, MafiaNet::Table::Row *_row, RoomsParticipant *roomsParticipant);
 	~Room();
 	RoomsErrorCode SendInvite(RoomsParticipant *roomsParticipant, RoomsParticipant *inviteeId, bool inviteToSpectatorSlot, MafiaNet::RakString subject, MafiaNet::RakString body);
 	RoomsErrorCode AcceptInvite(RoomsParticipant *roomsParticipant, MafiaNet::RakString inviteSender);
@@ -563,7 +563,7 @@ public:
 	RoomsErrorCode StopSpectating(RoomsParticipant *roomsParticipant);
 	RoomsErrorCode GrantModerator(RoomsParticipant *roomsParticipant, RoomsParticipant *newModerator, DataStructures::List<InvitedUser> &clearedInvites);
 	RoomsErrorCode ChangeSlotCounts(RoomsParticipant *roomsParticipant, Slots slots);
-	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant *roomsParticipant, DataStructures::Table *table);
+	RoomsErrorCode SetCustomRoomProperties(RoomsParticipant *roomsParticipant, MafiaNet::Table *table);
 	RoomsErrorCode ChangeRoomName(RoomsParticipant *roomsParticipant, MafiaNet::RakString newRoomName, ProfanityFilter *profanityFilter);
 	RoomsErrorCode SetHiddenFromSearches(RoomsParticipant *roomsParticipant, bool _hiddenFromSearches);
 	RoomsErrorCode SetDestroyOnModeratorLeave(RoomsParticipant *roomsParticipant, bool destroyOnModeratorLeave);
@@ -617,7 +617,7 @@ public:
 	// Internal
 	DataStructures::List<QuickJoinUser *> quickJoinWorkingList;
 
-	static void UpdateRowSlots(DataStructures::Table::Row *row, Slots *totalSlots, Slots *usedSlots);
+	static void UpdateRowSlots(MafiaNet::Table::Row *row, Slots *totalSlots, Slots *usedSlots);
 
 	void ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakString newHandle);
 
@@ -642,7 +642,7 @@ protected:
 	bool HasOpenSpectatorSlots(void) const;
 	void UpdateUsedSlots(void);
 	void UpdateUsedSlots(Slots *totalSlots, Slots *usedSlots);
-	static void UpdateUsedSlots(DataStructures::Table::Row *tableRow, Slots *totalSlots, Slots *usedSlots);
+	static void UpdateUsedSlots(MafiaNet::Table::Row *tableRow, Slots *totalSlots, Slots *usedSlots);
 	Slots GetTotalSlots(void) const;
 	void SetTotalSlots(Slots *totalSlots);
 	Slots GetUsedSlots(void) const;
@@ -655,7 +655,7 @@ protected:
 	friend class AllGamesRoomsContainer;
 
 	RoomID lobbyRoomId;
-	DataStructures::Table::Row *tableRow;
+	MafiaNet::Table::Row *tableRow;
 
 	bool autoLockReadyStatus;
 	bool hiddenFromSearches;

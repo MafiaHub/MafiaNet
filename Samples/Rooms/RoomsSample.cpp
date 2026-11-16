@@ -531,10 +531,10 @@ void main(void)
 				printf("SetCustomRoomProperties\n");
 				MafiaNet::SetCustomRoomProperties_Func func;
 				GetUserName(&func);
-				DataStructures::Table customRoomProperties;
-				func.table.AddColumn("Custom Column 1", DataStructures::Table::STRING);
-				func.table.AddColumn("Custom Column 2", DataStructures::Table::NUMERIC);
-				DataStructures::Table::Row *row = func.table.AddRow(0);
+				MafiaNet::Table customRoomProperties;
+				func.table.AddColumn("Custom Column 1", MafiaNet::Table::STRING);
+				func.table.AddColumn("Custom Column 2", MafiaNet::Table::NUMERIC);
+				MafiaNet::Table::Row *row = func.table.AddRow(0);
 				row->cells[0]->Set("Custom Column 1 value");
 				row->cells[1]->Set(12345);
 				roomsPluginClient.ExecuteFunc(&func);

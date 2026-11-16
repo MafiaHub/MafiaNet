@@ -12,7 +12,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 
 #ifndef __ROOM_TYPES_H
 #define __ROOM_TYPES_H
@@ -73,14 +73,14 @@ struct DefaultRoomColumns
 	} columnId;
 
 	const char *columnName;
-	DataStructures::Table::ColumnType columnType;
+	MafiaNet::Table::ColumnType columnType;
 
 	static const char *GetColumnName(int columnId);
 	static int GetColumnIndex(const char *columnName);
-	static DataStructures::Table::ColumnType GetColumnType(int columnId);
+	static MafiaNet::Table::ColumnType GetColumnType(int columnId);
 	static bool HasColumnName(const char *columnName);
-	static void AddDefaultColumnsToTable(DataStructures::Table *table);
-	static bool HasDefaultColumns(DataStructures::Table *table);
+	static void AddDefaultColumnsToTable(MafiaNet::Table *table);
+	static bool HasDefaultColumns(MafiaNet::Table *table);
 };
 
 #endif

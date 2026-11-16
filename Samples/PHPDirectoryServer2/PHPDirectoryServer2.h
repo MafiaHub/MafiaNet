@@ -35,7 +35,7 @@
 #include "mafianet/http_connection.h"
 #include "mafianet/types.h"
 #include "mafianet/ds_queue.h"
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 #include "mafianet/ds_map.h"
 
 namespace MafiaNet
@@ -81,7 +81,7 @@ public:
 
 	/// Set all parameters at once from a table
 	/// \param[in] table A table containing the values you want to send. Note that all values are stored as strings in PHP
-	void SetFields(DataStructures::Table *table);
+	void SetFields(MafiaNet::Table *table);
 
 	/// Clear all fields
 	void ClearFields(void);
@@ -115,7 +115,7 @@ public:
 	void UploadAndDownloadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString downloadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost);
 
 	/// When HTTPConnection::ProcessDataPacket() returns true, and not an error, pass HTTPConnection::Read() to this function
-	/// The message will be parsed into DataStructures::Table, and a copy stored internally which can be retrieved by GetLastDownloadedTable();
+	/// The message will be parsed into MafiaNet::Table, and a copy stored internally which can be retrieved by GetLastDownloadedTable();
 	/// \param[in] packetData Returned from HTTPInterface::Read()
 	/// \return One of the values for HTTPReadResult
 	HTTPReadResult ProcessHTTPRead(MafiaNet::RakString httpRead);
@@ -123,7 +123,7 @@ public:
 	/// Returns the last value returned from ProcessHTTPString
 	/// Default columns are "__GAME_NAME", "__GAME_PORT", "_System_Address"
 	/// \return The table created by parsing httpString
-	const DataStructures::Table *GetLastDownloadedTable(void) const;
+	const MafiaNet::Table *GetLastDownloadedTable(void) const;
 
 	/// Call this periodically - it will handle connection states and refreshing updates to the server
 	void Update(void);
@@ -138,7 +138,7 @@ private:
 	void SendOperation(void);
 	void PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values);
 
-	DataStructures::Table lastDownloadedTable;
+	MafiaNet::Table lastDownloadedTable;
 	DataStructures::Map<MafiaNet::RakString, MafiaNet::RakString> fields;
 	MafiaNet::RakString currentOperation;
 	MafiaNet::TimeMS nextRepost;

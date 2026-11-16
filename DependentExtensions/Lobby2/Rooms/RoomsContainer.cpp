@@ -31,8 +31,8 @@ static const MafiaNet::TimeMS PROCESS_QUICK_JOINS_INTERVAL = 1000;
 
 using namespace MafiaNet;
 
-DataStructures::Table::FilterQuery RoomQuery::fq[32];
-DataStructures::Table::Cell RoomQuery::cells[32];
+MafiaNet::Table::FilterQuery RoomQuery::fq[32];
+MafiaNet::Table::Cell RoomQuery::cells[32];
 
 int AllGamesRoomsContainer::RoomsSortByName(Room *const &key, Room *const &data)
 {
@@ -401,13 +401,13 @@ RoomQuery::RoomQuery()
 	SetQueriesToStatic();
 }
 RoomQuery::~RoomQuery() {}
-void RoomQuery::AddQuery_NUMERIC(const char *columnName, double numericValue, DataStructures::Table::FilterQueryType op)
+void RoomQuery::AddQuery_NUMERIC(const char *columnName, double numericValue, MafiaNet::Table::FilterQueryType op)
 {
 	SetupNextQuery(columnName, op);
 	cells[numQueries].Set(numericValue);
 	numQueries++;
 }
-void RoomQuery::AddQuery_STRING(const char *columnName, const char *charValue, DataStructures::Table::FilterQueryType op)
+void RoomQuery::AddQuery_STRING(const char *columnName, const char *charValue, MafiaNet::Table::FilterQueryType op)
 {
 	if (charValue == 0 || charValue[0] == 0)
 		return;
@@ -416,7 +416,7 @@ void RoomQuery::AddQuery_STRING(const char *columnName, const char *charValue, D
 	cells[numQueries].Set(charValue);
 	numQueries++;
 }
-void RoomQuery::AddQuery_BINARY(const char *columnName, const char *input, int inputLength, DataStructures::Table::FilterQueryType op)
+void RoomQuery::AddQuery_BINARY(const char *columnName, const char *input, int inputLength, MafiaNet::Table::FilterQueryType op)
 {
 	if (input == 0 || input[0] == 0 || inputLength == 0)
 		return;
@@ -424,22 +424,22 @@ void RoomQuery::AddQuery_BINARY(const char *columnName, const char *input, int i
 	cells[numQueries].Set(input, inputLength);
 	numQueries++;
 }
-void RoomQuery::AddQuery_POINTER(const char *columnName, void *ptr, DataStructures::Table::FilterQueryType op)
+void RoomQuery::AddQuery_POINTER(const char *columnName, void *ptr, MafiaNet::Table::FilterQueryType op)
 {
 	SetupNextQuery(columnName, op);
 	cells[numQueries].SetPtr(ptr);
 	numQueries++;
 }
-void RoomQuery::SetupNextQuery(const char *columnName, DataStructures::Table::FilterQueryType op)
+void RoomQuery::SetupNextQuery(const char *columnName, MafiaNet::Table::FilterQueryType op)
 {
-	queries = (DataStructures::Table::FilterQuery *) fq;
+	queries = (MafiaNet::Table::FilterQuery *) fq;
 	fq[numQueries].cellValue = &cells[numQueries];
 	strcpy_s(fq[numQueries].columnName, columnName);
 	fq[numQueries].operation = op;
 }
 void RoomQuery::SetQueriesToStatic(void)
 {
-	queries = (DataStructures::Table::FilterQuery *) fq;
+	queries = (MafiaNet::Table::FilterQuery *) fq;
 	for (int i = 0; i < 32; i++)
 	{
 		fq[i].cellValue = &cells[i];
@@ -686,7 +686,7 @@ RoomsErrorCode AllGamesRoomsContainer::ChangeSlotCounts(RoomsParticipant *roomsP
 
 	return roomsParticipant->GetRoom()->ChangeSlotCounts(roomsParticipant, slots);
 }
-RoomsErrorCode AllGamesRoomsContainer::SetCustomRoomProperties(RoomsParticipant *roomsParticipant, DataStructures::Table *table)
+RoomsErrorCode AllGamesRoomsContainer::SetCustomRoomProperties(RoomsParticipant *roomsParticipant, MafiaNet::Table *table)
 {
 	if (roomsParticipant->GetRoom() == 0)
 		return REC_SET_CUSTOM_ROOM_PROPERTIES_UNKNOWN_ROOM_ID;
@@ -705,8 +705,8 @@ RoomsErrorCode AllGamesRoomsContainer::SetCustomRoomProperties(RoomsParticipant 
 
 	PerGameRoomsContainer *perGameRoomsContainer = perGamesRoomsContainers[perGamesRoomContainersIndex];
 	unsigned int newTableIndex, oldTableIndex;
-	DataStructures::Table *oldTable = &perGameRoomsContainer->roomsTable;
-	DataStructures::Table::Row *row;
+	MafiaNet::Table *oldTable = &perGameRoomsContainer->roomsTable;
+	MafiaNet::Table::Row *row;
 	for (newTableIndex = 0; newTableIndex < table->GetColumnCount(); newTableIndex++)
 	{
 		oldTableIndex = oldTable->ColumnIndex(table->ColumnName(newTableIndex));
@@ -725,7 +725,7 @@ RoomsErrorCode AllGamesRoomsContainer::SetCustomRoomProperties(RoomsParticipant 
 	}
 	return REC_SUCCESS;
 }
-void AllGamesRoomsContainer::GetRoomProperties(RoomID roomId, Room **room, DataStructures::Table *table)
+void AllGamesRoomsContainer::GetRoomProperties(RoomID roomId, Room **room, MafiaNet::Table *table)
 {
 	table->Clear();
 	unsigned int perGamesRoomContainersIndex;
@@ -737,7 +737,7 @@ void AllGamesRoomsContainer::GetRoomProperties(RoomID roomId, Room **room, DataS
 	}
 	RakAssert(perGamesRoomContainersIndex != perGamesRoomsContainers.Size());
 	PerGameRoomsContainer *perGameRoomsContainer = perGamesRoomsContainers[perGamesRoomContainersIndex];
-	DataStructures::Table *oldTable = &perGameRoomsContainer->roomsTable;
+	MafiaNet::Table *oldTable = &perGameRoomsContainer->roomsTable;
 	unsigned int i;
 	for (i = 0; i < oldTable->GetColumnCount(); i++)
 		table->AddColumn(oldTable->ColumnName(i), oldTable->GetColumnType(i));
@@ -920,8 +920,8 @@ RoomsErrorCode PerGameRoomsContainer::CreateRoom(RoomCreationParameters *roomCre
 			return roomsErrorCode;
 		roomCreationParameters->createdRoom = true;
 	}
-	DataStructures::List<DataStructures::Table::Cell> initialCellValues;
-	DataStructures::Table::Row *row = roomsTable.AddRow(lobbyRoomId, initialCellValues);
+	std::vector<MafiaNet::Table::Cell> initialCellValues;
+	MafiaNet::Table::Row *row = roomsTable.AddRow(lobbyRoomId, initialCellValues);
 	roomCreationParameters->roomOutput = new Room(lobbyRoomId, roomCreationParameters, row, roomCreationParameters->firstUser);
 	roomCreationParameters->firstUser->SetPerGameRoomsContainer(this);
 	RakAssert(roomCreationParameters->firstUser->GetRoom() == roomCreationParameters->roomOutput);
@@ -1089,9 +1089,9 @@ unsigned PerGameRoomsContainer::ProcessQuickJoins(DataStructures::List<QuickJoin
 			quickJoinMemberSlotSort.Insert(quickJoinList[quickJoinIndex], quickJoinList[quickJoinIndex], true, _FILE_AND_LINE_);
 	}
 
-	DataStructures::Table potentialNewRoom;
+	MafiaNet::Table potentialNewRoom;
 	unsigned queryIndex, quickJoinIndex2;
-	DataStructures::Table resultTable;
+	MafiaNet::Table resultTable;
 	QuickJoinUser *quickJoinMember;
 	RoomCreationParameters roomCreationParameters;
 	DataStructures::List<QuickJoinUser *> potentialNewRoommates;
@@ -1103,14 +1103,14 @@ unsigned PerGameRoomsContainer::ProcessQuickJoins(DataStructures::List<QuickJoin
 		quickJoinMember = quickJoinList[quickJoinIndex];
 		potentialNewRoom.Clear();
 		DefaultRoomColumns::AddDefaultColumnsToTable(&potentialNewRoom);
-		DataStructures::Table::Row *row = potentialNewRoom.AddRow(0);
+		MafiaNet::Table::Row *row = potentialNewRoom.AddRow(0);
 		roomCreationParameters.networkedRoomCreationParameters.slots.publicSlots = quickJoinMember->networkedQuickJoinUser.minimumPlayers - 1;
 		Room::UpdateRowSlots(row, &roomCreationParameters.networkedRoomCreationParameters.slots, &roomCreationParameters.networkedRoomCreationParameters.slots);
 
 		for (queryIndex = 0; queryIndex < quickJoinMember->networkedQuickJoinUser.query.numQueries; queryIndex++)
 		{
 			// For all filters that are equal and custom, create a table with rows with these values
-			if ((quickJoinMember->networkedQuickJoinUser.query.queries[queryIndex].operation == DataStructures::Table::QF_EQUAL) &&
+			if ((quickJoinMember->networkedQuickJoinUser.query.queries[queryIndex].operation == MafiaNet::Table::QF_EQUAL) &&
 			    DefaultRoomColumns::HasColumnName(quickJoinMember->networkedQuickJoinUser.query.queries[queryIndex].columnName) == false &&
 			    potentialNewRoom.ColumnIndex(quickJoinMember->networkedQuickJoinUser.query.queries[queryIndex].columnName) == -1 &&
 			    quickJoinMember->networkedQuickJoinUser.query.queries[queryIndex].cellValue->isEmpty == false)
@@ -1128,7 +1128,7 @@ unsigned PerGameRoomsContainer::ProcessQuickJoins(DataStructures::List<QuickJoin
 			columnIndices[0] = DefaultRoomColumns::TC_LOBBY_ROOM_PTR;
 			JoinedRoomResult joinedRoomResult;
 
-			DataStructures::Table::FilterQuery subQueries[MAX_CUSTOM_QUERY_FIELDS];
+			MafiaNet::Table::FilterQuery subQueries[MAX_CUSTOM_QUERY_FIELDS];
 			unsigned int subQueryCount;
 			unsigned int subQueryIndex;
 			for (subQueryIndex = 0, subQueryCount = 0; subQueryIndex < quickJoinList[quickJoinIndex2]->networkedQuickJoinUser.query.numQueries; subQueryIndex++)
@@ -1227,7 +1227,7 @@ void PerGameRoomsContainer::ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet
 
 RoomsErrorCode PerGameRoomsContainer::SearchByFilter(RoomsParticipant *roomsParticipant, RoomQuery *roomQuery, DataStructures::OrderedList<Room *, Room *, AllGamesRoomsContainer::RoomsSortByName> &roomsOutput, bool onlyJoinable)
 {
-	DataStructures::Table resultTable;
+	MafiaNet::Table resultTable;
 	unsigned columnIndices[1];
 	columnIndices[0] = DefaultRoomColumns::TC_LOBBY_ROOM_PTR;
 
@@ -1235,20 +1235,14 @@ RoomsErrorCode PerGameRoomsContainer::SearchByFilter(RoomsParticipant *roomsPart
 	roomsTable.QueryTable(columnIndices, 1, roomQuery->queries, roomQuery->numQueries, 0, 0, &resultTable);
 
 	roomsOutput.Clear(false, _FILE_AND_LINE_);
-	DataStructures::Page<unsigned, DataStructures::Table::Row *, _TABLE_BPLUS_TREE_ORDER> *cur = resultTable.GetRows().GetListHead();
-	int i;
 	Room *room;
-	while (cur)
+	for (const auto &entry : resultTable.GetRows())
 	{
-		for (i = 0; i < cur->size; i++)
-		{
-			// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
-			room = (Room *) cur->data[i]->cells[0]->ptr;
-			if ((onlyJoinable == false || room->ParticipantCanJoinRoom(roomsParticipant, false, true) == PCJRR_SUCCESS) &&
-			    room->IsHiddenToParticipant(roomsParticipant) == false)
-				roomsOutput.Insert(room, room, true, _FILE_AND_LINE_);
-		}
-		cur = cur->next;
+		// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
+		room = (Room *) entry.second->cells[0]->ptr;
+		if ((onlyJoinable == false || room->ParticipantCanJoinRoom(roomsParticipant, false, true) == PCJRR_SUCCESS) &&
+		    room->IsHiddenToParticipant(roomsParticipant) == false)
+			roomsOutput.Insert(room, room, true, _FILE_AND_LINE_);
 	}
 	return REC_SUCCESS;
 }
@@ -1274,7 +1268,7 @@ void PerGameRoomsContainer::RoomPrioritySort(RoomsParticipant *roomsParticipant,
 	// Of those that pass room query, sort by time (lower is first). If within one minute of each other, sort by number of users in playable slots (higher if first)
 	// Be sure to return columns TC_LOBBY_ROOM_PTR, TC_USED_PUBLIC_PLUS_RESERVED_SLOTS, TC_LOBBY_ROOM_PTR
 
-	DataStructures::Table resultTable;
+	MafiaNet::Table resultTable;
 	unsigned columnIndices[1];
 	columnIndices[0] = DefaultRoomColumns::TC_LOBBY_ROOM_PTR;
 
@@ -1282,24 +1276,19 @@ void PerGameRoomsContainer::RoomPrioritySort(RoomsParticipant *roomsParticipant,
 	roomsTable.QueryTable(columnIndices, 1, roomQuery->queries, roomQuery->numQueries, 0, 0, &resultTable);
 
 	roomsOutput.Clear(false, _FILE_AND_LINE_);
-	DataStructures::Page<unsigned, DataStructures::Table::Row *, _TABLE_BPLUS_TREE_ORDER> *cur = resultTable.GetRows().GetListHead();
 	Room *room;
-	while (cur)
+	for (const auto &entry : resultTable.GetRows())
 	{
-		for (i = 0; i < cur->size; i++)
-		{
-			// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
-			room = (Room *) cur->data[i]->cells[0]->ptr;
-			if (room->ParticipantCanJoinRoom(roomsParticipant, false, true) == PCJRR_SUCCESS &&
-			    room->IsHiddenToParticipant(roomsParticipant) == false)
-				roomsOutput.Insert(room, room, true, _FILE_AND_LINE_);
-		}
-		cur = cur->next;
+		// Put all the pointers in the roomSort list, filtering out those you cannot join (full, or no public and you are not invited)
+		room = (Room *) entry.second->cells[0]->ptr;
+		if (room->ParticipantCanJoinRoom(roomsParticipant, false, true) == PCJRR_SUCCESS &&
+		    room->IsHiddenToParticipant(roomsParticipant) == false)
+			roomsOutput.Insert(room, room, true, _FILE_AND_LINE_);
 	}
 }
 Room *PerGameRoomsContainer::GetRoomByLobbyRoomID(RoomID lobbyRoomID)
 {
-	DataStructures::Table::Row *row = roomsTable.GetRowByID(lobbyRoomID);
+	MafiaNet::Table::Row *row = roomsTable.GetRowByID(lobbyRoomID);
 	if (row == 0)
 		return 0;
 
@@ -1321,27 +1310,15 @@ Room *PerGameRoomsContainer::GetRoomByName(MafiaNet::RakString roomName)
 }
 void PerGameRoomsContainer::GetAllRooms(DataStructures::List<Room *> &rooms)
 {
-	DataStructures::Page<unsigned, DataStructures::Table::Row *, _TABLE_BPLUS_TREE_ORDER> *cur = roomsTable.GetRows().GetListHead();
-	int i;
 	rooms.Clear(false, _FILE_AND_LINE_);
-	while (cur)
-	{
-		for (i = 0; i < cur->size; i++)
-			rooms.Insert((Room *) cur->data[i]->cells[DefaultRoomColumns::TC_LOBBY_ROOM_PTR]->ptr, _FILE_AND_LINE_);
-		cur = cur->next;
-	}
+	for (const auto &entry : roomsTable.GetRows())
+		rooms.Insert((Room *) entry.second->cells[DefaultRoomColumns::TC_LOBBY_ROOM_PTR]->ptr, _FILE_AND_LINE_);
 }
 void PerGameRoomsContainer::GetRoomNames(DataStructures::List<MafiaNet::RakString> &roomNames)
 {
-	DataStructures::Page<unsigned, DataStructures::Table::Row *, _TABLE_BPLUS_TREE_ORDER> *cur = roomsTable.GetRows().GetListHead();
-	int i;
 	roomNames.Clear(false, _FILE_AND_LINE_);
-	while (cur)
-	{
-		for (i = 0; i < cur->size; i++)
-			roomNames.Insert(MafiaNet::RakString(cur->data[i]->cells[DefaultRoomColumns::TC_ROOM_NAME]->c), _FILE_AND_LINE_);
-		cur = cur->next;
-	}
+	for (const auto &entry : roomsTable.GetRows())
+		roomNames.Insert(MafiaNet::RakString(entry.second->cells[DefaultRoomColumns::TC_ROOM_NAME]->c), _FILE_AND_LINE_);
 }
 
 unsigned int PerGameRoomsContainer::GetQuickJoinIndex(RoomsParticipant *roomsParticipant)
@@ -1355,7 +1332,7 @@ unsigned int PerGameRoomsContainer::GetQuickJoinIndex(RoomsParticipant *roomsPar
 
 // ----------------------------  ROOMS  ----------------------------
 
-Room::Room(RoomID _roomId, RoomCreationParameters *roomCreationParameters, DataStructures::Table::Row *_row, RoomsParticipant *roomsParticipant)
+Room::Room(RoomID _roomId, RoomCreationParameters *roomCreationParameters, MafiaNet::Table::Row *_row, RoomsParticipant *roomsParticipant)
 {
 	roomDestroyed = false;
 
@@ -1387,7 +1364,7 @@ Room::Room(RoomID _roomId, RoomCreationParameters *roomCreationParameters, DataS
 Room::~Room()
 {
 }
-void Room::UpdateRowSlots(DataStructures::Table::Row *row, Slots *totalSlots, Slots *usedSlots)
+void Room::UpdateRowSlots(MafiaNet::Table::Row *row, Slots *totalSlots, Slots *usedSlots)
 {
 	row->cells[DefaultRoomColumns::TC_TOTAL_SLOTS]->Set(totalSlots->publicSlots + totalSlots->reservedSlots + totalSlots->spectatorSlots);
 	row->cells[DefaultRoomColumns::TC_TOTAL_PUBLIC_PLUS_RESERVED_SLOTS]->Set(totalSlots->publicSlots + totalSlots->reservedSlots);
@@ -1403,7 +1380,7 @@ void Room::UpdateUsedSlots(void)
 	Slots usedSlots = GetUsedSlots();
 	UpdateUsedSlots(&totalSlots, &usedSlots);
 }
-void Room::UpdateUsedSlots(DataStructures::Table::Row *tableRow, Slots *totalSlots, Slots *usedSlots)
+void Room::UpdateUsedSlots(MafiaNet::Table::Row *tableRow, Slots *totalSlots, Slots *usedSlots)
 {
 	tableRow->cells[DefaultRoomColumns::TC_USED_SLOTS]->Set(usedSlots->publicSlots + usedSlots->reservedSlots + usedSlots->spectatorSlots);
 	tableRow->cells[DefaultRoomColumns::TC_USED_PUBLIC_PLUS_RESERVED_SLOTS]->Set(usedSlots->publicSlots + usedSlots->reservedSlots);
@@ -1704,7 +1681,7 @@ RoomsErrorCode Room::ChangeSlotCounts(RoomsParticipant *roomsParticipant, Slots 
 
 	return REC_SUCCESS;
 }
-RoomsErrorCode Room::SetCustomRoomProperties(RoomsParticipant *roomsParticipant, DataStructures::Table *table)
+RoomsErrorCode Room::SetCustomRoomProperties(RoomsParticipant *roomsParticipant, MafiaNet::Table *table)
 {
 	RakAssert(roomDestroyed == false);
 
@@ -2325,15 +2302,15 @@ void AllGamesRoomsContainer::UnitTest(void)
 	roomsParticipant2.SetName("roomsParticipant2");
 	RoomQuery roomQuery;
 	roomQuery.numQueries = 2;
-	DataStructures::Table::FilterQuery filterQuery[2];
+	MafiaNet::Table::FilterQuery filterQuery[2];
 	roomQuery.queries = filterQuery;
-	DataStructures::Table::Cell cells[2];
+	MafiaNet::Table::Cell cells[2];
 	filterQuery[0].cellValue = &cells[0];
 	filterQuery[1].cellValue = &cells[1];
 	strcpy_s(filterQuery[0].columnName, "LevelName");
 	strcpy_s(filterQuery[1].columnName, "FlagCaptureCount");
-	filterQuery[0].operation = DataStructures::Table::QF_EQUAL;
-	filterQuery[1].operation = DataStructures::Table::QF_NOT_EQUAL;
+	filterQuery[0].operation = MafiaNet::Table::QF_EQUAL;
+	filterQuery[1].operation = MafiaNet::Table::QF_NOT_EQUAL;
 	cells[0].Set("DogFoodLevel");
 	cells[1].Set(10);
 	DataStructures::OrderedList<Room *, Room *, RoomsSortByName> roomsOutput;
@@ -2350,15 +2327,15 @@ void AllGamesRoomsContainer::UnitTest(void)
 	quickJoinUser.networkedQuickJoinUser.timeout = 5000;
 	ProfanityFilter profanityFilter;
 	profanityFilter.AddWord("BADWORD");
-	DataStructures::Table customRoomProperties;
-	customRoomProperties.AddColumn(filterQuery[0].columnName, DataStructures::Table::STRING);
-	customRoomProperties.AddColumn(filterQuery[1].columnName, DataStructures::Table::NUMERIC);
+	MafiaNet::Table customRoomProperties;
+	customRoomProperties.AddColumn(filterQuery[0].columnName, MafiaNet::Table::STRING);
+	customRoomProperties.AddColumn(filterQuery[1].columnName, MafiaNet::Table::NUMERIC);
 	DataStructures::List<QuickJoinUser *> dereferencedPointers;
-	DataStructures::List<DataStructures::Table::Cell *> cellList;
+	std::vector<MafiaNet::Table::Cell *> cellList;
 	DataStructures::List<InvitedUser *> invites;
 	MafiaNet::RakString kickReason;
-	cellList.Insert(&cells[0], _FILE_AND_LINE_);
-	cellList.Insert(&cells[1], _FILE_AND_LINE_);
+	cellList.push_back(&cells[0]);
+	cellList.push_back(&cells[1]);
 	customRoomProperties.AddRow(0, cellList);
 
 	// Search by filter

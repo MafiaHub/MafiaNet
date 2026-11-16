@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/table_serializer.h"
 
@@ -17,7 +17,7 @@
 #include <vector>
 
 using namespace MafiaNet;
-using DataStructures::Table;
+using MafiaNet::Table;
 
 namespace
 {
@@ -99,7 +99,7 @@ void ExpectBytes(const unsigned char *golden, size_t goldenSize, unsigned golden
 	EXPECT_EQ(0, memcmp(golden, bs.GetData(), goldenSize));
 }
 
-bool CellIsString(Table::Cell *cell, const char *expected)
+bool CellIsString(const std::unique_ptr<Table::Cell> &cell, const char *expected)
 {
 	return !cell->isEmpty && cell->c && strcmp(cell->c, expected) == 0;
 }
@@ -123,7 +123,7 @@ TEST(TableSerializerGolden, DeserializeTableRoundTripsRowsColumnsAndUnsetCells)
 	ASSERT_TRUE(TableSerializer::DeserializeTable(&bs, &t));
 
 	const auto &columns = t.GetColumns();
-	ASSERT_EQ(4u, columns.Size());
+	ASSERT_EQ(4u, columns.size());
 	const char *names[] = {"id", "name", "blob", "score"};
 	const Table::ColumnType types[] = {Table::NUMERIC, Table::STRING, Table::BINARY, Table::NUMERIC};
 	for (unsigned i = 0; i < 4; i++)
@@ -190,10 +190,9 @@ TEST(TableSerializerGolden, FilterQueryMatchesGoldenBytes)
 	ExpectBytes(kGoldenFilter, sizeof(kGoldenFilter), kGoldenFilterBits, bs);
 }
 
-// Current behaviour: DeserializeTable() hits RakAssert(0) on a truncated row count (aborts in
-// Debug), and DeserializeRow() reads numEntries/cellIndex without checking the Read() result.
-// Enabled by the task that fixes it.
-TEST(TableSerializerGolden, DISABLED_DeserializeTableRejectsTruncatedInput)
+// DeserializeTable() used to hit RakAssert(0) on a truncated row count (aborting in Debug), and
+// DeserializeRow() read numEntries/cellIndex without checking the Read() result.
+TEST(TableSerializerGolden, DeserializeTableRejectsTruncatedInput)
 {
 	CompressorRef ref;
 	for (size_t len = 0; len < sizeof(kGoldenTable); len += 7)

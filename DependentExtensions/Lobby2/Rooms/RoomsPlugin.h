@@ -73,7 +73,7 @@ struct CreateRoom_Func : public RoomsPluginFunc
 	NetworkedRoomCreationParameters networkedRoomCreationParameters;
 	GameIdentifier gameIdentifier;
 	// If initialRoomProperties is not empty, then SetCustomRoomProperties_Func will be run after the room is created successfully
-	DataStructures::Table initialRoomProperties;
+	MafiaNet::Table initialRoomProperties;
 
 	// Output parameters
 	RoomID roomId;
@@ -249,7 +249,7 @@ struct ChangeSlotCounts_Func : public RoomsPluginFunc
 struct SetCustomRoomProperties_Func : public RoomsPluginFunc
 {
 	// Input parameters
-	DataStructures::Table table;
+	MafiaNet::Table table;
 	// Output parameters
 
 	virtual void SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -641,8 +641,8 @@ struct CustomRoomPropertiesSet_Notification : public RoomsPluginNotification
 	RoomID roomId;
 	// If tablePtr is set, that will be serialized. Otherwise, table will be serialized.
 	// Deserialization is written to table
-	DataStructures::Table *tablePtr;
-	DataStructures::Table table;
+	MafiaNet::Table *tablePtr;
+	MafiaNet::Table table;
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	virtual void PrintResult(void) { printf("CustomRoomPropertiesSet_Notification to %s\n", recipient.C_String()); }
 };

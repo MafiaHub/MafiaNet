@@ -32,25 +32,25 @@ void ServerAndRoomBrowserData::Serialize(MafiaNet::BitStream *bitStream, bool wr
 	bitStream->Serialize(writeToBitstream, roomName);
 	bitStream->Serialize(writeToBitstream, roomId);
 }
-void ServerAndRoomBrowserData::WriteToTable(DataStructures::Table *table)
+void ServerAndRoomBrowserData::WriteToTable(MafiaNet::Table *table)
 {
 	table->Clear();
-	DataStructures::Table::Cell cells[4];
-	table->AddColumn("numPlayers", DataStructures::Table::NUMERIC);
+	MafiaNet::Table::Cell cells[4];
+	table->AddColumn("numPlayers", MafiaNet::Table::NUMERIC);
 	cells[0].Set((unsigned int) numPlayers);
-	table->AddColumn("maxPlayers", DataStructures::Table::NUMERIC);
+	table->AddColumn("maxPlayers", MafiaNet::Table::NUMERIC);
 	cells[1].Set((unsigned int) maxPlayers);
-	table->AddColumn("mapName", DataStructures::Table::STRING);
+	table->AddColumn("mapName", MafiaNet::Table::STRING);
 	cells[2].Set(mapName.C_String());
-	table->AddColumn("roomName", DataStructures::Table::STRING); // "Room name" from RoomTypes.cpp, write this here?
+	table->AddColumn("roomName", MafiaNet::Table::STRING); // "Room name" from RoomTypes.cpp, write this here?
 	cells[3].Set(roomName.C_String());
 	// The rooms plugin uses this table, and the rooms plugin automatically assigns a room id
-	//	table->AddColumn(DefaultRoomColumns::GetColumnName(DefaultRoomColumns::TC_ROOM_ID), DataStructures::Table::NUMERIC);
+	//	table->AddColumn(DefaultRoomColumns::GetColumnName(DefaultRoomColumns::TC_ROOM_ID), MafiaNet::Table::NUMERIC);
 	//	cells[4].Set((double) roomId.g);
 	RakAssert(table->GetColumnCount() == 4);
-	DataStructures::List<DataStructures::Table::Cell *> initialCellValues;
+	std::vector<MafiaNet::Table::Cell *> initialCellValues;
 	for (int i = 0; i < 4; i++)
-		initialCellValues.Push(&cells[i], _FILE_AND_LINE_);
+		initialCellValues.push_back(&cells[i]);
 	table->AddRow(table->GetRowCount(), initialCellValues, true);
 }
 void ServerAndRoomBrowserData::SetAsOfflinePingResponse(MafiaNet::RakPeerInterface *rakPeer)
