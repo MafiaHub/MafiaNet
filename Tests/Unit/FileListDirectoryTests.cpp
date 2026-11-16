@@ -277,7 +277,9 @@ TEST(FileListDirectory, SerializeRoundTripPreservesOrderAndContents)
 		EXPECT_EQ(copy.fileList[i].fileLengthBytes, source.fileList[i].fileLengthBytes);
 		ASSERT_EQ(copy.fileList[i].dataLengthBytes, source.fileList[i].dataLengthBytes);
 		if (copy.fileList[i].dataLengthBytes)
+		{
 			EXPECT_EQ(0, std::memcmp(copy.fileList[i].data, source.fileList[i].data, copy.fileList[i].dataLengthBytes));
+		}
 	}
 }
 
