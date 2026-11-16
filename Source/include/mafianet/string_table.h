@@ -21,8 +21,9 @@
 #ifndef __STRING_TABLE_H
 #define __STRING_TABLE_H
 
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
+
+#include <vector>
 
 /// Forward declaration
 namespace MafiaNet
@@ -89,6 +90,10 @@ public:
 	/// Private Constructor
 	StringTable();
 
+	// Owns the strings it copied; not copyable.
+	StringTable(const StringTable &) = delete;
+	StringTable &operator=(const StringTable &) = delete;
+
 protected:
 	/// Called when you mess up and send a string using this class that was not registered with AddString
 	/// \param[in] maxCharsToWrite Size, in bytes, of \a output .  A null-terminator will always be appended to the output string.  If the maxCharsToWrite is not large enough, the string will be truncated.
@@ -98,7 +103,8 @@ protected:
 	static StringTable *instance;
 	static int referenceCount;
 
-	DataStructures::OrderedList<char *, StrAndBool, StrAndBoolComp> orderedStringList;
+	/// Sorted by StrAndBoolComp (strcmp). The position of a string is its index on the wire.
+	std::vector<StrAndBool> orderedStringList;
 };
 }
 

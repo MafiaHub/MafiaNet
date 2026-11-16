@@ -573,7 +573,7 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 {
 	MafiaNet::RakString query;
 	PGresult *result;
-	DataStructures::List<VariadicSQLParser::IndexAndType> indices;
+	std::vector<VariadicSQLParser::IndexAndType> indices;
 	if (input == 0 || input[0] == 0)
 		return 0;
 
@@ -589,19 +589,19 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 
 	// Find out how many params there are
 	// Find out the type of each param (%f, %s)
-	indices.Clear(false, _FILE_AND_LINE_);
+	indices.clear();
 	GetTypeMappingIndices(input, indices);
 
 	if (preparedQueryIndex == preparedQueries.Size())
 	{
-		//		if (indices.Size()>0)
+		//		if (indices.size()>0)
 		//			query += " (";
 		MafiaNet::RakString formatCopy;
 		MafiaNet::RakString insertion;
 		formatCopy = input;
 		unsigned int i;
 		unsigned int indexOffset = 0;
-		for (i = 0; i < indices.Size(); i++)
+		for (i = 0; i < indices.size(); i++)
 		{
 			//			if (i!=0)
 			//				query += ",";
@@ -614,13 +614,13 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 			formatCopy.SetChar(indices[i].strIndex + 1 + indexOffset, insertion);
 			indexOffset += (unsigned int) insertion.GetLength() - 1;
 		}
-		//		if (indices.Size()>0)
+		//		if (indices.size()>0)
 		//			query += ")";
 		//		query += " AS ";
 		query += formatCopy;
 		//	query += ";\n";
 		formatCopy += ";\n";
-		result = PQprepare(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueries.Size()), formatCopy.C_String(), indices.Size(), nullptr);
+		result = PQprepare(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueries.Size()), formatCopy.C_String(), (int) indices.size(), nullptr);
 		if (IsResultSuccessful(result, false))
 		{
 			PQclear(result);
@@ -647,10 +647,10 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 	int *paramLength;
 	int *paramFormat;
 	ExtractArguments(argptr, indices, &paramData, &paramLength);
-	paramFormat = new int[indices.Size()];
-	for (unsigned int i = 0; i < indices.Size(); i++)
+	paramFormat = new int[indices.size()];
+	for (unsigned int i = 0; i < indices.size(); i++)
 		paramFormat[i] = PQEXECPARAM_FORMAT_BINARY;
-	result = PQexecPrepared(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueryIndex), indices.Size(), paramData, paramLength, paramFormat, PQEXECPARAM_FORMAT_BINARY);
+	result = PQexecPrepared(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueryIndex), (int) indices.size(), paramData, paramLength, paramFormat, PQEXECPARAM_FORMAT_BINARY);
 	VariadicSQLParser::FreeArguments(indices, paramData, paramLength);
 	delete[] paramFormat;
 	va_end(argptr);

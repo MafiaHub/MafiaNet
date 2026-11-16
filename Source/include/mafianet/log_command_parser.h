@@ -24,6 +24,7 @@
 #define __LOG_COMMAND_PARSER
 
 #include "mafianet/command_parser_interface.h"
+#include "mafianet/ds_list.h"
 #include "mafianet/export.h"
 
 namespace MafiaNet

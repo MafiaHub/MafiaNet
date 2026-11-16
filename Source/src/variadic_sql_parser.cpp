@@ -48,12 +48,12 @@ const char *VariadicSQLParser::GetTypeMappingAtIndex(int i)
 {
 	return typeMappings[i].type;
 }
-void VariadicSQLParser::GetTypeMappingIndices(const char *format, DataStructures::List<IndexAndType> &indices)
+void VariadicSQLParser::GetTypeMappingIndices(const char *format, std::vector<IndexAndType> &indices)
 {
 	bool previousCharWasPercentSign;
 	unsigned int i;
 	unsigned int typeMappingIndex;
-	indices.Clear(false, _FILE_AND_LINE_);
+	indices.clear();
 	unsigned int len = (unsigned int) strlen(format);
 	previousCharWasPercentSign = false;
 	for (i = 0; i < len; i++)
@@ -66,27 +66,27 @@ void VariadicSQLParser::GetTypeMappingIndices(const char *format, DataStructures
 				IndexAndType iat;
 				iat.strIndex = i - 1;
 				iat.typeMappingIndex = typeMappingIndex;
-				indices.Insert(iat, _FILE_AND_LINE_);
+				indices.push_back(iat);
 			}
 		}
 
 		previousCharWasPercentSign = format[i] == '%';
 	}
 }
-void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::List<IndexAndType> &indices, char ***argumentBinary, int **argumentLengths)
+void VariadicSQLParser::ExtractArguments(va_list argptr, const std::vector<IndexAndType> &indices, char ***argumentBinary, int **argumentLengths)
 {
-	if (indices.Size() == 0)
+	if (indices.empty())
 		return;
 
-	unsigned int i;
-	*argumentBinary = new char *[indices.Size()];
-	*argumentLengths = new int[indices.Size()];
+	size_t i;
+	*argumentBinary = new char *[indices.size()];
+	*argumentLengths = new int[indices.size()];
 
 	char **paramData = *argumentBinary;
 	int *paramLength = *argumentLengths;
 
 	int variadicArgIndex;
-	for (variadicArgIndex = 0, i = 0; i < indices.Size(); i++, variadicArgIndex++)
+	for (variadicArgIndex = 0, i = 0; i < indices.size(); i++, variadicArgIndex++)
 	{
 		switch (typeMappings[indices[i].typeMappingIndex].inputType)
 		{
@@ -155,13 +155,13 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		}
 	}
 }
-void VariadicSQLParser::FreeArguments(const DataStructures::List<IndexAndType> &indices, char **argumentBinary, int *argumentLengths)
+void VariadicSQLParser::FreeArguments(const std::vector<IndexAndType> &indices, char **argumentBinary, int *argumentLengths)
 {
-	if (indices.Size() == 0)
+	if (indices.empty())
 		return;
 
-	unsigned int i;
-	for (i = 0; i < indices.Size(); i++)
+	size_t i;
+	for (i = 0; i < indices.size(); i++)
 		std::free(argumentBinary[i]);
 	delete[] argumentBinary;
 	delete[] argumentLengths;
