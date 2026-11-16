@@ -33,8 +33,16 @@ static_assert(!std::is_copy_assignable_v<CloudServer>, "CloudServer must not be 
 
 namespace
 {
-const CloudKey kScores("App", 1);
-const CloudKey kNames("App", 2);
+// Functions, not globals: a namespace-scope RakString would be built during static
+// initialization, possibly before RakString's own allocator in another translation unit.
+CloudKey Scores()
+{
+	return CloudKey("App", 1);
+}
+CloudKey Names()
+{
+	return CloudKey("App", 2);
+}
 
 // Records what each filter hook saw; can drop a key from a release or reject a Get.
 class RecordingFilter : public CloudServerQueryFilter
@@ -157,13 +165,13 @@ protected:
 
 TEST_F(CloudApi, GetFillsRowsReturnedVector)
 {
-	Post(0, kScores, "alpha");
-	Post(1, kScores, "bravo");
-	Post(0, kNames, "zulu");
+	Post(0, Scores(), "alpha");
+	Post(1, Scores(), "bravo");
+	Post(0, Names(), "zulu");
 	Settle();
 
 	CloudQuery query;
-	query.keys = {kScores, kNames};
+	query.keys = {Scores(), Names()};
 	ASSERT_TRUE(cloudClients[0].Get(&query, server->GetMyGUID()));
 
 	CloudQueryResult result;
@@ -190,12 +198,12 @@ TEST_F(CloudApi, GetFillsRowsReturnedVector)
 
 TEST_F(CloudApi, GetForSpecificSystemsTakesAStdVector)
 {
-	Post(0, kScores, "alpha");
-	Post(1, kScores, "bravo");
+	Post(0, Scores(), "alpha");
+	Post(1, Scores(), "bravo");
 	Settle();
 
 	CloudQuery query;
-	query.keys.push_back(kScores);
+	query.keys.push_back(Scores());
 	std::vector<RakNetGUID> only{clients[1]->GetMyGUID()};
 	ASSERT_TRUE(cloudClients[0].Get(&query, only, server->GetMyGUID()));
 
@@ -224,18 +232,18 @@ TEST_F(CloudApi, ReleaseTakesAStdVectorAndAFilterMayShortenIt)
 	cloudServer.AddQueryFilter(&filter);
 	cloudServer.AddQueryFilter(&filter); // already added: ignored
 
-	Post(0, kScores, "alpha");
-	Post(0, kNames, "zulu");
+	Post(0, Scores(), "alpha");
+	Post(0, Names(), "zulu");
 	Settle();
 
-	std::vector<CloudKey> keys{kScores, kNames};
+	std::vector<CloudKey> keys{Scores(), Names()};
 	cloudClients[0].Release(keys, server->GetMyGUID());
 	Settle();
 	ASSERT_EQ(filter.releaseKeyCounts, (std::vector<size_t>{2}));
 
-	// The filter kept only kScores: kNames is still there.
+	// The filter kept only Scores(): Names() is still there.
 	CloudQuery query;
-	query.keys = {kScores, kNames};
+	query.keys = {Scores(), Names()};
 	ASSERT_TRUE(cloudClients[1].Get(&query, server->GetMyGUID()));
 	CloudQueryResult result;
 	ASSERT_TRUE(NextGetResponse(1, result));
@@ -255,7 +263,7 @@ TEST_F(CloudApi, RejectedGetGetsNoResponse)
 	cloudServer.AddQueryFilter(&filter);
 
 	CloudQuery query;
-	query.keys.push_back(kScores);
+	query.keys.push_back(Scores());
 	ASSERT_TRUE(cloudClients[0].Get(&query, server->GetMyGUID()));
 	Settle();
 	EXPECT_FALSE(net.Received(clients[0], ID_CLOUD_GET_RESPONSE));
@@ -268,32 +276,32 @@ TEST_F(CloudApi, UnsubscribeTakesStdVectors)
 	RecordingFilter filter;
 	cloudServer.AddQueryFilter(&filter);
 
-	// Client 0 subscribes to kScores from every uploader.
+	// Client 0 subscribes to Scores() from every uploader.
 	CloudQuery query;
-	query.keys.push_back(kScores);
+	query.keys.push_back(Scores());
 	query.subscribeToResults = true;
 	ASSERT_TRUE(cloudClients[0].Get(&query, server->GetMyGUID()));
 	CloudQueryResult result;
 	ASSERT_TRUE(NextGetResponse(0, result));
 	EXPECT_TRUE(result.rowsReturned.empty());
 
-	Post(1, kScores, "bravo");
+	Post(1, Scores(), "bravo");
 	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_CLOUD_SUBSCRIPTION_NOTIFICATION, 2000));
 	EXPECT_TRUE(ReceivedNotification(0));
 
 	// Unsubscribing a specific system from an all-systems subscription is refused...
-	std::vector<CloudKey> keys{kScores};
+	std::vector<CloudKey> keys{Scores()};
 	std::vector<RakNetGUID> systems{clients[1]->GetMyGUID()};
 	cloudClients[0].Unsubscribe(keys, systems, server->GetMyGUID());
 	Settle();
-	Post(1, kScores, "bravo2");
+	Post(1, Scores(), "bravo2");
 	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_CLOUD_SUBSCRIPTION_NOTIFICATION, 2000));
 	EXPECT_TRUE(ReceivedNotification(0));
 
 	// ...unsubscribing from the key ends it.
 	cloudClients[0].Unsubscribe(keys, server->GetMyGUID());
 	Settle();
-	Post(1, kScores, "bravo3");
+	Post(1, Scores(), "bravo3");
 	Settle();
 	EXPECT_FALSE(ReceivedNotification(0));
 	EXPECT_EQ(filter.unsubscribeCounts, (std::vector<size_t>{101, 100}));
@@ -306,16 +314,16 @@ TEST_F(CloudApi, SpecificSubscriptionEndsWhenUnsubscribedFromTheSystem)
 	RecordingFilter filter;
 	cloudServer.AddQueryFilter(&filter);
 
-	// Client 0 subscribes to kScores uploaded by client 1 only.
+	// Client 0 subscribes to Scores() uploaded by client 1 only.
 	CloudQuery query;
-	query.keys.push_back(kScores);
+	query.keys.push_back(Scores());
 	query.subscribeToResults = true;
 	std::vector<RakNetGUID> systems{clients[1]->GetMyGUID()};
 	ASSERT_TRUE(cloudClients[0].Get(&query, systems, server->GetMyGUID()));
 	CloudQueryResult result;
 	ASSERT_TRUE(NextGetResponse(0, result));
 
-	Post(1, kScores, "bravo");
+	Post(1, Scores(), "bravo");
 	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_CLOUD_SUBSCRIPTION_NOTIFICATION, 2000));
 	EXPECT_TRUE(ReceivedNotification(0));
 
@@ -324,7 +332,7 @@ TEST_F(CloudApi, SpecificSubscriptionEndsWhenUnsubscribedFromTheSystem)
 	CloudQueryRow row;
 	row.clientGUID = clients[1]->GetMyGUID();
 	std::vector<CloudQueryRow *> rows{&row};
-	std::vector<CloudKey> keys{kScores};
+	std::vector<CloudKey> keys{Scores()};
 	cloudClients[0].Unsubscribe(keys, rows, server->GetMyGUID());
 	Settle();
 	EXPECT_EQ(filter.unsubscribeCounts, (std::vector<size_t>{101}));
@@ -333,7 +341,7 @@ TEST_F(CloudApi, SpecificSubscriptionEndsWhenUnsubscribedFromTheSystem)
 	std::vector<RakNetGUID> specific{clients[1]->GetMyGUID()};
 	cloudClients[0].Unsubscribe(keys, specific, server->GetMyGUID());
 	Settle();
-	Post(1, kScores, "bravo2");
+	Post(1, Scores(), "bravo2");
 	Settle();
 	EXPECT_FALSE(ReceivedNotification(0));
 	EXPECT_EQ(filter.unsubscribeCounts, (std::vector<size_t>{101, 101}));
@@ -365,7 +373,7 @@ TEST(CloudApiServers, GetIsAnsweredAcrossServers)
 	net.RunUntil([]
 	             { return false; }, 300);
 
-	CloudKey key = kScores;
+	CloudKey key = Scores();
 	const std::string value = "remote";
 	cloudClientB.Post(&key, reinterpret_cast<const unsigned char *>(value.data()), static_cast<uint32_t>(value.size()), serverB->GetMyGUID());
 	net.RunUntil([]
@@ -374,7 +382,7 @@ TEST(CloudApiServers, GetIsAnsweredAcrossServers)
 	// Two requests in flight at once: each response must find its own request (well before the
 	// 3 s timeout that would also answer it, with only the local rows).
 	CloudQuery query;
-	query.keys.push_back(kScores);
+	query.keys.push_back(Scores());
 	ASSERT_TRUE(cloudClientA.Get(&query, serverA->GetMyGUID()));
 	ASSERT_TRUE(cloudClientA.Get(&query, serverA->GetMyGUID()));
 	ASSERT_TRUE(net.RunUntil([&]
@@ -430,29 +438,29 @@ TEST(CloudApiServers, OverLimitPostDoesNotCountAsAnUploader)
 		settle();
 	};
 
-	// 8 of the uploader's 10 bytes go to kScores before the servers meet, so server B learns
+	// 8 of the uploader's 10 bytes go to Scores() before the servers meet, so server B learns
 	// exactly which keys A holds (and asks A only for those).
-	post(kScores, "12345678");
+	post(Scores(), "12345678");
 	cloudA.AddServer(serverB->GetMyGUID());
 	cloudB.AddServer(serverA->GetMyGUID());
 	settle();
 
-	// kNames exists on A with a subscriber only.
+	// Names() exists on A with a subscriber only.
 	CloudQuery subscribe;
-	subscribe.keys.push_back(kNames);
+	subscribe.keys.push_back(Names());
 	subscribe.subscribeToResults = true;
 	ASSERT_TRUE(subscriber.Get(&subscribe, serverA->GetMyGUID()));
 	settle();
 
-	post(kNames, "abcde"); // 8 + 5 > 10: rejected, must leave no uploader behind
-	std::vector<CloudKey> release{kScores};
+	post(Names(), "abcde"); // 8 + 5 > 10: rejected, must leave no uploader behind
+	std::vector<CloudKey> release{Scores()};
 	uploader.Release(release, serverA->GetMyGUID());
 	settle();
-	post(kNames, "abcde"); // now within the limit: the first real upload of kNames
+	post(Names(), "abcde"); // now within the limit: the first real upload of Names()
 
-	// B forwards a Get for kNames to A only if A announced it as uploaded.
+	// B forwards a Get for Names() to A only if A announced it as uploaded.
 	CloudQuery query;
-	query.keys.push_back(kNames);
+	query.keys.push_back(Names());
 	ASSERT_TRUE(getter.Get(&query, serverB->GetMyGUID()));
 	ASSERT_TRUE(net.RunUntilReceived(getterPeer, ID_CLOUD_GET_RESPONSE, 2000));
 	SimulatedNetwork::Message message = *net.Find(getterPeer, ID_CLOUD_GET_RESPONSE);
@@ -524,7 +532,7 @@ struct CountingAllocator : CloudAllocator
 void WriteResponseHeader(BitStream &bs, uint32_t claimedRows)
 {
 	CloudQueryResult header;
-	header.cloudQuery.keys.push_back(kScores);
+	header.cloudQuery.keys.push_back(Scores());
 	header.subscribeToResults = false;
 	header.SerializeHeader(true, &bs);
 	header.SerializeNumRows(true, claimedRows, &bs);
@@ -532,7 +540,7 @@ void WriteResponseHeader(BitStream &bs, uint32_t claimedRows)
 
 void WriteRow(BitStream &bs, uint32_t claimedLength, const std::string &bytes)
 {
-	CloudKey key = kScores;
+	CloudKey key = Scores();
 	key.Serialize(true, &bs);
 	bs.Write(UNASSIGNED_SYSTEM_ADDRESS);
 	bs.Write(UNASSIGNED_SYSTEM_ADDRESS);

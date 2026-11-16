@@ -73,7 +73,9 @@ TEST(TcpOutgoingBuffer, PartialSendsDeliverEveryByteInOrder)
 		ASSERT_LE(offset, buffer.size());
 		ASSERT_LE(offset, buffer.size() - offset);
 		if (buffer.empty())
+		{
 			ASSERT_EQ(offset, 0u);
+		}
 		ASSERT_TRUE(std::equal(model.begin(), model.end(), buffer.begin() + static_cast<std::ptrdiff_t>(offset)));
 	}
 	EXPECT_EQ(sentBytes, modelSent);
