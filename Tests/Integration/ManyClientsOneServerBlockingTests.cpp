@@ -163,9 +163,9 @@ TEST_F(ManyClientsOneServerBlocking, ClientsSurviveRepeatedDisconnectReconnectCy
 		{
 
 			clientList[i]->GetSystemList(systemList, guidList); //Get connectionlist
-			int len = systemList.size();
+			const std::size_t len = systemList.size();
 
-			for (int j = 0; j < len; j++) //Disconnect them all
+			for (std::size_t j = 0; j < len; j++) //Disconnect them all
 			{
 
 				clientList[i]->CloseConnection(systemList[j], true, 0, MafiaNet::Priority::Low);
@@ -233,8 +233,8 @@ TEST_F(ManyClientsOneServerBlocking, ClientsSurviveRepeatedDisconnectReconnectCy
 	{
 
 		clientList[i]->GetSystemList(systemList, guidList);
-		int connNum = guidList.size(); //Get the number of connections for the current peer
+		const std::size_t connNum = guidList.size(); //Get the number of connections for the current peer
 		//Did we connect all?
-		ASSERT_EQ(connNum, 1) << "Peers did not connect normally. Not all clients reconnected normally. Failed on client number " << i;
+		ASSERT_EQ(connNum, 1u) << "Peers did not connect normally. Not all clients reconnected normally. Failed on client number " << i;
 	}
 }

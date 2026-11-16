@@ -98,10 +98,10 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 	printf("Test GetSystemList and NumberOfConnections\n");
 
 	client->GetSystemList(systemList, guidList); //Get connectionlist
-	int len = systemList.size();
-	int len2 = guidList.size();
+	const std::size_t len = systemList.size();
+	const std::size_t len2 = guidList.size();
 
-	int conNum = client->NumberOfConnections();
+	const std::size_t conNum = client->NumberOfConnections();
 
 	printf("Test if systemList size matches guidList size \n");
 
@@ -112,9 +112,9 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 	{
 		if (conNum == 1 || len == 1)
 		{
-			ASSERT_EQ(conNum, 1) << "NumberOfConnections problem (system list size is " << len << " and NumberOfConnections return is " << conNum << ")";
+			ASSERT_EQ(conNum, 1u) << "NumberOfConnections problem (system list size is " << len << " and NumberOfConnections return is " << conNum << ")";
 
-			ASSERT_EQ(len, 1) << "SystemList problem with GetSystemList (system list size is " << len << " and NumberOfConnections return is " << conNum << ")";
+			ASSERT_EQ(len, 1u) << "SystemList problem with GetSystemList (system list size is " << len << " and NumberOfConnections return is " << conNum << ")";
 		}
 		else
 		{
@@ -123,7 +123,7 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 	}
 	else
 	{
-		ASSERT_EQ(conNum, 1) << "Both SystemList and Number of connections have problems and report same results (system list size is " << len << " and NumberOfConnections return is " << conNum << ")";
+		ASSERT_EQ(conNum, 1u) << "Both SystemList and Number of connections have problems and report same results (system list size is " << len << " and NumberOfConnections return is " << conNum << ")";
 	}
 
 	printf("Test GetSystemListValues of the system and guid list\n");

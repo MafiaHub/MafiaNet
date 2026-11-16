@@ -227,7 +227,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 				continue;
 
 			clientList[i]->GetSystemList(systemList, guidList); //Get connectionlist
-			int len = systemList.size();
+			const std::size_t len = systemList.size();
 
 			if (len >= 1)
 			{
@@ -347,7 +347,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 			activeCount++;
 
 			clientList[i]->GetSystemList(systemList, guidList);
-			int connNum = guidList.size();
+			const std::size_t connNum = guidList.size();
 			if (connNum == 1)
 				connectedCount++;
 		}

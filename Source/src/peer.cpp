@@ -3412,7 +3412,7 @@ unsigned int RakPeer::GetReceiveBufferSize(void)
 {
 	unsigned int size;
 	packetReturnMutex.Lock();
-	size = packetReturnQueue.size();
+	size = static_cast<unsigned int>(packetReturnQueue.size()); // the interface returns unsigned int; the queue never nears 2^32 packets
 	packetReturnMutex.Unlock();
 	return size;
 }
