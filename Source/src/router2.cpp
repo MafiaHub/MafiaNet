@@ -28,6 +28,7 @@
 #include "mafianet/sockaddr_convert.h"
 
 #include <algorithm>
+#include <cstdint>
 
 using namespace MafiaNet;
 
@@ -707,8 +708,10 @@ void Router2::RemoveConnectionRequest(unsigned int connectionRequestIndex)
 // Forwarding preference: lowest ping weighted by the forwarding entries already in use, then lowest guid.
 static bool ConnectionRequestSystemLess(const Router2::ConnectionRequestSystem &a, const Router2::ConnectionRequestSystem &b)
 {
-	const int weightA = a.pingToEndpoint * (a.usedForwardingEntries + 1);
-	const int weightB = b.pingToEndpoint * (b.usedForwardingEntries + 1);
+	// In 64 bits: both factors come from a relay's reply (16-bit ping and entry count) and their
+	// product overflows int.
+	const int64_t weightA = static_cast<int64_t>(a.pingToEndpoint) * (static_cast<int64_t>(a.usedForwardingEntries) + 1);
+	const int64_t weightB = static_cast<int64_t>(b.pingToEndpoint) * (static_cast<int64_t>(b.usedForwardingEntries) + 1);
 	if (weightA != weightB)
 		return weightA < weightB;
 	return a.guid < b.guid;
