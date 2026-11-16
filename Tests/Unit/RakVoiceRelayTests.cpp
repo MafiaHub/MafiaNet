@@ -234,7 +234,7 @@ public:
 	using RakVoice::SettleHeldFrames;
 	unsigned OpenChannelCount() const
 	{
-		return voiceChannels.Size();
+		return (unsigned) voiceChannels.size();
 	}
 };
 } // namespace

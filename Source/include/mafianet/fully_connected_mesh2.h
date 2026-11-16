@@ -28,9 +28,10 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/string.h"
 #include "mafianet/bit_stream.h"
+
+#include <vector>
 
 typedef int64_t FCM2Guid;
 
@@ -77,7 +78,7 @@ public:
 
 	/// Get the list of connected systems, from oldest connected to newest
 	/// This is also the order that the hosts will be chosen in
-	void GetHostOrder(DataStructures::List<RakNetGUID> &hostList);
+	void GetHostOrder(std::vector<RakNetGUID> &hostList);
 
 	/// \param[in] includeCalculating If true, and we are currently calculating a new host, return the new host if the calculation is nearly complete
 	/// \return If our system is host
@@ -103,7 +104,7 @@ public:
 
 	/// Get the participants added with AddParticipant()
 	/// \param[out] participantList Participants added with AddParticipant();
-	void GetParticipantList(DataStructures::List<RakNetGUID> &participantList);
+	void GetParticipantList(std::vector<RakNetGUID> &participantList);
 
 	/// \brief Returns if a participant is in the participant list
 	/// \param[in] RakNetGUID of the participant to query
@@ -171,10 +172,11 @@ public:
 
 	/// \brief On ID_FCM2_VERIFIED_JOIN_START, read the SystemAddress and RakNetGUID values of each system to connect to
 	/// \code
-	/// DataStructures::List<SystemAddress> addresses;
-	/// DataStructures::List<RakNetGUID> guids;
-	/// fullyConnectedMesh->GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids);
-	/// for (unsigned int i=0; i < addresses.Size(); i++)
+	/// std::vector<SystemAddress> addresses;
+	/// std::vector<RakNetGUID> guids;
+	/// std::vector<BitStream *> userData;
+	/// fullyConnectedMesh->GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
+	/// for (size_t i=0; i < addresses.size(); i++)
 	///		rakPeer[i]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
 	/// \endcode
 	/// \param[in] host Which system sent ID_FCM2_VERIFIED_JOIN_START
@@ -182,14 +184,14 @@ public:
 	/// \param[out] guids RakNetGUID values of systems to connect to. List has the same number and order as \a guids
 	/// \param[out] userData What was written with WriteVJSUserData
 	virtual void GetVerifiedJoinRequiredProcessingList(RakNetGUID host,
-	                                                   DataStructures::List<SystemAddress> &addresses,
-	                                                   DataStructures::List<RakNetGUID> &guids,
-	                                                   DataStructures::List<BitStream *> &userData);
+	                                                   std::vector<SystemAddress> &addresses,
+	                                                   std::vector<RakNetGUID> &guids,
+	                                                   std::vector<BitStream *> &userData);
 
 	/// \brief On ID_FCM2_VERIFIED_JOIN_ACCEPTED, read additional data passed to RespondOnVerifiedJoinCapable()
 	/// \code
 	/// bool thisSystemAccepted;
-	/// DataStructures::List<RakNetGUID> systemsAccepted;
+	/// std::vector<RakNetGUID> systemsAccepted;
 	/// MafiaNet::BitStream additionalData;
 	/// fullyConnectedMesh->GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, &additionalData);
 	/// \endcode
@@ -197,7 +199,7 @@ public:
 	/// \param[out] thisSystemAccepted If true, it was this instance of RakPeerInterface that was accepted. If false, this is notification for another system
 	/// \param[out] systemsAccepted Which system(s) were added with AddParticipant(). If \a thisSystemAccepted is false, this list will only have length 1
 	/// \param[out] additionalData \a additionalData parameter passed to RespondOnVerifiedJoinCapable()
-	virtual void GetVerifiedJoinAcceptedAdditionalData(Packet *packet, bool *thisSystemAccepted, DataStructures::List<RakNetGUID> &systemsAccepted, BitStream *additionalData);
+	virtual void GetVerifiedJoinAcceptedAdditionalData(Packet *packet, bool *thisSystemAccepted, std::vector<RakNetGUID> &systemsAccepted, BitStream *additionalData);
 
 	/// \brief On ID_FCM2_VERIFIED_JOIN_REJECTED, read additional data passed to RespondOnVerifiedJoinCapable()
 	/// \details This does not automatically close the connection. The following code will do so:
@@ -284,7 +286,7 @@ public:
 	struct VerifiedJoinInProgress
 	{
 		RakNetGUID requester;
-		DataStructures::List<VerifiedJoinInProgressMember> vjipMembers;
+		std::vector<VerifiedJoinInProgressMember> vjipMembers;
 		//bool sentResults;
 	};
 
@@ -321,11 +323,11 @@ protected:
 	void DecomposeJoinCapable(Packet *packet, VerifiedJoinInProgress *vjip);
 	void WriteVerifiedJoinCapable(MafiaNet::BitStream *bsOut, VerifiedJoinInProgress *vjip);
 	void CategorizeVJIP(VerifiedJoinInProgress *vjip,
-	                    DataStructures::List<RakNetGUID> &participatingMembersOnClientSucceeded,
-	                    DataStructures::List<RakNetGUID> &participatingMembersOnClientFailed,
-	                    DataStructures::List<RakNetGUID> &participatingMembersNotOnClient,
-	                    DataStructures::List<RakNetGUID> &clientMembersNotParticipatingSucceeded,
-	                    DataStructures::List<RakNetGUID> &clientMembersNotParticipatingFailed);
+	                    std::vector<RakNetGUID> &participatingMembersOnClientSucceeded,
+	                    std::vector<RakNetGUID> &participatingMembersOnClientFailed,
+	                    std::vector<RakNetGUID> &participatingMembersNotOnClient,
+	                    std::vector<RakNetGUID> &clientMembersNotParticipatingSucceeded,
+	                    std::vector<RakNetGUID> &clientMembersNotParticipatingFailed);
 
 	// Used to track how long RakNet has been running. This is so we know who has been running longest
 	MafiaNet::TimeUS startupTime;
@@ -342,7 +344,7 @@ protected:
 	FCM2Guid ourFCMGuid;
 
 	/// List of systems we know the FCM2Guid for
-	DataStructures::List<FCM2Participant *> fcm2ParticipantList;
+	std::vector<FCM2Participant *> fcm2ParticipantList;
 
 	RakNetGUID lastPushedHost;
 
@@ -353,7 +355,7 @@ protected:
 	MafiaNet::RakString connectionPassword;
 	bool connectOnNewRemoteConnections;
 
-	DataStructures::List<VerifiedJoinInProgress *> joinsInProgress;
+	std::vector<VerifiedJoinInProgress *> joinsInProgress;
 	BitStream myContext;
 };
 

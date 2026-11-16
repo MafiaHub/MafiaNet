@@ -89,11 +89,11 @@ int main()
 				case ID_FCM2_VERIFIED_JOIN_START:
 				{
 					printf("%s: Got ID_FCM2_VERIFIED_JOIN_START from %s. address=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
-					DataStructures::List<SystemAddress> addresses;
-					DataStructures::List<RakNetGUID> guids;
-					DataStructures::List<BitStream *> userData;
+					std::vector<SystemAddress> addresses;
+					std::vector<RakNetGUID> guids;
+					std::vector<BitStream *> userData;
 					fcm2[peerIndex].GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
-					for (unsigned int i = 0; i < guids.Size(); i++)
+					for (unsigned int i = 0; i < guids.size(); i++)
 					{
 						printf("%s:", MafiaNet::to_string(guids[i]).c_str());
 						ConnectionAttemptResult car = rakPeer[peerIndex]->Connect(addresses[i].ToString(false), addresses[i].GetPort(), 0, 0);
@@ -141,13 +141,13 @@ int main()
 				case ID_FCM2_VERIFIED_JOIN_ACCEPTED:
 				{
 					bool thisSystemAccepted;
-					DataStructures::List<RakNetGUID> systemsAccepted;
+					std::vector<RakNetGUID> systemsAccepted;
 					MafiaNet::BitStream additionalData;
 					fcm2[peerIndex].GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, &additionalData);
 					if (thisSystemAccepted)
 					{
 						printf("%s: ID_FCM2_VERIFIED_JOIN_ACCEPTED from %s. systemsAccepted=", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
-						for (unsigned int i = 0; i < systemsAccepted.Size(); i++)
+						for (unsigned int i = 0; i < systemsAccepted.size(); i++)
 							printf("%s ", MafiaNet::to_string(systemsAccepted[i]).c_str());
 						printf("\n");
 					}

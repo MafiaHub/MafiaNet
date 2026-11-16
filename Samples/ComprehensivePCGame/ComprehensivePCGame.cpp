@@ -1217,9 +1217,9 @@ int main(void)
 				if (oldHost == UNASSIGNED_RAKNET_GUID)
 				{
 					// First time calculated host. Add existing connections to ReplicaManager3
-					DataStructures::List<RakNetGUID> participantList;
+					std::vector<RakNetGUID> participantList;
 					fullyConnectedMesh2->GetParticipantList(participantList);
-					for (unsigned int i = 0; i < participantList.Size(); i++)
+					for (unsigned int i = 0; i < participantList.size(); i++)
 						RegisterGameParticipant(participantList[i]);
 
 					// Reference previously created replicated objects, which cannot be serialized until host is known the first time
@@ -1371,11 +1371,11 @@ int main(void)
 				// This message means the session host sent us a list of systems in the session
 				// Once we connect to, or fail to connect to, each of these systems we will get ID_FCM2_VERIFIED_JOIN_FAILED, ID_FCM2_VERIFIED_JOIN_ACCEPTED, or ID_FCM2_VERIFIED_JOIN_REJECTED
 				printf("Host sent us system list. Doing NAT punch to each system...\n");
-				DataStructures::List<SystemAddress> addresses;
-				DataStructures::List<RakNetGUID> guids;
-				DataStructures::List<BitStream *> userData;
+				std::vector<SystemAddress> addresses;
+				std::vector<RakNetGUID> guids;
+				std::vector<BitStream *> userData;
 				fullyConnectedMesh2->GetVerifiedJoinRequiredProcessingList(packet->guid, addresses, guids, userData);
-				for (unsigned int i = 0; i < guids.Size(); i++)
+				for (unsigned int i = 0; i < guids.size(); i++)
 					natPunchthroughClient->OpenNAT(guids[i], game->natPunchServerAddress);
 			}
 			break;
@@ -1394,7 +1394,7 @@ int main(void)
 
 			case ID_FCM2_VERIFIED_JOIN_ACCEPTED:
 			{
-				DataStructures::List<RakNetGUID> systemsAccepted;
+				std::vector<RakNetGUID> systemsAccepted;
 				bool thisSystemAccepted;
 				fullyConnectedMesh2->GetVerifiedJoinAcceptedAdditionalData(packet, &thisSystemAccepted, systemsAccepted, 0);
 				if (thisSystemAccepted)
@@ -1408,7 +1408,7 @@ int main(void)
 				{
 					// FullyConnectedMesh2 already called AddParticipant() for each accepted system
 					// Still need to add those systems to the other plugins though
-					for (unsigned int i = 0; i < systemsAccepted.Size(); i++)
+					for (unsigned int i = 0; i < systemsAccepted.size(); i++)
 						RegisterGameParticipant(systemsAccepted[i]);
 
 					if (thisSystemAccepted)
@@ -1615,10 +1615,10 @@ int main(void)
 				{
 					if (ch == 'c' || ch == 'C')
 					{
-						DataStructures::List<RakNetGUID> participantList;
+						std::vector<RakNetGUID> participantList;
 						fullyConnectedMesh2->GetParticipantList(participantList);
 
-						if (participantList.Size() > 0)
+						if (participantList.size() > 0)
 						{
 							printf("Enter in-game chat message: ");
 							char str[256];
@@ -1628,7 +1628,7 @@ int main(void)
 							rs = str;
 							BitStream bsOut;
 							bsOut.Write(rs);
-							for (unsigned int i = 0; i < participantList.Size(); i++)
+							for (unsigned int i = 0; i < participantList.size(); i++)
 								rpc4->Signal("InGameChat", &bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, participantList[i], false, false);
 						}
 					}
@@ -1690,9 +1690,9 @@ int main(void)
 				else if (ch == 'e' || ch == 'E')
 				{
 					// Disconnect from FullyConnectedMesh2 participants
-					DataStructures::List<RakNetGUID> participantList;
+					std::vector<RakNetGUID> participantList;
 					fullyConnectedMesh2->GetParticipantList(participantList);
-					for (unsigned int i = 0; i < participantList.Size(); i++)
+					for (unsigned int i = 0; i < participantList.size(); i++)
 						rakPeer->CloseConnection(participantList[i], true);
 
 					// User instances are deleted automatically from ReplicaManager3.

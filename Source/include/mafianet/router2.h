@@ -30,8 +30,9 @@
 #include "mafianet/export.h"
 #include "mafianet/udp_forwarder.h"
 #include "mafianet/message_identifiers.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/simple_mutex.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -127,7 +128,7 @@ public:
 		ConnnectRequest();
 		~ConnnectRequest();
 
-		DataStructures::List<ConnectionRequestSystem> connectionRequestSystems;
+		std::vector<ConnectionRequestSystem> connectionRequestSystems;
 		SimpleMutex connectionRequestSystemsMutex;
 		Router2RequestStates requestState;
 		MafiaNet::TimeMS pingTimeout;
@@ -180,10 +181,10 @@ protected:
 	UDPForwarder *udpForwarder;
 	int maximumForwardingRequests;
 	SimpleMutex connectionRequestsMutex, miniPunchesInProgressMutex, forwardedConnectionListMutex;
-	DataStructures::List<ConnnectRequest *> connectionRequests;
-	DataStructures::List<MiniPunchRequest> miniPunchesInProgress;
+	std::vector<ConnnectRequest *> connectionRequests;
+	std::vector<MiniPunchRequest> miniPunchesInProgress;
 	// Forwarding we have initiated
-	DataStructures::List<ForwardedConnection> forwardedConnectionList;
+	std::vector<ForwardedConnection> forwardedConnectionList;
 
 	void ClearConnectionRequests(void);
 	void ClearMinipunches(void);

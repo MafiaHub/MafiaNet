@@ -22,6 +22,8 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/assert.h"
 
+#include <algorithm>
+
 using namespace MafiaNet;
 
 int MafiaNet::ReadyEvent::RemoteSystemCompByGuid(const RakNetGUID &key, const RemoteSystem &data)
@@ -46,6 +48,30 @@ int MafiaNet::ReadyEvent::ReadyEventNodeComp(const int &key, ReadyEvent::ReadyEv
 
 STATIC_FACTORY_DEFINITIONS(ReadyEvent, ReadyEvent);
 
+namespace
+{
+// Index of key in a vector sorted by the 3-way comparator cmp, or the index it would be
+// inserted at; *objectExists says which.
+template <class D, class K>
+unsigned SortedIndex(const std::vector<D> &list, const K &key, int (*cmp)(const K &, const D &), bool *objectExists)
+{
+	const auto it = std::lower_bound(list.begin(), list.end(), key, [cmp](const D &data, const K &k)
+	                                 { return cmp(k, data) > 0; });
+	*objectExists = it != list.end() && cmp(key, *it) == 0;
+	return (unsigned) (it - list.begin());
+}
+} // namespace
+
+unsigned ReadyEvent::FindEventIndex(int eventId, bool *objectExists) const
+{
+	return SortedIndex(readyEventNodeList, eventId, &ReadyEventNodeComp, objectExists);
+}
+
+unsigned ReadyEvent::FindSystemIndex(const std::vector<RemoteSystem> &systemList, RakNetGUID guid, bool *objectExists)
+{
+	return SortedIndex(systemList, guid, &RemoteSystemCompByGuid, objectExists);
+}
+
 ReadyEvent::ReadyEvent()
 {
 	channel = 0;
@@ -60,7 +86,7 @@ ReadyEvent::~ReadyEvent()
 bool ReadyEvent::SetEvent(int eventId, bool isReady)
 {
 	bool objectExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned eventIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists == false)
 	{
 		// Totally new event
@@ -75,12 +101,12 @@ bool ReadyEvent::SetEvent(int eventId, bool isReady)
 void ReadyEvent::ForceCompletion(int eventId)
 {
 	bool objectExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned eventIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists == false)
 	{
 		// Totally new event
 		CreateNewEvent(eventId, true);
-		eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+		eventIndex = FindEventIndex(eventId, &objectExists);
 	}
 
 	ReadyEventNode *ren = readyEventNodeList[eventIndex];
@@ -90,11 +116,11 @@ void ReadyEvent::ForceCompletion(int eventId)
 bool ReadyEvent::DeleteEvent(int eventId)
 {
 	bool objectExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned eventIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		delete readyEventNodeList[eventIndex];
-		readyEventNodeList.RemoveAtIndex(eventIndex);
+		readyEventNodeList.erase(readyEventNodeList.begin() + eventIndex);
 		return true;
 	}
 	return false;
@@ -102,7 +128,7 @@ bool ReadyEvent::DeleteEvent(int eventId)
 bool ReadyEvent::IsEventSet(int eventId)
 {
 	bool objectExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned eventIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		return readyEventNodeList[eventIndex]->eventStatus == ID_READY_EVENT_SET || readyEventNodeList[eventIndex]->eventStatus == ID_READY_EVENT_ALL_SET;
@@ -112,7 +138,7 @@ bool ReadyEvent::IsEventSet(int eventId)
 bool ReadyEvent::IsEventCompletionProcessing(int eventId) const
 {
 	bool objectExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned eventIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		bool anyAllReady = false;
@@ -120,7 +146,7 @@ bool ReadyEvent::IsEventCompletionProcessing(int eventId) const
 		ReadyEventNode *ren = readyEventNodeList[eventIndex];
 		if (ren->eventStatus == ID_READY_EVENT_FORCE_ALL_SET)
 			return false;
-		for (unsigned i = 0; i < ren->systemList.Size(); i++)
+		for (unsigned i = 0; i < ren->systemList.size(); i++)
 		{
 			if (ren->systemList[i].lastReceivedStatus == ID_READY_EVENT_ALL_SET)
 				anyAllReady = true;
@@ -134,7 +160,7 @@ bool ReadyEvent::IsEventCompletionProcessing(int eventId) const
 bool ReadyEvent::IsEventCompleted(int eventId) const
 {
 	bool objectExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned eventIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		return IsEventCompletedByIndex(eventIndex);
@@ -144,12 +170,14 @@ bool ReadyEvent::IsEventCompleted(int eventId) const
 
 bool ReadyEvent::HasEvent(int eventId)
 {
-	return readyEventNodeList.HasData(eventId);
+	bool objectExists;
+	FindEventIndex(eventId, &objectExists);
+	return objectExists;
 }
 
 unsigned ReadyEvent::GetEventListSize(void) const
 {
-	return readyEventNodeList.Size();
+	return (unsigned) readyEventNodeList.size();
 }
 
 int ReadyEvent::GetEventAtIndex(unsigned index) const
@@ -160,7 +188,7 @@ int ReadyEvent::GetEventAtIndex(unsigned index) const
 bool ReadyEvent::AddToWaitList(int eventId, RakNetGUID guid)
 {
 	bool eventExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &eventExists);
+	unsigned eventIndex = FindEventIndex(eventId, &eventExists);
 	if (eventExists == false)
 		eventIndex = CreateNewEvent(eventId, false);
 
@@ -193,23 +221,23 @@ bool ReadyEvent::AddToWaitList(int eventId, RakNetGUID guid)
 bool ReadyEvent::RemoveFromWaitList(int eventId, RakNetGUID guid)
 {
 	bool eventExists;
-	unsigned eventIndex = readyEventNodeList.GetIndexFromKey(eventId, &eventExists);
+	unsigned eventIndex = FindEventIndex(eventId, &eventExists);
 	if (eventExists)
 	{
 		if (guid == UNASSIGNED_RAKNET_GUID)
 		{
 			// Remove all waiters
-			readyEventNodeList[eventIndex]->systemList.Clear(false, _FILE_AND_LINE_);
+			readyEventNodeList[eventIndex]->systemList.clear();
 			UpdateReadyStatus(eventIndex);
 		}
 		else
 		{
 			bool systemExists;
-			unsigned systemIndex = readyEventNodeList[eventIndex]->systemList.GetIndexFromKey(guid, &systemExists);
+			unsigned systemIndex = FindSystemIndex(readyEventNodeList[eventIndex]->systemList, guid, &systemExists);
 			if (systemExists)
 			{
 				bool isCompleted = IsEventCompletedByIndex(eventIndex);
-				readyEventNodeList[eventIndex]->systemList.RemoveAtIndex(systemIndex);
+				readyEventNodeList[eventIndex]->systemList.erase(readyEventNodeList[eventIndex]->systemList.begin() + systemIndex);
 
 				if (isCompleted == false && IsEventCompletedByIndex(eventIndex))
 					PushCompletionPacket(readyEventNodeList[eventIndex]->eventId);
@@ -226,10 +254,12 @@ bool ReadyEvent::RemoveFromWaitList(int eventId, RakNetGUID guid)
 bool ReadyEvent::IsInWaitList(int eventId, RakNetGUID guid)
 {
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
-		return readyEventNodeList[readyIndex]->systemList.HasData(guid);
+		bool systemExists;
+		FindSystemIndex(readyEventNodeList[readyIndex]->systemList, guid, &systemExists);
+		return systemExists;
 	}
 	return false;
 }
@@ -237,10 +267,10 @@ bool ReadyEvent::IsInWaitList(int eventId, RakNetGUID guid)
 unsigned ReadyEvent::GetRemoteWaitListSize(int eventId) const
 {
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
-		return readyEventNodeList[readyIndex]->systemList.Size();
+		return (unsigned) readyEventNodeList[readyIndex]->systemList.size();
 	}
 	return 0;
 }
@@ -248,7 +278,7 @@ unsigned ReadyEvent::GetRemoteWaitListSize(int eventId) const
 RakNetGUID ReadyEvent::GetFromWaitListAtIndex(int eventId, unsigned index) const
 {
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		return readyEventNodeList[readyIndex]->systemList[index].rakNetGuid;
@@ -258,11 +288,11 @@ RakNetGUID ReadyEvent::GetFromWaitListAtIndex(int eventId, unsigned index) const
 ReadyEventSystemStatus ReadyEvent::GetReadyStatus(int eventId, RakNetGUID guid)
 {
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		ReadyEventNode *ren = readyEventNodeList[readyIndex];
-		unsigned systemIndex = ren->systemList.GetIndexFromKey(guid, &objectExists);
+		unsigned systemIndex = FindSystemIndex(ren->systemList, guid, &objectExists);
 		if (objectExists == false)
 			return RES_NOT_WAITING;
 		if (ren->systemList[systemIndex].lastReceivedStatus == ID_READY_EVENT_SET)
@@ -309,14 +339,14 @@ bool ReadyEvent::AddToWaitListInternal(unsigned eventIndex, RakNetGUID guid)
 {
 	ReadyEventNode *ren = readyEventNodeList[eventIndex];
 	bool objectExists;
-	unsigned systemIndex = ren->systemList.GetIndexFromKey(guid, &objectExists);
+	unsigned systemIndex = FindSystemIndex(ren->systemList, guid, &objectExists);
 	if (objectExists == false)
 	{
 		RemoteSystem rs;
 		rs.lastReceivedStatus = ID_READY_EVENT_UNSET;
 		rs.lastSentStatus = ID_READY_EVENT_UNSET;
 		rs.rakNetGuid = guid;
-		ren->systemList.InsertAtIndex(rs, systemIndex, _FILE_AND_LINE_);
+		ren->systemList.insert(ren->systemList.begin() + systemIndex, rs);
 
 		SendReadyStateQuery(ren->eventId, guid);
 		return true;
@@ -330,7 +360,7 @@ void ReadyEvent::OnReadyEventForceAllSet(Packet *packet)
 	int eventId;
 	incomingBitStream.Read(eventId);
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		ReadyEventNode *ren = readyEventNodeList[readyIndex];
@@ -348,12 +378,12 @@ void ReadyEvent::OnReadyEventPacketUpdate(Packet *packet)
 	int eventId;
 	incomingBitStream.Read(eventId);
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
 		ReadyEventNode *ren = readyEventNodeList[readyIndex];
 		bool systemExists;
-		unsigned systemIndex = ren->systemList.GetIndexFromKey(packet->guid, &systemExists);
+		unsigned systemIndex = FindSystemIndex(ren->systemList, packet->guid, &systemExists);
 		if (systemExists)
 		{
 			// Just return if no change
@@ -378,10 +408,10 @@ void ReadyEvent::OnReadyEventQuery(Packet *packet)
 	int eventId;
 	incomingBitStream.Read(eventId);
 	bool objectExists;
-	unsigned readyIndex = readyEventNodeList.GetIndexFromKey(eventId, &objectExists);
+	unsigned readyIndex = FindEventIndex(eventId, &objectExists);
 	if (objectExists)
 	{
-		unsigned systemIndex = readyEventNodeList[readyIndex]->systemList.GetIndexFromKey(packet->guid, &objectExists);
+		unsigned systemIndex = FindSystemIndex(readyEventNodeList[readyIndex]->systemList, packet->guid, &objectExists);
 		// Force the non-default send, because our initial send may have arrived at a system that didn't yet create the ready event
 		if (objectExists)
 			SendReadyUpdate(readyIndex, systemIndex, true);
@@ -434,7 +464,7 @@ bool ReadyEvent::IsEventCompletedByIndex(unsigned eventIndex) const
 		return true;
 	if (ren->eventStatus != ID_READY_EVENT_ALL_SET)
 		return false;
-	for (i = 0; i < ren->systemList.Size(); i++)
+	for (i = 0; i < ren->systemList.size(); i++)
 		if (ren->systemList[i].lastReceivedStatus != ID_READY_EVENT_ALL_SET)
 			return false;
 	return true;
@@ -443,11 +473,11 @@ bool ReadyEvent::IsEventCompletedByIndex(unsigned eventIndex) const
 void ReadyEvent::Clear(void)
 {
 	unsigned i;
-	for (i = 0; i < readyEventNodeList.Size(); i++)
+	for (i = 0; i < readyEventNodeList.size(); i++)
 	{
 		delete readyEventNodeList[i];
 	}
-	readyEventNodeList.Clear(false, _FILE_AND_LINE_);
+	readyEventNodeList.clear();
 }
 
 unsigned ReadyEvent::CreateNewEvent(int eventId, bool isReady)
@@ -458,7 +488,12 @@ unsigned ReadyEvent::CreateNewEvent(int eventId, bool isReady)
 		ren->eventStatus = ID_READY_EVENT_UNSET;
 	else
 		ren->eventStatus = ID_READY_EVENT_SET;
-	return readyEventNodeList.Insert(eventId, ren, true, _FILE_AND_LINE_);
+	bool objectExists;
+	const unsigned eventIndex = FindEventIndex(eventId, &objectExists);
+	// Every caller checks the event does not exist yet.
+	RakAssert(objectExists == false);
+	readyEventNodeList.insert(readyEventNodeList.begin() + eventIndex, ren);
+	return eventIndex;
 }
 void ReadyEvent::UpdateReadyStatus(unsigned eventIndex)
 {
@@ -469,7 +504,7 @@ void ReadyEvent::UpdateReadyStatus(unsigned eventIndex)
 	{
 		// If you are set, and no other systems are ID_READY_EVENT_UNSET, then change your status to ID_READY_EVENT_ALL_SET
 		anyUnset = false;
-		for (i = 0; i < ren->systemList.Size(); i++)
+		for (i = 0; i < ren->systemList.size(); i++)
 		{
 			if (ren->systemList[i].lastReceivedStatus == ID_READY_EVENT_UNSET)
 			{
@@ -486,7 +521,7 @@ void ReadyEvent::UpdateReadyStatus(unsigned eventIndex)
 	{
 		// If you are all set, and any systems are ID_READY_EVENT_UNSET, then change your status to ID_READY_EVENT_SET
 		anyUnset = false;
-		for (i = 0; i < ren->systemList.Size(); i++)
+		for (i = 0; i < ren->systemList.size(); i++)
 		{
 			if (ren->systemList[i].lastReceivedStatus == ID_READY_EVENT_UNSET)
 			{
@@ -520,7 +555,7 @@ void ReadyEvent::BroadcastReadyUpdate(unsigned eventIndex, bool forceIfNotDefaul
 {
 	ReadyEventNode *ren = readyEventNodeList[eventIndex];
 	unsigned systemIndex;
-	for (systemIndex = 0; systemIndex < ren->systemList.Size(); systemIndex++)
+	for (systemIndex = 0; systemIndex < ren->systemList.size(); systemIndex++)
 	{
 		SendReadyUpdate(eventIndex, systemIndex, forceIfNotDefault);
 	}
@@ -535,15 +570,15 @@ void ReadyEvent::SendReadyStateQuery(unsigned eventId, RakNetGUID guid)
 void ReadyEvent::RemoveFromAllLists(RakNetGUID guid)
 {
 	unsigned eventIndex;
-	for (eventIndex = 0; eventIndex < readyEventNodeList.Size(); eventIndex++)
+	for (eventIndex = 0; eventIndex < readyEventNodeList.size(); eventIndex++)
 	{
 		bool isCompleted = IsEventCompletedByIndex(eventIndex);
 		bool systemExists;
 		unsigned systemIndex;
 
-		systemIndex = readyEventNodeList[eventIndex]->systemList.GetIndexFromKey(guid, &systemExists);
+		systemIndex = FindSystemIndex(readyEventNodeList[eventIndex]->systemList, guid, &systemExists);
 		if (systemExists)
-			readyEventNodeList[eventIndex]->systemList.RemoveAtIndex(systemIndex);
+			readyEventNodeList[eventIndex]->systemList.erase(readyEventNodeList[eventIndex]->systemList.begin() + systemIndex);
 
 		UpdateReadyStatus(eventIndex);
 

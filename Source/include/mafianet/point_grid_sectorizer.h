@@ -22,7 +22,7 @@
 #define MAFIANET_POINT_GRID_SECTORIZER_H
 
 #include "mafianet/export.h"
-#include "mafianet/ds_list.h"
+#include <vector>
 
 namespace MafiaNet
 {
@@ -80,7 +80,7 @@ public:
 	/// Resets \a intersectionList (size 0, capacity kept for reuse) and fills
 	/// it with every entry in the cells overlapping the rectangle, each exactly
 	/// once. O(cells overlapped + entries returned).
-	void GetEntries(DataStructures::List<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const;
+	void GetEntries(std::vector<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const;
 
 	/// Returns whether the entry is currently in the grid. O(1).
 	bool HasEntry(void *entry) const;
@@ -120,7 +120,7 @@ protected:
 
 	/// Per-cell unordered entry lists; removal swaps the last element into the
 	/// freed slot, so order within a cell is not meaningful.
-	DataStructures::List<void *> *grid;
+	std::vector<void *> *grid;
 
 	/// Open-addressing record table (linear probing, backward-shift deletion).
 	/// Power-of-two capacity, grown with the entry count, never shrunk.

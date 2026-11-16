@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <vector>
@@ -385,12 +386,9 @@ namespace
 {
 bool HasSpeaker(RakVoice &voice, RakNetGUID who)
 {
-	DataStructures::List<RakNetGUID> speakers;
+	std::vector<RakNetGUID> speakers;
 	voice.GetActiveSpeakers(speakers);
-	for (unsigned i = 0; i < speakers.Size(); ++i)
-		if (speakers[i] == who)
-			return true;
-	return false;
+	return std::find(speakers.begin(), speakers.end(), who) != speakers.end();
 }
 }
 

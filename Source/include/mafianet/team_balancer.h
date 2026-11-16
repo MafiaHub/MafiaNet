@@ -29,8 +29,9 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/string.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -169,17 +170,17 @@ protected:
 	bool forceTeamsToBeEven;
 	bool lockTeams;
 	// So if we lose the connection while processing, we request the same info of the new host
-	DataStructures::List<MyTeamMembers> myTeamMembers;
+	std::vector<MyTeamMembers> myTeamMembers;
 
-	DataStructures::List<unsigned short> teamLimits;
-	DataStructures::List<unsigned short> teamMemberCounts;
-	DataStructures::List<TeamMember> teamMembers;
+	std::vector<unsigned short> teamLimits;
+	std::vector<unsigned short> teamMemberCounts;
+	std::vector<TeamMember> teamMembers;
 	unsigned int GetMemberIndex(NetworkID memberId, RakNetGUID guid) const;
 	unsigned int AddTeamMember(const TeamMember &tm); // Returns index of new member
 	void RemoveTeamMember(unsigned int index);
 	void EvenTeams(void);
-	unsigned int GetMemberIndexToSwitchTeams(const DataStructures::List<TeamId> &sourceTeamNumbers, TeamId targetTeamNumber);
-	void GetOverpopulatedTeams(DataStructures::List<TeamId> &overpopulatedTeams, int maxTeamSize);
+	unsigned int GetMemberIndexToSwitchTeams(const std::vector<TeamId> &sourceTeamNumbers, TeamId targetTeamNumber);
+	void GetOverpopulatedTeams(std::vector<TeamId> &overpopulatedTeams, int maxTeamSize);
 	void SwitchMemberTeam(unsigned int teamMemberIndex, TeamId destinationTeam);
 	void NotifyTeamAssigment(unsigned int teamMemberIndex);
 	bool WeAreHost(void) const;

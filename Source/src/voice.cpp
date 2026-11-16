@@ -15,6 +15,7 @@
  */
 
 #include "mafianet/voice.h"
+#include <algorithm>
 #include <cstdlib>
 #include <opus.h>
 #include <rnnoise.h>
@@ -47,6 +48,22 @@ int MafiaNet::VoiceChannelComp(const RakNetGUID &key, VoiceChannel *const &data)
 	if (key == data->guid)
 		return 0;
 	return 1;
+}
+
+unsigned RakVoice::FindVoiceChannel(RakNetGUID guid, bool *objectExists) const
+{
+	const auto it = std::lower_bound(voiceChannels.begin(), voiceChannels.end(), guid,
+	                                 [](VoiceChannel *const &channel, const RakNetGUID &key)
+	                                 { return VoiceChannelComp(key, channel) > 0; });
+	*objectExists = it != voiceChannels.end() && (*it)->guid == guid;
+	return (unsigned) (it - voiceChannels.begin());
+}
+
+bool RakVoice::HasVoiceChannel(RakNetGUID guid) const
+{
+	bool objectExists;
+	FindVoiceChannel(guid, &objectExists);
+	return objectExists;
 }
 
 RakVoice::RakVoice()
@@ -227,7 +244,7 @@ unsigned RakVoice::CountRelaySpeakers(void) const
 	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
 
 	unsigned count = 0;
-	for (unsigned i = 0; i < voiceChannels.Size(); i++)
+	for (unsigned i = 0; i < voiceChannels.size(); i++)
 	{
 		if (voiceChannels[i]->guid != self)
 			count++;
@@ -243,7 +260,7 @@ bool RakVoice::EvictIdlestRelaySpeaker(MafiaNet::TimeMS now)
 	unsigned victim = (unsigned) -1;
 	MafiaNet::TimeMS victimIdle = 0;
 
-	for (unsigned i = 0; i < voiceChannels.Size(); i++)
+	for (unsigned i = 0; i < voiceChannels.size(); i++)
 	{
 		VoiceChannel *channel = voiceChannels[i];
 
@@ -339,7 +356,7 @@ void RakVoice::CloseVoiceChannel(RakNetGUID recipient)
 	// never opened a channel -- every peer on a server that attaches RakVoice purely as a
 	// relay host -- would still be sent ID_RAKVOICE_CLOSE_CHANNEL on a clean disconnect,
 	// which a client with no RakVoice attached sees as an unknown packet id.
-	if (!voiceChannels.HasData(recipient))
+	if (!HasVoiceChannel(recipient))
 		return;
 
 	FreeChannelMemory(recipient);
@@ -356,12 +373,12 @@ void RakVoice::CloseAllChannels(void)
 
 	// Without a peer, the close for the loopback channel is delivered to ourselves and frees
 	// that channel inside SendUnified, so the list can shrink under the loop.
-	while (voiceChannels.Size() > 0)
+	while (voiceChannels.size() > 0)
 	{
-		const unsigned index = voiceChannels.Size() - 1;
+		const unsigned index = (unsigned) (voiceChannels.size() - 1);
 		const RakNetGUID guid = voiceChannels[index]->guid;
 		SendUnified(&out, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, controlOrderingChannel, guid, false);
-		if (index < voiceChannels.Size() && voiceChannels[index]->guid == guid)
+		if (index < voiceChannels.size() && voiceChannels[index]->guid == guid)
 			FreeChannelMemory(index, true);
 	}
 }
@@ -373,7 +390,7 @@ bool RakVoice::SendFrame(RakNetGUID recipient, void *inputBuffer)
 	unsigned index;
 	VoiceChannel *channel;
 
-	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
+	index = FindVoiceChannel(recipient, &objectExists);
 	if (objectExists)
 	{
 		unsigned totalBufferSize;
@@ -415,7 +432,7 @@ bool RakVoice::IsSendingVoiceDataTo(RakNetGUID recipient)
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	unsigned index;
-	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
+	index = FindVoiceChannel(recipient, &objectExists);
 
 	if (objectExists)
 		return voiceChannels[index]->isSendingVoiceData;
@@ -471,7 +488,7 @@ unsigned RakVoice::GetBufferedBytesToSend(RakNetGUID guid) const
 
 	if (guid != UNASSIGNED_RAKNET_GUID)
 	{
-		unsigned index = voiceChannels.GetIndexFromKey(guid, &objectExists);
+		unsigned index = FindVoiceChannel(guid, &objectExists);
 		if (objectExists)
 		{
 			channel = voiceChannels[index];
@@ -484,7 +501,7 @@ unsigned RakVoice::GetBufferedBytesToSend(RakNetGUID guid) const
 	else
 	{
 		unsigned total = 0;
-		for (unsigned i = 0; i < voiceChannels.Size(); i++)
+		for (unsigned i = 0; i < voiceChannels.size(); i++)
 		{
 			channel = voiceChannels[i];
 			if (channel->outgoingWriteIndex >= channel->outgoingReadIndex)
@@ -507,7 +524,7 @@ unsigned RakVoice::GetBufferedBytesToReturn(RakNetGUID guid) const
 
 	if (guid != UNASSIGNED_RAKNET_GUID)
 	{
-		unsigned index = voiceChannels.GetIndexFromKey(guid, &objectExists);
+		unsigned index = FindVoiceChannel(guid, &objectExists);
 		if (objectExists)
 		{
 			channel = voiceChannels[index];
@@ -520,7 +537,7 @@ unsigned RakVoice::GetBufferedBytesToReturn(RakNetGUID guid) const
 	else
 	{
 		unsigned total = 0;
-		for (unsigned i = 0; i < voiceChannels.Size(); i++)
+		for (unsigned i = 0; i < voiceChannels.size(); i++)
 		{
 			channel = voiceChannels[i];
 			if (channel->incomingReadIndex <= channel->incomingWriteIndex)
@@ -590,7 +607,7 @@ void RakVoice::RunCodec(void)
 	{
 		for (i = 0; i < bufferedOutputCount; i++)
 			bufferedOutput[i] = 0.0f;
-		for (i = 0; i < voiceChannels.Size(); i++)
+		for (i = 0; i < voiceChannels.size(); i++)
 			voiceChannels[i]->copiedOutgoingBufferToBufferedOutput = false;
 		zeroBufferedOutput = false;
 	}
@@ -603,7 +620,7 @@ void RakVoice::RunCodec(void)
 		// Never reaps the self-keyed channel: it holds our outgoing encoder state, which is
 		// written by SendFrame() and never decoded into.
 		RakNetGUID selfGuid = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
-		for (i = voiceChannels.Size(); i > 0; i--)
+		for (i = (unsigned) voiceChannels.size(); i > 0; i--)
 		{
 			channel = voiceChannels[i - 1];
 			if (channel->guid == selfGuid)
@@ -614,10 +631,10 @@ void RakVoice::RunCodec(void)
 	}
 
 	// A gap behind the last frame of a burst must not wait for the next burst to be noticed.
-	for (i = 0; i < voiceChannels.Size(); i++)
+	for (i = 0; i < voiceChannels.size(); i++)
 		SettleHeldFrames(voiceChannels[i], currentTime);
 
-	for (i = 0; i < voiceChannels.Size(); i++)
+	for (i = 0; i < voiceChannels.size(); i++)
 	{
 		channel = voiceChannels[i];
 
@@ -875,7 +892,7 @@ void RakVoice::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID
 
 void RakVoice::OnOpenChannelRequest(Packet *packet)
 {
-	if (voiceChannels.HasData(packet->guid))
+	if (HasVoiceChannel(packet->guid))
 		return;
 
 	if (bufferedOutput == nullptr)
@@ -891,7 +908,7 @@ void RakVoice::OnOpenChannelRequest(Packet *packet)
 
 void RakVoice::OnOpenChannelReply(Packet *packet)
 {
-	if (voiceChannels.HasData(packet->guid))
+	if (HasVoiceChannel(packet->guid))
 		return;
 
 	// Same guard as OnOpenChannelRequest. Without it an unsolicited reply opens a
@@ -1006,14 +1023,18 @@ void RakVoice::OpenChannel(Packet *packet)
 	for (unsigned slot = 0; slot < RAKVOICE_REORDER_WINDOW; slot++)
 		channel->held[slot].valid = false;
 
-	voiceChannels.Insert(packet->guid, channel, true, _FILE_AND_LINE_);
+	bool objectExists;
+	const unsigned insertAt = FindVoiceChannel(packet->guid, &objectExists);
+	// FreeChannelMemory above removed any channel with this guid.
+	RakAssert(objectExists == false);
+	voiceChannels.insert(voiceChannels.begin() + insertAt, channel);
 }
 
 void RakVoice::SetVAD(bool enable)
 {
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultVADState = enable;
-	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	for (unsigned int index = 0; index < voiceChannels.size(); index++)
 	{
 		// Decode-only relay channels have no encoder.
 		if (voiceChannels[index]->encoder == nullptr)
@@ -1032,7 +1053,7 @@ void RakVoice::SetEncoderBitrate(int bitsPerSecond)
 {
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultBitrate = bitsPerSecond;
-	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	for (unsigned int index = 0; index < voiceChannels.size(); index++)
 	{
 		// Decode-only relay channels have no encoder.
 		if (voiceChannels[index]->encoder == nullptr)
@@ -1046,7 +1067,7 @@ void RakVoice::SetVBR(bool enable)
 {
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultVBRState = enable;
-	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	for (unsigned int index = 0; index < voiceChannels.size(); index++)
 	{
 		// Decode-only relay channels have no encoder.
 		if (voiceChannels[index]->encoder == nullptr)
@@ -1059,7 +1080,7 @@ void RakVoice::SetSignalType(int signalType)
 {
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	defaultSignalType = signalType;
-	for (unsigned int index = 0; index < voiceChannels.Size(); index++)
+	for (unsigned int index = 0; index < voiceChannels.size(); index++)
 	{
 		// Decode-only relay channels have no encoder.
 		if (voiceChannels[index]->encoder == nullptr)
@@ -1091,7 +1112,7 @@ void RakVoice::FreeChannelMemory(RakNetGUID recipient)
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
 	unsigned index;
-	index = voiceChannels.GetIndexFromKey(recipient, &objectExists);
+	index = FindVoiceChannel(recipient, &objectExists);
 
 	if (objectExists)
 	{
@@ -1117,7 +1138,7 @@ void RakVoice::FreeChannelMemory(unsigned index, bool removeIndex)
 	delete channel;
 
 	if (removeIndex)
-		voiceChannels.RemoveAtIndex(index);
+		voiceChannels.erase(voiceChannels.begin() + index);
 }
 
 void RakVoice::OnVoiceData(Packet *packet)
@@ -1133,7 +1154,7 @@ void RakVoice::OnVoiceData(Packet *packet)
 	if (packet->length <= (unsigned) headerSize)
 		return;
 
-	index = voiceChannels.GetIndexFromKey(packet->guid, &objectExists);
+	index = FindVoiceChannel(packet->guid, &objectExists);
 	if (objectExists)
 	{
 		memcpy(&packetMessageNumber, packet->data + 1, sizeof(unsigned short));
@@ -1337,7 +1358,7 @@ int RakVoice::EncodeFrame(VoiceChannel *channel, short *samples, unsigned char *
 VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
 {
 	bool objectExists;
-	unsigned index = voiceChannels.GetIndexFromKey(origin, &objectExists);
+	unsigned index = FindVoiceChannel(origin, &objectExists);
 	if (objectExists)
 		return voiceChannels[index];
 
@@ -1347,7 +1368,7 @@ VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
 	// Each new origin costs a decoder plus two bufferSizeBytes*100 rings. Without a
 	// cap, fabricated origins -- from a compromised host, or a sender spoofing them --
 	// drive unbounded allocation held for RAKVOICE_RELAY_CHANNEL_TIMEOUT_MS.
-	if (voiceChannels.Size() >= RAKVOICE_MAX_RELAY_SPEAKERS)
+	if (voiceChannels.size() >= RAKVOICE_MAX_RELAY_SPEAKERS)
 		return nullptr;
 
 	// Application decode cap, on top of that memory backstop. Counted excluding the
@@ -1376,7 +1397,7 @@ VoiceChannel *RakVoice::GetOrCreateChannel(RakNetGUID origin)
 	synthetic.guid = origin;
 	OpenChannel(&synthetic);
 
-	index = voiceChannels.GetIndexFromKey(origin, &objectExists);
+	index = FindVoiceChannel(origin, &objectExists);
 	return objectExists ? voiceChannels[index] : nullptr;
 }
 
@@ -1410,7 +1431,7 @@ bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
 {
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	bool objectExists;
-	unsigned index = voiceChannels.GetIndexFromKey(origin, &objectExists);
+	unsigned index = FindVoiceChannel(origin, &objectExists);
 	if (!objectExists)
 		return false;
 
@@ -1443,19 +1464,19 @@ bool RakVoice::ReceiveFrameFrom(RakNetGUID origin, void *out)
 	return true;
 }
 
-void RakVoice::GetActiveSpeakers(DataStructures::List<RakNetGUID> &out)
+void RakVoice::GetActiveSpeakers(std::vector<RakNetGUID> &out)
 {
 	std::lock_guard<std::recursive_mutex> lock(codecMutex);
 	// The self-keyed channel holds outgoing encoder state in relay mode, not a remote
 	// talker, so it is never reported as a speaker.
 	RakNetGUID self = rakPeerInterface != nullptr ? rakPeerInterface->GetMyGUID() : UNASSIGNED_RAKNET_GUID;
 
-	out.Clear(false, _FILE_AND_LINE_);
-	for (unsigned i = 0; i < voiceChannels.Size(); i++)
+	out.clear();
+	for (const VoiceChannel *channel : voiceChannels)
 	{
-		if (voiceChannels[i]->guid == self)
+		if (channel->guid == self)
 			continue;
-		out.Push(voiceChannels[i]->guid, _FILE_AND_LINE_);
+		out.push_back(channel->guid);
 	}
 }
 
