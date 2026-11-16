@@ -51,6 +51,11 @@ public:
 
 	ConnectionGraph2();
 	~ConnectionGraph2();
+	// Owns its remote systems (std::unique_ptr). Deleted, not just implicitly ill-formed: an exported
+	// class (RAK_DLL_EXPORT) has its special members instantiated by MSVC, so a declared copy would
+	// not compile in the DLL build.
+	ConnectionGraph2(const ConnectionGraph2 &) = delete;
+	ConnectionGraph2 &operator=(const ConnectionGraph2 &) = delete;
 
 	/// \brief Given a remote system identified by RakNetGUID, return the list of SystemAddresses and RakNetGUIDs they are connected to
 	/// \param[in] remoteSystemGuid Which system we are referring to. This only works for remote systems, not ourselves.

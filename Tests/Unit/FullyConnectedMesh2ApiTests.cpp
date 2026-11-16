@@ -18,9 +18,15 @@
 
 #include <algorithm>
 #include <set>
+#include <type_traits>
 #include <vector>
 
 using namespace MafiaNet;
+
+// ConnectionGraph2 owns its remote systems through std::unique_ptr. Its copy operations must be
+// explicitly deleted: as an exported class, MSVC instantiates a declared copy in the DLL build.
+static_assert(!std::is_copy_constructible<ConnectionGraph2>::value, "ConnectionGraph2 must not be copy-constructible");
+static_assert(!std::is_copy_assignable<ConnectionGraph2>::value, "ConnectionGraph2 must not be copy-assignable");
 
 namespace
 {
@@ -42,7 +48,9 @@ protected:
 		// connects them, completing the mesh.
 		for (int i = 1; i < kPeers; i++)
 			ASSERT_TRUE(net.Connect(peers[i], peers[0])) << "peer " << i << " -> peer 0";
-		ASSERT_TRUE(net.RunUntil([this] { return MeshComplete() && AllAgreeOnHost(); }, 10000)) << "mesh never completed";
+		ASSERT_TRUE(net.RunUntil([this]
+		                         { return MeshComplete() && AllAgreeOnHost(); }, 10000))
+		    << "mesh never completed";
 	}
 
 	bool MeshComplete()
@@ -134,8 +142,7 @@ TEST_F(FCM2Api, ParticipantLeavingShrinksTheLists)
 	ASSERT_TRUE(net.RunUntil([&]
 	                         {
 		                         fcm2[0].GetParticipantList(participants);
-		                         return participants.size() == 1;
-	                         },
+		                         return participants.size() == 1; },
 	                         5000));
 	EXPECT_EQ(participants, std::vector<RakNetGUID>{peers[1]->GetMyGUID()});
 
@@ -194,7 +201,8 @@ TEST_F(FCM2Api, ConnectionGraphParticipantListIsASet)
 	}
 
 	// Each graph learns, from its neighbours, who they are connected to.
-	ASSERT_TRUE(net.RunUntil([this] { return graph[0].ConnectionExists(peers[1]->GetMyGUID(), peers[2]->GetMyGUID()); }, 5000));
+	ASSERT_TRUE(net.RunUntil([this]
+	                         { return graph[0].ConnectionExists(peers[1]->GetMyGUID(), peers[2]->GetMyGUID()); }, 5000));
 	SystemAddress addresses[kPeers];
 	RakNetGUID guids[kPeers];
 	unsigned int length = kPeers;
