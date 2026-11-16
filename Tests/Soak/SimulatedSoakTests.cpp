@@ -83,10 +83,9 @@ struct Link
 	// No earlier connection between these two addresses: no stale datagram can exist.
 	bool firstBetweenAddresses = false;
 	Soak::SendStream send;
-	// The Reliable (unordered) stream shares the session of `send`. It starts once the remote's own
-	// ordered stream has arrived on this connection (see SendTraffic).
+	// The Reliable (unordered) stream shares the session of `send`. It starts with the connection, so
+	// its first messages can overtake the connecting side's session reply (issue #96).
 	uint32_t nextReliable = 0;
-	bool remoteSending = false;
 	// RakNetStatistics::mtuStepDowns already added to Totals for this connection.
 	uint32_t stepDownsCounted = 0;
 };
@@ -142,6 +141,18 @@ struct Totals
 	uint64_t mtuStepDowns = 0;
 	uint64_t mtuStepDownsOnCappedLinks = 0;
 };
+
+// Pages in a peer's packet pool. Never instantiated: the derived type only names the protected member, read
+// through a pointer-to-member on the real RakPeer.
+class PacketPoolInspector : public RakPeer
+{
+public:
+	static const DataStructures::MemoryPool<Packet> &Pool(const RakPeer *peer) { return peer->*&PacketPoolInspector::packetAllocationPool; }
+	static int64_t Pages(const RakPeer *peer) { return (int64_t) Pool(peer).GetAvailablePagesSize() + Pool(peer).GetUnavailablePagesSize(); }
+};
+// MemoryPool::Allocate and InitPage take three rakMalloc blocks per page: the page header, its block array
+// and its free-block stack.
+const int64_t kRakBlocksPerPoolPage = 3;
 
 class SimulatedSoak
 {
@@ -367,7 +378,6 @@ void SimulatedSoak::ProcessInboxes()
 				else
 				{
 					checker.OnOrdered(self, remote, message.data.data(), message.data.size());
-					nodes[i].links[remote].remoteSending = true;
 				}
 				break;
 			case Soak::ID_SOAK_RELIABLE:
@@ -421,7 +431,6 @@ void SimulatedSoak::OnConnected(int self, int remote)
 	link.send.session = Random64() | 1;
 	link.send.next = 0;
 	link.nextReliable = 0;
-	link.remoteSending = false;
 	link.stepDownsCounted = 0;
 	++totals.connectionsCompleted;
 }
@@ -545,10 +554,7 @@ void SimulatedSoak::SendTraffic()
 				++totals.orderedSent;
 				totals.splitSent += extra > 1000;
 			}
-			// Only once the remote has sent on this connection: until the connecting side has finished the
-			// session-config exchange, RakPeer drops an unordered message from the accepting side, which
-			// already reports the connection (ordered messages queue behind the exchange on channel 0).
-			if (!cross && link.remoteSending)
+			if (!cross)
 			{
 				// Every few seconds a message over the 1280 rung in one datagram, or split in two: the
 				// sizes a black-hole step-down re-sends.
@@ -794,6 +800,7 @@ void SimulatedSoak::Run()
 	Build();
 	const uint64_t startMs = NowMs();
 	std::vector<Soak::AllocationSnapshot> afterWave;
+	std::vector<int64_t> packetPoolPagesAfterWave;
 
 	for (int wave = 0; wave < waveCount; ++wave)
 	{
@@ -834,8 +841,20 @@ void SimulatedSoak::Run()
 		EXPECT_TRUE(released) << "slot leak: " << why;
 		RunFor(1000, false);
 		afterWave.push_back(Soak::Allocations());
-		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes), rak blocks %" PRId64 "\n",
-		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, afterWave.back().rakBlocks);
+		int64_t packetPoolPages = 0;
+		for (size_t i = 0; i < nodes.size(); ++i)
+		{
+			// Every inbox is drained each tick, so no packet is out: no page is full, and an idle pool keeps
+			// at most DS_MEMORY_POOL_MAX_FREE_PAGES empty ones. This is what bounds the pages left out of the
+			// rakMalloc comparison below.
+			const DataStructures::MemoryPool<Packet> &pool = PacketPoolInspector::Pool(nodes[i].peer);
+			EXPECT_EQ(0, pool.GetUnavailablePagesSize()) << Name((int) i) << ": packet-pool pages still full with nothing queued";
+			EXPECT_LE(pool.GetAvailablePagesSize(), DS_MEMORY_POOL_MAX_FREE_PAGES) << Name((int) i) << ": packet pool grew past its free-page bound";
+			packetPoolPages += PacketPoolInspector::Pages(nodes[i].peer);
+		}
+		packetPoolPagesAfterWave.push_back(packetPoolPages);
+		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes), rak blocks %" PRId64 " (%" PRId64 " packet-pool pages)\n",
+		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, afterWave.back().rakBlocks, packetPoolPages);
 	}
 
 	const double wallSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();
@@ -890,9 +909,18 @@ void SimulatedSoak::Run()
 		// fixed in ac018381 added about 3 blocks per wave at 200 clients: with it reverted, wave 1 -> last
 		// grew by 15 blocks over the default 8 waves and by 24 over the nightly's 12. Three pages of slack
 		// keeps both of those failing.
+		//
+		// Packet-pool pages are left out. A peer's packet pool keeps up to DS_MEMORY_POOL_MAX_FREE_PAGES
+		// empty pages of 32 packets for its next burst, so between that bound (checked per peer above) and
+		// one page it follows the most packets the peer ever had queued at once, and that moves from wave to
+		// wave: a connection whose session reply was lost delivers what was held behind it in one go (#96).
+		// A leaked packet still shows: its data is a block of its own.
 		const int64_t rakSlack = 9;
-		EXPECT_LE(last.rakBlocks - first.rakBlocks, rakSlack) << "rakMalloc blocks grew across waves: " << first.rakBlocks << " after wave 1, "
-		                                                      << last.rakBlocks << " after the last";
+		const size_t lastIndex = afterWave.size() - 1;
+		const int64_t firstRak = first.rakBlocks - kRakBlocksPerPoolPage * packetPoolPagesAfterWave[1];
+		const int64_t lastRak = last.rakBlocks - kRakBlocksPerPoolPage * packetPoolPagesAfterWave[lastIndex];
+		EXPECT_LE(lastRak - firstRak, rakSlack) << "rakMalloc blocks (packet-pool pages excluded) grew across waves: " << firstRak << " after wave 1, "
+		                                        << lastRak << " after the last";
 	}
 }
 } // namespace
