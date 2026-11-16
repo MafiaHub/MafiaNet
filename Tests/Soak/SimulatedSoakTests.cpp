@@ -143,6 +143,21 @@ struct Totals
 	uint64_t mtuStepDownsOnCappedLinks = 0;
 };
 
+// Pages in a peer's packet pool. Never instantiated: the derived type only names the protected member, read
+// through a pointer-to-member on the real RakPeer.
+class PacketPoolInspector : public RakPeer
+{
+public:
+	static int64_t Pages(const RakPeer *peer)
+	{
+		const DataStructures::MemoryPool<Packet> &pool = peer->*&PacketPoolInspector::packetAllocationPool;
+		return (int64_t) pool.GetAvailablePagesSize() + pool.GetUnavailablePagesSize();
+	}
+};
+// MemoryPool::Allocate and InitPage take three rakMalloc blocks per page: the page header, its block array
+// and its free-block stack.
+const int64_t kRakBlocksPerPoolPage = 3;
+
 class SimulatedSoak
 {
 public:
@@ -794,6 +809,7 @@ void SimulatedSoak::Run()
 	Build();
 	const uint64_t startMs = NowMs();
 	std::vector<Soak::AllocationSnapshot> afterWave;
+	std::vector<int64_t> packetPoolPagesAfterWave;
 
 	for (int wave = 0; wave < waveCount; ++wave)
 	{
@@ -834,8 +850,12 @@ void SimulatedSoak::Run()
 		EXPECT_TRUE(released) << "slot leak: " << why;
 		RunFor(1000, false);
 		afterWave.push_back(Soak::Allocations());
-		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes), rak blocks %" PRId64 "\n",
-		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, afterWave.back().rakBlocks);
+		int64_t packetPoolPages = 0;
+		for (const Node &node : nodes)
+			packetPoolPages += PacketPoolInspector::Pages(node.peer);
+		packetPoolPagesAfterWave.push_back(packetPoolPages);
+		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes), rak blocks %" PRId64 " (%" PRId64 " packet-pool pages)\n",
+		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, afterWave.back().rakBlocks, packetPoolPages);
 	}
 
 	const double wallSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();
@@ -890,9 +910,18 @@ void SimulatedSoak::Run()
 		// fixed in ac018381 added about 3 blocks per wave at 200 clients: with it reverted, wave 1 -> last
 		// grew by 15 blocks over the default 8 waves and by 24 over the nightly's 12. Three pages of slack
 		// keeps both of those failing.
+		//
+		// Packet-pool pages are left out. A peer's packet pool keeps up to DS_MEMORY_POOL_MAX_FREE_PAGES
+		// empty pages of 32 packets for its next burst, so its size is the high-water mark of the packets
+		// it ever had queued at once, which keeps creeping up over a run: a connection whose session reply
+		// was lost delivers what was held behind it in one go (#96). A leaked packet still shows: its data
+		// is a block of its own.
 		const int64_t rakSlack = 9;
-		EXPECT_LE(last.rakBlocks - first.rakBlocks, rakSlack) << "rakMalloc blocks grew across waves: " << first.rakBlocks << " after wave 1, "
-		                                                      << last.rakBlocks << " after the last";
+		const size_t lastIndex = afterWave.size() - 1;
+		const int64_t firstRak = first.rakBlocks - kRakBlocksPerPoolPage * packetPoolPagesAfterWave[1];
+		const int64_t lastRak = last.rakBlocks - kRakBlocksPerPoolPage * packetPoolPagesAfterWave[lastIndex];
+		EXPECT_LE(lastRak - firstRak, rakSlack) << "rakMalloc blocks (packet-pool pages excluded) grew across waves: " << firstRak << " after wave 1, "
+		                                        << lastRak << " after the last";
 	}
 }
 } // namespace
