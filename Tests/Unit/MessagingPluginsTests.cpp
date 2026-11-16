@@ -266,14 +266,17 @@ TEST_F(MessagingPluginsNetwork, TwoWayAuthenticationMatchesIdentifiersVerbatim)
 	ConnectAll();
 
 	// '%' in an identifier: the received identifier used to go through RakString's printf-style constructor.
-	ASSERT_TRUE(serverAuth.AddPassword("build%s", "secret"));
-	ASSERT_FALSE(serverAuth.AddPassword("build%s", "other"));
-	ASSERT_TRUE(clientAuth.AddPassword("build%s", "secret"));
+	// Built by assignment: passing the literal to the RakString parameter would itself format it.
+	RakString identifier;
+	identifier = "build%s";
+	ASSERT_TRUE(serverAuth.AddPassword(identifier, "secret"));
+	ASSERT_FALSE(serverAuth.AddPassword(identifier, "other"));
+	ASSERT_TRUE(clientAuth.AddPassword(identifier, "secret"));
 	ASSERT_TRUE(clientAuth.AddPassword("wrong", "nope"));
 	ASSERT_TRUE(serverAuth.AddPassword("wrong", "different"));
 	EXPECT_FALSE(clientAuth.Challenge("unknown", server->GetMyGUID()));
 
-	ASSERT_TRUE(clientAuth.Challenge("build%s", server->GetMyGUID()));
+	ASSERT_TRUE(clientAuth.Challenge(identifier, server->GetMyGUID()));
 	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS, 2000));
 	ASSERT_TRUE(net.RunUntilReceived(server, ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS, 2000));
 	EXPECT_TRUE(clientAuth.outgoingChallenges.empty());
