@@ -111,6 +111,8 @@ Statistics Fields Reference
      - True if sending faster than bandwidth
    * - ``droppedUnauthenticatedDatagrams``
      - Datagrams dropped because they failed to authenticate (forged, corrupted, replayed or too old); always 0 on a plaintext connection. See :doc:`secure-connections`
+   * - ``mtuStepDowns``
+     - Times the connection stepped its MTU one rung down because the path dropped its large datagrams. See :doc:`../advanced/congestion-control`
 
 Displaying Statistics
 ---------------------

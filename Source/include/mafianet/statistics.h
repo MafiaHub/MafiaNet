@@ -108,6 +108,12 @@ struct RAK_DLL_EXPORT RakNetStatistics
 	/// old. Always 0 on a plaintext connection.
 	uint64_t droppedUnauthenticatedDatagrams;
 
+	/// How many times this connection stepped its MTU one rung down because the
+	/// path dropped its large datagrams (an in-session path-MTU black hole).
+	/// Each step is permanent for the life of the connection; see
+	/// RakPeerInterface::GetMTUSize() for the size now in use.
+	unsigned int mtuStepDowns;
+
 	RakNetStatistics &operator+=(const RakNetStatistics &other)
 	{
 		unsigned i;
@@ -124,6 +130,7 @@ struct RAK_DLL_EXPORT RakNetStatistics
 		}
 
 		droppedUnauthenticatedDatagrams += other.droppedUnauthenticatedDatagrams;
+		mtuStepDowns += other.mtuStepDowns;
 
 		return *this;
 	}
