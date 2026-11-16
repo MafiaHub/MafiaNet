@@ -23,6 +23,12 @@ fix the compile errors in code that names a ``DataStructures`` type, an
 allocator macro or one of the signatures below. The tables in
 `Mapping the old types`_ give the replacement for each.
 
+Public headers also no longer include ``memory_override.h`` or the ``ds_*.h``
+headers, which used to pull in ``<cstring>``, ``<cstdlib>``, ``<new>``,
+``<cassert>`` and others transitively. Include the standard headers your own
+code uses (``memcpy``, ``strlen``, ``std::malloc``, placement ``new``,
+``assert``), or it may stop compiling, especially with GCC/libstdc++.
+
 .. contents:: On this page
    :local:
    :depth: 1
@@ -278,9 +284,12 @@ Changed public signatures
 -------------------------
 
 Every out-parameter that was a ``DataStructures::List<T>&`` is now a
-``std::vector<T>&`` with the same meaning. The lists below give every changed
-declaration in the installed headers, grouped by subsystem. Protected members
-are listed because subclasses and plugins see them.
+``std::vector<T>&`` with the same meaning. The lists below cover every
+declaration that changed in the installed headers (``Source/include/mafianet``)
+and in the ``DependentExtensions`` headers, grouped by subsystem. Functions
+are given with their new signature. Where only the container type of data
+members changed, one line names those members. Protected members are listed
+because subclasses and plugins see them.
 
 RakPeer and sockets
 ~~~~~~~~~~~~~~~~~~~
@@ -647,20 +656,152 @@ Table and TableSerializer
 DependentExtensions
 ~~~~~~~~~~~~~~~~~~~
 
-* **Lobby2**: the ``Lobby2Message`` list members are ``std::vector``;
-  ``Lobby2Server::GetUsers()`` returns ``const std::vector<User*>&``;
-  ``SendUnifiedToMultiple`` takes ``const std::vector<SystemAddress>&``;
-  ``BinaryDataBlock`` fields are ``std::shared_ptr``;
-  ``Lobby2Client_Steam::GetRoomMembers`` fills a ``std::set<uint64_t>&``;
-  ``AllGamesRoomsContainer::SearchByFilter`` takes ``std::vector<Room*>&``.
-  ``RoomsPlugin`` is non-copyable.
-* **RPC3**: see `RPC4 and RPC3`_.
-* **SQLite3Plugin**: ``SQLite3Row::entries`` and ``SQLite3Table::columnNames``
-  are ``std::vector``; ``SQLite3Table::rows`` is
-  ``std::vector<std::unique_ptr<SQLite3Row>>``; ``SQLite3ServerPlugin::dbHandles``
-  is a sorted ``std::vector`` with a new protected ``GetDBHandleIndex()``.
-* **Autopatcher**: ``AutopatcherServer`` queues are ``std::deque`` /
-  ``std::vector``.
+Every header under ``DependentExtensions/`` whose declarations changed is
+listed below, by extension. ``RakNetSmartPtr<BinaryDataBlock>`` became
+``std::shared_ptr<BinaryDataBlock>`` everywhere it appeared.
+
+**Lobby2** (``DependentExtensions/Lobby2``)
+
+* ``Lobby2Client``: ``virtual void SetIgnoreList(const std::vector<RakString>
+  &users)`` (was ``DataStructures::List<RakString>`` by value);
+  ``const std::set<RakString> *GetIgnoreList() const`` (was
+  ``const OrderedList<RakString,RakString>*``); the protected ``ignoreList``
+  member is a ``std::set<RakString>``.
+* ``Lobby2Server``:
+
+  * ``void SendMsg(Lobby2Message*, const std::vector<SystemAddress>
+    &recipients)``
+  * ``bool HasAdminAddress(const std::vector<SystemAddress>&)`` and
+    ``bool HasRankingAddress(const std::vector<SystemAddress>&)``
+  * ``void SendRemoteLoginNotification(RakString handle, const
+    std::vector<SystemAddress> &recipients)``
+  * ``void SendUnifiedToMultiple(const BitStream*, Priority, Reliability, char,
+    const std::vector<SystemAddress> &systemAddresses)`` (was by value)
+  * ``const std::vector<User*> &GetUsers() const`` (was
+    ``const OrderedList<RakString, User*, UserCompByUsername>&``; still sorted
+    by user name), and a new protected
+    ``unsigned GetUserInsertionIndex(const RakString&, bool *objectExists)
+    const``
+  * ``Lobby2ServerCommand::callerSystemAddresses`` / ``callerGuids`` and
+    ``User::systemAddresses`` / ``guids`` are ``std::vector``; protected
+    ``adminAddresses`` / ``rankingAddresses`` are ``std::set<SystemAddress>``,
+    ``users`` a sorted ``std::vector<User*>``, ``threadActionQueue`` a
+    ``std::deque<ThreadAction>``.
+
+* ``Lobby2Plugin``: protected ``callbacks`` is a
+  ``std::vector<Lobby2Callbacks*>``.
+* ``Lobby2Message.h``: every message's list member is a ``std::vector`` of the
+  same element type (for example ``Friends_GetInvites::invitesSent``,
+  ``Emails_Send::recipients``, ``Clans_Get::clans``); every
+  ``binaryData`` member is ``std::shared_ptr<BinaryDataBlock>`` created with
+  ``std::make_shared``; ``Lobby2Message::ValidateBinary(std::shared_ptr<BinaryDataBlock>)``.
+  Wire counts are written with the same widths as before.
+* ``Lobby2Message_Steam.h``: the list members are ``std::vector``
+  (``Console_SearchRooms_Steam::roomNames`` / ``roomIds``).
+* ``Lobby2Client_Steam``: pure virtual ``GetRoomMembers(std::set<uint64_t>&)``
+  (was ``OrderedList<uint64_t,uint64_t>&``).
+  ``Lobby2Client_Steam_Impl`` overrides it; its members are
+  ``std::vector<Lobby2Message*> deferredCallbacks``,
+  ``std::map<SystemAddress, RoomMember> roomMembersByAddr``,
+  ``std::map<uint64_t, RoomMember> roomMembersById`` and
+  ``std::set<uint64_t> rooms``. The ``SystemAddressAndRoomMemberComp`` and
+  ``SteamIDAndRoomMemberComp`` statics are removed.
+* PGSQL (``Lobby2Message_PGSQL.h``, free functions):
+  ``GetClanMembers(unsigned, std::vector<ClanMemberDescriptor>&,
+  PostgreSQLInterface*)``, ``GetFriendIDs(..., std::vector<unsigned>&)``,
+  ``GetClanMateIDs(..., std::vector<unsigned>&)``,
+  ``GetFriendInfosByStatus(..., std::vector<FriendInfo>&, bool)``, and the
+  three ``SendEmail`` overloads take ``std::vector<RakString>&`` /
+  ``std::vector<unsigned>&`` recipients and a
+  ``std::shared_ptr<BinaryDataBlock>``. ``Lobby2Server_PGSQL::connectionPool``
+  is a ``std::vector<PostgreSQLInterface*>``.
+* Rooms, ``RoomsContainer.h``:
+
+  * ``AllGamesRoomsContainer`` (public):
+    ``GetInvitesToParticipant(RoomsParticipant*, std::vector<InvitedUser*>&)``,
+    ``GrantModerator(RoomsParticipant*, RoomsParticipant*,
+    std::vector<InvitedUser>&)``,
+    ``SetCustomRoomProperties(RoomsParticipant*, MafiaNet::Table*)``,
+    ``GetReadyStatus(RoomID, Room**, std::vector<RoomsParticipant*>&,
+    std::vector<RoomsParticipant*>&)``,
+    ``GetRoomProperties(RoomID, Room**, MafiaNet::Table*)``,
+    ``ProcessQuickJoins(std::vector<QuickJoinUser*>&,
+    std::vector<JoinedRoomResult>&, std::vector<QuickJoinUser*>&, ...)`` and
+    ``SearchByFilter(GameIdentifier, RoomsParticipant*, RoomQuery*,
+    std::vector<Room*>&, bool)`` (was an ``OrderedList`` sorted by name; the
+    vector comes back in the same order). ``perGamesRoomsContainers`` is a
+    ``std::map``.
+  * ``PerGameRoomsContainer`` (protected):
+    ``GetRoomNames(std::vector<RakString>&)``,
+    ``GetAllRooms(std::vector<Room*>&)``, ``GetInvitesToParticipant``,
+    ``ProcessQuickJoins``, ``RoomPrioritySort(RoomsParticipant*, RoomQuery*,
+    std::vector<Room*>&)`` and ``SearchByFilter(RoomsParticipant*, RoomQuery*,
+    std::vector<Room*>&, bool)``; ``roomsTable`` is a ``MafiaNet::Table``,
+    ``quickJoinList`` a ``std::vector``.
+  * ``Room``: ``GrantModerator(..., std::vector<InvitedUser>&)``,
+    ``SetCustomRoomProperties(..., MafiaNet::Table*)``,
+    ``GetReadyStatus(std::vector<RoomsParticipant*>&,
+    std::vector<RoomsParticipant*>&)``, ``GetInvitesToParticipant(...,
+    std::vector<InvitedUser*>&)``, the constructor takes a
+    ``MafiaNet::Table::Row*``, and the static ``UpdateRowSlots`` /
+    ``UpdateUsedSlots`` take ``MafiaNet::Table::Row*``. Member lists are
+    ``std::vector``.
+  * Structs: ``RemoveUserResult::clearedInvitations``,
+    ``RoomDescriptor::roomMemberList`` / ``banList`` and
+    ``RoomCreationParameters::Validate(const std::vector<RakString>&,
+    ProfanityFilter*) const`` use ``std::vector``;
+    ``RoomDescriptor::roomProperties`` is a ``MafiaNet::Table`` and
+    ``GetProperty()`` returns ``MafiaNet::Table::Cell*``; ``RoomQuery`` uses
+    ``MafiaNet::Table::FilterQuery`` / ``FilterQueryType`` /
+    ``Cell`` (``AddQuery_NUMERIC`` / ``_STRING`` / ``_BINARY`` /
+    ``_POINTER``).
+  * New free template ``InsertSortedUnique(std::vector<T>&, const T&, int
+    (*compare)(const T&, const T&))``. It is an internal helper that
+    reproduces ``OrderedList::Insert`` for comparators that are not strict
+    weak orders.
+
+* Rooms, ``RoomTypes.h``: ``DefaultRoomColumns::GetColumnType`` returns
+  ``MafiaNet::Table::ColumnType``; ``AddDefaultColumnsToTable`` and
+  ``HasDefaultColumns`` take ``MafiaNet::Table*``.
+* Rooms, ``RoomsPlugin.h``: the message structs' ``Table`` members are
+  ``MafiaNet::Table`` and their lists ``std::vector`` (for example
+  ``SetCustomRoomProperties_Func::table``, ``GetReadyStatus_Func::readyUsers``,
+  ``SearchByFilter_Func::roomsOutput``); ``roomsCallback`` and
+  ``loginServers`` are ``std::vector``; ``roomsParticipants`` is a
+  ``std::map<RakString, std::unique_ptr<RoomsPluginParticipant>>`` and
+  ``RoomsPluginParticipantCompByRakString`` is removed. ``RoomsPlugin`` is
+  non-copyable.
+* Rooms, ``ProfanityFilter.h``: ``words`` is a ``std::vector<RakString>``.
+
+**RPC3** (``DependentExtensions/RPC3``): see `RPC4 and RPC3`_. Also:
+``localSlots`` / ``localFunctions`` are
+``std::unordered_map<RakString, std::unique_ptr<...>>``,
+``LocalSlot::slotObjects`` is a sorted ``std::vector`` and ``LocalSlot`` gains
+an ``identifier`` field. The protected static ``IdentifierKey(const char*)``
+builds lookup keys without ``RakString``'s printf constructor.
+
+**SQLite3Plugin** (``DependentExtensions/SQLite3Plugin``)
+
+* ``SQLite3PluginCommon.h``: ``SQLite3Row::entries`` and
+  ``SQLite3Table::columnNames`` are ``std::vector<RakString>``;
+  ``SQLite3Table::rows`` is ``std::vector<std::unique_ptr<SQLite3Row>>``.
+* ``SQLite3ServerPlugin``: ``dbHandles`` is a ``std::vector<NamedDBHandle>``
+  sorted by ``dbIdentifier``, with a new protected
+  ``unsigned GetDBHandleIndex(const RakString&) const``; the
+  ``MLKeyRef`` comparison operators are removed.
+* ``SQLite3ClientPlugin``: ``resultHandlers`` is a ``std::vector``.
+* ``SQLiteServerLoggerPlugin``: ``loggedInSessions`` and
+  ``insertingColumnNames`` are ``std::vector``.
+* ``SQLiteClientLoggerPlugin``: the ``rakSqlLog`` / ``rakFnLog`` macros pass
+  ``__FILE__, __LINE__`` (they passed ``_FILE_AND_LINE_``); the functions they
+  call keep their ``file, line`` parameters.
+
+**Autopatcher**: ``AutopatcherServer::connectionPool`` and
+``userRequestWaitingQueue`` are ``std::deque``, ``patchingUsers`` a
+``std::vector<SystemAddress>``. No function signature changed.
+
+**PostgreSQLInterface**: ``preparedQueries`` is a
+``std::vector<RakString>``. No function signature changed.
 
 Non-copyable types
 ------------------

@@ -27,6 +27,10 @@ Unreleased — breaking
 * **Fix: leaks.** ``ID_NEW_INCOMING_CONNECTION`` payloads on a simultaneous connect, departing FullyConnectedMesh2 participants, ConnectionGraph2 remote systems, StatisticsHistory queues, ``Table::RemoveRows`` and duplicate ``AddRow``, duplicate NatPunchthroughServer users, rejected Cloud requests, duplicate ``StringTable`` strings, ``ThreadsafePacketLogger`` lines.
 * **Fix: other memory errors.** A use-after-free in ``StringCompressor::GenerateTreeFromStrings`` with empty input, ``StatisticsHistory`` discrete merge reading past the end, ``Table::GetRowByIndex`` missing rows past the first page, ``PacketizedTCP`` reading an uninitialized length prefix and returning freed packets after ``Stop()``.
 * **Fix: concurrency.** A RakPeer command-drain livelock, a data race on ``connectMode`` and on the connection-request queue, ``ThreadPool`` signalling an uninitialized condition, and an unlocked ``FileListTransfer`` list.
+* **Fix: CloudServer upload accounting.** A rejected over-limit post left ``uploaderCount`` raised, so the next real upload was never announced to other servers. An upload into a specific-subscription placeholder was never marked uploaded: an over-limit re-post then dropped the key from the client's uploads (its ``Release`` was ignored), and an unsubscribe deleted the live upload.
+* **Fix: StatisticsHistory sorted NaN samples with undefined behaviour.** ``GetHistorySorted`` now puts NaN after every number in both directions.
+* **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
+* **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
 **Breaking (API and ABI)**: rebuild, then follow the migration guide. **Wire-compatible**: no message changes.
 
