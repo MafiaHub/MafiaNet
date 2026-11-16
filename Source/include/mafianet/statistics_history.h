@@ -26,13 +26,14 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/string.h"
-#include "mafianet/ds_queue.h"
-#include "mafianet/ds_hash.h"
 #include <float.h>
+
+#include <deque>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -110,6 +111,10 @@ public:
 
 	StatisticsHistory();
 	virtual ~StatisticsHistory();
+
+	// Owns its tracked objects; not copyable.
+	StatisticsHistory(const StatisticsHistory &) = delete;
+	StatisticsHistory &operator=(const StatisticsHistory &) = delete;
 	void SetDefaultTimeToTrack(Time defaultTimeToTrack);
 	Time GetDefaultTimeToTrack(void) const;
 	bool AddObject(TrackedObjectData tod);
@@ -122,9 +127,11 @@ public:
 	bool AddValueByObjectID(uint64_t objectId, RakString key, SHValueType val, Time curTime, bool combineEqualTimes);
 	void AddValueByIndex(unsigned int index, RakString key, SHValueType val, Time curTime, bool combineEqualTimes);
 	SHErrorCode GetHistoryForKey(uint64_t objectId, RakString key, TimeAndValueQueue **values, Time curTime) const;
-	bool GetHistorySorted(uint64_t objectId, SHSortOperation sortType, DataStructures::List<TimeAndValueQueue *> &values) const;
+	/// Appends every queue of the object to \a values, sorted by \a sortType (ties by key). The pointers stay owned by this StatisticsHistory.
+	bool GetHistorySorted(uint64_t objectId, SHSortOperation sortType, std::vector<TimeAndValueQueue *> &values) const;
 	void MergeAllObjectsOnKey(RakString key, TimeAndValueQueue *tavqOutput, SHDataCategory dataCategory) const;
-	void GetUniqueKeyList(DataStructures::List<RakString> &keys);
+	/// Replaces \a keys with every key used by any object, each once, in unspecified order.
+	void GetUniqueKeyList(std::vector<RakString> &keys);
 
 	struct TimeAndValue
 	{
@@ -137,7 +144,8 @@ public:
 		TimeAndValueQueue();
 		~TimeAndValueQueue();
 
-		DataStructures::Queue<TimeAndValue> values;
+		/// Oldest first
+		std::deque<TimeAndValue> values;
 
 		Time timeToTrackValues;
 		RakString key;
@@ -169,7 +177,7 @@ public:
 
 		// Shrink or expand a sample set to the approximate number given
 		// DC_DISCRETE will produce a histogram (sum) while DC_CONTINUOUS will produce an average
-		void ResizeSampleSet(int approximateSamples, DataStructures::Queue<StatisticsHistory::TimeAndValue> &blendedSamples, SHDataCategory dataCategory, Time timeClipStart = 0, Time timeClipEnd = 0);
+		void ResizeSampleSet(int approximateSamples, std::deque<StatisticsHistory::TimeAndValue> &blendedSamples, SHDataCategory dataCategory, Time timeClipStart = 0, Time timeClipEnd = 0);
 
 		// Clear out all values
 		void Clear(void);
@@ -196,10 +204,14 @@ protected:
 		TrackedObject();
 		~TrackedObject();
 		TrackedObjectData trackedObjectData;
-		DataStructures::Hash<MafiaNet::RakString, TimeAndValueQueue *, 32, MafiaNet::RakString::ToInteger> dataQueues;
+		std::unordered_map<MafiaNet::RakString, std::unique_ptr<TimeAndValueQueue>> dataQueues;
 	};
 
-	DataStructures::OrderedList<uint64_t, TrackedObject *, TrackedObjectComp> objects;
+	/// \return The object's position in objects, or objects.end()
+	std::vector<std::unique_ptr<TrackedObject>>::const_iterator FindObject(uint64_t objectId) const;
+
+	/// Sorted by objectId (TrackedObjectComp), so the index accessors walk objects in id order.
+	std::vector<std::unique_ptr<TrackedObject>> objects;
 
 	Time timeToTrack;
 };
@@ -216,6 +228,9 @@ public:
 
 	StatisticsHistoryPlugin();
 	virtual ~StatisticsHistoryPlugin();
+
+	StatisticsHistoryPlugin(const StatisticsHistoryPlugin &) = delete;
+	StatisticsHistoryPlugin &operator=(const StatisticsHistoryPlugin &) = delete;
 	void SetTrackConnections(bool _addNewConnections, int newConnectionsObjectType, bool _removeLostConnections);
 
 	/// \brief Sets the minimum time between two samples of the connection statistics

@@ -36,9 +36,9 @@ enum HistoryObject
 static const int numGraphColumns = 79;
 static const int numGraphRows = 5;
 
-void PrintGraph(DataStructures::Queue<StatisticsHistory::TimeAndValue> &histogram, SHValueType highest, SHValueType lowest)
+void PrintGraph(std::deque<StatisticsHistory::TimeAndValue> &histogram, SHValueType highest, SHValueType lowest)
 {
-	if (histogram.Size() == 0)
+	if (histogram.empty())
 		return;
 
 
@@ -48,7 +48,7 @@ void PrintGraph(DataStructures::Queue<StatisticsHistory::TimeAndValue> &histogra
 
 	unsigned int numR;
 
-	for (unsigned int col = 0; col < histogram.Size() && col < numGraphColumns; col++)
+	for (unsigned int col = 0; col < histogram.size() && col < numGraphColumns; col++)
 	{
 		double r = (double) numGraphRows * ((histogram[col].val - lowest) / range);
 		if (r - floor(r) > .5)
@@ -82,7 +82,7 @@ int main(void)
 	printf("Tests StatisticsHistory in single player.\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	DataStructures::Queue<StatisticsHistory::TimeAndValue> histogram;
+	std::deque<StatisticsHistory::TimeAndValue> histogram;
 	StatisticsHistory::TimeAndValueQueue *tav;
 	StatisticsHistory::TimeAndValueQueue tavInst;
 	StatisticsHistory statisticsHistory;
