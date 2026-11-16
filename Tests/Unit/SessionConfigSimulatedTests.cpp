@@ -1449,8 +1449,12 @@ TEST_F(SessionHeldMessagesSim, ByteLimitIsInclusive)
 	                  { return Count(client, kReliableStreamId) >= 4; }, 5000));
 	EXPECT_LT(FirstIndexOf(Inbox(client), ID_CONNECTION_REQUEST_ACCEPTED), FirstIndexOf(Inbox(client), kReliableStreamId));
 	for (const Message &message : Inbox(client))
+	{
 		if (message.id == kReliableStreamId)
+		{
 			EXPECT_EQ(messageBytes, message.data.size());
+		}
+	}
 	std::vector<uint32_t> numbers = NumbersIn(Inbox(client), kReliableStreamId);
 	std::sort(numbers.begin(), numbers.end());
 	EXPECT_EQ(Range(0, 4), numbers);
@@ -1514,16 +1518,18 @@ namespace
 class HeldMessageProbe : public PluginInterface2
 {
 public:
+	// A wide id field on purpose: with a 2-byte struct, GCC 13 at -O2 reports a false
+	// -Wstringop-overflow inside vector::push_back.
 	struct Seen
 	{
-		MessageID id;
+		unsigned int id;
 		bool reported;
 	};
 
 	PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
 	{
 		if (packet->data[0] >= ID_USER_PACKET_ENUM)
-			networkThread.push_back({packet->data[0], SlotInspector::SlotFor(peer, packet->guid).reported});
+			networkThread.push_back({(unsigned int) packet->data[0], SlotInspector::SlotFor(peer, packet->guid).reported});
 		return RR_CONTINUE_PROCESSING;
 	}
 
