@@ -236,3 +236,24 @@ TEST(SimulatedPeer, InternalOnlyMessageIdFromARemoteIsDroppedAndTheQueueContinue
 	EXPECT_FALSE(net.Received(server, ID_CONNECTION_ATTEMPT_FAILED));
 	EXPECT_EQ(IS_CONNECTED, server->GetConnectionState(net.AddressOf(client)));
 }
+
+TEST(SimulatedPeer, TooShortConnectionRequestAcceptedIsDropped)
+{
+	// A connected peer sending a truncated ID_CONNECTION_REQUEST_ACCEPTED used to hit
+	// RakAssert(0) ("Version mismatch error?"), aborting a Debug build.
+	SimulatedNetwork net;
+	RakPeer *server = net.AddPeer(1, 1);
+	RakPeer *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	net.Inbox(client).clear(); // the real accept from the handshake
+
+	BitStream forged;
+	forged.Write((MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
+	forged.Write((unsigned short) 0);
+	ASSERT_NE(0u, server->Send(&forged, Priority::High, Reliability::ReliableOrdered, 0, net.AddressOf(client), false));
+	SendNumbered(server, net.AddressOf(client), 9, 4);
+
+	ASSERT_TRUE(net.RunUntilReceived(client, ID_TEST_PAYLOAD, 2000));
+	EXPECT_FALSE(net.Received(client, ID_CONNECTION_REQUEST_ACCEPTED));
+	EXPECT_EQ(IS_CONNECTED, client->GetConnectionState(net.AddressOf(server)));
+}
