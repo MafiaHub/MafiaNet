@@ -122,6 +122,15 @@ jobs:
           bad=$(git grep -n RAKNET_SUPPORT_IPV6 -- Source Tests Samples DependentExtensions ':!Source/include/mafianet/defines.h' || true)
           if [ -n "$bad" ]; then echo "RAKNET_SUPPORT_IPV6 was removed (IPv6 is always compiled in):"; echo "$bad"; exit 1; fi
 
+      # The DataStructures containers, the rakMalloc/OP_NEW allocator layer,
+      # alloca and the _FILE_AND_LINE_ tracking parameters were replaced by
+      # std:: containers, new/delete and smart pointers. Keep them from
+      # creeping back in. See docs/advanced/migrating-to-std-containers.rst.
+      - name: Check removed containers and allocators stay gone
+        run: |
+          bad=$(git grep -nE 'DataStructures::|ds_[a-z_]+\.h|rakMalloc|rakFree|OP_NEW|OP_DELETE|memory_override\.h|\balloca\(|RakNetSmartPtr|_FILE_AND_LINE_|MAX_UNSIGNED_LONG' -- Source Tests Samples DependentExtensions Benchmarks || true)
+          if [ -n "$bad" ]; then echo "Removed containers/allocators are back (use std:: containers, new/delete, smart pointers):"; echo "$bad"; exit 1; fi
+
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.11
 
