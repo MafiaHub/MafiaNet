@@ -24,6 +24,7 @@
 
 #include <sodium.h>
 
+#include "EphemeralKeyPairTestAccess.h"
 #include "SimulatedNetwork.h"
 
 #include "mafianet/bit_stream.h"
