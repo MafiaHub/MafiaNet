@@ -20,6 +20,7 @@
 #include "mafianet/kbhit.h"
 #include <string.h>
 #include <stdlib.h>
+#include <set>
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/string_compressor.h"
@@ -198,11 +199,11 @@ int main(void)
 	printf("serializes and deserializes the parameters to the function call\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	DataStructures::OrderedList<int, int> ol;
-	ol.Insert(3, 3, false, _FILE_AND_LINE_);
-	ol.Insert(4, 4, false, _FILE_AND_LINE_);
-	ol.Insert(5, 5, false, _FILE_AND_LINE_);
-	ol.Insert(4, 4, false, _FILE_AND_LINE_);
+	std::set<int> ol;
+	ol.insert(3);
+	ol.insert(4);
+	ol.insert(5);
+	ol.insert(4);
 
 	MafiaNet::RakPeerInterface *rakPeer;
 	MafiaNet::SystemAddress tempAddr = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;

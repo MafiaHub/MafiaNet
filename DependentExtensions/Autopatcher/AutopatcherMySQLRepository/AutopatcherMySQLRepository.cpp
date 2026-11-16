@@ -18,7 +18,9 @@
 #include "mafianet/autopatcher_patch_context.h"
 #include "mafianet/file_list.h"
 #include "mafianet/assert.h"
-#include "mafianet/ds_list.h"
+
+#include <vector>
+
 // ntohl
 #ifdef _WIN32
 #include <Winsock2.h>
@@ -505,7 +507,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 		return false;
 	}
 	//sqlCommandMutex.Unlock();
-	DataStructures::List<FileInfo> newestFiles;
+	std::vector<FileInfo> newestFiles;
 	MYSQL_ROW row;
 	while ((row = mysql_fetch_row(result)) != 0)
 	{
@@ -517,7 +519,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 			RakAssert(mysql_fetch_lengths(result)[1] == HASH_LENGTH); // check the data is sensible
 			memcpy(fi.contentHash, row[1], HASH_LENGTH);
 		}
-		newestFiles.Insert(fi, _FILE_AND_LINE_);
+		newestFiles.push_back(fi);
 	}
 	mysql_free_result(result);
 
@@ -534,7 +536,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 		const char *hardDriveFilename = filesOnHarddrive.fileList[fileListIndex].filename;
 		const char *hardDriveHash = filesOnHarddrive.fileList[fileListIndex].data;
 
-		for (unsigned i = 0; i != newestFiles.Size(); ++i)
+		for (unsigned i = 0; i != newestFiles.size(); ++i)
 		{
 			const FileInfo &fi = newestFiles[i];
 
@@ -561,7 +563,7 @@ bool AutopatcherMySQLRepository::UpdateApplicationFiles(const char *applicationN
 	// Go through query results that are marked as create
 	// If a file that is currently in the database is not on the harddrive, add it to the delete list
 	FileList deletedFiles;
-	for (unsigned i = 0; i != newestFiles.Size(); ++i)
+	for (unsigned i = 0; i != newestFiles.size(); ++i)
 	{
 		const FileInfo &fi = newestFiles[i];
 		if (!fi.createFile)

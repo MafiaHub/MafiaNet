@@ -26,9 +26,10 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_multilist.h"
 #include "mafianet/string.h"
 #include "SQLite3PluginCommon.h"
+
+#include <vector>
 
 class RakPeerInterface;
 
@@ -121,7 +122,7 @@ public:
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 
 	// List of result handlers added with AddResultHandler()
-	DataStructures::List<SQLite3PluginResultInterface *> resultHandlers;
+	std::vector<SQLite3PluginResultInterface *> resultHandlers;
 	// Each query returns a numeric id if you want it. This tracks what id to assign next. Increments sequentially.
 	unsigned int nextQueryId;
 };

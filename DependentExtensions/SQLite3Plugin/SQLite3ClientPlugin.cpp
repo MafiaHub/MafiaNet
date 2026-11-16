@@ -12,6 +12,8 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/bit_stream.h"
 
+#include <algorithm>
+
 using namespace MafiaNet;
 
 void SQLite3PluginResultInterface_Printf::_sqlite3_exec(
@@ -32,19 +34,19 @@ void SQLite3PluginResultInterface_Printf::_sqlite3_exec(
 	}
 
 	unsigned int idx;
-	for (idx = 0; idx < table.columnNames.Size(); idx++)
+	for (idx = 0; idx < table.columnNames.size(); idx++)
 		printf("%s ", table.columnNames[idx].C_String());
 	printf("\n");
-	if (table.rows.Size() == 0)
+	if (table.rows.size() == 0)
 	{
 		printf("<NO ROWS>\n");
 	}
 	else
 	{
-		for (idx = 0; idx < table.rows.Size(); idx++)
+		for (idx = 0; idx < table.rows.size(); idx++)
 		{
 			unsigned int idx2;
-			for (idx2 = 0; idx2 < table.rows[idx]->entries.Size(); idx2++)
+			for (idx2 = 0; idx2 < table.rows[idx]->entries.size(); idx2++)
 				printf("%s ", table.rows[idx]->entries[idx2].C_String());
 			printf("\n");
 		}
@@ -69,17 +71,17 @@ SQLite3ClientPlugin::~SQLite3ClientPlugin()
 }
 void SQLite3ClientPlugin::AddResultHandler(SQLite3PluginResultInterface *res)
 {
-	resultHandlers.Push(res, _FILE_AND_LINE_);
+	resultHandlers.push_back(res);
 }
 void SQLite3ClientPlugin::RemoveResultHandler(SQLite3PluginResultInterface *res)
 {
-	unsigned int idx = resultHandlers.GetIndexOf(res);
-	if (idx != -1)
-		resultHandlers.RemoveAtIndex(idx);
+	auto it = std::find(resultHandlers.begin(), resultHandlers.end(), res);
+	if (it != resultHandlers.end())
+		resultHandlers.erase(it);
 }
 void SQLite3ClientPlugin::ClearResultHandlers(void)
 {
-	resultHandlers.Clear(true, _FILE_AND_LINE_);
+	resultHandlers.clear();
 }
 unsigned int SQLite3ClientPlugin::_sqlite3_exec(MafiaNet::RakString dbIdentifier, MafiaNet::RakString inputStatement,
                                                 MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const SystemAddress &systemAddress)
@@ -127,7 +129,7 @@ PluginReceiveResult SQLite3ClientPlugin::OnReceive(Packet *packet)
 			inputTable.Deserialize(&bsIn);
 
 			unsigned int idx;
-			for (idx = 0; idx < resultHandlers.Size(); idx++)
+			for (idx = 0; idx < resultHandlers.size(); idx++)
 				resultHandlers[idx]->_sqlite3_exec(inputStatement, queryId, dbIdentifier, inputTable, errorMsgStr);
 		}
 
@@ -145,7 +147,7 @@ PluginReceiveResult SQLite3ClientPlugin::OnReceive(Packet *packet)
 		bsIn.Read(dbIdentifier);
 		bsIn.Read(inputStatement);
 		unsigned int idx;
-		for (idx = 0; idx < resultHandlers.Size(); idx++)
+		for (idx = 0; idx < resultHandlers.size(); idx++)
 			resultHandlers[idx]->OnUnknownDBIdentifier(inputStatement, queryId, dbIdentifier);
 	}
 	}

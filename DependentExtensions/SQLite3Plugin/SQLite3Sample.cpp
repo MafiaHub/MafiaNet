@@ -39,7 +39,7 @@ public:
 	bool CreateConnectionStateTable(MafiaNet::RakString dbIdentifier)
 	{
 		// dbHandles is a member variable of SQLite3Plugin and contains the mappings of identifiers to sql database pointers
-		unsigned int idx = dbHandles.GetIndexOf(dbIdentifier);
+		unsigned int idx = GetDBHandleIndex(dbIdentifier);
 		if (idx == (unsigned int) -1)
 			return false;
 
@@ -68,7 +68,7 @@ public:
 		SQLite3ServerPlugin::OnClosedConnection(systemAddress, rakNetGUID, lostConnectionReason);
 
 		// Get the database index associated with the table used for this class
-		unsigned int idx = dbHandles.GetIndexOf(connectionStateIdentifier);
+		unsigned int idx = GetDBHandleIndex(connectionStateIdentifier);
 		if (idx == (unsigned int) -1)
 			return;
 
@@ -87,7 +87,7 @@ public:
 		SQLite3ServerPlugin::OnNewConnection(systemAddress, rakNetGUID, isIncoming);
 
 		// Get the database index associated with the table used for this class
-		unsigned int idx = dbHandles.GetIndexOf(connectionStateIdentifier);
+		unsigned int idx = GetDBHandleIndex(connectionStateIdentifier);
 		if (idx == (unsigned int) -1)
 			return;
 
@@ -117,7 +117,7 @@ public:
 			lastTimeRemovedDeadRows = curTime;
 
 			// Get the database index associated with the table used for this class
-			unsigned int idx = dbHandles.GetIndexOf(connectionStateIdentifier);
+			unsigned int idx = GetDBHandleIndex(connectionStateIdentifier);
 			if (idx==(unsigned int)-1)
 				return;
 

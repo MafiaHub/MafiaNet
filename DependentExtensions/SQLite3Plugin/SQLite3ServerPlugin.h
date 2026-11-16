@@ -32,10 +32,11 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_multilist.h"
 #include "mafianet/string.h"
 #include "sqlite3.h"
 #include "SQLite3PluginCommon.h"
+
+#include <vector>
 
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
 #include "mafianet/thread_pool.h"
@@ -120,8 +121,11 @@ public:
 protected:
 	virtual void StopThreads(void);
 
-	// List of databases added with AddDBHandle()
-	DataStructures::Multilist<ML_ORDERED_LIST, NamedDBHandle, MafiaNet::RakString> dbHandles;
+	/// Index of \a dbIdentifier in dbHandles, or (unsigned int) -1 if it was not added
+	unsigned int GetDBHandleIndex(const MafiaNet::RakString &dbIdentifier) const;
+
+	// List of databases added with AddDBHandle(), sorted by dbIdentifier
+	std::vector<NamedDBHandle> dbHandles;
 
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
 	// The point of the sqlThreadPool is so that SQL queries, which are blocking, happen in the thread and don't slow down the rest of the application
@@ -131,9 +135,5 @@ protected:
 };
 
 };
-
-extern bool operator<(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls);
-extern bool operator>(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls);
-extern bool operator==(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const MafiaNet::SQLite3ServerPlugin::NamedDBHandle &cls);
 
 #endif

@@ -19,39 +19,37 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/get_time.h"
 
+#include <algorithm>
+#include <memory>
+
 using namespace MafiaNet;
 
-bool operator<(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls)
+namespace
 {
-	return inputKey.Get() < cls.dbIdentifier;
-}
-bool operator>(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls)
+bool DBHandleBefore(const SQLite3ServerPlugin::NamedDBHandle &handle, const MafiaNet::RakString &dbIdentifier)
 {
-	return inputKey.Get() > cls.dbIdentifier;
+	return handle.dbIdentifier < dbIdentifier;
 }
-bool operator==(const DataStructures::MLKeyRef<MafiaNet::RakString> &inputKey, const SQLite3ServerPlugin::NamedDBHandle &cls)
-{
-	return inputKey.Get() == cls.dbIdentifier;
-}
+} // namespace
 
 
 int PerRowCallback(void *userArgument, int argc, char **argv, char **azColName)
 {
 	SQLite3Table *outputTable = (SQLite3Table *) userArgument;
 	unsigned int idx;
-	if (outputTable->columnNames.Size() == 0)
+	if (outputTable->columnNames.size() == 0)
 	{
 		for (idx = 0; idx < (unsigned int) argc; idx++)
-			outputTable->columnNames.Push(azColName[idx], _FILE_AND_LINE_);
+			outputTable->columnNames.push_back(azColName[idx]);
 	}
-	SQLite3Row *row = new SQLite3Row;
-	outputTable->rows.Push(row, _FILE_AND_LINE_);
+	outputTable->rows.push_back(std::make_unique<SQLite3Row>());
+	SQLite3Row *row = outputTable->rows.back().get();
 	for (idx = 0; idx < (unsigned int) argc; idx++)
 	{
 		if (argv[idx])
-			row->entries.Push(argv[idx], _FILE_AND_LINE_);
+			row->entries.push_back(argv[idx]);
 		else
-			row->entries.Push("", _FILE_AND_LINE_);
+			row->entries.push_back("");
 	}
 	return 0;
 }
@@ -66,15 +64,15 @@ bool SQLite3ServerPlugin::AddDBHandle(MafiaNet::RakString dbIdentifier, sqlite3 
 {
 	if (dbIdentifier.IsEmpty())
 		return false;
-	unsigned int idx = dbHandles.GetInsertionIndex(dbIdentifier);
-	if (idx == (unsigned int) -1)
+	auto insertionPoint = std::lower_bound(dbHandles.begin(), dbHandles.end(), dbIdentifier, DBHandleBefore);
+	if (insertionPoint != dbHandles.end() && insertionPoint->dbIdentifier == dbIdentifier)
 		return false;
 	NamedDBHandle ndbh;
 	ndbh.dbHandle = dbHandle;
 	ndbh.dbIdentifier = dbIdentifier;
 	ndbh.dbAutoCreated = dbAutoCreated;
 	ndbh.whenCreated = MafiaNet::GetTimeMS();
-	dbHandles.InsertAtIndex(ndbh, idx, _FILE_AND_LINE_);
+	dbHandles.insert(insertionPoint, ndbh);
 
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
 	if (sqlThreadPool.WasStarted() == false)
@@ -85,7 +83,7 @@ bool SQLite3ServerPlugin::AddDBHandle(MafiaNet::RakString dbIdentifier, sqlite3 
 }
 void SQLite3ServerPlugin::RemoveDBHandle(MafiaNet::RakString dbIdentifier, bool alsoCloseConnection)
 {
-	unsigned int idx = dbHandles.GetIndexOf(dbIdentifier);
+	unsigned int idx = GetDBHandleIndex(dbIdentifier);
 	if (idx != (unsigned int) -1)
 	{
 		if (alsoCloseConnection)
@@ -93,17 +91,24 @@ void SQLite3ServerPlugin::RemoveDBHandle(MafiaNet::RakString dbIdentifier, bool 
 			printf("Closed %s\n", dbIdentifier.C_String());
 			sqlite3_close(dbHandles[idx].dbHandle);
 		}
-		dbHandles.RemoveAtIndex(idx, _FILE_AND_LINE_);
+		dbHandles.erase(dbHandles.begin() + idx);
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
-		if (dbHandles.GetSize() == 0)
+		if (dbHandles.size() == 0)
 			StopThreads();
 #endif // SQLite3_STATEMENT_EXECUTE_THREADED
 	}
 }
+unsigned int SQLite3ServerPlugin::GetDBHandleIndex(const MafiaNet::RakString &dbIdentifier) const
+{
+	auto handle = std::lower_bound(dbHandles.begin(), dbHandles.end(), dbIdentifier, DBHandleBefore);
+	if (handle == dbHandles.end() || handle->dbIdentifier != dbIdentifier)
+		return (unsigned int) -1;
+	return static_cast<unsigned int>(handle - dbHandles.begin());
+}
 void SQLite3ServerPlugin::RemoveDBHandle(sqlite3 *dbHandle, bool alsoCloseConnection)
 {
 	unsigned int idx;
-	for (idx = 0; idx < dbHandles.GetSize(); idx++)
+	for (idx = 0; idx < dbHandles.size(); idx++)
 	{
 		if (dbHandles[idx].dbHandle == dbHandle)
 		{
@@ -112,9 +117,9 @@ void SQLite3ServerPlugin::RemoveDBHandle(sqlite3 *dbHandle, bool alsoCloseConnec
 				printf("Closed %s\n", dbHandles[idx].dbIdentifier.C_String());
 				sqlite3_close(dbHandles[idx].dbHandle);
 			}
-			dbHandles.RemoveAtIndex(idx, _FILE_AND_LINE_);
+			dbHandles.erase(dbHandles.begin() + idx);
 #ifdef SQLite3_STATEMENT_EXECUTE_THREADED
-			if (dbHandles.GetSize() == 0)
+			if (dbHandles.size() == 0)
 				StopThreads();
 #endif // SQLite3_STATEMENT_EXECUTE_THREADED
 			return;
@@ -205,8 +210,8 @@ PluginReceiveResult SQLite3ServerPlugin::OnReceive(Packet *packet)
 		{
 			// Server code
 
-			unsigned int idx = dbHandles.GetIndexOf(dbIdentifier);
-			if (idx == -1)
+			unsigned int idx = GetDBHandleIndex(dbIdentifier);
+			if (idx == (unsigned int) -1)
 			{
 				MafiaNet::BitStream bsOut;
 				bsOut.Write((MessageID) ID_SQLite3_UNKNOWN_DB);

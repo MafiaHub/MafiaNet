@@ -21,20 +21,18 @@ SQLite3Table::SQLite3Table()
 }
 SQLite3Table::~SQLite3Table()
 {
-	for (unsigned int i = 0; i < rows.Size(); i++)
-		delete rows[i];
 }
 
 void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
 {
-	bitStream->Write(columnNames.Size());
+	bitStream->Write((unsigned int) columnNames.size());
 	unsigned int idx1, idx2;
-	for (idx1 = 0; idx1 < columnNames.Size(); idx1++)
+	for (idx1 = 0; idx1 < columnNames.size(); idx1++)
 		bitStream->Write(columnNames[idx1]);
-	bitStream->Write(rows.Size());
-	for (idx1 = 0; idx1 < rows.Size(); idx1++)
+	bitStream->Write((unsigned int) rows.size());
+	for (idx1 = 0; idx1 < rows.size(); idx1++)
 	{
-		for (idx2 = 0; idx2 < rows[idx1]->entries.Size(); idx2++)
+		for (idx2 = 0; idx2 < rows[idx1]->entries.size(); idx2++)
 		{
 			bitStream->Write(rows[idx1]->entries[idx2]);
 		}
@@ -42,10 +40,8 @@ void SQLite3Table::Serialize(MafiaNet::BitStream *bitStream)
 }
 void SQLite3Table::Deserialize(MafiaNet::BitStream *bitStream)
 {
-	for (unsigned int i = 0; i < rows.Size(); i++)
-		delete rows[i];
-	rows.Clear(true, _FILE_AND_LINE_);
-	columnNames.Clear(true, _FILE_AND_LINE_);
+	rows.clear();
+	columnNames.clear();
 
 	unsigned int numColumns, numRows;
 	bitStream->Read(numColumns);
@@ -54,17 +50,17 @@ void SQLite3Table::Deserialize(MafiaNet::BitStream *bitStream)
 	for (idx1 = 0; idx1 < numColumns; idx1++)
 	{
 		bitStream->Read(inputStr);
-		columnNames.Push(inputStr, _FILE_AND_LINE_);
+		columnNames.push_back(inputStr);
 	}
 	bitStream->Read(numRows);
 	for (idx1 = 0; idx1 < numRows; idx1++)
 	{
-		SQLite3Row *row = new SQLite3Row;
-		rows.Push(row, _FILE_AND_LINE_);
+		rows.push_back(std::make_unique<SQLite3Row>());
+		SQLite3Row *row = rows.back().get();
 		for (idx2 = 0; idx2 < numColumns; idx2++)
 		{
 			bitStream->Read(inputStr);
-			row->entries.Push(inputStr, _FILE_AND_LINE_);
+			row->entries.push_back(inputStr);
 		}
 	}
 }
