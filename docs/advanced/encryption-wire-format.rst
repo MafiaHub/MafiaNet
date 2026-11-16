@@ -6,7 +6,8 @@ enough to write an interoperable implementation. For what the encryption does an
 and how to use it, see :doc:`../basics/secure-connections`.
 
 It is written against the implementation in ``session_crypto.cpp``, ``handshake_challenge.cpp`` and
-the open-connection handlers in ``peer.cpp``. Where this page and the code differ, the code is right.
+the open-connection handlers in ``peer.cpp``. This page is normative: a difference between it and the code is a bug in one of them, to be
+reported and fixed.
 
 Conventions
 -----------

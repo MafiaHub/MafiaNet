@@ -7,6 +7,7 @@
 
 #include "ServerReplyHarness.h"
 
+#include <atomic>
 #include <cstring>
 
 #include <sodium.h>
@@ -32,19 +33,36 @@ uint64_t NextRandom()
 	return z ^ (z >> 31);
 }
 
+// libsodium documents that randombytes_set_implementation must be called before sodium_init, so this
+// switchable implementation is installed once, by a static initializer, before any sodium_init in the
+// process. It is never swapped again: a RunServerReplyInput scope only flips g_fixedActive. While
+// inactive every call is forwarded to libsodium's own default implementation, so a binary that links
+// this file draws OS randomness as usual outside a run. That default is the internal (ChaCha20
+// seeded from the OS) implementation; restoring randombytes_sysrandom_implementation instead would
+// silently change it on Linux.
+const randombytes_implementation *const g_realRandom = &randombytes_internal_implementation;
+std::atomic<bool> g_fixedActive{false};
+
 const char *FixedName()
 {
-	return "mafianet-fuzz-fixed";
+	return g_fixedActive.load(std::memory_order_relaxed) ? "mafianet-fuzz-fixed" : g_realRandom->implementation_name();
 }
 uint32_t FixedRandom()
 {
-	return (uint32_t) NextRandom();
+	return g_fixedActive.load(std::memory_order_relaxed) ? (uint32_t) NextRandom() : g_realRandom->random();
 }
 void FixedStir()
 {
+	// Always forwarded, so the real implementation is seeded by sodium_init and ready when inactive.
+	g_realRandom->stir();
 }
 void FixedBuf(void *const buf, const size_t size)
 {
+	if (!g_fixedActive.load(std::memory_order_relaxed))
+	{
+		g_realRandom->buf(buf, size);
+		return;
+	}
 	uint8_t *out = static_cast<uint8_t *>(buf);
 	for (size_t i = 0; i < size; i += 8)
 	{
@@ -54,20 +72,24 @@ void FixedBuf(void *const buf, const size_t size)
 }
 int FixedClose()
 {
-	return 0;
+	return g_realRandom->close();
 }
 
+// uniform is left null: libsodium's default builds it on random() above.
 randombytes_implementation g_fixedRandom = {FixedName, FixedRandom, FixedStir, nullptr, FixedBuf, FixedClose};
 
-// Installs the fixed stream for one run and the OS source again afterwards.
+// Runs before main and therefore before any sodium_init in this process.
+const bool g_fixedInstalled = randombytes_set_implementation(&g_fixedRandom) == 0;
+
+// Makes the installed implementation produce the fixed stream for one run.
 struct FixedRandomScope
 {
 	FixedRandomScope()
 	{
-		randombytes_set_implementation(&g_fixedRandom);
+		g_fixedActive.store(true, std::memory_order_relaxed);
 		g_rngState = 0;
 	}
-	~FixedRandomScope() { randombytes_set_implementation(&randombytes_sysrandom_implementation); }
+	~FixedRandomScope() { g_fixedActive.store(false, std::memory_order_relaxed); }
 	FixedRandomScope(const FixedRandomScope &) = delete;
 	FixedRandomScope &operator=(const FixedRandomScope &) = delete;
 };
@@ -80,7 +102,7 @@ const uint8_t kPinnedIdentity[32] = {0x03, 0xa1, 0x07, 0xbf, 0xf3, 0xce, 0x10, 0
 ServerReplyOutcome RunServerReplyInput(const uint8_t *data, size_t size)
 {
 	ServerReplyOutcome outcome;
-	if (size < 1 || sodium_init() < 0)
+	if (size < 1 || !g_fixedInstalled || sodium_init() < 0)
 		return outcome;
 	FixedRandomScope fixedRandom;
 

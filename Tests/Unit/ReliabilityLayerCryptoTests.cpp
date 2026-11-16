@@ -258,6 +258,7 @@ TEST_F(ReliabilityLayerPlaintext, RequiredModeWithoutKeysNeverAcceptsCleartext)
 	b.SetEncryptionMode(EncryptionMode::Required);
 	b.Reset(true, TEST_MTU);
 	b.SetTimeoutTime(TEST_TIMEOUT_MS);
+	ReanchorClock(); // else b.Update below may return early and prove nothing
 	for (size_t i = 0; i < cleartext.size(); i++)
 		DeliverToB(cleartext[i]);
 	unsigned char *data = nullptr;

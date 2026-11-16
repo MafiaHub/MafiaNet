@@ -7075,7 +7075,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					else
 					{
 						// Too short to be a connection accept: drop it. Not a RakAssert -- the
-						// remote chooses this size, and a Debug build must not abort on it.
+						// remote chooses this size, and a Debug build must not abort on it. The attempt
+						// then times out normally.
 						rakFree_Ex(data, _FILE_AND_LINE_);
 					}
 				}

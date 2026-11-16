@@ -150,12 +150,12 @@ TEST(SessionCrypto, AnyTranscriptChangeChangesKeys)
 	const CryptInfo infoI = i.MakeCryptInfo();
 	const CryptInfo infoR = r.MakeCryptInfo();
 	uint8_t secretI[32];
-	memcpy(secretI, i.SecretKey(), sizeof(secretI));
+	memcpy(secretI, EphemeralKeyPairTestAccess::SecretKey(i), sizeof(secretI));
 
 	// DeriveSessionKeys wipes the key pair it is given, so rebuild the same pair each time.
 	auto derive = [&](const CryptInfo &a, const CryptInfo &b, RakNetGUID ga, RakNetGUID gb, SessionKeys *out)
 	{
-		EphemeralKeyPair local = EphemeralKeyPair::FromSecretKeyForTesting(secretI, infoI.nonce);
+		EphemeralKeyPair local = EphemeralKeyPairTestAccess::FromSecretKey(secretI, infoI.nonce);
 		return DeriveSessionKeys(local, true, a, b, ga, gb, out);
 	};
 
@@ -223,7 +223,7 @@ TEST(SessionCrypto, KeyPairFromSecretKeyForTestingRebuildsTheSamePair)
 {
 	EphemeralKeyPair original;
 	const CryptInfo info = original.MakeCryptInfo();
-	EphemeralKeyPair rebuilt = EphemeralKeyPair::FromSecretKeyForTesting(original.SecretKey(), info.nonce);
+	EphemeralKeyPair rebuilt = EphemeralKeyPairTestAccess::FromSecretKey(EphemeralKeyPairTestAccess::SecretKey(original), info.nonce);
 	const CryptInfo again = rebuilt.MakeCryptInfo();
 	EXPECT_EQ(0, memcmp(info.publicKey, again.publicKey, sizeof(info.publicKey)));
 	EXPECT_EQ(info.nonce, again.nonce);
@@ -261,7 +261,7 @@ TEST(SessionCrypto, DerivingWipesTheEphemeralKeyPair)
 	ASSERT_TRUE(DeriveSessionKeys(i, true, infoI, infoR, kInitiatorGuid, kResponderGuid, &k));
 	EXPECT_TRUE(i.IsWiped());
 	const uint8_t zero[32] = {};
-	EXPECT_EQ(0, memcmp(i.SecretKey(), zero, 32));
+	EXPECT_EQ(0, memcmp(EphemeralKeyPairTestAccess::SecretKey(i), zero, 32));
 	// A wiped key pair cannot derive again.
 	EXPECT_FALSE(DeriveSessionKeys(i, true, infoI, infoR, kInitiatorGuid, kResponderGuid, &k));
 }

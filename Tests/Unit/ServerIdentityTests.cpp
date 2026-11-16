@@ -447,7 +447,7 @@ TEST(ServerIdentityCrypto, KeyScheduleIncludesTheIdentityBlock)
 	const RakNetGUID responderGuid(0xFEDCBA9876543210ull);
 	auto infoOf = [](const uint8_t secret[32], uint64_t nonce)
 	{
-		EphemeralKeyPair pair = EphemeralKeyPair::FromSecretKeyForTesting(secret, nonce);
+		EphemeralKeyPair pair = EphemeralKeyPairTestAccess::FromSecretKey(secret, nonce);
 		return pair.MakeCryptInfo();
 	};
 	const CryptInfo initiatorInfo = infoOf(initiatorSecret, 0x0102030405060708ull);
@@ -464,7 +464,7 @@ TEST(ServerIdentityCrypto, KeyScheduleIncludesTheIdentityBlock)
 
 	auto derive = [&](const IdentityBlock &block, bool initiator, SessionKeys *out)
 	{
-		EphemeralKeyPair pair = EphemeralKeyPair::FromSecretKeyForTesting(initiator ? initiatorSecret : responderSecret,
+		EphemeralKeyPair pair = EphemeralKeyPairTestAccess::FromSecretKey(initiator ? initiatorSecret : responderSecret,
 		                                                                  initiator ? 0x0102030405060708ull : 0x1112131415161718ull);
 		return DeriveSessionKeys(pair, initiator, initiatorInfo, responderInfo, initiatorGuid, responderGuid, block, out);
 	};
@@ -483,7 +483,7 @@ TEST(ServerIdentityCrypto, KeyScheduleIncludesTheIdentityBlock)
 
 	// The overload without an identity block is the absent block.
 	SessionKeys overload;
-	EphemeralKeyPair pair = EphemeralKeyPair::FromSecretKeyForTesting(initiatorSecret, 0x0102030405060708ull);
+	EphemeralKeyPair pair = EphemeralKeyPairTestAccess::FromSecretKey(initiatorSecret, 0x0102030405060708ull);
 	ASSERT_TRUE(DeriveSessionKeys(pair, true, initiatorInfo, responderInfo, initiatorGuid, responderGuid, &overload));
 	EXPECT_EQ(Bytes(without.send, 32), Bytes(overload.send, 32));
 
@@ -798,6 +798,28 @@ TEST(ServerIdentity, UnpinnedClientConnectsAndReadsTheServerKey)
 	ASSERT_TRUE(client->GetRemoteIdentityKey(net.AddressOf(server), remote));
 	EXPECT_EQ(Bytes(key.publicKey, 32), Bytes(remote, 32));
 	ExpectDataFlows(net, client, server);
+}
+
+// The identity key lives with the connection: once it closes there is nothing to read.
+TEST(ServerIdentity, RemoteIdentityKeyIsGoneAfterDisconnect)
+{
+	SimulatedNetwork net;
+	const IdentityKey key = IdentityKey::Generate();
+	net.SetNewPeerIdentityKey(key.secretKey);
+	RakPeer *server = net.AddPeer(1, 1);
+	net.SetNewPeerIdentityKey(nullptr);
+	RakPeer *client = net.AddPeer(1);
+
+	ASSERT_TRUE(net.Connect(client, server));
+	const SystemAddress serverAddress = net.AddressOf(server);
+	uint8_t remote[32];
+	ASSERT_TRUE(client->GetRemoteIdentityKey(serverAddress, remote));
+	EXPECT_EQ(Bytes(key.publicKey, 32), Bytes(remote, 32));
+
+	client->CloseConnection(serverAddress, true);
+	ASSERT_TRUE(net.RunUntilReceived(server, ID_DISCONNECTION_NOTIFICATION, 2000));
+	EXPECT_FALSE(client->GetRemoteIdentityKey(serverAddress, remote));
+	EXPECT_EQ(std::vector<uint8_t>(32, 0), Bytes(remote, 32));
 }
 
 TEST(ServerIdentity, UnpinnedClientAgainstAServerWithoutKey)

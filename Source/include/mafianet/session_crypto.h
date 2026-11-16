@@ -73,24 +73,34 @@ public:
 	EphemeralKeyPair(const EphemeralKeyPair &) = delete;
 	EphemeralKeyPair &operator=(const EphemeralKeyPair &) = delete;
 
-	/// Test-only: a key pair with a caller-chosen secret key and nonce, so a test can
-	/// rebuild the same pair after DeriveSessionKeys has wiped one. Never use it for a
-	/// real handshake.
-	static EphemeralKeyPair FromSecretKeyForTesting(const uint8_t secretKey[32], uint64_t nonce);
-
 	/// Mode Required, this key pair's public key, and the nonce fixed at construction.
 	CryptInfo MakeCryptInfo() const;
-	const uint8_t *SecretKey() const;
 	void Wipe();
 	bool IsWiped() const;
 
 private:
+	// The secret key and the caller-chosen constructor are not public API, so a key pair cannot be
+	// cloned by reading the secret and rebuilding one. Only the key derivation (inside the library)
+	// and the test helper below can reach them.
+	friend struct EphemeralKeyPairInternal;
+	friend struct EphemeralKeyPairTestAccess;
+
+	const uint8_t *SecretKey() const;
 	EphemeralKeyPair(const uint8_t secretKey[32], uint64_t nonce);
 
 	uint8_t secretKey[32];
 	uint8_t publicKey[32];
 	uint64_t nonce;
 	bool wiped;
+};
+
+/// Test-only access to EphemeralKeyPair internals, so a test can rebuild the same pair after
+/// DeriveSessionKeys has wiped one. Never use it for a real handshake.
+struct RAK_DLL_EXPORT EphemeralKeyPairTestAccess
+{
+	/// A key pair with a caller-chosen secret key and nonce.
+	static EphemeralKeyPair FromSecretKey(const uint8_t secretKey[32], uint64_t nonce);
+	static const uint8_t *SecretKey(const EphemeralKeyPair &pair);
 };
 
 /// Directional session keys. Wiped by the destructor.
