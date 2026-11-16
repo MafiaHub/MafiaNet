@@ -521,7 +521,7 @@ void RPC3::InvokeSignal(LocalSlot *localSlot, MafiaNet::BitStream *serializedPar
 // 		{
 // 			newRemoteFunction.functionIndex=remoteIndex;
 // 			newRemoteFunction.identifier = strIdentifier;
-// 			theList->InsertAtIndex(newRemoteFunction, insertionIndex, _FILE_AND_LINE_ );
+// 			theList->InsertAtIndex(newRemoteFunction, insertionIndex);
 // 		}
 // 	}
 // 	else
@@ -530,7 +530,7 @@ void RPC3::InvokeSignal(LocalSlot *localSlot, MafiaNet::BitStream *serializedPar
 //
 // 		newRemoteFunction.functionIndex=remoteIndex;
 // 		newRemoteFunction.identifier = strIdentifier;
-// 		theList->InsertAtEnd(newRemoteFunction, _FILE_AND_LINE_ );
+// 		theList->InsertAtEnd(newRemoteFunction);
 //
 // 		if (isCall==true)
 // 			remoteFunctions.SetNew(systemAddress,theList);

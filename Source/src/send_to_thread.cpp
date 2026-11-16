@@ -37,7 +37,7 @@ SendToThread::SendToThreadBlock *SendToWorkerThread(SendToThread::SendToThreadBl
 	*returnOutput = false;
 	//	MafiaNet::TimeUS *mostRecentTime=(MafiaNet::TimeUS *)input->data;
 	//	*mostRecentTime=MafiaNet::GetTimeUS();
-	SocketLayer::SendTo(input->s, input->data, input->dataWriteOffset, input->systemAddress, _FILE_AND_LINE_);
+	SocketLayer::SendTo(input->s, input->data, input->dataWriteOffset, input->systemAddress);
 	SendToThread::objectQueue.Push(std::unique_ptr<SendToThread::SendToThreadBlock>(input));
 	return 0;
 }

@@ -897,9 +897,6 @@ public:
 		std::atomic<ConnectMode> connectMode;
 	};
 
-	// DS_APR
-	//void ProcessChromePacket(RakNetSocket2 *s, const char *buffer, int dataSize, const SystemAddress& recvFromAddress, MafiaNet::TimeUS timeRead);
-	// /DS_APR
 protected:
 	friend RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 	//friend RAK_THREAD_DECLARATION(RecvFromLoop);

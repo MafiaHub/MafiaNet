@@ -49,8 +49,7 @@ Basic Usage
 
    // Query for all game servers
    MafiaNet::CloudQuery query;
-   query.keys.Push(MafiaNet::CloudKey("GameServer", 0),
-                   _FILE_AND_LINE_);
+   query.keys.push_back(MafiaNet::CloudKey("GameServer", 0));
    query.subscribeToResults = true;  // Get updates
 
    cloudClient.Get(&query, cloudServerAddress);
@@ -65,7 +64,7 @@ Basic Usage
            MafiaNet::CloudQueryResult result;
            cloudClient.OnGetResponse(&result, packet);
 
-           for (unsigned int i = 0; i < result.rowsReturned.Size(); i++) {
+           for (std::size_t i = 0; i < result.rowsReturned.size(); i++) {
                MafiaNet::CloudQueryRow* row = result.rowsReturned[i];
                printf("Server: %s\n", MafiaNet::to_string(row->clientGUID).c_str());
 
