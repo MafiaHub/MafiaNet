@@ -25,7 +25,7 @@ using namespace MafiaNet;
 Description:
 virtual bool RakPeerInterface::ConnectWithSocket  	(  	const char *   	 host, 		unsigned short  	remotePort, 		const char *  	passwordData, 		int  	passwordDataLength, 		RakNetSocket2 *  	socket, 		unsigned  	sendConnectionAttemptCount = 7, 		unsigned  	timeBetweenSendConnectionAttemptsMS = 500, 		TimeMS  	timeoutTime = 0	  	)
 
-virtual void RakPeerInterface::GetSockets  	(  	DataStructures::List< RakNetSocket2* > &   	 sockets  	 )
+virtual void RakPeerInterface::GetSockets  	(  	std::vector< RakNetSocket2* > &   	 sockets  	 )
 virtual RakNetSocket2* RakPeerInterface::GetSocket  	(  	const SystemAddress   	 target  	 )   	 [pure virtual]
 
 Success conditions:
@@ -51,17 +51,17 @@ class ConnectWithSocket : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
+		const std::size_t theSize = destroyList.size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 };
 
 TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)

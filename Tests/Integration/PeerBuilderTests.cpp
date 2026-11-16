@@ -8,7 +8,6 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/string.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/peer_handle.h"
 #include "mafianet/message_identifiers.h"

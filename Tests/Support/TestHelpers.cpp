@@ -74,18 +74,18 @@ void TestHelpers::StandardClientPrep(RakPeerInterface *&client)
 	client->Startup(1, &clientSd, 1);
 }
 
-void TestHelpers::StandardServerPrep(RakPeerInterface *&server, DataStructures::List<RakPeerInterface *> &destroyList)
+void TestHelpers::StandardServerPrep(RakPeerInterface *&server, std::vector<RakPeerInterface *> &destroyList)
 {
 
 	StandardServerPrep(server);
-	destroyList.Push(server, _FILE_AND_LINE_);
+	destroyList.push_back(server);
 }
 
-void TestHelpers::StandardClientPrep(RakPeerInterface *&client, DataStructures::List<RakPeerInterface *> &destroyList)
+void TestHelpers::StandardClientPrep(RakPeerInterface *&client, std::vector<RakPeerInterface *> &destroyList)
 {
 
 	StandardClientPrep(client);
-	destroyList.Push(client, _FILE_AND_LINE_);
+	destroyList.push_back(client);
 }
 
 //returns false if not connected

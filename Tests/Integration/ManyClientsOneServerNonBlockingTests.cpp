@@ -25,17 +25,17 @@ class ManyClientsOneServerNonBlocking : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
+		const std::size_t theSize = destroyList.size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 	unsigned short serverPort = 0;
 };
 
@@ -77,13 +77,13 @@ TEST_F(ManyClientsOneServerNonBlocking, ClientsSurviveRapidDisconnectReconnectCy
 	SystemAddress currentSystem;
 
 	Packet *packet;
-	destroyList.Clear(false, _FILE_AND_LINE_);
+	destroyList.clear();
 
 	//Initializations of the arrays
 	for (int i = 0; i < clientNum; i++)
 	{
 		clientList[i] = RakPeerInterface::GetInstance();
-		destroyList.Push(clientList[i], _FILE_AND_LINE_);
+		destroyList.push_back(clientList[i]);
 
 		SocketDescriptor clientSd;
 		StartupResult result = clientList[i]->Startup(1, &clientSd, 1);
@@ -91,7 +91,7 @@ TEST_F(ManyClientsOneServerNonBlocking, ClientsSurviveRapidDisconnectReconnectCy
 	}
 
 	server = RakPeerInterface::GetInstance();
-	destroyList.Push(server, _FILE_AND_LINE_);
+	destroyList.push_back(server);
 	serverPort = TestHelpers::StartOnLoopback(server, clientNum, clientNum);
 	ASSERT_NE(serverPort, 0) << "Server failed to start";
 

@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/string.h"
-#include "mafianet/ds_list.h"
+#include <vector>
 #include "mafianet/peer_interface.h"
 #include "mafianet/rpc4_plugin.h"
 #include "mafianet/message_identifiers.h"
@@ -111,14 +111,14 @@ protected:
 
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
-		for (int i = 0; i < theSize; i++)
+		const std::size_t theSize = destroyList.size();
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 	// Plugins are members so they outlive the peers: the peers are shut down in
 	// TearDown() (which runs before member destruction), and RakPeer::Shutdown()
 	// calls back into attached plugins. A plugin destroyed before its peer would
@@ -130,7 +130,7 @@ protected:
 TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 {
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();
-	destroyList.Push(peer, _FILE_AND_LINE_);
+	destroyList.push_back(peer);
 
 	SocketDescriptor sd(0, 0);
 	ASSERT_EQ(peer->Startup(8, &sd, 1), RAKNET_STARTED) << "Peer failed to start";
@@ -176,7 +176,7 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	// Needs a real remote: CallBlocking sends ID_RPC4_CALL with isBlocking=true,
 	// the server's OnReceive invokes the handler with its context, then replies.
 	RakPeerInterface *server = RakPeerInterface::GetInstance();
-	destroyList.Push(server, _FILE_AND_LINE_);
+	destroyList.push_back(server);
 
 	SocketDescriptor serverSd(0, 0);
 	ASSERT_EQ(server->Startup(8, &serverSd, 1), RAKNET_STARTED) << "Server peer failed to start";

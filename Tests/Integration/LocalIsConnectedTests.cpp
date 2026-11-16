@@ -57,17 +57,17 @@ class LocalIsConnected : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
+		const std::size_t theSize = destroyList.size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 };
 
 TEST_F(LocalIsConnected, ConnectionStateAndLocalAddressQueries)
@@ -75,9 +75,9 @@ TEST_F(LocalIsConnected, ConnectionStateAndLocalAddressQueries)
 	RakPeerInterface *server, *client;
 
 	server = RakPeerInterface::GetInstance();
-	destroyList.Push(server, _FILE_AND_LINE_);
+	destroyList.push_back(server);
 	client = RakPeerInterface::GetInstance();
-	destroyList.Push(client, _FILE_AND_LINE_);
+	destroyList.push_back(client);
 
 	// The client keeps binding all interfaces (port 0): the GetLocalIP/IsLocalIP/
 	// GetInternalID checks below are about its local addresses.
