@@ -29,8 +29,9 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/string.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_queue.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <deque>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -79,10 +80,10 @@ public:
 		SenderAndTargetAddress sata;
 		SystemAddress requestingAddress; // Which system originally sent the network message to start forwarding
 		SystemAddress currentlyAttemptedServerAddress;
-		DataStructures::Queue<SystemAddress> remainingServersToTry;
+		std::deque<SystemAddress> remainingServersToTry;
 		MafiaNet::BitStream serverSelectionBitstream;
 
-		DataStructures::List<ServerWithPing> sourceServerPings, targetServerPings;
+		std::vector<ServerWithPing> sourceServerPings, targetServerPings;
 		MafiaNet::TimeMS timeRequestedPings;
 		// Order based on sourceServerPings and targetServerPings
 		void OrderRemainingServersToTry(void);
@@ -103,12 +104,11 @@ protected:
 	void SendForwardingRequest(SystemAddress sourceAddress, SystemAddress targetAddress, SystemAddress serverAddress, MafiaNet::TimeMS timeoutOnNoDataMS);
 
 	// Logged in servers
-	//DataStructures::Multilist<ML_UNORDERED_LIST, SystemAddress> serverList;
-	DataStructures::List<SystemAddress> serverList;
+	std::vector<SystemAddress> serverList;
 
 	// Forwarding requests in progress
-	//DataStructures::Multilist<ML_ORDERED_LIST, ForwardingRequest*, SenderAndTargetAddress> forwardingRequestList;
-	DataStructures::OrderedList<SenderAndTargetAddress, ForwardingRequest *, ForwardingRequestComp> forwardingRequestList;
+	// Sorted by ForwardingRequestComp; owned.
+	std::vector<ForwardingRequest *> forwardingRequestList;
 
 	MafiaNet::RakString remoteLoginPassword;
 };

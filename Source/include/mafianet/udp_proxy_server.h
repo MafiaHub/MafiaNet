@@ -30,6 +30,8 @@
 #include "mafianet/udp_forwarder.h"
 #include "mafianet/string.h"
 
+#include <set>
+
 namespace MafiaNet
 {
 class UDPProxyServer;
@@ -115,8 +117,8 @@ public:
 protected:
 	void OnForwardingRequestFromCoordinatorToServer(Packet *packet);
 
-	DataStructures::OrderedList<SystemAddress, SystemAddress> loggingInCoordinators;
-	DataStructures::OrderedList<SystemAddress, SystemAddress> loggedInCoordinators;
+	std::set<SystemAddress> loggingInCoordinators;
+	std::set<SystemAddress> loggedInCoordinators;
 
 	UDPProxyServerResultHandler *resultHandler;
 	unsigned short socketFamily;

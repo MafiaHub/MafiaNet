@@ -102,12 +102,9 @@ void NatTypeDetectionClient::Update(void)
 	if (IsInProgress())
 	{
 		RNS2RecvStruct *recvStruct;
-		bufferedPacketsMutex.Lock();
-		if (bufferedPackets.Size() > 0)
-			recvStruct = bufferedPackets.Pop();
-		else
-			recvStruct = 0;
-		bufferedPacketsMutex.Unlock();
+		recvStruct = 0;
+		if (auto popped = bufferedPackets.TryPop())
+			recvStruct = popped->release();
 		while (recvStruct)
 		{
 			if (recvStruct->bytesRead == 1 && recvStruct->data[0] == NAT_TYPE_NONE)
@@ -117,12 +114,9 @@ void NatTypeDetectionClient::Update(void)
 			}
 			DeallocRNS2RecvStruct(recvStruct);
 
-			bufferedPacketsMutex.Lock();
-			if (bufferedPackets.Size() > 0)
-				recvStruct = bufferedPackets.Pop();
-			else
-				recvStruct = 0;
-			bufferedPacketsMutex.Unlock();
+			recvStruct = 0;
+			if (auto popped = bufferedPackets.TryPop())
+				recvStruct = popped->release();
 		}
 	}
 }
@@ -212,10 +206,7 @@ void NatTypeDetectionClient::Shutdown(void)
 		c2 = 0;
 	}
 
-	bufferedPacketsMutex.Lock();
-	while (bufferedPackets.Size())
-		delete bufferedPackets.Pop();
-	bufferedPacketsMutex.Unlock();
+	bufferedPackets.Clear();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -230,9 +221,8 @@ RNS2RecvStruct *NatTypeDetectionClient::AllocRNS2RecvStruct()
 }
 void NatTypeDetectionClient::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 {
-	bufferedPacketsMutex.Lock();
-	bufferedPackets.Push(recvStruct, _FILE_AND_LINE_);
-	bufferedPacketsMutex.Unlock();
+	// Called on the socket's receive thread; Update() drains the queue on the user thread.
+	bufferedPackets.Push(std::unique_ptr<RNS2RecvStruct>(recvStruct));
 }
 
 #endif // _RAKNET_SUPPORT_*

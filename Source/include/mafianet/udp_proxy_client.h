@@ -26,7 +26,7 @@
 #include "mafianet/export.h"
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_list.h"
+#include <vector>
 
 /// \defgroup UDP_PROXY_GROUP UDPProxy
 /// \brief Forwards UDP datagrams from one system to another. Protocol independent
@@ -164,13 +164,11 @@ public:
 		SenderAndTargetAddress sata;
 		MafiaNet::TimeMS startPingTime;
 		SystemAddress coordinatorAddressForPings;
-		//DataStructures::Multilist<ML_UNORDERED_LIST, ServerWithPing> serversToPing;
-		DataStructures::List<ServerWithPing> serversToPing;
+		std::vector<ServerWithPing> serversToPing;
 		bool AreAllServersPinged(void) const;
 		void SendPingedServersToCoordinator(RakPeerInterface *rakPeer);
 	};
-	//DataStructures::Multilist<ML_UNORDERED_LIST, PingServerGroup*> pingServerGroups;
-	DataStructures::List<PingServerGroup *> pingServerGroups;
+	std::vector<PingServerGroup *> pingServerGroups;
 
 protected:
 	void OnPingServers(Packet *packet);

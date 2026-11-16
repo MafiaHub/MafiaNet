@@ -27,6 +27,8 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
+#include <algorithm>
+
 using namespace MafiaNet;
 
 void NatPunchthroughServerDebugInterface_Printf::OnServerMessage(const char *msg)
@@ -45,25 +47,25 @@ void NatPunchthroughServerDebugInterface_PacketLogger::OnServerMessage(const cha
 
 void NatPunchthroughServer::User::DeleteConnectionAttempt(NatPunchthroughServer::ConnectionAttempt *ca)
 {
-	unsigned int index = connectionAttempts.GetIndexOf(ca);
-	if ((unsigned int) index != (unsigned int) -1)
+	const auto it = std::find(connectionAttempts.begin(), connectionAttempts.end(), ca);
+	if (it != connectionAttempts.end())
 	{
 		delete ca;
-		connectionAttempts.RemoveAtIndex(index);
+		connectionAttempts.erase(it);
 	}
 }
 void NatPunchthroughServer::User::DerefConnectionAttempt(NatPunchthroughServer::ConnectionAttempt *ca)
 {
-	unsigned int index = connectionAttempts.GetIndexOf(ca);
-	if ((unsigned int) index != (unsigned int) -1)
+	const auto it = std::find(connectionAttempts.begin(), connectionAttempts.end(), ca);
+	if (it != connectionAttempts.end())
 	{
-		connectionAttempts.RemoveAtIndex(index);
+		connectionAttempts.erase(it);
 	}
 }
 bool NatPunchthroughServer::User::HasConnectionAttemptToUser(User *user)
 {
 	unsigned int index;
-	for (index = 0; index < connectionAttempts.Size(); index++)
+	for (index = 0; index < connectionAttempts.size(); index++)
 	{
 		if (connectionAttempts[index]->recipient->guid == user->guid ||
 		    connectionAttempts[index]->sender->guid == user->guid)
@@ -79,8 +81,8 @@ void NatPunchthroughServer::User::LogConnectionAttempts(MafiaNet::RakString &rs)
 	guid.ToString(guidStr, 128);
 	systemAddress.ToString(true, ipStr, static_cast<size_t>(128));
 	rs = MafiaNet::RakString("User systemAddress=%s guid=%s\n", ipStr, guidStr);
-	rs += MafiaNet::RakString("%i attempts in list:\n", connectionAttempts.Size());
-	for (index = 0; index < connectionAttempts.Size(); index++)
+	rs += MafiaNet::RakString("%i attempts in list:\n", (int) connectionAttempts.size());
+	for (index = 0; index < connectionAttempts.size(); index++)
 	{
 		rs += MafiaNet::RakString("%i. SessionID=%i ", index + 1, connectionAttempts[index]->sessionId);
 		if (connectionAttempts[index]->sender == this)
@@ -135,10 +137,10 @@ NatPunchthroughServer::~NatPunchthroughServer()
 	User *user, *otherUser;
 	ConnectionAttempt *connectionAttempt;
 	unsigned int j;
-	while (users.Size())
+	for (auto &entry : users)
 	{
-		user = users[0];
-		for (j = 0; j < user->connectionAttempts.Size(); j++)
+		user = entry.second;
+		for (j = 0; j < user->connectionAttempts.size(); j++)
 		{
 			connectionAttempt = user->connectionAttempts[j];
 			if (connectionAttempt->sender == user)
@@ -148,9 +150,8 @@ NatPunchthroughServer::~NatPunchthroughServer()
 			otherUser->DeleteConnectionAttempt(connectionAttempt);
 		}
 		delete user;
-		users[0] = users[users.Size() - 1];
-		users.RemoveAtIndex(users.Size() - 1);
 	}
+	users.clear();
 }
 void NatPunchthroughServer::SetDebugInterface(NatPunchthroughServerDebugInterface *i)
 {
@@ -160,16 +161,16 @@ void NatPunchthroughServer::Update(void)
 {
 	ConnectionAttempt *connectionAttempt;
 	User *user, *recipient;
-	unsigned int i, j;
+	unsigned int j;
 	MafiaNet::Time time = MafiaNet::GetTime();
 	if (time > lastUpdate + 250)
 	{
 		lastUpdate = time;
 
-		for (i = 0; i < users.Size(); i++)
+		for (auto &entry : users)
 		{
-			user = users[i];
-			for (j = 0; j < user->connectionAttempts.Size(); j++)
+			user = entry.second;
+			for (j = 0; j < user->connectionAttempts.size(); j++)
 			{
 				connectionAttempt = user->connectionAttempts[j];
 				if (connectionAttempt->sender == user)
@@ -295,18 +296,16 @@ void NatPunchthroughServer::OnClosedConnection(const SystemAddress &systemAddres
 	(void) lostConnectionReason;
 	(void) systemAddress;
 
-	unsigned int i = 0;
-	bool objectExists;
-	i = users.GetIndexFromKey(rakNetGUID, &objectExists);
-	if (objectExists)
+	const auto userIt = users.find(rakNetGUID);
+	if (userIt != users.end())
 	{
 		MafiaNet::BitStream outgoingBs;
-		DataStructures::List<User *> freedUpInProgressUsers;
-		User *user = users[i];
+		std::vector<User *> freedUpInProgressUsers;
+		User *user = userIt->second;
 		User *otherUser;
 		unsigned int connectionAttemptIndex;
 		ConnectionAttempt *connectionAttempt;
-		for (connectionAttemptIndex = 0; connectionAttemptIndex < user->connectionAttempts.Size(); connectionAttemptIndex++)
+		for (connectionAttemptIndex = 0; connectionAttemptIndex < user->connectionAttempts.size(); connectionAttemptIndex++)
 		{
 			connectionAttempt = user->connectionAttempts[connectionAttemptIndex];
 			outgoingBs.Reset();
@@ -331,18 +330,18 @@ void NatPunchthroughServer::OnClosedConnection(const SystemAddress &systemAddres
 			if (connectionAttempt->attemptPhase == ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS)
 			{
 				otherUser->isReady = true;
-				freedUpInProgressUsers.Insert(otherUser, _FILE_AND_LINE_);
+				freedUpInProgressUsers.push_back(otherUser);
 			}
 
 			otherUser->DeleteConnectionAttempt(connectionAttempt);
 		}
 
-		delete users[i];
-		users.RemoveAtIndex(i);
+		delete user;
+		users.erase(userIt);
 
-		for (i = 0; i < freedUpInProgressUsers.Size(); i++)
+		for (User *freedUser : freedUpInProgressUsers)
 		{
-			StartPunchthroughForUser(freedUpInProgressUsers[i]);
+			StartPunchthroughForUser(freedUser);
 		}
 	}
 
@@ -378,7 +377,9 @@ void NatPunchthroughServer::OnNewConnection(const SystemAddress &systemAddress, 
 	user->mostRecentPort = 0;
 	user->systemAddress = systemAddress;
 	user->isReady = true;
-	users.Insert(rakNetGUID, user, true, _FILE_AND_LINE_);
+	// A GUID already present keeps its User (as OrderedList::Insert did); the new one is dropped.
+	if (!users.emplace(rakNetGUID, user).second)
+		delete user;
 
 	//	printf("Adding to users %s\n", rakNetGUID.ToString());
 	//	printf("DEBUG users[0] guid=%s\n", users[0]->guid.ToString());
@@ -391,16 +392,15 @@ void NatPunchthroughServer::OnNATPunchthroughRequest(Packet *packet)
 	RakNetGUID recipientGuid, senderGuid;
 	incomingBs.Read(recipientGuid);
 	senderGuid = packet->guid;
-	unsigned int i;
-	bool objectExists;
-	i = users.GetIndexFromKey(senderGuid, &objectExists);
-	RakAssert(objectExists);
+	const auto senderIt = users.find(senderGuid);
+	if (senderIt == users.end())
+		return; // Not (or no longer) a known connection: drop the request
 
 	ConnectionAttempt *ca = new ConnectionAttempt;
-	ca->sender = users[i];
+	ca->sender = senderIt->second;
 	ca->sessionId = sessionId++;
-	i = users.GetIndexFromKey(recipientGuid, &objectExists);
-	if (objectExists == false || ca->sender == ca->recipient)
+	const auto recipientIt = users.find(recipientGuid);
+	if (recipientIt == users.end() || ca->sender == ca->recipient)
 	{
 		// 		printf("DEBUG %i\n", __LINE__);
 		// 		printf("DEBUG recipientGuid=%s\n", recipientGuid.ToString());
@@ -412,7 +412,7 @@ void NatPunchthroughServer::OnNATPunchthroughRequest(Packet *packet)
 		delete ca;
 		return;
 	}
-	ca->recipient = users[i];
+	ca->recipient = recipientIt->second;
 	if (ca->recipient->HasConnectionAttemptToUser(ca->sender))
 	{
 		outgoingBs.Write((MessageID) ID_NAT_ALREADY_IN_PROGRESS);
@@ -422,20 +422,18 @@ void NatPunchthroughServer::OnNATPunchthroughRequest(Packet *packet)
 		return;
 	}
 
-	ca->sender->connectionAttempts.Insert(ca, _FILE_AND_LINE_);
-	ca->recipient->connectionAttempts.Insert(ca, _FILE_AND_LINE_);
+	ca->sender->connectionAttempts.push_back(ca);
+	ca->recipient->connectionAttempts.push_back(ca);
 
 	StartPunchthroughForUser(ca->sender);
 }
 void NatPunchthroughServer::OnClientReady(Packet *packet)
 {
-	unsigned int i;
-	bool objectExists;
-	i = users.GetIndexFromKey(packet->guid, &objectExists);
-	if (objectExists)
+	const auto userIt = users.find(packet->guid);
+	if (userIt != users.end())
 	{
-		users[i]->isReady = true;
-		StartPunchthroughForUser(users[i]);
+		userIt->second->isReady = true;
+		StartPunchthroughForUser(userIt->second);
 	}
 }
 void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
@@ -447,11 +445,11 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 	bsIn.Read(curSessionId);
 	bsIn.Read(mostRecentPort);
 
-	unsigned int i, j;
+	unsigned int j;
 	User *user;
 	ConnectionAttempt *connectionAttempt;
-	bool objectExists;
-	i = users.GetIndexFromKey(packet->guid, &objectExists);
+	const auto userIt = users.find(packet->guid);
+	const bool objectExists = userIt != users.end();
 
 	if (natPunchthroughServerDebugInterface)
 	{
@@ -465,11 +463,11 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 
 	if (objectExists)
 	{
-		user = users[i];
+		user = userIt->second;
 		user->mostRecentPort = mostRecentPort;
 		MafiaNet::Time time = MafiaNet::GetTime();
 
-		for (j = 0; j < user->connectionAttempts.Size(); j++)
+		for (j = 0; j < user->connectionAttempts.size(); j++)
 		{
 			connectionAttempt = user->connectionAttempts[j];
 			if (connectionAttempt->attemptPhase == ConnectionAttempt::NAT_ATTEMPT_PHASE_GETTING_RECENT_PORTS &&
@@ -578,7 +576,7 @@ void NatPunchthroughServer::StartPunchthroughForUser(User *user)
 	ConnectionAttempt *connectionAttempt;
 	User *sender, *recipient, *otherUser;
 	unsigned int i;
-	for (i = 0; i < user->connectionAttempts.Size(); i++)
+	for (i = 0; i < user->connectionAttempts.size(); i++)
 	{
 		connectionAttempt = user->connectionAttempts[i];
 		if (connectionAttempt->sender == user)

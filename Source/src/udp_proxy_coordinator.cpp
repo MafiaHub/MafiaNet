@@ -24,6 +24,9 @@
 #include "mafianet/rand.h"
 #include "mafianet/get_time.h"
 #include "mafianet/udp_forwarder.h"
+#include "mafianet/vector_util.h"
+
+#include <algorithm>
 
 // Larger than the client version
 static const int DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME = 2000;
@@ -31,9 +34,6 @@ static const int DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR = DEFAULT_CLIENT_UNR
 
 using namespace MafiaNet;
 
-// bool operator<( const DataStructures::MLKeyRef<unsigned short> &inputKey, const UDPProxyCoordinator::ServerWithPing &cls ) {return inputKey.Get() < cls.ping;}
-// bool operator>( const DataStructures::MLKeyRef<unsigned short> &inputKey, const UDPProxyCoordinator::ServerWithPing &cls ) {return inputKey.Get() > cls.ping;}
-// bool operator==( const DataStructures::MLKeyRef<unsigned short> &inputKey, const UDPProxyCoordinator::ServerWithPing &cls ) {return inputKey.Get() == cls.ping;}
 
 int UDPProxyCoordinator::ServerWithPingComp(const unsigned short &key, const UDPProxyCoordinator::ServerWithPing &data)
 {
@@ -56,21 +56,18 @@ int UDPProxyCoordinator::ForwardingRequestComp(const SenderAndTargetAddress &key
 		return 1;
 	return 0;
 }
-//
-// bool operator<( const DataStructures::MLKeyRef<UDPProxyCoordinator::SenderAndTargetAddress> &inputKey, const UDPProxyCoordinator::ForwardingRequest *cls )
-// {
-// 	return inputKey.Get().senderClientAddress < cls->sata.senderClientAddress ||
-// 		(inputKey.Get().senderClientAddress == cls->sata.senderClientAddress && inputKey.Get().targetClientAddress < cls->sata.targetClientAddress);
-// }
-// bool operator>( const DataStructures::MLKeyRef<UDPProxyCoordinator::SenderAndTargetAddress> &inputKey, const UDPProxyCoordinator::ForwardingRequest *cls )
-// {
-// 	return inputKey.Get().senderClientAddress > cls->sata.senderClientAddress ||
-// 		(inputKey.Get().senderClientAddress == cls->sata.senderClientAddress && inputKey.Get().targetClientAddress > cls->sata.targetClientAddress);
-// }
-// bool operator==( const DataStructures::MLKeyRef<UDPProxyCoordinator::SenderAndTargetAddress> &inputKey, const UDPProxyCoordinator::ForwardingRequest *cls )
-// {
-// 	return inputKey.Get().senderClientAddress == cls->sata.senderClientAddress && inputKey.Get().targetClientAddress == cls->sata.targetClientAddress;
-// }
+
+namespace
+{
+// Where \a sata is, or belongs, in the list kept sorted by ForwardingRequestComp.
+unsigned int FindForwardingRequest(const std::vector<UDPProxyCoordinator::ForwardingRequest *> &list, const UDPProxyCoordinator::SenderAndTargetAddress &sata, int (*comp)(const UDPProxyCoordinator::SenderAndTargetAddress &, UDPProxyCoordinator::ForwardingRequest *const &), bool *exists)
+{
+	const auto it = std::lower_bound(list.begin(), list.end(), sata, [comp](UDPProxyCoordinator::ForwardingRequest *const &element, const UDPProxyCoordinator::SenderAndTargetAddress &key)
+	                                 { return comp(key, element) > 0; });
+	*exists = it != list.end() && comp(sata, *it) == 0;
+	return static_cast<unsigned int>(it - list.begin());
+}
+} // namespace
 
 STATIC_FACTORY_DEFINITIONS(UDPProxyCoordinator, UDPProxyCoordinator);
 
@@ -91,7 +88,7 @@ void UDPProxyCoordinator::Update(void)
 	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	ForwardingRequest *fw;
 	idx = 0;
-	while (idx < forwardingRequestList.Size())
+	while (idx < forwardingRequestList.size())
 	{
 		fw = forwardingRequestList[idx];
 		if (fw->timeRequestedPings != 0 &&
@@ -107,7 +104,7 @@ void UDPProxyCoordinator::Update(void)
 		{
 			// Forwarding request succeeded, we waited a bit to prevent duplicates. Can forget about the entry now.
 			delete fw;
-			forwardingRequestList.RemoveAtIndex(idx);
+			forwardingRequestList.erase(forwardingRequestList.begin() + idx);
 		}
 		else
 			idx++;
@@ -143,24 +140,27 @@ void UDPProxyCoordinator::OnClosedConnection(const SystemAddress &systemAddress,
 	unsigned int idx, idx2;
 
 	idx = 0;
-	while (idx < forwardingRequestList.Size())
+	while (idx < forwardingRequestList.size())
 	{
 		if (forwardingRequestList[idx]->requestingAddress == systemAddress)
 		{
 			// Guy disconnected before the attempt completed
 			delete forwardingRequestList[idx];
-			forwardingRequestList.RemoveAtIndex(idx);
+			forwardingRequestList.erase(forwardingRequestList.begin() + idx);
 		}
 		else
 			idx++;
 	}
 
-	idx = serverList.GetIndexOf(systemAddress);
-	if (idx != (unsigned int) -1)
+	const auto server = std::find(serverList.begin(), serverList.end(), systemAddress);
+	if (server != serverList.end())
 	{
+		// Remove dead server first, so TryNextServer below skips it
+		SwapRemove(serverList, static_cast<std::size_t>(server - serverList.begin()));
+
 		ForwardingRequest *fw;
 		// For each pending client for this server, choose from remaining servers.
-		for (idx2 = 0; idx2 < forwardingRequestList.Size(); idx2++)
+		for (idx2 = 0; idx2 < forwardingRequestList.size(); idx2++)
 		{
 			fw = forwardingRequestList[idx2];
 			if (fw->currentlyAttemptedServerAddress == systemAddress)
@@ -169,9 +169,6 @@ void UDPProxyCoordinator::OnClosedConnection(const SystemAddress &systemAddress,
 				TryNextServer(fw->sata, fw);
 			}
 		}
-
-		// Remove dead server
-		serverList.RemoveAtIndexFast(idx);
 	}
 }
 void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *packet)
@@ -218,8 +215,8 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 
 	unsigned int insertionIndex;
 	bool objectExists1, objectExists2;
-	insertionIndex = forwardingRequestList.GetIndexFromKey(sata, &objectExists1);
-	forwardingRequestList.GetIndexFromKey(sataReversed, &objectExists2);
+	insertionIndex = FindForwardingRequest(forwardingRequestList, sata, ForwardingRequestComp, &objectExists1);
+	FindForwardingRequest(forwardingRequestList, sataReversed, ForwardingRequestComp, &objectExists2);
 
 	if (objectExists1 || objectExists2)
 	{
@@ -238,7 +235,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		return;
 	}
 
-	if (serverList.Size() == 0)
+	if (serverList.empty())
 	{
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_NO_SERVERS_ONLINE);
@@ -265,31 +262,28 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 	fw->sata = sata;
 	fw->requestingAddress = packet->systemAddress;
 
-	if (serverList.Size() > 1)
+	if (serverList.size() > 1)
 	{
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_PING_SERVERS_FROM_COORDINATOR_TO_CLIENT);
 		outgoingBs.Write(sourceAddress);
 		outgoingBs.Write(targetAddress);
 		outgoingBs.Write(targetGuid);
-		unsigned short serverListSize = (unsigned short) serverList.Size();
+		unsigned short serverListSize = (unsigned short) serverList.size();
 		outgoingBs.Write(serverListSize);
-		unsigned int idx;
-		for (idx = 0; idx < serverList.Size(); idx++)
+		for (unsigned short idx = 0; idx < serverListSize; idx++)
 			outgoingBs.Write(serverList[idx]);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, sourceAddress, false);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, targetAddress, false);
 		fw->timeRequestedPings = MafiaNet::GetTimeMS();
-		unsigned int copyIndex;
-		for (copyIndex = 0; copyIndex < serverList.Size(); copyIndex++)
-			fw->remainingServersToTry.Push(serverList[copyIndex], _FILE_AND_LINE_);
-		forwardingRequestList.InsertAtIndex(fw, insertionIndex, _FILE_AND_LINE_);
+		fw->remainingServersToTry.assign(serverList.begin(), serverList.end());
+		forwardingRequestList.insert(forwardingRequestList.begin() + insertionIndex, fw);
 	}
 	else
 	{
 		fw->timeRequestedPings = 0;
 		fw->currentlyAttemptedServerAddress = serverList[0];
-		forwardingRequestList.InsertAtIndex(fw, insertionIndex, _FILE_AND_LINE_);
+		forwardingRequestList.insert(forwardingRequestList.begin() + insertionIndex, fw);
 		SendForwardingRequest(sourceAddress, targetAddress, fw->currentlyAttemptedServerAddress, fw->timeoutOnNoDataMS);
 	}
 }
@@ -331,9 +325,7 @@ void UDPProxyCoordinator::OnLoginRequestFromServerToCoordinator(Packet *packet)
 		return;
 	}
 
-	unsigned int insertionIndex;
-	insertionIndex = serverList.GetIndexOf(packet->systemAddress);
-	if (insertionIndex != (unsigned int) -1)
+	if (std::find(serverList.begin(), serverList.end(), packet->systemAddress) != serverList.end())
 	{
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_ALREADY_LOGGED_IN_FROM_COORDINATOR_TO_SERVER);
@@ -341,7 +333,7 @@ void UDPProxyCoordinator::OnLoginRequestFromServerToCoordinator(Packet *packet)
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 		return;
 	}
-	serverList.Push(packet->systemAddress, _FILE_AND_LINE_);
+	serverList.push_back(packet->systemAddress);
 	outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 	outgoingBs.Write((MessageID) ID_UDP_PROXY_LOGIN_SUCCESS_FROM_COORDINATOR_TO_SERVER);
 	outgoingBs.Write(password);
@@ -355,7 +347,7 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 	incomingBs.Read(sata.senderClientAddress);
 	incomingBs.Read(sata.targetClientAddress);
 	bool objectExists;
-	unsigned int index = forwardingRequestList.GetIndexFromKey(sata, &objectExists);
+	unsigned int index = FindForwardingRequest(forwardingRequestList, sata, ForwardingRequestComp, &objectExists);
 	if (objectExists == false)
 	{
 		// The guy disconnected before the request finished
@@ -430,7 +422,7 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		outgoingBs.Write(serverPublicIp);
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, fw->requestingAddress, false);
-		forwardingRequestList.RemoveAtIndex(index);
+		forwardingRequestList.erase(forwardingRequestList.begin() + index);
 		delete fw;
 	}
 }
@@ -444,7 +436,7 @@ void UDPProxyCoordinator::OnPingServersReplyFromClientToCoordinator(Packet *pack
 	incomingBs.Read(sata.senderClientAddress);
 	incomingBs.Read(sata.targetClientAddress);
 	bool objectExists;
-	unsigned int index = forwardingRequestList.GetIndexFromKey(sata, &objectExists);
+	unsigned int index = FindForwardingRequest(forwardingRequestList, sata, ForwardingRequestComp, &objectExists);
 	if (objectExists == false)
 		return;
 	unsigned short idx;
@@ -461,12 +453,12 @@ void UDPProxyCoordinator::OnPingServersReplyFromClientToCoordinator(Packet *pack
 			incomingBs.Read(swp.serverAddress);
 			incomingBs.Read(swp.ping);
 			unsigned int index2;
-			for (index2 = 0; index2 < fw->sourceServerPings.Size(); index2++)
+			for (index2 = 0; index2 < fw->sourceServerPings.size(); index2++)
 			{
 				if (fw->sourceServerPings[index2].ping >= swp.ping)
 					break;
 			}
-			fw->sourceServerPings.Insert(swp, index2, _FILE_AND_LINE_);
+			fw->sourceServerPings.insert(fw->sourceServerPings.begin() + index2, swp);
 		}
 	}
 	else
@@ -477,18 +469,22 @@ void UDPProxyCoordinator::OnPingServersReplyFromClientToCoordinator(Packet *pack
 			incomingBs.Read(swp.ping);
 
 			unsigned int index2;
-			for (index2 = 0; index2 < fw->targetServerPings.Size(); index2++)
+			for (index2 = 0; index2 < fw->targetServerPings.size(); index2++)
 			{
 				if (fw->targetServerPings[index2].ping >= swp.ping)
 					break;
 			}
-			fw->sourceServerPings.Insert(swp, index2, _FILE_AND_LINE_);
+			// (Sic: the target's pings go to sourceServerPings, at a position found in
+			// targetServerPings. Kept as it was; clamped so the position stays in range.)
+			if (index2 > fw->sourceServerPings.size())
+				index2 = static_cast<unsigned int>(fw->sourceServerPings.size());
+			fw->sourceServerPings.insert(fw->sourceServerPings.begin() + index2, swp);
 		}
 	}
 
 	// Both systems have to give us pings to progress here. Otherwise will timeout in Update()
-	if (fw->sourceServerPings.Size() > 0 &&
-	    fw->targetServerPings.Size() > 0)
+	if (!fw->sourceServerPings.empty() &&
+	    !fw->targetServerPings.empty())
 	{
 		fw->OrderRemainingServersToTry();
 		fw->timeRequestedPings = 0;
@@ -498,10 +494,11 @@ void UDPProxyCoordinator::OnPingServersReplyFromClientToCoordinator(Packet *pack
 void UDPProxyCoordinator::TryNextServer(SenderAndTargetAddress sata, ForwardingRequest *fw)
 {
 	bool pickedGoodServer = false;
-	while (fw->remainingServersToTry.Size() > 0)
+	while (!fw->remainingServersToTry.empty())
 	{
-		fw->currentlyAttemptedServerAddress = fw->remainingServersToTry.Pop();
-		if (serverList.GetIndexOf(fw->currentlyAttemptedServerAddress) != (unsigned int) -1)
+		fw->currentlyAttemptedServerAddress = fw->remainingServersToTry.front();
+		fw->remainingServersToTry.pop_front();
+		if (std::find(serverList.begin(), serverList.end(), fw->currentlyAttemptedServerAddress) != serverList.end())
 		{
 			pickedGoodServer = true;
 			break;
@@ -511,7 +508,10 @@ void UDPProxyCoordinator::TryNextServer(SenderAndTargetAddress sata, ForwardingR
 	if (pickedGoodServer == false)
 	{
 		SendAllBusy(sata.senderClientAddress, sata.targetClientAddress, sata.targetClientGuid, fw->requestingAddress);
-		forwardingRequestList.Remove(sata);
+		bool objectExists;
+		const unsigned int index = FindForwardingRequest(forwardingRequestList, sata, ForwardingRequestComp, &objectExists);
+		if (objectExists)
+			forwardingRequestList.erase(forwardingRequestList.begin() + index);
 		delete fw;
 		return;
 	}
@@ -530,42 +530,45 @@ void UDPProxyCoordinator::SendAllBusy(SystemAddress senderClientAddress, SystemA
 }
 void UDPProxyCoordinator::Clear(void)
 {
-	serverList.Clear(true, _FILE_AND_LINE_);
-	for (unsigned int i = 0; i < forwardingRequestList.Size(); i++)
+	serverList.clear();
+	for (ForwardingRequest *fw : forwardingRequestList)
 	{
-		delete forwardingRequestList[i];
+		delete fw;
 	}
-	forwardingRequestList.Clear(false, _FILE_AND_LINE_);
+	forwardingRequestList.clear();
 }
 void UDPProxyCoordinator::ForwardingRequest::OrderRemainingServersToTry(void)
 {
-	//DataStructures::Multilist<ML_ORDERED_LIST,UDPProxyCoordinator::ServerWithPing,unsigned short> swpList;
-	DataStructures::OrderedList<unsigned short, UDPProxyCoordinator::ServerWithPing, ServerWithPingComp> swpList;
-	// swpList.SetSortOrder(true);
+	std::vector<UDPProxyCoordinator::ServerWithPing> swpList;
 
-	if (sourceServerPings.Size() == 0 && targetServerPings.Size() == 0)
+	if (sourceServerPings.empty() && targetServerPings.empty())
 		return;
 
-	unsigned int idx;
+	size_t idx;
 	UDPProxyCoordinator::ServerWithPing swp;
-	for (idx = 0; idx < remainingServersToTry.Size(); idx++)
+	for (idx = 0; idx < remainingServersToTry.size(); idx++)
 	{
 		swp.serverAddress = remainingServersToTry[idx];
 		swp.ping = 0;
-		if (sourceServerPings.Size())
+		// The ping lists come from clients and need not have one entry per server: a missing
+		// entry counts as unresponsive (it was read out of range before).
+		if (idx < sourceServerPings.size())
 			swp.ping += (unsigned short) (sourceServerPings[idx].ping);
 		else
 			swp.ping += (unsigned short) (DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME);
-		if (targetServerPings.Size())
+		if (idx < targetServerPings.size())
 			swp.ping += (unsigned short) (targetServerPings[idx].ping);
 		else
 			swp.ping += (unsigned short) (DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME);
-		swpList.Insert(swp.ping, swp, false, _FILE_AND_LINE_);
+		swpList.push_back(swp);
 	}
-	remainingServersToTry.Clear(_FILE_AND_LINE_);
-	for (idx = 0; idx < swpList.Size(); idx++)
+	// Lowest total ping first (ServerWithPingComp order); equal pings keep server-list order.
+	std::stable_sort(swpList.begin(), swpList.end(), [](const UDPProxyCoordinator::ServerWithPing &a, const UDPProxyCoordinator::ServerWithPing &b)
+	                 { return ServerWithPingComp(a.ping, b) < 0; });
+	remainingServersToTry.clear();
+	for (const UDPProxyCoordinator::ServerWithPing &sorted : swpList)
 	{
-		remainingServersToTry.Push(swpList[idx].serverAddress, _FILE_AND_LINE_);
+		remainingServersToTry.push_back(sorted.serverAddress);
 	}
 }
 

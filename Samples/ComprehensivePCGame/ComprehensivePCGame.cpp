@@ -46,6 +46,8 @@
 #include "mafianet/osx_adapter.h"
 #include "mafianet/linux_strings.h"
 #include "mafianet/guid_util.h"
+// The sample still uses DataStructures::List (Samples move to std:: containers in PR 5).
+#include "mafianet/ds_list.h"
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
