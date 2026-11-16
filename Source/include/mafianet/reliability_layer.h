@@ -510,7 +510,8 @@ private:
 	// MafiaNet::Reliability::ReliableSequenced just returns the newest one
 	// DataStructures::List<DataStructures::LinkedList<InternalPacket*>*> orderingList;
 	DataStructures::Queue<InternalPacket *> outputQueue;
-	int splitMessageProgressInterval;
+	// Every this many fragments of a split message, ID_DOWNLOAD_PROGRESS; 0 (until SetSplitMessageProgressInterval) for none.
+	int splitMessageProgressInterval = 0;
 	CCTimeType unreliableTimeout;
 
 	struct MessageNumberNode

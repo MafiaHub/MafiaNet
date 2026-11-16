@@ -167,6 +167,37 @@ TEST_F(SplitPacketFixture, HonestFragmentsReassembleInAnyOrder)
 	EXPECT_EQ(Concat(Concat(a, b), c), messages[0]);
 }
 
+namespace
+{
+// Built over memory holding 1 in every word, as a reused heap block or stack frame may: any member the
+// layer leaves uninitialised reads 1.
+class SplitPacketOverUsedMemory : public SplitPacketFixture
+{
+public:
+	static void *operator new(std::size_t size)
+	{
+		void *p = ::operator new(size);
+		std::fill_n(static_cast<unsigned int *>(p), size / sizeof(unsigned int), 1u);
+		return p;
+	}
+	static void operator delete(void *p) { ::operator delete(p); }
+};
+}
+
+// ID_DOWNLOAD_PROGRESS is off until SetSplitMessageProgressInterval() asks for it. The interval was left
+// uninitialised, so a layer whose memory held 1 there sent a progress message after every fragment, and
+// the receiver got that message ahead of the one it was sent.
+TEST_F(SplitPacketOverUsedMemory, ReportsNoDownloadProgressUnlessAskedTo)
+{
+	const std::vector<unsigned char> a = Bytes(1, 8), b = Bytes(2, 8), c = Bytes(3, 5);
+	Deliver({3, 13, 0, a, 0});
+	Deliver({3, 13, 1, b, 0});
+	Deliver({3, 13, 2, c, 0});
+	const auto messages = Drain();
+	ASSERT_EQ(1u, messages.size()) << "first byte " << (messages.empty() ? 0u : (unsigned) messages[0][0]);
+	EXPECT_EQ(Concat(Concat(a, b), c), messages[0]);
+}
+
 TEST_F(SplitPacketFixture, HugeClaimedFragmentCountAllocatesNothingUpFront)
 {
 	// Used to preallocate one pointer per claimed fragment: 32 GB here.
