@@ -315,17 +315,17 @@ TEST_F(ReplicaManager3ListMode, ReplicaQueriesFillVectors)
 	holder->wanted = {second};
 	Tick();
 
-	std::vector<Replica3 *> replicas = {nullptr, nullptr, nullptr};
-	manager.GetReferencedReplicaList(replicas);
-	EXPECT_EQ(replicas, (std::vector<Replica3 *>{first, second}));
+	std::vector<Replica3 *> queried = {nullptr, nullptr, nullptr};
+	manager.GetReferencedReplicaList(queried);
+	EXPECT_EQ(queried, (std::vector<Replica3 *>{first, second}));
 
-	replicas.assign(3, nullptr);
-	manager.GetReplicasCreatedByMe(replicas);
-	EXPECT_EQ(replicas, (std::vector<Replica3 *>{first, second}));
+	queried.assign(3, nullptr);
+	manager.GetReplicasCreatedByMe(queried);
+	EXPECT_EQ(queried, (std::vector<Replica3 *>{first, second}));
 
-	replicas.assign(3, nullptr);
-	manager.GetReplicasCreatedByGuid(RakNetGUID(12345), replicas);
-	EXPECT_TRUE(replicas.empty());
+	queried.assign(3, nullptr);
+	manager.GetReplicasCreatedByGuid(RakNetGUID(12345), queried);
+	EXPECT_TRUE(queried.empty());
 
 	std::vector<Connection_RM3 *> connections = {nullptr};
 	manager.GetConnectionsThatHaveReplicaConstructed(second, connections);
