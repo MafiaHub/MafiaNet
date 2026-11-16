@@ -22,6 +22,10 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/peer_interface.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <utility>
+
 #include <sodium.h>
 
 using namespace MafiaNet;
@@ -49,14 +53,14 @@ TwoWayAuthentication::NonceGenerator::~NonceGenerator()
 }
 void TwoWayAuthentication::NonceGenerator::GetNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short *requestId, MafiaNet::AddressOrGUID remoteSystem)
 {
-	TwoWayAuthentication::NonceAndRemoteSystemRequest *narsr = new TwoWayAuthentication::NonceAndRemoteSystemRequest;
+	std::unique_ptr<TwoWayAuthentication::NonceAndRemoteSystemRequest> narsr(new TwoWayAuthentication::NonceAndRemoteSystemRequest);
 	narsr->remoteSystem = remoteSystem;
 	GenerateNonce(narsr->nonce);
 	narsr->requestId = nextRequestId++;
 	*requestId = narsr->requestId;
 	memcpy(nonce, narsr->nonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
 	narsr->whenGenerated = MafiaNet::GetTime();
-	generatedNonces.Push(narsr, _FILE_AND_LINE_);
+	generatedNonces.push_back(std::move(narsr));
 }
 void TwoWayAuthentication::NonceGenerator::GenerateNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH])
 {
@@ -68,8 +72,7 @@ void TwoWayAuthentication::NonceGenerator::GenerateNonce(char nonce[TWO_WAY_AUTH
 }
 bool TwoWayAuthentication::NonceGenerator::GetNonceById(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short requestId, MafiaNet::AddressOrGUID remoteSystem, bool popIfFound)
 {
-	unsigned int i;
-	for (i = 0; i < generatedNonces.Size(); i++)
+	for (size_t i = 0; i < generatedNonces.size(); i++)
 	{
 		if (generatedNonces[i]->requestId == requestId)
 		{
@@ -77,10 +80,7 @@ bool TwoWayAuthentication::NonceGenerator::GetNonceById(char nonce[TWO_WAY_AUTHE
 			{
 				memcpy(nonce, generatedNonces[i]->nonce, TWO_WAY_AUTHENTICATION_NONCE_LENGTH);
 				if (popIfFound)
-				{
-					delete generatedNonces[i];
-					generatedNonces.RemoveAtIndex(i);
-				}
+					generatedNonces.erase(generatedNonces.begin() + (std::ptrdiff_t) i);
 				return true;
 			}
 			else
@@ -93,42 +93,22 @@ bool TwoWayAuthentication::NonceGenerator::GetNonceById(char nonce[TWO_WAY_AUTHE
 }
 void TwoWayAuthentication::NonceGenerator::Clear(void)
 {
-	unsigned int i;
-	for (i = 0; i < generatedNonces.Size(); i++)
-		delete generatedNonces[i];
-	generatedNonces.Clear(true, _FILE_AND_LINE_);
+	generatedNonces.clear();
 }
 void TwoWayAuthentication::NonceGenerator::ClearByAddress(MafiaNet::AddressOrGUID remoteSystem)
 {
-	unsigned int i = 0;
-	while (i < generatedNonces.Size())
-	{
-		if (generatedNonces[i]->remoteSystem == remoteSystem)
-		{
-			delete generatedNonces[i];
-			generatedNonces.RemoveAtIndex(i);
-		}
-		else
-		{
-			i++;
-		}
-	}
+	generatedNonces.erase(std::remove_if(generatedNonces.begin(), generatedNonces.end(), [&remoteSystem](const std::unique_ptr<NonceAndRemoteSystemRequest> &generated)
+	                                     { return generated->remoteSystem == remoteSystem; }),
+	                      generatedNonces.end());
 }
 void TwoWayAuthentication::NonceGenerator::Update(MafiaNet::Time curTime, MafiaNet::Time lifetimeMs)
 {
 	// Generated in time order, so the expired ones are a prefix. All of them go: removing one per
 	// call let a busy peer keep nonces far past their lifetime.
-	unsigned int expired = 0;
-	while (expired < generatedNonces.Size() && HasExpired(curTime, generatedNonces[expired]->whenGenerated, lifetimeMs))
-	{
-		delete generatedNonces[expired];
+	size_t expired = 0;
+	while (expired < generatedNonces.size() && HasExpired(curTime, generatedNonces[expired]->whenGenerated, lifetimeMs))
 		expired++;
-	}
-	if (expired == 0)
-		return;
-	for (unsigned int i = expired; i < generatedNonces.Size(); i++)
-		generatedNonces[i - expired] = generatedNonces[i];
-	generatedNonces.RemoveFromEnd(expired);
+	generatedNonces.erase(generatedNonces.begin(), generatedNonces.begin() + (std::ptrdiff_t) expired);
 }
 TwoWayAuthentication::TwoWayAuthentication()
 {
@@ -157,16 +137,12 @@ bool TwoWayAuthentication::AddPassword(MafiaNet::RakString identifier, MafiaNet:
 	if (password == identifier)
 		return false; // Insecure
 
-	if (passwords.GetIndexOf(identifier.C_String()).IsInvalid() == false)
-		return false; // This identifier already in use
-
-	passwords.Push(identifier, password, _FILE_AND_LINE_);
-	return true;
+	// emplace fails if this identifier is already in use
+	return passwords.emplace(identifier, password).second;
 }
 bool TwoWayAuthentication::Challenge(MafiaNet::RakString identifier, AddressOrGUID remoteSystem)
 {
-	DataStructures::HashIndex skhi = passwords.GetIndexOf(identifier.C_String());
-	if (skhi.IsInvalid())
+	if (passwords.count(identifier) == 0)
 		return false;
 
 	MafiaNet::BitStream bsOut;
@@ -179,7 +155,7 @@ bool TwoWayAuthentication::Challenge(MafiaNet::RakString identifier, AddressOrGU
 	pc.remoteSystem = remoteSystem;
 	pc.time = MafiaNet::GetTime();
 	pc.sentHash = false;
-	outgoingChallenges.Push(pc, _FILE_AND_LINE_);
+	outgoingChallenges.push_back(pc);
 
 	return true;
 }
@@ -190,9 +166,10 @@ void TwoWayAuthentication::Update(void)
 void TwoWayAuthentication::UpdateTimeouts(MafiaNet::Time curTime)
 {
 	nonceGenerator.Update(curTime, timeoutMs);
-	while (outgoingChallenges.Size() && HasExpired(curTime, outgoingChallenges.Peek().time, timeoutMs))
+	while (!outgoingChallenges.empty() && HasExpired(curTime, outgoingChallenges.front().time, timeoutMs))
 	{
-		PendingChallenge pc = outgoingChallenges.Pop();
+		PendingChallenge pc = outgoingChallenges.front();
+		outgoingChallenges.pop_front();
 
 		// Tell the user about the timeout
 		PushToUser(ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT, pc.identifier, pc.remoteSystem);
@@ -259,19 +236,10 @@ void TwoWayAuthentication::OnClosedConnection(const SystemAddress &systemAddress
 	(void) lostConnectionReason;
 
 	// Remove from pending challenges
-	unsigned int i = 0;
-	while (i < outgoingChallenges.Size())
-	{
-		if ((rakNetGUID != UNASSIGNED_RAKNET_GUID && outgoingChallenges[i].remoteSystem.rakNetGuid == rakNetGUID) ||
-		    (systemAddress != UNASSIGNED_SYSTEM_ADDRESS && outgoingChallenges[i].remoteSystem.systemAddress == systemAddress))
-		{
-			outgoingChallenges.RemoveAtIndex(i);
-		}
-		else
-		{
-			i++;
-		}
-	}
+	outgoingChallenges.erase(std::remove_if(outgoingChallenges.begin(), outgoingChallenges.end(), [&](const PendingChallenge &challenge)
+	                                        { return (rakNetGUID != UNASSIGNED_RAKNET_GUID && challenge.remoteSystem.rakNetGuid == rakNetGUID) ||
+		                                             (systemAddress != UNASSIGNED_SYSTEM_ADDRESS && challenge.remoteSystem.systemAddress == systemAddress); }),
+	                         outgoingChallenges.end());
 
 	if (rakNetGUID != UNASSIGNED_RAKNET_GUID)
 		nonceGenerator.ClearByAddress(rakNetGUID);
@@ -280,8 +248,8 @@ void TwoWayAuthentication::OnClosedConnection(const SystemAddress &systemAddress
 }
 void TwoWayAuthentication::Clear(void)
 {
-	outgoingChallenges.Clear(_FILE_AND_LINE_);
-	passwords.Clear(_FILE_AND_LINE_);
+	outgoingChallenges.clear();
+	passwords.clear();
 	nonceGenerator.Clear();
 }
 void TwoWayAuthentication::PushToUser(MessageID messageId, MafiaNet::RakString password, MafiaNet::AddressOrGUID remoteSystem)
@@ -326,18 +294,17 @@ void TwoWayAuthentication::OnNonceReply(Packet *packet)
 
 	// Lookup one of the negotiations for this guid/system address
 	AddressOrGUID aog(packet);
-	unsigned int i;
-	for (i = 0; i < outgoingChallenges.Size(); i++)
+	for (size_t i = 0; i < outgoingChallenges.size(); i++)
 	{
 		if (outgoingChallenges[i].remoteSystem == aog && outgoingChallenges[i].sentHash == false)
 		{
 			outgoingChallenges[i].sentHash = true;
 
 			// Get the password for this identifier
-			DataStructures::HashIndex skhi = passwords.GetIndexOf(outgoingChallenges[i].identifier.C_String());
-			if (skhi.IsInvalid() == false)
+			const auto entry = passwords.find(outgoingChallenges[i].identifier);
+			if (entry != passwords.end())
 			{
-				MafiaNet::RakString password = passwords.ItemAtIndex(skhi);
+				MafiaNet::RakString password = entry->second;
 
 				// Hash their nonce with password and reply
 				char hashedNonceAndPw[HASHED_NONCE_AND_PW_LENGTH];
@@ -374,11 +341,12 @@ PluginReceiveResult TwoWayAuthentication::OnHashedNonceAndPassword(Packet *packe
 	if (nonceGenerator.GetNonceById(usedNonce, requestId, packet, true) == false)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 
-	DataStructures::HashIndex skhi = passwords.GetIndexOf(passwordIdentifier.C_String());
-	if (skhi.IsInvalid() == false)
+	// Look the received identifier up as is, never through RakString's printf-style constructor.
+	const auto entry = passwords.find(passwordIdentifier);
+	if (entry != passwords.end())
 	{
 		char hashedThisNonceAndPw[HASHED_NONCE_AND_PW_LENGTH];
-		Hash(usedNonce, passwords.ItemAtIndex(skhi), hashedThisNonceAndPw);
+		Hash(usedNonce, entry->second, hashedThisNonceAndPw);
 		if (memcmp(hashedThisNonceAndPw, remoteHashedNonceAndPw, HASHED_NONCE_AND_PW_LENGTH) == 0)
 		{
 			// Pass
@@ -419,24 +387,23 @@ void TwoWayAuthentication::OnPasswordResult(Packet *packet)
 	MafiaNet::RakString passwordIdentifier;
 	bsIn.Read(passwordIdentifier);
 
-	DataStructures::HashIndex skhi = passwords.GetIndexOf(passwordIdentifier.C_String());
-	if (skhi.IsInvalid() == false)
+	const auto entry = passwords.find(passwordIdentifier);
+	if (entry != passwords.end())
 	{
-		MafiaNet::RakString password = passwords.ItemAtIndex(skhi);
+		MafiaNet::RakString password = entry->second;
 		char testHash[HASHED_NONCE_AND_PW_LENGTH];
 		Hash(usedNonce, password, testHash);
 		if (memcmp(testHash, hashedNonceAndPw, HASHED_NONCE_AND_PW_LENGTH) == 0)
 		{
 			// Lookup the outgoing challenge and remove it from the list
-			unsigned int i;
 			AddressOrGUID aog(packet);
-			for (i = 0; i < outgoingChallenges.Size(); i++)
+			for (size_t i = 0; i < outgoingChallenges.size(); i++)
 			{
 				if (outgoingChallenges[i].identifier == passwordIdentifier &&
 				    outgoingChallenges[i].remoteSystem == aog &&
 				    outgoingChallenges[i].sentHash == true)
 				{
-					outgoingChallenges.RemoveAtIndex(i);
+					outgoingChallenges.erase(outgoingChallenges.begin() + (std::ptrdiff_t) i);
 
 					PushToUser(packet->data[0], passwordIdentifier, packet);
 					return;

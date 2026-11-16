@@ -41,8 +41,11 @@
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
 #include "mafianet/string.h"
-#include "mafianet/ds_hash.h"
-#include "mafianet/ds_queue.h"
+
+#include <deque>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 typedef int64_t FCM2Guid;
 
@@ -65,6 +68,10 @@ public:
 
 	TwoWayAuthentication();
 	virtual ~TwoWayAuthentication();
+
+	// Owns its nonces; not copyable.
+	TwoWayAuthentication(const TwoWayAuthentication &) = delete;
+	TwoWayAuthentication &operator=(const TwoWayAuthentication &) = delete;
 
 	/// \brief Adds a password to the list of passwords the system will accept
 	/// \details Each password, which is secret and not transmitted, is identified by \a identifier.
@@ -117,7 +124,8 @@ public:
 		bool sentHash;
 	};
 
-	DataStructures::Queue<PendingChallenge> outgoingChallenges;
+	/// Oldest first
+	std::deque<PendingChallenge> outgoingChallenges;
 
 	/// \internal
 	struct NonceAndRemoteSystemRequest
@@ -132,6 +140,8 @@ public:
 	{
 		NonceGenerator();
 		~NonceGenerator();
+		NonceGenerator(const NonceGenerator &) = delete;
+		NonceGenerator &operator=(const NonceGenerator &) = delete;
 		void GetNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short *requestId, MafiaNet::AddressOrGUID remoteSystem);
 		void GenerateNonce(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH]);
 		bool GetNonceById(char nonce[TWO_WAY_AUTHENTICATION_NONCE_LENGTH], unsigned short requestId, MafiaNet::AddressOrGUID remoteSystem, bool popIfFound);
@@ -139,14 +149,15 @@ public:
 		void ClearByAddress(MafiaNet::AddressOrGUID remoteSystem);
 		void Update(MafiaNet::Time curTime, MafiaNet::Time lifetimeMs);
 
-		DataStructures::List<TwoWayAuthentication::NonceAndRemoteSystemRequest *> generatedNonces;
+		/// Oldest first
+		std::vector<std::unique_ptr<TwoWayAuthentication::NonceAndRemoteSystemRequest>> generatedNonces;
 		unsigned short nextRequestId;
 	};
 
 protected:
 	void PushToUser(MessageID messageId, MafiaNet::RakString password, MafiaNet::AddressOrGUID remoteSystem);
 	// Key is identifier, data is password
-	DataStructures::Hash<MafiaNet::RakString, MafiaNet::RakString, 16, MafiaNet::RakString::ToInteger> passwords;
+	std::unordered_map<MafiaNet::RakString, MafiaNet::RakString> passwords;
 
 	MafiaNet::Time timeoutMs;
 

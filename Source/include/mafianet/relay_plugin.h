@@ -26,7 +26,10 @@
 
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/string.h"
-#include "mafianet/ds_hash.h"
+
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 /// \defgroup RELAY_PLUGIN_GROUP RelayPlugin
 /// \brief A simple class to relay messages from one system to another through an intermediary
@@ -75,6 +78,10 @@ public:
 
 	/// Destructor
 	virtual ~RelayPlugin();
+
+	// Owns its participants and groups; not copyable.
+	RelayPlugin(const RelayPlugin &) = delete;
+	RelayPlugin &operator=(const RelayPlugin &) = delete;
 
 	/// \brief Forward messages from any system, to the system specified by the combination of key and guid. The sending system only needs to know the key.
 	/// \param[in] key A string to identify the target's RakNetGUID. This is so the sending system does not need to know the RakNetGUID of the target system. The key should be unique among all guids added. If the key is not unique, only one system will be sent to (at random).
@@ -134,7 +141,7 @@ public:
 	struct RP_Group
 	{
 		RakString roomName;
-		DataStructures::List<StrAndGuid> usersInRoom;
+		std::vector<StrAndGuid> usersInRoom;
 	};
 
 protected:
@@ -148,9 +155,13 @@ protected:
 	void OnJoinGroupRequestFromClient(Packet *packet);
 	void OnLeaveGroupRequestFromClient(Packet *packet);
 
-	DataStructures::Hash<RakString, StrAndGuidAndRoom *, 8096, MafiaNet::RakString::ToInteger> strToGuidHash;
-	DataStructures::Hash<RakNetGUID, StrAndGuidAndRoom *, 8096, MafiaNet::RakNetGUID::ToUint32> guidToStrHash;
-	DataStructures::List<RP_Group *> chatRooms;
+	/// Address of the participant entry for guid in guidToStrHash, or nullptr. Valid until that entry is erased.
+	StrAndGuidAndRoom **FindParticipant(const RakNetGUID &guid);
+
+	/// Owns every participant; guidToStrHash indexes the same objects by GUID.
+	std::unordered_map<RakString, std::unique_ptr<StrAndGuidAndRoom>> strToGuidHash;
+	std::unordered_map<RakNetGUID, StrAndGuidAndRoom *> guidToStrHash;
+	std::vector<std::unique_ptr<RP_Group>> chatRooms;
 	bool acceptAddParticipantRequests;
 };
 

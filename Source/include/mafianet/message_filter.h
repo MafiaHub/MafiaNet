@@ -25,9 +25,13 @@
 
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_ordered_list.h"
-#include "mafianet/ds_hash.h"
+#include "mafianet/string.h"
 #include "mafianet/export.h"
+
+#include <memory>
+#include <set>
+#include <unordered_map>
+#include <vector>
 
 /// MessageIdentifier (ID_*) values shoudln't go higher than this.  Change it if you do.
 #define MESSAGE_FILTER_MAX_MESSAGE_ID 256
@@ -55,7 +59,7 @@ struct FilterSet
 	void *timeoutUserData;
 	int filterSetID;
 	bool allowedIDs[MESSAGE_FILTER_MAX_MESSAGE_ID];
-	DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> allowedRPC4;
+	std::set<MafiaNet::RakString> allowedRPC4;
 };
 
 /// \internal Has to be public so some of the shittier compilers can use it.
@@ -90,6 +94,10 @@ public:
 
 	MessageFilter();
 	virtual ~MessageFilter();
+
+	// Owns its filter sets; not copyable.
+	MessageFilter(const MessageFilter &) = delete;
+	MessageFilter &operator=(const MessageFilter &) = delete;
 
 	// --------------------------------------------------------------------------------------------
 	// User functions
@@ -186,9 +194,10 @@ protected:
 	FilterSet *GetFilterSetByID(int filterSetID);
 	void OnInvalidMessage(FilterSet *filterSet, AddressOrGUID systemAddress, unsigned char messageID);
 
-	DataStructures::OrderedList<int, FilterSet *, FilterSetComp> filterList;
+	/// Filter sets sorted by filterSetID (FilterSetComp), so GetFilterSetIDByIndex() walks them in id order.
+	std::vector<std::unique_ptr<FilterSet>> filterList;
 	// Change to guid
-	DataStructures::Hash<AddressOrGUID, FilteredSystem, 2048, AddressOrGUID::ToInteger> systemList;
+	std::unordered_map<AddressOrGUID, FilteredSystem> systemList;
 
 	int autoAddNewConnectionsToFilter;
 	MafiaNet::Time whenLastTimeoutCheck;
