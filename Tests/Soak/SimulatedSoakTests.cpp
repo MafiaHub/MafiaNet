@@ -83,10 +83,9 @@ struct Link
 	// No earlier connection between these two addresses: no stale datagram can exist.
 	bool firstBetweenAddresses = false;
 	Soak::SendStream send;
-	// The Reliable (unordered) stream shares the session of `send`. It starts once the remote's own
-	// ordered stream has arrived on this connection (see SendTraffic).
+	// The Reliable (unordered) stream shares the session of `send`. It starts with the connection, so
+	// its first messages can overtake the connecting side's session reply (issue #96).
 	uint32_t nextReliable = 0;
-	bool remoteSending = false;
 	// RakNetStatistics::mtuStepDowns already added to Totals for this connection.
 	uint32_t stepDownsCounted = 0;
 };
@@ -382,7 +381,6 @@ void SimulatedSoak::ProcessInboxes()
 				else
 				{
 					checker.OnOrdered(self, remote, message.data.data(), message.data.size());
-					nodes[i].links[remote].remoteSending = true;
 				}
 				break;
 			case Soak::ID_SOAK_RELIABLE:
@@ -436,7 +434,6 @@ void SimulatedSoak::OnConnected(int self, int remote)
 	link.send.session = Random64() | 1;
 	link.send.next = 0;
 	link.nextReliable = 0;
-	link.remoteSending = false;
 	link.stepDownsCounted = 0;
 	++totals.connectionsCompleted;
 }
@@ -560,10 +557,7 @@ void SimulatedSoak::SendTraffic()
 				++totals.orderedSent;
 				totals.splitSent += extra > 1000;
 			}
-			// Only once the remote has sent on this connection: until the connecting side has finished the
-			// session-config exchange, RakPeer drops an unordered message from the accepting side, which
-			// already reports the connection (ordered messages queue behind the exchange on channel 0).
-			if (!cross && link.remoteSending)
+			if (!cross)
 			{
 				// Every few seconds a message over the 1280 rung in one datagram, or split in two: the
 				// sizes a black-hole step-down re-sends.
