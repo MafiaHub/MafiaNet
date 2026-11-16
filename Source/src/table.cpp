@@ -671,118 +671,118 @@ void Table::QueryRow(const std::vector<unsigned> &inclusionFilterColumnIndices, 
 				pass = false;
 			else
 				switch (filter.operation)
-			{
-			case QF_EQUAL:
-				switch (columnType)
 				{
-				case NUMERIC:
-					pass = cell.i == value.i;
+				case QF_EQUAL:
+					switch (columnType)
+					{
+					case NUMERIC:
+						pass = cell.i == value.i;
+						break;
+					case STRING:
+						pass = strcmp(cell.c, value.c) == 0;
+						break;
+					case BINARY:
+						pass = cell.i == value.i && (OwnedLength(cell) == 0 || (cell.c && value.c && memcmp(cell.c, value.c, OwnedLength(cell)) == 0));
+						break;
+					case POINTER:
+						pass = cell.ptr == value.ptr;
+						break;
+					}
 					break;
-				case STRING:
-					pass = strcmp(cell.c, value.c) == 0;
+				case QF_NOT_EQUAL:
+					switch (columnType)
+					{
+					case NUMERIC:
+						pass = cell.i != value.i;
+						break;
+					case STRING:
+						pass = strcmp(cell.c, value.c) != 0;
+						break;
+					case BINARY:
+						// Kept from the original implementation: passes when the blobs are equal.
+						pass = cell.i == value.i && (OwnedLength(cell) == 0 || (cell.c && value.c && memcmp(cell.c, value.c, OwnedLength(cell)) == 0));
+						break;
+					case POINTER:
+						pass = cell.ptr != value.ptr;
+						break;
+					}
 					break;
-				case BINARY:
-					pass = cell.i == value.i && (OwnedLength(cell) == 0 || (cell.c && value.c && memcmp(cell.c, value.c, OwnedLength(cell)) == 0));
+				case QF_GREATER_THAN:
+					switch (columnType)
+					{
+					case NUMERIC:
+						pass = cell.i > value.i;
+						break;
+					case STRING:
+						pass = strcmp(cell.c, value.c) > 0;
+						break;
+					case BINARY:
+						break;
+					case POINTER:
+						pass = cell.ptr > value.ptr;
+						break;
+					}
 					break;
-				case POINTER:
-					pass = cell.ptr == value.ptr;
+				case QF_GREATER_THAN_EQ:
+					switch (columnType)
+					{
+					case NUMERIC:
+						pass = cell.i >= value.i;
+						break;
+					case STRING:
+						pass = strcmp(cell.c, value.c) >= 0;
+						break;
+					case BINARY:
+						break;
+					case POINTER:
+						pass = cell.ptr >= value.ptr;
+						break;
+					}
+					break;
+				case QF_LESS_THAN:
+					switch (columnType)
+					{
+					case NUMERIC:
+						pass = cell.i < value.i;
+						break;
+					case STRING:
+						pass = strcmp(cell.c, value.c) < 0;
+						break;
+					case BINARY:
+						break;
+					case POINTER:
+						pass = cell.ptr < value.ptr;
+						break;
+					}
+					break;
+				case QF_LESS_THAN_EQ:
+					switch (columnType)
+					{
+					case NUMERIC:
+						pass = cell.i <= value.i;
+						break;
+					case STRING:
+						pass = strcmp(cell.c, value.c) <= 0;
+						break;
+					case BINARY:
+						break;
+					case POINTER:
+						pass = cell.ptr <= value.ptr;
+						break;
+					}
+					break;
+				case QF_IS_EMPTY:
+					pass = false;
+					break;
+				case QF_NOT_EMPTY:
+					pass = true;
+					break;
+				default:
+					// Filters can come from the network (TableSerializer::DeserializeFilterQuery):
+					// an unknown operation fails the filter instead of asserting.
+					pass = false;
 					break;
 				}
-				break;
-			case QF_NOT_EQUAL:
-				switch (columnType)
-				{
-				case NUMERIC:
-					pass = cell.i != value.i;
-					break;
-				case STRING:
-					pass = strcmp(cell.c, value.c) != 0;
-					break;
-				case BINARY:
-					// Kept from the original implementation: passes when the blobs are equal.
-					pass = cell.i == value.i && (OwnedLength(cell) == 0 || (cell.c && value.c && memcmp(cell.c, value.c, OwnedLength(cell)) == 0));
-					break;
-				case POINTER:
-					pass = cell.ptr != value.ptr;
-					break;
-				}
-				break;
-			case QF_GREATER_THAN:
-				switch (columnType)
-				{
-				case NUMERIC:
-					pass = cell.i > value.i;
-					break;
-				case STRING:
-					pass = strcmp(cell.c, value.c) > 0;
-					break;
-				case BINARY:
-					break;
-				case POINTER:
-					pass = cell.ptr > value.ptr;
-					break;
-				}
-				break;
-			case QF_GREATER_THAN_EQ:
-				switch (columnType)
-				{
-				case NUMERIC:
-					pass = cell.i >= value.i;
-					break;
-				case STRING:
-					pass = strcmp(cell.c, value.c) >= 0;
-					break;
-				case BINARY:
-					break;
-				case POINTER:
-					pass = cell.ptr >= value.ptr;
-					break;
-				}
-				break;
-			case QF_LESS_THAN:
-				switch (columnType)
-				{
-				case NUMERIC:
-					pass = cell.i < value.i;
-					break;
-				case STRING:
-					pass = strcmp(cell.c, value.c) < 0;
-					break;
-				case BINARY:
-					break;
-				case POINTER:
-					pass = cell.ptr < value.ptr;
-					break;
-				}
-				break;
-			case QF_LESS_THAN_EQ:
-				switch (columnType)
-				{
-				case NUMERIC:
-					pass = cell.i <= value.i;
-					break;
-				case STRING:
-					pass = strcmp(cell.c, value.c) <= 0;
-					break;
-				case BINARY:
-					break;
-				case POINTER:
-					pass = cell.ptr <= value.ptr;
-					break;
-				}
-				break;
-			case QF_IS_EMPTY:
-				pass = false;
-				break;
-			case QF_NOT_EMPTY:
-				pass = true;
-				break;
-			default:
-				// Filters can come from the network (TableSerializer::DeserializeFilterQuery):
-				// an unknown operation fails the filter instead of asserting.
-				pass = false;
-				break;
-			}
 		}
 		else
 		{
