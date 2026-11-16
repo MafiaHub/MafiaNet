@@ -68,5 +68,6 @@ Replace calls to them with the global allocator replacement described above.
 See Also
 --------
 
+* :doc:`migrating-to-std-containers` - Upgrading code that used the removed containers and allocators
 * :doc:`preprocessor-directives` - Build configuration
 * :doc:`debugging-disconnects` - Memory-related issues

@@ -3,6 +3,33 @@ Changelog
 
 All notable changes to MafiaNet are documented here.
 
+Unreleased — breaking
+---------------------
+
+**Standard containers and allocation**
+
+* **The ``DataStructures`` containers are gone.** The library, plugins, DependentExtensions and samples use ``std::vector``, ``std::deque``, ``std::map``, ``std::set`` and ``std::unordered_map``. Every ``ds_*.h`` header and the ``DataStructures`` namespace are removed, with no shims. ``RangeList``, ``Table`` and ``HuffmanEncodingTree`` survive in ``MafiaNet`` (``range_list.h``, ``table.h``, ``huffman_encoding_tree.h``).
+* **The custom allocator layer is gone.** The library allocates with ``new`` / ``delete`` and ``std::malloc`` / ``std::free``. ``memory_override.h``, ``SetMalloc`` and friends, ``rakMalloc`` / ``rakFree``, ``OP_NEW`` / ``OP_DELETE``, the bundled dlmalloc, every ``alloca`` and the ``_FILE_AND_LINE_`` macro with its ``file, line`` parameters are removed. Replace the global ``operator new`` / ``operator delete`` or link mimalloc/jemalloc to control allocation. ``RakNetSmartPtr`` is ``std::shared_ptr``.
+* **Public signatures take ``std::`` types.** ``DataStructures::List<T>&`` out-parameters are ``std::vector<T>&`` (``RakPeerInterface::GetSystemList``, ``GetSockets``, ``GetStatisticsList``, ReplicaManager3, FullyConnectedMesh2, TeamManager, Cloud, FileList and more). Owned buffers come back as ``std::unique_ptr<unsigned char[]>`` (``BitStream::CopyData``, ``ReadAlignedBytesSafeAlloc``, ``DataCompressor::DecompressAndAllocate``). RPC4 and RPC3 hand out a ``LocalSlot *`` from ``GetLocalSlot()`` for ``InvokeSignal()``. Several plugins are now non-copyable.
+* **New helpers:** ``SwapRemove`` (``vector_util.h``), ``InstancePtr`` (``instance_ptr.h``) and ``LockedQueue`` (``locked_queue.h``).
+* **Behaviour changes:** ``Table::SortTable`` keeps fully tied rows (ordered by row id) instead of dropping them; Router2 picks its forwarder deterministically; RPC3/RPC4/TwoWayAuthentication/MessageFilter match peer-supplied names verbatim; ``PacketizedTCP`` disconnects a peer whose length prefix exceeds ``SetMaxMessageLength()`` (default 64 MiB).
+* **Windows:** ``std::`` types now cross the DLL boundary, so the application and ``MafiaNet.dll`` must use the same compiler toolset and CRT (``/MD`` vs ``/MT``, Debug vs Release).
+* The full list of removed names, changed signatures and behaviour changes, with porting examples, is in :doc:`advanced/migrating-to-std-containers`.
+
+**Fixes found during the migration**
+
+* **Security: UDPProxyServer accepted forwarding requests from any connected system.** It now accepts them only from a coordinator it logged in to.
+* **Security: peer-supplied names were used as printf format strings** in RPC3, RPC4, TwoWayAuthentication and MessageFilter lookups. They are now matched verbatim.
+* **Fix: Huffman decoder out-of-bounds write.** A string payload decoding to more than ``INT_MAX`` symbols wrote before the output buffer; ``DecodeArray`` now counts in ``size_t``.
+* **Fix: bounds on peer input.** TeamBalancer accepted a team index equal to the team count (out-of-bounds write); Cloud trusted a row count and row lengths from the network (unbounded allocation, endless loop above 65535 rows); UDPProxyCoordinator indexed client-reported ping lists out of range; ``DataCompressor`` allocated whatever size the stream declared; ConnectionGraph2 added unread entries from a truncated list.
+* **Fix: ``TableSerializer`` and ``StringTable`` asserted on malformed peer input**, aborting Debug builds; they now reject it. ``TableSerializer`` also checks every read and column index and gains a fuzz harness.
+* **Fix: an ordered channel could stall forever** when an MTU step-down re-split a message that had already arrived behind a hole.
+* **Fix: leaks.** ``ID_NEW_INCOMING_CONNECTION`` payloads on a simultaneous connect, departing FullyConnectedMesh2 participants, ConnectionGraph2 remote systems, StatisticsHistory queues, ``Table::RemoveRows`` and duplicate ``AddRow``, duplicate NatPunchthroughServer users, rejected Cloud requests, duplicate ``StringTable`` strings, ``ThreadsafePacketLogger`` lines.
+* **Fix: other memory errors.** A use-after-free in ``StringCompressor::GenerateTreeFromStrings`` with empty input, ``StatisticsHistory`` discrete merge reading past the end, ``Table::GetRowByIndex`` missing rows past the first page, ``PacketizedTCP`` reading an uninitialized length prefix and returning freed packets after ``Stop()``.
+* **Fix: concurrency.** A RakPeer command-drain livelock, a data race on ``connectMode`` and on the connection-request queue, ``ThreadPool`` signalling an uninitialized condition, and an unlocked ``FileListTransfer`` list.
+
+**Breaking (API and ABI)**: rebuild, then follow the migration guide. **Wire-compatible**: no message changes.
+
 Version 0.26.0
 --------------
 
