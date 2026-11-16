@@ -8,9 +8,22 @@
 #include "ServerReplyHarness.h"
 
 #include <atomic>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include <sodium.h>
+
+// sodium.h declares the implementation structs. The internal one is declared in
+// randombytes_internal_random.h (with "salsa20" as an alias), as in Ubuntu 24.04's libsodium 1.0.18;
+// older releases shipped only randombytes_salsa20_random.h. Detect which header exists.
+#if defined(__has_include)
+#if __has_include(<sodium/randombytes_internal_random.h>)
+#define MAFIANET_HAVE_SODIUM_INTERNAL_RANDOM 1
+#elif __has_include(<sodium/randombytes_salsa20_random.h>)
+#define MAFIANET_HAVE_SODIUM_SALSA20_RANDOM 1
+#endif
+#endif
 
 #include "SimulatedNetwork.h"
 
@@ -36,11 +49,42 @@ uint64_t NextRandom()
 // libsodium documents that randombytes_set_implementation must be called before sodium_init, so this
 // switchable implementation is installed once, by a static initializer, before any sodium_init in the
 // process. It is never swapped again: a RunServerReplyInput scope only flips g_fixedActive. While
-// inactive every call is forwarded to libsodium's own default implementation, so a binary that links
-// this file draws OS randomness as usual outside a run. That default is the internal (ChaCha20
-// seeded from the OS) implementation; restoring randombytes_sysrandom_implementation instead would
-// silently change it on Linux.
-const randombytes_implementation *const g_realRandom = &randombytes_internal_implementation;
+// inactive every call is forwarded to the implementation libsodium would have used by default, so a
+// binary that links this file draws OS randomness as usual outside a run.
+//
+// Which implementation that is depends on the libsodium version and build: upstream's
+// randombytes.c defaults to randombytes_sysrandom_implementation (read in 1.0.18 and 1.0.22, and
+// what Ubuntu 24.04 reports), but a build can choose another default with
+// RANDOMBYTES_DEFAULT_IMPLEMENTATION, and older releases name the internal one "salsa20". So the default is not hard-coded: it is asked for with
+// randombytes_implementation_name() and mapped to the exported struct of that name.
+//
+// Asking first is safe. randombytes_implementation_name() calls randombytes_init_if_needed(), which
+// points the (static) implementation pointer at the default and stirs it, but
+// randombytes_set_implementation assigns that pointer unconditionally, with no "already initialised"
+// check, so a later install simply replaces the default (read from randombytes.c in libsodium 1.0.18
+// and 1.0.22; sodium_init only calls randombytes_stir). The name query does not lock the default in.
+//
+// An unknown name leaves g_realRandom null: nothing is installed and RunServerReplyInput aborts with a
+// message instead of silently running on, or replacing, the process RNG.
+const randombytes_implementation *DefaultRandomImplementation()
+{
+	const char *name = randombytes_implementation_name();
+	if (name == nullptr)
+		return nullptr;
+	if (std::strcmp(name, "sysrandom") == 0)
+		return &randombytes_sysrandom_implementation;
+#if defined(MAFIANET_HAVE_SODIUM_INTERNAL_RANDOM)
+	if (std::strcmp(name, "internal") == 0)
+		return &randombytes_internal_implementation;
+#endif
+#if defined(MAFIANET_HAVE_SODIUM_SALSA20_RANDOM)
+	if (std::strcmp(name, "salsa20") == 0)
+		return &randombytes_salsa20_implementation;
+#endif
+	std::fprintf(stderr, "ServerReplyHarness: unknown libsodium default RNG \"%s\"; fixed-stream mode is unavailable\n", name);
+	return nullptr;
+}
+const randombytes_implementation *const g_realRandom = DefaultRandomImplementation();
 std::atomic<bool> g_fixedActive{false};
 
 const char *FixedName()
@@ -79,7 +123,7 @@ int FixedClose()
 randombytes_implementation g_fixedRandom = {FixedName, FixedRandom, FixedStir, nullptr, FixedBuf, FixedClose};
 
 // Runs before main and therefore before any sodium_init in this process.
-const bool g_fixedInstalled = randombytes_set_implementation(&g_fixedRandom) == 0;
+const bool g_fixedInstalled = g_realRandom != nullptr && randombytes_set_implementation(&g_fixedRandom) == 0;
 
 // Makes the installed implementation produce the fixed stream for one run.
 struct FixedRandomScope
@@ -102,7 +146,12 @@ const uint8_t kPinnedIdentity[32] = {0x03, 0xa1, 0x07, 0xbf, 0xf3, 0xce, 0x10, 0
 ServerReplyOutcome RunServerReplyInput(const uint8_t *data, size_t size)
 {
 	ServerReplyOutcome outcome;
-	if (size < 1 || !g_fixedInstalled || sodium_init() < 0)
+	if (!g_fixedInstalled)
+	{
+		std::fprintf(stderr, "ServerReplyHarness: the fixed random stream is not installed; refusing to run on the process RNG\n");
+		std::abort();
+	}
+	if (size < 1 || sodium_init() < 0)
 		return outcome;
 	FixedRandomScope fixedRandom;
 

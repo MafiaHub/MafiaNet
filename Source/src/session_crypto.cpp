@@ -136,16 +136,6 @@ EphemeralKeyPair::EphemeralKeyPair(const uint8_t secret[32], uint64_t fixedNonce
 	wiped = false;
 }
 
-EphemeralKeyPair EphemeralKeyPairTestAccess::FromSecretKey(const uint8_t secret[32], uint64_t fixedNonce)
-{
-	return EphemeralKeyPair(secret, fixedNonce);
-}
-
-const uint8_t *EphemeralKeyPairTestAccess::SecretKey(const EphemeralKeyPair &pair)
-{
-	return pair.SecretKey();
-}
-
 // Library-internal access for the key derivation; defined here only, so it is not part of the API.
 struct EphemeralKeyPairInternal
 {

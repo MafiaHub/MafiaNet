@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "EphemeralKeyPairTestAccess.h"
 #include "SimulatedNetwork.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/session_crypto.h"
