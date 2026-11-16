@@ -819,6 +819,15 @@ TEST(ServerIdentity, RemoteIdentityKeyIsGoneAfterDisconnect)
 
 	client->CloseConnection(serverAddress, true);
 	ASSERT_TRUE(net.RunUntilReceived(server, ID_DISCONNECTION_NOTIFICATION, 2000));
+	// The server's notification only proves it received the client's; the client drops the remote
+	// identity key later, in its update cycle, once the server acknowledges.
+	ASSERT_TRUE(net.RunUntil(
+	    [&]
+	    {
+		    uint8_t probe[32];
+		    return !client->GetRemoteIdentityKey(serverAddress, probe);
+	    },
+	    2000));
 	EXPECT_FALSE(client->GetRemoteIdentityKey(serverAddress, remote));
 	EXPECT_EQ(std::vector<uint8_t>(32, 0), Bytes(remote, 32));
 }
