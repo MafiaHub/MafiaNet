@@ -334,6 +334,8 @@ void CloudServer::OnPostRequest(Packet *packet)
 				delete cloudDataList;
 				dataRepository.erase(dataRepository.begin() + dataRepositoryIndex);
 			}
+			else
+				cloudDataList->uploaderCount--; // counted above, before the limit check
 
 			// This system had no data under the key, so it was only added to uploadedKeys above.
 			remoteCloudClient->uploadedKeys.erase(key);
@@ -404,6 +406,18 @@ void CloudServer::OnPostRequest(Packet *packet)
 			{
 				delete cloudDataList;
 				dataRepository.erase(dataRepository.begin() + dataRepositoryIndex);
+			}
+			else
+				cloudDataList->uploaderCount--; // counted above, before the limit check
+			// A subscription placeholder (never uploaded by this system) was only added to uploadedKeys above.
+			if (cloudData->isUploaded == false)
+			{
+				remoteCloudClient->uploadedKeys.erase(key);
+				if (remoteCloudClient->IsUnused())
+				{
+					delete remoteCloudClient;
+					remoteSystems.erase(packet->guid);
+				}
 			}
 			if (dataLengthBytes > CLOUD_SERVER_DATA_STACK_SIZE)
 				std::free(data);

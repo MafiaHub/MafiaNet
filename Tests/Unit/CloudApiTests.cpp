@@ -13,11 +13,14 @@
 
 #include "SimulatedNetwork.h"
 
+#include "mafianet/bit_stream.h"
 #include "mafianet/cloud_client.h"
 #include "mafianet/cloud_server.h"
 #include "mafianet/message_identifiers.h"
 
 #include <algorithm>
+#include <cstring>
+#include <new>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -395,4 +398,195 @@ TEST(CloudApiServers, GetIsAnsweredAcrossServers)
 	clientA->DetachPlugin(&cloudClientA);
 	serverB->DetachPlugin(&cloudB);
 	serverA->DetachPlugin(&cloudA);
+}
+
+TEST(CloudApiServers, OverLimitPostDoesNotCountAsAnUploader)
+{
+	CloudServer cloudA, cloudB;
+	CloudClient uploader, subscriber, getter;
+	SimulatedNetwork net; // after the plugins: destroyed (with its peers) first
+	RakPeer *serverA = net.AddPeer(8, 8);
+	RakPeer *serverB = net.AddPeer(8, 8);
+	RakPeer *uploaderPeer = net.AddPeer(1);
+	RakPeer *subscriberPeer = net.AddPeer(1);
+	RakPeer *getterPeer = net.AddPeer(1);
+	serverA->AttachPlugin(&cloudA);
+	serverB->AttachPlugin(&cloudB);
+	uploaderPeer->AttachPlugin(&uploader);
+	subscriberPeer->AttachPlugin(&subscriber);
+	getterPeer->AttachPlugin(&getter);
+	ASSERT_TRUE(net.Connect(serverB, serverA));
+	ASSERT_TRUE(net.Connect(uploaderPeer, serverA));
+	ASSERT_TRUE(net.Connect(subscriberPeer, serverA));
+	ASSERT_TRUE(net.Connect(getterPeer, serverB));
+	cloudA.SetMaxUploadBytesPerClient(10);
+	const auto settle = [&net]
+	{ net.RunUntil([]
+		           { return false; }, 300); };
+	const auto post = [&](const CloudKey &key, const std::string &value)
+	{
+		CloudKey copy = key;
+		uploader.Post(&copy, reinterpret_cast<const unsigned char *>(value.data()), static_cast<uint32_t>(value.size()), serverA->GetMyGUID());
+		settle();
+	};
+
+	// 8 of the uploader's 10 bytes go to kScores before the servers meet, so server B learns
+	// exactly which keys A holds (and asks A only for those).
+	post(kScores, "12345678");
+	cloudA.AddServer(serverB->GetMyGUID());
+	cloudB.AddServer(serverA->GetMyGUID());
+	settle();
+
+	// kNames exists on A with a subscriber only.
+	CloudQuery subscribe;
+	subscribe.keys.push_back(kNames);
+	subscribe.subscribeToResults = true;
+	ASSERT_TRUE(subscriber.Get(&subscribe, serverA->GetMyGUID()));
+	settle();
+
+	post(kNames, "abcde"); // 8 + 5 > 10: rejected, must leave no uploader behind
+	std::vector<CloudKey> release{kScores};
+	uploader.Release(release, serverA->GetMyGUID());
+	settle();
+	post(kNames, "abcde"); // now within the limit: the first real upload of kNames
+
+	// B forwards a Get for kNames to A only if A announced it as uploaded.
+	CloudQuery query;
+	query.keys.push_back(kNames);
+	ASSERT_TRUE(getter.Get(&query, serverB->GetMyGUID()));
+	ASSERT_TRUE(net.RunUntilReceived(getterPeer, ID_CLOUD_GET_RESPONSE, 2000));
+	SimulatedNetwork::Message message = *net.Find(getterPeer, ID_CLOUD_GET_RESPONSE);
+	Packet packet = AsPacket(message);
+	CloudQueryResult result;
+	getter.OnGetReponse(&result, &packet);
+	ASSERT_EQ(result.rowsReturned.size(), 1u);
+	EXPECT_EQ(RowData(result.rowsReturned[0]), "abcde");
+	getter.DeallocateWithDefaultAllocator(&result);
+
+	getterPeer->DetachPlugin(&getter);
+	subscriberPeer->DetachPlugin(&subscriber);
+	uploaderPeer->DetachPlugin(&uploader);
+	serverB->DetachPlugin(&cloudB);
+	serverA->DetachPlugin(&cloudA);
+}
+
+namespace
+{
+// Counts what CloudQueryResult::Serialize allocates while reading peer input. Rows come from
+// zero-filled storage, default-initialized in place, so a field a failed read left untouched
+// reads as 0 whether or not the row type initializes it. Gives up (returns null) after
+// kRowBudget rows or for data larger than 1 MiB, so a runaway reader stops instead of exhausting memory.
+struct CountingAllocator : CloudAllocator
+{
+	static constexpr int kRowBudget = 1000;
+	CloudQueryRow *AllocateCloudQueryRow(void) override
+	{
+		if (rowsAllocated >= kRowBudget)
+			return nullptr;
+		++rowsAllocated;
+		void *storage = ::operator new(sizeof(CloudQueryRow));
+		std::memset(storage, 0, sizeof(CloudQueryRow));
+		return new (storage) CloudQueryRow;
+	}
+	void DeallocateCloudQueryRow(CloudQueryRow *row) override
+	{
+		++rowsFreed;
+		row->~CloudQueryRow();
+		::operator delete(row);
+	}
+	unsigned char *AllocateRowData(uint32_t bytes) override
+	{
+		largestDataRequest = std::max(largestDataRequest, bytes);
+		if (bytes > 1024 * 1024)
+			return nullptr;
+		++dataAllocated;
+		return CloudAllocator::AllocateRowData(bytes);
+	}
+	void DeallocateRowData(void *data) override
+	{
+		if (data)
+			++dataFreed;
+		CloudAllocator::DeallocateRowData(data);
+	}
+	void FreeAll(CloudQueryResult &result)
+	{
+		for (CloudQueryRow *row : result.rowsReturned)
+		{
+			DeallocateRowData(row->data);
+			DeallocateCloudQueryRow(row);
+		}
+		result.rowsReturned.clear();
+	}
+	int rowsAllocated = 0, rowsFreed = 0, dataAllocated = 0, dataFreed = 0;
+	uint32_t largestDataRequest = 0;
+};
+
+void WriteResponseHeader(BitStream &bs, uint32_t claimedRows)
+{
+	CloudQueryResult header;
+	header.cloudQuery.keys.push_back(kScores);
+	header.subscribeToResults = false;
+	header.SerializeHeader(true, &bs);
+	header.SerializeNumRows(true, claimedRows, &bs);
+}
+
+void WriteRow(BitStream &bs, uint32_t claimedLength, const std::string &bytes)
+{
+	CloudKey key = kScores;
+	key.Serialize(true, &bs);
+	bs.Write(UNASSIGNED_SYSTEM_ADDRESS);
+	bs.Write(UNASSIGNED_SYSTEM_ADDRESS);
+	bs.Write(UNASSIGNED_RAKNET_GUID);
+	bs.Write(UNASSIGNED_RAKNET_GUID);
+	bs.Write(claimedLength);
+	bs.WriteAlignedBytes(reinterpret_cast<const unsigned char *>(bytes.data()), static_cast<unsigned int>(bytes.size()));
+}
+} // namespace
+
+TEST(CloudRows, ClaimedRowCountIsBoundedByTheStream)
+{
+	// A response that claims 2^32 - 1 rows and holds none: nothing may be allocated for them.
+	BitStream bs;
+	WriteResponseHeader(bs, 0xFFFFFFFFu);
+	CountingAllocator allocator;
+	CloudQueryResult result;
+	result.Serialize(false, &bs, &allocator);
+	EXPECT_TRUE(result.rowsReturned.empty());
+	EXPECT_LE(allocator.rowsAllocated, 1);
+	EXPECT_EQ(allocator.rowsAllocated, allocator.rowsFreed);
+	allocator.FreeAll(result);
+}
+
+TEST(CloudRows, TruncatedRowIsDroppedWithoutLeaking)
+{
+	// Two rows claimed; the second is cut off inside its addresses.
+	BitStream whole;
+	WriteResponseHeader(whole, 2);
+	WriteRow(whole, 2, "hi");
+	const BitSize_t secondRowStart = whole.GetNumberOfBitsUsed();
+	WriteRow(whole, 3, "abc");
+	BitStream bs;
+	bs.WriteBits(whole.GetData(), secondRowStart + 40, false);
+
+	CountingAllocator allocator;
+	CloudQueryResult result;
+	result.Serialize(false, &bs, &allocator);
+	ASSERT_EQ(result.rowsReturned.size(), 1u);
+	EXPECT_EQ(RowData(result.rowsReturned[0]), "hi");
+	EXPECT_EQ(allocator.rowsAllocated - allocator.rowsFreed, 1); // the dropped row was freed
+	EXPECT_EQ(allocator.dataAllocated - allocator.dataFreed, 1);
+	allocator.FreeAll(result);
+}
+
+TEST(CloudRows, RowLengthLargerThanTheStreamIsNotAllocated)
+{
+	// A row claiming 1 GB of data with 3 bytes behind it: no allocation is attempted for it.
+	BitStream bs;
+	WriteRow(bs, 1000000000u, "abc");
+	CountingAllocator allocator;
+	CloudQueryRow row;
+	row.Serialize(false, &bs, &allocator);
+	EXPECT_EQ(row.data, nullptr);
+	EXPECT_LE(allocator.largestDataRequest, 3u);
+	allocator.DeallocateRowData(row.data);
 }

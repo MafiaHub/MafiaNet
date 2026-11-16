@@ -64,8 +64,8 @@ struct RAK_DLL_EXPORT CloudKey
 	/// Identifies the secondary key. This is intended to be a subcategory enumeration, such as PLAYER_LIST or RUNNING_SCORES
 	uint32_t secondaryKey;
 
-	/// \internal
-	void Serialize(bool writeToBitstream, BitStream *bitStream);
+	/// \internal Returns false if reading failed (the stream ended).
+	bool Serialize(bool writeToBitstream, BitStream *bitStream);
 };
 
 /// \internal
@@ -107,10 +107,10 @@ struct RAK_DLL_EXPORT CloudQueryRow
 	CloudKey key;
 
 	/// Data uploaded
-	unsigned char *data;
+	unsigned char *data = nullptr;
 
 	/// Length of data uploaded
-	uint32_t length;
+	uint32_t length = 0;
 
 	/// System address of server that is holding this data, and the client is connected to
 	SystemAddress serverSystemAddress;
@@ -124,8 +124,9 @@ struct RAK_DLL_EXPORT CloudQueryRow
 	/// RakNetGUID of client that uploaded this data
 	RakNetGUID clientGUID;
 
-	/// \internal
-	void Serialize(bool writeToBitstream, BitStream *bitStream, CloudAllocator *allocator);
+	/// \internal When reading, returns false if the stream does not hold a whole row; \a data is
+	/// then null and \a length 0.
+	bool Serialize(bool writeToBitstream, BitStream *bitStream, CloudAllocator *allocator);
 };
 
 /// \ingroup CLOUD_GROUP
