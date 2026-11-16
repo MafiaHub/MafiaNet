@@ -31,10 +31,11 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/string.h"
 #include "mafianet/thread.h"
-#include <deque>
-#include <vector>
 #include "mafianet/lockless_types.h"
 #include "mafianet/locked_queue.h"
+
+#include <deque>
+#include <vector>
 
 namespace MafiaNet
 {

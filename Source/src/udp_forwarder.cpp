@@ -27,7 +27,7 @@
 #include "mafianet/socket_defines.h"
 #include "mafianet/sockaddr_convert.h"
 #include "errno.h"
-#include <cassert>
+#include "mafianet/assert.h"
 #include <cstring>
 #include <utility>
 
