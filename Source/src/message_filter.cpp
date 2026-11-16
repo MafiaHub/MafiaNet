@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_MessageFilter == 1
 
 #include "mafianet/message_filter.h"

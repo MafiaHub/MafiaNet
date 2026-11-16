@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/file_list.h"
+#include <cstring>
 #include <cstdlib>
 
 #if _RAKNET_SUPPORT_FileOperations == 1

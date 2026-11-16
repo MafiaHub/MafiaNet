@@ -22,6 +22,8 @@
 #include "mafianet/get_time.h"
 #include "mafianet/base64_encoder.h"
 
+#include <cstring>
+
 using namespace MafiaNet;
 
 struct DynDnsResult

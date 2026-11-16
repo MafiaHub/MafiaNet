@@ -6,6 +6,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstring>
 
 #include <cstdio>
 #include <filesystem>

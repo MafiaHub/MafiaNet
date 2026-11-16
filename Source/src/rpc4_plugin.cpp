@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_RPC4Plugin == 1
 
 #include "mafianet/rpc4_plugin.h"

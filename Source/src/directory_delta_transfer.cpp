@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_DirectoryDeltaTransfer == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 #include "mafianet/directory_delta_transfer.h"

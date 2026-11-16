@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_NatPunchthroughClient == 1
 
 #include "mafianet/nat_punchthrough_client.h"

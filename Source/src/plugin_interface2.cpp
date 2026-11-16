@@ -15,6 +15,7 @@
 
 
 #include "mafianet/plugin_interface2.h"
+#include <cstring>
 #include <cstdlib>
 #include "mafianet/packetized_tcp.h"
 #include "mafianet/peer_interface.h"
