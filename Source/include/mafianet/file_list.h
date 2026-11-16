@@ -52,19 +52,19 @@ struct FileListNode
 	MafiaNet::RakString fullPathToFile;
 
 	/// File data (may be null if not ready)
-	char *data;
+	char *data = nullptr;
 
 	/// Length of \a data. May be greater than fileLength if prepended with a file hash
-	BitSize_t dataLengthBytes;
+	BitSize_t dataLengthBytes = 0;
 
 	/// Length of the file
-	unsigned fileLengthBytes;
+	unsigned fileLengthBytes = 0;
 
 	/// User specific data for whatever, describing this file.
 	FileListNodeContext context;
 
 	/// If true, data and dataLengthBytes should be empty. This is just storing the filename
-	bool isAReference;
+	bool isAReference = false;
 };
 
 /// Callback interface set with FileList::SetCallback() in case you want progress notifications when FileList::AddFilesFromDirectory() is called
