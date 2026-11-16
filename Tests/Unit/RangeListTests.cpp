@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
+#include "mafianet/mtu_size.h"
 #include "mafianet/range_list.h"
 
 using namespace MafiaNet;
@@ -45,6 +46,36 @@ TEST(RangeList, InsertKeepsRangesSorted)
 	ExpectRange(list, 0, 1, 1);
 	ExpectRange(list, 1, 5, 5);
 	ExpectRange(list, 2, 9, 9);
+}
+
+// Characterization of a quirk kept from the original RakNet RangeList (changing it would change the
+// ACK/NAK bytes): an index one past a range that is not the last, and not adjacent to the next
+// one, starts a new range next to it instead of extending it. Appending past the last range
+// does extend it.
+TEST(RangeList, InsertAfterAMiddleRangeStartsAnAdjacentRange)
+{
+	Ranges list;
+	list.Insert(1);
+	list.Insert(2);
+	list.Insert(3);
+	list.Insert(10);
+	list.Insert(4);
+	ASSERT_EQ(list.ranges.size(), 3u);
+	ExpectRange(list, 0, 1, 3);
+	ExpectRange(list, 1, 4, 4);
+	ExpectRange(list, 2, 10, 10);
+
+	list.Insert(11);
+	ASSERT_EQ(list.ranges.size(), 3u);
+	ExpectRange(list, 2, 10, 11);
+
+	// Still accepted by Deserialize: ranges stay sorted and disjoint.
+	BitStream bs;
+	list.Serialize(&bs, MAXIMUM_MTU_SIZE * 8, false);
+	Ranges back;
+	ASSERT_TRUE(back.Deserialize(&bs));
+	ASSERT_EQ(back.ranges.size(), 3u);
+	ExpectRange(back, 1, 4, 4);
 }
 
 TEST(RangeList, InsertIgnoresDuplicates)
