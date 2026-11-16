@@ -23,7 +23,7 @@ set(MAFIANET_SOURCES
     src/directory_delta_transfer.cpp
     src/dr_sha1.cpp
     src/ds_byte_queue.cpp
-    src/ds_huffman_encoding_tree.cpp
+    src/huffman_encoding_tree.cpp
     src/ds_table.cpp
     src/dyn_dns.cpp
     src/epoch_time_to_string.cpp
@@ -151,8 +151,8 @@ set(MAFIANET_HEADERS
     include/mafianet/ds_byte_queue.h
     include/mafianet/ds_hash.h
     include/mafianet/ds_heap.h
-    include/mafianet/ds_huffman_encoding_tree.h
-    include/mafianet/ds_huffman_encoding_tree_node.h
+    include/mafianet/huffman_encoding_tree.h
+    include/mafianet/huffman_encoding_tree_node.h
     include/mafianet/ds_linked_list.h
     include/mafianet/ds_list.h
     include/mafianet/ds_map.h

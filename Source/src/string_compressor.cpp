@@ -20,7 +20,7 @@
 #include "mafianet/string_compressor.h"
 #include <cstdlib>
 #include <memory>
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
 #include "mafianet/assert.h"

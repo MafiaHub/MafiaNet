@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include <cstdlib>
 #include "mafianet/ds_queue.h"
 #include "mafianet/bit_stream.h"

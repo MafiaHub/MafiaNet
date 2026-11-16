@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/string_compressor.h"
 
 #include <cstring>

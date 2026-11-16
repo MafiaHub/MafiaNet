@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-/// \file ds_huffman_encoding_tree.h
+/// \file huffman_encoding_tree.h
 /// \brief \b [Internal] Generates a huffman encoding tree, used for string and global compression.
 ///
 
@@ -21,7 +21,7 @@
 #ifndef __HUFFMAN_ENCODING_TREE
 #define __HUFFMAN_ENCODING_TREE
 
-#include "mafianet/ds_huffman_encoding_tree_node.h"
+#include "mafianet/huffman_encoding_tree_node.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/export.h"
 #include "mafianet/ds_linked_list.h"

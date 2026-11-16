@@ -16,7 +16,7 @@
 #include "mafianet/data_compressor.h"
 #include <cstdlib>
 #include <utility>
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/assert.h"
 #include <string.h> // Use string.h rather than memory.h for a console
 

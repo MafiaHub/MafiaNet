@@ -50,7 +50,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_black_hole.h"
 #include "mafianet/vector_util.h"
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/rand.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/string_compressor.h"

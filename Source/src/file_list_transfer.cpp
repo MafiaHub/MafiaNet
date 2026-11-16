@@ -18,7 +18,7 @@
 #if _RAKNET_SUPPORT_FileListTransfer == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 #include "mafianet/file_list_transfer.h"
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/file_list_transfer_cb_interface.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/file_list.h"
