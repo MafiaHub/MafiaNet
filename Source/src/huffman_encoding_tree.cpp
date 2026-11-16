@@ -14,74 +14,66 @@
  */
 
 #include "mafianet/huffman_encoding_tree.h"
-#include <cstdlib>
-#include "mafianet/ds_queue.h"
+#include <algorithm>
 #include "mafianet/bit_stream.h"
 #include "mafianet/assert.h"
 
 using namespace MafiaNet;
 
+namespace
+{
+// Inserts node before the first entry whose weight is not less than its own, so among equal
+// weights the newest node comes first. This is the order the original linked-list insertion
+// sort produced; the encodings (and so the wire format) depend on it.
+void InsertNodeIntoSortedList(HuffmanEncodingTreeNode *node, std::vector<HuffmanEncodingTreeNode *> &sortedList)
+{
+	const auto position = std::lower_bound(sortedList.begin(), sortedList.end(), node->weight, [](const HuffmanEncodingTreeNode *entry, uint64_t weight)
+	                                       { return entry->weight < weight; });
+	sortedList.insert(position, node);
+}
+} // namespace
+
 HuffmanEncodingTree::HuffmanEncodingTree()
 {
-	root = 0;
+	root = nullptr;
 }
 
-HuffmanEncodingTree::~HuffmanEncodingTree()
-{
-	FreeMemory();
-}
+HuffmanEncodingTree::~HuffmanEncodingTree() = default;
 
 void HuffmanEncodingTree::FreeMemory(void)
 {
-	if (root == 0)
-		return;
-
-	// Use an in-order traversal to delete the tree
-	DataStructures::Queue<HuffmanEncodingTreeNode *> nodeQueue;
-
-	HuffmanEncodingTreeNode *node;
-
-	nodeQueue.Push(root, _FILE_AND_LINE_);
-
-	while (nodeQueue.Size() > 0)
-	{
-		node = nodeQueue.Pop();
-
-		if (node->left)
-			nodeQueue.Push(node->left, _FILE_AND_LINE_);
-
-		if (node->right)
-			nodeQueue.Push(node->right, _FILE_AND_LINE_);
-
-		delete node;
-	}
-
-	// Delete the encoding table
+	nodes.clear();
 	for (int i = 0; i < 256; i++)
 		encodingTable[i].encoding.reset();
-
-	root = 0;
+	root = nullptr;
 }
 
-
-////#include <stdio.h>
-
-// Given a frequency table of 256 elements, all with a frequency of 1 or more, generate the tree
+// Given a frequency table of 256 elements, generate the tree. A frequency of 0 is treated as 1.
 void HuffmanEncodingTree::GenerateFromFrequencyTable(unsigned int frequencyTable[256])
 {
 	int counter;
 	HuffmanEncodingTreeNode *node;
 	HuffmanEncodingTreeNode *leafList[256]; // Keep a copy of the pointers to all the leaves so we can generate the encryption table bottom-up, which is easier
-	// 1.  Make 256 trees each with a weight equal to the frequency of the corresponding character
-	DataStructures::LinkedList<HuffmanEncodingTreeNode *> huffmanEncodingTreeNodeList;
 
 	FreeMemory();
 
+	// 256 leaves and 255 internal nodes. Reserving the exact count keeps every node pointer valid.
+	nodes.reserve(256 + 255);
+	auto newNode = [this]() -> HuffmanEncodingTreeNode *
+	{
+		nodes.push_back(HuffmanEncodingTreeNode());
+		return &nodes.back();
+	};
+
+	// 1.  Make 256 trees each with a weight equal to the frequency of the corresponding character
+	std::vector<HuffmanEncodingTreeNode *> sortedList;
+	sortedList.reserve(256);
 	for (counter = 0; counter < 256; counter++)
 	{
-		node = new HuffmanEncodingTreeNode;
-		node->left = 0;
-		node->right = 0;
+		node = newNode();
+		node->left = nullptr;
+		node->right = nullptr;
+		node->parent = nullptr;
 		node->value = (unsigned char) counter;
 		node->weight = frequencyTable[counter];
 
@@ -90,35 +82,34 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable(unsigned int frequencyTable
 
 		leafList[counter] = node; // Used later to generate the encryption table
 
-		InsertNodeIntoSortedList(node, &huffmanEncodingTreeNodeList); // Insert and maintain sort order.
+		InsertNodeIntoSortedList(node, sortedList); // Insert and maintain sort order.
 	}
-
 
 	// 2.  While there is more than one tree, take the two smallest trees and merge them so that the two trees are the left and right
 	// children of a new node, where the new node has the weight the sum of the weight of the left and right child nodes.
 	for (;;)
 	{
-		huffmanEncodingTreeNodeList.Beginning();
-		HuffmanEncodingTreeNode *lesser, *greater;
-		lesser = huffmanEncodingTreeNodeList.Pop();
-		greater = huffmanEncodingTreeNodeList.Pop();
-		node = new HuffmanEncodingTreeNode;
+		HuffmanEncodingTreeNode *lesser = sortedList[0];
+		HuffmanEncodingTreeNode *greater = sortedList[1];
+		sortedList.erase(sortedList.begin(), sortedList.begin() + 2);
+		node = newNode();
+		node->value = 0;
 		node->left = lesser;
 		node->right = greater;
-		node->weight = lesser->weight + greater->weight;
-		lesser->parent = node;  // This is done to make generating the encryption table easier
-		greater->parent = node; // This is done to make generating the encryption table easier
+		node->weight = lesser->weight + greater->weight; // Cannot wrap: at most 256 * (2^32 - 1)
+		lesser->parent = node;                           // This is done to make generating the encryption table easier
+		greater->parent = node;                          // This is done to make generating the encryption table easier
 
-		if (huffmanEncodingTreeNodeList.Size() == 0)
+		if (sortedList.empty())
 		{
 			// 3. Assign the one remaining node in the list to the root node.
 			root = node;
-			root->parent = 0;
+			root->parent = nullptr;
 			break;
 		}
 
-		// Put the new node back into the list at the correct spot to maintain the sort.  Linear search time
-		InsertNodeIntoSortedList(node, &huffmanEncodingTreeNodeList);
+		// Put the new node back into the list at the correct spot to maintain the sort.
+		InsertNodeIntoSortedList(node, sortedList);
 	}
 
 	bool tempPath[256]; // Maximum path length is 256
@@ -197,26 +188,31 @@ void HuffmanEncodingTree::EncodeArray(unsigned char *input, size_t sizeInBytes, 
 	}
 }
 
-unsigned HuffmanEncodingTree::DecodeArray(MafiaNet::BitStream *input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output)
+size_t HuffmanEncodingTree::DecodeArray(MafiaNet::BitStream *input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output)
 {
-	HuffmanEncodingTreeNode *currentNode;
+	if (sizeInBits == 0)
+		return 0;
+	if (root == nullptr)
+		return DECODE_ERROR;
 
-	unsigned outputWriteIndex;
-	outputWriteIndex = 0;
-	currentNode = root;
+	// size_t, not int: the count may exceed maxCharsToWrite and must never turn negative in the caller.
+	size_t outputWriteIndex = 0;
+	const HuffmanEncodingTreeNode *currentNode = root;
 
 	// For each bit, go left if it is a 0 and right if it is a 1.  When we reach a leaf, that gives us the desired value and we restart from the root
-
-	for (unsigned counter = 0; counter < sizeInBits; counter++)
+	for (BitSize_t counter = 0; counter < sizeInBits; counter++)
 	{
 		if (input->ReadBit() == false) // left!
 			currentNode = currentNode->left;
 		else
 			currentNode = currentNode->right;
 
-		if (currentNode->left == 0 && currentNode->right == 0) // Leaf
-		{
+		// The bits came from the network. A tree built by GenerateFromFrequencyTable() is full, but never follow a missing branch.
+		if (currentNode == nullptr)
+			return DECODE_ERROR;
 
+		if (currentNode->left == nullptr && currentNode->right == nullptr) // Leaf
+		{
 			if (outputWriteIndex < maxCharsToWrite)
 				output[outputWriteIndex] = currentNode->value;
 
@@ -230,64 +226,33 @@ unsigned HuffmanEncodingTree::DecodeArray(MafiaNet::BitStream *input, BitSize_t 
 }
 
 // Pass an array of encoded bytes to array and a preallocated BitStream to receive the output
-void HuffmanEncodingTree::DecodeArray(unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream *output)
+bool HuffmanEncodingTree::DecodeArray(unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream *output)
 {
-	HuffmanEncodingTreeNode *currentNode;
-
-	if (sizeInBits <= 0)
-		return;
+	if (sizeInBits == 0)
+		return true;
+	if (root == nullptr)
+		return false;
 
 	MafiaNet::BitStream bitStream(input, BITS_TO_BYTES(sizeInBits), false);
 
-	currentNode = root;
+	const HuffmanEncodingTreeNode *currentNode = root;
 
 	// For each bit, go left if it is a 0 and right if it is a 1.  When we reach a leaf, that gives us the desired value and we restart from the root
-	for (unsigned counter = 0; counter < sizeInBits; counter++)
+	for (BitSize_t counter = 0; counter < sizeInBits; counter++)
 	{
 		if (bitStream.ReadBit() == false) // left!
 			currentNode = currentNode->left;
 		else
 			currentNode = currentNode->right;
 
-		if (currentNode->left == 0 && currentNode->right == 0) // Leaf
+		if (currentNode == nullptr)
+			return false;
+
+		if (currentNode->left == nullptr && currentNode->right == nullptr) // Leaf
 		{
 			output->WriteBits(&(currentNode->value), sizeof(char) * 8, true); // Use WriteBits instead of Write(char) because we want to avoid TYPE_CHECKING
 			currentNode = root;
 		}
 	}
-}
-
-// Insertion sort.  Slow but easy to write in this case
-void HuffmanEncodingTree::InsertNodeIntoSortedList(HuffmanEncodingTreeNode *node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList) const
-{
-	if (huffmanEncodingTreeNodeList->Size() == 0)
-	{
-		huffmanEncodingTreeNodeList->Insert(node);
-		return;
-	}
-
-	huffmanEncodingTreeNodeList->Beginning();
-
-	unsigned counter = 0;
-	for (;;)
-	{
-		if (huffmanEncodingTreeNodeList->Peek()->weight < node->weight)
-			++(*huffmanEncodingTreeNodeList);
-		else
-		{
-			huffmanEncodingTreeNodeList->Insert(node);
-			break;
-		}
-
-		// Didn't find a spot in the middle - add to the end
-		if (++counter == huffmanEncodingTreeNodeList->Size())
-		{
-			huffmanEncodingTreeNodeList->End();
-
-			huffmanEncodingTreeNodeList->Add(node)
-
-			    ; // Add to the end
-			break;
-		}
-	}
+	return true;
 }

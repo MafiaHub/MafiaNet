@@ -14,7 +14,9 @@
 #include "mafianet/string.h"
 #include "mafianet/string_compressor.h"
 
+#include <cstring>
 #include <string>
+#include <type_traits>
 
 using namespace MafiaNet;
 
@@ -63,3 +65,60 @@ TEST(StringCompressor, DecodeWithUnknownLanguageIdYieldsEmptyStdString)
 	EXPECT_TRUE(output.empty());
 }
 #endif
+
+static_assert(!std::is_copy_constructible_v<StringCompressor>, "StringCompressor owns its trees");
+static_assert(!std::is_copy_assignable_v<StringCompressor>, "StringCompressor owns its trees");
+
+TEST(StringCompressor, DecodeIntoSmallBufferTruncatesInsideIt)
+{
+	CompressorRef ref;
+	const char text[] = "a string longer than the destination";
+	BitStream stream;
+	StringCompressor::Instance()->EncodeString(text, 256, &stream);
+
+	char output[12];
+	memset(output, 0x55, sizeof(output));
+	ASSERT_TRUE(StringCompressor::Instance()->DecodeString(output, 8, &stream));
+	EXPECT_EQ(7u, strlen(output));
+	EXPECT_EQ(0, strncmp(output, text, strlen(output)));
+	for (size_t i = 8; i < sizeof(output); i++)
+		EXPECT_EQ(0x55, (unsigned char) output[i]) << "byte " << i << " written past maxCharsToWrite";
+}
+
+TEST(StringCompressor, GeneratedLanguageRoundTripsAndReplacesThePreviousTree)
+{
+	CompressorRef ref;
+	const uint8_t language = 7;
+	unsigned char sample[] = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzyx";
+	StringCompressor::Instance()->GenerateTreeFromStrings(sample, (unsigned) sizeof(sample) - 1, language);
+	BitStream skewed;
+	StringCompressor::Instance()->EncodeString("zzzz", 256, &skewed, language);
+
+	unsigned char english[] = "the quick brown fox";
+	StringCompressor::Instance()->GenerateTreeFromStrings(english, (unsigned) sizeof(english) - 1, language);
+	BitStream replaced;
+	StringCompressor::Instance()->EncodeString("zzzz", 256, &replaced, language);
+	// 'z' dominated the first sample only, so its code got longer.
+	EXPECT_LT(skewed.GetNumberOfBitsUsed(), replaced.GetNumberOfBitsUsed());
+
+	BitStream stream;
+	StringCompressor::Instance()->EncodeString("the fox", 256, &stream, language);
+	char output[32];
+	ASSERT_TRUE(StringCompressor::Instance()->DecodeString(output, (int) sizeof(output), &stream, language));
+	EXPECT_STREQ("the fox", output);
+}
+
+TEST(StringCompressor, EmptyInputKeepsTheLanguageTree)
+{
+	CompressorRef ref;
+	const uint8_t language = 9;
+	unsigned char sample[] = "keep me";
+	StringCompressor::Instance()->GenerateTreeFromStrings(sample, (unsigned) sizeof(sample) - 1, language);
+	StringCompressor::Instance()->GenerateTreeFromStrings(sample, 0, language);
+
+	BitStream stream;
+	StringCompressor::Instance()->EncodeString("keep me", 256, &stream, language);
+	char output[32];
+	ASSERT_TRUE(StringCompressor::Instance()->DecodeString(output, (int) sizeof(output), &stream, language));
+	EXPECT_STREQ("keep me", output);
+}

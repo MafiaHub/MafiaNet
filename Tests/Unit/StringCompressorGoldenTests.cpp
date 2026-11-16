@@ -199,6 +199,7 @@ TEST(StringCompressorGolden, TruncatedInputDecodesWithoutOverrun)
 		if (ok)
 		{
 			EXPECT_LE(strlen(out), strlen(g.text));
+			EXPECT_EQ(0, strncmp(out, g.text, strlen(out)));
 		}
 	}
 }

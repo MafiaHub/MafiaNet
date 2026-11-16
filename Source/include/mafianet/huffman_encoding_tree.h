@@ -24,7 +24,10 @@
 #include "mafianet/huffman_encoding_tree_node.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/export.h"
-#include "mafianet/ds_linked_list.h"
+
+#include <cstddef>
+#include <memory>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -37,30 +40,42 @@ public:
 	HuffmanEncodingTree();
 	~HuffmanEncodingTree();
 
+	// The nodes point at each other; a copy would alias the original's tree.
+	HuffmanEncodingTree(const HuffmanEncodingTree &) = delete;
+	HuffmanEncodingTree &operator=(const HuffmanEncodingTree &) = delete;
+
+	/// Returned by DecodeArray() when the tree cannot decode the bits: no tree was generated, or a branch is missing.
+	static constexpr size_t DECODE_ERROR = static_cast<size_t>(-1);
+
 	/// \brief Pass an array of bytes to array and a preallocated BitStream to receive the output.
 	/// \param [in] input Array of bytes to encode
 	/// \param [in] sizeInBytes size of \a input
 	/// \param [out] output The bitstream to write to
 	void EncodeArray(unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream *output);
 
-	// \brief Decodes an array encoded by EncodeArray().
-	unsigned DecodeArray(MafiaNet::BitStream *input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output);
-	void DecodeArray(unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream *output);
+	/// \brief Decodes \a sizeInBits bits encoded by EncodeArray().
+	/// \details Writes at most \a maxCharsToWrite characters to \a output; characters decoded past that are counted but dropped.
+	/// The input is untrusted: decoding stops (it never asserts) if the tree cannot follow the bits.
+	/// \return The number of characters the bits decode to, which may exceed \a maxCharsToWrite, or DECODE_ERROR.
+	size_t DecodeArray(MafiaNet::BitStream *input, BitSize_t sizeInBits, size_t maxCharsToWrite, unsigned char *output);
+	/// \brief Decodes \a sizeInBits bits of \a input encoded by EncodeArray(), appending the characters to \a output.
+	/// \return false if the tree cannot follow the bits (no tree was generated); output then holds what was decoded so far.
+	bool DecodeArray(unsigned char *input, BitSize_t sizeInBits, MafiaNet::BitStream *output);
 
-	/// \brief Given a frequency table of 256 elements, all with a frequency of 1 or more, generate the tree.
+	/// \brief Given a frequency table of 256 elements, generate the tree. A frequency of 0 is treated as 1.
 	void GenerateFromFrequencyTable(unsigned int frequencyTable[256]);
 
 	/// \brief Free the memory used by the tree.
 	void FreeMemory(void);
 
 private:
-	/// The root node of the tree
+	/// Storage for every node of the tree (256 leaves and 255 internal nodes). Reserved up front, so node pointers stay valid.
+	std::vector<HuffmanEncodingTreeNode> nodes;
 
+	/// The root node of the tree, or nullptr before GenerateFromFrequencyTable()
 	HuffmanEncodingTreeNode *root;
 
 	/// Used to hold bit encoding for one character
-
-
 	struct CharacterEncoding
 	{
 		std::unique_ptr<unsigned char[]> encoding;
@@ -68,8 +83,6 @@ private:
 	};
 
 	CharacterEncoding encodingTable[256];
-
-	void InsertNodeIntoSortedList(HuffmanEncodingTreeNode *node, DataStructures::LinkedList<HuffmanEncodingTreeNode *> *huffmanEncodingTreeNodeList) const;
 };
 
 } // namespace MafiaNet

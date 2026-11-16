@@ -20,6 +20,7 @@
 #include "mafianet/string_compressor.h"
 #include <cstdlib>
 #include <memory>
+#include <utility>
 #include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
@@ -321,26 +322,18 @@ unsigned int englishCharacterFrequencies[256] =
 
 StringCompressor::StringCompressor()
 {
-	DataStructures::Map<int, HuffmanEncodingTree *>::IMPLEMENT_DEFAULT_COMPARISON();
-
 	// Make a default tree immediately, since this is used for RPC possibly from multiple threads at the same time
-	HuffmanEncodingTree *huffmanEncodingTree = new HuffmanEncodingTree;
+	std::unique_ptr<HuffmanEncodingTree> huffmanEncodingTree(new HuffmanEncodingTree);
 	huffmanEncodingTree->GenerateFromFrequencyTable(englishCharacterFrequencies);
 
-	huffmanEncodingTrees.Set(0, huffmanEncodingTree);
+	huffmanEncodingTrees[0] = std::move(huffmanEncodingTree);
 }
 void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned inputLength, uint8_t languageId)
 {
-	HuffmanEncodingTree *huffmanEncodingTree;
-	if (huffmanEncodingTrees.Has(languageId))
-	{
-		huffmanEncodingTree = huffmanEncodingTrees.Get(languageId);
-		delete huffmanEncodingTree;
-	}
-
 	unsigned index;
 	unsigned int frequencyTable[256];
 
+	// Nothing to build a tree from: keep the language's current tree, if any.
 	if (inputLength == 0)
 		return;
 
@@ -351,24 +344,20 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 	for (index = 0; index < inputLength; index++)
 		frequencyTable[input[index]]++;
 
-	// Build the tree
-	huffmanEncodingTree = new HuffmanEncodingTree;
+	// Build the tree, replacing (and freeing) the language's previous one
+	std::unique_ptr<HuffmanEncodingTree> huffmanEncodingTree(new HuffmanEncodingTree);
 	huffmanEncodingTree->GenerateFromFrequencyTable(frequencyTable);
-	huffmanEncodingTrees.Set(languageId, huffmanEncodingTree);
+	huffmanEncodingTrees[languageId] = std::move(huffmanEncodingTree);
 }
 
-StringCompressor::~StringCompressor()
-{
-	for (unsigned i = 0; i < huffmanEncodingTrees.Size(); i++)
-		delete huffmanEncodingTrees[i];
-}
+StringCompressor::~StringCompressor() = default;
 
 void StringCompressor::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
 {
-	HuffmanEncodingTree *huffmanEncodingTree;
-	if (huffmanEncodingTrees.Has(languageId) == false)
+	const auto tree = huffmanEncodingTrees.find(languageId);
+	if (tree == huffmanEncodingTrees.end())
 		return;
-	huffmanEncodingTree = huffmanEncodingTrees.Get(languageId);
+	HuffmanEncodingTree *huffmanEncodingTree = tree->second.get();
 
 	if (input == 0)
 	{
@@ -398,20 +387,17 @@ void StringCompressor::EncodeString(const char *input, int maxCharsToWrite, Mafi
 
 bool StringCompressor::DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId)
 {
-	HuffmanEncodingTree *huffmanEncodingTree;
 	// Always leave a valid empty string behind, whichever early return is taken below.
 	if (maxCharsToWrite > 0)
 		output[0] = 0;
-	if (huffmanEncodingTrees.Has(languageId) == false)
+	const auto tree = huffmanEncodingTrees.find(languageId);
+	if (tree == huffmanEncodingTrees.end())
 		return false;
 	if (maxCharsToWrite <= 0)
 		return false;
-	huffmanEncodingTree = huffmanEncodingTrees.Get(languageId);
+	HuffmanEncodingTree *huffmanEncodingTree = tree->second.get();
 
 	uint32_t stringBitLength;
-	int bytesInStream;
-
-	output[0] = 0;
 
 	if (input->ReadCompressed(stringBitLength) == false)
 		return false;
@@ -419,28 +405,22 @@ bool StringCompressor::DecodeString(char *output, int maxCharsToWrite, MafiaNet:
 	if ((unsigned) input->GetNumberOfUnreadBits() < stringBitLength)
 		return false;
 
-	bytesInStream = huffmanEncodingTree->DecodeArray(input, stringBitLength, maxCharsToWrite, (unsigned char *) output);
+	// Unsigned all the way: the decoded count may exceed maxCharsToWrite (and INT_MAX), and must never index output.
+	const size_t outputSize = (size_t) maxCharsToWrite;
+	const size_t charsInStream = huffmanEncodingTree->DecodeArray(input, stringBitLength, outputSize, (unsigned char *) output);
+	if (charsInStream == HuffmanEncodingTree::DECODE_ERROR)
+	{
+		output[0] = 0;
+		return false;
+	}
 
-	if (bytesInStream < maxCharsToWrite)
-		output[bytesInStream] = 0;
+	if (charsInStream < outputSize)
+		output[charsInStream] = 0;
 	else
-		output[maxCharsToWrite - 1] = 0;
+		output[outputSize - 1] = 0;
 
 	return true;
 }
-#ifdef _CSTRING_COMPRESSOR
-void StringCompressor::EncodeString(const CString &input, int maxCharsToWrite, MafiaNet::BitStream *output)
-{
-	LPTSTR p = input;
-	EncodeString(p, maxCharsToWrite * sizeof(TCHAR), output, languageID);
-}
-bool StringCompressor::DecodeString(CString &output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId)
-{
-	LPSTR p = output.GetBuffer(maxCharsToWrite * sizeof(TCHAR));
-	DecodeString(p, maxCharsToWrite * sizeof(TCHAR), input, languageID);
-	output.ReleaseBuffer(0)
-}
-#endif
 // Stack scratch size for DecodeString into std::string / RakString; covers the 0xFFFF cap they use.
 static const size_t DECODE_STACK_BLOCK_SIZE = 0x10000;
 

@@ -83,7 +83,8 @@ unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, std::
 
 	std::unique_ptr<unsigned char[]> buffer(new unsigned char[destinationSizeInBytes]);
 	tree.GenerateFromFrequencyTable(frequencyTable);
-	if (tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, buffer.get()) != destinationSizeInBytes)
+	const size_t decodedBytes = tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, buffer.get());
+	if (decodedBytes == HuffmanEncodingTree::DECODE_ERROR || decodedBytes != destinationSizeInBytes)
 		return 0;
 	output = std::move(buffer);
 	return destinationSizeInBytes;
