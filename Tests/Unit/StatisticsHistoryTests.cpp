@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -122,6 +123,42 @@ TEST(StatisticsHistory, GetHistorySortedAppendsQueuesInSortOrder)
 	std::vector<StatisticsHistory::TimeAndValueQueue *> none;
 	EXPECT_FALSE(history.GetHistorySorted(2, StatisticsHistory::SH_SORT_BY_RECENT_SUM_ASCENDING, none));
 	EXPECT_TRUE(none.empty());
+}
+
+// NaN is unordered against everything; the sort comparators must still give a total order
+// (std::sort requires a strict weak ordering). NaN goes after every number, NaNs tie on the key.
+TEST(StatisticsHistory, GetHistorySortedPutsNaNLastInBothDirections)
+{
+	StatisticsHistory history;
+	ASSERT_TRUE(history.AddObject(StatisticsHistory::TrackedObjectData(1, 0, nullptr)));
+	const Time base = Base();
+	const SHValueType nan = std::numeric_limits<SHValueType>::quiet_NaN();
+	const SHValueType inf = std::numeric_limits<SHValueType>::infinity();
+	history.AddValueByObjectID(1, "nanB", nan, base, false);
+	history.AddValueByObjectID(1, "two", 2, base, false);
+	history.AddValueByObjectID(1, "nanA", nan, base, false);
+	history.AddValueByObjectID(1, "inf", inf, base, false);
+	history.AddValueByObjectID(1, "one", 1, base, false);
+	history.AddValueByObjectID(1, "ninf", -inf, base, false);
+	// inf - inf: a NaN sum reached without a NaN sample.
+	history.AddValueByObjectID(1, "nanC", inf, base, false);
+	history.AddValueByObjectID(1, "nanC", -inf, base + 1, false);
+
+	std::vector<StatisticsHistory::TimeAndValueQueue *> ascending;
+	ASSERT_TRUE(history.GetHistorySorted(1, StatisticsHistory::SH_SORT_BY_RECENT_SUM_ASCENDING, ascending));
+	EXPECT_EQ((std::vector<std::string>{"ninf", "one", "two", "inf", "nanA", "nanB", "nanC"}), Keys(ascending));
+
+	std::vector<StatisticsHistory::TimeAndValueQueue *> descending;
+	ASSERT_TRUE(history.GetHistorySorted(1, StatisticsHistory::SH_SORT_BY_RECENT_SUM_DESCENDING, descending));
+	EXPECT_EQ((std::vector<std::string>{"inf", "two", "one", "ninf", "nanC", "nanB", "nanA"}), Keys(descending));
+
+	// The same input sorts the same way every time.
+	for (int i = 0; i < 20; i++)
+	{
+		std::vector<StatisticsHistory::TimeAndValueQueue *> again;
+		ASSERT_TRUE(history.GetHistorySorted(1, StatisticsHistory::SH_SORT_BY_RECENT_SUM_ASCENDING, again));
+		EXPECT_EQ(ascending, again);
+	}
 }
 
 TEST(StatisticsHistory, GetUniqueKeyListReplacesTheVectorWithEachKeyOnce)

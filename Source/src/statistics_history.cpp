@@ -22,6 +22,7 @@
 #include "mafianet/peer_interface.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 using namespace MafiaNet;
@@ -38,8 +39,24 @@ int StatisticsHistory::TrackedObjectComp(const uint64_t &key, StatisticsHistory:
 	return 1;
 }
 
-int TimeAndValueQueueCompAsc(StatisticsHistory::TimeAndValueQueue *const &key, StatisticsHistory::TimeAndValueQueue *const &data)
+// A NaN sort value (a NaN sample, or inf - inf after culling) is unordered against everything, which
+// would break std::sort's strict weak ordering. Both orders below put NaN after every number (NaNs
+// tie with each other and fall back to the key), so the order is total whatever the values are.
+// \return The NaN part of the comparison of a and b (-1, 1), or 0 if neither or both are NaN
+static int CompareNaNLast(SHValueType a, SHValueType b)
 {
+	const bool aIsNaN = std::isnan(a);
+	const bool bIsNaN = std::isnan(b);
+	if (aIsNaN == bIsNaN)
+		return 0;
+	return aIsNaN ? 1 : -1;
+}
+
+static int TimeAndValueQueueCompAsc(StatisticsHistory::TimeAndValueQueue *const &key, StatisticsHistory::TimeAndValueQueue *const &data)
+{
+	const int nanOrder = CompareNaNLast(key->sortValue, data->sortValue);
+	if (nanOrder != 0)
+		return nanOrder;
 	if (key->sortValue < data->sortValue)
 		return -1;
 	if (key->sortValue > data->sortValue)
@@ -51,8 +68,11 @@ int TimeAndValueQueueCompAsc(StatisticsHistory::TimeAndValueQueue *const &key, S
 	return 0;
 }
 
-int TimeAndValueQueueCompDesc(StatisticsHistory::TimeAndValueQueue *const &key, StatisticsHistory::TimeAndValueQueue *const &data)
+static int TimeAndValueQueueCompDesc(StatisticsHistory::TimeAndValueQueue *const &key, StatisticsHistory::TimeAndValueQueue *const &data)
 {
+	const int nanOrder = CompareNaNLast(key->sortValue, data->sortValue);
+	if (nanOrder != 0)
+		return nanOrder;
 	if (key->sortValue > data->sortValue)
 		return -1;
 	if (key->sortValue < data->sortValue)
