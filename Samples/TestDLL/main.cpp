@@ -19,10 +19,11 @@
 #include "mafianet/log_command_parser.h"
 #include "mafianet/command_parser.h"
 #include "mafianet/packet_logger.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/sleep.h"
 #include "mafianet/tcp_interface.h"
+
+#include <vector>
 
 using namespace MafiaNet;
 
@@ -53,8 +54,8 @@ int main()
 	char *cArray = new char[10];
 	delete[] cArray;
 
-	DataStructures::List<int> intList;
-	intList.Push(5, _FILE_AND_LINE_);
+	std::vector<int> intList;
+	intList.push_back(5);
 
 	f->GetMTUSize(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	SystemAddress p1;

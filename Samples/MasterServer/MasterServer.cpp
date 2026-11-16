@@ -27,6 +27,7 @@ using namespace MafiaNet;
 // Uncomment this define for debugging printfs
 #define _SHOW_MASTER_SERVER_PRINTF
 #ifdef _SHOW_MASTER_SERVER_PRINTF
+#include <algorithm>
 #include <cstdio>
 #endif
 
@@ -48,7 +49,7 @@ void MasterServer::Update(RakPeerInterface *peer)
 	time = MafiaNet::GetTime();
 
 	serverIndex = 0;
-	while (serverIndex < gameServerList.serverList.Size())
+	while (serverIndex < gameServerList.serverList.size())
 	{
 		if (time >= gameServerList.serverList[serverIndex]->nextPingTime)
 		{
@@ -59,7 +60,7 @@ void MasterServer::Update(RakPeerInterface *peer)
 #endif
 				gameServerList.serverList[serverIndex]->Clear();
 				delete gameServerList.serverList[serverIndex];
-				gameServerList.serverList.RemoveAtIndex(serverIndex);
+				gameServerList.serverList.erase(gameServerList.serverList.begin() + serverIndex);
 			}
 			else
 			{
@@ -116,12 +117,12 @@ bool MasterServer::OnReceive(RakPeerInterface *peer, Packet *packet)
 
 			// Find all servers with this IP and kill them.
 			serverIndex = 0;
-			while (serverIndex < gameServerList.serverList.Size())
+			while (serverIndex < gameServerList.serverList.size())
 			{
 				if (gameServerList.serverList[serverIndex]->connectionIdentifier.address.addr4.sin_addr.s_addr == packet->systemAddress.address.addr4.sin_addr.s_addr)
 				{
 					delete gameServerList.serverList[serverIndex];
-					gameServerList.serverList.RemoveAtIndex(serverIndex);
+					gameServerList.serverList.erase(gameServerList.serverList.begin() + serverIndex);
 				}
 				else
 					serverIndex++;
@@ -178,19 +179,19 @@ void MasterServer::HandleDelistServer(Packet *packet)
 	{
 		gameServerList.serverList[existingServerIndex]->Clear();
 		delete gameServerList.serverList[existingServerIndex];
-		gameServerList.serverList.RemoveAtIndex(existingServerIndex);
+		gameServerList.serverList.erase(gameServerList.serverList.begin() + existingServerIndex);
 	}
 	//else
 	// Server does not already exist
 
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-	printf("%i servers on the list\n", gameServerList.serverList.Size());
+	printf("%zu servers on the list\n", gameServerList.serverList.size());
 #endif
 }
 
 void MasterServer::HandleQuery(Packet *packet)
 {
-	DataStructures::List<GameServer *> serversWithKeysList;
+	std::vector<GameServer *> serversWithKeysList;
 	char ruleIdentifier[256];
 	unsigned index, serverIndex;
 	int key;
@@ -214,22 +215,22 @@ void MasterServer::HandleQuery(Packet *packet)
 		if (IsReservedRuleIdentifier(ruleIdentifier))
 			continue;
 
-		for (index = 0; index < gameServerList.serverList.Size(); index++)
+		for (index = 0; index < gameServerList.serverList.size(); index++)
 		{
 			if (gameServerList.serverList[index]->connectionIdentifier == UNASSIGNED_SYSTEM_ADDRESS)
 				continue;
 
 			if (gameServerList.serverList[index]->FindKey(ruleIdentifier))
 			{
-				serverIndex = serversWithKeysList.GetIndexOf(gameServerList.serverList[index]);
-				if (serverIndex == MAX_UNSIGNED_LONG)
+				auto serverWithKeys = std::find(serversWithKeysList.begin(), serversWithKeysList.end(), gameServerList.serverList[index]);
+				if (serverWithKeys == serversWithKeysList.end())
 				{
 					gameServerList.serverList[index]->numberOfKeysFound = 1;
-					serversWithKeysList.Insert(gameServerList.serverList[index], _FILE_AND_LINE_);
+					serversWithKeysList.push_back(gameServerList.serverList[index]);
 				}
 				else
 				{
-					serversWithKeysList[serverIndex]->numberOfKeysFound++;
+					(*serverWithKeys)->numberOfKeysFound++;
 				}
 			}
 		}
@@ -243,9 +244,9 @@ void MasterServer::HandleQuery(Packet *packet)
 	if (queryAll)
 	{
 		// Write the number of servers
-		outputBitStream.WriteCompressed((unsigned short) gameServerList.serverList.Size());
+		outputBitStream.WriteCompressed((unsigned short) gameServerList.serverList.size());
 
-		for (index = 0; index < gameServerList.serverList.Size(); index++)
+		for (index = 0; index < gameServerList.serverList.size(); index++)
 		{
 			// Write the whole server
 			SerializeServer(gameServerList.serverList[index], &outputBitStream);
@@ -257,11 +258,11 @@ void MasterServer::HandleQuery(Packet *packet)
 		compressedString.IgnoreBits(8 * sizeof(unsigned char));
 
 		// Write the number of servers with requested keys
-		outputBitStream.WriteCompressed((unsigned short) serversWithKeysList.Size());
+		outputBitStream.WriteCompressed((unsigned short) serversWithKeysList.size());
 
 		// For each server, write the header which consists of the IP/PORT.
 		// Then go through the list of requested keys and write those
-		for (index = 0; index < serversWithKeysList.Size(); index++)
+		for (index = 0; index < serversWithKeysList.size(); index++)
 		{
 			SerializeSystemAddress(&(serversWithKeysList[index]->connectionIdentifier), &outputBitStream);
 
@@ -301,13 +302,13 @@ void MasterServer::HandleUpdateServer(Packet *packet)
 	if (newServerAdded)
 	{
 #ifdef _SHOW_MASTER_SERVER_PRINTF
-		printf("Server added. %i servers on the list\n", gameServerList.serverList.Size());
+		printf("Server added. %zu servers on the list\n", gameServerList.serverList.size());
 #endif
 		gameServer->originationId = packet->systemAddress;
 	}
 #ifdef _SHOW_MASTER_SERVER_PRINTF
 	else
-		printf("Server updated. %i servers on the list\n", gameServerList.serverList.Size());
+		printf("Server updated. %zu servers on the list\n", gameServerList.serverList.size());
 #endif
 }
 

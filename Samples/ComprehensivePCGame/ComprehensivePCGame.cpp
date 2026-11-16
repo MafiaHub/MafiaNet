@@ -46,8 +46,10 @@
 #include "mafianet/osx_adapter.h"
 #include "mafianet/linux_strings.h"
 #include "mafianet/guid_util.h"
-// The sample still uses DataStructures::List (Samples move to std:: containers in PR 5).
-#include "mafianet/ds_list.h"
+
+#include <algorithm>
+#include <vector>
+
 // See http://www.digip.org/jansson/doc/2.4/
 // This is used to make it easier to parse the JSON returned from the master server
 #include "jansson.h"
@@ -383,8 +385,8 @@ public:
 	SystemAddress natPunchServerAddress;
 	char serverIPAddr[256];
 	// Just tracks what other objects have been created
-	DataStructures::List<User *> users;
-	DataStructures::List<Team *> teams;
+	std::vector<User *> users;
+	std::vector<Team *> teams;
 
 	// Master server has to be refreshed periodically so it knows we didn't crash
 	MafiaNet::Time whenToNextUpdateMasterServer;
@@ -430,12 +432,12 @@ class Team : public Replica3
 public:
 	Team()
 	{
-		game->teams.Push(this, _FILE_AND_LINE_);
+		game->teams.push_back(this);
 		tmTeam.SetOwner(this);
 	}
 	virtual ~Team()
 	{
-		game->teams.RemoveAtIndex(game->teams.GetIndexOf(this));
+		game->teams.erase(std::find(game->teams.begin(), game->teams.end(), this));
 	}
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
@@ -562,13 +564,13 @@ class User : public Replica3
 public:
 	User()
 	{
-		game->users.Push(this, _FILE_AND_LINE_);
+		game->users.push_back(this);
 		tmTeamMember.SetOwner(this);
 		natType = NAT_TYPE_UNKNOWN;
 	}
 	virtual ~User()
 	{
-		game->users.RemoveAtIndex(game->users.GetIndexOf(this));
+		game->users.erase(std::find(game->users.begin(), game->users.end(), this));
 	}
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
@@ -760,10 +762,10 @@ void InGameChat(MafiaNet::BitStream *userData, Packet *packet, void *context)
 RPC4GlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
 
 // Write roomName and a list of NATTypeDetectionResult to a bitStream
-void SerializeToJSON(RakString &outputString, RakString &roomName, DataStructures::List<NATTypeDetectionResult> &natTypes)
+void SerializeToJSON(RakString &outputString, RakString &roomName, std::vector<NATTypeDetectionResult> &natTypes)
 {
 	outputString.Set("'roomName': '%s', 'guid': '%s', 'natTypes' : [ ", roomName.C_String(), MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
-	for (unsigned short i = 0; i < natTypes.Size(); i++)
+	for (unsigned short i = 0; i < natTypes.size(); i++)
 	{
 		if (i != 0)
 			outputString += ", ";
@@ -792,9 +794,9 @@ void PostRoomToMaster(void)
 {
 	BitStream bsOut;
 	RakString jsonSerializedRoom;
-	DataStructures::List<NATTypeDetectionResult> natTypes;
-	for (unsigned int i = 0; i < game->users.Size(); i++)
-		natTypes.Push(game->users[i]->natType, _FILE_AND_LINE_);
+	std::vector<NATTypeDetectionResult> natTypes;
+	for (unsigned int i = 0; i < game->users.size(); i++)
+		natTypes.push_back(game->users[i]->natType);
 	SerializeToJSON(jsonSerializedRoom, game->gameName, natTypes);
 
 	RakString rowStr;
@@ -1228,12 +1230,12 @@ int main(void)
 					if (packet->guid == rakPeer->GetMyGUID())
 					{
 						// As host, reference the teams we created
-						for (unsigned int i = 0; i < game->teams.Size(); i++)
+						for (unsigned int i = 0; i < game->teams.size(); i++)
 							gameReplicaManager3->Reference(game->teams[i]);
 					}
 
 					// Reference the user we created (host or not)
-					for (unsigned int i = 0; i < game->users.Size(); i++)
+					for (unsigned int i = 0; i < game->users.size(); i++)
 						gameReplicaManager3->Reference(game->users[i]);
 				}
 			}
@@ -1699,8 +1701,8 @@ int main(void)
 
 					// User instances are deleted automatically from ReplicaManager3.
 					// However, teams are not deleted since the Team class can migrate between systems. So delete Team instances manually
-					while (game->teams.Size())
-						delete game->teams[game->teams.Size() - 1];
+					while (game->teams.size())
+						delete game->teams[game->teams.size() - 1];
 
 					// If we were the host, no longer list this session
 					// The new host will call PostRoomToCloud to reupload under a new IP address on ID_FCM2_NEW_HOST
@@ -1730,7 +1732,7 @@ int main(void)
 
 		// The game host updates the master server
 		MafiaNet::Time t = MafiaNet::GetTime();
-		if ((fullyConnectedMesh2->IsConnectedHost() || game->users.Size() == 1) &&
+		if ((fullyConnectedMesh2->IsConnectedHost() || game->users.size() == 1) &&
 		    t > game->whenToNextUpdateMasterServer &&
 		    (game->phase == Game::IN_LOBBY_WITH_HOST ||
 		     game->phase == Game::IN_GAME ||
@@ -1744,10 +1746,10 @@ int main(void)
 
 	rakPeer->Shutdown(100);
 
-	while (game->teams.Size())
-		delete game->teams[game->teams.Size() - 1];
-	while (game->users.Size())
-		delete game->users[game->users.Size() - 1];
+	while (game->teams.size())
+		delete game->teams[game->teams.size() - 1];
+	while (game->users.size())
+		delete game->users[game->users.size() - 1];
 	delete game;
 
 	RakPeerInterface::DestroyInstance(rakPeer);

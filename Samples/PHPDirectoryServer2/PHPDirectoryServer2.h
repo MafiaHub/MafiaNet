@@ -34,9 +34,10 @@
 #include "mafianet/string.h"
 #include "mafianet/http_connection.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/table.h"
-#include "mafianet/ds_map.h"
+
+#include <map>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -136,10 +137,11 @@ private:
 	unsigned short gamePortParam;
 
 	void SendOperation(void);
-	void PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values);
+	void PushColumnsAndValues(std::vector<MafiaNet::RakString> &columns, std::vector<MafiaNet::RakString> &values);
 
 	MafiaNet::Table lastDownloadedTable;
-	DataStructures::Map<MafiaNet::RakString, MafiaNet::RakString> fields;
+	/// Sorted by column name, which is the order GetField() and UploadTable() use
+	std::map<MafiaNet::RakString, MafiaNet::RakString> fields;
 	MafiaNet::RakString currentOperation;
 	MafiaNet::TimeMS nextRepost;
 };
