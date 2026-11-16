@@ -667,7 +667,7 @@ bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(MafiaNet::
 	          "SELECT modificationDate from FileVersionHistory WHERE changeSetId=(SELECT changeSetId FROM Applications WHERE applicationName='%s' AND changeSetId!=0 LIMIT 1)-1 LIMIT 1;", escapedApplicationName2.C_String());
 	if (ExecuteBlockingCommand(query, &result2, false) == false)
 	{
-		sprintf_s(lastError, "ERROR: Query is bad in file %s at line %i in function GetMostRecentChangelistWithPatches\n", __FILE__, __LINE__);
+		sprintf_s(lastError, "ERROR: Query is bad in function GetMostRecentChangelistWithPatches\n");
 		PQclear(result);
 		PQclear(result2);
 		return false;
@@ -699,7 +699,7 @@ bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(MafiaNet::
 	          "SELECT modificationDate from FileVersionHistory WHERE changeSetId=(SELECT changeSetId FROM Applications WHERE applicationName='%s' AND changeSetId!=0 LIMIT 1)-2 LIMIT 1;", escapedApplicationName2.C_String());
 	if (ExecuteBlockingCommand(query, &result2, false) == false)
 	{
-		sprintf_s(lastError, "ERROR: Query is bad in file %s at line %i in function GetMostRecentChangelistWithPatches\n", __FILE__, __LINE__);
+		sprintf_s(lastError, "ERROR: Query is bad in function GetMostRecentChangelistWithPatches\n");
 		PQclear(result);
 		PQclear(result2);
 		return false;
@@ -707,7 +707,7 @@ bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(MafiaNet::
 	numRows2 = PQntuples(result2);
 	if (numRows2 == 0)
 	{
-		sprintf_s(lastError, "ERROR: Query is bad in file %s at line %i in function GetMostRecentChangelistWithPatches\n", __FILE__, __LINE__);
+		sprintf_s(lastError, "ERROR: Query is bad in function GetMostRecentChangelistWithPatches\n");
 		PQclear(result);
 		PQclear(result2);
 		return false;
@@ -914,7 +914,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet:
 	          "SELECT modificationDate from FileVersionHistory WHERE changeSetId=(SELECT changeSetId FROM Applications WHERE applicationName='%s' AND changeSetId!=0 LIMIT 1)-1 LIMIT 1;", escapedApplicationName2.C_String());
 	if (ExecuteBlockingCommand(query, &result2, false) == false)
 	{
-		sprintf_s(lastError, "ERROR: Query is bad in file %s at line %i in function GetMostRecentChangelistWithPatches\n", __FILE__, __LINE__);
+		sprintf_s(lastError, "ERROR: Query is bad in function GetMostRecentChangelistWithPatches\n");
 		PQclear(result);
 		PQclear(result2);
 		return false;
@@ -946,7 +946,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet:
 	          "SELECT modificationDate from FileVersionHistory WHERE changeSetId=(SELECT changeSetId FROM Applications WHERE applicationName='%s' AND changeSetId!=0 LIMIT 1)-2 LIMIT 1;", escapedApplicationName2.C_String());
 	if (ExecuteBlockingCommand(query, &result2, false) == false)
 	{
-		sprintf_s(lastError, "ERROR: Query is bad in file %s at line %i in function GetMostRecentChangelistWithPatches\n", __FILE__, __LINE__);
+		sprintf_s(lastError, "ERROR: Query is bad in function GetMostRecentChangelistWithPatches\n");
 		PQclear(result);
 		PQclear(result2);
 		return false;
@@ -954,7 +954,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet:
 	numRows2 = PQntuples(result2);
 	if (numRows2 == 0)
 	{
-		sprintf_s(lastError, "ERROR: Query is bad in file %s at line %i in function GetMostRecentChangelistWithPatches\n", __FILE__, __LINE__);
+		sprintf_s(lastError, "ERROR: Query is bad in function GetMostRecentChangelistWithPatches\n");
 		PQclear(result);
 		PQclear(result2);
 		return false;
@@ -1010,7 +1010,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet:
 				FILE *fp;
 				if (fopen_s(&fp, pathToContent, "rb") != 0)
 				{
-					sprintf_s(lastError, "ERROR: Cannot open file %s in file %s at line %i in function GetMostRecentChangelistWithPatches\n", pathToContent, __FILE__, __LINE__);
+					sprintf_s(lastError, "ERROR: Cannot open file %s in function GetMostRecentChangelistWithPatches\n", pathToContent);
 					PQclear(result);
 					return false;
 				}
