@@ -721,7 +721,7 @@ int main(int argc, char **argv)
 				std::vector<SystemAddress> addresses;
 				std::vector<RakNetGUID> guids;
 				rakPeer->GetSystemList(addresses, guids);
-				printf("%i systems connected\n", addresses.size());
+				printf("%zu systems connected\n", addresses.size());
 			}
 		}
 		RakSleep(30);
