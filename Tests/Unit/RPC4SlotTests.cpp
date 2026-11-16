@@ -59,6 +59,45 @@ void CountingFunction(BitStream *, Packet *, void *context)
 }
 } // namespace
 
+namespace
+{
+// Feeds hand-made packets to RPC4's receive hook, as a peer would.
+struct RPC4Probe : RPC4
+{
+	PluginReceiveResult Receive(std::vector<unsigned char> &bytes)
+	{
+		Packet packet{};
+		packet.data = bytes.data();
+		packet.length = static_cast<unsigned int>(bytes.size());
+		packet.bitSize = packet.length * 8;
+		return OnReceive(&packet);
+	}
+	bool GotReturnValue() const { return gotBlockingReturnValue; }
+};
+} // namespace
+
+TEST(RPC4Slot, OneByteRpcPluginPacketIsDropped)
+{
+	// Used to read data[1] past the end (the exact-size buffer lets ASan see it).
+	RPC4Probe rpc;
+	std::vector<unsigned char> bytes{ID_RPC_PLUGIN};
+	EXPECT_EQ(RR_STOP_PROCESSING_AND_DEALLOCATE, rpc.Receive(bytes));
+	EXPECT_FALSE(rpc.GotReturnValue());
+}
+
+TEST(RPC4Slot, UnknownSubIdentifierIsDroppedNotTakenAsAReturnValue)
+{
+	// Used to RakAssert (aborting a Debug build) and then be stored as a blocking call's return value.
+	RPC4Probe rpc;
+	std::vector<unsigned char> bytes{ID_RPC_PLUGIN, 0xEE, 1, 2, 3};
+	EXPECT_EQ(RR_STOP_PROCESSING_AND_DEALLOCATE, rpc.Receive(bytes));
+	EXPECT_FALSE(rpc.GotReturnValue());
+
+	std::vector<unsigned char> returnValue{ID_RPC_PLUGIN, 1 /* ID_RPC4_RETURN */, 7};
+	EXPECT_EQ(RR_STOP_PROCESSING_AND_DEALLOCATE, rpc.Receive(returnValue));
+	EXPECT_TRUE(rpc.GotReturnValue());
+}
+
 TEST(RPC4Slot, GetLocalSlotReturnsNullForUnknownName)
 {
 	RPC4 rpc;

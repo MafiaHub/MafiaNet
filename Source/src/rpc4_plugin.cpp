@@ -488,6 +488,9 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 {
 	if (packet->data[0] == ID_RPC_PLUGIN)
 	{
+		if (packet->length < 2)
+			return RR_STOP_PROCESSING_AND_DEALLOCATE; // No sub-identifier: malformed, drop it
+
 		MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 		bsIn.IgnoreBytes(2);
 
@@ -553,9 +556,8 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 			if (slot != localSlots.end())
 				InvokeSignal(slot->second.get(), &serializedParameters, packet);
 		}
-		else
+		else if (packet->data[1] == ID_RPC4_RETURN)
 		{
-			RakAssert(packet->data[1] == ID_RPC4_RETURN);
 			blockingReturnValue.Reset();
 			blockingReturnValue.Write(bsIn);
 			gotBlockingReturnValue = true;
