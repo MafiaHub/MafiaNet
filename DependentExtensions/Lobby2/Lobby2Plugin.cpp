@@ -15,6 +15,8 @@
 
 #include "Lobby2Plugin.h"
 
+#include <algorithm>
+
 using namespace MafiaNet;
 
 Lobby2Plugin::Lobby2Plugin()
@@ -44,20 +46,20 @@ Lobby2MessageFactory *Lobby2Plugin::GetMessageFactory(void) const
 void Lobby2Plugin::SetCallbackInterface(Lobby2Callbacks *cb)
 {
 	ClearCallbackInterfaces();
-	callbacks.Insert(cb, _FILE_AND_LINE_);
+	callbacks.push_back(cb);
 }
 void Lobby2Plugin::AddCallbackInterface(Lobby2Callbacks *cb)
 {
 	RemoveCallbackInterface(cb);
-	callbacks.Insert(cb, _FILE_AND_LINE_);
+	callbacks.push_back(cb);
 }
 void Lobby2Plugin::RemoveCallbackInterface(Lobby2Callbacks *cb)
 {
-	unsigned long index = callbacks.GetIndexOf(cb);
-	if (index != MAX_UNSIGNED_LONG)
-		callbacks.RemoveAtIndex(index);
+	auto it = std::find(callbacks.begin(), callbacks.end(), cb);
+	if (it != callbacks.end())
+		callbacks.erase(it);
 }
 void Lobby2Plugin::ClearCallbackInterfaces()
 {
-	callbacks.Clear(false, _FILE_AND_LINE_);
+	callbacks.clear();
 }

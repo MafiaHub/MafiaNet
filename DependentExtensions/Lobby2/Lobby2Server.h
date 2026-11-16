@@ -19,11 +19,12 @@
 #include "mafianet/export.h"
 #include "mafianet/types.h"
 #include "Lobby2Plugin.h"
-#include "mafianet/ds_ordered_list.h"
-// Lobby2 internals move to std:: containers in PR 5; ds_queue.h no longer arrives through thread_pool.h.
-#include "mafianet/ds_queue.h"
 #include "mafianet/thread_pool.h"
 #include "Lobby2Presence.h"
+
+#include <deque>
+#include <set>
+#include <vector>
 
 //class PostgreSQLInterface;
 
@@ -42,8 +43,8 @@ struct Lobby2ServerCommand
 	bool returnToSender;
 	unsigned int callerUserId;
 	MafiaNet::RakString callingUserName;
-	DataStructures::List<SystemAddress> callerSystemAddresses;
-	DataStructures::List<RakNetGUID> callerGuids;
+	std::vector<SystemAddress> callerSystemAddresses;
+	std::vector<RakNetGUID> callerGuids;
 	//SystemAddress requiredConnectionAddress;
 	Lobby2Server *server;
 };
@@ -69,7 +70,7 @@ public:
 
 	/// \brief Lobby2Message encapsulates a user command, containing both input and output data
 	/// \details This will serialize and transmit that command
-	void SendMsg(Lobby2Message *msg, const DataStructures::List<SystemAddress> &recipients);
+	void SendMsg(Lobby2Message *msg, const std::vector<SystemAddress> &recipients);
 
 	/// \brief Add a command, which contains a message and other data such as who send the message.
 	/// \details The command will be processed according to its implemented virtual functions. Most likely it will be processed in a thread to run database commands
@@ -79,7 +80,7 @@ public:
 	/// \details This is useful if you want to administrate the server remotely
 	void AddAdminAddress(SystemAddress addr);
 	/// \brief If AddAdminAddress() was previously called with \a addr then this returns true.
-	bool HasAdminAddress(const DataStructures::List<SystemAddress> &addresses);
+	bool HasAdminAddress(const std::vector<SystemAddress> &addresses);
 	/// \brief Removes a system address previously added with AddAdminAddress()
 	void RemoveAdminAddress(SystemAddress addr);
 	/// \brief Removes all system addresses previously added with AddAdminAddress()
@@ -91,7 +92,7 @@ public:
 
 	/// Returns if an address was previously added with AddRankingAddress()
 	/// \param[in] addr Address to check
-	bool HasRankingAddress(const DataStructures::List<SystemAddress> &addresses);
+	bool HasRankingAddress(const std::vector<SystemAddress> &addresses);
 
 	/// Removes an addressed added with AddRankingAddress()
 	/// \param[in] addr Address to check
@@ -162,8 +163,8 @@ public:
 	/// \internal
 	struct User
 	{
-		DataStructures::List<SystemAddress> systemAddresses;
-		DataStructures::List<RakNetGUID> guids;
+		std::vector<SystemAddress> systemAddresses;
+		std::vector<RakNetGUID> guids;
 		unsigned int callerUserId;
 		MafiaNet::RakString userName;
 		Lobby2Presence presence;
@@ -180,7 +181,8 @@ public:
 		Lobby2ServerCommand command;
 	};
 
-	const DataStructures::OrderedList<RakString, User *, Lobby2Server::UserCompByUsername> &GetUsers(void) const { return users; }
+	/// Logged in users, sorted by UserCompByUsername
+	const std::vector<User *> &GetUsers(void) const { return users; }
 	void GetUserOnlineStatus(UsernameAndOnlineStatus &userInfo) const;
 
 
@@ -195,8 +197,10 @@ protected:
 	unsigned int GetUserIndexBySystemAddress(SystemAddress systemAddress) const;
 	unsigned int GetUserIndexByGUID(RakNetGUID guid) const;
 	unsigned int GetUserIndexByUsername(MafiaNet::RakString userName) const;
+	/// Index of \a userName in users, or the index to insert it at. Sets \a objectExists accordingly.
+	unsigned int GetUserInsertionIndex(const RakString &userName, bool *objectExists) const;
 	void StopThreads(void);
-	void SendRemoteLoginNotification(MafiaNet::RakString handle, const DataStructures::List<SystemAddress> &recipients);
+	void SendRemoteLoginNotification(MafiaNet::RakString handle, const std::vector<SystemAddress> &recipients);
 
 	/// \internal
 	void RemoveUser(RakString userName);
@@ -209,20 +213,20 @@ protected:
 	virtual void AddInputCommand(Lobby2ServerCommand command) = 0;
 	virtual void ClearConnections(void) {};
 
-	DataStructures::OrderedList<SystemAddress, SystemAddress> adminAddresses;
-	DataStructures::OrderedList<SystemAddress, SystemAddress> rankingAddresses;
-	DataStructures::OrderedList<RakString, User *, Lobby2Server::UserCompByUsername> users;
+	std::set<SystemAddress> adminAddresses;
+	std::set<SystemAddress> rankingAddresses;
+	/// Sorted by UserCompByUsername; owns the users
+	std::vector<User *> users;
 	RoomsPlugin *roomsPlugin;
 	SystemAddress roomsPluginAddress;
 	ThreadPool<Lobby2ServerCommand, Lobby2ServerCommand> threadPool;
 	SimpleMutex connectionPoolMutex;
 	ConfigurationProperties configurationProperties;
-	DataStructures::Queue<ThreadAction> threadActionQueue;
+	std::deque<ThreadAction> threadActionQueue;
 	SimpleMutex threadActionQueueMutex;
 
-	//DataStructures::List<PostgreSQLInterface *> connectionPool;
 	//#med - rename curOrderingChannel back to orderingChannel and instead rename class member orderingChannel to m_orderingChannel
-	void SendUnifiedToMultiple(const MafiaNet::BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses);
+	void SendUnifiedToMultiple(const MafiaNet::BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const std::vector<SystemAddress> &systemAddresses);
 };
 
 }

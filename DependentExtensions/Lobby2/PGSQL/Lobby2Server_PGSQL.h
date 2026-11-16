@@ -47,7 +47,7 @@ protected:
 	virtual void *PerThreadFactory(void *context);
 	virtual void PerThreadDestructor(void *factoryResult, void *context);
 	virtual void ClearConnections(void);
-	DataStructures::List<PostgreSQLInterface *> connectionPool;
+	std::vector<PostgreSQLInterface *> connectionPool;
 };
 
 }

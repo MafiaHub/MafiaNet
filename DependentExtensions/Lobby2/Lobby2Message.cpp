@@ -946,7 +946,7 @@ void SubmittedMatch::Serialize(bool writeToBitstream, BitStream *bitStream)
 	bitStream->Serialize(writeToBitstream, whenSubmittedDate);
 	bitStream->Serialize(writeToBitstream, matchID);
 	binaryData->Serialize(writeToBitstream, bitStream);
-	unsigned short listSize = (unsigned short) matchParticipants.Size();
+	unsigned short listSize = (unsigned short) matchParticipants.size();
 	bitStream->SerializeCompressed(writeToBitstream, listSize);
 	for (unsigned int i = 0; i < listSize; i++)
 	{
@@ -958,7 +958,7 @@ void SubmittedMatch::Serialize(bool writeToBitstream, BitStream *bitStream)
 		else
 		{
 			obj.Serialize(writeToBitstream, bitStream);
-			matchParticipants.Insert(obj, _FILE_AND_LINE_);
+			matchParticipants.push_back(obj);
 		}
 	}
 }
@@ -968,7 +968,7 @@ void ClanInfo::Serialize(bool writeToBitstream, BitStream *bitStream)
 	bitStream->Serialize(writeToBitstream, description);
 	bitStream->Serialize(writeToBitstream, clanLeader);
 	binaryData->Serialize(writeToBitstream, bitStream);
-	unsigned short listSize = (unsigned short) clanMembersOtherThanLeader.Size();
+	unsigned short listSize = (unsigned short) clanMembersOtherThanLeader.size();
 	bitStream->SerializeCompressed(writeToBitstream, listSize);
 	for (unsigned int i = 0; i < listSize; i++)
 	{
@@ -980,7 +980,7 @@ void ClanInfo::Serialize(bool writeToBitstream, BitStream *bitStream)
 		else
 		{
 			bitStream->Serialize(writeToBitstream, obj);
-			clanMembersOtherThanLeader.Insert(obj, _FILE_AND_LINE_);
+			clanMembersOtherThanLeader.push_back(obj);
 		}
 	}
 }
@@ -1052,7 +1052,7 @@ void System_GetTitleBinaryData::Serialize(bool writeToBitstream, bool serializeO
 void System_RegisterProfanity::Serialize(bool writeToBitstream, bool serializeOutput, BitStream *bitStream)
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
-	unsigned short listSize = (unsigned short) profanityWords.Size();
+	unsigned short listSize = (unsigned short) profanityWords.size();
 	bitStream->SerializeCompressed(writeToBitstream, listSize);
 	for (unsigned int i = 0; i < listSize; i++)
 	{
@@ -1064,7 +1064,7 @@ void System_RegisterProfanity::Serialize(bool writeToBitstream, bool serializeOu
 		else
 		{
 			bitStream->Serialize(writeToBitstream, obj);
-			profanityWords.Insert(obj, _FILE_AND_LINE_);
+			profanityWords.push_back(obj);
 		}
 	}
 }
@@ -1111,7 +1111,7 @@ void CDKey_Add::Serialize(bool writeToBitstream, bool serializeOutput, BitStream
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	bitStream->Serialize(writeToBitstream, titleName);
-	unsigned short listSize = (unsigned short) cdKeys.Size();
+	unsigned short listSize = (unsigned short) cdKeys.size();
 	bitStream->SerializeCompressed(writeToBitstream, listSize);
 	for (unsigned int i = 0; i < listSize; i++)
 	{
@@ -1123,14 +1123,14 @@ void CDKey_Add::Serialize(bool writeToBitstream, bool serializeOutput, BitStream
 		else
 		{
 			bitStream->Serialize(writeToBitstream, obj);
-			cdKeys.Insert(obj, _FILE_AND_LINE_);
+			cdKeys.push_back(obj);
 		}
 	}
 }
 
 bool CDKey_Add::PrevalidateInput(void)
 {
-	for (unsigned int i = 0; i < cdKeys.Size(); i++)
+	for (unsigned int i = 0; i < cdKeys.size(); i++)
 		if (!ValidateRequiredText(&cdKeys[i]))
 			return false;
 	if (!ValidateRequiredText(&titleName))
@@ -1440,7 +1440,7 @@ void Client_GetIgnoreList::Serialize(bool writeToBitstream, bool serializeOutput
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) ignoredHandles.Size();
+		unsigned short listSize = (unsigned short) ignoredHandles.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1452,7 +1452,7 @@ void Client_GetIgnoreList::Serialize(bool writeToBitstream, bool serializeOutput
 			else
 			{
 				bitStream->Serialize(writeToBitstream, obj);
-				ignoredHandles.Insert(obj, _FILE_AND_LINE_);
+				ignoredHandles.push_back(obj);
 			}
 		}
 	}
@@ -1599,7 +1599,7 @@ void Friends_GetInvites::Serialize(bool writeToBitstream, bool serializeOutput, 
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) invitesSent.Size();
+		unsigned short listSize = (unsigned short) invitesSent.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1611,10 +1611,10 @@ void Friends_GetInvites::Serialize(bool writeToBitstream, bool serializeOutput, 
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				invitesSent.Insert(obj, _FILE_AND_LINE_);
+				invitesSent.push_back(obj);
 			}
 		}
-		listSize = (unsigned short) invitesReceived.Size();
+		listSize = (unsigned short) invitesReceived.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1626,7 +1626,7 @@ void Friends_GetInvites::Serialize(bool writeToBitstream, bool serializeOutput, 
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				invitesReceived.Insert(obj, _FILE_AND_LINE_);
+				invitesReceived.push_back(obj);
 			}
 		}
 	}
@@ -1637,7 +1637,7 @@ void Friends_GetFriends::Serialize(bool writeToBitstream, bool serializeOutput, 
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) myFriends.Size();
+		unsigned short listSize = (unsigned short) myFriends.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1649,7 +1649,7 @@ void Friends_GetFriends::Serialize(bool writeToBitstream, bool serializeOutput, 
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				myFriends.Insert(obj, _FILE_AND_LINE_);
+				myFriends.push_back(obj);
 			}
 		}
 	}
@@ -1707,7 +1707,7 @@ void BookmarkedUsers_Get::Serialize(bool writeToBitstream, bool serializeOutput,
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) bookmarkedUsers.Size();
+		unsigned short listSize = (unsigned short) bookmarkedUsers.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1719,7 +1719,7 @@ void BookmarkedUsers_Get::Serialize(bool writeToBitstream, bool serializeOutput,
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				bookmarkedUsers.Insert(obj, _FILE_AND_LINE_);
+				bookmarkedUsers.push_back(obj);
 			}
 		}
 	}
@@ -1732,7 +1732,7 @@ void Emails_Send::Serialize(bool writeToBitstream, bool serializeOutput, BitStre
 	bitStream->Serialize(writeToBitstream, body);
 	bitStream->Serialize(writeToBitstream, status);
 	binaryData->Serialize(writeToBitstream, bitStream);
-	unsigned short listSize = (unsigned short) recipients.Size();
+	unsigned short listSize = (unsigned short) recipients.size();
 	bitStream->SerializeCompressed(writeToBitstream, listSize);
 	for (unsigned int i = 0; i < listSize; i++)
 	{
@@ -1744,21 +1744,21 @@ void Emails_Send::Serialize(bool writeToBitstream, bool serializeOutput, BitStre
 		else
 		{
 			bitStream->Serialize(writeToBitstream, obj);
-			recipients.Insert(obj, _FILE_AND_LINE_);
+			recipients.push_back(obj);
 		}
 	}
 }
 
 bool Emails_Send::PrevalidateInput(void)
 {
-	for (unsigned int i = 0; i < recipients.Size(); i++)
+	for (unsigned int i = 0; i < recipients.size(); i++)
 		if (!ValidateHandle(&recipients[i]))
 			return false;
 	if (!ValidateRequiredText(&subject) && !ValidateRequiredText(&body))
 		return false;
 	if (!ValidateBinary(binaryData))
 		return false;
-	if (recipients.Size() == 0)
+	if (recipients.size() == 0)
 	{
 		resultCode = L2RC_Emails_Send_NO_RECIPIENTS;
 		return false;
@@ -1775,7 +1775,7 @@ void Emails_Get::Serialize(bool writeToBitstream, bool serializeOutput, BitStrea
 	bitStream->Serialize(writeToBitstream, unreadEmailsOnly);
 	bitStream->Serialize(writeToBitstream, emailIdsOnly);
 
-	listSize = (unsigned short) emailsToRetrieve.Size();
+	listSize = (unsigned short) emailsToRetrieve.size();
 	bitStream->SerializeCompressed(writeToBitstream, listSize);
 	for (unsigned int i = 0; i < listSize; i++)
 	{
@@ -1787,13 +1787,13 @@ void Emails_Get::Serialize(bool writeToBitstream, bool serializeOutput, BitStrea
 		else
 		{
 			bitStream->Read(id);
-			emailsToRetrieve.Push(id, __FILE__, __LINE__);
+			emailsToRetrieve.push_back(id);
 		}
 	}
 
 	if (serializeOutput)
 	{
-		listSize = (unsigned short) emailResults.Size();
+		listSize = (unsigned short) emailResults.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1805,7 +1805,7 @@ void Emails_Get::Serialize(bool writeToBitstream, bool serializeOutput, BitStrea
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				emailResults.Insert(obj, _FILE_AND_LINE_);
+				emailResults.push_back(obj);
 			}
 		}
 	}
@@ -1851,12 +1851,12 @@ bool Ranking_SubmitMatch::PrevalidateInput(void)
 		return false;
 	if (!ValidateBinary(submittedMatch.binaryData))
 		return false;
-	if (submittedMatch.matchParticipants.Size() == 0)
+	if (submittedMatch.matchParticipants.size() == 0)
 	{
 		resultCode = L2RC_Ranking_SubmitMatch_NO_PARTICIPANTS;
 		return false;
 	}
-	for (unsigned int i = 0; i < submittedMatch.matchParticipants.Size(); i++)
+	for (unsigned int i = 0; i < submittedMatch.matchParticipants.size(); i++)
 		if (!ValidateHandle(&submittedMatch.matchParticipants[i].handle))
 			return false;
 	return true;
@@ -1869,7 +1869,7 @@ void Ranking_GetMatches::Serialize(bool writeToBitstream, bool serializeOutput, 
 	bitStream->Serialize(writeToBitstream, gameType);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) submittedMatches.Size();
+		unsigned short listSize = (unsigned short) submittedMatches.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -1881,7 +1881,7 @@ void Ranking_GetMatches::Serialize(bool writeToBitstream, bool serializeOutput, 
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				submittedMatches.Insert(obj, _FILE_AND_LINE_);
+				submittedMatches.push_back(obj);
 			}
 		}
 	}
@@ -2230,7 +2230,7 @@ void Clans_Get::Serialize(bool writeToBitstream, bool serializeOutput, BitStream
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) clans.Size();
+		unsigned short listSize = (unsigned short) clans.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2242,7 +2242,7 @@ void Clans_Get::Serialize(bool writeToBitstream, bool serializeOutput, BitStream
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				clans.Insert(obj, _FILE_AND_LINE_);
+				clans.push_back(obj);
 			}
 		}
 	}
@@ -2341,7 +2341,7 @@ void Clans_DownloadInvitationList::Serialize(bool writeToBitstream, bool seriali
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) invitationsSentToMe.Size();
+		unsigned short listSize = (unsigned short) invitationsSentToMe.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2353,11 +2353,11 @@ void Clans_DownloadInvitationList::Serialize(bool writeToBitstream, bool seriali
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				invitationsSentToMe.Insert(obj, _FILE_AND_LINE_);
+				invitationsSentToMe.push_back(obj);
 			}
 		}
 
-		listSize = (unsigned short) usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Size();
+		listSize = (unsigned short) usersThatHaveAnInvitationFromClansThatIAmAMemberOf.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2369,7 +2369,7 @@ void Clans_DownloadInvitationList::Serialize(bool writeToBitstream, bool seriali
 			{
 				ClanJoinInvite obj;
 				obj.Serialize(writeToBitstream, bitStream);
-				usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Insert(obj, _FILE_AND_LINE_);
+				usersThatHaveAnInvitationFromClansThatIAmAMemberOf.push_back(obj);
 			}
 		}
 	}
@@ -2470,7 +2470,7 @@ void Clans_DownloadRequestList::Serialize(bool writeToBitstream, bool serializeO
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) joinRequestsToMyClan.Size();
+		unsigned short listSize = (unsigned short) joinRequestsToMyClan.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2482,11 +2482,11 @@ void Clans_DownloadRequestList::Serialize(bool writeToBitstream, bool serializeO
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				joinRequestsToMyClan.Insert(obj, _FILE_AND_LINE_);
+				joinRequestsToMyClan.push_back(obj);
 			}
 		}
 
-		listSize = (unsigned short) joinRequestsFromMe.Size();
+		listSize = (unsigned short) joinRequestsFromMe.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2498,7 +2498,7 @@ void Clans_DownloadRequestList::Serialize(bool writeToBitstream, bool serializeO
 			else
 			{
 				obj.Serialize(writeToBitstream, bitStream);
-				joinRequestsFromMe.Insert(obj, _FILE_AND_LINE_);
+				joinRequestsFromMe.push_back(obj);
 			}
 		}
 	}
@@ -2561,7 +2561,7 @@ void Clans_GetBlacklist::Serialize(bool writeToBitstream, bool serializeOutput, 
 	bitStream->Serialize(writeToBitstream, clanHandle);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) blacklistedUsers.Size();
+		unsigned short listSize = (unsigned short) blacklistedUsers.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2573,7 +2573,7 @@ void Clans_GetBlacklist::Serialize(bool writeToBitstream, bool serializeOutput, 
 			else
 			{
 				bitStream->Serialize(writeToBitstream, obj);
-				blacklistedUsers.Insert(obj, _FILE_AND_LINE_);
+				blacklistedUsers.push_back(obj);
 			}
 		}
 	}
@@ -2582,7 +2582,7 @@ void Clans_GetBlacklist::Serialize(bool writeToBitstream, bool serializeOutput, 
 bool Clans_GetBlacklist::PrevalidateInput(void)
 {
 
-	for (unsigned int i = 0; i < blacklistedUsers.Size(); i++)
+	for (unsigned int i = 0; i < blacklistedUsers.size(); i++)
 		if (!ValidateHandle(&blacklistedUsers[i]))
 			return false;
 	return true;
@@ -2596,7 +2596,7 @@ void Clans_GetMembers::Serialize(bool writeToBitstream, bool serializeOutput, Bi
 	{
 		bitStream->Serialize(writeToBitstream, clanLeader);
 
-		unsigned short listSize = (unsigned short) clanMembersOtherThanLeader.Size();
+		unsigned short listSize = (unsigned short) clanMembersOtherThanLeader.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2608,7 +2608,7 @@ void Clans_GetMembers::Serialize(bool writeToBitstream, bool serializeOutput, Bi
 			else
 			{
 				bitStream->Serialize(writeToBitstream, obj);
-				clanMembersOtherThanLeader.Insert(obj, _FILE_AND_LINE_);
+				clanMembersOtherThanLeader.push_back(obj);
 			}
 		}
 	}
@@ -2627,7 +2627,7 @@ void Clans_GetList::Serialize(bool writeToBitstream, bool serializeOutput, BitSt
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) clanNames.Size();
+		unsigned short listSize = (unsigned short) clanNames.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2639,7 +2639,7 @@ void Clans_GetList::Serialize(bool writeToBitstream, bool serializeOutput, BitSt
 			else
 			{
 				bitStream->Serialize(writeToBitstream, obj);
-				clanNames.Insert(obj, _FILE_AND_LINE_);
+				clanNames.push_back(obj);
 			}
 		}
 	}
@@ -2743,7 +2743,7 @@ void Clans_GetBoards::Serialize(bool writeToBitstream, bool serializeOutput, Bit
 	bitStream->Serialize(writeToBitstream, clanHandle);
 	if (serializeOutput)
 	{
-		unsigned short listSize = (unsigned short) clanBoardsNames.Size();
+		unsigned short listSize = (unsigned short) clanBoardsNames.size();
 		bitStream->SerializeCompressed(writeToBitstream, listSize);
 		for (unsigned int i = 0; i < listSize; i++)
 		{
@@ -2755,7 +2755,7 @@ void Clans_GetBoards::Serialize(bool writeToBitstream, bool serializeOutput, Bit
 			else
 			{
 				bitStream->Serialize(writeToBitstream, obj);
-				clanBoardsNames.Insert(obj, _FILE_AND_LINE_);
+				clanBoardsNames.push_back(obj);
 			}
 		}
 	}

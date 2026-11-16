@@ -21,6 +21,8 @@
 #include "mafianet/packet_priority.h"
 #include "mafianet/peer_interface.h"
 
+#include <vector>
+
 /// \defgroup LOBBY_2_GROUP Lobby2Plugin
 /// \brief SQL based lobby system, with support for users, friends, clans, emails, ranking, and a message board
 /// \details
@@ -105,7 +107,7 @@ protected:
 	MafiaNet::Priority packetPriority;
 	Lobby2MessageFactory *msgFactory;
 
-	DataStructures::List<Lobby2Callbacks *> callbacks;
+	std::vector<Lobby2Callbacks *> callbacks;
 };
 
 }; // namespace MafiaNet

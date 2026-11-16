@@ -22,8 +22,8 @@
 #include "mafianet/kbhit.h"
 #include "mafianet/sleep.h"
 #include "RoomsErrorCodes.h"
-#include "mafianet/ds_queue.h"
 #include <ctype.h>
+#include <deque>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/linux_strings.h"
@@ -47,7 +47,7 @@ struct AutoExecutionPlanNode
 	int instanceNumber;
 	MafiaNet::Lobby2MessageID operation;
 };
-DataStructures::Queue<AutoExecutionPlanNode> executionPlan;
+std::deque<AutoExecutionPlanNode> executionPlan;
 
 void PrintCommands()
 {
@@ -74,9 +74,10 @@ struct Lobby2ClientSampleCB : public MafiaNet::Lobby2Printf
 	virtual void ExecuteDefaultResult(MafiaNet::Lobby2Message *message)
 	{
 		message->DebugPrintf();
-		if (message->resultCode == MafiaNet::REC_SUCCESS && executionPlan.Size())
+		if (message->resultCode == MafiaNet::REC_SUCCESS && executionPlan.size())
 		{
-			AutoExecutionPlanNode aepn = executionPlan.Pop();
+			AutoExecutionPlanNode aepn = executionPlan.front();
+			executionPlan.pop_front();
 			ExecuteCommand(aepn.operation, MafiaNet::RakString("user%i", aepn.instanceNumber), aepn.instanceNumber);
 		}
 	}
@@ -94,41 +95,41 @@ int main()
 	/// Do all these operations in this order once we are logged in.
 	/// This is for easier testing.
 	/// This plan will create the database, register two users, and log them both in
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_CreateDatabase), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_CreateTitle), _FILE_AND_LINE_);
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_CreateDatabase));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_CreateTitle));
 
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_CDKey_Add), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_RegisterProfanity), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_RegisterAccount), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_RegisterAccount), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_SetEmailAddressValidated), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_System_SetEmailAddressValidated), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_Login), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_Login), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Emails_Send), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Emails_Get), _FILE_AND_LINE_);
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_CDKey_Add));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_RegisterProfanity));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_RegisterAccount));
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_RegisterAccount));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_System_SetEmailAddressValidated));
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_System_SetEmailAddressValidated));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_Login));
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_Login));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Emails_Send));
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Emails_Get));
 	// 	/// Create 2 clans
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create));
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create));
 	// 	// Invite to both
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation), _FILE_AND_LINE_ );
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation), _FILE_AND_LINE_ );
-	// 	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_RejectJoinInvitation), _FILE_AND_LINE_ );
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation));
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SendJoinInvitation));
+	// 	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Clans_RejectJoinInvitation));
 	// 	// Download invitations this clan has sent
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_DownloadInvitationList), _FILE_AND_LINE_ );
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_DownloadInvitationList));
 
 	/*
 
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_SetPresence), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_GetAccountDetails), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_PerTitleIntegerStorage), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_PerTitleIntegerStorage), _FILE_AND_LINE_ );
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_SetPresence));
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Client_GetAccountDetails));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_PerTitleIntegerStorage));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_PerTitleIntegerStorage));
 
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_StartIgnore), _FILE_AND_LINE_ );
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_GetIgnoreList), _FILE_AND_LINE_ );
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_StartIgnore));
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Client_GetIgnoreList));
 
-	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Friends_SendInvite), _FILE_AND_LINE_);
-	executionPlan.Push(AutoExecutionPlanNode(1, MafiaNet::L2MID_Friends_AcceptInvite), _FILE_AND_LINE_);
+	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Friends_SendInvite));
+	executionPlan.push_back(AutoExecutionPlanNode(1, MafiaNet::L2MID_Friends_AcceptInvite));
 
 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_SubmitMatch));
 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_SubmitMatch));
@@ -136,8 +137,8 @@ int main()
 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_GetRating));
 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Ranking_WipeRatings));
 	*/
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create), _FILE_AND_LINE_ );
-	// 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Get), _FILE_AND_LINE_ );
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Create));
+	// 	executionPlan.push_back(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_Get));
 	/*
 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SetProperties));
 	executionPlan.Push(AutoExecutionPlanNode(0, MafiaNet::L2MID_Clans_SetMyMemberProperties));
@@ -287,10 +288,11 @@ int main()
 						PrintCommands();
 						printf("Enter instance number 1 to %i followed by command number.\n", NUM_CONNECTIONS);
 
-						if (executionPlan.Size())
+						if (executionPlan.size())
 						{
 							/// Execute the first command now that both clients have connected.
-							AutoExecutionPlanNode aepn = executionPlan.Pop();
+							AutoExecutionPlanNode aepn = executionPlan.front();
+							executionPlan.pop_front();
 							ExecuteCommand(aepn.operation, MafiaNet::RakString("user%i", aepn.instanceNumber), aepn.instanceNumber);
 						}
 					}
@@ -402,9 +404,9 @@ void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userN
 	case MafiaNet::L2MID_System_RegisterProfanity:
 	{
 		MafiaNet::System_RegisterProfanity *arg = (MafiaNet::System_RegisterProfanity *) m;
-		arg->profanityWords.Insert("Bodily Functions", _FILE_AND_LINE_);
-		arg->profanityWords.Insert("Racial Epithet", _FILE_AND_LINE_);
-		arg->profanityWords.Insert("Euphemism treadmill", _FILE_AND_LINE_);
+		arg->profanityWords.push_back("Bodily Functions");
+		arg->profanityWords.push_back("Racial Epithet");
+		arg->profanityWords.push_back("Euphemism treadmill");
 	}
 	break;
 	case MafiaNet::L2MID_System_BanUser:
@@ -425,8 +427,8 @@ void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userN
 	case MafiaNet::L2MID_CDKey_Add:
 	{
 		MafiaNet::CDKey_Add *arg = (MafiaNet::CDKey_Add *) m;
-		arg->cdKeys.Insert("Test CD Key", _FILE_AND_LINE_);
-		arg->cdKeys.Insert("Test CD Key 2", _FILE_AND_LINE_);
+		arg->cdKeys.push_back("Test CD Key");
+		arg->cdKeys.push_back("Test CD Key 2");
 		arg->titleName = "Test Title Name";
 	}
 	break;
@@ -676,8 +678,8 @@ void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userN
 	case MafiaNet::L2MID_Emails_Send:
 	{
 		MafiaNet::Emails_Send *arg = (MafiaNet::Emails_Send *) m;
-		arg->recipients.Insert(MafiaNet::RakString("user%i", instanceNumber + 1), _FILE_AND_LINE_);
-		arg->recipients.Insert(MafiaNet::RakString("user%i", instanceNumber + 2), _FILE_AND_LINE_);
+		arg->recipients.push_back(MafiaNet::RakString("user%i", instanceNumber + 1));
+		arg->recipients.push_back(MafiaNet::RakString("user%i", instanceNumber + 2));
 		arg->subject = "L2MID_Emails_Send subject";
 		arg->body = "L2MID_Emails_Send body";
 		arg->status = 0;
@@ -716,8 +718,8 @@ void ExecuteCommand(MafiaNet::Lobby2MessageID command, MafiaNet::RakString userN
 		arg->gameType = "Match game type";
 		arg->titleName = "Test Title Name";
 		arg->submittedMatch.matchNote = "Ranking match note";
-		arg->submittedMatch.matchParticipants.Insert(MafiaNet::MatchParticipant("user0", 5.0f), _FILE_AND_LINE_);
-		arg->submittedMatch.matchParticipants.Insert(MafiaNet::MatchParticipant("user1", 10.0f), _FILE_AND_LINE_);
+		arg->submittedMatch.matchParticipants.push_back(MafiaNet::MatchParticipant("user0", 5.0f));
+		arg->submittedMatch.matchParticipants.push_back(MafiaNet::MatchParticipant("user1", 10.0f));
 	}
 	break;
 

@@ -23,7 +23,8 @@ struct pg_result;
 typedef struct pg_result PGresult;
 
 #include "mafianet/string.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <vector>
 
 class PostgreSQLInterface
 {
@@ -100,8 +101,8 @@ protected:
 	// Connection parameters
 	MafiaNet::RakString _conninfo;
 
-	//	DataStructures::List<MafiaNet::RakString> preparedStatements;
-	DataStructures::List<MafiaNet::RakString> preparedQueries;
+	//	std::vector<MafiaNet::RakString> preparedStatements;
+	std::vector<MafiaNet::RakString> preparedQueries;
 };
 
 #endif

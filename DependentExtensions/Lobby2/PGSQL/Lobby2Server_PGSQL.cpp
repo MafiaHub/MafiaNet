@@ -83,7 +83,7 @@ bool Lobby2Server_PGSQL::ConnectToDB(const char *conninfo, int numWorkerThreads)
 			return false;
 		}
 		connectionPoolMutex.Lock();
-		connectionPool.Insert(connection, _FILE_AND_LINE_);
+		connectionPool.push_back(connection);
 		connectionPoolMutex.Unlock();
 	}
 
@@ -97,7 +97,8 @@ void *Lobby2Server_PGSQL::PerThreadFactory(void *context)
 
 	PostgreSQLInterface *p;
 	connectionPoolMutex.Lock();
-	p = connectionPool.Pop();
+	p = connectionPool.back();
+	connectionPool.pop_back();
 	connectionPoolMutex.Unlock();
 	return p;
 }
@@ -112,8 +113,8 @@ void Lobby2Server_PGSQL::ClearConnections(void)
 {
 	unsigned int i;
 	connectionPoolMutex.Lock();
-	for (i = 0; i < connectionPool.Size(); i++)
+	for (i = 0; i < connectionPool.size(); i++)
 		delete connectionPool[i];
-	connectionPool.Clear(false, _FILE_AND_LINE_);
+	connectionPool.clear();
 	connectionPoolMutex.Unlock();
 }

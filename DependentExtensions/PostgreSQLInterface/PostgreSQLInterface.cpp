@@ -581,7 +581,7 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 	MafiaNet::RakString inputStr;
 	inputStr = input;
 	unsigned int preparedQueryIndex;
-	for (preparedQueryIndex = 0; preparedQueryIndex < preparedQueries.Size(); preparedQueryIndex++)
+	for (preparedQueryIndex = 0; preparedQueryIndex < preparedQueries.size(); preparedQueryIndex++)
 	{
 		if (preparedQueries[preparedQueryIndex].StrICmp(inputStr) == 0)
 			break;
@@ -592,7 +592,7 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 	indices.clear();
 	GetTypeMappingIndices(input, indices);
 
-	if (preparedQueryIndex == preparedQueries.Size())
+	if (preparedQueryIndex == preparedQueries.size())
 	{
 		//		if (indices.size()>0)
 		//			query += " (";
@@ -620,11 +620,11 @@ PGresult *PostgreSQLInterface::QueryVariadic(const char *input, ...)
 		query += formatCopy;
 		//	query += ";\n";
 		formatCopy += ";\n";
-		result = PQprepare(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", preparedQueries.Size()), formatCopy.C_String(), (int) indices.size(), nullptr);
+		result = PQprepare(pgConn, MafiaNet::RakString("PGSQL_ExecuteVariadic_%i", (int) preparedQueries.size()), formatCopy.C_String(), (int) indices.size(), nullptr);
 		if (IsResultSuccessful(result, false))
 		{
 			PQclear(result);
-			preparedQueries.Insert(inputStr, _FILE_AND_LINE_);
+			preparedQueries.push_back(inputStr);
 		}
 		else
 		{
@@ -669,7 +669,7 @@ PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
 	MafiaNet::RakString query;
 	PGresult *result;
 	unsigned int i;
-	DataStructures::List<IndexAndType> indices;
+	std::vector<IndexAndType> indices;
 	if ( input==0 || input[0]==0 )
 		return 0;
 
@@ -684,7 +684,7 @@ PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
 	va_list argptr;
 	int variadicArgIndex;
 	va_start(argptr, input);
-	for (variadicArgIndex=0, i=0; i < indices.Size(); i++, variadicArgIndex++)
+	for (variadicArgIndex=0, i=0; i < indices.size(); i++, variadicArgIndex++)
 	{
 		if (typeMappings[indices[i].typeMappingIndex].inputType=='i' ||
 			typeMappings[indices[i].typeMappingIndex].inputType=='d')
@@ -736,7 +736,7 @@ PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
 	MafiaNet::RakString inputCopy;
 	inputCopy=input;
 	unsigned int lastIndex=0;
-	for (i=0; i < indices.Size(); i++)
+	for (i=0; i < indices.size(); i++)
 	{
 		query+=inputCopy.SubStr(lastIndex, indices[i].strIndex-lastIndex);
 		query+=MafiaNet::RakString("$%i::", i+1);
@@ -745,7 +745,7 @@ PGresult * PostgreSQLInterface::QueryVariadic( const char * input, ... )
 	}
 	query+=inputCopy.SubStr(lastIndex, (unsigned int)-1);
 
-	result = PQexecParams(pgConn, query.C_String(),indices.Size(),0,paramData,paramLength,paramFormat,PQEXECPARAM_FORMAT_BINARY);
+	result = PQexecParams(pgConn, query.C_String(),indices.size(),0,paramData,paramLength,paramFormat,PQEXECPARAM_FORMAT_BINARY);
 	if (IsResultSuccessful(result, false)==false)
 	{
 		PQclear(result);

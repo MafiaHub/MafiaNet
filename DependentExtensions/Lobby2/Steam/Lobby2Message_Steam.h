@@ -17,8 +17,9 @@
 #define __LOBBY_2_MESSAGE_STEAM_H
 
 #include "Lobby2Message.h"
-#include "mafianet/ds_multilist.h"
 #include "Lobby2Client_Steam.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -66,9 +67,9 @@ __L2_MSG_DB_HEADER(Console_SearchRooms, Steam)
 
 	// Output
 	// Use CConsoleCommand_GetRoomDetails to get room names for unknown rooms, which will have blank names
-	DataStructures::Multilist<ML_UNORDERED_LIST, MafiaNet::RakString> roomNames;
+	std::vector<MafiaNet::RakString> roomNames;
 	// Type of uint64_ts is uint64_t
-	DataStructures::Multilist<ML_UNORDERED_LIST, uint64_t> roomIds;
+	std::vector<uint64_t> roomIds;
 
 	/// \internal
 	// uint32_t is LobbyMatchList_t

@@ -48,20 +48,20 @@ bool IsClanLeader(MafiaNet::RakString clanName, unsigned int userId, PostgreSQLI
 unsigned int GetClanLeaderId(unsigned int clanId, PostgreSQLInterface *pgsql);
 bool IsClanLeader(unsigned int clanId, unsigned int userId, PostgreSQLInterface *pgsql);
 ClanMemberState GetClanMemberState(unsigned int clanId, unsigned int userId, bool *isSubleader, PostgreSQLInterface *pgsql);
-void GetClanMembers(unsigned int clanId, DataStructures::List<ClanMemberDescriptor> &clanMembers, PostgreSQLInterface *pgsql);
+void GetClanMembers(unsigned int clanId, std::vector<ClanMemberDescriptor> &clanMembers, PostgreSQLInterface *pgsql);
 bool IsTitleInUse(MafiaNet::RakString titleName, PostgreSQLInterface *pgsql);
 bool StringContainsProfanity(MafiaNet::RakString string, PostgreSQLInterface *pgsql);
 bool IsValidCountry(MafiaNet::RakString string, bool *countryHasStates, PostgreSQLInterface *pgsql);
 bool IsValidState(MafiaNet::RakString string, PostgreSQLInterface *pgsql);
 bool IsValidRace(MafiaNet::RakString string, PostgreSQLInterface *pgsql);
-void GetFriendIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, DataStructures::List<unsigned int> &output);
-void GetClanMateIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, DataStructures::List<unsigned int> &output);
+void GetFriendIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, std::vector<unsigned int> &output);
+void GetClanMateIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, std::vector<unsigned int> &output);
 bool IsIgnoredByTarget(unsigned int callerUserId, unsigned int targetUserId, PostgreSQLInterface *pgsql);
 void OutputFriendsNotification(MafiaNet::Notification_Friends_StatusChange::Status notificationType, Lobby2ServerCommand *command, PostgreSQLInterface *pgsql);
 // This does NOT return the online status to output, as it is not threadsafe
-void GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakString status, PostgreSQLInterface *pgsql, DataStructures::List<FriendInfo> &output, bool callerIsUserOne);
-void SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
-void SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
+void GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakString status, PostgreSQLInterface *pgsql, std::vector<FriendInfo> &output, bool callerIsUserOne);
+void SendEmail(std::vector<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
+void SendEmail(std::vector<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
 void SendEmail(unsigned int targetUserId, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
 int GetActiveClanCount(unsigned int userId, PostgreSQLInterface *pgsql);
 bool CreateAccountParametersFailed(CreateAccountParameters &createAccountParameters, MafiaNet::Lobby2ResultCode &resultCode, Lobby2ServerCommand *command, PostgreSQLInterface *pgsql);
@@ -578,7 +578,7 @@ return true;
 __L2_MSG_DB_HEADER(Notification_Friends_StatusChange, PGSQL){
     virtual bool ServerDBImpl(Lobby2ServerCommand * command, void *databaseInterface){
         PostgreSQLInterface *pgsql = (PostgreSQLInterface *) databaseInterface;
-if (command->callerSystemAddresses.Size() == 0)
+if (command->callerSystemAddresses.size() == 0)
 {
 	OutputFriendsNotification(Notification_Friends_StatusChange::FRIEND_LOGGED_OFF, command, pgsql);
 }
@@ -616,11 +616,11 @@ __L2_MSG_DB_HEADER(Notification_Friends_PresenceUpdate, PGSQL){
         PostgreSQLInterface *pgsql = (PostgreSQLInterface *) databaseInterface;
 
 // Tell all friends about this new login
-DataStructures::List<unsigned int> output;
+std::vector<unsigned int> output;
 GetFriendIDs(command->callerUserId, true, pgsql, output);
 
 unsigned int idx;
-for (idx = 0; idx < output.Size(); idx++)
+for (idx = 0; idx < output.size(); idx++)
 {
 	Notification_Friends_PresenceUpdate *notification = (Notification_Friends_PresenceUpdate *) command->server->GetMessageFactory()->Alloc(L2MID_Notification_Friends_PresenceUpdate);
 	notification->otherHandle = command->callingUserName;

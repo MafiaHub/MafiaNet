@@ -174,7 +174,7 @@ void main(void)
 		// This sleep keeps RakNet responsive
 		RakSleep(30);
 
-		//printf("%i ", lobby2Server.GetUsers().Size());
+		//printf("%i ", lobby2Server.GetUsers().size());
 	}
 
 	// #med - add proper termination handling (then reenable the following code)

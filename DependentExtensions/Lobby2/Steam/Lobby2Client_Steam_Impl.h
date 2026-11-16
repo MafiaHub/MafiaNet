@@ -21,9 +21,12 @@
 #include "steam_api.h"
 #pragma warning(pop)
 #include "Lobby2Client_Steam.h"
-#include "mafianet/ds_multilist.h"
 #include "mafianet/socket_layer.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <cstdint>
+#include <map>
+#include <set>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -48,7 +51,7 @@ public:
 	virtual void OnLobbyCreated(LobbyCreated_t *pCallback, bool bIOFailure);
 	virtual void OnLobbyJoined(LobbyEnter_t *pCallback, bool bIOFailure);
 	virtual bool IsCommandRunning(Lobby2MessageID msgId);
-	virtual void GetRoomMembers(DataStructures::OrderedList<uint64_t, uint64_t> &_roomMembers);
+	virtual void GetRoomMembers(std::set<uint64_t> &_roomMembers);
 	virtual const char *GetRoomMemberName(uint64_t memberId);
 	virtual bool IsRoomOwner(const uint64_t cSteamID);
 	virtual bool IsInRoom(void) const;
@@ -78,8 +81,6 @@ public:
 		SystemAddress systemAddress;
 		uint64_t steamIDRemote;
 	};
-	static int SystemAddressAndRoomMemberComp(const SystemAddress &key, const RoomMember &data);
-	static int SteamIDAndRoomMemberComp(const uint64_t &key, const RoomMember &data);
 
 protected:
 	void CallCBWithResultCode(Lobby2Message *msg, Lobby2ResultCode rc);
@@ -98,12 +99,12 @@ protected:
 	STEAM_CALLBACK(Lobby2Client_Steam_Impl, OnP2PSessionRequest, P2PSessionRequest_t, m_CallbackP2PSessionRequest);
 	STEAM_CALLBACK(Lobby2Client_Steam_Impl, OnP2PSessionConnectFail, P2PSessionConnectFail_t, m_CallbackP2PSessionConnectFail);
 
-	DataStructures::Multilist<ML_UNORDERED_LIST, Lobby2Message *, uint64_t> deferredCallbacks;
+	std::vector<Lobby2Message *> deferredCallbacks;
 
 	uint64_t roomId;
-	DataStructures::OrderedList<SystemAddress, RoomMember, SystemAddressAndRoomMemberComp> roomMembersByAddr;
-	DataStructures::OrderedList<uint64_t, RoomMember, SteamIDAndRoomMemberComp> roomMembersById;
-	DataStructures::Multilist<ML_ORDERED_LIST, uint64_t> rooms;
+	std::map<SystemAddress, RoomMember> roomMembersByAddr;
+	std::map<uint64_t, RoomMember> roomMembersById;
+	std::set<uint64_t> rooms;
 
 	void ClearRoom(void);
 

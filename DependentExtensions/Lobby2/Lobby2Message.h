@@ -20,9 +20,9 @@
 #include <cstdlib>
 #include "Lobby2ResultCode.h"
 #include "mafianet/string.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/assert.h"
 #include <memory>
+#include <vector>
 #include "mafianet/simple_mutex.h"
 #include "Lobby2Presence.h"
 
@@ -931,7 +931,7 @@ struct SubmittedMatch
 {
 	SubmittedMatch() { binaryData = std::make_shared<BinaryDataBlock>(); }
 	~SubmittedMatch() { /*delete binaryData;*/ }
-	DataStructures::List<MatchParticipant> matchParticipants;
+	std::vector<MatchParticipant> matchParticipants;
 	MafiaNet::RakString matchNote;
 	std::shared_ptr<BinaryDataBlock> binaryData;
 	// Use EpochTimeToString to convert to a date
@@ -948,7 +948,7 @@ struct ClanInfo
 	MafiaNet::RakString description;
 	MafiaNet::RakString clanLeader;
 	std::shared_ptr<BinaryDataBlock> binaryData;
-	DataStructures::List<MafiaNet::RakString> clanMembersOtherThanLeader;
+	std::vector<MafiaNet::RakString> clanMembersOtherThanLeader;
 
 	void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 };
@@ -1143,7 +1143,7 @@ struct System_RegisterProfanity : public Lobby2Message
 	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 	virtual bool PrevalidateInput(void)
 	{
-		for (unsigned int i = 0; i < profanityWords.Size(); i++)
+		for (unsigned int i = 0; i < profanityWords.size(); i++)
 		{
 			if (profanityWords[i].IsEmpty())
 			{
@@ -1155,7 +1155,7 @@ struct System_RegisterProfanity : public Lobby2Message
 	}
 
 	// Input parameters
-	DataStructures::List<MafiaNet::RakString> profanityWords;
+	std::vector<MafiaNet::RakString> profanityWords;
 
 	// Output parameters
 };
@@ -1209,7 +1209,7 @@ struct CDKey_Add : public Lobby2Message
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	DataStructures::List<MafiaNet::RakString> cdKeys;
+	std::vector<MafiaNet::RakString> cdKeys;
 	MafiaNet::RakString titleName;
 
 	// Output parameters
@@ -1593,7 +1593,7 @@ struct Client_GetIgnoreList : public Lobby2Message
 	// Input parameters
 
 	// Output parameters
-	DataStructures::List<MafiaNet::RakString> ignoredHandles;
+	std::vector<MafiaNet::RakString> ignoredHandles;
 };
 struct Client_PerTitleIntegerStorage : public Lobby2Message
 {
@@ -1802,8 +1802,8 @@ struct Friends_GetInvites : public Lobby2Message
 
 	// Output parameters
 	/// Up to caller to deallocate binaryData if needed
-	DataStructures::List<FriendInfo> invitesSent;
-	DataStructures::List<FriendInfo> invitesReceived;
+	std::vector<FriendInfo> invitesSent;
+	std::vector<FriendInfo> invitesReceived;
 };
 /// \brief Gets all friends to this user
 /// \ingroup LOBBY_2_COMMANDS
@@ -1818,7 +1818,7 @@ struct Friends_GetFriends : public Lobby2Message
 	// Input parameters
 
 	// Output parameters
-	DataStructures::List<FriendInfo> myFriends;
+	std::vector<FriendInfo> myFriends;
 };
 /// \brief Ends a friendship between two users. Remove from the database the friend entry between my handle and their handle. As with accept add friend invite, this is bidirectional. Either user can terminate the friendship. Store in the emails table from my handle to their handle the subject, body, and binary data, and procedure type flag.
 /// \ingroup LOBBY_2_COMMANDS
@@ -1898,7 +1898,7 @@ struct BookmarkedUsers_Get : public Lobby2Message
 
 	// Output parameters
 	/// \param[out] recentlyMetUsers Handles of recently met users, by BookmarkedUsers_Add, subject to expirationTimeSeconds
-	DataStructures::List<BookmarkedUser> bookmarkedUsers;
+	std::vector<BookmarkedUser> bookmarkedUsers;
 };
 /// \brief Adds to an emails table from myHandle (store primary key) to recipient handles (store primary key) the specified subject, body, and binary data. Emails are persistent, therefore emails should be stored in a separate table and referenced by the user. Deleting the user does not delete previously send email. Emails should have an automatic timestamp to store when they were created. Email should be flagged as sent=true (boolean), markedRead=true (boolean), deletedBySender=false (boolean), deletedByReciever=false (boolean).
 /// \ingroup LOBBY_2_COMMANDS
@@ -1918,7 +1918,7 @@ struct Emails_Send : public Lobby2Message
 	virtual bool PrevalidateInput(void);
 
 	// Input parameters
-	DataStructures::List<MafiaNet::RakString> recipients;
+	std::vector<MafiaNet::RakString> recipients;
 	MafiaNet::RakString subject;
 	MafiaNet::RakString body;
 	int status;
@@ -1945,13 +1945,13 @@ struct Emails_Get : public Lobby2Message
 	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Input parameters
-	bool unreadEmailsOnly;                               //If this is true then it will only return emails that have not been read by the user.
-	bool emailIdsOnly;                                   //When this is set only the emailIds are filled out and no data is returned.
-	DataStructures::List<unsigned int> emailsToRetrieve; //If this has entries then it will only get the emails in the list, otherwise it will get all emails.
+	bool unreadEmailsOnly;                      //If this is true then it will only return emails that have not been read by the user.
+	bool emailIdsOnly;                          //When this is set only the emailIds are filled out and no data is returned.
+	std::vector<unsigned int> emailsToRetrieve; //If this has entries then it will only get the emails in the list, otherwise it will get all emails.
 
 	// Output parameters
 	/// \param[out] emailResults Up to caller to deallocate binary data
-	DataStructures::List<EmailResult> emailResults;
+	std::vector<EmailResult> emailResults;
 };
 /// \brief Deletes an email with a specified ID. This ID is returned in GetEmail and should uniquely identify an email (it's fine to use the primary key). Note: Emails are not actually deleted from the database in this function. This just sets the deletedBySender or deletedByReciever flags. Emails are actually stored in a log recording past emails and sender and receiver primary key. They are not truly destroyed until done so with System_PruneAccounts.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2029,7 +2029,7 @@ struct Ranking_GetMatches : public Lobby2Message
 
 	// Output parameters
 	/// \param[out] submittedMatches (excluding binary data, up to caller to deallocate)
-	DataStructures::List<SubmittedMatch> submittedMatches;
+	std::vector<SubmittedMatch> submittedMatches;
 };
 /// \brief Because of the large amount of binary data potentially returned, this function is used to retrieve binary data for a particular match.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2435,7 +2435,7 @@ struct Clans_Get : public Lobby2Message
 	// Input parameters
 
 	// Output parameters
-	DataStructures::List<ClanInfo> clans;
+	std::vector<ClanInfo> clans;
 };
 /// \brief if myPrimaryKey is a leader or subleader of clanHandle, and invitedUserHandle is a valid user not already invited to this clan, add this user to the invite table. The invite table contains the clan, who send the invite, and who the invite was sent to, and when it was sent. Invites expire after expiration time in seconds. Also, use Emails_Send() to send an email from myPrimaryKey to invitedUserHandle with the specified subject and body.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2551,9 +2551,9 @@ struct Clans_DownloadInvitationList : public Lobby2Message
 	virtual void Serialize(bool writeToBitstream, bool serializeOutput, MafiaNet::BitStream *bitStream);
 
 	// Output parameters
-	DataStructures::List<OpenInvite> invitationsSentToMe;
+	std::vector<OpenInvite> invitationsSentToMe;
 
-	DataStructures::List<ClanJoinInvite> usersThatHaveAnInvitationFromClansThatIAmAMemberOf;
+	std::vector<ClanJoinInvite> usersThatHaveAnInvitationFromClansThatIAmAMemberOf;
 };
 /// \brief Function has two forms:
 /// \details If requiresInvitationsToJoin==true when CreateClan() was called, will join the specified clan immediately. Sends subject and body to all other members in the clan.
@@ -2677,7 +2677,7 @@ struct Clans_DownloadRequestList : public Lobby2Message
 
 	// Output parameters
 	// joinRequestsToMyClan is only filled out for clans you are a leader or subleader in
-	DataStructures::List<ClanJoinRequest> joinRequestsToMyClan, joinRequestsFromMe;
+	std::vector<ClanJoinRequest> joinRequestsToMyClan, joinRequestsFromMe;
 };
 /// \brief Kicks a user from the clan and/or blacklists a user so they cannot join. Only a clan leader or subleader can perform this operation. The operation can only be performed on members of lower status (leader can perform on subleader or regular member or nonmember, subleader on regular members or nonmember). If a member is banned, they are added to the banned table which contains the member's primary key, which user banned them, and the reason. Email is sent from myPrimaryKey to all leaders if a clan member is banned. Emails is furthermore sent to all clan members if successfully kicked.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2747,7 +2747,7 @@ struct Clans_GetBlacklist : public Lobby2Message
 	MafiaNet::RakString clanHandle;
 
 	// Output parameters
-	DataStructures::List<MafiaNet::RakString> blacklistedUsers;
+	std::vector<MafiaNet::RakString> blacklistedUsers;
 };
 /// \brief Returns all clan members for this clan. Each entry returned contains handle, description, binary data, status (leader, regular member, subleader).
 /// \ingroup LOBBY_2_COMMANDS
@@ -2767,7 +2767,7 @@ struct Clans_GetMembers : public Lobby2Message
 
 	// Output parameters
 	MafiaNet::RakString clanLeader;
-	DataStructures::List<MafiaNet::RakString> clanMembersOtherThanLeader;
+	std::vector<MafiaNet::RakString> clanMembersOtherThanLeader;
 };
 /// \brief Returns all clans names
 /// \ingroup LOBBY_2_COMMANDS
@@ -2783,7 +2783,7 @@ struct Clans_GetList : public Lobby2Message
 	// Input parameters
 
 	// Output parameters
-	DataStructures::List<MafiaNet::RakString> clanNames;
+	std::vector<MafiaNet::RakString> clanNames;
 };
 /// \brief Creates a new clan board for clan members to post in using AddPostToClanBoard. Clan boards are unique, and are destroyed when the clan is destroyed, or if DestroyClanBoard is called.
 /// \ingroup LOBBY_2_COMMANDS
@@ -2911,7 +2911,7 @@ struct Clans_GetBoards : public Lobby2Message
 	MafiaNet::RakString clanHandle;
 
 	// Output parameters
-	DataStructures::List<MafiaNet::RakString> clanBoardsNames;
+	std::vector<MafiaNet::RakString> clanBoardsNames;
 };
 /// \brief Gets topics (posts that are not replies to other posts, created with Clans_CreateTopic()) for the specified clanHandle and clanBoardName. If we are not a clan member and the clan was created with allowPublicReads==false, then the user is not allowed to read topics
 /// \ingroup LOBBY_2_COMMANDS

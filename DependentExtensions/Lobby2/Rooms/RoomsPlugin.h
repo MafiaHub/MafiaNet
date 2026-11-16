@@ -24,11 +24,14 @@
 
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
 #include "RoomsContainer.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/bit_stream.h"
+
+#include <map>
+#include <memory>
+#include <vector>
 
 /// \defgroup ROOMS_GROUP RoomsPlugin
 /// \brief Networked implementation of a rooms system, where members join and leave rooms.
@@ -105,7 +108,7 @@ struct EnterRoom_Func : public RoomsPluginFunc
 		else if (createdRoom)
 			printf("%s created a new room\n", userName.C_String());
 		else
-			printf("%s entered room with %i members\n", userName.C_String(), joinedRoomResult.roomDescriptor.roomMemberList.Size());
+			printf("%s entered room with %zu members\n", userName.C_String(), joinedRoomResult.roomDescriptor.roomMemberList.size());
 	}
 
 	virtual void SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -134,7 +137,7 @@ struct JoinByFilter_Func : public RoomsPluginFunc
 			printf("Joined room %s with id %i and %.0f used slots\n",
 			       joinedRoomResult.roomDescriptor.GetProperty(DefaultRoomColumns::TC_ROOM_NAME)->c, joinedRoomResult.roomDescriptor.lobbyRoomId,
 			       joinedRoomResult.roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i);
-			for (unsigned int i = 0; i < joinedRoomResult.roomDescriptor.roomMemberList.Size(); i++)
+			for (unsigned int i = 0; i < joinedRoomResult.roomDescriptor.roomMemberList.size(); i++)
 			{
 				printf("%i. %s (%s)\n", i + 1, joinedRoomResult.roomDescriptor.roomMemberList[i].name.C_String(), joinedRoomResult.roomDescriptor.roomMemberList[i].systemAddress.ToString());
 			}
@@ -162,7 +165,7 @@ struct GetInvitesToParticipant_Func : public RoomsPluginFunc
 {
 	// Input parameters
 	// Output parameters
-	DataStructures::List<InvitedUser> invitedUsers;
+	std::vector<InvitedUser> invitedUsers;
 
 	virtual void SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	virtual void SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -275,9 +278,9 @@ struct GetRoomProperties_Func : public RoomsPluginFunc
 		else
 		{
 			//			char out[8096];
-			printf("room %s has %i columns and %i used slots\n", roomName.C_String(),
-			       roomDescriptor.roomProperties.GetColumnCount(), roomDescriptor.roomMemberList.Size());
-			RakAssert(roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i == roomDescriptor.roomMemberList.Size() - 1);
+			printf("room %s has %i columns and %zu used slots\n", roomName.C_String(),
+			       roomDescriptor.roomProperties.GetColumnCount(), roomDescriptor.roomMemberList.size());
+			RakAssert(roomDescriptor.GetProperty(DefaultRoomColumns::TC_USED_SLOTS)->i == roomDescriptor.roomMemberList.size() - 1);
 			//		roomDescriptor.roomProperties.PrintColumnHeaders(out,8096,',');
 			//		printf(out);
 			//		roomDescriptor.roomProperties.PrintRow(out,8096,',',false,roomDescriptor.roomProperties.GetRowByIndex(0,0));
@@ -332,8 +335,8 @@ struct SetReadyStatus_Func : public RoomsPluginFunc
 	// Input parameters
 	bool isReady;
 	// Output parameters
-	DataStructures::List<MafiaNet::RakString> readyUsers;
-	DataStructures::List<MafiaNet::RakString> unreadyUsers;
+	std::vector<MafiaNet::RakString> readyUsers;
+	std::vector<MafiaNet::RakString> unreadyUsers;
 
 	void PrintResult(void)
 	{
@@ -344,10 +347,10 @@ struct SetReadyStatus_Func : public RoomsPluginFunc
 		else
 		{
 			printf("SetReadyStatus_Func member ready states:\n");
-			if (readyUsers.Size() > 0)
+			if (readyUsers.size() > 0)
 			{
 				printf("Ready: ");
-				for (unsigned int i = 0; i < readyUsers.Size(); i++)
+				for (unsigned int i = 0; i < readyUsers.size(); i++)
 				{
 					printf("%s ", readyUsers[i].C_String());
 				}
@@ -355,10 +358,10 @@ struct SetReadyStatus_Func : public RoomsPluginFunc
 				printf("\n");
 			}
 
-			if (unreadyUsers.Size() > 0)
+			if (unreadyUsers.size() > 0)
 			{
 				printf("Unready: ");
-				for (unsigned int i = 0; i < unreadyUsers.Size(); i++)
+				for (unsigned int i = 0; i < unreadyUsers.size(); i++)
 				{
 					printf("%s ", unreadyUsers[i].C_String());
 				}
@@ -377,8 +380,8 @@ struct GetReadyStatus_Func : public RoomsPluginFunc
 {
 	// Input parameters
 	// Output parameters
-	DataStructures::List<MafiaNet::RakString> readyUsers;
-	DataStructures::List<MafiaNet::RakString> unreadyUsers;
+	std::vector<MafiaNet::RakString> readyUsers;
+	std::vector<MafiaNet::RakString> unreadyUsers;
 
 	virtual void SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	virtual void SerializeOut(bool writeToBitstream, MafiaNet::BitStream *bitStream);
@@ -502,7 +505,7 @@ struct SearchByFilter_Func : public RoomsPluginFunc
 	RoomQuery roomQuery;
 	bool onlyJoinable;
 	// Output parameters
-	DataStructures::List<RoomDescriptor *> roomsOutput;
+	std::vector<RoomDescriptor *> roomsOutput;
 
 	void PrintResult(void)
 	{
@@ -512,8 +515,8 @@ struct SearchByFilter_Func : public RoomsPluginFunc
 		}
 		else
 		{
-			printf("Found %i rooms\n", roomsOutput.Size());
-			for (unsigned int i = 0; i < roomsOutput.Size(); i++)
+			printf("Found %zu rooms\n", roomsOutput.size());
+			for (unsigned int i = 0; i < roomsOutput.size(); i++)
 			{
 				// Default types such as room name are in RoomTypes.cpp see defaultRoomColumns
 				// Also can be user defined
@@ -674,8 +677,8 @@ struct RoomMemberReadyStatusSet_Notification : public RoomsPluginNotification
 	MafiaNet::RakString roomMember;
 
 	// Current status of all room members
-	DataStructures::List<MafiaNet::RakString> readyUsers;
-	DataStructures::List<MafiaNet::RakString> unreadyUsers;
+	std::vector<MafiaNet::RakString> readyUsers;
+	std::vector<MafiaNet::RakString> unreadyUsers;
 
 	virtual void Serialize(bool writeToBitstream, MafiaNet::BitStream *bitStream);
 	virtual void PrintResult(void) { printf("RoomMemberReadyStatusSet_Notification to %s\n", recipient.C_String()); }
@@ -1095,6 +1098,9 @@ class RAK_DLL_EXPORT RoomsPlugin : public PluginInterface2, public RoomsCallback
 public:
 	RoomsPlugin();
 	virtual ~RoomsPlugin();
+	// Owns its participants.
+	RoomsPlugin(const RoomsPlugin &) = delete;
+	RoomsPlugin &operator=(const RoomsPlugin &) = delete;
 
 	/// \brief Ordering channel to send messages on
 	/// \param[in] oc The ordering channel
@@ -1214,7 +1220,7 @@ protected:
 
 	// Client and server data
 	char orderingChannel;
-	DataStructures::List<RoomsCallback *> roomsCallback;
+	std::vector<RoomsCallback *> roomsCallback;
 	MafiaNet::Priority packetPriority;
 	ProfanityFilter *profanityFilter;
 	MafiaNet::TimeMS lastUpdateTime;
@@ -1224,15 +1230,15 @@ protected:
 
 	// Server data
 	// Servers that can remotely trigger LoginRoomMember and LogoffRoomMember
-	DataStructures::List<SystemAddress> loginServers;
+	std::vector<SystemAddress> loginServers;
 	// Logged in room members
 	struct RoomsPluginParticipant : public RoomsParticipant
 	{
 		RoomsPluginParticipant() { lastRoomJoined = (RoomID) -1; }
 		RoomID lastRoomJoined;
 	};
-	static int RoomsPluginParticipantCompByRakString(const MafiaNet::RakString &key, RoomsPluginParticipant *const &data);
-	DataStructures::OrderedList<MafiaNet::RakString, RoomsPluginParticipant *, RoomsPluginParticipantCompByRakString> roomsParticipants;
+	/// Keyed by handle, in strcmp order
+	std::map<MafiaNet::RakString, std::unique_ptr<RoomsPluginParticipant>> roomsParticipants;
 
 	RoomsPluginParticipant *GetParticipantByHandle(MafiaNet::RakString handle, const SystemAddress &systemAddress);
 	RoomsPluginParticipant *ValidateUserHandle(RoomsPluginFunc *func, const SystemAddress &systemAddress);

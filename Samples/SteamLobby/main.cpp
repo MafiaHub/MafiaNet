@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <set>
 #include "Lobby2Client_Steam.h" // If Lobby2Client_Steam.h is included before socket_layer.h, then it will use the steam send functions
 #include "Lobby2Message_Steam.h"
 #include "mafianet/time.h"
@@ -79,7 +80,7 @@ struct SteamResults : public MafiaNet::Lobby2Callbacks
 		MafiaNet::RakString msg;
 		msgSteam->DebugMsg(msg);
 		printf("%s\n", msg.C_String());
-		if (msgSteam->roomIds.GetSize() > 0)
+		if (!msgSteam->roomIds.empty())
 		{
 			lastRoom = msgSteam->roomIds[0];
 		}
@@ -317,11 +318,13 @@ int main(int argc, char **argv)
 
 			case 'g':
 			{
-				DataStructures::OrderedList<uint64_t, uint64_t> roomMembers;
+				std::set<uint64_t> roomMembers;
 				lobby2Client->GetRoomMembers(roomMembers);
-				for (unsigned int i = 0; i < roomMembers.Size(); i++)
+				unsigned int i = 0;
+				for (uint64_t roomMember : roomMembers)
 				{
-					printf("%i. %s ID=%" PRINTF_64_BIT_MODIFIER "u\n", i + 1, lobby2Client->GetRoomMemberName(roomMembers[i]), roomMembers[i]);
+					printf("%i. %s ID=%" PRINTF_64_BIT_MODIFIER "u\n", i + 1, lobby2Client->GetRoomMemberName(roomMember), roomMember);
+					i++;
 				}
 			}
 			break;

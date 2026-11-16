@@ -22,13 +22,12 @@
 #include "mafianet/peer_interface.h"
 #include "ProfanityFilter.h"
 #include "mafianet/get_time.h"
+#include "mafianet/vector_util.h"
+
+#include <algorithm>
+#include <memory>
 
 using namespace MafiaNet;
-
-int RoomsPlugin::RoomsPluginParticipantCompByRakString(const MafiaNet::RakString &key, RoomsPluginParticipant *const &data)
-{
-	return strcmp(key.C_String(), data->GetName().C_String());
-}
 
 void RoomsPluginFunc::PrintResult(void)
 {
@@ -114,7 +113,7 @@ void GetInvitesToParticipant_Func::SerializeOut(bool writeToBitstream, MafiaNet:
 	bitStream->Serialize(writeToBitstream, resultCode);
 	unsigned int i;
 	unsigned int listSize;
-	listSize = invitedUsers.Size();
+	listSize = static_cast<unsigned int>(invitedUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	for (i = 0; i < listSize; i++)
 	{
@@ -124,7 +123,7 @@ void GetInvitesToParticipant_Func::SerializeOut(bool writeToBitstream, MafiaNet:
 		{
 			InvitedUser invitedUser;
 			invitedUser.Serialize(false, bitStream);
-			invitedUsers.Insert(invitedUser, _FILE_AND_LINE_);
+			invitedUsers.push_back(invitedUser);
 		}
 	}
 }
@@ -291,7 +290,7 @@ void SetReadyStatus_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStrea
 	unsigned int listSize;
 	unsigned int i;
 	MafiaNet::RakString name;
-	listSize = readyUsers.Size();
+	listSize = static_cast<unsigned int>(readyUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
 	{
@@ -303,11 +302,11 @@ void SetReadyStatus_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStrea
 		for (i = 0; i < listSize; i++)
 		{
 			bitStream->Serialize(writeToBitstream, name);
-			readyUsers.Insert(name, _FILE_AND_LINE_);
+			readyUsers.push_back(name);
 		}
 	}
 
-	listSize = unreadyUsers.Size();
+	listSize = static_cast<unsigned int>(unreadyUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
 	{
@@ -319,7 +318,7 @@ void SetReadyStatus_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStrea
 		for (i = 0; i < listSize; i++)
 		{
 			bitStream->Serialize(writeToBitstream, name);
-			unreadyUsers.Insert(name, _FILE_AND_LINE_);
+			unreadyUsers.push_back(name);
 		}
 	}
 }
@@ -332,7 +331,7 @@ void GetReadyStatus_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream
 	unsigned int listSize;
 	MafiaNet::RakString name;
 	unsigned int i;
-	listSize = readyUsers.Size();
+	listSize = static_cast<unsigned int>(readyUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
 	{
@@ -344,11 +343,11 @@ void GetReadyStatus_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream
 		for (i = 0; i < listSize; i++)
 		{
 			bitStream->Serialize(writeToBitstream, name);
-			readyUsers.Insert(name, _FILE_AND_LINE_);
+			readyUsers.push_back(name);
 		}
 	}
 
-	listSize = unreadyUsers.Size();
+	listSize = static_cast<unsigned int>(unreadyUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
 	{
@@ -360,7 +359,7 @@ void GetReadyStatus_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream
 		for (i = 0; i < listSize; i++)
 		{
 			bitStream->Serialize(writeToBitstream, name);
-			unreadyUsers.Insert(name, _FILE_AND_LINE_);
+			unreadyUsers.push_back(name);
 		}
 	}
 }
@@ -490,7 +489,7 @@ void IsInQuickJoin_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStream
 }
 SearchByFilter_Func::~SearchByFilter_Func()
 {
-	for (unsigned int i = 0; i < roomsOutput.Size(); i++)
+	for (unsigned int i = 0; i < roomsOutput.size(); i++)
 		delete roomsOutput[i];
 }
 void SearchByFilter_Func::SerializeIn(bool writeToBitstream, MafiaNet::BitStream *bitStream)
@@ -508,7 +507,7 @@ void SearchByFilter_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStrea
 	bitStream->Serialize(writeToBitstream, resultCode);
 	unsigned int i;
 	unsigned int listSize;
-	listSize = roomsOutput.Size();
+	listSize = static_cast<unsigned int>(roomsOutput.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	for (i = 0; i < listSize; i++)
 	{
@@ -518,7 +517,7 @@ void SearchByFilter_Func::SerializeOut(bool writeToBitstream, MafiaNet::BitStrea
 		{
 			RoomDescriptor *desc = new RoomDescriptor;
 			desc->Serialize(false, bitStream);
-			roomsOutput.Insert(desc, _FILE_AND_LINE_);
+			roomsOutput.push_back(desc);
 		}
 	}
 }
@@ -662,7 +661,7 @@ void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, Maf
 	unsigned int listSize;
 	unsigned int i;
 	MafiaNet::RakString name;
-	listSize = readyUsers.Size();
+	listSize = static_cast<unsigned int>(readyUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
 	{
@@ -674,11 +673,11 @@ void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, Maf
 		for (i = 0; i < listSize; i++)
 		{
 			bitStream->Serialize(writeToBitstream, name);
-			readyUsers.Insert(name, _FILE_AND_LINE_);
+			readyUsers.push_back(name);
 		}
 	}
 
-	listSize = unreadyUsers.Size();
+	listSize = static_cast<unsigned int>(unreadyUsers.size());
 	bitStream->Serialize(writeToBitstream, listSize);
 	if (writeToBitstream)
 	{
@@ -690,7 +689,7 @@ void RoomMemberReadyStatusSet_Notification::Serialize(bool writeToBitstream, Maf
 		for (i = 0; i < listSize; i++)
 		{
 			bitStream->Serialize(writeToBitstream, name);
-			unreadyUsers.Insert(name, _FILE_AND_LINE_);
+			unreadyUsers.push_back(name);
 		}
 	}
 }
@@ -815,19 +814,19 @@ void RoomsPlugin::SetSendPriority(MafiaNet::Priority pp)
 
 void RoomsPlugin::SetRoomsCallback(RoomsCallback *_roomsCallback)
 {
-	roomsCallback.Clear(true, _FILE_AND_LINE_);
-	roomsCallback.Push(_roomsCallback, _FILE_AND_LINE_);
+	roomsCallback.clear();
+	roomsCallback.push_back(_roomsCallback);
 }
 void RoomsPlugin::AddRoomsCallback(RoomsCallback *_roomsCallback)
 {
-	if (roomsCallback.GetIndexOf(_roomsCallback) == (unsigned int) -1)
-		roomsCallback.Push(_roomsCallback, _FILE_AND_LINE_);
+	if (std::find(roomsCallback.begin(), roomsCallback.end(), _roomsCallback) == roomsCallback.end())
+		roomsCallback.push_back(_roomsCallback);
 }
 void RoomsPlugin::RemoveRoomsCallback(RoomsCallback *_roomsCallback)
 {
-	unsigned int idx = roomsCallback.GetIndexOf(_roomsCallback);
-	if (idx != (unsigned int) -1)
-		roomsCallback.RemoveAtIndex(idx);
+	auto it = std::find(roomsCallback.begin(), roomsCallback.end(), _roomsCallback);
+	if (it != roomsCallback.end())
+		roomsCallback.erase(it);
 }
 void RoomsPlugin::ExecuteFunc(RoomsPluginFunc *func)
 {
@@ -862,46 +861,37 @@ void RoomsPlugin::SetServerAddress(SystemAddress systemAddress)
 }
 bool RoomsPlugin::LoginRoomsParticipant(MafiaNet::RakString userName, SystemAddress roomsParticipantAddress, RakNetGUID guid, SystemAddress loginServerAddress)
 {
-	if (loginServerAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && loginServers.GetIndexOf(loginServerAddress) == (unsigned int) -1)
+	if (loginServerAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && std::find(loginServers.begin(), loginServers.end(), loginServerAddress) == loginServers.end())
 		return false;
-	bool objectExists;
-	unsigned int index;
-	index = roomsParticipants.GetIndexFromKey(userName, &objectExists);
-	if (objectExists == false)
+	if (roomsParticipants.count(userName) == 0)
 	{
-		RoomsPluginParticipant *rpp = new RoomsPluginParticipant;
+		auto rpp = std::make_unique<RoomsPluginParticipant>();
 		rpp->SetSystemAddress(roomsParticipantAddress);
 		rpp->SetGUID(guid);
 		rpp->SetName(userName);
-		roomsParticipants.InsertAtIndex(rpp, index, _FILE_AND_LINE_);
+		roomsParticipants.emplace(userName, std::move(rpp));
 		return true;
 	}
 	return false;
 }
 bool RoomsPlugin::LogoffRoomsParticipant(MafiaNet::RakString userName, SystemAddress loginServerAddress)
 {
-	if (loginServerAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && loginServers.GetIndexOf(loginServerAddress) == (unsigned int) -1)
+	if (loginServerAddress != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS && std::find(loginServers.begin(), loginServers.end(), loginServerAddress) == loginServers.end())
 		return false;
-	bool objectExists;
-	unsigned int index;
-	index = roomsParticipants.GetIndexFromKey(userName, &objectExists);
-	if (objectExists == true)
+	auto participant = roomsParticipants.find(userName);
+	if (participant != roomsParticipants.end())
 	{
 		RemoveUserResult removeUserResult;
-		roomsContainer.RemoveUser(roomsParticipants[index], &removeUserResult);
+		roomsContainer.RemoveUser(participant->second.get(), &removeUserResult);
 		ProcessRemoveUserResult(&removeUserResult);
-		delete roomsParticipants[index];
-		roomsParticipants.RemoveAtIndex(index);
+		roomsParticipants.erase(participant);
 		return true;
 	}
 	return false;
 }
 void RoomsPlugin::ClearRoomMembers(void)
 {
-	unsigned int i;
-	for (i = 0; i < roomsParticipants.Size(); i++)
-		delete roomsParticipants[i];
-	roomsParticipants.Clear(false, _FILE_AND_LINE_);
+	roomsParticipants.clear();
 }
 void RoomsPlugin::SerializeLogin(MafiaNet::RakString userName, SystemAddress userAddress, RakNetGUID guid, MafiaNet::BitStream *bs)
 {
@@ -938,19 +928,18 @@ void RoomsPlugin::ChangeHandle(MafiaNet::RakString oldHandle, MafiaNet::RakStrin
 }
 void RoomsPlugin::AddLoginServerAddress(SystemAddress systemAddress)
 {
-	unsigned int index = loginServers.GetIndexOf(systemAddress);
-	if (index == (unsigned int) -1)
-		loginServers.Push(systemAddress, _FILE_AND_LINE_);
+	if (std::find(loginServers.begin(), loginServers.end(), systemAddress) == loginServers.end())
+		loginServers.push_back(systemAddress);
 }
 void RoomsPlugin::RemoveLoginServerAddress(SystemAddress systemAddress)
 {
-	unsigned int index = loginServers.GetIndexOf(systemAddress);
-	if (index != (unsigned int) -1)
-		loginServers.RemoveAtIndexFast(index);
+	auto it = std::find(loginServers.begin(), loginServers.end(), systemAddress);
+	if (it != loginServers.end())
+		SwapRemove(loginServers, static_cast<std::size_t>(it - loginServers.begin()));
 }
 void RoomsPlugin::ClearLoginServerAdddresses(void)
 {
-	loginServers.Clear(false, _FILE_AND_LINE_);
+	loginServers.clear();
 }
 void RoomsPlugin::SetProfanityFilter(ProfanityFilter *pf)
 {
@@ -969,9 +958,9 @@ void RoomsPlugin::Update(void)
 	if (IsServer() == false)
 		return;
 
-	DataStructures::List<QuickJoinUser *> timeoutExpired;
-	DataStructures::List<QuickJoinUser *> dereferencedPointers;
-	DataStructures::List<JoinedRoomResult> joinedRoomMembers;
+	std::vector<QuickJoinUser *> timeoutExpired;
+	std::vector<QuickJoinUser *> dereferencedPointers;
+	std::vector<JoinedRoomResult> joinedRoomMembers;
 
 	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	if (lastUpdateTime != 0)
@@ -979,13 +968,13 @@ void RoomsPlugin::Update(void)
 		MafiaNet::TimeMS elapsedTime = curTime - lastUpdateTime;
 		roomsContainer.ProcessQuickJoins(timeoutExpired, joinedRoomMembers, dereferencedPointers, elapsedTime);
 		unsigned int i;
-		for (i = 0; i < timeoutExpired.Size(); i++)
+		for (i = 0; i < timeoutExpired.size(); i++)
 		{
 			QuickJoinExpired_Notification notification;
 			notification.networkedQuickJoinUser = timeoutExpired[i]->networkedQuickJoinUser;
 			ExecuteNotification(&notification, ((RoomsPluginParticipant *) timeoutExpired[i]->roomsParticipant));
 		}
-		for (i = 0; i < joinedRoomMembers.Size(); i++)
+		for (i = 0; i < joinedRoomMembers.size(); i++)
 		{
 			((RoomsPluginParticipant *) joinedRoomMembers[i].joiningMember)->lastRoomJoined = joinedRoomMembers[i].roomOutput->GetID();
 
@@ -995,7 +984,7 @@ void RoomsPlugin::Update(void)
 			ExecuteNotification(&notificationToTarget, ((RoomsPluginParticipant *) joinedRoomMembers[i].joiningMember));
 		}
 
-		for (i = 0; i < joinedRoomMembers.Size(); i++)
+		for (i = 0; i < joinedRoomMembers.size(); i++)
 		{
 			RoomMemberJoinedRoom_Notification notificationToRoom;
 			notificationToRoom.joinedRoomResult = &joinedRoomMembers[i];
@@ -1005,7 +994,7 @@ void RoomsPlugin::Update(void)
 			notificationToRoom.joinedRoomResult = 0;
 		}
 
-		for (i = 0; i < dereferencedPointers.Size(); i++)
+		for (i = 0; i < dereferencedPointers.size(); i++)
 			delete dereferencedPointers[i];
 	}
 
@@ -1031,7 +1020,7 @@ PluginReceiveResult RoomsPlugin::OnReceive(Packet *packet)
 void RoomsPlugin::OnLoginStatus(Packet *packet)
 {
 	unsigned int i;
-	for (i = 0; i < loginServers.Size(); i++)
+	for (i = 0; i < loginServers.size(); i++)
 	{
 		if (loginServers[i] == packet->systemAddress)
 		{
@@ -1060,7 +1049,7 @@ void RoomsPlugin::OnLoginStatus(Packet *packet)
 void RoomsPlugin::OnHandleChange(Packet *packet)
 {
 	unsigned int i;
-	for (i = 0; i < loginServers.Size(); i++)
+	for (i = 0; i < loginServers.size(); i++)
 	{
 		if (loginServers[i] == packet->systemAddress)
 		{
@@ -1080,7 +1069,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	bs.IgnoreBytes(1);
 	if (packet->length < 2)
 		return;
-	if (roomsCallback.Size() == 0)
+	if (roomsCallback.size() == 0)
 		return;
 	switch (packet->data[1])
 	{
@@ -1091,7 +1080,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->CreateRoom_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1104,7 +1093,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->EnterRoom_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1116,7 +1105,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->JoinByFilter_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1128,7 +1117,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->LeaveRoom_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1140,7 +1129,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->GetInvitesToParticipant_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1152,7 +1141,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SendInvite_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1164,7 +1153,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->AcceptInvite_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1176,7 +1165,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->StartSpectating_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1188,7 +1177,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->StopSpectating_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1200,7 +1189,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->GrantModerator_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1212,7 +1201,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->ChangeSlotCounts_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1224,7 +1213,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SetCustomRoomProperties_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1236,7 +1225,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->GetRoomProperties_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1248,7 +1237,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->ChangeRoomName_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1260,7 +1249,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SetHiddenFromSearches_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1272,7 +1261,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SetDestroyOnModeratorLeave_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1284,7 +1273,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SetReadyStatus_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1296,7 +1285,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->GetReadyStatus_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1308,7 +1297,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SetRoomLockState_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1320,7 +1309,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->GetRoomLockState_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1332,7 +1321,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->AreAllMembersReady_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1344,7 +1333,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->KickMember_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1356,7 +1345,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->UnbanMember_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1368,7 +1357,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->GetBanReason_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1380,7 +1369,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->AddUserToQuickJoin_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1392,7 +1381,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RemoveUserFromQuickJoin_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1404,7 +1393,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->IsInQuickJoin_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1416,7 +1405,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SearchByFilter_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1428,7 +1417,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->ChangeHandle_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1439,7 +1428,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->Chat_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1450,7 +1439,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 			func.SerializeOut(false, &bs);
 		else
 			func.SerializeIn(false, &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->Bitstream_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1458,7 +1447,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		QuickJoinExpired_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->QuickJoinExpired_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1466,7 +1455,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		QuickJoinEnteredRoom_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->QuickJoinEnteredRoom_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1474,7 +1463,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberStartedSpectating_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberStartedSpectating_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1482,7 +1471,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberStoppedSpectating_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberStoppedSpectating_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1490,7 +1479,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		ModeratorChanged_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->ModeratorChanged_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1498,7 +1487,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		SlotCountsSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->SlotCountsSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1506,7 +1495,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		CustomRoomPropertiesSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->CustomRoomPropertiesSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1514,7 +1503,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomNameSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomNameSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1522,7 +1511,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		HiddenFromSearchesSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->HiddenFromSearchesSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1530,7 +1519,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberReadyStatusSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberReadyStatusSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1538,7 +1527,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomLockStateSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomLockStateSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1546,7 +1535,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberKicked_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberKicked_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1554,7 +1543,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberHandleSet_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberHandleSet_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1562,7 +1551,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberLeftRoom_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberLeftRoom_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1570,7 +1559,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomMemberJoinedRoom_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomMemberJoinedRoom_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1578,7 +1567,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomInvitationSent_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomInvitationSent_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1586,7 +1575,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomInvitationWithdrawn_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomInvitationWithdrawn_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1594,7 +1583,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		RoomDestroyedOnModeratorLeft_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->RoomDestroyedOnModeratorLeft_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1605,7 +1594,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 		// When the filtered chat message is empty, that means the original chat message didn't have profanity anyway.
 		if (func.filteredChatMessage.IsEmpty())
 			func.filteredChatMessage = func.chatMessage;
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->Chat_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1613,7 +1602,7 @@ void RoomsPlugin::OnRoomsExecuteFunc(Packet *packet)
 	{
 		Bitstream_Notification func;
 		func.Serialize(IsServer(), &bs);
-		for (unsigned int rci = 0; rci < roomsCallback.Size(); rci++)
+		for (unsigned int rci = 0; rci < roomsCallback.size(); rci++)
 			roomsCallback[rci]->Bitstream_Callback(packet->systemAddress, &func);
 	}
 	break;
@@ -1625,20 +1614,18 @@ void RoomsPlugin::OnClosedConnection(const SystemAddress &systemAddress, RakNetG
 	(void) rakNetGUID;
 
 	RemoveUserResult removeUserResult;
-	unsigned i;
-	i = 0;
-	while (i < roomsParticipants.Size())
+	auto participant = roomsParticipants.begin();
+	while (participant != roomsParticipants.end())
 	{
-		if (roomsParticipants[i]->GetSystemAddress() == systemAddress)
+		if (participant->second->GetSystemAddress() == systemAddress)
 		{
-			roomsContainer.RemoveUser(roomsParticipants[i], &removeUserResult);
+			roomsContainer.RemoveUser(participant->second.get(), &removeUserResult);
 			ProcessRemoveUserResult(&removeUserResult);
-			delete roomsParticipants[i];
-			roomsParticipants.RemoveAtIndex(i);
+			participant = roomsParticipants.erase(participant);
 		}
 		else
 		{
-			i++;
+			++participant;
 		}
 	}
 }
@@ -1650,14 +1637,15 @@ void RoomsPlugin::Clear(void)
 bool RoomsPlugin::IsServer(void) const
 {
 	RoomsCallback *rc = (RoomsCallback *) this;
-	return roomsCallback.GetIndexOf(rc) != (unsigned int) -1;
+	return std::find(roomsCallback.begin(), roomsCallback.end(), rc) != roomsCallback.end();
 }
 RoomsPlugin::RoomsPluginParticipant *RoomsPlugin::GetParticipantByHandle(MafiaNet::RakString handle, const SystemAddress &senderAddress)
 {
 	(void) senderAddress;
-	if (roomsParticipants.HasData(handle))
+	auto participant = roomsParticipants.find(handle);
+	if (participant != roomsParticipants.end())
 	{
-		RoomsPluginParticipant *rp = roomsParticipants.GetElementFromKey(handle);
+		RoomsPluginParticipant *rp = participant->second.get();
 		RakAssert(IsServer());
 		// 08/21/2012 - Uncommented: This was a bug with SendInvite_Func checking the sender's address against the invitees address
 		// 10/27/2010 - what was this for? Caused the bug http://www.jenkinssoftware.com/forum/index.php?topic=3720.0;topicseen
@@ -1743,7 +1731,7 @@ void RoomsPlugin::JoinByFilter_Callback(const SystemAddress &senderAddress, Join
 	callResult->resultCode = roomsContainer.JoinByFilter(callResult->gameIdentifier, callResult->roomMemberMode, roomsPluginParticipant, roomsPluginParticipant->lastRoomJoined, &callResult->query, &callResult->joinedRoomResult);
 	if (callResult->resultCode == REC_SUCCESS)
 	{
-		RakAssert(callResult->joinedRoomResult.roomOutput->GetNumericProperty(DefaultRoomColumns::TC_USED_SLOTS) == callResult->joinedRoomResult.roomOutput->roomMemberList.Size() - 1);
+		RakAssert(callResult->joinedRoomResult.roomOutput->GetNumericProperty(DefaultRoomColumns::TC_USED_SLOTS) == callResult->joinedRoomResult.roomOutput->roomMemberList.size() - 1);
 
 		roomsPluginParticipant->lastRoomJoined = roomsPluginParticipant->GetRoom()->GetID();
 
@@ -1769,11 +1757,11 @@ void RoomsPlugin::GetInvitesToParticipant_Callback(const SystemAddress &senderAd
 	RoomsPluginParticipant *roomsPluginParticipant = ValidateUserHandle(callResult, senderAddress);
 	if (roomsPluginParticipant == 0)
 		return;
-	DataStructures::List<InvitedUser *> invitedUsers;
+	std::vector<InvitedUser *> invitedUsers;
 	callResult->resultCode = roomsContainer.GetInvitesToParticipant(roomsPluginParticipant, invitedUsers);
 	unsigned int i;
-	for (i = 0; i < invitedUsers.Size(); i++)
-		callResult->invitedUsers.Insert(*(invitedUsers[i]), _FILE_AND_LINE_);
+	for (i = 0; i < invitedUsers.size(); i++)
+		callResult->invitedUsers.push_back(*(invitedUsers[i]));
 	ExecuteFunc(callResult, senderAddress);
 }
 void RoomsPlugin::SendInvite_Callback(const SystemAddress &senderAddress, SendInvite_Func *callResult)
@@ -1868,7 +1856,7 @@ void RoomsPlugin::GrantModerator_Callback(const SystemAddress &senderAddress, Gr
 		return;
 	}
 
-	DataStructures::List<InvitedUser> clearedInvites;
+	std::vector<InvitedUser> clearedInvites;
 	callResult->resultCode = roomsContainer.GrantModerator(roomsPluginParticipant, newModerator, clearedInvites);
 
 	if (callResult->resultCode == REC_SUCCESS)
@@ -1879,7 +1867,7 @@ void RoomsPlugin::GrantModerator_Callback(const SystemAddress &senderAddress, Gr
 		notification.roomId = roomsPluginParticipant->GetRoom()->GetID();
 		ExecuteNotificationToOtherRoomMembers(roomsPluginParticipant->GetRoom(), roomsPluginParticipant, &notification);
 
-		for (unsigned int i = 0; i < clearedInvites.Size(); i++)
+		for (unsigned int i = 0; i < clearedInvites.size(); i++)
 		{
 			//			Room *room = newModerator->GetRoom();
 			RoomInvitationWithdrawn_Notification roomnotification;
@@ -2001,8 +1989,8 @@ void RoomsPlugin::SetReadyStatus_Callback(const SystemAddress &senderAddress, Se
 		return;
 	callResult->resultCode = roomsContainer.SetReadyStatus(roomsPluginParticipant, callResult->isReady);
 
-	DataStructures::List<RoomsParticipant *> readyUsers;
-	DataStructures::List<RoomsParticipant *> unreadyUsers;
+	std::vector<RoomsParticipant *> readyUsers;
+	std::vector<RoomsParticipant *> unreadyUsers;
 	unsigned int i;
 	roomsPluginParticipant->GetRoom()->GetReadyStatus(readyUsers, unreadyUsers);
 
@@ -2013,18 +2001,18 @@ void RoomsPlugin::SetReadyStatus_Callback(const SystemAddress &senderAddress, Se
 		notification.isReady = callResult->isReady;
 		notification.roomMember = roomsPluginParticipant->GetName();
 
-		for (i = 0; i < readyUsers.Size(); i++)
-			notification.readyUsers.Insert(readyUsers[i]->GetName(), _FILE_AND_LINE_);
-		for (i = 0; i < unreadyUsers.Size(); i++)
-			notification.unreadyUsers.Insert(unreadyUsers[i]->GetName(), _FILE_AND_LINE_);
+		for (i = 0; i < readyUsers.size(); i++)
+			notification.readyUsers.push_back(readyUsers[i]->GetName());
+		for (i = 0; i < unreadyUsers.size(); i++)
+			notification.unreadyUsers.push_back(unreadyUsers[i]->GetName());
 
 		ExecuteNotificationToOtherRoomMembers(roomsPluginParticipant->GetRoom(), roomsPluginParticipant, &notification);
 	}
 
-	for (i = 0; i < readyUsers.Size(); i++)
-		callResult->readyUsers.Insert(readyUsers[i]->GetName(), _FILE_AND_LINE_);
-	for (i = 0; i < unreadyUsers.Size(); i++)
-		callResult->unreadyUsers.Insert(unreadyUsers[i]->GetName(), _FILE_AND_LINE_);
+	for (i = 0; i < readyUsers.size(); i++)
+		callResult->readyUsers.push_back(readyUsers[i]->GetName());
+	for (i = 0; i < unreadyUsers.size(); i++)
+		callResult->unreadyUsers.push_back(unreadyUsers[i]->GetName());
 
 	ExecuteFunc(callResult, senderAddress);
 }
@@ -2041,14 +2029,14 @@ void RoomsPlugin::GetReadyStatus_Callback(const SystemAddress &senderAddress, Ge
 	}
 
 	Room *room;
-	DataStructures::List<RoomsParticipant *> readyUsers;
-	DataStructures::List<RoomsParticipant *> unreadyUsers;
+	std::vector<RoomsParticipant *> readyUsers;
+	std::vector<RoomsParticipant *> unreadyUsers;
 	callResult->resultCode = roomsContainer.GetReadyStatus(roomsPluginParticipant->GetRoom()->GetID(), &room, readyUsers, unreadyUsers);
 	unsigned int i;
-	for (i = 0; i < readyUsers.Size(); i++)
-		callResult->readyUsers.Insert(readyUsers[i]->GetName(), _FILE_AND_LINE_);
-	for (i = 0; i < unreadyUsers.Size(); i++)
-		callResult->unreadyUsers.Insert(unreadyUsers[i]->GetName(), _FILE_AND_LINE_);
+	for (i = 0; i < readyUsers.size(); i++)
+		callResult->readyUsers.push_back(readyUsers[i]->GetName());
+	for (i = 0; i < unreadyUsers.size(); i++)
+		callResult->unreadyUsers.push_back(unreadyUsers[i]->GetName());
 	ExecuteFunc(callResult, senderAddress);
 }
 void RoomsPlugin::SetRoomLockState_Callback(const SystemAddress &senderAddress, SetRoomLockState_Func *callResult)
@@ -2179,15 +2167,15 @@ void RoomsPlugin::SearchByFilter_Callback(const SystemAddress &senderAddress, Se
 	if (roomsPluginParticipant == 0)
 		return;
 
-	DataStructures::OrderedList<Room *, Room *, AllGamesRoomsContainer::RoomsSortByName> roomsOutput;
+	std::vector<Room *> roomsOutput;
 	callResult->resultCode = roomsContainer.SearchByFilter(callResult->gameIdentifier, roomsPluginParticipant, &callResult->roomQuery, roomsOutput, callResult->onlyJoinable);
 	unsigned i;
 	RoomDescriptor *desc;
-	for (i = 0; i < roomsOutput.Size(); i++)
+	for (i = 0; i < roomsOutput.size(); i++)
 	{
 		desc = new RoomDescriptor;
 		desc->FromRoom(roomsOutput[i], &roomsContainer);
-		callResult->roomsOutput.Insert(desc, _FILE_AND_LINE_);
+		callResult->roomsOutput.push_back(desc);
 	}
 	ExecuteFunc(callResult, senderAddress);
 }
@@ -2358,7 +2346,7 @@ void RoomsPlugin::Bitstream_Callback(const SystemAddress &senderAddress, Bitstre
 void RoomsPlugin::ProcessRemoveUserResult(RemoveUserResult *removeUserResult)
 {
 	unsigned int j;
-	for (j = 0; j < removeUserResult->clearedInvitations.Size(); j++)
+	for (j = 0; j < removeUserResult->clearedInvitations.size(); j++)
 	{
 		RoomsPluginParticipant *invitationRecipient = GetParticipantByHandle(removeUserResult->clearedInvitations[j].target, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 		if (invitationRecipient)
@@ -2408,7 +2396,7 @@ void RoomsPlugin::ProcessRemoveUserResult(RemoveUserResult *removeUserResult)
 void RoomsPlugin::ExecuteNotificationToOtherRoomMembers(Room *room, RoomsPluginParticipant *roomsPluginParticipant, RoomsPluginNotification *notification)
 {
 	unsigned roomMemberIndex;
-	for (roomMemberIndex = 0; roomMemberIndex < room->roomMemberList.Size(); roomMemberIndex++)
+	for (roomMemberIndex = 0; roomMemberIndex < room->roomMemberList.size(); roomMemberIndex++)
 	{
 		if (room->roomMemberList[roomMemberIndex]->roomsParticipant != roomsPluginParticipant)
 			ExecuteNotification(notification, ((RoomsPluginParticipant *) room->roomMemberList[roomMemberIndex]->roomsParticipant));

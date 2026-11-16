@@ -624,10 +624,10 @@ void RoomsBrowserGFx3_RakNet::SearchByFilter_Callback(const SystemAddress &sende
 
 	if (callResult->resultCode == REC_SUCCESS)
 	{
-		rargs.Add((Double) callResult->roomsOutput.Size());
+		rargs.Add((Double) callResult->roomsOutput.size());
 
 		unsigned int i;
-		for (i = 0; i < callResult->roomsOutput.Size(); i++)
+		for (i = 0; i < callResult->roomsOutput.size(); i++)
 		{
 			rargs.Add(true);
 			rargs.Add((Double) callResult->roomsOutput[i]->GetProperty(DefaultRoomColumns::GetColumnName(DefaultRoomColumns::TC_ROOM_ID))->i);
@@ -635,7 +635,7 @@ void RoomsBrowserGFx3_RakNet::SearchByFilter_Callback(const SystemAddress &sende
 			callResult->roomsOutput[i]->roomMemberList[0].systemAddress.ToString(true, ipAddr, sizeof(ipAddr));
 			rargs.Add(ipAddr);
 			rargs.Add(callResult->roomsOutput[i]->roomMemberList[0].name.C_String());
-			rargs.Add((Double) callResult->roomsOutput[i]->roomMemberList.Size());
+			rargs.Add((Double) callResult->roomsOutput[i]->roomMemberList.size());
 			rargs.Add((Double) callResult->roomsOutput[i]->GetProperty(DefaultRoomColumns::TC_TOTAL_SLOTS)->i);
 			rargs.Add(callResult->roomsOutput[i]->GetProperty("mapName")->c);
 		}
@@ -693,8 +693,8 @@ void RoomsBrowserGFx3_RakNet::MessageResult(MafiaNet::Friends_GetFriends *messag
 	rargs.Add(Lobby2ResultCodeDescription::ToEnum(message->resultCode));
 
 	unsigned int i;
-	rargs.Add((Double) message->myFriends.Size());
-	for (i = 0; i < message->myFriends.Size(); i++)
+	rargs.Add((Double) message->myFriends.size());
+	for (i = 0; i < message->myFriends.size(); i++)
 	{
 		WriteUsernameAndStatus(message->myFriends[i].usernameAndStatus, rargs);
 	}
@@ -707,14 +707,14 @@ void RoomsBrowserGFx3_RakNet::MessageResult(MafiaNet::Friends_GetInvites *messag
 	rargs.Add(Lobby2ResultCodeDescription::ToEnum(message->resultCode));
 
 	unsigned int i;
-	rargs.Add((Double) message->invitesReceived.Size());
-	for (i = 0; i < message->invitesReceived.Size(); i++)
+	rargs.Add((Double) message->invitesReceived.size());
+	for (i = 0; i < message->invitesReceived.size(); i++)
 	{
 		WriteUsernameAndStatus(message->invitesReceived[i].usernameAndStatus, rargs);
 	}
 
-	rargs.Add((Double) message->invitesSent.Size());
-	for (i = 0; i < message->invitesSent.Size(); i++)
+	rargs.Add((Double) message->invitesSent.size());
+	for (i = 0; i < message->invitesSent.size(); i++)
 	{
 		WriteUsernameAndStatus(message->invitesSent[i].usernameAndStatus, rargs);
 	}
@@ -820,11 +820,11 @@ void RoomsBrowserGFx3_RakNet::SetReadyStatus_Callback(const SystemAddress &sende
 	FxResponseArgsList rargs;
 	rargs.Add(RoomsErrorCodeDescription::ToEnum(callResult->resultCode));
 	rargs.Add(callResult->isReady);
-	rargs.Add((Double) callResult->readyUsers.Size());
-	for (unsigned int i = 0; i < callResult->readyUsers.Size(); i++)
+	rargs.Add((Double) callResult->readyUsers.size());
+	for (unsigned int i = 0; i < callResult->readyUsers.size(); i++)
 		rargs.Add(callResult->readyUsers[i].C_String());
-	rargs.Add((Double) callResult->unreadyUsers.Size());
-	for (unsigned int i = 0; i < callResult->unreadyUsers.Size(); i++)
+	rargs.Add((Double) callResult->unreadyUsers.size());
+	for (unsigned int i = 0; i < callResult->unreadyUsers.size(); i++)
 		rargs.Add(callResult->unreadyUsers[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_SetReadyStatus", rargs);
 }
@@ -832,10 +832,10 @@ void RoomsBrowserGFx3_RakNet::GetReadyStatus_Callback(const SystemAddress &sende
 {
 	FxResponseArgsList rargs;
 	rargs.Add(RoomsErrorCodeDescription::ToEnum(callResult->resultCode));
-	for (unsigned int i = 0; i < callResult->readyUsers.Size(); i++)
+	for (unsigned int i = 0; i < callResult->readyUsers.size(); i++)
 		rargs.Add(callResult->readyUsers[i].C_String());
-	rargs.Add((Double) callResult->unreadyUsers.Size());
-	for (unsigned int i = 0; i < callResult->unreadyUsers.Size(); i++)
+	rargs.Add((Double) callResult->unreadyUsers.size());
+	for (unsigned int i = 0; i < callResult->unreadyUsers.size(); i++)
 		rargs.Add(callResult->unreadyUsers[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetReadyStatus", rargs);
 }
@@ -885,8 +885,8 @@ void RoomsBrowserGFx3_RakNet::GetRoomProperties_Callback(const SystemAddress &se
 	FxResponseArgsList rargs;
 	rargs.Add(RoomsErrorCodeDescription::ToEnum(callResult->resultCode));
 	rargs.Add(callResult->roomName.C_String());
-	rargs.Add((Double) callResult->roomDescriptor.roomMemberList.Size());
-	for (unsigned int i = 0; i < callResult->roomDescriptor.roomMemberList.Size(); i++)
+	rargs.Add((Double) callResult->roomDescriptor.roomMemberList.size());
+	for (unsigned int i = 0; i < callResult->roomDescriptor.roomMemberList.size(); i++)
 	{
 		rargs.Add(callResult->roomDescriptor.roomMemberList[i].name.C_String());
 		const char *c = RoomMemberModeToEnum(callResult->roomDescriptor.roomMemberList[i].roomMemberMode);
@@ -898,8 +898,8 @@ void RoomsBrowserGFx3_RakNet::GetRoomProperties_Callback(const SystemAddress &se
 		rargs.Add(guidString);
 	}
 
-	rargs.Add((Double) callResult->roomDescriptor.banList.Size());
-	for (unsigned int i = 0; i < callResult->roomDescriptor.banList.Size(); i++)
+	rargs.Add((Double) callResult->roomDescriptor.banList.size());
+	for (unsigned int i = 0; i < callResult->roomDescriptor.banList.size(); i++)
 	{
 		rargs.Add(callResult->roomDescriptor.banList[i].target.C_String());
 		rargs.Add(callResult->roomDescriptor.banList[i].reason.C_String());
@@ -947,11 +947,11 @@ void RoomsBrowserGFx3_RakNet::RoomMemberReadyStatusSet_Callback(const SystemAddr
 	FxResponseArgsList rargs;
 	rargs.Add(notification->isReady);
 	rargs.Add(notification->roomMember.C_String());
-	rargs.Add((Double) notification->readyUsers.Size());
-	for (unsigned int i = 0; i < notification->readyUsers.Size(); i++)
+	rargs.Add((Double) notification->readyUsers.size());
+	for (unsigned int i = 0; i < notification->readyUsers.size(); i++)
 		rargs.Add(notification->readyUsers[i].C_String());
-	rargs.Add((Double) notification->unreadyUsers.Size());
-	for (unsigned int i = 0; i < notification->unreadyUsers.Size(); i++)
+	rargs.Add((Double) notification->unreadyUsers.size());
+	for (unsigned int i = 0; i < notification->unreadyUsers.size(); i++)
 		rargs.Add(notification->unreadyUsers[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_RoomMemberReadyStatusSet_Callback", rargs);
 }

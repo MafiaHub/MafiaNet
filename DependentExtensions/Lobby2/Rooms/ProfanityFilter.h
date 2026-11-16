@@ -16,8 +16,10 @@
 #ifndef __PROFANITY_FILTER__H__
 #define __PROFANITY_FILTER__H__
 
-#include "mafianet/ds_list.h"
 #include "mafianet/string.h"
+
+#include <cstddef>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -41,7 +43,7 @@ public:
 	void AddWord(MafiaNet::RakString newWord);
 
 private:
-	DataStructures::List<MafiaNet::RakString> words;
+	std::vector<MafiaNet::RakString> words;
 
 	char RandomBanChar();
 
