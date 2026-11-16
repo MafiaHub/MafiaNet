@@ -103,6 +103,7 @@ MafiaNet Documentation
 
    api/core
    api/plugins
+   api/utilities
 
 .. toctree::
    :maxdepth: 1
