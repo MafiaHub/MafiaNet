@@ -161,7 +161,7 @@ TEST(StringCompressorGolden, DecodesGoldenBytesToOriginalStrings)
 	CompressorRef ref;
 	for (const StringGolden &g : kStringGoldens)
 	{
-		BitStream bs(const_cast<unsigned char *>(g.bytes), g.size, true);
+		BitStream bs(const_cast<unsigned char *>(g.bytes), static_cast<unsigned int>(g.size), true);
 		char out[4096];
 		ASSERT_TRUE(StringCompressor::Instance()->DecodeString(out, 4096, &bs));
 		EXPECT_STREQ(g.text, out);
@@ -193,7 +193,7 @@ TEST(StringCompressorGolden, TruncatedInputDecodesWithoutOverrun)
 		// Copy into an exact-size heap buffer so ASan sees any read past the end.
 		const size_t half = g.size / 2;
 		std::vector<unsigned char> cut(g.bytes, g.bytes + half);
-		BitStream bs(cut.data(), half, false);
+		BitStream bs(cut.data(), static_cast<unsigned int>(half), false);
 		char out[4096];
 		const bool ok = StringCompressor::Instance()->DecodeString(out, 4096, &bs);
 		if (ok)
