@@ -193,7 +193,7 @@ void MasterServer::HandleQuery(Packet *packet)
 {
 	std::vector<GameServer *> serversWithKeysList;
 	char ruleIdentifier[256];
-	unsigned index, serverIndex;
+	unsigned index;
 	int key;
 	bool queryAll;
 	BitStream outputBitStream;
