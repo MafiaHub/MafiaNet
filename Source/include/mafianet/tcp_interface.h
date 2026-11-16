@@ -34,6 +34,7 @@
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 
+#include <cstddef>
 #include <cstdlib>
 #include <deque>
 #include <memory>
@@ -201,6 +202,33 @@ protected:
 	};
 };
 
+/// \internal Unsent bytes of a TCP connection's send buffer \a buffer: buffer[offset, size).
+inline std::size_t TcpOutgoingPending(const std::vector<unsigned char> &buffer, std::size_t offset)
+{
+	return buffer.size() - offset;
+}
+
+/// \internal Marks \a sent more bytes of \a buffer as sent (\a sent <= TcpOutgoingPending()). The
+/// sent prefix is only dropped once it is at least half the buffer (or everything was sent), so
+/// draining n bytes in any chunk sizes moves fewer than n bytes in total; erasing the sent prefix
+/// on every send moved the whole backlog each time, O(n^2). Returns the bytes this call moved.
+inline std::size_t TcpOutgoingConsume(std::vector<unsigned char> &buffer, std::size_t &offset, std::size_t sent)
+{
+	offset += sent;
+	if (offset >= buffer.size())
+	{
+		buffer.clear();
+		offset = 0;
+		return 0;
+	}
+	if (offset < buffer.size() - offset)
+		return 0;
+	const std::size_t moved = buffer.size() - offset;
+	buffer.erase(buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(offset));
+	offset = 0;
+	return moved;
+}
+
 /// Stores information about a remote client.
 // Thread ownership: socket, systemAddress, isActive and socketsToClose are
 // written under isActiveMutex. Only the update thread uses a socket (select,
@@ -217,8 +245,10 @@ struct RemoteClient
 	}
 	__TCPSOCKET__ socket;
 	SystemAddress systemAddress;
-	// Bytes not yet taken by the socket, oldest first; the update thread erases the sent prefix.
+	// Bytes queued for the socket, oldest first; outgoingData[outgoingOffset, size) is unsent (see
+	// TcpOutgoingConsume). Both guarded by outgoingDataMutex.
 	std::vector<unsigned char> outgoingData;
+	std::size_t outgoingOffset = 0;
 	bool isActive;
 	SimpleMutex outgoingDataMutex;
 	SimpleMutex isActiveMutex;
@@ -232,6 +262,7 @@ struct RemoteClient
 	{
 		outgoingDataMutex.Lock();
 		outgoingData.clear();
+		outgoingOffset = 0;
 		outgoingDataMutex.Unlock();
 	}
 	// Requires isActiveMutex. Deactivating shuts the socket down but does not close it: see socketsToClose.

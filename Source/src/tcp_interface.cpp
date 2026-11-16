@@ -838,7 +838,7 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 	    remoteClients[systemAddress.systemIndex].systemAddress == systemAddress)
 	{
 		remoteClients[systemAddress.systemIndex].outgoingDataMutex.Lock();
-		bytesWritten = static_cast<unsigned>(remoteClients[systemAddress.systemIndex].outgoingData.size());
+		bytesWritten = static_cast<unsigned>(TcpOutgoingPending(remoteClients[systemAddress.systemIndex].outgoingData, remoteClients[systemAddress.systemIndex].outgoingOffset));
 		remoteClients[systemAddress.systemIndex].outgoingDataMutex.Unlock();
 		return bytesWritten;
 	}
@@ -848,7 +848,7 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 		if (remoteClients[i].isActive && remoteClients[i].systemAddress == systemAddress)
 		{
 			remoteClients[i].outgoingDataMutex.Lock();
-			bytesWritten += static_cast<unsigned>(remoteClients[i].outgoingData.size());
+			bytesWritten += static_cast<unsigned>(TcpOutgoingPending(remoteClients[i].outgoingData, remoteClients[i].outgoingOffset));
 			remoteClients[i].outgoingDataMutex.Unlock();
 		}
 	}
@@ -1081,7 +1081,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						FD_SET(socketCopy, &readFD);
 						FD_SET(socketCopy, &exceptionFD);
 						sts->remoteClients[i].outgoingDataMutex.Lock();
-						const bool hasOutgoingData = !sts->remoteClients[i].outgoingData.empty();
+						const bool hasOutgoingData = TcpOutgoingPending(sts->remoteClients[i].outgoingData, sts->remoteClients[i].outgoingOffset) != 0;
 						sts->remoteClients[i].outgoingDataMutex.Unlock();
 						if (hasOutgoingData)
 							FD_SET(socketCopy, &writeFD);
@@ -1243,14 +1243,15 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						{
 							RemoteClient *rc = &sts->remoteClients[i];
 							rc->outgoingDataMutex.Lock();
-							if (!rc->outgoingData.empty())
+							const std::size_t pending = TcpOutgoingPending(rc->outgoingData, rc->outgoingOffset);
+							if (pending != 0)
 							{
-								// The buffer is contiguous: offer up to BUFF_SIZE bytes of it (SSL_write takes an int) and
-								// drop the prefix the socket took.
-								const auto toSend = static_cast<unsigned int>(std::min<std::size_t>(rc->outgoingData.size(), BUFF_SIZE));
-								const int bytesSent = rc->Send(socketCopy, reinterpret_cast<const char *>(rc->outgoingData.data()), toSend);
+								// Offer up to BUFF_SIZE unsent bytes (SSL_write takes an int); the buffer
+								// drops its sent prefix in amortised O(1) per byte.
+								const auto toSend = static_cast<unsigned int>(std::min<std::size_t>(pending, BUFF_SIZE));
+								const int bytesSent = rc->Send(socketCopy, reinterpret_cast<const char *>(rc->outgoingData.data() + rc->outgoingOffset), toSend);
 								if (bytesSent > 0)
-									rc->outgoingData.erase(rc->outgoingData.begin(), rc->outgoingData.begin() + bytesSent);
+									TcpOutgoingConsume(rc->outgoingData, rc->outgoingOffset, static_cast<std::size_t>(bytesSent));
 							}
 							rc->outgoingDataMutex.Unlock();
 						}
@@ -1323,7 +1324,7 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 	for (; parameterIndex < numParameters; parameterIndex++)
 	{
 		outgoingDataMutex.Lock();
-		if (ALLOW_SEND_FROM_USER_THREAD && outgoingData.empty())
+		if (ALLOW_SEND_FROM_USER_THREAD && TcpOutgoingPending(outgoingData, outgoingOffset) == 0)
 		{
 			outgoingDataMutex.Unlock();
 			int bytesSent = Send(socket, data[parameterIndex], lengths[parameterIndex]);
