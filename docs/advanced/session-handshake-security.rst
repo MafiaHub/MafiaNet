@@ -55,8 +55,8 @@ What MafiaNet guarantees
   connecting role, is bound the same way: it is taken only on a connection this peer initiated, so a
   peer that connected *to* us cannot send one to switch our side to the connecting role or make us
   report a connection we never asked for; it is ignored and the incoming connection completes
-  normally. In a plaintext simultaneous (cross-connection) handshake both peers are initiators and
-  both accept them, which is correct. An encrypted one resolves to a single handshake (the lower
+  normally. In a plaintext simultaneous (cross-connection) handshake every peer that sends
+  ``ID_CONNECTION_REQUEST`` is an initiator and accepts the answer, which is correct. An encrypted one resolves to a single handshake (the lower
   RakNetGUID's), so there only that handshake's initiator takes the connecting role.
 * **The handshake cannot be replayed.** A second ``ID_SESSION_CONFIG_REQUEST`` on a connection that
   has left ``EXCHANGING_SESSION_DATA``, or one that arrives while a decision is already pending, is

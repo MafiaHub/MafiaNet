@@ -7057,7 +7057,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// setting weInitiatedTheConnection (never cleared while the slot lives). So it is only ever
 						// legitimate on a connection we initiated. That includes a plaintext cross-connection, where
 						// both peers send ID_CONNECTION_REQUEST on one slot and each takes the other's accept in
-						// HANDLING_CONNECTION_REQUEST. On a slot created by an incoming request -- the absorbed side of
+						// HANDLING_CONNECTION_REQUEST or REQUESTED_CONNECTION. On a slot created by an incoming request -- the absorbed side of
 						// an encrypted cross-connection among them, which never sends ID_CONNECTION_REQUEST -- it is
 						// forged: ignored, even with allowConnectionResponseIPMigration, so a peer that connected to
 						// us cannot switch our slot to the connecting role of the session handshake (#99).
