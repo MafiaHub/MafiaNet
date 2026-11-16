@@ -20,6 +20,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
+#include <cstring>
 #include <string>
 
 using namespace MafiaNet;

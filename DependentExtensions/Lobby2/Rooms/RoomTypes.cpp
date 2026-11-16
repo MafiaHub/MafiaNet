@@ -10,6 +10,8 @@
 
 #include "RoomTypes.h"
 
+#include <cstring>
+
 const char *RoomMemberModeToEnum(RoomMemberMode e)
 {
 	switch (e)
