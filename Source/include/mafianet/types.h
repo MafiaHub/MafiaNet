@@ -26,6 +26,9 @@
 #include "mafianet/windows_includes.h"
 #include "mafianet/socket_includes.h"
 
+#include <cstddef>
+#include <functional>
+
 namespace MafiaNet
 {
 /// Forward declarations
@@ -567,5 +570,25 @@ struct RAK_DLL_EXPORT uint24_t
 };
 
 } // namespace MafiaNet
+
+namespace std
+{
+/// Hashes with RakNetGUID::ToUint32, so a RakNetGUID can key a std::unordered_map.
+template <>
+struct hash<MafiaNet::RakNetGUID>
+{
+	size_t operator()(const MafiaNet::RakNetGUID &g) const { return (size_t) MafiaNet::RakNetGUID::ToUint32(g); }
+};
+} // namespace std
+
+namespace std
+{
+/// Hashes with AddressOrGUID::ToInteger (the GUID when set, otherwise the address).
+template <>
+struct hash<MafiaNet::AddressOrGUID>
+{
+	size_t operator()(const MafiaNet::AddressOrGUID &a) const { return (size_t) MafiaNet::AddressOrGUID::ToInteger(a); }
+};
+} // namespace std
 
 #endif
