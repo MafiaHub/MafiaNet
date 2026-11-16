@@ -1339,6 +1339,21 @@ protected:
 		SendGateBypass::Inject(from, bs, net.AddressOf(to), reliability);
 	}
 
+	// ID_CONNECTION_REQUEST_ACCEPTED: id | external address | system index | internal addresses | ping | pong.
+	// Sent by `from` although `to` never sent it an ID_CONNECTION_REQUEST.
+	void ForgeConnectionAccepted(RakPeer *from, const RakPeer *to)
+	{
+		BitStream forged;
+		forged.Write((MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
+		forged.Write(net.AddressOf(from));
+		forged.Write((SystemIndex) 0);
+		for (unsigned int i = 0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
+			forged.Write(UNASSIGNED_SYSTEM_ADDRESS);
+		forged.Write((Time) 0);
+		forged.Write((Time) 0);
+		SendGateBypass::Inject(from, forged, net.AddressOf(to));
+	}
+
 	bool WaitForHeld(const RakPeer *client, const RakNetGUID &server, unsigned int count, uint32_t maxMs = 30000)
 	{
 		return Until([&]
@@ -1642,9 +1657,11 @@ TEST_F(SessionHeldMessagesSim, ShutdownWhileHoldingDeliversNothing)
 	EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED));
 }
 
-// A peer that connected to us can send ID_CONNECTION_REQUEST_ACCEPTED itself while we are still handling its
-// request; the handler then flips our slot to the connecting role. It must still not make us hold its data:
-// only a connection we initiated has a session reply of ours to overtake.
+// A peer that connected to us sends ID_CONNECTION_REQUEST_ACCEPTED itself while we are still handling its
+// request (#99), then data. The accept is ignored, so our slot never takes the connecting role, and it must
+// not make us hold that data either: only a connection we initiated has a session reply of ours to overtake.
+// The hold keeps its own guard on weInitiatedTheConnection (#96); with the accept ignored that guard is
+// defence in depth, so this test now fails on the role flip rather than on the hold.
 TEST_F(SessionHeldMessagesSim, IncomingPeerCannotMakeTheAcceptingSideHold)
 {
 	RakPeer *server = AddServer(8, 8, 60000);
@@ -1657,16 +1674,7 @@ TEST_F(SessionHeldMessagesSim, IncomingPeerCannotMakeTheAcceptingSideHold)
 	ASSERT_TRUE(Until([&]
 	                  { return SlotInspector::SlotFor(server, client->GetMyGUID()).handlingRequest; }, kConnectTimeoutMs));
 
-	// ID_CONNECTION_REQUEST_ACCEPTED: id | external address | system index | internal addresses | ping | pong.
-	BitStream forged;
-	forged.Write((MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
-	forged.Write(net.AddressOf(client));
-	forged.Write((SystemIndex) 0);
-	for (unsigned int i = 0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
-		forged.Write(UNASSIGNED_SYSTEM_ADDRESS);
-	forged.Write((Time) 0);
-	forged.Write((Time) 0);
-	SendGateBypass::Inject(client, forged, net.AddressOf(server));
+	ForgeConnectionAccepted(client, server);
 	InjectNumbered(client, server, kReliableStreamId, 0, 4, Reliability::Reliable);
 
 	bool flipped = false;
@@ -1675,12 +1683,96 @@ TEST_F(SessionHeldMessagesSim, IncomingPeerCannotMakeTheAcceptingSideHold)
 	{
 		Pump(1);
 		const SlotInspector::Snapshot slot = SlotInspector::SlotFor(server, client->GetMyGUID());
-		flipped = flipped || (slot.exchanging && slot.connectingSide && !slot.weInitiated);
+		flipped = flipped || slot.connectingSide;
 		peakHeld = std::max(peakHeld, slot.heldMessages);
 	}
-	ASSERT_TRUE(flipped) << "precondition: the forged accept did not flip the accepting slot's role";
+	EXPECT_FALSE(flipped) << "a peer that connected to us switched our slot to the connecting role";
 	EXPECT_EQ(0u, peakHeld) << "a peer that connected to us made us hold its data";
 	EXPECT_EQ(0u, CountUserMessages(Inbox(server)));
+}
+
+// #99: the forged accept is ignored and the incoming connection completes as if it had never been sent. The
+// server keeps the accepting role throughout, never reports ID_CONNECTION_REQUEST_ACCEPTED for a peer that
+// connected to it, and reports ID_NEW_INCOMING_CONNECTION exactly once, with the client's payload; the
+// client gets the server's. Ignoring rather than failing matches the other role-bound replies
+// (ID_SESSION_CONFIG, ID_SESSION_CONFIG_REJECTED, ID_SESSION_CONFIG_STATUS): a message the peer has no
+// business sending is dropped, and a peer that wants the connection gone can simply disconnect.
+TEST_F(SessionHeldMessagesSim, ForgedAcceptFromAnIncomingPeerIsIgnored)
+{
+	RakPeer *server = AddServer(8, 8, 60000);
+	RakPeer *client = AddClient(60000);
+	server->SetSessionConfig(kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	client->SetSessionConfig(kClientPayload, (unsigned int) std::strlen(kClientPayload));
+	SimulatedNetwork::LinkRule slow;
+	slow.delayMs = 50;
+	net.SetLink(server, client, slow);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	ASSERT_TRUE(Until([&]
+	                  { return SlotInspector::SlotFor(server, client->GetMyGUID()).handlingRequest; }, kConnectTimeoutMs));
+	ForgeConnectionAccepted(client, server);
+
+	bool flipped = false;
+	ASSERT_TRUE(Until([&]
+	                  {
+		                  flipped = flipped || SlotInspector::SlotFor(server, client->GetMyGUID()).connectingSide;
+		                  return Has(server, ID_NEW_INCOMING_CONNECTION) && Has(client, ID_CONNECTION_REQUEST_ACCEPTED); }, kConnectTimeoutMs))
+	    << "client " << IdList(Inbox(client)) << " server " << IdList(Inbox(server));
+	Pump(2000);
+
+	SCOPED_TRACE("client " + IdList(Inbox(client)) + " server " + IdList(Inbox(server)));
+	EXPECT_FALSE(flipped) << "the server took the connecting role for a peer that connected to it";
+	EXPECT_EQ(0u, Count(server, ID_CONNECTION_REQUEST_ACCEPTED)) << "the server reported an accept it never asked for";
+	EXPECT_EQ(1u, Count(server, ID_NEW_INCOMING_CONNECTION));
+	EXPECT_EQ(1u, Count(client, ID_CONNECTION_REQUEST_ACCEPTED));
+	EXPECT_EQ(0u, Count(server, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_EQ(0u, Count(client, ID_CONNECTION_ATTEMPT_FAILED));
+	EXPECT_EQ(0u, Count(server, ID_CONNECTION_LOST));
+	EXPECT_EQ(0u, Count(client, ID_CONNECTION_LOST));
+
+	unsigned int length = 0;
+	const char *fromClient = server->GetRemoteSessionConfig(client->GetMyGUID(), &length);
+	ExpectPayload(fromClient, length, kClientPayload, std::strlen(kClientPayload));
+	const char *fromServer = client->GetRemoteSessionConfig(server->GetMyGUID(), &length);
+	ExpectPayload(fromServer, length, kServerPayload, std::strlen(kServerPayload));
+
+	// And the connection carries data both ways.
+	BitStream ping;
+	WriteNumbered(ping, kReliableStreamId, 7);
+	ASSERT_NE(0u, client->Send(&ping, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false));
+	ASSERT_NE(0u, server->Send(&ping, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	ASSERT_TRUE(Until([&]
+	                  { return NumbersIn(Inbox(server), kReliableStreamId).size() == 1 && NumbersIn(Inbox(client), kReliableStreamId).size() == 1; }, 5000));
+}
+
+// #99 with AllowConnectionResponseIPMigration(true), which takes ID_CONNECTION_REQUEST_ACCEPTED in any state:
+// on a connection the remote initiated it is still never ours to take, so a connected peer cannot restart
+// the handshake on our side in the connecting role.
+TEST_F(SessionHeldMessagesSim, ForgedAcceptOnAnEstablishedIncomingConnectionIsIgnoredWithIPMigration)
+{
+	RakPeer *server = AddServer(8, 8, 60000);
+	RakPeer *client = AddClient(60000);
+	server->AllowConnectionResponseIPMigration(true);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	ASSERT_TRUE(WaitForBoth(server, ID_NEW_INCOMING_CONNECTION, client, ID_CONNECTION_REQUEST_ACCEPTED));
+
+	ForgeConnectionAccepted(client, server);
+	bool disturbed = false;
+	for (int i = 0; i < 500; ++i)
+	{
+		Pump(1);
+		const SlotInspector::Snapshot slot = SlotInspector::SlotFor(server, client->GetMyGUID());
+		disturbed = disturbed || !slot.sawSlot || slot.exchanging || slot.connectingSide;
+	}
+	SCOPED_TRACE("client " + IdList(Inbox(client)) + " server " + IdList(Inbox(server)));
+	EXPECT_FALSE(disturbed) << "a forged accept moved an established incoming connection back into the handshake";
+	EXPECT_EQ(0u, Count(server, ID_CONNECTION_REQUEST_ACCEPTED));
+	EXPECT_EQ(1u, Count(server, ID_NEW_INCOMING_CONNECTION));
+
+	BitStream ping;
+	WriteNumbered(ping, kReliableStreamId, 1);
+	ASSERT_NE(0u, server->Send(&ping, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false));
+	ASSERT_TRUE(Until([&]
+	                  { return NumbersIn(Inbox(client), kReliableStreamId).size() == 1; }, 5000));
 }
 
 // #98: the accepting side's ID_SESSION_CONFIG is larger than this binary's MAXIMUM_SESSION_CONFIG_SIZE (a
