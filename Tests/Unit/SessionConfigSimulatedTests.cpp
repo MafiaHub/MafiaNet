@@ -1843,3 +1843,71 @@ TEST_F(SessionHeldMessagesSim, SessionConfigAtTheLimitCompletesTheConnection)
 	ASSERT_NE(nullptr, client->GetRemoteSessionConfig(server->GetMyGUID(), &length));
 	EXPECT_EQ((unsigned int) MAXIMUM_SESSION_CONFIG_SIZE, length);
 }
+
+// A failed attempt is terminal. The remote may close gracefully right behind whatever made the attempt fail,
+// in the same delivery step; that ID_DISCONNECTION_NOTIFICATION must not report the close a second time.
+class SessionTerminalFailureSim : public SessionHeldMessagesSim
+{
+protected:
+	// What a server's graceful CloseConnection() sends, ordered on channel 0 behind everything injected before.
+	void InjectDisconnect(RakPeer *from, const RakPeer *to)
+	{
+		BitStream bs;
+		bs.Write((MessageID) ID_DISCONNECTION_NOTIFICATION);
+		SendGateBypass::Inject(from, bs, net.AddressOf(to));
+	}
+
+	// The client's Connect() was answered exactly once, with ID_CONNECTION_ATTEMPT_FAILED, and nothing else
+	// about that peer ever surfaced; its slot is gone.
+	void ExpectFailedExactlyOnce(const RakPeer *client, const RakNetGUID &server)
+	{
+		ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, 30000)) << "inbox " << IdList(Inbox(client));
+		Pump(3000);
+		SCOPED_TRACE("client inbox " + IdList(Inbox(client)));
+		EXPECT_EQ(1u, Count(client, ID_CONNECTION_ATTEMPT_FAILED));
+		EXPECT_EQ(server, Find(client, ID_CONNECTION_ATTEMPT_FAILED)->guid);
+		EXPECT_EQ(0u, Count(client, ID_DISCONNECTION_NOTIFICATION)) << "a failed attempt was reported closed a second time";
+		EXPECT_EQ(0u, Count(client, ID_CONNECTION_LOST));
+		EXPECT_EQ(0u, Count(client, ID_CONNECTION_REQUEST_ACCEPTED));
+		EXPECT_FALSE(SlotInspector::FirstActiveSlot(client).sawSlot) << "the client's slot was never released";
+	}
+};
+
+// #98's path (FailSessionHandshakeAsConnectingSide): the oversized session reply and the server's graceful
+// close are injected in the same update cycle, so they reach the client together, in that order.
+TEST_F(SessionTerminalFailureSim, OversizedSessionConfigThenRemoteDisconnectReportsOnce)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	InjectSessionConfig(server, client, MAXIMUM_SESSION_CONFIG_SIZE + 1u);
+	InjectDisconnect(server, client);
+	ExpectFailedExactlyOnce(client, server->GetMyGUID());
+}
+
+// The held-message bound, the other FailSessionHandshakeAsConnectingSide caller: the message that overflows
+// it and the server's graceful close arrive together, ordered on channel 0 (which is still held: the server
+// has not answered the session request, so nothing queues behind its reply).
+TEST_F(SessionTerminalFailureSim, HeldByteLimitOverflowThenRemoteDisconnectReportsOnce)
+{
+	if (MAXIMUM_HELD_SESSION_MESSAGES < 5u)
+		GTEST_SKIP() << "MAXIMUM_HELD_SESSION_MESSAGES would overflow before the bytes in this build";
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	const unsigned int sizes[] = {MAXIMUM_HELD_SESSION_BYTES / 4, MAXIMUM_HELD_SESSION_BYTES / 4, MAXIMUM_HELD_SESSION_BYTES / 4, MAXIMUM_HELD_SESSION_BYTES / 4, 64};
+	uint32_t n = 0;
+	for (const unsigned int bytes : sizes)
+	{
+		std::vector<unsigned char> body(bytes - 1 - sizeof(uint32_t), 0xA5);
+		BitStream bs;
+		WriteNumbered(bs, kReliableStreamId, n++);
+		bs.WriteAlignedBytes(body.data(), (unsigned int) body.size());
+		SendGateBypass::Inject(server, bs, net.AddressOf(client));
+	}
+	InjectDisconnect(server, client);
+	ExpectFailedExactlyOnce(client, server->GetMyGUID());
+	EXPECT_EQ(0u, CountUserMessages(Inbox(client)));
+}

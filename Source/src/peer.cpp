@@ -6888,6 +6888,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 					rakFree_Ex(data, _FILE_AND_LINE_);
 				}
+				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY)
+				{
+					// The slot is already closing silently, which is terminal: the application has either been told
+					// how it ended (ID_CONNECTION_ATTEMPT_FAILED from FailSessionHandshakeAsConnectingSide, a
+					// refused session, a wrong password) or was never told of it at all. Moving it to
+					// DISCONNECT_ON_NO_ACK would report the close a second time, as ID_DISCONNECTION_NOTIFICATION
+					// for a connection the application never saw. The reliability layer still acks the message.
+					rakFree_Ex(data, _FILE_AND_LINE_);
+				}
 				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION)
 				{
 					// Stash any reason payload (everything after the 1-byte ID) so it can ride along with the
