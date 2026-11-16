@@ -275,6 +275,14 @@ it must remember to check.
 The payload is opaque to MafiaNet: encode it however the application likes, up to
 ``MAXIMUM_SESSION_CONFIG_SIZE`` bytes.
 
+The accepting side reports ``ID_NEW_INCOMING_CONNECTION`` as soon as it has sent its answer, so it can
+send right away -- a welcome message or a state snapshot, say -- even though the connecting side has not
+reported its connection yet. That is safe: when such messages overtake ``ID_SESSION_CONFIG`` (because
+its datagram was lost or delayed), the connecting side holds them and delivers them right after
+``ID_CONNECTION_REQUEST_ACCEPTED``, in the order they arrived, whatever their reliability and ordering
+channel. If the attempt fails instead, they are discarded. See
+:doc:`../advanced/session-handshake-security` for the limits on what is held.
+
 .. warning::
 
    A payload received from a remote peer is **untrusted, unauthenticated input** -- it arrives before

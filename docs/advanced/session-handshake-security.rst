@@ -53,6 +53,25 @@ What MafiaNet guarantees
   discarded. A peer cannot re-run the exchange to make the connection packet be produced twice.
 * **A stalled handshake is bounded.** ``EXCHANGING_SESSION_DATA`` is timed out using the
   connection's own ``SetTimeoutTime()`` value.
+* **No application data is delivered for a connection that has not been reported.** The accepting
+  side reports ``ID_NEW_INCOMING_CONNECTION`` as soon as it has answered, and may send at once, so on
+  the connecting side its first messages can arrive before ``ID_SESSION_CONFIG`` -- every time the
+  datagram carrying the answer is lost or overtaken. Those messages have already been acknowledged, so
+  the sender will never resend them. The connecting side therefore **holds** them, in arrival order,
+  and delivers them right after ``ID_CONNECTION_REQUEST_ACCEPTED``; plugins see them then too, exactly
+  like any later message. If the attempt ends instead (``RejectSession()``, the session timeout, a lost
+  connection), they are freed and never delivered. The accepting side holds nothing: a conforming
+  connecting peer cannot send before the answer reaches it, so application data arriving there during
+  the handshake is dropped, as is anything that arrives after an attempt has already failed.
+* **What is held is bounded.** At most ``MAXIMUM_HELD_SESSION_MESSAGES`` messages (16384) and
+  ``MAXIMUM_HELD_SESSION_BYTES`` bytes (64 × ``MAXIMUM_SESSION_CONFIG_SIZE``, 4 MB) per connection,
+  both overridable at build time. The window only lasts until the answer arrives -- about one
+  retransmission timeout of a new connection, and the answer is resent at ``Priority::Immediate``
+  ahead of any application data -- so conforming traffic stays far below either limit. A remote that
+  exceeds one is breaking the protocol, and silently dropping the message that did not fit would lose
+  it for good, so the connecting side **fails the attempt** instead: it reports
+  ``ID_CONNECTION_ATTEMPT_FAILED`` (once, with no reason payload), frees everything it held, sends the
+  remote ``ID_DISCONNECTION_NOTIFICATION`` and closes the connection.
 * **Handshaking peers count against the incoming-connection limit.** They already own a slot, so
   ``SetMaximumIncomingConnections()`` is enforced against them too. (``GetNumberOfRemoteInitiatedConnections()``
   still reports only fully established peers, which is what an application means by "players".)
@@ -96,7 +115,10 @@ Denial of service
 **Memory.** Each connection can hold one payload, so the worst case a peer set can force is
 ``maxConnections`` × ``MAXIMUM_SESSION_CONFIG_SIZE`` (with the default cap, 64 KB per connection).
 This is a new per-connection ceiling introduced by the handshake. If a deployment does not need
-large payloads, lower ``MAXIMUM_SESSION_CONFIG_SIZE`` at build time.
+large payloads, lower ``MAXIMUM_SESSION_CONFIG_SIZE`` at build time. A connection this peer
+*initiated* can additionally hold up to ``MAXIMUM_HELD_SESSION_BYTES`` of the remote's application
+messages while its handshake finishes (see above); only peers you connect to can make you hold
+them, never peers connecting to you.
 
 **Slots.** A peer can complete the transport handshake and then simply not send its payload,
 occupying a slot for the timeout duration. This is bounded by ``SetMaximumIncomingConnections()``
