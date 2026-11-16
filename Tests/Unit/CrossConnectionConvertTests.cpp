@@ -432,6 +432,64 @@ TEST(CrossConnectionConvert, PlaintextPeersStillConnectToEachOther)
 	ExpectBothDirectionsDeliver(net, p.lower, higherAddress, p.higher, lowerAddress, 20);
 }
 
+// The plaintext crossing is the one path where ID_CONNECTION_REQUEST_ACCEPTED legitimately reaches a slot in
+// HANDLING_CONNECTION_REQUEST: both peers answer each other's REQUEST_2, both send ID_CONNECTION_REQUEST on the
+// one slot, and each takes the other's accept after answering the other's request. The handler takes it there
+// only on a slot this side initiated (#99), which every such slot is. Under every delivery order each Connect()
+// must still be answered with a connection, never a failure, and both directions must work.
+TEST(CrossConnectionConvert, PlaintextCrossingConnectsUnderEveryDeliveryOrder)
+{
+	struct Case
+	{
+		const char *name;
+		uint32_t lowerToHigherMs;
+		uint32_t higherToLowerMs;
+		uint32_t jitterMs;
+		int lossPercent;
+		uint32_t seed;
+	};
+	const Case cases[] = {
+	    {"symmetric", 1, 1, 0, 0, 1},
+	    {"slower towards the higher peer", 150, 1, 0, 0, 1},
+	    {"slower towards the lower peer", 1, 150, 0, 0, 1},
+	    {"slightly slower towards the higher peer", 3, 1, 0, 0, 1},
+	    {"slightly slower towards the lower peer", 1, 3, 0, 0, 1},
+	    {"jitter reorders", 5, 5, 20, 0, 7},
+	    {"loss and jitter, seed 2", 5, 5, 10, 10, 2},
+	    {"loss and jitter, seed 3", 5, 5, 10, 10, 3},
+	    {"loss and jitter, seed 4", 5, 5, 10, 10, 4},
+	};
+	for (const Case &c : cases)
+	{
+		SCOPED_TRACE(c.name);
+		SimulatedNetwork net(c.seed);
+		net.SetNewPeerEncryptionMode(EncryptionMode::Plaintext);
+		const GuidOrderedPair p = AddGuidOrderedPair(net);
+		const SystemAddress lowerAddress = net.AddressOf(p.lower);
+		const SystemAddress higherAddress = net.AddressOf(p.higher);
+		SimulatedNetwork::LinkRule toHigher, toLower;
+		toHigher.delayMs = c.lowerToHigherMs;
+		toLower.delayMs = c.higherToLowerMs;
+		toHigher.jitterMs = toLower.jitterMs = c.jitterMs;
+		toHigher.lossPercent = toLower.lossPercent = c.lossPercent;
+		net.SetLink(p.lower, p.higher, toHigher);
+		net.SetLink(p.higher, p.lower, toLower);
+
+		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(p.lower, p.higher));
+		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, net.StartConnect(p.higher, p.lower));
+		ASSERT_TRUE(net.RunUntil([&]
+		                         { return BothConnected(p.lower, higherAddress, p.higher, lowerAddress); }, 10000, 1));
+		net.Step(500);
+		for (const RakPeer *peer : {p.lower, p.higher})
+		{
+			EXPECT_EQ(0u, CountOf(net, peer, ID_CONNECTION_ATTEMPT_FAILED));
+			EXPECT_EQ(1u, CountOf(net, peer, ID_CONNECTION_REQUEST_ACCEPTED) + CountOf(net, peer, ID_NEW_INCOMING_CONNECTION))
+			    << "a Connect() was answered other than by exactly one connection packet";
+		}
+		ExpectBothDirectionsDeliver(net, p.lower, higherAddress, p.higher, lowerAddress, 20);
+	}
+}
+
 // The higher peer's own Connect() was absorbed into the lower peer's connection. If that connection dies before
 // it is reported (here: the lower peer vanishes right after its ID_CONNECTION_REQUEST was accepted), the higher
 // peer's Connect() still gets its answer: ID_CONNECTION_ATTEMPT_FAILED, exactly once.

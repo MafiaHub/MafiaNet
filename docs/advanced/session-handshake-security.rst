@@ -36,8 +36,13 @@ What MafiaNet guarantees
 ------------------------
 
 * **Length is bounded.** ``MAXIMUM_SESSION_CONFIG_SIZE`` (64 KB) is enforced on send *and* receive.
-  An oversized inbound payload is treated as a protocol violation and the connection is dropped
-  without a reply.
+  An oversized inbound payload is treated as a protocol violation. The accepting side drops the
+  connection without a reply. The connecting side fails its attempt: it reports
+  ``ID_CONNECTION_ATTEMPT_FAILED`` once and closes the connection with
+  ``ID_DISCONNECTION_NOTIFICATION``, so the accepting side, which has already reported the
+  connection, sees it end at once instead of timing out. Build both ends with the same limit: ``AcceptSession()`` and
+  ``SetSessionConfig()`` clamp to the *sender's* limit, so a server built with a larger one than its
+  clients can send a payload they refuse.
 * **No length underflow.** The receive loop only dispatches frames of at least one byte, so the
   payload length (frame size minus the one-byte id) cannot wrap.
 * **The buffer is NUL-terminated past its reported length.** One extra zero byte is always
@@ -46,8 +51,13 @@ What MafiaNet guarantees
 * **Messages are bound to the role allowed to send them.** ``ID_SESSION_CONFIG`` and
   ``ID_SESSION_CONFIG_REJECTED`` are acted on only by the peer that *initiated* the connection, so a
   client cannot push a payload at a server or forge ``ID_CONNECTION_ATTEMPT_FAILED`` into a
-  listening server's queue. In a simultaneous (cross-connection) handshake both peers are initiators
-  and both accept them, which is correct.
+  listening server's queue. ``ID_CONNECTION_REQUEST_ACCEPTED``, which puts a connection in the
+  connecting role, is bound the same way: it is taken only on a connection this peer initiated, so a
+  peer that connected *to* us cannot send one to switch our side to the connecting role or make us
+  report a connection we never asked for; it is ignored and the incoming connection completes
+  normally. In a plaintext simultaneous (cross-connection) handshake every peer that sends
+  ``ID_CONNECTION_REQUEST`` is an initiator and accepts the answer, which is correct. An encrypted one resolves to a single handshake (the lower
+  RakNetGUID's), so there only that handshake's initiator takes the connecting role.
 * **The handshake cannot be replayed.** A second ``ID_SESSION_CONFIG_REQUEST`` on a connection that
   has left ``EXCHANGING_SESSION_DATA``, or one that arrives while a decision is already pending, is
   discarded. A peer cannot re-run the exchange to make the connection packet be produced twice.
@@ -62,8 +72,8 @@ What MafiaNet guarantees
   like any later message. If the attempt ends instead (``RejectSession()``, the session timeout, a lost
   connection), they are freed and never delivered. Only a connection this peer *initiated* holds
   anything. The accepting side holds nothing -- a conforming connecting peer cannot send before the
-  answer reaches it -- and neither does a slot whose remote connected to us and then claims the
-  connecting role with a forged ``ID_CONNECTION_REQUEST_ACCEPTED``. Application data arriving there
+  answer reaches it -- and neither does a slot whose remote connected to us and then sends a forged
+  ``ID_CONNECTION_REQUEST_ACCEPTED`` (the forgery is ignored, see above). Application data arriving there
   during the handshake is dropped, as is anything that arrives on a connection the application was
   never told about (after a refused or failed handshake, for instance).
 * **What is held is bounded.** At most ``MAXIMUM_HELD_SESSION_MESSAGES`` messages (65536) and

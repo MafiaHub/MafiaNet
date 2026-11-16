@@ -6888,6 +6888,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 					rakFree_Ex(data, _FILE_AND_LINE_);
 				}
+				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY)
+				{
+					// The slot is already closing silently, which is terminal: the application has either been told
+					// how it ended (ID_CONNECTION_ATTEMPT_FAILED from FailSessionHandshakeAsConnectingSide, a
+					// refused session, a wrong password) or was never told of it at all. Moving it to
+					// DISCONNECT_ON_NO_ACK would report the close a second time, as ID_DISCONNECTION_NOTIFICATION
+					// for a connection the application never saw. The reliability layer still acks the message.
+					rakFree_Ex(data, _FILE_AND_LINE_);
+				}
 				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION)
 				{
 					// Stash any reason payload (everything after the 1-byte ID) so it can ride along with the
@@ -6966,7 +6975,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					{
 						if (StoreRemoteSessionConfig(remoteSystem, (const unsigned char *) data + sizeof(MessageID), byteSize - (unsigned int) sizeof(MessageID)) == false)
 						{
-							remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+							// An oversized payload is a protocol violation (a server built with a larger
+							// MAXIMUM_SESSION_CONFIG_SIZE than ours sends one: AcceptSession clamps to the sender's limit).
+							// Our Connect() is still owed an answer, and the server has already reported the connection,
+							// so fail the attempt once and tell the server, as on any other broken-off handshake.
+							FailSessionHandshakeAsConnectingSide(remoteSystem);
 						}
 						else
 						{
@@ -7049,9 +7062,18 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// Make sure this connection accept is from someone we wanted to connect to
 						bool allowConnection, alreadyConnected;
 
-						if (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST ||
-						    remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION ||
-						    allowConnectionResponseIPMigration)
+						// It answers our ID_CONNECTION_REQUEST, which only the REPLY_2 handler sends, right after
+						// setting weInitiatedTheConnection (never cleared while the slot lives). So it is only ever
+						// legitimate on a connection we initiated. That includes a plaintext cross-connection, where
+						// both peers send ID_CONNECTION_REQUEST on one slot and each takes the other's accept in
+						// HANDLING_CONNECTION_REQUEST or REQUESTED_CONNECTION. On a slot created by an incoming request -- the absorbed side of
+						// an encrypted cross-connection among them, which never sends ID_CONNECTION_REQUEST -- it is
+						// forged: ignored, even with allowConnectionResponseIPMigration, so a peer that connected to
+						// us cannot switch our slot to the connecting role of the session handshake (#99).
+						if (remoteSystem->weInitiatedTheConnection &&
+						    (remoteSystem->connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST ||
+						     remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION ||
+						     allowConnectionResponseIPMigration))
 							allowConnection = true;
 						else
 							allowConnection = false;
@@ -7184,10 +7206,10 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide &&
 					         remoteSystem->weInitiatedTheConnection)
 					{
-						// Only on a connection we initiated. sessionConfigIsConnectingSide alone is not enough: the
-						// ID_CONNECTION_REQUEST_ACCEPTED handler also takes that message in HANDLING_CONNECTION_REQUEST,
-						// so a peer that connected to us can flip its slot to the connecting role, and would then
-						// make us hold its data. A peer we accepted never has a reply of ours to overtake.
+						// Only on a connection we initiated: a peer we accepted never has a reply of ours to overtake.
+						// sessionConfigIsConnectingSide implies it today, because the ID_CONNECTION_REQUEST_ACCEPTED
+						// handler only flips a slot we initiated (#99); checked again here as defence in depth, so a
+						// peer that connected to us can never make us hold its data.
 						//
 						// Bounded: exceeding the bound is a protocol violation, and failing the attempt beats
 						// silently losing the one message that did not fit -- the very bug this hold exists for.
