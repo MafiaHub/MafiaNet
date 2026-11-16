@@ -432,8 +432,7 @@ void TeamBalancer::OnStatusUpdateToNewHost(Packet *packet)
 
 			if (tm.currentTeam == UNASSIGNED_TEAM_ID)
 			{
-				RakAssert("Too many members asking for teams!" && 0);
-				return;
+				return; // Every team is full: drop the request (it comes from the network)
 			}
 			NotifyTeamAssigment(AddTeamMember(tm));
 		}
@@ -473,8 +472,7 @@ void TeamBalancer::OnRequestAnyTeam(Packet *packet)
 		tm.memberId = memberId;
 		if (tm.currentTeam == UNASSIGNED_TEAM_ID)
 		{
-			RakAssert("Too many members asking for teams!" && 0);
-			return;
+			return; // Every team is full: drop the request (it comes from the network)
 		}
 		NotifyTeamAssigment(AddTeamMember(tm));
 	}
@@ -518,8 +516,7 @@ void TeamBalancer::OnRequestSpecificTeam(Packet *packet)
 		}
 		if (tm.currentTeam == UNASSIGNED_TEAM_ID)
 		{
-			RakAssert("Too many members asking for teams!" && 0);
-			return;
+			return; // Every team is full: drop the request (it comes from the network)
 		}
 		NotifyTeamAssigment(AddTeamMember(tm));
 	}
