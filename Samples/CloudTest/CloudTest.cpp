@@ -55,7 +55,7 @@ class MyCallback : public MafiaNet::CloudClientCallback
 		// unused parameters
 		(void) deallocateRowsAfterReturn;
 
-		printf("On Download %i rows. IsSubscription=%i.\n", result->rowsReturned.Size(), result->subscribeToResults);
+		printf("On Download %i rows. IsSubscription=%i.\n", (int) result->rowsReturned.size(), result->subscribeToResults);
 	}
 	virtual void OnSubscriptionNotification(MafiaNet::CloudQueryRow *result, bool wasUpdated, bool *deallocateRowAfterReturn)
 	{
@@ -180,8 +180,8 @@ int main(void)
 				dataKey1.secondaryKey = 1;
 
 				MafiaNet::CloudQuery keyQuery;
-				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
-				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
+				keyQuery.keys.push_back(MafiaNet::CloudKey("ApplicationName", 1));
+				keyQuery.keys.push_back(MafiaNet::CloudKey("ApplicationName", 2));
 				keyQuery.maxRowsToReturn = 0;
 				keyQuery.startingRowIndex = 0;
 				keyQuery.subscribeToResults = false;
@@ -191,9 +191,9 @@ int main(void)
 			else if (command == 'e' || command == 'E')
 			{
 				printf("Releasing data sets 1 and 2 from client 1\n");
-				DataStructures::List<MafiaNet::CloudKey> keys;
-				keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
-				keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
+				std::vector<MafiaNet::CloudKey> keys;
+				keys.push_back(MafiaNet::CloudKey("ApplicationName", 1));
+				keys.push_back(MafiaNet::CloudKey("ApplicationName", 2));
 				cloudClient[CLOUD_CLIENT_1].Release(keys, rakPeer[CLIENT_1]->GetGUIDFromIndex(0));
 			}
 			else if (command == 'f' || command == 'F')
@@ -201,14 +201,14 @@ int main(void)
 				printf("Subscribing to data sets 1 and 2 from client 2 to server 2.\n");
 
 				MafiaNet::CloudQuery keyQuery;
-				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
-				keyQuery.keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
+				keyQuery.keys.push_back(MafiaNet::CloudKey("ApplicationName", 1));
+				keyQuery.keys.push_back(MafiaNet::CloudKey("ApplicationName", 2));
 				keyQuery.maxRowsToReturn = 0;
 				keyQuery.startingRowIndex = 0;
 				keyQuery.subscribeToResults = true;
 
-				DataStructures::List<MafiaNet::RakNetGUID> specificSystems;
-				specificSystems.Push(rakPeer[CLIENT_1]->GetMyGUID(), _FILE_AND_LINE_);
+				std::vector<MafiaNet::RakNetGUID> specificSystems;
+				specificSystems.push_back(rakPeer[CLIENT_1]->GetMyGUID());
 
 				cloudClient[CLOUD_CLIENT_2].Get(&keyQuery, specificSystems, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
@@ -216,20 +216,20 @@ int main(void)
 			{
 				printf("Unsubscribing to data sets 1 and 2 from client 2 to server 2.\n");
 
-				DataStructures::List<MafiaNet::CloudKey> keys;
-				keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
-				keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
-				DataStructures::List<MafiaNet::RakNetGUID> specificSystems;
-				specificSystems.Push(rakPeer[CLIENT_1]->GetMyGUID(), _FILE_AND_LINE_);
+				std::vector<MafiaNet::CloudKey> keys;
+				keys.push_back(MafiaNet::CloudKey("ApplicationName", 1));
+				keys.push_back(MafiaNet::CloudKey("ApplicationName", 2));
+				std::vector<MafiaNet::RakNetGUID> specificSystems;
+				specificSystems.push_back(rakPeer[CLIENT_1]->GetMyGUID());
 
 				cloudClient[CLOUD_CLIENT_2].Unsubscribe(keys, specificSystems, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
 			else if (command == 'h' || command == 'H')
 			{
 				printf("Releasing data sets 1 and 2 from client 2\n");
-				DataStructures::List<MafiaNet::CloudKey> keys;
-				keys.Push(MafiaNet::CloudKey("ApplicationName", 1), _FILE_AND_LINE_);
-				keys.Push(MafiaNet::CloudKey("ApplicationName", 2), _FILE_AND_LINE_);
+				std::vector<MafiaNet::CloudKey> keys;
+				keys.push_back(MafiaNet::CloudKey("ApplicationName", 1));
+				keys.push_back(MafiaNet::CloudKey("ApplicationName", 2));
 				cloudClient[CLOUD_CLIENT_2].Unsubscribe(keys, rakPeer[CLIENT_2]->GetGUIDFromIndex(0));
 			}
 			else if (command == 'y' || command == 'Y')

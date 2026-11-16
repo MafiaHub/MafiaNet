@@ -53,13 +53,13 @@ void CloudClient::Post(CloudKey *cloudKey, const unsigned char *data, uint32_t d
 		bsOut.WriteAlignedBytes((const unsigned char *) data, dataLengthBytes);
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 }
-void CloudClient::Release(DataStructures::List<CloudKey> &keys, RakNetGUID systemIdentifier)
+void CloudClient::Release(std::vector<CloudKey> &keys, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_RELEASE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t) -1);
-	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i = 0; i < keys.Size(); i++)
+	RakAssert(keys.size() < (uint16_t) -1);
+	bsOut.WriteCasted<uint16_t>(keys.size());
+	for (uint16_t i = 0; i < keys.size(); i++)
 	{
 		keys[i].Serialize(true, &bsOut);
 	}
@@ -74,28 +74,28 @@ bool CloudClient::Get(CloudQuery *keyQuery, RakNetGUID systemIdentifier)
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 	return true;
 }
-bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier)
+bool CloudClient::Get(CloudQuery *keyQuery, std::vector<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_GET_REQUEST);
 	keyQuery->Serialize(true, &bsOut);
-	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t) -1);
-	for (uint16_t i = 0; i < specificSystems.Size(); i++)
+	bsOut.WriteCasted<uint16_t>(specificSystems.size());
+	RakAssert(specificSystems.size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.size(); i++)
 	{
 		bsOut.Write(specificSystems[i]);
 	}
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 	return true;
 }
-bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier)
+bool CloudClient::Get(CloudQuery *keyQuery, std::vector<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_GET_REQUEST);
 	keyQuery->Serialize(true, &bsOut);
-	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t) -1);
-	for (uint16_t i = 0; i < specificSystems.Size(); i++)
+	bsOut.WriteCasted<uint16_t>(specificSystems.size());
+	RakAssert(specificSystems.size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.size(); i++)
 	{
 		if (specificSystems[i]->clientGUID != UNASSIGNED_RAKNET_GUID)
 		{
@@ -111,50 +111,50 @@ bool CloudClient::Get(CloudQuery *keyQuery, DataStructures::List<CloudQueryRow *
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 	return true;
 }
-void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, RakNetGUID systemIdentifier)
+void CloudClient::Unsubscribe(std::vector<CloudKey> &keys, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_UNSUBSCRIBE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t) -1);
-	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i = 0; i < keys.Size(); i++)
+	RakAssert(keys.size() < (uint16_t) -1);
+	bsOut.WriteCasted<uint16_t>(keys.size());
+	for (uint16_t i = 0; i < keys.size(); i++)
 	{
 		keys[i].Serialize(true, &bsOut);
 	}
 	bsOut.WriteCasted<uint16_t>(0);
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 }
-void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier)
+void CloudClient::Unsubscribe(std::vector<CloudKey> &keys, std::vector<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_UNSUBSCRIBE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t) -1);
-	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i = 0; i < keys.Size(); i++)
+	RakAssert(keys.size() < (uint16_t) -1);
+	bsOut.WriteCasted<uint16_t>(keys.size());
+	for (uint16_t i = 0; i < keys.size(); i++)
 	{
 		keys[i].Serialize(true, &bsOut);
 	}
-	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t) -1);
-	for (uint16_t i = 0; i < specificSystems.Size(); i++)
+	bsOut.WriteCasted<uint16_t>(specificSystems.size());
+	RakAssert(specificSystems.size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.size(); i++)
 	{
 		bsOut.Write(specificSystems[i]);
 	}
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemIdentifier, false);
 }
-void CloudClient::Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier)
+void CloudClient::Unsubscribe(std::vector<CloudKey> &keys, std::vector<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier)
 {
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_CLOUD_UNSUBSCRIBE_REQUEST);
-	RakAssert(keys.Size() < (uint16_t) -1);
-	bsOut.WriteCasted<uint16_t>(keys.Size());
-	for (uint16_t i = 0; i < keys.Size(); i++)
+	RakAssert(keys.size() < (uint16_t) -1);
+	bsOut.WriteCasted<uint16_t>(keys.size());
+	for (uint16_t i = 0; i < keys.size(); i++)
 	{
 		keys[i].Serialize(true, &bsOut);
 	}
-	bsOut.WriteCasted<uint16_t>(specificSystems.Size());
-	RakAssert(specificSystems.Size() < (uint16_t) -1);
-	for (uint16_t i = 0; i < specificSystems.Size(); i++)
+	bsOut.WriteCasted<uint16_t>(specificSystems.size());
+	RakAssert(specificSystems.size() < (uint16_t) -1);
+	for (uint16_t i = 0; i < specificSystems.size(); i++)
 	{
 		if (specificSystems[i]->clientGUID != UNASSIGNED_RAKNET_GUID)
 		{
@@ -192,7 +192,7 @@ void CloudClient::OnGetReponse(Packet *packet, CloudClientCallback *_callback, C
 	if (deallocateRowsAfterReturn)
 	{
 		unsigned int i;
-		for (i = 0; i < cloudQueryResult.rowsReturned.Size(); i++)
+		for (i = 0; i < cloudQueryResult.rowsReturned.size(); i++)
 		{
 			_allocator->DeallocateRowData(cloudQueryResult.rowsReturned[i]->data);
 			_allocator->DeallocateCloudQueryRow(cloudQueryResult.rowsReturned[i]);
@@ -244,15 +244,15 @@ void CloudClient::OnSubscriptionNotification(bool *wasUpdated, CloudQueryRow *ro
 void CloudClient::DeallocateWithDefaultAllocator(CloudQueryResult *cloudQueryResult)
 {
 	unsigned int i;
-	for (i = 0; i < cloudQueryResult->rowsReturned.Size(); i++)
+	for (i = 0; i < cloudQueryResult->rowsReturned.size(); i++)
 	{
 		allocator->DeallocateRowData(cloudQueryResult->rowsReturned[i]->data);
 		allocator->DeallocateCloudQueryRow(cloudQueryResult->rowsReturned[i]);
 	}
 
-	cloudQueryResult->rowsReturned.Clear(false, _FILE_AND_LINE_);
-	cloudQueryResult->resultKeyIndices.Clear(false, _FILE_AND_LINE_);
-	cloudQueryResult->cloudQuery.keys.Clear(false, _FILE_AND_LINE_);
+	cloudQueryResult->rowsReturned.clear();
+	cloudQueryResult->resultKeyIndices.clear();
+	cloudQueryResult->cloudQuery.keys.clear();
 }
 void CloudClient::DeallocateWithDefaultAllocator(CloudQueryRow *row)
 {
