@@ -89,6 +89,29 @@ TEST_F(NatPunchthrough, UnknownTargetIsReportedNotConnected)
 	EXPECT_EQ(reported, stranger);
 }
 
+TEST_F(NatPunchthrough, PunchToItselfIsReportedNotConnected)
+{
+	// A client naming its own GUID as the target used to get a ConnectionAttempt pushed twice into
+	// its own list (the self check compared against a recipient that was still null); closing the
+	// connection then freed it once and touched the dangling second entry.
+	const RakNetGUID self = clients[0]->GetMyGUID();
+	ASSERT_TRUE(natClients[0].OpenNAT(self, net.AddressOf(server)));
+	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_NAT_TARGET_NOT_CONNECTED, 3000));
+	std::vector<unsigned char> data = net.Find(clients[0], ID_NAT_TARGET_NOT_CONNECTED)->data;
+	BitStream bs(data.data(), static_cast<unsigned int>(data.size()), false);
+	bs.IgnoreBytes(1);
+	RakNetGUID reported;
+	ASSERT_TRUE(bs.Read(reported));
+	EXPECT_EQ(reported, self);
+
+	// The server tracks no attempt for the client, so dropping it is clean (ASan checks the rest).
+	clients[0]->CloseConnection(net.AddressOf(server), true);
+	net.RunUntil([]
+	             { return false; }, 1000);
+	ASSERT_TRUE(natClients[1].OpenNAT(self, net.AddressOf(server)));
+	EXPECT_TRUE(net.RunUntilReceived(clients[1], ID_NAT_TARGET_NOT_CONNECTED, 3000));
+}
+
 TEST_F(NatPunchthrough, ClientsPunchThroughEachOther)
 {
 	ASSERT_TRUE(natClients[0].OpenNAT(clients[1]->GetMyGUID(), net.AddressOf(server)));

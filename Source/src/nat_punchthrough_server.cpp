@@ -400,7 +400,7 @@ void NatPunchthroughServer::OnNATPunchthroughRequest(Packet *packet)
 	ca->sender = senderIt->second;
 	ca->sessionId = sessionId++;
 	const auto recipientIt = users.find(recipientGuid);
-	if (recipientIt == users.end() || ca->sender == ca->recipient)
+	if (recipientIt == users.end() || recipientIt->second == ca->sender) // unknown target, or a punch to itself
 	{
 		// 		printf("DEBUG %i\n", __LINE__);
 		// 		printf("DEBUG recipientGuid=%s\n", recipientGuid.ToString());
