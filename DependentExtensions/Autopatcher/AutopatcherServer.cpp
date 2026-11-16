@@ -269,13 +269,16 @@ void AutopatcherServer::OnClosedConnection(const SystemAddress &systemAddress, R
 void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 {
 	unsigned int i = 0;
+	// The load notifier is called after the input lock is released: ThreadPool's mutexes are not
+	// recursive, so a notifier that queues more work (AddInput) under LockInput would deadlock.
+	unsigned int abortedRequests = 0;
 	threadPool.LockInput();
 	while (i < threadPool.InputSize())
 	{
 		if (threadPool.GetInputAtIndex(i).systemAddress == systemAddress)
 		{
 			if (DecrementPatchingUserCount(systemAddress))
-				CallPatchCompleteCallback(threadPool.GetInputAtIndex(i).systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_INPUT_THREAD);
+				abortedRequests++;
 			delete threadPool.GetInputAtIndex(i).clientList;
 			threadPool.RemoveInputAtIndex(i);
 		}
@@ -283,6 +286,8 @@ void AutopatcherServer::RemoveFromThreadPool(SystemAddress systemAddress)
 			i++;
 	}
 	threadPool.UnlockInput();
+	for (unsigned int aborted = 0; aborted < abortedRequests; aborted++)
+		CallPatchCompleteCallback(systemAddress, AutopatcherServerLoadNotifier::PR_ABORTED_FROM_INPUT_THREAD);
 
 	i = 0;
 	threadPool.LockOutput();
