@@ -433,7 +433,11 @@ void ThreadPool<InputType, OutputType>::AddInput(OutputType (*workerThreadCallba
 	inputCount.store(inputQueue.size(), std::memory_order_relaxed);
 	inputQueueMutex.unlock();
 
-	quitAndIncomingDataEvents.SetEvent();
+	// The event is initialized only while the threads run (StartThreads to StopThreads); signalling it
+	// before that used an uninitialized pthread condition (a hang on glibc). Input queued earlier is
+	// picked up when the workers start.
+	if (WasStarted())
+		quitAndIncomingDataEvents.SetEvent();
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::AddOutput(OutputType outputData)
