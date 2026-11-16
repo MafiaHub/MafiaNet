@@ -195,6 +195,17 @@ static bool ResolveOneShotTarget(const char *host, unsigned short port, const Ra
 	return true;
 }
 
+// A message ReliabilityLayer::Receive handed over: a std::malloc'd buffer that RakPeer now owns. It is either
+// passed on to a Packet (AllocPacket takes the same malloc'd buffer, freed by DeallocatePacket) or freed here.
+namespace
+{
+struct ReceivedMessageFree
+{
+	void operator()(unsigned char *bytes) const { std::free(bytes); }
+};
+using ReceivedMessage = std::unique_ptr<unsigned char, ReceivedMessageFree>;
+} // namespace
+
 // Whether a message a connected remote sent, and that RakPeer did not consume itself, may be handed to
 // the plugins and the application.
 //
@@ -3901,9 +3912,9 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 	// network-thread plugins see each one now, when it reaches the application, not when it arrived.
 	while (!remoteSystem->heldApplicationMessages.empty())
 	{
-		const RemoteSystemStruct::HeldApplicationMessage held = remoteSystem->heldApplicationMessages.front();
+		RemoteSystemStruct::HeldApplicationMessage held = std::move(remoteSystem->heldApplicationMessages.front());
 		remoteSystem->heldApplicationMessages.pop_front();
-		DeliverApplicationMessage(remoteSystem, held.data, held.bitSize);
+		DeliverApplicationMessage(remoteSystem, held.data.release(), held.bitSize);
 	}
 	// clear() hands the deque's blocks back; a large hold must not keep them for the life of the connection.
 	remoteSystem->heldApplicationMessages.clear();
@@ -3912,25 +3923,21 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::HoldApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize)
 {
+	// Owns `data` from here on: freed when refused, by FreeHeldApplicationMessages(), or released to a Packet.
+	RemoteSystemStruct::HeldApplicationMessage held;
+	held.data.reset(data);
+	held.bitSize = bitSize;
 	const unsigned int byteSize = (unsigned int) BITS_TO_BYTES(bitSize);
 	if (remoteSystem->heldApplicationMessages.size() >= (size_t) MAXIMUM_HELD_SESSION_MESSAGES ||
 	    byteSize > (unsigned int) MAXIMUM_HELD_SESSION_BYTES - remoteSystem->heldApplicationBytes)
-	{
-		std::free(data);
 		return false;
-	}
-	RemoteSystemStruct::HeldApplicationMessage held;
-	held.data = data;
-	held.bitSize = bitSize;
-	remoteSystem->heldApplicationMessages.push_back(held);
+	remoteSystem->heldApplicationMessages.push_back(std::move(held));
 	remoteSystem->heldApplicationBytes += byteSize;
 	return true;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::FreeHeldApplicationMessages(RemoteSystemStruct *remoteSystem)
 {
-	for (const RemoteSystemStruct::HeldApplicationMessage &held : remoteSystem->heldApplicationMessages)
-		std::free(held.data);
 	remoteSystem->heldApplicationMessages.clear();
 	remoteSystem->heldApplicationBytes = 0;
 }
@@ -6136,7 +6143,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 	//SystemAddress authoritativeClientSystemAddress;
 	BitSize_t bitSize;
 	unsigned int byteSize;
-	unsigned char *data;
 	SystemAddress systemAddress;
 	bool callerDataAllocationUsed;
 	RakNetStatistics *rnss;
@@ -6649,18 +6655,23 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 		// Does the reliability layer have any packets waiting for us?
 		// To be thread safe, this has to be called in the same thread as HandleSocketReceiveFromConnectedPlayer
-		bitSize = remoteSystem->reliabilityLayer.Receive(&data);
-
-		while (bitSize > 0)
+		for (;;)
 		{
+			unsigned char *received = nullptr;
+			bitSize = remoteSystem->reliabilityLayer.Receive(&received);
+			if (bitSize == 0)
+				break;
+			// Owns the message for this iteration: it is freed when the iteration ends, whichever branch
+			// handled it, unless that branch hands it on to a Packet with message.release().
+			ReceivedMessage message(received);
+			unsigned char *const data = received;
+
 			// These types are for internal use and should never arrive from a network packet.
 			// A remote that sends one anyway gets it dropped: freed, and the rest of the
 			// queue still processed (this used to leak it and stall the queue, and to
 			// RakAssert in Debug).
 			if (data[0] == ID_CONNECTION_ATTEMPT_FAILED)
 			{
-				std::free(data);
-				bitSize = remoteSystem->reliabilityLayer.Receive(&data);
 				continue;
 			}
 
@@ -6673,7 +6684,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				if ((unsigned char) (data)[0] == ID_CONNECTION_REQUEST)
 				{
 					ParseConnectionRequestPacket(remoteSystem, systemAddress, (const char *) data, byteSize);
-					std::free(data);
 					// Cross-connection: if our own attempt to this peer is still pending, it lost the tie-break (see the
 					// REQUEST_2 handler). The winner's ID_CONNECTION_REQUEST just opened under these keys, so this is the
 					// connection: drop our attempt quietly, wiping its key pair.
@@ -6692,9 +6702,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					char str1[64];
 					systemAddress.ToString(false, str1, static_cast<size_t>(64));
 					AddToBanList(str1, remoteSystem->reliabilityLayer.GetTimeoutTime());
-
-
-					std::free(data);
 				}
 			}
 			else
@@ -6723,7 +6730,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// This can happen due to race conditions with the fully connected mesh
 						OnConnectionRequest(remoteSystem, incomingTimestamp);
 					}
-					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_NEW_INCOMING_CONNECTION && byteSize > sizeof(unsigned char) + sizeof(unsigned int) + sizeof(unsigned short) + sizeof(MafiaNet::Time) * 2)
 				{
@@ -6768,8 +6774,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							firstExternalID.debugPort = ntohs(firstExternalID.address.addr4.sin_port);
 						}
 
-						// Hold this until the session handshake completes; the bytes are copied because `data`
-						// is freed as soon as this branch returns.
+						// Hold this until the session handshake completes; the bytes are copied because `message`
+						// frees `data` at the end of this iteration.
 						ClearSessionConfig(remoteSystem);
 						remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 						remoteSystem->withheldConnectionPacketData = (unsigned char *) std::malloc(byteSize);
@@ -6778,14 +6784,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							memcpy(remoteSystem->withheldConnectionPacketData, data, byteSize);
 							remoteSystem->withheldConnectionPacketLength = byteSize;
 						}
-						// AllocPacket used to take ownership of `data` here; the copy above means this branch does.
-						std::free(data);
 					}
 					else
 					{
-						// Already connected (or not expecting it): ignore it. The buffer is ours to free; a remote that
-						// repeats this message must not make us leak one per datagram.
-						std::free(data);
+						// Already connected (or not expecting it): ignore it. Both sides of a cross connection send
+						// this, so it arrives here on every simultaneous connect; a remote that repeats it must not make
+						// us leak one per datagram (the receive loop frees it).
 					}
 				}
 				else if ((unsigned char) data[0] == ID_CONNECTED_PONG && byteSize == sizeof(unsigned char) + sizeof(MafiaNet::Time) * 2)
@@ -6802,8 +6806,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					inBitStream.Read(sendPongTime);
 
 					OnConnectedPong(sendPingTime, sendPongTime, remoteSystem);
-
-					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_CONNECTED_PING && byteSize == sizeof(unsigned char) + sizeof(MafiaNet::Time))
 				{
@@ -6820,8 +6822,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 					// Update again immediately after this tick so the ping goes out right away
 					quitAndDataEvents.SetEvent();
-
-					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY)
 				{
@@ -6829,14 +6829,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// how it ended (ID_CONNECTION_ATTEMPT_FAILED from FailSessionHandshakeAsConnectingSide, a
 					// refused session, a wrong password) or was never told of it at all. Moving it to
 					// DISCONNECT_ON_NO_ACK would report the close a second time, as ID_DISCONNECTION_NOTIFICATION
-					// for a connection the application never saw. The reliability layer still acks the message.
-					std::free(data);
+					// for a connection the application never saw. The reliability layer still acks the message, and
+					// `message` frees it.
 				}
 				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION)
 				{
 					// Stash any reason payload (everything after the 1-byte ID) so it can ride along with the
 					// user-facing notification packet synthesized once outstanding ACKs are flushed. This raw
-					// reliability-layer buffer is freed below, so the bytes have to be copied out now.
+					// reliability-layer buffer is freed with `message`, so the bytes have to be copied out now.
 					ClearDisconnectReason(remoteSystem);
 					if (byteSize > sizeof(unsigned char))
 					{
@@ -6851,14 +6851,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 					// We shouldn't close the connection immediately because we need to ack the ID_DISCONNECTION_NOTIFICATION
 					remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ON_NO_ACK;
-					std::free(data);
 
 					//	AddPacketToProducer(packet);
 				}
 				else if ((unsigned char) (data)[0] == ID_DETECT_LOST_CONNECTIONS && byteSize == sizeof(unsigned char))
 				{
 					// Do nothing
-					std::free(data);
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG_REQUEST)
 				{
@@ -6870,14 +6868,13 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						{
 							// Oversized payload is a protocol violation; drop without answering.
 							remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-							std::free(data);
 						}
 						else if (sessionConfigInteractive)
 						{
 							// Let the application decide. The connection stays unreported until it calls
 							// AcceptSession() or RejectSession(), or the handshake times out below.
 							remoteSystem->sessionConfigAwaitingLocalDecision = true;
-							packet = AllocPacket(byteSize, data);
+							packet = AllocPacket(byteSize, message.release());
 							packet->bitSize = bitSize;
 							packet->systemAddress = systemAddress;
 							packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
@@ -6890,14 +6887,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							rakPeerMutexes[sessionConfig_Mutex].Lock();
 							SendSessionConfigResponse(remoteSystem, (const char *) sessionConfig.GetData(), (unsigned int) sessionConfig.GetNumberOfBytesUsed());
 							rakPeerMutexes[sessionConfig_Mutex].Unlock();
-							std::free(data);
 						}
 					}
 					else
 					{
 						// A repeat request, or one on an already-established connection: ignore it rather than
 						// letting a peer re-run the handshake and re-produce the connection packet.
-						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG)
@@ -6923,7 +6918,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
 						}
 					}
-					std::free(data);
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG_STATUS)
 				{
@@ -6933,17 +6927,13 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
 					{
 						remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
-						packet = AllocPacket(byteSize, data);
+						packet = AllocPacket(byteSize, message.release());
 						packet->bitSize = bitSize;
 						packet->systemAddress = systemAddress;
 						packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
 						packet->guid = remoteSystem->guid;
 						packet->guid.systemIndex = packet->systemAddress.systemIndex;
 						AddPacketToProducer(packet);
-					}
-					else
-					{
-						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG_REJECTED)
@@ -6955,7 +6945,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					{
 						// Rewrite in place so the reason string the server supplied stays at data+1, matching the
 						// ID_DISCONNECTION_NOTIFICATION reason convention. No connection is ever reported.
-						packet = AllocPacket(byteSize, data);
+						packet = AllocPacket(byteSize, message.release());
 						packet->data[0] = (unsigned char) ID_CONNECTION_ATTEMPT_FAILED;
 						packet->bitSize = bitSize;
 						packet->systemAddress = systemAddress;
@@ -6966,16 +6956,12 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 						remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
 					}
-					else
-					{
-						std::free(data);
-					}
 				}
 				else if ((unsigned char) (data)[0] == ID_INVALID_PASSWORD)
 				{
 					if (remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION)
 					{
-						packet = AllocPacket(byteSize, data);
+						packet = AllocPacket(byteSize, message.release());
 						packet->bitSize = bitSize;
 						packet->systemAddress = systemAddress;
 						packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
@@ -6984,10 +6970,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						AddPacketToProducer(packet);
 
 						remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-					}
-					else
-					{
-						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_CONNECTION_REQUEST_ACCEPTED)
@@ -7060,7 +7042,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							}
 
 							// Hold the connection-complete packet until the session handshake finishes. The bytes are
-							// copied because `data` is freed as soon as this branch returns.
+							// copied because `message` frees `data` at the end of this iteration.
 							//
 							// With allowConnectionResponseIPMigration a repeated ID_CONNECTION_REQUEST_ACCEPTED on a
 							// connection still in the handshake starts it over, and ClearSessionConfig() then frees the
@@ -7075,8 +7057,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 								memcpy(remoteSystem->withheldConnectionPacketData, data, byteSize);
 								remoteSystem->withheldConnectionPacketLength = byteSize;
 							}
-							// AllocPacket used to take ownership of `data` here; the copy above means this branch does.
-							std::free(data);
 
 							MafiaNet::BitStream outBitStream;
 							outBitStream.Write((MessageID) ID_NEW_INCOMING_CONNECTION);
@@ -7108,7 +7088,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						else
 						{
 							// Ignore, already connected
-							std::free(data);
 						}
 					}
 					else
@@ -7116,7 +7095,6 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// Too short to be a connection accept: drop it. Not a RakAssert -- the
 						// remote chooses this size, and a Debug build must not abort on it. The attempt
 						// then times out normally.
-						std::free(data);
 					}
 				}
 				else
@@ -7136,7 +7114,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// are dropped.
 					if (!MayReachApplicationFromRemote(data, byteSize) || !remoteSystem->isActive)
 					{
-						std::free(data);
+						// Dropped: `message` frees it.
 					}
 					else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide &&
 					         remoteSystem->weInitiatedTheConnection)
@@ -7148,23 +7126,15 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						//
 						// Bounded: exceeding the bound is a protocol violation, and failing the attempt beats
 						// silently losing the one message that did not fit -- the very bug this hold exists for.
-						if (!HoldApplicationMessage(remoteSystem, data, bitSize))
+						if (!HoldApplicationMessage(remoteSystem, message.release(), bitSize))
 							FailSessionHandshakeAsConnectingSide(remoteSystem);
 					}
 					else if (remoteSystem->connectionReportedToApplication)
 					{
-						DeliverApplicationMessage(remoteSystem, data, bitSize);
-					}
-					else
-					{
-						std::free(data);
+						DeliverApplicationMessage(remoteSystem, message.release(), bitSize);
 					}
 				}
 			}
-
-			// Does the reliability layer have any more packets waiting for us?
-			// To be thread safe, this has to be called in the same thread as HandleSocketReceiveFromConnectedPlayer
-			bitSize = remoteSystem->reliabilityLayer.Receive(&data);
 		}
 	}
 

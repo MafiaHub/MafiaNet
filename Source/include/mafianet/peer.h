@@ -863,9 +863,13 @@ public:
 		// after the connection packet; freed, never delivered, by ClearSessionConfig() when the connection
 		// ends before that. Bounded by MAXIMUM_HELD_SESSION_MESSAGES and MAXIMUM_HELD_SESSION_BYTES.
 		// Touched only by the network thread (and by Shutdown() once it has stopped).
+		struct HeldBytesFree
+		{
+			void operator()(unsigned char *bytes) const { std::free(bytes); }
+		};
 		struct HeldApplicationMessage
 		{
-			unsigned char *data; // owned; allocated by the reliability layer
+			std::unique_ptr<unsigned char, HeldBytesFree> data; // std::malloc'd by the reliability layer
 			BitSize_t bitSize;
 		};
 		std::deque<HeldApplicationMessage> heldApplicationMessages;
