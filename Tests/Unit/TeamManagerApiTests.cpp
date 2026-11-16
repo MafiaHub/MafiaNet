@@ -13,6 +13,8 @@
 
 #include "SimulatedNetwork.h"
 
+#include "mafianet/bit_stream.h"
+#include "mafianet/message_identifiers.h"
 #include "mafianet/team_balancer.h"
 #include "mafianet/team_manager.h"
 
@@ -184,15 +186,112 @@ TEST(TeamBalancerApi, BalancingHelpersUseVectors)
 	EXPECT_EQ(balancer.GetMemberIndexToSwitchTeams(std::vector<TeamId>{2}, 0), (unsigned int) -1);
 }
 
-// SetTeamSizeLimit() grows the per-team tables to the team it names, and a member added to the last
-// team stays in bounds.
-TEST(TeamBalancerApi, TeamTablesGrowToTheHighestTeam)
+namespace
+{
+// The host side of TeamBalancer fed crafted requests through OnReceive, as a remote member's
+// messages would arrive. Two teams, 0 and 1: a team id of 2 (== the team count) is out of range.
+class TeamBalancerHostReceiving : public ::testing::Test
+{
+protected:
+	// TeamBalancerOperations in team_balancer.cpp, the byte after ID_TEAM_BALANCER_INTERNAL.
+	static constexpr unsigned char kStatusUpdateToNewHost = 0;
+	static constexpr unsigned char kRequestSpecificTeam = 3;
+
+	class HostBalancer : public ExposedTeamBalancer
+	{
+	public:
+		using TeamBalancer::OnReceive;
+		size_t MemberCount() const { return teamMembers.size(); }
+	};
+
+	void SetUp() override
+	{
+		host = net.AddPeer(4, 4);
+		ASSERT_NE(host, nullptr);
+		host->AttachPlugin(&balancer);
+		balancer.SetTeamSizeLimit(0, 4);
+		balancer.SetTeamSizeLimit(1, 4);
+		// The host announces itself the way FullyConnectedMesh2 does.
+		BitStream newHost;
+		newHost.Write((MessageID) ID_FCM2_NEW_HOST);
+		Deliver(newHost, host->GetMyGUID());
+	}
+
+	void TearDown() override
+	{
+		if (host != nullptr)
+			host->DetachPlugin(&balancer);
+	}
+
+	void Deliver(BitStream &bs, RakNetGUID from)
+	{
+		Packet packet;
+		packet.data = bs.GetData();
+		packet.length = bs.GetNumberOfBytesUsed();
+		packet.guid = from;
+		packet.systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+		balancer.OnReceive(&packet);
+	}
+
+	void RequestSpecificTeam(NetworkID memberId, TeamId team)
+	{
+		BitStream bs;
+		bs.Write((MessageID) ID_TEAM_BALANCER_INTERNAL);
+		bs.Write((MessageID) kRequestSpecificTeam);
+		bs.Write(memberId);
+		bs.Write(team);
+		Deliver(bs, remote);
+	}
+
+	void StatusUpdateToNewHost(NetworkID memberId, TeamId currentTeam, TeamId requestedTeam)
+	{
+		BitStream bs;
+		bs.Write((MessageID) ID_TEAM_BALANCER_INTERNAL);
+		bs.Write((MessageID) kStatusUpdateToNewHost);
+		bs.Write((uint8_t) 1);
+		bs.Write(memberId);
+		bs.Write(currentTeam);
+		bs.Write(requestedTeam);
+		Deliver(bs, remote);
+	}
+
+	HostBalancer balancer;
+	SimulatedNetwork net;
+	RakPeer *host = nullptr;
+	const RakNetGUID remote = RakNetGUID(777);
+};
+} // namespace
+
+// A request naming the team one past the last (team id == team count) is dropped; the last valid
+// team is accepted.
+TEST_F(TeamBalancerHostReceiving, SpecificTeamEqualToTeamCountIsRejected)
+{
+	RequestSpecificTeam(1, 2);
+	EXPECT_EQ(balancer.MemberCount(), 0u) << "team 2 of 2 teams must be rejected";
+
+	RequestSpecificTeam(1, 1);
+	EXPECT_EQ(balancer.MemberCount(), 1u);
+}
+
+TEST_F(TeamBalancerHostReceiving, StatusUpdateWithTeamEqualToTeamCountIsRejected)
+{
+	StatusUpdateToNewHost(1, 2, UNASSIGNED_TEAM_ID);
+	EXPECT_EQ(balancer.MemberCount(), 0u) << "current team 2 of 2 teams must be rejected";
+
+	StatusUpdateToNewHost(1, UNASSIGNED_TEAM_ID, 2);
+	EXPECT_EQ(balancer.MemberCount(), 0u) << "requested team 2 of 2 teams must be rejected";
+
+	StatusUpdateToNewHost(1, 1, UNASSIGNED_TEAM_ID);
+	EXPECT_EQ(balancer.MemberCount(), 1u);
+}
+
+// Members added directly are refused for a team that has no size limit set.
+TEST(TeamBalancerApi, AddTeamMemberRefusesUnknownTeams)
 {
 	ExposedTeamBalancer balancer;
-	balancer.SetTeamSizeLimit(3, 2);
-	EXPECT_EQ(balancer.Add(1, 3, UNASSIGNED_TEAM_ID), 0u);
-	EXPECT_EQ(balancer.Add(2, 3, UNASSIGNED_TEAM_ID), 1u);
-	std::vector<TeamId> overpopulated;
-	balancer.GetOverpopulatedTeams(overpopulated, 2);
-	EXPECT_EQ(overpopulated, std::vector<TeamId>{3});
+	balancer.SetTeamSizeLimit(0, 4);
+	balancer.SetTeamSizeLimit(1, 4);
+	EXPECT_EQ(balancer.Add(1, 2, UNASSIGNED_TEAM_ID), (unsigned int) -1);
+	EXPECT_EQ(balancer.Add(2, UNASSIGNED_TEAM_ID, UNASSIGNED_TEAM_ID), (unsigned int) -1);
+	EXPECT_EQ(balancer.Add(3, 1, UNASSIGNED_TEAM_ID), 0u);
 }

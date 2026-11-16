@@ -392,17 +392,12 @@ void TeamBalancer::OnStatusUpdateToNewHost(Packet *packet)
 		bsIn.Read(tm.currentTeam);
 		bsIn.Read(tm.requestedTeam);
 
-		if (tm.currentTeam != UNASSIGNED_TEAM_ID && tm.currentTeam > teamLimits.size())
-		{
-			RakAssert("Current team out of range in TeamBalancer::OnStatusUpdateToNewHost" && 0);
+		// Team ids come from the network: an unknown team drops the message.
+		if (tm.currentTeam != UNASSIGNED_TEAM_ID && tm.currentTeam >= teamLimits.size())
 			return;
-		}
 
-		if (tm.requestedTeam != UNASSIGNED_TEAM_ID && tm.requestedTeam > teamLimits.size())
-		{
-			RakAssert("Requested team out of range in TeamBalancer::OnStatusUpdateToNewHost" && 0);
+		if (tm.requestedTeam != UNASSIGNED_TEAM_ID && tm.requestedTeam >= teamLimits.size())
 			return;
-		}
 
 		if (tm.currentTeam == UNASSIGNED_TEAM_ID && tm.requestedTeam == UNASSIGNED_TEAM_ID)
 			return;
@@ -504,11 +499,9 @@ void TeamBalancer::OnRequestSpecificTeam(Packet *packet)
 		return;
 	}
 
-	if (tm.requestedTeam > teamLimits.size())
-	{
-		RakAssert("Requested team out of range in TeamBalancer::OnRequestSpecificTeam" && 0);
+	// The team id comes from the network: an unknown team drops the request.
+	if (tm.requestedTeam >= teamLimits.size())
 		return;
-	}
 	if (memberIndex == (unsigned int) -1)
 	{
 		tm.memberGuid = packet->guid;
@@ -582,22 +575,13 @@ unsigned int TeamBalancer::GetMemberIndex(NetworkID memberId, RakNetGUID guid) c
 }
 unsigned int TeamBalancer::AddTeamMember(const TeamMember &tm)
 {
-	if (tm.currentTeam > teamLimits.size())
-	{
-		RakAssert("TeamBalancer::AddTeamMember team index out of bounds" && 0);
+	// Callers pass teams that came from the network: an unknown team is refused, not asserted.
+	// SetTeamSizeLimit() keeps teamMemberCounts at least as long as teamLimits.
+	if (tm.currentTeam == UNASSIGNED_TEAM_ID || tm.currentTeam >= teamLimits.size())
 		return (unsigned int) -1;
-	}
-
-	RakAssert(tm.currentTeam != UNASSIGNED_TEAM_ID);
 
 	teamMembers.push_back(tm);
-	if (teamMemberCounts.size() <= tm.currentTeam)
-	{
-		teamMemberCounts.resize((std::size_t) tm.currentTeam + 1, 0);
-		teamMemberCounts[tm.currentTeam] = 1;
-	}
-	else
-		teamMemberCounts[tm.currentTeam] = teamMemberCounts[tm.currentTeam] + 1;
+	teamMemberCounts[tm.currentTeam] = teamMemberCounts[tm.currentTeam] + 1;
 	return (unsigned int) (teamMembers.size() - 1);
 }
 void TeamBalancer::RemoveTeamMember(unsigned int index)
