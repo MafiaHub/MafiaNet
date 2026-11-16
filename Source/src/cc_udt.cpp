@@ -119,7 +119,7 @@ void CCRakNetUDT::Init(CCTimeType curTime, uint32_t maxDatagramPayload)
 	estimatedLinkCapacityBytesPerSecond = 0;
 	bytesCanSendThisTick = 0;
 	hadPacketlossThisBlock = false;
-	pingsLastInterval.Clear(__FILE__, __LINE__);
+	pingsLastInterval.clear();
 }
 // ----------------------------------------------------------------------------------------------------------------------------
 void CCRakNetUDT::SetMTU(uint32_t bytes)
@@ -433,10 +433,10 @@ void CCRakNetUDT::OnNAK(CCTimeType curTime, DatagramSequenceNumberType nakSequen
 	{
 		// Logging
 		//printf("Sending SLOWER due to NAK, Rate=%f MBPS. Rtt=%i\n", GetLocalSendRate(),  lastRtt );
-		if (pingsLastInterval.Size() > 10)
+		if (pingsLastInterval.size() > 10)
 		{
 			for (int i = 0; i < 10; i++)
-				printf("%i, ", pingsLastInterval[pingsLastInterval.Size() - 1 - i] / 1000);
+				printf("%i, ", pingsLastInterval[pingsLastInterval.size() - 1 - i] / 1000);
 		}
 		printf("\n");
 		IncreaseTimeBetweenSends();
@@ -643,21 +643,21 @@ void CCRakNetUDT::UpdateWindowSizeAndAckOnAckPerSyn(CCTimeType curTime, CCTimeTy
 	if (isContinuousSend == false)
 	{
 		nextCongestionControlBlock = nextDatagramSequenceNumber;
-		pingsLastInterval.Clear(__FILE__, __LINE__);
+		pingsLastInterval.clear();
 		return;
 	}
 
-	pingsLastInterval.Push(rtt, __FILE__, __LINE__);
+	pingsLastInterval.push_back(rtt);
 	static const int intervalSize = 33; // Should be odd
-	if (pingsLastInterval.Size() > intervalSize)
-		pingsLastInterval.Pop();
+	if (pingsLastInterval.size() > static_cast<std::size_t>(intervalSize))
+		pingsLastInterval.pop_front();
 	if (GreaterThan(sequenceNumber, nextCongestionControlBlock) &&
 	    sequenceNumber - nextCongestionControlBlock >= intervalSize &&
-	    pingsLastInterval.Size() == intervalSize)
+	    pingsLastInterval.size() == static_cast<std::size_t>(intervalSize))
 	{
 		double slopeSum = 0.0;
 		double average = (double) pingsLastInterval[0];
-		int sampleSize = pingsLastInterval.Size();
+		const auto sampleSize = static_cast<int>(pingsLastInterval.size());
 		for (int i = 1; i < sampleSize; i++)
 		{
 			slopeSum += (double) pingsLastInterval[i] - (double) pingsLastInterval[i - 1];
@@ -689,7 +689,7 @@ void CCRakNetUDT::UpdateWindowSizeAndAckOnAckPerSyn(CCTimeType curTime, CCTimeTy
 			DecreaseTimeBetweenSends();
 		}
 
-		pingsLastInterval.Clear(__FILE__, __LINE__);
+		pingsLastInterval.clear();
 		hadPacketlossThisBlock = false;
 		nextCongestionControlBlock = nextDatagramSequenceNumber;
 	}

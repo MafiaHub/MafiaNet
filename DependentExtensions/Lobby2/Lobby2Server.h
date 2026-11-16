@@ -20,6 +20,8 @@
 #include "mafianet/types.h"
 #include "Lobby2Plugin.h"
 #include "mafianet/ds_ordered_list.h"
+// Lobby2 internals move to std:: containers in PR 5; ds_queue.h no longer arrives through thread_pool.h.
+#include "mafianet/ds_queue.h"
 #include "mafianet/thread_pool.h"
 #include "Lobby2Presence.h"
 

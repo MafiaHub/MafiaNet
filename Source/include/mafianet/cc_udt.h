@@ -23,7 +23,7 @@
 #include "mafianet/native_types.h"
 #include "mafianet/time.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_queue.h"
+#include <deque>
 
 /// Set to 4 if you are using the iPod Touch TG. See http://www.jenkinssoftware.com/forum/index.php?topic=2717.0
 #define CC_TIME_TYPE_BYTES 8
@@ -398,7 +398,7 @@ protected:
 
 	DatagramSequenceNumberType nextCongestionControlBlock;
 	bool hadPacketlossThisBlock;
-	DataStructures::Queue<CCTimeType> pingsLastInterval;
+	std::deque<CCTimeType> pingsLastInterval;
 };
 
 }
