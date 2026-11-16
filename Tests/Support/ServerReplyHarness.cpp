@@ -14,8 +14,9 @@
 
 #include <sodium.h>
 
-// sodium.h declares the implementation structs. The internal one does not exist before libsodium
-// 1.0.20, where 1.0.18 has salsa20 instead (newer headers alias that name to internal).
+// sodium.h declares the implementation structs. The internal one is declared in
+// randombytes_internal_random.h (with "salsa20" as an alias), as in Ubuntu 24.04's libsodium 1.0.18;
+// older releases shipped only randombytes_salsa20_random.h. Detect which header exists.
 #if defined(__has_include)
 #if __has_include(<sodium/randombytes_internal_random.h>)
 #define MAFIANET_HAVE_SODIUM_INTERNAL_RANDOM 1
@@ -52,9 +53,9 @@ uint64_t NextRandom()
 // binary that links this file draws OS randomness as usual outside a run.
 //
 // Which implementation that is depends on the libsodium version and build: upstream's
-// randombytes.c defaults to randombytes_sysrandom_implementation (read in 1.0.18 and 1.0.22), a
-// build that defines RANDOMBYTES_DEFAULT_IMPLEMENTATION uses the internal one (1.0.20+), and 1.0.18
-// also has a "salsa20" one. So the default is not hard-coded: it is asked for with
+// randombytes.c defaults to randombytes_sysrandom_implementation (read in 1.0.18 and 1.0.22, and
+// what Ubuntu 24.04 reports), but a build can choose another default with
+// RANDOMBYTES_DEFAULT_IMPLEMENTATION, and older releases name the internal one "salsa20". So the default is not hard-coded: it is asked for with
 // randombytes_implementation_name() and mapped to the exported struct of that name.
 //
 // Asking first is safe. randombytes_implementation_name() calls randombytes_init_if_needed(), which
