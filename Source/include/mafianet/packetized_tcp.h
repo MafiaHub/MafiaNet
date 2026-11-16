@@ -25,8 +25,11 @@
 #define __PACKETIZED_TCP
 
 #include "mafianet/tcp_interface.h"
-#include "mafianet/ds_byte_queue.h"
-#include "mafianet/ds_map.h"
+
+#include <cstdint>
+#include <deque>
+#include <map>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -39,6 +42,18 @@ public:
 
 	PacketizedTCP();
 	virtual ~PacketizedTCP();
+	PacketizedTCP(const PacketizedTCP &) = delete;
+	PacketizedTCP &operator=(const PacketizedTCP &) = delete;
+
+	/// Every message is framed by a 4-byte big-endian length prefix. A peer that announces a message
+	/// longer than this many bytes is disconnected (reported by HasLostConnection()) instead of being
+	/// buffered: the prefix is untrusted input, and honouring it would let one peer hold up to 4 GiB.
+	static constexpr uint32_t DEFAULT_MAX_MESSAGE_LENGTH = 64u * 1024u * 1024u;
+
+	/// Sets the longest message accepted from a peer; see DEFAULT_MAX_MESSAGE_LENGTH. Messages this
+	/// side sends are not checked: the receiving side's limit applies to them.
+	void SetMaxMessageLength(uint32_t bytes);
+	uint32_t GetMaxMessageLength(void) const;
 
 	/// Stops the TCP server
 	void Stop(void);
@@ -76,12 +91,19 @@ protected:
 	void PushNotificationsToQueues(void);
 	Packet *ReturnOutgoingPacket(void);
 
+	// Appends \a length received bytes to the stream of \a systemAddress and queues every message it
+	// completes (or a download-progress notification) on waitingPackets. Drops the connection when a
+	// length prefix exceeds maxMessageLength.
+	void OnBytesReceived(const SystemAddress &systemAddress, std::vector<unsigned char> &stream, const unsigned char *data, unsigned int length);
+
 	// A single TCP recieve may generate multiple split packets. They are stored in the waitingPackets list until Receive is called
-	DataStructures::Queue<Packet *> waitingPackets;
-	DataStructures::Map<SystemAddress, DataStructures::ByteQueue *> connections;
+	std::deque<Packet *> waitingPackets;
+	// Bytes received from each connection that do not form a whole message yet.
+	std::map<SystemAddress, std::vector<unsigned char>> connections;
+	uint32_t maxMessageLength;
 
 	// Mirrors single producer / consumer, but processes them in Receive() before returning to user
-	DataStructures::Queue<SystemAddress> _newIncomingConnections, _lostConnections, _failedConnectionAttempts, _completedConnectionAttempts;
+	std::deque<SystemAddress> _newIncomingConnections, _lostConnections, _failedConnectionAttempts, _completedConnectionAttempts;
 };
 
 } // namespace MafiaNet

@@ -29,10 +29,11 @@
 #include "mafianet/export.h"
 #include "mafianet/string.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_list.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/simple_mutex.h"
+
+#include <deque>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -121,9 +122,9 @@ protected:
 	void SendNextPendingRequest(void);
 	void SendPendingRequestToConnectedSystem(SystemAddress sa);
 
-	DataStructures::Queue<Request *> pendingRequests;
-	DataStructures::List<Request *> sentRequests;
-	DataStructures::List<Request *> completedRequests;
+	std::deque<Request *> pendingRequests;
+	std::vector<Request *> sentRequests;
+	std::vector<Request *> completedRequests;
 
 	SimpleMutex pendingRequestsMutex, sentRequestsMutex, completedRequestsMutex;
 };

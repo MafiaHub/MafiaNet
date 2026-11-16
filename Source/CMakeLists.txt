@@ -22,7 +22,6 @@ set(MAFIANET_SOURCES
     src/data_compressor.cpp
     src/directory_delta_transfer.cpp
     src/dr_sha1.cpp
-    src/ds_byte_queue.cpp
     src/huffman_encoding_tree.cpp
     src/ds_table.cpp
     src/dyn_dns.cpp
@@ -148,7 +147,6 @@ set(MAFIANET_HEADERS
     include/mafianet/directory_delta_transfer.h
     include/mafianet/dr_sha1.h
     include/mafianet/ds_bplus_tree.h
-    include/mafianet/ds_byte_queue.h
     include/mafianet/ds_hash.h
     include/mafianet/ds_heap.h
     include/mafianet/huffman_encoding_tree.h

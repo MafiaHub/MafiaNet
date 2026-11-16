@@ -19,6 +19,8 @@
 
 #include "mafianet/telnet_transport.h"
 #include "mafianet/tcp_interface.h"
+#include <cassert>
+#include "mafianet/vector_util.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -61,9 +63,9 @@ void TelnetTransport::Stop(void)
 		return;
 	tcpInterface->Stop();
 	unsigned i;
-	for (i = 0; i < remoteClients.Size(); i++)
+	for (i = 0; i < remoteClients.size(); i++)
 		delete remoteClients[i];
-	remoteClients.Clear(false, _FILE_AND_LINE_);
+	remoteClients.clear();
 	delete tcpInterface;
 	tcpInterface = 0;
 }
@@ -130,7 +132,7 @@ Packet *TelnetTransport::Receive(void)
 	// Get this guy's cursor buffer.  This is real bullcrap that I have to do this.
 	unsigned i;
 	TelnetClient *remoteClient = 0;
-	for (i = 0; i < remoteClients.Size(); i++)
+	for (i = 0; i < remoteClients.size(); i++)
 	{
 		if (remoteClients[i]->systemAddress == p->systemAddress)
 			remoteClient = remoteClients[i];
@@ -261,7 +263,7 @@ SystemAddress TelnetTransport::HasNewIncomingConnection(void)
 	*/
 
 		TelnetClient *remoteClient = 0;
-		for (i = 0; i < remoteClients.Size(); i++)
+		for (i = 0; i < remoteClients.size(); i++)
 		{
 			if (remoteClients[i]->systemAddress == newConnection)
 			{
@@ -281,7 +283,7 @@ SystemAddress TelnetTransport::HasNewIncomingConnection(void)
 #endif
 		}
 
-		remoteClients.Insert(remoteClient, _FILE_AND_LINE_);
+		remoteClients.push_back(remoteClient);
 	}
 	return newConnection;
 }
@@ -292,13 +294,12 @@ SystemAddress TelnetTransport::HasLostConnection(void)
 	systemAddress = tcpInterface->HasLostConnection();
 	if (systemAddress != UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		for (i = 0; i < remoteClients.Size(); i++)
+		for (i = 0; i < remoteClients.size(); i++)
 		{
 			if (remoteClients[i]->systemAddress == systemAddress)
 			{
 				delete remoteClients[i];
-				remoteClients[i] = remoteClients[remoteClients.Size() - 1];
-				remoteClients.RemoveFromEnd();
+				SwapRemove(remoteClients, i);
 			}
 		}
 	}

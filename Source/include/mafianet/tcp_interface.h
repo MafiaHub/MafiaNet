@@ -24,20 +24,18 @@
 #ifndef __SIMPLE_TCP_SERVER
 #define __SIMPLE_TCP_SERVER
 
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
 #include "mafianet/export.h"
 #include "mafianet/thread.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/defines.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_byte_queue.h"
 #include "mafianet/locked_queue.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 
 #include <cstdlib>
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -57,6 +55,9 @@ public:
 
 	TCPInterface();
 	virtual ~TCPInterface();
+	// Owns threads, sockets and LockedQueues; MSVC dllexport needs the deleted copy spelled out.
+	TCPInterface(const TCPInterface &) = delete;
+	TCPInterface &operator=(const TCPInterface &) = delete;
 
 	// TODO - add socketdescriptor
 	/// Starts the TCP server on the indicated port
@@ -135,19 +136,20 @@ protected:
 	bool CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *hostAddress);
 
 	// Plugins
-	DataStructures::List<PluginInterface2 *> messageHandlerList;
+	std::vector<PluginInterface2 *> messageHandlerList;
 
 	MafiaNet::LocklessUint32_t isStarted, threadRunning;
 	__TCPSOCKET__ listenSocket;
 
-	DataStructures::Queue<Packet *> headPush, tailPush;
+	// PushBackPacket output; user thread only.
+	std::deque<Packet *> headPush, tailPush;
 	RemoteClient *remoteClients;
 	unsigned short remoteClientsLength;
 
 	// Assuming remoteClients is only used by one thread!
-	// DataStructures::List<RemoteClient*> remoteClients;
+	// std::vector<RemoteClient*> remoteClients;
 	// Use this thread-safe queue to add to remoteClients
-	// DataStructures::Queue<RemoteClient*> remoteClientsInsertionQueue;
+	// LockedQueue<RemoteClient*> remoteClientsInsertionQueue;
 	// SimpleMutex remoteClientsInsertionQueueMutex;
 
 	/*
@@ -172,8 +174,8 @@ protected:
 	// Filled by the TCP thread, drained by the user thread (Receive, HasNewIncomingConnection, HasLostConnection).
 	LockedQueue<std::unique_ptr<Packet, IncomingPacketDeleter>> incomingMessages;
 	LockedQueue<SystemAddress> newIncomingConnections, lostConnections;
-	SimpleMutex completedConnectionAttemptMutex, failedConnectionAttemptMutex;
-	DataStructures::Queue<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
+	// Filled by Connect (or its connection thread), drained by the user thread.
+	LockedQueue<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
 
 	int threadPriority;
 
@@ -215,7 +217,8 @@ struct RemoteClient
 	}
 	__TCPSOCKET__ socket;
 	SystemAddress systemAddress;
-	DataStructures::ByteQueue outgoingData;
+	// Bytes not yet taken by the socket, oldest first; the update thread erases the sent prefix.
+	std::vector<unsigned char> outgoingData;
 	bool isActive;
 	SimpleMutex outgoingDataMutex;
 	SimpleMutex isActiveMutex;
@@ -228,7 +231,7 @@ struct RemoteClient
 	void Reset(void)
 	{
 		outgoingDataMutex.Lock();
-		outgoingData.Clear(_FILE_AND_LINE_);
+		outgoingData.clear();
 		outgoingDataMutex.Unlock();
 	}
 	// Requires isActiveMutex. Deactivating shuts the socket down but does not close it: see socketsToClose.

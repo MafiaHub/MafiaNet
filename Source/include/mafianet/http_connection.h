@@ -27,7 +27,8 @@
 #include "mafianet/export.h"
 #include "mafianet/string.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_queue.h"
+
+#include <deque>
 
 namespace MafiaNet
 {
@@ -139,7 +140,7 @@ public:
 		bool isPost;
 	};
 
-	DataStructures::Queue<OutgoingCommand> outgoingCommand;
+	std::deque<OutgoingCommand> outgoingCommand;
 	OutgoingCommand currentProcessingCommand;
 
 private:
@@ -147,7 +148,7 @@ private:
 	TCPInterface *tcp;
 	MafiaNet::RakString host;
 	unsigned short port;
-	DataStructures::Queue<BadResponse> badResponses;
+	std::deque<BadResponse> badResponses;
 
 	enum ConnectionState
 	{
@@ -159,7 +160,7 @@ private:
 	} connectionState;
 
 	MafiaNet::RakString incomingData;
-	DataStructures::Queue<MafiaNet::RakString> results;
+	std::deque<MafiaNet::RakString> results;
 
 	void CloseConnection();
 
