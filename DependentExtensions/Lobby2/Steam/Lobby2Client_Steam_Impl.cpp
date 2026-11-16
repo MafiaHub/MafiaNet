@@ -364,10 +364,14 @@ void Lobby2Client_Steam_Impl::CallRoomCallbacks()
 	std::map<uint64_t, RoomMember> updatedRoomMembers;
 	bool anyChanges = false;
 
-	// Both are sorted by Steam ID: merge them to find who joined and who left
+	// Both are sorted by Steam ID: merge them to find who joined and who left.
+	// Merge over a copy: NotifyNewMember/NotifyDroppedMember run user callbacks synchronously, and a callback
+	// can change roomMembersById (for example Console_LeaveRoom_Steam -> NotifyLeaveRoom -> ClearRoom), which
+	// would invalidate an iterator into it.
+	const std::map<uint64_t, RoomMember> oldMembers = roomMembersById;
 	auto currentMember = currentMembers.begin();
-	auto oldMember = roomMembersById.begin();
-	while (currentMember != currentMembers.end() && oldMember != roomMembersById.end())
+	auto oldMember = oldMembers.begin();
+	while (currentMember != currentMembers.end() && oldMember != oldMembers.end())
 	{
 		if (*currentMember < oldMember->second.steamIDRemote)
 		{
@@ -400,7 +404,7 @@ void Lobby2Client_Steam_Impl::CallRoomCallbacks()
 		}
 	}
 
-	while (oldMember != roomMembersById.end())
+	while (oldMember != oldMembers.end())
 	{
 		anyChanges = true;
 
