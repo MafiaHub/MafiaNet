@@ -104,6 +104,22 @@
 #define MAXIMUM_SESSION_CONFIG_SIZE 65536
 #endif
 
+// Bounds on the application messages the connecting side holds while it finishes the session
+// handshake. The accepting side reports the connection first and may send at once, so its first
+// messages can arrive before its session payload (ID_SESSION_CONFIG) when that datagram is lost or
+// overtaken; they are held and delivered right after ID_CONNECTION_REQUEST_ACCEPTED. That window lasts
+// about one retransmission timeout of a brand-new connection, and ID_SESSION_CONFIG is resent at
+// Immediate priority ahead of any application data, so a conforming peer cannot come near these
+// limits (64 session payloads' worth of bytes). A remote that exceeds either one is breaking the
+// protocol: the connection attempt fails (ID_CONNECTION_ATTEMPT_FAILED) and the held messages are
+// freed. The message count bounds the per-message bookkeeping a flood of tiny messages would cost.
+#ifndef MAXIMUM_HELD_SESSION_MESSAGES
+#define MAXIMUM_HELD_SESSION_MESSAGES 16384
+#endif
+#ifndef MAXIMUM_HELD_SESSION_BYTES
+#define MAXIMUM_HELD_SESSION_BYTES (64u * MAXIMUM_SESSION_CONFIG_SIZE)
+#endif
+
 #ifndef RakAssert
 #if defined(_DEBUG)
 #define RakAssert(x) assert(x);

@@ -627,6 +627,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			remoteSystemList[i].remoteSessionConfigLength = 0;
 			remoteSystemList[i].withheldConnectionPacketData = 0;
 			remoteSystemList[i].withheldConnectionPacketLength = 0;
+			remoteSystemList[i].heldApplicationBytes = 0;
 			remoteSystemList[i].sessionConfigAwaitingLocalDecision = false;
 			remoteSystemList[i].sessionConfigIsConnectingSide = false;
 			remoteSystemList[i].connectionReportedToApplication = false;
@@ -3861,6 +3862,8 @@ void RakPeer::ClearSessionConfig(RemoteSystemStruct *remoteSystem)
 		remoteSystem->withheldConnectionPacketData = 0;
 	}
 	remoteSystem->withheldConnectionPacketLength = 0;
+	// Held for a connection that is ending (or restarting its handshake) without having been reported.
+	FreeHeldApplicationMessages(remoteSystem);
 	remoteSystem->sessionConfigAwaitingLocalDecision = false;
 	remoteSystem->sessionConfigIsConnectingSide = false;
 	remoteSystem->connectionReportedToApplication = false;
@@ -3933,6 +3936,78 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 	packet->guid.systemIndex = packet->systemAddress.systemIndex;
 	remoteSystem->connectionReportedToApplication = true;
 	AddPacketToProducer(packet);
+
+	// Then what the remote sent while we were still finishing the handshake, in arrival order: right
+	// behind the connection packet, never ahead of it. Delivered the way any later message is, so the
+	// network-thread plugins see each one now, when it reaches the application, not when it arrived.
+	while (!remoteSystem->heldApplicationMessages.IsEmpty())
+	{
+		const RemoteSystemStruct::HeldApplicationMessage held = remoteSystem->heldApplicationMessages.Pop();
+		DeliverApplicationMessage(remoteSystem, held.data, held.bitSize);
+	}
+	remoteSystem->heldApplicationBytes = 0;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::HoldApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize)
+{
+	const unsigned int byteSize = (unsigned int) BITS_TO_BYTES(bitSize);
+	if (remoteSystem->heldApplicationMessages.Size() >= (unsigned int) MAXIMUM_HELD_SESSION_MESSAGES ||
+	    byteSize > (unsigned int) MAXIMUM_HELD_SESSION_BYTES - remoteSystem->heldApplicationBytes)
+	{
+		rakFree_Ex(data, _FILE_AND_LINE_);
+		return false;
+	}
+	RemoteSystemStruct::HeldApplicationMessage held;
+	held.data = data;
+	held.bitSize = bitSize;
+	remoteSystem->heldApplicationMessages.Push(held, _FILE_AND_LINE_);
+	remoteSystem->heldApplicationBytes += byteSize;
+	return true;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::FreeHeldApplicationMessages(RemoteSystemStruct *remoteSystem)
+{
+	while (!remoteSystem->heldApplicationMessages.IsEmpty())
+		rakFree_Ex(remoteSystem->heldApplicationMessages.Pop().data, _FILE_AND_LINE_);
+	remoteSystem->heldApplicationMessages.Clear(_FILE_AND_LINE_);
+	remoteSystem->heldApplicationBytes = 0;
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::FailSessionHandshakeAsConnectingSide(RemoteSystemStruct *remoteSystem)
+{
+	FreeHeldApplicationMessages(remoteSystem);
+
+	// Our Connect() is answered here, once: the slot leaves EXCHANGING_SESSION_DATA for a silent close,
+	// which the failure path does not report again.
+	Packet *packet = AllocPacket(sizeof(MessageID), _FILE_AND_LINE_);
+	packet->data[0] = (unsigned char) ID_CONNECTION_ATTEMPT_FAILED;
+	packet->bitSize = sizeof(MessageID) * 8;
+	packet->systemAddress = remoteSystem->systemAddress;
+	packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
+	packet->guid = remoteSystem->guid;
+	packet->guid.systemIndex = packet->systemAddress.systemIndex;
+	AddPacketToProducer(packet);
+
+	// The remote has already reported this connection to its application, so tell it the connection is
+	// gone rather than leaving it to time out. Sent before the silent close so it goes out with the next
+	// update; the slot closes once nothing is left to send.
+	const MessageID notification = (MessageID) ID_DISCONNECTION_NOTIFICATION;
+	SendImmediate((char *) &notification, sizeof(notification) * 8, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, remoteSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
+	remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+	remoteSystem->sessionConfigStartTime = 0;
+	quitAndDataEvents.SetEvent();
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize)
+{
+	Packet *packet = AllocPacket((unsigned int) BITS_TO_BYTES(bitSize), data, _FILE_AND_LINE_);
+	packet->bitSize = bitSize;
+	packet->systemAddress = remoteSystem->systemAddress;
+	packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
+	packet->guid = remoteSystem->guid;
+	packet->guid.systemIndex = packet->systemAddress.systemIndex;
+	if (!DispatchNetworkThreadReceive(packet))
+		AddPacketToProducer(packet);
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ProduceSessionAbandoned(RemoteSystemStruct *remoteSystem)
@@ -7082,27 +7157,33 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				}
 				else
 				{
-					// What do I do if I get a message from a system, before I am fully connected?
-					// I can either ignore it or give it to the user
-					// It seems like giving it to the user is a better option
+					// Application data (or a plugin's message) from the remote. It reaches the application only on
+					// a connection the application has been told about: never ahead of the connection packet, so
+					// never for a guid it has not seen connect, and never from a peer it may still refuse.
 					//
-					// Except while the session handshake is running: the application has not been told this
-					// connection exists, so handing it application data from that peer would deliver a packet
-					// for a guid it has never seen connect -- and from a peer it may still refuse. A peer that
-					// respects the protocol cannot send here anyway: its own public send path is gated on the
-					// same state, so anything arriving in this window is malformed or hostile.
-					if (MayReachApplicationFromRemote(data, byteSize) &&
-					    remoteSystem->isActive &&
-					    remoteSystem->connectMode != RemoteSystemStruct::EXCHANGING_SESSION_DATA)
+					// The connecting side is the one exception to dropping the rest. The accepting side reports the
+					// connection as soon as it answers our session request and may send at once, so its first
+					// messages can overtake its ID_SESSION_CONFIG -- always, when that datagram is lost. They have
+					// been acked, so dropping them would lose them for good; they are held and delivered right
+					// after ID_CONNECTION_REQUEST_ACCEPTED instead, in arrival order. Only messages ordered on
+					// channel 0 would have queued behind the session reply on their own. A conforming accepting
+					// side cannot send in its own handshake window (its application has not been told of us yet),
+					// and data after a failed or refused handshake is for an attempt already answered, so those
+					// are dropped.
+					if (!MayReachApplicationFromRemote(data, byteSize) || !remoteSystem->isActive)
 					{
-						packet = AllocPacket(byteSize, data, _FILE_AND_LINE_);
-						packet->bitSize = bitSize;
-						packet->systemAddress = systemAddress;
-						packet->systemAddress.systemIndex = remoteSystem->remoteSystemIndex;
-						packet->guid = remoteSystem->guid;
-						packet->guid.systemIndex = packet->systemAddress.systemIndex;
-						if (!DispatchNetworkThreadReceive(packet))
-							AddPacketToProducer(packet);
+						rakFree_Ex(data, _FILE_AND_LINE_);
+					}
+					else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
+					{
+						// Bounded: exceeding the bound is a protocol violation, and failing the attempt beats
+						// silently losing the one message that did not fit -- the very bug this hold exists for.
+						if (!HoldApplicationMessage(remoteSystem, data, bitSize))
+							FailSessionHandshakeAsConnectingSide(remoteSystem);
+					}
+					else if (remoteSystem->connectionReportedToApplication)
+					{
+						DeliverApplicationMessage(remoteSystem, data, bitSize);
 					}
 					else
 					{

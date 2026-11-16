@@ -851,6 +851,22 @@ public:
 		unsigned char *withheldConnectionPacketData;
 		unsigned int withheldConnectionPacketLength;
 
+		// Application messages that arrived while we, the connecting side, were still in
+		// EXCHANGING_SESSION_DATA. The accepting side reports its connection as soon as it answers our
+		// session request and may send at once, so its first messages can overtake its ID_SESSION_CONFIG
+		// (always, when that datagram is lost). They have been acked already, so dropping them would lose
+		// them for good. Held in arrival order and handed on by ProduceWithheldConnectionPacket() right
+		// after the connection packet; freed, never delivered, by ClearSessionConfig() when the connection
+		// ends before that. Bounded by MAXIMUM_HELD_SESSION_MESSAGES and MAXIMUM_HELD_SESSION_BYTES.
+		// Touched only by the network thread (and by Shutdown() once it has stopped).
+		struct HeldApplicationMessage
+		{
+			unsigned char *data; // owned; allocated by the reliability layer
+			BitSize_t bitSize;
+		};
+		DataStructures::Queue<HeldApplicationMessage> heldApplicationMessages;
+		unsigned int heldApplicationBytes;
+
 		// EXCHANGING_SESSION_DATA sits between HANDLING_CONNECTION_REQUEST and CONNECTED: the reliability
 		// layer is fully up (MTU negotiated, acks flowing) but the application has NOT been told a
 		// connection exists. ID_CONNECTION_REQUEST_ACCEPTED / ID_NEW_INCOMING_CONNECTION are withheld until
@@ -1325,8 +1341,21 @@ private:
 	/// True when a directed application send must be refused because the target is still running the
 	/// session handshake and so has not been reported to the application yet.
 	bool IsExchangingSessionData(const AddressOrGUID systemIdentifier);
-	/// Produce the connection packet that was withheld while the session handshake ran.
+	/// Produce the connection packet that was withheld while the session handshake ran, then the
+	/// application messages held behind it.
 	void ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, MessageID messageId);
+	/// Connecting side, EXCHANGING_SESSION_DATA: take ownership of an application message until the
+	/// connection is reported. Returns false, having freed \a data, when holding it would exceed
+	/// MAXIMUM_HELD_SESSION_MESSAGES or MAXIMUM_HELD_SESSION_BYTES.
+	bool HoldApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize);
+	/// Free every held application message on the slot without delivering any.
+	void FreeHeldApplicationMessages(RemoteSystemStruct *remoteSystem);
+	/// Connecting side: end a session handshake the remote broke (held-message limit exceeded). Reports
+	/// ID_CONNECTION_ATTEMPT_FAILED, tells the remote it is disconnected and closes the slot.
+	void FailSessionHandshakeAsConnectingSide(RemoteSystemStruct *remoteSystem);
+	/// Hand an application message a connected remote sent to the network-thread plugins, then to the
+	/// application queue. Takes ownership of \a data.
+	void DeliverApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned char *data, BitSize_t bitSize);
 };
 
 } // namespace MafiaNet

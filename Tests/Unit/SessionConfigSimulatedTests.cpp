@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstring>
 #include <functional>
 #include <map>
@@ -72,11 +73,12 @@ const char kClientPayload[] = "{\"build\":\"m2o|1.2.3\"}";
 class SendGateBypass : public RakPeer
 {
 public:
-	static void Inject(RakPeer *peer, const BitStream &bs, const AddressOrGUID &target)
+	static void Inject(RakPeer *peer, const BitStream &bs, const AddressOrGUID &target,
+	                   Reliability reliability = Reliability::ReliableOrdered, char orderingChannel = 0)
 	{
 		(peer->*&SendGateBypass::SendBuffered)(
 		    (const char *) bs.GetData(), bs.GetNumberOfBitsUsed(), Priority::Immediate,
-		    Reliability::ReliableOrdered, 0, target, false,
+		    reliability, orderingChannel, target, false,
 		    RemoteSystemStruct::NO_ACTION, 0);
 	}
 };
@@ -90,26 +92,47 @@ public:
 		bool sawSlot = false;
 		bool reported = false;
 		unsigned int payloadLength = 0;
+		bool exchanging = false;       // connectMode == EXCHANGING_SESSION_DATA
+		unsigned int heldMessages = 0; // application messages held behind the handshake
+		unsigned int heldBytes = 0;
 	};
+
+	static Snapshot Of(const RemoteSystemStruct &slot)
+	{
+		Snapshot out;
+		out.sawSlot = true;
+		out.reported = slot.connectionReportedToApplication;
+		out.payloadLength = slot.remoteSessionConfigLength;
+		out.exchanging = slot.connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA;
+		out.heldMessages = slot.heldApplicationMessages.Size();
+		out.heldBytes = slot.heldApplicationBytes;
+		return out;
+	}
+
+	// The active slot of the remote with this guid.
+	static Snapshot SlotFor(const RakPeer *peer, const RakNetGUID &remote)
+	{
+		const RemoteSystemStruct *slots = peer->*&SlotInspector::remoteSystemList;
+		const unsigned int slotCount = peer->*&SlotInspector::maximumNumberOfPeers;
+		if (slots == nullptr)
+			return Snapshot();
+		for (unsigned int i = 0; i < slotCount; ++i)
+			if (slots[i].isActive && slots[i].guid == remote)
+				return Of(slots[i]);
+		return Snapshot();
+	}
 
 	// The tests using this have exactly one remote, so the first active slot is it.
 	static Snapshot FirstActiveSlot(const RakPeer *peer)
 	{
 		const RemoteSystemStruct *slots = peer->*&SlotInspector::remoteSystemList;
 		const unsigned int slotCount = peer->*&SlotInspector::maximumNumberOfPeers;
-		Snapshot out;
 		if (slots == nullptr)
-			return out;
+			return Snapshot();
 		for (unsigned int i = 0; i < slotCount; ++i)
-		{
-			if (!slots[i].isActive)
-				continue;
-			out.sawSlot = true;
-			out.reported = slots[i].connectionReportedToApplication;
-			out.payloadLength = slots[i].remoteSessionConfigLength;
-			return out;
-		}
-		return out;
+			if (slots[i].isActive)
+				return Of(slots[i]);
+		return Snapshot();
 	}
 };
 
@@ -1040,4 +1063,439 @@ TEST_F(SessionConfigSim, ClientLeavingMidDecisionIsReportedAsAbandoned)
 	EXPECT_FALSE(Has(server, ID_DISCONNECTION_NOTIFICATION)) << "a connection never reported was reported closed";
 	EXPECT_EQ(0u, server->NumberOfConnections());
 	EXPECT_FALSE(SlotInspector::FirstActiveSlot(server).sawSlot);
+}
+
+// =========================================================================================================
+// Application messages that overtake the session reply (issue #96).
+//
+// The accepting side reports ID_NEW_INCOMING_CONNECTION as soon as it answers the session request, and
+// an application commonly sends right then. The connecting side only reports its connection once that
+// answer (ID_SESSION_CONFIG) arrives, so when the datagram carrying it is lost or delayed, what the
+// application sent next arrives first. It has been acked, so it is never resent: the connecting side
+// holds it and delivers it right after ID_CONNECTION_REQUEST_ACCEPTED, bounded by
+// MAXIMUM_HELD_SESSION_MESSAGES and MAXIMUM_HELD_SESSION_BYTES.
+// =========================================================================================================
+
+namespace
+{
+const MessageID kReliableStreamId = ID_USER_PACKET_ENUM + 10;
+const MessageID kUnreliableStreamId = ID_USER_PACKET_ENUM + 11;
+const MessageID kOrderedStreamId = ID_USER_PACKET_ENUM + 12;
+const MessageID kSequencedStreamId = ID_USER_PACKET_ENUM + 13;
+const MessageID kStreamIds[] = {kReliableStreamId, kUnreliableStreamId, kOrderedStreamId, kSequencedStreamId};
+// Not channel 0: messages ordered on channel 0 queue behind ID_SESSION_CONFIG in the reliability layer
+// and were never affected.
+const char kOrderedChannel = 3;
+const char kSequencedChannel = 2;
+const uint32_t kBurst = 5;
+
+void WriteNumbered(BitStream &bs, MessageID id, uint32_t n)
+{
+	bs.Write(id);
+	bs.Write(n);
+}
+
+// The numbers carried by every message with this id, in delivery order.
+std::vector<uint32_t> NumbersIn(const std::vector<Message> &inbox, MessageID id)
+{
+	std::vector<uint32_t> numbers;
+	for (const Message &message : inbox)
+	{
+		if (message.id != id || message.data.size() < 1 + sizeof(uint32_t))
+			continue;
+		BitStream bs(const_cast<unsigned char *>(message.data.data()), (unsigned int) message.data.size(), false);
+		bs.IgnoreBytes(1);
+		uint32_t n = 0;
+		bs.Read(n);
+		numbers.push_back(n);
+	}
+	return numbers;
+}
+
+size_t FirstIndexOf(const std::vector<Message> &inbox, MessageID id)
+{
+	for (size_t i = 0; i < inbox.size(); ++i)
+		if (inbox[i].id == id)
+			return i;
+	return inbox.size();
+}
+
+std::vector<uint32_t> Range(uint32_t first, uint32_t end)
+{
+	std::vector<uint32_t> out;
+	for (uint32_t n = first; n < end; ++n)
+		out.push_back(n);
+	return out;
+}
+
+size_t CountUserMessages(const std::vector<Message> &inbox)
+{
+	size_t n = 0;
+	for (const Message &message : inbox)
+		n += message.id >= ID_USER_PACKET_ENUM ? 1 : 0;
+	return n;
+}
+} // namespace
+
+class SessionHeldMessagesSim : public SessionConfigSim
+{
+protected:
+	enum class ReplyFate
+	{
+		Lost,   // dropped, so the reliability layer resends it a retransmission timeout later
+		Delayed // overtaken by everything sent after it
+	};
+
+	void SpoilLink(const RakPeer *from, const RakPeer *to, ReplyFate fate)
+	{
+		SimulatedNetwork::LinkRule rule;
+		if (fate == ReplyFate::Lost)
+			rule.dark = true;
+		else
+			rule.delayMs = 400;
+		net.SetLink(from, to, rule);
+	}
+
+	void RestoreLink(const RakPeer *from, const RakPeer *to) { net.SetLink(from, to, SimulatedNetwork::LinkRule()); }
+
+	// The link from `accepting` is already spoiled and the session request answered (or about to be): wait
+	// for `accepting` to report the connection, let the update cycle after the report send the session
+	// reply into the spoiled link, then restore a clean link for what the application sends next.
+	void LetTheReplyGoBad(const RakPeer *accepting, const RakPeer *connecting)
+	{
+		ASSERT_TRUE(WaitFor(accepting, ID_NEW_INCOMING_CONNECTION)) << "the accepting side never reported the connection";
+		Pump(5);
+		RestoreLink(accepting, connecting);
+	}
+
+	// What an application does on ID_NEW_INCOMING_CONNECTION: send at once, here on every reliability.
+	void SendBurst(RakPeer *from, const RakNetGUID &to, uint32_t first, uint32_t count)
+	{
+		struct Stream
+		{
+			MessageID id;
+			Reliability reliability;
+			char channel;
+		};
+		const Stream streams[] = {
+		    {kReliableStreamId, Reliability::Reliable, 0},
+		    {kUnreliableStreamId, Reliability::Unreliable, 0},
+		    {kOrderedStreamId, Reliability::ReliableOrdered, kOrderedChannel},
+		    {kSequencedStreamId, Reliability::ReliableSequenced, kSequencedChannel},
+		};
+		for (uint32_t n = first; n < first + count; ++n)
+		{
+			for (const Stream &stream : streams)
+			{
+				BitStream bs;
+				WriteNumbered(bs, stream.id, n);
+				ASSERT_NE(0u, from->Send(&bs, Priority::High, stream.reliability, stream.channel, to, false));
+			}
+		}
+	}
+
+	// Pump until `connecting` has reported the connection and received every reliable message numbered
+	// below `end`, recording the most messages it held at once.
+	bool WaitForBurst(const RakPeer *connecting, const RakNetGUID &accepting, uint32_t end, unsigned int &peakHeld, uint32_t maxMs = 5000)
+	{
+		return Until([&]
+		             {
+			             peakHeld = std::max(peakHeld, SlotInspector::SlotFor(connecting, accepting).heldMessages);
+			             return Has(connecting, ID_CONNECTION_REQUEST_ACCEPTED) &&
+			                    NumbersIn(Inbox(connecting), kReliableStreamId).size() >= end &&
+			                    NumbersIn(Inbox(connecting), kOrderedStreamId).size() >= end; }, maxMs);
+	}
+
+	// Every reliable message numbered below `end` arrived exactly once, after the connection was reported,
+	// ordered ones in order; on the clean link the unordered and sequenced ones are all there too.
+	void ExpectBurstDelivered(const RakPeer *connecting, uint32_t end)
+	{
+		const std::vector<Message> &inbox = Inbox(connecting);
+		SCOPED_TRACE("inbox " + IdList(inbox));
+		ASSERT_EQ(1u, Count(connecting, ID_CONNECTION_REQUEST_ACCEPTED));
+		const size_t accepted = FirstIndexOf(inbox, ID_CONNECTION_REQUEST_ACCEPTED);
+		for (const MessageID id : kStreamIds)
+			EXPECT_GT(FirstIndexOf(inbox, id), accepted) << "message " << (int) id << " was delivered before its connection was reported";
+
+		std::vector<uint32_t> reliable = NumbersIn(inbox, kReliableStreamId);
+		std::sort(reliable.begin(), reliable.end());
+		EXPECT_EQ(Range(0, end), reliable) << "Reliable messages lost or duplicated";
+		EXPECT_EQ(Range(0, end), NumbersIn(inbox, kOrderedStreamId)) << "the ordered channel lost, skipped or reordered a message";
+		EXPECT_EQ(Range(0, end), NumbersIn(inbox, kUnreliableStreamId)) << "Unreliable messages lost on a clean link";
+		EXPECT_EQ(Range(0, end), NumbersIn(inbox, kSequencedStreamId)) << "ReliableSequenced messages lost on a clean link";
+		EXPECT_FALSE(Has(connecting, ID_CONNECTION_ATTEMPT_FAILED));
+	}
+
+	// The whole scenario from the moment the session reply has gone bad: burst, wait, check, then a second
+	// burst on the established connection continues every stream without a gap.
+	void RunBurst(RakPeer *accepting, RakPeer *connecting)
+	{
+		const RakNetGUID acceptingGuid = accepting->GetMyGUID();
+		const RakNetGUID connectingGuid = connecting->GetMyGUID();
+		ASSERT_FALSE(Has(connecting, ID_CONNECTION_REQUEST_ACCEPTED)) << "precondition: the session reply must not have arrived yet";
+		ASSERT_NO_FATAL_FAILURE(SendBurst(accepting, connectingGuid, 0, kBurst));
+
+		unsigned int peakHeld = 0;
+		ASSERT_TRUE(WaitForBurst(connecting, acceptingGuid, kBurst, peakHeld)) << "inbox " << IdList(Inbox(connecting));
+		// The scenario only proves something if the burst really did overtake the session reply.
+		EXPECT_GE(peakHeld, kBurst) << "the burst did not arrive inside the handshake window";
+		ExpectBurstDelivered(connecting, kBurst);
+		EXPECT_EQ(0u, SlotInspector::SlotFor(connecting, acceptingGuid).heldMessages);
+
+		ASSERT_NO_FATAL_FAILURE(SendBurst(accepting, connectingGuid, kBurst, kBurst));
+		ASSERT_TRUE(WaitForBurst(connecting, acceptingGuid, 2 * kBurst, peakHeld));
+		Pump(50);
+		ExpectBurstDelivered(connecting, 2 * kBurst);
+	}
+
+	// Static mode: the accepting side answers the request the moment it arrives, so the link goes bad as
+	// soon as the connecting side is in the handshake.
+	void RunStatic(ReplyFate fate)
+	{
+		RakPeer *server = AddServer(8, 8);
+		RakPeer *client = AddClient();
+		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+		ASSERT_TRUE(Until([&]
+		                  { return SlotInspector::SlotFor(client, server->GetMyGUID()).exchanging; }, kConnectTimeoutMs));
+		SpoilLink(server, client, fate);
+		ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(server, client));
+		RunBurst(server, client);
+	}
+
+	// Interactive mode: the reply goes out when the application calls AcceptSession().
+	void RunInteractive(ReplyFate fate)
+	{
+		RakPeer *server = AddServer(8, 8);
+		RakPeer *client = AddClient();
+		server->SetSessionConfigInteractive(true);
+		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+		RakNetGUID clientGuid;
+		ASSERT_TRUE(WaitForRequest(server, clientGuid));
+		SpoilLink(server, client, fate);
+		server->AcceptSession(clientGuid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
+		ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(server, client));
+		ASSERT_NO_FATAL_FAILURE(RunBurst(server, client));
+
+		unsigned int length = 0;
+		const char *payload = client->GetRemoteSessionConfig(server->GetMyGUID(), &length);
+		ExpectPayload(payload, length, kServerPayload, std::strlen(kServerPayload));
+	}
+
+	// Interactive server, client parked in the handshake: what a non-conforming server pushes at it now
+	// stays held for as long as the server takes to decide.
+	void ParkClient(RakPeer *&server, RakPeer *&client, RakNetGUID &clientGuid, TimeMS timeoutMs = 60000)
+	{
+		server = AddServer(8, 8, timeoutMs);
+		client = AddClient(timeoutMs);
+		server->SetSessionConfigInteractive(true);
+		ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+		ASSERT_TRUE(WaitForRequest(server, clientGuid));
+	}
+
+	void InjectNumbered(RakPeer *from, const RakPeer *to, MessageID id, uint32_t first, uint32_t count, Reliability reliability, char channel = 0)
+	{
+		for (uint32_t n = first; n < first + count; ++n)
+		{
+			BitStream bs;
+			WriteNumbered(bs, id, n);
+			SendGateBypass::Inject(from, bs, net.AddressOf(to), reliability, channel);
+		}
+	}
+
+	// `count` messages of exactly `bytes` bytes each (id included).
+	void InjectLarge(RakPeer *from, const RakPeer *to, uint32_t count, unsigned int bytes)
+	{
+		std::vector<unsigned char> body(bytes - 1 - sizeof(uint32_t), 0xA5);
+		for (uint32_t n = 0; n < count; ++n)
+		{
+			BitStream bs;
+			WriteNumbered(bs, kReliableStreamId, n);
+			bs.WriteAlignedBytes(body.data(), (unsigned int) body.size());
+			ASSERT_EQ(bytes, bs.GetNumberOfBytesUsed());
+			SendGateBypass::Inject(from, bs, net.AddressOf(to), Reliability::Reliable);
+		}
+	}
+
+	bool WaitForHeld(const RakPeer *client, const RakNetGUID &server, unsigned int count, uint32_t maxMs = 30000)
+	{
+		return Until([&]
+		             { return SlotInspector::SlotFor(client, server).heldMessages >= count; }, maxMs);
+	}
+
+	// The connecting side broke off: told once, nothing delivered, slot freed; the accepting side never
+	// reports a connection.
+	void ExpectAttemptFailedWithNothingDelivered(const RakPeer *server, const RakPeer *client)
+	{
+		Pump(2000);
+		SCOPED_TRACE("client inbox " + IdList(Inbox(client)));
+		EXPECT_EQ(1u, Count(client, ID_CONNECTION_ATTEMPT_FAILED)) << "the attempt must be reported failed exactly once";
+		EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED));
+		EXPECT_EQ(0u, CountUserMessages(Inbox(client))) << "held messages reached the application of a connection that never completed";
+		EXPECT_FALSE(SlotInspector::FirstActiveSlot(client).sawSlot) << "the client's slot was never released";
+		EXPECT_FALSE(Has(server, ID_NEW_INCOMING_CONNECTION));
+	}
+};
+
+TEST_F(SessionHeldMessagesSim, BurstOvertakingALostSessionReplyIsDeliveredAfterTheConnection)
+{
+	RunStatic(ReplyFate::Lost);
+}
+
+TEST_F(SessionHeldMessagesSim, BurstOvertakingADelayedSessionReplyIsDeliveredAfterTheConnection)
+{
+	RunStatic(ReplyFate::Delayed);
+}
+
+TEST_F(SessionHeldMessagesSim, InteractiveBurstOvertakingALostSessionReplyIsDeliveredAfterTheConnection)
+{
+	RunInteractive(ReplyFate::Lost);
+}
+
+TEST_F(SessionHeldMessagesSim, InteractiveBurstOvertakingADelayedSessionReplyIsDeliveredAfterTheConnection)
+{
+	RunInteractive(ReplyFate::Delayed);
+}
+
+// Both peers connect at once; the lower GUID's handshake wins, so the higher peer is the accepting side
+// (its own Connect() absorbed) and reports ID_NEW_INCOMING_CONNECTION first.
+TEST_F(SessionHeldMessagesSim, CrossConnectBurstOvertakingALostSessionReplyIsDeliveredAfterTheConnection)
+{
+	RakPeer *a = AddServer(1, 1);
+	RakPeer *b = AddServer(1, 1);
+	RakPeer *lower = a->GetMyGUID().g < b->GetMyGUID().g ? a : b;
+	RakPeer *higher = lower == a ? b : a;
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(lower, higher));
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(higher, lower));
+	ASSERT_TRUE(Until([&]
+	                  { return SlotInspector::SlotFor(lower, higher->GetMyGUID()).exchanging; }, kConnectTimeoutMs));
+	SpoilLink(higher, lower, ReplyFate::Lost);
+	ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(higher, lower));
+	ASSERT_NO_FATAL_FAILURE(RunBurst(higher, lower));
+
+	EXPECT_EQ(0u, Count(higher, ID_CONNECTION_REQUEST_ACCEPTED));
+	EXPECT_EQ(0u, Count(higher, ID_CONNECTION_ATTEMPT_FAILED)) << "the absorbed Connect() was reported failed";
+	EXPECT_EQ(0u, Count(lower, ID_NEW_INCOMING_CONNECTION));
+
+	// And the other way, from the connecting side, as on any connection.
+	ASSERT_NO_FATAL_FAILURE(SendBurst(lower, higher->GetMyGUID(), 0, kBurst));
+	ASSERT_TRUE(Until([&]
+	                  { return NumbersIn(Inbox(higher), kOrderedStreamId).size() >= kBurst &&
+		                       NumbersIn(Inbox(higher), kReliableStreamId).size() >= kBurst; }, 5000));
+	EXPECT_EQ(Range(0, kBurst), NumbersIn(Inbox(higher), kOrderedStreamId));
+}
+
+// The count bound is inclusive: exactly MAXIMUM_HELD_SESSION_MESSAGES are held, then all delivered in order.
+TEST_F(SessionHeldMessagesSim, MessageLimitIsInclusive)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	const uint32_t limit = MAXIMUM_HELD_SESSION_MESSAGES;
+	InjectNumbered(server, client, kOrderedStreamId, 0, limit, Reliability::ReliableOrdered, kOrderedChannel);
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), limit)) << "held " << SlotInspector::SlotFor(client, server->GetMyGUID()).heldMessages;
+	EXPECT_FALSE(Has(client, ID_CONNECTION_ATTEMPT_FAILED));
+
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ASSERT_TRUE(Until([&]
+	                  { return NumbersIn(Inbox(client), kOrderedStreamId).size() >= limit; }, 5000));
+	ASSERT_EQ(1u, Count(client, ID_CONNECTION_REQUEST_ACCEPTED));
+	EXPECT_LT(FirstIndexOf(Inbox(client), ID_CONNECTION_REQUEST_ACCEPTED), FirstIndexOf(Inbox(client), kOrderedStreamId));
+	EXPECT_EQ(Range(0, limit), NumbersIn(Inbox(client), kOrderedStreamId));
+	EXPECT_EQ(0u, SlotInspector::SlotFor(client, server->GetMyGUID()).heldMessages);
+}
+
+// One message over the count bound fails the attempt instead of silently losing that message.
+TEST_F(SessionHeldMessagesSim, ExceedingTheMessageLimitFailsTheAttempt)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	// One over the limit, then a few more that arrive once the attempt has already failed.
+	InjectNumbered(server, client, kReliableStreamId, 0, MAXIMUM_HELD_SESSION_MESSAGES + 10u, Reliability::Reliable);
+
+	// Well inside the 60s handshake timeout: this failure can only be the limit.
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, 30000)) << "exceeding the held-message limit did not fail the attempt";
+	// The connecting side told the server it is gone, so its pending request is abandoned now rather than
+	// after the timeout.
+	ASSERT_TRUE(WaitFor(server, ID_SESSION_CONFIG_ABANDONED, 2000)) << "the server was not told the client broke off";
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ExpectAttemptFailedWithNothingDelivered(server, client);
+}
+
+// The byte bound is inclusive too.
+TEST_F(SessionHeldMessagesSim, ByteLimitIsInclusive)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	const unsigned int messageBytes = MAXIMUM_HELD_SESSION_BYTES / 4;
+	ASSERT_NO_FATAL_FAILURE(InjectLarge(server, client, 4, messageBytes));
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), 4));
+	EXPECT_EQ((unsigned int) MAXIMUM_HELD_SESSION_BYTES, SlotInspector::SlotFor(client, server->GetMyGUID()).heldBytes);
+
+	server->AcceptSession(clientGuid, kServerPayload, (unsigned int) std::strlen(kServerPayload));
+	ASSERT_TRUE(Until([&]
+	                  { return Count(client, kReliableStreamId) >= 4; }, 5000));
+	EXPECT_LT(FirstIndexOf(Inbox(client), ID_CONNECTION_REQUEST_ACCEPTED), FirstIndexOf(Inbox(client), kReliableStreamId));
+	for (const Message &message : Inbox(client))
+		if (message.id == kReliableStreamId)
+			EXPECT_EQ(messageBytes, message.data.size());
+	std::vector<uint32_t> numbers = NumbersIn(Inbox(client), kReliableStreamId);
+	std::sort(numbers.begin(), numbers.end());
+	EXPECT_EQ(Range(0, 4), numbers);
+}
+
+TEST_F(SessionHeldMessagesSim, ExceedingTheByteLimitFailsTheAttempt)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	ASSERT_NO_FATAL_FAILURE(InjectLarge(server, client, 4, MAXIMUM_HELD_SESSION_BYTES / 4));
+	ASSERT_NO_FATAL_FAILURE(InjectLarge(server, client, 1, 64));
+
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, 30000)) << "exceeding the held-byte limit did not fail the attempt";
+	ASSERT_TRUE(WaitFor(server, ID_SESSION_CONFIG_ABANDONED, 2000)) << "the server was not told the client broke off";
+	ExpectAttemptFailedWithNothingDelivered(server, client);
+}
+
+// A refusal arriving behind held messages: none of them is ever delivered, and they are freed with the slot
+// (which a LeakSanitizer run, ASAN_OPTIONS=detect_leaks=1 on Linux, checks).
+TEST_F(SessionHeldMessagesSim, RejectedSessionNeverDeliversHeldMessages)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	InjectNumbered(server, client, kReliableStreamId, 0, 3, Reliability::Reliable);
+	InjectNumbered(server, client, kOrderedStreamId, 0, 3, Reliability::ReliableOrdered, kOrderedChannel);
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), 6));
+
+	const char reason[] = "server full";
+	server->RejectSession(clientGuid, reason);
+	// Whatever a non-conforming server sends behind its refusal (here in the same datagram) is for an
+	// attempt already answered.
+	InjectNumbered(server, client, kReliableStreamId, 3, 2, Reliability::Reliable);
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED));
+	const Message *failed = Find(client, ID_CONNECTION_ATTEMPT_FAILED);
+	ASSERT_EQ(1 + std::strlen(reason), failed->data.size()) << "the refusal's reason was lost";
+	ExpectAttemptFailedWithNothingDelivered(server, client);
+}
+
+// A handshake that times out with messages held: the attempt fails once, nothing is delivered.
+TEST_F(SessionHeldMessagesSim, TimedOutHandshakeNeverDeliversHeldMessages)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid, kHandshakeTimeoutMs));
+	InjectNumbered(server, client, kReliableStreamId, 0, 3, Reliability::Reliable);
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), 3, 1000));
+
+	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, kHandshakeTimeoutMs + 2000)) << "the unanswered handshake never timed out";
+	ExpectAttemptFailedWithNothingDelivered(server, client);
 }
