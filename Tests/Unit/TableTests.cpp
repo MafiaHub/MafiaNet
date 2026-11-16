@@ -36,7 +36,7 @@ void BuildTable(Table &t)
 	t.AddColumn("blob", Table::BINARY);
 	t.AddColumn("score", Table::NUMERIC);
 
-	const char blob7[] = {0x00, (char) 0xFF};
+	const char blob7[] = {0x00, '\xFF'};
 	Table::Row *r = t.AddRow(7);
 	r->cells[0]->Set(7.0);
 	r->cells[1]->Set("alpha");
