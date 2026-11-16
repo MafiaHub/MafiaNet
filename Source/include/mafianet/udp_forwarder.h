@@ -31,8 +31,8 @@
 #include "mafianet/simple_mutex.h"
 #include "mafianet/string.h"
 #include "mafianet/thread.h"
-#include "mafianet/ds_queue.h"
-#include "mafianet/ds_ordered_list.h"
+#include <deque>
+#include <vector>
 #include "mafianet/lockless_types.h"
 #include "mafianet/locked_queue.h"
 
@@ -139,7 +139,7 @@ protected:
 		UDPForwarderResult result;
 		unsigned int inputId;
 	};
-	DataStructures::Queue<StartForwardingOutputStruct> startForwardingOutput;
+	std::deque<StartForwardingOutputStruct> startForwardingOutput;
 	SimpleMutex startForwardingOutputMutex;
 
 	struct StopForwardingStruct
@@ -152,7 +152,7 @@ protected:
 	unsigned int nextInputId;
 
 	// New entries are added to forwardListNotUpdated
-	DataStructures::List<ForwardEntry *> forwardListNotUpdated;
+	std::vector<ForwardEntry *> forwardListNotUpdated;
 	//	SimpleMutex forwardListNotUpdatedMutex;
 
 	unsigned short maxForwardEntries;

@@ -22,11 +22,12 @@
 #include "mafianet/socket_layer.h"
 #include "mafianet/wsa_startup_singleton.h"
 #include "mafianet/sleep.h"
-#include "mafianet/ds_ordered_list.h"
+#include "mafianet/vector_util.h"
 #include "mafianet/linux_strings.h"
 #include "mafianet/socket_defines.h"
 #include "mafianet/sockaddr_convert.h"
 #include "errno.h"
+#include <cassert>
 #include <utility>
 
 #ifdef _WIN32
@@ -115,9 +116,9 @@ void UDPForwarder::Shutdown(void)
 		RakSleep(30);
 
 	unsigned int j;
-	for (j = 0; j < forwardListNotUpdated.Size(); j++)
+	for (j = 0; j < forwardListNotUpdated.size(); j++)
 		delete forwardListNotUpdated[j];
-	forwardListNotUpdated.Clear(false, _FILE_AND_LINE_);
+	forwardListNotUpdated.clear();
 }
 void UDPForwarder::SetMaxForwardEntries(unsigned short maxEntries)
 {
@@ -130,7 +131,7 @@ int UDPForwarder::GetMaxForwardEntries(void) const
 }
 int UDPForwarder::GetUsedForwardEntries(void) const
 {
-	return (int) forwardListNotUpdated.Size();
+	return (int) forwardListNotUpdated.size();
 }
 UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAddress destination, MafiaNet::TimeMS timeoutOnNoDataMS, const char *forceHostAddress, unsigned short socketFamily,
                                                  unsigned short *forwardingPort, __UDPSOCKET__ *forwardingSocket)
@@ -159,7 +160,7 @@ UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAdd
 	{
 		RakSleep(0);
 		startForwardingOutputMutex.Lock();
-		for (unsigned int i = 0; i < startForwardingOutput.Size(); i++)
+		for (unsigned int i = 0; i < startForwardingOutput.size(); i++)
 		{
 			if (startForwardingOutput[i].inputId == inputId)
 			{
@@ -171,7 +172,7 @@ UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAdd
 						*forwardingSocket = startForwardingOutput[i].forwardingSocket;
 				}
 				UDPForwarderResult res = startForwardingOutput[i].result;
-				startForwardingOutput.RemoveAtIndex(i);
+				startForwardingOutput.erase(startForwardingOutput.begin() + i);
 				startForwardingOutputMutex.Unlock();
 				return res;
 			}
@@ -363,7 +364,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 		{
 			sfos.result = UDPFORWARDER_RESULT_COUNT;
 
-			for (unsigned int i = 0; i < forwardListNotUpdated.Size(); i++)
+			for (unsigned int i = 0; i < forwardListNotUpdated.size(); i++)
 			{
 				if (
 				    (forwardListNotUpdated[i]->addr1Unconfirmed == sfis->source &&
@@ -435,7 +436,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 					fcntl(fe->socket, F_SETFL, O_NONBLOCK);
 #endif
 
-					forwardListNotUpdated.Insert(fe, _FILE_AND_LINE_);
+					forwardListNotUpdated.push_back(fe);
 				}
 				else
 				{
@@ -448,7 +449,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 		// Push result
 		sfos.inputId = sfis->inputId;
 		startForwardingOutputMutex.Lock();
-		startForwardingOutput.Push(sfos, _FILE_AND_LINE_);
+		startForwardingOutput.push_back(sfos);
 		startForwardingOutputMutex.Unlock();
 	}
 
@@ -456,7 +457,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 	{
 
 		ForwardEntry *fe;
-		for (unsigned int i = 0; i < forwardListNotUpdated.Size(); i++)
+		for (unsigned int i = 0; i < forwardListNotUpdated.size(); i++)
 		{
 			if (
 			    (forwardListNotUpdated[i]->addr1Unconfirmed == sfs->source &&
@@ -465,7 +466,7 @@ void UDPForwarder::UpdateUDPForwarder(void)
 			     forwardListNotUpdated[i]->addr2Unconfirmed == sfs->source))
 			{
 				fe = forwardListNotUpdated[i];
-				forwardListNotUpdated.RemoveAtIndexFast(i);
+				SwapRemove(forwardListNotUpdated, i);
 				delete fe;
 				break;
 			}
@@ -475,20 +476,20 @@ void UDPForwarder::UpdateUDPForwarder(void)
 	unsigned int i;
 
 	i = 0;
-	while (i < forwardListNotUpdated.Size())
+	while (i < forwardListNotUpdated.size())
 	{
 		if (curTime > forwardListNotUpdated[i]->timeLastDatagramForwarded && // Account for timestamp wrap
 		    curTime > forwardListNotUpdated[i]->timeLastDatagramForwarded + forwardListNotUpdated[i]->timeoutOnNoDataMS)
 		{
 			delete forwardListNotUpdated[i];
-			forwardListNotUpdated.RemoveAtIndex(i);
+			forwardListNotUpdated.erase(forwardListNotUpdated.begin() + i);
 		}
 		else
 			i++;
 	}
 
 	ForwardEntry *forwardEntry;
-	for (i = 0; i < forwardListNotUpdated.Size(); i++)
+	for (i = 0; i < forwardListNotUpdated.size(); i++)
 	{
 		forwardEntry = forwardListNotUpdated[i];
 		RecvFrom(curTime, forwardEntry);
@@ -512,7 +513,7 @@ RAK_THREAD_DECLARATION(UpdateUDPForwarderGlobal)
 		// 12/1/2010 Do not change from 0
 		// See http://www.jenkinssoftware.com/forum/index.php?topic=4033.0;topicseen
 		// Avoid 100% reported CPU usage
-		if (udpForwarder->forwardListNotUpdated.Size() == 0)
+		if (udpForwarder->forwardListNotUpdated.size() == 0)
 			RakSleep(30);
 		else
 			RakSleep(0);

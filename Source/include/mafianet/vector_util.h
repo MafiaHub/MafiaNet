@@ -8,8 +8,8 @@
 /// \file vector_util.h
 /// \brief Small helpers for std::vector.
 ///
-/// \ref MafiaNet::SwapRemove replaces the order-discarding "remove at index, fast" idiom of the
-/// legacy DataStructures::List.
+/// \ref MafiaNet::SwapRemove is the order-discarding "remove at index, fast" idiom of the old
+/// RakNet list container.
 
 #pragma once
 

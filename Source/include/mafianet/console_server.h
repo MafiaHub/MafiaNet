@@ -24,7 +24,7 @@
 #ifndef __CONSOLE_SERVER_H
 #define __CONSOLE_SERVER_H
 
-#include "mafianet/ds_list.h"
+#include <vector>
 #include "mafianet/types.h"
 #include "mafianet/export.h"
 
@@ -76,7 +76,7 @@ protected:
 	void ListParsers(SystemAddress systemAddress);
 	void ShowPrompt(SystemAddress systemAddress);
 	TransportInterface *transport;
-	DataStructures::List<CommandParserInterface *> commandParserList;
+	std::vector<CommandParserInterface *> commandParserList;
 	char *password[256];
 	char *prompt;
 };

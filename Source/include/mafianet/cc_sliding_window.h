@@ -50,7 +50,6 @@ else use congestion avoidance
 #include "mafianet/native_types.h"
 #include "mafianet/time.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_queue.h"
 
 /// Sizeof an UDP header in byte
 #define UDP_HEADER_SIZE 28

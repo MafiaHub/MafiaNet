@@ -15,7 +15,8 @@
 
 #include "mafianet/native_types.h"
 #include <cstdlib>
-#include "mafianet/ds_list.h"
+#include <cstring>
+#include <vector>
 #include "mafianet/bit_stream.h"
 
 #ifndef __VARIABLE_LIST_DELTA_TRACKER
@@ -34,7 +35,7 @@ public:
 	// Call before using a series of WriteVar
 	void StartWrite(void);
 
-	bool IsPastEndOfList(void) const { return nextWriteIndex >= variableList.Size(); }
+	bool IsPastEndOfList(void) const { return nextWriteIndex >= variableList.size(); }
 
 	/// Records the passed value of the variable to memory, and returns true if the value is different from the write before that (or if it is the first write)
 	/// \pre Call StartWrite() before doing the first of a series of calls to WriteVar or other functions that call WriteVar
@@ -44,9 +45,9 @@ public:
 	{
 		MafiaNet::BitStream temp;
 		temp.Write(varData);
-		if (nextWriteIndex >= variableList.Size())
+		if (nextWriteIndex >= variableList.size())
 		{
-			variableList.Push(VariableLastValueNode(temp.GetData(), temp.GetNumberOfBytesUsed()), _FILE_AND_LINE_);
+			variableList.push_back(VariableLastValueNode(temp.GetData(), temp.GetNumberOfBytesUsed()));
 			nextWriteIndex++;
 			return true; // Different because it's new
 		}
@@ -140,7 +141,7 @@ public:
 
 protected:
 	/// \internal
-	DataStructures::List<VariableLastValueNode> variableList;
+	std::vector<VariableLastValueNode> variableList;
 	/// \internal
 	unsigned int nextWriteIndex;
 };

@@ -25,7 +25,7 @@ VariableListDeltaTracker::VariableListDeltaTracker()
 VariableListDeltaTracker::~VariableListDeltaTracker()
 {
 	unsigned int i;
-	for (i = 0; i < variableList.Size(); i++)
+	for (i = 0; i < variableList.size(); i++)
 		std::free(variableList[i].lastData);
 }
 
@@ -38,7 +38,7 @@ void VariableListDeltaTracker::StartWrite(void)
 void VariableListDeltaTracker::FlagDirtyFromBitArray(unsigned char *bArray)
 {
 	unsigned short readOffset = 0;
-	for (readOffset = 0; readOffset < variableList.Size(); readOffset++)
+	for (readOffset = 0; readOffset < variableList.size(); readOffset++)
 	{
 		bool result = (bArray[readOffset >> 3] & (0x80 >> (readOffset & 7))) != 0;
 

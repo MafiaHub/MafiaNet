@@ -14,7 +14,7 @@
 */
 #if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(_WIN32)
 #include "mafianet/find_first.h"
-#include "mafianet/ds_list.h"
+#include <vector>
 
 #include <sys/stat.h>
 
@@ -23,7 +23,7 @@
 #include "mafianet/osx_adapter.h"
 
 
-static DataStructures::List<_findinfo_t *> fileInfo;
+static std::vector<_findinfo_t *> fileInfo;
 
 #include "mafianet/assert.h"
 
@@ -61,9 +61,9 @@ long _findfirst(const char *name, _finddata_t *f)
 	fi->filter = filter;
 	fi->dirName = nameCopy; // we need to remember this for stat()
 	fi->openedDir = dir;
-	fileInfo.Insert(fi, _FILE_AND_LINE_);
+	fileInfo.push_back(fi);
 
-	long ret = fileInfo.Size() - 1;
+	long ret = static_cast<long>(fileInfo.size()) - 1;
 
 	// Retrieve the first file. We cannot rely on the first item
 	// being '.'
@@ -76,8 +76,8 @@ long _findfirst(const char *name, _finddata_t *f)
 
 int _findnext(long h, _finddata_t *f)
 {
-	RakAssert(h >= 0 && h < (long) fileInfo.Size());
-	if (h < 0 || h >= (long) fileInfo.Size())
+	RakAssert(h >= 0 && h < (long) fileInfo.size());
+	if (h < 0 || h >= (long) fileInfo.size())
 		return -1;
 
 	_findinfo_t *fi = fileInfo[h];
@@ -134,7 +134,7 @@ int _findclose(long h)
 	if (h == -1)
 		return 0;
 
-	if (h < 0 || h >= (long) fileInfo.Size())
+	if (h < 0 || h >= (long) fileInfo.size())
 	{
 		RakAssert(false);
 		return -1;
@@ -142,7 +142,7 @@ int _findclose(long h)
 
 	_findinfo_t *fi = fileInfo[h];
 	closedir(fi->openedDir);
-	fileInfo.RemoveAtIndex(h);
+	fileInfo.erase(fileInfo.begin() + h);
 	delete fi;
 	return 0;
 }

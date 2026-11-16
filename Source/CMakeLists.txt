@@ -146,17 +146,8 @@ set(MAFIANET_HEADERS
     include/mafianet/defines.h
     include/mafianet/directory_delta_transfer.h
     include/mafianet/dr_sha1.h
-    include/mafianet/ds_hash.h
-    include/mafianet/ds_heap.h
     include/mafianet/huffman_encoding_tree.h
     include/mafianet/huffman_encoding_tree_node.h
-    include/mafianet/ds_linked_list.h
-    include/mafianet/ds_list.h
-    include/mafianet/ds_map.h
-    include/mafianet/ds_memory_pool.h
-    include/mafianet/ds_multilist.h
-    include/mafianet/ds_ordered_list.h
-    include/mafianet/ds_queue.h
     include/mafianet/range_list.h
     include/mafianet/dyn_dns.h
     include/mafianet/email_sender.h
