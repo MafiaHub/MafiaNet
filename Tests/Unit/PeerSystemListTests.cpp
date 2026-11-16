@@ -18,6 +18,7 @@
 #include "SimulatedNetwork.h"
 
 #include "mafianet/bit_stream.h"
+#include "mafianet/instance_ptr.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/statistics.h"
 
@@ -113,7 +114,9 @@ TEST(PeerSystemList, GetStatisticsListIsIndexAlignedWithGuids)
 TEST(PeerSystemList, GetSocketsReturnsBoundSockets)
 {
 	SimulatedNetwork net;
-	RakPeer *peer = static_cast<RakPeer *>(RakPeerInterface::GetInstance());
+	// Declared after net: destroyed (through DestroyInstance) first, even when an ASSERT returns early.
+	InstancePtr<RakPeerInterface> owner = MakeInstance<RakPeerInterface>();
+	RakPeer *peer = static_cast<RakPeer *>(owner.get());
 	peer->SetSocketFactory(&net);
 	peer->SetManualUpdate(true);
 	SocketDescriptor descriptors[2] = {SocketDescriptor(61000, "10.0.0.200"), SocketDescriptor(61001, "10.0.0.200")};
@@ -132,5 +135,4 @@ TEST(PeerSystemList, GetSocketsReturnsBoundSockets)
 	EXPECT_TRUE(sockets.empty());
 
 	peer->Shutdown(0);
-	RakPeerInterface::DestroyInstance(peer);
 }

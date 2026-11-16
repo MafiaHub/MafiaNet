@@ -14,6 +14,7 @@
 
 #include "mafianet/tcp_interface.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <vector>
