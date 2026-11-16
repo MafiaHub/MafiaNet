@@ -262,7 +262,10 @@ now expands to ``new`` / ``delete``.
 **Shared buffers.** ``RakNetSmartPtr<T>`` is ``std::shared_ptr<T>``. In
 Lobby2, ``BinaryDataBlock`` fields are ``std::shared_ptr`` and are created
 with ``std::make_shared``; test them against ``nullptr`` instead of
-``IsNull()``.
+``IsNull()``. The buffers those blocks own,
+``BinaryDataBlock::binaryData`` and ``IndexedBinaryValue::value``, are freed
+with ``std::free`` (they were ``rakFree_Ex``): allocate what you hand them
+with ``std::malloc``.
 
 Windows: CRT and toolset
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -560,6 +563,13 @@ Threads and utilities
   ``std::deque``; the two queue mutexes are ``std::mutex``. ``GetOutput()``
   on an empty queue returns a value-initialized ``OutputType``.
   Non-copyable.
+
+  The queue mutexes are **not recursive**. On Windows they used to be a
+  ``CRITICAL_SECTION``, which the owning thread could take again, so code
+  that called ``AddInput()`` (or anything else that locks the input queue)
+  while holding ``LockInput()`` worked there and deadlocked elsewhere. It now
+  deadlocks on every platform: release the lock first, as
+  ``AutopatcherServer`` now does before calling its load notifier.
 * ``CCRakNetUDT::pingsLastInterval`` and ``RakNetRandomSync::usedValues`` are
   ``std::deque``.
 * ``UDPForwarder``: ``startForwardingInput`` / ``stopForwardingCommands`` are
@@ -828,8 +838,9 @@ Behaviour changes
 * **Router2's forwarding choice is deterministic.** The old comparator was
   not a valid ordering, so the router asked depended on insertion order.
   Router2 now picks the lowest weighted ping
-  (``ping * (usedForwardingEntries + 1)``), then the lowest GUID. Not visible
-  on the wire.
+  (``ping * (usedForwardingEntries + 1)``, computed in 64 bits: both factors
+  come from the relay and the ``int`` product used to overflow), then the
+  lowest GUID. Not visible on the wire.
 * **Peer-supplied names are matched verbatim.** RPC3, RPC4,
   TwoWayAuthentication and MessageFilter looked up names received from the
   network through ``RakString``'s printf-style constructor, so the remote
@@ -866,16 +877,30 @@ Behaviour changes
   ``DeallocatePacket()`` now show as leaks instead of being reclaimed at
   shutdown.
 * **Network input is rejected instead of asserted.** ``TableSerializer``,
-  ``DataCompressor``, ``StringTable``, ``NatPunchthroughServer`` and
-  ``TeamBalancer`` used to ``RakAssert`` (aborting a Debug build) on
-  malformed data from a peer. They now drop it. ``ConnectionGraph2`` stops at
-  a truncated connection list instead of adding unread entries.
+  ``DataCompressor``, ``StringTable``, ``NatPunchthroughServer``, ``RPC4``
+  (an ``ID_RPC_PLUGIN`` packet without a known sub-identifier) and
+  ``RakPeer`` (a truncated ``ID_CONNECTION_REQUEST_ACCEPTED``) used to
+  ``RakAssert`` (aborting a Debug build) on malformed data from a peer, and
+  ``TeamBalancer`` on a team request when every team was full. They now drop
+  the message. ``ConnectionGraph2`` stops at a truncated connection list
+  instead of adding unread entries.
+* **TableSerializer bounds what it builds.** ``DeserializeTable`` rejects a
+  row count larger than the remaining input can hold (8 bytes per row) and a
+  table of more than 1,000,000 cells (rows x columns); it used to build up to
+  10000 x 100000 cells from under 1 MB of input.
+* **Table string cells are not format strings.** ``Table::Cell::ToString``
+  returns a ``STRING`` cell's text verbatim; it used to pass it to
+  ``RakString``'s printf-style constructor, so a ``%`` in peer-supplied text
+  was undefined behaviour.
+* **NatPunchthroughServer refuses a punch to oneself.** A request naming the
+  sender's own GUID is answered with ``ID_NAT_TARGET_NOT_CONNECTED``; it used
+  to be recorded twice and leave a dangling attempt when the sender left.
 * **Retail builds keep source locations in some messages.** ``_RETAIL``
   builds used to replace ``__FILE__`` / ``__LINE__`` with ``"", 0`` through
-  ``_FILE_AND_LINE_``. Router2 debug messages, Autopatcher repository error
-  strings and the SQLite logger now always carry the real file and line.
-  Autopatcher error strings can be sent to the client, so a retail server can
-  expose its build paths there.
+  ``_FILE_AND_LINE_``. Router2 debug messages and the SQLite logger now
+  always carry the real file and line. The Autopatcher PostgreSQL
+  repository's error strings, which can be sent to clients, no longer
+  mention a file or line in any build.
 
 See Also
 --------
