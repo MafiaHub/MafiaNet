@@ -115,7 +115,7 @@ TEST(UdpProxyLive, LoggedInServerSetsUpForwarding)
 	std::vector<Peer *> peers{&coordinatorPeer, &serverPeer, &clientA, &clientB};
 	ASSERT_TRUE(PumpUntil(peers, [&]
 	                      { return coordinatorPeer->NumberOfConnections() == 3 && serverPeer->NumberOfConnections() == 1 &&
-	                               clientA->NumberOfConnections() == 1 && clientB->NumberOfConnections() == 1; }))
+		                           clientA->NumberOfConnections() == 1 && clientB->NumberOfConnections() == 1; }))
 	    << "peers did not connect";
 
 	const SystemAddress coordinatorAddress("127.0.0.1", coordinatorPort);
