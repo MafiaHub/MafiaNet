@@ -14,6 +14,7 @@
 */
 #if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(_WIN32)
 #include "mafianet/find_first.h"
+#include <cstring>
 #include <vector>
 
 #include <sys/stat.h>

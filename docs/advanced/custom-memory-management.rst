@@ -60,6 +60,8 @@ The following were removed in this release together with the
 * ``SetNotifyOutOfMemory``
 * ``GetMalloc`` / ``GetRealloc`` / ``GetFree``
 * ``rakMalloc`` / ``rakRealloc`` / ``rakFree``, ``OP_NEW`` / ``OP_DELETE``
+* the ``_FILE_AND_LINE_`` macro and the ``file, line`` allocation-tracking parameters it fed
+* the ``BUFFERED_PACKETS_PAGE_SIZE`` and ``INTERNAL_PACKET_PAGE_SIZE`` memory pool page sizes
 
 Replace calls to them with the global allocator replacement described above.
 

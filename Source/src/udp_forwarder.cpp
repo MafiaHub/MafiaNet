@@ -28,6 +28,7 @@
 #include "mafianet/sockaddr_convert.h"
 #include "errno.h"
 #include <cassert>
+#include <cstring>
 #include <utility>
 
 #ifdef _WIN32
