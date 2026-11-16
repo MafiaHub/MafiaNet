@@ -24,6 +24,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer.h"
 #include "mafianet/peer_interface.h"
+#include "mafianet/plugin_interface2.h"
 
 using namespace MafiaNet;
 
@@ -95,6 +96,9 @@ public:
 		bool exchanging = false;       // connectMode == EXCHANGING_SESSION_DATA
 		unsigned int heldMessages = 0; // application messages held behind the handshake
 		unsigned int heldBytes = 0;
+		bool connectingSide = false;  // sessionConfigIsConnectingSide
+		bool handlingRequest = false; // connectMode == HANDLING_CONNECTION_REQUEST
+		bool weInitiated = false;     // weInitiatedTheConnection
 	};
 
 	static Snapshot Of(const RemoteSystemStruct &slot)
@@ -106,6 +110,9 @@ public:
 		out.exchanging = slot.connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA;
 		out.heldMessages = slot.heldApplicationMessages.Size();
 		out.heldBytes = slot.heldApplicationBytes;
+		out.connectingSide = slot.sessionConfigIsConnectingSide;
+		out.handlingRequest = slot.connectMode == RemoteSystemStruct::HANDLING_CONNECTION_REQUEST;
+		out.weInitiated = slot.weInitiatedTheConnection;
 		return out;
 	}
 
@@ -1498,4 +1505,147 @@ TEST_F(SessionHeldMessagesSim, TimedOutHandshakeNeverDeliversHeldMessages)
 
 	ASSERT_TRUE(WaitFor(client, ID_CONNECTION_ATTEMPT_FAILED, kHandshakeTimeoutMs + 2000)) << "the unanswered handshake never timed out";
 	ExpectAttemptFailedWithNothingDelivered(server, client);
+}
+
+namespace
+{
+// Records what a network-thread plugin (#88) sees, and whether the connection had been reported to the
+// application by then.
+class HeldMessageProbe : public PluginInterface2
+{
+public:
+	struct Seen
+	{
+		MessageID id;
+		bool reported;
+	};
+
+	PluginReceiveResult OnReceiveNetworkThread(Packet *packet) override
+	{
+		if (packet->data[0] >= ID_USER_PACKET_ENUM)
+			networkThread.push_back({packet->data[0], SlotInspector::SlotFor(peer, packet->guid).reported});
+		return RR_CONTINUE_PROCESSING;
+	}
+
+	PluginReceiveResult OnReceive(Packet *packet) override
+	{
+		userThread.push_back(packet->data[0]);
+		return RR_CONTINUE_PROCESSING;
+	}
+
+	const RakPeer *peer = nullptr;
+	std::vector<Seen> networkThread;
+	std::vector<MessageID> userThread;
+};
+} // namespace
+
+// Network-thread plugins see a held message when it is released, on a connection already reported, like any
+// later message -- never when it arrived -- and user-thread plugins see it after the connection packet.
+TEST_F(SessionHeldMessagesSim, PluginsSeeHeldMessagesWhenTheyAreReleased)
+{
+	RakPeer *server = AddServer(8, 8);
+	RakPeer *client = AddClient();
+	HeldMessageProbe probe;
+	probe.peer = client;
+	client->AttachPlugin(&probe);
+
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	ASSERT_TRUE(Until([&]
+	                  { return SlotInspector::SlotFor(client, server->GetMyGUID()).exchanging; }, kConnectTimeoutMs));
+	SpoilLink(server, client, ReplyFate::Lost);
+	ASSERT_NO_FATAL_FAILURE(LetTheReplyGoBad(server, client));
+	ASSERT_NO_FATAL_FAILURE(SendBurst(server, client->GetMyGUID(), 0, kBurst));
+
+	unsigned int peakHeld = 0;
+	ASSERT_TRUE(WaitForBurst(client, server->GetMyGUID(), kBurst, peakHeld));
+	EXPECT_GE(peakHeld, kBurst) << "the burst did not arrive inside the handshake window";
+	ExpectBurstDelivered(client, kBurst);
+
+	// Every user message of the burst: four streams of kBurst, all on a clean link.
+	ASSERT_EQ(4u * kBurst, probe.networkThread.size());
+	for (const HeldMessageProbe::Seen &seen : probe.networkThread)
+		EXPECT_TRUE(seen.reported) << "a network-thread plugin saw message " << (int) seen.id << " before the connection was reported";
+	ASSERT_FALSE(probe.userThread.empty());
+	EXPECT_EQ((MessageID) ID_CONNECTION_REQUEST_ACCEPTED, probe.userThread.front()) << "a user-thread plugin saw data before the connection packet";
+	client->DetachPlugin(&probe);
+}
+
+// The application closes the connection attempt while messages are held: none is delivered, and the slot
+// frees them (LeakSanitizer, detect_leaks=1 on Linux, checks that).
+TEST_F(SessionHeldMessagesSim, CloseConnectionWhileHoldingDeliversNothing)
+{
+	RakPeer *server = nullptr;
+	RakPeer *client = nullptr;
+	RakNetGUID clientGuid;
+	ASSERT_NO_FATAL_FAILURE(ParkClient(server, client, clientGuid));
+	InjectNumbered(server, client, kReliableStreamId, 0, 4, Reliability::Reliable);
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), 4));
+
+	client->CloseConnection(net.AddressOf(server), true);
+	ASSERT_TRUE(Until([&]
+	                  { return !SlotInspector::FirstActiveSlot(client).sawSlot; }, 5000))
+	    << "the client's slot was never released";
+	Pump(500);
+	EXPECT_EQ(0u, CountUserMessages(Inbox(client)));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED));
+	EXPECT_FALSE(Has(server, ID_NEW_INCOMING_CONNECTION));
+}
+
+// Shutdown() while messages are held frees them with the slot (LeakSanitizer checks) and delivers nothing.
+TEST_F(SessionHeldMessagesSim, ShutdownWhileHoldingDeliversNothing)
+{
+	RakPeer *server = AddServer(8, 8, 60000);
+	server->SetSessionConfigInteractive(true);
+	RakPeer *client = AddManualClient("10.0.9.1", 60000, 60000);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	RakNetGUID clientGuid;
+	ASSERT_TRUE(WaitForRequest(server, clientGuid));
+	InjectNumbered(server, client, kReliableStreamId, 0, 4, Reliability::Reliable);
+	ASSERT_TRUE(WaitForHeld(client, server->GetMyGUID(), 4));
+
+	client->Shutdown(0);
+	EXPECT_FALSE(SlotInspector::FirstActiveSlot(client).sawSlot);
+	EXPECT_EQ(0u, CountUserMessages(Inbox(client)));
+	EXPECT_FALSE(Has(client, ID_CONNECTION_REQUEST_ACCEPTED));
+}
+
+// A peer that connected to us can send ID_CONNECTION_REQUEST_ACCEPTED itself while we are still handling its
+// request; the handler then flips our slot to the connecting role. It must still not make us hold its data:
+// only a connection we initiated has a session reply of ours to overtake.
+TEST_F(SessionHeldMessagesSim, IncomingPeerCannotMakeTheAcceptingSideHold)
+{
+	RakPeer *server = AddServer(8, 8, 60000);
+	RakPeer *client = AddClient(60000);
+	// Slow the way back so the client is still waiting for our accept when it forges its own.
+	SimulatedNetwork::LinkRule slow;
+	slow.delayMs = 50;
+	net.SetLink(server, client, slow);
+	ASSERT_EQ(CONNECTION_ATTEMPT_STARTED, StartConnect(client, server));
+	ASSERT_TRUE(Until([&]
+	                  { return SlotInspector::SlotFor(server, client->GetMyGUID()).handlingRequest; }, kConnectTimeoutMs));
+
+	// ID_CONNECTION_REQUEST_ACCEPTED: id | external address | system index | internal addresses | ping | pong.
+	BitStream forged;
+	forged.Write((MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
+	forged.Write(net.AddressOf(client));
+	forged.Write((SystemIndex) 0);
+	for (unsigned int i = 0; i < MAXIMUM_NUMBER_OF_INTERNAL_IDS; i++)
+		forged.Write(UNASSIGNED_SYSTEM_ADDRESS);
+	forged.Write((Time) 0);
+	forged.Write((Time) 0);
+	SendGateBypass::Inject(client, forged, net.AddressOf(server));
+	InjectNumbered(client, server, kReliableStreamId, 0, 4, Reliability::Reliable);
+
+	bool flipped = false;
+	unsigned int peakHeld = 0;
+	for (int i = 0; i < 300; ++i)
+	{
+		Pump(1);
+		const SlotInspector::Snapshot slot = SlotInspector::SlotFor(server, client->GetMyGUID());
+		flipped = flipped || (slot.exchanging && slot.connectingSide && !slot.weInitiated);
+		peakHeld = std::max(peakHeld, slot.heldMessages);
+	}
+	ASSERT_TRUE(flipped) << "precondition: the forged accept did not flip the accepting slot's role";
+	EXPECT_EQ(0u, peakHeld) << "a peer that connected to us made us hold its data";
+	EXPECT_EQ(0u, CountUserMessages(Inbox(server)));
 }

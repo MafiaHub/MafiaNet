@@ -60,18 +60,27 @@ What MafiaNet guarantees
   the sender will never resend them. The connecting side therefore **holds** them, in arrival order,
   and delivers them right after ``ID_CONNECTION_REQUEST_ACCEPTED``; plugins see them then too, exactly
   like any later message. If the attempt ends instead (``RejectSession()``, the session timeout, a lost
-  connection), they are freed and never delivered. The accepting side holds nothing: a conforming
-  connecting peer cannot send before the answer reaches it, so application data arriving there during
-  the handshake is dropped, as is anything that arrives after an attempt has already failed.
-* **What is held is bounded.** At most ``MAXIMUM_HELD_SESSION_MESSAGES`` messages (16384) and
+  connection), they are freed and never delivered. Only a connection this peer *initiated* holds
+  anything. The accepting side holds nothing -- a conforming connecting peer cannot send before the
+  answer reaches it -- and neither does a slot whose remote connected to us and then claims the
+  connecting role with a forged ``ID_CONNECTION_REQUEST_ACCEPTED``. Application data arriving there
+  during the handshake is dropped, as is anything that arrives on a connection the application was
+  never told about (after a refused or failed handshake, for instance).
+* **What is held is bounded.** At most ``MAXIMUM_HELD_SESSION_MESSAGES`` messages (65536) and
   ``MAXIMUM_HELD_SESSION_BYTES`` bytes (64 × ``MAXIMUM_SESSION_CONFIG_SIZE``, 4 MB) per connection,
   both overridable at build time. The window only lasts until the answer arrives -- about one
   retransmission timeout of a new connection, and the answer is resent at ``Priority::Immediate``
-  ahead of any application data -- so conforming traffic stays far below either limit. A remote that
-  exceeds one is breaking the protocol, and silently dropping the message that did not fit would lose
-  it for good, so the connecting side **fails the attempt** instead: it reports
-  ``ID_CONNECTION_ATTEMPT_FAILED`` (once, with no reason payload), frees everything it held, sends the
-  remote ``ID_DISCONNECTION_NOTIFICATION`` and closes the connection.
+  ahead of any application data -- so ordinary connect-time traffic stays far below either limit.
+  Silently dropping the message that did not fit would lose it for good, so a remote that exceeds one
+  **fails the attempt** instead: the connecting side reports ``ID_CONNECTION_ATTEMPT_FAILED`` (once,
+  with no reason payload), frees everything it held, sends the remote ``ID_DISCONNECTION_NOTIFICATION``
+  and closes the connection.
+
+  A conforming server can still reach a limit if, the moment it reports the connection, it dumps a
+  very large burst -- tens of thousands of small messages, or megabytes -- on anything but ordered
+  channel 0, over a fast link that loses the answer. Messages ordered on channel 0 queue behind the
+  answer in the reliability layer and never count, so **send connect-time snapshots ordered on
+  channel 0**, or keep what you send before the client can have answered well under these limits.
 * **Handshaking peers count against the incoming-connection limit.** They already own a slot, so
   ``SetMaximumIncomingConnections()`` is enforced against them too. (``GetNumberOfRemoteInitiatedConnections()``
   still reports only fully established peers, which is what an application means by "players".)
@@ -118,7 +127,7 @@ This is a new per-connection ceiling introduced by the handshake. If a deploymen
 large payloads, lower ``MAXIMUM_SESSION_CONFIG_SIZE`` at build time. A connection this peer
 *initiated* can additionally hold up to ``MAXIMUM_HELD_SESSION_BYTES`` of the remote's application
 messages while its handshake finishes (see above); only peers you connect to can make you hold
-them, never peers connecting to you.
+them, never peers connecting to you, even one that forges the connecting role.
 
 **Slots.** A peer can complete the transport handshake and then simply not send its payload,
 occupying a slot for the timeout duration. This is bounded by ``SetMaximumIncomingConnections()``

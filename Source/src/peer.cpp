@@ -3945,6 +3945,8 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 		const RemoteSystemStruct::HeldApplicationMessage held = remoteSystem->heldApplicationMessages.Pop();
 		DeliverApplicationMessage(remoteSystem, held.data, held.bitSize);
 	}
+	// Pop() never shrinks the array; a large hold must not keep it for the life of the connection.
+	remoteSystem->heldApplicationMessages.Clear(_FILE_AND_LINE_);
 	remoteSystem->heldApplicationBytes = 0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -7102,6 +7104,11 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 							// Hold the connection-complete packet until the session handshake finishes. The bytes are
 							// copied because `data` is freed as soon as this branch returns.
+							//
+							// With allowConnectionResponseIPMigration a repeated ID_CONNECTION_REQUEST_ACCEPTED on a
+							// connection still in the handshake starts it over, and ClearSessionConfig() then frees the
+							// application messages held so far. They were acked, so they are lost. Accepted: the option is
+							// off by default, and a restarted handshake is already a restarted connection to the application.
 							ClearSessionConfig(remoteSystem);
 							remoteSystem->sessionConfigIsConnectingSide = true;
 							remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
@@ -7174,8 +7181,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					{
 						rakFree_Ex(data, _FILE_AND_LINE_);
 					}
-					else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide)
+					else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide &&
+					         remoteSystem->weInitiatedTheConnection)
 					{
+						// Only on a connection we initiated. sessionConfigIsConnectingSide alone is not enough: the
+						// ID_CONNECTION_REQUEST_ACCEPTED handler also takes that message in HANDLING_CONNECTION_REQUEST,
+						// so a peer that connected to us can flip its slot to the connecting role, and would then
+						// make us hold its data. A peer we accepted never has a reply of ours to overtake.
+						//
 						// Bounded: exceeding the bound is a protocol violation, and failing the attempt beats
 						// silently losing the one message that did not fit -- the very bug this hold exists for.
 						if (!HoldApplicationMessage(remoteSystem, data, bitSize))
