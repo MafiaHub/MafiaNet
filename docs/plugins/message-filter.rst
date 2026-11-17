@@ -94,6 +94,5 @@ Configuration Options
 See Also
 --------
 
-* :doc:`two-way-authentication` - Secure authentication
 * :doc:`packet-logger` - Monitor filtered packets
 * :doc:`../basics/network-messages` - Message ID system

@@ -45,7 +45,6 @@
 // #define _RAKNET_SUPPORT_HTTPConnection 0
 // #define _RAKNET_SUPPORT_HTTPConnection2 0
 // #define _RAKNET_SUPPORT_PacketizedTCP 0
-// #define _RAKNET_SUPPORT_TwoWayAuthentication 0
 
 // SET DEFAULTS IF UNDEFINED
 #ifndef _RAKNET_SUPPORT_ConnectionGraph2
@@ -134,9 +133,6 @@
 #endif
 #ifndef _RAKNET_SUPPORT_PacketizedTCP
 #define _RAKNET_SUPPORT_PacketizedTCP 1
-#endif
-#ifndef _RAKNET_SUPPORT_TwoWayAuthentication
-#define _RAKNET_SUPPORT_TwoWayAuthentication 1
 #endif
 #ifndef _RAKNET_SUPPORT_DynDNS
 #define _RAKNET_SUPPORT_DynDNS 1

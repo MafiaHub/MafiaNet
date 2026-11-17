@@ -478,8 +478,8 @@ ReadyEvent, Router2, RakVoice and sectorizers
 * ``GridSectorizer::GetEntries(std::vector<void*>&, ...)`` and
   ``PointGridSectorizer::GetEntries(std::vector<void*>&, ...) const``.
 
-MessageFilter, RelayPlugin, TwoWayAuthentication, StatisticsHistory
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MessageFilter, RelayPlugin, StatisticsHistory
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * ``MessageFilter`` (protected members): ``FilterSet::allowedRPC`` is a
   ``std::set<RakString>``, ``filterList`` an id-sorted
@@ -489,11 +489,6 @@ MessageFilter, RelayPlugin, TwoWayAuthentication, StatisticsHistory
 * ``RelayPlugin`` (protected members): ``std::unordered_map`` and
   ``std::vector`` with ``unique_ptr`` ownership; new protected
   ``FindParticipant(const RakNetGUID&)``. Non-copyable.
-* ``TwoWayAuthentication``: public ``outgoingChallenges`` is a
-  ``std::deque<PendingChallenge>``; ``NonceGenerator::generatedNonces`` is a
-  ``std::vector<std::unique_ptr<NonceAndRemoteSystemRequest>>``; protected
-  ``passwords`` is a ``std::unordered_map<RakString, RakString>``. Both
-  classes are non-copyable.
 * ``StatisticsHistory``: ``GetHistorySorted(uint64_t, SHSortOperation,
   std::vector<TimeAndValueQueue*>&) const`` (still appends),
   ``GetUniqueKeyList(std::vector<RakString>&)`` (clears, then fills),
@@ -754,7 +749,6 @@ twice); the deletion makes that a compile error:
 ``ConnectionGraph2``, ``TCPInterface``, ``PacketizedTCP``, ``ThreadPool``,
 ``NatTypeDetectionClient``, ``NatTypeDetectionServer``,
 ``RoomsPlugin``, ``RPC``, ``MessageFilter``, ``RelayPlugin``,
-``TwoWayAuthentication``, ``TwoWayAuthentication::NonceGenerator``,
 ``StatisticsHistory``, ``StatisticsHistoryPlugin``, ``StringCompressor``,
 ``StringTable``, ``HuffmanEncodingTree``, ``Table::Row`` and the new
 ``LockedQueue`` and ``ObjectPool``. ``Table`` itself keeps a deep copy.
@@ -772,8 +766,8 @@ Behaviour changes
   (``ping * (usedForwardingEntries + 1)``, computed in 64 bits: both factors
   come from the relay and the ``int`` product used to overflow), then the
   lowest GUID. Not visible on the wire.
-* **Peer-supplied names are matched verbatim.** RPC,
-  TwoWayAuthentication and MessageFilter looked up names received from the
+* **Peer-supplied names are matched verbatim.** RPC and
+  MessageFilter looked up names received from the
   network through ``RakString``'s printf-style constructor, so the remote
   string was used as a format string. A ``%`` in a name was undefined
   behaviour. Names are now stored and matched as plain strings; only names

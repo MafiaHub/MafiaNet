@@ -193,8 +193,6 @@ Every plugin sends on channel 0 unless told otherwise. An application that keeps
      - ``SetOrderingChannels(frameChannel, controlChannel)``.
    * - :doc:`ReadyEvent <../plugins/ready-event>`
      - ``SetSendChannel()``.
-   * - TwoWayAuthentication
-     - Fixed on channel 0; its messages are handshake-time only.
 
 Acknowledgment Receipts
 -----------------------

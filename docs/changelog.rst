@@ -19,6 +19,7 @@ Unreleased — breaking
 * RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`guide/rpc` and serialize their arguments into a bit stream.
 * The SQLite client, server and logging adapters have been removed.
 * CloudClient and CloudServer, including their samples and public headers, have been removed. Remove their names from ``MAFIANET_DISABLED_FEATURES``.
+* The ``TwoWayAuthentication`` plugin and sample have been removed. Move user authentication into your application and remove ``TwoWayAuthentication`` from ``MAFIANET_DISABLED_FEATURES``.
 * The former SQLite and cloud message ID ranges are reserved.
 
 **Standard containers and allocation**
@@ -27,14 +28,14 @@ Unreleased — breaking
 * **The custom allocator layer is gone.** The library allocates with ``new`` / ``delete`` and ``std::malloc`` / ``std::free``. ``memory_override.h``, ``SetMalloc`` and friends, ``rakMalloc`` / ``rakFree``, ``OP_NEW`` / ``OP_DELETE``, the bundled dlmalloc, every ``alloca`` and the ``_FILE_AND_LINE_`` macro with its ``file, line`` parameters are removed. Replace the global ``operator new`` / ``operator delete`` or link mimalloc/jemalloc to control allocation. ``RakNetSmartPtr`` is ``std::shared_ptr``.
 * **Public signatures take ``std::`` types.** ``DataStructures::List<T>&`` out-parameters are ``std::vector<T>&`` (``RakPeerInterface::GetSystemList``, ``GetSockets``, ``GetStatisticsList``, ReplicaManager3, FullyConnectedMesh2, TeamManager, FileList and more). Owned buffers come back as ``std::unique_ptr<unsigned char[]>`` (``BitStream::CopyData``, ``ReadAlignedBytesSafeAlloc``, ``DataCompressor::DecompressAndAllocate``). RPC4 hands out a ``LocalSlot *`` from ``GetLocalSlot()`` for ``InvokeSignal()``. Several plugins are now non-copyable.
 * **New helpers:** ``SwapRemove`` (``vector_util.h``), ``InstancePtr`` (``instance_ptr.h``) and ``LockedQueue`` (``locked_queue.h``).
-* **Behaviour changes:** ``Table::SortTable`` keeps fully tied rows (ordered by row id) instead of dropping them; Router2 picks its forwarder deterministically; RPC4/TwoWayAuthentication/MessageFilter match peer-supplied names verbatim; ``PacketizedTCP`` disconnects a peer whose length prefix exceeds ``SetMaxMessageLength()`` (default 64 MiB).
+* **Behaviour changes:** ``Table::SortTable`` keeps fully tied rows (ordered by row id) instead of dropping them; Router2 picks its forwarder deterministically; RPC4/MessageFilter match peer-supplied names verbatim; ``PacketizedTCP`` disconnects a peer whose length prefix exceeds ``SetMaxMessageLength()`` (default 64 MiB).
 * **Windows:** ``std::`` types now cross the DLL boundary, so the application and ``MafiaNet.dll`` must use the same compiler toolset and CRT (``/MD`` vs ``/MT``, Debug vs Release).
 * The full list of removed names, changed signatures and behaviour changes, with porting examples, is in :doc:`advanced/migrating-to-std-containers`.
 
 **Fixes found during the migration**
 
 * **Security: UDPProxyServer accepted forwarding requests from any connected system.** It now accepts them only from a coordinator it logged in to.
-* **Security: peer-supplied names were used as printf format strings** in RPC4, TwoWayAuthentication and MessageFilter lookups. They are now matched verbatim.
+* **Security: peer-supplied names were used as printf format strings** in RPC4 and MessageFilter lookups. They are now matched verbatim.
 * **Fix: Huffman decoder out-of-bounds write.** A string payload decoding to more than ``INT_MAX`` symbols wrote before the output buffer; ``DecodeArray`` now counts in ``size_t``.
 * **Fix: bounds on peer input.** TeamBalancer accepted a team index equal to the team count (out-of-bounds write); UDPProxyCoordinator indexed client-reported ping lists out of range; ``DataCompressor`` allocated whatever size the stream declared; ConnectionGraph2 added unread entries from a truncated list.
 * **Fix: ``TableSerializer`` and ``StringTable`` asserted on malformed peer input**, aborting Debug builds; they now reject it. ``TableSerializer`` also checks every read and column index and gains a fuzz harness.
@@ -48,7 +49,7 @@ Unreleased — breaking
 * **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
 * **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
-**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox, LibVoice, lobby and room identifiers and two unused reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 125 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
+**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox, LibVoice, lobby, room and two-way authentication identifiers and two unused reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 119 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
 
 Version 0.26.0
 --------------

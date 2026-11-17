@@ -4,7 +4,7 @@
  *  This source code is licensed under the MIT-style license found in the
  *  license.txt file in the root directory of this source tree.
  *
- *  MessageFilter, RelayPlugin and TwoWayAuthentication keep their tables in
+ *  MessageFilter and RelayPlugin keep their tables in
  *  std:: containers. These cases pin the behaviour those tables carry: filter
  *  set order, membership, room lists, and identifier lookups. Peer-level cases
  *  run on the simulated network.
@@ -20,7 +20,6 @@
 #include "mafianet/peer.h"
 #include "mafianet/relay_plugin.h"
 #include "mafianet/remote_procedure_call.h"
-#include "mafianet/two_way_authentication.h"
 
 #include <string>
 #include <type_traits>
@@ -37,9 +36,6 @@ static_assert(!std::is_copy_constructible_v<MessageFilter>, "MessageFilter owns 
 static_assert(!std::is_copy_assignable_v<MessageFilter>, "MessageFilter owns its filter sets");
 static_assert(!std::is_copy_constructible_v<RelayPlugin>, "RelayPlugin owns its participants");
 static_assert(!std::is_copy_assignable_v<RelayPlugin>, "RelayPlugin owns its participants");
-static_assert(!std::is_copy_constructible_v<TwoWayAuthentication>, "TwoWayAuthentication owns its nonces");
-static_assert(!std::is_copy_assignable_v<TwoWayAuthentication>, "TwoWayAuthentication owns its nonces");
-static_assert(!std::is_copy_constructible_v<TwoWayAuthentication::NonceGenerator>, "NonceGenerator owns its nonces");
 
 namespace
 {
@@ -127,7 +123,6 @@ protected:
 	// Plugins live as long as the fixture, so TearDown can detach them.
 	MessageFilter filter;
 	RelayPlugin serverRelay, relayA, relayB;
-	TwoWayAuthentication serverAuth, clientAuth;
 	std::vector<std::pair<RakPeer *, PluginInterface2 *>> attached;
 
 	void Start(int clientCount)
@@ -278,33 +273,4 @@ TEST_F(MessagingPluginsNetwork, RelayGroupsAreListedJoinedAndRemoved)
 	relayB.AddParticipantRequestFromClient("alice", serverGuid);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return CountRelay(clients[1], RPE_ADD_CLIENT_SUCCESS) == 2; }, 2000));
-}
-
-TEST_F(MessagingPluginsNetwork, TwoWayAuthenticationMatchesIdentifiersVerbatim)
-{
-	Start(1);
-	Attach(server, &serverAuth);
-	Attach(clients[0], &clientAuth);
-	ConnectAll();
-
-	// '%' in an identifier: the received identifier used to go through RakString's printf-style constructor.
-	// Built by assignment: passing the literal to the RakString parameter would itself format it.
-	RakString identifier;
-	identifier = "build%s";
-	ASSERT_TRUE(serverAuth.AddPassword(identifier, "secret"));
-	ASSERT_FALSE(serverAuth.AddPassword(identifier, "other"));
-	ASSERT_TRUE(clientAuth.AddPassword(identifier, "secret"));
-	ASSERT_TRUE(clientAuth.AddPassword("wrong", "nope"));
-	ASSERT_TRUE(serverAuth.AddPassword("wrong", "different"));
-	EXPECT_FALSE(clientAuth.Challenge("unknown", server->GetMyGUID()));
-
-	ASSERT_TRUE(clientAuth.Challenge(identifier, server->GetMyGUID()));
-	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS, 2000));
-	ASSERT_TRUE(net.RunUntilReceived(server, ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS, 2000));
-	EXPECT_TRUE(clientAuth.outgoingChallenges.empty());
-
-	ASSERT_TRUE(clientAuth.Challenge("wrong", server->GetMyGUID()));
-	ASSERT_TRUE(net.RunUntilReceived(server, ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE, 2000));
-	ASSERT_TRUE(net.RunUntilReceived(clients[0], ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE, 2000));
-	EXPECT_TRUE(clientAuth.outgoingChallenges.empty());
 }

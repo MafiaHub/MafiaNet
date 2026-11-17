@@ -64,7 +64,6 @@ MafiaNet Documentation
    plugins/router2
    plugins/message-filter
    plugins/packet-logger
-   plugins/two-way-authentication
    plugins/rakvoice
    plugins/team-balancer
 

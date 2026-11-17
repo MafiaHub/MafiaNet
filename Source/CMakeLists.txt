@@ -93,7 +93,6 @@ set(MAFIANET_SOURCES
     src/team_balancer.cpp
     src/team_manager.cpp
     src/threadsafe_packet_logger.cpp
-    src/two_way_authentication.cpp
     src/udp_forwarder.cpp
     src/udp_proxy_client.cpp
     src/udp_proxy_coordinator.cpp
@@ -243,7 +242,6 @@ set(MAFIANET_HEADERS
     include/mafianet/time.h
     include/mafianet/transport2.h
     include/mafianet/transport_interface.h
-    include/mafianet/two_way_authentication.h
     include/mafianet/types.h
     include/mafianet/udp_forwarder.h
     include/mafianet/udp_proxy_client.h
@@ -304,7 +302,6 @@ set(MAFIANET_OPTIONAL_FEATURES
     TeamBalancer
     TeamManager
     TelnetTransport
-    TwoWayAuthentication
     UDPForwarder
     UDPProxyClient
     UDPProxyCoordinator

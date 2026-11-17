@@ -22,10 +22,9 @@
 using namespace MafiaNet;
 
 /*
-The library tells the application about connections, sessions and authentication through messages it
-generates itself: ID_NEW_INCOMING_CONNECTION, ID_CONNECTION_LOST, ID_SESSION_CONFIG_ABANDONED,
-ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS and so on. An application acts on those as facts,
-so a connected peer must not be able to make one appear.
+The library tells the application about connections and sessions through messages it
+generates itself: ID_NEW_INCOMING_CONNECTION, ID_CONNECTION_LOST and ID_SESSION_CONFIG_ABANDONED.
+An application acts on those as facts, so a connected peer must not be able to make one appear.
 
 RakPeer and the plugins refuse them from a remote by looking at the first byte. A message may start
 with ID_TIMESTAMP and a time instead, with the real id after it, and every reader (Receive()'s
@@ -131,11 +130,7 @@ INSTANTIATE_TEST_SUITE_P(
         (int) ID_SESSION_CONFIG,
         (int) ID_SESSION_CONFIG_STATUS,
         (int) ID_SESSION_CONFIG_REJECTED,
-        (int) ID_SESSION_CONFIG_ABANDONED,
-        // Plugin verdicts the plugins refuse from a remote by their first byte.
-        (int) ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS,
-        (int) ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE,
-        (int) ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT));
+        (int) ID_SESSION_CONFIG_ABANDONED));
 
 TEST(RemoteControlIds, BareSessionAbandonedFromARemoteIsNotDelivered)
 {

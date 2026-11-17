@@ -61,8 +61,7 @@ What is not protected
   the middle. Pin the server identity (see `Server identity`_) wherever the client can be given the
   server's public key.
 * **Clients.** Nothing authenticates a client to a server. Authenticate users with an
-  application-level mechanism such as :doc:`../plugins/two-way-authentication`, and do not treat
-  "connected" as "trusted".
+  application-level mechanism, and do not treat "connected" as "trusted".
 * **Offline messages.** Anything sent outside a connection is plaintext: pings and pongs,
   ``ID_ADVERTISE_SYSTEM``, unconnected sends, NAT punchthrough traffic, and the open-connection
   handshake packets themselves.
@@ -393,17 +392,9 @@ Best practices
 4. **Keep libsodium current.** It is the one crypto dependency; update it with your OS or package
    manager.
 
-TwoWayAuthentication plugin
----------------------------
-
-For password-based authentication without exposing the password, see
-:doc:`../plugins/two-way-authentication`. It authenticates a user to the server and is independent
-of the transport encryption.
-
 See Also
 --------
 
 * :doc:`connecting` - Connection basics
 * :doc:`../advanced/encryption-wire-format` - Byte-level protocol description
 * :doc:`../advanced/session-handshake-security` - Trust model of the session payload
-* :doc:`../plugins/two-way-authentication` - Password authentication
