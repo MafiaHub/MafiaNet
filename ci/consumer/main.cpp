@@ -1,5 +1,6 @@
 // Links against an installed MafiaNet and exercises it once: create a peer,
 // start it (which initialises libsodium), shut it down. Exit code 0 on success.
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/peer_interface.h"
 
 #include <cstdint>
@@ -19,6 +20,7 @@ int main()
 	}
 	MafiaNet::SocketDescriptor descriptor;
 	const MafiaNet::StartupResult result = peer->Startup(1, &descriptor, 1);
+	const bool registered = peer->GetRPC().RegisterFunction("probe", [](MafiaNet::BitStream *, MafiaNet::Packet *, void *) {}, nullptr);
 	peer->Shutdown(0);
 	MafiaNet::RakPeerInterface::DestroyInstance(peer);
 	if (result != MafiaNet::RAKNET_STARTED)
@@ -26,6 +28,8 @@ int main()
 		std::printf("Startup failed: %d\n", (int) result);
 		return 1;
 	}
+	if (!registered)
+		return 1;
 	std::printf("MafiaNet consumer OK\n");
 	return 0;
 }

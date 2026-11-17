@@ -19,7 +19,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer.h"
 #include "mafianet/relay_plugin.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/two_way_authentication.h"
 
 #include <string>

@@ -10,7 +10,7 @@
 #include "mafianet/string.h"
 #include <vector>
 #include "mafianet/peer_interface.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"

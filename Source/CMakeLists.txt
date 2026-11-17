@@ -215,7 +215,7 @@ set(MAFIANET_HEADERS
     include/mafianet/replica_enums.h
     include/mafianet/replica_manager3.h
     include/mafianet/router2.h
-    include/mafianet/rpc.h
+    include/mafianet/remote_procedure_call.h
     include/mafianet/send_to_thread.h
     include/mafianet/session_crypto.h
     include/mafianet/signaled_event.h

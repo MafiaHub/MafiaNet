@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/peer_interface.h"
 #include <stdio.h>
 #include "mafianet/kbhit.h"

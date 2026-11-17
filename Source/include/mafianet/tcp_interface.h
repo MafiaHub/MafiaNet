@@ -33,7 +33,7 @@
 #include "mafianet/locked_queue.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 
 #include <cstddef>
 #include <cstdlib>

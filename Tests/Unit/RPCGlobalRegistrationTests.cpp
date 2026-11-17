@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/peer.h"
 
 #include <string>

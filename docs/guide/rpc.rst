@@ -9,7 +9,7 @@ run on the thread calling ``Receive()``, after attached message filters.
 Migrating from RPC4
 -------------------
 
-Include ``mafianet/rpc.h`` and replace the RPC4 instance, attachment and
+Include ``mafianet/remote_procedure_call.h`` and replace the RPC4 instance, attachment and
 destruction with a reference from ``GetRPC()``. Rename global registrations
 to ``RPCGlobalRegistration`` and filter rules to ``MessageFilter::SetAllowRPC``.
 Remove ``RPC4Plugin`` from ``MAFIANET_DISABLED_FEATURES``. Calls, signals,
@@ -25,7 +25,7 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/rpc.h"
+   #include "mafianet/remote_procedure_call.h"
 
    void MyCallback(MafiaNet::BitStream* parameters, MafiaNet::Packet* packet, void* context) {
        int value;

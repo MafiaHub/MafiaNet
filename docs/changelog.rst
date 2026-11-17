@@ -8,7 +8,7 @@ Unreleased — breaking
 
 **Built-in RPC**
 
-* Use ``peer->GetRPC()`` and ``mafianet/rpc.h`` for named calls, signals and callbacks.
+* Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.
   The peer owns the service and runs message filters before RPC handlers.
   See :doc:`guide/rpc` for the migration from RPC4. The wire format is unchanged.
 

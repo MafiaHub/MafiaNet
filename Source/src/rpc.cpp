@@ -16,7 +16,7 @@
 #include "mafianet/native_feature_includes.h"
 #include <cstring>
 
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/tcp_interface.h"

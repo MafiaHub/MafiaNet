@@ -22,7 +22,7 @@
 #define __RAK_PEER_INTERFACE_H
 
 #include "mafianet/packet_priority.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"

@@ -16,7 +16,7 @@
 
 #include "mafianet/message_identifiers.h"
 #include "mafianet/packetized_tcp.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 
 #include <cstdint>
 #include <cstring>

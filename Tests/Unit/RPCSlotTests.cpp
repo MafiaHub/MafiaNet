@@ -16,7 +16,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 
 #include <string>
 #include <type_traits>

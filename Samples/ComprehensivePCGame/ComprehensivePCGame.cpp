@@ -40,7 +40,7 @@
 #include "mafianet/tcp_interface.h"
 #include "mafianet/ready_event.h"
 #include "mafianet/packet_logger.h"
-#include "mafianet/rpc.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/http_connection2.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
