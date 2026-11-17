@@ -139,7 +139,7 @@ TEST(ThreadPool, OutputQueueIsFifoAndGetOutputOnEmptyIsValueInitialized)
 }
 
 // Workers pop inputs and push outputs while this thread adds input and polls output, the
-// HasOutputFast/HasOutput pattern the Autopatcher and Lobby2 use. Run under TSan to check the
+// HasOutputFast/HasOutput pattern Lobby2 uses. Run under TSan to check the
 // queues and the published counts. Terminates when every output arrived (ctest's timeout is the
 // backstop), so no wall-clock assertion.
 TEST(ThreadPool, WorkersProcessEveryInputExactlyOnce)

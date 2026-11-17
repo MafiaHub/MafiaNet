@@ -15,7 +15,6 @@
 
 /// \file directory_delta_transfer.h
 /// \brief Simple class to send changes between directories.
-/// \details In essence, a simple autopatcher that can be used for transmitting levels, skins, etc.
 ///
 
 
@@ -35,9 +34,7 @@
 /// \details
 /// \ingroup PLUGINS_GROUP
 
-/// \brief Simple class to send changes between directories.  In essence, a simple autopatcher that can be used for transmitting levels, skins, etc.
-/// \details
-/// \sa AutopatcherClient class for database driven patching, including binary deltas and search by date.
+/// \brief Send new and changed files between directories.
 ///
 /// To use, first set the path to your application.  For example "C:/Games/MyRPG/"<BR>
 /// To allow other systems to download files, call AddUploadsFromSubdirectory, where the parameter is a path relative<BR>

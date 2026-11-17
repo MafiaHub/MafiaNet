@@ -52,8 +52,7 @@ TEST(PacketLoggerIdNames, RakVoiceRelayDataAndItsNeighboursAreNamed)
 {
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RAKVOICE_DATA), "ID_RAKVOICE_DATA");
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RAKVOICE_RELAY_DATA), "ID_RAKVOICE_RELAY_DATA");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE),
-	             "ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RESERVED_49), "ID_RESERVED_49");
 }
 
 // Everything past the break was shifted, so the ids the session handshake uses were all wrong.
@@ -69,6 +68,10 @@ TEST(PacketLoggerIdNames, SessionConfigIdsAreNamed)
 // Retired plugin ranges must not shift the wire IDs used by existing peers.
 TEST(PacketLoggerIdNames, RetiredPluginRangesPreserveWireIds)
 {
+	EXPECT_EQ(48, (int) ID_RAKVOICE_RELAY_DATA);
+	EXPECT_EQ(59, (int) ID_NAT_PUNCHTHROUGH_REQUEST);
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(58), "ID_RESERVED_58");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(59), "ID_NAT_PUNCHTHROUGH_REQUEST");
 	EXPECT_EQ(97, (int) ID_NAT_TYPE_DETECTION_REQUEST);
 	EXPECT_EQ(122, (int) ID_RELAY_PLUGIN);
 	EXPECT_EQ(131, (int) ID_USER_PACKET_ENUM);

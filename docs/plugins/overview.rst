@@ -36,7 +36,6 @@ Available Plugins
 
 - :doc:`file-list-transfer` - Transfer files
 - :doc:`directory-delta-transfer` - Sync directories
-- :doc:`autopatcher` - Delta patching system
 
 **Game Features**
 

@@ -235,18 +235,17 @@ Source/
 └── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features
-DependentExtensions/    # Optional integrations (patching and lobbies)
+DependentExtensions/    # Optional integrations (lobbies)
 cmake/                  # CMake modules including FetchDependencies.cmake
 ```
 
 ### DependentExtensions
 
 Optional integrations built when `MAFIANET_BUILD_SAMPLES=ON`:
-- **Autopatcher**: Delta patching system for game updates (uses bzip2)
 - **RakVoice**: Voice compression and transmission (uses Opus, RNNoise)
 - **Lobby2**: Matchmaking and lobby system
 
-Dependencies (bzip2, miniupnpc, Opus, RNNoise) are automatically fetched via CMake FetchContent at configure time.
+Dependencies (jansson, miniupnpc, Opus, RNNoise) are automatically fetched via CMake FetchContent at configure time.
 
 ### Basic Usage Pattern
 

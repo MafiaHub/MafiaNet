@@ -84,5 +84,4 @@ See Also
 --------
 
 * :doc:`file-list-transfer` - Underlying file transfer
-* :doc:`autopatcher` - Full patching solution
 * :doc:`../utilities/string-compressor` - Data compression

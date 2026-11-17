@@ -82,5 +82,4 @@ See Also
 --------
 
 * :doc:`directory-delta-transfer` - Directory synchronization
-* :doc:`autopatcher` - Delta patching system
 * :doc:`../basics/bitstreams` - Binary data handling

@@ -11,19 +11,6 @@ include(FetchContent)
 message(STATUS "Fetching MafiaNet dependencies...")
 
 # -----------------------------------------------------------------------------
-# bzip2 - compression library for Autopatcher
-# Note: the 1.0.8 release tag has no CMake build, so this pins a post-1.0.8
-# master commit. Shallow clones cannot fetch an arbitrary SHA from every
-# server, hence GIT_SHALLOW FALSE.
-# -----------------------------------------------------------------------------
-FetchContent_Declare(
-    bzip2
-    GIT_REPOSITORY https://gitlab.com/bzip2/bzip2.git
-    GIT_TAG        66c46b8c9436613fd81bc5d03f63a61933a4dcc3 # master, 2023-05-31
-    GIT_SHALLOW    FALSE
-)
-
-# -----------------------------------------------------------------------------
 # jansson - JSON library for ComprehensivePCGame master server communication
 # -----------------------------------------------------------------------------
 FetchContent_Declare(
@@ -39,11 +26,6 @@ set(JANSSON_BUILD_MAN OFF CACHE BOOL "" FORCE)
 set(JANSSON_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(JANSSON_WITHOUT_TESTS ON CACHE BOOL "" FORCE)
 set(JANSSON_INSTALL OFF CACHE BOOL "" FORCE)
-
-# bzip2 configuration
-set(ENABLE_LIB_ONLY ON CACHE BOOL "" FORCE)
-set(ENABLE_SHARED_LIB OFF CACHE BOOL "" FORCE)
-set(ENABLE_STATIC_LIB ON CACHE BOOL "" FORCE)
 
 # -----------------------------------------------------------------------------
 # miniupnpc - UPnP NAT traversal
@@ -70,25 +52,11 @@ set(UPNPC_NO_INSTALL ON CACHE BOOL "" FORCE)
 # -----------------------------------------------------------------------------
 # Fetch all dependencies
 # -----------------------------------------------------------------------------
-FetchContent_MakeAvailable(bzip2 miniupnpc jansson)
-
-# -----------------------------------------------------------------------------
-# Create aliases for compatibility with existing target names
-# -----------------------------------------------------------------------------
-
-# bzip2 upstream creates bz2_static, we need BZip2 for Autopatcher
-if(TARGET bz2_static AND NOT TARGET BZip2)
-    # Add include directory for bzip2 headers (bzlib.h)
-    target_include_directories(bz2_static PUBLIC ${bzip2_SOURCE_DIR})
-    add_library(BZip2 ALIAS bz2_static)
-endif()
+FetchContent_MakeAvailable(miniupnpc jansson)
 
 # -----------------------------------------------------------------------------
 # Set folder for fetched dependencies in IDE
 # -----------------------------------------------------------------------------
-if(TARGET bz2_static)
-    set_target_properties(bz2_static PROPERTIES FOLDER "Dependencies")
-endif()
 if(TARGET libminiupnpc-static)
     set_target_properties(libminiupnpc-static PROPERTIES FOLDER "Dependencies")
 endif()

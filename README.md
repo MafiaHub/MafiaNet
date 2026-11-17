@@ -189,7 +189,6 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 
 ### Extensions
 - **RakVoice** - Voice chat with Opus codec and RNNoise
-- **Autopatcher** - Delta patching for game updates
 - **FileListTransfer** - Reliable file transfer
 - **UPnP** - Automatic port forwarding
 
@@ -209,7 +208,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 | **NatPunchthrough** | NAT traversal for peer-to-peer connections |
 | **FileListTransfer** | Reliable file transfer with progress callbacks |
 | **DirectoryDeltaTransfer** | Incremental directory synchronization |
-| **Autopatcher** | Delta patching system for game updates |
 | **RakVoice** | Voice chat with Opus codec and noise suppression |
 | **ReadyEvent** | Player ready state synchronization |
 | **TeamManager** | Team assignment and balancing |
@@ -263,7 +261,6 @@ MafiaNet/
 │   ├── FileListTransfer/   # File transfer demo
 │   └── Tests/              # Comprehensive test suite
 ├── DependentExtensions/    # Optional integrations
-│   ├── Autopatcher/        # Delta patching system
 │   └── Lobby2/             # Matchmaking and lobbies
 ├── docs/                   # Sphinx documentation source
 └── cmake/                  # CMake modules and helpers
@@ -276,7 +273,6 @@ MafiaNet automatically fetches required dependencies via CMake FetchContent:
 | Dependency | Version | Used For |
 |------------|---------|----------|
 | OpenSSL | 1.0.0+ | Encryption (required, system-installed) |
-| bzip2 | - | Compression (Autopatcher) |
 | miniupnpc | - | UPnP port forwarding |
 | Opus | 1.5.2 | Voice codec (RakVoice) |
 | RNNoise | - | Noise suppression (RakVoice) |

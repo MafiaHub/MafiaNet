@@ -211,25 +211,17 @@ enum DefaultMessageIDTypes
 	/// + Opus payload. Routed through a relay host rather than peer-to-peer.
 	ID_RAKVOICE_RELAY_DATA,
 
-	/// Autopatcher plugin - Get a list of files that have changed since a certain date
-	ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE,
-	/// Autopatcher plugin - A list of files to create
-	ID_AUTOPATCHER_CREATION_LIST,
-	/// Autopatcher plugin - A list of files to delete
-	ID_AUTOPATCHER_DELETION_LIST,
-	/// Autopatcher plugin - A list of files to get patches for
-	ID_AUTOPATCHER_GET_PATCH,
-	/// Autopatcher plugin - A list of patches for a list of files
-	ID_AUTOPATCHER_PATCH_LIST,
-	/// Autopatcher plugin - Returned to the user: An error from the database repository for the autopatcher.
-	ID_AUTOPATCHER_REPOSITORY_FATAL_ERROR,
-	/// Autopatcher plugin - Returned to the user: The server does not allow downloading unmodified game files.
-	ID_AUTOPATCHER_CANNOT_DOWNLOAD_ORIGINAL_UNMODIFIED_FILES,
-	/// Autopatcher plugin - Finished getting all files from the autopatcher
-	ID_AUTOPATCHER_FINISHED_INTERNAL,
-	ID_AUTOPATCHER_FINISHED,
-	/// Autopatcher plugin - Returned to the user: You must restart the application to finish patching.
-	ID_AUTOPATCHER_RESTART_APPLICATION,
+	// Retired Autopatcher wire IDs. Keep later message numbers stable.
+	ID_RESERVED_49,
+	ID_RESERVED_50,
+	ID_RESERVED_51,
+	ID_RESERVED_52,
+	ID_RESERVED_53,
+	ID_RESERVED_54,
+	ID_RESERVED_55,
+	ID_RESERVED_56,
+	ID_RESERVED_57,
+	ID_RESERVED_58,
 
 	/// NATPunchthrough plugin: internal
 	ID_NAT_PUNCHTHROUGH_REQUEST,

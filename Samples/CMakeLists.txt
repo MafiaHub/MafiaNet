@@ -49,10 +49,6 @@ add_subdirectory(TwoWayAuthentication)
 add_subdirectory(UDPForwarder)
 add_subdirectory(VirtualWorld)
 
-# Samples requiring autopatcher extension
-add_subdirectory(AutopatcherClient)
-add_subdirectory(AutopatcherClientRestarter)
-
 # Samples requiring crash reporter extension
 add_subdirectory(CrashReporter)
 

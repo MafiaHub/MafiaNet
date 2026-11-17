@@ -562,8 +562,7 @@ Threads and utilities
   ``CRITICAL_SECTION``, which the owning thread could take again, so code
   that called ``AddInput()`` (or anything else that locks the input queue)
   while holding ``LockInput()`` worked there and deadlocked elsewhere. It now
-  deadlocks on every platform: release the lock first, as
-  ``AutopatcherServer`` now does before calling its load notifier.
+  deadlocks on every platform: release the lock first.
 * ``CCRakNetUDT::pingsLastInterval`` and ``RakNetRandomSync::usedValues`` are
   ``std::deque``.
 * ``UDPForwarder``: ``startForwardingInput`` / ``stopForwardingCommands`` are
@@ -744,10 +743,6 @@ listed below, by extension. ``RakNetSmartPtr<BinaryDataBlock>`` became
   ``RoomsPluginParticipantCompByRakString`` is removed. ``RoomsPlugin`` is
   non-copyable.
 * Rooms, ``ProfanityFilter.h``: ``words`` is a ``std::vector<RakString>``.
-
-**Autopatcher**: ``AutopatcherServer::connectionPool`` and
-``userRequestWaitingQueue`` are ``std::deque``, ``patchingUsers`` a
-``std::vector<SystemAddress>``. No function signature changed.
 
 Non-copyable types
 ------------------

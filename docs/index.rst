@@ -59,7 +59,6 @@ MafiaNet Documentation
    plugins/nat-type-detection
    plugins/file-list-transfer
    plugins/directory-delta-transfer
-   plugins/autopatcher
    plugins/ready-event
    plugins/team-manager
    plugins/router2
@@ -131,7 +130,6 @@ Features
 * **Security** - Every connection encrypted and integrity-protected per datagram by default (libsodium)
 * **Replication** - Object replication system for game state synchronization
 * **Voice Chat** - RakVoice for in-game voice communication
-* **Autopatcher** - Delta patching system for game updates
 
 
 License
