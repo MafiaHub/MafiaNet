@@ -24,20 +24,19 @@
 #ifndef __SIMPLE_TCP_SERVER
 #define __SIMPLE_TCP_SERVER
 
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
 #include "mafianet/export.h"
 #include "mafianet/thread.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/defines.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_byte_queue.h"
 #include "mafianet/locked_queue.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 
+#include <cstddef>
 #include <cstdlib>
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -57,6 +56,9 @@ public:
 
 	TCPInterface();
 	virtual ~TCPInterface();
+	// Owns threads, sockets and LockedQueues; MSVC dllexport needs the deleted copy spelled out.
+	TCPInterface(const TCPInterface &) = delete;
+	TCPInterface &operator=(const TCPInterface &) = delete;
 
 	// TODO - add socketdescriptor
 	/// Starts the TCP server on the indicated port
@@ -135,19 +137,20 @@ protected:
 	bool CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *hostAddress);
 
 	// Plugins
-	DataStructures::List<PluginInterface2 *> messageHandlerList;
+	std::vector<PluginInterface2 *> messageHandlerList;
 
 	MafiaNet::LocklessUint32_t isStarted, threadRunning;
 	__TCPSOCKET__ listenSocket;
 
-	DataStructures::Queue<Packet *> headPush, tailPush;
+	// PushBackPacket output; user thread only.
+	std::deque<Packet *> headPush, tailPush;
 	RemoteClient *remoteClients;
 	unsigned short remoteClientsLength;
 
 	// Assuming remoteClients is only used by one thread!
-	// DataStructures::List<RemoteClient*> remoteClients;
+	// std::vector<RemoteClient*> remoteClients;
 	// Use this thread-safe queue to add to remoteClients
-	// DataStructures::Queue<RemoteClient*> remoteClientsInsertionQueue;
+	// LockedQueue<RemoteClient*> remoteClientsInsertionQueue;
 	// SimpleMutex remoteClientsInsertionQueueMutex;
 
 	/*
@@ -172,8 +175,8 @@ protected:
 	// Filled by the TCP thread, drained by the user thread (Receive, HasNewIncomingConnection, HasLostConnection).
 	LockedQueue<std::unique_ptr<Packet, IncomingPacketDeleter>> incomingMessages;
 	LockedQueue<SystemAddress> newIncomingConnections, lostConnections;
-	SimpleMutex completedConnectionAttemptMutex, failedConnectionAttemptMutex;
-	DataStructures::Queue<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
+	// Filled by Connect (or its connection thread), drained by the user thread.
+	LockedQueue<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
 
 	int threadPriority;
 
@@ -199,6 +202,33 @@ protected:
 	};
 };
 
+/// \internal Unsent bytes of a TCP connection's send buffer \a buffer: buffer[offset, size).
+inline std::size_t TcpOutgoingPending(const std::vector<unsigned char> &buffer, std::size_t offset)
+{
+	return buffer.size() - offset;
+}
+
+/// \internal Marks \a sent more bytes of \a buffer as sent (\a sent <= TcpOutgoingPending()). The
+/// sent prefix is only dropped once it is at least half the buffer (or everything was sent), so
+/// draining n bytes in any chunk sizes moves fewer than n bytes in total; erasing the sent prefix
+/// on every send moved the whole backlog each time, O(n^2). Returns the bytes this call moved.
+inline std::size_t TcpOutgoingConsume(std::vector<unsigned char> &buffer, std::size_t &offset, std::size_t sent)
+{
+	offset += sent;
+	if (offset >= buffer.size())
+	{
+		buffer.clear();
+		offset = 0;
+		return 0;
+	}
+	if (offset < buffer.size() - offset)
+		return 0;
+	const std::size_t moved = buffer.size() - offset;
+	buffer.erase(buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(offset));
+	offset = 0;
+	return moved;
+}
+
 /// Stores information about a remote client.
 // Thread ownership: socket, systemAddress, isActive and socketsToClose are
 // written under isActiveMutex. Only the update thread uses a socket (select,
@@ -215,7 +245,10 @@ struct RemoteClient
 	}
 	__TCPSOCKET__ socket;
 	SystemAddress systemAddress;
-	DataStructures::ByteQueue outgoingData;
+	// Bytes queued for the socket, oldest first; outgoingData[outgoingOffset, size) is unsent (see
+	// TcpOutgoingConsume). Both guarded by outgoingDataMutex.
+	std::vector<unsigned char> outgoingData;
+	std::size_t outgoingOffset = 0;
 	bool isActive;
 	SimpleMutex outgoingDataMutex;
 	SimpleMutex isActiveMutex;
@@ -228,7 +261,8 @@ struct RemoteClient
 	void Reset(void)
 	{
 		outgoingDataMutex.Lock();
-		outgoingData.Clear(_FILE_AND_LINE_);
+		outgoingData.clear();
+		outgoingOffset = 0;
 		outgoingDataMutex.Unlock();
 	}
 	// Requires isActiveMutex. Deactivating shuts the socket down but does not close it: see socketsToClose.

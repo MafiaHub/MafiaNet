@@ -22,7 +22,7 @@
 #ifndef __DATA_COMPRESSOR_H
 #define __DATA_COMPRESSOR_H
 
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/export.h"
 
 namespace MafiaNet

@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_NatPunchthroughClient == 1
 
 #include "mafianet/nat_punchthrough_client.h"
@@ -23,6 +24,7 @@
 #include "mafianet/get_time.h"
 #include "mafianet/packet_logger.h"
 #include "mafianet/itoa.h"
+#include "mafianet/vector_util.h"
 
 using namespace MafiaNet;
 
@@ -97,14 +99,14 @@ bool NatPunchthroughClient::OpenNAT(RakNetGUID destination, const SystemAddress 
 	return true;
 }
 /*
-bool NatPunchthroughClient::OpenNATGroup(DataStructures::List<RakNetGUID> destinationSystems, const SystemAddress &facilitator)
+bool NatPunchthroughClient::OpenNATGroup(const std::vector<RakNetGUID> &destinationSystems, const SystemAddress &facilitator)
 {
 	ConnectionState cs = rakPeerInterface->GetConnectionState(facilitator);
 	if (cs!=IS_CONNECTED)
 		return false;
 
 	unsigned long i;
-	for (i=0; i < destinationSystems.Size(); i++)
+	for (i=0; i < destinationSystems.size(); i++)
 	{
 		SendPunchthrough(destinationSystems[i], facilitator);
 	}
@@ -112,7 +114,7 @@ bool NatPunchthroughClient::OpenNATGroup(DataStructures::List<RakNetGUID> destin
 	GroupPunchRequest *gpr = new GroupPunchRequest;
 	gpr->facilitator=facilitator;
 	gpr->pendingList=destinationSystems;
-	groupPunchRequests.Push(gpr, _FILE_AND_LINE_);
+	groupPunchRequests.push_back(gpr);
 
 	return true;
 }
@@ -369,7 +371,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 	}
 
 	unsigned int i;
-	for (i = 0; i < failedAttemptList.Size(); i++)
+	for (i = 0; i < failedAttemptList.size(); i++)
 	{
 		if (failedAttemptList[i].guid == sp.targetGuid)
 		{
@@ -387,7 +389,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 
 			OnReadyForNextPunchthrough();
 
-			failedAttemptList.RemoveAtIndexFast(i);
+			SwapRemove(failedAttemptList, i);
 			return;
 		}
 	}
@@ -421,7 +423,7 @@ void NatPunchthroughClient::OnPunchthroughFailure(void)
 	AddrAndGuid aag;
 	aag.addr = sp.targetAddress;
 	aag.guid = sp.targetGuid;
-	failedAttemptList.Push(aag, _FILE_AND_LINE_);
+	failedAttemptList.push_back(aag);
 
 	// Tell the server we are ready
 	OnReadyForNextPunchthrough();
@@ -648,7 +650,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 		}
 
 		unsigned int i;
-		for (i = 0; i < failedAttemptList.Size(); i++)
+		for (i = 0; i < failedAttemptList.size(); i++)
 		{
 			if (failedAttemptList[i].guid == targetGuid)
 			{
@@ -671,7 +673,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 					rakPeerInterface->PushBackPacket(p, false);
 					*/
 
-				failedAttemptList.RemoveAtIndexFast(i);
+				SwapRemove(failedAttemptList, i);
 				break;
 			}
 		}
@@ -907,7 +909,7 @@ void NatPunchthroughClient::OnClosedConnection(const SystemAddress &systemAddres
 	{
 		// If we lose the connection to the facilitator, all previous failures not currently in progress are returned as such
 		unsigned int i = 0;
-		while (i < failedAttemptList.Size())
+		while (i < failedAttemptList.size())
 		{
 			if (sp.nextActionTime != 0 && sp.targetGuid == failedAttemptList[i].guid)
 			{
@@ -917,7 +919,7 @@ void NatPunchthroughClient::OnClosedConnection(const SystemAddress &systemAddres
 
 			PushFailure();
 
-			failedAttemptList.RemoveAtIndexFast(i);
+			SwapRemove(failedAttemptList, i);
 		}
 	}
 
@@ -1019,13 +1021,14 @@ void NatPunchthroughClient::QueueOpenNAT(RakNetGUID destination, const SystemAdd
 	DSTAndFac daf;
 	daf.destination = destination;
 	daf.facilitator = facilitator;
-	queuedOpenNat.Push(daf, _FILE_AND_LINE_);
+	queuedOpenNat.push_back(daf);
 }
 void NatPunchthroughClient::SendQueuedOpenNAT(void)
 {
-	while (queuedOpenNat.IsEmpty() == false)
+	while (!queuedOpenNat.empty())
 	{
-		DSTAndFac daf = queuedOpenNat.Pop();
+		DSTAndFac daf = queuedOpenNat.front();
+		queuedOpenNat.pop_front();
 		SendPunchthrough(daf.destination, daf.facilitator);
 	}
 }
@@ -1061,17 +1064,17 @@ void NatPunchthroughClient::Clear(void)
 {
 	OnReadyForNextPunchthrough();
 
-	failedAttemptList.Clear(false, _FILE_AND_LINE_);
+	failedAttemptList.clear();
 
-	queuedOpenNat.Clear(_FILE_AND_LINE_);
+	queuedOpenNat.clear();
 	/*
-	groupRequestsInProgress.Clear(false, _FILE_AND_LINE_);
+	groupRequestsInProgress.clear();
 	unsigned int i;
 	for (i=0; i < groupPunchRequests.Size(); i++)
 	{
 		delete groupPunchRequests[i];
 	}
-	groupPunchRequests.Clear(true, _FILE_AND_LINE_);
+	groupPunchRequests.clear();
 	*/
 }
 PunchthroughConfiguration *NatPunchthroughClient::GetPunchthroughConfiguration(void)
@@ -1107,12 +1110,12 @@ void NatPunchthroughClient::PushSuccess(void)
 bool NatPunchthroughClient::RemoveFromFailureQueue(void)
 {
 	unsigned int i;
-	for (i = 0; i < failedAttemptList.Size(); i++)
+	for (i = 0; i < failedAttemptList.size(); i++)
 	{
 		if (failedAttemptList[i].guid == sp.targetGuid)
 		{
 			// Remove from failure queue
-			failedAttemptList.RemoveAtIndexFast(i);
+			SwapRemove(failedAttemptList, i);
 			return true;
 		}
 	}
@@ -1152,16 +1155,16 @@ void NatPunchthroughClient::UpdateGroupPunchOnNatResult(SystemAddress facilitato
 				{
 					if (result==0)
 					{
-						gpr->failedList.Push(targetSystem, _FILE_AND_LINE_);
+						gpr->failedList.push_back(targetSystem);
 					}
 					else if (result==1)
 					{
-						gpr->passedListGuid.Push(targetSystem, _FILE_AND_LINE_);
-						gpr->passedListAddress.Push(targetSystemAddress, _FILE_AND_LINE_);
+						gpr->passedListGuid.push_back(targetSystem);
+						gpr->passedListAddress.push_back(targetSystemAddress);
 					}
 					else
 					{
-						gpr->ignoredList.Push(targetSystem, _FILE_AND_LINE_);
+						gpr->ignoredList.push_back(targetSystem);
 					}
 					gpr->pendingList.RemoveAtIndex(j);
 				}

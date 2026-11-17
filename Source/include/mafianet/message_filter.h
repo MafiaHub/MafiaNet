@@ -25,9 +25,13 @@
 
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_ordered_list.h"
-#include "mafianet/ds_hash.h"
+#include "mafianet/string.h"
 #include "mafianet/export.h"
+
+#include <memory>
+#include <set>
+#include <unordered_map>
+#include <vector>
 
 /// MessageIdentifier (ID_*) values shoudln't go higher than this.  Change it if you do.
 #define MESSAGE_FILTER_MAX_MESSAGE_ID 256
@@ -55,11 +59,22 @@ struct FilterSet
 	void *timeoutUserData;
 	int filterSetID;
 	bool allowedIDs[MESSAGE_FILTER_MAX_MESSAGE_ID];
-	DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> allowedRPC4;
+	std::set<MafiaNet::RakString> allowedRPC4;
 };
 
 /// \internal Has to be public so some of the shittier compilers can use it.
 int RAK_DLL_EXPORT FilterSetComp(const int &key, FilterSet *const &data);
+
+/// \internal Hashes an AddressOrGUID key of MessageFilter's system table with AddressOrGUID::ToInteger:
+/// the GUID when one is set, otherwise the address. This is not a valid std::hash for AddressOrGUID in
+/// general, which is why it is not one: operator== is true when the GUIDs OR the addresses match, so
+/// {guid, address} equals {UNASSIGNED_RAKNET_GUID, address} but the two hash differently and may not be
+/// found under each other. Inherited unchanged from the DataStructures::Hash this table used to be.
+/// Keys are consistent in practice when every system is registered and looked up with its GUID set.
+struct MessageFilterSystemHash
+{
+	size_t operator()(const AddressOrGUID &key) const { return (size_t) AddressOrGUID::ToInteger(key); }
+};
 
 /// \internal Has to be public so some of the shittier compilers can use it.
 struct FilteredSystem
@@ -90,6 +105,10 @@ public:
 
 	MessageFilter();
 	virtual ~MessageFilter();
+
+	// Owns its filter sets; not copyable.
+	MessageFilter(const MessageFilter &) = delete;
+	MessageFilter &operator=(const MessageFilter &) = delete;
 
 	// --------------------------------------------------------------------------------------------
 	// User functions
@@ -186,9 +205,10 @@ protected:
 	FilterSet *GetFilterSetByID(int filterSetID);
 	void OnInvalidMessage(FilterSet *filterSet, AddressOrGUID systemAddress, unsigned char messageID);
 
-	DataStructures::OrderedList<int, FilterSet *, FilterSetComp> filterList;
+	/// Filter sets sorted by filterSetID (FilterSetComp), so GetFilterSetIDByIndex() walks them in id order.
+	std::vector<std::unique_ptr<FilterSet>> filterList;
 	// Change to guid
-	DataStructures::Hash<AddressOrGUID, FilteredSystem, 2048, AddressOrGUID::ToInteger> systemList;
+	std::unordered_map<AddressOrGUID, FilteredSystem, MessageFilterSystemHash> systemList;
 
 	int autoAddNewConnectionsToFilter;
 	MafiaNet::Time whenLastTimeoutCheck;

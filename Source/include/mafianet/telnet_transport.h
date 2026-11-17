@@ -25,8 +25,9 @@
 #define __TELNET_TRANSPORT
 
 #include "mafianet/transport_interface.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/export.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -72,7 +73,7 @@ protected:
 	bool ReassembleLine(TelnetTransport::TelnetClient *telnetClient, unsigned char c);
 
 	// Crap this sucks but because windows telnet won't send line at a time, I have to reconstruct the lines at the server per player
-	DataStructures::List<TelnetClient *> remoteClients;
+	std::vector<TelnetClient *> remoteClients;
 
 	char *sendSuffix, *sendPrefix;
 };

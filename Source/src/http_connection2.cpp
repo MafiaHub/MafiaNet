@@ -14,10 +14,13 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_HTTPConnection2 == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #include "mafianet/http_connection2.h"
 #include "mafianet/tcp_interface.h"
+#include <cassert>
+#include "mafianet/vector_util.h"
 
 using namespace MafiaNet;
 
@@ -28,15 +31,15 @@ HTTPConnection2::HTTPConnection2()
 }
 HTTPConnection2::~HTTPConnection2()
 {
-	for (unsigned int i = 0; i < pendingRequests.Size(); ++i)
+	for (unsigned int i = 0; i < pendingRequests.size(); ++i)
 	{
 		delete pendingRequests[i];
 	}
-	for (unsigned int i = 0; i < sentRequests.Size(); ++i)
+	for (unsigned int i = 0; i < sentRequests.size(); ++i)
 	{
 		delete sentRequests[i];
 	}
-	for (unsigned int i = 0; i < completedRequests.Size(); ++i)
+	for (unsigned int i = 0; i < completedRequests.size(); ++i)
 	{
 		delete completedRequests[i];
 	}
@@ -75,10 +78,10 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 	if (IsConnected(request->hostEstimatedAddress))
 	{
 		sentRequestsMutex.Lock();
-		if (sentRequests.Size() == 0)
+		if (sentRequests.empty())
 		{
 			request->hostCompletedAddress = request->hostEstimatedAddress;
-			sentRequests.Push(request, _FILE_AND_LINE_);
+			sentRequests.push_back(request);
 			sentRequestsMutex.Unlock();
 
 			SendRequest(request);
@@ -87,7 +90,7 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 		{
 			// Request pending, push it
 			pendingRequestsMutex.Lock();
-			pendingRequests.Push(request, _FILE_AND_LINE_);
+			pendingRequests.push_back(request);
 			pendingRequestsMutex.Unlock();
 
 			sentRequestsMutex.Unlock();
@@ -96,7 +99,7 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 	else
 	{
 		pendingRequestsMutex.Lock();
-		pendingRequests.Push(request, _FILE_AND_LINE_);
+		pendingRequests.push_back(request);
 		pendingRequestsMutex.Unlock();
 
 		if (ipVersion != 6)
@@ -118,10 +121,10 @@ bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostT
 bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData)
 {
 	completedRequestsMutex.Lock();
-	if (completedRequests.Size() > 0)
+	if (!completedRequests.empty())
 	{
 		Request *completedRequest = completedRequests[0];
-		completedRequests.RemoveAtIndexFast(0);
+		SwapRemove(completedRequests, 0);
 		completedRequestsMutex.Unlock();
 
 		responseReceived = completedRequest->stringReceived;
@@ -142,11 +145,11 @@ bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostT
 }
 bool HTTPConnection2::IsBusy(void) const
 {
-	return pendingRequests.Size() > 0 || sentRequests.Size() > 0;
+	return !pendingRequests.empty() || !sentRequests.empty();
 }
 bool HTTPConnection2::HasResponse(void) const
 {
-	return completedRequests.Size() > 0;
+	return !completedRequests.empty();
 }
 int ReadChunkSize(char *txtStart, char **txtEnd)
 {
@@ -195,12 +198,12 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 
 	bool locked = true;
 	sentRequestsMutex.Lock();
-	for (i = 0; i < sentRequests.Size(); i++)
+	for (i = 0; i < sentRequests.size(); i++)
 	{
 		Request *sentRequest = sentRequests[i];
 		if (sentRequest->hostCompletedAddress == packet->systemAddress)
 		{
-			sentRequests.RemoveAtIndexFast(i);
+			SwapRemove(sentRequests, i);
 			locked = false;
 			sentRequestsMutex.Unlock();
 
@@ -256,7 +259,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				{
 					// Done
 					completedRequestsMutex.Lock();
-					completedRequests.Push(sentRequest, _FILE_AND_LINE_);
+					completedRequests.push_back(sentRequest);
 					completedRequestsMutex.Unlock();
 
 					// If there is another command waiting for this server, send it
@@ -274,7 +277,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 					{
 						// Done
 						completedRequestsMutex.Lock();
-						completedRequests.Push(sentRequest, _FILE_AND_LINE_);
+						completedRequests.push_back(sentRequest);
 						completedRequestsMutex.Unlock();
 
 						// If there is another command waiting for this server, send it
@@ -284,7 +287,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 					{
 						// Not done
 						sentRequestsMutex.Lock();
-						sentRequests.Push(sentRequest, _FILE_AND_LINE_);
+						sentRequests.push_back(sentRequest);
 						sentRequestsMutex.Unlock();
 					}
 				}
@@ -297,7 +300,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				{
 					// Done
 					completedRequestsMutex.Lock();
-					completedRequests.Push(sentRequest, _FILE_AND_LINE_);
+					completedRequests.push_back(sentRequest);
 					completedRequestsMutex.Unlock();
 
 					// If there is another command waiting for this server, send it
@@ -307,7 +310,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				{
 					// Not done
 					sentRequestsMutex.Lock();
-					sentRequests.Push(sentRequest, _FILE_AND_LINE_);
+					sentRequests.push_back(sentRequest);
 					sentRequestsMutex.Unlock();
 				}
 			}
@@ -347,7 +350,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 							{
 								sentRequest->contentOffset = body_header - sentRequest->stringReceived.C_String();
 								completedRequestsMutex.Lock();
-								completedRequests.Push(sentRequest, _FILE_AND_LINE_);
+								completedRequests.push_back(sentRequest);
 								completedRequestsMutex.Unlock();
 
 								// If there is another command waiting for this server, send it
@@ -356,7 +359,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 							else
 							{
 								sentRequestsMutex.Lock();
-								sentRequests.Push(sentRequest, _FILE_AND_LINE_);
+								sentRequests.push_back(sentRequest);
 								sentRequestsMutex.Unlock();
 							}
 						}
@@ -364,7 +367,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 						else
 						{
 							sentRequestsMutex.Lock();
-							sentRequests.Push(sentRequest, _FILE_AND_LINE_);
+							sentRequests.push_back(sentRequest);
 							sentRequestsMutex.Unlock();
 						}
 					}
@@ -372,7 +375,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 					{
 						sentRequest->contentOffset = -1;
 						completedRequestsMutex.Lock();
-						completedRequests.Push(sentRequest, _FILE_AND_LINE_);
+						completedRequests.push_back(sentRequest);
 						completedRequestsMutex.Unlock();
 
 						// If there is another command waiting for this server, send it
@@ -390,7 +393,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 						else
 							sentRequest->contentOffset = offset + 4;
 						completedRequestsMutex.Lock();
-						completedRequests.Push(sentRequest, _FILE_AND_LINE_);
+						completedRequests.push_back(sentRequest);
 						completedRequestsMutex.Unlock();
 
 						// If there is another command waiting for this server, send it
@@ -399,7 +402,7 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 					else
 					{
 						sentRequestsMutex.Lock();
-						sentRequests.Push(sentRequest, _FILE_AND_LINE_);
+						sentRequests.push_back(sentRequest);
 						sentRequestsMutex.Unlock();
 					}
 				}
@@ -434,17 +437,17 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 	unsigned int i;
 	i = 0;
 	pendingRequestsMutex.Lock();
-	while (i < pendingRequests.Size())
+	while (i < pendingRequests.size())
 	{
 		Request *request = pendingRequests[i];
 		if (request->hostEstimatedAddress == sa)
 		{
-			pendingRequests.RemoveAtIndex(i);
+			pendingRequests.erase(pendingRequests.begin() + i);
 			// Send this request
 			request->hostCompletedAddress = sa;
 
 			sentRequestsMutex.Lock();
-			sentRequests.Push(request, _FILE_AND_LINE_);
+			sentRequests.push_back(request);
 			sentRequestsMutex.Unlock();
 
 			pendingRequestsMutex.Unlock();
@@ -464,16 +467,16 @@ void HTTPConnection2::SendPendingRequestToConnectedSystem(SystemAddress sa)
 	if (requestsSent == 0)
 	{
 		pendingRequestsMutex.Lock();
-		if (pendingRequests.Size() > 0)
+		if (!pendingRequests.empty())
 		{
 			// Just assign
 			Request *request = pendingRequests[0];
-			pendingRequests.RemoveAtIndex(0);
+			pendingRequests.erase(pendingRequests.begin() + 0);
 
 			request->hostCompletedAddress = sa;
 
 			sentRequestsMutex.Lock();
-			sentRequests.Push(request, _FILE_AND_LINE_);
+			sentRequests.push_back(request);
 			sentRequestsMutex.Unlock();
 			pendingRequestsMutex.Unlock();
 
@@ -490,12 +493,13 @@ void HTTPConnection2::RemovePendingRequest(SystemAddress sa)
 	unsigned int i;
 	i = 0;
 	pendingRequestsMutex.Lock();
-	for (i = 0; i < pendingRequests.Size(); i++)
+	// A while loop: the old for loop also advanced past the entry after each removal.
+	while (i < pendingRequests.size())
 	{
 		Request *request = pendingRequests[i];
 		if (request->hostEstimatedAddress == sa)
 		{
-			pendingRequests.RemoveAtIndex(i);
+			pendingRequests.erase(pendingRequests.begin() + i);
 			delete request;
 		}
 		else
@@ -508,9 +512,9 @@ void HTTPConnection2::SendNextPendingRequest(void)
 {
 	// Send a pending request
 	pendingRequestsMutex.Lock();
-	if (pendingRequests.Size() > 0)
+	if (!pendingRequests.empty())
 	{
-		Request *pendingRequest = pendingRequests.Peek();
+		Request *pendingRequest = pendingRequests.front();
 		pendingRequestsMutex.Unlock();
 
 		if (pendingRequest->ipVersion != 6)
@@ -550,7 +554,7 @@ void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, Rak
 	unsigned int i;
 	i = 0;
 	sentRequestsMutex.Lock();
-	while (i < sentRequests.Size())
+	while (i < sentRequests.size())
 	{
 		if (sentRequests[i]->hostCompletedAddress == systemAddress)
 		{
@@ -578,10 +582,10 @@ void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, Rak
 
 
 			completedRequestsMutex.Lock();
-			completedRequests.Push(sentRequests[i], _FILE_AND_LINE_);
+			completedRequests.push_back(sentRequests[i]);
 			completedRequestsMutex.Unlock();
 
-			sentRequests.RemoveAtIndexFast(i);
+			SwapRemove(sentRequests, i);
 		}
 		else
 		{

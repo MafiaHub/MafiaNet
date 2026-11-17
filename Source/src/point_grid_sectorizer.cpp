@@ -6,6 +6,7 @@
  */
 
 #include "mafianet/point_grid_sectorizer.h"
+#include "mafianet/vector_util.h"
 #include <math.h>
 #include <stdint.h>
 
@@ -89,7 +90,7 @@ bool PointGridSectorizer::Init(const float _cellWidth, const float _cellHeight, 
 	recordCapacity = POINT_GRID_INITIAL_RECORD_CAPACITY;
 	for (unsigned int i = 0; i < recordCapacity; ++i)
 		records[i].entry = 0;
-	grid = new DataStructures::List<void *>[gridCellWidthCount * gridCellHeightCount];
+	grid = new std::vector<void *>[gridCellWidthCount * gridCellHeightCount];
 	return true;
 }
 bool PointGridSectorizer::AddEntry(void *entry, const float x, const float y)
@@ -130,12 +131,11 @@ bool PointGridSectorizer::MoveEntry(void *entry, const float x, const float y)
 	record->slotIndex = PushIntoCell(entry, cellIndex);
 	return true;
 }
-void PointGridSectorizer::GetEntries(DataStructures::List<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const
+void PointGridSectorizer::GetEntries(std::vector<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY) const
 {
-	// Reset without releasing the buffer (List::Clear deallocates >512-element
-	// blocks even with doNotDeallocateSmallBlocks), so a reused query list
-	// keeps its high-water-mark capacity instead of regrowing every call.
-	intersectionList.RemoveFromEnd(intersectionList.Size());
+	// clear() keeps the buffer, so a reused query list keeps its
+	// high-water-mark capacity instead of regrowing every call.
+	intersectionList.clear();
 	if (grid == 0)
 		return;
 
@@ -148,12 +148,11 @@ void PointGridSectorizer::GetEntries(DataStructures::List<void *> &intersectionL
 	{
 		// Row-major: consecutive cells of a row are adjacent in memory, so
 		// sweeping mostly-empty regions stays cache-friendly.
-		const DataStructures::List<void *> *row = grid + yCur * gridCellWidthCount;
+		const std::vector<void *> *row = grid + yCur * gridCellWidthCount;
 		for (int xCur = xStart; xCur <= xEnd; ++xCur)
 		{
-			const DataStructures::List<void *> &cell = row[xCur];
-			for (unsigned int index = 0; index < cell.Size(); ++index)
-				intersectionList.Push(cell[index], _FILE_AND_LINE_);
+			const std::vector<void *> &cell = row[xCur];
+			intersectionList.insert(intersectionList.end(), cell.begin(), cell.end());
 		}
 	}
 }
@@ -171,7 +170,7 @@ void PointGridSectorizer::Clear(void)
 		return;
 	const int count = gridCellWidthCount * gridCellHeightCount;
 	for (int cur = 0; cur < count; cur++)
-		grid[cur].Clear(true, _FILE_AND_LINE_);
+		grid[cur].clear();
 	for (unsigned int i = 0; i < recordCapacity; ++i)
 		records[i].entry = 0;
 	recordCount = 0;
@@ -254,20 +253,20 @@ void PointGridSectorizer::GrowRecordTable(void)
 }
 unsigned int PointGridSectorizer::PushIntoCell(void *entry, const int cellIndex)
 {
-	DataStructures::List<void *> &cell = grid[cellIndex];
-	cell.Push(entry, _FILE_AND_LINE_);
-	return cell.Size() - 1;
+	std::vector<void *> &cell = grid[cellIndex];
+	cell.push_back(entry);
+	return (unsigned int) (cell.size() - 1);
 }
 void PointGridSectorizer::RemoveFromCell(const EntryRecord &record)
 {
-	DataStructures::List<void *> &cell = grid[record.cellIndex];
-	void *last = cell[cell.Size() - 1];
+	std::vector<void *> &cell = grid[record.cellIndex];
+	void *last = cell.back();
 	if (last != record.entry)
 	{
 		// Swap-remove: the last entry will fill the freed slot; fix its stored slot.
 		FindRecord(last)->slotIndex = record.slotIndex;
 	}
-	cell.RemoveAtIndexFast(record.slotIndex);
+	SwapRemove(cell, record.slotIndex);
 }
 int PointGridSectorizer::WorldToCellXClamped(const float input) const
 {

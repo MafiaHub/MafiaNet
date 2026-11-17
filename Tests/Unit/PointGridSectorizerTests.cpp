@@ -7,10 +7,13 @@
 
 #include <gtest/gtest.h>
 
+#include "mafianet/grid_sectorizer.h"
 #include "mafianet/point_grid_sectorizer.h"
 
+#include <algorithm>
 #include <limits>
 #include <type_traits>
+#include <vector>
 
 using namespace MafiaNet;
 
@@ -31,13 +34,9 @@ void *E(int i)
 }
 
 // Number of times ptr occurs in the list (point entries must never duplicate).
-unsigned int CountOf(const DataStructures::List<void *> &list, void *ptr)
+unsigned int CountOf(const std::vector<void *> &list, void *ptr)
 {
-	unsigned int count = 0;
-	for (unsigned int i = 0; i < list.Size(); ++i)
-		if (list[i] == ptr)
-			++count;
-	return count;
+	return (unsigned int) std::count(list.begin(), list.end(), ptr);
 }
 }
 
@@ -51,7 +50,7 @@ protected:
 	}
 
 	PointGridSectorizer grid;
-	DataStructures::List<void *> hits;
+	std::vector<void *> hits;
 };
 
 TEST_F(PointGridSectorizerTest, AddAndQueryReturnsOnlyEntriesInRectangle)
@@ -68,7 +67,7 @@ TEST_F(PointGridSectorizerTest, AddAndQueryReturnsOnlyEntriesInRectangle)
 	EXPECT_EQ(CountOf(hits, E(2)), 0u) << "query returned an entry from a distant cell";
 
 	grid.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
-	EXPECT_EQ(hits.Size(), 3u);
+	EXPECT_EQ(hits.size(), 3u);
 	EXPECT_EQ(CountOf(hits, E(0)), 1u);
 	EXPECT_EQ(CountOf(hits, E(1)), 1u);
 	EXPECT_EQ(CountOf(hits, E(2)), 1u);
@@ -84,7 +83,7 @@ TEST_F(PointGridSectorizerTest, RemovePresentEntry)
 	EXPECT_EQ(grid.Size(), 1u);
 
 	grid.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
-	EXPECT_EQ(hits.Size(), 1u);
+	EXPECT_EQ(hits.size(), 1u);
 	EXPECT_EQ(CountOf(hits, E(1)), 0u) << "removed entry still returned by a query";
 }
 
@@ -118,7 +117,7 @@ TEST_F(PointGridSectorizerTest, MoveAcrossCellsRelocatesEntryExactlyOnce)
 	grid.GetEntries(hits, 80.0f, 80.0f, 99.0f, 99.0f);
 	EXPECT_EQ(CountOf(hits, E(0)), 1u) << "entry not found in its new cell";
 	grid.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
-	EXPECT_EQ(hits.Size(), 2u);
+	EXPECT_EQ(hits.size(), 2u);
 	EXPECT_EQ(CountOf(hits, E(0)), 1u) << "cross-cell move duplicated or dropped the entry";
 }
 
@@ -160,7 +159,7 @@ TEST_F(PointGridSectorizerTest, QueryRectanglesBeyondBoundsClamp)
 	grid.AddEntry(E(5), 150.0f, 150.0f); // clamps to cell (9,9)
 
 	grid.GetEntries(hits, -1000.0f, -1000.0f, 1000.0f, 1000.0f);
-	EXPECT_EQ(hits.Size(), grid.Size()) << "oversized query did not return all entries";
+	EXPECT_EQ(hits.size(), grid.Size()) << "oversized query did not return all entries";
 
 	grid.GetEntries(hits, 200.0f, 200.0f, 300.0f, 300.0f); // clamps to the (9,9) edge cell
 	EXPECT_EQ(CountOf(hits, E(5)), 1u) << "query entirely beyond bounds did not clamp to the edge cell";
@@ -180,7 +179,7 @@ TEST_F(PointGridSectorizerTest, SwapRemoveBookkeepingSurvivesInterleavedRemovals
 
 	dense.GetEntries(hits, 0.0f, 0.0f, 9.0f, 9.0f);
 	EXPECT_EQ(dense.Size(), (unsigned int) denseCount / 2);
-	EXPECT_EQ(hits.Size(), (unsigned int) denseCount / 2);
+	EXPECT_EQ(hits.size(), (unsigned int) denseCount / 2);
 	for (i = 0; i < denseCount; ++i)
 	{
 		EXPECT_EQ(CountOf(hits, E(i)), (i % 2 == 0 ? 0u : 1u))
@@ -191,15 +190,15 @@ TEST_F(PointGridSectorizerTest, SwapRemoveBookkeepingSurvivesInterleavedRemovals
 	for (i = 1; i <= 15; i += 2)
 		dense.MoveEntry(E(i), 55.0f, 55.0f);
 	dense.GetEntries(hits, 0.0f, 0.0f, 9.0f, 9.0f);
-	EXPECT_EQ(hits.Size(), (unsigned int) denseCount / 2 - 8);
+	EXPECT_EQ(hits.size(), (unsigned int) denseCount / 2 - 8);
 	dense.GetEntries(hits, 50.0f, 50.0f, 59.0f, 59.0f);
-	EXPECT_EQ(hits.Size(), 8u);
+	EXPECT_EQ(hits.size(), 8u);
 
 	for (i = 0; i < denseCount; ++i)
 		dense.RemoveEntry(E(i));
 	dense.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
 	EXPECT_EQ(dense.Size(), 0u);
-	EXPECT_EQ(hits.Size(), 0u);
+	EXPECT_EQ(hits.size(), 0u);
 }
 
 TEST_F(PointGridSectorizerTest, ClearEmptiesGridAndLeavesItUsable)
@@ -210,7 +209,7 @@ TEST_F(PointGridSectorizerTest, ClearEmptiesGridAndLeavesItUsable)
 	grid.Clear();
 	grid.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
 	EXPECT_EQ(grid.Size(), 0u);
-	EXPECT_EQ(hits.Size(), 0u);
+	EXPECT_EQ(hits.size(), 0u);
 	EXPECT_FALSE(grid.HasEntry(E(0)));
 
 	grid.AddEntry(E(0), 25.0f, 25.0f);
@@ -244,7 +243,7 @@ TEST_F(PointGridSectorizerTest, ExtremeAndNonFinitePositionsClamp)
 TEST(PointGridSectorizerLifecycle, UseBeforeInitIsDefinedNoOp)
 {
 	PointGridSectorizer uninitialized;
-	DataStructures::List<void *> hits;
+	std::vector<void *> hits;
 
 	uninitialized.AddEntry(E(0), 5.0f, 5.0f);
 	uninitialized.MoveEntry(E(0), 15.0f, 15.0f);
@@ -253,13 +252,13 @@ TEST(PointGridSectorizerLifecycle, UseBeforeInitIsDefinedNoOp)
 	EXPECT_FALSE(uninitialized.RemoveEntry(E(0)));
 	EXPECT_FALSE(uninitialized.HasEntry(E(0)));
 	EXPECT_EQ(uninitialized.Size(), 0u);
-	EXPECT_EQ(hits.Size(), 0u);
+	EXPECT_EQ(hits.size(), 0u);
 }
 
 TEST(PointGridSectorizerLifecycle, DegenerateInitFailsCleanlyAndRecovers)
 {
 	PointGridSectorizer degenerate;
-	DataStructures::List<void *> hits;
+	std::vector<void *> hits;
 
 	EXPECT_FALSE(degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 0.0f, 50.0f));    // zero-width world
 	EXPECT_FALSE(degenerate.Init(-5.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f)); // negative cell size
@@ -267,7 +266,7 @@ TEST(PointGridSectorizerLifecycle, DegenerateInitFailsCleanlyAndRecovers)
 	degenerate.AddEntry(E(0), 5.0f, 5.0f);
 	degenerate.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
 	EXPECT_EQ(degenerate.Size(), 0u) << "grid not inert after failed Init";
-	EXPECT_EQ(hits.Size(), 0u);
+	EXPECT_EQ(hits.size(), 0u);
 
 	ASSERT_TRUE(degenerate.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f))
 	    << "valid re-Init after failed Init did not recover";
@@ -303,7 +302,7 @@ TEST_F(PointGridSectorizerTest, AddAndMoveReportCellTransitions)
 	constGrid.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
 	EXPECT_TRUE(constGrid.HasEntry(E(0)));
 	EXPECT_EQ(constGrid.Size(), 2u);
-	EXPECT_EQ(hits.Size(), 2u);
+	EXPECT_EQ(hits.size(), 2u);
 }
 
 // Randomized differential stress: interleaved add/move/remove against a
@@ -345,7 +344,7 @@ TEST_F(PointGridSectorizerTest, RandomizedStressMatchesReferenceModel)
 		if ((iter % 977) == 0)
 		{
 			grid.GetEntries(hits, -100.0f, -100.0f, 200.0f, 200.0f);
-			ASSERT_EQ(hits.Size(), liveCount) << "at iteration " << iter;
+			ASSERT_EQ(hits.size(), liveCount) << "at iteration " << iter;
 			for (int i = 0; i < stressEntities; ++i)
 			{
 				ASSERT_EQ(CountOf(hits, E(i)), (present[i] ? 1u : 0u))
@@ -355,4 +354,45 @@ TEST_F(PointGridSectorizerTest, RandomizedStressMatchesReferenceModel)
 			}
 		}
 	}
+}
+
+// GetEntries fills a caller-owned std::vector and resets it first, keeping its
+// capacity so a per-tick query does not reallocate.
+TEST_F(PointGridSectorizerTest, GetEntriesResetsVectorAndKeepsCapacity)
+{
+	for (int i = 0; i < 64; ++i)
+		grid.AddEntry(E(i), (float) (i % 10) * 10.0f + 5.0f, (float) (i / 10) * 10.0f + 5.0f);
+	hits.assign(3, nullptr);
+	grid.GetEntries(hits, 0.0f, 0.0f, 100.0f, 100.0f);
+	ASSERT_EQ(hits.size(), 64u);
+	EXPECT_EQ(CountOf(hits, nullptr), 0u) << "stale contents not cleared";
+	const std::size_t capacity = hits.capacity();
+
+	grid.GetEntries(hits, 0.0f, 0.0f, 9.0f, 9.0f);
+	ASSERT_EQ(hits.size(), 1u);
+	EXPECT_EQ(hits[0], E(0));
+	EXPECT_EQ(hits.capacity(), capacity);
+}
+
+// The rectangle-entry GridSectorizer fills a std::vector with one copy of an
+// entry per overlapped cell, after discarding the vector's previous contents.
+TEST(GridSectorizer, GetEntriesFillsVectorPerOverlappedCell)
+{
+	GridSectorizer sectorizer;
+	sectorizer.Init(10.0f, 10.0f, 0.0f, 0.0f, 100.0f, 100.0f);
+	sectorizer.AddEntry(E(0), 1.0f, 1.0f, 4.0f, 4.0f);     // one cell
+	sectorizer.AddEntry(E(1), 15.0f, 15.0f, 25.0f, 16.0f); // two cells
+	sectorizer.AddEntry(E(2), 85.0f, 85.0f, 95.0f, 95.0f); // far away
+
+	std::vector<void *> found(5, nullptr);
+	sectorizer.GetEntries(found, 0.0f, 0.0f, 29.0f, 29.0f);
+	EXPECT_EQ(found.size(), 3u);
+	EXPECT_EQ(CountOf(found, E(0)), 1u);
+	EXPECT_EQ(CountOf(found, E(1)), 2u);
+	EXPECT_EQ(CountOf(found, E(2)), 0u);
+	EXPECT_EQ(CountOf(found, nullptr), 0u);
+
+	sectorizer.Clear();
+	sectorizer.GetEntries(found, 0.0f, 0.0f, 100.0f, 100.0f);
+	EXPECT_TRUE(found.empty());
 }

@@ -17,6 +17,9 @@
 #if _RAKNET_SUPPORT_TeamBalancer == 1
 
 #include "mafianet/team_balancer.h"
+#include "mafianet/vector_util.h"
+
+#include <limits>
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer_interface.h"
@@ -46,9 +49,11 @@ TeamBalancer::~TeamBalancer()
 }
 void TeamBalancer::SetTeamSizeLimit(TeamId team, unsigned short limit)
 {
-	teamLimits.Replace(limit, 0, team, _FILE_AND_LINE_);
-	if (teamLimits.Size() > teamMemberCounts.Size())
-		teamMemberCounts.Replace(0, 0, teamLimits.Size() - 1, _FILE_AND_LINE_);
+	if (team >= teamLimits.size())
+		teamLimits.resize((std::size_t) team + 1, 0);
+	teamLimits[team] = limit;
+	if (teamLimits.size() > teamMemberCounts.size())
+		teamMemberCounts.resize(teamLimits.size(), 0);
 }
 void TeamBalancer::SetDefaultAssignmentAlgorithm(DefaultAssigmentAlgorithm daa)
 {
@@ -83,11 +88,11 @@ void TeamBalancer::SetLockTeams(bool lock)
 	{
 		// Process even swaps
 		TeamId i, j;
-		for (i = 0; i < teamMembers.Size(); i++)
+		for (i = 0; i < teamMembers.size(); i++)
 		{
 			if (teamMembers[i].requestedTeam != UNASSIGNED_TEAM_ID)
 			{
-				for (j = i + 1; j < teamMembers.Size(); j++)
+				for (j = i + 1; j < teamMembers.size(); j++)
 				{
 					if (teamMembers[j].requestedTeam == teamMembers[i].currentTeam &&
 					    teamMembers[i].requestedTeam == teamMembers[j].currentTeam)
@@ -108,7 +113,7 @@ void TeamBalancer::SetLockTeams(bool lock)
 		{
 			// Process requested team changes
 			// Process movement while not full
-			for (i = 0; i < teamMembers.Size(); i++)
+			for (i = 0; i < teamMembers.size(); i++)
 			{
 				TeamId requestedTeam = teamMembers[i].requestedTeam;
 				if (requestedTeam != UNASSIGNED_TEAM_ID)
@@ -126,7 +131,7 @@ void TeamBalancer::SetLockTeams(bool lock)
 void TeamBalancer::RequestSpecificTeam(NetworkID memberId, TeamId desiredTeam)
 {
 	bool foundMatch = false;
-	for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+	for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 	{
 		if (myTeamMembers[i].memberId == memberId)
 		{
@@ -148,7 +153,7 @@ void TeamBalancer::RequestSpecificTeam(NetworkID memberId, TeamId desiredTeam)
 		mtm.currentTeam = UNASSIGNED_TEAM_ID;
 		mtm.memberId = memberId;
 		mtm.requestedTeam = desiredTeam;
-		myTeamMembers.Push(mtm, _FILE_AND_LINE_);
+		myTeamMembers.push_back(mtm);
 	}
 
 	// Send desiredTeam to the current host.
@@ -162,7 +167,7 @@ void TeamBalancer::RequestSpecificTeam(NetworkID memberId, TeamId desiredTeam)
 }
 void TeamBalancer::CancelRequestSpecificTeam(NetworkID memberId)
 {
-	for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+	for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 	{
 		if (myTeamMembers[i].memberId == memberId)
 		{
@@ -183,7 +188,7 @@ void TeamBalancer::RequestAnyTeam(NetworkID memberId)
 {
 	bool foundMatch = false;
 
-	for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+	for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 	{
 		if (myTeamMembers[i].memberId == memberId)
 		{
@@ -202,7 +207,7 @@ void TeamBalancer::RequestAnyTeam(NetworkID memberId)
 		mtm.currentTeam = UNASSIGNED_TEAM_ID;
 		mtm.memberId = memberId;
 		mtm.requestedTeam = UNASSIGNED_TEAM_ID;
-		myTeamMembers.Push(mtm, _FILE_AND_LINE_);
+		myTeamMembers.push_back(mtm);
 	}
 
 	// Else send to the current host that we need a team.
@@ -215,7 +220,7 @@ void TeamBalancer::RequestAnyTeam(NetworkID memberId)
 TeamId TeamBalancer::GetMyTeam(NetworkID memberId) const
 {
 	// Return team returned by last ID_TEAM_BALANCER_TEAM_ASSIGNED packet
-	for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+	for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 	{
 		if (myTeamMembers[i].memberId == memberId)
 		{
@@ -227,16 +232,16 @@ TeamId TeamBalancer::GetMyTeam(NetworkID memberId) const
 }
 void TeamBalancer::DeleteMember(NetworkID memberId)
 {
-	for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+	for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 	{
 		if (myTeamMembers[i].memberId == memberId)
 		{
-			myTeamMembers.RemoveAtIndexFast(i);
+			SwapRemove(myTeamMembers, i);
 			break;
 		}
 	}
 
-	for (unsigned int i = 0; i < teamMembers.Size(); i++)
+	for (unsigned int i = 0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i].memberId == memberId)
 		{
@@ -253,14 +258,14 @@ PluginReceiveResult TeamBalancer::OnReceive(Packet *packet)
 	{
 		hostGuid = packet->guid;
 
-		if (myTeamMembers.Size() > 0)
+		if (myTeamMembers.size() > 0)
 		{
 			BitStream bsOut;
 			bsOut.Write((MessageID) ID_TEAM_BALANCER_INTERNAL);
 			bsOut.Write((MessageID) ID_STATUS_UPDATE_TO_NEW_HOST);
 
-			bsOut.WriteCasted<uint8_t>(myTeamMembers.Size());
-			for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+			bsOut.WriteCasted<uint8_t>(myTeamMembers.size());
+			for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 			{
 				bsOut.Write(myTeamMembers[i].memberId);
 				bsOut.Write(myTeamMembers[i].currentTeam);
@@ -340,7 +345,7 @@ void TeamBalancer::RemoveByGuid(RakNetGUID rakNetGUID)
 	if (WeAreHost())
 	{
 		unsigned int droppedMemberIndex = 0;
-		while (droppedMemberIndex < teamMembers.Size())
+		while (droppedMemberIndex < teamMembers.size())
 		{
 			if (teamMembers[droppedMemberIndex].memberGuid == rakNetGUID)
 			{
@@ -387,17 +392,12 @@ void TeamBalancer::OnStatusUpdateToNewHost(Packet *packet)
 		bsIn.Read(tm.currentTeam);
 		bsIn.Read(tm.requestedTeam);
 
-		if (tm.currentTeam != UNASSIGNED_TEAM_ID && tm.currentTeam > teamLimits.Size())
-		{
-			RakAssert("Current team out of range in TeamBalancer::OnStatusUpdateToNewHost" && 0);
+		// Team ids come from the network: an unknown team drops the message.
+		if (tm.currentTeam != UNASSIGNED_TEAM_ID && tm.currentTeam >= teamLimits.size())
 			return;
-		}
 
-		if (tm.requestedTeam != UNASSIGNED_TEAM_ID && tm.requestedTeam > teamLimits.Size())
-		{
-			RakAssert("Requested team out of range in TeamBalancer::OnStatusUpdateToNewHost" && 0);
+		if (tm.requestedTeam != UNASSIGNED_TEAM_ID && tm.requestedTeam >= teamLimits.size())
 			return;
-		}
 
 		if (tm.currentTeam == UNASSIGNED_TEAM_ID && tm.requestedTeam == UNASSIGNED_TEAM_ID)
 			return;
@@ -419,7 +419,7 @@ void TeamBalancer::OnStatusUpdateToNewHost(Packet *packet)
 				else
 				{
 					// Assign to requested team if possible. Otherwise, assign to a default team
-					if (TeamWouldBeOverpopulatedOnAddition(tm.requestedTeam, teamMembers.Size()) == false)
+					if (TeamWouldBeOverpopulatedOnAddition(tm.requestedTeam, (unsigned int) teamMembers.size()) == false)
 					{
 						tm.currentTeam = tm.requestedTeam;
 					}
@@ -499,17 +499,15 @@ void TeamBalancer::OnRequestSpecificTeam(Packet *packet)
 		return;
 	}
 
-	if (tm.requestedTeam > teamLimits.Size())
-	{
-		RakAssert("Requested team out of range in TeamBalancer::OnRequestSpecificTeam" && 0);
+	// The team id comes from the network: an unknown team drops the request.
+	if (tm.requestedTeam >= teamLimits.size())
 		return;
-	}
 	if (memberIndex == (unsigned int) -1)
 	{
 		tm.memberGuid = packet->guid;
 
 		// Assign to requested team if possible. Otherwise, assign to a default team
-		if (TeamWouldBeOverpopulatedOnAddition(tm.requestedTeam, teamMembers.Size()) == false)
+		if (TeamWouldBeOverpopulatedOnAddition(tm.requestedTeam, (unsigned int) teamMembers.size()) == false)
 		{
 			tm.currentTeam = tm.requestedTeam;
 			tm.requestedTeam = UNASSIGNED_TEAM_ID;
@@ -546,13 +544,13 @@ void TeamBalancer::OnRequestSpecificTeam(Packet *packet)
 		{
 			// If someone wants to join this user's old team, and we want to join their team, they can swap
 			unsigned int swappableMemberIndex;
-			for (swappableMemberIndex = 0; swappableMemberIndex < teamMembers.Size(); swappableMemberIndex++)
+			for (swappableMemberIndex = 0; swappableMemberIndex < teamMembers.size(); swappableMemberIndex++)
 			{
 				if (teamMembers[swappableMemberIndex].currentTeam == tm.requestedTeam && teamMembers[swappableMemberIndex].requestedTeam == oldTeamThisUserWasOn)
 					break;
 			}
 
-			if (swappableMemberIndex != teamMembers.Size())
+			if (swappableMemberIndex != teamMembers.size())
 			{
 				SwapTeamMembersByRequest(memberIndex, swappableMemberIndex);
 				NotifyTeamAssigment(memberIndex);
@@ -568,7 +566,7 @@ void TeamBalancer::OnRequestSpecificTeam(Packet *packet)
 }
 unsigned int TeamBalancer::GetMemberIndex(NetworkID memberId, RakNetGUID guid) const
 {
-	for (unsigned int i = 0; i < teamMembers.Size(); i++)
+	for (unsigned int i = 0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i].memberGuid == guid && teamMembers[i].memberId == memberId)
 			return i;
@@ -577,31 +575,25 @@ unsigned int TeamBalancer::GetMemberIndex(NetworkID memberId, RakNetGUID guid) c
 }
 unsigned int TeamBalancer::AddTeamMember(const TeamMember &tm)
 {
-	if (tm.currentTeam > teamLimits.Size())
-	{
-		RakAssert("TeamBalancer::AddTeamMember team index out of bounds" && 0);
+	// Callers pass teams that came from the network: an unknown team is refused, not asserted.
+	// SetTeamSizeLimit() keeps teamMemberCounts at least as long as teamLimits.
+	if (tm.currentTeam == UNASSIGNED_TEAM_ID || tm.currentTeam >= teamLimits.size())
 		return (unsigned int) -1;
-	}
 
-	RakAssert(tm.currentTeam != UNASSIGNED_TEAM_ID);
-
-	teamMembers.Push(tm, _FILE_AND_LINE_);
-	if (teamMemberCounts.Size() < tm.currentTeam)
-		teamMemberCounts.Replace(1, 0, tm.currentTeam, _FILE_AND_LINE_);
-	else
-		teamMemberCounts[tm.currentTeam] = teamMemberCounts[tm.currentTeam] + 1;
-	return teamMembers.Size() - 1;
+	teamMembers.push_back(tm);
+	teamMemberCounts[tm.currentTeam] = teamMemberCounts[tm.currentTeam] + 1;
+	return (unsigned int) (teamMembers.size() - 1);
 }
 void TeamBalancer::RemoveTeamMember(unsigned int index)
 {
 	RakAssert(teamMemberCounts[teamMembers[index].currentTeam] != 0);
 	teamMemberCounts[teamMembers[index].currentTeam] = teamMemberCounts[teamMembers[index].currentTeam] - 1;
-	teamMembers.RemoveAtIndexFast(index);
+	SwapRemove(teamMembers, index);
 }
 void TeamBalancer::GetMinMaxTeamMembers(int &minMembersOnASingleTeam, int &maxMembersOnASingleTeam)
 {
-	minMembersOnASingleTeam = teamMembers.Size() / teamLimits.Size();
-	if ((teamMembers.Size() % teamLimits.Size()) == 0)
+	minMembersOnASingleTeam = (int) (teamMembers.size() / teamLimits.size());
+	if ((teamMembers.size() % teamLimits.size()) == 0)
 		maxMembersOnASingleTeam = minMembersOnASingleTeam;
 	else
 		maxMembersOnASingleTeam = minMembersOnASingleTeam + 1;
@@ -615,15 +607,15 @@ void TeamBalancer::EvenTeams(void)
 
 	// First select among players that have requested to switch teams, if any, before choosing players that did not want to switch teams.
 	// Players that are moved should be notified of ID_TEAM_BALANCER_TEAM_ASSIGNED
-	DataStructures::List<TeamId> overpopulatedTeams;
+	std::vector<TeamId> overpopulatedTeams;
 	TeamId teamMemberCountsIndex;
 	unsigned int memberIndexToSwitch;
-	for (teamMemberCountsIndex = 0; teamMemberCountsIndex < teamMemberCounts.Size(); teamMemberCountsIndex++)
+	for (teamMemberCountsIndex = 0; teamMemberCountsIndex < teamMemberCounts.size(); teamMemberCountsIndex++)
 	{
 		while (teamMemberCounts[teamMemberCountsIndex] < minMembersOnASingleTeam && teamMemberCounts[teamMemberCountsIndex] < teamLimits[teamMemberCountsIndex])
 		{
 			GetOverpopulatedTeams(overpopulatedTeams, maxMembersOnASingleTeam);
-			RakAssert(overpopulatedTeams.Size() > 0);
+			RakAssert(overpopulatedTeams.size() > 0);
 			memberIndexToSwitch = GetMemberIndexToSwitchTeams(overpopulatedTeams, teamMemberCountsIndex);
 			RakAssert(memberIndexToSwitch != (unsigned int) -1);
 			SwitchMemberTeam(memberIndexToSwitch, teamMemberCountsIndex);
@@ -632,33 +624,33 @@ void TeamBalancer::EvenTeams(void)
 		}
 	}
 }
-unsigned int TeamBalancer::GetMemberIndexToSwitchTeams(const DataStructures::List<TeamId> &sourceTeamNumbers, TeamId targetTeamNumber)
+unsigned int TeamBalancer::GetMemberIndexToSwitchTeams(const std::vector<TeamId> &sourceTeamNumbers, TeamId targetTeamNumber)
 {
-	DataStructures::List<unsigned int> preferredSwapIndices;
-	DataStructures::List<unsigned int> potentialSwapIndices;
+	std::vector<unsigned int> preferredSwapIndices;
+	std::vector<unsigned int> potentialSwapIndices;
 	unsigned int i, j;
-	for (j = 0; j < sourceTeamNumbers.Size(); j++)
+	for (j = 0; j < sourceTeamNumbers.size(); j++)
 	{
 		RakAssert(sourceTeamNumbers[j] != targetTeamNumber);
-		for (i = 0; i < teamMembers.Size(); i++)
+		for (i = 0; i < teamMembers.size(); i++)
 		{
 			if (teamMembers[i].currentTeam == sourceTeamNumbers[j])
 			{
 				if (teamMembers[i].requestedTeam == targetTeamNumber)
-					preferredSwapIndices.Push(i, _FILE_AND_LINE_);
+					preferredSwapIndices.push_back(i);
 				else
-					potentialSwapIndices.Push(i, _FILE_AND_LINE_);
+					potentialSwapIndices.push_back(i);
 			}
 		}
 	}
 
-	if (preferredSwapIndices.Size() > 0)
+	if (preferredSwapIndices.size() > 0)
 	{
-		return preferredSwapIndices[randomMT() % preferredSwapIndices.Size()];
+		return preferredSwapIndices[randomMT() % preferredSwapIndices.size()];
 	}
-	else if (potentialSwapIndices.Size() > 0)
+	else if (potentialSwapIndices.size() > 0)
 	{
-		return potentialSwapIndices[randomMT() % potentialSwapIndices.Size()];
+		return potentialSwapIndices[randomMT() % potentialSwapIndices.size()];
 	}
 	else
 	{
@@ -673,19 +665,19 @@ void TeamBalancer::SwitchMemberTeam(unsigned int teamMemberIndex, TeamId destina
 	if (teamMembers[teamMemberIndex].requestedTeam == destinationTeam)
 		teamMembers[teamMemberIndex].requestedTeam = UNASSIGNED_TEAM_ID;
 }
-void TeamBalancer::GetOverpopulatedTeams(DataStructures::List<TeamId> &overpopulatedTeams, int maxTeamSize)
+void TeamBalancer::GetOverpopulatedTeams(std::vector<TeamId> &overpopulatedTeams, int maxTeamSize)
 {
-	overpopulatedTeams.Clear(true, _FILE_AND_LINE_);
-	for (TeamId i = 0; i < teamMemberCounts.Size(); i++)
+	overpopulatedTeams.clear();
+	for (TeamId i = 0; i < teamMemberCounts.size(); i++)
 	{
 		if (teamMemberCounts[i] >= maxTeamSize)
-			overpopulatedTeams.Push(i, _FILE_AND_LINE_);
+			overpopulatedTeams.push_back(i);
 	}
 }
 void TeamBalancer::NotifyTeamAssigment(unsigned int teamMemberIndex)
 {
-	RakAssert(teamMemberIndex < teamMembers.Size());
-	if (teamMemberIndex >= teamMembers.Size())
+	RakAssert(teamMemberIndex < teamMembers.size());
+	if (teamMemberIndex >= teamMembers.size())
 		return;
 
 	BitStream bsOut;
@@ -712,7 +704,7 @@ PluginReceiveResult TeamBalancer::OnTeamAssigned(Packet *packet)
 	mtm.requestedTeam = UNASSIGNED_TEAM_ID;
 
 	bool foundMatch = false;
-	for (unsigned int i = 0; i < myTeamMembers.Size(); i++)
+	for (unsigned int i = 0; i < myTeamMembers.size(); i++)
 	{
 		if (myTeamMembers[i].memberId == mtm.memberId)
 		{
@@ -777,7 +769,7 @@ bool TeamBalancer::TeamWouldBeOverpopulatedOnAddition(TeamId teamId, unsigned in
 
 	if (forceTeamsToBeEven)
 	{
-		int allowedLimit = teamMemberSize / teamLimits.Size() + 1;
+		int allowedLimit = (int) (teamMemberSize / teamLimits.size() + 1);
 		return teamMemberCounts[teamId] >= allowedLimit;
 	}
 
@@ -787,7 +779,7 @@ bool TeamBalancer::TeamWouldBeUnderpopulatedOnLeave(TeamId teamId, unsigned int 
 {
 	if (forceTeamsToBeEven)
 	{
-		unsigned int minMembersOnASingleTeam = (teamMemberSize - 1) / teamLimits.Size();
+		unsigned int minMembersOnASingleTeam = (unsigned int) ((teamMemberSize - 1) / teamLimits.size());
 		return teamMemberCounts[teamId] <= minMembersOnASingleTeam;
 	}
 	return false;
@@ -795,9 +787,9 @@ bool TeamBalancer::TeamWouldBeUnderpopulatedOnLeave(TeamId teamId, unsigned int 
 TeamId TeamBalancer::GetSmallestNonFullTeam(void) const
 {
 	TeamId idx;
-	unsigned long smallestTeamCount = MAX_UNSIGNED_LONG;
+	unsigned long smallestTeamCount = std::numeric_limits<unsigned long>::max();
 	TeamId smallestTeamIndex = UNASSIGNED_TEAM_ID;
-	for (idx = 0; idx < teamMemberCounts.Size(); idx++)
+	for (idx = 0; idx < teamMemberCounts.size(); idx++)
 	{
 		if (teamMemberCounts[idx] < smallestTeamCount && teamMemberCounts[idx] < teamLimits[idx])
 		{
@@ -810,7 +802,7 @@ TeamId TeamBalancer::GetSmallestNonFullTeam(void) const
 TeamId TeamBalancer::GetFirstNonFullTeam(void) const
 {
 	TeamId idx;
-	for (idx = 0; idx < teamMemberCounts.Size(); idx++)
+	for (idx = 0; idx < teamMemberCounts.size(); idx++)
 	{
 		if (teamMemberCounts[idx] < teamLimits[idx])
 		{
@@ -830,17 +822,17 @@ void TeamBalancer::MoveMemberThatWantsToJoinTeam(TeamId teamId)
 }
 TeamId TeamBalancer::MoveMemberThatWantsToJoinTeamInternal(TeamId teamId)
 {
-	DataStructures::List<TeamId> membersThatWantToJoinTheTeam;
-	for (TeamId i = 0; i < teamMembers.Size(); i++)
+	std::vector<TeamId> membersThatWantToJoinTheTeam;
+	for (TeamId i = 0; i < teamMembers.size(); i++)
 	{
 		if (teamMembers[i].requestedTeam == teamId)
-			membersThatWantToJoinTheTeam.Push(i, _FILE_AND_LINE_);
+			membersThatWantToJoinTheTeam.push_back(i);
 	}
 
-	if (membersThatWantToJoinTheTeam.Size() > 0)
+	if (membersThatWantToJoinTheTeam.size() > 0)
 	{
 		TeamId oldTeam;
-		unsigned int swappedMemberIndex = membersThatWantToJoinTheTeam[randomMT() % membersThatWantToJoinTheTeam.Size()];
+		unsigned int swappedMemberIndex = membersThatWantToJoinTheTeam[randomMT() % membersThatWantToJoinTheTeam.size()];
 		oldTeam = teamMembers[swappedMemberIndex].currentTeam;
 		SwitchMemberTeam(swappedMemberIndex, teamId);
 		NotifyTeamAssigment(swappedMemberIndex);
@@ -881,9 +873,10 @@ void TeamBalancer::NotifyNoTeam(NetworkID memberId, RakNetGUID target)
 }
 bool TeamBalancer::TeamsWouldBeEvenOnSwitch(TeamId t1, TeamId t2)
 {
-	RakAssert(teamMembers.Size() != 0);
-	return TeamWouldBeOverpopulatedOnAddition(t1, teamMembers.Size() - 1) == false &&
-	       TeamWouldBeUnderpopulatedOnLeave(t2, teamMembers.Size() - 1) == false;
+	RakAssert(teamMembers.size() != 0);
+	const unsigned int otherMemberCount = (unsigned int) (teamMembers.size() - 1);
+	return TeamWouldBeOverpopulatedOnAddition(t1, otherMemberCount) == false &&
+	       TeamWouldBeUnderpopulatedOnLeave(t2, otherMemberCount) == false;
 }
 
 #endif // _RAKNET_SUPPORT_*

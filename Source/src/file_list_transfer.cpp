@@ -14,21 +14,23 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #include <cstdlib>
 #if _RAKNET_SUPPORT_FileListTransfer == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 #include "mafianet/file_list_transfer.h"
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/file_list_transfer_cb_interface.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/file_list.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/types.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/statistics.h"
 #include "mafianet/incremental_read_interface.h"
 #include "mafianet/assert.h"
+
+#include <algorithm>
 
 namespace MafiaNet
 {
@@ -53,7 +55,7 @@ struct FileListReceiver
 	bool deleteDownloadHandler;
 	bool isCompressed;
 	int filesReceived;
-	DataStructures::Map<unsigned int, FLR_MemoryBlock> pushedFiles;
+	std::map<unsigned int, FLR_MemoryBlock> pushedFiles;
 
 	// Notifications
 	unsigned int partLength;
@@ -68,13 +70,11 @@ FileListReceiver::FileListReceiver()
 	filesReceived = 0;
 	setTotalDownloadedLength = 0;
 	partLength = 1;
-	DataStructures::Map<unsigned int, FLR_MemoryBlock>::IMPLEMENT_DEFAULT_COMPARISON();
 }
 FileListReceiver::~FileListReceiver()
 {
-	unsigned int i = 0;
-	for (i = 0; i < pushedFiles.Size(); i++)
-		std::free(pushedFiles[i].flrMemoryBlock);
+	for (auto &entry : pushedFiles)
+		std::free(entry.second.flrMemoryBlock);
 }
 
 STATIC_FACTORY_DEFINITIONS(FileListTransfer, FileListTransfer)
@@ -82,8 +82,8 @@ STATIC_FACTORY_DEFINITIONS(FileListTransfer, FileListTransfer)
 void FileListTransfer::FileToPushRecipient::DeleteThis(void)
 {
 	////	filesToPushMutex.Lock();
-	for (unsigned int j = 0; j < filesToPush.Size(); j++)
-		delete filesToPush[j];
+	for (FileToPush *ftp : filesToPush)
+		delete ftp;
 	////	filesToPushMutex.Unlock();
 	delete this;
 }
@@ -109,7 +109,6 @@ FileListTransfer::FileListTransfer()
 {
 	setId = 0;
 	referencePushWindow = 1;
-	DataStructures::Map<unsigned short, FileListReceiver *>::IMPLEMENT_DEFAULT_COMPARISON();
 }
 FileListTransfer::~FileListTransfer()
 {
@@ -136,14 +135,14 @@ unsigned short FileListTransfer::SetupReceive(FileListTransferCBInterface *handl
 		return (unsigned short) -1;
 	FileListReceiver *receiver;
 
-	if (fileListReceivers.Has(setId))
+	if (fileListReceivers.count(setId) != 0)
 	{
-		receiver = fileListReceivers.Get(setId);
+		receiver = fileListReceivers.at(setId);
 		receiver->downloadHandler->OnDereference();
 		if (receiver->deleteDownloadHandler)
 			delete receiver->downloadHandler;
 		delete receiver;
-		fileListReceivers.Delete(setId);
+		fileListReceivers.erase(setId);
 	}
 
 	unsigned short oldId;
@@ -154,7 +153,7 @@ unsigned short FileListTransfer::SetupReceive(FileListTransferCBInterface *handl
 	receiver->gotSetHeader = false;
 	receiver->deleteDownloadHandler = deleteHandler;
 	receiver->setID = setId;
-	fileListReceivers.Set(setId, receiver);
+	fileListReceivers[setId] = receiver;
 	oldId = setId;
 	if (++setId == (unsigned short) -1)
 		setId = 0;
@@ -163,7 +162,7 @@ unsigned short FileListTransfer::SetupReceive(FileListTransferCBInterface *handl
 
 void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakPeer, SystemAddress recipient, unsigned short setID, MafiaNet::Priority priority, char orderingChannel, IncrementalReadInterface *_incrementalReadInterface, unsigned int _chunkSize)
 {
-	for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
+	for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
 		fileList->AddCallback(fileListProgressCallbacks[flpcIndex]);
 
 	unsigned int i, totalLength;
@@ -172,7 +171,7 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 	const char *dataBlocks[2];
 	int lengths[2];
 	totalLength = 0;
-	for (i = 0; i < fileList->fileList.Size(); i++)
+	for (i = 0; i < fileList->fileList.size(); i++)
 	{
 		const FileListNode &fileListNode = fileList->fileList[i];
 		totalLength += fileListNode.dataLengthBytes;
@@ -182,11 +181,11 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 	bool anythingToWrite;
 	outBitstream.Write((MessageID) ID_FILE_LIST_TRANSFER_HEADER);
 	outBitstream.Write(setID);
-	anythingToWrite = fileList->fileList.Size() > 0;
+	anythingToWrite = !fileList->fileList.empty();
 	outBitstream.Write(anythingToWrite);
 	if (anythingToWrite)
 	{
-		outBitstream.WriteCompressed(fileList->fileList.Size());
+		outBitstream.WriteCompressed(static_cast<unsigned int>(fileList->fileList.size()));
 		outBitstream.WriteCompressed(totalLength);
 
 		if (rakPeer)
@@ -194,9 +193,9 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 		else
 			SendUnified(&outBitstream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, recipient, false);
 
-		DataStructures::Queue<FileToPush *> filesToPush;
+		std::deque<FileToPush *> filesToPush;
 
-		for (i = 0; i < fileList->fileList.Size(); i++)
+		for (i = 0; i < fileList->fileList.size(); i++)
 		{
 			sendReference = fileList->fileList[i].isAReference && _incrementalReadInterface != 0;
 			if (sendReference)
@@ -215,7 +214,7 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 				fileToPush->currentOffset = 0;
 				fileToPush->incrementalReadInterface = _incrementalReadInterface;
 				fileToPush->chunkSize = _chunkSize;
-				filesToPush.Push(fileToPush, _FILE_AND_LINE_);
+				filesToPush.push_back(fileToPush);
 			}
 			else
 			{
@@ -239,12 +238,12 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 			}
 		}
 
-		if (filesToPush.IsEmpty() == false)
+		if (!filesToPush.empty())
 		{
 			FileToPushRecipient *ftpr;
 
 			fileToPushRecipientListMutex.Lock();
-			for (i = 0; i < fileToPushRecipientList.Size(); i++)
+			for (i = 0; i < fileToPushRecipientList.size(); i++)
 			{
 				if (fileToPushRecipientList[i]->systemAddress == recipient && fileToPushRecipientList[i]->setId == setId)
 				{
@@ -262,12 +261,15 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 			ftpr->systemAddress = recipient;
 			ftpr->setId = setID;
 			ftpr->refCount = 2; // Allocated and in the list
-			fileToPushRecipientList.Push(ftpr, _FILE_AND_LINE_);
+			fileToPushRecipientListMutex.Lock();
+			fileToPushRecipientList.push_back(ftpr);
+			fileToPushRecipientListMutex.Unlock();
 			//}
-			while (filesToPush.IsEmpty() == false)
+			while (!filesToPush.empty())
 			{
 				////ftpr->filesToPushMutex.Lock();
-				ftpr->filesToPush.Push(filesToPush.Pop(), _FILE_AND_LINE_);
+				ftpr->filesToPush.push_back(filesToPush.front());
+				filesToPush.pop_front();
 				////ftpr->filesToPushMutex.Unlock();
 			}
 			// ftpr out of scope
@@ -281,13 +283,13 @@ void FileListTransfer::Send(FileList *fileList, MafiaNet::RakPeerInterface *rakP
 		}
 		else
 		{
-			for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
+			for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
 				fileListProgressCallbacks[flpcIndex]->OnFilePushesComplete(recipient, setID);
 		}
 	}
 	else
 	{
-		for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
+		for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
 			fileListProgressCallbacks[flpcIndex]->OnFilePushesComplete(recipient, setID);
 
 		if (rakPeer)
@@ -305,7 +307,7 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 	inBitStream.IgnoreBits(8);
 	inBitStream.Read(setID);
 	FileListReceiver *fileListReceiver;
-	if (fileListReceivers.Has(setID) == false)
+	if (fileListReceivers.count(setID) == 0)
 	{
 		// If this assert hits you didn't call SetupReceive
 #ifdef _DEBUG
@@ -313,7 +315,7 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 #endif
 		return false;
 	}
-	fileListReceiver = fileListReceivers.Get(setID);
+	fileListReceiver = fileListReceivers.at(setID);
 	if (fileListReceiver->allowedSender != packet->systemAddress)
 	{
 #ifdef _DEBUG
@@ -350,7 +352,7 @@ bool FileListTransfer::DecodeSetHeader(Packet *packet)
 		if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs) == false && IsReceiverLive(setID, fileListReceiver))
 		{
 			fileListReceiver->downloadHandler->OnDereference();
-			fileListReceivers.Delete(setID);
+			fileListReceivers.erase(setID);
 			if (fileListReceiver->deleteDownloadHandler)
 				delete fileListReceiver->downloadHandler;
 			delete fileListReceiver;
@@ -388,11 +390,11 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 	// inBitStream.Read(onFileStruct.context);
 	inBitStream.Read(onFileStruct.setID);
 	FileListReceiver *fileListReceiver;
-	if (fileListReceivers.Has(onFileStruct.setID) == false)
+	if (fileListReceivers.count(onFileStruct.setID) == 0)
 	{
 		return false;
 	}
-	fileListReceiver = fileListReceivers.Get(onFileStruct.setID);
+	fileListReceiver = fileListReceivers.at(onFileStruct.setID);
 	if (fileListReceiver->allowedSender != packet->systemAddress)
 	{
 #ifdef _DEBUG
@@ -481,7 +483,7 @@ bool FileListTransfer::DecodeFile(Packet *packet, bool isTheFullFile)
 				fileListReceiver->downloadHandler->OnDereference();
 				if (fileListReceiver->deleteDownloadHandler)
 					delete fileListReceiver->downloadHandler;
-				fileListReceivers.Delete(onFileStruct.setID);
+				fileListReceivers.erase(onFileStruct.setID);
 				delete fileListReceiver;
 			}
 		}
@@ -556,27 +558,25 @@ void FileListTransfer::OnRakPeerShutdown(void)
 }
 void FileListTransfer::Clear(void)
 {
-	unsigned i;
-	for (i = 0; i < fileListReceivers.Size(); i++)
+	// Detach the receivers first so a handler that calls back into this plugin sees an empty map.
+	std::map<unsigned short, FileListReceiver *> receivers;
+	receivers.swap(fileListReceivers);
+	for (auto &entry : receivers)
 	{
-		fileListReceivers[i]->downloadHandler->OnDereference();
-		if (fileListReceivers[i]->deleteDownloadHandler)
-			delete fileListReceivers[i]->downloadHandler;
-		delete fileListReceivers[i];
+		entry.second->downloadHandler->OnDereference();
+		if (entry.second->deleteDownloadHandler)
+			delete entry.second->downloadHandler;
+		delete entry.second;
 	}
-	fileListReceivers.Clear();
 
 	fileToPushRecipientListMutex.Lock();
-	for (i = 0; i < fileToPushRecipientList.Size(); i++)
+	for (FileToPushRecipient *ftpr : fileToPushRecipientList)
 	{
-		FileToPushRecipient *ftpr = fileToPushRecipientList[i];
 		// Taken out of the list
 		ftpr->Deref();
 	}
-	fileToPushRecipientList.Clear(false, _FILE_AND_LINE_);
+	fileToPushRecipientList.clear();
 	fileToPushRecipientListMutex.Unlock();
-
-	//filesToPush.Clear(false, _FILE_AND_LINE_);
 }
 void FileListTransfer::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
 {
@@ -587,19 +587,19 @@ void FileListTransfer::OnClosedConnection(const SystemAddress &systemAddress, Ra
 }
 void FileListTransfer::CancelReceive(unsigned short inSetId)
 {
-	if (fileListReceivers.Has(inSetId) == false)
+	if (fileListReceivers.count(inSetId) == 0)
 	{
 #ifdef _DEBUG
 		RakAssert(0);
 #endif
 		return;
 	}
-	FileListReceiver *fileListReceiver = fileListReceivers.Get(inSetId);
+	FileListReceiver *fileListReceiver = fileListReceivers.at(inSetId);
 	fileListReceiver->downloadHandler->OnDereference();
 	if (fileListReceiver->deleteDownloadHandler)
 		delete fileListReceiver->downloadHandler;
 	delete fileListReceiver;
-	fileListReceivers.Delete(inSetId);
+	fileListReceivers.erase(inSetId);
 }
 void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
 {
@@ -617,34 +617,39 @@ void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
 	}
 	threadPool.UnlockInput();
 
-	i = 0;
-	while (i < fileListReceivers.Size())
+	// Unlink first, then notify: a handler may call back into this plugin.
+	std::vector<FileListReceiver *> removed;
+	for (auto it = fileListReceivers.begin(); it != fileListReceivers.end();)
 	{
-		if (fileListReceivers[i]->allowedSender == systemAddress)
+		if (it->second->allowedSender == systemAddress)
 		{
-			fileListReceivers[i]->downloadHandler->OnDereference();
-			if (fileListReceivers[i]->deleteDownloadHandler)
-				delete fileListReceivers[i]->downloadHandler;
-			delete fileListReceivers[i];
-			fileListReceivers.RemoveAtIndex(i);
+			removed.push_back(it->second);
+			it = fileListReceivers.erase(it);
 		}
 		else
-			i++;
+			++it;
+	}
+	for (FileListReceiver *receiver : removed)
+	{
+		receiver->downloadHandler->OnDereference();
+		if (receiver->deleteDownloadHandler)
+			delete receiver->downloadHandler;
+		delete receiver;
 	}
 
 	fileToPushRecipientListMutex.Lock();
 	i = 0;
-	while (i < fileToPushRecipientList.Size())
+	while (i < fileToPushRecipientList.size())
 	{
 		if (fileToPushRecipientList[i]->systemAddress == systemAddress)
 		{
 			FileToPushRecipient *ftpr = fileToPushRecipientList[i];
 
 			// Tell the user that this recipient was lost
-			for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.Size(); flpcIndex++)
+			for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
 				fileListProgressCallbacks[flpcIndex]->OnSendAborted(ftpr->systemAddress);
 
-			fileToPushRecipientList.RemoveAtIndex(i);
+			fileToPushRecipientList.erase(fileToPushRecipientList.begin() + i);
 			// Taken out of the list
 			ftpr->Deref();
 		}
@@ -657,27 +662,27 @@ void FileListTransfer::RemoveReceiver(SystemAddress systemAddress)
 }
 bool FileListTransfer::IsHandlerActive(unsigned short inSetId)
 {
-	return fileListReceivers.Has(inSetId);
+	return fileListReceivers.count(inSetId) != 0;
 }
 void FileListTransfer::AddCallback(FileListProgress *cb)
 {
 	if (cb == 0)
 		return;
 
-	if (fileListProgressCallbacks.GetIndexOf(cb) == (unsigned int) -1)
-		fileListProgressCallbacks.Push(cb, _FILE_AND_LINE_);
+	if (std::find(fileListProgressCallbacks.begin(), fileListProgressCallbacks.end(), cb) == fileListProgressCallbacks.end())
+		fileListProgressCallbacks.push_back(cb);
 }
 void FileListTransfer::RemoveCallback(FileListProgress *cb)
 {
-	unsigned int idx = fileListProgressCallbacks.GetIndexOf(cb);
-	if (idx != (unsigned int) -1)
-		fileListProgressCallbacks.RemoveAtIndex(idx);
+	const auto it = std::find(fileListProgressCallbacks.begin(), fileListProgressCallbacks.end(), cb);
+	if (it != fileListProgressCallbacks.end())
+		fileListProgressCallbacks.erase(it);
 }
 void FileListTransfer::ClearCallbacks(void)
 {
-	fileListProgressCallbacks.Clear(true, _FILE_AND_LINE_);
+	fileListProgressCallbacks.clear();
 }
-void FileListTransfer::GetCallbacks(DataStructures::List<FileListProgress *> &callbacks)
+void FileListTransfer::GetCallbacks(std::vector<FileListProgress *> &callbacks)
 {
 	callbacks = fileListProgressCallbacks;
 }
@@ -686,29 +691,35 @@ bool FileListTransfer::IsReceiverLive(unsigned short inSetId, const FileListRece
 {
 	// A download callback may remove its own receiver -- through CancelReceive, RemoveReceiver,
 	// or a Shutdown() that clears every one -- so the caller re-checks before touching it again.
-	return fileListReceivers.Has(inSetId) && fileListReceivers.Get(inSetId) == receiver;
+	return fileListReceivers.count(inSetId) != 0 && fileListReceivers.at(inSetId) == receiver;
 }
 void FileListTransfer::Update(void)
 {
-	unsigned i;
-	i = 0;
-	while (i < fileListReceivers.Size())
+	auto it = fileListReceivers.begin();
+	while (it != fileListReceivers.end())
 	{
-		FileListReceiver *receiver = fileListReceivers[i];
+		const unsigned short key = it->first;
+		FileListReceiver *receiver = it->second;
 		const bool keep = receiver->downloadHandler->Update();
-		// Update() may have dropped receivers, this one included
-		if (i >= fileListReceivers.Size() || fileListReceivers[i] != receiver)
+		// Update() may have dropped receivers, this one included: look the key up again
+		it = fileListReceivers.find(key);
+		if (it == fileListReceivers.end() || it->second != receiver)
+		{
+			it = fileListReceivers.upper_bound(key);
 			continue;
+		}
 		if (keep == false)
 		{
-			fileListReceivers[i]->downloadHandler->OnDereference();
-			if (fileListReceivers[i]->deleteDownloadHandler)
-				delete fileListReceivers[i]->downloadHandler;
-			delete fileListReceivers[i];
-			fileListReceivers.RemoveAtIndex(i);
+			it = fileListReceivers.erase(it);
+			receiver->downloadHandler->OnDereference();
+			if (receiver->deleteDownloadHandler)
+				delete receiver->downloadHandler;
+			delete receiver;
+			// The handler may have changed the map; resume after the erased key.
+			it = fileListReceivers.upper_bound(key);
 		}
 		else
-			i++;
+			++it;
 	}
 }
 void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
@@ -752,11 +763,11 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 
 	// inBitStream.Read(onFileStruct.context);
 	FileListReceiver *fileListReceiver;
-	if (fileListReceivers.Has(onFileStruct.setID) == false)
+	if (fileListReceivers.count(onFileStruct.setID) == 0)
 	{
 		return;
 	}
-	fileListReceiver = fileListReceivers.Get(onFileStruct.setID);
+	fileListReceiver = fileListReceivers.at(onFileStruct.setID);
 	if (fileListReceiver->allowedSender != packet->systemAddress)
 	{
 #ifdef _DEBUG
@@ -792,17 +803,17 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 		fileListReceiver->partLength = partLength;
 
 	FLR_MemoryBlock mb;
-	if (fileListReceiver->pushedFiles.Has(onFileStruct.fileIndex) == false)
+	if (fileListReceiver->pushedFiles.count(onFileStruct.fileIndex) == 0)
 	{
 		if (onFileStruct.byteLengthOfThisFile <= SLNET_MAX_RETRIEVABLE_FILESIZE)
 			mb.flrMemoryBlock = (char *) std::malloc(onFileStruct.byteLengthOfThisFile);
 		else
 			mb.flrMemoryBlock = nullptr;
-		fileListReceiver->pushedFiles.SetNew(onFileStruct.fileIndex, mb);
+		fileListReceiver->pushedFiles.emplace(onFileStruct.fileIndex, mb);
 	}
 	else
 	{
-		mb = fileListReceiver->pushedFiles.Get(onFileStruct.fileIndex);
+		mb = fileListReceiver->pushedFiles.at(onFileStruct.fileIndex);
 	}
 
 	unsigned int unreadBits = inBitStream.GetNumberOfUnreadBits();
@@ -891,7 +902,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 			std::free(oldFileData);
 		if (!IsReceiverLive(onFileStruct.setID, fileListReceiver))
 			return;
-		fileListReceiver->pushedFiles.Delete(onFileStruct.fileIndex);
+		fileListReceiver->pushedFiles.erase(onFileStruct.fileIndex);
 
 		fileListReceiver->filesReceived++;
 
@@ -908,7 +919,7 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 			if (fileListReceiver->downloadHandler->OnDownloadComplete(&dcs) == false && IsReceiverLive(onFileStruct.setID, fileListReceiver))
 			{
 				fileListReceiver->downloadHandler->OnDereference();
-				fileListReceivers.Delete(onFileStruct.setID);
+				fileListReceivers.erase(onFileStruct.setID);
 				if (fileListReceiver->deleteDownloadHandler)
 					delete fileListReceiver->downloadHandler;
 				delete fileListReceiver;
@@ -926,8 +937,8 @@ void FileListTransfer::OnReferencePush(Packet *packet, bool isTheFullFile)
 
 			if (fps.allocateIrIDataChunkAutomatically == false)
 			{
-				std::free(fileListReceiver->pushedFiles.Get(onFileStruct.fileIndex).flrMemoryBlock);
-				fileListReceiver->pushedFiles.Get(onFileStruct.fileIndex).flrMemoryBlock = 0;
+				std::free(fileListReceiver->pushedFiles.at(onFileStruct.fileIndex).flrMemoryBlock);
+				fileListReceiver->pushedFiles.at(onFileStruct.fileIndex).flrMemoryBlock = 0;
 			}
 		}
 		else
@@ -993,7 +1004,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 	unsigned int ftpIndex;
 
 	fileListTransfer->fileToPushRecipientListMutex.Lock();
-	for (ftpIndex = 0; ftpIndex < fileListTransfer->fileToPushRecipientList.Size(); ftpIndex++)
+	for (ftpIndex = 0; ftpIndex < fileListTransfer->fileToPushRecipientList.size(); ftpIndex++)
 	{
 		FileListTransfer::FileToPushRecipient *ftpr = fileListTransfer->fileToPushRecipientList[ftpIndex];
 		// Referenced by both ftpr and list
@@ -1003,9 +1014,16 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 
 		if (ftpr->systemAddress == systemAddress && ftpr->setId == setId)
 		{
+			if (ftpr->filesToPush.empty())
+			{
+				// Nothing left to push for this set (an extra acknowledgement after the last chunk).
+				ftpr->Deref();
+				return 0;
+			}
 			FileListTransfer::FileToPush *ftp;
 			////ftpr->filesToPushMutex.Lock();
-			ftp = ftpr->filesToPush.Pop();
+			ftp = ftpr->filesToPush.front();
+			ftpr->filesToPush.pop_front();
 			////ftpr->filesToPushMutex.Unlock();
 
 			// Read and send chunk. If done, delete at this index
@@ -1013,7 +1031,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			if (buff == 0)
 			{
 				////ftpr->filesToPushMutex.Lock();
-				ftpr->filesToPush.PushAtHead(ftp, 0, _FILE_AND_LINE_);
+				ftpr->filesToPush.push_front(ftp);
 				////ftpr->filesToPushMutex.Unlock();
 
 				ftpr->Deref();
@@ -1028,7 +1046,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			{
 				////ftpr->filesToPushMutex.Lock();
 				// The reason for 2 is that ID_FILE_LIST_REFERENCE_PUSH gets ID_FILE_LIST_REFERENCE_PUSH_ACK. WIthout ID_FILE_LIST_REFERENCE_PUSH_ACK, SendIRIToAddressCB would not be called again
-				if (ftpr->filesToPush.Size() < 2)
+				if (ftpr->filesToPush.size() < 2)
 				{
 					////ftpr->filesToPushMutex.Unlock();
 					break;
@@ -1058,7 +1076,8 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 				smallFileTotalSize += bytesRead;
 				//done = bytesRead!=ftp->chunkSize;
 				////ftpr->filesToPushMutex.Lock();
-				ftp = ftpr->filesToPush.Pop();
+				ftp = ftpr->filesToPush.front();
+				ftpr->filesToPush.pop_front();
 				////ftpr->filesToPushMutex.Unlock();
 
 				bytesRead = ftp->incrementalReadInterface->GetFilePart(ftp->fileListNode.fullPathToFile, ftp->currentOffset, ftp->chunkSize, buff, ftp->fileListNode.context);
@@ -1079,7 +1098,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			outBitstream.WriteCompressed(bytesRead);
 			outBitstream.Write(done);
 
-			for (unsigned int flpcIndex = 0; flpcIndex < fileListTransfer->fileListProgressCallbacks.Size(); flpcIndex++)
+			for (unsigned int flpcIndex = 0; flpcIndex < fileListTransfer->fileListProgressCallbacks.size(); flpcIndex++)
 				fileListTransfer->fileListProgressCallbacks[flpcIndex]->OnFilePush(ftp->fileListNode.filename, ftp->fileListNode.fileLengthBytes, ftp->currentOffset - bytesRead, bytesRead, done, systemAddress, setId);
 
 			dataBlocks[0] = (char *) outBitstream.GetData();
@@ -1098,11 +1117,11 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 				delete ftp;
 
 				////ftpr->filesToPushMutex.Lock();
-				if (ftpr->filesToPush.Size() == 0)
+				if (ftpr->filesToPush.empty())
 				{
 					////ftpr->filesToPushMutex.Unlock();
 
-					for (unsigned int flpcIndex = 0; flpcIndex < fileListTransfer->fileListProgressCallbacks.Size(); flpcIndex++)
+					for (unsigned int flpcIndex = 0; flpcIndex < fileListTransfer->fileListProgressCallbacks.size(); flpcIndex++)
 						fileListTransfer->fileListProgressCallbacks[flpcIndex]->OnFilePushesComplete(systemAddress, setId);
 
 					// Remove ftpr from fileToPushRecipientList
@@ -1116,7 +1135,7 @@ int SendIRIToAddressCB(FileListTransfer::ThreadData threadData, bool *returnOutp
 			else
 			{
 				////ftpr->filesToPushMutex.Lock();
-				ftpr->filesToPush.PushAtHead(ftp, 0, _FILE_AND_LINE_);
+				ftpr->filesToPush.push_front(ftp);
 				////ftpr->filesToPushMutex.Unlock();
 			}
 			// ftpr out of scope
@@ -1169,11 +1188,11 @@ void FileListTransfer::OnReferencePushAck(Packet *packet)
 void FileListTransfer::RemoveFromList(FileToPushRecipient *ftpr)
 {
 	fileToPushRecipientListMutex.Lock();
-	for (unsigned int i = 0; i < fileToPushRecipientList.Size(); i++)
+	for (unsigned int i = 0; i < fileToPushRecipientList.size(); i++)
 	{
 		if (fileToPushRecipientList[i] == ftpr)
 		{
-			fileToPushRecipientList.RemoveAtIndex(i);
+			fileToPushRecipientList.erase(fileToPushRecipientList.begin() + i);
 			// List no longer references
 			ftpr->Deref();
 			fileToPushRecipientListMutex.Unlock();
@@ -1185,11 +1204,11 @@ void FileListTransfer::RemoveFromList(FileToPushRecipient *ftpr)
 unsigned int FileListTransfer::GetPendingFilesToAddress(SystemAddress recipient)
 {
 	fileToPushRecipientListMutex.Lock();
-	for (unsigned int i = 0; i < fileToPushRecipientList.Size(); i++)
+	for (unsigned int i = 0; i < fileToPushRecipientList.size(); i++)
 	{
 		if (fileToPushRecipientList[i]->systemAddress == recipient)
 		{
-			unsigned int size = fileToPushRecipientList[i]->filesToPush.Size();
+			const auto size = static_cast<unsigned int>(fileToPushRecipientList[i]->filesToPush.size());
 			fileToPushRecipientListMutex.Unlock();
 			return size;
 		}

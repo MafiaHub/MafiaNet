@@ -28,7 +28,6 @@
 #include "mafianet/types.h"
 #include "mafianet/export.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_map.h"
 #include "mafianet/packet_priority.h"
 
 /// \defgroup DIRECTORY_DELTA_TRANSFER_GROUP DirectoryDeltaTransfer

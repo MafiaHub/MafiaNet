@@ -22,7 +22,6 @@
 
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/native_types.h"
 #include "mafianet/simple_mutex.h"
 
@@ -30,6 +29,7 @@
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 // Forward declarations for Opus and RNNoise
 struct OpusEncoder;
@@ -360,7 +360,7 @@ public:
 	bool ReceiveFrameFrom(RakNetGUID origin, void *out);
 
 	/// \brief Lists speakers that currently have a decoder allocated.
-	void GetActiveSpeakers(DataStructures::List<RakNetGUID> &out);
+	void GetActiveSpeakers(std::vector<RakNetGUID> &out);
 
 	/// \brief Runs the codec on RakPeer's network thread instead of inside Receive().
 	/// When enabled, encoding and sending the frames SendFrame() buffers, decoding incoming
@@ -428,7 +428,13 @@ protected:
 	/// Get frame size in samples for the given sample rate (20ms frames)
 	static int GetFrameSizeSamples(int sampleRate);
 
-	DataStructures::OrderedList<RakNetGUID, VoiceChannel *, VoiceChannelComp> voiceChannels;
+	/// \internal Index of the channel keyed \a guid in voiceChannels, or of the slot it would
+	/// be inserted at; \a objectExists says which.
+	unsigned FindVoiceChannel(RakNetGUID guid, bool *objectExists) const;
+	bool HasVoiceChannel(RakNetGUID guid) const;
+
+	/// Open channels, sorted by guid (see VoiceChannelComp).
+	std::vector<VoiceChannel *> voiceChannels;
 	int32_t sampleRate;
 	unsigned bufferSizeBytes;
 	float *bufferedOutput;

@@ -8,6 +8,7 @@
 #include "SimulatedNetwork.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <iterator>
@@ -28,7 +29,9 @@ namespace
 {
 // Starts away from zero: a time of 0 means "never" in several places.
 const TimeUS kEpochUS = 1000000;
-TimeUS g_virtualNowUS = kEpochUS;
+// Atomic: a plugin may run a helper thread of its own (UDPProxyServer's UDPForwarder) that reads
+// the clock while Step() advances it.
+std::atomic<TimeUS> g_virtualNowUS{kEpochUS};
 bool g_networkAlive = false;
 }
 

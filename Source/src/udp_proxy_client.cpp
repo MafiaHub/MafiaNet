@@ -26,9 +26,6 @@
 using namespace MafiaNet;
 static const int DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR = 1000;
 
-// bool operator<( const DataStructures::MLKeyRef<UDPProxyClient::ServerWithPing> &inputKey, const UDPProxyClient::ServerWithPing &cls ) {return inputKey.Get().serverAddress < cls.serverAddress;}
-// bool operator>( const DataStructures::MLKeyRef<UDPProxyClient::ServerWithPing> &inputKey, const UDPProxyClient::ServerWithPing &cls ) {return inputKey.Get().serverAddress > cls.serverAddress;}
-// bool operator==( const DataStructures::MLKeyRef<UDPProxyClient::ServerWithPing> &inputKey, const UDPProxyClient::ServerWithPing &cls ) {return inputKey.Get().serverAddress == cls.serverAddress;}
 
 STATIC_FACTORY_DEFINITIONS(UDPProxyClient, UDPProxyClient);
 
@@ -111,18 +108,18 @@ bool UDPProxyClient::RequestForwarding(SystemAddress proxyCoordinator, SystemAdd
 void UDPProxyClient::Update(void)
 {
 	unsigned int idx1 = 0;
-	while (idx1 < pingServerGroups.Size())
+	while (idx1 < pingServerGroups.size())
 	{
 		PingServerGroup *psg = pingServerGroups[idx1];
 
-		if (psg->serversToPing.Size() > 0 &&
+		if (psg->serversToPing.size() > 0 &&
 		    MafiaNet::GetTimeMS() > psg->startPingTime + DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR)
 		{
 			// If they didn't reply within DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR, just give up on them
 			psg->SendPingedServersToCoordinator(rakPeerInterface);
 
 			delete psg;
-			pingServerGroups.RemoveAtIndex(idx1);
+			pingServerGroups.erase(pingServerGroups.begin() + idx1);
 		}
 		else
 			idx1++;
@@ -134,10 +131,10 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 	{
 		unsigned int idx1, idx2;
 		PingServerGroup *psg;
-		for (idx1 = 0; idx1 < pingServerGroups.Size(); idx1++)
+		for (idx1 = 0; idx1 < pingServerGroups.size(); idx1++)
 		{
 			psg = pingServerGroups[idx1];
-			for (idx2 = 0; idx2 < psg->serversToPing.Size(); idx2++)
+			for (idx2 = 0; idx2 < psg->serversToPing.size(); idx2++)
 			{
 				if (psg->serversToPing[idx2].serverAddress == packet->systemAddress)
 				{
@@ -158,7 +155,7 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 					{
 						psg->SendPingedServersToCoordinator(rakPeerInterface);
 						delete psg;
-						pingServerGroups.RemoveAtIndex(idx1);
+						pingServerGroups.erase(pingServerGroups.begin() + idx1);
 					}
 
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
@@ -272,17 +269,17 @@ void UDPProxyClient::OnPingServers(Packet *packet)
 	{
 		incomingBs.Read(swp.serverAddress);
 		swp.ping = DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR;
-		psg->serversToPing.Push(swp, _FILE_AND_LINE_);
+		psg->serversToPing.push_back(swp);
 		swp.serverAddress.ToString(false, ipStr, static_cast<size_t>(64));
 		rakPeerInterface->Ping(ipStr, swp.serverAddress.GetPort(), false, 0);
 	}
-	pingServerGroups.Push(psg, _FILE_AND_LINE_);
+	pingServerGroups.push_back(psg);
 }
 
 bool UDPProxyClient::PingServerGroup::AreAllServersPinged(void) const
 {
 	unsigned int serversToPingIndex;
-	for (serversToPingIndex = 0; serversToPingIndex < serversToPing.Size(); serversToPingIndex++)
+	for (serversToPingIndex = 0; serversToPingIndex < serversToPing.size(); serversToPingIndex++)
 	{
 		if (serversToPing[serversToPingIndex].ping == DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR)
 			return false;
@@ -297,7 +294,7 @@ void UDPProxyClient::PingServerGroup::SendPingedServersToCoordinator(RakPeerInte
 	outgoingBs.Write((MessageID) ID_UDP_PROXY_PING_SERVERS_REPLY_FROM_CLIENT_TO_COORDINATOR);
 	outgoingBs.Write(sata.senderClientAddress);
 	outgoingBs.Write(sata.targetClientAddress);
-	unsigned short serversToPingSize = (unsigned short) serversToPing.Size();
+	unsigned short serversToPingSize = (unsigned short) serversToPing.size();
 	outgoingBs.Write(serversToPingSize);
 	unsigned int serversToPingIndex;
 	for (serversToPingIndex = 0; serversToPingIndex < serversToPingSize; serversToPingIndex++)
@@ -309,9 +306,9 @@ void UDPProxyClient::PingServerGroup::SendPingedServersToCoordinator(RakPeerInte
 }
 void UDPProxyClient::Clear(void)
 {
-	for (unsigned int i = 0; i < pingServerGroups.Size(); i++)
+	for (unsigned int i = 0; i < pingServerGroups.size(); i++)
 		delete pingServerGroups[i];
-	pingServerGroups.Clear(false, _FILE_AND_LINE_);
+	pingServerGroups.clear();
 }
 
 

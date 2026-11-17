@@ -68,6 +68,12 @@ target_link_libraries(UnitTests PRIVATE TestSupport GTest::gtest_main)
 target_compile_definitions(UnitTests PRIVATE $<$<CONFIG:Debug>:_DEBUG>
     # ServerReplySeedTests replays checked-in fuzz seeds.
     MAFIANET_FUZZ_CORPUS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Fuzz/corpus")
+# The extras (HTTP, telnet and RakNet transports) are covered when that library is built;
+# their tests compile to nothing otherwise.
+if(TARGET MafiaNetExtras)
+    target_link_libraries(UnitTests PRIVATE MafiaNetExtras)
+    target_compile_definitions(UnitTests PRIVATE MAFIANET_TESTS_HAVE_EXTRAS=1)
+endif()
 set_target_properties(UnitTests PROPERTIES FOLDER "Tests")
 mafianet_enable_warnings(UnitTests)
 

@@ -27,7 +27,8 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/cloud_common.h"
 #include "mafianet/export.h"
-#include "mafianet/ds_hash.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -75,7 +76,7 @@ public:
 	/// \details If a remote system has subscribed to one or more of the \a keys uploaded, they will get ID_CLOUD_SUBSCRIPTION_NOTIFICATION notifications containing the last value uploaded before deletions
 	/// \param[in] cloudKey Identifies the data to release. It is possible to remove uploads from multiple Post() calls at once.
 	/// \param[in] systemIdentifier A remote system running CloudServer that we are already connected to.
-	virtual void Release(DataStructures::List<CloudKey> &keys, RakNetGUID systemIdentifier);
+	virtual void Release(std::vector<CloudKey> &keys, RakNetGUID systemIdentifier);
 
 	/// \brief Gets data from the cloud
 	/// \details For a given query containing one or more keys, return data that matches those keys.
@@ -90,16 +91,16 @@ public:
 	/// \param[in] systemIdentifier A remote system running CloudServer that we are already connected to.
 	/// \param[in] specificSystems It is possible to get or subscribe to updates only for specific uploading CloudClient instances. Pass the desired instances here. The overload that does not have the specificSystems parameter is treated as subscribing to all updates from all clients.
 	virtual bool Get(CloudQuery *cloudQuery, RakNetGUID systemIdentifier);
-	virtual bool Get(CloudQuery *cloudQuery, DataStructures::List<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier);
-	virtual bool Get(CloudQuery *cloudQuery, DataStructures::List<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier);
+	virtual bool Get(CloudQuery *cloudQuery, std::vector<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier);
+	virtual bool Get(CloudQuery *cloudQuery, std::vector<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier);
 
 	/// \brief Unsubscribe from updates previously subscribed to using Get() with the CloudQuery::subscribeToResults set to true
 	/// The \a keys and \a specificSystems parameters are logically treated as AND when checking subscriptions on the server
 	/// The overload that does not take specificSystems unsubscribes to all passed keys, regardless of system
 	/// You cannot unsubscribe specific systems when previously subscribed to updates from any system. To do this, first Unsubscribe() from all systems, and call Get() with the \a specificSystems parameter explicilty listing the systems you want to subscribe to.
-	virtual void Unsubscribe(DataStructures::List<CloudKey> &keys, RakNetGUID systemIdentifier);
-	virtual void Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier);
-	virtual void Unsubscribe(DataStructures::List<CloudKey> &keys, DataStructures::List<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier);
+	virtual void Unsubscribe(std::vector<CloudKey> &keys, RakNetGUID systemIdentifier);
+	virtual void Unsubscribe(std::vector<CloudKey> &keys, std::vector<RakNetGUID> &specificSystems, RakNetGUID systemIdentifier);
+	virtual void Unsubscribe(std::vector<CloudKey> &keys, std::vector<CloudQueryRow *> &specificSystems, RakNetGUID systemIdentifier);
 
 	/// \brief Call this when you get ID_CLOUD_GET_RESPONSE
 	/// If \a callback or \a allocator are 0, the default callbacks passed to SetDefaultCallbacks() are used

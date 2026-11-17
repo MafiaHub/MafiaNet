@@ -54,7 +54,7 @@ void HTTPConnection::Post(const char *remote_path, const char *data, const char 
 	op.data = data;
 	op.remotePath = remote_path;
 	op.isPost = true;
-	outgoingCommand.Push(op, _FILE_AND_LINE_);
+	outgoingCommand.push_back(op);
 	//printf("Adding outgoing post\n");
 }
 
@@ -63,18 +63,20 @@ void HTTPConnection::Get(const char *path)
 	OutgoingCommand op;
 	op.remotePath = path;
 	op.isPost = false;
-	outgoingCommand.Push(op, _FILE_AND_LINE_);
+	outgoingCommand.push_back(op);
 }
 
 bool HTTPConnection::HasBadResponse(int *code, MafiaNet::RakString *data)
 {
-	if (badResponses.IsEmpty())
+	if (badResponses.empty())
 		return false;
 
+	// Always consumed: a caller that passes no data pointer used to see the same response forever.
 	if (code)
-		*code = badResponses.Peek().code;
+		*code = badResponses.front().code;
 	if (data)
-		*data = badResponses.Pop().data;
+		*data = badResponses.front().data;
+	badResponses.pop_front();
 	return true;
 }
 void HTTPConnection::CloseConnection()
@@ -114,7 +116,7 @@ void HTTPConnection::Update(void)
 	{
 	case CS_NONE:
 	{
-		if (outgoingCommand.IsEmpty())
+		if (outgoingCommand.empty())
 			return;
 
 		//printf("Connecting\n");
@@ -128,7 +130,7 @@ void HTTPConnection::Update(void)
 		{
 			if (incomingData.IsEmpty() == false)
 			{
-				results.Push(incomingData, _FILE_AND_LINE_);
+				results.push_back(incomingData);
 			}
 			incomingData.Clear();
 			tcp->CloseConnection(server);
@@ -143,7 +145,7 @@ void HTTPConnection::Update(void)
 	case CS_CONNECTED:
 	{
 		//printf("Connected\n");
-		if (outgoingCommand.IsEmpty())
+		if (outgoingCommand.empty())
 		{
 			//printf("Closed connection (nothing to do)\n");
 			CloseConnection();
@@ -151,7 +153,8 @@ void HTTPConnection::Update(void)
 		}
 
 		//printf("Sending request\n");
-		currentProcessingCommand = outgoingCommand.Pop();
+		currentProcessingCommand = outgoingCommand.front();
+		outgoingCommand.pop_front();
 		RakString request;
 		if (currentProcessingCommand.isPost)
 		{
@@ -192,18 +195,19 @@ void HTTPConnection::Update(void)
 	}
 
 	//	if (connectionState==CS_PROCESSING && currentProcessingCommand.data.IsEmpty()==false)
-	//		outgoingCommand.PushAtHead(currentProcessingCommand);
+	//		outgoingCommand.push_front(currentProcessingCommand);
 }
 bool HTTPConnection::HasRead(void) const
 {
-	return results.IsEmpty() == false;
+	return !results.empty();
 }
 RakString HTTPConnection::Read(void)
 {
-	if (results.IsEmpty())
+	if (results.empty())
 		return RakString();
 
-	MafiaNet::RakString resultStr = results.Pop();
+	MafiaNet::RakString resultStr = results.front();
+	results.pop_front();
 	// const char *start_of_body = strstr(resultStr.C_String(), "\r\n\r\n");
 	const char *start_of_body = strpbrk(resultStr.C_String(), "\001\002\003%");
 
@@ -229,7 +233,7 @@ void HTTPConnection::ProcessTCPPacket(Packet *packet)
 
 			if (response_code > 299)
 			{
-				badResponses.Push(BadResponse(packet->data, response_code), _FILE_AND_LINE_);
+				badResponses.push_back(BadResponse(packet->data, response_code));
 				//printf("Closed connection (Bad response 2)\n");
 				CloseConnection();
 				return;

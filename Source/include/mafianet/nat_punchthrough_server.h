@@ -29,8 +29,11 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/string.h"
+
+#include <map>
+#include <set>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -131,9 +134,9 @@ public:
 		SystemAddress systemAddress;
 		unsigned short mostRecentPort;
 		bool isReady;
-		DataStructures::OrderedList<RakNetGUID, RakNetGUID> groupPunchthroughRequests;
+		std::set<RakNetGUID> groupPunchthroughRequests;
 
-		DataStructures::List<ConnectionAttempt *> connectionAttempts;
+		std::vector<ConnectionAttempt *> connectionAttempts;
 		bool HasConnectionAttemptToUser(User *user);
 		void DerefConnectionAttempt(ConnectionAttempt *ca);
 		void DeleteConnectionAttempt(ConnectionAttempt *ca);
@@ -144,7 +147,8 @@ public:
 
 protected:
 	void OnNATPunchthroughRequest(Packet *packet);
-	DataStructures::OrderedList<RakNetGUID, User *, NatPunchthroughServer::NatPunchthroughUserComp> users;
+	// Owned; in RakNetGUID order, as NatPunchthroughUserComp sorted them.
+	std::map<RakNetGUID, User *> users;
 
 	void OnGetMostRecentPort(Packet *packet);
 	void OnClientReady(Packet *packet);

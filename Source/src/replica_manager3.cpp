@@ -23,6 +23,9 @@
 #include "mafianet/peer_interface.h"
 #include "mafianet/network_id_manager.h"
 
+#include "mafianet/vector_util.h"
+
+#include <algorithm>
 #include <atomic>
 
 using namespace MafiaNet;
@@ -133,6 +136,38 @@ int Connection_RM3::Replica3LSRComp(Replica3 *const &replica3, LastSerialization
 	return 0;
 }
 
+namespace
+{
+// A connection's constructedReplicaList, sorted by Connection_RM3::Replica3LSRComp.
+using ConstructedList = std::vector<LastSerializationResult *>;
+
+// Index of \a replica in \a list, or the index it would be inserted at; *objectExists says which.
+unsigned int FindConstructed(const ConstructedList &list, Replica3 *replica, bool *objectExists)
+{
+	const auto it = std::lower_bound(list.begin(), list.end(), replica,
+	                                 [](LastSerializationResult *const &data, Replica3 *const &key)
+	                                 { return Connection_RM3::Replica3LSRComp(key, data) > 0; });
+	*objectExists = it != list.end() && Connection_RM3::Replica3LSRComp(replica, *it) == 0;
+	return (unsigned int) (it - list.begin());
+}
+
+// Inserts \a lsr keyed by \a replica. Returns its index, or (unsigned int) -1 without inserting if the
+// replica is already in the list.
+unsigned int InsertConstructed(ConstructedList &list, Replica3 *replica, LastSerializationResult *lsr)
+{
+	bool objectExists;
+	const unsigned int index = FindConstructed(list, replica, &objectExists);
+	if (objectExists)
+	{
+		// This is usually a bug!
+		RakAssert("replica inserted twice into constructedReplicaList" && 0);
+		return (unsigned int) -1;
+	}
+	list.insert(list.begin() + index, lsr);
+	return index;
+}
+} // namespace
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 LastSerializationResult::LastSerializationResult()
@@ -239,9 +274,9 @@ ReplicaManager3::~ReplicaManager3()
 {
 	if (autoDestroyConnections)
 	{
-		for (unsigned int i = 0; i < worldsList.Size(); i++)
+		for (unsigned int i = 0; i < worldsList.size(); i++)
 		{
-			RakAssert(worldsList[i]->connectionList.Size() == 0);
+			RakAssert(worldsList[i]->connectionList.size() == 0);
 		}
 	}
 	Clear(true);
@@ -272,11 +307,11 @@ bool ReplicaManager3::GetAutoDestroyConnections(void) const
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void ReplicaManager3::AutoCreateConnectionList(
-    DataStructures::List<RakNetGUID> &participantListIn,
-    DataStructures::List<Connection_RM3 *> &participantListOut,
+    std::vector<RakNetGUID> &participantListIn,
+    std::vector<Connection_RM3 *> &participantListOut,
     WorldId worldId)
 {
-	for (unsigned int index = 0; index < participantListIn.Size(); index++)
+	for (unsigned int index = 0; index < participantListIn.size(); index++)
 	{
 		if (GetConnectionByGUID(participantListIn[index], worldId) == nullptr)
 		{
@@ -284,7 +319,7 @@ void ReplicaManager3::AutoCreateConnectionList(
 			if (connection)
 			{
 				PushConnection(connection);
-				participantListOut.Push(connection, _FILE_AND_LINE_);
+				participantListOut.push_back(connection);
 			}
 		}
 	}
@@ -305,15 +340,14 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
-	unsigned int index = world->connectionList.GetIndexOf(newConnection);
-	if (index == (unsigned int) -1)
+	if (std::find(world->connectionList.begin(), world->connectionList.end(), newConnection) == world->connectionList.end())
 	{
 		// Before it is in the list, where the receive thread finds it.
 		ConnectionLockHolder connectionLock(LockConnection(newConnection));
 		++connectionLock.lock->worlds;
 		{
 			ListLock listLock(m_WorldListMutex);
-			world->connectionList.Push(newConnection, _FILE_AND_LINE_);
+			world->connectionList.push_back(newConnection);
 		}
 
 		// Send message to validate the connection
@@ -323,7 +357,7 @@ bool ReplicaManager3::PushConnection(MafiaNet::Connection_RM3 *newConnection, Wo
 		if (constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION || constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
 		{
 			unsigned int pushIdx;
-			for (pushIdx = 0; pushIdx < world->userReplicaList.Size(); pushIdx++)
+			for (pushIdx = 0; pushIdx < world->userReplicaList.size(); pushIdx++)
 				newConnection->OnLocalReference(world->userReplicaList[pushIdx], this);
 		}
 	}
@@ -345,9 +379,9 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 {
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	++membershipGeneration;
-	DataStructures::List<Replica3 *> replicaList;
-	DataStructures::List<NetworkID> destructionList;
-	DataStructures::List<Replica3 *> broadcastList;
+	std::vector<Replica3 *> replicaList;
+	std::vector<NetworkID> destructionList;
+	std::vector<Replica3 *> broadcastList;
 	MafiaNet::Connection_RM3 *connection;
 	unsigned int index2;
 	RM3ActionOnPopConnection action;
@@ -370,25 +404,25 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 	// will not be called for the new owner.
 	GetReplicasCreatedByGuid(guid, replicaList);
 
-	for (index2 = 0; index2 < replicaList.Size(); index2++)
+	for (index2 = 0; index2 < replicaList.size(); index2++)
 	{
 		action = replicaList[index2]->QueryActionOnPopConnection(connection);
 		replicaList[index2]->OnPoppedConnection(connection);
 		if (action == RM3AOPC_DELETE_REPLICA)
 		{
 			if (replicaList[index2]->GetNetworkIDManager())
-				destructionList.Push(replicaList[index2]->GetNetworkID(), _FILE_AND_LINE_);
+				destructionList.push_back(replicaList[index2]->GetNetworkID());
 		}
 		else if (action == RM3AOPC_DELETE_REPLICA_AND_BROADCAST_DESTRUCTION)
 		{
 			if (replicaList[index2]->GetNetworkIDManager())
-				destructionList.Push(replicaList[index2]->GetNetworkID(), _FILE_AND_LINE_);
+				destructionList.push_back(replicaList[index2]->GetNetworkID());
 
-			broadcastList.Push(replicaList[index2], _FILE_AND_LINE_);
+			broadcastList.push_back(replicaList[index2]);
 		}
 		else if (action == RM3AOPC_DO_NOTHING)
 		{
-			for (unsigned int index3 = 0; index3 < connection->queryToSerializeReplicaList.Size(); index3++)
+			for (unsigned int index3 = 0; index3 < connection->queryToSerializeReplicaList.size(); index3++)
 			{
 				LastSerializationResult *lsr = connection->queryToSerializeReplicaList[index3];
 				lsr->whenLastSerialized = 0;
@@ -402,7 +436,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 	}
 
 	BroadcastDestructionList(broadcastList, connection->GetSystemAddress());
-	for (index2 = 0; index2 < destructionList.Size(); index2++)
+	for (index2 = 0; index2 < destructionList.size(); index2++)
 	{
 		// Do lookup in case DeallocReplica destroyed one of of the later Replica3 instances in the list
 		Replica3 *replicaToDestroy = world->networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(destructionList[index2]);
@@ -415,7 +449,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(unsigned int index, Wor
 
 	{
 		ListLock listLock(m_WorldListMutex);
-		world->connectionList.RemoveAtIndex(index);
+		world->connectionList.erase(world->connectionList.begin() + index);
 	}
 	--connectionLock.lock->worlds;
 	return connection;
@@ -431,7 +465,7 @@ MafiaNet::Connection_RM3 *ReplicaManager3::PopConnection(RakNetGUID guid, WorldI
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
-	for (index = 0; index < world->connectionList.Size(); index++)
+	for (index = 0; index < world->connectionList.size(); index++)
 	{
 		if (world->connectionList[index]->GetRakNetGUID() == guid)
 		{
@@ -454,7 +488,7 @@ void ReplicaManager3::Reference(MafiaNet::Replica3 *replica3, WorldId worldId)
 	if (index != (unsigned int) -1)
 	{
 		unsigned int pushIdx;
-		for (pushIdx = 0; pushIdx < world->connectionList.Size(); pushIdx++)
+		for (pushIdx = 0; pushIdx < world->connectionList.size(); pushIdx++)
 		{
 			Connection_RM3::ConstructionMode constructionMode = world->connectionList[pushIdx]->QueryConstructionMode();
 			if (constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION || constructionMode == Connection_RM3::QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
@@ -472,9 +506,7 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
-	unsigned int index;
-	index = world->userReplicaList.GetIndexOf(replica3);
-	if (index == (unsigned int) -1)
+	if (std::find(world->userReplicaList.begin(), world->userReplicaList.end(), replica3) == world->userReplicaList.end())
 	{
 		RakAssert(world->networkIDManager);
 		{
@@ -492,8 +524,8 @@ unsigned int ReplicaManager3::ReferenceInternal(MafiaNet::Replica3 *replica3, Wo
 			replica3->referenceIndex = nextReferenceIndex++;
 		}
 		ListLock listLock(m_WorldListMutex);
-		world->userReplicaList.Push(replica3, _FILE_AND_LINE_);
-		return world->userReplicaList.Size() - 1;
+		world->userReplicaList.push_back(replica3);
+		return (unsigned int) (world->userReplicaList.size() - 1);
 	}
 	return (unsigned int) -1;
 }
@@ -509,19 +541,19 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 
 	unsigned int index, index2;
 	bool wasReferenced = false;
-	for (index = 0; index < world->userReplicaList.Size(); index++)
+	for (index = 0; index < world->userReplicaList.size(); index++)
 	{
 		if (world->userReplicaList[index] == replica3)
 		{
 			ListLock listLock(m_WorldListMutex);
-			world->userReplicaList.RemoveAtIndex(index);
+			world->userReplicaList.erase(world->userReplicaList.begin() + index);
 			wasReferenced = true;
 			break;
 		}
 	}
 
 	// Remove from all connections
-	for (index2 = 0; index2 < world->connectionList.Size(); index2++)
+	for (index2 = 0; index2 < world->connectionList.size(); index2++)
 	{
 		world->connectionList[index2]->OnDereference(replica3, this);
 	}
@@ -543,17 +575,17 @@ void ReplicaManager3::Dereference(MafiaNet::Replica3 *replica3, WorldId worldId)
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::DereferenceList(DataStructures::List<Replica3 *> &replicaListIn, WorldId worldId)
+void ReplicaManager3::DereferenceList(std::vector<Replica3 *> &replicaListIn, WorldId worldId)
 {
 	unsigned int index;
-	for (index = 0; index < replicaListIn.Size(); index++)
+	for (index = 0; index < replicaListIn.size(); index++)
 		Dereference(replicaListIn[index], worldId);
 }
 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::GetReplicasCreatedByMe(DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId)
+void ReplicaManager3::GetReplicasCreatedByMe(std::vector<Replica3 *> &replicaListOut, WorldId worldId)
 {
 	//RakNetGUID myGuid = rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 	GetReplicasCreatedByGuid(rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS), replicaListOut, worldId);
@@ -561,7 +593,7 @@ void ReplicaManager3::GetReplicasCreatedByMe(DataStructures::List<Replica3 *> &r
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::GetReferencedReplicaList(DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId)
+void ReplicaManager3::GetReferencedReplicaList(std::vector<Replica3 *> &replicaListOut, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	ListLock listLock(m_WorldListMutex);
@@ -571,18 +603,18 @@ void ReplicaManager3::GetReferencedReplicaList(DataStructures::List<Replica3 *> 
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::GetReplicasCreatedByGuid(RakNetGUID guid, DataStructures::List<Replica3 *> &replicaListOut, WorldId worldId)
+void ReplicaManager3::GetReplicasCreatedByGuid(RakNetGUID guid, std::vector<Replica3 *> &replicaListOut, WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
-	replicaListOut.Clear(false, _FILE_AND_LINE_);
+	replicaListOut.clear();
 	unsigned int index;
-	for (index = 0; index < world->userReplicaList.Size(); index++)
+	for (index = 0; index < world->userReplicaList.size(); index++)
 	{
 		if (world->userReplicaList[index]->creatingSystemGUID == guid)
-			replicaListOut.Push(world->userReplicaList[index], _FILE_AND_LINE_);
+			replicaListOut.push_back(world->userReplicaList[index]);
 	}
 }
 
@@ -595,7 +627,7 @@ unsigned ReplicaManager3::GetReplicaCount(WorldId worldId) const
 	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
-	return world->userReplicaList.Size();
+	return (unsigned int) world->userReplicaList.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -617,7 +649,7 @@ unsigned int ReplicaManager3::GetConnectionCount(WorldId worldId) const
 	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 
-	return world->connectionList.Size();
+	return (unsigned int) world->connectionList.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -640,7 +672,7 @@ Connection_RM3 *ReplicaManager3::GetConnectionBySystemAddress(const SystemAddres
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
-	for (index = 0; index < world->connectionList.Size(); index++)
+	for (index = 0; index < world->connectionList.size(); index++)
 	{
 		if (world->connectionList[index]->GetSystemAddress() == sa)
 		{
@@ -659,7 +691,7 @@ Connection_RM3 *ReplicaManager3::GetConnectionByGUID(RakNetGUID guid, WorldId wo
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
-	for (index = 0; index < world->connectionList.Size(); index++)
+	for (index = 0; index < world->connectionList.size(); index++)
 	{
 		if (world->connectionList[index]->GetRakNetGUID() == guid)
 		{
@@ -671,9 +703,9 @@ Connection_RM3 *ReplicaManager3::GetConnectionByGUID(RakNetGUID guid, WorldId wo
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<Connection_RM3 *> &connectionsOut, bool includeGlobal, WorldId worldId) const
+void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, std::vector<Connection_RM3 *> &connectionsOut, bool includeGlobal, WorldId worldId) const
 {
-	connectionsOut.Clear(true, _FILE_AND_LINE_);
+	connectionsOut.clear();
 
 	// Two distinct layers: the heavyweight RM3 world (worldId, default 0) is the
 	// container that actually holds the connection list; the virtual world is a
@@ -686,7 +718,7 @@ void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, 
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
-	for (index = 0; index < world->connectionList.Size(); index++)
+	for (index = 0; index < world->connectionList.size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		VirtualWorldId connVirtualWorld = connection->GetVirtualWorld();
@@ -697,21 +729,21 @@ void ReplicaManager3::GetConnectionsInVirtualWorld(VirtualWorldId virtualWorld, 
 		bool matches = (connVirtualWorld == virtualWorld) ||
 		               (includeGlobal && connVirtualWorld == VIRTUAL_WORLD_GLOBAL);
 		if (matches)
-			connectionsOut.Push(connection, _FILE_AND_LINE_);
+			connectionsOut.push_back(connection);
 	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::GetGuidsInVirtualWorld(VirtualWorldId virtualWorld, DataStructures::List<RakNetGUID> &guidsOut, bool includeGlobal, WorldId worldId) const
+void ReplicaManager3::GetGuidsInVirtualWorld(VirtualWorldId virtualWorld, std::vector<RakNetGUID> &guidsOut, bool includeGlobal, WorldId worldId) const
 {
-	guidsOut.Clear(true, _FILE_AND_LINE_);
-	DataStructures::List<Connection_RM3 *> connections;
+	guidsOut.clear();
+	std::vector<Connection_RM3 *> connections;
 	GetConnectionsInVirtualWorld(virtualWorld, connections, includeGlobal, worldId);
 
 	unsigned int index;
-	for (index = 0; index < connections.Size(); index++)
-		guidsOut.Push(connections[index]->GetRakNetGUID(), _FILE_AND_LINE_);
+	for (index = 0; index < connections.size(); index++)
+		guidsOut.push_back(connections[index]->GetRakNetGUID());
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -765,7 +797,7 @@ bool ReplicaManager3::HoldsConnection(const Connection_RM3 *connection, WorldId 
 	const RM3World *world = worldsArray[worldId];
 	if (world == 0)
 		return false;
-	for (unsigned int i = 0; i < world->connectionList.Size(); i++)
+	for (unsigned int i = 0; i < world->connectionList.size(); i++)
 	{
 		if (world->connectionList[i] == connection)
 			return true;
@@ -775,7 +807,7 @@ bool ReplicaManager3::HoldsConnection(const Connection_RM3 *connection, WorldId 
 
 bool Connection_RM3::HoldsRecord(const LastSerializationResult *lsr) const
 {
-	for (unsigned int i = 0; i < constructedReplicaList.Size(); i++)
+	for (unsigned int i = 0; i < constructedReplicaList.size(); i++)
 	{
 		if (constructedReplicaList[i] == lsr)
 			return true;
@@ -785,11 +817,11 @@ bool Connection_RM3::HoldsRecord(const LastSerializationResult *lsr) const
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, DataStructures::List<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId)
+void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica, std::vector<Connection_RM3 *> &connectionsThatHaveConstructedThisReplica, WorldId worldId)
 {
 	// Not the world: a Deserialize() asks this under its sender's lock while a pass holds the world. The list
 	// lock keeps every connection in the list, so alive, for as long as it is asked.
-	connectionsThatHaveConstructedThisReplica.Clear(false, _FILE_AND_LINE_);
+	connectionsThatHaveConstructedThisReplica.clear();
 	ListLock listLock(m_WorldListMutex);
 	RM3World *world = worldsArray[worldId];
 	RakAssert(world != 0 && "World not in use");
@@ -797,10 +829,10 @@ void ReplicaManager3::GetConnectionsThatHaveReplicaConstructed(Replica3 *replica
 		return;
 
 	unsigned int index;
-	for (index = 0; index < world->connectionList.Size(); index++)
+	for (index = 0; index < world->connectionList.size(); index++)
 	{
 		if (world->connectionList[index]->HasReplicaConstructed(replica))
-			connectionsThatHaveConstructedThisReplica.Push(world->connectionList[index], _FILE_AND_LINE_);
+			connectionsThatHaveConstructedThisReplica.push_back(world->connectionList[index]);
 	}
 }
 
@@ -812,7 +844,7 @@ bool ReplicaManager3::GetAllConnectionDownloadsCompleted(WorldId worldId) const
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int index;
-	for (index = 0; index < world->connectionList.Size(); index++)
+	for (index = 0; index < world->connectionList.size(); index++)
 	{
 		if (world->connectionList[index]->GetDownloadWasCompleted() == false)
 			return false;
@@ -825,7 +857,7 @@ bool ReplicaManager3::GetAllConnectionDownloadsCompleted(WorldId worldId) const
 void ReplicaManager3::Clear(bool deleteWorlds)
 {
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
-	for (unsigned int i = 0; i < worldsList.Size(); i++)
+	for (unsigned int i = 0; i < worldsList.size(); i++)
 	{
 		worldsList[i]->Clear(this);
 		if (deleteWorlds)
@@ -838,7 +870,7 @@ void ReplicaManager3::Clear(bool deleteWorlds)
 	if (deleteWorlds)
 	{
 		ListLock listLock(m_WorldListMutex);
-		worldsList.Clear(false, _FILE_AND_LINE_);
+		worldsList.clear();
 	}
 }
 
@@ -854,12 +886,12 @@ ReplicaManager3::RM3World::RM3World()
 void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 {
 	// Out of the list first, each one once the receive thread is done with it, as PopConnection() does.
-	DataStructures::List<Connection_RM3 *> connections = connectionList;
+	std::vector<Connection_RM3 *> connections = connectionList;
 	{
 		ListLock listLock(replicaManager3->m_WorldListMutex);
-		connectionList.Clear(true, _FILE_AND_LINE_);
+		connectionList.clear();
 	}
-	for (unsigned int i = 0; i < connections.Size(); i++)
+	for (unsigned int i = 0; i < connections.size(); i++)
 	{
 		ConnectionLockHolder connectionLock(replicaManager3->LockConnection(connections[i]));
 		--connectionLock.lock->worlds;
@@ -869,13 +901,13 @@ void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 	}
 	if (replicaManager3->GetAutoDestroyConnections())
 	{
-		for (unsigned int i = 0; i < connections.Size(); i++)
+		for (unsigned int i = 0; i < connections.size(); i++)
 			replicaManager3->DeallocConnection(connections[i]);
 	}
 
 	{
 		ReplicaSetChange change(replicaManager3);
-		for (unsigned int i = 0; i < userReplicaList.Size(); i++)
+		for (unsigned int i = 0; i < userReplicaList.size(); i++)
 		{
 			userReplicaList[i]->replicaManager = 0;
 			userReplicaList[i]->referencingWorlds = 0;
@@ -883,7 +915,7 @@ void ReplicaManager3::RM3World::Clear(ReplicaManager3 *replicaManager3)
 		}
 	}
 	ListLock listLock(replicaManager3->m_WorldListMutex);
-	userReplicaList.Clear(true, _FILE_AND_LINE_);
+	userReplicaList.clear();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -904,7 +936,7 @@ void ReplicaManager3::AddWorld(WorldId worldId)
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	ListLock listLock(m_WorldListMutex);
 	worldsArray[worldId] = newWorld;
-	worldsList.Push(newWorld, _FILE_AND_LINE_);
+	worldsList.push_back(newWorld);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -914,12 +946,12 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	ListLock listLock(m_WorldListMutex);
-	for (unsigned int i = 0; i < worldsList.Size(); i++)
+	for (unsigned int i = 0; i < worldsList.size(); i++)
 	{
 		if (worldsList[i] == worldsArray[worldId])
 		{
 			delete worldsList[i];
-			worldsList.RemoveAtIndexFast(i);
+			SwapRemove(worldsList, i);
 			break;
 		}
 	}
@@ -930,7 +962,7 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 
 WorldId ReplicaManager3::GetWorldIdAtIndex(unsigned int index)
 {
-	RakAssert(index < worldsList.Size());
+	RakAssert(index < worldsList.size());
 	return worldsList[index]->worldId;
 }
 
@@ -938,7 +970,7 @@ WorldId ReplicaManager3::GetWorldIdAtIndex(unsigned int index)
 
 unsigned int ReplicaManager3::GetWorldCount(void) const
 {
-	return worldsList.Size();
+	return (unsigned int) worldsList.size();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1054,12 +1086,12 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 	LastSerializationResult *lsr;
 	index = 0;
 
-	constructedReplicasCulled.Clear(false, _FILE_AND_LINE_);
-	destroyedReplicasCulled.Clear(false, _FILE_AND_LINE_);
+	constructedReplicasCulled.clear();
+	destroyedReplicasCulled.clear();
 
 	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
 	{
-		while (index < queryToConstructReplicaList.Size())
+		while (index < queryToConstructReplicaList.size())
 		{
 			lsr = queryToConstructReplicaList[index];
 			constructionState = lsr->replica->QueryConstruction(this, replicaManager3);
@@ -1067,7 +1099,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			{
 				OnReplicaAlreadyExists(index, replicaManager3);
 				if (constructionState == RM3CS_ALREADY_EXISTS_REMOTELY)
-					constructedReplicasCulled.Push(lsr->replica, _FILE_AND_LINE_);
+					constructedReplicasCulled.push_back(lsr->replica);
 
 				/*
 				if (constructionState==RM3CS_ALREADY_EXISTS_REMOTELY)
@@ -1121,7 +1153,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 			{
 				OnConstructToThisConnection(index, replicaManager3);
 				RakAssert(lsr->replica);
-				constructedReplicasCulled.Push(lsr->replica, _FILE_AND_LINE_);
+				constructedReplicasCulled.push_back(lsr->replica);
 			}
 			else if (constructionState == RM3CS_NEVER_CONSTRUCT)
 			{
@@ -1138,14 +1170,14 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 		{
 			RM3DestructionState destructionState;
 			index = 0;
-			while (index < queryToDestructReplicaList.Size())
+			while (index < queryToDestructReplicaList.size())
 			{
 				lsr = queryToDestructReplicaList[index];
 				destructionState = lsr->replica->QueryDestruction(this, replicaManager3);
 				if (destructionState == RM3DS_SEND_DESTRUCTION)
 				{
 					OnSendDestructionFromQuery(index, replicaManager3);
-					destroyedReplicasCulled.Push(lsr->replica, _FILE_AND_LINE_);
+					destroyedReplicasCulled.push_back(lsr->replica);
 				}
 				else if (destructionState == RM3DS_DO_NOT_QUERY_DESTRUCTION)
 				{
@@ -1166,28 +1198,28 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 		unsigned int idx1, idx2;
 
 		// Create new
-		for (idx2 = 0; idx2 < constructedReplicasCulled.Size(); idx2++)
+		for (idx2 = 0; idx2 < constructedReplicasCulled.size(); idx2++)
 			OnConstructToThisConnection(constructedReplicasCulled[idx2], replicaManager3);
 
-		for (idx2 = 0; idx2 < destroyedReplicasCulled.Size(); idx2++)
+		for (idx2 = 0; idx2 < destroyedReplicasCulled.size(); idx2++)
 		{
 			bool objectExists;
-			idx1 = constructedReplicaList.GetIndexFromKey(destroyedReplicasCulled[idx2], &objectExists);
+			idx1 = FindConstructed(constructedReplicaList, destroyedReplicasCulled[idx2], &objectExists);
 			if (objectExists)
 			{
 				// The record is this connection's alone, and streaming the replica back in makes a new one.
 				lsr = constructedReplicaList[idx1];
 				{
 					std::lock_guard<std::mutex> constructedLock(lock->constructed);
-					constructedReplicaList.RemoveAtIndex(idx1);
+					constructedReplicaList.erase(constructedReplicaList.begin() + idx1);
 				}
 
 				unsigned int j;
-				for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
+				for (j = 0; j < queryToSerializeReplicaList.size(); j++)
 				{
 					if (queryToSerializeReplicaList[j] == lsr)
 					{
-						queryToSerializeReplicaList.RemoveAtIndex(j);
+						queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + j);
 						break;
 					}
 				}
@@ -1218,12 +1250,12 @@ void ReplicaManager3::Update(void)
 		return;
 	inUpdate = true;
 
-	for (index3 = 0; index3 < worldsList.Size(); index3++)
+	for (index3 = 0; index3 < worldsList.size(); index3++)
 	{
 		world = worldsList[index3];
 		worldId = world->worldId;
 
-		for (index = 0; index < world->connectionList.Size(); index++)
+		for (index = 0; index < world->connectionList.size(); index++)
 		{
 			ConnectionLockHolder connectionLock(LockConnection(world->connectionList[index]));
 			if (world->connectionList[index]->isValidated == false)
@@ -1234,12 +1266,12 @@ void ReplicaManager3::Update(void)
 
 	if (time - lastAutoSerializeOccurance >= autoSerializeInterval)
 	{
-		for (index3 = 0; index3 < worldsList.Size(); index3++)
+		for (index3 = 0; index3 < worldsList.size(); index3++)
 		{
 			world = worldsList[index3];
 			worldId = world->worldId;
 
-			for (index = 0; index < world->userReplicaList.Size(); index++)
+			for (index = 0; index < world->userReplicaList.size(); index++)
 			{
 				world->userReplicaList[index]->forceSendUntilNextUpdate = false;
 				world->userReplicaList[index]->OnUserReplicaPreSerializeTick();
@@ -1249,7 +1281,7 @@ void ReplicaManager3::Update(void)
 			if (++serializePass == 0)
 				serializePass = 1;
 			inSerializePass = true;
-			if (serializeExecutor != 0 && world->connectionList.Size() > 1)
+			if (serializeExecutor != 0 && world->connectionList.size() > 1)
 				SerializeConnectionsParallel(world, worldId, time);
 			else
 				SerializeConnections(world, worldId, time);
@@ -1334,7 +1366,7 @@ Connection_RM3 *ReplicaManager3::LockConnectionByGUID(RakNetGUID guid, WorldId w
 		// Its lock is taken hold of under the list lock: the connection cannot be freed before it has left the list.
 		ListLock listLock(m_WorldListMutex);
 		const RM3World *world = worldsArray[worldId];
-		for (unsigned int index = 0; world != 0 && index < world->connectionList.Size(); index++)
+		for (unsigned int index = 0; world != 0 && index < world->connectionList.size(); index++)
 		{
 			if (world->connectionList[index]->GetRakNetGUID() == guid)
 			{
@@ -1377,11 +1409,11 @@ enum class ServeShare
 };
 
 // Returns false when a game callback dropped the connection, which must then not be touched again.
-bool ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share)
+bool ServeSerializeList(Connection_RM3 *connection, std::vector<LastSerializationResult *> &list, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time, uint32_t pass, ServeShare share)
 {
 	uint32_t generation = replicaManager->GetMembershipGeneration();
 	unsigned int index = 0;
-	while (index < list.Size())
+	while (index < list.size())
 	{
 		LastSerializationResult *lsr = list[index];
 		if (lsr->servedPass == pass || (share != ServeShare::All && (lsr->replica->parallelPass == pass) != (share == ServeShare::Workers)))
@@ -1419,16 +1451,14 @@ bool ServeSerializeList(Connection_RM3 *connection, DataStructures::List<LastSer
 // A connection's own serialization list (Connection_RM3::QuerySerializationList), each entry read from
 // the connection's records: replica->lsr is shared by every connection, so for a replica not held here
 // it is another connection's, possibly since freed.
-using ConstructedList = DataStructures::OrderedList<Replica3 *, LastSerializationResult *, Connection_RM3::Replica3LSRComp>;
-
 // Returns false when a game callback dropped the connection, which must then not be touched again. The
 // entries are the game's own list, held apart from ours, so a record is looked up for each one as it comes.
-bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &constructed, DataStructures::List<Replica3 *> &replicasToSerialize, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time)
+bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &constructed, std::vector<Replica3 *> &replicasToSerialize, SerializeParameters &sp, RakPeerInterface *rakPeer, WorldId worldId, ReplicaManager3 *replicaManager, MafiaNet::Time time)
 {
-	for (unsigned int i = 0; i < replicasToSerialize.Size(); i++)
+	for (unsigned int i = 0; i < replicasToSerialize.size(); i++)
 	{
 		bool held;
-		const unsigned int recordIndex = constructed.GetIndexFromKey(replicasToSerialize[i], &held);
+		const unsigned int recordIndex = FindConstructed(constructed, replicasToSerialize[i], &held);
 		if (!held)
 			continue;
 		LastSerializationResult *lsr = constructed[recordIndex];
@@ -1451,7 +1481,7 @@ bool ServeOwnSerializeList(Connection_RM3 *connection, const ConstructedList &co
 
 struct ParallelSerializeContext
 {
-	DataStructures::List<Connection_RM3 *> *connections;
+	std::vector<Connection_RM3 *> *connections;
 	RakPeerInterface *rakPeer;
 	WorldId worldId;
 	ReplicaManager3 *replicaManager;
@@ -1467,10 +1497,10 @@ void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, Maf
 	sp.messageTimestamp = 0;
 	for (int i = 0; i < RM3_NUM_OUTPUT_BITSTREAM_CHANNELS; i++)
 		sp.pro[i] = defaultSendParameters;
-	DataStructures::List<Replica3 *> replicasToSerialize;
+	std::vector<Replica3 *> replicasToSerialize;
 	// By index into the live list, starting over (past what was served) when a game callback changed it.
 	uint32_t generation = membershipGeneration;
-	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	for (unsigned int index = 0; index < world->connectionList.size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->servedPass == serializePass)
@@ -1478,7 +1508,7 @@ void ReplicaManager3::SerializeConnections(RM3World *world, WorldId worldId, Maf
 		ConnectionLockHolder connectionLock(LockConnection(connection));
 		connection->servedPass = serializePass;
 		sp.bitsWrittenSoFar = 0;
-		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
+		replicasToSerialize.clear();
 		if (connection->QuerySerializationList(replicasToSerialize))
 			ServeOwnSerializeList(connection, connection->constructedReplicaList, replicasToSerialize, sp, GetRakPeerInterface(), worldId, this, time);
 		else
@@ -1502,16 +1532,16 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 	// 1. Connections that choose their own list are served now, on this thread, as without an executor.
 	// Game callbacks run throughout steps 1 to 3 and may drop connections, so nothing here holds one
 	// across them: every loop reads the live list by index.
-	DataStructures::List<Replica3 *> replicasToSerialize;
+	std::vector<Replica3 *> replicasToSerialize;
 	uint32_t generation = membershipGeneration;
-	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	for (unsigned int index = 0; index < world->connectionList.size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->listQueriedPass == serializePass)
 			continue;
 		ConnectionLockHolder connectionLock(LockConnection(connection));
 		connection->listQueriedPass = serializePass;
-		replicasToSerialize.Clear(true, _FILE_AND_LINE_);
+		replicasToSerialize.clear();
 		connection->ownSerializationListPass = 0;
 		if (connection->QuerySerializationList(replicasToSerialize))
 		{
@@ -1528,14 +1558,14 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 
 	// 2. A broadcast is serialized only once some connection holding it asks for it this pass, as on one
 	// thread: serialized for nobody, its new bytes would count as sent and never reach anyone.
-	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	for (unsigned int index = 0; index < world->connectionList.size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->ownSerializationListPass == serializePass)
 			continue;
 		ConnectionLockHolder connectionLock(LockConnection(connection));
-		const DataStructures::List<LastSerializationResult *> &list = connection->queryToSerializeReplicaList;
-		for (unsigned int i = 0; i < list.Size(); i++)
+		const std::vector<LastSerializationResult *> &list = connection->queryToSerializeReplicaList;
+		for (unsigned int i = 0; i < list.size(); i++)
 		{
 			Replica3 *replica = list[i]->replica;
 			if (replica->broadcastsIdentically && replica->neededPass != serializePass && replica->GetNetworkID() != UNASSIGNED_NETWORK_ID && replica->QuerySerialization(connection) == RM3QSR_CALL_SERIALIZE)
@@ -1553,7 +1583,7 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 	// 3. Each of them serialized once, here, before any worker reads it. Only these are the workers'
 	// share: a broadcast prepared later, by the first connection to reach it in step 6, is served there
 	// to every connection.
-	for (unsigned int index = 0; index < world->userReplicaList.Size(); index++)
+	for (unsigned int index = 0; index < world->userReplicaList.size(); index++)
 	{
 		Replica3 *replica = world->userReplicaList[index];
 		if (replica->neededPass != serializePass)
@@ -1572,11 +1602,11 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 
 	// 4. The connections the workers serve, taken after every callback of steps 1 to 3 has run. While they
 	// run, nothing may add or drop one (see SetSerializeExecutor).
-	parallelConnections.Clear(true, _FILE_AND_LINE_);
-	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	parallelConnections.clear();
+	for (unsigned int index = 0; index < world->connectionList.size(); index++)
 	{
 		if (world->connectionList[index]->ownSerializationListPass != serializePass)
-			parallelConnections.Push(world->connectionList[index], _FILE_AND_LINE_);
+			parallelConnections.push_back(world->connectionList[index]);
 	}
 
 	// 5. Their share, in parallel.
@@ -1587,11 +1617,11 @@ void ReplicaManager3::SerializeConnectionsParallel(RM3World *world, WorldId worl
 	context.replicaManager = this;
 	context.time = time;
 	context.pass = serializePass;
-	serializeExecutor->ParallelFor(parallelConnections.Size(), &ReplicaManager3::ServePreparedBroadcasts, &context);
-	parallelConnections.Clear(true, _FILE_AND_LINE_);
+	serializeExecutor->ParallelFor((unsigned int) parallelConnections.size(), &ReplicaManager3::ServePreparedBroadcasts, &context);
+	parallelConnections.clear();
 
 	// 6. The rest, per connection, on this thread, from the live list again.
-	for (unsigned int index = 0; index < world->connectionList.Size(); index++)
+	for (unsigned int index = 0; index < world->connectionList.size(); index++)
 	{
 		Connection_RM3 *connection = world->connectionList[index];
 		if (connection->ownSerializationListPass == serializePass || connection->servedPass == serializePass)
@@ -1715,13 +1745,13 @@ void ReplicaManager3::OnRakPeerShutdown(void)
 		RM3World *world;
 		unsigned int index3;
 		std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
-		for (index3 = 0; index3 < worldsList.Size(); index3++)
+		for (index3 = 0; index3 < worldsList.size(); index3++)
 		{
 			world = worldsList[index3];
 
-			while (world->connectionList.Size())
+			while (world->connectionList.size())
 			{
-				Connection_RM3 *connection = PopConnection(world->connectionList.Size() - 1, world->worldId);
+				Connection_RM3 *connection = PopConnection((unsigned int) (world->connectionList.size() - 1), world->worldId);
 				if (connection)
 					DeallocConnection(connection);
 			}
@@ -1765,7 +1795,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 	}
 	if (connection->groupConstructionAndSerialize)
 	{
-		connection->downloadGroup.Push(packet, __FILE__, __LINE__);
+		connection->downloadGroup.push_back(packet);
 		return RR_STOP_PROCESSING;
 	}
 
@@ -1778,8 +1808,8 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 	RakNetGUID creatingSystemGuid;
 	bool actuallyCreateObject = false;
 
-	DataStructures::List<bool> actuallyCreateObjectList;
-	DataStructures::List<Replica3 *> constructionTickStack;
+	std::vector<bool> actuallyCreateObjectList;
+	std::vector<Replica3 *> constructionTickStack;
 
 	RakAssert(world->networkIDManager);
 
@@ -1790,7 +1820,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 		bsIn.Read(networkId);
 		Replica3 *existingReplica = world->networkIDManager->GET_OBJECT_FROM_ID<Replica3 *>(networkId);
 		bsIn.Read(actuallyCreateObject);
-		actuallyCreateObjectList.Push(actuallyCreateObject, _FILE_AND_LINE_);
+		actuallyCreateObjectList.push_back(actuallyCreateObject);
 		bsIn.AlignReadToByteBoundary();
 
 		if (actuallyCreateObject)
@@ -1806,7 +1836,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 				// Network ID already in use
 				connection->OnDownloadExisting(existingReplica, this);
 
-				constructionTickStack.Push(0, _FILE_AND_LINE_);
+				constructionTickStack.push_back(0);
 				bsIn.SetReadOffset(streamEnd);
 				continue;
 			}
@@ -1815,7 +1845,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 			replica = connection->AllocReplica(&bsIn, this);
 			if (replica == 0)
 			{
-				constructionTickStack.Push(0, _FILE_AND_LINE_);
+				constructionTickStack.push_back(0);
 				bsIn.SetReadOffset(streamEnd);
 				continue;
 			}
@@ -1835,11 +1865,11 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 			{
 				DeallocReplicaNoBroadcastDestruction(connection, replica);
 				bsIn.SetReadOffset(streamEnd);
-				constructionTickStack.Push(0, _FILE_AND_LINE_);
+				constructionTickStack.push_back(0);
 				continue;
 			}
 
-			constructionTickStack.Push(replica, _FILE_AND_LINE_);
+			constructionTickStack.push_back(replica);
 
 			// Register the replica
 			ReferenceInternal(replica, worldId);
@@ -1849,11 +1879,11 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 			if (existingReplica)
 			{
 				existingReplica->DeserializeConstructionExisting(&bsIn, connection);
-				constructionTickStack.Push(existingReplica, _FILE_AND_LINE_);
+				constructionTickStack.push_back(existingReplica);
 			}
 			else
 			{
-				constructionTickStack.Push(0, _FILE_AND_LINE_);
+				constructionTickStack.push_back(0);
 			}
 		}
 
@@ -1862,8 +1892,8 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 		bsIn.AlignReadToByteBoundary();
 	}
 
-	RakAssert(constructionTickStack.Size() == constructionObjectListSize);
-	RakAssert(actuallyCreateObjectList.Size() == constructionObjectListSize);
+	RakAssert(constructionTickStack.size() == constructionObjectListSize);
+	RakAssert(actuallyCreateObjectList.size() == constructionObjectListSize);
 
 	MafiaNet::BitStream empty;
 	for (index = 0; index < constructionObjectListSize; index++)
@@ -1907,7 +1937,7 @@ PluginReceiveResult ReplicaManager3::OnConstruction(Packet *packet, unsigned cha
 				// Tell the connection(s) that this object exists since they just sent it to us
 				connection->OnDownloadFromThisSystem(constructionTickStack[index], this);
 
-				for (index2 = 0; index2 < world->connectionList.Size(); index2++)
+				for (index2 = 0; index2 < world->connectionList.size(); index2++)
 				{
 					if (world->connectionList[index2] != connection)
 						world->connectionList[index2]->OnDownloadFromOtherSystem(constructionTickStack[index], this);
@@ -1968,7 +1998,7 @@ PluginReceiveResult ReplicaManager3::OnSerialize(Packet *packet, unsigned char *
 		return RR_CONTINUE_PROCESSING;
 	if (connection->groupConstructionAndSerialize)
 	{
-		connection->downloadGroup.Push(packet, __FILE__, __LINE__);
+		connection->downloadGroup.push_back(packet);
 		return RR_STOP_PROCESSING;
 	}
 
@@ -2027,8 +2057,8 @@ PluginReceiveResult ReplicaManager3::OnDownloadStarted(Packet *packet, unsigned 
 	{
 		// These messages will be held by the plugin and returned when the download is complete
 		connection->groupConstructionAndSerialize = true;
-		RakAssert(connection->downloadGroup.Size() == 0);
-		connection->downloadGroup.Push(packet, __FILE__, __LINE__);
+		RakAssert(connection->downloadGroup.size() == 0);
+		connection->downloadGroup.push_back(packet);
 		return RR_STOP_PROCESSING;
 	}
 
@@ -2049,16 +2079,16 @@ PluginReceiveResult ReplicaManager3::OnDownloadComplete(Packet *packet, unsigned
 	if (connection == 0)
 		return RR_CONTINUE_PROCESSING;
 
-	if (connection->groupConstructionAndSerialize == true && connection->downloadGroup.Size() > 0)
+	if (connection->groupConstructionAndSerialize == true && connection->downloadGroup.size() > 0)
 	{
 		// Push back buffered packets in front of this one
 		unsigned int i;
-		for (i = 0; i < connection->downloadGroup.Size(); i++)
+		for (i = 0; i < connection->downloadGroup.size(); i++)
 			rakPeerInterface->PushBackPacket(connection->downloadGroup[i], false);
 
 		// Push this one to be last too. It will be processed again, but the second time
 		// groupConstructionAndSerialize will be false and downloadGroup will be empty, so it will go past this block
-		connection->downloadGroup.Clear(__FILE__, __LINE__);
+		connection->downloadGroup.clear();
 		rakPeerInterface->PushBackPacket(packet, false);
 
 		return RR_STOP_PROCESSING;
@@ -2078,7 +2108,7 @@ Replica3 *ReplicaManager3::GetReplicaByNetworkID(NetworkID networkId, WorldId wo
 	RM3World *world = worldsArray[worldId];
 
 	unsigned int i;
-	for (i = 0; i < world->userReplicaList.Size(); i++)
+	for (i = 0; i < world->userReplicaList.size(); i++)
 	{
 		if (world->userReplicaList[i]->GetNetworkID() == networkId)
 			return world->userReplicaList[i];
@@ -2090,7 +2120,7 @@ Replica3 *ReplicaManager3::GetReplicaByNetworkID(NetworkID networkId, WorldId wo
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-void ReplicaManager3::BroadcastDestructionList(DataStructures::List<Replica3 *> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId)
+void ReplicaManager3::BroadcastDestructionList(std::vector<Replica3 *> &replicaListSource, const SystemAddress &exclusionAddress, WorldId worldId)
 {
 	MafiaNet::BitStream bsOut;
 	unsigned int i, j;
@@ -2099,25 +2129,25 @@ void ReplicaManager3::BroadcastDestructionList(DataStructures::List<Replica3 *> 
 	RakAssert(worldsArray[worldId] != 0 && "World not in use");
 	RM3World *world = worldsArray[worldId];
 
-	DataStructures::List<Replica3 *> replicaList;
+	std::vector<Replica3 *> replicaList;
 
-	for (i = 0; i < replicaListSource.Size(); i++)
+	for (i = 0; i < replicaListSource.size(); i++)
 	{
 		if (replicaListSource[i] == currentlyDeallocatingReplica)
 			continue;
-		replicaList.Push(replicaListSource[i], __FILE__, __LINE__);
+		replicaList.push_back(replicaListSource[i]);
 	}
 
-	if (replicaList.Size() == 0)
+	if (replicaList.size() == 0)
 		return;
 
-	for (i = 0; i < replicaList.Size(); i++)
+	for (i = 0; i < replicaList.size(); i++)
 	{
 		if (replicaList[i]->deletingSystemGUID == UNASSIGNED_RAKNET_GUID)
 			replicaList[i]->deletingSystemGUID = GetRakPeerInterface()->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 	}
 
-	for (j = 0; j < world->connectionList.Size(); j++)
+	for (j = 0; j < world->connectionList.size(); j++)
 	{
 		if (world->connectionList[j]->GetSystemAddress() == exclusionAddress)
 			continue;
@@ -2127,13 +2157,13 @@ void ReplicaManager3::BroadcastDestructionList(DataStructures::List<Replica3 *> 
 		bsOut.Write(worldId);
 		uint16_t cnt = 0;
 		bsOut.Write(cnt); // No construction
-		cnt = (uint16_t) replicaList.Size();
+		cnt = (uint16_t) replicaList.size();
 		BitSize_t cntOffset = bsOut.GetWriteOffset();
 		;
 		bsOut.Write(cnt); // Overwritten at send call
 		cnt = 0;
 
-		for (i = 0; i < replicaList.Size(); i++)
+		for (i = 0; i < replicaList.size(); i++)
 		{
 			if (world->connectionList[j]->HasReplicaConstructed(replicaList[i]) == false)
 				continue;
@@ -2170,8 +2200,8 @@ void ReplicaManager3::BroadcastDestructionList(DataStructures::List<Replica3 *> 
 
 void ReplicaManager3::BroadcastDestruction(Replica3 *replica, const SystemAddress &exclusionAddress)
 {
-	DataStructures::List<Replica3 *> replicaList;
-	replicaList.Push(replica, _FILE_AND_LINE_);
+	std::vector<Replica3 *> replicaList;
+	replicaList.push_back(replica);
 	BroadcastDestructionList(replicaList, exclusionAddress);
 }
 
@@ -2199,9 +2229,9 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 Connection_RM3::~Connection_RM3()
 {
 	unsigned int i;
-	for (i = 0; i < constructedReplicaList.Size(); i++)
+	for (i = 0; i < constructedReplicaList.size(); i++)
 		delete constructedReplicaList[i];
-	for (i = 0; i < queryToConstructReplicaList.Size(); i++)
+	for (i = 0; i < queryToConstructReplicaList.size(); i++)
 		delete queryToConstructReplicaList[i];
 	if (lock)
 		DropConnectionLock(lock);
@@ -2209,13 +2239,13 @@ Connection_RM3::~Connection_RM3()
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::GetConstructedReplicas(DataStructures::List<Replica3 *> &objectsTheyDoHave)
+void Connection_RM3::GetConstructedReplicas(std::vector<Replica3 *> &objectsTheyDoHave)
 {
-	objectsTheyDoHave.Clear(true, _FILE_AND_LINE_);
+	objectsTheyDoHave.clear();
 	std::lock_guard<std::mutex> constructedLock(lock->constructed);
-	for (unsigned int idx = 0; idx < constructedReplicaList.Size(); idx++)
+	for (unsigned int idx = 0; idx < constructedReplicaList.size(); idx++)
 	{
-		objectsTheyDoHave.Push(constructedReplicaList[idx]->replica, _FILE_AND_LINE_);
+		objectsTheyDoHave.push_back(constructedReplicaList[idx]->replica);
 	}
 }
 
@@ -2225,7 +2255,7 @@ bool Connection_RM3::HasReplicaConstructed(MafiaNet::Replica3 *replica)
 {
 	bool objectExists;
 	std::lock_guard<std::mutex> constructedLock(lock->constructed);
-	constructedReplicaList.GetIndexFromKey(replica, &objectExists);
+	FindConstructed(constructedReplicaList, replica, &objectExists);
 	return objectExists;
 }
 
@@ -2247,9 +2277,9 @@ void Connection_RM3::SendSerializeHeader(MafiaNet::Replica3 *replica, MafiaNet::
 void Connection_RM3::ClearDownloadGroup(RakPeerInterface *rakPeerInterface)
 {
 	unsigned int i;
-	for (i = 0; i < downloadGroup.Size(); i++)
+	for (i = 0; i < downloadGroup.size(); i++)
 		rakPeerInterface->DeallocatePacket(downloadGroup[i]);
-	downloadGroup.Clear(__FILE__, __LINE__);
+	downloadGroup.clear();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 SendSerializeIfChangedResult Connection_RM3::SendSerialize(MafiaNet::Replica3 *replica, bool indicesToSend[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::BitStream serializationData[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], MafiaNet::Time timestamp, PRO sendParameters[RM3_NUM_OUTPUT_BITSTREAM_CHANNELS], RakPeerInterface *rakPeer, unsigned char worldId, MafiaNet::Time curTime)
@@ -2511,7 +2541,7 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 	(void) curConstructionMode;
 
 #ifdef _DEBUG
-	for (unsigned int i = 0; i < queryToConstructReplicaList.Size(); i++)
+	for (unsigned int i = 0; i < queryToConstructReplicaList.size(); i++)
 	{
 		if (queryToConstructReplicaList[i]->replica == replica3)
 		{
@@ -2519,7 +2549,9 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 		}
 	}
 
-	if (constructedReplicaList.HasData(replica3) == true)
+	bool alreadyConstructed;
+	FindConstructed(constructedReplicaList, replica3, &alreadyConstructed);
+	if (alreadyConstructed)
 	{
 		RakAssert("replica added to queryToConstructReplicaList when already in constructedReplicaList" && 0);
 	}
@@ -2527,7 +2559,7 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 
 	LastSerializationResult *lsr = new LastSerializationResult;
 	lsr->replica = replica3;
-	queryToConstructReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToConstructReplicaList.push_back(lsr);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2543,42 +2575,42 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 	unsigned int idx;
 
 	bool objectExists;
-	idx = constructedReplicaList.GetIndexFromKey(replica3, &objectExists);
+	idx = FindConstructed(constructedReplicaList, replica3, &objectExists);
 	if (objectExists)
 	{
 		lsr = constructedReplicaList[idx];
 		{
 			std::lock_guard<std::mutex> constructedLock(lock->constructed);
-			constructedReplicaList.RemoveAtIndex(idx);
+			constructedReplicaList.erase(constructedReplicaList.begin() + idx);
 		}
 	}
 
-	for (idx = 0; idx < queryToConstructReplicaList.Size(); idx++)
+	for (idx = 0; idx < queryToConstructReplicaList.size(); idx++)
 	{
 		if (queryToConstructReplicaList[idx]->replica == replica3)
 		{
 			lsr = queryToConstructReplicaList[idx];
-			queryToConstructReplicaList.RemoveAtIndex(idx);
+			queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + idx);
 			break;
 		}
 	}
 
-	for (idx = 0; idx < queryToSerializeReplicaList.Size(); idx++)
+	for (idx = 0; idx < queryToSerializeReplicaList.size(); idx++)
 	{
 		if (queryToSerializeReplicaList[idx]->replica == replica3)
 		{
 			lsr = queryToSerializeReplicaList[idx];
-			queryToSerializeReplicaList.RemoveAtIndex(idx);
+			queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + idx);
 			break;
 		}
 	}
 
-	for (idx = 0; idx < queryToDestructReplicaList.Size(); idx++)
+	for (idx = 0; idx < queryToDestructReplicaList.size(); idx++)
 	{
 		if (queryToDestructReplicaList[idx]->replica == replica3)
 		{
 			lsr = queryToDestructReplicaList[idx];
-			queryToDestructReplicaList.RemoveAtIndex(idx);
+			queryToDestructReplicaList.erase(queryToDestructReplicaList.begin() + idx);
 			break;
 		}
 	}
@@ -2605,27 +2637,27 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
 	{
 		unsigned int j;
-		for (j = 0; j < queryToConstructReplicaList.Size(); j++)
+		for (j = 0; j < queryToConstructReplicaList.size(); j++)
 		{
 			if (queryToConstructReplicaList[j]->replica == replica3)
 			{
-				queryToConstructReplicaList.RemoveAtIndex(j);
+				queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + j);
 				break;
 			}
 		}
 
-		queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
+		queryToDestructReplicaList.push_back(lsr);
 	}
 
 	unsigned int insertedAt;
 	{
 		std::lock_guard<std::mutex> constructedLock(lock->constructed);
-		insertedAt = constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+		insertedAt = InsertConstructed(constructedReplicaList, lsr->replica, lsr);
 	}
 	if (insertedAt != (unsigned) -1)
 	{
 		//assert(queryToSerializeReplicaList.GetIndexOf(replica3)==(unsigned int)-1);
-		queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
+		queryToSerializeReplicaList.push_back(lsr);
 	}
 
 	ValidateLists(replicaManager);
@@ -2639,7 +2671,7 @@ void Connection_RM3::OnDownloadFromOtherSystem(Replica3 *replica3, ReplicaManage
 	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
 	{
 		unsigned int j;
-		for (j = 0; j < queryToConstructReplicaList.Size(); j++)
+		for (j = 0; j < queryToConstructReplicaList.size(); j++)
 		{
 			if (queryToConstructReplicaList[j]->replica == replica3)
 			{
@@ -2661,7 +2693,7 @@ void Connection_RM3::OnNeverConstruct(unsigned int queryToConstructIdx, ReplicaM
 
 	ValidateLists(replicaManager);
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
-	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
+	queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + queryToConstructIdx);
 	delete lsr;
 	ValidateLists(replicaManager);
 }
@@ -2676,16 +2708,16 @@ void Connection_RM3::OnConstructToThisConnection(unsigned int queryToConstructId
 
 	ValidateLists(replicaManager);
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
-	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
+	queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + queryToConstructIdx);
 	//assert(constructedReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	{
 		std::lock_guard<std::mutex> constructedLock(lock->constructed);
-		constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+		InsertConstructed(constructedReplicaList, lsr->replica, lsr);
 	}
 	//assert(queryToDestructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToDestructReplicaList.push_back(lsr);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToSerializeReplicaList.push_back(lsr);
 	ValidateLists(replicaManager);
 }
 
@@ -2701,9 +2733,9 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 	lsr->replica = replica;
 	{
 		std::lock_guard<std::mutex> constructedLock(lock->constructed);
-		constructedReplicaList.Insert(replica, lsr, true, _FILE_AND_LINE_);
+		InsertConstructed(constructedReplicaList, replica, lsr);
 	}
-	queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToSerializeReplicaList.push_back(lsr);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2713,11 +2745,11 @@ void Connection_RM3::OnNeverSerialize(LastSerializationResult *lsr, ReplicaManag
 	ValidateLists(replicaManager);
 
 	unsigned int j;
-	for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
+	for (j = 0; j < queryToSerializeReplicaList.size(); j++)
 	{
 		if (queryToSerializeReplicaList[j] == lsr)
 		{
-			queryToSerializeReplicaList.RemoveAtIndex(j);
+			queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + j);
 			break;
 		}
 	}
@@ -2735,16 +2767,16 @@ void Connection_RM3::OnReplicaAlreadyExists(unsigned int queryToConstructIdx, Re
 
 	ValidateLists(replicaManager);
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
-	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
+	queryToConstructReplicaList.erase(queryToConstructReplicaList.begin() + queryToConstructIdx);
 	//assert(constructedReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
 	{
 		std::lock_guard<std::mutex> constructedLock(lock->constructed);
-		constructedReplicaList.Insert(lsr->replica, lsr, true, _FILE_AND_LINE_);
+		InsertConstructed(constructedReplicaList, lsr->replica, lsr);
 	}
 	//assert(queryToDestructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	queryToDestructReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToDestructReplicaList.push_back(lsr);
 	//assert(queryToSerializeReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	queryToSerializeReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToSerializeReplicaList.push_back(lsr);
 	ValidateLists(replicaManager);
 }
 
@@ -2758,7 +2790,7 @@ void Connection_RM3::OnDownloadExisting(Replica3 *replica3, ReplicaManager3 *rep
 	if (curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION || curConstructionMode == QUERY_REPLICA_FOR_CONSTRUCTION_AND_DESTRUCTION)
 	{
 		unsigned int idx;
-		for (idx = 0; idx < queryToConstructReplicaList.Size(); idx++)
+		for (idx = 0; idx < queryToConstructReplicaList.size(); idx++)
 		{
 			if (queryToConstructReplicaList[idx]->replica == replica3)
 			{
@@ -2782,29 +2814,29 @@ void Connection_RM3::OnSendDestructionFromQuery(unsigned int queryToDestructIdx,
 
 	ValidateLists(replicaManager);
 	LastSerializationResult *lsr = queryToDestructReplicaList[queryToDestructIdx];
-	queryToDestructReplicaList.RemoveAtIndex(queryToDestructIdx);
+	queryToDestructReplicaList.erase(queryToDestructReplicaList.begin() + queryToDestructIdx);
 	unsigned int j;
-	for (j = 0; j < queryToSerializeReplicaList.Size(); j++)
+	for (j = 0; j < queryToSerializeReplicaList.size(); j++)
 	{
 		if (queryToSerializeReplicaList[j]->replica == lsr->replica)
 		{
-			queryToSerializeReplicaList.RemoveAtIndex(j);
+			queryToSerializeReplicaList.erase(queryToSerializeReplicaList.begin() + j);
 			break;
 		}
 	}
-	for (j = 0; j < constructedReplicaList.Size(); j++)
+	for (j = 0; j < constructedReplicaList.size(); j++)
 	{
 		if (constructedReplicaList[j]->replica == lsr->replica)
 		{
 			{
 				std::lock_guard<std::mutex> constructedLock(lock->constructed);
-				constructedReplicaList.RemoveAtIndex(j);
+				constructedReplicaList.erase(constructedReplicaList.begin() + j);
 			}
 			break;
 		}
 	}
 	//assert(queryToConstructReplicaList.GetIndexOf(lsr->replica)==(unsigned int)-1);
-	queryToConstructReplicaList.Push(lsr, _FILE_AND_LINE_);
+	queryToConstructReplicaList.push_back(lsr);
 	ValidateLists(replicaManager);
 }
 
@@ -2813,7 +2845,7 @@ void Connection_RM3::OnSendDestructionFromQuery(unsigned int queryToDestructIdx,
 void Connection_RM3::OnDoNotQueryDestruction(unsigned int queryToDestructIdx, ReplicaManager3 *replicaManager)
 {
 	ValidateLists(replicaManager);
-	queryToDestructReplicaList.RemoveAtIndex(queryToDestructIdx);
+	queryToDestructReplicaList.erase(queryToDestructReplicaList.begin() + queryToDestructIdx);
 	ValidateLists(replicaManager);
 }
 
@@ -2827,7 +2859,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 	// Each object should exist only once in either constructedReplicaList or queryToConstructReplicaList
 	// replicaPointer from LastSerializationResult should be same among all lists
 	unsigned int idx, idx2;
-	for (idx=0; idx < constructedReplicaList.Size(); idx++)
+	for (idx=0; idx < constructedReplicaList.size(); idx++)
 	{
 		idx2=queryToConstructReplicaList.GetIndexOf(constructedReplicaList[idx]->replica);
 		if (idx2!=(unsigned int)-1)
@@ -2839,7 +2871,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 		}
 	}
 
-	for (idx=0; idx < queryToConstructReplicaList.Size(); idx++)
+	for (idx=0; idx < queryToConstructReplicaList.size(); idx++)
 	{
 		idx2=constructedReplicaList.GetIndexOf(queryToConstructReplicaList[idx]->replica);
 		if (idx2!=(unsigned int)-1)
@@ -2852,7 +2884,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 	}
 
 	LastSerializationResult *lsr, *lsr2;
-	for (idx=0; idx < constructedReplicaList.Size(); idx++)
+	for (idx=0; idx < constructedReplicaList.size(); idx++)
 	{
 		lsr=constructedReplicaList[idx];
 
@@ -2882,7 +2914,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 			}
 		}
 	}
-	for (idx=0; idx < queryToConstructReplicaList.Size(); idx++)
+	for (idx=0; idx < queryToConstructReplicaList.size(); idx++)
 	{
 		lsr=queryToConstructReplicaList[idx];
 
@@ -2914,7 +2946,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 	}
 
 	// Verify pointer integrity
-	for (idx=0; idx < constructedReplicaList.Size(); idx++)
+	for (idx=0; idx < constructedReplicaList.size(); idx++)
 	{
 		if (constructedReplicaList[idx]->replica->replicaManager!=replicaManager)
 		{
@@ -2926,7 +2958,7 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 	}
 
 	// Verify pointer integrity
-	for (idx=0; idx < queryToConstructReplicaList.Size(); idx++)
+	for (idx=0; idx < queryToConstructReplicaList.size(); idx++)
 	{
 		if (queryToConstructReplicaList[idx]->replica->replicaManager!=replicaManager)
 		{
@@ -2941,14 +2973,14 @@ void Connection_RM3::ValidateLists(ReplicaManager3 *replicaManager) const
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void Connection_RM3::SendConstruction(DataStructures::List<Replica3 *> &newObjects, DataStructures::List<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3)
+void Connection_RM3::SendConstruction(std::vector<Replica3 *> &newObjects, std::vector<Replica3 *> &deletedObjects, PRO sendParameters, MafiaNet::RakPeerInterface *rakPeer, unsigned char worldId, ReplicaManager3 *replicaManager3)
 {
-	if (newObjects.Size() == 0 && deletedObjects.Size() == 0)
+	if (newObjects.size() == 0 && deletedObjects.size() == 0)
 		return;
 
 	// All construction and destruction takes place in the same network message
 	// Otherwise, if objects rely on each other being created the same tick to be valid, this won't always be true
-	//	DataStructures::List<LastSerializationResult* > serializedObjects;
+	//	std::vector<LastSerializationResult* > serializedObjects;
 	BitSize_t offsetStart, offsetStart2, offsetEnd;
 	unsigned int newListIndex, oldListIndex;
 	MafiaNet::BitStream bsOut;
@@ -2965,11 +2997,11 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3 *> &newObjec
 	bsOut.Reset();
 	bsOut.Write((MessageID) ID_REPLICA_MANAGER_CONSTRUCTION);
 	bsOut.Write(worldId);
-	uint16_t objectSize = (uint16_t) newObjects.Size();
+	uint16_t objectSize = (uint16_t) newObjects.size();
 	bsOut.Write(objectSize);
 
 	// Construction
-	for (newListIndex = 0; newListIndex < newObjects.Size(); newListIndex++)
+	for (newListIndex = 0; newListIndex < newObjects.size(); newListIndex++)
 	{
 		offsetStart = bsOut.GetWriteOffset();
 		bsOut.Write(offsetStart); // overwritten to point to the end of the stream
@@ -3009,7 +3041,7 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3 *> &newObjec
 	}
 
 	MafiaNet::BitStream bsOut2;
-	for (newListIndex = 0; newListIndex < newObjects.Size(); newListIndex++)
+	for (newListIndex = 0; newListIndex < newObjects.size(); newListIndex++)
 	{
 		bsOut2.Reset();
 		RM3ConstructionState cs = newObjects[newListIndex]->QueryConstruction(this, replicaManager3);
@@ -3044,9 +3076,9 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3 *> &newObjec
 	bsOut.AlignWriteToByteBoundary();
 
 	// Destruction
-	objectSize = (uint16_t) deletedObjects.Size();
+	objectSize = (uint16_t) deletedObjects.size();
 	bsOut.Write(objectSize);
-	for (oldListIndex = 0; oldListIndex < deletedObjects.Size(); oldListIndex++)
+	for (oldListIndex = 0; oldListIndex < deletedObjects.size(); oldListIndex++)
 	{
 		networkId = deletedObjects[oldListIndex]->GetNetworkID();
 		bsOut.Write(networkId);
@@ -3080,7 +3112,7 @@ void Connection_RM3::SendConstruction(DataStructures::List<Replica3 *> &newObjec
 
 	sp.bitsWrittenSoFar = 0;
 	//	MafiaNet::Time t = MafiaNet::GetTimeMS();
-	for (newListIndex = 0; newListIndex < newObjects.Size(); newListIndex++)
+	for (newListIndex = 0; newListIndex < newObjects.size(); newListIndex++)
 	{
 		sp.destinationConnection = this;
 		sp.messageTimestamp = 0;

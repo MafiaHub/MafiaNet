@@ -26,6 +26,7 @@
 #include "mafianet/socket_defines.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+#include "mafianet/vector_util.h"
 
 // #define NTDS_VERBOSE
 
@@ -98,10 +99,7 @@ void NatTypeDetectionServer::Shutdown()
 		delete s4p5;
 		s4p5 = 0;
 	}
-	bufferedPacketsMutex.Lock();
-	while (bufferedPackets.Size())
-		delete bufferedPackets.Pop();
-	bufferedPacketsMutex.Unlock();
+	bufferedPackets.Clear();
 }
 void NatTypeDetectionServer::Update(void)
 {
@@ -111,12 +109,9 @@ void NatTypeDetectionServer::Update(void)
 	SystemAddress boundAddress;
 
 	RNS2RecvStruct *recvStruct;
-	bufferedPacketsMutex.Lock();
-	if (bufferedPackets.Size() > 0)
-		recvStruct = bufferedPackets.Pop();
-	else
-		recvStruct = 0;
-	bufferedPacketsMutex.Unlock();
+	recvStruct = 0;
+	if (auto popped = bufferedPackets.TryPop())
+		recvStruct = popped->release();
 	while (recvStruct)
 	{
 		SystemAddress senderAddr = recvStruct->systemAddress;
@@ -157,7 +152,7 @@ void NatTypeDetectionServer::Update(void)
 					rakPeerInterface->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, natDetectionAttempts[j].systemAddress, false);
 
 					// Done
-					natDetectionAttempts.RemoveAtIndexFast(j);
+					SwapRemove(natDetectionAttempts, j);
 				}
 				else
 				{
@@ -171,12 +166,9 @@ void NatTypeDetectionServer::Update(void)
 		}
 
 		DeallocRNS2RecvStruct(recvStruct);
-		bufferedPacketsMutex.Lock();
-		if (bufferedPackets.Size() > 0)
-			recvStruct = bufferedPackets.Pop();
-		else
-			recvStruct = 0;
-		bufferedPacketsMutex.Unlock();
+		recvStruct = 0;
+		if (auto popped = bufferedPackets.TryPop())
+			recvStruct = popped->release();
 	}
 
 	/*
@@ -223,7 +215,7 @@ void NatTypeDetectionServer::Update(void)
 				rakPeerInterface->Send(&bs,MafiaNet::Priority::High,MafiaNet::Reliability::Reliable,0,natDetectionAttempts[i].systemAddress,false);
 
 				// Done
-				natDetectionAttempts.RemoveAtIndexFast(i);
+				SwapRemove(natDetectionAttempts, i);
 			}
 			else
 			{
@@ -240,7 +232,7 @@ void NatTypeDetectionServer::Update(void)
 	*/
 
 
-	while (i < (int) natDetectionAttempts.Size())
+	while (i < (int) natDetectionAttempts.size())
 	{
 		if (time > natDetectionAttempts[i].nextStateTime)
 		{
@@ -324,7 +316,7 @@ void NatTypeDetectionServer::Update(void)
 				bs.Write((unsigned char) ID_NAT_TYPE_DETECTION_RESULT);
 				bs.Write((unsigned char) NAT_TYPE_SYMMETRIC);
 				rakPeerInterface->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, natDetectionAttempts[i].systemAddress, false);
-				natDetectionAttempts.RemoveAtIndexFast(i);
+				SwapRemove(natDetectionAttempts, i);
 				i--;
 				break;
 			}
@@ -350,7 +342,7 @@ void NatTypeDetectionServer::OnClosedConnection(const SystemAddress &systemAddre
 	unsigned int i = GetDetectionAttemptIndex(systemAddress);
 	if (i == (unsigned int) -1)
 		return;
-	natDetectionAttempts.RemoveAtIndexFast(i);
+	SwapRemove(natDetectionAttempts, i);
 }
 void NatTypeDetectionServer::OnDetectionRequest(Packet *packet)
 {
@@ -372,19 +364,19 @@ void NatTypeDetectionServer::OnDetectionRequest(Packet *packet)
 		bsIn.Read(nda.c2Port);
 		nda.nextStateTime = 0;
 		nda.timeBetweenAttempts = rakPeerInterface->GetLastPing(nda.systemAddress) * 3 + 50;
-		natDetectionAttempts.Push(nda, _FILE_AND_LINE_);
+		natDetectionAttempts.push_back(nda);
 	}
 	else
 	{
 		if (i == (unsigned int) -1)
 			return; // Unknown
 		// They are done
-		natDetectionAttempts.RemoveAtIndexFast(i);
+		SwapRemove(natDetectionAttempts, i);
 	}
 }
 unsigned int NatTypeDetectionServer::GetDetectionAttemptIndex(const SystemAddress &sa)
 {
-	for (unsigned int i = 0; i < natDetectionAttempts.Size(); i++)
+	for (unsigned int i = 0; i < natDetectionAttempts.size(); i++)
 	{
 		if (natDetectionAttempts[i].systemAddress == sa)
 			return i;
@@ -393,7 +385,7 @@ unsigned int NatTypeDetectionServer::GetDetectionAttemptIndex(const SystemAddres
 }
 unsigned int NatTypeDetectionServer::GetDetectionAttemptIndex(RakNetGUID guid)
 {
-	for (unsigned int i = 0; i < natDetectionAttempts.Size(); i++)
+	for (unsigned int i = 0; i < natDetectionAttempts.size(); i++)
 	{
 		if (natDetectionAttempts[i].guid == guid)
 			return i;
@@ -414,9 +406,8 @@ RNS2RecvStruct *NatTypeDetectionServer::AllocRNS2RecvStruct()
 
 void NatTypeDetectionServer::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 {
-	bufferedPacketsMutex.Lock();
-	bufferedPackets.Push(recvStruct, _FILE_AND_LINE_);
-	bufferedPacketsMutex.Unlock();
+	// Called on the socket's receive thread; Update() drains the queue on the user thread.
+	bufferedPackets.Push(std::unique_ptr<RNS2RecvStruct>(recvStruct));
 }
 
 #endif // _RAKNET_SUPPORT_*

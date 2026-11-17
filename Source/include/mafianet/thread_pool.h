@@ -16,11 +16,16 @@
 #ifndef __THREAD_POOL_H
 #define __THREAD_POOL_H
 
-#include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/export.h"
 #include "mafianet/thread.h"
 #include "mafianet/signaled_event.h"
+
+#include <atomic>
+#include <cstddef>
+#include <deque>
+#include <mutex>
+#include <utility>
 
 class ThreadDataInterface
 {
@@ -40,6 +45,9 @@ struct RAK_DLL_EXPORT ThreadPool
 {
 	ThreadPool();
 	~ThreadPool();
+	// Owns mutexes, atomics and running threads that point back at it.
+	ThreadPool(const ThreadPool &) = delete;
+	ThreadPool &operator=(const ThreadPool &) = delete;
 
 	/// Start the specified number of threads.
 	/// \param[in] numThreads The number of threads to start
@@ -74,7 +82,7 @@ struct RAK_DLL_EXPORT ThreadPool
 	/// \return true if output is waiting, false otherwise
 	bool HasOutput(void);
 
-	/// Inaccurate but fast version of HasOutput.  If this returns true, you should still check HasOutput for the real value.
+	/// Inaccurate but fast version of HasOutput (no lock: reads a count published under the lock).  If this returns true, you should still check HasOutput for the real value.
 	/// \return true if output is probably waiting, false otherwise
 	bool HasOutputFast(void);
 
@@ -82,12 +90,12 @@ struct RAK_DLL_EXPORT ThreadPool
 	/// \return true if input is waiting, false otherwise
 	bool HasInput(void);
 
-	/// Inaccurate but fast version of HasInput.  If this returns true, you should still check HasInput for the real value.
+	/// Inaccurate but fast version of HasInput (no lock: reads a count published under the lock).  If this returns true, you should still check HasInput for the real value.
 	/// \return true if input is probably waiting, false otherwise
 	bool HasInputFast(void);
 
 	/// Gets the output of a call to \a userCallback
-	/// HasOutput must return true before you call this function.  Otherwise it will assert.
+	/// HasOutput must return true before you call this function.  Otherwise it returns a value-initialized OutputType.
 	/// \return The output of \a userCallback.  If you have different output signatures, it is up to you to encode the data to indicate this
 	OutputType GetOutput(void);
 
@@ -150,16 +158,21 @@ struct RAK_DLL_EXPORT ThreadPool
 protected:
 	// It is valid to cancel input before it is processed.  To do so, lock the inputQueue with inputQueueMutex,
 	// Scan the list, and remove the item you don't want.
-	MafiaNet::SimpleMutex inputQueueMutex, outputQueueMutex, workingThreadCountMutex, runThreadsMutex;
+	std::mutex inputQueueMutex, outputQueueMutex;
+	MafiaNet::SimpleMutex workingThreadCountMutex, runThreadsMutex;
 
 	void *(*perThreadDataFactory)();
 	void (*perThreadDataDestructor)(void *);
 
-	// inputFunctionQueue & inputQueue are paired arrays so if you delete from one at a particular index you must delete from the other
-	// at the same index
-	DataStructures::Queue<OutputType (*)(InputType, bool *, void *)> inputFunctionQueue;
-	DataStructures::Queue<InputType> inputQueue;
-	DataStructures::Queue<OutputType> outputQueue;
+	using WorkerCallback = OutputType (*)(InputType, bool *, void *);
+
+	// Guarded by inputQueueMutex: each input with the function to call on it.
+	std::deque<std::pair<WorkerCallback, InputType>> inputQueue;
+	// Guarded by outputQueueMutex.
+	std::deque<OutputType> outputQueue;
+	// inputQueue.size() / outputQueue.size(), stored under the matching mutex after every change, so
+	// HasInputFast / HasOutputFast can poll without the lock and without a data race.
+	std::atomic<std::size_t> inputCount, outputCount;
 
 	ThreadDataInterface *threadDataInterface;
 	void *tdiContext;
@@ -264,22 +277,25 @@ void* WorkerThread( void* arguments )
 
 		// Read input data
 		userCallback = 0;
-		threadPool->inputQueueMutex.Lock();
-		if (threadPool->inputFunctionQueue.Size())
+		threadPool->inputQueueMutex.lock();
+		if (!threadPool->inputQueue.empty())
 		{
-			userCallback = threadPool->inputFunctionQueue.Pop();
-			inputData = threadPool->inputQueue.Pop();
+			userCallback = threadPool->inputQueue.front().first;
+			inputData = threadPool->inputQueue.front().second;
+			threadPool->inputQueue.pop_front();
+			threadPool->inputCount.store(threadPool->inputQueue.size(), std::memory_order_relaxed);
 		}
-		threadPool->inputQueueMutex.Unlock();
+		threadPool->inputQueueMutex.unlock();
 
 		if (userCallback)
 		{
 			callbackOutput = userCallback(inputData, &returnOutput, perThreadData);
 			if (returnOutput)
 			{
-				threadPool->outputQueueMutex.Lock();
-				threadPool->outputQueue.Push(callbackOutput, _FILE_AND_LINE_);
-				threadPool->outputQueueMutex.Unlock();
+				threadPool->outputQueueMutex.lock();
+				threadPool->outputQueue.push_back(callbackOutput);
+				threadPool->outputCount.store(threadPool->outputQueue.size(), std::memory_order_relaxed);
+				threadPool->outputQueueMutex.unlock();
 			}
 		}
 
@@ -288,16 +304,16 @@ void* WorkerThread( void* arguments )
 		threadPool->workingThreadCountMutex.Unlock();
 	}
 
-	// Decrease numThreadsRunning
-	threadPool->numThreadsRunningMutex.Lock();
-	--threadPool->numThreadsRunning;
-	threadPool->numThreadsRunningMutex.Unlock();
-
 	if (threadPool->perThreadDataDestructor)
 		threadPool->perThreadDataDestructor(perThreadData);
 	else if (threadPool->threadDataInterface)
 		threadPool->threadDataInterface->PerThreadDestructor(perThreadData, threadPool->tdiContext);
 
+	// Decrease numThreadsRunning. Last touch of the pool: StopThreads() returns once the count reaches
+	// 0, and the owner may then destroy the pool while this thread is still exiting.
+	threadPool->numThreadsRunningMutex.Lock();
+	--threadPool->numThreadsRunning;
+	threadPool->numThreadsRunningMutex.Unlock();
 
 	return 0;
 }
@@ -307,6 +323,7 @@ void* WorkerThread( void* arguments )
 
 template <class InputType, class OutputType>
 ThreadPool<InputType, OutputType>::ThreadPool()
+    : inputCount(0), outputCount(0)
 {
 	runThreads = false;
 	numThreadsRunning = 0;
@@ -411,122 +428,120 @@ void ThreadPool<InputType, OutputType>::StopThreads(void)
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::AddInput(OutputType (*workerThreadCallback)(InputType, bool *returnOutput, void *perThreadData), InputType inputData)
 {
-	inputQueueMutex.Lock();
-	inputQueue.Push(inputData, _FILE_AND_LINE_);
-	inputFunctionQueue.Push(workerThreadCallback, _FILE_AND_LINE_);
-	inputQueueMutex.Unlock();
+	inputQueueMutex.lock();
+	inputQueue.emplace_back(workerThreadCallback, inputData);
+	inputCount.store(inputQueue.size(), std::memory_order_relaxed);
+	inputQueueMutex.unlock();
 
-	quitAndIncomingDataEvents.SetEvent();
+	// The event is initialized only while the threads run (StartThreads to StopThreads); signalling it
+	// before that used an uninitialized pthread condition (a hang on glibc). Input queued earlier is
+	// picked up when the workers start.
+	if (WasStarted())
+		quitAndIncomingDataEvents.SetEvent();
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::AddOutput(OutputType outputData)
 {
-	outputQueueMutex.Lock();
-	outputQueue.Push(outputData, _FILE_AND_LINE_);
-	outputQueueMutex.Unlock();
+	outputQueueMutex.lock();
+	outputQueue.push_back(outputData);
+	outputCount.store(outputQueue.size(), std::memory_order_relaxed);
+	outputQueueMutex.unlock();
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasOutputFast(void)
 {
-	return outputQueue.IsEmpty() == false;
+	return outputCount.load(std::memory_order_relaxed) != 0;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasOutput(void)
 {
 	bool res;
-	outputQueueMutex.Lock();
-	res = outputQueue.IsEmpty() == false;
-	outputQueueMutex.Unlock();
+	outputQueueMutex.lock();
+	res = !outputQueue.empty();
+	outputQueueMutex.unlock();
 	return res;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasInputFast(void)
 {
-	return inputQueue.IsEmpty() == false;
+	return inputCount.load(std::memory_order_relaxed) != 0;
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::HasInput(void)
 {
 	bool res;
-	inputQueueMutex.Lock();
-	res = inputQueue.IsEmpty() == false;
-	inputQueueMutex.Unlock();
+	inputQueueMutex.lock();
+	res = !inputQueue.empty();
+	inputQueueMutex.unlock();
 	return res;
 }
 template <class InputType, class OutputType>
 OutputType ThreadPool<InputType, OutputType>::GetOutput(void)
 {
 	// Real output check
-	OutputType output;
-	outputQueueMutex.Lock();
-	output = outputQueue.Pop();
-	outputQueueMutex.Unlock();
+	OutputType output{};
+	outputQueueMutex.lock();
+	if (!outputQueue.empty())
+	{
+		output = outputQueue.front();
+		outputQueue.pop_front();
+		outputCount.store(outputQueue.size(), std::memory_order_relaxed);
+	}
+	outputQueueMutex.unlock();
 	return output;
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::Clear(void)
 {
-	runThreadsMutex.Lock();
-	if (runThreads)
-	{
-		runThreadsMutex.Unlock();
-		inputQueueMutex.Lock();
-		inputFunctionQueue.Clear(_FILE_AND_LINE_);
-		inputQueue.Clear(_FILE_AND_LINE_);
-		inputQueueMutex.Unlock();
+	// Always under the queue locks: a stopped pool has no worker left, but taking them is cheap.
+	inputQueueMutex.lock();
+	ClearInput();
+	inputQueueMutex.unlock();
 
-		outputQueueMutex.Lock();
-		outputQueue.Clear(_FILE_AND_LINE_);
-		outputQueueMutex.Unlock();
-	}
-	else
-	{
-		inputFunctionQueue.Clear(_FILE_AND_LINE_);
-		inputQueue.Clear(_FILE_AND_LINE_);
-		outputQueue.Clear(_FILE_AND_LINE_);
-		runThreadsMutex.Unlock();
-	}
+	outputQueueMutex.lock();
+	ClearOutput();
+	outputQueueMutex.unlock();
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::LockInput(void)
 {
-	inputQueueMutex.Lock();
+	inputQueueMutex.lock();
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::UnlockInput(void)
 {
-	inputQueueMutex.Unlock();
+	inputQueueMutex.unlock();
 }
 template <class InputType, class OutputType>
 unsigned ThreadPool<InputType, OutputType>::InputSize(void)
 {
-	return inputQueue.Size();
+	return static_cast<unsigned>(inputQueue.size());
 }
 template <class InputType, class OutputType>
 InputType ThreadPool<InputType, OutputType>::GetInputAtIndex(unsigned index)
 {
-	return inputQueue[index];
+	return inputQueue[index].second;
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::RemoveInputAtIndex(unsigned index)
 {
-	inputQueue.RemoveAtIndex(index);
-	inputFunctionQueue.RemoveAtIndex(index);
+	inputQueue.erase(inputQueue.begin() + index);
+	inputCount.store(inputQueue.size(), std::memory_order_relaxed);
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::LockOutput(void)
 {
-	outputQueueMutex.Lock();
+	outputQueueMutex.lock();
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::UnlockOutput(void)
 {
-	outputQueueMutex.Unlock();
+	outputQueueMutex.unlock();
 }
 template <class InputType, class OutputType>
 unsigned ThreadPool<InputType, OutputType>::OutputSize(void)
 {
-	return outputQueue.Size();
+	return static_cast<unsigned>(outputQueue.size());
 }
 template <class InputType, class OutputType>
 OutputType ThreadPool<InputType, OutputType>::GetOutputAtIndex(unsigned index)
@@ -536,19 +551,21 @@ OutputType ThreadPool<InputType, OutputType>::GetOutputAtIndex(unsigned index)
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::RemoveOutputAtIndex(unsigned index)
 {
-	outputQueue.RemoveAtIndex(index);
+	outputQueue.erase(outputQueue.begin() + index);
+	outputCount.store(outputQueue.size(), std::memory_order_relaxed);
 }
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::ClearInput(void)
 {
-	inputQueue.Clear(_FILE_AND_LINE_);
-	inputFunctionQueue.Clear(_FILE_AND_LINE_);
+	inputQueue.clear();
+	inputCount.store(0, std::memory_order_relaxed);
 }
 
 template <class InputType, class OutputType>
 void ThreadPool<InputType, OutputType>::ClearOutput(void)
 {
-	outputQueue.Clear(_FILE_AND_LINE_);
+	outputQueue.clear();
+	outputCount.store(0, std::memory_order_relaxed);
 }
 template <class InputType, class OutputType>
 bool ThreadPool<InputType, OutputType>::IsWorking(void)

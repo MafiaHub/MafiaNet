@@ -142,10 +142,10 @@ int main()
 			if (ch == ' ')
 			{
 
-				DataStructures::List<RakNetGUID> participantList;
+				std::vector<RakNetGUID> participantList;
 				fcm2.GetParticipantList(participantList);
-				printf("%i participants\n", participantList.Size());
-				// 				for (unsigned i=0; i < participantList.Size(); i++)
+				printf("%i participants\n", (int) participantList.size());
+				// 				for (unsigned i=0; i < participantList.size(); i++)
 				// 				{
 				// 					BitStream userContext;
 				// 					fcm2.GetParticipantContext(participantList[i], &userContext);

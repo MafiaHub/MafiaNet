@@ -33,7 +33,19 @@
 
 #include "mafianet/linux_strings.h"
 
+#include <algorithm>
+
 using namespace MafiaNet;
+
+namespace
+{
+// First command not less than command (case-insensitive): where it is, or would be inserted.
+std::vector<RegisteredCommand>::const_iterator LowerBoundCommand(const std::vector<RegisteredCommand> &commandList, const char *command)
+{
+	return std::lower_bound(commandList.begin(), commandList.end(), command, [](const RegisteredCommand &entry, const char *key)
+	                        { return RegisteredCommandComp(key, entry) > 0; });
+}
+} // namespace
 
 const unsigned char CommandParserInterface::VARIABLE_NUMBER_OF_PARAMETERS = 255;
 
@@ -93,13 +105,12 @@ void CommandParserInterface::ParseConsoleString(char *str, const char delineator
 }
 void CommandParserInterface::SendCommandList(TransportInterface *transport, const SystemAddress &systemAddress)
 {
-	unsigned i;
-	if (commandList.Size())
+	if (!commandList.empty())
 	{
-		for (i = 0; i < commandList.Size(); i++)
+		for (size_t i = 0; i < commandList.size(); i++)
 		{
 			transport->Send(systemAddress, "%s", commandList[i].command);
-			if (i < commandList.Size() - 1)
+			if (i < commandList.size() - 1)
 				transport->Send(systemAddress, ", ");
 		}
 		transport->Send(systemAddress, "\r\n");
@@ -113,16 +124,21 @@ void CommandParserInterface::RegisterCommand(unsigned char parameterCount, const
 	rc.command = command;
 	rc.commandHelp = commandHelp;
 	rc.parameterCount = parameterCount;
-	commandList.Insert(command, rc, true, _FILE_AND_LINE_);
+	const auto position = LowerBoundCommand(commandList, command);
+	if (position != commandList.end() && RegisteredCommandComp(command, *position) == 0)
+	{
+		RakAssert(0); // Command registered twice
+		return;
+	}
+	commandList.insert(position, rc);
 }
 bool CommandParserInterface::GetRegisteredCommand(const char *command, RegisteredCommand *rc)
 {
-	bool objectExists;
-	unsigned index;
-	index = commandList.GetIndexFromKey(command, &objectExists);
-	if (objectExists)
-		*rc = commandList[index];
-	return objectExists;
+	const auto position = LowerBoundCommand(commandList, command);
+	if (position == commandList.end() || RegisteredCommandComp(command, *position) != 0)
+		return false;
+	*rc = *position;
+	return true;
 }
 void CommandParserInterface::OnTransportChange(TransportInterface *transport)
 {

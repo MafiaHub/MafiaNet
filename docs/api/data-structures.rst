@@ -57,15 +57,6 @@ Memory pool for efficient allocation.
    :members:
    :undoc-members:
 
-DS_ByteQueue
-------------
-
-Byte queue for streaming data.
-
-.. doxygenclass:: DataStructures::ByteQueue
-   :members:
-   :undoc-members:
-
 RakString
 ---------
 

@@ -25,7 +25,8 @@
 #define __READY_EVENT_H
 
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -196,7 +197,8 @@ public:
 	{
 		int eventId; // Sorted on this
 		MessageID eventStatus;
-		DataStructures::OrderedList<RakNetGUID, RemoteSystem, ReadyEvent::RemoteSystemCompByGuid> systemList;
+		/// Sorted by rakNetGuid (see RemoteSystemCompByGuid)
+		std::vector<RemoteSystem> systemList;
 	};
 	static int ReadyEventNodeComp(const int &key, ReadyEvent::ReadyEventNode *const &data);
 
@@ -237,7 +239,11 @@ protected:
 	unsigned CreateNewEvent(int eventId, bool isReady);
 	bool SetEventByIndex(int eventIndex, bool isReady);
 
-	DataStructures::OrderedList<int, ReadyEventNode *, ReadyEvent::ReadyEventNodeComp> readyEventNodeList;
+	unsigned FindEventIndex(int eventId, bool *objectExists) const;
+	static unsigned FindSystemIndex(const std::vector<RemoteSystem> &systemList, RakNetGUID guid, bool *objectExists);
+
+	/// Owned events, sorted by eventId (see ReadyEventNodeComp)
+	std::vector<ReadyEventNode *> readyEventNodeList;
 	unsigned char channel;
 };
 

@@ -22,8 +22,9 @@
 #define __COMMAND_PARSER_INTERFACE
 
 #include "mafianet/types.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -142,7 +143,8 @@ public:
 	virtual void ReturnResult(const char *command, TransportInterface *transport, const SystemAddress &systemAddress);
 
 protected:
-	DataStructures::OrderedList<const char *, RegisteredCommand, RegisteredCommandComp> commandList;
+	/// Sorted by RegisteredCommandComp (case-insensitive), the order SendCommandList() prints.
+	std::vector<RegisteredCommand> commandList;
 };
 
 } // namespace MafiaNet

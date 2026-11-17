@@ -26,10 +26,12 @@
 
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/ds_list.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/export.h"
+
+#include <map>
+#include <memory>
+#include <set>
 
 namespace MafiaNet
 {
@@ -49,6 +51,11 @@ public:
 
 	ConnectionGraph2();
 	~ConnectionGraph2();
+	// Owns its remote systems (std::unique_ptr). Deleted, not just implicitly ill-formed: an exported
+	// class (RAK_DLL_EXPORT) has its special members instantiated by MSVC, so a declared copy would
+	// not compile in the DLL build.
+	ConnectionGraph2(const ConnectionGraph2 &) = delete;
+	ConnectionGraph2 &operator=(const ConnectionGraph2 &) = delete;
 
 	/// \brief Given a remote system identified by RakNetGUID, return the list of SystemAddresses and RakNetGUIDs they are connected to
 	/// \param[in] remoteSystemGuid Which system we are referring to. This only works for remote systems, not ourselves.
@@ -85,8 +92,8 @@ public:
 	void AddParticipant(const SystemAddress &systemAddress, RakNetGUID rakNetGUID);
 
 	/// Get the participants added with AddParticipant()
-	/// \param[out] participantList Participants added with AddParticipant();
-	void GetParticipantList(DataStructures::OrderedList<RakNetGUID, RakNetGUID> &participantList);
+	/// \param[out] participantList Cleared, then filled with the participants added with AddParticipant(), in RakNetGUID order
+	void GetParticipantList(std::set<RakNetGUID> &participantList);
 
 	/// \internal
 	struct SystemAddressAndGuid
@@ -95,17 +102,14 @@ public:
 		RakNetGUID guid;
 		uint16_t sendersPingToThatSystem;
 	};
-	/// \internal
-	static int SystemAddressAndGuidComp(const SystemAddressAndGuid &key, const SystemAddressAndGuid &data);
 
 	/// \internal
 	struct RemoteSystem
 	{
-		DataStructures::OrderedList<SystemAddressAndGuid, SystemAddressAndGuid, ConnectionGraph2::SystemAddressAndGuidComp> remoteConnections;
+		/// Systems this remote system is connected to, keyed by their guid
+		std::map<RakNetGUID, SystemAddressAndGuid> remoteConnections;
 		RakNetGUID guid;
 	};
-	/// \internal
-	static int RemoteSystemComp(const RakNetGUID &key, RemoteSystem *const &data);
 
 protected:
 	/// \internal
@@ -116,7 +120,7 @@ protected:
 	virtual PluginReceiveResult OnReceive(Packet *packet);
 
 	// List of systems I am connected to, which in turn stores which systems they are connected to
-	DataStructures::OrderedList<RakNetGUID, RemoteSystem *, ConnectionGraph2::RemoteSystemComp> remoteSystems;
+	std::map<RakNetGUID, std::unique_ptr<RemoteSystem>> remoteSystems;
 
 	bool autoProcessNewConnections;
 };

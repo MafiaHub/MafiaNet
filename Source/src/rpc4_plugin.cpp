@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #if _RAKNET_SUPPORT_RPC4Plugin == 1
 
 #include "mafianet/rpc4_plugin.h"
@@ -22,12 +23,32 @@
 #include "mafianet/packetized_tcp.h"
 #include "mafianet/sleep.h"
 #include "mafianet/defines.h"
-#include "mafianet/ds_queue.h"
 //#include "mafianet/get_time.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
+#include <algorithm>
+#include <deque>
+
 using namespace MafiaNet;
+
+/// Slot objects sorted by LocalSlotObjectComp: highest callPriority first, then registration order.
+struct RPC4::LocalSlot
+{
+	std::vector<LocalSlotObject> slotObjects;
+};
+
+namespace
+{
+// The identifier as a map key, copied verbatim. The implicit RakString(const char *format, ...)
+// conversion would run it through vsnprintf, and names also arrive from the network.
+RakString IdentifierKey(const char *identifier)
+{
+	RakString key;
+	key = identifier;
+	return key;
+}
+} // namespace
 
 STATIC_FACTORY_DEFINITIONS(RPC4, RPC4);
 
@@ -129,14 +150,6 @@ int RPC4::LocalSlotObjectComp(const LocalSlotObject &key, const LocalSlotObject 
 
 	return 1;
 }
-int RPC4::LocalCallbackComp(const MessageID &key, RPC4::LocalCallback *const &data)
-{
-	if (key < data->messageId)
-		return -1;
-	if (key > data->messageId)
-		return 1;
-	return 0;
-}
 
 RPC4::RPC4()
 {
@@ -144,142 +157,73 @@ RPC4::RPC4()
 	nextSlotRegistrationCount = 0;
 	interruptSignal = false;
 }
-RPC4::~RPC4()
-{
-	unsigned int i;
-	for (i = 0; i < localCallbacks.Size(); i++)
-	{
-		delete localCallbacks[i];
-	}
-
-	DataStructures::List<MafiaNet::RakString> keyList;
-	DataStructures::List<LocalSlot *> outputList;
-	localSlots.GetAsList(outputList, keyList, _FILE_AND_LINE_);
-	unsigned int j;
-	for (j = 0; j < outputList.Size(); j++)
-	{
-		delete outputList[j];
-	}
-	localSlots.Clear(_FILE_AND_LINE_);
-}
+RPC4::~RPC4() = default;
 bool RPC4::RegisterFunction(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context)
 {
-	DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(uniqueID);
-	if (skhi.IsInvalid() == false)
-		return false;
-
 	RegisteredNonblockingFunction rnf;
 	rnf.functionPointer = functionPointer;
 	rnf.context = context;
-	registeredNonblockingFunctions.Push(uniqueID, rnf, _FILE_AND_LINE_);
-	return true;
+	return registeredNonblockingFunctions.emplace(IdentifierKey(uniqueID), rnf).second;
 }
 void RPC4::RegisterSlot(const char *sharedIdentifier, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context, int callPriority)
 {
 	LocalSlotObject lso(nextSlotRegistrationCount++, callPriority, functionPointer, context);
-	DataStructures::HashIndex idx = GetLocalSlotIndex(sharedIdentifier);
-	LocalSlot *localSlot;
-	if (idx.IsInvalid())
-	{
-		localSlot = new LocalSlot;
-		localSlots.Push(sharedIdentifier, localSlot, _FILE_AND_LINE_);
-	}
-	else
-	{
-		localSlot = localSlots.ItemAtIndex(idx);
-	}
-	localSlot->slotObjects.Insert(lso, lso, true, _FILE_AND_LINE_);
+	std::unique_ptr<LocalSlot> &localSlot = localSlots[IdentifierKey(sharedIdentifier)];
+	if (!localSlot)
+		localSlot.reset(new LocalSlot);
+	std::vector<LocalSlotObject> &slotObjects = localSlot->slotObjects;
+	slotObjects.insert(std::lower_bound(slotObjects.begin(), slotObjects.end(), lso, [](const LocalSlotObject &a, const LocalSlotObject &b)
+	                                    { return LocalSlotObjectComp(a, b) < 0; }),
+	                   lso);
 }
 bool RPC4::RegisterBlockingFunction(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context), void *context)
 {
-	DataStructures::HashIndex skhi = registeredBlockingFunctions.GetIndexOf(uniqueID);
-	if (skhi.IsInvalid() == false)
-		return false;
-
 	RegisteredBlockingFunction rbf;
 	rbf.functionPointer = functionPointer;
 	rbf.context = context;
-	registeredBlockingFunctions.Push(uniqueID, rbf, _FILE_AND_LINE_);
-	return true;
+	return registeredBlockingFunctions.emplace(IdentifierKey(uniqueID), rbf).second;
 }
 void RPC4::RegisterLocalCallback(const char *uniqueID, MessageID messageId)
 {
-	bool objectExists;
-	unsigned int index;
-	LocalCallback *lc;
-	MafiaNet::RakString str;
-	str = uniqueID;
-	index = localCallbacks.GetIndexFromKey(messageId, &objectExists);
-	if (objectExists)
-	{
-		lc = localCallbacks[index];
-		index = lc->functions.GetIndexFromKey(str, &objectExists);
-		if (objectExists == false)
-			lc->functions.InsertAtIndex(str, index, _FILE_AND_LINE_);
-	}
-	else
-	{
-		lc = new LocalCallback;
-		lc->messageId = messageId;
-		lc->functions.Insert(str, str, false, _FILE_AND_LINE_);
-		localCallbacks.InsertAtIndex(lc, index, _FILE_AND_LINE_);
-	}
+	const MafiaNet::RakString str = IdentifierKey(uniqueID);
+	LocalCallback &lc = localCallbacks[messageId];
+	lc.messageId = messageId;
+	const auto position = std::lower_bound(lc.functions.begin(), lc.functions.end(), str);
+	if (position == lc.functions.end() || !(*position == str))
+		lc.functions.insert(position, str);
 }
 bool RPC4::UnregisterFunction(const char *uniqueID)
 {
-	RegisteredNonblockingFunction f;
-	return registeredNonblockingFunctions.Pop(f, uniqueID, _FILE_AND_LINE_);
+	return registeredNonblockingFunctions.erase(IdentifierKey(uniqueID)) != 0;
 }
 bool RPC4::UnregisterBlockingFunction(const char *uniqueID)
 {
-	RegisteredBlockingFunction f;
-	return registeredBlockingFunctions.Pop(f, uniqueID, _FILE_AND_LINE_);
+	return registeredBlockingFunctions.erase(IdentifierKey(uniqueID)) != 0;
 }
 bool RPC4::UnregisterLocalCallback(const char *uniqueID, MessageID messageId)
 {
-	bool objectExists;
-	unsigned int index, index2;
-	LocalCallback *lc;
-	MafiaNet::RakString str;
-	str = uniqueID;
-	index = localCallbacks.GetIndexFromKey(messageId, &objectExists);
-	if (objectExists)
-	{
-		lc = localCallbacks[index];
-		index2 = lc->functions.GetIndexFromKey(str, &objectExists);
-		if (objectExists)
-		{
-			lc->functions.RemoveAtIndex(index2);
-			if (lc->functions.Size() == 0)
-			{
-				delete lc;
-				localCallbacks.RemoveAtIndex(index);
-				return true;
-			}
-		}
-	}
-	return false;
+	const MafiaNet::RakString str = IdentifierKey(uniqueID);
+	const auto callback = localCallbacks.find(messageId);
+	if (callback == localCallbacks.end())
+		return false;
+	std::vector<MafiaNet::RakString> &functions = callback->second.functions;
+	const auto position = std::lower_bound(functions.begin(), functions.end(), str);
+	if (position == functions.end() || !(*position == str))
+		return false;
+	functions.erase(position);
+	if (functions.empty())
+		localCallbacks.erase(callback);
+	return true;
 }
 bool RPC4::UnregisterSlot(const char *sharedIdentifier)
 {
-	DataStructures::HashIndex hi = localSlots.GetIndexOf(sharedIdentifier);
-	if (hi.IsInvalid() == false)
-	{
-		LocalSlot *ls = localSlots.ItemAtIndex(hi);
-		delete ls;
-		localSlots.RemoveAtIndex(hi, _FILE_AND_LINE_);
-		return true;
-	}
-
-	return false;
+	return localSlots.erase(IdentifierKey(sharedIdentifier)) != 0;
 }
 void RPC4::CallLoopback(const char *uniqueID, MafiaNet::BitStream *bitStream)
 {
 	Packet *p = 0;
 
-	DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(uniqueID);
-
-	if (skhi.IsInvalid() == true)
+	if (registeredNonblockingFunctions.find(IdentifierKey(uniqueID)) == registeredNonblockingFunctions.end())
 	{
 		if (rakPeerInterface)
 			p = AllocatePacketUnified(sizeof(MessageID) + sizeof(unsigned char) + (unsigned int) strlen(uniqueID) + 1);
@@ -377,7 +321,7 @@ bool RPC4::CallBlocking(const char *uniqueID, MafiaNet::BitStream *bitStream, Ma
 	blockingReturnValue.Reset();
 	gotBlockingReturnValue = false;
 	Packet *packet;
-	DataStructures::Queue<Packet *> packetQueue;
+	std::deque<Packet *> packetQueue;
 	while (gotBlockingReturnValue == false)
 	{
 		// TODO - block, filter until gotBlockingReturnValue==true or ID_CONNECTION_LOST or ID_DISCONNECTION_NOTIFICXATION or ID_RPC_REMOTE_ERROR/RPC_ERROR_FUNCTION_NOT_REGISTERED
@@ -394,8 +338,11 @@ bool RPC4::CallBlocking(const char *uniqueID, MafiaNet::BitStream *bitStream, Ma
 			{
 				// Push back to head in reverse order
 				rakPeerInterface->PushBackPacket(packet, true);
-				while (packetQueue.Size())
-					rakPeerInterface->PushBackPacket(packetQueue.Pop(), true);
+				while (!packetQueue.empty())
+				{
+					rakPeerInterface->PushBackPacket(packetQueue.front(), true);
+					packetQueue.pop_front();
+				}
 				return false;
 			}
 			else if (packet->data[0] == ID_RPC_REMOTE_ERROR && packet->data[1] == RPC_ERROR_FUNCTION_NOT_REGISTERED)
@@ -408,18 +355,21 @@ bool RPC4::CallBlocking(const char *uniqueID, MafiaNet::BitStream *bitStream, Ma
 				{
 					// Push back to head in reverse order
 					rakPeerInterface->PushBackPacket(packet, true);
-					while (packetQueue.Size())
-						rakPeerInterface->PushBackPacket(packetQueue.Pop(), true);
+					while (!packetQueue.empty())
+					{
+						rakPeerInterface->PushBackPacket(packetQueue.front(), true);
+						packetQueue.pop_front();
+					}
 					return false;
 				}
 				else
 				{
-					packetQueue.PushAtHead(packet, 0, _FILE_AND_LINE_);
+					packetQueue.push_front(packet);
 				}
 			}
 			else
 			{
-				packetQueue.PushAtHead(packet, 0, _FILE_AND_LINE_);
+				packetQueue.push_front(packet);
 			}
 		}
 	}
@@ -446,10 +396,9 @@ void RPC4::Signal(const char *sharedIdentifier, MafiaNet::BitStream *bitStream, 
 	{
 		//TimeUS t1 = GetTimeUS();
 
-		DataStructures::HashIndex functionIndex;
-		functionIndex = localSlots.GetIndexOf(sharedIdentifier);
+		LocalSlot *localSlot = GetLocalSlot(sharedIdentifier);
 		//TimeUS t2 = GetTimeUS();
-		if (functionIndex.IsInvalid())
+		if (localSlot == nullptr)
 			return;
 
 		Packet p;
@@ -472,16 +421,16 @@ void RPC4::Signal(const char *sharedIdentifier, MafiaNet::BitStream *bitStream, 
 		}
 
 		//TimeUS t3 = GetTimeUS();
-		InvokeSignal(functionIndex, bsptr, &p);
+		InvokeSignal(localSlot, bsptr, &p);
 		//TimeUS t4 = GetTimeUS();
 		//printf("b1: %I64d\n", t2-t1);
 		//printf("b2: %I64d\n", t3-t2);
 		//printf("b3: %I64d\n", t4-t3);
 	}
 }
-void RPC4::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, Packet *packet)
+void RPC4::InvokeSignal(LocalSlot *localSlot, MafiaNet::BitStream *serializedParameters, Packet *packet)
 {
-	if (functionIndex.IsInvalid())
+	if (localSlot == nullptr)
 		return;
 
 	//TimeUS t1 = GetTimeUS();
@@ -489,10 +438,8 @@ void RPC4::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitSt
 	//TimeUS t3=0;
 
 	interruptSignal = false;
-	LocalSlot *localSlot = localSlots.ItemAtIndex(functionIndex);
-	unsigned int i;
-	i = 0;
-	while (i < localSlot->slotObjects.Size())
+	size_t i = 0;
+	while (i < localSlot->slotObjects.size())
 	{
 		//t2 = GetTimeUS();
 
@@ -552,8 +499,9 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 			bsIn.Read(isBlocking);
 			if (isBlocking == false)
 			{
-				DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(functionName.C_String());
-				if (skhi.IsInvalid())
+				// Look the received name up as is, never through RakString's printf-style constructor.
+				const auto function = registeredNonblockingFunctions.find(functionName);
+				if (function == registeredNonblockingFunctions.end())
 				{
 					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
@@ -563,15 +511,14 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
-				RegisteredNonblockingFunction rnf;
-				rnf = registeredNonblockingFunctions.ItemAtIndex(skhi);
+				const RegisteredNonblockingFunction rnf = function->second;
 				bsIn.AlignReadToByteBoundary();
 				rnf.functionPointer(&bsIn, packet, rnf.context);
 			}
 			else
 			{
-				DataStructures::HashIndex skhi = registeredBlockingFunctions.GetIndexOf(functionName.C_String());
-				if (skhi.IsInvalid())
+				const auto function = registeredBlockingFunctions.find(functionName);
+				if (function == registeredBlockingFunctions.end())
 				{
 					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
@@ -581,8 +528,7 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				}
 
-				RegisteredBlockingFunction rbf;
-				rbf = registeredBlockingFunctions.ItemAtIndex(skhi);
+				const RegisteredBlockingFunction rbf = function->second;
 				MafiaNet::BitStream returnData;
 				bsIn.AlignReadToByteBoundary();
 				rbf.functionPointer(&bsIn, &returnData, packet, rbf.context);
@@ -600,12 +546,12 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 		{
 			MafiaNet::RakString sharedIdentifier;
 			bsIn.ReadCompressed(sharedIdentifier);
-			DataStructures::HashIndex functionIndex;
-			functionIndex = localSlots.GetIndexOf(sharedIdentifier);
+			const auto slot = localSlots.find(sharedIdentifier);
 			MafiaNet::BitStream serializedParameters;
 			bsIn.AlignReadToByteBoundary();
 			bsIn.Read(&serializedParameters);
-			InvokeSignal(functionIndex, &serializedParameters, packet);
+			if (slot != localSlots.end())
+				InvokeSignal(slot->second.get(), &serializedParameters, packet);
 		}
 		else
 		{
@@ -618,22 +564,18 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
 
-	bool objectExists;
-	unsigned int index, index2;
-	index = localCallbacks.GetIndexFromKey(packet->data[0], &objectExists);
-	if (objectExists)
+	const auto callback = localCallbacks.find(packet->data[0]);
+	if (callback != localCallbacks.end())
 	{
-		LocalCallback *lc;
-		lc = localCallbacks[index];
-		for (index2 = 0; index2 < lc->functions.Size(); index2++)
+		LocalCallback &lc = callback->second;
+		for (size_t index2 = 0; index2 < lc.functions.size(); index2++)
 		{
 			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 
-			DataStructures::HashIndex skhi = registeredNonblockingFunctions.GetIndexOf(lc->functions[index2].C_String());
-			if (skhi.IsInvalid() == false)
+			const auto function = registeredNonblockingFunctions.find(lc.functions[index2]);
+			if (function != registeredNonblockingFunctions.end())
 			{
-				RegisteredNonblockingFunction rnf;
-				rnf = registeredNonblockingFunctions.ItemAtIndex(skhi);
+				const RegisteredNonblockingFunction rnf = function->second;
 				bsIn.AlignReadToByteBoundary();
 				rnf.functionPointer(&bsIn, packet, rnf.context);
 			}
@@ -642,9 +584,10 @@ PluginReceiveResult RPC4::OnReceive(Packet *packet)
 
 	return RR_CONTINUE_PROCESSING;
 }
-DataStructures::HashIndex RPC4::GetLocalSlotIndex(const char *sharedIdentifier)
+RPC4::LocalSlot *RPC4::GetLocalSlot(const char *sharedIdentifier)
 {
-	return localSlots.GetIndexOf(sharedIdentifier);
+	const auto slot = localSlots.find(IdentifierKey(sharedIdentifier));
+	return slot == localSlots.end() ? nullptr : slot->second.get();
 }
 
 #endif // _RAKNET_SUPPORT_*

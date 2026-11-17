@@ -28,9 +28,10 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/string.h"
-#include "mafianet/ds_queue.h"
+
+#include <deque>
+#include <vector>
 
 // Trendnet TEW-632BRP sometimes starts at port 1024 and increments sequentially.
 // Zonnet zsr1134we. Replies go out on the net, but are always absorbed by the remote router??
@@ -169,7 +170,7 @@ public:
 	/// You will get ID_NAT_GROUP_PUNCH_SUCCEEDED on success
 	/// You will get ID_NAT_TARGET_NOT_CONNECTED, ID_NAT_ALREADY_IN_PROGRESS, or ID_NAT_GROUP_PUNCH_FAILED on failures of various types
 	/// However, if you lose connection to the facilitator, you may not necessarily get above
-	bool OpenNATGroup(DataStructures::List<RakNetGUID> destinationSystems, const SystemAddress &facilitator);
+	bool OpenNATGroup(const std::vector<RakNetGUID> &destinationSystems, const SystemAddress &facilitator);
 	*/
 
 	/// Modify the system configuration if desired
@@ -262,14 +263,14 @@ protected:
 		SystemAddress addr;
 		RakNetGUID guid;
 	};
-	DataStructures::List<AddrAndGuid> failedAttemptList;
+	std::vector<AddrAndGuid> failedAttemptList;
 
 	struct DSTAndFac
 	{
 		RakNetGUID destination;
 		SystemAddress facilitator;
 	};
-	DataStructures::Queue<DSTAndFac> queuedOpenNat;
+	std::deque<DSTAndFac> queuedOpenNat;
 
 	void IncrementExternalAttemptCount(MafiaNet::Time time, MafiaNet::Time delta);
 	unsigned short portStride;
@@ -288,18 +289,18 @@ protected:
 		MafiaNet::Time time;
 		RakNetGUID guid;
 	};
-	DataStructures::List<TimeAndGuid> groupRequestsInProgress;
+	std::vector<TimeAndGuid> groupRequestsInProgress;
 
 	struct GroupPunchRequest
 	{
 		SystemAddress facilitator;
-		DataStructures::List<RakNetGUID> pendingList;
-		DataStructures::List<RakNetGUID> passedListGuid;
-		DataStructures::List<SystemAddress> passedListAddress;
-		DataStructures::List<RakNetGUID> failedList;
-		DataStructures::List<RakNetGUID> ignoredList;
+		std::vector<RakNetGUID> pendingList;
+		std::vector<RakNetGUID> passedListGuid;
+		std::vector<SystemAddress> passedListAddress;
+		std::vector<RakNetGUID> failedList;
+		std::vector<RakNetGUID> ignoredList;
 	};
-	DataStructures::List<GroupPunchRequest*> groupPunchRequests;
+	std::vector<GroupPunchRequest*> groupPunchRequests;
 	void UpdateGroupPunchOnNatResult(SystemAddress facilitator, RakNetGUID targetSystem, SystemAddress targetSystemAddress, int result); // 0=failed, 1=success, 2=ignore
 	*/
 };

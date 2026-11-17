@@ -23,7 +23,7 @@ namespace
 void NonceTimes(const TwoWayAuthentication::NonceGenerator &generator, Time &oldest, Time &newest)
 {
 	oldest = generator.generatedNonces[0]->whenGenerated;
-	newest = generator.generatedNonces[generator.generatedNonces.Size() - 1]->whenGenerated;
+	newest = generator.generatedNonces[generator.generatedNonces.size() - 1]->whenGenerated;
 }
 
 void GenerateNonces(TwoWayAuthentication::NonceGenerator &generator, unsigned int count)
@@ -51,7 +51,7 @@ TEST(TwoWayAuthentication, NonceSurvivesUntilItsLifetimeEnds)
 	NonceTimes(generator, oldest, newest);
 
 	generator.Update(oldest + 30000 - 1, 30000);
-	EXPECT_EQ(generator.generatedNonces.Size(), 3u);
+	EXPECT_EQ(generator.generatedNonces.size(), 3u);
 }
 
 TEST(TwoWayAuthentication, EveryExpiredNonceGoesInOneUpdate)
@@ -63,7 +63,7 @@ TEST(TwoWayAuthentication, EveryExpiredNonceGoesInOneUpdate)
 
 	// One update past the newest nonce's lifetime clears all of them, not one per call.
 	generator.Update(newest + 30000, 30000);
-	EXPECT_EQ(generator.generatedNonces.Size(), 0u);
+	EXPECT_EQ(generator.generatedNonces.size(), 0u);
 }
 
 TEST(TwoWayAuthentication, OnlyTheExpiredPrefixIsRemoved)
@@ -75,7 +75,7 @@ TEST(TwoWayAuthentication, OnlyTheExpiredPrefixIsRemoved)
 	generator.generatedNonces[1]->whenGenerated = 11000;
 
 	generator.Update(11500, 1000);
-	ASSERT_EQ(generator.generatedNonces.Size(), 1u);
+	ASSERT_EQ(generator.generatedNonces.size(), 1u);
 	EXPECT_EQ(generator.generatedNonces[0]->whenGenerated, static_cast<Time>(11000));
 }
 
@@ -86,7 +86,7 @@ TEST(TwoWayAuthentication, ClockSteppingBackwardsExpiresNothing)
 	generator.generatedNonces[0]->whenGenerated = 10000;
 
 	generator.Update(9999, 0);
-	EXPECT_EQ(generator.generatedNonces.Size(), 1u);
+	EXPECT_EQ(generator.generatedNonces.size(), 1u);
 }
 
 TEST(TwoWayAuthentication, ChallengeTimesOutExactlyAtTheConfiguredTimeout)
@@ -101,14 +101,14 @@ TEST(TwoWayAuthentication, ChallengeTimesOutExactlyAtTheConfiguredTimeout)
 	peer->AttachPlugin(&auth);
 	ASSERT_TRUE(auth.AddPassword("build", "token"));
 	ASSERT_TRUE(auth.Challenge("build", AddressOrGUID(RakNetGUID(42))));
-	ASSERT_EQ(auth.outgoingChallenges.Size(), 1u);
-	const Time challenged = auth.outgoingChallenges.Peek().time;
+	ASSERT_EQ(auth.outgoingChallenges.size(), 1u);
+	const Time challenged = auth.outgoingChallenges.front().time;
 
 	auth.UpdateTimeouts(challenged + 60000 - 1);
-	EXPECT_EQ(auth.outgoingChallenges.Size(), 1u);
+	EXPECT_EQ(auth.outgoingChallenges.size(), 1u);
 
 	auth.UpdateTimeouts(challenged + 60000);
-	EXPECT_EQ(auth.outgoingChallenges.Size(), 0u);
+	EXPECT_EQ(auth.outgoingChallenges.size(), 0u);
 
 	bool timedOut = false;
 	for (Packet *packet = peer->Receive(); packet; peer->DeallocatePacket(packet), packet = peer->Receive())

@@ -483,7 +483,7 @@ void AutopatcherClient::Update(void)
 		fileListTransfer->RemoveReceiver(serverId);
 
 		// If redownload list, process it
-		if (redownloadList.fileList.Size())
+		if (redownloadList.fileList.size())
 		{
 			MafiaNet::BitStream outBitStream;
 			AutopatcherClientCallback *transferCallback;
@@ -503,7 +503,7 @@ void AutopatcherClient::Update(void)
 			SendUnified(&outBitStream, priority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, serverId, false);
 			redownloadList.Clear();
 		}
-		else if (copyAndRestartList.fileList.Size())
+		else if (copyAndRestartList.fileList.size())
 		{
 			Packet *p = AllocatePacketUnified(1);
 			p->bitSize = p->length * 8;
@@ -519,7 +519,7 @@ void AutopatcherClient::Update(void)
 			{
 				fprintf(fp, "#Sleep 1000\n");
 				unsigned i;
-				for (i = 0; i < copyAndRestartList.fileList.Size(); i++)
+				for (i = 0; i < copyAndRestartList.fileList.size(); i++)
 				{
 #ifdef _WIN32
 					fprintf(fp, "del /q \"%s%s\"\n", applicationDirectory, copyAndRestartList.fileList[i].filename.C_String());
@@ -612,7 +612,7 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 	// Go through the list of hashes.  For each file we already have, remove it from the list.
 	remoteFileList.ListMissingOrChangedFiles(applicationDirectory, &missingOrChanged, true, false);
 
-	if (missingOrChanged.fileList.Size() == 0)
+	if (missingOrChanged.fileList.size() == 0)
 	{
 		packet->data[0] = ID_AUTOPATCHER_FINISHED;
 		return RR_CONTINUE_PROCESSING; // Pass to user

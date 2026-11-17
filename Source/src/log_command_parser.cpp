@@ -18,6 +18,7 @@
 
 #include "mafianet/log_command_parser.h"
 #include "mafianet/transport_interface.h"
+#include "mafianet/assert.h"
 
 #include <memory.h>
 

@@ -21,11 +21,13 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/time.h"
 #include "mafianet/get_time.h"
-#include "mafianet/ds_ordered_list.h"
+#include "mafianet/vector_util.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/format_string.h"
 #include "mafianet/socket_defines.h"
 #include "mafianet/sockaddr_convert.h"
+
+#include <algorithm>
 
 using namespace MafiaNet;
 
@@ -107,17 +109,17 @@ Router2::~Router2()
 void Router2::ClearMinipunches(void)
 {
 	miniPunchesInProgressMutex.Lock();
-	miniPunchesInProgress.Clear(false, _FILE_AND_LINE_);
+	miniPunchesInProgress.clear();
 	miniPunchesInProgressMutex.Unlock();
 }
 void Router2::ClearConnectionRequests(void)
 {
 	connectionRequestsMutex.Lock();
-	for (unsigned int i = 0; i < connectionRequests.Size(); i++)
+	for (unsigned int i = 0; i < connectionRequests.size(); i++)
 	{
 		delete connectionRequests[i];
 	}
-	connectionRequests.Clear(false, _FILE_AND_LINE_);
+	connectionRequests.clear();
 	connectionRequestsMutex.Unlock();
 }
 bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLostOnFailure)
@@ -171,7 +173,7 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 			crs.guid = guids[i];
 			crs.pingToEndpoint = -1;
 			cr->connectionRequestSystemsMutex.Lock();
-			cr->connectionRequestSystems.Push(crs, _FILE_AND_LINE_);
+			cr->connectionRequestSystems.push_back(crs);
 			cr->connectionRequestSystemsMutex.Unlock();
 
 			// Broadcast(ID_ROUTER_2_QUERY_FORWARDING, endpointGuid);
@@ -198,7 +200,7 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 		}
 	}
 	connectionRequestsMutex.Lock();
-	connectionRequests.Push(cr, _FILE_AND_LINE_);
+	connectionRequests.push_back(cr);
 	connectionRequestsMutex.Unlock();
 
 	if (debugInterface)
@@ -355,13 +357,13 @@ PluginReceiveResult Router2::OnReceive(Packet *packet)
 	{
 		unsigned int forwardingIndex;
 		forwardedConnectionListMutex.Lock();
-		for (forwardingIndex = 0; forwardingIndex < forwardedConnectionList.Size(); forwardingIndex++)
+		for (forwardingIndex = 0; forwardingIndex < forwardedConnectionList.size(); forwardingIndex++)
 		{
 			if (forwardedConnectionList[forwardingIndex].endpointGuid == packet->guid && forwardedConnectionList[forwardingIndex].weInitiatedForwarding)
 				break;
 		}
 
-		if (forwardingIndex < forwardedConnectionList.Size())
+		if (forwardingIndex < forwardedConnectionList.size())
 		{
 			forwardedConnectionListMutex.Unlock();
 
@@ -403,7 +405,7 @@ void Router2::Update(void)
 	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 	unsigned int connectionRequestIndex = 0;
 	connectionRequestsMutex.Lock();
-	while (connectionRequestIndex < connectionRequests.Size())
+	while (connectionRequestIndex < connectionRequests.size())
 	{
 		ConnnectRequest *connectionRequest = connectionRequests[connectionRequestIndex];
 
@@ -414,12 +416,12 @@ void Router2::Update(void)
 			bool anyRemoved = false;
 			unsigned int connectionRequestGuidIndex = 0;
 			connectionRequest->connectionRequestSystemsMutex.Lock();
-			while (connectionRequestGuidIndex < connectionRequest->connectionRequestSystems.Size())
+			while (connectionRequestGuidIndex < connectionRequest->connectionRequestSystems.size())
 			{
 				if (connectionRequest->connectionRequestSystems[connectionRequestGuidIndex].pingToEndpoint < 0)
 				{
 					anyRemoved = true;
-					connectionRequest->connectionRequestSystems.RemoveAtIndexFast(connectionRequestGuidIndex);
+					SwapRemove(connectionRequest->connectionRequestSystems, connectionRequestGuidIndex);
 				}
 				else
 				{
@@ -461,12 +463,12 @@ void Router2::Update(void)
 
 	unsigned int i = 0;
 	miniPunchesInProgressMutex.Lock();
-	while (i < miniPunchesInProgress.Size())
+	while (i < miniPunchesInProgress.size())
 	{
 		if (miniPunchesInProgress[i].timeout < curTime)
 		{
 			SendFailureOnCannotForward(miniPunchesInProgress[i].sourceGuid, miniPunchesInProgress[i].endpointGuid);
-			miniPunchesInProgress.RemoveAtIndexFast(i);
+			SwapRemove(miniPunchesInProgress, i);
 		}
 		else if (curTime > miniPunchesInProgress[i].nextAction)
 		{
@@ -486,7 +488,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 
 	unsigned int forwardedConnectionIndex = 0;
 	forwardedConnectionListMutex.Lock();
-	while (forwardedConnectionIndex < forwardedConnectionList.Size())
+	while (forwardedConnectionIndex < forwardedConnectionList.size())
 	{
 		if (forwardedConnectionList[forwardedConnectionIndex].endpointGuid == rakNetGUID)
 		{
@@ -497,7 +499,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 			}
 
 			// No longer need forwarding
-			forwardedConnectionList.RemoveAtIndexFast(forwardedConnectionIndex);
+			SwapRemove(forwardedConnectionList, forwardedConnectionIndex);
 		}
 		else if (forwardedConnectionList[forwardedConnectionIndex].intermediaryGuid == rakNetGUID && forwardedConnectionList[forwardedConnectionIndex].weInitiatedForwarding)
 		{
@@ -507,7 +509,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 			if ((unsigned int) -1 != pos)
 			{
 				delete connectionRequests[pos];
-				connectionRequests.RemoveAtIndexFast(pos);
+				SwapRemove(connectionRequests, pos);
 			}
 			connectionRequestsMutex.Unlock();
 
@@ -522,7 +524,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 			}
 
 			// This should not be removed - the connection is still forwarded, but perhaps through another system
-			//			forwardedConnectionList.RemoveAtIndexFast(forwardedConnectionIndex);
+			//			SwapRemove(forwardedConnectionList, forwardedConnectionIndex);
 		}
 		else
 			forwardedConnectionIndex++;
@@ -531,14 +533,14 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 
 	unsigned int connectionRequestIndex = 0;
 	connectionRequestsMutex.Lock();
-	while (connectionRequestIndex < connectionRequests.Size())
+	while (connectionRequestIndex < connectionRequests.size())
 	{
 		ConnnectRequest *cr = connectionRequests[connectionRequestIndex];
 		cr->connectionRequestSystemsMutex.Lock();
 		unsigned int connectionRequestGuidIndex = cr->GetGuidIndex(rakNetGUID);
 		if (connectionRequestGuidIndex != (unsigned int) -1)
 		{
-			cr->connectionRequestSystems.RemoveAtIndexFast(connectionRequestGuidIndex);
+			SwapRemove(cr->connectionRequestSystems, connectionRequestGuidIndex);
 			cr->connectionRequestSystemsMutex.Unlock();
 			if (UpdateForwarding(cr) == false) // If returns false, no connection request systems left
 			{
@@ -559,7 +561,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 				}
 				//                 if(volatile bool is_my_fix_a_truth = true) { // A system in the list of potential systems to try routing to dropped. There is no need to restart the whole process.
 				//                     connectionRequestsMutex.Lock();
-				//                     connectionRequests.RemoveAtIndexFast(connectionRequestIndex);
+				//                     SwapRemove(connectionRequests, connectionRequestIndex);
 				//                     connectionRequestsMutex.Unlock();
 				//
 				//                     if(false == ConnectInternal(cr->endpointGuid,cr->returnConnectionLostOnFailure))
@@ -584,7 +586,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 
 	unsigned int i = 0;
 	miniPunchesInProgressMutex.Lock();
-	while (i < miniPunchesInProgress.Size())
+	while (i < miniPunchesInProgress.size())
 	{
 		if (miniPunchesInProgress[i].sourceGuid == rakNetGUID || miniPunchesInProgress[i].endpointGuid == rakNetGUID)
 		{
@@ -592,7 +594,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 			{
 				SendFailureOnCannotForward(miniPunchesInProgress[i].sourceGuid, miniPunchesInProgress[i].endpointGuid);
 			}
-			miniPunchesInProgress.RemoveAtIndexFast(i);
+			SwapRemove(miniPunchesInProgress, i);
 		}
 		else
 			i++;
@@ -606,7 +608,7 @@ void Router2::OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAtte
 
 	unsigned int forwardedConnectionIndex = 0;
 	forwardedConnectionListMutex.Lock();
-	while (forwardedConnectionIndex < forwardedConnectionList.Size())
+	while (forwardedConnectionIndex < forwardedConnectionList.size())
 	{
 		if (forwardedConnectionList[forwardedConnectionIndex].intermediaryAddress == packet->systemAddress)
 		{
@@ -618,7 +620,7 @@ void Router2::OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAtte
 			}
 
 			packet->guid = forwardedConnectionList[forwardedConnectionIndex].endpointGuid;
-			forwardedConnectionList.RemoveAtIndexFast(forwardedConnectionIndex);
+			SwapRemove(forwardedConnectionList, forwardedConnectionIndex);
 		}
 		else
 			forwardedConnectionIndex++;
@@ -634,9 +636,9 @@ bool Router2::UpdateForwarding(ConnnectRequest *connectionRequest)
 {
 	connectionRequest->connectionRequestSystemsMutex.Lock();
 
-	//   RAKNET_DEBUG_PRINTF(__FUNCTION__": connectionRequest->connectionRequestSystems.Size = %d", connectionRequest->connectionRequestSystems.Size());
+	//   RAKNET_DEBUG_PRINTF(__FUNCTION__": connectionRequest->connectionRequestSystems.Size = %d", connectionRequest->connectionRequestSystems.size());
 
-	if (connectionRequest->connectionRequestSystems.Size() == 0)
+	if (connectionRequest->connectionRequestSystems.size() == 0)
 	{
 		connectionRequest->connectionRequestSystemsMutex.Unlock();
 
@@ -659,11 +661,11 @@ bool Router2::UpdateForwarding(ConnnectRequest *connectionRequest)
 
 		forwardedConnectionListMutex.Lock();
 
-		for (unsigned int forwardedConnectionIndex = 0; forwardedConnectionIndex < forwardedConnectionList.Size(); forwardedConnectionIndex++)
+		for (unsigned int forwardedConnectionIndex = 0; forwardedConnectionIndex < forwardedConnectionList.size(); forwardedConnectionIndex++)
 		{
 			if (forwardedConnectionList[forwardedConnectionIndex].endpointGuid == connectionRequest->endpointGuid && forwardedConnectionList[forwardedConnectionIndex].weInitiatedForwarding)
 			{
-				forwardedConnectionList.RemoveAtIndexFast(forwardedConnectionIndex);
+				SwapRemove(forwardedConnectionList, forwardedConnectionIndex);
 				break;
 			}
 		}
@@ -677,7 +679,7 @@ bool Router2::UpdateForwarding(ConnnectRequest *connectionRequest)
 	{
 		connectionRequest->connectionRequestSystemsMutex.Lock();
 
-		for (unsigned int i = 0; i < connectionRequest->connectionRequestSystems.Size(); i++)
+		for (unsigned int i = 0; i < connectionRequest->connectionRequestSystems.size(); i++)
 		{
 			if (connectionRequest->connectionRequestSystems[i].pingToEndpoint < 0)
 			{
@@ -700,19 +702,16 @@ bool Router2::UpdateForwarding(ConnnectRequest *connectionRequest)
 void Router2::RemoveConnectionRequest(unsigned int connectionRequestIndex)
 {
 	delete connectionRequests[connectionRequestIndex];
-	connectionRequests.RemoveAtIndexFast(connectionRequestIndex);
+	SwapRemove(connectionRequests, connectionRequestIndex);
 }
-int ConnectionRequestSystemComp(const Router2::ConnectionRequestSystem &key, const Router2::ConnectionRequestSystem &data)
+// Forwarding preference: lowest ping weighted by the forwarding entries already in use, then lowest guid.
+static bool ConnectionRequestSystemLess(const Router2::ConnectionRequestSystem &a, const Router2::ConnectionRequestSystem &b)
 {
-	if (key.pingToEndpoint * (key.usedForwardingEntries + 1) < data.pingToEndpoint * (data.usedForwardingEntries + 1))
-		return -1;
-	if (key.pingToEndpoint * (key.usedForwardingEntries + 1) == data.pingToEndpoint * (data.usedForwardingEntries + 1))
-		return 1;
-	if (key.guid < data.guid)
-		return -1;
-	if (key.guid > data.guid)
-		return -1;
-	return 0;
+	const int weightA = a.pingToEndpoint * (a.usedForwardingEntries + 1);
+	const int weightB = b.pingToEndpoint * (b.usedForwardingEntries + 1);
+	if (weightA != weightB)
+		return weightA < weightB;
+	return a.guid < b.guid;
 }
 // connectionRequestsMutex should already be locked
 void Router2::RequestForwarding(ConnnectRequest *connectionRequest)
@@ -728,21 +727,23 @@ void Router2::RequestForwarding(ConnnectRequest *connectionRequest)
 		return;
 	}
 
-	// Prioritize systems to request forwarding
-	DataStructures::OrderedList<ConnectionRequestSystem, ConnectionRequestSystem, ConnectionRequestSystemComp> commandList;
-	unsigned int connectionRequestGuidIndex;
+	// Request forwarding from the most preferred system
 	connectionRequest->connectionRequestSystemsMutex.Lock();
-	for (connectionRequestGuidIndex = 0; connectionRequestGuidIndex < connectionRequest->connectionRequestSystems.Size(); connectionRequestGuidIndex++)
+	const std::vector<ConnectionRequestSystem> &systems = connectionRequest->connectionRequestSystems;
+	if (systems.empty())
 	{
-		RakAssert(connectionRequest->connectionRequestSystems[connectionRequestGuidIndex].pingToEndpoint >= 0);
-		commandList.Insert(connectionRequest->connectionRequestSystems[connectionRequestGuidIndex],
-		                   connectionRequest->connectionRequestSystems[connectionRequestGuidIndex],
-		                   true,
-		                   _FILE_AND_LINE_);
+		// UpdateForwarding() only calls this with at least one system left.
+		connectionRequest->connectionRequestSystemsMutex.Unlock();
+		RakAssert(0);
+		return;
 	}
+	for (const ConnectionRequestSystem &system : systems)
+	{
+		(void) system;
+		RakAssert(system.pingToEndpoint >= 0);
+	}
+	connectionRequest->lastRequestedForwardingSystem = std::min_element(systems.begin(), systems.end(), ConnectionRequestSystemLess)->guid;
 	connectionRequest->connectionRequestSystemsMutex.Unlock();
-
-	connectionRequest->lastRequestedForwardingSystem = commandList[0].guid;
 
 	MafiaNet::BitStream bsOut;
 	bsOut.Write((MessageID) ID_ROUTER_2_INTERNAL);
@@ -782,7 +783,7 @@ int Router2::ReturnFailureOnCannotForward(RakNetGUID sourceGuid, RakNetGUID endp
 
 	// We cannot forward connections which are themselves forwarded. Return fail in that case
 	forwardedConnectionListMutex.Lock();
-	for (unsigned int i = 0; i < forwardedConnectionList.Size(); i++)
+	for (unsigned int i = 0; i < forwardedConnectionList.size(); i++)
 	{
 		if ((forwardedConnectionList[i].endpointGuid == endpointGuid) || (forwardedConnectionList[i].endpointGuid == sourceGuid)) // sourceGuid is here so you do not respond to routing requests from systems you are already routing through.
 		{
@@ -898,7 +899,7 @@ void Router2::OnQueryForwardingReply(Packet *packet)
 	}
 	else
 	{
-		connectionRequests[connectionRequestIndex]->connectionRequestSystems.RemoveAtIndex(connectionRequestGuidIndex);
+		connectionRequests[connectionRequestIndex]->connectionRequestSystems.erase(connectionRequests[connectionRequestIndex]->connectionRequestSystems.begin() + connectionRequestGuidIndex);
 	}
 	connectionRequests[connectionRequestIndex]->connectionRequestSystemsMutex.Unlock();
 
@@ -1111,7 +1112,7 @@ void Router2::OnRequestForwarding(Packet *packet)
 		miniPunchRequest.nextAction = MafiaNet::GetTimeMS() + 100;
 		SendOOBMessages(&miniPunchRequest);
 		miniPunchesInProgressMutex.Lock();
-		miniPunchesInProgress.Push(miniPunchRequest, _FILE_AND_LINE_);
+		miniPunchesInProgress.push_back(miniPunchRequest);
 		miniPunchesInProgressMutex.Unlock();
 	}
 }
@@ -1123,12 +1124,12 @@ void Router2::OnMiniPunchReplyBounce(Packet *packet)
 	if (debugInterface)
 	{
 		char buff[512];
-		debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_MINI_PUNCH_REPLY_BOUNCE from guid=%I64d (miniPunchesInProgress.Size() = %d)",
-		                                              packet->guid.g, miniPunchesInProgress.Size()));
+		debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_MINI_PUNCH_REPLY_BOUNCE from guid=%I64d (miniPunchesInProgress.size() = %d)",
+		                                              packet->guid.g, (int) miniPunchesInProgress.size()));
 	}
 
 	miniPunchesInProgressMutex.Lock();
-	while (i < miniPunchesInProgress.Size())
+	while (i < miniPunchesInProgress.size())
 	{
 		if (miniPunchesInProgress[i].sourceGuid == packet->guid || miniPunchesInProgress[i].endpointGuid == packet->guid)
 		{
@@ -1148,7 +1149,7 @@ void Router2::OnMiniPunchReplyBounce(Packet *packet)
 			{
 				SendForwardingSuccess(ID_ROUTER_2_REROUTED, miniPunchesInProgress[i].endpointGuid, miniPunchesInProgress[i].sourceGuid, miniPunchesInProgress[i].forwardingPort);
 				SendForwardingSuccess(ID_ROUTER_2_FORWARDING_ESTABLISHED, miniPunchesInProgress[i].sourceGuid, miniPunchesInProgress[i].endpointGuid, miniPunchesInProgress[i].forwardingPort);
-				miniPunchesInProgress.RemoveAtIndexFast(i);
+				SwapRemove(miniPunchesInProgress, i);
 			}
 			else
 			{
@@ -1195,13 +1196,13 @@ void Router2::OnRerouted(Packet *packet)
 
 	unsigned int forwardingIndex;
 	forwardedConnectionListMutex.Lock();
-	for (forwardingIndex = 0; forwardingIndex < forwardedConnectionList.Size(); forwardingIndex++)
+	for (forwardingIndex = 0; forwardingIndex < forwardedConnectionList.size(); forwardingIndex++)
 	{
 		if (forwardedConnectionList[forwardingIndex].endpointGuid == endpointGuid)
 			break;
 	}
 
-	if (forwardingIndex < forwardedConnectionList.Size())
+	if (forwardingIndex < forwardedConnectionList.size())
 	{
 		ForwardedConnection &ref_fc = forwardedConnectionList[forwardingIndex];
 		forwardedConnectionListMutex.Unlock();
@@ -1229,7 +1230,7 @@ void Router2::OnRerouted(Packet *packet)
 		fc.intermediaryGuid = packet->guid;
 		fc.weInitiatedForwarding = false;
 		// add to forwarding list. This is only here to avoid reporting direct connections in Router2::ReturnFailureOnCannotForward
-		forwardedConnectionList.Push(fc, __FILE__, __LINE__);
+		forwardedConnectionList.push_back(fc);
 		forwardedConnectionListMutex.Unlock();
 
 		rakPeerInterface->ChangeSystemAddress(endpointGuid, intermediaryAddress);
@@ -1252,13 +1253,13 @@ bool Router2::OnForwardingSuccess(Packet *packet)
 
 	unsigned int forwardingIndex;
 	forwardedConnectionListMutex.Lock();
-	for (forwardingIndex = 0; forwardingIndex < forwardedConnectionList.Size(); forwardingIndex++)
+	for (forwardingIndex = 0; forwardingIndex < forwardedConnectionList.size(); forwardingIndex++)
 	{
 		if (forwardedConnectionList[forwardingIndex].endpointGuid == endpointGuid)
 			break;
 	}
 
-	if (forwardingIndex < forwardedConnectionList.Size())
+	if (forwardingIndex < forwardedConnectionList.size())
 	{
 		// Return rerouted notice
 		SystemAddress intermediaryAddress = packet->systemAddress;
@@ -1292,7 +1293,7 @@ bool Router2::OnForwardingSuccess(Packet *packet)
 		connectionRequestsMutex.Lock();
 		unsigned int connectionRequestIndex = GetConnectionRequestIndex(endpointGuid);
 		fc.returnConnectionLostOnFailure = connectionRequests[connectionRequestIndex]->returnConnectionLostOnFailure;
-		connectionRequests.RemoveAtIndexFast(connectionRequestIndex);
+		SwapRemove(connectionRequests, connectionRequestIndex);
 		connectionRequestsMutex.Unlock();
 		fc.endpointGuid = endpointGuid;
 		fc.intermediaryAddress = packet->systemAddress;
@@ -1302,7 +1303,7 @@ bool Router2::OnForwardingSuccess(Packet *packet)
 
 		// add to forwarding list
 		forwardedConnectionListMutex.Lock();
-		forwardedConnectionList.Push(fc, _FILE_AND_LINE_);
+		forwardedConnectionList.push_back(fc);
 		forwardedConnectionListMutex.Unlock();
 
 		if (debugInterface)
@@ -1337,7 +1338,7 @@ int Router2::GetLargestPingAmongConnectedSystems(void) const
 unsigned int Router2::GetConnectionRequestIndex(RakNetGUID endpointGuid)
 {
 	unsigned int i;
-	for (i = 0; i < connectionRequests.Size(); i++)
+	for (i = 0; i < connectionRequests.size(); i++)
 	{
 		if (connectionRequests[i]->endpointGuid == endpointGuid)
 			return i;
@@ -1347,7 +1348,7 @@ unsigned int Router2::GetConnectionRequestIndex(RakNetGUID endpointGuid)
 unsigned int Router2::ConnnectRequest::GetGuidIndex(RakNetGUID guid)
 {
 	unsigned int i;
-	for (i = 0; i < connectionRequestSystems.Size(); i++)
+	for (i = 0; i < connectionRequestSystems.size(); i++)
 	{
 		if (connectionRequestSystems[i].guid == guid)
 			return i;
@@ -1367,7 +1368,7 @@ void Router2::ReturnToUser(MessageID messageId, RakNetGUID endpointGuid, const S
 void Router2::ClearForwardedConnections(void)
 {
 	forwardedConnectionListMutex.Lock();
-	forwardedConnectionList.Clear(false, _FILE_AND_LINE_);
+	forwardedConnectionList.clear();
 	forwardedConnectionListMutex.Unlock();
 }
 void Router2::ClearAll(void)

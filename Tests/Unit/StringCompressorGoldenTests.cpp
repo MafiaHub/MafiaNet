@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_huffman_encoding_tree.h"
+#include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/string_compressor.h"
 
 #include <cstring>
@@ -199,6 +199,7 @@ TEST(StringCompressorGolden, TruncatedInputDecodesWithoutOverrun)
 		if (ok)
 		{
 			EXPECT_LE(strlen(out), strlen(g.text));
+			EXPECT_EQ(0, strncmp(out, g.text, strlen(out)));
 		}
 	}
 }

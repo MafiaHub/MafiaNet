@@ -22,8 +22,10 @@
 #define __STRING_COMPRESSOR_H
 
 #include "mafianet/export.h"
-#include "mafianet/ds_map.h"
 #include "mafianet/native_types.h"
+
+#include <map>
+#include <memory>
 
 #ifdef _STD_STRING_COMPRESSOR
 #include <string>
@@ -78,11 +80,6 @@ public:
 	/// \param[in] languageID Which language to use
 	bool DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId = 0);
 
-#ifdef _CSTRING_COMPRESSOR
-	void EncodeString(const CString &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId = 0);
-	bool DecodeString(CString &output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId = 0);
-#endif
-
 #ifdef _STD_STRING_COMPRESSOR
 	void EncodeString(const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId = 0);
 	bool DecodeString(std::string *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId = 0);
@@ -99,12 +96,16 @@ public:
 
 	StringCompressor();
 
+	// Owns its trees; not copyable.
+	StringCompressor(const StringCompressor &) = delete;
+	StringCompressor &operator=(const StringCompressor &) = delete;
+
 private:
 	/// Singleton instance
 	static StringCompressor *instance;
 
-	/// Pointer to the huffman encoding trees.
-	DataStructures::Map<int, HuffmanEncodingTree *> huffmanEncodingTrees;
+	/// The huffman encoding tree of each language id.
+	std::map<int, std::unique_ptr<HuffmanEncodingTree>> huffmanEncodingTrees;
 
 	static int referenceCount;
 };

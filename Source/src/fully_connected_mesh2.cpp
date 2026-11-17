@@ -27,18 +27,11 @@
 #include "mafianet/assert.h"
 #include "mafianet/get_time.h"
 #include "mafianet/rand.h"
-#include "mafianet/ds_ordered_list.h"
+#include "mafianet/vector_util.h"
+
+#include <algorithm>
 
 using namespace MafiaNet;
-
-int FCM2ParticipantComp(FullyConnectedMesh2::FCM2Participant *const &key, FullyConnectedMesh2::FCM2Participant *const &data)
-{
-	if (key->fcm2Guid < data->fcm2Guid)
-		return -1;
-	if (key->fcm2Guid > data->fcm2Guid)
-		return 1;
-	return 0;
-}
 
 STATIC_FACTORY_DEFINITIONS(FullyConnectedMesh2, FullyConnectedMesh2);
 
@@ -81,13 +74,13 @@ bool FullyConnectedMesh2::IsHostSystem(void) const
 {
 	return GetHostSystem() == rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 }
-void FullyConnectedMesh2::GetHostOrder(DataStructures::List<RakNetGUID> &hostList)
+void FullyConnectedMesh2::GetHostOrder(std::vector<RakNetGUID> &hostList)
 {
-	hostList.Clear(true, _FILE_AND_LINE_);
+	hostList.clear();
 
-	if (ourFCMGuid == 0 || fcm2ParticipantList.Size() == 0)
+	if (ourFCMGuid == 0 || fcm2ParticipantList.size() == 0)
 	{
-		hostList.Push(rakPeerInterface->GetMyGUID(), _FILE_AND_LINE_);
+		hostList.push_back(rakPeerInterface->GetMyGUID());
 		return;
 	}
 
@@ -95,14 +88,25 @@ void FullyConnectedMesh2::GetHostOrder(DataStructures::List<RakNetGUID> &hostLis
 	fcm2.fcm2Guid = ourFCMGuid;
 	fcm2.rakNetGuid = rakPeerInterface->GetMyGUID();
 
-	DataStructures::OrderedList<FCM2Participant *, FCM2Participant *, FCM2ParticipantComp> olist;
-	olist.Insert(&fcm2, &fcm2, true, _FILE_AND_LINE_);
-	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
-		olist.Insert(fcm2ParticipantList[i], fcm2ParticipantList[i], true, _FILE_AND_LINE_);
-
-	for (unsigned int i = 0; i < olist.Size(); i++)
+	// Sorted by fcm2Guid, lowest (the host) first. Like the sorted list this replaced, only the
+	// first system seen with a given fcm2Guid is kept.
+	std::vector<const FCM2Participant *> olist;
+	olist.reserve(fcm2ParticipantList.size() + 1);
+	auto insertSorted = [&olist](const FCM2Participant *participant)
 	{
-		hostList.Push(olist[i]->rakNetGuid, _FILE_AND_LINE_);
+		const auto it = std::lower_bound(olist.begin(), olist.end(), participant,
+		                                 [](const FCM2Participant *a, const FCM2Participant *b)
+		                                 { return a->fcm2Guid < b->fcm2Guid; });
+		if (it == olist.end() || (*it)->fcm2Guid != participant->fcm2Guid)
+			olist.insert(it, participant);
+	};
+	insertSorted(&fcm2);
+	for (const FCM2Participant *participant : fcm2ParticipantList)
+		insertSorted(participant);
+
+	for (const FCM2Participant *participant : olist)
+	{
+		hostList.push_back(participant->rakNetGuid);
 	}
 }
 bool FullyConnectedMesh2::IsConnectedHost(void) const
@@ -119,13 +123,13 @@ void FullyConnectedMesh2::ResetHostCalculation(void)
 	startupTime = MafiaNet::GetTimeUS();
 	totalConnectionCount = 0;
 	ourFCMGuid = 0;
-	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i = 0; i < fcm2ParticipantList.size(); i++)
 		SendFCMGuidRequest(fcm2ParticipantList[i]->rakNetGuid);
 }
 // bool FullyConnectedMesh2::AddParticipantInternal( RakNetGUID rakNetGuid, FCM2Guid theirFCMGuid, BitStream *userContext )
 bool FullyConnectedMesh2::AddParticipantInternal(RakNetGUID rakNetGuid, FCM2Guid theirFCMGuid)
 {
-	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i = 0; i < fcm2ParticipantList.size(); i++)
 	{
 		if (fcm2ParticipantList[i]->rakNetGuid == rakNetGuid)
 		{
@@ -153,7 +157,7 @@ bool FullyConnectedMesh2::AddParticipantInternal(RakNetGUID rakNetGuid, FCM2Guid
 		participant->userContext.Write(userContext);
 	}
 	*/
-	fcm2ParticipantList.Push(participant, _FILE_AND_LINE_);
+	fcm2ParticipantList.push_back(participant);
 
 	SendFCMGuidRequest(rakNetGuid);
 
@@ -174,17 +178,17 @@ void FullyConnectedMesh2::AddParticipant(RakNetGUID rakNetGuid)
 	//AddParticipantInternal(rakNetGuid,0,0);
 	AddParticipantInternal(rakNetGuid, 0);
 }
-void FullyConnectedMesh2::GetParticipantList(DataStructures::List<RakNetGUID> &participantList)
+void FullyConnectedMesh2::GetParticipantList(std::vector<RakNetGUID> &participantList)
 {
-	participantList.Clear(true, _FILE_AND_LINE_);
+	participantList.clear();
 	unsigned int i;
-	for (i = 0; i < fcm2ParticipantList.Size(); i++)
-		participantList.Push(fcm2ParticipantList[i]->rakNetGuid, _FILE_AND_LINE_);
+	for (i = 0; i < fcm2ParticipantList.size(); i++)
+		participantList.push_back(fcm2ParticipantList[i]->rakNetGuid);
 }
 bool FullyConnectedMesh2::HasParticipant(RakNetGUID participantGuid)
 {
 	unsigned int i;
-	for (i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (i = 0; i < fcm2ParticipantList.size(); i++)
 	{
 		if (fcm2ParticipantList[i]->rakNetGuid == participantGuid)
 			return true;
@@ -195,7 +199,7 @@ bool FullyConnectedMesh2::HasParticipant(RakNetGUID participantGuid)
 bool FullyConnectedMesh2::GetParticipantContext(RakNetGUID participantGuid, BitStream *userContext)
 {
 	unsigned int i;
-	for (i=0; i < fcm2ParticipantList.Size(); i++)
+	for (i=0; i < fcm2ParticipantList.size(); i++)
 	{
 		if (fcm2ParticipantList[i]->rakNetGuid==participantGuid)
 		{
@@ -230,7 +234,7 @@ void FullyConnectedMesh2::SetMyContext(BitStream *userContext)
 	myContext.ResetReadPointer();
 
 	unsigned int idx;
-	for (idx=0; idx < fcm2ParticipantList.Size(); idx++)
+	for (idx=0; idx < fcm2ParticipantList.size(); idx++)
 	{
 		rakPeerInterface->Send(&bsOut,MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,fcm2ParticipantList[idx]->rakNetGuid,false);
 	}
@@ -323,7 +327,7 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 
 	unsigned int idx;
 	idx = 0;
-	while (idx < joinsInProgress.Size())
+	while (idx < joinsInProgress.size())
 	{
 		if (joinsInProgress[idx]->requester == rakNetGUID)
 		{
@@ -335,7 +339,7 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 			p->wasGeneratedLocally = true;
 			rakPeerInterface->PushBackPacket(p, true);
 
-			for (unsigned int j = 0; j < joinsInProgress[idx]->vjipMembers.Size(); j++)
+			for (unsigned int j = 0; j < joinsInProgress[idx]->vjipMembers.size(); j++)
 			{
 				if (joinsInProgress[idx]->vjipMembers[j].userData != 0)
 				{
@@ -344,7 +348,7 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 			}
 
 			delete joinsInProgress[idx];
-			joinsInProgress.RemoveAtIndex(idx);
+			joinsInProgress.erase(joinsInProgress.begin() + idx);
 		}
 		else
 		{
@@ -354,19 +358,18 @@ void FullyConnectedMesh2::OnClosedConnection(const SystemAddress &systemAddress,
 
 	UpdateVerifiedJoinInProgressMember(rakNetGUID, UNASSIGNED_RAKNET_GUID, JIPS_FAILED);
 
-	for (idx = 0; idx < fcm2ParticipantList.Size(); idx++)
+	for (idx = 0; idx < fcm2ParticipantList.size(); idx++)
 	{
 		if (fcm2ParticipantList[idx]->rakNetGuid == rakNetGUID)
 		{
-			fcm2ParticipantList[idx] = fcm2ParticipantList[fcm2ParticipantList.Size() - 1];
 #ifdef DEBUG_FCM2
-			printf("Popping participant %s\n", to_string(fcm2ParticipantList[fcm2ParticipantList.Size() - 1]->rakNetGuid).c_str());
+			printf("Popping participant %s\n", to_string(fcm2ParticipantList[idx]->rakNetGuid).c_str());
 #endif
-
-			fcm2ParticipantList.Pop();
+			delete fcm2ParticipantList[idx];
+			SwapRemove(fcm2ParticipantList, idx);
 			if (rakNetGUID == hostRakNetGuid && ourFCMGuid != 0)
 			{
-				if (fcm2ParticipantList.Size() == 0)
+				if (fcm2ParticipantList.size() == 0)
 				{
 					hostRakNetGuid = rakPeerInterface->GetMyGUID();
 					hostFCM2Guid = ourFCMGuid;
@@ -413,15 +416,15 @@ void FullyConnectedMesh2::OnFailedConnectionAttempt(Packet *packet, PI2_FailedCo
 }
 void FullyConnectedMesh2::Clear(void)
 {
-	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i = 0; i < fcm2ParticipantList.size(); i++)
 	{
 		delete fcm2ParticipantList[i];
 	}
-	fcm2ParticipantList.Clear(false, _FILE_AND_LINE_);
+	fcm2ParticipantList.clear();
 
-	for (unsigned int i = 0; i < joinsInProgress.Size(); i++)
+	for (unsigned int i = 0; i < joinsInProgress.size(); i++)
 	{
-		for (unsigned int j = 0; j < joinsInProgress[i]->vjipMembers.Size(); j++)
+		for (unsigned int j = 0; j < joinsInProgress[i]->vjipMembers.size(); j++)
 		{
 			if (joinsInProgress[i]->vjipMembers[j].userData != 0)
 			{
@@ -431,7 +434,7 @@ void FullyConnectedMesh2::Clear(void)
 
 		delete joinsInProgress[i];
 	}
-	joinsInProgress.Clear(true, _FILE_AND_LINE_);
+	joinsInProgress.clear();
 
 	totalConnectionCount = 0;
 	ourFCMGuid = 0;
@@ -511,7 +514,7 @@ void FullyConnectedMesh2::CalculateHost(RakNetGUID *rakNetGuid, FCM2Guid *fcm2Gu
 	RakAssert(ourFCMGuid != 0);
 
 	// Can't calculate host without being connected to anyone else
-	RakAssert(fcm2ParticipantList.Size() > 0);
+	RakAssert(fcm2ParticipantList.size() > 0);
 
 	// Return the lowest value of all FCM2Guid
 	FCM2Guid lowestFCMGuid = ourFCMGuid;
@@ -519,7 +522,7 @@ void FullyConnectedMesh2::CalculateHost(RakNetGUID *rakNetGuid, FCM2Guid *fcm2Gu
 	RakNetGUID associatedRakNetGuid = rakPeerInterface->GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS);
 
 	unsigned int idx;
-	for (idx = 0; idx < fcm2ParticipantList.Size(); idx++)
+	for (idx = 0; idx < fcm2ParticipantList.size(); idx++)
 	{
 		if (fcm2ParticipantList[idx]->fcm2Guid != 0 && fcm2ParticipantList[idx]->fcm2Guid < lowestFCMGuid)
 		{
@@ -580,7 +583,7 @@ void FullyConnectedMesh2::OnRequestFCMGuid(Packet *packet)
 
 			AssignOurFCMGuid();
 			unsigned int idx;
-			for (idx = 0; idx < fcm2ParticipantList.Size(); idx++)
+			for (idx = 0; idx < fcm2ParticipantList.size(); idx++)
 				SendOurFCMGuid(rakPeerInterface->GetSystemAddressFromGuid(fcm2ParticipantList[idx]->rakNetGuid));
 		}
 	}
@@ -609,7 +612,7 @@ void FullyConnectedMesh2::OnUpdateUserContext(Packet *packet)
 	BitStream remoteContext;
 	bsIn.Read(remoteContext);
 
-	for (unsigned int i=0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i=0; i < fcm2ParticipantList.size(); i++)
 	{
 		if (fcm2ParticipantList[i]->rakNetGuid==packet->guid)
 		{
@@ -630,7 +633,7 @@ void FullyConnectedMesh2::OnRespondConnectionCount(Packet *packet)
 	BitStream remoteContext;
 	bsIn.Read(remoteContext);
 
-	for (unsigned int i=0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i=0; i < fcm2ParticipantList.size(); i++)
 	{
 		if (fcm2ParticipantList[i]->rakNetGuid==packet->guid)
 		{
@@ -657,7 +660,7 @@ void FullyConnectedMesh2::OnRespondConnectionCount(Packet *packet)
 	if (wasAssigned == true)
 	{
 		unsigned int idx;
-		for (idx = 0; idx < fcm2ParticipantList.Size(); idx++)
+		for (idx = 0; idx < fcm2ParticipantList.size(); idx++)
 			SendOurFCMGuid(rakPeerInterface->GetSystemAddressFromGuid(fcm2ParticipantList[idx]->rakNetGuid));
 		CalculateAndPushHost();
 	}
@@ -685,7 +688,7 @@ void FullyConnectedMesh2::OnInformFCMGuid(Packet *packet)
 		MafiaNet::BitStream bsOut;
 		bsOut.Write((MessageID) ID_FCM2_UPDATE_MIN_TOTAL_CONNECTION_COUNT);
 		bsOut.Write(totalConnectionCount);
-		for (idx = 0; idx < fcm2ParticipantList.Size(); idx++)
+		for (idx = 0; idx < fcm2ParticipantList.size(); idx++)
 		{
 			if (packet->guid != fcm2ParticipantList[idx]->rakNetGuid)
 				rakPeerInterface->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, fcm2ParticipantList[idx]->rakNetGuid, false);
@@ -696,7 +699,7 @@ void FullyConnectedMesh2::OnInformFCMGuid(Packet *packet)
 	{
 		AssignOurFCMGuid();
 		unsigned int idx;
-		for (idx = 0; idx < fcm2ParticipantList.Size(); idx++)
+		for (idx = 0; idx < fcm2ParticipantList.size(); idx++)
 			SendOurFCMGuid(rakPeerInterface->GetSystemAddressFromGuid(fcm2ParticipantList[idx]->rakNetGuid));
 	}
 
@@ -712,12 +715,12 @@ void FullyConnectedMesh2::OnUpdateMinTotalConnectionCount(Packet *packet)
 }
 void FullyConnectedMesh2::GetParticipantCount(unsigned int *participantListSize) const
 {
-	*participantListSize = fcm2ParticipantList.Size();
+	*participantListSize = (unsigned int) fcm2ParticipantList.size();
 }
 
 unsigned int FullyConnectedMesh2::GetParticipantCount(void) const
 {
-	return fcm2ParticipantList.Size();
+	return (unsigned int) fcm2ParticipantList.size();
 }
 void FullyConnectedMesh2::CalculateAndPushHost(void)
 {
@@ -736,7 +739,7 @@ void FullyConnectedMesh2::CalculateAndPushHost(void)
 }
 bool FullyConnectedMesh2::ParticipantListComplete(void)
 {
-	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i = 0; i < fcm2ParticipantList.size(); i++)
 	{
 		if (fcm2ParticipantList[i]->fcm2Guid == 0)
 			return false;
@@ -786,9 +789,9 @@ void FullyConnectedMesh2::StartVerifiedJoin(RakNetGUID client)
 
 	BitStream bsOut;
 	bsOut.Write((MessageID) ID_FCM2_VERIFIED_JOIN_START);
-	bsOut.WriteCasted<unsigned short>(fcm2ParticipantList.Size());
+	bsOut.WriteCasted<unsigned short>(fcm2ParticipantList.size());
 	unsigned int i;
-	for (i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (i = 0; i < fcm2ParticipantList.size(); i++)
 	{
 		bsOut.Write(fcm2ParticipantList[i]->rakNetGuid);
 		bsOut.Write(rakPeerInterface->GetSystemAddressFromGuid(fcm2ParticipantList[i]->rakNetGuid));
@@ -807,11 +810,11 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 	VerifiedJoinInProgress vjip;
 	DecomposeJoinCapable(packet, &vjip);
 
-	DataStructures::List<RakNetGUID> participatingMembersOnClientSucceeded;
-	DataStructures::List<RakNetGUID> participatingMembersOnClientFailed;
-	DataStructures::List<RakNetGUID> participatingMembersNotOnClient;
-	DataStructures::List<RakNetGUID> clientMembersNotParticipatingSucceeded;
-	DataStructures::List<RakNetGUID> clientMembersNotParticipatingFailed;
+	std::vector<RakNetGUID> participatingMembersOnClientSucceeded;
+	std::vector<RakNetGUID> participatingMembersOnClientFailed;
+	std::vector<RakNetGUID> participatingMembersNotOnClient;
+	std::vector<RakNetGUID> clientMembersNotParticipatingSucceeded;
+	std::vector<RakNetGUID> clientMembersNotParticipatingFailed;
 	CategorizeVJIP(&vjip,
 	               participatingMembersOnClientSucceeded,
 	               participatingMembersOnClientFailed,
@@ -819,19 +822,19 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 	               clientMembersNotParticipatingSucceeded,
 	               clientMembersNotParticipatingFailed);
 
-	if (participatingMembersNotOnClient.Size() > 0)
+	if (participatingMembersNotOnClient.size() > 0)
 	{
 		BitStream bsOut;
 		bsOut.Write((MessageID) ID_FCM2_VERIFIED_JOIN_START);
-		bsOut.WriteCasted<unsigned short>(participatingMembersNotOnClient.Size());
+		bsOut.WriteCasted<unsigned short>(participatingMembersNotOnClient.size());
 		unsigned int i;
-		for (i = 0; i < participatingMembersNotOnClient.Size(); i++)
+		for (i = 0; i < participatingMembersNotOnClient.size(); i++)
 		{
 			bsOut.Write(participatingMembersNotOnClient[i]);
 			bsOut.Write(rakPeerInterface->GetSystemAddressFromGuid(participatingMembersNotOnClient[i]));
 
 			[[maybe_unused]] bool written = false; // only checked by RakAssert (debug builds)
-			for (unsigned int j = 0; j < fcm2ParticipantList.Size(); j++)
+			for (unsigned int j = 0; j < fcm2ParticipantList.size(); j++)
 			{
 				if (fcm2ParticipantList[j]->rakNetGuid == participatingMembersNotOnClient[i])
 				{
@@ -852,8 +855,8 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 		return;
 	}
 
-	RakAssert(participatingMembersOnClientFailed.Size() == 0);
-	RakAssert(participatingMembersNotOnClient.Size() == 0);
+	RakAssert(participatingMembersOnClientFailed.size() == 0);
+	RakAssert(participatingMembersNotOnClient.size() == 0);
 
 	MafiaNet::BitStream bsOut;
 	if (accept)
@@ -862,19 +865,19 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 		bsOut.Write(packet->guid);
 
 		// Tell client to disconnect from clientMembersNotParticipatingSucceeded
-		bsOut.WriteCasted<unsigned short>(clientMembersNotParticipatingSucceeded.Size());
-		for (unsigned int i = 0; i < clientMembersNotParticipatingSucceeded.Size(); i++)
+		bsOut.WriteCasted<unsigned short>(clientMembersNotParticipatingSucceeded.size());
+		for (unsigned int i = 0; i < clientMembersNotParticipatingSucceeded.size(); i++)
 			bsOut.Write(clientMembersNotParticipatingSucceeded[i]);
 
 		// Tell client to call AddParticipant() for participatingMembersOnClientSucceeded
-		bsOut.WriteCasted<unsigned short>(participatingMembersOnClientSucceeded.Size());
-		for (unsigned int i = 0; i < participatingMembersOnClientSucceeded.Size(); i++)
+		bsOut.WriteCasted<unsigned short>(participatingMembersOnClientSucceeded.size());
+		for (unsigned int i = 0; i < participatingMembersOnClientSucceeded.size(); i++)
 			bsOut.Write(participatingMembersOnClientSucceeded[i]);
 
 		if (additionalData)
 			bsOut.Write(additionalData);
 
-		for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
+		for (unsigned int i = 0; i < fcm2ParticipantList.size(); i++)
 			SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, fcm2ParticipantList[i]->rakNetGuid, false);
 
 		// Process immediately
@@ -899,30 +902,30 @@ void FullyConnectedMesh2::RespondOnVerifiedJoinCapable(Packet *packet, bool acce
 
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
 }
-void FullyConnectedMesh2::GetVerifiedJoinRequiredProcessingList(RakNetGUID host, DataStructures::List<SystemAddress> &addresses, DataStructures::List<RakNetGUID> &guids, DataStructures::List<BitStream *> &userData)
+void FullyConnectedMesh2::GetVerifiedJoinRequiredProcessingList(RakNetGUID host, std::vector<SystemAddress> &addresses, std::vector<RakNetGUID> &guids, std::vector<BitStream *> &userData)
 {
-	addresses.Clear(true, _FILE_AND_LINE_);
-	guids.Clear(true, _FILE_AND_LINE_);
+	addresses.clear();
+	guids.clear();
 
 	unsigned int curIndex = GetJoinsInProgressIndex(host);
 	if (curIndex != (unsigned int) -1)
 	{
 		VerifiedJoinInProgress *vjip = joinsInProgress[curIndex];
 		unsigned int j;
-		for (j = 0; j < vjip->vjipMembers.Size(); j++)
+		for (j = 0; j < vjip->vjipMembers.size(); j++)
 		{
 			if (vjip->vjipMembers[j].joinInProgressState == JIPS_PROCESSING)
 			{
-				addresses.Push(vjip->vjipMembers[j].systemAddress, _FILE_AND_LINE_);
-				guids.Push(vjip->vjipMembers[j].guid, _FILE_AND_LINE_);
-				userData.Push(vjip->vjipMembers[j].userData, _FILE_AND_LINE_);
+				addresses.push_back(vjip->vjipMembers[j].systemAddress);
+				guids.push_back(vjip->vjipMembers[j].guid);
+				userData.push_back(vjip->vjipMembers[j].userData);
 			}
 		}
 	}
 }
-void FullyConnectedMesh2::GetVerifiedJoinAcceptedAdditionalData(Packet *packet, bool *thisSystemAccepted, DataStructures::List<RakNetGUID> &systemsAccepted, BitStream *additionalData)
+void FullyConnectedMesh2::GetVerifiedJoinAcceptedAdditionalData(Packet *packet, bool *thisSystemAccepted, std::vector<RakNetGUID> &systemsAccepted, BitStream *additionalData)
 {
-	systemsAccepted.Clear(true, _FILE_AND_LINE_);
+	systemsAccepted.clear();
 
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
@@ -938,13 +941,13 @@ void FullyConnectedMesh2::GetVerifiedJoinAcceptedAdditionalData(Packet *packet, 
 		for (unsigned short i = 0; i < listSize; i++)
 		{
 			bsIn.Read(systemToAddGuid);
-			systemsAccepted.Push(systemToAddGuid, _FILE_AND_LINE_);
+			systemsAccepted.push_back(systemToAddGuid);
 		}
-		systemsAccepted.Push(packet->guid, _FILE_AND_LINE_);
+		systemsAccepted.push_back(packet->guid);
 	}
 	else
 	{
-		systemsAccepted.Push(systemToAddGuid, _FILE_AND_LINE_);
+		systemsAccepted.push_back(systemToAddGuid);
 		bsIn.IgnoreBytes(listSize * RakNetGUID::size());
 	}
 	if (additionalData)
@@ -984,7 +987,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 		// 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		// 		}
 
-		for (unsigned int i = 0; i < vjip->vjipMembers.Size(); i++)
+		for (unsigned int i = 0; i < vjip->vjipMembers.size(); i++)
 		{
 			vjip->vjipMembers[i].workingFlag = false;
 		}
@@ -1009,7 +1012,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 				// 11/13/2013 - ReadVerifiedJoinInProgressMember already sets joinInProgressState
 				// http://www.jenkinssoftware.com/forum/index.php?topic=5211.0
 				// vjipm.joinInProgressState=JIPS_PROCESSING;
-				vjip->vjipMembers.Push(vjipm, _FILE_AND_LINE_);
+				vjip->vjipMembers.push_back(vjipm);
 
 				// Allow resend of ID_FCM2_VERIFIED_JOIN_CAPABLE
 				//vjip->sentResults=false;
@@ -1020,7 +1023,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 			}
 		}
 
-		for (unsigned int i = 0; i < vjip->vjipMembers.Size(); i++)
+		for (unsigned int i = 0; i < vjip->vjipMembers.size(); i++)
 		{
 			if (vjip->vjipMembers[i].workingFlag == false)
 				vjip->vjipMembers[i].joinInProgressState = JIPS_UNNECESSARY;
@@ -1049,7 +1052,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 		WriteVJCUserData(&bsOut);
 		SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
 		//vjip->sentResults=true;
-		joinsInProgress.Push(vjip, _FILE_AND_LINE_);
+		joinsInProgress.push_back(vjip);
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
 
@@ -1059,10 +1062,10 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinStart(Packet *packet)
 	{
 		VerifiedJoinInProgressMember vjipm;
 		ReadVerifiedJoinInProgressMember(&bsIn, &vjipm);
-		vjip->vjipMembers.Push(vjipm, _FILE_AND_LINE_);
+		vjip->vjipMembers.push_back(vjipm);
 	}
 
-	joinsInProgress.Push(vjip, _FILE_AND_LINE_);
+	joinsInProgress.push_back(vjip);
 
 	// 11/13/2013 - ReadVerifiedJoinInProgressMember may set JIPS_CONNECTED, so this may already be done
 	// http://www.jenkinssoftware.com/forum/index.php?topic=5211.0
@@ -1107,7 +1110,7 @@ void FullyConnectedMesh2::DecomposeJoinCapable(Packet *packet, VerifiedJoinInPro
 		bsIn.ReadCasted<unsigned char>(member.joinInProgressState);
 		member.userData = 0;
 		member.workingFlag = false;
-		vjip->vjipMembers.Push(member, _FILE_AND_LINE_);
+		vjip->vjipMembers.push_back(member);
 	}
 }
 PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinCapable(Packet *packet)
@@ -1118,11 +1121,11 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinCapable(Packet *packet)
 	// If this assert hits, AddParticipant() was called on this system, or another system, which it should not have been.
 	RakAssert(HasParticipant(packet->guid) == false);
 
-	DataStructures::List<RakNetGUID> participatingMembersOnClientSucceeded;
-	DataStructures::List<RakNetGUID> participatingMembersOnClientFailed;
-	DataStructures::List<RakNetGUID> participatingMembersNotOnClient;
-	DataStructures::List<RakNetGUID> clientMembersNotParticipatingSucceeded;
-	DataStructures::List<RakNetGUID> clientMembersNotParticipatingFailed;
+	std::vector<RakNetGUID> participatingMembersOnClientSucceeded;
+	std::vector<RakNetGUID> participatingMembersOnClientFailed;
+	std::vector<RakNetGUID> participatingMembersNotOnClient;
+	std::vector<RakNetGUID> clientMembersNotParticipatingSucceeded;
+	std::vector<RakNetGUID> clientMembersNotParticipatingFailed;
 	CategorizeVJIP(&vjip,
 	               participatingMembersOnClientSucceeded,
 	               participatingMembersOnClientFailed,
@@ -1130,7 +1133,7 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinCapable(Packet *packet)
 	               clientMembersNotParticipatingSucceeded,
 	               clientMembersNotParticipatingFailed);
 
-	if (participatingMembersOnClientFailed.Size() > 0)
+	if (participatingMembersOnClientFailed.size() > 0)
 	{
 		// Send ID_FCM2_VERIFIED_JOIN_FAILED with GUIDs to disconnect
 		BitStream bsOut;
@@ -1139,19 +1142,19 @@ PluginReceiveResult FullyConnectedMesh2::OnVerifiedJoinCapable(Packet *packet)
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
 
-	if (participatingMembersNotOnClient.Size() > 0)
+	if (participatingMembersNotOnClient.size() > 0)
 	{
 		BitStream bsOut;
 		bsOut.Write((MessageID) ID_FCM2_VERIFIED_JOIN_START);
-		bsOut.WriteCasted<unsigned short>(participatingMembersNotOnClient.Size());
+		bsOut.WriteCasted<unsigned short>(participatingMembersNotOnClient.size());
 		unsigned int i;
-		for (i = 0; i < participatingMembersNotOnClient.Size(); i++)
+		for (i = 0; i < participatingMembersNotOnClient.size(); i++)
 		{
 			bsOut.Write(participatingMembersNotOnClient[i]);
 			bsOut.Write(rakPeerInterface->GetSystemAddressFromGuid(participatingMembersNotOnClient[i]));
 
 			[[maybe_unused]] bool written = false; // only checked by RakAssert (debug builds)
-			for (unsigned int j = 0; j < fcm2ParticipantList.Size(); j++)
+			for (unsigned int j = 0; j < fcm2ParticipantList.size(); j++)
 			{
 				if (fcm2ParticipantList[j]->rakNetGuid == participatingMembersNotOnClient[i])
 				{
@@ -1184,7 +1187,7 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 	if (callCloseConnection)
 	{
 		VerifiedJoinInProgress *vjip = joinsInProgress[curIndex];
-		for (unsigned int j = 0; j < vjip->vjipMembers.Size(); j++)
+		for (unsigned int j = 0; j < vjip->vjipMembers.size(); j++)
 		{
 			if (vjip->vjipMembers[j].joinInProgressState != JIPS_FAILED)
 			{
@@ -1196,7 +1199,7 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 		}
 	}
 
-	for (unsigned int j = 0; j < joinsInProgress[curIndex]->vjipMembers.Size(); j++)
+	for (unsigned int j = 0; j < joinsInProgress[curIndex]->vjipMembers.size(); j++)
 	{
 		if (joinsInProgress[curIndex]->vjipMembers[j].userData != 0)
 		{
@@ -1207,7 +1210,7 @@ void FullyConnectedMesh2::OnVerifiedJoinFailed(RakNetGUID hostGuid, bool callClo
 
 	// Clear joinsInProgress for packet->guid
 	delete joinsInProgress[curIndex];
-	joinsInProgress.RemoveAtIndex(curIndex);
+	joinsInProgress.erase(joinsInProgress.begin() + curIndex);
 }
 void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
 {
@@ -1244,7 +1247,7 @@ void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
 		}
 		AddParticipant(packet->guid);
 
-		for (unsigned int j = 0; j < joinsInProgress[curIndex]->vjipMembers.Size(); j++)
+		for (unsigned int j = 0; j < joinsInProgress[curIndex]->vjipMembers.size(); j++)
 		{
 			if (joinsInProgress[curIndex]->vjipMembers[j].userData != 0)
 			{
@@ -1254,7 +1257,7 @@ void FullyConnectedMesh2::OnVerifiedJoinAccepted(Packet *packet)
 
 		// Clear joinsInProgress for packet->guid
 		delete joinsInProgress[curIndex];
-		joinsInProgress.RemoveAtIndex(curIndex);
+		joinsInProgress.erase(joinsInProgress.begin() + curIndex);
 	}
 	else
 	{
@@ -1271,7 +1274,7 @@ void FullyConnectedMesh2::OnVerifiedJoinRejected(Packet *packet)
 }
 unsigned int FullyConnectedMesh2::GetJoinsInProgressIndex(RakNetGUID requester) const
 {
-	for (unsigned int i = 0; i < joinsInProgress.Size(); i++)
+	for (unsigned int i = 0; i < joinsInProgress.size(); i++)
 	{
 		if (joinsInProgress[i]->requester == requester)
 			return i;
@@ -1282,7 +1285,7 @@ void FullyConnectedMesh2::UpdateVerifiedJoinInProgressMember(const AddressOrGUID
 {
 	bool anythingChanged;
 
-	for (unsigned int i = 0; i < joinsInProgress.Size(); i++)
+	for (unsigned int i = 0; i < joinsInProgress.size(); i++)
 	{
 		VerifiedJoinInProgress *vjip = joinsInProgress[i];
 		//if (vjip->sentResults==true)
@@ -1317,7 +1320,7 @@ bool FullyConnectedMesh2::ProcessVerifiedJoinInProgressIfCompleted(VerifiedJoinI
 	// If no systems in processing state, send results to server
 	// Return true if this was done
 	bool anyProcessing = false;
-	for (unsigned int i = 0; i < vjip->vjipMembers.Size(); i++)
+	for (unsigned int i = 0; i < vjip->vjipMembers.size(); i++)
 	{
 		if (vjip->vjipMembers[i].joinInProgressState == JIPS_PROCESSING)
 		{
@@ -1341,9 +1344,9 @@ bool FullyConnectedMesh2::ProcessVerifiedJoinInProgressIfCompleted(VerifiedJoinI
 void FullyConnectedMesh2::WriteVerifiedJoinCapable(MafiaNet::BitStream *bsOut, VerifiedJoinInProgress *vjip)
 {
 	bsOut->Write((MessageID) ID_FCM2_VERIFIED_JOIN_CAPABLE);
-	bsOut->WriteCasted<unsigned short>(vjip->vjipMembers.Size());
+	bsOut->WriteCasted<unsigned short>(vjip->vjipMembers.size());
 	unsigned int i;
-	for (i = 0; i < vjip->vjipMembers.Size(); i++)
+	for (i = 0; i < vjip->vjipMembers.size(); i++)
 	{
 		bsOut->Write(vjip->vjipMembers[i].guid);
 		bsOut->Write(vjip->vjipMembers[i].systemAddress);
@@ -1377,7 +1380,7 @@ void FullyConnectedMesh2::ReadVerifiedJoinInProgressMember(MafiaNet::BitStream *
 
 unsigned int FullyConnectedMesh2::GetVerifiedJoinInProgressMemberIndex(const AddressOrGUID systemIdentifier, VerifiedJoinInProgress *vjip)
 {
-	for (unsigned int j = 0; j < vjip->vjipMembers.Size(); j++)
+	for (unsigned int j = 0; j < vjip->vjipMembers.size(); j++)
 	{
 		if ((systemIdentifier.rakNetGuid != UNASSIGNED_RAKNET_GUID && vjip->vjipMembers[j].guid == systemIdentifier.rakNetGuid) ||
 		    (systemIdentifier.systemAddress != UNASSIGNED_SYSTEM_ADDRESS && vjip->vjipMembers[j].systemAddress == systemIdentifier.systemAddress))
@@ -1389,41 +1392,41 @@ unsigned int FullyConnectedMesh2::GetVerifiedJoinInProgressMemberIndex(const Add
 }
 
 void FullyConnectedMesh2::CategorizeVJIP(VerifiedJoinInProgress *vjip,
-                                         DataStructures::List<RakNetGUID> &participatingMembersOnClientSucceeded,
-                                         DataStructures::List<RakNetGUID> &participatingMembersOnClientFailed,
-                                         DataStructures::List<RakNetGUID> &participatingMembersNotOnClient,
-                                         DataStructures::List<RakNetGUID> &clientMembersNotParticipatingSucceeded,
-                                         DataStructures::List<RakNetGUID> &clientMembersNotParticipatingFailed)
+                                         std::vector<RakNetGUID> &participatingMembersOnClientSucceeded,
+                                         std::vector<RakNetGUID> &participatingMembersOnClientFailed,
+                                         std::vector<RakNetGUID> &participatingMembersNotOnClient,
+                                         std::vector<RakNetGUID> &clientMembersNotParticipatingSucceeded,
+                                         std::vector<RakNetGUID> &clientMembersNotParticipatingFailed)
 {
-	for (unsigned int i = 0; i < vjip->vjipMembers.Size(); i++)
+	for (unsigned int i = 0; i < vjip->vjipMembers.size(); i++)
 		vjip->vjipMembers[i].workingFlag = false;
 
-	for (unsigned int i = 0; i < fcm2ParticipantList.Size(); i++)
+	for (unsigned int i = 0; i < fcm2ParticipantList.size(); i++)
 	{
 		unsigned int j = GetVerifiedJoinInProgressMemberIndex(fcm2ParticipantList[i]->rakNetGuid, vjip);
 		if (j == (unsigned int) -1)
 		{
-			participatingMembersNotOnClient.Push(fcm2ParticipantList[i]->rakNetGuid, _FILE_AND_LINE_);
+			participatingMembersNotOnClient.push_back(fcm2ParticipantList[i]->rakNetGuid);
 		}
 		else
 		{
 			if (vjip->vjipMembers[j].joinInProgressState == JIPS_FAILED)
-				participatingMembersOnClientFailed.Push(fcm2ParticipantList[i]->rakNetGuid, _FILE_AND_LINE_);
+				participatingMembersOnClientFailed.push_back(fcm2ParticipantList[i]->rakNetGuid);
 			else
-				participatingMembersOnClientSucceeded.Push(fcm2ParticipantList[i]->rakNetGuid, _FILE_AND_LINE_);
+				participatingMembersOnClientSucceeded.push_back(fcm2ParticipantList[i]->rakNetGuid);
 			vjip->vjipMembers[j].workingFlag = true;
 		}
 	}
 
 
-	for (unsigned int j = 0; j < vjip->vjipMembers.Size(); j++)
+	for (unsigned int j = 0; j < vjip->vjipMembers.size(); j++)
 	{
 		if (vjip->vjipMembers[j].workingFlag == false)
 		{
 			if (vjip->vjipMembers[j].joinInProgressState == JIPS_FAILED)
-				clientMembersNotParticipatingFailed.Push(vjip->vjipMembers[j].guid, _FILE_AND_LINE_);
+				clientMembersNotParticipatingFailed.push_back(vjip->vjipMembers[j].guid);
 			else
-				clientMembersNotParticipatingSucceeded.Push(vjip->vjipMembers[j].guid, _FILE_AND_LINE_);
+				clientMembersNotParticipatingSucceeded.push_back(vjip->vjipMembers[j].guid);
 		}
 	}
 }

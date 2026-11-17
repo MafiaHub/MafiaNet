@@ -30,8 +30,11 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
 #include "mafianet/network_id_object.h"
-#include "mafianet/ds_hash.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <map>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 /// \defgroup RPC_PLUGIN_GROUP RPC
 /// \brief Remote procedure calls, without external dependencies.
@@ -90,6 +93,10 @@ public:
 
 	// Destructor
 	virtual ~RPC4();
+
+	// Owns its slots; not copyable.
+	RPC4(const RPC4 &) = delete;
+	RPC4 &operator=(const RPC4 &) = delete;
 
 	/// \deprecated Use RegisterSlot
 	/// \brief Register a function pointer to be callable from a remote system
@@ -183,13 +190,30 @@ public:
 	/// If called while processing a slot, no further slots for the currently executing signal will be executed
 	void InterruptSignal(void);
 
+	/// The slots registered under one shared identifier with RegisterSlot(). Opaque: use it only as a handle for InvokeSignal().
+	struct LocalSlot;
+
+	/// \brief Looks up the slots registered under \a sharedIdentifier, to invoke them repeatedly without a string lookup.
+	/// \details The pointer is owned by RPC4. It stays valid until UnregisterSlot(sharedIdentifier) is called or this RPC4 is destroyed;
+	/// further RegisterSlot() calls with the same identifier add to the same LocalSlot and do not invalidate it.
+	/// \param[in] sharedIdentifier Identifier passed to RegisterSlot()
+	/// \return The slots, or nullptr if no slot is registered under \a sharedIdentifier
+	LocalSlot *GetLocalSlot(const char *sharedIdentifier);
+
+	/// \brief Calls every slot of \a slot locally, highest callPriority first, as if the signal had arrived in \a packet.
+	/// \details InterruptSignal() from within a slot stops the remaining calls. Does nothing if \a slot is nullptr.
+	/// \param[in] slot A handle returned by GetLocalSlot()
+	/// \param[in] serializedParameters Passed to every slot; its read pointer is reset between calls
+	/// \param[in] packet Passed to every slot
+	void InvokeSignal(LocalSlot *slot, MafiaNet::BitStream *serializedParameters, Packet *packet);
+
 	/// \internal
 	struct LocalCallback
 	{
 		MessageID messageId;
-		DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> functions;
+		/// Sorted function names
+		std::vector<MafiaNet::RakString> functions;
 	};
-	static int LocalCallbackComp(const MessageID &key, LocalCallback *const &data);
 
 	/// \internal
 	// Callable object, along with priority to call relative to other objects
@@ -215,13 +239,6 @@ public:
 
 	static int LocalSlotObjectComp(const LocalSlotObject &key, const LocalSlotObject &data);
 
-	/// \internal
-	struct LocalSlot
-	{
-		DataStructures::OrderedList<LocalSlotObject, LocalSlotObject, LocalSlotObjectComp> slotObjects;
-	};
-	DataStructures::Hash<MafiaNet::RakString, LocalSlot *, 256, MafiaNet::RakString::ToInteger> localSlots;
-
 protected:
 	// --------------------------------------------------------------------------------------------
 	// Packet handling functions
@@ -242,21 +259,19 @@ protected:
 		void *context;
 	};
 
-	DataStructures::Hash<MafiaNet::RakString, RegisteredNonblockingFunction, 64, MafiaNet::RakString::ToInteger> registeredNonblockingFunctions;
-	DataStructures::Hash<MafiaNet::RakString, RegisteredBlockingFunction, 64, MafiaNet::RakString::ToInteger> registeredBlockingFunctions;
-	DataStructures::OrderedList<MessageID, LocalCallback *, RPC4::LocalCallbackComp> localCallbacks;
+	/// Slots by shared identifier. Each LocalSlot is heap-allocated, so GetLocalSlot() pointers survive a rehash.
+	std::unordered_map<MafiaNet::RakString, std::unique_ptr<LocalSlot>> localSlots;
+	std::unordered_map<MafiaNet::RakString, RegisteredNonblockingFunction> registeredNonblockingFunctions;
+	std::unordered_map<MafiaNet::RakString, RegisteredBlockingFunction> registeredBlockingFunctions;
+	std::map<MessageID, LocalCallback> localCallbacks;
 
 	MafiaNet::BitStream blockingReturnValue;
 	bool gotBlockingReturnValue;
-
-	DataStructures::HashIndex GetLocalSlotIndex(const char *sharedIdentifier);
 
 	/// Used so slots are called in the order they are registered
 	unsigned int nextSlotRegistrationCount;
 
 	bool interruptSignal;
-
-	void InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, Packet *packet);
 };
 
 } // End namespace

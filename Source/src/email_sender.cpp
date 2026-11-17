@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstring>
 #include <cstdlib>
 #if _RAKNET_SUPPORT_EmailSender == 1 && _RAKNET_SUPPORT_TCPInterface == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
@@ -123,7 +124,7 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	const int boundarySize = 60;
 	char boundary[boundarySize + 1];
 	int i, j;
-	if (attachedFiles && attachedFiles->fileList.Size())
+	if (attachedFiles && attachedFiles->fileList.size())
 	{
 		rakNetRandom.SeedMT((unsigned int) MafiaNet::GetTimeMS());
 		// Random multipart message boundary
@@ -135,7 +136,7 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	sprintf_s(query, "MIME-version: 1.0\r\n");
 	tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
 
-	if (attachedFiles && attachedFiles->fileList.Size())
+	if (attachedFiles && attachedFiles->fileList.size())
 	{
 		sprintf_s(query, "Content-type: multipart/mixed; BOUNDARY=\"%s\"\r\n\r\n", boundary);
 		tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
@@ -224,9 +225,9 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	int outputOffset;
 
 	// What a pain in the rear.  I have to map the binary to printable characters using 6 bits per character.
-	if (attachedFiles && attachedFiles->fileList.Size())
+	if (attachedFiles && attachedFiles->fileList.size())
 	{
-		for (i = 0; i < (int) attachedFiles->fileList.Size(); i++)
+		for (i = 0; i < (int) attachedFiles->fileList.size(); i++)
 		{
 			// Write boundary
 			sprintf_s(query, "\r\n--%s\r\n", boundary);

@@ -21,7 +21,8 @@
 
 #include "mafianet/types.h"
 #include "mafianet/string.h"
-#include "mafianet/ds_list.h"
+
+#include <vector>
 
 namespace MafiaNet
 {
@@ -63,8 +64,8 @@ struct RAK_DLL_EXPORT CloudKey
 	/// Identifies the secondary key. This is intended to be a subcategory enumeration, such as PLAYER_LIST or RUNNING_SCORES
 	uint32_t secondaryKey;
 
-	/// \internal
-	void Serialize(bool writeToBitstream, BitStream *bitStream);
+	/// \internal Returns false if reading failed (the stream ended).
+	bool Serialize(bool writeToBitstream, BitStream *bitStream);
 };
 
 /// \internal
@@ -84,7 +85,7 @@ struct RAK_DLL_EXPORT CloudQuery
 	/// List of keys to query. Must be at least of length 1.
 	/// This query is run on uploads from all clients, and those that match the combination of primaryKey and secondaryKey are potentially returned
 	/// If you pass more than one key at a time, the results are concatenated so if you need to differentiate between queries then send two different queries
-	DataStructures::List<CloudKey> keys;
+	std::vector<CloudKey> keys;
 
 	/// If limiting the number of rows to return, this is the starting offset into the list. Has no effect unless maxRowsToReturn is > 0
 	uint32_t startingRowIndex;
@@ -106,10 +107,10 @@ struct RAK_DLL_EXPORT CloudQueryRow
 	CloudKey key;
 
 	/// Data uploaded
-	unsigned char *data;
+	unsigned char *data = nullptr;
 
 	/// Length of data uploaded
-	uint32_t length;
+	uint32_t length = 0;
 
 	/// System address of server that is holding this data, and the client is connected to
 	SystemAddress serverSystemAddress;
@@ -123,8 +124,9 @@ struct RAK_DLL_EXPORT CloudQueryRow
 	/// RakNetGUID of client that uploaded this data
 	RakNetGUID clientGUID;
 
-	/// \internal
-	void Serialize(bool writeToBitstream, BitStream *bitStream, CloudAllocator *allocator);
+	/// \internal When reading, returns false if the stream does not hold a whole row; \a data is
+	/// then null and \a length 0.
+	bool Serialize(bool writeToBitstream, BitStream *bitStream, CloudAllocator *allocator);
 };
 
 /// \ingroup CLOUD_GROUP
@@ -134,13 +136,13 @@ struct RAK_DLL_EXPORT CloudQueryResult
 	CloudQuery cloudQuery;
 
 	/// Results returned from query. If there were multiple keys in CloudQuery::keys then see resultKeyIndices
-	DataStructures::List<CloudQueryRow *> rowsReturned;
+	std::vector<CloudQueryRow *> rowsReturned;
 
 	/// If there were multiple keys in CloudQuery::keys, then each key is processed in order and the result concatenated to rowsReturned
 	/// The starting index of each query is written to resultKeyIndices
 	/// For example, if CloudQuery::keys had 4 keys, returning 3 rows, 0, rows, 5 rows, and 12 rows then
 	/// resultKeyIndices would be 0, 3, 3, 8
-	DataStructures::List<uint32_t> resultKeyIndices;
+	std::vector<uint32_t> resultKeyIndices;
 
 	/// Whatever was passed to CloudClient::Get() as CloudQuery::subscribeToResults
 	bool subscribeToResults;

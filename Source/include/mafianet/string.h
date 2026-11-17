@@ -20,6 +20,8 @@
 #include "mafianet/types.h" // int64_t
 #include <stdio.h>
 #include <stdarg.h>
+#include <cstddef>
+#include <functional>
 #include <vector>
 
 #ifdef _WIN32
@@ -352,5 +354,15 @@ protected:
 }
 
 const MafiaNet::RakString RAK_DLL_EXPORT operator+(const MafiaNet::RakString &lhs, const MafiaNet::RakString &rhs);
+
+namespace std
+{
+/// Hashes with RakString::ToInteger, so a RakString can key a std::unordered_map.
+template <>
+struct hash<MafiaNet::RakString>
+{
+	size_t operator()(const MafiaNet::RakString &s) const { return (size_t) MafiaNet::RakString::ToInteger(s); }
+};
+} // namespace std
 
 #endif

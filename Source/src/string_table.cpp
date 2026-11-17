@@ -22,7 +22,20 @@
 #include "mafianet/string_compressor.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
+
+#include <algorithm>
+
 using namespace MafiaNet;
+
+namespace
+{
+// First entry not less than str: where str is, or would be inserted.
+std::vector<StrAndBool>::const_iterator LowerBoundString(const std::vector<StrAndBool> &list, const char *str)
+{
+	return std::lower_bound(list.begin(), list.end(), str, [](const StrAndBool &entry, const char *key)
+	                        { return StrAndBoolComp(const_cast<char *>(key), entry) > 0; });
+}
+} // namespace
 
 StringTable *StringTable::instance = 0;
 int StringTable::referenceCount = 0;
@@ -39,11 +52,10 @@ StringTable::StringTable()
 
 StringTable::~StringTable()
 {
-	unsigned i;
-	for (i = 0; i < orderedStringList.Size(); i++)
+	for (const StrAndBool &entry : orderedStringList)
 	{
-		if (orderedStringList[i].b)
-			std::free(orderedStringList[i].str);
+		if (entry.b)
+			std::free(entry.str);
 	}
 }
 
@@ -87,22 +99,28 @@ void StringTable::AddString(const char *str, bool copyString)
 		sab.str = (char *) str;
 	}
 
-	// If it asserts inside here you are adding duplicate strings.
-	orderedStringList.Insert(sab.str, sab, true, _FILE_AND_LINE_);
+	const auto position = LowerBoundString(orderedStringList, sab.str);
+	if (position != orderedStringList.end() && strcmp(position->str, sab.str) == 0)
+	{
+		// If it asserts here you are adding duplicate strings.
+		RakAssert(0);
+		if (copyString)
+			std::free(sab.str);
+		return;
+	}
+	orderedStringList.insert(position, sab);
 
 	// If this assert hits you need to increase the range of StringTableType
-	RakAssert(orderedStringList.Size() < (StringTableType) -1);
+	RakAssert(orderedStringList.size() < (StringTableType) -1);
 }
 void StringTable::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output)
 {
-	unsigned index;
-	bool objectExists;
 	// This is fast because the list is kept ordered.
-	index = orderedStringList.GetIndexFromKey((char *) input, &objectExists);
-	if (objectExists)
+	const auto position = LowerBoundString(orderedStringList, input);
+	if (position != orderedStringList.end() && strcmp(position->str, input) == 0)
 	{
 		output->Write(true);
-		output->Write((StringTableType) index);
+		output->Write((StringTableType) (position - orderedStringList.begin()));
 	}
 	else
 	{
@@ -130,13 +148,11 @@ bool StringTable::DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitS
 		StringTableType index;
 		if (!input->Read(index))
 			return false;
-		if (index >= orderedStringList.Size())
+		if (index >= orderedStringList.size())
 		{
-#ifdef _DEBUG
-			// Critical error - got a string index out of range, which means AddString was called more times on the remote system than on this system.
-			// All systems must call AddString the same number of types, with the same strings in the same order.
-			RakAssert(0);
-#endif
+			// The index came from the network: reject it, never assert. Out of range means AddString was called
+			// more times on the remote system than on this one; all systems must add the same strings.
+			output[0] = 0;
 			return false;
 		}
 

@@ -33,10 +33,10 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
-#include "mafianet/ds_hash.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -164,7 +164,7 @@ public:
 
 	/// \brief Returns pending calls to RequestTeam() when using TeamSelection::JOIN_SPECIFIC_TEAM
 	/// \param[out] All pending requested teams
-	void GetRequestedSpecificTeams(DataStructures::List<TM_Team *> &requestedTeams) const;
+	void GetRequestedSpecificTeams(std::vector<TM_Team *> &requestedTeams) const;
 
 	/// \brief Returns if the specified team is in the list of pending requested teams
 	/// \param[in] The team we are checking
@@ -211,12 +211,12 @@ public:
 	TM_Team *GetCurrentTeamByIndex(unsigned int index);
 
 	/// \param[out] Get all teams we are on, as a list
-	void GetCurrentTeams(DataStructures::List<TM_Team *> &_teams) const;
+	void GetCurrentTeams(std::vector<TM_Team *> &_teams) const;
 
 	/// For each team member, when you get ID_TEAM_BALANCER_TEAM_ASSIGNED for that member, the team list is saved.
 	/// Use this function to get that list, for example to determine which teams we just left or joined
 	/// \param[out] _teams The previous list of teams we were on
-	void GetLastTeams(DataStructures::List<TM_Team *> &_teams) const;
+	void GetLastTeams(std::vector<TM_Team *> &_teams) const;
 
 	/// \param[in] The team we are checking
 	/// \return Are we on this team?
@@ -272,16 +272,16 @@ protected:
 	NetworkID networkId;
 	TM_World *world;
 	// Teams we are a member of. We can be on more than one team, but not on the same team more than once
-	DataStructures::List<TM_Team *> teams;
+	std::vector<TM_Team *> teams;
 	// If teams is empty, which subcategory of noTeam we are on
 	NoTeamId noTeamSubcategory;
 	// Teams we have requested to join. Mutually exclusive with teams we are already on. Cannot request the same team more than once.
-	DataStructures::List<RequestedTeam> teamsRequested;
+	std::vector<RequestedTeam> teamsRequested;
 	// If teamsRequested is not empty, we want to join a specific team
 	// If teamsRequested is empty, then joinTeamType is either JOIN_NO_TEAM or JOIN_ANY_AVAILABLE_TEAM
 	JoinTeamType joinTeamType;
 	// Set by StoreLastTeams()
-	DataStructures::List<TM_Team *> lastTeams;
+	std::vector<TM_Team *> lastTeams;
 	MafiaNet::Time whenJoinAnyRequested;
 	unsigned int joinAnyRequestIndex;
 	void *owner;
@@ -359,7 +359,7 @@ public:
 	bool GetBalancingApplies(void) const;
 
 	/// \param[out] All team members of this team
-	void GetTeamMembers(DataStructures::List<TM_TeamMember *> &_teamMembers) const;
+	void GetTeamMembers(std::vector<TM_TeamMember *> &_teamMembers) const;
 
 	/// \return The number of team members on this team
 	unsigned int GetTeamMembersCount(void) const;
@@ -400,7 +400,7 @@ protected:
 	NetworkID ID;
 	TM_World *world;
 	// Which members are on this team. The same member cannot be on the same team more than once
-	DataStructures::List<TM_TeamMember *> teamMembers;
+	std::vector<TM_TeamMember *> teamMembers;
 	// Permissions on who can join this team
 	JoinPermissions joinPermissions;
 	// Whether or not to consider this team when balancing teams
@@ -449,7 +449,7 @@ public:
 
 	/// Get the participants added with AddParticipant()
 	/// \param[out] participantList Participants added with AddParticipant();
-	void GetParticipantList(DataStructures::List<RakNetGUID> &participantList);
+	void GetParticipantList(std::vector<RakNetGUID> &participantList);
 
 	/// \brief Register a TM_Team object with this system.
 	/// \details Your game should contain instances of TM_Team, for example by using composition with your game's Team or PlayerList class
@@ -566,7 +566,8 @@ protected:
 	void FillRequestedSlots(void);
 	unsigned int GetAvailableTeamIndexWithFewestMembers(TeamMemberLimit secondaryLimit, JoinPermissions joinPermissions);
 
-	void GetSortedJoinRequests(DataStructures::OrderedList<JoinRequestHelper, JoinRequestHelper, JoinRequestHelperComp> &joinRequests);
+	/// Fills \a joinRequests sorted by JoinRequestHelperComp (oldest request first)
+	void GetSortedJoinRequests(std::vector<JoinRequestHelper> &joinRequests);
 
 
 	// Send a message to all participants
@@ -580,19 +581,19 @@ protected:
 	// 2. Else return 0
 	TM_Team *JoinAnyTeam(TM_TeamMember *teamMember, int *resultCode);
 
-	int JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave, DataStructures::List<TM_Team *> &teamsWeAreLeaving);
+	int JoinSpecificTeam(TM_TeamMember *teamMember, TM_Team *team, bool isTeamSwitch, TM_Team *teamToLeave, std::vector<TM_Team *> &teamsWeAreLeaving);
 
 	TeamMemberLimit GetBalancedTeamLimit(void) const;
 
 	// For fast lookup. Shares pointers with list teams
-	DataStructures::Hash<NetworkID, TM_Team *, 256, TM_Team::ToUint32> teamsHash;
+	std::unordered_map<NetworkID, TM_Team *> teamsHash;
 	// For fast lookup. Shares pointers with list teamMembers
-	DataStructures::Hash<NetworkID, TM_TeamMember *, 256, TM_TeamMember::ToUint32> teamMembersHash;
+	std::unordered_map<NetworkID, TM_TeamMember *> teamMembersHash;
 
 	TeamManager *teamManager;
-	DataStructures::List<RakNetGUID> participants;
-	DataStructures::List<TM_Team *> teams;
-	DataStructures::List<TM_TeamMember *> teamMembers;
+	std::vector<RakNetGUID> participants;
+	std::vector<TM_Team *> teams;
+	std::vector<TM_TeamMember *> teamMembers;
 	bool balanceTeamsIsActive;
 	RakNetGUID hostGuid;
 	WorldId worldId;
@@ -738,13 +739,13 @@ protected:
 	/// \param[in] A packet where packet->data[0]==ID_TEAM_BALANCER_TEAM_ASSIGNED
 	/// \return true on success, false on read error
 	void DecodeTeamAssigned(MafiaNet::BitStream *bsIn, TM_World **world, TM_TeamMember **teamMember, NoTeamId &noTeamSubcategory,
-	                        JoinTeamType &joinTeamType, DataStructures::List<TM_Team *> &newTeam,
-	                        DataStructures::List<TM_Team *> &teamsLeft, DataStructures::List<TM_Team *> &teamsJoined);
+	                        JoinTeamType &joinTeamType, std::vector<TM_Team *> &newTeam,
+	                        std::vector<TM_Team *> &teamsLeft, std::vector<TM_Team *> &teamsJoined);
 
 	// O(1) lookup for a given world. If I need more worlds, change this to a hash or ordered list
 	TM_World *worldsArray[255];
 	// All allocated worlds for linear traversal
-	DataStructures::List<TM_World *> worldsList;
+	std::vector<TM_World *> worldsList;
 	bool autoAddParticipants;
 	TMTopology topology;
 

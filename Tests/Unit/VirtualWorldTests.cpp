@@ -208,31 +208,31 @@ TEST_F(VirtualWorldRegistry, ConnectionQueriesHonorGlobalSentinel)
 {
 	{
 		// Virtual world 5, including global -> c5a, c5b, cg = 3.
-		DataStructures::List<Connection_RM3 *> out;
+		std::vector<Connection_RM3 *> out;
 		rm3.GetConnectionsInVirtualWorld(5, out, true);
-		ASSERT_EQ(out.Size(), 3u) << "GetConnectionsInVirtualWorld(5, includeGlobal) should return 3";
+		ASSERT_EQ(out.size(), 3u) << "GetConnectionsInVirtualWorld(5, includeGlobal) should return 3";
 	}
 	{
 		// Virtual world 7, excluding global -> c7 only = 1.
-		DataStructures::List<Connection_RM3 *> out;
+		std::vector<Connection_RM3 *> out;
 		rm3.GetConnectionsInVirtualWorld(7, out, false);
-		ASSERT_EQ(out.Size(), 1u) << "GetConnectionsInVirtualWorld(7, !includeGlobal) should return 1";
+		ASSERT_EQ(out.size(), 1u) << "GetConnectionsInVirtualWorld(7, !includeGlobal) should return 1";
 	}
 	{
 		// Virtual world 5, including global -> cg present.
-		DataStructures::List<Connection_RM3 *> out;
+		std::vector<Connection_RM3 *> out;
 		rm3.GetConnectionsInVirtualWorld(5, out, true);
 		bool foundGlobal = false;
-		for (unsigned int i = 0; i < out.Size(); i++)
+		for (unsigned int i = 0; i < out.size(); i++)
 			if (out[i] == cg)
 				foundGlobal = true;
 		ASSERT_TRUE(foundGlobal) << "GetConnectionsInVirtualWorld(5, includeGlobal) should include global observer";
 	}
 	{
 		// Virtual world 5, excluding global -> cg absent.
-		DataStructures::List<Connection_RM3 *> out;
+		std::vector<Connection_RM3 *> out;
 		rm3.GetConnectionsInVirtualWorld(5, out, false);
-		for (unsigned int i = 0; i < out.Size(); i++)
+		for (unsigned int i = 0; i < out.size(); i++)
 			ASSERT_NE(out[i], cg) << "GetConnectionsInVirtualWorld(5, !includeGlobal) should exclude global observer";
 	}
 }
@@ -240,10 +240,25 @@ TEST_F(VirtualWorldRegistry, ConnectionQueriesHonorGlobalSentinel)
 TEST_F(VirtualWorldRegistry, GuidVariantReturnsMatchingGuids)
 {
 	// Guid variant returns the matching guids.
-	DataStructures::List<RakNetGUID> out;
+	std::vector<RakNetGUID> out;
 	rm3.GetGuidsInVirtualWorld(7, out, false);
-	ASSERT_TRUE(out.Size() == 1 && out[0] == RakNetGUID(103))
+	ASSERT_TRUE(out.size() == 1 && out[0] == RakNetGUID(103))
 	    << "GetGuidsInVirtualWorld(7) should return the single matching guid";
+}
+
+// Both queries replace what the caller's vector held and keep the order the connections were pushed in.
+TEST_F(VirtualWorldRegistry, QueriesResetTheVectorAndKeepConnectionOrder)
+{
+	std::vector<Connection_RM3 *> connections = {c7, c7};
+	rm3.GetConnectionsInVirtualWorld(5, connections, true);
+	EXPECT_EQ(connections, (std::vector<Connection_RM3 *>{c5a, c5b, cg}));
+
+	std::vector<RakNetGUID> guids = {RakNetGUID(999)};
+	rm3.GetGuidsInVirtualWorld(5, guids, true);
+	EXPECT_EQ(guids, (std::vector<RakNetGUID>{RakNetGUID(101), RakNetGUID(102), RakNetGUID(104)}));
+
+	rm3.GetGuidsInVirtualWorld(42, guids, false);
+	EXPECT_TRUE(guids.empty());
 }
 
 TEST_F(VirtualWorldRegistry, QueryingGlobalIsMembershipNotVisibility)
@@ -251,9 +266,9 @@ TEST_F(VirtualWorldRegistry, QueryingGlobalIsMembershipNotVisibility)
 	// Querying VIRTUAL_WORLD_GLOBAL is a membership test, not a visibility
 	// test: it must return only connections tagged GLOBAL (cg), not every
 	// connection.
-	DataStructures::List<Connection_RM3 *> out;
+	std::vector<Connection_RM3 *> out;
 	rm3.GetConnectionsInVirtualWorld(VIRTUAL_WORLD_GLOBAL, out, true);
-	ASSERT_TRUE(out.Size() == 1 && out[0] == cg)
+	ASSERT_TRUE(out.size() == 1 && out[0] == cg)
 	    << "GetConnectionsInVirtualWorld(GLOBAL) must return only global-tagged connections";
 }
 

@@ -25,10 +25,11 @@
 #define __RAKNET_TRANSPORT_2
 
 #include "mafianet/transport_interface.h"
-#include "mafianet/ds_queue.h"
 #include "mafianet/command_parser_interface.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/export.h"
+
+#include <deque>
 
 namespace MafiaNet
 {
@@ -105,8 +106,8 @@ public:
 	virtual void OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming);
 
 protected:
-	DataStructures::Queue<SystemAddress> newConnections, lostConnections;
-	DataStructures::Queue<Packet *> packetQueue;
+	std::deque<SystemAddress> newConnections, lostConnections;
+	std::deque<Packet *> packetQueue;
 };
 
 } // namespace MafiaNet

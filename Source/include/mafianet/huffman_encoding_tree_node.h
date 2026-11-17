@@ -15,13 +15,22 @@
 #ifndef __HUFFMAN_ENCODING_TREE_NODE
 #define __HUFFMAN_ENCODING_TREE_NODE
 
+#include <cstdint>
+
+namespace MafiaNet
+{
+
 struct HuffmanEncodingTreeNode
 {
 	unsigned char value;
-	unsigned weight;
+	/// Sum of the leaf frequencies below this node. 64 bits wide so that 256 frequencies of up to
+	/// 2^32-1 each (read from the network by DataCompressor) cannot wrap and skew the tree.
+	uint64_t weight;
 	HuffmanEncodingTreeNode *left;
 	HuffmanEncodingTreeNode *right;
 	HuffmanEncodingTreeNode *parent;
 };
+
+} // namespace MafiaNet
 
 #endif

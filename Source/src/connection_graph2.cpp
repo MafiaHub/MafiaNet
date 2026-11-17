@@ -25,23 +25,6 @@ using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(ConnectionGraph2, ConnectionGraph2)
 
-int MafiaNet::ConnectionGraph2::RemoteSystemComp(const RakNetGUID &key, RemoteSystem *const &data)
-{
-	if (key < data->guid)
-		return -1;
-	if (key > data->guid)
-		return 1;
-	return 0;
-}
-
-int MafiaNet::ConnectionGraph2::SystemAddressAndGuidComp(const SystemAddressAndGuid &key, const SystemAddressAndGuid &data)
-{
-	if (key.guid < data.guid)
-		return -1;
-	if (key.guid > data.guid)
-		return 1;
-	return 0;
-}
 ConnectionGraph2::ConnectionGraph2()
 {
 	autoProcessNewConnections = true;
@@ -57,23 +40,23 @@ bool ConnectionGraph2::GetConnectionListForRemoteSystem(RakNetGUID remoteSystemG
 		return false;
 	}
 
-	bool objectExists;
-	unsigned int idx = remoteSystems.GetIndexFromKey(remoteSystemGuid, &objectExists);
-	if (objectExists == false)
+	const auto system = remoteSystems.find(remoteSystemGuid);
+	if (system == remoteSystems.end())
 	{
 		*outLength = 0;
 		return false;
 	}
 
-	unsigned int idx2;
-	if (remoteSystems[idx]->remoteConnections.Size() < *outLength)
-		*outLength = remoteSystems[idx]->remoteConnections.Size();
-	for (idx2 = 0; idx2 < *outLength; idx2++)
+	const std::map<RakNetGUID, SystemAddressAndGuid> &connections = system->second->remoteConnections;
+	if (connections.size() < *outLength)
+		*outLength = (unsigned int) connections.size();
+	unsigned int written = 0;
+	for (auto it = connections.begin(); written < *outLength; ++it, ++written)
 	{
 		if (guidOut)
-			guidOut[idx2] = remoteSystems[idx]->remoteConnections[idx2].guid;
+			guidOut[written] = it->second.guid;
 		if (saOut)
-			saOut[idx2] = remoteSystems[idx]->remoteConnections[idx2].systemAddress;
+			saOut[written] = it->second.systemAddress;
 	}
 	return true;
 }
@@ -82,15 +65,12 @@ bool ConnectionGraph2::ConnectionExists(RakNetGUID g1, RakNetGUID g2)
 	if (g1 == g2)
 		return false;
 
-	bool objectExists;
-	unsigned int idx = remoteSystems.GetIndexFromKey(g1, &objectExists);
-	if (objectExists == false)
+	const auto system = remoteSystems.find(g1);
+	if (system == remoteSystems.end())
 	{
 		return false;
 	}
-	SystemAddressAndGuid sag;
-	sag.guid = g2;
-	return remoteSystems[idx]->remoteConnections.HasData(sag);
+	return system->second->remoteConnections.count(g2) != 0;
 }
 uint16_t ConnectionGraph2::GetPingBetweenSystems(RakNetGUID g1, RakNetGUID g2) const
 {
@@ -102,37 +82,33 @@ uint16_t ConnectionGraph2::GetPingBetweenSystems(RakNetGUID g1, RakNetGUID g2) c
 	if (g2 == rakPeerInterface->GetMyGUID())
 		return (uint16_t) rakPeerInterface->GetAveragePing(g1);
 
-	bool objectExists;
-	unsigned int idx = remoteSystems.GetIndexFromKey(g1, &objectExists);
-	if (objectExists == false)
+	const auto system = remoteSystems.find(g1);
+	if (system == remoteSystems.end())
 	{
 		return (uint16_t) -1;
 	}
 
-	SystemAddressAndGuid sag;
-	sag.guid = g2;
-	unsigned int idx2 = remoteSystems[idx]->remoteConnections.GetIndexFromKey(sag, &objectExists);
-	if (objectExists == false)
+	const auto connection = system->second->remoteConnections.find(g2);
+	if (connection == system->second->remoteConnections.end())
 	{
 		return (uint16_t) -1;
 	}
-	return remoteSystems[idx]->remoteConnections[idx2].sendersPingToThatSystem;
+	return connection->second.sendersPingToThatSystem;
 }
 
 /// Returns the system with the lowest total ping among all its connections. This can be used as the 'best host' for a peer to peer session
 RakNetGUID ConnectionGraph2::GetLowestAveragePingSystem(void) const
 {
 	float lowestPing = -1.0;
-	unsigned int lowestPingIdx = (unsigned int) -1;
+	const RemoteSystem *lowestPingSystem = nullptr;
 	float thisAvePing = 0.0f;
-	unsigned int idx, idx2;
 	int ap, count = 0;
 
-	for (idx = 0; idx < remoteSystems.Size(); idx++)
+	for (const auto &entry : remoteSystems)
 	{
 		thisAvePing = 0.0f;
 
-		ap = rakPeerInterface->GetAveragePing(remoteSystems[idx]->guid);
+		ap = rakPeerInterface->GetAveragePing(entry.second->guid);
 		if (ap != -1)
 		{
 			thisAvePing += (float) ap;
@@ -145,15 +121,15 @@ RakNetGUID ConnectionGraph2::GetLowestAveragePingSystem(void) const
 		lowestPing = thisAvePing / count;
 	}
 
-	for (idx = 0; idx < remoteSystems.Size(); idx++)
+	for (const auto &entry : remoteSystems)
 	{
 		thisAvePing = 0.0f;
 		count = 0;
 
-		RemoteSystem *remoteSystem = remoteSystems[idx];
-		for (idx2 = 0; idx2 < remoteSystem->remoteConnections.Size(); idx2++)
+		const RemoteSystem *remoteSystem = entry.second.get();
+		for (const auto &connection : remoteSystem->remoteConnections)
 		{
-			ap = remoteSystem->remoteConnections[idx2].sendersPingToThatSystem;
+			ap = connection.second.sendersPingToThatSystem;
 			if (ap != -1)
 			{
 				thisAvePing += (float) ap;
@@ -164,13 +140,13 @@ RakNetGUID ConnectionGraph2::GetLowestAveragePingSystem(void) const
 		if (count > 0 && (lowestPing == -1.0f || thisAvePing / count < lowestPing))
 		{
 			lowestPing = thisAvePing / count;
-			lowestPingIdx = idx;
+			lowestPingSystem = remoteSystem;
 		}
 	}
 
-	if (lowestPingIdx == (unsigned int) -1)
+	if (lowestPingSystem == nullptr)
 		return rakPeerInterface->GetMyGUID();
-	return remoteSystems[lowestPingIdx]->guid;
+	return lowestPingSystem->guid;
 }
 
 void ConnectionGraph2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, PI2_LostConnectionReason lostConnectionReason)
@@ -185,13 +161,7 @@ void ConnectionGraph2::OnClosedConnection(const SystemAddress &systemAddress, Ra
 	bs.Write(rakNetGUID);
 	SendUnified(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemAddress, true);
 
-	bool objectExists;
-	unsigned int idx = remoteSystems.GetIndexFromKey(rakNetGUID, &objectExists);
-	if (objectExists)
-	{
-		delete remoteSystems[idx];
-		remoteSystems.RemoveAtIndex(idx);
-	}
+	remoteSystems.erase(rakNetGUID);
 }
 void ConnectionGraph2::SetAutoProcessNewConnections(bool b)
 {
@@ -243,21 +213,18 @@ void ConnectionGraph2::AddParticipant(const SystemAddress &systemAddress, RakNet
 		SendUnified(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, systemAddress, false);
 	}
 
-	bool objectExists;
-	unsigned int ii = remoteSystems.GetIndexFromKey(rakNetGUID, &objectExists);
-	if (objectExists == false)
+	std::unique_ptr<RemoteSystem> &remoteSystem = remoteSystems[rakNetGUID];
+	if (remoteSystem == nullptr)
 	{
-		RemoteSystem *remoteSystem = new RemoteSystem;
+		remoteSystem = std::make_unique<RemoteSystem>();
 		remoteSystem->guid = rakNetGUID;
-		remoteSystems.InsertAtIndex(remoteSystem, ii, _FILE_AND_LINE_);
 	}
 }
-void ConnectionGraph2::GetParticipantList(DataStructures::OrderedList<RakNetGUID, RakNetGUID> &participantList)
+void ConnectionGraph2::GetParticipantList(std::set<RakNetGUID> &participantList)
 {
-	participantList.Clear(true, _FILE_AND_LINE_);
-	unsigned int i;
-	for (i = 0; i < remoteSystems.Size(); i++)
-		participantList.InsertAtEnd(remoteSystems[i]->guid, _FILE_AND_LINE_);
+	participantList.clear();
+	for (const auto &entry : remoteSystems)
+		participantList.insert(participantList.end(), entry.first);
 }
 void ConnectionGraph2::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
 {
@@ -269,39 +236,34 @@ PluginReceiveResult ConnectionGraph2::OnReceive(Packet *packet)
 {
 	if (packet->data[0] == ID_REMOTE_CONNECTION_LOST || packet->data[0] == ID_REMOTE_DISCONNECTION_NOTIFICATION)
 	{
-		bool objectExists;
-		unsigned idx = remoteSystems.GetIndexFromKey(packet->guid, &objectExists);
-		if (objectExists)
+		const auto system = remoteSystems.find(packet->guid);
+		if (system != remoteSystems.end())
 		{
 			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(1);
 			SystemAddressAndGuid saag;
 			bs.Read(saag.systemAddress);
 			bs.Read(saag.guid);
-			unsigned long idx2 = remoteSystems[idx]->remoteConnections.GetIndexFromKey(saag, &objectExists);
-			if (objectExists)
-				remoteSystems[idx]->remoteConnections.RemoveAtIndex(idx2);
+			system->second->remoteConnections.erase(saag.guid);
 		}
 	}
 	else if (packet->data[0] == ID_REMOTE_NEW_INCOMING_CONNECTION)
 	{
-		bool objectExists;
-		unsigned idx = remoteSystems.GetIndexFromKey(packet->guid, &objectExists);
-		if (objectExists)
+		const auto system = remoteSystems.find(packet->guid);
+		if (system != remoteSystems.end())
 		{
-			uint32_t numAddresses;
+			uint32_t numAddresses = 0;
 			MafiaNet::BitStream bs(packet->data, packet->length, false);
 			bs.IgnoreBytes(1);
 			bs.Read(numAddresses);
 			for (unsigned int idx2 = 0; idx2 < numAddresses; idx2++)
 			{
 				SystemAddressAndGuid saag;
-				bs.Read(saag.systemAddress);
-				bs.Read(saag.guid);
-				bs.Read(saag.sendersPingToThatSystem);
-				unsigned int ii = remoteSystems[idx]->remoteConnections.GetIndexFromKey(saag, &objectExists);
-				if (objectExists == false)
-					remoteSystems[idx]->remoteConnections.InsertAtIndex(saag, ii, _FILE_AND_LINE_);
+				// A truncated list ends the loop instead of inserting unread entries.
+				if (bs.Read(saag.systemAddress) == false || bs.Read(saag.guid) == false || bs.Read(saag.sendersPingToThatSystem) == false)
+					break;
+				// emplace keeps the first entry for a guid, as the sorted list did.
+				system->second->remoteConnections.emplace(saag.guid, saag);
 			}
 		}
 	}

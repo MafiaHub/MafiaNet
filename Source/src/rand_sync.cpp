@@ -51,10 +51,10 @@ unsigned int RakNetRandomSync::RandomMT(void)
 	if (usedValueBufferCount > 0)
 	{
 		--usedValueBufferCount;
-		if (usedValueBufferCount < usedValues.Size())
+		if (usedValueBufferCount < usedValues.size())
 		{
 			// The remote system had less calls than the current system, so return values from the past
-			return usedValues[usedValues.Size() - usedValueBufferCount - 1];
+			return usedValues[usedValues.size() - usedValueBufferCount - 1];
 		}
 		else
 		{
@@ -66,11 +66,11 @@ unsigned int RakNetRandomSync::RandomMT(void)
 	else
 	{
 		// Get random number and store what it is
-		usedValues.Push(rnr.RandomMT(), _FILE_AND_LINE_);
+		usedValues.push_back(rnr.RandomMT());
 		++callCount;
-		while (usedValues.Size() > 64)
-			usedValues.Pop();
-		return usedValues[usedValues.Size() - 1];
+		while (usedValues.size() > 64)
+			usedValues.pop_front();
+		return usedValues[usedValues.size() - 1];
 	}
 }
 uint32_t RakNetRandomSync::GetSeed(void) const

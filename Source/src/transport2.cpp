@@ -48,14 +48,14 @@ bool RakNetTransport2::Start(unsigned short port, bool serverMode)
 }
 void RakNetTransport2::Stop(void)
 {
-	newConnections.Clear(_FILE_AND_LINE_);
-	lostConnections.Clear(_FILE_AND_LINE_);
-	for (unsigned int i = 0; i < packetQueue.Size(); i++)
+	newConnections.clear();
+	lostConnections.clear();
+	for (unsigned int i = 0; i < packetQueue.size(); i++)
 	{
 		std::free(packetQueue[i]->data);
 		delete packetQueue[i];
 	}
-	packetQueue.Clear(_FILE_AND_LINE_);
+	packetQueue.clear();
 }
 void RakNetTransport2::Send(SystemAddress systemAddress, const char *data, ...)
 {
@@ -80,20 +80,30 @@ void RakNetTransport2::CloseConnection(SystemAddress systemAddress)
 }
 Packet *RakNetTransport2::Receive(void)
 {
-	if (packetQueue.Size() == 0)
+	if (packetQueue.empty())
 		return 0;
-	return packetQueue.Pop();
+	Packet *packet = packetQueue.front();
+	packetQueue.pop_front();
+	return packet;
 }
 SystemAddress RakNetTransport2::HasNewIncomingConnection(void)
 {
-	if (newConnections.Size())
-		return newConnections.Pop();
+	if (!newConnections.empty())
+	{
+		const SystemAddress systemAddress = newConnections.front();
+		newConnections.pop_front();
+		return systemAddress;
+	}
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 SystemAddress RakNetTransport2::HasLostConnection(void)
 {
-	if (lostConnections.Size())
-		return lostConnections.Pop();
+	if (!lostConnections.empty())
+	{
+		const SystemAddress systemAddress = lostConnections.front();
+		lostConnections.pop_front();
+		return systemAddress;
+	}
 	return UNASSIGNED_SYSTEM_ADDRESS;
 }
 void RakNetTransport2::DeallocatePacket(Packet *packet)
@@ -116,7 +126,7 @@ PluginReceiveResult RakNetTransport2::OnReceive(Packet *packet)
 		p->length--;
 		p->data = (unsigned char *) std::malloc(p->length);
 		memcpy(p->data, packet->data + 1, p->length);
-		packetQueue.Push(p, _FILE_AND_LINE_);
+		packetQueue.push_back(p);
 	}
 		return RR_STOP_PROCESSING_AND_DEALLOCATE;
 	}
@@ -126,13 +136,13 @@ void RakNetTransport2::OnClosedConnection(const SystemAddress &systemAddress, Ra
 {
 	(void) rakNetGUID;
 	(void) lostConnectionReason;
-	lostConnections.Push(systemAddress, _FILE_AND_LINE_);
+	lostConnections.push_back(systemAddress);
 }
 void RakNetTransport2::OnNewConnection(const SystemAddress &systemAddress, RakNetGUID rakNetGUID, bool isIncoming)
 {
 	(void) rakNetGUID;
 	(void) isIncoming;
-	newConnections.Push(systemAddress, _FILE_AND_LINE_);
+	newConnections.push_back(systemAddress);
 }
 
 #endif // _RAKNET_SUPPORT_*

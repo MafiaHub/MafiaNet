@@ -48,7 +48,7 @@ bool CloudServerHelperFilter::OnPostRequest(RakNetGUID clientGuid, SystemAddress
 	}
 	return true;
 }
-bool CloudServerHelperFilter::OnReleaseRequest(RakNetGUID clientGuid, SystemAddress clientAddress, DataStructures::List<CloudKey> &cloudKeys)
+bool CloudServerHelperFilter::OnReleaseRequest(RakNetGUID clientGuid, SystemAddress clientAddress, std::vector<CloudKey> &cloudKeys)
 {
 	// unused parameters
 	(void) clientGuid;
@@ -57,7 +57,7 @@ bool CloudServerHelperFilter::OnReleaseRequest(RakNetGUID clientGuid, SystemAddr
 
 	return true;
 }
-bool CloudServerHelperFilter::OnGetRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudQuery &query, DataStructures::List<RakNetGUID> &specificSystems)
+bool CloudServerHelperFilter::OnGetRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudQuery &query, std::vector<RakNetGUID> &specificSystems)
 {
 	// unused parameters
 	(void) clientGuid;
@@ -67,7 +67,7 @@ bool CloudServerHelperFilter::OnGetRequest(RakNetGUID clientGuid, SystemAddress 
 
 	return true;
 }
-bool CloudServerHelperFilter::OnUnsubscribeRequest(RakNetGUID clientGuid, SystemAddress clientAddress, DataStructures::List<CloudKey> &cloudKeys, DataStructures::List<RakNetGUID> &specificSystems)
+bool CloudServerHelperFilter::OnUnsubscribeRequest(RakNetGUID clientGuid, SystemAddress clientAddress, std::vector<CloudKey> &cloudKeys, std::vector<RakNetGUID> &specificSystems)
 {
 	// unused parameters
 	(void) clientGuid;

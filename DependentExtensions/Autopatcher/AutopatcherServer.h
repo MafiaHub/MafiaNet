@@ -39,6 +39,9 @@
 #include "mafianet/string.h"
 #include "mafianet/file_list.h"
 #include "mafianet/incremental_read_interface.h"
+// DataStructures containers below are migrated with the rest of the Autopatcher (PR 5).
+#include "mafianet/ds_list.h"
+#include "mafianet/ds_queue.h"
 
 namespace MafiaNet
 {

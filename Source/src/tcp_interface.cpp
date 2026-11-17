@@ -64,6 +64,9 @@ RAK_THREAD_DECLARATION(ConnectionAttemptLoop);
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
+#include <algorithm>
+#include "mafianet/vector_util.h"
+
 using namespace MafiaNet;
 
 STATIC_FACTORY_DEFINITIONS(TCPInterface, TCPInterface);
@@ -345,7 +348,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 		RakSleep(0);
 
 	unsigned int i;
-	for (i = 0; i < messageHandlerList.Size(); i++)
+	for (i = 0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnRakPeerStartup();
 
 	return true;
@@ -353,7 +356,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 void TCPInterface::Stop(void)
 {
 	unsigned int i;
-	for (i = 0; i < messageHandlerList.Size(); i++)
+	for (i = 0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnRakPeerShutdown();
 
 	if (isStarted.GetValue() == 0)
@@ -405,15 +408,14 @@ void TCPInterface::Stop(void)
 	incomingMessages.Clear();
 	newIncomingConnections.Clear();
 	lostConnections.Clear();
-	failedConnectionAttempts.Clear(_FILE_AND_LINE_);
-	completedConnectionAttempts.Clear(_FILE_AND_LINE_);
-	failedConnectionAttempts.Clear(_FILE_AND_LINE_);
-	for (i = 0; i < headPush.Size(); i++)
-		DeallocatePacket(headPush[i]);
-	headPush.Clear(_FILE_AND_LINE_);
-	for (i = 0; i < tailPush.Size(); i++)
-		DeallocatePacket(tailPush[i]);
-	tailPush.Clear(_FILE_AND_LINE_);
+	failedConnectionAttempts.Clear();
+	completedConnectionAttempts.Clear();
+	for (Packet *packet : headPush)
+		DeallocatePacket(packet);
+	headPush.clear();
+	for (Packet *packet : tailPush)
+		DeallocatePacket(packet);
+	tailPush.clear();
 }
 SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort, bool block, unsigned short socketFamily, const char *bindAddress)
 {
@@ -460,9 +462,7 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 			remoteClients[newRemoteClientIndex].SetActive(false);
 			remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
-			failedConnectionAttemptMutex.Lock();
-			failedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
-			failedConnectionAttemptMutex.Unlock();
+			failedConnectionAttempts.Push(systemAddress);
 
 			return UNASSIGNED_SYSTEM_ADDRESS;
 		}
@@ -478,9 +478,7 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		remoteClients[newRemoteClientIndex].systemAddress = systemAddress;
 		remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
-		completedConnectionAttemptMutex.Lock();
-		completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
-		completedConnectionAttemptMutex.Unlock();
+		completedConnectionAttempts.Push(systemAddress);
 
 		return systemAddress;
 	}
@@ -513,9 +511,7 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 			remoteClients[newRemoteClientIndex].SetActive(false);
 			remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
-			failedConnectionAttemptMutex.Lock();
-			failedConnectionAttempts.Push(failed, _FILE_AND_LINE_);
-			failedConnectionAttemptMutex.Unlock();
+			failedConnectionAttempts.Push(failed);
 		}
 		return UNASSIGNED_SYSTEM_ADDRESS;
 	}
@@ -591,12 +587,12 @@ bool TCPInterface::SendList(const char **data, const unsigned int *lengths, cons
 }
 bool TCPInterface::ReceiveHasPackets(void)
 {
-	return headPush.IsEmpty() == false || incomingMessages.IsEmpty() == false || tailPush.IsEmpty() == false;
+	return !headPush.empty() || incomingMessages.IsEmpty() == false || !tailPush.empty();
 }
 Packet *TCPInterface::Receive(void)
 {
 	unsigned int i;
-	for (i = 0; i < messageHandlerList.Size(); i++)
+	for (i = 0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->Update();
 
 	Packet *outgoingPacket = ReceiveInt();
@@ -604,7 +600,7 @@ Packet *TCPInterface::Receive(void)
 	if (outgoingPacket)
 	{
 		PluginReceiveResult pluginResult;
-		for (i = 0; i < messageHandlerList.Size(); i++)
+		for (i = 0; i < messageHandlerList.size(); i++)
 		{
 			pluginResult = messageHandlerList[i]->OnReceive(outgoingPacket);
 			if (pluginResult == RR_STOP_PROCESSING_AND_DEALLOCATE)
@@ -628,21 +624,29 @@ Packet *TCPInterface::ReceiveInt(void)
 {
 	if (isStarted.GetValue() == 0)
 		return 0;
-	if (headPush.IsEmpty() == false)
-		return headPush.Pop();
+	if (!headPush.empty())
+	{
+		Packet *packet = headPush.front();
+		headPush.pop_front();
+		return packet;
+	}
 	if (auto p = incomingMessages.TryPop())
 		return p->release(); // The user frees it with DeallocatePacket
-	if (tailPush.IsEmpty() == false)
-		return tailPush.Pop();
+	if (!tailPush.empty())
+	{
+		Packet *packet = tailPush.front();
+		tailPush.pop_front();
+		return packet;
+	}
 	return 0;
 }
 
 
 void TCPInterface::AttachPlugin(PluginInterface2 *plugin)
 {
-	if (messageHandlerList.GetIndexOf(plugin) == MAX_UNSIGNED_LONG)
+	if (std::find(messageHandlerList.begin(), messageHandlerList.end(), plugin) == messageHandlerList.end())
 	{
-		messageHandlerList.Insert(plugin, _FILE_AND_LINE_);
+		messageHandlerList.push_back(plugin);
 		plugin->SetTCPInterface(this);
 		plugin->OnAttach();
 	}
@@ -652,14 +656,13 @@ void TCPInterface::DetachPlugin(PluginInterface2 *plugin)
 	if (plugin == 0)
 		return;
 
-	unsigned int index;
-	index = messageHandlerList.GetIndexOf(plugin);
-	if (index != MAX_UNSIGNED_LONG)
+	const auto it = std::find(messageHandlerList.begin(), messageHandlerList.end(), plugin);
+	if (it != messageHandlerList.end())
 	{
+		const auto index = static_cast<std::size_t>(it - messageHandlerList.begin());
 		messageHandlerList[index]->OnDetach();
 		// Unordered list so delete from end for speed
-		messageHandlerList[index] = messageHandlerList[messageHandlerList.Size() - 1];
-		messageHandlerList.RemoveFromEnd();
+		SwapRemove(messageHandlerList, index);
 		plugin->SetTCPInterface(0);
 	}
 }
@@ -671,7 +674,7 @@ void TCPInterface::CloseConnection(SystemAddress systemAddress)
 		return;
 
 	unsigned int i;
-	for (i = 0; i < messageHandlerList.Size(); i++)
+	for (i = 0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnClosedConnection(systemAddress, UNASSIGNED_RAKNET_GUID, LCR_CLOSED_BY_USER);
 
 	// Match the slot under its lock: it may have been retired and reused for
@@ -726,9 +729,9 @@ Packet *TCPInterface::AllocatePacket(unsigned dataSize)
 void TCPInterface::PushBackPacket(Packet *packet, bool pushAtHead)
 {
 	if (pushAtHead)
-		headPush.Push(packet, _FILE_AND_LINE_);
+		headPush.push_back(packet);
 	else
-		tailPush.Push(packet, _FILE_AND_LINE_);
+		tailPush.push_back(packet);
 }
 bool TCPInterface::WasStarted(void) const
 {
@@ -737,15 +740,13 @@ bool TCPInterface::WasStarted(void) const
 SystemAddress TCPInterface::HasCompletedConnectionAttempt(void)
 {
 	SystemAddress sysAddr = UNASSIGNED_SYSTEM_ADDRESS;
-	completedConnectionAttemptMutex.Lock();
-	if (completedConnectionAttempts.IsEmpty() == false)
-		sysAddr = completedConnectionAttempts.Pop();
-	completedConnectionAttemptMutex.Unlock();
+	if (auto popped = completedConnectionAttempts.TryPop())
+		sysAddr = *popped;
 
 	if (sysAddr != UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		unsigned int i;
-		for (i = 0; i < messageHandlerList.Size(); i++)
+		for (i = 0; i < messageHandlerList.size(); i++)
 			messageHandlerList[i]->OnNewConnection(sysAddr, UNASSIGNED_RAKNET_GUID, true);
 	}
 
@@ -754,15 +755,13 @@ SystemAddress TCPInterface::HasCompletedConnectionAttempt(void)
 SystemAddress TCPInterface::HasFailedConnectionAttempt(void)
 {
 	SystemAddress sysAddr = UNASSIGNED_SYSTEM_ADDRESS;
-	failedConnectionAttemptMutex.Lock();
-	if (failedConnectionAttempts.IsEmpty() == false)
-		sysAddr = failedConnectionAttempts.Pop();
-	failedConnectionAttemptMutex.Unlock();
+	if (auto popped = failedConnectionAttempts.TryPop())
+		sysAddr = *popped;
 
 	if (sysAddr != UNASSIGNED_SYSTEM_ADDRESS)
 	{
 		unsigned int i;
-		for (i = 0; i < messageHandlerList.Size(); i++)
+		for (i = 0; i < messageHandlerList.size(); i++)
 		{
 			Packet p;
 			p.systemAddress = sysAddr;
@@ -780,7 +779,7 @@ SystemAddress TCPInterface::HasNewIncomingConnection(void)
 	if (auto out = newIncomingConnections.TryPop())
 	{
 		unsigned int i;
-		for (i = 0; i < messageHandlerList.Size(); i++)
+		for (i = 0; i < messageHandlerList.size(); i++)
 			messageHandlerList[i]->OnNewConnection(*out, UNASSIGNED_RAKNET_GUID, true);
 
 		return *out;
@@ -795,7 +794,7 @@ SystemAddress TCPInterface::HasLostConnection(void)
 	if (auto out = lostConnections.TryPop())
 	{
 		unsigned int i;
-		for (i = 0; i < messageHandlerList.Size(); i++)
+		for (i = 0; i < messageHandlerList.size(); i++)
 			messageHandlerList[i]->OnClosedConnection(*out, UNASSIGNED_RAKNET_GUID, LCR_DISCONNECTION_NOTIFICATION);
 
 		return *out;
@@ -839,7 +838,7 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 	    remoteClients[systemAddress.systemIndex].systemAddress == systemAddress)
 	{
 		remoteClients[systemAddress.systemIndex].outgoingDataMutex.Lock();
-		bytesWritten = remoteClients[systemAddress.systemIndex].outgoingData.GetBytesWritten();
+		bytesWritten = static_cast<unsigned>(TcpOutgoingPending(remoteClients[systemAddress.systemIndex].outgoingData, remoteClients[systemAddress.systemIndex].outgoingOffset));
 		remoteClients[systemAddress.systemIndex].outgoingDataMutex.Unlock();
 		return bytesWritten;
 	}
@@ -849,7 +848,7 @@ unsigned int TCPInterface::GetOutgoingDataBufferSize(SystemAddress systemAddress
 		if (remoteClients[i].isActive && remoteClients[i].systemAddress == systemAddress)
 		{
 			remoteClients[i].outgoingDataMutex.Lock();
-			bytesWritten += remoteClients[i].outgoingData.GetBytesWritten();
+			bytesWritten += static_cast<unsigned>(TcpOutgoingPending(remoteClients[i].outgoingData, remoteClients[i].outgoingOffset));
 			remoteClients[i].outgoingDataMutex.Unlock();
 		}
 	}
@@ -965,9 +964,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 		tcpInterface->remoteClients[newRemoteClientIndex].SetActive(false);
 		tcpInterface->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
-		tcpInterface->failedConnectionAttemptMutex.Lock();
-		tcpInterface->failedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
-		tcpInterface->failedConnectionAttemptMutex.Unlock();
+		tcpInterface->failedConnectionAttempts.Push(systemAddress);
 		return 0;
 	}
 
@@ -986,9 +983,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	// under way (it closes the slot's socket once this thread has returned).
 	if (tcpInterface->isStarted.GetValue() > 0)
 	{
-		tcpInterface->completedConnectionAttemptMutex.Lock();
-		tcpInterface->completedConnectionAttempts.Push(systemAddress, _FILE_AND_LINE_);
-		tcpInterface->completedConnectionAttemptMutex.Unlock();
+		tcpInterface->completedConnectionAttempts.Push(systemAddress);
 	}
 
 
@@ -1086,7 +1081,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						FD_SET(socketCopy, &readFD);
 						FD_SET(socketCopy, &exceptionFD);
 						sts->remoteClients[i].outgoingDataMutex.Lock();
-						const bool hasOutgoingData = sts->remoteClients[i].outgoingData.GetBytesWritten() > 0;
+						const bool hasOutgoingData = TcpOutgoingPending(sts->remoteClients[i].outgoingData, sts->remoteClients[i].outgoingOffset) != 0;
 						sts->remoteClients[i].outgoingDataMutex.Unlock();
 						if (hasOutgoingData)
 							FD_SET(socketCopy, &writeFD);
@@ -1247,32 +1242,16 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 						if (FD_ISSET(socketCopy, &writeFD))
 						{
 							RemoteClient *rc = &sts->remoteClients[i];
-							unsigned int bytesInBuffer;
-							int bytesAvailable;
-							int bytesSent;
 							rc->outgoingDataMutex.Lock();
-							bytesInBuffer = rc->outgoingData.GetBytesWritten();
-							if (bytesInBuffer > 0)
+							const std::size_t pending = TcpOutgoingPending(rc->outgoingData, rc->outgoingOffset);
+							if (pending != 0)
 							{
-								unsigned int contiguousLength;
-								char *contiguousBytesPointer = rc->outgoingData.PeekContiguousBytes(&contiguousLength);
-								if (contiguousLength < (unsigned int) BUFF_SIZE && contiguousLength < bytesInBuffer)
-								{
-									if (bytesInBuffer > BUFF_SIZE)
-										bytesAvailable = BUFF_SIZE;
-									else
-										bytesAvailable = bytesInBuffer;
-									rc->outgoingData.ReadBytes(data, bytesAvailable, true);
-									bytesSent = rc->Send(socketCopy, data, bytesAvailable);
-								}
-								else
-								{
-									bytesSent = rc->Send(socketCopy, contiguousBytesPointer, contiguousLength);
-								}
-
+								// Offer up to BUFF_SIZE unsent bytes (SSL_write takes an int); the buffer
+								// drops its sent prefix in amortised O(1) per byte.
+								const auto toSend = static_cast<unsigned int>(std::min<std::size_t>(pending, BUFF_SIZE));
+								const int bytesSent = rc->Send(socketCopy, reinterpret_cast<const char *>(rc->outgoingData.data() + rc->outgoingOffset), toSend);
 								if (bytesSent > 0)
-									rc->outgoingData.IncrementReadOffset(bytesSent);
-								bytesInBuffer = rc->outgoingData.GetBytesWritten();
+									TcpOutgoingConsume(rc->outgoingData, rc->outgoingOffset, static_cast<std::size_t>(bytesSent));
 							}
 							rc->outgoingDataMutex.Unlock();
 						}
@@ -1345,7 +1324,7 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 	for (; parameterIndex < numParameters; parameterIndex++)
 	{
 		outgoingDataMutex.Lock();
-		if (ALLOW_SEND_FROM_USER_THREAD && outgoingData.GetBytesWritten() == 0)
+		if (ALLOW_SEND_FROM_USER_THREAD && TcpOutgoingPending(outgoingData, outgoingOffset) == 0)
 		{
 			outgoingDataMutex.Unlock();
 			int bytesSent = Send(socket, data[parameterIndex], lengths[parameterIndex]);
@@ -1353,13 +1332,13 @@ void RemoteClient::SendOrBuffer(const char **data, const unsigned int *lengths, 
 			{
 				// Push remainder
 				outgoingDataMutex.Lock();
-				outgoingData.WriteBytes(data[parameterIndex] + bytesSent, lengths[parameterIndex] - bytesSent, _FILE_AND_LINE_);
+				outgoingData.insert(outgoingData.end(), reinterpret_cast<const unsigned char *>(data[parameterIndex]) + bytesSent, reinterpret_cast<const unsigned char *>(data[parameterIndex]) + lengths[parameterIndex]);
 				outgoingDataMutex.Unlock();
 			}
 		}
 		else
 		{
-			outgoingData.WriteBytes(data[parameterIndex], lengths[parameterIndex], _FILE_AND_LINE_);
+			outgoingData.insert(outgoingData.end(), reinterpret_cast<const unsigned char *>(data[parameterIndex]), reinterpret_cast<const unsigned char *>(data[parameterIndex]) + lengths[parameterIndex]);
 			outgoingDataMutex.Unlock();
 		}
 	}

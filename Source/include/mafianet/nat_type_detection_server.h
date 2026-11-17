@@ -28,11 +28,12 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/ds_ordered_list.h"
-#include "mafianet/ds_queue.h"
-#include "mafianet/simple_mutex.h"
+#include "mafianet/locked_queue.h"
 #include "mafianet/string.h"
 #include "mafianet/nat_type_detection_common.h"
+
+#include <memory>
+#include <vector>
 
 
 namespace MafiaNet
@@ -70,6 +71,9 @@ public:
 
 	// Destructor
 	virtual ~NatTypeDetectionServer();
+	// Owns sockets and a LockedQueue; MSVC dllexport needs the deleted copy spelled out.
+	NatTypeDetectionServer(const NatTypeDetectionServer &) = delete;
+	NatTypeDetectionServer &operator=(const NatTypeDetectionServer &) = delete;
 
 	/// Start the system, binding to 3 external IPs not already in useS
 	/// \param[in] nonRakNetIP2 First unused external IP
@@ -119,11 +123,11 @@ public:
 	virtual RNS2RecvStruct *AllocRNS2RecvStruct();
 
 protected:
-	DataStructures::Queue<RNS2RecvStruct *> bufferedPackets;
-	SimpleMutex bufferedPacketsMutex;
+	// Filled by the socket's receive thread (OnRNS2Recv), drained by Update().
+	LockedQueue<std::unique_ptr<RNS2RecvStruct>> bufferedPackets;
 
 	void OnDetectionRequest(Packet *packet);
-	DataStructures::List<NATDetectionAttempt> natDetectionAttempts;
+	std::vector<NATDetectionAttempt> natDetectionAttempts;
 	unsigned int GetDetectionAttemptIndex(const SystemAddress &sa);
 	unsigned int GetDetectionAttemptIndex(RakNetGUID guid);
 

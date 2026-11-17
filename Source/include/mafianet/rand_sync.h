@@ -23,7 +23,7 @@
 
 #include "mafianet/export.h"
 #include "mafianet/rand.h"
-#include "mafianet/ds_queue.h"
+#include <deque>
 #include "mafianet/native_types.h"
 
 namespace MafiaNet
@@ -51,7 +51,7 @@ public:
 
 protected:
 	void Skip(uint32_t count);
-	DataStructures::Queue<unsigned int> usedValues;
+	std::deque<unsigned int> usedValues;
 	uint32_t seed;
 	uint32_t callCount;
 	uint32_t usedValueBufferCount;

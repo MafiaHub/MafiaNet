@@ -20,10 +20,9 @@
 
 
 #ifdef _USE_ORDERED_LIST
-#include "mafianet/ds_ordered_list.h"
-#else
-#include "mafianet/ds_list.h"
+#include <set>
 #endif
+#include <vector>
 
 class GridSectorizer
 {
@@ -50,7 +49,7 @@ public:
 #endif
 
 	// Adds to intersectionList all entries in a certain radius
-	void GetEntries(DataStructures::List<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY);
+	void GetEntries(std::vector<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY);
 
 	void Clear(void);
 
@@ -73,9 +72,9 @@ protected:
 	// int gridWidth, gridHeight;
 
 #ifdef _USE_ORDERED_LIST
-	DataStructures::OrderedList<void *, void *> *grid;
+	std::set<void *> *grid;
 #else
-	DataStructures::List<void *> *grid;
+	std::vector<void *> *grid;
 #endif
 };
 

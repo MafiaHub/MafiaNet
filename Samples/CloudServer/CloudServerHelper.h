@@ -31,9 +31,9 @@ class CloudServerHelperFilter : public CloudServerQueryFilter
 {
 public:
 	virtual bool OnPostRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudKey key, uint32_t dataLength, const char *data);
-	virtual bool OnReleaseRequest(RakNetGUID clientGuid, SystemAddress clientAddress, DataStructures::List<CloudKey> &cloudKeys);
-	virtual bool OnGetRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudQuery &query, DataStructures::List<RakNetGUID> &specificSystems);
-	virtual bool OnUnsubscribeRequest(RakNetGUID clientGuid, SystemAddress clientAddress, DataStructures::List<CloudKey> &cloudKeys, DataStructures::List<RakNetGUID> &specificSystems);
+	virtual bool OnReleaseRequest(RakNetGUID clientGuid, SystemAddress clientAddress, std::vector<CloudKey> &cloudKeys);
+	virtual bool OnGetRequest(RakNetGUID clientGuid, SystemAddress clientAddress, CloudQuery &query, std::vector<RakNetGUID> &specificSystems);
+	virtual bool OnUnsubscribeRequest(RakNetGUID clientGuid, SystemAddress clientAddress, std::vector<CloudKey> &cloudKeys, std::vector<RakNetGUID> &specificSystems);
 
 	RakNetGUID serverGuid;
 };

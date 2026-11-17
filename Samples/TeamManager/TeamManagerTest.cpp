@@ -341,9 +341,9 @@ void RegisterFCM2Participants(void)
 {
 	if (fullyConnectedMesh2->GetConnectedHost() != UNASSIGNED_RAKNET_GUID)
 	{
-		DataStructures::List<RakNetGUID> participantList;
+		std::vector<RakNetGUID> participantList;
 		fullyConnectedMesh2->GetParticipantList(participantList);
-		for (unsigned int i = 0; i < participantList.Size(); i++)
+		for (unsigned int i = 0; i < participantList.size(); i++)
 		{
 			Connection_RM3 *connection = replicaManager3->AllocConnection(rakPeer->GetSystemAddressFromGuid(participantList[i]), participantList[i]);
 			if (replicaManager3->PushConnection(connection) == false)

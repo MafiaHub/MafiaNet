@@ -46,10 +46,9 @@ void GridSectorizer::Init(const float _maxCellWidth, const float _maxCellHeight,
 	invCellHeight = 1.0f / cellHeight;
 
 #ifdef _USE_ORDERED_LIST
-	grid = new DataStructures::OrderedList<void *, void *>[gridCellWidthCount * gridCellHeightCount];
-	DataStructures::OrderedList<void *, void *>::IMPLEMENT_DEFAULT_COMPARISON();
+	grid = new std::set<void *>[gridCellWidthCount * gridCellHeightCount];
 #else
-	grid = new DataStructures::List<void *>[gridCellWidthCount * gridCellHeightCount];
+	grid = new std::vector<void *>[gridCellWidthCount * gridCellHeightCount];
 #endif
 }
 void GridSectorizer::AddEntry(void *entry, const float minX, const float minY, const float maxX, const float maxY)
@@ -68,9 +67,9 @@ void GridSectorizer::AddEntry(void *entry, const float minX, const float minY, c
 		for (yCur = yStart; yCur <= yEnd; ++yCur)
 		{
 #ifdef _USE_ORDERED_LIST
-			grid[yCur * gridCellWidthCount + xCur].Insert(entry, entry, true);
+			grid[yCur * gridCellWidthCount + xCur].insert(entry);
 #else
-			grid[yCur * gridCellWidthCount + xCur].Insert(entry, _FILE_AND_LINE_);
+			grid[yCur * gridCellWidthCount + xCur].push_back(entry);
 #endif
 		}
 	}
@@ -91,7 +90,7 @@ void GridSectorizer::RemoveEntry(void *entry, const float minX, const float minY
 	{
 		for (yCur = yStart; yCur <= yEnd; ++yCur)
 		{
-			grid[yCur * gridCellWidthCount + xCur].RemoveIfExists(entry);
+			grid[yCur * gridCellWidthCount + xCur].erase(entry);
 		}
 	}
 }
@@ -127,7 +126,7 @@ void GridSectorizer::MoveEntry(void *entry, const float sourceMinX, const float 
 			if (xCur < xStartDest || xCur > xEndDest ||
 			    yCur < yStartDest || yCur > yEndDest)
 			{
-				grid[yCur * gridCellWidthCount + xCur].RemoveIfExists(entry);
+				grid[yCur * gridCellWidthCount + xCur].erase(entry);
 			}
 		}
 	}
@@ -140,34 +139,32 @@ void GridSectorizer::MoveEntry(void *entry, const float sourceMinX, const float 
 			if (xCur < xStartSource || xCur > xEndSource ||
 			    yCur < yStartSource || yCur > yEndSource)
 			{
-				grid[yCur * gridCellWidthCount + xCur].Insert(entry, entry, true);
+				grid[yCur * gridCellWidthCount + xCur].insert(entry);
 			}
 		}
 	}
 }
 #endif
-void GridSectorizer::GetEntries(DataStructures::List<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY)
+void GridSectorizer::GetEntries(std::vector<void *> &intersectionList, const float minX, const float minY, const float maxX, const float maxY)
 {
 #ifdef _USE_ORDERED_LIST
-	DataStructures::OrderedList<void *, void *> *cell;
+	std::set<void *> *cell;
 #else
-	DataStructures::List<void *> *cell;
+	std::vector<void *> *cell;
 #endif
 	int xStart, yStart, xEnd, yEnd, xCur, yCur;
-	unsigned index;
 	xStart = WorldToCellXOffsetAndClamped(minX);
 	yStart = WorldToCellYOffsetAndClamped(minY);
 	xEnd = WorldToCellXOffsetAndClamped(maxX);
 	yEnd = WorldToCellYOffsetAndClamped(maxY);
 
-	intersectionList.Clear(true, _FILE_AND_LINE_);
+	intersectionList.clear();
 	for (xCur = xStart; xCur <= xEnd; ++xCur)
 	{
 		for (yCur = yStart; yCur <= yEnd; ++yCur)
 		{
 			cell = grid + yCur * gridCellWidthCount + xCur;
-			for (index = 0; index < cell->Size(); ++index)
-				intersectionList.Insert(cell->operator[](index), _FILE_AND_LINE_);
+			intersectionList.insert(intersectionList.end(), cell->begin(), cell->end());
 		}
 	}
 }
@@ -202,5 +199,5 @@ void GridSectorizer::Clear(void)
 	int cur;
 	int count = gridCellWidthCount * gridCellHeightCount;
 	for (cur = 0; cur < count; cur++)
-		grid[cur].Clear(true, _FILE_AND_LINE_);
+		grid[cur].clear();
 }
