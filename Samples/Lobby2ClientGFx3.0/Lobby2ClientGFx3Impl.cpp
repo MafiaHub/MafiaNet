@@ -341,7 +341,7 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_SendEmail)
 	for (index = 0; index < 8; index++)
 	{
 		if (pparams[index].GetString() && pparams[index].GetString()[0])
-			m1->recipients.Push(MafiaNet::RakString(pparams[index].GetString()), _FILE_AND_LINE_);
+			m1->recipients.push_back(MafiaNet::RakString(pparams[index].GetString()));
 	}
 	m1->subject = pparams[index++].GetString();
 	m1->body = pparams[index++].GetString();
@@ -660,7 +660,7 @@ void Lobby2ClientGFx3Impl::MessageResult(System_CreateDatabase *message)
 void Lobby2ClientGFx3Impl::MessageResult(System_CreateTitle *message)
 {
 	__L2_ALLOCATE_AND_DEFINE(messageFactory, CDKey_Add, m3);
-	m3->cdKeys.Insert("Test CD Key", _FILE_AND_LINE_);
+	m3->cdKeys.push_back("Test CD Key");
 	m3->titleName = "Test Title Name";
 	lobby2Client->SendMsgAndDealloc(m3);
 }
@@ -720,7 +720,7 @@ void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_StopIgnore *message)
 void Lobby2ClientGFx3Impl::MessageResult(MafiaNet::Client_GetIgnoreList *message)
 {
 	FxResponseArgsList rargs;
-	for (unsigned int i = 0; i < message->ignoredHandles.Size(); i++)
+	for (unsigned int i = 0; i < message->ignoredHandles.size(); i++)
 		rargs.Add(message->ignoredHandles[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetIgnoreListResult", rargs);
 }
@@ -770,18 +770,18 @@ void Lobby2ClientGFx3Impl::MessageResult(Friends_Remove *message)
 void Lobby2ClientGFx3Impl::MessageResult(Friends_GetInvites *message)
 {
 	FxResponseArgsList rargs;
-	rargs.Add((Double) message->invitesSent.Size());
-	rargs.Add((Double) message->invitesReceived.Size());
-	for (unsigned int i = 0; i < message->invitesSent.Size(); i++)
+	rargs.Add((Double) message->invitesSent.size());
+	rargs.Add((Double) message->invitesReceived.size());
+	for (unsigned int i = 0; i < message->invitesSent.size(); i++)
 		rargs.Add(message->invitesSent[i].usernameAndStatus.handle.C_String());
-	for (unsigned int i = 0; i < message->invitesReceived.Size(); i++)
+	for (unsigned int i = 0; i < message->invitesReceived.size(); i++)
 		rargs.Add(message->invitesReceived[i].usernameAndStatus.handle.C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetFriendInvites", rargs);
 }
 void Lobby2ClientGFx3Impl::MessageResult(Friends_GetFriends *message)
 {
 	FxResponseArgsList rargs;
-	for (unsigned int i = 0; i < message->myFriends.Size(); i++)
+	for (unsigned int i = 0; i < message->myFriends.size(); i++)
 		rargs.Add(message->myFriends[i].usernameAndStatus.handle.C_String());
 	FxDelegate::Invoke2(movie, "c2f_GetFriends", rargs);
 }
@@ -806,7 +806,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Emails_SetStatus *message)
 void Lobby2ClientGFx3Impl::MessageResult(Emails_Get *message)
 {
 	FxResponseArgsList rargs;
-	for (unsigned int i = 0; i < message->emailResults.Size(); i++)
+	for (unsigned int i = 0; i < message->emailResults.size(); i++)
 	{
 		rargs.Add(message->emailResults[i].sender.C_String());
 		rargs.Add(message->emailResults[i].recipient.C_String());
@@ -921,14 +921,14 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_Get *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	rargs.Add((Double) message->clans.Size());
-	for (unsigned int i = 0; i < message->clans.Size(); i++)
+	rargs.Add((Double) message->clans.size());
+	for (unsigned int i = 0; i < message->clans.size(); i++)
 	{
 		rargs.Add(message->clans[i].clanName.C_String());
 		rargs.Add(message->clans[i].description.C_String());
 		rargs.Add(message->clans[i].clanLeader.C_String());
-		rargs.Add((Double) message->clans[i].clanMembersOtherThanLeader.Size());
-		for (unsigned int j = 0; j < message->clans[i].clanMembersOtherThanLeader.Size(); j++)
+		rargs.Add((Double) message->clans[i].clanMembersOtherThanLeader.size());
+		for (unsigned int j = 0; j < message->clans[i].clanMembersOtherThanLeader.size(); j++)
 			rargs.Add(message->clans[i].clanMembersOtherThanLeader[j].C_String());
 	}
 	FxDelegate::Invoke2(movie, "c2f_Clans_Get", rargs);
@@ -966,14 +966,14 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_DownloadInvitationList *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	rargs.Add((Double) message->invitationsSentToMe.Size());
-	for (unsigned int i = 0; i < message->invitationsSentToMe.Size(); i++)
+	rargs.Add((Double) message->invitationsSentToMe.size());
+	for (unsigned int i = 0; i < message->invitationsSentToMe.size(); i++)
 	{
 		rargs.Add(message->invitationsSentToMe[i].clanHandle.C_String());
 	}
 
-	rargs.Add((Double) message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Size());
-	for (unsigned int i = 0; i < message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Size(); i++)
+	rargs.Add((Double) message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.size());
+	for (unsigned int i = 0; i < message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf.size(); i++)
 	{
 		rargs.Add(message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf[i].sourceClan.C_String());
 		rargs.Add(message->usersThatHaveAnInvitationFromClansThatIAmAMemberOf[i].dateSent.C_String());
@@ -1016,15 +1016,15 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_DownloadRequestList *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	rargs.Add((Double) message->joinRequestsToMyClan.Size());
-	rargs.Add((Double) message->joinRequestsFromMe.Size());
-	for (unsigned int i = 0; i < message->joinRequestsToMyClan.Size(); i++)
+	rargs.Add((Double) message->joinRequestsToMyClan.size());
+	rargs.Add((Double) message->joinRequestsFromMe.size());
+	for (unsigned int i = 0; i < message->joinRequestsToMyClan.size(); i++)
 	{
 		rargs.Add(message->joinRequestsToMyClan[i].targetClan.C_String());
 		rargs.Add(message->joinRequestsToMyClan[i].dateSent.C_String());
 		rargs.Add(message->joinRequestsToMyClan[i].joinRequestSender.C_String());
 	}
-	for (unsigned int i = 0; i < message->joinRequestsFromMe.Size(); i++)
+	for (unsigned int i = 0; i < message->joinRequestsFromMe.size(); i++)
 	{
 		rargs.Add(message->joinRequestsFromMe[i].targetClan.C_String());
 		rargs.Add(message->joinRequestsFromMe[i].dateSent.C_String());
@@ -1052,7 +1052,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetBlacklist *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	for (unsigned int i = 0; i < message->blacklistedUsers.Size(); i++)
+	for (unsigned int i = 0; i < message->blacklistedUsers.size(); i++)
 		rargs.Add(message->blacklistedUsers[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_Clans_GetBlacklist", rargs);
 }
@@ -1062,7 +1062,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetMembers *message)
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
 	rargs.Add(message->clanLeader.C_String());
-	for (unsigned int i = 0; i < message->clanMembersOtherThanLeader.Size(); i++)
+	for (unsigned int i = 0; i < message->clanMembersOtherThanLeader.size(); i++)
 		rargs.Add(message->clanMembersOtherThanLeader[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_Clans_GetMembers", rargs);
 }
@@ -1071,7 +1071,7 @@ void Lobby2ClientGFx3Impl::MessageResult(Clans_GetList *message)
 {
 	FxResponseArgsList rargs;
 	rargs.Add(Lobby2ResultCodeDescription::ToEnglish(message->resultCode));
-	for (unsigned int i = 0; i < message->clanNames.Size(); i++)
+	for (unsigned int i = 0; i < message->clanNames.size(); i++)
 		rargs.Add(message->clanNames[i].C_String());
 	FxDelegate::Invoke2(movie, "c2f_Clans_GetList", rargs);
 }

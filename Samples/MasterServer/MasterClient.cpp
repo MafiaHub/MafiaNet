@@ -86,7 +86,7 @@ void MasterClient::PingServers(void)
 {
 	unsigned serverIndex;
 
-	for (serverIndex = 0; serverIndex < gameServerList.serverList.Size(); serverIndex++)
+	for (serverIndex = 0; serverIndex < gameServerList.serverList.size(); serverIndex++)
 	{
 		rakPeer->Ping((char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false),
 		              gameServerList.serverList[serverIndex]->connectionIdentifier.GetPort(), false);
@@ -216,12 +216,12 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 	// will have lastUpdateTime time as less than the current time
 	// Delete those
 	serverIndex = 0;
-	while (serverIndex < (int) gameServerList.serverList.Size())
+	while (serverIndex < (int) gameServerList.serverList.size())
 	{
 		if (gameServerList.serverList[serverIndex]->lastUpdateTime < currentTime)
 		{
 			delete gameServerList.serverList[serverIndex];
-			gameServerList.serverList.RemoveAtIndex(serverIndex);
+			gameServerList.serverList.erase(gameServerList.serverList.begin() + serverIndex);
 		}
 		else
 			serverIndex++;

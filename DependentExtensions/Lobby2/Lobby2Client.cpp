@@ -37,7 +37,7 @@ SystemAddress Lobby2Client::GetServerAddress(void) const
 void Lobby2Client::SendMsg(Lobby2Message *msg)
 {
 	// Callback must be ready to receive reply
-	RakAssert(callbacks.Size());
+	RakAssert(callbacks.size());
 	msg->resultCode = L2RC_PROCESSING;
 
 	MafiaNet::BitStream bs;
@@ -89,7 +89,7 @@ void Lobby2Client::OnMessage(Packet *packet)
 		lobby2Message->Serialize(false, true, &bs);
 		if (lobby2Message->ClientImpl(this))
 		{
-			for (unsigned long i = 0; i < callbacks.Size(); i++)
+			for (unsigned long i = 0; i < callbacks.size(); i++)
 			{
 				if (lobby2Message->callbackId == (uint32_t) -1 || lobby2Message->callbackId == callbacks[i]->callbackId)
 					lobby2Message->CallCallback(callbacks[i]);
@@ -105,26 +105,26 @@ void Lobby2Client::OnMessage(Packet *packet)
 /*
 void Lobby2Client::AddToIgnoreList(MafiaNet::RakString user)
 {
-	ignoreList.Insert(user,user,false);
+	ignoreList.insert(user);
 }
 void Lobby2Client::RemoveFromIgnoreList(MafiaNet::RakString user)
 {
-	ignoreList.RemoveIfExists(user);
+	ignoreList.erase(user);
 }
-void Lobby2Client::SetIgnoreList(DataStructures::List<MafiaNet::RakString> users)
+void Lobby2Client::SetIgnoreList(const std::vector<MafiaNet::RakString> &users)
 {
-	for (unsigned int i=0; i < users.Size(); i++)
-		ignoreList.Insert(users[i],users[i],false);
+	for (unsigned int i=0; i < users.size(); i++)
+		ignoreList.insert(users[i]);
 }
 bool Lobby2Client::IsInIgnoreList(MafiaNet::RakString user) const
 {
-	return ignoreList.HasData(user);
+	return ignoreList.count(user) != 0;
 }
 void Lobby2Client::ClearIgnoreList(void)
 {
-	ignoreList.Clear(_FILE_AND_LINE_);
+	ignoreList.clear();
 }
-const DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString>* Lobby2Client::GetIgnoreList(void) const
+const std::set<MafiaNet::RakString>* Lobby2Client::GetIgnoreList(void) const
 {
 	return &ignoreList;
 }

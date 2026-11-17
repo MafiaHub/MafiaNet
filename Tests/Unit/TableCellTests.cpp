@@ -10,9 +10,9 @@
 #include <cstring>
 #include <new>
 
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 
-using namespace DataStructures;
+using namespace MafiaNet;
 
 // The copy constructor used to test and free its own uninitialized `c`, and
 // left `c` uninitialized when copying a cell without string/binary data, so

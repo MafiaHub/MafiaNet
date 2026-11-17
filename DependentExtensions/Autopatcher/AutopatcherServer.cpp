@@ -27,6 +27,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/autopatcher_repository_interface.h"
+#include "mafianet/vector_util.h"
 #include "mafianet/assert.h"
 #include "mafianet/autopatcher_patch_context.h"
 #include <stdio.h>
@@ -138,7 +139,7 @@ void AutopatcherServer::StartThreads(int numThreads, int numSQLConnections, Auto
 	{
 		// Test the pointers passed, in case the user incorrectly casted an array of a different type
 		sqlConnectionPtrArray[i]->GetLastError();
-		connectionPool.Push(sqlConnectionPtrArray[i], _FILE_AND_LINE_);
+		connectionPool.push_back(sqlConnectionPtrArray[i]);
 	}
 	connectionPoolMutex.Unlock();
 	threadPool.SetThreadDataInterface(this, 0);
@@ -146,7 +147,7 @@ void AutopatcherServer::StartThreads(int numThreads, int numSQLConnections, Auto
 }
 void AutopatcherServer::CacheMostRecentPatch(const char *applicationName)
 {
-	if (connectionPool.Size() > 0)
+	if (connectionPool.size() > 0)
 	{
 		if (applicationName)
 			cache_appName = applicationName;
@@ -175,7 +176,7 @@ void AutopatcherServer::OnDetach(void)
 }
 void AutopatcherServer::Update(void)
 {
-	while (PatchingUserLimitReached() == false && userRequestWaitingQueue.Size() > 0)
+	while (PatchingUserLimitReached() == false && userRequestWaitingQueue.size() > 0)
 	{
 		Packet *packet = PopOffWaitingQueue();
 		switch (packet->data[0])
@@ -227,10 +228,10 @@ void AutopatcherServer::Clear(void)
 	}
 	threadPool.ClearOutput();
 
-	while (userRequestWaitingQueue.Size())
+	while (userRequestWaitingQueue.size())
 		DeallocPacketUnified(AbortOffWaitingQueue());
 
-	patchingUsers.Clear(true, _FILE_AND_LINE_);
+	patchingUsers.clear();
 }
 void AutopatcherServer::OnStartup(RakPeerInterface *peer)
 {
@@ -247,20 +248,20 @@ void AutopatcherServer::OnClosedConnection(const SystemAddress &systemAddress, R
 
 	unsigned int i = 0;
 	patchingUsersMutex.Lock();
-	while (i < patchingUsers.Size())
+	while (i < patchingUsers.size())
 	{
 		if (patchingUsers[i] == systemAddress)
-			patchingUsers.RemoveAtIndexFast(i);
+			SwapRemove(patchingUsers, i);
 		else
 			i++;
 	}
 	patchingUsersMutex.Unlock();
 
 	i = 0;
-	while (i < userRequestWaitingQueue.Size())
+	while (i < userRequestWaitingQueue.size())
 	{
 		if (userRequestWaitingQueue[i]->systemAddress == systemAddress)
-			userRequestWaitingQueue.RemoveAtIndex(i);
+			userRequestWaitingQueue.erase(userRequestWaitingQueue.begin() + i);
 		else
 			i++;
 	}
@@ -376,8 +377,8 @@ AutopatcherServer::ResultTypeAndBitstream *GetChangelistSinceDateCB(AutopatcherS
 		if (server->loadNotifier)
 		{
 			AutopatcherServerLoadNotifier::AutopatcherState autopatcherState;
-			autopatcherState.requestsQueued = server->userRequestWaitingQueue.Size();
-			autopatcherState.requestsWorking = server->patchingUsers.Size();
+			autopatcherState.requestsQueued = static_cast<unsigned int>(server->userRequestWaitingQueue.size());
+			autopatcherState.requestsWorking = static_cast<unsigned int>(server->patchingUsers.size());
 
 			AutopatcherServerLoadNotifier::GetChangelistResult getChangelistResult;
 			if (rtab.resultCode != 1)
@@ -739,7 +740,8 @@ void *AutopatcherServer::PerThreadFactory(void *context)
 
 	AutopatcherRepositoryInterface *p;
 	connectionPoolMutex.Lock();
-	p = connectionPool.Pop();
+	p = connectionPool.front();
+	connectionPool.pop_front();
 	connectionPoolMutex.Unlock();
 	return p;
 }
@@ -765,7 +767,7 @@ bool AutopatcherServer::IncrementPatchingUserCount(SystemAddress sa)
 {
 	// A system address may exist more than once in patchingUsers
 	patchingUsersMutex.Lock();
-	patchingUsers.Insert(sa, _FILE_AND_LINE_);
+	patchingUsers.push_back(sa);
 	patchingUsersMutex.Unlock();
 	return true;
 }
@@ -773,11 +775,11 @@ bool AutopatcherServer::DecrementPatchingUserCount(SystemAddress sa)
 {
 	unsigned int i;
 	patchingUsersMutex.Lock();
-	for (i = 0; i < patchingUsers.Size(); i++)
+	for (i = 0; i < patchingUsers.size(); i++)
 	{
 		if (patchingUsers[i] == sa)
 		{
-			patchingUsers.RemoveAtIndexFast(i);
+			SwapRemove(patchingUsers, i);
 			patchingUsersMutex.Unlock();
 			return true;
 		}
@@ -790,7 +792,7 @@ bool AutopatcherServer::PatchingUserLimitReached(void) const
 	if (maxConcurrentUsers == 0)
 		return false;
 
-	return patchingUsers.Size() >= maxConcurrentUsers;
+	return patchingUsers.size() >= maxConcurrentUsers;
 }
 void AutopatcherServer::SetMaxConurrentUsers(unsigned int _maxConcurrentUsers)
 {
@@ -805,8 +807,8 @@ void AutopatcherServer::CallPacketCallback(Packet *packet, AutopatcherServerLoad
 	if (loadNotifier)
 	{
 		AutopatcherServerLoadNotifier::AutopatcherState autopatcherState;
-		autopatcherState.requestsQueued = userRequestWaitingQueue.Size();
-		autopatcherState.requestsWorking = patchingUsers.Size();
+		autopatcherState.requestsQueued = static_cast<unsigned int>(userRequestWaitingQueue.size());
+		autopatcherState.requestsWorking = static_cast<unsigned int>(patchingUsers.size());
 
 		AutopatcherServerLoadNotifier::RequestType requestType;
 		if (packet->data[0] == ID_AUTOPATCHER_GET_CHANGELIST_SINCE_DATE)
@@ -822,27 +824,29 @@ void AutopatcherServer::CallPatchCompleteCallback(const SystemAddress &systemAdd
 	if (loadNotifier)
 	{
 		AutopatcherServerLoadNotifier::AutopatcherState autopatcherState;
-		autopatcherState.requestsQueued = userRequestWaitingQueue.Size();
-		autopatcherState.requestsWorking = patchingUsers.Size();
+		autopatcherState.requestsQueued = static_cast<unsigned int>(userRequestWaitingQueue.size());
+		autopatcherState.requestsWorking = static_cast<unsigned int>(patchingUsers.size());
 
 		loadNotifier->OnGetPatchCompleted(systemAddress, patchResult, &autopatcherState);
 	}
 }
 void AutopatcherServer::AddToWaitingQueue(Packet *packet)
 {
-	userRequestWaitingQueue.Push(packet, _FILE_AND_LINE_);
+	userRequestWaitingQueue.push_back(packet);
 	CallPacketCallback(packet, AutopatcherServerLoadNotifier::QO_WAS_ADDED);
 }
 Packet *AutopatcherServer::AbortOffWaitingQueue(void)
 {
-	Packet *packet = userRequestWaitingQueue.Pop();
+	Packet *packet = userRequestWaitingQueue.front();
+	userRequestWaitingQueue.pop_front();
 	CallPacketCallback(packet, AutopatcherServerLoadNotifier::QO_WAS_ABORTED);
 	return packet;
 }
 Packet *AutopatcherServer::PopOffWaitingQueue(void)
 {
-	return userRequestWaitingQueue.Pop();
-	;
+	Packet *packet = userRequestWaitingQueue.front();
+	userRequestWaitingQueue.pop_front();
+	return packet;
 }
 void AutopatcherServer::SetLoadManagementCallback(AutopatcherServerLoadNotifier *asumc)
 {

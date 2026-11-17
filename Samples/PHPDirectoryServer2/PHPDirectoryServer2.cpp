@@ -32,7 +32,9 @@
 #include "mafianet/types.h"
 #include "mafianet/get_time.h"
 #include "mafianet/assert.h"
+#include <cstddef>
 #include <cstring>
+#include <iterator>
 #include <cstdlib>
 #include <cstdio>
 #include "mafianet/itoa.h"
@@ -47,12 +49,10 @@ static const char *SYSTEM_ADDRESS_COMMAND = "_System_Address";
 static const char *LAST_UPDATE_COMMAND = "__SEC_AFTER_EPOCH_SINCE_LAST_UPDATE";
 
 using namespace MafiaNet;
-using namespace DataStructures;
 
 PHPDirectoryServer2::PHPDirectoryServer2()
     : nextRepost(0)
 {
-	Map<RakString, RakString>::IMPLEMENT_DEFAULT_COMPARISON();
 }
 PHPDirectoryServer2::~PHPDirectoryServer2()
 {
@@ -76,24 +76,25 @@ void PHPDirectoryServer2::SetField(MafiaNet::RakString columnName, MafiaNet::Rak
 		return;
 	}
 
-	fields.Set(columnName, value);
+	fields[columnName] = value;
 }
 unsigned int PHPDirectoryServer2::GetFieldCount(void) const
 {
-	return fields.Size();
+	return static_cast<unsigned int>(fields.size());
 }
 void PHPDirectoryServer2::GetField(unsigned int index, MafiaNet::RakString &columnName, MafiaNet::RakString &value)
 {
-	RakAssert(index < fields.Size());
-	columnName = fields.GetKeyAtIndex(index);
-	value = fields[index];
+	RakAssert(index < fields.size());
+	const auto field = std::next(fields.begin(), static_cast<std::ptrdiff_t>(index));
+	columnName = field->first;
+	value = field->second;
 }
-void PHPDirectoryServer2::SetFields(DataStructures::Table *table)
+void PHPDirectoryServer2::SetFields(MafiaNet::Table *table)
 {
 	ClearFields();
 
 	unsigned columnIndex, rowIndex;
-	DataStructures::Table::Row *row;
+	MafiaNet::Table::Row *row;
 
 	for (rowIndex = 0; rowIndex < table->GetRowCount(); rowIndex++)
 	{
@@ -107,7 +108,7 @@ void PHPDirectoryServer2::SetFields(DataStructures::Table *table)
 
 void PHPDirectoryServer2::ClearFields(void)
 {
-	fields.Clear();
+	fields.clear();
 	nextRepost = 0;
 }
 
@@ -161,8 +162,8 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 	char buff[256];
 	int buffIndex;
 	bool isCommand = true;
-	DataStructures::List<MafiaNet::RakString> columns;
-	DataStructures::List<MafiaNet::RakString> values;
+	std::vector<MafiaNet::RakString> columns;
+	std::vector<MafiaNet::RakString> values;
 	MafiaNet::RakString curString;
 	bool isComment = false;
 	buffIndex = 0;
@@ -188,7 +189,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 			if (isCommand)
 			{
 				buff[buffIndex] = 0;
-				columns.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
+				columns.push_back(RakString::NonVariadic(buff));
 				isCommand = false;
 				if (buff[0] != 0)
 					resultCode = HTTP_RESULT_GOT_TABLE;
@@ -196,7 +197,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 			else
 			{
 				buff[buffIndex] = 0;
-				values.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
+				values.push_back(RakString::NonVariadic(buff));
 				isCommand = true;
 			}
 			buffIndex = 0;
@@ -205,11 +206,11 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 		{
 			buff[buffIndex] = 0;
 			buffIndex = 0;
-			values.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
+			values.push_back(RakString::NonVariadic(buff));
 			isCommand = true;
 			PushColumnsAndValues(columns, values);
-			columns.Clear(true, _FILE_AND_LINE_);
-			values.Clear(true, _FILE_AND_LINE_);
+			columns.clear();
+			values.clear();
 		}
 		else
 		{
@@ -218,29 +219,29 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 		}
 		c++;
 	}
-	if (buff[0] && columns.Size() == values.Size() + 1)
+	if (buff[0] && columns.size() == values.size() + 1)
 	{
 		buff[buffIndex] = 0;
-		values.Push(RakString::NonVariadic(buff), _FILE_AND_LINE_);
+		values.push_back(RakString::NonVariadic(buff));
 	}
 
 	PushColumnsAndValues(columns, values);
 
 	return resultCode;
 }
-void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::RakString> &columns, DataStructures::List<MafiaNet::RakString> &values)
+void PHPDirectoryServer2::PushColumnsAndValues(std::vector<MafiaNet::RakString> &columns, std::vector<MafiaNet::RakString> &values)
 {
-	DataStructures::Table::Row *row = 0;
+	MafiaNet::Table::Row *row = 0;
 
 	unsigned int i;
-	for (i = 0; i < columns.Size() && i < values.Size(); i++)
+	for (i = 0; i < columns.size() && i < values.size(); i++)
 	{
 		if (columns[i].IsEmpty() == false)
 		{
 			unsigned col = lastDownloadedTable.ColumnIndex(columns[i]);
 			if (col == (unsigned) -1)
 			{
-				col = lastDownloadedTable.AddColumn(columns[i], DataStructures::Table::STRING);
+				col = lastDownloadedTable.AddColumn(columns[i], MafiaNet::Table::STRING);
 			}
 
 			if (row == 0)
@@ -251,7 +252,7 @@ void PHPDirectoryServer2::PushColumnsAndValues(DataStructures::List<MafiaNet::Ra
 		}
 	}
 }
-const DataStructures::Table *PHPDirectoryServer2::GetLastDownloadedTable(void) const
+const MafiaNet::Table *PHPDirectoryServer2::GetLastDownloadedTable(void) const
 {
 	return &lastDownloadedTable;
 }
@@ -268,12 +269,12 @@ void PHPDirectoryServer2::SendOperation(void)
 	outgoingMessageBody += '\001';
 	outgoingMessageBody += gameNameParam;
 
-	for (unsigned i = 0; i < fields.Size(); i++)
+	for (const auto &field : fields)
 	{
-		RakString value = fields[i];
+		RakString value = field.second;
 		value.URLEncode();
 		outgoingMessageBody += RakString("\001%s\001%s",
-		                                 fields.GetKeyAtIndex(i).C_String(),
+		                                 field.first.C_String(),
 		                                 value.C_String());
 	}
 
@@ -288,7 +289,7 @@ void PHPDirectoryServer2::Update(void)
 		return;
 
 
-	if (nextRepost == 0 || fields.Size() == 0)
+	if (nextRepost == 0 || fields.size() == 0)
 		return;
 
 	MafiaNet::TimeMS time = GetTimeMS();

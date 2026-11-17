@@ -16,9 +16,11 @@
 #ifndef __SQL_LITE_3_PLUGIN_COMMON_H
 #define __SQL_LITE_3_PLUGIN_COMMON_H
 
-#include "mafianet/ds_multilist.h"
 #include "mafianet/string.h"
 #include "mafianet/bit_stream.h"
+
+#include <memory>
+#include <vector>
 
 /// \defgroup SQL_LITE_3_PLUGIN SQLite3Plugin
 /// \brief Code to transmit SQLite3 commands across the network
@@ -29,7 +31,7 @@
 /// \ingroup SQL_LITE_3_PLUGIN
 struct SQLite3Row
 {
-	DataStructures::List<MafiaNet::RakString> entries;
+	std::vector<MafiaNet::RakString> entries;
 };
 
 /// Contains a result table, which is an array of column name strings, followed by an array of SQLite3Row
@@ -41,8 +43,8 @@ struct SQLite3Table
 	void Serialize(MafiaNet::BitStream *bitStream);
 	void Deserialize(MafiaNet::BitStream *bitStream);
 
-	DataStructures::List<MafiaNet::RakString> columnNames;
-	DataStructures::List<SQLite3Row *> rows;
+	std::vector<MafiaNet::RakString> columnNames;
+	std::vector<std::unique_ptr<SQLite3Row>> rows;
 };
 
 #endif

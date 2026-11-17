@@ -362,13 +362,13 @@ int main(int argc, char **argv)
 				const bool wasCallToGetServers = cloudQueryResult.cloudQuery.keys[0].primaryKey == "CloudConnCount";
 				printf("\n");
 				if (wasCallToGetServers)
-					printf("Downloaded server list. %i servers.\n", cloudQueryResult.rowsReturned.Size());
+					printf("Downloaded server list. %i servers.\n", (int) cloudQueryResult.rowsReturned.size());
 
 				unsigned short connectionsOnOurServer = 65535;
 				unsigned short lowestConnectionsServer = 65535;
 				MafiaNet::SystemAddress lowestConnectionAddress;
 
-				for (rowIndex = 0; rowIndex < cloudQueryResult.rowsReturned.Size(); rowIndex++)
+				for (rowIndex = 0; rowIndex < cloudQueryResult.rowsReturned.size(); rowIndex++)
 				{
 					MafiaNet::CloudQueryRow *row = cloudQueryResult.rowsReturned[rowIndex];
 					if (wasCallToGetServers)
@@ -401,7 +401,7 @@ int main(int argc, char **argv)
 				// Do load balancing by reconnecting to lowest load server (optional)
 				if (didRebalance == false && wasCallToGetServers)
 				{
-					if (cloudQueryResult.rowsReturned.Size() > 0 && connectionsOnOurServer > lowestConnectionsServer)
+					if (cloudQueryResult.rowsReturned.size() > 0 && connectionsOnOurServer > lowestConnectionsServer)
 					{
 						printf("Reconnecting to lower load server %s\n", lowestConnectionAddress.ToString(false));
 
@@ -489,14 +489,14 @@ void UploadInstanceToCloud(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetG
 void GetClientSubscription(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
 	MafiaNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY, 0), _FILE_AND_LINE_);
+	cloudQuery.keys.push_back(MafiaNet::CloudKey(CLOUD_CLIENT_PRIMARY_KEY, 0));
 	cloudQuery.subscribeToResults = false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }
 void GetServers(MafiaNet::CloudClient *cloudClient, MafiaNet::RakNetGUID serverGuid)
 {
 	MafiaNet::CloudQuery cloudQuery;
-	cloudQuery.keys.Push(MafiaNet::CloudKey("CloudConnCount", 0), _FILE_AND_LINE_); // CloudConnCount is defined at the top of CloudServerHelper.cpp
+	cloudQuery.keys.push_back(MafiaNet::CloudKey("CloudConnCount", 0)); // CloudConnCount is defined at the top of CloudServerHelper.cpp
 	cloudQuery.subscribeToResults = false;
 	cloudClient->Get(&cloudQuery, serverGuid);
 }

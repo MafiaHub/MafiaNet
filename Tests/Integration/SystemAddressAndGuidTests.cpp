@@ -15,7 +15,7 @@ using namespace MafiaNet;
 Description:
 Tests:
 virtual unsigned short RakPeerInterface::NumberOfConnections  	(  	void   	  	 )   	 const
-virtual void RakPeerInterface::GetSystemList  	(  	DataStructures::List< SystemAddress > &   	 addresses, 		DataStructures::List< RakNetGUID > &  	guids	  	)
+virtual void RakPeerInterface::GetSystemList  	(  	std::vector< SystemAddress > &   	 addresses, 		std::vector< RakNetGUID > &  	guids	  	)
 virtual bool RakPeerInterface::IsActive  	(  	void   	  	 )   	 const
 virtual SystemAddress RakPeerInterface::GetSystemAddressFromIndex  	(  	int   	 index  	 )
 virtual SystemAddress RakPeerInterface::GetSystemAddressFromGuid  	(  	const RakNetGUID   	 input  	 )   	 const
@@ -55,17 +55,17 @@ class SystemAddressAndGuid : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
+		const std::size_t theSize = destroyList.size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 };
 
 TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
@@ -74,7 +74,7 @@ TEST_F(SystemAddressAndGuid, AddressAndGuidLookups)
 
 	printf("Testing IsActive\n");
 	client = RakPeerInterface::GetInstance();
-	destroyList.Push(client, _FILE_AND_LINE_);
+	destroyList.push_back(client);
 	ASSERT_FALSE(client->IsActive()) << "Client was active but shouldn't be yet";
 
 	// All interfaces as before, but on an OS-assigned port.

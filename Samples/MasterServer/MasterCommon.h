@@ -18,10 +18,11 @@
 #ifndef __MASTER_COMMON_H
 #define __MASTER_COMMON_H
 
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/plugin_interface2.h"
+
+#include <vector>
 using namespace MafiaNet;
 
 // IP, Port, Ping - case sensitive!
@@ -56,7 +57,7 @@ public:
 	int Partition(int low, int high, bool ascending);
 	int GetIndexBySystemAddress(SystemAddress playerID);
 
-	DataStructures::List<GameServer *> serverList;
+	std::vector<GameServer *> serverList;
 };
 
 /// \ingroup MASTER_SERVER_GROUP
@@ -155,7 +156,7 @@ struct GameServer
 
 	// When inserting rules, don't forget that IP and ping should always be added.
 	// These are required for any game server
-	DataStructures::List<GameServerRule *> serverRules;
+	std::vector<GameServerRule *> serverRules;
 };
 
 

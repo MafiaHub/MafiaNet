@@ -10,6 +10,8 @@
 
 #include "RoomTypes.h"
 
+#include <cstring>
+
 const char *RoomMemberModeToEnum(RoomMemberMode e)
 {
 	switch (e)
@@ -34,35 +36,35 @@ const char *RoomMemberModeToEnum(RoomMemberMode e)
 
 static DefaultRoomColumns defaultRoomColumns[DefaultRoomColumns::TC_TABLE_COLUMNS_COUNT] =
     {
-        {DefaultRoomColumns::TC_TITLE_NAME, "Title name", DataStructures::Table::STRING},
-        {DefaultRoomColumns::TC_TITLE_ID, "Title id", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_ROOM_NAME, "Room name", DataStructures::Table::STRING},
-        {DefaultRoomColumns::TC_ROOM_ID, "Room id", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_TOTAL_SLOTS, "Total slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_TOTAL_PUBLIC_PLUS_RESERVED_SLOTS, "Total Public plus reserved slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_USED_SLOTS, "Used slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_USED_PUBLIC_PLUS_RESERVED_SLOTS, "Used public plus reserved slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_REMAINING_SLOTS, "Remaining slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_REMAINING_PUBLIC_PLUS_RESERVED_SLOTS, "Remaining public plus reserved slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_TOTAL_PUBLIC_SLOTS, "Total public slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_TOTAL_RESERVED_SLOTS, "Total reserved slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_TOTAL_SPECTATOR_SLOTS, "Total spectator slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_USED_PUBLIC_SLOTS, "Used public slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_USED_RESERVED_SLOTS, "Used reserved slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_USED_SPECTATOR_SLOTS, "Used spectator slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_REMAINING_PUBLIC_SLOTS, "Remaining public slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_REMAINING_RESERVED_SLOTS, "Remaining reserved slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_REMAINING_SPECTATOR_SLOTS, "Remaining spectator slots", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_CREATION_TIME, "Creation time", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_DESTROY_ON_MODERATOR_LEAVE, "Destroy on moderator leave", DataStructures::Table::NUMERIC},
-        {DefaultRoomColumns::TC_LOBBY_ROOM_PTR, "Lobby room ptr [Internal]", DataStructures::Table::POINTER},
+        {DefaultRoomColumns::TC_TITLE_NAME, "Title name", MafiaNet::Table::STRING},
+        {DefaultRoomColumns::TC_TITLE_ID, "Title id", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_ROOM_NAME, "Room name", MafiaNet::Table::STRING},
+        {DefaultRoomColumns::TC_ROOM_ID, "Room id", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_TOTAL_SLOTS, "Total slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_TOTAL_PUBLIC_PLUS_RESERVED_SLOTS, "Total Public plus reserved slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_USED_SLOTS, "Used slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_USED_PUBLIC_PLUS_RESERVED_SLOTS, "Used public plus reserved slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_REMAINING_SLOTS, "Remaining slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_REMAINING_PUBLIC_PLUS_RESERVED_SLOTS, "Remaining public plus reserved slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_TOTAL_PUBLIC_SLOTS, "Total public slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_TOTAL_RESERVED_SLOTS, "Total reserved slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_TOTAL_SPECTATOR_SLOTS, "Total spectator slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_USED_PUBLIC_SLOTS, "Used public slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_USED_RESERVED_SLOTS, "Used reserved slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_USED_SPECTATOR_SLOTS, "Used spectator slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_REMAINING_PUBLIC_SLOTS, "Remaining public slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_REMAINING_RESERVED_SLOTS, "Remaining reserved slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_REMAINING_SPECTATOR_SLOTS, "Remaining spectator slots", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_CREATION_TIME, "Creation time", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_DESTROY_ON_MODERATOR_LEAVE, "Destroy on moderator leave", MafiaNet::Table::NUMERIC},
+        {DefaultRoomColumns::TC_LOBBY_ROOM_PTR, "Lobby room ptr [Internal]", MafiaNet::Table::POINTER},
 };
 
 const char *DefaultRoomColumns::GetColumnName(int columnId)
 {
 	return defaultRoomColumns[columnId].columnName;
 }
-DataStructures::Table::ColumnType DefaultRoomColumns::GetColumnType(int columnId)
+MafiaNet::Table::ColumnType DefaultRoomColumns::GetColumnType(int columnId)
 {
 	return defaultRoomColumns[columnId].columnType;
 }
@@ -82,13 +84,13 @@ int DefaultRoomColumns::GetColumnIndex(const char *columnName)
 			return i;
 	return -1;
 }
-void DefaultRoomColumns::AddDefaultColumnsToTable(DataStructures::Table *table)
+void DefaultRoomColumns::AddDefaultColumnsToTable(MafiaNet::Table *table)
 {
 	unsigned i;
 	for (i = 0; i < DefaultRoomColumns::TC_TABLE_COLUMNS_COUNT; i++)
 		table->AddColumn(DefaultRoomColumns::GetColumnName(i), DefaultRoomColumns::GetColumnType(i));
 }
-bool DefaultRoomColumns::HasDefaultColumns(DataStructures::Table *table)
+bool DefaultRoomColumns::HasDefaultColumns(MafiaNet::Table *table)
 {
 	unsigned i;
 	for (i = 0; i < DefaultRoomColumns::TC_TABLE_COLUMNS_COUNT; i++)

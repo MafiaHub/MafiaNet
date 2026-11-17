@@ -43,7 +43,7 @@ struct ServerAndRoomBrowserData
 
 	/// Write to a RakNet table data structure, useful when creating the room or setting the room properties
 	/// Writes everything EXCEPT the list of players
-	void WriteToTable(DataStructures::Table *table);
+	void WriteToTable(MafiaNet::Table *table);
 
 	/// \internal
 	void Serialize(MafiaNet::BitStream *bitStream, bool writeToBitstream);

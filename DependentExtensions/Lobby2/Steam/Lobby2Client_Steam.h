@@ -17,8 +17,10 @@
 #define __LOBBY_2_CLIENT_STEAM_H
 
 #include "Lobby2Plugin.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/types.h"
+
+#include <cstdint>
+#include <set>
 
 namespace MafiaNet
 {
@@ -32,7 +34,8 @@ public:
 	virtual ~Lobby2Client_Steam() {}
 
 	virtual void SendMsg(Lobby2Message *msg) = 0;
-	virtual void GetRoomMembers(DataStructures::OrderedList<uint64_t, uint64_t> &_roomMembers) = 0;
+	/// \param[out] _roomMembers Steam IDs of the members of the current room
+	virtual void GetRoomMembers(std::set<uint64_t> &_roomMembers) = 0;
 	virtual const char *GetRoomMemberName(uint64_t memberId) = 0;
 	virtual bool IsRoomOwner(const uint64_t cSteamID) = 0;
 	virtual bool IsInRoom(void) const = 0;

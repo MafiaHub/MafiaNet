@@ -38,17 +38,17 @@ class MiscellaneousTests : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
+		const std::size_t theSize = destroyList.size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 };
 
 TEST_F(MiscellaneousTests, AdvertiseSystem)

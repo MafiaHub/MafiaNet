@@ -23,7 +23,7 @@
 #include "mafianet/sleep.h"
 #include "mafianet/string.h"
 #include "mafianet/get_time.h"
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -143,7 +143,7 @@ void UploadAndDownloadTable(MafiaNet::RakString gameName, unsigned short gamePor
 }
 bool PassTestOnEmptyDownloadedTable()
 {
-	const DataStructures::Table *games = phpDirectoryServer2->GetLastDownloadedTable();
+	const MafiaNet::Table *games = phpDirectoryServer2->GetLastDownloadedTable();
 
 	if (games->GetRowCount() == 0)
 	{
@@ -155,7 +155,7 @@ bool PassTestOnEmptyDownloadedTable()
 }
 bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 {
-	const DataStructures::Table *games = phpDirectoryServer2->GetLastDownloadedTable();
+	const MafiaNet::Table *games = phpDirectoryServer2->GetLastDownloadedTable();
 	if (games->GetRowCount() != (unsigned int) requiredRowCount)
 	{
 		printf("TEST FAILED. Expected %i result rows, got %i\n", requiredRowCount, games->GetRowCount());
@@ -164,8 +164,8 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 	MafiaNet::RakString columnName;
 	MafiaNet::RakString value;
 	unsigned int i;
-	DataStructures::Table::Row *row = games->GetRowByIndex(testRowIndex, nullptr);
-	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns = games->GetColumns();
+	MafiaNet::Table::Row *row = games->GetRowByIndex(testRowIndex, nullptr);
+	const std::vector<MafiaNet::Table::ColumnDescriptor> &columns = games->GetColumns();
 	unsigned int colIndex;
 	// +4 comes from automatic fields
 	// _GAME_PORT
@@ -187,7 +187,7 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 		printf("%i. __SEC_AFTER_EPOCH_SINCE_LAST_UPDATE\n", colIndex++);
 
 		printf("Got columns:\n");
-		for (colIndex = 0; colIndex < columns.Size(); colIndex++)
+		for (colIndex = 0; colIndex < columns.size(); colIndex++)
 		{
 			printf("%i. %s\n", colIndex + 1, columns[colIndex].columnName);
 		}
@@ -197,12 +197,12 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 	for (i = 0; i < phpDirectoryServer2->GetFieldCount(); i++)
 	{
 		phpDirectoryServer2->GetField(i, columnName, value);
-		for (colIndex = 0; colIndex < columns.Size(); colIndex++)
+		for (colIndex = 0; colIndex < columns.size(); colIndex++)
 		{
 			if (strcmp(columnName.C_String(), columns[colIndex].columnName) == 0)
 				break;
 		}
-		if (colIndex == columns.Size())
+		if (colIndex == columns.size())
 		{
 			printf("TEST FAILED. Expected column with name %s\n", columnName.C_String());
 			return false;

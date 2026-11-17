@@ -23,7 +23,6 @@ set(MAFIANET_SOURCES
     src/directory_delta_transfer.cpp
     src/dr_sha1.cpp
     src/huffman_encoding_tree.cpp
-    src/ds_table.cpp
     src/dyn_dns.cpp
     src/epoch_time_to_string.cpp
     src/file_list.cpp
@@ -91,6 +90,7 @@ set(MAFIANET_SOURCES
     src/string_compressor.cpp
     src/string_table.cpp
     src/super_fast_hash.cpp
+    src/table.cpp
     src/table_serializer.cpp
     src/tcp_interface.cpp
     src/team_balancer.cpp
@@ -146,7 +146,6 @@ set(MAFIANET_HEADERS
     include/mafianet/defines.h
     include/mafianet/directory_delta_transfer.h
     include/mafianet/dr_sha1.h
-    include/mafianet/ds_bplus_tree.h
     include/mafianet/ds_hash.h
     include/mafianet/ds_heap.h
     include/mafianet/huffman_encoding_tree.h
@@ -159,7 +158,6 @@ set(MAFIANET_HEADERS
     include/mafianet/ds_ordered_list.h
     include/mafianet/ds_queue.h
     include/mafianet/range_list.h
-    include/mafianet/ds_table.h
     include/mafianet/dyn_dns.h
     include/mafianet/email_sender.h
     include/mafianet/empty_header.h
@@ -250,6 +248,7 @@ set(MAFIANET_HEADERS
     include/mafianet/string_compressor.h
     include/mafianet/string_table.h
     include/mafianet/super_fast_hash.h
+    include/mafianet/table.h
     include/mafianet/table_serializer.h
     include/mafianet/tcp_interface.h
     include/mafianet/team_balancer.h

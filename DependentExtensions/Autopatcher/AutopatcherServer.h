@@ -39,9 +39,9 @@
 #include "mafianet/string.h"
 #include "mafianet/file_list.h"
 #include "mafianet/incremental_read_interface.h"
-// DataStructures containers below are migrated with the rest of the Autopatcher (PR 5).
-#include "mafianet/ds_list.h"
-#include "mafianet/ds_queue.h"
+
+#include <deque>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -295,13 +295,13 @@ protected:
 	ThreadPool<ThreadData, ResultTypeAndBitstream *> threadPool;
 
 	SimpleMutex connectionPoolMutex;
-	DataStructures::Queue<AutopatcherRepositoryInterface *> connectionPool;
+	std::deque<AutopatcherRepositoryInterface *> connectionPool;
 
 	// How many users are currently patching
 	// unsigned int patchingUserCount;
 
 	SimpleMutex patchingUsersMutex;
-	DataStructures::List<SystemAddress> patchingUsers;
+	std::vector<SystemAddress> patchingUsers;
 	bool IncrementPatchingUserCount(SystemAddress sa);
 	bool DecrementPatchingUserCount(SystemAddress sa);
 	bool PatchingUserLimitReached(void) const;
@@ -310,7 +310,7 @@ protected:
 
 	unsigned int maxConcurrentUsers;
 	// If maxConcurrentUsers is exceeded, then incoming requests are put into this queue
-	DataStructures::Queue<Packet *> userRequestWaitingQueue;
+	std::deque<Packet *> userRequestWaitingQueue;
 	void AddToWaitingQueue(Packet *packet);
 	Packet *AbortOffWaitingQueue(void);
 	Packet *PopOffWaitingQueue(void);

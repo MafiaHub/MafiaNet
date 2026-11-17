@@ -56,17 +56,17 @@ class PacketAndLowLevelTests : public ::testing::Test
 protected:
 	void TearDown() override
 	{
-		int theSize = destroyList.Size();
+		const std::size_t theSize = destroyList.size();
 
 		// Shutdown all peers before destroying to let threads clean up
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			destroyList[i]->Shutdown(100);
 
-		for (int i = 0; i < theSize; i++)
+		for (std::size_t i = 0; i < theSize; i++)
 			RakPeerInterface::DestroyInstance(destroyList[i]);
 	}
 
-	DataStructures::List<RakPeerInterface *> destroyList;
+	std::vector<RakPeerInterface *> destroyList;
 
 	// The plugin is a fixture member (rather than a heap allocation freed
 	// mid-test) so it is not leaked when an ASSERT fails while it is still
@@ -129,8 +129,8 @@ TEST_F(PacketAndLowLevelTests, LowLevelPacketFunctions)
 	{
 		RakPeerInterface *pluginServer = RakPeerInterface::GetInstance();
 		RakPeerInterface *pluginClient = RakPeerInterface::GetInstance();
-		destroyList.Push(pluginServer, _FILE_AND_LINE_);
-		destroyList.Push(pluginClient, _FILE_AND_LINE_);
+		destroyList.push_back(pluginServer);
+		destroyList.push_back(pluginClient);
 
 		pluginClient->AttachPlugin(myPlug); // safe: peer not started yet
 

@@ -76,8 +76,7 @@ bool RPC3::UnregisterFunction(const char *uniqueIdentifier)
 
 bool RPC3::IsFunctionRegistered(const char *uniqueIdentifier)
 {
-	DataStructures::HashIndex i = GetLocalFunctionIndex(uniqueIdentifier);
-	return i.IsInvalid() == false;
+	return GetLocalFunction(uniqueIdentifier) != nullptr;
 }
 
 void RPC3::SetTimestamp(MafiaNet::Time timeStamp)
@@ -267,8 +266,8 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 {
 	MafiaNet::BitStream bs(data, lengthInBytes, false);
 
-	DataStructures::HashIndex functionIndex;
-	LocalRPCFunction *lrpcf;
+	LocalSlot *localSlot = nullptr;
+	LocalRPCFunction *lrpcf = nullptr;
 	char parameterCount;
 	NetworkIDObject *networkIdObject;
 	NetworkID networkId;
@@ -358,13 +357,12 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 			// 			}
 
 
-			functionIndex = localFunctions.GetIndexOf(strIdentifier);
-			if (functionIndex.IsInvalid())
+			lrpcf = GetLocalFunction(strIdentifier);
+			if (lrpcf == nullptr)
 			{
 				SendError(systemAddress, RPC_ERROR_FUNCTION_NOT_REGISTERED, strIdentifier);
 				return;
 			}
-			lrpcf = localFunctions.ItemAtIndex(functionIndex);
 
 			bool isObjectMember = boost::fusion::get<0>(lrpcf->functionPointer);
 			if (isObjectMember == true && networkIdObject == 0)
@@ -383,8 +381,8 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 		}
 		else
 		{
-			functionIndex = localSlots.GetIndexOf(strIdentifier);
-			if (functionIndex.IsInvalid())
+			localSlot = GetLocalSlot(strIdentifier);
+			if (localSlot == nullptr)
 			{
 				SendError(systemAddress, RPC_ERROR_FUNCTION_NOT_REGISTERED, strIdentifier);
 				return;
@@ -426,37 +424,36 @@ void RPC3::OnRPC3Call(const SystemAddress &systemAddress, unsigned char *data, u
 	}
 	else
 	{
-		InvokeSignal(functionIndex, &serializedParameters, false);
+		InvokeSignal(localSlot, &serializedParameters, false);
 	}
 }
 void RPC3::InterruptSignal(void)
 {
 	interruptSignal = true;
 }
-void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, bool temporarilySetUSA)
+void RPC3::InvokeSignal(LocalSlot *localSlot, MafiaNet::BitStream *serializedParameters, bool temporarilySetUSA)
 {
-	if (functionIndex.IsInvalid())
+	if (localSlot == nullptr)
 		return;
 
 	SystemAddress lastIncomingAddress = incomingSystemAddress;
 	if (temporarilySetUSA)
 		incomingSystemAddress = MafiaNet::UNASSIGNED_SYSTEM_ADDRESS;
 	interruptSignal = false;
-	LocalSlot *localSlot = localSlots.ItemAtIndex(functionIndex);
 	unsigned int i;
 	_RPC3::InvokeArgs functionArgs;
 	functionArgs.bitStream = serializedParameters;
 	functionArgs.networkIDManager = networkIdManager;
 	functionArgs.caller = this;
 	i = 0;
-	while (i < localSlot->slotObjects.Size())
+	while (i < localSlot->slotObjects.size())
 	{
 		if (localSlot->slotObjects[i].associatedObject != UNASSIGNED_NETWORK_ID)
 		{
 			functionArgs.thisPtr = networkIdManager->GET_OBJECT_FROM_ID<NetworkIDObject *>(localSlot->slotObjects[i].associatedObject);
 			if (functionArgs.thisPtr == 0)
 			{
-				localSlot->slotObjects.RemoveAtIndex(i);
+				localSlot->slotObjects.erase(localSlot->slotObjects.begin() + i);
 				continue;
 			}
 		}
@@ -472,7 +469,7 @@ void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitSt
 			if (temporarilySetUSA == false)
 			{
 				// Failed - Function was previously registered, but isn't registered any longer
-				SendError(lastIncomingAddress, RPC_ERROR_FUNCTION_NO_LONGER_REGISTERED, localSlots.KeyAtIndex(functionIndex).C_String());
+				SendError(lastIncomingAddress, RPC_ERROR_FUNCTION_NO_LONGER_REGISTERED, localSlot->identifier.C_String());
 			}
 			return;
 		}
@@ -509,7 +506,7 @@ void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitSt
 // 	if (strIdentifier.IsEmpty())
 // 		return;
 //
-// 	DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList;
+// 	std::map<RPCIdentifier, RemoteRPCFunction> *theList;
 // 	if (
 // 		(isCall==true && remoteFunctions.Has(systemAddress)) ||
 // 		(isCall==false && remoteSlots.Has(systemAddress))
@@ -529,7 +526,7 @@ void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitSt
 // 	}
 // 	else
 // 	{
-// 		theList = new DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp>;
+// 		theList = new std::map<RPCIdentifier, RemoteRPCFunction>;
 //
 // 		newRemoteFunction.functionIndex=remoteIndex;
 // 		newRemoteFunction.identifier = strIdentifier;
@@ -551,14 +548,14 @@ void RPC3::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID rak
 
 	// 	if (remoteFunctions.Has(systemAddress))
 	// 	{
-	// 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteFunctions.Get(systemAddress);
+	// 		std::map<RPCIdentifier, RemoteRPCFunction> *theList = remoteFunctions.Get(systemAddress);
 	// 		delete theList;
 	// 		remoteFunctions.Delete(systemAddress);
 	// 	}
 	//
 	// 	if (remoteSlots.Has(systemAddress))
 	// 	{
-	// 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteSlots.Get(systemAddress);
+	// 		std::map<RPCIdentifier, RemoteRPCFunction> *theList = remoteSlots.Get(systemAddress);
 	// 		delete theList;
 	// 		remoteSlots.Delete(systemAddress);
 	// 	}
@@ -572,34 +569,19 @@ void RPC3::OnShutdown(void)
 
 void RPC3::Clear(void)
 {
-	unsigned j;
 	// 	for (j=0; j < remoteFunctions.Size(); j++)
 	// 	{
-	// 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteFunctions[j];
+	// 		std::map<RPCIdentifier, RemoteRPCFunction> *theList = remoteFunctions[j];
 	// 		delete theList;
 	// 	}
 	// 	for (j=0; j < remoteSlots.Size(); j++)
 	// 	{
-	// 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteSlots[j];
+	// 		std::map<RPCIdentifier, RemoteRPCFunction> *theList = remoteSlots[j];
 	// 		delete theList;
 	// 	}
 
-	DataStructures::List<MafiaNet::RakString> keyList;
-	DataStructures::List<LocalSlot *> outputList;
-	localSlots.GetAsList(outputList, keyList, _FILE_AND_LINE_);
-	for (j = 0; j < outputList.Size(); j++)
-	{
-		delete outputList[j];
-	}
-	localSlots.Clear(_FILE_AND_LINE_);
-
-	DataStructures::List<LocalRPCFunction *> outputList2;
-	localFunctions.GetAsList(outputList2, keyList, _FILE_AND_LINE_);
-	for (j = 0; j < outputList2.Size(); j++)
-	{
-		delete outputList2[j];
-	}
-	localFunctions.Clear(_FILE_AND_LINE_);
+	localSlots.clear();
+	localFunctions.clear();
 	//	remoteFunctions.Clear();
 	//	remoteSlots.Clear();
 	outgoingExtraData.Reset();
@@ -623,7 +605,7 @@ void RPC3::SendError(SystemAddress target, unsigned char errorCode, const char *
 // 		if (remoteFunctions.Has(systemAddress))
 // 		{
 // 			*outerIndex = remoteFunctions.GetIndexAtKey(systemAddress);
-// 			DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteFunctions[*outerIndex];
+// 			std::map<RPCIdentifier, RemoteRPCFunction> *theList = remoteFunctions[*outerIndex];
 // 			*innerIndex = theList->GetIndexFromKey(identifier, &objectExists);
 // 		}
 // 	}
@@ -632,17 +614,19 @@ void RPC3::SendError(SystemAddress target, unsigned char errorCode, const char *
 // 		if (remoteSlots.Has(systemAddress))
 // 		{
 // 			*outerIndex = remoteFunctions.GetIndexAtKey(systemAddress);
-// 			DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteSlots[*outerIndex];
+// 			std::map<RPCIdentifier, RemoteRPCFunction> *theList = remoteSlots[*outerIndex];
 // 			*innerIndex = theList->GetIndexFromKey(identifier, &objectExists);
 // 		}
 // 	}
 // 	return objectExists;
 // }
-DataStructures::HashIndex RPC3::GetLocalSlotIndex(const char *sharedIdentifier)
+RPC3::LocalSlot *RPC3::GetLocalSlot(const char *sharedIdentifier)
 {
-	return localSlots.GetIndexOf(sharedIdentifier);
+	const auto slot = localSlots.find(IdentifierKey(sharedIdentifier));
+	return slot == localSlots.end() ? nullptr : slot->second.get();
 }
-DataStructures::HashIndex RPC3::GetLocalFunctionIndex(RPC3::RPCIdentifier identifier)
+RPC3::LocalRPCFunction *RPC3::GetLocalFunction(const char *identifier)
 {
-	return localFunctions.GetIndexOf(identifier.C_String());
+	const auto function = localFunctions.find(IdentifierKey(identifier));
+	return function == localFunctions.end() ? nullptr : function->second.get();
 }

@@ -3,7 +3,7 @@
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
- *  RakNet License.txt file in the licenses directory of this source tree. An additional grant 
+ *  RakNet License.txt file in the licenses directory of this source tree. An additional grant
  *  of patent rights can be found in the RakNet Patents.txt file in the same directory.
  *
  *
@@ -14,78 +14,77 @@
  */
 
 #include "mafianet/table_serializer.h"
-#include "mafianet/ds_table.h"
+#include "mafianet/table.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/assert.h"
 
+#include <algorithm>
+#include <memory>
+
 using namespace MafiaNet;
 
-void TableSerializer::SerializeTable(DataStructures::Table *in, MafiaNet::BitStream *out)
+namespace
 {
-	DataStructures::Page<unsigned, DataStructures::Table::Row *, _TABLE_BPLUS_TREE_ORDER> *cur = in->GetRows().GetListHead();
-	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns = in->GetColumns();
+bool IsSkipped(const std::vector<int> &skipColumnIndices, std::size_t columnIndex)
+{
+	return std::find(skipColumnIndices.begin(), skipColumnIndices.end(), (int) columnIndex) != skipColumnIndices.end();
+}
+} // namespace
+
+void TableSerializer::SerializeTable(MafiaNet::Table *in, MafiaNet::BitStream *out)
+{
+	const std::vector<MafiaNet::Table::ColumnDescriptor> &columns = in->GetColumns();
 	SerializeColumns(in, out);
-	out->Write((unsigned) in->GetRows().Size());
-	unsigned rowIndex;
-	while (cur)
+	out->Write((unsigned) in->GetRows().size());
+	for (const auto &entry : in->GetRows())
+		SerializeRow(entry.second.get(), entry.first, columns, out);
+}
+void TableSerializer::SerializeColumns(MafiaNet::Table *in, MafiaNet::BitStream *out)
+{
+	const std::vector<MafiaNet::Table::ColumnDescriptor> &columns = in->GetColumns();
+	out->Write((unsigned) columns.size());
+	for (const auto &column : columns)
 	{
-		for (rowIndex = 0; rowIndex < (unsigned) cur->size; rowIndex++)
-		{
-			SerializeRow(cur->data[rowIndex], cur->keys[rowIndex], columns, out);
-		}
-		cur = cur->next;
+		StringCompressor::Instance()->EncodeString(column.columnName, _TABLE_MAX_COLUMN_NAME_LENGTH, out);
+		out->Write((unsigned char) column.columnType);
 	}
 }
-void TableSerializer::SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out)
+void TableSerializer::SerializeColumns(MafiaNet::Table *in, MafiaNet::BitStream *out, const std::vector<int> &skipColumnIndices)
 {
-	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns = in->GetColumns();
-	out->Write((unsigned) columns.Size());
-	unsigned i;
-	for (i = 0; i < columns.Size(); i++)
+	const std::vector<MafiaNet::Table::ColumnDescriptor> &columns = in->GetColumns();
+	out->Write((unsigned) (columns.size() - skipColumnIndices.size()));
+	for (std::size_t i = 0; i < columns.size(); i++)
 	{
-		StringCompressor::Instance()->EncodeString(columns[i].columnName, _TABLE_MAX_COLUMN_NAME_LENGTH, out);
-		out->Write((unsigned char) columns[i].columnType);
-	}
-}
-void TableSerializer::SerializeColumns(DataStructures::Table *in, MafiaNet::BitStream *out, DataStructures::List<int> &skipColumnIndices)
-{
-	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns = in->GetColumns();
-	out->Write((unsigned) columns.Size() - skipColumnIndices.Size());
-	unsigned i;
-	for (i = 0; i < columns.Size(); i++)
-	{
-		if (skipColumnIndices.GetIndexOf(i) == (unsigned) -1)
+		if (IsSkipped(skipColumnIndices, i) == false)
 		{
 			StringCompressor::Instance()->EncodeString(columns[i].columnName, _TABLE_MAX_COLUMN_NAME_LENGTH, out);
 			out->Write((unsigned char) columns[i].columnType);
 		}
 	}
 }
-bool TableSerializer::DeserializeTable(unsigned char *serializedTable, unsigned int dataLength, DataStructures::Table *out)
+bool TableSerializer::DeserializeTable(unsigned char *serializedTable, unsigned int dataLength, MafiaNet::Table *out)
 {
 	MafiaNet::BitStream in((unsigned char *) serializedTable, dataLength, false);
 	return DeserializeTable(&in, out);
 }
-bool TableSerializer::DeserializeTable(MafiaNet::BitStream *in, DataStructures::Table *out)
+bool TableSerializer::DeserializeTable(MafiaNet::BitStream *in, MafiaNet::Table *out)
 {
-	unsigned rowSize;
-	DeserializeColumns(in, out);
-	if (in->Read(rowSize) == false || rowSize > 100000)
-	{
-		RakAssert(0);
-		return false; // Hacker crash prevention
-	}
+	if (DeserializeColumns(in, out) == false)
+		return false;
 
-	unsigned rowIndex;
-	for (rowIndex = 0; rowIndex < rowSize; rowIndex++)
+	unsigned rowSize;
+	if (in->Read(rowSize) == false || rowSize > 100000)
+		return false; // Truncated, or hacker crash prevention
+
+	for (unsigned rowIndex = 0; rowIndex < rowSize; rowIndex++)
 	{
 		if (DeserializeRow(in, out) == false)
 			return false;
 	}
 	return true;
 }
-bool TableSerializer::DeserializeColumns(MafiaNet::BitStream *in, DataStructures::Table *out)
+bool TableSerializer::DeserializeColumns(MafiaNet::BitStream *in, MafiaNet::Table *out)
 {
 	unsigned columnSize;
 	unsigned char columnType;
@@ -94,103 +93,99 @@ bool TableSerializer::DeserializeColumns(MafiaNet::BitStream *in, DataStructures
 		return false; // Hacker crash prevention
 
 	out->Clear();
-	unsigned i;
-	for (i = 0; i < columnSize; i++)
+	for (unsigned i = 0; i < columnSize; i++)
 	{
-		StringCompressor::Instance()->DecodeString(columnName, 32, in);
-		in->Read(columnType);
-		out->AddColumn(columnName, (DataStructures::Table::ColumnType) columnType);
+		if (StringCompressor::Instance()->DecodeString(columnName, 32, in) == false)
+			return false;
+		if (in->Read(columnType) == false || columnType > MafiaNet::Table::POINTER)
+			return false;
+		out->AddColumn(columnName, (MafiaNet::Table::ColumnType) columnType);
 	}
 	return true;
 }
-void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out)
+void TableSerializer::SerializeRow(MafiaNet::Table::Row *in, unsigned keyIn, const std::vector<MafiaNet::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out)
 {
-	unsigned cellIndex;
 	out->Write(keyIn);
-	unsigned int columnsSize = columns.Size();
+	unsigned int columnsSize = (unsigned int) columns.size();
 	out->Write(columnsSize);
-	for (cellIndex = 0; cellIndex < columns.Size(); cellIndex++)
+	for (unsigned cellIndex = 0; cellIndex < columnsSize; cellIndex++)
 	{
 		out->Write(cellIndex);
-		SerializeCell(out, in->cells[cellIndex], columns[cellIndex].columnType);
+		SerializeCell(out, in->cells[cellIndex].get(), columns[cellIndex].columnType);
 	}
 }
-void TableSerializer::SerializeRow(DataStructures::Table::Row *in, unsigned keyIn, const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out, DataStructures::List<int> &skipColumnIndices)
+void TableSerializer::SerializeRow(MafiaNet::Table::Row *in, unsigned keyIn, const std::vector<MafiaNet::Table::ColumnDescriptor> &columns, MafiaNet::BitStream *out, const std::vector<int> &skipColumnIndices)
 {
-	unsigned cellIndex;
 	out->Write(keyIn);
 	unsigned int numEntries = 0;
-	for (cellIndex = 0; cellIndex < columns.Size(); cellIndex++)
+	for (std::size_t cellIndex = 0; cellIndex < columns.size(); cellIndex++)
 	{
-		if (skipColumnIndices.GetIndexOf(cellIndex) == (unsigned) -1)
-		{
+		if (IsSkipped(skipColumnIndices, cellIndex) == false)
 			numEntries++;
-		}
 	}
 	out->Write(numEntries);
 
-	for (cellIndex = 0; cellIndex < columns.Size(); cellIndex++)
+	for (unsigned cellIndex = 0; cellIndex < (unsigned) columns.size(); cellIndex++)
 	{
-		if (skipColumnIndices.GetIndexOf(cellIndex) == (unsigned) -1)
+		if (IsSkipped(skipColumnIndices, cellIndex) == false)
 		{
 			out->Write(cellIndex);
-			SerializeCell(out, in->cells[cellIndex], columns[cellIndex].columnType);
+			SerializeCell(out, in->cells[cellIndex].get(), columns[cellIndex].columnType);
 		}
 	}
 }
-bool TableSerializer::DeserializeRow(MafiaNet::BitStream *in, DataStructures::Table *out)
+bool TableSerializer::DeserializeRow(MafiaNet::BitStream *in, MafiaNet::Table *out)
 {
-	const DataStructures::List<DataStructures::Table::ColumnDescriptor> &columns = out->GetColumns();
-	unsigned numEntries;
-	DataStructures::Table::Row *row;
+	const std::vector<MafiaNet::Table::ColumnDescriptor> &columns = out->GetColumns();
 	unsigned key;
 	if (in->Read(key) == false)
 		return false;
-	row = out->AddRow(key);
-	unsigned int cnt;
-	in->Read(numEntries);
-	for (cnt = 0; cnt < numEntries; cnt++)
+	MafiaNet::Table::Row *row = out->AddRow(key);
+	if (row == nullptr)
+		return false; // Duplicate row id
+
+	unsigned numEntries;
+	bool ok = in->Read(numEntries);
+	for (unsigned cnt = 0; ok && cnt < numEntries; cnt++)
 	{
 		unsigned cellIndex;
-		in->Read(cellIndex);
-		if (DeserializeCell(in, row->cells[cellIndex], columns[cellIndex].columnType) == false)
-		{
-			out->RemoveRow(key);
-			return false;
-		}
+		ok = in->Read(cellIndex) && cellIndex < columns.size() && DeserializeCell(in, row->cells[cellIndex].get(), columns[cellIndex].columnType);
+	}
+	if (ok == false)
+	{
+		out->RemoveRow(key);
+		return false;
 	}
 	return true;
 }
-void TableSerializer::SerializeCell(MafiaNet::BitStream *out, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType)
+void TableSerializer::SerializeCell(MafiaNet::BitStream *out, MafiaNet::Table::Cell *cell, MafiaNet::Table::ColumnType columnType)
 {
 	out->Write(cell->isEmpty);
 	if (cell->isEmpty == false)
 	{
-		if (columnType == DataStructures::Table::NUMERIC)
+		if (columnType == MafiaNet::Table::NUMERIC)
 		{
 			out->Write(cell->i);
 		}
-		else if (columnType == DataStructures::Table::STRING)
+		else if (columnType == MafiaNet::Table::STRING)
 		{
 			StringCompressor::Instance()->EncodeString(cell->c, 65535, out);
 		}
-		else if (columnType == DataStructures::Table::POINTER)
+		else if (columnType == MafiaNet::Table::POINTER)
 		{
 			out->Write(cell->ptr);
 		}
 		else
 		{
-			// Binary
-			RakAssert(columnType == DataStructures::Table::BINARY);
-			RakAssert(cell->i > 0);
-			unsigned binaryLength;
-			binaryLength = (unsigned) cell->i;
+			// Binary. A zero-length blob is written as length 0 and no bytes.
+			RakAssert(columnType == MafiaNet::Table::BINARY);
+			const unsigned binaryLength = cell->c && cell->i > 0 ? (unsigned) cell->i : 0;
 			out->Write(binaryLength);
-			out->WriteAlignedBytes((const unsigned char *) cell->c, (unsigned int) cell->i);
+			out->WriteAlignedBytes((const unsigned char *) cell->c, binaryLength);
 		}
 	}
 }
-bool TableSerializer::DeserializeCell(MafiaNet::BitStream *in, DataStructures::Table::Cell *cell, DataStructures::Table::ColumnType columnType)
+bool TableSerializer::DeserializeCell(MafiaNet::BitStream *in, MafiaNet::Table::Cell *cell, MafiaNet::Table::ColumnType columnType)
 {
 	bool isEmpty = false;
 	double value;
@@ -202,29 +197,27 @@ bool TableSerializer::DeserializeCell(MafiaNet::BitStream *in, DataStructures::T
 		return false;
 	if (isEmpty == false)
 	{
-		if (columnType == DataStructures::Table::NUMERIC)
+		if (columnType == MafiaNet::Table::NUMERIC)
 		{
 			if (in->Read(value) == false)
 				return false;
 			cell->Set(value);
 		}
-		else if (columnType == DataStructures::Table::STRING)
+		else if (columnType == MafiaNet::Table::STRING)
 		{
 			if (StringCompressor::Instance()->DecodeString(tempString, 65535, in) == false)
 				return false;
 			cell->Set(tempString);
 		}
-		else if (columnType == DataStructures::Table::POINTER)
+		else if (columnType == MafiaNet::Table::POINTER)
 		{
 			if (in->Read(ptr) == false)
 				return false;
 			cell->SetPtr(ptr);
 		}
-		else
+		else if (columnType == MafiaNet::Table::BINARY)
 		{
 			unsigned binaryLength;
-			// Binary
-			RakAssert(columnType == DataStructures::Table::BINARY);
 			if (in->Read(binaryLength) == false || binaryLength > 10000000)
 				return false; // Sanity check to max binary cell of 10 megabytes
 			in->AlignReadToByteBoundary();
@@ -233,10 +226,12 @@ bool TableSerializer::DeserializeCell(MafiaNet::BitStream *in, DataStructures::T
 			cell->Set((char *) in->GetData() + BITS_TO_BYTES(in->GetReadOffset()), (int) binaryLength);
 			in->IgnoreBits(BYTES_TO_BITS((int) binaryLength));
 		}
+		else
+			return false; // Unknown column type
 	}
 	return true;
 }
-void TableSerializer::SerializeFilterQuery(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query)
+void TableSerializer::SerializeFilterQuery(MafiaNet::BitStream *in, MafiaNet::Table::FilterQuery *query)
 {
 	StringCompressor::Instance()->EncodeString(query->columnName, _TABLE_MAX_COLUMN_NAME_LENGTH, in, 0);
 	in->WriteCompressed(query->columnIndex);
@@ -249,34 +244,51 @@ void TableSerializer::SerializeFilterQuery(MafiaNet::BitStream *in, DataStructur
 		in->Write(query->cellValue->ptr);
 	}
 }
-bool TableSerializer::DeserializeFilterQuery(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery *query)
+bool TableSerializer::DeserializeFilterQuery(MafiaNet::BitStream *out, MafiaNet::Table::FilterQuery *query)
 {
-	bool b;
 	RakAssert(query->cellValue);
-	StringCompressor::Instance()->DecodeString(query->columnName, _TABLE_MAX_COLUMN_NAME_LENGTH, out, 0);
-	out->ReadCompressed(query->columnIndex);
+	if (query->cellValue == nullptr)
+		return false;
+	if (StringCompressor::Instance()->DecodeString(query->columnName, _TABLE_MAX_COLUMN_NAME_LENGTH, out, 0) == false)
+		return false;
+	if (out->ReadCompressed(query->columnIndex) == false)
+		return false;
 	unsigned char op;
-	out->Read(op);
-	query->operation = (DataStructures::Table::FilterQueryType) op;
+	if (out->Read(op) == false || op > MafiaNet::Table::QF_NOT_EMPTY)
+		return false;
+	query->operation = (MafiaNet::Table::FilterQueryType) op;
 	query->cellValue->Clear();
-	b = out->Read(query->cellValue->isEmpty);
-	if (query->cellValue->isEmpty == false)
+	bool isEmpty;
+	if (out->Read(isEmpty) == false)
+		return false;
+	if (isEmpty == false)
 	{
 		// HACK - cellValue->i is used for integer, character, and binary data. However, for character and binary c will be 0. So use that to determine if the data was integer or not.
-		out->Read(query->cellValue->i);
+		double numeric;
+		if (out->Read(numeric) == false)
+			return false;
 		unsigned int inputLength;
 		std::unique_ptr<unsigned char[]> binary;
-		out->ReadAlignedBytesSafeAlloc(binary, inputLength, 10000000); // Sanity check to max binary cell of 10 megabytes
+		if (out->ReadAlignedBytesSafeAlloc(binary, inputLength, 10000000) == false) // Sanity check to max binary cell of 10 megabytes
+			return false;
+		void *ptr;
+		if (out->Read(ptr) == false)
+			return false;
 		if (binary)
 		{
 			// The cell owns (and std::free()s) its own copy of the bytes; it also sets i to the length.
 			query->cellValue->Set((const char *) binary.get(), (int) inputLength);
 		}
-		b = out->Read(query->cellValue->ptr);
+		else
+		{
+			query->cellValue->i = numeric;
+			query->cellValue->isEmpty = false;
+		}
+		query->cellValue->ptr = ptr;
 	}
-	return b;
+	return true;
 }
-void TableSerializer::SerializeFilterQueryList(MafiaNet::BitStream *in, DataStructures::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries)
+void TableSerializer::SerializeFilterQueryList(MafiaNet::BitStream *in, MafiaNet::Table::FilterQuery *query, unsigned int numQueries, unsigned int maxQueries)
 {
 	(void) maxQueries;
 	in->Write((bool) (query && numQueries > 0));
@@ -291,42 +303,43 @@ void TableSerializer::SerializeFilterQueryList(MafiaNet::BitStream *in, DataStru
 		SerializeFilterQuery(in, query);
 	}
 }
-bool TableSerializer::DeserializeFilterQueryList(MafiaNet::BitStream *out, DataStructures::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries)
+bool TableSerializer::DeserializeFilterQueryList(MafiaNet::BitStream *out, MafiaNet::Table::FilterQuery **query, unsigned int *numQueries, unsigned int maxQueries, int allocateExtraQueries)
 {
-	bool b, anyQueries = false;
-	out->Read(anyQueries);
+	// Leave something DeallocateQueryList() accepts behind on every early return.
+	*query = 0;
+	*numQueries = 0;
+
+	bool anyQueries = false;
+	if (out->Read(anyQueries) == false)
+		return false;
 	if (anyQueries == false)
 	{
-		if (allocateExtraQueries <= 0)
-			*query = 0;
-		else
-			*query = new DataStructures::Table::FilterQuery[allocateExtraQueries];
-
-		*numQueries = 0;
+		if (allocateExtraQueries > 0)
+			*query = new MafiaNet::Table::FilterQuery[allocateExtraQueries];
 		return true;
 	}
-	b = out->ReadCompressed(*numQueries);
-	if (*numQueries > maxQueries)
+	unsigned int count;
+	if (out->ReadCompressed(count) == false || count > maxQueries)
+		return false; // Truncated, or more queries than the caller accepts
+	if (count == 0)
+		return true;
+
+	*query = new MafiaNet::Table::FilterQuery[count + (allocateExtraQueries > 0 ? (unsigned int) allocateExtraQueries : 0u)];
+	*numQueries = count;
+	MafiaNet::Table::FilterQuery *queryPtr = *query;
+
+	// Every query gets a cell before any is read, so a caller that ignores a false return never
+	// meets a null cellValue.
+	for (unsigned i = 0; i < count; i++)
+		queryPtr[i].cellValue = new MafiaNet::Table::Cell;
+	for (unsigned i = 0; i < count; i++)
 	{
-		RakAssert(0);
-		*numQueries = maxQueries;
+		if (DeserializeFilterQuery(out, queryPtr + i) == false)
+			return false;
 	}
-	if (*numQueries == 0)
-		return b;
-
-	*query = new DataStructures::Table::FilterQuery[*numQueries + allocateExtraQueries];
-	DataStructures::Table::FilterQuery *queryPtr = *query;
-
-	unsigned i;
-	for (i = 0; i < *numQueries; i++)
-	{
-		queryPtr[i].cellValue = new DataStructures::Table::Cell;
-		b = DeserializeFilterQuery(out, queryPtr + i);
-	}
-
-	return b;
+	return true;
 }
-void TableSerializer::DeallocateQueryList(DataStructures::Table::FilterQuery *query, unsigned int numQueries)
+void TableSerializer::DeallocateQueryList(MafiaNet::Table::FilterQuery *query, unsigned int numQueries)
 {
 	if (query == 0 || numQueries == 0)
 		return;

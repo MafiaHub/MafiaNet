@@ -24,6 +24,8 @@
 #include "SQLite3ServerPlugin.h"
 #include "SQLiteLoggerCommon.h"
 
+#include <vector>
+
 class RakPeerInterface;
 
 #define MAX_PACKETS_PER_CPU_INPUT_THREAD 16
@@ -119,7 +121,7 @@ public:
 		MafiaNet::TimeMS timestampDelta;
 		//			MafiaNet::TimeMS dbAgeWhenCreated;
 	};
-	DataStructures::List<SessionNameAndSystemAddress> loggedInSessions;
+	std::vector<SessionNameAndSystemAddress> loggedInSessions;
 
 	// An incoming data packet, and when it arrived
 	struct CPUThreadInputNode
@@ -155,7 +157,7 @@ public:
 		MafiaNet::TimeMS clientSendingTime;
 		unsigned char parameterCount;
 		bool isFunctionCall;
-		DataStructures::List<MafiaNet::RakString> insertingColumnNames;
+		std::vector<MafiaNet::RakString> insertingColumnNames;
 		LogParameter parameterList[MAX_SQLLITE_LOGGER_PARAMETERS];
 		uint32_t tickCount;
 		int line;

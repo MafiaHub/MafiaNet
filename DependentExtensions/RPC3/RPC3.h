@@ -28,8 +28,11 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
 #include "mafianet/network_id_object.h"
-#include "mafianet/ds_hash.h"
-#include "mafianet/ds_ordered_list.h"
+
+#include <algorithm>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 /// \defgroup RPC_3_GROUP RPC3
 /// \brief Remote procedure calls, powered by the 3rd party library Boost
@@ -92,6 +95,10 @@ public:
 	// Destructor
 	virtual ~RPC3();
 
+	// Owns its registered functions and slots.
+	RPC3(const RPC3 &) = delete;
+	RPC3 &operator=(const RPC3 &) = delete;
+
 	/// Sets the network ID manager to use for object lookup
 	/// Required to call C++ object member functions via SetRecipientObject()
 	/// \param[in] idMan Pointer to the network ID manager to use
@@ -108,7 +115,7 @@ public:
 			return false;
 		_RPC3::FunctionPointer fp;
 		fp = _RPC3::GetBoundPointer(functionPtr);
-		localFunctions.Push(uniqueIdentifier, new LocalRPCFunction(fp), _FILE_AND_LINE_);
+		localFunctions.emplace(IdentifierKey(uniqueIdentifier), std::make_unique<LocalRPCFunction>(fp));
 		return true;
 	}
 
@@ -139,8 +146,9 @@ public:
 	/// \internal
 	struct LocalSlot
 	{
-		//		RPCIdentifier identifier;
-		DataStructures::OrderedList<LocalSlotObject, LocalSlotObject, LocalSlotObjectComp> slotObjects;
+		RPCIdentifier identifier;
+		/// Sorted by LocalSlotObjectComp: highest callPriority first, then registration order
+		std::vector<LocalSlotObject> slotObjects;
 	};
 	/// Register a slot, which is a function pointer to one or more instances of a class that supports this function signature
 	/// When a signal occurs, all slots with the same identifier are called.
@@ -154,18 +162,19 @@ public:
 		_RPC3::FunctionPointer fp;
 		fp = _RPC3::GetBoundPointer(functionPtr);
 		LocalSlotObject lso(objectInstanceId, nextSlotRegistrationCount++, callPriority, _RPC3::GetBoundPointer(functionPtr));
-		DataStructures::HashIndex idx = GetLocalSlotIndex(sharedIdentifier);
-		LocalSlot *localSlot;
-		if (idx.IsInvalid())
+		LocalSlot *localSlot = GetLocalSlot(sharedIdentifier);
+		if (localSlot == nullptr)
 		{
-			localSlot = new LocalSlot;
-			localSlots.Push(sharedIdentifier, localSlot, _FILE_AND_LINE_);
+			const RakString key = IdentifierKey(sharedIdentifier);
+			std::unique_ptr<LocalSlot> newSlot = std::make_unique<LocalSlot>();
+			newSlot->identifier = key;
+			localSlot = newSlot.get();
+			localSlots.emplace(key, std::move(newSlot));
 		}
-		else
-		{
-			localSlot = localSlots.ItemAtIndex(idx);
-		}
-		localSlot->slotObjects.Insert(lso, lso, true, _FILE_AND_LINE_);
+		std::vector<LocalSlotObject> &slotObjects = localSlot->slotObjects;
+		slotObjects.insert(std::lower_bound(slotObjects.begin(), slotObjects.end(), lso, [](const LocalSlotObject &a, const LocalSlotObject &b)
+		                                    { return LocalSlotObjectComp(a, b) < 0; }),
+		                   lso);
 	}
 
 	/// Unregisters a function pointer to be callable given an identifier for the pointer
@@ -668,7 +677,7 @@ public:
 	bool Signal(const char *sharedIdentifier)
 	{
 		MafiaNet::BitStream bitStream;
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 0, &bitStream, false);
 	}
 	template <class P1>
@@ -676,7 +685,7 @@ public:
 	{
 		MafiaNet::BitStream bitStream;
 		_RPC3::SerializeCallParameterBranch<P1>::type::apply(bitStream, p1);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 1, &bitStream, false);
 	}
 	template <class P1, class P2>
@@ -685,7 +694,7 @@ public:
 		MafiaNet::BitStream bitStream;
 		_RPC3::SerializeCallParameterBranch<P1>::type::apply(bitStream, p1);
 		_RPC3::SerializeCallParameterBranch<P2>::type::apply(bitStream, p2);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 2, &bitStream, false);
 	}
 	template <class P1, class P2, class P3>
@@ -695,7 +704,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P1>::type::apply(bitStream, p1);
 		_RPC3::SerializeCallParameterBranch<P2>::type::apply(bitStream, p2);
 		_RPC3::SerializeCallParameterBranch<P3>::type::apply(bitStream, p3);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 3, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4>
@@ -706,7 +715,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P2>::type::apply(bitStream, p2);
 		_RPC3::SerializeCallParameterBranch<P3>::type::apply(bitStream, p3);
 		_RPC3::SerializeCallParameterBranch<P4>::type::apply(bitStream, p4);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 4, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4, class P5>
@@ -718,7 +727,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P3>::type::apply(bitStream, p3);
 		_RPC3::SerializeCallParameterBranch<P4>::type::apply(bitStream, p4);
 		_RPC3::SerializeCallParameterBranch<P5>::type::apply(bitStream, p5);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 5, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4, class P5, class P6>
@@ -731,7 +740,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P4>::type::apply(bitStream, p4);
 		_RPC3::SerializeCallParameterBranch<P5>::type::apply(bitStream, p5);
 		_RPC3::SerializeCallParameterBranch<P6>::type::apply(bitStream, p6);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 6, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4, class P5, class P6, class P7>
@@ -745,7 +754,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P5>::type::apply(bitStream, p5);
 		_RPC3::SerializeCallParameterBranch<P6>::type::apply(bitStream, p6);
 		_RPC3::SerializeCallParameterBranch<P7>::type::apply(bitStream, p7);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 7, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4, class P5, class P6, class P7, class P8>
@@ -760,7 +769,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P6>::type::apply(bitStream, p6);
 		_RPC3::SerializeCallParameterBranch<P7>::type::apply(bitStream, p7);
 		_RPC3::SerializeCallParameterBranch<P8>::type::apply(bitStream, p8);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 8, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4, class P5, class P6, class P7, class P8, class P9>
@@ -776,7 +785,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P7>::type::apply(bitStream, p7);
 		_RPC3::SerializeCallParameterBranch<P8>::type::apply(bitStream, p8);
 		_RPC3::SerializeCallParameterBranch<P9>::type::apply(bitStream, p9);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 9, &bitStream, false);
 	}
 	template <class P1, class P2, class P3, class P4, class P5, class P6, class P7, class P8, class P9, class P10>
@@ -793,7 +802,7 @@ public:
 		_RPC3::SerializeCallParameterBranch<P8>::type::apply(bitStream, p8);
 		_RPC3::SerializeCallParameterBranch<P9>::type::apply(bitStream, p9);
 		_RPC3::SerializeCallParameterBranch<P10>::type::apply(bitStream, p10);
-		InvokeSignal(GetLocalSlotIndex(sharedIdentifier), &bitStream, true);
+		InvokeSignal(GetLocalSlot(sharedIdentifier), &bitStream, true);
 		return SendCallOrSignal(sharedIdentifier, 10, &bitStream, false);
 	}
 
@@ -943,7 +952,8 @@ public:
 	bool SendCallOrSignal(RakString uniqueIdentifier, char parameterCount, MafiaNet::BitStream *serializedParameters, bool isCall);
 
 	/// Call a given signal with a bitstream representing the parameter list
-	void InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitStream *serializedParameters, bool temporarilySetUSA);
+	/// \param[in] localSlot From GetLocalSlot(). Does nothing if 0.
+	void InvokeSignal(LocalSlot *localSlot, MafiaNet::BitStream *serializedParameters, bool temporarilySetUSA);
 
 
 protected:
@@ -960,17 +970,23 @@ protected:
 	void Clear(void);
 
 	void SendError(SystemAddress target, unsigned char errorCode, const char *functionName);
-	DataStructures::HashIndex GetLocalFunctionIndex(RPCIdentifier identifier);
-	DataStructures::HashIndex GetLocalSlotIndex(const char *sharedIdentifier);
+	/// Returns 0 if \a identifier is not registered
+	LocalRPCFunction *GetLocalFunction(const char *identifier);
+	/// Returns 0 if \a sharedIdentifier is not registered
+	LocalSlot *GetLocalSlot(const char *sharedIdentifier);
+	/// Builds a key without going through RakString's printf-style constructor, as identifiers can come from the network
+	static RakString IdentifierKey(const char *identifier)
+	{
+		RakString key;
+		key = identifier;
+		return key;
+	}
 	//	bool GetRemoteFunctionIndex(const SystemAddress &systemAddress, RPCIdentifier identifier, unsigned int *outerIndex, unsigned int *innerIndex, bool isCall);
 
-	DataStructures::Hash<MafiaNet::RakString, LocalSlot *, 256, MafiaNet::RakString::ToInteger> localSlots;
-	DataStructures::Hash<MafiaNet::RakString, LocalRPCFunction *, 256, MafiaNet::RakString::ToInteger> localFunctions;
+	/// Each slot and function is heap-allocated, so pointers from GetLocalSlot() and GetLocalFunction() survive a rehash
+	std::unordered_map<MafiaNet::RakString, std::unique_ptr<LocalSlot>> localSlots;
+	std::unordered_map<MafiaNet::RakString, std::unique_ptr<LocalRPCFunction>> localFunctions;
 
-	// 	DataStructures::List<LocalSlot*> localSlots;
-	// 	DataStructures::List<LocalRPCFunction> localFunctions;
-
-	//	DataStructures::Map<SystemAddress, DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *> remoteFunctions, remoteSlots;
 	MafiaNet::Time outgoingTimestamp;
 	MafiaNet::Priority outgoingPriority;
 	MafiaNet::Reliability outgoingReliability;

@@ -31,6 +31,9 @@
 #pragma warning(pop)
 #endif
 #include "mafianet/linux_adapter.h"
+#include "mafianet/vector_util.h"
+
+#include <algorithm>
 
 // http://web.utk.edu/~jplyon/sqlite/SQLite_optimization_FAQ.html
 
@@ -207,7 +210,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 				bitStream.Read(columnName);
 				columnName.SQLEscape();
 				columnName.RemoveCharacter(' ');
-				outputNode->insertingColumnNames.Push(columnName, _FILE_AND_LINE_);
+				outputNode->insertingColumnNames.push_back(columnName);
 			}
 		}
 
@@ -225,7 +228,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 			{
 				// Skip empty parameters
 				if (outputNode->isFunctionCall == false)
-					outputNode->insertingColumnNames.RemoveAtIndex(parameterCountIndex);
+					outputNode->insertingColumnNames.erase(outputNode->insertingColumnNames.begin() + parameterCountIndex);
 				outputNode->parameterCount--;
 			}
 		}
@@ -597,8 +600,8 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 		}
 
 		rc = sqlite3_step(pragmaTableInfo);
-		DataStructures::List<MafiaNet::RakString> existingColumnNames;
-		DataStructures::List<MafiaNet::RakString> existingColumnTypes;
+		std::vector<MafiaNet::RakString> existingColumnNames;
+		std::vector<MafiaNet::RakString> existingColumnTypes;
 		while (rc == SQLITE_ROW)
 		{
 			/*
@@ -627,8 +630,8 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 			RakAssert(strcmp(sqlite3_column_name(pragmaTableInfo, typeColumn), "type") == 0);
 			MafiaNet::RakString columnName = sqlite3_column_text(pragmaTableInfo, nameColumn);
 			MafiaNet::RakString columnType = sqlite3_column_text(pragmaTableInfo, typeColumn);
-			existingColumnNames.Push(columnName, _FILE_AND_LINE_);
-			existingColumnTypes.Push(columnType, _FILE_AND_LINE_);
+			existingColumnNames.push_back(columnName);
+			existingColumnTypes.push_back(columnType);
 
 			rc = sqlite3_step(pragmaTableInfo);
 		}
@@ -644,7 +647,7 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 		}
 
 		int existingColumnNamesIndex, insertingColumnNamesIndex;
-		if (existingColumnNames.Size() == 0)
+		if (existingColumnNames.size() == 0)
 		{
 			MafiaNet::RakString createQuery("CREATE TABLE %s (rowId_pk INTEGER PRIMARY KEY, " FILE_COLUMN " TEXT, " LINE_COLUMN " INTEGER, " TICK_COUNT_COLUMN " INTEGER, " AUTO_IP_COLUMN " TEXT, " TIMESTAMP_TEXT_COLUMN " TIMESTAMP DATE DEFAULT (datetime('now','localtime')), " TIMESTAMP_NUMERIC_COLUMN " NUMERIC", cpuOutputNode->tableName.C_String());
 
@@ -667,10 +670,10 @@ SQLiteServerLoggerPlugin::SQLThreadOutput ExecSQLLoggingThread(SQLiteServerLogge
 		{
 			// Compare what is there (columnNames,columnTypes) to what we are adding. Add what is missing
 			bool alreadyExists;
-			for (insertingColumnNamesIndex = 0; insertingColumnNamesIndex < (int) cpuOutputNode->insertingColumnNames.Size(); insertingColumnNamesIndex++)
+			for (insertingColumnNamesIndex = 0; insertingColumnNamesIndex < (int) cpuOutputNode->insertingColumnNames.size(); insertingColumnNamesIndex++)
 			{
 				alreadyExists = false;
-				for (existingColumnNamesIndex = 0; existingColumnNamesIndex < (int) existingColumnNames.Size(); existingColumnNamesIndex++)
+				for (existingColumnNamesIndex = 0; existingColumnNamesIndex < (int) existingColumnNames.size(); existingColumnNamesIndex++)
 				{
 					if (existingColumnNames[existingColumnNamesIndex] == cpuOutputNode->insertingColumnNames[insertingColumnNamesIndex])
 					{
@@ -846,7 +849,7 @@ void SQLiteServerLoggerPlugin::Update(void)
 			sqlThreadInput.cpuOutputNode = outputNode;
 			// bool alreadyHasLoggedInSession=false;
 			unsigned int sessionIndex;
-			for (sessionIndex = 0; sessionIndex < loggedInSessions.Size(); sessionIndex++)
+			for (sessionIndex = 0; sessionIndex < loggedInSessions.size(); sessionIndex++)
 			{
 				if (loggedInSessions[sessionIndex].systemAddress == outputNode->packet->systemAddress &&
 				    loggedInSessions[sessionIndex].sessionName == outputNode->dbIdentifier)
@@ -858,7 +861,7 @@ void SQLiteServerLoggerPlugin::Update(void)
 			unsigned int idx;
 			if (sessionManagementMode == USE_ANY_DB_HANDLE)
 			{
-				if (dbHandles.GetSize() > 0)
+				if (dbHandles.size() > 0)
 					idx = 0;
 				else
 					// #high - use a better approach than this static case here
@@ -866,8 +869,8 @@ void SQLiteServerLoggerPlugin::Update(void)
 			}
 			else
 			{
-				idx = dbHandles.GetIndexOf(outputNode->dbIdentifier);
-				if (sessionIndex == loggedInSessions.Size() && (createDirectoryForFile == true || idx == -1) && sessionManagementMode == CREATE_EACH_NAMED_DB_HANDLE)
+				idx = GetDBHandleIndex(outputNode->dbIdentifier);
+				if (sessionIndex == loggedInSessions.size() && (createDirectoryForFile == true || idx == -1) && sessionManagementMode == CREATE_EACH_NAMED_DB_HANDLE)
 				{
 					// Create it, and set idx to the new one
 					idx = CreateDBHandle(outputNode->dbIdentifier);
@@ -897,7 +900,7 @@ void SQLiteServerLoggerPlugin::Update(void)
 			}
 			else
 			{
-				if (sessionIndex == loggedInSessions.Size())
+				if (sessionIndex == loggedInSessions.size())
 				{
 					SessionNameAndSystemAddress sassy;
 					sassy.sessionName = outputNode->dbIdentifier;
@@ -908,8 +911,8 @@ void SQLiteServerLoggerPlugin::Update(void)
 					//					MafiaNet::TimeMS timeDelta = outputNode->clientSendingTime - curTime;
 					sassy.timestampDelta = dbAge - outputNode->clientSendingTime;
 					// sassy.dbAgeWhenCreated=dbHandles[idx].whenCreated;
-					loggedInSessions.Push(sassy, _FILE_AND_LINE_);
-					sessionIndex = loggedInSessions.Size() - 1;
+					loggedInSessions.push_back(sassy);
+					sessionIndex = static_cast<unsigned int>(loggedInSessions.size() - 1);
 				}
 
 				DeallocPacketUnified(outputNode->packet);
@@ -965,7 +968,7 @@ PluginReceiveResult SQLiteServerLoggerPlugin::OnReceive(Packet *packet)
 		/*
 			unsigned int i;
 			bool alreadyHasLoggedInSession=false;
-			for (i=0; i < loggedInSessions.Size(); i++)
+			for (i=0; i < loggedInSessions.size(); i++)
 			{
 				if (loggedInSessions[i].systemAddress==packet->systemAddress &&
 					loggedInSessions[i].sessionName==dbIdentifier)
@@ -978,14 +981,14 @@ PluginReceiveResult SQLiteServerLoggerPlugin::OnReceive(Packet *packet)
 			unsigned int idx;
 			if (sessionManagementMode==USE_ANY_DB_HANDLE)
 			{
-				if (dbHandles.GetSize()>0)
+				if (dbHandles.size()>0)
 					idx=0;
 				else
 					idx=-1;
 			}
 			else
 			{
-				idx = dbHandles.GetIndexOf(dbIdentifier);
+				idx = GetDBHandleIndex(dbIdentifier);
 				if (alreadyHasLoggedInSession==false && (createDirectoryForFile==true || idx==-1) && sessionManagementMode==CREATE_EACH_NAMED_DB_HANDLE)
 				{
 					// Create it, and set idx to the new one
@@ -1020,7 +1023,7 @@ PluginReceiveResult SQLiteServerLoggerPlugin::OnReceive(Packet *packet)
 				sassy.sessionName=dbIdentifier;
 				sassy.systemAddress=packet->systemAddress;
 				sassy.referencedPointer=dbHandles[idx].dbHandle;
-				loggedInSessions.Push(sassy);
+				loggedInSessions.push_back(sassy);
 			}	
 
 			SQLExecThreadInput input;			
@@ -1043,17 +1046,17 @@ void SQLiteServerLoggerPlugin::OnClosedConnection(const SystemAddress &systemAdd
 
 	MafiaNet::RakString removedSession;
 	unsigned int i = 0;
-	while (i < loggedInSessions.Size())
+	while (i < loggedInSessions.size())
 	{
 		if (loggedInSessions[i].systemAddress == systemAddress)
 		{
 			removedSession = loggedInSessions[i].sessionName;
-			loggedInSessions.RemoveAtIndexFast(i);
+			SwapRemove(loggedInSessions, i);
 
 			/*
 			unsigned int j;
 			bool removedSessionReferenced=false;
-			for (j=0; j < loggedInSessions.Size(); j++)
+			for (j=0; j < loggedInSessions.size(); j++)
 			{
 				if (loggedInSessions[j].sessionName==removedSession)
 				{
@@ -1078,23 +1081,23 @@ void SQLiteServerLoggerPlugin::OnClosedConnection(const SystemAddress &systemAdd
 }
 void SQLiteServerLoggerPlugin::CloseUnreferencedSessions(void)
 {
-	DataStructures::List<sqlite3 *> sessionNames;
+	std::vector<sqlite3 *> sessionNames;
 	unsigned int j;
-	for (j = 0; j < loggedInSessions.Size(); j++)
+	for (j = 0; j < loggedInSessions.size(); j++)
 	{
-		if (sessionNames.GetIndexOf(loggedInSessions[j].referencedPointer) == -1)
-			sessionNames.Push(loggedInSessions[j].referencedPointer, _FILE_AND_LINE_);
+		if (std::find(sessionNames.begin(), sessionNames.end(), loggedInSessions[j].referencedPointer) == sessionNames.end())
+			sessionNames.push_back(loggedInSessions[j].referencedPointer);
 	}
 
-	DataStructures::List<sqlite3 *> unreferencedHandles;
+	std::vector<sqlite3 *> unreferencedHandles;
 	bool isReferenced;
-	for (unsigned int i = 0; i < dbHandles.GetSize(); i++)
+	for (unsigned int i = 0; i < dbHandles.size(); i++)
 	{
 		if (dbHandles[i].dbAutoCreated)
 		{
 			j = 0;
 			isReferenced = false;
-			for (j = 0; j < sessionNames.Size(); j++)
+			for (j = 0; j < sessionNames.size(); j++)
 			{
 				if (sessionNames[j] == dbHandles[i].dbHandle)
 				{
@@ -1105,12 +1108,12 @@ void SQLiteServerLoggerPlugin::CloseUnreferencedSessions(void)
 
 			if (isReferenced == false)
 			{
-				unreferencedHandles.Push(dbHandles[i].dbHandle, _FILE_AND_LINE_);
+				unreferencedHandles.push_back(dbHandles[i].dbHandle);
 			}
 		}
 	}
 
-	if (unreferencedHandles.Size())
+	if (unreferencedHandles.size())
 	{
 		sqlLoggerThreadPool.LockInput();
 		if (sqlLoggerThreadPool.HasInputFast() == false)
@@ -1118,26 +1121,26 @@ void SQLiteServerLoggerPlugin::CloseUnreferencedSessions(void)
 			RakSleep(100);
 			while (sqlLoggerThreadPool.NumThreadsWorking() > 0)
 				RakSleep(30);
-			for (unsigned int k = 0; k < unreferencedHandles.Size(); k++)
+			for (unsigned int k = 0; k < unreferencedHandles.size(); k++)
 			{
 				RemoveDBHandle(unreferencedHandles[k], true);
 			}
 		}
 		sqlLoggerThreadPool.UnlockInput();
 
-		if (dbHandles.GetSize() == 0)
+		if (dbHandles.size() == 0)
 			StopCPUSQLThreads();
 	}
 }
 void SQLiteServerLoggerPlugin::CloseAllSessions(void)
 {
-	loggedInSessions.Clear(false, _FILE_AND_LINE_);
+	loggedInSessions.clear();
 	CloseUnreferencedSessions();
 }
 unsigned int SQLiteServerLoggerPlugin::CreateDBHandle(MafiaNet::RakString dbIdentifier)
 {
 	if (sessionManagementMode != CREATE_EACH_NAMED_DB_HANDLE && sessionManagementMode != CREATE_SHARED_NAMED_DB_HANDLE)
-		return dbHandles.GetIndexOf(dbIdentifier);
+		return GetDBHandleIndex(dbIdentifier);
 
 	MafiaNet::RakString filePath = newDatabaseFilePath;
 	if (createDirectoryForFile)
@@ -1191,7 +1194,7 @@ unsigned int SQLiteServerLoggerPlugin::CreateDBHandle(MafiaNet::RakString dbIden
 		sqlite3_free(errorMsg);
 
 		printf("Created %s\n", fileNameWithPath.C_String());
-		return dbHandles.GetIndexOf(dbIdentifier);
+		return GetDBHandleIndex(dbIdentifier);
 	}
 
 	RakAssert("Failed to call AddDbHandle" && 0);

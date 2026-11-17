@@ -17,7 +17,6 @@
 #define __LOBBY_2_CLIENT_H
 
 #include "Lobby2Plugin.h"
-#include "mafianet/ds_ordered_list.h"
 
 namespace MafiaNet
 {
@@ -66,11 +65,11 @@ public:
 	/// This is just a list of strings for you to read - it does NOT actually perform the ignore operation.
 	virtual void AddToIgnoreList(MafiaNet::RakString user);
 	virtual void RemoveFromIgnoreList(MafiaNet::RakString user);
-	virtual void SetIgnoreList(DataStructures::List<MafiaNet::RakString> users);
+	virtual void SetIgnoreList(const std::vector<MafiaNet::RakString> &users);
 	virtual bool IsInIgnoreList(MafiaNet::RakString user) const;
 	void ClearIgnoreList(void);
-	const DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString>* GetIgnoreList(void) const;
-	DataStructures::OrderedList<MafiaNet::RakString, MafiaNet::RakString> ignoreList;
+	const std::set<MafiaNet::RakString>* GetIgnoreList(void) const;
+	std::set<MafiaNet::RakString> ignoreList;
 	*/
 
 protected:

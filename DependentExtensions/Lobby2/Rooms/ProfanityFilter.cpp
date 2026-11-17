@@ -20,6 +20,7 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
+#include <cstring>
 #include <string>
 
 using namespace MafiaNet;
@@ -70,7 +71,7 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, bool filte
 			start[len] = '\0';
 
 			// loop through profanity list
-			for (unsigned int i = 0, size = words.Size(); i < size; i++)
+			for (std::size_t i = 0, size = words.size(); i < size; i++)
 			{
 				if (_stricmp(start, words[i].C_String()) == 0)
 				{
@@ -121,7 +122,7 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, size_t out
 			start[len] = '\0';
 
 			// loop through profanity list
-			for (unsigned int i = 0, size = words.Size(); i < size; i++)
+			for (std::size_t i = 0, size = words.size(); i < size; i++)
 			{
 				if (_stricmp(start, words[i].C_String()) == 0)
 				{
@@ -150,9 +151,9 @@ int ProfanityFilter::FilterProfanity(const char *input, char *output, size_t out
 
 int ProfanityFilter::Count()
 {
-	return words.Size();
+	return static_cast<int>(words.size());
 }
 void ProfanityFilter::AddWord(MafiaNet::RakString newWord)
 {
-	words.Insert(newWord, _FILE_AND_LINE_);
+	words.push_back(newWord);
 }

@@ -16,6 +16,9 @@
 #include "Lobby2Server.h"
 #include "mafianet/assert.h"
 #include "mafianet/message_identifiers.h"
+#include "mafianet/vector_util.h"
+
+#include <algorithm>
 
 //#define __INTEGRATE_LOBBY2_WITH_ROOMS_PLUGIN
 
@@ -33,11 +36,17 @@ int Lobby2Server::UserCompByUsername(const RakString &key, Lobby2Server::User *c
 		return 0;
 	return 1;
 }
+unsigned int Lobby2Server::GetUserInsertionIndex(const RakString &userName, bool *objectExists) const
+{
+	// users is kept sorted by UserCompByUsername; this is the lookup the old OrderedList::GetIndexFromKey did.
+	auto it = std::lower_bound(users.begin(), users.end(), userName, [](User *const &user, const RakString &key)
+	                           { return UserCompByUsername(key, user) > 0; });
+	*objectExists = it != users.end() && UserCompByUsername(userName, *it) == 0;
+	return static_cast<unsigned int>(it - users.begin());
+}
 
 Lobby2Server::Lobby2Server()
 {
-	DataStructures::OrderedList<SystemAddress, SystemAddress>::IMPLEMENT_DEFAULT_COMPARISON();
-	DataStructures::OrderedList<RakString, RakString>::IMPLEMENT_DEFAULT_COMPARISON();
 	roomsPlugin = 0;
 	roomsPluginAddress = UNASSIGNED_SYSTEM_ADDRESS;
 }
@@ -45,7 +54,7 @@ Lobby2Server::~Lobby2Server()
 {
 	Clear();
 }
-void Lobby2Server::SendMsg(Lobby2Message *msg, const DataStructures::List<SystemAddress> &recipients)
+void Lobby2Server::SendMsg(Lobby2Message *msg, const std::vector<SystemAddress> &recipients)
 {
 	MafiaNet::BitStream bs;
 	bs.Write((MessageID) ID_LOBBY2_SEND_MESSAGE);
@@ -55,12 +64,13 @@ void Lobby2Server::SendMsg(Lobby2Message *msg, const DataStructures::List<System
 }
 void Lobby2Server::Update(void)
 {
-	while (threadActionQueue.Size())
+	while (threadActionQueue.size())
 	{
 		threadActionQueueMutex.Lock();
-		if (threadActionQueue.Size())
+		if (threadActionQueue.size())
 		{
-			ThreadAction ta = threadActionQueue.Pop();
+			ThreadAction ta = threadActionQueue.front();
+			threadActionQueue.pop_front();
 			threadActionQueueMutex.Unlock();
 			if (ta.action == L2MID_Client_Logoff)
 			{
@@ -88,7 +98,7 @@ void Lobby2Server::Update(void)
 		c.lobby2Message->ServerPostDBMemoryImpl(this, c.callingUserName);
 		if (c.returnToSender)
 		{
-			for (unsigned long i = 0; i < callbacks.Size(); i++)
+			for (unsigned long i = 0; i < callbacks.size(); i++)
 			{
 				if (c.lobby2Message->callbackId == (uint32_t) -1 || c.lobby2Message->callbackId == callbacks[i]->callbackId)
 					c.lobby2Message->CallCallback(callbacks[i]);
@@ -100,12 +110,12 @@ void Lobby2Server::Update(void)
 			bs.Write((MessageID) c.lobby2Message->GetID());
 			c.lobby2Message->Serialize(true, true, &bs);
 			// Have the ID to send to, but not the address. The ID came from the thread, such as notifying another user
-			if (c.callerSystemAddresses.Size() == 0)
+			if (c.callerSystemAddresses.size() == 0)
 			{
 				unsigned int i;
 				if (c.callerUserId != 0)
 				{
-					for (i = 0; i < users.Size(); i++)
+					for (i = 0; i < users.size(); i++)
 					{
 						if (users[i]->callerUserId == c.callerUserId)
 						{
@@ -131,9 +141,9 @@ void Lobby2Server::Update(void)
 						}
 					}
 				}
-				if (c.callerSystemAddresses.Size() == 0 && c.callingUserName.IsEmpty() == false)
+				if (c.callerSystemAddresses.size() == 0 && c.callingUserName.IsEmpty() == false)
 				{
-					for (i = 0; i < users.Size(); i++)
+					for (i = 0; i < users.size(); i++)
 					{
 						if (users[i]->callerUserId == c.callerUserId)
 						{
@@ -148,7 +158,7 @@ void Lobby2Server::Update(void)
 			{
 				bool objectExists;
 				unsigned int idx;
-				idx = users.GetIndexFromKey(c.callingUserName, &objectExists);
+				idx = GetUserInsertionIndex(c.callingUserName, &objectExists);
 				if (objectExists &&
 				    c.callingUserName.IsEmpty() == false &&
 				    users[idx]->userName != c.callingUserName)
@@ -194,17 +204,17 @@ void Lobby2Server::OnClosedConnection(const SystemAddress &systemAddress, RakNet
 	{
 		bool found = false;
 		User *user = users[index];
-		for (unsigned int i = 0; i < user->systemAddresses.Size(); i++)
+		for (unsigned int i = 0; i < user->systemAddresses.size(); i++)
 		{
 			if (user->systemAddresses[i] == systemAddress)
 			{
 				found = true;
-				user->systemAddresses.RemoveAtIndexFast(i);
+				SwapRemove(user->systemAddresses, i);
 				break;
 			}
 		}
 
-		if (found && user->systemAddresses.Size() == 0)
+		if (found && user->systemAddresses.size() == 0)
 		{
 			// Log this logoff due to closed connection
 			Lobby2Message *lobby2Message = msgFactory->Alloc(L2MID_Client_Logoff);
@@ -256,8 +266,8 @@ void Lobby2Server::OnMessage(Packet *packet)
 			}
 			command.callerUserId = 0;
 		}
-		command.callerSystemAddresses.Push(packet->systemAddress, __FILE__, __LINE__);
-		command.callerGuids.Push(packet->guid, __FILE__, __LINE__);
+		command.callerSystemAddresses.push_back(packet->systemAddress);
+		command.callerGuids.push_back(packet->guid);
 		command.server = this;
 		ExecuteCommand(&command);
 	}
@@ -298,58 +308,58 @@ void Lobby2Server::Clear(void)
 	threadPool.ClearOutput();
 
 	threadActionQueueMutex.Lock();
-	threadActionQueue.Clear(__FILE__, __LINE__);
+	threadActionQueue.clear();
 	threadActionQueueMutex.Unlock();
 }
 void Lobby2Server::AddAdminAddress(SystemAddress addr)
 {
-	adminAddresses.Insert(addr, addr, false, __FILE__, __LINE__);
+	adminAddresses.insert(addr);
 }
-bool Lobby2Server::HasAdminAddress(const DataStructures::List<SystemAddress> &addresses)
+bool Lobby2Server::HasAdminAddress(const std::vector<SystemAddress> &addresses)
 {
-	if (addresses.Size() == 0)
+	if (addresses.size() == 0)
 		return true;
 
 	unsigned int j;
-	for (j = 0; j < addresses.Size(); j++)
+	for (j = 0; j < addresses.size(); j++)
 	{
-		if (adminAddresses.HasData(addresses[j]))
+		if (adminAddresses.count(addresses[j]) != 0)
 			return true;
 	}
 	return false;
 }
 void Lobby2Server::RemoveAdminAddress(SystemAddress addr)
 {
-	adminAddresses.RemoveIfExists(addr);
+	adminAddresses.erase(addr);
 }
 void Lobby2Server::ClearAdminAddresses(void)
 {
-	adminAddresses.Clear(false, __FILE__, __LINE__);
+	adminAddresses.clear();
 }
 void Lobby2Server::AddRankingAddress(SystemAddress addr)
 {
-	rankingAddresses.Insert(addr, addr, false, __FILE__, __LINE__);
+	rankingAddresses.insert(addr);
 }
-bool Lobby2Server::HasRankingAddress(const DataStructures::List<SystemAddress> &addresses)
+bool Lobby2Server::HasRankingAddress(const std::vector<SystemAddress> &addresses)
 {
-	if (addresses.Size() == 0)
+	if (addresses.size() == 0)
 		return true;
 
 	unsigned int j;
-	for (j = 0; j < addresses.Size(); j++)
+	for (j = 0; j < addresses.size(); j++)
 	{
-		if (rankingAddresses.HasData(addresses[j]))
+		if (rankingAddresses.count(addresses[j]) != 0)
 			return true;
 	}
 	return false;
 }
 void Lobby2Server::RemoveRankingAddress(SystemAddress addr)
 {
-	rankingAddresses.RemoveIfExists(addr);
+	rankingAddresses.erase(addr);
 }
 void Lobby2Server::ClearRankingAddresses(void)
 {
-	rankingAddresses.Clear(false, __FILE__, __LINE__);
+	rankingAddresses.clear();
 }
 void Lobby2Server::ExecuteCommand(Lobby2ServerCommand *command)
 {
@@ -406,9 +416,9 @@ void Lobby2Server::SetRoomsPluginAddress(SystemAddress address)
 void Lobby2Server::ClearUsers(void)
 {
 	unsigned int i;
-	for (i = 0; i < users.Size(); i++)
+	for (i = 0; i < users.size(); i++)
 		delete users[i];
-	users.Clear(false, __FILE__, __LINE__);
+	users.clear();
 }
 void Lobby2Server::LogoffFromRooms(User *user)
 {
@@ -427,7 +437,7 @@ void Lobby2Server::LogoffFromRooms(User *user)
 	}
 #endif
 }
-void Lobby2Server::SendRemoteLoginNotification(MafiaNet::RakString handle, const DataStructures::List<SystemAddress> &recipients)
+void Lobby2Server::SendRemoteLoginNotification(MafiaNet::RakString handle, const std::vector<SystemAddress> &recipients)
 {
 	Notification_Client_RemoteLogin notification;
 	notification.handle = handle;
@@ -442,13 +452,13 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 		ta.action = L2MID_Client_Login;
 		ta.command = *command;
 		threadActionQueueMutex.Lock();
-		threadActionQueue.Push(ta, __FILE__, __LINE__);
+		threadActionQueue.push_back(ta);
 		threadActionQueueMutex.Unlock();
 		return;
 	}
 
 	bool objectExists;
-	unsigned int insertionIndex = users.GetIndexFromKey(command->callingUserName, &objectExists);
+	unsigned int insertionIndex = GetUserInsertionIndex(command->callingUserName, &objectExists);
 	if (objectExists)
 	{
 		User *user = users[insertionIndex];
@@ -460,15 +470,15 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 			// Already logged in from this system address.
 			// Delete the existing entry, which will be reinserted.
 			delete user;
-			users.RemoveAtIndex(insertionIndex);
+			users.erase(users.begin() + insertionIndex);
 		}
 		else
 		{
-			if (user->systemAddresses.GetIndexOf(command->callerSystemAddresses[0]) == (unsigned int) -1)
+			if (std::find(user->systemAddresses.begin(), user->systemAddresses.end(), command->callerSystemAddresses[0]) == user->systemAddresses.end())
 			{
 				// Just add system address and guid already in use to the list for this user
-				user->systemAddresses.Push(command->callerSystemAddresses[0], __FILE__, __LINE__);
-				user->guids.Push(command->callerGuids[0], __FILE__, __LINE__);
+				user->systemAddresses.push_back(command->callerSystemAddresses[0]);
+				user->guids.push_back(command->callerGuids[0]);
 			}
 			return;
 		}
@@ -487,9 +497,9 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 			LogoffFromRooms(user);
 
 			delete user;
-			users.RemoveAtIndex(idx2);
+			users.erase(users.begin() + idx2);
 
-			insertionIndex = users.GetIndexFromKey(command->callingUserName, &objectExists);
+			insertionIndex = GetUserInsertionIndex(command->callingUserName, &objectExists);
 		}
 		else if (idx3 != (unsigned int) -1)
 		{
@@ -500,9 +510,9 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 			LogoffFromRooms(user);
 
 			delete user;
-			users.RemoveAtIndex(idx3);
+			users.erase(users.begin() + idx3);
 
-			insertionIndex = users.GetIndexFromKey(command->callingUserName, &objectExists);
+			insertionIndex = GetUserInsertionIndex(command->callingUserName, &objectExists);
 		}
 	}
 
@@ -513,7 +523,7 @@ void Lobby2Server::OnLogin(Lobby2ServerCommand *command, bool calledFromThread)
 	user->guids = command->callerGuids;
 	user->callerUserId = command->callerUserId;
 	user->allowMultipleLogins = ((Client_Login *) command->lobby2Message)->allowMultipleLogins;
-	users.InsertAtIndex(user, insertionIndex, __FILE__, __LINE__);
+	users.insert(users.begin() + insertionIndex, user);
 
 #if defined(__INTEGRATE_LOBBY2_WITH_ROOMS_PLUGIN)
 	// Tell the rooms plugin about the login event
@@ -537,7 +547,7 @@ void Lobby2Server::OnLogoff(Lobby2ServerCommand *command, bool calledFromThread)
 		ta.action = L2MID_Client_Logoff;
 		ta.command = *command;
 		threadActionQueueMutex.Lock();
-		threadActionQueue.Push(ta, __FILE__, __LINE__);
+		threadActionQueue.push_back(ta);
 		threadActionQueueMutex.Unlock();
 		return;
 	}
@@ -551,14 +561,14 @@ void Lobby2Server::OnChangeHandle(Lobby2ServerCommand *command, bool calledFromT
 		ta.action = L2MID_Client_ChangeHandle;
 		ta.command = *command;
 		threadActionQueueMutex.Lock();
-		threadActionQueue.Push(ta, __FILE__, __LINE__);
+		threadActionQueue.push_back(ta);
 		threadActionQueueMutex.Unlock();
 		return;
 	}
 
 	unsigned int i;
 	MafiaNet::RakString oldHandle;
-	for (i = 0; i < users.Size(); i++)
+	for (i = 0; i < users.size(); i++)
 	{
 		if (users[i]->callerUserId == command->callerUserId)
 		{
@@ -588,7 +598,7 @@ void Lobby2Server::OnChangeHandle(Lobby2ServerCommand *command, bool calledFromT
 void Lobby2Server::RemoveUser(RakString userName)
 {
 	bool objectExists;
-	unsigned int index = users.GetIndexFromKey(userName, &objectExists);
+	unsigned int index = GetUserInsertionIndex(userName, &objectExists);
 	if (objectExists)
 		RemoveUser(index);
 }
@@ -614,7 +624,7 @@ void Lobby2Server::RemoveUser(unsigned int index)
 	while (i < threadPool.InputSize())
 	{
 		command = threadPool.GetInputAtIndex(i);
-		if (command.lobby2Message->CancelOnDisconnect() && command.callerSystemAddresses.Size() > 0 && user->systemAddresses.GetIndexOf(command.callerSystemAddresses[0]) != (unsigned int) -1)
+		if (command.lobby2Message->CancelOnDisconnect() && command.callerSystemAddresses.size() > 0 && std::find(user->systemAddresses.begin(), user->systemAddresses.end(), command.callerSystemAddresses[0]) != user->systemAddresses.end())
 		{
 			if (command.deallocMsgWhenDone)
 				delete command.lobby2Message;
@@ -627,14 +637,14 @@ void Lobby2Server::RemoveUser(unsigned int index)
 	LogoffFromRooms(user);
 
 	delete user;
-	users.RemoveAtIndex(index);
+	users.erase(users.begin() + index);
 }
 unsigned int Lobby2Server::GetUserIndexBySystemAddress(SystemAddress systemAddress) const
 {
 	unsigned int idx1, idx2;
-	for (idx1 = 0; idx1 < users.Size(); idx1++)
+	for (idx1 = 0; idx1 < users.size(); idx1++)
 	{
-		for (idx2 = 0; idx2 < users[idx1]->systemAddresses.Size(); idx2++)
+		for (idx2 = 0; idx2 < users[idx1]->systemAddresses.size(); idx2++)
 		{
 			if (users[idx1]->systemAddresses[idx2] == systemAddress)
 				return idx1;
@@ -645,9 +655,9 @@ unsigned int Lobby2Server::GetUserIndexBySystemAddress(SystemAddress systemAddre
 unsigned int Lobby2Server::GetUserIndexByGUID(RakNetGUID guid) const
 {
 	unsigned int idx1, idx2;
-	for (idx1 = 0; idx1 < users.Size(); idx1++)
+	for (idx1 = 0; idx1 < users.size(); idx1++)
 	{
-		for (idx2 = 0; idx2 < users[idx1]->guids.Size(); idx2++)
+		for (idx2 = 0; idx2 < users[idx1]->guids.size(); idx2++)
 		{
 			if (users[idx1]->guids[idx2] == guid)
 				return idx1;
@@ -659,7 +669,7 @@ unsigned int Lobby2Server::GetUserIndexByUsername(MafiaNet::RakString userName) 
 {
 	unsigned int idx;
 	bool objectExists;
-	idx = users.GetIndexFromKey(userName, &objectExists);
+	idx = GetUserInsertionIndex(userName, &objectExists);
 	if (objectExists)
 		return idx;
 	return (unsigned int) -1;
@@ -726,8 +736,8 @@ void Lobby2Server::GetPresence(MafiaNet::Lobby2Presence &presence, MafiaNet::Rak
 		presence.status = Lobby2Presence::NOT_ONLINE;
 	}
 }
-void Lobby2Server::SendUnifiedToMultiple(const MafiaNet::BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const DataStructures::List<SystemAddress> systemAddresses)
+void Lobby2Server::SendUnifiedToMultiple(const MafiaNet::BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char curOrderingChannel, const std::vector<SystemAddress> &systemAddresses)
 {
-	for (unsigned int i = 0; i < systemAddresses.Size(); i++)
+	for (unsigned int i = 0; i < systemAddresses.size(); i++)
 		SendUnified(bitStream, priority, reliability, curOrderingChannel, systemAddresses[i], false);
 }

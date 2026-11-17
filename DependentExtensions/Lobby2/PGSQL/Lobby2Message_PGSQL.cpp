@@ -103,7 +103,7 @@ MafiaNet::ClanMemberState MafiaNet::GetClanMemberState(unsigned int clanId, unsi
 	PQclear(result);
 	return (ClanMemberState) memberState;
 }
-void MafiaNet::GetClanMembers(unsigned int clanId, DataStructures::List<ClanMemberDescriptor> &clanMembers, PostgreSQLInterface *pgsql)
+void MafiaNet::GetClanMembers(unsigned int clanId, std::vector<ClanMemberDescriptor> &clanMembers, PostgreSQLInterface *pgsql)
 {
 	ClanMemberDescriptor cmd;
 
@@ -124,7 +124,7 @@ void MafiaNet::GetClanMembers(unsigned int clanId, DataStructures::List<ClanMemb
 		cmd.memberState = (ClanMemberState) cms;
 		PostgreSQLInterface::PQGetValueFromBinary(&cmd.banReason, result, idx, "banReason");
 		PostgreSQLInterface::PQGetValueFromBinary(&cmd.name, result, idx, "handle");
-		clanMembers.Insert(cmd, _FILE_AND_LINE_);
+		clanMembers.push_back(cmd);
 	}
 	PQclear(result);
 }
@@ -199,7 +199,7 @@ bool MafiaNet::IsValidRace(MafiaNet::RakString string, PostgreSQLInterface *pgsq
 		return false;
 	return true;
 }
-void MafiaNet::GetFriendIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, DataStructures::List<unsigned int> &output)
+void MafiaNet::GetFriendIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, std::vector<unsigned int> &output)
 {
 	PGresult *result = pgsql->QueryVariadic("SELECT userTwo_fk from lobby2.friends WHERE userOne_fk=%i AND "
 	                                        "actionId_fk=(SELECT actionId_pk from lobby2.friendActions WHERE description='isFriends');",
@@ -213,11 +213,11 @@ void MafiaNet::GetFriendIDs(unsigned int callerUserId, bool excludeIfIgnored, Po
 	{
 		PostgreSQLInterface::PQGetValueFromBinary(&id, result, idx, "userTwo_fk");
 		if (excludeIfIgnored == false || IsIgnoredByTarget(callerUserId, id, pgsql) == false)
-			output.Insert(id, _FILE_AND_LINE_);
+			output.push_back(id);
 	}
 	PQclear(result);
 }
-void MafiaNet::GetClanMateIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, DataStructures::List<unsigned int> &output)
+void MafiaNet::GetClanMateIDs(unsigned int callerUserId, bool excludeIfIgnored, PostgreSQLInterface *pgsql, std::vector<unsigned int> &output)
 {
 	PGresult *result = pgsql->QueryVariadic(
 	    "select userId_fk from lobby2.clanMembers where clanId_fk="
@@ -233,7 +233,7 @@ void MafiaNet::GetClanMateIDs(unsigned int callerUserId, bool excludeIfIgnored, 
 	{
 		PostgreSQLInterface::PQGetValueFromBinary(&id, result, idx, "userId_fk");
 		if (excludeIfIgnored == false || IsIgnoredByTarget(callerUserId, id, pgsql) == false)
-			output.Insert(id, _FILE_AND_LINE_);
+			output.push_back(id);
 	}
 	PQclear(result);
 }
@@ -252,11 +252,11 @@ bool MafiaNet::IsIgnoredByTarget(unsigned int callerUserId, unsigned int targetU
 void MafiaNet::OutputFriendsNotification(MafiaNet::Notification_Friends_StatusChange::Status notificationType, Lobby2ServerCommand *command, PostgreSQLInterface *pgsql)
 {
 	// Tell all friends about this new login
-	DataStructures::List<unsigned int> output;
+	std::vector<unsigned int> output;
 	GetFriendIDs(command->callerUserId, true, pgsql, output);
 
 	unsigned int idx;
-	for (idx = 0; idx < output.Size(); idx++)
+	for (idx = 0; idx < output.size(); idx++)
 	{
 		Notification_Friends_StatusChange *notification = (Notification_Friends_StatusChange *) command->server->GetMessageFactory()->Alloc(L2MID_Notification_Friends_StatusChange);
 		RakAssert(command->callingUserName.IsEmpty() == false);
@@ -267,7 +267,7 @@ void MafiaNet::OutputFriendsNotification(MafiaNet::Notification_Friends_StatusCh
 	}
 }
 
-void MafiaNet::GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakString status, PostgreSQLInterface *pgsql, DataStructures::List<FriendInfo> &output, bool callerIsUserOne)
+void MafiaNet::GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakString status, PostgreSQLInterface *pgsql, std::vector<FriendInfo> &output, bool callerIsUserOne)
 {
 	MafiaNet::RakString query;
 	/*
@@ -310,33 +310,33 @@ void MafiaNet::GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakSt
 		FriendInfo fi;
 		PostgreSQLInterface::PQGetValueFromBinary(&fi.usernameAndStatus.handle, result, i, "handle");
 		fi.usernameAndStatus.isOnline = false;
-		output.Insert(fi, _FILE_AND_LINE_);
+		output.push_back(fi);
 	}
 
 	PQclear(result);
 }
 
-void MafiaNet::SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
+void MafiaNet::SendEmail(std::vector<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
 {
-	DataStructures::List<unsigned int> targetUserIds;
+	std::vector<unsigned int> targetUserIds;
 	unsigned int targetUserId;
-	for (unsigned int i = 0; i < recipientNames.Size(); i++)
+	for (unsigned int i = 0; i < recipientNames.size(); i++)
 	{
 		targetUserId = GetUserRowFromHandle(recipientNames[i], pgsql);
 		if (targetUserId != 0)
-			targetUserIds.Insert(targetUserId, _FILE_AND_LINE_);
+			targetUserIds.push_back(targetUserId);
 	}
 	SendEmail(targetUserIds, senderUserId, senderUserName, server, subject, body, binaryData, status, triggerString, pgsql);
 }
 void MafiaNet::SendEmail(unsigned int targetUserId, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
 {
-	DataStructures::List<unsigned int> targetUserIds;
-	targetUserIds.Insert(targetUserId, _FILE_AND_LINE_);
+	std::vector<unsigned int> targetUserIds;
+	targetUserIds.push_back(targetUserId);
 	SendEmail(targetUserIds, senderUserId, senderUserName, server, subject, body, binaryData, status, triggerString, pgsql);
 }
-void MafiaNet::SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
+void MafiaNet::SendEmail(std::vector<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
 {
-	if (targetUserIds.Size() == 0)
+	if (targetUserIds.size() == 0)
 		return;
 
 	PGresult *result = 0;
@@ -361,7 +361,7 @@ void MafiaNet::SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsi
 	PQclear(result);
 
 	unsigned int i;
-	for (i = 0; i < targetUserIds.Size(); i++)
+	for (i = 0; i < targetUserIds.size(); i++)
 	{
 		// Once in my inbox
 		result = pgsql->QueryVariadic(
@@ -667,12 +667,12 @@ bool MafiaNet::System_RegisterProfanity_PGSQL::ServerDBImpl(Lobby2ServerCommand 
 
 	PostgreSQLInterface *pgsql = (PostgreSQLInterface *) databaseInterface;
 	//		pgsql->PrepareVariadic("INSERT INTO lobby2.profanity (word) VALUES (%s)");
-	//		for (unsigned int i=0; i < profanityWords.Size(); i++)
+	//		for (unsigned int i=0; i < profanityWords.size(); i++)
 	//			pgsql->PrepareVariadicArgs(0, profanityWords[i].C_String());
 	//		PGresult *result = pgsql->ExecutePreparedStatement();
 	PGresult *result = 0;
 	resultCode = L2RC_SUCCESS;
-	for (unsigned int i = 0; i < profanityWords.Size(); i++)
+	for (unsigned int i = 0; i < profanityWords.size(); i++)
 	{
 		result = pgsql->QueryVariadic("INSERT INTO lobby2.profanity (word) VALUES (%s)", profanityWords[i].C_String());
 		if (result == 0)
@@ -756,7 +756,7 @@ bool MafiaNet::CDKey_Add_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, void 
 		return true;
 	}
 	unsigned int i;
-	for (i = 0; i < cdKeys.Size(); i++)
+	for (i = 0; i < cdKeys.size(); i++)
 	{
 		result = pgsql->QueryVariadic("INSERT INTO lobby2.cdkeys (cdKey, usable, stolen, titleName_fk) VALUES (%s, true, false, %s);", cdKeys[i].C_String(), titleName.C_String());
 		RakAssert(result);
@@ -1439,12 +1439,12 @@ bool MafiaNet::Client_ChangeHandle_PGSQL::ServerDBImpl(Lobby2ServerCommand *comm
 	PQclear(result);
 
 	// Tell all friends and clanMembers
-	DataStructures::List<unsigned int> output;
+	std::vector<unsigned int> output;
 	GetFriendIDs(command->callerUserId, false, pgsql, output);
 	GetClanMateIDs(command->callerUserId, false, pgsql, output);
 
 	unsigned int i;
-	for (i = 0; i < output.Size(); i++)
+	for (i = 0; i < output.size(); i++)
 	{
 		Notification_User_ChangedHandle *notification = (Notification_User_ChangedHandle *) command->server->GetMessageFactory()->Alloc(L2MID_Notification_User_ChangedHandle);
 		notification->oldHandle = userName;
@@ -1609,13 +1609,13 @@ bool MafiaNet::Client_GetIgnoreList_PGSQL::ServerDBImpl(Lobby2ServerCommand *com
 	}
 
 	MafiaNet::RakString handle;
-	ignoredHandles.Clear(false, _FILE_AND_LINE_);
+	ignoredHandles.clear();
 	int numRowsReturned = PQntuples(result);
 	int i;
 	for (i = 0; i < numRowsReturned; i++)
 	{
 		PostgreSQLInterface::PQGetValueFromBinary(&handle, result, i, "handle");
-		ignoredHandles.Insert(handle, _FILE_AND_LINE_);
+		ignoredHandles.push_back(handle);
 	}
 	PQclear(result);
 
@@ -2155,9 +2155,9 @@ void MafiaNet::Friends_GetInvites_PGSQL::ServerPostDBMemoryImpl(Lobby2Server *se
 {
 	(void) userHandle;
 
-	for (unsigned int i = 0; i < invitesSent.Size(); i++)
+	for (unsigned int i = 0; i < invitesSent.size(); i++)
 		server->GetUserOnlineStatus(invitesSent[i].usernameAndStatus);
-	for (unsigned int i = 0; i < invitesReceived.Size(); i++)
+	for (unsigned int i = 0; i < invitesReceived.size(); i++)
 		server->GetUserOnlineStatus(invitesReceived[i].usernameAndStatus);
 }
 
@@ -2172,7 +2172,7 @@ void MafiaNet::Friends_GetFriends_PGSQL::ServerPostDBMemoryImpl(Lobby2Server *se
 {
 	(void) userHandle;
 
-	for (unsigned int i = 0; i < myFriends.Size(); i++)
+	for (unsigned int i = 0; i < myFriends.size(); i++)
 		server->GetUserOnlineStatus(myFriends[i].usernameAndStatus);
 }
 bool MafiaNet::Friends_Remove_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, void *databaseInterface)
@@ -2313,7 +2313,7 @@ bool MafiaNet::BookmarkedUsers_Get_PGSQL::ServerDBImpl(Lobby2ServerCommand *comm
 		PostgreSQLInterface::PQGetValueFromBinary(&bm.type, result, i, "type");
 		PostgreSQLInterface::PQGetValueFromBinary(&bm.description, result, i, "description");
 		PostgreSQLInterface::PQGetValueFromBinary(&bm.dateWhenAdded, result, i, "creationDate");
-		bookmarkedUsers.Insert(bm, _FILE_AND_LINE_);
+		bookmarkedUsers.push_back(bm);
 	}
 
 	PQclear(result);
@@ -2401,10 +2401,10 @@ bool MafiaNet::Emails_Get_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, void
 		PostgreSQLInterface::PQGetValueFromBinary(&emailResult.emailID, result, i, "emailTarget_pk");
 		// PostgreSQLInterface::PQGetValueFromBinary(&emailResult.emailID, result, i, "emailId_fk");
 		bool getThisEmail;
-		if (emailsToRetrieve.Size() > 0)
+		if (emailsToRetrieve.size() > 0)
 		{
 			getThisEmail = false;
-			for (unsigned int j = 0; j < emailsToRetrieve.Size(); j++)
+			for (unsigned int j = 0; j < emailsToRetrieve.size(); j++)
 			{
 				if (emailsToRetrieve[j] == emailResult.emailID)
 				{
@@ -2438,9 +2438,9 @@ bool MafiaNet::Emails_Get_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, void
 					emailResult.recipient = myHandle;
 				}
 			}
-			emailResults.Insert(emailResult, __FILE__, __LINE__);
+			emailResults.push_back(emailResult);
 		}
-		emailResults.Insert(emailResult, _FILE_AND_LINE_);
+		emailResults.push_back(emailResult);
 	}
 
 	resultCode = L2RC_SUCCESS;
@@ -2569,7 +2569,7 @@ bool MafiaNet::Ranking_SubmitMatch_PGSQL::ServerDBImpl(Lobby2ServerCommand *comm
 
 	// For each match participant, add to lobby2.matchParticipants
 	unsigned int i;
-	for (i = 0; i < submittedMatch.matchParticipants.Size(); i++)
+	for (i = 0; i < submittedMatch.matchParticipants.size(); i++)
 	{
 		result = pgsql->QueryVariadic("INSERT INTO lobby2.matchParticipants (matchId_fk, userId_fk, score) VALUES "
 		                              "(%i, (SELECT userId_pk FROM lobby2.users WHERE handleLower=lower(%s)), %f);",
@@ -2625,12 +2625,12 @@ bool MafiaNet::Ranking_GetMatches_PGSQL::ServerDBImpl(Lobby2ServerCommand *comma
 		{
 			PostgreSQLInterface::PQGetValueFromBinary(&matchParticipant.handle, result2, j, "handle");
 			PostgreSQLInterface::PQGetValueFromBinary(&matchParticipant.score, result2, j, "score");
-			submittedMatch.matchParticipants.Insert(matchParticipant, _FILE_AND_LINE_);
+			submittedMatch.matchParticipants.push_back(matchParticipant);
 		}
 
 		PQclear(result2);
 
-		submittedMatches.Insert(submittedMatch, _FILE_AND_LINE_);
+		submittedMatches.push_back(submittedMatch);
 	}
 	PQclear(result1);
 
@@ -2948,11 +2948,11 @@ bool MafiaNet::Clans_Create_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, vo
 	PQclear(result);
 
 	// Tell all friends about this new clan
-	DataStructures::List<unsigned int> output;
+	std::vector<unsigned int> output;
 	GetFriendIDs(command->callerUserId, true, pgsql, output);
 
 	unsigned int idx;
-	for (idx = 0; idx < output.Size(); idx++)
+	for (idx = 0; idx < output.size(); idx++)
 	{
 		Notification_Friends_CreatedClan *notification = (Notification_Friends_CreatedClan *) command->server->GetMessageFactory()->Alloc(L2MID_Notification_Friends_CreatedClan);
 		RakAssert(command->callingUserName.IsEmpty() == false);
@@ -3108,11 +3108,11 @@ bool MafiaNet::Clans_Get_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, void 
 		for (int j = 0; j < numRowsReturned2; j++)
 		{
 			PostgreSQLInterface::PQGetValueFromBinary(&memberHandle, result2, j, "handle");
-			ci.clanMembersOtherThanLeader.Insert(memberHandle, _FILE_AND_LINE_);
+			ci.clanMembersOtherThanLeader.push_back(memberHandle);
 		}
 		PQclear(result2);
 
-		clans.Insert(ci, _FILE_AND_LINE_);
+		clans.push_back(ci);
 	}
 
 	PQclear(result);
@@ -3172,11 +3172,11 @@ bool MafiaNet::Clans_GrantLeader_PGSQL::ServerDBImpl(Lobby2ServerCommand *comman
 
 	Notification_Clans_GrantLeader *notification;
 	// Tell all clan members of the new leader
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
 	// Tell all clan members, except the command originator, about the new clan leader
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3242,11 +3242,11 @@ bool MafiaNet::Clans_SetSubleaderStatus_PGSQL::ServerDBImpl(Lobby2ServerCommand 
 
 	Notification_Clans_SetSubleaderStatus *notification;
 	// Tell all clan members of the new leader
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
 	// Tell all clan members, except the command originator, about the new clan leader
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3314,11 +3314,11 @@ bool MafiaNet::Clans_SetMemberRank_PGSQL::ServerDBImpl(Lobby2ServerCommand *comm
 
 	Notification_Clans_SetMemberRank *notification;
 	// Tell all clan members of the new leader
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
 	// Tell all clan members, except the command originator, about the new clan leader
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3413,11 +3413,11 @@ bool MafiaNet::Clans_ChangeHandle_PGSQL::ServerDBImpl(Lobby2ServerCommand *comma
 
 	Notification_Clans_ChangeHandle *notification;
 	// Tell all clan members of the new leader
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
 	// Tell all clan members, except the command originator, about the new clan name
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3468,23 +3468,23 @@ bool MafiaNet::Clans_Leave_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, voi
 	PQclear(result);
 
 	// Tell all clan members of the new leader
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
 	if (subject.IsEmpty() == false || body.IsEmpty() == false)
 	{
 		// Send this email to the members
-		DataStructures::List<unsigned int> targetUserIds;
-		for (unsigned int i = 0; i < clanMembers.Size(); i++)
+		std::vector<unsigned int> targetUserIds;
+		for (unsigned int i = 0; i < clanMembers.size(); i++)
 		{
 			if (clanMembers[i].memberState == CMD_ACTIVE)
-				targetUserIds.Insert(clanMembers[i].userId, _FILE_AND_LINE_);
+				targetUserIds.push_back(clanMembers[i].userId);
 		}
 		SendEmail(targetUserIds, command->callerUserId, command->callingUserName, command->server, subject, body, binaryData, emailStatus, "Clans_Leave", pgsql);
 	}
 
 	unsigned int validUserCount = 0;
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3501,7 +3501,7 @@ bool MafiaNet::Clans_Leave_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, voi
 
 			// Send notification to clan members that the clan was destroyed, then destroy the clan
 			Notification_Clans_Destroyed *notification;
-			for (unsigned int i = 0; i < clanMembers.Size(); i++)
+			for (unsigned int i = 0; i < clanMembers.size(); i++)
 			{
 				if (clanMembers[i].memberState != CMD_ACTIVE)
 					continue;
@@ -3559,7 +3559,7 @@ bool MafiaNet::Clans_Leave_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, voi
 
 			// Notify users of new leader
 			Notification_Clans_GrantLeader *notification;
-			for (unsigned int i = 0; i < clanMembers.Size(); i++)
+			for (unsigned int i = 0; i < clanMembers.size(); i++)
 			{
 				if (clanMembers[i].memberState != CMD_ACTIVE)
 					continue;
@@ -3578,7 +3578,7 @@ bool MafiaNet::Clans_Leave_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, voi
 
 	// Send notification to clan members that the member has left the clan
 	Notification_Clans_Leave *notification;
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3687,9 +3687,9 @@ bool MafiaNet::Clans_SendJoinInvitation_PGSQL::ServerDBImpl(Lobby2ServerCommand 
 	notification->minorOp = Notification_Clans_PendingJoinStatus::JOIN_SENT;
 	command->server->AddOutputFromThread(notification, targetId, targetHandle); // target
 
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3766,9 +3766,9 @@ bool MafiaNet::Clans_WithdrawJoinInvitation_PGSQL::ServerDBImpl(Lobby2ServerComm
 	command->server->AddOutputFromThread(notification, targetId, targetHandle); // target
 
 
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3829,9 +3829,9 @@ bool MafiaNet::Clans_AcceptJoinInvitation_PGSQL::ServerDBImpl(Lobby2ServerComman
 	}
 
 	// Notify all members about this new member
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3881,9 +3881,9 @@ bool MafiaNet::Clans_RejectJoinInvitation_PGSQL::ServerDBImpl(Lobby2ServerComman
 	SendEmail(clanLeaderId, command->callerUserId, command->callingUserName, command->server, subject, body, binaryData, emailStatus, "Clans_RejectJoinInvitation", pgsql);
 
 	// Subleader and leader notification
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -3923,7 +3923,7 @@ bool MafiaNet::Clans_DownloadInvitationList_PGSQL::ServerDBImpl(Lobby2ServerComm
 	{
 		OpenInvite oi;
 		PostgreSQLInterface::PQGetValueFromBinary(&oi.clanHandle, result, i, "clanHandle");
-		invitationsSentToMe.Insert(oi, _FILE_AND_LINE_);
+		invitationsSentToMe.push_back(oi);
 	}
 
 	PQclear(result);
@@ -3960,7 +3960,7 @@ bool MafiaNet::Clans_DownloadInvitationList_PGSQL::ServerDBImpl(Lobby2ServerComm
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.sourceClan, result, i, "clanHandle");
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.dateSent, result, i, "creationDate");
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.joinRequestTarget, result, i, "joinRequestTarget");
-		usersThatHaveAnInvitationFromClansThatIAmAMemberOf.Insert(cjr, _FILE_AND_LINE_);
+		usersThatHaveAnInvitationFromClansThatIAmAMemberOf.push_back(cjr);
 	}
 	PQclear(result);
 
@@ -4019,9 +4019,9 @@ bool MafiaNet::Clans_SendJoinRequest_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 
 		// Send notification all members about the new member
 		// Notify all members about this new member
-		DataStructures::List<ClanMemberDescriptor> clanMembers;
+		std::vector<ClanMemberDescriptor> clanMembers;
 		GetClanMembers(clanId, clanMembers, pgsql);
-		for (unsigned int i = 0; i < clanMembers.Size(); i++)
+		for (unsigned int i = 0; i < clanMembers.size(); i++)
 		{
 			if (clanMembers[i].memberState != CMD_ACTIVE)
 				continue;
@@ -4052,9 +4052,9 @@ bool MafiaNet::Clans_SendJoinRequest_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 
 		// Send notification to leader, subleaders about this invite
 		unsigned int clanLeaderId = GetClanLeaderId(clanId, pgsql);
-		DataStructures::List<ClanMemberDescriptor> clanMembers;
+		std::vector<ClanMemberDescriptor> clanMembers;
 		GetClanMembers(clanId, clanMembers, pgsql);
-		for (unsigned int i = 0; i < clanMembers.Size(); i++)
+		for (unsigned int i = 0; i < clanMembers.size(); i++)
 		{
 			if (clanMembers[i].memberState != CMD_ACTIVE)
 				continue;
@@ -4115,9 +4115,9 @@ bool MafiaNet::Clans_WithdrawJoinRequest_PGSQL::ServerDBImpl(Lobby2ServerCommand
 	SendEmail(clanLeaderId, command->callerUserId, command->callingUserName, command->server, subject, body, binaryData, emailStatus, "Clans_WithdrawJoinRequest", pgsql);
 
 	// Send notification to leader, subleaders
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -4217,9 +4217,9 @@ bool MafiaNet::Clans_AcceptJoinRequest_PGSQL::ServerDBImpl(Lobby2ServerCommand *
 	}
 
 	// Notify all members about this new member
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -4283,16 +4283,16 @@ bool MafiaNet::Clans_RejectJoinRequest_PGSQL::ServerDBImpl(Lobby2ServerCommand *
 	PQclear(result);
 
 	// Subleader and leader notification
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 	// requestingUserHandle will be notified too, insert a fake record
 	ClanMemberDescriptor cmd;
 	cmd.memberState = CMD_ACTIVE;
 	cmd.isSubleader = true;
 	cmd.userId = targetId;
-	clanMembers.Insert(cmd, _FILE_AND_LINE_);
+	clanMembers.push_back(cmd);
 
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -4346,7 +4346,7 @@ bool MafiaNet::Clans_DownloadRequestList_PGSQL::ServerDBImpl(Lobby2ServerCommand
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.targetClan, result, i, "clanHandle");
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.dateSent, result, i, "creationDate");
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.joinRequestSender, result, i, "handle");
-		joinRequestsToMyClan.Insert(cjr, _FILE_AND_LINE_);
+		joinRequestsToMyClan.push_back(cjr);
 	}
 	PQclear(result);
 
@@ -4367,7 +4367,7 @@ bool MafiaNet::Clans_DownloadRequestList_PGSQL::ServerDBImpl(Lobby2ServerCommand
 		ClanJoinRequest cjr;
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.targetClan, result, i, "clanHandle");
 		PostgreSQLInterface::PQGetValueFromBinary(&cjr.dateSent, result, i, "creationDate");
-		joinRequestsFromMe.Insert(cjr, _FILE_AND_LINE_);
+		joinRequestsFromMe.push_back(cjr);
 	}
 	PQclear(result);
 
@@ -4459,10 +4459,10 @@ bool MafiaNet::Clans_KickAndBlacklistUser_PGSQL::ServerDBImpl(Lobby2ServerComman
 	}
 
 	// Subleader and leader notification
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -4545,10 +4545,10 @@ bool MafiaNet::Clans_UnblacklistUser_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 	PQclear(result);
 
 	// Subleader and leader notification
-	DataStructures::List<ClanMemberDescriptor> clanMembers;
+	std::vector<ClanMemberDescriptor> clanMembers;
 	GetClanMembers(clanId, clanMembers, pgsql);
 
-	for (unsigned int i = 0; i < clanMembers.Size(); i++)
+	for (unsigned int i = 0; i < clanMembers.size(); i++)
 	{
 		if (clanMembers[i].memberState != CMD_ACTIVE)
 			continue;
@@ -4601,7 +4601,7 @@ bool MafiaNet::Clans_GetBlacklist_PGSQL::ServerDBImpl(Lobby2ServerCommand *comma
 	for (int i = 0; i < PQntuples(result); i++)
 	{
 		PostgreSQLInterface::PQGetValueFromBinary(&memberName, result, i, "handle");
-		blacklistedUsers.Insert(memberName, _FILE_AND_LINE_);
+		blacklistedUsers.push_back(memberName);
 	}
 	PQclear(result);
 
@@ -4655,7 +4655,7 @@ bool MafiaNet::Clans_GetMembers_PGSQL::ServerDBImpl(Lobby2ServerCommand *command
 	for (int i = 0; i < PQntuples(result); i++)
 	{
 		PostgreSQLInterface::PQGetValueFromBinary(&memberName, result, i, "handle");
-		clanMembersOtherThanLeader.Insert(memberName, _FILE_AND_LINE_);
+		clanMembersOtherThanLeader.push_back(memberName);
 	}
 	PQclear(result);
 
@@ -4680,7 +4680,7 @@ bool MafiaNet::Clans_GetList_PGSQL::ServerDBImpl(Lobby2ServerCommand *command, v
 	for (int i = 0; i < PQntuples(result); i++)
 	{
 		PostgreSQLInterface::PQGetValueFromBinary(&clanName, result, i, "clanhandle");
-		clanNames.Insert(clanName, _FILE_AND_LINE_);
+		clanNames.push_back(clanName);
 	}
 	PQclear(result);
 
