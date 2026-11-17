@@ -27,6 +27,7 @@
 #include "mafianet/vector_util.h"
 
 #include <algorithm>
+#include <string>
 
 // Larger than the client version
 static const int DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME = 2000;
@@ -227,8 +228,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		outgoingBs.Write(targetGuid);
 		// Request in progress, not completed
 		unsigned short forwardingPort = 0;
-		RakString serverPublicIp;
-		outgoingBs.Write(serverPublicIp);
+		outgoingBs.Write(std::string{});
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 		delete fw;
@@ -357,23 +357,23 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 	sata.senderClientGuid = fw->sata.senderClientGuid;
 	sata.targetClientGuid = fw->sata.targetClientGuid;
 
-	RakString serverPublicIp;
-	incomingBs.Read(serverPublicIp);
+	// Forward the C-string prefix, as RakString serialization did for address text.
+	std::string serverPublicIp;
+	if (!incomingBs.Read(serverPublicIp))
+		return;
 
-	if (serverPublicIp.IsEmpty())
+	if (serverPublicIp.empty())
 	{
 		char serverIP[64];
 		packet->systemAddress.ToString(false, serverIP, static_cast<size_t>(64));
 		serverPublicIp = serverIP;
 	}
 
-	UDPForwarderResult success;
 	unsigned char c;
-	incomingBs.Read(c);
-	success = (UDPForwarderResult) c;
-
 	unsigned short forwardingPort;
-	incomingBs.Read(forwardingPort);
+	if (!incomingBs.Read(c) || !incomingBs.Read(forwardingPort))
+		return;
+	const auto success = static_cast<UDPForwarderResult>(c);
 
 	MafiaNet::BitStream outgoingBs;
 	if (success == UDPFORWARDER_SUCCESS)
@@ -383,7 +383,7 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		outgoingBs.Write(sata.senderClientAddress);
 		outgoingBs.Write(sata.targetClientAddress);
 		outgoingBs.Write(sata.targetClientGuid);
-		outgoingBs.Write(serverPublicIp);
+		outgoingBs.Write(serverPublicIp.c_str());
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, fw->requestingAddress, false);
 
@@ -393,7 +393,7 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		outgoingBs.Write(sata.senderClientAddress);
 		outgoingBs.Write(sata.targetClientAddress);
 		outgoingBs.Write(sata.targetClientGuid);
-		outgoingBs.Write(serverPublicIp);
+		outgoingBs.Write(serverPublicIp.c_str());
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, sata.targetClientAddress, false);
 
@@ -419,7 +419,7 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 		outgoingBs.Write(sata.senderClientAddress);
 		outgoingBs.Write(sata.targetClientAddress);
 		outgoingBs.Write(sata.targetClientGuid);
-		outgoingBs.Write(serverPublicIp);
+		outgoingBs.Write(serverPublicIp.c_str());
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, fw->requestingAddress, false);
 		forwardingRequestList.erase(forwardingRequestList.begin() + index);
