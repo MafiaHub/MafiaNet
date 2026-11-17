@@ -9,7 +9,6 @@
 
 # Source files (explicit list, no GLOB)
 set(MAFIANET_SOURCES
-    src/find_first.cpp
     src/base64_encoder.cpp
     src/bit_stream.cpp
     src/cc_sliding_window.cpp
@@ -119,7 +118,6 @@ set(MAFIANET_EXTRAS_SOURCES
 )
 
 set(MAFIANET_HEADERS
-    include/mafianet/find_first.h
     include/mafianet/assert.h
     include/mafianet/base64_encoder.h
     include/mafianet/bit_stream.h

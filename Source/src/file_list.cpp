@@ -21,18 +21,13 @@
 
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
 #include <vector>
-#include "mafianet/assert.h"
 #ifdef _WIN32
-// For mkdir
-#include <direct.h>
+#include "mafianet/windows_includes.h"
 #include <io.h>
-
-
 #else
-#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
-//#include "mafianet/dr_sha1.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/file_operations.h"
@@ -44,20 +39,16 @@
 
 #include <algorithm>
 #include <deque>
+#include <filesystem>
+#include <fstream>
+#include <limits>
+#include <string>
+#include <utility>
 
 #define MAX_FILENAME_LENGTH 512
 static const unsigned HASH_LENGTH = 4;
 
 using namespace MafiaNet;
-
-#if !defined(_WIN32)
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include "mafianet/find_first.h"
-#include <stdint.h> //defines intptr_t
-#endif
-
 
 //int RAK_DLL_EXPORT FileListNodeComp( char * const &key, const FileListNode &data )
 //{
@@ -198,163 +189,104 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 
 	fileList.push_back(n);
 }
+// Keep the caller's path spelling in callbacks and in the names stored by AddFile.
+static void EnsureDirectorySeparator(std::string &path)
+{
+	if (!path.empty() && !IsSlash(path.back()))
+		path += static_cast<char>(std::filesystem::path::preferred_separator);
+}
+
 void FileList::AddFilesFromDirectory(const char *applicationDirectory, const char *subDirectory, bool writeHash, bool writeData, bool recursive, FileListNodeContext context)
 {
-
-
-	std::deque<char *> dirList;
-	char root[260];
-	char fullPath[520];
-	_finddata_t fileInfo;
-	intptr_t dir;
-	FILE *fp;
-	char *dirSoFar, *fileData;
-	dirSoFar = (char *) std::malloc(520);
-	RakAssert(dirSoFar);
-
-	if (applicationDirectory)
-		strcpy_s(root, applicationDirectory);
-	else
-		root[0] = 0;
-
-	int rootLen = (int) strlen(root);
-	if (rootLen)
-	{
-		strcpy_s(dirSoFar, 520, root);
-		if (FixEndingSlash(dirSoFar, 520))
-			rootLen++;
-	}
-	else
-		dirSoFar[0] = 0;
-
+	namespace fs = std::filesystem;
+	std::string start = applicationDirectory ? applicationDirectory : "";
+	EnsureDirectorySeparator(start);
+	const size_t rootLength = start.size();
 	if (subDirectory)
 	{
-		strcat_s(dirSoFar, 520, subDirectory);
-		FixEndingSlash(dirSoFar, 520);
+		start += subDirectory;
+		EnsureDirectorySeparator(start);
 	}
-	for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
-		fileListProgressCallbacks[flpcIndex]->OnAddFilesFromDirectoryStarted(this, dirSoFar);
-	// RAKNET_DEBUG_PRINTF("Adding files from directory %s\n",dirSoFar);
-	dirList.push_back(dirSoFar);
+	for (size_t i = 0; i < fileListProgressCallbacks.size(); ++i)
+		fileListProgressCallbacks[i]->OnAddFilesFromDirectoryStarted(this, start.data());
+
+	std::deque<std::string> dirList;
+	dirList.push_back(std::move(start));
 	while (!dirList.empty())
 	{
-		dirSoFar = dirList.front();
+		std::string directory = std::move(dirList.front());
 		dirList.pop_front();
-		strcpy_s(fullPath, dirSoFar);
-		// Changed from *.* to * for Linux compatibility
-		strcat_s(fullPath, "*");
-
-
-		dir = _findfirst(fullPath, &fileInfo);
-		if (dir == -1)
-		{
-			_findclose(dir);
-			std::free(dirSoFar);
-			for (char *pending : dirList)
-				std::free(pending);
+		std::error_code ec;
+		fs::directory_iterator entry(directory.empty() ? "." : directory, ec);
+		if (ec)
 			return;
-		}
 
-		//		RAKNET_DEBUG_PRINTF("Adding %s. %i remaining.\n", fullPath, dirList.Size());
-		for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
-			fileListProgressCallbacks[flpcIndex]->OnDirectory(this, fullPath, static_cast<unsigned int>(dirList.size()));
+		std::string pattern = directory + "*";
+		for (size_t i = 0; i < fileListProgressCallbacks.size(); ++i)
+			fileListProgressCallbacks[i]->OnDirectory(this, pattern.data(), static_cast<unsigned int>(dirList.size()));
 
-		do
+		for (; entry != fs::directory_iterator(); entry.increment(ec))
 		{
-			// no guarantee these entries are first...
-			if (strcmp(".", fileInfo.name) == 0 ||
-			    strcmp("..", fileInfo.name) == 0)
+#ifdef _WIN32
+			// std::filesystem does not expose the hidden and system attributes.
+			const DWORD attributes = GetFileAttributesW(entry->path().c_str());
+			if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
+				continue;
+#endif
+			const fs::file_status status = entry->status(ec);
+			if (ec)
+				continue;
+			std::string name = entry->path().filename().string();
+			const std::string fullPath = directory + name;
+			if (fs::is_directory(status))
 			{
+				if (recursive)
+					dirList.push_back(fullPath + "/");
 				continue;
 			}
+			if (!fs::is_regular_file(status) || fullPath.size() - rootLength > MAX_FILENAME_LENGTH)
+				continue;
 
-			if ((fileInfo.attrib & (_A_HIDDEN | _A_SUBDIR | _A_SYSTEM)) == 0)
+			const auto size = entry->file_size(ec);
+			// FileList lengths are unsigned int and SuperFastHash accepts an int.
+			if (ec || size > std::numeric_limits<unsigned int>::max() || (writeHash && size > std::numeric_limits<int>::max()))
+				continue;
+			const auto fileSize = static_cast<unsigned int>(size);
+			const char *relativeName = fullPath.c_str() + rootLength;
+			for (size_t i = 0; i < fileListProgressCallbacks.size(); ++i)
+				fileListProgressCallbacks[i]->OnFile(this, directory.data(), name.data(), fileSize);
+
+			if (writeData)
 			{
-				strcpy_s(fullPath, dirSoFar);
-				strcat_s(fullPath, fileInfo.name);
-				fileData = 0;
+				std::ifstream input(entry->path(), std::ios::binary);
+				if (!input)
+					continue;
+				const unsigned int prefix = writeHash ? HASH_LENGTH : 0;
+				std::vector<char> data(prefix + fileSize);
+				if (fileSize && !input.read(data.data() + prefix, fileSize))
+					continue;
 
-				for (unsigned int flpcIndex = 0; flpcIndex < fileListProgressCallbacks.size(); flpcIndex++)
-					fileListProgressCallbacks[flpcIndex]->OnFile(this, dirSoFar, fileInfo.name, fileInfo.size);
-
-				if (writeData && writeHash)
+				if (writeHash)
 				{
-					if (fopen_s(&fp, fullPath, "rb") == 0)
-					{
-						fileData = (char *) std::malloc(fileInfo.size + HASH_LENGTH);
-						RakAssert(fileData);
-						const bool readOk = fileInfo.size == 0 || fread(fileData + HASH_LENGTH, fileInfo.size, 1, fp) == 1;
-						fclose(fp);
-
-						if (readOk)
-						{
-							unsigned int hash = SuperFastHash(fileData + HASH_LENGTH, fileInfo.size);
-							if (MafiaNet::BitStream::DoEndianSwap())
-								MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
-							memcpy(fileData, &hash, HASH_LENGTH);
-
-							//					sha1.Reset();
-							//					sha1.Update( ( unsigned char* ) fileData+HASH_LENGTH, fileInfo.size );
-							//					sha1.Final();
-							//					memcpy(fileData, sha1.GetHash(), HASH_LENGTH);
-							// File data and hash
-							AddFile((const char *) fullPath + rootLen, fullPath, fileData, fileInfo.size + HASH_LENGTH, fileInfo.size, context);
-						}
-					}
+					unsigned int hash = SuperFastHash(data.data() + prefix, static_cast<int>(fileSize));
+					if (BitStream::DoEndianSwap())
+						BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
+					memcpy(data.data(), &hash, HASH_LENGTH);
 				}
-				else if (writeHash)
-				{
-					//					sha1.Reset();
-					//					DR_SHA1.hashFile((char*)fullPath);
-					//					sha1.Final();
-
-					unsigned int hash = SuperFastHashFile(fullPath);
-					if (MafiaNet::BitStream::DoEndianSwap())
-						MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
-
-					// Hash only
-					//	AddFile((const char*)fullPath+rootLen, (const char*)sha1.GetHash(), HASH_LENGTH, fileInfo.size, context);
-					AddFile((const char *) fullPath + rootLen, fullPath, (const char *) &hash, HASH_LENGTH, fileInfo.size, context);
-				}
-				else if (writeData)
-				{
-					fileData = (char *) std::malloc(fileInfo.size);
-					RakAssert(fileData);
-					// Skip a file that cannot be opened or read in full, as the hash+data branch
-					// above does; fileData is freed below either way.
-					if (fopen_s(&fp, fullPath, "rb") == 0)
-					{
-						const bool readOk = fileInfo.size == 0 || fread(fileData, fileInfo.size, 1, fp) == 1;
-						fclose(fp);
-
-						// File data only
-						if (readOk)
-							AddFile(fullPath + rootLen, fullPath, fileData, fileInfo.size, fileInfo.size, context);
-					}
-				}
-				else
-				{
-					// Just the filename
-					AddFile(fullPath + rootLen, fullPath, 0, 0, fileInfo.size, context);
-				}
-
-				if (fileData)
-					std::free(fileData);
+				AddFile(relativeName, fullPath.c_str(), data.data(), prefix + fileSize, fileSize, context);
 			}
-			else if ((fileInfo.attrib & _A_SUBDIR) && (fileInfo.attrib & (_A_HIDDEN | _A_SYSTEM)) == 0 && recursive)
+			else if (writeHash)
 			{
-				char *newDir = (char *) std::malloc(520);
-				RakAssert(newDir);
-				strcpy_s(newDir, 520, dirSoFar);
-				strcat_s(newDir, 520, fileInfo.name);
-				strcat_s(newDir, 520, "/");
-				dirList.push_back(newDir);
+				unsigned int hash = SuperFastHashFile(fullPath.c_str());
+				if (BitStream::DoEndianSwap())
+					BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
+				AddFile(relativeName, fullPath.c_str(), (const char *) &hash, HASH_LENGTH, fileSize, context);
 			}
-
-		} while (_findnext(dir, &fileInfo) != -1);
-
-		_findclose(dir);
-		std::free(dirSoFar);
+			else
+			{
+				AddFile(relativeName, fullPath.c_str(), nullptr, 0, fileSize, context);
+			}
+		}
 	}
 }
 void FileList::Clear(void)

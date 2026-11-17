@@ -2,18 +2,15 @@
  * Copyright (c) 2026, MafiaHub
  * Licensed under MIT-style license
  *
- * FileList::AddFilesFromDirectory walks a directory tree through the _findfirst/_findnext
- * emulation. On Linux that walk never terminated: the emulation copied each entry name with a
- * count equal to the destination size, which the strncpy_s shim rejected after reading past the
- * end of dirent::d_name, so every name came back empty, the "." and ".." filter never matched,
- * and the walk recursed into "dir//" forever until the process ran out of memory. These tests
- * pin the shim's bounds and the walk's termination. Hermetic: a temp directory, no networking.
+ * Directory walks, progress notifications and file data use a local temporary tree.
  */
 
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
 #include "mafianet/file_list.h"
+#include "mafianet/file_operations.h"
+#include "mafianet/super_fast_hash.h"
 #include "mafianet/file_list_transfer.h"
 #include "mafianet/file_list_node_context.h"
 #include "mafianet/linux_adapter.h"
@@ -115,6 +112,36 @@ TEST(FileListDirectory, WriteDataReadsContentsIncludingAnEmptyFile)
 	}
 }
 
+TEST(FileListDirectory, SubdirectoryKeepsItsPrefixAndStoresHashBeforeData)
+{
+	TempTree tree;
+	FileList list;
+	list.AddFilesFromDirectory(tree.root.string().c_str(), "sub/", true, true, false, FileListNodeContext(0, 0, 0, 0));
+
+	ASSERT_EQ(list.fileList.size(), 1u);
+	const auto &node = list.fileList.front();
+	EXPECT_EQ(node.filename, "sub/b.bin");
+	EXPECT_EQ(std::filesystem::path(node.fullPathToFile.C_String()), tree.root / "sub" / "b.bin");
+	EXPECT_EQ(node.fileLengthBytes, 20u);
+	ASSERT_EQ(node.dataLengthBytes, 24u);
+	ASSERT_NE(node.data, nullptr);
+	unsigned int hash = SuperFastHashFile((tree.root / "sub" / "b.bin").string().c_str());
+	if (BitStream::DoEndianSwap())
+		BitStream::ReverseBytesInPlace(reinterpret_cast<unsigned char *>(&hash), sizeof(hash));
+	EXPECT_EQ(std::memcmp(node.data, &hash, sizeof(hash)), 0);
+	EXPECT_EQ(std::string(node.data + sizeof(hash), node.fileLengthBytes), std::string(20, 'x'));
+}
+
+TEST(FileListDirectory, DirectoryExistsRecognizesEmptyDirectories)
+{
+	TempTree tree;
+	const auto empty = tree.root / "empty";
+	std::filesystem::create_directory(empty);
+	EXPECT_TRUE(DirectoryExists(empty.string().c_str()));
+	EXPECT_FALSE(DirectoryExists((tree.root / "a.bin").string().c_str()));
+	EXPECT_FALSE(DirectoryExists((tree.root / "missing").string().c_str()));
+}
+
 TEST(FileListDirectory, PopulateDataFromDiskReadsEveryFile)
 {
 	TempTree tree;
@@ -210,9 +237,22 @@ TEST(FileListDirectory, FileListTransferGetCallbacksFillsAStdVector)
 	EXPECT_EQ(callbacks, (std::vector<FileListProgress *>{&second}));
 }
 
+TEST(FileListDirectory, MissingDirectoryProducesNoDirectoryNotification)
+{
+	TempTree tree;
+	FileList list;
+	RecordingProgress progress;
+	list.AddCallback(&progress);
+	list.AddFilesFromDirectory(tree.root.string().c_str(), "missing", false, false, true, FileListNodeContext(0, 0, 0, 0));
+
+	EXPECT_TRUE(progress.directories.empty());
+	EXPECT_TRUE(list.fileList.empty());
+}
+
 TEST(FileListDirectory, WalkReportsEachDirectoryWithTheQueueLength)
 {
 	TempTree tree;
+	std::filesystem::create_directories(tree.root / "other" / "child");
 	const std::string dir = tree.root.string() + "/";
 
 	FileList list;
@@ -220,13 +260,14 @@ TEST(FileListDirectory, WalkReportsEachDirectoryWithTheQueueLength)
 	list.AddCallback(&progress);
 	list.AddFilesFromDirectory(dir.c_str(), nullptr, false, false, true, FileListNodeContext(0, 0, 0, 0));
 
-	// Breadth first: the root, then sub (queued by the root), then deeper (queued by sub). The
-	// queue is empty each time a directory is taken from it.
-	ASSERT_EQ(progress.directories.size(), 3u);
+	// Siblings may be enumerated in either order. Both must be reported before their children.
+	ASSERT_EQ(progress.directories.size(), 5u);
 	EXPECT_EQ(progress.directories[0], dir + "*");
-	EXPECT_EQ(progress.directories[1], dir + "sub/*");
-	EXPECT_EQ(progress.directories[2], dir + "sub/deeper/*");
-	EXPECT_EQ(progress.remaining, (std::vector<unsigned int>{0, 0, 0}));
+	EXPECT_EQ((std::set<std::string>{progress.directories[1], progress.directories[2]}),
+	          (std::set<std::string>{dir + "sub/*", dir + "other/*"}));
+	EXPECT_EQ((std::set<std::string>{progress.directories[3], progress.directories[4]}),
+	          (std::set<std::string>{dir + "sub/deeper/*", dir + "other/child/*"}));
+	EXPECT_EQ(progress.remaining, (std::vector<unsigned int>{0, 1, 1, 1, 0}));
 }
 
 TEST(FileListDirectory, AddFileKeepsInsertionOrderAndMovesAReplacedFileToTheEnd)
