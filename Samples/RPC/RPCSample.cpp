@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/rpc4_plugin.h"
+#include "mafianet/remote_procedure_call.h"
 #include "mafianet/peer_interface.h"
 #include <stdio.h>
 #include "mafianet/kbhit.h"
@@ -70,7 +70,7 @@ void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Pac
 
 int main(void)
 {
-	printf("Demonstration of the RPC4 plugin.\n");
+	printf("Demonstration of built-in RPC.\n");
 	printf("Difficulty: Beginner\n\n");
 
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
@@ -98,8 +98,7 @@ int main(void)
 	Gets(ip, sizeof(ip));
 	rakPeer->AllowConnectionResponseIPMigration(false);
 
-	RPC4 rpc;
-	rakPeer->AttachPlugin(&rpc);
+	RPC &rpc = rakPeer->GetRPC();
 	rpc.RegisterSlot("Event1", CFunc1, nullptr, 0);
 	rpc.RegisterSlot("Event1", CFunc2, nullptr, 0);
 	rpc.RegisterBlockingFunction("Blocking", CFunc3, nullptr);
@@ -127,7 +126,7 @@ int main(void)
 		//	rpc.Signal("Event1", &testBs, MafiaNet::Priority::High,MafiaNet::Reliability::ReliableOrdered,0,rakPeer->GetSystemAddressFromIndex(0),false, true);
 
 		RakSleep(100);
-		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), rakPeer->Receive())
+		for (packet = rakPeer->Receive(); packet; rakPeer->DeallocatePacket(packet), packet = rakPeer->Receive())
 			;
 
 		// Needs 2 program instances, because while the call is blocking rakPeer2->Receive() isn't getting called

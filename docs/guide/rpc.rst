@@ -1,9 +1,22 @@
-RPC4 Plugin
-===========
+Remote Procedure Calls
+======================
 
-The RPC4 plugin provides remote procedure call functionality, allowing you to invoke
-functions on remote systems as if they were local. This is a simplified version of
-the RPC system that uses string-based function identifiers.
+Every UDP peer owns one :cpp:class:`MafiaNet::RPC`. Access it with
+``peer->GetRPC()`` before or after startup. Its registrations last for the
+lifetime of the peer, including across shutdown and restart. Incoming RPCs
+run on the thread calling ``Receive()``, after attached message filters.
+
+Migrating from RPC4
+-------------------
+
+Include ``mafianet/remote_procedure_call.h`` and replace the RPC4 instance, attachment and
+destruction with a reference from ``GetRPC()``. Rename global registrations
+to ``RPCGlobalRegistration`` and filter rules to ``MessageFilter::SetAllowRPC``.
+Remove ``RPC4Plugin`` from ``MAFIANET_DISABLED_FEATURES``. Calls, signals,
+returns and errors retain their protocol 10 wire encoding.
+
+TCP endpoints enable RPC when the application first calls ``GetRPC()``.
+Use ``PacketizedTCP`` for framed remote calls. Blocking calls require a UDP peer.
 
 Basic Usage
 -----------
@@ -12,18 +25,17 @@ Basic Usage
 
 .. code-block:: cpp
 
-   #include "mafianet/rpc4_plugin.h"
+   #include "mafianet/remote_procedure_call.h"
 
    void MyCallback(MafiaNet::BitStream* parameters, MafiaNet::Packet* packet, void* context) {
        int value;
-       parameters->Read(value);
+       if (!parameters->Read(value))
+           return;
        printf("Received value: %d from %s\n", value,
               packet->systemAddress.ToString());
    }
 
-   // Create and attach the plugin
-   MafiaNet::RPC4 rpc;
-   peer->AttachPlugin(&rpc);
+   MafiaNet::RPC &rpc = peer->GetRPC();
 
    // Register a function (pass nullptr when no context is needed)
    rpc.RegisterFunction("MyFunction", MyCallback, nullptr);
@@ -54,7 +66,7 @@ to without resorting to a file-static global pointer:
 
    class ChatBox {
    public:
-       void Attach(MafiaNet::RPC4* rpc) {
+       void Attach(MafiaNet::RPC* rpc) {
            // Bind this instance as the context for the handler
            rpc->RegisterSlot("Chat", &ChatBox::OnChat, this, 0);
        }
@@ -70,20 +82,20 @@ to without resorting to a file-static global pointer:
 
 Each registration carries its own context, so the **same** handler may be
 registered under **one** identifier for several object instances. The context
-is **not owned** by RPC4 — keep it valid until the function or slot is
+is **not owned** by RPC — keep it valid until the function or slot is
 unregistered. Pass ``nullptr`` when a handler needs no context.
 
 .. note::
 
    ``RegisterFunction``, ``RegisterSlot``, ``RegisterBlockingFunction`` and the
-   ``RPC4GlobalRegistration`` handler constructors all take the context
+   ``RPCGlobalRegistration`` handler constructors all take the context
    parameter, and every handler signature ends with ``void* context``.
 
 Key Features
 ------------
 
 * String-based function registration and invocation
-* Automatic parameter serialization via BitStream
+* Caller-defined parameter encoding via BitStream
 * Per-registration user context passed back to every handler
 * Support for blocking calls with return values
 * Broadcast to all or specific remote systems
@@ -102,11 +114,11 @@ Configuration Options
 Ordering Channel
 ----------------
 
-``Call()``, ``CallBlocking()`` and ``Signal()`` take the ordering channel as an argument and pass it to ``RakPeerInterface::Send()``. Give reliable RPCs a channel of their own rather than the one that carries a sequenced stream: a lost ``ReliableOrdered`` RPC holds back every later sequenced message on its channel until it is retransmitted. RPCs that name objects created through :doc:`replica-manager-3` should share that manager's default channel, so an RPC cannot arrive before the object it refers to. See :ref:`ordering-channels`.
+``Call()``, ``CallBlocking()`` and ``Signal()`` take the ordering channel as an argument and pass it to ``RakPeerInterface::Send()``. Give reliable RPCs a channel of their own rather than the one that carries a sequenced stream: a lost ``ReliableOrdered`` RPC holds back every later sequenced message on its channel until it is retransmitted. RPCs that name objects created through :doc:`../plugins/replica-manager-3` should share that manager's default channel, so an RPC cannot arrive before the object it refers to. See :ref:`ordering-channels`.
 
 See Also
 --------
 
 * :doc:`../guide/concepts` - Core networking concepts
 * :doc:`../basics/bitstreams` - Parameter serialization
-* :doc:`fully-connected-mesh-2` - P2P mesh networking with RPC
+* :doc:`../plugins/fully-connected-mesh-2` - P2P mesh networking with RPC

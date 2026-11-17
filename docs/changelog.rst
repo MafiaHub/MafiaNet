@@ -6,9 +6,15 @@ All notable changes to MafiaNet are documented here.
 Unreleased — breaking
 ---------------------
 
+**Built-in RPC**
+
+* Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.
+  The peer owns the service and runs message filters before RPC handlers.
+  See :doc:`guide/rpc` for the migration from RPC4. The wire format is unchanged.
+
 **Removed extensions**
 
-* RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`plugins/rpc4` and serialize their arguments into a bit stream.
+* RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`guide/rpc` and serialize their arguments into a bit stream.
 * The SQLite client, server and logging adapters have been removed.
 * CloudClient and CloudServer, including their samples and public headers, have been removed. Remove their names from ``MAFIANET_DISABLED_FEATURES``.
 * The former SQLite and cloud message ID ranges are reserved. This removal preserves the protocol 10 wire values.

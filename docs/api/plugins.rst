@@ -83,13 +83,6 @@ TeamManager
 Utility Plugins
 ---------------
 
-RPC4Plugin
-~~~~~~~~~~
-
-.. doxygenclass:: MafiaNet::RPC4
-   :members:
-   :undoc-members:
-
 MessageFilter
 ~~~~~~~~~~~~~
 

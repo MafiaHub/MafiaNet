@@ -41,7 +41,6 @@ Available Plugins
 
 **Utility Plugins**
 
-* ``RPC4Plugin`` - Remote procedure calls
 * ``MessageFilter`` - Filter messages by type
 * ``PacketLogger`` - Log all network traffic
 * ``TwoWayAuthentication`` - Secure authentication
@@ -74,30 +73,6 @@ The ``ReplicaManager3`` plugin handles object replication:
            params->serializationBitstream[0].Read(rotation);
        }
    };
-
-RPC4Plugin
-----------
-
-Call functions on remote peers:
-
-.. code-block:: cpp
-
-   #include "mafianet/rpc4_plugin.h"
-
-   MafiaNet::RPC4* rpc = MafiaNet::RPC4::GetInstance();
-   peer->AttachPlugin(rpc);
-
-   // Register a function. The trailing pointer is an opaque user context
-   // passed back to the handler on every call (here: nullptr, none needed).
-   // SpawnPlayerCallback's signature ends with `void* context`.
-   rpc->RegisterSlot("SpawnPlayer", SpawnPlayerCallback, nullptr, 0);
-
-   // Call remotely
-   MafiaNet::BitStream bs;
-   bs.Write(playerId);
-   bs.Write(spawnPosition);
-   rpc->Signal("SpawnPlayer", &bs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0,
-               targetAddress, false, false);
 
 Creating Custom Plugins
 -----------------------

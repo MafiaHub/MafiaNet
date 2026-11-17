@@ -77,7 +77,7 @@ set(MAFIANET_SOURCES
     src/reliability_layer.cpp
     src/replica_manager3.cpp
     src/router2.cpp
-    src/rpc4_plugin.cpp
+    src/rpc.cpp
     src/send_to_thread.cpp
     src/session_crypto.cpp
     src/signaled_event.cpp
@@ -213,7 +213,7 @@ set(MAFIANET_HEADERS
     include/mafianet/replica_enums.h
     include/mafianet/replica_manager3.h
     include/mafianet/router2.h
-    include/mafianet/rpc4_plugin.h
+    include/mafianet/remote_procedure_call.h
     include/mafianet/send_to_thread.h
     include/mafianet/session_crypto.h
     include/mafianet/signaled_event.h
@@ -299,7 +299,6 @@ set(MAFIANET_OPTIONAL_FEATURES
     RelayPlugin
     ReplicaManager3
     Router2
-    RPC4Plugin
     StatisticsHistory
     TCPInterface
     TeamBalancer

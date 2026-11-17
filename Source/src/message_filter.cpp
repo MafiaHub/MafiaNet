@@ -78,21 +78,21 @@ void MessageFilter::SetAllowMessageID(bool allow, int messageIDStart, int messag
 	for (i = messageIDStart; i <= messageIDEnd; ++i)
 		filterSet->allowedIDs[i] = allow;
 }
-void MessageFilter::SetAllowRPC4(bool allow, const char *uniqueID, int filterSetID)
+void MessageFilter::SetAllowRPC(bool allow, const char *uniqueID, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
-	// Verbatim, as RPC4 stores it: RakString(const char *) would treat uniqueID as a printf format.
+	// Verbatim, as RPC stores it: RakString(const char *) would treat uniqueID as a printf format.
 	MafiaNet::RakString name;
 	name = uniqueID;
 	if (allow)
 	{
-		if (filterSet->allowedRPC4.insert(name).second)
-			filterSet->allowedIDs[ID_RPC_PLUGIN] = true;
+		if (filterSet->allowedRPC.insert(name).second)
+			filterSet->allowedIDs[ID_RPC] = true;
 	}
 	else
 	{
-		if (filterSet->allowedRPC4.erase(name) != 0 && filterSet->allowedRPC4.empty())
-			filterSet->allowedIDs[ID_RPC_PLUGIN] = false;
+		if (filterSet->allowedRPC.erase(name) != 0 && filterSet->allowedRPC.empty())
+			filterSet->allowedIDs[ID_RPC] = false;
 	}
 }
 void MessageFilter::SetActionOnDisallowedMessage(bool kickOnDisallowed, bool banOnDisallowed, MafiaNet::TimeMS banTimeMS, int filterSetID)
@@ -388,13 +388,12 @@ PluginReceiveResult MessageFilter::OnReceive(Packet *packet)
 			OnInvalidMessage(filter, packet, packet->data[0]);
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}
-		if (packet->data[0] == ID_RPC_PLUGIN)
+		if (packet->data[0] == ID_RPC)
 		{
 			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(2);
 			MafiaNet::RakString functionName;
-			bsIn.ReadCompressed(functionName);
-			if (filter->allowedRPC4.count(functionName) == 0)
+			if (packet->length < 2 || !bsIn.ReadCompressed(functionName) || filter->allowedRPC.count(functionName) == 0)
 			{
 				OnInvalidMessage(filter, packet, packet->data[0]);
 				return RR_STOP_PROCESSING_AND_DEALLOCATE;

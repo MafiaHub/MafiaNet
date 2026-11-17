@@ -181,7 +181,7 @@ Packet *PacketizedTCP::Receive(void)
 	while (incomingPacket)
 	{
 		const auto connection = connections.find(incomingPacket->systemAddress);
-		if (connection == connections.end())
+		if (connection == connections.end() && (incomingPacket->deleteData || incomingPacket->systemAddress != UNASSIGNED_SYSTEM_ADDRESS))
 		{
 			DeallocatePacket(incomingPacket);
 			incomingPacket = TCPInterface::ReceiveInt();
@@ -316,6 +316,7 @@ Packet *PacketizedTCP::ReturnOutgoingPacket(void)
 				break;
 			}
 		}
+		outgoingPacket = DispatchRPC(outgoingPacket);
 	}
 
 	return outgoingPacket;

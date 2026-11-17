@@ -58,10 +58,10 @@ Configure build options with CMake:
      - Build ``MafiaNetExtras`` (SMTP, HTTP client, telnet/console transports). Forced ON by ``MAFIANET_BUILD_SAMPLES``. See `The extras library`_.
    * - ``MAFIANET_DISABLED_FEATURES``
      - (empty)
-     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;RPC4Plugin"``. See `Minimal builds`_.
+     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;TeamManager"``. See `Minimal builds`_.
    * - ``MAFIANET_MINIMAL``
      - OFF
-     - Compile out every optional plugin, leaving the core transport only. See `Minimal builds`_.
+     - Compile out every optional plugin, including the built-in RPC service in the core. See `Minimal builds`_.
    * - ``MAFIANET_SANITIZER``
      - (empty)
      - Clang/GCC sanitizers, ``+``-separated: ``address+undefined`` or ``thread``. Applied to every target, dependencies included. See `Sanitizers`_.
@@ -93,11 +93,11 @@ Example with options:
 Minimal builds
 --------------
 
-Every optional plugin in the core library (``ReplicaManager3``, ``RPC4Plugin``,
+Every optional plugin in the core library (``ReplicaManager3``,
 ``FileListTransfer``, the NAT traversal plugins, ``TCPInterface`` and its
 users, and so on) is guarded by a ``_RAKNET_SUPPORT_<Name>`` flag declared in
 ``mafianet/native_feature_includes.h``. The transport itself, ``BitStream``,
-``RakPeer``, the reliability layer and ``RakVoice`` are always built.
+``RakPeer``, the reliability layer, ``RPC`` and ``RakVoice`` are always built.
 
 The supported way to compile plugins out is through CMake, not by editing the
 header:
@@ -105,9 +105,9 @@ header:
 .. code-block:: bash
 
    # Drop specific plugins
-   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;RPC4Plugin;TeamManager"
+   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;TeamManager"
 
-   # Core transport only: every optional plugin compiled out
+   # Core transport and RPC, with every optional plugin compiled out
    cmake -B build -DMAFIANET_MINIMAL=ON
 
 The names accepted by ``MAFIANET_DISABLED_FEATURES`` are listed in

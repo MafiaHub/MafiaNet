@@ -42,7 +42,6 @@ Available Plugins
 - :doc:`replica-manager-3` - Object replication
 - :doc:`ready-event` - Synchronize ready states
 - :doc:`team-manager` - Team management
-- :doc:`rpc4` - Remote procedure calls
 
 **Utilities**
 

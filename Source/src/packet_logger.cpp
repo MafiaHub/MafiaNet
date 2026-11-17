@@ -362,7 +362,7 @@ const char *PacketLogger::BaseIDTOString(unsigned char Id)
 	        "ID_READY_EVENT_QUERY",
 	        "ID_LOBBY_GENERAL",
 	        "ID_RPC_REMOTE_ERROR",
-	        "ID_RPC_PLUGIN",
+	        "ID_RPC",
 	        "ID_FILE_LIST_REFERENCE_PUSH",
 	        "ID_READY_EVENT_FORCE_ALL_SET",
 	        "ID_ROOMS_EXECUTE_FUNC",

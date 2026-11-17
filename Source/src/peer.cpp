@@ -390,6 +390,12 @@ RakPeer::~RakPeer()
 	// 		pluginListNTS[i]->SetRakPeerInterface(0);
 }
 
+RPC &RakPeer::GetRPC()
+{
+	rpc.RegisterGlobals();
+	return rpc;
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // \brief Starts the network threads, opens the listen port.
 // You must call this before calling Connect().
@@ -689,6 +695,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 #endif // RAKPEER_USER_THREADED!=1
 	}
 
+	rpc.RegisterGlobals();
 	for (i = 0; i < pluginListTS.size(); i++)
 	{
 		pluginListTS[i]->OnRakPeerStartup();
@@ -1583,7 +1590,7 @@ Packet *RakPeer::Receive(void)
 			}
 		}
 
-		for (i = 0; i < pluginListNTS.size(); i++)
+		for (i = 0; packet && i < pluginListNTS.size(); i++)
 		{
 			pluginResult = pluginListNTS[i]->OnReceive(packet);
 			if (shutdownGeneration != generation)
@@ -1605,6 +1612,17 @@ Packet *RakPeer::Receive(void)
 			}
 		}
 
+		if (packet)
+		{
+			const bool consumed = rpc.ProcessPacket(packet);
+			if (consumed || shutdownGeneration != generation)
+			{
+				DeallocatePacket(packet);
+				packet = nullptr;
+			}
+			if (shutdownGeneration != generation)
+				return nullptr;
+		}
 	} while (packet == 0);
 
 #ifdef _DEBUG

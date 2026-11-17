@@ -589,6 +589,22 @@ bool TCPInterface::ReceiveHasPackets(void)
 {
 	return !headPush.empty() || incomingMessages.IsEmpty() == false || !tailPush.empty();
 }
+RPC &TCPInterface::GetRPC()
+{
+	if (!rpc)
+		rpc.reset(new RPC(*this));
+	rpc->RegisterGlobals();
+	return *rpc;
+}
+Packet *TCPInterface::DispatchRPC(Packet *packet)
+{
+	if (packet && packet->length && rpc && rpc->ProcessPacket(packet))
+	{
+		DeallocatePacket(packet);
+		return nullptr;
+	}
+	return packet;
+}
 Packet *TCPInterface::Receive(void)
 {
 	unsigned int i;
@@ -618,7 +634,7 @@ Packet *TCPInterface::Receive(void)
 	}
 
 
-	return outgoingPacket;
+	return DispatchRPC(outgoingPacket);
 }
 Packet *TCPInterface::ReceiveInt(void)
 {

@@ -59,7 +59,7 @@ struct FilterSet
 	void *timeoutUserData;
 	int filterSetID;
 	bool allowedIDs[MESSAGE_FILTER_MAX_MESSAGE_ID];
-	std::set<MafiaNet::RakString> allowedRPC4;
+	std::set<MafiaNet::RakString> allowedRPC;
 };
 
 /// \internal Has to be public so some of the shittier compilers can use it.
@@ -128,11 +128,11 @@ public:
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
 	void SetAllowMessageID(bool allow, int messageIDStart, int messageIDEnd, int filterSetID);
 
-	/// Allow a specific RPC4 call
-	/// \pre MessageFilter must be attached before RPC4
+	/// Allow a specific RPC call
+	/// \pre MessageFilter runs before built-in RPC dispatch.
 	/// \param[in] uniqueID Identifier passed to RegisterFunction()
 	/// \param[in] filterSetID A user defined ID to represent a filter set.  If no filter with this ID exists, one will be created with default settings.
-	void SetAllowRPC4(bool allow, const char *uniqueID, int filterSetID);
+	void SetAllowRPC(bool allow, const char *uniqueID, int filterSetID);
 
 	/// What action to take on a disallowed message.  You can kick or not.  You can add them to the ban list for some time
 	/// By default no action is taken.  The message is simply ignored.
