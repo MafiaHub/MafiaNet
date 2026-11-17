@@ -20,6 +20,7 @@
 #ifndef __THREADSAFE_ALLOCATING_QUEUE
 #define __THREADSAFE_ALLOCATING_QUEUE
 
+#include <new>
 #include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/ds_memory_pool.h"

@@ -16,7 +16,6 @@
 #include "mafianet/socket2.h"
 #include "mafianet/mmsg_batch.h"
 #include "mafianet/sockaddr_convert.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 #include "mafianet/sleep.h"
 #include "mafianet/socket_defines.h"
@@ -108,7 +107,7 @@ bool MafiaNet::RNS2_IsDatagramTooLargeError(int err)
 
 void RakNetSocket2Allocator::DeallocRNS2(RakNetSocket2 *s)
 {
-	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
+	delete s;
 }
 RakNetSocket2::RakNetSocket2()
     : eventHandler(0)
@@ -179,10 +178,10 @@ RakNetSocket2 *RakNetSocket2Allocator::AllocRNS2(void)
 {
 	RakNetSocket2 *s2;
 #if defined(_WIN32)
-	s2 = MafiaNet::OP_NEW<RNS2_Windows>(_FILE_AND_LINE_);
+	s2 = new RNS2_Windows;
 	s2->SetSocketType(RNS2T_WINDOWS);
 #else
-	s2 = MafiaNet::OP_NEW<RNS2_Linux>(_FILE_AND_LINE_);
+	s2 = new RNS2_Linux;
 	s2->SetSocketType(RNS2T_LINUX);
 #endif
 	return s2;

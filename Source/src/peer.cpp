@@ -20,6 +20,7 @@
 #define CAT_NEUTER_EXPORT /* Neuter dllimport for libcat */
 
 #include "mafianet/defines.h"
+#include <cstdlib>
 #include "mafianet/peer.h"
 #include "mafianet/connect_candidates.h"
 #include "mafianet/session_admission.h"
@@ -44,6 +45,7 @@
 #include <atomic>
 #include <chrono>
 #include <random>
+#include <vector>
 #include "mafianet/message_identifiers.h"
 #include "mafianet/mtu_black_hole.h"
 #include "mafianet/ds_huffman_encoding_tree.h"
@@ -61,7 +63,6 @@
 #include "mafianet/get_time_of_day.h"
 #include "mafianet/signaled_event.h"
 #include "mafianet/super_fast_hash.h"
-#include "mafianet/alloca.h"
 #include "mafianet/wsa_startup_singleton.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
@@ -89,7 +90,6 @@ RAK_THREAD_DECLARATION(UDTConnect);
 //
 #else
 /*
-#include <alloca.h> // Console 2
 #include <stdlib.h>
 extern bool _extern_Console2LoadModules(void);
 extern int _extern_Console2GetConnectionStatus(void);
@@ -263,7 +263,7 @@ struct PacketFollowedByData
 Packet *RakPeer::AllocPacket(unsigned dataSize, const char *file, unsigned int line)
 {
 	// Crashes when dataSize is 4 bytes - not sure why
-	// 	unsigned char *data = (unsigned char *) rakMalloc_Ex(sizeof(PacketFollowedByData)+dataSize, file, line);
+	// 	unsigned char *data = (unsigned char *) std::malloc(sizeof(PacketFollowedByData)+dataSize);
 	// 	Packet *p = &((PacketFollowedByData *)data)->p;
 	// 	p->data=((PacketFollowedByData *)data)->data;
 	// 	p->length=dataSize;
@@ -278,7 +278,7 @@ Packet *RakPeer::AllocPacket(unsigned dataSize, const char *file, unsigned int l
 	++packetsOutstanding;
 	packetAllocationPoolMutex.Unlock();
 	p = new ((void *) p) Packet;
-	p->data = (unsigned char *) rakMalloc_Ex(dataSize, file, line);
+	p->data = (unsigned char *) std::malloc(dataSize);
 	p->length = dataSize;
 	p->bitSize = BYTES_TO_BITS(dataSize);
 	p->deleteData = true;
@@ -289,7 +289,7 @@ Packet *RakPeer::AllocPacket(unsigned dataSize, const char *file, unsigned int l
 
 Packet *RakPeer::AllocPacket(unsigned dataSize, unsigned char *data, const char *file, unsigned int line)
 {
-	// Packet *p = (Packet *)rakMalloc_Ex(sizeof(Packet), file, line);
+	// Packet *p = (Packet *)std::malloc(sizeof(Packet));
 	MafiaNet::Packet *p;
 	packetAllocationPoolMutex.Lock();
 	p = packetAllocationPool.Allocate(file, line);
@@ -384,6 +384,7 @@ RakPeer::RakPeer()
 	shutdownGeneration = 0;
 
 	remoteSystemIndexPool.SetPageSize(sizeof(DataStructures::MemoryPool<RemoteSystemIndex>::MemoryWithPage) * 32);
+	liveRemoteSystemIndexEntries = 0;
 
 
 	GenerateGUID();
@@ -600,12 +601,12 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 		//remoteSystemListSize = maxConnections;// * 11 / 10 + 1;
 
 		// remoteSystemList in Single thread
-		//remoteSystemList = MafiaNet::OP_NEW<RemoteSystemStruct[ remoteSystemListSize ]>( _FILE_AND_LINE_ );
-		remoteSystemList = MafiaNet::OP_NEW_ARRAY<RemoteSystemStruct>(maximumNumberOfPeers, _FILE_AND_LINE_);
+		//remoteSystemList = new RemoteSystemStruct[ remoteSystemListSize ];
+		remoteSystemList = new RemoteSystemStruct[maximumNumberOfPeers];
 
-		remoteSystemLookup = MafiaNet::OP_NEW_ARRAY<RemoteSystemIndex *>((unsigned int) maximumNumberOfPeers * REMOTE_SYSTEM_LOOKUP_HASH_MULTIPLE, _FILE_AND_LINE_);
+		remoteSystemLookup = new RemoteSystemIndex *[(unsigned int) maximumNumberOfPeers * REMOTE_SYSTEM_LOOKUP_HASH_MULTIPLE];
 
-		activeSystemList = MafiaNet::OP_NEW_ARRAY<RemoteSystemStruct *>(maximumNumberOfPeers, _FILE_AND_LINE_);
+		activeSystemList = new RemoteSystemStruct *[maximumNumberOfPeers];
 
 		for (i = 0; i < maximumNumberOfPeers; i++)
 		//for ( i = 0; i < remoteSystemListSize; i++ )
@@ -619,7 +620,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			remoteSystemList[i].connectMode = RemoteSystemStruct::NO_ACTION;
 			remoteSystemList[i].MTUSize = defaultMTUSize;
 			remoteSystemList[i].remoteSystemIndex = (SystemIndex) i;
-			// One-time zero-init: the array is OP_NEW_ARRAY allocated with no member init, so prime the
+			// One-time zero-init: the array is new[] allocated with no member init, so prime the
 			// reason-payload fields here before ClearDisconnectReason() can ever free them.
 			remoteSystemList[i].disconnectReasonData = 0;
 			remoteSystemList[i].disconnectReasonLength = 0;
@@ -682,7 +683,7 @@ StartupResult RakPeer::Startup(unsigned int maxConnections, SocketDescriptor *so
 			/*
 			for (i=0; i<socketDescriptorCount; i++)
 			{
-				RakPeerAndIndex *rpai = MafiaNet::OP_NEW<RakPeerAndIndex>(_FILE_AND_LINE_);
+				RakPeerAndIndex *rpai = new RakPeerAndIndex;
 				rpai->s=socketList[i];
 				rpai->rakPeer=this;
 
@@ -845,6 +846,11 @@ bool RakPeer::GetPendingHandshakeNonceForTesting(const SystemAddress &remote, ui
 uint64_t RakPeer::GetServerKeyExchangeCountForTesting() const
 {
 	return serverKeyExchangeCount;
+}
+
+unsigned int RakPeer::GetLiveRemoteSystemIndexEntriesForTesting() const
+{
+	return liveRemoteSystemIndexEntries;
 }
 
 bool RakPeer::GetSessionKeysForTesting(const SystemAddress &remote, SessionKeys *out) const
@@ -1198,8 +1204,8 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 	// Clear out the reliability layer list in case we want to reallocate it in a successive call to Init.
 	RemoteSystemStruct *temp = remoteSystemList;
 	remoteSystemList = 0;
-	MafiaNet::OP_DELETE_ARRAY(temp, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(activeSystemList, _FILE_AND_LINE_);
+	delete[] temp;
+	delete[] activeSystemList;
 	activeSystemList = 0;
 
 	ClearRemoteSystemLookup();
@@ -1648,7 +1654,7 @@ void RakPeer::DeallocatePacket(Packet *packet)
 
 	if (packet->deleteData)
 	{
-		rakFree_Ex(packet->data, _FILE_AND_LINE_);
+		std::free(packet->data);
 		packet->~Packet();
 		packetAllocationPoolMutex.Lock();
 		packetAllocationPool.Release(packet, _FILE_AND_LINE_);
@@ -1657,7 +1663,7 @@ void RakPeer::DeallocatePacket(Packet *packet)
 	}
 	else
 	{
-		rakFree_Ex(packet, _FILE_AND_LINE_);
+		std::free(packet);
 	}
 }
 
@@ -1773,17 +1779,17 @@ void RakPeer::DeleteRequestedConnection(RequestedConnectionStruct *rcs)
 {
 	if (rcs->data)
 	{
-		rakFree_Ex(rcs->data, _FILE_AND_LINE_);
+		std::free(rcs->data);
 		rcs->data = 0;
 	}
 	if (rcs->ephemeral)
 	{
 		// The destructor wipes too; wiping first keeps the secret's lifetime obvious.
 		rcs->ephemeral->Wipe();
-		MafiaNet::OP_DELETE(rcs->ephemeral, _FILE_AND_LINE_);
+		delete rcs->ephemeral;
 		rcs->ephemeral = nullptr;
 	}
-	MafiaNet::OP_DELETE(rcs, _FILE_AND_LINE_);
+	delete rcs;
 }
 
 void RakPeer::RemoveRequestedConnection_NoLock(const RequestedConnectionStruct *rcs)
@@ -2066,8 +2072,8 @@ void RakPeer::AddToBanList(const char *IP, MafiaNet::TimeMS milliseconds)
 
 	banListMutex.Unlock();
 
-	BanStruct *banStruct = MafiaNet::OP_NEW<BanStruct>(_FILE_AND_LINE_);
-	banStruct->IP = (char *) rakMalloc_Ex(16, _FILE_AND_LINE_);
+	BanStruct *banStruct = new BanStruct;
+	banStruct->IP = (char *) std::malloc(16);
 	if (milliseconds == 0)
 		banStruct->timeout = 0; // Infinite
 	else
@@ -2114,8 +2120,8 @@ void RakPeer::RemoveFromBanList(const char *IP)
 
 	if (temp)
 	{
-		rakFree_Ex(temp->IP, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
+		std::free(temp->IP);
+		delete temp;
 	}
 }
 
@@ -2131,8 +2137,8 @@ void RakPeer::ClearBanList(void)
 
 	for (; index < banList.Size(); index++)
 	{
-		rakFree_Ex(banList[index]->IP, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(banList[index], _FILE_AND_LINE_);
+		std::free(banList[index]->IP);
+		delete banList[index];
 	}
 
 	banList.Clear(false, _FILE_AND_LINE_);
@@ -2182,8 +2188,8 @@ bool RakPeer::IsBanned(const char *IP)
 			temp = banList[banListIndex];
 			banList[banListIndex] = banList[banList.Size() - 1];
 			banList.RemoveAtIndex(banList.Size() - 1);
-			rakFree_Ex(temp->IP, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(temp, _FILE_AND_LINE_);
+			std::free(temp->IP);
+			delete temp;
 		}
 		else
 		{
@@ -2587,7 +2593,7 @@ void RakPeer::QueueSessionCommand(const AddressOrGUID systemIdentifier, int comm
 	bcs->data = 0;
 	if (data && length > 0)
 	{
-		bcs->data = (char *) rakMalloc_Ex(length, _FILE_AND_LINE_);
+		bcs->data = (char *) std::malloc(length);
 		if (bcs->data)
 			memcpy(bcs->data, data, length);
 		else
@@ -3538,8 +3544,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	RequestedConnectionStruct *requests[MAX_CONNECT_CANDIDATES];
 	for (int c = 0; c < candidateCount; c++)
 	{
-		//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) rakMalloc_Ex(sizeof(RequestedConnectionStruct), _FILE_AND_LINE_);
-		RequestedConnectionStruct *rcs = MafiaNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
+		//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) std::malloc(sizeof(RequestedConnectionStruct));
+		RequestedConnectionStruct *rcs = new RequestedConnectionStruct;
 
 		rcs->systemAddress = candidates[c];
 		rcs->nextRequestTime = now;
@@ -3612,7 +3618,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	{
 		if (encryptionMode == EncryptionMode::Required)
 		{
-			requests[c]->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
+			requests[c]->ephemeral = new EphemeralKeyPair;
 			requests[c]->handshakeNonce = requests[c]->ephemeral->MakeCryptInfo().nonce;
 		}
 		else
@@ -3634,8 +3640,8 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	if (GetRemoteSystemFromSystemAddress(systemAddress, false, true))
 		return ALREADY_CONNECTED_TO_ENDPOINT;
 
-	//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) rakMalloc_Ex(sizeof(RequestedConnectionStruct), _FILE_AND_LINE_);
-	RequestedConnectionStruct *rcs = MafiaNet::OP_NEW<RequestedConnectionStruct>(_FILE_AND_LINE_);
+	//RequestedConnectionStruct *rcs = (RequestedConnectionStruct *) std::malloc(sizeof(RequestedConnectionStruct));
+	RequestedConnectionStruct *rcs = new RequestedConnectionStruct;
 
 	rcs->systemAddress = systemAddress;
 	rcs->nextRequestTime = MafiaNet::GetTimeMS();
@@ -3681,7 +3687,7 @@ ConnectionAttemptResult RakPeer::SendConnectionRequest(const char *host, unsigne
 	}
 	if (encryptionMode == EncryptionMode::Required)
 	{
-		rcs->ephemeral = MafiaNet::OP_NEW<EphemeralKeyPair>(_FILE_AND_LINE_);
+		rcs->ephemeral = new EphemeralKeyPair;
 		rcs->handshakeNonce = rcs->ephemeral->MakeCryptInfo().nonce;
 	}
 	else
@@ -3840,7 +3846,7 @@ void RakPeer::ClearDisconnectReason(RemoteSystemStruct *remoteSystem)
 		return;
 	if (remoteSystem->disconnectReasonData != 0)
 	{
-		rakFree_Ex(remoteSystem->disconnectReasonData, _FILE_AND_LINE_);
+		std::free(remoteSystem->disconnectReasonData);
 		remoteSystem->disconnectReasonData = 0;
 	}
 	remoteSystem->disconnectReasonLength = 0;
@@ -3852,13 +3858,13 @@ void RakPeer::ClearSessionConfig(RemoteSystemStruct *remoteSystem)
 		return;
 	if (remoteSystem->remoteSessionConfigData != 0)
 	{
-		rakFree_Ex(remoteSystem->remoteSessionConfigData, _FILE_AND_LINE_);
+		std::free(remoteSystem->remoteSessionConfigData);
 		remoteSystem->remoteSessionConfigData = 0;
 	}
 	remoteSystem->remoteSessionConfigLength = 0;
 	if (remoteSystem->withheldConnectionPacketData != 0)
 	{
-		rakFree_Ex(remoteSystem->withheldConnectionPacketData, _FILE_AND_LINE_);
+		std::free(remoteSystem->withheldConnectionPacketData);
 		remoteSystem->withheldConnectionPacketData = 0;
 	}
 	remoteSystem->withheldConnectionPacketLength = 0;
@@ -3882,7 +3888,7 @@ bool RakPeer::StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const u
 
 	if (remoteSystem->remoteSessionConfigData != 0)
 	{
-		rakFree_Ex(remoteSystem->remoteSessionConfigData, _FILE_AND_LINE_);
+		std::free(remoteSystem->remoteSessionConfigData);
 		remoteSystem->remoteSessionConfigData = 0;
 	}
 	remoteSystem->remoteSessionConfigLength = 0;
@@ -3893,7 +3899,7 @@ bool RakPeer::StoreRemoteSessionConfig(RemoteSystemStruct *remoteSystem, const u
 	// One extra byte, always zeroed and never counted in the reported length. The payload is
 	// attacker-controlled and arbitrary bytes, so an application that reaches for strlen/printf on it
 	// would otherwise run off the end of the buffer. Length remains the authoritative bound.
-	remoteSystem->remoteSessionConfigData = (unsigned char *) rakMalloc_Ex(length + 1, _FILE_AND_LINE_);
+	remoteSystem->remoteSessionConfigData = (unsigned char *) std::malloc(length + 1);
 	if (remoteSystem->remoteSessionConfigData == 0)
 		return false;
 
@@ -3917,7 +3923,7 @@ void RakPeer::ProduceWithheldConnectionPacket(RemoteSystemStruct *remoteSystem, 
 		packet = AllocPacket(remoteSystem->withheldConnectionPacketLength, _FILE_AND_LINE_);
 		memcpy(packet->data, remoteSystem->withheldConnectionPacketData, remoteSystem->withheldConnectionPacketLength);
 		packet->bitSize = remoteSystem->withheldConnectionPacketLength * 8;
-		rakFree_Ex(remoteSystem->withheldConnectionPacketData, _FILE_AND_LINE_);
+		std::free(remoteSystem->withheldConnectionPacketData);
 		remoteSystem->withheldConnectionPacketData = 0;
 		remoteSystem->withheldConnectionPacketLength = 0;
 	}
@@ -3956,7 +3962,7 @@ bool RakPeer::HoldApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned 
 	if (remoteSystem->heldApplicationMessages.Size() >= (unsigned int) MAXIMUM_HELD_SESSION_MESSAGES ||
 	    byteSize > (unsigned int) MAXIMUM_HELD_SESSION_BYTES - remoteSystem->heldApplicationBytes)
 	{
-		rakFree_Ex(data, _FILE_AND_LINE_);
+		std::free(data);
 		return false;
 	}
 	RemoteSystemStruct::HeldApplicationMessage held;
@@ -3970,7 +3976,7 @@ bool RakPeer::HoldApplicationMessage(RemoteSystemStruct *remoteSystem, unsigned 
 void RakPeer::FreeHeldApplicationMessages(RemoteSystemStruct *remoteSystem)
 {
 	while (!remoteSystem->heldApplicationMessages.IsEmpty())
-		rakFree_Ex(remoteSystem->heldApplicationMessages.Pop().data, _FILE_AND_LINE_);
+		std::free(remoteSystem->heldApplicationMessages.Pop().data);
 	remoteSystem->heldApplicationMessages.Clear(_FILE_AND_LINE_);
 	remoteSystem->heldApplicationBytes = 0;
 }
@@ -4316,6 +4322,7 @@ void RakPeer::ReferenceRemoteSystem(const SystemAddress &sa, unsigned int remote
 	// One entry per reference. (A second Allocate on a bucket collision used to overwrite the first, which
 	// was then never released: one pool entry lost per colliding connection for the life of the peer.)
 	RemoteSystemIndex *rsi = remoteSystemIndexPool.Allocate(_FILE_AND_LINE_);
+	++liveRemoteSystemIndexEntries;
 	rsi->next = 0;
 	rsi->index = remoteSystemListIndex;
 	if (remoteSystemLookup[hashIndex] == 0)
@@ -4365,6 +4372,7 @@ void RakPeer::DereferenceRemoteSystem(const SystemAddress &sa)
 				last->next = cur->next;
 			}
 			remoteSystemIndexPool.Release(cur, _FILE_AND_LINE_);
+			--liveRemoteSystemIndexEntries;
 			break;
 		}
 		last = cur;
@@ -4396,7 +4404,8 @@ RakPeer::RemoteSystemStruct *RakPeer::GetRemoteSystem(const SystemAddress &sa) c
 void RakPeer::ClearRemoteSystemLookup(void)
 {
 	remoteSystemIndexPool.Clear(_FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(remoteSystemLookup, _FILE_AND_LINE_);
+	liveRemoteSystemIndexEntries = 0;
+	delete[] remoteSystemLookup;
 	remoteSystemLookup = 0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4568,7 +4577,7 @@ void RakPeer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigne
 	bufferedPacketsFreePoolMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RNS2RecvStruct *RakPeer::AllocRNS2RecvStruct(const char *file, unsigned int line)
+RNS2RecvStruct *RakPeer::AllocRNS2RecvStruct([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	bufferedPacketsFreePoolMutex.Lock();
 	if (bufferedPacketsFreePool.Size() > 0)
@@ -4580,7 +4589,7 @@ RNS2RecvStruct *RakPeer::AllocRNS2RecvStruct(const char *file, unsigned int line
 	else
 	{
 		bufferedPacketsFreePoolMutex.Unlock();
-		return MafiaNet::OP_NEW<RNS2RecvStruct>(file, line);
+		return new RNS2RecvStruct;
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4588,12 +4597,12 @@ void RakPeer::ClearBufferedPackets(void)
 {
 	bufferedPacketsFreePoolMutex.Lock();
 	while (bufferedPacketsFreePool.Size() > 0)
-		MafiaNet::OP_DELETE(bufferedPacketsFreePool.Pop(), _FILE_AND_LINE_);
+		delete bufferedPacketsFreePool.Pop();
 	bufferedPacketsFreePoolMutex.Unlock();
 
 	bufferedPacketsQueueMutex.Lock();
 	while (bufferedPacketsQueue.Size() > 0)
-		MafiaNet::OP_DELETE(bufferedPacketsQueue.Pop(), _FILE_AND_LINE_);
+		delete bufferedPacketsQueue.Pop();
 	bufferedPacketsQueueMutex.Unlock();
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4737,10 +4746,9 @@ void RakPeer::SendBuffered(const char *data, BitSize_t numberOfBitsToSend, Mafia
 	BufferedCommandStruct *bcs;
 
 	bcs = bufferedCommands.Allocate(_FILE_AND_LINE_);
-	bcs->data = (char *) rakMalloc_Ex((size_t) BITS_TO_BYTES(numberOfBitsToSend), _FILE_AND_LINE_); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
+	bcs->data = (char *) std::malloc((size_t) BITS_TO_BYTES(numberOfBitsToSend)); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
 	if (bcs->data == 0)
 	{
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 		return;
 	}
@@ -4783,10 +4791,9 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 		return;
 
 	char *dataAggregate;
-	dataAggregate = (char *) rakMalloc_Ex((size_t) totalLength, _FILE_AND_LINE_); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
+	dataAggregate = (char *) std::malloc((size_t) totalLength); // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
 	if (dataAggregate == 0)
 	{
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return;
 	}
 	for (i = 0, lengthOffset = 0; i < numParameters; i++)
@@ -4801,7 +4808,7 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 	if (broadcast == false && IsLoopbackAddress(systemIdentifier, true))
 	{
 		SendLoopback(dataAggregate, totalLength);
-		rakFree_Ex(dataAggregate, _FILE_AND_LINE_);
+		std::free(dataAggregate);
 		return;
 	}
 
@@ -4831,7 +4838,9 @@ void RakPeer::SendBufferedList(const char **data, const int *lengths, const int 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel, const AddressOrGUID systemIdentifier, bool broadcast, bool useCallerDataAllocation, MafiaNet::TimeUS currentTime, uint32_t receipt)
 {
-	unsigned *sendList;
+	unsigned unicastTarget = 0;          // unicast sends must not allocate
+	std::vector<unsigned> broadcastList; // only filled for broadcasts
+	unsigned *sendList = &unicastTarget;
 	unsigned sendListSize;
 	bool callerDataAllocationUsed;
 	unsigned int remoteSystemIndex, sendListIndex; // Iterates into the list of remote systems
@@ -4858,28 +4867,20 @@ bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 			return false;
 		}
 
-#if USE_ALLOCA == 1
-		sendList = (unsigned *) alloca(sizeof(unsigned));
-#else
-		sendList = (unsigned *) rakMalloc_Ex(sizeof(unsigned), _FILE_AND_LINE_);
-#endif
 
 		if (remoteSystemList[remoteSystemIndex].isActive &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
 		    remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
 		{
-			sendList[0] = remoteSystemIndex;
+			unicastTarget = remoteSystemIndex;
 			sendListSize = 1;
 		}
 	}
 	else
 	{
-#if USE_ALLOCA == 1
-		sendList = (unsigned *) alloca(sizeof(unsigned) * maximumNumberOfPeers);
-#else
-		sendList = (unsigned *) rakMalloc_Ex(sizeof(unsigned) * maximumNumberOfPeers, _FILE_AND_LINE_);
-#endif
+		broadcastList.resize(maximumNumberOfPeers);
+		sendList = broadcastList.data();
 
 		// remoteSystemList in network thread
 		unsigned int idx;
@@ -4900,10 +4901,6 @@ bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 
 	if (sendListSize == 0)
 	{
-#if !defined(USE_ALLOCA)
-		rakFree_Ex(sendList, _FILE_AND_LINE_);
-#endif
-
 		return false;
 	}
 
@@ -4925,10 +4922,6 @@ bool RakPeer::SendImmediate(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 		)
 			remoteSystemList[sendList[sendListIndex]].lastReliableSend = (MafiaNet::TimeMS)(currentTime / (MafiaNet::TimeUS) 1000);
 	}
-
-#if !defined(USE_ALLOCA)
-	rakFree_Ex(sendList, _FILE_AND_LINE_);
-#endif
 
 	// Return value only meaningful if true was passed for useCallerDataAllocation.  Means the reliability layer used that data copy, so the caller should not deallocate it
 	return callerDataAllocationUsed;
@@ -4972,7 +4965,7 @@ void RakPeer::ClearBufferedCommands(void)
 	while ((bcs = bufferedCommands.Pop()) != 0)
 	{
 		if (bcs->data)
-			rakFree_Ex(bcs->data, _FILE_AND_LINE_);
+			std::free(bcs->data);
 
 		bufferedCommands.Deallocate(bcs, _FILE_AND_LINE_);
 	}
@@ -6112,7 +6105,7 @@ void RakPeer::DerefAllSockets(void)
 		if (socketFactory && !socketList[i]->IsBerkleySocket())
 			socketFactory->Destroy(socketList[i]);
 		else
-			MafiaNet::OP_DELETE(socketList[i], _FILE_AND_LINE_);
+			delete socketList[i];
 	}
 	socketList.Clear(false, _FILE_AND_LINE_);
 }
@@ -6248,7 +6241,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 			callerDataAllocationUsed = SendImmediate((char *) bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->systemIdentifier, bcs->broadcast, true, timeNS, bcs->receipt);
 			if (callerDataAllocationUsed == false)
-				rakFree_Ex(bcs->data, _FILE_AND_LINE_);
+				std::free(bcs->data);
 
 			// Set the new connection state AFTER we call sendImmediate in case we are setting it to a disconnection state, which does not allow further sends
 			if (bcs->connectionMode != RemoteSystemStruct::NO_ACTION)
@@ -6292,7 +6285,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					SendSessionConfigRejection(sessionSystem, bcs->data, sessionPayloadLength);
 			}
 			if (bcs->data)
-				rakFree_Ex(bcs->data, _FILE_AND_LINE_);
+				std::free(bcs->data);
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_SESSION_STATUS)
 		{
@@ -6313,7 +6306,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				sessionSystem->sessionConfigStartTime = MafiaNet::GetTimeMS();
 			}
 			if (bcs->data)
-				rakFree_Ex(bcs->data, _FILE_AND_LINE_);
+				std::free(bcs->data);
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_CLOSE_CONNECTION)
 		{
@@ -6724,7 +6717,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			// RakAssert in Debug).
 			if (data[0] == ID_CONNECTION_ATTEMPT_FAILED)
 			{
-				rakFree_Ex(data, _FILE_AND_LINE_);
+				std::free(data);
 				bitSize = remoteSystem->reliabilityLayer.Receive(&data);
 				continue;
 			}
@@ -6738,7 +6731,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 				if ((unsigned char) (data)[0] == ID_CONNECTION_REQUEST)
 				{
 					ParseConnectionRequestPacket(remoteSystem, systemAddress, (const char *) data, byteSize);
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 					// Cross-connection: if our own attempt to this peer is still pending, it lost the tie-break (see the
 					// REQUEST_2 handler). The winner's ID_CONNECTION_REQUEST just opened under these keys, so this is the
 					// connection: drop our attempt quietly, wiping its key pair.
@@ -6759,7 +6752,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					AddToBanList(str1, remoteSystem->reliabilityLayer.GetTimeoutTime());
 
 
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 			}
 			else
@@ -6788,7 +6781,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// This can happen due to race conditions with the fully connected mesh
 						OnConnectionRequest(remoteSystem, incomingTimestamp);
 					}
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_NEW_INCOMING_CONNECTION && byteSize > sizeof(unsigned char) + sizeof(unsigned int) + sizeof(unsigned short) + sizeof(MafiaNet::Time) * 2)
 				{
@@ -6837,20 +6830,20 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// is freed as soon as this branch returns.
 						ClearSessionConfig(remoteSystem);
 						remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
-						remoteSystem->withheldConnectionPacketData = (unsigned char *) rakMalloc_Ex(byteSize, _FILE_AND_LINE_);
+						remoteSystem->withheldConnectionPacketData = (unsigned char *) std::malloc(byteSize);
 						if (remoteSystem->withheldConnectionPacketData != 0)
 						{
 							memcpy(remoteSystem->withheldConnectionPacketData, data, byteSize);
 							remoteSystem->withheldConnectionPacketLength = byteSize;
 						}
 						// AllocPacket used to take ownership of `data` here; the copy above means this branch does.
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 					else
 					{
 						// Already connected (or not expecting it): ignore it. The buffer is ours to free; a remote that
 						// repeats this message must not make us leak one per datagram.
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 				else if ((unsigned char) data[0] == ID_CONNECTED_PONG && byteSize == sizeof(unsigned char) + sizeof(MafiaNet::Time) * 2)
@@ -6868,7 +6861,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 					OnConnectedPong(sendPingTime, sendPongTime, remoteSystem);
 
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_CONNECTED_PING && byteSize == sizeof(unsigned char) + sizeof(MafiaNet::Time))
 				{
@@ -6886,7 +6879,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// Update again immediately after this tick so the ping goes out right away
 					quitAndDataEvents.SetEvent();
 
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION && remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY)
 				{
@@ -6895,7 +6888,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// refused session, a wrong password) or was never told of it at all. Moving it to
 					// DISCONNECT_ON_NO_ACK would report the close a second time, as ID_DISCONNECTION_NOTIFICATION
 					// for a connection the application never saw. The reliability layer still acks the message.
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 				else if ((unsigned char) data[0] == ID_DISCONNECTION_NOTIFICATION)
 				{
@@ -6906,7 +6899,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					if (byteSize > sizeof(unsigned char))
 					{
 						const unsigned int reasonLength = byteSize - (unsigned int) sizeof(unsigned char);
-						remoteSystem->disconnectReasonData = (unsigned char *) rakMalloc_Ex(reasonLength, _FILE_AND_LINE_);
+						remoteSystem->disconnectReasonData = (unsigned char *) std::malloc(reasonLength);
 						if (remoteSystem->disconnectReasonData != 0)
 						{
 							memcpy(remoteSystem->disconnectReasonData, data + sizeof(unsigned char), reasonLength);
@@ -6916,14 +6909,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 
 					// We shouldn't close the connection immediately because we need to ack the ID_DISCONNECTION_NOTIFICATION
 					remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ON_NO_ACK;
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 
 					//	AddPacketToProducer(packet);
 				}
 				else if ((unsigned char) (data)[0] == ID_DETECT_LOST_CONNECTIONS && byteSize == sizeof(unsigned char))
 				{
 					// Do nothing
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG_REQUEST)
 				{
@@ -6935,7 +6928,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						{
 							// Oversized payload is a protocol violation; drop without answering.
 							remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
-							rakFree_Ex(data, _FILE_AND_LINE_);
+							std::free(data);
 						}
 						else if (sessionConfigInteractive)
 						{
@@ -6955,14 +6948,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							rakPeerMutexes[sessionConfig_Mutex].Lock();
 							SendSessionConfigResponse(remoteSystem, (const char *) sessionConfig.GetData(), (unsigned int) sessionConfig.GetNumberOfBytesUsed());
 							rakPeerMutexes[sessionConfig_Mutex].Unlock();
-							rakFree_Ex(data, _FILE_AND_LINE_);
+							std::free(data);
 						}
 					}
 					else
 					{
 						// A repeat request, or one on an already-established connection: ignore it rather than
 						// letting a peer re-run the handshake and re-produce the connection packet.
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG)
@@ -6988,7 +6981,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
 						}
 					}
-					rakFree_Ex(data, _FILE_AND_LINE_);
+					std::free(data);
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG_STATUS)
 				{
@@ -7008,7 +7001,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 					else
 					{
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_SESSION_CONFIG_REJECTED)
@@ -7033,7 +7026,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 					else
 					{
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_INVALID_PASSWORD)
@@ -7052,7 +7045,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 					else
 					{
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_CONNECTION_REQUEST_ACCEPTED)
@@ -7134,14 +7127,14 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							ClearSessionConfig(remoteSystem);
 							remoteSystem->sessionConfigIsConnectingSide = true;
 							remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
-							remoteSystem->withheldConnectionPacketData = (unsigned char *) rakMalloc_Ex(byteSize, _FILE_AND_LINE_);
+							remoteSystem->withheldConnectionPacketData = (unsigned char *) std::malloc(byteSize);
 							if (remoteSystem->withheldConnectionPacketData != 0)
 							{
 								memcpy(remoteSystem->withheldConnectionPacketData, data, byteSize);
 								remoteSystem->withheldConnectionPacketLength = byteSize;
 							}
 							// AllocPacket used to take ownership of `data` here; the copy above means this branch does.
-							rakFree_Ex(data, _FILE_AND_LINE_);
+							std::free(data);
 
 							MafiaNet::BitStream outBitStream;
 							outBitStream.Write((MessageID) ID_NEW_INCOMING_CONNECTION);
@@ -7173,7 +7166,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						else
 						{
 							// Ignore, already connected
-							rakFree_Ex(data, _FILE_AND_LINE_);
+							std::free(data);
 						}
 					}
 					else
@@ -7181,7 +7174,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						// Too short to be a connection accept: drop it. Not a RakAssert -- the
 						// remote chooses this size, and a Debug build must not abort on it. The attempt
 						// then times out normally.
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 				else
@@ -7201,7 +7194,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					// are dropped.
 					if (!MayReachApplicationFromRemote(data, byteSize) || !remoteSystem->isActive)
 					{
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 					else if (remoteSystem->connectMode == RemoteSystemStruct::EXCHANGING_SESSION_DATA && remoteSystem->sessionConfigIsConnectingSide &&
 					         remoteSystem->weInitiatedTheConnection)
@@ -7222,7 +7215,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 					else
 					{
-						rakFree_Ex(data, _FILE_AND_LINE_);
+						std::free(data);
 					}
 				}
 			}

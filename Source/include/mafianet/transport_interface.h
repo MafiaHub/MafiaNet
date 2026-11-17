@@ -23,7 +23,6 @@
 
 #include "mafianet/types.h"
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 
 #define REMOTE_MAX_TEXT_INPUT 2048
 

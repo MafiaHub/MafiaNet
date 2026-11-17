@@ -14,6 +14,7 @@
  */
 
 #include "Lobby2Message_PGSQL.h"
+#include <cstdlib>
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
@@ -315,7 +316,7 @@ void MafiaNet::GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakSt
 	PQclear(result);
 }
 
-void MafiaNet::SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, RakNetSmartPtr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
+void MafiaNet::SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
 {
 	DataStructures::List<unsigned int> targetUserIds;
 	unsigned int targetUserId;
@@ -327,19 +328,19 @@ void MafiaNet::SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNam
 	}
 	SendEmail(targetUserIds, senderUserId, senderUserName, server, subject, body, binaryData, status, triggerString, pgsql);
 }
-void MafiaNet::SendEmail(unsigned int targetUserId, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, RakNetSmartPtr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
+void MafiaNet::SendEmail(unsigned int targetUserId, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
 {
 	DataStructures::List<unsigned int> targetUserIds;
 	targetUserIds.Insert(targetUserId, _FILE_AND_LINE_);
 	SendEmail(targetUserIds, senderUserId, senderUserName, server, subject, body, binaryData, status, triggerString, pgsql);
 }
-void MafiaNet::SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, RakNetSmartPtr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
+void MafiaNet::SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql)
 {
 	if (targetUserIds.Size() == 0)
 		return;
 
 	PGresult *result = 0;
-	if (binaryData.IsNull() == false)
+	if (binaryData != nullptr)
 	{
 		result = pgsql->QueryVariadic(
 		    "INSERT INTO lobby2.emails (subject, body, binaryData, triggerId_fk) VALUES "
@@ -544,7 +545,7 @@ bool MafiaNet::System_CreateDatabase_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 	fseek(fp, 0, SEEK_END);
 	unsigned int fileSize = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	char *cmd = (char *) rakMalloc_Ex(fileSize + 1, _FILE_AND_LINE_);
+	char *cmd = (char *) std::malloc(fileSize + 1);
 	fread(cmd, 1, fileSize, fp);
 	fclose(fp);
 	cmd[fileSize] = 0;
@@ -560,7 +561,7 @@ bool MafiaNet::System_CreateDatabase_PGSQL::ServerDBImpl(Lobby2ServerCommand *co
 		printf(cmd);
 		printf(pgsql->GetLastError());
 	}
-	rakFree_Ex(cmd, _FILE_AND_LINE_);
+	std::free(cmd);
 	return true;
 }
 

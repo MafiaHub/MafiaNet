@@ -17,9 +17,11 @@
 #include "mafianet/assert.h"
 #include "mafianet/defines.h"
 #include "mafianet/sleep.h"
-#include "mafianet/memory_override.h"
 
 using namespace MafiaNet;
+
+// Stack size for threads created by RakThread::Create (2 MiB).
+static const unsigned THREAD_STACK_SIZE = 2097152;
 
 #if defined(_WIN32)
 #include "mafianet/windows_includes.h"
@@ -41,7 +43,7 @@ int RakThread::Create(void *start_address(void *), void *arglist, int priority)
 	HANDLE threadHandle;
 	unsigned threadID = 0;
 
-	threadHandle = (HANDLE) _beginthreadex(nullptr, MAX_ALLOCA_STACK_ALLOCATION * 2, start_address, arglist, 0, &threadID);
+	threadHandle = (HANDLE) _beginthreadex(nullptr, THREAD_STACK_SIZE, start_address, arglist, 0, &threadID);
 
 	SetThreadPriority(threadHandle, priority);
 
@@ -66,7 +68,7 @@ int RakThread::Create(void *start_address(void *), void *arglist, int priority)
 	pthread_attr_setschedparam(&attr, &param);
 
 
-	pthread_attr_setstacksize(&attr, MAX_ALLOCA_STACK_ALLOCATION * 2);
+	pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
 
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	int res = pthread_create(&threadHandle, &attr, start_address, arglist);

@@ -60,7 +60,6 @@
 		B23EA3F5147F5A43002B8C06 /* packet_output_window_logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA34F147F5A43002B8C06 /* packet_output_window_logger.cpp */; };
 		B23EA3F6147F5A43002B8C06 /* plugin_interface2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA353147F5A43002B8C06 /* plugin_interface2.cpp */; };
 		B23EA3F7147F5A43002B8C06 /* rackspace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA356147F5A43002B8C06 /* rackspace.cpp */; };
-		B23EA3F8147F5A43002B8C06 /* memory_override.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA35A147F5A43002B8C06 /* memory_override.cpp */; };
 		B23EA3F9147F5A43002B8C06 /* RakNet_vc8.vcproj in Resources */ = {isa = PBXBuildFile; fileRef = B23EA35C147F5A43002B8C06 /* RakNet_vc8.vcproj */; };
 		B23EA3FA147F5A43002B8C06 /* RakNet_vc9.vcproj in Resources */ = {isa = PBXBuildFile; fileRef = B23EA35D147F5A43002B8C06 /* RakNet_vc9.vcproj */; };
 		B23EA3FB147F5A43002B8C06 /* RakNet.vcproj in Resources */ = {isa = PBXBuildFile; fileRef = B23EA35E147F5A43002B8C06 /* RakNet.vcproj */; };
@@ -75,7 +74,6 @@
 		B23EA404147F5A43002B8C06 /* thread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA375147F5A43002B8C06 /* thread.cpp */; };
 		B23EA405147F5A43002B8C06 /* wstring.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA377147F5A43002B8C06 /* wstring.cpp */; };
 		B23EA406147F5A43002B8C06 /* rand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA379147F5A43002B8C06 /* rand.cpp */; };
-		B23EA407147F5A43002B8C06 /* rdlmalloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA37C147F5A43002B8C06 /* rdlmalloc.cpp */; };
 		B23EA408147F5A43002B8C06 /* ready_event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA37E147F5A43002B8C06 /* ready_event.cpp */; };
 		B23EA409147F5A43002B8C06 /* reliability_layer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA381147F5A43002B8C06 /* reliability_layer.cpp */; };
 		B23EA40A147F5A43002B8C06 /* replica_manager3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B23EA384147F5A43002B8C06 /* replica_manager3.cpp */; };
@@ -255,7 +253,6 @@
 		B23EA357147F5A43002B8C06 /* rackspace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rackspace.h; path = ../../../Source/rackspace.h; sourceTree = "<group>"; };
 		B23EA358147F5A43002B8C06 /* RakAlloca.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RakAlloca.h; path = ../../../Source/RakAlloca.h; sourceTree = "<group>"; };
 		B23EA359147F5A43002B8C06 /* RakAssert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RakAssert.h; path = ../../../Source/RakAssert.h; sourceTree = "<group>"; };
-		B23EA35A147F5A43002B8C06 /* memory_override.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = memory_override.cpp; path = ../../../Source/memory_override.cpp; sourceTree = "<group>"; };
 		B23EA35B147F5A43002B8C06 /* RakMemoryOverride.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RakMemoryOverride.h; path = ../../../Source/RakMemoryOverride.h; sourceTree = "<group>"; };
 		B23EA35C147F5A43002B8C06 /* RakNet_vc8.vcproj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = RakNet_vc8.vcproj; path = ../../../Source/RakNet_vc8.vcproj; sourceTree = "<group>"; };
 		B23EA35D147F5A43002B8C06 /* RakNet_vc9.vcproj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = RakNet_vc9.vcproj; path = ../../../Source/RakNet_vc9.vcproj; sourceTree = "<group>"; };
@@ -288,9 +285,6 @@
 		B23EA378147F5A43002B8C06 /* RakWString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RakWString.h; path = ../../../Source/RakWString.h; sourceTree = "<group>"; };
 		B23EA379147F5A43002B8C06 /* rand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rand.cpp; path = ../../../Source/rand.cpp; sourceTree = "<group>"; };
 		B23EA37A147F5A43002B8C06 /* rand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rand.h; path = ../../../Source/rand.h; sourceTree = "<group>"; };
-		B23EA37B147F5A43002B8C06 /* rdlmalloc-options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "rdlmalloc-options.h"; path = "../../../Source/rdlmalloc-options.h"; sourceTree = "<group>"; };
-		B23EA37C147F5A43002B8C06 /* rdlmalloc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rdlmalloc.cpp; path = ../../../Source/rdlmalloc.cpp; sourceTree = "<group>"; };
-		B23EA37D147F5A43002B8C06 /* rdlmalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rdlmalloc.h; path = ../../../Source/rdlmalloc.h; sourceTree = "<group>"; };
 		B23EA37E147F5A43002B8C06 /* ready_event.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ready_event.cpp; path = ../../../Source/ready_event.cpp; sourceTree = "<group>"; };
 		B23EA37F147F5A43002B8C06 /* ready_event.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ready_event.h; path = ../../../Source/ready_event.h; sourceTree = "<group>"; };
 		B23EA380147F5A43002B8C06 /* ref_counted_obj.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ref_counted_obj.h; path = ../../../Source/ref_counted_obj.h; sourceTree = "<group>"; };
@@ -586,7 +580,6 @@
 				B23EA357147F5A43002B8C06 /* rackspace.h */,
 				B23EA358147F5A43002B8C06 /* RakAlloca.h */,
 				B23EA359147F5A43002B8C06 /* RakAssert.h */,
-				B23EA35A147F5A43002B8C06 /* memory_override.cpp */,
 				B23EA35B147F5A43002B8C06 /* RakMemoryOverride.h */,
 				B23EA35C147F5A43002B8C06 /* RakNet_vc8.vcproj */,
 				B23EA35D147F5A43002B8C06 /* RakNet_vc9.vcproj */,
@@ -619,9 +612,6 @@
 				B23EA378147F5A43002B8C06 /* RakWString.h */,
 				B23EA379147F5A43002B8C06 /* rand.cpp */,
 				B23EA37A147F5A43002B8C06 /* rand.h */,
-				B23EA37B147F5A43002B8C06 /* rdlmalloc-options.h */,
-				B23EA37C147F5A43002B8C06 /* rdlmalloc.cpp */,
-				B23EA37D147F5A43002B8C06 /* rdlmalloc.h */,
 				B23EA37E147F5A43002B8C06 /* ready_event.cpp */,
 				B23EA37F147F5A43002B8C06 /* ready_event.h */,
 				B23EA380147F5A43002B8C06 /* ref_counted_obj.h */,
@@ -813,7 +803,6 @@
 				B23EA3F5147F5A43002B8C06 /* packet_output_window_logger.cpp in Sources */,
 				B23EA3F6147F5A43002B8C06 /* plugin_interface2.cpp in Sources */,
 				B23EA3F7147F5A43002B8C06 /* rackspace.cpp in Sources */,
-				B23EA3F8147F5A43002B8C06 /* memory_override.cpp in Sources */,
 				B23EA3FC147F5A43002B8C06 /* command_parser.cpp in Sources */,
 				B23EA3FD147F5A43002B8C06 /* RakNetSocket.cpp in Sources */,
 				B23EA3FE147F5A43002B8C06 /* statistics.cpp in Sources */,
@@ -825,7 +814,6 @@
 				B23EA404147F5A43002B8C06 /* thread.cpp in Sources */,
 				B23EA405147F5A43002B8C06 /* wstring.cpp in Sources */,
 				B23EA406147F5A43002B8C06 /* rand.cpp in Sources */,
-				B23EA407147F5A43002B8C06 /* rdlmalloc.cpp in Sources */,
 				B23EA408147F5A43002B8C06 /* ready_event.cpp in Sources */,
 				B23EA409147F5A43002B8C06 /* reliability_layer.cpp in Sources */,
 				B23EA40A147F5A43002B8C06 /* replica_manager3.cpp in Sources */,

@@ -189,7 +189,7 @@ void ConnectionGraph2::OnClosedConnection(const SystemAddress &systemAddress, Ra
 	unsigned int idx = remoteSystems.GetIndexFromKey(rakNetGUID, &objectExists);
 	if (objectExists)
 	{
-		MafiaNet::OP_DELETE(remoteSystems[idx], _FILE_AND_LINE_);
+		delete remoteSystems[idx];
 		remoteSystems.RemoveAtIndex(idx);
 	}
 }
@@ -247,7 +247,7 @@ void ConnectionGraph2::AddParticipant(const SystemAddress &systemAddress, RakNet
 	unsigned int ii = remoteSystems.GetIndexFromKey(rakNetGUID, &objectExists);
 	if (objectExists == false)
 	{
-		RemoteSystem *remoteSystem = MafiaNet::OP_NEW<RemoteSystem>(_FILE_AND_LINE_);
+		RemoteSystem *remoteSystem = new RemoteSystem;
 		remoteSystem->guid = rakNetGUID;
 		remoteSystems.InsertAtIndex(remoteSystem, ii, _FILE_AND_LINE_);
 	}

@@ -24,7 +24,6 @@
 
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 
 // If I want to change this to a red-black tree, this is a good site: http://www.cs.auckland.ac.nz/software/AlgAnim/red_black.html

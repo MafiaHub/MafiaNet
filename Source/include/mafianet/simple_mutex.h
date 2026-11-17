@@ -21,8 +21,6 @@
 #ifndef __SIMPLE_MUTEX_H
 #define __SIMPLE_MUTEX_H
 
-#include "mafianet/memory_override.h"
-
 
 #if defined(_WIN32)
 #include "mafianet/windows_includes.h"

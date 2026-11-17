@@ -21,7 +21,6 @@
 #ifndef __HUFFMAN_ENCODING_TREE
 #define __HUFFMAN_ENCODING_TREE
 
-#include "mafianet/memory_override.h"
 #include "mafianet/ds_huffman_encoding_tree_node.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/export.h"
@@ -64,7 +63,7 @@ private:
 
 	struct CharacterEncoding
 	{
-		unsigned char *encoding;
+		std::unique_ptr<unsigned char[]> encoding;
 		unsigned short bitLength;
 	};
 

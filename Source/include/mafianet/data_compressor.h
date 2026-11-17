@@ -22,7 +22,6 @@
 #ifndef __DATA_COMPRESSOR_H
 #define __DATA_COMPRESSOR_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/export.h"
 
@@ -37,7 +36,9 @@ public:
 	STATIC_FACTORY_DECLARATIONS(DataCompressor)
 
 	static void Compress(unsigned char *userData, unsigned sizeInBytes, MafiaNet::BitStream *output);
-	static unsigned DecompressAndAllocate(MafiaNet::BitStream *input, unsigned char **output);
+	/// \param[out] output Receives the owned decompressed buffer
+	/// \return The decompressed size in bytes, or 0 on a read error
+	static unsigned DecompressAndAllocate(MafiaNet::BitStream *input, std::unique_ptr<unsigned char[]> &output);
 };
 
 } // namespace MafiaNet

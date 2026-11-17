@@ -129,9 +129,9 @@ void AutopatcherClientGFx3Impl::Init(const char *_pathToThisExe, GPtr<FxDelegate
 	movie = pMovie;
 	strcpy_s(pathToThisExe, _pathToThisExe);
 
-	autopatcherClient = MafiaNet::OP_NEW<AutopatcherClient>(_FILE_AND_LINE_);
-	fileListTransfer = MafiaNet::OP_NEW<FileListTransfer>(_FILE_AND_LINE_);
-	packetizedTCP = MafiaNet::OP_NEW<PacketizedTCP>(_FILE_AND_LINE_);
+	autopatcherClient = new AutopatcherClient;
+	fileListTransfer = new FileListTransfer;
+	packetizedTCP = new PacketizedTCP;
 	autopatcherClient->SetFileListTransferPlugin(fileListTransfer);
 
 	packetizedTCP->AttachPlugin(autopatcherClient);
@@ -209,9 +209,9 @@ void AutopatcherClientGFx3Impl::Shutdown(void)
 	movie.Clear();
 	if (packetizedTCP)
 		packetizedTCP->Stop();
-	MafiaNet::OP_DELETE(autopatcherClient, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(fileListTransfer, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(packetizedTCP, _FILE_AND_LINE_);
+	delete autopatcherClient;
+	delete fileListTransfer;
+	delete packetizedTCP;
 	autopatcherClient = 0;
 	fileListTransfer = 0;
 	packetizedTCP = 0;

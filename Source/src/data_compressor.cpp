@@ -14,6 +14,8 @@
  */
 
 #include "mafianet/data_compressor.h"
+#include <cstdlib>
+#include <utility>
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/assert.h"
 #include <string.h> // Use string.h rather than memory.h for a console
@@ -50,29 +52,39 @@ void DataCompressor::Compress(unsigned char *userData, unsigned sizeInBytes, Maf
 	output->SetWriteOffset(writeOffset2);
 }
 
-unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, unsigned char **output)
+unsigned DataCompressor::DecompressAndAllocate(MafiaNet::BitStream *input, std::unique_ptr<unsigned char[]> &output)
 {
+	output.reset();
+
 	HuffmanEncodingTree tree;
-	unsigned int bitsUsed, destinationSizeInBytes;
-	[[maybe_unused]] unsigned int decompressedBytes; // only checked by RakAssert (debug builds)
+	unsigned int bitsUsed = 0, destinationSizeInBytes = 0;
 	unsigned int frequencyTable[256];
 	unsigned i;
 
-	input->ReadCompressed(destinationSizeInBytes);
+	// Everything here is read from the network: fail (never assert) on malformed input.
+	if (input->ReadCompressed(destinationSizeInBytes) == false)
+		return 0;
 	for (i = 0; i < 256; i++)
-		input->ReadCompressed(frequencyTable[i]);
+	{
+		if (input->ReadCompressed(frequencyTable[i]) == false)
+			return 0;
+	}
 	input->AlignReadToByteBoundary();
 	if (input->Read(bitsUsed) == false)
-	{
-		// Read error
-#ifdef _DEBUG
-		RakAssert(0);
-#endif
 		return 0;
-	}
-	*output = (unsigned char *) rakMalloc_Ex(destinationSizeInBytes, _FILE_AND_LINE_);
+
+	// The payload must actually be present, and every decoded byte costs at least one bit
+	// of it, so a declared size above bitsUsed cannot be honest. This bounds the allocation
+	// by the size of the stream that was received.
+	if (bitsUsed > input->GetNumberOfUnreadBits() || destinationSizeInBytes > bitsUsed)
+		return 0;
+	if (destinationSizeInBytes == 0)
+		return 0;
+
+	std::unique_ptr<unsigned char[]> buffer(new unsigned char[destinationSizeInBytes]);
 	tree.GenerateFromFrequencyTable(frequencyTable);
-	decompressedBytes = tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, *output);
-	RakAssert(decompressedBytes == destinationSizeInBytes);
+	if (tree.DecodeArray(input, bitsUsed, destinationSizeInBytes, buffer.get()) != destinationSizeInBytes)
+		return 0;
+	output = std::move(buffer);
 	return destinationSizeInBytes;
 }

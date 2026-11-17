@@ -14,8 +14,8 @@
  */
 
 #include "mafianet/string.h"
+#include <cstdlib>
 #include "mafianet/assert.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/bit_stream.h"
 #include <stdarg.h>
 #include <string.h>
@@ -174,13 +174,13 @@ void RakString::Realloc(SharedString *inSharedString, size_t bytes)
 	newBytes = GetSizeToAllocate(bytes);
 	if (oldBytes <= (size_t) smallStringSize && newBytes > (size_t) smallStringSize)
 	{
-		inSharedString->bigString = (char *) rakMalloc_Ex(newBytes, _FILE_AND_LINE_);
+		inSharedString->bigString = (char *) std::malloc(newBytes);
 		strcpy_s(inSharedString->bigString, newBytes, inSharedString->smallString);
 		inSharedString->c_str = inSharedString->bigString;
 	}
 	else if (oldBytes > smallStringSize)
 	{
-		inSharedString->bigString = (char *) rakRealloc_Ex(inSharedString->bigString, newBytes, _FILE_AND_LINE_);
+		inSharedString->bigString = (char *) std::realloc(inSharedString->bigString, newBytes);
 		inSharedString->c_str = inSharedString->bigString;
 	}
 	inSharedString->bytesUsed = newBytes;
@@ -328,14 +328,14 @@ const MafiaNet::RakString operator+(const MafiaNet::RakString &lhs, const MafiaN
 	// sharedString = RakString::pool.Allocate( _FILE_AND_LINE_ );
 	if (RakString::freeList.Size() == 0)
 	{
-		//RakString::sharedStringFreeList=(RakString::SharedString*) rakRealloc_Ex(RakString::sharedStringFreeList,(RakString::sharedStringFreeListAllocationCount+1024)*sizeof(RakString::SharedString), _FILE_AND_LINE_);
+		//RakString::sharedStringFreeList=(RakString::SharedString*) std::realloc(RakString::sharedStringFreeList, (RakString::sharedStringFreeListAllocationCount+1024)*sizeof(RakString::SharedString));
 		unsigned i;
 		for (i = 0; i < 128; i++)
 		{
 			//	RakString::freeList.Insert(RakString::sharedStringFreeList+i+RakString::sharedStringFreeListAllocationCount);
 			RakString::SharedString *ss;
-			ss = (RakString::SharedString *) rakMalloc_Ex(sizeof(RakString::SharedString), _FILE_AND_LINE_);
-			ss->refCountMutex = MafiaNet::OP_NEW<SimpleMutex>(_FILE_AND_LINE_);
+			ss = (RakString::SharedString *) std::malloc(sizeof(RakString::SharedString));
+			ss->refCountMutex = new SimpleMutex;
 			RakString::freeList.Insert(ss, _FILE_AND_LINE_);
 		}
 		//RakString::sharedStringFreeListAllocationCount+=1024;
@@ -353,7 +353,7 @@ const MafiaNet::RakString operator+(const MafiaNet::RakString &lhs, const MafiaN
 	}
 	else
 	{
-		sharedString->bigString = (char *) rakMalloc_Ex(sharedString->bytesUsed, _FILE_AND_LINE_);
+		sharedString->bigString = (char *) std::malloc(sharedString->bytesUsed);
 		sharedString->c_str = sharedString->bigString;
 	}
 
@@ -476,7 +476,7 @@ WCHAR *RakString::ToWideChar(void)
 	if ((sharedString->c_str == nullptr) || (*sharedString->c_str == '\0'))
 	{
 		// Return empty string
-		WCHAR *buf = MafiaNet::OP_NEW_ARRAY<WCHAR>(1, __FILE__, __LINE__);
+		WCHAR *buf = new WCHAR[1];
 		buf[0] = L'\0';
 		return buf;
 	}
@@ -502,7 +502,7 @@ WCHAR *RakString::ToWideChar(void)
 	//
 	// Allocate destination buffer to store UTF-16 string
 	//
-	WCHAR *pszUTF16 = MafiaNet::OP_NEW_ARRAY<WCHAR>(cchUTF16, __FILE__, __LINE__);
+	WCHAR *pszUTF16 = new WCHAR[cchUTF16];
 
 	//
 	// Do the conversion from UTF-8 to UTF-16
@@ -526,7 +526,7 @@ WCHAR *RakString::ToWideChar(void)
 }
 void RakString::DeallocWideChar(WCHAR *w)
 {
-	MafiaNet::OP_DELETE_ARRAY(w, __FILE__, __LINE__);
+	delete[] w;
 }
 void RakString::FromWideChar(const wchar_t *source)
 {
@@ -1230,8 +1230,8 @@ void RakString::FreeMemoryNoMutex(void)
 {
 	for (unsigned int i = 0; i < freeList.Size(); i++)
 	{
-		MafiaNet::OP_DELETE(freeList[i]->refCountMutex, _FILE_AND_LINE_);
-		rakFree_Ex(freeList[i], _FILE_AND_LINE_);
+		delete freeList[i]->refCountMutex;
+		std::free(freeList[i]);
 	}
 	freeList.Clear(false, _FILE_AND_LINE_);
 }
@@ -1345,16 +1345,16 @@ void RakString::Allocate(size_t len)
 	// sharedString = RakString::pool.Allocate( _FILE_AND_LINE_ );
 	if (RakString::freeList.Size() == 0)
 	{
-		//RakString::sharedStringFreeList=(RakString::SharedString*) rakRealloc_Ex(RakString::sharedStringFreeList,(RakString::sharedStringFreeListAllocationCount+1024)*sizeof(RakString::SharedString), _FILE_AND_LINE_);
+		//RakString::sharedStringFreeList=(RakString::SharedString*) std::realloc(RakString::sharedStringFreeList, (RakString::sharedStringFreeListAllocationCount+1024)*sizeof(RakString::SharedString));
 		unsigned i;
 		for (i = 0; i < 128; i++)
 		{
 			//	RakString::freeList.Insert(RakString::sharedStringFreeList+i+RakString::sharedStringFreeListAllocationCount);
-			//		RakString::freeList.Insert((RakString::SharedString*)rakMalloc_Ex(sizeof(RakString::SharedString), _FILE_AND_LINE_), _FILE_AND_LINE_);
+			//		RakString::freeList.Insert((RakString::SharedString*)std::malloc(sizeof(RakString::SharedString)), _FILE_AND_LINE_);
 
 			RakString::SharedString *ss;
-			ss = (RakString::SharedString *) rakMalloc_Ex(sizeof(RakString::SharedString), _FILE_AND_LINE_);
-			ss->refCountMutex = MafiaNet::OP_NEW<SimpleMutex>(_FILE_AND_LINE_);
+			ss = (RakString::SharedString *) std::malloc(sizeof(RakString::SharedString));
+			ss->refCountMutex = new SimpleMutex;
 			RakString::freeList.Insert(ss, _FILE_AND_LINE_);
 		}
 		//RakString::sharedStringFreeListAllocationCount+=1024;
@@ -1373,7 +1373,7 @@ void RakString::Allocate(size_t len)
 	else
 	{
 		sharedString->bytesUsed = len << 1;
-		sharedString->bigString = (char *) rakMalloc_Ex(sharedString->bytesUsed, _FILE_AND_LINE_);
+		sharedString->bigString = (char *) std::malloc(sharedString->bytesUsed);
 		sharedString->c_str = sharedString->bigString;
 	}
 }
@@ -1408,14 +1408,13 @@ void RakString::Assign(const char *str, va_list ap)
 	size_t buffSize = 8096;
 	for (;;)
 	{
-		newBuff = (char *) rakRealloc_Ex(buff, buffSize, __FILE__, __LINE__);
+		newBuff = (char *) std::realloc(buff, buffSize);
 		if (newBuff == 0)
 		{
-			notifyOutOfMemory(_FILE_AND_LINE_);
 			if (buff != 0)
 			{
 				Assign(buff);
-				rakFree_Ex(buff, __FILE__, __LINE__);
+				std::free(buff);
 			}
 			else
 			{
@@ -1427,7 +1426,7 @@ void RakString::Assign(const char *str, va_list ap)
 		if (vsnprintf_s(buff, buffSize, buffSize - 1, str, ap) != -1)
 		{
 			Assign(buff);
-			rakFree_Ex(buff, __FILE__, __LINE__);
+			std::free(buff);
 			return;
 		}
 		buffSize *= 2;
@@ -1539,7 +1538,7 @@ void RakString::Free(void)
 		sharedString->refCountMutex->Unlock();
 		const size_t smallStringSize = 128 - sizeof(unsigned int) - sizeof(size_t) - sizeof(char *) * 2;
 		if (sharedString->bytesUsed > smallStringSize)
-			rakFree_Ex(sharedString->bigString, _FILE_AND_LINE_);
+			std::free(sharedString->bigString);
 		/*
 		poolMutex->Lock();
 		pool.Release(sharedString);
@@ -1637,7 +1636,7 @@ int main(void)
 		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			c = MafiaNet::OP_NEW_ARRAY<char >(56,_FILE_AND_LINE_ );
+			c = new char[56];
 			strcpy_s(c, 56, "Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
 			referenceStringList.Insert(c);
 		}
@@ -1654,7 +1653,7 @@ int main(void)
 		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			MafiaNet::OP_DELETE_ARRAY(referenceStringList[0], _FILE_AND_LINE_);
+			delete[] referenceStringList[0];
 			referenceStringList.RemoveAtIndex(0);
 		}
 		beforeRakString=MafiaNet::GetTimeMS();
@@ -1669,7 +1668,7 @@ int main(void)
 		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			c = MafiaNet::OP_NEW_ARRAY<char >(56, _FILE_AND_LINE_ );
+			c = new char[56];
 			strcpy_s(c, 56, "Aalsdkj alsdjf laksdjf ;lasdfj ;lasjfd");
 			referenceStringList.Insert(0);
 		}
@@ -1685,7 +1684,7 @@ int main(void)
 		beforeReferenceList=MafiaNet::GetTimeMS();
 		for (i=0; i < repeatCount; i++)
 		{
-			MafiaNet::OP_DELETE_ARRAY(referenceStringList[referenceStringList.Size()-1], _FILE_AND_LINE_);
+			delete[] referenceStringList[referenceStringList.Size()-1];
 			referenceStringList.RemoveAtIndex(referenceStringList.Size()-1);
 		}
 		beforeRakString=MafiaNet::GetTimeMS();

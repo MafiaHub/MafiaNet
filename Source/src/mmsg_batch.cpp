@@ -38,8 +38,8 @@ char *RNS2SendBatch::Slot(unsigned i)
 	{
 		char *bytes;
 		Block()
-		    : bytes(MafiaNet::OP_NEW_ARRAY<char>(MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE, _FILE_AND_LINE_)) {}
-		~Block() { MafiaNet::OP_DELETE_ARRAY(bytes, _FILE_AND_LINE_); }
+		    : bytes(new char[MMSG_BATCH_MAX * MAXIMUM_MTU_SIZE]) {}
+		~Block() { delete[] bytes; }
 	};
 	static thread_local Block block;
 	return block.bytes + (size_t) i * MAXIMUM_MTU_SIZE;

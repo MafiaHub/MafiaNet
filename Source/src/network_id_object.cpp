@@ -20,7 +20,6 @@
 #include "mafianet/network_id_object.h"
 #include "mafianet/network_id_manager.h"
 #include "mafianet/assert.h"
-#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

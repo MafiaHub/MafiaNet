@@ -109,7 +109,7 @@ bool NatPunchthroughClient::OpenNATGroup(DataStructures::List<RakNetGUID> destin
 		SendPunchthrough(destinationSystems[i], facilitator);
 	}
 
-	GroupPunchRequest *gpr = MafiaNet::OP_NEW<GroupPunchRequest>(_FILE_AND_LINE_);
+	GroupPunchRequest *gpr = new GroupPunchRequest;
 	gpr->facilitator=facilitator;
 	gpr->pendingList=destinationSystems;
 	groupPunchRequests.Push(gpr, _FILE_AND_LINE_);
@@ -928,7 +928,7 @@ void NatPunchthroughClient::OnClosedConnection(const SystemAddress &systemAddres
 	{
 		if (groupPunchRequests[i]->facilitator==systemAddress)
 		{
-			MafiaNet::OP_DELETE(groupPunchRequests[i],_FILE_AND_LINE_);
+			delete groupPunchRequests[i];
 			groupPunchRequests.RemoveAtIndexFast(i);
 		}
 		else
@@ -1069,7 +1069,7 @@ void NatPunchthroughClient::Clear(void)
 	unsigned int i;
 	for (i=0; i < groupPunchRequests.Size(); i++)
 	{
-		MafiaNet::OP_DELETE(groupPunchRequests[i],_FILE_AND_LINE_);
+		delete groupPunchRequests[i];
 	}
 	groupPunchRequests.Clear(true, _FILE_AND_LINE_);
 	*/
@@ -1207,7 +1207,7 @@ void NatPunchthroughClient::UpdateGroupPunchOnNatResult(SystemAddress facilitato
 			rakPeerInterface->PushBackPacket(p, true);
 
 			groupPunchRequests.RemoveAtIndex(i);
-			MafiaNet::OP_DELETE(gpr, _FILE_AND_LINE_);
+			delete gpr;
 		}
 		else
 			i++;

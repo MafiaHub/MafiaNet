@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_TCPInterface == 1
 
 /// \file
@@ -87,7 +88,7 @@ TCPInterface::~TCPInterface()
 	WSAStartupSingleton::Deref();
 #endif
 
-	MafiaNet::OP_DELETE_ARRAY(remoteClients, _FILE_AND_LINE_);
+	delete[] remoteClients;
 
 	StringCompressor::RemoveReference();
 	MafiaNet::StringTable::RemoveReference();
@@ -313,7 +314,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	if (maxConnections == 0)
 		maxConnections = 1;
 	remoteClientsLength = maxConnections;
-	remoteClients = MafiaNet::OP_NEW_ARRAY<RemoteClient>(maxConnections, _FILE_AND_LINE_);
+	remoteClients = new RemoteClient[maxConnections];
 
 
 	listenSocket = 0;
@@ -322,7 +323,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 		if (CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress) == false)
 		{
 			isStarted.Decrement();
-			MafiaNet::OP_DELETE_ARRAY(remoteClients, _FILE_AND_LINE_);
+			delete[] remoteClients;
 			remoteClients = 0;
 			remoteClientsLength = 0;
 			return false;
@@ -397,7 +398,7 @@ void TCPInterface::Stop(void)
 		remoteClients[i].isActiveMutex.Unlock();
 	}
 	remoteClientsLength = 0;
-	MafiaNet::OP_DELETE_ARRAY(remoteClients, _FILE_AND_LINE_);
+	delete[] remoteClients;
 	remoteClients = 0;
 
 	// #low review whether we'd rather use PopInaccurate() here (i.e. check whether related threads accessing the queue terminated already)
@@ -494,7 +495,7 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 	}
 	else
 	{
-		ThisPtrPlusSysAddr *s = MafiaNet::OP_NEW<ThisPtrPlusSysAddr>(_FILE_AND_LINE_);
+		ThisPtrPlusSysAddr *s = new ThisPtrPlusSysAddr;
 		const bool parsed = s->systemAddress.FromStringExplicitPort(host, remotePort, SocketFamilyToIpVersion(socketFamily));
 		s->host = ConnectHost(host ? host : "", parsed ? &s->systemAddress : nullptr);
 		s->systemAddress.SetPortHostOrder(remotePort); // also when parsing failed: the thread connects to this port
@@ -517,7 +518,7 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		{
 			threadRunning.Decrement();
 			const SystemAddress failed = s->systemAddress;
-			MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
+			delete s;
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
 			remoteClients[newRemoteClientIndex].SetActive(false);
 			remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
@@ -718,20 +719,20 @@ void TCPInterface::DeallocatePacket(Packet *packet)
 		return;
 	if (packet->deleteData)
 	{
-		rakFree_Ex(packet->data, _FILE_AND_LINE_);
+		std::free(packet->data);
 		incomingMessages.Deallocate(packet, _FILE_AND_LINE_);
 	}
 	else
 	{
 		// Came from userspace AllocatePacket
-		rakFree_Ex(packet->data, _FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(packet, _FILE_AND_LINE_);
+		std::free(packet->data);
+		delete packet;
 	}
 }
 Packet *TCPInterface::AllocatePacket(unsigned dataSize)
 {
-	Packet *p = MafiaNet::OP_NEW<Packet>(_FILE_AND_LINE_);
-	p->data = (unsigned char *) rakMalloc_Ex(dataSize, _FILE_AND_LINE_);
+	Packet *p = new Packet;
+	p->data = (unsigned char *) std::malloc(dataSize);
 	p->length = dataSize;
 	p->bitSize = BYTES_TO_BITS(dataSize);
 	p->deleteData = false;
@@ -975,7 +976,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	const std::string host = s->host;
 	char bindAddress[sizeof(s->bindAddress)];
 	memcpy(bindAddress, s->bindAddress, sizeof(bindAddress));
-	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
+	delete s;
 
 	// Connect() counted this thread in threadRunning; uncount it on every return.
 	struct ThreadRunningGuard
@@ -1032,7 +1033,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	//	const int BUFF_SIZE=8096;
 	const unsigned int BUFF_SIZE = 1048576;
 	//char data[ BUFF_SIZE ];
-	char *data = (char *) rakMalloc_Ex(BUFF_SIZE, _FILE_AND_LINE_);
+	char *data = (char *) std::malloc(BUFF_SIZE);
 	Packet *incomingMessage;
 	fd_set readFD, exceptionFD, writeFD;
 	sts->threadRunning.Increment();
@@ -1249,7 +1250,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 							if (len > 0)
 							{
 								incomingMessage = sts->incomingMessages.Allocate(_FILE_AND_LINE_);
-								incomingMessage->data = (unsigned char *) rakMalloc_Ex(len + 1, _FILE_AND_LINE_);
+								incomingMessage->data = (unsigned char *) std::malloc(len + 1);
 								memcpy(incomingMessage->data, data, len);
 								incomingMessage->data[len] = 0; // Null terminate this so we can print it out as regular strings.  This is different from RakNet which does not do this.
 								// printf("RECV: %s\n",incomingMessage->data);
@@ -1320,7 +1321,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	}
 	sts->threadRunning.Decrement();
 
-	rakFree_Ex(data, _FILE_AND_LINE_);
+	std::free(data);
 
 
 	return 0;

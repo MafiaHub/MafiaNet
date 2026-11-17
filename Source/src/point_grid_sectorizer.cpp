@@ -39,21 +39,21 @@ PointGridSectorizer::PointGridSectorizer()
 PointGridSectorizer::~PointGridSectorizer()
 {
 	if (grid)
-		MafiaNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
+		delete[] grid;
 	if (records)
-		MafiaNet::OP_DELETE_ARRAY(records, _FILE_AND_LINE_);
+		delete[] records;
 }
 bool PointGridSectorizer::Init(const float _cellWidth, const float _cellHeight, const float minX, const float minY, const float maxX, const float maxY)
 {
 	// Tear down any previous state first; on failure the grid stays inert.
 	if (grid)
 	{
-		MafiaNet::OP_DELETE_ARRAY(grid, _FILE_AND_LINE_);
+		delete[] grid;
 		grid = 0;
 	}
 	if (records)
 	{
-		MafiaNet::OP_DELETE_ARRAY(records, _FILE_AND_LINE_);
+		delete[] records;
 		records = 0;
 	}
 	recordCapacity = 0;
@@ -85,11 +85,11 @@ bool PointGridSectorizer::Init(const float _cellWidth, const float _cellHeight, 
 
 	// Records before grid: if the second allocation throws, grid==0 still
 	// marks the instance inert and the destructor frees what was allocated.
-	records = MafiaNet::OP_NEW_ARRAY<EntryRecord>(POINT_GRID_INITIAL_RECORD_CAPACITY, _FILE_AND_LINE_);
+	records = new EntryRecord[POINT_GRID_INITIAL_RECORD_CAPACITY];
 	recordCapacity = POINT_GRID_INITIAL_RECORD_CAPACITY;
 	for (unsigned int i = 0; i < recordCapacity; ++i)
 		records[i].entry = 0;
-	grid = MafiaNet::OP_NEW_ARRAY<DataStructures::List<void *>>(gridCellWidthCount * gridCellHeightCount, _FILE_AND_LINE_);
+	grid = new DataStructures::List<void *>[gridCellWidthCount * gridCellHeightCount];
 	return true;
 }
 bool PointGridSectorizer::AddEntry(void *entry, const float x, const float y)
@@ -235,7 +235,7 @@ void PointGridSectorizer::GrowRecordTable(void)
 	// only updated once the new table exists, so a throwing allocation cannot
 	// leave a doubled capacity (and probe mask) over the old half-size array.
 	const unsigned int newCapacity = recordCapacity * 2;
-	EntryRecord *newRecords = MafiaNet::OP_NEW_ARRAY<EntryRecord>(newCapacity, _FILE_AND_LINE_);
+	EntryRecord *newRecords = new EntryRecord[newCapacity];
 	for (unsigned int i = 0; i < newCapacity; ++i)
 		newRecords[i].entry = 0;
 	const unsigned int mask = newCapacity - 1;
@@ -248,7 +248,7 @@ void PointGridSectorizer::GrowRecordTable(void)
 			j = (j + 1) & mask;
 		newRecords[j] = records[i];
 	}
-	MafiaNet::OP_DELETE_ARRAY(records, _FILE_AND_LINE_);
+	delete[] records;
 	records = newRecords;
 	recordCapacity = newCapacity;
 }

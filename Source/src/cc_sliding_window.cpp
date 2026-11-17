@@ -30,7 +30,6 @@ static const CCTimeType SYN = 10000;
 #include <cmath>
 #include <stdlib.h>
 #include "mafianet/assert.h"
-#include "mafianet/alloca.h"
 
 using namespace MafiaNet;
 

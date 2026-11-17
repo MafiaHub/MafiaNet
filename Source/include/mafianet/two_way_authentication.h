@@ -38,7 +38,7 @@
 #define HASHED_NONCE_AND_PW_LENGTH SHA1_LENGTH
 
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/memory_override.h"
+#include "mafianet/export.h"
 #include "mafianet/native_types.h"
 #include "mafianet/string.h"
 #include "mafianet/ds_hash.h"

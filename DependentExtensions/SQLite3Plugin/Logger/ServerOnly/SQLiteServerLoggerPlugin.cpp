@@ -9,6 +9,7 @@
  */
 
 #include "SQLiteServerLoggerPlugin.h"
+#include <cstdlib>
 #include "mafianet/peer_interface.h"
 #include "mafianet/packetized_tcp.h"
 #include "mafianet/message_identifiers.h"
@@ -124,7 +125,7 @@ void CompressAsJpeg(char **cptrInOut, uint32_t *sizeInOut, uint16_t imageWidth, 
 	cinfo.hack_use_input_components_as_RGB_PIXELSIZE = 1;
 	jpeg_set_quality(&cinfo, 75, TRUE);
 	int jpegSizeAfterCompression = 0; //size of jpeg after compression
-	char *storage = (char *) rakMalloc_Ex(*sizeInOut + 50000, _FILE_AND_LINE_);
+	char *storage = (char *) std::malloc(*sizeInOut + 50000);
 	jpeg_memory_dest(&cinfo, (JOCTET *) storage, *sizeInOut + 50000, &jpegSizeAfterCompression);
 
 	JSAMPROW row_pointer[1];
@@ -139,8 +140,8 @@ void CompressAsJpeg(char **cptrInOut, uint32_t *sizeInOut, uint16_t imageWidth, 
 	jpeg_finish_compress(&cinfo);
 	jpeg_destroy_compress(&cinfo);
 
-	rakFree_Ex(*cptrInOut, _FILE_AND_LINE_);
-	*cptrInOut = (char *) rakRealloc_Ex(storage, jpegSizeAfterCompression, _FILE_AND_LINE_);
+	std::free(*cptrInOut);
+	*cptrInOut = (char *) std::realloc(storage, jpegSizeAfterCompression);
 	*sizeInOut = jpegSizeAfterCompression;
 }
 static bool needsDxtInit = true;
@@ -172,13 +173,13 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 
 	int i;
 	*returnOutput = true;
-	SQLiteServerLoggerPlugin::CPUThreadOutput *cpuThreadOutput = MafiaNet::OP_NEW<SQLiteServerLoggerPlugin::CPUThreadOutput>(_FILE_AND_LINE_);
+	SQLiteServerLoggerPlugin::CPUThreadOutput *cpuThreadOutput = new SQLiteServerLoggerPlugin::CPUThreadOutput;
 	cpuThreadOutput->arraySize = cpuThreadInput->arraySize;
-	//cpuThreadOutput->cpuOutputNodeArray=MafiaNet::OP_NEW_ARRAY<SQLiteServerLoggerPlugin::CPUThreadOutputNode*>(cpuThreadInput->arraySize,_FILE_AND_LINE_);
+	//cpuThreadOutput->cpuOutputNodeArray=new SQLiteServerLoggerPlugin::CPUThreadOutputNode*[cpuThreadInput->arraySize];
 	//printf("1. arraySize=%i, ",cpuThreadInput->arraySize);
 	for (i = 0; i < cpuThreadInput->arraySize; i++)
 	{
-		cpuThreadOutput->cpuOutputNodeArray[i] = MafiaNet::OP_NEW<SQLiteServerLoggerPlugin::CPUThreadOutputNode>(_FILE_AND_LINE_);
+		cpuThreadOutput->cpuOutputNodeArray[i] = new SQLiteServerLoggerPlugin::CPUThreadOutputNode;
 		SQLiteServerLoggerPlugin::CPUThreadOutputNode *outputNode = cpuThreadOutput->cpuOutputNodeArray[i];
 		Packet *packet = cpuThreadInput->cpuInputArray[i].packet;
 		MafiaNet::RakString dbIdentifier = cpuThreadInput->cpuInputArray[i].dbIdentifier;
@@ -245,7 +246,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 					                                              outputNode->parameterList[parameterCountIndex].imageWidth,
 					                                              outputNode->parameterList[parameterCountIndex].imageHeight);
 					int ddsHeaderSize = DXTCompressor::GetDDSHeaderSize();
-					outputData = (char *) rakMalloc_Ex(bufferSize + ddsHeaderSize, _FILE_AND_LINE_);
+					outputData = (char *) std::malloc(bufferSize + ddsHeaderSize);
 					dxtCompressSuccess = DXTCompressor::CompressImageData(
 					    DXT1,
 					    outputNode->parameterList[parameterCountIndex].data.cptr,
@@ -255,7 +256,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 
 					if (dxtCompressSuccess)
 					{
-						rakFree_Ex(outputNode->parameterList[parameterCountIndex].data.cptr, _FILE_AND_LINE_);
+						std::free(outputNode->parameterList[parameterCountIndex].data.cptr);
 						DXTCompressor::WriteDDSHeader(DXT1,
 						                              outputNode->parameterList[parameterCountIndex].imageWidth,
 						                              outputNode->parameterList[parameterCountIndex].imageHeight,
@@ -277,7 +278,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 					}
 					else
 					{
-						rakFree_Ex(outputData, _FILE_AND_LINE_);
+						std::free(outputData);
 					}
 				}
 
@@ -343,7 +344,7 @@ SQLiteServerLoggerPlugin::CPUThreadOutput *ExecCPULoggingThread(SQLiteServerLogg
 	}
 
 	//	printf("5. out1, ");
-	MafiaNet::OP_DELETE(cpuThreadInput, _FILE_AND_LINE_);
+	delete cpuThreadInput;
 	//	printf("6. out2\n");
 	return cpuThreadOutput;
 }
@@ -361,7 +362,7 @@ struct SQLPreparedStatements
 };
 void *SQLLoggerThreadAllocPreparedStatements()
 {
-	SQLPreparedStatements *s = MafiaNet::OP_NEW<SQLPreparedStatements>(_FILE_AND_LINE_);
+	SQLPreparedStatements *s = new SQLPreparedStatements;
 	return s;
 }
 void SQLLoggerThreadDeallocPreparedStatements(void *statementStruct)
@@ -373,7 +374,7 @@ void SQLLoggerThreadDeallocPreparedStatements(void *statementStruct)
 		sqlite3_finalize(s->insertIntoFunctionCalls);
 	if (s->insertIntoFunctionCallParameters)
 		sqlite3_finalize(s->insertIntoFunctionCallParameters);
-	MafiaNet::OP_DELETE(s, _FILE_AND_LINE_);
+	delete s;
 }
 void DeleteBlobOrText(void *v)
 {
@@ -821,7 +822,7 @@ SQLiteServerLoggerPlugin::SQLiteServerLoggerPlugin()
 SQLiteServerLoggerPlugin::~SQLiteServerLoggerPlugin()
 {
 	StopCPUSQLThreads();
-	MafiaNet::OP_DELETE(cpuThreadInput, _FILE_AND_LINE_);
+	delete cpuThreadInput;
 	CloseAllSessions();
 }
 void SQLiteServerLoggerPlugin::Update(void)
@@ -892,7 +893,7 @@ void SQLiteServerLoggerPlugin::Update(void)
 			if (idx == -1)
 			{
 				DeallocPacketUnified(outputNode->packet);
-				MafiaNet::OP_DELETE(outputNode, _FILE_AND_LINE_);
+				delete outputNode;
 			}
 			else
 			{
@@ -918,14 +919,14 @@ void SQLiteServerLoggerPlugin::Update(void)
 			}
 		}
 
-		//		MafiaNet::OP_DELETE_ARRAY(cpuThreadOutput->cpuOutputNodeArray);
-		MafiaNet::OP_DELETE(cpuThreadOutput, _FILE_AND_LINE_);
+		//		delete[] cpuThreadOutput->cpuOutputNodeArray;
+		delete cpuThreadOutput;
 	}
 
 	while (sqlLoggerThreadPool.HasOutputFast() && sqlLoggerThreadPool.HasOutput())
 	{
 		hadOutput = true;
-		MafiaNet::OP_DELETE(sqlLoggerThreadPool.GetOutput().cpuOutputNode, _FILE_AND_LINE_);
+		delete sqlLoggerThreadPool.GetOutput().cpuOutputNode;
 	}
 
 	if (hadOutput)
@@ -1222,7 +1223,7 @@ void SQLiteServerLoggerPlugin::StopCPUSQLThreads(void)
 		{
 			DeallocPacketUnified(curCPUThreadInput->cpuInputArray[j].packet);
 		}
-		MafiaNet::OP_DELETE(curCPUThreadInput, _FILE_AND_LINE_);
+		delete curCPUThreadInput;
 	}
 	cpuLoggerThreadPool.ClearInput();
 	for (i = 0; i < cpuLoggerThreadPool.OutputSize(); i++)
@@ -1234,19 +1235,19 @@ void SQLiteServerLoggerPlugin::StopCPUSQLThreads(void)
 			DeallocPacketUnified(cpuThreadOutputNode->packet);
 			for (k = 0; k < cpuThreadOutputNode->parameterCount; k++)
 				cpuThreadOutputNode->parameterList[k].Free();
-			MafiaNet::OP_DELETE(cpuThreadOutputNode, _FILE_AND_LINE_);
+			delete cpuThreadOutputNode;
 		}
-		//		MafiaNet::OP_DELETE_ARRAY(cpuThreadOutput->cpuOutputNodeArray,_FILE_AND_LINE_);
-		MafiaNet::OP_DELETE(cpuThreadOutput, _FILE_AND_LINE_);
+		//		delete[] cpuThreadOutput->cpuOutputNodeArray;
+		delete cpuThreadOutput;
 	}
 	cpuLoggerThreadPool.ClearOutput();
 
 	sqlLoggerThreadPool.StopThreads();
 	for (i = 0; i < sqlLoggerThreadPool.InputSize(); i++)
-		MafiaNet::OP_DELETE(sqlLoggerThreadPool.GetInputAtIndex(i).cpuOutputNode, _FILE_AND_LINE_);
+		delete sqlLoggerThreadPool.GetInputAtIndex(i).cpuOutputNode;
 	sqlLoggerThreadPool.ClearInput();
 	for (i = 0; i < sqlLoggerThreadPool.OutputSize(); i++)
-		MafiaNet::OP_DELETE(sqlLoggerThreadPool.GetOutputAtIndex(i).cpuOutputNode, _FILE_AND_LINE_);
+		delete sqlLoggerThreadPool.GetOutputAtIndex(i).cpuOutputNode;
 	sqlLoggerThreadPool.ClearOutput();
 }
 void SQLiteServerLoggerPlugin::GetProcessingStatus(ProcessingStatus *processingStatus)
@@ -1267,7 +1268,7 @@ SQLiteServerLoggerPlugin::CPUThreadInput *SQLiteServerLoggerPlugin::LockCpuThrea
 {
 	if (cpuThreadInput == 0)
 	{
-		cpuThreadInput = MafiaNet::OP_NEW<CPUThreadInput>(_FILE_AND_LINE_);
+		cpuThreadInput = new CPUThreadInput;
 		cpuThreadInput->arraySize = 0;
 		whenCpuThreadInputAllocated = MafiaNet::GetTimeMS();
 	}
@@ -1279,7 +1280,7 @@ void SQLiteServerLoggerPlugin::ClearCpuThreadInput(void)
 	{
 		for (int i = 0; i < cpuThreadInput->arraySize; i++)
 			DeallocPacketUnified(cpuThreadInput->cpuInputArray[i].packet);
-		MafiaNet::OP_DELETE(cpuThreadInput, _FILE_AND_LINE_);
+		delete cpuThreadInput;
 		cpuThreadInput = 0;
 	}
 }
@@ -1296,7 +1297,7 @@ void SQLiteServerLoggerPlugin::CancelLockCpuThreadInput(void)
 {
 	if (cpuThreadInput->arraySize == 0)
 	{
-		MafiaNet::OP_DELETE(cpuThreadInput, _FILE_AND_LINE_);
+		delete cpuThreadInput;
 		cpuThreadInput = 0;
 	}
 }

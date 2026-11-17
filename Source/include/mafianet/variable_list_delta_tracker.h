@@ -14,8 +14,8 @@
  */
 
 #include "mafianet/native_types.h"
+#include <cstdlib>
 #include "mafianet/ds_list.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/bit_stream.h"
 
 #ifndef __VARIABLE_LIST_DELTA_TRACKER
@@ -53,7 +53,7 @@ public:
 
 		if (temp.GetNumberOfBytesUsed() != variableList[nextWriteIndex].byteLength)
 		{
-			variableList[nextWriteIndex].lastData = (char *) rakRealloc_Ex(variableList[nextWriteIndex].lastData, temp.GetNumberOfBytesUsed(), _FILE_AND_LINE_);
+			variableList[nextWriteIndex].lastData = (char *) std::realloc(variableList[nextWriteIndex].lastData, temp.GetNumberOfBytesUsed());
 			variableList[nextWriteIndex].byteLength = temp.GetNumberOfBytesUsed();
 			memcpy(variableList[nextWriteIndex].lastData, temp.GetData(), temp.GetNumberOfBytesUsed());
 			variableList[nextWriteIndex].isDirty = false;

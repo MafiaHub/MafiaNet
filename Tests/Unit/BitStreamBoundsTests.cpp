@@ -80,10 +80,10 @@ TEST(BitStreamBounds, SafeAllocReadThatRunsShortReturnsNoBuffer)
 	bs.WriteCompressed((unsigned int) 100);
 	bs.Write((uint32_t) 0xDEADBEEF);
 
-	char *buffer = nullptr;
+	std::unique_ptr<unsigned char[]> buffer;
 	unsigned int length = 0;
-	EXPECT_FALSE(bs.ReadAlignedBytesSafeAlloc(&buffer, length, 4096));
-	EXPECT_EQ(nullptr, buffer);
+	EXPECT_FALSE(bs.ReadAlignedBytesSafeAlloc(buffer, length, 4096));
+	EXPECT_EQ(nullptr, buffer.get());
 }
 
 TEST(BitStreamBounds, ReadDeltaAtTheEndOfTheStreamFailsAndLeavesTheValue)

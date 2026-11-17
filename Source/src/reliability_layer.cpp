@@ -18,6 +18,8 @@
 
 
 #include "mafianet/reliability_layer.h"
+#include <vector>
+#include <cstdlib>
 #include "mafianet/mmsg_batch.h"
 #include "mafianet/mtu_black_hole.h"
 #include "mafianet/get_time.h"
@@ -654,7 +656,7 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 			ReleaseToInternalPacketPool(splitPacketChannelList[i]->returnedPacket);
 		}
 #endif
-		MafiaNet::OP_DELETE(splitPacketChannelList[i], __FILE__, __LINE__);
+		delete splitPacketChannelList[i];
 	}
 	splitPacketChannelList.Clear(false, _FILE_AND_LINE_);
 
@@ -683,7 +685,7 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 					ReleaseToInternalPacketPool( internalPacket );
 				}
 
-				MafiaNet::OP_DELETE(theList, _FILE_AND_LINE_);
+				delete theList;
 			}
 		}
 	}
@@ -742,7 +744,7 @@ void ReliabilityLayer::FreeThreadSafeMemory(void)
 
 #ifdef _DEBUG
 	for (i = 0; i < delayList.Size(); i++)
-		MafiaNet::OP_DELETE(delayList[i], __FILE__, __LINE__);
+		delete delayList[i];
 	delayList.Clear(__FILE__, __LINE__);
 #endif
 
@@ -1851,7 +1853,6 @@ bool ReliabilityLayer::Send(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 	InternalPacket *internalPacket = AllocateFromInternalPacketPool();
 	if (internalPacket == 0)
 	{
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return false; // Out of memory
 	}
 
@@ -1862,7 +1863,7 @@ bool ReliabilityLayer::Send(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 	if (makeDataCopy)
 	{
 		AllocInternalPacketData(internalPacket, numberOfBytesToSend, true, _FILE_AND_LINE_);
-		//internalPacket->data = (unsigned char*) rakMalloc_Ex( numberOfBytesToSend, _FILE_AND_LINE_ );
+		//internalPacket->data = (unsigned char*) std::malloc(numberOfBytesToSend);
 		memcpy(internalPacket->data, data, numberOfBytesToSend);
 	}
 	else
@@ -1944,7 +1945,7 @@ bool ReliabilityLayer::Send(char *data, BitSize_t numberOfBitsToSend, MafiaNet::
 		//sendPacketSet[priority].CancelWriteLock(internalPacket);
 		//SplitPacket( &packetCopy, MTUSize );
 		SplitPacket(internalPacket);
-		//MafiaNet::OP_DELETE_ARRAY(packetCopy.data, _FILE_AND_LINE_);
+		//delete[] packetCopy.data;
 		return true;
 	}
 
@@ -2012,7 +2013,7 @@ void ReliabilityLayer::UpdateInternal(RakNetSocket2 *s, SystemAddress &systemAdd
 			bsp.systemAddress = systemAddress;
 			dat->s->Send(&bsp, _FILE_AND_LINE_);
 
-			MafiaNet::OP_DELETE(dat, __FILE__, __LINE__);
+			delete dat;
 		}
 		else
 		{
@@ -2631,7 +2632,7 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 	{
 #ifdef FLIP_SEND_ORDER_TEST
 		// Flip order of sends without delaying them for testing
-		DataAndTime *dat = MafiaNet::OP_NEW<DataAndTime>(__FILE__, __LINE__);
+		DataAndTime *dat = new DataAndTime;
 		memcpy(dat->data, (char *) bitStream->GetData(), length);
 		dat->s = s;
 		dat->length = length;
@@ -2644,7 +2645,7 @@ void ReliabilityLayer::SendBitStream(RakNetSocket2 *s, SystemAddress &systemAddr
 			delay += (randomMT() % extraPingVariance);
 		if (delay > 0)
 		{
-			DataAndTime *dat = MafiaNet::OP_NEW<DataAndTime>(__FILE__, __LINE__);
+			DataAndTime *dat = new DataAndTime;
 			memcpy(dat->data, (char *) bitStream->GetData(), length);
 			dat->s = s;
 			dat->length = length;
@@ -3141,7 +3142,6 @@ InternalPacket *ReliabilityLayer::CreateInternalPacketFromBitStream(MafiaNet::Bi
 	if (internalPacket->data == 0)
 	{
 		RakAssert("Out of memory in ReliabilityLayer::CreateInternalPacketFromBitStream" && 0);
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		ReleaseToInternalPacketPool(internalPacket);
 		return 0;
 	}
@@ -3297,31 +3297,17 @@ void ReliabilityLayer::SplitPacket(InternalPacket *internalPacket)
 	int maximumSendBlockBytes, byteOffset, bytesToSend;
 	SplitPacketIndexType splitPacketIndex;
 	int i;
-	InternalPacket **internalPacketArray;
-
 	maximumSendBlockBytes = GetMaxDatagramSizeExcludingMessageHeaderBytes() - BITS_TO_BYTES(GetMaxMessageHeaderLengthBits());
 
 	// Calculate how many packets we need to create
 	internalPacket->splitPacketCount = ((dataByteLength - 1) / (maximumSendBlockBytes) + 1);
 
-	// Optimization
-	// internalPacketArray = MafiaNet::OP_NEW<InternalPacket*>(internalPacket->splitPacketCount, _FILE_AND_LINE_ );
-	bool usedAlloca = false;
-#if USE_ALLOCA == 1
-	if (sizeof(InternalPacket *) * internalPacket->splitPacketCount < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		internalPacketArray = (InternalPacket **) alloca(sizeof(InternalPacket *) * internalPacket->splitPacketCount);
-		usedAlloca = true;
-	}
-	else
-#endif
-		internalPacketArray = (InternalPacket **) rakMalloc_Ex(sizeof(InternalPacket *) * internalPacket->splitPacketCount, _FILE_AND_LINE_);
+	std::vector<InternalPacket *> internalPacketArray(internalPacket->splitPacketCount);
 
 	for (i = 0; i < (int) internalPacket->splitPacketCount; i++)
 	{
 		internalPacketArray[i] = AllocateFromInternalPacketPool();
 
-		//internalPacketArray[ i ] = (InternalPacket*) alloca( sizeof( InternalPacket ) );
 		//		internalPacketArray[ i ] = sendPacketSet[internalPacket->priority].WriteLock();
 		*internalPacketArray[i] = *internalPacket;
 		internalPacketArray[i]->messageNumberAssigned = false;
@@ -3347,7 +3333,7 @@ void ReliabilityLayer::SplitPacket(InternalPacket *internalPacket)
 		// Copy over our chunk of data
 
 		AllocInternalPacketData(internalPacketArray[splitPacketIndex], &refCounter, internalPacket->data, internalPacket->data + byteOffset);
-		//		internalPacketArray[ splitPacketIndex ]->data = (unsigned char*) rakMalloc_Ex( bytesToSend, _FILE_AND_LINE_ );
+		//		internalPacketArray[ splitPacketIndex ]->data = (unsigned char*) std::malloc(bytesToSend);
 		//		memcpy( internalPacketArray[ splitPacketIndex ]->data, internalPacket->data + byteOffset, bytesToSend );
 
 		if (bytesToSend != maximumSendBlockBytes)
@@ -3391,9 +3377,6 @@ void ReliabilityLayer::SplitPacket(InternalPacket *internalPacket)
 	// Do not delete, original is referenced by all split packets to avoid numerous allocations. See AllocInternalPacketData above
 	//	FreeInternalPacketData(internalPacket, _FILE_AND_LINE_ );
 	ReleaseToInternalPacketPool(internalPacket);
-
-	if (usedAlloca == false)
-		rakFree_Ex(internalPacketArray, _FILE_AND_LINE_);
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -3461,18 +3444,16 @@ void ReliabilityLayer::ReSplitOversizedMessages(void)
 			bitLength = pkt->dataBitLength;
 		}
 		const unsigned int byteLength = (unsigned int) BITS_TO_BYTES(bitLength);
-		unsigned char *copy = (unsigned char *) rakMalloc_Ex(byteLength, _FILE_AND_LINE_);
+		unsigned char *copy = (unsigned char *) std::malloc(byteLength);
 		if (copy == 0)
 		{
-			notifyOutOfMemory(_FILE_AND_LINE_);
 			return 0;
 		}
 		memcpy(copy, source, byteLength);
 		InternalPacket *rebuilt = AllocateFromInternalPacketPool();
 		if (rebuilt == 0)
 		{
-			rakFree_Ex(copy, _FILE_AND_LINE_);
-			notifyOutOfMemory(_FILE_AND_LINE_);
+			std::free(copy);
 			return 0;
 		}
 		// Keep reliability, priority, ordering/sequencing indices and receipt
@@ -3679,12 +3660,11 @@ void ReliabilityLayer::AddReSplitHeader(InternalPacket *rebuilt, bool oldCopyInc
 
 	const unsigned int headerBytes = (unsigned int) header.GetNumberOfBytesUsed();
 	const unsigned int payloadBytes = (unsigned int) BITS_TO_BYTES(rebuilt->dataBitLength);
-	unsigned char *data = (unsigned char *) rakMalloc_Ex(headerBytes + payloadBytes, _FILE_AND_LINE_);
+	unsigned char *data = (unsigned char *) std::malloc(headerBytes + payloadBytes);
 	if (data == 0)
 	{
 		// Sent without the header, the copy can be delivered twice or leave a
 		// hole; out of memory, nothing better is on offer.
-		notifyOutOfMemory(_FILE_AND_LINE_);
 		return;
 	}
 	memcpy(data, header.GetData(), headerBytes);
@@ -3871,7 +3851,7 @@ void ReliabilityLayer::DiscardSplitPacketChannel(SplitPacketIdType id)
 		ReleaseToInternalPacketPool(channel->returnedPacket);
 	}
 #endif
-	MafiaNet::OP_DELETE(channel, _FILE_AND_LINE_);
+	delete channel;
 	splitPacketChannelList.RemoveAtIndex(index);
 }
 
@@ -3886,7 +3866,7 @@ void ReliabilityLayer::InsertIntoSplitPacketList(InternalPacket *internalPacket,
 	index = splitPacketChannelList.GetIndexFromKey(internalPacket->splitPacketId, &objectExists);
 	if (objectExists == false)
 	{
-		SplitPacketChannel *newChannel = MafiaNet::OP_NEW<SplitPacketChannel>(__FILE__, __LINE__);
+		SplitPacketChannel *newChannel = new SplitPacketChannel;
 #if PREALLOCATE_LARGE_MESSAGES == 1
 		index = splitPacketChannelList.Insert(internalPacket->splitPacketId, newChannel, true, __FILE__, __LINE__);
 		newChannel->returnedPacket = CreateInternalPacketCopy(internalPacket, 0, 0, time);
@@ -3987,7 +3967,7 @@ void ReliabilityLayer::InsertIntoSplitPacketList(InternalPacket *internalPacket,
 		// a malformed fragment cannot pin a channel slot.
 		if (splitPacketChannelList[index]->splitPacketList.GetNumAddedPackets() == 0)
 		{
-			MafiaNet::OP_DELETE(splitPacketChannelList[index], _FILE_AND_LINE_);
+			delete splitPacketChannelList[index];
 			splitPacketChannelList.RemoveAtIndex(index);
 		}
 		return;
@@ -4039,7 +4019,7 @@ InternalPacket *ReliabilityLayer::BuildPacketFromSplitPacketList(SplitPacketChan
 {
 #if PREALLOCATE_LARGE_MESSAGES == 1
 	InternalPacket *returnedPacket = splitPacketChannel->returnedPacket;
-	MafiaNet::OP_DELETE(splitPacketChannel, __FILE__, __LINE__);
+	delete splitPacketChannel;
 	(void) time;
 	return returnedPacket;
 #else
@@ -4057,7 +4037,7 @@ InternalPacket *ReliabilityLayer::BuildPacketFromSplitPacketList(SplitPacketChan
 	{
 		internalPacket = CreateInternalPacketCopy(fragments.begin()->second, 0, 0, time);
 		internalPacket->dataBitLength = (BitSize_t) totalBits;
-		internalPacket->data = (unsigned char *) rakMalloc_Ex((size_t) BITS_TO_BYTES(internalPacket->dataBitLength), _FILE_AND_LINE_);
+		internalPacket->data = (unsigned char *) std::malloc((size_t) BITS_TO_BYTES(internalPacket->dataBitLength));
 		internalPacket->allocationScheme = InternalPacket::NORMAL;
 
 		// Add() guarantees every fragment but the last is whole bytes, so the
@@ -4076,7 +4056,7 @@ InternalPacket *ReliabilityLayer::BuildPacketFromSplitPacketList(SplitPacketChan
 		FreeInternalPacketData(fragment.second, _FILE_AND_LINE_);
 		ReleaseToInternalPacketPool(fragment.second);
 	}
-	MafiaNet::OP_DELETE(splitPacketChannel, __FILE__, __LINE__);
+	delete splitPacketChannel;
 
 	return internalPacket;
 #endif
@@ -4133,10 +4113,10 @@ if (time > splitPacketChannelList[i]->lastUpdateTime + (CCTimeType)timeoutTime*(
 {
 for (j=0; j < splitPacketChannelList[i]->splitPacketList.Size(); j++)
 {
-MafiaNet::OP_DELETE_ARRAY(splitPacketChannelList[i]->splitPacketList[j]->data, _FILE_AND_LINE_);
+delete[] splitPacketChannelList[i]->splitPacketList[j]->data;
 ReleaseToInternalPacketPool(splitPacketChannelList[i]->splitPacketList[j]);
 }
-MafiaNet::OP_DELETE(splitPacketChannelList[i], _FILE_AND_LINE_);
+delete splitPacketChannelList[i];
 splitPacketChannelList.RemoveAtIndex(i);
 }
 else
@@ -4713,7 +4693,7 @@ void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, I
 	if (*refCounter == 0)
 	{
 		*refCounter = refCountedDataPool.Allocate(_FILE_AND_LINE_);
-		// *refCounter = MafiaNet::OP_NEW<InternalPacketRefCountedData>(_FILE_AND_LINE_);
+		// *refCounter = new InternalPacketRefCountedData;
 		(*refCounter)->refCount = 1;
 		(*refCounter)->sharedDataBlock = externallyAllocatedPtr;
 	}
@@ -4728,7 +4708,7 @@ void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, u
 	internalPacket->data = externallyAllocatedPtr;
 }
 //-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, unsigned int numBytes, bool allowStack, const char *file, unsigned int line)
+void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, unsigned int numBytes, bool allowStack, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (allowStack && numBytes <= sizeof(internalPacket->stackData))
 	{
@@ -4738,7 +4718,7 @@ void ReliabilityLayer::AllocInternalPacketData(InternalPacket *internalPacket, u
 	else
 	{
 		internalPacket->allocationScheme = InternalPacket::NORMAL;
-		internalPacket->data = (unsigned char *) rakMalloc_Ex(numBytes, file, line);
+		internalPacket->data = (unsigned char *) std::malloc(numBytes);
 	}
 }
 //-------------------------------------------------------------------------------------------------------
@@ -4755,9 +4735,9 @@ void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, co
 		internalPacket->refCountedData->refCount--;
 		if (internalPacket->refCountedData->refCount == 0)
 		{
-			rakFree_Ex(internalPacket->refCountedData->sharedDataBlock, file, line);
+			std::free(internalPacket->refCountedData->sharedDataBlock);
 			internalPacket->refCountedData->sharedDataBlock = 0;
-			// MafiaNet::OP_DELETE(internalPacket->refCountedData,file, line);
+			// delete internalPacket->refCountedData;
 			refCountedDataPool.Release(internalPacket->refCountedData, file, line);
 			internalPacket->refCountedData = 0;
 		}
@@ -4767,7 +4747,7 @@ void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket, co
 		if (internalPacket->data == 0)
 			return;
 
-		rakFree_Ex(internalPacket->data, file, line);
+		std::free(internalPacket->data);
 		internalPacket->data = 0;
 	}
 	else

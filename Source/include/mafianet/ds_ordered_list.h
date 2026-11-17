@@ -19,7 +19,6 @@
 ///
 
 #include "mafianet/ds_list.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 
 #ifndef __ORDERED_LIST_H

@@ -1,116 +1,70 @@
 Custom Memory Management
 ========================
 
-MafiaNet supports custom memory allocators for fine-grained control over memory
-allocation patterns. This is useful for tracking allocations, reducing fragmentation,
-or integrating with game engine memory systems.
+MafiaNet allocates with plain ``operator new`` / ``operator delete`` and
+``std::malloc`` / ``std::realloc`` / ``std::free``. There is no library-private
+allocator layer, so any tool that works on a normal C++ program works here too.
 
-Overview
---------
+Customising the allocator
+-------------------------
 
-Memory management can be customized at multiple levels:
+To track, pool or otherwise control MafiaNet's allocations, replace the
+allocator for the whole process rather than for the library alone:
 
-* Global allocation overrides
-* Per-system memory pools
-* Custom allocators for specific components
+* Replace the global ``operator new`` and ``operator delete`` in your
+  application (see ``<new>``). Every ``new`` / ``delete`` in MafiaNet goes
+  through your replacement.
+* Link a drop-in ``malloc`` replacement such as mimalloc or jemalloc. This
+  also covers the ``std::malloc`` / ``std::free`` calls.
+* Use the allocation profilers and sanitizers of your platform
+  (AddressSanitizer, Valgrind, Instruments, heaptrack) for leak and
+  allocation tracking.
 
-Basic Usage
+.. code-block:: cpp
+
+   #include <cstdlib>
+   #include <new>
+
+   void* operator new(std::size_t size)
+   {
+       void* ptr = std::malloc(size);
+       if (!ptr)
+           throw std::bad_alloc();
+       return ptr;
+   }
+
+   void operator delete(void* ptr) noexcept
+   {
+       std::free(ptr);
+   }
+
+Replace the sized and array forms (``operator new[]``, ``operator delete[]``,
+``operator delete(void*, std::size_t)``) as well, or the default forms will
+bypass your allocator.
+
+Memory across a DLL boundary
+----------------------------
+
+Memory must be freed by the module that allocated it. Create and destroy
+library objects with ``GetInstance()`` / ``DestroyInstance()`` and release
+received packets with ``DeallocatePacket()``; never ``delete`` them yourself.
+
+Removed API
 -----------
 
-**Global allocator override:**
+The following were removed in this release together with the
+``_USE_RAK_MEMORY_OVERRIDE`` build flag and the bundled dlmalloc
+(``UseRaknetFixedHeap``):
 
-.. code-block:: cpp
+* ``SetMalloc`` / ``SetRealloc`` / ``SetFree`` and their ``_Ex`` variants
+* ``SetNotifyOutOfMemory``
+* ``GetMalloc`` / ``GetRealloc`` / ``GetFree``
+* ``rakMalloc`` / ``rakRealloc`` / ``rakFree``, ``OP_NEW`` / ``OP_DELETE``
 
-   #include "mafianet/memory_override.h"
-
-   // Define custom allocation functions
-   void* MyMalloc(size_t size) {
-       void* ptr = MyGameEngine::Allocate(size, "MafiaNet");
-       return ptr;
-   }
-
-   void MyFree(void* ptr) {
-       MyGameEngine::Free(ptr);
-   }
-
-   void* MyRealloc(void* ptr, size_t size) {
-       return MyGameEngine::Reallocate(ptr, size, "MafiaNet");
-   }
-
-   // Install before any MafiaNet calls
-   int main() {
-       MafiaNet::SetMalloc(MyMalloc);
-       MafiaNet::SetFree(MyFree);
-       MafiaNet::SetRealloc(MyRealloc);
-
-       // Now use MafiaNet normally
-       MafiaNet::RakPeerInterface* peer =
-           MafiaNet::RakPeerInterface::GetInstance();
-       // ...
-   }
-
-**Allocation tracking:**
-
-.. code-block:: cpp
-
-   void* MyMallocTracked(size_t size, const char* file, int line) {
-       void* ptr = malloc(size);
-       TrackAllocation(ptr, size, file, line);
-       return ptr;
-   }
-
-   void MyFreeTracked(void* ptr, const char* file, int line) {
-       UntrackAllocation(ptr, file, line);
-       free(ptr);
-   }
-
-   // Enable file/line tracking
-   MafiaNet::SetMalloc_Ex(MyMallocTracked);
-   MafiaNet::SetFree_Ex(MyFreeTracked);
-
-**Using memory pools:**
-
-.. code-block:: cpp
-
-   #include "mafianet/ds_memory_pool.h"
-
-   // Create a pool for fixed-size objects
-   MafiaNet::DataStructures::MemoryPool<MyPacketData> packetPool;
-
-   // Allocate from pool
-   MyPacketData* data = packetPool.Allocate(_FILE_AND_LINE_);
-
-   // Return to pool
-   packetPool.Release(data, _FILE_AND_LINE_);
-
-Key Features
-------------
-
-* Global malloc/free/realloc override
-* File and line number tracking variants
-* Built-in memory pool templates
-* Thread-safe allocation support
-* Memory leak detection helpers
-
-Configuration Macros
---------------------
-
-Define in your build configuration:
-
-* ``_RAKNET_SUPPORT_FileOperations`` - Enable file I/O
-* ``_RAKNET_SUPPORT_PacketizedTCP`` - TCP wrapper support
-* ``RAKNET_MEMORY_TRACKING`` - Enable allocation tracking
-
-Memory Pool Classes
--------------------
-
-* ``DS_MemoryPool<T>`` - Fixed-size object pool
-* ``DS_BytePool`` - Variable-size byte allocation
-* ``DS_ThreadSafeAllocatingQueue`` - Thread-safe allocation
+Replace calls to them with the global allocator replacement described above.
 
 See Also
 --------
 
 * :doc:`preprocessor-directives` - Build configuration
 * :doc:`debugging-disconnects` - Memory-related issues
-* :doc:`../api/data-structures` - Container allocations

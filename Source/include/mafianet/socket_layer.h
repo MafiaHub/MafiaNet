@@ -21,9 +21,7 @@
 #ifndef __SOCKET_LAYER_H
 #define __SOCKET_LAYER_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/types.h"
-#include "mafianet/smart_ptr.h"
 //#include "socket.h"
 #include "mafianet/export.h"
 #include "mafianet/mtu_size.h"

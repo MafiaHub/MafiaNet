@@ -489,9 +489,9 @@ void TestPHPDirectoryServer(int argc, char **argv)
 	printf("Set columns and one row for your game, and upload it to a\nviewable and downloadable webpage.\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	// 	tcp = MafiaNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
-	// 	httpConnection = MafiaNet::OP_NEW<HTTPConnection>(_FILE_AND_LINE_);
-	// 	phpDirectoryServer2 = MafiaNet::OP_NEW<PHPDirectoryServer2>(_FILE_AND_LINE_);
+	// 	tcp = new TCPInterface;
+	// 	httpConnection = new HTTPConnection;
+	// 	phpDirectoryServer2 = new PHPDirectoryServer2;
 
 
 	//	MafiaNet::TimeMS lastTouched = 0;
@@ -543,9 +543,9 @@ void TestPHPDirectoryServer(int argc, char **argv)
 	} while (str[0] != 'q');
 
 	// The destructor of each of these references the other, so delete in this order
-	MafiaNet::OP_DELETE(phpDirectoryServer2, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(httpConnection, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE(tcp, _FILE_AND_LINE_);
+	delete phpDirectoryServer2;
+	delete httpConnection;
+	delete tcp;
 }
 
 void TestGet(void)
@@ -583,9 +583,9 @@ int main(int argc, char **argv)
 	printf("Set columns and one row for your game, and upload it to a\nviewable and downloadable webpage.\n");
 	printf("Difficulty: Intermediate\n\n");
 
-	tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__);
-	httpConnection = MafiaNet::OP_NEW<HTTPConnection>(__FILE__, __LINE__);
-	phpDirectoryServer2 = MafiaNet::OP_NEW<PHPDirectoryServer2>(__FILE__, __LINE__);
+	tcp = new TCPInterface;
+	httpConnection = new HTTPConnection;
+	phpDirectoryServer2 = new PHPDirectoryServer2;
 
 
 	//    RakNetTime lastTouched = 0;

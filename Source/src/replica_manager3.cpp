@@ -51,7 +51,7 @@ thread_local const ReplicaManager3 *connectionLocksOwner = 0;
 void DropConnectionLock(RM3ConnectionLock *lock)
 {
 	if (--lock->references == 0)
-		MafiaNet::OP_DELETE(lock, _FILE_AND_LINE_);
+		delete lock;
 }
 
 // Lets go of a lock ReplicaManager3::LockConnection() or LockConnectionByGUID() took, if it took one.
@@ -145,13 +145,13 @@ LastSerializationResult::LastSerializationResult()
 LastSerializationResult::~LastSerializationResult()
 {
 	if (lastSerializationResultBS)
-		MafiaNet::OP_DELETE(lastSerializationResultBS, _FILE_AND_LINE_);
+		delete lastSerializationResultBS;
 }
 void LastSerializationResult::AllocBS(void)
 {
 	if (lastSerializationResultBS == 0)
 	{
-		lastSerializationResultBS = MafiaNet::OP_NEW<LastSerializationResultBS>(_FILE_AND_LINE_);
+		lastSerializationResultBS = new LastSerializationResultBS;
 	}
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -832,7 +832,7 @@ void ReplicaManager3::Clear(bool deleteWorlds)
 		{
 			ListLock listLock(m_WorldListMutex);
 			worldsArray[worldsList[i]->worldId] = 0;
-			MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
+			delete worldsList[i];
 		}
 	}
 	if (deleteWorlds)
@@ -899,7 +899,7 @@ void ReplicaManager3::AddWorld(WorldId worldId)
 {
 	RakAssert(worldsArray[worldId] == 0 && "World already in use");
 
-	RM3World *newWorld = MafiaNet::OP_NEW<RM3World>(_FILE_AND_LINE_);
+	RM3World *newWorld = new RM3World;
 	newWorld->worldId = worldId;
 	std::lock_guard<std::recursive_mutex> worldLock(worldMutex);
 	ListLock listLock(m_WorldListMutex);
@@ -918,7 +918,7 @@ void ReplicaManager3::RemoveWorld(WorldId worldId)
 	{
 		if (worldsList[i] == worldsArray[worldId])
 		{
-			MafiaNet::OP_DELETE(worldsList[i], _FILE_AND_LINE_);
+			delete worldsList[i];
 			worldsList.RemoveAtIndexFast(i);
 			break;
 		}
@@ -1191,7 +1191,7 @@ void Connection_RM3::AutoConstructByQuery(ReplicaManager3 *replicaManager3, Worl
 						break;
 					}
 				}
-				MafiaNet::OP_DELETE(lsr, _FILE_AND_LINE_);
+				delete lsr;
 			}
 		}
 	}
@@ -2191,7 +2191,7 @@ Connection_RM3::Connection_RM3(const SystemAddress &_systemAddress, RakNetGUID _
 	groupConstructionAndSerialize = false;
 	gotDownloadComplete = false;
 	virtualWorld = VIRTUAL_WORLD_DEFAULT;
-	lock = MafiaNet::OP_NEW<RM3ConnectionLock>(_FILE_AND_LINE_);
+	lock = new RM3ConnectionLock;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2200,9 +2200,9 @@ Connection_RM3::~Connection_RM3()
 {
 	unsigned int i;
 	for (i = 0; i < constructedReplicaList.Size(); i++)
-		MafiaNet::OP_DELETE(constructedReplicaList[i], _FILE_AND_LINE_);
+		delete constructedReplicaList[i];
 	for (i = 0; i < queryToConstructReplicaList.Size(); i++)
-		MafiaNet::OP_DELETE(queryToConstructReplicaList[i], _FILE_AND_LINE_);
+		delete queryToConstructReplicaList[i];
 	if (lock)
 		DropConnectionLock(lock);
 }
@@ -2525,7 +2525,7 @@ void Connection_RM3::OnLocalReference(Replica3 *replica3, ReplicaManager3 *repli
 	}
 #endif
 
-	LastSerializationResult *lsr = MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
+	LastSerializationResult *lsr = new LastSerializationResult;
 	lsr->replica = replica3;
 	queryToConstructReplicaList.Push(lsr, _FILE_AND_LINE_);
 }
@@ -2586,7 +2586,7 @@ void Connection_RM3::OnDereference(Replica3 *replica3, ReplicaManager3 *replicaM
 	ValidateLists(replicaManager);
 
 	if (lsr)
-		MafiaNet::OP_DELETE(lsr, _FILE_AND_LINE_);
+		delete lsr;
 
 	ValidateLists(replicaManager);
 }
@@ -2598,7 +2598,7 @@ void Connection_RM3::OnDownloadFromThisSystem(Replica3 *replica3, ReplicaManager
 	RakAssert(replica3);
 
 	ValidateLists(replicaManager);
-	LastSerializationResult *lsr = MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
+	LastSerializationResult *lsr = new LastSerializationResult;
 	lsr->replica = replica3;
 
 	ConstructionMode curConstructionMode = QueryConstructionMode();
@@ -2662,7 +2662,7 @@ void Connection_RM3::OnNeverConstruct(unsigned int queryToConstructIdx, ReplicaM
 	ValidateLists(replicaManager);
 	LastSerializationResult *lsr = queryToConstructReplicaList[queryToConstructIdx];
 	queryToConstructReplicaList.RemoveAtIndex(queryToConstructIdx);
-	MafiaNet::OP_DELETE(lsr, _FILE_AND_LINE_);
+	delete lsr;
 	ValidateLists(replicaManager);
 }
 
@@ -2697,7 +2697,7 @@ void Connection_RM3::OnConstructToThisConnection(Replica3 *replica, ReplicaManag
 	RakAssert(QueryConstructionMode() == QUERY_CONNECTION_FOR_REPLICA_LIST);
 	(void) replicaManager;
 
-	LastSerializationResult *lsr = MafiaNet::OP_NEW<LastSerializationResult>(_FILE_AND_LINE_);
+	LastSerializationResult *lsr = new LastSerializationResult;
 	lsr->replica = replica;
 	{
 		std::lock_guard<std::mutex> constructedLock(lock->constructed);

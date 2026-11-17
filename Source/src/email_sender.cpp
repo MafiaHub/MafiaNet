@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_EmailSender == 1 && _RAKNET_SUPPORT_TCPInterface == 1 && _RAKNET_SUPPORT_FileOperations == 1
 
 // Useful sites
@@ -150,7 +151,7 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	char *newBody;
 	int bodyLength;
 	bodyLength = (int) strlen(body);
-	newBody = (char *) rakMalloc_Ex(bodyLength * 3, _FILE_AND_LINE_);
+	newBody = (char *) std::malloc(bodyLength * 3);
 	if (bodyLength >= 0)
 		newBody[0] = body[0];
 	for (i = 1, j = 1; i < bodyLength; i++)
@@ -219,7 +220,7 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	newBody[j++] = '\n';
 	tcpInterface.Send(newBody, j, emailServer, false);
 
-	rakFree_Ex(newBody, _FILE_AND_LINE_);
+	std::free(newBody);
 	int outputOffset;
 
 	// What a pain in the rear.  I have to map the binary to printable characters using 6 bits per character.
@@ -234,13 +235,13 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 			sprintf_s(query, "Content-Type: APPLICATION/Octet-Stream; SizeOnDisk=%i; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Description: %s\r\n\r\n", attachedFiles->fileList[i].dataLengthBytes, attachedFiles->fileList[i].filename.C_String(), attachedFiles->fileList[i].filename.C_String());
 			tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
 
-			newBody = (char *) rakMalloc_Ex((size_t) (attachedFiles->fileList[i].dataLengthBytes * 3) / 2, _FILE_AND_LINE_);
+			newBody = (char *) std::malloc((size_t) (attachedFiles->fileList[i].dataLengthBytes * 3) / 2);
 
 			outputOffset = Base64Encoding((const unsigned char *) attachedFiles->fileList[i].data, (int) attachedFiles->fileList[i].dataLengthBytes, newBody);
 
 			// Send the base64 mapped file.
 			tcpInterface.Send(newBody, outputOffset, emailServer, false);
-			rakFree_Ex(newBody, _FILE_AND_LINE_);
+			std::free(newBody);
 		}
 
 		// Write last boundary

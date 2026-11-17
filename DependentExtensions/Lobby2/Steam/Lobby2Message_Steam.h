@@ -300,11 +300,11 @@ __L2_MSG_DB_HEADER(Notification_Console_RoomChatMessage, Steam)
 
 // --------------------------------------------- Database specific factory class for all messages --------------------------------------------
 
-#define __L2_MSG_FACTORY_IMPL(__NAME__, __DB__)                                    \
-	{                                                                              \
-	case L2MID_##__NAME__:                                                         \
-		Lobby2Message *m = MafiaNet::OP_NEW<__NAME__##_##__DB__>(_FILE_AND_LINE_); \
-		return m;                                                                  \
+#define __L2_MSG_FACTORY_IMPL(__NAME__, __DB__)     \
+	{                                               \
+	case L2MID_##__NAME__:                          \
+		Lobby2Message *m = new __NAME__##_##__DB__; \
+		return m;                                   \
 	}
 
 struct Lobby2MessageFactory_Steam : public Lobby2MessageFactory

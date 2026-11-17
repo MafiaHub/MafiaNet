@@ -23,6 +23,7 @@
 
 // Common includes
 #include <stdio.h>
+#include <cstdlib>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/kbhit.h"
@@ -167,7 +168,7 @@ public:
 			fseek(fpPatch, 0, SEEK_END);
 			*newFileSize = ftell(fpPatch);
 			fseek(fpPatch, 0, SEEK_SET);
-			*newFileContents = (char *) rakMalloc_Ex(*newFileSize, _FILE_AND_LINE_);
+			*newFileContents = (char *) std::malloc(*newFileSize);
 			fread(*newFileContents, 1, *newFileSize, fpPatch);
 			fclose(fpPatch);
 

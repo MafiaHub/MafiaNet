@@ -19,6 +19,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstdlib>
 
 #include <algorithm>
 #include <cstring>
@@ -136,7 +137,7 @@ TEST_F(RelLayerBlackHole, DeliversTheAckReceiptForAReSplitMessage)
 				EXPECT_EQ(receiptSerial, serial);
 				gotReceipt = true;
 			}
-			rakFree_Ex(data, _FILE_AND_LINE_);
+			std::free(data);
 		}
 	}
 	EXPECT_TRUE(gotReceipt) << "ID_SND_RECEIPT_ACKED never surfaced for the re-split message";
@@ -229,7 +230,7 @@ TEST_F(RelLayerBlackHole, AFalsePositiveStepDownDoesNotBlockTheOrderedChannel)
 		while ((bitSize = b.Receive(&data)) > 0)
 		{
 			received.push_back(std::vector<unsigned char>(data, data + BITS_TO_BYTES(bitSize)));
-			rakFree_Ex(data, _FILE_AND_LINE_);
+			std::free(data);
 		}
 	};
 

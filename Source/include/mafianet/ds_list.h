@@ -26,7 +26,6 @@
 #include "mafianet/assert.h"
 #include <string.h> // memmove
 #include "mafianet/export.h"
-#include "mafianet/memory_override.h"
 
 /// Maximum unsigned long
 static const unsigned int MAX_UNSIGNED_LONG = 4294967295U;
@@ -149,7 +148,7 @@ template <class list_type>
 List<list_type>::~List()
 {
 	if (allocation_size > 0)
-		MafiaNet::OP_DELETE_ARRAY(listArray, _FILE_AND_LINE_);
+		delete[] listArray;
 }
 
 
@@ -166,7 +165,7 @@ List<list_type>::List(const List &original_copy)
 	}
 	else
 	{
-		listArray = MafiaNet::OP_NEW_ARRAY<list_type>(original_copy.list_size, _FILE_AND_LINE_);
+		listArray = new list_type[original_copy.list_size];
 
 		for (unsigned int counter = 0; counter < original_copy.list_size; ++counter)
 			listArray[counter] = original_copy.listArray[counter];
@@ -195,7 +194,7 @@ List<list_type> &List<list_type>::operator=(const List &original_copy)
 
 		else
 		{
-			listArray = MafiaNet::OP_NEW_ARRAY<list_type>(original_copy.list_size, _FILE_AND_LINE_);
+			listArray = new list_type[original_copy.list_size];
 
 			for (unsigned int counter = 0; counter < original_copy.list_size; ++counter)
 				listArray[counter] = original_copy.listArray[counter];
@@ -246,7 +245,7 @@ inline list_type &List<list_type>::Pop(void)
 }
 
 template <class list_type>
-void List<list_type>::Insert(const list_type &input, const unsigned int position, const char *file, unsigned int line)
+void List<list_type>::Insert(const list_type &input, const unsigned int position, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	RakAssert(position <= list_size);
 
@@ -261,7 +260,7 @@ void List<list_type>::Insert(const list_type &input, const unsigned int position
 		else
 			allocation_size *= 2;
 
-		new_array = MafiaNet::OP_NEW_ARRAY<list_type>(allocation_size, file, line);
+		new_array = new list_type[allocation_size];
 
 		// copy old array over
 		for (unsigned int counter = 0; counter < list_size; ++counter)
@@ -271,7 +270,7 @@ void List<list_type>::Insert(const list_type &input, const unsigned int position
 		//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 		// set old array to point to the newly allocated and twice as large array
-		MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
+		delete[] listArray;
 
 		listArray = new_array;
 	}
@@ -291,7 +290,7 @@ void List<list_type>::Insert(const list_type &input, const unsigned int position
 
 
 template <class list_type>
-void List<list_type>::Insert(const list_type &input, const char *file, unsigned int line)
+void List<list_type>::Insert(const list_type &input, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	// Reallocate list if necessary
 
@@ -305,7 +304,7 @@ void List<list_type>::Insert(const list_type &input, const char *file, unsigned 
 		else
 			allocation_size *= 2;
 
-		new_array = MafiaNet::OP_NEW_ARRAY<list_type>(allocation_size, file, line);
+		new_array = new list_type[allocation_size];
 
 		if (listArray)
 		{
@@ -317,7 +316,7 @@ void List<list_type>::Insert(const list_type &input, const char *file, unsigned 
 			//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 			// set old array to point to the newly allocated and twice as large array
-			MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
+			delete[] listArray;
 		}
 
 		listArray = new_array;
@@ -330,7 +329,7 @@ void List<list_type>::Insert(const list_type &input, const char *file, unsigned 
 }
 
 template <class list_type>
-inline void List<list_type>::Replace(const list_type &input, const list_type filler, const unsigned int position, const char *file, unsigned int line)
+inline void List<list_type>::Replace(const list_type &input, const list_type filler, const unsigned int position, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if ((list_size > 0) && (position < list_size))
 	{
@@ -345,7 +344,7 @@ inline void List<list_type>::Replace(const list_type &input, const list_type fil
 			list_type *new_array;
 			allocation_size = position + 1;
 
-			new_array = MafiaNet::OP_NEW_ARRAY<list_type>(allocation_size, file, line);
+			new_array = new list_type[allocation_size];
 
 			// copy old array over
 
@@ -356,7 +355,7 @@ inline void List<list_type>::Replace(const list_type &input, const list_type fil
 			//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 			// set old array to point to the newly allocated array
-			MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
+			delete[] listArray;
 
 			listArray = new_array;
 		}
@@ -447,14 +446,14 @@ inline unsigned int List<list_type>::Size(void) const
 }
 
 template <class list_type>
-void List<list_type>::Clear(bool doNotDeallocateSmallBlocks, const char *file, unsigned int line)
+void List<list_type>::Clear(bool doNotDeallocateSmallBlocks, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	if (allocation_size == 0)
 		return;
 
 	if (allocation_size > 512 || doNotDeallocateSmallBlocks == false)
 	{
-		MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
+		delete[] listArray;
 		allocation_size = 0;
 		listArray = 0;
 	}
@@ -462,14 +461,14 @@ void List<list_type>::Clear(bool doNotDeallocateSmallBlocks, const char *file, u
 }
 
 template <class list_type>
-void List<list_type>::Compress(const char *file, unsigned int line)
+void List<list_type>::Compress([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	list_type *new_array;
 
 	if (allocation_size == 0)
 		return;
 
-	new_array = MafiaNet::OP_NEW_ARRAY<list_type>(allocation_size, file, line);
+	new_array = new list_type[allocation_size];
 
 	// copy old array over
 	for (unsigned int counter = 0; counter < list_size; ++counter)
@@ -479,13 +478,13 @@ void List<list_type>::Compress(const char *file, unsigned int line)
 	//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 	// set old array to point to the newly allocated array
-	MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
+	delete[] listArray;
 
 	listArray = new_array;
 }
 
 template <class list_type>
-void List<list_type>::Preallocate(unsigned countNeeded, const char *file, unsigned int line)
+void List<list_type>::Preallocate(unsigned countNeeded, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
 {
 	unsigned amountToAllocate = allocation_size;
 	if (allocation_size == 0)
@@ -500,7 +499,7 @@ void List<list_type>::Preallocate(unsigned countNeeded, const char *file, unsign
 
 		allocation_size = amountToAllocate;
 
-		new_array = MafiaNet::OP_NEW_ARRAY<list_type>(allocation_size, file, line);
+		new_array = new list_type[allocation_size];
 
 		if (listArray)
 		{
@@ -512,7 +511,7 @@ void List<list_type>::Preallocate(unsigned countNeeded, const char *file, unsign
 			//memcpy(new_array, listArray, list_size*sizeof(list_type));
 
 			// set old array to point to the newly allocated and twice as large array
-			MafiaNet::OP_DELETE_ARRAY(listArray, file, line);
+			delete[] listArray;
 		}
 
 		listArray = new_array;

@@ -11,6 +11,7 @@
  */
 
 #include <benchmark/benchmark.h>
+#include <cstdlib>
 
 #include <vector>
 
@@ -93,7 +94,7 @@ struct LayerPair
 		unsigned char *data;
 		while (b.Receive(&data) > 0)
 		{
-			rakFree_Ex(data, _FILE_AND_LINE_);
+			std::free(data);
 			++received;
 		}
 		return received;

@@ -945,7 +945,7 @@ RAK_THREAD_DECLARATION(UPNPOpenWorker)
 
 	if (args->resultCallback)
 		args->resultCallback(success, args->portToOpen, args->userData);
-	MafiaNet::OP_DELETE(args, _FILE_AND_LINE_);
+	delete args;
 	return 0;
 }
 
@@ -955,7 +955,7 @@ void UPNPOpenAsynch(unsigned short portToOpen,
                     void (*resultCallback)(bool success, unsigned short portToOpen, void *userData),
                     void *userData)
 {
-	UPNPOpenWorkerArgs *args = MafiaNet::OP_NEW<UPNPOpenWorkerArgs>(_FILE_AND_LINE_);
+	UPNPOpenWorkerArgs *args = new UPNPOpenWorkerArgs;
 	args->portToOpen = portToOpen;
 	args->timeout = timeout;
 	args->userData = userData;

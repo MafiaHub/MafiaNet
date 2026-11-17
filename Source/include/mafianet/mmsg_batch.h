@@ -25,7 +25,6 @@
 #include "mafianet/socket2.h"
 #include "mafianet/sockaddr_convert.h" // SockaddrToSystemAddress, used by DispatchRecvBatch
 #include "mafianet/assert.h"
-#include "mafianet/memory_override.h"
 
 #include <string.h> // memcpy
 #include <stdio.h>  // RAKNET_DEBUG_PRINTF defaults to printf

@@ -121,7 +121,7 @@ void UDPProxyClient::Update(void)
 			// If they didn't reply within DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR, just give up on them
 			psg->SendPingedServersToCoordinator(rakPeerInterface);
 
-			MafiaNet::OP_DELETE(psg, _FILE_AND_LINE_);
+			delete psg;
 			pingServerGroups.RemoveAtIndex(idx1);
 		}
 		else
@@ -157,7 +157,7 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 					if (psg->AreAllServersPinged())
 					{
 						psg->SendPingedServersToCoordinator(rakPeerInterface);
-						MafiaNet::OP_DELETE(psg, _FILE_AND_LINE_);
+						delete psg;
 						pingServerGroups.RemoveAtIndex(idx1);
 					}
 
@@ -252,7 +252,7 @@ void UDPProxyClient::OnPingServers(Packet *packet)
 	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
 
-	PingServerGroup *psg = MafiaNet::OP_NEW<PingServerGroup>(_FILE_AND_LINE_);
+	PingServerGroup *psg = new PingServerGroup;
 
 	ServerWithPing swp;
 	incomingBs.Read(psg->sata.senderClientAddress);
@@ -310,7 +310,7 @@ void UDPProxyClient::PingServerGroup::SendPingedServersToCoordinator(RakPeerInte
 void UDPProxyClient::Clear(void)
 {
 	for (unsigned int i = 0; i < pingServerGroups.Size(); i++)
-		MafiaNet::OP_DELETE(pingServerGroups[i], _FILE_AND_LINE_);
+		delete pingServerGroups[i];
 	pingServerGroups.Clear(false, _FILE_AND_LINE_);
 }
 

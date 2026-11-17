@@ -22,7 +22,6 @@
 #define __NETWORK_ID_GENERATOR
 
 #include "mafianet/types.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 
 namespace MafiaNet

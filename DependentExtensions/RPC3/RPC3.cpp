@@ -14,7 +14,6 @@
  */
 
 #include "RPC3.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/assert.h"
 #include "mafianet/string_compressor.h"
 #include "mafianet/bit_stream.h"
@@ -530,7 +529,7 @@ void RPC3::InvokeSignal(DataStructures::HashIndex functionIndex, MafiaNet::BitSt
 // 	}
 // 	else
 // 	{
-// 		theList = MafiaNet::OP_NEW<DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> >(_FILE_AND_LINE_);
+// 		theList = new DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp>;
 //
 // 		newRemoteFunction.functionIndex=remoteIndex;
 // 		newRemoteFunction.identifier = strIdentifier;
@@ -577,12 +576,12 @@ void RPC3::Clear(void)
 	// 	for (j=0; j < remoteFunctions.Size(); j++)
 	// 	{
 	// 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteFunctions[j];
-	// 		MafiaNet::OP_DELETE(theList,_FILE_AND_LINE_);
+	// 		delete theList;
 	// 	}
 	// 	for (j=0; j < remoteSlots.Size(); j++)
 	// 	{
 	// 		DataStructures::OrderedList<RPCIdentifier, RemoteRPCFunction, RPC3::RemoteRPCFunctionComp> *theList = remoteSlots[j];
-	// 		MafiaNet::OP_DELETE(theList,_FILE_AND_LINE_);
+	// 		delete theList;
 	// 	}
 
 	DataStructures::List<MafiaNet::RakString> keyList;
@@ -590,7 +589,7 @@ void RPC3::Clear(void)
 	localSlots.GetAsList(outputList, keyList, _FILE_AND_LINE_);
 	for (j = 0; j < outputList.Size(); j++)
 	{
-		MafiaNet::OP_DELETE(outputList[j], _FILE_AND_LINE_);
+		delete outputList[j];
 	}
 	localSlots.Clear(_FILE_AND_LINE_);
 
@@ -598,7 +597,7 @@ void RPC3::Clear(void)
 	localFunctions.GetAsList(outputList2, keyList, _FILE_AND_LINE_);
 	for (j = 0; j < outputList2.Size(); j++)
 	{
-		MafiaNet::OP_DELETE(outputList2[j], _FILE_AND_LINE_);
+		delete outputList2[j];
 	}
 	localFunctions.Clear(_FILE_AND_LINE_);
 	//	remoteFunctions.Clear();

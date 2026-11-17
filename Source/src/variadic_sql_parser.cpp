@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/variadic_sql_parser.h"
+#include <cstdlib>
 #include "mafianet/bit_stream.h"
 #include <stdarg.h>
 
@@ -78,8 +79,8 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		return;
 
 	unsigned int i;
-	*argumentBinary = MafiaNet::OP_NEW_ARRAY<char *>(indices.Size(), _FILE_AND_LINE_);
-	*argumentLengths = MafiaNet::OP_NEW_ARRAY<int>(indices.Size(), _FILE_AND_LINE_);
+	*argumentBinary = new char *[indices.Size()];
+	*argumentLengths = new int[indices.Size()];
 
 	char **paramData = *argumentBinary;
 	int *paramLength = *argumentLengths;
@@ -94,7 +95,7 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		{
 			int val = va_arg(argptr, int);
 			paramLength[i] = sizeof(val);
-			paramData[i] = (char *) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
+			paramData[i] = (char *) std::malloc(paramLength[i]);
 			memcpy(paramData[i], &val, paramLength[i]);
 			if (MafiaNet::BitStream::IsNetworkOrder() == false)
 				MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) paramData[i], paramLength[i]);
@@ -104,7 +105,7 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		{
 			char *val = va_arg(argptr, char *);
 			paramLength[i] = (int) strlen(val);
-			paramData[i] = (char *) rakMalloc_Ex(paramLength[i] + 1, _FILE_AND_LINE_);
+			paramData[i] = (char *) std::malloc(paramLength[i] + 1);
 			memcpy(paramData[i], val, paramLength[i] + 1);
 		}
 		break;
@@ -112,7 +113,7 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		{
 			bool val = (va_arg(argptr, int) != 0);
 			paramLength[i] = sizeof(val);
-			paramData[i] = (char *) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
+			paramData[i] = (char *) std::malloc(paramLength[i]);
 			memcpy(paramData[i], &val, paramLength[i]);
 			if (MafiaNet::BitStream::IsNetworkOrder() == false)
 				MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) paramData[i], paramLength[i]);
@@ -125,7 +126,7 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 				float val = (float) va_arg( argptr, double );
 				//float val = va_arg( argptr, float );
 				paramLength[i]=sizeof(val);
-				paramData[i]=(char*) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
+				paramData[i]=(char*) std::malloc(paramLength[i]);
 				memcpy(paramData[i], &val, paramLength[i]);
 				if (MafiaNet::BitStream::IsNetworkOrder()==false) MafiaNet::BitStream::ReverseBytesInPlace((unsigned char*) paramData[i], paramLength[i]);
 			}
@@ -137,7 +138,7 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		{
 			double val = va_arg(argptr, double);
 			paramLength[i] = sizeof(val);
-			paramData[i] = (char *) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
+			paramData[i] = (char *) std::malloc(paramLength[i]);
 			memcpy(paramData[i], &val, paramLength[i]);
 			if (MafiaNet::BitStream::IsNetworkOrder() == false)
 				MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) paramData[i], paramLength[i]);
@@ -147,7 +148,7 @@ void VariadicSQLParser::ExtractArguments(va_list argptr, const DataStructures::L
 		{
 			char *val = va_arg(argptr, char *);
 			paramLength[i] = va_arg(argptr, unsigned int);
-			paramData[i] = (char *) rakMalloc_Ex(paramLength[i], _FILE_AND_LINE_);
+			paramData[i] = (char *) std::malloc(paramLength[i]);
 			memcpy(paramData[i], val, paramLength[i]);
 		}
 		break;
@@ -161,7 +162,7 @@ void VariadicSQLParser::FreeArguments(const DataStructures::List<IndexAndType> &
 
 	unsigned int i;
 	for (i = 0; i < indices.Size(); i++)
-		rakFree_Ex(argumentBinary[i], _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(argumentBinary, _FILE_AND_LINE_);
-	MafiaNet::OP_DELETE_ARRAY(argumentLengths, _FILE_AND_LINE_);
+		std::free(argumentBinary[i]);
+	delete[] argumentBinary;
+	delete[] argumentLengths;
 }

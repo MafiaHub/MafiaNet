@@ -60,9 +60,9 @@ bool IsIgnoredByTarget(unsigned int callerUserId, unsigned int targetUserId, Pos
 void OutputFriendsNotification(MafiaNet::Notification_Friends_StatusChange::Status notificationType, Lobby2ServerCommand *command, PostgreSQLInterface *pgsql);
 // This does NOT return the online status to output, as it is not threadsafe
 void GetFriendInfosByStatus(unsigned int callerUserId, MafiaNet::RakString status, PostgreSQLInterface *pgsql, DataStructures::List<FriendInfo> &output, bool callerIsUserOne);
-void SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, RakNetSmartPtr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
-void SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, RakNetSmartPtr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
-void SendEmail(unsigned int targetUserId, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, RakNetSmartPtr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
+void SendEmail(DataStructures::List<MafiaNet::RakString> &recipientNames, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
+void SendEmail(DataStructures::List<unsigned int> &targetUserIds, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
+void SendEmail(unsigned int targetUserId, unsigned int senderUserId, MafiaNet::RakString senderUserName, Lobby2Server *server, MafiaNet::RakString subject, MafiaNet::RakString body, std::shared_ptr<BinaryDataBlock> binaryData, int status, MafiaNet::RakString triggerString, PostgreSQLInterface *pgsql);
 int GetActiveClanCount(unsigned int userId, PostgreSQLInterface *pgsql);
 bool CreateAccountParametersFailed(CreateAccountParameters &createAccountParameters, MafiaNet::Lobby2ResultCode &resultCode, Lobby2ServerCommand *command, PostgreSQLInterface *pgsql);
 void UpdateAccountFromMissingCreationParameters(CreateAccountParameters &createAccountParameters, unsigned int userPrimaryKey, Lobby2ServerCommand *command, PostgreSQLInterface *pgsql);
@@ -638,10 +638,10 @@ return false;
 
 // --------------------------------------------- Database specific factory class for all messages --------------------------------------------
 
-#define __L2_MSG_FACTORY_IMPL(__NAME__, __DB__)                        \
-	{                                                                  \
-	case L2MID_##__NAME__:                                             \
-		return MafiaNet::OP_NEW<__NAME__##_##__DB__>(_FILE_AND_LINE_); \
+#define __L2_MSG_FACTORY_IMPL(__NAME__, __DB__) \
+	{                                           \
+	case L2MID_##__NAME__:                      \
+		return new __NAME__##_##__DB__;         \
 	}
 
 struct Lobby2MessageFactory_PGSQL : public Lobby2MessageFactory

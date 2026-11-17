@@ -21,7 +21,6 @@
 #ifndef __REF_COUNTED_OBJ_H
 #define __REF_COUNTED_OBJ_H
 
-#include "mafianet/memory_override.h"
 
 /// World's simplest class :)
 class RefCountedObj
@@ -33,7 +32,7 @@ public:
 	void Deref(void)
 	{
 		if (--refCount == 0)
-			MafiaNet::OP_DELETE(this, _FILE_AND_LINE_);
+			delete this;
 	}
 	int refCount;
 };

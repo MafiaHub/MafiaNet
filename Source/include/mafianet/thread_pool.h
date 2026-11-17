@@ -16,7 +16,6 @@
 #ifndef __THREAD_POOL_H
 #define __THREAD_POOL_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/ds_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/export.h"

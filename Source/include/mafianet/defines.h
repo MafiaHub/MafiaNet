@@ -60,21 +60,10 @@
 /// Enabled by default.
 // #define __BITSTREAM_NATIVE_END
 
-/// Maximum (stack) size to use with _alloca before using new and delete instead.
-#ifndef MAX_ALLOCA_STACK_ALLOCATION
-#define MAX_ALLOCA_STACK_ALLOCATION 1048576
-#endif
-
 // Use WaitForSingleObject instead of sleep.
 // Defining it plays nicer with other systems, and uses less CPU, but gives worse RakNet performance
 // Undefining it uses more CPU time, but is more responsive and faster.
 #define USE_WAIT_FOR_MULTIPLE_EVENTS
-
-/// Uncomment to use RakMemoryOverride for custom memory tracking
-/// See memoryoverride.h.
-#ifndef _USE_RAK_MEMORY_OVERRIDE
-#define _USE_RAK_MEMORY_OVERRIDE 0
-#endif
 
 /// Threshold at which to do a malloc / free rather than pushing data onto a fixed stack for the bitstream class
 /// Arbitrary size, just picking something likely to be larger than most packets
@@ -153,9 +142,6 @@
 #define RESEND_BUFFER_ARRAY_MASK 511
 #endif
 
-/// Uncomment if you want to link in the DLMalloc library to use with RakMemoryOverride
-// #define _LINK_DL_MALLOC
-
 #ifndef GET_TIME_SPIKE_LIMIT
 /// Workaround for http://support.microsoft.com/kb/274323
 /// If two calls between MafiaNet::GetTime() happen farther apart than this time in microseconds, this delta will be returned instead
@@ -212,10 +198,6 @@
 // If defined to 1, the user is responsible for calling RakPeer::RunUpdateCycle and RakPeer::RunRecvfrom
 #ifndef RAKPEER_USER_THREADED
 #define RAKPEER_USER_THREADED 0
-#endif
-
-#ifndef USE_ALLOCA
-#define USE_ALLOCA 1
 #endif
 
 //#define USE_THREADED_SEND

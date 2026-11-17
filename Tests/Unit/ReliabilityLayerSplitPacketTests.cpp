@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstdlib>
 
 #include <cstring>
 #include <vector>
@@ -119,7 +120,7 @@ protected:
 		while ((bits = layer.Receive(&data)) > 0)
 		{
 			messages.emplace_back(data, data + BITS_TO_BYTES(bits));
-			rakFree_Ex(data, _FILE_AND_LINE_);
+			std::free(data);
 		}
 		return messages;
 	}
@@ -163,6 +164,37 @@ TEST_F(SplitPacketFixture, HonestFragmentsReassembleInAnyOrder)
 	Deliver({3, 4, 1, b, 0});
 	const auto messages = Drain();
 	ASSERT_EQ(1u, messages.size());
+	EXPECT_EQ(Concat(Concat(a, b), c), messages[0]);
+}
+
+namespace
+{
+// Built over memory holding 1 in every word, as a reused heap block or stack frame may: any member the
+// layer leaves uninitialised reads 1.
+class SplitPacketOverUsedMemory : public SplitPacketFixture
+{
+public:
+	static void *operator new(std::size_t size)
+	{
+		void *p = ::operator new(size);
+		std::fill_n(static_cast<unsigned int *>(p), size / sizeof(unsigned int), 1u);
+		return p;
+	}
+	static void operator delete(void *p) { ::operator delete(p); }
+};
+}
+
+// ID_DOWNLOAD_PROGRESS is off until SetSplitMessageProgressInterval() asks for it. The interval was left
+// uninitialised, so a layer whose memory held 1 there sent a progress message after every fragment, and
+// the receiver got that message ahead of the one it was sent.
+TEST_F(SplitPacketOverUsedMemory, ReportsNoDownloadProgressUnlessAskedTo)
+{
+	const std::vector<unsigned char> a = Bytes(1, 8), b = Bytes(2, 8), c = Bytes(3, 5);
+	Deliver({3, 13, 0, a, 0});
+	Deliver({3, 13, 1, b, 0});
+	Deliver({3, 13, 2, c, 0});
+	const auto messages = Drain();
+	ASSERT_EQ(1u, messages.size()) << "first byte " << (messages.empty() ? 0u : (unsigned) messages[0][0]);
 	EXPECT_EQ(Concat(Concat(a, b), c), messages[0]);
 }
 
@@ -220,4 +252,71 @@ TEST_F(SplitPacketFixture, DuplicateFragmentIsIgnored)
 	const auto messages = Drain();
 	ASSERT_EQ(1u, messages.size());
 	EXPECT_EQ(Concat(first, second), messages[0]);
+}
+
+namespace
+{
+struct CapturingSocket : public RakNetSocket2
+{
+	std::vector<std::vector<char>> datagrams;
+
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	{
+		datagrams.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
+		return sendParameters->length;
+	}
+};
+} // namespace
+
+// The sender splits into one fragment per datagram-sized slice and holds one pointer per fragment while it
+// does. The layer has no fixed cap on the fragment count, so this uses a message of tens of thousands of
+// fragments (about 24,000), far more than a small stack buffer would have been sized for.
+TEST(ReliabilityLayerSplitPacket, ReassemblesMessageOfTensOfThousandsOfFragments)
+{
+	ReliabilityLayer sender, receiver;
+	CapturingSocket senderSocket, receiverSocket;
+	SystemAddress senderAddress{"127.0.0.1", 40001}, receiverAddress{"127.0.0.1", 40002};
+	DataStructures::List<PluginInterface2 *> handlers;
+	RakNetRandom rnr;
+	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
+	CCTimeType now = GetTimeUS(); // see SplitPacketFixture::SetUp
+	// Mode Plaintext, as in SplitPacketFixture: no keys are exchanged here.
+	sender.SetEncryptionMode(EncryptionMode::Plaintext);
+	receiver.SetEncryptionMode(EncryptionMode::Plaintext);
+	sender.Reset(true, MAXIMUM_MTU_SIZE);
+	receiver.Reset(true, MAXIMUM_MTU_SIZE);
+	sender.SetTimeoutTime(1000000);
+	receiver.SetTimeoutTime(1000000);
+
+	const size_t kMessageBytes = 32 * 1024 * 1024;
+	std::vector<unsigned char> message(kMessageBytes);
+	message[0] = 200; // clear of internal message ids
+	for (size_t i = 1; i < message.size(); ++i)
+		message[i] = (unsigned char) (i * 31 + 7);
+	ASSERT_TRUE(sender.Send((char *) message.data(), BYTES_TO_BITS((BitSize_t) message.size()), MafiaNet::Priority::Medium,
+	                        MafiaNet::Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, now, 0));
+
+	std::vector<unsigned char> received;
+	for (int tick = 0; tick < 200000 && received.empty(); ++tick)
+	{
+		now += 10000;
+		sender.Update(&senderSocket, receiverAddress, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		receiver.Update(&receiverSocket, senderAddress, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
+		for (std::vector<char> &datagram : senderSocket.datagrams)
+			receiver.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), senderAddress, handlers, MAXIMUM_MTU_SIZE, &receiverSocket, &rnr, now, updateBitStream);
+		senderSocket.datagrams.clear();
+		for (std::vector<char> &datagram : receiverSocket.datagrams)
+			sender.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), receiverAddress, handlers, MAXIMUM_MTU_SIZE, &senderSocket, &rnr, now, updateBitStream);
+		receiverSocket.datagrams.clear();
+
+		unsigned char *data;
+		BitSize_t bits;
+		while ((bits = receiver.Receive(&data)) > 0)
+		{
+			received.assign(data, data + BITS_TO_BYTES(bits));
+			std::free(data);
+		}
+	}
+	ASSERT_EQ(message.size(), received.size());
+	EXPECT_TRUE(message == received);
 }

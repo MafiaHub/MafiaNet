@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <vector>
 
 #include "mafianet/bit_stream.h"
@@ -155,7 +156,7 @@ protected:
 		while ((bits = layer.Receive(&data)) > 0)
 		{
 			messages.emplace_back(data, data + BITS_TO_BYTES(bits));
-			rakFree_Ex(data, _FILE_AND_LINE_);
+			std::free(data);
 		}
 		return messages;
 	}

@@ -18,6 +18,8 @@
 
 
 #include "mafianet/string_compressor.h"
+#include <cstdlib>
+#include <memory>
 #include "mafianet/ds_huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
@@ -36,7 +38,7 @@ void StringCompressor::AddReference(void)
 {
 	if (++referenceCount == 1)
 	{
-		instance = MafiaNet::OP_NEW<StringCompressor>(_FILE_AND_LINE_);
+		instance = new StringCompressor;
 	}
 }
 void StringCompressor::RemoveReference(void)
@@ -47,7 +49,7 @@ void StringCompressor::RemoveReference(void)
 	{
 		if (--referenceCount == 0)
 		{
-			MafiaNet::OP_DELETE(instance, _FILE_AND_LINE_);
+			delete instance;
 			instance = 0;
 		}
 	}
@@ -322,7 +324,7 @@ StringCompressor::StringCompressor()
 	DataStructures::Map<int, HuffmanEncodingTree *>::IMPLEMENT_DEFAULT_COMPARISON();
 
 	// Make a default tree immediately, since this is used for RPC possibly from multiple threads at the same time
-	HuffmanEncodingTree *huffmanEncodingTree = MafiaNet::OP_NEW<HuffmanEncodingTree>(_FILE_AND_LINE_);
+	HuffmanEncodingTree *huffmanEncodingTree = new HuffmanEncodingTree;
 	huffmanEncodingTree->GenerateFromFrequencyTable(englishCharacterFrequencies);
 
 	huffmanEncodingTrees.Set(0, huffmanEncodingTree);
@@ -333,7 +335,7 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 	if (huffmanEncodingTrees.Has(languageId))
 	{
 		huffmanEncodingTree = huffmanEncodingTrees.Get(languageId);
-		MafiaNet::OP_DELETE(huffmanEncodingTree, _FILE_AND_LINE_);
+		delete huffmanEncodingTree;
 	}
 
 	unsigned index;
@@ -350,7 +352,7 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 		frequencyTable[input[index]]++;
 
 	// Build the tree
-	huffmanEncodingTree = MafiaNet::OP_NEW<HuffmanEncodingTree>(_FILE_AND_LINE_);
+	huffmanEncodingTree = new HuffmanEncodingTree;
 	huffmanEncodingTree->GenerateFromFrequencyTable(frequencyTable);
 	huffmanEncodingTrees.Set(languageId, huffmanEncodingTree);
 }
@@ -358,7 +360,7 @@ void StringCompressor::GenerateTreeFromStrings(unsigned char *input, unsigned in
 StringCompressor::~StringCompressor()
 {
 	for (unsigned i = 0; i < huffmanEncodingTrees.Size(); i++)
-		MafiaNet::OP_DELETE(huffmanEncodingTrees[i], _FILE_AND_LINE_);
+		delete huffmanEncodingTrees[i];
 }
 
 void StringCompressor::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
@@ -397,6 +399,9 @@ void StringCompressor::EncodeString(const char *input, int maxCharsToWrite, Mafi
 bool StringCompressor::DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId)
 {
 	HuffmanEncodingTree *huffmanEncodingTree;
+	// Always leave a valid empty string behind, whichever early return is taken below.
+	if (maxCharsToWrite > 0)
+		output[0] = 0;
 	if (huffmanEncodingTrees.Has(languageId) == false)
 		return false;
 	if (maxCharsToWrite <= 0)
@@ -436,6 +441,29 @@ bool StringCompressor::DecodeString(CString &output, int maxCharsToWrite, MafiaN
 	output.ReleaseBuffer(0)
 }
 #endif
+// Stack scratch size for DecodeString into std::string / RakString; covers the 0xFFFF cap they use.
+static const size_t DECODE_STACK_BLOCK_SIZE = 0x10000;
+
+// Decodes into scratch memory, then hands the decoded C string to assign. Uninitialised stack scratch for the
+// common case (RakString and std::string decodes pass 0xFFFF); larger caps fall back to the heap.
+template <class Assign>
+static bool DecodeToScratch(StringCompressor *compressor, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId, Assign assign)
+{
+	char stackBlock[DECODE_STACK_BLOCK_SIZE];
+	std::unique_ptr<char[]> heapBlock;
+	char *destinationBlock = stackBlock;
+	if ((size_t) maxCharsToWrite > DECODE_STACK_BLOCK_SIZE)
+	{
+		heapBlock.reset(new char[(size_t) maxCharsToWrite]);
+		destinationBlock = heapBlock.get();
+	}
+	// DecodeString(char *) does not touch the buffer on every failure path, so never read it uninitialised.
+	destinationBlock[0] = 0;
+	const bool out = compressor->DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
+	assign(destinationBlock);
+	return out;
+}
+
 #ifdef _STD_STRING_COMPRESSOR
 void StringCompressor::EncodeString(const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
 {
@@ -449,26 +477,8 @@ bool StringCompressor::DecodeString(std::string *output, int maxCharsToWrite, Ma
 		return true;
 	}
 
-	char *destinationBlock;
-	bool out;
-
-#if USE_ALLOCA == 1
-	if (maxCharsToWrite < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		destinationBlock = (char *) alloca(maxCharsToWrite);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-	}
-	else
-#endif
-	{
-		destinationBlock = (char *) rakMalloc_Ex(maxCharsToWrite, _FILE_AND_LINE_);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-		rakFree_Ex(destinationBlock, _FILE_AND_LINE_);
-	}
-
-	return out;
+	return DecodeToScratch(this, maxCharsToWrite, input, languageId, [output](const char *s)
+	                       { *output = s; });
 }
 #endif
 void StringCompressor::EncodeString(const RakString *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
@@ -483,24 +493,6 @@ bool StringCompressor::DecodeString(RakString *output, int maxCharsToWrite, Mafi
 		return true;
 	}
 
-	char *destinationBlock;
-	bool out;
-
-#if USE_ALLOCA == 1
-	if (maxCharsToWrite < MAX_ALLOCA_STACK_ALLOCATION)
-	{
-		destinationBlock = (char *) alloca(maxCharsToWrite);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-	}
-	else
-#endif
-	{
-		destinationBlock = (char *) rakMalloc_Ex(maxCharsToWrite, _FILE_AND_LINE_);
-		out = DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-		*output = destinationBlock;
-		rakFree_Ex(destinationBlock, _FILE_AND_LINE_);
-	}
-
-	return out;
+	return DecodeToScratch(this, maxCharsToWrite, input, languageId, [output](const char *s)
+	                       { *output = s; });
 }

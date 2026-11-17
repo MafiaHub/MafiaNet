@@ -34,7 +34,6 @@
 #include "mafianet/string.h"
 #include "mafianet/thread.h"
 //#include "socket.h"
-#include "mafianet/smart_ptr.h"
 #include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/signaled_event.h"
 #include "mafianet/native_feature_includes.h"
@@ -134,6 +133,10 @@ public:
 
 	/// \internal Test-only: how many X25519 key exchanges this peer has run answering ID_OPEN_CONNECTION_REQUEST_2.
 	uint64_t GetServerKeyExchangeCountForTesting() const;
+
+	/// \internal Test-only: entries of the address -> remote system hash index allocated and not yet released.
+	/// One per referenced remote system; an entry lost on the way (never linked, never freed) keeps it growing.
+	unsigned int GetLiveRemoteSystemIndexEntriesForTesting() const;
 
 	/// \brief Sets the maximum number of incoming connections allowed.
 	/// \details If the number of incoming connections is less than the number of players currently connected,
@@ -1004,6 +1007,8 @@ protected:
 	unsigned int GetRemoteSystemIndex(const SystemAddress &sa) const;
 	void ClearRemoteSystemLookup(void);
 	DataStructures::MemoryPool<RemoteSystemIndex> remoteSystemIndexPool;
+	// Entries taken from remoteSystemIndexPool and not yet released. GetLiveRemoteSystemIndexEntriesForTesting().
+	unsigned int liveRemoteSystemIndexEntries;
 
 	void AddToActiveSystemList(unsigned int remoteSystemListIndex);
 	void RemoveFromActiveSystemList(const SystemAddress &sa);

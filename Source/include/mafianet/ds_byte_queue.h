@@ -22,7 +22,6 @@
 #ifndef __BYTE_QUEUE_H
 #define __BYTE_QUEUE_H
 
-#include "mafianet/memory_override.h"
 #include "mafianet/export.h"
 
 /// The namespace DataStructures was only added to avoid compiler errors for commonly named data structures

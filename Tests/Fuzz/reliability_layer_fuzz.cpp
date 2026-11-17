@@ -12,6 +12,7 @@
  */
 
 #include <cstddef>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -81,7 +82,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 		unsigned char *message;
 		while (layer.Receive(&message) > 0)
-			rakFree_Ex(message, _FILE_AND_LINE_);
+			std::free(message);
 	}
 	return 0;
 }

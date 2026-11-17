@@ -20,13 +20,14 @@
 
 
 #include "mafianet/native_feature_includes.h"
+#include <cstdlib>
 #if _RAKNET_SUPPORT_CloudServer == 1
 
 #ifndef __CLOUD_SERVER_H
 #define __CLOUD_SERVER_H
 
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/memory_override.h"
+#include "mafianet/export.h"
 #include "mafianet/native_types.h"
 #include "mafianet/string.h"
 #include "mafianet/ds_hash.h"
@@ -155,13 +156,13 @@ protected:
 		~CloudData()
 		{
 			if (allocatedData)
-				rakFree_Ex(allocatedData, _FILE_AND_LINE_);
+				std::free(allocatedData);
 		}
 		bool IsUnused(void) const { return isUploaded == false && specificSubscribers.Size() == 0; }
 		void Clear(void)
 		{
 			if (dataPtr == allocatedData)
-				rakFree_Ex(allocatedData, _FILE_AND_LINE_);
+				std::free(allocatedData);
 			allocatedData = 0;
 			dataPtr = 0;
 			dataLengthBytes = 0;

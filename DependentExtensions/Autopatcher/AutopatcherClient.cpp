@@ -14,6 +14,7 @@
  */
 
 #include "AutopatcherClient.h"
+#include <cstdlib>
 #include "mafianet/directory_delta_transfer.h"
 #include "mafianet/file_list.h"
 #include "mafianet/string_compressor.h"
@@ -59,12 +60,12 @@ PatchContext AutopatcherClientCBInterface::ApplyPatchBSDiff(const char *oldFileP
 	fseek(fp, 0, SEEK_END);
 	unsigned int prePatchLength = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	char *prePatchFile = (char *) rakMalloc_Ex(prePatchLength, _FILE_AND_LINE_);
+	char *prePatchFile = (char *) std::malloc(prePatchLength);
 	fread(prePatchFile, prePatchLength, 1, fp);
 	fclose(fp);
 
 	bool result = ApplyPatch(prePatchFile, prePatchLength, newFileContents, newFileSize, patchContents, patchSize);
-	rakFree_Ex(prePatchFile, _FILE_AND_LINE_);
+	std::free(prePatchFile);
 
 	if (result == false)
 		return PC_ERROR_PATCH_APPLICATION_FAILURE;
@@ -213,24 +214,24 @@ public:
 		{
 			info = threadPool.GetInputAtIndex(i);
 			//			if (info->prePatchFile)
-			//				rakFree_Ex(info->prePatchFile, _FILE_AND_LINE_ );
+			//				std::free(info->prePatchFile);
 			if (info->postPatchFile)
-				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_);
+				std::free(info->postPatchFile);
 			if (info->onFileStruct.fileData)
-				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(info, _FILE_AND_LINE_);
+				std::free(info->onFileStruct.fileData);
+			delete info;
 		}
 		threadPool.ClearInput();
 		for (i = 0; i < threadPool.OutputSize(); i++)
 		{
 			info = threadPool.GetOutputAtIndex(i);
 			//			if (info->prePatchFile)
-			//				rakFree_Ex(info->prePatchFile, _FILE_AND_LINE_ );
+			//				std::free(info->prePatchFile);
 			if (info->postPatchFile)
-				rakFree_Ex(info->postPatchFile, _FILE_AND_LINE_);
+				std::free(info->postPatchFile);
 			if (info->onFileStruct.fileData)
-				rakFree_Ex(info->onFileStruct.fileData, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(info, _FILE_AND_LINE_);
+				std::free(info->onFileStruct.fileData);
+			delete info;
 		}
 		threadPool.ClearOutput();
 	}
@@ -255,7 +256,7 @@ public:
 				else
 				{
 					// Regular file in use but we can write the temporary file.  Restart and copy it over the existing
-					rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
+					std::free(threadInfo->onFileStruct.fileData);
 					threadInfo->onFileStruct.fileData = threadInfo->postPatchFile;
 					onFileCallback->OnFile(&threadInfo->onFileStruct);
 					threadInfo->onFileStruct.fileData = 0;
@@ -270,7 +271,7 @@ public:
 				}
 				else
 				{
-					rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
+					std::free(threadInfo->onFileStruct.fileData);
 					threadInfo->onFileStruct.fileData = threadInfo->postPatchFile;
 					threadInfo->onFileStruct.byteLengthOfThisFile = threadInfo->postPatchLength;
 					onFileCallback->OnFile(&threadInfo->onFileStruct);
@@ -306,7 +307,7 @@ public:
 				}
 				else
 				{
-					rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
+					std::free(threadInfo->onFileStruct.fileData);
 					threadInfo->onFileStruct.fileData = threadInfo->postPatchFile;
 					onFileCallback->OnFile(&threadInfo->onFileStruct);
 					threadInfo->onFileStruct.fileData = 0;
@@ -316,12 +317,12 @@ public:
 			}
 
 			//			if (threadInfo->prePatchFile)
-			//				rakFree_Ex(threadInfo->prePatchFile, _FILE_AND_LINE_ );
+			//				std::free(threadInfo->prePatchFile);
 			if (threadInfo->postPatchFile)
-				rakFree_Ex(threadInfo->postPatchFile, _FILE_AND_LINE_);
+				std::free(threadInfo->postPatchFile);
 			if (threadInfo->onFileStruct.fileData)
-				rakFree_Ex(threadInfo->onFileStruct.fileData, _FILE_AND_LINE_);
-			MafiaNet::OP_DELETE(threadInfo, _FILE_AND_LINE_);
+				std::free(threadInfo->onFileStruct.fileData);
+			delete threadInfo;
 		}
 
 		// If both input and output are empty, we are done.
@@ -356,7 +357,7 @@ public:
 	}
 	virtual bool OnFile(OnFileStruct *onFileStruct)
 	{
-		AutopatcherClientThreadInfo *inStruct = MafiaNet::OP_NEW<AutopatcherClientThreadInfo>(_FILE_AND_LINE_);
+		AutopatcherClientThreadInfo *inStruct = new AutopatcherClientThreadInfo;
 		memset(inStruct, 0, sizeof(AutopatcherClientThreadInfo));
 		//		inStruct->prePatchFile=0;
 		inStruct->postPatchFile = 0;
@@ -486,7 +487,7 @@ void AutopatcherClient::Update(void)
 		{
 			MafiaNet::BitStream outBitStream;
 			AutopatcherClientCallback *transferCallback;
-			transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>(_FILE_AND_LINE_);
+			transferCallback = new AutopatcherClientCallback;
 			strcpy_s(transferCallback->applicationDirectory, applicationDirectory);
 			transferCallback->onFileCallback = userCB;
 			transferCallback->client = this;
@@ -619,7 +620,7 @@ PluginReceiveResult AutopatcherClient::OnCreationList(Packet *packet)
 
 	// Prepare the transfer plugin to get a file list.
 	AutopatcherClientCallback *transferCallback;
-	transferCallback = MafiaNet::OP_NEW<AutopatcherClientCallback>(_FILE_AND_LINE_);
+	transferCallback = new AutopatcherClientCallback;
 	strcpy_s(transferCallback->applicationDirectory, applicationDirectory);
 	transferCallback->onFileCallback = userCB;
 	transferCallback->client = this;

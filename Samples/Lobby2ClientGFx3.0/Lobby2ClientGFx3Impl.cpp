@@ -206,7 +206,7 @@ ACTIONSCRIPT_CALLABLE_FUNCTION(Lobby2ClientGFx3Impl, f2c_RegisterAccount)
 
 	MafiaNet::BitStream serializedBinaryData;
 	WriteAccountBinaryData(&serializedBinaryData, pparams, index);
-	m1->createAccountParameters.binaryData = MafiaNet::OP_NEW<BinaryDataBlock>(_FILE_AND_LINE_);
+	m1->createAccountParameters.binaryData = std::make_shared<BinaryDataBlock>();
 	m1->createAccountParameters.binaryData->binaryData = (char *) serializedBinaryData.GetData();
 	m1->createAccountParameters.binaryData->binaryDataLength = serializedBinaryData.GetNumberOfBytesUsed();
 	lobby2Client->SendMsg(m1);

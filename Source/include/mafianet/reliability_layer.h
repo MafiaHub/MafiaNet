@@ -21,7 +21,7 @@
 #ifndef __RELIABILITY_LAYER_H
 #define __RELIABILITY_LAYER_H
 
-#include "mafianet/memory_override.h"
+#include "mafianet/export.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/ds_linked_list.h"
 #include "mafianet/ds_list.h"
@@ -510,7 +510,8 @@ private:
 	// MafiaNet::Reliability::ReliableSequenced just returns the newest one
 	// DataStructures::List<DataStructures::LinkedList<InternalPacket*>*> orderingList;
 	DataStructures::Queue<InternalPacket *> outputQueue;
-	int splitMessageProgressInterval;
+	// Every this many fragments of a split message, ID_DOWNLOAD_PROGRESS; 0 (until SetSplitMessageProgressInterval) for none.
+	int splitMessageProgressInterval = 0;
 	CCTimeType unreliableTimeout;
 
 	struct MessageNumberNode

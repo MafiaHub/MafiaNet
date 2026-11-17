@@ -18,6 +18,7 @@
 
 
 #include "AutopatcherPostgreRepository.h"
+#include <cstdlib>
 #include "mafianet/autopatcher_patch_context.h"
 #include "mafianet/file_list.h"
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
@@ -43,14 +44,6 @@ static const unsigned HASH_LENGTH = sizeof(unsigned int);
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
 #endif
-#endif
-
-// alloca
-#ifdef _COMPATIBILITY_1
-#elif defined(_WIN32)
-#include <malloc.h>
-#else
-//#include <stdlib.h>
 #endif
 
 #define PQEXECPARAM_FORMAT_TEXT 0
@@ -453,7 +446,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 						/*
 						// Get 32000000 bytes at a time to workaround http://support.microsoft.com/kb/q201213
 						int fileIndex=0;
-						char *file = MafiaNet::OP_NEW char[fileLengthInt];
+						char *file = new char[fileLengthInt];
 						while (fileIndex < fileLengthInt)
 						{
 							sprintf_s(query, "SELECT substring(content from %i for 32000000) FROM FileVersionHistory WHERE fileId=$1::integer;", fileIndex, fileId);
@@ -489,7 +482,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 						// No patch, add the file
 						patchList->AddFile(userFilename, userFilename, 0, fileLengthInt, fileLengthInt, FileListNodeContext(PC_WRITE_FILE, fileIdInt, 0, 0), true);
 						//						patchList->AddFile(userFilename, file, fileLengthInt, contentLength, FileListNodeContext(PC_WRITE_FILE,0), true);
-						//						MafiaNet::OP_DELETE_ARRAY file;
+						//						delete[] file;
 					}
 					else
 					{
@@ -518,7 +511,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 						char *temp;
 
 						if (useReference == false)
-							temp = MafiaNet::OP_NEW_ARRAY<char>(patchLength + HASH_LENGTH, _FILE_AND_LINE_);
+							temp = new char[patchLength + HASH_LENGTH];
 						else
 							temp = 0;
 
@@ -543,7 +536,7 @@ int AutopatcherPostgreRepository::GetPatches(const char *applicationName, FileLi
 							patchList->AddFile(userFilename, userFilename, temp, HASH_LENGTH + patchLength, fileLengthInt, FileListNodeContext(PC_HASH_1_WITH_PATCH, fileIdInt, patchAlgorithm, patchIdInt), true);
 						}
 						PQclear(patchResult);
-						MafiaNet::OP_DELETE_ARRAY(temp, _FILE_AND_LINE_);
+						delete[] temp;
 					}
 				}
 				else
@@ -784,7 +777,7 @@ bool AutopatcherPostgreRepository::GetMostRecentChangelistWithPatches(MafiaNet::
 				else
 					patchAlgorithm = 0;
 
-				char *temp = (char *) rakMalloc_Ex(patchLength + HASH_LENGTH * 2, _FILE_AND_LINE_);
+				char *temp = (char *) std::malloc(patchLength + HASH_LENGTH * 2);
 				RakAssert(temp);
 				char *priorHash = PQgetvalue(result, rowIndex, priorHashColumnIndex);
 				memcpy(temp, priorHash, HASH_LENGTH);
@@ -1023,7 +1016,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet:
 				}
 
 
-				char *fileData = (char *) rakMalloc_Ex(fileLength, _FILE_AND_LINE_);
+				char *fileData = (char *) std::malloc(fileLength);
 				RakAssert(fileData);
 				fread(fileData, fileLength, 1, fp);
 				fclose(fp);
@@ -1048,7 +1041,7 @@ bool AutopatcherPostgreRepository2::GetMostRecentChangelistWithPatches(MafiaNet:
 				else
 					patchAlgorithm = 0;
 
-				char *temp = (char *) rakMalloc_Ex(patchLength + HASH_LENGTH * 2, _FILE_AND_LINE_);
+				char *temp = (char *) std::malloc(patchLength + HASH_LENGTH * 2);
 				RakAssert(temp);
 				char *priorHash = PQgetvalue(result, rowIndex, priorHashColumnIndex);
 				memcpy(temp, priorHash, HASH_LENGTH);
@@ -1315,7 +1308,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 			RakAssert(0);
 			return false;
 		}
-		hardDriveData = (char *) rakMalloc_Ex(hardDriveDataLength, _FILE_AND_LINE_);
+		hardDriveData = (char *) std::malloc(hardDriveDataLength);
 		RakAssert(hardDriveData);
 		fread(hardDriveData, 1, hardDriveDataLength, fp);
 		fclose(fp);
@@ -1329,7 +1322,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 		//sqlCommandMutex.Unlock();
 		if (IsResultSuccessful(fileRows, true) == false)
 		{
-			rakFree_Ex(hardDriveData, _FILE_AND_LINE_);
+			std::free(hardDriveData);
 			newFiles.Clear();
 			PQclear(fileRows);
 			RakAssert(0);
@@ -1358,7 +1351,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 			//sqlCommandMutex.Unlock();
 			if (IsResultSuccessful(result, true) == false)
 			{
-				rakFree_Ex(hardDriveData, _FILE_AND_LINE_);
+				std::free(hardDriveData);
 				Rollback();
 				newFiles.Clear();
 				PQclear(result);
@@ -1367,7 +1360,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 			int numContent = PQntuples(result);
 			if (numContent > 1 || numContent == 0)
 			{
-				rakFree_Ex(hardDriveData, _FILE_AND_LINE_);
+				std::free(hardDriveData);
 				Rollback();
 				newFiles.Clear();
 				PQclear(result);
@@ -1384,7 +1377,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 
 			if (CreatePatch(content, contentLength, hardDriveData, hardDriveDataLength, &patch, &patchLength) == false)
 			{
-				rakFree_Ex(hardDriveData, _FILE_AND_LINE_);
+				std::free(hardDriveData);
 
 				strcpy_s(lastError, "CreatePatch failed.\n");
 				Rollback();
@@ -1415,7 +1408,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 			//sqlCommandMutex.Unlock();
 			if (IsResultSuccessful(uploadResult, true) == false)
 			{
-				rakFree_Ex(hardDriveData, _FILE_AND_LINE_);
+				std::free(hardDriveData);
 				Rollback();
 				newFiles.Clear();
 				PQclear(result);
@@ -1456,7 +1449,7 @@ bool AutopatcherPostgreRepository::UpdateApplicationFiles(const char *applicatio
 		//sqlCommandMutex.Lock();
 		uploadResult = PQexecParams(pgConn, query, 3, 0, outTemp, outLengths, formats, PQEXECPARAM_FORMAT_BINARY);
 
-		rakFree_Ex(hardDriveData, _FILE_AND_LINE_);
+		std::free(hardDriveData);
 
 		//sqlCommandMutex.Unlock();
 		if (!uploadResult)
@@ -1763,7 +1756,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 			RakAssert(0);
 			return false;
 		}
-		newContent =(char*) rakMalloc_Ex( hardDriveDataLength, _FILE_AND_LINE_ );
+		newContent =(char*) std::malloc(hardDriveDataLength);
 		fread(newContent,1,hardDriveDataLength,fp);
 		fclose(fp);
 		*/
@@ -1785,7 +1778,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 			//sqlCommandMutex.Unlock();
 			if (IsResultSuccessful(result, true) == false)
 			{
-				//				rakFree_Ex(newContent, _FILE_AND_LINE_);
+				//				std::free(newContent);
 				Rollback();
 				newFiles.Clear();
 				PQclear(result);
@@ -1794,7 +1787,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 			int numContent = PQntuples(result);
 			if (numContent > 1 || numContent == 0)
 			{
-				//	rakFree_Ex(newContent, _FILE_AND_LINE_);
+				//	std::free(newContent);
 				Rollback();
 				newFiles.Clear();
 				PQclear(result);
@@ -1812,7 +1805,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 
 			if (strcmp(pathToNewContent, pathToOldContent) == 0)
 			{
-				//				rakFree_Ex(newContent, _FILE_AND_LINE_);
+				//				std::free(newContent);
 
 				sprintf_s(lastError, "New file version cannot have the same path as the old file version. Path=%s.\n", pathToNewContent);
 				Rollback();
@@ -1847,8 +1840,8 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 				/*
 				if (CreatePatch(oldContent, contentLength, newContent, hardDriveDataLength, &patch, &patchLength)==false)
 				{
-					rakFree_Ex(oldContent, _FILE_AND_LINE_);
-					rakFree_Ex(newContent, _FILE_AND_LINE_);
+					std::free(oldContent);
+					std::free(newContent);
 
 					strcpy_s(lastError,"CreatePatch failed.\n");
 					Rollback();
@@ -1860,7 +1853,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 				}
 				*/
 
-				//			rakFree_Ex(oldContent, _FILE_AND_LINE_);
+				//			std::free(oldContent);
 				//		oldContent=0;
 
 				// 			outTemp[0]=fileID;
@@ -1883,7 +1876,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 				//sqlCommandMutex.Unlock();
 				if (IsResultSuccessful(uploadResult, true) == false)
 				{
-					//				rakFree_Ex(newContent, _FILE_AND_LINE_);
+					//				std::free(newContent);
 					Rollback();
 					newFiles.Clear();
 					PQclear(result);
@@ -1898,7 +1891,7 @@ bool AutopatcherPostgreRepository2::UpdateApplicationFiles(const char *applicati
 		}
 		PQclear(fileRows);
 
-		//		rakFree_Ex(newContent, _FILE_AND_LINE_);
+		//		std::free(newContent);
 		//	newContent=0;
 
 		// Add totally new files
@@ -1999,12 +1992,12 @@ bool AutopatcherPostgreRepository2::MakePatchBSDiff(FILE *fpOld, int contentLeng
 {
 	char *newContent, *oldContent;
 
-	oldContent = (char *) rakMalloc_Ex(contentLengthOld, _FILE_AND_LINE_);
+	oldContent = (char *) std::malloc(contentLengthOld);
 	RakAssert(oldContent);
 	fseek(fpOld, 0, SEEK_SET);
 	fread(oldContent, contentLengthOld, 1, fpOld);
 
-	newContent = (char *) rakMalloc_Ex(contentLengthNew, _FILE_AND_LINE_);
+	newContent = (char *) std::malloc(contentLengthNew);
 	RakAssert(newContent);
 	fseek(fpNew, 0, SEEK_SET);
 	fread(newContent, contentLengthNew, 1, fpNew);
@@ -2020,8 +2013,8 @@ bool AutopatcherPostgreRepository2::MakePatchBSDiff(FILE *fpOld, int contentLeng
 		    contentLengthOld, contentLengthNew);
 	}
 
-	rakFree_Ex(oldContent, _FILE_AND_LINE_);
-	rakFree_Ex(newContent, _FILE_AND_LINE_);
+	std::free(oldContent);
+	std::free(newContent);
 	return b;
 }
 const char *AutopatcherPostgreRepository::GetLastError(void) const

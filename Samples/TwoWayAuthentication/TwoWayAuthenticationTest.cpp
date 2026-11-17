@@ -38,7 +38,7 @@ int main(void)
 	// Initialize the message handlers
 	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
 	{
-		twoWayAuthenticationPlugin[peerIndex] = MafiaNet::OP_NEW<MafiaNet::TwoWayAuthentication>(_FILE_AND_LINE_);
+		twoWayAuthenticationPlugin[peerIndex] = new MafiaNet::TwoWayAuthentication;
 		rakPeer[peerIndex]->AttachPlugin(twoWayAuthenticationPlugin[peerIndex]);
 		rakPeer[peerIndex]->SetMaximumIncomingConnections(NUM_PEERS);
 	}
@@ -184,7 +184,7 @@ int main(void)
 		MafiaNet::RakPeerInterface::DestroyInstance(rakPeer[i]);
 
 	for (unsigned short peerIndex = 0; peerIndex < NUM_PEERS; peerIndex++)
-		MafiaNet::OP_DELETE(twoWayAuthenticationPlugin[peerIndex], _FILE_AND_LINE_);
+		delete twoWayAuthenticationPlugin[peerIndex];
 
 	return 1;
 }

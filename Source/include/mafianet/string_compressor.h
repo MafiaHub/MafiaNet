@@ -23,7 +23,6 @@
 
 #include "mafianet/export.h"
 #include "mafianet/ds_map.h"
-#include "mafianet/memory_override.h"
 #include "mafianet/native_types.h"
 
 #ifdef _STD_STRING_COMPRESSOR

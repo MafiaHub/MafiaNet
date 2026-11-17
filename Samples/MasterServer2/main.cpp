@@ -76,7 +76,7 @@ void main_sockets(void)
 using namespace MafiaNet;
 void main_RakNet_Post(void)
 {
-	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__);
+	TCPInterface *tcp = new TCPInterface;
 	tcp->Start(0, 64);
 	tcp->Connect(MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT, true);
 
@@ -120,7 +120,7 @@ void main_RakNet_Get(void)
 	HTTPConnection2 *httpConnection2;
 	httpConnection2 = HTTPConnection2::GetInstance();
 
-	TCPInterface *tcp = MafiaNet::OP_NEW<TCPInterface>(__FILE__, __LINE__);
+	TCPInterface *tcp = new TCPInterface;
 	tcp->Start(0, 64);
 	tcp->AttachPlugin(httpConnection2);
 

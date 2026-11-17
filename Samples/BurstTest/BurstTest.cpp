@@ -24,7 +24,6 @@
 #include "mafianet/rand.h"
 #include "mafianet/statistics.h"
 #include "mafianet/sleep.h"
-#include "mafianet/memory_override.h"
 #include <stdio.h>
 #include <limits> // used for std::numeric_limits
 #include "mafianet/gets.h"

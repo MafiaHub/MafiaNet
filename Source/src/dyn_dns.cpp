@@ -55,13 +55,13 @@ DynDNS::DynDNS()
 DynDNS::~DynDNS()
 {
 	if (tcp)
-		MafiaNet::OP_DELETE(tcp, _FILE_AND_LINE_);
+		delete tcp;
 }
 void DynDNS::Stop(void)
 {
 	tcp->Stop();
 	connectPhase = CP_IDLE;
-	MafiaNet::OP_DELETE(tcp, _FILE_AND_LINE_);
+	delete tcp;
 	tcp = 0;
 }
 
@@ -72,7 +72,7 @@ void DynDNS::UpdateHostIPAsynch(const char *dnsHost, const char *newIPAddress, c
 	myIPStr[0] = 0;
 
 	if (tcp == 0)
-		tcp = MafiaNet::OP_NEW<TCPInterface>(_FILE_AND_LINE_);
+		tcp = new TCPInterface;
 	connectPhase = CP_IDLE;
 	host = dnsHost;
 
