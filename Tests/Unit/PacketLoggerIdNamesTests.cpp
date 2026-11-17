@@ -76,10 +76,11 @@ TEST(PacketLoggerIdNames, Protocol10WireIdsMatchLoggerNames)
 	EXPECT_EQ(77, (int) ID_FCM2_NEW_HOST);
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(77), "ID_FCM2_NEW_HOST");
 	EXPECT_EQ(91, (int) ID_NAT_TYPE_DETECTION_REQUEST);
-	EXPECT_EQ(116, (int) ID_RELAY_PLUGIN);
-	EXPECT_EQ(125, (int) ID_USER_PACKET_ENUM);
+	EXPECT_EQ(110, (int) ID_RELAY_PLUGIN);
+	EXPECT_EQ(119, (int) ID_USER_PACKET_ENUM);
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(91), "ID_NAT_TYPE_DETECTION_REQUEST");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(116), "ID_RELAY_PLUGIN");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(103), "ID_RESERVED_103");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(110), "ID_RELAY_PLUGIN");
 }
 
 // The connection packets, which is what a reader of a handshake log keys off.

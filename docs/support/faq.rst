@@ -111,7 +111,7 @@ Security
 **How do I prevent cheating?**
 
 * Validate all client input server-side
-* Use TwoWayAuthentication for login
+* Authenticate users in your application
 * Use MessageFilter to restrict unauthorized actions
 * Never trust client-computed results
 

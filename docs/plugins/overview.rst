@@ -47,7 +47,6 @@ Available Plugins
 
 - :doc:`message-filter` - Filter messages
 - :doc:`packet-logger` - Log network traffic
-- :doc:`two-way-authentication` - Secure authentication
 
 Creating Custom Plugins
 -----------------------

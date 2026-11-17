@@ -44,7 +44,6 @@ add_subdirectory(StatisticsHistoryTest)
 add_subdirectory(TeamManager)
 add_subdirectory(ThreadTest)
 add_subdirectory(Timestamping)
-add_subdirectory(TwoWayAuthentication)
 add_subdirectory(UDPForwarder)
 add_subdirectory(VirtualWorld)
 

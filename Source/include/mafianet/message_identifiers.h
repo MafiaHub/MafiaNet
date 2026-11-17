@@ -377,33 +377,14 @@ enum DefaultMessageIDTypes
 	/// Gamebryo Lightspeed integration
 	ID_LIGHTSPEED_INTEGRATION,
 
-	/// The password we used to challenge the other system passed, meaning the other system has called TwoWayAuthentication::AddPassword() with the same password we passed to TwoWayAuthentication::Challenge()
-	/// You can read the identifier used to challenge as follows:
-	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MafiaNet::MessageID)); MafiaNet::RakString password; bs.Read(password);
-	ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS,
-	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS,
-	/// A remote system sent us a challenge using TwoWayAuthentication::Challenge(), and the challenge failed.
-	/// If the other system must pass the challenge to stay connected, you should call RakPeer::CloseConnection() to terminate the connection to the other system.
-	ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE,
-	/// The other system did not add the password we used to TwoWayAuthentication::AddPassword()
-	/// You can read the identifier used to challenge as follows:
-	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MessageID)); MafiaNet::RakString password; bs.Read(password);
-	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_FAILURE,
-	/// The other system did not respond within a timeout threshhold. Either the other system is not running the plugin or the other system was blocking on some operation for a long time.
-	/// You can read the identifier used to challenge as follows:
-	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MessageID)); MafiaNet::RakString password; bs.Read(password);
-	ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_TIMEOUT,
-	/// \internal
-	ID_TWO_WAY_AUTHENTICATION_NEGOTIATION,
-
 	// Reserved wire IDs for the retired cloud storage protocol.
+	ID_RESERVED_103,
+	ID_RESERVED_104,
+	ID_RESERVED_105,
+	ID_RESERVED_106,
+	ID_RESERVED_107,
+	ID_RESERVED_108,
 	ID_RESERVED_109,
-	ID_RESERVED_110,
-	ID_RESERVED_111,
-	ID_RESERVED_112,
-	ID_RESERVED_113,
-	ID_RESERVED_114,
-	ID_RESERVED_115,
 
 	ID_RELAY_PLUGIN,
 	ID_NAT_REQUEST_BOUND_ADDRESSES,

@@ -43,7 +43,6 @@ Available Plugins
 
 * ``MessageFilter`` - Filter messages by type
 * ``PacketLogger`` - Log all network traffic
-* ``TwoWayAuthentication`` - Secure authentication
 
 ReplicaManager3
 ---------------
