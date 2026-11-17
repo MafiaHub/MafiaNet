@@ -60,7 +60,6 @@ add_subdirectory(RakVoice)
 # specific third-party dependencies, platforms, or special configuration:
 #
 # - CrashRelauncher (Windows-specific)
-# - Lobby3 (incomplete)
 # - LoopbackPerformanceTest (specialized)
 # - RakVoiceDSound (requires DirectSound)
 # - RakVoiceFMOD (requires FMOD)
