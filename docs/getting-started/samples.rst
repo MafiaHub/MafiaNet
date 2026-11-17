@@ -116,13 +116,10 @@ Full NAT traversal demonstration. Shows:
 Autopatcher
 ~~~~~~~~~~~
 
-``Samples/AutopatcherServer/`` and ``Samples/AutopatcherClient/``
+``Samples/AutopatcherClient/``
 
-Delta patching system. Shows:
-
-- Creating patches
-- Applying patches
-- Version management
+The client connects to an Autopatcher server to check for updates and apply patches.
+See :doc:`/plugins/autopatcher` for server setup.
 
 TeamManager
 ~~~~~~~~~~~

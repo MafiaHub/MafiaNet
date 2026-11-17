@@ -1511,12 +1511,6 @@ void Client_SetPresence::Serialize(bool writeToBitstream, bool serializeOutput, 
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
 	presence.Serialize(bitStream, writeToBitstream);
 }
-// bool Client_SetPresence::ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle )
-// {
-// 	// This has to go in Lobby2Message_PGSQL.h because the server and client both share this file, and the client doesn't know about the server
-// 	server->SetPresence( presence, systemAddress );
-// 	return true;
-// }
 void Client_GetPresence::Serialize(bool writeToBitstream, bool serializeOutput, BitStream *bitStream)
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);
@@ -1526,12 +1520,6 @@ void Client_GetPresence::Serialize(bool writeToBitstream, bool serializeOutput, 
 		presence.Serialize(bitStream, writeToBitstream);
 	}
 }
-// bool Client_GetPresence::ServerPreDBMemoryImpl( Lobby2Server *server, RakString curUserHandle )
-// {
-// 	// This has to go in Lobby2Message_PGSQL.h because the server and client both share this file, and the client doesn't know about the server
-// 	server->GetPresence( presence, curUserHandle );
-// 	return true;
-// }
 void Friends_SendInvite::Serialize(bool writeToBitstream, bool serializeOutput, BitStream *bitStream)
 {
 	SerializeBase(writeToBitstream, serializeOutput, bitStream);

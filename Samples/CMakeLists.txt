@@ -52,7 +52,6 @@ add_subdirectory(VirtualWorld)
 # Samples requiring autopatcher extension
 add_subdirectory(AutopatcherClient)
 add_subdirectory(AutopatcherClientRestarter)
-add_subdirectory(AutopatcherServer)
 
 # Samples requiring crash reporter extension
 add_subdirectory(CrashReporter)
@@ -65,18 +64,12 @@ add_subdirectory(RakVoice)
 # The following samples are disabled by default as they require
 # specific third-party dependencies, platforms, or special configuration:
 #
-# - AutoPatcherServer_MySQL (requires MySQL)
 # - CrashRelauncher (Windows-specific)
-# - Lobby2Server_PGSQL (requires PostgreSQL)
 # - Lobby3 (incomplete)
-# - LobbyDB_PostgreSQL (requires PostgreSQL)
 # - LoopbackPerformanceTest (specialized)
 # - RakVoiceDSound (requires DirectSound)
 # - RakVoiceFMOD (requires FMOD)
 # - RakVoiceFMODAsDLL (requires FMOD)
-# - RankingServerDB (requires database)
-# - RankingServerDBTest (requires database)
 # - Rooms (incomplete)
 # - SteamLobby (requires Steam SDK)
-# - TitleValidationDB_PostgreSQL (requires PostgreSQL)
 # - TestDLL (Windows DLL test)

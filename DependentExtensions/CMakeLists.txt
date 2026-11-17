@@ -14,17 +14,3 @@ add_subdirectory(Lobby2)
 
 # RakVoice (voice compression using Opus + RNNoise) is built into the core
 # MafiaNet library; see Source/CMakeLists.txt.
-
-# Optional extensions based on available dependencies
-
-# MySQL interface
-find_package(MySQL QUIET)
-if(MySQL_FOUND)
-    add_subdirectory(MySQLInterface)
-endif()
-
-# PostgreSQL interface
-find_package(PostgreSQL QUIET)
-if(PostgreSQL_FOUND)
-    add_subdirectory(PostgreSQLInterface)
-endif()
