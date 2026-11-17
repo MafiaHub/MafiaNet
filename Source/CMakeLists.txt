@@ -124,8 +124,6 @@ set(MAFIANET_EXTRAS_SOURCES
 set(MAFIANET_HEADERS
     include/mafianet/find_first.h
     include/mafianet/assert.h
-    include/mafianet/autopatcher_patch_context.h
-    include/mafianet/autopatcher_repository_interface.h
     include/mafianet/base64_encoder.h
     include/mafianet/bit_stream.h
     include/mafianet/cc_sliding_window.h

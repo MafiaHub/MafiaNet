@@ -113,14 +113,6 @@ Full NAT traversal demonstration. Shows:
 - UPnP fallback
 - Router2 relay
 
-Autopatcher
-~~~~~~~~~~~
-
-``Samples/AutopatcherClient/``
-
-The client connects to an Autopatcher server to check for updates and apply patches.
-See :doc:`/plugins/autopatcher` for server setup.
-
 TeamManager
 ~~~~~~~~~~~
 

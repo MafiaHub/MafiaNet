@@ -1,13 +1,7 @@
 # MafiaNet Dependent Extensions
 #
-# Dependencies (bzip2, miniupnpc, jansson) are fetched via FetchContent
-# in cmake/FetchDependencies.cmake
-#
 # Copyright (c) 2024, MafiaHub
 # Licensed under MIT-style license
-
-# Autopatcher extension (uses bzip2 from FetchContent)
-add_subdirectory(Autopatcher)
 
 # Lobby2 extension (matchmaking and lobby system)
 add_subdirectory(Lobby2)

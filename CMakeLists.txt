@@ -168,7 +168,7 @@ endif()
 
 # Samples and extensions
 if(MAFIANET_BUILD_SAMPLES)
-    # Fetch sample/extension dependencies (bzip2, miniupnpc, jansson)
+    # Fetch sample/extension dependencies (miniupnpc, jansson)
     include(FetchDependencies)
     add_subdirectory(Samples)
     add_subdirectory(DependentExtensions)

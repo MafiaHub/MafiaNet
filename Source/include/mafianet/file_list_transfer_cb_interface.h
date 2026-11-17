@@ -63,7 +63,6 @@ public:
 		unsigned bytesDownloadedForThisSet;
 
 		/// \brief User data passed to one of the functions in the FileList class.
-		/// \details However, on error, this is instead changed to one of the enumerations in the PatchContext structure.
 		FileListNodeContext context;
 
 		/// \brief Who sent this file

@@ -74,10 +74,7 @@ int main(void)
 	rakPeer->AttachPlugin(&fileListTransfer);
 	directoryDeltaTransfer.SetFileListTransferPlugin(&fileListTransfer);
 
-	printf("This sample demonstrates the plugin to incrementally transfer compressed\n");
-	printf("deltas of directories.  In essence, it's a simple autopatcher.\n");
-	printf("Unlike the full autopatcher, it has no dependencies.  It is suitable for\n");
-	printf("patching from non-dedicated servers at runtime.\n");
+	printf("This sample transfers new and changed files between directories.\n");
 	printf("Difficulty: Intermediate\n\n");
 
 	printf("Enter listen port, or hit enter to choose automatically\n");
