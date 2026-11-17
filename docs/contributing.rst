@@ -170,7 +170,7 @@ Releasing
 ---------
 
 Version bumps touch several files that must stay in sync. The full procedure is
-documented in ``CLAUDE.md`` (the "Releasing" section) — follow it exactly when
+documented in ``AGENTS.md`` (the "Releasing" section) — follow it exactly when
 cutting a release.
 
 Submitting Changes
