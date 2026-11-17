@@ -3,7 +3,7 @@ MafiaNet Documentation
 
 **MafiaNet** is a cross-platform networking engine for multiplayer games. Built on the foundation of RakNet and SLikeNet, it provides reliable UDP messaging, NAT traversal, peer-to-peer networking, and various game-specific networking features.
 
-**Supported Platforms:** Windows, Linux, macOS (primary) | iOS, Android (limited)
+**Supported Platforms:** Linux, macOS, and Windows
 
 .. toctree::
    :maxdepth: 2

@@ -3,6 +3,9 @@ RakNet 4.081
 
 Copyright (c) 2014, Oculus VR, Inc.
 
+This directory archives the original RakNet documentation. For current MafiaNet
+build instructions and supported platforms, see the [project README](../../README.md).
+
 Package notes
 ------------------------------------------
 The Help directory contains index.html, which is full help documentation in HTML format

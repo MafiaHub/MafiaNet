@@ -40,19 +40,10 @@
 #include "mafianet/osx_adapter.h"
 #include "mafianet/guid_util.h"
 
-#if defined(_CONSOLE_2)
-#include "Console2SampleIncludes.h"
-#endif
-
 // We copy this from Multiplayer.cpp to keep things all in one file for this example
 unsigned char GetPacketIdentifier(MafiaNet::Packet *p);
 
-#ifdef _CONSOLE_2
-_CONSOLE_2_SetSystemProcessParams
-#endif
-
-    int
-    main(void)
+int main(void)
 {
 	// Pointers to the interfaces of our server and client.
 	// Note we can easily have both in the same program

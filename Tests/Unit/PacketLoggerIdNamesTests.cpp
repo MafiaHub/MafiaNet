@@ -39,7 +39,7 @@ namespace
 // a name dropped anywhere before this point pushes this one off the end of its own slot.
 TEST(PacketLoggerIdNames, LastEnumEntryReportsItsOwnName)
 {
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RESERVED_9), "ID_RESERVED_9");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_SESSION_CONFIG_ABANDONED), "ID_SESSION_CONFIG_ABANDONED");
 }
 
 TEST(PacketLoggerIdNames, FirstEnumEntryReportsItsOwnName)
@@ -70,10 +70,10 @@ TEST(PacketLoggerIdNames, SessionConfigIdsAreNamed)
 TEST(PacketLoggerIdNames, RetiredPluginRangesPreserveWireIds)
 {
 	EXPECT_EQ(97, (int) ID_NAT_TYPE_DETECTION_REQUEST);
-	EXPECT_EQ(123, (int) ID_LIB_VOICE);
-	EXPECT_EQ(135, (int) ID_USER_PACKET_ENUM);
+	EXPECT_EQ(122, (int) ID_RELAY_PLUGIN);
+	EXPECT_EQ(131, (int) ID_USER_PACKET_ENUM);
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(97), "ID_NAT_TYPE_DETECTION_REQUEST");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(123), "ID_LIB_VOICE");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(122), "ID_RELAY_PLUGIN");
 }
 
 // The connection packets, which is what a reader of a handshake log keys off.

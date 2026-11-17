@@ -89,7 +89,7 @@ fetched dependencies are not affected; call it for any new target.
 
 **Formatting:** `.clang-format` (tabs, Allman, no line wrapping) applies to every C++ file under
 `Source`, `Tests`, `Samples`, `DependentExtensions` and `Benchmarks`, except what
-`.clang-format-ignore` lists (vendored third-party code, Objective-C). CI runs `ci/format.sh --check`
+`.clang-format-ignore` lists (vendored third-party code). CI runs `ci/format.sh --check`
 with clang-format **18.1.8** (`pipx install clang-format==18.1.8`); run `ci/format.sh` before
 committing. Use `// clang-format off` / `on` only around hand-aligned tables, never to dodge the style.
 
@@ -114,7 +114,7 @@ it. CI greps for this. Do not add PascalCase or shim headers.
 
 Dead platforms (Xbox 360, PS3, PS4, Vita, Native Client) were removed on purpose.
 Do not reintroduce `__native_client__`, `_PS3`, `_PS4`, `SN_TARGET_*` or Xbox
-preprocessor islands; MafiaNet targets Windows, Linux, macOS and the BSDs.
+preprocessor islands; MafiaNet targets Linux, macOS and Windows.
 
 ### Batched Datagram I/O (recvmmsg / sendmmsg)
 

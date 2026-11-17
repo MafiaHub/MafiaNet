@@ -330,7 +330,7 @@ static __UDPSOCKET__ BindForwardingSocket(const char *host, int family, bool dua
 			int v6only = dualStack ? 0 : 1;
 			if (setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only)) != 0 && dualStack)
 			{
-				closesocket__(candidate); // this system cannot do dual-stack (OpenBSD)
+				closesocket__(candidate); // this system cannot do dual-stack
 				continue;
 			}
 		}

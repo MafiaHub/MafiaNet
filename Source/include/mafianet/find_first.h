@@ -16,7 +16,7 @@
 #ifndef GCC_FINDFIRST_H
 #define GCC_FINDFIRST_H
 
-#if (defined(__GNUC__) || defined(__ARMCC_VERSION) || defined(__GCCXML__) || defined(__S3E__)) && !defined(__WIN32)
+#ifndef _WIN32
 
 #include <dirent.h>
 

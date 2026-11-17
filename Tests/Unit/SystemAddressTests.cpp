@@ -224,7 +224,7 @@ TEST(SystemAddressToString, UnsizedOverloadFitsTheDocumentedMinimum)
 {
 	// The longest possible result: 39-character address, a 10-digit scope id and a 5-digit port.
 	SystemAddress sa;
-	// A global address with a scope id set by hand: link-local ones carry the scope in the address bytes on BSD.
+	// A global address with a scope id set by hand: link-local ones carry the scope in the address bytes on macOS.
 	ASSERT_TRUE(sa.FromStringExplicitPort(LONG_IPV6, 65535));
 	sa.address.addr6.sin6_scope_id = 4294967295u;
 

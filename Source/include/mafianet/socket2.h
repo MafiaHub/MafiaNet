@@ -349,7 +349,6 @@ protected:
 	static RAK_THREAD_DECLARATION(RecvFromLoop);
 };
 
-#if defined(_WIN32) || defined(__GNUC__) || defined(__GCCXML__) || defined(__S3E__)
 class RNS2_Windows_Linux
 {
 public:
@@ -357,7 +356,6 @@ protected:
 	// \a socketFamily and \a dualStack describe rns2Socket; see SystemAddressToSockaddr.
 	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters);
 };
-#endif
 
 #if defined(_WIN32)
 
@@ -397,9 +395,7 @@ class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux
 public:
 	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters);
 	RNS2SendResult Send(RNS2_SendParameters *sendParameters);
-	// Guarded because RNS2_Linux is the non-Windows socket class: macOS and the
-	// BSDs compile it too, and sendmmsg/mmsghdr do not exist there. Those
-	// platforms inherit the portable base SendBatch (a Send() loop).
+	// macOS inherits the portable SendBatch implementation.
 #if defined(__linux__)
 	RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count);
 #endif

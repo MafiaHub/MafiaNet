@@ -12,7 +12,7 @@
 * Original file by the_viking, fixed by Rv¥mulo Fernandes, fixed by Emmanuel Nars
 * Should emulate windows finddata structure
 */
-#if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(_WIN32)
+#ifndef _WIN32
 #include "mafianet/find_first.h"
 #include <cstring>
 #include <vector>

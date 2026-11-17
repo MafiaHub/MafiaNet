@@ -144,8 +144,6 @@ TEST_F(PeerFixture, SessionConfigInteractiveTogglesWithoutStartup)
 	SUCCEED();
 }
 
-// The three handshake ids must stay below ID_USER_PACKET_ENUM: they were carved out of the
-// reserved block precisely so application enums that start at ID_USER_PACKET_ENUM do not shift.
 TEST(SessionConfigMessageIds, AreBelowUserPacketEnum)
 {
 	EXPECT_LT((int) ID_SESSION_CONFIG_REQUEST, (int) ID_USER_PACKET_ENUM);
@@ -158,4 +156,11 @@ TEST(SessionConfigMessageIds, AreDistinct)
 	EXPECT_NE((int) ID_SESSION_CONFIG_REQUEST, (int) ID_SESSION_CONFIG);
 	EXPECT_NE((int) ID_SESSION_CONFIG, (int) ID_SESSION_CONFIG_REJECTED);
 	EXPECT_NE((int) ID_SESSION_CONFIG_REQUEST, (int) ID_SESSION_CONFIG_REJECTED);
+}
+
+TEST(MessageIdentifiers, Protocol10WireValues)
+{
+	EXPECT_EQ(7, ID_NAT_PING);
+	EXPECT_EQ(109, ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS);
+	EXPECT_EQ(131, ID_USER_PACKET_ENUM);
 }

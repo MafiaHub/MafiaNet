@@ -16,7 +16,6 @@
 #if defined(_WIN32)
 // IP_DONTFRAGMENT is different between winsock 1 and winsock 2.  Therefore, Winsock2.h must be linked againt Ws2_32.lib
 // winsock.h must be linked against WSock32.lib.  If these two are mixed up the flag won't work correctly
-// WinRT: http://msdn.microsoft.com/en-us/library/windows/apps/windows.networking.sockets
 // Sample code: http://stackoverflow.com/questions/10290945/correct-use-of-udp-datagramsocket
 #include <winsock2.h>
 typedef SOCKET __UDPSOCKET__;

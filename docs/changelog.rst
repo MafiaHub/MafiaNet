@@ -11,7 +11,7 @@ Unreleased — breaking
 * RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`plugins/rpc4` and serialize their arguments into a bit stream.
 * The SQLite client, server and logging adapters have been removed.
 * CloudClient and CloudServer, including their samples and public headers, have been removed. Remove their names from ``MAFIANET_DISABLED_FEATURES``.
-* The former SQLite and cloud message ID ranges are reserved. Existing protocols and application messages retain their wire values.
+* The former SQLite and cloud message ID ranges are reserved. This removal preserves the protocol 10 wire values.
 
 **Standard containers and allocation**
 
@@ -40,7 +40,7 @@ Unreleased — breaking
 * **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
 * **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
-**Breaking (API and ABI)**: rebuild, then follow the migration guide. The wire format of the remaining features is unchanged.
+**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox and LibVoice identifiers and the two remaining reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 131 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
 
 Version 0.26.0
 --------------

@@ -46,12 +46,8 @@ void SignaledEvent::InitEvent(void)
 	eventList = CreateEvent(0, false, false, 0);
 #else
 
-#if !defined(ANDROID)
 	pthread_condattr_init(&condAttr);
 	pthread_cond_init(&eventList, &condAttr);
-#else
-	pthread_cond_init(&eventList, 0);
-#endif
 	pthread_mutexattr_init(&mutexAttr);
 	pthread_mutex_init(&hMutex, &mutexAttr);
 #endif
@@ -70,9 +66,7 @@ void SignaledEvent::CloseEvent(void)
 #else
 	pthread_cond_destroy(&eventList);
 	pthread_mutex_destroy(&hMutex);
-#if !defined(ANDROID)
 	pthread_condattr_destroy(&condAttr);
-#endif
 	pthread_mutexattr_destroy(&mutexAttr);
 #endif
 }
@@ -143,11 +137,6 @@ void SignaledEvent::WaitOnEvent(int timeoutMs)
 			ts.tv_sec++;
 		}
 
-		// [SBC] added mutex lock/unlock around cond_timedwait.
-		// this prevents airplay from generating a whole much of errors.
-		// not sure how this works on other platforms since according to
-		// the docs you are suppost to hold the lock before you wait
-		// on the cond.
 		pthread_mutex_lock(&hMutex);
 		pthread_cond_timedwait(&eventList, &hMutex, &ts);
 		pthread_mutex_unlock(&hMutex);

@@ -63,14 +63,6 @@ bool IsOlderMessageNumber(MessageNumberType a, MessageNumberType b)
 }
 } // namespace
 
-// Can't figure out which library has this function on the PS3
-double Ceil(double d)
-{
-	if (((double) ((int) d)) == d)
-		return d;
-	return (int) (d + 1.0);
-}
-
 // #if defined(new)
 // #pragma push_macro("new")
 // #undef new

@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#if (defined(__GNUC__) || defined(__ARMCC_VERSION) || defined(__GCCXML__) || defined(__S3E__)) && !defined(_WIN32)
+#ifndef _WIN32
 #include <string.h>
 #ifndef _stricmp
 int _stricmp(const char *s1, const char *s2)

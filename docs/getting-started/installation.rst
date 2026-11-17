@@ -7,7 +7,7 @@ Requirements
 * CMake 3.21 or higher
 * C++17 compatible compiler
 * libsodium 1.0.18 or higher (``libsodium-dev`` on Debian/Ubuntu, ``brew install libsodium`` on macOS, ``vcpkg install libsodium`` on Windows)
-* pkg-config on Linux, macOS and the BSDs: recommended, not required. ``Findsodium.cmake`` asks it where
+* pkg-config on Linux and macOS: recommended, not required. ``Findsodium.cmake`` asks it where
   libsodium is installed; without it, libsodium is looked up in the default library and include paths
   (set ``CMAKE_PREFIX_PATH`` for any other location).
 
