@@ -47,9 +47,9 @@ namespace
 {
 bool IsDualStackPeer(RakPeerInterface *peer)
 {
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	peer->GetSockets(sockets);
-	return sockets.Size() == 1 && sockets[0]->IsDualStack();
+	return sockets.size() == 1 && sockets[0]->IsDualStack();
 }
 
 #ifndef _WIN32

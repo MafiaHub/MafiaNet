@@ -68,7 +68,7 @@ TEST_F(ConnectWithSocket, ConnectWithSocketFromGetSocketsAndGetSocket)
 {
 	RakPeerInterface *server, *client;
 
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	TestHelpers::StandardClientPrep(client, destroyList);
 	TestHelpers::StandardServerPrep(server, destroyList);
 	const unsigned short serverPort = TestHelpers::BoundPort(server);

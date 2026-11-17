@@ -75,7 +75,7 @@ TEST(SocketFamilyBind, ResolverFamilyErrorReportsFamilyNotSupported)
 	bbp.pollingThreadPriority = 0;
 	bbp.eventHandler = nullptr;
 
-	const RNS2BindResult result = static_cast<RNS2_Berkley *>(socket)->Bind(&bbp, _FILE_AND_LINE_);
+	const RNS2BindResult result = static_cast<RNS2_Berkley *>(socket)->Bind(&bbp);
 	RakNetSocket2Allocator::DeallocRNS2(socket);
 	EXPECT_EQ(result, BR_FAMILY_NOT_SUPPORTED);
 }

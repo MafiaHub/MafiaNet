@@ -20,7 +20,6 @@
 #include "mafianet/mtu_size.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/thread.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/export.h"
 #include <atomic>
 
@@ -167,11 +166,8 @@ public:
 	//		bufferedPackets.Push(recvFromStruct);
 	//		quitAndDataEvents.SetEvent();
 	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct) = 0;
-	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line) = 0;
-	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line) = 0;
-
-	// recvFromStruct=bufferedPackets.Allocate( _FILE_AND_LINE_ );
-	// 	DataStructures::ThreadsafeAllocatingQueue<RNS2RecvStruct> bufferedPackets;
+	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s) = 0;
+	virtual RNS2RecvStruct *AllocRNS2RecvStruct() = 0;
 };
 
 class RakNetSocket2
@@ -182,7 +178,7 @@ public:
 
 	// In order for the handler to trigger, some platforms must call PollRecvFrom, some platforms this create an internal thread.
 	void SetRecvEventHandler(RNS2EventHandler *_eventHandler);
-	virtual RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line) = 0;
+	virtual RNS2SendResult Send(RNS2_SendParameters *sendParameters) = 0;
 	// Batched send. The base implementation simply loops Send() so every socket
 	// type has a working default; RNS2_Linux overrides it with sendmmsg where the
 	// syscall exists (Linux).
@@ -205,7 +201,7 @@ public:
 	// did not go out"; only the diagnostics differ. See MmsgBatchTests.
 	// RNS2_SendParameters::ttl is honoured either way: sendmmsg has no per-message
 	// TTL, so the override defers a batch carrying one to this base loop.
-	virtual RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line);
+	virtual RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count);
 	RNS2Type GetSocketType(void) const;
 	void SetSocketType(RNS2Type t);
 	bool IsBerkleySocket(void) const;
@@ -293,7 +289,7 @@ public:
 	static bool IsPortInUse(unsigned short port, const char *hostAddress, unsigned short addressFamily, int type);
 
 	// ----------- MEMBERS ------------
-	virtual RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line) = 0;
+	virtual RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters) = 0;
 };
 // Common Berkeley socket implementation for Windows and Linux
 class RNS2_Berkley : public IRNS2_Berkley
@@ -310,8 +306,8 @@ public:
 
 protected:
 	// Used by other classes
-	RNS2BindResult BindShared(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
-	RNS2BindResult BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
+	RNS2BindResult BindShared(RNS2_BerkleyBindParameters *bindParameters);
+	RNS2BindResult BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters);
 	// Binds the first usable address getaddrinfo returns for \a family. With
 	// \a wantDualStack, AF_INET6 sockets get IPV6_V6ONLY=0; \a *dualStackUnavailable
 	// is then set when the host cannot provide that (no IPv6 address for the
@@ -359,7 +355,7 @@ class RNS2_Windows_Linux
 public:
 protected:
 	// \a socketFamily and \a dualStack describe rns2Socket; see SystemAddressToSockaddr.
-	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
+	static RNS2SendResult Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters);
 };
 #endif
 
@@ -384,8 +380,8 @@ class RNS2_Windows : public RNS2_Berkley, public RNS2_Windows_Linux
 public:
 	RNS2_Windows();
 	virtual ~RNS2_Windows();
-	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
+	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters);
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters);
 	void SetSocketLayerOverride(SocketLayerOverride *_slo);
 	SocketLayerOverride *GetSocketLayerOverride(void);
 	// ----------- STATICS ------------
@@ -399,13 +395,13 @@ protected:
 class RNS2_Linux : public RNS2_Berkley, public RNS2_Windows_Linux
 {
 public:
-	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line);
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *file, unsigned int line);
+	RNS2BindResult Bind(RNS2_BerkleyBindParameters *bindParameters);
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters);
 	// Guarded because RNS2_Linux is the non-Windows socket class: macOS and the
 	// BSDs compile it too, and sendmmsg/mmsghdr do not exist there. Those
 	// platforms inherit the portable base SendBatch (a Send() loop).
 #if defined(__linux__)
-	RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count, const char *file, unsigned int line);
+	RNS2SendResult SendBatch(RNS2_SendParameters *sends, unsigned count);
 #endif
 
 	// ----------- STATICS ------------

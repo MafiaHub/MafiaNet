@@ -46,7 +46,7 @@ void NatTypeDetectionServer::Startup(
     const char *nonRakNetIP3,
     const char *nonRakNetIP4)
 {
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	rakPeerInterface->GetSockets(sockets);
 	char str[64];
 	sockets[0]->GetBoundAddress().ToString(false, str, static_cast<size_t>(64));
@@ -170,7 +170,7 @@ void NatTypeDetectionServer::Update(void)
 			}
 		}
 
-		DeallocRNS2RecvStruct(recvStruct, _FILE_AND_LINE_);
+		DeallocRNS2RecvStruct(recvStruct);
 		bufferedPacketsMutex.Lock();
 		if (bufferedPackets.Size() > 0)
 			recvStruct = bufferedPackets.Pop();
@@ -266,7 +266,7 @@ void NatTypeDetectionServer::Update(void)
 				bsp.data = (char *) &c;
 				bsp.length = 1;
 				bsp.systemAddress = saOut;
-				s4p5->Send(&bsp, _FILE_AND_LINE_);
+				s4p5->Send(&bsp);
 				break;
 			case STATE_TESTING_FULL_CONE_1:
 			case STATE_TESTING_FULL_CONE_2:
@@ -284,7 +284,7 @@ void NatTypeDetectionServer::Update(void)
 				bsp.data = (char *) bs.GetData();
 				bsp.length = bs.GetNumberOfBytesUsed();
 				bsp.systemAddress = saOut;
-				s2p3->Send(&bsp, _FILE_AND_LINE_);
+				s2p3->Send(&bsp);
 				break;
 			case STATE_TESTING_ADDRESS_RESTRICTED_1:
 			case STATE_TESTING_ADDRESS_RESTRICTED_2:
@@ -302,7 +302,7 @@ void NatTypeDetectionServer::Update(void)
 				bsp.data = (char *) bs.GetData();
 				bsp.length = bs.GetNumberOfBytesUsed();
 				bsp.systemAddress = saOut;
-				s1p2->Send(&bsp, _FILE_AND_LINE_);
+				s1p2->Send(&bsp);
 				break;
 			case STATE_TESTING_PORT_RESTRICTED_1:
 			case STATE_TESTING_PORT_RESTRICTED_2:
@@ -402,12 +402,12 @@ unsigned int NatTypeDetectionServer::GetDetectionAttemptIndex(RakNetGUID guid)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void NatTypeDetectionServer::DeallocRNS2RecvStruct(RNS2RecvStruct *s, [[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
+void NatTypeDetectionServer::DeallocRNS2RecvStruct(RNS2RecvStruct *s)
 {
 	delete s;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RNS2RecvStruct *NatTypeDetectionServer::AllocRNS2RecvStruct([[maybe_unused]] const char *file, [[maybe_unused]] unsigned int line)
+RNS2RecvStruct *NatTypeDetectionServer::AllocRNS2RecvStruct()
 {
 	return new RNS2RecvStruct;
 }

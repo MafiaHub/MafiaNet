@@ -14,13 +14,9 @@
  */
 
 #include "mafianet/native_feature_includes.h"
-#include <cstdlib>
 #if _RAKNET_SUPPORT_PacketLogger == 1
 
 #include "mafianet/threadsafe_packet_logger.h"
-#include <string.h>
-#include "mafianet/linux_adapter.h"
-#include "mafianet/osx_adapter.h"
 
 using namespace MafiaNet;
 
@@ -29,27 +25,15 @@ ThreadsafePacketLogger::ThreadsafePacketLogger()
 }
 ThreadsafePacketLogger::~ThreadsafePacketLogger()
 {
-	char **msg;
-	while ((msg = logMessages.ReadLock()) != 0)
-	{
-		std::free((*msg));
-	}
 }
 void ThreadsafePacketLogger::Update(void)
 {
-	char **msg;
-	while ((msg = logMessages.ReadLock()) != 0)
-	{
-		WriteLog(*msg);
-		std::free((*msg));
-	}
+	while (auto msg = logMessages.TryPop())
+		WriteLog(msg->c_str());
 }
 void ThreadsafePacketLogger::AddToLog(const char *str)
 {
-	char **msg = logMessages.WriteLock();
-	*msg = (char *) std::malloc(strlen(str) + 1);
-	strcpy_s(*msg, strlen(str) + 1, str);
-	logMessages.WriteUnlock();
+	logMessages.Push(std::string(str));
 }
 
 #endif // _RAKNET_SUPPORT_*

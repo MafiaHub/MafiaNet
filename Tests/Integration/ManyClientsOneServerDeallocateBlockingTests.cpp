@@ -211,8 +211,8 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 
 	TimeMS entryTime = GetTimeMS(); //Loop entry time
 
-	DataStructures::List<SystemAddress> systemList;
-	DataStructures::List<RakNetGUID> guidList;
+	std::vector<SystemAddress> systemList;
+	std::vector<RakNetGUID> guidList;
 
 	printf("Entering disconnect loop \n");
 
@@ -227,7 +227,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 				continue;
 
 			clientList[i]->GetSystemList(systemList, guidList); //Get connectionlist
-			int len = systemList.Size();
+			const std::size_t len = systemList.size();
 
 			if (len >= 1)
 			{
@@ -347,7 +347,7 @@ TEST_F(ManyClientsOneServerDeallocateBlocking, ClientsReconnectAfterDeallocateAn
 			activeCount++;
 
 			clientList[i]->GetSystemList(systemList, guidList);
-			int connNum = guidList.Size();
+			const std::size_t connNum = guidList.size();
 			if (connNum == 1)
 				connectedCount++;
 		}

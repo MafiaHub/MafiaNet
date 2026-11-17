@@ -25,10 +25,10 @@ const unsigned short kMaxConnections = 4;
 
 int ConnectionCount(RakPeer *peer)
 {
-	DataStructures::List<SystemAddress> systemList;
-	DataStructures::List<RakNetGUID> guidList;
+	std::vector<SystemAddress> systemList;
+	std::vector<RakNetGUID> guidList;
 	peer->GetSystemList(systemList, guidList);
-	return (int) guidList.Size();
+	return (int) guidList.size();
 }
 }
 

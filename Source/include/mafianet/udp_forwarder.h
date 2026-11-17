@@ -34,7 +34,7 @@
 #include "mafianet/ds_queue.h"
 #include "mafianet/ds_ordered_list.h"
 #include "mafianet/lockless_types.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
+#include "mafianet/locked_queue.h"
 
 namespace MafiaNet
 {
@@ -129,7 +129,8 @@ protected:
 		unsigned int inputId;
 	};
 
-	DataStructures::ThreadsafeAllocatingQueue<StartForwardingInputStruct> startForwardingInput;
+	// User thread (StartForwarding) to the forwarder thread.
+	LockedQueue<StartForwardingInputStruct> startForwardingInput;
 
 	struct StartForwardingOutputStruct
 	{
@@ -146,7 +147,8 @@ protected:
 		SystemAddress source;
 		SystemAddress destination;
 	};
-	DataStructures::ThreadsafeAllocatingQueue<StopForwardingStruct> stopForwardingCommands;
+	// User thread (StopForwarding) to the forwarder thread.
+	LockedQueue<StopForwardingStruct> stopForwardingCommands;
 	unsigned int nextInputId;
 
 	// New entries are added to forwardListNotUpdated

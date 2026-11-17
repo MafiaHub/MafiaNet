@@ -17,11 +17,12 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
 
+#include <algorithm>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/packet_priority.h"
@@ -30,13 +31,15 @@
 #include "mafianet/reliability_layer.h"
 #include "mafianet/socket2.h"
 
+#include "ReliabilityLayerPair.h"
+
 using namespace MafiaNet;
 
 namespace
 {
 struct NullSocket : public RakNetSocket2
 {
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters) override
 	{
 		return sendParameters->length;
 	}
@@ -57,7 +60,7 @@ protected:
 	ReliabilityLayer layer;
 	NullSocket socket;
 	SystemAddress remote{"127.0.0.1", 40001};
-	DataStructures::List<PluginInterface2 *> handlers;
+	std::vector<PluginInterface2 *> handlers;
 	RakNetRandom rnr;
 	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
 	CCTimeType now = 0;
@@ -254,69 +257,131 @@ TEST_F(SplitPacketFixture, DuplicateFragmentIsIgnored)
 	EXPECT_EQ(Concat(first, second), messages[0]);
 }
 
-namespace
-{
-struct CapturingSocket : public RakNetSocket2
-{
-	std::vector<std::vector<char>> datagrams;
-
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
-	{
-		datagrams.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
-		return sendParameters->length;
-	}
-};
-} // namespace
-
 // The sender splits into one fragment per datagram-sized slice and holds one pointer per fragment while it
 // does. The layer has no fixed cap on the fragment count, so this uses a message of tens of thousands of
 // fragments (about 24,000), far more than a small stack buffer would have been sized for.
 TEST(ReliabilityLayerSplitPacket, ReassemblesMessageOfTensOfThousandsOfFragments)
 {
-	ReliabilityLayer sender, receiver;
-	CapturingSocket senderSocket, receiverSocket;
-	SystemAddress senderAddress{"127.0.0.1", 40001}, receiverAddress{"127.0.0.1", 40002};
-	DataStructures::List<PluginInterface2 *> handlers;
-	RakNetRandom rnr;
-	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
-	CCTimeType now = GetTimeUS(); // see SplitPacketFixture::SetUp
-	// Mode Plaintext, as in SplitPacketFixture: no keys are exchanged here.
-	sender.SetEncryptionMode(EncryptionMode::Plaintext);
-	receiver.SetEncryptionMode(EncryptionMode::Plaintext);
-	sender.Reset(true, MAXIMUM_MTU_SIZE);
-	receiver.Reset(true, MAXIMUM_MTU_SIZE);
-	sender.SetTimeoutTime(1000000);
-	receiver.SetTimeoutTime(1000000);
+	MafiaNetTest::ReliabilityLayerPair p; // a sends, b receives
 
 	const size_t kMessageBytes = 32 * 1024 * 1024;
 	std::vector<unsigned char> message(kMessageBytes);
 	message[0] = 200; // clear of internal message ids
 	for (size_t i = 1; i < message.size(); ++i)
 		message[i] = (unsigned char) (i * 31 + 7);
-	ASSERT_TRUE(sender.Send((char *) message.data(), BYTES_TO_BITS((BitSize_t) message.size()), MafiaNet::Priority::Medium,
-	                        MafiaNet::Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, now, 0));
+	ASSERT_TRUE(p.a.Send((char *) message.data(), BYTES_TO_BITS((BitSize_t) message.size()), MafiaNet::Priority::Medium,
+	                     MafiaNet::Reliability::ReliableOrdered, 0, true, MAXIMUM_MTU_SIZE, p.now, 0));
 
 	std::vector<unsigned char> received;
 	for (int tick = 0; tick < 200000 && received.empty(); ++tick)
 	{
-		now += 10000;
-		sender.Update(&senderSocket, receiverAddress, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
-		receiver.Update(&receiverSocket, senderAddress, MAXIMUM_MTU_SIZE, now, 0, handlers, &rnr, updateBitStream);
-		for (std::vector<char> &datagram : senderSocket.datagrams)
-			receiver.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), senderAddress, handlers, MAXIMUM_MTU_SIZE, &receiverSocket, &rnr, now, updateBitStream);
-		senderSocket.datagrams.clear();
-		for (std::vector<char> &datagram : receiverSocket.datagrams)
-			sender.HandleSocketReceiveFromConnectedPlayer(datagram.data(), (unsigned int) datagram.size(), receiverAddress, handlers, MAXIMUM_MTU_SIZE, &senderSocket, &rnr, now, updateBitStream);
-		receiverSocket.datagrams.clear();
+		p.now += 10000;
+		p.UpdateA();
+		p.UpdateB();
+		for (std::vector<char> &datagram : p.aSock.sent)
+			p.DeliverToB(datagram);
+		p.aSock.sent.clear();
+		for (std::vector<char> &datagram : p.bSock.sent)
+			p.DeliverToA(datagram);
+		p.bSock.sent.clear();
 
-		unsigned char *data;
-		BitSize_t bits;
-		while ((bits = receiver.Receive(&data)) > 0)
-		{
-			received.assign(data, data + BITS_TO_BYTES(bits));
-			std::free(data);
-		}
+		for (std::vector<unsigned char> &m : MafiaNetTest::ReliabilityLayerPair::Drain(p.b))
+			received = std::move(m);
 	}
 	ASSERT_EQ(message.size(), received.size());
 	EXPECT_TRUE(message == received);
+}
+
+// Three split messages are open in the receiver at once: their datagrams arrive interleaved, in
+// reverse, and each one twice. Each message must still come out exactly once and intact. The second
+// copy of a datagram is dropped by the reliable-message-number check (hasReceivedPacketQueue) before
+// it reaches the split-channel map; SplitPacketSort::Add's own duplicate rejection is covered by
+// SplitPacketFixture.DuplicateFragmentIsIgnored.
+TEST(ReliabilityLayerSplitPacket, ReassemblesInterleavedSplitsWithReorderedAndDuplicatedDatagrams)
+{
+	MafiaNetTest::ReliabilityLayerPair p; // a sends, b receives
+
+	const size_t kSizes[3] = {5000, 7000, 9000};
+	std::vector<std::vector<unsigned char>> messages;
+	for (size_t m = 0; m < 3; ++m)
+	{
+		std::vector<unsigned char> message(kSizes[m]);
+		message[0] = 200; // clear of internal message ids
+		for (size_t i = 1; i < message.size(); ++i)
+			message[i] = (unsigned char) (m * 101 + i * 13 + (i >> 8));
+		messages.push_back(message);
+	}
+
+	// Capture each message's datagrams on their own. The sender's window is one datagram until it
+	// is acked, so b plays the acking receiver here; it is reset before the real delivery below.
+	std::vector<std::vector<std::vector<char>>> datagramsOf(3);
+	for (size_t m = 0; m < 3; ++m)
+	{
+		ASSERT_TRUE(p.a.Send((char *) messages[m].data(), BYTES_TO_BITS((BitSize_t) messages[m].size()), MafiaNet::Priority::Medium,
+		                     MafiaNet::Reliability::Reliable, 0, true, MAXIMUM_MTU_SIZE, p.now, 0));
+		size_t got = 0;
+		for (int tick = 0; tick < 1000 && got == 0; ++tick)
+		{
+			p.now += 10000;
+			p.UpdateA();
+			p.UpdateB();
+			for (std::vector<char> &datagram : p.aSock.sent)
+			{
+				datagramsOf[m].push_back(datagram);
+				p.DeliverToB(datagram);
+			}
+			p.aSock.sent.clear();
+			for (std::vector<char> &datagram : p.bSock.sent)
+				p.DeliverToA(datagram);
+			p.bSock.sent.clear();
+			got = MafiaNetTest::ReliabilityLayerPair::Drain(p.b).size();
+		}
+		ASSERT_EQ(1u, got) << "message " << m;
+		ASSERT_GE(datagramsOf[m].size(), 3u) << "message " << m << " should span several fragments";
+	}
+
+	// Interleave the three messages' datagrams round-robin, then reverse.
+	std::vector<std::vector<char>> order;
+	for (size_t i = 0;; ++i)
+	{
+		bool any = false;
+		for (size_t m = 0; m < 3; ++m)
+		{
+			if (i < datagramsOf[m].size())
+			{
+				order.push_back(datagramsOf[m][i]);
+				any = true;
+			}
+		}
+		if (!any)
+			break;
+	}
+	std::reverse(order.begin(), order.end());
+
+	// A fresh receiver: every fragment is new to it.
+	p.ResetB();
+	std::vector<std::vector<unsigned char>> received;
+	for (std::vector<char> &datagram : order)
+	{
+		for (int copy = 0; copy < 2; ++copy)
+		{
+			std::vector<char> bytes = datagram;
+			p.DeliverToB(bytes);
+		}
+		for (std::vector<unsigned char> &m : MafiaNetTest::ReliabilityLayerPair::Drain(p.b))
+			received.push_back(std::move(m));
+	}
+	for (int tick = 0; tick < 10; ++tick)
+	{
+		p.now += 10000;
+		p.UpdateB();
+		for (std::vector<unsigned char> &m : MafiaNetTest::ReliabilityLayerPair::Drain(p.b))
+			received.push_back(std::move(m));
+	}
+
+	ASSERT_EQ(3u, received.size());
+	std::sort(received.begin(), received.end(), [](const std::vector<unsigned char> &l, const std::vector<unsigned char> &r)
+	          { return l.size() < r.size(); });
+	for (size_t m = 0; m < 3; ++m)
+		EXPECT_TRUE(messages[m] == received[m]) << "message " << m;
 }

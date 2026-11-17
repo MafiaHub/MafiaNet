@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/packet_priority.h"
@@ -37,7 +36,7 @@ namespace
 {
 struct NullSocket : public RakNetSocket2
 {
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters) override
 	{
 		return sendParameters->length;
 	}
@@ -59,7 +58,7 @@ protected:
 	ReliabilityLayer layer;
 	NullSocket socket;
 	SystemAddress remote{"127.0.0.1", 40001};
-	DataStructures::List<PluginInterface2 *> handlers;
+	std::vector<PluginInterface2 *> handlers;
 	RakNetRandom rnr;
 	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
 	CCTimeType now = 0;

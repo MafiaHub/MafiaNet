@@ -15,7 +15,6 @@
 
 #include <vector>
 
-#include "mafianet/ds_list.h"
 #include "mafianet/get_time.h"
 #include "mafianet/mtu_size.h"
 #include "mafianet/packet_priority.h"
@@ -33,7 +32,7 @@ struct QueueSocket : public RakNetSocket2
 {
 	std::vector<std::vector<char>> sent;
 
-	RNS2SendResult Send(RNS2_SendParameters *sendParameters, const char *, unsigned int) override
+	RNS2SendResult Send(RNS2_SendParameters *sendParameters) override
 	{
 		sent.emplace_back(sendParameters->data, sendParameters->data + sendParameters->length);
 		return sendParameters->length;
@@ -45,7 +44,7 @@ struct LayerPair
 	ReliabilityLayer a, b;
 	QueueSocket aSock, bSock;
 	SystemAddress aAddr{"127.0.0.1", 40001}, bAddr{"127.0.0.1", 40002};
-	DataStructures::List<PluginInterface2 *> handlers;
+	std::vector<PluginInterface2 *> handlers;
 	RakNetRandom rnr;
 	BitStream updateBitStream{MAXIMUM_MTU_SIZE};
 	CCTimeType now = GetTimeUS();

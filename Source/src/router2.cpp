@@ -148,10 +148,10 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 
 	// StoreRequest(endpointGuid, Largest(ping*2), systemsSentTo). Set state REQUEST_STATE_QUERY_FORWARDING
 	Router2::ConnnectRequest *cr = new Router2::ConnnectRequest;
-	DataStructures::List<SystemAddress> addresses;
-	DataStructures::List<RakNetGUID> guids;
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
 	rakPeerInterface->GetSystemList(addresses, guids);
-	if (guids.Size() == 0)
+	if (guids.size() == 0)
 	{
 		char buff[512];
 		if (debugInterface)
@@ -163,7 +163,7 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 	cr->pingTimeout = MafiaNet::GetTimeMS() + largestPing * 2 + 1000;
 	cr->endpointGuid = endpointGuid;
 	cr->returnConnectionLostOnFailure = returnConnectionLostOnFailure;
-	for (unsigned int i = 0; i < guids.Size(); i++)
+	for (unsigned int i = 0; i < guids.size(); i++)
 	{
 		ConnectionRequestSystem crs;
 		if (guids[i] != endpointGuid)

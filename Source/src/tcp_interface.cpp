@@ -401,19 +401,10 @@ void TCPInterface::Stop(void)
 	delete[] remoteClients;
 	remoteClients = 0;
 
-	// #low review whether we'd rather use PopInaccurate() here (i.e. check whether related threads accessing the queue terminated already)
-	// consider even adding a dtor to Packet which would then clear its data (at this point drop this explicit packet deallocation here)
-	MafiaNet::Packet *packet = incomingMessages.Pop();
-	while (packet != nullptr)
-	{
-		DeallocatePacket(packet);
-		packet = incomingMessages.Pop();
-	}
-	incomingMessages.Clear(_FILE_AND_LINE_);
-	newIncomingConnections.Clear(_FILE_AND_LINE_);
-	newRemoteClients.Clear(_FILE_AND_LINE_);
-	lostConnections.Clear(_FILE_AND_LINE_);
-	requestedCloseConnections.Clear(_FILE_AND_LINE_);
+	// What the TCP thread queued and the user never took; each packet is freed with its data (IncomingPacketDeleter).
+	incomingMessages.Clear();
+	newIncomingConnections.Clear();
+	lostConnections.Clear();
 	failedConnectionAttempts.Clear(_FILE_AND_LINE_);
 	completedConnectionAttempts.Clear(_FILE_AND_LINE_);
 	failedConnectionAttempts.Clear(_FILE_AND_LINE_);
@@ -639,9 +630,8 @@ Packet *TCPInterface::ReceiveInt(void)
 		return 0;
 	if (headPush.IsEmpty() == false)
 		return headPush.Pop();
-	Packet *p = incomingMessages.PopInaccurate();
-	if (p)
-		return p;
+	if (auto p = incomingMessages.TryPop())
+		return p->release(); // The user frees it with DeallocatePacket
 	if (tailPush.IsEmpty() == false)
 		return tailPush.Pop();
 	return 0;
@@ -717,17 +707,9 @@ void TCPInterface::DeallocatePacket(Packet *packet)
 {
 	if (packet == 0)
 		return;
-	if (packet->deleteData)
-	{
-		std::free(packet->data);
-		incomingMessages.Deallocate(packet, _FILE_AND_LINE_);
-	}
-	else
-	{
-		// Came from userspace AllocatePacket
-		std::free(packet->data);
-		delete packet;
-	}
+	// A packet from the TCP thread (deleteData == true) and one from AllocatePacket are both a `new` Packet
+	// whose data is std::malloc'd.
+	IncomingPacketDeleter()(packet);
 }
 Packet *TCPInterface::AllocatePacket(unsigned dataSize)
 {
@@ -795,18 +777,13 @@ SystemAddress TCPInterface::HasFailedConnectionAttempt(void)
 }
 SystemAddress TCPInterface::HasNewIncomingConnection(void)
 {
-	SystemAddress *out, out2;
-	out = newIncomingConnections.PopInaccurate();
-	if (out)
+	if (auto out = newIncomingConnections.TryPop())
 	{
-		out2 = *out;
-		newIncomingConnections.Deallocate(out, _FILE_AND_LINE_);
-
 		unsigned int i;
 		for (i = 0; i < messageHandlerList.Size(); i++)
-			messageHandlerList[i]->OnNewConnection(out2, UNASSIGNED_RAKNET_GUID, true);
+			messageHandlerList[i]->OnNewConnection(*out, UNASSIGNED_RAKNET_GUID, true);
 
-		return out2; // out was just returned to the pool
+		return *out;
 	}
 	else
 	{
@@ -815,18 +792,13 @@ SystemAddress TCPInterface::HasNewIncomingConnection(void)
 }
 SystemAddress TCPInterface::HasLostConnection(void)
 {
-	SystemAddress *out, out2;
-	out = lostConnections.PopInaccurate();
-	if (out)
+	if (auto out = lostConnections.TryPop())
 	{
-		out2 = *out;
-		lostConnections.Deallocate(out, _FILE_AND_LINE_);
-
 		unsigned int i;
 		for (i = 0; i < messageHandlerList.Size(); i++)
-			messageHandlerList[i]->OnClosedConnection(out2, UNASSIGNED_RAKNET_GUID, LCR_DISCONNECTION_NOTIFICATION);
+			messageHandlerList[i]->OnClosedConnection(*out, UNASSIGNED_RAKNET_GUID, LCR_DISCONNECTION_NOTIFICATION);
 
-		return out2; // out was just returned to the pool
+		return *out;
 	}
 	else
 	{
@@ -1034,7 +1006,6 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	const unsigned int BUFF_SIZE = 1048576;
 	//char data[ BUFF_SIZE ];
 	char *data = (char *) std::malloc(BUFF_SIZE);
-	Packet *incomingMessage;
 	fd_set readFD, exceptionFD, writeFD;
 	sts->threadRunning.Increment();
 
@@ -1063,9 +1034,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 		rc.isActiveMutex.Unlock();
 		if (current)
 		{
-			SystemAddress *lostConnectionSystemAddress = sts->lostConnections.Allocate(_FILE_AND_LINE_);
-			*lostConnectionSystemAddress = lostAddress;
-			sts->lostConnections.Push(lostConnectionSystemAddress);
+			sts->lostConnections.Push(lostAddress);
 		}
 	};
 
@@ -1164,9 +1133,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 							sts->remoteClients[newRemoteClientIndex].isActiveMutex.Unlock();
 
 
-							SystemAddress *newConnectionSystemAddress = sts->newIncomingConnections.Allocate(_FILE_AND_LINE_);
-							*newConnectionSystemAddress = sts->remoteClients[newRemoteClientIndex].systemAddress;
-							sts->newIncomingConnections.Push(newConnectionSystemAddress);
+							sts->newIncomingConnections.Push(sts->remoteClients[newRemoteClientIndex].systemAddress);
 
 							break;
 						}
@@ -1249,7 +1216,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 
 							if (len > 0)
 							{
-								incomingMessage = sts->incomingMessages.Allocate(_FILE_AND_LINE_);
+								std::unique_ptr<Packet, TCPInterface::IncomingPacketDeleter> incomingMessage(new Packet());
 								incomingMessage->data = (unsigned char *) std::malloc(len + 1);
 								memcpy(incomingMessage->data, data, len);
 								incomingMessage->data[len] = 0; // Null terminate this so we can print it out as regular strings.  This is different from RakNet which does not do this.
@@ -1266,9 +1233,9 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 								}
 								*/
 								incomingMessage->length = len;
-								incomingMessage->deleteData = true; // actually means came from SPSC, rather than AllocatePacket
+								incomingMessage->deleteData = true; // Marks a packet from the network (PacketizedTCP relies on it)
 								incomingMessage->systemAddress = slotAddress;
-								sts->incomingMessages.Push(incomingMessage);
+								sts->incomingMessages.Push(std::move(incomingMessage));
 							}
 							else
 							{

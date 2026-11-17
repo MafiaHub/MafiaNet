@@ -986,7 +986,7 @@ void OpenUPNP(void)
 {
 	printf("Discovering UPNP...\n");
 
-	DataStructures::List<RakNetSocket2 *> sockets;
+	std::vector<RakNetSocket2 *> sockets;
 	rakPeer->GetSockets(sockets);
 	UPNPOpenAsynch(sockets[0]->GetBoundAddress().GetPort(), 2000, UPNPProgressCallback, UPNPResultCallback, 0);
 }

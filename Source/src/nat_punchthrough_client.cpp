@@ -940,7 +940,7 @@ void NatPunchthroughClient::OnClosedConnection(const SystemAddress &systemAddres
 }
 void NatPunchthroughClient::GetUPNPPortMappings(char *externalPort, char *internalPort, const SystemAddress &natPunchthroughServerAddress)
 {
-	DataStructures::List<MafiaNet::RakNetSocket2 *> sockets;
+	std::vector<MafiaNet::RakNetSocket2 *> sockets;
 	rakPeerInterface->GetSockets(sockets);
 	Itoa(sockets[0]->GetBoundAddress().GetPort(), internalPort, 10);
 	if (mostRecentExternalPort == 0)

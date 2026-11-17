@@ -30,11 +30,10 @@
 
 using namespace MafiaNet;
 
-//DataStructures::MemoryPool<RakString::SharedString> RakString::pool;
 RakString::SharedString RakString::emptyString = {0, 0, 0, (char *) "", (char *) "", {}};
 //RakString::SharedString *RakString::sharedStringFreeList=0;
 //unsigned int RakString::sharedStringFreeListAllocationCount=0;
-DataStructures::List<RakString::SharedString *> RakString::freeList;
+std::vector<RakString::SharedString *> RakString::freeList;
 
 class RakStringCleanup
 {
@@ -325,23 +324,21 @@ const MafiaNet::RakString operator+(const MafiaNet::RakString &lhs, const MafiaN
 	RakString::SharedString *sharedString;
 
 	RakString::LockMutex();
-	// sharedString = RakString::pool.Allocate( _FILE_AND_LINE_ );
-	if (RakString::freeList.Size() == 0)
+	if (RakString::freeList.empty())
 	{
 		//RakString::sharedStringFreeList=(RakString::SharedString*) std::realloc(RakString::sharedStringFreeList, (RakString::sharedStringFreeListAllocationCount+1024)*sizeof(RakString::SharedString));
 		unsigned i;
 		for (i = 0; i < 128; i++)
 		{
-			//	RakString::freeList.Insert(RakString::sharedStringFreeList+i+RakString::sharedStringFreeListAllocationCount);
 			RakString::SharedString *ss;
 			ss = (RakString::SharedString *) std::malloc(sizeof(RakString::SharedString));
 			ss->refCountMutex = new SimpleMutex;
-			RakString::freeList.Insert(ss, _FILE_AND_LINE_);
+			RakString::freeList.push_back(ss);
 		}
 		//RakString::sharedStringFreeListAllocationCount+=1024;
 	}
-	sharedString = RakString::freeList[RakString::freeList.Size() - 1];
-	RakString::freeList.RemoveAtIndex(RakString::freeList.Size() - 1);
+	sharedString = RakString::freeList.back();
+	RakString::freeList.pop_back();
 	RakString::UnlockMutex();
 
 	const int smallStringSize = 128 - sizeof(unsigned int) - sizeof(size_t) - sizeof(char *) * 2;
@@ -1228,12 +1225,12 @@ void RakString::FreeMemory(void)
 }
 void RakString::FreeMemoryNoMutex(void)
 {
-	for (unsigned int i = 0; i < freeList.Size(); i++)
+	for (SharedString *ss : freeList)
 	{
-		delete freeList[i]->refCountMutex;
-		std::free(freeList[i]);
+		delete ss->refCountMutex;
+		std::free(ss);
 	}
-	freeList.Clear(false, _FILE_AND_LINE_);
+	freeList.clear();
 }
 void RakString::Serialize(BitStream *bs) const
 {
@@ -1342,25 +1339,21 @@ void RakString::Clear(void)
 void RakString::Allocate(size_t len)
 {
 	RakString::LockMutex();
-	// sharedString = RakString::pool.Allocate( _FILE_AND_LINE_ );
-	if (RakString::freeList.Size() == 0)
+	if (RakString::freeList.empty())
 	{
 		//RakString::sharedStringFreeList=(RakString::SharedString*) std::realloc(RakString::sharedStringFreeList, (RakString::sharedStringFreeListAllocationCount+1024)*sizeof(RakString::SharedString));
 		unsigned i;
 		for (i = 0; i < 128; i++)
 		{
-			//	RakString::freeList.Insert(RakString::sharedStringFreeList+i+RakString::sharedStringFreeListAllocationCount);
-			//		RakString::freeList.Insert((RakString::SharedString*)std::malloc(sizeof(RakString::SharedString)), _FILE_AND_LINE_);
-
 			RakString::SharedString *ss;
 			ss = (RakString::SharedString *) std::malloc(sizeof(RakString::SharedString));
 			ss->refCountMutex = new SimpleMutex;
-			RakString::freeList.Insert(ss, _FILE_AND_LINE_);
+			RakString::freeList.push_back(ss);
 		}
 		//RakString::sharedStringFreeListAllocationCount+=1024;
 	}
-	sharedString = RakString::freeList[RakString::freeList.Size() - 1];
-	RakString::freeList.RemoveAtIndex(RakString::freeList.Size() - 1);
+	sharedString = RakString::freeList.back();
+	RakString::freeList.pop_back();
 	RakString::UnlockMutex();
 
 	const size_t smallStringSize = 128 - sizeof(unsigned int) - sizeof(size_t) - sizeof(char *) * 2;
@@ -1539,14 +1532,8 @@ void RakString::Free(void)
 		const size_t smallStringSize = 128 - sizeof(unsigned int) - sizeof(size_t) - sizeof(char *) * 2;
 		if (sharedString->bytesUsed > smallStringSize)
 			std::free(sharedString->bigString);
-		/*
-		poolMutex->Lock();
-		pool.Release(sharedString);
-		poolMutex->Unlock();
-		*/
-
 		RakString::LockMutex();
-		RakString::freeList.Insert(sharedString, _FILE_AND_LINE_);
+		RakString::freeList.push_back(sharedString);
 		RakString::UnlockMutex();
 
 		sharedString = &emptyString;

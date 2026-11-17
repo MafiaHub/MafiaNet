@@ -33,10 +33,12 @@
 #include "mafianet/defines.h"
 #include "mafianet/socket_includes.h"
 #include "mafianet/ds_byte_queue.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
+#include "mafianet/locked_queue.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 
+#include <cstdlib>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -157,14 +159,19 @@ protected:
 		unsigned int length;
 	};
 	*/
-	//	DataStructures::SingleProducerConsumer<OutgoingMessage> outgoingMessages;
-	//	DataStructures::SingleProducerConsumer<Packet> incomingMessages;
-	//	DataStructures::SingleProducerConsumer<SystemAddress> newIncomingConnections, lostConnections, requestedCloseConnections;
-	//	DataStructures::SingleProducerConsumer<RemoteClient*> newRemoteClients;
-	//	DataStructures::ThreadsafeAllocatingQueue<OutgoingMessage> outgoingMessages;
-	DataStructures::ThreadsafeAllocatingQueue<Packet> incomingMessages;
-	DataStructures::ThreadsafeAllocatingQueue<SystemAddress> newIncomingConnections, lostConnections, requestedCloseConnections;
-	DataStructures::ThreadsafeAllocatingQueue<RemoteClient *> newRemoteClients;
+	// Frees a packet the TCP thread queued: its std::malloc'd data, then the packet itself. A packet popped
+	// for the user is released from its unique_ptr and freed by DeallocatePacket the same way.
+	struct IncomingPacketDeleter
+	{
+		void operator()(Packet *packet) const
+		{
+			std::free(packet->data);
+			delete packet;
+		}
+	};
+	// Filled by the TCP thread, drained by the user thread (Receive, HasNewIncomingConnection, HasLostConnection).
+	LockedQueue<std::unique_ptr<Packet, IncomingPacketDeleter>> incomingMessages;
+	LockedQueue<SystemAddress> newIncomingConnections, lostConnections;
 	SimpleMutex completedConnectionAttemptMutex, failedConnectionAttemptMutex;
 	DataStructures::Queue<SystemAddress> completedConnectionAttempts, failedConnectionAttempts;
 

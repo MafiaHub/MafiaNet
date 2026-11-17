@@ -22,7 +22,11 @@ set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googlebenchmark)
 
 file(GLOB MAFIANET_BENCHMARK_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*_bench.cpp")
-add_executable(MafiaNetBenchmarks ${MAFIANET_BENCHMARK_SOURCES})
+# The RakPeer benchmarks run two peers on the tests' simulated network. Only
+# that one file is compiled in, so benchmarks do not need GoogleTest.
+add_executable(MafiaNetBenchmarks ${MAFIANET_BENCHMARK_SOURCES}
+    ${MafiaNet_SOURCE_DIR}/Tests/Support/SimulatedNetwork.cpp)
+target_include_directories(MafiaNetBenchmarks PRIVATE ${MafiaNet_SOURCE_DIR}/Tests/Support)
 target_link_libraries(MafiaNetBenchmarks PRIVATE MafiaNet::MafiaNetStatic benchmark::benchmark_main)
 # Must match the library: some classes carry _DEBUG-only members.
 target_compile_definitions(MafiaNetBenchmarks PRIVATE $<$<CONFIG:Debug>:_DEBUG>)

@@ -91,10 +91,10 @@ TEST_F(EightPeerSim, FullMeshConnectsWithoutFailures)
 	for (int i = 0; i < kPeerNum; ++i)
 	{
 		EXPECT_EQ(kPeerNum - 1, ConnectionsSeen(i)) << "peer " << i;
-		DataStructures::List<SystemAddress> systemList;
-		DataStructures::List<RakNetGUID> guidList;
+		std::vector<SystemAddress> systemList;
+		std::vector<RakNetGUID> guidList;
 		peers[i]->GetSystemList(systemList, guidList);
-		EXPECT_EQ((unsigned) (kPeerNum - 1), guidList.Size()) << "peer " << i;
+		EXPECT_EQ((unsigned) (kPeerNum - 1), guidList.size()) << "peer " << i;
 	}
 	ExpectNoFailures();
 }

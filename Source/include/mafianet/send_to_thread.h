@@ -22,8 +22,10 @@
 
 #include "mafianet/internal_packet.h"
 #include "mafianet/socket_layer.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
+#include "mafianet/locked_queue.h"
 #include "mafianet/thread_pool.h"
+
+#include <memory>
 
 namespace MafiaNet
 {
@@ -47,7 +49,8 @@ public:
 
 	static void AddRef(void);
 	static void Deref(void);
-	static DataStructures::ThreadsafeAllocatingQueue<SendToThreadBlock> objectQueue;
+	// Blocks the worker has sent, kept for AllocateBlock to reuse.
+	static LockedQueue<std::unique_ptr<SendToThreadBlock>> objectQueue;
 
 protected:
 	static int refCount;

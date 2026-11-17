@@ -242,11 +242,8 @@ static bool IsWildcardBindHost(const char *host)
 	return true;
 }
 
-RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters, const char *file, unsigned int line)
+RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bindParameters)
 {
-	(void) file;
-	(void) line;
-
 	dualStack = false;
 	if (bindParameters->addressFamily != AF_UNSPEC)
 		return BindAddressFamily(bindParameters, bindParameters->addressFamily, false, nullptr);
@@ -519,7 +516,7 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 		// the event handler -- no extra copy.
 		for (; allocated < MMSG_BATCH_MAX; ++allocated)
 		{
-			RNS2RecvStruct *s = binding.eventHandler->AllocRNS2RecvStruct(_FILE_AND_LINE_);
+			RNS2RecvStruct *s = binding.eventHandler->AllocRNS2RecvStruct();
 			if (s == nullptr)
 				break;
 			s->socket = this;
@@ -601,7 +598,7 @@ void RNS2_Berkley::RecvFromBatchedLoop(void)
 
 	// Release whatever the last pass was still holding.
 	for (unsigned i = 0; i < allocated; ++i)
-		binding.eventHandler->DeallocRNS2RecvStruct(slots[i], _FILE_AND_LINE_);
+		binding.eventHandler->DeallocRNS2RecvStruct(slots[i]);
 }
 #endif // __linux__
 

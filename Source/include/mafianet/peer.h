@@ -27,23 +27,24 @@
 #include "mafianet/reliability_layer.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/single_producer_consumer.h"
+#include "mafianet/locked_queue.h"
 #include "mafianet/simple_mutex.h"
-#include "mafianet/ds_ordered_list.h"
 #include "mafianet/export.h"
 #include "mafianet/string.h"
 #include "mafianet/thread.h"
 //#include "socket.h"
-#include "mafianet/ds_threadsafe_allocating_queue.h"
 #include "mafianet/signaled_event.h"
 #include "mafianet/native_feature_includes.h"
 #include "mafianet/handshake_challenge.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/lockless_types.h"
-#include "mafianet/ds_queue.h"
 #include <atomic>
 #include <condition_variable>
+#include <cstdlib>
+#include <deque>
+#include <memory>
 #include <thread>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -369,7 +370,7 @@ public:
 	/// Indices match each other, so \a addresses[0] and \a guids[0] refer to the same system
 	/// \param[out] addresses All system addresses. Size of the list is the number of connections. Size of the \a addresses list will match the size of the \a guids list.
 	/// \param[out] guids All guids. Size of the list is the number of connections. Size of the list will match the size of the \a addresses list.
-	void GetSystemList(DataStructures::List<SystemAddress> &addresses, DataStructures::List<RakNetGUID> &guids) const;
+	void GetSystemList(std::vector<SystemAddress> &addresses, std::vector<RakNetGUID> &guids) const;
 
 	/// \brief Bans an IP from connecting.
 	/// \details Banned IPs persist between connections but are not saved on shutdown nor loaded on startup.
@@ -657,8 +658,8 @@ public:
 	/// \brief Gets all sockets in use.
 	/// \note This sends a query to the thread and blocks on the return value for up to one second. In practice it should only take a millisecond or so.
 	/// \param[out] sockets List of RakNetSocket structures in use.
-	virtual void GetSockets(DataStructures::List<RakNetSocket2 *> &sockets);
-	virtual void ReleaseSockets(DataStructures::List<RakNetSocket2 *> &sockets);
+	virtual void GetSockets(std::vector<RakNetSocket2 *> &sockets);
+	virtual void ReleaseSockets(std::vector<RakNetSocket2 *> &sockets);
 
 	/// \internal
 	virtual void WriteOutOfBandHeader(MafiaNet::BitStream *bitStream);
@@ -729,7 +730,7 @@ public:
 	/// \param[out] addresses SystemAddress for each connected system
 	/// \param[out] guids RakNetGUID for each connected system
 	/// \param[out] statistics Calculated RakNetStatistics for each connected system
-	virtual void GetStatisticsList(DataStructures::List<SystemAddress> &addresses, DataStructures::List<RakNetGUID> &guids, DataStructures::List<RakNetStatistics> &statistics);
+	virtual void GetStatisticsList(std::vector<SystemAddress> &addresses, std::vector<RakNetGUID> &guids, std::vector<RakNetStatistics> &statistics);
 
 	/// \Returns how many messages are waiting when you call Receive()
 	virtual unsigned int GetReceiveBufferSize(void);
@@ -752,7 +753,7 @@ public:
 	/// \internal
 	bool SendOutOfBand(const char *host, unsigned short remotePort, const char *data, BitSize_t dataLength, unsigned connectionSocketIndex = 0);
 
-	// static Packet *AllocPacket(unsigned dataSize, const char *file, unsigned int line);
+	// static Packet *AllocPacket(unsigned dataSize);
 
 	/// \internal
 	/// \brief Holds the clock differences between systems, along with the ping
@@ -862,12 +863,16 @@ public:
 		// after the connection packet; freed, never delivered, by ClearSessionConfig() when the connection
 		// ends before that. Bounded by MAXIMUM_HELD_SESSION_MESSAGES and MAXIMUM_HELD_SESSION_BYTES.
 		// Touched only by the network thread (and by Shutdown() once it has stopped).
+		struct HeldBytesFree
+		{
+			void operator()(unsigned char *bytes) const { std::free(bytes); }
+		};
 		struct HeldApplicationMessage
 		{
-			unsigned char *data; // owned; allocated by the reliability layer
+			std::unique_ptr<unsigned char, HeldBytesFree> data; // std::malloc'd by the reliability layer
 			BitSize_t bitSize;
 		};
-		DataStructures::Queue<HeldApplicationMessage> heldApplicationMessages;
+		std::deque<HeldApplicationMessage> heldApplicationMessages;
 		unsigned int heldApplicationBytes;
 
 		// EXCHANGING_SESSION_DATA sits between HANDLING_CONNECTION_REQUEST and CONNECTED: the reliability
@@ -886,7 +891,10 @@ public:
 			UNVERIFIED_SENDER,
 			EXCHANGING_SESSION_DATA,
 			CONNECTED
-		} connectMode;
+		};
+		// Written only by the network thread, but read lock-free from user threads (Send()'s
+		// session-handshake gate, GetConnectionState, GetSystemList...), hence atomic.
+		std::atomic<ConnectMode> connectMode;
 	};
 
 	// DS_APR
@@ -1006,8 +1014,9 @@ protected:
 	RemoteSystemStruct *GetRemoteSystem(const SystemAddress &sa) const;
 	unsigned int GetRemoteSystemIndex(const SystemAddress &sa) const;
 	void ClearRemoteSystemLookup(void);
-	DataStructures::MemoryPool<RemoteSystemIndex> remoteSystemIndexPool;
-	// Entries taken from remoteSystemIndexPool and not yet released. GetLiveRemoteSystemIndexEntriesForTesting().
+	// Bucket count of remoteSystemLookup; each bucket is a singly linked chain of new'd RemoteSystemIndex.
+	unsigned int remoteSystemLookupSize;
+	// RemoteSystemIndex entries allocated and not yet freed. GetLiveRemoteSystemIndexEntriesForTesting().
 	unsigned int liveRemoteSystemIndexEntries;
 
 	void AddToActiveSystemList(unsigned int remoteSystemListIndex);
@@ -1031,7 +1040,6 @@ protected:
 	bool updateCycleIsRunning;
 	///The list of people we have tried to connect to recently
 
-	//DataStructures::Queue<RequestedConnectionStruct*> requestedConnectionsList;
 	///Data that both the client and the server needs
 
 	unsigned int bytesSentPerSecond, bytesReceivedPerSecond;
@@ -1039,7 +1047,6 @@ protected:
 	// bool continualPing,isRecvfromThreadActive,isMainLoopThreadActive, endThreads, isSocketLayerBlocking;
 	unsigned int validationInteger;
 	SimpleMutex incomingQueueMutex, banListMutex; //,synchronizedMemoryQueueMutex, automaticVariableSynchronizationMutex;
-	//DataStructures::Queue<Packet *> incomingpacketSingleProducerConsumer; //, synchronizedMemorypacketSingleProducerConsumer;
 	// BitStream enumerationData;
 
 	struct BanStruct
@@ -1096,13 +1103,12 @@ protected:
 		uint8_t pinnedServerIdentity[32] = {};
 	};
 
-	//DataStructures::List<DataStructures::List<MemoryBlock>* > automaticVariableSynchronizationList;
-	DataStructures::List<BanStruct *> banList;
+	std::vector<BanStruct *> banList;
 	// Threadsafe, and not thread safe
-	DataStructures::List<PluginInterface2 *> pluginListTS, pluginListNTS;
+	std::vector<PluginInterface2 *> pluginListTS, pluginListNTS;
 	// Every attached plugin again, for OnReceiveNetworkThread. The mutex lets AttachPlugin and
 	// DetachPlugin run while the update thread is dispatching.
-	DataStructures::List<PluginInterface2 *> pluginListNetworkThread;
+	std::vector<PluginInterface2 *> pluginListNetworkThread;
 	SimpleMutex pluginListNetworkThreadMutex;
 	// The thread inside DispatchNetworkThreadReceive. AttachPlugin/DetachPlugin called from a hook
 	// on it are ignored: they would deadlock on the lock that thread holds, and they also change
@@ -1114,7 +1120,7 @@ protected:
 	bool IsInsideNetworkThreadReceive(void) const;
 	void SetNetworkThreadReceiveStopped(bool stopped);
 
-	DataStructures::Queue<RequestedConnectionStruct *> requestedConnectionQueue;
+	std::deque<RequestedConnectionStruct *> requestedConnectionQueue;
 	SimpleMutex requestedConnectionQueueMutex;
 	// The next Happy Eyeballs raceGroup to hand out (never 0). Guarded by requestedConnectionQueueMutex.
 	uint32_t nextRaceGroup;
@@ -1136,8 +1142,16 @@ protected:
 
 	// void RunMutexedUpdateCycle(void);
 
+	// A command from a user thread to the network thread. It owns \a data (std::malloc'd) and frees it
+	// when destroyed, so a command that is never processed (dropped at shutdown) does not leak it. A
+	// consumer that hands \a data to someone else must set it to nullptr first.
 	struct BufferedCommandStruct
 	{
+		BufferedCommandStruct() = default;
+		~BufferedCommandStruct() { std::free(data); }
+		BufferedCommandStruct(const BufferedCommandStruct &) = delete;
+		BufferedCommandStruct &operator=(const BufferedCommandStruct &) = delete;
+
 		BitSize_t numberOfBitsToSend;
 		MafiaNet::Priority priority;
 		MafiaNet::Reliability reliability;
@@ -1147,7 +1161,7 @@ protected:
 		RemoteSystemStruct::ConnectMode connectionMode;
 		NetworkID networkID;
 		bool blockingCommand; // Only used for RPC
-		char *data;
+		char *data = nullptr;
 		bool haveRakNetCloseSocket;
 		unsigned connectionSocketIndex;
 		unsigned int extraSocketOptions;
@@ -1171,33 +1185,29 @@ protected:
 		} command;
 	};
 
-	// Single producer single consumer queue using a linked list
-	//BufferedCommandStruct* bufferedCommandReadIndex, bufferedCommandWriteIndex;
-
-	DataStructures::ThreadsafeAllocatingQueue<BufferedCommandStruct> bufferedCommands;
+	// User threads push, the network thread pops (UpdateInternal).
+	LockedQueue<std::unique_ptr<BufferedCommandStruct>> bufferedCommands;
 
 
-	// DataStructures::ThreadsafeAllocatingQueue<RNS2RecvStruct> bufferedPackets;
-
-	DataStructures::Queue<RNS2RecvStruct *> bufferedPacketsFreePool;
+	// Recycled receive buffers; order does not matter, so the most recently freed is reused first.
+	std::vector<RNS2RecvStruct *> bufferedPacketsFreePool;
 	MafiaNet::SimpleMutex bufferedPacketsFreePoolMutex;
-	DataStructures::Queue<RNS2RecvStruct *> bufferedPacketsQueue;
+	std::deque<RNS2RecvStruct *> bufferedPacketsQueue;
 	MafiaNet::SimpleMutex bufferedPacketsQueueMutex;
 
-	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line);
-	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line);
+	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s);
+	virtual RNS2RecvStruct *AllocRNS2RecvStruct();
 	void SetupBufferedPackets(void);
 	void PushBufferedPacket(RNS2RecvStruct *p);
 	RNS2RecvStruct *PopBufferedPacket(void);
 
 	struct SocketQueryOutput
 	{
-		SocketQueryOutput() {}
-		~SocketQueryOutput() {}
-		DataStructures::List<RakNetSocket2 *> sockets;
+		std::vector<RakNetSocket2 *> sockets;
 	};
 
-	DataStructures::ThreadsafeAllocatingQueue<SocketQueryOutput> socketQueryOutput;
+	// The network thread pushes the answer to a BCS_GET_SOCKET command; GetSocket(s) pops it.
+	LockedQueue<std::unique_ptr<SocketQueryOutput>> socketQueryOutput;
 
 
 	bool AllowIncomingConnections(void) const;
@@ -1225,7 +1235,7 @@ protected:
 	bool trackFrequencyTable;
 
 	// Smart pointer so I can return the object to the user
-	DataStructures::List<RakNetSocket2 *> socketList;
+	std::vector<RakNetSocket2 *> socketList;
 	void DerefAllSockets(void);
 	unsigned int GetRakNetSocketFromUserConnectionSocketIndex(unsigned int userIndex) const;
 	// Used for RPC replies
@@ -1259,6 +1269,7 @@ protected:
 
 	bool (*incomingDatagramEventHandler)(RNS2RecvStruct *);
 
+
 	SystemAddress ipList[MAXIMUM_NUMBER_OF_INTERNAL_IDS];
 
 	bool allowInternalRouting;
@@ -1272,21 +1283,17 @@ protected:
 	// Key exchanges run in the ID_OPEN_CONNECTION_REQUEST_2 handler (network thread). See GetServerKeyExchangeCountForTesting.
 	uint64_t serverKeyExchangeCount = 0;
 
-	SimpleMutex packetAllocationPoolMutex;
-	DataStructures::MemoryPool<Packet> packetAllocationPool;
-	// Pool packets not yet given back through DeallocatePacket, under packetAllocationPoolMutex.
-	// Shutdown() keeps the pool while any are out: Receive may be dispatching one, and the
-	// application may still hold one it is handling.
-	unsigned int packetsOutstanding;
+	// Packets AllocPacket handed out and DeallocatePacket has not freed yet (leak accounting).
+	std::atomic<unsigned int> packetsOutstanding;
 	// Bumped by every Shutdown(), so Receive can tell its dispatch was cut short by one.
 	unsigned int shutdownGeneration;
 
 	SimpleMutex packetReturnMutex;
-	DataStructures::Queue<Packet *> packetReturnQueue;
+	std::deque<Packet *> packetReturnQueue;
 	// Wakes WaitForPackets. Notified under packetReturnMutex at every push and by Shutdown().
 	std::condition_variable_any packetReturnCondition;
-	Packet *AllocPacket(unsigned dataSize, const char *file, unsigned int line);
-	Packet *AllocPacket(unsigned dataSize, unsigned char *data, const char *file, unsigned int line);
+	Packet *AllocPacket(unsigned dataSize);
+	Packet *AllocPacket(unsigned dataSize, unsigned char *data);
 
 	/// This is used to return a number to the user when they call Send identifying the message
 	/// This number will be returned back with ID_SND_RECEIPT_ACKED or ID_SND_RECEIPT_LOSS and is only returned
@@ -1295,7 +1302,7 @@ protected:
 	uint32_t sendReceiptSerial;
 	void ResetSendReceipt(void);
 	void OnConnectedPong(MafiaNet::Time sendPingTime, MafiaNet::Time sendPongTime, RemoteSystemStruct *remoteSystem);
-	void CallPluginCallbacks(DataStructures::List<PluginInterface2 *> &pluginList, Packet *packet);
+	void CallPluginCallbacks(std::vector<PluginInterface2 *> &pluginList, Packet *packet);
 	// Offers a message to the network-thread plugins; true if one of them took it.
 	bool DispatchNetworkThreadReceive(Packet *packet);
 	// Ticks every plugin's UpdateNetworkThread(), under the same rules as DispatchNetworkThreadReceive.

@@ -27,6 +27,7 @@
 #include "mafianet/socket_defines.h"
 #include "mafianet/sockaddr_convert.h"
 #include "errno.h"
+#include <utility>
 
 #ifdef _WIN32
 #include <tchar.h>
@@ -74,8 +75,6 @@ UDPForwarder::UDPForwarder()
 
 	maxForwardEntries = DEFAULT_MAX_FORWARD_ENTRIES;
 	nextInputId = 0;
-	startForwardingInput.SetPageSize(sizeof(StartForwardingInputStruct) * 16);
-	stopForwardingCommands.SetPageSize(sizeof(StopForwardingStruct) * 16);
 }
 UDPForwarder::~UDPForwarder()
 {
@@ -145,17 +144,16 @@ UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAdd
 
 	unsigned int inputId = nextInputId++;
 
-	StartForwardingInputStruct *sfis;
-	sfis = startForwardingInput.Allocate(_FILE_AND_LINE_);
-	sfis->source = source;
-	sfis->destination = destination;
-	sfis->timeoutOnNoDataMS = timeoutOnNoDataMS;
+	StartForwardingInputStruct sfis;
+	sfis.source = source;
+	sfis.destination = destination;
+	sfis.timeoutOnNoDataMS = timeoutOnNoDataMS;
 	RakAssert(timeoutOnNoDataMS != 0);
 	if (forceHostAddress && forceHostAddress[0])
-		sfis->forceHostAddress = forceHostAddress;
-	sfis->socketFamily = socketFamily;
-	sfis->inputId = inputId;
-	startForwardingInput.Push(sfis);
+		sfis.forceHostAddress = forceHostAddress;
+	sfis.socketFamily = socketFamily;
+	sfis.inputId = inputId;
+	startForwardingInput.Push(std::move(sfis));
 
 	for (;;)
 	{
@@ -183,10 +181,9 @@ UDPForwarderResult UDPForwarder::StartForwarding(SystemAddress source, SystemAdd
 }
 void UDPForwarder::StopForwarding(SystemAddress source, SystemAddress destination)
 {
-	StopForwardingStruct *sfs;
-	sfs = stopForwardingCommands.Allocate(_FILE_AND_LINE_);
-	sfs->destination = destination;
-	sfs->source = source;
+	StopForwardingStruct sfs;
+	sfs.destination = destination;
+	sfs.source = source;
 	stopForwardingCommands.Push(sfs);
 }
 void UDPForwarder::RecvFrom(MafiaNet::TimeMS curTime, ForwardEntry *forwardEntry)
@@ -349,18 +346,14 @@ void UDPForwarder::UpdateUDPForwarder(void)
 {
 	MafiaNet::TimeMS curTime = MafiaNet::GetTimeMS();
 
-	StartForwardingInputStruct *sfis;
 	StartForwardingOutputStruct sfos;
 	sfos.forwardingSocket = INVALID_SOCKET;
 	sfos.forwardingPort = 0;
 	sfos.inputId = 0;
 	sfos.result = UDPFORWARDER_RESULT_COUNT;
 
-	for (;;)
+	while (auto sfis = startForwardingInput.TryPop())
 	{
-		sfis = startForwardingInput.Pop();
-		if (sfis == 0)
-			break;
 
 		if (GetUsedForwardEntries() > maxForwardEntries)
 		{
@@ -457,17 +450,10 @@ void UDPForwarder::UpdateUDPForwarder(void)
 		startForwardingOutputMutex.Lock();
 		startForwardingOutput.Push(sfos, _FILE_AND_LINE_);
 		startForwardingOutputMutex.Unlock();
-
-		startForwardingInput.Deallocate(sfis, _FILE_AND_LINE_);
 	}
 
-	StopForwardingStruct *sfs;
-
-	for (;;)
+	while (auto sfs = stopForwardingCommands.TryPop())
 	{
-		sfs = stopForwardingCommands.Pop();
-		if (sfs == 0)
-			break;
 
 		ForwardEntry *fe;
 		for (unsigned int i = 0; i < forwardListNotUpdated.Size(); i++)
@@ -484,8 +470,6 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				break;
 			}
 		}
-
-		stopForwardingCommands.Deallocate(sfs, _FILE_AND_LINE_);
 	}
 
 	unsigned int i;

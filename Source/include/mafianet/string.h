@@ -17,10 +17,10 @@
 #define __RAK_STRING_H
 
 #include "mafianet/export.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/types.h" // int64_t
 #include <stdio.h>
 #include <stdarg.h>
+#include <vector>
 
 #ifdef _WIN32
 #include "mafianet/windows_includes.h"
@@ -322,8 +322,6 @@ public:
 	/// \internal
 	SharedString *sharedString;
 
-	//	static SimpleMutex poolMutex;
-	//	static DataStructures::MemoryPool<SharedString> pool;
 	/// \internal
 	static SharedString emptyString;
 
@@ -331,7 +329,7 @@ public:
 	//static unsigned int sharedStringFreeListAllocationCount;
 	/// \internal
 	/// List of free objects to reduce memory reallocations
-	static DataStructures::List<SharedString *> freeList;
+	static std::vector<SharedString *> freeList;
 
 	static int RakStringComp(RakString const &key, RakString const &data);
 

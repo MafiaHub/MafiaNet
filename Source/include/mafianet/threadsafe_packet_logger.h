@@ -25,7 +25,9 @@
 #define __THREADSAFE_PACKET_LOGGER_H
 
 #include "mafianet/packet_logger.h"
-#include "mafianet/single_producer_consumer.h"
+#include "mafianet/locked_queue.h"
+
+#include <string>
 
 namespace MafiaNet
 {
@@ -43,7 +45,8 @@ public:
 protected:
 	virtual void AddToLog(const char *str);
 
-	DataStructures::SingleProducerConsumer<char *> logMessages;
+	// Lines logged on the network thread, written out by Update on the user thread.
+	LockedQueue<std::string> logMessages;
 };
 
 } // namespace MafiaNet

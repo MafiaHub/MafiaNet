@@ -45,20 +45,20 @@ protected:
 
 	int ConnectionCount(int i)
 	{
-		DataStructures::List<SystemAddress> systemList;
-		DataStructures::List<RakNetGUID> guidList;
+		std::vector<SystemAddress> systemList;
+		std::vector<RakNetGUID> guidList;
 		peers[i]->GetSystemList(systemList, guidList);
-		return (int) guidList.Size();
+		return (int) guidList.size();
 	}
 
 	void CloseAllConnections()
 	{
 		for (int i = 0; i < kPeerNum; ++i)
 		{
-			DataStructures::List<SystemAddress> systemList;
-			DataStructures::List<RakNetGUID> guidList;
+			std::vector<SystemAddress> systemList;
+			std::vector<RakNetGUID> guidList;
 			peers[i]->GetSystemList(systemList, guidList);
-			for (unsigned j = 0; j < systemList.Size(); ++j)
+			for (unsigned j = 0; j < systemList.size(); ++j)
 				peers[i]->CloseConnection(systemList[j], true, 0, Priority::Low);
 		}
 	}

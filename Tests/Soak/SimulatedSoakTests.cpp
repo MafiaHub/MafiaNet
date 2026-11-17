@@ -142,15 +142,6 @@ struct Totals
 	uint64_t mtuStepDownsOnCappedLinks = 0;
 };
 
-// Pages in a peer's packet pool. Never instantiated: the derived type only names the protected member, read
-// through a pointer-to-member on the real RakPeer.
-class PacketPoolInspector : public RakPeer
-{
-public:
-	static const DataStructures::MemoryPool<Packet> &Pool(const RakPeer *peer) { return peer->*&PacketPoolInspector::packetAllocationPool; }
-	static int64_t Pages(const RakPeer *peer) { return (int64_t) Pool(peer).GetAvailablePagesSize() + Pool(peer).GetUnavailablePagesSize(); }
-};
-
 class SimulatedSoak
 {
 public:
@@ -837,18 +828,8 @@ void SimulatedSoak::Run()
 		EXPECT_TRUE(released) << "slot leak: " << why;
 		RunFor(1000, false);
 		afterWave.push_back(Soak::Allocations());
-		int64_t packetPoolPages = 0;
-		for (size_t i = 0; i < nodes.size(); ++i)
-		{
-			// Every inbox is drained each tick, so no packet is out: no page is full, and an idle pool keeps
-			// at most DS_MEMORY_POOL_MAX_FREE_PAGES empty ones.
-			const DataStructures::MemoryPool<Packet> &pool = PacketPoolInspector::Pool(nodes[i].peer);
-			EXPECT_EQ(0, pool.GetUnavailablePagesSize()) << Name((int) i) << ": packet-pool pages still full with nothing queued";
-			EXPECT_LE(pool.GetAvailablePagesSize(), DS_MEMORY_POOL_MAX_FREE_PAGES) << Name((int) i) << ": packet pool grew past its free-page bound";
-			packetPoolPages += PacketPoolInspector::Pages(nodes[i].peer);
-		}
-		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes, %" PRId64 " packet-pool pages)\n",
-		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes, packetPoolPages);
+		std::printf("[soak] wave %d done at %" PRIu64 " s virtual: new blocks %" PRId64 " (%" PRId64 " bytes)\n",
+		            wave, (NowMs() - startMs) / 1000, afterWave.back().newBlocks, afterWave.back().newBytes);
 	}
 
 	const double wallSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();

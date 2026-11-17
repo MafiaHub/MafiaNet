@@ -160,9 +160,8 @@ set(MAFIANET_HEADERS
     include/mafianet/ds_multilist.h
     include/mafianet/ds_ordered_list.h
     include/mafianet/ds_queue.h
-    include/mafianet/ds_range_list.h
+    include/mafianet/range_list.h
     include/mafianet/ds_table.h
-    include/mafianet/ds_threadsafe_allocating_queue.h
     include/mafianet/dyn_dns.h
     include/mafianet/email_sender.h
     include/mafianet/empty_header.h
@@ -190,6 +189,7 @@ set(MAFIANET_HEADERS
     include/mafianet/kbhit.h
     include/mafianet/linux_adapter.h
     include/mafianet/linux_strings.h
+    include/mafianet/locked_queue.h
     include/mafianet/lockless_types.h
     include/mafianet/log_command_parser.h
     include/mafianet/message_filter.h
@@ -207,6 +207,7 @@ set(MAFIANET_HEADERS
     include/mafianet/nat_type_detection_server.h
     include/mafianet/network_id_manager.h
     include/mafianet/network_id_object.h
+    include/mafianet/object_pool.h
     include/mafianet/osx_adapter.h
     include/mafianet/packet_console_logger.h
     include/mafianet/packet_file_logger.h
@@ -239,7 +240,6 @@ set(MAFIANET_HEADERS
     include/mafianet/signaled_event.h
     include/mafianet/simple_mutex.h
     include/mafianet/simple_tcp_server.h
-    include/mafianet/single_producer_consumer.h
     include/mafianet/sleep.h
     include/mafianet/mafianet.h
     include/mafianet/socket2.h

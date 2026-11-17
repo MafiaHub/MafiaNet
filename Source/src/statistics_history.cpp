@@ -781,12 +781,12 @@ bool StatisticsHistoryPlugin::UpdateAt(Time curTime)
 	hasSampled = true;
 	lastSampleTime = curTime;
 
-	DataStructures::List<SystemAddress> addresses;
-	DataStructures::List<RakNetGUID> guids;
-	DataStructures::List<RakNetStatistics> stats;
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
+	std::vector<RakNetStatistics> stats;
 	rakPeerInterface->GetStatisticsList(addresses, guids, stats);
 
-	for (unsigned int idx = 0; idx < guids.Size(); idx++)
+	for (unsigned int idx = 0; idx < guids.size(); idx++)
 	{
 		unsigned int objectIndex = statistics.GetObjectIndex(guids[idx].g);
 		if (objectIndex != (unsigned int) -1)
@@ -835,10 +835,10 @@ bool StatisticsHistoryPlugin::UpdateAt(Time curTime)
 
 	/*
 	RakNetStatistics rns;
-	DataStructures::List<SystemAddress> addresses;
-	DataStructures::List<RakNetGUID> guids;
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
 	rakPeerInterface->GetSystemList(addresses, guids);
-	for (unsigned int idx = 0; idx < guids.Size(); idx++)
+	for (unsigned int idx = 0; idx < guids.size(); idx++)
 	{
 		rakPeerInterface->GetStatistics(remoteSystems[idx], &rns);
 		statistics.AddValue();

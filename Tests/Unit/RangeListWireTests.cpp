@@ -13,7 +13,7 @@
 
 #include "mafianet/bit_stream.h"
 #include "mafianet/cc_sliding_window.h"
-#include "mafianet/ds_range_list.h"
+#include "mafianet/range_list.h"
 
 #include <cstring>
 #include <vector>
@@ -22,7 +22,7 @@ using namespace MafiaNet;
 
 namespace
 {
-typedef DataStructures::RangeList<DatagramSequenceNumberType> Ranges;
+typedef MafiaNet::RangeList<DatagramSequenceNumberType> Ranges;
 
 DatagramSequenceNumberType Seq(uint32_t v)
 {

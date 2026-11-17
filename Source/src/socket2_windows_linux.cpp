@@ -184,7 +184,7 @@ static int SystemDefaultIPv4Ttl()
 	return ttl;
 }
 
-RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters, const char *file, unsigned int line)
+RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int socketFamily, bool dualStack, RNS2_SendParameters *sendParameters)
 {
 	// IPv4 targets become ::ffff:a.b.c.d on a dual-stack socket; a target the
 	// socket cannot reach at all is refused here rather than by sendto.
@@ -196,10 +196,6 @@ RNS2SendResult RNS2_Windows_Linux::Send_Windows_Linux(RNS2Socket rns2Socket, int
 	int len = 0;
 	do
 	{
-		(void) file;
-		(void) line;
-
-
 		// A temporary TTL (NAT punchthrough): set it with the first option the
 		// socket accepts for this target (see HopLimitOptionsFor), and put the
 		// old value back after the send.

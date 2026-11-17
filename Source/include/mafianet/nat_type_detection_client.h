@@ -30,6 +30,8 @@
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
 #include "mafianet/ds_ordered_list.h"
+#include "mafianet/ds_queue.h"
+#include "mafianet/simple_mutex.h"
 #include "mafianet/string.h"
 #include "mafianet/nat_type_detection_common.h"
 
@@ -76,8 +78,8 @@ public:
 	virtual void OnDetach(void);
 
 	virtual void OnRNS2Recv(RNS2RecvStruct *recvStruct);
-	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s, const char *file, unsigned int line);
-	virtual RNS2RecvStruct *AllocRNS2RecvStruct(const char *file, unsigned int line);
+	virtual void DeallocRNS2RecvStruct(RNS2RecvStruct *s);
+	virtual RNS2RecvStruct *AllocRNS2RecvStruct();
 
 protected:
 	DataStructures::Queue<RNS2RecvStruct *> bufferedPackets;
