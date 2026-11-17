@@ -47,7 +47,7 @@ NetworkIDManager *networkIDManager;
 
 // class Team is implemented as a static object
 // A static object is one that already exists on systems before connection, as opposed to being created on demand.
-// see Help/replicamanager3.html under the topic Static Objects for what to return from the implemented interfaces
+// See "Static objects" in docs/plugins/replica-manager-3.rst.
 class Team : public Replica3
 {
 public:

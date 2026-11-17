@@ -70,7 +70,7 @@ public:
 	/// Patches a certain directory associated with a named application to match the same named application on the patch server
 	/// \param[in] _applicationName The name of the application
 	/// \param[in] _applicationDirectory The directory to write the output to.
-	/// \param[in] lastUpdateDate Returned by time() (seconds since EPOCH) on the server, as well as returned in GetServerDate() after you call PatchApplication successfully. When distributing your application, set to the server time() when the distribution was created. You can pass 0 as well, however this will do a full scan of the entire game so is very slow. See 'Optimizing for large games' in the manual under Help/autopatcher.html
+	/// \param[in] lastUpdateDate Returned by time() (seconds since EPOCH) on the server, as well as returned in GetServerDate() after you call PatchApplication successfully. When distributing your application, set to the server time() when the distribution was created. You can pass 0 as well, however this will do a full scan of the entire game so is very slow. See "Incremental patch checks" in docs/plugins/autopatcher.rst.
 	/// \param[in] host The address of the remote system to send the message to.
 	/// \param[in] onFileCallback Callback to call per-file (optional).  When fileIndex+1==setCount in the callback then the download is done
 	/// \param[in] _restartOutputFilename If it is necessary to restart this application, where to write the restart data to.  You can include a path in this filename.

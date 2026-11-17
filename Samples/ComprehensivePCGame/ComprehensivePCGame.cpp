@@ -127,7 +127,7 @@ void PostRoomToMaster(void);
 
 // Game contains the list of objects, and serializes if the game is locked, the name of the game, and if it is in gameplay or in the lobby
 // Game is created on startup, rather than over the network, so is replicated as a static object.
-// see Help/replicamanager3.html under the topic Static Objects for more details about how this class is Replicated
+// See "Static objects" in docs/plugins/replica-manager-3.rst.
 class Game : public Replica3
 {
 public:
