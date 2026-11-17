@@ -10,8 +10,8 @@
  *  command each Send() queues for the update cycle, and the Packet each
  *  received message becomes and DeallocatePacket() frees.
  *
- *  Only Send(), Receive() and DeallocatePacket() are used on the peers, so the
- *  file builds unchanged against older trees for A/B comparisons.
+ *  The churn benchmark measures a visitor's whole connection lifecycle and
+ *  optional GetSystemList() calls against a stable population of peers.
  */
 
 #include <benchmark/benchmark.h>
@@ -126,3 +126,41 @@ static void RakPeer_SendReceiveLarge(benchmark::State &state)
 	SendReceive(state, (int) state.range(0), 4);
 }
 BENCHMARK(RakPeer_SendReceiveLarge)->Arg(4 * 1024)->Arg(64 * 1024);
+
+// One visitor connects and disconnects while other clients stay connected. Vary
+// the queries per visit to distinguish the cost of publishing from copying a list.
+static void RakPeer_SystemListChurn(benchmark::State &state)
+{
+	const auto residents = static_cast<unsigned int>(state.range(0));
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(residents + 1, residents + 1);
+	for (unsigned int i = 0; i < residents; ++i)
+	{
+		if (!net.Connect(net.AddPeer(1), server))
+		{
+			state.SkipWithError("resident did not connect");
+			return;
+		}
+	}
+	auto *visitor = net.AddPeer(1);
+	const auto serverAddress = net.AddressOf(server);
+	const auto visitorAddress = net.AddressOf(visitor);
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
+	for (auto _ : state)
+	{
+		net.Inbox(server).clear();
+		net.Inbox(visitor).clear();
+		if (!net.Connect(visitor, server))
+		{
+			state.SkipWithError("visitor did not connect");
+			break;
+		}
+		for (int i = 0; i < state.range(1); ++i)
+			server->GetSystemList(addresses, guids);
+		server->CloseConnection(visitorAddress, false);
+		visitor->CloseConnection(serverAddress, false);
+		net.Step(1);
+	}
+}
+BENCHMARK(RakPeer_SystemListChurn)->Args({1, 0})->Args({1, 32})->Args({32, 0})->Args({32, 32});

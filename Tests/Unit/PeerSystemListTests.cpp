@@ -136,3 +136,37 @@ TEST(PeerSystemList, GetSocketsReturnsBoundSockets)
 
 	peer->Shutdown(0);
 }
+
+TEST(PeerSystemList, PublishesNewAddressForConnectedGuid)
+{
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	const auto guid = client->GetMyGUID();
+	const SystemAddress newAddress("10.0.1.42", 4242);
+	server->ChangeSystemAddress(guid, newAddress);
+	net.Step(1);
+
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
+	server->GetSystemList(addresses, guids);
+	EXPECT_EQ(std::vector<SystemAddress>{newAddress}, addresses);
+	EXPECT_EQ(std::vector<RakNetGUID>{guid}, guids);
+}
+
+TEST(PeerSystemList, SilentCloseRemovesConnectedSlot)
+{
+	SimulatedNetwork net;
+	auto *server = net.AddPeer(1, 1);
+	auto *client = net.AddPeer(1);
+	ASSERT_TRUE(net.Connect(client, server));
+	server->CloseConnection(net.AddressOf(client), false);
+	net.Step(1);
+
+	std::vector<SystemAddress> addresses;
+	std::vector<RakNetGUID> guids;
+	server->GetSystemList(addresses, guids);
+	EXPECT_TRUE(addresses.empty());
+	EXPECT_TRUE(guids.empty());
+}

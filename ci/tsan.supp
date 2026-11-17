@@ -17,7 +17,6 @@
 # A `race:` entry suppresses any race report whose stacks contain the substring.
 
 # --- Lock-free reads of connection state through public API getters ---
-race:MafiaNet::RakPeer::GetSystemList
 race:MafiaNet::RakPeer::GetConnectionState
 race:MafiaNet::RakPeer::GetIndexFromSystemAddress
 race:MafiaNet::RakPeer::GetSystemAddressFromIndex

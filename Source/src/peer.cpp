@@ -1115,6 +1115,8 @@ void RakPeer::Shutdown(unsigned int blockDuration, unsigned char orderingChannel
 
 #endif // RAKPEER_USER_THREADED!=1
 
+	std::atomic_store(&connectedSystems, std::shared_ptr<const ConnectedSystems>{});
+
 	//	char c=0;
 	//	unsigned int socketIndex;
 	// remoteSystemList in Single thread
@@ -1977,7 +1979,7 @@ RakNetGUID RakPeer::GetGUIDFromIndex(unsigned int index)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Same as calling GetSystemAddressFromIndex and GetGUIDFromIndex for all systems, but more efficient
+// Copies one published snapshot of connected addresses and GUIDs.
 // Indices match each other, so \a addresses[0] and \a guids[0] refer to the same system
 // \param[out] addresses All system addresses. Size of the list is the number of connections. Size of the list will match the size of the \a guids list.
 // \param[out] guids All guids. Size of the list is the number of connections. Size of the list will match the size of the \a addresses list.
@@ -1987,18 +1989,16 @@ void RakPeer::GetSystemList(std::vector<SystemAddress> &addresses, std::vector<R
 	addresses.clear();
 	guids.clear();
 
-	if (remoteSystemList == 0 || endThreads == true)
+	const auto snapshot = std::atomic_load(&connectedSystems);
+	if (!snapshot)
 		return;
 
-	unsigned int i;
-	for (i = 0; i < activeSystemListSize; i++)
+	addresses.reserve(snapshot->size());
+	guids.reserve(snapshot->size());
+	for (const auto &entry : *snapshot)
 	{
-		if ((activeSystemList[i])->isActive &&
-		    (activeSystemList[i])->connectMode == RakPeer::RemoteSystemStruct::CONNECTED)
-		{
-			addresses.push_back((activeSystemList[i])->systemAddress);
-			guids.push_back((activeSystemList[i])->guid);
-		}
+		addresses.push_back(entry.first);
+		guids.push_back(entry.second);
 	}
 }
 
@@ -3731,12 +3731,12 @@ void RakPeer::ParseConnectionRequestPacket(RakPeer::RemoteSystemStruct *remoteSy
 		bitStream.Write((MessageID) ID_INVALID_PASSWORD);
 		bitStream.Write(GetGuidFromSystemAddress(UNASSIGNED_SYSTEM_ADDRESS));
 		SendImmediate((char *) bitStream.GetData(), bitStream.GetNumberOfBytesUsed(), MafiaNet::Priority::Immediate, MafiaNet::Reliability::Reliable, 0, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
-		remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+		SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 		return;
 	}
 
 	// OK
-	remoteSystem->connectMode = RemoteSystemStruct::HANDLING_CONNECTION_REQUEST;
+	SetConnectMode(*remoteSystem, RemoteSystemStruct::HANDLING_CONNECTION_REQUEST);
 
 	OnConnectionRequest(remoteSystem, incomingTimestamp);
 }
@@ -3771,7 +3771,7 @@ void RakPeer::NotifyAndFlagForShutdown(const SystemAddress systemAddress, bool p
 	{
 		SendImmediate((char *) temp.GetData(), temp.GetNumberOfBitsUsed(), disconnectionNotificationPriority, MafiaNet::Reliability::ReliableOrdered, orderingChannel, systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 		RemoteSystemStruct *rss = GetRemoteSystemFromSystemAddress(systemAddress, true, true);
-		rss->connectMode = RemoteSystemStruct::DISCONNECT_ASAP;
+		SetConnectMode(*rss, RemoteSystemStruct::DISCONNECT_ASAP);
 	}
 	else
 	{
@@ -3937,7 +3937,7 @@ void RakPeer::FailSessionHandshakeAsConnectingSide(RemoteSystemStruct *remoteSys
 	// update; the slot closes once nothing is left to send.
 	const MessageID notification = (MessageID) ID_DISCONNECTION_NOTIFICATION;
 	SendImmediate((char *) &notification, sizeof(notification) * 8, MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, remoteSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
-	remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+	SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 	remoteSystem->sessionConfigStartTime = 0;
 	quitAndDataEvents.SetEvent();
 }
@@ -3985,7 +3985,7 @@ void RakPeer::SendSessionConfigResponse(RemoteSystemStruct *remoteSystem, const 
 		bitStream.Write(data, length);
 	SendImmediate((char *) bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), MafiaNet::Priority::Immediate, MafiaNet::Reliability::ReliableOrdered, 0, remoteSystem->systemAddress, false, false, MafiaNet::GetTimeUS(), 0);
 
-	remoteSystem->connectMode = RemoteSystemStruct::CONNECTED;
+	SetConnectMode(*remoteSystem, RemoteSystemStruct::CONNECTED);
 	remoteSystem->sessionConfigStartTime = 0;
 	ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_NEW_INCOMING_CONNECTION);
 
@@ -4006,7 +4006,7 @@ void RakPeer::SendSessionConfigRejection(RemoteSystemStruct *remoteSystem, const
 
 	// The refusal has to reach the client before the socket goes away, so drop on no-ack rather than
 	// silently: the client turns ID_SESSION_CONFIG_REJECTED into ID_CONNECTION_ATTEMPT_FAILED itself.
-	remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ON_NO_ACK;
+	SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ON_NO_ACK);
 	remoteSystem->sessionConfigStartTime = 0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4358,6 +4358,31 @@ void RakPeer::ClearRemoteSystemLookup(void)
 	remoteSystemLookupSize = 0;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode)
+{
+	const auto previous = system.connectMode.exchange(mode);
+	if ((previous == RemoteSystemStruct::CONNECTED) != (mode == RemoteSystemStruct::CONNECTED))
+		PublishConnectedSystems();
+}
+
+void RakPeer::PublishConnectedSystems()
+{
+	// Only the update thread walks the live slots. Readers keep their version alive while copying.
+	auto snapshot = std::make_shared<ConnectedSystems>();
+	snapshot->reserve(activeSystemListSize);
+	for (unsigned int i = 0; i < activeSystemListSize; ++i)
+	{
+		const auto &system = *activeSystemList[i];
+		if (system.isActive && system.connectMode == RemoteSystemStruct::CONNECTED)
+		{
+			// Other getters lazily set guid.systemIndex. Take the hint from the slot itself.
+			auto &entry = snapshot->emplace_back(system.systemAddress, RakNetGUID(system.guid.g));
+			entry.second.systemIndex = system.remoteSystemIndex;
+		}
+	}
+	std::atomic_store(&connectedSystems, std::shared_ptr<const ConnectedSystems>(std::move(snapshot)));
+}
+
 void RakPeer::AddToActiveSystemList(unsigned int remoteSystemListIndex)
 {
 	activeSystemList[activeSystemListSize++] = remoteSystemList + remoteSystemListIndex;
@@ -4373,6 +4398,8 @@ void RakPeer::RemoveFromActiveSystemList(const SystemAddress &sa)
 		{
 			activeSystemList[i] = activeSystemList[activeSystemListSize - 1];
 			activeSystemListSize--;
+			if (rss->connectMode == RemoteSystemStruct::CONNECTED)
+				PublishConnectedSystems();
 			return;
 		}
 	}
@@ -5493,7 +5520,7 @@ bool ProcessOfflineNetworkPacket(SystemAddress systemAddress, const char *data, 
 						if (remoteSystem)
 						{
 							remoteSystem->weInitiatedTheConnection = true;
-							remoteSystem->connectMode = RakPeer::RemoteSystemStruct::REQUESTED_CONNECTION;
+							rakPeer->SetConnectMode(*remoteSystem, RakPeer::RemoteSystemStruct::REQUESTED_CONNECTION);
 							// The request, and with it the race's first address, is freed below: keep that address with
 							// the connection, so GetConnectionState() still answers for it.
 							if (rcs->raceGroup != 0 && rcs->raceFirstAddress != systemAddress)
@@ -6170,7 +6197,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			{
 				remoteSystem = GetRemoteSystem(bcs->systemIdentifier, true, true);
 				if (remoteSystem)
-					remoteSystem->connectMode = bcs->connectionMode;
+					SetConnectMode(*remoteSystem, bcs->connectionMode);
 			}
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_SESSION_ACCEPT || bcs->command == BufferedCommandStruct::BCS_SESSION_REJECT)
@@ -6246,6 +6273,8 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 			{
 				unsigned int existingSystemIndex = GetRemoteSystemIndex(rssFromGuid->systemAddress);
 				ReferenceRemoteSystem(bcs->systemIdentifier.systemAddress, existingSystemIndex);
+				if (rssFromGuid->connectMode == RemoteSystemStruct::CONNECTED)
+					PublishConnectedSystems();
 			}
 		}
 		else if (bcs->command == BufferedCommandStruct::BCS_GET_SOCKET)
@@ -6693,7 +6722,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					{
 						// Transport is up, but the application is not told so until the client's session payload
 						// arrives in ID_SESSION_CONFIG_REQUEST and we answer it.
-						remoteSystem->connectMode = RemoteSystemStruct::EXCHANGING_SESSION_DATA;
+						SetConnectMode(*remoteSystem, RemoteSystemStruct::EXCHANGING_SESSION_DATA);
 						remoteSystem->sessionConfigIsConnectingSide = false;
 						remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 						PingInternal(systemAddress, true, MafiaNet::Reliability::Unreliable);
@@ -6806,7 +6835,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 					}
 
 					// We shouldn't close the connection immediately because we need to ack the ID_DISCONNECTION_NOTIFICATION
-					remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ON_NO_ACK;
+					SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ON_NO_ACK);
 
 					//	AddPacketToProducer(packet);
 				}
@@ -6823,7 +6852,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						if (StoreRemoteSessionConfig(remoteSystem, (const unsigned char *) data + sizeof(MessageID), byteSize - (unsigned int) sizeof(MessageID)) == false)
 						{
 							// Oversized payload is a protocol violation; drop without answering.
-							remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+							SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 						}
 						else if (sessionConfigInteractive)
 						{
@@ -6869,7 +6898,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						}
 						else
 						{
-							remoteSystem->connectMode = RemoteSystemStruct::CONNECTED;
+							SetConnectMode(*remoteSystem, RemoteSystemStruct::CONNECTED);
 							remoteSystem->sessionConfigStartTime = 0;
 							ProduceWithheldConnectionPacket(remoteSystem, (MessageID) ID_CONNECTION_REQUEST_ACCEPTED);
 						}
@@ -6910,7 +6939,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						packet->guid.systemIndex = packet->systemAddress.systemIndex;
 						AddPacketToProducer(packet);
 
-						remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+						SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_INVALID_PASSWORD)
@@ -6925,7 +6954,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 						packet->guid.systemIndex = packet->systemAddress.systemIndex;
 						AddPacketToProducer(packet);
 
-						remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+						SetConnectMode(*remoteSystem, RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY);
 					}
 				}
 				else if ((unsigned char) (data)[0] == ID_CONNECTION_REQUEST_ACCEPTED)
@@ -6985,7 +7014,7 @@ bool RakPeer::RunUpdateCycle(BitStream &updateBitStream)
 							remoteSystem->myExternalSystemAddress = externalID;
 							// Transport is up, but the application is not told so until the session payloads have been
 							// exchanged. ID_CONNECTION_REQUEST_ACCEPTED is stashed and replayed from ID_SESSION_CONFIG.
-							remoteSystem->connectMode = RemoteSystemStruct::EXCHANGING_SESSION_DATA;
+							SetConnectMode(*remoteSystem, RemoteSystemStruct::EXCHANGING_SESSION_DATA);
 							remoteSystem->sessionConfigStartTime = timeMS != 0 ? (MafiaNet::TimeMS) timeMS : MafiaNet::GetTimeMS(); // compared with GetTimeMS(), 32-bit
 
 							// Bug: If A connects to B through R, A's firstExternalID is set to R. If A tries to send to R, sends to loopback because R==firstExternalID
