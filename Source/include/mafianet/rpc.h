@@ -18,82 +18,69 @@
 ///
 
 
+#pragma once
+
 #include "mafianet/native_feature_includes.h"
-#if _RAKNET_SUPPORT_RPC4Plugin == 1
-
-#ifndef __RPC_4_PLUGIN_H
-#define __RPC_4_PLUGIN_H
-
-#include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/types.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/string.h"
-#include "mafianet/network_id_object.h"
 
 #include <map>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
-/// \defgroup RPC_PLUGIN_GROUP RPC
+/// \defgroup RPC_GROUP RPC
 /// \brief Remote procedure calls, without external dependencies.
-/// \ingroup PLUGINS_GROUP
 
 namespace MafiaNet
 {
 /// Forward declarations
 class RakPeerInterface;
-class NetworkIDManager;
+class TCPInterface;
 
 /// \brief Error codes returned by a remote system as to why an RPC function call cannot execute
 /// \details Error code follows packet ID ID_RPC_REMOTE_ERROR, that is packet->data[1]<BR>
 /// Name of the function will be appended starting at packet->data[2]
-/// \ingroup RPC_PLUGIN_GROUP
+/// \ingroup RPC_GROUP
 enum RPCErrorCodes
 {
 	/// Named function was not registered with RegisterFunction(). Check your spelling.
 	RPC_ERROR_FUNCTION_NOT_REGISTERED,
 };
 
-/// \brief Instantiate this class globally if you want to register a function with RPC4 at the global space
-class RAK_DLL_EXPORT RPC4GlobalRegistration
+/// \brief Instantiate this class globally if you want to register a function with RPC at the global space
+class RAK_DLL_EXPORT RPCGlobalRegistration
 {
 public:
-	/// \brief Queue a call to RPC4::RegisterFunction() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
+	/// \brief Queue a call to RPC::RegisterFunction() globally. Endpoints apply pending global registrations at RPC setup.
 	/// \param[in] context Opaque user pointer passed back to the handler on every invocation. Used to route the call to an object instance without a global.
-	RPC4GlobalRegistration(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context);
+	RPCGlobalRegistration(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context);
 
-	/// \brief Queue a call to RPC4::RegisterSlot() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
+	/// \brief Queue a call to RPC::RegisterSlot() globally. Endpoints apply pending global registrations at RPC setup.
 	/// \param[in] context Opaque user pointer passed back to the handler on every invocation.
-	RPC4GlobalRegistration(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context, int callPriority);
+	RPCGlobalRegistration(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context, int callPriority);
 
-	/// \brief Queue a call to RPC4::RegisterBlockingFunction() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
+	/// \brief Queue a call to RPC::RegisterBlockingFunction() globally. Endpoints apply pending global registrations at RPC setup.
 	/// \param[in] context Opaque user pointer passed back to the handler on every invocation.
-	RPC4GlobalRegistration(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context), void *context);
+	RPCGlobalRegistration(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context), void *context);
 
-	/// \brief Queue a call to RPC4::RegisterLocalCallback() globally. Actual call occurs once RPC4 is attached to an instance of RakPeer or TCPInterface.
-	RPC4GlobalRegistration(const char *uniqueID, MessageID messageId);
+	/// \brief Queue a call to RPC::RegisterLocalCallback() globally. Endpoints apply pending global registrations at RPC setup.
+	RPCGlobalRegistration(const char *uniqueID, MessageID messageId);
 };
 
-/// \brief The RPC4 plugin is just an association between a C function pointer and a string.
+/// \brief Named remote calls and signals owned by a networking endpoint.
 /// Callers serialize parameters into a BitStream and register free functions as handlers.
-/// \ingroup RPC_PLUGIN_GROUP
-class RAK_DLL_EXPORT RPC4 : public PluginInterface2
+/// \ingroup RPC_GROUP
+class RAK_DLL_EXPORT RPC final
 {
 public:
-	// GetInstance() and DestroyInstance(instance*)
-	STATIC_FACTORY_DECLARATIONS(RPC4)
-
-	// Constructor
-	RPC4();
-
-	// Destructor
-	virtual ~RPC4();
+	~RPC();
 
 	// Owns its slots; not copyable.
-	RPC4(const RPC4 &) = delete;
-	RPC4 &operator=(const RPC4 &) = delete;
+	RPC(const RPC &) = delete;
+	RPC &operator=(const RPC &) = delete;
 
 	/// \deprecated Use RegisterSlot
 	/// \brief Register a function pointer to be callable from a remote system
@@ -102,20 +89,20 @@ public:
 	/// \sa RegisterPacketCallback()
 	/// \param[in] uniqueID Identifier to be associated with \a functionPointer. If this identifier is already in use, the call will return false.
 	/// \param[in] functionPointer C function pointer to be called
-	/// \param[in] context Opaque user pointer passed back to \a functionPointer on every invocation. Lets the handler recover its owning object instance without a file-static global. The pointer is not owned by RPC4; keep it valid until the function is unregistered.
+	/// \param[in] context Opaque user pointer passed back to \a functionPointer on every invocation. Lets the handler recover its owning object instance without a file-static global. The pointer is not owned by RPC; keep it valid until the function is unregistered.
 	/// \return True if the hash of uniqueID is not in use, false otherwise.
 	bool RegisterFunction(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context);
 
 	/// Register a slot, which is a function pointer to one or more implementations that supports this function signature
 	/// When a signal occurs, all slots with the same identifier are called.
 	/// \param[in] sharedIdentifier A string to identify the slot. Recommended to be the same as the name of the function.
-	/// \param[in] functionPtr Pointer to the function. For C, just pass the name of the function. For C++, use ARPC_REGISTER_CPP_FUNCTION
-	/// \param[in] context Opaque user pointer passed back to \a functionPointer on every invocation. Each registration carries its own context, so the same handler may be registered under one identifier for several object instances. Not owned by RPC4; keep it valid until the slot is unregistered.
+	/// \param[in] functionPtr Callback to invoke, with the supplied context.
+	/// \param[in] context Opaque user pointer passed back to \a functionPointer on every invocation. Each registration carries its own context, so the same handler may be registered under one identifier for several object instances. Not owned by RPC; keep it valid until the slot is unregistered.
 	/// \param[in] callPriority Slots are called by order of the highest callPriority first. For slots with the same priority, they are called in the order they are registered
 	void RegisterSlot(const char *sharedIdentifier, void (*functionPointer)(MafiaNet::BitStream *userData, Packet *packet, void *context), void *context, int callPriority);
 
 	/// \brief Same as \a RegisterFunction, but is called with CallBlocking() instead of Call() and returns a value to the caller
-	/// \param[in] context Opaque user pointer passed back to \a functionPointer on every invocation. Not owned by RPC4; keep it valid until the function is unregistered.
+	/// \param[in] context Opaque user pointer passed back to \a functionPointer on every invocation. Not owned by RPC; keep it valid until the function is unregistered.
 	bool RegisterBlockingFunction(const char *uniqueID, void (*functionPointer)(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnData, Packet *packet, void *context), void *context);
 
 	/// \deprecated Use RegisterSlot and invoke on self only when the packet you want arrives
@@ -144,7 +131,7 @@ public:
 	bool UnregisterSlot(const char *sharedIdentifier);
 
 	/// \deprecated Use RegisterSlot() and Signal() with your own RakNetGUID as the send target
-	/// Send to the attached instance of RakPeer. See RakPeerInterface::SendLoopback()
+	/// Queue a call on this endpoint. See RakPeerInterface::SendLoopback()
 	/// \param[in] Identifier originally passed to RegisterFunction() on the local system
 	/// \param[in] bitStream bitStream encoded data to send to the function callback
 	void CallLoopback(const char *uniqueID, MafiaNet::BitStream *bitStream);
@@ -191,7 +178,7 @@ public:
 	struct LocalSlot;
 
 	/// \brief Looks up the slots registered under \a sharedIdentifier, to invoke them repeatedly without a string lookup.
-	/// \details The pointer is owned by RPC4. It stays valid until UnregisterSlot(sharedIdentifier) is called or this RPC4 is destroyed;
+	/// \details The pointer is owned by RPC. It stays valid until UnregisterSlot(sharedIdentifier) is called or this RPC is destroyed;
 	/// further RegisterSlot() calls with the same identifier add to the same LocalSlot and do not invalidate it.
 	/// \param[in] sharedIdentifier Identifier passed to RegisterSlot()
 	/// \return The slots, or nullptr if no slot is registered under \a sharedIdentifier
@@ -204,6 +191,7 @@ public:
 	/// \param[in] packet Passed to every slot
 	void InvokeSignal(LocalSlot *slot, MafiaNet::BitStream *serializedParameters, Packet *packet);
 
+private:
 	/// \internal
 	struct LocalCallback
 	{
@@ -236,12 +224,18 @@ public:
 
 	static int LocalSlotObjectComp(const LocalSlotObject &key, const LocalSlotObject &data);
 
-protected:
-	// --------------------------------------------------------------------------------------------
-	// Packet handling functions
-	// --------------------------------------------------------------------------------------------
-	virtual void OnAttach(void);
-	virtual PluginReceiveResult OnReceive(Packet *packet);
+	friend class RakPeer;
+	friend class TCPInterface;
+	explicit RPC(RakPeerInterface &peer);
+#if _RAKNET_SUPPORT_TCPInterface == 1
+	explicit RPC(TCPInterface &tcp);
+	TCPInterface *tcpInterface = nullptr;
+#endif
+	RakPeerInterface *rakPeerInterface = nullptr;
+	void RegisterGlobals();
+	unsigned int appliedGlobalRegistrations = 0;
+	bool ProcessPacket(Packet *packet);
+	void Send(const BitStream *data, Priority priority, Reliability reliability, char channel, const AddressOrGUID target, bool broadcast);
 
 	/// \internal A registered nonblocking function paired with its user context
 	struct RegisteredNonblockingFunction
@@ -263,16 +257,13 @@ protected:
 	std::map<MessageID, LocalCallback> localCallbacks;
 
 	MafiaNet::BitStream blockingReturnValue;
-	bool gotBlockingReturnValue;
+	bool gotBlockingReturnValue = false;
+	RakNetGUID blockingPeer = UNASSIGNED_RAKNET_GUID;
 
 	/// Used so slots are called in the order they are registered
-	unsigned int nextSlotRegistrationCount;
+	unsigned int nextSlotRegistrationCount = 0;
 
-	bool interruptSignal;
+	bool interruptSignal = false;
 };
 
 } // End namespace
-
-#endif
-
-#endif // _RAKNET_SUPPORT_*

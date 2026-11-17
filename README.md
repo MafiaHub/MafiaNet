@@ -170,7 +170,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - Host migration
 - Room and lobby management
 - Object replication (ReplicaManager3)
-- Remote procedure calls (RPC4)
+- Built-in remote procedure calls through `peer->GetRPC()`
 
 </td>
 </tr>
@@ -205,7 +205,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 | Plugin | Description |
 |--------|-------------|
 | **ReplicaManager3** | Automatic object replication and state synchronization |
-| **RPC4** | Remote procedure calls with parameter serialization |
 | **FullyConnectedMesh2** | P2P mesh networking with host migration |
 | **NatPunchthrough** | NAT traversal for peer-to-peer connections |
 | **FileListTransfer** | Reliable file transfer with progress callbacks |
@@ -315,7 +314,8 @@ To debug a single test, run the binary directly with a filter:
 ## Changelog
 
 ### Unreleased — breaking
-- Removed RPC3, the SQLite networking and logging extensions, and cloud storage. RPC4 and application message IDs retain their protocol 10 wire values.
+- RPC is built into every peer, including minimal builds. Replace `AttachPlugin(&rpc4)` with `auto &rpc = peer->GetRPC()`. [RPC migration guide](docs/guide/rpc.rst)
+- Removed RPC3, the SQLite networking and logging extensions, and cloud storage. RPC and application message IDs retain their protocol 10 wire values.
 - **Standard containers and allocation**: the `DataStructures` containers, the `rakMalloc`/`OP_NEW` allocator layer, `alloca` and `_FILE_AND_LINE_` are gone; the library uses `std::` containers, `new`/`delete` and smart pointers. Public `DataStructures::List<T>&` parameters are `std::vector<T>&`, owned buffers are `std::unique_ptr<unsigned char[]>`, and RPC4 hands out `LocalSlot *` handles. See the [migration guide](docs/advanced/migrating-to-std-containers.rst)
 - **Windows**: `std::` types cross the DLL boundary, so the application and `MafiaNet.dll` must use the same toolset and CRT
 - **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC4/TwoWayAuthentication/MessageFilter names were used as printf format strings

@@ -74,6 +74,7 @@ class RAK_DLL_EXPORT RakPeer : public RakPeerInterface, public RNS2EventHandler
 public:
 	///Constructor
 	RakPeer();
+	RPC &GetRPC();
 
 	/// Delay between starting successive candidates of a raced Connect() on a
 	/// dual-stack socket (RFC 8305 section 5, "Connection Attempt Delay").
@@ -1314,6 +1315,7 @@ protected:
 	void FillIPList(void);
 
 private:
+	RPC rpc{*this};
 	// internal helpers
 	void CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel, MafiaNet::Priority disconnectionNotificationPriority, RakNetSocket2 &socket, const MafiaNet::BitStream *reasonData = nullptr);
 	// Free and null any stashed disconnect-reason payload for the given remote system (safe on null).

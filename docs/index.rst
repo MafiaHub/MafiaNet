@@ -44,6 +44,7 @@ MafiaNet Documentation
    guide/client-server
    guide/admission-queue
    guide/peer-to-peer
+   guide/rpc
    guide/plugins
 
 .. toctree::
@@ -53,7 +54,6 @@ MafiaNet Documentation
    plugins/overview
    plugins/replica-manager-3
    plugins/virtual-worlds
-   plugins/rpc4
    plugins/fully-connected-mesh-2
    plugins/nat-punchthrough
    plugins/nat-type-detection

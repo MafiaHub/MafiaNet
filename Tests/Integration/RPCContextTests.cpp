@@ -10,7 +10,7 @@
 #include "mafianet/string.h"
 #include <vector>
 #include "mafianet/peer_interface.h"
-#include "mafianet/rpc4_plugin.h"
+#include "mafianet/rpc.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/sleep.h"
@@ -22,7 +22,7 @@ using namespace MafiaNet;
 
 /*
 Description:
-Tests that RPC4 handlers carry an opaque user-context pointer.
+Tests that RPC handlers carry an opaque user-context pointer.
 
 Each RegisterSlot / RegisterFunction / RegisterBlockingFunction call stores a
 void* context alongside the function pointer; when the handler runs it is
@@ -101,7 +101,7 @@ void BlockingHandler(MafiaNet::BitStream *userData, MafiaNet::BitStream *returnD
 }
 }
 
-class RPC4Context : public ::testing::Test
+class RPCContext : public ::testing::Test
 {
 protected:
 	void SetUp() override
@@ -119,15 +119,9 @@ protected:
 	}
 
 	std::vector<RakPeerInterface *> destroyList;
-	// Plugins are members so they outlive the peers: the peers are shut down in
-	// TearDown() (which runs before member destruction), and RakPeer::Shutdown()
-	// calls back into attached plugins. A plugin destroyed before its peer would
-	// be a use-after-free during shutdown (~PluginInterface2 does not auto-detach).
-	RPC4 clientRpc;
-	RPC4 serverRpc;
 };
 
-TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
+TEST_F(RPCContext, HandlersReceiveRegisteredContext)
 {
 	RakPeerInterface *peer = RakPeerInterface::GetInstance();
 	destroyList.push_back(peer);
@@ -135,8 +129,7 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	SocketDescriptor sd(0, 0);
 	ASSERT_EQ(peer->Startup(8, &sd, 1), RAKNET_STARTED) << "Peer failed to start";
 
-	RPC4 &rpc = clientRpc; // fixture member: must outlive the peer (shut down in TearDown)
-	peer->AttachPlugin(&rpc);
+	RPC &rpc = peer->GetRPC();
 
 	// Two distinct context markers. Their addresses are what we assert on.
 	int markerA = 0;
@@ -173,7 +166,7 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	ASSERT_EQ(g_observed.functionContext, &markerFn) << "Nonblocking function did not receive its registered context";
 
 	// --- Blocking function context (registeredBlockingFunctions map) ---
-	// Needs a real remote: CallBlocking sends ID_RPC4_CALL with isBlocking=true,
+	// Needs a real remote: CallBlocking sends ID_RPC_CALL with isBlocking=true,
 	// the server's OnReceive invokes the handler with its context, then replies.
 	RakPeerInterface *server = RakPeerInterface::GetInstance();
 	destroyList.push_back(server);
@@ -182,9 +175,8 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	ASSERT_EQ(server->Startup(8, &serverSd, 1), RAKNET_STARTED) << "Server peer failed to start";
 	server->SetMaximumIncomingConnections(8);
 
-	server->AttachPlugin(&serverRpc); // fixture member: must outlive the server peer
 	int markerBlocking = 0;
-	serverRpc.RegisterBlockingFunction("Blocking", BlockingHandler, &markerBlocking);
+	server->GetRPC().RegisterBlockingFunction("Blocking", BlockingHandler, &markerBlocking);
 
 	unsigned short serverPort = server->GetInternalID(UNASSIGNED_SYSTEM_ADDRESS).GetPort();
 	peer->Connect("127.0.0.1", serverPort, nullptr, 0);
@@ -214,8 +206,16 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 	std::thread caller([&]()
 	                   {
 		MafiaNet::BitStream returnData;
+		const unsigned char userMessage = ID_USER_PACKET_ENUM;
+		peer->SendLoopback(reinterpret_cast<const char *>(&userMessage), 1);
 		bool ok = rpc.CallBlocking("Blocking", &blockingParams, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, serverGuid, &returnData);
-		blockingResult.store(ok ? 1 : 0); });
+		unsigned char value = 0;
+		const bool replied = ok && returnData.Read(value) && value == 1;
+		const bool missing = rpc.CallBlocking("Missing", nullptr, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, serverGuid, &returnData);
+		bool receivedUserMessage = false;
+		for (Packet *p = peer->Receive(); p; peer->DeallocatePacket(p), p = peer->Receive())
+			receivedUserMessage |= p->data[0] == ID_USER_PACKET_ENUM;
+		blockingResult.store(replied && !missing && receivedUserMessage ? 1 : 0); });
 
 	for (int i = 0; i < 500 && blockingResult.load() == -1; i++)
 	{
@@ -224,6 +224,8 @@ TEST_F(RPC4Context, HandlersReceiveRegisteredContext)
 			;
 		RakSleep(10);
 	}
+	if (blockingResult.load() == -1)
+		server->Shutdown(100);
 	caller.join();
 
 	ASSERT_TRUE(blockingResult.load() == 1 && g_observed.blockingInvocations != 0)

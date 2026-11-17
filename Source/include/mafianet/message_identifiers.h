@@ -282,10 +282,10 @@ enum DefaultMessageIDTypes
 	/// Lobby packets. Second byte indicates type.
 	ID_LOBBY_GENERAL,
 
-	// RPC4 error
+	// RPC error
 	ID_RPC_REMOTE_ERROR,
-	/// Plugin based replacement for RPC system
-	ID_RPC_PLUGIN,
+	/// Named RPC call, signal or return
+	ID_RPC,
 
 	/// FileListTransfer transferring large files in chunks that are read only when needed, to save memory
 	ID_FILE_LIST_REFERENCE_PUSH,

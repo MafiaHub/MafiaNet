@@ -73,4 +73,4 @@ See Also
 
 * :doc:`nat-type-detection` - NAT traversal for P2P
 * :doc:`../advanced/nat-traversal-architecture` - Complete NAT solution
-* :doc:`rpc4` - Remote procedure calls in mesh
+* :doc:`../guide/rpc` - Remote procedure calls in mesh

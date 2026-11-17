@@ -19,7 +19,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer.h"
 #include "mafianet/relay_plugin.h"
-#include "mafianet/rpc4_plugin.h"
+#include "mafianet/rpc.h"
 #include "mafianet/two_way_authentication.h"
 
 #include <string>
@@ -126,7 +126,6 @@ protected:
 	std::vector<RakPeer *> clients;
 	// Plugins live as long as the fixture, so TearDown can detach them.
 	MessageFilter filter;
-	RPC4 serverRpc, clientRpc;
 	RelayPlugin serverRelay, relayA, relayB;
 	TwoWayAuthentication serverAuth, clientAuth;
 	std::vector<std::pair<RakPeer *, PluginInterface2 *>> attached;
@@ -192,14 +191,14 @@ protected:
 TEST_F(MessagingPluginsNetwork, MessageFilterBlocksDisallowedIdsAndRpcNames)
 {
 	Start(1);
-	Attach(server, &filter); // before RPC4, so it filters RPC calls
-	Attach(server, &serverRpc);
-	Attach(clients[0], &clientRpc);
+	RPC &serverRpc = server->GetRPC();
+	RPC &clientRpc = clients[0]->GetRPC();
+	Attach(server, &filter);
 	filter.SetAutoAddNewConnectionsToFilter(0);
 	filter.SetAllowMessageID(true, ID_USER_PACKET_ENUM, ID_USER_PACKET_ENUM, 0);
-	filter.SetAllowRPC4(true, "allowed%s", 0);
-	filter.SetAllowRPC4(true, "revoked", 0);
-	filter.SetAllowRPC4(false, "revoked", 0);
+	filter.SetAllowRPC(true, "allowed%s", 0);
+	filter.SetAllowRPC(true, "revoked", 0);
+	filter.SetAllowRPC(false, "revoked", 0);
 	int allowedCalls = 0, revokedCalls = 0;
 	ASSERT_TRUE(serverRpc.RegisterFunction("allowed%s", CountingFunction, &allowedCalls));
 	ASSERT_TRUE(serverRpc.RegisterFunction("revoked", CountingFunction, &revokedCalls));

@@ -211,7 +211,7 @@ their ``_Ex`` variants, ``SetNotifyOutOfMemory``, ``GetMalloc`` /
 **Types and comparators:** ``RakNetSmartPtr``, ``SplitPacketChannelComp``
 (``reliability_layer.h``),
 ``ConnectionGraph2::RemoteSystemComp`` and ``SystemAddressAndGuidComp``,
-``RPC4::LocalCallbackComp``,
+``RPC::LocalCallbackComp``,
 ``VariableDeltaSerializer::UpdatedVariablesListPtrComp`` and
 ``RoomsPluginParticipantCompByRakString``. They only served the removed
 containers.
@@ -381,25 +381,25 @@ BitStream, compression and strings
   ``ranges`` is a ``std::vector<RangeNode<T>>``, and the ``RangeNodeComp``
   comparator and the constructor/destructor are gone.
 
-RPC4
-~~~~
+RPC
+~~~
 
 * ``RPC4::GetLocalSlotIndex(const char*)`` (protected, returned a
   ``HashIndex``) is replaced by public ``LocalSlot *GetLocalSlot(const char
   *sharedIdentifier)``, which returns ``nullptr`` for an unknown name. The
-  pointer is owned by RPC4 and stays valid until ``UnregisterSlot()`` for that
-  identifier or RPC4's destruction; more ``RegisterSlot()`` calls with the
+  pointer is owned by RPC and stays valid until ``UnregisterSlot()`` for that
+  identifier or RPC's destruction; more ``RegisterSlot()`` calls with the
   same identifier add to the same slot.
-* ``RPC4::InvokeSignal(LocalSlot *slot, BitStream*, Packet*)`` is public and
+* ``RPC::InvokeSignal(LocalSlot *slot, BitStream*, Packet*)`` is public and
   takes that handle (was a protected ``HashIndex`` overload). ``nullptr`` is a
   no-op.
-* ``RPC4::LocalSlot`` is only forward-declared in the header. ``localSlots``
-  moved from public to protected and is a
+* ``RPC::LocalSlot`` is only forward-declared in the header. ``localSlots``
+  is now private and is a
   ``std::unordered_map<RakString, std::unique_ptr<LocalSlot>>``;
   ``registeredNonblockingFunctions`` / ``registeredBlockingFunctions`` are
   ``std::unordered_map``; ``localCallbacks`` is a
   ``std::map<MessageID, LocalCallback>``. ``LocalCallbackComp`` is removed.
-  RPC4 is non-copyable.
+  RPC is non-copyable.
 
 .. code-block:: cpp
 
@@ -409,8 +409,8 @@ RPC4
        InvokeSignal(index, &params, packet);
 
    // After (public API)
-   if (MafiaNet::RPC4::LocalSlot *slot = rpc4->GetLocalSlot("OnHit"))
-       rpc4->InvokeSignal(slot, &params, packet);
+   if (MafiaNet::RPC::LocalSlot *slot = rpc->GetLocalSlot("OnHit"))
+       rpc->InvokeSignal(slot, &params, packet);
 
 ReplicaManager3
 ~~~~~~~~~~~~~~~
@@ -481,7 +481,7 @@ ReadyEvent, Router2, RakVoice and sectorizers
 MessageFilter, RelayPlugin, TwoWayAuthentication, StatisticsHistory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* ``MessageFilter`` (protected members): ``FilterSet::allowedRPC4`` is a
+* ``MessageFilter`` (protected members): ``FilterSet::allowedRPC`` is a
   ``std::set<RakString>``, ``filterList`` an id-sorted
   ``std::vector<std::unique_ptr<FilterSet>>``, ``systemList`` a
   ``std::unordered_map<AddressOrGUID, FilteredSystem,
@@ -770,7 +770,7 @@ twice); the deletion makes that a compile error:
 
 ``ConnectionGraph2``, ``TCPInterface``, ``PacketizedTCP``, ``ThreadPool``,
 ``NatTypeDetectionClient``, ``NatTypeDetectionServer``,
-``RoomsPlugin``, ``RPC4``, ``MessageFilter``, ``RelayPlugin``,
+``RoomsPlugin``, ``RPC``, ``MessageFilter``, ``RelayPlugin``,
 ``TwoWayAuthentication``, ``TwoWayAuthentication::NonceGenerator``,
 ``StatisticsHistory``, ``StatisticsHistoryPlugin``, ``StringCompressor``,
 ``StringTable``, ``HuffmanEncodingTree``, ``Table::Row`` and the new
@@ -789,13 +789,13 @@ Behaviour changes
   (``ping * (usedForwardingEntries + 1)``, computed in 64 bits: both factors
   come from the relay and the ``int`` product used to overflow), then the
   lowest GUID. Not visible on the wire.
-* **Peer-supplied names are matched verbatim.** RPC4,
+* **Peer-supplied names are matched verbatim.** RPC,
   TwoWayAuthentication and MessageFilter looked up names received from the
   network through ``RakString``'s printf-style constructor, so the remote
   string was used as a format string. A ``%`` in a name was undefined
   behaviour. Names are now stored and matched as plain strings; only names
   containing ``%`` are affected.
-* **RPC4::UnregisterLocalCallback** returns ``true`` whenever the
+* **RPC::UnregisterLocalCallback** returns ``true`` whenever the
   ``(uniqueID, messageId)`` pair was registered and removed, as documented.
   It used to return ``true`` only when the message id's last function went.
 * **TeamBalancer rejects a team index ≥ the team count.** Requests and status
@@ -825,8 +825,8 @@ Behaviour changes
   ``DeallocatePacket()`` now show as leaks instead of being reclaimed at
   shutdown.
 * **Network input is rejected instead of asserted.** ``TableSerializer``,
-  ``DataCompressor``, ``StringTable``, ``NatPunchthroughServer``, ``RPC4``
-  (an ``ID_RPC_PLUGIN`` packet without a known sub-identifier) and
+  ``DataCompressor``, ``StringTable``, ``NatPunchthroughServer``, ``RPC``
+  (an ``ID_RPC`` packet without a known sub-identifier) and
   ``RakPeer`` (a truncated ``ID_CONNECTION_REQUEST_ACCEPTED``) used to
   ``RakAssert`` (aborting a Debug build) on malformed data from a peer, and
   ``TeamBalancer`` on a team request when every team was full. They now drop

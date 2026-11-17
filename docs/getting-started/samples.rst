@@ -87,10 +87,10 @@ Peer-to-peer mesh networking. Shows:
 - Host migration
 - Verified connections
 
-RPC4
+RPC
 ~~~~
 
-``Samples/RPC4/``
+``Samples/RPC/``
 
 Remote procedure calls. Shows:
 

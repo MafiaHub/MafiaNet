@@ -16,6 +16,7 @@
 
 #include "mafianet/message_identifiers.h"
 #include "mafianet/packetized_tcp.h"
+#include "mafianet/rpc.h"
 
 #include <cstdint>
 #include <cstring>
@@ -151,6 +152,37 @@ Expected ReferenceParse(const Bytes &stream, uint32_t limit)
 	return expected;
 }
 } // namespace
+
+TEST(PacketizedTcpFraming, RpcDispatchesCompleteFramesOnlyOnEnabledEndpoints)
+{
+	FramingHarness plain(Peer());
+	BitStream message;
+	message.Write((MessageID) ID_RPC);
+	message.Write((MessageID) 2); // Signal on the protocol 10 wire.
+	message.WriteCompressed("test");
+	const Bytes payload(message.GetData(), message.GetData() + message.GetNumberOfBytesUsed());
+	const Bytes framed = Frame(payload);
+
+	plain.Deliver(framed);
+	EXPECT_EQ((std::vector<Bytes>{payload}), plain.DrainMessages());
+
+	FramingHarness endpoint(Peer());
+	unsigned calls = 0;
+	auto handler = [](BitStream *, Packet *, void *context)
+	{ ++*static_cast<unsigned *>(context); };
+	endpoint.GetRPC().RegisterSlot("test", handler, &calls, 0);
+	endpoint.Deliver(Bytes(framed.begin(), framed.end() - 1));
+	EXPECT_TRUE(endpoint.DrainMessages().empty());
+	EXPECT_EQ(0u, calls);
+	endpoint.Deliver(Bytes{framed.back()});
+	EXPECT_TRUE(endpoint.DrainMessages().empty());
+	EXPECT_EQ(1u, calls);
+
+	endpoint.GetRPC().RegisterFunction("local", handler, &calls);
+	endpoint.GetRPC().CallLoopback("local", nullptr);
+	EXPECT_TRUE(endpoint.DrainMessages().empty());
+	EXPECT_EQ(2u, calls);
+}
 
 TEST(PacketizedTcpFraming, ReassemblesMessagesSplitAcrossReads)
 {

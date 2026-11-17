@@ -33,6 +33,7 @@
 #include "mafianet/locked_queue.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
+#include "mafianet/rpc.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -55,6 +56,8 @@ public:
 	STATIC_FACTORY_DECLARATIONS(TCPInterface)
 
 	TCPInterface();
+	/// Enable named RPC messages on this endpoint. Use PacketizedTCP for message framing.
+	RPC &GetRPC();
 	virtual ~TCPInterface();
 	// Owns threads, sockets and LockedQueues; MSVC dllexport needs the deleted copy spelled out.
 	TCPInterface(const TCPInterface &) = delete;
@@ -131,7 +134,11 @@ public:
 	void AttachPlugin(PluginInterface2 *plugin);
 	void DetachPlugin(PluginInterface2 *plugin);
 
+private:
+	std::unique_ptr<RPC> rpc;
+
 protected:
+	Packet *DispatchRPC(Packet *packet);
 	Packet *ReceiveInt(void);
 
 	bool CreateListenSocket(unsigned short port, unsigned short maxIncomingConnections, unsigned short socketFamily, const char *hostAddress);

@@ -183,7 +183,7 @@ Every plugin sends on channel 0 unless told otherwise. An application that keeps
 
    * - Plugin
      - Where the channel is set
-   * - :doc:`RPC4 <../plugins/rpc4>`
+   * - :doc:`RPC <../guide/rpc>`
      - The ``orderingChannel`` argument of ``Signal()``, ``Call()`` and ``CallBlocking()``.
    * - :doc:`ReplicaManager3 <../plugins/replica-manager-3>`
      - ``SetDefaultOrderingChannel()`` for construction, destruction and scope messages; ``SerializeParameters::pro[channel].orderingChannel`` inside ``Replica3::Serialize()`` for state.

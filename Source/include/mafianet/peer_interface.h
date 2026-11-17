@@ -22,6 +22,7 @@
 #define __RAK_PEER_INTERFACE_H
 
 #include "mafianet/packet_priority.h"
+#include "mafianet/rpc.h"
 #include "mafianet/types.h"
 #include "mafianet/session_crypto.h"
 #include "mafianet/export.h"
@@ -33,7 +34,6 @@ namespace MafiaNet
 // Forward declarations
 class BitStream;
 class PluginInterface2;
-struct RPCMap;
 struct RakNetStatistics;
 struct RakNetBandwidth;
 class RouterInterface;
@@ -47,6 +47,9 @@ class RAK_DLL_EXPORT RakPeerInterface
 public:
 	// GetInstance() and DestroyInstance(instance*)
 	STATIC_FACTORY_DECLARATIONS(RakPeerInterface)
+
+	/// Built-in named calls and signals. Registrations last for the lifetime of this peer.
+	virtual RPC &GetRPC() = 0;
 
 	///Destructor
 	virtual ~RakPeerInterface() {}

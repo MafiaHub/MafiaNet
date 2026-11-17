@@ -40,7 +40,7 @@
 #include "mafianet/tcp_interface.h"
 #include "mafianet/ready_event.h"
 #include "mafianet/packet_logger.h"
-#include "mafianet/rpc4_plugin.h"
+#include "mafianet/rpc.h"
 #include "mafianet/http_connection2.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
@@ -102,7 +102,6 @@ NatTypeDetectionClient *natTypeDetectionClient;
 
 // Purpose: Used to call C functions on remote systems. Convenience function.
 // Required?: No
-RPC4 *rpc4;
 
 // Purpose: Used for players to ready / unready in the lobby in a way that is properly synchronized under peer to peer
 // Required?: No, but provides a more robust way to ready/unready in a peer to peer game
@@ -746,7 +745,7 @@ public:
 // Helper functions
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-// Demonstrates how to use the RPC4 plugin
+// Demonstrates how to use built-in RPC
 void InGameChat(MafiaNet::BitStream *userData, Packet *packet, void *context)
 {
 	// unused parameters
@@ -759,7 +758,7 @@ void InGameChat(MafiaNet::BitStream *userData, Packet *packet, void *context)
 }
 // Register the function where it is defined, which is easier than maintaining a bunch of RegisterSlot() calls in main()
 // nullptr context: this handler is a free function with no owning instance to route back to.
-RPC4GlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
+RPCGlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
 
 // Write roomName and a list of NATTypeDetectionResult to a bitStream
 void SerializeToJSON(RakString &outputString, RakString &roomName, std::vector<NATTypeDetectionResult> &natTypes)
@@ -1024,7 +1023,6 @@ int main(void)
 #ifdef NAT_TYPE_DETECTION_SERVER
 	natTypeDetectionClient = NatTypeDetectionClient::GetInstance();
 #endif
-	rpc4 = RPC4::GetInstance();
 	readyEvent = ReadyEvent::GetInstance();
 	gameReplicaManager3 = new SampleRM3;
 	httpConnection2 = HTTPConnection2::GetInstance();
@@ -1038,7 +1036,6 @@ int main(void)
 #ifdef NAT_TYPE_DETECTION_SERVER
 	rakPeer->AttachPlugin(natTypeDetectionClient);
 #endif
-	rakPeer->AttachPlugin(rpc4);
 	rakPeer->AttachPlugin(readyEvent);
 	rakPeer->AttachPlugin(gameReplicaManager3);
 	/// TCPInterface supports plugins too
@@ -1633,7 +1630,7 @@ int main(void)
 							BitStream bsOut;
 							bsOut.Write(rs);
 							for (unsigned int i = 0; i < participantList.size(); i++)
-								rpc4->Signal("InGameChat", &bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, participantList[i], false, false);
+								rakPeer->GetRPC().Signal("InGameChat", &bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, participantList[i], false, false);
 						}
 					}
 				}
@@ -1757,7 +1754,6 @@ int main(void)
 	FullyConnectedMesh2::DestroyInstance(fullyConnectedMesh2);
 	NatPunchthroughClient::DestroyInstance(natPunchthroughClient);
 	NatTypeDetectionClient::DestroyInstance(natTypeDetectionClient);
-	RPC4::DestroyInstance(rpc4);
 	ReadyEvent::DestroyInstance(readyEvent);
 	delete gameReplicaManager3;
 	NetworkIDManager::DestroyInstance(networkIDManager);

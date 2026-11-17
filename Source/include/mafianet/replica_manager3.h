@@ -245,7 +245,7 @@ public:
 	Connection_RM3 *GetConnectionByGUID(RakNetGUID guid, WorldId worldId = 0) const;
 
 	/// \brief Return the connections (observers) currently in a given virtual world.
-	/// \details Recipient-filter helper for scoping non-replica traffic (chat, RPC4,
+	/// \details Recipient-filter helper for scoping non-replica traffic (chat, RPC,
 	/// raw Send) by virtual world. See virtual_world.h for the dimension model.
 	/// \param[in] virtualWorld The virtual world to match. See SetPlayerVirtualWorld() and Connection_RM3::SetVirtualWorld()
 	/// \param[out] connectionsOut Populated with the matching connections (cleared first)

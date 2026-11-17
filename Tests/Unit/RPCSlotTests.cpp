@@ -4,8 +4,8 @@
  *  This source code is licensed under the MIT-style license found in the
  *  license.txt file in the root directory of this source tree.
  *
- *  RPC4 slot handles (GetLocalSlot / InvokeSignal) and the std:: tables behind
- *  RPC4's functions, slots and local callbacks. Peer-level cases run on the
+ *  RPC slot handles (GetLocalSlot / InvokeSignal) and the std:: tables behind
+ *  RPC's functions, slots and local callbacks. Peer-level cases run on the
  *  simulated network.
  */
 
@@ -16,7 +16,7 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer.h"
-#include "mafianet/rpc4_plugin.h"
+#include "mafianet/rpc.h"
 
 #include <string>
 #include <type_traits>
@@ -24,8 +24,8 @@
 
 using namespace MafiaNet;
 
-static_assert(!std::is_copy_constructible_v<RPC4>, "RPC4 owns its slots");
-static_assert(!std::is_copy_assignable_v<RPC4>, "RPC4 owns its slots");
+static_assert(!std::is_copy_constructible_v<RPC>, "RPC owns its slots");
+static_assert(!std::is_copy_assignable_v<RPC>, "RPC owns its slots");
 
 namespace
 {
@@ -34,7 +34,7 @@ struct CallLog
 {
 	std::vector<std::string> calls;
 	bool interruptAfterFirst = false;
-	RPC4 *rpc = nullptr;
+	RPC *rpc = nullptr;
 };
 
 struct SlotContext
@@ -59,48 +59,26 @@ void CountingFunction(BitStream *, Packet *, void *context)
 }
 } // namespace
 
-namespace
+TEST(RPCSlot, ReceiveConsumesMalformedRpcFramesAndDeliversFollowingPacket)
 {
-// Feeds hand-made packets to RPC4's receive hook, as a peer would.
-struct RPC4Probe : RPC4
-{
-	PluginReceiveResult Receive(std::vector<unsigned char> &bytes)
-	{
-		Packet packet{};
-		packet.data = bytes.data();
-		packet.length = static_cast<unsigned int>(bytes.size());
-		packet.bitSize = packet.length * 8;
-		return OnReceive(&packet);
-	}
-	bool GotReturnValue() const { return gotBlockingReturnValue; }
-};
-} // namespace
-
-TEST(RPC4Slot, OneByteRpcPluginPacketIsDropped)
-{
-	// Used to read data[1] past the end (the exact-size buffer lets ASan see it).
-	RPC4Probe rpc;
-	std::vector<unsigned char> bytes{ID_RPC_PLUGIN};
-	EXPECT_EQ(RR_STOP_PROCESSING_AND_DEALLOCATE, rpc.Receive(bytes));
-	EXPECT_FALSE(rpc.GotReturnValue());
+	SimulatedNetwork net;
+	auto *peer = net.AddPeer(1);
+	ASSERT_NE(nullptr, peer);
+	const unsigned char frames[][2] = {{ID_RPC, 0}, {ID_RPC, 0xee}, {ID_USER_PACKET_ENUM, 0}};
+	peer->SendLoopback(reinterpret_cast<const char *>(frames[0]), 1);
+	peer->SendLoopback(reinterpret_cast<const char *>(frames[1]), 2);
+	peer->SendLoopback(reinterpret_cast<const char *>(frames[2]), 2);
+	Packet *packet = peer->Receive();
+	ASSERT_NE(nullptr, packet);
+	EXPECT_EQ(ID_USER_PACKET_ENUM, packet->data[0]);
+	peer->DeallocatePacket(packet);
+	EXPECT_EQ(nullptr, peer->Receive());
 }
 
-TEST(RPC4Slot, UnknownSubIdentifierIsDroppedNotTakenAsAReturnValue)
+TEST(RPCSlot, GetLocalSlotReturnsNullForUnknownName)
 {
-	// Used to RakAssert (aborting a Debug build) and then be stored as a blocking call's return value.
-	RPC4Probe rpc;
-	std::vector<unsigned char> bytes{ID_RPC_PLUGIN, 0xEE, 1, 2, 3};
-	EXPECT_EQ(RR_STOP_PROCESSING_AND_DEALLOCATE, rpc.Receive(bytes));
-	EXPECT_FALSE(rpc.GotReturnValue());
-
-	std::vector<unsigned char> returnValue{ID_RPC_PLUGIN, 1 /* ID_RPC4_RETURN */, 7};
-	EXPECT_EQ(RR_STOP_PROCESSING_AND_DEALLOCATE, rpc.Receive(returnValue));
-	EXPECT_TRUE(rpc.GotReturnValue());
-}
-
-TEST(RPC4Slot, GetLocalSlotReturnsNullForUnknownName)
-{
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	EXPECT_EQ(nullptr, rpc.GetLocalSlot("missing"));
 
 	CallLog log;
@@ -111,16 +89,17 @@ TEST(RPC4Slot, GetLocalSlotReturnsNullForUnknownName)
 	EXPECT_EQ(nullptr, rpc.GetLocalSlot("presen"));
 }
 
-TEST(RPC4Slot, InvokeSignalByHandleCallsRegisteredSlots)
+TEST(RPCSlot, InvokeSignalByHandleCallsRegisteredSlots)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	CallLog log;
 	SlotContext low{&log, "low"}, firstHigh{&log, "high1"}, secondHigh{&log, "high2"};
 	rpc.RegisterSlot("event", RecordingSlot, &low, 1);
 	rpc.RegisterSlot("event", RecordingSlot, &firstHigh, 5);
 	rpc.RegisterSlot("event", RecordingSlot, &secondHigh, 5);
 
-	RPC4::LocalSlot *slot = rpc.GetLocalSlot("event");
+	RPC::LocalSlot *slot = rpc.GetLocalSlot("event");
 	ASSERT_NE(nullptr, slot);
 
 	BitStream parameters;
@@ -133,22 +112,24 @@ TEST(RPC4Slot, InvokeSignalByHandleCallsRegisteredSlots)
 	EXPECT_EQ(expected, log.calls);
 }
 
-TEST(RPC4Slot, InvokeSignalWithNullHandleDoesNothing)
+TEST(RPCSlot, InvokeSignalWithNullHandleDoesNothing)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	BitStream parameters;
 	Packet packet;
 	rpc.InvokeSignal(nullptr, &parameters, &packet);
 	SUCCEED();
 }
 
-TEST(RPC4Slot, HandleStaysValidAcrossRegistrationsAndRehash)
+TEST(RPCSlot, HandleStaysValidAcrossRegistrationsAndRehash)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	CallLog log;
 	SlotContext first{&log, "first"}, later{&log, "later"};
 	rpc.RegisterSlot("stable", RecordingSlot, &first, 0);
-	RPC4::LocalSlot *slot = rpc.GetLocalSlot("stable");
+	RPC::LocalSlot *slot = rpc.GetLocalSlot("stable");
 	ASSERT_NE(nullptr, slot);
 
 	// Enough other identifiers to force the table to rehash several times.
@@ -165,9 +146,10 @@ TEST(RPC4Slot, HandleStaysValidAcrossRegistrationsAndRehash)
 	EXPECT_EQ(expected, log.calls);
 }
 
-TEST(RPC4Slot, UnregisterSlotRemovesTheHandle)
+TEST(RPCSlot, UnregisterSlotRemovesTheHandle)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	CallLog log;
 	SlotContext ctx{&log, "a"};
 	rpc.RegisterSlot("gone", RecordingSlot, &ctx, 0);
@@ -176,9 +158,10 @@ TEST(RPC4Slot, UnregisterSlotRemovesTheHandle)
 	EXPECT_EQ(nullptr, rpc.GetLocalSlot("gone"));
 }
 
-TEST(RPC4Slot, InterruptSignalStopsTheRemainingSlots)
+TEST(RPCSlot, InterruptSignalStopsTheRemainingSlots)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	CallLog log;
 	log.rpc = &rpc;
 	log.interruptAfterFirst = true;
@@ -194,9 +177,10 @@ TEST(RPC4Slot, InterruptSignalStopsTheRemainingSlots)
 	EXPECT_EQ(expected, log.calls);
 }
 
-TEST(RPC4Functions, RegisterRejectsDuplicatesAndUnregisterReportsRemoval)
+TEST(RPCFunctions, RegisterRejectsDuplicatesAndUnregisterReportsRemoval)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	int calls = 0;
 	EXPECT_TRUE(rpc.RegisterFunction("f", CountingFunction, &calls));
 	EXPECT_FALSE(rpc.RegisterFunction("f", CountingFunction, &calls));
@@ -205,9 +189,10 @@ TEST(RPC4Functions, RegisterRejectsDuplicatesAndUnregisterReportsRemoval)
 	EXPECT_TRUE(rpc.RegisterFunction("f", CountingFunction, &calls));
 }
 
-TEST(RPC4Functions, UnregisterLocalCallbackReportsEveryRemoval)
+TEST(RPCFunctions, UnregisterLocalCallbackReportsEveryRemoval)
 {
-	RPC4 rpc;
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
 	rpc.RegisterLocalCallback("onLost", ID_CONNECTION_LOST);
 	rpc.RegisterLocalCallback("alsoOnLost", ID_CONNECTION_LOST);
 	rpc.RegisterLocalCallback("onLost", ID_CONNECTION_LOST); // duplicate, ignored
@@ -220,14 +205,12 @@ TEST(RPC4Functions, UnregisterLocalCallbackReportsEveryRemoval)
 	EXPECT_FALSE(rpc.UnregisterLocalCallback("alsoOnLost", ID_CONNECTION_LOST));
 }
 
-class RPC4Network : public ::testing::Test
+class RPCNetwork : public ::testing::Test
 {
 protected:
 	SimulatedNetwork net;
 	RakPeer *client = nullptr;
 	RakPeer *server = nullptr;
-	RPC4 clientRpc;
-	RPC4 serverRpc;
 
 	void SetUp() override
 	{
@@ -235,59 +218,50 @@ protected:
 		server = net.AddPeer(1, 1);
 		ASSERT_NE(nullptr, client);
 		ASSERT_NE(nullptr, server);
-		client->AttachPlugin(&clientRpc);
-		server->AttachPlugin(&serverRpc);
 		ASSERT_TRUE(net.Connect(client, server));
-	}
-	void TearDown() override
-	{
-		if (client)
-			client->DetachPlugin(&clientRpc);
-		if (server)
-			server->DetachPlugin(&serverRpc);
 	}
 };
 
-TEST_F(RPC4Network, RemoteSignalReachesSlotsInPriorityOrder)
+TEST_F(RPCNetwork, RemoteSignalReachesSlotsInPriorityOrder)
 {
 	CallLog log;
 	SlotContext low{&log, "low"}, high{&log, "high"};
-	serverRpc.RegisterSlot("event", RecordingSlot, &low, 0);
-	serverRpc.RegisterSlot("event", RecordingSlot, &high, 9);
+	server->GetRPC().RegisterSlot("event", RecordingSlot, &low, 0);
+	server->GetRPC().RegisterSlot("event", RecordingSlot, &high, 9);
 
 	BitStream parameters;
 	parameters.Write(5);
-	clientRpc.Signal("event", &parameters, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false, false);
+	client->GetRPC().Signal("event", &parameters, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false, false);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return log.calls.size() == 2; }, 2000));
 	const std::vector<std::string> expected = {"high:5", "low:5"};
 	EXPECT_EQ(expected, log.calls);
 }
 
-TEST_F(RPC4Network, LocalSignalInvokesOwnSlots)
+TEST_F(RPCNetwork, LocalSignalInvokesOwnSlots)
 {
 	CallLog log;
 	SlotContext ctx{&log, "self"};
-	serverRpc.RegisterSlot("event", RecordingSlot, &ctx, 0);
+	server->GetRPC().RegisterSlot("event", RecordingSlot, &ctx, 0);
 	BitStream parameters;
 	parameters.Write(3);
-	serverRpc.Signal("event", &parameters, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false, true);
+	server->GetRPC().Signal("event", &parameters, Priority::High, Reliability::ReliableOrdered, 0, client->GetMyGUID(), false, true);
 	const std::vector<std::string> expected = {"self:3"};
 	EXPECT_EQ(expected, log.calls);
 }
 
 // A name received from the network is looked up verbatim. It used to be fed to
 // RakString's printf-style constructor, so a '%' in it read stray varargs.
-TEST_F(RPC4Network, FunctionNameWithPercentIsMatchedVerbatim)
+TEST_F(RPCNetwork, FunctionNameWithPercentIsMatchedVerbatim)
 {
 	int calls = 0;
-	ASSERT_TRUE(serverRpc.RegisterFunction("odd%s%n%dname", CountingFunction, &calls));
-	clientRpc.Call("odd%s%n%dname", nullptr, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false);
+	ASSERT_TRUE(server->GetRPC().RegisterFunction("odd%s%n%dname", CountingFunction, &calls));
+	client->GetRPC().Call("odd%s%n%dname", nullptr, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false);
 	ASSERT_TRUE(net.RunUntil([&]
 	                         { return calls == 1; }, 2000));
 
 	// An unknown name, '%' included, comes back as an error naming it.
-	clientRpc.Call("missing%s", nullptr, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false);
+	client->GetRPC().Call("missing%s", nullptr, Priority::High, Reliability::ReliableOrdered, 0, server->GetMyGUID(), false);
 	ASSERT_TRUE(net.RunUntilReceived(client, ID_RPC_REMOTE_ERROR, 2000));
 	const SimulatedNetwork::Message *error = net.Find(client, ID_RPC_REMOTE_ERROR);
 	ASSERT_NE(nullptr, error);
@@ -296,11 +270,11 @@ TEST_F(RPC4Network, FunctionNameWithPercentIsMatchedVerbatim)
 	EXPECT_EQ(std::string("missing%s"), std::string((const char *) error->data.data() + 2));
 }
 
-TEST_F(RPC4Network, LocalCallbackRunsRegisteredFunctionForItsMessageId)
+TEST_F(RPCNetwork, LocalCallbackRunsRegisteredFunctionForItsMessageId)
 {
 	int calls = 0;
-	ASSERT_TRUE(serverRpc.RegisterFunction("onUser", CountingFunction, &calls));
-	serverRpc.RegisterLocalCallback("onUser", ID_USER_PACKET_ENUM);
+	ASSERT_TRUE(server->GetRPC().RegisterFunction("onUser", CountingFunction, &calls));
+	server->GetRPC().RegisterLocalCallback("onUser", ID_USER_PACKET_ENUM);
 
 	BitStream message;
 	message.Write((MessageID) ID_USER_PACKET_ENUM);

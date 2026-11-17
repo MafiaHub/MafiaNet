@@ -392,3 +392,9 @@ Value-Type GUID Helpers
 
    if (auto addr = MafiaNet::connected_address(*peer, guid))
        printf("address: %s\n", addr->ToString());
+
+Remote Procedure Calls
+----------------------
+
+.. doxygenclass:: MafiaNet::RPC
+   :members:
