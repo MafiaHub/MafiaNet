@@ -34,7 +34,7 @@ Unreleased — breaking
 * **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
 * **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
-**Breaking (API and ABI)**: rebuild, then follow the migration guide. **Wire-compatible**: no message changes.
+**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox and LibVoice identifiers and the two remaining reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 131 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
 
 Version 0.26.0
 --------------

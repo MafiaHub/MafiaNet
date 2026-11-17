@@ -323,7 +323,8 @@ To debug a single test, run the binary directly with a filter:
 - **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC3/RPC4/TwoWayAuthentication/MessageFilter names were used as printf format strings
 - **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in TeamBalancer, Cloud, UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, CloudServer upload accounting (over-limit undo, placeholder uploads), StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
 - **Behaviour changes**: `SortTable` keeps tied rows, Router2 picks its forwarder deterministically, `PacketizedTCP` disconnects on a message above `SetMaxMessageLength()` (64 MiB default)
-- **Breaking (API and ABI)**: rebuild. Wire-compatible
+- **Breaking (API and ABI)**: rebuild against the updated headers.
+- **Breaking (wire protocol 10)**: upgrade clients and servers together. Removing the Xbox, LibVoice, and unused reserved IDs moves `ID_NAT_PING` from 10 to 7 and `ID_USER_PACKET_ENUM` from 135 to 131. Rebuild applications that derive message IDs from it.
 
 ### Version 0.26.0 (Latest)
 - **Receive on a thread of its own**: `RakPeerInterface::WaitForPackets()` blocks until a packet is waiting, and ReplicaManager3 can receive on one thread while `Update()` runs on another (per-connection locks, `WorldGuard`, `StateDelivery`)

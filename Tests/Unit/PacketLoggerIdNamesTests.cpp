@@ -39,7 +39,7 @@ namespace
 // a name dropped anywhere before this point pushes this one off the end of its own slot.
 TEST(PacketLoggerIdNames, LastEnumEntryReportsItsOwnName)
 {
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_RESERVED_9), "ID_RESERVED_9");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_SESSION_CONFIG_ABANDONED), "ID_SESSION_CONFIG_ABANDONED");
 }
 
 TEST(PacketLoggerIdNames, FirstEnumEntryReportsItsOwnName)
