@@ -22,7 +22,6 @@
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/fully_connected_mesh2.h"
-#include "mafianet/team_manager.h"
 #include "mafianet/kbhit.h"
 #include "mafianet/sleep.h"
 #include "mafianet/types.h"
@@ -73,10 +72,6 @@ using namespace MafiaNet;
 // Required?: Yes
 RakPeerInterface *rakPeer;
 
-// Purpose: Sophisticated team management
-// Required?: No, but provides a flexible and full-featured implementation that supports host migration, mid-game joins, and advanced team management.
-TeamManager *teamManager;
-
 // Purpose: Game object replication
 // Required?: No, but manages object replication automatically. Some form of this is required for almost every game
 ReplicaManager3 *gameReplicaManager3;
@@ -121,7 +116,6 @@ HTTPConnection2 *httpConnection2;
 
 // Forward declarations
 class User;
-class Team;
 void PostRoomToMaster(void);
 
 // Game contains the list of objects, and serializes if the game is locked, the name of the game, and if it is in gameplay or in the lobby
@@ -333,8 +327,6 @@ public:
 			printf("Attempting NAT punch to host of game session...\n");
 			break;
 		case IN_LOBBY_WITH_HOST:
-			printf("(1) to join team 1.\n");
-			printf("(2) to join team 2.\n");
 			printf("(R)eady to start\n");
 			printf("(U)nready to start\n");
 			break;
@@ -385,7 +377,6 @@ public:
 	char serverIPAddr[256];
 	// Just tracks what other objects have been created
 	std::vector<User *> users;
-	std::vector<Team *> teams;
 
 	// Master server has to be refreshed periodically so it knows we didn't crash
 	MafiaNet::Time whenToNextUpdateMasterServer;
@@ -423,148 +414,14 @@ public:
 } *game;
 
 
-// Team represents a list of players
-// It uses TM_Team from the TeamManager plugin to do actual team functionality, store which players are on which teams, and networking
-// It derives from Replica3 in order to replicate the teams across the network
-class Team : public Replica3
-{
-public:
-	Team()
-	{
-		game->teams.push_back(this);
-		tmTeam.SetOwner(this);
-	}
-	virtual ~Team()
-	{
-		game->teams.erase(std::find(game->teams.begin(), game->teams.end(), this));
-	}
-	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		allocationIdBitstream->Write("Team");
-	}
-	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
-	{
-		// unused parameters
-		(void) replicaManager3;
-
-		// This implementation has the host create the Team instances initially
-		// If the original host disconnects, the new host as determined by FullyConnectedMesh2 takes over replication duties
-		if (fullyConnectedMesh2->IsConnectedHost())
-			return QueryConstruction_PeerToPeer(destinationConnection, R3P2PM_MULTI_OWNER_CURRENTLY_AUTHORITATIVE);
-		else
-			return QueryConstruction_PeerToPeer(destinationConnection, R3P2PM_MULTI_OWNER_NOT_CURRENTLY_AUTHORITATIVE);
-	}
-	virtual bool QueryRemoteConstruction(MafiaNet::Connection_RM3 *sourceConnection)
-	{
-		// unused parameters
-		(void) sourceConnection;
-
-		return true;
-	}
-	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		constructionBitstream->Write(teamName);
-	}
-	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
-	{
-		// unused parameters
-		(void) sourceConnection;
-
-		constructionBitstream->Read(teamName);
-		printf("Downloaded team. name=%s\n", teamName.C_String());
-		// When ReplicaManager3 creates the team from a network command, the TeamManager class has to be informed of the new TM_Team instance
-		teamManager->GetWorldAtIndex(0)->ReferenceTeam(&tmTeam, GetNetworkID(), false);
-		return true;
-	}
-
-	virtual void PostSerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		tmTeam.SerializeConstruction(constructionBitstream);
-	}
-	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
-	{
-		// unused parameters
-		(void) sourceConnection;
-
-		tmTeam.DeserializeConstruction(teamManager, constructionBitstream);
-	}
-
-	virtual void SerializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
-	{
-		// unused parameters
-		(void) destructionBitstream;
-		(void) destinationConnection;
-	}
-	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
-	{
-		// unused parameters
-		(void) destructionBitstream;
-		(void) sourceConnection;
-
-		return true;
-	}
-	virtual MafiaNet::RM3ActionOnPopConnection QueryActionOnPopConnection(MafiaNet::Connection_RM3 *droppedConnection) const
-	{
-		// unused parameters
-		(void) droppedConnection;
-
-		// Do not destroy the object when the connection that created it disconnects.
-		return RM3AOPC_DO_NOTHING;
-	}
-	virtual void DeallocReplica(MafiaNet::Connection_RM3 *sourceConnection)
-	{
-		// unused parameters
-		(void) sourceConnection;
-
-		delete this;
-	}
-	virtual MafiaNet::RM3QuerySerializationResult QuerySerialization(MafiaNet::Connection_RM3 *destinationConnection)
-	{
-		// Whoever is currently the host serializes the class
-		if (fullyConnectedMesh2->IsConnectedHost())
-			return QuerySerialization_PeerToPeer(destinationConnection, R3P2PM_MULTI_OWNER_CURRENTLY_AUTHORITATIVE);
-		else
-			return QuerySerialization_PeerToPeer(destinationConnection, R3P2PM_MULTI_OWNER_NOT_CURRENTLY_AUTHORITATIVE);
-	}
-	virtual RM3SerializationResult Serialize(MafiaNet::SerializeParameters *serializeParameters)
-	{
-		// unused parameters
-		(void) serializeParameters;
-
-		return RM3SR_BROADCAST_IDENTICALLY;
-	}
-	virtual void Deserialize(MafiaNet::DeserializeParameters *deserializeParameters)
-	{
-		// unused parameters
-		(void) deserializeParameters;
-	}
-
-	// Team data managed by the TeamManager plugin
-	TM_Team tmTeam;
-
-	// Example of team data not managed by TeamManager
-	RakString teamName;
-};
-
 // User represents a player in the game
 // Each system creates one user on startup. Other users are downloaded
-// User also contains a TM_TeamMember instance, since users join teams
 class User : public Replica3
 {
 public:
 	User()
 	{
 		game->users.push_back(this);
-		tmTeamMember.SetOwner(this);
 		natType = NAT_TYPE_UNKNOWN;
 	}
 	virtual ~User()
@@ -608,34 +465,19 @@ public:
 		// unused parameters
 		(void) sourceConnection;
 
-		// The TeamManager plugin has to be informed of TM_TeamMember instances created over the network
-		teamManager->GetWorldAtIndex(0)->ReferenceTeamMember(&tmTeamMember, GetNetworkID());
 		constructionBitstream->Read(userName);
 		constructionBitstream->ReadCasted<unsigned char>(natType);
 		constructionBitstream->Read(playerGuid);
 		constructionBitstream->Read(playerAddress);
 		return true;
 	}
-	virtual void PostSerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
-	{
-		// unused parameters
-		(void) destinationConnection;
-
-		// TeamManager requires that TM_Team was created before TM_TeamMember that uses it.
-		// PostSerializeConstruction and PostDeserializeConstruction ensure that all objects have been created before serialization
-		tmTeamMember.SerializeConstruction(constructionBitstream);
-	}
 	virtual void PostDeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
 		// unused parameters
+		(void) constructionBitstream;
 		(void) sourceConnection;
 
-		tmTeamMember.DeserializeConstruction(teamManager, constructionBitstream);
-		printf("Downloaded user. name=%s", userName.C_String());
-		if (tmTeamMember.GetCurrentTeam() == 0)
-			printf(" not on a team\n");
-		else
-			printf(" on team %s\n", ((Team *) (tmTeamMember.GetCurrentTeam()->GetOwner()))->teamName.C_String());
+		printf("Downloaded user. name=%s\n", userName.C_String());
 
 		// Update the user count on the master server as new users join
 		if (fullyConnectedMesh2->IsConnectedHost())
@@ -684,8 +526,6 @@ public:
 		(void) deserializeParameters;
 	}
 
-	// Team data managed by the TeamManager plugin
-	TM_TeamMember tmTeamMember;
 	RakString userName;
 	NATTypeDetectionResult natType;
 	RakNetGUID playerGuid;
@@ -714,8 +554,6 @@ public:
 		allocationIdBitstream->Read(objectType);
 		if (objectType == "User")
 			return new User;
-		if (objectType == "Team")
-			return new Team;
 		RakAssert("Unknown type in AllocReplica" && 0);
 		return 0;
 	}
@@ -782,7 +620,6 @@ void RegisterGameParticipant(RakNetGUID guid)
 	Connection_RM3 *connection = gameReplicaManager3->AllocConnection(rakPeer->GetSystemAddressFromGuid(guid), guid);
 	if (gameReplicaManager3->PushConnection(connection) == false)
 		gameReplicaManager3->DeallocConnection(connection);
-	teamManager->GetWorldAtIndex(0)->AddParticipant(guid);
 	readyEvent->AddToWaitList(0, guid);
 }
 
@@ -847,16 +684,6 @@ void CreateRoom(void)
 
 	// Upload the room to the server
 	PostRoomToMaster();
-
-	// Room owner creates two teams and registers them for replication
-	Team *team1 = new Team;
-	team1->SetNetworkIDManager(networkIDManager);
-	team1->teamName = "Team1";
-	teamManager->GetWorldAtIndex(0)->ReferenceTeam(&team1->tmTeam, team1->GetNetworkID(), false);
-	Team *team2 = new Team;
-	team2->SetNetworkIDManager(networkIDManager);
-	team2->teamName = "Team2";
-	teamManager->GetWorldAtIndex(0)->ReferenceTeam(&team2->tmTeam, team2->GetNetworkID(), false);
 
 	game->EnterPhase(Game::IN_LOBBY_WAITING_FOR_HOST);
 
@@ -1015,7 +842,6 @@ int main(void)
 	// Allocate plugins. See declaration in this file for description of each
 	// ---------------------------------------------------------------------------------------------------------------------
 	rakPeer = MafiaNet::RakPeerInterface::GetInstance();
-	teamManager = TeamManager::GetInstance();
 	fullyConnectedMesh2 = FullyConnectedMesh2::GetInstance();
 	networkIDManager = NetworkIDManager::GetInstance();
 	tcp = TCPInterface::GetInstance();
@@ -1031,7 +857,6 @@ int main(void)
 	// Attach plugins
 	// ---------------------------------------------------------------------------------------------------------------------
 	rakPeer->AttachPlugin(fullyConnectedMesh2);
-	rakPeer->AttachPlugin(teamManager);
 	rakPeer->AttachPlugin(natPunchthroughClient);
 #ifdef NAT_TYPE_DETECTION_SERVER
 	rakPeer->AttachPlugin(natTypeDetectionClient);
@@ -1044,11 +869,6 @@ int main(void)
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Setup plugins: Disable automatically adding new connections. Allocate initial objects and register for replication
 	// ---------------------------------------------------------------------------------------------------------------------
-	// Allocate a world instance to be used for team operations
-	teamManager->AddWorld(0);
-	// Do not automatically count new connections
-	teamManager->SetAutoManageConnections(false);
-
 	// New connections do not count until after login.
 	fullyConnectedMesh2->SetAutoparticipateConnections(false);
 
@@ -1067,8 +887,6 @@ int main(void)
 	User *user = new User;
 	user->SetNetworkIDManager(networkIDManager);
 	user->userName = MafiaNet::to_string(rakPeer->GetMyGUID()).c_str();
-	// Inform TeamManager of my user's team member info
-	teamManager->GetWorldAtIndex(0)->ReferenceTeamMember(&user->tmTeamMember, user->GetNetworkID());
 
 	// ---------------------------------------------------------------------------------------------------------------------
 	// Startup RakNet on first available port
@@ -1223,46 +1041,10 @@ int main(void)
 					for (unsigned int i = 0; i < participantList.size(); i++)
 						RegisterGameParticipant(participantList[i]);
 
-					// Reference previously created replicated objects, which cannot be serialized until host is known the first time
-					if (packet->guid == rakPeer->GetMyGUID())
-					{
-						// As host, reference the teams we created
-						for (unsigned int i = 0; i < game->teams.size(); i++)
-							gameReplicaManager3->Reference(game->teams[i]);
-					}
-
 					// Reference the user we created (host or not)
 					for (unsigned int i = 0; i < game->users.size(); i++)
 						gameReplicaManager3->Reference(game->users[i]);
 				}
-			}
-			break;
-			case ID_TEAM_BALANCER_TEAM_ASSIGNED:
-			{
-				printf("ID_TEAM_BALANCER_TEAM_ASSIGNED for ");
-				TM_World *world;
-				TM_TeamMember *teamMember;
-				teamManager->DecodeTeamAssigned(packet, &world, &teamMember);
-				printf("worldId=%i teamMember=%s", world->GetWorldId(), ((User *) teamMember->GetOwner())->userName.C_String());
-				if (teamMember->GetCurrentTeam() == 0)
-					printf(" not on team\n");
-				else
-					printf(" on team %s\n", ((Team *) (teamMember->GetCurrentTeam()->GetOwner()))->teamName.C_String());
-			}
-			break;
-			case ID_TEAM_BALANCER_REQUESTED_TEAM_FULL:
-			{
-				printf("ID_TEAM_BALANCER_REQUESTED_TEAM_FULL\n");
-			}
-			break;
-			case ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED:
-			{
-				printf("ID_TEAM_BALANCER_REQUESTED_TEAM_LOCKED\n");
-			}
-			break;
-			case ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED:
-			{
-				printf("ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED\n");
 			}
 			break;
 			case ID_NAT_TARGET_NOT_CONNECTED:
@@ -1635,15 +1417,7 @@ int main(void)
 					}
 				}
 
-				if (ch == '1')
-				{
-					user->tmTeamMember.RequestTeamSwitch(&game->teams[0]->tmTeam, 0);
-				}
-				else if (ch == '2')
-				{
-					user->tmTeamMember.RequestTeamSwitch(&game->teams[1]->tmTeam, 0);
-				}
-				else if (ch == 'r' || ch == 'R')
+				if (ch == 'r' || ch == 'R')
 				{
 					if (readyEvent->SetEvent(0, true))
 						printf("We are ready to start.\n");
@@ -1696,11 +1470,6 @@ int main(void)
 					for (unsigned int i = 0; i < participantList.size(); i++)
 						rakPeer->CloseConnection(participantList[i], true);
 
-					// User instances are deleted automatically from ReplicaManager3.
-					// However, teams are not deleted since the Team class can migrate between systems. So delete Team instances manually
-					while (game->teams.size())
-						delete game->teams[game->teams.size() - 1];
-
 					// If we were the host, no longer list this session
 					// The new host will call PostRoomToCloud to reupload under a new IP address on ID_FCM2_NEW_HOST
 					ReleaseRoomFromCloud();
@@ -1743,14 +1512,11 @@ int main(void)
 
 	rakPeer->Shutdown(100);
 
-	while (game->teams.size())
-		delete game->teams[game->teams.size() - 1];
 	while (game->users.size())
 		delete game->users[game->users.size() - 1];
 	delete game;
 
 	RakPeerInterface::DestroyInstance(rakPeer);
-	TeamManager::DestroyInstance(teamManager);
 	FullyConnectedMesh2::DestroyInstance(fullyConnectedMesh2);
 	NatPunchthroughClient::DestroyInstance(natPunchthroughClient);
 	NatTypeDetectionClient::DestroyInstance(natTypeDetectionClient);

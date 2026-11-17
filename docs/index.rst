@@ -60,12 +60,10 @@ MafiaNet Documentation
    plugins/file-list-transfer
    plugins/directory-delta-transfer
    plugins/ready-event
-   plugins/team-manager
    plugins/router2
    plugins/message-filter
    plugins/packet-logger
    plugins/rakvoice
-   plugins/team-balancer
 
 .. toctree::
    :maxdepth: 2

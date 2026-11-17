@@ -59,7 +59,7 @@ endif()
 # Plugin selection. Every optional plugin in the core library is guarded by a
 # _RAKNET_SUPPORT_<Name> flag from native_feature_includes.h. These two settings
 # are the supported way to compile plugins out without editing that header:
-#   -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;TeamManager"   drop specific plugins
+#   -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;ReadyEvent"   drop specific plugins
 #   -DMAFIANET_MINIMAL=ON                                         drop every optional plugin
 # The resulting defines are PUBLIC on the library targets, so consumers see the
 # same header configuration the library was built with. See

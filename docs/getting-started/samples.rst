@@ -113,17 +113,6 @@ Full NAT traversal demonstration. Shows:
 - UPnP fallback
 - Router2 relay
 
-TeamManager
-~~~~~~~~~~~
-
-``Samples/TeamManager/``
-
-Team management for games. Shows:
-
-- Creating teams
-- Joining/leaving teams
-- Team balancing
-
 Utility Samples
 ---------------
 

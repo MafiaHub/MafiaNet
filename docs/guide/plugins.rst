@@ -36,8 +36,6 @@ Available Plugins
 
 * ``ReplicaManager3`` - Object replication and state synchronization
 * ``ReadyEvent`` - Synchronize ready state across peers
-* ``TeamManager`` - Manage teams and team balancing
-* ``TeamBalancer`` - Automatic team balancing
 
 **Utility Plugins**
 

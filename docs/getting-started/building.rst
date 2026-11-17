@@ -58,7 +58,7 @@ Configure build options with CMake:
      - Build ``MafiaNetExtras`` (SMTP, HTTP client, telnet/console transports). Forced ON by ``MAFIANET_BUILD_SAMPLES``. See `The extras library`_.
    * - ``MAFIANET_DISABLED_FEATURES``
      - (empty)
-     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;TeamManager"``. See `Minimal builds`_.
+     - Semicolon-separated plugin names to compile out, e.g. ``"ReplicaManager3;ReadyEvent"``. See `Minimal builds`_.
    * - ``MAFIANET_MINIMAL``
      - OFF
      - Compile out every optional plugin, including the built-in RPC service in the core. See `Minimal builds`_.
@@ -105,7 +105,7 @@ header:
 .. code-block:: bash
 
    # Drop specific plugins
-   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;TeamManager"
+   cmake -B build -DMAFIANET_DISABLED_FEATURES="ReplicaManager3;ReadyEvent"
 
    # Core transport and RPC, with every optional plugin compiled out
    cmake -B build -DMAFIANET_MINIMAL=ON
