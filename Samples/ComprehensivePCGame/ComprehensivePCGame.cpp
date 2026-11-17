@@ -1505,7 +1505,7 @@ int main(void)
 									json_t *natTypesVal = json_object_get(object, "natTypes");
 									RakAssert(natTypesVal->type == JSON_ARRAY);
 									size_t natTypesSize = json_array_size(natTypesVal);
-									printf("Room name: %s. Players: %i\n", json_string_value(roomNameVal), natTypesSize);
+									printf("Room name: %s. Players: %zu\n", json_string_value(roomNameVal), natTypesSize);
 								}
 
 								if (arraySize == 0)

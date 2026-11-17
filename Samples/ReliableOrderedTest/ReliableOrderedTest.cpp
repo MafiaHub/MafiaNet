@@ -46,7 +46,7 @@ void *LoggedMalloc(size_t size, const char *file, unsigned int line)
 {
 	memoryUsage += size;
 	if (fp)
-		fprintf(fp, "Alloc %s:%i %i bytes %i total\n", file, line, size, memoryUsage);
+		fprintf(fp, "Alloc %s:%i %zu bytes %i total\n", file, line, size, memoryUsage);
 	char *p = (char *) malloc(size + sizeof(size));
 	memcpy(p, &size, sizeof(size));
 	return p + sizeof(size);
@@ -58,7 +58,7 @@ void LoggedFree(void *p, const char *file, unsigned int line)
 	memcpy(&allocatedSize, realP, sizeof(size_t));
 	memoryUsage -= allocatedSize;
 	if (fp)
-		fprintf(fp, "Free %s:%i %i bytes %i total\n", file, line, allocatedSize, memoryUsage);
+		fprintf(fp, "Free %s:%i %zu bytes %i total\n", file, line, allocatedSize, memoryUsage);
 	free(realP);
 }
 void *LoggedRealloc(void *p, size_t size, const char *file, unsigned int line)
@@ -71,7 +71,7 @@ void *LoggedRealloc(void *p, size_t size, const char *file, unsigned int line)
 	p = realloc(realP, size + sizeof(size));
 	memcpy(p, &size, sizeof(size));
 	if (fp)
-		fprintf(fp, "Realloc %s:%i %i to %i bytes %i total\n", file, line, allocatedSize, size, memoryUsage);
+		fprintf(fp, "Realloc %s:%i %zu to %zu bytes %i total\n", file, line, allocatedSize, size, memoryUsage);
 	return (char *) p + sizeof(size);
 }
 

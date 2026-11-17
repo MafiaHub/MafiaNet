@@ -1216,7 +1216,6 @@ protected:
 	unsigned int GenerateSeedFromGuid(void);
 	MafiaNet::Time GetClockDifferentialInt(RemoteSystemStruct *remoteSystem) const;
 
-	//DataStructures::AVLBalancedBinarySearchTree<RPCNode> rpcTree;
 	int defaultMTUSize;
 	bool trackFrequencyTable;
 
