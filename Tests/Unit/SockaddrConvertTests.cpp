@@ -183,7 +183,7 @@ TEST(HopLimitOptions, DualStackIpv6TargetUsesUnicastHops)
 TEST(HopLimitOptions, DualStackIpv4TargetTriesIpTtlThenUnicastHops)
 {
 	// Linux and Windows apply IP_TTL to the IPv4 traffic of an AF_INET6 socket;
-	// macOS and the BSDs reject IP_TTL there (EINVAL) and apply the IPv6 hop
+	// macOS rejects IP_TTL there (EINVAL) and applies the IPv6 hop
 	// limit to IPv4-mapped datagrams instead.
 	HopLimitOption options[MAX_HOP_LIMIT_OPTIONS];
 	ASSERT_EQ(HopLimitOptionsFor(AF_INET6, true, AF_INET, options), 2);

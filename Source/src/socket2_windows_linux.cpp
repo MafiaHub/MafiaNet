@@ -113,7 +113,7 @@ static void GetMyIP_Linux(std::vector<SystemAddress> &found)
 
 	for (struct ifaddrs *pCurAdapter = pAddresses; pCurAdapter != nullptr; pCurAdapter = pCurAdapter->ifa_next)
 	{
-		// skip interfaces which don't have any address assigned (according to the manual, this would only apply for BSD, but still we'd check for null here just in case)
+		// Skip interfaces without an assigned address.
 		// and loopback adapters
 		if (pCurAdapter->ifa_addr == nullptr || (pCurAdapter->ifa_flags & IFF_LOOPBACK) != 0)
 			continue;

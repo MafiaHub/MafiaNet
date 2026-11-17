@@ -250,7 +250,7 @@ RNS2BindResult RNS2_Berkley::BindSharedIPV4And6(RNS2_BerkleyBindParameters *bind
 
 	// AF_UNSPEC: one AF_INET6 socket with IPV6_V6ONLY=0 serves both families.
 	// Only when the host cannot provide that (no IPv6 stack, an IPv4-only bind
-	// address, or a system such as OpenBSD that refuses V6ONLY=0) fall back to
+	// address, or a system that refuses V6ONLY=0) fall back to
 	// a plain IPv4 socket -- unless the caller requires dual-stack, which then
 	// fails instead. A bind() failure -- the port is taken -- is reported as
 	// is: an IPv4 socket on that port would hide the conflict.
@@ -355,7 +355,7 @@ RNS2BindResult RNS2_Berkley::BindAddressFamily(RNS2_BerkleyBindParameters *bindP
 			{
 				if (r != 0)
 				{
-					// This system cannot do dual-stack (OpenBSD); let the caller
+					// This system cannot do dual-stack; let the caller
 					// fall back to IPv4 rather than serve IPv6 only.
 					closesocket__(rns2Socket);
 					rns2Socket = (RNS2Socket) INVALID_SOCKET;

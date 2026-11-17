@@ -17,7 +17,7 @@
 /// including RNS2SendBatch, which only needs RakNetSocket2::SendBatch (whose
 /// base implementation works on every platform) -- so the logic that is actually
 /// bug-prone is unit-testable even where the mmsg syscalls do not exist (macOS,
-/// Windows, the BSDs).
+/// Windows).
 
 #ifndef __MAFIANET_MMSG_BATCH_H
 #define __MAFIANET_MMSG_BATCH_H

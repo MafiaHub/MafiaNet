@@ -26,16 +26,12 @@
 
 using namespace MafiaNet;
 
-#ifdef _WIN32
-#else
+#ifndef _WIN32
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <netdb.h> // EAI_FAMILY, classified by RNS2_IsFamilyNotSupportedResolveError
 #include <errno.h> // error numbers
-#if !defined(ANDROID)
-#include <ifaddrs.h>
-#endif
 #include <netinet/in.h>
 #include <net/if.h>
 #include <sys/types.h>

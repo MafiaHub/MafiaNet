@@ -435,7 +435,7 @@ enum DefaultMessageIDTypes
 	ID_CLOUD_SERVER_TO_SERVER_COMMAND,
 	ID_CLOUD_SUBSCRIPTION_NOTIFICATION,
 
-	// LibVoice
+	// Reserved for the retired LibVoice plugin.
 	ID_LIB_VOICE,
 
 	ID_RELAY_PLUGIN,

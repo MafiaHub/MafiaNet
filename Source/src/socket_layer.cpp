@@ -26,7 +26,7 @@
 #include "mafianet/socket_defines.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
-#if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(__WIN32__)
+#ifndef _WIN32
 #include <netdb.h>
 #endif
 
@@ -61,9 +61,6 @@ using namespace MafiaNet;
 #include <arpa/inet.h>
 #include <errno.h> // error numbers
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
-#if !defined(ANDROID)
-#include <ifaddrs.h>
-#endif
 #include <netinet/in.h>
 #include <net/if.h>
 #include <sys/types.h>
@@ -94,7 +91,7 @@ void PrepareAddrInfoHints(addrinfo *hints)
 }
 
 // fe80::/10, checked on the bytes rather than with IN6_IS_ADDR_LINKLOCAL, whose
-// availability and constness differ across Winsock and the BSD libcs.
+// availability and constness differ across Winsock and POSIX systems.
 static bool IsLinkLocalIPv6(const SystemAddress &systemAddress)
 {
 	const unsigned char *b = reinterpret_cast<const unsigned char *>(&systemAddress.address.addr6.sin6_addr);

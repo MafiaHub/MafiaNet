@@ -161,9 +161,6 @@
 #ifndef _RAKNET_SUPPORT_StatisticsHistory
 #define _RAKNET_SUPPORT_StatisticsHistory 1
 #endif
-#ifndef _RAKNET_SUPPORT_LibVoice
-#define _RAKNET_SUPPORT_LibVoice 0
-#endif
 #ifndef _RAKNET_SUPPORT_RelayPlugin
 #define _RAKNET_SUPPORT_RelayPlugin 1
 #endif

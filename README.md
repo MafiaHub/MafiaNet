@@ -29,7 +29,7 @@
 
 MafiaNet is an actively maintained networking library built for game developers who need reliable, high-performance multiplayer networking. Built on the foundation of RakNet and SLikeNet, MafiaNet delivers battle-tested networking capabilities with modern C++ standards and security practices.
 
-**Supported Platforms:** Windows, Linux, macOS (primary) | iOS, Android (limited)
+**Supported Platforms:** Linux, macOS, and Windows
 
 ## Quick Start
 
@@ -82,9 +82,8 @@ cmake -DMAFIANET_BUILD_SAMPLES=ON ..
 
 On Linux, MafiaNet coalesces multiple datagrams into a single `recvmmsg`/`sendmmsg`
 system call instead of one `recvfrom`/`sendto` per packet. **This is automatic — there
-is nothing to configure.** On platforms without those syscalls (macOS, Windows, the
-BSDs) the portable per-datagram paths compile instead; behaviour is identical either
-way, only the number of system calls differs.
+is nothing to configure.** On macOS and Windows, MafiaNet sends and receives one datagram per
+system call. The wire protocol is identical on all three platforms.
 
 Measured on the 2560-message reliable-ordered burst in
 `Tests/Integration/MmsgBatchLiveTests.cpp` (Linux, Release, `strace -c`, median of

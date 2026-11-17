@@ -43,7 +43,7 @@ typedef int socklen_t;
 #include "mafianet/socket_layer.h"
 #include "mafianet/socket_defines.h"
 #include "mafianet/sockaddr_convert.h"
-#if (defined(__GNUC__) || defined(__GCCXML__)) && !defined(__WIN32__)
+#ifndef _WIN32
 #include <netdb.h>
 #endif
 
@@ -209,7 +209,7 @@ static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, 
 
 // A connection socket must never raise SIGPIPE: a peer can reset it at any time, and another thread may shut it
 // down while the update thread still writes to it. send() also passes MSG_NOSIGNAL where it exists, but SO_NOSIGPIPE
-// (macOS, the BSDs) covers older SDKs and libcs without it.
+// (macOS) covers older SDKs and libcs without it.
 static void DisableSigpipe(__TCPSOCKET__ s)
 {
 #ifdef SO_NOSIGPIPE
@@ -248,7 +248,7 @@ static __TCPSOCKET__ BindTcpListenSocket(const char *portStr, int family, bool d
 			int v6only = dualStack ? 0 : 1;
 			if (setsockopt__(candidate, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &v6only, sizeof(v6only)) != 0 && dualStack)
 			{
-				closesocket__(candidate); // this system cannot do dual-stack (OpenBSD)
+				closesocket__(candidate); // this system cannot do dual-stack
 				continue;
 			}
 		}

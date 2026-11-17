@@ -127,7 +127,7 @@ struct RAK_DLL_EXPORT SocketDescriptor
 	/// IP version. AF_UNSPEC (the default) opens one dual-stack socket (AF_INET6
 	/// with IPV6_V6ONLY=0) that reaches both IPv4 and IPv6 peers; IPv4 peers are
 	/// still reported as plain IPv4 addresses, never as ::ffff:a.b.c.d. Where the
-	/// host has no IPv6, refuses dual-stack (as OpenBSD does), or \a hostAddress
+	/// host has no IPv6, refuses dual-stack, or \a hostAddress
 	/// names a specific address, it falls back to a single-family socket unless
 	/// \a requireDualStack is set; RakNetSocket2::IsDualStack() tells which one
 	/// you got. A dual-stack socket on the wildcard address reports 127.0.0.1 and

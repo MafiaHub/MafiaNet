@@ -80,8 +80,7 @@ static const int MAX_HOP_LIMIT_OPTIONS = 2;
 ///   and Windows dual-mode sockets, apply it to the socket's IPv4 traffic and
 ///   ignore the hop limit for it -- measured on Linux), then IPPROTO_IPV6 /
 ///   IPV6_UNICAST_HOPS (macOS rejects IP_TTL on an AF_INET6 socket with
-///   EINVAL and applies the hop limit to IPv4-mapped datagrams -- measured;
-///   the BSDs share that code but were not measured).
+///   EINVAL and applies the hop limit to IPv4-mapped datagrams -- measured on macOS).
 RAK_DLL_EXPORT int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, int targetFamily, HopLimitOption out[MAX_HOP_LIMIT_OPTIONS]);
 
 /// The value to put back after a datagram was sent with a temporary TTL, given
@@ -91,7 +90,7 @@ RAK_DLL_EXPORT int HopLimitOptionsFor(int socketFamily, bool socketIsDualStack, 
 /// but not on a dual-stack one: on macOS, explicitly setting -1 makes the
 /// socket send its IPv4-mapped datagrams with TTL 255 from then on. There the
 /// IPv4 default \a ipv4DefaultTtl is restored instead (64 when it is not
-/// positive, the Linux, macOS and BSD default).
+/// positive, the Linux and macOS default).
 RAK_DLL_EXPORT int HopLimitToRestore(int saved, bool socketIsDualStack, int ipv4DefaultTtl);
 
 } // namespace MafiaNet

@@ -349,7 +349,7 @@ TEST_F(TcpInterfaceDualStackLive, UnspecListenerAcceptsIpv4AndIpv6Clients)
 	ASSERT_NE(port, 0);
 	if (server->ListenFamily() != AF_INET6)
 	{
-		// ::1 works but the host refuses dual-stack sockets (OpenBSD).
+		// ::1 works but the host refuses dual-stack sockets.
 		if (std::getenv("MAFIANET_REQUIRE_IPV6") != nullptr)
 			FAIL() << "AF_UNSPEC listener is not dual-stack but MAFIANET_REQUIRE_IPV6 is set";
 		GTEST_SKIP() << "no dual-stack sockets on this host";

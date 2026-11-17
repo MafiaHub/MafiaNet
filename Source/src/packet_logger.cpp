@@ -453,7 +453,7 @@ void PacketLogger::SetSuffix(const char *_suffix)
 }
 void PacketLogger::GetLocalTime(char buffer[128])
 {
-#if defined(_WIN32) && !defined(__GNUC__) && !defined(__GCCXML__)
+#if defined(_WIN32) && !defined(__GNUC__)
 	time_t rawtime;
 	struct timeval tv;
 	// If you get an arror about an incomplete type, just delete this file

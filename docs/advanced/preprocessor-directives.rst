@@ -126,13 +126,12 @@ configures batching, and consumer code should not try to:
 .. code-block:: cpp
 
    #if defined(__linux__)
-   RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count,
-                             const char *file, unsigned int line );
+   RNS2SendResult SendBatch( RNS2_SendParameters *sends, unsigned count );
    #endif
 
 The guard is needed even inside ``RNS2_Linux`` because that is the *non-Windows*
-socket class, so it also compiles on macOS and the BSDs, where
-``sendmmsg``/``recvmmsg`` do not exist. Those platforms inherit the portable
+socket class, so it also compiles on macOS, where
+``sendmmsg``/``recvmmsg`` do not exist. macOS inherits the portable
 ``Send()``-loop implementation of ``RakNetSocket2::SendBatch``.
 
 See Also

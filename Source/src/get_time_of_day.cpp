@@ -13,7 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#if defined(_WIN32) && !defined(__GNUC__) && !defined(__GCCXML__)
+#if defined(_WIN32) && !defined(__GNUC__)
 
 #include "mafianet/get_time_of_day.h"
 

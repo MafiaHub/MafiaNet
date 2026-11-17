@@ -13,6 +13,10 @@ project(MafiaNet
     LANGUAGES C CXX
 )
 
+if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Darwin|Windows)$")
+    message(FATAL_ERROR "MafiaNet supports Linux, macOS, and Windows. Target system: ${CMAKE_SYSTEM_NAME}")
+endif()
+
 # Prevent in-source builds
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "In-source builds are not allowed. Create a build directory and run cmake from there.")

@@ -20,12 +20,8 @@
 // libpq-fe.h is part of PostgreSQL which must be installed on this computer to use the PostgreRepository
 #include "libpq-fe.h"
 
-#ifdef _CONSOLE_1
-#include "Console1Includes.h"
-#elif defined(_WIN32)
+#ifdef _WIN32
 #include <winsock2.h> // htonl
-#elif defined(_CONSOLE_2)
-#include "Console2Includes.h"
 #else
 #include <arpa/inet.h>
 #endif

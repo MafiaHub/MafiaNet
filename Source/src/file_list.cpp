@@ -22,22 +22,10 @@
 #include <stdio.h> // RAKNET_DEBUG_PRINTF
 #include <vector>
 #include "mafianet/assert.h"
-#if defined(ANDROID)
-#include <asm/io.h>
-#elif defined(_WIN32) || defined(__CYGWIN__)
-#include <io.h>
-
-
-#elif !defined(__APPLE__) && !defined(__APPLE_CC__) && !defined(__PPC__) && !defined(__FreeBSD__) && !defined(__S3E__) && (defined(__i386__) || defined(__x86_64__))
-// <sys/io.h> only exists for x86/x86_64 glibc (port I/O helpers). It is not
-// referenced here, so on other Linux architectures (e.g. aarch64/arm) we omit it.
-#include <sys/io.h>
-#endif
-
-
 #ifdef _WIN32
 // For mkdir
 #include <direct.h>
+#include <io.h>
 
 
 #else

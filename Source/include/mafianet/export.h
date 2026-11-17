@@ -15,7 +15,7 @@
 
 #include "mafianet/defines.h"
 
-#if defined(_WIN32) && !(defined(__GNUC__) || defined(__GCCXML__)) && !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
+#if defined(_WIN32) && !defined(__GNUC__) && !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
 #define RAK_DLL_EXPORT __declspec(dllexport)
 #else
 #define RAK_DLL_EXPORT
@@ -26,7 +26,7 @@
 // is dllexport while building MafiaNet.dll (MAFIANET_DLL_EXPORT) and dllimport for code
 // that links it. RAK_DLL_EXPORT stays as it was: it also decorates class templates, and
 // dllimport there would break implicit instantiation in consumers.
-#if defined(_WIN32) && !(defined(__GNUC__) || defined(__GCCXML__)) && !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
+#if defined(_WIN32) && !defined(__GNUC__) && !defined(_MAFIANET_LIB) && defined(_MAFIANET_DLL)
 #if defined(MAFIANET_DLL_EXPORT)
 #define MAFIANET_DATA_API __declspec(dllexport)
 #else
