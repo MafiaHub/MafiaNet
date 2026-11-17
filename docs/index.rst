@@ -66,11 +66,9 @@ MafiaNet Documentation
    plugins/message-filter
    plugins/packet-logger
    plugins/two-way-authentication
-   plugins/cloud-computing
    plugins/lobby2
    plugins/rakvoice
    plugins/team-balancer
-   plugins/sqlite3-plugin
    plugins/steam-lobby
 
 .. toctree::

@@ -7,9 +7,6 @@
 add_subdirectory(BigPacketTest)
 add_subdirectory(BurstTest)
 add_subdirectory(ChatExample)
-add_subdirectory(CloudClient)
-add_subdirectory(CloudServer)
-add_subdirectory(CloudTest)
 add_subdirectory(CommandConsoleClient)
 add_subdirectory(CommandConsoleServer)
 add_subdirectory(ComprehensivePCGame)
@@ -61,12 +58,6 @@ add_subdirectory(AutopatcherServer)
 add_subdirectory(CrashReporter)
 
 # Platform/third-party dependent samples (conditionally built)
-
-# RPC3 requires Boost
-find_package(Boost QUIET)
-if(Boost_FOUND)
-    add_subdirectory(RPC3)
-endif()
 
 # RakVoice samples require audio libraries
 add_subdirectory(RakVoice)

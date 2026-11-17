@@ -28,9 +28,3 @@ find_package(PostgreSQL QUIET)
 if(PostgreSQL_FOUND)
     add_subdirectory(PostgreSQLInterface)
 endif()
-
-# RPC3 requires Boost
-find_package(Boost QUIET)
-if(Boost_FOUND)
-    add_subdirectory(RPC3)
-endif()

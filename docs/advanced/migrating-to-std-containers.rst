@@ -211,7 +211,7 @@ their ``_Ex`` variants, ``SetNotifyOutOfMemory``, ``GetMalloc`` /
 **Types and comparators:** ``RakNetSmartPtr``, ``SplitPacketChannelComp``
 (``reliability_layer.h``),
 ``ConnectionGraph2::RemoteSystemComp`` and ``SystemAddressAndGuidComp``,
-``RPC4::LocalCallbackComp``, ``CloudServer::GetRequestComp``,
+``RPC4::LocalCallbackComp``,
 ``VariableDeltaSerializer::UpdatedVariablesListPtrComp`` and
 ``RoomsPluginParticipantCompByRakString``. They only served the removed
 containers.
@@ -381,8 +381,8 @@ BitStream, compression and strings
   ``ranges`` is a ``std::vector<RangeNode<T>>``, and the ``RangeNodeComp``
   comparator and the constructor/destructor are gone.
 
-RPC4 and RPC3
-~~~~~~~~~~~~~
+RPC4
+~~~~
 
 * ``RPC4::GetLocalSlotIndex(const char*)`` (protected, returned a
   ``HashIndex``) is replaced by public ``LocalSlot *GetLocalSlot(const char
@@ -400,12 +400,6 @@ RPC4 and RPC3
   ``std::unordered_map``; ``localCallbacks`` is a
   ``std::map<MessageID, LocalCallback>``. ``LocalCallbackComp`` is removed.
   RPC4 is non-copyable.
-* RPC3 (``DependentExtensions/RPC3``) got the same treatment:
-  ``GetLocalSlotIndex`` / ``GetLocalFunctionIndex`` become
-  ``LocalSlot *GetLocalSlot(const char*)`` and
-  ``LocalRPCFunction *GetLocalFunction(const char*)`` (``nullptr`` when
-  absent), and ``InvokeSignal`` takes a ``LocalSlot*``. RPC3 is
-  non-copyable.
 
 .. code-block:: cpp
 
@@ -578,29 +572,6 @@ Threads and utilities
 * ``SendToThread::objectQueue`` is a
   ``LockedQueue<std::unique_ptr<SendToThreadBlock>>``;
   ``ThreadsafePacketLogger::logMessages`` a ``LockedQueue<std::string>``.
-
-Cloud
-~~~~~
-
-* ``CloudQuery::keys``, ``CloudQueryResult::rowsReturned`` and
-  ``resultKeyIndices`` are ``std::vector``.
-* ``CloudClient::Release(std::vector<CloudKey>&, RakNetGUID)``,
-  ``Get(CloudQuery*, std::vector<RakNetGUID>&, RakNetGUID)``,
-  ``Get(CloudQuery*, std::vector<CloudQueryRow*>&, RakNetGUID)`` and the three
-  ``Unsubscribe`` overloads take ``std::vector<...>&``.
-* ``CloudServerQueryFilter::OnReleaseRequest``, ``OnGetRequest`` and
-  ``OnUnsubscribeRequest`` take non-const ``std::vector<...>&``. A filter may
-  edit them, and the server now honours the edited list.
-* ``CloudServer::GetRemoteServers(std::vector<RakNetGUID>&)``; protected
-  ``NotifyClientSubscribersOfDataChange(..., const std::set<RakNetGUID>&,
-  bool)``, ``ReleaseKeys``, ``WriteCloudQueryRowFromResultList``,
-  ``UnsubscribeFromKey`` and the other helpers take ``std::vector``;
-  subscriber lists are ``std::set<RakNetGUID>``, key sets
-  ``std::set<CloudKey, CloudKeyLess>``. ``GetRequestComp`` is removed.
-  CloudServer is non-copyable.
-* ``CloudKey::Serialize`` and ``CloudQueryRow::Serialize`` return ``bool``
-  (``false`` on a short read). ``CloudQueryRow::data`` and ``length``
-  default to ``nullptr`` / ``0``.
 
 NAT traversal and UDP proxy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -783,29 +754,6 @@ listed below, by extension. ``RakNetSmartPtr<BinaryDataBlock>`` became
   non-copyable.
 * Rooms, ``ProfanityFilter.h``: ``words`` is a ``std::vector<RakString>``.
 
-**RPC3** (``DependentExtensions/RPC3``): see `RPC4 and RPC3`_. Also:
-``localSlots`` / ``localFunctions`` are
-``std::unordered_map<RakString, std::unique_ptr<...>>``,
-``LocalSlot::slotObjects`` is a sorted ``std::vector`` and ``LocalSlot`` gains
-an ``identifier`` field. The protected static ``IdentifierKey(const char*)``
-builds lookup keys without ``RakString``'s printf constructor.
-
-**SQLite3Plugin** (``DependentExtensions/SQLite3Plugin``)
-
-* ``SQLite3PluginCommon.h``: ``SQLite3Row::entries`` and
-  ``SQLite3Table::columnNames`` are ``std::vector<RakString>``;
-  ``SQLite3Table::rows`` is ``std::vector<std::unique_ptr<SQLite3Row>>``.
-* ``SQLite3ServerPlugin``: ``dbHandles`` is a ``std::vector<NamedDBHandle>``
-  sorted by ``dbIdentifier``, with a new protected
-  ``unsigned GetDBHandleIndex(const RakString&) const``; the
-  ``MLKeyRef`` comparison operators are removed.
-* ``SQLite3ClientPlugin``: ``resultHandlers`` is a ``std::vector``.
-* ``SQLiteServerLoggerPlugin``: ``loggedInSessions`` and
-  ``insertingColumnNames`` are ``std::vector``.
-* ``SQLiteClientLoggerPlugin``: the ``rakSqlLog`` / ``rakFnLog`` macros pass
-  ``__FILE__, __LINE__`` (they passed ``_FILE_AND_LINE_``); the functions they
-  call keep their ``file, line`` parameters.
-
 **Autopatcher**: ``AutopatcherServer::connectionPool`` and
 ``userRequestWaitingQueue`` are ``std::deque``, ``patchingUsers`` a
 ``std::vector<SystemAddress>``. No function signature changed.
@@ -821,8 +769,8 @@ were already unsafe to copy (a copy shared owned pointers and freed them
 twice); the deletion makes that a compile error:
 
 ``ConnectionGraph2``, ``TCPInterface``, ``PacketizedTCP``, ``ThreadPool``,
-``CloudServer``, ``NatTypeDetectionClient``, ``NatTypeDetectionServer``,
-``RoomsPlugin``, ``RPC3``, ``RPC4``, ``MessageFilter``, ``RelayPlugin``,
+``NatTypeDetectionClient``, ``NatTypeDetectionServer``,
+``RoomsPlugin``, ``RPC4``, ``MessageFilter``, ``RelayPlugin``,
 ``TwoWayAuthentication``, ``TwoWayAuthentication::NonceGenerator``,
 ``StatisticsHistory``, ``StatisticsHistoryPlugin``, ``StringCompressor``,
 ``StringTable``, ``HuffmanEncodingTree``, ``Table::Row`` and the new
@@ -841,7 +789,7 @@ Behaviour changes
   (``ping * (usedForwardingEntries + 1)``, computed in 64 bits: both factors
   come from the relay and the ``int`` product used to overflow), then the
   lowest GUID. Not visible on the wire.
-* **Peer-supplied names are matched verbatim.** RPC3, RPC4,
+* **Peer-supplied names are matched verbatim.** RPC4,
   TwoWayAuthentication and MessageFilter looked up names received from the
   network through ``RakString``'s printf-style constructor, so the remote
   string was used as a format string. A ``%`` in a name was undefined
@@ -897,7 +845,7 @@ Behaviour changes
   to be recorded twice and leave a dangling attempt when the sender left.
 * **Retail builds keep source locations in some messages.** ``_RETAIL``
   builds used to replace ``__FILE__`` / ``__LINE__`` with ``"", 0`` through
-  ``_FILE_AND_LINE_``. Router2 debug messages and the SQLite logger now
+  ``_FILE_AND_LINE_``. Router2 debug messages now
   always carry the real file and line. The Autopatcher PostgreSQL
   repository's error strings, which can be sent to clients, no longer
   mention a file or line in any build.

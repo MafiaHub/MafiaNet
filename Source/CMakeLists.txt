@@ -15,9 +15,6 @@ set(MAFIANET_SOURCES
     src/cc_sliding_window.cpp
     src/cc_udt.cpp
     src/check_sum.cpp
-    src/cloud_client.cpp
-    src/cloud_common.cpp
-    src/cloud_server.cpp
     src/connection_graph2.cpp
     src/data_compressor.cpp
     src/directory_delta_transfer.cpp
@@ -134,9 +131,6 @@ set(MAFIANET_HEADERS
     include/mafianet/cc_sliding_window.h
     include/mafianet/cc_udt.h
     include/mafianet/check_sum.h
-    include/mafianet/cloud_client.h
-    include/mafianet/cloud_common.h
-    include/mafianet/cloud_server.h
     include/mafianet/command_parser.h
     include/mafianet/command_parser_interface.h
     include/mafianet/connection_graph2.h
@@ -284,8 +278,6 @@ set(MAFIANET_ALL_HEADERS
 # socket layer, RakVoice, ...) is the core and always builds. Keep this list in
 # sync with the header when adding or removing a plugin.
 set(MAFIANET_OPTIONAL_FEATURES
-    CloudClient
-    CloudServer
     ConnectionGraph2
     ConsoleServer
     DirectoryDeltaTransfer

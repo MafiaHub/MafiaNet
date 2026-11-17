@@ -143,12 +143,6 @@
 #ifndef _RAKNET_SUPPORT_TwoWayAuthentication
 #define _RAKNET_SUPPORT_TwoWayAuthentication 1
 #endif
-#ifndef _RAKNET_SUPPORT_CloudClient
-#define _RAKNET_SUPPORT_CloudClient 1
-#endif
-#ifndef _RAKNET_SUPPORT_CloudServer
-#define _RAKNET_SUPPORT_CloudServer 1
-#endif
 #ifndef _RAKNET_SUPPORT_DynDNS
 #define _RAKNET_SUPPORT_DynDNS 1
 #endif

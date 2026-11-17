@@ -124,17 +124,6 @@ Delta patching system. Shows:
 - Applying patches
 - Version management
 
-Cloud Computing
-~~~~~~~~~~~~~~~
-
-``Samples/CloudServer/`` and ``Samples/CloudClient/``
-
-Distributed server architecture. Shows:
-
-- Server-to-server communication
-- Load balancing concepts
-- Scalability patterns
-
 TeamManager
 ~~~~~~~~~~~
 

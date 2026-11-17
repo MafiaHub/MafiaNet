@@ -191,7 +191,7 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - **RakVoice** - Voice chat with Opus codec and RNNoise
 - **Autopatcher** - Delta patching for game updates
 - **FileListTransfer** - Reliable file transfer
-- **Database** - MySQL, PostgreSQL, SQLite integration
+- **Database** - MySQL and PostgreSQL integration
 - **UPnP** - Automatic port forwarding
 
 </td>
@@ -218,7 +218,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 | **MessageFilter** | Security filtering for incoming messages |
 | **PacketLogger** | Network traffic logging and debugging |
 | **TwoWayAuthentication** | Mutual authentication between peers |
-| **CloudComputing** | Distributed data storage and retrieval |
 | **Lobby2** | Matchmaking and lobby system |
 
 See the [Plugin Documentation](https://mafianet.mafiahub.dev/plugins/overview.html) for detailed usage.
@@ -269,9 +268,7 @@ MafiaNet/
 │   ├── Lobby2/             # Matchmaking and lobbies
 │   ├── voice.cpp/h      # Voice communication
 │   ├── MySQLInterface/     # MySQL connectivity
-│   ├── PostgreSQLInterface/# PostgreSQL connectivity
-│   ├── SQLite3Plugin/      # SQLite integration
-│   └── RPC3/               # Legacy RPC system
+│   └── PostgreSQLInterface/# PostgreSQL connectivity
 ├── docs/                   # Sphinx documentation source
 └── cmake/                  # CMake modules and helpers
 ```
@@ -318,10 +315,11 @@ To debug a single test, run the binary directly with a filter:
 ## Changelog
 
 ### Unreleased — breaking
-- **Standard containers and allocation**: the `DataStructures` containers, the `rakMalloc`/`OP_NEW` allocator layer, `alloca` and `_FILE_AND_LINE_` are gone; the library uses `std::` containers, `new`/`delete` and smart pointers. Public `DataStructures::List<T>&` parameters are `std::vector<T>&`, owned buffers are `std::unique_ptr<unsigned char[]>`, and RPC4/RPC3 hand out `LocalSlot *` handles. See the [migration guide](docs/advanced/migrating-to-std-containers.rst)
+- Removed RPC3, the SQLite networking and logging extensions, and cloud storage. RPC4 and application message IDs retain their protocol 10 wire values.
+- **Standard containers and allocation**: the `DataStructures` containers, the `rakMalloc`/`OP_NEW` allocator layer, `alloca` and `_FILE_AND_LINE_` are gone; the library uses `std::` containers, `new`/`delete` and smart pointers. Public `DataStructures::List<T>&` parameters are `std::vector<T>&`, owned buffers are `std::unique_ptr<unsigned char[]>`, and RPC4 hands out `LocalSlot *` handles. See the [migration guide](docs/advanced/migrating-to-std-containers.rst)
 - **Windows**: `std::` types cross the DLL boundary, so the application and `MafiaNet.dll` must use the same toolset and CRT
-- **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC3/RPC4/TwoWayAuthentication/MessageFilter names were used as printf format strings
-- **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in TeamBalancer, Cloud, UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, CloudServer upload accounting (over-limit undo, placeholder uploads), StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
+- **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC4/TwoWayAuthentication/MessageFilter names were used as printf format strings
+- **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in TeamBalancer, UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
 - **Behaviour changes**: `SortTable` keeps tied rows, Router2 picks its forwarder deterministically, `PacketizedTCP` disconnects on a message above `SetMaxMessageLength()` (64 MiB default)
 - **Breaking (API and ABI)**: rebuild against the updated headers.
 - **Breaking (wire protocol 10)**: upgrade clients and servers together. Removing the Xbox, LibVoice, and unused reserved IDs moves `ID_NAT_PING` from 10 to 7 and `ID_USER_PACKET_ENUM` from 135 to 131. Rebuild applications that derive message IDs from it.
