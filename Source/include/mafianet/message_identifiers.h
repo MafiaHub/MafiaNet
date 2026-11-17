@@ -287,7 +287,7 @@ enum DefaultMessageIDTypes
 	/// Lobby packets. Second byte indicates type.
 	ID_LOBBY_GENERAL,
 
-	// RPC3, RPC4 error
+	// RPC4 error
 	ID_RPC_REMOTE_ERROR,
 	/// Plugin based replacement for RPC system
 	ID_RPC_PLUGIN,
@@ -352,12 +352,10 @@ enum DefaultMessageIDTypes
 	/// UDP proxy messages. Second byte indicates type.
 	ID_UDP_PROXY_GENERAL,
 
-	/// SQLite3Plugin - execute
-	ID_SQLite3_EXEC,
-	/// SQLite3Plugin - Remote database is unknown
-	ID_SQLite3_UNKNOWN_DB,
-	/// Events happening with SQLiteClientLoggerPlugin
-	ID_SQLLITE_LOGGER,
+	// Reserved wire IDs for the retired SQLite extension.
+	ID_RESERVED_94,
+	ID_RESERVED_95,
+	ID_RESERVED_96,
 
 	/// Sent to NatTypeDetectionServer
 	ID_NAT_TYPE_DETECTION_REQUEST,
@@ -426,14 +424,14 @@ enum DefaultMessageIDTypes
 	/// \internal
 	ID_TWO_WAY_AUTHENTICATION_NEGOTIATION,
 
-	/// CloudClient / CloudServer
-	ID_CLOUD_POST_REQUEST,
-	ID_CLOUD_RELEASE_REQUEST,
-	ID_CLOUD_GET_REQUEST,
-	ID_CLOUD_GET_RESPONSE,
-	ID_CLOUD_UNSUBSCRIBE_REQUEST,
-	ID_CLOUD_SERVER_TO_SERVER_COMMAND,
-	ID_CLOUD_SUBSCRIPTION_NOTIFICATION,
+	// Reserved wire IDs for the retired cloud storage protocol.
+	ID_RESERVED_116,
+	ID_RESERVED_117,
+	ID_RESERVED_118,
+	ID_RESERVED_119,
+	ID_RESERVED_120,
+	ID_RESERVED_121,
+	ID_RESERVED_122,
 
 	// LibVoice
 	ID_LIB_VOICE,

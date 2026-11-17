@@ -38,7 +38,6 @@
 
 /// \defgroup RPC_PLUGIN_GROUP RPC
 /// \brief Remote procedure calls, without external dependencies.
-/// \details This should not be used at the same time as RPC3. This is a less functional version of RPC3, and is here for users that do not want the Boost dependency of RPC3.
 /// \ingroup PLUGINS_GROUP
 
 namespace MafiaNet
@@ -78,9 +77,7 @@ public:
 };
 
 /// \brief The RPC4 plugin is just an association between a C function pointer and a string.
-/// \details It is for users that want to use RPC, but do not want to use boost.
-/// You do not have the automatic serialization or other features of RPC3, and C++ member calls are not supported.
-/// \note You cannot use RPC4 at the same time as RPC3Plugin
+/// Callers serialize parameters into a BitStream and register free functions as handlers.
 /// \ingroup RPC_PLUGIN_GROUP
 class RAK_DLL_EXPORT RPC4 : public PluginInterface2
 {

@@ -30,8 +30,6 @@
 #include "mafianet/socket_layer.h"
 #include "mafianet/getche.h"
 #include "mafianet/gets.h"
-#include "CloudServerHelper.h"
-#include "mafianet/cloud_client.h"
 #include "mafianet/statistics.h"
 #include "mafianet/relay_plugin.h"
 #include "mafianet/linux_adapter.h"
@@ -55,7 +53,6 @@ enum FeatureList
 	RELAY_PLUGIN,
 	UDP_PROXY_COORDINATOR,
 	UDP_PROXY_SERVER,
-	CLOUD_SERVER,
 	FEATURE_LIST_COUNT,
 };
 
@@ -66,7 +63,6 @@ static unsigned short DEFAULT_RAKPEER_PORT = 61111;
 #define RelayPlugin_Supported QUERY
 #define UDPProxyCoordinatorFramework_Supported UNSUPPORTED
 #define UDPProxyServerFramework_Supported UNSUPPORTED
-#define CloudServerFramework_Supported QUERY
 
 struct SampleFramework
 {
@@ -446,72 +442,6 @@ struct UDPProxyServerFramework : public SampleFramework, public UDPProxyServerRe
 
 	UDPProxyServer *udpps;
 };
-struct CloudServerFramework : public SampleFramework
-{
-	CloudServerFramework()
-	{
-		cloudServer = nullptr;
-		isSupported = CloudServerFramework_Supported;
-	}
-	virtual const char *QueryName(void) { return "CloudServer"; }
-	virtual const char *QueryRequirements(void) { return "None."; }
-	virtual const char *QueryFunction(void) { return "Single instance cloud server that maintains connection counts\nUseful as a directory server to find other client instances."; }
-	virtual void Init(MafiaNet::RakPeerInterface *rakPeer)
-	{
-		if (isSupported == SUPPORTED)
-		{
-			cloudServer = new CloudServer;
-			rakPeer->AttachPlugin(cloudServer);
-			cloudClient = new CloudClient;
-			rakPeer->AttachPlugin(cloudClient);
-			cloudServerHelperFilter = new CloudServerHelperFilter;
-			cloudServer->AddQueryFilter(cloudServerHelperFilter);
-			cloudServer->SetMaxUploadBytesPerClient(65535);
-			cloudServerHelper.OnConnectionCountChange(rakPeer, cloudClient);
-		}
-	}
-	virtual void ProcessPacket(MafiaNet::RakPeerInterface *rakPeer, Packet *packet)
-	{
-		if (isSupported != SUPPORTED)
-			return;
-
-		switch (packet->data[0])
-		{
-		case ID_NEW_INCOMING_CONNECTION:
-#ifdef VERBOSE_LOGGING
-			printf("Got connection to %s\n", packet->systemAddress.ToString(true));
-#endif
-			cloudServerHelper.OnConnectionCountChange(rakPeer, cloudClient);
-			break;
-		case ID_CONNECTION_LOST:
-		case ID_DISCONNECTION_NOTIFICATION:
-#ifdef VERBOSE_LOGGING
-			printf("Lost connection to %s\n", packet->systemAddress.ToString(true));
-#endif
-			cloudServerHelper.OnConnectionCountChange(rakPeer, cloudClient);
-			break;
-		}
-	}
-	virtual void Shutdown(MafiaNet::RakPeerInterface *rakPeer)
-	{
-		if (cloudServer)
-		{
-			rakPeer->DetachPlugin(cloudServer);
-			delete cloudServer;
-			cloudServer = 0;
-			rakPeer->DetachPlugin(cloudClient);
-			delete cloudClient;
-			cloudClient = 0;
-			delete cloudServerHelperFilter;
-			cloudServerHelperFilter = 0;
-		}
-	}
-
-	MafiaNet::CloudServer *cloudServer;
-	MafiaNet::CloudClient *cloudClient;
-	MafiaNet::CloudServerHelperFilter *cloudServerHelperFilter;
-	MafiaNet::CloudServerHelper cloudServerHelper;
-};
 int main(int argc, char **argv)
 {
 	MafiaNet::RakPeerInterface *rakPeer = MafiaNet::RakPeerInterface::GetInstance();
@@ -591,7 +521,6 @@ int main(int argc, char **argv)
 	samples[i++] = new RelayPluginFramework;
 	samples[i++] = new UDPProxyCoordinatorFramework;
 	samples[i++] = new UDPProxyServerFramework;
-	samples[i++] = new CloudServerFramework;
 	assert(i == FEATURE_LIST_COUNT);
 
 	bool isFirstPrint = true;

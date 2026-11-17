@@ -101,4 +101,3 @@ See Also
 
 * :doc:`ready-event` - Synchronize game start
 * :doc:`team-manager` - Pre-game team selection
-* :doc:`cloud-computing` - Server discovery

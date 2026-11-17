@@ -66,6 +66,16 @@ TEST(PacketLoggerIdNames, SessionConfigIdsAreNamed)
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_SESSION_CONFIG_ABANDONED), "ID_SESSION_CONFIG_ABANDONED");
 }
 
+// Retired plugin ranges must not shift the wire IDs used by existing peers.
+TEST(PacketLoggerIdNames, RetiredPluginRangesPreserveWireIds)
+{
+	EXPECT_EQ(97, (int) ID_NAT_TYPE_DETECTION_REQUEST);
+	EXPECT_EQ(123, (int) ID_LIB_VOICE);
+	EXPECT_EQ(135, (int) ID_USER_PACKET_ENUM);
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(97), "ID_NAT_TYPE_DETECTION_REQUEST");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(123), "ID_LIB_VOICE");
+}
+
 // The connection packets, which is what a reader of a handshake log keys off.
 TEST(PacketLoggerIdNames, ConnectionIdsAreNamed)
 {
