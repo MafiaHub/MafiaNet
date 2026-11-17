@@ -511,7 +511,7 @@ int Lobby2Client_Steam_Impl::RakNetSendTo(const char *data, int length, const Sy
 	}
 	else if (systemAddress.GetPort() != STEAM_UNUSED_PORT)
 	{
-		//	return SocketLayer::SendTo_PC(s,data,length,systemAddress,_FILE_AND_LINE_);
+		//	return SocketLayer::SendTo_PC(s,data,length,systemAddress);
 		return -1;
 	}
 	return 0;

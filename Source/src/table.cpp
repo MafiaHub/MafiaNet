@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <limits>
 
 using namespace MafiaNet;
 
@@ -42,10 +43,24 @@ char *AllocateCellBuffer(const char *source, std::size_t length)
 	return buffer;
 }
 
-// Length of the buffer a cell owns: i holds it for string and binary cells.
+// Length of the buffer a cell owns: i holds it for string and binary cells. A cell without a
+// buffer can hold any double in i, so clamp before converting (the cast is undefined past the
+// target's range, and for infinity).
 std::size_t OwnedLength(const Table::Cell &cell)
 {
-	return cell.i > 0.0 ? static_cast<std::size_t>(cell.i) : 0;
+	if (!(cell.i > 0.0)) // also NaN
+		return 0;
+	constexpr std::size_t kMax = std::numeric_limits<std::size_t>::max();
+	return cell.i >= static_cast<double>(kMax) ? kMax : static_cast<std::size_t>(cell.i);
+}
+
+// A binary length handed to SetByType as a double: anything that is not a valid int length is
+// treated as a zero-length blob, as Set(const char*, int) treats a non-positive one.
+int BinaryLengthOf(double numericValue)
+{
+	if (!(numericValue > 0.0) || numericValue >= static_cast<double>(std::numeric_limits<int>::max()))
+		return 0;
+	return static_cast<int>(numericValue);
 }
 
 const Table::Cell *CellOf(const Table::Cell *cell)
@@ -170,7 +185,11 @@ MafiaNet::RakString Table::Cell::ToString(ColumnType columnType)
 	}
 	else if (columnType == STRING)
 	{
-		return MafiaNet::RakString(c);
+		// Assign, never RakString(c): that constructor treats the (possibly peer-supplied) text as a
+		// printf format.
+		MafiaNet::RakString text;
+		text = c;
+		return text;
 	}
 	else if (columnType == BINARY)
 	{
@@ -199,7 +218,7 @@ void Table::Cell::SetByType(double numericValue, char *charValue, void *inPtr, C
 	}
 	else if (type == BINARY)
 	{
-		Set(charValue, (int) numericValue);
+		Set(charValue, BinaryLengthOf(numericValue));
 	}
 	else if (type == POINTER)
 	{

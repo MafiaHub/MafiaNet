@@ -33,22 +33,6 @@
 #define __GET_TIME_64BIT 1
 #endif
 
-// Define _FILE_AND_LINE_ to "",0 if you want to strip out file and line info for memory tracking from the EXE
-// SWIG: This macro must be excluded from generating C# wrappers/interfaces since SWIG would try to handle the
-//       macro as a constant definition and fail to convert it, issuing the following warning:
-//       "warning 305: Bad constant value (ignored)." - see SLNET-227 for details
-//       Since this is not a constant definition at all, the correct solution is to exclude this macro therefore.
-#ifndef _FILE_AND_LINE_
-#ifndef SWIG
-#ifdef _RETAIL
-// retail builds do not contain source-code related information in order to reduce the overall EXE size
-#define _FILE_AND_LINE_ "", 0
-#else
-#define _FILE_AND_LINE_ __FILE__, __LINE__
-#endif // _RETAIL
-#endif // SWIG
-#endif // _FILE_AND_LINE_
-
 /// Define RAKNET_COMPATIBILITY to enable API compatibility with RakNet.
 /// This allows you to keep existing code which was compatible with RakNet 4.082 unmodified and
 /// use MafiaNet as an in-place replacement for the RakNet library without having to modify any
@@ -181,18 +165,6 @@
 
 #ifndef RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH
 #define RPC4_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH 48
-#endif
-
-// Controls how many allocations occur at once for the memory pool of incoming datagrams waiting to be transferred between the recvfrom thread and the main update thread
-// Has large effect on memory usage, per instance of RakPeer. Approximately MAXIMUM_MTU_SIZE*BUFFERED_PACKETS_PAGE_SIZE bytes, once after calling RakPeer::Startup()
-#ifndef BUFFERED_PACKETS_PAGE_SIZE
-#define BUFFERED_PACKETS_PAGE_SIZE 8
-#endif
-
-// Controls how many allocations occur at once for the memory pool of incoming or outgoing datagrams.
-// Has small effect on memory usage per connection. Uses about 256 bytes*INTERNAL_PACKET_PAGE_SIZE per connection
-#ifndef INTERNAL_PACKET_PAGE_SIZE
-#define INTERNAL_PACKET_PAGE_SIZE 8
 #endif
 
 // If defined to 1, the user is responsible for calling RakPeer::RunUpdateCycle and RakPeer::RunRecvfrom

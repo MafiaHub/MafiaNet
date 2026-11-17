@@ -159,7 +159,7 @@ void CCRakNetUDT::Update(CCTimeType curTime, bool hasDataToSendOrResend)
 	/// 500 microseconds per byte
 	// printf("No incoming data, halving send rate\n");
 	SND*=2.0;
-	CapMinSnd(_FILE_AND_LINE_);
+	CapMinSnd(__FILE__, __LINE__);
 	ExpCount+=1.0;
 	if (ExpCount>8.0)
 	ExpCount=8.0;
@@ -455,7 +455,7 @@ void CCRakNetUDT::EndSlowStart(void)
 
 	isInSlowStart = false;
 	SND = 1.0 / AS;
-	CapMinSnd(_FILE_AND_LINE_);
+	CapMinSnd(__FILE__, __LINE__);
 
 	// printf("ENDING SLOW START\n");
 #if CC_TIME_TYPE_BYTES == 4
@@ -518,7 +518,7 @@ bool CCRakNetUDT::OnGotPacket(DatagramSequenceNumberType datagramSequenceNumber,
 
 			//		if (mostRecentPacketArrivalHistory < (BytesPerMicrosecond)0.0035)
 			//		{
-			//			printf("%s:%i LIKELY BUG: Calculated packetArrivalHistory is below 28.8 Kbps modem\nReport to rakkar@jenkinssoftware.com with file and line number\n", _FILE_AND_LINE_);
+			//			printf("%s:%i LIKELY BUG: Calculated packetArrivalHistory is below 28.8 Kbps modem\nReport to rakkar@jenkinssoftware.com with file and line number\n", __FILE__, __LINE__);
 			//		}
 
 			packetArrivalHistoryContinuousGaps[packetArrivalHistoryContinuousGapsIndex++] = (int) interval;

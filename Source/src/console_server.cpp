@@ -20,6 +20,7 @@
 #include "mafianet/console_server.h"
 #include "mafianet/transport_interface.h"
 #include "mafianet/command_parser_interface.h"
+#include <cassert>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -63,7 +64,7 @@ void ConsoleServer::SetTransportProvider(TransportInterface *transportInterface,
 			RAKNET_DEBUG_PRINTF("ConsoleServer: the transport failed to start on port %u\n", (unsigned) port);
 
 		unsigned i;
-		for (i = 0; i < commandParserList.Size(); i++)
+		for (i = 0; i < commandParserList.size(); i++)
 			commandParserList[i]->OnTransportChange(transport);
 
 		//  The transport itself might have a command parser - for example password for the RakNet transport
@@ -77,7 +78,7 @@ void ConsoleServer::AddCommandParser(CommandParserInterface *commandParserInterf
 
 	// Non-duplicate insertion
 	unsigned i;
-	for (i = 0; i < commandParserList.Size(); i++)
+	for (i = 0; i < commandParserList.size(); i++)
 	{
 		if (commandParserList[i] == commandParserInterface)
 			return;
@@ -90,7 +91,7 @@ void ConsoleServer::AddCommandParser(CommandParserInterface *commandParserInterf
 		}
 	}
 
-	commandParserList.Insert(commandParserInterface, _FILE_AND_LINE_);
+	commandParserList.push_back(commandParserInterface);
 	if (transport)
 		commandParserInterface->OnTransportChange(transport);
 }
@@ -101,12 +102,12 @@ void ConsoleServer::RemoveCommandParser(CommandParserInterface *commandParserInt
 
 	// Overwrite the element we are removing from the back of the list and delete the back of the list
 	unsigned i;
-	for (i = 0; i < commandParserList.Size(); i++)
+	for (i = 0; i < commandParserList.size(); i++)
 	{
 		if (commandParserList[i] == commandParserInterface)
 		{
-			commandParserList[i] = commandParserList[commandParserList.Size() - 1];
-			commandParserList.RemoveFromEnd();
+			commandParserList[i] = commandParserList[commandParserList.size() - 1];
+			commandParserList.pop_back();
 			return;
 		}
 	}
@@ -125,7 +126,7 @@ void ConsoleServer::Update(void)
 
 	if (newOrLostConnectionId != UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		for (i = 0; i < commandParserList.Size(); i++)
+		for (i = 0; i < commandParserList.size(); i++)
 		{
 			commandParserList[i]->OnNewIncomingConnection(newOrLostConnectionId, transport);
 		}
@@ -138,7 +139,7 @@ void ConsoleServer::Update(void)
 	newOrLostConnectionId = transport->HasLostConnection();
 	if (newOrLostConnectionId != UNASSIGNED_SYSTEM_ADDRESS)
 	{
-		for (i = 0; i < commandParserList.Size(); i++)
+		for (i = 0; i < commandParserList.size(); i++)
 			commandParserList[i]->OnConnectionLost(newOrLostConnectionId, transport);
 	}
 
@@ -177,7 +178,7 @@ void ConsoleServer::Update(void)
 			}
 			else // numParameters == 2, including the help tag
 			{
-				for (i = 0; i < commandParserList.Size(); i++)
+				for (i = 0; i < commandParserList.size(); i++)
 				{
 					if (_stricmp(parameterList[1], commandParserList[i]->GetName()) == 0)
 					{
@@ -194,7 +195,7 @@ void ConsoleServer::Update(void)
 				{
 					// Try again, for all commands for all parsers.
 					MafiaNet::RegisteredCommand rc2;
-					for (i = 0; i < commandParserList.Size(); i++)
+					for (i = 0; i < commandParserList.size(); i++)
 					{
 						if (commandParserList[i]->GetRegisteredCommand(parameterList[1], &rc2))
 						{
@@ -234,7 +235,7 @@ void ConsoleServer::Update(void)
 				{
 					commandParserIndex = atoi(*parameterList); // Use specified parser unless it's an invalid number
 					commandParserIndex--;                      // Subtract 1 since we displayed numbers starting at index+1
-					if (commandParserIndex >= commandParserList.Size())
+					if (commandParserIndex >= commandParserList.size())
 					{
 						transport->Send(p->systemAddress, "Invalid index.\r\n");
 						failed = true;
@@ -243,7 +244,7 @@ void ConsoleServer::Update(void)
 				else
 				{
 					// // Prefixing with the name of a command parser directs to that parser.  See if the first word matches a parser
-					for (i = 0; i < commandParserList.Size(); i++)
+					for (i = 0; i < commandParserList.size(); i++)
 					{
 						if (_stricmp(parameterList[0], commandParserList[i]->GetName()) == 0)
 						{
@@ -274,7 +275,7 @@ void ConsoleServer::Update(void)
 
 			if (failed == false && tryAllParsers)
 			{
-				for (i = 0; i < commandParserList.Size(); i++)
+				for (i = 0; i < commandParserList.size(); i++)
 				{
 					// Undirected command.  Try all the parsers to see if they understand the command
 					// Pass the 1nd element as the command, and the remainder as the parameter list
@@ -289,7 +290,7 @@ void ConsoleServer::Update(void)
 					}
 				}
 			}
-			if (commandParsed == false && commandParserList.Size() > 0)
+			if (commandParsed == false && commandParserList.size() > 0)
 			{
 				transport->Send(p->systemAddress, "Unknown command:  Type 'help' for help.\r\n");
 			}
@@ -306,7 +307,7 @@ void ConsoleServer::ListParsers(SystemAddress systemAddress)
 {
 	transport->Send(systemAddress, "INSTALLED PARSERS:\r\n");
 	unsigned i;
-	for (i = 0; i < commandParserList.Size(); i++)
+	for (i = 0; i < commandParserList.size(); i++)
 	{
 		transport->Send(systemAddress, "%i. %s\r\n", i + 1, commandParserList[i]->GetName());
 	}

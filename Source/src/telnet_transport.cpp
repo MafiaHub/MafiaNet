@@ -19,7 +19,7 @@
 
 #include "mafianet/telnet_transport.h"
 #include "mafianet/tcp_interface.h"
-#include <cassert>
+#include "mafianet/assert.h"
 #include "mafianet/vector_util.h"
 #include <stdio.h>
 #include <string.h>

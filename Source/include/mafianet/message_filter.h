@@ -69,7 +69,7 @@ int RAK_DLL_EXPORT FilterSetComp(const int &key, FilterSet *const &data);
 /// the GUID when one is set, otherwise the address. This is not a valid std::hash for AddressOrGUID in
 /// general, which is why it is not one: operator== is true when the GUIDs OR the addresses match, so
 /// {guid, address} equals {UNASSIGNED_RAKNET_GUID, address} but the two hash differently and may not be
-/// found under each other. Inherited unchanged from the DataStructures::Hash this table used to be.
+/// found under each other. Inherited unchanged from the RakNet hash table this one replaced.
 /// Keys are consistent in practice when every system is registered and looked up with its GUID set.
 struct MessageFilterSystemHash
 {

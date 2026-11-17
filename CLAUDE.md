@@ -223,9 +223,9 @@ IPv6 is always compiled in (there is no `RAKNET_SUPPORT_IPV6` macro; `defines.h`
 - Extend functionality by attaching plugins to RakPeerInterface
 - Examples: `FileListTransfer`, `FullyConnectedMesh2`, `NatPunchthroughClient`
 
-**Data Structures** (`DS_*` headers):
-- Custom containers: `DS_List`, `DS_Queue`, `DS_Map`, `DS_OrderedList`
-- Memory pools: `DS_MemoryPool`
+**Data Structures**:
+- The library uses `std::` containers (`std::vector`, `std::deque`, `std::map`, `std::unordered_map`) and smart pointers; list-returning APIs fill a `std::vector<T>&` out-parameter. There is no `DataStructures` namespace, no `DS_*`/`ds_*` header and no `_FILE_AND_LINE_` macro; do not reintroduce them.
+- Remaining helpers in `MafiaNet::`: `vector_util.h` (`SwapRemove`), `instance_ptr.h` (`InstancePtr<T>` for `GetInstance`/`DestroyInstance` types), `locked_queue.h` (`LockedQueue<T>`), `object_pool.h` (`ObjectPool<T>`), `range_list.h` (`RangeList<T>`, ACK/NAK wire codec), `table.h` (`Table`)
 
 ### Directory Structure
 

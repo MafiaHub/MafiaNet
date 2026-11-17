@@ -17,11 +17,11 @@
 #define __VARIABLE_DELTA_SERIALIZER_H
 
 #include "mafianet/variable_list_delta_tracker.h"
-#include "mafianet/ds_memory_pool.h"
 #include "mafianet/native_types.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/packet_priority.h"
-#include "mafianet/ds_ordered_list.h"
+#include <map>
+#include <vector>
 
 namespace MafiaNet
 {
@@ -141,10 +141,9 @@ public:
 	///
 	/// uint32_t msgNumber;
 	/// memcpy(&msgNumber, packet->data+1, 4);
-	/// DataStructures::List<Replica3*> replicaListOut;
+	/// std::vector<Replica3*> replicaListOut;
 	/// replicaManager.GetReplicasCreatedByMe(replicaListOut);
-	/// unsigned int idx;
-	/// for (idx=0; idx < replicaListOut.GetSize(); idx++)
+	/// for (std::size_t idx=0; idx < replicaListOut.size(); idx++)
 	/// {
 	/// 	((SampleReplica*)replicaListOut[idx])->NotifyReplicaOfMessageDeliveryStatus(packet->guid,msgNumber, packet->data[0]==ID_SND_RECEIPT_ACKED);
 	/// }
@@ -226,10 +225,6 @@ protected:
 		unsigned char bitField[56];
 	};
 
-	// static int Replica2ObjectComp( const uint32_t &key, ChangedVariablesList* const &data );
-
-	static int UpdatedVariablesListPtrComp(const uint32_t &key, ChangedVariablesList *const &data);
-
 	// For each remote system, track the last values of variables we sent to them, and the history of what values changed per call to Send()
 	// Every serialize if a variable changes from its last value, send it out again
 	// Also if a send does not arrive (ID_SND_RECEIPT_LOSS) we use updatedVariablesHistory to mark those variables as dirty, to resend them unreliably with the current values
@@ -237,14 +232,12 @@ protected:
 	{
 		RakNetGUID guid;
 		VariableListDeltaTracker variableListDeltaTracker;
-		DataStructures::OrderedList<uint32_t, ChangedVariablesList *, VariableDeltaSerializer::UpdatedVariablesListPtrComp> updatedVariablesHistory;
+		// Keyed by send receipt
+		std::map<uint32_t, ChangedVariablesList *> updatedVariablesHistory;
 	};
 	/// A list of RemoteSystemVariableHistory indexed by guid, one per connection that we serialize to
 	/// List is added to when SerializeConstruction is called, and removed from when SerializeDestruction is called, or when a given connection is dropped
-	DataStructures::List<RemoteSystemVariableHistory *> remoteSystemVariableHistoryList;
-
-	// Because the ChangedVariablesList is created every serialize and destroyed every receipt I use a pool to avoid fragmentation
-	DataStructures::MemoryPool<ChangedVariablesList> updatedVariablesMemoryPool;
+	std::vector<RemoteSystemVariableHistory *> remoteSystemVariableHistoryList;
 
 	bool didComparisonThisTick;
 	MafiaNet::BitStream identicalSerializationBs;

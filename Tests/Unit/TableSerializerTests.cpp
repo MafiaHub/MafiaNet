@@ -175,6 +175,41 @@ TEST(TableSerializer, DeserializeTableRejectsATooLargeRowCount)
 	EXPECT_FALSE(TableSerializer::DeserializeTable(&bs, &t));
 }
 
+TEST(TableSerializer, DeserializeTableRejectsMoreRowsThanTheInputHolds)
+{
+	// 1000 rows claimed, 10 present: rejected up front, before any row is built.
+	CompressorRef ref;
+	BitStream bs;
+	WriteOneColumnHeader(bs, 1000);
+	for (unsigned key = 0; key < 10; key++)
+		WriteNumericRow(bs, key, 0, 1.0);
+	Table t;
+	EXPECT_FALSE(TableSerializer::DeserializeTable(&bs, &t));
+	EXPECT_TRUE(t.GetRows().empty());
+}
+
+TEST(TableSerializer, DeserializeTableRejectsATableTooLargeToBuild)
+{
+	// Zero-entry rows cost 8 bytes each on the wire but one Cell per column in memory: 2000
+	// columns x 1000 rows is 2e6 Cells from ~10 KB of input (the caps allow 10000 x 100000).
+	CompressorRef ref;
+	Table columns;
+	for (int i = 0; i < 2000; i++)
+		columns.AddColumn("c", Table::NUMERIC);
+	BitStream bs;
+	TableSerializer::SerializeColumns(&columns, &bs);
+	const unsigned rowCount = 1000;
+	bs.Write(rowCount);
+	for (unsigned key = 0; key < rowCount; key++)
+	{
+		bs.Write(key);
+		bs.Write(0u); // numEntries
+	}
+	Table t;
+	EXPECT_FALSE(TableSerializer::DeserializeTable(&bs, &t));
+	EXPECT_TRUE(t.GetRows().empty());
+}
+
 TEST(TableSerializer, FilterQueryRoundTripsNumericAndStringValues)
 {
 	CompressorRef ref;

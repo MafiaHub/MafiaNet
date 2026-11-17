@@ -41,6 +41,7 @@ TEST(ObjectPool, AcquireReusesReleasedObjects)
 
 TEST(ObjectPool, AcquireAfterExhaustionAllocates)
 {
+	const int before = Tracked::live;
 	MafiaNet::ObjectPool<Tracked> pool;
 	Tracked *a = pool.Acquire();
 	pool.Release(a);
@@ -48,7 +49,7 @@ TEST(ObjectPool, AcquireAfterExhaustionAllocates)
 	Tracked *fresh = pool.Acquire(); // free list is empty again
 	EXPECT_EQ(reused, a);
 	EXPECT_NE(fresh, reused);
-	EXPECT_EQ(Tracked::live, 2);
+	EXPECT_EQ(Tracked::live, before + 2);
 	pool.Release(reused);
 	pool.Release(fresh);
 	EXPECT_EQ(pool.FreeCount(), 2u);

@@ -318,6 +318,14 @@ To debug a single test, run the binary directly with a filter:
 
 ## Changelog
 
+### Unreleased — breaking
+- **Standard containers and allocation**: the `DataStructures` containers, the `rakMalloc`/`OP_NEW` allocator layer, `alloca` and `_FILE_AND_LINE_` are gone; the library uses `std::` containers, `new`/`delete` and smart pointers. Public `DataStructures::List<T>&` parameters are `std::vector<T>&`, owned buffers are `std::unique_ptr<unsigned char[]>`, and RPC4/RPC3 hand out `LocalSlot *` handles. See the [migration guide](docs/advanced/migrating-to-std-containers.rst)
+- **Windows**: `std::` types cross the DLL boundary, so the application and `MafiaNet.dll` must use the same toolset and CRT
+- **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC3/RPC4/TwoWayAuthentication/MessageFilter names were used as printf format strings
+- **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in TeamBalancer, Cloud, UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, CloudServer upload accounting (over-limit undo, placeholder uploads), StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
+- **Behaviour changes**: `SortTable` keeps tied rows, Router2 picks its forwarder deterministically, `PacketizedTCP` disconnects on a message above `SetMaxMessageLength()` (64 MiB default)
+- **Breaking (API and ABI)**: rebuild. Wire-compatible
+
 ### Version 0.26.0 (Latest)
 - **Receive on a thread of its own**: `RakPeerInterface::WaitForPackets()` blocks until a packet is waiting, and ReplicaManager3 can receive on one thread while `Update()` runs on another (per-connection locks, `WorldGuard`, `StateDelivery`)
 - **Breaking (ABI)**: `RakPeerInterface` gains a pure virtual; consumers must rebuild. Wire-compatible

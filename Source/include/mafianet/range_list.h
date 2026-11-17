@@ -157,7 +157,7 @@ public:
 			return false;
 		}
 		// Grow as ranges are actually read; never trust the declared count.
-		range_type min, max;
+		range_type min{}, max{};
 		for (unsigned short i = 0; i < count; i++)
 		{
 			if (!DeserializeSingleRange(in, min, max))

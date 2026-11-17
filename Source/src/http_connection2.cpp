@@ -19,7 +19,7 @@
 
 #include "mafianet/http_connection2.h"
 #include "mafianet/tcp_interface.h"
-#include <cassert>
+#include "mafianet/assert.h"
 #include "mafianet/vector_util.h"
 
 using namespace MafiaNet;

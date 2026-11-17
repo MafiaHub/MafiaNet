@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <limits>
 #include <new>
 
 #include "mafianet/table.h"
@@ -64,4 +65,49 @@ TEST(TableCell, CopyOfAnEmptyCellOwnsNoBuffer)
 	EXPECT_EQ(nullptr, copy->c);
 	EXPECT_TRUE(copy->isEmpty);
 	copy->~Cell();
+}
+
+TEST(TableCell, StringToStringIsVerbatimNotAFormat)
+{
+	// Used to go through RakString's printf-style constructor: a peer-supplied "%n" wrote memory.
+	const char *text = "%s%n%x 100% %p";
+	Table::Cell cell;
+	cell.Set(text);
+	EXPECT_STREQ(text, cell.ToString(Table::STRING).C_String());
+}
+
+TEST(TableCell, SetByTypeTreatsAnOutOfRangeBinaryLengthAsEmpty)
+{
+	// The double length was cast to int unchecked: undefined for these, and on common targets a
+	// saturated INT_MAX that copied 2 GB from a 4-byte buffer.
+	char data[4] = {1, 2, 3, 4};
+	const double lengths[] = {1e300, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN(), -5.0};
+	for (double length : lengths)
+	{
+		Table::Cell cell(length, data, nullptr, Table::BINARY);
+		EXPECT_FALSE(cell.isEmpty) << length;
+		EXPECT_EQ(0.0, cell.i) << length;
+		EXPECT_NE(nullptr, cell.c) << length;
+	}
+	Table::Cell inRange(3.0, data, nullptr, Table::BINARY);
+	EXPECT_EQ(3.0, inRange.i);
+	EXPECT_EQ(0, std::memcmp(data, inRange.c, 3));
+}
+
+TEST(TableCell, BinaryQueryOnACellWithAHugeNumericValueIsWellDefined)
+{
+	// A binary-column cell without a buffer can hold any double; the query took its length with an
+	// unchecked double-to-size_t cast (undefined for infinity; UBSan reports it).
+	Table table;
+	table.AddColumn("blob", Table::BINARY);
+	Table::Row *row = table.AddRow(1);
+	ASSERT_NE(nullptr, row);
+	row->cells[0]->Set(std::numeric_limits<double>::infinity());
+
+	Table::Cell value;
+	value.Set(std::numeric_limits<double>::infinity());
+	Table::FilterQuery filter(0, &value, Table::QF_EQUAL);
+	Table result;
+	table.QueryTable(nullptr, 0, &filter, 1, nullptr, 0, &result);
+	EXPECT_TRUE(result.GetRows().empty());
 }

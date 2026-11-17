@@ -790,8 +790,8 @@ private:
 	// Set the data pointer to externallyAllocatedPtr, do not allocate
 	void AllocInternalPacketData(InternalPacket *internalPacket, unsigned char *externallyAllocatedPtr);
 	// Allocate new
-	void AllocInternalPacketData(InternalPacket *internalPacket, unsigned int numBytes, bool allowStack, const char *file, unsigned int line);
-	void FreeInternalPacketData(InternalPacket *internalPacket, const char *file, unsigned int line);
+	void AllocInternalPacketData(InternalPacket *internalPacket, unsigned int numBytes, bool allowStack);
+	void FreeInternalPacketData(InternalPacket *internalPacket);
 
 	BPSTracker bpsMetrics[RNS_PER_SECOND_METRICS_COUNT];
 	CCTimeType lastBpsClear;

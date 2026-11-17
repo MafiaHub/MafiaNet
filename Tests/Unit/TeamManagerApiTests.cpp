@@ -195,6 +195,7 @@ class TeamBalancerHostReceiving : public ::testing::Test
 protected:
 	// TeamBalancerOperations in team_balancer.cpp, the byte after ID_TEAM_BALANCER_INTERNAL.
 	static constexpr unsigned char kStatusUpdateToNewHost = 0;
+	static constexpr unsigned char kRequestAnyTeam = 2;
 	static constexpr unsigned char kRequestSpecificTeam = 3;
 
 	class HostBalancer : public ExposedTeamBalancer
@@ -243,6 +244,23 @@ protected:
 		Deliver(bs, remote);
 	}
 
+	// Four members on each of the two teams: both at their size limit.
+	void FillBothTeams()
+	{
+		for (NetworkID id = 1; id <= 8; id++)
+			RequestSpecificTeam(id + 100, (TeamId) (id % 2));
+		ASSERT_EQ(balancer.MemberCount(), 8u);
+	}
+
+	void RequestAnyTeam(NetworkID memberId)
+	{
+		BitStream bs;
+		bs.Write((MessageID) ID_TEAM_BALANCER_INTERNAL);
+		bs.Write((MessageID) kRequestAnyTeam);
+		bs.Write(memberId);
+		Deliver(bs, remote);
+	}
+
 	void StatusUpdateToNewHost(NetworkID memberId, TeamId currentTeam, TeamId requestedTeam)
 	{
 		BitStream bs;
@@ -283,6 +301,29 @@ TEST_F(TeamBalancerHostReceiving, StatusUpdateWithTeamEqualToTeamCountIsRejected
 
 	StatusUpdateToNewHost(1, 1, UNASSIGNED_TEAM_ID);
 	EXPECT_EQ(balancer.MemberCount(), 1u);
+}
+
+// With every team full, a new member's request has no team to go to. All three request paths used
+// to RakAssert ("Too many members asking for teams!"), aborting a Debug build; they drop it.
+TEST_F(TeamBalancerHostReceiving, RequestAnyTeamWhileEveryTeamIsFullIsDropped)
+{
+	FillBothTeams();
+	RequestAnyTeam(9);
+	EXPECT_EQ(balancer.MemberCount(), 8u);
+}
+
+TEST_F(TeamBalancerHostReceiving, RequestSpecificTeamWhileEveryTeamIsFullIsDropped)
+{
+	FillBothTeams();
+	RequestSpecificTeam(9, 0);
+	EXPECT_EQ(balancer.MemberCount(), 8u);
+}
+
+TEST_F(TeamBalancerHostReceiving, StatusUpdateWhileEveryTeamIsFullIsDropped)
+{
+	FillBothTeams();
+	StatusUpdateToNewHost(9, UNASSIGNED_TEAM_ID, 1);
+	EXPECT_EQ(balancer.MemberCount(), 8u);
 }
 
 // Members added directly are refused for a team that has no size limit set.

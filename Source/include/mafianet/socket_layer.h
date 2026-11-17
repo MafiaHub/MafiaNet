@@ -130,15 +130,6 @@ public:
 	/// \return 0 on success, nonzero on failure.
 	//	static int SendToTTL( RakNetSocket *s, const char *data, int length, SystemAddress &systemAddress, int ttl );
 
-	/// Call sendto (UDP obviously)
-	/// \param[in] s the socket
-	/// \param[in] data The byte buffer to send
-	/// \param[in] length The length of the \a data in bytes
-	/// \param[in] binaryAddress The address of the remote host in binary format.
-	/// \param[in] port The port number to send to.
-	/// \return 0 on success, nonzero on failure.
-	//	static int SendTo( RakNetSocket *s, const char *data, int length, SystemAddress systemAddress, const char *file, const long line );
-
 	//	static unsigned short GetLocalPort(RakNetSocket *s);
 	static unsigned short GetLocalPort(__UDPSOCKET__ s);
 	//	static void GetSystemAddress_Old ( RakNetSocket *s, SystemAddress *systemAddressOut );
@@ -149,8 +140,6 @@ public:
 	//	static void SetSocketLayerOverride(SocketLayerOverride *_slo);
 	//	static SocketLayerOverride* GetSocketLayerOverride(void) {return slo;}
 
-	// 	static int SendTo_PC( RakNetSocket *s, const char *data, int length, const SystemAddress &systemAddress, const char *file, const long line );
-	//
 	// 	static void SetDoNotFragment( RakNetSocket* listenSocket, int opt );
 	// 	static void SetSocketOptions( RakNetSocket* listenSocket, bool blockingSocket, bool setBroadcast);
 	static void SetSocketOptions(__UDPSOCKET__ listenSocket, bool blockingSocket, bool setBroadcast);

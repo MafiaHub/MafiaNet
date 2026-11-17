@@ -486,7 +486,7 @@ static bool CreatePatchInternal(const char *old, off_t oldsize, char *_new, off_
 	offtout(len-32, header + 8);
 	//memcpy(*out+outWriteOffset, patch.GetOutput(), patch.GetTotalOutputSize());
 	//outWriteOffset+=patch.GetTotalOutputSize();
-	//patch.Clear(_FILE_AND_LINE_);
+	//patch.Clear();
 	
 
 	/* Write compressed diff data */
@@ -502,7 +502,7 @@ static bool CreatePatchInternal(const char *old, off_t oldsize, char *_new, off_
 	}
 //	memcpy(*out+outWriteOffset, patch.GetOutput(), patch.GetTotalOutputSize());
 //	outWriteOffset+=patch.GetTotalOutputSize();
-//	patch.Clear(_FILE_AND_LINE_);
+//	patch.Clear();
 //	if (bz2err != BZ_OK)
 //		errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
 //	BZ2_bzWriteClose(&bz2err, pfbz2, 0, nullptr, nullptr);
@@ -516,7 +516,7 @@ static bool CreatePatchInternal(const char *old, off_t oldsize, char *_new, off_
 	offtout(newsize - len, header + 16);
 //	memcpy(*out+outWriteOffset, patch.GetOutput(), patch.GetTotalOutputSize());
 //	outWriteOffset+=patch.GetTotalOutputSize();
-//	patch.Clear(_FILE_AND_LINE_);
+//	patch.Clear();
 
 	/* Write compressed extra data */
 //	if ((pfbz2 = BZ2_bzWriteOpen(&bz2err, pf, 9, 0, 0)) == nullptr)
@@ -531,7 +531,7 @@ static bool CreatePatchInternal(const char *old, off_t oldsize, char *_new, off_
 	}
 //	memcpy(*out+outWriteOffset, patch.GetOutput(), patch.GetTotalOutputSize());
 //	outWriteOffset+=patch.GetTotalOutputSize();
-//	patch.Clear(_FILE_AND_LINE_);
+//	patch.Clear();
 //	if (bz2err != BZ_OK)
 //		errx(1, "BZ2_bzWrite, bz2err = %d", bz2err);
 //	BZ2_bzWriteClose(&bz2err, pfbz2, 0, nullptr, nullptr);

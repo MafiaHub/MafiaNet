@@ -18,7 +18,6 @@
 
 #include "mafianet/packet_logger.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/ds_list.h"
 #include "mafianet/internal_packet.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"

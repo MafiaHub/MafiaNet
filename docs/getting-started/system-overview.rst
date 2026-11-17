@@ -124,7 +124,15 @@ Namespaces
 
 - ``MafiaNet::`` - Primary namespace for all classes
 - ``MNet`` - Preprocessor macro shorthand that expands to ``MafiaNet`` (defined in ``mafianet/defines.h``)
-- ``DataStructures::`` - Container classes (DS_List, DS_Queue, etc.)
+
+Containers
+----------
+
+MafiaNet uses the C++ standard library containers. Functions that return a list fill a
+``std::vector<T>&`` out-parameter, and queues are ``std::deque<T>``. MafiaNet has no container
+library of its own; the few helpers it keeps live in ``MafiaNet::`` (``mafianet/vector_util.h``,
+``mafianet/instance_ptr.h``, ``mafianet/locked_queue.h``, ``mafianet/object_pool.h``,
+``mafianet/range_list.h``, ``mafianet/table.h``).
 
 Common Patterns
 ---------------

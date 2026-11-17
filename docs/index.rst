@@ -79,6 +79,7 @@ MafiaNet Documentation
 
    advanced/nat-traversal-architecture
    advanced/custom-memory-management
+   advanced/migrating-to-std-containers
    advanced/preprocessor-directives
    advanced/ipv6-support
    advanced/congestion-control
@@ -103,7 +104,7 @@ MafiaNet Documentation
 
    api/core
    api/plugins
-   api/data-structures
+   api/utilities
 
 .. toctree::
    :maxdepth: 1

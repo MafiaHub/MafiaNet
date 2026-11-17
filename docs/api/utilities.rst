@@ -1,61 +1,8 @@
-Data Structures API Reference
-=============================
+Utilities API Reference
+=======================
 
-MafiaNet includes several custom data structures optimized for networking.
-
-DS_List
--------
-
-Dynamic array similar to ``std::vector``.
-
-.. doxygenclass:: DataStructures::List
-   :members:
-   :undoc-members:
-
-DS_Queue
---------
-
-FIFO queue implementation.
-
-.. doxygenclass:: DataStructures::Queue
-   :members:
-   :undoc-members:
-
-DS_Map
-------
-
-Ordered map implementation.
-
-.. doxygenclass:: DataStructures::Map
-   :members:
-   :undoc-members:
-
-DS_OrderedList
---------------
-
-Sorted list with binary search.
-
-.. doxygenclass:: DataStructures::OrderedList
-   :members:
-   :undoc-members:
-
-DS_Hash
--------
-
-Hash table implementation.
-
-.. doxygenclass:: DataStructures::Hash
-   :members:
-   :undoc-members:
-
-DS_MemoryPool
--------------
-
-Memory pool for efficient allocation.
-
-.. doxygenclass:: DataStructures::MemoryPool
-   :members:
-   :undoc-members:
+Strings and spatial helpers that ship with MafiaNet. Containers are the C++ standard
+library ones; see :doc:`../getting-started/system-overview`.
 
 RakString
 ---------

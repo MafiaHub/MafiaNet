@@ -105,7 +105,7 @@ struct InternalPacket : public InternalPacketFixedSizeTransmissionHeader
 	/// How to alloc and delete the data member
 	enum AllocationScheme
 	{
-		/// Data is allocated using rakMalloc. Just free it
+		/// Data is allocated using std::malloc. Just std::free it
 		NORMAL,
 
 		/// data points to a larger block of data, where the larger block is reference counted. internalPacketRefCountedData is used in this case

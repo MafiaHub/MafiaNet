@@ -28,6 +28,7 @@
 #include "mafianet/sockaddr_convert.h"
 
 #include <algorithm>
+#include <cstdint>
 
 using namespace MafiaNet;
 
@@ -157,7 +158,7 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 	{
 		char buff[512];
 		if (debugInterface)
-			debugInterface->ShowFailure(FormatStringTS(buff, "Router2 failed at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowFailure(FormatStringTS(buff, "Router2 failed at %s:%i\n", __FILE__, __LINE__));
 
 		return false;
 	}
@@ -302,7 +303,7 @@ PluginReceiveResult Router2::OnReceive(Packet *packet)
 				char buff[512];
 				char buff2[64];
 				sa.ToString(false, buff2, static_cast<size_t>(64));
-				debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REPLY_TO_SENDER_PORT %i on address %s, replying with ID_ROUTER_2_MINI_PUNCH_REPLY at %s:%i\n", sa.GetPort(), buff2, _FILE_AND_LINE_));
+				debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REPLY_TO_SENDER_PORT %i on address %s, replying with ID_ROUTER_2_MINI_PUNCH_REPLY at %s:%i\n", sa.GetPort(), buff2, __FILE__, __LINE__));
 
 				//						packet->systemAddress.ToString(true,buff2);
 				//						debugInterface->ShowDiagnostic(FormatStringTS(buff,"Got ID_ROUTER_2_REPLY_TO_SENDER_PORT on address %s (%I64d), "
@@ -656,7 +657,7 @@ bool Router2::UpdateForwarding(ConnnectRequest *connectionRequest)
 		if (debugInterface)
 		{
 			char buff[512];
-			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Forwarding failed, no remaining systems at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Forwarding failed, no remaining systems at %s:%i\n", __FILE__, __LINE__));
 		}
 
 		forwardedConnectionListMutex.Lock();
@@ -707,8 +708,10 @@ void Router2::RemoveConnectionRequest(unsigned int connectionRequestIndex)
 // Forwarding preference: lowest ping weighted by the forwarding entries already in use, then lowest guid.
 static bool ConnectionRequestSystemLess(const Router2::ConnectionRequestSystem &a, const Router2::ConnectionRequestSystem &b)
 {
-	const int weightA = a.pingToEndpoint * (a.usedForwardingEntries + 1);
-	const int weightB = b.pingToEndpoint * (b.usedForwardingEntries + 1);
+	// In 64 bits: both factors come from a relay's reply (16-bit ping and entry count) and their
+	// product overflows int.
+	const int64_t weightA = static_cast<int64_t>(a.pingToEndpoint) * (static_cast<int64_t>(a.usedForwardingEntries) + 1);
+	const int64_t weightB = static_cast<int64_t>(b.pingToEndpoint) * (static_cast<int64_t>(b.usedForwardingEntries) + 1);
 	if (weightA != weightB)
 		return weightA < weightB;
 	return a.guid < b.guid;
@@ -723,7 +726,7 @@ void Router2::RequestForwarding(ConnnectRequest *connectionRequest)
 	{
 		char buff[512];
 		if (debugInterface)
-			debugInterface->ShowFailure(FormatStringTS(buff, "Router2 failed at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowFailure(FormatStringTS(buff, "Router2 failed at %s:%i\n", __FILE__, __LINE__));
 		return;
 	}
 
@@ -921,9 +924,9 @@ void Router2::SendForwardingSuccess(MessageID messageId, RakNetGUID sourceGuid, 
 	{
 		char buff[512];
 		if (messageId == ID_ROUTER_2_FORWARDING_ESTABLISHED)
-			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Sending ID_ROUTER_2_FORWARDING_ESTABLISHED at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Sending ID_ROUTER_2_FORWARDING_ESTABLISHED at %s:%i\n", __FILE__, __LINE__));
 		else
-			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Sending ID_ROUTER_2_REROUTED at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Sending ID_ROUTER_2_REROUTED at %s:%i\n", __FILE__, __LINE__));
 	}
 }
 void Router2::SendOOBFromRakNetPort(OutOfBandIdentifiers oob, BitStream *extraData, SystemAddress sa)
@@ -1090,7 +1093,7 @@ void Router2::OnRequestForwarding(Packet *packet)
 			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_REQUEST_FORWARDING.\n"
 			                                                    "endpointAddress=%s\nsourceAddress=%s\nforwardingPort=%i\n "
 			                                                    "calling SendOOBMessages at %s:%i\n",
-			                                              buff2, buff3, forwardingPort, _FILE_AND_LINE_));
+			                                              buff2, buff3, forwardingPort, __FILE__, __LINE__));
 		}
 
 		// Store the punch request
@@ -1276,7 +1279,7 @@ bool Router2::OnForwardingSuccess(Packet *packet)
 		if (debugInterface)
 		{
 			char buff[512];
-			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_FORWARDING_ESTABLISHED, returning ID_ROUTER_2_REROUTED, Calling RakPeer::ChangeSystemAddress at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got ID_ROUTER_2_FORWARDING_ESTABLISHED, returning ID_ROUTER_2_REROUTED, Calling RakPeer::ChangeSystemAddress at %s:%i\n", __FILE__, __LINE__));
 		}
 
 		packet->data[0] = ID_ROUTER_2_REROUTED;
@@ -1309,7 +1312,7 @@ bool Router2::OnForwardingSuccess(Packet *packet)
 		if (debugInterface)
 		{
 			char buff[512];
-			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got and returning to user ID_ROUTER_2_FORWARDING_ESTABLISHED at %s:%i\n", _FILE_AND_LINE_));
+			debugInterface->ShowDiagnostic(FormatStringTS(buff, "Got and returning to user ID_ROUTER_2_FORWARDING_ESTABLISHED at %s:%i\n", __FILE__, __LINE__));
 		}
 	}
 	return true; // Return packet to user

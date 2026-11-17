@@ -169,7 +169,7 @@ void LogCommandParser::WriteLog(const char *channelName, const char *format, ...
 
 	// For each user that subscribes to this channel, send to them.
 	unsigned i;
-	for (i = 0; i < remoteUsers.Size(); i++)
+	for (i = 0; i < remoteUsers.size(); i++)
 	{
 		if (remoteUsers[i].channels & (1 << channelIndex))
 		{
@@ -206,15 +206,15 @@ void LogCommandParser::OnConnectionLost(const SystemAddress &systemAddress, Tran
 unsigned LogCommandParser::Unsubscribe(const SystemAddress &systemAddress, const char *channelName)
 {
 	unsigned i;
-	for (i = 0; i < remoteUsers.Size(); i++)
+	for (i = 0; i < remoteUsers.size(); i++)
 	{
 		if (remoteUsers[i].systemAddress == systemAddress)
 		{
 			if (channelName == 0)
 			{
 				// Unsubscribe from all and delete this user.
-				remoteUsers[i] = remoteUsers[remoteUsers.Size() - 1];
-				remoteUsers.RemoveFromEnd();
+				remoteUsers[i] = remoteUsers[remoteUsers.size() - 1];
+				remoteUsers.pop_back();
 				return 0;
 			}
 			else
@@ -242,7 +242,7 @@ unsigned LogCommandParser::Subscribe(const SystemAddress &systemAddress, const c
 			return channelIndex;
 	}
 
-	for (i = 0; i < remoteUsers.Size(); i++)
+	for (i = 0; i < remoteUsers.size(); i++)
 	{
 		if (remoteUsers[i].systemAddress == systemAddress)
 		{
@@ -261,7 +261,7 @@ unsigned LogCommandParser::Subscribe(const SystemAddress &systemAddress, const c
 		newUser.channels = 1 << channelIndex;
 	else
 		newUser.channels = 0xFFFF;
-	remoteUsers.Insert(newUser, _FILE_AND_LINE_);
+	remoteUsers.push_back(newUser);
 	return channelIndex;
 }
 unsigned LogCommandParser::GetChannelIndexFromName(const char *channelName)

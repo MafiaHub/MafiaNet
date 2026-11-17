@@ -101,6 +101,16 @@ if(MAFIANET_SANITIZER)
     message(STATUS "MafiaNet: sanitizers ${_mafianet_san}")
     add_compile_options(-fsanitize=${_mafianet_san} -fno-sanitize-recover=all -fno-omit-frame-pointer)
     add_link_options(-fsanitize=${_mafianet_san})
+    # GCC on AArch64 (13 and 14 at least) never releases ASan's stack-use-after-return fake frames:
+    # the inline epilogue poisons the frame but does not clear its in-use flag, as it does on x86-64.
+    # Once a thread has made ~16k calls into frames of a size class, that class is full and every
+    # later call scans all of it before falling back to the real stack: ~8 us per call, with no
+    # use-after-return detection left. The network thread then cannot keep up with the commands it
+    # is sent (Rm3ReceiveThread stalls). Without the fake stack those calls cost nothing extra.
+    # Tests/Unit/AsanFakeStackTests.cpp checks that fake frames are either released or not used.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$" AND _mafianet_san MATCHES "address")
+        add_compile_options(--param=asan-use-after-return=0)
+    endif()
 endif()
 
 if(MAFIANET_COVERAGE)

@@ -897,9 +897,6 @@ public:
 		std::atomic<ConnectMode> connectMode;
 	};
 
-	// DS_APR
-	//void ProcessChromePacket(RakNetSocket2 *s, const char *buffer, int dataSize, const SystemAddress& recvFromAddress, MafiaNet::TimeUS timeRead);
-	// /DS_APR
 protected:
 	friend RAK_THREAD_DECLARATION(UpdateNetworkLoop);
 	//friend RAK_THREAD_DECLARATION(RecvFromLoop);
@@ -1046,7 +1043,7 @@ protected:
 	// bool isSocketLayerBlocking;
 	// bool continualPing,isRecvfromThreadActive,isMainLoopThreadActive, endThreads, isSocketLayerBlocking;
 	unsigned int validationInteger;
-	SimpleMutex incomingQueueMutex, banListMutex; //,synchronizedMemoryQueueMutex, automaticVariableSynchronizationMutex;
+	SimpleMutex banListMutex;
 	// BitStream enumerationData;
 
 	struct BanStruct
@@ -1185,7 +1182,7 @@ protected:
 		} command;
 	};
 
-	// User threads push, the network thread pops (UpdateInternal).
+	// User threads push, the network thread pops (RunUpdateCycle drains what was queued when it started).
 	LockedQueue<std::unique_ptr<BufferedCommandStruct>> bufferedCommands;
 
 

@@ -132,13 +132,13 @@ dimension yourself, query who is in it:
 
 .. code-block:: cpp
 
-   DataStructures::List<MafiaNet::RakNetGUID> recipients;
+   std::vector<MafiaNet::RakNetGUID> recipients;
    rm3->GetGuidsInVirtualWorld(apartmentId, recipients); // includeGlobal=true by default
-   for (unsigned i = 0; i < recipients.Size(); i++)
-       peer->Send(&chatMsg, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, recipients[i], false);
+   for (const MafiaNet::RakNetGUID &guid : recipients)
+       peer->Send(&chatMsg, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, guid, false);
 
    // Or get the connection objects directly:
-   DataStructures::List<MafiaNet::Connection_RM3*> conns;
+   std::vector<MafiaNet::Connection_RM3*> conns;
    rm3->GetConnectionsInVirtualWorld(apartmentId, conns, /*includeGlobal*/ true);
 
 Pass ``includeGlobal=false`` to exclude observers in ``VIRTUAL_WORLD_GLOBAL``.

@@ -275,6 +275,8 @@ TEST(FileListDirectory, SerializeRoundTripPreservesOrderAndContents)
 		EXPECT_EQ(copy.fileList[i].filename, names[i]);
 		EXPECT_EQ(copy.fileList[i].context.op, source.fileList[i].context.op);
 		EXPECT_EQ(copy.fileList[i].fileLengthBytes, source.fileList[i].fileLengthBytes);
+		// Not on the wire, so a received file is never a reference (and the flag is never left unset).
+		EXPECT_FALSE(copy.fileList[i].isAReference);
 		ASSERT_EQ(copy.fileList[i].dataLengthBytes, source.fileList[i].dataLengthBytes);
 		if (copy.fileList[i].dataLengthBytes)
 		{
