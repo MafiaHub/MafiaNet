@@ -26,7 +26,6 @@
 #include <set>
 #include <vector>
 
-//class PostgreSQLInterface;
 
 namespace MafiaNet
 {
@@ -60,7 +59,7 @@ public:
 	virtual ~Lobby2Server();
 
 	/// \brief Connect to the database \a numWorkerThreads times using the connection string
-	/// \param[in] conninfo See the postgre docs
+	/// \param[in] conninfo Connection string interpreted by the server implementation
 	/// \return True on success, false on failure.
 	virtual bool ConnectToDB(const char *conninfo, int numWorkerThreads) = 0;
 	/// \internal

@@ -3,7 +3,8 @@ Lobby2 Plugin
 
 The Lobby2 plugin provides a complete matchmaking and lobby system with user
 accounts, friends lists, rooms, and game sessions. It supports both server-hosted
-and peer-to-peer architectures.
+and peer-to-peer architectures. For a server that persists accounts, provide a
+concrete implementation of the ``Lobby2Server`` base class and its storage backend.
 
 Basic Usage
 -----------
@@ -84,7 +85,6 @@ Key Features
 * Clan/guild support
 * Ranking and leaderboards
 * Chat integration
-* Database backend support
 
 Message Types
 -------------

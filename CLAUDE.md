@@ -235,14 +235,13 @@ Source/
 └── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features
-DependentExtensions/    # Optional integrations (database, voice, patching)
+DependentExtensions/    # Optional integrations (patching and lobbies)
 cmake/                  # CMake modules including FetchDependencies.cmake
 ```
 
 ### DependentExtensions
 
 Optional integrations built when `MAFIANET_BUILD_SAMPLES=ON`:
-- **Database**: `MySQLInterface`, `PostgreSQLInterface` - Database connectivity
 - **Autopatcher**: Delta patching system for game updates (uses bzip2)
 - **RakVoice**: Voice compression and transmission (uses Opus, RNNoise)
 - **Lobby2**: Matchmaking and lobby system

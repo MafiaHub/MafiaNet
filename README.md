@@ -191,7 +191,6 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - **RakVoice** - Voice chat with Opus codec and RNNoise
 - **Autopatcher** - Delta patching for game updates
 - **FileListTransfer** - Reliable file transfer
-- **Database** - MySQL and PostgreSQL integration
 - **UPnP** - Automatic port forwarding
 
 </td>
@@ -265,10 +264,7 @@ MafiaNet/
 │   └── Tests/              # Comprehensive test suite
 ├── DependentExtensions/    # Optional integrations
 │   ├── Autopatcher/        # Delta patching system
-│   ├── Lobby2/             # Matchmaking and lobbies
-│   ├── voice.cpp/h      # Voice communication
-│   ├── MySQLInterface/     # MySQL connectivity
-│   └── PostgreSQLInterface/# PostgreSQL connectivity
+│   └── Lobby2/             # Matchmaking and lobbies
 ├── docs/                   # Sphinx documentation source
 └── cmake/                  # CMake modules and helpers
 ```

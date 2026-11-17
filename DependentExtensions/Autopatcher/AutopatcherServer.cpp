@@ -554,22 +554,6 @@ AutopatcherServer::ResultTypeAndBitstream *GetPatchCB(AutopatcherServer::ThreadD
 	if (rtab.bitStream2.GetNumberOfBitsUsed() > 0)
 		server->SendUnified(&(rtab.bitStream2), server->priority, MafiaNet::Reliability::ReliableOrdered, server->orderingChannel, rtab.systemAddress, false);
 
-	// 12/1/2010 This doesn't scale well. Changing to allocating a connection object per request
-	/*
-	// Wait for repository to finish
-	// This is so that the same sql connection is not used between two different plugins, which causes thrashing and bad performance
-	// Plus if fileListTransfer uses multiple threads, this will keep this thread and the fileListTransfer thread from using the same connection at the same time
-	// PostgreSQL possibly MySQL are not threadsafe for multiple threads on the same connection
-	int pendingFiles = server->fileListTransfer->GetPendingFilesToAddress(rtab.systemAddress);
-	while (pendingFiles>0)
-	{
-		RakSleep(pendingFiles*10);
-		pendingFiles = server->fileListTransfer->GetPendingFilesToAddress(rtab.systemAddress);
-	}
-	*/
-
-	// *returnOutput=true;
-	// return rtab;
 	return 0;
 }
 }

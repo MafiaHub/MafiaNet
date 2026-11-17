@@ -687,15 +687,6 @@ listed below, by extension. ``RakNetSmartPtr<BinaryDataBlock>`` became
   ``std::map<uint64_t, RoomMember> roomMembersById`` and
   ``std::set<uint64_t> rooms``. The ``SystemAddressAndRoomMemberComp`` and
   ``SteamIDAndRoomMemberComp`` statics are removed.
-* PGSQL (``Lobby2Message_PGSQL.h``, free functions):
-  ``GetClanMembers(unsigned, std::vector<ClanMemberDescriptor>&,
-  PostgreSQLInterface*)``, ``GetFriendIDs(..., std::vector<unsigned>&)``,
-  ``GetClanMateIDs(..., std::vector<unsigned>&)``,
-  ``GetFriendInfosByStatus(..., std::vector<FriendInfo>&, bool)``, and the
-  three ``SendEmail`` overloads take ``std::vector<RakString>&`` /
-  ``std::vector<unsigned>&`` recipients and a
-  ``std::shared_ptr<BinaryDataBlock>``. ``Lobby2Server_PGSQL::connectionPool``
-  is a ``std::vector<PostgreSQLInterface*>``.
 * Rooms, ``RoomsContainer.h``:
 
   * ``AllGamesRoomsContainer`` (public):
@@ -757,9 +748,6 @@ listed below, by extension. ``RakNetSmartPtr<BinaryDataBlock>`` became
 **Autopatcher**: ``AutopatcherServer::connectionPool`` and
 ``userRequestWaitingQueue`` are ``std::deque``, ``patchingUsers`` a
 ``std::vector<SystemAddress>``. No function signature changed.
-
-**PostgreSQLInterface**: ``preparedQueries`` is a
-``std::vector<RakString>``. No function signature changed.
 
 Non-copyable types
 ------------------
@@ -846,9 +834,7 @@ Behaviour changes
 * **Retail builds keep source locations in some messages.** ``_RETAIL``
   builds used to replace ``__FILE__`` / ``__LINE__`` with ``"", 0`` through
   ``_FILE_AND_LINE_``. Router2 debug messages now
-  always carry the real file and line. The Autopatcher PostgreSQL
-  repository's error strings, which can be sent to clients, no longer
-  mention a file or line in any build.
+  always carry the real file and line.
 
 See Also
 --------

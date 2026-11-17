@@ -10,12 +10,16 @@ Basic Usage
 
 **Server setup:**
 
+Supply an implementation of ``MafiaNet::AutopatcherRepositoryInterface`` that
+lists changed files and serves patches for your application. Pass at least one
+repository instance per worker thread to ``StartThreads()`` and keep the
+instances alive while the server uses them.
+
 .. code-block:: cpp
 
    #include "AutopatcherServer.h"
    #include "mafianet/autopatcher_repository_interface.h"
 
-   // Use file-based or database repository
    MafiaNet::AutopatcherServer autopatcherServer;
    MafiaNet::FileListTransfer flt;
 
@@ -23,7 +27,8 @@ Basic Usage
    peer->AttachPlugin(&flt);
 
    autopatcherServer.SetFileListTransferPlugin(&flt);
-   autopatcherServer.SetRepository(&repository);
+   MafiaNet::AutopatcherRepositoryInterface* repositories[] = {&repository};
+   autopatcherServer.StartThreads(1, 1, repositories);
 
 **Client requesting patches:**
 
@@ -38,16 +43,6 @@ Basic Usage
    autopatcherClient.PatchApplication("MyGame", "./game_directory",
                                       lastUpdateDate, serverAddress, &callback,
                                       restartOutputFilename, pathToRestartExe);
-
-**Creating patch data:**
-
-.. code-block:: cpp
-
-   // Add a new version to the repository
-   repository.AddNewVersion("./new_version_files", "1.2.0");
-
-   // Generate delta patches from previous versions
-   repository.CreatePatch("1.1.0", "1.2.0");
 
 Incremental patch checks
 ------------------------
@@ -68,18 +63,10 @@ Key Features
 
 * Binary delta patching (only transfers changes)
 * Multi-version support with automatic path finding
-* Database or file-based repository backends
 * Progress callbacks for UI integration
 * Integrity verification via checksums
 * Resumable downloads after interruption
 * Rollback support for failed patches
-
-Repository Backends
--------------------
-
-* ``AutopatcherRepositoryInterface`` - Base interface
-* ``AutopatcherMySQLRepository`` - MySQL storage
-* ``AutopatcherPostgreSQLRepository`` - PostgreSQL storage
 
 See Also
 --------
