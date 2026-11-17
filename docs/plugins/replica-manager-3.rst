@@ -131,6 +131,23 @@ Registering Objects
 
    // Automatically replicated to all connections!
 
+Static objects
+--------------
+
+For an object that every peer creates locally, such as a door loaded with a
+level, assign the same unique network ID on every peer. Call
+``SetNetworkIDManager()`` on the replica with the manager used by
+``ReplicaManager3``, then call ``SetNetworkID()`` before ``Reference()``.
+
+Have the authoritative peer return ``RM3CS_ALREADY_EXISTS_REMOTELY`` from
+``QueryConstruction()``. It can send initial state through
+``SerializeConstructionExisting()``, which the receiver reads in
+``DeserializeConstructionExisting()`` on its local object. Other peers return
+``RM3CS_ALREADY_EXISTS_REMOTELY_DO_NOT_CONSTRUCT``. Send subsequent state
+changes through ``Serialize()`` on the authoritative peer. For a level-owned
+object that survives a disconnect, return ``RM3AOPC_DO_NOTHING`` from
+``QueryActionOnPopConnection()``.
+
 Serialization Results
 ---------------------
 

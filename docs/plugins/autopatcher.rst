@@ -31,30 +31,13 @@ Basic Usage
 
    #include "AutopatcherClient.h"
 
-   class MyPatchCallback : public MafiaNet::AutopatcherClientCBInterface {
-   public:
-       void OnPatchProgress(double progress) override {
-           printf("Patching: %.1f%%\n", progress * 100.0);
-       }
-
-       void OnPatchComplete() override {
-           printf("Patching complete!\n");
-       }
-
-       void OnPatchFailed(const char* error) override {
-           printf("Patch failed: %s\n", error);
-       }
-   };
-
-   MafiaNet::AutopatcherClient autopatcherClient;
+   // Use the connected peer, its attached file-transfer plugin, and the
+   // application's AutopatcherClientCBInterface implementation.
    peer->AttachPlugin(&autopatcherClient);
-
-   MyPatchCallback callback;
-   autopatcherClient.SetCallbackInterface(&callback);
-
-   // Request patches for application
+   autopatcherClient.SetFileListTransferPlugin(&flt);
    autopatcherClient.PatchApplication("MyGame", "./game_directory",
-                                       serverAddress, &flt);
+                                      lastUpdateDate, serverAddress, &callback,
+                                      restartOutputFilename, pathToRestartExe);
 
 **Creating patch data:**
 
@@ -65,6 +48,20 @@ Basic Usage
 
    // Generate delta patches from previous versions
    repository.CreatePatch("1.1.0", "1.2.0");
+
+Incremental patch checks
+------------------------
+
+Pass the last successful patch's server timestamp as ``lastUpdateDate`` to
+``AutopatcherClient::PatchApplication()``. The server uses it to look up files
+that changed since that update. After receiving ``ID_AUTOPATCHER_FINISHED``,
+save ``AutopatcherClient::GetServerDate()`` with that installation for its next
+check. If the patch requires a restart, advance the saved timestamp after the
+replacement files have been installed.
+
+For a fresh distribution, bundle the server timestamp recorded when its files
+were published. Pass zero if the installed version is unknown or you want a
+full scan to repair the installation.
 
 Key Features
 ------------
