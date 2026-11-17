@@ -65,10 +65,8 @@ add_subdirectory(RakVoice)
 # The following samples are disabled by default as they require
 # specific third-party dependencies, platforms, or special configuration:
 #
-# - AutopatcherClientGFx3.0 (requires Scaleform GFx)
 # - AutoPatcherServer_MySQL (requires MySQL)
 # - CrashRelauncher (Windows-specific)
-# - Lobby2ClientGFx3.0 (requires Scaleform GFx)
 # - Lobby2Server_PGSQL (requires PostgreSQL)
 # - Lobby3 (incomplete)
 # - LobbyDB_PostgreSQL (requires PostgreSQL)
@@ -79,7 +77,6 @@ add_subdirectory(RakVoice)
 # - RankingServerDB (requires database)
 # - RankingServerDBTest (requires database)
 # - Rooms (incomplete)
-# - RoomsBrowserGFx3 (requires Scaleform GFx)
 # - SteamLobby (requires Steam SDK)
 # - TitleValidationDB_PostgreSQL (requires PostgreSQL)
 # - TestDLL (Windows DLL test)
