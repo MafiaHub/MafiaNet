@@ -723,7 +723,6 @@ bool RakNetGUID::FromString(const char *source)
 #if defined(WIN32)
 	g = _strtoui64(source, nullptr, 10);
 #else
-	// Changed from g=strtoull(source,0,10); for android
 	g = strtoull(source, nullptr, 10);
 #endif
 	return true;

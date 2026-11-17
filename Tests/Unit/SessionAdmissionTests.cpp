@@ -228,13 +228,11 @@ TEST(SessionAdmissionMessageIds, AreBelowUserPacketEnum)
 	EXPECT_LT((int) ID_SESSION_CONFIG_ABANDONED, (int) ID_USER_PACKET_ENUM);
 }
 
-// Both took reserved slots rather than inserting, so every id after them keeps its value and a peer built
-// against the previous release still decodes everything else the same.
-TEST(SessionAdmissionMessageIds, TookTheReservedSlotsWithoutShiftingLaterIds)
+TEST(SessionAdmissionMessageIds, FinishTheBuiltInMessageRange)
 {
 	EXPECT_EQ((int) ID_SESSION_CONFIG_STATUS, (int) ID_SESSION_CONFIG_REJECTED + 1);
 	EXPECT_EQ((int) ID_SESSION_CONFIG_ABANDONED, (int) ID_SESSION_CONFIG_REJECTED + 2);
-	EXPECT_EQ((int) ID_RESERVED_8, (int) ID_SESSION_CONFIG_REJECTED + 3);
+	EXPECT_EQ((int) ID_USER_PACKET_ENUM, (int) ID_SESSION_CONFIG_REJECTED + 3);
 }
 
 TEST(SessionAdmissionMessageIds, AreDistinctFromTheOtherHandshakeIds)

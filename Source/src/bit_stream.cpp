@@ -27,16 +27,11 @@
 #include "mafianet/socket_includes.h"
 #include "mafianet/defines.h"
 
+#include <cmath>
 #if defined(_WIN32)
 #include "mafianet/windows_includes.h"
-#include <cmath>
 #else
 #include <arpa/inet.h>
-#if defined(ANDROID)
-#include <math.h>
-#else
-#include <cmath>
-#endif
 #endif
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"

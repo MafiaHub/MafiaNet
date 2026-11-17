@@ -27,7 +27,7 @@ does in GameNetworkingSockets or ENet.
 clients are reported as plain IPv4 addresses (``127.0.0.1``, never
 ``::ffff:127.0.0.1``), so ban lists, ``IsLoopback()`` and address lookups work
 the same as on an ``AF_INET`` socket. If the host has no IPv6, or refuses
-dual-stack sockets (OpenBSD), the socket falls back to IPv4 only;
+dual-stack sockets, the socket falls back to IPv4 only;
 ``RakNetSocket2::IsDualStack()`` reports which one you got.
 
 * ``AF_UNSPEC`` with a specific ``hostAddress`` is **not** dual-stack: it binds
@@ -177,9 +177,9 @@ An IPv6 ``SystemAddress`` is serialized as 19 bytes::
    [u8 6][16 bytes inverted address][u16 port, network order]
 
 IPv4 addresses keep their 7-byte form. IPv4-mapped addresses are sent as IPv4.
-The layout is the same on every platform, so Windows, Linux, macOS and BSD
+The layout is the same on every platform, so Windows, Linux and macOS
 peers interoperate. This encoding was introduced in protocol version 8 and is unchanged
-in the current version, 9 (``RAKNET_PROTOCOL_VERSION``); peers on a different
+in the current version, 10 (``RAKNET_PROTOCOL_VERSION``); peers on a different
 version are answered with ``ID_INCOMPATIBLE_PROTOCOL_VERSION``.
 
 Platform Notes
@@ -193,8 +193,7 @@ Platform Notes
   hop limit does not); on macOS, ``IP_TTL`` is rejected (``EINVAL``) and
   ``IPV6_UNICAST_HOPS`` governs IPv4-mapped datagrams. The integration tests
   check the TTL that actually arrives on both. Windows dual-mode sockets are
-  documented to honour ``IP_TTL`` but were not measured; the BSDs share the
-  macOS code but were not measured either.
+  documented to honour ``IP_TTL`` but were not measured.
 * **Firewalls:** open the UDP port for IPv6 as well as IPv4.
 * **NAT:** IPv6 normally needs no NAT, but NAT64 may be in the path.
 

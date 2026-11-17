@@ -15,8 +15,6 @@
 
 #if defined(_WIN32)
 #include <conio.h> /* _getche() */
-#elif defined(__S3E__)
-
 #else
 
 #include "mafianet/getche.h"

@@ -26,9 +26,7 @@
 #include "mafianet/session_admission.h"
 #include "mafianet/types.h"
 
-#ifdef _WIN32
-
-#else
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 
@@ -81,30 +79,7 @@ RAK_THREAD_DECLARATION(UDTConnect);
 }
 #define REMOTE_SYSTEM_LOOKUP_HASH_MULTIPLE 8
 
-#if !defined(__APPLE__) && !defined(__APPLE_CC__)
-#include <stdlib.h> // malloc
-#endif
-
 #include <sodium.h>
-
-
-#if defined(_WIN32)
-//
-#else
-/*
-#include <stdlib.h>
-extern bool _extern_Console2LoadModules(void);
-extern int _extern_Console2GetConnectionStatus(void);
-extern int _extern_Console2GetLobbyStatus(void);
-//extern bool Console2StartupFluff(unsigned int *);
-extern void Console2ShutdownFluff(void);
-//extern unsigned int Console2ActivateConnection(unsigned int, void *);
-//extern bool Console2BlockOnEstablished(void);
-extern void Console2GetIPAndPort(unsigned int, char *, unsigned short *, unsigned int );
-//extern void Console2DeactivateConnection(unsigned int, unsigned int);
-*/
-#endif
-
 
 // Probed high to low while connecting: the connecting peer pads
 // ID_OPEN_CONNECTION_REQUEST_1 to a rung and steps down when nothing comes back,
@@ -7141,38 +7116,9 @@ void RakPeer::OnRNS2Recv(RNS2RecvStruct *recvStruct)
 RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 {
 
-
 	RakPeer *rakPeer = (RakPeer *) arguments;
 
-
-	/*
-	// 11/15/05 - this is slower than Sleep()
-#ifdef _WIN32
-#if (_WIN32_WINNT >= 0x0400) || (_WIN32_WINDOWS > 0x0400)
-	// Lets see if these timers give better performance than Sleep
-	HANDLE timerHandle;
-	LARGE_INTEGER dueTime;
-
-	if ( rakPeer->threadSleepTimer <= 0 )
-		rakPeer->threadSleepTimer = 1;
-
-	// 2nd parameter of false means synchronization timer instead of manual-reset timer
-	timerHandle = CreateWaitableTimer( nullptr, FALSE, 0 );
-
-	RakAssert( timerHandle );
-
-	dueTime.QuadPart = -10000 * rakPeer->threadSleepTimer; // 10000 is 1 ms?
-
-	BOOL success = SetWaitableTimer( timerHandle, &dueTime, rakPeer->threadSleepTimer, nullptr, nullptr, FALSE );
-    (void) success;
-	RakAssert( success );
-
-#endif
-#endif
-*/
-
 	BitStream updateBitStream(MAXIMUM_MTU_SIZE);
-	//
 	rakPeer->isMainLoopThreadActive = true;
 
 	bool running = true;
@@ -7184,12 +7130,6 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 			// note: this fixes part of SLNET-123
 			running = false;
 		}
-		// #ifdef _DEBUG
-		// 		// Sanity check, make sure RunUpdateCycle does not block or not otherwise get called for a long time
-		// 		RakNetTime thisCall=MafiaNet::GetTime();
-		// 		RakAssert(thisCall-lastCall<250);
-		// 		lastCall=thisCall;
-		// #endif
 		if (rakPeer->userUpdateThreadPtr)
 			rakPeer->userUpdateThreadPtr(rakPeer, rakPeer->userUpdateThreadData);
 
@@ -7197,51 +7137,9 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateNetworkLoop)
 
 		// Pending sends go out this often, unless quitAndDataEvents is set
 		rakPeer->quitAndDataEvents.WaitOnEvent(10);
-
-		/*
-
-// #if ((_WIN32_WINNT >= 0x0400) || (_WIN32_WINDOWS > 0x0400)) &&
-#if defined(USE_WAIT_FOR_MULTIPLE_EVENTS) && defined(_WIN32)
-
-		if (rakPeer->threadSleepTimer>0)
-		{
-			WSAEVENT eventArray[256];
-			unsigned int i, eventArrayIndex;
-			for (i=0,eventArrayIndex=0; i < rakPeer->socketList.size(); i++)
-			{
-				if (rakPeer->socketList[i]->recvEvent!=INVALID_HANDLE_VALUE)
-				{
-					eventArray[eventArrayIndex]=rakPeer->socketList[i]->recvEvent;
-					eventArrayIndex++;
-					if (eventArrayIndex==256)
-						break;
-				}
-			}
-			WSAWaitForMultipleEvents(eventArrayIndex,(const HANDLE*) &eventArray,FALSE,rakPeer->threadSleepTimer,FALSE);
-		}
-		else
-		{
-			RakSleep(0);
-		}
-
-#else // ((_WIN32_WINNT >= 0x0400) || (_WIN32_WINDOWS > 0x0400)) && defined(USE_WAIT_FOR_MULTIPLE_EVENTS)
-		#pragma message("-- RakNet: Using Sleep(). Uncomment USE_WAIT_FOR_MULTIPLE_EVENTS in defines.h if you want to use WaitForSingleObject instead. --")
-
-		RakSleep( rakPeer->threadSleepTimer );
-#endif
-		*/
 	}
 
 	rakPeer->isMainLoopThreadActive = false;
-
-	/*
-#ifdef _WIN32
-#if (_WIN32_WINNT >= 0x0400) || (_WIN32_WINDOWS > 0x0400)
-	CloseHandle(timerHandle);
-#endif
-#endif
-	*/
-
 
 	return 0;
 }

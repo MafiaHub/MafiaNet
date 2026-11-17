@@ -34,11 +34,6 @@ enum OutOfBandIdentifiers
 	ID_ROUTER_2_REPLY_TO_SPECIFIED_PORT,
 	ID_ROUTER_2_MINI_PUNCH_REPLY,
 	ID_ROUTER_2_MINI_PUNCH_REPLY_BOUNCE,
-	// Reserved: formerly Xbox 360 integration. The identifiers stay so the
-	// wire values of everything after them do not shift.
-	ID_XBOX_360_VOICE,
-	ID_XBOX_360_GET_NETWORK_ROOM,
-	ID_XBOX_360_RETURN_NETWORK_ROOM,
 	ID_NAT_PING,
 	ID_NAT_PONG,
 };
@@ -404,9 +399,6 @@ enum DefaultMessageIDTypes
 	/// Gamebryo Lightspeed integration
 	ID_LIGHTSPEED_INTEGRATION,
 
-	/// Reserved: formerly Xbox integration. Kept so later wire values do not shift.
-	ID_XBOX_LOBBY,
-
 	/// The password we used to challenge the other system passed, meaning the other system has called TwoWayAuthentication::AddPassword() with the same password we passed to TwoWayAuthentication::Challenge()
 	/// You can read the identifier used to challenge as follows:
 	/// MafiaNet::BitStream bs(packet->data, packet->length, false); bs.IgnoreBytes(sizeof(MafiaNet::MessageID)); MafiaNet::RakString password; bs.Read(password);
@@ -435,9 +427,6 @@ enum DefaultMessageIDTypes
 	ID_CLOUD_SERVER_TO_SERVER_COMMAND,
 	ID_CLOUD_SUBSCRIPTION_NOTIFICATION,
 
-	// LibVoice
-	ID_LIB_VOICE,
-
 	ID_RELAY_PLUGIN,
 	ID_NAT_REQUEST_BOUND_ADDRESSES,
 	ID_NAT_RESPOND_BOUND_ADDRESSES,
@@ -465,8 +454,6 @@ enum DefaultMessageIDTypes
 	/// The guid is the one the request carried; no connection was ever reported for it, and answering it
 	/// now does nothing.
 	ID_SESSION_CONFIG_ABANDONED,
-	ID_RESERVED_8,
-	ID_RESERVED_9,
 
 	// For the user to use.  Start your first enumeration at this value.
 	ID_USER_PACKET_ENUM

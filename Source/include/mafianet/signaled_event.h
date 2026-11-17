@@ -53,9 +53,7 @@ protected:
 #else
 	SimpleMutex isSignaledMutex;
 	bool isSignaled;
-#if !defined(ANDROID)
 	pthread_condattr_t condAttr;
-#endif
 	pthread_cond_t eventList;
 	pthread_mutex_t hMutex;
 	pthread_mutexattr_t mutexAttr;

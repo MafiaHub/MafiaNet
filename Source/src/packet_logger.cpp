@@ -396,7 +396,6 @@ const char *PacketLogger::BaseIDTOString(unsigned char Id)
 	        "ID_TEAM_BALANCER_TEAM_REQUESTED_CANCELLED",
 	        "ID_TEAM_BALANCER_TEAM_ASSIGNED",
 	        "ID_LIGHTSPEED_INTEGRATION",
-	        "ID_XBOX_LOBBY",
 	        "ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_SUCCESS",
 	        "ID_TWO_WAY_AUTHENTICATION_OUTGOING_CHALLENGE_SUCCESS",
 	        "ID_TWO_WAY_AUTHENTICATION_INCOMING_CHALLENGE_FAILURE",
@@ -410,7 +409,6 @@ const char *PacketLogger::BaseIDTOString(unsigned char Id)
 	        "ID_CLOUD_UNSUBSCRIBE_REQUEST",
 	        "ID_CLOUD_SERVER_TO_SERVER_COMMAND",
 	        "ID_CLOUD_SUBSCRIPTION_NOTIFICATION",
-	        "ID_LIB_VOICE",
 	        "ID_RELAY_PLUGIN",
 	        "ID_NAT_REQUEST_BOUND_ADDRESSES",
 	        "ID_NAT_RESPOND_BOUND_ADDRESSES",
@@ -420,8 +418,6 @@ const char *PacketLogger::BaseIDTOString(unsigned char Id)
 	        "ID_SESSION_CONFIG_REJECTED",
 	        "ID_SESSION_CONFIG_STATUS",
 	        "ID_SESSION_CONFIG_ABANDONED",
-	        "ID_RESERVED_8",
-	        "ID_RESERVED_9",
 	        "ID_USER_PACKET_ENUM"};
 
 	return (char *) IDTable[Id];
@@ -453,7 +449,7 @@ void PacketLogger::SetSuffix(const char *_suffix)
 }
 void PacketLogger::GetLocalTime(char buffer[128])
 {
-#if defined(_WIN32) && !defined(__GNUC__) && !defined(__GCCXML__)
+#if defined(_WIN32) && !defined(__GNUC__)
 	time_t rawtime;
 	struct timeval tv;
 	// If you get an arror about an incomplete type, just delete this file

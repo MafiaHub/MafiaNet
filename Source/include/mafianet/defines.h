@@ -27,7 +27,6 @@
 
 /// Define __GET_TIME_64BIT to have MafiaNet::TimeMS use a 64, rather than 32 bit value.  A 32 bit value will overflow after about 5 weeks.
 /// However, this doubles the bandwidth use for sending times, so don't do it unless you have a reason to.
-/// Comment out if you are using the iPod Touch TG. See http://www.jenkinssoftware.com/forum/index.php?topic=2717.0
 /// This must be the same on all systems, or they won't connect
 #ifndef __GET_TIME_64BIT
 #define __GET_TIME_64BIT 1
@@ -43,11 +42,6 @@
 /// unless you actually plan to have different endianness systems connect to each other
 /// Enabled by default.
 // #define __BITSTREAM_NATIVE_END
-
-// Use WaitForSingleObject instead of sleep.
-// Defining it plays nicer with other systems, and uses less CPU, but gives worse RakNet performance
-// Undefining it uses more CPU time, but is more responsive and faster.
-#define USE_WAIT_FOR_MULTIPLE_EVENTS
 
 /// Threshold at which to do a malloc / free rather than pushing data onto a fixed stack for the bitstream class
 /// Arbitrary size, just picking something likely to be larger than most packets

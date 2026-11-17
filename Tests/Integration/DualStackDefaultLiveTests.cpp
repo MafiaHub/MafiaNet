@@ -136,7 +136,7 @@ public:
 			{
 				if (family_ == AF_INET && c->cmsg_level == IPPROTO_IP)
 				{
-					// Linux reports IP_TTL with an int, the BSDs IP_RECVTTL with a byte.
+					// Linux reports IP_TTL with an int, macOS IP_RECVTTL with a byte.
 					if (c->cmsg_type == IP_TTL && c->cmsg_len >= CMSG_LEN(sizeof(int)))
 					{
 						int ttl;

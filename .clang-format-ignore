@@ -1,8 +1,5 @@
 # Files clang-format must not touch.
 
-# Objective-C
-Samples/iOS/*/*/*
-
 # Third-party code kept as upstream wrote it
 DependentExtensions/Autopatcher/ApplyPatch.cpp
 DependentExtensions/Autopatcher/CreatePatch.cpp
