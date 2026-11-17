@@ -30,8 +30,6 @@
 // #define _RAKNET_SUPPORT_ReadyEvent 0
 // #define _RAKNET_SUPPORT_ReplicaManager3 0
 // #define _RAKNET_SUPPORT_Router2 0
-// #define _RAKNET_SUPPORT_TeamBalancer 0
-// #define _RAKNET_SUPPORT_TeamManager 0
 // #define _RAKNET_SUPPORT_UDPProxyClient 0
 // #define _RAKNET_SUPPORT_UDPProxyCoordinator 0
 // #define _RAKNET_SUPPORT_UDPProxyServer 0
@@ -88,12 +86,6 @@
 #endif
 #ifndef _RAKNET_SUPPORT_Router2
 #define _RAKNET_SUPPORT_Router2 1
-#endif
-#ifndef _RAKNET_SUPPORT_TeamBalancer
-#define _RAKNET_SUPPORT_TeamBalancer 1
-#endif
-#ifndef _RAKNET_SUPPORT_TeamManager
-#define _RAKNET_SUPPORT_TeamManager 1
 #endif
 #ifndef _RAKNET_SUPPORT_UDPProxyClient
 #define _RAKNET_SUPPORT_UDPProxyClient 1

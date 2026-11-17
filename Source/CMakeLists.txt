@@ -90,8 +90,6 @@ set(MAFIANET_SOURCES
     src/table.cpp
     src/table_serializer.cpp
     src/tcp_interface.cpp
-    src/team_balancer.cpp
-    src/team_manager.cpp
     src/threadsafe_packet_logger.cpp
     src/udp_forwarder.cpp
     src/udp_proxy_client.cpp
@@ -233,8 +231,6 @@ set(MAFIANET_HEADERS
     include/mafianet/table.h
     include/mafianet/table_serializer.h
     include/mafianet/tcp_interface.h
-    include/mafianet/team_balancer.h
-    include/mafianet/team_manager.h
     include/mafianet/telnet_transport.h
     include/mafianet/thread.h
     include/mafianet/thread_pool.h
@@ -299,8 +295,6 @@ set(MAFIANET_OPTIONAL_FEATURES
     Router2
     StatisticsHistory
     TCPInterface
-    TeamBalancer
-    TeamManager
     TelnetTransport
     UDPForwarder
     UDPProxyClient

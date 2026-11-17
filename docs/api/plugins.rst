@@ -73,13 +73,6 @@ ReadyEvent
    :members:
    :undoc-members:
 
-TeamManager
-~~~~~~~~~~~
-
-.. doxygenclass:: MafiaNet::TeamManager
-   :members:
-   :undoc-members:
-
 Utility Plugins
 ---------------
 

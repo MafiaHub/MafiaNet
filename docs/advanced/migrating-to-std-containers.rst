@@ -449,21 +449,6 @@ FullyConnectedMesh2 and ConnectionGraph2
   ``RemoteSystemComp`` and ``SystemAddressAndGuidComp`` statics are removed.
   ConnectionGraph2 is non-copyable.
 
-TeamManager and TeamBalancer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* ``TM_TeamMember::GetRequestedSpecificTeams``, ``GetCurrentTeams``,
-  ``GetLastTeams`` take ``std::vector<TM_Team*>&``;
-  ``TM_Team::GetTeamMembers`` takes ``std::vector<TM_TeamMember*>&``;
-  ``TM_World::GetParticipantList`` takes ``std::vector<RakNetGUID>&``.
-* Protected: ``TM_World::GetSortedJoinRequests(std::vector<JoinRequestHelper>&)``
-  (sorted by the unchanged ``JoinRequestHelperComp``, duplicates dropped),
-  ``TM_World::JoinSpecificTeam(..., std::vector<TM_Team*>&)`` and the
-  8-argument ``TeamManager::DecodeTeamAssigned(..., std::vector<TM_Team*>&)``.
-* TeamBalancer (protected):
-  ``GetMemberIndexToSwitchTeams(const std::vector<TeamId>&, TeamId)`` and
-  ``GetOverpopulatedTeams(std::vector<TeamId>&, int)``.
-
 ReadyEvent, Router2, RakVoice and sectorizers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -775,10 +760,6 @@ Behaviour changes
 * **RPC::UnregisterLocalCallback** returns ``true`` whenever the
   ``(uniqueID, messageId)`` pair was registered and removed, as documented.
   It used to return ``true`` only when the message id's last function went.
-* **TeamBalancer rejects a team index ≥ the team count.** Requests and status
-  updates from the network naming team ``n`` of ``n`` teams were accepted and
-  wrote out of bounds; they are now dropped, and ``AddTeamMember`` refuses
-  them.
 * **UDPProxyServer enforces coordinator authorization.** It accepted
   forwarding requests from any connected system; now only from a coordinator
   it logged in to. Other forwarding messages pass through to the
@@ -805,8 +786,7 @@ Behaviour changes
   ``DataCompressor``, ``StringTable``, ``NatPunchthroughServer``, ``RPC``
   (an ``ID_RPC`` packet without a known sub-identifier) and
   ``RakPeer`` (a truncated ``ID_CONNECTION_REQUEST_ACCEPTED``) used to
-  ``RakAssert`` (aborting a Debug build) on malformed data from a peer, and
-  ``TeamBalancer`` on a team request when every team was full. They now drop
+  ``RakAssert`` (aborting a Debug build) on malformed data from a peer. They now drop
   the message. ``ConnectionGraph2`` stops at a truncated connection list
   instead of adding unread entries.
 * **TableSerializer bounds what it builds.** ``DeserializeTable`` rejects a
