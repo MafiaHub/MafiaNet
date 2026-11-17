@@ -168,7 +168,6 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - Peer-to-peer and client-server architectures
 - NAT punchthrough and traversal
 - Host migration
-- Room and lobby management
 - Object replication (ReplicaManager3)
 - Built-in remote procedure calls through `peer->GetRPC()`
 
@@ -214,7 +213,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 | **MessageFilter** | Security filtering for incoming messages |
 | **PacketLogger** | Network traffic logging and debugging |
 | **TwoWayAuthentication** | Mutual authentication between peers |
-| **Lobby2** | Matchmaking and lobby system |
 
 See the [Plugin Documentation](https://mafianet.mafiahub.dev/plugins/overview.html) for detailed usage.
 
@@ -259,8 +257,6 @@ MafiaNet/
 │   ├── RakVoice/           # Voice chat examples
 │   ├── FileListTransfer/   # File transfer demo
 │   └── Tests/              # Comprehensive test suite
-├── DependentExtensions/    # Optional integrations
-│   └── Lobby2/             # Matchmaking and lobbies
 ├── docs/                   # Sphinx documentation source
 └── cmake/                  # CMake modules and helpers
 ```

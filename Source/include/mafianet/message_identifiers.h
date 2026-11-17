@@ -271,8 +271,8 @@ enum DefaultMessageIDTypes
 	/// ReadyEvent plugin - Request of ready event state - used for pulling data when newly connecting
 	ID_READY_EVENT_QUERY,
 
-	/// Lobby packets. Second byte indicates type.
-	ID_LOBBY_GENERAL,
+	/// Reserved legacy lobby wire ID.
+	ID_RESERVED_73,
 
 	// RPC error
 	ID_RPC_REMOTE_ERROR,
@@ -284,14 +284,14 @@ enum DefaultMessageIDTypes
 	/// Force the ready event to all set
 	ID_READY_EVENT_FORCE_ALL_SET,
 
-	/// Rooms function
-	ID_ROOMS_EXECUTE_FUNC,
-	ID_ROOMS_LOGON_STATUS,
-	ID_ROOMS_HANDLE_CHANGE,
+	/// Reserved wire IDs for the removed Rooms plugin.
+	ID_RESERVED_78,
+	ID_RESERVED_79,
+	ID_RESERVED_80,
 
-	/// Lobby2 message
-	ID_LOBBY2_SEND_MESSAGE,
-	ID_LOBBY2_SERVER_ERROR,
+	/// Reserved wire IDs for the removed Lobby2 plugin.
+	ID_RESERVED_81,
+	ID_RESERVED_82,
 
 	/// Informs user of a new host GUID. Packet::Guid contains this new host RakNetGuid. The old host can be read out using BitStream->Read(RakNetGuid) starting on byte 1
 	/// This is not returned until connected to a remote system

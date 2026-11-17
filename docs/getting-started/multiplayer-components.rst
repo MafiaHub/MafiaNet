@@ -88,10 +88,9 @@ Essential Systems
 
 **Lobby/Matchmaking**
 
-- Player discovery
-- Team assignment
-- Ready state synchronization
-- See :doc:`../plugins/lobby2`
+- Provide player discovery through your game or matchmaking service.
+- Coordinate team assignment with :doc:`../plugins/team-manager`.
+- Synchronize ready states with :doc:`../plugins/ready-event`.
 
 **Object Replication**
 

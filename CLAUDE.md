@@ -88,7 +88,7 @@ per target by `mafianet_enable_warnings()` (`cmake/MafiaNetHelpers.cmake`), neve
 fetched dependencies are not affected; call it for any new target.
 
 **Formatting:** `.clang-format` (tabs, Allman, no line wrapping) applies to every C++ file under
-`Source`, `Tests`, `Samples`, `DependentExtensions` and `Benchmarks`, except what
+`Source`, `Tests`, `Samples` and `Benchmarks`, except what
 `.clang-format-ignore` lists (vendored third-party code). CI runs `ci/format.sh --check`
 with clang-format **18.1.8** (`pipx install clang-format==18.1.8`); run `ci/format.sh` before
 committing. Use `// clang-format off` / `on` only around hand-aligned tables, never to dodge the style.
@@ -235,15 +235,8 @@ Source/
 └── src/                # Implementation files
 
 Samples/                # 80+ examples demonstrating features
-DependentExtensions/    # Optional integrations (lobbies)
 cmake/                  # CMake modules including FetchDependencies.cmake
 ```
-
-### DependentExtensions
-
-Optional integrations built when `MAFIANET_BUILD_SAMPLES=ON`:
-- **RakVoice**: Voice compression and transmission (uses Opus, RNNoise)
-- **Lobby2**: Matchmaking and lobby system
 
 Dependencies (jansson, miniupnpc, Opus, RNNoise) are automatically fetched via CMake FetchContent at configure time.
 

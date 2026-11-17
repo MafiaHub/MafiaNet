@@ -913,7 +913,7 @@ int main(void)
 	bool hasServer = responseLetter == 'y' || responseLetter == 'Y' || responseLetter == ' ';
 	printf("\n");
 	if (hasServer == false)
-		printf("Note: Only UPNP and Router2 are supported without a server\nYou may want to consider using the Lobby2/Steam project. They host the\nservers for you.\n\n");
+		printf("Note: Only UPNP and Router2 are supported without a server.\n\n");
 
 	FeatureList currentStage = _UPNPFramework;
 

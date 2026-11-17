@@ -95,5 +95,4 @@ See Also
 --------
 
 * :doc:`ready-event` - Team-based ready coordination
-* :doc:`lobby2` - Pre-game team selection
 * :doc:`fully-connected-mesh-2` - P2P team synchronization

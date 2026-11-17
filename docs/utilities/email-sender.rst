@@ -128,4 +128,3 @@ See Also
 
 * :doc:`tcp-interface` - Underlying TCP transport
 * :doc:`../plugins/file-list-transfer` - File handling
-* :doc:`../plugins/lobby2` - User account management

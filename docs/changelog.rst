@@ -14,6 +14,8 @@ Unreleased — breaking
 
 **Removed extensions**
 
+* Removed the Lobby2 CMake target, Rooms plugin, Steam lobby adapter and their samples. Games using them must supply their own lobby implementation. Wire IDs 73 and 78–82 remain reserved under the corresponding ``ID_RESERVED_*`` names.
+
 * RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`guide/rpc` and serialize their arguments into a bit stream.
 * The SQLite client, server and logging adapters have been removed.
 * CloudClient and CloudServer, including their samples and public headers, have been removed. Remove their names from ``MAFIANET_DISABLED_FEATURES``.
