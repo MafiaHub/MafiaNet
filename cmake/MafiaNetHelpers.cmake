@@ -61,49 +61,6 @@ function(mafianet_add_sample)
     endif()
 endfunction()
 
-# mafianet_add_extension(<NAME> [SOURCES <sources>] [LIBS <libs>] [INCLUDES <includes>])
-#
-# Creates a static library extension for MafiaNet.
-function(mafianet_add_extension)
-    cmake_parse_arguments(EXT
-        ""                          # Boolean args
-        "NAME"                      # Single-value args
-        "SOURCES;LIBS;INCLUDES"     # Multi-value args
-        ${ARGN}
-    )
-
-    if(NOT EXT_NAME)
-        message(FATAL_ERROR "mafianet_add_extension: NAME is required")
-    endif()
-
-    if(NOT EXT_SOURCES)
-        file(GLOB EXT_SOURCES
-            "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-            "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
-            "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-        )
-    endif()
-
-    add_library(${EXT_NAME} STATIC ${EXT_SOURCES})
-
-    target_include_directories(${EXT_NAME} PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${PROJECT_SOURCE_DIR}/Source/include
-    )
-
-    if(EXT_INCLUDES)
-        target_include_directories(${EXT_NAME} PUBLIC ${EXT_INCLUDES})
-    endif()
-
-    if(EXT_LIBS)
-        target_link_libraries(${EXT_NAME} PUBLIC ${EXT_LIBS})
-    endif()
-
-    set_target_properties(${EXT_NAME} PROPERTIES
-        FOLDER "Extensions"
-    )
-endfunction()
-
 # mafianet_enable_warnings(<target>...)
 #
 # Compiler warnings for MafiaNet's own code. Applied per target, never
