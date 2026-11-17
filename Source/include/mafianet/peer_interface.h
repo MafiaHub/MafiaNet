@@ -325,7 +325,7 @@ public:
 	/// \return The RakNetGUID
 	virtual RakNetGUID GetGUIDFromIndex(unsigned int index) = 0;
 
-	/// Same as calling GetSystemAddressFromIndex and GetGUIDFromIndex for all systems, but more efficient
+	/// Copies one snapshot of the connected peers. Membership may change after the snapshot is published.
 	/// Indices match each other, so \a addresses[0] and \a guids[0] refer to the same system
 	/// \param[out] addresses All system addresses. Size of the list is the number of connections. Size of the list will match the size of the \a guids list.
 	/// \param[out] guids All guids. Size of the list is the number of connections. Size of the list will match the size of the \a addresses list.

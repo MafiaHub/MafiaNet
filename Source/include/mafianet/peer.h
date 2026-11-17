@@ -44,6 +44,7 @@
 #include <deque>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace MafiaNet
@@ -359,7 +360,7 @@ public:
 	/// \return The RakNetGUID
 	RakNetGUID GetGUIDFromIndex(unsigned int index);
 
-	/// \brief Same as calling GetSystemAddressFromIndex and GetGUIDFromIndex for all systems, but more efficient
+	/// \brief Copies one published snapshot of connected addresses and GUIDs.
 	/// Indices match each other, so \a addresses[0] and \a guids[0] refer to the same system
 	/// \param[out] addresses All system addresses. Size of the list is the number of connections. Size of the \a addresses list will match the size of the \a guids list.
 	/// \param[out] guids All guids. Size of the list is the number of connections. Size of the list will match the size of the \a addresses list.
@@ -995,6 +996,11 @@ protected:
 	/// Threadsafe because RemoteSystemStruct is preallocated, and the list is only added to, not removed from
 	RemoteSystemStruct **activeSystemList;
 	unsigned int activeSystemListSize;
+
+	using ConnectedSystems = std::vector<std::pair<SystemAddress, RakNetGUID>>;
+	std::shared_ptr<const ConnectedSystems> connectedSystems;
+	void SetConnectMode(RemoteSystemStruct &system, RemoteSystemStruct::ConnectMode mode);
+	void PublishConnectedSystems();
 
 	// Use a hash, with binaryAddress plus port mod length as the index
 	RemoteSystemIndex **remoteSystemLookup;
