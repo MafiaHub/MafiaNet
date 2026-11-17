@@ -640,7 +640,7 @@ Every header under ``DependentExtensions/`` whose declarations changed is
 listed below, by extension. ``RakNetSmartPtr<BinaryDataBlock>`` became
 ``std::shared_ptr<BinaryDataBlock>`` everywhere it appeared.
 
-**Lobby2** (``DependentExtensions/Lobby2``)
+**Lobby2** (historical; the extension has since been removed)
 
 * ``Lobby2Client``: ``virtual void SetIgnoreList(const std::vector<RakString>
   &users)`` (was ``DataStructures::List<RakString>`` by value);

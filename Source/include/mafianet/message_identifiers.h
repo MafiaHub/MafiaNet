@@ -271,9 +271,6 @@ enum DefaultMessageIDTypes
 	/// ReadyEvent plugin - Request of ready event state - used for pulling data when newly connecting
 	ID_READY_EVENT_QUERY,
 
-	/// Lobby packets. Second byte indicates type.
-	ID_LOBBY_GENERAL,
-
 	// RPC error
 	ID_RPC_REMOTE_ERROR,
 	/// Named RPC call, signal or return
@@ -283,15 +280,6 @@ enum DefaultMessageIDTypes
 	ID_FILE_LIST_REFERENCE_PUSH,
 	/// Force the ready event to all set
 	ID_READY_EVENT_FORCE_ALL_SET,
-
-	/// Rooms function
-	ID_ROOMS_EXECUTE_FUNC,
-	ID_ROOMS_LOGON_STATUS,
-	ID_ROOMS_HANDLE_CHANGE,
-
-	/// Lobby2 message
-	ID_LOBBY2_SEND_MESSAGE,
-	ID_LOBBY2_SERVER_ERROR,
 
 	/// Informs user of a new host GUID. Packet::Guid contains this new host RakNetGuid. The old host can be read out using BitStream->Read(RakNetGuid) starting on byte 1
 	/// This is not returned until connected to a remote system
@@ -340,9 +328,9 @@ enum DefaultMessageIDTypes
 	ID_UDP_PROXY_GENERAL,
 
 	// Reserved wire IDs for the retired SQLite extension.
-	ID_RESERVED_94,
-	ID_RESERVED_95,
-	ID_RESERVED_96,
+	ID_RESERVED_88,
+	ID_RESERVED_89,
+	ID_RESERVED_90,
 
 	/// Sent to NatTypeDetectionServer
 	ID_NAT_TYPE_DETECTION_REQUEST,
@@ -409,13 +397,13 @@ enum DefaultMessageIDTypes
 	ID_TWO_WAY_AUTHENTICATION_NEGOTIATION,
 
 	// Reserved wire IDs for the retired cloud storage protocol.
+	ID_RESERVED_109,
+	ID_RESERVED_110,
+	ID_RESERVED_111,
+	ID_RESERVED_112,
+	ID_RESERVED_113,
+	ID_RESERVED_114,
 	ID_RESERVED_115,
-	ID_RESERVED_116,
-	ID_RESERVED_117,
-	ID_RESERVED_118,
-	ID_RESERVED_119,
-	ID_RESERVED_120,
-	ID_RESERVED_121,
 
 	ID_RELAY_PLUGIN,
 	ID_NAT_REQUEST_BOUND_ADDRESSES,

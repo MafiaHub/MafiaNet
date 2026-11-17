@@ -168,7 +168,6 @@ MafiaNet::RakPeerInterface::DestroyInstance(peer);
 - Peer-to-peer and client-server architectures
 - NAT punchthrough and traversal
 - Host migration
-- Room and lobby management
 - Object replication (ReplicaManager3)
 - Built-in remote procedure calls through `peer->GetRPC()`
 
@@ -214,7 +213,6 @@ MafiaNet provides a modular plugin system for extending functionality:
 | **MessageFilter** | Security filtering for incoming messages |
 | **PacketLogger** | Network traffic logging and debugging |
 | **TwoWayAuthentication** | Mutual authentication between peers |
-| **Lobby2** | Matchmaking and lobby system |
 
 See the [Plugin Documentation](https://mafianet.mafiahub.dev/plugins/overview.html) for detailed usage.
 
@@ -259,8 +257,6 @@ MafiaNet/
 │   ├── RakVoice/           # Voice chat examples
 │   ├── FileListTransfer/   # File transfer demo
 │   └── Tests/              # Comprehensive test suite
-├── DependentExtensions/    # Optional integrations
-│   └── Lobby2/             # Matchmaking and lobbies
 ├── docs/                   # Sphinx documentation source
 └── cmake/                  # CMake modules and helpers
 ```
@@ -307,14 +303,14 @@ To debug a single test, run the binary directly with a filter:
 
 ### Unreleased — breaking
 - RPC is built into every peer, including minimal builds. Replace `AttachPlugin(&rpc4)` with `auto &rpc = peer->GetRPC()`. [RPC migration guide](docs/guide/rpc.rst)
-- Removed RPC3, the SQLite networking and logging extensions, and cloud storage. RPC and application message IDs retain their protocol 10 wire values.
+- Removed RPC3, the SQLite networking and logging extensions, cloud storage, and the Lobby2 extension (including Rooms and the Steam adapter).
 - **Standard containers and allocation**: the `DataStructures` containers, the `rakMalloc`/`OP_NEW` allocator layer, `alloca` and `_FILE_AND_LINE_` are gone; the library uses `std::` containers, `new`/`delete` and smart pointers. Public `DataStructures::List<T>&` parameters are `std::vector<T>&`, owned buffers are `std::unique_ptr<unsigned char[]>`, and RPC4 hands out `LocalSlot *` handles. See the [migration guide](docs/advanced/migrating-to-std-containers.rst)
 - **Windows**: `std::` types cross the DLL boundary, so the application and `MafiaNet.dll` must use the same toolset and CRT
 - **Security fixes**: UDPProxyServer accepted forwarding requests from any system; peer-supplied RPC4/TwoWayAuthentication/MessageFilter names were used as printf format strings
 - **Fixes**: a Huffman decoder out-of-bounds write, bounds on peer input in TeamBalancer, UDPProxyCoordinator and DataCompressor, `TableSerializer`/`StringTable` asserting on peer input, an ordered-channel stall after an MTU step-down, StatisticsHistory NaN sorting, the StringCompressor unknown-language decode buffer, the Steam room merge's dangling iterator, and leaks in RakPeer, FullyConnectedMesh2, ConnectionGraph2, StatisticsHistory, Table and NatPunchthroughServer; the full list is in `docs/changelog.rst`
 - **Behaviour changes**: `SortTable` keeps tied rows, Router2 picks its forwarder deterministically, `PacketizedTCP` disconnects on a message above `SetMaxMessageLength()` (64 MiB default)
 - **Breaking (API and ABI)**: rebuild against the updated headers.
-- **Breaking (wire protocol 10)**: upgrade clients and servers together. Removing the Xbox, LibVoice, and unused reserved IDs moves `ID_NAT_PING` from 10 to 7 and `ID_USER_PACKET_ENUM` from 135 to 131. Rebuild applications that derive message IDs from it.
+- **Breaking (wire protocol 10)**: upgrade clients and servers together. Removing the Xbox, LibVoice, lobby, room, and unused reserved IDs moves `ID_NAT_PING` from 10 to 7 and `ID_USER_PACKET_ENUM` from 135 to 125. Rebuild applications that derive message IDs from it.
 
 ### Version 0.26.0 (Latest)
 - **Receive on a thread of its own**: `RakPeerInterface::WaitForPackets()` blocks until a packet is waiting, and ReplicaManager3 can receive on one thread while `Update()` runs on another (per-connection locks, `WorldGuard`, `StateDelivery`)

@@ -198,7 +198,7 @@ TEST(Table, SortWithoutAValidColumnReturnsRowsInKeyOrder)
 
 TEST(Table, QueryColumnSubsetKeepsEachColumnsType)
 {
-	// Lobby2's room search asks for the POINTER column only and reads cells[0]->ptr.
+	// Selecting only the POINTER column must put the pointer in cells[0].
 	Table t;
 	t.AddColumn("name", Table::STRING);
 	t.AddColumn("ptr", Table::POINTER);
@@ -302,7 +302,6 @@ TEST(Table, AddRowFromInitialValuesTypesThemByColumn)
 
 TEST(Table, AddRowCopiesAnotherRowsCells)
 {
-	// Lobby2 copies a room's row into another table with AddRow(id, row->cells, true).
 	Table source;
 	BuildTable(source);
 	Table target;

@@ -10,14 +10,16 @@ Unreleased — breaking
 
 * Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.
   The peer owns the service and runs message filters before RPC handlers.
-  See :doc:`guide/rpc` for the migration from RPC4. The wire format is unchanged.
+  See :doc:`guide/rpc` for the migration from RPC4. The RPC payload format is unchanged.
 
 **Removed extensions**
+
+* Removed the Lobby2 CMake target, Rooms plugin, Steam lobby adapter and their samples. Games using them must supply their own lobby implementation. The six lobby and room wire IDs have been removed.
 
 * RPC3 and its Boost build dependency have been removed. Port named calls to :doc:`guide/rpc` and serialize their arguments into a bit stream.
 * The SQLite client, server and logging adapters have been removed.
 * CloudClient and CloudServer, including their samples and public headers, have been removed. Remove their names from ``MAFIANET_DISABLED_FEATURES``.
-* The former SQLite and cloud message ID ranges are reserved. This removal preserves the protocol 10 wire values.
+* The former SQLite and cloud message ID ranges are reserved.
 
 **Standard containers and allocation**
 
@@ -46,7 +48,7 @@ Unreleased — breaking
 * **Fix: StringCompressor** leaves an empty string, not stale buffer contents, when it decodes with an unknown language id.
 * **Fix: Steam lobby room merge** no longer uses a dangling iterator when a member callback leaves the room.
 
-**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox and LibVoice identifiers and the two remaining reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 131 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
+**Breaking (API, ABI, and wire protocol)**: rebuild clients and servers and deploy them together. Protocol 10 removes the Xbox, LibVoice, lobby and room identifiers and two unused reserved slots. The out-of-band identifier ``ID_NAT_PING`` moves from 10 to 7, and application identifiers now start at 125 instead of 135. Protocol 9 peers receive ``ID_INCOMPATIBLE_PROTOCOL_VERSION`` during connection setup.
 
 Version 0.26.0
 --------------

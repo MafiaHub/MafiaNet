@@ -4,8 +4,8 @@
  *  This source code is licensed under the MIT-style license found in the
  *  license.txt file in the root directory of this source tree.
  *
- *  Fuzzes TableSerializer deserialization, which Lobby2's rooms plugin applies to tables and
- *  filter queries received from peers. The first byte picks the entry point; the rest is the
+ *  Fuzzes TableSerializer deserialization of tables and filter queries.
+ *  The first byte picks the entry point; the rest is the
  *  serialized data. Whatever deserializes is then used the way a receiver uses it: tables are
  *  sorted and re-serialized, filter queries are run against a fixed table.
  */

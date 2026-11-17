@@ -166,12 +166,11 @@ if(MAFIANET_BUILD_TESTS)
     enable_testing()
 endif()
 
-# Samples and extensions
+# Samples
 if(MAFIANET_BUILD_SAMPLES)
-    # Fetch sample/extension dependencies (miniupnpc, jansson)
+    # Fetch sample dependencies (miniupnpc, jansson)
     include(FetchDependencies)
     add_subdirectory(Samples)
-    add_subdirectory(DependentExtensions)
 endif()
 
 # Unit test suite (GoogleTest)

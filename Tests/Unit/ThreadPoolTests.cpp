@@ -138,8 +138,8 @@ TEST(ThreadPool, OutputQueueIsFifoAndGetOutputOnEmptyIsValueInitialized)
 	EXPECT_EQ(pool.GetOutput(), 0);
 }
 
-// Workers pop inputs and push outputs while this thread adds input and polls output, the
-// HasOutputFast/HasOutput pattern Lobby2 uses. Run under TSan to check the
+// Workers pop inputs and push outputs while this thread adds input and polls output
+// through HasOutputFast/HasOutput. Run under TSan to check the
 // queues and the published counts. Terminates when every output arrived (ctest's timeout is the
 // backstop), so no wall-clock assertion.
 TEST(ThreadPool, WorkersProcessEveryInputExactlyOnce)

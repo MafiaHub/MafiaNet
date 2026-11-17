@@ -91,4 +91,3 @@ See Also
 
 * :doc:`fully-connected-mesh-2` - P2P coordination
 * :doc:`team-manager` - Team-based ready states
-* :doc:`lobby2` - Lobby system integration

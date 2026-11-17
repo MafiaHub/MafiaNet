@@ -101,4 +101,3 @@ See Also
 
 * :doc:`message-filter` - Restrict unauthenticated access
 * :doc:`../basics/secure-connections` - Encryption options
-* :doc:`lobby2` - Higher-level authentication

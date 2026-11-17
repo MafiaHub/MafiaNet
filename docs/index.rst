@@ -65,10 +65,8 @@ MafiaNet Documentation
    plugins/message-filter
    plugins/packet-logger
    plugins/two-way-authentication
-   plugins/lobby2
    plugins/rakvoice
    plugins/team-balancer
-   plugins/steam-lobby
 
 .. toctree::
    :maxdepth: 2
