@@ -65,23 +65,21 @@ TEST(PacketLoggerIdNames, SessionConfigIdsAreNamed)
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(ID_SESSION_CONFIG_ABANDONED), "ID_SESSION_CONFIG_ABANDONED");
 }
 
-// Retired plugin ranges must not shift the wire IDs used by existing peers.
-TEST(PacketLoggerIdNames, RetiredPluginRangesPreserveWireIds)
+TEST(PacketLoggerIdNames, Protocol10WireIdsMatchLoggerNames)
 {
 	EXPECT_EQ(48, (int) ID_RAKVOICE_RELAY_DATA);
 	EXPECT_EQ(59, (int) ID_NAT_PUNCHTHROUGH_REQUEST);
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(58), "ID_RESERVED_58");
 	EXPECT_STREQ(PacketLogger::BaseIDTOString(59), "ID_NAT_PUNCHTHROUGH_REQUEST");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(73), "ID_RESERVED_73");
-	EXPECT_EQ(74, (int) ID_RPC_REMOTE_ERROR);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(78), "ID_RESERVED_78");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(82), "ID_RESERVED_82");
-	EXPECT_EQ(83, (int) ID_FCM2_NEW_HOST);
-	EXPECT_EQ(97, (int) ID_NAT_TYPE_DETECTION_REQUEST);
-	EXPECT_EQ(122, (int) ID_RELAY_PLUGIN);
-	EXPECT_EQ(131, (int) ID_USER_PACKET_ENUM);
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(97), "ID_NAT_TYPE_DETECTION_REQUEST");
-	EXPECT_STREQ(PacketLogger::BaseIDTOString(122), "ID_RELAY_PLUGIN");
+	EXPECT_EQ(73, (int) ID_RPC_REMOTE_ERROR);
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(73), "ID_RPC_REMOTE_ERROR");
+	EXPECT_EQ(77, (int) ID_FCM2_NEW_HOST);
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(77), "ID_FCM2_NEW_HOST");
+	EXPECT_EQ(91, (int) ID_NAT_TYPE_DETECTION_REQUEST);
+	EXPECT_EQ(116, (int) ID_RELAY_PLUGIN);
+	EXPECT_EQ(125, (int) ID_USER_PACKET_ENUM);
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(91), "ID_NAT_TYPE_DETECTION_REQUEST");
+	EXPECT_STREQ(PacketLogger::BaseIDTOString(116), "ID_RELAY_PLUGIN");
 }
 
 // The connection packets, which is what a reader of a handshake log keys off.

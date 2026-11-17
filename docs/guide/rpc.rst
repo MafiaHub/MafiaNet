@@ -13,7 +13,7 @@ Include ``mafianet/remote_procedure_call.h`` and replace the RPC4 instance, atta
 destruction with a reference from ``GetRPC()``. Rename global registrations
 to ``RPCGlobalRegistration`` and filter rules to ``MessageFilter::SetAllowRPC``.
 Remove ``RPC4Plugin`` from ``MAFIANET_DISABLED_FEATURES``. Calls, signals,
-returns and errors retain their protocol 10 wire encoding.
+returns and errors retain their payload format.
 
 TCP endpoints enable RPC when the application first calls ``GetRPC()``.
 Use ``PacketizedTCP`` for framed remote calls. Blocking calls require a UDP peer.
