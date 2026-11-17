@@ -15,7 +15,7 @@
 
 #include "mafianet/file_operations.h"
 #if _RAKNET_SUPPORT_FileOperations == 1
-#include "mafianet/find_first.h" // For linux
+#include <filesystem>
 #include <stdio.h>
 #include <string.h>
 #ifdef _WIN32
@@ -25,7 +25,6 @@
 #else
 #include <sys/stat.h>
 #include <unistd.h>
-#include "mafianet/find_first.h"
 #endif
 #include "errno.h"
 #include "mafianet/linux_adapter.h"
@@ -123,17 +122,8 @@ void AddSlash(char *input)
 }
 bool DirectoryExists(const char *directory)
 {
-	_finddata_t fileInfo;
-	intptr_t dir;
-	char baseDirWithStars[560];
-	strcpy_s(baseDirWithStars, directory);
-	AddSlash(baseDirWithStars);
-	strcat_s(baseDirWithStars, "*.*");
-	dir = _findfirst(baseDirWithStars, &fileInfo);
-	if (dir == -1)
-		return false;
-	_findclose(dir);
-	return true;
+	std::error_code ec;
+	return directory && std::filesystem::is_directory(*directory ? directory : ".", ec);
 }
 void QuoteIfSpaces(char *str)
 {
