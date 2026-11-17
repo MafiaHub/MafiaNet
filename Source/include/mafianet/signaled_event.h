@@ -16,24 +16,15 @@
 #ifndef __SIGNALED_EVENT_H
 #define __SIGNALED_EVENT_H
 
-
-#if defined(_WIN32)
-#include "mafianet/windows_includes.h"
-
-
-#else
-#include <pthread.h>
-#include <sys/types.h>
-#include "mafianet/simple_mutex.h"
-
-
-#endif
-
 #include "mafianet/export.h"
+
+#include <condition_variable>
+#include <mutex>
 
 namespace MafiaNet
 {
 
+/// An auto-reset event. Repeated signals coalesce until a waiter consumes one.
 class RAK_DLL_EXPORT SignaledEvent
 {
 public:
@@ -43,21 +34,13 @@ public:
 	void InitEvent(void);
 	void CloseEvent(void);
 	void SetEvent(void);
+	/// Consume a pending signal or wait up to timeoutMs milliseconds. Use -1 to wait indefinitely.
 	void WaitOnEvent(int timeoutMs);
 
-protected:
-#ifdef _WIN32
-	HANDLE eventList;
-
-
-#else
-	SimpleMutex isSignaledMutex;
-	bool isSignaled;
-	pthread_condattr_t condAttr;
-	pthread_cond_t eventList;
-	pthread_mutex_t hMutex;
-	pthread_mutexattr_t mutexAttr;
-#endif
+private:
+	std::mutex mutex;
+	std::condition_variable event;
+	bool isSignaled = false;
 };
 
 } // namespace MafiaNet

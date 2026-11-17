@@ -13,6 +13,7 @@
 
 #include "mafianet/export.h"
 
+/// Sleep for the requested milliseconds, or yield to the scheduler when ms is zero.
 void RAK_DLL_EXPORT RakSleep(unsigned int ms);
 
 #endif
