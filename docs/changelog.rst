@@ -26,6 +26,7 @@ Unreleased — breaking
 **Strings and wire protocol 11**
 
 * Replace the pointer-returning ``SystemAddress::ToString`` and ``AddressOrGUID::ToString`` overloads with ``MafiaNet::to_string(value)`` from ``mafianet/guid_util.h``. The result owns its text. Pass ``false`` to omit the port, or use the sized buffer overload for allocation-free formatting.
+* Removed ``EpochTimeToString`` and ``mafianet/epoch_time_to_string.h``. To reproduce its output, convert the epoch timestamp to local time and format it with ``std::strftime`` using ``"%c."`` (the locale's date and time followed by a period).
 * Replace the removed ``FormatString`` and ``FormatStringTS`` helpers with ``MafiaNet::FormatText(format, ...)`` from ``mafianet/format_string.h``. Keep the returned ``std::string`` alive while using its ``c_str()`` pointer.
 * Register table entries with ``StringTable::AddString(text)``. Remove the old ``copyString`` argument and rebuild. The table owns every entry and uses its sorted position as its wire ID.
 * Replace ``RakString`` with ``std::string`` and include ``<string>``. Rebuild applications and upgrade both peers together.
