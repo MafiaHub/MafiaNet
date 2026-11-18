@@ -17,6 +17,7 @@
 
 #include <cstdarg>
 #include <cstring>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -126,6 +127,51 @@ TEST(StringTable, UnregisteredStringFallsBackToTheCompressor)
 	char out[16];
 	ASSERT_TRUE(table.DecodeString(out, (int) sizeof(out), &bs));
 	EXPECT_STREQ("unknown", out);
+}
+
+TEST(StringTable, IncompleteCompressedStringReportsFailure)
+{
+	CompressorRef ref;
+	StringTable table;
+	BitStream bs;
+	bs.Write(false);
+
+	char out[16] = "stale";
+	EXPECT_FALSE(table.DecodeString(out, sizeof(out), &bs));
+	EXPECT_STREQ("", out);
+}
+
+TEST(StringTable, FullTablePreservesEveryWireIndexAndCompressesNewStrings)
+{
+	CompressorRef ref;
+	StringTable table;
+	// Equal-width names sort numerically. The extra name would shift every index.
+	for (int i = 0; i < 256; ++i)
+		table.AddString(std::to_string(1000 + i).c_str());
+	table.AddString("0000");
+
+	for (int i = 0; i < 256; ++i)
+	{
+		const std::string name = std::to_string(1000 + i);
+		BitStream bs;
+		table.EncodeString(name.c_str(), 16, &bs);
+		bool hasIndex;
+		StringTableType index;
+		ASSERT_TRUE(bs.Read(hasIndex));
+		ASSERT_TRUE(hasIndex);
+		ASSERT_TRUE(bs.Read(index));
+		EXPECT_EQ(i, index);
+	}
+
+	BitStream bs;
+	table.EncodeString("0000", 16, &bs);
+	bool hasIndex;
+	ASSERT_TRUE(bs.Read(hasIndex));
+	EXPECT_FALSE(hasIndex);
+	bs.ResetReadPointer();
+	char out[16];
+	ASSERT_TRUE(table.DecodeString(out, sizeof(out), &bs));
+	EXPECT_STREQ("0000", out);
 }
 
 // The index comes from the network: out of range is rejected, never asserted on.

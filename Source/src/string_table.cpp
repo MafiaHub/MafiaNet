@@ -20,6 +20,7 @@
 #include "mafianet/string_compressor.h"
 
 #include <algorithm>
+#include <limits>
 #include <string_view>
 
 using namespace MafiaNet;
@@ -66,10 +67,11 @@ void StringTable::AddString(const char *str)
 		RakAssert(0); // Duplicate registration.
 		return;
 	}
-	orderedStringList.emplace(position, key);
+	// The current size is the highest index the table would need after insertion.
+	if (orderedStringList.size() > (std::numeric_limits<StringTableType>::max)())
+		return;
 
-	// If this assert hits you need to increase the range of StringTableType
-	RakAssert(orderedStringList.size() < (StringTableType) -1);
+	orderedStringList.emplace(position, key);
 }
 void StringTable::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output)
 {
@@ -97,26 +99,20 @@ bool StringTable::DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitS
 		return false;
 	if (!input->Read(hasIndex))
 		return false;
-	if (hasIndex == false)
-	{
-		StringCompressor::Instance()->DecodeString(output, maxCharsToWrite, input);
-	}
-	else
-	{
-		StringTableType index;
-		if (!input->Read(index))
-			return false;
-		if (index >= orderedStringList.size())
-		{
-			// The index came from the network: reject it, never assert. Out of range means AddString was called
-			// more times on the remote system than on this one; all systems must add the same strings.
-			output[0] = 0;
-			return false;
-		}
+	if (!hasIndex)
+		return StringCompressor::Instance()->DecodeString(output, maxCharsToWrite, input);
 
-		const size_t copied = orderedStringList[index].copy(output, static_cast<size_t>(maxCharsToWrite - 1));
-		output[copied] = '\0';
+	StringTableType index;
+	if (!input->Read(index))
+		return false;
+	if (index >= orderedStringList.size())
+	{
+		output[0] = 0;
+		return false;
 	}
+
+	const size_t copied = orderedStringList[index].copy(output, static_cast<size_t>(maxCharsToWrite - 1));
+	output[copied] = '\0';
 
 	return true;
 }

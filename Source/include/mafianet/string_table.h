@@ -51,7 +51,8 @@ public:
 	/// \return the unique instance of the StringTable
 	static StringTable *Instance(void);
 
-	/// Register a NUL-terminated string. The table owns a copy after this call.
+	/// Register a NUL-terminated string. The table owns each registered string.
+	/// After 256 distinct registrations, additional strings use the compressed fallback.
 	void AddString(const char *str);
 
 	/// Writes input to output, compressed.  Takes care of the null-terminator for you.
