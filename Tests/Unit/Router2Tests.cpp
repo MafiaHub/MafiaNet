@@ -98,3 +98,36 @@ TEST_F(Router2Sender, LoadWeightedPingDoesNotOverflowWithMaximalRelayFigures)
 	EXPECT_TRUE(ReceivedInternal(relays[1], kRequestForwarding));
 	EXPECT_FALSE(ReceivedInternal(relays[0], kRequestForwarding));
 }
+
+TEST_F(Router2Sender, ForwardingSuccessRemovesOnlyTheCompletedRequest)
+{
+	const RakNetGUID first(101);
+	const RakNetGUID second(102);
+	router.EstablishRouting(first);
+	router.EstablishRouting(second);
+	ASSERT_EQ(0u, router.GetConnectionRequestIndex(first));
+	ASSERT_EQ(1u, router.GetConnectionRequestIndex(second));
+
+	BitStream reply;
+	reply.Write(static_cast<MessageID>(ID_ROUTER_2_FORWARDING_ESTABLISHED));
+	reply.Write(first);
+	reply.Write(static_cast<unsigned short>(31000));
+	relays[0]->Send(&reply, Priority::High, Reliability::ReliableOrdered, 0, sender->GetMyGUID(), false);
+	ASSERT_TRUE(net.RunUntilReceived(sender, ID_ROUTER_2_FORWARDING_ESTABLISHED, 2000));
+	EXPECT_EQ(static_cast<unsigned int>(-1), router.GetConnectionRequestIndex(first));
+	EXPECT_EQ(0u, router.GetConnectionRequestIndex(second));
+
+	router.OnRakPeerShutdown();
+	EXPECT_EQ(static_cast<unsigned int>(-1), router.GetConnectionRequestIndex(second));
+}
+
+TEST(Router2Requests, EmptyPeerListLeavesNoPendingRequest)
+{
+	Router2 router;
+	RakPeer peer;
+	peer.AttachPlugin(&router);
+	const RakNetGUID endpoint(103);
+	router.EstablishRouting(endpoint);
+	EXPECT_EQ(static_cast<unsigned int>(-1), router.GetConnectionRequestIndex(endpoint));
+	peer.DetachPlugin(&router);
+}
