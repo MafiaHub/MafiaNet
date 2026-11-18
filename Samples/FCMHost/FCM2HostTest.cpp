@@ -52,7 +52,7 @@ int main()
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(1000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	printf("Our guid is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
-	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
+	printf("Started on %s\n", MafiaNet::to_string(rakPeer->GetMyBoundAddress()).c_str());
 	// 	BitStream contextBs;
 	// 	contextBs.Write(MafiaNet::FormatText("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString()));
 	// 	fcm2.SetMyContext(&contextBs);
@@ -78,12 +78,12 @@ int main()
 
 			case ID_NEW_INCOMING_CONNECTION:
 				// Somebody connected.  We have their IP now
-				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				// Somebody connected.  We have their IP now
-				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s. guid=%s.\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				break;
 
 
@@ -95,7 +95,7 @@ int main()
 
 			case ID_ADVERTISE_SYSTEM:
 				if (packet->guid != rakPeer->GetMyGUID())
-					rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
+					rakPeer->Connect(MafiaNet::to_string(packet->systemAddress, false).c_str(), packet->systemAddress.GetPort(), 0, 0);
 				break;
 
 			case ID_FCM2_NEW_HOST:
@@ -103,7 +103,7 @@ int main()
 				if (packet->guid == rakPeer->GetMyGUID())
 					printf("Got new host (ourselves)");
 				else
-					printf("Got new host %s, GUID=%s", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+					printf("Got new host %s, GUID=%s", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				MafiaNet::BitStream bs(packet->data, packet->length, false);
 				bs.IgnoreBytes(1);
 				RakNetGUID oldHost;
@@ -124,13 +124,13 @@ int main()
 				// 					bsIn.Read(count);
 				// 					SystemAddress sa;
 				// 					RakNetGUID guid;
-				// 					printf("ID_REMOTE_NEW_INCOMING_CONNECTION from %s\n", packet->systemAddress.ToString(true));
+				// 					printf("ID_REMOTE_NEW_INCOMING_CONNECTION from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				// 					for (uint32_t i=0; i < count; i++)
 				// 					{
 				// 						bsIn.Read(sa);
 				// 						bsIn.Read(guid);
 				//
-				// 						printf("%s ", sa.ToString(true));
+				// 						printf("%s ", MafiaNet::to_string(sa).c_str());
 				// 					}
 				// 					printf("\n");
 				// 				}
@@ -152,7 +152,7 @@ int main()
 				// 					fcm2.GetParticipantContext(participantList[i], &userContext);
 				// 					std::string str;
 				// 					userContext.Read(str);
-				// 					printf("%u. %s: %s", i+1, participantList[i].ToString(), str.c_str());
+				// 					printf("%u. %s: %s", i+1, MafiaNet::to_string(participantList[i]).c_str(), str.c_str());
 				// 				}
 			}
 			if (ch == 'q' || ch == 'Q')

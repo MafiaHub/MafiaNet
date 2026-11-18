@@ -61,22 +61,6 @@ unsigned long AddressOrGUID::ToInteger(const AddressOrGUID &aog)
 		return RakNetGUID::ToUint32(aog.rakNetGuid);
 	return SystemAddress::ToInteger(aog.systemAddress);
 }
-const char *AddressOrGUID::ToString(bool writePort) const
-{
-	if (rakNetGuid != UNASSIGNED_RAKNET_GUID)
-	{
-		// Rotating static buffer, mirroring SystemAddress::ToString below.
-		// NOT THREADSAFE — for an owning, thread-safe string use
-		// MafiaNet::to_string(guid) from "mafianet/guid_util.h".
-		static unsigned char strIndex = 0;
-		static char str[8][64];
-		unsigned char lastStrIndex = strIndex;
-		strIndex++;
-		rakNetGuid.ToString(str[lastStrIndex & 7], 64);
-		return (char *) str[lastStrIndex & 7];
-	}
-	return systemAddress.ToString(writePort);
-}
 void AddressOrGUID::ToString(bool writePort, char *dest) const
 {
 	if (rakNetGuid != UNASSIGNED_RAKNET_GUID)
@@ -271,17 +255,6 @@ bool SystemAddress::IsLoopback(void) const
 			return true;
 	}
 	return false;
-}
-const char *SystemAddress::ToString(bool writePort, char portDelineator) const
-{
-	static unsigned char strIndex = 0;
-	static const size_t strLength = TO_STRING_BUFFER_SIZE;
-	static char str[8][strLength];
-
-	unsigned char lastStrIndex = strIndex;
-	strIndex++;
-	ToString(writePort, str[lastStrIndex & 7], strLength, portDelineator);
-	return (char *) str[lastStrIndex & 7];
 }
 void SystemAddress::ToString_New(bool writePort, char *dest, char portDelineator) const
 {

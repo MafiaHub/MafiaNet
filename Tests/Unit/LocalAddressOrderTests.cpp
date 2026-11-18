@@ -11,6 +11,7 @@
 // global IPv6; link-local IPv6 (useless without a scope id), loopback and
 // IPv4-mapped entries are dropped. Pure logic on caller-built addresses: hermetic.
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/socket_layer.h"
@@ -56,7 +57,7 @@ SystemAddress MappedAddress(const char *ipv4, unsigned short port)
 
 std::string Ip(const SystemAddress &sa)
 {
-	return sa.ToString(false);
+	return MafiaNet::to_string(sa, false);
 }
 }
 

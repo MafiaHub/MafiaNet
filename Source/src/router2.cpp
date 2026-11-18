@@ -17,6 +17,7 @@
 #if _RAKNET_SUPPORT_Router2 == 1 && _RAKNET_SUPPORT_UDPForwarder == 1
 
 #include "mafianet/router2.h"
+#include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/time.h"
@@ -585,7 +586,7 @@ void Router2::OnFailedConnectionAttempt(Packet *packet, PI2_FailedConnectionAtte
 			if (debugInterface)
 			{
 				debugInterface->ShowDiagnostic(FormatText("Failed connection attempt to forwarded system (%" PRIu64 " : %s) at %s:%i\n",
-				                                          forwardedConnectionList[forwardedConnectionIndex].endpointGuid.g, packet->systemAddress.ToString(true), __FILE__, __LINE__)
+				                                          forwardedConnectionList[forwardedConnectionIndex].endpointGuid.g, MafiaNet::to_string(packet->systemAddress).c_str(), __FILE__, __LINE__)
 				                                   .c_str());
 			}
 
@@ -1177,7 +1178,7 @@ void Router2::OnRerouted(Packet *packet)
 		{
 			debugInterface->ShowDiagnostic(FormatText("FIX: Got ID_ROUTER_2_REROUTE, returning ID_ROUTER_2_REROUTED,"
 			                                          " Calling RakPeer::ChangeSystemAddress(%" PRIu64 ", %s) at %s:%i\n",
-			                                          endpointGuid.g, intermediaryAddress.ToString(true), __FILE__, __LINE__)
+			                                          endpointGuid.g, MafiaNet::to_string(intermediaryAddress).c_str(), __FILE__, __LINE__)
 			                                   .c_str());
 		}
 	}

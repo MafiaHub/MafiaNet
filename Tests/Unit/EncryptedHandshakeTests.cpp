@@ -10,6 +10,7 @@
  *  in-process SimulatedNetwork. See Tests/Support/SimulatedNetwork.h.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -330,7 +331,7 @@ TEST(EncryptedHandshake, Request2WithoutValidChallengeAllocatesNothing)
 
 	EXPECT_EQ(0u, server->NumberOfConnections());
 	for (const SystemAddress &forger : forgers)
-		ASSERT_EQ(IS_NOT_CONNECTED, server->GetConnectionState(forger)) << forger.ToString();
+		ASSERT_EQ(IS_NOT_CONNECTED, server->GetConnectionState(forger)) << MafiaNet::to_string(forger);
 	EXPECT_TRUE(net.Inbox(server).empty());
 
 	// Control: the same request with the challenge the server would have issued does allocate,

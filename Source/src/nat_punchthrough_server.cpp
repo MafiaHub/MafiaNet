@@ -18,6 +18,7 @@
 #if _RAKNET_SUPPORT_NatPunchthroughServer == 1
 
 #include "mafianet/nat_punchthrough_server.h"
+#include "mafianet/guid_util.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
@@ -285,7 +286,7 @@ PluginReceiveResult NatPunchthroughServer::OnReceive(Packet *packet)
 			outgoingBs.Write(externalPort);
 			uint16_t externalPort2 = packet->systemAddress.GetPort();
 			outgoingBs.Write(externalPort2);
-			rakPeerInterface->SendOutOfBand((const char *) packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), (const char *) outgoingBs.GetData(), outgoingBs.GetNumberOfBytesUsed());
+			rakPeerInterface->SendOutOfBand(MafiaNet::to_string(packet->systemAddress, false).c_str(), packet->systemAddress.GetPort(), (const char *) outgoingBs.GetData(), outgoingBs.GetNumberOfBytesUsed());
 
 			return RR_STOP_PROCESSING_AND_DEALLOCATE;
 		}

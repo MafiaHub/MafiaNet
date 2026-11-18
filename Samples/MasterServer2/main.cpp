@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include <WinSock2.h>
 #include "../http_request.h"
 #include <windows.h>
@@ -138,19 +139,19 @@ void main_RakNet_Get(void)
 		sa = tcp->HasCompletedConnectionAttempt();
 		if (sa != UNASSIGNED_SYSTEM_ADDRESS)
 		{
-			printf("Connected to %s\n", sa.ToString());
+			printf("Connected to %s\n", MafiaNet::to_string(sa).c_str());
 		}
 		for (packet = tcp->Receive(); packet; tcp->DeallocatePacket(packet), packet = tcp->Receive())
 			;
 		sa = tcp->HasFailedConnectionAttempt();
 		if (sa != UNASSIGNED_SYSTEM_ADDRESS)
 		{
-			printf("Failed to connect to %s\n", sa.ToString());
+			printf("Failed to connect to %s\n", MafiaNet::to_string(sa).c_str());
 		}
 		sa = tcp->HasLostConnection();
 		if (sa != UNASSIGNED_SYSTEM_ADDRESS)
 		{
-			printf("Lost connection to %s\n", sa.ToString());
+			printf("Lost connection to %s\n", MafiaNet::to_string(sa).c_str());
 		}
 
 		std::string stringTransmitted;

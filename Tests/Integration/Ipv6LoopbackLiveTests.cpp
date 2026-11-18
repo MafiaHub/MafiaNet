@@ -11,6 +11,7 @@
  *  MMSG_BATCH_MAX so the batched send fills and flushes on Linux.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "TestHelpers.h"
@@ -84,8 +85,8 @@ protected:
 TEST_F(Ipv6LoopbackLive, ConnectAndExchange)
 {
 	const SystemAddress bound = server->GetMyBoundAddress();
-	EXPECT_EQ(bound.GetIPVersion(), 6) << bound.ToString(true);
-	EXPECT_TRUE(bound.IsLoopback()) << bound.ToString(true);
+	EXPECT_EQ(bound.GetIPVersion(), 6) << MafiaNet::to_string(bound);
+	EXPECT_TRUE(bound.IsLoopback()) << MafiaNet::to_string(bound);
 	EXPECT_EQ(bound.GetPort(), serverPort);
 	ASSERT_EQ(client->Connect("::1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
 
@@ -101,12 +102,12 @@ TEST_F(Ipv6LoopbackLive, ConnectAndExchange)
 	ASSERT_GE(client->NumberOfConnections(), 1u) << "client never connected over IPv6";
 
 	const SystemAddress serverAsSeen = client->GetSystemAddressFromGuid(server->GetMyGUID());
-	EXPECT_EQ(serverAsSeen.GetIPVersion(), 6) << serverAsSeen.ToString(true);
+	EXPECT_EQ(serverAsSeen.GetIPVersion(), 6) << MafiaNet::to_string(serverAsSeen);
 	EXPECT_EQ(serverAsSeen.GetPort(), serverPort);
-	EXPECT_TRUE(serverAsSeen.IsLoopback()) << serverAsSeen.ToString(true);
+	EXPECT_TRUE(serverAsSeen.IsLoopback()) << MafiaNet::to_string(serverAsSeen);
 
 	const SystemAddress clientAsSeen = server->GetSystemAddressFromGuid(client->GetMyGUID());
-	EXPECT_EQ(clientAsSeen.GetIPVersion(), 6) << clientAsSeen.ToString(true);
+	EXPECT_EQ(clientAsSeen.GetIPVersion(), 6) << MafiaNet::to_string(clientAsSeen);
 	EXPECT_EQ(clientAsSeen.GetPort(), clientPort);
 
 	// Queue the whole burst before pumping, so a single update tick has more

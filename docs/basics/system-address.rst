@@ -60,17 +60,19 @@ Converting to String
 
 .. code-block:: cpp
 
-   MafiaNet::SystemAddress addr;
+   #include "mafianet/guid_util.h"
+
+   MafiaNet::SystemAddress addr("192.168.1.100", 60000);
 
    // Full address with port
-   const char* str = addr.ToString(true);   // "192.168.1.100:60000"
+   const std::string str = MafiaNet::to_string(addr);   // "192.168.1.100|60000"
 
    // IP only
-   const char* ip = addr.ToString(false);   // "192.168.1.100"
+   const std::string ip = MafiaNet::to_string(addr, false);   // "192.168.1.100"
 
    // With buffer (thread-safe)
-   char buffer[64];
-   addr.ToString(true, buffer);
+   char buffer[MafiaNet::SystemAddress::TO_STRING_BUFFER_SIZE];
+   addr.ToString(true, buffer, sizeof(buffer));
 
 Getting Components
 ------------------
@@ -81,7 +83,7 @@ Getting Components
    unsigned short port = addr.GetPort();
 
    // Get IP as string
-   const char* ip = addr.ToString(false);
+   const std::string ip = MafiaNet::to_string(addr, false);
 
    // Check if valid
    if (addr != MafiaNet::UNASSIGNED_SYSTEM_ADDRESS) {

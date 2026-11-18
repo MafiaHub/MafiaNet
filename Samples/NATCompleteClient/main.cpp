@@ -494,9 +494,9 @@ struct NatPunchthoughClientFramework : public SampleFramework, public NatPunchth
 		{
 			unsigned char weAreTheSender = packet->data[1];
 			if (weAreTheSender)
-				printf("NAT punch success to remote system %s.\n", packet->systemAddress.ToString(true));
+				printf("NAT punch success to remote system %s.\n", MafiaNet::to_string(packet->systemAddress).c_str());
 			else
-				printf("NAT punch success from remote system %s.\n", packet->systemAddress.ToString(true));
+				printf("NAT punch success from remote system %s.\n", MafiaNet::to_string(packet->systemAddress).c_str());
 
 			char guid[128];
 			printf("Enter RakNetGuid of the remote system, which should have already connected.\nOr press enter to quit.\n");
@@ -725,7 +725,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		(void) sourceAddress;
 		(void) targetGuid;
 
-		printf("Datagrams forwarded by proxy %s:%i to target %s.\n", proxyIPAddress, proxyPort, targetAddress.ToString(false));
+		printf("Datagrams forwarded by proxy %s:%i to target %s.\n", proxyIPAddress, proxyPort, MafiaNet::to_string(targetAddress, false).c_str());
 		printf("Connecting to proxy, which will be received by target.\n");
 		SLNET_VERIFY(proxyClientPlugin->GetRakPeerInterface()->Connect(proxyIPAddress, proxyPort, 0, 0) == CONNECTION_ATTEMPT_STARTED);
 		sampleResult = SUCCEEDED;
@@ -739,7 +739,7 @@ struct UDPProxyClientFramework : public SampleFramework, public UDPProxyClientRe
 		(void) targetGuid;
 		(void) proxyClientPlugin;
 
-		printf("Source %s has setup forwarding to us through proxy %s:%i.\n", sourceAddress.ToString(false), proxyIPAddress, proxyPort);
+		printf("Source %s has setup forwarding to us through proxy %s:%i.\n", MafiaNet::to_string(sourceAddress, false).c_str(), proxyIPAddress, proxyPort);
 
 		sampleResult = SUCCEEDED;
 	}
@@ -840,13 +840,13 @@ void PrintPacketMessages(Packet *packet, RakPeerInterface *rakPeer)
 		break;
 
 	case ID_CONNECTION_LOST:
-		printf("ID_CONNECTION_LOST from %s\n", packet->systemAddress.ToString(true));
+		printf("ID_CONNECTION_LOST from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 		break;
 
 	case ID_CONNECTION_REQUEST_ACCEPTED:
 		// This tells the client they have connected
-		printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
-		printf("My external address is %s\n", rakPeer->GetExternalID(packet->systemAddress).ToString(true));
+		printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
+		printf("My external address is %s\n", MafiaNet::to_string(rakPeer->GetExternalID(packet->systemAddress)).c_str());
 		break;
 	}
 }

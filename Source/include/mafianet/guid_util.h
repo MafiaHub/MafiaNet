@@ -36,6 +36,12 @@ namespace MafiaNet
 /// top of the thread-safe \a RakNetGUID::ToString(char*, size_t) member.
 RAK_DLL_EXPORT std::string to_string(const RakNetGUID &g);
 
+/// Format an address with an optional port and return an owning string.
+RAK_DLL_EXPORT std::string to_string(const SystemAddress &address, bool writePort = true, char portDelineator = '|');
+
+/// Format the assigned GUID, or the system address when the GUID is unassigned.
+RAK_DLL_EXPORT std::string to_string(const AddressOrGUID &value, bool writePort = true);
+
 /// Look up the SystemAddress currently connected to \a g.
 ///
 /// A thin facade over \a RakPeerInterface::GetSystemAddressFromGuid that maps

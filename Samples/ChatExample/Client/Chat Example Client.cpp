@@ -306,12 +306,12 @@ int main(void)
 
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 				// This tells the client they have connected
-				printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", p->systemAddress.ToString(true), MafiaNet::to_string(p->guid).c_str());
-				printf("My external address is %s\n", client->GetExternalID(p->systemAddress).ToString(true));
+				printf("ID_CONNECTION_REQUEST_ACCEPTED to %s with GUID %s\n", MafiaNet::to_string(p->systemAddress).c_str(), MafiaNet::to_string(p->guid).c_str());
+				printf("My external address is %s\n", MafiaNet::to_string(client->GetExternalID(p->systemAddress)).c_str());
 				break;
 			case ID_CONNECTED_PING:
 			case ID_UNCONNECTED_PING:
-				printf("Ping from %s\n", p->systemAddress.ToString(true));
+				printf("Ping from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				break;
 			default:
 				// It's a client, so just show the message

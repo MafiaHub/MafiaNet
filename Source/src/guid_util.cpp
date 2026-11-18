@@ -20,6 +20,20 @@ std::string to_string(const RakNetGUID &g)
 	return std::string(buffer);
 }
 
+std::string to_string(const SystemAddress &address, bool writePort, char portDelineator)
+{
+	char buffer[SystemAddress::TO_STRING_BUFFER_SIZE];
+	address.ToString(writePort, buffer, sizeof(buffer), portDelineator);
+	return std::string(buffer);
+}
+
+std::string to_string(const AddressOrGUID &value, bool writePort)
+{
+	if (value.rakNetGuid != UNASSIGNED_RAKNET_GUID)
+		return to_string(value.rakNetGuid);
+	return to_string(value.systemAddress, writePort);
+}
+
 std::optional<SystemAddress> connected_address(RakPeerInterface &peer, const RakNetGUID &g)
 {
 	const SystemAddress address = peer.GetSystemAddressFromGuid(g);

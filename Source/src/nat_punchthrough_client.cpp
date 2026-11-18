@@ -19,6 +19,7 @@
 #if _RAKNET_SUPPORT_NatPunchthroughClient == 1
 
 #include "mafianet/nat_punchthrough_client.h"
+#include "mafianet/guid_util.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/peer_interface.h"
@@ -71,7 +72,7 @@ void NatPunchthroughClient::FindRouterPortStride(const SystemAddress &facilitato
 
 	if (natPunchthroughDebugInterface)
 	{
-		natPunchthroughDebugInterface->OnClientMessage(MafiaNet::FormatText("Calculating port stride from %s", facilitator.ToString(true)).c_str());
+		natPunchthroughDebugInterface->OnClientMessage(MafiaNet::FormatText("Calculating port stride from %s", MafiaNet::to_string(facilitator).c_str()).c_str());
 	}
 
 	MafiaNet::BitStream outgoingBs;
@@ -206,7 +207,7 @@ void NatPunchthroughClient::Update(void)
 
 				if (natPunchthroughDebugInterface)
 				{
-					natPunchthroughDebugInterface->OnClientMessage(MafiaNet::FormatText("Send with TTL 2 to %s", sa.ToString(true)).c_str());
+					natPunchthroughDebugInterface->OnClientMessage(MafiaNet::FormatText("Send with TTL 2 to %s", MafiaNet::to_string(sa).c_str()).c_str());
 				}
 
 				sp.nextActionTime = time + pc.EXTERNAL_IP_WAIT_AFTER_FIRST_TTL - delta;
@@ -456,7 +457,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 		if (boundAddressCount < 2)
 		{
 			if (natPunchthroughDebugInterface)
-				natPunchthroughDebugInterface->OnClientMessage(MafiaNet::FormatText("INCAPABLE_PORT_STRIDE. My external ID is %s", rakPeerInterface->GetExternalID(packet->systemAddress).ToString()).c_str());
+				natPunchthroughDebugInterface->OnClientMessage(MafiaNet::FormatText("INCAPABLE_PORT_STRIDE. My external ID is %s", MafiaNet::to_string(rakPeerInterface->GetExternalID(packet->systemAddress)).c_str()).c_str());
 
 			hasPortStride = INCAPABLE_PORT_STRIDE;
 			SendQueuedOpenNAT();
@@ -471,7 +472,7 @@ PluginReceiveResult NatPunchthroughClient::OnReceive(Packet *packet)
 				outgoingBs.Write((MessageID) ID_NAT_PING);
 				uint16_t externalPort = rakPeerInterface->GetExternalID(packet->systemAddress).GetPort();
 				outgoingBs.Write(externalPort);
-				rakPeerInterface->SendOutOfBand((const char *) boundAddresses[i].ToString(false), boundAddresses[i].GetPort(), (const char *) outgoingBs.GetData(), outgoingBs.GetNumberOfBytesUsed());
+				rakPeerInterface->SendOutOfBand(MafiaNet::to_string(boundAddresses[i], false).c_str(), boundAddresses[i].GetPort(), (const char *) outgoingBs.GetData(), outgoingBs.GetNumberOfBytesUsed());
 				break;
 			}
 		}

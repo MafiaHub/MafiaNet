@@ -77,14 +77,14 @@ Extend ``PluginInterface2``:
            const MafiaNet::SystemAddress& addr,
            MafiaNet::RakNetGUID guid,
            bool isIncoming) override {
-           printf("New connection: %s\n", addr.ToString());
+           printf("New connection: %s\n", MafiaNet::to_string(addr).c_str());
        }
 
        virtual void OnClosedConnection(
            const MafiaNet::SystemAddress& addr,
            MafiaNet::RakNetGUID guid,
            MafiaNet::PI2_LostConnectionReason reason) override {
-           printf("Connection closed: %s\n", addr.ToString());
+           printf("Connection closed: %s\n", MafiaNet::to_string(addr).c_str());
        }
    };
 

@@ -99,7 +99,7 @@ Handling Disconnect Packets
        switch (packet->data[0]) {
            case ID_DISCONNECTION_NOTIFICATION:
                printf("Clean disconnect from %s\n",
-                      packet->systemAddress.ToString());
+                      MafiaNet::to_string(packet->systemAddress).c_str());
                // The disconnecting side may attach an optional reason payload
                // (packet->data + 1, length packet->length - 1). It is empty for
                // local timeouts, so always guard on packet->length > 1.
@@ -108,13 +108,13 @@ Handling Disconnect Packets
 
            case ID_CONNECTION_LOST:
                printf("Connection lost (timeout) from %s\n",
-                      packet->systemAddress.ToString());
+                      MafiaNet::to_string(packet->systemAddress).c_str());
                // Investigate timeout cause
                break;
 
            case ID_CONNECTION_ATTEMPT_FAILED:
                printf("Failed to connect to %s\n",
-                      packet->systemAddress.ToString());
+                      MafiaNet::to_string(packet->systemAddress).c_str());
                break;
 
            case ID_NO_FREE_INCOMING_CONNECTIONS:
@@ -146,7 +146,7 @@ Timeout Tuning
            int ping = peer->GetLastPing(systems[i]);
            if (ping > 5000) {
                printf("Warning: High ping to %s: %d ms\n",
-                      systems[i].ToString(), ping);
+                      MafiaNet::to_string(systems[i]).c_str(), ping);
            }
        }
    }

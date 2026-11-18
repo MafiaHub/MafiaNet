@@ -219,7 +219,7 @@ Always validate packet data:
    // Check minimum length
    if (packet->length < sizeof(PlayerPositionPacket)) {
        printf("Malformed packet from %s\n",
-              packet->systemAddress.ToString());
+              MafiaNet::to_string(packet->systemAddress).c_str());
        return;
    }
 
@@ -232,7 +232,7 @@ Always validate packet data:
    // Validate values
    if (!IsValidPosition(x, y, z)) {
        printf("Invalid position from %s\n",
-              packet->systemAddress.ToString());
+              MafiaNet::to_string(packet->systemAddress).c_str());
        return;
    }
 

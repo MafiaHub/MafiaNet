@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
+#include "mafianet/guid_util.h"
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/gets.h"
@@ -230,16 +231,16 @@ int main(void)
 		{
 			if (p->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
-				printf("\nID_CONNECTION_REQUEST_ACCEPTED from %s\n", p->systemAddress.ToString());
+				printf("\nID_CONNECTION_REQUEST_ACCEPTED from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				rakVoice.RequestVoiceChannel(p->guid);
 			}
 			else if (p->data[0] == ID_RAKVOICE_OPEN_CHANNEL_REQUEST)
 			{
-				printf("\nOpen Channel request from %s\n", p->systemAddress.ToString());
+				printf("\nOpen Channel request from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 			}
 			else if (p->data[0] == ID_RAKVOICE_OPEN_CHANNEL_REPLY)
 			{
-				printf("\nGot new channel from %s\n", p->systemAddress.ToString());
+				printf("\nGot new channel from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 			}
 
 			rakPeer->DeallocatePacket(p);

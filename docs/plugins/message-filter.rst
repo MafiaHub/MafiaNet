@@ -67,7 +67,7 @@ Basic Usage
        if (packet->data[0] == ID_RPC_REMOTE_ERROR) {
            // Message was filtered - log or handle
            printf("Filtered message from %s\n",
-                  packet->systemAddress.ToString());
+                  MafiaNet::to_string(packet->systemAddress).c_str());
        }
        peer->DeallocatePacket(packet);
    }

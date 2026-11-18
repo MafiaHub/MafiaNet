@@ -550,7 +550,7 @@ int main(void)
 				printf("ID_CONNECTION_REQUEST_ACCEPTED\n");
 				break;
 			case ID_NEW_INCOMING_CONNECTION:
-				printf("ID_NEW_INCOMING_CONNECTION from %s\n", packet->systemAddress.ToString());
+				printf("ID_NEW_INCOMING_CONNECTION from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				break;
 			case ID_DISCONNECTION_NOTIFICATION:
 				printf("ID_DISCONNECTION_NOTIFICATION\n");
@@ -564,8 +564,8 @@ int main(void)
 				if (rakPeer->GetSystemAddressFromGuid(packet->guid) == MafiaNet::UNASSIGNED_SYSTEM_ADDRESS &&
 				    rakPeer->GetMyGUID() != packet->guid)
 				{
-					printf("Connecting to %s\n", packet->systemAddress.ToString(true));
-					rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
+					printf("Connecting to %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
+					rakPeer->Connect(MafiaNet::to_string(packet->systemAddress, false).c_str(), packet->systemAddress.GetPort(), 0, 0);
 				}
 				break;
 			case ID_SND_RECEIPT_LOSS:

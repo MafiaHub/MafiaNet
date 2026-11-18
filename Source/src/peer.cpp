@@ -4097,7 +4097,7 @@ RakPeer::RemoteSystemStruct *RakPeer::AssignSystemAddressToRemoteSystemList(cons
 	{
 		if (remoteSystemList[assignedIndex].isActive == false)
 		{
-			// printf("--- Address %s has become active\n", systemAddress.ToString());
+			// printf("--- Address %s has become active\n", MafiaNet::to_string(systemAddress).c_str());
 
 			remoteSystem = remoteSystemList + assignedIndex;
 
@@ -4698,7 +4698,7 @@ void RakPeer::CloseConnectionInternal2(const AddressOrGUID &systemIdentifier, bo
 					RemoveFromActiveSystemList(target);
 
 					// Found the index to stop
-					// printf("--- Address %s has become inactive\n", remoteSystemList[index].systemAddress.ToString());
+					// printf("--- Address %s has become inactive\n", MafiaNet::to_string(remoteSystemList[index].systemAddress).c_str());
 					remoteSystemList[index].isActive = false;
 
 					remoteSystemList[index].guid = UNASSIGNED_RAKNET_GUID;
@@ -6050,7 +6050,7 @@ void ProcessNetworkPacket(SystemAddress systemAddress, const char *data, const i
 	else
 	{
 		// int a=5;
-		// printf("--- Packet from unknown system %s\n", systemAddress.ToString());
+		// printf("--- Packet from unknown system %s\n", MafiaNet::to_string(systemAddress).c_str());
 	}
 }
 

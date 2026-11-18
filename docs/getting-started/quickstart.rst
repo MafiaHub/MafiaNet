@@ -47,7 +47,7 @@ manual lifetime or ``BitStream`` bookkeeping:
            peer.broadcast(d, m);                   // relay to everyone, typed
        });
        d.on(ID_NEW_INCOMING_CONNECTION, [](const MafiaNet::Sender& s) {
-           printf("Client connected: %s\n", s.address().ToString());
+           printf("Client connected: %s\n", MafiaNet::to_string(s.address()).c_str());
        });
 
        while (true)
@@ -65,6 +65,7 @@ Basic Server
 
 .. code-block:: cpp
 
+   #include "mafianet/guid_util.h"
    #include "mafianet/peer_interface.h"
    #include "mafianet/message_identifiers.h"
 
@@ -90,7 +91,7 @@ Basic Server
                switch (packet->data[0]) {
                    case ID_NEW_INCOMING_CONNECTION:
                        printf("Client connected: %s\n",
-                              packet->systemAddress.ToString());
+                              MafiaNet::to_string(packet->systemAddress).c_str());
                        break;
                    case ID_DISCONNECTION_NOTIFICATION:
                        printf("Client disconnected\n");

@@ -258,7 +258,7 @@ int main(void)
 				break;
 			case ID_CONNECTED_PING:
 			case ID_UNCONNECTED_PING:
-				printf("Ping from %s\n", p->systemAddress.ToString(true));
+				printf("Ping from %s\n", MafiaNet::to_string(p->systemAddress).c_str());
 				break;
 			}
 

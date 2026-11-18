@@ -9,6 +9,7 @@
  *  ::1), and an AF_UNSPEC listener that accepts IPv4 and IPv6 clients.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "TcpTestHelpers.h"
@@ -156,7 +157,7 @@ TEST_F(TcpInterfaceFamilyLive, BlockingUnspecConnectByHostNameTriesEveryAddress)
 	const SystemAddress serverSide = client->Connect("localhost", port, true, AF_UNSPEC);
 	ASSERT_NE(serverSide, UNASSIGNED_SYSTEM_ADDRESS) << "Connect(\"localhost\", AF_UNSPEC) did not fall back to 127.0.0.1";
 	EXPECT_EQ(serverSide.GetIPVersion(), 4);
-	EXPECT_STREQ(serverSide.ToString(false), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(serverSide, false), "127.0.0.1");
 	EXPECT_EQ(serverSide.GetPort(), port);
 	EXPECT_EQ(WaitForIncoming(1).size(), 1u);
 }
@@ -184,7 +185,7 @@ TEST_F(TcpInterfaceFamilyLive, NonBlockingUnspecConnectByHostNameTriesEveryAddre
 	ASSERT_EQ(failed, UNASSIGNED_SYSTEM_ADDRESS) << "Connect(\"localhost\", AF_UNSPEC) did not fall back to 127.0.0.1";
 	ASSERT_NE(completed, UNASSIGNED_SYSTEM_ADDRESS) << "the connection attempt never completed";
 	EXPECT_EQ(completed.GetIPVersion(), 4);
-	EXPECT_STREQ(completed.ToString(false), "127.0.0.1");
+	EXPECT_EQ(MafiaNet::to_string(completed, false), "127.0.0.1");
 	EXPECT_EQ(completed.GetPort(), port);
 	EXPECT_EQ(WaitForIncoming(1).size(), 1u);
 }
@@ -288,7 +289,7 @@ TEST_F(TcpInterfaceFamilyLive, ConnectCloseLoopWhileSending)
 	{
 		for (Packet *p = server->Receive(); p != nullptr; p = server->Receive())
 		{
-			std::string &stream = serverStreams[p->systemAddress.ToString(true)];
+			std::string &stream = serverStreams[MafiaNet::to_string(p->systemAddress)];
 			stream.append((const char *) p->data, p->length);
 			if (stream.find(marker) != std::string::npos)
 				serverGotMarker = true;
@@ -367,16 +368,16 @@ TEST_F(TcpInterfaceDualStackLive, UnspecListenerAcceptsIpv4AndIpv6Clients)
 	int ipv4Clients = 0, ipv6Clients = 0;
 	for (const SystemAddress &a : incoming)
 	{
-		EXPECT_FALSE(a.IsIPv4Mapped()) << a.ToString(true);
+		EXPECT_FALSE(a.IsIPv4Mapped()) << MafiaNet::to_string(a);
 		if (a.GetIPVersion() == 4)
 		{
 			++ipv4Clients;
-			EXPECT_STREQ(a.ToString(false), "127.0.0.1");
+			EXPECT_EQ(MafiaNet::to_string(a, false), "127.0.0.1");
 		}
 		else
 		{
 			++ipv6Clients;
-			EXPECT_STREQ(a.ToString(false), "::1");
+			EXPECT_EQ(MafiaNet::to_string(a, false), "::1");
 		}
 	}
 	EXPECT_EQ(ipv4Clients, 1);

@@ -900,7 +900,7 @@ int main(void)
 	rakPeer->SetMaximumIncomingConnections(8);
 	rakPeer->SetTimeoutTime(30000, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS);
 	printf("Our guid is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
-	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
+	printf("Started on %s\n", MafiaNet::to_string(rakPeer->GetMyBoundAddress()).c_str());
 
 	// Start TCPInterface and begin connecting to the NAT punchthrough server
 	tcp->Start(0, 0, 1);
@@ -921,12 +921,12 @@ int main(void)
 			{
 			case ID_NEW_INCOMING_CONNECTION:
 			{
-				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_NEW_INCOMING_CONNECTION from %s. guid=%s.\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 			}
 			break;
 			case ID_CONNECTION_REQUEST_ACCEPTED:
 			{
-				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+				printf("ID_CONNECTION_REQUEST_ACCEPTED from %s,guid=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 
 				if (game->phase == Game::CONNECTING_TO_SERVER)
 				{
@@ -997,7 +997,7 @@ int main(void)
 			case ID_INCOMPATIBLE_PROTOCOL_VERSION:
 				// Note: Failing to connect to another system does not automatically mean we cannot join a session, since that system may be disconnecting from the host simultaneously
 				// FullyConnectedMesh2::StartVerifiedJoin() internally handles success or failure and notifies the client through ID_FCM2_VERIFIED_JOIN_FAILED if needed.
-				printf("Failed to connect to %s. Reason %s\n", packet->systemAddress.ToString(true), PacketLogger::BaseIDTOString(packet->data[0]));
+				printf("Failed to connect to %s. Reason %s\n", MafiaNet::to_string(packet->systemAddress).c_str(), PacketLogger::BaseIDTOString(packet->data[0]));
 
 				if (game->phase == Game::CONNECTING_TO_SERVER)
 					game->EnterPhase(Game::EXIT_SAMPLE);
@@ -1030,9 +1030,9 @@ int main(void)
 				else
 				{
 					if (oldHost != UNASSIGNED_RAKNET_GUID)
-						printf("ID_FCM2_NEW_HOST: A new system %s has become host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+						printf("ID_FCM2_NEW_HOST: A new system %s has become host, GUID=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 					else
-						printf("ID_FCM2_NEW_HOST: System %s is host, GUID=%s\n", packet->systemAddress.ToString(true), MafiaNet::to_string(packet->guid).c_str());
+						printf("ID_FCM2_NEW_HOST: System %s is host, GUID=%s\n", MafiaNet::to_string(packet->systemAddress).c_str(), MafiaNet::to_string(packet->guid).c_str());
 				}
 
 				if (oldHost == UNASSIGNED_RAKNET_GUID)
@@ -1071,22 +1071,22 @@ int main(void)
 				if (game->phase == Game::NAT_PUNCH_TO_GAME_HOST || game->phase == Game::VERIFIED_JOIN)
 				{
 					// Connect to the session host
-					ConnectionAttemptResult car = rakPeer->Connect(packet->systemAddress.ToString(false), packet->systemAddress.GetPort(), 0, 0);
+					ConnectionAttemptResult car = rakPeer->Connect(MafiaNet::to_string(packet->systemAddress, false).c_str(), packet->systemAddress.GetPort(), 0, 0);
 					if (car != MafiaNet::CONNECTION_ATTEMPT_STARTED)
 					{
-						printf("Failed connect call to %s. Code=%i\n", packet->systemAddress.ToString(false), car);
+						printf("Failed connect call to %s. Code=%i\n", MafiaNet::to_string(packet->systemAddress, false).c_str(), car);
 						game->EnterPhase(Game::SEARCH_FOR_GAMES);
 					}
 					else
 					{
 						if (game->phase == Game::NAT_PUNCH_TO_GAME_HOST)
 						{
-							printf("NAT punch completed. Connecting to %s (game host)...\n", packet->systemAddress.ToString(true));
+							printf("NAT punch completed. Connecting to %s (game host)...\n", MafiaNet::to_string(packet->systemAddress).c_str());
 							game->EnterPhase(Game::CONNECTING_TO_GAME_HOST);
 						}
 						else
 						{
-							printf("NAT punch completed. Connecting to %s (game client)...\n", packet->systemAddress.ToString(true));
+							printf("NAT punch completed. Connecting to %s (game client)...\n", MafiaNet::to_string(packet->systemAddress).c_str());
 						}
 					}
 				}
@@ -1115,18 +1115,18 @@ int main(void)
 			break;
 
 			case ID_READY_EVENT_ALL_SET:
-				printf("Got ID_READY_EVENT_ALL_SET from %s\n", packet->systemAddress.ToString(true));
+				printf("Got ID_READY_EVENT_ALL_SET from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				printf("All users ready.\n");
 				if (fullyConnectedMesh2->IsConnectedHost())
 					printf("New options:\n(B)egin gameplay\n");
 				break;
 
 			case ID_READY_EVENT_SET:
-				printf("Got ID_READY_EVENT_SET from %s\n", packet->systemAddress.ToString(true));
+				printf("Got ID_READY_EVENT_SET from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				break;
 
 			case ID_READY_EVENT_UNSET:
-				printf("Got ID_READY_EVENT_UNSET from %s\n", packet->systemAddress.ToString(true));
+				printf("Got ID_READY_EVENT_UNSET from %s\n", MafiaNet::to_string(packet->systemAddress).c_str());
 				break;
 
 			// ID_USER_PACKET_ENUM is used by this sample as a custom message to ask to join a game

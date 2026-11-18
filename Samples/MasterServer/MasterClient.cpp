@@ -13,6 +13,7 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
+#include "mafianet/guid_util.h"
 #include "MasterClient.h"
 #include "MasterServerMessageIDs.h"
 #include "mafianet/peer_interface.h"
@@ -88,7 +89,7 @@ void MasterClient::PingServers(void)
 
 	for (serverIndex = 0; serverIndex < gameServerList.serverList.size(); serverIndex++)
 	{
-		rakPeer->Ping((char *) gameServerList.serverList[serverIndex]->connectionIdentifier.ToString(false),
+		rakPeer->Ping(MafiaNet::to_string(gameServerList.serverList[serverIndex]->connectionIdentifier, false).c_str(),
 		              gameServerList.serverList[serverIndex]->connectionIdentifier.GetPort(), false);
 	}
 }
@@ -199,7 +200,7 @@ void MasterClient::HandleServerListResponse(Packet *packet, bool overwriteExisti
 		if (newServerAdded)
 		{
 			// Ping the new server
-			rakPeer->Ping((char *) gameServer->connectionIdentifier.ToString(false),
+			rakPeer->Ping(MafiaNet::to_string(gameServer->connectionIdentifier, false).c_str(),
 			              gameServer->connectionIdentifier.GetPort(), false);
 
 			// Returns true if new server updated
@@ -243,7 +244,7 @@ void MasterClient::HandleRelayedConnectionNotification(Packet *packet)
 	clientSystem.address.addr4.sin_addr.s_addr = binaryAddress;
 	clientSystem.SetPortHostOrder(port);
 
-	OnConnectionRequest(clientSystem.ToString(false), clientSystem.GetPort());
+	OnConnectionRequest(MafiaNet::to_string(clientSystem, false).c_str(), clientSystem.GetPort());
 }
 void MasterClient::PostRule(char *ruleIdentifier, char *stringData, int intData)
 {

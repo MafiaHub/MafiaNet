@@ -12,6 +12,7 @@
  *  are larger than MMSG_BATCH_MAX so the batched send fills and flushes.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "TestHelpers.h"
@@ -102,7 +103,7 @@ TEST_F(DualStackLive, Ipv4ClientSeenAsPlainIpv4)
 {
 	// A dual-stack wildcard socket reports 127.0.0.1|port, like an IPv4 one;
 	// MAFIANET_START_DUAL_STACK already checked IsDualStack().
-	ASSERT_EQ(std::string(server->GetMyBoundAddress().ToString(false)), "127.0.0.1");
+	ASSERT_EQ(MafiaNet::to_string(server->GetMyBoundAddress(), false), "127.0.0.1");
 	ASSERT_EQ(server->GetMyBoundAddress().GetPort(), serverPort);
 
 	ASSERT_EQ(clientV4->Connect("127.0.0.1", serverPort, nullptr, 0), CONNECTION_ATTEMPT_STARTED);
@@ -132,25 +133,25 @@ TEST_F(DualStackLive, Ipv4ClientSeenAsPlainIpv4)
 
 	// The IPv4 client arrives as ::ffff:127.0.0.1 and must be reported as plain IPv4.
 	const SystemAddress v4 = seenFrom[clientV4->GetMyGUID().g];
-	EXPECT_EQ(v4.GetIPVersion(), 4) << v4.ToString(true);
-	EXPECT_EQ(std::string(v4.ToString(false)), "127.0.0.1");
-	EXPECT_TRUE(v4.IsLoopback()) << v4.ToString(true);
+	EXPECT_EQ(v4.GetIPVersion(), 4) << MafiaNet::to_string(v4);
+	EXPECT_EQ(MafiaNet::to_string(v4, false), "127.0.0.1");
+	EXPECT_TRUE(v4.IsLoopback()) << MafiaNet::to_string(v4);
 	EXPECT_EQ(v4.GetPort(), clientV4Port);
 	EXPECT_EQ(server->GetSystemAddressFromGuid(clientV4->GetMyGUID()), v4);
 
 	const SystemAddress v6 = seenFrom[clientV6->GetMyGUID().g];
-	EXPECT_EQ(v6.GetIPVersion(), 6) << v6.ToString(true);
-	EXPECT_TRUE(v6.IsLoopback()) << v6.ToString(true);
+	EXPECT_EQ(v6.GetIPVersion(), 6) << MafiaNet::to_string(v6);
+	EXPECT_TRUE(v6.IsLoopback()) << MafiaNet::to_string(v6);
 	EXPECT_EQ(v6.GetPort(), clientV6Port);
 
 	const SystemAddress dual = seenFrom[clientDual->GetMyGUID().g];
-	EXPECT_EQ(dual.GetIPVersion(), 4) << dual.ToString(true);
-	EXPECT_EQ(std::string(dual.ToString(false)), "127.0.0.1");
+	EXPECT_EQ(dual.GetIPVersion(), 4) << MafiaNet::to_string(dual);
+	EXPECT_EQ(MafiaNet::to_string(dual, false), "127.0.0.1");
 	EXPECT_EQ(dual.GetPort(), clientDualPort);
 
 	// The dual-stack client's view of the server is canonical too.
 	const SystemAddress serverAsSeen = clientDual->GetSystemAddressFromGuid(server->GetMyGUID());
-	EXPECT_EQ(serverAsSeen.GetIPVersion(), 4) << serverAsSeen.ToString(true);
+	EXPECT_EQ(serverAsSeen.GetIPVersion(), 4) << MafiaNet::to_string(serverAsSeen);
 	EXPECT_EQ(serverAsSeen.GetPort(), serverPort);
 
 	// Reliable bursts from the dual-stack socket to every client: IPv4 targets

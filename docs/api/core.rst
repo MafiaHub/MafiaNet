@@ -43,7 +43,7 @@ The ``SystemAddress`` struct contains:
 
 Key methods:
 
-- ``ToString()`` - Convert to string representation
+- ``MafiaNet::to_string(address)`` returns an owning string. Use ``address.ToString(true, buffer, sizeof(buffer))`` to write into a caller buffer.
 - ``FromString()`` / ``FromStringExplicitPort()`` - Parse from string
 - ``GetPort()`` / ``SetPortHostOrder()`` - Port manipulation
 - ``IsLoopback()`` / ``IsLANAddress()`` - Address type checks
@@ -382,6 +382,10 @@ Value-Type GUID Helpers
 
 * ``std::string MafiaNet::to_string(const RakNetGUID&)`` — owns its buffer and
   is thread-safe (replaces the removed ``RakNetGUID::ToString(void)``).
+* ``MafiaNet::to_string(address, writePort, delimiter)`` formats a ``SystemAddress``.
+  The port is included by default, separated by ``|``.
+* ``MafiaNet::to_string(addressOrGuid, writePort)`` formats its assigned GUID first,
+  falling back to the address.
 * ``std::optional<SystemAddress> MafiaNet::connected_address(RakPeerInterface&,
   const RakNetGUID&)`` — maps the ``UNASSIGNED_SYSTEM_ADDRESS`` sentinel to
   ``std::nullopt``.
@@ -391,7 +395,7 @@ Value-Type GUID Helpers
    printf("Peer %s connected\n", MafiaNet::to_string(packet->guid).c_str());
 
    if (auto addr = MafiaNet::connected_address(*peer, guid))
-       printf("address: %s\n", addr->ToString());
+       printf("address: %s\n", MafiaNet::to_string(*addr).c_str());
 
 Remote Procedure Calls
 ----------------------

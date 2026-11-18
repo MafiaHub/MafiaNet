@@ -161,7 +161,7 @@ int main(void)
 				MafiaNet::BitStream bsIn(p->data, p->length, false);
 				bsIn.IgnoreBytes(1);
 				bsIn.Read(time);
-				printf("Got pong from %s with time %i\n", p->systemAddress.ToString(), MafiaNet::GetTimeMS() - time);
+				printf("Got pong from %s with time %i\n", MafiaNet::to_string(p->systemAddress).c_str(), MafiaNet::GetTimeMS() - time);
 			}
 			else if (p->data[0] == ID_UNCONNECTED_PING)
 			{

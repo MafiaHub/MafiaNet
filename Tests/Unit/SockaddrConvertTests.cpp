@@ -10,6 +10,7 @@
  *  rest of the library only ever sees the canonical AF_INET form.
  */
 
+#include "mafianet/guid_util.h"
 #include <gtest/gtest.h>
 
 #include "mafianet/sockaddr_convert.h"
@@ -52,7 +53,7 @@ TEST(SockaddrConvert, MappedSourceBecomesIpv4)
 	ASSERT_TRUE(SockaddrToSystemAddress(MakeV6("::ffff:192.0.2.7", 4660), &out));
 	EXPECT_EQ(out.GetIPVersion(), 4);
 	EXPECT_FALSE(out.IsIPv4Mapped());
-	EXPECT_EQ(std::string(out.ToString(false)), "192.0.2.7");
+	EXPECT_EQ(MafiaNet::to_string(out, false), "192.0.2.7");
 	EXPECT_EQ(out.GetPort(), 4660);
 	EXPECT_EQ(out.debugPort, 4660);
 	EXPECT_EQ(out, V4Address("192.0.2.7", 4660));

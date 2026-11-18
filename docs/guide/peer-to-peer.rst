@@ -57,7 +57,7 @@ Handling NAT Events
    switch (packet->data[0]) {
        case ID_NAT_PUNCHTHROUGH_SUCCEEDED:
            // Can now connect directly to the peer
-           peer->Connect(packet->systemAddress.ToString(false),
+           peer->Connect(MafiaNet::to_string(packet->systemAddress, false).c_str(),
                         packet->systemAddress.GetPort(), nullptr, 0);
            break;
 

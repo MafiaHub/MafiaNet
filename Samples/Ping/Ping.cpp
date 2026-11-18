@@ -18,6 +18,7 @@
 // Filename Ping.cpp
 // Very basic chat engine example
 // ----------------------------------------------------------------------
+#include "mafianet/guid_util.h"
 #include "mafianet/message_identifiers.h"
 
 #include "mafianet/peer_interface.h"
@@ -158,7 +159,7 @@ int main(void)
 			bsIn.IgnoreBytes(1);
 			bsIn.Read(time);
 			dataLength = p->length - sizeof(unsigned char) - sizeof(MafiaNet::TimeMS);
-			printf("ID_UNCONNECTED_PONG from SystemAddress %s.\n", p->systemAddress.ToString(true));
+			printf("ID_UNCONNECTED_PONG from SystemAddress %s.\n", MafiaNet::to_string(p->systemAddress).c_str());
 			printf("Time is %i\n", time);
 			printf("Ping is %i\n", (unsigned int) (MafiaNet::GetTimeMS() - time));
 			printf("Data is %i bytes long.\n", dataLength);
