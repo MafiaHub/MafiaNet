@@ -20,6 +20,8 @@
 
 #include "mafianet/export.h"
 
+/// Create the directory when data is null, otherwise write a binary file and create its parents.
+/// Returns false if creating the directory, opening, writing or closing the file fails.
 bool RAK_DLL_EXPORT WriteFileWithDirectories(const char *path, char *data, unsigned dataLength);
 bool RAK_DLL_EXPORT IsSlash(unsigned char c);
 void RAK_DLL_EXPORT AddSlash(char *input);
