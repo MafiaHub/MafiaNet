@@ -25,7 +25,7 @@
 #ifndef __DYN_DNS_H
 #define __DYN_DNS_H
 
-#include "mafianet/string.h"
+#include <string>
 
 namespace MafiaNet
 {
@@ -102,10 +102,10 @@ protected:
 	};
 
 	TCPInterface *tcp;
-	MafiaNet::RakString getString;
+	std::string getString;
 	SystemAddress serverAddress;
 	ConnectPhase connectPhase;
-	MafiaNet::RakString host;
+	std::string host;
 	MafiaNet::Time phaseTimeout;
 	SystemAddress checkIpAddress;
 	const char *resultDescription;

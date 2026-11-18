@@ -14,6 +14,7 @@
  */
 
 #include <cstdio>
+#include "mafianet/format_string.h"
 #include <cstring>
 #include <stdlib.h>
 #include "mafianet/get_time.h"
@@ -38,8 +39,8 @@ MafiaNet::RakPeerInterface *rakPeer[NUM_PEERS];
 
 class FullyConnectedMesh2_UserData : public FullyConnectedMesh2
 {
-	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) { bsOut->Write(RakString("WriteVJCUserData test")); }
-	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) { bsOut->Write(RakString("WriteVJSUserData test, userGuid=%s", MafiaNet::to_string(userGuid).c_str())); }
+	virtual void WriteVJCUserData(MafiaNet::BitStream *bsOut) { bsOut->Write(std::string("WriteVJCUserData test")); }
+	virtual void WriteVJSUserData(MafiaNet::BitStream *bsOut, RakNetGUID userGuid) { bsOut->Write(MafiaNet::FormatText("WriteVJSUserData test, userGuid=%s", MafiaNet::to_string(userGuid).c_str())); }
 };
 
 int main()
@@ -113,9 +114,9 @@ int main()
 						}
 						printf(" ");
 
-						RakString userDataAsStr;
+						std::string userDataAsStr;
 						userData[i]->Read(userDataAsStr);
-						printf(userDataAsStr.C_String());
+						printf(userDataAsStr.c_str());
 					}
 					printf("\n");
 				}
@@ -129,11 +130,11 @@ int main()
 				{
 					MafiaNet::BitStream bs(packet->data, packet->length, false);
 					FullyConnectedMesh2::SkipToVJCUserData(&bs);
-					RakString testStr;
+					std::string testStr;
 					bs.Read(testStr);
 
 					printf("%s: ID_FCM2_VERIFIED_JOIN_CAPABLE from %s\n", MafiaNet::to_string(rakPeer[peerIndex]->GetMyGUID()).c_str(), MafiaNet::to_string(packet->guid).c_str());
-					printf("STR: %s\n", testStr.C_String());
+					printf("STR: %s\n", testStr.c_str());
 					fcm2[peerIndex].RespondOnVerifiedJoinCapable(packet, true, 0);
 				}
 				break;

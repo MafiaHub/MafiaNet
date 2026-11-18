@@ -54,7 +54,7 @@ public:
 
 	void WriteAllocationID(Connection_RM3 *, BitStream *allocationIdBitstream) const
 	{
-		allocationIdBitstream->Write(RakString("Player"));
+		allocationIdBitstream->Write(std::string("Player"));
 	}
 	void SerializeConstruction(BitStream *bs, Connection_RM3 *)
 	{
@@ -119,7 +119,7 @@ public:
 	bool QueryGroupDownloadMessages(void) const { return true; }
 	Replica3 *AllocReplica(BitStream *allocationId, ReplicaManager3 *)
 	{
-		RakString typeName;
+		std::string typeName;
 		allocationId->Read(typeName);
 		if (typeName == "Player")
 			return new Player;

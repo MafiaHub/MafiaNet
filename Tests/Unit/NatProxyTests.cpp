@@ -157,10 +157,10 @@ namespace
 {
 struct ServerResults : UDPProxyServerResultHandler
 {
-	void OnLoginSuccess(RakString, UDPProxyServer *) override { events.push_back("success"); }
-	void OnAlreadyLoggedIn(RakString, UDPProxyServer *) override { events.push_back("already"); }
-	void OnNoPasswordSet(RakString, UDPProxyServer *) override { events.push_back("nopassword"); }
-	void OnWrongPassword(RakString, UDPProxyServer *) override { events.push_back("wrong"); }
+	void OnLoginSuccess(const std::string &, UDPProxyServer *) override { events.push_back("success"); }
+	void OnAlreadyLoggedIn(const std::string &, UDPProxyServer *) override { events.push_back("already"); }
+	void OnNoPasswordSet(const std::string &, UDPProxyServer *) override { events.push_back("nopassword"); }
+	void OnWrongPassword(const std::string &, UDPProxyServer *) override { events.push_back("wrong"); }
 	std::vector<std::string> events;
 };
 
@@ -266,6 +266,22 @@ TEST_F(UdpProxy, ForwardingRequestFromASystemNotLoggedInToIsLeftToTheApplication
 	ASSERT_TRUE(net.Connect(clientPeers[0], serverPeers[0]));
 	clientPeers[0]->Send(&bs, Priority::High, Reliability::ReliableOrdered, 0, net.AddressOf(serverPeers[0]), false);
 	EXPECT_TRUE(net.RunUntilReceived(serverPeers[0], ID_UDP_PROXY_GENERAL, 2000));
+}
+
+TEST_F(UdpProxy, UnavailableForwarderReleasesTheRequestForAnotherAttempt)
+{
+	ASSERT_TRUE(LogIn(0));
+	servers[0].udpForwarder.Shutdown();
+
+	for (int attempt = 0; attempt < 2; ++attempt)
+	{
+		clientResults[0].events.clear();
+		ASSERT_TRUE(clients[0].RequestForwarding(net.AddressOf(coordinatorPeer), UNASSIGNED_SYSTEM_ADDRESS, clientPeers[1]->GetMyGUID(), 1000));
+		ASSERT_TRUE(net.RunUntil([this]
+		                         { return !clientResults[0].events.empty(); },
+		                         2000));
+		EXPECT_EQ(clientResults[0].events, (std::vector<std::string>{"allbusy"}));
+	}
 }
 
 TEST_F(UdpProxy, ServersThatLeaveDuringPingsLeaveAllServersBusy)

@@ -23,6 +23,8 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/get_time.h"
 
+#include <string>
+
 using namespace MafiaNet;
 static const int DEFAULT_UNRESPONSIVE_PING_TIME_COORDINATOR = 1000;
 
@@ -194,28 +196,28 @@ PluginReceiveResult UDPProxyClient::OnReceive(Packet *packet)
 			case ID_UDP_PROXY_IN_PROGRESS:
 			{
 				unsigned short forwardingPort;
-				MafiaNet::RakString serverIP;
-				incomingBs.Read(serverIP);
-				incomingBs.Read(forwardingPort);
+				std::string serverIP;
+				if (!incomingBs.Read(serverIP) || !incomingBs.Read(forwardingPort))
+					return RR_STOP_PROCESSING_AND_DEALLOCATE;
 				if (packet->data[1] == ID_UDP_PROXY_FORWARDING_SUCCEEDED)
 				{
 					if (resultHandler)
-						resultHandler->OnForwardingSuccess(serverIP.C_String(), forwardingPort, packet->systemAddress, senderAddress, targetAddress, targetGuid, this);
+						resultHandler->OnForwardingSuccess(serverIP.c_str(), forwardingPort, packet->systemAddress, senderAddress, targetAddress, targetGuid, this);
 				}
 				else if (packet->data[1] == ID_UDP_PROXY_IN_PROGRESS)
 				{
 					if (resultHandler)
-						resultHandler->OnForwardingInProgress(serverIP.C_String(), forwardingPort, packet->systemAddress, senderAddress, targetAddress, targetGuid, this);
+						resultHandler->OnForwardingInProgress(serverIP.c_str(), forwardingPort, packet->systemAddress, senderAddress, targetAddress, targetGuid, this);
 				}
 				else
 				{
 					// Send a datagram to the proxy, so if we are behind a router, that router adds an entry to the routing table.
 					// Otherwise the router would block the incoming datagrams from source
 					// It doesn't matter if the message actually arrives as long as it goes through the router
-					rakPeerInterface->Ping(serverIP.C_String(), forwardingPort, false);
+					rakPeerInterface->Ping(serverIP.c_str(), forwardingPort, false);
 
 					if (resultHandler)
-						resultHandler->OnForwardingNotification(serverIP.C_String(), forwardingPort, packet->systemAddress, senderAddress, targetAddress, targetGuid, this);
+						resultHandler->OnForwardingNotification(serverIP.c_str(), forwardingPort, packet->systemAddress, senderAddress, targetAddress, targetGuid, this);
 				}
 			}
 			break;

@@ -754,7 +754,7 @@ void FullyConnectedMesh2::IncrementTotalConnectionCount(unsigned int i)
 		//	printf("totalConnectionCount=%i\n",i);
 	}
 }
-void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection, MafiaNet::RakString pw)
+void FullyConnectedMesh2::SetConnectOnNewRemoteConnection(bool attemptConnection, const std::string &pw)
 {
 	connectOnNewRemoteConnections = attemptConnection;
 	connectionPassword = pw;
@@ -774,7 +774,7 @@ void FullyConnectedMesh2::ConnectToRemoteNewIncomingConnections(Packet *packet)
 		bsIn.Read(remoteAddress);
 		bsIn.Read(remoteGuid);
 		remoteAddress.ToString(false, str, static_cast<size_t>(64));
-		rakPeerInterface->Connect(str, remoteAddress.GetPort(), connectionPassword.C_String(), (int) connectionPassword.GetLength());
+		rakPeerInterface->Connect(str, remoteAddress.GetPort(), connectionPassword.c_str(), (int) connectionPassword.size());
 	}
 }
 unsigned int FullyConnectedMesh2::GetTotalConnectionCount(void) const

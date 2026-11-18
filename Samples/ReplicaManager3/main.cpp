@@ -27,7 +27,7 @@
 #include "mafianet/network_id_manager.h"
 #include "mafianet/sleep.h"
 #include "mafianet/format_string.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/get_time.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/getche.h"
@@ -60,7 +60,7 @@ struct SampleReplica : public Replica3
 	~SampleReplica()
 	{
 	}
-	virtual MafiaNet::RakString GetName(void) const = 0;
+	virtual std::string GetName(void) const = 0;
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const
 	{
 		// unused parameters
@@ -72,9 +72,9 @@ struct SampleReplica : public Replica3
 	{
 		if (bs->GetNumberOfBitsUsed() == 0)
 			return;
-		MafiaNet::RakString rakString;
-		bs->Read(rakString);
-		printf("Receive: %s\n", rakString.C_String());
+		std::string text;
+		bs->Read(text);
+		printf("Receive: %s\n", text.c_str());
 	}
 
 	virtual void SerializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *destinationConnection)
@@ -83,7 +83,7 @@ struct SampleReplica : public Replica3
 		// This call adds another remote system to track
 		variableDeltaSerializer.AddRemoteSystemVariableHistory(destinationConnection->GetRakNetGUID());
 
-		constructionBitstream->Write(GetName() + MafiaNet::RakString(" SerializeConstruction"));
+		constructionBitstream->Write(GetName() + std::string(" SerializeConstruction"));
 	}
 	virtual bool DeserializeConstruction(MafiaNet::BitStream *constructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
@@ -99,7 +99,7 @@ struct SampleReplica : public Replica3
 		// This call removes a remote system
 		variableDeltaSerializer.RemoveRemoteSystemVariableHistory(destinationConnection->GetRakNetGUID());
 
-		destructionBitstream->Write(GetName() + MafiaNet::RakString(" SerializeDestruction"));
+		destructionBitstream->Write(GetName() + std::string(" SerializeDestruction"));
 	}
 	virtual bool DeserializeDestruction(MafiaNet::BitStream *destructionBitstream, MafiaNet::Connection_RM3 *sourceConnection)
 	{
@@ -191,7 +191,7 @@ struct SampleReplica : public Replica3
 		// unused parameters
 		(void) requestingConnection;
 
-		serializationBitstream->Write(GetName() + MafiaNet::RakString(" SerializeConstructionRequestAccepted"));
+		serializationBitstream->Write(GetName() + std::string(" SerializeConstructionRequestAccepted"));
 	}
 	virtual void DeserializeConstructionRequestAccepted(MafiaNet::BitStream *serializationBitstream, MafiaNet::Connection_RM3 *acceptingConnection)
 	{
@@ -205,7 +205,7 @@ struct SampleReplica : public Replica3
 		// unused parameters
 		(void) requestingConnection;
 
-		serializationBitstream->Write(GetName() + MafiaNet::RakString(" SerializeConstructionRequestRejected"));
+		serializationBitstream->Write(GetName() + std::string(" SerializeConstructionRequestRejected"));
 	}
 	virtual void DeserializeConstructionRequestRejected(MafiaNet::BitStream *serializationBitstream, MafiaNet::Connection_RM3 *rejectingConnection)
 	{
@@ -263,9 +263,9 @@ struct SampleReplica : public Replica3
 
 struct ClientCreatable_ClientSerialized : public SampleReplica
 {
-	virtual MafiaNet::RakString GetName(void) const
+	virtual std::string GetName(void) const
 	{
-		return MafiaNet::RakString("ClientCreatable_ClientSerialized");
+		return std::string("ClientCreatable_ClientSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
@@ -294,9 +294,9 @@ struct ClientCreatable_ClientSerialized : public SampleReplica
 };
 struct ServerCreated_ClientSerialized : public SampleReplica
 {
-	virtual MafiaNet::RakString GetName(void) const
+	virtual std::string GetName(void) const
 	{
-		return MafiaNet::RakString("ServerCreated_ClientSerialized");
+		return std::string("ServerCreated_ClientSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
@@ -324,9 +324,9 @@ struct ServerCreated_ClientSerialized : public SampleReplica
 };
 struct ClientCreatable_ServerSerialized : public SampleReplica
 {
-	virtual MafiaNet::RakString GetName(void) const
+	virtual std::string GetName(void) const
 	{
-		return MafiaNet::RakString("ClientCreatable_ServerSerialized");
+		return std::string("ClientCreatable_ServerSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
@@ -356,9 +356,9 @@ struct ClientCreatable_ServerSerialized : public SampleReplica
 };
 struct ServerCreated_ServerSerialized : public SampleReplica
 {
-	virtual MafiaNet::RakString GetName(void) const
+	virtual std::string GetName(void) const
 	{
-		return MafiaNet::RakString("ServerCreated_ServerSerialized");
+		return std::string("ServerCreated_ServerSerialized");
 	}
 	virtual RM3SerializationResult Serialize(SerializeParameters *serializeParameters)
 	{
@@ -389,9 +389,9 @@ struct ServerCreated_ServerSerialized : public SampleReplica
 };
 struct P2PReplica : public SampleReplica
 {
-	virtual MafiaNet::RakString GetName(void) const
+	virtual std::string GetName(void) const
 	{
-		return MafiaNet::RakString("P2PReplica");
+		return std::string("P2PReplica");
 	}
 	virtual RM3ConstructionState QueryConstruction(MafiaNet::Connection_RM3 *destinationConnection, ReplicaManager3 *replicaManager3)
 	{
@@ -436,7 +436,7 @@ public:
 		// unused parameters
 		(void) replicaManager3;
 
-		MafiaNet::RakString typeName;
+		std::string typeName;
 		allocationId->Read(typeName);
 		if (typeName == "ClientCreatable_ClientSerialized")
 			return new ClientCreatable_ClientSerialized;

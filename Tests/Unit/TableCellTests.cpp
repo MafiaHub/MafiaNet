@@ -69,11 +69,11 @@ TEST(TableCell, CopyOfAnEmptyCellOwnsNoBuffer)
 
 TEST(TableCell, StringToStringIsVerbatimNotAFormat)
 {
-	// Used to go through RakString's printf-style constructor: a peer-supplied "%n" wrote memory.
+	// Format specifiers in cell text must be returned literally.
 	const char *text = "%s%n%x 100% %p";
 	Table::Cell cell;
 	cell.Set(text);
-	EXPECT_STREQ(text, cell.ToString(Table::STRING).C_String());
+	EXPECT_STREQ(text, cell.ToString(Table::STRING).c_str());
 }
 
 TEST(TableCell, SetByTypeTreatsAnOutOfRangeBinaryLengthAsEmpty)

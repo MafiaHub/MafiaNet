@@ -51,7 +51,7 @@ public:
 	/// \param [in] input Array of bytes to encode
 	/// \param [in] sizeInBytes size of \a input
 	/// \param [out] output The bitstream to write to
-	void EncodeArray(unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream *output);
+	void EncodeArray(const unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream *output);
 
 	/// \brief Decodes \a sizeInBits bits encoded by EncodeArray().
 	/// \details Writes at most \a maxCharsToWrite characters to \a output; characters decoded past that are counted but dropped.

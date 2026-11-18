@@ -132,7 +132,7 @@ Using BitStream
                break;
            }
            case ID_CHAT_MESSAGE: {
-               MafiaNet::RakString message;
+               std::string message;
                bs.Read(message);
                DisplayChatMessage(packet->guid, message);
                break;

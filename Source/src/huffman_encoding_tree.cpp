@@ -158,7 +158,7 @@ void HuffmanEncodingTree::GenerateFromFrequencyTable(unsigned int frequencyTable
 }
 
 // Pass an array of bytes to array and a preallocated BitStream to receive the output
-void HuffmanEncodingTree::EncodeArray(unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream *output)
+void HuffmanEncodingTree::EncodeArray(const unsigned char *input, size_t sizeInBytes, MafiaNet::BitStream *output)
 {
 	unsigned counter;
 

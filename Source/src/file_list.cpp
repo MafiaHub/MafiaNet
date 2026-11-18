@@ -144,7 +144,7 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 	unsigned i;
 	for (i = 0; i < fileList.size(); i++)
 	{
-		if (strcmp(fileList[i].filename, filename) == 0)
+		if (fileList[i].filename == filename)
 		{
 			if (fileList[i].fileLengthBytes == fileLength && fileList[i].dataLengthBytes == dataLength &&
 			    (dataLength == 0 || fileList[i].data == 0 ||
@@ -185,7 +185,7 @@ void FileList::AddFile(const char *filename, const char *fullPathToFile, const c
 	if (n.context.dataLength == 0)
 		n.context.dataLength = dataLength;
 	n.filename = filename;
-	n.fullPathToFile = fullPathToFile;
+	n.fullPathToFile = fullPathToFile ? fullPathToFile : "";
 
 	fileList.push_back(n);
 }
@@ -307,7 +307,7 @@ void FileList::Serialize(MafiaNet::BitStream *outBitStream)
 		outBitStream->WriteCompressed(fileList[i].context.op);
 		outBitStream->WriteCompressed(fileList[i].context.flnc_extraData1);
 		outBitStream->WriteCompressed(fileList[i].context.flnc_extraData2);
-		StringCompressor::Instance()->EncodeString(fileList[i].filename.C_String(), MAX_FILENAME_LENGTH, outBitStream);
+		StringCompressor::Instance()->EncodeString(fileList[i].filename.c_str(), MAX_FILENAME_LENGTH, outBitStream);
 
 		bool writeFileData = (fileList[i].dataLengthBytes > 0) == true;
 		outBitStream->Write(writeFileData);
@@ -407,7 +407,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 
 	for (thisIndex = 0; thisIndex < fileList.size(); thisIndex++)
 	{
-		localPathLen = (unsigned int) fileList[thisIndex].filename.GetLength();
+		localPathLen = (unsigned int) fileList[thisIndex].filename.size();
 		while (localPathLen > 0)
 		{
 			if (IsSlash(fileList[thisIndex].filename[localPathLen - 1]))
@@ -421,7 +421,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 		// fileList[thisIndex].filename has to match dirSubset and be shorter or equal to it in length.
 		if (dirSubsetLen > 0 &&
 		    (localPathLen < dirSubsetLen ||
-		     _strnicmp(fileList[thisIndex].filename.C_String(), dirSubset, dirSubsetLen) != 0 ||
+		     _strnicmp(fileList[thisIndex].filename.c_str(), dirSubset, dirSubsetLen) != 0 ||
 		     (localPathLen > dirSubsetLen && IsSlash(fileList[thisIndex].filename[dirSubsetLen]) == false)))
 			continue;
 
@@ -429,7 +429,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 		for (inputIndex = 0; inputIndex < input->fileList.size(); inputIndex++)
 		{
 			// If the filenames, hashes, and lengths match then skip this element in fileList.  Otherwise write it to output
-			if (_stricmp(input->fileList[inputIndex].filename.C_String() + remoteSubdirLen, fileList[thisIndex].filename.C_String() + dirSubsetLen) == 0)
+			if (_stricmp(input->fileList[inputIndex].filename.c_str() + remoteSubdirLen, fileList[thisIndex].filename.c_str() + dirSubsetLen) == 0)
 			{
 				match = true;
 				if (input->fileList[inputIndex].fileLengthBytes == fileList[thisIndex].fileLengthBytes &&
@@ -442,7 +442,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 				else
 				{
 					// File exists on both machines and is not the same.
-					output->AddFile(fileList[thisIndex].filename, fileList[thisIndex].fullPathToFile, 0, 0, fileList[thisIndex].fileLengthBytes, FileListNodeContext(0, 0, 0, 0), false);
+					output->AddFile(fileList[thisIndex].filename.c_str(), fileList[thisIndex].fullPathToFile.c_str(), 0, 0, fileList[thisIndex].fileLengthBytes, FileListNodeContext(0, 0, 0, 0), false);
 					break;
 				}
 			}
@@ -450,7 +450,7 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 		if (match == false)
 		{
 			// Other system does not have the file at all
-			output->AddFile(fileList[thisIndex].filename, fileList[thisIndex].fullPathToFile, 0, 0, fileList[thisIndex].fileLengthBytes, FileListNodeContext(0, 0, 0, 0), false);
+			output->AddFile(fileList[thisIndex].filename.c_str(), fileList[thisIndex].fullPathToFile.c_str(), 0, 0, fileList[thisIndex].fileLengthBytes, FileListNodeContext(0, 0, 0, 0), false);
 		}
 	}
 }
@@ -467,10 +467,10 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 	{
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
-		strcat_s(fullPath, fileList[i].filename);
+		strcat_s(fullPath, fileList[i].filename.c_str());
 		if (fopen_s(&fp, fullPath, "rb") != 0)
 		{
-			missingOrChangedFiles->AddFile(fileList[i].filename, fileList[i].fullPathToFile, 0, 0, 0, FileListNodeContext(0, 0, 0, 0), false);
+			missingOrChangedFiles->AddFile(fileList[i].filename.c_str(), fileList[i].fullPathToFile.c_str(), 0, 0, 0, FileListNodeContext(0, 0, 0, 0), false);
 		}
 		else
 		{
@@ -480,7 +480,7 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 
 			if (fileLength != fileList[i].fileLengthBytes && alwaysWriteHash == false)
 			{
-				missingOrChangedFiles->AddFile(fileList[i].filename, fileList[i].fullPathToFile, 0, 0, fileLength, FileListNodeContext(0, 0, 0, 0), false);
+				missingOrChangedFiles->AddFile(fileList[i].filename.c_str(), fileList[i].fullPathToFile.c_str(), 0, 0, fileLength, FileListNodeContext(0, 0, 0, 0), false);
 			}
 			else
 			{
@@ -502,10 +502,10 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 				if (fileLength != fileList[i].fileLengthBytes || memcmp(&hash, fileList[i].data, HASH_LENGTH) != 0)
 				{
 					if (neverWriteHash == false)
-						//	missingOrChangedFiles->AddFile((const char*)fileList[i].filename, (const char*)sha1.GetHash(), HASH_LENGTH, fileLength, 0);
-						missingOrChangedFiles->AddFile((const char *) fileList[i].filename, (const char *) fileList[i].fullPathToFile, (const char *) &hash, HASH_LENGTH, fileLength, FileListNodeContext(0, 0, 0, 0), false);
+						//	missingOrChangedFiles->AddFile((const char*)fileList[i].filename.c_str(), (const char*)sha1.GetHash(), HASH_LENGTH, fileLength, 0);
+						missingOrChangedFiles->AddFile(fileList[i].filename.c_str(), fileList[i].fullPathToFile.c_str(), (const char *) &hash, HASH_LENGTH, fileLength, FileListNodeContext(0, 0, 0, 0), false);
 					else
-						missingOrChangedFiles->AddFile((const char *) fileList[i].filename, (const char *) fileList[i].fullPathToFile, 0, 0, fileLength, FileListNodeContext(0, 0, 0, 0), false);
+						missingOrChangedFiles->AddFile(fileList[i].filename.c_str(), fileList[i].fullPathToFile.c_str(), 0, 0, fileLength, FileListNodeContext(0, 0, 0, 0), false);
 				}
 			}
 			fclose(fp);
@@ -525,7 +525,7 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 		std::free(fileList[i].data);
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
-		strcat_s(fullPath, fileList[i].filename.C_String());
+		strcat_s(fullPath, fileList[i].filename.c_str());
 		if (fopen_s(&fp, fullPath, "rb") == 0)
 		{
 			if (writeFileHash || writeFileData)
@@ -628,10 +628,10 @@ void FileList::WriteDataToDisk(const char *applicationDirectory)
 	{
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
-		strcat_s(fullPath, fileList[i].filename.C_String());
+		strcat_s(fullPath, fileList[i].filename.c_str());
 
 		// Security - Don't allow .. in the filename anywhere so you can't write outside of the root directory
-		for (j = 1; j < fileList[i].filename.GetLength(); j++)
+		for (j = 1; j < fileList[i].filename.size(); j++)
 		{
 			if (fileList[i].filename[j] == '.' && fileList[i].filename[j - 1] == '.')
 			{
@@ -657,7 +657,7 @@ void FileList::DeleteFiles(const char *applicationDirectory)
 	for (i = 0; i < fileList.size(); i++)
 	{
 		// The filename should not have .. in the path - if it does ignore it
-		for (j = 1; j < fileList[i].filename.GetLength(); j++)
+		for (j = 1; j < fileList[i].filename.size(); j++)
 		{
 			if (fileList[i].filename[j] == '.' && fileList[i].filename[j - 1] == '.')
 			{
@@ -671,7 +671,7 @@ void FileList::DeleteFiles(const char *applicationDirectory)
 
 		strcpy_s(fullPath, applicationDirectory);
 		FixEndingSlash(fullPath, 512);
-		strcat_s(fullPath, fileList[i].filename.C_String());
+		strcat_s(fullPath, fileList[i].filename.c_str());
 
 		// Do not rename to _unlink as linux uses unlink
 #if defined(_WIN32)

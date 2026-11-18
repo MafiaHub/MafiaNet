@@ -14,6 +14,7 @@
  */
 
 #include <cstdio>
+#include "mafianet/format_string.h"
 #include <cstring>
 #include <stdlib.h>
 #include "mafianet/get_time.h"
@@ -53,7 +54,7 @@ int main()
 	printf("Our guid is %s\n", MafiaNet::to_string(rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS)).c_str());
 	printf("Started on %s\n", rakPeer->GetMyBoundAddress().ToString(true));
 	// 	BitStream contextBs;
-	// 	contextBs.Write(RakString("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString()));
+	// 	contextBs.Write(MafiaNet::FormatText("Our guid is %s\n", rakPeer->GetGuidFromSystemAddress(MafiaNet::UNASSIGNED_SYSTEM_ADDRESS).ToString()));
 	// 	fcm2.SetMyContext(&contextBs);
 
 	//	PacketLogger packetLogger;
@@ -149,9 +150,9 @@ int main()
 				// 				{
 				// 					BitStream userContext;
 				// 					fcm2.GetParticipantContext(participantList[i], &userContext);
-				// 					RakString str;
+				// 					std::string str;
 				// 					userContext.Read(str);
-				// 					printf("%u. %s: %s", i+1, participantList[i].ToString(), str.C_String());
+				// 					printf("%u. %s: %s", i+1, participantList[i].ToString(), str.c_str());
 				// 				}
 			}
 			if (ch == 'q' || ch == 'Q')

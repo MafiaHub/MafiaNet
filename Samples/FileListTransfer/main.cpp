@@ -31,8 +31,8 @@
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-MafiaNet::RakString file;
-MafiaNet::RakString fileCopy;
+std::string file;
+std::string fileCopy;
 
 //const char *file = "c:/temp/unittest.vcproj";
 //const char *fileCopy = "c:/temp/unittest_copy.vcproj";
@@ -55,15 +55,15 @@ public:
 
 
 		FILE *fp;
-		fopen_s(&fp, fileCopy.C_String(), "wb");
+		fopen_s(&fp, fileCopy.c_str(), "wb");
 		fwrite(onFileStruct->fileData, onFileStruct->byteLengthOfThisFile, 1, fp);
 		fclose(fp);
 
 		// Make sure it worked
-		unsigned int hash1 = SuperFastHashFile(file.C_String());
+		unsigned int hash1 = SuperFastHashFile(file.c_str());
 		if (MafiaNet::BitStream::DoEndianSwap())
 			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash1, sizeof(hash1));
-		unsigned int hash2 = SuperFastHashFile(fileCopy.C_String());
+		unsigned int hash2 = SuperFastHashFile(fileCopy.c_str());
 		if (MafiaNet::BitStream::DoEndianSwap())
 			MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash2, sizeof(hash2));
 		RakAssert(hash1 == hash2);
@@ -186,10 +186,10 @@ int main()
 	file = str;
 	fileCopy = file + "_copy";
 	// Reference this file, rather than add it in memory. Will send 1000 byte chunks. The reason to do this is so the whole file does not have to be in memory at once
-	unsigned int fileLength = GetFileLength(file.C_String());
+	unsigned int fileLength = GetFileLength(file.c_str());
 	if (fileLength == 0)
 	{
-		printf("Test file %s not found.\n", file.C_String());
+		printf("Test file %s not found.\n", file.c_str());
 
 #ifdef USE_TCP
 #else
@@ -198,7 +198,7 @@ int main()
 #endif
 		return 1;
 	}
-	fileList.AddFile(file.C_String(), file.C_String(), 0, fileLength, fileLength, FileListNodeContext(0, 0, 0, 0), true);
+	fileList.AddFile(file.c_str(), file.c_str(), 0, fileLength, fileLength, FileListNodeContext(0, 0, 0, 0), true);
 	// Wait for the connection
 	printf("File added.\n");
 	RakSleep(100);

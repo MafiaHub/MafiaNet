@@ -172,11 +172,11 @@ protected:
 			in.Read(count);
 			for (uint16_t i = 0; i < count; i++)
 			{
-				RakString name;
+				std::string name;
 				uint16_t users = 0;
 				in.ReadCompressed(name);
 				in.Read(users);
-				rooms.emplace_back(name.C_String(), users);
+				rooms.emplace_back(name.c_str(), users);
 			}
 		}
 		return rooms;

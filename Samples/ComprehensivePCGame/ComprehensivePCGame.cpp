@@ -14,6 +14,8 @@
  */
 
 #include <cstdio>
+#include "../http_request.h"
+#include "mafianet/format_string.h"
 #include <cstring>
 #include <stdlib.h>
 #include <limits> // used for std::numeric_limits
@@ -346,16 +348,16 @@ public:
 	{
 		printf("Downloading rooms...\n");
 
-		RakString rsRequest = RakString::FormatForGET(
-		    MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame");
-		httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
+		std::string rsRequest = MakeHttpRequest("GET",
+		                                        MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame");
+		httpConnection2->TransmitRequest(rsRequest.c_str(), MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 	}
 
 	// ---------------------------------------------------------------------------------
 	// Serialized variables
 	// ---------------------------------------------------------------------------------
 	// Shows up in game listings
-	RakString gameName;
+	std::string gameName;
 	// If host locked the game, join queries are rejected
 	bool lockGame;
 	// Game is either in the lobby or in gameplay
@@ -477,7 +479,7 @@ public:
 		(void) constructionBitstream;
 		(void) sourceConnection;
 
-		printf("Downloaded user. name=%s\n", userName.C_String());
+		printf("Downloaded user. name=%s\n", userName.c_str());
 
 		// Update the user count on the master server as new users join
 		if (fullyConnectedMesh2->IsConnectedHost())
@@ -526,7 +528,7 @@ public:
 		(void) deserializeParameters;
 	}
 
-	RakString userName;
+	std::string userName;
 	NATTypeDetectionResult natType;
 	RakNetGUID playerGuid;
 	SystemAddress playerAddress;
@@ -549,7 +551,7 @@ public:
 		// unused parameters
 		(void) replicaManager3;
 
-		RakString objectType;
+		std::string objectType;
 		// Types are written by WriteAllocationID()
 		allocationIdBitstream->Read(objectType);
 		if (objectType == "User")
@@ -590,23 +592,23 @@ void InGameChat(MafiaNet::BitStream *userData, Packet *packet, void *context)
 	(void) packet;
 	(void) context;
 
-	RakString rs;
+	std::string rs;
 	userData->Read(rs);
-	printf("%s\n", rs.C_String());
+	printf("%s\n", rs.c_str());
 }
 // Register the function where it is defined, which is easier than maintaining a bunch of RegisterSlot() calls in main()
 // nullptr context: this handler is a free function with no owning instance to route back to.
 RPCGlobalRegistration __InGameChat("InGameChat", InGameChat, nullptr, 0);
 
 // Write roomName and a list of NATTypeDetectionResult to a bitStream
-void SerializeToJSON(RakString &outputString, RakString &roomName, std::vector<NATTypeDetectionResult> &natTypes)
+void SerializeToJSON(std::string &outputString, std::string &roomName, std::vector<NATTypeDetectionResult> &natTypes)
 {
-	outputString.Set("'roomName': '%s', 'guid': '%s', 'natTypes' : [ ", roomName.C_String(), MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
+	outputString = MafiaNet::FormatText("'roomName': '%s', 'guid': '%s', 'natTypes' : [ ", roomName.c_str(), MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
 	for (unsigned short i = 0; i < natTypes.size(); i++)
 	{
 		if (i != 0)
 			outputString += ", ";
-		RakString appendStr("{'type': %i}", natTypes[i]);
+		std::string appendStr = MafiaNet::FormatText("{'type': %i}", natTypes[i]);
 		outputString += appendStr;
 	}
 	outputString += " ] ";
@@ -629,34 +631,34 @@ void RegisterGameParticipant(RakNetGUID guid)
 void PostRoomToMaster(void)
 {
 	BitStream bsOut;
-	RakString jsonSerializedRoom;
+	std::string jsonSerializedRoom;
 	std::vector<NATTypeDetectionResult> natTypes;
 	for (unsigned int i = 0; i < game->users.size(); i++)
 		natTypes.push_back(game->users[i]->natType);
 	SerializeToJSON(jsonSerializedRoom, game->gameName, natTypes);
 
-	RakString rowStr;
+	std::string rowStr;
 	if (game->masterServerRow != -1)
-		rowStr.Set("\"__rowId\": %i,", game->masterServerRow);
+		rowStr = MafiaNet::FormatText("\"__rowId\": %i,", game->masterServerRow);
 
 	// See http://masterserver2.raknet.com/
-	RakString rsRequest = RakString::FormatForPOST(
-	    (const char *) MASTER_SERVER_ADDRESS "/testServer",
-	    "text/plain; charset=UTF-8",
-	    RakString("{'__gameId': 'comprehensivePCGame', '__clientReqId': '0', %s '__timeoutSec': '30', %s }", rowStr.C_String(), jsonSerializedRoom.C_String()));
+	std::string rsRequest = MakeHttpRequest("POST",
+	                                        (const char *) MASTER_SERVER_ADDRESS "/testServer",
+	                                        "text/plain; charset=UTF-8",
+	                                        MafiaNet::FormatText("{'__gameId': 'comprehensivePCGame', '__clientReqId': '0', %s '__timeoutSec': '30', %s }", rowStr.c_str(), jsonSerializedRoom.c_str()));
 
 	// Refresh the room again slightly less than every 30 seconds
 	game->whenToNextUpdateMasterServer = MafiaNet::GetTime() + 30000 - 1000;
 
-	httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
+	httpConnection2->TransmitRequest(rsRequest.c_str(), MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 
 	printf("Posted game session. In room.\n");
 }
 void ReleaseRoomFromCloud(void)
 {
-	RakString rsRequest = RakString::FormatForDELETE(
-	    RakString(MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame&__rowId=%i", game->masterServerRow));
-	httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
+	std::string rsRequest = MakeHttpRequest("DELETE",
+	                                        MafiaNet::FormatText(MASTER_SERVER_ADDRESS "/testServer?__gameId=comprehensivePCGame&__rowId=%i", game->masterServerRow));
+	httpConnection2->TransmitRequest(rsRequest.c_str(), MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 	game->masterServerRow = -1;
 }
 
@@ -1211,9 +1213,9 @@ int main(void)
 			{
 				BitStream additionalData;
 				fullyConnectedMesh2->GetVerifiedJoinRejectedAdditionalData(packet, &additionalData);
-				RakString reason;
+				std::string reason;
 				additionalData.Read(reason);
-				printf("Join rejected. Reason=%s\n", reason.C_String());
+				printf("Join rejected. Reason=%s\n", reason.c_str());
 				rakPeer->CloseConnection(packet->guid, true);
 				game->EnterPhase(Game::SEARCH_FOR_GAMES);
 				break;
@@ -1245,24 +1247,24 @@ int main(void)
 		sa = tcp->HasFailedConnectionAttempt();
 		sa = tcp->HasLostConnection();
 
-		RakString stringTransmitted;
-		RakString hostTransmitted;
-		RakString responseReceived;
+		std::string stringTransmitted;
+		std::string hostTransmitted;
+		std::string responseReceived;
 		SystemAddress hostReceived;
 		ptrdiff_t contentOffset;
 		if (httpConnection2->GetResponse(stringTransmitted, hostTransmitted, responseReceived, hostReceived, contentOffset))
 		{
-			if (responseReceived.IsEmpty() == false)
+			if (responseReceived.empty() == false)
 			{
 				if (contentOffset == -1)
 				{
 					// No content
-					printf(responseReceived.C_String());
+					printf("%s", responseReceived.c_str());
 				}
 				else
 				{
 					json_error_t error;
-					json_t *root = json_loads(responseReceived.C_String() + contentOffset, JSON_REJECT_DUPLICATES, &error);
+					json_t *root = json_loads(responseReceived.c_str() + contentOffset, JSON_REJECT_DUPLICATES, &error);
 					if (!root)
 					{
 						printf("Error parsing JSON\n");
@@ -1406,11 +1408,8 @@ int main(void)
 							printf("Enter in-game chat message: ");
 							char str[256];
 							Gets(str, 256);
-							RakString rs;
-							// Don't use RakString constructor to assign str, or will process % escape characters
-							rs = str;
 							BitStream bsOut;
-							bsOut.Write(rs);
+							bsOut.Write(str);
 							for (unsigned int i = 0; i < participantList.size(); i++)
 								rakPeer->GetRPC().Signal("InGameChat", &bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, participantList[i], false, false);
 						}
@@ -1487,9 +1486,9 @@ int main(void)
 				{
 					printf("Quitting.\n");
 
-					RakString rspost = RakString::FormatForGET(
-					    RakString(MASTER_SERVER_ADDRESS "/testServer?row=%i", game->masterServerRow));
-					httpConnection2->TransmitRequest(rspost, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
+					std::string rspost = MakeHttpRequest("GET",
+					                                     MafiaNet::FormatText(MASTER_SERVER_ADDRESS "/testServer?row=%i", game->masterServerRow));
+					httpConnection2->TransmitRequest(rspost.c_str(), MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 
 					game->EnterPhase(Game::EXIT_SAMPLE);
 				}

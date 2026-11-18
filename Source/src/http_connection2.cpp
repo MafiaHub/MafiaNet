@@ -18,6 +18,7 @@
 #if _RAKNET_SUPPORT_HTTPConnection2 == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #include "mafianet/http_connection2.h"
+#include <charconv>
 #include "mafianet/tcp_interface.h"
 #include "mafianet/assert.h"
 #include "mafianet/vector_util.h"
@@ -46,6 +47,8 @@ HTTPConnection2::~HTTPConnection2()
 }
 bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *host, unsigned short port, int ipVersion, SystemAddress useAddress, void *userData)
 {
+	if (!stringToTransmit || !host)
+		return false;
 	Request *request = new Request;
 	request->host = host;
 	request->chunked = false;
@@ -113,12 +116,12 @@ bool HTTPConnection2::TransmitRequest(const char *stringToTransmit, const char *
 	}
 	return true;
 }
-bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset)
+bool HTTPConnection2::GetResponse(std::string &stringTransmitted, std::string &hostTransmitted, std::string &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset)
 {
 	void *userData;
 	return GetResponse(stringTransmitted, hostTransmitted, responseReceived, hostReceived, contentOffset, &userData);
 }
-bool HTTPConnection2::GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData)
+bool HTTPConnection2::GetResponse(std::string &stringTransmitted, std::string &hostTransmitted, std::string &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData)
 {
 	completedRequestsMutex.Lock();
 	if (!completedRequests.empty())
@@ -159,7 +162,7 @@ int ReadChunkSize(char *txtStart, char **txtEnd)
 	return strtoul(txtStart, txtEnd, 16);
 	// return atoi(lengthStr);
 }
-void ReadChunkBlock(size_t &currentChunkSize, size_t &bytesReadSoFar, char *txtIn, RakString &txtOut)
+void ReadChunkBlock(size_t &currentChunkSize, size_t &bytesReadSoFar, char *txtIn, std::string &txtOut)
 {
 	size_t bytesToRead;
 	size_t sLen;
@@ -170,7 +173,7 @@ void ReadChunkBlock(size_t &currentChunkSize, size_t &bytesReadSoFar, char *txtI
 		sLen = strlen(txtIn);
 		if (sLen < bytesToRead)
 			bytesToRead = sLen;
-		txtOut.AppendBytes(txtIn, bytesToRead);
+		txtOut.append(txtIn, bytesToRead);
 		txtIn += bytesToRead;
 		bytesReadSoFar += bytesToRead;
 		if (*txtIn == 0)
@@ -316,21 +319,21 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 			}
 			else
 			{
-				sentRequest->stringReceived += packet->data;
+				sentRequest->stringReceived.append(reinterpret_cast<const char *>(packet->data), packet->length);
 
 				if (sentRequest->contentLength == -1)
 				{
-					const char *length_header = strstr(sentRequest->stringReceived.C_String(), "Content-Length: ");
+					const char *length_header = strstr(sentRequest->stringReceived.c_str(), "Content-Length: ");
 					if (length_header)
 					{
-						length_header += 16; // strlen("Content-Length: ");
+						length_header += sizeof("Content-Length: ") - 1;
 
 						unsigned int clLength;
 						for (clLength = 0; length_header[clLength] && length_header[clLength] >= '0' && length_header[clLength] <= '9'; clLength++)
 							;
 						if (clLength > 0 && (length_header[clLength] == '\r' || length_header[clLength] == '\n'))
 						{
-							sentRequest->contentLength = RakString::ReadIntFromSubstring(length_header, 0, clLength);
+							std::from_chars(length_header, length_header + clLength, sentRequest->contentLength);
 						}
 					}
 				}
@@ -340,15 +343,15 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				{
 					if (sentRequest->contentLength > 0)
 					{
-						const char *body_header = strstr(sentRequest->stringReceived.C_String(), "\r\n\r\n");
+						const char *body_header = strstr(sentRequest->stringReceived.c_str(), "\r\n\r\n");
 						if (body_header)
 						{
 							body_header += 4; // strlen("\r\n\r\n");
-							size_t slen = strlen(body_header);
+							size_t slen = sentRequest->stringReceived.size() - static_cast<size_t>(body_header - sentRequest->stringReceived.data());
 							//RakAssert(slen <= (size_t) sentRequest->contentLength);
 							if (slen >= (size_t) sentRequest->contentLength)
 							{
-								sentRequest->contentOffset = body_header - sentRequest->stringReceived.C_String();
+								sentRequest->contentOffset = body_header - sentRequest->stringReceived.c_str();
 								completedRequestsMutex.Lock();
 								completedRequests.push_back(sentRequest);
 								completedRequestsMutex.Unlock();
@@ -384,11 +387,11 @@ PluginReceiveResult HTTPConnection2::OnReceive(Packet *packet)
 				}
 				else
 				{
-					const char *firstNewlineSet = strstr(sentRequest->stringReceived.C_String(), "\r\n\r\n");
+					const char *firstNewlineSet = strstr(sentRequest->stringReceived.c_str(), "\r\n\r\n");
 					if (firstNewlineSet != 0)
 					{
-						ptrdiff_t offset = firstNewlineSet - sentRequest->stringReceived.C_String();
-						if (sentRequest->stringReceived.C_String()[offset + 4] == 0)
+						ptrdiff_t offset = firstNewlineSet - sentRequest->stringReceived.c_str();
+						if (sentRequest->stringReceived.c_str()[offset + 4] == 0)
 							sentRequest->contentOffset = -1;
 						else
 							sentRequest->contentOffset = offset + 4;
@@ -519,11 +522,11 @@ void HTTPConnection2::SendNextPendingRequest(void)
 
 		if (pendingRequest->ipVersion != 6)
 		{
-			tcpInterface->Connect(pendingRequest->host.C_String(), pendingRequest->port, false, AF_INET);
+			tcpInterface->Connect(pendingRequest->host.c_str(), pendingRequest->port, false, AF_INET);
 		}
 		else
 		{
-			tcpInterface->Connect(pendingRequest->host.C_String(), pendingRequest->port, false, AF_INET6);
+			tcpInterface->Connect(pendingRequest->host.c_str(), pendingRequest->port, false, AF_INET6);
 		}
 	}
 	else
@@ -559,15 +562,15 @@ void HTTPConnection2::OnClosedConnection(const SystemAddress &systemAddress, Rak
 		if (sentRequests[i]->hostCompletedAddress == systemAddress)
 		{
 			Request *sentRequest = sentRequests[i];
-			if (sentRequest->chunked == false && sentRequest->stringReceived.IsEmpty() == false)
+			if (sentRequest->chunked == false && sentRequest->stringReceived.empty() == false)
 			{
-				if (strstr(sentRequest->stringReceived.C_String(), "Content-Length: "))
+				if (strstr(sentRequest->stringReceived.c_str(), "Content-Length: "))
 				{
-					char *body_header = strstr((char *) sentRequest->stringReceived.C_String(), "\r\n\r\n");
+					char *body_header = strstr((char *) sentRequest->stringReceived.c_str(), "\r\n\r\n");
 					if (body_header)
 					{
 						body_header += 4; // strlen("\r\n\r\n");
-						sentRequest->contentOffset = body_header - sentRequest->stringReceived.C_String();
+						sentRequest->contentOffset = body_header - sentRequest->stringReceived.c_str();
 					}
 					else
 					{
@@ -612,7 +615,7 @@ bool HTTPConnection2::IsConnected(SystemAddress sa)
 }
 void HTTPConnection2::SendRequest(Request *request)
 {
-	tcpInterface->Send(request->stringToTransmit.C_String(), (unsigned int) request->stringToTransmit.GetLength(), request->hostCompletedAddress, false);
+	tcpInterface->Send(request->stringToTransmit.c_str(), (unsigned int) request->stringToTransmit.size(), request->hostCompletedAddress, false);
 }
 
 #endif // #if _RAKNET_SUPPORT_HTTPConnection2==1 && _RAKNET_SUPPORT_TCPInterface==1

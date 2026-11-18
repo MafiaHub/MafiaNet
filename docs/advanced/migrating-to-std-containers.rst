@@ -370,9 +370,8 @@ BitStream, compression and strings
   non-copyable. The ``_CSTRING_COMPRESSOR`` overloads are removed.
 * ``StringTable`` keeps its strings in a sorted ``std::vector`` and is
   non-copyable.
-* ``RakString``'s free list is a ``std::vector``.
-* ``std::hash<RakString>`` (``string.h``) and ``std::hash<RakNetGUID>``
-  (``types.h``) are provided, so both can key a ``std::unordered_map``.
+* Protocol 11 uses ``std::string`` for narrow strings and removes the custom free list.
+* ``std::hash<RakNetGUID>`` (``types.h``) allows GUIDs to key a ``std::unordered_map``.
   ``std::hash<AddressOrGUID>`` is intentionally **not** provided:
   ``AddressOrGUID::operator==`` matches on the GUID *or* the address, so no
   hash can be consistent with it. Key on ``RakNetGUID`` or ``SystemAddress``
@@ -395,7 +394,7 @@ RPC
   no-op.
 * ``RPC::LocalSlot`` is only forward-declared in the header. ``localSlots``
   is now private and is a
-  ``std::unordered_map<RakString, std::unique_ptr<LocalSlot>>``;
+  ``std::unordered_map<std::string, std::unique_ptr<LocalSlot>>``;
   ``registeredNonblockingFunctions`` / ``registeredBlockingFunctions`` are
   ``std::unordered_map``; ``localCallbacks`` is a
   ``std::map<MessageID, LocalCallback>``. ``LocalCallbackComp`` is removed.
@@ -467,7 +466,7 @@ MessageFilter, RelayPlugin, StatisticsHistory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * ``MessageFilter`` (protected members): ``FilterSet::allowedRPC`` is a
-  ``std::set<RakString>``, ``filterList`` an id-sorted
+  ``std::set<std::string>``, ``filterList`` an id-sorted
   ``std::vector<std::unique_ptr<FilterSet>>``, ``systemList`` a
   ``std::unordered_map<AddressOrGUID, FilteredSystem,
   MessageFilterSystemHash>``. Non-copyable.
@@ -476,7 +475,7 @@ MessageFilter, RelayPlugin, StatisticsHistory
   ``FindParticipant(const RakNetGUID&)``. Non-copyable.
 * ``StatisticsHistory``: ``GetHistorySorted(uint64_t, SHSortOperation,
   std::vector<TimeAndValueQueue*>&) const`` (still appends),
-  ``GetUniqueKeyList(std::vector<RakString>&)`` (clears, then fills),
+  ``GetUniqueKeyList(std::vector<std::string>&)`` (clears, then fills),
   ``TimeAndValueQueue::values`` is a ``std::deque<TimeAndValue>`` and
   ``ResizeSampleSet`` takes a ``std::deque<TimeAndValue>&``. Protected:
   ``TrackedObject::dataQueues`` and ``objects`` own their entries with

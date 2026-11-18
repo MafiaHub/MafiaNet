@@ -81,9 +81,7 @@ void MessageFilter::SetAllowMessageID(bool allow, int messageIDStart, int messag
 void MessageFilter::SetAllowRPC(bool allow, const char *uniqueID, int filterSetID)
 {
 	FilterSet *filterSet = GetFilterSetByID(filterSetID);
-	// Verbatim, as RPC stores it: RakString(const char *) would treat uniqueID as a printf format.
-	MafiaNet::RakString name;
-	name = uniqueID;
+	const char *name = uniqueID ? uniqueID : "";
 	if (allow)
 	{
 		if (filterSet->allowedRPC.insert(name).second)
@@ -392,7 +390,7 @@ PluginReceiveResult MessageFilter::OnReceive(Packet *packet)
 		{
 			MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(2);
-			MafiaNet::RakString functionName;
+			std::string functionName;
 			if (packet->length < 2 || !bsIn.ReadCompressed(functionName) || filter->allowedRPC.count(functionName) == 0)
 			{
 				OnInvalidMessage(filter, packet, packet->data[0]);

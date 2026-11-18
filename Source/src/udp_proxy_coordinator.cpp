@@ -27,6 +27,7 @@
 #include "mafianet/vector_util.h"
 
 #include <algorithm>
+#include <string>
 
 // Larger than the client version
 static const int DEFAULT_CLIENT_UNRESPONSIVE_PING_TIME = 2000;
@@ -78,7 +79,7 @@ UDPProxyCoordinator::~UDPProxyCoordinator()
 {
 	Clear();
 }
-void UDPProxyCoordinator::SetRemoteLoginPassword(MafiaNet::RakString password)
+void UDPProxyCoordinator::SetRemoteLoginPassword(const std::string &password)
 {
 	remoteLoginPassword = password;
 }
@@ -227,8 +228,7 @@ void UDPProxyCoordinator::OnForwardingRequestFromClientToCoordinator(Packet *pac
 		outgoingBs.Write(targetGuid);
 		// Request in progress, not completed
 		unsigned short forwardingPort = 0;
-		RakString serverPublicIp;
-		outgoingBs.Write(serverPublicIp);
+		outgoingBs.Write(std::string{});
 		outgoingBs.Write(forwardingPort);
 		rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 		delete fw;
@@ -303,11 +303,11 @@ void UDPProxyCoordinator::OnLoginRequestFromServerToCoordinator(Packet *packet)
 {
 	MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 	incomingBs.IgnoreBytes(2);
-	MafiaNet::RakString password;
+	std::string password;
 	incomingBs.Read(password);
 	MafiaNet::BitStream outgoingBs;
 
-	if (remoteLoginPassword.IsEmpty())
+	if (remoteLoginPassword.empty())
 	{
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_NO_PASSWORD_SET_FROM_COORDINATOR_TO_SERVER);
@@ -357,26 +357,32 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 	sata.senderClientGuid = fw->sata.senderClientGuid;
 	sata.targetClientGuid = fw->sata.targetClientGuid;
 
-	RakString serverPublicIp;
-	incomingBs.Read(serverPublicIp);
+	std::string serverPublicIp;
+	if (!incomingBs.Read(serverPublicIp))
+		return;
 
-	if (serverPublicIp.IsEmpty())
+	if (serverPublicIp.empty())
 	{
 		char serverIP[64];
 		packet->systemAddress.ToString(false, serverIP, static_cast<size_t>(64));
 		serverPublicIp = serverIP;
 	}
 
-	UDPForwarderResult success;
-	unsigned char c;
-	incomingBs.Read(c);
-	success = (UDPForwarderResult) c;
+	unsigned char result;
+	if (!incomingBs.Read(result) || result >= UDPFORWARDER_RESULT_COUNT)
+		return;
+	if (result != UDPFORWARDER_SUCCESS && result != UDPFORWARDER_FORWARDING_ALREADY_EXISTS)
+	{
+		TryNextServer(sata, fw);
+		return;
+	}
 
 	unsigned short forwardingPort;
-	incomingBs.Read(forwardingPort);
+	if (!incomingBs.Read(forwardingPort))
+		return;
 
 	MafiaNet::BitStream outgoingBs;
-	if (success == UDPFORWARDER_SUCCESS)
+	if (result == UDPFORWARDER_SUCCESS)
 	{
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_FORWARDING_SUCCEEDED);
@@ -404,15 +410,8 @@ void UDPProxyCoordinator::OnForwardingReplyFromServerToCoordinator(Packet *packe
 
 		return;
 	}
-	else if (success == UDPFORWARDER_NO_SOCKETS)
-	{
-		// Try next server
-		TryNextServer(sata, fw);
-	}
 	else
 	{
-		RakAssert(success == UDPFORWARDER_FORWARDING_ALREADY_EXISTS);
-
 		// Return in progress
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_GENERAL);
 		outgoingBs.Write((MessageID) ID_UDP_PROXY_IN_PROGRESS);

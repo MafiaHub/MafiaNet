@@ -23,7 +23,8 @@
 #include <utility>
 #include "mafianet/huffman_encoding_tree.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/string.h"
+#include <algorithm>
+#include <stdexcept>
 #include "mafianet/assert.h"
 #include <string.h>
 
@@ -354,31 +355,23 @@ StringCompressor::~StringCompressor() = default;
 
 void StringCompressor::EncodeString(const char *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
 {
+	EncodeString(std::string_view(input ? input : ""), maxCharsToWrite, output, languageId);
+}
+
+void StringCompressor::EncodeString(std::string_view input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
+{
 	const auto tree = huffmanEncodingTrees.find(languageId);
 	if (tree == huffmanEncodingTrees.end())
 		return;
 	HuffmanEncodingTree *huffmanEncodingTree = tree->second.get();
 
-	if (input == 0)
-	{
-		output->WriteCompressed((uint32_t) 0);
-		return;
-	}
-
+	if (maxCharsToWrite > 0)
+		input = input.substr(0, static_cast<size_t>(maxCharsToWrite - 1));
+	if (input.size() > BitStream::MAX_STRING_BYTES)
+		throw std::length_error("Compressed string exceeds maximum length");
 	MafiaNet::BitStream encodedBitStream;
-
-	uint32_t stringBitLength;
-
-	int charsToWrite;
-
-	if (maxCharsToWrite <= 0 || (int) strlen(input) < maxCharsToWrite)
-		charsToWrite = (int) strlen(input);
-	else
-		charsToWrite = maxCharsToWrite - 1;
-
-	huffmanEncodingTree->EncodeArray((unsigned char *) input, charsToWrite, &encodedBitStream);
-
-	stringBitLength = (uint32_t) encodedBitStream.GetNumberOfBitsUsed();
+	huffmanEncodingTree->EncodeArray(reinterpret_cast<const unsigned char *>(input.data()), input.size(), &encodedBitStream);
+	const uint32_t stringBitLength = encodedBitStream.GetNumberOfBitsUsed();
 
 	output->WriteCompressed(stringBitLength);
 
@@ -421,58 +414,22 @@ bool StringCompressor::DecodeString(char *output, int maxCharsToWrite, MafiaNet:
 
 	return true;
 }
-// Stack scratch size for DecodeString into std::string / RakString; covers the 0xFFFF cap they use.
-static const size_t DECODE_STACK_BLOCK_SIZE = 0x10000;
-
-// Decodes into scratch memory, then hands the decoded C string to assign. Uninitialised stack scratch for the
-// common case (RakString and std::string decodes pass 0xFFFF); larger caps fall back to the heap.
-template <class Assign>
-static bool DecodeToScratch(StringCompressor *compressor, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId, Assign assign)
-{
-	char stackBlock[DECODE_STACK_BLOCK_SIZE];
-	std::unique_ptr<char[]> heapBlock;
-	char *destinationBlock = stackBlock;
-	if ((size_t) maxCharsToWrite > DECODE_STACK_BLOCK_SIZE)
-	{
-		heapBlock.reset(new char[(size_t) maxCharsToWrite]);
-		destinationBlock = heapBlock.get();
-	}
-	// DecodeString(char *) does not touch the buffer on every failure path, so never read it uninitialised.
-	destinationBlock[0] = 0;
-	const bool out = compressor->DecodeString(destinationBlock, maxCharsToWrite, input, languageId);
-	assign(destinationBlock);
-	return out;
-}
-
-#ifdef _STD_STRING_COMPRESSOR
-void StringCompressor::EncodeString(const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
-{
-	EncodeString(input.c_str(), maxCharsToWrite, output, languageId);
-}
 bool StringCompressor::DecodeString(std::string *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId)
 {
-	if (maxCharsToWrite <= 0)
+	output->clear();
+	const auto tree = huffmanEncodingTrees.find(languageId);
+	uint32_t bits;
+	if (tree == huffmanEncodingTrees.end() || !input->ReadCompressed(bits) || bits > input->GetNumberOfUnreadBits())
+		return false;
+	const size_t limit = maxCharsToWrite > 0 ? std::min<size_t>(maxCharsToWrite - 1, BitStream::MAX_STRING_BYTES) : BitStream::MAX_STRING_BYTES;
+	// A Huffman symbol consumes at least one bit.
+	output->resize(std::min<size_t>(bits, limit));
+	const size_t decoded = tree->second->DecodeArray(input, bits, output->size(), reinterpret_cast<unsigned char *>(output->data()));
+	if (decoded == HuffmanEncodingTree::DECODE_ERROR || decoded > BitStream::MAX_STRING_BYTES)
 	{
 		output->clear();
-		return true;
+		return false;
 	}
-
-	return DecodeToScratch(this, maxCharsToWrite, input, languageId, [output](const char *s)
-	                       { *output = s; });
-}
-#endif
-void StringCompressor::EncodeString(const RakString *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId)
-{
-	EncodeString(input->C_String(), maxCharsToWrite, output, languageId);
-}
-bool StringCompressor::DecodeString(RakString *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId)
-{
-	if (maxCharsToWrite <= 0)
-	{
-		output->Clear();
-		return true;
-	}
-
-	return DecodeToScratch(this, maxCharsToWrite, input, languageId, [output](const char *s)
-	                       { *output = s; });
+	output->resize(std::min(decoded, output->size()));
+	return true;
 }

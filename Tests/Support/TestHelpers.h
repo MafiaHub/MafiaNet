@@ -12,7 +12,6 @@
 
 #include <cstdlib> // getenv, used by MAFIANET_SKIP_WITHOUT_IPV6
 
-#include "mafianet/string.h"
 #include <vector>
 
 #include "mafianet/peer_interface.h"

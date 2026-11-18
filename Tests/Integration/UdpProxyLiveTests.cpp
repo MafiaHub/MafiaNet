@@ -30,23 +30,25 @@ namespace
 // Callbacks run inside Receive(), on this (the test) thread.
 struct ServerResults : UDPProxyServerResultHandler
 {
-	void OnLoginSuccess(RakString, UDPProxyServer *) override { events.push_back("success"); }
-	void OnAlreadyLoggedIn(RakString, UDPProxyServer *) override { events.push_back("already"); }
-	void OnNoPasswordSet(RakString, UDPProxyServer *) override { events.push_back("nopassword"); }
-	void OnWrongPassword(RakString, UDPProxyServer *) override { events.push_back("wrong"); }
+	void OnLoginSuccess(const std::string &, UDPProxyServer *) override { events.push_back("success"); }
+	void OnAlreadyLoggedIn(const std::string &, UDPProxyServer *) override { events.push_back("already"); }
+	void OnNoPasswordSet(const std::string &, UDPProxyServer *) override { events.push_back("nopassword"); }
+	void OnWrongPassword(const std::string &, UDPProxyServer *) override { events.push_back("wrong"); }
 	std::vector<std::string> events;
 };
 
 struct ClientResults : UDPProxyClientResultHandler
 {
-	void OnForwardingSuccess(const char *, unsigned short port, SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override
+	void OnForwardingSuccess(const char *ip, unsigned short port, SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override
 	{
 		events.push_back("success");
+		forwardingIp = ip;
 		forwardingPort = port;
 	}
-	void OnForwardingNotification(const char *, unsigned short port, SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override
+	void OnForwardingNotification(const char *ip, unsigned short port, SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override
 	{
 		events.push_back("notification");
+		forwardingIp = ip;
 		forwardingPort = port;
 	}
 	void OnNoServersOnline(SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override { events.push_back("noservers"); }
@@ -54,6 +56,7 @@ struct ClientResults : UDPProxyClientResultHandler
 	void OnAllServersBusy(SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override { events.push_back("allbusy"); }
 	void OnForwardingInProgress(const char *, unsigned short, SystemAddress, SystemAddress, SystemAddress, RakNetGUID, UDPProxyClient *) override { events.push_back("inprogress"); }
 	std::vector<std::string> events;
+	std::string forwardingIp;
 	unsigned short forwardingPort = 0;
 };
 
@@ -131,6 +134,8 @@ TEST(UdpProxyLive, LoggedInServerSetsUpForwarding)
 	    << "forwarding was not reported to both clients";
 	EXPECT_EQ(resultsA.events, (std::vector<std::string>{"success"}));
 	EXPECT_EQ(resultsB.events, (std::vector<std::string>{"notification"}));
+	EXPECT_EQ(resultsA.forwardingIp, "127.0.0.1");
+	EXPECT_EQ(resultsB.forwardingIp, resultsA.forwardingIp);
 	EXPECT_NE(resultsA.forwardingPort, 0);
 	EXPECT_EQ(resultsA.forwardingPort, resultsB.forwardingPort);
 

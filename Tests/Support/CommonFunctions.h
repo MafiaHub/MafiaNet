@@ -11,8 +11,6 @@
 #pragma once
 
 
-#include "mafianet/string.h"
-
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/bit_stream.h"

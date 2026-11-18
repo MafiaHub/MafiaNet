@@ -26,7 +26,7 @@
 #include "mafianet/export.h"
 #include "mafianet/types.h"
 #include "mafianet/file_list_node_context.h"
-#include "mafianet/string.h"
+#include <string>
 
 #include <vector>
 
@@ -46,10 +46,10 @@ class FileList;
 struct FileListNode
 {
 	/// Name of the file
-	MafiaNet::RakString filename;
+	std::string filename;
 
 	/// Full path to the file, which may be different than filename
-	MafiaNet::RakString fullPathToFile;
+	std::string fullPathToFile;
 
 	/// File data (may be null if not ready)
 	char *data = nullptr;

@@ -189,6 +189,35 @@ TEST(RPCFunctions, RegisterRejectsDuplicatesAndUnregisterReportsRemoval)
 	EXPECT_TRUE(rpc.RegisterFunction("f", CountingFunction, &calls));
 }
 
+TEST(RPCFunctions, RegistrationsOwnTheirIdentifierAfterCallerReusesTheBuffer)
+{
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
+	int calls = 0;
+	const std::string original = std::string(160, 'a') + "%handler";
+	std::string buffer = original;
+	ASSERT_TRUE(rpc.RegisterFunction(buffer.c_str(), CountingFunction, &calls));
+	rpc.RegisterLocalCallback(buffer.c_str(), ID_USER_PACKET_ENUM);
+	rpc.RegisterSlot(buffer.c_str(), CountingFunction, &calls, 0);
+	buffer[0] = 'b';
+
+	EXPECT_EQ(rpc.GetLocalSlot(buffer.c_str()), nullptr);
+	EXPECT_NE(rpc.GetLocalSlot(original.c_str()), nullptr);
+	EXPECT_TRUE(rpc.UnregisterSlot(original.c_str()));
+	EXPECT_TRUE(rpc.UnregisterLocalCallback(original.c_str(), ID_USER_PACKET_ENUM));
+	EXPECT_TRUE(rpc.UnregisterFunction(original.c_str()));
+}
+
+TEST(RPCFunctions, NullAndEmptyRegistrationNamesShareOneKey)
+{
+	RakPeer peer;
+	RPC &rpc = peer.GetRPC();
+	int calls = 0;
+	ASSERT_TRUE(rpc.RegisterFunction(nullptr, CountingFunction, &calls));
+	EXPECT_FALSE(rpc.RegisterFunction("", CountingFunction, &calls));
+	EXPECT_TRUE(rpc.UnregisterFunction(""));
+}
+
 TEST(RPCFunctions, UnregisterLocalCallbackReportsEveryRemoval)
 {
 	RakPeer peer;
@@ -250,8 +279,7 @@ TEST_F(RPCNetwork, LocalSignalInvokesOwnSlots)
 	EXPECT_EQ(expected, log.calls);
 }
 
-// A name received from the network is looked up verbatim. It used to be fed to
-// RakString's printf-style constructor, so a '%' in it read stray varargs.
+// Names are registered and looked up verbatim, including percent signs.
 TEST_F(RPCNetwork, FunctionNameWithPercentIsMatchedVerbatim)
 {
 	int calls = 0;

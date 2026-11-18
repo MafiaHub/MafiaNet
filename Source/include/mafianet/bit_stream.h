@@ -24,7 +24,7 @@
 #include "mafianet/defines.h"
 #include "mafianet/export.h"
 #include "mafianet/types.h"
-#include "mafianet/string.h"
+#include "mafianet/string_compressor.h"
 #include "mafianet/wstring.h"
 #include "mafianet/assert.h"
 #include <cmath>
@@ -32,6 +32,7 @@
 #include <float.h>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 #ifdef _MSC_VER
@@ -651,9 +652,31 @@ public:
 	/// \return How many bits have been allocated internally
 	BitSize_t GetNumberOfBitsAllocated(void) const;
 
-	/// \brief Read strings, non reference.
-	bool Read(char *varString);
-	bool Read(unsigned char *varString);
+	/// Read a string into a fixed-size, NUL-terminated buffer.
+	template <class Char, size_t N, std::enable_if_t<std::is_same_v<Char, char> || std::is_same_v<Char, unsigned char>, int> = 0>
+	bool Read(Char (&text)[N])
+	{
+		std::string value;
+		if (!ReadString(value, N - 1))
+			return false;
+		std::memcpy(text, value.c_str(), value.size() + 1);
+		return true;
+	}
+
+	template <class Char, size_t N, std::enable_if_t<std::is_same_v<Char, char> || std::is_same_v<Char, unsigned char>, int> = 0>
+	bool ReadCompressed(Char (&text)[N])
+	{
+		std::string value;
+		if (!StringCompressor::Instance()->DecodeString(&value, 0, this) || value.size() >= N)
+			return false;
+		std::memcpy(text, value.c_str(), value.size() + 1);
+		return true;
+	}
+
+	/// Strings carry a 32-bit byte count and an aligned payload, including embedded NULs.
+	void WriteString(std::string_view value);
+	bool ReadString(std::string &value, size_t maxBytes = MAX_STRING_BYTES);
+	static constexpr size_t MAX_STRING_BYTES = 16 * 1024 * 1024;
 
 	/// Write zeros until the bitstream is filled up to \a bytes
 	void PadWithZeroToByteLength(unsigned int bytes);
@@ -684,7 +707,7 @@ public:
 
 	inline void Write(const char *const inStringVar)
 	{
-		RakString::Serialize(inStringVar, this);
+		WriteString(inStringVar);
 	}
 	inline void Write(const wchar_t *const inStringVar)
 	{
@@ -704,7 +727,7 @@ public:
 	}
 	inline void WriteCompressed(const char *const inStringVar)
 	{
-		RakString::SerializeCompressed(inStringVar, this, 0, false);
+		StringCompressor::Instance()->EncodeString(inStringVar, 0, this);
 	}
 	inline void WriteCompressed(const wchar_t *const inStringVar)
 	{
@@ -1064,11 +1087,6 @@ inline void BitStream::Write(const RakNetGUID &inTemplateVar)
 /// \brief Write a string to a bitstream.
 /// \param[in] var The value to write
 template <>
-inline void BitStream::Write(const RakString &inTemplateVar)
-{
-	inTemplateVar.Serialize(this);
-}
-template <>
 inline void BitStream::Write(const RakWString &inTemplateVar)
 {
 	inTemplateVar.Serialize(this);
@@ -1076,7 +1094,7 @@ inline void BitStream::Write(const RakWString &inTemplateVar)
 template <>
 inline void BitStream::Write(const char *const &inStringVar)
 {
-	RakString::Serialize(inStringVar, this);
+	WriteString(inStringVar);
 }
 template <>
 inline void BitStream::Write(const wchar_t *const &inStringVar)
@@ -1098,23 +1116,15 @@ inline void BitStream::Write(unsigned char *const &inTemplateVar)
 {
 	Write((const char *) inTemplateVar);
 }
-/// \brief Write a std::string to a bitstream by value.
-/// \details Uses the same length-prefixed wire format as RakString (an
-/// unsigned short length followed by the raw bytes), so std::string and
-/// RakString are interchangeable on the wire. This specialization exists so
-/// std::string does NOT fall through to the catch-all template, which would
-/// raw-copy the object representation (pointer/size/capacity) and corrupt
-/// memory on deserialize.
-/// \param[in] inStringVar The value to write
+template <>
+inline void BitStream::Write(const std::string_view &inStringVar)
+{
+	WriteString(inStringVar);
+}
 template <>
 inline void BitStream::Write(const std::string &inStringVar)
 {
-	// The length is sent as an unsigned short, matching RakString's wire
-	// format; strings longer than that would be silently truncated.
-	RakAssert(inStringVar.length() <= 0xFFFF);
-	const unsigned short l = (unsigned short) inStringVar.length();
-	Write(l);
-	WriteAlignedBytes((const unsigned char *) inStringVar.c_str(), l);
+	WriteString(inStringVar);
 }
 
 /// \brief Write any integral type to a bitstream.
@@ -1237,9 +1247,14 @@ inline void BitStream::WriteCompressed(const double &inTemplateVar)
 
 /// Compress the string
 template <>
-inline void BitStream::WriteCompressed(const RakString &inTemplateVar)
+inline void BitStream::WriteCompressed(const std::string_view &inTemplateVar)
 {
-	inTemplateVar.SerializeCompressed(this, 0, false);
+	StringCompressor::Instance()->EncodeString(inTemplateVar, 0, this);
+}
+template <>
+inline void BitStream::WriteCompressed(const std::string &inTemplateVar)
+{
+	StringCompressor::Instance()->EncodeString(inTemplateVar, 0, this);
 }
 template <>
 inline void BitStream::WriteCompressed(const RakWString &inTemplateVar)
@@ -1249,7 +1264,7 @@ inline void BitStream::WriteCompressed(const RakWString &inTemplateVar)
 template <>
 inline void BitStream::WriteCompressed(const char *const &inStringVar)
 {
-	RakString::SerializeCompressed(inStringVar, this, 0, false);
+	StringCompressor::Instance()->EncodeString(inStringVar, 0, this);
 }
 template <>
 inline void BitStream::WriteCompressed(const wchar_t *const &inStringVar)
@@ -1457,20 +1472,12 @@ inline bool BitStream::Read(RakNetGUID &outTemplateVar)
 
 
 template <>
-inline bool BitStream::Read(RakString &outTemplateVar)
-{
-	return outTemplateVar.Deserialize(this);
-}
-template <>
 inline bool BitStream::Read(RakWString &outTemplateVar)
 {
 	return outTemplateVar.Deserialize(this);
 }
 template <>
-inline bool BitStream::Read(char *&varString)
-{
-	return RakString::Deserialize(varString, this);
-}
+inline bool BitStream::Read(char *&varString) = delete;
 inline bool BitStream::Read(wchar_t *&varString)
 {
 	return RakWString::Deserialize(varString, this);
@@ -1480,21 +1487,13 @@ inline bool BitStream::Read(wchar_t *&varString, size_t varStringLength)
 	return RakWString::Deserialize(varString, varStringLength, this);
 }
 template <>
-inline bool BitStream::Read(unsigned char *&varString)
-{
-	return RakString::Deserialize((char *) varString, this);
-}
+inline bool BitStream::Read(unsigned char *&varString) = delete;
+template <>
+inline bool BitStream::Read(std::string_view &) = delete;
 template <>
 inline bool BitStream::Read(std::string &outStringVar)
 {
-	unsigned short l;
-	if (Read(l) == false)
-		return false;
-	outStringVar.resize(l);
-	if (l > 0)
-		return ReadAlignedBytes((unsigned char *) &outStringVar[0], l);
-	AlignReadToByteBoundary();
-	return true;
+	return ReadString(outStringVar);
 }
 
 /// \brief Read any integral type from a bitstream.
@@ -1607,9 +1606,11 @@ inline bool BitStream::ReadCompressed(double &outTemplateVar)
 
 /// For strings
 template <>
-inline bool BitStream::ReadCompressed(RakString &outTemplateVar)
+inline bool BitStream::ReadCompressed(std::string_view &) = delete;
+template <>
+inline bool BitStream::ReadCompressed(std::string &outTemplateVar)
 {
-	return outTemplateVar.DeserializeCompressed(this, false);
+	return StringCompressor::Instance()->DecodeString(&outTemplateVar, 0, this);
 }
 template <>
 inline bool BitStream::ReadCompressed(RakWString &outTemplateVar)
@@ -1617,10 +1618,7 @@ inline bool BitStream::ReadCompressed(RakWString &outTemplateVar)
 	return outTemplateVar.Deserialize(this);
 }
 template <>
-inline bool BitStream::ReadCompressed(char *&outTemplateVar)
-{
-	return RakString::DeserializeCompressed(outTemplateVar, this, false);
-}
+inline bool BitStream::ReadCompressed(char *&outTemplateVar) = delete;
 inline bool BitStream::ReadCompressed(wchar_t *&outTemplateVar)
 {
 	return RakWString::Deserialize(outTemplateVar, this);
@@ -1630,10 +1628,7 @@ inline bool BitStream::ReadCompressed(wchar_t *&outTemplateVar, size_t varString
 	return RakWString::Deserialize(outTemplateVar, varStringLength, this);
 }
 template <>
-inline bool BitStream::ReadCompressed(unsigned char *&outTemplateVar)
-{
-	return RakString::DeserializeCompressed((char *) outTemplateVar, this, false);
-}
+inline bool BitStream::ReadCompressed(unsigned char *&outTemplateVar) = delete;
 
 /// \brief Read any integral type from a bitstream.
 /// \details If the written value differed from the value compared against in the write function,

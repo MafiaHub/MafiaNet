@@ -7,83 +7,101 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/string.h"
 #include "mafianet/bit_stream.h"
 
 #include <cstring>
 #include <string>
+#include <string_view>
 
 using namespace MafiaNet;
 
-// Regression tests for the std::string serialization trap: the catch-all
-// BitStream::Write/Read templates used to raw-copy a std::string's internal
-// representation (pointer/size/capacity) instead of its characters, producing
-// aliased heap pointers and eventual double-frees. std::string now has a
-// dedicated specialization that uses the same length-prefixed wire format as
-// RakString. These tests verify the round-trip and wire-compatibility.
-
-namespace
+TEST(BitStreamString, Writes32BitLengthAndAlignedBytes)
 {
-const std::string kOriginal = "Hello, MafiaNet!";
+	BitStream stream;
+	stream.Write(true);
+	stream.Write(std::string("a\0b", 3));
+	stream.Write(uint8_t{42});
+
+	bool flag;
+	uint32_t size;
+	ASSERT_TRUE(stream.Read(flag));
+	ASSERT_TRUE(flag);
+	ASSERT_TRUE(stream.Read(size));
+	ASSERT_EQ(size, 3u);
+	unsigned char bytes[4];
+	ASSERT_TRUE(stream.ReadAlignedBytes(bytes, sizeof(bytes)));
+	EXPECT_EQ(std::memcmp(bytes, "a\0b\x2a", sizeof(bytes)), 0);
 }
 
-// On-wire size must be the length-prefixed string form (unsigned short
-// length + the characters), NOT sizeof(std::string). This is the check
-// that fails when the catch-all template raw-copies the object.
-TEST(BitStreamString, WritesLengthPrefixedWireFormat)
+TEST(BitStreamString, CStringAndOwnedTextShareAnEncoding)
 {
-	BitStream bsOut;
-	bsOut.Write(kOriginal);
-
-	const BitSize_t expectedBytes = (BitSize_t) (sizeof(unsigned short) + kOriginal.length());
-	EXPECT_EQ(bsOut.GetNumberOfBytesUsed(), expectedBytes)
-	    << "std::string serialized as a raw object copy (wrong byte count)";
+	BitStream stream;
+	const char *input = "100% ready";
+	stream.Write(input);
+	stream.Write(std::string(input));
+	stream.Write("");
+	std::string value;
+	ASSERT_TRUE(stream.Read(value));
+	EXPECT_EQ(value, input);
+	char buffer[32];
+	ASSERT_TRUE(stream.Read(buffer));
+	EXPECT_STREQ(buffer, input);
+	ASSERT_TRUE(stream.Read(value));
+	EXPECT_TRUE(value.empty());
 }
 
-// Round-trip a std::string through a BitStream.
-TEST(BitStreamString, RoundTripsThroughBitStream)
+TEST(BitStreamString, RejectsIncompleteOrOversizedFieldsBeforeResizing)
 {
-	BitStream bsOut;
-	bsOut.Write(kOriginal);
-
-	BitStream bsIn(bsOut.GetData(), bsOut.GetNumberOfBytesUsed(), false);
-	std::string roundTripped;
-	ASSERT_TRUE(bsIn.Read(roundTripped)) << "Failed to read std::string back from the bitstream";
-	EXPECT_EQ(roundTripped, kOriginal)
-	    << "std::string round-trip produced a different value: got '" << roundTripped << "'";
+	for (uint32_t size : {12u, UINT32_MAX})
+	{
+		BitStream stream;
+		stream.Write(size);
+		stream.Write("abc", 3);
+		std::string value = "original";
+		EXPECT_FALSE(stream.Read(value));
+		EXPECT_EQ(value, "original");
+	}
 }
 
-// std::string written -> RakString read.
-TEST(BitStreamString, StdStringToRakStringInterop)
+TEST(BitStreamString, ReadsFullLengthBeyond65535InBothEncodings)
 {
-	BitStream bs;
-	bs.Write(kOriginal);
-	RakString rs;
-	ASSERT_TRUE(bs.Read(rs)) << "std::string -> RakString wire interop failed (read)";
-	EXPECT_EQ(strcmp(rs.C_String(), kOriginal.c_str()), 0)
-	    << "std::string -> RakString wire interop failed: '" << rs.C_String() << "'";
-}
+	StringCompressor::AddReference();
+	struct Release
+	{
+		~Release() { StringCompressor::RemoveReference(); }
+	} release;
+	std::string text(70000, 'a');
+	text.front() = '\0';
+	text[65535] = '\0';
+	text.back() = '\xff';
 
-// RakString written -> std::string read.
-TEST(BitStreamString, RakStringToStdStringInterop)
-{
-	RakString rs(kOriginal.c_str());
-	BitStream bs;
-	bs.Write(rs);
-	std::string out;
-	ASSERT_TRUE(bs.Read(out)) << "RakString -> std::string wire interop failed (read)";
-	EXPECT_EQ(out, kOriginal)
-	    << "RakString -> std::string wire interop failed: '" << out << "'";
-}
-
-// Binary safety: a string with an embedded null must round-trip in full.
-TEST(BitStreamString, EmbeddedNullRoundTrips)
-{
-	std::string binary("a\0b\0c", 5);
-	BitStream bs;
-	bs.Write(binary);
-	std::string out;
-	ASSERT_TRUE(bs.Read(out)) << "std::string with embedded null did not round-trip (read)";
-	EXPECT_EQ(out, binary)
-	    << "std::string with embedded null did not round-trip (len " << (unsigned) out.size() << ")";
+	BitStream stream;
+	stream.Write(text);
+	stream.WriteCompressed(text);
+	stream.WriteCompressed(std::string{});
+	stream.WriteCompressed("done");
+	const std::string_view slice = std::string_view(text).substr(65534, 3);
+	stream.Write(slice);
+	stream.WriteCompressed(slice);
+	stream.Write(std::string_view{});
+	std::string value;
+	ASSERT_TRUE(stream.Read(value));
+	EXPECT_EQ(value, text);
+	value.clear();
+	ASSERT_TRUE(stream.ReadCompressed(value));
+	EXPECT_EQ(value, text);
+	ASSERT_TRUE(stream.ReadCompressed(value));
+	EXPECT_TRUE(value.empty());
+	char end[5];
+	ASSERT_TRUE(stream.ReadCompressed(end));
+	EXPECT_STREQ(end, "done");
+	unsigned char buffer[4]{};
+	ASSERT_TRUE(stream.Read(buffer));
+	EXPECT_EQ(std::memcmp(buffer, slice.data(), slice.size()), 0);
+	EXPECT_EQ(buffer[3], 0);
+	ASSERT_TRUE(stream.ReadCompressed(value));
+	EXPECT_EQ(value, slice);
+	ASSERT_TRUE(stream.Read(value));
+	EXPECT_TRUE(value.empty());
+	EXPECT_EQ(stream.GetNumberOfUnreadBits(), 0u);
 }

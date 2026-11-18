@@ -126,7 +126,7 @@ int main(void)
 					printf("Enter message to send: ");
 					char msg[256];
 					Gets(msg, sizeof(msg));
-					RakString msgRs = msg;
+					std::string msgRs = msg;
 					BitStream msgBs;
 					msgBs.WriteCompressed(msgRs);
 					relayPlugin->SendToParticipant(peer->GetGUIDFromIndex(0), name, &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0);
@@ -142,7 +142,7 @@ int main(void)
 				printf("Enter message to send: ");
 				char msg[256];
 				Gets(msg, sizeof(msg));
-				RakString msgRs = msg;
+				std::string msgRs = msg;
 				BitStream msgBs;
 				msgBs.Write(msgRs);
 				relayPlugin->SendGroupMessage(peer->GetGUIDFromIndex(0), &msgBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0);
@@ -192,7 +192,7 @@ int main(void)
 			else if (packet->data[0] == ID_RELAY_PLUGIN)
 			{
 				BitStream msgRs;
-				RakString senderRs;
+				std::string senderRs;
 				BitStream bsIn(packet->data, packet->length, false);
 				bsIn.IgnoreBytes(sizeof(MessageID));
 				RelayPluginEnums rpe;
@@ -201,77 +201,77 @@ int main(void)
 				{
 				case RPE_MESSAGE_TO_CLIENT_FROM_SERVER:
 				{
-					RakString senderName;
+					std::string senderName;
 					bsIn.ReadCompressed(senderName);
 					bsIn.AlignReadToByteBoundary();
-					RakString dataInAsStr;
+					std::string dataInAsStr;
 					bsIn.ReadCompressed(dataInAsStr);
-					printf("RPE_MESSAGE_TO_CLIENT_FROM_SERVER from %s, data=%s\n", senderName.C_String(), dataInAsStr.C_String());
+					printf("RPE_MESSAGE_TO_CLIENT_FROM_SERVER from %s, data=%s\n", senderName.c_str(), dataInAsStr.c_str());
 				}
 				break;
 				case RPE_ADD_CLIENT_NOT_ALLOWED:
 				{
-					RakString senderName;
+					std::string senderName;
 					bsIn.ReadCompressed(senderName);
-					printf("RPE_ADD_CLIENT_NOT_ALLOWED for %s\n", senderName.C_String());
+					printf("RPE_ADD_CLIENT_NOT_ALLOWED for %s\n", senderName.c_str());
 				}
 				break;
 				case RPE_ADD_CLIENT_TARGET_NOT_CONNECTED:
 				{
-					RakString senderName;
+					std::string senderName;
 					bsIn.ReadCompressed(senderName);
-					printf("RPE_ADD_CLIENT_TARGET_NOT_CONNECTED for %s\n", senderName.C_String());
+					printf("RPE_ADD_CLIENT_TARGET_NOT_CONNECTED for %s\n", senderName.c_str());
 				}
 				break;
 				case RPE_ADD_CLIENT_NAME_ALREADY_IN_USE:
 				{
-					RakString senderName;
+					std::string senderName;
 					bsIn.ReadCompressed(senderName);
-					printf("RPE_ADD_CLIENT_NAME_ALREADY_IN_USE for %s\n", senderName.C_String());
+					printf("RPE_ADD_CLIENT_NAME_ALREADY_IN_USE for %s\n", senderName.c_str());
 				}
 				break;
 				case RPE_ADD_CLIENT_SUCCESS:
 				{
-					RakString senderName;
+					std::string senderName;
 					bsIn.ReadCompressed(senderName);
-					printf("RPE_ADD_CLIENT_SUCCESS for %s\n", senderName.C_String());
+					printf("RPE_ADD_CLIENT_SUCCESS for %s\n", senderName.c_str());
 				}
 				break;
 				case RPE_USER_ENTERED_ROOM:
 				{
-					RakString whichUser;
+					std::string whichUser;
 					bsIn.ReadCompressed(whichUser);
-					printf("RPE_USER_ENTERED_ROOM user=%s\n", whichUser.C_String());
+					printf("RPE_USER_ENTERED_ROOM user=%s\n", whichUser.c_str());
 				}
 				break;
 				case RPE_USER_LEFT_ROOM:
 				{
-					RakString whichUser;
+					std::string whichUser;
 					bsIn.ReadCompressed(whichUser);
-					printf("RPE_USER_LEFT_ROOM user=%s\n", whichUser.C_String());
+					printf("RPE_USER_LEFT_ROOM user=%s\n", whichUser.c_str());
 				}
 				break;
 				case RPE_GROUP_MSG_FROM_SERVER:
 				{
-					RakString senderName;
+					std::string senderName;
 					bsIn.ReadCompressed(senderName);
 					bsIn.AlignReadToByteBoundary();
-					RakString dataInAsStr;
+					std::string dataInAsStr;
 					bsIn.Read(dataInAsStr);
-					printf("RPE_GROUP_MSG_FROM_SERVER from %s, data=%s\n", senderName.C_String(), dataInAsStr.C_String());
+					printf("RPE_GROUP_MSG_FROM_SERVER from %s, data=%s\n", senderName.c_str(), dataInAsStr.c_str());
 				}
 				break;
 				case RPE_GET_GROUP_LIST_REPLY_FROM_SERVER:
 				{
 					uint16_t chatRoomsSize, usersInRoomSize;
 					bsIn.Read(chatRoomsSize);
-					RakString roomName;
+					std::string roomName;
 					printf("RPE_GET_GROUP_LIST_REPLY_FROM_SERVER %i rooms\n", chatRoomsSize);
 					for (uint16_t chatRoomsIdx = 0; chatRoomsIdx < chatRoomsSize; chatRoomsIdx++)
 					{
 						bsIn.ReadCompressed(roomName);
 						bsIn.Read(usersInRoomSize);
-						printf("%i. %s %i users\n", chatRoomsIdx + 1, roomName.C_String(), usersInRoomSize);
+						printf("%i. %s %i users\n", chatRoomsIdx + 1, roomName.c_str(), usersInRoomSize);
 					}
 				}
 				break;

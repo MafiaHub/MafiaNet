@@ -27,7 +27,7 @@
 #define __HTTP_CONNECTION_2
 
 #include "mafianet/export.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/simple_mutex.h"
@@ -55,7 +55,7 @@ public:
 
 	/// \brief Connect to, then transmit a request to a TCP based server
 	/// \param[in] tcp An instance of TCPInterface that previously had TCPInterface::Start() called
-	/// \param[in] stringToTransmit What string to transmit. See RakString::FormatForPOST(), RakString::FormatForGET(), RakString::FormatForDELETE()
+	/// \param[in] stringToTransmit HTTP request text, including headers and body
 	/// \param[in] host The IP address to connect to
 	/// \param[in] port The port to connect to
 	/// \param[in] ipVersion 4 for IPV4, 6 for IPV6
@@ -83,8 +83,8 @@ public:
 	/// \param[out] contentOffset The offset from the start of responseReceived to the data body. Equivalent to searching for \r\n\r\n in responseReceived.
 	/// \param[out] userData Whatever you passed to TransmitRequest
 	/// \return true if there was a response. false if not.
-	bool GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData);
-	bool GetResponse(RakString &stringTransmitted, RakString &hostTransmitted, RakString &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset);
+	bool GetResponse(std::string &stringTransmitted, std::string &hostTransmitted, std::string &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset, void **userData);
+	bool GetResponse(std::string &stringTransmitted, std::string &hostTransmitted, std::string &responseReceived, SystemAddress &hostReceived, ptrdiff_t &contentOffset);
 
 	/// \brief Return if any requests are pending
 	bool IsBusy(void) const;
@@ -94,9 +94,9 @@ public:
 
 	struct Request
 	{
-		RakString stringToTransmit;
-		RakString stringReceived;
-		RakString host;
+		std::string stringToTransmit;
+		std::string stringReceived;
+		std::string host;
 		SystemAddress hostEstimatedAddress;
 		SystemAddress hostCompletedAddress;
 		unsigned short port;

@@ -24,10 +24,10 @@
 #include "mafianet/packet_priority.h"
 #include "mafianet/types.h"
 #include "mafianet/bit_stream.h"
-#include "mafianet/string.h"
 
 #include <map>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -197,7 +197,7 @@ private:
 	{
 		MessageID messageId;
 		/// Sorted function names
-		std::vector<MafiaNet::RakString> functions;
+		std::vector<std::string> functions;
 	};
 
 	/// \internal
@@ -251,9 +251,9 @@ private:
 	};
 
 	/// Slots by shared identifier. Each LocalSlot is heap-allocated, so GetLocalSlot() pointers survive a rehash.
-	std::unordered_map<MafiaNet::RakString, std::unique_ptr<LocalSlot>> localSlots;
-	std::unordered_map<MafiaNet::RakString, RegisteredNonblockingFunction> registeredNonblockingFunctions;
-	std::unordered_map<MafiaNet::RakString, RegisteredBlockingFunction> registeredBlockingFunctions;
+	std::unordered_map<std::string, std::unique_ptr<LocalSlot>> localSlots;
+	std::unordered_map<std::string, RegisteredNonblockingFunction> registeredNonblockingFunctions;
+	std::unordered_map<std::string, RegisteredBlockingFunction> registeredBlockingFunctions;
 	std::map<MessageID, LocalCallback> localCallbacks;
 
 	MafiaNet::BitStream blockingReturnValue;

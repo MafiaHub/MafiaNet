@@ -27,7 +27,7 @@
 #include "mafianet/export.h"
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/bit_stream.h"
 
 #include <deque>
@@ -52,7 +52,7 @@ public:
 	/// For UDPProxyServers logging in remotely, they must pass a password to UDPProxyServer::LoginToCoordinator(). It must match the password set here.
 	/// If no password is set, they cannot login remotely.
 	/// By default, no password is set
-	void SetRemoteLoginPassword(MafiaNet::RakString password);
+	void SetRemoteLoginPassword(const std::string &password);
 
 	/// \internal
 	virtual void Update(void);
@@ -110,7 +110,7 @@ protected:
 	// Sorted by ForwardingRequestComp; owned.
 	std::vector<ForwardingRequest *> forwardingRequestList;
 
-	MafiaNet::RakString remoteLoginPassword;
+	std::string remoteLoginPassword;
 };
 
 } // End namespace

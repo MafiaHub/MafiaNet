@@ -39,13 +39,13 @@ Inherit from ``Replica3``:
    public:
        float x, y, z;
        int health;
-       MafiaNet::RakString name;
+       std::string name;
 
        // Allocation ID for object creation
        virtual void WriteAllocationID(
            MafiaNet::Connection_RM3* conn,
            MafiaNet::BitStream* bs) const override {
-           bs->Write(MafiaNet::RakString("Player"));
+           bs->Write(std::string("Player"));
        }
 
        // Serialize object state
@@ -92,7 +92,7 @@ Create a connection class for each connected peer:
            MafiaNet::BitStream* allocationIdBitstream,
            MafiaNet::ReplicaManager3* rm3) override {
 
-           MafiaNet::RakString typeName;
+           std::string typeName;
            allocationIdBitstream->Read(typeName);
 
            if (typeName == "Player") {

@@ -27,12 +27,12 @@ TEST(HttpConnection, QueuedCommandsKeepTheirOrder)
 	http.Post("/first", "a=1");
 	http.Get("/second");
 	ASSERT_EQ(http.outgoingCommand.size(), 2u);
-	EXPECT_STREQ(http.outgoingCommand.front().remotePath.C_String(), "/first");
+	EXPECT_STREQ(http.outgoingCommand.front().remotePath.c_str(), "/first");
 	EXPECT_TRUE(http.outgoingCommand.front().isPost);
-	EXPECT_STREQ(http.outgoingCommand.back().remotePath.C_String(), "/second");
+	EXPECT_STREQ(http.outgoingCommand.back().remotePath.c_str(), "/second");
 	EXPECT_FALSE(http.outgoingCommand.back().isPost);
 	EXPECT_FALSE(http.HasRead());
-	EXPECT_EQ(http.Read(), RakString());
+	EXPECT_EQ(http.Read(), std::string());
 }
 
 TEST(HttpConnection, BadResponseIsConsumedEvenWithoutADataPointer)
@@ -52,9 +52,9 @@ TEST(HttpConnection, BadResponseIsConsumedEvenWithoutADataPointer)
 	int code = 0;
 	ASSERT_TRUE(http.HasBadResponse(&code, nullptr));
 	EXPECT_EQ(code, 404);
-	RakString data;
+	std::string data;
 	ASSERT_TRUE(http.HasBadResponse(nullptr, &data));
-	EXPECT_EQ(std::strncmp(data.C_String(), "HTTP/1.0 404", 12), 0);
+	EXPECT_EQ(std::strncmp(data.c_str(), "HTTP/1.0 404", 12), 0);
 	EXPECT_FALSE(http.HasBadResponse(&code, &data));
 }
 

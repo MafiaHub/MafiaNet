@@ -127,7 +127,7 @@ void DynDNS::Update(void)
 		else
 		{
 			connectPhase = CP_WAITING_FOR_DYNDNS_RESPONSE;
-			tcp->Send(getString.C_String(), (unsigned int) getString.GetLength(), serverAddress, false);
+			tcp->Send(getString.c_str(), (unsigned int) getString.size(), serverAddress, false);
 		}
 		phaseTimeout = MafiaNet::GetTime() + 1000;
 	}
@@ -224,7 +224,7 @@ void DynDNS::Update(void)
 				char existingHost[65];
 				existingHost[0] = 0;
 				// Resolve DNS we are setting. If equal to current then abort
-				RakNetSocket2::DomainNameToIP(host.C_String(), existingHost, AF_INET); // DynDNS records are IPv4
+				RakNetSocket2::DomainNameToIP(host.c_str(), existingHost, AF_INET); // DynDNS records are IPv4
 				if (strcmp(existingHost, myIPStr) == 0)
 				{
 					// DynDNS considers setting the IP to what it is already set abuse

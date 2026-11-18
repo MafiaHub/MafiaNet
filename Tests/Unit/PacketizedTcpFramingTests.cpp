@@ -158,7 +158,7 @@ TEST(PacketizedTcpFraming, RpcDispatchesCompleteFramesOnlyOnEnabledEndpoints)
 	FramingHarness plain(Peer());
 	BitStream message;
 	message.Write((MessageID) ID_RPC);
-	message.Write((MessageID) 2); // Signal on the protocol 10 wire.
+	message.Write((MessageID) 2); // Signal message ID.
 	message.WriteCompressed("test");
 	const Bytes payload(message.GetData(), message.GetData() + message.GetNumberOfBytesUsed());
 	const Bytes framed = Frame(payload);

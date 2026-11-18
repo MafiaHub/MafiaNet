@@ -27,15 +27,13 @@
 #include <map>
 #include <memory>
 
-#ifdef _STD_STRING_COMPRESSOR
 #include <string>
-#endif
+#include <string_view>
 
 /// Forward declaration
 namespace MafiaNet
 {
 class BitStream;
-class RakString;
 };
 
 
@@ -46,7 +44,7 @@ class HuffmanEncodingTree;
 
 /// \brief Writes and reads strings to and from bitstreams.
 ///
-/// Only works with ASCII strings.  The default compression is for English.
+/// The codec accepts all byte values. The default tree is tuned for English.
 /// You can call GenerateTreeFromStrings to compress and decompress other languages efficiently as well.
 class RAK_DLL_EXPORT StringCompressor
 {
@@ -80,13 +78,8 @@ public:
 	/// \param[in] languageID Which language to use
 	bool DecodeString(char *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId = 0);
 
-#ifdef _STD_STRING_COMPRESSOR
-	void EncodeString(const std::string &input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId = 0);
+	void EncodeString(std::string_view input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId = 0);
 	bool DecodeString(std::string *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId = 0);
-#endif
-
-	void EncodeString(const MafiaNet::RakString *input, int maxCharsToWrite, MafiaNet::BitStream *output, uint8_t languageId = 0);
-	bool DecodeString(MafiaNet::RakString *output, int maxCharsToWrite, MafiaNet::BitStream *input, uint8_t languageId = 0);
 
 	/// Used so I can allocate and deallocate this singleton at runtime
 	static void AddReference(void);

@@ -30,7 +30,6 @@
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
 #include "mafianet/locked_queue.h"
-#include "mafianet/string.h"
 #include "mafianet/nat_type_detection_common.h"
 
 #include <memory>

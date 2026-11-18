@@ -29,7 +29,7 @@
 #include "mafianet/socket_includes.h"
 #include "mafianet/udp_proxy_common.h"
 #include "mafianet/simple_mutex.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/thread.h"
 #include "mafianet/lockless_types.h"
 #include "mafianet/locked_queue.h"
@@ -125,7 +125,7 @@ protected:
 		SystemAddress source;
 		SystemAddress destination;
 		MafiaNet::TimeMS timeoutOnNoDataMS;
-		RakString forceHostAddress;
+		std::string forceHostAddress;
 		unsigned short socketFamily;
 		unsigned int inputId;
 	};

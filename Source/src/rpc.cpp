@@ -36,13 +36,10 @@ struct RPC::LocalSlot
 
 namespace
 {
-// The identifier as a map key, copied verbatim. The implicit RakString(const char *format, ...)
-// conversion would run it through vsnprintf, and names also arrive from the network.
-RakString IdentifierKey(const char *identifier)
+// Registration APIs historically treat a null identifier as the empty name.
+const char *IdentifierKey(const char *identifier)
 {
-	RakString key;
-	key = identifier;
-	return key;
+	return identifier ? identifier : "";
 }
 } // namespace
 
@@ -195,12 +192,12 @@ bool RPC::RegisterBlockingFunction(const char *uniqueID, void (*functionPointer)
 }
 void RPC::RegisterLocalCallback(const char *uniqueID, MessageID messageId)
 {
-	const MafiaNet::RakString str = IdentifierKey(uniqueID);
+	const char *name = IdentifierKey(uniqueID);
 	LocalCallback &lc = localCallbacks[messageId];
 	lc.messageId = messageId;
-	const auto position = std::lower_bound(lc.functions.begin(), lc.functions.end(), str);
-	if (position == lc.functions.end() || !(*position == str))
-		lc.functions.insert(position, str);
+	const auto position = std::lower_bound(lc.functions.begin(), lc.functions.end(), name);
+	if (position == lc.functions.end() || *position != name)
+		lc.functions.insert(position, name);
 }
 bool RPC::UnregisterFunction(const char *uniqueID)
 {
@@ -212,13 +209,13 @@ bool RPC::UnregisterBlockingFunction(const char *uniqueID)
 }
 bool RPC::UnregisterLocalCallback(const char *uniqueID, MessageID messageId)
 {
-	const MafiaNet::RakString str = IdentifierKey(uniqueID);
+	const char *name = IdentifierKey(uniqueID);
 	const auto callback = localCallbacks.find(messageId);
 	if (callback == localCallbacks.end())
 		return false;
-	std::vector<MafiaNet::RakString> &functions = callback->second.functions;
-	const auto position = std::lower_bound(functions.begin(), functions.end(), str);
-	if (position == functions.end() || !(*position == str))
+	auto &functions = callback->second.functions;
+	const auto position = std::lower_bound(functions.begin(), functions.end(), name);
+	if (position == functions.end() || *position != name)
 		return false;
 	functions.erase(position);
 	if (functions.empty())
@@ -440,20 +437,19 @@ bool RPC::ProcessPacket(Packet *packet)
 
 		if (packet->data[1] == ID_RPC_CALL)
 		{
-			MafiaNet::RakString functionName;
+			std::string functionName;
 			bool isBlocking;
 			if (!bsIn.ReadCompressed(functionName) || !bsIn.Read(isBlocking))
 				return true;
 			if (isBlocking == false)
 			{
-				// Look the received name up as is, never through RakString's printf-style constructor.
 				const auto function = registeredNonblockingFunctions.find(functionName);
 				if (function == registeredNonblockingFunctions.end())
 				{
 					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
 					bsOut.Write((unsigned char) RPC_ERROR_FUNCTION_NOT_REGISTERED);
-					bsOut.Write(functionName.C_String(), (unsigned int) functionName.GetLength() + 1);
+					bsOut.Write(functionName.c_str(), (unsigned int) functionName.size() + 1);
 					Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 					return true;
 				}
@@ -470,7 +466,7 @@ bool RPC::ProcessPacket(Packet *packet)
 					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
 					bsOut.Write((unsigned char) RPC_ERROR_FUNCTION_NOT_REGISTERED);
-					bsOut.Write(functionName.C_String(), (unsigned int) functionName.GetLength() + 1);
+					bsOut.Write(functionName.c_str(), (unsigned int) functionName.size() + 1);
 					Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 					return true;
 				}
@@ -491,7 +487,7 @@ bool RPC::ProcessPacket(Packet *packet)
 		}
 		else if (packet->data[1] == ID_RPC_SIGNAL)
 		{
-			MafiaNet::RakString sharedIdentifier;
+			std::string sharedIdentifier;
 			if (!bsIn.ReadCompressed(sharedIdentifier))
 				return true;
 			const auto slot = localSlots.find(sharedIdentifier);

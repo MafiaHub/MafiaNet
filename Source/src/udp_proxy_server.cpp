@@ -42,7 +42,7 @@ void UDPProxyServer::SetResultHandler(UDPProxyServerResultHandler *rh)
 {
 	resultHandler = rh;
 }
-bool UDPProxyServer::LoginToCoordinator(MafiaNet::RakString password, SystemAddress coordinatorAddress)
+bool UDPProxyServer::LoginToCoordinator(const std::string &password, SystemAddress coordinatorAddress)
 {
 	if (loggingInCoordinators.count(coordinatorAddress) != 0)
 		return false;
@@ -56,7 +56,7 @@ bool UDPProxyServer::LoginToCoordinator(MafiaNet::RakString password, SystemAddr
 	loggingInCoordinators.insert(coordinatorAddress);
 	return true;
 }
-void UDPProxyServer::SetServerPublicIP(RakString ip)
+void UDPProxyServer::SetServerPublicIP(const std::string &ip)
 {
 	serverPublicIp = ip;
 }
@@ -90,7 +90,7 @@ PluginReceiveResult UDPProxyServer::OnReceive(Packet *packet)
 
 				MafiaNet::BitStream incomingBs(packet->data, packet->length, false);
 				incomingBs.IgnoreBytes(2);
-				MafiaNet::RakString password;
+				std::string password;
 				incomingBs.Read(password);
 				switch (packet->data[1])
 				{
@@ -169,7 +169,8 @@ void UDPProxyServer::OnForwardingRequestFromCoordinatorToServer(Packet *packet)
 	outgoingBs.Write(targetAddress);
 	outgoingBs.Write(serverPublicIp);
 	outgoingBs.Write((unsigned char) success);
-	outgoingBs.Write(forwardingPort);
+	if (success == UDPFORWARDER_SUCCESS || success == UDPFORWARDER_FORWARDING_ALREADY_EXISTS)
+		outgoingBs.Write(forwardingPort);
 	rakPeerInterface->Send(&outgoingBs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 }
 

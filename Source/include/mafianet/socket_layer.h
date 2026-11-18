@@ -25,7 +25,7 @@
 //#include "socket.h"
 #include "mafianet/export.h"
 #include "mafianet/mtu_size.h"
-#include "mafianet/string.h"
+#include <string>
 
 //#include "ClientContextStruct.h"
 
@@ -93,7 +93,7 @@ public:
 	/// \param[in] inSock the socket
 	/// \param[in] inIpString The ip of the interface you wish to retrieve the subnet mask from
 	/// \return Returns the ip dotted subnet mask if successful, otherwise returns empty string ("")
-	static MafiaNet::RakString GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, MafiaNet::RakString inIpString);
+	static std::string GetSubNetForSocketAndIp(__UDPSOCKET__ inSock, const std::string &inIpString);
 
 
 	/// Sets the socket flags to nonblocking

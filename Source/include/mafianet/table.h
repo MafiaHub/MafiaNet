@@ -21,7 +21,7 @@
 #define __TABLE_H
 
 #include "mafianet/export.h"
-#include "mafianet/string.h"
+#include <string>
 
 #include <cstddef>
 #include <map>
@@ -92,7 +92,7 @@ public:
 		/// Binary
 		void Get(char *output, int *outputLength);
 
-		MafiaNet::RakString ToString(ColumnType columnType);
+		std::string ToString(ColumnType columnType);
 
 		// Deep copy: the copy owns its own buffer.
 		Cell &operator=(const Cell &input);

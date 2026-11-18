@@ -143,16 +143,6 @@
 #error "RAKNET_SUPPORT_IPV6 was removed: IPv6 is always compiled in"
 #endif
 
-#ifndef RAKSTRING_TYPE
-#if defined(_UNICODE)
-#define RAKSTRING_TYPE RakWString
-#define RAKSTRING_TYPE_IS_UNICODE 1
-#else
-#define RAKSTRING_TYPE RakString
-#define RAKSTRING_TYPE_IS_UNICODE 0
-#endif
-#endif
-
 #ifndef RPC_GLOBAL_REGISTRATION_MAX_FUNCTIONS
 #define RPC_GLOBAL_REGISTRATION_MAX_FUNCTIONS 48
 #endif

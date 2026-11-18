@@ -33,7 +33,7 @@ RakWString::RakWString()
 	c_str = 0;
 	c_strCharLength = 0;
 }
-RakWString::RakWString(const RakString &right)
+RakWString::RakWString(const std::string &right)
 {
 	c_str = 0;
 	c_strCharLength = 0;
@@ -77,9 +77,9 @@ RakWString &RakWString::operator=(const RakWString &right)
 
 	return *this;
 }
-RakWString &RakWString::operator=(const RakString &right)
+RakWString &RakWString::operator=(const std::string &right)
 {
-	return *this = right.C_String();
+	return *this = right.c_str();
 }
 RakWString &RakWString::operator=(const wchar_t *const str)
 {
@@ -441,7 +441,7 @@ MafiaNet::RakWString ts3(L" from here");
 testString2+=ts3;
 MafiaNet::RakWString ts4(L" 222");
 testString2=ts4;
-MafiaNet::RakString rs("rakstring");
+std::string rs("text");
 testString2+=rs;
 testString2=rs;
 bsTest.Write(L"one");

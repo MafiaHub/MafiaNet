@@ -10,7 +10,7 @@ Unreleased — breaking
 
 * Use ``peer->GetRPC()`` and ``mafianet/remote_procedure_call.h`` for named calls, signals and callbacks.
   The peer owns the service and runs message filters before RPC handlers.
-  See :doc:`guide/rpc` for the migration from RPC4. The RPC payload format is unchanged.
+  See :doc:`guide/rpc` for the migration from RPC4.
 
 **Removed extensions**
 
@@ -22,6 +22,11 @@ Unreleased — breaking
 * The ``TwoWayAuthentication`` plugin and sample have been removed. Move user authentication into your application and remove ``TwoWayAuthentication`` from ``MAFIANET_DISABLED_FEATURES``.
 * Removed ``TeamManager`` and ``TeamBalancer``. Move team membership and balancing into game code and remove both names from ``MAFIANET_DISABLED_FEATURES``. Their five wire IDs are reserved.
 * The former SQLite and cloud message ID ranges are reserved.
+
+**Narrow strings and wire protocol 11**
+
+* Replace ``RakString`` with ``std::string`` and include ``<string>``. Rebuild applications and upgrade both peers together.
+* BitStream strings now use a 32-bit byte count and preserve embedded NULs. Compressed strings also preserve all bytes. Both encodings accept up to 16 MiB per string. See :doc:`basics/creating-packets`.
 
 **Standard containers and allocation**
 

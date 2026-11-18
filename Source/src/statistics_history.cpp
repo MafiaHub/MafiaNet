@@ -151,7 +151,7 @@ StatisticsHistory::TrackedObjectData *StatisticsHistory::GetObjectAtIndex(unsign
 {
 	return &objects[index]->trackedObjectData;
 }
-bool StatisticsHistory::AddValueByObjectID(uint64_t objectId, RakString key, SHValueType val, Time curTime, bool combineEqualTimes)
+bool StatisticsHistory::AddValueByObjectID(uint64_t objectId, const std::string &key, SHValueType val, Time curTime, bool combineEqualTimes)
 {
 	unsigned int idx = GetObjectIndex(objectId);
 	if (idx == (unsigned int) -1)
@@ -159,7 +159,7 @@ bool StatisticsHistory::AddValueByObjectID(uint64_t objectId, RakString key, SHV
 	AddValueByIndex(idx, key, val, curTime, combineEqualTimes);
 	return true;
 }
-void StatisticsHistory::AddValueByIndex(unsigned int index, RakString key, SHValueType val, Time curTime, bool combineEqualTimes)
+void StatisticsHistory::AddValueByIndex(unsigned int index, const std::string &key, SHValueType val, Time curTime, bool combineEqualTimes)
 {
 	TrackedObject *to = objects[index].get();
 	std::unique_ptr<TimeAndValueQueue> &slot = to->dataQueues[key];
@@ -200,7 +200,7 @@ void StatisticsHistory::AddValueByIndex(unsigned int index, RakString key, SHVal
 	if (queue->longTermHighest < tav.val)
 		queue->longTermHighest = tav.val;
 }
-StatisticsHistory::SHErrorCode StatisticsHistory::GetHistoryForKey(uint64_t objectId, RakString key, StatisticsHistory::TimeAndValueQueue **values, Time curTime) const
+StatisticsHistory::SHErrorCode StatisticsHistory::GetHistoryForKey(uint64_t objectId, const std::string &key, StatisticsHistory::TimeAndValueQueue **values, Time curTime) const
 {
 	if (values == 0)
 		return SH_INVALID_PARAMETER;
@@ -275,7 +275,7 @@ bool StatisticsHistory::GetHistorySorted(uint64_t objectId, SHSortOperation sort
 	values.insert(values.end(), sortedQueues.begin(), sortedQueues.end());
 	return true;
 }
-void StatisticsHistory::MergeAllObjectsOnKey(RakString key, TimeAndValueQueue *tavqOutput, SHDataCategory dataCategory) const
+void StatisticsHistory::MergeAllObjectsOnKey(const std::string &key, TimeAndValueQueue *tavqOutput, SHDataCategory dataCategory) const
 {
 	tavqOutput->Clear();
 
@@ -293,7 +293,7 @@ void StatisticsHistory::MergeAllObjectsOnKey(RakString key, TimeAndValueQueue *t
 		}
 	}
 }
-void StatisticsHistory::GetUniqueKeyList(std::vector<RakString> &keys)
+void StatisticsHistory::GetUniqueKeyList(std::vector<std::string> &keys)
 {
 	keys.clear();
 
@@ -851,7 +851,7 @@ bool StatisticsHistoryPlugin::UpdateAt(Time curTime)
 		rakPeerInterface->GetStatistics(remoteSystems[idx], &rns);
 		statistics.AddValue();
 
-		bool AddValue(uint64_t objectId, RakString key, SHValueType val, Time curTime);
+		bool AddValue(uint64_t objectId, std::string key, SHValueType val, Time curTime);
 
 	}
 	*/

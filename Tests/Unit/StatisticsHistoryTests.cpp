@@ -47,7 +47,7 @@ std::vector<std::string> Keys(const std::vector<StatisticsHistory::TimeAndValueQ
 {
 	std::vector<std::string> keys;
 	for (const StatisticsHistory::TimeAndValueQueue *q : queues)
-		keys.push_back(q->key.C_String());
+		keys.push_back(q->key.c_str());
 	return keys;
 }
 } // namespace
@@ -172,11 +172,11 @@ TEST(StatisticsHistory, GetUniqueKeyListReplacesTheVectorWithEachKeyOnce)
 	history.AddValueByObjectID(2, "b", 1, base, false);
 	history.AddValueByObjectID(2, "c", 1, base, false);
 
-	std::vector<RakString> keys = {"stale"};
+	std::vector<std::string> keys = {"stale"};
 	history.GetUniqueKeyList(keys);
 	std::vector<std::string> names;
-	for (const RakString &k : keys)
-		names.push_back(k.C_String());
+	for (const std::string &k : keys)
+		names.push_back(k.c_str());
 	std::sort(names.begin(), names.end());
 	EXPECT_EQ((std::vector<std::string>{"a", "b", "c"}), names);
 }

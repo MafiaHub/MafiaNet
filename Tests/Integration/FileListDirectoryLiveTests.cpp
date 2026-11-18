@@ -53,7 +53,7 @@ TEST(FileListDirectoryLive, ClosingTheFirstWalkLeavesTheSecondWalkUsable)
 		list.AddFilesFromDirectory(root.string().c_str(), nullptr, false, false, false, FileListNodeContext(0, 0, 0, 0));
 		std::set<std::string> names;
 		for (const auto &node : list.fileList)
-			names.insert(node.filename.C_String());
+			names.insert(node.filename.c_str());
 		return names;
 	};
 
