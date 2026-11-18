@@ -38,7 +38,6 @@
 #include <arpa/inet.h>
 #endif
 
-#include "mafianet/itoa.h"
 #include "mafianet/socket_layer.h"
 #include "mafianet/super_fast_hash.h"
 #include <stdlib.h>
@@ -272,51 +271,6 @@ bool SystemAddress::IsLoopback(void) const
 			return true;
 	}
 	return false;
-}
-void SystemAddress::ToString_Old(bool writePort, char *dest, char portDelineator) const
-{
-	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
-	{
-		strcpy(dest, "UNASSIGNED_SYSTEM_ADDRESS");
-		return;
-	}
-
-	char portStr[2];
-	portStr[0] = portDelineator;
-	portStr[1] = 0;
-
-	in_addr in;
-	in.s_addr = address.addr4.sin_addr.s_addr;
-	char buf[1024];
-	inet_ntop(AF_INET, &in, buf, 1024);
-	strcpy(dest, buf);
-	if (writePort)
-	{
-		strcat(dest, portStr);
-		Itoa(GetPort(), dest + strlen(dest), 10);
-	}
-}
-
-void SystemAddress::ToString_Old(bool writePort, char *dest, size_t destLength, char portDelineator) const
-{
-	if (*this == UNASSIGNED_SYSTEM_ADDRESS)
-	{
-		strcpy_s(dest, destLength, "UNASSIGNED_SYSTEM_ADDRESS");
-		return;
-	}
-
-	char portStr[2];
-	portStr[0] = portDelineator;
-	portStr[1] = 0;
-
-	in_addr in;
-	in.s_addr = address.addr4.sin_addr.s_addr;
-	inet_ntop(AF_INET, &in, dest, destLength);
-	if (writePort)
-	{
-		strcat_s(dest, destLength, portStr);
-		Itoa(GetPort(), dest + strlen(dest), 10);
-	}
 }
 const char *SystemAddress::ToString(bool writePort, char portDelineator) const
 {

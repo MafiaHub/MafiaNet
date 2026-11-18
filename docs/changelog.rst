@@ -31,6 +31,8 @@ Unreleased — breaking
 * The public ``RakWString`` type, ``mafianet/wstring.h`` and the wide-string BitStream overloads have been removed. Migrate both ends of application-defined wide fields to UTF-8 in ``std::string``.
 * BitStream strings now use a 32-bit byte count and preserve embedded NULs. Compressed strings also preserve all bytes. Both encodings accept up to 16 MiB per string. See :doc:`basics/creating-packets`.
 
+* Replace removed ``SystemAddress::ToString_Old`` calls with ``address.ToString(true, buffer, sizeof(buffer), ':')`` to preserve IPv4 text with a colon before the port.
+
 **Standard containers and allocation**
 
 * **The ``DataStructures`` containers are gone.** The library, plugins, DependentExtensions and samples use ``std::vector``, ``std::deque``, ``std::map``, ``std::set`` and ``std::unordered_map``. Every ``ds_*.h`` header and the ``DataStructures`` namespace are removed, with no shims. ``RangeList``, ``Table`` and ``HuffmanEncodingTree`` survive in ``MafiaNet`` (``range_list.h``, ``table.h``, ``huffman_encoding_tree.h``).
