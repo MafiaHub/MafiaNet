@@ -99,6 +99,28 @@ TEST(PacketLoggerIdNames, NormalLogKeepsNumericFallbackAndSplitLabel)
 	EXPECT_NE(std::string(line).find(",(SPLIT PACKET),8,"), std::string::npos);
 }
 
+TEST(PacketLoggerIdNames, SizedTextOverrideReceivesResolvedIdAndDestination)
+{
+	struct TextLogger : NamedLogger
+	{
+		using NamedLogger::FormatLine;
+		char *destination = nullptr;
+		size_t destinationSize = 0;
+		void FormatLine(char *into, size_t capacity, const char *, const char *, unsigned int, unsigned int, const char *id, BitSize_t, unsigned long long, const SystemAddress &, const SystemAddress &, unsigned int, unsigned int, unsigned int, unsigned int) override
+		{
+			line = id;
+			destination = into;
+			destinationSize = capacity;
+		}
+	} logger;
+
+	char buffer[2] = {};
+	logger.FormatLine(buffer, sizeof(buffer), "Snd", "Nrm", 0, 0, static_cast<unsigned char>(255), 8, 0, UNASSIGNED_SYSTEM_ADDRESS, UNASSIGNED_SYSTEM_ADDRESS, 0, 0, 0, 0);
+	EXPECT_EQ(logger.destination, static_cast<char *>(buffer));
+	EXPECT_EQ(logger.destinationSize, sizeof(buffer));
+	EXPECT_EQ(logger.line, "PlayerJoined");
+}
+
 TEST(PacketLoggerPushback, UnnamedApplicationIdFallsBackToDecimal)
 {
 	NamedLogger logger;
