@@ -13,16 +13,30 @@
 
 #include "mafianet/export.h"
 
-extern "C"
+#include <optional>
+#include <string>
+#include <string_view>
+
+namespace MafiaNet
 {
-	/// \brief Returns how many bytes were written.
-	// outputData should be at least the size of inputData * 2 + 6
-	int Base64Encoding(const unsigned char *inputData, int dataLength, char *outputData);
+enum class Base64Format
+{
+	Standard, // Padded RFC 4648, no whitespace.
+	Mime      // 76-column lines terminated by CRLF. Decoding accepts ASCII space, tab and line endings.
+};
+
+/// Encode arbitrary bytes, including embedded NULs.
+RAK_DLL_EXPORT std::string EncodeBase64(std::string_view bytes, Base64Format format = Base64Format::Standard);
+/// Return the decoded bytes, or std::nullopt for invalid or partially consumed input.
+RAK_DLL_EXPORT std::optional<std::string> DecodeBase64(std::string_view text, Base64Format format = Base64Format::Standard);
 }
 
 extern "C"
 {
-	const char *Base64Map(void);
+	/// Legacy MIME encoder. Supply at least 2 * dataLength + 6 bytes, including space for the terminator.
+	/// Returns the byte count excluding the terminator, or -1 on error.
+	RAK_DLL_EXPORT int Base64Encoding(const unsigned char *inputData, int dataLength, char *outputData);
+	RAK_DLL_EXPORT const char *Base64Map(void);
 }
 
 #endif

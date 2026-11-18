@@ -6,6 +6,18 @@ library ones; see :doc:`../getting-started/system-overview`.
 
 Use UTF-8 in ``std::string`` for application text. See :doc:`../basics/creating-packets` for its wire encoding.
 
+Base64
+------
+
+Include ``mafianet/base64_encoder.h``. ``MafiaNet::EncodeBase64(bytes)`` returns
+padded, single-line Base64. ``MafiaNet::DecodeBase64(text)`` returns the decoded
+bytes in a ``std::optional<std::string>``. Invalid input yields ``std::nullopt``,
+and empty input decodes to an empty string.
+
+For email attachments, pass ``MafiaNet::Base64Format::Mime`` as the second
+argument. Encoding wraps at 76 columns and terminates lines with CRLF.
+Decoding accepts spaces, tabs, and line endings in this mode.
+
 PointGridSectorizer
 -------------------
 
