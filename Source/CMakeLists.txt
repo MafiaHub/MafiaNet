@@ -20,7 +20,6 @@ set(MAFIANET_SOURCES
     src/dr_sha1.cpp
     src/huffman_encoding_tree.cpp
     src/dyn_dns.cpp
-    src/epoch_time_to_string.cpp
     src/file_list.cpp
     src/file_list_transfer.cpp
     src/file_operations.cpp
@@ -137,7 +136,6 @@ set(MAFIANET_HEADERS
     include/mafianet/dyn_dns.h
     include/mafianet/email_sender.h
     include/mafianet/empty_header.h
-    include/mafianet/epoch_time_to_string.h
     include/mafianet/export.h
     include/mafianet/file_list.h
     include/mafianet/file_list_node_context.h
