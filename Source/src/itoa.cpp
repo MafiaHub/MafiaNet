@@ -13,64 +13,27 @@
  *  license found in the license.txt file in the root directory of this source tree.
  */
 
-#include "mafianet/empty_header.h"
+#include "mafianet/itoa.h"
 
-#ifdef __cplusplus
-extern "C"
+#include <algorithm>
+#include <charconv>
+#include <limits>
+
+char *Itoa(int value, char *result, int base)
 {
-#endif
-
-	// Fast itoa from http://www.jb.man.ac.uk/~slowe/cpp/itoa.html for Linux since it seems like Linux doesn't support this function.
-	// I modified it to remove the std dependencies.
-	char *Itoa(int value, char *result, int base)
+	if (base < 2 || base > 16)
 	{
-		// check that the base if valid
-		if (base < 2 || base > 16)
-		{
-			*result = 0;
-			return result;
-		}
-		char *out = result;
-		int quotient = value;
-
-		int absQModB;
-
-		do
-		{
-			// KevinJ - get rid of this dependency
-			//*out = "0123456789abcdef"[ std::abs( quotient % base ) ];
-			absQModB = quotient % base;
-			if (absQModB < 0)
-				absQModB = -absQModB;
-			*out = "0123456789abcdef"[absQModB];
-			++out;
-			quotient /= base;
-		} while (quotient);
-
-		// Only apply negative sign for base 10
-		if (value < 0 && base == 10)
-			*out++ = '-';
-
-		// KevinJ - get rid of this dependency
-		// std::reverse( result, out );
-		*out = 0;
-
-		// KevinJ - My own reverse code
-		char *start = result;
-		char temp;
-		out--;
-		while (start < out)
-		{
-			temp = *start;
-			*start = *out;
-			*out = temp;
-			start++;
-			out--;
-		}
-
+		*result = '\0';
 		return result;
 	}
 
-#ifdef __cplusplus
+	// The caller may have space only for the actual result. Give to_chars its own
+	// range, large enough for every binary digit and a possible minus sign.
+	char digits[std::numeric_limits<unsigned int>::digits + 1];
+	const auto converted = std::to_chars(digits, digits + sizeof(digits), value, base);
+	char *first = digits;
+	if (value < 0 && base != 10)
+		++first; // Itoa uses the magnitude for nondecimal bases.
+	*std::copy(first, converted.ptr, result) = '\0';
+	return result;
 }
-#endif
