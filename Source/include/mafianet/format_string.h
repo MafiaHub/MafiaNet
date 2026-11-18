@@ -23,15 +23,4 @@ namespace MafiaNet
 RAK_DLL_EXPORT std::string FormatText(const char *format, ...);
 }
 
-extern "C"
-{
-	char *FormatString(const char *format, ...);
-}
-// Threadsafe
-extern "C"
-{
-	char *FormatStringTS(char *output, const char *format, ...);
-}
-
-
 #endif

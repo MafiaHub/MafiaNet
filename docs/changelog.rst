@@ -25,6 +25,7 @@ Unreleased — breaking
 
 **Strings and wire protocol 11**
 
+* Replace the removed ``FormatString`` and ``FormatStringTS`` helpers with ``MafiaNet::FormatText(format, ...)`` from ``mafianet/format_string.h``. Keep the returned ``std::string`` alive while using its ``c_str()`` pointer.
 * Register table entries with ``StringTable::AddString(text)``. Remove the old ``copyString`` argument and rebuild. The table owns every entry and uses its sorted position as its wire ID.
 * Replace ``RakString`` with ``std::string`` and include ``<string>``. Rebuild applications and upgrade both peers together.
 * The public ``RakWString`` type, ``mafianet/wstring.h`` and the wide-string BitStream overloads have been removed. Migrate both ends of application-defined wide fields to UTF-8 in ``std::string``.
