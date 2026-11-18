@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "mafianet/itoa.h"
+#include "mafianet/format_string.h"
 #include <time.h>
 #include "mafianet/socket_includes.h"
 #include "mafianet/get_time_of_day.h"
@@ -48,26 +48,24 @@ PacketLogger::PacketLogger()
 PacketLogger::~PacketLogger()
 {
 }
+const char *PacketLogger::PacketIdText(unsigned char id, unsigned int splitPacketCount, char (&numericID)[16])
+{
+	if (printId)
+	{
+		if (splitPacketCount > 0 && splitPacketCount != (unsigned int) -1)
+			return "(SPLIT PACKET)";
+		if (const char *name = IDTOString(id))
+			return name;
+	}
+	sprintf_s(numericID, printId ? "%u" : "%5u", static_cast<unsigned int>(id));
+	return numericID;
+}
+
 void PacketLogger::FormatLine(char *into, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, unsigned char id, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
                               unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
 	char numericID[16];
-	const char *idToPrint = nullptr;
-	if (printId)
-	{
-		if (splitPacketCount > 0 && splitPacketCount != (unsigned int) -1)
-			idToPrint = "(SPLIT PACKET)";
-		else
-			idToPrint = IDTOString(id);
-	}
-	// If printId is false, idToPrint will be nullptr, as it will
-	// in the case of an unrecognized id. Testing printId for false
-	// would just be redundant.
-	if (idToPrint == nullptr)
-	{
-		sprintf_s(numericID, "%5u", id);
-		idToPrint = numericID;
-	}
+	const char *idToPrint = PacketIdText(id, splitPacketCount, numericID);
 
 	FormatLine(into, dir, type, reliableMessageNumber, frame, idToPrint, bitLen, time, local, remote, splitPacketId, splitPacketIndex, splitPacketCount, orderingIndex);
 }
@@ -76,22 +74,7 @@ void PacketLogger::FormatLine(
     unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex)
 {
 	char numericID[16];
-	const char *idToPrint = nullptr;
-	if (printId)
-	{
-		if (splitPacketCount > 0 && splitPacketCount != (unsigned int) -1)
-			idToPrint = "(SPLIT PACKET)";
-		else
-			idToPrint = IDTOString(id);
-	}
-	// If printId is false, idToPrint will be nullptr, as it will
-	// in the case of an unrecognized id. Testing printId for false
-	// would just be redundant.
-	if (idToPrint == nullptr)
-	{
-		sprintf_s(numericID, "%5u", id);
-		idToPrint = numericID;
-	}
+	const char *idToPrint = PacketIdText(id, splitPacketCount, numericID);
 
 	FormatLine(into, intoLength, dir, type, reliableMessageNumber, frame, idToPrint, bitLen, time, local, remote, splitPacketId, splitPacketIndex, splitPacketCount, orderingIndex);
 }
@@ -204,7 +187,7 @@ void PacketLogger::OnAck(unsigned int messageNumber, SystemAddress remoteSystemA
 }
 void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, SystemAddress remoteSystemAddress)
 {
-	char str[256];
+	char numericID[16];
 	char str1[64], str2[64];
 	SystemAddress localSystemAddress = rakPeerInterface->GetExternalID(remoteSystemAddress);
 	localSystemAddress.ToString(true, str1, static_cast<size_t>(64));
@@ -213,8 +196,8 @@ void PacketLogger::OnPushBackPacket(const char *data, const BitSize_t bitsUsed, 
 	char localtime[128];
 	GetLocalTime(localtime);
 
-	sprintf_s(str, "%s,Lcl,PBP,,,%s,%i,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,,,,,,", localtime, BaseIDTOString(data[0]), bitsUsed, (unsigned long long) time, str1, str2);
-	AddToLog(str);
+	const std::string line = FormatText("%s,Lcl,PBP,,,%s,%u,%" PRINTF_64_BIT_MODIFIER "u,%s,%s,,,,,,", localtime, PacketIdText(static_cast<unsigned char>(data[0]), 0, numericID), bitsUsed, (unsigned long long) time, str1, str2);
+	AddToLog(line.c_str());
 }
 void PacketLogger::OnInternalPacket(InternalPacket *internalPacket, unsigned frameNumber, SystemAddress remoteSystemAddress, MafiaNet::TimeMS time, int isSend)
 {
@@ -410,12 +393,9 @@ const char *PacketLogger::BaseIDTOString(unsigned char Id)
 
 	return (char *) IDTable[Id];
 }
-const char *PacketLogger::UserIDTOString(unsigned char Id)
+const char *PacketLogger::UserIDTOString(unsigned char /*id*/)
 {
-	// Users should override this
-	static char str[256];
-	Itoa(Id, str, 10);
-	return (const char *) str;
+	return nullptr;
 }
 const char *PacketLogger::IDTOString(unsigned char Id)
 {

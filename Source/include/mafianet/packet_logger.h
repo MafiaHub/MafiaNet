@@ -97,9 +97,10 @@ public:
 
 protected:
 	virtual bool UsesReliabilityLayer(void) const { return true; }
+	// Returns nullptr when neither the built-in table nor the application supplies a name.
 	const char *IDTOString(unsigned char Id);
 	virtual void AddToLog(const char *str);
-	// Users should override this
+	// Override to name application IDs. Return nullptr to log the decimal ID.
 	virtual const char *UserIDTOString(unsigned char Id);
 	void GetLocalTime(char buffer[128]);
 	bool logDirectMessages;
@@ -107,6 +108,9 @@ protected:
 	bool printId, printAcks;
 	char prefix[256];
 	char suffix[256];
+
+private:
+	const char *PacketIdText(unsigned char id, unsigned int splitPacketCount, char (&numericID)[16]);
 };
 
 } // namespace MafiaNet
