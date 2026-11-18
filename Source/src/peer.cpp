@@ -55,7 +55,6 @@
 #include "mafianet/string_table.h"
 #include "mafianet/network_id_object.h"
 #include "mafianet/types.h"
-#include "mafianet/dr_sha1.h"
 #include "mafianet/sleep.h"
 #include "mafianet/assert.h"
 #include "mafianet/version.h"

@@ -457,11 +457,9 @@ void FileList::GetDeltaToCurrent(FileList *input, FileList *output, const char *
 void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileList *missingOrChangedFiles, bool alwaysWriteHash, bool neverWriteHash)
 {
 	unsigned fileLength;
-	//	CSHA1 sha1;
 	FILE *fp;
 	char fullPath[512];
 	unsigned i;
-	//	char *fileData;
 
 	for (i = 0; i < fileList.size(); i++)
 	{
@@ -484,25 +482,13 @@ void FileList::ListMissingOrChangedFiles(const char *applicationDirectory, FileL
 			}
 			else
 			{
-
-				//				fileData= (char*) std::malloc(fileLength);
-				//				fread(fileData, fileLength, 1, fp);
-
-				//				sha1.Reset();
-				//				sha1.Update( ( unsigned char* ) fileData, fileLength );
-				//				sha1.Final();
-
-				//				std::free(fileData);
-
 				unsigned int hash = SuperFastHashFilePtr(fp);
 				if (MafiaNet::BitStream::DoEndianSwap())
 					MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
 
-				//if (fileLength != fileList[i].fileLength || memcmp( sha1.GetHash(), fileList[i].data, HASH_LENGTH)!=0)
 				if (fileLength != fileList[i].fileLengthBytes || memcmp(&hash, fileList[i].data, HASH_LENGTH) != 0)
 				{
 					if (neverWriteHash == false)
-						//	missingOrChangedFiles->AddFile((const char*)fileList[i].filename.c_str(), (const char*)sha1.GetHash(), HASH_LENGTH, fileLength, 0);
 						missingOrChangedFiles->AddFile(fileList[i].filename.c_str(), fileList[i].fullPathToFile.c_str(), (const char *) &hash, HASH_LENGTH, fileLength, FileListNodeContext(0, 0, 0, 0), false);
 					else
 						missingOrChangedFiles->AddFile(fileList[i].filename.c_str(), fileList[i].fullPathToFile.c_str(), 0, 0, fileLength, FileListNodeContext(0, 0, 0, 0), false);
@@ -517,7 +503,6 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 	FILE *fp;
 	char fullPath[512];
 	unsigned i;
-	//	CSHA1 sha1;
 
 	i = 0;
 	while (i < fileList.size())
@@ -542,13 +527,9 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 						fileList[i].data = (char *) std::malloc(fileList[i].fileLengthBytes + HASH_LENGTH);
 						RakAssert(fileList[i].data);
 						readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data + HASH_LENGTH, fileList[i].fileLengthBytes, 1, fp) == 1;
-						//						sha1.Reset();
-						//						sha1.Update((unsigned char*)fileList[i].data+HASH_LENGTH, fileList[i].fileLength);
-						//						sha1.Final();
 						unsigned int hash = SuperFastHash(fileList[i].data + HASH_LENGTH, fileList[i].fileLengthBytes);
 						if (MafiaNet::BitStream::DoEndianSwap())
 							MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
-						//						memcpy(fileList[i].data, sha1.GetHash(), HASH_LENGTH);
 						memcpy(fileList[i].data, &hash, HASH_LENGTH);
 					}
 					else
@@ -561,13 +542,9 @@ void FileList::PopulateDataFromDisk(const char *applicationDirectory, bool write
 							fileList[i].data = (char *) std::malloc(fileList[i].fileLengthBytes);
 						RakAssert(fileList[i].data);
 						readOk = fileList[i].fileLengthBytes == 0 || fread(fileList[i].data, fileList[i].fileLengthBytes, 1, fp) == 1;
-						//		sha1.Reset();
-						//		sha1.Update((unsigned char*)fileList[i].data, fileList[i].fileLength);
-						//		sha1.Final();
 						unsigned int hash = SuperFastHash(fileList[i].data, fileList[i].fileLengthBytes);
 						if (MafiaNet::BitStream::DoEndianSwap())
 							MafiaNet::BitStream::ReverseBytesInPlace((unsigned char *) &hash, sizeof(hash));
-						// memcpy(fileList[i].data, sha1.GetHash(), HASH_LENGTH);
 						memcpy(fileList[i].data, &hash, HASH_LENGTH);
 					}
 				}

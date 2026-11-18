@@ -28,7 +28,6 @@
 #include "mafianet/bit_stream.h"
 #include "mafianet/internal_packet.h"
 #include "mafianet/statistics.h"
-#include "mafianet/dr_sha1.h"
 #include "mafianet/range_list.h"
 #include "mafianet/object_pool.h"
 #include "mafianet/defines.h"
@@ -396,12 +395,6 @@ private:
 	/// Parse an internalPacket and figure out how many header bits would be written.  Returns that number
 	BitSize_t GetMaxMessageHeaderLengthBits(void);
 	BitSize_t GetMessageHeaderLengthBits(const InternalPacket *const internalPacket);
-
-	/// Get the SHA1 code
-	void GetSHA1(unsigned char *const buffer, unsigned int nbytes, char code[SHA1_LENGTH]);
-
-	/// Check the SHA1 code
-	bool CheckSHA1(char code[SHA1_LENGTH], unsigned char *const buffer, unsigned int nbytes);
 
 	/// Returns true if newPacketOrderingIndex is older than the waitingForPacketOrderingIndex
 	bool IsOlderOrderedPacket(OrderingIndexType newPacketOrderingIndex, OrderingIndexType waitingForPacketOrderingIndex);

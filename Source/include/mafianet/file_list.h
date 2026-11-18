@@ -187,7 +187,7 @@ public:
 	/// alwaysWriteHash and neverWriteHash are optimizations to avoid reading the file contents to generate the hash if not necessary because the file is missing or has different lengths anyway.
 	/// \param[in] applicationDirectory The first part of the path. This is not stored as part of the filename. Use \ as the path delineator.
 	/// \param[out] missingOrChangedFiles Output list written to
-	/// \param[in] alwaysWriteHash If true, and neverWriteHash is false, will hash the file content of the file on disk, and write that as the file data with a length of SHA1_LENGTH bytes. If false, if the file length is different, will only write the filename.
+	/// \param[in] alwaysWriteHash If true, and neverWriteHash is false, write the four-byte SuperFastHash of the file on disk as its file data. If false, if the file length is different, will only write the filename.
 	/// \param[in] neverWriteHash If true, will never write the hash, even if available. If false, will write the hash if the file lengths are the same and it was forced to do a comparison.
 	void ListMissingOrChangedFiles(const char *applicationDirectory, FileList *missingOrChangedFiles, bool alwaysWriteHash, bool neverWriteHash);
 
@@ -202,8 +202,8 @@ public:
 
 	/// \brief Assuming FileList contains a list of filenames presumably without data, read the data for these filenames
 	/// \param[in] applicationDirectory Prepend this path to each filename. Trailing slash will be added if necessary. Use \ as the path delineator.
-	/// \param[in] writeFileData True to read and store the file data. The first SHA1_LENGTH bytes will contain the hash if \a writeFileHash is true
-	/// \param[in] writeFileHash True to read and store the hash of the file data. The first SHA1_LENGTH bytes will contain the hash if \a writeFileHash is true
+	/// \param[in] writeFileData True to include the file contents after any requested hash.
+	/// \param[in] writeFileHash True to store the four-byte SuperFastHash at the start of the file data.
 	/// \param[in] removeUnknownFiles If a file does not exist on disk but is in the file list, remove it from the file list?
 	void PopulateDataFromDisk(const char *applicationDirectory, bool writeFileData, bool writeFileHash, bool removeUnknownFiles);
 
