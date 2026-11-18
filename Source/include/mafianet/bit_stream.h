@@ -25,7 +25,6 @@
 #include "mafianet/export.h"
 #include "mafianet/types.h"
 #include "mafianet/string_compressor.h"
-#include "mafianet/wstring.h"
 #include "mafianet/assert.h"
 #include <cmath>
 #include <cstring>
@@ -283,14 +282,6 @@ public:
 	template <class templateType>
 	bool Read(templateType &outTemplateVar);
 
-	/// \brief Read a wchar from a bitstream.
-	/// \details Define __BITSTREAM_NATIVE_END if you need endian swapping.
-	/// \param[in] varString The value to read
-	/// \param[in] varStringLength The length of the given varString array (in wchar_t)
-	/// \return true on success, false on failure.
-	bool Read(wchar_t *&varString);
-	bool Read(wchar_t *&varString, size_t varStringLength);
-
 	/// \brief Read any integral type from a bitstream.
 	/// \details If the written value differed from the value compared against in the write function,
 	/// var will be updated.  Otherwise it will retain the current value.
@@ -309,16 +300,6 @@ public:
 	/// \return true on success, false on failure.
 	template <class templateType>
 	bool ReadCompressed(templateType &outTemplateVar);
-
-	/// \brief Read a wchar from a bitstream.
-	/// \details Define __BITSTREAM_NATIVE_END if you need endian swapping.
-	/// This is lossless, but only has benefit if you use less than half the bits of the type
-	/// If you are not using __BITSTREAM_NATIVE_END the opposite is true
-	/// \param[in] varString The value to read
-	/// \param[in] varStringLength The length of the given varString array (in wchar_t)
-	/// \return true on success, false on failure.
-	bool ReadCompressed(wchar_t *&varString);
-	bool ReadCompressed(wchar_t *&varString, size_t varStringLength);
 
 	/// \brief Read any integral type from a bitstream.
 	/// \details If the written value differed from the value compared against in the write function,
@@ -709,10 +690,6 @@ public:
 	{
 		WriteString(inStringVar);
 	}
-	inline void Write(const wchar_t *const inStringVar)
-	{
-		RakWString::Serialize(inStringVar, this);
-	}
 	inline void Write(const unsigned char *const inTemplateVar)
 	{
 		Write((const char *) inTemplateVar);
@@ -728,10 +705,6 @@ public:
 	inline void WriteCompressed(const char *const inStringVar)
 	{
 		StringCompressor::Instance()->EncodeString(inStringVar, 0, this);
-	}
-	inline void WriteCompressed(const wchar_t *const inStringVar)
-	{
-		RakWString::Serialize(inStringVar, this);
 	}
 	inline void WriteCompressed(const unsigned char *const inTemplateVar)
 	{
@@ -770,6 +743,10 @@ public:
 	static void ReverseBytesInPlace(unsigned char *inOutData, const unsigned int length);
 
 private:
+	template <class T>
+	static constexpr bool IsWideText = std::is_convertible_v<const T &, std::wstring_view> ||
+	                                   (std::is_pointer_v<std::decay_t<T>> && std::is_convertible_v<std::decay_t<T>, const volatile wchar_t *>);
+
 	BitStream(const BitStream &invalid)
 	{
 		(void) invalid;
@@ -957,6 +934,7 @@ inline bool BitStream::SerializeBits(bool writeToBitstream, unsigned char *inOut
 template <class templateType>
 inline void BitStream::Write(const templateType &inTemplateVar)
 {
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 	static_assert(std::is_trivially_copyable<templateType>::value,
 	              "BitStream::Write cannot serialize this type: the generic template "
 	              "copies the raw object representation, which is only valid for "
@@ -1087,19 +1065,9 @@ inline void BitStream::Write(const RakNetGUID &inTemplateVar)
 /// \brief Write a string to a bitstream.
 /// \param[in] var The value to write
 template <>
-inline void BitStream::Write(const RakWString &inTemplateVar)
-{
-	inTemplateVar.Serialize(this);
-}
-template <>
 inline void BitStream::Write(const char *const &inStringVar)
 {
 	WriteString(inStringVar);
-}
-template <>
-inline void BitStream::Write(const wchar_t *const &inStringVar)
-{
-	RakWString::Serialize(inStringVar, this);
 }
 template <>
 inline void BitStream::Write(const unsigned char *const &inTemplateVar)
@@ -1175,6 +1143,7 @@ inline void BitStream::WriteDelta(const templateType &currentValue)
 template <class templateType>
 inline void BitStream::WriteCompressed(const templateType &inTemplateVar)
 {
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 #ifdef _MSC_VER
 #pragma warning(disable : 4127) // conditional expression is constant
 #endif
@@ -1257,19 +1226,9 @@ inline void BitStream::WriteCompressed(const std::string &inTemplateVar)
 	StringCompressor::Instance()->EncodeString(inTemplateVar, 0, this);
 }
 template <>
-inline void BitStream::WriteCompressed(const RakWString &inTemplateVar)
-{
-	inTemplateVar.Serialize(this);
-}
-template <>
 inline void BitStream::WriteCompressed(const char *const &inStringVar)
 {
 	StringCompressor::Instance()->EncodeString(inStringVar, 0, this);
-}
-template <>
-inline void BitStream::WriteCompressed(const wchar_t *const &inStringVar)
-{
-	RakWString::Serialize(inStringVar, this);
 }
 template <>
 inline void BitStream::WriteCompressed(const unsigned char *const &inTemplateVar)
@@ -1343,6 +1302,7 @@ inline void BitStream::WriteCompressedDelta(const bool &currentValue)
 template <class templateType>
 inline bool BitStream::Read(templateType &outTemplateVar)
 {
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 	static_assert(std::is_trivially_copyable<templateType>::value,
 	              "BitStream::Read cannot deserialize this type: the generic template "
 	              "overwrites the raw object representation, which is only valid for "
@@ -1472,20 +1432,7 @@ inline bool BitStream::Read(RakNetGUID &outTemplateVar)
 
 
 template <>
-inline bool BitStream::Read(RakWString &outTemplateVar)
-{
-	return outTemplateVar.Deserialize(this);
-}
-template <>
 inline bool BitStream::Read(char *&varString) = delete;
-inline bool BitStream::Read(wchar_t *&varString)
-{
-	return RakWString::Deserialize(varString, this);
-}
-inline bool BitStream::Read(wchar_t *&varString, size_t varStringLength)
-{
-	return RakWString::Deserialize(varString, varStringLength, this);
-}
 template <>
 inline bool BitStream::Read(unsigned char *&varString) = delete;
 template <>
@@ -1530,6 +1477,7 @@ inline bool BitStream::ReadDelta(bool &outTemplateVar)
 template <class templateType>
 inline bool BitStream::ReadCompressed(templateType &outTemplateVar)
 {
+	static_assert(!IsWideText<templateType>, "Encode wide text as a UTF-8 std::string for BitStream.");
 #ifdef _MSC_VER
 #pragma warning(disable : 4127) // conditional expression is constant
 #endif
@@ -1613,20 +1561,7 @@ inline bool BitStream::ReadCompressed(std::string &outTemplateVar)
 	return StringCompressor::Instance()->DecodeString(&outTemplateVar, 0, this);
 }
 template <>
-inline bool BitStream::ReadCompressed(RakWString &outTemplateVar)
-{
-	return outTemplateVar.Deserialize(this);
-}
-template <>
 inline bool BitStream::ReadCompressed(char *&outTemplateVar) = delete;
-inline bool BitStream::ReadCompressed(wchar_t *&outTemplateVar)
-{
-	return RakWString::Deserialize(outTemplateVar, this);
-}
-inline bool BitStream::ReadCompressed(wchar_t *&outTemplateVar, size_t varStringLength)
-{
-	return RakWString::Deserialize(outTemplateVar, varStringLength, this);
-}
 template <>
 inline bool BitStream::ReadCompressed(unsigned char *&outTemplateVar) = delete;
 

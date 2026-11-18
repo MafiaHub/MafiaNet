@@ -16,10 +16,6 @@
 #include "mafianet/native_feature_includes.h"
 #if _RAKNET_SUPPORT_PacketLogger == 1
 
-#if defined(UNICODE)
-#include "mafianet/wstring.h"
-#endif
-
 #include "mafianet/packet_output_window_logger.h"
 #include <string>
 #if defined(_WIN32)
@@ -37,16 +33,18 @@ PacketOutputWindowLogger::~PacketOutputWindowLogger()
 void PacketOutputWindowLogger::WriteLog([[maybe_unused]] const char *str) // only Windows has an output window
 {
 #if defined(_WIN32)
+	const std::string line = std::string(str ? str : "") + '\n';
+	const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.c_str(), -1, nullptr, 0);
+	if (length == 0)
+	{
+		if (GetLastError() == ERROR_NO_UNICODE_TRANSLATION)
+			OutputDebugStringA(line.c_str());
+		return;
+	}
 
-#if defined(UNICODE)
-	MafiaNet::RakWString str2 = str;
-	str2 += "\n";
-	OutputDebugString(str2.C_String());
-#else
-	std::string str2 = str;
-	str2 += "\n";
-	OutputDebugString(str2.c_str());
-#endif
+	std::wstring wide(static_cast<size_t>(length), L'\0');
+	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.c_str(), -1, wide.data(), length))
+		OutputDebugStringW(wide.c_str());
 #endif
 }
 

@@ -33,6 +33,35 @@ TEST(BitStreamString, Writes32BitLengthAndAlignedBytes)
 	EXPECT_EQ(std::memcmp(bytes, "a\0b\x2a", sizeof(bytes)), 0);
 }
 
+TEST(BitStreamString, WritesUtf8ByteLengthAndPayload)
+{
+	const std::string text = u8"\u00E9\U0001F642";
+	BitStream stream;
+	stream.Write(text);
+
+	// U+00E9 takes two bytes and U+1F642 takes four.
+	uint32_t length;
+	ASSERT_TRUE(stream.Read(length));
+	ASSERT_EQ(length, 6u);
+	char payload[6];
+	ASSERT_TRUE(stream.Read(payload, sizeof(payload)));
+	EXPECT_EQ(std::memcmp(payload, "\xc3\xa9\xf0\x9f\x99\x82", sizeof(payload)), 0);
+}
+
+TEST(BitStreamString, ReadsUtf8TextFromWireBytes)
+{
+	unsigned char wire[] = {0x00, 0x00, 0x00, 0x06, 0xc3, 0xa9, 0xf0, 0x9f, 0x99, 0x82};
+#ifdef __BITSTREAM_NATIVE_END
+	const uint32_t nativeLength = 6;
+	std::memcpy(wire, &nativeLength, sizeof(nativeLength));
+#endif
+	BitStream stream(wire, sizeof(wire), false);
+	std::string decoded;
+	ASSERT_TRUE(stream.Read(decoded));
+	EXPECT_EQ(decoded, u8"\u00E9\U0001F642");
+	EXPECT_EQ(stream.GetNumberOfUnreadBits(), 0u);
+}
+
 TEST(BitStreamString, CStringAndOwnedTextShareAnEncoding)
 {
 	BitStream stream;

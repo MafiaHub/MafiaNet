@@ -31,6 +31,8 @@ namespace MafiaNet
 
 /// \ingroup PACKETLOGGER_GROUP
 /// \brief Packetlogger that outputs to the output window in the debugger. Windows only.
+/// Supply UTF-8 text to WriteLog and WriteMiscellaneous. Valid UTF-8 is converted to UTF-16 for OutputDebugStringW.
+/// For invalid UTF-8, the logger falls back to the Windows ANSI debug output API.
 class RAK_DLL_EXPORT PacketOutputWindowLogger : public PacketLogger
 {
 public:
