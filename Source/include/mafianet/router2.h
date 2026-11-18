@@ -32,6 +32,7 @@
 #include "mafianet/message_identifiers.h"
 #include "mafianet/simple_mutex.h"
 
+#include <memory>
 #include <vector>
 
 namespace MafiaNet
@@ -65,6 +66,8 @@ public:
 
 	Router2();
 	virtual ~Router2();
+	Router2(const Router2 &) = delete;
+	Router2 &operator=(const Router2 &) = delete;
 
 	/// Sets the socket family to use, either IPV4 or IPV6
 	/// \param[in] socketFamily For IPV4, use AF_INET (default). For IPV6, use AF_INET6. To autoselect, use AF_UNSPEC.
@@ -181,7 +184,7 @@ protected:
 	UDPForwarder *udpForwarder;
 	int maximumForwardingRequests;
 	SimpleMutex connectionRequestsMutex, miniPunchesInProgressMutex, forwardedConnectionListMutex;
-	std::vector<ConnnectRequest *> connectionRequests;
+	std::vector<std::unique_ptr<ConnnectRequest>> connectionRequests;
 	std::vector<MiniPunchRequest> miniPunchesInProgress;
 	// Forwarding we have initiated
 	std::vector<ForwardedConnection> forwardedConnectionList;

@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <utility>
 
 using namespace MafiaNet;
 
@@ -116,10 +117,6 @@ void Router2::ClearMinipunches(void)
 void Router2::ClearConnectionRequests(void)
 {
 	connectionRequestsMutex.Lock();
-	for (unsigned int i = 0; i < connectionRequests.size(); i++)
-	{
-		delete connectionRequests[i];
-	}
 	connectionRequests.clear();
 	connectionRequestsMutex.Unlock();
 }
@@ -150,7 +147,6 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 	connectionRequestsMutex.Unlock();
 
 	// StoreRequest(endpointGuid, Largest(ping*2), systemsSentTo). Set state REQUEST_STATE_QUERY_FORWARDING
-	Router2::ConnnectRequest *cr = new Router2::ConnnectRequest;
 	std::vector<SystemAddress> addresses;
 	std::vector<RakNetGUID> guids;
 	rakPeerInterface->GetSystemList(addresses, guids);
@@ -162,6 +158,7 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 
 		return false;
 	}
+	auto cr = std::make_unique<ConnnectRequest>();
 	cr->requestState = R2RS_REQUEST_STATE_QUERY_FORWARDING;
 	cr->pingTimeout = MafiaNet::GetTimeMS() + largestPing * 2 + 1000;
 	cr->endpointGuid = endpointGuid;
@@ -201,7 +198,7 @@ bool Router2::ConnectInternal(RakNetGUID endpointGuid, bool returnConnectionLost
 		}
 	}
 	connectionRequestsMutex.Lock();
-	connectionRequests.push_back(cr);
+	connectionRequests.push_back(std::move(cr));
 	connectionRequestsMutex.Unlock();
 
 	if (debugInterface)
@@ -408,7 +405,7 @@ void Router2::Update(void)
 	connectionRequestsMutex.Lock();
 	while (connectionRequestIndex < connectionRequests.size())
 	{
-		ConnnectRequest *connectionRequest = connectionRequests[connectionRequestIndex];
+		ConnnectRequest *connectionRequest = connectionRequests[connectionRequestIndex].get();
 
 		// pingTimeout is only used with R2RS_REQUEST_STATE_QUERY_FORWARDING
 		if (connectionRequest->requestState == R2RS_REQUEST_STATE_QUERY_FORWARDING &&
@@ -508,10 +505,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 			connectionRequestsMutex.Lock();
 			unsigned int pos = GetConnectionRequestIndex(forwardedConnectionList[forwardedConnectionIndex].endpointGuid);
 			if ((unsigned int) -1 != pos)
-			{
-				delete connectionRequests[pos];
-				SwapRemove(connectionRequests, pos);
-			}
+				RemoveConnectionRequest(pos);
 			connectionRequestsMutex.Unlock();
 
 			ConnectInternal(forwardedConnectionList[forwardedConnectionIndex].endpointGuid, true);
@@ -536,7 +530,7 @@ void Router2::OnClosedConnection(const SystemAddress &systemAddress, RakNetGUID 
 	connectionRequestsMutex.Lock();
 	while (connectionRequestIndex < connectionRequests.size())
 	{
-		ConnnectRequest *cr = connectionRequests[connectionRequestIndex];
+		ConnnectRequest *cr = connectionRequests[connectionRequestIndex].get();
 		cr->connectionRequestSystemsMutex.Lock();
 		unsigned int connectionRequestGuidIndex = cr->GetGuidIndex(rakNetGUID);
 		if (connectionRequestGuidIndex != (unsigned int) -1)
@@ -702,7 +696,6 @@ bool Router2::UpdateForwarding(ConnnectRequest *connectionRequest)
 // connectionRequestsMutex should already be locked
 void Router2::RemoveConnectionRequest(unsigned int connectionRequestIndex)
 {
-	delete connectionRequests[connectionRequestIndex];
 	SwapRemove(connectionRequests, connectionRequestIndex);
 }
 // Forwarding preference: lowest ping weighted by the forwarding entries already in use, then lowest guid.
@@ -906,7 +899,7 @@ void Router2::OnQueryForwardingReply(Packet *packet)
 	}
 	connectionRequests[connectionRequestIndex]->connectionRequestSystemsMutex.Unlock();
 
-	if (UpdateForwarding(connectionRequests[connectionRequestIndex]) == false)
+	if (UpdateForwarding(connectionRequests[connectionRequestIndex].get()) == false)
 	{
 		RemoveConnectionRequest(connectionRequestIndex);
 	}
@@ -1291,12 +1284,16 @@ bool Router2::OnForwardingSuccess(Packet *packet)
 	{
 		forwardedConnectionListMutex.Unlock();
 
-		// removeFrom connectionRequests;
 		ForwardedConnection fc;
 		connectionRequestsMutex.Lock();
 		unsigned int connectionRequestIndex = GetConnectionRequestIndex(endpointGuid);
+		if (connectionRequestIndex == (unsigned int) -1)
+		{
+			connectionRequestsMutex.Unlock();
+			return false;
+		}
 		fc.returnConnectionLostOnFailure = connectionRequests[connectionRequestIndex]->returnConnectionLostOnFailure;
-		SwapRemove(connectionRequests, connectionRequestIndex);
+		RemoveConnectionRequest(connectionRequestIndex);
 		connectionRequestsMutex.Unlock();
 		fc.endpointGuid = endpointGuid;
 		fc.intermediaryAddress = packet->systemAddress;
