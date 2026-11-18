@@ -9,6 +9,7 @@
 // what a sender does with the ping and load figures relays report.
 
 #include <gtest/gtest.h>
+#include <string>
 
 #include "SimulatedNetwork.h"
 
@@ -72,6 +73,26 @@ protected:
 	RakPeer *relays[2] = {nullptr, nullptr};
 };
 } // namespace
+
+TEST_F(Router2Sender, DebugCallbacksReceiveTheFullUnsignedEndpointGuid)
+{
+	struct Messages : Router2DebugInterface
+	{
+		std::string diagnostic;
+		std::string failure;
+		void ShowDiagnostic(const char *message) override { diagnostic = message; }
+		void ShowFailure(const char *message) override { failure = message; }
+	} messages;
+
+	const RakNetGUID endpoint(0xf123456789abcdefULL);
+	router.SetDebugInterface(&messages);
+	router.EstablishRouting(endpoint);
+	router.EstablishRouting(endpoint); // Already pending.
+	router.SetDebugInterface(nullptr);
+	const std::string guid = std::to_string(endpoint.g);
+	EXPECT_NE(messages.diagnostic.find("QUERY_FORWARDING to " + guid + " at "), std::string::npos);
+	EXPECT_NE(messages.failure.find("ConnectInternal(" + guid + ") failed"), std::string::npos);
+}
 
 TEST_F(Router2Sender, LoadWeightedPingDoesNotOverflowWithMaximalRelayFigures)
 {

@@ -4,9 +4,7 @@
  *
  * The POSIX vsnprintf_s shim (linux_adapter.cpp / osx_adapter.cpp) used to write the
  * terminator at buffer[sizeOfBuffer] whenever _TRUNCATE truncated the output: one byte past
- * the end. FormatString / FormatStringTS reach it with _TRUNCATE, so any formatted string
- * longer than their buffers corrupted the byte after them. A guard byte after each
- * destination pins the bound. Hermetic: no networking.
+ * the end. A guard byte after each destination pins the bound.
  */
 
 #include <gtest/gtest.h>
@@ -16,8 +14,13 @@
 #include "mafianet/osx_adapter.h"
 
 #include <cstdarg>
-#include <cstring>
 #include <string>
+
+TEST(FormatText, ReturnsTheWholeMessageBeyondTheFormerBufferLimit)
+{
+	const std::string text(600, 'x');
+	EXPECT_EQ("prefix " + text + " 42", MafiaNet::FormatText("prefix %s %d", text.c_str(), 42));
+}
 
 #ifndef _WIN32
 // The shims are only compiled on Linux and macOS; MSVC provides the real functions.
@@ -59,17 +62,6 @@ TEST(VsnprintfSShim, ExplicitCountTooSmallIsRejectedWithoutOverflow)
 	EXPECT_EQ(CallVsnprintfS(block, 8, 4, "%s", "abcdefgh"), -1);
 	EXPECT_STREQ(block, "");
 	EXPECT_EQ(block[8], 'G');
-}
-
-TEST(VsnprintfSShim, FormatStringTSTruncatesInsideItsBuffer)
-{
-	// FormatStringTS formats into a caller buffer it assumes is 512 bytes.
-	char block[512 + 1];
-	block[512] = 'G';
-	const std::string longText(600, 'x');
-	FormatStringTS(block, "%s", longText.c_str());
-	EXPECT_EQ(std::strlen(block), 511u);
-	EXPECT_EQ(block[512], 'G');
 }
 
 TEST(SprintfSShim, OutputThatDoesNotFitLeavesAnEmptyString)

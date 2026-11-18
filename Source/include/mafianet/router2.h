@@ -40,6 +40,7 @@ namespace MafiaNet
 /// Forward declarations
 class RakPeerInterface;
 
+/// Debug messages remain valid for the duration of the callback. Copy the text to keep it.
 struct Router2DebugInterface
 {
 	Router2DebugInterface() {}
