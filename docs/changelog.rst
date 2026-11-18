@@ -25,6 +25,7 @@ Unreleased — breaking
 
 **Strings and wire protocol 11**
 
+* Both ``PacketLogger::FormatLine`` overloads now require the destination capacity in bytes as the second argument. Update callers and subclass overrides, and rebuild applications using the logger because its virtual table changed.
 * Replace the pointer-returning ``SystemAddress::ToString`` and ``AddressOrGUID::ToString`` overloads with ``MafiaNet::to_string(value)`` from ``mafianet/guid_util.h``. The result owns its text. Pass ``false`` to omit the port, or use the sized buffer overload for allocation-free formatting.
 * Removed ``EpochTimeToString`` and ``mafianet/epoch_time_to_string.h``. To reproduce its output, convert the epoch timestamp to local time and format it with ``std::strftime`` using ``"%c."`` (the locale's date and time followed by a period).
 * Replace the removed ``FormatString`` and ``FormatStringTS`` helpers with ``MafiaNet::FormatText(format, ...)`` from ``mafianet/format_string.h``. Keep the returned ``std::string`` alive while using its ``c_str()`` pointer.

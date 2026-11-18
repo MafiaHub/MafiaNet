@@ -55,11 +55,7 @@ public:
 	// second version which takes a const char* argument for the messageIdentifier
 	virtual void FormatLine(char *into, size_t intoLength, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, unsigned char id, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
 	                        unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex);
-	virtual void FormatLine(char *into, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, unsigned char id, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
-	                        unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex);
 	virtual void FormatLine(char *into, size_t intoLength, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, const char *idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
-	                        unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex);
-	virtual void FormatLine(char *into, const char *dir, const char *type, unsigned int reliableMessageNumber, unsigned int frame, const char *idToPrint, const BitSize_t bitLen, unsigned long long time, const SystemAddress &local, const SystemAddress &remote,
 	                        unsigned int splitPacketId, unsigned int splitPacketIndex, unsigned int splitPacketCount, unsigned int orderingIndex);
 
 	/// Events on low level sends and receives.  These functions may be called from different threads at the same time.
