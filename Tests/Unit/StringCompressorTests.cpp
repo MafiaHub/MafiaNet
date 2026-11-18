@@ -11,7 +11,6 @@
 #include <gtest/gtest.h>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/string.h"
 #include "mafianet/string_compressor.h"
 
 #include <cstring>
@@ -31,17 +30,6 @@ struct CompressorRef
 };
 }
 
-TEST(StringCompressor, DecodeWithUnknownLanguageIdYieldsEmptyRakString)
-{
-	CompressorRef ref;
-	BitStream stream;
-	StringCompressor::Instance()->EncodeString("hello", 256, &stream);
-
-	RakString output("stale");
-	EXPECT_FALSE(StringCompressor::Instance()->DecodeString(&output, 256, &stream, kUnregisteredLanguage));
-	EXPECT_TRUE(output.IsEmpty());
-}
-
 TEST(StringCompressor, DecodeWithUnknownLanguageIdTerminatesCharBuffer)
 {
 	CompressorRef ref;
@@ -53,7 +41,6 @@ TEST(StringCompressor, DecodeWithUnknownLanguageIdTerminatesCharBuffer)
 	EXPECT_STREQ("", output);
 }
 
-#ifdef _STD_STRING_COMPRESSOR
 TEST(StringCompressor, DecodeWithUnknownLanguageIdYieldsEmptyStdString)
 {
 	CompressorRef ref;
@@ -64,7 +51,6 @@ TEST(StringCompressor, DecodeWithUnknownLanguageIdYieldsEmptyStdString)
 	EXPECT_FALSE(StringCompressor::Instance()->DecodeString(&output, 256, &stream, kUnregisteredLanguage));
 	EXPECT_TRUE(output.empty());
 }
-#endif
 
 static_assert(!std::is_copy_constructible_v<StringCompressor>, "StringCompressor owns its trees");
 static_assert(!std::is_copy_assignable_v<StringCompressor>, "StringCompressor owns its trees");

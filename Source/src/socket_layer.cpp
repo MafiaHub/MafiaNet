@@ -196,10 +196,10 @@ void SocketLayer::SetSocketOptions(__UDPSOCKET__ listenSocket, bool blockingSock
 	}
 }
 
-MafiaNet::RakString SocketLayer::GetSubNetForSocketAndIp([[maybe_unused]] __UDPSOCKET__ inSock, MafiaNet::RakString inIpString) // inSock: Windows only; POSIX opens its own query socket
+std::string SocketLayer::GetSubNetForSocketAndIp([[maybe_unused]] __UDPSOCKET__ inSock, const std::string &inIpString) // inSock: Windows only; POSIX opens its own query socket
 {
-	MafiaNet::RakString netMaskString;
-	MafiaNet::RakString ipString;
+	std::string netMaskString;
+	std::string ipString;
 
 #if defined(_WIN32)
 	INTERFACE_INFO InterfaceList[20];

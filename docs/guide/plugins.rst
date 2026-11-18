@@ -55,7 +55,7 @@ The ``ReplicaManager3`` plugin handles object replication:
    public:
        virtual void WriteAllocationID(MafiaNet::Connection_RM3* conn,
                                       MafiaNet::BitStream* bs) const override {
-           bs->Write(MafiaNet::RakString("MyReplica"));
+           bs->Write(std::string("MyReplica"));
        }
 
        virtual MafiaNet::RM3SerializationResult Serialize(

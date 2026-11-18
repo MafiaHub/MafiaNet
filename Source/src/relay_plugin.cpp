@@ -39,7 +39,7 @@ RelayPlugin::StrAndGuidAndRoom **RelayPlugin::FindParticipant(const RakNetGUID &
 	return participant == guidToStrHash.end() ? nullptr : &participant->second;
 }
 
-RelayPluginEnums RelayPlugin::AddParticipantOnServer(const RakString &key, const RakNetGUID &guid)
+RelayPluginEnums RelayPlugin::AddParticipantOnServer(const std::string &key, const RakNetGUID &guid)
 {
 	ConnectionState cs = rakPeerInterface->GetConnectionState(guid);
 	if (cs != IS_CONNECTED)
@@ -52,7 +52,7 @@ RelayPluginEnums RelayPlugin::AddParticipantOnServer(const RakString &key, const
 	const auto existing = guidToStrHash.find(guid);
 	if (existing != guidToStrHash.end())
 	{
-		const RakString existingName = existing->second->str;
+		const std::string existingName = existing->second->str;
 		guidToStrHash.erase(existing);
 		strToGuidHash.erase(existingName);
 	}
@@ -74,7 +74,7 @@ void RelayPlugin::RemoveParticipantOnServer(const RakNetGUID &guid)
 		StrAndGuidAndRoom *strAndGuid = participant->second;
 		guidToStrHash.erase(participant);
 		LeaveGroup(&strAndGuid);
-		const RakString name = strAndGuid->str;
+		const std::string name = strAndGuid->str;
 		strToGuidHash.erase(name); // frees strAndGuid
 	}
 }
@@ -83,7 +83,7 @@ void RelayPlugin::SetAcceptAddParticipantRequests(bool accept)
 {
 	acceptAddParticipantRequests = accept;
 }
-void RelayPlugin::AddParticipantRequestFromClient(const RakString &key, const RakNetGUID &relayPluginServerGuid)
+void RelayPlugin::AddParticipantRequestFromClient(const std::string &key, const RakNetGUID &relayPluginServerGuid)
 {
 	BitStream bsOut;
 	bsOut.WriteCasted<MessageID>(ID_RELAY_PLUGIN);
@@ -99,7 +99,7 @@ void RelayPlugin::RemoveParticipantRequestFromClient(const RakNetGUID &relayPlug
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, relayPluginServerGuid, false);
 }
 // Send a message to a server running RelayPlugin, to forward a message to the system identified by \a key
-void RelayPlugin::SendToParticipant(const RakNetGUID &relayPluginServerGuid, const RakString &key, BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel)
+void RelayPlugin::SendToParticipant(const RakNetGUID &relayPluginServerGuid, const std::string &key, BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel)
 {
 	BitStream bsOut;
 	bsOut.WriteCasted<MessageID>(ID_RELAY_PLUGIN);
@@ -155,7 +155,7 @@ PluginReceiveResult RelayPlugin::OnReceive(Packet *packet)
 			bsIn.Read(cIn);
 			reliability = (MafiaNet::Reliability) cIn;
 			bsIn.Read(orderingChannel);
-			RakString key;
+			std::string key;
 			bsIn.ReadCompressed(key);
 			BitStream bsData;
 			bsIn.Read(&bsData);
@@ -180,7 +180,7 @@ PluginReceiveResult RelayPlugin::OnReceive(Packet *packet)
 		{
 			BitStream bsIn(packet->data, packet->length, false);
 			bsIn.IgnoreBytes(sizeof(MessageID) * 2);
-			RakString key;
+			std::string key;
 			bsIn.ReadCompressed(key);
 			BitStream bsOut;
 			bsOut.WriteCasted<MessageID>(ID_RELAY_PLUGIN);
@@ -247,7 +247,7 @@ RelayPlugin::RP_Group *RelayPlugin::JoinGroup(RP_Group *room, StrAndGuidAndRoom 
 
 	return room;
 }
-void RelayPlugin::JoinGroupRequest(const RakNetGUID &relayPluginServerGuid, RakString groupName)
+void RelayPlugin::JoinGroupRequest(const RakNetGUID &relayPluginServerGuid, const std::string &groupName)
 {
 	BitStream bsOut;
 	bsOut.WriteCasted<MessageID>(ID_RELAY_PLUGIN);
@@ -255,21 +255,21 @@ void RelayPlugin::JoinGroupRequest(const RakNetGUID &relayPluginServerGuid, RakS
 	bsOut.WriteCompressed(groupName);
 	SendUnified(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, relayPluginServerGuid, false);
 }
-RelayPlugin::RP_Group *RelayPlugin::JoinGroup(RakNetGUID userGuid, RakString roomName)
+RelayPlugin::RP_Group *RelayPlugin::JoinGroup(RakNetGUID userGuid, const std::string &roomName)
 {
 	StrAndGuidAndRoom **strAndGuidSender = FindParticipant(userGuid);
 	if (strAndGuidSender)
 	{
-		if (roomName.IsEmpty())
+		if (roomName.empty())
 			return 0;
 
 		if ((*strAndGuidSender)->currentRoom == roomName)
 			return 0;
 
-		if ((*strAndGuidSender)->currentRoom.IsEmpty() == false)
+		if ((*strAndGuidSender)->currentRoom.empty() == false)
 			LeaveGroup(strAndGuidSender);
 
-		RakString userName = (*strAndGuidSender)->str;
+		std::string userName = (*strAndGuidSender)->str;
 
 		for (const std::unique_ptr<RP_Group> &room : chatRooms)
 		{
@@ -294,12 +294,12 @@ void RelayPlugin::LeaveGroup(StrAndGuidAndRoom **strAndGuidSender)
 	if (strAndGuidSender == 0)
 		return;
 
-	RakString userName = (*strAndGuidSender)->str;
+	std::string userName = (*strAndGuidSender)->str;
 	for (size_t i = 0; i < chatRooms.size(); i++)
 	{
 		if (chatRooms[i]->roomName == (*strAndGuidSender)->currentRoom)
 		{
-			(*strAndGuidSender)->currentRoom.Clear();
+			(*strAndGuidSender)->currentRoom.clear();
 
 			RP_Group *room = chatRooms[i].get();
 			for (size_t j = 0; j < room->usersInRoom.size(); j++)
@@ -322,7 +322,7 @@ void RelayPlugin::LeaveGroup(StrAndGuidAndRoom **strAndGuidSender)
 		}
 	}
 }
-void RelayPlugin::NotifyUsersInRoom(RP_Group *room, int msg, const RakString &message)
+void RelayPlugin::NotifyUsersInRoom(RP_Group *room, int msg, const std::string &message)
 {
 	for (size_t i = 0; i < room->usersInRoom.size(); i++)
 	{
@@ -336,7 +336,7 @@ void RelayPlugin::NotifyUsersInRoom(RP_Group *room, int msg, const RakString &me
 }
 void RelayPlugin::SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream *message, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel)
 {
-	if ((*strAndGuidSender)->currentRoom.IsEmpty())
+	if ((*strAndGuidSender)->currentRoom.empty())
 		return;
 
 	for (size_t i = 0; i < chatRooms.size(); i++)
@@ -405,7 +405,7 @@ void RelayPlugin::OnJoinGroupRequestFromClient(Packet *packet)
 {
 	BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID) * 2);
-	RakString groupName;
+	std::string groupName;
 	bsIn.ReadCompressed(groupName);
 	RelayPlugin::RP_Group *groupJoined = JoinGroup(packet->guid, groupName);
 

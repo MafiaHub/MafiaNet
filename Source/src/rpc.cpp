@@ -437,19 +437,19 @@ bool RPC::ProcessPacket(Packet *packet)
 
 		if (packet->data[1] == ID_RPC_CALL)
 		{
-			MafiaNet::RakString functionName;
+			std::string functionName;
 			bool isBlocking;
 			if (!bsIn.ReadCompressed(functionName) || !bsIn.Read(isBlocking))
 				return true;
 			if (isBlocking == false)
 			{
-				const auto function = registeredNonblockingFunctions.find(functionName.C_String());
+				const auto function = registeredNonblockingFunctions.find(functionName);
 				if (function == registeredNonblockingFunctions.end())
 				{
 					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
 					bsOut.Write((unsigned char) RPC_ERROR_FUNCTION_NOT_REGISTERED);
-					bsOut.Write(functionName.C_String(), (unsigned int) functionName.GetLength() + 1);
+					bsOut.Write(functionName.c_str(), (unsigned int) functionName.size() + 1);
 					Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 					return true;
 				}
@@ -460,13 +460,13 @@ bool RPC::ProcessPacket(Packet *packet)
 			}
 			else
 			{
-				const auto function = registeredBlockingFunctions.find(functionName.C_String());
+				const auto function = registeredBlockingFunctions.find(functionName);
 				if (function == registeredBlockingFunctions.end())
 				{
 					MafiaNet::BitStream bsOut;
 					bsOut.Write((unsigned char) ID_RPC_REMOTE_ERROR);
 					bsOut.Write((unsigned char) RPC_ERROR_FUNCTION_NOT_REGISTERED);
-					bsOut.Write(functionName.C_String(), (unsigned int) functionName.GetLength() + 1);
+					bsOut.Write(functionName.c_str(), (unsigned int) functionName.size() + 1);
 					Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->systemAddress, false);
 					return true;
 				}
@@ -487,10 +487,10 @@ bool RPC::ProcessPacket(Packet *packet)
 		}
 		else if (packet->data[1] == ID_RPC_SIGNAL)
 		{
-			MafiaNet::RakString sharedIdentifier;
+			std::string sharedIdentifier;
 			if (!bsIn.ReadCompressed(sharedIdentifier))
 				return true;
-			const auto slot = localSlots.find(sharedIdentifier.C_String());
+			const auto slot = localSlots.find(sharedIdentifier);
 			MafiaNet::BitStream serializedParameters;
 			bsIn.AlignReadToByteBoundary();
 			bsIn.Read(&serializedParameters);

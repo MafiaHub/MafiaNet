@@ -38,7 +38,7 @@ TEST(RPCGlobalRegistration, PeerCreatedBeforeRegistrationAppliesItOnce)
 
 // A name that exactly fills functionName minus the terminator must be stored
 // verbatim. Before the fix, a max-length name left the buffer without a NUL,
-// so the later strlen in RakString::Assign read past the array.
+// so a later strlen read past the array.
 TEST(RPCGlobalRegistration, MaxLengthNameIsStoredNulTerminated)
 {
 	const std::string name(RPC_GLOBAL_REGISTRATION_MAX_FUNCTION_NAME_LENGTH - 1, 'a');

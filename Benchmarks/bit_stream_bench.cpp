@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "mafianet/bit_stream.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/string_compressor.h"
 
 using namespace MafiaNet;
@@ -81,22 +81,22 @@ static void BitStream_ReadEntityState(benchmark::State &state)
 }
 BENCHMARK(BitStream_ReadEntityState);
 
-static void BitStream_RakStringCompressedRoundTrip(benchmark::State &state)
+static void BitStream_StringCompressedRoundTrip(benchmark::State &state)
 {
 	StringCompressor::AddReference();
-	const RakString text("player joined the server and said hello to everyone in the lobby");
+	const std::string text("player joined the server and said hello to everyone in the lobby");
 	BitStream bs(256);
 	for (auto _ : state)
 	{
 		bs.Reset();
-		text.SerializeCompressed(&bs);
-		RakString out;
-		out.DeserializeCompressed(&bs);
-		benchmark::DoNotOptimize(out.C_String());
+		bs.WriteCompressed(text);
+		std::string out;
+		bs.ReadCompressed(out);
+		benchmark::DoNotOptimize(out.c_str());
 	}
 	StringCompressor::RemoveReference();
 }
-BENCHMARK(BitStream_RakStringCompressedRoundTrip);
+BENCHMARK(BitStream_StringCompressedRoundTrip);
 
 static void BitStream_WriteAlignedBytes(benchmark::State &state)
 {

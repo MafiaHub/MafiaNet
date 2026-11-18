@@ -390,8 +390,8 @@ void UDPForwarder::UpdateUDPForwarder(void)
 				fe->timeoutOnNoDataMS = sfis->timeoutOnNoDataMS;
 
 				const char *host = nullptr;
-				if (!sfis->forceHostAddress.IsEmpty() && sfis->forceHostAddress != "UNASSIGNED_SYSTEM_ADDRESS")
-					host = sfis->forceHostAddress.C_String();
+				if (!sfis->forceHostAddress.empty() && sfis->forceHostAddress != "UNASSIGNED_SYSTEM_ADDRESS")
+					host = sfis->forceHostAddress.c_str();
 
 				if (sfis->socketFamily == AF_UNSPEC)
 				{

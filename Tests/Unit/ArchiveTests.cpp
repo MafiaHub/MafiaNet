@@ -7,7 +7,6 @@
 
 #include <gtest/gtest.h>
 
-#include "mafianet/string.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/archive.h"
 

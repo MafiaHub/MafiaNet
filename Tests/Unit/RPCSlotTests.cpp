@@ -279,8 +279,7 @@ TEST_F(RPCNetwork, LocalSignalInvokesOwnSlots)
 	EXPECT_EQ(expected, log.calls);
 }
 
-// A name received from the network is looked up verbatim. It used to be fed to
-// RakString's printf-style constructor, so a '%' in it read stray varargs.
+// Names are registered and looked up verbatim, including percent signs.
 TEST_F(RPCNetwork, FunctionNameWithPercentIsMatchedVerbatim)
 {
 	int calls = 0;

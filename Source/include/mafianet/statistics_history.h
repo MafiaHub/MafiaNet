@@ -27,7 +27,7 @@
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
 #include "mafianet/types.h"
-#include "mafianet/string.h"
+#include <string>
 #include <float.h>
 
 #include <deque>
@@ -124,14 +124,14 @@ public:
 	unsigned int GetObjectCount(void) const;
 	StatisticsHistory::TrackedObjectData *GetObjectAtIndex(unsigned int index) const;
 	unsigned int GetObjectIndex(uint64_t objectId) const;
-	bool AddValueByObjectID(uint64_t objectId, RakString key, SHValueType val, Time curTime, bool combineEqualTimes);
-	void AddValueByIndex(unsigned int index, RakString key, SHValueType val, Time curTime, bool combineEqualTimes);
-	SHErrorCode GetHistoryForKey(uint64_t objectId, RakString key, TimeAndValueQueue **values, Time curTime) const;
+	bool AddValueByObjectID(uint64_t objectId, const std::string &key, SHValueType val, Time curTime, bool combineEqualTimes);
+	void AddValueByIndex(unsigned int index, const std::string &key, SHValueType val, Time curTime, bool combineEqualTimes);
+	SHErrorCode GetHistoryForKey(uint64_t objectId, const std::string &key, TimeAndValueQueue **values, Time curTime) const;
 	/// Appends every queue of the object to \a values, sorted by \a sortType (ties by key). The pointers stay owned by this StatisticsHistory.
 	bool GetHistorySorted(uint64_t objectId, SHSortOperation sortType, std::vector<TimeAndValueQueue *> &values) const;
-	void MergeAllObjectsOnKey(RakString key, TimeAndValueQueue *tavqOutput, SHDataCategory dataCategory) const;
+	void MergeAllObjectsOnKey(const std::string &key, TimeAndValueQueue *tavqOutput, SHDataCategory dataCategory) const;
 	/// Replaces \a keys with every key used by any object, each once, in unspecified order.
-	void GetUniqueKeyList(std::vector<RakString> &keys);
+	void GetUniqueKeyList(std::vector<std::string> &keys);
 
 	struct TimeAndValue
 	{
@@ -148,7 +148,7 @@ public:
 		std::deque<TimeAndValue> values;
 
 		Time timeToTrackValues;
-		RakString key;
+		std::string key;
 
 		SHValueType recentSum;
 		SHValueType recentSumOfSquares;
@@ -204,7 +204,7 @@ protected:
 		TrackedObject();
 		~TrackedObject();
 		TrackedObjectData trackedObjectData;
-		std::unordered_map<MafiaNet::RakString, std::unique_ptr<TimeAndValueQueue>> dataQueues;
+		std::unordered_map<std::string, std::unique_ptr<TimeAndValueQueue>> dataQueues;
 	};
 
 	/// \return The object's position in objects, or objects.end()

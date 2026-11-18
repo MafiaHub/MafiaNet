@@ -28,7 +28,6 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/string.h"
 
 #include <deque>
 #include <vector>

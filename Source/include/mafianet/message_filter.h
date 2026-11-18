@@ -25,7 +25,7 @@
 
 #include "mafianet/types.h"
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/export.h"
 
 #include <memory>
@@ -59,7 +59,7 @@ struct FilterSet
 	void *timeoutUserData;
 	int filterSetID;
 	bool allowedIDs[MESSAGE_FILTER_MAX_MESSAGE_ID];
-	std::set<MafiaNet::RakString> allowedRPC;
+	std::set<std::string> allowedRPC;
 };
 
 /// \internal Has to be public so some of the shittier compilers can use it.

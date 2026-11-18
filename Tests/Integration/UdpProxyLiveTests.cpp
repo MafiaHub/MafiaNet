@@ -30,10 +30,10 @@ namespace
 // Callbacks run inside Receive(), on this (the test) thread.
 struct ServerResults : UDPProxyServerResultHandler
 {
-	void OnLoginSuccess(RakString, UDPProxyServer *) override { events.push_back("success"); }
-	void OnAlreadyLoggedIn(RakString, UDPProxyServer *) override { events.push_back("already"); }
-	void OnNoPasswordSet(RakString, UDPProxyServer *) override { events.push_back("nopassword"); }
-	void OnWrongPassword(RakString, UDPProxyServer *) override { events.push_back("wrong"); }
+	void OnLoginSuccess(const std::string &, UDPProxyServer *) override { events.push_back("success"); }
+	void OnAlreadyLoggedIn(const std::string &, UDPProxyServer *) override { events.push_back("already"); }
+	void OnNoPasswordSet(const std::string &, UDPProxyServer *) override { events.push_back("nopassword"); }
+	void OnWrongPassword(const std::string &, UDPProxyServer *) override { events.push_back("wrong"); }
 	std::vector<std::string> events;
 };
 

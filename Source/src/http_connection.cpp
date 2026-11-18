@@ -18,16 +18,19 @@
 ///
 
 #include "mafianet/native_feature_includes.h"
+#include "mafianet/format_string.h"
 #if _RAKNET_SUPPORT_HTTPConnection == 1 && _RAKNET_SUPPORT_TCPInterface == 1
 
 #include "mafianet/tcp_interface.h"
 #include "mafianet/http_connection.h"
 #include "mafianet/sleep.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/assert.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <charconv>
+#include <string_view>
 #include <stdlib.h>
 
 using namespace MafiaNet;
@@ -43,16 +46,16 @@ HTTPConnection::HTTPConnection()
 void HTTPConnection::Init(TCPInterface *_tcp, const char *_host, unsigned short _port)
 {
 	tcp = _tcp;
-	host = _host;
+	host = _host ? _host : "";
 	port = _port;
 }
 
 void HTTPConnection::Post(const char *remote_path, const char *data, const char *_contentType)
 {
 	OutgoingCommand op;
-	op.contentType = _contentType;
-	op.data = data;
-	op.remotePath = remote_path;
+	op.contentType = _contentType ? _contentType : "";
+	op.data = data ? data : "";
+	op.remotePath = remote_path ? remote_path : "";
 	op.isPost = true;
 	outgoingCommand.push_back(op);
 	//printf("Adding outgoing post\n");
@@ -61,12 +64,12 @@ void HTTPConnection::Post(const char *remote_path, const char *data, const char 
 void HTTPConnection::Get(const char *path)
 {
 	OutgoingCommand op;
-	op.remotePath = path;
+	op.remotePath = path ? path : "";
 	op.isPost = false;
 	outgoingCommand.push_back(op);
 }
 
-bool HTTPConnection::HasBadResponse(int *code, MafiaNet::RakString *data)
+bool HTTPConnection::HasBadResponse(int *code, std::string *data)
 {
 	if (badResponses.empty())
 		return false;
@@ -120,7 +123,7 @@ void HTTPConnection::Update(void)
 			return;
 
 		//printf("Connecting\n");
-		server = tcp->Connect(host, port, false);
+		server = tcp->Connect(host.c_str(), port, false);
 		connectionState = CS_CONNECTING;
 	}
 	break;
@@ -128,11 +131,11 @@ void HTTPConnection::Update(void)
 	{
 		if (tcp->ReceiveHasPackets() == false)
 		{
-			if (incomingData.IsEmpty() == false)
+			if (incomingData.empty() == false)
 			{
 				results.push_back(incomingData);
 			}
-			incomingData.Clear();
+			incomingData.clear();
 			tcp->CloseConnection(server);
 			connectionState = CS_NONE;
 		}
@@ -155,37 +158,37 @@ void HTTPConnection::Update(void)
 		//printf("Sending request\n");
 		currentProcessingCommand = outgoingCommand.front();
 		outgoingCommand.pop_front();
-		RakString request;
+		std::string request;
 		if (currentProcessingCommand.isPost)
 		{
-			request.Set("POST %s HTTP/1.0\r\n"
-			            "Host: %s:%i\r\n"
-			            "Content-Type: %s\r\n"
-			            "Content-Length: %u\r\n"
-			            "\r\n"
-			            "%s",
-			            currentProcessingCommand.remotePath.C_String(),
-			            host.C_String(),
-			            port,
-			            currentProcessingCommand.contentType.C_String(),
-			            (unsigned) currentProcessingCommand.data.GetLength(),
-			            currentProcessingCommand.data.C_String());
+			request = MafiaNet::FormatText("POST %s HTTP/1.0\r\n"
+			                               "Host: %s:%i\r\n"
+			                               "Content-Type: %s\r\n"
+			                               "Content-Length: %u\r\n"
+			                               "\r\n"
+			                               "%s",
+			                               currentProcessingCommand.remotePath.c_str(),
+			                               host.c_str(),
+			                               port,
+			                               currentProcessingCommand.contentType.c_str(),
+			                               (unsigned) currentProcessingCommand.data.size(),
+			                               currentProcessingCommand.data.c_str());
 		}
 		else
 		{
-			// request.Set("GET %s\r\n", host.C_String());
+			// request = MafiaNet::FormatText("GET %s\r\n", host.c_str());
 			// http://www.jenkinssoftware.com/forum/index.php?topic=4601.0;topicseen
-			request.Set("GET %s HTTP/1.0\r\n"
-			            "Host: %s:%i\r\n"
-			            "\r\n",
-			            currentProcessingCommand.remotePath.C_String(),
-			            host.C_String(),
-			            port);
+			request = MafiaNet::FormatText("GET %s HTTP/1.0\r\n"
+			                               "Host: %s:%i\r\n"
+			                               "\r\n",
+			                               currentProcessingCommand.remotePath.c_str(),
+			                               host.c_str(),
+			                               port);
 		}
 
-		//	printf(request.C_String());
+		//	printf(request.c_str());
 		//		request.URLEncode();
-		tcp->Send(request.C_String(), (unsigned int) request.GetLength(), server, false);
+		tcp->Send(request.c_str(), (unsigned int) request.size(), server, false);
 		connectionState = CS_PROCESSING;
 	}
 	break;
@@ -201,20 +204,17 @@ bool HTTPConnection::HasRead(void) const
 {
 	return !results.empty();
 }
-RakString HTTPConnection::Read(void)
+std::string HTTPConnection::Read(void)
 {
 	if (results.empty())
-		return RakString();
+		return {};
 
-	MafiaNet::RakString resultStr = results.front();
+	std::string resultStr = std::move(results.front());
 	results.pop_front();
-	// const char *start_of_body = strstr(resultStr.C_String(), "\r\n\r\n");
-	const char *start_of_body = strpbrk(resultStr.C_String(), "\001\002\003%");
-
-	if (start_of_body)
-		return MafiaNet::RakString::NonVariadic(start_of_body);
-	else
-		return resultStr;
+	const auto body = resultStr.find_first_of("\001\002\003%");
+	if (body != std::string::npos)
+		resultStr.erase(0, body);
+	return resultStr;
 }
 SystemAddress HTTPConnection::GetServerAddress(void) const
 {
@@ -227,7 +227,7 @@ void HTTPConnection::ProcessTCPPacket(Packet *packet)
 	// read all the packets possible
 	if (packet->systemAddress == server)
 	{
-		if (incomingData.GetLength() == 0)
+		if (incomingData.size() == 0)
 		{
 			int response_code = atoi((char *) packet->data + strlen("HTTP/1.0 "));
 
@@ -240,16 +240,30 @@ void HTTPConnection::ProcessTCPPacket(Packet *packet)
 			}
 		}
 
-		MafiaNet::RakString incomingTemp = MafiaNet::RakString::NonVariadic((const char *) packet->data);
-		incomingTemp.URLDecode();
-		incomingData += incomingTemp;
+		const std::string_view chunk(reinterpret_cast<const char *>(packet->data), packet->length);
+		for (size_t i = 0; i < chunk.size(); ++i)
+		{
+			unsigned int byte;
+			if (chunk[i] == '%' && chunk.size() - i >= 3)
+			{
+				const char *end = chunk.data() + i + 3;
+				auto parsed = std::from_chars(end - 2, end, byte, 16);
+				if (parsed.ec == std::errc{} && parsed.ptr == end)
+				{
+					incomingData.push_back(static_cast<char>(byte));
+					i += 2;
+					continue;
+				}
+			}
+			incomingData.push_back(chunk[i]);
+		}
 
 		//	printf((const char*) packet->data);
 		//	printf("\n");
 
 		RakAssert(strlen((char *) packet->data) == packet->length); // otherwise it contains Null bytes
 
-		const char *start_of_body = strstr(incomingData, "\r\n\r\n");
+		const char *start_of_body = strstr(incomingData.c_str(), "\r\n\r\n");
 
 		// besides having the server close the connection, they may
 		// provide a length header and supply that many bytes
@@ -270,14 +284,14 @@ void HTTPConnection::ProcessTCPPacket(Packet *packet)
 			long length_of_headers;
 			if (start_of_body)
 			{
-				length_of_headers = (long) (start_of_body + 4 - incomingData.C_String());
-				const char *length_header = strstr(incomingData, "\r\nLength: ");
+				length_of_headers = (long) (start_of_body + 4 - incomingData.c_str());
+				const char *length_header = strstr(incomingData.c_str(), "\r\nLength: ");
 
 				if (length_header)
 				{
 					long length = atol(length_header + 10) + length_of_headers;
 
-					if ((long) incomingData.GetLength() >= length)
+					if ((long) incomingData.size() >= length)
 					{
 						//printf("Closed connection (Got all data due to length header)\n");
 						CloseConnection();

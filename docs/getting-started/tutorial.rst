@@ -40,7 +40,7 @@ Create ``ChatServer.cpp``:
 
    #include "mafianet/peer_interface.h"
    #include "mafianet/bit_stream.h"
-   #include "mafianet/string.h"
+   #include <string>
    #include "ChatCommon.h"
    #include <cstdio>
 
@@ -82,12 +82,12 @@ Create ``ChatServer.cpp``:
                        MafiaNet::BitStream bs(packet->data, packet->length, false);
                        bs.IgnoreBytes(1);
 
-                       MafiaNet::RakString message;
+                       std::string message;
                        bs.Read(message);
 
                        printf("[%s]: %s\n",
                               packet->systemAddress.ToString(),
-                              message.C_String());
+                              message.c_str());
 
                        // Broadcast to all clients
                        server->Send(&bs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered,
@@ -114,7 +114,7 @@ Create ``ChatClient.cpp``:
 
    #include "mafianet/peer_interface.h"
    #include "mafianet/bit_stream.h"
-   #include "mafianet/string.h"
+   #include <string>
    #include "mafianet/gets.h"
    #include "ChatCommon.h"
    #include <cstdio>
@@ -165,9 +165,9 @@ Create ``ChatClient.cpp``:
                        MafiaNet::BitStream bs(packet->data, packet->length, false);
                        bs.IgnoreBytes(1);
 
-                       MafiaNet::RakString msg;
+                       std::string msg;
                        bs.Read(msg);
-                       printf(">> %s\n", msg.C_String());
+                       printf(">> %s\n", msg.c_str());
                        break;
                    }
                }
@@ -179,7 +179,7 @@ Create ``ChatClient.cpp``:
                if (strlen(message) > 0) {
                    MafiaNet::BitStream bs;
                    bs.Write((MafiaNet::MessageID)ID_CHAT_MESSAGE);
-                   bs.Write(MafiaNet::RakString(message));
+                   bs.Write(std::string(message));
                    client->Send(&bs, MafiaNet::Priority::Medium, MafiaNet::Reliability::ReliableOrdered,
                                0, MafiaNet::UNASSIGNED_SYSTEM_ADDRESS, true);
                }

@@ -25,7 +25,7 @@
 #define __RELAY_PLUGIN_H
 
 #include "mafianet/plugin_interface2.h"
-#include "mafianet/string.h"
+#include <string>
 
 #include <memory>
 #include <unordered_map>
@@ -87,7 +87,7 @@ public:
 	/// \param[in] key A string to identify the target's RakNetGUID. This is so the sending system does not need to know the RakNetGUID of the target system. The key should be unique among all guids added. If the key is not unique, only one system will be sent to (at random).
 	/// \param[in] guid The RakNetGuid of the system to send to. If this system disconnects, it is removed from the internal hash
 	/// \return RPE_ADD_CLIENT_TARGET_NOT_CONNECTED, RPE_ADD_CLIENT_NAME_ALREADY_IN_USE, or RPE_ADD_CLIENT_OK
-	RelayPluginEnums AddParticipantOnServer(const RakString &key, const RakNetGUID &guid);
+	RelayPluginEnums AddParticipantOnServer(const std::string &key, const RakNetGUID &guid);
 
 	/// \brief Remove a chat participant
 	void RemoveParticipantOnServer(const RakNetGUID &guid);
@@ -101,7 +101,7 @@ public:
 	/// \pre The server must have called SetAcceptAddParticipantRequests(true) or the request will be ignored
 	/// \param[in] key A string to identify out system. Passed to \a key on AddParticipantOnServer()
 	/// \param[in] relayPluginServerGuid the RakNetGUID of the system running RelayPlugin
-	void AddParticipantRequestFromClient(const RakString &key, const RakNetGUID &relayPluginServerGuid);
+	void AddParticipantRequestFromClient(const std::string &key, const RakNetGUID &relayPluginServerGuid);
 
 	/// \brief Remove yourself as a participant
 	void RemoveParticipantRequestFromClient(const RakNetGUID &relayPluginServerGuid);
@@ -113,10 +113,10 @@ public:
 	/// \param[in] priority See the parameter of the same name in RakPeerInterface::Send()
 	/// \param[in] reliability See the parameter of the same name in RakPeerInterface::Send()
 	/// \param[in] orderingChannel See the parameter of the same name in RakPeerInterface::Send()
-	void SendToParticipant(const RakNetGUID &relayPluginServerGuid, const RakString &destinationGuid, BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
+	void SendToParticipant(const RakNetGUID &relayPluginServerGuid, const std::string &destinationGuid, BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
 
 	void SendGroupMessage(const RakNetGUID &relayPluginServerGuid, BitStream *bitStream, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
-	void JoinGroupRequest(const RakNetGUID &relayPluginServerGuid, RakString groupName);
+	void JoinGroupRequest(const RakNetGUID &relayPluginServerGuid, const std::string &groupName);
 	void LeaveGroup(const RakNetGUID &relayPluginServerGuid);
 	void GetGroupList(const RakNetGUID &relayPluginServerGuid);
 
@@ -127,28 +127,28 @@ public:
 
 	struct StrAndGuidAndRoom
 	{
-		RakString str;
+		std::string str;
 		RakNetGUID guid;
-		RakString currentRoom;
+		std::string currentRoom;
 	};
 
 	struct StrAndGuid
 	{
-		RakString str;
+		std::string str;
 		RakNetGUID guid;
 	};
 
 	struct RP_Group
 	{
-		RakString roomName;
+		std::string roomName;
 		std::vector<StrAndGuid> usersInRoom;
 	};
 
 protected:
-	RelayPlugin::RP_Group *JoinGroup(RakNetGUID userGuid, RakString roomName);
+	RelayPlugin::RP_Group *JoinGroup(RakNetGUID userGuid, const std::string &roomName);
 	RelayPlugin::RP_Group *JoinGroup(RP_Group *room, StrAndGuidAndRoom **strAndGuidSender);
 	void LeaveGroup(StrAndGuidAndRoom **strAndGuidSender);
-	void NotifyUsersInRoom(RP_Group *room, int msg, const RakString &message);
+	void NotifyUsersInRoom(RP_Group *room, int msg, const std::string &message);
 	void SendMessageToRoom(StrAndGuidAndRoom **strAndGuidSender, BitStream *message, MafiaNet::Priority priority, MafiaNet::Reliability reliability, char orderingChannel);
 	void SendChatRoomsList(RakNetGUID target);
 	void OnGroupMessageFromClient(Packet *packet);
@@ -159,7 +159,7 @@ protected:
 	StrAndGuidAndRoom **FindParticipant(const RakNetGUID &guid);
 
 	/// Owns every participant; guidToStrHash indexes the same objects by GUID.
-	std::unordered_map<RakString, std::unique_ptr<StrAndGuidAndRoom>> strToGuidHash;
+	std::unordered_map<std::string, std::unique_ptr<StrAndGuidAndRoom>> strToGuidHash;
 	std::unordered_map<RakNetGUID, StrAndGuidAndRoom *> guidToStrHash;
 	std::vector<std::unique_ptr<RP_Group>> chatRooms;
 	bool acceptAddParticipantRequests;

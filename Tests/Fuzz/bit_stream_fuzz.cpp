@@ -17,7 +17,7 @@
 
 #include "mafianet/bit_stream.h"
 #include "mafianet/string_compressor.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/wstring.h"
 
 using namespace MafiaNet;
@@ -89,14 +89,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		}
 		case 8:
 		{
-			RakString s;
-			s.Deserialize(&in);
+			std::string s;
+			in.Read(s);
 			break;
 		}
 		case 9:
 		{
-			RakString s;
-			s.DeserializeCompressed(&in, op & 0x80);
+			std::string s;
+			in.ReadCompressed(s);
 			break;
 		}
 		case 10:

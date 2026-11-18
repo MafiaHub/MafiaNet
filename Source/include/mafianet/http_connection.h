@@ -25,7 +25,7 @@
 #define __HTTP_CONNECTION
 
 #include "mafianet/export.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/types.h"
 
 #include <deque>
@@ -75,7 +75,7 @@ public:
 
 	/// Get one result from the server
 	/// \pre HasResult must return true
-	MafiaNet::RakString Read(void);
+	std::string Read(void);
 
 	/// Call periodically to do time-based updates
 	void Update(void);
@@ -119,12 +119,12 @@ public:
 
 		operator int() const { return code; }
 
-		MafiaNet::RakString data;
+		std::string data;
 		int code; // ResponseCodes
 	};
 
 	/// Queued events of failed exchanges with the HTTP server
-	bool HasBadResponse(int *code, MafiaNet::RakString *data);
+	bool HasBadResponse(int *code, std::string *data);
 
 	/// Returns false if the connection is not doing anything else
 	bool IsBusy(void) const;
@@ -134,9 +134,9 @@ public:
 
 	struct OutgoingCommand
 	{
-		MafiaNet::RakString remotePath;
-		MafiaNet::RakString data;
-		MafiaNet::RakString contentType;
+		std::string remotePath;
+		std::string data;
+		std::string contentType;
 		bool isPost;
 	};
 
@@ -146,7 +146,7 @@ public:
 private:
 	SystemAddress server;
 	TCPInterface *tcp;
-	MafiaNet::RakString host;
+	std::string host;
 	unsigned short port;
 	std::deque<BadResponse> badResponses;
 
@@ -159,8 +159,8 @@ private:
 		CS_PROCESSING,
 	} connectionState;
 
-	MafiaNet::RakString incomingData;
-	std::deque<MafiaNet::RakString> results;
+	std::string incomingData;
+	std::deque<std::string> results;
 
 	void CloseConnection();
 
@@ -172,7 +172,7 @@ private:
 		RAK_HTTP_REQUEST_SENT,
 		RAK_HTTP_IDLE } state;
 
-    MafiaNet::RakString outgoing, incoming, path, contentType;
+    std::string outgoing, incoming, path, contentType;
     void Process(Packet *packet); // the workhorse
     
     // this helps check the various status lists in TCPInterface

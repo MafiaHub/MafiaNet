@@ -18,7 +18,7 @@
 
 #include "mafianet/export.h"
 #include "mafianet/types.h" // int64_t
-#include "mafianet/string.h"
+#include <string>
 
 #ifdef _WIN32
 #include "mafianet/windows_includes.h"
@@ -32,7 +32,7 @@ class RAK_DLL_EXPORT RakWString
 public:
 	// Constructors
 	RakWString();
-	RakWString(const RakString &right);
+	RakWString(const std::string &right);
 	RakWString(const wchar_t *input);
 	RakWString(const RakWString &right);
 	RakWString(const char *input);
@@ -56,7 +56,7 @@ public:
 
 	/// Assignment operators
 	RakWString &operator=(const RakWString &right);
-	RakWString &operator=(const RakString &right);
+	RakWString &operator=(const std::string &right);
 	RakWString &operator=(const wchar_t *const str);
 	RakWString &operator=(wchar_t *str);
 	RakWString &operator=(const char *const str);

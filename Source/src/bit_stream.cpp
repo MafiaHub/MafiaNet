@@ -16,6 +16,7 @@
 /// \file
 ///
 #include "mafianet/bit_stream.h"
+#include <stdexcept>
 #include <cstdlib>
 
 #include <float.h>
@@ -1165,13 +1166,26 @@ void BitStream::ReverseBytesInPlace(unsigned char *inOutData, const unsigned int
 	}
 }
 
-bool BitStream::Read(char *varString)
+void BitStream::WriteString(std::string_view value)
 {
-	return RakString::Deserialize(varString, this);
+	if (value.size() > MAX_STRING_BYTES)
+		throw std::length_error("BitStream string exceeds maximum length");
+	Write(static_cast<uint32_t>(value.size()));
+	WriteAlignedBytes(reinterpret_cast<const unsigned char *>(value.data()), static_cast<unsigned int>(value.size()));
 }
-bool BitStream::Read(unsigned char *varString)
+
+bool BitStream::ReadString(std::string &value, size_t maxBytes)
 {
-	return RakString::Deserialize((char *) varString, this);
+	uint32_t size;
+	if (!Read(size) || size > MAX_STRING_BYTES || size > maxBytes)
+		return false;
+	const BitSize_t padding = (8 - (GetReadOffset() & 7)) & 7;
+	if (GetNumberOfUnreadBits() < padding || size > (GetNumberOfUnreadBits() - padding) / 8)
+		return false;
+	AlignReadToByteBoundary();
+	value.assign(reinterpret_cast<const char *>(data + GetReadOffset() / 8), size);
+	IgnoreBytes(size);
+	return true;
 }
 void BitStream::WriteAlignedVar8(const char *inByteArray)
 {

@@ -171,8 +171,7 @@ right after the ``ID_DISCONNECTION_NOTIFICATION`` message ID:
 
    MafiaNet::BitStream reason;
    reason.Write((uint8_t)KR_KICKED);                // an enum code...
-   MafiaNet::RakString("Cheating in match #4821")   // ...plus an optional custom string
-       .Serialize(&reason);
+   reason.Write("Cheating in match #4821");
 
    peer->CloseConnection(systemAddress, true, 0, MafiaNet::Priority::Low, &reason);
 
@@ -185,9 +184,9 @@ other message body — ``packet->data + 1`` for ``packet->length - 1`` bytes:
        if (packet->length > 1) {
            MafiaNet::BitStream in(packet->data + 1, packet->length - 1, false);
            uint8_t code;
-           MafiaNet::RakString text;
+           std::string text;
            in.Read(code);
-           in.Deserialize(&text);
+           in.Read(text);
            // show "Kicked: <text>", "You were banned.", etc.
        }
        break;

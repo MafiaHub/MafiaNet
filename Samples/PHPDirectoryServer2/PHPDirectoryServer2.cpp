@@ -28,7 +28,7 @@
 #include "PHPDirectoryServer2.h"
 #include "mafianet/http_connection.h"
 #include "mafianet/sleep.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/types.h"
 #include "mafianet/get_time.h"
 #include "mafianet/assert.h"
@@ -63,9 +63,9 @@ void PHPDirectoryServer2::Init(HTTPConnection *_http, const char *_path)
 	pathToPHP = _path;
 }
 
-void PHPDirectoryServer2::SetField(MafiaNet::RakString columnName, MafiaNet::RakString value)
+void PHPDirectoryServer2::SetField(std::string columnName, std::string value)
 {
-	if (columnName.IsEmpty())
+	if (columnName.empty())
 		return;
 
 	if (columnName == GAME_NAME_COMMAND ||
@@ -82,7 +82,7 @@ unsigned int PHPDirectoryServer2::GetFieldCount(void) const
 {
 	return static_cast<unsigned int>(fields.size());
 }
-void PHPDirectoryServer2::GetField(unsigned int index, MafiaNet::RakString &columnName, MafiaNet::RakString &value)
+void PHPDirectoryServer2::GetField(unsigned int index, std::string &columnName, std::string &value)
 {
 	RakAssert(index < fields.size());
 	const auto field = std::next(fields.begin(), static_cast<std::ptrdiff_t>(index));
@@ -112,7 +112,7 @@ void PHPDirectoryServer2::ClearFields(void)
 	nextRepost = 0;
 }
 
-void PHPDirectoryServer2::UploadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost)
+void PHPDirectoryServer2::UploadTable(std::string uploadPassword, std::string gameName, unsigned short gamePort, bool autoRepost)
 {
 	gameNameParam = gameName;
 	gamePortParam = gamePort;
@@ -126,13 +126,13 @@ void PHPDirectoryServer2::UploadTable(MafiaNet::RakString uploadPassword, MafiaN
 	else
 		nextRepost = 0;
 }
-void PHPDirectoryServer2::DownloadTable(MafiaNet::RakString downloadPassword)
+void PHPDirectoryServer2::DownloadTable(std::string downloadPassword)
 {
 	currentOperation = "?query=download&downloadPassword=";
 	currentOperation += downloadPassword;
 	SendOperation();
 }
-void PHPDirectoryServer2::UploadAndDownloadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString downloadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost)
+void PHPDirectoryServer2::UploadAndDownloadTable(std::string uploadPassword, std::string downloadPassword, std::string gameName, unsigned short gamePort, bool autoRepost)
 {
 	gameNameParam = gameName;
 	gamePortParam = gamePort;
@@ -149,9 +149,9 @@ void PHPDirectoryServer2::UploadAndDownloadTable(MafiaNet::RakString uploadPassw
 		nextRepost = 0;
 }
 
-HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead)
+HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(std::string httpRead)
 {
-	const char *c = (const char *) httpRead.C_String(); // current position
+	const char *c = (const char *) httpRead.c_str(); // current position
 	HTTPReadResult resultCode = HTTP_RESULT_EMPTY;
 
 	lastDownloadedTable.Clear();
@@ -162,9 +162,9 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 	char buff[256];
 	int buffIndex;
 	bool isCommand = true;
-	std::vector<MafiaNet::RakString> columns;
-	std::vector<MafiaNet::RakString> values;
-	MafiaNet::RakString curString;
+	std::vector<std::string> columns;
+	std::vector<std::string> values;
+	std::string curString;
 	bool isComment = false;
 	buffIndex = 0;
 	while (c && *c)
@@ -189,7 +189,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 			if (isCommand)
 			{
 				buff[buffIndex] = 0;
-				columns.push_back(RakString::NonVariadic(buff));
+				columns.push_back(std::string(buff));
 				isCommand = false;
 				if (buff[0] != 0)
 					resultCode = HTTP_RESULT_GOT_TABLE;
@@ -197,7 +197,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 			else
 			{
 				buff[buffIndex] = 0;
-				values.push_back(RakString::NonVariadic(buff));
+				values.push_back(std::string(buff));
 				isCommand = true;
 			}
 			buffIndex = 0;
@@ -206,7 +206,7 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 		{
 			buff[buffIndex] = 0;
 			buffIndex = 0;
-			values.push_back(RakString::NonVariadic(buff));
+			values.push_back(std::string(buff));
 			isCommand = true;
 			PushColumnsAndValues(columns, values);
 			columns.clear();
@@ -222,33 +222,33 @@ HTTPReadResult PHPDirectoryServer2::ProcessHTTPRead(MafiaNet::RakString httpRead
 	if (buff[0] && columns.size() == values.size() + 1)
 	{
 		buff[buffIndex] = 0;
-		values.push_back(RakString::NonVariadic(buff));
+		values.push_back(std::string(buff));
 	}
 
 	PushColumnsAndValues(columns, values);
 
 	return resultCode;
 }
-void PHPDirectoryServer2::PushColumnsAndValues(std::vector<MafiaNet::RakString> &columns, std::vector<MafiaNet::RakString> &values)
+void PHPDirectoryServer2::PushColumnsAndValues(std::vector<std::string> &columns, std::vector<std::string> &values)
 {
 	MafiaNet::Table::Row *row = 0;
 
 	unsigned int i;
 	for (i = 0; i < columns.size() && i < values.size(); i++)
 	{
-		if (columns[i].IsEmpty() == false)
+		if (columns[i].empty() == false)
 		{
-			unsigned col = lastDownloadedTable.ColumnIndex(columns[i]);
+			unsigned col = lastDownloadedTable.ColumnIndex(columns[i].c_str());
 			if (col == (unsigned) -1)
 			{
-				col = lastDownloadedTable.AddColumn(columns[i], MafiaNet::Table::STRING);
+				col = lastDownloadedTable.AddColumn(columns[i].c_str(), MafiaNet::Table::STRING);
 			}
 
 			if (row == 0)
 			{
 				row = lastDownloadedTable.AddRow(lastDownloadedTable.GetAvailableRowId());
 			}
-			row->UpdateCell(col, values[i].C_String());
+			row->UpdateCell(col, values[i].c_str());
 		}
 	}
 }
@@ -258,7 +258,7 @@ const MafiaNet::Table *PHPDirectoryServer2::GetLastDownloadedTable(void) const
 }
 void PHPDirectoryServer2::SendOperation(void)
 {
-	RakString outgoingMessageBody;
+	std::string outgoingMessageBody;
 	char buff[64];
 
 	outgoingMessageBody += GAME_PORT_COMMAND;
@@ -271,17 +271,27 @@ void PHPDirectoryServer2::SendOperation(void)
 
 	for (const auto &field : fields)
 	{
-		RakString value = field.second;
-		value.URLEncode();
-		outgoingMessageBody += RakString("\001%s\001%s",
-		                                 field.first.C_String(),
-		                                 value.C_String());
+		outgoingMessageBody += '\001';
+		outgoingMessageBody += field.first;
+		outgoingMessageBody += '\001';
+		constexpr char hex[] = "0123456789ABCDEF";
+		for (unsigned char c : field.second)
+		{
+			if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+				outgoingMessageBody += static_cast<char>(c);
+			else
+			{
+				outgoingMessageBody += '%';
+				outgoingMessageBody += hex[c >> 4];
+				outgoingMessageBody += hex[c & 15];
+			}
+		}
 	}
 
-	RakString postURL;
+	std::string postURL;
 	postURL += pathToPHP;
 	postURL += currentOperation;
-	http->Post(postURL.C_String(), outgoingMessageBody, "application/x-www-form-urlencoded");
+	http->Post(postURL.c_str(), outgoingMessageBody.c_str(), "application/x-www-form-urlencoded");
 }
 void PHPDirectoryServer2::Update(void)
 {

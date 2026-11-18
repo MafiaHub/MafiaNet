@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/table.h"
+#include "mafianet/format_string.h"
 
 #include "mafianet/assert.h"
 #include "mafianet/linux_adapter.h"
@@ -174,33 +175,29 @@ void Table::Cell::Get(char *output, int *outputLength)
 	if (outputLength)
 		*outputLength = (int) length;
 }
-MafiaNet::RakString Table::Cell::ToString(ColumnType columnType)
+std::string Table::Cell::ToString(ColumnType columnType)
 {
 	if (isEmpty)
-		return MafiaNet::RakString();
+		return {};
 
 	if (columnType == NUMERIC)
 	{
-		return MafiaNet::RakString("%f", i);
+		return MafiaNet::FormatText("%f", i);
 	}
 	else if (columnType == STRING)
 	{
-		// Assign, never RakString(c): that constructor treats the (possibly peer-supplied) text as a
-		// printf format.
-		MafiaNet::RakString text;
-		text = c;
-		return text;
+		return c ? c : "";
 	}
 	else if (columnType == BINARY)
 	{
-		return MafiaNet::RakString("<Binary>");
+		return "<Binary>";
 	}
 	else if (columnType == POINTER)
 	{
-		return MafiaNet::RakString("%p", ptr);
+		return MafiaNet::FormatText("%p", ptr);
 	}
 
-	return MafiaNet::RakString();
+	return {};
 }
 Table::Cell::Cell(double numericValue, char *charValue, void *inPtr, ColumnType type)
 {

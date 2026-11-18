@@ -31,7 +31,7 @@
 #define __PHP_DIRECTORY_SERVER_2
 
 #include "mafianet/export.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/http_connection.h"
 #include "mafianet/types.h"
 #include "mafianet/table.h"
@@ -69,7 +69,7 @@ public:
 	/// Store the game name and port with UploadTable, rather than SetField, as these columns are required and use reserved column names
 	/// \param[in] columnName The name of the column to store
 	/// \param[in] value What value to hold for the uploaded row (only one row can be uploaded at a time)
-	void SetField(MafiaNet::RakString columnName, MafiaNet::RakString value);
+	void SetField(std::string columnName, std::string value);
 
 	/// Returns the number of fields set with SetField()
 	unsigned int GetFieldCount(void) const;
@@ -78,7 +78,7 @@ public:
 	/// \param[in] index The 0 based index into the field list
 	/// \param[out] columnName The \a columnName parameter passed to SetField()
 	/// \param[out] value The \a value parameter passed to SetField()
-	void GetField(unsigned int index, MafiaNet::RakString &columnName, MafiaNet::RakString &value);
+	void GetField(unsigned int index, std::string &columnName, std::string &value);
 
 	/// Set all parameters at once from a table
 	/// \param[in] table A table containing the values you want to send. Note that all values are stored as strings in PHP
@@ -96,7 +96,7 @@ public:
 	/// \param[in] gameName Every entry must have a game name. Pass it here.
 	/// \param[in] gamePort Every entry must have a game port. Pass it here. The IP address will be stored automatically, or you can manually set it by passing a field named _System_Address
 	/// \param[in] autoRepost Tables must be uploaded every 60 seconds or they get dropped. Set autoRepost to true to automatically reupload the most recent table.
-	void UploadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost);
+	void UploadTable(std::string uploadPassword, std::string gameName, unsigned short gamePort, bool autoRepost);
 
 	/// Send a download request to the PHP server.
 	/// On success:
@@ -105,7 +105,7 @@ public:
 	/// 3. The return value of PHPDirectoryServer2::ProcessHTTPRead() will be HTTP_RESULT_GOT_TABLE or HTTP_RESULT_EMPTY
 	/// 4. On HTTP_RESULT_GOT_TABLE, use GetLastDownloadedTable() to read the results.
 	/// \param[in] downloadPassword The download password set in the PHP page itself when you first uploaded and viewed it in the webpage.
-	void DownloadTable(MafiaNet::RakString downloadPassword);
+	void DownloadTable(std::string downloadPassword);
 
 	/// Same as calling DownloadTable immediately followed by UploadTable, except only the download result is returned
 	/// \param[in] uploadPassword The upload password set in the PHP page itself when you first uploaded and viewed it in the webpage.
@@ -113,13 +113,13 @@ public:
 	/// \param[in] gameName Every entry must have a game name. Pass it here.
 	/// \param[in] gamePort Every entry must have a game port. Pass it here. The IP address will be stored automatically, or you can manually set it by passing a field named _System_Address
 	/// \param[in] autoRepost Tables must be uploaded every 60 seconds or they get dropped. Set autoRepost to true to automatically reupload the most recent table.
-	void UploadAndDownloadTable(MafiaNet::RakString uploadPassword, MafiaNet::RakString downloadPassword, MafiaNet::RakString gameName, unsigned short gamePort, bool autoRepost);
+	void UploadAndDownloadTable(std::string uploadPassword, std::string downloadPassword, std::string gameName, unsigned short gamePort, bool autoRepost);
 
 	/// When HTTPConnection::ProcessDataPacket() returns true, and not an error, pass HTTPConnection::Read() to this function
 	/// The message will be parsed into MafiaNet::Table, and a copy stored internally which can be retrieved by GetLastDownloadedTable();
 	/// \param[in] packetData Returned from HTTPInterface::Read()
 	/// \return One of the values for HTTPReadResult
-	HTTPReadResult ProcessHTTPRead(MafiaNet::RakString httpRead);
+	HTTPReadResult ProcessHTTPRead(std::string httpRead);
 
 	/// Returns the last value returned from ProcessHTTPString
 	/// Default columns are "__GAME_NAME", "__GAME_PORT", "_System_Address"
@@ -131,18 +131,18 @@ public:
 
 private:
 	HTTPConnection *http;
-	MafiaNet::RakString pathToPHP;
+	std::string pathToPHP;
 
-	MafiaNet::RakString gameNameParam;
+	std::string gameNameParam;
 	unsigned short gamePortParam;
 
 	void SendOperation(void);
-	void PushColumnsAndValues(std::vector<MafiaNet::RakString> &columns, std::vector<MafiaNet::RakString> &values);
+	void PushColumnsAndValues(std::vector<std::string> &columns, std::vector<std::string> &values);
 
 	MafiaNet::Table lastDownloadedTable;
 	/// Sorted by column name, which is the order GetField() and UploadTable() use
-	std::map<MafiaNet::RakString, MafiaNet::RakString> fields;
-	MafiaNet::RakString currentOperation;
+	std::map<std::string, std::string> fields;
+	std::string currentOperation;
 	MafiaNet::TimeMS nextRepost;
 };
 

@@ -405,21 +405,21 @@ struct UDPProxyServerFramework : public SampleFramework, public UDPProxyServerRe
 		}
 	}
 
-	virtual void OnLoginSuccess(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
+	virtual void OnLoginSuccess(const std::string &usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
 	{
 		// unused parameters
 		(void) proxyServerPlugin;
 
 		printf("%s logged into UDPProxyCoordinator.\n", QueryName());
 	}
-	virtual void OnAlreadyLoggedIn(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
+	virtual void OnAlreadyLoggedIn(const std::string &usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
 	{
 		// unused parameters
 		(void) proxyServerPlugin;
 
 		printf("%s already logged into UDPProxyCoordinator.\n", QueryName());
 	}
-	virtual void OnNoPasswordSet(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
+	virtual void OnNoPasswordSet(const std::string &usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
 	{
 		// unused parameters
 		(void) proxyServerPlugin;
@@ -429,12 +429,12 @@ struct UDPProxyServerFramework : public SampleFramework, public UDPProxyServerRe
 		delete udpps;
 		udpps = 0;
 	}
-	virtual void OnWrongPassword(MafiaNet::RakString usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
+	virtual void OnWrongPassword(const std::string &usedPassword, MafiaNet::UDPProxyServer *proxyServerPlugin)
 	{
 		// unused parameters
 		(void) proxyServerPlugin;
 
-		printf("%s failed login to UDPProxyCoordinator. %s was the wrong password.\n", QueryName(), usedPassword.C_String());
+		printf("%s failed login to UDPProxyCoordinator. %s was the wrong password.\n", QueryName(), usedPassword.c_str());
 		isSupported = QUERY;
 		delete udpps;
 		udpps = 0;

@@ -617,7 +617,7 @@ public:
 	/// Return 0 if unable to create the intended object. Note, in that case the other system will still think we have the object and will try to serialize object updates to us. Generally, you should not send objects the other system cannot create.<BR>
 	/// \sa Replica3::WriteAllocationID().
 	/// Sample implementation:<BR>
-	/// {MafiaNet::RakString typeName; allocationIdBitstream->Read(typeName); if (typeName=="Soldier") return new Soldier; return 0;}<BR>
+	/// {std::string typeName; allocationIdBitstream->Read(typeName); if (typeName=="Soldier") return new Soldier; return 0;}<BR>
 	/// \param[in] allocationIdBitstream user-defined bitstream uniquely identifying a game object type
 	/// \param[in] replicaManager3 Instance of ReplicaManager3 that controls this connection
 	/// \return The new replica instance
@@ -1060,7 +1060,7 @@ public:
 	/// \brief Write a unique identifer that can be read on a remote system to create an object of this same class.
 	/// \details The value written to \a allocationIdBitstream will be passed to Connection_RM3::AllocReplica().<BR>
 	/// Sample implementation:<BR>
-	/// {allocationIdBitstream->Write(MafiaNet::RakString("Soldier");}<BR>
+	/// {allocationIdBitstream->Write("Soldier");}<BR>
 	/// \param[out] allocationIdBitstream Bitstream for the user to write to, to identify this class
 	virtual void WriteAllocationID(MafiaNet::Connection_RM3 *destinationConnection, MafiaNet::BitStream *allocationIdBitstream) const = 0;
 

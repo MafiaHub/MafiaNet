@@ -21,7 +21,7 @@
 #include "mafianet/http_connection.h"
 #include "PHPDirectoryServer2.h"
 #include "mafianet/sleep.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/get_time.h"
 #include "mafianet/table.h"
 #include <cstring>
@@ -34,7 +34,6 @@
 
 using namespace MafiaNet;
 
-// Allocate rather than create on the stack or the RakString mutex crashes on shutdown
 TCPInterface *tcp;
 HTTPConnection *httpConnection;
 PHPDirectoryServer2 *phpDirectoryServer2;
@@ -46,10 +45,10 @@ enum ReadResultEnum
 	RR_TIMEOUT,
 };
 
-ReadResultEnum ReadResult(MafiaNet::RakString &httpResult)
+ReadResultEnum ReadResult(std::string &httpResult)
 {
 	MafiaNet::TimeMS endTime = MafiaNet::GetTimeMS() + 10000;
-	httpResult.Clear();
+	httpResult.clear();
 	while (MafiaNet::GetTimeMS() < endTime)
 	{
 		Packet *packet = tcp->Receive();
@@ -133,11 +132,11 @@ void DownloadTable()
 {
 	phpDirectoryServer2->DownloadTable("a");
 }
-void UploadTable(MafiaNet::RakString gameName, unsigned short gamePort)
+void UploadTable(std::string gameName, unsigned short gamePort)
 {
 	phpDirectoryServer2->UploadTable("a", gameName, gamePort, false);
 }
-void UploadAndDownloadTable(MafiaNet::RakString gameName, unsigned short gamePort)
+void UploadAndDownloadTable(std::string gameName, unsigned short gamePort)
 {
 	phpDirectoryServer2->UploadAndDownloadTable("a", "a", gameName, gamePort, false);
 }
@@ -161,8 +160,8 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 		printf("TEST FAILED. Expected %i result rows, got %i\n", requiredRowCount, games->GetRowCount());
 		return false;
 	}
-	MafiaNet::RakString columnName;
-	MafiaNet::RakString value;
+	std::string columnName;
+	std::string value;
 	unsigned int i;
 	MafiaNet::Table::Row *row = games->GetRowByIndex(testRowIndex, nullptr);
 	const std::vector<MafiaNet::Table::ColumnDescriptor> &columns = games->GetColumns();
@@ -179,7 +178,7 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 		for (colIndex = 0; colIndex < phpDirectoryServer2->GetFieldCount(); colIndex++)
 		{
 			phpDirectoryServer2->GetField(colIndex, columnName, value);
-			printf("%i. %s\n", colIndex + 1, columnName.C_String());
+			printf("%i. %s\n", colIndex + 1, columnName.c_str());
 		}
 		printf("%i. _GAME_PORT\n", colIndex++);
 		printf("%i. _GAME_NAME\n", colIndex++);
@@ -199,18 +198,18 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 		phpDirectoryServer2->GetField(i, columnName, value);
 		for (colIndex = 0; colIndex < columns.size(); colIndex++)
 		{
-			if (strcmp(columnName.C_String(), columns[colIndex].columnName) == 0)
+			if (strcmp(columnName.c_str(), columns[colIndex].columnName) == 0)
 				break;
 		}
 		if (colIndex == columns.size())
 		{
-			printf("TEST FAILED. Expected column with name %s\n", columnName.C_String());
+			printf("TEST FAILED. Expected column with name %s\n", columnName.c_str());
 			return false;
 		}
 
-		if (strcmp(value.C_String(), row->cells[colIndex]->c) != 0)
+		if (strcmp(value.c_str(), row->cells[colIndex]->c) != 0)
 		{
-			printf("TEST FAILED. Expected row with value '%s' at index %i for column %s. Got '%s'.\n", value.C_String(), i, columnName.C_String(), row->cells[colIndex]->c);
+			printf("TEST FAILED. Expected row with value '%s' at index %i for column %s. Got '%s'.\n", value.c_str(), i, columnName.c_str(), row->cells[colIndex]->c);
 			return false;
 		}
 	}
@@ -218,25 +217,25 @@ bool VerifyDownloadMatchesUpload(int requiredRowCount, int testRowIndex)
 	printf("Test passed.\n");
 	return true;
 }
-void PrintHttpResult(MafiaNet::RakString httpResult)
+void PrintHttpResult(std::string httpResult)
 {
 	printf("--- Last result read ---\n");
-	printf("%s", httpResult.C_String());
+	printf("%s", httpResult.c_str());
 }
 void PrintFieldColumns(void)
 {
 	unsigned int colIndex;
-	MafiaNet::RakString columnName;
-	MafiaNet::RakString value;
+	std::string columnName;
+	std::string value;
 	for (colIndex = 0; colIndex < phpDirectoryServer2->GetFieldCount(); colIndex++)
 	{
 		phpDirectoryServer2->GetField(colIndex, columnName, value);
-		printf("%i. %s\n", colIndex + 1, columnName.C_String());
+		printf("%i. %s\n", colIndex + 1, columnName.c_str());
 	}
 }
 bool RunTest()
 {
-	MafiaNet::RakString httpResult;
+	std::string httpResult;
 	ReadResultEnum rr;
 	char ch[32];
 	printf("Warning, table must be clear before starting the test.\n");
@@ -566,8 +565,8 @@ void TestGet(void)
 
 		if (httpConnection->IsBusy() == false)
 		{
-			RakString fileContents = httpConnection->Read();
-			printf(fileContents.C_String());
+			std::string fileContents = httpConnection->Read();
+			printf(fileContents.c_str());
 			_getche();
 			return;
 		}

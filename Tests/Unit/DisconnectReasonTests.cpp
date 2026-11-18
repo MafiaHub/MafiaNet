@@ -19,7 +19,7 @@
 
 #include "mafianet/bit_stream.h"
 #include "mafianet/message_identifiers.h"
-#include "mafianet/string.h"
+#include <string>
 
 using namespace MafiaNet;
 
@@ -60,10 +60,10 @@ TEST(DisconnectReason, ReasonPayloadRoundTripsInTheNotification)
 
 	// The "Kicked: <reason>" use case: an enum code plus an admin-typed string.
 	const unsigned char kReasonCode = 7;
-	const RakString kReasonText("Cheating detected in match #4821");
+	const std::string kReasonText("Cheating detected in match #4821");
 	BitStream reason;
 	reason.Write(kReasonCode);
-	kReasonText.Serialize(&reason);
+	reason.Write(kReasonText);
 
 	const SimulatedNetwork::Message *note = KickWithReason(net, server, client, &reason);
 	ASSERT_NE(nullptr, note);
@@ -72,9 +72,9 @@ TEST(DisconnectReason, ReasonPayloadRoundTripsInTheNotification)
 
 	BitStream readBack(const_cast<unsigned char *>(note->data.data()) + 1, (unsigned int) note->data.size() - 1, false);
 	unsigned char gotCode = 0;
-	RakString gotText;
+	std::string gotText;
 	ASSERT_TRUE(readBack.Read(gotCode));
-	ASSERT_TRUE(gotText.Deserialize(&readBack)) << "reason string failed to deserialize";
+	ASSERT_TRUE(readBack.Read(gotText)) << "reason string failed to deserialize";
 	EXPECT_EQ(kReasonCode, gotCode);
 	EXPECT_EQ(kReasonText, gotText);
 }

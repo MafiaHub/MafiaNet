@@ -14,6 +14,7 @@
  */
 
 #include <WinSock2.h>
+#include "../http_request.h"
 #include <windows.h>
 #include <Ws2tcpip.h>
 #include <stdio.h>
@@ -64,7 +65,7 @@ void main_sockets(void)
 }
 
 #include "mafianet/tcp_interface.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/sleep.h"
 #include "jansson.h"
 #include "mafianet/get_time.h"
@@ -84,18 +85,17 @@ void main_RakNet_Post(void)
 	json_object_set(jsonObject, "__gameId", json_string("MotoGP_13"));
 	json_object_set(jsonObject, "__clientReqId", json_integer(0));
 	json_object_set(jsonObject, "__timeoutSec", json_integer(60));
-	//json_object_set(jsonObject, "mapname", json_string(RakString::NonVariadic("Joué-lés-tours").URLEncode().C_String()) );
 
 	char *ds = json_dumps(jsonObject, 0);
-	RakString rspost = RakString::FormatForPOST(
-	    RakString(MASTER_SERVER_ADDRESS "/testServer"),
-	    RakString("application/json; charset=UTF-8"),
-	    ds);
+	std::string rspost = MakeHttpRequest("POST",
+	                                     std::string(MASTER_SERVER_ADDRESS "/testServer"),
+	                                     std::string("application/json; charset=UTF-8"),
+	                                     ds);
 	json_decref(jsonObject);
 
 	RakSleep(100);
 	SystemAddress serverAddr = tcp->HasCompletedConnectionAttempt();
-	tcp->Send(rspost.C_String(), rspost.GetLength(), serverAddr, false);
+	tcp->Send(rspost.c_str(), rspost.size(), serverAddr, false);
 
 	MafiaNet::Time timeout = MafiaNet::GetTime() + 2000;
 	while (MafiaNet::GetTime() < timeout)
@@ -125,9 +125,9 @@ void main_RakNet_Get(void)
 	tcp->AttachPlugin(httpConnection2);
 
 	// tcp->Connect("masterserver2.raknet.com", MASTER_SERVER_PORT, true);
-	RakString rsRequest = RakString::FormatForGET(
-	    RakString(MASTER_SERVER_ADDRESS "/testServer?__gameId=MotoGP_13"));
-	httpConnection2->TransmitRequest(rsRequest, MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
+	std::string rsRequest = MakeHttpRequest("GET",
+	                                        std::string(MASTER_SERVER_ADDRESS "/testServer?__gameId=MotoGP_13"));
+	httpConnection2->TransmitRequest(rsRequest.c_str(), MASTER_SERVER_ADDRESS, MASTER_SERVER_PORT);
 
 	for (;;)
 	{
@@ -153,30 +153,30 @@ void main_RakNet_Get(void)
 			printf("Lost connection to %s\n", sa.ToString());
 		}
 
-		RakString stringTransmitted;
-		RakString hostTransmitted;
-		RakString responseReceived;
+		std::string stringTransmitted;
+		std::string hostTransmitted;
+		std::string responseReceived;
 		SystemAddress hostReceived;
 		ptrdiff_t contentOffset;
 		if (httpConnection2->GetResponse(stringTransmitted, hostTransmitted, responseReceived, hostReceived, contentOffset))
 		{
-			if (responseReceived.IsEmpty() == false)
+			if (responseReceived.empty() == false)
 			{
 				if (contentOffset == -1)
 				{
 					// No content
-					printf(responseReceived.C_String());
+					printf("%s", responseReceived.c_str());
 				}
 				else
 				{
 					//					printf("\n--------------\n\n");
-					//					printf(responseReceived.C_String());
+					//					printf("%s", responseReceived.c_str());
 					json_error_t error;
-					json_t *root = json_loads(responseReceived.C_String() + contentOffset, JSON_REJECT_DUPLICATES, &error);
+					json_t *root = json_loads(responseReceived.c_str() + contentOffset, JSON_REJECT_DUPLICATES, &error);
 					if (!root)
 					{
 						printf("Error parsing JSON\n");
-						printf(responseReceived.C_String());
+						printf("%s", responseReceived.c_str());
 					}
 					else
 					{
@@ -193,7 +193,6 @@ void main_RakNet_Get(void)
 									json_t *object = json_array_get(jsonArray, i);
 									json_t *gameIdVal = json_object_get(object, "__gameId");
 									//RakAssert(cityNameVal->type==JSON_STRING);
-									//RakString val = RakString::NonVariadic(json_string_value(cityNameVal)).URLDecode();
 
 									printf("gameId: %" JSON_INTEGER_FORMAT ".\n", json_integer_value(gameIdVal));
 								}

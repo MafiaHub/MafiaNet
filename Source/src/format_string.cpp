@@ -44,3 +44,18 @@ char *FormatStringTS(char *output, const char *format, ...)
 	va_end(ap);
 	return output;
 }
+
+std::string MafiaNet::FormatText(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	const int length = vsnprintf(nullptr, 0, format, args);
+	va_end(args);
+	if (length < 0)
+		return {};
+	std::string result(static_cast<size_t>(length), '\0');
+	va_start(args, format);
+	vsnprintf(result.data(), result.size() + 1, format, args);
+	va_end(args);
+	return result;
+}

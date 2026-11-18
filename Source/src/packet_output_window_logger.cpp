@@ -21,7 +21,7 @@
 #endif
 
 #include "mafianet/packet_output_window_logger.h"
-#include "mafianet/string.h"
+#include <string>
 #if defined(_WIN32)
 #include "mafianet/windows_includes.h"
 #endif
@@ -43,9 +43,9 @@ void PacketOutputWindowLogger::WriteLog([[maybe_unused]] const char *str) // onl
 	str2 += "\n";
 	OutputDebugString(str2.C_String());
 #else
-	MafiaNet::RakString str2 = str;
+	std::string str2 = str;
 	str2 += "\n";
-	OutputDebugString(str2.C_String());
+	OutputDebugString(str2.c_str());
 #endif
 #endif
 }

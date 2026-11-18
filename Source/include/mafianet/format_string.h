@@ -16,6 +16,12 @@
 #define __FORMAT_STRING_H
 
 #include "mafianet/export.h"
+#include <string>
+
+namespace MafiaNet
+{
+RAK_DLL_EXPORT std::string FormatText(const char *format, ...);
+}
 
 extern "C"
 {

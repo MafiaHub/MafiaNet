@@ -140,17 +140,24 @@ Use less bandwidth with compression:
 Strings
 -------
 
+Protocol 11 writes a 32-bit byte count followed by byte-aligned data. An owning
+string can carry embedded NULs. C-string inputs end at the first NUL.
+``WriteCompressed`` and ``ReadCompressed`` use the Huffman codec and preserve
+all bytes. A narrow string can contain at most 16 MiB in either encoding.
+Oversized writes throw ``std::length_error``. Reads report failure for
+incomplete or oversized input. For standalone compressed streams, hold a
+``StringCompressor`` reference for the duration of encoding and decoding.
+
 .. code-block:: cpp
 
-   // Using RakString (more efficient)
-   MafiaNet::RakString str = "Hello, World!";
+   std::string str = "Hello, World!";
    bs.Write(str);
 
    // Or C-strings
    bs.Write("Hello, World!");
 
    // Reading
-   MafiaNet::RakString received;
+   std::string received;
    bsIn.Read(received);
 
 Variable-Length Data

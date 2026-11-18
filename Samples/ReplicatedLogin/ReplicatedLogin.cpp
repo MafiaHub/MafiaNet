@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/peer_interface.h"
+#include "mafianet/format_string.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/get_time.h"
 #include "mafianet/sleep.h"
@@ -95,9 +96,9 @@ public:
 
 		DeserializeToBitStream(this, constructionBitstream);
 		if (guid == rakPeer->GetMyGUID())
-			printf("My user created with name %s and score %i\n", username.C_String(), score);
+			printf("My user created with name %s and score %i\n", username.c_str(), score);
 		else
-			printf("Another user created with name %s and score %i\n", username.C_String(), score);
+			printf("Another user created with name %s and score %i\n", username.c_str(), score);
 		return true;
 	}
 
@@ -164,13 +165,13 @@ public:
 		(void) sourceConnection;
 
 		if (guid == rakPeer->GetMyGUID())
-			printf("My user destroyed with name %s and score %i\n", username.C_String(), score);
+			printf("My user destroyed with name %s and score %i\n", username.c_str(), score);
 		else
-			printf("Another user destroyed with name %s and score %i\n", username.C_String(), score);
+			printf("Another user destroyed with name %s and score %i\n", username.c_str(), score);
 	}
 
 	int score;
-	RakString username;
+	std::string username;
 	RakNetGUID guid;
 };
 
@@ -190,7 +191,7 @@ public:
 		// unused parameters
 		(void) replicaManager3;
 
-		RakString objectType;
+		std::string objectType;
 		// Types are written by WriteAllocationID()
 		allocationIdBitstream->Read(objectType);
 		if (objectType == "User")
@@ -283,9 +284,9 @@ int serverMain(void)
 			{
 				BitStream bsIn(packet->data, packet->length, false);
 				bsIn.IgnoreBytes(sizeof(MessageID));
-				RakString username;
+				std::string username;
 				bsIn.Read(username);
-				printf("Accepting login from %s\n", username.C_String());
+				printf("Accepting login from %s\n", username.c_str());
 
 				User *newUser = new User;
 				newUser->score = 0;
@@ -329,7 +330,7 @@ int clientMain(void)
 				BitStream bsOut;
 				// Login
 				bsOut.WriteCasted<MessageID>(ID_USER_PACKET_ENUM);
-				RakString username("User %s", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
+				std::string username = MafiaNet::FormatText("User %s", MafiaNet::to_string(rakPeer->GetMyGUID()).c_str());
 				bsOut.Write(username);
 				rakPeer->Send(&bsOut, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, packet->guid, false);
 			}

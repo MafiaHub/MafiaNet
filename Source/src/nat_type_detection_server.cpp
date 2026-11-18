@@ -304,7 +304,7 @@ void NatTypeDetectionServer::Update(void)
 				printf("Testing NAT_TYPE_PORT_RESTRICTED\n");
 #endif
 				bs.Write((unsigned char) ID_NAT_TYPE_DETECTION_REQUEST);
-				bs.Write(RakString::NonVariadic(s3p4Address));
+				bs.Write(std::string(s3p4Address));
 				bs.Write(s3p4->GetBoundAddress().GetPort());
 				rakPeerInterface->Send(&bs, MafiaNet::Priority::High, MafiaNet::Reliability::Reliable, 0, natDetectionAttempts[i].systemAddress, false);
 				break;

@@ -11,13 +11,10 @@
 #pragma once
 
 
-#include "mafianet/string.h"
-
-using namespace MafiaNet;
 class DebugTools
 {
 public:
 	DebugTools(void);
 	~DebugTools(void);
-	static void ShowError(RakString errorString, bool pause, unsigned int lineNum, const char *fileName);
+	static void ShowError(const char *errorString, bool pause, unsigned int lineNum, const char *fileName);
 };

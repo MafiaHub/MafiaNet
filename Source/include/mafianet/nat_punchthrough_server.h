@@ -29,7 +29,7 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/packet_priority.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/string.h"
+#include <string>
 
 #include <map>
 #include <set>
@@ -140,7 +140,7 @@ public:
 		bool HasConnectionAttemptToUser(User *user);
 		void DerefConnectionAttempt(ConnectionAttempt *ca);
 		void DeleteConnectionAttempt(ConnectionAttempt *ca);
-		void LogConnectionAttempts(MafiaNet::RakString &rs);
+		void LogConnectionAttempts(std::string &rs);
 	};
 	MafiaNet::Time lastUpdate;
 	static int NatPunchthroughUserComp(const RakNetGUID &key, User *const &data);

@@ -19,7 +19,7 @@
 #include "mafianet/nat_type_detection_client.h"
 #include "mafianet/bit_stream.h"
 #include "mafianet/socket_includes.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/peer_interface.h"
 #include "mafianet/message_identifiers.h"
 #include "mafianet/socket_layer.h"
@@ -171,7 +171,7 @@ void NatTypeDetectionClient::OnTestPortRestricted(Packet *packet)
 {
 	MafiaNet::BitStream bsIn(packet->data, packet->length, false);
 	bsIn.IgnoreBytes(sizeof(MessageID));
-	MafiaNet::RakString s3p4StrAddress;
+	std::string s3p4StrAddress;
 	bsIn.Read(s3p4StrAddress);
 	unsigned short s3p4Port;
 	bsIn.Read(s3p4Port);
@@ -179,7 +179,7 @@ void NatTypeDetectionClient::OnTestPortRestricted(Packet *packet)
 	std::vector<RakNetSocket2 *> sockets;
 	rakPeerInterface->GetSockets(sockets);
 	SystemAddress s3p4Addr = sockets[0]->GetBoundAddress();
-	s3p4Addr.FromStringExplicitPort(s3p4StrAddress.C_String(), s3p4Port);
+	s3p4Addr.FromStringExplicitPort(s3p4StrAddress.c_str(), s3p4Port);
 
 	// Send off the RakNet socket to the specified address, message is unformatted
 	// Server does this twice, so don't have to unduly worry about packetloss

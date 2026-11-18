@@ -233,7 +233,7 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 			sprintf_s(query, "\r\n--%s\r\n", boundary);
 			tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
 
-			sprintf_s(query, "Content-Type: APPLICATION/Octet-Stream; SizeOnDisk=%i; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Description: %s\r\n\r\n", attachedFiles->fileList[i].dataLengthBytes, attachedFiles->fileList[i].filename.C_String(), attachedFiles->fileList[i].filename.C_String());
+			sprintf_s(query, "Content-Type: APPLICATION/Octet-Stream; SizeOnDisk=%i; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Description: %s\r\n\r\n", attachedFiles->fileList[i].dataLengthBytes, attachedFiles->fileList[i].filename.c_str(), attachedFiles->fileList[i].filename.c_str());
 			tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
 
 			newBody = (char *) std::malloc((size_t) (attachedFiles->fileList[i].dataLengthBytes * 3) / 2);

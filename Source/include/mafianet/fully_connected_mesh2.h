@@ -28,7 +28,7 @@
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/export.h"
 #include "mafianet/native_types.h"
-#include "mafianet/string.h"
+#include <string>
 #include "mafianet/bit_stream.h"
 
 #include <vector>
@@ -59,7 +59,7 @@ public:
 	/// \note This will not work on any console. It will also not work if NAT punchthrough is needed. Generally, this should be false and you should connect manually. It is here for legacy reasons.
 	/// \param[in] attemptConnection If true, we try to connect to any systems we are notified about with ID_REMOTE_NEW_INCOMING_CONNECTION, which comes from the ConnectionGraph2 plugin. Defaults to true.
 	/// \param[in] pw The password to use to connect with. Only used if \a attemptConnection is true
-	void SetConnectOnNewRemoteConnection(bool attemptConnection, MafiaNet::RakString pw);
+	void SetConnectOnNewRemoteConnection(bool attemptConnection, const std::string &pw);
 
 	/// \brief The connected host is whichever system we are connected to that has been running the longest.
 	/// \details Will return UNASSIGNED_RAKNET_GUID if we are not connected to anyone, or if we are connected and are calculating the host
@@ -352,7 +352,7 @@ protected:
 	RakNetGUID hostRakNetGuid;
 	FCM2Guid hostFCM2Guid;
 
-	MafiaNet::RakString connectionPassword;
+	std::string connectionPassword;
 	bool connectOnNewRemoteConnections;
 
 	std::vector<VerifiedJoinInProgress *> joinsInProgress;

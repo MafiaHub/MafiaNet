@@ -14,6 +14,7 @@
  */
 
 #include "mafianet/native_feature_includes.h"
+#include "mafianet/format_string.h"
 #if _RAKNET_SUPPORT_NatPunchthroughServer == 1
 
 #include "mafianet/nat_punchthrough_server.h"
@@ -73,18 +74,18 @@ bool NatPunchthroughServer::User::HasConnectionAttemptToUser(User *user)
 	}
 	return false;
 }
-void NatPunchthroughServer::User::LogConnectionAttempts(MafiaNet::RakString &rs)
+void NatPunchthroughServer::User::LogConnectionAttempts(std::string &rs)
 {
-	rs.Clear();
+	rs.clear();
 	unsigned int index;
 	char guidStr[128], ipStr[128];
 	guid.ToString(guidStr, 128);
 	systemAddress.ToString(true, ipStr, static_cast<size_t>(128));
-	rs = MafiaNet::RakString("User systemAddress=%s guid=%s\n", ipStr, guidStr);
-	rs += MafiaNet::RakString("%i attempts in list:\n", (int) connectionAttempts.size());
+	rs = MafiaNet::FormatText("User systemAddress=%s guid=%s\n", ipStr, guidStr);
+	rs += MafiaNet::FormatText("%i attempts in list:\n", (int) connectionAttempts.size());
 	for (index = 0; index < connectionAttempts.size(); index++)
 	{
-		rs += MafiaNet::RakString("%i. SessionID=%i ", index + 1, connectionAttempts[index]->sessionId);
+		rs += MafiaNet::FormatText("%i. SessionID=%i ", index + 1, connectionAttempts[index]->sessionId);
 		if (connectionAttempts[index]->sender == this)
 			rs += "(We are sender) ";
 		else
@@ -108,7 +109,7 @@ void NatPunchthroughServer::User::LogConnectionAttempts(MafiaNet::RakString &rs)
 			connectionAttempts[index]->sender->systemAddress.ToString(true, ipStr, static_cast<size_t>(128));
 		}
 
-		rs += MafiaNet::RakString("Target systemAddress=%s, guid=%s.\n", ipStr, guidStr);
+		rs += MafiaNet::FormatText("Target systemAddress=%s, guid=%s.\n", ipStr, guidStr);
 	}
 }
 
@@ -210,7 +211,7 @@ void NatPunchthroughServer::Update(void)
 							connectionAttempt->recipient->systemAddress.ToString(true, addr2, static_cast<size_t>(128));
 							sprintf_s(str, "Sending ID_NAT_TARGET_UNRESPONSIVE to sender %s and recipient %s.", addr1, addr2);
 							natPunchthroughServerDebugInterface->OnServerMessage(str);
-							MafiaNet::RakString log;
+							std::string log;
 							connectionAttempt->sender->LogConnectionAttempts(log);
 							connectionAttempt->recipient->LogConnectionAttempts(log);
 						}
@@ -453,12 +454,12 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 
 	if (natPunchthroughServerDebugInterface)
 	{
-		MafiaNet::RakString log;
+		std::string log;
 		char addr1[128], addr2[128];
 		packet->systemAddress.ToString(true, addr1, static_cast<size_t>(128));
 		packet->guid.ToString(addr2, 128);
-		log = MafiaNet::RakString("Got ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s. port=%i. sessionId=%i. userFound=%i.", addr1, addr2, mostRecentPort, curSessionId, objectExists);
-		natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
+		log = MafiaNet::FormatText("Got ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s. port=%i. sessionId=%i. userFound=%i.", addr1, addr2, mostRecentPort, curSessionId, objectExists);
+		natPunchthroughServerDebugInterface->OnServerMessage(log.c_str());
 	}
 
 	if (objectExists)
@@ -500,12 +501,12 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 
 				if (natPunchthroughServerDebugInterface)
 				{
-					MafiaNet::RakString log;
+					std::string log;
 					char addr1[128], addr2[128];
 					recipientSystemAddress.ToString(true, addr1, static_cast<size_t>(128));
 					connectionAttempt->recipient->guid.ToString(addr2, 128);
-					log = MafiaNet::RakString("Sending ID_NAT_CONNECT_AT_TIME to recipient systemAddress %s guid %s", addr1, addr2);
-					natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
+					log = MafiaNet::FormatText("Sending ID_NAT_CONNECT_AT_TIME to recipient systemAddress %s guid %s", addr1, addr2);
+					natPunchthroughServerDebugInterface->OnServerMessage(log.c_str());
 				}
 
 				// Send to recipient timestamped message to connect at time
@@ -524,12 +525,12 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 
 				if (natPunchthroughServerDebugInterface)
 				{
-					MafiaNet::RakString log;
+					std::string log;
 					char addr1[128], addr2[128];
 					senderSystemAddress.ToString(true, addr1, static_cast<size_t>(128));
 					connectionAttempt->sender->guid.ToString(addr2, 128);
-					log = MafiaNet::RakString("Sending ID_NAT_CONNECT_AT_TIME to sender systemAddress %s guid %s", addr1, addr2);
-					natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
+					log = MafiaNet::FormatText("Sending ID_NAT_CONNECT_AT_TIME to sender systemAddress %s guid %s", addr1, addr2);
+					natPunchthroughServerDebugInterface->OnServerMessage(log.c_str());
 				}
 
 
@@ -559,12 +560,12 @@ void NatPunchthroughServer::OnGetMostRecentPort(Packet *packet)
 
 		if (natPunchthroughServerDebugInterface)
 		{
-			MafiaNet::RakString log;
+			std::string log;
 			char addr1[128], addr2[128];
 			packet->systemAddress.ToString(true, addr1, static_cast<size_t>(128));
 			packet->guid.ToString(addr2, 128);
-			log = MafiaNet::RakString("Ignoring ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s", addr1, addr2);
-			natPunchthroughServerDebugInterface->OnServerMessage(log.C_String());
+			log = MafiaNet::FormatText("Ignoring ID_NAT_GET_MOST_RECENT_PORT from systemAddress %s guid %s", addr1, addr2);
+			natPunchthroughServerDebugInterface->OnServerMessage(log.c_str());
 		}
 	}
 }

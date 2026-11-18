@@ -30,7 +30,6 @@
 #include "mafianet/locked_queue.h"
 #include "mafianet/simple_mutex.h"
 #include "mafianet/export.h"
-#include "mafianet/string.h"
 #include "mafianet/thread.h"
 //#include "socket.h"
 #include "mafianet/signaled_event.h"

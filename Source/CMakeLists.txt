@@ -65,7 +65,6 @@ set(MAFIANET_SOURCES
     src/types.cpp
     src/peer.cpp
     src/sleep.cpp
-    src/string.cpp
     src/thread.cpp
     src/voice.cpp
     src/wstring.cpp
@@ -222,7 +221,6 @@ set(MAFIANET_HEADERS
     include/mafianet/socket_layer.h
     include/mafianet/statistics.h
     include/mafianet/statistics_history.h
-    include/mafianet/string.h
     include/mafianet/string_compressor.h
     include/mafianet/string_table.h
     include/mafianet/super_fast_hash.h

@@ -57,7 +57,7 @@ std::set<std::string> Names(const FileList &list)
 {
 	std::set<std::string> names;
 	for (unsigned i = 0; i < list.fileList.size(); ++i)
-		names.insert(list.fileList[i].filename.C_String());
+		names.insert(list.fileList[i].filename.c_str());
 	return names;
 }
 } // namespace
@@ -121,7 +121,7 @@ TEST(FileListDirectory, SubdirectoryKeepsItsPrefixAndStoresHashBeforeData)
 	ASSERT_EQ(list.fileList.size(), 1u);
 	const auto &node = list.fileList.front();
 	EXPECT_EQ(node.filename, "sub/b.bin");
-	EXPECT_EQ(std::filesystem::path(node.fullPathToFile.C_String()), tree.root / "sub" / "b.bin");
+	EXPECT_EQ(std::filesystem::path(node.fullPathToFile.c_str()), tree.root / "sub" / "b.bin");
 	EXPECT_EQ(node.fileLengthBytes, 20u);
 	ASSERT_EQ(node.dataLengthBytes, 24u);
 	ASSERT_NE(node.data, nullptr);
@@ -156,7 +156,7 @@ TEST(FileListDirectory, PopulateDataFromDiskReadsEveryFile)
 	for (unsigned i = 0; i < list.fileList.size(); ++i)
 	{
 		const FileListNode &node = list.fileList[i];
-		ASSERT_NE(node.data, nullptr) << node.filename.C_String();
+		ASSERT_NE(node.data, nullptr) << node.filename.c_str();
 		EXPECT_EQ(node.dataLengthBytes, node.fileLengthBytes);
 		EXPECT_EQ(std::string(node.data, node.dataLengthBytes), std::string(node.fileLengthBytes, 'x'));
 	}

@@ -4,14 +4,7 @@ Utilities API Reference
 Strings and spatial helpers that ship with MafiaNet. Containers are the C++ standard
 library ones; see :doc:`../getting-started/system-overview`.
 
-RakString
----------
-
-String class with networking optimizations.
-
-.. doxygenclass:: MafiaNet::RakString
-   :members:
-   :undoc-members:
+Narrow text uses ``std::string``. See :doc:`../basics/creating-packets` for its wire encoding.
 
 RakWString
 ----------

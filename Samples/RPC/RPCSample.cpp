@@ -38,9 +38,9 @@ void CFunc1(MafiaNet::BitStream *bitStream, Packet *packet, void *context)
 	(void) context;
 
 	printf("CFunc1 ");
-	MafiaNet::RakString data;
+	std::string data;
 	SLNET_VERIFY(bitStream->ReadCompressed(data));
-	printf("%s\n", data.C_String());
+	printf("%s\n", data.c_str());
 };
 
 void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet, void *context)
@@ -50,9 +50,9 @@ void CFunc2(MafiaNet::BitStream *bitStream, Packet *packet, void *context)
 	(void) context;
 
 	printf("CFunc2 ");
-	MafiaNet::RakString data;
+	std::string data;
 	SLNET_VERIFY(bitStream->ReadCompressed(data));
-	printf("%s\n", data.C_String());
+	printf("%s\n", data.c_str());
 };
 
 void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Packet *packet, void *context)
@@ -62,9 +62,9 @@ void CFunc3(MafiaNet::BitStream *bitStream, MafiaNet::BitStream *returnData, Pac
 	(void) context;
 
 	printf("CFunc3 ");
-	MafiaNet::RakString data;
+	std::string data;
 	SLNET_VERIFY(bitStream->ReadCompressed(data));
-	printf("%s\n", data.C_String());
+	printf("%s\n", data.c_str());
 	returnData->WriteCompressed("CFunc3 returnData");
 };
 
@@ -133,9 +133,9 @@ int main(void)
 		MafiaNet::BitStream testBlockingReturn;
 		rpc.CallBlocking("Blocking", &testBs, MafiaNet::Priority::High, MafiaNet::Reliability::ReliableOrdered, 0, rakPeer->GetSystemAddressFromIndex(0), &testBlockingReturn);
 
-		MafiaNet::RakString data;
+		std::string data;
 		testBlockingReturn.ReadCompressed(data);
-		printf("%s\n", data.C_String());
+		printf("%s\n", data.c_str());
 	}
 	else
 	{
