@@ -12,6 +12,9 @@
 #if _RAKNET_SUPPORT_PacketLogger == 1
 
 #include <string.h>
+#include <string>
+
+#include "SimulatedNetwork.h"
 
 #include "mafianet/packet_logger.h"
 #include "mafianet/message_identifiers.h"
@@ -35,6 +38,86 @@ Failure conditions: any id reports a name other than its own.
 
 namespace
 {
+class CapturingLogger : public PacketLogger
+{
+public:
+	std::string line;
+	void WriteLog(const char *text) override { line = text; }
+};
+
+class NamedLogger : public CapturingLogger
+{
+public:
+	std::string name = "PlayerJoined";
+	const char *UserIDTOString(unsigned char id) override
+	{
+		return id == 255 ? name.c_str() : nullptr;
+	}
+};
+
+void ExpectPushbackId(CapturingLogger &logger, unsigned char id, const std::string &expected)
+{
+	SimulatedNetwork net;
+	auto *peer = net.AddPeer(1, 0);
+	ASSERT_NE(peer, nullptr);
+	peer->AttachPlugin(&logger);
+	Packet *packet = peer->AllocatePacket(1);
+	packet->data[0] = id;
+	packet->systemAddress = UNASSIGNED_SYSTEM_ADDRESS;
+	peer->PushBackPacket(packet, false);
+	EXPECT_NE(logger.line.find(",Lcl,PBP,,," + expected + ",8,"), std::string::npos) << logger.line;
+	peer->DetachPlugin(&logger);
+}
+
+TEST(PacketLoggerPushback, UserIdDefaultsToDecimal)
+{
+	CapturingLogger logger;
+	ExpectPushbackId(logger, 255, "255");
+}
+
+TEST(PacketLoggerPushback, UserIdUsesApplicationName)
+{
+	NamedLogger logger;
+	ExpectPushbackId(logger, 255, "PlayerJoined");
+}
+
+TEST(PacketLoggerPushback, LongApplicationNameIsLoggedInFull)
+{
+	NamedLogger logger;
+	logger.name.assign(300, 'x');
+	ExpectPushbackId(logger, 255, logger.name);
+}
+
+TEST(PacketLoggerIdNames, NormalLogKeepsNumericFallbackAndSplitLabel)
+{
+	CapturingLogger logger;
+	char line[512];
+	const unsigned char userId = 255;
+	logger.FormatLine(line, sizeof(line), "Snd", "Nrm", 0, 0, userId, 8, 0, UNASSIGNED_SYSTEM_ADDRESS, UNASSIGNED_SYSTEM_ADDRESS, 0, 0, 0, 0);
+	EXPECT_NE(std::string(line).find(",255,8,"), std::string::npos);
+	logger.FormatLine(line, sizeof(line), "Snd", "Nrm", 0, 0, userId, 8, 0, UNASSIGNED_SYSTEM_ADDRESS, UNASSIGNED_SYSTEM_ADDRESS, 0, 0, 2, 0);
+	EXPECT_NE(std::string(line).find(",(SPLIT PACKET),8,"), std::string::npos);
+}
+
+TEST(PacketLoggerPushback, UnnamedApplicationIdFallsBackToDecimal)
+{
+	NamedLogger logger;
+	ExpectPushbackId(logger, 254, "254");
+}
+
+TEST(PacketLoggerPushback, BuiltInIdKeepsItsName)
+{
+	NamedLogger logger;
+	ExpectPushbackId(logger, ID_CONNECTED_PING, "ID_CONNECTED_PING");
+}
+
+TEST(PacketLoggerPushback, DisabledNamesUseThePaddedNumericField)
+{
+	NamedLogger logger;
+	logger.SetPrintID(false);
+	ExpectPushbackId(logger, 255, "  255");
+}
+
 // Pinning the LAST entry is the load-bearing case: the table is sized from ID_USER_PACKET_ENUM, so
 // a name dropped anywhere before this point pushes this one off the end of its own slot.
 TEST(PacketLoggerIdNames, LastEnumEntryReportsItsOwnName)
