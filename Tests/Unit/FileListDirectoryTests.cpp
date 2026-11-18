@@ -20,6 +20,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <set>
 #include <string>
 #include <vector>
@@ -61,6 +62,65 @@ std::set<std::string> Names(const FileList &list)
 	return names;
 }
 } // namespace
+
+TEST(FileOperations, WritesBinaryFileAndCreatesMissingParents)
+{
+	TempTree tree;
+	const auto path = tree.root / "new" / "child" / "data.bin";
+	char data[] = {'A', '\0', '\n', 'B'};
+	ASSERT_TRUE(WriteFileWithDirectories(path.string().c_str(), data, sizeof(data)));
+	std::ifstream input(path, std::ios::binary);
+	ASSERT_TRUE(input.is_open());
+	EXPECT_EQ(std::string(std::istreambuf_iterator<char>(input), {}), std::string(data, sizeof(data)));
+}
+
+TEST(FileOperations, NullDataCreatesDirectoryAndZeroLengthDataCreatesEmptyFile)
+{
+	TempTree tree;
+	const std::string directory = tree.root.string() + "/more\\nested";
+	ASSERT_TRUE(WriteFileWithDirectories(directory.c_str(), nullptr, 0));
+	ASSERT_TRUE(WriteFileWithDirectories(directory.c_str(), nullptr, 0));
+	EXPECT_TRUE(std::filesystem::is_directory(tree.root / "more" / "nested"));
+
+	const auto file = tree.root / "a.bin";
+	char data = 'x';
+	ASSERT_TRUE(WriteFileWithDirectories(file.string().c_str(), &data, 0));
+	EXPECT_TRUE(std::filesystem::is_regular_file(file));
+	EXPECT_EQ(std::filesystem::file_size(file), 0u);
+}
+
+TEST(FileOperations, RejectsRegularFileInDirectoryPosition)
+{
+	TempTree tree;
+	const auto file = tree.root / "a.bin";
+	EXPECT_FALSE(WriteFileWithDirectories(file.string().c_str(), nullptr, 0));
+	char data = 'x';
+	EXPECT_FALSE(WriteFileWithDirectories((file / "child.bin").string().c_str(), &data, 1));
+	EXPECT_EQ(std::filesystem::file_size(file), 10u);
+}
+
+#ifndef _WIN32
+TEST(FileOperations, WritesLongNativePathWithLiteralBackslashInFilename)
+{
+	TempTree tree;
+	const auto parent = tree.root / std::string(125, 'a') / std::string(125, 'b');
+	const auto file = parent / "literal\\name.bin";
+	char data = 'x';
+	ASSERT_GT(file.string().size(), 260u);
+	ASSERT_TRUE(WriteFileWithDirectories(file.string().c_str(), &data, 1));
+	EXPECT_EQ(std::filesystem::file_size(file), 1u);
+	using P = std::filesystem::perms;
+	EXPECT_EQ(std::filesystem::status(parent).permissions() & (P::group_write | P::group_exec | P::others_write | P::others_exec), P::none);
+}
+#endif
+
+#if defined(__linux__)
+TEST(FileOperations, ReportsBufferedWriteFailure)
+{
+	char data = 'x';
+	EXPECT_FALSE(WriteFileWithDirectories("/dev/full", &data, 1));
+}
+#endif
 
 TEST(FileListDirectory, RecursiveWalkFindsEveryFileAndTerminates)
 {

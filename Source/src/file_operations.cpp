@@ -15,91 +15,77 @@
 
 #include "mafianet/file_operations.h"
 #if _RAKNET_SUPPORT_FileOperations == 1
+#include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <stdio.h>
 #include <string.h>
-#ifdef _WIN32
-// For mkdir
-#include <direct.h>
-#include <io.h>
-#else
+#include <string>
+#ifndef _WIN32
 #include <sys/stat.h>
-#include <unistd.h>
 #endif
-#include "errno.h"
 #include "mafianet/linux_adapter.h"
 #include "mafianet/osx_adapter.h"
 
-#ifndef MAX_PATH
-#define MAX_PATH 260
+static bool EnsureDirectories(const std::filesystem::path &directory)
+{
+	if (directory.empty())
+		return true;
+
+	std::error_code ec;
+#ifdef _WIN32
+	std::filesystem::create_directories(directory, ec);
+	return !ec;
+#else
+	if (std::filesystem::is_directory(directory, ec))
+		return true;
+
+	// create_directories uses 0777. Apply the historical 0744 (subject to umask)
+	// when creating each directory, without changing permissions on existing ones.
+	auto prefix = directory.root_path();
+	for (const auto &component : directory.relative_path())
+	{
+		prefix /= component;
+		if (::mkdir(prefix.c_str(), 0744) != 0 && !std::filesystem::is_directory(prefix, ec))
+			return false;
+	}
+	return true;
 #endif
+}
 
 bool WriteFileWithDirectories(const char *path, char *data, unsigned dataLength)
 {
-	int index;
-	FILE *fp;
-	char pathCopy[MAX_PATH];
-	int res;
-
-	if (path == 0 || path[0] == 0)
+	if (!path || !*path)
 		return false;
 
-	strcpy_s(pathCopy, path);
-
-	// Ignore first / if there is one
-	if (pathCopy[0])
+	try
 	{
-		index = 1;
-		while (pathCopy[index])
+		if (!data)
 		{
-			if (pathCopy[index] == '/' || pathCopy[index] == '\\')
-			{
-				pathCopy[index] = 0;
-
-#ifdef _WIN32
-				res = _mkdir(pathCopy);
+#ifndef _WIN32
+			// Directory-only calls historically accept either separator on POSIX.
+			std::string directory(path);
+			std::replace(directory.begin(), directory.end(), '\\', '/');
+			return EnsureDirectories(directory);
 #else
-
-				res = mkdir(pathCopy, 0744);
+			return EnsureDirectories(path);
 #endif
-				if (res < 0 && errno != EEXIST && errno != EACCES)
-				{
-					return false;
-				}
-
-				pathCopy[index] = '/';
-			}
-
-			index++;
 		}
-	}
 
-	if (data)
-	{
-		if (fopen_s(&fp, path, "wb") != 0)
-		{
+		const std::filesystem::path file(path);
+		if (!EnsureDirectories(file.parent_path()))
 			return false;
-		}
 
-		fwrite(data, 1, dataLength, fp);
-
-		fclose(fp);
+		std::ofstream output(file, std::ios::binary);
+		output.write(data, dataLength);
+		output.close();
+		return output.good();
 	}
-	else
+	catch (const std::filesystem::filesystem_error &)
 	{
-#ifdef _WIN32
-		res = _mkdir(pathCopy);
-#else
-		res = mkdir(pathCopy, 0744);
-#endif
-
-		if (res < 0 && errno != EEXIST)
-		{
-			return false;
-		}
+		// Converting the caller's narrow path to a native path can fail on Windows.
+		return false;
 	}
-
-	return true;
 }
 bool IsSlash(unsigned char c)
 {

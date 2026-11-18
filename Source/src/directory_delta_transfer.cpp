@@ -112,8 +112,8 @@ private:
 		const bool positioned = fseeko(fp, (off_t) offset, SEEK_SET) == 0;
 #endif
 		const bool written = positioned && fwrite(data, 1, length, fp) == length;
-		fclose(fp);
-		return written;
+		const bool closed = fclose(fp) == 0;
+		return written && closed;
 	}
 
 	// File indices of this set being written chunk by chunk.
