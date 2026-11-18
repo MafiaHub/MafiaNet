@@ -95,13 +95,11 @@ void DynDNS::UpdateHostIPAsynch(const char *dnsHost, const char *newIPAddress, c
 		getString += "&myip=";
 		getString += newIPAddress;
 	}
-	getString += "&wildcard=NOCHG&mx=NOCHG&backmx=NOCHG HTTP/1.0\n";
-	getString += "Host: members.dyndns.org\n";
+	getString += "&wildcard=NOCHG&mx=NOCHG&backmx=NOCHG HTTP/1.0\r\n";
+	getString += "Host: members.dyndns.org\r\n";
 	getString += "Authorization: Basic ";
-	char outputData[512];
-	Base64Encoding((const unsigned char *) usernameAndPassword, (int) strlen(usernameAndPassword), outputData);
-	getString += outputData;
-	getString += "User-Agent: Jenkins Software LLC - PC - 1.0\n\n";
+	getString += EncodeBase64(usernameAndPassword);
+	getString += "\r\nUser-Agent: Jenkins Software LLC - PC - 1.0\r\n\r\n";
 }
 void DynDNS::Update(void)
 {

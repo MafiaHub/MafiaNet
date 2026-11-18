@@ -44,6 +44,12 @@ STATIC_FACTORY_DEFINITIONS(EmailSender, EmailSender);
 const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, const char *sender, const char *recipient, const char *senderName, const char *recipientName, const char *subject, const char *body, FileList *attachedFiles, bool doPrintf, const char *password)
 {
 	(void) password; // SMTP authentication needs TLS, which is not supported, so the password is ignored.
+	if (attachedFiles)
+	{
+		for (const auto &file : attachedFiles->fileList)
+			if (!file.data && file.dataLengthBytes != 0)
+				return "Missing email attachment data";
+	}
 	MafiaNet::Packet *packet;
 	char query[1024];
 	TCPInterface tcpInterface;
@@ -222,27 +228,28 @@ const char *EmailSender::Send(const char *hostAddress, unsigned short hostPort, 
 	tcpInterface.Send(newBody, j, emailServer, false);
 
 	std::free(newBody);
-	int outputOffset;
 
-	// What a pain in the rear.  I have to map the binary to printable characters using 6 bits per character.
 	if (attachedFiles && attachedFiles->fileList.size())
 	{
-		for (i = 0; i < (int) attachedFiles->fileList.size(); i++)
+		for (const auto &file : attachedFiles->fileList)
 		{
 			// Write boundary
 			sprintf_s(query, "\r\n--%s\r\n", boundary);
 			tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
 
-			sprintf_s(query, "Content-Type: APPLICATION/Octet-Stream; SizeOnDisk=%i; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Description: %s\r\n\r\n", attachedFiles->fileList[i].dataLengthBytes, attachedFiles->fileList[i].filename.c_str(), attachedFiles->fileList[i].filename.c_str());
+			sprintf_s(query, "Content-Type: APPLICATION/Octet-Stream; SizeOnDisk=%u; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Description: %s\r\n\r\n", file.dataLengthBytes, file.filename.c_str(), file.filename.c_str());
 			tcpInterface.Send(query, (unsigned int) strlen(query), emailServer, false);
 
-			newBody = (char *) std::malloc((size_t) (attachedFiles->fileList[i].dataLengthBytes * 3) / 2);
-
-			outputOffset = Base64Encoding((const unsigned char *) attachedFiles->fileList[i].data, (int) attachedFiles->fileList[i].dataLengthBytes, newBody);
-
-			// Send the base64 mapped file.
-			tcpInterface.Send(newBody, outputOffset, emailServer, false);
-			std::free(newBody);
+			std::string_view remaining(file.data ? file.data : "", file.dataLengthBytes);
+			// Encode whole MIME lines per batch so only the last batch can contain padding.
+			constexpr size_t batchBytes = 57 * 256;
+			do
+			{
+				const auto batch = remaining.substr(0, batchBytes);
+				const std::string encoded = EncodeBase64(batch, Base64Format::Mime);
+				tcpInterface.Send(encoded.data(), static_cast<unsigned int>(encoded.size()), emailServer, false);
+				remaining.remove_prefix(batch.size());
+			} while (!remaining.empty());
 		}
 
 		// Write last boundary

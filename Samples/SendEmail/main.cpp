@@ -29,10 +29,6 @@ int main()
 	MafiaNet::FileList fileList;
 	MafiaNet::EmailSender emailSender;
 	const char *quote = "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure.";
-	//	const char base64Map[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	//	char output[1024];
-	//	emailSender.Base64Encoding(quote, strlen(quote), output, base64Map);
-	//	printf("%s", output);
 
 	char mailServer[128], senderUsername[128], receiver[128];
 	printf("Tests sending email.\n");
