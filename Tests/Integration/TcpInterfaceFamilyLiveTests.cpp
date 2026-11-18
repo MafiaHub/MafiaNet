@@ -318,9 +318,11 @@ TEST_F(TcpInterfaceFamilyLive, StopRightAfterNonBlockingConnect)
 	ASSERT_TRUE(server->Start(0, 1, 1, -99999, AF_INET, "127.0.0.1"));
 	const unsigned short port = server->ListenPort();
 	ASSERT_NE(port, 0);
+	EXPECT_FALSE(client->WasStarted());
 	for (int round = 0; round < 10; ++round)
 	{
 		ASSERT_TRUE(client->Start(0, 0, 2));
+		EXPECT_TRUE(client->WasStarted());
 		client->Connect("192.0.2.1", 9, false, AF_INET);
 		client->Connect("127.0.0.1", port, false, AF_INET);
 		const TimeMS start = GetTimeMS();

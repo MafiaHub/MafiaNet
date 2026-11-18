@@ -18,7 +18,6 @@
 
 #include "mafianet/types.h"
 #include "mafianet/mtu_size.h"
-#include "mafianet/lockless_types.h"
 #include "mafianet/thread.h"
 #include "mafianet/export.h"
 #include <atomic>
@@ -336,7 +335,7 @@ protected:
 	// Declared unconditionally; only ever called from RecvFromLoopInt under the
 	// same guard, and only defined on that platform.
 	void RecvFromBatchedLoop(void);
-	MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
+	std::atomic<uint32_t> isRecvFromLoopThreadActive{0};
 	// Atomic, not volatile: set by the owning thread, polled by the recv thread.
 	std::atomic<bool> endThreads;
 	// Constructor not called!

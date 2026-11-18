@@ -36,7 +36,6 @@
 #include "mafianet/native_feature_includes.h"
 #include "mafianet/handshake_challenge.h"
 #include "mafianet/session_crypto.h"
-#include "mafianet/lockless_types.h"
 #include <atomic>
 #include <condition_variable>
 #include <cstdlib>
@@ -956,9 +955,6 @@ protected:
 	/// See SetSocketFactory / SetManualUpdate.
 	RakNetSocket2Factory *socketFactory;
 	bool manualUpdate;
-
-	// MafiaNet::LocklessUint32_t isRecvFromLoopThreadActive;
-
 
 	bool occasionalPing; /// Do we occasionally ping the other systems?*/
 	///Store the maximum number of peers allowed to connect

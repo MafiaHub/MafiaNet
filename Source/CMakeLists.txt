@@ -36,7 +36,6 @@ set(MAFIANET_SOURCES
     src/itoa.cpp
     src/linux_adapter.cpp
     src/linux_strings.cpp
-    src/lockless_types.cpp
     src/message_filter.cpp
     src/mmsg_batch.cpp
     src/mtu_black_hole.cpp
@@ -160,7 +159,6 @@ set(MAFIANET_HEADERS
     include/mafianet/linux_adapter.h
     include/mafianet/linux_strings.h
     include/mafianet/locked_queue.h
-    include/mafianet/lockless_types.h
     include/mafianet/log_command_parser.h
     include/mafianet/message_filter.h
     include/mafianet/message_identifiers.h
