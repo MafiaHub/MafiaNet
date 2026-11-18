@@ -29,9 +29,9 @@
 #include "mafianet/socket_includes.h"
 #include "mafianet/udp_proxy_common.h"
 #include "mafianet/simple_mutex.h"
+#include <atomic>
 #include <string>
 #include "mafianet/thread.h"
-#include "mafianet/lockless_types.h"
 #include "mafianet/locked_queue.h"
 
 #include <deque>
@@ -157,7 +157,8 @@ protected:
 	//	SimpleMutex forwardListNotUpdatedMutex;
 
 	unsigned short maxForwardEntries;
-	MafiaNet::LocklessUint32_t isRunning, threadRunning;
+	std::atomic<uint32_t> isRunning{0};
+	std::atomic<uint32_t> threadRunning{0};
 };
 
 } // End namespace

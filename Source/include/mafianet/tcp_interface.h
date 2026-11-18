@@ -31,10 +31,10 @@
 #include "mafianet/defines.h"
 #include "mafianet/socket_includes.h"
 #include "mafianet/locked_queue.h"
-#include "mafianet/lockless_types.h"
 #include "mafianet/plugin_interface2.h"
 #include "mafianet/remote_procedure_call.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <deque>
@@ -146,7 +146,8 @@ protected:
 	// Plugins
 	std::vector<PluginInterface2 *> messageHandlerList;
 
-	MafiaNet::LocklessUint32_t isStarted, threadRunning;
+	std::atomic<uint32_t> isStarted{0};
+	std::atomic<uint32_t> threadRunning{0};
 	__TCPSOCKET__ listenSocket;
 
 	// PushBackPacket output; user thread only.

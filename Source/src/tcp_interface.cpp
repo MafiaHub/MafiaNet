@@ -159,9 +159,9 @@ enum ConnectResult
 // portably from another thread (close() does not wake it on Linux, shutdown()
 // races with it starting). The socket connects in non-blocking mode while this
 // polls isStarted, and is blocking again when it returns CONNECT_SUCCEEDED.
-static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, int addressLength, const MafiaNet::LocklessUint32_t &isStarted)
+static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, int addressLength, const std::atomic<uint32_t> &isStarted)
 {
-	if (isStarted.GetValue() == 0)
+	if (isStarted.load() == 0)
 		return CONNECT_ABORTED;
 	if (!SetSocketBlocking(s, false))
 		return CONNECT_FAILED;
@@ -176,7 +176,7 @@ static ConnectResult ConnectAbortable(__TCPSOCKET__ s, const sockaddr *address, 
 #endif
 		for (;;)
 		{
-			if (isStarted.GetValue() == 0)
+			if (isStarted.load() == 0)
 				return CONNECT_ABORTED;
 			fd_set writeSet, exceptSet; // Winsock reports a failed connect in exceptSet
 			FD_ZERO(&writeSet);
@@ -293,7 +293,7 @@ bool TCPInterface::CreateListenSocket(unsigned short port, unsigned short maxInc
 
 bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnections, unsigned short maxConnections, int _threadPriority, unsigned short socketFamily, const char *bindAddress)
 {
-	if (isStarted.GetValue() > 0)
+	if (isStarted.load() > 0)
 		return false;
 
 	threadPriority = _threadPriority;
@@ -311,7 +311,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 #endif
 	}
 
-	isStarted.Increment();
+	++isStarted;
 	if (maxConnections == 0)
 		maxConnections = maxIncomingConnections;
 	if (maxConnections == 0)
@@ -325,7 +325,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	{
 		if (CreateListenSocket(port, maxIncomingConnections, socketFamily, bindAddress) == false)
 		{
-			isStarted.Decrement();
+			--isStarted;
 			delete[] remoteClients;
 			remoteClients = 0;
 			remoteClientsLength = 0;
@@ -344,7 +344,7 @@ bool TCPInterface::Start(unsigned short port, unsigned short maxIncomingConnecti
 	if (errorCode != 0)
 		return false;
 
-	while (threadRunning.GetValue() == 0)
+	while (threadRunning.load() == 0)
 		RakSleep(0);
 
 	unsigned int i;
@@ -359,10 +359,10 @@ void TCPInterface::Stop(void)
 	for (i = 0; i < messageHandlerList.size(); i++)
 		messageHandlerList[i]->OnRakPeerShutdown();
 
-	if (isStarted.GetValue() == 0)
+	if (isStarted.load() == 0)
 		return;
 
-	isStarted.Decrement();
+	--isStarted;
 
 	if (listenSocket != 0)
 	{
@@ -379,7 +379,7 @@ void TCPInterface::Stop(void)
 	// CONNECT_POLL_MS and gives up on its own.
 
 	// Wait for the update thread and every ConnectionAttemptLoop to stop: both use remoteClients
-	while (threadRunning.GetValue() > 0)
+	while (threadRunning.load() > 0)
 		RakSleep(15);
 
 	RakSleep(100);
@@ -419,7 +419,7 @@ void TCPInterface::Stop(void)
 }
 SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort, bool block, unsigned short socketFamily, const char *bindAddress)
 {
-	if (threadRunning.GetValue() == 0)
+	if (threadRunning.load() == 0)
 		return UNASSIGNED_SYSTEM_ADDRESS;
 
 	int newRemoteClientIndex = -1;
@@ -500,12 +500,12 @@ SystemAddress TCPInterface::Connect(const char *host, unsigned short remotePort,
 		// starts, so Stop() waits for it before freeing the slots it writes.
 		int errorCode;
 
-		threadRunning.Increment();
+		++threadRunning;
 		errorCode = MafiaNet::RakThread::Create(ConnectionAttemptLoop, s, threadPriority);
 
 		if (errorCode != 0)
 		{
-			threadRunning.Decrement();
+			--threadRunning;
 			const SystemAddress failed = s->systemAddress;
 			delete s;
 			remoteClients[newRemoteClientIndex].isActiveMutex.Lock();
@@ -522,7 +522,7 @@ void TCPInterface::Send(const char *data, unsigned length, const SystemAddress &
 }
 bool TCPInterface::SendList(const char **data, const unsigned int *lengths, const int numParameters, const SystemAddress &systemAddress, bool broadcast)
 {
-	if (isStarted.GetValue() == 0)
+	if (isStarted.load() == 0)
 		return false;
 	if (data == 0)
 		return false;
@@ -638,7 +638,7 @@ Packet *TCPInterface::Receive(void)
 }
 Packet *TCPInterface::ReceiveInt(void)
 {
-	if (isStarted.GetValue() == 0)
+	if (isStarted.load() == 0)
 		return 0;
 	if (!headPush.empty())
 	{
@@ -684,7 +684,7 @@ void TCPInterface::DetachPlugin(PluginInterface2 *plugin)
 }
 void TCPInterface::CloseConnection(SystemAddress systemAddress)
 {
-	if (isStarted.GetValue() == 0)
+	if (isStarted.load() == 0)
 		return;
 	if (systemAddress == UNASSIGNED_SYSTEM_ADDRESS)
 		return;
@@ -751,7 +751,7 @@ void TCPInterface::PushBackPacket(Packet *packet, bool pushAtHead)
 }
 bool TCPInterface::WasStarted(void) const
 {
-	return threadRunning.GetValue() > 0;
+	return threadRunning.load() > 0;
 }
 SystemAddress TCPInterface::HasCompletedConnectionAttempt(void)
 {
@@ -969,7 +969,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 	struct ThreadRunningGuard
 	{
 		TCPInterface *tcp;
-		~ThreadRunningGuard() { tcp->threadRunning.Decrement(); }
+		~ThreadRunningGuard() { --tcp->threadRunning; }
 	} threadRunningGuard{tcpInterface};
 
 	SystemAddress peerAddress;
@@ -997,7 +997,7 @@ RAK_THREAD_DECLARATION(MafiaNet::ConnectionAttemptLoop)
 
 	// Notify user that the connection attempt has completed, unless Stop() is
 	// under way (it closes the slot's socket once this thread has returned).
-	if (tcpInterface->isStarted.GetValue() > 0)
+	if (tcpInterface->isStarted.load() > 0)
 	{
 		tcpInterface->completedConnectionAttempts.Push(systemAddress);
 	}
@@ -1018,7 +1018,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	//char data[ BUFF_SIZE ];
 	char *data = (char *) std::malloc(BUFF_SIZE);
 	fd_set readFD, exceptionFD, writeFD;
-	sts->threadRunning.Increment();
+	++sts->threadRunning;
 
 	struct sockaddr_storage sockAddr;
 	socklen_t sockAddrSize = sizeof(sockAddr);
@@ -1050,7 +1050,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 	};
 
 
-	while (sts->isStarted.GetValue() > 0)
+	while (sts->isStarted.load() > 0)
 	{
 
 		__TCPSOCKET__ largestDescriptor = 0; // see select__()'s first parameter's documentation under linux
@@ -1281,7 +1281,7 @@ RAK_THREAD_DECLARATION(MafiaNet::UpdateTCPInterfaceLoop)
 		// Sleep 0 on Linux monopolizes the CPU
 		RakSleep(30);
 	}
-	sts->threadRunning.Decrement();
+	--sts->threadRunning;
 
 	std::free(data);
 

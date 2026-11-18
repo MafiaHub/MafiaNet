@@ -40,15 +40,15 @@ public:
 	explicit FramingHarness(const SystemAddress &remote)
 	    : peer(remote)
 	{
-		isStarted.Increment(); // Receive() returns nothing on a stopped interface
+		++isStarted; // Receive() returns nothing on a stopped interface
 		AddToConnectionList(peer);
 	}
 	~FramingHarness() override
 	{
 		// Back to "never started" (unless a test called Stop()), so ~TCPInterface's Stop() has no
 		// thread or socket to tear down.
-		if (isStarted.GetValue() > 0)
-			isStarted.Decrement();
+		if (isStarted.load() > 0)
+			--isStarted;
 	}
 
 	// Bytes as the TCP thread would hand them over from one recv().

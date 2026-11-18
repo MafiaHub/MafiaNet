@@ -284,7 +284,7 @@ RAK_THREAD_DECLARATION(RNS2_Berkley::RecvFromLoop)
 }
 unsigned RNS2_Berkley::RecvFromLoopInt(void)
 {
-	isRecvFromLoopThreadActive.Increment();
+	++isRecvFromLoopThreadActive;
 
 #if defined(__linux__)
 	// Drain the socket in batches with a single recvmmsg per burst instead of
@@ -315,7 +315,7 @@ unsigned RNS2_Berkley::RecvFromLoopInt(void)
 			}
 		}
 	}
-	isRecvFromLoopThreadActive.Decrement();
+	--isRecvFromLoopThreadActive;
 
 	return 0;
 }
@@ -361,7 +361,7 @@ void RNS2_Berkley::BlockOnStopRecvPollingThread(void)
 	Send(&bsp);
 
 	MafiaNet::TimeMS timeout = MafiaNet::GetTimeMS() + 1000;
-	while (isRecvFromLoopThreadActive.GetValue() > 0 && MafiaNet::GetTimeMS() < timeout)
+	while (isRecvFromLoopThreadActive.load() > 0 && MafiaNet::GetTimeMS() < timeout)
 	{
 		// Get recvfrom to unblock
 		Send(&bsp);
