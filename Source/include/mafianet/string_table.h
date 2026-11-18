@@ -23,6 +23,7 @@
 
 #include "mafianet/export.h"
 
+#include <string>
 #include <vector>
 
 /// Forward declaration
@@ -34,23 +35,11 @@ class BitStream;
 /// StringTableType should be the smallest type possible, or else it defeats the purpose of the StringTable class, which is to save bandwidth.
 typedef unsigned char StringTableType;
 
-/// The string plus a bool telling us if this string was copied or not.
-struct StrAndBool
-{
-	char *str;
-	bool b;
-};
-
 namespace MafiaNet
 {
-int RAK_DLL_EXPORT StrAndBoolComp(char *const &key, const StrAndBool &data);
-
-/// \details This is an even more efficient alternative to StringCompressor in that it writes a single byte from a lookup table and only does compression.<BR>
-/// if the string does not already exist in the table.<BR>
-/// All string tables must match on all systems - hence you must add all the strings in the same order on all systems.<BR>
-/// Furthermore, this must be done before sending packets that use this class, since the strings are ordered for fast lookup.  Adding after that time would mess up all the indices so don't do it.<BR>
-/// Don't use this class to write strings which were not previously registered with AddString, since you just waste bandwidth then.  Use StringCompressor instead.
-/// \brief Writes a string index, instead of the whole string
+/// \brief Encodes registered strings by index and compresses unregistered strings with StringCompressor.
+/// Register the same set of strings on all peers before exchanging messages. Indices follow bytewise
+/// sort order, so inserting a new string can shift the indices of existing entries.
 class RAK_DLL_EXPORT StringTable
 {
 public:
@@ -62,10 +51,8 @@ public:
 	/// \return the unique instance of the StringTable
 	static StringTable *Instance(void);
 
-	/// Add a string to the string table.
-	/// \param[in] str The string to add to the string table
-	/// \param[in] copyString true to make a copy of the passed string (takes more memory), false to not do so (if your string is in static memory).
-	void AddString(const char *str, bool copyString);
+	/// Register a NUL-terminated string. The table owns a copy after this call.
+	void AddString(const char *str);
 
 	/// Writes input to output, compressed.  Takes care of the null-terminator for you.
 	/// Relies on the StringCompressor class, which is automatically reference counted in the constructor and destructor in RakPeer.  You can call the reference counting functions yourself if you wish too.
@@ -87,10 +74,8 @@ public:
 	/// Used so I can allocate and deallocate this singleton at runtime
 	static void RemoveReference(void);
 
-	/// Private Constructor
 	StringTable();
 
-	// Owns the strings it copied; not copyable.
 	StringTable(const StringTable &) = delete;
 	StringTable &operator=(const StringTable &) = delete;
 
@@ -103,8 +88,8 @@ protected:
 	static StringTable *instance;
 	static int referenceCount;
 
-	/// Sorted by StrAndBoolComp (strcmp). The position of a string is its index on the wire.
-	std::vector<StrAndBool> orderedStringList;
+	/// Sorted lexicographically by byte value. The position of a string is its index on the wire.
+	std::vector<std::string> orderedStringList;
 };
 }
 
